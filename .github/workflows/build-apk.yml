@@ -29,8 +29,14 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
+          # @capacitor/android 8.x hardcodes sourceCompatibility/targetCompatibility
+          # to JavaVersion.VERSION_21 in its own gradle module (confirmed in
+          # node_modules/@capacitor/android/capacitor/build.gradle) -- JDK 17
+          # cannot compile against a newer release than itself, so this build
+          # only succeeds on JDK 21+. Verified against the actual CI failure
+          # ("error: invalid source release: 21") before reverting to 21.
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
           cache: 'gradle'
 
       - name: Set up Android SDK
