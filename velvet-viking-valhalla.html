@@ -1,0 +1,2723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Velvet Viking Valhalla — Training Block Generator</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20240%20240%22%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22vvvBaseGrad%22%20x1%3D%220%25%22%20y1%3D%220%25%22%20x2%3D%22100%25%22%20y2%3D%22100%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23C5A059%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%238A6D2B%22%2F%3E%3C%2FlinearGradient%3E%3ClinearGradient%20id%3D%22vvvTopGrad%22%20x1%3D%220%25%22%20y1%3D%220%25%22%20x2%3D%22100%25%22%20y2%3D%22100%25%22%3E%3Cstop%20offset%3D%220%25%22%20stop-color%3D%22%23FFE082%22%2F%3E%3Cstop%20offset%3D%22100%25%22%20stop-color%3D%22%23D4AF37%22%2F%3E%3C%2FlinearGradient%3E%3Cfilter%20id%3D%22vvvShadow%22%20x%3D%22-50%25%22%20y%3D%22-50%25%22%20width%3D%22200%25%22%20height%3D%22200%25%22%3E%3CfeDropShadow%20dx%3D%220%22%20dy%3D%223%22%20stdDeviation%3D%224%22%20flood-color%3D%22%23000000%22%20flood-opacity%3D%220.45%22%2F%3E%3C%2Ffilter%3E%3C%2Fdefs%3E%3Crect%20width%3D%22240%22%20height%3D%22240%22%20rx%3D%2234%22%20fill%3D%22%2315110D%22%2F%3E%3Cpath%20d%3D%22M18.0%2C56.0%20L50.4%2C38.0%20L61.2%2C43.4%20L90.0%2C152.0%20L118.8%2C43.4%20L129.6%2C38.0%20L162.0%2C56.0%20L90.0%2C188.0%20Z%22%20fill%3D%22url%28%23vvvBaseGrad%29%22%2F%3E%3Cpath%20d%3D%22M78.0%2C56.0%20L110.4%2C38.0%20L121.2%2C43.4%20L150.0%2C152.0%20L178.8%2C43.4%20L189.6%2C38.0%20L222.0%2C56.0%20L150.0%2C188.0%20Z%22%20fill%3D%22url%28%23vvvBaseGrad%29%22%2F%3E%3Cpath%20d%3D%22M74.0%2C40.0%20L94.7%2C30.0%20L105.3%2C33.0%20L120.0%2C170.0%20L134.7%2C33.0%20L145.3%2C30.0%20L166.0%2C40.0%20L120.0%2C205.0%20Z%22%20fill%3D%22url%28%23vvvTopGrad%29%22%20filter%3D%22url%28%23vvvShadow%29%22%2F%3E%3C%2Fsvg%3E">
+<link rel="apple-touch-icon" href="data:image/png;base64,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">
+<meta name="apple-mobile-web-app-title" content="VVV Valhalla">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#15110D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+
+  :root{
+    --bg:#15110D; --bg-2:#1D1712; --bg-3:#261D14; --bg-4:#2E2318;
+    --ink:#EDE3D0; --ink-dim:#B3A48C; --ink-faint:#7A6E5A;
+    --line:#3B2E20; --line-soft:#2A2015;
+    --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
+    --c-rest:#8C8272; --c-rest-soft:rgba(140,130,114,0.16);
+    --c-easy:#84A56E; --c-easy-soft:rgba(132,165,110,0.16);
+    --c-tempo:#CC9245; --c-tempo-soft:rgba(204,146,69,0.16);
+    --c-threshold:#B5505A; --c-threshold-soft:rgba(181,80,90,0.16);
+    --c-track:#C0923F; --c-track-soft:rgba(192,146,63,0.16);
+    --c-long:#5E93AC; --c-long-soft:rgba(94,147,172,0.16);
+    --c-gold:#E3B15A; --c-gold-soft:rgba(227,177,90,0.20);
+    --radius:16px; --radius-sm:10px; --radius-lg:22px;
+    --shadow:0 10px 30px rgba(0,0,0,0.4);
+    --shadow-sm:0 4px 12px rgba(0,0,0,0.3);
+    --maxw:720px;
+  }
+  [data-theme="light"]{
+    --bg:#F2ECDC; --bg-2:#FFFCF6; --bg-3:#EBE1C8; --bg-4:#E3D7B8;
+    --ink:#241C15; --ink-dim:#5E5443; --ink-faint:#8D8168;
+    --line:#DCCEA9; --line-soft:#E7DABB;
+    --shadow:0 10px 30px rgba(90,70,30,0.14);
+    --shadow-sm:0 4px 12px rgba(90,70,30,0.10);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Inter',-apple-system,sans-serif;
+    transition:background .35s ease,color .35s ease;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .font-display{font-family:'Cinzel',serif;}
+  .font-head{font-family:'Oswald',sans-serif; text-transform:uppercase;}
+  .font-mono{font-family:'JetBrains Mono',monospace;}
+  a{color:inherit;}
+  button{font-family:inherit; cursor:pointer; color:inherit; background:none; border:none; padding:0; margin:0;}
+  input,select,textarea{font-family:inherit;}
+  :focus-visible{outline:2px solid var(--gold); outline-offset:2px; border-radius:4px;}
+  ::selection{background:var(--bronze); color:var(--bronze-ink);}
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important;}
+  }
+
+  /* ---------- layout ---------- */
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:0 16px;}
+  .app-root{min-height:100vh; padding-bottom:64px;}
+
+  /* ---------- sticky top bar ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:50; background:rgba(21,17,13,0.92);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  [data-theme="light"] .topbar{background:rgba(242,236,220,0.92);}
+  .topbar-inner{display:flex; align-items:center; justify-content:space-between; padding:12px 16px; max-width:var(--maxw); margin:0 auto;}
+  .brandmark{display:flex; align-items:center; gap:6px;}
+  .brandmark .word{font-family:'Cinzel',serif; font-size:14.5px; letter-spacing:1.5px; font-weight:700; color:var(--ink);}
+  .topbar-actions{display:flex; align-items:center; gap:8px;}
+  .unit-toggle{display:flex; border:1px solid var(--line); border-radius:99px; overflow:hidden;}
+  .unit-toggle button{
+    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.5px;
+    padding:6px 9px; color:var(--ink-faint); background:transparent;
+  }
+  .unit-toggle button.active{background:var(--bronze); color:var(--bg);}
+  .topbar-row2{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:0 16px 10px; max-width:var(--maxw); margin:0 auto;
+  }
+  .goal-toggle-compact .goal-options{gap:5px;}
+  .goal-opt-sm{min-width:30px; padding:5px 9px;}
+  .goal-opt-sm .t{font-size:12px;}
+  .countdown{display:flex; align-items:baseline; gap:7px;}
+  .cd-seg{display:flex; align-items:baseline; gap:1.5px;}
+  .cd-num{font-size:14px; font-weight:700; color:var(--gold);}
+  .cd-unit{font-size:9.5px; color:var(--ink-faint); font-family:'JetBrains Mono',monospace;}
+  .cd-race-day{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--gold); font-weight:700;}
+  .checkpoint-banner{
+    display:flex; align-items:flex-start; gap:11px; background:var(--c-gold-soft);
+    border:1.5px solid var(--gold); border-radius:var(--radius-sm); padding:13px 14px; margin:16px 0;
+  }
+  .cb-icon{font-size:18px; line-height:1; flex:none;}
+  .cb-text{font-size:12.5px; line-height:1.55; color:var(--ink);}
+  .cb-text b{color:var(--gold);}
+  .week.is-taper{border-color:var(--bronze);}
+  .week.is-taper .week-head{background:var(--c-gold-soft);}
+  .taper-note{
+    display:flex; align-items:center; gap:7px; font-size:11px; color:var(--bronze);
+    padding:8px 16px; background:var(--c-gold-soft); border-top:1px dashed var(--line);
+  }
+  .taper-note svg{width:13px; height:13px; flex:none;}
+  .zone-card{margin:10px 14px 14px; padding:12px 13px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .zone-head{display:flex; align-items:center; justify-content:space-between; font-size:11.5px; margin-bottom:9px;}
+  .zone-head span:first-child{text-transform:uppercase; letter-spacing:1px; color:var(--ink-dim); font-size:10.5px;}
+  .zone-time{color:var(--gold);}
+  .zbar{display:flex; height:9px; border-radius:99px; overflow:hidden; background:var(--bg-4);}
+  .zbar-seg{height:100%;}
+  .z-easy{background:var(--c-easy);}
+  .z-mp{background:var(--c-long);}
+  .z-threshold{background:var(--c-threshold);}
+  .z-interval{background:var(--c-track);}
+  .zone-legend{display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:10px;}
+  .zleg-item{display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--ink-dim);}
+  .zleg-dot{width:8px; height:8px; border-radius:50%; display:inline-block; flex:none;}
+  .fuel-card{margin-top:10px; border:1px dashed var(--line); border-radius:8px; background:var(--bg-3);}
+  .fuel-card summary{
+    display:flex; align-items:center; gap:6px; padding:8px 10px; font-size:11px; font-weight:600;
+    color:var(--bronze); cursor:pointer; list-style:none; user-select:none;
+  }
+  .fuel-card summary::-webkit-details-marker{display:none;}
+  .fuel-card summary svg{width:13px; height:13px; flex:none;}
+  .fuel-body{padding:2px 12px 10px;}
+  .fuel-row{display:flex; align-items:center; justify-content:space-between; padding:4px 0; font-size:11.5px; border-bottom:1px solid var(--line-soft);}
+  .fuel-row:last-of-type{border-bottom:none;}
+  .fuel-row .k{color:var(--ink-dim);}
+  .fuel-row .v{color:var(--ink);}
+  .fuel-hint{font-size:10.5px; color:var(--ink-faint); margin-top:6px; line-height:1.5;}
+  .build-tag{text-align:center; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--ink-faint); opacity:.6; margin-top:18px;}
+  .congrats-banner{
+    margin:22px 0 8px; padding:28px 20px; text-align:center; border-radius:var(--radius-lg);
+    background:linear-gradient(155deg, var(--bg-3), var(--bg-2)); border:2px solid var(--gold);
+    box-shadow:0 0 0 1px var(--bronze) inset;
+  }
+  .cg-title{font-size:22px; letter-spacing:.08em; color:var(--gold); margin-bottom:12px;}
+  .cg-quote{font-size:13px; letter-spacing:1.5px; line-height:2; color:var(--ink); text-transform:uppercase; font-weight:600;}
+
+  /* ---------- print ---------- */
+  @media print{
+    body{background:#fff !important; color:#111 !important;}
+    .topbar, .fab-tools, #toast-mount, .checkpoint-banner, .plan-summary-bar,
+    .day-check, .day-actions, .actual-panel, .fuel-card summary, .goal-toggle-hero,
+    .setup-cta, .runeroad, .progress-bars, .modal-overlay{ display:none !important; }
+    .week-body{max-height:none !important;}
+    .fuel-card .fuel-body{display:block !important;}
+    .week{break-inside:avoid; page-break-inside:avoid; border-color:#999 !important; background:#fff !important;}
+    .day{break-inside:avoid; background:#fff !important; border-color:#ccc !important;}
+    .hero, .day, .week, .zone-card, .congrats-banner, .fuel-card,
+    .distance-badge, .stat, .day-badge, .week-vol, .week-num, .fuel-row, .zone-head,
+    .cd-seg, .brand-name, .wordmark{ color:#111 !important; background:#fff !important; border-color:#999 !important; }
+    .day-title, .week-phase, .cg-title, .distance-badge, .zbar-seg{color:#111 !important;}
+    .zbar-seg{filter:grayscale(0.3) contrast(1.3);}
+    .wrap{max-width:none !important;}
+  }
+  .icon-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:38px; height:38px; border-radius:999px; border:1px solid var(--line);
+    background:var(--bg-2); color:var(--ink-dim); transition:.2s;
+  }
+  .icon-btn:hover{color:var(--ink); border-color:var(--bronze);}
+  .icon-btn svg{width:18px; height:18px;}
+
+  /* ---------- hero / progress ---------- */
+  .hero{padding:32px 0 18px; text-align:center; position:relative;}
+  .brandmark .mark{width:26px; height:26px; flex:none; color:var(--bronze); margin-right:2px;}
+  .brandmark .mark svg{width:100%; height:100%; display:block;}
+  .emblem-wrap{width:82px; margin:0 auto; color:var(--bronze);}
+  .emblem-wrap svg{width:100%; height:auto; display:block;}
+  .vvv-mark{display:block;}
+  .vvv-mark-hero{width:92px; height:92px; margin:0 auto 4px;}
+  .vvv-mark-sm{width:23px; height:23px; flex:none;}
+  .brand-name{font-family:'Cinzel',serif; font-size:19px; line-height:1.2; margin-top:10px; font-weight:700; letter-spacing:.06em; color:var(--gold);}
+  .brand-rule{width:50px; height:2px; background:var(--bronze); opacity:.8; margin:14px auto 0;}
+  .hero-tagline{
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--ink-faint); margin-top:7px; margin-bottom:20px;
+  }
+
+  /* rune road */
+  .runeroad{position:relative; padding:6px 6px 4px; overflow-x:auto; -ms-overflow-style:none; scrollbar-width:none;}
+  .runeroad::-webkit-scrollbar{display:none;}
+  .runeroad-track{display:flex; align-items:center; gap:0; min-width:min-content; padding:10px 6px;}
+  .rune-seg{display:flex; align-items:center;}
+  .rune-line{width:14px; height:2px; background:var(--line); flex:none;}
+  .rune-line.done{background:var(--bronze);}
+  .rune-node{
+    flex:none; width:30px; height:30px; border:2px solid var(--line);
+    background:var(--bg-2); display:flex; align-items:center; justify-content:center;
+    transform:rotate(45deg); border-radius:6px; position:relative; transition:.2s;
+  }
+  .rune-node .num{transform:rotate(-45deg); font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); font-weight:600;}
+  .rune-node.done{background:var(--bronze); border-color:var(--bronze);}
+  .rune-node.done .num{color:var(--bronze-ink);}
+  .rune-node.current{border-color:var(--gold); box-shadow:0 0 0 3px var(--c-gold-soft); animation:runepulse 2.2s ease-in-out infinite;}
+  .rune-node.checkpoint{border-color:var(--gold); border-width:2px;}
+  .rune-node.checkpoint::after{content:''; position:absolute; inset:-6px; border:1px dashed var(--gold); border-radius:9px; opacity:.6;}
+  .rune-node.race{border-radius:50%; transform:rotate(0deg); background:var(--c-gold-soft); border-color:var(--gold);}
+  .rune-node.race .num{transform:rotate(0deg);}
+  .rune-node button{all:unset; width:100%; height:100%; display:flex; align-items:center; justify-content:center; cursor:pointer;}
+  @keyframes runepulse{0%,100%{box-shadow:0 0 0 3px var(--c-gold-soft);} 50%{box-shadow:0 0 0 7px transparent;}}
+
+  .stat-row{display:flex; justify-content:center; gap:22px; margin-top:16px; flex-wrap:wrap;}
+  .stat{text-align:center;}
+  .stat .v{font-family:'JetBrains Mono',monospace; font-size:19px; font-weight:700; color:var(--gold);}
+  .stat .l{font-size:10px; letter-spacing:1.5px; color:var(--ink-faint); text-transform:uppercase; margin-top:2px;}
+
+  .progress-bars{margin-top:16px; display:flex; flex-direction:column; gap:8px;}
+  .pbar-row{display:flex; align-items:center; gap:10px;}
+  .pbar-label{font-size:10px; letter-spacing:1px; color:var(--ink-faint); text-transform:uppercase; width:76px; text-align:right; flex:none;}
+  .pbar-track{flex:1; height:7px; border-radius:99px; background:var(--bg-3); overflow:hidden; border:1px solid var(--line-soft);}
+  .pbar-fill{height:100%; background:linear-gradient(90deg,var(--bronze),var(--gold)); border-radius:99px; transition:width .5s ease;}
+  .pbar-num{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim); width:56px; flex:none;}
+
+  /* ---------- section labels ---------- */
+  .section-label{
+    font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:2px;
+    font-size:12px; color:var(--ink-faint); display:flex; align-items:center; gap:8px; margin:22px 0 10px;
+  }
+  .section-label .rule{flex:1; height:1px; background:var(--line);}
+
+  /* ---------- week accordion ---------- */
+  .week{border:1px solid var(--line); border-radius:var(--radius); margin-bottom:12px; background:var(--bg-2); overflow:hidden; box-shadow:var(--shadow-sm);}
+  .week-head{width:100%; text-align:left; background:none; border:none; padding:14px 16px; display:flex; align-items:center; gap:12px; color:var(--ink);}
+  .week-num{font-family:'Cinzel',serif; font-weight:700; font-size:20px; color:var(--bronze); flex:none; width:34px;}
+  .week-meta{flex:1; min-width:0;}
+  .week-phase{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze);}
+  .week-focus{font-size:12.5px; color:var(--ink-dim); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .week-range{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
+  .week-vol{text-align:right; flex:none;}
+  .week-vol .v{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px; color:var(--ink);}
+  .week-vol .l{font-size:9px; color:var(--ink-faint); letter-spacing:1px; text-transform:uppercase;}
+  .week-chevron{flex:none; color:var(--ink-faint); transition:transform .25s;}
+  .week-chevron svg{width:18px; height:18px; display:block;}
+  .week.open .week-chevron{transform:rotate(180deg);}
+  .week-body{max-height:0; overflow:hidden; transition:max-height .35s ease;}
+  .week.open .week-body{max-height:3200px;}
+  .week-body-inner{padding:2px 12px 14px;}
+  .week-today-flag{display:inline-block; margin-left:8px; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--bronze-ink); background:var(--gold); padding:2px 6px; border-radius:99px; font-family:'Oswald',sans-serif;}
+
+  /* ---------- day card ---------- */
+  .day{
+    border-left:4px solid var(--c-rest); background:var(--bg-3); border-radius:var(--radius-sm);
+    padding:11px 12px; margin-top:8px; transition:.2s; position:relative;
+  }
+  .day.type-easy{border-left-color:var(--c-easy);}
+  .day.type-tempo{border-left-color:var(--c-tempo);}
+  .day.type-threshold{border-left-color:var(--c-threshold);}
+  .day.type-track{border-left-color:var(--c-track);}
+  .day.type-long{border-left-color:var(--c-long);}
+  .day.type-tuneup{border-left-color:var(--c-gold); background:var(--c-gold-soft);}
+  .day.type-race{border-left-color:var(--c-gold); background:var(--c-gold-soft);}
+  .day.is-today{box-shadow:0 0 0 1.5px var(--gold) inset;}
+  .day.drag-over{box-shadow:0 0 0 2px var(--bronze) inset; background:var(--bg-4);}
+  .day.dragging{opacity:.4;}
+  .day-top{display:flex; align-items:flex-start; gap:10px;}
+  .day-check{flex:none; margin-top:2px;}
+  .day-check input{width:19px; height:19px; accent-color:var(--bronze); cursor:pointer;}
+  .day-main{flex:1; min-width:0;}
+  .day-row1{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .day-date{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint);}
+  .day-badge{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; padding:2px 7px; border-radius:99px; font-weight:600;}
+  .day-badge.type-rest{background:var(--c-rest-soft); color:var(--c-rest);}
+  .day-badge.type-easy{background:var(--c-easy-soft); color:var(--c-easy);}
+  .day-badge.type-tempo{background:var(--c-tempo-soft); color:var(--c-tempo);}
+  .day-badge.type-threshold{background:var(--c-threshold-soft); color:var(--c-threshold);}
+  .day-badge.type-track{background:var(--c-track-soft); color:var(--c-track);}
+  .day-badge.type-long{background:var(--c-long-soft); color:var(--c-long);}
+  .day-badge.type-tuneup{background:var(--c-gold-soft); color:var(--gold);}
+  .day-badge.type-race{background:var(--gold); color:var(--bronze-ink);}
+  .day-title{font-weight:600; font-size:14.5px; margin-top:3px; color:var(--ink);}
+  .day-targets{font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
+  .day-targets .mp{color:var(--gold);}
+  .day-desc{font-size:12.5px; color:var(--ink-dim); margin-top:6px; line-height:1.45;}
+  .day-actions{display:flex; gap:6px; flex:none;}
+  .day-actions button{background:none; border:none; color:var(--ink-faint); padding:4px; border-radius:6px; display:flex;}
+  .day-actions button:hover{color:var(--bronze); background:var(--bg-4);}
+  .day-actions svg{width:16px; height:16px;}
+
+  .actual-panel{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .actual-field{display:flex; flex-direction:column; gap:3px;}
+  .actual-field label{font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint);}
+  .actual-field input, .actual-field textarea{
+    background:var(--bg-4); border:1px solid var(--line); border-radius:7px; color:var(--ink);
+    padding:7px 8px; font-size:13px; font-family:'JetBrains Mono',monospace; width:100%;
+  }
+  .actual-field textarea{font-family:'Inter',sans-serif; resize:vertical; min-height:38px;}
+  .actual-field.full{grid-column:1/-1;}
+  .actual-clear{grid-column:1/-1; text-align:right;}
+  .actual-clear button{background:none; border:none; color:var(--ink-faint); font-size:11px; text-decoration:underline; padding:2px;}
+
+  /* ---------- tune-up checkpoint card ---------- */
+  .checkpoint{
+    border:1.5px dashed var(--gold); border-radius:var(--radius); padding:18px 16px; margin:14px 0 20px;
+    background:var(--c-gold-soft); text-align:center;
+  }
+  .checkpoint h3{font-family:'Cinzel',serif; font-size:18px; margin:0 0 6px; color:var(--ink);}
+  .checkpoint p{font-size:12.5px; color:var(--ink-dim); margin:0 0 4px; line-height:1.5;}
+  .checkpoint .hint{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--bronze); margin-bottom:12px;}
+  .goal-options{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
+  .goal-opt{
+    border:1.5px solid var(--line); background:var(--bg-2); border-radius:var(--radius-sm);
+    padding:10px 16px; text-align:center; min-width:88px; transition:.2s;
+  }
+  .goal-opt .t{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:16px; color:var(--ink);}
+  .goal-opt .p{font-size:10px; color:var(--ink-faint); margin-top:2px;}
+  .goal-opt.active{border-color:var(--gold); background:var(--c-gold-soft);}
+  .goal-opt.active .t{color:var(--gold);}
+  .goal-opt:hover{border-color:var(--bronze);}
+
+  /* ---------- buttons ---------- */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:7px;
+    border-radius:var(--radius-sm); padding:11px 18px; font-size:13.5px; font-weight:600;
+    border:1px solid var(--line); background:var(--bg-3); color:var(--ink); transition:.2s;
+  }
+  .btn:hover{border-color:var(--bronze);}
+  .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink); border:none;}
+  .btn-primary:hover{filter:brightness(1.08);}
+  .btn-ghost{background:none; border:1px solid var(--line);}
+  .btn-danger{background:none; border:1px solid var(--c-threshold); color:var(--c-threshold);}
+  .btn-block{width:100%;}
+  .btn-sm{padding:7px 12px; font-size:12px;}
+  .btn svg{width:15px; height:15px; flex:none;}
+
+  /* ---------- modal ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(10,8,6,0.65); z-index:100;
+    display:flex; align-items:flex-end; justify-content:center; padding:0;
+    animation:fadein .18s ease;
+  }
+  @keyframes fadein{from{opacity:0;} to{opacity:1;}}
+  @media (min-width:640px){ .modal-overlay{align-items:center; padding:20px;} }
+  .modal-card{
+    background:var(--bg-2); border:1px solid var(--line); width:100%; max-width:560px;
+    border-radius:20px 20px 0 0; max-height:92vh; overflow-y:auto; box-shadow:var(--shadow);
+    animation:slideup .22s ease;
+  }
+  @media (min-width:640px){ .modal-card{border-radius:var(--radius-lg);} }
+  @keyframes slideup{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+  .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg-2); z-index:2;}
+  .modal-head h2{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1px; font-size:16px; margin:0; color:var(--ink);}
+  .modal-body{padding:16px 18px 22px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px;}
+  .field input, .field select, .field textarea{
+    width:100%; background:var(--bg-3); border:1px solid var(--line); border-radius:9px;
+    color:var(--ink); padding:10px 11px; font-size:14px;
+  }
+  .field textarea{resize:vertical; min-height:70px; font-family:'Inter',sans-serif;}
+  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .field-hint{font-size:11px; color:var(--ink-faint); margin-top:4px;}
+  .modal-actions{display:flex; gap:8px; margin-top:18px;}
+  .modal-actions .btn{flex:1;}
+
+  fieldset{border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px; margin:0 0 14px;}
+  legend{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze); padding:0 6px;}
+
+  /* ---------- settings extras ---------- */
+  .theme-toggle{display:flex; border:1px solid var(--line); border-radius:99px; padding:3px; gap:2px;}
+  .theme-toggle button{border:none; background:none; padding:6px 10px; border-radius:99px; color:var(--ink-faint); display:flex; align-items:center;}
+  .theme-toggle button.active{background:var(--bronze); color:var(--bronze-ink);}
+  .theme-toggle svg{width:15px; height:15px;}
+  .connect-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line-soft);}
+  .connect-row:last-child{border-bottom:none;}
+  .connect-row .name{font-size:13.5px; font-weight:600;}
+  .connect-row .desc{font-size:11px; color:var(--ink-faint);}
+  .callout{background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 12px; font-size:12px; color:var(--ink-dim); line-height:1.5; display:flex; gap:9px;}
+  .callout svg{flex:none; width:16px; height:16px; color:var(--bronze); margin-top:1px;}
+
+  /* ---------- file import ---------- */
+  .dropzone{
+    border:2px dashed var(--line); border-radius:var(--radius); padding:26px 16px; text-align:center; color:var(--ink-faint);
+    transition:.2s; cursor:pointer;
+  }
+  .dropzone.drag{border-color:var(--bronze); background:var(--c-track-soft); color:var(--ink);}
+  .dropzone svg{width:26px; height:26px; margin-bottom:8px; color:var(--bronze);}
+  .dropzone .main{font-size:13px; font-weight:600; color:var(--ink);}
+  .dropzone .sub{font-size:11px; margin-top:3px;}
+  .parse-preview{border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px; margin-top:14px; background:var(--bg-3);}
+  .parse-row{display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line-soft); font-size:12.5px;}
+  .parse-row:last-of-type{border-bottom:none;}
+  .parse-row .k{color:var(--ink-faint);}
+  .parse-row .v{font-family:'JetBrains Mono',monospace; font-weight:600;}
+  .csv-rows{max-height:220px; overflow-y:auto; margin-top:8px; border:1px solid var(--line-soft); border-radius:8px;}
+  .csv-row-item{display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid var(--line-soft); font-size:11.5px; gap:8px;}
+  .csv-row-item:last-child{border-bottom:none;}
+  .csv-row-item .meta{font-family:'JetBrains Mono',monospace; color:var(--ink-dim); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  /* ---------- export text ---------- */
+  .export-text{
+    width:100%; min-height:280px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);
+    color:var(--ink-dim); font-family:'JetBrains Mono',monospace; font-size:11px; line-height:1.6; padding:12px; white-space:pre-wrap;
+  }
+
+  /* ---------- toast ---------- */
+  #toast-mount{position:fixed; bottom:18px; left:0; right:0; display:flex; justify-content:center; z-index:200; pointer-events:none;}
+  .toast{
+    background:var(--bronze); color:var(--bronze-ink); font-size:13px; font-weight:600;
+    padding:10px 18px; border-radius:99px; box-shadow:var(--shadow); animation:toastin .25s ease, toastout .25s ease 2.4s forwards;
+  }
+  @keyframes toastin{from{transform:translateY(12px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+  @keyframes toastout{to{opacity:0; transform:translateY(8px);}}
+
+  .fab-tools{
+    position:fixed; right:16px; bottom:16px; z-index:60; display:flex; flex-direction:column; gap:8px; align-items:flex-end;
+  }
+  .fab-menu{
+    display:none; flex-direction:column; gap:6px; background:var(--bg-2); border:1px solid var(--line);
+    border-radius:var(--radius-sm); padding:8px; box-shadow:var(--shadow); margin-bottom:4px;
+  }
+  .fab-menu.open{display:flex;}
+  .fab-menu button{
+    display:flex; align-items:center; gap:9px; background:none; border:none; color:var(--ink);
+    padding:9px 12px; border-radius:8px; font-size:13px; white-space:nowrap; text-align:left;
+  }
+  .fab-menu button:hover{background:var(--bg-4);}
+  .fab-menu svg{width:16px; height:16px; color:var(--bronze); flex:none;}
+  .fab-main{
+    width:52px; height:52px; border-radius:50%; background:linear-gradient(135deg,var(--bronze),var(--gold));
+    color:var(--bronze-ink); border:none; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow);
+    transition:transform .25s;
+  }
+  .fab-main.open{transform:rotate(45deg);}
+  .fab-main svg{width:24px; height:24px;}
+
+  .empty-note{font-size:12px; color:var(--ink-faint); text-align:center; padding:10px 0;}
+  .divider-or{display:flex; align-items:center; gap:10px; margin:14px 0; color:var(--ink-faint); font-size:10px; letter-spacing:1px; text-transform:uppercase;}
+  .divider-or .rule{flex:1; height:1px; background:var(--line);}
+  /* ---------- v2: distance-agnostic generator additions ---------- */
+  .empty-hero{padding:20px 0 8px;}
+  .setup-cta{
+    border:1.5px dashed var(--gold); border-radius:var(--radius-lg); padding:26px 20px; margin:18px 0;
+    background:var(--c-gold-soft); text-align:center;
+  }
+  .setup-cta h2{font-family:'Cinzel',serif; font-size:19px; margin:0 0 8px; color:var(--ink);}
+  .setup-cta p{font-size:12.5px; color:var(--ink-dim); line-height:1.55; margin:0 0 16px; max-width:44ch; margin-left:auto; margin-right:auto;}
+
+  .distance-badge{
+    display:inline-flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:11px;
+    letter-spacing:.5px; text-transform:uppercase; color:var(--bronze); background:var(--bg-3); border:1px solid var(--line);
+    padding:4px 11px; border-radius:99px; margin-top:4px;
+  }
+  .distance-badge svg{width:12px; height:12px; flex:none;}
+  .plan-summary-bar{
+    display:flex; align-items:center; gap:10px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:10px 12px; margin:14px 0; cursor:pointer;
+  }
+  .plan-summary-bar .psb-main{flex:1; min-width:0;}
+  .plan-summary-bar .psb-title{font-family:'Oswald',sans-serif; font-size:12.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
+  .plan-summary-bar .psb-sub{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); margin-top:2px;}
+  .plan-summary-bar svg{width:16px; height:16px; color:var(--ink-faint); flex:none;}
+
+  .goal-toggle-hero{margin-top:16px;}
+  .goal-toggle-hero .goal-options{margin-top:8px;}
+  .goal-opt .vdot-tag{font-size:9px; color:var(--ink-faint); margin-top:1px; font-family:'JetBrains Mono',monospace;}
+
+  .vdot-readout{
+    display:flex; align-items:center; justify-content:center; gap:8px; margin-top:10px;
+    font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint);
+  }
+  .vdot-readout b{color:var(--bronze); font-weight:700;}
+
+  .b2b-tag{
+    display:inline-block; font-size:8.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--c-long);
+    background:var(--c-long-soft); padding:2px 6px; border-radius:99px; margin-left:6px; font-family:'Oswald',sans-serif;
+  }
+
+  .pace-table{width:100%; border-collapse:collapse; margin-top:10px; font-size:11.5px;}
+  .pace-table th, .pace-table td{padding:7px 6px; text-align:center; border-bottom:1px solid var(--line-soft);}
+  .pace-table th{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.8px; text-transform:uppercase; color:var(--ink-faint); font-weight:600;}
+  .pace-table th:first-child, .pace-table td:first-child{text-align:left; font-family:'JetBrains Mono',monospace; color:var(--ink-dim);}
+  .pace-table td{font-family:'JetBrains Mono',monospace; color:var(--ink);}
+  .pace-table tr:last-child td{border-bottom:none; font-weight:700; color:var(--gold);}
+  .pace-table .goal-col-a{color:var(--gold);}
+
+  .benchmark-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .goal-input-row{display:grid; grid-template-columns:34px 1fr 74px; gap:8px; align-items:center; margin-bottom:9px;}
+  .goal-input-row .gl{font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--bronze); text-align:center;}
+  .goal-input-row .gp{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); text-align:right;}
+
+  .setup-section-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze); margin:16px 0 8px;}
+  .setup-section-title:first-child{margin-top:0;}
+  .weekday-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin-bottom:12px;}
+  .wd-check{
+    display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px 2px;
+    border:1.5px solid var(--line); border-radius:9px; font-family:'JetBrains Mono',monospace; font-size:10.5px;
+    color:var(--ink-faint); cursor:pointer; transition:all .15s; user-select:none;
+  }
+  .wd-check input{width:auto; margin:0;}
+  .wd-check.checked{border-color:var(--bronze); background:var(--c-gold-soft); color:var(--ink); font-weight:700;}
+</style>
+</head>
+<body>
+<div id="app" class="app-root"></div>
+<div id="toast-mount"></div>
+<script>
+'use strict';
+
+/* =========================================================
+   CONSTANTS
+   ========================================================= */
+var STORAGE_KEY = 'velvet-viking-generator-v2';
+var BUILD_ID = '2026-08-10.1';
+
+var DISTANCE_PROFILES = {
+  '5k':    { key:'5k',    label:'5K',              raceKm:5,     weeks:8,  longCapKm:12, volMult:1.30, taperWeeks:2, emphasis:'speed',     blockName:'Speed & Threshold Block' },
+  '10k':   { key:'10k',   label:'10K',             raceKm:10,    weeks:8,  longCapKm:15, volMult:1.35, taperWeeks:2, emphasis:'speed',     blockName:'Speed & Threshold Block' },
+  'half':  { key:'half',  label:'Half Marathon',   raceKm:21.1,  weeks:12, longCapKm:20, volMult:1.55, taperWeeks:2, emphasis:'threshold', blockName:'Aerobic & Tempo Block' },
+  'full':  { key:'full',  label:'Full Marathon',   raceKm:42.2,  weeks:14, longCapKm:32, volMult:1.75, taperWeeks:2, emphasis:'endurance', blockName:'Endurance & Long Run Block' },
+  'ultra': { key:'ultra', label:'Ultra (50K)',     raceKm:50,    weeks:16, longCapKm:36, volMult:2.00, taperWeeks:3, emphasis:'timeonfeet',blockName:'Time-on-Feet & Back-to-Back Block', backToBack:true }
+};
+var DISTANCE_ORDER = ['5k','10k','half','full','ultra'];
+
+var PACE_CHECKPOINTS = {
+  '5k':   [1,2,3,4,5],
+  '10k':  [2,4,6,8,10],
+  'half': [5,10,15,20,21.1],
+  'full': [10,20,30,40,42.2],
+  'ultra':[10,20,30,40,50]
+};
+
+var GOAL_KEYS = ['A','B','C'];
+var GOAL_OFFSETS = { A:1.00, B:0.975, C:0.95 }; // B/C are faster (lower time) VDOT-equivalent multipliers on time, applied as smart defaults only
+
+/* =========================================================
+   VDOT ENGINE (Daniels-Gilbert equations)
+   ========================================================= */
+function vo2FromVelocity(v){ return -4.60 + 0.182258*v + 0.000104*v*v; }
+function pctVO2FromTimeMin(tMin){ return 0.8 + 0.1894393*Math.exp(-0.012778*tMin) + 0.2989558*Math.exp(-0.1932605*tMin); }
+function vdotFromPerformance(distanceM, timeSec){
+  if (!distanceM || !timeSec || timeSec<=0) return null;
+  var tMin = timeSec/60;
+  var v = distanceM/tMin;
+  return vo2FromVelocity(v) / pctVO2FromTimeMin(tMin);
+}
+function velocityFromVO2(vo2){
+  var a=0.000104, b=0.182258, c=-4.60-vo2;
+  var disc = b*b - 4*a*c;
+  if (disc<0 || vo2<=0) return null;
+  return (-b + Math.sqrt(disc)) / (2*a);
+}
+function paceSecPerKmFromVelocity(v){ return v>0 ? 60000/v : null; }
+function equivalentTimeSec(vdot, distanceM){
+  if (!vdot || vdot<=0) return null;
+  var lo=45, hi=36000;
+  for (var i=0;i<60;i++){
+    var mid=(lo+hi)/2;
+    var tMin=mid/60;
+    var v=distanceM/tMin;
+    var testVdot = vo2FromVelocity(v)/pctVO2FromTimeMin(tMin);
+    if (testVdot>vdot) lo=mid; else hi=mid;
+  }
+  return Math.round((lo+hi)/2);
+}
+var VDOT_ZONES = {
+  E:{lo:0.62,hi:0.77}, M:{lo:0.78,hi:0.84}, T:{lo:0.86,hi:0.90}, I:{lo:0.97,hi:1.00}, R:{lo:1.05,hi:1.11}
+};
+function trainingPacesFromVDOT(vdot){
+  var out = {};
+  if (!vdot){ Object.keys(VDOT_ZONES).forEach(function(k){ out[k]={slow:null,fast:null}; }); return out; }
+  Object.keys(VDOT_ZONES).forEach(function(k){
+    var z = VDOT_ZONES[k];
+    var vLo = velocityFromVO2(vdot*z.lo);
+    var vHi = velocityFromVO2(vdot*z.hi);
+    out[k] = { slow: paceSecPerKmFromVelocity(vLo), fast: paceSecPerKmFromVelocity(vHi) };
+  });
+  return out;
+}
+function goalPaceSecPerKm(vdot, raceDistanceM){
+  // the pace that exactly produces the goal time over the goal distance, at this VDOT
+  var t = equivalentTimeSec(vdot, raceDistanceM);
+  if (!t) return null;
+  return t / (raceDistanceM/1000);
+}
+
+/* =========================================================
+   DATE / TIME / PACE HELPERS
+   ========================================================= */
+function addDays(dateStr, n){
+  var d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0,10);
+}
+function dow(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString('en-US',{weekday:'short'}); }
+function dShort(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+function dLong(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}); }
+function todayStr(){
+  var d = new Date(); var tz = d.getTimezoneOffset();
+  return new Date(d.getTime()-tz*60000).toISOString().slice(0,10);
+}
+function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000); }
+function round1(n){ return Math.round(n*10)/10; }
+function round2(n){ return Math.round(n*100)/100; }
+
+/* =========================================================
+   UNITS \u2014 storage is always km/sec-per-km internally; these
+   helpers convert for display only, so nothing else in the app
+   needs to know or care which unit the person is looking at.
+   ========================================================= */
+function displayUnit(){ return (state && state.units==='mi') ? 'mi' : 'km'; }
+function kmToDisplay(km){ if (km==null) return null; return (state && state.units==='mi') ? round2(km*0.621371) : round1(km); }
+function fmtDist(km){ if (km==null) return '\u2014'; return kmToDisplay(km)+displayUnit(); }
+function parseDistInput(val){
+  var n = parseFloat(val);
+  if (isNaN(n)) return null;
+  return (state && state.units==='mi') ? round1(n/0.621371) : round1(n);
+}
+function fmtPaceFromSecPerKm(secPerKm){
+  if (secPerKm==null) return null;
+  var sec = (state && state.units==='mi') ? secPerKm*1.60934 : secPerKm;
+  return secToPace(sec)+'/'+displayUnit();
+}
+function clamp(n,lo,hi){ return Math.max(lo,Math.min(hi,n)); }
+function escapeHtml(s){
+  if (s===null||s===undefined) return '';
+  return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});
+}
+function uid(){ return 'x'+Math.random().toString(36).slice(2,10); }
+function paceToSec(p){
+  if (p===null||p===undefined||p==='') return null;
+  var parts = String(p).split(':');
+  if (parts.length<2) return null;
+  var m=parseInt(parts[0],10), s=parseInt(parts[1],10);
+  if (isNaN(m)||isNaN(s)) return null;
+  return m*60+s;
+}
+function secToPace(sec){
+  if (sec===null||sec===undefined||isNaN(sec)||!isFinite(sec)) return '';
+  sec = Math.round(sec);
+  var m = Math.floor(sec/60), s = sec%60;
+  return m+':'+(s<10?'0':'')+s;
+}
+function secToClock(sec){
+  if (sec===null||sec===undefined||isNaN(sec)||!isFinite(sec)||sec<0) return '';
+  sec = Math.round(sec);
+  var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = sec%60;
+  var mm = (h>0 && m<10) ? '0'+m : String(m);
+  var ss = (s<10?'0':'')+s;
+  return (h>0 ? h+':' : '') + mm + ':' + ss;
+}
+function clockToSec(str){
+  if (!str) return null;
+  var parts = String(str).split(':').map(function(x){return parseInt(x,10);});
+  if (parts.some(isNaN)) return null;
+  if (parts.length===3) return parts[0]*3600+parts[1]*60+parts[2];
+  if (parts.length===2) return parts[0]*60+parts[1];
+  return null;
+}
+
+/* =========================================================
+   WORKOUT PROGRESSIONS (by distance emphasis)
+   ========================================================= */
+var LONG_FRACTION = { speed:0.24, threshold:0.28, endurance:0.32, timeonfeet:0.36 };
+var TT_DISTANCE_KM = { speed:3, threshold:5, endurance:6, timeonfeet:8 };
+
+var INTERVAL_PROGRESSION = {
+  speed:      [ {reps:6,m:400,t:'interval'},{reps:8,m:400,t:'interval'},{reps:5,m:600,t:'interval'},{reps:6,m:800,t:'interval'},{reps:5,m:1000,t:'interval'},{reps:8,m:300,t:'repetition'},{reps:10,m:400,t:'repetition'},{reps:6,m:400,t:'interval'} ],
+  threshold:  [ {reps:6,m:400,t:'interval'},{reps:8,m:400,t:'interval'},{reps:6,m:600,t:'interval'},{reps:5,m:800,t:'interval'},{reps:4,m:1000,t:'interval'},{reps:6,m:400,t:'interval'} ],
+  endurance:  [ {reps:6,m:400,t:'interval'},{reps:8,m:400,t:'interval'},{reps:5,m:600,t:'interval'},{reps:6,m:600,t:'interval'},{reps:4,m:800,t:'interval'},{reps:6,m:800,t:'interval'},{reps:3,m:1200,t:'interval'},{reps:5,m:800,t:'interval'},{reps:4,m:600,t:'interval'} ],
+  timeonfeet: [ {reps:6,hillSec:45,t:'interval'},{reps:8,hillSec:45,t:'interval'},{reps:8,fartlekMin:2,t:'interval'},{reps:6,fartlekMin:3,t:'interval'} ]
+};
+var TEMPO_PROGRESSION = {
+  speed:      [ {type:'tempo',min:12},{type:'tempo',min:15},{type:'threshold',km:3},{type:'threshold',km:4},{type:'threshold',km:5},{type:'tempo',min:15} ],
+  threshold:  [ {type:'tempo',min:15},{type:'tempo',min:20},{type:'threshold',km:4},{type:'threshold',km:5},{type:'threshold',km:6},{type:'tempo',min:20} ],
+  endurance:  [ {type:'tempo',min:20},{type:'tempo',min:25},{type:'threshold',km:5},{type:'threshold',km:6},{type:'tempo',min:30,split:2},{type:'threshold',km:7},{type:'tempo',min:35,split:2},{type:'threshold',km:8} ],
+  timeonfeet: [ {type:'steady',min:30},{type:'steady',min:35},{type:'steady',min:40},{type:'steady',min:45} ]
+};
+
+function pickProgression(arr, pos){
+  var idx = Math.min(arr.length-1, Math.round(pos*(arr.length-1)));
+  return arr[idx];
+}
+function intervalSessionKm(spec){
+  if (spec.m) return round1((spec.reps*spec.m)/1000 + 4);
+  if (spec.hillSec) return round1((spec.reps*spec.hillSec*3.2)/1000 + 4);
+  if (spec.fartlekMin) return round1(spec.reps*spec.fartlekMin*0.24 + 4);
+  return 6;
+}
+function tempoSessionKm(spec){
+  if (spec.km) return round1(spec.km + 3);
+  if (spec.min) return round1(spec.min*0.185 + 3);
+  return 6;
+}
+
+/* =========================================================
+   BLOCK GENERATOR — the core "distance-agnostic" engine
+   ========================================================= */
+function taperWeeksFor(planWeeks){
+  if (planWeeks<=6) return 1;
+  if (planWeeks<=10) return 2;
+  return 3;
+}
+function computeTaperInfo(planWeeks){
+  var taper = taperWeeksFor(planWeeks);
+  var buildWeeks = Math.max(1, planWeeks - taper - 1);
+  if (buildWeeks + taper + 1 > planWeeks) taper = Math.max(0, planWeeks - buildWeeks - 1);
+  return { taper:taper, buildWeeks:buildWeeks };
+}
+function isTaperWeek(weekNum){
+  if (!state.setup) return false;
+  var totalWeeks = totalWeeksInPlan();
+  var info = computeTaperInfo(totalWeeks);
+  return weekNum > info.buildWeeks && weekNum < totalWeeks;
+}
+function buildBlockWeeks(distKey, currentVolume, planWeeksInput){
+  var profile = DISTANCE_PROFILES[distKey];
+  var N = clamp(Math.round(planWeeksInput||profile.weeks), 4, 20);
+  var info = computeTaperInfo(N);
+  var taper = info.taper, buildWeeks = info.buildWeeks;
+  var peakVolume = currentVolume * profile.volMult;
+  var weeks = [];
+
+  for (var w=1; w<=N; w++){
+    var isRace = (w===N);
+    var isTaper = (!isRace && w>buildWeeks);
+    var isCheckpoint = false;
+    var volume, phase, isCutback=false;
+
+    if (!isTaper && !isRace){
+      var progress = w/buildWeeks;
+      var trend = currentVolume + (peakVolume-currentVolume)*progress;
+      isCutback = (w%4===0) && w!==buildWeeks && buildWeeks>=4;
+      volume = isCutback ? trend*0.78 : trend;
+      phase = progress<=0.25 ? 'Base' : (progress<=0.80 ? 'Build' : 'Peak');
+      isCheckpoint = (w === Math.max(1,Math.round(buildWeeks*0.6)));
+    } else if (isTaper){
+      var taperIdx = w-buildWeeks;
+      var frac = taper>0 ? taperIdx/taper : 1;
+      volume = peakVolume*(1-frac*0.5);
+      phase = 'Taper';
+    } else {
+      volume = peakVolume*0.35;
+      phase = 'Race Week';
+    }
+    volume = round1(volume);
+
+    var pos = buildWeeks>1 ? (Math.min(w,buildWeeks)-1)/(buildWeeks-1) : 0;
+    var qSpec = pickProgression(INTERVAL_PROGRESSION[profile.emphasis], pos);
+    var tSpec = pickProgression(TEMPO_PROGRESSION[profile.emphasis], pos);
+    var qKm = intervalSessionKm(qSpec);
+    var tKm = tempoSessionKm(tSpec);
+    if (isRace){ qKm=0; tKm=0; }
+    if (isTaper){ qKm=round1(qKm*0.6); tKm=round1(tKm*0.6); }
+
+    var longFrac = LONG_FRACTION[profile.emphasis];
+    var longTarget = isRace ? 0 : Math.min(profile.longCapKm, volume*longFrac);
+    var b2bEligible = !!profile.backToBack && !isTaper && !isRace && phase!=='Base';
+
+    var hasGoalSegment = !isRace && !isTaper && (profile.emphasis==='threshold'||profile.emphasis==='endurance') && phase!=='Base';
+    var goalSegKm = hasGoalSegment ? round1(clamp(longTarget*(0.2+0.18*pos),3,longTarget*0.5)) : 0;
+
+    var raceDayKm = isRace ? profile.raceKm : 0;
+
+    weeks.push({
+      week:w, phase:phase, isCutback:isCutback, isTaper:isTaper, isRace:isRace, isCheckpoint:isCheckpoint,
+      volume:volume, qSpec:qSpec, qKm:qKm, tSpec:tSpec, tKm:tKm,
+      longTarget:round1(longTarget), b2bEligible:b2bEligible,
+      hasGoalSegment:hasGoalSegment, goalSegKm:goalSegKm, raceDayKm:raceDayKm
+    });
+  }
+  return { profile:profile, weeks:weeks, peakVolume:round1(peakVolume), buildWeeks:buildWeeks, taperWeeks:taper, planWeeks:N };
+}
+
+/* =========================================================
+   WORKOUT TEXT GENERATION
+   ========================================================= */
+function dtok(km){ return '@@D:'+km+'@@'; }
+function resolveDesc(desc){
+  if (!desc) return desc;
+  return desc.replace(/@@D:([\d.]+)@@/g, function(_, km){ return fmtDist(parseFloat(km)); });
+}
+
+function intervalWorkoutText(spec){
+  if (spec.hillSec) return { title:'Hill Strides '+spec.reps+'x'+spec.hillSec+'s', type:'interval',
+    desc:'Easy warm-up. '+spec.reps+' x '+spec.hillSec+'s strong uphill effort, walk/jog back down to recover. Easy cool-down.' };
+  if (spec.fartlekMin) return { title:'Fartlek '+spec.reps+'x'+spec.fartlekMin+'min', type:'interval',
+    desc:'Easy warm-up. '+spec.reps+' x '+spec.fartlekMin+'min surges at a strong, controlled effort with an equal-time easy jog between. Easy cool-down.' };
+  var type = spec.t || 'interval';
+  var label = type==='repetition' ? 'Repetition' : 'Interval';
+  var recovery = spec.m<=400 ? Math.round(spec.m/2)+'m jog' : (spec.m>=1000 ? '3min jog' : '90s jog');
+  return { title: label+': '+spec.reps+'x'+spec.m+'m', type:type,
+    desc: dtok(2)+' warm-up. '+spec.reps+' x '+spec.m+'m @ '+label+' pace w/ '+recovery+' recovery. '+dtok(2)+' cool-down.' };
+}
+function tempoWorkoutText(spec){
+  if (spec.type==='steady') return { title:'Steady: '+spec.min+'min', type:'tempo',
+    desc:'Easy warm-up jog. '+spec.min+'min continuous @ a strong, steady aerobic effort. Easy cool-down.' };
+  if (spec.type==='tempo'){
+    if (spec.split) return { title:'Tempo: '+spec.min+'min (split)', type:'tempo',
+      desc: dtok(2)+' warm-up. '+Math.round(spec.min/spec.split)+'min @ Tempo pace x'+spec.split+', with 2-3min easy jog between reps. '+dtok(2)+' cool-down.' };
+    return { title:'Tempo: '+spec.min+'min', type:'tempo',
+      desc: dtok(2)+' warm-up. '+spec.min+'min continuous @ Tempo pace. '+dtok(2)+' cool-down.' };
+  }
+  return { title:'Threshold: '+spec.km+'km', type:'threshold',
+    desc: dtok(2)+' warm-up. '+dtok(spec.km)+' continuous @ Threshold pace. '+dtok(1)+' cool-down.' };
+}
+function longRunText(km, hasGoalSegment, goalSegKm, isB2BPrimary, isB2BSecondary){
+  if (isB2BSecondary){
+    return { title:'Back-to-Back Long Run', type:'long', desc: dtok(km)+' @ Easy pace, on tired legs from yesterday \u2014 this specificity is what makes ultra training work.' };
+  }
+  var note = isB2BPrimary ? ' First of a back-to-back long-run weekend \u2014 keep it controlled.' : '';
+  if (hasGoalSegment && goalSegKm>0){
+    return { title:'Long Run + Goal Pace', type:'long', mpSegment:true,
+      desc: dtok(km)+' @ Easy pace, last '+dtok(goalSegKm)+' @ Goal Pace.'+note };
+  }
+  return { title:'Long Run', type:'long', desc: dtok(km)+' @ Easy pace, steady and controlled.'+note };
+}
+
+/* =========================================================
+   DAY-ARRAY BUILDER — lays the generated weeks onto real, calendar-
+   aligned Monday-Sunday weeks, placing runs on the user's selected
+   weekdays. Race day always lands on its real date regardless of
+   the schedule; back-to-back only activates when the day after the
+   long run is actually one of the runner's available days.
+   ========================================================= */
+var ISO_WEEKDAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function isoWeekday(dateStr){ var d = new Date(dateStr+'T00:00:00').getDay(); return d===0?6:d-1; }
+function pickSpacedQty2(qty1, candidates){
+  if (!candidates.length) return null;
+  if (candidates.length===1) return candidates[0];
+  var best=candidates[0], bestDist=-1;
+  candidates.forEach(function(c){
+    var d = Math.min(Math.abs(c-qty1), 7-Math.abs(c-qty1));
+    if (d>bestDist){ bestDist=d; best=c; }
+  });
+  return best;
+}
+function buildDaysFromWeeks(blockResult, raceDateStr, schedule){
+  var profile = blockResult.profile;
+  var weeks = blockResult.weeks;
+  var N = weeks.length;
+
+  var activeDays = schedule.activeDays.slice();
+  var longDay = schedule.longRunDay;
+  if (activeDays.indexOf(longDay)===-1) activeDays.push(longDay);
+  var activeSet = {}; activeDays.forEach(function(d){ activeSet[d]=true; });
+  var b2bDay = (longDay+1)%7;
+  var b2bAvailable = !!profile.backToBack && activeSet[b2bDay] && b2bDay!==longDay;
+
+  var nonLongActive = activeDays.filter(function(d){ return d!==longDay; }).sort(function(a,b){return a-b;});
+  // reserve the back-to-back day out of the quality-session pool when this distance uses it, so a hard
+  // session never lands on the same day back-to-back training needs -- unless that leaves too few days
+  var qtyPool = (b2bAvailable && nonLongActive.length>2) ? nonLongActive.filter(function(d){return d!==b2bDay;}) : nonLongActive;
+  var qty1Day = qtyPool.length ? qtyPool[0] : null;
+  var qty2Day = qty1Day!=null ? pickSpacedQty2(qty1Day, qtyPool.filter(function(d){return d!==qty1Day;})) : null;
+  var easyDaysBase = nonLongActive.filter(function(d){ return d!==qty1Day && d!==qty2Day; });
+
+  var raceIso = isoWeekday(raceDateStr);
+  var raceMonday = addDays(raceDateStr, -raceIso);
+  var startMonday = addDays(raceMonday, -(N-1)*7);
+
+  var days = [];
+  weeks.forEach(function(wk, wIdx){
+    var weekMonday = addDays(startMonday, wIdx*7);
+
+    if (wk.isRace){
+      var leadUpIsos = activeDays.filter(function(d){ return d!==raceIso; });
+      var perLeadUp = leadUpIsos.length ? Math.max(2, round1(wk.volume/leadUpIsos.length)) : 0;
+      for (var ir=0; ir<7; ir++){
+        var dr = addDays(weekMonday, ir);
+        var isRD = (dr===raceDateStr);
+        var obj;
+        if (isRD){
+          obj = { type:'race', title: profile.label+' Race Day', km: wk.raceDayKm,
+            desc:'Even effort through the first two-thirds, then give whatever is left. Target: Goal Pace throughout.', mpSegment:true };
+        } else if (!activeSet[ir]){
+          obj = { type:'rest', title:'Rest Day', km:0, desc:'Full rest.' };
+        } else if (ir===qty1Day){
+          obj = { type:'interval', title:'Sharpen: 6x100m Strides', km:perLeadUp,
+            desc: dtok(Math.max(0,round1(perLeadUp-1)))+' @ Easy pace, then 6x100m relaxed strides w/ full recovery. Short and sharp.' };
+        } else if (dr===addDays(raceDateStr,-1)){
+          obj = { type:'easy', title:'Pre-Race Shakeout', km:Math.min(4,perLeadUp),
+            desc:'Short and easy with a few relaxed strides. Lay out race kit, eat familiar food, sleep early.' };
+        } else {
+          obj = { type:'easy', title:'Easy Aerobic', km:perLeadUp, desc:dtok(perLeadUp)+' @ Easy pace.' };
+        }
+        days.push({ id:dr, date:dr, week:wk.week, type:obj.type, title:obj.title, km:round1(obj.km), desc:obj.desc,
+          mpSegment:!!obj.mpSegment, completed:false, actual:{km:null,pace:null,hr:null,rpe:null,notes:''} });
+      }
+      return;
+    }
+
+    var b2bActive = wk.b2bEligible && b2bAvailable;
+    var longKm, secondLongKm=0;
+    if (b2bActive){ longKm=round1(wk.longTarget*0.62); secondLongKm=round1(wk.longTarget*0.38); }
+    else { longKm = round1(wk.longTarget); }
+
+    // this week's real easy-day pool: drop the b2b day from it on weeks where b2b actually fires,
+    // since that day's volume comes from secondLongKm instead, not the generic easy budget
+    var easyDays = b2bActive ? easyDaysBase.filter(function(d){return d!==b2bDay;}) : easyDaysBase;
+
+    var usedBeforeEasy = wk.qKm+wk.tKm+longKm+secondLongKm;
+    var remainder = Math.max(0, wk.volume-usedBeforeEasy);
+    var perEasy = 0;
+    var qKmThisWeek = wk.qKm, tKmThisWeek = wk.tKm;
+    if (easyDays.length>0){
+      perEasy = Math.max(3, round1(remainder/easyDays.length));
+    } else {
+      var room = Math.max(0, profile.longCapKm-longKm);
+      var addToLong = Math.min(room, remainder);
+      longKm = round1(longKm+addToLong);
+      remainder = Math.max(0, remainder-addToLong);
+      qKmThisWeek = round1(wk.qKm + remainder*0.5);
+      tKmThisWeek = round1(wk.tKm + remainder*0.5);
+    }
+
+    for (var iso=0; iso<7; iso++){
+      var date = addDays(weekMonday, iso);
+      var dayObj;
+      if (iso===longDay && activeSet[iso]){
+        var tl = longRunText(longKm, wk.hasGoalSegment, wk.goalSegKm, b2bActive, false);
+        dayObj = { type:tl.type, title:tl.title, km:longKm, desc:tl.desc, mpSegment:!!tl.mpSegment };
+      } else if (b2bActive && iso===b2bDay){
+        var t2 = longRunText(secondLongKm, false, 0, false, true);
+        dayObj = { type:t2.type, title:t2.title, km:secondLongKm, desc:t2.desc };
+      } else if (activeSet[iso] && iso===qty1Day){
+        var q = intervalWorkoutText(wk.qSpec);
+        dayObj = { type:q.type, title:q.title, km:qKmThisWeek, desc:q.desc };
+      } else if (activeSet[iso] && iso===qty2Day){
+        if (wk.isCheckpoint){
+          var ttKm = Math.min(TT_DISTANCE_KM[profile.emphasis], Math.max(2, round1(tKmThisWeek-3)));
+          var flank = Math.max(1, round1((tKmThisWeek-ttKm)/2));
+          dayObj = { type:'checkpoint', title:'Fitness Checkpoint: '+ttKm+'km Time Trial', km:tKmThisWeek,
+            desc: dtok(flank)+' warm-up, '+dtok(ttKm)+' at hard, honest effort, '+dtok(flank)+' cool-down. Use today\u2019s time to reconsider your Active Goal for the rest of the block.' };
+        } else {
+          var t3 = tempoWorkoutText(wk.tSpec);
+          dayObj = { type:t3.type, title:t3.title, km:tKmThisWeek, desc:t3.desc };
+        }
+      } else if (activeSet[iso]){
+        dayObj = { type:'easy', title:'Easy Aerobic', km:perEasy, desc:dtok(perEasy)+' @ Easy pace.' };
+      } else {
+        dayObj = { type:'rest', title:'Rest Day', km:0, desc:'Full rest. Legs up, hydrate, stay ahead of the block.' };
+      }
+      days.push({ id:date, date:date, week:wk.week, type:dayObj.type, title:dayObj.title, km:round1(dayObj.km), desc:dayObj.desc,
+        mpSegment:!!dayObj.mpSegment, completed:false, actual:{km:null,pace:null,hr:null,rpe:null,notes:''} });
+    }
+  });
+  return days;
+}
+
+
+/* =========================================================
+   TYPE METADATA
+   ========================================================= */
+var TYPE_META = {
+  rest:       { label:'Rest',        zoneKey:null,  cls:'rest' },
+  easy:       { label:'Easy',        zoneKey:'E',   cls:'easy' },
+  long:       { label:'Long Run',    zoneKey:'E',   cls:'long' },
+  tempo:      { label:'Tempo',       zoneKey:'M',   cls:'tempo' },
+  threshold:  { label:'Threshold',   zoneKey:'T',   cls:'threshold' },
+  interval:   { label:'Interval',    zoneKey:'I',   cls:'track' },
+  repetition: { label:'Repetition',  zoneKey:'R',   cls:'track' },
+  checkpoint: { label:'Checkpoint',  zoneKey:'T',   cls:'tuneup' },
+  race:       { label:'Race Day',    zoneKey:null,  cls:'race' }
+};
+
+/* =========================================================
+   STORAGE — localStorage (this app is deployed standalone on
+   Vercel for the user's friends/wife, not viewed only inside
+   Claude, so real browser storage is the correct choice here).
+   Wrapped defensively: if localStorage is unavailable (private
+   browsing, restricted preview contexts, etc.) the app falls
+   back to in-memory state for that session rather than breaking.
+   ========================================================= */
+var storageAvailable = false;
+try{
+  var __t = '__vv_test__';
+  window.localStorage.setItem(__t,'1');
+  window.localStorage.removeItem(__t);
+  storageAvailable = true;
+}catch(e){ storageAvailable = false; }
+
+var state = null;
+var saveTimer = null;
+function scheduleSave(){
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(persistState, 450);
+}
+function persistState(){
+  if (!storageAvailable) return;
+  try{ window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  catch(e){ console.error('Save failed', e); showToast('Couldn\u2019t save \u2014 storage may be full or unavailable'); }
+}
+function loadState(){
+  if (storageAvailable){
+    try{
+      var raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw){
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.setup && parsed.days){ state = parsed; return; }
+      }
+    }catch(e){ /* corrupt or unavailable — fall through to fresh state */ }
+  }
+  state = makeDefaultState();
+}
+function makeDefaultState(){
+  return {
+    theme:'dark',
+    units:'km',
+    setup:null, // { distanceKey, currentVolume, raceDate, benchmark:{distanceKey,timeSec}, goals:{A,B,C:{label,timeSec}}, activeGoal:'A' }
+    days:[]
+  };
+}
+
+/* =========================================================
+   ICONS (ported small original stroke-style glyphs, +2 new)
+   ========================================================= */
+function svgWrap(inner, extra){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'+(extra||'')+'>'+inner+'</svg>';
+}
+var ICONS = {
+  close: svgWrap('<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>'),
+  check: svgWrap('<polyline points="5,13 10,18 19,7"/>'),
+  chevronDown: svgWrap('<polyline points="6,9 12,15 18,9"/>'),
+  chevronRight: svgWrap('<polyline points="9,6 15,12 9,18"/>'),
+  plus: svgWrap('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
+  settings: svgWrap('<line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2.1"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2.1"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="10" cy="17" r="2.1"/>'),
+  upload: svgWrap('<path d="M12 16V4"/><polyline points="7,9 12,4 17,9"/><path d="M5 20h14"/>'),
+  download: svgWrap('<path d="M12 4v12"/><polyline points="7,11 12,16 17,11"/><path d="M5 20h14"/>'),
+  pencil: svgWrap('<path d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20z"/><line x1="13.3" y1="6.7" x2="17.3" y2="10.7"/>'),
+  flag: svgWrap('<line x1="5" y1="21" x2="5" y2="4"/><path d="M5 4h13l-3 4 3 4H5"/>'),
+  heart: svgWrap('<path d="M12 20s-7-4.4-9.5-9C.8 7.6 3 4 6.5 4c2 0 3.4 1.1 4 2.3.6-1.2 2-2.3 4-2.3 3.5 0 5.7 3.6 4 7-2.5 4.6-9.5 9-9.5 9z"/>'),
+  ruler: svgWrap('<rect x="3" y="9" width="18" height="6" rx="1.5"/><line x1="7" y1="9" x2="7" y2="12"/><line x1="11" y1="9" x2="11" y2="12"/><line x1="15" y1="9" x2="15" y2="12"/>'),
+  clock: svgWrap('<circle cx="12" cy="12" r="8.5"/><line x1="12" y1="12" x2="12" y2="7.5"/><line x1="12" y1="12" x2="15.2" y2="13.8"/>'),
+  sparkles: svgWrap('<path d="M12 3l1.4 4.6L18 9l-4.6 1.4L12 15l-1.4-4.6L6 9l4.6-1.4z"/><path d="M19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7z"/>'),
+  swap: svgWrap('<polyline points="7,4 3,8 7,12"/><line x1="3" y1="8" x2="21" y2="8"/><polyline points="17,12 21,16 17,20"/><line x1="21" y1="16" x2="3" y2="16"/>'),
+  copy: svgWrap('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 15V5a2 2 0 0 1 2-2h10"/>'),
+  reset: svgWrap('<path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3,4 3,9 8,9"/>'),
+  sun: svgWrap('<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="6.6" y2="6.6"/><line x1="17.4" y1="17.4" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="6.6" y2="17.4"/><line x1="17.4" y1="6.6" x2="19.1" y2="4.9"/>'),
+  moon: svgWrap('<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>'),
+  info: svgWrap('<circle cx="12" cy="12" r="8.5"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.6" r="0.7" fill="currentColor" stroke="none"/>'),
+  alert: svgWrap('<path d="M12 3.5L22 20H2z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="0.7" fill="currentColor" stroke="none"/>'),
+  trash: svgWrap('<path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13h10l1-13"/>'),
+  link: svgWrap('<path d="M9 15l6-6"/><path d="M8 12l-2.5 2.5a3.5 3.5 0 0 0 5 5L13 17"/><path d="M16 12l2.5-2.5a3.5 3.5 0 0 0-5-5L11 7"/>'),
+  grip: svgWrap('<circle cx="9" cy="6" r="1" fill="currentColor"/><circle cx="15" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="18" r="1" fill="currentColor"/><circle cx="15" cy="18" r="1" fill="currentColor"/>'),
+  shieldmark: svgWrap('<path d="M12 2.5l8 3.5v5.2c0 5-3.4 8.3-8 10.3-4.6-2-8-5.3-8-10.3V6z"/><path d="M12 7.5v9M8.3 10.3L12 7.5l3.7 2.8" stroke-width="1.6"/>', ' style="color:var(--bronze)"'),
+  emblem: '<svg viewBox="0 0 240 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Velvet Viking emblem">'+
+    '<rect x="92" y="8" width="56" height="32" rx="4" fill="currentColor"/>'+
+    '<rect x="112" y="40" width="16" height="26" fill="currentColor"/>'+
+    '<line x1="86" y1="98" x2="40" y2="52" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>'+
+    '<path d="M42,50 L14,26 Q -8,58 16,86 L 46,58 Z" fill="currentColor"/>'+
+    '<line x1="154" y1="98" x2="200" y2="52" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>'+
+    '<path d="M198,50 L226,26 Q248,58 224,86 L194,58 Z" fill="currentColor"/>'+
+    '<circle cx="120" cy="132" r="62" fill="none" stroke="currentColor" stroke-width="3"/>'+
+    '<circle cx="120" cy="132" r="54" fill="none" stroke="currentColor" stroke-width="1.5"/>'+
+    '<g stroke="currentColor" stroke-width="3.5" stroke-linecap="round">'+
+      '<line x1="120" y1="86" x2="120" y2="114"/><line x1="120" y1="150" x2="120" y2="178"/>'+
+      '<line x1="74" y1="132" x2="102" y2="132"/><line x1="138" y1="132" x2="166" y2="132"/>'+
+      '<line x1="88" y1="100" x2="106" y2="118"/><line x1="134" y1="146" x2="152" y2="164"/>'+
+      '<line x1="152" y1="100" x2="134" y2="118"/><line x1="106" y1="146" x2="88" y2="164"/>'+
+    '</g>'+
+    '<circle cx="120" cy="132" r="10" fill="var(--gold)"/>'+
+  '</svg>',
+  target: svgWrap('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>'),
+  zap: svgWrap('<path d="M12.5 2.5L4 13h6l-1 8.5L20 11h-6.5z"/>')
+};
+
+/* =========================================================
+   FILE PARSERS — GPX / CSV / FIT (ported, distance-agnostic)
+   ========================================================= */
+function haversineKm(lat1,lon1,lat2,lon2){
+  var R = 6371;
+  var dLat = (lat2-lat1) * Math.PI/180;
+  var dLon = (lon2-lon1) * Math.PI/180;
+  var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+          Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180) *
+          Math.sin(dLon/2)*Math.sin(dLon/2);
+  var c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R*c;
+}
+
+function parseGPX(text){
+  var doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error('That file doesn\u2019t look like valid GPX.');
+  var trkpts = Array.prototype.slice.call(doc.getElementsByTagName('trkpt'));
+  if (!trkpts.length) throw new Error('No track points found in this GPX file.');
+  var totalDist = 0, prev = null, hrSum = 0, hrCount = 0, times = [];
+  trkpts.forEach(function(pt){
+    var lat = parseFloat(pt.getAttribute('lat'));
+    var lon = parseFloat(pt.getAttribute('lon'));
+    var timeEls = pt.getElementsByTagName('time');
+    if (timeEls.length) { var t = new Date(timeEls[0].textContent); if (!isNaN(t)) times.push(t); }
+    var all = pt.getElementsByTagName('*');
+    for (var i=0;i<all.length;i++){
+      if (all[i].localName === 'hr'){
+        var v = parseFloat(all[i].textContent);
+        if (!isNaN(v)) { hrSum += v; hrCount++; }
+        break;
+      }
+    }
+    if (prev && !isNaN(lat) && !isNaN(lon)) totalDist += haversineKm(prev.lat, prev.lon, lat, lon);
+    if (!isNaN(lat) && !isNaN(lon)) prev = {lat:lat, lon:lon};
+  });
+  var durationSec = times.length>=2 ? (times[times.length-1]-times[0])/1000 : null;
+  var paceSecPerKm = (durationSec && totalDist>0.05) ? durationSec/totalDist : null;
+  var date = times.length ? times[0].toISOString().slice(0,10) : null;
+  return {
+    source:'GPX', date: date,
+    km: round1(totalDist),
+    pace: paceSecPerKm ? secToPace(paceSecPerKm) : null,
+    hr: hrCount ? Math.round(hrSum/hrCount) : null,
+    durationSec: durationSec
+  };
+}
+
+function splitCSVLine(line){
+  var out = [], cur = '', inQ = false;
+  for (var i=0;i<line.length;i++){
+    var ch = line[i];
+    if (ch === '"'){
+      if (inQ && line[i+1] === '"'){ cur+='"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === ',' && !inQ){
+      out.push(cur); cur='';
+    } else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+function parseCSV(text){
+  var lines = text.split(/\r?\n/).filter(function(l){ return l.trim().length; });
+  if (lines.length < 2) throw new Error('This CSV doesn\u2019t have any data rows.');
+  var headers = splitCSVLine(lines[0]).map(function(h){ return h.trim().toLowerCase(); });
+  var find = function(subs){
+    for (var i=0;i<headers.length;i++){
+      for (var j=0;j<subs.length;j++){ if (headers[i].indexOf(subs[j]) !== -1) return i; }
+    }
+    return -1;
+  };
+  var distIdx = find(['distance']);
+  var hrIdx = find(['average heart', 'avg heart', 'heart rate', 'heart_rate']);
+  var paceIdx = find(['average pace','avg pace','pace']);
+  var speedIdx = find(['average speed','avg speed','speed']);
+  var dateIdx = find(['date','start time','activity date']);
+  var rows = [];
+  for (var r=1;r<lines.length;r++){
+    var cells = splitCSVLine(lines[r]);
+    if (!cells.some(function(c){return c.trim().length;})) continue;
+    var kmRaw = distIdx!==-1 ? parseFloat(cells[distIdx]) : null;
+    var paceStr = paceIdx!==-1 ? cells[paceIdx].trim() : null;
+    var speedRaw = speedIdx!==-1 ? parseFloat(cells[speedIdx]) : null;
+    var hrRaw = hrIdx!==-1 ? parseFloat(cells[hrIdx]) : null;
+    var dateRaw = dateIdx!==-1 ? cells[dateIdx].trim() : null;
+    var pace = null;
+    if (paceStr && /^\d+:\d+/.test(paceStr)) pace = paceStr.match(/\d+:\d+/)[0];
+    else if (speedRaw && speedRaw>0) pace = secToPace(3600/speedRaw > 1000 ? null : (60/speedRaw)*60 ); // speed assumed km/h -> sec/km
+    var isoDate = null;
+    if (dateRaw){
+      var pd = new Date(dateRaw);
+      if (!isNaN(pd)) isoDate = pd.toISOString().slice(0,10);
+    }
+    if (kmRaw || pace || hrRaw){
+      rows.push({
+        date: isoDate, dateRaw: dateRaw,
+        km: (kmRaw && !isNaN(kmRaw)) ? round1(kmRaw) : null,
+        pace: pace,
+        hr: (hrRaw && !isNaN(hrRaw)) ? Math.round(hrRaw) : null
+      });
+    }
+  }
+  if (!rows.length) throw new Error('Couldn\u2019t find distance, pace or heart-rate columns in this CSV.');
+  return { source:'CSV', rows: rows };
+}
+
+var FIT_EPOCH_OFFSET = 631065600; // seconds between Unix epoch and FIT epoch (1989-12-31T00:00:00Z)
+
+function fitReadField(view, offset, size, baseType, le){
+  try{
+    switch(baseType){
+      case 0x00: case 0x02: case 0x0A: return view.getUint8(offset);
+      case 0x01: return view.getInt8(offset);
+      case 0x84: case 0x8B: return size>=2 ? view.getUint16(offset, le) : view.getUint8(offset);
+      case 0x83: return view.getInt16(offset, le);
+      case 0x86: case 0x8C: return size>=4 ? view.getUint32(offset, le) : view.getUint16(offset, le);
+      case 0x85: return view.getInt32(offset, le);
+      case 0x88: return view.getFloat32(offset, le);
+      case 0x89: return view.getFloat64(offset, le);
+      default: return null; // strings / byte arrays not needed for our summary fields
+    }
+  }catch(e){ return null; }
+}
+
+function parseFIT(buffer){
+  var view = new DataView(buffer);
+  var headerSize = view.getUint8(0);
+  var sig = String.fromCharCode(view.getUint8(8),view.getUint8(9),view.getUint8(10),view.getUint8(11));
+  if (sig !== '.FIT') throw new Error('That file doesn\u2019t look like a valid FIT file.');
+  var dataSize = view.getUint32(4, true);
+  var offset = headerSize;
+  var end = Math.min(headerSize + dataSize, view.byteLength);
+  var localDefs = {};
+  var records = [];
+  var sessionMsg = null;
+  var guard = 0;
+
+  while (offset < end && guard < 200000){
+    guard++;
+    var header = view.getUint8(offset); offset += 1;
+    if (header & 0x80){ break; } // compressed-timestamp header stream — not supported, stop gracefully with whatever we parsed so far
+    var isDef = (header & 0x40) !== 0;
+    var localType = header & 0x0F;
+    if (isDef){
+      offset += 1; // reserved
+      var arch = view.getUint8(offset); offset += 1;
+      var le = (arch === 0);
+      var globalNum = le ? view.getUint16(offset,true) : view.getUint16(offset,false); offset += 2;
+      var numFields = view.getUint8(offset); offset += 1;
+      var fields = [];
+      for (var i=0;i<numFields;i++){
+        fields.push({ defNum: view.getUint8(offset), size: view.getUint8(offset+1), baseType: view.getUint8(offset+2) });
+        offset += 3;
+      }
+      var devFields = [];
+      if (header & 0x20){
+        var numDev = view.getUint8(offset); offset += 1;
+        for (var j=0;j<numDev;j++){ devFields.push({ size: view.getUint8(offset+1) }); offset += 3; }
+      }
+      localDefs[localType] = { globalNum: globalNum, le: le, fields: fields, devFields: devFields };
+    } else {
+      var def = localDefs[localType];
+      if (!def){ break; }
+      var msg = {};
+      for (var k=0;k<def.fields.length;k++){
+        var f = def.fields[k];
+        msg[f.defNum] = fitReadField(view, offset, f.size, f.baseType, def.le);
+        offset += f.size;
+      }
+      for (var dv=0; dv<def.devFields.length; dv++){ offset += def.devFields[dv].size; }
+      if (def.globalNum === 20) records.push(msg);
+      if (def.globalNum === 18) sessionMsg = msg;
+    }
+  }
+
+  var kmVal=null, paceVal=null, hrVal=null, dateVal=null;
+  if (sessionMsg){
+    if (sessionMsg[9] != null) kmVal = round1(sessionMsg[9] / 100 / 1000);
+    if (sessionMsg[16] != null) hrVal = sessionMsg[16];
+    if (sessionMsg[7] != null && kmVal){ paceVal = secToPace((sessionMsg[7]/1000) / kmVal); }
+    if (sessionMsg[253] != null) dateVal = new Date((sessionMsg[253]+FIT_EPOCH_OFFSET)*1000).toISOString().slice(0,10);
+  } else if (records.length){
+    var last = records[records.length-1];
+    var first = records[0];
+    if (last[5] != null) kmVal = round1(last[5]/100/1000);
+    var hrs = records.map(function(r){return r[3];}).filter(function(v){return v!=null;});
+    if (hrs.length) hrVal = Math.round(hrs.reduce(function(a,b){return a+b;},0)/hrs.length);
+    if (first[253]!=null && last[253]!=null && kmVal){
+      var durSec = last[253]-first[253];
+      if (durSec>0) paceVal = secToPace(durSec/kmVal);
+    }
+    if (first[253]!=null) dateVal = new Date((first[253]+FIT_EPOCH_OFFSET)*1000).toISOString().slice(0,10);
+  }
+  if (kmVal==null && hrVal==null) throw new Error('Couldn\u2019t find a distance or heart-rate summary in this FIT file.');
+  return { source:'FIT', date:dateVal, km:kmVal, pace:paceVal, hr:hrVal };
+}
+
+/* =========================================================
+   TOAST
+   ========================================================= */
+function showToast(msg){
+  var mount = document.getElementById('toast-mount');
+  if (!mount) return;
+  var t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  mount.innerHTML = '';
+  mount.appendChild(t);
+  setTimeout(function(){ if (t.parentNode) t.parentNode.removeChild(t); }, 2700);
+}
+
+/* =========================================================
+   GOAL / VDOT RESOLUTION (resolve-at-render, same pattern as
+   the original pace ladder: change a goal, everything downstream
+   \u2014 every workout target and the pacing modal \u2014 updates instantly)
+   ========================================================= */
+function getGoal(key){ return (state.setup && state.setup.goals) ? state.setup.goals[key] : null; }
+function getActiveGoal(){ return state.setup ? getGoal(state.setup.activeGoal) : null; }
+function getActiveVDOT(){
+  var g = getActiveGoal();
+  if (!g || !g.timeSec || !state.setup) return null;
+  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+  return vdotFromPerformance(profile.raceKm*1000, g.timeSec);
+}
+function getActivePaces(){ return trainingPacesFromVDOT(getActiveVDOT()); }
+function getGoalPaceSecPerKm(){
+  var vdot = getActiveVDOT();
+  if (!vdot || !state.setup) return null;
+  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+  return goalPaceSecPerKm(vdot, profile.raceKm*1000);
+}
+function getDayTargets(dd){
+  var tm = TYPE_META[dd.type];
+  var out = { pace:null, goalPace:null };
+  var paces = getActivePaces();
+  if (tm.zoneKey && paces[tm.zoneKey] && paces[tm.zoneKey].slow!=null){
+    var z = paces[tm.zoneKey];
+    var pSlow = fmtPaceFromSecPerKm(z.slow), pFast = fmtPaceFromSecPerKm(z.fast);
+    out.pace = pSlow.split('/')[0]+'\u2013'+pFast;
+  }
+  if (dd.type==='race'){
+    var gp = getGoalPaceSecPerKm();
+    if (gp) out.pace = fmtPaceFromSecPerKm(gp);
+  }
+  if (dd.mpSegment){
+    var gp2 = getGoalPaceSecPerKm();
+    if (gp2) out.goalPace = 'Goal '+fmtPaceFromSecPerKm(gp2);
+  }
+  return out;
+}
+
+/* =========================================================
+   STATS
+   ========================================================= */
+function computeStats(){
+  var totalRuns=0, completedRuns=0, totalKm=0, completedKm=0;
+  state.days.forEach(function(dd){
+    if (dd.type==='rest') return;
+    totalRuns++; totalKm += dd.km||0;
+    if (dd.completed){ completedRuns++; completedKm += (dd.actual&&dd.actual.km!=null)?dd.actual.km:(dd.km||0); }
+  });
+  var raceDay = state.setup && state.setup.raceDate ? state.setup.raceDate : null;
+  return {
+    totalRuns:totalRuns, completedRuns:completedRuns, totalKm:round1(totalKm), completedKm:round1(completedKm),
+    daysToRace: raceDay ? daysBetween(todayStr(), raceDay) : null
+  };
+}
+function weekDateRange(weekNum){
+  var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
+  return { start: wdays[0].date, end: wdays[wdays.length-1].date };
+}
+function totalWeeksInPlan(){ return state.days.length ? state.days[state.days.length-1].week : 0; }
+
+/* =========================================================
+   TOPBAR / HERO / RUNE ROAD / GOAL TOGGLE
+   ========================================================= */
+function renderVVVMark(idSuffix, extraClass){
+  var s = idSuffix;
+  return '<svg class="vvv-mark '+(extraClass||'')+'" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Velvet Viking Valhalla mark">'+
+    '<defs>'+
+      '<linearGradient id="vvvBaseGrad-'+s+'" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C5A059"/><stop offset="100%" stop-color="#8A6D2B"/></linearGradient>'+
+      '<linearGradient id="vvvTopGrad-'+s+'" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FFE082"/><stop offset="100%" stop-color="#D4AF37"/></linearGradient>'+
+      '<filter id="vvvShadow-'+s+'" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.45"/></filter>'+
+    '</defs>'+
+    '<path d="M18.0,56.0 L50.4,38.0 L61.2,43.4 L90.0,152.0 L118.8,43.4 L129.6,38.0 L162.0,56.0 L90.0,188.0 Z" fill="url(#vvvBaseGrad-'+s+')"/>'+
+    '<path d="M78.0,56.0 L110.4,38.0 L121.2,43.4 L150.0,152.0 L178.8,43.4 L189.6,38.0 L222.0,56.0 L150.0,188.0 Z" fill="url(#vvvBaseGrad-'+s+')"/>'+
+    '<path d="M74.0,40.0 L94.7,30.0 L105.3,33.0 L120.0,170.0 L134.7,33.0 L145.3,30.0 L166.0,40.0 L120.0,205.0 Z" fill="url(#vvvTopGrad-'+s+')" filter="url(#vvvShadow-'+s+')"/>'+
+  '</svg>';
+}
+function renderTopbar(){
+  var row1 = '<div class="topbar-inner">'+
+    '<div class="brandmark"><span class="mark">'+ICONS.emblem+'</span>'+renderVVVMark('tb','vvv-mark-sm')+'<span class="word">Velvet Viking</span></div>'+
+    '<div class="topbar-actions">'+
+      '<div class="unit-toggle" role="group" aria-label="Distance units">'+
+        '<button type="button" class="'+(state.units!=='mi'?'active':'')+'" data-action="set-units" data-units="km">KM</button>'+
+        '<button type="button" class="'+(state.units==='mi'?'active':'')+'" data-action="set-units" data-units="mi">MI</button>'+
+      '</div>'+
+      '<button class="icon-btn" type="button" data-action="toggle-theme" aria-label="Toggle light/dark theme">'+(state.theme==='dark'?ICONS.sun:ICONS.moon)+'</button>'+
+    '</div>'+
+  '</div>';
+
+  var row2 = '';
+  if (state.setup && state.setup.goals){
+    row2 = '<div class="topbar-row2" id="topbar-row2">'+
+      '<div class="goal-toggle-compact">'+renderGoalButtons('compact')+'</div>'+
+      '<div id="countdown-mount">'+renderCountdown()+'</div>'+
+    '</div>';
+  }
+  return '<div class="topbar">'+row1+row2+'</div>';
+}
+
+function renderCountdown(){
+  if (!state.setup) return '';
+  var target = new Date(state.setup.raceDate+'T00:00:00').getTime();
+  var diff = Math.max(0, target-Date.now());
+  if (diff<=0) return '<div class="countdown"><span class="cd-race-day">Race Day \u2014 Go!</span></div>';
+  var days = Math.floor(diff/86400000);
+  var hours = Math.floor((diff%86400000)/3600000);
+  var mins = Math.floor((diff%3600000)/60000);
+  return '<div class="countdown">'+
+    '<div class="cd-seg"><span class="cd-num font-mono">'+days+'</span><span class="cd-unit">d</span></div>'+
+    '<div class="cd-seg"><span class="cd-num font-mono">'+hours+'</span><span class="cd-unit">h</span></div>'+
+    '<div class="cd-seg"><span class="cd-num font-mono">'+mins+'</span><span class="cd-unit">m</span></div>'+
+  '</div>';
+}
+
+var countdownTimer = null;
+function startCountdownTimer(){
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(function(){
+    if (!state.setup) return;
+    var m = document.getElementById('countdown-mount');
+    if (m) m.innerHTML = renderCountdown();
+  }, 30000);
+}
+
+function renderRuneRoad(){
+  var today = todayStr();
+  var totalWeeks = totalWeeksInPlan();
+  var checkpointWeek = null;
+  state.days.forEach(function(dd){ if (dd.type==='checkpoint') checkpointWeek = dd.week; });
+  var html = '<div class="runeroad-track">';
+  for (var w=1; w<=totalWeeks; w++){
+    (function(w){
+      var range = weekDateRange(w);
+      var isCurrent = today>=range.start && today<=range.end;
+      var isPast = today>range.end;
+      var wdays = state.days.filter(function(dd){ return dd.week===w; });
+      var allDone = wdays.every(function(dd){ return dd.type==='rest'||dd.completed; });
+      var cls = 'rune-node';
+      if (allDone||isPast) cls+=' done';
+      if (isCurrent) cls+=' current';
+      if (w===checkpointWeek) cls+=' checkpoint';
+      if (w===totalWeeks) cls+=' race';
+      if (w>1) html += '<div class="rune-line'+((isPast||allDone)?' done':'')+'"></div>';
+      html += '<div class="'+cls+'"><button type="button" data-action="jump-week" data-week="'+w+'" aria-label="Jump to week '+w+'"><span class="num">'+w+'</span></button></div>';
+    })(w);
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderGoalButtons(mode){
+  if (!state.setup || !state.setup.goals) return '';
+  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+  var compact = mode==='compact';
+  var opts = GOAL_KEYS.map(function(k){
+    var g = state.setup.goals[k];
+    if (!g || !g.timeSec) return '';
+    var active = state.setup.activeGoal===k ? ' active' : '';
+    var extra = '';
+    if (!compact){
+      var vdot = vdotFromPerformance(profile.raceKm*1000, g.timeSec);
+      extra = '<div class="vdot-tag">VDOT '+vdot.toFixed(1)+'</div>';
+    }
+    return '<button type="button" class="goal-opt'+active+(compact?' goal-opt-sm':'')+'" data-action="set-goal" data-goal="'+k+'">'+
+      '<div class="t font-mono">'+k+'</div>'+(compact?'':'<div class="p font-mono">'+secToClock(g.timeSec)+'</div>')+
+      extra+'</button>';
+  }).join('');
+  return '<div class="goal-options">'+opts+'</div>';
+}
+function renderGoalToggle(){
+  if (!state.setup || !state.setup.goals) return '';
+  return '<div class="goal-toggle-hero"><div class="setup-section-title" style="text-align:center;">Active Goal</div>'+renderGoalButtons('full')+'</div>';
+}
+
+function renderHero(){
+  var html = '<div class="hero">'+
+    '<div class="emblem-wrap">'+ICONS.emblem+'</div>'+
+    renderVVVMark('hero','vvv-mark-hero')+
+    '<div class="brand-name">Velvet Viking Valhalla</div>'+
+    '<div class="brand-rule"></div>'+
+    '<div class="hero-tagline">Earn Your Place.</div>';
+
+  if (!state.setup){
+    html += '<div class="setup-cta">'+
+      '<h2 class="font-display">Build Your Training Block</h2>'+
+      '<p>Pick a race distance, your current weekly mileage and a recent benchmark time \u2014 get a full VDOT-paced block for anything from a 5K to a 50K ultra.</p>'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">'+ICONS.target+' Build My Plan</button>'+
+    '</div></div>';
+    return html;
+  }
+
+  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+  var s = computeStats();
+  var runsPct = s.totalRuns ? Math.round(100*s.completedRuns/s.totalRuns) : 0;
+  var kmPct = s.totalKm ? Math.round(100*s.completedKm/s.totalKm) : 0;
+  var raceText = (s.daysToRace!=null && s.daysToRace>0) ? s.daysToRace : '\u2014';
+  var raceLabel = (s.daysToRace==null) ? 'Race' : (s.daysToRace>0 ? (s.daysToRace===1?'Day to Race':'Days to Race') : (s.daysToRace===0?'Race Day':'Race Complete'));
+  var goal = getActiveGoal();
+
+  html += '<div class="distance-badge">'+ICONS.flag+' '+escapeHtml(profile.label)+' \u2014 '+escapeHtml(profile.blockName)+'</div>'+
+    '<div class="runeroad">'+renderRuneRoad()+'</div>'+
+    '<div class="stat-row">'+
+      '<div class="stat"><div class="v font-mono">'+raceText+'</div><div class="l">'+raceLabel+'</div></div>'+
+      '<div class="stat"><div class="v font-mono">'+(goal&&goal.timeSec?secToClock(goal.timeSec):'\u2014')+'</div><div class="l">Goal '+state.setup.activeGoal+'</div></div>'+
+      '<div class="stat"><div class="v font-mono">'+s.completedRuns+'/'+s.totalRuns+'</div><div class="l">Runs Done</div></div>'+
+    '</div>'+
+    '<div class="progress-bars wrap">'+
+      '<div class="pbar-row"><div class="pbar-label font-head">Runs</div><div class="pbar-track"><div class="pbar-fill" style="width:'+runsPct+'%"></div></div><div class="pbar-num font-mono">'+runsPct+'%</div></div>'+
+      '<div class="pbar-row"><div class="pbar-label font-head">Volume</div><div class="pbar-track"><div class="pbar-fill" style="width:'+kmPct+'%"></div></div><div class="pbar-num font-mono">'+kmToDisplay(s.completedKm)+'/'+fmtDist(s.totalKm)+'</div></div>'+
+    '</div>'+
+    renderGoalToggle()+
+    '<div class="plan-summary-bar" data-action="open-setup">'+
+      '<div class="psb-main"><div class="psb-title">Plan Settings</div><div class="psb-sub">'+escapeHtml(profile.label)+' \u00b7 '+fmtDist(state.setup.currentVolume)+'/wk start \u00b7 Race '+dShort(state.setup.raceDate)+'</div></div>'+
+      ICONS.chevronRight+
+    '</div>'+
+  '</div>';
+  return html;
+}
+
+function dow2(d){ return dow(d); } // alias kept for clarity in day-card code below
+
+/* =========================================================
+   DAY CARD
+   ========================================================= */
+function getDayDurationSec(dd){
+  if (!dd.km || dd.type==='rest') return 0;
+  var tm = TYPE_META[dd.type];
+  var paces = getActivePaces();
+  var paceSec = null;
+  if (tm.zoneKey && paces[tm.zoneKey] && paces[tm.zoneKey].slow!=null){
+    paceSec = (paces[tm.zoneKey].slow+paces[tm.zoneKey].fast)/2;
+  }
+  if (dd.type==='race'){ var gp=getGoalPaceSecPerKm(); if (gp) paceSec=gp; }
+  if (!paceSec) paceSec = 330;
+  return dd.km*paceSec;
+}
+function needsFueling(dd){
+  if (dd.type==='rest') return false;
+  return getDayDurationSec(dd) > 75*60 || dd.km > 14;
+}
+function renderFuelingCard(dd){
+  if (!needsFueling(dd)) return '';
+  var durSec = getDayDurationSec(dd);
+  var hours = durSec/3600;
+  var carbsLow = Math.round(hours*60), carbsHigh = Math.round(hours*90);
+  var gelsLow = Math.max(1,Math.round(carbsLow/25)), gelsHigh = Math.max(1,Math.round(carbsHigh/25));
+  var fluidLow = Math.round(hours*500), fluidHigh = Math.round(hours*750);
+  var h = Math.floor(durSec/3600), m = Math.round((durSec%3600)/60);
+  return '<details class="fuel-card">'+
+    '<summary>'+ICONS.zap+'Fueling &amp; Hydration Strategy</summary>'+
+    '<div class="fuel-body">'+
+      '<div class="fuel-row"><span class="k">Est. time-on-feet</span><span class="v font-mono">'+h+'h '+(m<10?'0':'')+m+'m</span></div>'+
+      '<div class="fuel-row"><span class="k">Carb intake</span><span class="v font-mono">60\u201390g/hr</span></div>'+
+      '<div class="fuel-row"><span class="k">Total carbs</span><span class="v font-mono">'+carbsLow+'\u2013'+carbsHigh+'g</span></div>'+
+      '<div class="fuel-row"><span class="k">Gels / chews (\u224825g each)</span><span class="v font-mono">'+gelsLow+'\u2013'+gelsHigh+'</span></div>'+
+      '<div class="fuel-row"><span class="k">Fluids</span><span class="v font-mono">'+fluidLow+'\u2013'+fluidHigh+'ml</span></div>'+
+      '<div class="fuel-hint">Dial this in during training \u2014 don\u2019t try anything new on race day.</div>'+
+    '</div>'+
+  '</details>';
+}
+
+function renderDayCard(dd){
+  var tm = TYPE_META[dd.type];
+  var targets = getDayTargets(dd);
+  var isToday = dd.date === todayStr();
+  var cls = 'day type-'+tm.cls + (isToday?' is-today':'');
+  var targetsHtml = '';
+  if (targets.pace) targetsHtml += '<span>'+targets.pace+'</span>';
+  if (dd.km) targetsHtml += '<span>'+fmtDist(dd.km)+'</span>';
+  if (targets.goalPace) targetsHtml += '<span class="mp">'+targets.goalPace+'</span>';
+
+  var actualHtml = '';
+  if (dd.completed){
+    var a = dd.actual || {};
+    actualHtml = '<div class="actual-panel">'+
+      '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
+      '<div class="actual-field"><label>Avg Pace /'+displayUnit()+'</label><input type="text" placeholder="m:ss" value="'+(a.pace||'')+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
+      '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'+
+      '<div class="actual-field"><label>RPE (1\u201310)</label><input type="number" min="1" max="10" inputmode="numeric" value="'+(a.rpe!=null?a.rpe:'')+'" data-action="actual-field" data-field="rpe" data-day="'+dd.id+'"></div>'+
+      '<div class="actual-field full"><label>Notes</label><textarea data-action="actual-field" data-field="notes" data-day="'+dd.id+'">'+escapeHtml(a.notes||'')+'</textarea></div>'+
+      '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>'+
+    '</div>';
+  }
+
+  return '<div class="'+cls+'" id="day-'+dd.id+'" data-day="'+dd.id+'" draggable="true">'+
+    '<div class="day-top">'+
+      '<div class="day-check"><input type="checkbox" '+(dd.completed?'checked':'')+' '+(dd.type==='rest'?'disabled':'')+' data-action="toggle-complete" data-day="'+dd.id+'" aria-label="Mark session complete"></div>'+
+      '<div class="day-main">'+
+        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+tm.label+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+'</div>'+
+        '<div class="day-title">'+escapeHtml(dd.title)+'</div>'+
+        (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
+        '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>'+
+        renderFuelingCard(dd)+
+      '</div>'+
+      '<div class="day-actions"><button type="button" data-action="open-edit" data-day="'+dd.id+'" aria-label="Edit session">'+ICONS.pencil+'</button></div>'+
+    '</div>'+
+    actualHtml+
+  '</div>';
+}
+
+/* =========================================================
+   WEEK ACCORDION + FITNESS CHECKPOINT
+   ========================================================= */
+var expandedWeeks = {};
+function initExpanded(){
+  expandedWeeks = {};
+  var today = todayStr();
+  var totalWeeks = totalWeeksInPlan();
+  var found = false;
+  for (var w=1; w<=totalWeeks; w++){
+    var r = weekDateRange(w);
+    if (today>=r.start && today<=r.end){ expandedWeeks[w]=true; found=true; break; }
+  }
+  if (!found && totalWeeks>0) expandedWeeks[1]=true;
+}
+function weekVolume(weekNum){
+  var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
+  var totalKm=0, doneKm=0;
+  wdays.forEach(function(dd){
+    totalKm += dd.km||0;
+    if (dd.completed) doneKm += (dd.actual&&dd.actual.km!=null)?dd.actual.km:(dd.km||0);
+  });
+  return { total: round1(totalKm), done: round1(doneKm) };
+}
+function weekPhaseLabel(weekNum){
+  var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
+  var hasCheckpoint = wdays.some(function(dd){ return dd.type==='checkpoint'; });
+  var hasRace = wdays.some(function(dd){ return dd.type==='race'; });
+  if (hasRace) return 'Race Week';
+  if (hasCheckpoint) return 'Fitness Checkpoint';
+  if (isTaperWeek(weekNum)) return 'Taper Phase';
+  return 'Week '+weekNum;
+}
+function renderWeekAccordion(weekNum){
+  var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
+  var range = weekDateRange(weekNum);
+  var vol = weekVolume(weekNum);
+  var today = todayStr();
+  var hasToday = today>=range.start && today<=range.end;
+  var daysHtml = wdays.map(renderDayCard).join('');
+  var openCls = expandedWeeks[weekNum] ? ' open' : '';
+  var taper = isTaperWeek(weekNum);
+  var taperNote = taper ? '<div class="taper-note">'+ICONS.zap+' Taper: volume drops, but keep hitting these paces \u2014 sharpness matters more than mileage from here.</div>' : '';
+  return '<div class="week'+openCls+(taper?' is-taper':'')+'" id="week-'+weekNum+'">'+
+    '<button type="button" class="week-head" data-action="toggle-week" data-week="'+weekNum+'">'+
+      '<div class="week-num font-display">'+(weekNum<10?'0':'')+weekNum+'</div>'+
+      '<div class="week-meta">'+
+        '<div class="week-phase font-head">'+weekPhaseLabel(weekNum)+(hasToday?'<span class="week-today-flag font-head">Now</span>':'')+'</div>'+
+        '<div class="week-range font-mono">'+dShort(range.start)+' \u2013 '+dShort(range.end)+'</div>'+
+      '</div>'+
+      '<div class="week-vol"><div class="v font-mono">'+kmToDisplay(vol.done)+'/'+kmToDisplay(vol.total)+'</div><div class="l font-head">'+displayUnit()+'</div></div>'+
+      '<div class="week-chevron">'+ICONS.chevronDown+'</div>'+
+    '</button>'+
+    taperNote+
+    '<div class="week-body"><div class="week-body-inner">'+daysHtml+renderZoneBreakdown(weekNum)+'</div></div>'+
+  '</div>';
+}
+
+function computeWeekZoneBreakdown(weekNum){
+  var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
+  var paces = getActivePaces();
+  var goalPace = getGoalPaceSecPerKm();
+  var mid = function(z){ return (z && z.slow!=null) ? (z.slow+z.fast)/2 : null; };
+  var easyPace = mid(paces.E), tPace = mid(paces.T), iPace = mid(paces.I);
+  var zones = { easy:0, mp:0, threshold:0, interval:0 };
+  function addTime(key, km, paceSec){ if (km>0 && paceSec) zones[key] += km*paceSec; }
+
+  wdays.forEach(function(dd){
+    if (dd.type==='rest' || !dd.km) return;
+    if (dd.type==='easy'){ addTime('easy', dd.km, easyPace); }
+    else if (dd.type==='long'){
+      if (dd.mpSegment && goalPace){ addTime('mp', dd.km*0.3, goalPace); addTime('easy', dd.km*0.7, easyPace); }
+      else { addTime('easy', dd.km, easyPace); }
+    }
+    else if (dd.type==='tempo' || dd.type==='threshold'){ addTime('threshold', dd.km, tPace); }
+    else if (dd.type==='interval' || dd.type==='repetition'){ addTime('interval', dd.km, iPace); }
+    else if (dd.type==='checkpoint'){ addTime('easy', dd.km*0.4, easyPace); addTime('threshold', dd.km*0.6, tPace); }
+    else if (dd.type==='race'){ if (goalPace) addTime('mp', dd.km, goalPace); else addTime('easy', dd.km, easyPace); }
+  });
+  var totalSec = zones.easy+zones.mp+zones.threshold+zones.interval;
+  return { zones:zones, totalSec:totalSec };
+}
+
+function renderZoneBreakdown(weekNum){
+  var zb = computeWeekZoneBreakdown(weekNum);
+  if (zb.totalSec<=0) return '';
+  var pct = {};
+  ['easy','mp','threshold','interval'].forEach(function(k){ pct[k] = Math.round(100*zb.zones[k]/zb.totalSec); });
+  var sum = pct.easy+pct.mp+pct.threshold+pct.interval;
+  if (sum!==100 && sum>0){
+    var maxKey = 'easy';
+    ['mp','threshold','interval'].forEach(function(k){ if (pct[k]>pct[maxKey]) maxKey=k; });
+    pct[maxKey] += (100-sum);
+  }
+  var totalH = Math.floor(zb.totalSec/3600), totalM = Math.round((zb.totalSec%3600)/60);
+  var meta = [
+    {k:'easy', label:'Easy / Recovery', cls:'z-easy'},
+    {k:'mp', label:'Goal / MP', cls:'z-mp'},
+    {k:'threshold', label:'Threshold / Tempo', cls:'z-threshold'},
+    {k:'interval', label:'Interval / VO2max', cls:'z-interval'}
+  ];
+  var segs = meta.filter(function(m){ return pct[m.k]>0; }).map(function(m){
+    return '<div class="zbar-seg '+m.cls+'" style="width:'+pct[m.k]+'%"></div>';
+  }).join('');
+  var legend = meta.filter(function(m){ return pct[m.k]>0; }).map(function(m){
+    return '<div class="zleg-item"><span class="zleg-dot '+m.cls+'"></span>'+m.label+' '+pct[m.k]+'%</div>';
+  }).join('');
+  return '<div class="zone-card">'+
+    '<div class="zone-head"><span class="font-head">Weekly Zone Breakdown</span><span class="zone-time font-mono">'+totalH+'h '+(totalM<10?'0':'')+totalM+'m time-on-feet</span></div>'+
+    '<div class="zbar">'+segs+'</div>'+
+    '<div class="zone-legend">'+legend+'</div>'+
+  '</div>';
+}
+
+function renderCheckpointCard(){
+  var chkDay = null;
+  state.days.forEach(function(dd){ if (dd.type==='checkpoint') chkDay = dd; });
+  if (!chkDay) return '';
+  var hint = '';
+  if (chkDay.completed && chkDay.actual && chkDay.actual.pace){
+    hint = '<div class="hint font-mono">Your checkpoint effort: '+chkDay.actual.pace+'/km'+(chkDay.actual.hr?(' @ '+chkDay.actual.hr+' bpm'):'')+'</div>';
+  }
+  return '<div class="checkpoint">'+
+    '<h3 class="font-display">Fitness Checkpoint</h3>'+
+    '<p>Week '+chkDay.week+' is your data point. Reconsider your Active Goal below \u2014 every workout pace and the race-day target update automatically.</p>'+
+    hint+
+    renderGoalToggle()+
+  '</div>';
+}
+
+function renderCongratsBanner(){
+  return '<div class="congrats-banner">'+
+    '<div class="cg-title font-display">VALHALLA AWAITS</div>'+
+    '<div class="cg-quote font-head">THE PLAN IS EXECUTED.<br>VALHALLA AWAITS THE BOLD!<br>GO KILL IT, VIKING!</div>'+
+  '</div>';
+}
+function renderWeeksList(){
+  var totalWeeks = totalWeeksInPlan();
+  var chkWeek = null;
+  state.days.forEach(function(dd){ if (dd.type==='checkpoint') chkWeek = dd.week; });
+  var html = '';
+  for (var w=1; w<=totalWeeks; w++){
+    html += renderWeekAccordion(w);
+    if (w===chkWeek) html += renderCheckpointCard();
+  }
+  html += renderCongratsBanner();
+  return html;
+}
+
+/* =========================================================
+   MODAL INFRASTRUCTURE
+   ========================================================= */
+function openModal(html, extraClass){
+  closeModal();
+  var overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'modal-overlay';
+  overlay.innerHTML = '<div class="modal-card'+(extraClass?(' '+extraClass):'')+'">'+html+'</div>';
+  overlay.addEventListener('mousedown', function(e){ if (e.target===overlay) closeModal(); });
+  document.body.appendChild(overlay);
+}
+function closeModal(){
+  var existing = document.getElementById('modal-overlay');
+  if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+}
+
+/* =========================================================
+   PLAN BUILDER / SETUP MODAL
+   ========================================================= */
+function openSetupModal(){
+  var su = state.setup || {};
+  var distOptions = DISTANCE_ORDER.map(function(k){
+    var p = DISTANCE_PROFILES[k];
+    return '<option value="'+k+'" '+(su.distanceKey===k?'selected':'')+'>'+p.label+' \u2014 default '+p.weeks+'wk '+p.blockName+'</option>';
+  }).join('');
+  var benchDist = (su.benchmark && su.benchmark.distanceKey) || '5k';
+  var benchTime = (su.benchmark && su.benchmark.timeSec) ? secToClock(su.benchmark.timeSec) : '';
+  var vol = su.currentVolume || '';
+  var raceDate = su.raceDate || '';
+  var goals = su.goals || {};
+  var planWeeks = su.planWeeks || (su.distanceKey ? DISTANCE_PROFILES[su.distanceKey].weeks : 8);
+  var schedule = su.schedule || { activeDays:[0,1,2,4,5], longRunDay:5 };
+
+  var goalLabels = {A:'Dream Target', B:'Solid Target', C:'Safety Net'};
+  var goalRows = GOAL_KEYS.map(function(k){
+    var val = (goals[k] && goals[k].timeSec) ? secToClock(goals[k].timeSec) : '';
+    return '<div class="goal-input-row">'+
+      '<div class="gl">'+k+'</div>'+
+      '<input type="text" id="su-goal-'+k+'" placeholder="h:mm:ss" value="'+val+'">'+
+      '<div class="gp">'+goalLabels[k]+'</div>'+
+    '</div>';
+  }).join('');
+
+  var wdCheckboxes = ISO_WEEKDAY_NAMES.map(function(name, iso){
+    var checked = schedule.activeDays.indexOf(iso)!==-1;
+    return '<label class="wd-check'+(checked?' checked':'')+'"><input type="checkbox" data-wd="'+iso+'" '+(checked?'checked':'')+'>'+name+'</label>';
+  }).join('');
+  var longDayOptions = schedule.activeDays.slice().sort(function(a,b){return a-b;}).map(function(iso){
+    return '<option value="'+iso+'" '+(schedule.longRunDay===iso?'selected':'')+'>'+ISO_WEEKDAY_NAMES[iso]+'</option>';
+  }).join('');
+
+  var html = ''+
+  '<div class="modal-head"><h2 class="font-head">Build Your Training Block</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+  '<div class="modal-body">'+
+    '<div class="setup-section-title">Target Race</div>'+
+    '<div class="field"><label>Distance</label><select id="su-distance">'+distOptions+'</select></div>'+
+    '<div class="field"><label>Race Date</label><input type="date" id="su-racedate" value="'+raceDate+'"></div>'+
+    '<div class="field"><label>Plan Length (4\u201320 weeks)</label><input type="number" min="4" max="20" step="1" inputmode="numeric" id="su-planweeks" value="'+planWeeks+'"></div>'+
+    '<div class="field"><label>Current Weekly Volume (km)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'"></div>'+
+
+    '<div class="setup-section-title">Weekly Schedule</div>'+
+    '<div class="field-hint" style="margin-bottom:8px;">Pick 3\u20136 days you can run \u2014 workouts land only on these; everything else is rest.</div>'+
+    '<div class="weekday-grid" id="su-weekdays">'+wdCheckboxes+'</div>'+
+    '<div class="field"><label>Long Run Day</label><select id="su-longday">'+longDayOptions+'</select></div>'+
+
+    '<div class="setup-section-title">Recent Benchmark</div>'+
+    '<div class="field-hint" style="margin-bottom:8px;">A recent honest-effort 5K or 10K \u2014 your paces are built from this.</div>'+
+    '<div class="benchmark-row">'+
+      '<div class="field" style="margin-bottom:0;"><label>Distance</label><select id="su-bench-dist"><option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option><option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select></div>'+
+      '<div class="field" style="margin-bottom:0;"><label>Time</label><input type="text" id="su-bench-time" placeholder="mm:ss" value="'+benchTime+'"></div>'+
+    '</div>'+
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
+
+    '<div class="setup-section-title">Goal A / B / C \u2014 for the distance above</div>'+
+    goalRows+
+    '<div class="field-hint">Finish-time targets for whichever distance you picked. Toggle the Active Goal any time afterward \u2014 every workout pace updates instantly.</div>'+
+
+    '<div class="modal-actions">'+
+      '<button type="button" class="btn btn-primary" data-action="generate-plan">'+ICONS.check+' '+(state.setup?'Regenerate Plan':'Generate My Plan')+'</button>'+
+    '</div>'+
+    (state.setup ? '<div class="field-hint" style="margin-top:10px; text-align:center;">Regenerating rebuilds the whole schedule from these settings \u2014 logged actuals for days that no longer exist will be lost.</div>' : '')+
+  '</div>';
+  openModal(html);
+
+  var wdBox = document.getElementById('su-weekdays');
+  if (wdBox){
+    wdBox.addEventListener('change', function(){
+      var boxes = wdBox.querySelectorAll('input[type=checkbox]');
+      var checked = [];
+      boxes.forEach(function(cb){
+        cb.parentElement.classList.toggle('checked', cb.checked);
+        if (cb.checked) checked.push(parseInt(cb.getAttribute('data-wd'),10));
+      });
+      checked.sort(function(a,b){return a-b;});
+      var sel = document.getElementById('su-longday');
+      var current = parseInt(sel.value,10);
+      sel.innerHTML = checked.length
+        ? checked.map(function(iso){ return '<option value="'+iso+'" '+(iso===current?'selected':'')+'>'+ISO_WEEKDAY_NAMES[iso]+'</option>'; }).join('')
+        : '<option value="">\u2014 pick at least 3 days \u2014</option>';
+    });
+  }
+}
+
+/* =========================================================
+   RE-CALIBRATE ZONES MODAL \u2014 updates benchmark/goal paces
+   without touching dates, schedule or logged history. Every
+   pace on every card is resolved live from state.setup.goals,
+   so saving here is all that's needed for it to ripple through.
+   ========================================================= */
+function openRecalibrateModal(){
+  if (!state.setup) return;
+  var su = state.setup;
+  var profile = DISTANCE_PROFILES[su.distanceKey];
+  var benchDist = (su.benchmark && su.benchmark.distanceKey) || '5k';
+  var benchTime = (su.benchmark && su.benchmark.timeSec) ? secToClock(su.benchmark.timeSec) : '';
+  var goalLabels = {A:'Dream Target', B:'Solid Target', C:'Safety Net'};
+  var goalRows = GOAL_KEYS.map(function(k){
+    var g = su.goals[k];
+    var val = (g && g.timeSec) ? secToClock(g.timeSec) : '';
+    return '<div class="goal-input-row">'+
+      '<div class="gl">'+k+'</div>'+
+      '<input type="text" id="rc-goal-'+k+'" placeholder="h:mm:ss" value="'+val+'">'+
+      '<div class="gp">'+goalLabels[k]+'</div>'+
+    '</div>';
+  }).join('');
+  var html = ''+
+  '<div class="modal-head"><h2 class="font-head">Re-calibrate Training Zones</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+  '<div class="modal-body">'+
+    '<div class="field-hint" style="margin-bottom:12px;">Fitness changes over a block. Update your benchmark or goal times here any time \u2014 your schedule, dates and logged history stay exactly as they are; only your target paces move.</div>'+
+    '<div class="setup-section-title">Current Benchmark</div>'+
+    '<div class="benchmark-row">'+
+      '<div class="field" style="margin-bottom:0;"><label>Distance</label><select id="rc-bench-dist"><option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option><option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select></div>'+
+      '<div class="field" style="margin-bottom:0;"><label>Time</label><input type="text" id="rc-bench-time" placeholder="mm:ss" value="'+benchTime+'"></div>'+
+    '</div>'+
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="rc-suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
+    '<div class="setup-section-title">Goal A / B / C \u2014 for '+escapeHtml(profile.label)+'</div>'+
+    goalRows+
+    '<div class="modal-actions">'+
+      '<button type="button" class="btn btn-primary" data-action="save-recalibrate">'+ICONS.check+' Save & Re-tailor</button>'+
+    '</div>'+
+  '</div>';
+  openModal(html);
+}
+function handleRecalibrateSuggest(){
+  var benchDist = document.getElementById('rc-bench-dist').value;
+  var benchSec = clockToSec(document.getElementById('rc-bench-time').value.trim());
+  if (!benchSec){ showToast('Enter a valid benchmark time first (mm:ss)'); return; }
+  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+  var benchProfile = DISTANCE_PROFILES[benchDist];
+  var vdotBench = vdotFromPerformance(benchProfile.raceKm*1000, benchSec);
+  var mults = {A:1.06, B:1.00, C:0.94};
+  GOAL_KEYS.forEach(function(k){
+    var t = equivalentTimeSec(vdotBench*mults[k], profile.raceKm*1000);
+    var el = document.getElementById('rc-goal-'+k);
+    if (el && t) el.value = secToClock(t);
+  });
+  showToast('Suggested A/B/C from your benchmark');
+}
+function handleSaveRecalibrate(){
+  var benchDist = document.getElementById('rc-bench-dist').value;
+  var benchSec = clockToSec(document.getElementById('rc-bench-time').value.trim());
+  var goals = {};
+  var anyGoal = false;
+  GOAL_KEYS.forEach(function(k){
+    var el = document.getElementById('rc-goal-'+k);
+    var sec = clockToSec(el.value.trim());
+    if (sec){ goals[k] = {timeSec:sec}; anyGoal = true; }
+  });
+  if (!anyGoal){ showToast('Enter at least one goal time'); return; }
+
+  state.setup.goals = goals;
+  if (benchSec) state.setup.benchmark = { distanceKey:benchDist, timeSec:benchSec };
+  if (!goals[state.setup.activeGoal]){
+    state.setup.activeGoal = GOAL_KEYS.filter(function(k){ return goals[k]; })[0];
+  }
+  closeModal();
+  scheduleSave();
+  renderApp();
+  showToast('Zones Updated! All future upcoming sessions have been re-tailored to your new target paces.');
+}
+
+function handleSuggestGoals(){
+  var benchDist = document.getElementById('su-bench-dist').value;
+  var benchSec = clockToSec(document.getElementById('su-bench-time').value.trim());
+  if (!benchSec){ showToast('Enter a valid benchmark time first (mm:ss)'); return; }
+  var distKey = document.getElementById('su-distance').value;
+  var profile = DISTANCE_PROFILES[distKey];
+  var benchProfile = DISTANCE_PROFILES[benchDist];
+  var vdotBench = vdotFromPerformance(benchProfile.raceKm*1000, benchSec);
+  var mults = {A:1.06, B:1.00, C:0.94}; // A=Dream(faster), B=Solid(benchmark pace), C=Safety Net(conservative)
+  GOAL_KEYS.forEach(function(k){
+    var t = equivalentTimeSec(vdotBench*mults[k], profile.raceKm*1000);
+    var el = document.getElementById('su-goal-'+k);
+    if (el && t) el.value = secToClock(t);
+  });
+  showToast('Suggested A/B/C from your benchmark');
+}
+
+function handleGeneratePlan(){
+  var distanceKey = document.getElementById('su-distance').value;
+  var raceDate = document.getElementById('su-racedate').value;
+  var planWeeks = clamp(parseInt(document.getElementById('su-planweeks').value,10)||8, 4, 20);
+  var volume = parseFloat(document.getElementById('su-volume').value);
+  var benchDist = document.getElementById('su-bench-dist').value;
+  var benchSec = clockToSec(document.getElementById('su-bench-time').value.trim());
+
+  var wdBoxes = document.querySelectorAll('#su-weekdays input[type=checkbox]');
+  var activeDays = [];
+  wdBoxes.forEach(function(cb){ if (cb.checked) activeDays.push(parseInt(cb.getAttribute('data-wd'),10)); });
+  var longRunDay = parseInt(document.getElementById('su-longday').value,10);
+
+  if (!raceDate){ showToast('Pick a race date'); return; }
+  if (!volume || volume<=0){ showToast('Enter your current weekly volume'); return; }
+  if (raceDate <= todayStr()){ showToast('Race date needs to be in the future'); return; }
+  if (activeDays.length<3 || activeDays.length>6){ showToast('Pick between 3 and 6 running days'); return; }
+  if (isNaN(longRunDay)){ showToast('Choose a long run day'); return; }
+
+  var raceMondayCheck = addDays(raceDate, -isoWeekday(raceDate));
+  var weeksAvailable = Math.floor(daysBetween(todayStr(), raceMondayCheck)/7) + 1;
+  if (planWeeks > weeksAvailable){
+    showToast('Only '+weeksAvailable+' week'+(weeksAvailable===1?'':'s')+' fit between today and that race date at '+planWeeks+'wk length \u2014 shorten the plan or pick a later race date.');
+    return;
+  }
+
+  var goals = {};
+  var anyGoal = false;
+  GOAL_KEYS.forEach(function(k){
+    var el = document.getElementById('su-goal-'+k);
+    var sec = clockToSec(el.value.trim());
+    if (sec){ goals[k] = {timeSec:sec}; anyGoal = true; }
+  });
+  if (!anyGoal){ showToast('Enter at least one goal time (or tap Suggest first)'); return; }
+  var activeGoal = (state.setup && state.setup.activeGoal && goals[state.setup.activeGoal])
+    ? state.setup.activeGoal
+    : GOAL_KEYS.filter(function(k){ return goals[k]; })[0];
+
+  var profile = DISTANCE_PROFILES[distanceKey];
+  var schedule = { activeDays:activeDays, longRunDay:longRunDay };
+  var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks);
+  var days = buildDaysFromWeeks(blockResult, raceDate, schedule);
+
+  state.setup = {
+    distanceKey: distanceKey, currentVolume: volume, raceDate: raceDate, planWeeks: blockResult.planWeeks,
+    schedule: schedule,
+    benchmark: benchSec ? { distanceKey:benchDist, timeSec:benchSec } : (state.setup?state.setup.benchmark:null),
+    goals: goals, activeGoal: activeGoal
+  };
+  state.days = days;
+  initExpanded();
+  closeModal();
+  scheduleSave();
+  renderApp();
+  showToast('Plan generated \u2014 '+blockResult.planWeeks+' weeks to '+profile.label);
+}
+
+function handleSetGoal(key){
+  if (!state.setup || !state.setup.goals || !state.setup.goals[key]) return;
+  state.setup.activeGoal = key;
+  scheduleSave();
+  renderApp();
+  showToast('Active goal set to '+key);
+}
+
+/* =========================================================
+   EDIT SESSION MODAL
+   ========================================================= */
+function openEditModal(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  var typeOptions = Object.keys(TYPE_META).filter(function(t){ return t!=='race'; }).map(function(t){
+    return '<option value="'+t+'" '+(dd.type===t?'selected':'')+'>'+TYPE_META[t].label+'</option>';
+  }).join('');
+  var swapOptions = '<option value="">\u2014 choose a day \u2014</option>';
+  var byWeek = {};
+  state.days.forEach(function(x){ (byWeek[x.week]=byWeek[x.week]||[]).push(x); });
+  Object.keys(byWeek).forEach(function(w){
+    swapOptions += '<optgroup label="Week '+w+'">';
+    byWeek[w].forEach(function(x){
+      if (x.id===dd.id) return;
+      swapOptions += '<option value="'+x.id+'">'+dow(x.date)+' '+dShort(x.date)+' \u2014 '+escapeHtml(x.title)+'</option>';
+    });
+    swapOptions += '</optgroup>';
+  });
+  var html = ''+
+  '<div class="modal-head"><h2 class="font-head">Edit Session</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+  '<div class="modal-body">'+
+    '<div class="field-hint" style="margin-bottom:14px;">'+dLong(dd.date)+' \u00b7 Week '+dd.week+'</div>'+
+    '<div class="field"><label>Session Title</label><input type="text" id="ef-title" value="'+escapeHtml(dd.title)+'"></div>'+
+    '<div class="field-row">'+
+      '<div class="field"><label>Session Type</label><select id="ef-type">'+typeOptions+'</select></div>'+
+      '<div class="field"><label>Distance (km)</label><input type="number" step="0.1" min="0" id="ef-km" value="'+dd.km+'"></div>'+
+    '</div>'+
+    '<div class="field"><label style="display:flex; align-items:center;"><input type="checkbox" id="ef-mp" '+(dd.mpSegment?'checked':'')+' style="width:auto; margin-right:7px;">Includes a Goal-Pace segment</label></div>'+
+    '<div class="field"><label>Workout Instructions</label><textarea id="ef-desc">'+escapeHtml(resolveDesc(dd.desc))+'</textarea></div>'+
+    '<fieldset><legend>Reschedule</legend>'+
+      '<div class="field" style="margin-bottom:0;"><label>Swap this session with\u2026</label><select id="ef-swap">'+swapOptions+'</select>'+
+      '<div class="field-hint">Swaps everything except the calendar date, including any logged actuals. You can also drag day cards onto each other on larger screens.</div></div>'+
+    '</fieldset>'+
+    '<div class="modal-actions">'+
+      '<button type="button" class="btn btn-danger" data-action="reset-day" data-day="'+dd.id+'">'+ICONS.trash+' Reset</button>'+
+      '<button type="button" class="btn btn-primary" data-action="save-edit" data-day="'+dd.id+'">'+ICONS.check+' Save</button>'+
+    '</div>'+
+  '</div>';
+  openModal(html);
+}
+
+function findDay(dayId){
+  var found = null;
+  state.days.forEach(function(x){ if (x.id===dayId) found = x; });
+  return found;
+}
+
+function handleSaveEdit(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  var title = document.getElementById('ef-title').value.trim() || 'Untitled Session';
+  var type = document.getElementById('ef-type').value;
+  var km = parseFloat(document.getElementById('ef-km').value);
+  var mp = document.getElementById('ef-mp').checked;
+  var desc = document.getElementById('ef-desc').value;
+  var swapId = document.getElementById('ef-swap').value;
+
+  dd.title=title; dd.type=type; dd.km=isNaN(km)?0:km; dd.mpSegment=mp; dd.desc=desc;
+
+  if (swapId){
+    var other = findDay(swapId);
+    if (other){
+      var tmp = { type:dd.type, title:dd.title, km:dd.km, desc:dd.desc, mpSegment:dd.mpSegment, completed:dd.completed, actual:dd.actual };
+      dd.type=other.type; dd.title=other.title; dd.km=other.km; dd.desc=other.desc; dd.mpSegment=other.mpSegment; dd.completed=other.completed; dd.actual=other.actual;
+      other.type=tmp.type; other.title=tmp.title; other.km=tmp.km; other.desc=tmp.desc; other.mpSegment=tmp.mpSegment; other.completed=tmp.completed; other.actual=tmp.actual;
+      showToast('Swapped '+dow(dd.date)+' '+dShort(dd.date)+' with '+dow(other.date)+' '+dShort(other.date));
+    }
+  } else {
+    showToast('Session updated');
+  }
+  closeModal();
+  scheduleSave();
+  renderApp();
+}
+
+function handleResetDay(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  dd.type='rest'; dd.title='Rest Day'; dd.km=0; dd.desc='Full rest.'; dd.mpSegment=false;
+  dd.completed=false; dd.actual={km:null,pace:null,hr:null,rpe:null,notes:''};
+  closeModal();
+  scheduleSave();
+  renderApp();
+  showToast('Session reset to rest');
+}
+
+/* =========================================================
+   SETTINGS MODAL
+   ========================================================= */
+function openSettingsModal(){
+  var vdot = getActiveVDOT();
+  var paces = getActivePaces();
+  var labels = {E:'Easy',M:'Goal-Distance Equiv.',T:'Threshold',I:'Interval',R:'Repetition'};
+  var paceRows = '';
+  if (vdot){
+    ['E','M','T','I','R'].forEach(function(k){
+      var z = paces[k];
+      paceRows += '<div class="parse-row"><span class="k">'+labels[k]+'</span><span class="v font-mono">'+(z.slow!=null?fmtPaceFromSecPerKm(z.slow).split('/')[0]+'\u2013'+fmtPaceFromSecPerKm(z.fast):'\u2014')+'</span></div>';
+    });
+  }
+  var html = ''+
+  '<div class="modal-head"><h2 class="font-head">Settings</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+  '<div class="modal-body">'+
+    '<div class="field"><label>Appearance</label><div class="theme-toggle">'+
+      '<button type="button" class="'+(state.theme==='light'?'active':'')+'" data-action="set-theme" data-theme="light" aria-label="Light theme">'+ICONS.sun+'</button>'+
+      '<button type="button" class="'+(state.theme==='dark'?'active':'')+'" data-action="set-theme" data-theme="dark" aria-label="Dark theme">'+ICONS.moon+'</button>'+
+    '</div></div>'+
+    (state.setup ? (
+      '<fieldset><legend>Current Training Paces \u2014 VDOT '+(vdot?vdot.toFixed(1):'\u2014')+'</legend>'+
+      paceRows+
+      '<div class="field-hint">Derived from Active Goal '+state.setup.activeGoal+'. Change goals or benchmark in Plan Settings to update these.</div>'+
+      '</fieldset>'+
+      '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="open-setup">'+ICONS.target+' Edit Plan Settings</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="open-pacing">'+ICONS.ruler+' Race Day Pacing Strategy</button>'+
+      '<div class="divider-or"><div class="rule"></div>Export<div class="rule"></div></div>'+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-ics">'+ICONS.clock+' Export to iCal (.ics)</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="print-plan">'+ICONS.ruler+' Print / Save as PDF</button>'
+    ) : '')+
+    '<div class="divider-or"><div class="rule"></div>Backup<div class="rule"></div></div>'+
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-json">'+ICONS.download+' Export Full Backup (JSON)</button>'+
+    '<label class="btn btn-ghost btn-block" style="margin-bottom:8px;" for="import-json-input">'+ICONS.upload+' Import Backup (JSON)</label>'+
+    '<input type="file" accept="application/json" id="import-json-input" style="display:none;">'+
+    '<div class="divider-or"><div class="rule"></div>Sync<div class="rule"></div></div>'+
+    '<div class="connect-row"><div><div class="name">Strava</div><div class="desc">Needs a backend OAuth flow</div></div><button type="button" class="btn btn-sm btn-ghost" data-action="connect-info" data-service="Strava">'+ICONS.link+' Connect</button></div>'+
+    '<div class="connect-row"><div><div class="name">Garmin Connect</div><div class="desc">Needs a backend OAuth flow</div></div><button type="button" class="btn btn-sm btn-ghost" data-action="connect-info" data-service="Garmin">'+ICONS.link+' Connect</button></div>'+
+    '<div class="callout" style="margin-top:10px;">'+ICONS.info+'<div>Direct sync needs a server to hold API credentials. Use <b>Import Activity File</b> from the tools menu to pull in a GPX, FIT or CSV export instead.</div></div>'+
+    (state.setup ? (
+      '<div class="divider-or"><div class="rule"></div>Danger Zone<div class="rule"></div></div>'+
+      '<button type="button" class="btn btn-danger btn-block" data-action="reset-plan">'+ICONS.trash+' Reset Plan \u2014 Start Over</button>'+
+      '<div class="field-hint" style="margin-top:8px; text-align:center;">Clears your whole plan, schedule and logged runs and takes you back to the first screen.</div>'
+    ) : '')+
+    '<div class="build-tag">Build '+BUILD_ID+'</div>'+
+  '</div>';
+  openModal(html);
+}
+function handleResetPlan(){
+  var ok = window.confirm('Reset everything and start over? This clears your whole plan, schedule and all logged runs \u2014 it can\u2019t be undone.');
+  if (!ok) return;
+  state.setup = null;
+  state.days = [];
+  expandedWeeks = {};
+  closeModal();
+  scheduleSave();
+  renderApp();
+  showToast('Plan reset \u2014 build a new one whenever you\u2019re ready');
+}
+function handleExportJson(){
+  var blob = new Blob([JSON.stringify(state,null,2)], { type:'application/json' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href=url; a.download='velvet-viking-backup.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Backup downloaded');
+}
+function handleImportJsonFile(e){
+  var file = e.target.files && e.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    try{
+      var parsed = JSON.parse(reader.result);
+      if (!parsed.days || !Array.isArray(parsed.days)) throw new Error('bad shape');
+      state = Object.assign({}, makeDefaultState(), parsed);
+      closeModal();
+      initExpanded();
+      renderApp();
+      scheduleSave();
+      showToast('Backup imported');
+    }catch(err){ showToast('That file doesn\u2019t look like a Velvet Viking backup'); }
+  };
+  reader.readAsText(file);
+}
+function handleConnectInfo(service){
+  showToast(service+' sync needs a backend server \u2014 try Import Activity File instead');
+}
+
+/* =========================================================
+   RACE DAY PACING STRATEGY MODAL
+   ========================================================= */
+function openPacingModal(){
+  if (!state.setup){ showToast('Build a plan first'); return; }
+  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+  var checkpoints = PACE_CHECKPOINTS[state.setup.distanceKey];
+  var rows = checkpoints.map(function(cp){
+    var cells = GOAL_KEYS.map(function(k){
+      var g = state.setup.goals[k];
+      if (!g || !g.timeSec) return '<td>\u2014</td>';
+      var vdot = vdotFromPerformance(profile.raceKm*1000, g.timeSec);
+      var pace = goalPaceSecPerKm(vdot, profile.raceKm*1000);
+      var cls = k==='A' ? ' class="goal-col-a"' : '';
+      return '<td'+cls+'>'+(pace?secToClock(pace*cp):'\u2014')+'</td>';
+    }).join('');
+    var isFinish = cp===checkpoints[checkpoints.length-1];
+    return '<tr><td>'+(isFinish?'Finish':fmtDist(cp))+'</td>'+cells+'</tr>';
+  }).join('');
+  var html = ''+
+  '<div class="modal-head"><h2 class="font-head">Race Day Pacing Strategy</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+  '<div class="modal-body">'+
+    '<div class="field-hint" style="margin-bottom:6px;">'+escapeHtml(profile.label)+' \u2014 even-effort cumulative splits for each goal.</div>'+
+    '<table class="pace-table"><thead><tr><th>Checkpoint</th><th>Goal A</th><th>Goal B</th><th>Goal C</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="callout" style="margin-top:16px;">'+ICONS.info+'<div>Even splits are a starting strategy, not a rule \u2014 many runners run a controlled first half and let the second half follow feel. Adjust for course profile, weather and how you feel on the day.</div></div>'+
+  '</div>';
+  openModal(html);
+}
+
+/* =========================================================
+   FILE IMPORT (GPX / FIT / CSV) — ported, distance-agnostic
+   ========================================================= */
+function findDayByDate(dateStr){
+  var found = null;
+  state.days.forEach(function(x){ if (x.date===dateStr) found = x; });
+  return found;
+}
+function dayPickerOptions(matchId){
+  var opts = '';
+  var byWeek = {};
+  state.days.forEach(function(x){ if (x.type!=='rest') (byWeek[x.week]=byWeek[x.week]||[]).push(x); });
+  Object.keys(byWeek).forEach(function(w){
+    opts += '<optgroup label="Week '+w+'">';
+    byWeek[w].forEach(function(x){
+      opts += '<option value="'+x.id+'" '+(x.id===matchId?'selected':'')+'>'+dow(x.date)+' '+dShort(x.date)+' \u2014 '+escapeHtml(x.title)+'</option>';
+    });
+    opts += '</optgroup>';
+  });
+  return opts;
+}
+
+function openImportModal(){
+  var html = ''+
+  '<div class="modal-head"><h2 class="font-head">Import Activity File</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+  '<div class="modal-body">'+
+    '<div class="dropzone" id="import-dropzone">'+ICONS.upload+
+      '<div class="main">Drop a GPX, FIT or CSV file</div>'+
+      '<div class="sub">or tap to browse \u2014 we\u2019ll pull distance, pace and heart rate</div>'+
+    '</div>'+
+    '<input type="file" id="import-file-input" accept=".gpx,.fit,.csv" style="display:none;">'+
+    '<div id="import-result"></div>'+
+  '</div>';
+  openModal(html);
+  var dz = document.getElementById('import-dropzone');
+  var fi = document.getElementById('import-file-input');
+  dz.addEventListener('click', function(){ fi.click(); });
+  dz.addEventListener('dragover', function(e){ e.preventDefault(); dz.classList.add('drag'); });
+  dz.addEventListener('dragleave', function(){ dz.classList.remove('drag'); });
+  dz.addEventListener('drop', function(e){
+    e.preventDefault(); dz.classList.remove('drag');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleImportFile(e.dataTransfer.files[0]);
+  });
+  fi.addEventListener('change', function(e){
+    if (e.target.files && e.target.files[0]) handleImportFile(e.target.files[0]);
+  });
+}
+
+function handleImportFile(file){
+  var name = file.name.toLowerCase();
+  var resultEl = document.getElementById('import-result');
+  if (resultEl) resultEl.innerHTML = '<div class="empty-note">Reading '+escapeHtml(file.name)+'\u2026</div>';
+  if (name.endsWith('.gpx') || name.endsWith('.csv')){
+    var r = new FileReader();
+    r.onload = function(){
+      try{
+        var parsed = name.endsWith('.gpx') ? parseGPX(r.result) : parseCSV(r.result);
+        renderImportResult(parsed, file.name);
+      }catch(err){ renderImportError(err); }
+    };
+    r.onerror = function(){ renderImportError(new Error('Couldn\u2019t read that file.')); };
+    r.readAsText(file);
+  } else if (name.endsWith('.fit')){
+    var r2 = new FileReader();
+    r2.onload = function(){
+      try{ renderImportResult(parseFIT(r2.result), file.name); }
+      catch(err){ renderImportError(err); }
+    };
+    r2.onerror = function(){ renderImportError(new Error('Couldn\u2019t read that file.')); };
+    r2.readAsArrayBuffer(file);
+  } else {
+    renderImportError(new Error('Please choose a .gpx, .fit or .csv file.'));
+  }
+}
+
+function renderImportError(err){
+  var resultEl = document.getElementById('import-result');
+  if (!resultEl) return;
+  resultEl.innerHTML = '<div class="callout" style="margin-top:14px; border-color:var(--c-threshold);">'+ICONS.alert+
+    '<div>'+escapeHtml(err.message||'Couldn\u2019t parse that file.')+' You can still log the run by hand \u2014 check off the matching day below.</div></div>';
+}
+
+function renderImportResult(parsed, filename){
+  var resultEl = document.getElementById('import-result');
+  if (!resultEl) return;
+  if (parsed.source === 'CSV'){
+    window.__csvRows = parsed.rows;
+    var rowsHtml = parsed.rows.slice(0,80).map(function(row, i){
+      var match = row.date ? findDayByDate(row.date) : null;
+      return '<div class="csv-row-item">'+
+        '<div class="meta font-mono">'+escapeHtml(row.dateRaw||row.date||'\u2014')+' \u00b7 '+(row.km!=null?row.km+'km':'\u2014')+(row.pace?(' \u00b7 '+row.pace+'/km'):'')+(row.hr?(' \u00b7 '+row.hr+'bpm'):'')+'</div>'+
+        '<select id="csv-target-'+i+'" style="max-width:118px; background:var(--bg-4); border:1px solid var(--line); border-radius:6px; color:var(--ink); font-size:11px; padding:5px;">'+dayPickerOptions(match?match.id:null)+'</select>'+
+        '<button type="button" class="btn btn-sm btn-primary" data-action="apply-csv-row" data-row="'+i+'">Apply</button>'+
+      '</div>';
+    }).join('');
+    resultEl.innerHTML = '<div class="parse-preview">'+
+      '<div class="parse-row"><span class="k">Rows found</span><span class="v font-mono">'+parsed.rows.length+'</span></div>'+
+      '<div class="field-hint" style="margin:8px 0;">Matched rows to plan days by date where possible. Pick the right day and tap Apply for each run to log.</div>'+
+      '<div class="csv-rows">'+rowsHtml+'</div>'+
+    '</div>';
+  } else {
+    window.__pendingActivity = parsed;
+    var match = parsed.date ? findDayByDate(parsed.date) : null;
+    resultEl.innerHTML = '<div class="parse-preview">'+
+      '<div class="parse-row"><span class="k">Source</span><span class="v font-mono">'+parsed.source+'</span></div>'+
+      (parsed.date?('<div class="parse-row"><span class="k">Activity date</span><span class="v font-mono">'+parsed.date+'</span></div>'):'')+
+      (parsed.km!=null?('<div class="parse-row"><span class="k">Distance</span><span class="v font-mono">'+parsed.km+'km</span></div>'):'')+
+      (parsed.pace?('<div class="parse-row"><span class="k">Avg pace</span><span class="v font-mono">'+parsed.pace+'/km</span></div>'):'')+
+      (parsed.hr!=null?('<div class="parse-row"><span class="k">Avg HR</span><span class="v font-mono">'+parsed.hr+' bpm</span></div>'):'')+
+      '<div class="field" style="margin-top:12px;"><label>Apply to</label><select id="activity-target">'+dayPickerOptions(match?match.id:null)+'</select></div>'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="apply-activity">'+ICONS.check+' Apply to Selected Day</button>'+
+    '</div>';
+  }
+}
+
+function handleApplyActivity(){
+  var sel = document.getElementById('activity-target');
+  if (!sel || !sel.value){ showToast('Choose a day first'); return; }
+  var dd = null;
+  state.days.forEach(function(x){ if (x.id===sel.value) dd = x; });
+  var parsed = window.__pendingActivity;
+  if (!dd || !parsed) return;
+  dd.completed = true;
+  dd.actual = dd.actual || { km:null, pace:null, hr:null, rpe:null, notes:'' };
+  if (parsed.km!=null) dd.actual.km = parsed.km;
+  if (parsed.pace) dd.actual.pace = parsed.pace;
+  if (parsed.hr!=null) dd.actual.hr = parsed.hr;
+  closeModal();
+  scheduleSave();
+  renderApp();
+  showToast('Logged to '+dow(dd.date)+' '+dShort(dd.date));
+}
+
+function handleApplyCsvRow(rowIdx){
+  var sel = document.getElementById('csv-target-'+rowIdx);
+  if (!sel || !sel.value){ showToast('Choose a day first'); return; }
+  var dd = null;
+  state.days.forEach(function(x){ if (x.id===sel.value) dd = x; });
+  var row = window.__csvRows && window.__csvRows[rowIdx];
+  if (!dd || !row) return;
+  dd.completed = true;
+  dd.actual = dd.actual || { km:null, pace:null, hr:null, rpe:null, notes:'' };
+  if (row.km!=null) dd.actual.km = row.km;
+  if (row.pace) dd.actual.pace = row.pace;
+  if (row.hr!=null) dd.actual.hr = row.hr;
+  scheduleSave();
+  showToast('Logged to '+dow(dd.date)+' '+dShort(dd.date));
+  patchDerivedStats();
+}
+
+
+function generateExportText(){
+  var lines = [];
+  var profile = state.setup ? DISTANCE_PROFILES[state.setup.distanceKey] : null;
+  lines.push('VELVET VIKING VALHALLA \u2014 TRAINING BLOCK');
+  if (profile && state.setup){
+    var goal = getActiveGoal();
+    var vdot = getActiveVDOT();
+    lines.push(profile.label+' \u00b7 '+profile.weeks+'-Week '+profile.blockName+' \u00b7 Race: '+dLong(state.setup.raceDate));
+    lines.push('Active Goal '+state.setup.activeGoal+': '+(goal?secToClock(goal.timeSec):'\u2014')+' (VDOT '+(vdot?vdot.toFixed(1):'\u2014')+')');
+    var paces = getActivePaces();
+    lines.push('Paces \u2014 Easy '+(paces.E.slow?secToPace(paces.E.slow)+'-'+secToPace(paces.E.fast):'\u2014')+'/km, Threshold '+(paces.T.slow?secToPace(paces.T.slow)+'-'+secToPace(paces.T.fast):'\u2014')+'/km, Interval '+(paces.I.slow?secToPace(paces.I.slow)+'-'+secToPace(paces.I.fast):'\u2014')+'/km');
+  }
+  lines.push('');
+  var totalWeeks = totalWeeksInPlan();
+  for (var w=1; w<=totalWeeks; w++){
+    var vol = weekVolume(w);
+    lines.push('WEEK '+w+' ('+weekPhaseLabel(w)+') \u2014 '+kmToDisplay(vol.done)+'/'+fmtDist(vol.total));
+    state.days.filter(function(dd){ return dd.week===w; }).forEach(function(dd){
+      var line = '  '+dow(dd.date)+' '+dShort(dd.date)+' \u2014 '+TYPE_META[dd.type].label+' \u2014 '+dd.title;
+      if (dd.km) line += ' ('+dd.km+'km planned)';
+      if (dd.type==='rest'){ line += ' \u2014 REST'; }
+      else if (dd.completed){
+        var a = dd.actual||{};
+        var parts = [];
+        if (a.km!=null) parts.push(a.km+'km');
+        if (a.pace) parts.push(a.pace+'/km');
+        if (a.hr!=null) parts.push(a.hr+'bpm');
+        if (a.rpe!=null) parts.push('RPE '+a.rpe);
+        line += ' \u2014 COMPLETED: '+parts.join(', ');
+        if (a.notes) line += ' \u2014 "'+String(a.notes).replace(/"/g,'\'')+'"';
+      } else {
+        line += ' \u2014 planned, not yet logged';
+      }
+      lines.push(line);
+    });
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+function openExportModal(){
+  var text = generateExportText();
+  var html = ''+
+  '<div class="modal-head"><h2 class="font-head">AI Coaching Export</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+  '<div class="modal-body">'+
+    '<div class="field-hint" style="margin-bottom:10px;">Copy this into any AI chat assistant for coaching feedback on how training is tracking against plan.</div>'+
+    '<textarea class="export-text" id="export-text-area" readonly>'+escapeHtml(text)+'</textarea>'+
+    '<div class="modal-actions">'+
+      '<button type="button" class="btn btn-ghost" data-action="download-export">'+ICONS.download+' Download .txt</button>'+
+      '<button type="button" class="btn btn-primary" data-action="copy-export">'+ICONS.copy+' Copy</button>'+
+    '</div>'+
+  '</div>';
+  openModal(html);
+}
+function fallbackCopy(ta){
+  ta.removeAttribute('readonly'); ta.focus(); ta.select();
+  try{ document.execCommand('copy'); showToast('Copied to clipboard'); }
+  catch(e){ showToast('Couldn\u2019t copy automatically \u2014 select the text manually'); }
+  ta.setAttribute('readonly','readonly');
+}
+function handleCopyExport(){
+  var ta = document.getElementById('export-text-area');
+  if (!ta) return;
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ta.value).then(function(){ showToast('Copied to clipboard'); }).catch(function(){ fallbackCopy(ta); });
+  } else fallbackCopy(ta);
+}
+function handleDownloadExport(){
+  var blob = new Blob([generateExportText()], { type:'text/plain' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'velvet-viking-training-log.txt';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Log downloaded');
+}
+
+/* =========================================================
+   ICAL EXPORT
+   ========================================================= */
+function icsEscape(str){
+  return String(str||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+}
+function generateICS(){
+  var stamp = new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+  var lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Velvet Viking Valhalla//Training Block//EN','CALSCALE:GREGORIAN'];
+  state.days.forEach(function(dd){
+    if (dd.type==='rest') return;
+    var dateCompact = dd.date.replace(/-/g,'');
+    var summary = TYPE_META[dd.type].label+': '+dd.title+(dd.km?' ('+fmtDist(dd.km)+')':'');
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:'+dd.date+'-'+dd.type+'@velvetvikingvalhalla');
+    lines.push('DTSTAMP:'+stamp);
+    lines.push('DTSTART;VALUE=DATE:'+dateCompact);
+    lines.push('SUMMARY:'+icsEscape(summary));
+    lines.push('DESCRIPTION:'+icsEscape(resolveDesc(dd.desc)));
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+function handleExportICS(){
+  if (!state.days.length){ showToast('Build a plan first'); return; }
+  var blob = new Blob([generateICS()], { type:'text/calendar;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'velvet-viking-training-block.ics';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Calendar file downloaded \u2014 import it into Apple or Google Calendar');
+}
+function handlePrintPlan(){
+  if (!state.days.length){ showToast('Build a plan first'); return; }
+  window.print();
+}
+
+/* =========================================================
+   FLOATING TOOLS MENU
+   ========================================================= */
+var fabOpen = false;
+function renderFab(){
+  var recalItem = state.setup ? '<button type="button" data-action="open-recalibrate">'+ICONS.target+'Re-calibrate Zones</button>' : '';
+  return '<div class="fab-tools">'+
+    '<div class="fab-menu'+(fabOpen?' open':'')+'">'+
+      recalItem+
+      '<button type="button" data-action="open-settings">'+ICONS.settings+'Settings</button>'+
+      '<button type="button" data-action="open-import">'+ICONS.upload+'Import Activity File</button>'+
+      '<button type="button" data-action="open-export">'+ICONS.sparkles+'AI Coaching Export</button>'+
+    '</div>'+
+    '<button type="button" class="fab-main'+(fabOpen?' open':'')+'" data-action="toggle-fab" aria-label="Tools menu">'+ICONS.plus+'</button>'+
+  '</div>';
+}
+function patchFab(){
+  var m = document.getElementById('fab-mount');
+  if (m) m.innerHTML = renderFab();
+}
+
+/* =========================================================
+   TARGETED DOM PATCHES
+   ========================================================= */
+function patchDerivedStats(){
+  var heroEl = document.getElementById('hero-mount');
+  if (heroEl) heroEl.innerHTML = renderHero();
+  var totalWeeks = totalWeeksInPlan();
+  for (var w=1; w<=totalWeeks; w++){
+    var vol = weekVolume(w);
+    var volEl = document.querySelector('#week-'+w+' .week-vol .v');
+    if (volEl) volEl.textContent = kmToDisplay(vol.done)+'/'+kmToDisplay(vol.total);
+  }
+}
+function replaceCard(dd){
+  var cardEl = document.getElementById('day-'+dd.id);
+  if (!cardEl) return;
+  var wrapper = document.createElement('div');
+  wrapper.innerHTML = renderDayCard(dd);
+  cardEl.parentNode.replaceChild(wrapper.firstChild, cardEl);
+}
+
+/* =========================================================
+   STATE-MUTATING HANDLERS
+   ========================================================= */
+function handleToggleComplete(dayId){
+  var dd = findDay(dayId);
+  if (!dd || dd.type==='rest') return;
+  dd.completed = !dd.completed;
+  if (dd.completed && !dd.actual) dd.actual = { km:dd.km, pace:null, hr:null, rpe:null, notes:'' };
+  else if (dd.completed && dd.actual && dd.actual.km==null) dd.actual.km = dd.km;
+  replaceCard(dd);
+  patchDerivedStats();
+  scheduleSave();
+}
+function handleActualFieldChange(dayId, field, value){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  dd.actual = dd.actual || { km:null, pace:null, hr:null, rpe:null, notes:'' };
+  if (field==='km') dd.actual.km = value===''?null:parseDistInput(value);
+  else if (field==='hr') dd.actual.hr = value===''?null:parseInt(value,10);
+  else if (field==='rpe') dd.actual.rpe = value===''?null:parseInt(value,10);
+  else if (field==='pace') dd.actual.pace = value.trim() || null;
+  else if (field==='notes') dd.actual.notes = value;
+  patchDerivedStats();
+  scheduleSave();
+}
+function handleClearActual(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  dd.actual = { km:null, pace:null, hr:null, rpe:null, notes:'' };
+  replaceCard(dd);
+  patchDerivedStats();
+  scheduleSave();
+  showToast('Log cleared');
+}
+function handleToggleWeek(weekNum){
+  if (expandedWeeks[weekNum]) delete expandedWeeks[weekNum];
+  else expandedWeeks[weekNum] = true;
+  var el = document.getElementById('week-'+weekNum);
+  if (el) el.classList.toggle('open');
+}
+function handleJumpWeek(weekNum){
+  expandedWeeks[weekNum] = true;
+  var el = document.getElementById('week-'+weekNum);
+  if (el){ el.classList.add('open'); el.scrollIntoView({ behavior:'smooth', block:'start' }); }
+}
+function handleSetTheme(theme){
+  state.theme = theme;
+  document.documentElement.setAttribute('data-theme', theme);
+  scheduleSave();
+  var topBtn = document.querySelector('.topbar-actions .icon-btn[data-action="toggle-theme"]');
+  if (topBtn) topBtn.innerHTML = theme==='dark'?ICONS.sun:ICONS.moon;
+  var settingsToggle = document.querySelector('.modal-card .theme-toggle');
+  if (settingsToggle){
+    settingsToggle.innerHTML =
+      '<button type="button" class="'+(theme==='light'?'active':'')+'" data-action="set-theme" data-theme="light" aria-label="Light theme">'+ICONS.sun+'</button>'+
+      '<button type="button" class="'+(theme==='dark'?'active':'')+'" data-action="set-theme" data-theme="dark" aria-label="Dark theme">'+ICONS.moon+'</button>';
+  }
+}
+function handleToggleThemeQuick(){ handleSetTheme(state.theme==='dark'?'light':'dark'); }
+
+function handleSetUnits(units){
+  if (units!=='km' && units!=='mi') return;
+  if (state.units===units) return;
+  state.units = units;
+  scheduleSave();
+  renderApp();
+}
+
+function doSwapDays(idA, idB){
+  var a = findDay(idA), b = findDay(idB);
+  if (!a || !b) return;
+  var tmp = { type:a.type, title:a.title, km:a.km, desc:a.desc, mpSegment:a.mpSegment, completed:a.completed, actual:a.actual };
+  a.type=b.type; a.title=b.title; a.km=b.km; a.desc=b.desc; a.mpSegment=b.mpSegment; a.completed=b.completed; a.actual=b.actual;
+  b.type=tmp.type; b.title=tmp.title; b.km=tmp.km; b.desc=tmp.desc; b.mpSegment=tmp.mpSegment; b.completed=tmp.completed; b.actual=tmp.actual;
+  scheduleSave();
+  renderApp();
+  showToast('Swapped '+dow(a.date)+' '+dShort(a.date)+' with '+dow(b.date)+' '+dShort(b.date));
+}
+
+/* =========================================================
+   MAIN RENDER
+   ========================================================= */
+function renderCheckpointBanner(){
+  if (!state.setup) return '';
+  var totalWeeks = totalWeeksInPlan();
+  var halfwayWeek = Math.ceil(totalWeeks/2);
+  var range = weekDateRange(halfwayWeek);
+  var today = todayStr();
+  if (today < range.start || today > range.end) return '';
+  return '<div class="checkpoint-banner">'+
+    '<span class="cb-icon">\uD83D\uDCA1</span>'+
+    '<div class="cb-text"><b>Mid-Block Checkpoint:</b> You are halfway through! Update your 5K/10K benchmark or select Goal A, B, or C above to auto-recalculate your target paces for all remaining peak long runs.</div>'+
+  '</div>';
+}
+
+function renderApp(){
+  document.documentElement.setAttribute('data-theme', state.theme);
+  var app = document.getElementById('app');
+  if (!app) return;
+  app.innerHTML =
+    renderTopbar()+
+    '<div class="wrap">'+
+      '<div id="hero-mount">'+renderHero()+'</div>'+
+      '<div id="checkpoint-banner-mount">'+renderCheckpointBanner()+'</div>'+
+      (state.setup ? ('<div class="section-label font-head"><div class="rule"></div>The Block<div class="rule"></div></div>'+
+      '<div id="weeks-mount">'+renderWeeksList()+'</div>') : '')+
+    '</div>'+
+    '<div id="fab-mount">'+renderFab()+'</div>';
+}
+
+/* =========================================================
+   EVENT DELEGATION
+   ========================================================= */
+document.addEventListener('click', function(e){
+  var target = e.target.closest ? e.target.closest('[data-action]') : null;
+  if (!target) return;
+  var action = target.getAttribute('data-action');
+  switch(action){
+    case 'toggle-theme': handleToggleThemeQuick(); break;
+    case 'jump-week': handleJumpWeek(parseInt(target.getAttribute('data-week'),10)); break;
+    case 'toggle-week': handleToggleWeek(parseInt(target.getAttribute('data-week'),10)); break;
+    case 'set-goal': handleSetGoal(target.getAttribute('data-goal')); break;
+    case 'open-edit': openEditModal(target.getAttribute('data-day')); break;
+    case 'save-edit': handleSaveEdit(target.getAttribute('data-day')); break;
+    case 'reset-day': handleResetDay(target.getAttribute('data-day')); break;
+    case 'reset-plan': handleResetPlan(); break;
+    case 'close-modal': closeModal(); break;
+    case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
+    case 'toggle-fab': fabOpen = !fabOpen; patchFab(); break;
+    case 'open-settings': fabOpen=false; patchFab(); openSettingsModal(); break;
+    case 'open-import': fabOpen=false; patchFab(); openImportModal(); break;
+    case 'open-export': fabOpen=false; patchFab(); openExportModal(); break;
+    case 'open-setup': fabOpen=false; patchFab(); openSetupModal(); break;
+    case 'open-recalibrate': fabOpen=false; patchFab(); openRecalibrateModal(); break;
+    case 'rc-suggest-goals': handleRecalibrateSuggest(); break;
+    case 'save-recalibrate': handleSaveRecalibrate(); break;
+    case 'open-pacing': openPacingModal(); break;
+    case 'suggest-goals': handleSuggestGoals(); break;
+    case 'generate-plan': handleGeneratePlan(); break;
+    case 'export-json': handleExportJson(); break;
+    case 'connect-info': handleConnectInfo(target.getAttribute('data-service')); break;
+    case 'set-theme': handleSetTheme(target.getAttribute('data-theme')); break;
+    case 'set-units': handleSetUnits(target.getAttribute('data-units')); break;
+    case 'apply-activity': handleApplyActivity(); break;
+    case 'apply-csv-row': handleApplyCsvRow(parseInt(target.getAttribute('data-row'),10)); break;
+    case 'copy-export': handleCopyExport(); break;
+    case 'download-export': handleDownloadExport(); break;
+    case 'export-ics': handleExportICS(); break;
+    case 'print-plan': handlePrintPlan(); break;
+  }
+});
+
+document.addEventListener('change', function(e){
+  var t = e.target;
+  if (t.id === 'import-json-input'){ handleImportJsonFile(e); return; }
+  var actionEl = t.closest ? t.closest('[data-action]') : null;
+  if (!actionEl) return;
+  var action = actionEl.getAttribute('data-action');
+  if (action === 'toggle-complete') handleToggleComplete(actionEl.getAttribute('data-day'));
+  else if (action === 'actual-field') handleActualFieldChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-field'), actionEl.value);
+});
+
+/* drag-and-drop reschedule (desktop enhancement; mobile uses the Swap-with dropdown in Edit Session) */
+var dragSourceId = null;
+document.addEventListener('dragstart', function(e){
+  var card = e.target.closest ? e.target.closest('.day[draggable="true"]') : null;
+  if (!card) return;
+  dragSourceId = card.getAttribute('data-day');
+  card.classList.add('dragging');
+  if (e.dataTransfer){ e.dataTransfer.effectAllowed='move'; try{ e.dataTransfer.setData('text/plain', dragSourceId); }catch(err){} }
+});
+document.addEventListener('dragend', function(e){
+  var card = e.target.closest ? e.target.closest('.day') : null;
+  if (card) card.classList.remove('dragging');
+  var overs = document.querySelectorAll('.day.drag-over');
+  for (var i=0;i<overs.length;i++) overs[i].classList.remove('drag-over');
+});
+document.addEventListener('dragover', function(e){
+  var card = e.target.closest ? e.target.closest('.day[draggable="true"]') : null;
+  if (!card) return;
+  e.preventDefault();
+  card.classList.add('drag-over');
+});
+document.addEventListener('dragleave', function(e){
+  var card = e.target.closest ? e.target.closest('.day[draggable="true"]') : null;
+  if (card) card.classList.remove('drag-over');
+});
+document.addEventListener('drop', function(e){
+  var card = e.target.closest ? e.target.closest('.day[draggable="true"]') : null;
+  if (!card) return;
+  e.preventDefault();
+  card.classList.remove('drag-over');
+  var targetId = card.getAttribute('data-day');
+  if (dragSourceId && targetId && dragSourceId!==targetId) doSwapDays(dragSourceId, targetId);
+  dragSourceId = null;
+});
+
+/* =========================================================
+   INIT
+   ========================================================= */
+function init(){
+  loadState();
+  if (state.setup && state.days && state.days.length) initExpanded();
+  renderApp();
+  startCountdownTimer();
+}
+try{ init(); }
+catch(err){
+  console.error('Velvet Viking init failed', err);
+  var app = document.getElementById('app');
+  if (app) app.innerHTML = '<div class="wrap" style="padding-top:50px; text-align:center; color:var(--ink-dim);">Something went wrong loading the plan \u2014 please refresh the page.</div>';
+}
+</script>
+</body>
+</html>
