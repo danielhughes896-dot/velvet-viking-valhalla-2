@@ -295,6 +295,39 @@
   .actual-clear{grid-column:1/-1; text-align:right;}
   .actual-clear button{background:none; border:none; color:var(--ink-faint); font-size:11px; text-decoration:underline; padding:2px;}
 
+  /* ---------- zone paces card (main dashboard) ---------- */
+  .zone-paces-card{margin:14px 14px 0; padding:14px 15px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);}
+  .zpc-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;}
+  .zpc-head span:first-child{font-size:13px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
+  .zpc-vdot{font-size:11px; color:var(--bronze);}
+  .pzr{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line-soft);}
+  .pzr:last-of-type{border-bottom:none;}
+  .pzr-label{font-size:12.5px; color:var(--ink-dim); flex:1; min-width:0;}
+  .pzr-tag{font-size:9px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze); border:1px solid var(--bronze); border-radius:99px; padding:1px 6px; margin-left:4px;}
+  .pzr-inputs{display:flex; align-items:center; gap:5px; flex:none;}
+  .pzr-input{
+    width:52px; background:var(--bg-4); border:1px solid var(--line); border-radius:7px; color:var(--ink);
+    padding:6px 6px; font-size:12.5px; font-family:'JetBrains Mono',monospace; text-align:center;
+  }
+  .pzr-sep{color:var(--ink-faint); font-size:12px;}
+  .pzr-unit{color:var(--ink-faint); font-size:11px; width:20px;}
+
+  /* ---------- AI post-session execution review ---------- */
+  .ai-review-card{margin-top:10px; padding:11px 12px; background:var(--bg-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .ai-review-loading{display:flex; align-items:center; gap:8px; color:var(--ink-faint); font-size:12.5px;}
+  .ai-review-loading svg{width:15px; height:15px; color:var(--bronze); animation:aispin 1s linear infinite;}
+  @keyframes aispin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+  .ai-review-head{display:flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze); margin-bottom:8px;}
+  .ai-review-head svg{width:14px; height:14px;}
+  .ai-review-src{margin-left:auto; font-size:9px; text-transform:none; letter-spacing:0; color:var(--ink-faint); background:var(--bg-3); border-radius:99px; padding:2px 7px;}
+  .ai-review-body{display:flex; align-items:center; gap:12px;}
+  .ai-review-score{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:20px; flex:none; min-width:52px; text-align:center; border-radius:10px; padding:6px 4px;}
+  .ai-review-score.good{color:var(--c-easy); background:var(--c-easy-soft);}
+  .ai-review-score.ok{color:var(--c-tempo); background:var(--c-tempo-soft);}
+  .ai-review-score.low{color:var(--c-threshold); background:var(--c-threshold-soft);}
+  .ai-review-summary{font-size:12.5px; color:var(--ink-dim); line-height:1.45;}
+  .ai-review-refresh{background:none; border:none; color:var(--ink-faint); font-size:11px; text-decoration:underline; padding:2px; margin-top:8px;}
+
   /* ---------- tune-up checkpoint card ---------- */
   .checkpoint{
     border:1.5px dashed var(--gold); border-radius:var(--radius); padding:18px 16px; margin:14px 0 20px;
@@ -655,29 +688,104 @@ function clockToSec(str){
 }
 
 /* =========================================================
-   WORKOUT PROGRESSIONS (by distance emphasis)
+   QUALITY DAY STRUCTURE LIBRARY (by distance emphasis + phase)
+   Each generator takes (pos 0..1 progress-through-build, emphasis) and
+   returns a workout spec sized to roughly the same session-km envelope
+   as the old single-track progression it replaces, so weekly volume
+   budgets stay stable -- only the STRUCTURE rotates week to week. Pools
+   are keyed by phase (Base/Build/Peak) so the *kind* of session also
+   shifts with the block, not just its size:
+     Base  -> Hill Repeats / Fartlek (unstructured aerobic power)
+     Build -> Track Intervals / Ladders / Deuces (structured speed work)
+     Peak  -> Goal-Pace reps & blocks (race-specific rhythm)
    ========================================================= */
 var LONG_FRACTION = { speed:0.24, threshold:0.28, endurance:0.32, timeonfeet:0.36 };
 var TT_DISTANCE_KM = { speed:3, threshold:5, endurance:6, timeonfeet:8 };
 
-var INTERVAL_PROGRESSION = {
-  speed:      [ {reps:6,m:400,t:'interval'},{reps:8,m:400,t:'interval'},{reps:5,m:600,t:'interval'},{reps:6,m:800,t:'interval'},{reps:5,m:1000,t:'interval'},{reps:8,m:300,t:'repetition'},{reps:10,m:400,t:'repetition'},{reps:6,m:400,t:'interval'} ],
-  threshold:  [ {reps:6,m:400,t:'interval'},{reps:8,m:400,t:'interval'},{reps:6,m:600,t:'interval'},{reps:5,m:800,t:'interval'},{reps:4,m:1000,t:'interval'},{reps:6,m:400,t:'interval'} ],
-  endurance:  [ {reps:6,m:400,t:'interval'},{reps:8,m:400,t:'interval'},{reps:5,m:600,t:'interval'},{reps:6,m:600,t:'interval'},{reps:4,m:800,t:'interval'},{reps:6,m:800,t:'interval'},{reps:3,m:1200,t:'interval'},{reps:5,m:800,t:'interval'},{reps:4,m:600,t:'interval'} ],
-  timeonfeet: [ {reps:6,hillSec:45,t:'interval'},{reps:8,hillSec:45,t:'interval'},{reps:8,fartlekMin:2,t:'interval'},{reps:6,fartlekMin:3,t:'interval'} ]
+var EMPHASIS_INTERVAL_RANGE = {
+  speed:      { repsLo:6, repsHi:10, mLo:300, mHi:1000 },
+  threshold:  { repsLo:4, repsHi:8,  mLo:400, mHi:1000 },
+  endurance:  { repsLo:3, repsHi:8,  mLo:400, mHi:1200 },
+  timeonfeet: { repsLo:5, repsHi:8,  mLo:400, mHi:800  }
 };
-var TEMPO_PROGRESSION = {
-  speed:      [ {type:'tempo',min:12},{type:'tempo',min:15},{type:'threshold',km:3},{type:'threshold',km:4},{type:'threshold',km:5},{type:'tempo',min:15} ],
-  threshold:  [ {type:'tempo',min:15},{type:'tempo',min:20},{type:'threshold',km:4},{type:'threshold',km:5},{type:'threshold',km:6},{type:'tempo',min:20} ],
-  endurance:  [ {type:'tempo',min:20},{type:'tempo',min:25},{type:'threshold',km:5},{type:'threshold',km:6},{type:'tempo',min:30,split:2},{type:'threshold',km:7},{type:'tempo',min:35,split:2},{type:'threshold',km:8} ],
-  timeonfeet: [ {type:'steady',min:30},{type:'steady',min:35},{type:'steady',min:40},{type:'steady',min:45} ]
+var EMPHASIS_TEMPO_RANGE = {
+  speed:      { minLo:12, minHi:20, kmLo:3, kmHi:5 },
+  threshold:  { minLo:15, minHi:25, kmLo:4, kmHi:6 },
+  endurance:  { minLo:20, minHi:35, kmLo:5, kmHi:8 },
+  timeonfeet: { minLo:25, minHi:45, kmLo:4, kmHi:7 }
+};
+function lerp(lo,hi,pos){ return lo+(hi-lo)*clamp(pos,0,1); }
+function roundTo(n,step){ return Math.round(n/step)*step; }
+
+/* ---- Interval / Speed day structures ---- */
+function structHillRepeats(pos, emphasis){
+  return { reps:Math.round(lerp(5,8,pos)), hillSec:Math.round(lerp(35,60,pos)), t:'interval' };
+}
+function structFartlek(pos, emphasis){
+  return { reps:Math.round(lerp(5,9,pos)), fartlekMin:(emphasis==='timeonfeet'?3:2), t:'interval' };
+}
+function structTrackIntervals(pos, emphasis){
+  var r = EMPHASIS_INTERVAL_RANGE[emphasis] || EMPHASIS_INTERVAL_RANGE.threshold;
+  var m = roundTo(lerp(r.mLo, r.mHi, pos), 100);
+  return { reps:Math.round(lerp(r.repsLo, r.repsHi, pos)), m:m, t:(m<=400 && pos<0.35)?'repetition':'interval' };
+}
+function structLadder(pos, emphasis){
+  var r = EMPHASIS_INTERVAL_RANGE[emphasis] || EMPHASIS_INTERVAL_RANGE.threshold;
+  var base = roundTo(lerp(r.mLo, Math.min(r.mHi,800), pos), 100);
+  return { ladder:[base, base*2, base*3, base*2, base], t:'interval' };
+}
+function structDeuce(pos, emphasis){
+  var r = EMPHASIS_INTERVAL_RANGE[emphasis] || EMPHASIS_INTERVAL_RANGE.threshold;
+  return { sets:2, reps:Math.max(3, Math.round(lerp(r.repsLo, r.repsHi, pos)/2)), m:roundTo(lerp(r.mLo, r.mHi, pos),100), t:'interval' };
+}
+function structGoalPaceIntervals(pos, emphasis){
+  var m = emphasis==='speed' ? 800 : (emphasis==='endurance'||emphasis==='timeonfeet' ? 1600 : 1200);
+  return { reps:Math.round(lerp(3,5,pos)), m:m, t:'goalpace' };
+}
+var INTERVAL_STRUCTURE_POOL = {
+  Base:  [structHillRepeats, structFartlek],
+  Build: [structTrackIntervals, structLadder, structDeuce],
+  Peak:  [structGoalPaceIntervals, structTrackIntervals]
 };
 
-function pickProgression(arr, pos){
-  var idx = Math.min(arr.length-1, Math.round(pos*(arr.length-1)));
-  return arr[idx];
+/* ---- Tempo / Threshold day structures ---- */
+function structSteadyTempo(pos, emphasis){
+  var r = EMPHASIS_TEMPO_RANGE[emphasis] || EMPHASIS_TEMPO_RANGE.threshold;
+  return { type:'steady', min:Math.round(lerp(r.minLo, r.minHi, pos)) };
 }
+function structProgressiveTempo(pos, emphasis){
+  var r = EMPHASIS_TEMPO_RANGE[emphasis] || EMPHASIS_TEMPO_RANGE.threshold;
+  return { type:'progressive', min:Math.round(lerp(r.minLo, r.minHi, pos)) };
+}
+function structSplitTempo(pos, emphasis){
+  var r = EMPHASIS_TEMPO_RANGE[emphasis] || EMPHASIS_TEMPO_RANGE.threshold;
+  return { type:'tempo', min:Math.round(lerp(r.minLo, r.minHi, pos)), split:2 };
+}
+function structThresholdContinuous(pos, emphasis){
+  var r = EMPHASIS_TEMPO_RANGE[emphasis] || EMPHASIS_TEMPO_RANGE.threshold;
+  return { type:'threshold', km:round1(lerp(r.kmLo, r.kmHi, pos)) };
+}
+function structGoalPaceBlock(pos, emphasis){
+  var r = EMPHASIS_TEMPO_RANGE[emphasis] || EMPHASIS_TEMPO_RANGE.threshold;
+  return { type:'goalpace', km:round1(lerp(r.kmLo, r.kmHi, pos)) };
+}
+var TEMPO_STRUCTURE_POOL = {
+  Base:  [structSteadyTempo, structThresholdContinuous],
+  Build: [structProgressiveTempo, structSplitTempo],
+  Peak:  [structGoalPaceBlock, structThresholdContinuous]
+};
+
+// Rotates through the phase's candidate structures by absolute week number so
+// the exact same format never repeats on consecutive weeks; unmapped phases
+// (Taper, Race Week) fall back to the race-specific Peak pool.
+function pickQualityStructure(pool, phase, weekNum, pos, emphasis){
+  var candidates = pool[phase] || pool.Peak;
+  return candidates[weekNum % candidates.length](pos, emphasis);
+}
+
 function intervalSessionKm(spec){
+  if (spec.ladder) return round1(spec.ladder.reduce(function(a,b){return a+b;},0)/1000 + 4);
+  if (spec.sets) return round1((spec.sets*spec.reps*spec.m)/1000 + 4);
   if (spec.m) return round1((spec.reps*spec.m)/1000 + 4);
   if (spec.hillSec) return round1((spec.reps*spec.hillSec*3.2)/1000 + 4);
   if (spec.fartlekMin) return round1(spec.reps*spec.fartlekMin*0.24 + 4);
@@ -745,8 +853,8 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput){
     volume = round1(volume);
 
     var pos = buildWeeks>1 ? (Math.min(w,buildWeeks)-1)/(buildWeeks-1) : 0;
-    var qSpec = pickProgression(INTERVAL_PROGRESSION[profile.emphasis], pos);
-    var tSpec = pickProgression(TEMPO_PROGRESSION[profile.emphasis], pos);
+    var qSpec = pickQualityStructure(INTERVAL_STRUCTURE_POOL, phase, w, pos, profile.emphasis);
+    var tSpec = pickQualityStructure(TEMPO_STRUCTURE_POOL, phase, w, pos, profile.emphasis);
     var qKm = intervalSessionKm(qSpec);
     var tKm = tempoSessionKm(tSpec);
     if (isRace){ qKm=0; tKm=0; }
@@ -781,7 +889,13 @@ function resolveDesc(desc){
 }
 
 function intervalWorkoutText(spec){
-  if (spec.hillSec) return { title:'Hill Strides '+spec.reps+'x'+spec.hillSec+'s', type:'interval',
+  if (spec.ladder) return { title:'Ladder: '+spec.ladder.join('-')+'m', type:'interval',
+    desc: dtok(2)+' warm-up. Ladder '+spec.ladder.join('–')+'m @ Interval pace, jog recovery scaled to each rep’s length. '+dtok(2)+' cool-down.' };
+  if (spec.sets) return { title:'Deuce: '+spec.sets+'x('+spec.reps+'x'+spec.m+'m)', type:'interval',
+    desc: dtok(2)+' warm-up. '+spec.sets+' sets of '+spec.reps+' x '+spec.m+'m @ Interval pace, short jog between reps, 3–4min jog between sets. '+dtok(2)+' cool-down.' };
+  if (spec.t==='goalpace') return { title:'Goal Pace: '+spec.reps+'x'+spec.m+'m', type:'interval', mpSegment:true,
+    desc: dtok(2)+' warm-up. '+spec.reps+' x '+spec.m+'m @ Goal Pace w/ short float recovery — locking in race rhythm. '+dtok(2)+' cool-down.' };
+  if (spec.hillSec) return { title:'Hill Repeats '+spec.reps+'x'+spec.hillSec+'s', type:'interval',
     desc:'Easy warm-up. '+spec.reps+' x '+spec.hillSec+'s strong uphill effort, walk/jog back down to recover. Easy cool-down.' };
   if (spec.fartlekMin) return { title:'Fartlek '+spec.reps+'x'+spec.fartlekMin+'min', type:'interval',
     desc:'Easy warm-up. '+spec.reps+' x '+spec.fartlekMin+'min surges at a strong, controlled effort with an equal-time easy jog between. Easy cool-down.' };
@@ -792,6 +906,10 @@ function intervalWorkoutText(spec){
     desc: dtok(2)+' warm-up. '+spec.reps+' x '+spec.m+'m @ '+label+' pace w/ '+recovery+' recovery. '+dtok(2)+' cool-down.' };
 }
 function tempoWorkoutText(spec){
+  if (spec.type==='goalpace') return { title:'Goal Pace Block: '+spec.km+'km', type:'tempo', mpSegment:true,
+    desc: dtok(2)+' warm-up. '+dtok(spec.km)+' continuous @ Goal Pace — locked in and controlled, exactly race rhythm. '+dtok(2)+' cool-down.' };
+  if (spec.type==='progressive') return { title:'Progressive Tempo: '+spec.min+'min', type:'tempo',
+    desc:'Easy warm-up jog. '+spec.min+'min continuous, building steadily from a strong aerobic effort down to Tempo pace by the final third. Easy cool-down.' };
   if (spec.type==='steady') return { title:'Steady: '+spec.min+'min', type:'tempo',
     desc:'Easy warm-up jog. '+spec.min+'min continuous @ a strong, steady aerobic effort. Easy cool-down.' };
   if (spec.type==='tempo'){
@@ -945,7 +1063,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr){
         dayObj = { type:t2.type, title:t2.title, km:secondLongKm, desc:t2.desc };
       } else if (activeSet[iso] && iso===qty1Day){
         var q = intervalWorkoutText(wk.qSpec);
-        dayObj = { type:q.type, title:q.title, km:qKmThisWeek, desc:q.desc };
+        dayObj = { type:q.type, title:q.title, km:qKmThisWeek, desc:q.desc, mpSegment:!!q.mpSegment };
       } else if (activeSet[iso] && iso===qty2Day){
         if (wk.isCheckpoint){
           var ttKm = Math.min(TT_DISTANCE_KM[profile.emphasis], Math.max(2, round1(tKmThisWeek-3)));
@@ -954,7 +1072,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr){
             desc: dtok(flank)+' warm-up, '+dtok(ttKm)+' at hard, honest effort, '+dtok(flank)+' cool-down. Use today\u2019s time to reconsider your Active Goal for the rest of the block.' };
         } else {
           var t3 = tempoWorkoutText(wk.tSpec);
-          dayObj = { type:t3.type, title:t3.title, km:tKmThisWeek, desc:t3.desc };
+          dayObj = { type:t3.type, title:t3.title, km:tKmThisWeek, desc:t3.desc, mpSegment:!!t3.mpSegment };
         }
       } else if (activeSet[iso]){
         dayObj = { type:'easy', title:'Easy Aerobic', km:perEasy, desc:dtok(perEasy)+' @ Easy pace.' };
@@ -1311,7 +1429,20 @@ function getActiveVDOT(){
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
   return vdotFromPerformance(profile.raceKm*1000, g.timeSec);
 }
-function getActivePaces(){ return trainingPacesFromVDOT(getActiveVDOT()); }
+// Zone paces are calculated from VDOT by default, but each zone's slow/fast
+// bound can be manually overridden (state.setup.paceOverrides) from the main
+// dashboard card -- an override only takes effect once both bounds are set,
+// so a half-edited zone never falls back to a nonsensical mixed range.
+function getActivePaces(){
+  var base = trainingPacesFromVDOT(getActiveVDOT());
+  var overrides = (state.setup && state.setup.paceOverrides) || {};
+  var out = {};
+  Object.keys(base).forEach(function(k){
+    var o = overrides[k];
+    out[k] = (o && o.slow!=null && o.fast!=null) ? { slow:o.slow, fast:o.fast } : base[k];
+  });
+  return out;
+}
 function getGoalPaceSecPerKm(){
   var vdot = getActiveVDOT();
   if (!vdot || !state.setup) return null;
@@ -1518,6 +1649,65 @@ function renderHero(){
   return html;
 }
 
+/* =========================================================
+   ZONE PACES CARD — lives on the main dashboard (not buried in
+   Settings) so target paces are visible the moment a training week
+   starts; every zone's slow/fast bound is directly editable here.
+   ========================================================= */
+var ZONE_PACE_LABELS = {E:'Easy',M:'Goal-Distance Equiv.',T:'Threshold',I:'Interval',R:'Repetition'};
+var ZONE_PACE_ORDER = ['E','M','T','I','R'];
+function renderZonePacesCard(){
+  if (!state.setup) return '';
+  var vdot = getActiveVDOT();
+  var paces = getActivePaces();
+  var overrides = state.setup.paceOverrides || {};
+  var unit = displayUnit();
+  var toDisplaySec = function(secPerKm){ return secPerKm==null ? null : (state.units==='mi' ? secPerKm*1.60934 : secPerKm); };
+
+  var rows = ZONE_PACE_ORDER.map(function(k){
+    var z = paces[k];
+    var isOverridden = !!(overrides[k] && overrides[k].slow!=null && overrides[k].fast!=null);
+    var fastTxt = z.fast!=null ? secToPace(toDisplaySec(z.fast)) : '';
+    var slowTxt = z.slow!=null ? secToPace(toDisplaySec(z.slow)) : '';
+    return '<div class="pzr'+(isOverridden?' pzr-custom':'')+'">'+
+      '<div class="pzr-label">'+ZONE_PACE_LABELS[k]+(isOverridden?' <span class="pzr-tag">custom</span>':'')+'</div>'+
+      '<div class="pzr-inputs">'+
+        '<input type="text" class="pzr-input" placeholder="m:ss" inputmode="numeric" value="'+fastTxt+'" data-action="pace-override" data-zone="'+k+'">'+
+        '<span class="pzr-sep">–</span>'+
+        '<input type="text" class="pzr-input" placeholder="m:ss" inputmode="numeric" value="'+slowTxt+'" data-action="pace-override" data-zone="'+k+'">'+
+        '<span class="pzr-unit">/'+unit+'</span>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+  var anyOverride = ZONE_PACE_ORDER.some(function(k){ return overrides[k] && overrides[k].slow!=null && overrides[k].fast!=null; });
+
+  return '<div class="zone-paces-card">'+
+    '<div class="zpc-head"><span class="font-head">Training Zone Paces</span><span class="zpc-vdot font-mono">VDOT '+(vdot?vdot.toFixed(1):'—')+'</span></div>'+
+    '<div class="field-hint" style="margin-bottom:10px;">Edit any pace by hand to fine-tune it — edits stick until reset or re-calibrated from a new goal/benchmark.</div>'+
+    rows+
+    (anyOverride ? '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:10px;" data-action="reset-pace-overrides">'+ICONS.zap+' Reset to Calculated Paces</button>' : '')+
+  '</div>';
+}
+function handlePaceOverrideChange(zone){
+  if (!state.setup) return;
+  var inputs = document.querySelectorAll('.pzr-input[data-zone="'+zone+'"]');
+  var fastSec = paceToSec(inputs[0] ? inputs[0].value.trim() : '');
+  var slowSec = paceToSec(inputs[1] ? inputs[1].value.trim() : '');
+  var toKm = function(s){ return s==null ? null : (state.units==='mi' ? s/1.60934 : s); };
+  state.setup.paceOverrides = state.setup.paceOverrides || {};
+  if (fastSec==null && slowSec==null) delete state.setup.paceOverrides[zone];
+  else state.setup.paceOverrides[zone] = { fast:toKm(fastSec), slow:toKm(slowSec) };
+  scheduleSave();
+  renderApp();
+}
+function handleResetPaceOverrides(){
+  if (!state.setup) return;
+  state.setup.paceOverrides = {};
+  scheduleSave();
+  renderApp();
+  showToast('Zone paces reset to calculated values');
+}
+
 function dow2(d){ return dow(d); } // alias kept for clarity in day-card code below
 
 /* =========================================================
@@ -1580,7 +1770,8 @@ function renderDayCard(dd){
       '<div class="actual-field"><label>RPE (1\u201310)</label><input type="number" min="1" max="10" inputmode="numeric" value="'+(a.rpe!=null?a.rpe:'')+'" data-action="actual-field" data-field="rpe" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field full"><label>Notes</label><textarea data-action="actual-field" data-field="notes" data-day="'+dd.id+'">'+escapeHtml(a.notes||'')+'</textarea></div>'+
       '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>'+
-    '</div>';
+    '</div>'+
+    renderAIReviewBlock(dd);
   }
 
   return '<div class="'+cls+'" id="day-'+dd.id+'" data-day="'+dd.id+'" draggable="true">'+
@@ -1597,6 +1788,215 @@ function renderDayCard(dd){
     '</div>'+
     actualHtml+
   '</div>';
+}
+
+/* =========================================================
+   AI POST-SESSION EXECUTION REVIEW
+   Scores a completed session's actual-vs-target execution (0-100) with a
+   short coaching summary. Uses the runner's own Anthropic API key (stored
+   only in this browser's localStorage) when one is set, calling Claude
+   directly from the client; otherwise falls back to a deterministic local
+   heuristic so the feature always works with zero setup.
+   ========================================================= */
+var AI_API_KEY_STORAGE = 'vvv_ai_api_key';
+function getStoredAIKey(){
+  if (!storageAvailable) return null;
+  try{ return window.localStorage.getItem(AI_API_KEY_STORAGE) || null; }
+  catch(e){ return null; }
+}
+function setStoredAIKey(key){
+  if (!storageAvailable) return;
+  try{ if (key) window.localStorage.setItem(AI_API_KEY_STORAGE, key); else window.localStorage.removeItem(AI_API_KEY_STORAGE); }
+  catch(e){}
+}
+var aiReviewLoading = {}; // ephemeral per-day loading flag, not persisted
+
+function getTargetPaceRangeSecPerKm(dd){
+  var tm = TYPE_META[dd.type];
+  if (!tm || !tm.zoneKey) return null;
+  var z = getActivePaces()[tm.zoneKey];
+  if (!z || z.slow==null) return null;
+  return { slow:z.slow, fast:z.fast }; // slow = larger sec/km (easier bound), fast = smaller sec/km (harder bound)
+}
+function actualPaceSecPerKm(dd){
+  if (!dd.actual || !dd.actual.pace) return null;
+  var sec = paceToSec(dd.actual.pace);
+  if (sec==null) return null;
+  return state.units==='mi' ? sec/1.60934 : sec;
+}
+function expectedRPEBand(dd){
+  if (dd.type==='easy' || dd.type==='long') return [2,5];
+  if (dd.type==='tempo' || dd.type==='threshold') return [6,8];
+  if (dd.type==='interval' || dd.type==='repetition') return [7,9];
+  if (dd.type==='checkpoint' || dd.type==='race') return [8,10];
+  return null;
+}
+function composeCoachingSummary(score, ctx){
+  var parts = [];
+  if (score>=90) parts.push('Nailed it — this session landed right where it needed to.');
+  else if (score>=75) parts.push('Solid execution overall, with only minor drift from the plan.');
+  else if (score>=55) parts.push('A mixed bag — parts of this session held to plan, parts drifted.');
+  else parts.push('This one deviated notably from the prescribed target.');
+
+  if (ctx.distTarget>0 && ctx.distActual!=null){
+    var ratio = ctx.distActual/ctx.distTarget;
+    if (ratio<0.85) parts.push('Volume came up short at '+round1(ctx.distActual)+'km against a '+round1(ctx.distTarget)+'km target.');
+    else if (ratio>1.15) parts.push('You ran well past the prescribed '+round1(ctx.distTarget)+'km, logging '+round1(ctx.distActual)+'km.');
+  }
+
+  if (ctx.actualPace!=null){
+    if (ctx.targetRange && ctx.targetRange.slow!=null){
+      if (ctx.actualPace<ctx.targetRange.fast) parts.push('Pacing ran faster than the target zone — watch for going out too hot on similar sessions.');
+      else if (ctx.actualPace>ctx.targetRange.slow) parts.push('Pacing sat slower than the target zone — dial the effort in a touch more next time.');
+      else parts.push('Pacing sat right inside the target zone throughout.');
+    } else if (ctx.goalPace){
+      if (Math.abs(ctx.actualPace-ctx.goalPace)/ctx.goalPace<0.02) parts.push('Goal-pace discipline was right on the money.');
+      else parts.push(ctx.actualPace<ctx.goalPace ? 'You ran ahead of goal pace — good for confidence, but watch the risk of an early move.' : 'You ran behind goal pace — worth digging into why before the next similar effort.');
+    }
+  }
+
+  if (ctx.rpe!=null && ctx.band){
+    if (ctx.rpe>ctx.band[1]) parts.push('Reported effort (RPE '+ctx.rpe+') ran hotter than this session called for — a good candidate for extra recovery.');
+    else if (ctx.rpe<ctx.band[0]) parts.push('Reported effort (RPE '+ctx.rpe+') was lower than expected for this session type — fitness in reserve.');
+  }
+  return parts.slice(0,3).join(' ');
+}
+function computeMockExecutionReview(dd){
+  var a = dd.actual || {};
+  var targetKm = dd.km || 0;
+  var actualKm = a.km!=null ? a.km : targetKm;
+  var scores = [], weights = [];
+
+  if (targetKm>0){
+    var distDeviationPct = Math.abs(1-(actualKm/targetKm))*100;
+    scores.push(clamp(100-distDeviationPct*1.6, 0, 100)); weights.push(0.4);
+  }
+
+  var actualPace = actualPaceSecPerKm(dd);
+  var targetRange = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
+  var goalPace = (dd.type==='race' || dd.mpSegment) ? getGoalPaceSecPerKm() : null;
+  if (actualPace!=null){
+    if (targetRange && targetRange.slow!=null){
+      if (actualPace>=targetRange.fast && actualPace<=targetRange.slow){ scores.push(100); weights.push(0.4); }
+      else{
+        var edge = actualPace<targetRange.fast ? targetRange.fast : targetRange.slow;
+        scores.push(clamp(100-(Math.abs(actualPace-edge)/edge*100)*4, 0, 100)); weights.push(0.4);
+      }
+    } else if (goalPace){
+      scores.push(clamp(100-(Math.abs(actualPace-goalPace)/goalPace*100)*3, 0, 100)); weights.push(0.4);
+    }
+  }
+
+  var band = expectedRPEBand(dd);
+  if (a.rpe!=null && band){
+    if (a.rpe>=band[0] && a.rpe<=band[1]){ scores.push(100); weights.push(0.2); }
+    else{
+      var distFromBand = a.rpe<band[0] ? band[0]-a.rpe : a.rpe-band[1];
+      scores.push(clamp(100-distFromBand*15, 0, 100)); weights.push(0.2);
+    }
+  }
+
+  if (!scores.length) return null;
+  var totalW = weights.reduce(function(s,w){ return s+w; },0);
+  var score = Math.round(clamp(scores.reduce(function(s,v,i){ return s+v*weights[i]; },0)/totalW, 0, 100));
+  var summary = composeCoachingSummary(score, { distTarget:targetKm, distActual:actualKm, actualPace:actualPace, targetRange:targetRange, goalPace:goalPace, rpe:a.rpe, band:band });
+  return { score:score, summary:summary, source:'auto' };
+}
+function buildReviewPrompt(dd){
+  var a = dd.actual || {};
+  var targets = getDayTargets(dd);
+  var lines = [
+    'You are a concise, encouraging running coach reviewing one completed training session.',
+    'Session: '+dd.title+' ('+TYPE_META[dd.type].label+'), prescribed '+(dd.km||0)+'km.',
+    'Prescribed target pace: '+(targets.pace||'n/a')+(targets.goalPace?(', '+targets.goalPace):'')+'.',
+    'Actual: '+(a.km!=null?a.km+'km':'distance not logged')+(a.pace?(' @ '+a.pace+'/'+displayUnit()):'')+(a.hr!=null?(', avg HR '+a.hr):'')+(a.rpe!=null?(', RPE '+a.rpe+'/10'):'')+'.',
+    a.notes ? ('Runner notes: '+a.notes) : '',
+    'Score this session\'s execution from 0-100 against the prescribed target (pacing, distance, discipline), then write a 2-3 sentence coaching summary.',
+    'Respond with ONLY compact JSON, no other text: {"score": <integer 0-100>, "summary": "<2-3 sentences>"}'
+  ];
+  return lines.filter(Boolean).join('\n');
+}
+async function callClaudeForReview(dd, apiKey){
+  var resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{
+      'content-type':'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:220, messages:[{ role:'user', content:buildReviewPrompt(dd) }] })
+  });
+  if (!resp.ok) throw new Error('AI request failed: '+resp.status);
+  var data = await resp.json();
+  var text = (data.content && data.content[0] && data.content[0].text) || '';
+  var match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('No JSON in AI response');
+  var parsed = JSON.parse(match[0]);
+  var score = clamp(Math.round(parsed.score), 0, 100);
+  var summary = String(parsed.summary||'').trim();
+  if (!summary || isNaN(score)) throw new Error('Malformed AI response');
+  return { score:score, summary:summary, source:'claude' };
+}
+async function handleGenerateAIReview(dayId){
+  var dd = findDay(dayId);
+  if (!dd || !dd.completed) return;
+  aiReviewLoading[dayId] = true;
+  replaceCard(dd);
+
+  var apiKey = getStoredAIKey();
+  var result = null;
+  if (apiKey){
+    try{ result = await callClaudeForReview(dd, apiKey); }
+    catch(e){ result = null; showToast('AI request failed — using the local coach instead'); }
+  }
+  if (!result) result = computeMockExecutionReview(dd);
+
+  delete aiReviewLoading[dayId];
+  if (result){ dd.aiReview = { score:result.score, summary:result.summary, source:result.source, ts:Date.now() }; scheduleSave(); }
+  else showToast('Log actual distance, pace or RPE first to get a review');
+  replaceCard(dd);
+}
+function renderAIReviewBlock(dd){
+  if (!dd.completed) return '';
+  if (aiReviewLoading[dd.id]){
+    return '<div class="ai-review-card ai-review-loading">'+ICONS.sparkles+' Analyzing session…</div>';
+  }
+  if (dd.aiReview){
+    var r = dd.aiReview;
+    var band = r.score>=85 ? 'good' : (r.score>=60 ? 'ok' : 'low');
+    return '<div class="ai-review-card">'+
+      '<div class="ai-review-head">'+ICONS.sparkles+'<span>AI Execution Review</span><span class="ai-review-src">'+(r.source==='claude'?'Claude':'Auto-Coach')+'</span></div>'+
+      '<div class="ai-review-body"><div class="ai-review-score '+band+'">'+r.score+'%</div><div class="ai-review-summary">'+escapeHtml(r.summary)+'</div></div>'+
+      '<button type="button" class="ai-review-refresh" data-action="ai-review" data-day="'+dd.id+'">Re-analyze</button>'+
+    '</div>';
+  }
+  return '<div class="ai-review-card">'+
+    '<button type="button" class="btn btn-ghost btn-sm btn-block" data-action="ai-review" data-day="'+dd.id+'">'+ICONS.sparkles+' Get AI Execution Review</button>'+
+  '</div>';
+}
+function renderAICoachSettingsFieldset(){
+  var key = getStoredAIKey();
+  return '<fieldset><legend>AI Coach</legend>'+
+    '<div class="field-hint" style="margin-bottom:10px;">Optional — add your own Anthropic API key for real Claude-generated session reviews, called directly from this browser and stored only here. Leave it blank and the built-in local coach handles reviews instead, no key required.</div>'+
+    '<div class="field" style="margin-bottom:8px;"><label>Anthropic API Key</label><input type="password" id="settings-ai-key" placeholder="sk-ant-..." value="'+(key?escapeHtml(key):'')+'" autocomplete="off"></div>'+
+    '<div style="display:flex; gap:8px;">'+
+      '<button type="button" class="btn btn-primary btn-sm" style="flex:1;" data-action="save-ai-key">'+ICONS.check+' Save Key</button>'+
+      '<button type="button" class="btn btn-ghost btn-sm" style="flex:1;" data-action="clear-ai-key">Clear</button>'+
+    '</div>'+
+  '</fieldset>';
+}
+function handleSaveAIKey(){
+  var el = document.getElementById('settings-ai-key');
+  var val = el ? el.value.trim() : '';
+  setStoredAIKey(val || null);
+  showToast(val ? 'API key saved to this browser' : 'API key cleared');
+}
+function handleClearAIKey(){
+  setStoredAIKey(null);
+  var el = document.getElementById('settings-ai-key');
+  if (el) el.value = '';
+  showToast('API key cleared');
 }
 
 /* =========================================================
@@ -2022,7 +2422,8 @@ function handleGeneratePlan(){
     distanceKey: distanceKey, currentVolume: volume, raceDate: raceDate, startDate: startDate, planWeeks: blockResult.planWeeks,
     schedule: schedule,
     benchmark: benchSec ? { distanceKey:benchDist, timeSec:benchSec } : (state.setup?state.setup.benchmark:null),
-    goals: goals, activeGoal: activeGoal
+    goals: goals, activeGoal: activeGoal,
+    paceOverrides: state.setup ? (state.setup.paceOverrides || {}) : {}
   };
   state.days = days;
   initExpanded();
@@ -2132,16 +2533,6 @@ function handleResetDay(dayId){
    SETTINGS MODAL
    ========================================================= */
 function openSettingsModal(){
-  var vdot = getActiveVDOT();
-  var paces = getActivePaces();
-  var labels = {E:'Easy',M:'Goal-Distance Equiv.',T:'Threshold',I:'Interval',R:'Repetition'};
-  var paceRows = '';
-  if (vdot){
-    ['E','M','T','I','R'].forEach(function(k){
-      var z = paces[k];
-      paceRows += '<div class="parse-row"><span class="k">'+labels[k]+'</span><span class="v font-mono">'+(z.slow!=null?fmtPaceFromSecPerKm(z.slow).split('/')[0]+'\u2013'+fmtPaceFromSecPerKm(z.fast):'\u2014')+'</span></div>';
-    });
-  }
   var html = ''+
   '<div class="modal-head"><h2 class="font-head">Settings</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
@@ -2149,11 +2540,8 @@ function openSettingsModal(){
       '<button type="button" class="'+(state.theme==='light'?'active':'')+'" data-action="set-theme" data-theme="light" aria-label="Light theme">'+ICONS.sun+'</button>'+
       '<button type="button" class="'+(state.theme==='dark'?'active':'')+'" data-action="set-theme" data-theme="dark" aria-label="Dark theme">'+ICONS.moon+'</button>'+
     '</div></div>'+
+    renderAICoachSettingsFieldset()+
     (state.setup ? (
-      '<fieldset><legend>Current Training Paces \u2014 VDOT '+(vdot?vdot.toFixed(1):'\u2014')+'</legend>'+
-      paceRows+
-      '<div class="field-hint">Derived from Active Goal '+state.setup.activeGoal+'. Change goals or benchmark in Plan Settings to update these.</div>'+
-      '</fieldset>'+
       '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="open-setup">'+ICONS.target+' Edit Plan Settings</button>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="open-pacing">'+ICONS.ruler+' Race Day Pacing Strategy</button>'+
@@ -2661,6 +3049,7 @@ function renderApp(){
     renderTopbar()+
     '<div class="wrap">'+
       '<div id="hero-mount">'+renderHero()+'</div>'+
+      '<div id="zone-paces-mount">'+renderZonePacesCard()+'</div>'+
       '<div id="checkpoint-banner-mount">'+renderCheckpointBanner()+'</div>'+
       (state.setup ? ('<div class="section-label font-head"><div class="rule"></div>The Block<div class="rule"></div></div>'+
       '<div id="weeks-mount">'+renderWeeksList()+'</div>') : '')+
@@ -2707,6 +3096,10 @@ document.addEventListener('click', function(e){
     case 'download-export': handleDownloadExport(); break;
     case 'export-ics': handleExportICS(); break;
     case 'print-plan': handlePrintPlan(); break;
+    case 'reset-pace-overrides': handleResetPaceOverrides(); break;
+    case 'ai-review': handleGenerateAIReview(target.getAttribute('data-day')); break;
+    case 'save-ai-key': handleSaveAIKey(); break;
+    case 'clear-ai-key': handleClearAIKey(); break;
   }
 });
 
@@ -2718,6 +3111,7 @@ document.addEventListener('change', function(e){
   var action = actionEl.getAttribute('data-action');
   if (action === 'toggle-complete') handleToggleComplete(actionEl.getAttribute('data-day'));
   else if (action === 'actual-field') handleActualFieldChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-field'), actionEl.value);
+  else if (action === 'pace-override') handlePaceOverrideChange(actionEl.getAttribute('data-zone'));
 });
 
 /* drag-and-drop reschedule (desktop enhancement; mobile uses the Swap-with dropdown in Edit Session) */
