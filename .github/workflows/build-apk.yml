@@ -58,3 +58,36 @@ jobs:
           name: velvet-viking-valhalla-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+  # Only runs for a pushed tag or a manually-triggered run (workflow_dispatch)
+  # -- ordinary branch pushes still just build the APK above and stop there,
+  # so this never fires (or spams releases) on every commit.
+  create-release:
+    needs: build-apk
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    steps:
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: velvet-viking-valhalla-debug-apk
+          path: dist
+
+      - name: Determine release tag
+        id: release_tag
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=manual-build-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          name: ${{ steps.release_tag.outputs.tag }}
+          generate_release_notes: true
+          files: dist/**/*.apk
