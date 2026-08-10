@@ -711,7 +711,10 @@ function isTaperWeek(weekNum){
 }
 function buildBlockWeeks(distKey, currentVolume, planWeeksInput){
   var profile = DISTANCE_PROFILES[distKey];
-  var N = clamp(Math.round(planWeeksInput||profile.weeks), 4, 20);
+  // planWeeksInput must be the exact week-bucket count derived from the real
+  // start-date -> race-date gap (see handleGeneratePlan) -- no hardcoded
+  // default and no clamp, so short or long blocks are represented exactly.
+  var N = Math.max(1, Math.round(planWeeksInput));
   var info = computeTaperInfo(N);
   var taper = info.taper, buildWeeks = info.buildWeeks;
   var peakVolume = currentVolume * profile.volMult;
@@ -821,6 +824,23 @@ function longRunText(km, hasGoalSegment, goalSegKm, isB2BPrimary, isB2BSecondary
    ========================================================= */
 var ISO_WEEKDAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 function isoWeekday(dateStr){ var d = new Date(dateStr+'T00:00:00').getDay(); return d===0?6:d-1; }
+// The user's very first available running day on/after dateStr -- this is
+// always the real start of a generated block, never a backward-computed offset.
+function firstActiveDayOnOrAfter(dateStr, activeDays){
+  var d = dateStr;
+  for (var i=0; i<7; i++){
+    if (activeDays.indexOf(isoWeekday(d))!==-1) return d;
+    d = addDays(d,1);
+  }
+  return dateStr;
+}
+function planLengthLabel(totalDays){
+  var weeks = Math.floor(totalDays/7);
+  var days = totalDays % 7;
+  if (weeks<=0) return days+(days===1?' day':' days');
+  if (days<=0) return weeks+(weeks===1?' week':' weeks');
+  return weeks+(weeks===1?' week ':' weeks ')+days+(days===1?' day':' days');
+}
 function pickSpacedQty2(qty1, candidates){
   if (!candidates.length) return null;
   if (candidates.length===1) return candidates[0];
@@ -831,10 +851,9 @@ function pickSpacedQty2(qty1, candidates){
   });
   return best;
 }
-function buildDaysFromWeeks(blockResult, raceDateStr, schedule){
+function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr){
   var profile = blockResult.profile;
   var weeks = blockResult.weeks;
-  var N = weeks.length;
 
   var activeDays = schedule.activeDays.slice();
   var longDay = schedule.longRunDay;
@@ -852,8 +871,10 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule){
   var easyDaysBase = nonLongActive.filter(function(d){ return d!==qty1Day && d!==qty2Day; });
 
   var raceIso = isoWeekday(raceDateStr);
-  var raceMonday = addDays(raceDateStr, -raceIso);
-  var startMonday = addDays(raceMonday, -(N-1)*7);
+  // Anchor forward from the real start date's calendar week instead of counting
+  // backward from the race date -- days before startDateStr are skipped below
+  // rather than never generated, so the plan never gets pushed into the past.
+  var startMonday = addDays(startDateStr, -isoWeekday(startDateStr));
 
   var days = [];
   weeks.forEach(function(wk, wIdx){
@@ -864,6 +885,8 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule){
       var perLeadUp = leadUpIsos.length ? Math.max(2, round1(wk.volume/leadUpIsos.length)) : 0;
       for (var ir=0; ir<7; ir++){
         var dr = addDays(weekMonday, ir);
+        if (dr<startDateStr) continue;
+        if (dr>raceDateStr) continue; // plan ends exactly at the target race date, never past it
         var isRD = (dr===raceDateStr);
         var obj;
         if (isRD){
@@ -912,6 +935,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule){
 
     for (var iso=0; iso<7; iso++){
       var date = addDays(weekMonday, iso);
+      if (date<startDateStr) continue;
       var dayObj;
       if (iso===longDay && activeSet[iso]){
         var tl = longRunText(longKm, wk.hasGoalSegment, wk.goalSegKm, b2bActive, false);
@@ -1755,7 +1779,6 @@ function openSetupModal(){
   var vol = su.currentVolume || '';
   var raceDate = su.raceDate || '';
   var goals = su.goals || {};
-  var planWeeks = su.planWeeks || (su.distanceKey ? DISTANCE_PROFILES[su.distanceKey].weeks : 8);
   var schedule = su.schedule || { activeDays:[0,1,2,4,5], longRunDay:5 };
 
   var goalLabels = {A:'Dream Target', B:'Solid Target', C:'Safety Net'};
@@ -1782,7 +1805,7 @@ function openSetupModal(){
     '<div class="setup-section-title">Target Race</div>'+
     '<div class="field"><label>Distance</label><select id="su-distance">'+distOptions+'</select></div>'+
     '<div class="field"><label>Race Date</label><input type="date" id="su-racedate" value="'+raceDate+'"></div>'+
-    '<div class="field"><label>Plan Length (4\u201320 weeks)</label><input type="number" min="4" max="20" step="1" inputmode="numeric" id="su-planweeks" value="'+planWeeks+'"></div>'+
+    '<div class="field"><label>Plan Length</label><div class="field-hint" id="su-planlength-display" style="font-size:1rem;color:var(--ink);margin-top:2px;">\u2014</div></div>'+
     '<div class="field"><label>Current Weekly Volume (km)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'"></div>'+
 
     '<div class="setup-section-title">Weekly Schedule</div>'+
@@ -1824,8 +1847,32 @@ function openSetupModal(){
       sel.innerHTML = checked.length
         ? checked.map(function(iso){ return '<option value="'+iso+'" '+(iso===current?'selected':'')+'>'+ISO_WEEKDAY_NAMES[iso]+'</option>'; }).join('')
         : '<option value="">\u2014 pick at least 3 days \u2014</option>';
+      updateSetupPlanLengthDisplay();
     });
   }
+  var raceDateInput = document.getElementById('su-racedate');
+  if (raceDateInput) raceDateInput.addEventListener('change', updateSetupPlanLengthDisplay);
+  updateSetupPlanLengthDisplay();
+}
+
+// Recomputes the read-only "Plan Length" text live from the real
+// today -> first-running-day -> race-date gap as the user edits the
+// setup form, so it never shows a stale hardcoded default.
+function updateSetupPlanLengthDisplay(){
+  var el = document.getElementById('su-planlength-display');
+  if (!el) return;
+  var raceDateEl = document.getElementById('su-racedate');
+  var raceDate = raceDateEl ? raceDateEl.value : '';
+  var wdBoxes = document.querySelectorAll('#su-weekdays input[type=checkbox]');
+  var activeDays = [];
+  wdBoxes.forEach(function(cb){ if (cb.checked) activeDays.push(parseInt(cb.getAttribute('data-wd'),10)); });
+
+  if (!raceDate || activeDays.length===0){ el.textContent = '\u2014'; return; }
+  if (raceDate <= todayStr()){ el.textContent = 'Pick a race date in the future'; return; }
+  var startDate = firstActiveDayOnOrAfter(todayStr(), activeDays);
+  if (raceDate < startDate){ el.textContent = 'Race date is before your first running day'; return; }
+  var totalDays = daysBetween(startDate, raceDate) + 1;
+  el.textContent = planLengthLabel(totalDays)+' \u00b7 starts '+dShort(startDate);
 }
 
 /* =========================================================
@@ -1926,7 +1973,6 @@ function handleSuggestGoals(){
 function handleGeneratePlan(){
   var distanceKey = document.getElementById('su-distance').value;
   var raceDate = document.getElementById('su-racedate').value;
-  var planWeeks = clamp(parseInt(document.getElementById('su-planweeks').value,10)||8, 4, 20);
   var volume = parseFloat(document.getElementById('su-volume').value);
   var benchDist = document.getElementById('su-bench-dist').value;
   var benchSec = clockToSec(document.getElementById('su-bench-time').value.trim());
@@ -1942,12 +1988,18 @@ function handleGeneratePlan(){
   if (activeDays.length<3 || activeDays.length>6){ showToast('Pick between 3 and 6 running days'); return; }
   if (isNaN(longRunDay)){ showToast('Choose a long run day'); return; }
 
-  var raceMondayCheck = addDays(raceDate, -isoWeekday(raceDate));
-  var weeksAvailable = Math.floor(daysBetween(todayStr(), raceMondayCheck)/7) + 1;
-  if (planWeeks > weeksAvailable){
-    showToast('Only '+weeksAvailable+' week'+(weeksAvailable===1?'':'s')+' fit between today and that race date at '+planWeeks+'wk length \u2014 shorten the plan or pick a later race date.');
+  // The block always starts on the runner's very first available running day
+  // from today -- never a hardcoded/default offset -- and its length is
+  // whatever real span (weeks + leftover days) actually falls between that
+  // day and the race date, not a fixed weekly grid worked backward from race day.
+  var startDate = firstActiveDayOnOrAfter(todayStr(), activeDays);
+  if (raceDate < startDate){
+    showToast('Your first available running day falls after that race date \u2014 pick a later race date');
     return;
   }
+  var startMonday = addDays(startDate, -isoWeekday(startDate));
+  var raceMonday = addDays(raceDate, -isoWeekday(raceDate));
+  var planWeeks = daysBetween(startMonday, raceMonday)/7 + 1;
 
   var goals = {};
   var anyGoal = false;
@@ -1964,10 +2016,10 @@ function handleGeneratePlan(){
   var profile = DISTANCE_PROFILES[distanceKey];
   var schedule = { activeDays:activeDays, longRunDay:longRunDay };
   var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks);
-  var days = buildDaysFromWeeks(blockResult, raceDate, schedule);
+  var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate);
 
   state.setup = {
-    distanceKey: distanceKey, currentVolume: volume, raceDate: raceDate, planWeeks: blockResult.planWeeks,
+    distanceKey: distanceKey, currentVolume: volume, raceDate: raceDate, startDate: startDate, planWeeks: blockResult.planWeeks,
     schedule: schedule,
     benchmark: benchSec ? { distanceKey:benchDist, timeSec:benchSec } : (state.setup?state.setup.benchmark:null),
     goals: goals, activeGoal: activeGoal
@@ -1977,7 +2029,7 @@ function handleGeneratePlan(){
   closeModal();
   scheduleSave();
   renderApp();
-  showToast('Plan generated \u2014 '+blockResult.planWeeks+' weeks to '+profile.label);
+  showToast('Plan generated \u2014 '+planLengthLabel(daysBetween(startDate,raceDate)+1)+' to '+profile.label+', starting '+dShort(startDate));
 }
 
 function handleSetGoal(key){
@@ -2355,7 +2407,7 @@ function generateExportText(){
   if (profile && state.setup){
     var goal = getActiveGoal();
     var vdot = getActiveVDOT();
-    lines.push(profile.label+' \u00b7 '+profile.weeks+'-Week '+profile.blockName+' \u00b7 Race: '+dLong(state.setup.raceDate));
+    lines.push(profile.label+' \u00b7 '+totalWeeksInPlan()+'-Week '+profile.blockName+' \u00b7 Race: '+dLong(state.setup.raceDate));
     lines.push('Active Goal '+state.setup.activeGoal+': '+(goal?secToClock(goal.timeSec):'\u2014')+' (VDOT '+(vdot?vdot.toFixed(1):'\u2014')+')');
     var paces = getActivePaces();
     lines.push('Paces \u2014 Easy '+(paces.E.slow?secToPace(paces.E.slow)+'-'+secToPace(paces.E.fast):'\u2014')+'/km, Threshold '+(paces.T.slow?secToPace(paces.T.slow)+'-'+secToPace(paces.T.fast):'\u2014')+'/km, Interval '+(paces.I.slow?secToPace(paces.I.slow)+'-'+secToPace(paces.I.fast):'\u2014')+'/km');
