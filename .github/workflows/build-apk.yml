@@ -17,7 +17,10 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # @capacitor/cli 8.x refuses to run on anything older than Node 22
+          # ("The Capacitor CLI requires NodeJS >=22.0.0") -- this is what
+          # failed the previous run, pinned to Node 20.
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -27,7 +30,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '17'
           cache: 'gradle'
 
       - name: Set up Android SDK
@@ -36,15 +39,16 @@ jobs:
       - name: Sync Capacitor native project
         run: npx cap sync android
 
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
       - name: Build debug APK
         working-directory: android
-        run: |
-          chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: velvet-viking-valhalla-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
