@@ -403,6 +403,11 @@
   .connect-row:last-child{border-bottom:none;}
   .connect-row .name{font-size:13.5px; font-weight:600;}
   .connect-row .desc{font-size:11px; color:var(--ink-faint);}
+  .strava-connect-btn{background:#FC4C02; color:#fff; border:none;}
+  .strava-connect-btn:hover{filter:brightness(1.08); border-color:transparent;}
+  .status-pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px;}
+  .status-pill svg{width:12px; height:12px;}
+  .status-connected{background:var(--c-easy-soft); color:var(--c-easy);}
   .callout{background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 12px; font-size:12px; color:var(--ink-dim); line-height:1.5; display:flex; gap:9px;}
   .callout svg{flex:none; width:16px; height:16px; color:var(--bronze); margin-top:1px;}
 
@@ -1199,7 +1204,12 @@ var ICONS = {
     '<circle cx="120" cy="132" r="10" fill="var(--gold)"/>'+
   '</svg>',
   target: svgWrap('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>'),
-  zap: svgWrap('<path d="M12.5 2.5L4 13h6l-1 8.5L20 11h-6.5z"/>')
+  zap: svgWrap('<path d="M12.5 2.5L4 13h6l-1 8.5L20 11h-6.5z"/>'),
+  // Generic activity-pulse glyph for the Strava connect button -- an angular
+  // ascending line evoking a heart-rate/activity trace, not a reproduction
+  // of Strava's trademarked logomark.
+  pulse: svgWrap('<polyline points="3,15 8,15 10.5,8 13.5,19 16,11 18,15 21,15"/>'),
+  watch: svgWrap('<circle cx="12" cy="13" r="7.5"/><path d="M9 3.5h6M12 13V9"/><path d="M8 3.5l-1 3M16 3.5l1 3"/>')
 };
 
 /* =========================================================
@@ -1247,6 +1257,43 @@ function parseGPX(text){
     pace: paceSecPerKm ? secToPace(paceSecPerKm) : null,
     hr: hrCount ? Math.round(hrSum/hrCount) : null,
     durationSec: durationSec
+  };
+}
+
+function parseTCX(text){
+  var doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error('That file doesn’t look like valid TCX.');
+  var laps = Array.prototype.slice.call(doc.getElementsByTagName('Lap'));
+  if (!laps.length) throw new Error('No laps found in this TCX file.');
+  var totalDist = 0, totalTime = 0, startTime = null;
+  laps.forEach(function(lap){
+    var st = lap.getAttribute('StartTime');
+    if (st && !startTime) startTime = st;
+    var distEl = lap.getElementsByTagName('DistanceMeters')[0];
+    var timeEl = lap.getElementsByTagName('TotalTimeSeconds')[0];
+    if (distEl) totalDist += parseFloat(distEl.textContent) || 0;
+    if (timeEl) totalTime += parseFloat(timeEl.textContent) || 0;
+  });
+  if (!startTime){
+    var idEl = doc.getElementsByTagName('Id')[0];
+    if (idEl) startTime = idEl.textContent;
+  }
+  var hrSum = 0, hrCount = 0;
+  var hrEls = doc.getElementsByTagName('HeartRateBpm');
+  for (var i=0;i<hrEls.length;i++){
+    var valEl = hrEls[i].getElementsByTagName('Value')[0];
+    if (valEl){ var v = parseFloat(valEl.textContent); if (!isNaN(v)){ hrSum += v; hrCount++; } }
+  }
+  var km = totalDist/1000;
+  var paceSecPerKm = (totalTime && km>0.05) ? totalTime/km : null;
+  var date = null;
+  if (startTime){ var d = new Date(startTime); if (!isNaN(d)) date = d.toISOString().slice(0,10); }
+  return {
+    source:'TCX', date: date,
+    km: round1(km),
+    pace: paceSecPerKm ? secToPace(paceSecPerKm) : null,
+    hr: hrCount ? Math.round(hrSum/hrCount) : null,
+    durationSec: totalTime || null
   };
 }
 
@@ -2550,9 +2597,7 @@ function openSettingsModal(){
     '<label class="btn btn-ghost btn-block" style="margin-bottom:8px;" for="import-json-input">'+ICONS.upload+' Import Backup (JSON)</label>'+
     '<input type="file" accept="application/json" id="import-json-input" style="display:none;">'+
     '<div class="divider-or"><div class="rule"></div>Sync<div class="rule"></div></div>'+
-    '<div class="connect-row"><div><div class="name">Strava</div><div class="desc">Needs a backend OAuth flow</div></div><button type="button" class="btn btn-sm btn-ghost" data-action="connect-info" data-service="Strava">'+ICONS.link+' Connect</button></div>'+
-    '<div class="connect-row"><div><div class="name">Garmin Connect</div><div class="desc">Needs a backend OAuth flow</div></div><button type="button" class="btn btn-sm btn-ghost" data-action="connect-info" data-service="Garmin">'+ICONS.link+' Connect</button></div>'+
-    '<div class="callout" style="margin-top:10px;">'+ICONS.info+'<div>Direct sync needs a server to hold API credentials. Use <b>Import Activity File</b> from the tools menu to pull in a GPX, FIT or CSV export instead.</div></div>'+
+    '<div class="connect-row"><div><div class="name">Strava &amp; Garmin</div><div class="desc">'+(isStravaConnected()?'Strava connected':'Connect or import a file')+'</div></div><button type="button" class="btn btn-sm btn-ghost" data-action="open-import">'+ICONS.link+' Tools &amp; Import</button></div>'+
     (state.setup ? (
       '<div class="divider-or"><div class="rule"></div>Danger Zone<div class="rule"></div></div>'+
       '<button type="button" class="btn btn-danger btn-block" data-action="reset-plan">'+ICONS.trash+' Reset Plan \u2014 Start Over</button>'+
@@ -2600,10 +2645,6 @@ function handleImportJsonFile(e){
   };
   reader.readAsText(file);
 }
-function handleConnectInfo(service){
-  showToast(service+' sync needs a backend server \u2014 try Import Activity File instead');
-}
-
 /* =========================================================
    RACE DAY PACING STRATEGY MODAL
    ========================================================= */
@@ -2655,15 +2696,181 @@ function dayPickerOptions(matchId){
   return opts;
 }
 
+/* =========================================================
+   STRAVA INTEGRATION \u2014 OAuth 2.0 + activity sync.
+   There is no backend here to hold a shared app secret, so this uses a
+   bring-your-own-app model: each browser owner registers their own free
+   Strava API application (strava.com/settings/api) and pastes in their own
+   Client ID/Secret, stored only in this browser's localStorage -- same
+   pattern as the AI Coach API key. The token exchange (POST .../oauth/token)
+   still happens directly from the browser; if Strava's token endpoint
+   doesn't allow that for a given app, the exchange fails gracefully with an
+   explanatory toast rather than silently pretending to succeed.
+   ========================================================= */
+var STRAVA_CLIENT_ID_KEY = 'vvv_strava_client_id';
+var STRAVA_CLIENT_SECRET_KEY = 'vvv_strava_client_secret';
+var STRAVA_TOKENS_KEY = 'vvv_strava_tokens';
+
+function getStravaClientId(){ return storageAvailable ? (window.localStorage.getItem(STRAVA_CLIENT_ID_KEY)||'') : ''; }
+function getStravaClientSecret(){ return storageAvailable ? (window.localStorage.getItem(STRAVA_CLIENT_SECRET_KEY)||'') : ''; }
+function setStravaCredentials(clientId, clientSecret){
+  if (!storageAvailable) return;
+  window.localStorage.setItem(STRAVA_CLIENT_ID_KEY, clientId);
+  window.localStorage.setItem(STRAVA_CLIENT_SECRET_KEY, clientSecret);
+}
+function getStravaTokens(){
+  if (!storageAvailable) return null;
+  try{ var raw = window.localStorage.getItem(STRAVA_TOKENS_KEY); return raw ? JSON.parse(raw) : null; }
+  catch(e){ return null; }
+}
+function setStravaTokens(tok){
+  if (!storageAvailable) return;
+  if (tok) window.localStorage.setItem(STRAVA_TOKENS_KEY, JSON.stringify(tok));
+  else window.localStorage.removeItem(STRAVA_TOKENS_KEY);
+}
+function isStravaConnected(){ var t = getStravaTokens(); return !!(t && t.access_token); }
+function stravaRedirectUri(){ return window.location.origin + window.location.pathname; }
+
+function handleStravaConnect(){
+  var idEl = document.getElementById('strava-client-id');
+  var secretEl = document.getElementById('strava-client-secret');
+  var clientId = idEl ? idEl.value.trim() : getStravaClientId();
+  var clientSecret = secretEl ? secretEl.value.trim() : getStravaClientSecret();
+  if (!clientId || !clientSecret){ showToast('Enter your Strava API Client ID and Client Secret first'); return; }
+  setStravaCredentials(clientId, clientSecret);
+  var params = [
+    'client_id='+encodeURIComponent(clientId),
+    'redirect_uri='+encodeURIComponent(stravaRedirectUri()),
+    'response_type=code',
+    'approval_prompt=auto',
+    'scope=read,activity:read_all'
+  ].join('&');
+  window.location.href = 'https://www.strava.com/oauth/authorize?'+params;
+}
+function handleStravaDisconnect(){
+  setStravaTokens(null);
+  showToast('Strava disconnected');
+  openImportModal();
+}
+async function exchangeStravaCode(code){
+  var clientId = getStravaClientId(), clientSecret = getStravaClientSecret();
+  if (!clientId || !clientSecret){ showToast('Missing Strava API credentials \u2014 reconnect from Tools & Import'); return; }
+  try{
+    var resp = await fetch('https://www.strava.com/oauth/token', {
+      method:'POST',
+      headers:{ 'content-type':'application/json' },
+      body: JSON.stringify({ client_id:clientId, client_secret:clientSecret, code:code, grant_type:'authorization_code' })
+    });
+    if (!resp.ok) throw new Error('Strava rejected the token exchange (status '+resp.status+')');
+    var data = await resp.json();
+    if (!data.access_token) throw new Error('No access token in Strava\u2019s response');
+    setStravaTokens({ access_token:data.access_token, refresh_token:data.refresh_token, expires_at:data.expires_at });
+    showToast('Strava connected!');
+  }catch(err){
+    showToast('Strava token exchange failed from the browser \u2014 Strava may not allow this for your app. You can still use file import below.');
+  }
+}
+async function handleStravaOAuthCallback(){
+  var params = new URLSearchParams(window.location.search);
+  var code = params.get('code');
+  var error = params.get('error');
+  if (!code && !error) return;
+  var cleanUrl = window.location.origin + window.location.pathname;
+  window.history.replaceState({}, document.title, cleanUrl);
+  if (error){ showToast('Strava connection cancelled'); return; }
+  await exchangeStravaCode(code);
+}
+async function ensureStravaAccessToken(){
+  var t = getStravaTokens();
+  if (!t) return null;
+  var nowSec = Math.floor(Date.now()/1000);
+  if (t.expires_at && t.expires_at > nowSec+60) return t.access_token;
+  var clientId = getStravaClientId(), clientSecret = getStravaClientSecret();
+  if (!clientId || !clientSecret || !t.refresh_token) return t.access_token;
+  try{
+    var resp = await fetch('https://www.strava.com/oauth/token', {
+      method:'POST', headers:{ 'content-type':'application/json' },
+      body: JSON.stringify({ client_id:clientId, client_secret:clientSecret, grant_type:'refresh_token', refresh_token:t.refresh_token })
+    });
+    if (!resp.ok) throw new Error('refresh failed');
+    var data = await resp.json();
+    var fresh = { access_token:data.access_token, refresh_token:data.refresh_token||t.refresh_token, expires_at:data.expires_at };
+    setStravaTokens(fresh);
+    return fresh.access_token;
+  }catch(e){ return t.access_token; }
+}
+async function fetchStravaRuns(){
+  if (!isStravaConnected()){ showToast('Connect Strava first'); return; }
+  var token = await ensureStravaAccessToken();
+  if (!token){ showToast('Strava session expired \u2014 reconnect'); return; }
+  showToast('Syncing from Strava\u2026');
+  try{
+    var resp = await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=50', {
+      headers:{ 'Authorization':'Bearer '+token }
+    });
+    if (resp.status===401){ setStravaTokens(null); throw new Error('Strava session expired \u2014 reconnect'); }
+    if (!resp.ok) throw new Error('Strava request failed (status '+resp.status+')');
+    var activities = await resp.json();
+    var runs = activities.filter(function(a){ return a.type==='Run' || a.sport_type==='Run'; });
+    var applied = 0;
+    runs.forEach(function(a){
+      var dateStr = (a.start_date_local || a.start_date || '').slice(0,10);
+      if (!dateStr) return;
+      var dd = findDayByDate(dateStr);
+      if (!dd || dd.type==='rest') return;
+      var km = a.distance!=null ? round1(a.distance/1000) : null;
+      var paceSecPerKm = (a.moving_time && a.distance) ? (a.moving_time/(a.distance/1000)) : null;
+      dd.completed = true;
+      dd.actual = dd.actual || { km:null, pace:null, hr:null, rpe:null, notes:'' };
+      if (km!=null) dd.actual.km = km;
+      if (paceSecPerKm) dd.actual.pace = secToPace(paceSecPerKm);
+      if (a.average_heartrate) dd.actual.hr = Math.round(a.average_heartrate);
+      if (!dd.actual.notes) dd.actual.notes = 'Synced from Strava';
+      applied++;
+    });
+    if (applied){ scheduleSave(); renderApp(); showToast('Synced '+applied+' run'+(applied===1?'':'s')+' from Strava'); }
+    else showToast('No Strava runs matched a day in your current plan');
+    if (document.getElementById('modal-overlay')) openImportModal();
+  }catch(err){
+    showToast(err.message || 'Strava sync failed');
+  }
+}
+
+function renderStravaSection(){
+  var connected = isStravaConnected();
+  if (connected){
+    return ''+
+      '<div class="connect-row">'+
+        '<div><div class="name">Strava</div><div class="desc"><span class="status-pill status-connected">'+ICONS.check+' Connected</span></div></div>'+
+        '<div style="display:flex; gap:6px;">'+
+          '<button type="button" class="btn btn-sm btn-primary" data-action="strava-sync">Sync Strava</button>'+
+          '<button type="button" class="btn btn-sm btn-ghost" data-action="strava-disconnect">Disconnect</button>'+
+        '</div>'+
+      '</div>';
+  }
+  var clientId = getStravaClientId(), clientSecret = getStravaClientSecret();
+  return ''+
+    '<div class="field-hint" style="margin-bottom:10px;">Uses your own free Strava API app (create one at strava.com/settings/api) \u2014 your Client ID/Secret are stored only in this browser.</div>'+
+    '<div class="field-row">'+
+      '<div class="field" style="margin-bottom:0;"><label>Client ID</label><input type="text" id="strava-client-id" value="'+escapeHtml(clientId)+'" autocomplete="off"></div>'+
+      '<div class="field" style="margin-bottom:0;"><label>Client Secret</label><input type="password" id="strava-client-secret" value="'+escapeHtml(clientSecret)+'" autocomplete="off"></div>'+
+    '</div>'+
+    '<button type="button" class="btn btn-block strava-connect-btn" style="margin-top:10px;" data-action="strava-connect">'+ICONS.pulse+' Connect Strava</button>';
+}
 function openImportModal(){
   var html = ''+
-  '<div class="modal-head"><h2 class="font-head">Import Activity File</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+  '<div class="modal-head"><h2 class="font-head">Tools &amp; Import</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
-    '<div class="dropzone" id="import-dropzone">'+ICONS.upload+
-      '<div class="main">Drop a GPX, FIT or CSV file</div>'+
-      '<div class="sub">or tap to browse \u2014 we\u2019ll pull distance, pace and heart rate</div>'+
+    '<div class="setup-section-title">Strava</div>'+
+    renderStravaSection()+
+    '<div class="divider-or" style="margin:20px 0;"><div class="rule"></div><div class="rule"></div></div>'+
+    '<div class="setup-section-title">Garmin Connect</div>'+
+    '<div class="dropzone" id="import-dropzone">'+ICONS.watch+
+      '<div class="main">Drop a FIT, TCX or GPX file</div>'+
+      '<div class="sub">or tap to browse \u2014 we\u2019ll pull distance, duration and pace</div>'+
     '</div>'+
-    '<input type="file" id="import-file-input" accept=".gpx,.fit,.csv" style="display:none;">'+
+    '<input type="file" id="import-file-input" accept=".gpx,.fit,.tcx,.csv" style="display:none;">'+
+    '<div class="field-hint" style="margin-top:10px;">Garmin user? Sync your Garmin Connect account to Strava, then tap \u201cSync Strava\u201d above to auto-import your watch runs automatically!</div>'+
     '<div id="import-result"></div>'+
   '</div>';
   openModal(html);
@@ -2685,11 +2892,11 @@ function handleImportFile(file){
   var name = file.name.toLowerCase();
   var resultEl = document.getElementById('import-result');
   if (resultEl) resultEl.innerHTML = '<div class="empty-note">Reading '+escapeHtml(file.name)+'\u2026</div>';
-  if (name.endsWith('.gpx') || name.endsWith('.csv')){
+  if (name.endsWith('.gpx') || name.endsWith('.csv') || name.endsWith('.tcx')){
     var r = new FileReader();
     r.onload = function(){
       try{
-        var parsed = name.endsWith('.gpx') ? parseGPX(r.result) : parseCSV(r.result);
+        var parsed = name.endsWith('.gpx') ? parseGPX(r.result) : name.endsWith('.tcx') ? parseTCX(r.result) : parseCSV(r.result);
         renderImportResult(parsed, file.name);
       }catch(err){ renderImportError(err); }
     };
@@ -2704,7 +2911,7 @@ function handleImportFile(file){
     r2.onerror = function(){ renderImportError(new Error('Couldn\u2019t read that file.')); };
     r2.readAsArrayBuffer(file);
   } else {
-    renderImportError(new Error('Please choose a .gpx, .fit or .csv file.'));
+    renderImportError(new Error('Please choose a .gpx, .fit, .tcx or .csv file.'));
   }
 }
 
@@ -2910,7 +3117,7 @@ function renderFab(){
     '<div class="fab-menu'+(fabOpen?' open':'')+'">'+
       recalItem+
       '<button type="button" data-action="open-settings">'+ICONS.settings+'Settings</button>'+
-      '<button type="button" data-action="open-import">'+ICONS.upload+'Import Activity File</button>'+
+      '<button type="button" data-action="open-import">'+ICONS.upload+'Tools & Import</button>'+
       '<button type="button" data-action="open-export">'+ICONS.sparkles+'AI Coaching Export</button>'+
     '</div>'+
     '<button type="button" class="fab-main'+(fabOpen?' open':'')+'" data-action="toggle-fab" aria-label="Tools menu">'+ICONS.plus+'</button>'+
@@ -3083,10 +3290,12 @@ document.addEventListener('click', function(e){
     case 'suggest-goals': handleSuggestGoals(); break;
     case 'generate-plan': handleGeneratePlan(); break;
     case 'export-json': handleExportJson(); break;
-    case 'connect-info': handleConnectInfo(target.getAttribute('data-service')); break;
     case 'set-theme': handleSetTheme(target.getAttribute('data-theme')); break;
     case 'set-units': handleSetUnits(target.getAttribute('data-units')); break;
     case 'apply-activity': handleApplyActivity(); break;
+    case 'strava-connect': handleStravaConnect(); break;
+    case 'strava-sync': fetchStravaRuns(); break;
+    case 'strava-disconnect': handleStravaDisconnect(); break;
     case 'apply-csv-row': handleApplyCsvRow(parseInt(target.getAttribute('data-row'),10)); break;
     case 'copy-export': handleCopyExport(); break;
     case 'download-export': handleDownloadExport(); break;
@@ -3153,6 +3362,7 @@ function init(){
   if (state.setup && state.days && state.days.length) initExpanded();
   renderApp();
   startCountdownTimer();
+  if (window.location.search.indexOf('code=')!==-1 || window.location.search.indexOf('error=')!==-1) handleStravaOAuthCallback();
 }
 try{ init(); }
 catch(err){
