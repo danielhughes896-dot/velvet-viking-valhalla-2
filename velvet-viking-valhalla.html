@@ -2248,7 +2248,6 @@ function openSetupModal(){
     '<div class="setup-section-title">Target Race</div>'+
     '<div class="field"><label>Distance</label><select id="su-distance">'+distOptions+'</select></div>'+
     '<div class="field"><label>Race Date</label><input type="date" id="su-racedate" value="'+raceDate+'"></div>'+
-    '<div class="field"><label>Plan Length</label><div class="field-hint" id="su-planlength-display" style="font-size:1rem;color:var(--ink);margin-top:2px;">\u2014</div></div>'+
     '<div class="field"><label>Current Weekly Volume (km)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'"></div>'+
 
     '<div class="setup-section-title">Weekly Schedule</div>'+
@@ -2290,32 +2289,8 @@ function openSetupModal(){
       sel.innerHTML = checked.length
         ? checked.map(function(iso){ return '<option value="'+iso+'" '+(iso===current?'selected':'')+'>'+ISO_WEEKDAY_NAMES[iso]+'</option>'; }).join('')
         : '<option value="">\u2014 pick at least 3 days \u2014</option>';
-      updateSetupPlanLengthDisplay();
     });
   }
-  var raceDateInput = document.getElementById('su-racedate');
-  if (raceDateInput) raceDateInput.addEventListener('change', updateSetupPlanLengthDisplay);
-  updateSetupPlanLengthDisplay();
-}
-
-// Recomputes the read-only "Plan Length" text live from the real
-// today -> first-running-day -> race-date gap as the user edits the
-// setup form, so it never shows a stale hardcoded default.
-function updateSetupPlanLengthDisplay(){
-  var el = document.getElementById('su-planlength-display');
-  if (!el) return;
-  var raceDateEl = document.getElementById('su-racedate');
-  var raceDate = raceDateEl ? raceDateEl.value : '';
-  var wdBoxes = document.querySelectorAll('#su-weekdays input[type=checkbox]');
-  var activeDays = [];
-  wdBoxes.forEach(function(cb){ if (cb.checked) activeDays.push(parseInt(cb.getAttribute('data-wd'),10)); });
-
-  if (!raceDate || activeDays.length===0){ el.textContent = '\u2014'; return; }
-  if (raceDate <= todayStr()){ el.textContent = 'Pick a race date in the future'; return; }
-  var startDate = firstActiveDayOnOrAfter(todayStr(), activeDays);
-  if (raceDate < startDate){ el.textContent = 'Race date is before your first running day'; return; }
-  var totalDays = daysBetween(startDate, raceDate) + 1;
-  el.textContent = planLengthLabel(totalDays)+' \u00b7 starts '+dShort(startDate);
 }
 
 /* =========================================================
