@@ -5,5 +5,19 @@
   "outputDirectory": ".",
   "rewrites": [
     { "source": "/", "destination": "/velvet-viking-valhalla.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*\\.html)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
+      ]
+    }
   ]
 }
