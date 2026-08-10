@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Velvet Viking Valhalla</string>
+    <string name="title_activity_main">Velvet Viking Valhalla</string>
+    <string name="package_name">com.velvetviking.valhalla</string>
+    <string name="custom_url_scheme">com.velvetviking.valhalla</string>
+</resources>

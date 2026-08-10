@@ -1,0 +1,9 @@
+{
+  "appId": "com.velvetviking.valhalla",
+  "appName": "Velvet Viking Valhalla",
+  "webDir": "www",
+  "server": {
+    "url": "https://velvet-viking-valhalla-2.vercel.app",
+    "cleartext": true
+  }
+}
