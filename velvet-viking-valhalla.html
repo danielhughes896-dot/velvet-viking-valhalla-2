@@ -642,9 +642,18 @@ function goalPaceSecPerKm(vdot, raceDistanceM){
 /* =========================================================
    DATE / TIME / PACE HELPERS
    ========================================================= */
+// Pure UTC-anchored arithmetic -- deliberately never touches local time.
+// Parsing "T00:00:00" as local midnight and then reading it back via
+// toISOString() (which is always UTC) silently shifts the result a day
+// early for anyone in a positive UTC-offset timezone (UK/EU/AU/etc during
+// their summer, most of Asia year-round). Building the Date from Date.UTC
+// and stepping with setUTCDate keeps the whole round-trip in UTC, so the
+// calendar date it returns matches the input regardless of where the
+// browser's clock thinks it is.
 function addDays(dateStr, n){
-  var d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + n);
+  var parts = dateStr.split('-').map(Number);
+  var d = new Date(Date.UTC(parts[0], parts[1]-1, parts[2]));
+  d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0,10);
 }
 function dow(dateStr){ return new Date(dateStr+'T00:00:00').toLocaleDateString('en-US',{weekday:'short'}); }
