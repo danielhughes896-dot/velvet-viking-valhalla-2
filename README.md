@@ -12,5 +12,5 @@ Preview if you want it working on preview deploys too), then redeploy:
 - `STRAVA_CLIENT_SECRET` — from the same page
 
 In that Strava API app's settings, set **Authorization Callback Domain** to
-the deployed domain (e.g. `velvet-viking-valhalla-2.vercel.app`), with no
+the deployed domain (`velvet-viking-valhalla-1.vercel.app`), with no
 `https://` prefix and no path — Strava only lets you register a bare domain.
