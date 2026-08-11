@@ -1435,8 +1435,15 @@ function flushSave(){
    of loading their SDK, so the app keeps its no-build-step, no-CDN,
    nothing-to-rot property.
    ========================================================= */
-var SUPABASE_URL = '';       // e.g. https://xxxxxxxx.supabase.co
-var SUPABASE_ANON_KEY = '';  // the public "anon" key -- safe in client code
+// Project base URL -- NOT the /rest/v1/ endpoint the dashboard shows, since
+// cloudFetch() appends its own /rest/v1/... and /auth/v1/... paths.
+var SUPABASE_URL = 'https://eqiydxissphygnycpouu.supabase.co';
+// The publishable key (or the older "anon" JWT). Public by design: it is meant
+// to ship inside client code, and the Row Level Security policies in
+// supabase-setup.sql are what actually keep one runner's plan private from
+// another. It grants nothing on its own. The service_role key must NEVER
+// appear here -- that one bypasses RLS entirely.
+var SUPABASE_ANON_KEY = 'sb_publishable_PLiExuCqvMmjYwal4DtFQA_m4eZuCd-';
 var CLOUD_SESSION_KEY = 'vvv_cloud_session';
 var CLOUD_BACKUP_KEY = 'vvv_cloud_displaced_plan';
 var cloudSession = null;   // { access_token, refresh_token, expires_at, email, user_id }
