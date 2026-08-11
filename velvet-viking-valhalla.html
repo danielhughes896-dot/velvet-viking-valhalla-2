@@ -193,7 +193,7 @@
   /* ---------- print ---------- */
   @media print{
     body{background:#fff !important; color:#111 !important;}
-    .topbar, .fab-tools, .bottom-nav, #toast-mount, .checkpoint-banner, .plan-summary-bar,
+    .topbar, .bottom-nav, #toast-mount, .checkpoint-banner, .plan-summary-bar,
     .day-check, .day-actions, .actual-panel, .fuel-card summary, .goal-toggle-hero,
     .setup-cta, .progress-bars, .modal-overlay{ display:none !important; }
     .week-body{max-height:none !important;}
@@ -481,13 +481,7 @@
   @keyframes toastin{from{transform:translateY(12px); opacity:0;} to{transform:translateY(0); opacity:1;}}
   @keyframes toastout{to{opacity:0; transform:translateY(8px);}}
 
-  .fab-tools{
-    position:fixed; right:16px; bottom:16px; z-index:60; display:flex; flex-direction:column; gap:8px; align-items:flex-end;
-    transition:bottom .2s ease;
-  }
-  .fab-tools.above-bottom-nav{ bottom:94px; }
-
-  /* ---------- sticky bottom nav — 4 view toggles ---------- */
+  /* ---------- sticky bottom nav — 5 view toggles ---------- */
   .bottom-nav{
     position:fixed; left:0; right:0; bottom:0; z-index:55; display:flex;
     background:var(--modal-surface); border-top:1px solid var(--modal-border);
@@ -496,11 +490,12 @@
   }
   @media (min-width:640px){ .bottom-nav{ left:50%; transform:translateX(-50%); border-left:1px solid var(--modal-border); border-right:1px solid var(--modal-border); } }
   .bn-item{
-    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
-    padding:7px 2px; color:var(--ink-faint); font-family:'Oswald',sans-serif; font-size:9.5px;
-    text-transform:uppercase; letter-spacing:.4px; border-radius:10px; transition:.2s;
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0;
+    padding:7px 1px; color:var(--ink-faint); font-family:'Oswald',sans-serif; font-size:8.5px;
+    text-transform:uppercase; letter-spacing:.2px; border-radius:10px; transition:.2s;
   }
-  .bn-item svg{width:19px; height:19px;}
+  .bn-item svg{width:18px; height:18px; flex:none;}
+  .bn-item span{max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .bn-item.active{ color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14); }
   .bn-item:active{ transform:scale(.95); }
   .view-heading{
@@ -508,24 +503,8 @@
     text-align:center; margin:18px 0 4px;
   }
   .view-fade{ animation:fadein .18s ease; }
-  .fab-menu{
-    display:none; flex-direction:column; gap:6px; background:var(--bg-2); border:1px solid var(--line);
-    border-radius:var(--radius-sm); padding:8px; box-shadow:var(--shadow); margin-bottom:4px;
-  }
-  .fab-menu.open{display:flex;}
-  .fab-menu button{
-    display:flex; align-items:center; gap:9px; background:none; border:none; color:var(--ink);
-    padding:9px 12px; border-radius:8px; font-size:13px; white-space:nowrap; text-align:left;
-  }
-  .fab-menu button:hover{background:var(--bg-4);}
-  .fab-menu svg{width:16px; height:16px; color:var(--bronze); flex:none;}
-  .fab-main{
-    width:52px; height:52px; border-radius:50%; background:linear-gradient(135deg,var(--bronze),var(--gold));
-    color:var(--bronze-ink); border:none; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow);
-    transition:transform .25s;
-  }
-  .fab-main.open{transform:rotate(45deg);}
-  .fab-main svg{width:24px; height:24px;}
+  .hub-card{margin:0 0 14px; padding:14px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .hub-card .setup-section-title{margin-top:0;}
 
   .empty-note{font-size:12px; color:var(--ink-faint); text-align:center; padding:10px 0;}
   .divider-or{display:flex; align-items:center; gap:10px; margin:14px 0; color:var(--ink-faint); font-size:10px; letter-spacing:1px; text-transform:uppercase;}
@@ -1236,7 +1215,6 @@ var ICONS = {
   check: svgWrap('<polyline points="5,13 10,18 19,7"/>'),
   chevronDown: svgWrap('<polyline points="6,9 12,15 18,9"/>'),
   chevronRight: svgWrap('<polyline points="9,6 15,12 9,18"/>'),
-  plus: svgWrap('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'),
   settings: svgWrap('<line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2.1"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2.1"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="10" cy="17" r="2.1"/>'),
   upload: svgWrap('<path d="M12 16V4"/><polyline points="7,9 12,4 17,9"/><path d="M5 20h14"/>'),
   download: svgWrap('<path d="M12 4v12"/><polyline points="7,11 12,16 17,11"/><path d="M5 20h14"/>'),
@@ -1602,8 +1580,8 @@ function renderTopbar(){
     // KM/MI is chosen inside the setup modal instead (see #su-units).
     left = '<button class="icon-btn" type="button" data-action="open-settings" aria-label="Settings">'+ICONS.shieldmark+'</button>';
     right = themeBtn;
-  } else if (state.view==='planhq'){
-    // Plan HQ: administrative controls -- units + theme.
+  } else if (state.view==='planhq' || state.view==='settings'){
+    // Plan HQ / Settings: administrative controls -- units + theme.
     left = '<div class="unit-toggle" role="group" aria-label="Distance units">'+
         '<button type="button" class="'+(state.units!=='mi'?'active':'')+'" data-action="set-units" data-units="km">KM</button>'+
         '<button type="button" class="'+(state.units==='mi'?'active':'')+'" data-action="set-units" data-units="mi">MI</button>'+
@@ -3189,27 +3167,6 @@ function handlePrintPlan(){
 }
 
 /* =========================================================
-   FLOATING TOOLS MENU
-   ========================================================= */
-var fabOpen = false;
-function renderFab(){
-  var recalItem = state.setup ? '<button type="button" data-action="open-recalibrate">'+ICONS.target+'Re-calibrate Zones</button>' : '';
-  return '<div class="fab-tools'+(state.setup?' above-bottom-nav':'')+'">'+
-    '<div class="fab-menu'+(fabOpen?' open':'')+'">'+
-      recalItem+
-      '<button type="button" data-action="open-settings">'+ICONS.settings+'Settings</button>'+
-      '<button type="button" data-action="open-import">'+ICONS.upload+'Tools & Import</button>'+
-      '<button type="button" data-action="open-export">'+ICONS.sparkles+'AI Coaching Export</button>'+
-    '</div>'+
-    '<button type="button" class="fab-main'+(fabOpen?' open':'')+'" data-action="toggle-fab" aria-label="Tools menu">'+ICONS.plus+'</button>'+
-  '</div>';
-}
-function patchFab(){
-  var m = document.getElementById('fab-mount');
-  if (m) m.innerHTML = renderFab();
-}
-
-/* =========================================================
    TARGETED DOM PATCHES
    ========================================================= */
 function patchDerivedStats(){
@@ -3362,13 +3319,46 @@ function renderPlanHQView(){
     renderBenchmarkSummary()+
     renderZonePacesCard();
 }
+// Settings hub: everything that used to live behind the FAB's popover menu,
+// now a normal view tab. Sub-options either fire a direct action (save/clear
+// key, export/reset) or open one of the existing modals -- openModal() always
+// closes any modal already open first, so there's never a nesting risk.
+function renderSettingsHubView(){
+  return '<div class="view-heading font-head">Settings</div>'+
+    '<div class="hub-card">'+
+      '<div class="setup-section-title">Training &amp; Zones</div>'+
+      '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="open-setup">'+ICONS.target+' Edit Plan Settings</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="open-pacing">'+ICONS.ruler+' Race Day Pacing Strategy</button>'+
+    '</div>'+
+    '<div class="hub-card">'+
+      '<div class="setup-section-title">AI Coaching</div>'+
+      renderAICoachSettingsFieldset()+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="open-export">'+ICONS.sparkles+' Export AI Coaching Prompt</button>'+
+    '</div>'+
+    '<div class="hub-card">'+
+      '<div class="setup-section-title">Sync &amp; Export</div>'+
+      renderStravaSection()+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin:10px 0 8px;" data-action="open-import">'+ICONS.watch+' Garmin File Import</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="export-ics">'+ICONS.clock+' Export to iCal (.ics)</button>'+
+    '</div>'+
+    '<div class="hub-card">'+
+      '<div class="setup-section-title">Backup &amp; Reset</div>'+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-json">'+ICONS.download+' Export Full Backup (JSON)</button>'+
+      '<label class="btn btn-ghost btn-block" style="margin-bottom:14px;" for="import-json-input">'+ICONS.upload+' Import Backup (JSON)</label>'+
+      '<input type="file" accept="application/json" id="import-json-input" style="display:none;">'+
+      '<button type="button" class="btn btn-danger btn-block" data-action="reset-plan">'+ICONS.trash+' Reset Plan — Start Over</button>'+
+    '</div>'+
+    '<div class="build-tag">Build '+BUILD_ID+'</div>';
+}
 function renderBottomNav(){
   var view = state.view || 'today';
   var items = [
     {key:'today', label:'Today', icon:ICONS.clock},
     {key:'week', label:'This Week', icon:ICONS.calendarWeek},
     {key:'full', label:'Full Plan', icon:ICONS.layers},
-    {key:'planhq', label:'Plan HQ', icon:ICONS.target}
+    {key:'planhq', label:'Plan HQ', icon:ICONS.target},
+    {key:'settings', label:'Settings', icon:ICONS.settings}
   ];
   return '<nav class="bottom-nav" id="bottom-nav">'+
     items.map(function(it){
@@ -3388,6 +3378,7 @@ function renderMainContent(){
   if (view==='week') return renderWeekView();
   if (view==='full') return renderFullPlanView();
   if (view==='planhq') return renderPlanHQView();
+  if (view==='settings') return renderSettingsHubView();
   return renderTodayView();
 }
 
@@ -3398,8 +3389,7 @@ function renderApp(){
   app.innerHTML =
     renderTopbar()+
     '<div class="wrap"><div id="view-mount" class="view-fade">'+renderMainContent()+'</div></div>'+
-    (state.setup ? renderBottomNav() : '')+
-    '<div id="fab-mount">'+renderFab()+'</div>';
+    (state.setup ? renderBottomNav() : '');
 }
 
 /* =========================================================
@@ -3419,12 +3409,11 @@ document.addEventListener('click', function(e){
     case 'reset-plan': handleResetPlan(); break;
     case 'close-modal': closeModal(); break;
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
-    case 'toggle-fab': fabOpen = !fabOpen; patchFab(); break;
-    case 'open-settings': fabOpen=false; patchFab(); openSettingsModal(); break;
-    case 'open-import': fabOpen=false; patchFab(); openImportModal(); break;
-    case 'open-export': fabOpen=false; patchFab(); openExportModal(); break;
-    case 'open-setup': fabOpen=false; patchFab(); openSetupModal(); break;
-    case 'open-recalibrate': fabOpen=false; patchFab(); openRecalibrateModal(); break;
+    case 'open-settings': openSettingsModal(); break;
+    case 'open-import': openImportModal(); break;
+    case 'open-export': openExportModal(); break;
+    case 'open-setup': openSetupModal(); break;
+    case 'open-recalibrate': openRecalibrateModal(); break;
     case 'rc-suggest-goals': handleRecalibrateSuggest(); break;
     case 'save-recalibrate': handleSaveRecalibrate(); break;
     case 'open-pacing': openPacingModal(); break;
