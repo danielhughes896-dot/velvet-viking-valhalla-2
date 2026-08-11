@@ -31,8 +31,14 @@
     --shadow:0 10px 30px rgba(0,0,0,0.4);
     --shadow-sm:0 4px 12px rgba(0,0,0,0.3);
     --maxw:720px;
+    /* dedicated dark-Viking palette for modals, dropdowns & selects --
+       deliberately fixed regardless of the light/dark theme toggle */
+    --modal-surface:#141210; --modal-input-bg:#24201c; --modal-border:#3d352b;
+    --modal-active:#c5a059; --modal-text:#e6dfd5;
+    color-scheme:dark;
   }
   [data-theme="light"]{
+    color-scheme:light;
     --bg:#F2ECDC; --bg-2:#FFFCF6; --bg-3:#EBE1C8; --bg-4:#E3D7B8;
     --ink:#241C15; --ink-dim:#5E5443; --ink-faint:#8D8168;
     --line:#DCCEA9; --line-soft:#E7DABB;
@@ -81,15 +87,20 @@
     padding:6px 9px; color:var(--ink-faint); background:transparent;
   }
   .unit-toggle button.active{background:var(--bronze); color:var(--bg);}
+  /* sticky header row 2 — ONLY the confidence gauge (left) and the race
+     countdown (true center, independent of the gauge's width via the grid's
+     symmetric outer columns). Nothing else lives in this row. */
   .topbar-row2{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px;
     padding:0 16px 10px; max-width:var(--maxw); margin:0 auto;
   }
-  .countdown{display:flex; align-items:baseline; gap:7px; justify-content:center;}
-  .cd-seg{display:flex; align-items:baseline; gap:1.5px;}
-  .cd-num{font-size:14px; font-weight:700; color:var(--gold);}
-  .cd-unit{font-size:9.5px; color:var(--ink-faint); font-family:'JetBrains Mono',monospace;}
-  .cd-race-day{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--gold); font-weight:700;}
+  .tb-gauge-slot{justify-self:start;}
+  .tb-countdown-slot{justify-self:center;}
+  .countdown{display:flex; align-items:baseline; gap:10px; justify-content:center;}
+  .cd-seg{display:flex; align-items:baseline; gap:2px;}
+  .cd-num{font-size:18px; font-weight:700; color:var(--gold);}
+  .cd-unit{font-size:10.5px; color:var(--ink-faint); font-family:'JetBrains Mono',monospace;}
+  .cd-race-day{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--gold); font-weight:700;}
 
   /* confidence score fuel gauge — top-left of the header */
   .confidence-gauge{display:flex; flex-direction:column; align-items:center; gap:2px;}
@@ -100,14 +111,6 @@
   .gauge-caption{display:flex; align-items:baseline; gap:5px;}
   .gauge-pct{font-size:13px; font-weight:700; color:var(--gold);}
   .gauge-label{font-size:8.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-faint);}
-
-  /* prominent centered race countdown beneath the hero medallion */
-  .hero-countdown{margin:2px 0 20px;}
-  .hero-countdown .countdown{gap:16px;}
-  .hero-countdown .cd-seg{gap:3px;}
-  .hero-countdown .cd-num{font-size:30px; color:var(--gold);}
-  .hero-countdown .cd-unit{font-size:12px;}
-  .hero-countdown .cd-race-day{font-size:16px;}
   .checkpoint-banner{
     display:flex; align-items:flex-start; gap:11px; background:var(--c-gold-soft);
     border:1.5px solid var(--gold); border-radius:var(--radius-sm); padding:13px 14px; margin:16px 0;
@@ -385,21 +388,25 @@
   @keyframes fadein{from{opacity:0;} to{opacity:1;}}
   @media (min-width:640px){ .modal-overlay{align-items:center; padding:20px;} }
   .modal-card{
-    background:var(--bg-2); border:1px solid var(--line); width:100%; max-width:560px;
+    background:var(--modal-surface); border:1px solid var(--modal-border); width:100%; max-width:560px;
     border-radius:20px 20px 0 0; max-height:92vh; overflow-y:auto; box-shadow:var(--shadow);
-    animation:slideup .22s ease;
+    animation:slideup .22s ease; color-scheme:dark;
   }
   @media (min-width:640px){ .modal-card{border-radius:var(--radius-lg);} }
   @keyframes slideup{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
-  .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg-2); z-index:2;}
-  .modal-head h2{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1px; font-size:16px; margin:0; color:var(--ink);}
-  .modal-body{padding:16px 18px 22px;}
+  .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--modal-border); position:sticky; top:0; background:var(--modal-surface); z-index:2;}
+  .modal-head h2{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1px; font-size:16px; margin:0; color:var(--modal-text);}
+  .modal-body{padding:16px 18px 22px; color:var(--modal-text);}
   .field{margin-bottom:14px;}
-  .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px;}
+  .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--modal-text); opacity:.65; margin-bottom:5px;}
   .field input, .field select, .field textarea{
-    width:100%; background:var(--bg-3); border:1px solid var(--line); border-radius:9px;
-    color:var(--ink); padding:10px 11px; font-size:14px;
+    width:100%; background:var(--modal-input-bg); border:1px solid var(--modal-border); border-radius:9px;
+    color:var(--modal-text); padding:10px 11px; font-size:14px;
   }
+  .field input:focus, .field select:focus, .field textarea:focus{
+    outline:none; border-color:var(--modal-active); box-shadow:0 0 0 2px rgba(197,160,89,0.25);
+  }
+  .field select option{ background:var(--modal-input-bg); color:var(--modal-text); }
   .field textarea{resize:vertical; min-height:70px; font-family:'Inter',sans-serif;}
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .field-hint{font-size:11px; color:var(--ink-faint); margin-top:4px;}
@@ -562,11 +569,11 @@ var STORAGE_KEY = 'velvet-viking-generator-v2';
 var BUILD_ID = '2026-08-10.1';
 
 var DISTANCE_PROFILES = {
-  '5k':    { key:'5k',    label:'5K',              raceKm:5,     weeks:8,  longCapKm:12, volMult:1.30, taperWeeks:2, emphasis:'speed',     blockName:'Speed & Threshold Block' },
-  '10k':   { key:'10k',   label:'10K',             raceKm:10,    weeks:8,  longCapKm:15, volMult:1.35, taperWeeks:2, emphasis:'speed',     blockName:'Speed & Threshold Block' },
-  'half':  { key:'half',  label:'Half Marathon',   raceKm:21.1,  weeks:12, longCapKm:20, volMult:1.55, taperWeeks:2, emphasis:'threshold', blockName:'Aerobic & Tempo Block' },
-  'full':  { key:'full',  label:'Full Marathon',   raceKm:42.2,  weeks:14, longCapKm:32, volMult:1.75, taperWeeks:2, emphasis:'endurance', blockName:'Endurance & Long Run Block' },
-  'ultra': { key:'ultra', label:'Ultra (50K)',     raceKm:50,    weeks:16, longCapKm:36, volMult:2.00, taperWeeks:3, emphasis:'timeonfeet',blockName:'Time-on-Feet & Back-to-Back Block', backToBack:true }
+  '5k':    { key:'5k',    label:'5K',              raceKm:5,     longCapKm:12, volMult:1.30, emphasis:'speed',     blockName:'Speed & Threshold Block' },
+  '10k':   { key:'10k',   label:'10K',             raceKm:10,    longCapKm:15, volMult:1.35, emphasis:'speed',     blockName:'Speed & Threshold Block' },
+  'half':  { key:'half',  label:'Half Marathon',   raceKm:21.1,  longCapKm:20, volMult:1.55, emphasis:'threshold', blockName:'Aerobic & Tempo Block' },
+  'full':  { key:'full',  label:'Full Marathon',   raceKm:42.2,  longCapKm:32, volMult:1.75, emphasis:'endurance', blockName:'Endurance & Long Run Block' },
+  'ultra': { key:'ultra', label:'Ultra (50K)',     raceKm:50,    longCapKm:36, volMult:2.00, emphasis:'timeonfeet',blockName:'Time-on-Feet & Back-to-Back Block', backToBack:true }
 };
 var DISTANCE_ORDER = ['5k','10k','half','full','ultra'];
 
@@ -819,10 +826,13 @@ function tempoSessionKm(spec){
 /* =========================================================
    BLOCK GENERATOR — the core "distance-agnostic" engine
    ========================================================= */
+// Mandatory standard 14-day (2-week) taper ahead of race day, regardless of
+// distance or total block length -- only shortened when the plan itself is
+// too short to fit a full 2-week taper plus at least one build week.
 function taperWeeksFor(planWeeks){
-  if (planWeeks<=6) return 1;
-  if (planWeeks<=10) return 2;
-  return 3;
+  if (planWeeks<=2) return 0;
+  if (planWeeks===3) return 1;
+  return 2;
 }
 function computeTaperInfo(planWeeks){
   var taper = taperWeeksFor(planWeeks);
@@ -1583,30 +1593,28 @@ function renderTopbar(){
   var row2 = '';
   if (state.setup){
     row2 = '<div class="topbar-row2" id="topbar-row2">'+
-      '<div id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>'+
+      '<div class="tb-gauge-slot" id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>'+
+      '<div class="tb-countdown-slot" id="countdown-mount">'+renderCountdown()+'</div>'+
+      '<div></div>'+
     '</div>';
   }
   return '<div class="topbar">'+row1+row2+'</div>';
 }
 
 /* =========================================================
-   CONFIDENCE SCORE — a fuel-gauge read on plan adherence so
-   far: completed vs. due sessions (not the whole plan, since
-   future days haven't happened yet). Before any sessions are
-   due, shows a neutral starting estimate rather than 0%.
+   CONFIDENCE SCORE — a fuel-gauge read on the whole block: completed
+   runs divided by every scheduled run in the plan (rest days excluded),
+   not just the ones due so far -- so 1 completed run out of 80 total
+   reads as 1.25%, not a misleadingly full gauge.
    ========================================================= */
 function computeConfidenceScore(){
   if (!state.setup) return null;
-  var today = todayStr();
-  var due = 0, done = 0;
-  state.days.forEach(function(dd){
-    if (dd.type==='rest') return;
-    if (dd.date > today) return;
-    due++;
-    if (dd.completed) done++;
-  });
-  if (due===0) return 85;
-  return Math.round(100*done/due);
+  var s = computeStats();
+  if (!s.totalRuns) return 0;
+  return 100*s.completedRuns/s.totalRuns;
+}
+function formatConfidencePct(pct){
+  return String(Math.round(pct*100)/100);
 }
 function renderConfidenceGauge(){
   if (!state.setup) return '';
@@ -1625,7 +1633,8 @@ function renderConfidenceGauge(){
     var x2 = cx+(r+4)*Math.cos(a), y2 = cy-(r+4)*Math.sin(a);
     return '<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" class="gauge-tick"/>';
   }).join('');
-  return '<div class="confidence-gauge" role="img" aria-label="Confidence score '+clamped+' percent">'+
+  var pctLabel = formatConfidencePct(clamped);
+  return '<div class="confidence-gauge" role="img" aria-label="Confidence score '+pctLabel+' percent">'+
     '<svg viewBox="0 0 108 64" width="88" height="52">'+
       '<defs>'+
         '<filter id="gaugeGlow" x="-60%" y="-60%" width="220%" height="220%">'+
@@ -1642,7 +1651,7 @@ function renderConfidenceGauge(){
       '<text x="'+(cx-r)+'" y="'+(cy+11)+'" class="gauge-elabel">E</text>'+
       '<text x="'+(cx+r-6)+'" y="'+(cy+11)+'" class="gauge-flabel">F</text>'+
     '</svg>'+
-    '<div class="gauge-caption"><span class="gauge-pct font-mono">'+clamped+'%</span><span class="gauge-label">Confidence</span></div>'+
+    '<div class="gauge-caption"><span class="gauge-pct font-mono">'+pctLabel+'%</span><span class="gauge-label">Confidence</span></div>'+
   '</div>';
 }
 
@@ -1729,8 +1738,6 @@ function renderHero(){
     '</div></div>';
     return html;
   }
-
-  html += '<div class="hero-countdown" id="countdown-mount">'+renderCountdown()+'</div>';
 
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
   var s = computeStats();
@@ -2280,7 +2287,7 @@ function openSetupModal(){
   var su = state.setup || {};
   var distOptions = DISTANCE_ORDER.map(function(k){
     var p = DISTANCE_PROFILES[k];
-    return '<option value="'+k+'" '+(su.distanceKey===k?'selected':'')+'>'+p.label+' \u2014 default '+p.weeks+'wk '+p.blockName+'</option>';
+    return '<option value="'+k+'" '+(su.distanceKey===k?'selected':'')+'>'+p.label+'</option>';
   }).join('');
   var benchDist = (su.benchmark && su.benchmark.distanceKey) || '5k';
   var benchTime = (su.benchmark && su.benchmark.timeSec) ? secToClock(su.benchmark.timeSec) : '';
@@ -2940,7 +2947,7 @@ function renderImportResult(parsed, filename){
       var match = row.date ? findDayByDate(row.date) : null;
       return '<div class="csv-row-item">'+
         '<div class="meta font-mono">'+escapeHtml(row.dateRaw||row.date||'\u2014')+' \u00b7 '+(row.km!=null?row.km+'km':'\u2014')+(row.pace?(' \u00b7 '+row.pace+'/km'):'')+(row.hr?(' \u00b7 '+row.hr+'bpm'):'')+'</div>'+
-        '<select id="csv-target-'+i+'" style="max-width:118px; background:var(--bg-4); border:1px solid var(--line); border-radius:6px; color:var(--ink); font-size:11px; padding:5px;">'+dayPickerOptions(match?match.id:null)+'</select>'+
+        '<select id="csv-target-'+i+'" style="max-width:118px; background:var(--modal-input-bg); border:1px solid var(--modal-border); border-radius:6px; color:var(--modal-text); font-size:11px; padding:5px;">'+dayPickerOptions(match?match.id:null)+'</select>'+
         '<button type="button" class="btn btn-sm btn-primary" data-action="apply-csv-row" data-row="'+i+'">Apply</button>'+
       '</div>';
     }).join('');
