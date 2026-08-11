@@ -1393,6 +1393,25 @@ function persistState(){
   try{ window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   catch(e){ console.error('Save failed', e); showToast('Couldn\u2019t save \u2014 storage may be full or unavailable'); }
 }
+// Write immediately instead of waiting out scheduleSave's debounce, and
+// first commit whatever field is being edited. Two ways the last thing a
+// runner did could otherwise be lost when the app closes:
+//   1. scheduleSave debounces 450ms with nothing forcing it to run, and
+//      backgrounding can freeze the pending timer entirely -- so tapping
+//      the complete box and immediately swiping the app away dropped it.
+//   2. log fields commit on 'change', which for text means on blur, so
+//      closing with the cursor still in Notes meant that text never even
+//      reached state -- no amount of waiting would have saved it.
+// Bound to pagehide and to visibilitychange->hidden, since mobile browsers
+// frequently kill a backgrounded page without ever firing pagehide.
+function flushSave(){
+  var el = document.activeElement;
+  if (el && el.getAttribute && el.getAttribute('data-action')==='actual-field'){
+    handleActualFieldChange(el.getAttribute('data-day'), el.getAttribute('data-field'), el.value);
+  }
+  if (saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
+  persistState();
+}
 function loadState(){
   if (storageAvailable){
     try{
@@ -3937,10 +3956,11 @@ function startNotificationScheduler(){
   notifyTimer = setInterval(maybeFireDailyNotification, 60000);
 }
 document.addEventListener('visibilitychange', function(){
-  if (document.visibilityState!=='visible') return;
+  if (document.visibilityState!=='visible'){ flushSave(); return; }
   checkDateRollover();
   maybeFireDailyNotification();
 });
+window.addEventListener('pagehide', flushSave);
 function handleToggleNotify(){
   // Mirror renderNotifyToggleRow's own on/off logic (state flag AND live
   // permission) rather than trusting the stored flag alone, so a click on a
