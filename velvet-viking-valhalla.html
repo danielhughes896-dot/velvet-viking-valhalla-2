@@ -117,12 +117,24 @@
     -webkit-text-fill-color:transparent; color:transparent;
     text-shadow:0 1px 0 var(--gold-shadow-1), 0 2px 0 var(--gold-shadow-2), 0 3px 6px rgba(0,0,0,0.8);
   }
+  /* the bright metallic-gold gradient reads fine on the dark theme's near-
+     black header but loses contrast against light theme's cream -- swap to
+     a solid dark bronze fill with a soft warm glow instead of the gradient. */
+  [data-theme="light"] .word-metallic{
+    background:none;
+    -webkit-text-fill-color:#2B2317; color:#2B2317;
+    text-shadow:0 1px 2px rgba(197, 160, 89, 0.4);
+  }
   .unit-toggle{display:flex; border:1px solid var(--line); border-radius:99px; overflow:hidden;}
   .unit-toggle button{
     font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.5px;
     padding:6px 9px; color:var(--ink-faint); background:transparent;
   }
   .unit-toggle button.active{background:var(--bronze); color:var(--bg);}
+  /* transparent pill + a light-grey border reads as washed-out/grey on the
+     cream light theme -- fill it with a warm neutral instead. */
+  [data-theme="light"] .unit-toggle{background:#E5E0D8;}
+  [data-theme="light"] .unit-toggle button{color:#2B2317;}
   .countdown{display:flex; align-items:center; justify-content:flex-end;}
   .countdown-badge{
     display:grid; grid-template-columns:1fr 1fr; gap:2px 6px;
@@ -498,6 +510,7 @@
     max-width:var(--maxw); margin:0 auto;
   }
   @media (min-width:640px){ .bottom-nav{ left:50%; transform:translateX(-50%); border-left:1px solid var(--modal-border); border-right:1px solid var(--modal-border); } }
+  @media (min-width:640px){ [data-theme="light"] .bottom-nav{ border-left-color:#DCCEA9; border-right-color:#DCCEA9; } }
   .bn-item{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0;
     padding:7px 1px; color:var(--ink-faint); font-family:'Oswald',sans-serif; font-size:8.5px;
@@ -507,6 +520,12 @@
   .bn-item span{max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .bn-item.active{ color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14); }
   .bn-item:active{ transform:scale(.95); }
+  /* the bottom nav otherwise stays on the fixed dark modal palette (like
+     modals/dropdowns) -- overridden here so it reads as part of the light
+     theme instead of a dark bar left stranded against the cream page. */
+  [data-theme="light"] .bottom-nav{background:#F5F2EC; border-top-color:#DCCEA9;}
+  [data-theme="light"] .bn-item{color:#665C4D;}
+  [data-theme="light"] .bn-item.active{color:#F5D061; background:#2B2317;}
   .view-heading{
     font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-faint);
     text-align:center; margin:18px 0 4px;
@@ -532,6 +551,7 @@
     padding:4px 11px; border-radius:99px; margin-top:4px;
   }
   .distance-badge svg{width:12px; height:12px; flex:none;}
+  [data-theme="light"] .distance-badge{background:#E5E0D8; color:#2B2317;}
   .plan-summary-bar{
     display:flex; align-items:center; gap:10px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);
     padding:10px 12px; margin:14px 0; cursor:pointer; transition:background .15s ease, border-color .15s ease;
