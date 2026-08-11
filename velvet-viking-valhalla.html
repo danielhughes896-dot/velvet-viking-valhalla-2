@@ -110,8 +110,8 @@
      Firefox, since it relies on the standard `color` cascade rather than
      just -webkit-text-fill-color). */
   .word-metallic{
-    font-family:'Cinzel',serif; font-weight:800; font-size:13px; letter-spacing:1.1px;
-    text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    font-family:'Cinzel',serif; font-weight:800; font-size:clamp(0.65rem, 3.2vw, 0.85rem); letter-spacing:0.04em;
+    text-transform:uppercase; white-space:nowrap;
     background:linear-gradient(180deg, var(--gold-bright) 0%, var(--modal-active) 100%);
     -webkit-background-clip:text; background-clip:text;
     -webkit-text-fill-color:transparent; color:transparent;
