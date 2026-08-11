@@ -104,7 +104,15 @@
   .tb-slot-left{flex:0 0 28%; min-width:0; overflow:hidden; text-align:left;}
   .tb-slot-center{flex:1; min-width:0; text-align:center;}
   .tb-slot-right{flex:0 0 32%; min-width:0; overflow:hidden; text-align:right; display:flex; align-items:center; justify-content:flex-end;}
-  .brandmark{display:flex; align-items:center; gap:6px; min-width:0;}
+  .brandmark{display:flex; flex-direction:column; align-items:center; min-width:0;}
+  /* purely decorative brand rule under the title -- percentage width (not a
+     fixed px value) so it scales with the title's own clamp()'d size and
+     stays proportional across viewports; centered via align-items:center
+     on the column above rather than any manual offset. */
+  .brandmark::after{
+    content:''; display:block; width:64%; height:1px; margin-top:6px;
+    background:rgba(var(--modal-active-rgb), 0.35);
+  }
   /* bold metallic 3D gold title -- deliberately fixed regardless of the
      light/dark theme toggle, same rationale as the modal palette. There is
      no plain .word rule: this is the only styling the brand text ever gets,
