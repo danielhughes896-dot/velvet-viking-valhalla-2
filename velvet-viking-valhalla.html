@@ -2806,9 +2806,9 @@ function openImportModal(){
     renderStravaSection()+
     '<div class="divider-or" style="margin:20px 0;"><div class="rule"></div><div class="rule"></div></div>'+
     '<div class="setup-section-title">Garmin Connect</div>'+
-    '<div class="dropzone" id="import-dropzone">'+ICONS.watch+
-      '<div class="main">Drop a FIT, TCX or GPX file</div>'+
-      '<div class="sub">or tap to browse \u2014 we\u2019ll pull distance, duration and pace</div>'+
+    '<div class="dropzone" id="import-dropzone" role="button" tabindex="0">'+ICONS.watch+
+      '<div class="main">Tap to select activity file (.FIT, .GPX, .TCX)</div>'+
+      '<div class="sub">or drag and drop \u2014 we\u2019ll pull distance, duration and pace</div>'+
     '</div>'+
     '<input type="file" id="import-file-input" accept=".gpx,.fit,.tcx,.csv" style="display:none;">'+
     '<div class="field-hint" style="margin-top:10px;">Garmin user? Sync your Garmin Connect account to Strava, then tap \u201cSync Strava\u201d above to auto-import your watch runs automatically!</div>'+
@@ -2818,6 +2818,9 @@ function openImportModal(){
   var dz = document.getElementById('import-dropzone');
   var fi = document.getElementById('import-file-input');
   dz.addEventListener('click', function(){ fi.click(); });
+  dz.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); fi.click(); }
+  });
   dz.addEventListener('dragover', function(e){ e.preventDefault(); dz.classList.add('drag'); });
   dz.addEventListener('dragleave', function(){ dz.classList.remove('drag'); });
   dz.addEventListener('drop', function(e){
