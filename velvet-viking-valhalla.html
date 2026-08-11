@@ -100,7 +100,7 @@
   }
   .tb-slot-left{flex:0 0 28%; min-width:0; overflow:hidden; text-align:left;}
   .tb-slot-center{flex:1; min-width:0; text-align:center;}
-  .tb-slot-right{flex:0 0 32%; min-width:0; overflow:hidden; text-align:right;}
+  .tb-slot-right{flex:0 0 32%; min-width:0; overflow:hidden; text-align:right; display:flex; align-items:center; justify-content:flex-end;}
   .brandmark{display:flex; align-items:center; gap:6px; min-width:0;}
   /* bold metallic 3D gold title -- deliberately fixed regardless of the
      light/dark theme toggle, same rationale as the modal palette. There is
@@ -123,10 +123,13 @@
     padding:6px 9px; color:var(--ink-faint); background:transparent;
   }
   .unit-toggle button.active{background:var(--bronze); color:var(--bg);}
-  .countdown{display:flex; align-items:baseline; gap:6px; justify-content:flex-end; white-space:nowrap;}
-  .cd-seg{display:flex; align-items:baseline; gap:1px;}
-  .cd-num{font-size:14px; font-weight:700; color:var(--gold);}
-  .cd-unit{font-size:9.5px; color:var(--ink-faint); font-family:'JetBrains Mono',monospace;}
+  .countdown{display:flex; align-items:center; justify-content:flex-end;}
+  .countdown-badge{
+    display:grid; grid-template-columns:1fr 1fr; gap:2px 6px;
+    background:#1e1b18; border:1px solid #c5a05933; border-radius:6px;
+    padding:4px 6px;
+  }
+  .cd-cell{font-weight:700; color:#c5a059; font-size:0.7rem; text-align:center; white-space:nowrap;}
   .cd-race-day{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--gold); font-weight:700;}
 
   /* confidence score fuel gauge — top-left of the header */
@@ -202,7 +205,7 @@
     .day{break-inside:avoid; background:#fff !important; border-color:#ccc !important;}
     .hero, .day, .week, .zone-card, .congrats-banner, .fuel-card,
     .distance-badge, .stat, .day-badge, .week-vol, .week-num, .fuel-row, .zone-head,
-    .cd-seg{ color:#111 !important; background:#fff !important; border-color:#999 !important; }
+    .cd-cell{ color:#111 !important; background:#fff !important; border-color:#999 !important; }
     .day-title, .week-phase, .cg-title, .distance-badge, .zbar-seg{color:#111 !important;}
     .zbar-seg{filter:grayscale(0.3) contrast(1.3);}
     .wrap{max-width:none !important;}
@@ -1721,6 +1724,7 @@ function renderConfidenceGauge(){
   '</div>';
 }
 
+function pad2(n){ return n<10 ? '0'+n : ''+n; }
 function renderCountdown(){
   if (!state.setup) return '';
   var target = new Date(state.setup.raceDate+'T00:00:00').getTime();
@@ -1729,10 +1733,12 @@ function renderCountdown(){
   var days = Math.floor(diff/86400000);
   var hours = Math.floor((diff%86400000)/3600000);
   var mins = Math.floor((diff%3600000)/60000);
-  return '<div class="countdown">'+
-    '<div class="cd-seg"><span class="cd-num font-mono">'+days+'</span><span class="cd-unit">d</span></div>'+
-    '<div class="cd-seg"><span class="cd-num font-mono">'+hours+'</span><span class="cd-unit">h</span></div>'+
-    '<div class="cd-seg"><span class="cd-num font-mono">'+mins+'</span><span class="cd-unit">m</span></div>'+
+  var secs = Math.floor((diff%60000)/1000);
+  return '<div class="countdown-badge">'+
+    '<span class="cd-cell font-mono">'+days+'d</span>'+
+    '<span class="cd-cell font-mono">'+pad2(hours)+'h</span>'+
+    '<span class="cd-cell font-mono">'+pad2(mins)+'m</span>'+
+    '<span class="cd-cell font-mono">'+pad2(secs)+'s</span>'+
   '</div>';
 }
 
@@ -1743,7 +1749,7 @@ function startCountdownTimer(){
     if (!state.setup) return;
     var m = document.getElementById('countdown-mount');
     if (m) m.innerHTML = renderCountdown();
-  }, 30000);
+  }, 1000);
 }
 
 function renderGoalButtons(){
