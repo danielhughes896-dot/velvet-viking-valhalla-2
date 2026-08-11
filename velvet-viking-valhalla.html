@@ -85,14 +85,29 @@
     display:flex; align-items:center; justify-content:space-between; gap:10px;
     padding:0 16px 10px; max-width:var(--maxw); margin:0 auto;
   }
-  .goal-toggle-compact .goal-options{gap:5px;}
-  .goal-opt-sm{min-width:30px; padding:5px 9px;}
-  .goal-opt-sm .t{font-size:12px;}
-  .countdown{display:flex; align-items:baseline; gap:7px;}
+  .countdown{display:flex; align-items:baseline; gap:7px; justify-content:center;}
   .cd-seg{display:flex; align-items:baseline; gap:1.5px;}
   .cd-num{font-size:14px; font-weight:700; color:var(--gold);}
   .cd-unit{font-size:9.5px; color:var(--ink-faint); font-family:'JetBrains Mono',monospace;}
   .cd-race-day{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--gold); font-weight:700;}
+
+  /* confidence score fuel gauge — top-left of the header */
+  .confidence-gauge{display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .gauge-tick{stroke:var(--gold); stroke-width:1.4; opacity:.55;}
+  .gauge-elabel, .gauge-flabel{
+    font-family:'JetBrains Mono',monospace; font-size:7px; font-weight:700; fill:var(--ink-faint);
+  }
+  .gauge-caption{display:flex; align-items:baseline; gap:5px;}
+  .gauge-pct{font-size:13px; font-weight:700; color:var(--gold);}
+  .gauge-label{font-size:8.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-faint);}
+
+  /* prominent centered race countdown beneath the hero medallion */
+  .hero-countdown{margin:2px 0 20px;}
+  .hero-countdown .countdown{gap:16px;}
+  .hero-countdown .cd-seg{gap:3px;}
+  .hero-countdown .cd-num{font-size:30px; color:var(--gold);}
+  .hero-countdown .cd-unit{font-size:12px;}
+  .hero-countdown .cd-race-day{font-size:16px;}
   .checkpoint-banner{
     display:flex; align-items:flex-start; gap:11px; background:var(--c-gold-soft);
     border:1.5px solid var(--gold); border-radius:var(--radius-sm); padding:13px 14px; margin:16px 0;
@@ -1566,13 +1581,69 @@ function renderTopbar(){
   '</div>';
 
   var row2 = '';
-  if (state.setup && state.setup.goals){
+  if (state.setup){
     row2 = '<div class="topbar-row2" id="topbar-row2">'+
-      '<div class="goal-toggle-compact">'+renderGoalButtons('compact')+'</div>'+
-      '<div id="countdown-mount">'+renderCountdown()+'</div>'+
+      '<div id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>'+
     '</div>';
   }
   return '<div class="topbar">'+row1+row2+'</div>';
+}
+
+/* =========================================================
+   CONFIDENCE SCORE — a fuel-gauge read on plan adherence so
+   far: completed vs. due sessions (not the whole plan, since
+   future days haven't happened yet). Before any sessions are
+   due, shows a neutral starting estimate rather than 0%.
+   ========================================================= */
+function computeConfidenceScore(){
+  if (!state.setup) return null;
+  var today = todayStr();
+  var due = 0, done = 0;
+  state.days.forEach(function(dd){
+    if (dd.type==='rest') return;
+    if (dd.date > today) return;
+    due++;
+    if (dd.completed) done++;
+  });
+  if (due===0) return 85;
+  return Math.round(100*done/due);
+}
+function renderConfidenceGauge(){
+  if (!state.setup) return '';
+  var pct = computeConfidenceScore();
+  var clamped = Math.max(0, Math.min(100, pct));
+  var cx=54, cy=50, r=40;
+  var angle = Math.PI*(1-clamped/100);
+  var needleLen = r*0.82;
+  var needleX = cx + needleLen*Math.cos(angle);
+  var needleY = cy - needleLen*Math.sin(angle);
+  var arcLen = Math.PI*r;
+  var fillLen = arcLen*(clamped/100);
+  var ticks = [0,25,50,75,100].map(function(t){
+    var a = Math.PI*(1-t/100);
+    var x1 = cx+(r-2)*Math.cos(a), y1 = cy-(r-2)*Math.sin(a);
+    var x2 = cx+(r+4)*Math.cos(a), y2 = cy-(r+4)*Math.sin(a);
+    return '<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" class="gauge-tick"/>';
+  }).join('');
+  return '<div class="confidence-gauge" role="img" aria-label="Confidence score '+clamped+' percent">'+
+    '<svg viewBox="0 0 108 64" width="88" height="52">'+
+      '<defs>'+
+        '<filter id="gaugeGlow" x="-60%" y="-60%" width="220%" height="220%">'+
+          '<feGaussianBlur stdDeviation="1" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>'+
+        '</filter>'+
+        '<linearGradient id="gaugeFillGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#8A6D2B"/><stop offset="100%" stop-color="#c5a059"/></linearGradient>'+
+      '</defs>'+
+      '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="var(--bg-4)" stroke-width="6" stroke-linecap="round"/>'+
+      '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="url(#gaugeFillGrad)" stroke-width="6" stroke-linecap="round" '+
+        'stroke-dasharray="'+fillLen.toFixed(1)+' '+(arcLen-fillLen).toFixed(1)+'"/>'+
+      '<g filter="url(#gaugeGlow)">'+ticks+'</g>'+
+      '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleX.toFixed(1)+'" y2="'+needleY.toFixed(1)+'" stroke="#c5a059" stroke-width="2.4" stroke-linecap="round" filter="url(#gaugeGlow)"/>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="3" fill="#c5a059"/>'+
+      '<text x="'+(cx-r)+'" y="'+(cy+11)+'" class="gauge-elabel">E</text>'+
+      '<text x="'+(cx+r-6)+'" y="'+(cy+11)+'" class="gauge-flabel">F</text>'+
+    '</svg>'+
+    '<div class="gauge-caption"><span class="gauge-pct font-mono">'+clamped+'%</span><span class="gauge-label">Confidence</span></div>'+
+  '</div>';
 }
 
 function renderCountdown(){
@@ -1626,28 +1697,23 @@ function renderRuneRoad(){
   return html;
 }
 
-function renderGoalButtons(mode){
+function renderGoalButtons(){
   if (!state.setup || !state.setup.goals) return '';
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
-  var compact = mode==='compact';
   var opts = GOAL_KEYS.map(function(k){
     var g = state.setup.goals[k];
     if (!g || !g.timeSec) return '';
     var active = state.setup.activeGoal===k ? ' active' : '';
-    var extra = '';
-    if (!compact){
-      var vdot = vdotFromPerformance(profile.raceKm*1000, g.timeSec);
-      extra = '<div class="vdot-tag">VDOT '+vdot.toFixed(1)+'</div>';
-    }
-    return '<button type="button" class="goal-opt'+active+(compact?' goal-opt-sm':'')+'" data-action="set-goal" data-goal="'+k+'">'+
-      '<div class="t font-mono">'+k+'</div>'+(compact?'':'<div class="p font-mono">'+secToClock(g.timeSec)+'</div>')+
-      extra+'</button>';
+    var vdot = vdotFromPerformance(profile.raceKm*1000, g.timeSec);
+    return '<button type="button" class="goal-opt'+active+'" data-action="set-goal" data-goal="'+k+'">'+
+      '<div class="t font-mono">'+k+'</div><div class="p font-mono">'+secToClock(g.timeSec)+'</div>'+
+      '<div class="vdot-tag">VDOT '+vdot.toFixed(1)+'</div></button>';
   }).join('');
   return '<div class="goal-options">'+opts+'</div>';
 }
 function renderGoalToggle(){
   if (!state.setup || !state.setup.goals) return '';
-  return '<div class="goal-toggle-hero"><div class="setup-section-title" style="text-align:center;">Active Goal</div>'+renderGoalButtons('full')+'</div>';
+  return '<div class="goal-toggle-hero"><div class="setup-section-title" style="text-align:center;">Active Goal</div>'+renderGoalButtons()+'</div>';
 }
 
 function renderHero(){
@@ -1664,18 +1730,17 @@ function renderHero(){
     return html;
   }
 
+  html += '<div class="hero-countdown" id="countdown-mount">'+renderCountdown()+'</div>';
+
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
   var s = computeStats();
   var runsPct = s.totalRuns ? Math.round(100*s.completedRuns/s.totalRuns) : 0;
   var kmPct = s.totalKm ? Math.round(100*s.completedKm/s.totalKm) : 0;
-  var raceText = (s.daysToRace!=null && s.daysToRace>0) ? s.daysToRace : '\u2014';
-  var raceLabel = (s.daysToRace==null) ? 'Race' : (s.daysToRace>0 ? (s.daysToRace===1?'Day to Race':'Days to Race') : (s.daysToRace===0?'Race Day':'Race Complete'));
   var goal = getActiveGoal();
 
   html += '<div class="distance-badge">'+ICONS.flag+' '+escapeHtml(profile.label)+' \u2014 '+escapeHtml(profile.blockName)+'</div>'+
     '<div class="runeroad">'+renderRuneRoad()+'</div>'+
     '<div class="stat-row">'+
-      '<div class="stat"><div class="v font-mono">'+raceText+'</div><div class="l">'+raceLabel+'</div></div>'+
       '<div class="stat"><div class="v font-mono">'+(goal&&goal.timeSec?secToClock(goal.timeSec):'\u2014')+'</div><div class="l">Goal '+state.setup.activeGoal+'</div></div>'+
       '<div class="stat"><div class="v font-mono">'+s.completedRuns+'/'+s.totalRuns+'</div><div class="l">Runs Done</div></div>'+
     '</div>'+
@@ -3078,6 +3143,8 @@ function patchFab(){
 function patchDerivedStats(){
   var heroEl = document.getElementById('hero-mount');
   if (heroEl) heroEl.innerHTML = renderHero();
+  var gaugeEl = document.getElementById('confidence-gauge-mount');
+  if (gaugeEl) gaugeEl.innerHTML = renderConfidenceGauge();
   var totalWeeks = totalWeeksInPlan();
   for (var w=1; w<=totalWeeks; w++){
     var vol = weekVolume(w);
