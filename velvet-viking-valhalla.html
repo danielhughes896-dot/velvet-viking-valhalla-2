@@ -444,6 +444,12 @@
   .status-pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px;}
   .status-pill svg{width:12px; height:12px;}
   .status-connected{background:var(--c-easy-soft); color:var(--c-easy);}
+  .switch{position:relative; display:inline-block; width:42px; height:24px; flex:none;}
+  .switch input{position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;}
+  .switch-track{position:absolute; inset:0; background:var(--line); border-radius:99px; transition:.2s;}
+  .switch-track::before{content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:var(--bg-2); border-radius:50%; transition:.2s; box-shadow:var(--shadow-sm);}
+  .switch input:checked + .switch-track{background:var(--bronze);}
+  .switch input:checked + .switch-track::before{transform:translateX(18px);}
   .callout{background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 12px; font-size:12px; color:var(--ink-dim); line-height:1.5; display:flex; gap:9px;}
   .callout svg{flex:none; width:16px; height:16px; color:var(--bronze); margin-top:1px;}
 
@@ -673,6 +679,17 @@ function todayStr(){
 function daysBetween(a,b){ return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000); }
 function round1(n){ return Math.round(n*10)/10; }
 function round2(n){ return Math.round(n*100)/100; }
+// Smart distance rounding -- clean, watch-friendly numbers instead of the
+// generator's raw one-decimal math. Easy/aerobic days round to the nearest
+// half km, long runs to the nearest full km, and quality (tempo/interval/
+// repetition/threshold) sessions to the nearest half km. Race day and the
+// mid-block fitness checkpoint are exempt -- rounding a race distance
+// (e.g. 42.2km) or a calibration time-trial would corrupt them.
+function roundWorkoutKm(type, km){
+  if (type==='long') return roundTo(km, 1);
+  if (type==='easy' || type==='tempo' || type==='threshold' || type==='interval' || type==='repetition') return roundTo(km, 0.5);
+  return round1(km);
+}
 
 /* =========================================================
    UNITS \u2014 storage is always km/sec-per-km internally; these
@@ -805,11 +822,11 @@ function structSplitTempo(pos, emphasis){
 }
 function structThresholdContinuous(pos, emphasis){
   var r = EMPHASIS_TEMPO_RANGE[emphasis] || EMPHASIS_TEMPO_RANGE.threshold;
-  return { type:'threshold', km:round1(lerp(r.kmLo, r.kmHi, pos)) };
+  return { type:'threshold', km:roundTo(lerp(r.kmLo, r.kmHi, pos), 0.5) };
 }
 function structGoalPaceBlock(pos, emphasis){
   var r = EMPHASIS_TEMPO_RANGE[emphasis] || EMPHASIS_TEMPO_RANGE.threshold;
-  return { type:'goalpace', km:round1(lerp(r.kmLo, r.kmHi, pos)) };
+  return { type:'goalpace', km:roundTo(lerp(r.kmLo, r.kmHi, pos), 0.5) };
 }
 var TEMPO_STRUCTURE_POOL = {
   Base:  [structSteadyTempo, structThresholdContinuous],
@@ -1066,7 +1083,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr){
         } else {
           obj = { type:'easy', title:'Easy Aerobic', km:perLeadUp, desc:dtok(perLeadUp)+' @ Easy pace.' };
         }
-        days.push({ id:dr, date:dr, week:wk.week, type:obj.type, title:obj.title, km:round1(obj.km), desc:obj.desc,
+        days.push({ id:dr, date:dr, week:wk.week, type:obj.type, title:obj.title, km:roundWorkoutKm(obj.type, obj.km), desc:obj.desc,
           mpSegment:!!obj.mpSegment, completed:false, actual:{km:null,pace:null,hr:null,rpe:null,notes:''} });
       }
       return;
@@ -1124,11 +1141,57 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr){
       } else {
         dayObj = { type:'rest', title:'Rest Day', km:0, desc:'Full rest. Legs up, hydrate, stay ahead of the block.' };
       }
-      days.push({ id:date, date:date, week:wk.week, type:dayObj.type, title:dayObj.title, km:round1(dayObj.km), desc:dayObj.desc,
+      days.push({ id:date, date:date, week:wk.week, type:dayObj.type, title:dayObj.title, km:roundWorkoutKm(dayObj.type, dayObj.km), desc:dayObj.desc,
         mpSegment:!!dayObj.mpSegment, completed:false, actual:{km:null,pace:null,hr:null,rpe:null,notes:''} });
     }
   });
+  capWeeklyVolume(days, weeks);
   return days;
+}
+// Smart rounding above can push a week's total past its calculated
+// baseline by more than the generator intended. Trim easy days first
+// (never below the generator's own 3km floor), and only touch the long
+// run as a last resort, never below 70% of its pre-cap distance. Race
+// week is exempt -- its total is the race distance itself, not a volume
+// target to police.
+function capWeeklyVolume(days, weeks){
+  var weekIndex = {};
+  weeks.forEach(function(wk){ weekIndex[wk.week] = wk; });
+  var byWeek = {};
+  days.forEach(function(dd){
+    (byWeek[dd.week] = byWeek[dd.week] || []).push(dd);
+  });
+  Object.keys(byWeek).forEach(function(wNum){
+    var wk = weekIndex[wNum];
+    if (!wk || wk.isRace) return;
+    var entries = byWeek[wNum];
+    var cap = wk.volume * 1.03;
+    var total = function(){ return entries.reduce(function(s,dd){ return s + dd.km; }, 0); };
+    if (total() <= cap) return;
+    // trim easy days one clean 0.5km step at a time, always the largest
+    // easy day first, never below the generator's own 3km floor
+    var easyEntries = entries.filter(function(dd){ return dd.type==='easy'; });
+    var guard = 0;
+    while (total() > cap && guard < 200){
+      guard++;
+      var target = easyEntries.reduce(function(best,dd){ return (dd.km>3 && (!best||dd.km>best.km)) ? dd : best; }, null);
+      if (!target) break;
+      target.km = round1(target.km - 0.5);
+    }
+    // last resort: trim the week's long run one clean 1km step at a time,
+    // never below 70% of its pre-cap distance
+    if (total() > cap){
+      var longEntry = entries.filter(function(dd){ return dd.type==='long'; }).sort(function(a,b){ return b.km-a.km; })[0];
+      if (longEntry){
+        var floor = Math.round(longEntry.km * 0.7);
+        var guard2 = 0;
+        while (total() > cap && longEntry.km > floor && guard2 < 100){
+          guard2++;
+          longEntry.km = longEntry.km - 1;
+        }
+      }
+    }
+  });
 }
 
 
@@ -1186,6 +1249,7 @@ function loadState(){
           // both now land on 'today', the current default landing tab.
           if (parsed.view==='detailed') parsed.view = 'planhq';
           else if (!parsed.view) parsed.view = 'today';
+          if (parsed.notifyEnabled==null) parsed.notifyEnabled = false;
           state = parsed;
           return;
         }
@@ -1198,9 +1262,10 @@ function makeDefaultState(){
   return {
     theme:'dark',
     units:'km',
-    view:'today', // 'today' | 'week' | 'full' | 'planhq' -- which bottom-nav view is active
+    view:'today', // 'today' | 'week' | 'full' | 'planhq' | 'settings' -- which bottom-nav view is active
     setup:null, // { distanceKey, currentVolume, raceDate, benchmark:{distanceKey,timeSec}, goals:{A,B,C:{label,timeSec}}, activeGoal:'A' }
-    days:[]
+    days:[],
+    notifyEnabled:false // daily 08:00 workout-reminder notification toggle
   };
 }
 
@@ -3319,12 +3384,33 @@ function renderPlanHQView(){
     renderBenchmarkSummary()+
     renderZonePacesCard();
 }
+// Notification permission can be revoked from outside the app (browser/OS
+// settings) at any time, so the toggle always reflects the live
+// Notification.permission alongside state.notifyEnabled rather than trusting
+// the stored flag alone -- a stale "on" after the user revoked permission
+// elsewhere would otherwise look enabled but silently never fire.
+function renderNotifyToggleRow(){
+  var supported = typeof Notification!=='undefined';
+  var revoked = supported && Notification.permission==='denied';
+  var on = state.notifyEnabled && supported && Notification.permission==='granted';
+  var desc = !supported ? 'Not supported in this browser'
+    : revoked ? 'Blocked — enable notifications for this site in your browser/device settings'
+    : on ? 'On — fires once today’s workout is ready' : 'Off';
+  return '<div class="connect-row" id="notify-toggle-row">'+
+    '<div><div class="name">Daily 08:00 Workout Reminder</div><div class="desc">'+desc+'</div></div>'+
+    '<label class="switch"><input type="checkbox" data-action="toggle-notify" '+(on?'checked':'')+(supported?'':' disabled')+'><span class="switch-track"></span></label>'+
+  '</div>';
+}
 // Settings hub: everything that used to live behind the FAB's popover menu,
 // now a normal view tab. Sub-options either fire a direct action (save/clear
 // key, export/reset) or open one of the existing modals -- openModal() always
 // closes any modal already open first, so there's never a nesting risk.
 function renderSettingsHubView(){
   return '<div class="view-heading font-head">Settings</div>'+
+    '<div class="hub-card">'+
+      '<div class="setup-section-title">Notifications</div>'+
+      renderNotifyToggleRow()+
+    '</div>'+
     '<div class="hub-card">'+
       '<div class="setup-section-title">Training &amp; Zones</div>'+
       '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
@@ -3447,6 +3533,7 @@ document.addEventListener('change', function(e){
   if (action === 'toggle-complete') handleToggleComplete(actionEl.getAttribute('data-day'));
   else if (action === 'actual-field') handleActualFieldChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'pace-override') handlePaceOverrideChange(actionEl.getAttribute('data-zone'));
+  else if (action === 'toggle-notify') handleToggleNotify();
 });
 
 /* drag-and-drop reschedule (desktop enhancement; mobile uses the Swap-with dropdown in Edit Session) */
@@ -3485,6 +3572,87 @@ document.addEventListener('drop', function(e){
 });
 
 /* =========================================================
+   DAILY 08:00 WORKOUT REMINDER -- best-effort local notification. This is
+   a single static file with no push/backend infra, so a true "fires even
+   when fully closed" schedule isn't available; instead a service worker
+   is registered (so the notification can still show while the tab is only
+   backgrounded, not closed) and a periodic check fires it once per day the
+   first time the app notices it's 08:00 or later and hasn't already fired
+   today -- including a catch-up check on load/visibility-change, so opening
+   the app later in the day still surfaces today's workout instead of
+   staying silent until the next 08:00 tick.
+   ========================================================= */
+var NOTIFY_LAST_FIRED_KEY = 'vvv_notify_last_fired';
+var swRegistration = null;
+function registerServiceWorker(){
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('/sw.js').then(function(reg){ swRegistration = reg; }).catch(function(){});
+}
+function buildTodayNotificationText(){
+  var title = '🛡️ Velvet Viking Valhalla — Today’s Workout';
+  var dd = state.setup ? findDayByDate(todayStr()) : null;
+  if (!dd || dd.type==='rest') return { title:title, body:'Today: Rest Day. Full rest & recovery.' };
+  var targets = getDayTargets(dd);
+  var body = 'Today: '+fmtDist(dd.km)+' '+dd.title+(targets.pace?(' @ '+targets.pace):'')+'. Earn your place!';
+  return { title:title, body:body };
+}
+function showDailyNotification(){
+  var msg = buildTodayNotificationText();
+  var opts = { body:msg.body, tag:'vvv-daily-workout', renotify:true, icon:'/assets/icon.png' };
+  if (swRegistration && swRegistration.showNotification) swRegistration.showNotification(msg.title, opts);
+  else if (typeof Notification!=='undefined'){ try{ new Notification(msg.title, opts); }catch(e){} }
+}
+function maybeFireDailyNotification(){
+  if (!state.notifyEnabled || !state.setup) return;
+  if (typeof Notification==='undefined' || Notification.permission!=='granted') return;
+  if (new Date().getHours() < 8) return;
+  var today = todayStr();
+  if (storageAvailable && window.localStorage.getItem(NOTIFY_LAST_FIRED_KEY)===today) return;
+  showDailyNotification();
+  if (storageAvailable) window.localStorage.setItem(NOTIFY_LAST_FIRED_KEY, today);
+}
+var notifyTimer = null;
+function startNotificationScheduler(){
+  if (notifyTimer) clearInterval(notifyTimer);
+  maybeFireDailyNotification();
+  notifyTimer = setInterval(maybeFireDailyNotification, 60000);
+}
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState==='visible') maybeFireDailyNotification();
+});
+function handleToggleNotify(){
+  // Mirror renderNotifyToggleRow's own on/off logic (state flag AND live
+  // permission) rather than trusting the stored flag alone, so a click on a
+  // toggle that's rendering as off (e.g. permission revoked externally while
+  // state.notifyEnabled was still true) always tries to turn it back on.
+  var supported = typeof Notification!=='undefined';
+  var currentlyOn = state.notifyEnabled && supported && Notification.permission==='granted';
+  if (!currentlyOn){
+    if (!supported){ showToast('Notifications aren’t supported in this browser'); return; }
+    Notification.requestPermission().then(function(perm){
+      state.notifyEnabled = (perm==='granted');
+      scheduleSave();
+      if (state.notifyEnabled){
+        maybeFireDailyNotification();
+        showToast('Daily 08:00 reminder enabled');
+      } else {
+        showToast('Notifications blocked — enable them in your browser/device settings to use this');
+      }
+      patchNotifyToggle();
+    });
+  } else {
+    state.notifyEnabled = false;
+    scheduleSave();
+    patchNotifyToggle();
+    showToast('Daily reminder turned off');
+  }
+}
+function patchNotifyToggle(){
+  var el = document.getElementById('notify-toggle-row');
+  if (el) el.outerHTML = renderNotifyToggleRow();
+}
+
+/* =========================================================
    INIT
    ========================================================= */
 function init(){
@@ -3492,6 +3660,8 @@ function init(){
   if (state.setup && state.days && state.days.length) initExpanded();
   renderApp();
   startCountdownTimer();
+  registerServiceWorker();
+  startNotificationScheduler();
   if (window.location.search.indexOf('code=')!==-1 || window.location.search.indexOf('error=')!==-1) handleStravaOAuthCallback();
 }
 try{ init(); }
