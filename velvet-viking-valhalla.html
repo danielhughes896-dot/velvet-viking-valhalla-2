@@ -1392,6 +1392,9 @@ function persistState(){
   if (!storageAvailable) return;
   try{ window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   catch(e){ console.error('Save failed', e); showToast('Couldn\u2019t save \u2014 storage may be full or unavailable'); }
+  // mirror upward only after the local write has succeeded; no-ops unless
+  // cloud sync is configured and signed in
+  scheduleCloudPush();
 }
 // Write immediately instead of waiting out scheduleSave's debounce, and
 // first commit whatever field is being edited. Two ways the last thing a
@@ -1412,6 +1415,242 @@ function flushSave(){
   if (saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
   persistState();
 }
+/* =========================================================
+   CLOUD SYNC (optional) — accounts + cross-device backup.
+   Inactive until SUPABASE_URL/ANON_KEY are filled in; with them blank
+   every function here no-ops and this is exactly the local-only app it
+   has always been.
+
+   Design rules, in priority order:
+     1. localStorage stays authoritative. The boot path is untouched and
+        still synchronous, so the app paints instantly and a cloud outage
+        can never delay or break startup.
+     2. A failed cloud read must NEVER destroy local data -- reconcile
+        runs only on a successful fetch.
+     3. Nothing is discarded silently. When a device and an account hold
+        two different plans the runner is asked which to keep, and the
+        other is stashed under CLOUD_BACKUP_KEY rather than dropped.
+
+   Talks to Supabase's REST/GoTrue endpoints directly with fetch instead
+   of loading their SDK, so the app keeps its no-build-step, no-CDN,
+   nothing-to-rot property.
+   ========================================================= */
+var SUPABASE_URL = '';       // e.g. https://xxxxxxxx.supabase.co
+var SUPABASE_ANON_KEY = '';  // the public "anon" key -- safe in client code
+var CLOUD_SESSION_KEY = 'vvv_cloud_session';
+var CLOUD_BACKUP_KEY = 'vvv_cloud_displaced_plan';
+var cloudSession = null;   // { access_token, refresh_token, expires_at, email, user_id }
+var cloudStatus = 'off';   // off | signed-out | syncing | synced | error
+var cloudPushTimer = null;
+
+function cloudConfigured(){ return !!(SUPABASE_URL && SUPABASE_ANON_KEY); }
+function cloudSignedIn(){ return !!(cloudSession && cloudSession.access_token); }
+
+function readStored(key){
+  if (!storageAvailable) return null;
+  try{ var r = window.localStorage.getItem(key); return r ? JSON.parse(r) : null; }catch(e){ return null; }
+}
+function writeStored(key, val){
+  if (!storageAvailable) return;
+  try{ if (val==null) window.localStorage.removeItem(key); else window.localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
+}
+
+function cloudFetch(path, opts){
+  opts = opts || {};
+  var headers = { 'apikey':SUPABASE_ANON_KEY, 'content-type':'application/json' };
+  if (opts.headers) Object.keys(opts.headers).forEach(function(k){ headers[k] = opts.headers[k]; });
+  if (opts.auth!==false && cloudSignedIn()) headers['Authorization'] = 'Bearer '+cloudSession.access_token;
+  return fetch(SUPABASE_URL.replace(/\/$/,'')+path, { method:opts.method||'GET', headers:headers, body:opts.body });
+}
+
+/* ---------- auth: email magic link, so there is no password to store or leak ---------- */
+function cloudSendMagicLink(email){
+  var redirect = window.location.origin + window.location.pathname;
+  return cloudFetch('/auth/v1/otp', {
+    method:'POST', auth:false,
+    body: JSON.stringify({ email:email, create_user:true, options:{ email_redirect_to:redirect } })
+  }).then(function(resp){
+    if (!resp.ok) throw new Error('Could not send the sign-in link');
+  });
+}
+// Supabase returns tokens in the URL fragment. Consume and strip them so they
+// never linger in history or travel inside a copied link.
+function cloudConsumeAuthHash(){
+  var hash = window.location.hash || '';
+  if (hash.indexOf('access_token=')===-1) return false;
+  var p = {};
+  hash.replace(/^#/,'').split('&').forEach(function(kv){
+    var i = kv.indexOf('=');
+    if (i>0) p[decodeURIComponent(kv.slice(0,i))] = decodeURIComponent(kv.slice(i+1));
+  });
+  if (!p.access_token) return false;
+  cloudSetSession({
+    access_token:p.access_token, refresh_token:p.refresh_token,
+    expires_at: Date.now() + (parseInt(p.expires_in,10)||3600)*1000
+  });
+  try{ window.history.replaceState(null, '', window.location.pathname + window.location.search); }catch(e){}
+  return true;
+}
+function cloudSetSession(sess){
+  cloudSession = sess;
+  writeStored(CLOUD_SESSION_KEY, sess);
+}
+function cloudLoadUser(){
+  return cloudFetch('/auth/v1/user').then(function(resp){
+    if (!resp.ok) return null;
+    return resp.json().then(function(u){
+      if (u && u.id){
+        cloudSession.user_id = u.id; cloudSession.email = u.email;
+        cloudSetSession(cloudSession);
+      }
+      return u;
+    });
+  });
+}
+function cloudRefreshIfNeeded(){
+  if (!cloudSignedIn()) return Promise.resolve(false);
+  if (cloudSession.expires_at && Date.now() < cloudSession.expires_at - 60000) return Promise.resolve(true);
+  if (!cloudSession.refresh_token) return Promise.resolve(false);
+  return cloudFetch('/auth/v1/token?grant_type=refresh_token', {
+    method:'POST', auth:false, body: JSON.stringify({ refresh_token:cloudSession.refresh_token })
+  }).then(function(resp){
+    if (!resp.ok) return false;
+    return resp.json().then(function(t){
+      if (!t.access_token) return false;
+      cloudSetSession({
+        access_token:t.access_token, refresh_token:t.refresh_token||cloudSession.refresh_token,
+        expires_at: Date.now() + (t.expires_in||3600)*1000,
+        user_id:cloudSession.user_id, email:cloudSession.email
+      });
+      return true;
+    });
+  }).catch(function(){ return false; });
+}
+function cloudSignOut(){
+  cloudSession = null;
+  writeStored(CLOUD_SESSION_KEY, null);
+  cloudStatus = 'signed-out';
+  patchCloudCard();
+  showToast('Signed out — your plan stays on this device');
+}
+
+/* ---------- the plan row ---------- */
+function cloudGetPlan(){
+  return cloudFetch('/rest/v1/plans?select=data,updated_at&limit=1').then(function(resp){
+    if (!resp.ok) throw new Error('fetch failed');
+    return resp.json();
+  }).then(function(rows){ return (rows && rows[0]) || null; });
+}
+function cloudPutPlan(){
+  if (!cloudSignedIn() || !cloudSession.user_id) return Promise.resolve();
+  return cloudFetch('/rest/v1/plans', {
+    method:'POST',
+    headers:{ 'Prefer':'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({ user_id:cloudSession.user_id, data:state, updated_at:new Date().toISOString() })
+  }).then(function(resp){ if (!resp.ok) throw new Error('push failed'); });
+}
+// Debounced so a burst of log edits produces one upload, and always fired
+// AFTER the local write -- local is the source of truth, the cloud a mirror.
+function scheduleCloudPush(){
+  if (!cloudConfigured() || !cloudSignedIn()) return;
+  if (cloudPushTimer) clearTimeout(cloudPushTimer);
+  cloudPushTimer = setTimeout(function(){
+    cloudPushTimer = null;
+    cloudRefreshIfNeeded().then(function(ok){
+      if (!ok) return null;
+      return cloudPutPlan().then(function(){ cloudStatus='synced'; patchCloudCard(); });
+    }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
+  }, 1500);
+}
+
+/* ---------- reconcile ---------- */
+function planSummary(st){
+  if (!st || !st.setup) return 'empty plan';
+  var p = DISTANCE_PROFILES[st.setup.distanceKey];
+  var done = (st.days||[]).filter(function(d){ return d.completed; }).length;
+  return (p?p.label:'Plan')+', race '+(st.setup.raceDate||'?')+', '+done+' session'+(done===1?'':'s')+' logged';
+}
+function adoptCloudState(remote){
+  writeStored(CLOUD_BACKUP_KEY, state);   // never discard what was already here
+  state = remote;
+  if (state.view==='detailed') state.view='planhq';
+  if (!state.view) state.view='today';
+  if (state.notifyEnabled==null) state.notifyEnabled=false;
+  initExpanded();
+  persistState();
+  renderApp();
+}
+// Reached only with a SUCCESSFUL fetch, so a network failure can never take
+// a plan away.
+function cloudReconcile(){
+  return cloudGetPlan().then(function(row){
+    var localHasPlan = !!(state.setup && state.days && state.days.length);
+    var remote = row && row.data;
+    var remoteHasPlan = !!(remote && remote.setup && remote.days && remote.days.length);
+
+    if (!remoteHasPlan){
+      cloudStatus='synced';
+      var seed = localHasPlan ? cloudPutPlan().catch(function(){ cloudStatus='error'; }) : Promise.resolve();
+      return seed.then(patchCloudCard);
+    }
+    if (!localHasPlan){
+      adoptCloudState(remote);                      // a new device pulls the plan down
+      cloudStatus='synced'; patchCloudCard();
+      showToast('Plan restored from your account');
+      return;
+    }
+    if (JSON.stringify(remote)===JSON.stringify(state)){
+      cloudStatus='synced'; patchCloudCard();
+      return;
+    }
+    // Two different real plans. Never guess -- ask, and keep the loser.
+    openCloudConflictModal(remote, row.updated_at);
+  }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
+}
+function openCloudConflictModal(remote, remoteUpdated){
+  window.__cloudPendingRemote = remote;
+  openModal(''+
+  '<div class="modal-head"><h2 class="font-head">Two plans found</h2></div>'+
+  '<div class="modal-body">'+
+    '<div class="field-hint" style="margin-bottom:12px;">This device and your account each hold a different training block. Choose which to keep — the other is kept as a backup on this device, not deleted.</div>'+
+    '<div class="setup-section-title">On this device</div>'+
+    '<div class="callout" style="margin-bottom:12px;">'+escapeHtml(planSummary(state))+'</div>'+
+    '<div class="setup-section-title">In your account</div>'+
+    '<div class="callout" style="margin-bottom:16px;">'+escapeHtml(planSummary(remote))+'</div>'+
+    '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="cloud-keep-local">Keep this device’s plan</button>'+
+    '<button type="button" class="btn btn-ghost btn-block" data-action="cloud-keep-remote">Use my account’s plan</button>'+
+  '</div>');
+}
+function handleCloudKeepLocal(){
+  closeModal();
+  window.__cloudPendingRemote = null;
+  cloudPutPlan().then(function(){
+    cloudStatus='synced'; patchCloudCard();
+    showToast('This device’s plan is now the one in your account');
+  }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
+}
+function handleCloudKeepRemote(){
+  var remote = window.__cloudPendingRemote;
+  window.__cloudPendingRemote = null;
+  closeModal();
+  if (remote) adoptCloudState(remote);
+  cloudStatus='synced'; patchCloudCard();
+  showToast('Switched to your account’s plan — the other is backed up on this device');
+}
+
+function cloudInit(){
+  if (!cloudConfigured()){ cloudStatus='off'; return Promise.resolve(); }
+  cloudConsumeAuthHash();
+  if (!cloudSession) cloudSession = readStored(CLOUD_SESSION_KEY);
+  if (!cloudSignedIn()){ cloudStatus='signed-out'; patchCloudCard(); return Promise.resolve(); }
+  cloudStatus='syncing'; patchCloudCard();
+  return cloudRefreshIfNeeded().then(function(ok){
+    if (!ok){ cloudSignOut(); return null; }
+    var who = cloudSession.user_id ? Promise.resolve() : cloudLoadUser();
+    return who.then(cloudReconcile);
+  });
+}
+
 function loadState(){
   if (storageAvailable){
     try{
@@ -3723,6 +3962,39 @@ function renderNotifyToggleRow(){
 // (see renderTopbar). Switch "on" = dark (the app's default); flipping it
 // calls the exact same handleToggleThemeQuick()/handleSetTheme() the header
 // button used to, so there's still only one theme system.
+// Account card. Hidden entirely until cloud sync is configured, so the app
+// never advertises a feature that isn't wired up.
+function renderCloudCard(){
+  if (!cloudConfigured()) return '';
+  var body;
+  if (cloudSignedIn()){
+    var label = { syncing:'Syncing…', synced:'Backed up', error:'Offline — will retry' }[cloudStatus] || 'Signed in';
+    body = '<div class="connect-row">'+
+        '<div><div class="name">'+escapeHtml(cloudSession.email||'Signed in')+'</div><div class="desc">'+label+'</div></div>'+
+        '<button type="button" class="btn btn-sm btn-ghost" data-action="cloud-sign-out">Sign out</button>'+
+      '</div>';
+  } else {
+    body = '<div class="field-hint" style="margin-bottom:10px;">Sign in to back your plan up and use it on more than one device. We email you a link — there is no password.</div>'+
+      '<div class="field" style="margin-bottom:8px;"><label>Email</label><input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">'+ICONS.link+' Email me a sign-in link</button>';
+  }
+  return '<div class="hub-card" id="cloud-card">'+
+    '<div class="setup-section-title">Account &amp; Backup</div>'+body+
+  '</div>';
+}
+function patchCloudCard(){
+  var el = document.getElementById('cloud-card');
+  if (el) el.outerHTML = renderCloudCard();
+}
+function handleCloudSignIn(){
+  var el = document.getElementById('cloud-email');
+  var email = el ? el.value.trim() : '';
+  if (!email || email.indexOf('@')===-1){ showToast('Enter a valid email address'); return; }
+  showToast('Sending your sign-in link…');
+  cloudSendMagicLink(email)
+    .then(function(){ showToast('Check your email for the sign-in link'); })
+    .catch(function(){ showToast('Couldn’t send the link — check your connection'); });
+}
 function renderThemeToggleRow(){
   var isDark = state.theme==='dark';
   return '<div class="connect-row" id="theme-toggle-row">'+
@@ -3740,6 +4012,7 @@ function patchThemeToggle(){
 // closes any modal already open first, so there's never a nesting risk.
 function renderSettingsHubView(){
   return '<div class="view-heading font-head">Settings</div>'+
+    renderCloudCard()+
     '<div class="hub-card">'+
       '<div class="setup-section-title">Preferences &amp; Notifications</div>'+
       renderNotifyToggleRow()+
@@ -3858,6 +4131,10 @@ document.addEventListener('click', function(e){
     case 'print-plan': handlePrintPlan(); break;
     case 'reset-pace-overrides': handleResetPaceOverrides(); break;
     case 'set-view': handleSetView(target.getAttribute('data-view')); break;
+    case 'cloud-sign-in': handleCloudSignIn(); break;
+    case 'cloud-sign-out': cloudSignOut(); break;
+    case 'cloud-keep-local': handleCloudKeepLocal(); break;
+    case 'cloud-keep-remote': handleCloudKeepRemote(); break;
   }
 });
 
@@ -4003,6 +4280,10 @@ function init(){
   startCountdownTimer();
   registerServiceWorker();
   startNotificationScheduler();
+  // Deliberately last and un-awaited: the app is already painted from
+  // localStorage by this point, so cloud sync can never delay startup and a
+  // cloud failure can never prevent the app from opening.
+  try{ cloudInit(); }catch(e){ cloudStatus='error'; }
   if (window.location.search.indexOf('code=')!==-1 || window.location.search.indexOf('error=')!==-1) handleStravaOAuthCallback();
 }
 try{ init(); }
