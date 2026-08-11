@@ -1065,6 +1065,21 @@ function resolveDesc(desc){
   if (!desc) return desc;
   return desc.replace(/@@D:([\d.]+)@@/g, function(_, km){ return fmtDist(parseFloat(km)); });
 }
+// For easy and long runs the description's LEADING distance is the whole-day
+// distance, so it has to track dd.km after the generator settles that number
+// -- smart rounding (roundWorkoutKm) and the weekly-volume cap both adjust km
+// after the text was composed, which otherwise leaves a card reading "7.5km"
+// on its target line and "7.3km @ Easy pace." directly underneath.
+// Only the FIRST @@D:..@@ is rewritten: any later token is a segment (the
+// goal-pace finish on a long run) that is deliberately smaller than the day
+// total. Other workout types lead with genuine segment distances (warm-up,
+// time-trial flanks, strides) and are left untouched, as is any description
+// the runner has hand-edited -- the edit modal resolves tokens to plain text,
+// so an edited description has none left to match.
+function syncDescDistance(type, desc, km){
+  if (!desc || (type!=='easy' && type!=='long')) return desc;
+  return desc.replace(/@@D:[\d.]+@@/, dtok(round1(km)));
+}
 
 function intervalWorkoutText(spec){
   if (spec.ladder) return { title:'Ladder: '+spec.ladder.join('-')+'m', type:'interval',
@@ -1262,6 +1277,11 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr){
     }
   });
   capWeeklyVolume(days, weeks);
+  // Single settle-up pass, deliberately last: km is final only once smart
+  // rounding AND the weekly-volume cap have both had their say, so syncing
+  // the descriptions here catches every adjustment in one place rather than
+  // needing a fix-up at each individual site that touches km.
+  days.forEach(function(dd){ dd.desc = syncDescDistance(dd.type, dd.desc, dd.km); });
   return days;
 }
 // Smart rounding above can push a week's total past its calculated
