@@ -348,6 +348,9 @@
   .day-title{font-weight:600; font-size:14.5px; margin-top:3px; color:var(--ink);}
   .day-targets{font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
   .day-targets .mp{color:var(--gold);}
+  /* target HR sits alongside pace/distance but reads as secondary, matching
+     how HR is treated in the Pace Reference and Plan HQ zone cards. */
+  .day-targets .hr{color:var(--ink-faint);}
   .day-desc{font-size:12.5px; color:var(--ink-dim); margin-top:6px; line-height:1.45;}
   .day-actions{display:flex; gap:6px; flex:none;}
   .day-actions button{background:none; border:none; color:var(--ink-faint); padding:4px; border-radius:6px; display:flex;}
@@ -1728,8 +1731,13 @@ function getGoalPaceSecPerKm(){
 }
 function getDayTargets(dd){
   var tm = TYPE_META[dd.type];
-  var out = { pace:null, goalPace:null };
+  var out = { pace:null, goalPace:null, hr:null };
   var paces = getActivePaces();
+  // Target HR for the session, from the same zone the Execution Score grades
+  // against -- resolved here rather than in renderDayCard so every view that
+  // reads a day's targets gets it from one place. Null (and so omitted) for
+  // rest/race days, which have no zone, and whenever LTHR isn't configured.
+  out.hr = fmtHRRange(getTargetHRRangeForDay(dd));
   if (tm.zoneKey && paces[tm.zoneKey] && paces[tm.zoneKey].slow!=null){
     var z = paces[tm.zoneKey];
     var pSlow = fmtPaceFromSecPerKm(z.slow), pFast = fmtPaceFromSecPerKm(z.fast);
@@ -2102,6 +2110,7 @@ function renderDayCard(dd){
   var targetsHtml = '';
   if (targets.pace) targetsHtml += '<span>'+targets.pace+'</span>';
   if (dd.km) targetsHtml += '<span>'+fmtDist(dd.km)+'</span>';
+  if (targets.hr) targetsHtml += '<span class="hr">'+targets.hr+'</span>';
   if (targets.goalPace) targetsHtml += '<span class="mp">'+targets.goalPace+'</span>';
 
   // Execution Score: computed once per render and reused for both the
