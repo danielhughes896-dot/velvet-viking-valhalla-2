@@ -86,18 +86,22 @@
     border-bottom:1px solid var(--line);
   }
   [data-theme="light"] .topbar{background:rgba(242,236,220,0.92);}
-  /* single-row 3-column header, contents vary by app state (see
-     renderTopbar): onboarding shows shield/theme, Plan HQ shows units/theme,
-     the daily execution views show the fuel gauge/countdown -- the center
-     column always holds the brand title. Fixed flex-basis (not grid's
-     content-sized `auto` track) on the outer columns plus min-width:0 on
-     all three is what stops the gauge/title/countdown from overlapping on
+  /* single-row header, contents vary by app state (see renderTopbar):
+     onboarding shows shield/theme, Plan HQ/Settings show units/theme --
+     the center column always holds the brand title. Fixed flex-basis (not
+     grid's content-sized `auto` track) on the outer columns plus
+     min-width:0 on all three is what stops them overlapping the title on
      narrow phones -- `auto` let the title claim more than its share and
-     push the gauge/countdown into it. */
+     push the side content into it. */
   .topbar-inner{
     display:flex; align-items:center; gap:6px;
     padding:calc(12px + env(safe-area-inset-top, 0px)) 16px 12px; max-width:var(--maxw); margin:0 auto;
   }
+  /* daily execution views (today/week/full): brand-only header, no side
+     content to balance -- center the title on its own and give it a touch
+     more breathing room instead of the tighter padding the gauge/countdown
+     rows needed. */
+  .topbar-inner-brand-only{justify-content:center; padding-top:calc(16px + env(safe-area-inset-top, 0px)); padding-bottom:16px;}
   .tb-slot-left{flex:0 0 28%; min-width:0; overflow:hidden; text-align:left;}
   .tb-slot-center{flex:1; min-width:0; text-align:center;}
   .tb-slot-right{flex:0 0 32%; min-width:0; overflow:hidden; text-align:right; display:flex; align-items:center; justify-content:flex-end;}
@@ -1690,10 +1694,11 @@ function renderTopbar(){
       '</div>';
     right = themeBtn;
   } else {
-    // Daily execution views (today/week/full): fuel gauge + countdown, no
-    // unit/theme toggles -- those live in Plan HQ.
-    left = '<div class="tb-gauge-slot" id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>';
-    right = '<div class="tb-countdown-slot" id="countdown-mount">'+renderCountdown()+'</div>';
+    // Daily execution views (today/week/full): brand only -- no gauge,
+    // countdown, or toggles. Programme-status info (confidence, countdown)
+    // now lives in Plan HQ's own status section instead of the global
+    // header; see renderProgrammeStatus().
+    return '<div class="topbar"><div class="topbar-inner topbar-inner-brand-only">'+titleHtml+'</div></div>';
   }
 
   var inner = '<div class="topbar-inner">'+
@@ -3409,9 +3414,23 @@ function renderFullPlanView(){
 // Plan HQ: macro settings only -- block overview, Build New Block, Active
 // Goal, Benchmark, and the full editable VDOT zone tables. No daily
 // logging surface lives here.
+// Programme/race status -- confidence gauge and race countdown, relocated
+// here from the global header (see renderTopbar) so the header stays brand-
+// only on the daily execution tabs. Reuses the gauge/countdown exactly as
+// before, just re-homed; #confidence-gauge-mount and #countdown-mount are
+// still the ids patchDerivedStats()/startCountdownTimer() look for, so the
+// live-updating and mid-log-entry patching behavior is unchanged.
+function renderProgrammeStatus(){
+  return '<div class="setup-section-title" style="margin-top:0;">Programme Status</div>'+
+    '<div class="stat-row">'+
+      '<div class="stat" id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>'+
+      '<div class="stat"><div class="l">Race Day</div><div id="countdown-mount">'+renderCountdown()+'</div></div>'+
+    '</div>';
+}
 function renderPlanHQView(){
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
   return '<div class="view-heading font-head">Plan HQ</div>'+
+    renderProgrammeStatus()+
     '<div class="distance-badge">'+ICONS.flag+' '+escapeHtml(profile.label)+' — '+escapeHtml(profile.blockName)+'</div>'+
     '<div id="planhq-stats-mount">'+renderPlanOverviewStats()+'</div>'+
     '<div class="plan-summary-bar" data-action="open-setup">'+
