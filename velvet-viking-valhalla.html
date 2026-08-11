@@ -823,10 +823,26 @@ function parseDistInput(val){
   if (isNaN(n)) return null;
   return (state && state.units==='mi') ? round1(n/0.621371) : round1(n);
 }
+// sec//km (how every pace is held internally) -> sec per displayed unit.
+// Single source of truth for this conversion, which several render paths
+// and every activity-import path need.
+function paceSecToDisplay(secPerKm){
+  if (secPerKm==null) return null;
+  return (state && state.units==='mi') ? secPerKm*1.60934 : secPerKm;
+}
 function fmtPaceFromSecPerKm(secPerKm){
   if (secPerKm==null) return null;
-  var sec = (state && state.units==='mi') ? secPerKm*1.60934 : secPerKm;
-  return secToPace(sec)+'/'+displayUnit();
+  return secToPace(paceSecToDisplay(secPerKm))+'/'+displayUnit();
+}
+// dd.actual.pace is stored in the runner's DISPLAY unit -- the log field is
+// labelled "Avg Pace /mi" in miles mode, and actualPaceSecPerKm() converts
+// back on that assumption. Anything arriving as sec/km (file import, Strava
+// sync, CSV) must therefore be converted before it is stored, or in miles
+// mode it gets read back as a per-mile pace and scored against the wrong
+// target. Returns the "m:ss" string ready to store.
+function paceSecPerKmToStoredStr(secPerKm){
+  if (secPerKm==null) return null;
+  return secToPace(paceSecToDisplay(secPerKm));
 }
 function clamp(n,lo,hi){ return Math.max(lo,Math.min(hi,n)); }
 function escapeHtml(s){
@@ -1835,8 +1851,10 @@ function computeConfidenceScore(){
   if (!totalWeight) return 0;
   return weightedSum/totalWeight;
 }
+// whole numbers, matching the execution-score pills/banner -- the gauge and
+// the scores feeding it are the same family of metric.
 function formatConfidencePct(pct){
-  return String(Math.round(pct*100)/100);
+  return String(Math.round(pct));
 }
 function renderConfidenceGauge(){
   if (!state.setup) return '';
@@ -2289,8 +2307,8 @@ function composeCoachingSummary(score, ctx){
 
   if (ctx.distTarget>0 && ctx.distActual!=null){
     var ratio = ctx.distActual/ctx.distTarget;
-    if (ratio<0.85) parts.push('Volume came up short at '+round1(ctx.distActual)+'km against a '+round1(ctx.distTarget)+'km target.');
-    else if (ratio>1.15) parts.push('You ran well past the prescribed '+round1(ctx.distTarget)+'km, logging '+round1(ctx.distActual)+'km.');
+    if (ratio<0.85) parts.push('Volume came up short at '+fmtDist(ctx.distActual)+' against a '+fmtDist(ctx.distTarget)+' target.');
+    else if (ratio>1.15) parts.push('You ran well past the prescribed '+fmtDist(ctx.distTarget)+', logging '+fmtDist(ctx.distActual)+'.');
   }
 
   if (ctx.actualPace!=null){
@@ -2577,7 +2595,7 @@ function renderCheckpointCard(){
   if (!chkDay) return '';
   var hint = '';
   if (chkDay.completed && chkDay.actual && chkDay.actual.pace){
-    hint = '<div class="hint font-mono">Your checkpoint effort: '+chkDay.actual.pace+'/km'+(chkDay.actual.hr?(' @ '+chkDay.actual.hr+' bpm'):'')+'</div>';
+    hint = '<div class="hint font-mono">Your checkpoint effort: '+chkDay.actual.pace+'/'+displayUnit()+(chkDay.actual.hr?(' @ '+chkDay.actual.hr+' bpm'):'')+'</div>';
   }
   return '<div class="checkpoint">'+
     '<h3 class="font-display">Fitness Checkpoint</h3>'+
@@ -3229,7 +3247,7 @@ async function fetchStravaRuns(){
       dd.completed = true;
       dd.actual = dd.actual || { km:null, pace:null, hr:null, rpe:null, notes:'' };
       if (km!=null) dd.actual.km = km;
-      if (paceSecPerKm) dd.actual.pace = secToPace(paceSecPerKm);
+      if (paceSecPerKm) dd.actual.pace = paceSecPerKmToStoredStr(paceSecPerKm);
       if (a.average_heartrate) dd.actual.hr = Math.round(a.average_heartrate);
       if (!dd.actual.notes) dd.actual.notes = 'Synced from Strava';
       applied++;
@@ -3350,8 +3368,8 @@ function renderImportResult(parsed, filename){
     resultEl.innerHTML = '<div class="parse-preview">'+
       '<div class="parse-row"><span class="k">Source</span><span class="v font-mono">'+parsed.source+'</span></div>'+
       (parsed.date?('<div class="parse-row"><span class="k">Activity date</span><span class="v font-mono">'+parsed.date+'</span></div>'):'')+
-      (parsed.km!=null?('<div class="parse-row"><span class="k">Distance</span><span class="v font-mono">'+parsed.km+'km</span></div>'):'')+
-      (parsed.pace?('<div class="parse-row"><span class="k">Avg pace</span><span class="v font-mono">'+parsed.pace+'/km</span></div>'):'')+
+      (parsed.km!=null?('<div class="parse-row"><span class="k">Distance</span><span class="v font-mono">'+fmtDist(parsed.km)+'</span></div>'):'')+
+      (parsed.pace?('<div class="parse-row"><span class="k">Avg pace</span><span class="v font-mono">'+paceSecPerKmToStoredStr(paceToSec(parsed.pace))+'/'+displayUnit()+'</span></div>'):'')+
       (parsed.hr!=null?('<div class="parse-row"><span class="k">Avg HR</span><span class="v font-mono">'+parsed.hr+' bpm</span></div>'):'')+
       '<div class="field" style="margin-top:12px;"><label>Apply to</label><select id="activity-target">'+dayPickerOptions(match?match.id:null)+'</select></div>'+
       '<button type="button" class="btn btn-primary btn-block" data-action="apply-activity">'+ICONS.check+' Apply to Selected Day</button>'+
@@ -3369,7 +3387,7 @@ function handleApplyActivity(){
   dd.completed = true;
   dd.actual = dd.actual || { km:null, pace:null, hr:null, rpe:null, notes:'' };
   if (parsed.km!=null) dd.actual.km = parsed.km;
-  if (parsed.pace) dd.actual.pace = parsed.pace;
+  if (parsed.pace) dd.actual.pace = paceSecPerKmToStoredStr(paceToSec(parsed.pace));
   if (parsed.hr!=null) dd.actual.hr = parsed.hr;
   closeModal();
   scheduleSave();
@@ -3387,7 +3405,7 @@ function handleApplyCsvRow(rowIdx){
   dd.completed = true;
   dd.actual = dd.actual || { km:null, pace:null, hr:null, rpe:null, notes:'' };
   if (row.km!=null) dd.actual.km = row.km;
-  if (row.pace) dd.actual.pace = row.pace;
+  if (row.pace) dd.actual.pace = paceSecPerKmToStoredStr(paceToSec(row.pace));
   if (row.hr!=null) dd.actual.hr = row.hr;
   scheduleSave();
   showToast('Logged to '+dow(dd.date)+' '+dShort(dd.date));
@@ -3405,8 +3423,10 @@ function generateExportText(){
     lines.push(profile.label+' \u00b7 '+totalWeeksInPlan()+'-Week '+profile.blockName+' \u00b7 Race: '+dLong(state.setup.raceDate));
     lines.push('Active Goal '+state.setup.activeGoal+': '+(goal?secToClock(goal.timeSec):'\u2014')+' (VDOT '+(vdot?vdot.toFixed(1):'\u2014')+')');
     var paces = getActivePaces();
-    // ascending (fastest bound first), same order the app displays everywhere
-    lines.push('Paces \u2014 Easy '+(paces.E.slow?secToPace(paces.E.fast)+'-'+secToPace(paces.E.slow):'\u2014')+'/km, Threshold '+(paces.T.slow?secToPace(paces.T.fast)+'-'+secToPace(paces.T.slow):'\u2014')+'/km, Interval '+(paces.I.slow?secToPace(paces.I.fast)+'-'+secToPace(paces.I.slow):'\u2014')+'/km');
+    // ascending (fastest bound first), in the runner's own unit
+    var pRange = function(z){ return z.slow ? secToPace(paceSecToDisplay(z.fast))+'-'+secToPace(paceSecToDisplay(z.slow)) : '\u2014'; };
+    var u = '/'+displayUnit();
+    lines.push('Paces \u2014 Easy '+pRange(paces.E)+u+', Threshold '+pRange(paces.T)+u+', Interval '+pRange(paces.I)+u);
   }
   lines.push('');
   var totalWeeks = totalWeeksInPlan();
@@ -3415,13 +3435,13 @@ function generateExportText(){
     lines.push('WEEK '+w+' ('+weekPhaseLabel(w)+') \u2014 '+kmToDisplay(vol.done)+'/'+fmtDist(vol.total));
     state.days.filter(function(dd){ return dd.week===w; }).forEach(function(dd){
       var line = '  '+dow(dd.date)+' '+dShort(dd.date)+' \u2014 '+TYPE_META[dd.type].label+' \u2014 '+dd.title;
-      if (dd.km) line += ' ('+dd.km+'km planned)';
+      if (dd.km) line += ' ('+fmtDist(dd.km)+' planned)';
       if (dd.type==='rest'){ line += ' \u2014 REST'; }
       else if (dd.completed){
         var a = dd.actual||{};
         var parts = [];
-        if (a.km!=null) parts.push(a.km+'km');
-        if (a.pace) parts.push(a.pace+'/km');
+        if (a.km!=null) parts.push(fmtDist(a.km));
+        if (a.pace) parts.push(a.pace+'/'+displayUnit());
         if (a.hr!=null) parts.push(a.hr+'bpm');
         if (a.rpe!=null) parts.push('RPE '+a.rpe);
         line += ' \u2014 COMPLETED: '+parts.join(', ');
