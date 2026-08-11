@@ -165,7 +165,7 @@
     body{background:#fff !important; color:#111 !important;}
     .topbar, .fab-tools, .bottom-nav, #toast-mount, .checkpoint-banner, .plan-summary-bar,
     .day-check, .day-actions, .actual-panel, .fuel-card summary, .goal-toggle-hero,
-    .setup-cta, .runeroad, .progress-bars, .modal-overlay{ display:none !important; }
+    .setup-cta, .progress-bars, .modal-overlay{ display:none !important; }
     .week-body{max-height:none !important;}
     .fuel-card .fuel-body{display:block !important;}
     .week{break-inside:avoid; page-break-inside:avoid; border-color:#999 !important; background:#fff !important;}
@@ -200,28 +200,6 @@
     color:var(--ink-faint); margin-top:14px; margin-bottom:20px;
   }
 
-  /* rune road */
-  .runeroad{position:relative; padding:6px 6px 4px; overflow-x:auto; -ms-overflow-style:none; scrollbar-width:none;}
-  .runeroad::-webkit-scrollbar{display:none;}
-  .runeroad-track{display:flex; align-items:center; gap:0; min-width:min-content; padding:10px 6px;}
-  .rune-seg{display:flex; align-items:center;}
-  .rune-line{width:14px; height:2px; background:var(--line); flex:none;}
-  .rune-line.done{background:var(--bronze);}
-  .rune-node{
-    flex:none; width:30px; height:30px; border:2px solid var(--line);
-    background:var(--bg-2); display:flex; align-items:center; justify-content:center;
-    transform:rotate(45deg); border-radius:6px; position:relative; transition:.2s;
-  }
-  .rune-node .num{transform:rotate(-45deg); font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); font-weight:600;}
-  .rune-node.done{background:var(--bronze); border-color:var(--bronze);}
-  .rune-node.done .num{color:var(--bronze-ink);}
-  .rune-node.current{border-color:var(--gold); box-shadow:0 0 0 3px var(--c-gold-soft); animation:runepulse 2.2s ease-in-out infinite;}
-  .rune-node.checkpoint{border-color:var(--gold); border-width:2px;}
-  .rune-node.checkpoint::after{content:''; position:absolute; inset:-6px; border:1px dashed var(--gold); border-radius:9px; opacity:.6;}
-  .rune-node.race{border-radius:50%; transform:rotate(0deg); background:var(--c-gold-soft); border-color:var(--gold);}
-  .rune-node.race .num{transform:rotate(0deg);}
-  .rune-node button{all:unset; width:100%; height:100%; display:flex; align-items:center; justify-content:center; cursor:pointer;}
-  @keyframes runepulse{0%,100%{box-shadow:0 0 0 3px var(--c-gold-soft);} 50%{box-shadow:0 0 0 7px transparent;}}
 
   .stat-row{display:flex; justify-content:center; gap:22px; margin-top:16px; flex-wrap:wrap;}
   .stat{text-align:center;}
@@ -328,6 +306,16 @@
   }
   .pzr-sep{color:var(--ink-faint); font-size:12px;}
   .pzr-unit{color:var(--ink-faint); font-size:11px; width:20px;}
+
+  /* ---------- compact read-only pace reference (Today tab) ---------- */
+  .pace-ref-card{margin:14px 0 0; padding:12px 15px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);}
+  .pace-ref-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;}
+  .pace-ref-head span:first-child{font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
+  .pace-ref-vdot{font-size:11px; color:var(--bronze);}
+  .pace-ref-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid var(--line-soft); font-size:12px;}
+  .pace-ref-row:last-of-type{border-bottom:none;}
+  .pace-ref-label{color:var(--ink-dim);}
+  .pace-ref-val{color:var(--ink);}
 
   /* ---------- AI post-session execution review ---------- */
   .ai-review-card{margin-top:10px; padding:11px 12px; background:var(--bg-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
@@ -1198,7 +1186,11 @@ function loadState(){
       if (raw){
         var parsed = JSON.parse(raw);
         if (parsed && parsed.setup && parsed.days){
-          if (!parsed.view) parsed.view = 'detailed'; // older saved states predate the bottom-nav view toggle
+          // 'detailed' was the old key for today's 'planhq' tab; older saves
+          // predating the bottom-nav toggle entirely have no view at all --
+          // both now land on 'today', the current default landing tab.
+          if (parsed.view==='detailed') parsed.view = 'planhq';
+          else if (!parsed.view) parsed.view = 'today';
           state = parsed;
           return;
         }
@@ -1211,7 +1203,7 @@ function makeDefaultState(){
   return {
     theme:'dark',
     units:'km',
-    view:'detailed', // 'today' | 'week' | 'full' | 'detailed' -- which bottom-nav view is active
+    view:'today', // 'today' | 'week' | 'full' | 'planhq' -- which bottom-nav view is active
     setup:null, // { distanceKey, currentVolume, raceDate, benchmark:{distanceKey,timeSec}, goals:{A,B,C:{label,timeSec}}, activeGoal:'A' }
     days:[]
   };
@@ -1720,32 +1712,6 @@ function startCountdownTimer(){
   }, 30000);
 }
 
-function renderRuneRoad(){
-  var today = todayStr();
-  var totalWeeks = totalWeeksInPlan();
-  var checkpointWeek = null;
-  state.days.forEach(function(dd){ if (dd.type==='checkpoint') checkpointWeek = dd.week; });
-  var html = '<div class="runeroad-track">';
-  for (var w=1; w<=totalWeeks; w++){
-    (function(w){
-      var range = weekDateRange(w);
-      var isCurrent = today>=range.start && today<=range.end;
-      var isPast = today>range.end;
-      var wdays = state.days.filter(function(dd){ return dd.week===w; });
-      var allDone = wdays.every(function(dd){ return dd.type==='rest'||dd.completed; });
-      var cls = 'rune-node';
-      if (allDone||isPast) cls+=' done';
-      if (isCurrent) cls+=' current';
-      if (w===checkpointWeek) cls+=' checkpoint';
-      if (w===totalWeeks) cls+=' race';
-      if (w>1) html += '<div class="rune-line'+((isPast||allDone)?' done':'')+'"></div>';
-      html += '<div class="'+cls+'"><button type="button" data-action="jump-week" data-week="'+w+'" aria-label="Jump to week '+w+'"><span class="num">'+w+'</span></button></div>';
-    })(w);
-  }
-  html += '</div>';
-  return html;
-}
-
 function renderGoalButtons(){
   if (!state.setup || !state.setup.goals) return '';
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
@@ -1765,10 +1731,12 @@ function renderGoalToggle(){
   return '<div class="goal-toggle-hero"><div class="setup-section-title" style="text-align:center;">Active Goal</div>'+renderGoalButtons()+'</div>';
 }
 
-function renderHero(){
-  var html = '<div class="hero">'+
-    '<img class="medallion-img" src="assets/medallion.png" width="300" height="300" alt="Velvet Viking Valhalla — viking running programs" loading="eager">'+
+function renderMedallion(){
+  return '<img class="medallion-img" src="assets/medallion.png" width="300" height="300" alt="Velvet Viking Valhalla — viking running programs" loading="eager">'+
     '<div class="hero-tagline">Earn Your Place.</div>';
+}
+function renderHero(){
+  var html = '<div class="hero">'+renderMedallion();
 
   if (!state.setup){
     html += '<div class="setup-cta">'+
@@ -1779,29 +1747,54 @@ function renderHero(){
     return html;
   }
 
-  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+  html += '</div>';
+  return html;
+}
+// Runs/volume completion + Goal stat -- lives in Plan HQ, patched in place
+// via #planhq-stats-mount whenever a session's completion state changes.
+function renderPlanOverviewStats(){
   var s = computeStats();
   var runsPct = s.totalRuns ? Math.round(100*s.completedRuns/s.totalRuns) : 0;
   var kmPct = s.totalKm ? Math.round(100*s.completedKm/s.totalKm) : 0;
   var goal = getActiveGoal();
-
-  html += '<div class="distance-badge">'+ICONS.flag+' '+escapeHtml(profile.label)+' \u2014 '+escapeHtml(profile.blockName)+'</div>'+
-    '<div class="runeroad">'+renderRuneRoad()+'</div>'+
-    '<div class="stat-row">'+
+  return '<div class="stat-row">'+
       '<div class="stat"><div class="v font-mono">'+(goal&&goal.timeSec?secToClock(goal.timeSec):'\u2014')+'</div><div class="l">Goal '+state.setup.activeGoal+'</div></div>'+
       '<div class="stat"><div class="v font-mono">'+s.completedRuns+'/'+s.totalRuns+'</div><div class="l">Runs Done</div></div>'+
     '</div>'+
     '<div class="progress-bars wrap">'+
       '<div class="pbar-row"><div class="pbar-label font-head">Runs</div><div class="pbar-track"><div class="pbar-fill" style="width:'+runsPct+'%"></div></div><div class="pbar-num font-mono">'+runsPct+'%</div></div>'+
       '<div class="pbar-row"><div class="pbar-label font-head">Volume</div><div class="pbar-track"><div class="pbar-fill" style="width:'+kmPct+'%"></div></div><div class="pbar-num font-mono">'+kmToDisplay(s.completedKm)+'/'+fmtDist(s.totalKm)+'</div></div>'+
-    '</div>'+
-    renderGoalToggle()+
-    '<div class="plan-summary-bar" data-action="open-setup">'+
-      '<div class="psb-main"><div class="psb-title">Plan Settings</div><div class="psb-sub">'+escapeHtml(profile.label)+' \u00b7 '+fmtDist(state.setup.currentVolume)+'/wk start \u00b7 Race '+dShort(state.setup.raceDate)+'</div></div>'+
-      ICONS.chevronRight+
-    '</div>'+
+    '</div>';
+}
+// Compact, read-only pace lookup for the Today tab -- the full editable
+// zone-paces-card (with override inputs) lives in Plan HQ instead.
+function renderCompactPaceReference(){
+  if (!state.setup) return '';
+  var vdot = getActiveVDOT();
+  var paces = getActivePaces();
+  var unit = displayUnit();
+  var toDisplaySec = function(secPerKm){ return secPerKm==null ? null : (state.units==='mi' ? secPerKm*1.60934 : secPerKm); };
+  var rows = ZONE_PACE_ORDER.map(function(k){
+    var z = paces[k];
+    if (z.fast==null || z.slow==null) return '';
+    return '<div class="pace-ref-row"><span class="pace-ref-label">'+ZONE_PACE_LABELS[k]+'</span>'+
+      '<span class="pace-ref-val font-mono">'+secToPace(toDisplaySec(z.fast))+'\u2013'+secToPace(toDisplaySec(z.slow))+'/'+unit+'</span></div>';
+  }).join('');
+  return '<div class="pace-ref-card">'+
+    '<div class="pace-ref-head"><span class="font-head">Pace Reference</span><span class="pace-ref-vdot font-mono">VDOT '+(vdot?vdot.toFixed(1):'\u2014')+'</span></div>'+
+    rows+
   '</div>';
-  return html;
+}
+// Current benchmark + a shortcut into Recalibrate -- Plan HQ's stand-in for
+// full inline benchmark editing, reusing the existing recalibrate modal
+// rather than duplicating its distance/time inputs on the dashboard.
+function renderBenchmarkSummary(){
+  var b = state.setup.benchmark;
+  var title = b ? (DISTANCE_PROFILES[b.distanceKey].label+' \u2014 '+secToClock(b.timeSec)) : 'No benchmark set yet';
+  return '<div class="plan-summary-bar" data-action="open-recalibrate">'+
+    '<div class="psb-main"><div class="psb-title">Benchmark</div><div class="psb-sub">'+escapeHtml(title)+' \u00b7 tap to update and recalibrate paces</div></div>'+
+    ICONS.chevronRight+
+  '</div>';
 }
 
 /* =========================================================
@@ -3197,8 +3190,8 @@ function patchFab(){
    TARGETED DOM PATCHES
    ========================================================= */
 function patchDerivedStats(){
-  var heroEl = document.getElementById('hero-mount');
-  if (heroEl) heroEl.innerHTML = renderHero();
+  var statsEl = document.getElementById('planhq-stats-mount');
+  if (statsEl) statsEl.innerHTML = renderPlanOverviewStats();
   var gaugeEl = document.getElementById('confidence-gauge-mount');
   if (gaugeEl) gaugeEl.innerHTML = renderConfidenceGauge();
   var totalWeeks = totalWeeksInPlan();
@@ -3256,11 +3249,6 @@ function handleToggleWeek(weekNum){
   var el = document.getElementById('week-'+weekNum);
   if (el) el.classList.toggle('open');
 }
-function handleJumpWeek(weekNum){
-  expandedWeeks[weekNum] = true;
-  var el = document.getElementById('week-'+weekNum);
-  if (el){ el.classList.add('open'); el.scrollIntoView({ behavior:'smooth', block:'start' }); }
-}
 function handleSetTheme(theme){
   state.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
@@ -3316,28 +3304,54 @@ function renderCheckpointBanner(){
    state.setup, so switching between them is purely a render-time
    choice and never touches logged data.
    ========================================================= */
+// Today: medallion + today's session card + a compact read-only pace
+// reference. This is the default landing tab -- built for rapid logging,
+// not browsing.
 function renderTodayView(){
   var dd = findDayByDate(todayStr());
-  var html = '<div class="view-heading font-head">Today</div>';
-  if (!dd) return html+'<div class="empty-note">No session scheduled for today — it falls outside the current plan’s dates.</div>';
-  return html+renderDayCard(dd);
+  var html = renderHero()+'<div class="view-heading font-head">Today</div>';
+  html += dd ? renderDayCard(dd) : '<div class="empty-note">No session scheduled for today — it falls outside the current plan’s dates.</div>';
+  html += renderCompactPaceReference();
+  return html;
 }
+// This Week: just the active week's accordion (force-expanded), its zone
+// breakdown, and its done/total distance -- nothing else.
 function renderWeekView(){
   var w = currentWeekNum();
   var html = '<div class="view-heading font-head">This Week</div>';
   if (!w) return html+'<div class="empty-note">No active week to show yet.</div>';
   return html+renderWeekAccordion(w, true);
 }
+// Full Plan: every week as a normal collapsible accordion (respects
+// expandedWeeks, same toggle-week interaction as before).
 function renderFullPlanView(){
-  return '<div class="view-heading font-head">Full Plan</div>'+renderWeeksList(true);
+  return '<div class="view-heading font-head">Full Plan</div>'+renderWeeksList();
+}
+// Plan HQ: macro settings only -- block overview, Build New Block, Active
+// Goal, Benchmark, and the full editable VDOT zone tables. No daily
+// logging surface lives here.
+function renderPlanHQView(){
+  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+  return '<div class="view-heading font-head">Plan HQ</div>'+
+    '<div class="distance-badge">'+ICONS.flag+' '+escapeHtml(profile.label)+' — '+escapeHtml(profile.blockName)+'</div>'+
+    '<div id="planhq-stats-mount">'+renderPlanOverviewStats()+'</div>'+
+    '<div class="plan-summary-bar" data-action="open-setup">'+
+      '<div class="psb-main"><div class="psb-title">Build New Block</div><div class="psb-sub">'+escapeHtml(profile.label)+' · '+fmtDist(state.setup.currentVolume)+'/wk start · Race '+dShort(state.setup.raceDate)+'</div></div>'+
+      ICONS.chevronRight+
+    '</div>'+
+    renderCheckpointBanner()+
+    renderGoalToggle()+
+    '<div class="setup-section-title">Benchmark</div>'+
+    renderBenchmarkSummary()+
+    renderZonePacesCard();
 }
 function renderBottomNav(){
-  var view = state.view || 'detailed';
+  var view = state.view || 'today';
   var items = [
     {key:'today', label:'Today', icon:ICONS.clock},
     {key:'week', label:'This Week', icon:ICONS.calendarWeek},
     {key:'full', label:'Full Plan', icon:ICONS.layers},
-    {key:'detailed', label:'Detailed', icon:ICONS.target}
+    {key:'planhq', label:'Plan HQ', icon:ICONS.target}
   ];
   return '<nav class="bottom-nav" id="bottom-nav">'+
     items.map(function(it){
@@ -3351,33 +3365,22 @@ function handleSetView(view){
   scheduleSave();
   renderApp();
 }
+function renderMainContent(){
+  if (!state.setup) return renderHero();
+  var view = state.view || 'today';
+  if (view==='week') return renderWeekView();
+  if (view==='full') return renderFullPlanView();
+  if (view==='planhq') return renderPlanHQView();
+  return renderTodayView();
+}
 
 function renderApp(){
   document.documentElement.setAttribute('data-theme', state.theme);
   var app = document.getElementById('app');
   if (!app) return;
-  var view = state.setup ? (state.view || 'detailed') : 'detailed';
-  var mainHtml;
-  if (!state.setup){
-    mainHtml = '<div id="hero-mount">'+renderHero()+'</div>';
-  } else if (view==='today'){
-    mainHtml = '<div id="view-mount" class="view-fade">'+renderTodayView()+'</div>';
-  } else if (view==='week'){
-    mainHtml = '<div id="view-mount" class="view-fade">'+renderWeekView()+'</div>';
-  } else if (view==='full'){
-    mainHtml = '<div id="view-mount" class="view-fade">'+renderFullPlanView()+'</div>';
-  } else {
-    mainHtml = '<div id="view-mount" class="view-fade">'+
-      '<div id="hero-mount">'+renderHero()+'</div>'+
-      '<div id="zone-paces-mount">'+renderZonePacesCard()+'</div>'+
-      '<div id="checkpoint-banner-mount">'+renderCheckpointBanner()+'</div>'+
-      '<div class="section-label font-head"><div class="rule"></div>The Block<div class="rule"></div></div>'+
-      '<div id="weeks-mount">'+renderWeeksList()+'</div>'+
-    '</div>';
-  }
   app.innerHTML =
     renderTopbar()+
-    '<div class="wrap">'+mainHtml+'</div>'+
+    '<div class="wrap"><div id="view-mount" class="view-fade">'+renderMainContent()+'</div></div>'+
     (state.setup ? renderBottomNav() : '')+
     '<div id="fab-mount">'+renderFab()+'</div>';
 }
@@ -3391,7 +3394,6 @@ document.addEventListener('click', function(e){
   var action = target.getAttribute('data-action');
   switch(action){
     case 'toggle-theme': handleToggleThemeQuick(); break;
-    case 'jump-week': handleJumpWeek(parseInt(target.getAttribute('data-week'),10)); break;
     case 'toggle-week': handleToggleWeek(parseInt(target.getAttribute('data-week'),10)); break;
     case 'set-goal': handleSetGoal(target.getAttribute('data-goal')); break;
     case 'open-edit': openEditModal(target.getAttribute('data-day')); break;
