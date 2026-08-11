@@ -337,6 +337,10 @@
   .day-badge.type-long{background:var(--c-long-soft); color:var(--c-long);}
   .day-badge.type-tuneup{background:var(--c-gold-soft); color:var(--gold);}
   .day-badge.type-race{background:var(--gold); color:var(--bronze-ink);}
+  /* collapsed-card execution score -- always visible in the header row
+     once a workout is completed and scoreable, regardless of whether the
+     actual-panel below is showing. */
+  .exec-pill{font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.3px; padding:2px 8px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold);}
   .day-title{font-weight:600; font-size:14.5px; margin-top:3px; color:var(--ink);}
   .day-targets{font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
   .day-targets .mp{color:var(--gold);}
@@ -346,6 +350,14 @@
   .day-actions button:hover{color:var(--bronze); background:var(--bg-4);}
   .day-actions svg{width:16px; height:16px;}
 
+  /* expanded-card execution score -- prominent gold banner above the
+     logging fields, same visual language as .checkpoint-banner. */
+  .execution-score-banner{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px;
+    background:var(--c-gold-soft); border:1.5px solid var(--gold); border-radius:var(--radius-sm); padding:10px 14px;
+  }
+  .esb-label{font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-dim);}
+  .esb-pct{font-size:20px; font-weight:800; color:var(--gold);}
   .actual-panel{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); display:grid; grid-template-columns:1fr 1fr; gap:8px;}
   .actual-field{display:flex; flex-direction:column; gap:3px;}
   .actual-field label{font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint);}
@@ -367,6 +379,11 @@
   .pzr:last-of-type{border-bottom:none;}
   .pzr-label{font-size:12.5px; color:var(--ink-dim); flex:1; min-width:0;}
   .pzr-tag{font-size:9px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze); border:1px solid var(--bronze); border-radius:99px; padding:1px 6px; margin-left:4px;}
+  /* target HR range, shown alongside the pace inputs on the same row --
+     stacked under the zone label rather than a third flex column, so the
+     row still fits on narrow phones without wrapping or crowding the
+     pace-override inputs. */
+  .pzr-hr{font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
   .pzr-inputs{display:flex; align-items:center; gap:5px; flex:none;}
   .pzr-input{
     width:52px; background:var(--bg-4); border:1px solid var(--line); border-radius:7px; color:var(--ink);
@@ -702,6 +719,49 @@ function goalPaceSecPerKm(vdot, raceDistanceM){
   var t = equivalentTimeSec(vdot, raceDistanceM);
   if (!t) return null;
   return t / (raceDistanceM/1000);
+}
+
+/* =========================================================
+   HR ZONES — same zoneKey system as VDOT_ZONES (E/M/T/I/R) so every
+   place that already resolves a workout's pace zone via TYPE_META.zoneKey
+   resolves its HR zone the same way, with no separate type-to-zone map.
+   Offsets are BPM relative to LTHR, reproducing a standard 5-zone LTHR
+   model (a runner with LTHR 172 lands Easy 155-163, Tempo 164-171,
+   Threshold 172-182, Interval/Repetition >185 up to Max HR).
+   ========================================================= */
+var HR_ZONE_OFFSETS = {
+  E:{lo:-17,hi:-9}, M:{lo:-8,hi:-1}, T:{lo:0,hi:10}, I:{lo:13,hi:null}, R:{lo:13,hi:null}
+};
+function hrZonesFromLTHR(lthr, maxHR){
+  var out = {};
+  Object.keys(HR_ZONE_OFFSETS).forEach(function(k){
+    if (!lthr){ out[k] = { lo:null, hi:null, openEnded:false }; return; }
+    var off = HR_ZONE_OFFSETS[k];
+    var lo = Math.round(lthr + off.lo);
+    var openEnded = off.hi==null;
+    var hi = openEnded ? (maxHR!=null ? Math.round(maxHR) : null) : Math.round(lthr + off.hi);
+    out[k] = { lo:lo, hi:hi, openEnded:openEnded };
+  });
+  return out;
+}
+function getActiveHRZones(){
+  var su = state.setup;
+  return hrZonesFromLTHR(su && su.lthr, su && su.maxHR);
+}
+// Mirrors getTargetPaceRangeSecPerKm(dd) exactly -- same zoneKey lookup,
+// just against the HR table instead of the pace table. Returns null for
+// rest/race (no zoneKey) or when LTHR hasn't been configured.
+function getTargetHRRangeForDay(dd){
+  var tm = TYPE_META[dd.type];
+  if (!tm || !tm.zoneKey) return null;
+  var z = getActiveHRZones()[tm.zoneKey];
+  if (!z || z.lo==null) return null;
+  return z;
+}
+function fmtHRRange(zone){
+  if (!zone || zone.lo==null) return null;
+  if (zone.openEnded) return '>'+zone.lo+' BPM';
+  return zone.lo+'–'+zone.hi+' BPM';
 }
 
 /* =========================================================
@@ -1712,16 +1772,33 @@ function renderTopbar(){
 }
 
 /* =========================================================
-   CONFIDENCE SCORE — a fuel-gauge read on the whole block: completed
-   runs divided by every scheduled run in the plan (rest days excluded),
-   not just the ones due so far -- so 1 completed run out of 80 total
-   reads as 1.25%, not a misleadingly full gauge.
+   CONFIDENCE SCORE — a live weighted average of every completed day's
+   Workout Execution Score (see computeExecutionScore below), not just a
+   completion-rate tally: Long Runs and quality sessions (tempo/threshold/
+   interval/repetition/checkpoint) count 2x, easy/recovery days count 1x.
+   Days that aren't completed, or don't yet have enough actual data (km +
+   pace + HR) to score, simply don't contribute -- with none completed
+   yet this naturally returns 0, the same neutral baseline a fresh plan
+   always showed.
    ========================================================= */
+function executionWeightForType(type){
+  if (type==='long') return 2.0;
+  if (type==='tempo' || type==='threshold' || type==='interval' || type==='repetition' || type==='checkpoint') return 2.0;
+  return 1.0; // easy/recovery, and any other completed type that scores
+}
 function computeConfidenceScore(){
   if (!state.setup) return null;
-  var s = computeStats();
-  if (!s.totalRuns) return 0;
-  return 100*s.completedRuns/s.totalRuns;
+  var totalWeight = 0, weightedSum = 0;
+  state.days.forEach(function(dd){
+    if (!dd.completed) return;
+    var score = computeExecutionScore(dd);
+    if (score==null) return;
+    var w = executionWeightForType(dd.type);
+    totalWeight += w;
+    weightedSum += score*w;
+  });
+  if (!totalWeight) return 0;
+  return weightedSum/totalWeight;
 }
 function formatConfidencePct(pct){
   return String(Math.round(pct*100)/100);
@@ -1883,12 +1960,13 @@ function renderBenchmarkSummary(){
    Settings) so target paces are visible the moment a training week
    starts; every zone's slow/fast bound is directly editable here.
    ========================================================= */
-var ZONE_PACE_LABELS = {E:'Easy',M:'Goal-Distance Equiv.',T:'Threshold',I:'Interval',R:'Repetition'};
+var ZONE_PACE_LABELS = {E:'Easy / Recovery',M:'Tempo',T:'Threshold',I:'Interval / Track',R:'Repetition'};
 var ZONE_PACE_ORDER = ['E','M','T','I','R'];
 function renderZonePacesCard(){
   if (!state.setup) return '';
   var vdot = getActiveVDOT();
   var paces = getActivePaces();
+  var hrZones = getActiveHRZones();
   var overrides = state.setup.paceOverrides || {};
   var unit = displayUnit();
   var toDisplaySec = function(secPerKm){ return secPerKm==null ? null : (state.units==='mi' ? secPerKm*1.60934 : secPerKm); };
@@ -1898,8 +1976,11 @@ function renderZonePacesCard(){
     var isOverridden = !!(overrides[k] && overrides[k].slow!=null && overrides[k].fast!=null);
     var fastTxt = z.fast!=null ? secToPace(toDisplaySec(z.fast)) : '';
     var slowTxt = z.slow!=null ? secToPace(toDisplaySec(z.slow)) : '';
+    var hrTxt = fmtHRRange(hrZones[k]);
     return '<div class="pzr'+(isOverridden?' pzr-custom':'')+'">'+
-      '<div class="pzr-label">'+ZONE_PACE_LABELS[k]+(isOverridden?' <span class="pzr-tag">custom</span>':'')+'</div>'+
+      '<div class="pzr-label">'+ZONE_PACE_LABELS[k]+(isOverridden?' <span class="pzr-tag">custom</span>':'')+
+        (hrTxt ? '<div class="pzr-hr font-mono">'+hrTxt+'</div>' : '')+
+      '</div>'+
       '<div class="pzr-inputs">'+
         '<input type="text" class="pzr-input" placeholder="m:ss" inputmode="numeric" value="'+fastTxt+'" data-action="pace-override" data-zone="'+k+'">'+
         '<span class="pzr-sep">–</span>'+
@@ -1909,10 +1990,11 @@ function renderZonePacesCard(){
     '</div>';
   }).join('');
   var anyOverride = ZONE_PACE_ORDER.some(function(k){ return overrides[k] && overrides[k].slow!=null && overrides[k].fast!=null; });
+  var hrHint = (state.setup.lthr==null) ? ' Set your LTHR/Max HR (Edit Plan Settings) to also see target HR ranges here.' : '';
 
   return '<div class="zone-paces-card">'+
     '<div class="zpc-head"><span class="font-head">Training Zone Paces</span><span class="zpc-vdot font-mono">VDOT '+(vdot?vdot.toFixed(1):'—')+'</span></div>'+
-    '<div class="field-hint" style="margin-bottom:10px;">Edit any pace by hand to fine-tune it — edits stick until reset or re-calibrated from a new goal/benchmark.</div>'+
+    '<div class="field-hint" style="margin-bottom:10px;">Edit any pace by hand to fine-tune it — edits stick until reset or re-calibrated from a new goal/benchmark.'+hrHint+'</div>'+
     rows+
     (anyOverride ? '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:10px;" data-action="reset-pace-overrides">'+ICONS.zap+' Reset to Calculated Paces</button>' : '')+
   '</div>';
@@ -1989,10 +2071,18 @@ function renderDayCard(dd){
   if (dd.km) targetsHtml += '<span>'+fmtDist(dd.km)+'</span>';
   if (targets.goalPace) targetsHtml += '<span class="mp">'+targets.goalPace+'</span>';
 
+  // Execution Score: computed once per render and reused for both the
+  // always-visible collapsed pill (day-row1) and the prominent expanded
+  // banner (top of the actual-panel) -- one calculation, two presentations.
+  var execScore = dd.completed ? computeExecutionScore(dd) : null;
+  var execPillHtml = execScore!=null ? '<span class="exec-pill font-mono">'+execScore+'% EXEC</span>' : '';
+  var execBannerHtml = execScore!=null ? ('<div class="execution-score-banner"><span class="esb-label font-head">Execution Score</span><span class="esb-pct font-mono">'+execScore+'%</span></div>') : '';
+
   var actualHtml = '';
   if (dd.completed){
     var a = dd.actual || {};
-    actualHtml = '<div class="actual-panel">'+
+    actualHtml = execBannerHtml+
+    '<div class="actual-panel">'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg Pace /'+displayUnit()+'</label><input type="text" placeholder="m:ss" value="'+(a.pace||'')+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'+
@@ -2007,7 +2097,7 @@ function renderDayCard(dd){
     '<div class="day-top">'+
       '<div class="day-check"><input type="checkbox" '+(dd.completed?'checked':'')+' '+(dd.type==='rest'?'disabled':'')+' data-action="toggle-complete" data-day="'+dd.id+'" aria-label="Mark session complete"></div>'+
       '<div class="day-main">'+
-        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+tm.label+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+'</div>'+
+        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+tm.label+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+execPillHtml+'</div>'+
         '<div class="day-title">'+escapeHtml(dd.title)+'</div>'+
         (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
         '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>'+
@@ -2053,6 +2143,91 @@ function actualPaceSecPerKm(dd){
   if (sec==null) return null;
   return state.units==='mi' ? sec/1.60934 : sec;
 }
+
+/* =========================================================
+   WORKOUT EXECUTION SCORE (0-100) — Distance 40% + Pace 40% + HR 20%.
+   A separate, always-on metric from the opt-in AI Coach review above
+   (which scores RPE, not HR, and only runs when the runner asks for it):
+   this one is computed automatically for every completed day the moment
+   actual km/pace/HR are all logged, feeds the day-card banner/pill, and
+   is the sole input to the Plan HQ confidence gauge below. Reuses
+   getTargetPaceRangeSecPerKm/getGoalPaceSecPerKm/actualPaceSecPerKm/
+   getTargetHRRangeForDay rather than re-deriving targets.
+   ========================================================= */
+function isRecoveryWorkoutType(type){ return type==='easy' || type==='long'; }
+// Distance Score = min(actual/target, 1.0) x 100 -- capped so overshooting
+// distance never scores higher than hitting it exactly.
+function computeDistanceScore(targetKm, actualKm){
+  if (!targetKm || targetKm<=0 || actualKm==null) return null;
+  return clamp(Math.min(actualKm/targetKm, 1)*100, 0, 100);
+}
+// 100% inside the prescribed pace window (or within ~2% of goal pace for
+// race/goal-pace-segment days, which have no zone window). Outside the
+// window, the penalty direction is asymmetric by workout intent: easy/long
+// days are penalised harder for running too FAST (over-cooking a recovery
+// day); quality days (tempo/threshold/interval/repetition) are penalised
+// harder for running too SLOW (failing to hit the required intensity).
+// Running faster is never rewarded above 100 either way.
+function computePaceScore(dd, actualPaceSp){
+  if (actualPaceSp==null) return null;
+  var targetRange = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
+  var goalPace = (dd.type==='race' || dd.mpSegment) ? getGoalPaceSecPerKm() : null;
+  var recovery = isRecoveryWorkoutType(dd.type);
+
+  if (targetRange && targetRange.slow!=null){
+    // slow = larger sec/km (easier/slower bound), fast = smaller sec/km (harder/faster bound)
+    if (actualPaceSp<=targetRange.slow && actualPaceSp>=targetRange.fast) return 100;
+    if (actualPaceSp<targetRange.fast){
+      var overshoot = (targetRange.fast-actualPaceSp)/targetRange.fast;
+      var overMult = recovery ? 5 : 2.5;
+      return clamp(100-overshoot*100*overMult, 0, 100);
+    }
+    var undershoot = (actualPaceSp-targetRange.slow)/targetRange.slow;
+    var underMult = recovery ? 2.5 : 5;
+    return clamp(100-undershoot*100*underMult, 0, 100);
+  }
+  if (goalPace){
+    var dev = Math.abs(actualPaceSp-goalPace)/goalPace;
+    return clamp(100-dev*100*3, 0, 100);
+  }
+  return null;
+}
+// 100% inside the workout's designated HR zone. Below the zone is
+// under-intensity (penalised harder for quality sessions failing to reach
+// the required effort); above the zone is over-intensity (penalised harder
+// for easy/recovery days, and never rewarded regardless of type).
+function computeHRScore(dd, actualHR){
+  if (actualHR==null) return null;
+  var zone = getTargetHRRangeForDay(dd);
+  if (!zone || zone.lo==null) return null;
+  var recovery = isRecoveryWorkoutType(dd.type);
+  var hi = zone.hi!=null ? zone.hi : Infinity;
+  if (actualHR>=zone.lo && actualHR<=hi) return 100;
+  if (actualHR<zone.lo){
+    var short = (zone.lo-actualHR)/zone.lo;
+    var underMult = recovery ? 2 : 4;
+    return clamp(100-short*100*underMult, 0, 100);
+  }
+  var over = (actualHR-hi)/hi;
+  var overMult = recovery ? 5 : 2.5;
+  return clamp(100-over*100*overMult, 0, 100);
+}
+// Strict gate: all three actual values (km, pace, HR) must be logged AND
+// resolve against a real target/zone (so a rest day, or a plan with no
+// LTHR configured, correctly yields no score rather than a partial one --
+// see the module comment above for why this doesn't redistribute weight
+// across whatever happens to be available).
+function computeExecutionScore(dd){
+  if (!dd || !dd.completed) return null;
+  var a = dd.actual || {};
+  if (a.km==null || !a.pace || a.hr==null) return null;
+  var distScore = computeDistanceScore(dd.km, a.km);
+  var paceScore = computePaceScore(dd, actualPaceSecPerKm(dd));
+  var hrScore = computeHRScore(dd, a.hr);
+  if (distScore==null || paceScore==null || hrScore==null) return null;
+  return clamp(Math.round(distScore*0.40 + paceScore*0.40 + hrScore*0.20), 0, 100);
+}
+
 function expectedRPEBand(dd){
   if (dd.type==='easy' || dd.type==='long') return [2,5];
   if (dd.type==='tempo' || dd.type==='threshold') return [6,8];
@@ -2467,6 +2642,13 @@ function openSetupModal(){
     '</div>'+
     '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
 
+    '<div class="setup-section-title">Lactate Threshold HR (LTHR) / Max HR</div>'+
+    '<div class="field-hint" style="margin-bottom:8px;">Optional \u2014 e.g. LTHR 172 BPM / Max HR 188 BPM. Adds target HR ranges to your zone paces and unlocks HR-based execution scoring on logged workouts. Leave blank to skip \u2014 pace and distance tracking work fine without it.</div>'+
+    '<div class="benchmark-row">'+
+      '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-lthr" placeholder="172" value="'+(su.lthr!=null?su.lthr:'')+'"></div>'+
+      '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-maxhr" placeholder="188" value="'+(su.maxHR!=null?su.maxHR:'')+'"></div>'+
+    '</div>'+
+
     '<div class="setup-section-title">Goal A / B / C \u2014 for the distance above</div>'+
     goalRows+
     '<div class="field-hint">Finish-time targets for whichever distance you picked. Toggle the Active Goal any time afterward \u2014 every workout pace updates instantly.</div>'+
@@ -2625,6 +2807,10 @@ function handleGeneratePlan(){
   var volume = parseDistInput(document.getElementById('su-volume').value);
   var benchDist = document.getElementById('su-bench-dist').value;
   var benchSec = clockToSec(document.getElementById('su-bench-time').value.trim());
+  var lthrInput = parseInt(document.getElementById('su-lthr').value, 10);
+  var maxHRInput = parseInt(document.getElementById('su-maxhr').value, 10);
+  var lthr = (!isNaN(lthrInput) && lthrInput>0) ? lthrInput : null;
+  var maxHR = (!isNaN(maxHRInput) && maxHRInput>0) ? maxHRInput : null;
 
   var wdBoxes = document.querySelectorAll('#su-weekdays input[type=checkbox]');
   var activeDays = [];
@@ -2672,7 +2858,9 @@ function handleGeneratePlan(){
     schedule: schedule,
     benchmark: benchSec ? { distanceKey:benchDist, timeSec:benchSec } : (state.setup?state.setup.benchmark:null),
     goals: goals, activeGoal: activeGoal,
-    paceOverrides: state.setup ? (state.setup.paceOverrides || {}) : {}
+    paceOverrides: state.setup ? (state.setup.paceOverrides || {}) : {},
+    lthr: lthr!=null ? lthr : (state.setup ? state.setup.lthr : null),
+    maxHR: maxHR!=null ? maxHR : (state.setup ? state.setup.maxHR : null)
   };
   state.days = days;
   initExpanded();
