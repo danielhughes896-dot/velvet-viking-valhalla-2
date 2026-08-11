@@ -2673,26 +2673,13 @@ function dayPickerOptions(matchId){
 
 /* =========================================================
    STRAVA INTEGRATION \u2014 OAuth 2.0 + activity sync.
-   There is no backend here to hold a shared app secret, so this uses a
-   bring-your-own-app model: each browser owner registers their own free
-   Strava API application (strava.com/settings/api) and pastes in their own
-   Client ID/Secret, stored only in this browser's localStorage -- same
-   pattern as the AI Coach API key. The token exchange (POST .../oauth/token)
-   still happens directly from the browser; if Strava's token endpoint
-   doesn't allow that for a given app, the exchange fails gracefully with an
-   explanatory toast rather than silently pretending to succeed.
+   The Client Secret lives only in /api/strava-auth.js's server environment
+   (STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET, set in Vercel Project Settings
+   -> Environment Variables) -- it is never sent to or stored in the browser.
+   The client only ever handles the resulting access/refresh tokens.
    ========================================================= */
-var STRAVA_CLIENT_ID_KEY = 'vvv_strava_client_id';
-var STRAVA_CLIENT_SECRET_KEY = 'vvv_strava_client_secret';
 var STRAVA_TOKENS_KEY = 'vvv_strava_tokens';
 
-function getStravaClientId(){ return storageAvailable ? (window.localStorage.getItem(STRAVA_CLIENT_ID_KEY)||'') : ''; }
-function getStravaClientSecret(){ return storageAvailable ? (window.localStorage.getItem(STRAVA_CLIENT_SECRET_KEY)||'') : ''; }
-function setStravaCredentials(clientId, clientSecret){
-  if (!storageAvailable) return;
-  window.localStorage.setItem(STRAVA_CLIENT_ID_KEY, clientId);
-  window.localStorage.setItem(STRAVA_CLIENT_SECRET_KEY, clientSecret);
-}
 function getStravaTokens(){
   if (!storageAvailable) return null;
   try{ var raw = window.localStorage.getItem(STRAVA_TOKENS_KEY); return raw ? JSON.parse(raw) : null; }
@@ -2704,23 +2691,9 @@ function setStravaTokens(tok){
   else window.localStorage.removeItem(STRAVA_TOKENS_KEY);
 }
 function isStravaConnected(){ var t = getStravaTokens(); return !!(t && t.access_token); }
-function stravaRedirectUri(){ return window.location.origin + window.location.pathname; }
 
 function handleStravaConnect(){
-  var idEl = document.getElementById('strava-client-id');
-  var secretEl = document.getElementById('strava-client-secret');
-  var clientId = idEl ? idEl.value.trim() : getStravaClientId();
-  var clientSecret = secretEl ? secretEl.value.trim() : getStravaClientSecret();
-  if (!clientId || !clientSecret){ showToast('Enter your Strava API Client ID and Client Secret first'); return; }
-  setStravaCredentials(clientId, clientSecret);
-  var params = [
-    'client_id='+encodeURIComponent(clientId),
-    'redirect_uri='+encodeURIComponent(stravaRedirectUri()),
-    'response_type=code',
-    'approval_prompt=auto',
-    'scope=read,activity:read_all'
-  ].join('&');
-  window.location.href = 'https://www.strava.com/oauth/authorize?'+params;
+  window.location.href = '/api/strava-auth?action=authorize';
 }
 function handleStravaDisconnect(){
   setStravaTokens(null);
@@ -2728,21 +2701,20 @@ function handleStravaDisconnect(){
   openImportModal();
 }
 async function exchangeStravaCode(code){
-  var clientId = getStravaClientId(), clientSecret = getStravaClientSecret();
-  if (!clientId || !clientSecret){ showToast('Missing Strava API credentials \u2014 reconnect from Tools & Import'); return; }
   try{
-    var resp = await fetch('https://www.strava.com/oauth/token', {
+    var resp = await fetch('/api/strava-auth', {
       method:'POST',
       headers:{ 'content-type':'application/json' },
-      body: JSON.stringify({ client_id:clientId, client_secret:clientSecret, code:code, grant_type:'authorization_code' })
+      body: JSON.stringify({ code:code })
     });
-    if (!resp.ok) throw new Error('Strava rejected the token exchange (status '+resp.status+')');
     var data = await resp.json();
-    if (!data.access_token) throw new Error('No access token in Strava\u2019s response');
+    if (!resp.ok) throw new Error(data.error || 'Strava rejected the token exchange');
+    if (!data.access_token) throw new Error('No access token in the response');
     setStravaTokens({ access_token:data.access_token, refresh_token:data.refresh_token, expires_at:data.expires_at });
-    showToast('Strava connected!');
+    showToast('Strava connected \u2014 syncing your recent runs\u2026');
+    await fetchStravaRuns();
   }catch(err){
-    showToast('Strava token exchange failed from the browser \u2014 Strava may not allow this for your app. You can still use file import below.');
+    showToast(err.message || 'Strava connection failed');
   }
 }
 async function handleStravaOAuthCallback(){
@@ -2760,12 +2732,11 @@ async function ensureStravaAccessToken(){
   if (!t) return null;
   var nowSec = Math.floor(Date.now()/1000);
   if (t.expires_at && t.expires_at > nowSec+60) return t.access_token;
-  var clientId = getStravaClientId(), clientSecret = getStravaClientSecret();
-  if (!clientId || !clientSecret || !t.refresh_token) return t.access_token;
+  if (!t.refresh_token) return t.access_token;
   try{
-    var resp = await fetch('https://www.strava.com/oauth/token', {
+    var resp = await fetch('/api/strava-auth', {
       method:'POST', headers:{ 'content-type':'application/json' },
-      body: JSON.stringify({ client_id:clientId, client_secret:clientSecret, grant_type:'refresh_token', refresh_token:t.refresh_token })
+      body: JSON.stringify({ refresh_token:t.refresh_token })
     });
     if (!resp.ok) throw new Error('refresh failed');
     var data = await resp.json();
@@ -2823,14 +2794,9 @@ function renderStravaSection(){
         '</div>'+
       '</div>';
   }
-  var clientId = getStravaClientId(), clientSecret = getStravaClientSecret();
   return ''+
-    '<div class="field-hint" style="margin-bottom:10px;">Uses your own free Strava API app (create one at strava.com/settings/api) \u2014 your Client ID/Secret are stored only in this browser.</div>'+
-    '<div class="field-row">'+
-      '<div class="field" style="margin-bottom:0;"><label>Client ID</label><input type="text" id="strava-client-id" value="'+escapeHtml(clientId)+'" autocomplete="off"></div>'+
-      '<div class="field" style="margin-bottom:0;"><label>Client Secret</label><input type="password" id="strava-client-secret" value="'+escapeHtml(clientSecret)+'" autocomplete="off"></div>'+
-    '</div>'+
-    '<button type="button" class="btn btn-block strava-connect-btn" style="margin-top:10px;" data-action="strava-connect">'+ICONS.pulse+' Connect Strava</button>';
+    '<div class="field-hint" style="margin-bottom:10px;">Securely connect your Strava account \u2014 the connection is handled by our server, so no credentials are ever stored in your browser.</div>'+
+    '<button type="button" class="btn btn-block strava-connect-btn" data-action="strava-connect">'+ICONS.pulse+' Connect Strava</button>';
 }
 function openImportModal(){
   var html = ''+
