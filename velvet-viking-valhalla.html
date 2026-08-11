@@ -89,14 +89,18 @@
   /* single-row 3-column header, contents vary by app state (see
      renderTopbar): onboarding shows shield/theme, Plan HQ shows units/theme,
      the daily execution views show the fuel gauge/countdown -- the center
-     column always holds the brand title. */
+     column always holds the brand title. Fixed flex-basis (not grid's
+     content-sized `auto` track) on the outer columns plus min-width:0 on
+     all three is what stops the gauge/title/countdown from overlapping on
+     narrow phones -- `auto` let the title claim more than its share and
+     push the gauge/countdown into it. */
   .topbar-inner{
-    display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px;
+    display:flex; align-items:center; gap:6px;
     padding:calc(12px + env(safe-area-inset-top, 0px)) 16px 12px; max-width:var(--maxw); margin:0 auto;
   }
-  .tb-slot-left{justify-self:start;}
-  .tb-slot-center{justify-self:center; min-width:0;}
-  .tb-slot-right{justify-self:end;}
+  .tb-slot-left{flex:0 0 28%; min-width:0; overflow:hidden; text-align:left;}
+  .tb-slot-center{flex:1; min-width:0; text-align:center;}
+  .tb-slot-right{flex:0 0 32%; min-width:0; overflow:hidden; text-align:right;}
   .brandmark{display:flex; align-items:center; gap:6px; min-width:0;}
   /* bold metallic 3D gold title -- deliberately fixed regardless of the
      light/dark theme toggle, same rationale as the modal palette. There is
@@ -106,7 +110,7 @@
      Firefox, since it relies on the standard `color` cascade rather than
      just -webkit-text-fill-color). */
   .word-metallic{
-    font-family:'Cinzel',serif; font-weight:800; font-size:15px; letter-spacing:1.3px;
+    font-family:'Cinzel',serif; font-weight:800; font-size:13px; letter-spacing:1.1px;
     text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     background:linear-gradient(180deg, var(--gold-bright) 0%, var(--modal-active) 100%);
     -webkit-background-clip:text; background-clip:text;
@@ -119,10 +123,10 @@
     padding:6px 9px; color:var(--ink-faint); background:transparent;
   }
   .unit-toggle button.active{background:var(--bronze); color:var(--bg);}
-  .countdown{display:flex; align-items:baseline; gap:10px; justify-content:center;}
-  .cd-seg{display:flex; align-items:baseline; gap:2px;}
-  .cd-num{font-size:18px; font-weight:700; color:var(--gold);}
-  .cd-unit{font-size:10.5px; color:var(--ink-faint); font-family:'JetBrains Mono',monospace;}
+  .countdown{display:flex; align-items:baseline; gap:6px; justify-content:flex-end; white-space:nowrap;}
+  .cd-seg{display:flex; align-items:baseline; gap:1px;}
+  .cd-num{font-size:14px; font-weight:700; color:var(--gold);}
+  .cd-unit{font-size:9.5px; color:var(--ink-faint); font-family:'JetBrains Mono',monospace;}
   .cd-race-day{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--gold); font-weight:700;}
 
   /* confidence score fuel gauge — top-left of the header */
