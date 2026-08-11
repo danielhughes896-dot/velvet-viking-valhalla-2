@@ -1914,11 +1914,23 @@ function renderCountdown(){
   '</div>';
 }
 
+// Re-render when the local date has moved past the one on screen. Rides
+// the countdown's existing 1s tick rather than adding a timer.
+function checkDateRollover(){
+  if (!state.setup || !lastRenderedDate) return;
+  if (todayStr() === lastRenderedDate) return;
+  // never pull the DOM out from under someone mid-entry -- the next tick,
+  // or the next time the app is foregrounded, picks it up once they blur
+  var el = document.activeElement;
+  if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+  renderApp();
+}
 var countdownTimer = null;
 function startCountdownTimer(){
   if (countdownTimer) clearInterval(countdownTimer);
   countdownTimer = setInterval(function(){
     if (!state.setup) return;
+    checkDateRollover();
     var m = document.getElementById('countdown-mount');
     if (m) m.innerHTML = renderCountdown();
   }, 1000);
@@ -3770,10 +3782,17 @@ function renderMainContent(){
   return renderTodayView();
 }
 
+// The calendar day the rendered DOM represents. "Today" is date-driven
+// (todayStr()), not advanced by completing a session, so a page left open
+// or backgrounded across midnight would otherwise keep showing yesterday
+// -- including the Today tab itself and the gold TODAY flags on This Week
+// and Full Plan. checkDateRollover() below repairs that.
+var lastRenderedDate = null;
 function renderApp(){
   document.documentElement.setAttribute('data-theme', state.theme);
   var app = document.getElementById('app');
   if (!app) return;
+  lastRenderedDate = todayStr();
   app.innerHTML =
     renderTopbar()+
     '<div class="wrap"><div id="view-mount" class="view-fade">'+renderMainContent()+'</div></div>'+
@@ -3918,7 +3937,9 @@ function startNotificationScheduler(){
   notifyTimer = setInterval(maybeFireDailyNotification, 60000);
 }
 document.addEventListener('visibilitychange', function(){
-  if (document.visibilityState==='visible') maybeFireDailyNotification();
+  if (document.visibilityState!=='visible') return;
+  checkDateRollover();
+  maybeFireDailyNotification();
 });
 function handleToggleNotify(){
   // Mirror renderNotifyToggleRow's own on/off logic (state flag AND live
