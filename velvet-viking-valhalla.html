@@ -81,8 +81,18 @@
     display:flex; align-items:center; justify-content:space-between;
     padding:calc(12px + env(safe-area-inset-top, 0px)) 16px 12px; max-width:var(--maxw); margin:0 auto;
   }
-  .brandmark{display:flex; align-items:center; gap:6px;}
+  .brandmark{display:flex; align-items:center; gap:6px; min-width:0;}
   .brandmark .word{font-family:'Cinzel',serif; font-size:14.5px; letter-spacing:1.5px; font-weight:700; color:var(--ink);}
+  /* bold metallic 3D gold title -- deliberately fixed regardless of the
+     light/dark theme toggle, same rationale as the modal palette. */
+  .word-metallic{
+    font-family:'Cinzel',serif; font-weight:800; font-size:15px; letter-spacing:1.3px;
+    text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    background:linear-gradient(180deg, #F5D061 0%, #C5A059 100%);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; color:transparent;
+    text-shadow:0 1px 0 #7A5C1E, 0 2px 0 #543E12, 0 3px 6px rgba(0,0,0,0.8);
+  }
   .topbar-actions{display:flex; align-items:center; gap:8px;}
   .unit-toggle{display:flex; border:1px solid var(--line); border-radius:99px; overflow:hidden;}
   .unit-toggle button{
@@ -1616,20 +1626,25 @@ function renderVVVMark(idSuffix, extraClass){
 }
 function renderTopbar(){
   var row1 = '<div class="topbar-inner">'+
-    '<div class="brandmark"><span class="mark">'+ICONS.emblem+'</span>'+renderVVVMark('tb','vvv-mark-sm')+'<span class="word">Velvet Viking</span></div>'+
+    '<div class="brandmark"><span class="mark">'+ICONS.emblem+'</span>'+renderVVVMark('tb','vvv-mark-sm')+'<span class="word word-metallic">Velvet Viking Valhalla</span></div>'+
   '</div>';
 
-  // KM/MI + theme now live inline in row 2, alongside the confidence gauge
+  // Theme toggle lives inline in row 2, alongside the confidence gauge
   // (left) and race countdown (center) -- always rendered (not gated on
-  // state.setup) so these general app preferences stay reachable even
-  // before a plan exists, when the gauge/countdown slots are just empty.
+  // state.setup) so it stays reachable before a plan exists too, when the
+  // gauge/countdown slots are just empty. The KM/MI toggle only joins it
+  // once a plan exists -- on the onboarding screen, units are chosen as
+  // part of the setup modal instead (see openSetupModal's #su-units).
   var gaugeSlot = state.setup ? ('<div class="tb-gauge-slot" id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>') : '<div></div>';
   var countdownSlot = state.setup ? ('<div class="tb-countdown-slot" id="countdown-mount">'+renderCountdown()+'</div>') : '<div></div>';
-  var actionsSlot = '<div class="topbar-actions tb-actions-slot">'+
+  var unitToggle = state.setup ? (
       '<div class="unit-toggle" role="group" aria-label="Distance units">'+
         '<button type="button" class="'+(state.units!=='mi'?'active':'')+'" data-action="set-units" data-units="km">KM</button>'+
         '<button type="button" class="'+(state.units==='mi'?'active':'')+'" data-action="set-units" data-units="mi">MI</button>'+
-      '</div>'+
+      '</div>'
+    ) : '';
+  var actionsSlot = '<div class="topbar-actions tb-actions-slot">'+
+      unitToggle+
       '<button class="icon-btn" type="button" data-action="toggle-theme" aria-label="Toggle light/dark theme">'+(state.theme==='dark'?ICONS.sun:ICONS.moon)+'</button>'+
     '</div>';
   var row2 = '<div class="topbar-row2" id="topbar-row2">'+gaugeSlot+countdownSlot+actionsSlot+'</div>';
@@ -2337,7 +2352,7 @@ function openSetupModal(){
   }).join('');
   var benchDist = (su.benchmark && su.benchmark.distanceKey) || '5k';
   var benchTime = (su.benchmark && su.benchmark.timeSec) ? secToClock(su.benchmark.timeSec) : '';
-  var vol = su.currentVolume || '';
+  var vol = su.currentVolume!=null ? kmToDisplay(su.currentVolume) : '';
   var raceDate = su.raceDate || '';
   var goals = su.goals || {};
   var schedule = su.schedule || { activeDays:[0,1,2,4,5], longRunDay:5 };
@@ -2364,9 +2379,15 @@ function openSetupModal(){
   '<div class="modal-head"><h2 class="font-head">Build Your Training Block</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
     '<div class="setup-section-title">Target Race</div>'+
+    '<div class="field"><label>Units</label>'+
+      '<div class="unit-toggle" role="group" aria-label="Distance units" id="su-units">'+
+        '<button type="button" data-units="km" class="'+(state.units!=='mi'?'active':'')+'">KM</button>'+
+        '<button type="button" data-units="mi" class="'+(state.units==='mi'?'active':'')+'">MI</button>'+
+      '</div>'+
+    '</div>'+
     '<div class="field"><label>Distance</label><select id="su-distance">'+distOptions+'</select></div>'+
     '<div class="field"><label>Race Date</label><input type="date" id="su-racedate" value="'+raceDate+'"></div>'+
-    '<div class="field"><label>Current Weekly Volume (km)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'"></div>'+
+    '<div class="field"><label id="su-volume-label">Current Weekly Volume ('+(state.units==='mi'?'mi':'km')+')</label><input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'"></div>'+
 
     '<div class="setup-section-title">Weekly Schedule</div>'+
     '<div class="field-hint" style="margin-bottom:8px;">Pick 3\u20136 days you can run \u2014 workouts land only on these; everything else is rest.</div>'+
@@ -2391,6 +2412,29 @@ function openSetupModal(){
     (state.setup ? '<div class="field-hint" style="margin-top:10px; text-align:center;">Regenerating rebuilds the whole schedule from these settings \u2014 logged actuals for days that no longer exist will be lost.</div>' : '')+
   '</div>';
   openModal(html);
+
+  var unitsBox = document.getElementById('su-units');
+  if (unitsBox){
+    unitsBox.addEventListener('click', function(e){
+      var btn = e.target.closest('button');
+      if (!btn) return;
+      var newUnits = btn.getAttribute('data-units');
+      var activeBtn = unitsBox.querySelector('button.active');
+      var oldUnits = activeBtn ? activeBtn.getAttribute('data-units') : 'km';
+      if (newUnits===oldUnits) return;
+      unitsBox.querySelectorAll('button').forEach(function(b){ b.classList.toggle('active', b===btn); });
+      var volInput = document.getElementById('su-volume');
+      var label = document.getElementById('su-volume-label');
+      if (volInput && volInput.value){
+        var n = parseFloat(volInput.value);
+        if (!isNaN(n)){
+          var km = oldUnits==='mi' ? n/0.621371 : n;
+          volInput.value = newUnits==='mi' ? round2(km*0.621371) : round1(km);
+        }
+      }
+      if (label) label.textContent = 'Current Weekly Volume ('+newUnits+')';
+    });
+  }
 
   var wdBox = document.getElementById('su-weekdays');
   if (wdBox){
@@ -2509,7 +2553,11 @@ function handleSuggestGoals(){
 function handleGeneratePlan(){
   var distanceKey = document.getElementById('su-distance').value;
   var raceDate = document.getElementById('su-racedate').value;
-  var volume = parseFloat(document.getElementById('su-volume').value);
+  var unitsBox = document.getElementById('su-units');
+  var chosenUnitsBtn = unitsBox ? unitsBox.querySelector('button.active') : null;
+  var chosenUnits = chosenUnitsBtn ? chosenUnitsBtn.getAttribute('data-units') : state.units;
+  if (chosenUnits==='km' || chosenUnits==='mi') state.units = chosenUnits;
+  var volume = parseDistInput(document.getElementById('su-volume').value);
   var benchDist = document.getElementById('su-bench-dist').value;
   var benchSec = clockToSec(document.getElementById('su-bench-time').value.trim());
 
