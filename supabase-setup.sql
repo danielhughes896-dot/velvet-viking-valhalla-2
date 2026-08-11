@@ -34,3 +34,37 @@ create policy "own plan: update" on public.plans
 -- Quick check: should return 3 policies, and rowsecurity = true.
 -- select relrowsecurity from pg_class where relname = 'plans';
 -- select policyname from pg_policies where tablename = 'plans';
+
+
+-- ---------------------------------------------------------------------------
+-- Right to erasure (GDPR Art. 17): let a signed-in user delete themselves.
+--
+-- Removing a row from auth.users needs privileges the browser must never hold,
+-- so this runs SECURITY DEFINER (as the function owner) instead of shipping a
+-- service_role key to the client. It is safe because:
+--   * it only ever touches auth.uid() -- the caller's own id, taken from their
+--     verified JWT -- so it cannot be pointed at anyone else's account;
+--   * search_path is pinned, closing the usual SECURITY DEFINER hijack;
+--   * EXECUTE is revoked from public and granted only to authenticated, so an
+--     anonymous caller cannot invoke it at all;
+--   * with no session auth.uid() is null and it deletes nothing.
+-- Deleting the auth row also clears public.plans via ON DELETE CASCADE; the
+-- explicit delete is belt-and-braces.
+-- ---------------------------------------------------------------------------
+create or replace function public.delete_own_account()
+returns void
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated';
+  end if;
+  delete from public.plans where user_id = auth.uid();
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.delete_own_account() from public, anon;
+grant execute on function public.delete_own_account() to authenticated;

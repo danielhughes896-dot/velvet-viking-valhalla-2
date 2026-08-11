@@ -1533,6 +1533,36 @@ function cloudRefreshIfNeeded(){
     });
   }).catch(function(){ return false; });
 }
+// Right to erasure. Calls the SECURITY DEFINER function in
+// supabase-setup.sql, since deleting an auth user needs privileges the
+// browser must never hold. Deliberately leaves the plan on this device --
+// that is the runner's own copy on their own hardware, and silently wiping
+// it would be a surprise; "Reset Plan" below already exists for that.
+function handleCloudDeleteAccount(){
+  if (!cloudSignedIn()) return;
+  var ok = window.confirm(
+    'Permanently delete your account?\n\n'+
+    'This erases your account and every copy of your plan stored on our server. '+
+    'It cannot be undone.\n\n'+
+    'Your plan stays on THIS device — use "Reset Plan" if you want that gone too.'
+  );
+  if (!ok) return;
+  showToast('Deleting your account…');
+  cloudRefreshIfNeeded().then(function(fresh){
+    if (!fresh) throw new Error('session expired');
+    return cloudFetch('/rest/v1/rpc/delete_own_account', { method:'POST', body:'{}' });
+  }).then(function(resp){
+    if (!resp.ok) throw new Error('delete failed');
+    cloudSession = null;
+    writeStored(CLOUD_SESSION_KEY, null);
+    writeStored(CLOUD_BACKUP_KEY, null);
+    cloudStatus = 'signed-out';
+    patchCloudCard();
+    showToast('Account deleted — your plan remains on this device');
+  }).catch(function(){
+    showToast('Couldn’t delete the account — check your connection and try again');
+  });
+}
 function cloudSignOut(){
   cloudSession = null;
   writeStored(CLOUD_SESSION_KEY, null);
@@ -3979,7 +4009,9 @@ function renderCloudCard(){
     body = '<div class="connect-row">'+
         '<div><div class="name">'+escapeHtml(cloudSession.email||'Signed in')+'</div><div class="desc">'+label+'</div></div>'+
         '<button type="button" class="btn btn-sm btn-ghost" data-action="cloud-sign-out">Sign out</button>'+
-      '</div>';
+      '</div>'+
+      '<button type="button" class="btn btn-danger btn-block" style="margin-top:12px;" data-action="cloud-delete-account">'+ICONS.trash+' Delete Account &amp; Cloud Data</button>'+
+      '<div class="field-hint" style="margin-top:8px;">Erases your account and everything stored on our server. Your plan stays on this device.</div>';
   } else {
     body = '<div class="field-hint" style="margin-bottom:10px;">Sign in to back your plan up and use it on more than one device. We email you a link — there is no password.</div>'+
       '<div class="field" style="margin-bottom:8px;"><label>Email</label><input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
@@ -4140,6 +4172,7 @@ document.addEventListener('click', function(e){
     case 'set-view': handleSetView(target.getAttribute('data-view')); break;
     case 'cloud-sign-in': handleCloudSignIn(); break;
     case 'cloud-sign-out': cloudSignOut(); break;
+    case 'cloud-delete-account': handleCloudDeleteAccount(); break;
     case 'cloud-keep-local': handleCloudKeepLocal(); break;
     case 'cloud-keep-remote': handleCloudKeepRemote(); break;
   }
