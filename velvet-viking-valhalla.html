@@ -77,7 +77,10 @@
     border-bottom:1px solid var(--line);
   }
   [data-theme="light"] .topbar{background:rgba(242,236,220,0.92);}
-  .topbar-inner{display:flex; align-items:center; justify-content:space-between; padding:12px 16px; max-width:var(--maxw); margin:0 auto;}
+  .topbar-inner{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:calc(12px + env(safe-area-inset-top, 0px)) 16px 12px; max-width:var(--maxw); margin:0 auto;
+  }
   .brandmark{display:flex; align-items:center; gap:6px;}
   .brandmark .word{font-family:'Cinzel',serif; font-size:14.5px; letter-spacing:1.5px; font-weight:700; color:var(--ink);}
   .topbar-actions{display:flex; align-items:center; gap:8px;}
@@ -87,15 +90,16 @@
     padding:6px 9px; color:var(--ink-faint); background:transparent;
   }
   .unit-toggle button.active{background:var(--bronze); color:var(--bg);}
-  /* sticky header row 2 — ONLY the confidence gauge (left) and the race
-     countdown (true center, independent of the gauge's width via the grid's
-     symmetric outer columns). Nothing else lives in this row. */
+  /* sticky header row 2 — confidence gauge (left), race countdown (true
+     center, independent of the outer columns' width via the grid's auto
+     middle track), and the KM/MI + theme toggles (right). */
   .topbar-row2{
     display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px;
     padding:0 16px 10px; max-width:var(--maxw); margin:0 auto;
   }
   .tb-gauge-slot{justify-self:start;}
   .tb-countdown-slot{justify-self:center;}
+  .tb-actions-slot{justify-self:end;}
   .countdown{display:flex; align-items:baseline; gap:10px; justify-content:center;}
   .cd-seg{display:flex; align-items:baseline; gap:2px;}
   .cd-num{font-size:18px; font-weight:700; color:var(--gold);}
@@ -110,7 +114,7 @@
   }
   .gauge-caption{display:flex; align-items:baseline; gap:5px;}
   .gauge-pct{font-size:13px; font-weight:700; color:var(--gold);}
-  .gauge-label{font-size:8.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-faint);}
+  .gauge-label{font-size:8.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--modal-text);}
   .checkpoint-banner{
     display:flex; align-items:flex-start; gap:11px; background:var(--c-gold-soft);
     border:1.5px solid var(--gold); border-radius:var(--radius-sm); padding:13px 14px; margin:16px 0;
@@ -459,7 +463,7 @@
     position:fixed; right:16px; bottom:16px; z-index:60; display:flex; flex-direction:column; gap:8px; align-items:flex-end;
     transition:bottom .2s ease;
   }
-  .fab-tools.above-bottom-nav{ bottom:78px; }
+  .fab-tools.above-bottom-nav{ bottom:94px; }
 
   /* ---------- sticky bottom nav — 4 view toggles ---------- */
   .bottom-nav{
@@ -1613,23 +1617,23 @@ function renderVVVMark(idSuffix, extraClass){
 function renderTopbar(){
   var row1 = '<div class="topbar-inner">'+
     '<div class="brandmark"><span class="mark">'+ICONS.emblem+'</span>'+renderVVVMark('tb','vvv-mark-sm')+'<span class="word">Velvet Viking</span></div>'+
-    '<div class="topbar-actions">'+
+  '</div>';
+
+  // KM/MI + theme now live inline in row 2, alongside the confidence gauge
+  // (left) and race countdown (center) -- always rendered (not gated on
+  // state.setup) so these general app preferences stay reachable even
+  // before a plan exists, when the gauge/countdown slots are just empty.
+  var gaugeSlot = state.setup ? ('<div class="tb-gauge-slot" id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>') : '<div></div>';
+  var countdownSlot = state.setup ? ('<div class="tb-countdown-slot" id="countdown-mount">'+renderCountdown()+'</div>') : '<div></div>';
+  var actionsSlot = '<div class="topbar-actions tb-actions-slot">'+
       '<div class="unit-toggle" role="group" aria-label="Distance units">'+
         '<button type="button" class="'+(state.units!=='mi'?'active':'')+'" data-action="set-units" data-units="km">KM</button>'+
         '<button type="button" class="'+(state.units==='mi'?'active':'')+'" data-action="set-units" data-units="mi">MI</button>'+
       '</div>'+
       '<button class="icon-btn" type="button" data-action="toggle-theme" aria-label="Toggle light/dark theme">'+(state.theme==='dark'?ICONS.sun:ICONS.moon)+'</button>'+
-    '</div>'+
-  '</div>';
-
-  var row2 = '';
-  if (state.setup){
-    row2 = '<div class="topbar-row2" id="topbar-row2">'+
-      '<div class="tb-gauge-slot" id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>'+
-      '<div class="tb-countdown-slot" id="countdown-mount">'+renderCountdown()+'</div>'+
-      '<div></div>'+
     '</div>';
-  }
+  var row2 = '<div class="topbar-row2" id="topbar-row2">'+gaugeSlot+countdownSlot+actionsSlot+'</div>';
+
   return '<div class="topbar">'+row1+row2+'</div>';
 }
 
