@@ -410,20 +410,21 @@
   .pace-ref-val{color:var(--ink);}
 
   /* ---------- AI post-session execution review ---------- */
-  .ai-review-card{margin-top:10px; padding:11px 12px; background:var(--bg-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
-  .ai-review-loading{display:flex; align-items:center; gap:8px; color:var(--ink-faint); font-size:12.5px;}
-  .ai-review-loading svg{width:15px; height:15px; color:var(--bronze); animation:aispin 1s linear infinite;}
-  @keyframes aispin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
-  .ai-review-head{display:flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze); margin-bottom:8px;}
-  .ai-review-head svg{width:14px; height:14px;}
-  .ai-review-src{margin-left:auto; font-size:9px; text-transform:none; letter-spacing:0; color:var(--ink-faint); background:var(--bg-3); border-radius:99px; padding:2px 7px;}
-  .ai-review-body{display:flex; align-items:center; gap:12px;}
-  .ai-review-score{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:20px; flex:none; min-width:52px; text-align:center; border-radius:10px; padding:6px 4px;}
-  .ai-review-score.good{color:var(--c-easy); background:var(--c-easy-soft);}
-  .ai-review-score.ok{color:var(--c-tempo); background:var(--c-tempo-soft);}
-  .ai-review-score.low{color:var(--c-threshold); background:var(--c-threshold-soft);}
-  .ai-review-summary{font-size:12.5px; color:var(--ink-dim); line-height:1.45;}
-  .ai-review-refresh{background:none; border:none; color:var(--ink-faint); font-size:11px; text-decoration:underline; padding:2px; margin-top:8px;}
+  .exec-review-card{margin-top:10px; padding:11px 12px; background:var(--bg-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .exec-review-head{display:flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze); margin-bottom:8px;}
+  .exec-review-head svg{width:14px; height:14px;}
+  .exec-review-src{margin-left:auto; font-size:9px; text-transform:none; letter-spacing:0; color:var(--ink-faint); background:var(--bg-3); border-radius:99px; padding:2px 7px;}
+  .exec-review-body{display:flex; align-items:center; gap:12px;}
+  .exec-review-score{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:20px; flex:none; min-width:52px; text-align:center; border-radius:10px; padding:6px 4px;}
+  .exec-review-score.good{color:var(--c-easy); background:var(--c-easy-soft);}
+  .exec-review-score.ok{color:var(--c-tempo); background:var(--c-tempo-soft);}
+  .exec-review-score.low{color:var(--c-threshold); background:var(--c-threshold-soft);}
+  .exec-review-summary{font-size:12.5px; color:var(--ink-dim); line-height:1.45;}
+  /* component breakdown -- shows how the single score was reached */
+  .exec-parts{display:flex; flex-wrap:wrap; gap:6px 10px; margin-top:9px; padding-top:8px; border-top:1px solid var(--line-soft);}
+  .exec-part{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-dim); white-space:nowrap;}
+  .exec-part-w{color:var(--ink-faint);}
+  .exec-part-off{opacity:.45;}
 
   /* ---------- tune-up checkpoint card ---------- */
   .checkpoint{
@@ -2123,6 +2124,26 @@ function renderFuelingCard(dd){
   '</details>';
 }
 
+// The score has three presentations -- collapsed pill, expanded banner and
+// the review block -- all reading the one computeExecutionScore. Each sits
+// in its own always-present mount so a logged field change can refresh them
+// in place, without replacing the card and stealing focus mid-entry.
+function renderExecutionPill(dd){
+  var s = computeExecutionScore(dd);
+  return s==null ? '' : '<span class="exec-pill font-mono">'+s+'% EXEC</span>';
+}
+function renderExecutionBanner(dd){
+  var s = computeExecutionScore(dd);
+  return s==null ? '' : '<div class="execution-score-banner"><span class="esb-label font-head">Execution Score</span><span class="esb-pct font-mono">'+s+'%</span></div>';
+}
+function patchExecutionUI(dd){
+  var pill = document.getElementById('exec-pill-'+dd.id);
+  if (pill) pill.innerHTML = renderExecutionPill(dd);
+  var banner = document.getElementById('exec-banner-'+dd.id);
+  if (banner) banner.innerHTML = renderExecutionBanner(dd);
+  var review = document.getElementById('exec-review-'+dd.id);
+  if (review) review.innerHTML = renderExecutionReview(dd);
+}
 function renderDayCard(dd){
   var tm = TYPE_META[dd.type];
   var targets = getDayTargets(dd);
@@ -2134,17 +2155,10 @@ function renderDayCard(dd){
   if (targets.hr) targetsHtml += '<span class="hr">'+targets.hr+'</span>';
   if (targets.goalPace) targetsHtml += '<span class="mp">'+targets.goalPace+'</span>';
 
-  // Execution Score: computed once per render and reused for both the
-  // always-visible collapsed pill (day-row1) and the prominent expanded
-  // banner (top of the actual-panel) -- one calculation, two presentations.
-  var execScore = dd.completed ? computeExecutionScore(dd) : null;
-  var execPillHtml = execScore!=null ? '<span class="exec-pill font-mono">'+execScore+'% EXEC</span>' : '';
-  var execBannerHtml = execScore!=null ? ('<div class="execution-score-banner"><span class="esb-label font-head">Execution Score</span><span class="esb-pct font-mono">'+execScore+'%</span></div>') : '';
-
   var actualHtml = '';
   if (dd.completed){
     var a = dd.actual || {};
-    actualHtml = execBannerHtml+
+    actualHtml = '<div id="exec-banner-'+dd.id+'">'+renderExecutionBanner(dd)+'</div>'+
     '<div class="actual-panel">'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg Pace /'+displayUnit()+'</label><input type="text" placeholder="m:ss" value="'+(a.pace||'')+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
@@ -2153,14 +2167,14 @@ function renderDayCard(dd){
       '<div class="actual-field full"><label>Notes</label><textarea data-action="actual-field" data-field="notes" data-day="'+dd.id+'">'+escapeHtml(a.notes||'')+'</textarea></div>'+
       '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>'+
     '</div>'+
-    renderAIReviewBlock(dd);
+    '<div id="exec-review-'+dd.id+'">'+renderExecutionReview(dd)+'</div>';
   }
 
   return '<div class="'+cls+'" id="day-'+dd.id+'" data-day="'+dd.id+'" draggable="true">'+
     '<div class="day-top">'+
       '<div class="day-check"><input type="checkbox" '+(dd.completed?'checked':'')+' '+(dd.type==='rest'?'disabled':'')+' data-action="toggle-complete" data-day="'+dd.id+'" aria-label="Mark session complete"></div>'+
       '<div class="day-main">'+
-        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+tm.label+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+execPillHtml+'</div>'+
+        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+tm.label+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
         '<div class="day-title">'+escapeHtml(dd.title)+'</div>'+
         (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
         '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>'+
@@ -2173,25 +2187,9 @@ function renderDayCard(dd){
 }
 
 /* =========================================================
-   AI POST-SESSION EXECUTION REVIEW
-   Scores a completed session's actual-vs-target execution (0-100) with a
-   short coaching summary. Uses the runner's own Anthropic API key (stored
-   only in this browser's localStorage) when one is set, calling Claude
-   directly from the client; otherwise falls back to a deterministic local
-   heuristic so the feature always works with zero setup.
+   EXECUTION SCORING SUPPORT — target/actual resolution used by the
+   single scoring engine below.
    ========================================================= */
-var AI_API_KEY_STORAGE = 'vvv_ai_api_key';
-function getStoredAIKey(){
-  if (!storageAvailable) return null;
-  try{ return window.localStorage.getItem(AI_API_KEY_STORAGE) || null; }
-  catch(e){ return null; }
-}
-function setStoredAIKey(key){
-  if (!storageAvailable) return;
-  try{ if (key) window.localStorage.setItem(AI_API_KEY_STORAGE, key); else window.localStorage.removeItem(AI_API_KEY_STORAGE); }
-  catch(e){}
-}
-var aiReviewLoading = {}; // ephemeral per-day loading flag, not persisted
 
 function getTargetPaceRangeSecPerKm(dd){
   var tm = TYPE_META[dd.type];
@@ -2275,20 +2273,57 @@ function computeHRScore(dd, actualHR){
   var overMult = recovery ? 5 : 2.5;
   return clamp(100-over*100*overMult, 0, 100);
 }
-// Strict gate: all three actual values (km, pace, HR) must be logged AND
-// resolve against a real target/zone (so a rest day, or a plan with no
-// LTHR configured, correctly yields no score rather than a partial one --
-// see the module comment above for why this doesn't redistribute weight
-// across whatever happens to be available).
-function computeExecutionScore(dd){
+// Effort realism: does reported RPE match what this session type should
+// have felt like? Reuses expectedRPEBand, the same band the old separate
+// coach review used, so nothing about that judgement changed -- it is just
+// now one component of the single score instead of a rival score.
+function computeRPEScore(dd, rpe){
+  if (rpe==null) return null;
+  var band = expectedRPEBand(dd);
+  if (!band) return null;
+  if (rpe>=band[0] && rpe<=band[1]) return 100;
+  var off = rpe<band[0] ? band[0]-rpe : rpe-band[1];
+  return clamp(100-off*15, 0, 100);
+}
+
+// THE scoring engine. Everything that shows a number -- the EXEC pill, the
+// gold banner, the Execution Review block and the Plan HQ confidence gauge
+// -- resolves through this, so there is exactly one score per session and
+// no way for two surfaces to disagree.
+//
+// Distance and pace are the 70% core: without both there is nothing solid
+// to judge, so no score is shown at all rather than a misleading one. HR
+// and RPE are scored when available and their weight is redistributed
+// proportionally when not, so a runner with no LTHR configured (or who
+// skips RPE) still gets a meaningful score from what they did log. The
+// review block names any component that sat out, so the number is never
+// silently based on less than it appears.
+var EXECUTION_WEIGHTS = { distance:0.35, pace:0.35, hr:0.20, rpe:0.10 };
+function computeExecutionBreakdown(dd){
   if (!dd || !dd.completed) return null;
   var a = dd.actual || {};
-  if (a.km==null || !a.pace || a.hr==null) return null;
-  var distScore = computeDistanceScore(dd.km, a.km);
-  var paceScore = computePaceScore(dd, actualPaceSecPerKm(dd));
-  var hrScore = computeHRScore(dd, a.hr);
-  if (distScore==null || paceScore==null || hrScore==null) return null;
-  return clamp(Math.round(distScore*0.40 + paceScore*0.40 + hrScore*0.20), 0, 100);
+  var parts = [
+    { key:'distance', label:'Distance', weight:EXECUTION_WEIGHTS.distance, score:computeDistanceScore(dd.km, a.km) },
+    { key:'pace',     label:'Pace',     weight:EXECUTION_WEIGHTS.pace,     score:computePaceScore(dd, actualPaceSecPerKm(dd)) },
+    { key:'hr',       label:'HR',       weight:EXECUTION_WEIGHTS.hr,       score:computeHRScore(dd, a.hr) },
+    { key:'rpe',      label:'Effort',   weight:EXECUTION_WEIGHTS.rpe,      score:computeRPEScore(dd, a.rpe) }
+  ];
+  var counted = parts.filter(function(p){ return p.score!=null; });
+  var have = {};
+  counted.forEach(function(p){ have[p.key] = true; });
+  if (!have.distance || !have.pace) return null;
+  var totalW = counted.reduce(function(sum,p){ return sum+p.weight; }, 0);
+  var raw = counted.reduce(function(sum,p){ return sum+p.score*p.weight; }, 0) / totalW;
+  return {
+    score: clamp(Math.round(raw), 0, 100),
+    parts: parts,
+    counted: counted,
+    missing: parts.filter(function(p){ return p.score==null; })
+  };
+}
+function computeExecutionScore(dd){
+  var b = computeExecutionBreakdown(dd);
+  return b ? b.score : null;
 }
 
 function expectedRPEBand(dd){
@@ -2298,172 +2333,94 @@ function expectedRPEBand(dd){
   if (dd.type==='checkpoint' || dd.type==='race') return [8,10];
   return null;
 }
-function composeCoachingSummary(score, ctx){
-  var parts = [];
-  if (score>=90) parts.push('Nailed it — this session landed right where it needed to.');
-  else if (score>=75) parts.push('Solid execution overall, with only minor drift from the plan.');
-  else if (score>=55) parts.push('A mixed bag — parts of this session held to plan, parts drifted.');
-  else parts.push('This one deviated notably from the prescribed target.');
-
-  if (ctx.distTarget>0 && ctx.distActual!=null){
-    var ratio = ctx.distActual/ctx.distTarget;
-    if (ratio<0.85) parts.push('Volume came up short at '+fmtDist(ctx.distActual)+' against a '+fmtDist(ctx.distTarget)+' target.');
-    else if (ratio>1.15) parts.push('You ran well past the prescribed '+fmtDist(ctx.distTarget)+', logging '+fmtDist(ctx.distActual)+'.');
-  }
-
-  if (ctx.actualPace!=null){
-    if (ctx.targetRange && ctx.targetRange.slow!=null){
-      if (ctx.actualPace<ctx.targetRange.fast) parts.push('Pacing ran faster than the target zone — watch for going out too hot on similar sessions.');
-      else if (ctx.actualPace>ctx.targetRange.slow) parts.push('Pacing sat slower than the target zone — dial the effort in a touch more next time.');
-      else parts.push('Pacing sat right inside the target zone throughout.');
-    } else if (ctx.goalPace){
-      if (Math.abs(ctx.actualPace-ctx.goalPace)/ctx.goalPace<0.02) parts.push('Goal-pace discipline was right on the money.');
-      else parts.push(ctx.actualPace<ctx.goalPace ? 'You ran ahead of goal pace — good for confidence, but watch the risk of an early move.' : 'You ran behind goal pace — worth digging into why before the next similar effort.');
-    }
-  }
-
-  if (ctx.rpe!=null && ctx.band){
-    if (ctx.rpe>ctx.band[1]) parts.push('Reported effort (RPE '+ctx.rpe+') ran hotter than this session called for — a good candidate for extra recovery.');
-    else if (ctx.rpe<ctx.band[0]) parts.push('Reported effort (RPE '+ctx.rpe+') was lower than expected for this session type — fitness in reserve.');
-  }
-  return parts.slice(0,3).join(' ');
-}
-function computeMockExecutionReview(dd){
+// Auto-generated coaching notes explaining the score above. Deterministic
+// and instant -- this replaces the old opt-in Claude/local "AI review",
+// which produced its own rival score; there is now one number and this
+// text simply explains how it was reached.
+function composeExecutionNotes(dd, b){
   var a = dd.actual || {};
-  var targetKm = dd.km || 0;
-  var actualKm = a.km!=null ? a.km : targetKm;
-  var scores = [], weights = [];
+  var tm = TYPE_META[dd.type];
+  var by = {}; b.parts.forEach(function(p){ by[p.key] = p; });
+  // the chip labels are compact by design; prose wants the long forms
+  var PROSE = { distance:'distance', pace:'pace', hr:'heart rate', rpe:'effort' };
+  var out = [];
 
-  if (targetKm>0){
-    var distDeviationPct = Math.abs(1-(actualKm/targetKm))*100;
-    scores.push(clamp(100-distDeviationPct*1.6, 0, 100)); weights.push(0.4);
+  var nailed = b.counted.filter(function(p){ return p.score>=99.5; });
+  if (nailed.length===b.counted.length){
+    out.push('Nailed '+listPhrase(nailed.map(function(p){ return PROSE[p.key]; }))+'.');
+  } else if (b.score>=90){
+    out.push('Strong execution — barely off plan.');
+  } else if (b.score>=75){
+    out.push('Solid session, with some drift from the prescribed targets.');
+  } else if (b.score>=55){
+    out.push('Mixed — parts held to plan, parts drifted.');
+  } else {
+    out.push('This landed well away from the prescribed session.');
   }
 
-  var actualPace = actualPaceSecPerKm(dd);
-  var targetRange = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
-  var goalPace = (dd.type==='race' || dd.mpSegment) ? getGoalPaceSecPerKm() : null;
-  if (actualPace!=null){
-    if (targetRange && targetRange.slow!=null){
-      if (actualPace>=targetRange.fast && actualPace<=targetRange.slow){ scores.push(100); weights.push(0.4); }
-      else{
-        var edge = actualPace<targetRange.fast ? targetRange.fast : targetRange.slow;
-        scores.push(clamp(100-(Math.abs(actualPace-edge)/edge*100)*4, 0, 100)); weights.push(0.4);
-      }
-    } else if (goalPace){
-      scores.push(clamp(100-(Math.abs(actualPace-goalPace)/goalPace*100)*3, 0, 100)); weights.push(0.4);
-    }
+  if (by.distance.score!=null && by.distance.score<99.5){
+    out.push('Distance came in at '+fmtDist(a.km)+' against a '+fmtDist(dd.km)+' target.');
   }
 
-  var band = expectedRPEBand(dd);
-  if (a.rpe!=null && band){
-    if (a.rpe>=band[0] && a.rpe<=band[1]){ scores.push(100); weights.push(0.2); }
-    else{
-      var distFromBand = a.rpe<band[0] ? band[0]-a.rpe : a.rpe-band[1];
-      scores.push(clamp(100-distFromBand*15, 0, 100)); weights.push(0.2);
-    }
+  var tr = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
+  var ap = actualPaceSecPerKm(dd);
+  if (by.pace.score!=null && by.pace.score<99.5 && tr && ap!=null){
+    var faster = ap < tr.fast;
+    var window = fmtPaceFromSecPerKm(tr.fast).split('/')[0]+'–'+fmtPaceFromSecPerKm(tr.slow);
+    out.push('Pace ran '+(faster?'faster':'slower')+' than the '+window+' window'+
+      (faster && isRecoveryWorkoutType(dd.type) ? ' — easy days are meant to stay easy.' : '.'));
   }
 
-  if (!scores.length) return null;
-  var totalW = weights.reduce(function(s,w){ return s+w; },0);
-  var score = Math.round(clamp(scores.reduce(function(s,v,i){ return s+v*weights[i]; },0)/totalW, 0, 100));
-  var summary = composeCoachingSummary(score, { distTarget:targetKm, distActual:actualKm, actualPace:actualPace, targetRange:targetRange, goalPace:goalPace, rpe:a.rpe, band:band });
-  return { score:score, summary:summary, source:'auto' };
-}
-function buildReviewPrompt(dd){
-  var a = dd.actual || {};
-  var targets = getDayTargets(dd);
-  var lines = [
-    'You are a concise, encouraging running coach reviewing one completed training session.',
-    'Session: '+dd.title+' ('+TYPE_META[dd.type].label+'), prescribed '+(dd.km||0)+'km.',
-    'Prescribed target pace: '+(targets.pace||'n/a')+(targets.goalPace?(', '+targets.goalPace):'')+'.',
-    'Actual: '+(a.km!=null?a.km+'km':'distance not logged')+(a.pace?(' @ '+a.pace+'/'+displayUnit()):'')+(a.hr!=null?(', avg HR '+a.hr):'')+(a.rpe!=null?(', RPE '+a.rpe+'/10'):'')+'.',
-    a.notes ? ('Runner notes: '+a.notes) : '',
-    'Score this session\'s execution from 0-100 against the prescribed target (pacing, distance, discipline), then write a 2-3 sentence coaching summary.',
-    'Respond with ONLY compact JSON, no other text: {"score": <integer 0-100>, "summary": "<2-3 sentences>"}'
-  ];
-  return lines.filter(Boolean).join('\n');
-}
-async function callClaudeForReview(dd, apiKey){
-  var resp = await fetch('https://api.anthropic.com/v1/messages', {
-    method:'POST',
-    headers:{
-      'content-type':'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-direct-browser-access':'true'
-    },
-    body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:220, messages:[{ role:'user', content:buildReviewPrompt(dd) }] })
-  });
-  if (!resp.ok) throw new Error('AI request failed: '+resp.status);
-  var data = await resp.json();
-  var text = (data.content && data.content[0] && data.content[0].text) || '';
-  var match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error('No JSON in AI response');
-  var parsed = JSON.parse(match[0]);
-  var score = clamp(Math.round(parsed.score), 0, 100);
-  var summary = String(parsed.summary||'').trim();
-  if (!summary || isNaN(score)) throw new Error('Malformed AI response');
-  return { score:score, summary:summary, source:'claude' };
-}
-async function handleGenerateAIReview(dayId){
-  var dd = findDay(dayId);
-  if (!dd || !dd.completed) return;
-  aiReviewLoading[dayId] = true;
-  replaceCard(dd);
-
-  var apiKey = getStoredAIKey();
-  var result = null;
-  if (apiKey){
-    try{ result = await callClaudeForReview(dd, apiKey); }
-    catch(e){ result = null; showToast('AI request failed — using the local coach instead'); }
+  var z = getTargetHRRangeForDay(dd);
+  if (by.hr.score!=null && by.hr.score<99.5 && z){
+    out.push('Average HR '+a.hr+' bpm sat '+(a.hr<z.lo?'below':'above')+' the '+fmtHRRange(z)+' zone.');
   }
-  if (!result) result = computeMockExecutionReview(dd);
 
-  delete aiReviewLoading[dayId];
-  if (result){ dd.aiReview = { score:result.score, summary:result.summary, source:result.source, ts:Date.now() }; scheduleSave(); }
-  else showToast('Log actual distance, pace or RPE first to get a review');
-  replaceCard(dd);
+  if (by.rpe.score!=null){
+    var band = expectedRPEBand(dd);
+    var sessionName = dd.title || tm.label;
+    if (by.rpe.score>=99.5) out.push('RPE '+a.rpe+' aligns with '+sessionName+' effort.');
+    else out.push('RPE '+a.rpe+' reads '+(a.rpe<band[0]?'easier':'harder')+' than the '+band[0]+'–'+band[1]+' expected for '+sessionName+'.');
+  }
+
+  if (b.missing.length){
+    out.push('Not scored: '+listPhrase(b.missing.map(function(p){ return PROSE[p.key]; }))+
+      (by.hr.score==null && state.setup && state.setup.lthr==null ? ' (set your LTHR to include heart rate).' : '.'));
+  }
+  return out.join(' ');
 }
-function renderAIReviewBlock(dd){
+function listPhrase(items){
+  if (items.length<=1) return items[0]||'';
+  return items.slice(0,-1).join(', ')+' and '+items[items.length-1];
+}
+
+// The Execution Review block on a completed card: the same single score as
+// the pill and banner, plus the notes and a component breakdown showing
+// how it was reached. No button and no loading state -- it recomputes
+// automatically whenever a logged field changes (see patchExecutionUI).
+function renderExecutionReview(dd){
   if (!dd.completed) return '';
-  if (aiReviewLoading[dd.id]){
-    return '<div class="ai-review-card ai-review-loading">'+ICONS.sparkles+' Analyzing session…</div>';
-  }
-  if (dd.aiReview){
-    var r = dd.aiReview;
-    var band = r.score>=85 ? 'good' : (r.score>=60 ? 'ok' : 'low');
-    return '<div class="ai-review-card">'+
-      '<div class="ai-review-head">'+ICONS.sparkles+'<span>AI Execution Review</span><span class="ai-review-src">'+(r.source==='claude'?'Claude':'Auto-Coach')+'</span></div>'+
-      '<div class="ai-review-body"><div class="ai-review-score '+band+'">'+r.score+'%</div><div class="ai-review-summary">'+escapeHtml(r.summary)+'</div></div>'+
-      '<button type="button" class="ai-review-refresh" data-action="ai-review" data-day="'+dd.id+'">Re-analyze</button>'+
+  var b = computeExecutionBreakdown(dd);
+  if (!b){
+    return '<div class="exec-review-card">'+
+      '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span></div>'+
+      '<div class="exec-review-summary">Log actual '+displayUnit().toUpperCase()+' and average pace to score this session.</div>'+
     '</div>';
   }
-  return '<div class="ai-review-card">'+
-    '<button type="button" class="btn btn-ghost btn-sm btn-block" data-action="ai-review" data-day="'+dd.id+'">'+ICONS.sparkles+' Get AI Execution Review</button>'+
-  '</div>';
-}
-function renderAICoachSettingsFieldset(){
-  var key = getStoredAIKey();
-  return '<fieldset><legend>AI Coach</legend>'+
-    '<div class="field-hint" style="margin-bottom:10px;">Optional — add your own Anthropic API key for real Claude-generated session reviews, called directly from this browser and stored only here. Leave it blank and the built-in local coach handles reviews instead, no key required.</div>'+
-    '<div class="field" style="margin-bottom:8px;"><label>Anthropic API Key</label><input type="password" id="settings-ai-key" placeholder="sk-ant-..." value="'+(key?escapeHtml(key):'')+'" autocomplete="off"></div>'+
-    '<div style="display:flex; gap:8px;">'+
-      '<button type="button" class="btn btn-primary btn-sm" style="flex:1;" data-action="save-ai-key">'+ICONS.check+' Save Key</button>'+
-      '<button type="button" class="btn btn-ghost btn-sm" style="flex:1;" data-action="clear-ai-key">Clear</button>'+
+  var band = b.score>=85 ? 'good' : (b.score>=60 ? 'ok' : 'low');
+  var breakdown = b.parts.map(function(p){
+    var val = p.score==null ? '—' : Math.round(p.score)+'%';
+    return '<span class="exec-part'+(p.score==null?' exec-part-off':'')+'">'+p.label+' '+val+
+      ' <span class="exec-part-w">×'+Math.round(p.weight*100)+'%</span></span>';
+  }).join('');
+  return '<div class="exec-review-card">'+
+    '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span><span class="exec-review-src">Auto-Coach</span></div>'+
+    '<div class="exec-review-body">'+
+      '<div class="exec-review-score '+band+'">'+b.score+'%</div>'+
+      '<div class="exec-review-summary">'+escapeHtml(composeExecutionNotes(dd, b))+'</div>'+
     '</div>'+
-  '</fieldset>';
-}
-function handleSaveAIKey(){
-  var el = document.getElementById('settings-ai-key');
-  var val = el ? el.value.trim() : '';
-  setStoredAIKey(val || null);
-  showToast(val ? 'API key saved to this browser' : 'API key cleared');
-}
-function handleClearAIKey(){
-  setStoredAIKey(null);
-  var el = document.getElementById('settings-ai-key');
-  if (el) el.value = '';
-  showToast('API key cleared');
+    '<div class="exec-parts">'+breakdown+'</div>'+
+  '</div>';
 }
 
 /* =========================================================
@@ -3036,7 +2993,6 @@ function openSettingsModal(){
   var html = ''+
   '<div class="modal-head"><h2 class="font-head">Settings</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
-    renderAICoachSettingsFieldset()+
     (state.setup ? (
       '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="open-setup">'+ICONS.target+' Edit Plan Settings</button>'+
@@ -3577,6 +3533,10 @@ function handleActualFieldChange(dayId, field, value){
   else if (field==='rpe') dd.actual.rpe = value===''?null:parseInt(value,10);
   else if (field==='pace') dd.actual.pace = value.trim() || null;
   else if (field==='notes') dd.actual.notes = value;
+  // Auto-run: the score and its coaching notes regenerate on every logged
+  // change -- no "get review" button. patchExecutionUI touches only the
+  // score mounts, so the input being edited keeps its focus and value.
+  patchExecutionUI(dd);
   patchDerivedStats();
   scheduleSave();
 }
@@ -3762,7 +3722,6 @@ function renderSettingsHubView(){
     '</div>'+
     '<div class="hub-card">'+
       '<div class="setup-section-title">AI Coaching</div>'+
-      renderAICoachSettingsFieldset()+
       '<button type="button" class="btn btn-ghost btn-block" data-action="open-export">'+ICONS.sparkles+' Export AI Coaching Prompt</button>'+
     '</div>'+
     '<div class="hub-card">'+
@@ -3860,9 +3819,6 @@ document.addEventListener('click', function(e){
     case 'export-ics': handleExportICS(); break;
     case 'print-plan': handlePrintPlan(); break;
     case 'reset-pace-overrides': handleResetPaceOverrides(); break;
-    case 'ai-review': handleGenerateAIReview(target.getAttribute('data-day')); break;
-    case 'save-ai-key': handleSaveAIKey(); break;
-    case 'clear-ai-key': handleClearAIKey(); break;
     case 'set-view': handleSetView(target.getAttribute('data-view')); break;
   }
 });
