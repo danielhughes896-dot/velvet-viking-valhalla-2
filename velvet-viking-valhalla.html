@@ -135,6 +135,20 @@
      cream light theme -- fill it with a warm neutral instead. */
   [data-theme="light"] .unit-toggle{background:#E5E0D8;}
   [data-theme="light"] .unit-toggle button{color:#2B2317;}
+  /* header instance only -- mirrors .countdown-badge's compact dimensions/
+     border/radius so it reads as the same header-badge family as the race
+     clock, instead of the larger touch-friendly pill the setup modal uses. */
+  .tb-unit-toggle{
+    display:flex; width:auto; max-width:64px; gap:2px;
+    background:#1e1b18; border:1px solid rgba(197, 160, 89, 0.25); border-radius:6px;
+    padding:4px 6px;
+  }
+  [data-theme="light"] .tb-unit-toggle{background:#EFECE6;}
+  .tb-unit-toggle button{
+    flex:1; font-family:'JetBrains Mono',monospace; font-size:0.7rem; font-weight:bold;
+    letter-spacing:normal; padding:2px 0; color:#8c8273; background:transparent; border-radius:3px; text-align:center; line-height:1;
+  }
+  .tb-unit-toggle button.active{background:#c5a059; color:#1e1b18;}
   .countdown{display:flex; align-items:center; justify-content:flex-end;}
   .countdown-badge{
     display:grid; grid-template-columns:1fr 1fr; gap:2px 6px;
@@ -1670,7 +1684,7 @@ function renderTopbar(){
     right = themeBtn;
   } else if (state.view==='planhq' || state.view==='settings'){
     // Plan HQ / Settings: administrative controls -- units + theme.
-    left = '<div class="unit-toggle" role="group" aria-label="Distance units">'+
+    left = '<div class="tb-unit-toggle" role="group" aria-label="Distance units">'+
         '<button type="button" class="'+(state.units!=='mi'?'active':'')+'" data-action="set-units" data-units="km">KM</button>'+
         '<button type="button" class="'+(state.units==='mi'?'active':'')+'" data-action="set-units" data-units="mi">MI</button>'+
       '</div>';
