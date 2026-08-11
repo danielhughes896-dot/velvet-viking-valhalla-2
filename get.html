@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Get Velvet Viking Valhalla</title>
+<meta name="description" content="VDOT-paced running training blocks from 5K to 50K ultra. Install on Android, or add to your home screen on iPhone.">
+<meta name="theme-color" content="#15110D">
+<!-- WhatsApp / iMessage / social preview card -->
+<meta property="og:title" content="Velvet Viking Valhalla">
+<meta property="og:description" content="VDOT-paced running training blocks from 5K to 50K ultra. Earn your place.">
+<meta property="og:image" content="https://velvet-viking-valhalla-1.vercel.app/assets/medallion.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* palette lifted verbatim from the app so the two read as one product */
+  :root{
+    --bg:#15110D; --bg-2:#1D1712; --bg-3:#261D14;
+    --ink:#EDE3D0; --ink-dim:#B3A48C; --ink-faint:#948970;
+    --line:#3B2E20;
+    --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
+    --gold-bright:#F5D061; --modal-active:#c5a059;
+    --gold-shadow-1:#7A5C1E; --gold-shadow-2:#543E12;
+    --radius:16px; --radius-sm:10px;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex; flex-direction:column; align-items:center;
+    padding:calc(28px + env(safe-area-inset-top,0px)) 20px calc(32px + env(safe-area-inset-bottom,0px));
+  }
+  .wrap{width:100%; max-width:440px; text-align:center;}
+  .medallion{width:min(56vw,208px); height:auto; margin:0 auto 18px; display:block;}
+  h1{
+    font-family:'Cinzel',serif; font-weight:800; font-size:clamp(1.05rem,5.2vw,1.5rem);
+    letter-spacing:0.05em; text-transform:uppercase; margin:0; white-space:nowrap;
+    background:linear-gradient(180deg,var(--gold-bright) 0%,var(--modal-active) 100%);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; color:transparent;
+    text-shadow:0 1px 0 var(--gold-shadow-1),0 2px 0 var(--gold-shadow-2),0 3px 6px rgba(0,0,0,.8);
+  }
+  .rule{width:64%; height:1px; margin:7px auto 0; background:rgba(197,160,89,.35);}
+  .tagline{
+    font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:3px;
+    text-transform:uppercase; color:var(--ink-faint); margin:12px 0 0;
+  }
+  .blurb{font-size:13.5px; line-height:1.6; color:var(--ink-dim); margin:20px 0 26px;}
+  .card{
+    background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);
+    padding:20px 18px; margin-bottom:14px; text-align:left;
+  }
+  .card h2{
+    font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase;
+    color:var(--bronze); margin:0 0 12px; display:flex; align-items:center; gap:8px;
+  }
+  .card h2 svg{width:15px; height:15px; flex:none;}
+  .btn{
+    display:flex; align-items:center; justify-content:center; gap:9px; width:100%;
+    background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink);
+    border:none; border-radius:var(--radius-sm); padding:15px 18px; cursor:pointer;
+    font-family:'Oswald',sans-serif; font-size:14px; font-weight:600; letter-spacing:1px;
+    text-transform:uppercase; text-decoration:none;
+  }
+  .btn:active{filter:brightness(.93);}
+  .btn svg{width:18px; height:18px; flex:none;}
+  .btn-ghost{background:none; border:1px solid var(--line); color:var(--ink);}
+  .note{font-size:11.5px; line-height:1.55; color:var(--ink-faint); margin:11px 0 0;}
+  .note b{color:var(--ink-dim); font-weight:600;}
+  ol{margin:0; padding-left:19px; color:var(--ink-dim); font-size:13px; line-height:1.85;}
+  ol b{color:var(--ink);}
+  .other{
+    margin-top:6px; padding-top:16px; border-top:1px solid var(--line);
+    font-size:11.5px; color:var(--ink-faint); line-height:1.6;
+  }
+  .other a{color:var(--bronze); text-decoration:underline;}
+  .foot{font-size:10.5px; color:var(--ink-faint); opacity:.65; margin-top:22px; line-height:1.6;}
+  [hidden]{display:none !important;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <img class="medallion" src="/assets/medallion.png" width="300" height="300"
+       alt="Velvet Viking Valhalla — viking running programs">
+  <h1>Velvet Viking Valhalla</h1>
+  <div class="rule"></div>
+  <p class="tagline">Earn Your Place.</p>
+
+  <p class="blurb">
+    VDOT-paced training blocks for anything from a 5K to a 50K ultra — built around
+    your race date, your weekly mileage and a recent benchmark time.
+  </p>
+
+  <!-- Android: install the APK -->
+  <div class="card" id="card-android" hidden>
+    <h2>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><polyline points="7,11 12,16 17,11"/><path d="M5 20h14"/></svg>
+      Install on Android
+    </h2>
+    <a class="btn" id="apk-link"
+       href="https://github.com/danielhughes896-dot/velvet-viking-valhalla-2/releases/latest/download/app-debug.apk">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><polyline points="7,11 12,16 17,11"/><path d="M5 20h14"/></svg>
+      Download the app
+    </a>
+    <p class="note">
+      Android will ask you to <b>allow installs from your browser</b> — that's expected,
+      it just means the app doesn't come from the Play Store. Tap allow, then open the
+      downloaded file.
+    </p>
+  </div>
+
+  <!-- iPhone / iPad: add the web app to the home screen -->
+  <div class="card" id="card-ios" hidden>
+    <h2>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><polyline points="7,9 12,4 17,9"/><path d="M5 20h14"/></svg>
+      Add to your iPhone
+    </h2>
+    <ol>
+      <li>Open this page in <b>Safari</b></li>
+      <li>Tap the <b>Share</b> button</li>
+      <li>Choose <b>Add to Home Screen</b></li>
+    </ol>
+    <p class="note">
+      You'll get a full-screen icon that works just like an installed app. There's no
+      iPhone download — Apple only allows installs through the App Store.
+    </p>
+  </div>
+
+  <!-- Desktop / anything else -->
+  <div class="card" id="card-web" hidden>
+    <h2>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18"/></svg>
+      Open in your browser
+    </h2>
+    <a class="btn" href="/">
+      Launch the app
+    </a>
+    <p class="note">Works on any device. Your plan is saved on this device.</p>
+  </div>
+
+  <div class="card" style="padding-top:16px; padding-bottom:16px;">
+    <a class="btn btn-ghost" href="/">Just open it in this browser instead</a>
+  </div>
+
+  <div class="other" id="other-platform"></div>
+
+  <p class="foot">
+    Your training plan is stored privately on your own device — there's no account and
+    nothing is uploaded. Back it up any time from Settings → Export Full Backup.
+  </p>
+</div>
+
+<script>
+(function(){
+  var ua = navigator.userAgent || '';
+  var isAndroid = /Android/i.test(ua);
+  // iPadOS 13+ reports as a Mac, so check for a touch-capable "Mac" too
+  var isIOS = /iPad|iPhone|iPod/.test(ua) ||
+              (/Macintosh/.test(ua) && typeof document.ontouchend !== 'undefined');
+
+  var show = isAndroid ? 'card-android' : (isIOS ? 'card-ios' : 'card-web');
+  document.getElementById(show).hidden = false;
+
+  // Always offer the other platforms too -- people share this link onward, and
+  // detection should steer rather than lock anyone out.
+  var others = {
+    'card-android':'On an iPhone instead? <a href="#" data-show="card-ios">Add it to your home screen</a>.',
+    'card-ios':'On Android instead? <a href="#" data-show="card-android">Download the app</a>.',
+    'card-web':'On a phone? <a href="#" data-show="card-android">Android download</a> · <a href="#" data-show="card-ios">iPhone instructions</a>.'
+  };
+  var other = document.getElementById('other-platform');
+  other.innerHTML = others[show];
+  other.addEventListener('click', function(e){
+    var a = e.target.closest ? e.target.closest('[data-show]') : null;
+    if (!a) return;
+    e.preventDefault();
+    document.getElementById(a.getAttribute('data-show')).hidden = false;
+    a.parentNode.removeChild(a);
+  });
+})();
+</script>
+</body>
+</html>
