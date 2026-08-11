@@ -1740,8 +1740,11 @@ function getDayTargets(dd){
   out.hr = fmtHRRange(getTargetHRRangeForDay(dd));
   if (tm.zoneKey && paces[tm.zoneKey] && paces[tm.zoneKey].slow!=null){
     var z = paces[tm.zoneKey];
+    // Ascending (fastest bound first), matching the Pace Reference card and
+    // the Plan HQ zone table -- the same range printed in two orders on one
+    // screen reads like two different targets.
     var pSlow = fmtPaceFromSecPerKm(z.slow), pFast = fmtPaceFromSecPerKm(z.fast);
-    out.pace = pSlow.split('/')[0]+'\u2013'+pFast;
+    out.pace = pFast.split('/')[0]+'\u2013'+pSlow;
   }
   if (dd.type==='race'){
     var gp = getGoalPaceSecPerKm();
@@ -3402,7 +3405,8 @@ function generateExportText(){
     lines.push(profile.label+' \u00b7 '+totalWeeksInPlan()+'-Week '+profile.blockName+' \u00b7 Race: '+dLong(state.setup.raceDate));
     lines.push('Active Goal '+state.setup.activeGoal+': '+(goal?secToClock(goal.timeSec):'\u2014')+' (VDOT '+(vdot?vdot.toFixed(1):'\u2014')+')');
     var paces = getActivePaces();
-    lines.push('Paces \u2014 Easy '+(paces.E.slow?secToPace(paces.E.slow)+'-'+secToPace(paces.E.fast):'\u2014')+'/km, Threshold '+(paces.T.slow?secToPace(paces.T.slow)+'-'+secToPace(paces.T.fast):'\u2014')+'/km, Interval '+(paces.I.slow?secToPace(paces.I.slow)+'-'+secToPace(paces.I.fast):'\u2014')+'/km');
+    // ascending (fastest bound first), same order the app displays everywhere
+    lines.push('Paces \u2014 Easy '+(paces.E.slow?secToPace(paces.E.fast)+'-'+secToPace(paces.E.slow):'\u2014')+'/km, Threshold '+(paces.T.slow?secToPace(paces.T.fast)+'-'+secToPace(paces.T.slow):'\u2014')+'/km, Interval '+(paces.I.slow?secToPace(paces.I.fast)+'-'+secToPace(paces.I.slow):'\u2014')+'/km');
   }
   lines.push('');
   var totalWeeks = totalWeeksInPlan();
