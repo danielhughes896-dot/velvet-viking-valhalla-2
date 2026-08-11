@@ -17,16 +17,20 @@
 
   :root{
     --bg:#15110D; --bg-2:#1D1712; --bg-3:#261D14; --bg-4:#2E2318;
-    --ink:#EDE3D0; --ink-dim:#B3A48C; --ink-faint:#7A6E5A;
+    --ink:#EDE3D0; --ink-dim:#B3A48C; --ink-faint:#948970;
     --line:#3B2E20; --line-soft:#2A2015;
     --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
     --c-rest:#8C8272; --c-rest-soft:rgba(140,130,114,0.16);
     --c-easy:#84A56E; --c-easy-soft:rgba(132,165,110,0.16);
     --c-tempo:#CC9245; --c-tempo-soft:rgba(204,146,69,0.16);
     --c-threshold:#B5505A; --c-threshold-soft:rgba(181,80,90,0.16);
-    --c-track:#C0923F; --c-track-soft:rgba(192,146,63,0.16);
+    /* --c-track/--c-gold are semantic aliases (zone-legend / active-highlight
+       roles) that happen to reuse the brand bronze/gold -- referencing the
+       base tokens instead of duplicating their hex keeps there being exactly
+       one source of truth for each actual color. */
+    --c-track:var(--bronze); --c-track-soft:rgba(192,146,63,0.16);
     --c-long:#5E93AC; --c-long-soft:rgba(94,147,172,0.16);
-    --c-gold:#E3B15A; --c-gold-soft:rgba(227,177,90,0.20);
+    --c-gold:var(--gold); --c-gold-soft:rgba(227,177,90,0.20);
     --radius:16px; --radius-sm:10px; --radius-lg:22px;
     --shadow:0 10px 30px rgba(0,0,0,0.4);
     --shadow-sm:0 4px 12px rgba(0,0,0,0.3);
@@ -34,13 +38,19 @@
     /* dedicated dark-Viking palette for modals, dropdowns & selects --
        deliberately fixed regardless of the light/dark theme toggle */
     --modal-surface:#141210; --modal-input-bg:#24201c; --modal-border:#3d352b;
-    --modal-active:#c5a059; --modal-text:#e6dfd5;
+    --modal-active:#c5a059; --modal-active-rgb:197,160,89; --modal-text:#e6dfd5;
+    /* the app's one metallic-gold gradient system -- shared by the header
+       title, the VVV emblem mark, and the confidence gauge, so all three
+       read as the same finish instead of three near-miss golds. */
+    --gold-bright:#F5D061; --gold-highlight:#FFE082; --gold-highlight-2:#D4AF37; --gold-deep:#8A6D2B;
+    --gold-shadow-1:#7A5C1E; --gold-shadow-2:#543E12;
+    --strava-orange:#FC4C02;
     color-scheme:dark;
   }
   [data-theme="light"]{
     color-scheme:light;
     --bg:#F2ECDC; --bg-2:#FFFCF6; --bg-3:#EBE1C8; --bg-4:#E3D7B8;
-    --ink:#241C15; --ink-dim:#5E5443; --ink-faint:#8D8168;
+    --ink:#241C15; --ink-dim:#5E5443; --ink-faint:#6B5F49;
     --line:#DCCEA9; --line-soft:#E7DABB;
     --shadow:0 10px 30px rgba(90,70,30,0.14);
     --shadow-sm:0 4px 12px rgba(90,70,30,0.10);
@@ -82,16 +92,20 @@
     padding:calc(12px + env(safe-area-inset-top, 0px)) 16px 12px; max-width:var(--maxw); margin:0 auto;
   }
   .brandmark{display:flex; align-items:center; gap:6px; min-width:0;}
-  .brandmark .word{font-family:'Cinzel',serif; font-size:14.5px; letter-spacing:1.5px; font-weight:700; color:var(--ink);}
   /* bold metallic 3D gold title -- deliberately fixed regardless of the
-     light/dark theme toggle, same rationale as the modal palette. */
+     light/dark theme toggle, same rationale as the modal palette. There is
+     no plain .word rule: this is the only styling the brand text ever gets,
+     so nothing here fights a more-specific ".brandmark .word" declaration
+     for color/font-size (which used to silently break the gradient in
+     Firefox, since it relies on the standard `color` cascade rather than
+     just -webkit-text-fill-color). */
   .word-metallic{
     font-family:'Cinzel',serif; font-weight:800; font-size:15px; letter-spacing:1.3px;
     text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    background:linear-gradient(180deg, #F5D061 0%, #C5A059 100%);
+    background:linear-gradient(180deg, var(--gold-bright) 0%, var(--modal-active) 100%);
     -webkit-background-clip:text; background-clip:text;
     -webkit-text-fill-color:transparent; color:transparent;
-    text-shadow:0 1px 0 #7A5C1E, 0 2px 0 #543E12, 0 3px 6px rgba(0,0,0,0.8);
+    text-shadow:0 1px 0 var(--gold-shadow-1), 0 2px 0 var(--gold-shadow-2), 0 3px 6px rgba(0,0,0,0.8);
   }
   .topbar-actions{display:flex; align-items:center; gap:8px;}
   .unit-toggle{display:flex; border:1px solid var(--line); border-radius:99px; overflow:hidden;}
@@ -118,13 +132,16 @@
 
   /* confidence score fuel gauge — top-left of the header */
   .confidence-gauge{display:flex; flex-direction:column; align-items:center; gap:2px;}
-  .gauge-tick{stroke:var(--gold); stroke-width:1.4; opacity:.55;}
+  .gauge-tick{stroke:var(--gold); stroke-width:1.4; opacity:.8;}
   .gauge-elabel, .gauge-flabel{
-    font-family:'JetBrains Mono',monospace; font-size:7px; font-weight:700; fill:var(--ink-faint);
+    font-family:'JetBrains Mono',monospace; font-size:8px; font-weight:700; fill:var(--ink-dim);
   }
   .gauge-caption{display:flex; align-items:baseline; gap:5px;}
   .gauge-pct{font-size:13px; font-weight:700; color:var(--gold);}
-  .gauge-label{font-size:8.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--modal-text);}
+  /* themed (not the fixed --modal-text) since the gauge sits in the topbar,
+     which itself flips with the light/dark toggle -- --modal-text is only
+     ever defined for the dark palette and goes near-invisible in light mode. */
+  .gauge-label{font-size:8.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-dim);}
   .checkpoint-banner{
     display:flex; align-items:flex-start; gap:11px; background:var(--c-gold-soft);
     border:1.5px solid var(--gold); border-radius:var(--radius-sm); padding:13px 14px; margin:16px 0;
@@ -186,7 +203,7 @@
     .day{break-inside:avoid; background:#fff !important; border-color:#ccc !important;}
     .hero, .day, .week, .zone-card, .congrats-banner, .fuel-card,
     .distance-badge, .stat, .day-badge, .week-vol, .week-num, .fuel-row, .zone-head,
-    .cd-seg, .wordmark{ color:#111 !important; background:#fff !important; border-color:#999 !important; }
+    .cd-seg{ color:#111 !important; background:#fff !important; border-color:#999 !important; }
     .day-title, .week-phase, .cg-title, .distance-badge, .zbar-seg{color:#111 !important;}
     .zbar-seg{filter:grayscale(0.3) contrast(1.3);}
     .wrap{max-width:none !important;}
@@ -236,11 +253,12 @@
 
   /* ---------- week accordion ---------- */
   .week{border:1px solid var(--line); border-radius:var(--radius); margin-bottom:12px; background:var(--bg-2); overflow:hidden; box-shadow:var(--shadow-sm);}
-  .week-head{width:100%; text-align:left; background:none; border:none; padding:14px 16px; display:flex; align-items:center; gap:12px; color:var(--ink);}
+  .week-head{width:100%; text-align:left; background:none; border:none; padding:14px 16px; display:flex; align-items:center; gap:12px; color:var(--ink); transition:background .15s ease;}
+  .week-head:hover{background:var(--bg-3);}
+  .week-head:active{background:var(--bg-4);}
   .week-num{font-family:'Cinzel',serif; font-weight:700; font-size:20px; color:var(--bronze); flex:none; width:34px;}
   .week-meta{flex:1; min-width:0;}
   .week-phase{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze);}
-  .week-focus{font-size:12.5px; color:var(--ink-dim); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .week-range{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
   .week-vol{text-align:right; flex:none;}
   .week-vol .v{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px; color:var(--ink);}
@@ -249,7 +267,7 @@
   .week-chevron svg{width:18px; height:18px; display:block;}
   .week.open .week-chevron{transform:rotate(180deg);}
   .week-body{max-height:0; overflow:hidden; transition:max-height .35s ease;}
-  .week.open .week-body{max-height:3200px;}
+  .week.open .week-body{max-height:10000px;}
   .week-body-inner{padding:2px 12px 14px;}
   .week-today-flag{display:inline-block; margin-left:8px; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--bronze-ink); background:var(--gold); padding:2px 6px; border-radius:99px; font-family:'Oswald',sans-serif;}
 
@@ -258,6 +276,7 @@
     border-left:4px solid var(--c-rest); background:var(--bg-3); border-radius:var(--radius-sm);
     padding:11px 12px; margin-top:8px; transition:.2s; position:relative;
   }
+  .day:hover{background:var(--bg-4);}
   .day.type-easy{border-left-color:var(--c-easy);}
   .day.type-tempo{border-left-color:var(--c-tempo);}
   .day.type-threshold{border-left-color:var(--c-threshold);}
@@ -406,7 +425,7 @@
     color:var(--modal-text); padding:10px 11px; font-size:14px;
   }
   .field input:focus, .field select:focus, .field textarea:focus{
-    outline:none; border-color:var(--modal-active); box-shadow:0 0 0 2px rgba(197,160,89,0.25);
+    outline:none; border-color:var(--modal-active); box-shadow:0 0 0 2px rgba(var(--modal-active-rgb),0.25);
   }
   .field select option{ background:var(--modal-input-bg); color:var(--modal-text); }
   .field textarea{resize:vertical; min-height:70px; font-family:'Inter',sans-serif;}
@@ -419,16 +438,14 @@
   legend{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze); padding:0 6px;}
 
   /* ---------- settings extras ---------- */
-  .theme-toggle{display:flex; border:1px solid var(--line); border-radius:99px; padding:3px; gap:2px;}
-  .theme-toggle button{border:none; background:none; padding:6px 10px; border-radius:99px; color:var(--ink-faint); display:flex; align-items:center;}
-  .theme-toggle button.active{background:var(--bronze); color:var(--bronze-ink);}
-  .theme-toggle svg{width:15px; height:15px;}
   .connect-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line-soft);}
   .connect-row:last-child{border-bottom:none;}
   .connect-row .name{font-size:13.5px; font-weight:600;}
   .connect-row .desc{font-size:11px; color:var(--ink-faint);}
-  .strava-connect-btn{background:#FC4C02; color:#fff; border:none;}
+  .strava-connect-btn{background:var(--strava-orange); color:#fff; border:none;}
   .strava-connect-btn:hover{filter:brightness(1.08); border-color:transparent;}
+  .strava-connect-btn:active{filter:brightness(0.92);}
+  .strava-connect-btn:disabled{opacity:.6; filter:none; cursor:default;}
   .status-pill{display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:99px;}
   .status-pill svg{width:12px; height:12px;}
   .status-connected{background:var(--c-easy-soft); color:var(--c-easy);}
@@ -489,7 +506,7 @@
     text-transform:uppercase; letter-spacing:.4px; border-radius:10px; transition:.2s;
   }
   .bn-item svg{width:19px; height:19px;}
-  .bn-item.active{ color:var(--modal-active); background:rgba(197,160,89,0.14); }
+  .bn-item.active{ color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14); }
   .bn-item:active{ transform:scale(.95); }
   .view-heading{
     font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-faint);
@@ -519,7 +536,6 @@
   .divider-or{display:flex; align-items:center; gap:10px; margin:14px 0; color:var(--ink-faint); font-size:10px; letter-spacing:1px; text-transform:uppercase;}
   .divider-or .rule{flex:1; height:1px; background:var(--line);}
   /* ---------- v2: distance-agnostic generator additions ---------- */
-  .empty-hero{padding:20px 0 8px;}
   .setup-cta{
     border:1.5px dashed var(--bronze-2); border-radius:var(--radius-lg); padding:26px 20px; margin:18px 0;
     background:var(--c-gold-soft); text-align:center;
@@ -535,8 +551,10 @@
   .distance-badge svg{width:12px; height:12px; flex:none;}
   .plan-summary-bar{
     display:flex; align-items:center; gap:10px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);
-    padding:10px 12px; margin:14px 0; cursor:pointer;
+    padding:10px 12px; margin:14px 0; cursor:pointer; transition:background .15s ease, border-color .15s ease;
   }
+  .plan-summary-bar:hover{background:var(--bg-3); border-color:var(--bronze-2);}
+  .plan-summary-bar:active{background:var(--bg-4);}
   .plan-summary-bar .psb-main{flex:1; min-width:0;}
   .plan-summary-bar .psb-title{font-family:'Oswald',sans-serif; font-size:12.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
   .plan-summary-bar .psb-sub{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); margin-top:2px;}
@@ -545,17 +563,6 @@
   .goal-toggle-hero{margin-top:16px;}
   .goal-toggle-hero .goal-options{margin-top:8px;}
   .goal-opt .vdot-tag{font-size:9px; color:var(--ink-faint); margin-top:1px; font-family:'JetBrains Mono',monospace;}
-
-  .vdot-readout{
-    display:flex; align-items:center; justify-content:center; gap:8px; margin-top:10px;
-    font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint);
-  }
-  .vdot-readout b{color:var(--bronze); font-weight:700;}
-
-  .b2b-tag{
-    display:inline-block; font-size:8.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--c-long);
-    background:var(--c-long-soft); padding:2px 6px; border-radius:99px; margin-left:6px; font-family:'Oswald',sans-serif;
-  }
 
   .pace-table{width:100%; border-collapse:collapse; margin-top:10px; font-size:11.5px;}
   .pace-table th, .pace-table td{padding:7px 6px; text-align:center; border-bottom:1px solid var(--line-soft);}
@@ -1240,21 +1247,16 @@ var ICONS = {
   download: svgWrap('<path d="M12 4v12"/><polyline points="7,11 12,16 17,11"/><path d="M5 20h14"/>'),
   pencil: svgWrap('<path d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20z"/><line x1="13.3" y1="6.7" x2="17.3" y2="10.7"/>'),
   flag: svgWrap('<line x1="5" y1="21" x2="5" y2="4"/><path d="M5 4h13l-3 4 3 4H5"/>'),
-  heart: svgWrap('<path d="M12 20s-7-4.4-9.5-9C.8 7.6 3 4 6.5 4c2 0 3.4 1.1 4 2.3.6-1.2 2-2.3 4-2.3 3.5 0 5.7 3.6 4 7-2.5 4.6-9.5 9-9.5 9z"/>'),
   ruler: svgWrap('<rect x="3" y="9" width="18" height="6" rx="1.5"/><line x1="7" y1="9" x2="7" y2="12"/><line x1="11" y1="9" x2="11" y2="12"/><line x1="15" y1="9" x2="15" y2="12"/>'),
   clock: svgWrap('<circle cx="12" cy="12" r="8.5"/><line x1="12" y1="12" x2="12" y2="7.5"/><line x1="12" y1="12" x2="15.2" y2="13.8"/>'),
   sparkles: svgWrap('<path d="M12 3l1.4 4.6L18 9l-4.6 1.4L12 15l-1.4-4.6L6 9l4.6-1.4z"/><path d="M19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7z"/>'),
-  swap: svgWrap('<polyline points="7,4 3,8 7,12"/><line x1="3" y1="8" x2="21" y2="8"/><polyline points="17,12 21,16 17,20"/><line x1="21" y1="16" x2="3" y2="16"/>'),
   copy: svgWrap('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 15V5a2 2 0 0 1 2-2h10"/>'),
-  reset: svgWrap('<path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3,4 3,9 8,9"/>'),
   sun: svgWrap('<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4.5"/><line x1="12" y1="19.5" x2="12" y2="22"/><line x1="2" y1="12" x2="4.5" y2="12"/><line x1="19.5" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="6.6" y2="6.6"/><line x1="17.4" y1="17.4" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="6.6" y2="17.4"/><line x1="17.4" y1="6.6" x2="19.1" y2="4.9"/>'),
   moon: svgWrap('<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>'),
   info: svgWrap('<circle cx="12" cy="12" r="8.5"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.6" r="0.7" fill="currentColor" stroke="none"/>'),
   alert: svgWrap('<path d="M12 3.5L22 20H2z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="0.7" fill="currentColor" stroke="none"/>'),
   trash: svgWrap('<path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13h10l1-13"/>'),
   link: svgWrap('<path d="M9 15l6-6"/><path d="M8 12l-2.5 2.5a3.5 3.5 0 0 0 5 5L13 17"/><path d="M16 12l2.5-2.5a3.5 3.5 0 0 0-5-5L11 7"/>'),
-  grip: svgWrap('<circle cx="9" cy="6" r="1" fill="currentColor"/><circle cx="15" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="12" r="1" fill="currentColor"/><circle cx="15" cy="12" r="1" fill="currentColor"/><circle cx="9" cy="18" r="1" fill="currentColor"/><circle cx="15" cy="18" r="1" fill="currentColor"/>'),
-  shieldmark: svgWrap('<path d="M12 2.5l8 3.5v5.2c0 5-3.4 8.3-8 10.3-4.6-2-8-5.3-8-10.3V6z"/><path d="M12 7.5v9M8.3 10.3L12 7.5l3.7 2.8" stroke-width="1.6"/>', ' style="color:var(--bronze)"'),
   emblem: '<svg viewBox="0 0 240 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Velvet Viking emblem">'+
     '<rect x="92" y="8" width="56" height="32" rx="4" fill="currentColor"/>'+
     '<rect x="112" y="40" width="16" height="26" fill="currentColor"/>'+
@@ -1609,14 +1611,14 @@ function weekDateRange(weekNum){
 function totalWeeksInPlan(){ return state.days.length ? state.days[state.days.length-1].week : 0; }
 
 /* =========================================================
-   TOPBAR / HERO / RUNE ROAD / GOAL TOGGLE
+   TOPBAR / HERO / GOAL TOGGLE
    ========================================================= */
 function renderVVVMark(idSuffix, extraClass){
   var s = idSuffix;
   return '<svg class="vvv-mark '+(extraClass||'')+'" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Velvet Viking Valhalla mark">'+
     '<defs>'+
-      '<linearGradient id="vvvBaseGrad-'+s+'" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C5A059"/><stop offset="100%" stop-color="#8A6D2B"/></linearGradient>'+
-      '<linearGradient id="vvvTopGrad-'+s+'" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#FFE082"/><stop offset="100%" stop-color="#D4AF37"/></linearGradient>'+
+      '<linearGradient id="vvvBaseGrad-'+s+'" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="var(--modal-active)"/><stop offset="100%" stop-color="var(--gold-deep)"/></linearGradient>'+
+      '<linearGradient id="vvvTopGrad-'+s+'" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="var(--gold-highlight)"/><stop offset="100%" stop-color="var(--gold-highlight-2)"/></linearGradient>'+
       '<filter id="vvvShadow-'+s+'" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.45"/></filter>'+
     '</defs>'+
     '<path d="M18.0,56.0 L50.4,38.0 L61.2,43.4 L90.0,152.0 L118.8,43.4 L129.6,38.0 L162.0,56.0 L90.0,188.0 Z" fill="url(#vvvBaseGrad-'+s+')"/>'+
@@ -1691,14 +1693,14 @@ function renderConfidenceGauge(){
         '<filter id="gaugeGlow" x="-60%" y="-60%" width="220%" height="220%">'+
           '<feGaussianBlur stdDeviation="1" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>'+
         '</filter>'+
-        '<linearGradient id="gaugeFillGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#8A6D2B"/><stop offset="100%" stop-color="#c5a059"/></linearGradient>'+
+        '<linearGradient id="gaugeFillGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="var(--gold-deep)"/><stop offset="100%" stop-color="var(--modal-active)"/></linearGradient>'+
       '</defs>'+
       '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="var(--bg-4)" stroke-width="6" stroke-linecap="round"/>'+
       '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="url(#gaugeFillGrad)" stroke-width="6" stroke-linecap="round" '+
         'stroke-dasharray="'+fillLen.toFixed(1)+' '+(arcLen-fillLen).toFixed(1)+'"/>'+
       '<g filter="url(#gaugeGlow)">'+ticks+'</g>'+
-      '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleX.toFixed(1)+'" y2="'+needleY.toFixed(1)+'" stroke="#c5a059" stroke-width="2.4" stroke-linecap="round" filter="url(#gaugeGlow)"/>'+
-      '<circle cx="'+cx+'" cy="'+cy+'" r="3" fill="#c5a059"/>'+
+      '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleX.toFixed(1)+'" y2="'+needleY.toFixed(1)+'" stroke="var(--modal-active)" stroke-width="2.4" stroke-linecap="round" filter="url(#gaugeGlow)"/>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="3" fill="var(--modal-active)"/>'+
       '<text x="'+(cx-r)+'" y="'+(cy+11)+'" class="gauge-elabel">E</text>'+
       '<text x="'+(cx+r-6)+'" y="'+(cy+11)+'" class="gauge-flabel">F</text>'+
     '</svg>'+
@@ -2306,6 +2308,8 @@ function renderCheckpointCard(){
 }
 
 function renderCongratsBanner(){
+  var s = computeStats();
+  if (!s.totalRuns || s.completedRuns<s.totalRuns) return '';
   return '<div class="congrats-banner">'+
     '<div class="cg-title font-display">VALHALLA AWAITS</div>'+
     '<div class="cg-quote font-head">THE PLAN IS EXECUTED.<br>VALHALLA AWAITS THE BOLD!<br>GO KILL IT, VIKING!</div>'+
@@ -2384,6 +2388,7 @@ function openSetupModal(){
         '<button type="button" data-units="km" class="'+(state.units!=='mi'?'active':'')+'">KM</button>'+
         '<button type="button" data-units="mi" class="'+(state.units==='mi'?'active':'')+'">MI</button>'+
       '</div>'+
+      '<div class="field-hint">Applies everywhere once you generate — to switch units on an existing plan without regenerating, use the toggle in the header instead.</div>'+
     '</div>'+
     '<div class="field"><label>Distance</label><select id="su-distance">'+distOptions+'</select></div>'+
     '<div class="field"><label>Race Date</label><input type="date" id="su-racedate" value="'+raceDate+'"></div>'+
@@ -2720,10 +2725,6 @@ function openSettingsModal(){
   var html = ''+
   '<div class="modal-head"><h2 class="font-head">Settings</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
-    '<div class="field"><label>Appearance</label><div class="theme-toggle">'+
-      '<button type="button" class="'+(state.theme==='light'?'active':'')+'" data-action="set-theme" data-theme="light" aria-label="Light theme">'+ICONS.sun+'</button>'+
-      '<button type="button" class="'+(state.theme==='dark'?'active':'')+'" data-action="set-theme" data-theme="dark" aria-label="Dark theme">'+ICONS.moon+'</button>'+
-    '</div></div>'+
     renderAICoachSettingsFieldset()+
     (state.setup ? (
       '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
@@ -3307,12 +3308,6 @@ function handleSetTheme(theme){
   scheduleSave();
   var topBtn = document.querySelector('.topbar-actions .icon-btn[data-action="toggle-theme"]');
   if (topBtn) topBtn.innerHTML = theme==='dark'?ICONS.sun:ICONS.moon;
-  var settingsToggle = document.querySelector('.modal-card .theme-toggle');
-  if (settingsToggle){
-    settingsToggle.innerHTML =
-      '<button type="button" class="'+(theme==='light'?'active':'')+'" data-action="set-theme" data-theme="light" aria-label="Light theme">'+ICONS.sun+'</button>'+
-      '<button type="button" class="'+(theme==='dark'?'active':'')+'" data-action="set-theme" data-theme="dark" aria-label="Dark theme">'+ICONS.moon+'</button>';
-  }
 }
 function handleToggleThemeQuick(){ handleSetTheme(state.theme==='dark'?'light':'dark'); }
 
@@ -3347,7 +3342,7 @@ function renderCheckpointBanner(){
   if (today < range.start || today > range.end) return '';
   return '<div class="checkpoint-banner">'+
     '<span class="cb-icon">\uD83D\uDCA1</span>'+
-    '<div class="cb-text"><b>Mid-Block Checkpoint:</b> You are halfway through! Update your 5K/10K benchmark or select Goal A, B, or C above to auto-recalculate your target paces for all remaining peak long runs.</div>'+
+    '<div class="cb-text"><b>Mid-Block Checkpoint:</b> You are halfway through! Update your 5K/10K benchmark or select Goal A, B, or C below to auto-recalculate your target paces for all remaining peak long runs.</div>'+
   '</div>';
 }
 
@@ -3466,7 +3461,6 @@ document.addEventListener('click', function(e){
     case 'suggest-goals': handleSuggestGoals(); break;
     case 'generate-plan': handleGeneratePlan(); break;
     case 'export-json': handleExportJson(); break;
-    case 'set-theme': handleSetTheme(target.getAttribute('data-theme')); break;
     case 'set-units': handleSetUnits(target.getAttribute('data-units')); break;
     case 'apply-activity': handleApplyActivity(); break;
     case 'strava-connect': handleStravaConnect(); break;
