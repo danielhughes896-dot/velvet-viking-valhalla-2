@@ -97,11 +97,10 @@
     display:flex; align-items:center; gap:6px;
     padding:calc(12px + env(safe-area-inset-top, 0px)) 16px 12px; max-width:var(--maxw); margin:0 auto;
   }
-  /* daily execution views (today/week/full): brand-only header, no side
-     content to balance -- center the title on its own and give it a touch
-     more breathing room instead of the tighter padding the gauge/countdown
-     rows needed. */
-  .topbar-inner-brand-only{justify-content:center; padding-top:calc(16px + env(safe-area-inset-top, 0px)); padding-bottom:16px;}
+  /* all five main tabs: brand-only header, nothing to balance against --
+     center the title and give it clean, even padding instead of the
+     tighter/lopsided padding the old gauge/countdown/toggle rows needed. */
+  .topbar-inner-brand-only{justify-content:center; padding-top:calc(14px + env(safe-area-inset-top, 0px)); padding-bottom:14px;}
   .tb-slot-left{flex:0 0 28%; min-width:0; overflow:hidden; text-align:left;}
   .tb-slot-center{flex:1; min-width:0; text-align:center;}
   .tb-slot-right{flex:0 0 32%; min-width:0; overflow:hidden; text-align:right; display:flex; align-items:center; justify-content:flex-end;}
@@ -114,7 +113,7 @@
      Firefox, since it relies on the standard `color` cascade rather than
      just -webkit-text-fill-color). */
   .word-metallic{
-    font-family:'Cinzel',serif; font-weight:800; font-size:clamp(0.65rem, 3.2vw, 0.85rem); letter-spacing:0.04em;
+    font-family:'Cinzel',serif; font-weight:800; font-size:clamp(0.85rem, 4.2vw, 1.05rem); letter-spacing:0.05em;
     text-transform:uppercase; white-space:nowrap;
     background:linear-gradient(180deg, var(--gold-bright) 0%, var(--modal-active) 100%);
     -webkit-background-clip:text; background-clip:text;
@@ -600,6 +599,10 @@
 
   .setup-section-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze); margin:16px 0 8px;}
   .setup-section-title:first-child{margin-top:0;}
+  /* Plan HQ's Programme Status heading + KM/MI pill, aligned on one row at
+     any width instead of the pill wrapping under the heading. */
+  .programme-status-head{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .programme-status-head .setup-section-title{margin:0;}
   .weekday-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin-bottom:12px;}
   .wd-check{
     display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px 2px;
@@ -1678,35 +1681,26 @@ function totalWeeksInPlan(){ return state.days.length ? state.days[state.days.le
    ========================================================= */
 function renderTopbar(){
   var titleHtml = '<div class="brandmark"><span class="word word-metallic">Velvet Viking Valhalla</span></div>';
-  var themeBtn = '<button class="icon-btn tb-theme-btn" type="button" data-action="toggle-theme" aria-label="Toggle light/dark theme">'+(state.theme==='dark'?ICONS.sun:ICONS.moon)+'</button>';
-  var left, right;
 
   if (!state.setup){
-    // Onboarding: shield settings shortcut (left) / theme toggle (right).
-    // KM/MI is chosen inside the setup modal instead (see #su-units).
-    left = '<button class="icon-btn" type="button" data-action="open-settings" aria-label="Settings">'+ICONS.shieldmark+'</button>';
-    right = themeBtn;
-  } else if (state.view==='planhq' || state.view==='settings'){
-    // Plan HQ / Settings: administrative controls -- units + theme.
-    left = '<div class="tb-unit-toggle" role="group" aria-label="Distance units">'+
-        '<button type="button" class="'+(state.units!=='mi'?'active':'')+'" data-action="set-units" data-units="km">KM</button>'+
-        '<button type="button" class="'+(state.units==='mi'?'active':'')+'" data-action="set-units" data-units="mi">MI</button>'+
-      '</div>';
-    right = themeBtn;
-  } else {
-    // Daily execution views (today/week/full): brand only -- no gauge,
-    // countdown, or toggles. Programme-status info (confidence, countdown)
-    // now lives in Plan HQ's own status section instead of the global
-    // header; see renderProgrammeStatus().
-    return '<div class="topbar"><div class="topbar-inner topbar-inner-brand-only">'+titleHtml+'</div></div>';
+    // Onboarding only (before the bottom nav / five main tabs exist): shield
+    // settings shortcut (left) / theme toggle (right). KM/MI is chosen
+    // inside the setup modal instead (see #su-units).
+    var themeBtn = '<button class="icon-btn tb-theme-btn" type="button" data-action="toggle-theme" aria-label="Toggle light/dark theme">'+(state.theme==='dark'?ICONS.sun:ICONS.moon)+'</button>';
+    var left = '<button class="icon-btn" type="button" data-action="open-settings" aria-label="Settings">'+ICONS.shieldmark+'</button>';
+    var inner = '<div class="topbar-inner">'+
+      '<div class="tb-slot-left">'+left+'</div>'+
+      '<div class="tb-slot-center">'+titleHtml+'</div>'+
+      '<div class="tb-slot-right">'+themeBtn+'</div>'+
+    '</div>';
+    return '<div class="topbar">'+inner+'</div>';
   }
 
-  var inner = '<div class="topbar-inner">'+
-    '<div class="tb-slot-left">'+left+'</div>'+
-    '<div class="tb-slot-center">'+titleHtml+'</div>'+
-    '<div class="tb-slot-right">'+right+'</div>'+
-  '</div>';
-  return '<div class="topbar">'+inner+'</div>';
+  // All five main tabs (Today/This Week/Full Plan/Plan HQ/Settings): brand
+  // only, nothing else -- no gauge, countdown, unit toggle, or theme toggle.
+  // Programme status lives in Plan HQ (renderProgrammeStatus()), theme
+  // lives in Settings (renderThemeToggleRow()), units live in Plan HQ too.
+  return '<div class="topbar"><div class="topbar-inner topbar-inner-brand-only">'+titleHtml+'</div></div>';
 }
 
 /* =========================================================
@@ -3343,8 +3337,11 @@ function handleSetTheme(theme){
   state.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
   scheduleSave();
+  // .tb-theme-btn only exists on the pre-plan onboarding header now; the
+  // Settings switch is the theme control everywhere else.
   var topBtn = document.querySelector('.tb-theme-btn[data-action="toggle-theme"]');
   if (topBtn) topBtn.innerHTML = theme==='dark'?ICONS.sun:ICONS.moon;
+  patchThemeToggle();
 }
 function handleToggleThemeQuick(){ handleSetTheme(state.theme==='dark'?'light':'dark'); }
 
@@ -3414,14 +3411,23 @@ function renderFullPlanView(){
 // Plan HQ: macro settings only -- block overview, Build New Block, Active
 // Goal, Benchmark, and the full editable VDOT zone tables. No daily
 // logging surface lives here.
-// Programme/race status -- confidence gauge and race countdown, relocated
-// here from the global header (see renderTopbar) so the header stays brand-
-// only on the daily execution tabs. Reuses the gauge/countdown exactly as
-// before, just re-homed; #confidence-gauge-mount and #countdown-mount are
-// still the ids patchDerivedStats()/startCountdownTimer() look for, so the
-// live-updating and mid-log-entry patching behavior is unchanged.
+// Programme/race status -- confidence gauge, race countdown, and the KM/MI
+// unit toggle, all relocated here from the global header (see renderTopbar)
+// so the header stays brand-only everywhere. Reuses the gauge/countdown/
+// unit-toggle markup exactly as before, just re-homed; #confidence-gauge-mount
+// and #countdown-mount are still the ids patchDerivedStats()/
+// startCountdownTimer() look for, so live-updating and log-driven patching
+// is unchanged, and handleSetUnits() already does a full renderApp(), so the
+// pill here stays in sync without any new patch logic.
 function renderProgrammeStatus(){
-  return '<div class="setup-section-title" style="margin-top:0;">Programme Status</div>'+
+  var unitToggle = '<div class="tb-unit-toggle" role="group" aria-label="Distance units">'+
+      '<button type="button" class="'+(state.units!=='mi'?'active':'')+'" data-action="set-units" data-units="km">KM</button>'+
+      '<button type="button" class="'+(state.units==='mi'?'active':'')+'" data-action="set-units" data-units="mi">MI</button>'+
+    '</div>';
+  return '<div class="programme-status-head">'+
+      '<div class="setup-section-title">Programme Status</div>'+
+      unitToggle+
+    '</div>'+
     '<div class="stat-row">'+
       '<div class="stat" id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>'+
       '<div class="stat"><div class="l">Race Day</div><div id="countdown-mount">'+renderCountdown()+'</div></div>'+
@@ -3460,6 +3466,21 @@ function renderNotifyToggleRow(){
     '<label class="switch"><input type="checkbox" data-action="toggle-notify" '+(on?'checked':'')+(supported?'':' disabled')+'><span class="switch-track"></span></label>'+
   '</div>';
 }
+// Theme now lives only here -- the header's old icon-button toggle is gone
+// (see renderTopbar). Switch "on" = dark (the app's default); flipping it
+// calls the exact same handleToggleThemeQuick()/handleSetTheme() the header
+// button used to, so there's still only one theme system.
+function renderThemeToggleRow(){
+  var isDark = state.theme==='dark';
+  return '<div class="connect-row" id="theme-toggle-row">'+
+    '<div><div class="name">App Theme (Dark / Light)</div><div class="desc">'+(isDark?'Dark':'Light')+'</div></div>'+
+    '<label class="switch"><input type="checkbox" data-action="toggle-theme-switch" '+(isDark?'checked':'')+'><span class="switch-track"></span></label>'+
+  '</div>';
+}
+function patchThemeToggle(){
+  var el = document.getElementById('theme-toggle-row');
+  if (el) el.outerHTML = renderThemeToggleRow();
+}
 // Settings hub: everything that used to live behind the FAB's popover menu,
 // now a normal view tab. Sub-options either fire a direct action (save/clear
 // key, export/reset) or open one of the existing modals -- openModal() always
@@ -3467,8 +3488,9 @@ function renderNotifyToggleRow(){
 function renderSettingsHubView(){
   return '<div class="view-heading font-head">Settings</div>'+
     '<div class="hub-card">'+
-      '<div class="setup-section-title">Notifications</div>'+
+      '<div class="setup-section-title">Preferences &amp; Notifications</div>'+
       renderNotifyToggleRow()+
+      renderThemeToggleRow()+
     '</div>'+
     '<div class="hub-card">'+
       '<div class="setup-section-title">Training &amp; Zones</div>'+
@@ -3593,6 +3615,7 @@ document.addEventListener('change', function(e){
   else if (action === 'actual-field') handleActualFieldChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'pace-override') handlePaceOverrideChange(actionEl.getAttribute('data-zone'));
   else if (action === 'toggle-notify') handleToggleNotify();
+  else if (action === 'toggle-theme-switch') handleToggleThemeQuick();
 });
 
 /* drag-and-drop reschedule (desktop enhancement; mobile uses the Swap-with dropdown in Edit Session) */
