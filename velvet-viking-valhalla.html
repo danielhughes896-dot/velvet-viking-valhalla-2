@@ -167,6 +167,10 @@
     padding:4px 6px;
   }
   .cd-cell{font-weight:700; color:#c5a059; font-size:0.7rem; text-align:center; white-space:nowrap;}
+  /* light theme only -- the dark charcoal/gold badge above is untouched.
+     Colour swap only: same size, radius, padding, typography and 2x2 grid. */
+  [data-theme="light"] .countdown-badge{background:#EFECE6; border-color:rgba(197, 160, 89, 0.4);}
+  [data-theme="light"] .cd-cell{color:#2B2317;}
   .cd-race-day{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--gold); font-weight:700;}
 
   /* confidence score fuel gauge — top-left of the header */
@@ -1930,12 +1934,21 @@ function renderCompactPaceReference(){
   if (!state.setup) return '';
   var vdot = getActiveVDOT();
   var paces = getActivePaces();
+  var hrZones = getActiveHRZones();
   var unit = displayUnit();
   var toDisplaySec = function(secPerKm){ return secPerKm==null ? null : (state.units==='mi' ? secPerKm*1.60934 : secPerKm); };
   var rows = ZONE_PACE_ORDER.map(function(k){
     var z = paces[k];
     if (z.fast==null || z.slow==null) return '';
-    return '<div class="pace-ref-row"><span class="pace-ref-label">'+ZONE_PACE_LABELS[k]+'</span>'+
+    // Same BPM sub-label as Plan HQ's zone-paces card: identical .pzr-hr
+    // class and the same fmtHRRange()/getActiveHRZones() source, so the two
+    // cards read as one component and there is no second HR styling or
+    // calculation to keep in sync. The label element is a div (not a span)
+    // so the sub-label nests validly and stacks the same way .pzr-label does.
+    var hrTxt = fmtHRRange(hrZones[k]);
+    return '<div class="pace-ref-row"><div class="pace-ref-label">'+ZONE_PACE_LABELS[k]+
+        (hrTxt ? '<div class="pzr-hr font-mono">'+hrTxt+'</div>' : '')+
+      '</div>'+
       '<span class="pace-ref-val font-mono">'+secToPace(toDisplaySec(z.fast))+'\u2013'+secToPace(toDisplaySec(z.slow))+'/'+unit+'</span></div>';
   }).join('');
   return '<div class="pace-ref-card">'+
