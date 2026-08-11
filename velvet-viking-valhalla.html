@@ -40,9 +40,8 @@
     --modal-surface:#141210; --modal-input-bg:#24201c; --modal-border:#3d352b;
     --modal-active:#c5a059; --modal-active-rgb:197,160,89; --modal-text:#e6dfd5;
     /* the app's one metallic-gold gradient system -- shared by the header
-       title, the VVV emblem mark, and the confidence gauge, so all three
-       read as the same finish instead of three near-miss golds. */
-    --gold-bright:#F5D061; --gold-highlight:#FFE082; --gold-highlight-2:#D4AF37; --gold-deep:#8A6D2B;
+       title and the confidence gauge, so both read as the same finish. */
+    --gold-bright:#F5D061; --gold-deep:#8A6D2B;
     --gold-shadow-1:#7A5C1E; --gold-shadow-2:#543E12;
     --strava-orange:#FC4C02;
     color-scheme:dark;
@@ -91,6 +90,7 @@
     display:flex; align-items:center; justify-content:space-between;
     padding:calc(12px + env(safe-area-inset-top, 0px)) 16px 12px; max-width:var(--maxw); margin:0 auto;
   }
+  .topbar-inner-centered{justify-content:center;}
   .brandmark{display:flex; align-items:center; gap:6px; min-width:0;}
   /* bold metallic 3D gold title -- deliberately fixed regardless of the
      light/dark theme toggle, same rationale as the modal palette. There is
@@ -124,6 +124,10 @@
   .tb-gauge-slot{justify-self:start;}
   .tb-countdown-slot{justify-self:center;}
   .tb-actions-slot{justify-self:end;}
+  /* onboarding screen only -- gauge/countdown are empty, so span all three
+     grid columns and center the lone theme toggle under the title above it,
+     instead of leaving it stranded on the far right with empty space beside it. */
+  .tb-actions-centered{grid-column:1/-1; justify-self:center;}
   .countdown{display:flex; align-items:baseline; gap:10px; justify-content:center;}
   .cd-seg{display:flex; align-items:baseline; gap:2px;}
   .cd-num{font-size:18px; font-weight:700; color:var(--gold);}
@@ -218,10 +222,6 @@
 
   /* ---------- hero / progress ---------- */
   .hero{padding:32px 0 18px; text-align:center; position:relative;}
-  .brandmark .mark{width:26px; height:26px; flex:none; color:var(--bronze); margin-right:2px;}
-  .brandmark .mark svg{width:100%; height:100%; display:block;}
-  .vvv-mark{display:block;}
-  .vvv-mark-sm{width:23px; height:23px; flex:none;}
   .medallion-img{
     width:180px; max-width:60%; height:auto; border-radius:50%; display:block; margin:0 auto;
     box-shadow:0 10px 30px rgba(0,0,0,0.5);
@@ -1257,23 +1257,6 @@ var ICONS = {
   alert: svgWrap('<path d="M12 3.5L22 20H2z"/><line x1="12" y1="9" x2="12" y2="14"/><circle cx="12" cy="17" r="0.7" fill="currentColor" stroke="none"/>'),
   trash: svgWrap('<path d="M4 7h16"/><path d="M9 7V4.5h6V7"/><path d="M6 7l1 13h10l1-13"/>'),
   link: svgWrap('<path d="M9 15l6-6"/><path d="M8 12l-2.5 2.5a3.5 3.5 0 0 0 5 5L13 17"/><path d="M16 12l2.5-2.5a3.5 3.5 0 0 0-5-5L11 7"/>'),
-  emblem: '<svg viewBox="0 0 240 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Velvet Viking emblem">'+
-    '<rect x="92" y="8" width="56" height="32" rx="4" fill="currentColor"/>'+
-    '<rect x="112" y="40" width="16" height="26" fill="currentColor"/>'+
-    '<line x1="86" y1="98" x2="40" y2="52" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>'+
-    '<path d="M42,50 L14,26 Q -8,58 16,86 L 46,58 Z" fill="currentColor"/>'+
-    '<line x1="154" y1="98" x2="200" y2="52" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>'+
-    '<path d="M198,50 L226,26 Q248,58 224,86 L194,58 Z" fill="currentColor"/>'+
-    '<circle cx="120" cy="132" r="62" fill="none" stroke="currentColor" stroke-width="3"/>'+
-    '<circle cx="120" cy="132" r="54" fill="none" stroke="currentColor" stroke-width="1.5"/>'+
-    '<g stroke="currentColor" stroke-width="3.5" stroke-linecap="round">'+
-      '<line x1="120" y1="86" x2="120" y2="114"/><line x1="120" y1="150" x2="120" y2="178"/>'+
-      '<line x1="74" y1="132" x2="102" y2="132"/><line x1="138" y1="132" x2="166" y2="132"/>'+
-      '<line x1="88" y1="100" x2="106" y2="118"/><line x1="134" y1="146" x2="152" y2="164"/>'+
-      '<line x1="152" y1="100" x2="134" y2="118"/><line x1="106" y1="146" x2="88" y2="164"/>'+
-    '</g>'+
-    '<circle cx="120" cy="132" r="10" fill="var(--gold)"/>'+
-  '</svg>',
   target: svgWrap('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>'),
   zap: svgWrap('<path d="M12.5 2.5L4 13h6l-1 8.5L20 11h-6.5z"/>'),
   // Generic activity-pulse glyph for the Strava connect button -- an angular
@@ -1613,22 +1596,9 @@ function totalWeeksInPlan(){ return state.days.length ? state.days[state.days.le
 /* =========================================================
    TOPBAR / HERO / GOAL TOGGLE
    ========================================================= */
-function renderVVVMark(idSuffix, extraClass){
-  var s = idSuffix;
-  return '<svg class="vvv-mark '+(extraClass||'')+'" viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Velvet Viking Valhalla mark">'+
-    '<defs>'+
-      '<linearGradient id="vvvBaseGrad-'+s+'" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="var(--modal-active)"/><stop offset="100%" stop-color="var(--gold-deep)"/></linearGradient>'+
-      '<linearGradient id="vvvTopGrad-'+s+'" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="var(--gold-highlight)"/><stop offset="100%" stop-color="var(--gold-highlight-2)"/></linearGradient>'+
-      '<filter id="vvvShadow-'+s+'" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.45"/></filter>'+
-    '</defs>'+
-    '<path d="M18.0,56.0 L50.4,38.0 L61.2,43.4 L90.0,152.0 L118.8,43.4 L129.6,38.0 L162.0,56.0 L90.0,188.0 Z" fill="url(#vvvBaseGrad-'+s+')"/>'+
-    '<path d="M78.0,56.0 L110.4,38.0 L121.2,43.4 L150.0,152.0 L178.8,43.4 L189.6,38.0 L222.0,56.0 L150.0,188.0 Z" fill="url(#vvvBaseGrad-'+s+')"/>'+
-    '<path d="M74.0,40.0 L94.7,30.0 L105.3,33.0 L120.0,170.0 L134.7,33.0 L145.3,30.0 L166.0,40.0 L120.0,205.0 Z" fill="url(#vvvTopGrad-'+s+')" filter="url(#vvvShadow-'+s+')"/>'+
-  '</svg>';
-}
 function renderTopbar(){
-  var row1 = '<div class="topbar-inner">'+
-    '<div class="brandmark"><span class="mark">'+ICONS.emblem+'</span>'+renderVVVMark('tb','vvv-mark-sm')+'<span class="word word-metallic">Velvet Viking Valhalla</span></div>'+
+  var row1 = '<div class="topbar-inner topbar-inner-centered">'+
+    '<div class="brandmark"><span class="word word-metallic">Velvet Viking Valhalla</span></div>'+
   '</div>';
 
   // Theme toggle lives inline in row 2, alongside the confidence gauge
@@ -1645,7 +1615,10 @@ function renderTopbar(){
         '<button type="button" class="'+(state.units==='mi'?'active':'')+'" data-action="set-units" data-units="mi">MI</button>'+
       '</div>'
     ) : '';
-  var actionsSlot = '<div class="topbar-actions tb-actions-slot">'+
+  // Before a plan exists, the gauge/countdown slots are empty, so
+  // right-aligning the lone theme toggle would leave it stranded far from
+  // the centered title above it -- center it under the title instead.
+  var actionsSlot = '<div class="topbar-actions tb-actions-slot'+(state.setup?'':' tb-actions-centered')+'">'+
       unitToggle+
       '<button class="icon-btn" type="button" data-action="toggle-theme" aria-label="Toggle light/dark theme">'+(state.theme==='dark'?ICONS.sun:ICONS.moon)+'</button>'+
     '</div>';
