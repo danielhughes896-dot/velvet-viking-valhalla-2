@@ -745,6 +745,13 @@
   }
   .coach-why-list li{font-size:11.5px; color:var(--ink-dim); line-height:1.55; margin:3px 0; overflow-wrap:anywhere;}
   /* ---------- conditional morning check ---------- */
+  .evo-link{display:block; text-align:left;}
+  .evo-panel{margin-top:9px; padding:10px 11px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .evo-sec + .evo-sec{margin-top:9px;}
+  .evo-k{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze); margin-bottom:3px;}
+  .evo-v{font-size:11.5px; color:var(--ink-dim); line-height:1.5; overflow-wrap:anywhere;}
+  .evo-list{margin:0; padding-left:17px; list-style:disc;}
+  .evo-list li{font-size:11.5px; color:var(--ink); line-height:1.55; margin:2px 0; overflow-wrap:anywhere;}
   .readiness{margin-top:11px; padding:10px 11px; background:var(--bg-2); border:1px dashed var(--line); border-radius:var(--radius-sm);}
   .readiness-head{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze); margin-bottom:8px;}
   .readiness-row{display:flex; align-items:center; gap:8px; margin-top:6px;}
@@ -4822,6 +4829,447 @@ function positiveTrends(){
   return athleteTrends().filter(function(t){ return t.direction==='positive'; });
 }
 
+/* =========================================================
+   PHASE 4 — PLAN EVOLUTION
+   ---------------------------------------------------------
+   VVV is not trying to maximise completed workouts. It is trying to maximise
+   useful training. So this layer does not rebuild the plan; it asks one
+   question about the next week or two -- "is the training already scheduled
+   still the best useful training?" -- and, when the answer is no, proposes
+   the SMALLEST change that fixes it.
+
+   Everything it reasons over already exists: coachDecision() for the state,
+   athleteTrends() for the evidence, trainingPhase() for where the block is.
+   No parallel metrics, no new baselines, no model call.
+
+   Nothing here mutates the plan. Proposals are objects; only the athlete's
+   tap applies one.
+   ========================================================= */
+
+/* ---------- what each session is FOR ----------
+   Derived, never stored: the plan's own structure already says this, and a
+   stored copy would drift the moment a session was edited. */
+var SESSION_IMPORTANCE = { KEY:'KEY', SUPPORT:'SUPPORT', RECOVERY:'RECOVERY', OPTIONAL:'OPTIONAL' };
+function sessionImportance(dd){
+  if (!dd || dd.type==='rest') return null;
+  if (dd.type==='race' || dd.type==='checkpoint') return 'KEY';
+  if (['threshold','interval','repetition'].indexOf(dd.type)!==-1) return 'KEY';
+  if (dd.type==='long') return (dd.mpSegment || dd.km >= 16) ? 'KEY' : 'SUPPORT';
+  if (dd.type==='tempo') return 'SUPPORT';
+  if (dd.type==='easy'){
+    // The shortest easy runs of the week are the ones that can go first: they
+    // carry the least stimulus and cost the most recovery per unit of value
+    // when the athlete is already struggling.
+    return dd.km!=null && dd.km <= 6 ? 'OPTIONAL' : 'RECOVERY';
+  }
+  return 'SUPPORT';
+}
+function isQualityType(t){
+  return ['threshold','interval','repetition','tempo','checkpoint','race'].indexOf(t)!==-1;
+}
+
+/* ---------- stimulus, not kilometres ----------
+   A 60km week with the wrong stimulus is worse than a 52km week with the
+   right one, so evolution is judged on what training the horizon actually
+   delivers rather than how many sessions survived. */
+function horizonStimulus(days){
+  var out = { easyKm:0, longKm:0, thresholdKm:0, intervalKm:0, tempoKm:0,
+              qualityExposures:0, longRuns:0, totalKm:0, sessions:0 };
+  (days||[]).forEach(function(dd){
+    if (!dd || dd.type==='rest') return;
+    var km = dd.km || 0;
+    out.totalKm += km; out.sessions++;
+    if (dd.type==='easy') out.easyKm += km;
+    else if (dd.type==='long'){ out.longKm += km; out.longRuns++; }
+    else if (dd.type==='threshold'){ out.thresholdKm += km; out.qualityExposures++; }
+    else if (dd.type==='interval' || dd.type==='repetition'){ out.intervalKm += km; out.qualityExposures++; }
+    else if (dd.type==='tempo'){ out.tempoKm += km; out.qualityExposures++; }
+    else if (dd.type==='checkpoint' || dd.type==='race'){ out.qualityExposures++; }
+  });
+  out.totalKm = Math.round(out.totalKm*10)/10;
+  return out;
+}
+// Did the reshape keep the training that mattered?
+function stimulusPreserved(before, after){
+  return { qualityKept: after.qualityExposures >= before.qualityExposures,
+           longKept: after.longRuns >= before.longRuns,
+           volumeDelta: Math.round((after.totalKm - before.totalKm)*10)/10 };
+}
+
+/* ---------- the horizon ---------- */
+var EVOLUTION_HORIZON_DAYS = 7;
+var EVOLUTION_MAX_HORIZON = 14;
+function evolutionHorizon(days){
+  var today = todayStr();
+  var to = addDays(today, (days || EVOLUTION_HORIZON_DAYS) - 1);
+  return state.days.filter(function(dd){
+    return dd.date >= today && dd.date <= to;
+  }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+}
+/* Two demanding sessions on consecutive days. Reported against the ORIGINAL
+   plan too, so a stacking the methodology deliberately intended is never
+   "fixed", and a stacking evolution would create is never allowed. */
+function stackedQualityPairs(list){
+  var out = [];
+  var hard = list.filter(function(dd){
+    return dd.type!=='rest' && (isQualityType(dd.type) || sessionImportance(dd)==='KEY');
+  }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  for (var i=1;i<hard.length;i++){
+    if (hard[i].date === addDays(hard[i-1].date, 1)) out.push([hard[i-1].id, hard[i].id]);
+  }
+  return out;
+}
+
+/* ---------- missed training is not a debt ----------
+   The question is never "how many kilometres are owed" -- it is "which useful
+   stimulus is still missing, and is recovering it worth more than the cost of
+   squeezing it in". Often the honest answer is that nothing is missing. */
+function missedStimulus(){
+  var today = todayStr();
+  var phase = trainingPhase(currentWeekNum());
+  var recent = state.days.filter(function(dd){
+    return !dd.completed && dd.type!=='rest' && !dd.coachAdjust &&
+           dd.date < today && dd.date >= addDays(today, -4);
+  }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  return recent.map(function(dd){
+    var imp = sessionImportance(dd);
+    // Easy and recovery mileage is never worth rescheduling: its value was the
+    // day it would have happened. Taper never makes anything up.
+    var worth = (phase!=='Taper' && phase!=='Race Week') &&
+                (imp==='KEY') && isQualityType(dd.type);
+    return { dayId:dd.id, date:dd.date, type:dd.type, km:dd.km,
+             importance:imp, stimulusStillUseful:worth,
+             reason: phase==='Taper' || phase==='Race Week'
+                       ? 'Taper — volume is not made up.'
+                       : imp==='KEY' && isQualityType(dd.type)
+                         ? 'The threshold/interval stimulus is still worth having this week.'
+                         : 'Easy and recovery mileage is worth what it was worth on the day. Let it go.' };
+  });
+}
+
+/* ---------- proposal identity ----------
+   Two renders of the same evidence must produce the same proposal, and a
+   declined proposal must stay declined until something genuinely changes.
+   The hash is over the EVIDENCE, not the clock. */
+function evolutionEvidenceHash(dec, trends, horizon){
+  var parts = [
+    dec ? dec.state : 'none',
+    (trends||[]).map(function(t){ return t.id+':'+t.confidence; }).sort().join('|'),
+    trainingPhase(currentWeekNum()),
+    (horizon||[]).map(function(dd){
+      return dd.id+':'+dd.type+':'+(dd.km||0)+':'+(dd.completed?1:0);
+    }).join('|'),
+    missedStimulus().filter(function(m){ return m.stimulusStillUseful; })
+      .map(function(m){ return m.dayId; }).join('|')
+  ];
+  var str = parts.join('#');
+  // small deterministic string hash -- identity only, never security
+  var h = 5381;
+  for (var i=0;i<str.length;i++){ h = ((h*33) ^ str.charCodeAt(i)) >>> 0; }
+  return 'ev'+h.toString(36);
+}
+function planShapeHash(list){
+  var str = (list||[]).map(function(dd){
+    return dd.date+':'+dd.type+':'+(dd.km||0);
+  }).join('|');
+  var h = 5381;
+  for (var i=0;i<str.length;i++){ h = ((h*33) ^ str.charCodeAt(i)) >>> 0; }
+  return 'pl'+h.toString(36);
+}
+
+/* =========================================================
+   THE EVOLUTION DECISION
+   ========================================================= */
+var EVOLUTION_META = {
+  HOLD:    { label:'Hold',    cls:'proceed', text:'Current structure remains appropriate.' },
+  MONITOR: { label:'Monitor', cls:'check',   text:'Evidence is building, but not enough to reshape the week.' },
+  ADAPT:   { label:'Adapt',   cls:'modify',  text:'Upcoming training should be reshaped while keeping the block on purpose.' },
+  RECOVER: { label:'Recover', cls:'recover', text:'Recovery currently outranks planned progression.' }
+};
+function planEvolution(){
+  if (!state.setup || !state.days || !state.days.length) return null;
+  var dec = coachDecision();
+  var trends = athleteTrends();
+  var phase = trainingPhase(currentWeekNum());
+  var horizon = evolutionHorizon(EVOLUTION_HORIZON_DAYS);
+  var pending = horizon.filter(function(dd){ return !dd.completed && dd.type!=='rest'; });
+
+  // The state is the coach's existing decision, not a second opinion.
+  var stateName = !dec ? 'HOLD'
+    : dec.state==='recover' ? 'RECOVER'
+    : dec.state==='modify'  ? 'ADAPT'
+    : dec.state==='check'   ? 'MONITOR'
+    : 'HOLD';
+
+  var missed = missedStimulus();
+  var recoverable = missed.filter(function(m){ return m.stimulusStillUseful; });
+  // A missed key session is a reason to reshape even when the athlete is fine.
+  if (stateName==='HOLD' && recoverable.length) stateName = 'ADAPT';
+
+  var reasons = [];
+  if (dec && dec.reasons.length) reasons = dec.reasons.slice(0,2);
+  if (recoverable.length)
+    reasons.push('A '+(TYPE_META[recoverable[0].type]||{label:recoverable[0].type}).label.toLowerCase()+
+                 ' session went unlogged on '+dShort(recoverable[0].date)+' and the stimulus is still worth having.');
+
+  var before = horizonStimulus(pending);
+  var changes = [];
+  var protectedSessions = [];
+
+  if (stateName==='ADAPT' || stateName==='RECOVER'){
+    changes = evolutionChanges(stateName, phase, pending, recoverable);
+    protectedSessions = pending.filter(function(dd){
+      return sessionImportance(dd)==='KEY' &&
+             !changes.some(function(c){ return c.dayId===dd.id && (c.kind==='downgrade' || c.kind==='drop'); });
+    }).map(function(dd){ return { dayId:dd.id, date:dd.date, title:dd.title, why:'KEY session' }; });
+  }
+  if (!changes.length && stateName==='ADAPT') stateName = 'MONITOR';   // nothing useful to do
+
+  var after = horizonStimulus(applyChangesToCopy(pending, changes));
+  var horizonDays = changes.some(function(c){ return c.kind==='move'; })
+    ? EVOLUTION_MAX_HORIZON : EVOLUTION_HORIZON_DAYS;
+
+  return {
+    state: stateName,
+    confidence: evolutionConfidence(dec, trends, recoverable),
+    horizonDays: horizonDays,
+    reasons: reasons.slice(0,3),
+    changes: changes,
+    protectedSessions: protectedSessions,
+    displacedSessions: changes.filter(function(c){ return c.kind==='move'; })
+                              .map(function(c){ return { dayId:c.dayId, from:c.date, to:c.toDate }; }),
+    stimulus: { before:before, after:after, preserved:stimulusPreserved(before, after) },
+    missed: missed,
+    phase: phase,
+    evidenceHash: evolutionEvidenceHash(dec, trends, horizon),
+    originalPlanHash: planShapeHash(pending),
+    evolvedPlanHash: planShapeHash(applyChangesToCopy(pending, changes))
+  };
+}
+function evolutionConfidence(dec, trends, recoverable){
+  if (recoverable.length) return 'established';        // a missed session is a fact
+  var est = (trends||[]).filter(function(t){ return t.confidence==='established' && t.direction==='negative'; });
+  if (est.length) return 'established';
+  var emg = (trends||[]).filter(function(t){ return t.confidence==='emerging' && t.direction==='negative'; });
+  if (emg.length || (dec && dec.state!=='proceed')) return 'emerging';
+  return 'insufficient';
+}
+
+/* ---------- the adaptation hierarchy ----------
+   Ordered cheapest-first, and it STOPS at the first step that solves the
+   problem. Changing three sessions when one achieves the same physiological
+   objective is not thoroughness, it is churn. */
+function evolutionChanges(stateName, phase, pending, recoverable){
+  var out = [];
+  var byDate = pending.slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  /* A session the coach has already reshaped is settled, and is never a
+     candidate again. Without this the same day is re-cut to 70% of its new
+     length on every render, and a plan quietly collapses one acceptance at a
+     time -- which is the opposite of protecting the block. `byDate` is still
+     used wherever the FULL shape of the week matters, such as spacing. */
+  var open = byDate.filter(function(dd){ return !dd.coachAdjust; });
+
+  // ---- RECOVER: protect the next demanding session, and only that ----
+  if (stateName==='RECOVER'){
+    var nextKey = open.filter(function(dd){ return sessionImportance(dd)==='KEY'; })[0];
+    if (nextKey){
+      out.push({ kind:'downgrade', dayId:nextKey.id, date:nextKey.date,
+                 fromType:nextKey.type, toType:'easy',
+                 fromKm:nextKey.km, toKm:Math.max(1, Math.round(nextKey.km*0.7*2)/2),
+                 why:'Recovery evidence outranks this session’s stimulus right now.' });
+      return out;
+    }
+    var biggest = open.slice().sort(function(a,b){ return (b.km||0)-(a.km||0); })[0];
+    if (biggest) out.push({ kind:'reduce', dayId:biggest.id, date:biggest.date,
+      fromKm:biggest.km, toKm:Math.max(1, Math.round(biggest.km*0.7*2)/2),
+      why:'Easing the largest session while recovery is the priority.' });
+    return out;
+  }
+
+  // ---- rescheduling a missed KEY stimulus, where spacing allows ----
+  if (recoverable.length && phase!=='Taper' && phase!=='Race Week'){
+    var lost = recoverable[0];
+    var slot = open.filter(function(dd){
+      if (dd.type!=='rest' && sessionImportance(dd)!=='OPTIONAL' && sessionImportance(dd)!=='RECOVERY') return false;
+      // placing quality here must not create a back-to-back demanding pair
+      var trial = byDate.map(function(x){
+        return x.id===dd.id ? { id:x.id, date:x.date, type:lost.type, km:lost.km, mpSegment:false } : x;
+      });
+      return stackedQualityPairs(trial).length <= stackedQualityPairs(byDate).length;
+    })[0];
+    if (slot){
+      out.push({ kind:'reschedule', dayId:slot.id, date:slot.date,
+                 fromType:slot.type, toType:lost.type,
+                 fromKm:slot.km, toKm:lost.km, sourceDayId:lost.dayId,
+                 why:'Recovering the missed '+(TYPE_META[lost.type]||{label:lost.type}).label.toLowerCase()+
+                     ' stimulus without stacking it against another hard day.' });
+    }
+    // If there is no safe slot, that is the answer: the stimulus is let go.
+    return out;
+  }
+
+  // ---- ADAPT, cheapest intervention first ----
+  // 1. the least valuable mileage in the horizon
+  var optional = open.filter(function(dd){ return sessionImportance(dd)==='OPTIONAL'; });
+  if (optional.length){
+    var o = optional[0];
+    out.push({ kind:'reduce', dayId:o.id, date:o.date, fromKm:o.km,
+               toKm:Math.max(1, Math.round(o.km*0.6*2)/2),
+               why:'Trimming the lowest-value mileage first, which costs no training stimulus.' });
+    return out;
+  }
+  // 2. recovery/support mileage
+  var support = open.filter(function(dd){
+    var i = sessionImportance(dd);
+    return (i==='RECOVERY' || i==='SUPPORT') && (dd.km||0) >= 6;
+  }).sort(function(a,b){ return (b.km||0)-(a.km||0); });
+  if (support.length){
+    var sp = support[0];
+    out.push({ kind:'reduce', dayId:sp.id, date:sp.date, fromKm:sp.km,
+               toKm:Math.max(1, Math.round(sp.km*0.75*2)/2),
+               why:'Shortening aerobic support mileage protects the week’s key sessions.' });
+    return out;
+  }
+  // 3. spacing: move the later of a stacked pair one day, if a safe day exists
+  var stacked = stackedQualityPairs(byDate);
+  if (stacked.length){
+    var later = open.filter(function(dd){ return dd.id===stacked[0][1]; })[0];
+    var target = later && open.filter(function(dd){
+      return dd.date > later.date && (dd.type==='rest' || sessionImportance(dd)==='RECOVERY') &&
+             daysBetween(later.date, dd.date) <= 2;
+    })[0];
+    if (later && target){
+      var trial = byDate.map(function(x){
+        if (x.id===target.id) return { id:x.id, date:x.date, type:later.type, km:later.km };
+        if (x.id===later.id)  return { id:x.id, date:x.date, type:target.type, km:target.km };
+        return x;
+      });
+      if (stackedQualityPairs(trial).length < stacked.length){
+        out.push({ kind:'move', dayId:later.id, date:later.date, toDate:target.date,
+                   swapWithId:target.id,
+                   why:'Giving the two demanding sessions a day between them.' });
+        return out;
+      }
+    }
+  }
+  // 4. last resort inside ADAPT: shorten the biggest KEY session, keeping its type
+  var keys = open.filter(function(dd){ return sessionImportance(dd)==='KEY'; })
+                 .sort(function(a,b){ return (b.km||0)-(a.km||0); });
+  if (keys.length){
+    var k = keys[0];
+    out.push({ kind:'reduce', dayId:k.id, date:k.date, fromKm:k.km,
+               toKm:Math.max(1, Math.round(k.km*0.8*2)/2),
+               why:'Keeping the session and its stimulus, with less volume.' });
+  }
+  return out;
+}
+// A copy of the horizon with the proposal applied, used to compare stimulus
+// and to hash the evolved shape. Never touches real days.
+function applyChangesToCopy(pending, changes){
+  var copy = pending.map(function(dd){
+    return { id:dd.id, date:dd.date, type:dd.type, km:dd.km, mpSegment:dd.mpSegment, completed:dd.completed };
+  });
+  (changes||[]).forEach(function(c){
+    var d = copy.filter(function(x){ return x.id===c.dayId; })[0];
+    if (!d) return;
+    if (c.kind==='reduce') d.km = c.toKm;
+    else if (c.kind==='downgrade'){ d.type = c.toType; d.km = c.toKm; }
+    else if (c.kind==='reschedule'){ d.type = c.toType; d.km = c.toKm; }
+    else if (c.kind==='drop'){ d.type = 'rest'; d.km = 0; }
+    else if (c.kind==='move'){
+      var other = copy.filter(function(x){ return x.id===c.swapWithId; })[0];
+      if (other){
+        var t = { type:d.type, km:d.km }; d.type = other.type; d.km = other.km;
+        other.type = t.type; other.km = t.km;
+      }
+    }
+  });
+  return copy;
+}
+
+/* ---------- proposing, accepting, declining ----------
+   Nothing is applied without the tap, a decline is respected until the
+   evidence genuinely changes, and every decision is recorded. */
+function evolutionProposalVisible(ev){
+  if (!ev || !ev.changes.length) return false;
+  var st = state.evolution || {};
+  return st.declinedHash !== ev.evidenceHash;
+}
+function handleAcceptEvolution(){
+  var ev = planEvolution();
+  if (!ev || !ev.changes.length) return;
+  var applied = [];
+  ev.changes.forEach(function(c){
+    var dd = findDay(c.dayId);
+    if (!dd || dd.completed) return;
+    var from = { km:dd.km, type:dd.type, title:dd.title, desc:dd.desc };
+    if (c.kind==='reduce'){
+      dd.km = c.toKm; dd.desc = resolveDescForReducedDistance(dd.desc, c.toKm);
+    } else if (c.kind==='downgrade'){
+      dd.km = c.toKm; dd.type = 'easy'; dd.title = 'Easy Aerobic';
+      dd.desc = '@@D:'+c.toKm+'@@ @ Easy pace.';
+    } else if (c.kind==='reschedule'){
+      var src = findDay(c.sourceDayId);
+      dd.type = c.toType; dd.km = c.toKm;
+      dd.title = src ? src.title : dd.title;
+      dd.desc = src ? src.desc : dd.desc;
+    } else if (c.kind==='move'){
+      var other = findDay(c.swapWithId);
+      if (other && !other.completed){
+        var tmp = { type:dd.type, title:dd.title, km:dd.km, desc:dd.desc, mpSegment:dd.mpSegment };
+        dd.type=other.type; dd.title=other.title; dd.km=other.km; dd.desc=other.desc; dd.mpSegment=other.mpSegment;
+        other.type=tmp.type; other.title=tmp.title; other.km=tmp.km; other.desc=tmp.desc; other.mpSegment=tmp.mpSegment;
+        other.coachAdjust = { at:new Date().toISOString(), reason:c.why, evidence:ev.reasons.slice(),
+                              state:ev.state, source:'evolution',
+                              from:{ km:tmp.km, type:tmp.type, title:tmp.title, desc:tmp.desc } };
+      }
+    }
+    dd.coachAdjust = { at:new Date().toISOString(), reason:c.why, evidence:ev.reasons.slice(),
+                       state:ev.state, source:'evolution', from:from };
+    applied.push(c);
+  });
+  recordEvolution(ev, true, applied);
+  state.evolution = { declinedHash:null, lastAcceptedHash:ev.evidenceHash };
+  flushSave();
+  renderApp();
+  showToast(applied.length===1 ? 'Plan evolved — one session changed'
+                               : 'Plan evolved — '+applied.length+' sessions changed');
+}
+function handleDeclineEvolution(){
+  var ev = planEvolution();
+  if (!ev) return;
+  // Respected until materially new evidence appears -- never asked again for
+  // the same reasons, and never counted against the athlete.
+  state.evolution = { declinedHash:ev.evidenceHash, lastAcceptedHash:(state.evolution||{}).lastAcceptedHash||null };
+  recordEvolution(ev, false, []);
+  flushSave();
+  renderApp();
+  showToast('Keeping the current plan');
+}
+// Append-only. History is never rewritten, so a later pass can see whether an
+// athlete is being asked to change the same thing over and over.
+function recordEvolution(ev, accepted, applied){
+  state.evolutionHistory = state.evolutionHistory || [];
+  state.evolutionHistory.push({
+    at: new Date().toISOString(),
+    date: todayStr(),
+    state: ev.state,
+    confidence: ev.confidence,
+    reasons: ev.reasons.slice(),
+    changes: (accepted ? applied : ev.changes).map(function(c){
+      return { kind:c.kind, dayId:c.dayId, date:c.date, toDate:c.toDate||null,
+               fromKm:c.fromKm!=null?c.fromKm:null, toKm:c.toKm!=null?c.toKm:null,
+               fromType:c.fromType||null, toType:c.toType||null };
+    }),
+    protectedSessions: ev.protectedSessions.map(function(p){ return p.dayId; }),
+    evidenceHash: ev.evidenceHash,
+    originalPlanHash: ev.originalPlanHash,
+    evolvedPlanHash: ev.evolvedPlanHash,
+    accepted: !!accepted
+  });
+  if (state.evolutionHistory.length > 60) state.evolutionHistory = state.evolutionHistory.slice(-60);
+}
+
 /* ---------- the single report every surface reads ---------- */
 function coachAnalyse(){
   if (!state.setup || !state.days || !state.days.length) return null;
@@ -4842,7 +5290,8 @@ function coachAnalyse(){
     noticed: coachNoticed(),
     watch: coachWatch(load, recovery, confidence),
     nextMove: coachNextMove(load, recovery, trend, status),
-    decision: coachDecision()
+    decision: coachDecision(),
+    evolution: planEvolution()
   };
 }
 
@@ -5889,6 +6338,7 @@ function renderCoachNextMoveCard(report){
     }
   }
   body += renderReadinessCheck(dec);
+  body += renderEvolutionLink();
 
   if (adj){
     body += '<div class="coach-adjust">'+
@@ -5918,6 +6368,62 @@ function renderCoachNextMoveCard(report){
     body+
   '</div>';
 }
+/* Plan Evolution on TODAY is one line, and only when there is genuinely a
+   multi-day proposal to look at. Tapping expands it inside the same card --
+   no second dashboard, no seven-day table living permanently on TODAY. */
+var evolutionOpen = false;
+function renderEvolutionLink(){
+  var ev = planEvolution();
+  if (!evolutionProposalVisible(ev)) return '';
+  var n = ev.changes.length;
+  if (!evolutionOpen){
+    return '<button type="button" class="coach-why-btn evo-link" data-action="toggle-evolution" '+
+             'aria-expanded="false">7-day plan · '+n+' change'+(n===1?'':'s')+' suggested</button>';
+  }
+  return '<button type="button" class="coach-why-btn evo-link" data-action="toggle-evolution" '+
+           'aria-expanded="true">7-day plan</button>'+
+         renderEvolutionProposal(ev, 'today');
+}
+/* The proposal itself: why, what, what is protected, and what it costs. The
+   same markup serves TODAY and Plan HQ. */
+function renderEvolutionProposal(ev, where){
+  if (!ev || !ev.changes.length) return '';
+  var line = function(c){
+    var dd = findDay(c.dayId);
+    var name = dd ? (dd.title || (TYPE_META[dd.type]||{}).label) : 'Session';
+    if (c.kind==='reduce')     return dShort(c.date)+' '+name+' → '+fmtDist(c.toKm)+' (was '+fmtDist(c.fromKm)+')';
+    if (c.kind==='downgrade')  return dShort(c.date)+' '+name+' → easy '+fmtDist(c.toKm);
+    if (c.kind==='reschedule') return dShort(c.date)+' → '+(TYPE_META[c.toType]||{}).label+' '+fmtDist(c.toKm);
+    if (c.kind==='move')       return dShort(c.date)+' '+name+' → '+dShort(c.toDate);
+    if (c.kind==='drop')       return dShort(c.date)+' '+name+' → rest';
+    return dShort(c.date)+' '+name;
+  };
+  var vol = ev.stimulus.preserved.volumeDelta;
+  return '<div class="evo-panel">'+
+    '<div class="evo-sec"><div class="evo-k">Why</div><div class="evo-v">'+
+      escapeHtml(ev.reasons[0] || EVOLUTION_META[ev.state].text)+'</div></div>'+
+    '<div class="evo-sec"><div class="evo-k">Changes · next '+ev.horizonDays+' days</div>'+
+      '<ul class="evo-list">'+ev.changes.map(function(c){
+        return '<li>'+escapeHtml(line(c))+'</li>'; }).join('')+'</ul></div>'+
+    (ev.protectedSessions.length
+      ? '<div class="evo-sec"><div class="evo-k">Protected</div><div class="evo-v">'+
+          escapeHtml(ev.protectedSessions.map(function(p){
+            return (findDay(p.dayId)||{}).title || 'Key session'; }).slice(0,3).join(' · '))+
+        '</div></div>' : '')+
+    '<div class="evo-sec"><div class="evo-k">Training kept</div><div class="evo-v">'+
+      escapeHtml(
+        (ev.stimulus.preserved.qualityKept ? 'Quality exposures unchanged ('+ev.stimulus.after.qualityExposures+')'
+                                           : 'Quality reduced to '+ev.stimulus.after.qualityExposures)+
+        (ev.stimulus.preserved.longKept ? ' · long run kept' : ' · long run changed')+
+        (vol ? ' · volume '+(vol>0?'+':'')+vol+'km' : ' · volume unchanged'))+
+      '</div></div>'+
+    '<div class="coach-actions">'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="accept-evolution">Accept Evolution</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="decline-evolution">Keep Current Plan</button>'+
+    '</div>'+
+  '</div>';
+}
+
 /* The morning check. Not a permanent questionnaire: it appears only when the
    engine already has a concern and a quality session is next, and it
    disappears the moment it is answered. Answers inform the decision only --
@@ -5977,6 +6483,20 @@ function hqSection(key, title, summary, bodyHtml){
     '</button>'+
     (open ? '<div class="hq-sec-body">'+bodyHtml+'</div>' : '')+
   '</div>';
+}
+function renderEvolutionSection(ev){
+  if (!ev) return '<div class="hq-empty">No plan to evolve yet.</div>';
+  var meta = EVOLUTION_META[ev.state];
+  var head = '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(meta.label)+'</span>'+
+             '<span class="hq-row-v">'+escapeHtml(ev.confidence)+'</span></div>'+
+             '<div class="hq-empty" style="margin:4px 0 8px;">'+escapeHtml(
+               ev.changes.length ? (ev.changes.length+' change'+(ev.changes.length===1?'':'s')+
+                                    ' suggested across the next '+ev.horizonDays+' days.')
+                                 : meta.text)+'</div>';
+  if (!ev.changes.length) return head;
+  if (!evolutionProposalVisible(ev))
+    return head+'<div class="hq-empty">You kept the current plan. This will not be raised again unless the evidence changes.</div>';
+  return head+renderEvolutionProposal(ev, 'hq');
 }
 function hqRow(label, value){
   return '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(label)+'</span>'+
@@ -6047,6 +6567,9 @@ function renderRaceReadinessCard(report){
     '</div>'+
     hqSection('readiness',planHasEvent()?'Race readiness':'Goal readiness', conf!=null?conf+'% confidence':'—', goalBody)+
     hqSection('recovery','Recovery & fatigue', { fresh:'Fresh', watch:'Watch', strained:'Strained' }[report.recovery.state], recoveryBody)+
+    hqSection('evolution','Plan evolution',
+      EVOLUTION_META[(report.evolution||{state:'HOLD'}).state].label,
+      renderEvolutionSection(report.evolution))+
     hqSection('patterns','Recent patterns',
       shown.length ? shown.length+' noted' : 'learning', patternsBody)+
     hqSection('adaptation','Adaptation history', bts.length+' breakthrough'+(bts.length===1?'':'s'), adaptBody)+
@@ -7937,6 +8460,9 @@ document.addEventListener('click', function(e){
     case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;
     case 'set-event-mode': handleSetEventMode(target.getAttribute('data-event-mode')); break;
     case 'coach-why': handleCoachWhy(target.getAttribute('data-day')); break;
+    case 'toggle-evolution': evolutionOpen = !evolutionOpen; renderApp(); break;
+    case 'accept-evolution': handleAcceptEvolution(); break;
+    case 'decline-evolution': handleDeclineEvolution(); break;
     case 'set-readiness': handleSetReadiness(target.getAttribute('data-rk'), target.getAttribute('data-rv')); break;
     case 'toggle-hq-section': handleToggleHQSection(target.getAttribute('data-section')); break;
     case 'notes-wand': handleNotesWand(target.getAttribute('data-day')); break;
