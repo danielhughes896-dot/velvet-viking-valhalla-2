@@ -3466,6 +3466,9 @@ function openSettingsModal(){
     '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-json">'+ICONS.download+' Export Full Backup (JSON)</button>'+
     '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="import-json" data-target="import-json-input">'+ICONS.upload+' Import Backup (JSON)</button>'+
     '<input type="file" accept=".json,application/json" id="import-json-input" class="file-input-offscreen">'+
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="copy-backup">'+ICONS.copy+' Copy Backup to Clipboard</button>'+
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="paste-backup">'+ICONS.upload+' Paste Backup</button>'+
+    '<div class="field-hint" style="margin-bottom:14px;">Copy/paste works on any version of the app, so use it to move a plan across a reinstall.</div>'+
     '<div class="divider-or"><div class="rule"></div>Sync<div class="rule"></div></div>'+
     '<div class="connect-row"><div><div class="name">Strava &amp; Garmin</div><div class="desc">'+(isStravaConnected()?'Strava connected':'Connect or import a file')+'</div></div><button type="button" class="btn btn-sm btn-ghost" data-action="open-import">'+ICONS.link+' Tools &amp; Import</button></div>'+
     (state.setup ? (
@@ -3504,6 +3507,74 @@ function handleImportJsonClick(target){
   var input = id ? document.getElementById(id) : null;
   if (input) input.click();
 }
+// Restoring a backup, whichever way the text arrived -- a picked file or a
+// pasted blob. Returns false and leaves the current plan alone if the text is
+// not a backup, so a bad paste can never wipe what is already here.
+function applyBackupText(text){
+  var parsed;
+  try{
+    parsed = JSON.parse(text);
+    if (!parsed || !parsed.days || !Array.isArray(parsed.days)) throw new Error('bad shape');
+  }catch(err){
+    showToast('That doesn\u2019t look like a Velvet Viking backup');
+    return false;
+  }
+  state = Object.assign({}, makeDefaultState(), parsed);
+  closeModal();
+  initExpanded();
+  renderApp();
+  // Write straight through rather than on the debounce: an import is usually
+  // the first thing done on a fresh install, and the app may well be closed
+  // again immediately afterwards.
+  flushSave();
+  showToast('Backup imported');
+  return true;
+}
+
+/* ---------- clipboard backup ----------
+   The file export needs native plugins, which only exist in a freshly built
+   APK. Copy/paste needs nothing but the WebView, so it is the one route out
+   of an already-installed build -- paste it into a note or a message, then
+   paste it back after reinstalling. */
+function handleCopyBackup(){
+  var text = JSON.stringify(state);
+  var done = function(){ showToast('Backup copied \u2014 paste it somewhere safe'); };
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done, function(){ copyViaTextarea(text, done); });
+  } else copyViaTextarea(text, done);
+}
+// execCommand('copy') only works on a selection in the document, so the text
+// has to live in a real textarea for a moment. Off-screen, not display:none.
+function copyViaTextarea(text, done){
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.className = 'file-input-offscreen';
+  ta.style.height = '1px';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  var okCopy = false;
+  try{ okCopy = document.execCommand('copy'); }catch(e){ okCopy = false; }
+  document.body.removeChild(ta);
+  if (okCopy) done();
+  else showToast('Couldn\u2019t copy automatically \u2014 use Export instead');
+}
+function openPasteBackupModal(){
+  openModal(
+    '<div class="modal-head"><h2 class="font-head">Paste Backup</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body">'+
+      '<div class="field-hint" style="margin-bottom:10px;">Paste the backup text you copied from your other install. This replaces the plan on this device.</div>'+
+      '<textarea id="paste-backup-area" class="export-text" style="min-height:150px;" placeholder="Paste your backup here"></textarea>'+
+      '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" data-action="restore-pasted">'+ICONS.upload+' Restore This Backup</button>'+
+    '</div>'
+  );
+}
+function handleRestorePasted(){
+  var ta = document.getElementById('paste-backup-area');
+  var text = ta && ta.value ? ta.value.trim() : '';
+  if (!text){ showToast('Paste your backup text first'); return; }
+  applyBackupText(text);
+}
+
 function handleImportJsonFile(e){
   var input = e.target;
   var file = input.files && input.files[0];
@@ -3511,19 +3582,7 @@ function handleImportJsonFile(e){
   // Clear the input so re-picking the same file fires change again.
   var resetInput = function(){ try{ input.value = ''; }catch(err){} };
   var finish = function(text){
-    try{
-      var parsed = JSON.parse(text);
-      if (!parsed.days || !Array.isArray(parsed.days)) throw new Error('bad shape');
-      state = Object.assign({}, makeDefaultState(), parsed);
-      closeModal();
-      initExpanded();
-      renderApp();
-      // Write straight through rather than on the debounce: an import is
-      // usually the first thing done on a fresh install, and the app may well
-      // be closed again immediately afterwards.
-      flushSave();
-      showToast('Backup imported');
-    }catch(err){ showToast('That file doesn\u2019t look like a Velvet Viking backup'); }
+    applyBackupText(text);
     resetInput();
   };
   var readWithFileReader = function(){
@@ -4258,6 +4317,9 @@ function renderSettingsHubView(){
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-json">'+ICONS.download+' Export Full Backup (JSON)</button>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="import-json" data-target="import-json-input-hub">'+ICONS.upload+' Import Backup (JSON)</button>'+
       '<input type="file" accept=".json,application/json" id="import-json-input-hub" class="file-input-offscreen">'+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="copy-backup">'+ICONS.copy+' Copy Backup to Clipboard</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="paste-backup">'+ICONS.upload+' Paste Backup</button>'+
+      '<div class="field-hint" style="margin:8px 0 14px;">Copy/paste works on any version of the app, so use it to move a plan across a reinstall.</div>'+
       '<button type="button" class="btn btn-danger btn-block" data-action="reset-plan">'+ICONS.trash+' Reset Plan — Start Over</button>'+
     '</div>'+
     '<div class="build-tag">Build '+BUILD_ID+'</div>';
@@ -4340,6 +4402,9 @@ document.addEventListener('click', function(e){
     case 'generate-plan': handleGeneratePlan(); break;
     case 'export-json': handleExportJson(); break;
     case 'import-json': handleImportJsonClick(target); break;
+    case 'copy-backup': handleCopyBackup(); break;
+    case 'paste-backup': openPasteBackupModal(); break;
+    case 'restore-pasted': handleRestorePasted(); break;
     case 'set-units': handleSetUnits(target.getAttribute('data-units')); break;
     case 'apply-activity': handleApplyActivity(); break;
     case 'strava-connect': handleStravaConnect(); break;
