@@ -381,6 +381,33 @@
   .actual-field textarea{font-family:'Inter',sans-serif; resize:vertical; min-height:38px;}
   .actual-field.full{grid-column:1/-1;}
   .field-hint{font-size:10px; line-height:1.35; color:var(--ink-faint); margin-top:2px;}
+  /* Notes Wand: sits inside the textarea's corner so it reads as part of the
+     field rather than another control competing with it. */
+  .notes-wrap{position:relative;}
+  .notes-wrap textarea{width:100%; padding-right:30px;}
+  .notes-wand{
+    position:absolute; right:5px; bottom:5px; width:24px; height:24px; padding:0;
+    display:flex; align-items:center; justify-content:center; font-size:12px; line-height:1;
+    background:var(--bg-3); border:1px solid var(--line); border-radius:6px;
+    cursor:pointer; opacity:.65; transition:opacity .12s, border-color .12s, transform .12s;
+  }
+  .notes-wand:hover, .notes-wand:focus-visible{opacity:1; border-color:var(--modal-active); transform:translateY(-1px);}
+  .note-chips{grid-column:1/-1; margin-top:7px;}
+  .note-chips-head{font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px;}
+  .note-chip-row{display:flex; flex-wrap:wrap; gap:5px;}
+  .note-chip{
+    display:inline-flex; align-items:center; gap:5px; font-size:10px; line-height:1;
+    padding:4px 6px 4px 8px; border:1px solid var(--line); border-radius:99px; color:var(--ink);
+    background:var(--bg-3);
+  }
+  .note-chip.pos{border-color:var(--modal-active);}
+  .note-chip.warn{border-color:var(--gold-deep);}
+  .note-chip-x{
+    background:none; border:none; color:var(--ink-faint); font-size:12px; line-height:1;
+    padding:0 2px; cursor:pointer;
+  }
+  .note-chip-x:hover{color:var(--ink);}
+  .note-chips-none{font-size:10px; color:var(--ink-faint);}
   /* Feel: one tap, five options, deliberately quieter than the numeric fields
      so it reads as a quick answer rather than another thing to fill in. */
   .feel-row{display:grid; grid-template-columns:repeat(5,1fr); gap:4px;}
@@ -2826,10 +2853,15 @@ function renderDayCard(dd){
               'data-action="set-feel" data-feel="'+k+'" data-day="'+dd.id+'">'+FEEL_META[k].short+'</button>';
           }).join('')+
         '</div></div>'+
-      '<div class="actual-field full"><label>Notes \u2014 optional</label>'+
-        '<textarea data-action="actual-field" data-field="notes" data-day="'+dd.id+'" '+
-        'placeholder="e.g. Legs felt heavy after 12km, strong headwind, slept badly, HR strap seemed off.">'+escapeHtml(a.notes||'')+'</textarea>'+
+      '<div class="actual-field full notes-field"><label>Notes \u2014 optional</label>'+
+        '<div class="notes-wrap">'+
+          '<textarea data-action="actual-field" data-field="notes" data-day="'+dd.id+'" '+
+          'placeholder="e.g. Legs felt heavy after 12km, strong headwind, slept badly, HR strap seemed off.">'+escapeHtml(a.notes||'')+'</textarea>'+
+          '<button type="button" class="notes-wand" data-action="notes-wand" data-day="'+dd.id+'" '+
+            'title="Read my notes" aria-label="Read my notes for coaching signals">\u2728</button>'+
+        '</div>'+
         '<span class="field-hint">Anything the numbers don\u2019t show \u2014 tired legs, poor sleep, heat, wind, hills, illness, pain, treadmill, HR sensor trouble.</span>'+
+        renderNoteSignalChips(dd)+
       '</div>'+
       '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>'+
     '</div>'+
@@ -3024,7 +3056,7 @@ function computeExecutionScore(dd){
    the array actually exists -- coachHRDrift() is the existing precedent and
    returns null rather than inventing drift from an average.
    ========================================================= */
-var ACTUAL_MANUAL_FIELDS   = ['km','pace','hr','rpe','feel','notes'];
+var ACTUAL_MANUAL_FIELDS   = ['km','pace','hr','rpe','feel','notes','notesSignals'];
 var ACTUAL_IMPORTED_FIELDS = ['maxHR','cadence','movingTimeSec','elapsedTimeSec',
                               'elevationGainM','tempC','humidity','activityType','splits'];
 var ACTUAL_SYNCED_FIELDS   = ACTUAL_MANUAL_FIELDS.concat(ACTUAL_IMPORTED_FIELDS);
@@ -3291,6 +3323,282 @@ function coachRecovery(){
    model: it has to give the same answer on every platform, with no network, and
    be explainable. Its job is to stop the coach from scolding someone for a slow
    run they already explained was on a treadmill in 32-degree heat. */
+/* =========================================================
+   NOTES WAND — local, deterministic reading of free-text notes
+   ---------------------------------------------------------
+   One parser, used by everything. There is no model call, no network and no
+   cost: it is a rule table plus a clause splitter, and it gives the same
+   answer on every platform forever.
+
+   The three things that make it more than a keyword list:
+
+   1. CLAUSES. The note is split on punctuation and on the words that turn a
+      sentence around ("but", "although", "though"). A match is only read
+      inside the clause it appeared in, so "it wasn't hot but the humidity was
+      brutal" records humidity and not heat.
+
+   2. NEGATION. A match preceded by a negator inside its own clause is
+      discarded. Before this, "no pain anywhere" set the pain flag, which sent
+      the athlete a Recovery Priority and a proposal to downgrade their next
+      quality session -- for saying they were fine.
+
+   3. VETOES. Phrases that merely contain a keyword are excluded by name:
+      "wind down after work" is not wind, "the pain cave" is not pain, "dead
+      flat" is not dead legs.
+
+   Precision over recall throughout. An unrecognised note costs nothing; a
+   wrongly recognised one changes what the coach tells someone to do.
+   ========================================================= */
+var NOTE_NEGATORS = /\b(no|not|never|without|hardly|barely|nothing|none|isn['’]?t|wasn['’]?t|weren['’]?t|aren['’]?t|didn['’]?t|don['’]?t|doesn['’]?t|couldn['’]?t|wouldn['’]?t|can['’]?t|cannot|avoided|free\s+of|free\s+from|zero)\b/i;
+// "thought I'd struggle but felt great" reports feeling great, not struggling.
+var NOTE_HYPOTHETICAL = /\b(thought|expected|worried|feared|afraid|assumed|braced|dreaded|prepared)\b[^.,;!?]{0,24}$/i;
+
+/* Temperature and humidity read out of the text. Shared by the wand and by
+   coachEnvironment so there is one definition of what "37 degrees" means. */
+function noteTempC(text){
+  var t = String(text||'');
+  var f = t.match(/(-?\d{1,3}(?:\.\d)?)\s*(?:°\s*|deg(?:rees?)?\s*)?f\b/i);
+  if (f) return Math.round(((parseFloat(f[1])-32)*5/9)*10)/10;
+  var c = t.match(/(-?\d{1,2}(?:\.\d)?)\s*(?:°\s*c\b|°(?!\s*f)|\s*deg(?:rees?)?\b|\s*c\b)/i);
+  return c ? parseFloat(c[1]) : null;
+}
+function noteHumidity(text){
+  var t = String(text||'');
+  var h = t.match(/(\d{1,3})\s*%\s*(?:relative\s*)?humid/i) ||
+          t.match(/humidity[^\d]{0,12}(\d{1,3})\s*%?/i) ||
+          (/humid/i.test(t) ? t.match(/(\d{1,3})\s*%/) : null);
+  return h ? parseInt(h[1],10) : null;
+}
+function noteClauses(text){
+  return String(text||'')
+    .split(/[.,;:!?\n—]+|\s+\b(?:but|although|though|however|whereas|yet)\b\s+/i)
+    .filter(function(c){ return c && c.trim(); });
+}
+// True when `re` matches inside `clause` and that match is actually being
+// asserted -- not negated, not hypothetical, not part of a vetoed phrase.
+/* A handful of fault phrases legitimately contain a negation word ("didn't
+   look right", "no signal"). They are stripped before the internal-negator
+   check so they are not mistaken for the athlete denying the fault. */
+var NOTE_NEG_CARRYING = /\b(?:didn['’]?t\s+(?:look\s+right|record|finish|feel\s+right|fire)|no\s+(?:gps|satellite|signal|sleep|water|breakfast|energy|fuel))\b/ig;
+function noteAffirms(clause, re, vetoes){
+  var m = clause.match(re);
+  if (!m) return null;
+  if (vetoes && vetoes.some(function(v){ return v.test(clause); })) return null;
+  // Patterns that span two anchors ("HR ... wrong") can swallow the negator
+  // between them, which is how "HR monitor wasn't wrong" was still reading as
+  // sensor doubt. Check inside the match as well as in front of it.
+  var inner = String(m[0]).replace(NOTE_NEG_CARRYING, ' ');
+  if (NOTE_NEGATORS.test(inner)) return null;
+  var before = clause.slice(0, m.index);
+  // only the words immediately in front can negate; a negator six words back
+  // in the same clause is usually about something else
+  var near = before.slice(-32);
+  if (NOTE_NEGATORS.test(near)) return null;
+  if (NOTE_HYPOTHETICAL.test(before)) return null;
+  return m[0];
+}
+
+/* Rule table. `concept` is what stops synonyms stacking: three ways of saying
+   tired legs in one note is still one observation. `strength` 1-3 ranks which
+   wording survives when a concept matches more than once. */
+var NOTE_SIGNAL_RULES = [
+  // ---- ENVIRONMENT ----
+  { id:'heat', cat:'environment', concept:'heat', label:'Heat', strength:2,
+    re:/\b(heat|hot|sweltering|boiling|scorching|roasting|sunny|sun\s+was|baking)\b/i,
+    vetoes:[/\bhot\s+(shower|bath|drink|chocolate|tub|food|meal)\b/i, /\bred\s+hot\b/i] },
+  { id:'humidity', cat:'environment', concept:'humidity', label:'Humidity', strength:2,
+    re:/\b(humid|humidity|muggy|sticky\s+air|swampy|clammy)\b/i, vetoes:[] },
+  { id:'wind', cat:'environment', concept:'wind', label:'Wind', strength:2,
+    re:/\b(wind|windy|gale|gusty|gusts|headwind|blustery|crosswind)\b/i,
+    // "wind down", "winding up" -- the verb, not the weather
+    vetoes:[/\bwind(ing)?\s+(down|up)\b/i, /\bsecond\s+wind\b/i, /\bwind\s+tunnel\s+of\b/i] },
+  { id:'rain', cat:'environment', concept:'rain', label:'Rain', strength:1,
+    re:/\b(rain|raining|rained|downpour|drizzle|soaked|soaking|torrential|wet\s+underfoot|poured)\b/i,
+    vetoes:[/\brain\s+check\b/i] },
+  { id:'cold', cat:'environment', concept:'cold', label:'Cold', strength:2,
+    re:/\b(cold|freezing|frozen|icy|ice|sub-?zero|frost|frosty|snow|snowy|bitter)\b/i,
+    // "cold coming" is illness; "cold drink" is not weather
+    vetoes:[/\bcold\s+(coming|drink|water|shower|bath)\b/i, /\b(caught|catching|got)\s+a\s+cold\b/i,
+            /\bhead\s+cold\b/i, /\bice\s+(bath|cream)\b/i] },
+  { id:'hills', cat:'environment', concept:'hills', label:'Hills', strength:2,
+    re:/\b(hill|hills|hilly|climb|climbing|elevation|incline|undulating|vert|ascent)\b/i,
+    vetoes:[/\bclimb(ing)?\s+(into|out\s+of)\s+bed\b/i] },
+  { id:'treadmill', cat:'environment', concept:'treadmill', label:'Treadmill', strength:3,
+    re:/\b(treadmill|dreadmill)\b/i, vetoes:[] },
+  { id:'surface', cat:'environment', concept:'surface', label:'Soft ground', strength:1,
+    re:/\b(trail|trails|sand|mud|muddy|off-?road|gravel|grass|boggy|technical\s+ground)\b/i, vetoes:[] },
+
+  // ---- PHYSICAL FEEL ----
+  { id:'heavy_legs', cat:'physical', concept:'fatigue', label:'Heavy legs', strength:3, flag:'fatigue',
+    re:/\b(?:heavy|dead|leaden|lead)\s+legs\b|\blegs?\s+(?:\w+\s+){0,2}(?:heavy|dead|leaden|wooden)\b|\blegs?\s+like\s+lead\b/i,
+    vetoes:[/\bdead\s+flat\b/i] },
+  { id:'tired', cat:'physical', concept:'fatigue', label:'Tired', strength:2, flag:'fatigue',
+    re:/\b(tired|fatigued|fatigue|exhausted|knackered|drained|shattered|wiped|weary|sluggish|lethargic)\b/i,
+    vetoes:[] },
+  { id:'fresh_legs', cat:'physical', concept:'freshness', label:'Fresh legs', strength:2, positive:true,
+    re:/\b(fresh\s+legs|legs?\s+(?:felt|feeling|were)\s+\w{0,6}\s?fresh|springy|bouncy|good\s+legs)\b/i,
+    vetoes:[] },
+  { id:'soreness', cat:'physical', concept:'soreness', label:'Soreness', strength:2, flag:'pain',
+    re:/\b(sore|soreness|aching|ache|aches|doms|tender)\b/i,
+    vetoes:[/\bsore\s+throat\b/i] },
+  { id:'stiffness', cat:'physical', concept:'soreness', label:'Stiffness', strength:1,
+    re:/\b(stiff|stiffness|tight|tightness|locked\s+up)\b/i,
+    vetoes:[/\btight\s+(turn|bend|corner|schedule|window)\b/i] },
+  { id:'pain', cat:'physical', concept:'pain', label:'Pain', strength:3, flag:'pain',
+    re:/\b(pain|painful|injur\w+|strained|sharp\s+\w+|shooting|cramp|cramped|cramping|pulled\s+\w+)\b/i,
+    // the pain cave is a metaphor for effort, not a symptom
+    vetoes:[/\bpain\s+(cave|train|barrier)\b/i, /\bno\s+pain\s+no\s+gain\b/i, /\bpain[\s-]?free\b/i] },
+  { id:'niggle', cat:'physical', concept:'pain', label:'Niggle', strength:2, flag:'pain',
+    re:/\b(niggle|niggling|twinge|grumbl\w+)\b/i, vetoes:[] },
+  { id:'illness', cat:'physical', concept:'illness', label:'Illness', strength:3, flag:'illness',
+    re:/\b(ill|illness|unwell|sick|poorly|flu|virus|fever|cough|chesty|head\s+cold|cold\s+coming|caught\s+a\s+cold|infection|sore\s+throat)\b/i,
+    vetoes:[/\bsick\s+of\b/i, /\bsick\s+pace\b/i] },
+
+  // ---- SESSION EXPERIENCE ----
+  { id:'struggled_early', cat:'experience', concept:'pacing_early', label:'Struggled early', strength:2,
+    re:/\b(?:struggl\w+|rough|tough|hard|heavy|bad|awful)\b[^.,;!?]{0,28}\b(?:early|start|first|opening|beginning|out\s+the\s+door|warm-?up)\b|\b(?:early|first|opening)\b[^.,;!?]{0,20}\b(?:struggl\w+|rough|tough|grim)\b/i,
+    vetoes:[] },
+  { id:'faded_late', cat:'experience', concept:'pacing_late', label:'Faded late', strength:2,
+    re:/\b(fad\w+|died|blew\s+up|fell\s+apart|hung\s+on|survived|crumbl\w+|dropped\s+off)\b[^.,;!?]{0,28}\b(?:late|end|last|final|finish|second\s+half|km|k)\b|\b(?:late|last|final|end|second\s+half)\b[^.,;!?]{0,24}\b(fad\w+|died|struggl\w+|blew\s+up|fell\s+apart|tough|hard)\b/i,
+    vetoes:[] },
+  { id:'improved_during', cat:'experience', concept:'pacing_late', label:'Improved late', strength:2, positive:true,
+    re:/\b(?:felt|got|came|running|ran)\b[^.,;!?]{0,16}\b(?:better|stronger|easier|good)\b[^.,;!?]{0,28}\b(?:later|late|end|second\s+half|finish|as\s+it\s+went|through)\b|\b(?:negative\s+split|built\s+into\s+it|came\s+(?:good|round|alive)|finished\s+strong\w*)\b/i,
+    vetoes:[] },
+  { id:'controlled', cat:'experience', concept:'difficulty', label:'Felt controlled', strength:1, positive:true,
+    re:/\b(controlled|comfortable|smooth|in\s+control|relaxed|easy\s+throughout|felt\s+great|flew|cruis\w+)\b/i,
+    vetoes:[] },
+  { id:'unusually_hard', cat:'experience', concept:'difficulty', label:'Unusually hard', strength:2,
+    re:/\b(harder\s+than\s+(?:it\s+should|usual|expected|normal)|shouldn['’]?t\s+have\s+been\s+that\s+hard|way\s+harder|felt\s+much\s+harder|brutal|grim)\b/i,
+    vetoes:[] },
+  { id:'unusually_easy', cat:'experience', concept:'difficulty', label:'Unusually easy', strength:2, positive:true,
+    re:/\b(easier\s+than\s+(?:usual|expected|normal)|felt\s+easy|barely\s+trying|effortless)\b/i,
+    vetoes:[] },
+  { id:'cut_short', cat:'experience', concept:'completion', label:'Cut short', strength:3,
+    re:/\b(cut\s+(?:it\s+)?short|bailed|stopped\s+early|abandoned|had\s+to\s+stop|packed\s+it\s+in|didn['’]?t\s+finish|jogged\s+home|walked\s+home)\b/i,
+    vetoes:[] },
+
+  // ---- SENSOR CONFIDENCE ----
+  // Every sensor rule needs BOTH the device and a fault in the same clause, so
+  // "watching the football" and "great GPS signal" cannot fire.
+  { id:'hr_doubt', cat:'sensorUncertainty', concept:'sensor_hr', label:'HR sensor doubt', strength:3, flag:'hrDoubt',
+    re:/\b(?:hr|heart\s*rate|bpm|chest\s*strap|strap|hrm)\b[^.,;!?]{0,40}\b(?:wrong|off|weird|odd|dodgy|faulty|broken|glitch\w*|inaccurate|unreliable|erratic|nonsense|rubbish|playing\s*up|misbehav\w+|useless|loose|slipped|dead|garbage|junk|suspect|questionable|not\s+right|didn['’]?t\s+look\s+right)\b|\b(?:wrong|dodgy|faulty|broken|glitch\w*|inaccurate|unreliable|erratic|useless|weird|suspect)\b[^.,;!?]{0,24}\b(?:hr|heart\s*rate|bpm|chest\s*strap|strap|hrm)\b/i,
+    vetoes:[] },
+  { id:'hr_spike', cat:'sensorUncertainty', concept:'sensor_hr', label:'HR spike', strength:2, flag:'hrDoubt',
+    re:/\b(?:hr|heart\s*rate|bpm)\b[^.,;!?]{0,30}\b(?:spik\w+|jump\w+\s+to|shot\s+up|pegged|maxed\s+out\s+at|read\s+\d{3})\b|\b(?:spik\w+|cardiac\s+drift\s+nonsense)\b[^.,;!?]{0,20}\b(?:hr|heart\s*rate|bpm)\b/i,
+    vetoes:[] },
+  { id:'gps_doubt', cat:'sensorUncertainty', concept:'sensor_gps', label:'GPS doubt', strength:2,
+    // "watch" is deliberately NOT a device word here: "watch HR seemed wrong"
+    // is a heart-rate complaint, and hr_doubt already owns it. Watch hardware
+    // failures belong to watch_issue.
+    re:/\b(?:gps|satellite|sat\s*nav|distance)\b[^.,;!?]{0,32}\b(?:all\s+over\s+the\s+place|drift\w*|lost|dropped\s+out|wrong|inaccurate|off\s+by|short|long|unreliable|useless|glitch\w*)\b|\b(?:lost|no|poor|patchy)\s+(?:gps|satellite|signal)\b/i,
+    vetoes:[] },
+  { id:'cadence_doubt', cat:'sensorUncertainty', concept:'sensor_cadence', label:'Cadence doubt', strength:1,
+    re:/\bcadence\b[^.,;!?]{0,30}\b(?:wrong|weird|off|inaccurate|unreliable|nonsense|doubled|halved)\b/i,
+    vetoes:[] },
+  { id:'watch_issue', cat:'sensorUncertainty', concept:'sensor_device', label:'Watch issue', strength:2,
+    re:/\b(?:watch|garmin|coros|device|forerunner)\b[^.,;!?]{0,30}\b(?:died|crashed|froze|battery|reset|lost\s+the\s+(?:run|activity)|failed|stopped\s+recording|didn['’]?t\s+record)\b/i,
+    vetoes:[] },
+
+  // ---- CONTEXT ----
+  { id:'poor_sleep', cat:'context', concept:'sleep', label:'Poor sleep', strength:2, flag:'fatigue',
+    re:/\b(no\s+sleep|poor\s+sleep|bad\s+sleep|slept\s+badly|slept\s+terribly|barely\s+slept|didn['’]?t\s+sleep|insomnia|broken\s+sleep|up\s+all\s+night|restless\s+night|\d\s*hours?\s+(?:of\s+)?sleep)\b/i,
+    // "no sleep" contains its own negator; matched as a phrase, so exempt
+    noNegate:true, vetoes:[] },
+  { id:'good_sleep', cat:'context', concept:'sleep', label:'Good sleep', strength:1, positive:true,
+    re:/\b(slept\s+(?:well|great|brilliantly)|good\s+sleep|well\s+rested|full\s+night)\b/i, vetoes:[] },
+  { id:'stress', cat:'context', concept:'stress', label:'Life stress', strength:2,
+    re:/\b(stress\w*|busy\s+week|hectic|work\s+(?:has\s+been\s+)?(?:mad|manic|brutal|crazy)|deadline|burn(?:t|ed)\s+out|life\s+admin)\b/i,
+    vetoes:[/\bstress\s+fracture\b/i] },
+  { id:'fuelling', cat:'context', concept:'fuel', label:'Fuelling issue', strength:2,
+    re:/\b(bonk\w*|hit\s+the\s+wall|forgot\s+to\s+eat|no\s+breakfast|didn['’]?t\s+eat|under\s*-?fuel\w*|ran\s+out\s+of\s+(?:gels|fuel|energy)|empty\s+stomach|low\s+on\s+energy|fasted)\b/i,
+    noNegate:true, vetoes:[] },
+  { id:'hydration', cat:'context', concept:'hydration', label:'Hydration issue', strength:2,
+    re:/\b(dehydrat\w*|ran\s+out\s+of\s+water|no\s+water|thirsty|didn['’]?t\s+drink|parched|cotton\s+mouth)\b/i,
+    noNegate:true, vetoes:[] }
+];
+var NOTE_SIGNAL_BY_ID = {};
+NOTE_SIGNAL_RULES.forEach(function(r){ NOTE_SIGNAL_BY_ID[r.id] = r; });
+var NOTE_CATEGORIES = ['environment','physical','experience','sensorUncertainty','context'];
+var NOTE_CATEGORY_LABEL = { environment:'Environment', physical:'Body', experience:'Session',
+                            sensorUncertainty:'Data', context:'Life' };
+
+/* The wand. Pure: same note in, same signals out, on every platform, offline.
+   Never rewrites the note and never adds anything the note did not say. */
+function parseRunnerNotes(note){
+  var out = { signals:[], byCategory:{}, at:null };
+  NOTE_CATEGORIES.forEach(function(c){ out.byCategory[c] = []; });
+  if (!note || !String(note).trim()) return out;
+
+  var clauses = noteClauses(note);
+  var best = {};   // concept -> winning signal, so synonyms cannot stack
+  NOTE_SIGNAL_RULES.forEach(function(rule){
+    for (var i=0;i<clauses.length;i++){
+      var clause = clauses[i];
+      var hit;
+      if (rule.noNegate){
+        // the phrase itself contains a negation word ("no sleep", "didn't eat")
+        var m = clause.match(rule.re);
+        hit = (m && !(rule.vetoes||[]).some(function(v){ return v.test(clause); }) &&
+               !NOTE_HYPOTHETICAL.test(clause.slice(0, m.index))) ? m[0] : null;
+      } else {
+        hit = noteAffirms(clause, rule.re, rule.vetoes);
+      }
+      if (!hit) continue;
+      var prev = best[rule.concept];
+      if (!prev || rule.strength > prev.strength){
+        best[rule.concept] = { id:rule.id, category:rule.cat, concept:rule.concept,
+                               label:rule.label, strength:rule.strength,
+                               positive:!!rule.positive, flag:rule.flag||null,
+                               evidence:String(hit).trim() };
+      }
+      break;   // one clause is enough; a second mention is the same observation
+    }
+  });
+  // A logged temperature or humidity is as much a reported condition as the
+  // word "hot", and the athlete should see it acknowledged on a chip.
+  var addNum = function(concept, rule, evidence){
+    if (best[concept]) return;
+    best[concept] = { id:rule.id, category:rule.cat, concept:rule.concept, label:rule.label,
+                      strength:rule.strength, positive:!!rule.positive, flag:rule.flag||null,
+                      evidence:evidence };
+  };
+  var tC = noteTempC(note);
+  if (tC!=null && tC >= 24) addNum('heat', NOTE_SIGNAL_BY_ID.heat, tC+'°C');
+  if (tC!=null && tC <= 5)  addNum('cold', NOTE_SIGNAL_BY_ID.cold, tC+'°C');
+  var hum = noteHumidity(note);
+  if (hum!=null && hum >= 60) addNum('humidity', NOTE_SIGNAL_BY_ID.humidity, hum+'% humidity');
+
+  Object.keys(best).forEach(function(k){
+    var sig = best[k];
+    out.signals.push(sig);
+    out.byCategory[sig.category].push(sig);
+  });
+  out.signals.sort(function(a,b){
+    return NOTE_CATEGORIES.indexOf(a.category) - NOTE_CATEGORIES.indexOf(b.category) ||
+           b.strength - a.strength;
+  });
+  return out;
+}
+/* What the coach actually acts on: the parse, minus anything the athlete
+   removed from the chips. Dismissals are stored by id, so they survive the
+   note being edited afterwards. */
+function effectiveNoteSignals(actual){
+  var parsed = parseRunnerNotes(actual && actual.notes);
+  var dismissed = (actual && actual.notesSignals && actual.notesSignals.dismissed) || [];
+  if (!dismissed.length) return parsed;
+  var out = { signals:[], byCategory:{}, at:parsed.at };
+  NOTE_CATEGORIES.forEach(function(c){ out.byCategory[c] = []; });
+  parsed.signals.forEach(function(s){
+    if (dismissed.indexOf(s.id)!==-1) return;
+    out.signals.push(s);
+    out.byCategory[s.category].push(s);
+  });
+  return out;
+}
+function noteSignalFlag(sigs, flag){
+  return sigs.signals.some(function(s){ return s.flag===flag; });
+}
+
 var COACH_NOTE_CUES = [
   { key:'heat',     re:/\b(heat|hot|humid|humidity|sun|sweltering)\b/i,      excuses:['pace','hr'], say:'heat' },
   { key:'treadmill',re:/\b(treadmill|dreadmill|mill)\b/i,                     excuses:['pace'],      say:'treadmill running' },
@@ -3304,11 +3612,40 @@ var COACH_NOTE_CUES = [
   { key:'sleep',    re:/\b(no sleep|poor sleep|slept badly|tired night|insomnia)\b/i, excuses:['pace','hr'], say:'poor sleep', flag:'fatigue' },
   { key:'strong',   re:/\b(strong|easy|comfortable|smooth|felt great|good legs|flew)\b/i, excuses:[], say:'feeling strong' }
 ];
+/* Reads the same note through the same clause/negation machinery as the wand,
+   so an excuse can no longer be manufactured out of "wind down after work" or
+   a pain flag out of "no pain". Each cue borrows the vetoes of the wand rule
+   that covers the same ground. */
+var COACH_CUE_VETOES = {
+  heat:      [/\bhot\s+(shower|bath|drink|chocolate|tub|food|meal)\b/i],
+  wind:      [/\bwind(ing)?\s+(down|up)\b/i, /\bsecond\s+wind\b/i],
+  cold:      [/\bcold\s+(coming|drink|water|shower|bath)\b/i, /\b(caught|catching|got)\s+a\s+cold\b/i,
+              /\bhead\s+cold\b/i, /\bice\s+(bath|cream)\b/i],
+  pain:      [/\bpain\s+(cave|train|barrier)\b/i, /\bno\s+pain\s+no\s+gain\b/i, /\bpain[\s-]?free\b/i,
+              /\bstress\s+fracture\b/i],
+  fatigue:   [/\bdead\s+flat\b/i, /\bflat\s+(route|course|road|section|out|white)\b/i],
+  illness:   [/\bsick\s+of\b/i],
+  terrain:   [],
+  hills:     [],
+  treadmill: [],
+  sleep:     [],
+  strong:    []
+};
 function coachReadNotes(text){
   var out = [];
   if (!text) return out;
+  var clauses = noteClauses(text);
   COACH_NOTE_CUES.forEach(function(cue){
-    if (cue.re.test(text)) out.push(cue);
+    var vetoes = COACH_CUE_VETOES[cue.key] || [];
+    // "no sleep"/"poor sleep" carry their own negation word as part of the
+    // phrase, so they are matched literally rather than negation-checked.
+    var literal = cue.key==='sleep';
+    for (var i=0;i<clauses.length;i++){
+      var hit = literal
+        ? (cue.re.test(clauses[i]) && !vetoes.some(function(v){ return v.test(clauses[i]); }) ? true : null)
+        : noteAffirms(clauses[i], cue.re, vetoes);
+      if (hit){ out.push(cue); return; }
+    }
   });
   return out;
 }
@@ -3600,7 +3937,7 @@ function handleCoachRestore(dayId){
 // trusts a stored review whose version matches, so every workout logged before
 // these fixes regenerates with the corrected prose instead of keeping a
 // paragraph that told the athlete their notes explained nothing.
-var COACH_REVIEW_VERSION = 4;
+var COACH_REVIEW_VERSION = 5;
 
 /* ---------- environment parsed out of the notes ----------
    Numbers, not just keywords: "37 degrees" and "67% humidity" carry a severity
@@ -3613,35 +3950,25 @@ function coachEnvironment(notes, actual){
   if (!notes) return env;
   var t = String(notes);
 
-  // The athlete telling you the heart-rate data is wrong is itself data. It
-  // does not change the score, but it must stop the coach reading fitness or a
-  // breakthrough out of a number the athlete has already disowned. Matched in
-  // both word orders ("HR was spiking" / "dodgy heart rate").
-  var HR_WORD = '(?:hr|heart\\s*rate|strap|chest\\s*strap|monitor|watch|sensor)';
-  var HR_BAD  = '(?:wrong|off|weird|odd|dodgy|faulty|broken|glitch\\w*|spik\\w+|drop\\w+|inaccurate|unreliable|erratic|nonsense|rubbish|playing\\s*up|misbehav\\w+|useless|loose|slipped|dead|flat\\s*battery|cap\\w*)';
-  env.hrDoubt = new RegExp(HR_WORD+'[^.!?]{0,40}\\b'+HR_BAD, 'i').test(t) ||
-                new RegExp(HR_BAD+'[^.!?]{0,25}\\b'+HR_WORD, 'i').test(t);
+  // Structured signals from the wand are the single source of truth for the
+  // subjective flags. This is what makes "no pain" and "HR monitor wasn't
+  // wrong" read correctly whether or not the athlete ever tapped the wand:
+  // the parser runs the same way either way, and the wand only shows and
+  // curates its output.
+  var sigs = actual ? effectiveNoteSignals(actual) : parseRunnerNotes(t);
+  env.signals = sigs;
+  env.hrDoubt = noteSignalFlag(sigs, 'hrDoubt');
 
-  var f = t.match(/(-?\d{1,3}(?:\.\d)?)\s*(?:°\s*|deg(?:rees?)?\s*)?f\b/i);
-  var c = t.match(/(-?\d{1,2}(?:\.\d)?)\s*(?:°\s*c\b|°(?!\s*f)|\s*deg(?:rees?)?\b|\s*c\b)/i);
-  if (f) env.tempC = Math.round(((parseFloat(f[1])-32)*5/9)*10)/10;
-  else if (c) env.tempC = parseFloat(c[1]);
+  env.tempC = noteTempC(t);
+  env.humidity = noteHumidity(t);
 
-  // a percentage anywhere near the word humidity, or a bare % with "humid"
-  var h = t.match(/(\d{1,3})\s*%\s*(?:relative\s*)?humid/i) ||
-          t.match(/humidity[^\d]{0,12}(\d{1,3})\s*%?/i) ||
-          (/humid/i.test(t) ? t.match(/(\d{1,3})\s*%/) : null);
-  if (h) env.humidity = parseInt(h[1],10);
-
-  env.treadmill = /\b(treadmill|dreadmill)\b/i.test(t);
+  env.treadmill = sigs.signals.some(function(x){ return x.id==='treadmill'; });
+  env.fatigue = noteSignalFlag(sigs, 'fatigue');
+  env.pain    = noteSignalFlag(sigs, 'pain');
+  env.illness = noteSignalFlag(sigs, 'illness');
+  // The cue list drives which components a note is allowed to excuse, and it
+  // is now read through the same negation machinery.
   var cues = coachReadNotes(t);
-  cues.forEach(function(cue){
-    if (cue.flag==='fatigue') env.fatigue = true;
-    if (cue.flag==='pain') env.pain = true;
-    if (cue.flag==='illness') env.illness = true;
-  });
-  // "tired legs" is fatigue even though the cue list keys on "tired"
-  if (/\b(tired|heavy|dead|flat)\s+legs\b/i.test(t)) env.fatigue = true;
 
   // An activity import can supply temperature and humidity directly. The notes
   // win when both exist -- the athlete standing outside beats a station reading
@@ -3657,7 +3984,7 @@ function coachEnvironment(notes, actual){
     if (env.tempC >= 32) env.heatBand = 'severe';
     else if (env.tempC >= 28) env.heatBand = 'significant';
     else if (env.tempC >= 24) env.heatBand = 'mild';
-  } else if (/\b(heat|hot|sweltering|humid)\b/i.test(t)) env.heatBand = 'significant';
+  } else if (sigs.signals.some(function(x){ return x.id==='heat' || x.id==='humidity'; })) env.heatBand = 'significant';
 
   // >60% humidity blunts evaporative cooling, so heart rate climbs for the
   // same effort.
@@ -3803,6 +4130,20 @@ function coachFeelTrend(before){
     repeated: recent.length >= 3 && (negatives.length >= 3 || poor.length >= 2),
     positives: recent.filter(function(dd){ return feelRank(dd) > 0; }).length
   };
+}
+
+/* How often a note concept has come up lately. A one-off is context; the same
+   thing in three of the last five sessions is a pattern, and the coach should
+   say so. Bounded by `before` so an older review never reads the future. */
+function coachNoteConceptStreak(concept, before, windowN){
+  var recent = coachCompletedScored().filter(function(dd){
+    return !before || dd.date <= before;
+  }).slice(-(windowN||5));
+  var hits = recent.filter(function(dd){
+    return effectiveNoteSignals(dd.actual).signals.some(function(x){ return x.concept===concept; });
+  });
+  return { counted:recent.length, hits:hits.length,
+           repeated: recent.length>=3 && hits.length>=3 };
 }
 
 /* =========================================================
@@ -4070,7 +4411,12 @@ function coachVerdict(dd, b, env){
   // a session cut short is worth saying out loud rather than leaving to the
   // percentage chip.
   if (byPart.distance.score!=null && byPart.distance.score < 95 && a.km!=null){
-    out.push('Distance came in at '+fmtDist(a.km)+' against a '+fmtDist(dd.km)+' target.');
+    var sg = env.signals || parseRunnerNotes(a.notes);
+    var why = sg.signals.filter(function(x){
+      return x.id==='cut_short' || x.id==='fuelling' || x.id==='hydration' || x.id==='pain' || x.id==='illness';
+    });
+    out.push('Distance came in at '+fmtDist(a.km)+' against a '+fmtDist(dd.km)+' target'+
+      (why.length ? ', with '+listPhrase(why.map(function(x){ return x.label.toLowerCase(); }))+' in the notes.' : '.'));
   }
 
   // 2. conditions, read against what they do to pace and heart rate
@@ -4111,13 +4457,22 @@ function coachVerdict(dd, b, env){
     out.push('Taking it indoors in those conditions was a sensible way to keep the session controllable.');
   }
 
-  // 4. subjective fatigue, weighed rather than obeyed
+  // 4. subjective fatigue, weighed rather than obeyed.
+  //    Notes saying "heavy legs" and a HEAVY Feel are the same observation
+  //    written down twice. They are reported once, and the agreement between
+  //    them raises confidence in the read rather than the strength of it.
+  var feelNeg = feelOf(dd) && feelRank(dd) < 0;
+  var bothAgree = env.fatigue && feelNeg;
   if (env.fatigue){
     var band = expectedRPEBand(dd);
+    var lead = bothAgree
+      ? 'Tired legs in the notes and a '+FEEL_META[feelOf(dd)].label.toLowerCase()+
+        ' Feel — one observation, not two'
+      : 'Tired legs noted';
     if (band && a.rpe!=null && a.rpe <= band[1])
-      out.push('Tired legs noted, though effort still came in at RPE '+a.rpe+' — worth monitoring rather than acting on.');
+      out.push(lead+', though effort still came in at RPE '+a.rpe+' — worth monitoring rather than acting on.');
     else
-      out.push('Tired legs noted alongside a high effort reading — that combination is worth taking seriously.');
+      out.push(lead+', alongside a high effort reading — that combination is worth taking seriously.');
   }
   // 5. Feel, read against RPE rather than as a second copy of it. The pair
   //    only earns a sentence when they disagree: matching them ("hard session,
@@ -4129,7 +4484,11 @@ function coachVerdict(dd, b, env){
     var fLabel = FEEL_META[feel].label.toLowerCase();
     var negFeel = feelRank(dd) < 0;
     var ftrend = coachFeelTrend(dd.date);
-    if (negFeel && ftrend.repeated)
+    if (negFeel && env.fatigue){
+      /* already said once in section 4 -- saying it again is the double count
+         the whole Feel/Notes contract exists to prevent */
+    }
+    else if (negFeel && ftrend.repeated)
       // Never call a pattern a one-off: Coach Noticed is about to report the
       // run of them, and the two must not disagree inside one card.
       out.push('Legs reported '+fLabel+' again — '+ftrend.negatives+' of the last '+ftrend.counted+
@@ -4168,6 +4527,21 @@ function coachNoticedForWorkout(dd, b, env){
   if (env.illness) return 'Illness reported — that outranks anything the numbers say about this session.';
   if (env.pain) return 'Soreness reported — the next quality session depends on it settling.';
   if (env.hrDoubt) return 'Heart-rate data looks unreliable this session — read the pace and effort, not the bpm.';
+  var sg = env.signals || parseRunnerNotes(a.notes);
+  var has = function(id){ return sg.signals.some(function(x){ return x.id===id; }); };
+  // A repeated context signal is worth more than anything that happened once.
+  var fuelStreak = coachNoteConceptStreak('fuel', dd.date, 5);
+  if (fuelStreak.repeated) return 'Fuelling has come up in '+fuelStreak.hits+' of the last '+
+    fuelStreak.counted+' sessions — that is a nutrition problem, not a fitness one.';
+  var sleepStreak = coachNoteConceptStreak('sleep', dd.date, 5);
+  if (sleepStreak.repeated) return 'Sleep has come up in '+sleepStreak.hits+' of the last '+
+    sleepStreak.counted+' sessions — recovery is being limited before training even starts.';
+  if (has('fuelling')) return 'Ran out of fuel rather than out of fitness — that one is fixable before the next long run.';
+  if (has('hydration')) return 'Hydration came up in the notes — worth planning for before the next session in these conditions.';
+  if (has('cut_short')) return 'Session ended early by choice — the reason matters more than the missing distance.';
+  if (has('gps_doubt') || has('watch_issue')) return 'Device data looks unreliable this session — the distance and pace are read with that in mind.';
+  if (has('faded_late')) return 'Held together early and gave ground late — the fade is where the session got interesting.';
+  if (has('improved_during')) return 'Came round as the session went on, which is the shape you want on this one.';
   // The pattern beats the single session: repeated heavy legs is the earliest
   // warning the plan gets, and it is invisible to RPE and to the score.
   var ft = coachFeelTrend(dd.date);
@@ -4322,6 +4696,10 @@ function coachReviewConfidence(b, env, dd){
   // Evidence the athlete has told you not to trust cannot also raise how much
   // the engine trusts its own read.
   if (env.hrDoubt) c -= 0.15;
+  // Distance and pace are the core of the score; if the device that produced
+  // them is in doubt, so is the read built on top of them.
+  var sg = env.signals || parseRunnerNotes(dd.actual && dd.actual.notes);
+  if (sg.signals.some(function(x){ return x.id==='gps_doubt' || x.id==='watch_issue'; })) c -= 0.12;
   return Math.round(clamp(c, 0.3, 0.95)*100)/100;
 }
 // Persisting the review keeps it with the workout (and in the cloud backup), so
@@ -5795,6 +6173,63 @@ function handleActualFieldChange(dayId, field, value){
   patchDerivedStats();
   scheduleSave();
 }
+/* The chips are shown only after the athlete asks for them -- the wand does
+   not run while they type. Once run, the chips stay with the workout so they
+   can be corrected later. Removing one is the athlete overruling the parser,
+   and the coach honours it. */
+function renderNoteSignalChips(dd){
+  var a = dd.actual || {};
+  if (!a.notesSignals) return '';                    // wand never tapped
+  var sigs = effectiveNoteSignals(a).signals;
+  if (!sigs.length){
+    return '<div class="note-chips"><div class="note-chips-none">'+
+      'No additional coaching signals detected \u2014 the note is still saved with the session.'+
+      '</div></div>';
+  }
+  return '<div class="note-chips">'+
+    '<div class="note-chips-head">\u2728 Coach picked up</div>'+
+    '<div class="note-chip-row">'+
+      sigs.map(function(sg){
+        var cls = sg.positive ? ' pos' : (sg.flag ? ' warn' : '');
+        return '<span class="note-chip'+cls+'" title="'+escapeHtml(NOTE_CATEGORY_LABEL[sg.category]+': \u201c'+sg.evidence+'\u201d')+'">'+
+          escapeHtml(sg.label)+
+          '<button type="button" class="note-chip-x" data-action="drop-note-signal" '+
+            'data-day="'+dd.id+'" data-signal="'+escapeHtml(sg.id)+'" '+
+            'aria-label="Remove '+escapeHtml(sg.label)+'">\u00d7</button>'+
+        '</span>';
+      }).join('')+
+    '</div></div>';
+}
+// Runs on demand only. Stores the structured result beside the raw note and
+// never alters the note itself.
+function handleNotesWand(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  dd.actual = dd.actual || emptyActual();
+  var parsed = parseRunnerNotes(dd.actual.notes);
+  var prev = dd.actual.notesSignals || {};
+  var store = { at:new Date().toISOString(), dismissed:prev.dismissed || [] };
+  NOTE_CATEGORIES.forEach(function(c){
+    store[c] = parsed.byCategory[c].map(function(sg){ return sg.id; });
+  });
+  dd.actual.notesSignals = store;
+  coachPersistReview(dd);
+  replaceCard(dd);
+  scheduleSave();
+  var kept = effectiveNoteSignals(dd.actual).signals.length;
+  showToast(kept ? 'Coach picked up '+kept+' signal'+(kept===1?'':'s')
+                 : 'No additional coaching signals detected');
+}
+function handleDropNoteSignal(dayId, signalId){
+  var dd = findDay(dayId);
+  if (!dd || !dd.actual || !dd.actual.notesSignals || !NOTE_SIGNAL_BY_ID[signalId]) return;
+  var st = dd.actual.notesSignals;
+  st.dismissed = st.dismissed || [];
+  if (st.dismissed.indexOf(signalId)===-1) st.dismissed.push(signalId);
+  coachPersistReview(dd);
+  replaceCard(dd);
+  scheduleSave();
+}
 // Tapping the selected Feel again clears it: it is optional, and a mistaken
 // tap must be undoable without clearing the whole log.
 function handleSetFeel(dayId, feel){
@@ -6161,6 +6596,8 @@ document.addEventListener('change', function(e){
   if (action === 'toggle-complete') handleToggleComplete(actionEl.getAttribute('data-day'));
   else if (action === 'actual-field') handleActualFieldChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'set-feel') handleSetFeel(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-feel'));
+  else if (action === 'notes-wand') handleNotesWand(actionEl.getAttribute('data-day'));
+  else if (action === 'drop-note-signal') handleDropNoteSignal(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-signal'));
   else if (action === 'pace-override') handlePaceOverrideChange(actionEl.getAttribute('data-zone'));
   else if (action === 'toggle-notify') handleToggleNotify();
   else if (action === 'toggle-theme-switch') handleToggleThemeQuick();
