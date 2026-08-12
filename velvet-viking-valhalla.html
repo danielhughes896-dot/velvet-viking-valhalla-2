@@ -1968,6 +1968,10 @@ function planContentSignature(st){
         // rather than as one the athlete simply failed to run as written
         coachAdjust: d.coachAdjust ? { at:nz(d.coachAdjust.at), reason:nz(d.coachAdjust.reason),
                                        from:d.coachAdjust.from||null } : null,
+        // the morning answers and the state they produced are training
+        // evidence, so they travel with the plan like everything else
+        readiness: d.readiness || null,
+        athleteState: d.athleteState ? { state:nz(d.athleteState.state), score:nz(d.athleteState.score) } : null,
         // ACTUAL_SYNCED_FIELDS keeps this in step with the log shape: anything
         // an athlete or an import can put on a workout has to be part of the
         // signature, or the same session edited on two devices reads identical.
@@ -4034,7 +4038,20 @@ function coachRecentSessions(days){
   }).sort(function(a,b){ return a.date < b.date ? 1 : -1; });
 }
 // This morning's answers, if the athlete gave any today.
+/* Readiness belongs to the day it was given about, not to the device. Stored
+   on the day record it syncs, backs up and survives a reload like every other
+   training fact -- and unlike state.readiness, tomorrow's answer no longer
+   overwrites today's. It sits beside `actual` rather than inside it, so it
+   remains structurally incapable of reaching an Execution Score. */
+function dayReadiness(dd){
+  return (dd && dd.readiness && (dd.readiness.legs || dd.readiness.sleep || dd.readiness.health))
+    ? dd.readiness : null;
+}
 function coachReadinessToday(){
+  var dd = findDayByDate(todayStr());
+  var onDay = dayReadiness(dd);
+  if (onDay) return onDay;
+  // pre-existing device-local answers from before readiness was per-day
   var r = state.readiness;
   return (r && r.date === todayStr()) ? r : null;
 }
@@ -4097,6 +4114,206 @@ function coachDecision(){
     // The readiness prompt is earned, not permanent: it appears only when the
     // recent evidence already says something, and only before quality work.
     needsReadiness: !ready && quality && st !== 'proceed' && ev.length > 0
+  };
+}
+
+/* =========================================================
+   ATHLETE TREND MEMORY
+   ---------------------------------------------------------
+   VVV should not judge an athlete from one workout. This is the layer that
+   remembers.
+
+   It is deliberately NOT a second copy of the training log. Almost everything
+   worth remembering is already stored on the day it happened -- the log, the
+   review, the environment read, the adjustment record -- and duplicating it
+   into a parallel store would drift the moment either side changed. So this
+   derives, and persists only the two things that genuinely were not kept:
+   the morning answers (which used to be overwritten every day) and the state
+   the coach actually decided (which was computed live and forgotten).
+
+   Nothing here stores a "readiness score". It stores the evidence, so a later
+   reader can see why a decision was made and whether it proved right.
+   ========================================================= */
+
+// Recorded once per day, when it changes. The point is the journal: it is how
+// the coach can later see that this athlete has been in CHECK for four days.
+function recordAthleteState(){
+  var dec = coachDecision();
+  if (!dec) return null;
+  var dd = findDayByDate(todayStr());
+  if (!dd) return dec;
+  var prev = dd.athleteState;
+  if (prev && prev.state===dec.state && prev.score===dec.score) return dec;
+  dd.athleteState = { state:dec.state, score:dec.score, reasons:dec.reasons.slice(),
+                      at:new Date().toISOString() };
+  scheduleSave();
+  return dec;
+}
+
+/* One evidence record per completed session -- section by section, what the
+   athlete did, what the coach saw, and what it decided. Derived from stored
+   data, so it can never disagree with the workout it describes. */
+function athleteMemory(limitDays){
+  var today = todayStr();
+  var from = addDays(today, -(limitDays || 120));
+  return state.days.filter(function(dd){
+    if (dd.type==='rest' || dd.date < from) return false;
+    // Accepting an adjustment is a decision the athlete made in the past, even
+    // when the session it changed is still ahead. Excluding it would lose
+    // exactly the evidence that says this athlete does back off when asked.
+    if (dd.coachAdjust) return true;
+    // A day earns a record if anything happened on it worth remembering --
+    // including a state the coach decided before the session was run.
+    return dd.date <= today && (dd.completed || dayReadiness(dd) || dd.athleteState);
+  }).sort(function(a,b){ return a.date < b.date ? -1 : 1; })
+    .map(function(dd){
+      var a = dd.actual || {};
+      var review = (dd.coachReview && dd.coachReview.version===COACH_REVIEW_VERSION) ? dd.coachReview : null;
+      var env = review ? review.environment : coachEnvironment(a.notes, a);
+      var tr = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
+      var z = getTargetHRRangeForDay(dd);
+      var score = dd.completed ? computeExecutionScore(dd) : null;
+      return {
+        date: dd.date, type: dd.type, title: dd.title,
+        phase: trainingPhase(dd.week),
+        // prescribed
+        plannedKm: dd.km!=null ? dd.km : null,
+        plannedPace: tr, plannedHR: z, plannedRPE: expectedRPEBand(dd),
+        // performed
+        completed: !!dd.completed,
+        actualKm: a.km!=null ? a.km : null,
+        actualPace: dd.completed ? actualPaceSecPerKm(dd) : null,
+        hr: a.hr!=null ? a.hr : null,
+        rpe: a.rpe!=null ? a.rpe : null,
+        feel: feelOf(dd),
+        notes: a.notes || '',
+        signals: effectiveNoteSignals(a).signals.map(function(x){ return x.id; }),
+        environment: env || null,
+        // did it happen as written
+        asPlanned: !!(dd.completed && score!=null && score>=90 && !dd.coachAdjust),
+        executionScore: score,
+        // what the coach did about it
+        recommendedAdjustment: !!(review && review.recommendPlanAdjustment),
+        acceptedAdjustment: !!dd.coachAdjust,
+        adjustmentReason: dd.coachAdjust ? dd.coachAdjust.reason : null,
+        adjustmentEvidence: dd.coachAdjust ? (dd.coachAdjust.evidence||[]) : [],
+        trainingSignal: review ? review.trainingSignal : null,
+        // what the athlete said that morning, and the state it produced
+        readiness: dayReadiness(dd),
+        athleteState: dd.athleteState ? dd.athleteState.state : null
+      };
+    });
+}
+
+/* =========================================================
+   PERSONAL BASELINES
+   What is normal for THIS athlete, learned from comparable sessions.
+   Medians, not means: one disastrous run should not move the baseline it is
+   about to be judged against. Heat and disowned heart-rate data are excluded
+   from every heart-rate baseline, for the same reason they are excluded
+   everywhere else -- a hot run costs bpm for reasons that are not fatigue.
+   Every value is null until there is genuinely enough evidence to state it.
+   ========================================================= */
+var BASELINE_MIN_SAMPLES = 4;
+function median(list){
+  if (!list.length) return null;
+  var v = list.slice().sort(function(a,b){ return a-b; });
+  var m = Math.floor(v.length/2);
+  return v.length%2 ? v[m] : Math.round(((v[m-1]+v[m])/2)*10)/10;
+}
+function stdev(list){
+  if (list.length < 2) return null;
+  var mean = list.reduce(function(s,v){ return s+v; },0)/list.length;
+  return Math.round(Math.sqrt(list.reduce(function(s,v){ return s+Math.pow(v-mean,2); },0)/list.length)*10)/10;
+}
+// A session whose heart rate can be trusted as physiological.
+function hrIsReadable(rec){
+  if (rec.hr==null) return false;
+  var e = rec.environment || {};
+  if (e.hrDoubt) return false;
+  return e.heatBand==='none' || e.heatBand==='mild' || e.heatBand==null;
+}
+function baselineFor(records, opts){
+  var take = function(pick, filter){
+    return records.filter(filter || function(){ return true; })
+                  .map(pick).filter(function(v){ return v!=null; });
+  };
+  var hrs   = take(function(r){ return r.hr; }, hrIsReadable);
+  var paces = take(function(r){ return r.actualPace; });
+  var rpes  = take(function(r){ return r.rpe; });
+  var execs = take(function(r){ return r.executionScore; });
+  var enough = function(l){ return l.length >= BASELINE_MIN_SAMPLES ? l : null; };
+  var hrOK = enough(hrs), paceOK = enough(paces), rpeOK = enough(rpes), execOK = enough(execs);
+  return {
+    sessions: records.length,
+    enough: records.length >= BASELINE_MIN_SAMPLES,
+    hr: hrOK ? median(hrOK) : null,
+    hrSamples: hrs.length,
+    pace: paceOK ? median(paceOK) : null,
+    rpe: rpeOK ? median(rpeOK) : null,
+    // beats per minute per minute-per-km: how much heart rate this athlete
+    // spends to hold a given pace. The pair is what moves when fitness does.
+    hrAtPace: (hrOK && paceOK) ? Math.round((median(hrOK) / (median(paceOK)/60)) * 10)/10 : null,
+    // how repeatable the athlete is, not how good -- a low spread on quality
+    // work is its own kind of fitness
+    executionMedian: execOK ? median(execOK) : null,
+    executionSpread: execOK ? stdev(execOK) : null,
+    completionRate: records.length
+      ? Math.round((records.filter(function(r){ return r.completed; }).length / records.length)*100)
+      : null,
+    // drift is only ever computed where split data actually exists
+    hrDrift: (function(){
+      var d = records.map(function(r){ return r.__drift; }).filter(function(v){ return v!=null; });
+      return d.length >= 3 ? median(d) : null;
+    })()
+  };
+}
+/* Rolling baselines by session family, over the recent window that actually
+   reflects current fitness rather than the whole block. */
+function athleteBaselines(windowDays){
+  var mem = athleteMemory(windowDays || 42).filter(function(r){ return r.completed; });
+  mem.forEach(function(r){
+    var dd = findDayByDate(r.date);
+    r.__drift = dd ? coachHRDrift(dd) : null;
+  });
+  var of = function(types){ return mem.filter(function(r){ return types.indexOf(r.type)!==-1; }); };
+  return {
+    windowDays: windowDays || 42,
+    sessions: mem.length,
+    easy:    baselineFor(of(['easy'])),
+    quality: baselineFor(of(['tempo','threshold','interval','repetition'])),
+    long:    baselineFor(of(['long'])),
+    // how often this athlete has been asked to back off, and how often they did
+    // counted over the whole memory, not just completed sessions: an
+    // adjustment accepted for tomorrow still says something about today
+    adjustments: (function(){
+      var all = athleteMemory(windowDays || 42);
+      return { offered: all.filter(function(r){ return r.recommendedAdjustment || r.acceptedAdjustment; }).length,
+               accepted: all.filter(function(r){ return r.acceptedAdjustment; }).length };
+    })()
+  };
+}
+/* How far today's session sits from this athlete's own normal, in the units
+   the athlete understands. Null wherever the baseline is not yet established
+   -- never a guess dressed as a comparison. */
+function baselineDeviation(dd){
+  if (!dd || !dd.completed) return null;
+  var b = athleteBaselines();
+  var fam = dd.type==='easy' ? b.easy
+          : dd.type==='long' ? b.long
+          : ['tempo','threshold','interval','repetition'].indexOf(dd.type)!==-1 ? b.quality
+          : null;
+  if (!fam || !fam.enough) return null;
+  var a = dd.actual || {};
+  var env = coachEnvironment(a.notes, a);
+  var pace = actualPaceSecPerKm(dd);
+  return {
+    family: dd.type==='easy' ? 'easy' : dd.type==='long' ? 'long' : 'quality',
+    hr: (fam.hr!=null && a.hr!=null && !env.hrDoubt) ? a.hr - fam.hr : null,
+    // negative = quicker than normal
+    paceSec: (fam.pace!=null && pace!=null) ? Math.round(pace - fam.pace) : null,
+    rpe: (fam.rpe!=null && a.rpe!=null) ? Math.round((a.rpe - fam.rpe)*10)/10 : null,
+    baseline: fam
   };
 }
 
@@ -4183,8 +4400,15 @@ function handleSetReadiness(key, value){
   var q = READINESS_QUESTIONS.filter(function(x){ return x.key===key; })[0];
   if (!q || !q.options.some(function(o){ return o[0]===value; })) return;
   var today = todayStr();
-  if (!state.readiness || state.readiness.date!==today) state.readiness = { date:today };
-  state.readiness[key] = (state.readiness[key]===value) ? null : value;
+  var dd = findDayByDate(today);
+  if (dd){
+    dd.readiness = dd.readiness || {};
+    dd.readiness[key] = (dd.readiness[key]===value) ? null : value;
+  } else {
+    // no plan day today (outside the block) -- keep the old device-local shape
+    if (!state.readiness || state.readiness.date!==today) state.readiness = { date:today };
+    state.readiness[key] = (state.readiness[key]===value) ? null : value;
+  }
   flushSave();
   renderApp();
 }
@@ -5190,7 +5414,7 @@ var READINESS_QUESTIONS = [
 ];
 function renderReadinessCheck(dec){
   if (!dec || !dec.needsReadiness) return '';
-  var r = state.readiness && state.readiness.date===todayStr() ? state.readiness : {};
+  var r = coachReadinessToday() || {};
   return '<div class="readiness">'+
     '<div class="readiness-head">How are you today?</div>'+
     READINESS_QUESTIONS.map(function(q){
@@ -6781,6 +7005,9 @@ function renderCheckpointBanner(){
 // not browsing.
 function renderTodayView(){
   var dd = findDayByDate(todayStr());
+  // Journal the state the coach is showing, so tomorrow can see what today
+  // looked like. Writes only when it changes, and never re-renders.
+  recordAthleteState();
   var html = renderHero()+'<div class="view-heading font-head">Today</div>';
   html += renderCoachNextMoveCard(coachAnalyse());
   html += dd ? renderDayCard(dd) : '<div class="empty-note">No session scheduled for today — it falls outside the current plan’s dates.</div>';
