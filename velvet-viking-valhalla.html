@@ -20,6 +20,11 @@
     --ink:#EDE3D0; --ink-dim:#B3A48C; --ink-faint:#948970;
     --line:#3B2E20; --line-soft:#2A2015;
     --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
+    /* Gold used as TEXT. Identical to --gold/--bronze in dark, so the dark theme
+       is unchanged by construction; deepened in light, where the same gold sits on
+       cream at 1.7-2.8:1. Borders, icons, the wordmark, the medallion and the
+       workout-type colours deliberately do NOT use these. */
+    --gold-text:var(--gold); --bronze-text:var(--bronze);
     --c-rest:#8C8272; --c-rest-soft:rgba(140,130,114,0.16);
     --c-easy:#84A56E; --c-easy-soft:rgba(132,165,110,0.16);
     --c-tempo:#CC9245; --c-tempo-soft:rgba(204,146,69,0.16);
@@ -53,6 +58,9 @@
     --line:#DCCEA9; --line-soft:#E7DABB;
     --shadow:0 10px 30px rgba(90,70,30,0.14);
     --shadow-sm:0 4px 12px rgba(90,70,30,0.10);
+      /* deep bronze for informational gold text on cream: 6.1:1 on card,
+       5.3:1 on page, 4.8:1 on the tinted panel -- all above AA */
+    --gold-text:#7A5C1E; --bronze-text:#7A5C1E;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html{-webkit-text-size-adjust:100%;}
@@ -77,7 +85,11 @@
 
   /* ---------- layout ---------- */
   .wrap{max-width:var(--maxw); margin:0 auto; padding:0 16px;}
-  .app-root{min-height:100vh; padding-bottom:88px;}
+  .app-root{min-height:100vh;
+    /* Terminal breathing room above the fixed nav, matched to SETTINGS (the
+       cleanest of the five) and composed with the home-indicator inset, which
+       the nav already respects but this padding previously did not. */
+    padding-bottom:calc(117px + env(safe-area-inset-bottom, 0px));}
 
   /* ---------- sticky top bar ---------- */
   .topbar{
@@ -171,7 +183,7 @@
      Colour swap only: same size, radius, padding, typography and 2x2 grid. */
   [data-theme="light"] .countdown-badge{background:#EFECE6; border-color:rgba(197, 160, 89, 0.4);}
   [data-theme="light"] .cd-cell{color:#2B2317;}
-  .cd-race-day{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--gold); font-weight:700;}
+  .cd-race-day{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--gold-text); font-weight:700;}
 
   /* confidence score fuel gauge — top-left of the header */
   .confidence-gauge{display:flex; flex-direction:column; align-items:center; gap:2px;}
@@ -180,7 +192,7 @@
     font-family:'JetBrains Mono',monospace; font-size:8px; font-weight:700; fill:var(--ink-dim);
   }
   .gauge-caption{display:flex; align-items:baseline; gap:5px;}
-  .gauge-pct{font-size:13px; font-weight:700; color:var(--gold);}
+  .gauge-pct{font-size:13px; font-weight:700; color:var(--gold-text);}
   /* themed (not the fixed --modal-text) since the gauge sits in the topbar,
      which itself flips with the light/dark toggle -- --modal-text is only
      ever defined for the dark palette and goes near-invisible in light mode. */
@@ -191,18 +203,18 @@
   }
   .cb-icon{font-size:18px; line-height:1; flex:none;}
   .cb-text{font-size:12.5px; line-height:1.55; color:var(--ink);}
-  .cb-text b{color:var(--gold);}
+  .cb-text b{color:var(--gold-text);}
   .week.is-taper{border-color:var(--bronze);}
   .week.is-taper .week-head{background:var(--c-gold-soft);}
   .taper-note{
-    display:flex; align-items:center; gap:7px; font-size:11px; color:var(--bronze);
+    display:flex; align-items:center; gap:7px; font-size:11px; color:var(--bronze-text);
     padding:8px 16px; background:var(--c-gold-soft); border-top:1px dashed var(--line);
   }
   .taper-note svg{width:13px; height:13px; flex:none;}
   .zone-card{margin:10px 14px 14px; padding:12px 13px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .zone-head{display:flex; align-items:center; justify-content:space-between; font-size:11.5px; margin-bottom:9px;}
   .zone-head span:first-child{text-transform:uppercase; letter-spacing:1px; color:var(--ink-dim); font-size:10.5px;}
-  .zone-time{color:var(--gold);}
+  .zone-time{color:var(--gold-text);}
   .zbar{display:flex; height:9px; border-radius:99px; overflow:hidden; background:var(--bg-4);}
   .zbar-seg{height:100%;}
   .z-easy{background:var(--c-easy);}
@@ -215,7 +227,7 @@
   .fuel-card{margin-top:10px; border:1px dashed var(--line); border-radius:8px; background:var(--bg-3);}
   .fuel-card summary{
     display:flex; align-items:center; gap:6px; padding:8px 10px; font-size:11px; font-weight:600;
-    color:var(--bronze); cursor:pointer; list-style:none; user-select:none;
+    color:var(--bronze-text); cursor:pointer; list-style:none; user-select:none;
   }
   .fuel-card summary::-webkit-details-marker{display:none;}
   .fuel-card summary svg{width:13px; height:13px; flex:none;}
@@ -234,7 +246,7 @@
     background:linear-gradient(155deg, var(--bg-3), var(--bg-2)); border:2px solid var(--gold);
     box-shadow:0 0 0 1px var(--bronze) inset;
   }
-  .cg-title{font-size:22px; letter-spacing:.08em; color:var(--gold); margin-bottom:12px;}
+  .cg-title{font-size:22px; letter-spacing:.08em; color:var(--gold-text); margin-bottom:12px;}
   .cg-quote{font-size:13px; letter-spacing:1.5px; line-height:2; color:var(--ink); text-transform:uppercase; font-weight:600;}
 
   /* ---------- print ---------- */
@@ -272,7 +284,7 @@
 
   .stat-row{display:flex; justify-content:center; gap:22px; margin-top:16px; flex-wrap:wrap;}
   .stat{text-align:center;}
-  .stat .v{font-family:'JetBrains Mono',monospace; font-size:19px; font-weight:700; color:var(--gold);}
+  .stat .v{font-family:'JetBrains Mono',monospace; font-size:19px; font-weight:700; color:var(--gold-text);}
   .stat .l{font-size:10px; letter-spacing:1.5px; color:var(--ink-faint); text-transform:uppercase; margin-top:2px;}
 
   .progress-bars{margin-top:16px; display:flex; flex-direction:column; gap:8px;}
@@ -291,12 +303,13 @@
 
   /* ---------- week accordion ---------- */
   .week{border:1px solid var(--line); border-radius:var(--radius); margin-bottom:12px; background:var(--bg-2); overflow:hidden; box-shadow:var(--shadow-sm);}
+  .week:last-child{margin-bottom:0;}
   .week-head{width:100%; text-align:left; background:none; border:none; padding:14px 16px; display:flex; align-items:center; gap:12px; color:var(--ink); transition:background .15s ease;}
   .week-head:hover{background:var(--bg-3);}
   .week-head:active{background:var(--bg-4);}
-  .week-num{font-family:'Cinzel',serif; font-weight:700; font-size:20px; color:var(--bronze); flex:none; width:34px;}
+  .week-num{font-family:'Cinzel',serif; font-weight:700; font-size:20px; color:var(--bronze-text); flex:none; width:34px;}
   .week-meta{flex:1; min-width:0;}
-  .week-phase{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze);}
+  .week-phase{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text);}
   .week-range{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
   .week-vol{text-align:right; flex:none;}
   .week-vol .v{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px; color:var(--ink);}
@@ -307,7 +320,7 @@
   .week-body{max-height:0; overflow:hidden; transition:max-height .35s ease;}
   .week.open .week-body{max-height:10000px;}
   .week-body-inner{padding:2px 12px 14px;}
-  .week-today-flag{display:inline-block; margin-left:8px; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--bronze-ink); background:var(--gold); padding:2px 6px; border-radius:99px; font-family:'Oswald',sans-serif;}
+  .week-today-flag{display:inline-block; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--bronze-ink); background:var(--gold); padding:2px 6px; border-radius:99px; font-family:'Oswald',sans-serif;}
 
   /* ---------- day card ---------- */
   .day{
@@ -338,9 +351,9 @@
   .day-check.locked input:checked{opacity:.75;}
   .day-check input{width:19px; height:19px; accent-color:var(--bronze); cursor:pointer;}
   .day-main{flex:1; min-width:0;}
-  .day-row1{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .day-row1{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .day-date{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint);}
-  .day-badge{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; padding:2px 7px; border-radius:99px; font-weight:600;}
+  .day-badge{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; padding:2px 6px; border-radius:99px; font-weight:600;}
   .day-badge.type-rest{background:var(--c-rest-soft); color:var(--c-rest);}
   .day-badge.type-easy{background:var(--c-easy-soft); color:var(--c-easy);}
   .day-badge.type-tempo{background:var(--c-tempo-soft); color:var(--c-tempo);}
@@ -352,10 +365,10 @@
   /* collapsed-card execution score -- always visible in the header row
      once a workout is completed and scoreable, regardless of whether the
      actual-panel below is showing. */
-  .exec-pill{font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.3px; padding:2px 8px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold);}
+  .exec-pill{font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold);}
   .day-title{font-weight:600; font-size:14.5px; margin-top:3px; color:var(--ink);}
   .day-targets{font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
-  .day-targets .mp{color:var(--gold);}
+  .day-targets .mp{color:var(--gold-text);}
   /* target HR sits alongside pace/distance but reads as secondary, matching
      how HR is treated in the Pace Reference and Plan HQ zone cards. */
   .day-targets .hr{color:var(--ink-faint);}
@@ -380,7 +393,7 @@
   .actual-field{display:flex; flex-direction:column; gap:3px;}
   .actual-field label{font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint);}
   .actual-field input, .actual-field textarea{
-    background:var(--bg-4); border:1px solid var(--line); border-radius:7px; color:var(--ink);
+    background:var(--bg-4); border:1px solid var(--line); border-radius:6px; color:var(--ink);
     padding:7px 8px; font-size:13px; font-family:'JetBrains Mono',monospace; width:100%;
   }
   .actual-field textarea{font-family:'Inter',sans-serif; resize:vertical; min-height:38px;}
@@ -425,7 +438,7 @@
   .feel-btn{
     padding:6px 2px; font-size:9px; letter-spacing:0.5px; font-weight:600;
     background:var(--bg-3); color:var(--ink-faint); border:1px solid var(--line);
-    border-radius:5px; cursor:pointer; transition:background .12s, color .12s, border-color .12s;
+    border-radius:6px; cursor:pointer; transition:background .12s, color .12s, border-color .12s;
   }
   .feel-btn.on{background:var(--modal-active); color:var(--bg-1); border-color:var(--modal-active);}
   .cr-purpose{opacity:.85;}
@@ -438,11 +451,11 @@
   .zone-paces-card{margin:14px 14px 0; padding:14px 15px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);}
   .zpc-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;}
   .zpc-head span:first-child{font-size:13px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
-  .zpc-vdot{font-size:11px; color:var(--bronze);}
+  .zpc-vdot{font-size:11px; color:var(--bronze-text);}
   .pzr{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line-soft);}
   .pzr:last-of-type{border-bottom:none;}
   .pzr-label{font-size:12.5px; color:var(--ink-dim); flex:1; min-width:0;}
-  .pzr-tag{font-size:9px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze); border:1px solid var(--bronze); border-radius:99px; padding:1px 6px; margin-left:4px;}
+  .pzr-tag{font-size:9px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze-text); border:1px solid var(--bronze); border-radius:99px; padding:1px 6px; margin-left:4px;}
   /* target HR range, shown alongside the pace inputs on the same row --
      stacked under the zone label rather than a third flex column, so the
      row still fits on narrow phones without wrapping or crowding the
@@ -460,7 +473,7 @@
   .pace-ref-card{margin:14px 0 0; padding:12px 15px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);}
   .pace-ref-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;}
   .pace-ref-head span:first-child{font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
-  .pace-ref-vdot{font-size:11px; color:var(--bronze);}
+  .pace-ref-vdot{font-size:11px; color:var(--bronze-text);}
   .pace-ref-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid var(--line-soft); font-size:12px;}
   .pace-ref-row:last-of-type{border-bottom:none;}
   .pace-ref-label{color:var(--ink-dim);}
@@ -468,7 +481,7 @@
 
   /* ---------- AI post-session execution review ---------- */
   .exec-review-card{margin-top:10px; padding:11px 12px; background:var(--bg-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
-  .exec-review-head{display:flex; align-items:center; gap:8px; font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze); margin-bottom:8px;}
+  .exec-review-head{display:flex; align-items:center; gap:8px; font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
   .exec-review-head svg{width:14px; height:14px; flex:none;}
   /* title yields first so the badge can never be pushed off or overlapped
      on a narrow phone; the badge itself never shrinks */
@@ -486,7 +499,7 @@
      the row, expanded you see it on the review it belongs to. */
   .day.open .day-row1 .exec-pill{display:none;}
   .cr-sec{margin-top:10px;}
-  .cr-k{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.3px; text-transform:uppercase; color:var(--bronze); margin-bottom:3px;}
+  .cr-k{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.3px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px;}
   .cr-v{font-size:12.5px; color:var(--ink-dim); line-height:1.5; overflow-wrap:anywhere;}
   .cr-sub{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:2px; overflow-wrap:anywhere;}
   .cr-signal{display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
@@ -512,7 +525,7 @@
   }
   .checkpoint h3{font-family:'Cinzel',serif; font-size:18px; margin:0 0 6px; color:var(--ink);}
   .checkpoint p{font-size:12.5px; color:var(--ink-dim); margin:0 0 4px; line-height:1.5;}
-  .checkpoint .hint{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--bronze); margin-bottom:12px;}
+  .checkpoint .hint{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--bronze-text); margin-bottom:12px;}
   .goal-options{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
   .goal-opt{
     border:1.5px solid var(--line); background:var(--bg-2); border-radius:var(--radius-sm);
@@ -574,7 +587,7 @@
   .modal-actions .btn{flex:1;}
 
   fieldset{border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px; margin:0 0 14px;}
-  legend{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze); padding:0 6px;}
+  legend{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text); padding:0 6px;}
 
   /* ---------- settings extras ---------- */
   .connect-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line-soft);}
@@ -661,6 +674,10 @@
   }
   .view-fade{ animation:fadein .18s ease; }
   .hub-card{margin:0 0 14px; padding:14px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  /* The last card in a view must not add its own trailing margin on top of the
+     shared bottom clearance, or a view ending in a hub-card finishes with half
+     as much space again as one that does not. */
+  .hub-card:last-child{margin-bottom:0;}
   /* ---------- Adaptive AI Coach ----------
      Built on the existing .hub-card/.callout primitives so it inherits the
      app's responsive behaviour. Every horizontal run of content either wraps
@@ -673,7 +690,7 @@
   .coach-status-main{min-width:0; flex:1 1 auto;}
   .coach-status-label{font-family:'Oswald',sans-serif; font-size:15px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink); line-height:1.25;}
   .coach-status-detail{font-size:12px; color:var(--ink-dim); line-height:1.5; margin-top:3px; overflow-wrap:anywhere;}
-  .coach-phase{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze); white-space:nowrap; flex:none; padding-top:4px;}
+  .coach-phase{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); white-space:nowrap; flex:none; padding-top:4px;}
   .coach-metrics{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:12px;}
   .coach-metric{background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:9px 8px; min-width:0; text-align:center;}
   .coach-metric .cm-k{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); line-height:1.2;}
@@ -692,7 +709,7 @@
   .coach-next{margin:0 0 14px;}
   .coach-next-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;}
   .coach-next-head svg{width:15px; height:15px; flex:none; color:var(--gold);}
-  .coach-next-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze);}
+  .coach-next-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text);}
   .coach-next-session{font-size:12px; color:var(--ink); line-height:1.5; margin-bottom:6px; overflow-wrap:anywhere;}
   .coach-next-rec{font-size:12px; color:var(--ink-dim); line-height:1.55; overflow-wrap:anywhere;}
   .coach-adjust{margin-top:11px; padding:11px 12px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
@@ -744,12 +761,12 @@
   .evo-link{display:block; text-align:left;}
   .evo-panel{margin-top:9px; padding:10px 11px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .evo-sec + .evo-sec{margin-top:9px;}
-  .evo-k{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze); margin-bottom:3px;}
+  .evo-k{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px;}
   .evo-v{font-size:11.5px; color:var(--ink-dim); line-height:1.5; overflow-wrap:anywhere;}
   .evo-list{margin:0; padding-left:17px; list-style:disc;}
   .evo-list li{font-size:11.5px; color:var(--ink); line-height:1.55; margin:2px 0; overflow-wrap:anywhere;}
   .readiness{margin-top:11px; padding:10px 11px; background:var(--bg-2); border:1px dashed var(--line); border-radius:var(--radius-sm);}
-  .readiness-head{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze); margin-bottom:8px;}
+  .readiness-head{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
   .readiness-row{display:flex; align-items:center; gap:8px; margin-top:6px;}
   .readiness-label{font-size:10px; letter-spacing:.8px; text-transform:uppercase; color:var(--ink-faint); width:44px; flex:none;}
   .readiness-opts{display:flex; gap:4px; flex-wrap:wrap; flex:1;}
@@ -761,12 +778,12 @@
   .readiness-btn.on{background:var(--modal-active); color:var(--bg-1); border-color:var(--modal-active);}
   /* ---------- week status: one line, no dashboard ---------- */
   .week-status{margin:0 0 12px; padding:11px 13px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
-  .week-status-head{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze); margin-bottom:5px;}
+  .week-status-head{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:5px;}
   .week-status-line{font-size:12px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere;}
   .week-status-note{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:3px;}
   /* ---------- full plan status label ---------- */
   .day-status-label{
-    font-size:8.5px; letter-spacing:1px; text-transform:uppercase; padding:1px 6px;
+    font-size:8.5px; letter-spacing:1px; text-transform:uppercase; padding:1px 5px;
     border-radius:99px; border:1px solid var(--line); color:var(--ink-faint);
   }
   /* ---------- Plan HQ expandable sections ---------- */
@@ -808,7 +825,7 @@
     border:1.5px dashed var(--bronze-2); border-radius:var(--radius-lg); padding:26px 20px; margin:18px 0;
     background:var(--c-gold-soft); text-align:center;
   }
-  .setup-cta h2{font-family:'Cinzel',serif; font-size:19px; margin:0 0 8px; color:var(--gold); text-transform:uppercase; letter-spacing:.03em;}
+  .setup-cta h2{font-family:'Cinzel',serif; font-size:19px; margin:0 0 8px; color:var(--gold-text); text-transform:uppercase; letter-spacing:.03em;}
   .setup-cta p{font-size:12.5px; color:var(--ink-dim); line-height:1.55; margin:0 0 16px; max-width:44ch; margin-left:auto; margin-right:auto;}
 
   .plan-summary-bar{
@@ -836,10 +853,10 @@
 
   .benchmark-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .goal-input-row{display:grid; grid-template-columns:34px 1fr 74px; gap:8px; align-items:center; margin-bottom:9px;}
-  .goal-input-row .gl{font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--bronze); text-align:center;}
+  .goal-input-row .gl{font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--bronze-text); text-align:center;}
   .goal-input-row .gp{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); text-align:right;}
 
-  .setup-section-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze); margin:16px 0 8px;}
+  .setup-section-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
   .setup-section-title:first-child{margin-top:0;}
   /* Plan HQ's Programme Status heading + KM/MI pill, aligned on one row at
      any width instead of the pill wrapping under the heading. */
