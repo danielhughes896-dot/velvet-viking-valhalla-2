@@ -588,6 +588,48 @@
   }
   .view-fade{ animation:fadein .18s ease; }
   .hub-card{margin:0 0 14px; padding:14px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  /* ---------- Adaptive AI Coach ----------
+     Built on the existing .hub-card/.callout primitives so it inherits the
+     app's responsive behaviour. Every horizontal run of content either wraps
+     or is a grid that collapses, and nothing is wider than its container, so
+     there is no horizontal overflow at any viewport. */
+  .coach-status{display:flex; align-items:flex-start; gap:10px; margin-bottom:12px;}
+  .coach-dot{width:9px; height:9px; border-radius:50%; flex:none; margin-top:5px; background:var(--ink-faint);}
+  .coach-dot.good{background:#5FA86B;} .coach-dot.watch{background:var(--gold);}
+  .coach-dot.warn{background:#C4643C;} .coach-dot.neutral{background:var(--ink-faint);}
+  .coach-status-main{min-width:0; flex:1 1 auto;}
+  .coach-status-label{font-family:'Oswald',sans-serif; font-size:15px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink); line-height:1.25;}
+  .coach-status-detail{font-size:12px; color:var(--ink-dim); line-height:1.5; margin-top:3px; overflow-wrap:anywhere;}
+  .coach-phase{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze); white-space:nowrap; flex:none; padding-top:4px;}
+  .coach-metrics{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:12px;}
+  .coach-metric{background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:9px 8px; min-width:0; text-align:center;}
+  .coach-metric .cm-k{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); line-height:1.2;}
+  .coach-metric .cm-v{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin-top:3px; line-height:1.2; overflow-wrap:anywhere;}
+  .coach-metric .cm-s{font-size:10px; color:var(--ink-dim); margin-top:2px; line-height:1.3; overflow-wrap:anywhere;}
+  .coach-signal{display:flex; gap:9px; align-items:flex-start; padding:9px 0; border-top:1px solid var(--line);}
+  .coach-signal:first-child{border-top:none;}
+  .coach-signal-body{min-width:0;}
+  .coach-signal-label{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:.8px; text-transform:uppercase; color:var(--ink); line-height:1.3;}
+  .coach-signal-detail{font-size:11.5px; color:var(--ink-dim); line-height:1.5; margin-top:2px; overflow-wrap:anywhere;}
+  .coach-bt{display:flex; gap:9px; align-items:flex-start; padding:9px 0; border-top:1px solid var(--line);}
+  .coach-bt:first-child{border-top:none;}
+  .coach-bt svg{width:15px; height:15px; flex:none; color:var(--gold); margin-top:1px;}
+  .coach-bt-body{min-width:0; font-size:11.5px; color:var(--ink-dim); line-height:1.5; overflow-wrap:anywhere;}
+  .coach-bt-body b{color:var(--ink); font-weight:600;}
+  .coach-next{margin:0 0 14px;}
+  .coach-next-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;}
+  .coach-next-head svg{width:15px; height:15px; flex:none; color:var(--gold);}
+  .coach-next-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze);}
+  .coach-next-session{font-size:12px; color:var(--ink); line-height:1.5; margin-bottom:6px; overflow-wrap:anywhere;}
+  .coach-next-rec{font-size:12px; color:var(--ink-dim); line-height:1.55; overflow-wrap:anywhere;}
+  .coach-adjust{margin-top:11px; padding:11px 12px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .coach-adjust-line{font-size:12px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere;}
+  .coach-adjust-why{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:4px; overflow-wrap:anywhere;}
+  /* Stacked, full-width buttons: they never sit side by side, so they cannot
+     overlap or be clipped on a narrow phone. */
+  .coach-actions{display:flex; flex-direction:column; gap:8px; margin-top:11px;}
+  .coach-actions .btn{width:100%;}
+  .coach-adjusted-note{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:8px; overflow-wrap:anywhere;}
   .hub-card .setup-section-title{margin-top:0;}
 
   .empty-note{font-size:12px; color:var(--ink-faint); text-align:center; padding:10px 0;}
@@ -2957,6 +2999,24 @@ function composeExecutionNotes(dd, b){
     out.push('Average HR '+a.hr+' bpm sat '+(a.hr<z.lo?'below':'above')+' the '+fmtHRRange(z)+' zone.');
   }
 
+  // NOTES / CONTEXT ANALYSIS. If the athlete already explained a slow pace or a
+  // high heart rate -- heat, a treadmill, hills, wind -- say so rather than
+  // reporting the deficit as if it were fitness. Same keyword reader the Coach
+  // Noticed panel uses, so the two can never contradict each other.
+  var offPace = by.pace.score!=null && by.pace.score<95 && ap!=null && tr && ap > tr.slow;
+  var offHR = by.hr.score!=null && by.hr.score<95 && z && a.hr!=null && a.hr > z.hi;
+  if (offPace || offHR){
+    var cues = coachExcuses(dd, offPace ? 'pace' : 'hr');
+    if (cues.length){
+      out.push('Your note mentions '+listPhrase(cues.map(function(c){ return c.say; }))+
+        ', so that is read as conditions rather than lost fitness.');
+    }
+  }
+  var strong = coachReadNotes(a.notes).filter(function(c){ return c.flag==='pain'; });
+  if (strong.length){
+    out.push('You logged soreness on this one — worth watching before the next quality session.');
+  }
+
   if (by.rpe.score!=null){
     var band = expectedRPEBand(dd);
     var sessionName = dd.title || tm.label;
@@ -3003,6 +3063,562 @@ function renderExecutionReview(dd){
     '<div class="exec-review-summary">'+escapeHtml(composeExecutionNotes(dd, b))+'</div>'+
     '<div class="exec-parts">'+breakdown+'</div>'+
   '</div>';
+}
+
+
+/* =========================================================
+   ADAPTIVE AI COACH — one shared engine
+   ---------------------------------------------------------
+   Everything the coach says on any surface comes from coachAnalyse(). It is a
+   pure function of `state`: no network, no platform checks, no branching on
+   web / PWA / Capacitor. The Android APK loads this same file from the live
+   deployment (capacitor.config.json sets server.url), and the iOS home-screen
+   app is the same page again, so one implementation genuinely serves all
+   three -- there is deliberately no second copy to drift.
+
+   Every field it reads is optional. Plans and workouts logged before the
+   coach existed carry none of them and simply produce a quieter report, so
+   nothing has to be reset, reinstalled or rebuilt.
+   ========================================================= */
+
+// Relative physiological cost per km, used to turn "kilometres run" into
+// something comparable across session types. Roughly the ratio of the zone's
+// intensity to easy pace -- a threshold km costs more than an easy km.
+var COACH_LOAD_FACTOR = {
+  rest:0, easy:1.0, long:1.1, tempo:1.35, threshold:1.45,
+  interval:1.6, repetition:1.6, checkpoint:1.5, race:1.7
+};
+function coachLoadFactor(type){
+  return COACH_LOAD_FACTOR.hasOwnProperty(type) ? COACH_LOAD_FACTOR[type] : 1.0;
+}
+// Load actually performed on a day (0 when not completed). Falls back to the
+// prescribed distance when a completed day has no logged distance, so an
+// older workout still contributes rather than reading as a rest day.
+function coachDayLoad(dd){
+  if (!dd || !dd.completed || dd.type==='rest') return 0;
+  var a = dd.actual || {};
+  var km = (a.km!=null) ? a.km : (dd.km||0);
+  return km * coachLoadFactor(dd.type);
+}
+function coachDaysInWindow(from, to){
+  return state.days.filter(function(dd){
+    return dd.date >= from && dd.date <= to;
+  });
+}
+
+/* ---------- training load: acute vs chronic ----------
+   The standard acute:chronic workload ratio. Acute is the last 7 days, chronic
+   the average 7-day load across the last 28. Below ~0.8 the block is drifting
+   backwards; 0.8-1.3 is the productive band; above 1.5 is the range where
+   ramping too fast is the usual cause of breakdown. Reported, never enforced. */
+function coachLoad(){
+  var today = todayStr();
+  var acuteFrom = addDays(today, -6);
+  var chronicFrom = addDays(today, -27);
+  var acute = coachDaysInWindow(acuteFrom, today).reduce(function(s,dd){ return s+coachDayLoad(dd); }, 0);
+  var chronicTotal = coachDaysInWindow(chronicFrom, today).reduce(function(s,dd){ return s+coachDayLoad(dd); }, 0);
+  var chronic = chronicTotal/4;
+  // Not enough history to say anything honest about a ratio yet.
+  var enough = coachDaysInWindow(chronicFrom, today).filter(function(dd){ return dd.completed && dd.type!=='rest'; }).length >= 4;
+  var ratio = (enough && chronic > 0) ? acute/chronic : null;
+  var band = ratio==null ? 'unknown'
+    : ratio < 0.8 ? 'low'
+    : ratio <= 1.3 ? 'productive'
+    : ratio <= 1.5 ? 'elevated'
+    : 'spike';
+  return { acute:Math.round(acute), chronic:Math.round(chronic), ratio:ratio, band:band, enough:enough };
+}
+
+/* ---------- trend: are the last few sessions going better or worse? ---------- */
+function coachCompletedScored(){
+  return state.days.filter(function(dd){
+    return dd.completed && computeExecutionScore(dd)!=null;
+  }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+}
+function coachTrend(){
+  var scored = coachCompletedScored();
+  if (scored.length < 4) return { direction:'flat', delta:null, enough:false };
+  var recent = scored.slice(-3), prior = scored.slice(-6, -3);
+  if (!prior.length) return { direction:'flat', delta:null, enough:false };
+  var mean = function(list){
+    return list.reduce(function(s,dd){ return s+computeExecutionScore(dd); }, 0) / list.length;
+  };
+  var delta = mean(recent) - mean(prior);
+  return {
+    direction: delta >= 5 ? 'rising' : delta <= -5 ? 'falling' : 'flat',
+    delta: Math.round(delta), enough: true
+  };
+}
+
+/* ---------- recovery: how hard recent work has felt ----------
+   RPE above the band the session type expects, or HR above its zone, are the
+   two signals a plan can actually see. Consecutive quality days without a rest
+   or easy day between them is the third. */
+function coachRecovery(){
+  var today = todayStr();
+  var week = coachDaysInWindow(addDays(today,-6), today).filter(function(dd){ return dd.completed; });
+  var overRPE = 0, overHR = 0, counted = 0;
+  week.forEach(function(dd){
+    var a = dd.actual || {};
+    var band = expectedRPEBand(dd);
+    if (a.rpe!=null && band){ counted++; if (a.rpe > band[1]) overRPE++; }
+    var z = getTargetHRRangeForDay(dd);
+    if (a.hr!=null && z && a.hr > z.hi) overHR++;
+  });
+  // hard days back to back, in plan order
+  var ordered = state.days.slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  var streak = 0, worstStreak = 0;
+  ordered.forEach(function(dd){
+    if (dd.date > today) return;
+    if (dd.type==='rest' || isRecoveryWorkoutType(dd.type)) streak = 0;
+    else { streak++; worstStreak = Math.max(worstStreak, streak); }
+  });
+  var strain = overRPE + overHR + (worstStreak>=3 ? 1 : 0);
+  return {
+    overRPE:overRPE, overHR:overHR, hardStreak:worstStreak, counted:counted,
+    state: strain>=3 ? 'strained' : strain>=1 ? 'watch' : 'fresh'
+  };
+}
+
+/* ---------- notes / context analysis ----------
+   Deterministic keyword reading of what the athlete wrote. It is not a language
+   model: it has to give the same answer on every platform, with no network, and
+   be explainable. Its job is to stop the coach from scolding someone for a slow
+   run they already explained was on a treadmill in 32-degree heat. */
+var COACH_NOTE_CUES = [
+  { key:'heat',     re:/\b(heat|hot|humid|humidity|sun|sweltering)\b/i,      excuses:['pace','hr'], say:'heat' },
+  { key:'treadmill',re:/\b(treadmill|dreadmill|mill)\b/i,                     excuses:['pace'],      say:'treadmill running' },
+  { key:'wind',     re:/\b(wind|windy|gale|headwind)\b/i,                     excuses:['pace'],      say:'wind' },
+  { key:'hills',    re:/\b(hill|hills|hilly|climb|elevation|incline)\b/i,     excuses:['pace','hr'], say:'hilly terrain' },
+  { key:'cold',     re:/\b(cold|freezing|ice|icy|snow)\b/i,                   excuses:['pace'],      say:'cold conditions' },
+  { key:'terrain',  re:/\b(trail|trails|sand|mud|off-road|gravel)\b/i,        excuses:['pace'],      say:'soft ground' },
+  { key:'fatigue',  re:/\b(tired|fatigue|fatigued|exhausted|heavy legs|flat|drained|knackered)\b/i, excuses:['pace','hr'], say:'fatigue', flag:'fatigue' },
+  { key:'pain',     re:/\b(pain|sore|soreness|ache|aching|niggle|tight|tightness|injur|strain|cramp)\b/i, excuses:[], say:'soreness', flag:'pain' },
+  { key:'illness',  re:/\b(ill|illness|sick|cold coming|flu|virus|cough)\b/i, excuses:['pace','hr'], say:'illness', flag:'illness' },
+  { key:'sleep',    re:/\b(no sleep|poor sleep|slept badly|tired night|insomnia)\b/i, excuses:['pace','hr'], say:'poor sleep', flag:'fatigue' },
+  { key:'strong',   re:/\b(strong|easy|comfortable|smooth|felt great|good legs|flew)\b/i, excuses:[], say:'feeling strong' }
+];
+function coachReadNotes(text){
+  var out = [];
+  if (!text) return out;
+  COACH_NOTE_CUES.forEach(function(cue){
+    if (cue.re.test(text)) out.push(cue);
+  });
+  return out;
+}
+// Cues on a single day that explain away a given component being off-target.
+function coachExcuses(dd, component){
+  return coachReadNotes(dd && dd.actual && dd.actual.notes).filter(function(c){
+    return c.excuses.indexOf(component)!==-1;
+  });
+}
+
+/* ---------- breakthrough detection ----------
+   A session worth telling someone about: executed at 90+ AND either run at or
+   under the fast end of its pace window while heart rate stayed inside the
+   zone (fitness showing up), or a checkpoint time trial completed to plan. */
+function coachBreakthroughs(){
+  return coachCompletedScored().filter(function(dd){
+    var score = computeExecutionScore(dd);
+    if (score < 90) return false;
+    if (dd.type==='checkpoint' || dd.type==='race') return true;
+    var tr = getTargetPaceRangeSecPerKm(dd);
+    var ap = actualPaceSecPerKm(dd);
+    if (!tr || ap==null) return false;
+    if (ap > tr.fast) return false;                       // not faster than the window
+    if (isRecoveryWorkoutType(dd.type)) return false;     // easy days are not breakthroughs
+    var z = getTargetHRRangeForDay(dd);
+    var a = dd.actual || {};
+    if (z && a.hr!=null && a.hr > z.hi) return false;     // bought with heart rate, not fitness
+    return true;
+  });
+}
+
+/* ---------- athlete status ---------- */
+function coachStatus(load, recovery, trend, confidence){
+  var completed = coachCompletedScored().length;
+  if (!completed) return { label:'Getting started', tone:'neutral',
+    detail:'No sessions logged yet. Log a run and the coach starts reading your training.' };
+  if (recovery.state==='strained' || load.band==='spike')
+    return { label:'Overreaching', tone:'warn',
+      detail:'Recent work is running ahead of what you have built. Back off before it costs you a week.' };
+  if (load.band==='low' && trend.direction!=='rising')
+    return { label:'Undertrained', tone:'warn',
+      detail:'The last week sits well below your recent average. Consistency is the missing piece.' };
+  if (trend.direction==='rising' && recovery.state==='fresh')
+    return { label:'Building well', tone:'good',
+      detail:'Execution is improving and the load is being absorbed. Keep doing exactly this.' };
+  if (trend.direction==='falling')
+    return { label:'Holding on', tone:'watch',
+      detail:'Execution has slipped across the last few sessions. Worth checking sleep, fuelling and rest days.' };
+  return { label:'On track', tone:'good',
+    detail:'Training is landing close to plan with load in a productive range.' };
+}
+
+/* ---------- training signals ---------- */
+function coachSignals(load, recovery, trend){
+  var out = [];
+  if (load.enough && load.ratio!=null){
+    if (load.band==='spike') out.push({ key:'load', label:'Load spike', tone:'warn',
+      detail:'This week is '+load.ratio.toFixed(2)+'x your 4-week average. Above 1.5 is where injuries cluster.' });
+    else if (load.band==='elevated') out.push({ key:'load', label:'Load climbing', tone:'watch',
+      detail:'This week is '+load.ratio.toFixed(2)+'x your 4-week average — near the top of the useful range.' });
+    else if (load.band==='low') out.push({ key:'load', label:'Load dropping', tone:'watch',
+      detail:'This week is '+load.ratio.toFixed(2)+'x your 4-week average. Fitness leaks at this level.' });
+    else out.push({ key:'load', label:'Load productive', tone:'good',
+      detail:'This week is '+load.ratio.toFixed(2)+'x your 4-week average — the range that builds fitness safely.' });
+  }
+  if (recovery.overRPE >= 2) out.push({ key:'rpe', label:'Effort running high', tone:'watch',
+    detail:recovery.overRPE+' sessions this week felt harder than the session type should.' });
+  if (recovery.overHR >= 2) out.push({ key:'hr', label:'Heart rate elevated', tone:'watch',
+    detail:recovery.overHR+' sessions this week averaged above their target zone.' });
+  if (recovery.hardStreak >= 3) out.push({ key:'streak', label:'No easy day', tone:'warn',
+    detail:recovery.hardStreak+' quality days in a row without an easy or rest day between them.' });
+  if (trend.enough && trend.direction==='rising') out.push({ key:'trend', label:'Execution improving', tone:'good',
+    detail:'Last three sessions average '+trend.delta+' points better than the three before.' });
+  if (trend.enough && trend.direction==='falling') out.push({ key:'trend', label:'Execution slipping', tone:'watch',
+    detail:'Last three sessions average '+Math.abs(trend.delta)+' points worse than the three before.' });
+  return out;
+}
+
+/* ---------- coach noticed: what the athlete wrote, read back ---------- */
+function coachNoticed(){
+  var today = todayStr();
+  var recent = coachDaysInWindow(addDays(today,-27), today).filter(function(dd){
+    return dd.completed && dd.actual && dd.actual.notes;
+  });
+  var tally = {};
+  recent.forEach(function(dd){
+    coachReadNotes(dd.actual.notes).forEach(function(cue){
+      if (!tally[cue.key]) tally[cue.key] = { cue:cue, count:0, last:dd.date };
+      tally[cue.key].count++;
+      if (dd.date > tally[cue.key].last) tally[cue.key].last = dd.date;
+    });
+  });
+  var out = [];
+  Object.keys(tally).forEach(function(k){
+    var t = tally[k];
+    if (t.cue.flag==='pain' && t.count>=1) out.push({ tone:'warn',
+      text:'You have mentioned soreness or a niggle in '+t.count+' session'+(t.count===1?'':'s')+'. Pain that repeats is worth a rest day, not a harder week.' });
+    else if (t.cue.flag==='illness') out.push({ tone:'warn',
+      text:'Illness came up in your notes. Train through a head cold at most — never through a chest one.' });
+    else if (t.cue.flag==='fatigue' && t.count>=2) out.push({ tone:'watch',
+      text:'Fatigue shows up in '+t.count+' of your recent notes. That usually means recovery, not fitness, is the limiter.' });
+    else if (t.count>=3) out.push({ tone:'neutral',
+      text:t.count+' of your recent sessions mention '+t.cue.say+' — the coach is discounting pace on those rather than reading them as fitness.' });
+  });
+  return out;
+}
+
+/* ---------- coach watch: things to keep an eye on ---------- */
+function coachWatch(load, recovery, confidence){
+  var out = [];
+  var today = todayStr();
+  var upcoming = state.days.filter(function(dd){ return dd.date > today && dd.type!=='rest'; });
+  var nextLong = upcoming.filter(function(dd){ return dd.type==='long'; })[0];
+  if (nextLong){
+    var lastLong = state.days.filter(function(dd){
+      return dd.type==='long' && dd.completed && dd.date <= today;
+    }).pop();
+    if (lastLong && nextLong.km > (lastLong.km||0)*1.25) out.push({
+      label:'Long run jump',
+      detail:'Next long run is '+fmtDist(nextLong.km)+' against '+fmtDist(lastLong.km)+' last time. Take it slower than feels necessary.' });
+  }
+  var missed = state.days.filter(function(dd){
+    return !dd.completed && dd.type!=='rest' && dd.date < today && daysBetween(dd.date, today) <= 14;
+  });
+  if (missed.length >= 3) out.push({ label:'Missed sessions',
+    detail:missed.length+' sessions in the last fortnight went unlogged. The plan assumes they happened.' });
+  if (confidence!=null && confidence < 45) out.push({ label:'Goal at risk',
+    detail:'Confidence in the current goal is '+Math.round(confidence)+'%. A softer target may be the honest call.' });
+  var race = state.setup && state.setup.raceDate ? daysBetween(today, state.setup.raceDate) : null;
+  if (race!=null && race >= 0 && race <= 21 && load.band==='spike') out.push({ label:'Taper compromised',
+    detail:'Load is spiking inside the last three weeks. Nothing you do now adds fitness — freshness is the whole job.' });
+  return out;
+}
+
+/* ---------- next move ----------
+   The next session, what to do with it, and -- only when a signal justifies it
+   -- a concrete adjustment the athlete can accept or decline. The adjustment is
+   always a reduction: the coach never quietly makes a session harder. */
+function coachNextSession(){
+  var today = todayStr();
+  var pending = state.days.filter(function(dd){
+    return !dd.completed && dd.type!=='rest' && dd.date >= today;
+  }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  return pending[0] || null;
+}
+function coachNextMove(load, recovery, trend, status){
+  var dd = coachNextSession();
+  if (!dd) return null;
+  var move = { dayId:dd.id, date:dd.date, title:dd.title, km:dd.km, type:dd.type,
+               recommendation:'', adjustment:null };
+
+  var quality = !isRecoveryWorkoutType(dd.type) && dd.type!=='rest';
+  var strained = recovery.state==='strained' || load.band==='spike';
+  var painCue = coachNoticed().some(function(n){ return n.tone==='warn'; });
+
+  if (strained && quality){
+    var cutKm = Math.max(1, Math.round(dd.km * 0.75 * 2)/2);
+    move.recommendation = 'Load and effort are both running high. Taking the edge off this one protects the rest of the block.';
+    move.adjustment = {
+      kind:'reduce',
+      km:cutKm,
+      type:dd.type,
+      title:dd.title,
+      reason:'Load '+(load.ratio!=null?load.ratio.toFixed(2)+'x 4-week average':'running high')+
+             (recovery.overRPE?', effort above band on '+recovery.overRPE+' session'+(recovery.overRPE===1?'':'s'):'')
+    };
+  } else if (painCue && quality){
+    move.recommendation = 'Your notes mention soreness. Swapping this to an easy run costs one session; running through it can cost a month.';
+    move.adjustment = {
+      kind:'downgrade', km:Math.max(1, Math.round(dd.km*0.8*2)/2), type:'easy',
+      title:'Easy Aerobic', reason:'Soreness reported in recent notes'
+    };
+  } else if (load.band==='low'){
+    move.recommendation = 'Load has dropped off. Run this one exactly as written — consistency is what is missing, not intensity.';
+  } else if (trend.direction==='rising' && quality){
+    move.recommendation = 'Execution is trending up. Hold the prescribed paces rather than chasing faster ones.';
+  } else if (dd.type==='long'){
+    move.recommendation = 'Steady and controlled. The long run earns its value from time on feet, not pace.';
+  } else if (quality){
+    move.recommendation = 'Run it as prescribed. Hit the target window rather than beating it.';
+  } else {
+    move.recommendation = 'Keep this genuinely easy — it is what lets the quality sessions land.';
+  }
+  return move;
+}
+
+/* ---------- the single report every surface reads ---------- */
+function coachAnalyse(){
+  if (!state.setup || !state.days || !state.days.length) return null;
+  var load = coachLoad();
+  var recovery = coachRecovery();
+  var trend = coachTrend();
+  var confidence = computeConfidenceScore();
+  var status = coachStatus(load, recovery, trend, confidence);
+  return {
+    status: status,
+    phase: { name: weekPhaseLabel(currentWeekNum()), week: currentWeekNum(), of: totalWeeksInPlan() },
+    load: load,
+    recovery: recovery,
+    trend: trend,
+    confidence: confidence,
+    signals: coachSignals(load, recovery, trend),
+    breakthroughs: coachBreakthroughs(),
+    noticed: coachNoticed(),
+    watch: coachWatch(load, recovery, confidence),
+    nextMove: coachNextMove(load, recovery, trend, status)
+  };
+}
+
+/* ---------- accepting / declining an adjustment ----------
+   Accepting rewrites the day and records what it was before, so the change is
+   visible and reversible. The record is additive: a workout without it behaves
+   exactly as it always did. */
+function handleCoachAccept(dayId){
+  var report = coachAnalyse();
+  if (!report || !report.nextMove || !report.nextMove.adjustment) return;
+  if (report.nextMove.dayId !== dayId) return;   // report moved on; do nothing
+  var dd = findDay(dayId);
+  if (!dd) return;
+  var adj = report.nextMove.adjustment;
+  dd.coachAdjust = {
+    at: new Date().toISOString(),
+    reason: adj.reason,
+    from: { km:dd.km, type:dd.type, title:dd.title, desc:dd.desc }
+  };
+  dd.km = adj.km;
+  dd.type = adj.type;
+  dd.title = adj.title;
+  dd.desc = adj.kind==='downgrade'
+    ? '@@D:'+adj.km+'@@ @ Easy pace.'
+    : resolveDescForReducedDistance(dd.desc, adj.km);
+  flushSave();
+  renderApp();
+  showToast('Session adjusted — the original is kept and can be restored');
+}
+// Keep the written session but restate its distance, so the card text and the
+// number on it cannot disagree (the same rule syncDescDistance enforces on
+// generation).
+function resolveDescForReducedDistance(desc, km){
+  if (!desc) return '@@D:'+km+'@@ @ Easy pace.';
+  var seen = false;
+  return desc.replace(/@@D:[\d.]+@@/g, function(m){
+    if (seen) return m;
+    seen = true;
+    return '@@D:'+km+'@@';
+  });
+}
+function handleCoachKeep(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  dd.coachKeptAt = new Date().toISOString();   // suppress the prompt for this day
+  flushSave();
+  renderApp();
+  showToast('Keeping the original session');
+}
+function handleCoachRestore(dayId){
+  var dd = findDay(dayId);
+  if (!dd || !dd.coachAdjust || !dd.coachAdjust.from) return;
+  var f = dd.coachAdjust.from;
+  dd.km = f.km; dd.type = f.type; dd.title = f.title; dd.desc = f.desc;
+  delete dd.coachAdjust;
+  flushSave();
+  renderApp();
+  showToast('Original session restored');
+}
+
+
+/* =========================================================
+   ADAPTIVE AI COACH — rendering
+   Reads coachAnalyse() and nothing else. Identical markup on web, PWA and the
+   Android WebView; no platform branches.
+   ========================================================= */
+function coachToneClass(tone){ return tone==='good'||tone==='warn'||tone==='watch' ? tone : 'neutral'; }
+
+function renderAthleteStatusCard(report){
+  if (!report) return '';
+  var st = report.status, load = report.load, rec = report.recovery, tr = report.trend;
+  var loadVal = load.ratio!=null ? load.ratio.toFixed(2)+'x' : '—';
+  var loadSub = { spike:'Spiking', elevated:'Elevated', productive:'Productive', low:'Dropping', unknown:'Building history' }[load.band];
+  var recVal = { fresh:'Fresh', watch:'Watch', strained:'Strained' }[rec.state];
+  var recSub = rec.hardStreak>=3 ? rec.hardStreak+' hard in a row'
+    : rec.overRPE||rec.overHR ? 'Effort above band' : 'Absorbing the work';
+  var trVal = tr.enough ? ({ rising:'Rising', falling:'Falling', flat:'Steady' })[tr.direction] : '—';
+  var trSub = tr.enough && tr.delta!=null
+    ? (tr.delta>0?'+':'')+tr.delta+' pts vs prior 3'
+    : 'Needs 4 logged runs';
+  return '<div class="hub-card">'+
+    '<div class="setup-section-title">Athlete Status</div>'+
+    '<div class="coach-status">'+
+      '<span class="coach-dot '+coachToneClass(st.tone)+'"></span>'+
+      '<div class="coach-status-main">'+
+        '<div class="coach-status-label">'+escapeHtml(st.label)+'</div>'+
+        '<div class="coach-status-detail">'+escapeHtml(st.detail)+'</div>'+
+      '</div>'+
+      '<div class="coach-phase">'+escapeHtml(report.phase.name)+'</div>'+
+    '</div>'+
+    '<div class="coach-metrics">'+
+      '<div class="coach-metric"><div class="cm-k">Load</div><div class="cm-v">'+loadVal+'</div><div class="cm-s">'+escapeHtml(loadSub)+'</div></div>'+
+      '<div class="coach-metric"><div class="cm-k">Recovery</div><div class="cm-v">'+escapeHtml(recVal)+'</div><div class="cm-s">'+escapeHtml(recSub)+'</div></div>'+
+      '<div class="coach-metric"><div class="cm-k">Trend</div><div class="cm-v">'+escapeHtml(trVal)+'</div><div class="cm-s">'+escapeHtml(trSub)+'</div></div>'+
+    '</div>'+
+    '<div class="field-hint">Week '+report.phase.week+' of '+report.phase.of+' · load is this week against your 4-week average.</div>'+
+  '</div>';
+}
+
+function renderCoachSignalsCard(report){
+  if (!report || !report.signals.length) return '';
+  return '<div class="hub-card">'+
+    '<div class="setup-section-title">Training Signals</div>'+
+    report.signals.map(function(sig){
+      return '<div class="coach-signal">'+
+        '<span class="coach-dot '+coachToneClass(sig.tone)+'"></span>'+
+        '<div class="coach-signal-body">'+
+          '<div class="coach-signal-label">'+escapeHtml(sig.label)+'</div>'+
+          '<div class="coach-signal-detail">'+escapeHtml(sig.detail)+'</div>'+
+        '</div>'+
+      '</div>';
+    }).join('')+
+  '</div>';
+}
+
+function renderBreakthroughCard(report){
+  if (!report || !report.breakthroughs.length) return '';
+  var recent = report.breakthroughs.slice(-3).reverse();
+  return '<div class="hub-card">'+
+    '<div class="setup-section-title">Breakthrough Sessions</div>'+
+    recent.map(function(dd){
+      var ap = actualPaceSecPerKm(dd);
+      return '<div class="coach-bt">'+ICONS.sparkles+
+        '<div class="coach-bt-body"><b>'+escapeHtml(dd.title)+'</b> · '+dShort(dd.date)+' — '+
+        'ran '+fmtDist((dd.actual&&dd.actual.km!=null)?dd.actual.km:dd.km)+
+        (ap!=null?' at '+fmtPaceFromSecPerKm(ap):'')+
+        ', executed '+computeExecutionScore(dd)+'%. Fitness showing up.</div>'+
+      '</div>';
+    }).join('')+
+  '</div>';
+}
+
+function renderCoachNoticedCard(report){
+  if (!report || !report.noticed.length) return '';
+  return '<div class="hub-card">'+
+    '<div class="setup-section-title">Coach Noticed</div>'+
+    report.noticed.map(function(n){
+      return '<div class="coach-signal">'+
+        '<span class="coach-dot '+coachToneClass(n.tone)+'"></span>'+
+        '<div class="coach-signal-body"><div class="coach-signal-detail">'+escapeHtml(n.text)+'</div></div>'+
+      '</div>';
+    }).join('')+
+    '<div class="field-hint">Read from the notes you write on each session.</div>'+
+  '</div>';
+}
+
+function renderCoachWatchCard(report){
+  if (!report || !report.watch.length) return '';
+  return '<div class="hub-card">'+
+    '<div class="setup-section-title">Coach Watch</div>'+
+    report.watch.map(function(w){
+      return '<div class="coach-signal">'+
+        '<span class="coach-dot watch"></span>'+
+        '<div class="coach-signal-body">'+
+          '<div class="coach-signal-label">'+escapeHtml(w.label)+'</div>'+
+          '<div class="coach-signal-detail">'+escapeHtml(w.detail)+'</div>'+
+        '</div>'+
+      '</div>';
+    }).join('')+
+  '</div>';
+}
+
+// Next Move, with KEEP ORIGINAL / ACCEPT ADJUSTMENT. The buttons only appear
+// when the coach actually proposes a change and the athlete has not already
+// answered for that session -- so it asks once, not every launch.
+function renderCoachNextMoveCard(report){
+  if (!report || !report.nextMove) return '';
+  var mv = report.nextMove;
+  var dd = findDay(mv.dayId);
+  var answered = dd && (dd.coachKeptAt || dd.coachAdjust);
+  var adj = (!answered && mv.adjustment) ? mv.adjustment : null;
+
+  var body = '<div class="coach-next-session">'+escapeHtml(mv.title)+' · '+dShort(mv.date)+
+    (mv.km?' · '+fmtDist(mv.km):'')+'</div>'+
+    '<div class="coach-next-rec">'+escapeHtml(mv.recommendation)+'</div>';
+
+  if (adj){
+    body += '<div class="coach-adjust">'+
+      '<div class="coach-adjust-line">Suggested: '+
+        (adj.kind==='downgrade'
+          ? 'swap to an easy '+fmtDist(adj.km)+' run'
+          : 'cut to '+fmtDist(adj.km))+
+      '</div>'+
+      '<div class="coach-adjust-why">'+escapeHtml(adj.reason)+'</div>'+
+      '<div class="coach-actions">'+
+        '<button type="button" class="btn btn-primary btn-block" data-action="coach-accept" data-day="'+mv.dayId+'">Accept Adjustment</button>'+
+        '<button type="button" class="btn btn-ghost btn-block" data-action="coach-keep" data-day="'+mv.dayId+'">Keep Original</button>'+
+      '</div>'+
+    '</div>';
+  } else if (dd && dd.coachAdjust){
+    body += '<div class="coach-adjusted-note">Adjusted by the coach on '+dShort(dd.coachAdjust.at.slice(0,10))+
+      ' — was '+escapeHtml(dd.coachAdjust.from.title)+' '+fmtDist(dd.coachAdjust.from.km)+'.</div>'+
+      '<div class="coach-actions"><button type="button" class="btn btn-ghost btn-block" data-action="coach-restore" data-day="'+mv.dayId+'">Restore Original</button></div>';
+  }
+
+  return '<div class="hub-card coach-next">'+
+    '<div class="coach-next-head">'+ICONS.sparkles+'<span class="coach-next-title">Next Move</span></div>'+
+    body+
+  '</div>';
+}
+
+// Plan HQ gets the full picture; Today gets the one thing to act on.
+function renderCoachPanel(){
+  var report = coachAnalyse();
+  if (!report) return '';
+  return renderAthleteStatusCard(report)+
+    renderCoachSignalsCard(report)+
+    renderCoachNoticedCard(report)+
+    renderBreakthroughCard(report)+
+    renderCoachWatchCard(report);
 }
 
 /* =========================================================
@@ -4376,6 +4992,7 @@ function renderCheckpointBanner(){
 function renderTodayView(){
   var dd = findDayByDate(todayStr());
   var html = renderHero()+'<div class="view-heading font-head">Today</div>';
+  html += renderCoachNextMoveCard(coachAnalyse());
   html += dd ? renderDayCard(dd) : '<div class="empty-note">No session scheduled for today — it falls outside the current plan’s dates.</div>';
   html += renderCompactPaceReference();
   return html;
@@ -4422,6 +5039,7 @@ function renderPlanHQView(){
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
   return '<div class="view-heading font-head">Plan HQ</div>'+
     renderProgrammeStatus()+
+    renderCoachPanel()+
     '<div id="planhq-stats-mount">'+renderPlanOverviewStats()+'</div>'+
     '<div class="plan-summary-bar" data-action="open-setup">'+
       '<div class="psb-main"><div class="psb-title">Build New Block</div><div class="psb-sub">'+escapeHtml(profile.label)+' · '+fmtDist(state.setup.currentVolume)+'/wk start · Race '+dShort(state.setup.raceDate)+'</div></div>'+
@@ -4622,6 +5240,9 @@ document.addEventListener('click', function(e){
     case 'paste-backup': openPasteBackupModal(); break;
     case 'restore-pasted': handleRestorePasted(); break;
     case 'copy-backup-field': handleCopyBackupField(); break;
+    case 'coach-accept': handleCoachAccept(target.getAttribute('data-day')); break;
+    case 'coach-keep': handleCoachKeep(target.getAttribute('data-day')); break;
+    case 'coach-restore': handleCoachRestore(target.getAttribute('data-day')); break;
     case 'set-units': handleSetUnits(target.getAttribute('data-units')); break;
     case 'apply-activity': handleApplyActivity(); break;
     case 'strava-connect': handleStravaConnect(); break;
