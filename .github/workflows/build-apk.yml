@@ -78,8 +78,11 @@ jobs:
       - name: Print APK signing fingerprint
         run: |
           APK=$(find android/app/build/outputs/apk/debug -name '*.apk' | head -1)
-          "$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "$APK" \
-            | grep -i 'SHA-256 digest' || true
+          # Pick exactly one build-tools version: the glob matches several, and
+          # passing the extra paths as arguments makes apksigner read the second
+          # one as its command ("Unsupported command: .../apksigner").
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs "$APK" | grep -i 'SHA-256 digest'
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
