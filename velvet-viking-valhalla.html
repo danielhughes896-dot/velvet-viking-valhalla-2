@@ -4359,8 +4359,8 @@ function baselineFor(records, opts){
    ones being judged, medians rather than means, heat and disowned heart rate
    excluded, and null until the evidence is earned.
    ========================================================= */
-function easyHRBaseline(){
-  var easies = athleteMemory(42).filter(function(r){ return r.completed && r.type==='easy'; });
+function easyHRBaseline(windowDays){
+  var easies = athleteMemory(windowDays || 42).filter(function(r){ return r.completed && r.type==='easy'; });
   var readable = easies.filter(hrIsReadable);
   var sp = trendSplit(readable);
   var base = trendMedian(sp.base, function(r){ return r.hr; });
@@ -4384,10 +4384,26 @@ function athleteBaselines(windowDays){
     r.__drift = dd ? coachHRDrift(dd) : null;
   });
   var of = function(types){ return mem.filter(function(r){ return types.indexOf(r.type)!==-1; }); };
+
+  /* EASY-family heart rate is owned by easyHRBaseline() and nowhere else.
+     baselineFor() would otherwise take the median across every easy run in the
+     window INCLUDING the recent ones being judged, which is a different number
+     from the one the trend layer, the decision engine and Plan HQ all use --
+     and it drifts the moment recent heart rate does. baselineFor still owns
+     pace, RPE and execution for every family, and heart rate for quality and
+     long, which are not consolidated here. */
+  var easyFam = baselineFor(of(['easy']));
+  var ehr = easyHRBaseline(windowDays || 42);
+  easyFam.hr = ehr.baseline;
+  easyFam.hrSamples = ehr.samples;
+  easyFam.hrAtPace = (ehr.baseline!=null && easyFam.pace!=null)
+    ? Math.round((ehr.baseline / (easyFam.pace/60)) * 10)/10 : null;
+  easyFam.hrSource = 'easyHRBaseline';
+
   return {
     windowDays: windowDays || 42,
     sessions: mem.length,
-    easy:    baselineFor(of(['easy'])),
+    easy:    easyFam,
     quality: baselineFor(of(['tempo','threshold','interval','repetition'])),
     long:    baselineFor(of(['long'])),
     // how often this athlete has been asked to back off, and how often they did
