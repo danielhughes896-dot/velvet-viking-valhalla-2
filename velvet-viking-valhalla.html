@@ -2959,6 +2959,14 @@ function computeExecutionBreakdown(dd){
   if (!have.distance || !have.pace) return null;
   var totalW = counted.reduce(function(sum,p){ return sum+p.weight; }, 0);
   var raw = counted.reduce(function(sum,p){ return sum+p.score*p.weight; }, 0) / totalW;
+  // A session cannot score more than 15 points above the share of it that was
+  // actually run. Distance carries 35% of the weight, so a long run abandoned
+  // at 58% of its distance still scored 85% purely because the part that was
+  // run was run correctly -- which reads to the athlete as a good session.
+  // The cap is continuous and only bites below 85% of the target distance, so
+  // ordinary near-misses are unaffected.
+  var distScore = parts[0].score;
+  if (distScore!=null) raw = Math.min(raw, distScore+15);
   return {
     score: clamp(Math.round(raw), 0, 100),
     parts: parts,
@@ -3170,6 +3178,10 @@ function coachRecovery(){
   var week = coachDaysInWindow(addDays(today,-6), today).filter(function(dd){ return dd.completed; });
   var overRPE = 0, overHR = 0, counted = 0;
   week.forEach(function(dd){
+    // Time trials and races are meant to exceed threshold heart rate and to
+    // feel maximal, so counting them as strain made every checkpoint week look
+    // like overreaching.
+    if (dd.type==='checkpoint' || dd.type==='race') return;
     var a = dd.actual || {};
     var band = expectedRPEBand(dd);
     if (a.rpe!=null && band){ counted++; if (a.rpe > band[1]) overRPE++; }
@@ -3497,7 +3509,11 @@ function handleCoachRestore(dayId){
    explainable line by line. Every sentence below can be traced to a number or
    a phrase the athlete actually wrote.
    ========================================================= */
-var COACH_REVIEW_VERSION = 2;
+// Bumped to 3 by the stress-test hardening pass. renderExecutionReview() only
+// trusts a stored review whose version matches, so every workout logged before
+// these fixes regenerates with the corrected prose instead of keeping a
+// paragraph that told the athlete their notes explained nothing.
+var COACH_REVIEW_VERSION = 3;
 
 /* ---------- environment parsed out of the notes ----------
    Numbers, not just keywords: "37 degrees" and "67% humidity" carry a severity
@@ -3596,9 +3612,13 @@ function coachTrainingSignal(dd, env, breakdown){
   var recovery = coachRecovery();
   var band = expectedRPEBand(dd);
   var a = dd.actual || {};
-  var rpeHigh = band && a.rpe!=null && a.rpe > band[1];
+  // A time trial or a race is supposed to hurt and is supposed to run above
+  // threshold heart rate. Reading that as fatigue produced a card that flagged
+  // a Breakthrough and told the athlete to monitor fatigue in the same breath.
+  var maximal = dd.type==='checkpoint' || dd.type==='race';
+  var rpeHigh = !maximal && band && a.rpe!=null && a.rpe > band[1];
   var z = getTargetHRRangeForDay(dd);
-  var hrHigh = z && a.hr!=null && a.hr > z.hi;
+  var hrHigh = !maximal && z && a.hr!=null && a.hr > z.hi;
 
   if (env.pain || env.illness)
     return { signal:'recovery_priority',
@@ -3621,6 +3641,12 @@ function coachTrainingSignal(dd, env, breakdown){
   if (history >= 4 && breakdown && breakdown.score>=90 && recovery.state==='fresh' && env.heatBand!=='none')
     return { signal:'positive_adaptation',
              reason:'Held target heart rate under environmental stress.' };
+  // A checkpoint or race delivered to plan is the most direct evidence of
+  // fitness the plan ever collects, and previously read as "nothing points
+  // either way" on the same card that called it a breakthrough.
+  if (history >= 4 && maximal && breakdown && breakdown.score>=90 && recovery.state!=='strained')
+    return { signal:'positive_adaptation',
+             reason:'Time-trial effort delivered to plan.' };
   return { signal:'neutral',
            reason: history < 4 ? 'Building a baseline — too few logged sessions to read a trend yet.'
                                : 'Nothing in recent sessions points strongly either way.' };
@@ -3653,15 +3679,37 @@ function coachVerdict(dd, b, env){
   var envPhrase = coachEnvPhrase(env);
   var stressed = env.heatBand==='significant' || env.heatBand==='severe' || env.humidBand!=='none';
   var recovery = isRecoveryWorkoutType(dd.type);
+  var byPart = {}; b.parts.forEach(function(pp){ byPart[pp.key] = pp; });
+  // Materially short of the prescribed distance. A session the athlete did not
+  // finish cannot be described as having done its job, however well the part
+  // they did run was executed.
+  var cutShort = byPart.distance.score!=null && byPart.distance.score < 85;
+  var says = function(cues){ return listPhrase(cues.map(function(c){ return c.say; })); };
+  // Cues already named in an earlier sentence of this verdict, so the same
+  // explanation is not repeated verbatim a line later.
+  var cited = [];
 
   // 1. what the session was for, and whether that purpose was served
   if (recovery){
     if (hrInZone || hrUnder)
-      out.push('Aerobic discipline held: '+fmtDist(a.km!=null?a.km:dd.km)+' with heart rate controlled at '+
-               (a.hr!=null?a.hr+' bpm':'target')+', which is the entire job of this session.');
-    else if (z && a.hr!=null && a.hr > z.hi)
-      out.push('This was meant to be an easy aerobic run, but heart rate averaged '+a.hr+
-               ' bpm against a '+fmtHRRange(z)+' ceiling — the session did not do the job it was set for.');
+      out.push(cutShort
+        ? 'Heart rate stayed controlled at '+(a.hr!=null?a.hr+' bpm':'target')+
+          ', but the session was cut short of the distance it was set for.'
+        : 'Aerobic discipline held: '+fmtDist(a.km!=null?a.km:dd.km)+' with heart rate controlled at '+
+          (a.hr!=null?a.hr+' bpm':'target')+', which is the entire job of this session.');
+    else if (z && a.hr!=null && a.hr > z.hi){
+      // Hills, illness, poor sleep and fatigue genuinely raise heart rate at
+      // the same effort. Heat does too, but section 2 already says so in its
+      // own words, so it is excluded here rather than stated twice.
+      var hrCtx = coachExcuses(dd, 'hr').filter(function(c){ return c.key!=='heat'; });
+      hrCtx.forEach(function(c){ cited.push(c.key); });
+      out.push(hrCtx.length
+        ? 'This was meant to be an easy aerobic run and heart rate averaged '+a.hr+
+          ' bpm against a '+fmtHRRange(z)+' ceiling — the notes put part of that down to '+
+          says(hrCtx)+', though easy days still need to feel easy.'
+        : 'This was meant to be an easy aerobic run, but heart rate averaged '+a.hr+
+          ' bpm against a '+fmtHRRange(z)+' ceiling — the session did not do the job it was set for.');
+    }
     else
       out.push(fmtDist(a.km!=null?a.km:dd.km)+' completed at easy intent.');
   } else {
@@ -3672,7 +3720,6 @@ function coachVerdict(dd, b, env){
   // Distance is the one component the prose above does not otherwise name, and
   // a session cut short is worth saying out loud rather than leaving to the
   // percentage chip.
-  var byPart = {}; b.parts.forEach(function(pp){ byPart[pp.key] = pp; });
   if (byPart.distance.score!=null && byPart.distance.score < 95 && a.km!=null){
     out.push('Distance came in at '+fmtDist(a.km)+' against a '+fmtDist(dd.km)+' target.');
   }
@@ -3691,8 +3738,21 @@ function coachVerdict(dd, b, env){
       out.push('Run in '+envPhrase+', which raises cardiovascular cost for the same effort.');
   } else if (env.treadmill && paceSlow){
     out.push('Treadmill pace is not directly comparable to the road, so the pace gap is not read as lost fitness.');
-  } else if (paceSlow && !stressed){
-    out.push('Pace ran outside the '+fmtPaceFromSecPerKm(tr.fast)+'–'+fmtPaceFromSecPerKm(tr.slow)+' window with nothing in the notes to explain it.');
+  } else if (paceSlow){
+    // "Nothing in the notes to explain it" is an accusation, and it has to be
+    // true. Heat and the treadmill are handled by the branches above; wind,
+    // hills, cold, soft ground, illness, poor sleep and fatigue all excuse pace
+    // in COACH_NOTE_CUES and were previously ignored here, so an athlete who
+    // wrote "brutal headwind" was told they had explained nothing.
+    var paceCtx = coachExcuses(dd, 'pace');
+    var fresh = paceCtx.filter(function(c){ return cited.indexOf(c.key)===-1; });
+    var paceWindow = fmtPaceFromSecPerKm(tr.fast)+'–'+fmtPaceFromSecPerKm(tr.slow)+' window';
+    out.push(!paceCtx.length
+      ? 'Pace ran outside the '+paceWindow+' with nothing in the notes to explain it.'
+      : fresh.length
+        ? 'Pace ran outside the '+paceWindow+' — the notes put that down to '+says(fresh)+
+          ', so it is not read as lost fitness.'
+        : 'Pace ran outside the '+paceWindow+' for the same reason.');
   } else if (paceFast && recovery){
     out.push('Pace ran quicker than the easy window — the discipline to hold back is what makes the hard days work.');
   }
@@ -3711,6 +3771,8 @@ function coachVerdict(dd, b, env){
       out.push('Tired legs noted alongside a high effort reading — that combination is worth taking seriously.');
   }
   if (env.pain) out.push('Soreness reported: do not carry that into a quality session.');
+  // Illness set the training signal but never said anything to the athlete.
+  if (env.illness) out.push('Illness reported: a head cold can be trained through gently, anything below the neck cannot.');
 
   return out.join(' ');
 }
@@ -3721,16 +3783,34 @@ function coachNoticedForWorkout(dd, b, env){
   var z = getTargetHRRangeForDay(dd);
   var hrOK = z && a.hr!=null && a.hr <= z.hi;
   var envPhrase = coachEnvPhrase(env);
+  if (env.illness) return 'Illness reported — that outranks anything the numbers say about this session.';
   if (env.pain) return 'Soreness reported — the next quality session depends on it settling.';
   if (env.severe && hrOK) return 'Severe heat and humidity, and heart rate still stayed controlled.';
   if (env.heatBand!=='none' && hrOK && envPhrase) return envPhrase+', with heart rate held inside the target zone.';
+  if (env.tempC!=null && env.tempC<=5) return 'Ran at '+env.tempC+'°C — cold costs pace without meaning anything about fitness.';
   if (z && a.hr!=null && a.hr > z.hi && isRecoveryWorkoutType(dd.type)) return 'Easy run drifted above its heart-rate ceiling.';
   if (env.fatigue) return 'Fatigue reported without a matching rise in effort or heart rate.';
   if (env.treadmill) return 'Treadmill session — pace read in context rather than against road targets.';
-  if (b.score>=99) return 'Everything landed on the numbers it was set to hit.';
-  if (b.missing.length) return 'Scored without '+listPhrase(b.missing.map(function(p){ return p.label.toLowerCase(); }))+'.';
+  // Wind, hills, cold and soft ground previously produced the bare percentage
+  // fallback, so an athlete who explained the session got no sign it was read.
+  var ctx = coachExcuses(dd,'pace').filter(function(c){ return c.key!=='heat' && c.key!=='treadmill'; });
+  var tr = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
+  var ap = actualPaceSecPerKm(dd);
+  if (ctx.length && tr && ap!=null && ap > tr.slow){
+    var phrase = listPhrase(ctx.map(function(c){ return c.say; }));
+    return phrase.charAt(0).toUpperCase()+phrase.slice(1)+
+           ' in the notes — pace is read in that context rather than as lost fitness.';
+  }
+  // Honesty about missing evidence outranks congratulation: a session scored
+  // on distance and pace alone has not had "everything" land, because heart
+  // rate and effort were never seen.
+  if (b.missing.length) return 'Scored without '+listPhrase(b.missing.map(function(p){ return MISSING_NOUN[p.key]||p.label.toLowerCase(); }))+'.';
+  if (b.score>=99) return isRecoveryWorkoutType(dd.type)
+    ? 'Easy discipline held exactly where it was set.'
+    : 'Everything landed on the numbers it was set to hit.';
   return 'Executed at '+b.score+'% of the prescribed session.';
 }
+var MISSING_NOUN = { hr:'heart rate', rpe:'an effort rating', distance:'a logged distance', pace:'a logged pace' };
 
 /* ---------- one instruction, pointed at the next real session ---------- */
 function coachNextMoveForWorkout(dd, env, signal){
@@ -3740,8 +3820,14 @@ function coachNextMoveForWorkout(dd, env, signal){
   var isQuality = nxt && !isRecoveryWorkoutType(nxt.type) && nxt.type!=='rest';
 
   if (signal==='recovery_priority'){
+    // recovery_priority fires for soreness, for illness, and for a week of
+    // accumulated strain. Naming soreness in all three cases invented a
+    // symptom the athlete never reported.
+    var cond = env.illness ? 'if you are still under the weather'
+             : env.pain    ? 'if the soreness is still there'
+             : 'unless the legs have genuinely come back after a week this heavy';
     return nxt && isQuality
-      ? 'Reassess before '+when+' '+what+' — if the soreness is still there, run it easy instead.'
+      ? 'Reassess before '+when+' '+what+' — '+cond+', run it easy instead.'
       : 'Prioritise recovery before the next quality session.';
   }
   if (signal==='monitor_fatigue' && nxt && isQuality){
@@ -3753,6 +3839,7 @@ function coachNextMoveForWorkout(dd, env, signal){
       : 'Keep running to effort rather than pace while the heat holds.';
   }
   if (nxt && isQuality) return 'Proceed as planned into '+when+' '+what+'.';
+  if (nxt && nxt.type==='long') return 'Run '+when+' '+what+' for time on feet, not pace.';
   if (nxt) return 'Keep '+when+' '+what+' genuinely easy.';
   return 'Proceed as planned.';
 }
