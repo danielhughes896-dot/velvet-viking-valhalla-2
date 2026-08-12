@@ -3507,16 +3507,85 @@ function handleImportJsonClick(target){
   var input = id ? document.getElementById(id) : null;
   if (input) input.click();
 }
+/* ---------- backup payload encoding ----------
+   A full 14-week block with logged sessions is ~35KB of JSON, and something in
+   the Android copy/paste chain truncates well before that -- a real backup came
+   back cut off at ~20K characters, mid-record. Gzipping and base64'ing brings
+   the same plan down to about 4KB, which clears any plausible ceiling by a wide
+   margin. The original length rides in the header so a paste that still arrives
+   short is reported as truncated rather than as an unrecognised file.
+
+   Plain JSON is still accepted on the way in, so exported .json files (and
+   backups copied before this existed) keep working. */
+var BACKUP_TAG = 'VVV1:';
+
+function backupCompressionAvailable(){
+  return typeof CompressionStream === 'function' && typeof DecompressionStream === 'function' &&
+         typeof Response === 'function' && typeof Blob === 'function';
+}
+function bytesToBase64(bytes){
+  var chunk = 0x8000, bin = '';
+  for (var i=0; i<bytes.length; i+=chunk) bin += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+  return btoa(bin);
+}
+function base64ToBytes(b64){
+  var bin = atob(b64), out = new Uint8Array(bin.length);
+  for (var i=0; i<bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function encodeBackup(text){
+  if (!backupCompressionAvailable()) return Promise.resolve(text);
+  try{
+    var stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+    return new Response(stream).arrayBuffer().then(function(buf){
+      return BACKUP_TAG + text.length + ':' + bytesToBase64(new Uint8Array(buf));
+    }, function(){ return text; });
+  }catch(e){ return Promise.resolve(text); }
+}
+function decodeBackup(text){
+  text = String(text==null ? '' : text).trim();
+  if (text.indexOf(BACKUP_TAG)!==0) return Promise.resolve(text);
+  if (!backupCompressionAvailable()) return Promise.reject(new Error('unsupported'));
+  var rest = text.slice(BACKUP_TAG.length);
+  var colon = rest.indexOf(':');
+  var expected = colon>0 ? parseInt(rest.slice(0,colon),10) : 0;
+  var b64 = rest.slice(colon+1).replace(/\s+/g,'');
+  var bytes;
+  try{ bytes = base64ToBytes(b64); }catch(e){ return Promise.reject(new Error('truncated')); }
+  try{
+    var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return new Response(stream).text().then(function(out){
+      // A cut-off paste usually still gunzips into something, just short.
+      if (expected && out.length !== expected) throw new Error('truncated');
+      return out;
+    }, function(){ throw new Error('truncated'); });
+  }catch(e){ return Promise.reject(new Error('truncated')); }
+}
+
 // Restoring a backup, whichever way the text arrived -- a picked file or a
-// pasted blob. Returns false and leaves the current plan alone if the text is
-// not a backup, so a bad paste can never wipe what is already here.
+// pasted blob, compressed or plain. Resolves false and leaves the current plan
+// alone if the text is not a backup, so a bad paste can never wipe what is
+// already here.
 function applyBackupText(text){
+  return decodeBackup(text).then(applyBackupJson, function(err){
+    var why = err && err.message;
+    if (why==='truncated') showToast('That backup looks cut off \u2014 copy it again, or use Export Full Backup');
+    else showToast('That doesn\u2019t look like a Velvet Viking backup');
+    return false;
+  });
+}
+function applyBackupJson(text){
   var parsed;
   try{
     parsed = JSON.parse(text);
     if (!parsed || !parsed.days || !Array.isArray(parsed.days)) throw new Error('bad shape');
   }catch(err){
-    showToast('That doesn\u2019t look like a Velvet Viking backup');
+    var t = String(text==null ? '' : text).trim();
+    // Distinguish "this is not a backup" from "this is a backup that got cut
+    // off in transit" -- the second one is fixable and the user needs to know.
+    if (t.charAt(0)==='{' && t.charAt(t.length-1)!=='}')
+      showToast('That backup looks cut off at ' + t.length + ' characters \u2014 copy it again');
+    else showToast('That doesn\u2019t look like a Velvet Viking backup');
     return false;
   }
   state = Object.assign({}, makeDefaultState(), parsed);
@@ -3537,15 +3606,21 @@ function applyBackupText(text){
    of an already-installed build -- paste it into a note or a message, then
    paste it back after reinstalling. */
 function handleCopyBackup(){
-  var text = JSON.stringify(state);
-  var done = function(){ showToast('Backup copied \u2014 paste it somewhere safe'); };
-  if (navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(done, function(){ copyViaTextarea(text, done); });
-  } else copyViaTextarea(text, done);
+  encodeBackup(JSON.stringify(state)).then(function(payload){
+    var done = function(){ showToast('Backup copied \u2014 paste it somewhere safe'); };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      // Writing after the compression step can lose the user gesture on some
+      // WebViews, so a rejection falls through to showing the text instead.
+      navigator.clipboard.writeText(payload).then(done, function(){
+        if (!copyViaTextarea(payload)) openBackupTextModal(payload); else done();
+      });
+    } else if (copyViaTextarea(payload)) done();
+    else openBackupTextModal(payload);
+  });
 }
 // execCommand('copy') only works on a selection in the document, so the text
 // has to live in a real textarea for a moment. Off-screen, not display:none.
-function copyViaTextarea(text, done){
+function copyViaTextarea(text){
   var ta = document.createElement('textarea');
   ta.value = text;
   ta.className = 'file-input-offscreen';
@@ -3555,8 +3630,28 @@ function copyViaTextarea(text, done){
   var okCopy = false;
   try{ okCopy = document.execCommand('copy'); }catch(e){ okCopy = false; }
   document.body.removeChild(ta);
-  if (okCopy) done();
-  else showToast('Couldn\u2019t copy automatically \u2014 use Export instead');
+  return okCopy;
+}
+// Last resort when nothing can reach the clipboard on our behalf: put the
+// payload on screen so it can be selected and copied by hand.
+function openBackupTextModal(payload){
+  openModal(
+    '<div class="modal-head"><h2 class="font-head">Copy Backup</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body">'+
+      '<div class="field-hint" style="margin-bottom:10px;">Couldn\u2019t reach the clipboard automatically. Tap Copy below, or long-press the text and select all.</div>'+
+      '<textarea id="backup-text-area" class="export-text" style="min-height:150px;" readonly>'+escapeHtml(payload)+'</textarea>'+
+      '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" data-action="copy-backup-field">'+ICONS.copy+' Copy</button>'+
+    '</div>'
+  );
+}
+function handleCopyBackupField(){
+  var ta = document.getElementById('backup-text-area');
+  if (!ta) return;
+  ta.removeAttribute('readonly'); ta.focus(); ta.select();
+  var okCopy = false;
+  try{ okCopy = document.execCommand('copy'); }catch(e){ okCopy = false; }
+  ta.setAttribute('readonly','readonly');
+  showToast(okCopy ? 'Backup copied \u2014 paste it somewhere safe' : 'Select the text and copy it manually');
 }
 function openPasteBackupModal(){
   openModal(
@@ -4405,6 +4500,7 @@ document.addEventListener('click', function(e){
     case 'copy-backup': handleCopyBackup(); break;
     case 'paste-backup': openPasteBackupModal(); break;
     case 'restore-pasted': handleRestorePasted(); break;
+    case 'copy-backup-field': handleCopyBackupField(); break;
     case 'set-units': handleSetUnits(target.getAttribute('data-units')); break;
     case 'apply-activity': handleApplyActivity(); break;
     case 'strava-connect': handleStravaConnect(); break;
