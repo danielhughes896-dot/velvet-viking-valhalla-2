@@ -408,6 +408,12 @@
   }
   .note-chip-x:hover{color:var(--ink);}
   .note-chips-none{font-size:10px; color:var(--ink-faint);}
+  .note-chips-head{display:flex; align-items:center; gap:8px;}
+  .note-undo{
+    background:none; border:none; padding:0; cursor:pointer; text-decoration:underline;
+    font-size:9px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-faint);
+  }
+  .note-undo:hover{color:var(--ink);}
   /* Feel: one tap, five options, deliberately quieter than the numeric fields
      so it reads as a quick answer rather than another thing to fill in. */
   .feel-row{display:grid; grid-template-columns:repeat(5,1fr); gap:4px;}
@@ -3056,7 +3062,7 @@ function computeExecutionScore(dd){
    the array actually exists -- coachHRDrift() is the existing precedent and
    returns null rather than inventing drift from an average.
    ========================================================= */
-var ACTUAL_MANUAL_FIELDS   = ['km','pace','hr','rpe','feel','notes','notesSignals'];
+var ACTUAL_MANUAL_FIELDS   = ['km','pace','hr','rpe','feel','notes','notesSignals','notesOriginal'];
 var ACTUAL_IMPORTED_FIELDS = ['maxHR','cadence','movingTimeSec','elapsedTimeSec',
                               'elevationGainM','tempC','humidity','activityType','splits'];
 var ACTUAL_SYNCED_FIELDS   = ACTUAL_MANUAL_FIELDS.concat(ACTUAL_IMPORTED_FIELDS);
@@ -3549,7 +3555,7 @@ function parseRunnerNotes(note){
         best[rule.concept] = { id:rule.id, category:rule.cat, concept:rule.concept,
                                label:rule.label, strength:rule.strength,
                                positive:!!rule.positive, flag:rule.flag||null,
-                               evidence:String(hit).trim() };
+                               evidence:String(hit).trim(), clause:clause.trim() };
       }
       break;   // one clause is enough; a second mention is the same observation
     }
@@ -3560,7 +3566,7 @@ function parseRunnerNotes(note){
     if (best[concept]) return;
     best[concept] = { id:rule.id, category:rule.cat, concept:rule.concept, label:rule.label,
                       strength:rule.strength, positive:!!rule.positive, flag:rule.flag||null,
-                      evidence:evidence };
+                      evidence:evidence, clause:evidence };
   };
   var tC = noteTempC(note);
   if (tC!=null && tC >= 24) addNum('heat', NOTE_SIGNAL_BY_ID.heat, tC+'°C');
@@ -3579,6 +3585,71 @@ function parseRunnerNotes(note){
   });
   return out;
 }
+/* =========================================================
+   COMPOSING THE COACH-READABLE NOTE
+   ---------------------------------------------------------
+   Canonical wording for each signal. Two hard rules govern this table:
+
+     1. Every phrase must re-parse to the signal it came from. Rewriting the
+        note must not change a single coaching decision, and there is a test
+        asserting the transformed note yields exactly the same signal set and
+        the same training signal as the original.
+     2. Nothing may be added. The phrases restate what the athlete reported,
+        in fewer words. Temperature, humidity, distance and timing are carried
+        across verbatim from the clause the signal was found in.
+   ========================================================= */
+var NOTE_CANONICAL = {
+  heat:'hot', humidity:'humid', wind:'strong wind', rain:'rain', cold:'cold',
+  hills:'hilly route', treadmill:'treadmill', surface:'trail underfoot',
+  heavy_legs:'heavy legs', tired:'tired', fresh_legs:'fresh legs',
+  soreness:'sore', stiffness:'stiff', pain:'pain', niggle:'niggle', illness:'illness',
+  struggled_early:'struggled early', faded_late:'faded late',
+  improved_during:'finished strong', controlled:'felt controlled',
+  unusually_hard:'harder than usual', unusually_easy:'easier than usual',
+  cut_short:'cut short',
+  hr_doubt:'HR data unreliable', hr_spike:'HR spiked', gps_doubt:'GPS unreliable',
+  cadence_doubt:'cadence reading wrong', watch_issue:'watch failed',
+  poor_sleep:'poor sleep', good_sleep:'slept well', stress:'stress',
+  fuelling:'under-fuelled', hydration:'dehydrated'
+};
+var NOTE_CATEGORY_LEAD = { environment:'Conditions', physical:'Body',
+                           experience:'Session', sensorUncertainty:'Data', context:'Context' };
+// Numbers the athlete gave that are worth keeping: distances, temperatures,
+// percentages, durations and clock times.
+var NOTE_SPECIFIC_RE = /(-?\d+(?:\.\d+)?\s*(?:°\s*[cf]\b|deg(?:rees?)?\b|%|km|k\b|mi\b|m\b|min(?:s|utes)?\b|hours?\b|hrs?\b)|\d{1,2}:\d{2}(?::\d{2})?)/ig;
+function noteSpecifics(text){
+  var out = [], m;
+  NOTE_SPECIFIC_RE.lastIndex = 0;
+  while ((m = NOTE_SPECIFIC_RE.exec(String(text||''))) !== null){
+    var v = m[1].replace(/\s+/g,'').trim();
+    if (out.indexOf(v)===-1) out.push(v);
+  }
+  return out;
+}
+/* Returns the restated note, or null when there is nothing to restate --
+   an unparsed note is left exactly as the athlete wrote it. */
+function composeCoachNote(note){
+  if (!note || !String(note).trim()) return null;
+  var parsed = parseRunnerNotes(note);
+  if (!parsed.signals.length) return null;
+  var parts = [];
+  NOTE_CATEGORIES.forEach(function(cat){
+    var sigs = parsed.byCategory[cat];
+    if (!sigs.length) return;
+    var bits = sigs.map(function(sg){
+      var phrase = NOTE_CANONICAL[sg.id] || sg.label.toLowerCase();
+      // carry the athlete's own numbers across, from the clause this signal
+      // was actually found in -- never from elsewhere in the note
+      var nums = noteSpecifics(sg.clause).filter(function(n){
+        return phrase.toLowerCase().indexOf(n.toLowerCase())===-1;
+      });
+      return phrase + (nums.length ? ' ('+nums.join(', ')+')' : '');
+    });
+    parts.push(NOTE_CATEGORY_LEAD[cat]+': '+bits.join(', ')+'.');
+  });
+  return parts.join(' ');
+}
+
 /* What the coach actually acts on: the parse, minus anything the athlete
    removed from the chips. Dismissals are stored by id, so they survive the
    note being edited afterwards. */
@@ -6184,10 +6255,17 @@ function renderNoteSignalChips(dd){
   if (!sigs.length){
     return '<div class="note-chips"><div class="note-chips-none">'+
       'No additional coaching signals detected \u2014 the note is still saved with the session.'+
+      (a.notesOriginal!=null
+        ? ' <button type="button" class="note-undo" data-action="undo-notes-wand" data-day="'+dd.id+'">Undo</button>'
+        : '')+
       '</div></div>';
   }
   return '<div class="note-chips">'+
-    '<div class="note-chips-head">\u2728 Coach picked up</div>'+
+    '<div class="note-chips-head">\u2728 Coach picked up'+
+      (a.notesOriginal!=null
+        ? '<button type="button" class="note-undo" data-action="undo-notes-wand" data-day="'+dd.id+'">Undo</button>'
+        : '')+
+    '</div>'+
     '<div class="note-chip-row">'+
       sigs.map(function(sg){
         var cls = sg.positive ? ' pos' : (sg.flag ? ' warn' : '');
@@ -6200,25 +6278,60 @@ function renderNoteSignalChips(dd){
       }).join('')+
     '</div></div>';
 }
-// Runs on demand only. Stores the structured result beside the raw note and
-// never alters the note itself.
+/* Runs on demand only, never while typing. Restates the note in the coach's
+   own shorthand, keeps the athlete's original for undo, and stores the
+   structured signals alongside. The restatement is checked before it is
+   applied: if it would read differently to the engine than the original did,
+   it is discarded and the note is left alone. Nothing is worth changing a
+   coaching decision for. */
 function handleNotesWand(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
   dd.actual = dd.actual || emptyActual();
-  var parsed = parseRunnerNotes(dd.actual.notes);
+  var original = dd.actual.notes || '';
+  if (!original.trim()) return;                       // empty notes: do nothing
+
+  var parsed = parseRunnerNotes(original);
   var prev = dd.actual.notesSignals || {};
   var store = { at:new Date().toISOString(), dismissed:prev.dismissed || [] };
   NOTE_CATEGORIES.forEach(function(c){
     store[c] = parsed.byCategory[c].map(function(sg){ return sg.id; });
   });
   dd.actual.notesSignals = store;
+
+  var restated = composeCoachNote(original);
+  if (restated && restated !== original && noteRestatementIsFaithful(original, restated)){
+    // keep the first original only, so tapping the wand twice cannot lose it
+    if (!dd.actual.notesOriginal) dd.actual.notesOriginal = original;
+    dd.actual.notes = restated;
+  }
   coachPersistReview(dd);
   replaceCard(dd);
   scheduleSave();
   var kept = effectiveNoteSignals(dd.actual).signals.length;
   showToast(kept ? 'Coach picked up '+kept+' signal'+(kept===1?'':'s')
                  : 'No additional coaching signals detected');
+}
+// The restatement must say the same thing to the engine as the note it
+// replaces. Same signals, same flags -- otherwise it is not a restatement.
+function noteRestatementIsFaithful(original, restated){
+  var a = parseRunnerNotes(original).signals.map(function(s){ return s.id; }).sort().join(',');
+  var b = parseRunnerNotes(restated).signals.map(function(s){ return s.id; }).sort().join(',');
+  if (a !== b) return false;
+  var ea = coachEnvironment(original), eb = coachEnvironment(restated);
+  return ['tempC','humidity','treadmill','heatBand','humidBand','severe','fatigue','pain','illness','hrDoubt']
+    .every(function(k){ return ea[k] === eb[k]; });
+}
+function handleUndoNotesWand(dayId){
+  var dd = findDay(dayId);
+  if (!dd || !dd.actual || dd.actual.notesOriginal==null) return;
+  dd.actual.notes = dd.actual.notesOriginal;
+  delete dd.actual.notesOriginal;
+  delete dd.actual.notesSignals;
+  coachPersistReview(dd);
+  replaceCard(dd);
+  scheduleSave();
+  showToast('Your original note restored');
 }
 function handleDropNoteSignal(dayId, signalId){
   var dd = findDay(dayId);
@@ -6546,6 +6659,10 @@ document.addEventListener('click', function(e){
     case 'reset-plan': handleResetPlan(); break;
     case 'close-modal': closeModal(); break;
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
+    case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;
+    case 'notes-wand': handleNotesWand(target.getAttribute('data-day')); break;
+    case 'undo-notes-wand': handleUndoNotesWand(target.getAttribute('data-day')); break;
+    case 'drop-note-signal': handleDropNoteSignal(target.getAttribute('data-day'), target.getAttribute('data-signal')); break;
     case 'open-settings': openSettingsModal(); break;
     case 'open-import': openImportModal(); break;
     case 'open-export': openExportModal(); break;
@@ -6594,10 +6711,11 @@ document.addEventListener('change', function(e){
   if (!actionEl) return;
   var action = actionEl.getAttribute('data-action');
   if (action === 'toggle-complete') handleToggleComplete(actionEl.getAttribute('data-day'));
+  // Only real form fields belong on `change`. Buttons fire `click` and are
+  // registered in the click dispatcher above -- registering set-feel /
+  // notes-wand here is what made both controls render correctly and do
+  // nothing at all when tapped.
   else if (action === 'actual-field') handleActualFieldChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-field'), actionEl.value);
-  else if (action === 'set-feel') handleSetFeel(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-feel'));
-  else if (action === 'notes-wand') handleNotesWand(actionEl.getAttribute('data-day'));
-  else if (action === 'drop-note-signal') handleDropNoteSignal(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-signal'));
   else if (action === 'pace-override') handlePaceOverrideChange(actionEl.getAttribute('data-zone'));
   else if (action === 'toggle-notify') handleToggleNotify();
   else if (action === 'toggle-theme-switch') handleToggleThemeQuick();
