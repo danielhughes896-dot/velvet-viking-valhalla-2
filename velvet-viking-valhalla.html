@@ -774,6 +774,18 @@
   .hq-row-l{font-size:11px; color:var(--ink-faint); flex:1 1 auto;}
   .hq-row-v{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim); text-align:right; flex:none;}
   .hq-empty{font-size:11px; color:var(--ink-faint); line-height:1.5;}
+  /* Recent patterns: a label, a word, a sentence. No chart, no big number. */
+  .hq-pattern{padding:6px 0;}
+  .hq-pattern + .hq-pattern{border-top:1px solid var(--line-soft);}
+  .hq-pattern-top{display:flex; align-items:baseline; gap:10px;}
+  .hq-pattern-area{font-size:11.5px; color:var(--ink); flex:1 1 auto;}
+  .hq-pattern-state{
+    font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1.1px; text-transform:uppercase;
+    color:var(--ink-faint); flex:none;
+  }
+  .hq-pattern-state.positive{color:var(--c-easy);}
+  .hq-pattern-state.negative{color:var(--c-tempo);}
+  .hq-pattern-detail{font-size:11px; color:var(--ink-faint); line-height:1.5; margin-top:2px; overflow-wrap:anywhere;}
   .hub-card .setup-section-title{margin-top:0;}
 
   .empty-note{font-size:12px; color:var(--ink-faint); text-align:center; padding:10px 0;}
@@ -4063,46 +4075,82 @@ function coachDecision(){
   var feel = coachFeelTrend();
   var ready = coachReadinessToday();
   var recent = coachRecentSessions(4);
-  var ev = [];
-  var add = function(weight, text, safety){ ev.push({ weight:weight, text:text, safety:!!safety }); };
+  var raw = [];
+  /* `concept` is the guardrail against punishing one underlying signal twice.
+     Effort above band this week and effort above personal baseline across
+     recent sessions are two readings of the same thing; only the stronger is
+     counted. */
+  var add = function(concept, weight, text, safety){
+    raw.push({ concept:concept, weight:weight, text:text, safety:!!safety });
+  };
 
-  // ---- safety, which stands on its own ----
+  // ---- safety, which stands on its own and never comes from a trend ----
   var ill = recent.filter(function(dd){ return coachEnvironment((dd.actual||{}).notes, dd.actual).illness; });
-  if (ill.length) add(10, 'Illness reported '+(ill.length>1?'in '+ill.length+' recent sessions':'in your last session'), true);
-  if (ready && ready.health==='under') add(10, 'You reported feeling under the weather this morning', true);
+  if (ill.length) add('illness', 10, 'Illness reported '+(ill.length>1?'in '+ill.length+' recent sessions':'in your last session'), true);
+  if (ready && ready.health==='under') add('illness', 10, 'You reported feeling under the weather this morning', true);
   var sore = recent.filter(function(dd){ return coachEnvironment((dd.actual||{}).notes, dd.actual).pain; });
-  if (sore.length >= 2) add(10, 'Pain or soreness reported in '+sore.length+' recent sessions', true);
-  else if (sore.length === 1) add(3, 'Soreness reported in your last session');
+  if (sore.length >= 2) add('pain', 10, 'Pain or soreness reported in '+sore.length+' recent sessions', true);
+  else if (sore.length === 1) add('pain', 3, 'Soreness reported in your last session');
 
-  // ---- accumulated physiological evidence ----
-  if (recovery.state === 'strained') add(4, 'Effort and heart rate have both been above target this week');
-  else if (recovery.overRPE >= 2) add(2, 'Effort above band on '+recovery.overRPE+' sessions this week');
-  if (recovery.overHR >= 2) add(2, recovery.overHR+' sessions this week averaged above their heart-rate zone');
-  if (recovery.hardStreak >= 3) add(1, recovery.hardStreak+' quality days in a row without an easy day');
-  if (feel.repeated) add(2, 'Legs reported heavy in '+feel.negatives+' of the last '+feel.counted+' sessions');
-  var hrDelta = coachEasyHRDelta();
-  if (hrDelta != null && hrDelta >= 5) add(2, 'Easy-run heart rate is '+hrDelta+' bpm above your recent baseline');
-  if (trend.direction === 'falling') add(2, 'Execution has been slipping across recent sessions');
-  if (load.band === 'spike') add(2, 'This week is '+load.ratio.toFixed(2)+'x your four-week average');
-  var sleep = coachNoteConceptStreak('sleep', null, 5);
-  if (sleep.repeated) add(1, 'Poor sleep reported in '+sleep.hits+' of the last '+sleep.counted+' sessions');
+  // ---- this week's acute state ----
+  if (recovery.state === 'strained') add('effort', 4, 'Effort and heart rate have both been above target this week');
+  else if (recovery.overRPE >= 2) add('effort', 2, 'Effort above band on '+recovery.overRPE+' sessions this week');
+  if (recovery.overHR >= 2) add('hr', 2, recovery.overHR+' sessions this week averaged above their heart-rate zone');
+  if (recovery.hardStreak >= 3) add('streak', 1, recovery.hardStreak+' quality days in a row without an easy day');
+  if (trend.direction === 'falling') add('execution', 2, 'Execution has been slipping across recent sessions');
+  if (load.band === 'spike') add('load', 2, 'This week is '+load.ratio.toFixed(2)+'x your four-week average');
 
-  // ---- this morning, weighted as one subjective input each ----
-  if (ready && ready.legs === 'heavy') add(2, 'You reported heavy legs this morning');
-  if (ready && ready.sleep === 'poor') add(1, 'You reported poor sleep this morning');
+  // ---- historical patterns, from the one place that detects them ----
+  var CONCEPT_OF_TREND = {
+    easy_hr_elevated:'hr', easy_efficiency_down:'hr',
+    rpe_elevated_easy:'effort', rpe_elevated_quality:'effort', rpe_elevated_long:'effort',
+    feel_negative:'feel', readiness_poor:'feel',
+    execution_declining:'execution', post_hard_recovery:'recovery_after'
+  };
+  var trends = athleteTrends();
+  var contributing = [];
+  trendEvidence().forEach(function(t){
+    add(CONCEPT_OF_TREND[t.id] || t.id, t.weight, t.text);
+    contributing.push(t.trend);
+  });
 
-  ev.sort(function(a,b){ return b.weight - a.weight; });
+  // ---- this morning, one subjective input each ----
+  if (ready && ready.legs === 'heavy') add('feel', 2, 'You reported heavy legs this morning');
+  if (ready && ready.sleep === 'poor') add('sleep', 1, 'You reported poor sleep this morning');
+
+  // keep only the strongest reading of each underlying signal
+  var best = {};
+  raw.forEach(function(e){
+    if (!best[e.concept] || e.weight > best[e.concept].weight) best[e.concept] = e;
+  });
+  var ev = Object.keys(best).map(function(k){ return best[k]; })
+                 .sort(function(a,b){ return b.weight - a.weight; });
+
   var safety = ev.some(function(e){ return e.safety; });
   var score = ev.reduce(function(s,e){ return s + e.weight; }, 0);
   var independent = ev.filter(function(e){ return e.weight >= 2; }).length;
 
+  /* Positive adaptation earns the benefit of the doubt, but never a promotion:
+     it can hold a borderline case at CHECK instead of MODIFY, and it never
+     increases training on its own. */
+  var positives = trends.filter(function(t){ return t.direction==='positive'; });
+  var adjusted = (positives.length && !safety) ? Math.max(0, score - 1) : score;
+
   // MODIFY needs more than one independent line of evidence: a single
   // corroborated concern is a reason to check, not to rewrite the session.
   var st = safety ? 'recover'
-         : (score >= 4 && independent >= 2) ? (quality ? 'modify' : 'check')
-         : score >= 2 ? 'check'
-         : score >= 1 ? (quality ? 'check' : 'proceed')
+         : (adjusted >= 4 && independent >= 2) ? (quality ? 'modify' : 'check')
+         : adjusted >= 2 ? 'check'
+         : adjusted >= 1 ? (quality ? 'check' : 'proceed')
          : 'proceed';
+
+  /* Normal variation / watching a pattern / actionable pattern -- the
+     distinction the coaching voice is built on. */
+  var tier = st==='recover' || st==='modify' ? 'actionable'
+           : st==='check' ? 'watching' : 'normal';
+  var material = contributing.filter(function(t){
+    return ev.some(function(e){ return e.text===t.detail; });
+  });
 
   return {
     state: st,
@@ -4110,11 +4158,35 @@ function coachDecision(){
     quality: quality,
     reasons: ev.slice(0, 3).map(function(e){ return e.text; }),
     evidenceCount: ev.length,
-    score: score,
+    score: adjusted,
+    rawScore: score,
+    tier: tier,
+    trends: trends,
+    // the historical patterns that actually moved this decision, so WHY? can
+    // show history only when history mattered
+    materialTrends: material,
+    positives: positives,
+    recommendation: coachDecisionSentence(st, tier, ev, positives, nxt, quality),
     // The readiness prompt is earned, not permanent: it appears only when the
     // recent evidence already says something, and only before quality work.
     needsReadiness: !ready && quality && st !== 'proceed' && ev.length > 0
   };
+}
+/* One sentence, in the coaching voice: what the evidence is, and what it does
+   or does not justify doing about tomorrow. Never a diagnosis. */
+function coachDecisionSentence(st, tier, ev, positives, nxt, quality){
+  var what = nxt ? (nxt.title || (TYPE_META[nxt.type]||{}).label || 'the next session') : 'the next session';
+  if (st==='recover')
+    return 'The evidence says recover first. '+(quality ? what+' is not the session to push through.' : 'Keep the next few days genuinely easy.');
+  if (st==='modify')
+    return 'Repeated evidence across recent sessions, not one bad day. Reducing '+what+' protects the quality of the rest of the week.';
+  if (st==='check')
+    return 'Worth watching rather than acting on yet. '+(quality
+      ? what+' stays on — the warm-up will tell you more than the data can.'
+      : 'Nothing here changes what the next session should be.');
+  if (positives.length)
+    return positives[0].detail+' Nothing in recent training suggests holding back.';
+  return 'Nothing unusual in the recent training. Proceed as planned.';
 }
 
 /* =========================================================
@@ -4315,6 +4387,247 @@ function baselineDeviation(dd){
     rpe: (fam.rpe!=null && a.rpe!=null) ? Math.round((a.rpe - fam.rpe)*10)/10 : null,
     baseline: fam
   };
+}
+
+/* =========================================================
+   TREND DETECTION
+   ---------------------------------------------------------
+   Patterns, not days. Every trend below needs the same thing before it will
+   speak: repeated observations against this athlete's own baseline, computed
+   from sessions OLDER than the ones being judged so a bad week cannot quietly
+   redefine normal and then clear itself.
+
+   Confidence is stated in words, never as a manufactured percentage:
+     insufficient — not enough comparable evidence to say anything
+     emerging     — two observations agree
+     established  — three or more agree, recently and consistently
+
+   This is also the single place historical evidence is counted. The decision
+   engine reads trends and nothing else for history, which is what stops the
+   same underlying signal being counted twice under two different names.
+   ========================================================= */
+var TREND_CONF = { insufficient:0, emerging:1, established:2 };
+function trendConfidence(hits, of, sampleSize){
+  if (sampleSize < BASELINE_MIN_SAMPLES || of < 2 || hits < 2) return 'insufficient';
+  // Two occurrences out of nine is noise, not a pattern. A trend has to be
+  // most of what has been happening, not merely something that has happened.
+  if (hits / of < 0.4) return 'insufficient';
+  if (hits >= 3 && hits >= Math.ceil(of*0.6)) return 'established';
+  return 'emerging';
+}
+// Recent sessions of a family, and the older ones that define what is normal.
+function trendSplit(records, recentN){
+  var n = recentN || 3;
+  return { recent: records.slice(-n), base: records.slice(0, Math.max(0, records.length-n)) };
+}
+function trendMedian(list, pick, filter){
+  var v = list.filter(filter || function(){ return true; }).map(pick).filter(function(x){ return x!=null; });
+  return v.length >= BASELINE_MIN_SAMPLES ? median(v) : null;
+}
+/* Every detected pattern, strongest first. Structured and inspectable: each
+   carries the observations behind it, so nothing has to be taken on trust. */
+function athleteTrends(){
+  var mem = athleteMemory(42).filter(function(r){ return r.completed; });
+  // Compromised data is excluded outright rather than down-weighted: a session
+  // run through illness, or with heart rate the athlete disowned, is not a
+  // measurement of this athlete's normal.
+  var usable = mem.filter(function(r){
+    var e = r.environment || {};
+    return !e.illness && r.executionScore!=null;
+  });
+  var byType = function(types){ return usable.filter(function(r){ return types.indexOf(r.type)!==-1; }); };
+  var easy = byType(['easy']), quality = byType(['tempo','threshold','interval','repetition']), long = byType(['long']);
+  var out = [];
+  var push = function(t){ if (t && t.confidence!=='insufficient') out.push(t); };
+
+  /* ---- easy-run cardiovascular cost, the earliest honest fatigue signal ---- */
+  (function(){
+    var readable = easy.filter(hrIsReadable);
+    var sp = trendSplit(readable);
+    var base = trendMedian(sp.base, function(r){ return r.hr; });
+    if (base==null || sp.recent.length < 2) return;
+    var high = sp.recent.filter(function(r){ return r.hr - base >= 4; });
+    var low  = sp.recent.filter(function(r){ return base - r.hr >= 4; });
+    var delta = function(list){ return Math.round(median(list.map(function(r){ return r.hr; })) - base); };
+    if (high.length >= 2)
+      push({ id:'easy_hr_elevated', area:'Easy efficiency', direction:'negative',
+             confidence: trendConfidence(high.length, sp.recent.length, readable.length),
+             headline:'Watching',
+             detail:'Easy-run heart rate has been above your normal on '+high.length+' of your last '+
+                    sp.recent.length+' comparable runs'+(delta(high)>0?' (+'+delta(high)+' bpm)':'')+'.',
+             observations:high.length, of:sp.recent.length });
+    else if (low.length >= 2)
+      push({ id:'easy_hr_improved', area:'Easy efficiency', direction:'positive',
+             confidence: trendConfidence(low.length, sp.recent.length, readable.length),
+             headline:'Improving',
+             detail:'Same easy effort at '+Math.abs(delta(low))+' bpm lower across your recent runs.',
+             observations:low.length, of:sp.recent.length });
+  })();
+
+  /* ---- pace held at the same heart-rate cost, in both directions ---- */
+  (function(){
+    var readable = easy.filter(function(r){ return hrIsReadable(r) && r.actualPace!=null; });
+    var sp = trendSplit(readable);
+    if (sp.base.length < BASELINE_MIN_SAMPLES || sp.recent.length < 2) return;
+    var cost = function(r){ return r.hr / (r.actualPace/60); };   // bpm per min/km
+    var base = median(sp.base.map(cost));
+    var better = sp.recent.filter(function(r){ return (base - cost(r))/base >= 0.02; });
+    var worse  = sp.recent.filter(function(r){ return (cost(r) - base)/base >= 0.02; });
+    if (better.length >= 2)
+      push({ id:'easy_efficiency_up', area:'Easy efficiency', direction:'positive',
+             confidence: trendConfidence(better.length, sp.recent.length, readable.length),
+             headline:'Improving',
+             detail:'Holding the same easy pace at a lower cardiovascular cost across recent runs.',
+             observations:better.length, of:sp.recent.length });
+    else if (worse.length >= 2)
+      push({ id:'easy_efficiency_down', area:'Easy efficiency', direction:'negative',
+             confidence: trendConfidence(worse.length, sp.recent.length, readable.length),
+             headline:'Watching',
+             detail:'Easy pace is costing more heart rate than it normally does.',
+             observations:worse.length, of:sp.recent.length });
+  })();
+
+  /* ---- effort against this athlete's own normal for the session type ---- */
+  (function(){
+    [['easy',easy,'Easy effort'],['quality',quality,'Quality effort'],['long',long,'Long-run effort']]
+    .forEach(function(fam){
+      var recs = fam[1].filter(function(r){ return r.rpe!=null; });
+      var sp = trendSplit(recs);
+      var base = trendMedian(sp.base, function(r){ return r.rpe; });
+      if (base==null || sp.recent.length < 2) return;
+      var high = sp.recent.filter(function(r){ return r.rpe - base >= 1; });
+      var low  = sp.recent.filter(function(r){ return base - r.rpe >= 1; });
+      if (high.length >= 2)
+        push({ id:'rpe_elevated_'+fam[0], area:fam[2], direction:'negative',
+               confidence: trendConfidence(high.length, sp.recent.length, recs.length),
+               headline:'Watching',
+               detail:'Effort has been above your usual on '+high.length+' of your last '+
+                      sp.recent.length+' '+(fam[0]==='easy'?'easy runs':fam[0]==='long'?'long runs':'quality sessions')+'.',
+               observations:high.length, of:sp.recent.length });
+      else if (low.length >= 2)
+        push({ id:'rpe_lower_'+fam[0], area:fam[2], direction:'positive',
+               confidence: trendConfidence(low.length, sp.recent.length, recs.length),
+               headline:'Improving',
+               detail:'The same '+(fam[0]==='quality'?'quality work':fam[0]+' running')+' is feeling easier than it did.',
+               observations:low.length, of:sp.recent.length });
+    });
+  })();
+
+  /* ---- the body's own report, which no number can express ---- */
+  (function(){
+    var withFeel = usable.filter(function(r){ return r.feel; });
+    var recent = withFeel.slice(-5);
+    var neg = recent.filter(function(r){ return FEEL_META[r.feel] && FEEL_META[r.feel].rank < 0; });
+    var pos = recent.filter(function(r){ return FEEL_META[r.feel] && FEEL_META[r.feel].rank > 0; });
+    if (neg.length >= 2)
+      push({ id:'feel_negative', area:'Recovery', direction:'negative',
+             confidence: trendConfidence(neg.length, recent.length, recent.length>=3?BASELINE_MIN_SAMPLES:0),
+             headline:'Watching',
+             detail:'Legs have reported heavy or poor in '+neg.length+' of your last '+recent.length+' sessions.',
+             observations:neg.length, of:recent.length });
+    else if (pos.length >= 3)
+      push({ id:'feel_positive', area:'Recovery', direction:'positive',
+             confidence: trendConfidence(pos.length, recent.length, recent.length>=3?BASELINE_MIN_SAMPLES:0),
+             headline:'Improving',
+             detail:'Legs have reported good in '+pos.length+' of your last '+recent.length+' sessions.',
+             observations:pos.length, of:recent.length });
+  })();
+
+  /* ---- the morning answers, longitudinally ---- */
+  (function(){
+    var withR = athleteMemory(28).filter(function(r){ return r.readiness; }).slice(-5);
+    var poor = withR.filter(function(r){
+      return r.readiness.legs==='heavy' || r.readiness.sleep==='poor' || r.readiness.health==='under';
+    });
+    if (poor.length >= 2)
+      push({ id:'readiness_poor', area:'Recovery', direction:'negative',
+             confidence: trendConfidence(poor.length, withR.length, withR.length>=3?BASELINE_MIN_SAMPLES:0),
+             headline:'Watching',
+             detail:'Your morning check has flagged something on '+poor.length+' of the last '+
+                    withR.length+' days you answered it.',
+             observations:poor.length, of:withR.length });
+  })();
+
+  /* ---- execution: level and repeatability ---- */
+  (function(){
+    var sp = trendSplit(quality.filter(function(r){ return r.executionScore!=null; }), 3);
+    if (sp.base.length < BASELINE_MIN_SAMPLES || sp.recent.length < 2) return;
+    var base = median(sp.base.map(function(r){ return r.executionScore; }));
+    var down = sp.recent.filter(function(r){ return base - r.executionScore >= 8; });
+    if (down.length >= 2){
+      push({ id:'execution_declining', area:'Quality execution', direction:'negative',
+             confidence: trendConfidence(down.length, sp.recent.length, quality.length),
+             headline:'Watching',
+             detail:'Quality sessions have landed further from prescription than they normally do.',
+             observations:down.length, of:sp.recent.length });
+      return;
+    }
+    var sdBase = stdev(sp.base.map(function(r){ return r.executionScore; }));
+    var sdNow  = stdev(sp.recent.map(function(r){ return r.executionScore; }));
+    if (sdBase!=null && sdNow!=null && sdBase >= 6 && sdNow <= sdBase*0.6)
+      push({ id:'execution_consistent', area:'Quality execution', direction:'positive',
+             confidence:'emerging', headline:'Improving',
+             detail:'Quality sessions are landing more consistently than they were.',
+             observations:sp.recent.length, of:sp.recent.length });
+  })();
+
+  /* ---- how the athlete absorbs the hard days ---- */
+  (function(){
+    var hardDates = usable.filter(function(r){
+      return r.type==='long' || ['tempo','threshold','interval','repetition'].indexOf(r.type)!==-1;
+    }).map(function(r){ return r.date; });
+    if (hardDates.length < BASELINE_MIN_SAMPLES) return;
+    var after = [];
+    hardDates.forEach(function(d){
+      var next = usable.filter(function(r){ return r.date===addDays(d,1); })[0];
+      if (next) after.push(next);
+    });
+    after = after.slice(-5);        // how the athlete is absorbing hard days now
+    var rough = after.filter(function(r){
+      return (r.feel && FEEL_META[r.feel] && FEEL_META[r.feel].rank<0) ||
+             (r.readiness && (r.readiness.legs==='heavy' || r.readiness.sleep==='poor'));
+    });
+    if (after.length >= 3 && rough.length >= 2)
+      push({ id:'post_hard_recovery', area:'Recovery', direction:'negative',
+             confidence: trendConfidence(rough.length, after.length, after.length),
+             headline:'Watching',
+             detail:'The day after a hard session has been reporting rough on '+rough.length+
+                    ' of the last '+after.length+' occasions.',
+             observations:rough.length, of:after.length });
+  })();
+
+  /* ---- consistency, which is its own kind of evidence ---- */
+  (function(){
+    var planned = athleteMemory(14).filter(function(r){
+      return r.date < todayStr() && (r.plannedKm!=null);
+    });
+    if (planned.length < 4) return;
+    var done = planned.filter(function(r){ return r.completed || r.acceptedAdjustment; });
+    push({ id:'consistency', area:'Training consistency', direction:'stable',
+           confidence:'established',
+           headline: done.length===planned.length ? 'Stable' : done.length >= planned.length*0.8 ? 'Stable' : 'Watching',
+           detail: done.length+' of last '+planned.length+' planned sessions completed.',
+           observations:done.length, of:planned.length });
+  })();
+
+  var rank = { established:2, emerging:1 };
+  out.sort(function(a,b){
+    return (rank[b.confidence]||0)-(rank[a.confidence]||0) ||
+           (a.direction==='negative'?-1:1)-(b.direction==='negative'?-1:1);
+  });
+  return out;
+}
+// The historical half of the evidence, weighted by how sure we are of it.
+// Safety never comes from here -- it comes from what the athlete reported.
+function trendEvidence(){
+  return athleteTrends().filter(function(t){ return t.direction==='negative'; })
+    .map(function(t){
+      return { id:t.id, weight: t.confidence==='established' ? 2 : 1,
+               text:t.detail, trend:t };
+    });
+}
+function positiveTrends(){
+  return athleteTrends().filter(function(t){ return t.direction==='positive'; });
 }
 
 /* ---------- the single report every surface reads ---------- */
@@ -5357,9 +5670,13 @@ function renderCoachNextMoveCard(report){
                 title:dd.title, reason:dec.reasons[0] }
             : null;
 
+  // One sentence only. When the decision engine has evidence to speak from it
+  // replaces the generic recommendation rather than being added beneath it.
+  var line = (dec && dec.recommendation && (dec.state!=='proceed' || dec.positives.length))
+    ? dec.recommendation : mv.recommendation;
   var body = '<div class="coach-next-session">'+escapeHtml(mv.title)+' · '+dShort(mv.date)+
     (mv.km?' · '+fmtDist(mv.km):'')+'</div>'+
-    '<div class="coach-next-rec">'+escapeHtml(mv.recommendation)+'</div>';
+    '<div class="coach-next-rec">'+escapeHtml(line)+'</div>';
 
   // WHY? only where there is something to explain. PROCEED stays silent.
   if (dec && dec.state!=='proceed' && dec.reasons.length){
@@ -5497,7 +5814,30 @@ function renderRaceReadinessCard(report){
       : '<div class="hq-empty">No breakthrough sessions logged yet. They appear here once a quality session lands at the fast end of its window with heart rate in zone.</div>');
 
   var dec = report.decision;
-  var summary = dec ? COACH_DECISION_META[dec.state].label : (conf!=null ? conf+'%' : '—');
+
+  /* Recent Patterns: at most three, only where they mean something, and never
+     a chart or a number pretending to be precise. */
+  var trends = (dec && dec.trends) ? dec.trends : athleteTrends();
+  // One line per area. Two readings of easy-run efficiency are the same story
+  // told twice, and the strongest telling is the one worth the space.
+  var seenArea = {};
+  var shown = trends.filter(function(t){
+    if (t.confidence==='insufficient') return false;
+    if (seenArea[t.area]) return false;
+    seenArea[t.area] = true;
+    return true;
+  }).slice(0,3);
+  var patternsBody = shown.length
+    ? shown.map(function(t){
+        return '<div class="hq-pattern">'+
+          '<div class="hq-pattern-top">'+
+            '<span class="hq-pattern-area">'+escapeHtml(t.area)+'</span>'+
+            '<span class="hq-pattern-state '+t.direction+'">'+escapeHtml(t.headline)+'</span>'+
+          '</div>'+
+          '<div class="hq-pattern-detail">'+escapeHtml(t.detail)+'</div>'+
+        '</div>';
+      }).join('')
+    : '<div class="hq-empty">Still learning your baseline.</div>';
 
   return '<div class="hub-card hq-state">'+
     '<div class="coach-next-head">'+ICONS.sparkles+'<span class="coach-next-title">Athlete State</span>'+
@@ -5506,6 +5846,8 @@ function renderRaceReadinessCard(report){
     '</div>'+
     hqSection('readiness','Race readiness', conf!=null?conf+'% confidence':'—', goalBody)+
     hqSection('recovery','Recovery & fatigue', { fresh:'Fresh', watch:'Watch', strained:'Strained' }[report.recovery.state], recoveryBody)+
+    hqSection('patterns','Recent patterns',
+      shown.length ? shown.length+' noted' : 'learning', patternsBody)+
     hqSection('adaptation','Adaptation history', bts.length+' breakthrough'+(bts.length===1?'':'s'), adaptBody)+
   '</div>';
 }
