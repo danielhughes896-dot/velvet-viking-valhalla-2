@@ -4027,20 +4027,6 @@ var COACH_DECISION_META = {
    in real heat are excluded from both halves -- a hot easy run costs bpm for
    reasons that have nothing to do with fatigue, and reading that as a rising
    baseline is exactly the mistake this guards against. */
-function coachEasyHRDelta(){
-  var easies = coachCompletedScored().filter(function(dd){
-    var a = dd.actual || {};
-    if (dd.type!=='easy' || a.hr==null) return false;
-    var env = coachEnvironment(a.notes, a);
-    if (env.hrDoubt) return false;                       // disowned data
-    return env.heatBand==='none' || env.heatBand==='mild';
-  });
-  if (easies.length < 6) return null;
-  var recent = easies.slice(-3), base = easies.slice(-9, -3);
-  if (base.length < 3) return null;
-  var mean = function(l){ return l.reduce(function(s,d){ return s+d.actual.hr; },0)/l.length; };
-  return Math.round(mean(recent) - mean(base));
-}
 // Sessions completed in the last `days` days, most recent first.
 function coachRecentSessions(days){
   var today = todayStr();
@@ -4105,11 +4091,24 @@ function coachDecision(){
     easy_hr_elevated:'hr', easy_efficiency_down:'hr',
     rpe_elevated_easy:'effort', rpe_elevated_quality:'effort', rpe_elevated_long:'effort',
     feel_negative:'feel', readiness_poor:'feel',
-    execution_declining:'execution', post_hard_recovery:'recovery_after'
+    execution_declining:'execution',
+    post_hard_recovery:'recovery_after', post_long_run_recovery:'recovery_after'
   };
   var trends = athleteTrends();
   var contributing = [];
+  /* Two trends built largely from the same days are the same underlying
+     signal wearing two names -- "heavy legs lately" and "slow to come back
+     from long runs" can be the identical set of reports. Where their evidence
+     substantially overlaps, only the stronger one is counted. */
+  var taken = [];
   trendEvidence().forEach(function(t){
+    var dates = t.trend.evidenceDates || [];
+    var overlaps = dates.length && taken.some(function(prev){
+      var shared = dates.filter(function(d){ return prev.indexOf(d)!==-1; }).length;
+      return shared >= Math.ceil(dates.length * 0.5);
+    });
+    if (overlaps) return;
+    taken.push(dates);
     add(CONCEPT_OF_TREND[t.id] || t.id, t.weight, t.text);
     contributing.push(t.trend);
   });
@@ -4229,7 +4228,13 @@ function athleteMemory(limitDays){
   var today = todayStr();
   var from = addDays(today, -(limitDays || 120));
   return state.days.filter(function(dd){
-    if (dd.type==='rest' || dd.date < from) return false;
+    if (dd.date < from) return false;
+    /* Rest days normally carry nothing worth remembering -- but the morning
+       after a long run is usually a rest day, and that is exactly when an
+       athlete reports heavy legs. A rest day is included only when it carries
+       an answer or a decided state; it is never "completed", so it cannot
+       reach any baseline or execution statistic. */
+    if (dd.type==='rest') return !!(dayReadiness(dd) || dd.athleteState);
     // Accepting an adjustment is a decision the athlete made in the past, even
     // when the session it changed is still ahead. Excluding it would lose
     // exactly the evidence that says this athlete does back off when asked.
@@ -4340,6 +4345,36 @@ function baselineFor(records, opts){
     })()
   };
 }
+/* =========================================================
+   EASY-RUN HEART RATE — the single source of truth
+   ---------------------------------------------------------
+   Replaces coachEasyHRDelta(), which computed the same idea a different way:
+   means over a fixed -9..-3 window against medians over all prior sessions.
+   Two algorithms for one number meant Plan HQ could show a figure the coach
+   was not reasoning with. There is now one computation, and the trend layer,
+   the decision engine and Plan HQ all read it.
+
+   The protections are the ones the baseline layer already had: comparable
+   sessions only, historical only, baseline drawn from sessions OLDER than the
+   ones being judged, medians rather than means, heat and disowned heart rate
+   excluded, and null until the evidence is earned.
+   ========================================================= */
+function easyHRBaseline(){
+  var easies = athleteMemory(42).filter(function(r){ return r.completed && r.type==='easy'; });
+  var readable = easies.filter(hrIsReadable);
+  var sp = trendSplit(readable);
+  var base = trendMedian(sp.base, function(r){ return r.hr; });
+  var out = { sufficient:false, baseline:null, recent:null, delta:null,
+              samples:readable.length, baseSamples:sp.base.length, recentSessions:sp.recent };
+  if (base==null || sp.recent.length < 2) return out;
+  var recentMed = median(sp.recent.map(function(r){ return r.hr; }));
+  out.sufficient = true;
+  out.baseline = base;
+  out.recent = recentMed;
+  out.delta = Math.round(recentMed - base);
+  return out;
+}
+
 /* Rolling baselines by session family, over the recent window that actually
    reflects current fitness rather than the whole block. */
 function athleteBaselines(windowDays){
@@ -4424,6 +4459,88 @@ function trendMedian(list, pick, filter){
   var v = list.filter(filter || function(){ return true; }).map(pick).filter(function(x){ return x!=null; });
   return v.length >= BASELINE_MIN_SAMPLES ? median(v) : null;
 }
+/* =========================================================
+   LONG-RUN RECOVERY
+   A long run is not a threshold session with more kilometres. This learns how
+   this athlete typically comes back from one, using only data they actually
+   logged in the 24-72 hours afterwards.
+   ========================================================= */
+var LONGRUN_MIN_WINDOWS = 3;      // comparable long runs before a pattern is called
+function longRunRecoveryWindows(){
+  var mem = athleteMemory(90);
+  var longs = mem.filter(function(r){ return r.completed && r.type==='long' && r.actualKm!=null; });
+  if (longs.length < LONGRUN_MIN_WINDOWS) return null;
+
+  // Comparable only: a 12km long run and a 32km long run are different events.
+  var medKm = median(longs.map(function(r){ return r.actualKm; }));
+  var comparable = longs.filter(function(r){
+    return medKm==null || (r.actualKm >= medKm*0.75 && r.actualKm <= medKm*1.25);
+  });
+  if (comparable.length < LONGRUN_MIN_WINDOWS) return null;
+
+  var ehr = easyHRBaseline();
+  var windows = [];
+  comparable.forEach(function(lr){
+    var days = [1,2,3].map(function(n){
+      return mem.filter(function(r){ return r.date===addDays(lr.date,n); })[0];
+    }).filter(Boolean);
+    // Illness in the window is illness, not long-run recovery. Excluded rather
+    // than mislabelled -- the safety path already owns it.
+    if (days.some(function(r){ return (r.environment||{}).illness; })) return;
+
+    var rough = [], easedBack = false, evidence = [];
+    days.forEach(function(r){
+      var hit = null;
+      if (r.feel && FEEL_META[r.feel] && FEEL_META[r.feel].rank < 0) hit = 'feel';
+      else if (r.readiness && (r.readiness.legs==='heavy' || r.readiness.sleep==='poor')) hit = 'readiness';
+      else if (r.type==='easy' && hrIsReadable(r) && ehr.sufficient && r.hr - ehr.baseline >= 4) hit = 'hr';
+      else if ((r.signals||[]).some(function(id){
+        return ['heavy_legs','tired','soreness','stiffness'].indexOf(id)!==-1; })) hit = 'notes';
+      if (hit){ rough.push(r.date); evidence.push(hit); }
+      // returning to normal: easy heart rate back at or under baseline
+      if (r.type==='easy' && hrIsReadable(r) && ehr.sufficient && r.hr - ehr.baseline <= 0) easedBack = true;
+      if (r.feel && FEEL_META[r.feel] && FEEL_META[r.feel].rank > 0) easedBack = true;
+      if (r.readiness && r.readiness.legs==='fresh') easedBack = true;
+    });
+    // nothing logged in the window: contributes neither way
+    var hasData = days.some(function(r){
+      return r.feel || r.readiness || (r.type==='easy' && r.hr!=null) || (r.signals||[]).length;
+    });
+    if (!hasData) return;
+    windows.push({ date:lr.date, km:lr.actualKm, rough:rough.length>0,
+                   easedBack:easedBack && !rough.length, dates:rough });
+  });
+
+  if (windows.length < LONGRUN_MIN_WINDOWS) return null;
+
+  /* Improvement is checked first. "The last two came back clean" is a
+     statement about now; "two of the last four were rough" is a statement
+     about a period that includes the two that were fine. Where the earlier
+     long runs cost something and the recent ones did not, that is adaptation,
+     not an ongoing problem. An all-clean history is neither -- it is just
+     training going well, and does not earn a line. */
+  var older = windows.slice(0, -2), later = windows.slice(-2);
+  var olderRough = older.filter(function(w){ return w.rough; }).length;
+  if (older.length >= 2 && olderRough >= 2 &&
+      later.length >= 2 && later.every(function(w){ return !w.rough && w.easedBack; }))
+    return { id:'post_long_run_recovery_improved', area:'Long-run recovery', direction:'positive',
+             confidence:'emerging', headline:'Improving',
+             detail:'You are returning to baseline more quickly after recent long runs.',
+             observations:later.length, of:windows.length, evidenceDates:[] };
+
+  var recent = windows.slice(-4);
+  var rough = recent.filter(function(w){ return w.rough; });
+  var conf = trendConfidence(rough.length, recent.length, windows.length);
+  if (rough.length >= 2 && conf!=='insufficient')
+    return { id:'post_long_run_recovery', area:'Long-run recovery', direction:'negative',
+             confidence: conf, headline:'Watching',
+             detail:'Recovery has stayed elevated for a day or more after '+rough.length+
+                    ' of your last '+recent.length+' comparable long runs.',
+             observations:rough.length, of:recent.length,
+             evidenceDates: recent.reduce(function(a,w){ return a.concat(w.dates); }, []) };
+  return null;
+}
+
 /* Every detected pattern, strongest first. Structured and inspectable: each
    carries the observations behind it, so nothing has to be taken on trust. */
 function athleteTrends(){
@@ -4440,28 +4557,29 @@ function athleteTrends(){
   var out = [];
   var push = function(t){ if (t && t.confidence!=='insufficient') out.push(t); };
 
-  /* ---- easy-run cardiovascular cost, the earliest honest fatigue signal ---- */
+  /* ---- easy-run cardiovascular cost, the earliest honest fatigue signal ----
+     Reads easyHRBaseline() so the number quoted here is exactly the number
+     Plan HQ displays and the decision engine reasons with. */
   (function(){
-    var readable = easy.filter(hrIsReadable);
-    var sp = trendSplit(readable);
-    var base = trendMedian(sp.base, function(r){ return r.hr; });
-    if (base==null || sp.recent.length < 2) return;
-    var high = sp.recent.filter(function(r){ return r.hr - base >= 4; });
-    var low  = sp.recent.filter(function(r){ return base - r.hr >= 4; });
-    var delta = function(list){ return Math.round(median(list.map(function(r){ return r.hr; })) - base); };
+    var b = easyHRBaseline();
+    if (!b.sufficient) return;
+    var high = b.recentSessions.filter(function(r){ return r.hr - b.baseline >= 4; });
+    var low  = b.recentSessions.filter(function(r){ return b.baseline - r.hr >= 4; });
     if (high.length >= 2)
       push({ id:'easy_hr_elevated', area:'Easy efficiency', direction:'negative',
-             confidence: trendConfidence(high.length, sp.recent.length, readable.length),
+             confidence: trendConfidence(high.length, b.recentSessions.length, b.samples),
              headline:'Watching',
              detail:'Easy-run heart rate has been above your normal on '+high.length+' of your last '+
-                    sp.recent.length+' comparable runs'+(delta(high)>0?' (+'+delta(high)+' bpm)':'')+'.',
-             observations:high.length, of:sp.recent.length });
+                    b.recentSessions.length+' comparable runs'+(b.delta>0?' (+'+b.delta+' bpm)':'')+'.',
+             observations:high.length, of:b.recentSessions.length,
+             evidenceDates: high.map(function(r){ return r.date; }) });
     else if (low.length >= 2)
       push({ id:'easy_hr_improved', area:'Easy efficiency', direction:'positive',
-             confidence: trendConfidence(low.length, sp.recent.length, readable.length),
+             confidence: trendConfidence(low.length, b.recentSessions.length, b.samples),
              headline:'Improving',
-             detail:'Same easy effort at '+Math.abs(delta(low))+' bpm lower across your recent runs.',
-             observations:low.length, of:sp.recent.length });
+             detail:'Same easy effort at '+Math.abs(b.delta)+' bpm lower across your recent runs.',
+             observations:low.length, of:b.recentSessions.length,
+             evidenceDates: low.map(function(r){ return r.date; }) });
   })();
 
   /* ---- pace held at the same heart-rate cost, in both directions ---- */
@@ -4571,10 +4689,13 @@ function athleteTrends(){
              observations:sp.recent.length, of:sp.recent.length });
   })();
 
-  /* ---- how the athlete absorbs the hard days ---- */
+  /* ---- how the athlete absorbs a hard QUALITY session ----
+     Long runs are deliberately excluded: a threshold session and a 30km run
+     are not the same stimulus and do not produce the same recovery, so
+     averaging them together hides both. Long runs get their own trend below. */
   (function(){
     var hardDates = usable.filter(function(r){
-      return r.type==='long' || ['tempo','threshold','interval','repetition'].indexOf(r.type)!==-1;
+      return ['tempo','threshold','interval','repetition'].indexOf(r.type)!==-1;
     }).map(function(r){ return r.date; });
     if (hardDates.length < BASELINE_MIN_SAMPLES) return;
     var after = [];
@@ -4591,9 +4712,21 @@ function athleteTrends(){
       push({ id:'post_hard_recovery', area:'Recovery', direction:'negative',
              confidence: trendConfidence(rough.length, after.length, after.length),
              headline:'Watching',
-             detail:'The day after a hard session has been reporting rough on '+rough.length+
+             detail:'The day after a quality session has been reporting rough on '+rough.length+
                     ' of the last '+after.length+' occasions.',
-             observations:rough.length, of:after.length });
+             observations:rough.length, of:after.length,
+             evidenceDates: rough.map(function(r){ return r.date; }) });
+  })();
+
+  /* ---- how the athlete absorbs the LONG RUN ----
+     Marathon training lives or dies on this. The window is 24-72 hours, not
+     one day, because long-run cost often shows up on day two. Only long runs
+     of comparable distance count, and a window with nothing logged in it
+     contributes nothing at all -- silence beats a guess. */
+  (function(){
+    var t = longRunRecoveryWindows();
+    if (!t) return;
+    push(t);
   })();
 
   /* ---- consistency, which is its own kind of evidence ---- */
@@ -5804,7 +5937,9 @@ function renderRaceReadinessCard(report){
     hqRow('HR above zone', report.recovery.overHR+' this week')+
     hqRow('Longest hard streak', report.recovery.hardStreak+' days')+
     hqRow('Feel', recent.feel.counted ? recent.feel.negatives+' heavy of last '+recent.feel.counted : 'not logged')+
-    hqRow('Easy HR vs baseline', (function(){ var d=coachEasyHRDelta(); return d==null?'building baseline':(d>0?'+':'')+d+' bpm'; })())+
+    hqRow('Easy HR vs baseline', (function(){
+      var b=easyHRBaseline();
+      return b.sufficient ? (b.delta>0?'+':'')+b.delta+' bpm' : 'building baseline'; })())+
     hqRow('Load', report.load.ratio!=null ? report.load.ratio.toFixed(2)+'x four-week average' : 'building history');
 
   var adaptBody = (bts.length
