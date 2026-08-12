@@ -698,6 +698,82 @@
   .coach-actions{display:flex; flex-direction:column; gap:8px; margin-top:11px;}
   .coach-actions .btn{width:100%;}
   .coach-adjusted-note{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:8px; overflow-wrap:anywhere;}
+  /* ---------- decision state ----------
+     Built on the same pill geometry as .day-badge and coloured from the
+     existing muted workout-type tokens, so the four states read as part of
+     the plan's own language rather than as a traffic light bolted on. */
+  .coach-state{
+    display:inline-flex; align-items:center; gap:5px; margin-left:auto;
+    font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px;
+    text-transform:uppercase; padding:2px 8px; border-radius:99px;
+    background:var(--c-rest-soft); color:var(--ink-dim);
+  }
+  /* The dot carries the state colour; the word carries the meaning. The
+     workout-type hues are deliberately identical in both themes (see the
+     light-theme block), so they cannot legibly hold text on a light chip --
+     measured at 1.4:1. Keeping the label on --ink-dim, which IS theme-aware,
+     holds ~5:1 in both themes and means the state never depends on colour
+     alone to be readable. */
+  .coach-state-dot{width:5px; height:5px; border-radius:99px; background:var(--ink-faint); flex:none;}
+  .coach-state.proceed{background:var(--c-easy-soft);}
+  .coach-state.proceed .coach-state-dot{background:var(--c-easy);}
+  .coach-state.check{background:var(--c-gold-soft);}
+  .coach-state.check .coach-state-dot{background:var(--gold);}
+  .coach-state.modify{background:var(--c-tempo-soft);}
+  .coach-state.modify .coach-state-dot{background:var(--c-tempo);}
+  .coach-state.recover{background:var(--c-threshold-soft);}
+  .coach-state.recover .coach-state-dot{background:var(--c-threshold);}
+  .coach-why-btn{
+    background:none; border:none; padding:6px 0 0; margin:0; cursor:pointer;
+    font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px;
+    text-transform:uppercase; color:var(--ink-faint); text-decoration:underline;
+    text-underline-offset:3px;
+  }
+  .coach-why-btn:hover, .coach-why-btn:focus-visible{color:var(--bronze);}
+  .coach-why-list{
+    margin:8px 0 0; padding:9px 11px 9px 26px; list-style:disc;
+    background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);
+  }
+  .coach-why-list li{font-size:11.5px; color:var(--ink-dim); line-height:1.55; margin:3px 0; overflow-wrap:anywhere;}
+  /* ---------- conditional morning check ---------- */
+  .readiness{margin-top:11px; padding:10px 11px; background:var(--bg-2); border:1px dashed var(--line); border-radius:var(--radius-sm);}
+  .readiness-head{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze); margin-bottom:8px;}
+  .readiness-row{display:flex; align-items:center; gap:8px; margin-top:6px;}
+  .readiness-label{font-size:10px; letter-spacing:.8px; text-transform:uppercase; color:var(--ink-faint); width:44px; flex:none;}
+  .readiness-opts{display:flex; gap:4px; flex-wrap:wrap; flex:1;}
+  .readiness-btn{
+    padding:4px 9px; font-size:10px; line-height:1; border-radius:99px; cursor:pointer;
+    background:var(--bg-3); color:var(--ink-faint); border:1px solid var(--line);
+    transition:background .12s, color .12s, border-color .12s;
+  }
+  .readiness-btn.on{background:var(--modal-active); color:var(--bg-1); border-color:var(--modal-active);}
+  /* ---------- week status: one line, no dashboard ---------- */
+  .week-status{margin:0 0 12px; padding:11px 13px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .week-status-head{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze); margin-bottom:5px;}
+  .week-status-line{font-size:12px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere;}
+  .week-status-note{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:3px;}
+  /* ---------- full plan status label ---------- */
+  .day-status-label{
+    font-size:8.5px; letter-spacing:1px; text-transform:uppercase; padding:1px 6px;
+    border-radius:99px; border:1px solid var(--line); color:var(--ink-faint);
+  }
+  /* ---------- Plan HQ expandable sections ---------- */
+  .hq-sec{border-top:1px solid var(--line-soft);}
+  .hq-sec:first-of-type{border-top:none;}
+  .hq-sec-head{
+    display:flex; align-items:center; gap:8px; width:100%; padding:10px 0;
+    background:none; border:none; cursor:pointer; text-align:left;
+  }
+  .hq-sec-title{font-size:12px; color:var(--ink); flex:none;}
+  .hq-sec-sum{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-left:auto; text-align:right;}
+  .hq-sec-chev{display:flex; color:var(--ink-faint); transition:transform .25s; flex:none;}
+  .hq-sec-chev svg{width:14px; height:14px;}
+  .hq-sec.open .hq-sec-chev{transform:rotate(90deg);}
+  .hq-sec-body{padding:2px 0 11px;}
+  .hq-row{display:flex; align-items:baseline; gap:10px; padding:3px 0;}
+  .hq-row-l{font-size:11px; color:var(--ink-faint); flex:1 1 auto;}
+  .hq-row-v{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim); text-align:right; flex:none;}
+  .hq-empty{font-size:11px; color:var(--ink-faint); line-height:1.5;}
   .hub-card .setup-section-title{margin-top:0;}
 
   .empty-note{font-size:12px; color:var(--ink-faint); text-align:center; padding:10px 0;}
@@ -1888,6 +1964,10 @@ function planContentSignature(st){
         id:nz(d.id), date:nz(d.date), week:nz(d.week), type:nz(d.type),
         title:nz(d.title), km:nz(d.km), desc:nz(d.desc), mpSegment:!!d.mpSegment,
         completed:!!d.completed,
+        // so a deliberately modified session reads as modified everywhere,
+        // rather than as one the athlete simply failed to run as written
+        coachAdjust: d.coachAdjust ? { at:nz(d.coachAdjust.at), reason:nz(d.coachAdjust.reason),
+                                       from:d.coachAdjust.from||null } : null,
         // ACTUAL_SYNCED_FIELDS keeps this in step with the log shape: anything
         // an athlete or an import can put on a workout has to be part of the
         // signature, or the same session edited on two devices reads identical.
@@ -2883,7 +2963,7 @@ function renderDayCard(dd){
     '<div class="day-top" data-action="toggle-day" data-day="'+dd.id+'">'+
       '<div class="day-check"><input type="checkbox" '+(dd.completed?'checked':'')+' '+(dd.type==='rest'?'disabled':'')+' data-action="toggle-complete" data-day="'+dd.id+'" aria-label="Mark session complete"></div>'+
       '<div class="day-main">'+
-        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+tm.label+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
+        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+tm.label+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
         '<div class="day-title">'+escapeHtml(dd.title)+'</div>'+
         '<div class="day-detail">'+
           (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
@@ -3907,6 +3987,119 @@ function coachNextMove(load, recovery, trend, status){
   return move;
 }
 
+/* =========================================================
+   DECISION ENGINE — one of four states for the next session
+   ---------------------------------------------------------
+   Everything here is read from evidence the app already holds: Feel, RPE,
+   heart-rate behaviour, note signals, recovery, trend, load and the athlete's
+   own morning answers. Nothing new is measured.
+
+   Two rules shape it:
+     - One weak subjective signal is not enough to change training. Only
+       safety (illness, meaningful pain) overrides on its own; everything
+       else has to be corroborated by independent evidence.
+     - Hard conditions explain a hard session. Heat and hills contextualise
+       performance; they never count as the athlete being tired.
+   ========================================================= */
+var COACH_DECISION_META = {
+  proceed:{ label:'Proceed', cls:'proceed' },
+  check:  { label:'Check',   cls:'check' },
+  modify: { label:'Modify',  cls:'modify' },
+  recover:{ label:'Recover', cls:'recover' }
+};
+/* Easy-run heart rate against the athlete's own recent baseline. Sessions run
+   in real heat are excluded from both halves -- a hot easy run costs bpm for
+   reasons that have nothing to do with fatigue, and reading that as a rising
+   baseline is exactly the mistake this guards against. */
+function coachEasyHRDelta(){
+  var easies = coachCompletedScored().filter(function(dd){
+    var a = dd.actual || {};
+    if (dd.type!=='easy' || a.hr==null) return false;
+    var env = coachEnvironment(a.notes, a);
+    if (env.hrDoubt) return false;                       // disowned data
+    return env.heatBand==='none' || env.heatBand==='mild';
+  });
+  if (easies.length < 6) return null;
+  var recent = easies.slice(-3), base = easies.slice(-9, -3);
+  if (base.length < 3) return null;
+  var mean = function(l){ return l.reduce(function(s,d){ return s+d.actual.hr; },0)/l.length; };
+  return Math.round(mean(recent) - mean(base));
+}
+// Sessions completed in the last `days` days, most recent first.
+function coachRecentSessions(days){
+  var today = todayStr();
+  return state.days.filter(function(dd){
+    return dd.completed && dd.type!=='rest' &&
+           dd.date <= today && dd.date >= addDays(today, -(days||4));
+  }).sort(function(a,b){ return a.date < b.date ? 1 : -1; });
+}
+// This morning's answers, if the athlete gave any today.
+function coachReadinessToday(){
+  var r = state.readiness;
+  return (r && r.date === todayStr()) ? r : null;
+}
+function coachDecision(){
+  var nxt = coachNextSession();
+  if (!nxt) return null;
+  var quality = !isRecoveryWorkoutType(nxt.type) && nxt.type!=='rest';
+  var recovery = coachRecovery(), trend = coachTrend(), load = coachLoad();
+  var feel = coachFeelTrend();
+  var ready = coachReadinessToday();
+  var recent = coachRecentSessions(4);
+  var ev = [];
+  var add = function(weight, text, safety){ ev.push({ weight:weight, text:text, safety:!!safety }); };
+
+  // ---- safety, which stands on its own ----
+  var ill = recent.filter(function(dd){ return coachEnvironment((dd.actual||{}).notes, dd.actual).illness; });
+  if (ill.length) add(10, 'Illness reported '+(ill.length>1?'in '+ill.length+' recent sessions':'in your last session'), true);
+  if (ready && ready.health==='under') add(10, 'You reported feeling under the weather this morning', true);
+  var sore = recent.filter(function(dd){ return coachEnvironment((dd.actual||{}).notes, dd.actual).pain; });
+  if (sore.length >= 2) add(10, 'Pain or soreness reported in '+sore.length+' recent sessions', true);
+  else if (sore.length === 1) add(3, 'Soreness reported in your last session');
+
+  // ---- accumulated physiological evidence ----
+  if (recovery.state === 'strained') add(4, 'Effort and heart rate have both been above target this week');
+  else if (recovery.overRPE >= 2) add(2, 'Effort above band on '+recovery.overRPE+' sessions this week');
+  if (recovery.overHR >= 2) add(2, recovery.overHR+' sessions this week averaged above their heart-rate zone');
+  if (recovery.hardStreak >= 3) add(1, recovery.hardStreak+' quality days in a row without an easy day');
+  if (feel.repeated) add(2, 'Legs reported heavy in '+feel.negatives+' of the last '+feel.counted+' sessions');
+  var hrDelta = coachEasyHRDelta();
+  if (hrDelta != null && hrDelta >= 5) add(2, 'Easy-run heart rate is '+hrDelta+' bpm above your recent baseline');
+  if (trend.direction === 'falling') add(2, 'Execution has been slipping across recent sessions');
+  if (load.band === 'spike') add(2, 'This week is '+load.ratio.toFixed(2)+'x your four-week average');
+  var sleep = coachNoteConceptStreak('sleep', null, 5);
+  if (sleep.repeated) add(1, 'Poor sleep reported in '+sleep.hits+' of the last '+sleep.counted+' sessions');
+
+  // ---- this morning, weighted as one subjective input each ----
+  if (ready && ready.legs === 'heavy') add(2, 'You reported heavy legs this morning');
+  if (ready && ready.sleep === 'poor') add(1, 'You reported poor sleep this morning');
+
+  ev.sort(function(a,b){ return b.weight - a.weight; });
+  var safety = ev.some(function(e){ return e.safety; });
+  var score = ev.reduce(function(s,e){ return s + e.weight; }, 0);
+  var independent = ev.filter(function(e){ return e.weight >= 2; }).length;
+
+  // MODIFY needs more than one independent line of evidence: a single
+  // corroborated concern is a reason to check, not to rewrite the session.
+  var st = safety ? 'recover'
+         : (score >= 4 && independent >= 2) ? (quality ? 'modify' : 'check')
+         : score >= 2 ? 'check'
+         : score >= 1 ? (quality ? 'check' : 'proceed')
+         : 'proceed';
+
+  return {
+    state: st,
+    dayId: nxt.id, date: nxt.date, title: nxt.title, km: nxt.km, type: nxt.type,
+    quality: quality,
+    reasons: ev.slice(0, 3).map(function(e){ return e.text; }),
+    evidenceCount: ev.length,
+    score: score,
+    // The readiness prompt is earned, not permanent: it appears only when the
+    // recent evidence already says something, and only before quality work.
+    needsReadiness: !ready && quality && st !== 'proceed' && ev.length > 0
+  };
+}
+
 /* ---------- the single report every surface reads ---------- */
 function coachAnalyse(){
   if (!state.setup || !state.days || !state.days.length) return null;
@@ -3926,7 +4119,8 @@ function coachAnalyse(){
     breakthroughs: coachBreakthroughs(),
     noticed: coachNoticed(),
     watch: coachWatch(load, recovery, confidence),
-    nextMove: coachNextMove(load, recovery, trend, status)
+    nextMove: coachNextMove(load, recovery, trend, status),
+    decision: coachDecision()
   };
 }
 
@@ -3936,14 +4130,25 @@ function coachAnalyse(){
    exactly as it always did. */
 function handleCoachAccept(dayId){
   var report = coachAnalyse();
-  if (!report || !report.nextMove || !report.nextMove.adjustment) return;
+  if (!report || !report.nextMove) return;
   if (report.nextMove.dayId !== dayId) return;   // report moved on; do nothing
   var dd = findDay(dayId);
   if (!dd) return;
-  var adj = report.nextMove.adjustment;
+  var dec = report.decision;
+  // Either the long-standing signal-driven proposal, or the same offer raised
+  // from accumulated evidence. Both are reductions, both need this tap.
+  var adj = report.nextMove.adjustment ||
+    (dec && dec.state==='modify' && dec.quality
+      ? { kind:'reduce', km:Math.max(1, Math.round(dd.km*0.75*2)/2), type:dd.type,
+          title:dd.title, reason:dec.reasons[0] }
+      : null);
+  if (!adj) return;
   dd.coachAdjust = {
     at: new Date().toISOString(),
     reason: adj.reason,
+    // the whole evidence set, so a later reader knows this was a decision
+    evidence: dec ? dec.reasons.slice() : [],
+    state: dec ? dec.state : null,
     from: { km:dd.km, type:dd.type, title:dd.title, desc:dd.desc }
   };
   dd.km = adj.km;
@@ -3967,6 +4172,21 @@ function resolveDescForReducedDistance(desc, km){
     seen = true;
     return '@@D:'+km+'@@';
   });
+}
+function handleCoachWhy(dayId){
+  coachWhyOpen[dayId] = !coachWhyOpen[dayId];
+  renderApp();
+}
+// Answers live on state, never on the workout log -- that separation is what
+// keeps the Execution Score a measure of the session and nothing else.
+function handleSetReadiness(key, value){
+  var q = READINESS_QUESTIONS.filter(function(x){ return x.key===key; })[0];
+  if (!q || !q.options.some(function(o){ return o[0]===value; })) return;
+  var today = todayStr();
+  if (!state.readiness || state.readiness.date!==today) state.readiness = { date:today };
+  state.readiness[key] = (state.readiness[key]===value) ? null : value;
+  flushSave();
+  renderApp();
 }
 function handleCoachKeep(dayId){
   var dd = findDay(dayId);
@@ -4896,16 +5116,39 @@ function renderCoachWatchCard(report){
 // Next Move, with KEEP ORIGINAL / ACCEPT ADJUSTMENT. The buttons only appear
 // when the coach actually proposes a change and the athlete has not already
 // answered for that session -- so it asks once, not every launch.
+// Which cards have their WHY? expanded. UI state only, like expandedWeeks --
+// deliberately not persisted, so the card opens closed every session.
+var coachWhyOpen = {};
 function renderCoachNextMoveCard(report){
   if (!report || !report.nextMove) return '';
   var mv = report.nextMove;
   var dd = findDay(mv.dayId);
   var answered = dd && (dd.coachKeptAt || dd.coachAdjust);
-  var adj = (!answered && mv.adjustment) ? mv.adjustment : null;
+  var dec = report.decision;
+  // Accumulated evidence earns the same offer that illness already got: a
+  // proposed reduction the athlete accepts or declines. Never applied silently.
+  var adj = (!answered && mv.adjustment) ? mv.adjustment
+          : (!answered && dec && dec.state==='modify' && dec.quality && dd)
+            ? { kind:'reduce', km:Math.max(1, Math.round(dd.km*0.75*2)/2), type:dd.type,
+                title:dd.title, reason:dec.reasons[0] }
+            : null;
 
   var body = '<div class="coach-next-session">'+escapeHtml(mv.title)+' · '+dShort(mv.date)+
     (mv.km?' · '+fmtDist(mv.km):'')+'</div>'+
     '<div class="coach-next-rec">'+escapeHtml(mv.recommendation)+'</div>';
+
+  // WHY? only where there is something to explain. PROCEED stays silent.
+  if (dec && dec.state!=='proceed' && dec.reasons.length){
+    var open = !!coachWhyOpen[mv.dayId];
+    body += '<button type="button" class="coach-why-btn" data-action="coach-why" data-day="'+mv.dayId+'" '+
+              'aria-expanded="'+(open?'true':'false')+'">Why?</button>';
+    if (open){
+      body += '<ul class="coach-why-list">'+
+        dec.reasons.map(function(r){ return '<li>'+escapeHtml(r)+'</li>'; }).join('')+
+      '</ul>';
+    }
+  }
+  body += renderReadinessCheck(dec);
 
   if (adj){
     body += '<div class="coach-adjust">'+
@@ -4926,9 +5169,42 @@ function renderCoachNextMoveCard(report){
       '<div class="coach-actions"><button type="button" class="btn btn-ghost btn-block" data-action="coach-restore" data-day="'+mv.dayId+'">Restore Original</button></div>';
   }
 
+  var meta = dec ? COACH_DECISION_META[dec.state] : null;
+  var pill = meta
+    ? '<span class="coach-state '+meta.cls+'"><span class="coach-state-dot"></span>'+meta.label+'</span>'
+    : '';
   return '<div class="hub-card coach-next">'+
-    '<div class="coach-next-head">'+ICONS.sparkles+'<span class="coach-next-title">Next Move</span></div>'+
+    '<div class="coach-next-head">'+ICONS.sparkles+'<span class="coach-next-title">Next Move</span>'+pill+'</div>'+
     body+
+  '</div>';
+}
+/* The morning check. Not a permanent questionnaire: it appears only when the
+   engine already has a concern and a quality session is next, and it
+   disappears the moment it is answered. Answers inform the decision only --
+   they can never touch an Execution Score, which measures a completed
+   workout against its prescription and nothing else. */
+var READINESS_QUESTIONS = [
+  { key:'legs',   label:'Legs',   options:[['fresh','Fresh'],['normal','Normal'],['heavy','Heavy']] },
+  { key:'sleep',  label:'Sleep',  options:[['good','Good'],['ok','OK'],['poor','Poor']] },
+  { key:'health', label:'Health', options:[['good','Good'],['under','Under weather']] }
+];
+function renderReadinessCheck(dec){
+  if (!dec || !dec.needsReadiness) return '';
+  var r = state.readiness && state.readiness.date===todayStr() ? state.readiness : {};
+  return '<div class="readiness">'+
+    '<div class="readiness-head">How are you today?</div>'+
+    READINESS_QUESTIONS.map(function(q){
+      return '<div class="readiness-row">'+
+        '<span class="readiness-label">'+q.label+'</span>'+
+        '<span class="readiness-opts">'+
+          q.options.map(function(o){
+            return '<button type="button" class="readiness-btn'+(r[q.key]===o[0]?' on':'')+'" '+
+              'aria-pressed="'+(r[q.key]===o[0]?'true':'false')+'" '+
+              'data-action="set-readiness" data-rk="'+q.key+'" data-rv="'+o[0]+'">'+o[1]+'</button>';
+          }).join('')+
+        '</span>'+
+      '</div>';
+    }).join('')+
   '</div>';
 }
 
@@ -4937,10 +5213,89 @@ function renderCoachPanel(){
   var report = coachAnalyse();
   if (!report) return '';
   return renderAthleteStatusCard(report)+
+    renderRaceReadinessCard(report)+
     renderCoachSignalsCard(report)+
     renderCoachNoticedCard(report)+
     renderBreakthroughCard(report)+
     renderCoachWatchCard(report);
+}
+// Which Plan HQ sections are open. UI state, not persisted.
+var hqOpen = {};
+function handleToggleHQSection(key){
+  if (!key) return;
+  hqOpen[key] = !hqOpen[key];
+  renderApp();
+}
+function hqSection(key, title, summary, bodyHtml){
+  var open = !!hqOpen[key];
+  return '<div class="hq-sec'+(open?' open':'')+'">'+
+    '<button type="button" class="hq-sec-head" data-action="toggle-hq-section" data-section="'+key+'" '+
+      'aria-expanded="'+(open?'true':'false')+'">'+
+      '<span class="hq-sec-title">'+escapeHtml(title)+'</span>'+
+      '<span class="hq-sec-sum">'+escapeHtml(summary)+'</span>'+
+      '<span class="hq-sec-chev">'+ICONS.chevronRight+'</span>'+
+    '</button>'+
+    (open ? '<div class="hq-sec-body">'+bodyHtml+'</div>' : '')+
+  '</div>';
+}
+function hqRow(label, value){
+  return '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(label)+'</span>'+
+         '<span class="hq-row-v">'+escapeHtml(value)+'</span></div>';
+}
+/* The deeper read, kept out of Today. Collapsed by default so Plan HQ stays
+   as quiet as the rest of the app. */
+function renderRaceReadinessCard(report){
+  var su = state.setup || {};
+  var conf = report.confidence!=null ? Math.round(report.confidence) : null;
+  var days = su.raceDate ? daysBetween(todayStr(), su.raceDate) : null;
+  var trendWord = { rising:'improving', falling:'slipping', flat:'steady' }[report.trend.direction];
+  var recent = coachRecentContext(null);
+  var bts = report.breakthroughs || [];
+
+  var goalBody = hqRow('Goal confidence', conf!=null ? conf+'%' : '—')+
+    hqRow('Execution trend', report.trend.enough ? trendWord+(report.trend.delta?' ('+(report.trend.delta>0?'+':'')+report.trend.delta+')':'') : 'building history')+
+    hqRow('Sessions logged', String(recent.sessionsLogged))+
+    hqRow('Race', su.raceDate ? dShort(su.raceDate)+(days!=null?' · '+days+' days':'') : '—')+
+    hqRow('Phase', trainingPhase(currentWeekNum())+' · week '+currentWeekNum()+' of '+totalWeeksInPlan());
+
+  var recoveryBody = hqRow('Recovery', { fresh:'Fresh', watch:'Watch', strained:'Strained' }[report.recovery.state])+
+    hqRow('Effort above band', report.recovery.overRPE+' this week')+
+    hqRow('HR above zone', report.recovery.overHR+' this week')+
+    hqRow('Longest hard streak', report.recovery.hardStreak+' days')+
+    hqRow('Feel', recent.feel.counted ? recent.feel.negatives+' heavy of last '+recent.feel.counted : 'not logged')+
+    hqRow('Easy HR vs baseline', (function(){ var d=coachEasyHRDelta(); return d==null?'building baseline':(d>0?'+':'')+d+' bpm'; })())+
+    hqRow('Load', report.load.ratio!=null ? report.load.ratio.toFixed(2)+'x four-week average' : 'building history');
+
+  var adaptBody = (bts.length
+      ? bts.slice(-4).reverse().map(function(dd){
+          return hqRow(dShort(dd.date), (dd.title||dd.type)+' · '+computeExecutionScore(dd)+'%');
+        }).join('')
+      : '<div class="hq-empty">No breakthrough sessions logged yet. They appear here once a quality session lands at the fast end of its window with heart rate in zone.</div>');
+
+  var dec = report.decision;
+  var summary = dec ? COACH_DECISION_META[dec.state].label : (conf!=null ? conf+'%' : '—');
+
+  return '<div class="hub-card hq-state">'+
+    '<div class="coach-next-head">'+ICONS.sparkles+'<span class="coach-next-title">Athlete State</span>'+
+      (dec ? '<span class="coach-state '+COACH_DECISION_META[dec.state].cls+'"><span class="coach-state-dot"></span>'+
+             COACH_DECISION_META[dec.state].label+'</span>' : '')+
+    '</div>'+
+    hqSection('readiness','Race readiness', conf!=null?conf+'% confidence':'—', goalBody)+
+    hqSection('recovery','Recovery & fatigue', { fresh:'Fresh', watch:'Watch', strained:'Strained' }[report.recovery.state], recoveryBody)+
+    hqSection('adaptation','Adaptation history', bts.length+' breakthrough'+(bts.length===1?'':'s'), adaptBody)+
+  '</div>';
+}
+
+/* A single quiet word on the roadmap where a session is not simply "as
+   written": deliberately modified, a recovery session, a key session, or one
+   that never got logged. No analytics on the plan view -- just the label. */
+function dayStatusLabel(dd){
+  var word = null;
+  if (dd.coachAdjust) word = 'Adjusted';
+  else if (dd.type==='checkpoint' || dd.type==='race') word = 'Key';
+  else if (!dd.completed && dd.type!=='rest' && dd.date < todayStr()) word = 'Missed';
+  else if (dd.completed && dd.coachReview && dd.coachReview.trainingSignal==='recovery_priority') word = 'Recovery';
+  return word ? '<span class="day-status-label font-head">'+word+'</span>' : '';
 }
 
 /* =========================================================
@@ -6434,11 +6789,42 @@ function renderTodayView(){
 }
 // This Week: just the active week's accordion (force-expanded), its zone
 // breakdown, and its done/total distance -- nothing else.
+/* One line above the list. Deliberately not a dashboard: three facts the
+   athlete already understands, plus the one exception worth knowing about. */
+function renderWeekStatus(weekNum){
+  var report = coachAnalyse();
+  if (!report) return '';
+  var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
+  var scored = wdays.filter(function(dd){ return dd.completed && computeExecutionScore(dd)!=null; });
+  var exec = scored.length
+    ? Math.round(scored.reduce(function(s,dd){ return s+computeExecutionScore(dd); },0)/scored.length)
+    : null;
+  var loadWord = { spike:'Load spiking', elevated:'Load climbing', productive:'On target',
+                   low:'Load dropping', unknown:'Building history' }[report.load.band];
+  var recWord = { fresh:'Recovery normal', watch:'Recovery to watch', strained:'Recovery strained' }[report.recovery.state];
+  var bits = [loadWord, recWord];
+  if (exec!=null) bits.push(exec+'% execution');
+
+  var today = todayStr();
+  var notes = [];
+  var adjusted = wdays.filter(function(dd){ return dd.coachAdjust; }).length;
+  if (adjusted) notes.push(adjusted+' session'+(adjusted===1?'':'s')+' adjusted this week.');
+  var missed = wdays.filter(function(dd){
+    return !dd.completed && dd.type!=='rest' && dd.date < today && !dd.coachAdjust;
+  }).length;
+  if (missed) notes.push(missed+' session'+(missed===1?'':'s')+' unlogged.');
+
+  return '<div class="week-status">'+
+    '<div class="week-status-head">Week Status</div>'+
+    '<div class="week-status-line">'+escapeHtml(bits.join(' · '))+'</div>'+
+    (notes.length ? '<div class="week-status-note">'+escapeHtml(notes.join(' '))+'</div>' : '')+
+  '</div>';
+}
 function renderWeekView(){
   var w = currentWeekNum();
   var html = '<div class="view-heading font-head">This Week</div>';
   if (!w) return html+'<div class="empty-note">No active week to show yet.</div>';
-  return html+renderWeekAccordion(w, true);
+  return html+renderWeekStatus(w)+renderWeekAccordion(w, true);
 }
 // Full Plan: every week as a normal collapsible accordion (respects
 // expandedWeeks, same toggle-week interaction as before).
@@ -6660,6 +7046,9 @@ document.addEventListener('click', function(e){
     case 'close-modal': closeModal(); break;
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
     case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;
+    case 'coach-why': handleCoachWhy(target.getAttribute('data-day')); break;
+    case 'set-readiness': handleSetReadiness(target.getAttribute('data-rk'), target.getAttribute('data-rv')); break;
+    case 'toggle-hq-section': handleToggleHQSection(target.getAttribute('data-section')); break;
     case 'notes-wand': handleNotesWand(target.getAttribute('data-day')); break;
     case 'undo-notes-wand': handleUndoNotesWand(target.getAttribute('data-day')); break;
     case 'drop-note-signal': handleDropNoteSignal(target.getAttribute('data-day'), target.getAttribute('data-signal')); break;
