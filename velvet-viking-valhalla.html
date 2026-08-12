@@ -426,6 +426,28 @@
      the score reads as one component wherever it appears */
   .exec-review-head .exec-pill{margin-left:auto; flex:none; text-transform:none;}
   .exec-review-summary{font-size:12.5px; color:var(--ink-dim); line-height:1.45;}
+  /* Per-workout coach review sections. Same visual language as the rest of the
+     card -- concise labelled blocks, not a dashboard. */
+  /* The score badge lives in the collapsed row AND in the Execution Review
+     header. Both are in the DOM at once because the drawer is collapsed with
+     CSS rather than removed, so an expanded card would show the same number
+     twice. Hide the row copy while the card is open: collapsed you see it on
+     the row, expanded you see it on the review it belongs to. */
+  .day.open .day-row1 .exec-pill{display:none;}
+  .cr-sec{margin-top:10px;}
+  .cr-k{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.3px; text-transform:uppercase; color:var(--bronze); margin-bottom:3px;}
+  .cr-v{font-size:12.5px; color:var(--ink-dim); line-height:1.5; overflow-wrap:anywhere;}
+  .cr-sub{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:2px; overflow-wrap:anywhere;}
+  .cr-signal{display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
+  .cr-sig-dot{font-size:12px; line-height:1;}
+  .cr-sig-label{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:.6px; text-transform:uppercase; color:var(--ink);}
+  .cr-adjust{margin-top:11px; padding:11px 12px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .cr-adjust-line{font-size:12px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere;}
+  .cr-adjust-why{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:4px; overflow-wrap:anywhere;}
+  .cr-refresh{display:block; width:100%; margin-top:12px; padding:7px 8px; background:none; border:none; cursor:pointer;
+    font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.3px; text-transform:uppercase;
+    color:var(--ink-faint); text-align:center;}
+  .cr-refresh:active{color:var(--bronze);}
   /* component breakdown -- shows how the single score was reached */
   .exec-parts{display:flex; flex-wrap:wrap; gap:6px 10px; margin-top:9px; padding-top:8px; border-top:1px solid var(--line-soft);}
   .exec-part{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-dim); white-space:nowrap;}
@@ -2956,80 +2978,10 @@ function expectedRPEBand(dd){
   if (dd.type==='checkpoint' || dd.type==='race') return [8,10];
   return null;
 }
-// Auto-generated coaching notes explaining the score above. Deterministic
-// and instant -- this replaces the old opt-in Claude/local "AI review",
-// which produced its own rival score; there is now one number and this
-// text simply explains how it was reached.
-function composeExecutionNotes(dd, b){
-  var a = dd.actual || {};
-  var tm = TYPE_META[dd.type];
-  var by = {}; b.parts.forEach(function(p){ by[p.key] = p; });
-  // the chip labels are compact by design; prose wants the long forms
-  var PROSE = { distance:'distance', pace:'pace', hr:'heart rate', rpe:'effort' };
-  var out = [];
-
-  var nailed = b.counted.filter(function(p){ return p.score>=99.5; });
-  if (nailed.length===b.counted.length){
-    out.push('Nailed '+listPhrase(nailed.map(function(p){ return PROSE[p.key]; }))+'.');
-  } else if (b.score>=90){
-    out.push('Strong execution — barely off plan.');
-  } else if (b.score>=75){
-    out.push('Solid session, with some drift from the prescribed targets.');
-  } else if (b.score>=55){
-    out.push('Mixed — parts held to plan, parts drifted.');
-  } else {
-    out.push('This landed well away from the prescribed session.');
-  }
-
-  if (by.distance.score!=null && by.distance.score<99.5){
-    out.push('Distance came in at '+fmtDist(a.km)+' against a '+fmtDist(dd.km)+' target.');
-  }
-
-  var tr = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
-  var ap = actualPaceSecPerKm(dd);
-  if (by.pace.score!=null && by.pace.score<99.5 && tr && ap!=null){
-    var faster = ap < tr.fast;
-    var window = fmtPaceFromSecPerKm(tr.fast).split('/')[0]+'–'+fmtPaceFromSecPerKm(tr.slow);
-    out.push('Pace ran '+(faster?'faster':'slower')+' than the '+window+' window'+
-      (faster && isRecoveryWorkoutType(dd.type) ? ' — easy days are meant to stay easy.' : '.'));
-  }
-
-  var z = getTargetHRRangeForDay(dd);
-  if (by.hr.score!=null && by.hr.score<99.5 && z){
-    out.push('Average HR '+a.hr+' bpm sat '+(a.hr<z.lo?'below':'above')+' the '+fmtHRRange(z)+' zone.');
-  }
-
-  // NOTES / CONTEXT ANALYSIS. If the athlete already explained a slow pace or a
-  // high heart rate -- heat, a treadmill, hills, wind -- say so rather than
-  // reporting the deficit as if it were fitness. Same keyword reader the Coach
-  // Noticed panel uses, so the two can never contradict each other.
-  var offPace = by.pace.score!=null && by.pace.score<95 && ap!=null && tr && ap > tr.slow;
-  var offHR = by.hr.score!=null && by.hr.score<95 && z && a.hr!=null && a.hr > z.hi;
-  if (offPace || offHR){
-    var cues = coachExcuses(dd, offPace ? 'pace' : 'hr');
-    if (cues.length){
-      out.push('Your note mentions '+listPhrase(cues.map(function(c){ return c.say; }))+
-        ', so that is read as conditions rather than lost fitness.');
-    }
-  }
-  var strong = coachReadNotes(a.notes).filter(function(c){ return c.flag==='pain'; });
-  if (strong.length){
-    out.push('You logged soreness on this one — worth watching before the next quality session.');
-  }
-
-  if (by.rpe.score!=null){
-    var band = expectedRPEBand(dd);
-    var sessionName = dd.title || tm.label;
-    if (by.rpe.score>=99.5) out.push('RPE '+a.rpe+' aligns with '+sessionName+' effort.');
-    else out.push('RPE '+a.rpe+' reads '+(a.rpe<band[0]?'easier':'harder')+' than the '+band[0]+'–'+band[1]+' expected for '+sessionName+'.');
-  }
-
-  if (b.missing.length){
-    out.push('Not scored: '+listPhrase(b.missing.map(function(p){ return PROSE[p.key]; }))+
-      (by.hr.score==null && state.setup && state.setup.lthr==null ? ' (set your LTHR to include heart rate).' : '.'));
-  }
-  return out.join(' ');
-}
+// The obsolete free-prose review generator that used to live here has been
+// removed. Explaining a completed session in words now belongs solely to
+// coachWorkoutReview()/coachVerdict(), so there is exactly one authoritative
+// qualitative path and no rule-based paragraph that can quietly take its place.
 function listPhrase(items){
   if (items.length<=1) return items[0]||'';
   return items.slice(0,-1).join(', ')+' and '+items[items.length-1];
@@ -3056,12 +3008,71 @@ function renderExecutionReview(dd){
   // Score lives in the header as a compact badge -- it used to also appear
   // as a standalone gold banner above the logging fields, which meant the
   // same number was on screen twice inside one card.
+  //
+  // ONE authoritative qualitative path. The stored review is used when it was
+  // written by the current engine; anything older (or missing, on a workout
+  // logged before the coach existed) is recomputed here so the athlete never
+  // sees a stale paragraph. The old free-prose summary that used to sit here
+  // is gone -- it is now the first section of the review below, so the same
+  // ground is not covered twice in different words.
+  var r = (dd.coachReview && dd.coachReview.version===COACH_REVIEW_VERSION)
+    ? dd.coachReview : coachWorkoutReview(dd);
+  var sigMeta = r ? COACH_SIGNAL_META[r.trainingSignal] : null;
+
+  var body = '';
+  if (r){
+    body += '<div class="cr-sec"><div class="cr-k">Coach’s Verdict</div>'+
+              '<div class="cr-v">'+escapeHtml(r.executionVerdict)+'</div></div>';
+    if (sigMeta){
+      body += '<div class="cr-sec"><div class="cr-k">Training Signal</div>'+
+                '<div class="cr-signal"><span class="cr-sig-dot">'+sigMeta.dot+'</span>'+
+                '<span class="cr-sig-label">'+escapeHtml(sigMeta.label)+'</span></div>'+
+                '<div class="cr-sub">'+escapeHtml(r.trainingSignalReason)+'</div></div>';
+    }
+    if (r.coachNoticed){
+      body += '<div class="cr-sec"><div class="cr-k">Coach Noticed</div>'+
+                '<div class="cr-v">'+escapeHtml(r.coachNoticed)+'</div></div>';
+    }
+    // Only when there is genuinely something to show -- never invented.
+    if (r.hrDrift!=null){
+      body += '<div class="cr-sec"><div class="cr-k">HR Drift</div>'+
+                '<div class="cr-v">'+(r.hrDrift>0?'+':'')+r.hrDrift+'% first half to second</div></div>';
+    }
+    if (r.breakthrough){
+      body += '<div class="cr-sec"><div class="cr-k">Breakthrough Session</div>'+
+                '<div class="cr-v">'+escapeHtml(r.breakthroughReason||'')+'</div></div>';
+    }
+    if (r.nextMove){
+      body += '<div class="cr-sec"><div class="cr-k">Next Move</div>'+
+                '<div class="cr-v">'+escapeHtml(r.nextMove)+'</div></div>';
+    }
+    // Buttons appear only when an adjustment is actually recommended, so a
+    // normal session is not cluttered with choices that mean nothing.
+    if (r.recommendPlanAdjustment){
+      var nxt = coachSessionAfter(dd);
+      if (nxt && !nxt.coachKeptAt && !nxt.coachAdjust){
+        body += '<div class="cr-adjust">'+
+          '<div class="cr-adjust-line">Suggested: run '+escapeHtml(nxt.title)+' easy instead</div>'+
+          '<div class="cr-adjust-why">'+escapeHtml(r.adjustmentReason||'')+'</div>'+
+          '<div class="coach-actions">'+
+            '<button type="button" class="btn btn-primary btn-block" data-action="coach-accept" data-day="'+nxt.id+'">Accept Adjustment</button>'+
+            '<button type="button" class="btn btn-ghost btn-block" data-action="coach-keep" data-day="'+nxt.id+'">Keep Original</button>'+
+          '</div>'+
+        '</div>';
+      }
+    }
+  } else {
+    // Honest about what this is: not dressed up as coaching that did not happen.
+    body = '<div class="cr-sec"><div class="cr-v">Coach analysis temporarily unavailable.</div></div>';
+  }
+
   return '<div class="exec-review-card">'+
     '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span>'+
       '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
     '</div>'+
-    '<div class="exec-review-summary">'+escapeHtml(composeExecutionNotes(dd, b))+'</div>'+
+    body+
     '<div class="exec-parts">'+breakdown+'</div>'+
+    '<button type="button" class="cr-refresh" data-action="coach-refresh" data-day="'+dd.id+'">Refresh coach review</button>'+
   '</div>';
 }
 
@@ -3469,6 +3480,349 @@ function handleCoachRestore(dayId){
   showToast('Original session restored');
 }
 
+
+
+/* =========================================================
+   PER-WORKOUT COACH REVIEW
+   ---------------------------------------------------------
+   The qualitative half of a completed session. The Execution Score stays
+   exactly where it was -- deterministic, computed from distance/pace/HR/RPE --
+   and this never touches it. What this adds is the interpretation: what the
+   session was *for*, what the conditions were, and what it means for the next
+   one.
+
+   It is a pure function, like the rest of the coach. There is no model call:
+   the review has to be identical on web, iOS home-screen and the Android
+   WebView, work with no network, cost nothing to regenerate, and be
+   explainable line by line. Every sentence below can be traced to a number or
+   a phrase the athlete actually wrote.
+   ========================================================= */
+var COACH_REVIEW_VERSION = 2;
+
+/* ---------- environment parsed out of the notes ----------
+   Numbers, not just keywords: "37 degrees" and "67% humidity" carry a severity
+   that "hot" does not. Fahrenheit is converted so the thresholds mean one
+   thing. */
+function coachEnvironment(notes){
+  var env = { tempC:null, humidity:null, treadmill:false, heatBand:'none',
+              humidBand:'none', severe:false, fatigue:false, pain:false, illness:false };
+  if (!notes) return env;
+  var t = String(notes);
+
+  var f = t.match(/(-?\d{1,3}(?:\.\d)?)\s*(?:°\s*|deg(?:rees?)?\s*)?f\b/i);
+  var c = t.match(/(-?\d{1,2}(?:\.\d)?)\s*(?:°\s*c\b|°(?!\s*f)|\s*deg(?:rees?)?\b|\s*c\b)/i);
+  if (f) env.tempC = Math.round(((parseFloat(f[1])-32)*5/9)*10)/10;
+  else if (c) env.tempC = parseFloat(c[1]);
+
+  // a percentage anywhere near the word humidity, or a bare % with "humid"
+  var h = t.match(/(\d{1,3})\s*%\s*(?:relative\s*)?humid/i) ||
+          t.match(/humidity[^\d]{0,12}(\d{1,3})\s*%?/i) ||
+          (/humid/i.test(t) ? t.match(/(\d{1,3})\s*%/) : null);
+  if (h) env.humidity = parseInt(h[1],10);
+
+  env.treadmill = /\b(treadmill|dreadmill)\b/i.test(t);
+  var cues = coachReadNotes(t);
+  cues.forEach(function(cue){
+    if (cue.flag==='fatigue') env.fatigue = true;
+    if (cue.flag==='pain') env.pain = true;
+    if (cue.flag==='illness') env.illness = true;
+  });
+  // "tired legs" is fatigue even though the cue list keys on "tired"
+  if (/\b(tired|heavy|dead|flat)\s+legs\b/i.test(t)) env.fatigue = true;
+
+  // >28C is where thermal stress starts to cost pace and heart rate; >32C is
+  // where it dominates the session.
+  if (env.tempC!=null){
+    if (env.tempC >= 32) env.heatBand = 'severe';
+    else if (env.tempC >= 28) env.heatBand = 'significant';
+    else if (env.tempC >= 24) env.heatBand = 'mild';
+  } else if (/\b(heat|hot|sweltering|humid)\b/i.test(t)) env.heatBand = 'significant';
+
+  // >60% humidity blunts evaporative cooling, so heart rate climbs for the
+  // same effort.
+  if (env.humidity!=null){
+    if (env.humidity >= 75) env.humidBand = 'severe';
+    else if (env.humidity >= 60) env.humidBand = 'significant';
+  }
+  // Heat and humidity together are worse than either alone.
+  env.severe = (env.heatBand==='severe') ||
+               (env.heatBand!=='none' && env.heatBand!=='mild' && env.humidBand!=='none' &&
+                env.tempC!=null && env.tempC>=30 && env.humidity!=null && env.humidity>=60);
+  return env;
+}
+function coachEnvPhrase(env){
+  var bits = [];
+  if (env.tempC!=null) bits.push(env.tempC+'°C');
+  if (env.humidity!=null) bits.push(env.humidity+'% humidity');
+  if (!bits.length && env.heatBand!=='none') bits.push('heat');
+  return bits.join(' and ');
+}
+
+/* ---------- HR drift ----------
+   Real drift needs per-split heart rate. The app logs one average, so there is
+   nothing to compute -- and inventing a number from an average and a max would
+   be a fabrication. Returns null until split data exists. */
+function coachHRDrift(dd){
+  var a = dd && dd.actual;
+  var splits = a && a.splits;
+  if (!splits || !splits.length || splits.length < 4) return null;
+  var withHR = splits.filter(function(s){ return s && s.hr!=null; });
+  if (withHR.length < 4) return null;
+  var half = Math.floor(withHR.length/2);
+  var mean = function(list){ return list.reduce(function(s,x){ return s+x.hr; },0)/list.length; };
+  var first = mean(withHR.slice(0,half)), second = mean(withHR.slice(half));
+  if (!first) return null;
+  return Math.round(((second-first)/first)*1000)/10;   // percent, one decimal
+}
+
+/* ---------- the next planned session, so advice can point somewhere ---------- */
+function coachSessionAfter(dd){
+  if (!dd) return null;
+  var later = state.days.filter(function(x){
+    return x.date > dd.date && x.type!=='rest' && !x.completed;
+  }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  return later[0] || null;
+}
+
+/* ---------- training signal ----------
+   Deliberately NOT derived from the execution score. The score says how
+   accurately this session was run; the signal says what recent evidence
+   suggests about how the athlete is absorbing training. A 100% session with
+   fatigue reported and no history behind it is not evidence of adaptation. */
+function coachTrainingSignal(dd, env, breakdown){
+  var scored = coachCompletedScored();
+  var history = scored.length;
+  var trend = coachTrend();
+  var recovery = coachRecovery();
+  var band = expectedRPEBand(dd);
+  var a = dd.actual || {};
+  var rpeHigh = band && a.rpe!=null && a.rpe > band[1];
+  var z = getTargetHRRangeForDay(dd);
+  var hrHigh = z && a.hr!=null && a.hr > z.hi;
+
+  if (env.pain || env.illness)
+    return { signal:'recovery_priority',
+             reason: env.illness ? 'Illness reported in the session notes.'
+                                 : 'Soreness reported in the session notes.' };
+  if (recovery.state==='strained')
+    return { signal:'recovery_priority',
+             reason:'Effort and heart rate have been running above target across the week.' };
+  if (env.fatigue || rpeHigh || hrHigh || recovery.overRPE>=2 || trend.direction==='falling')
+    return { signal:'monitor_fatigue',
+             reason: env.fatigue ? 'Subjective fatigue reported; worth watching rather than acting on yet.'
+               : rpeHigh ? 'Effort ran above the band this session type expects.'
+               : hrHigh ? 'Heart rate sat above the target zone.'
+               : trend.direction==='falling' ? 'Execution has slipped across the last few sessions.'
+               : 'Effort has been above band more than once this week.' };
+  // Adaptation is a claim about a pattern, so it needs a pattern behind it.
+  if (history >= 4 && trend.direction==='rising' && recovery.state==='fresh')
+    return { signal:'positive_adaptation',
+             reason:'Execution is improving across recent sessions with effort staying in band.' };
+  if (history >= 4 && breakdown && breakdown.score>=90 && recovery.state==='fresh' && env.heatBand!=='none')
+    return { signal:'positive_adaptation',
+             reason:'Held target heart rate under environmental stress.' };
+  return { signal:'neutral',
+           reason: history < 4 ? 'Building a baseline — too few logged sessions to read a trend yet.'
+                               : 'Nothing in recent sessions points strongly either way.' };
+}
+var COACH_SIGNAL_META = {
+  positive_adaptation:{ label:'Positive Adaptation', dot:'\u{1F7E2}' },
+  monitor_fatigue:    { label:'Monitor Fatigue',     dot:'\u{1F7E1}' },
+  recovery_priority:  { label:'Recovery Priority',   dot:'\u{1F534}' },
+  neutral:            { label:'Neutral / Building Baseline', dot:'⚪' }
+};
+
+/* ---------- the verdict ---------- */
+function coachVerdict(dd, b, env){
+  var a = dd.actual || {};
+  var out = [];
+  var tr = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
+  var ap = actualPaceSecPerKm(dd);
+  var z = getTargetHRRangeForDay(dd);
+  var hrInZone = z && a.hr!=null && a.hr >= z.lo && a.hr <= z.hi;
+  var hrUnder = z && a.hr!=null && a.hr < z.lo;
+  var paceSlow = tr && ap!=null && ap > tr.slow;
+  var paceFast = tr && ap!=null && ap < tr.fast;
+  // Staying out of the quickest quarter of the window is a decision, not a
+  // shortfall. Under thermal stress it is usually the right one, and worth
+  // saying so -- otherwise holding back to protect heart rate reads as nothing
+  // at all, which is how a genuinely well-judged hot run ends up described as
+  // if the athlete had simply hit some numbers.
+  var paceEased = tr && ap!=null && !paceSlow && !paceFast &&
+                  ap >= tr.fast + (tr.slow - tr.fast) * 0.25;
+  var envPhrase = coachEnvPhrase(env);
+  var stressed = env.heatBand==='significant' || env.heatBand==='severe' || env.humidBand!=='none';
+  var recovery = isRecoveryWorkoutType(dd.type);
+
+  // 1. what the session was for, and whether that purpose was served
+  if (recovery){
+    if (hrInZone || hrUnder)
+      out.push('Aerobic discipline held: '+fmtDist(a.km!=null?a.km:dd.km)+' with heart rate controlled at '+
+               (a.hr!=null?a.hr+' bpm':'target')+', which is the entire job of this session.');
+    else if (z && a.hr!=null && a.hr > z.hi)
+      out.push('This was meant to be an easy aerobic run, but heart rate averaged '+a.hr+
+               ' bpm against a '+fmtHRRange(z)+' ceiling — the session did not do the job it was set for.');
+    else
+      out.push(fmtDist(a.km!=null?a.km:dd.km)+' completed at easy intent.');
+  } else {
+    if (b.score>=90) out.push('Quality work delivered close to the prescription.');
+    else if (b.score>=70) out.push('The session landed, with some drift from the targets it was set to hit.');
+    else out.push('This ran well away from the session it was meant to be.');
+  }
+  // Distance is the one component the prose above does not otherwise name, and
+  // a session cut short is worth saying out loud rather than leaving to the
+  // percentage chip.
+  var byPart = {}; b.parts.forEach(function(pp){ byPart[pp.key] = pp; });
+  if (byPart.distance.score!=null && byPart.distance.score < 95 && a.km!=null){
+    out.push('Distance came in at '+fmtDist(a.km)+' against a '+fmtDist(dd.km)+' target.');
+  }
+
+  // 2. conditions, read against what they do to pace and heart rate
+  if (stressed && envPhrase){
+    var sev = env.severe ? 'Severe' : 'Meaningful';
+    if (recovery && (hrInZone || hrUnder) && (paceSlow || paceEased))
+      out.push(sev+' thermal stress at '+envPhrase+' — letting pace sit at '+fmtPaceFromSecPerKm(ap)+
+               ' to protect heart rate was the right call; chasing the quicker end of the window in those conditions buys nothing.');
+    else if (recovery && (hrInZone || hrUnder))
+      out.push(sev+' thermal stress at '+envPhrase+', and heart rate still held. That is a genuinely good sign.');
+    else if (z && a.hr!=null && a.hr > z.hi)
+      out.push(envPhrase+' explains part of the elevated heart rate, though not all of it — easy days still need to feel easy.');
+    else
+      out.push('Run in '+envPhrase+', which raises cardiovascular cost for the same effort.');
+  } else if (env.treadmill && paceSlow){
+    out.push('Treadmill pace is not directly comparable to the road, so the pace gap is not read as lost fitness.');
+  } else if (paceSlow && !stressed){
+    out.push('Pace ran outside the '+fmtPaceFromSecPerKm(tr.fast)+'–'+fmtPaceFromSecPerKm(tr.slow)+' window with nothing in the notes to explain it.');
+  } else if (paceFast && recovery){
+    out.push('Pace ran quicker than the easy window — the discipline to hold back is what makes the hard days work.');
+  }
+
+  // 3. the treadmill, read contextually rather than as automatically easier
+  if (env.treadmill && stressed && !(paceSlow && (env.heatBand!=='none'))){
+    out.push('Taking it indoors in those conditions was a sensible way to keep the session controllable.');
+  }
+
+  // 4. subjective fatigue, weighed rather than obeyed
+  if (env.fatigue){
+    var band = expectedRPEBand(dd);
+    if (band && a.rpe!=null && a.rpe <= band[1])
+      out.push('Tired legs noted, though effort still came in at RPE '+a.rpe+' — worth monitoring rather than acting on.');
+    else
+      out.push('Tired legs noted alongside a high effort reading — that combination is worth taking seriously.');
+  }
+  if (env.pain) out.push('Soreness reported: do not carry that into a quality session.');
+
+  return out.join(' ');
+}
+
+/* ---------- one concise observation ---------- */
+function coachNoticedForWorkout(dd, b, env){
+  var a = dd.actual || {};
+  var z = getTargetHRRangeForDay(dd);
+  var hrOK = z && a.hr!=null && a.hr <= z.hi;
+  var envPhrase = coachEnvPhrase(env);
+  if (env.pain) return 'Soreness reported — the next quality session depends on it settling.';
+  if (env.severe && hrOK) return 'Severe heat and humidity, and heart rate still stayed controlled.';
+  if (env.heatBand!=='none' && hrOK && envPhrase) return envPhrase+', with heart rate held inside the target zone.';
+  if (z && a.hr!=null && a.hr > z.hi && isRecoveryWorkoutType(dd.type)) return 'Easy run drifted above its heart-rate ceiling.';
+  if (env.fatigue) return 'Fatigue reported without a matching rise in effort or heart rate.';
+  if (env.treadmill) return 'Treadmill session — pace read in context rather than against road targets.';
+  if (b.score>=99) return 'Everything landed on the numbers it was set to hit.';
+  if (b.missing.length) return 'Scored without '+listPhrase(b.missing.map(function(p){ return p.label.toLowerCase(); }))+'.';
+  return 'Executed at '+b.score+'% of the prescribed session.';
+}
+
+/* ---------- one instruction, pointed at the next real session ---------- */
+function coachNextMoveForWorkout(dd, env, signal){
+  var nxt = coachSessionAfter(dd);
+  var when = nxt ? (nxt.date===addDays(dd.date,1) ? 'tomorrow’s' : dShort(nxt.date)+'’s') : null;
+  var what = nxt ? (nxt.title||TYPE_META[nxt.type].label) : null;
+  var isQuality = nxt && !isRecoveryWorkoutType(nxt.type) && nxt.type!=='rest';
+
+  if (signal==='recovery_priority'){
+    return nxt && isQuality
+      ? 'Reassess before '+when+' '+what+' — if the soreness is still there, run it easy instead.'
+      : 'Prioritise recovery before the next quality session.';
+  }
+  if (signal==='monitor_fatigue' && nxt && isQuality){
+    return 'Monitor the fatigue before '+when+' '+what+'; keep the quality work only if the legs settle.';
+  }
+  if (env.heatBand==='significant' || env.heatBand==='severe'){
+    return nxt && isQuality
+      ? 'Run '+when+' '+what+' by effort and heart rate rather than pace if the heat holds.'
+      : 'Keep running to effort rather than pace while the heat holds.';
+  }
+  if (nxt && isQuality) return 'Proceed as planned into '+when+' '+what+'.';
+  if (nxt) return 'Keep '+when+' '+what+' genuinely easy.';
+  return 'Proceed as planned.';
+}
+
+/* ---------- the structured review ---------- */
+function coachWorkoutReview(dd){
+  var b = computeExecutionBreakdown(dd);
+  if (!b) return null;
+  var a = dd.actual || {};
+  var env = coachEnvironment(a.notes);
+  var sig = coachTrainingSignal(dd, env, b);
+  var bt = coachBreakthroughs().indexOf(dd)!==-1;
+  var drift = coachHRDrift(dd);
+
+  // An adjustment is proposed only when the evidence is strong, and only ever
+  // as a reduction. Nothing here modifies the plan; the athlete decides.
+  var nxt = coachSessionAfter(dd);
+  var nextIsQuality = nxt && !isRecoveryWorkoutType(nxt.type) && nxt.type!=='rest';
+  var propose = (sig.signal==='recovery_priority') && nextIsQuality;
+
+  return {
+    version: COACH_REVIEW_VERSION,
+    at: new Date().toISOString(),
+    source: 'engine',                       // never presented as something it is not
+    executionVerdict: coachVerdict(dd, b, env),
+    trainingSignal: sig.signal,
+    trainingSignalReason: sig.reason,
+    breakthrough: bt,
+    breakthroughReason: bt ? 'Ran at or inside the fast end of the target window with heart rate still in zone.' : null,
+    coachNoticed: coachNoticedForWorkout(dd, b, env),
+    nextMove: coachNextMoveForWorkout(dd, env, sig.signal),
+    recommendPlanAdjustment: propose,
+    adjustmentType: propose ? 'downgrade_to_easy' : null,
+    adjustmentReason: propose ? sig.reason : null,
+    hrDrift: drift,
+    environment: { tempC:env.tempC, humidity:env.humidity, treadmill:env.treadmill,
+                   heatBand:env.heatBand, humidBand:env.humidBand, severe:env.severe,
+                   fatigue:env.fatigue, pain:env.pain },
+    confidence: coachReviewConfidence(b, env, dd)
+  };
+}
+// How much the engine trusts its own read of this session: more logged
+// components and more explanatory context means a firmer reading. Deterministic
+// -- it is a count of what was available, not a guess.
+function coachReviewConfidence(b, env, dd){
+  var c = 0.45;
+  c += b.counted.length * 0.1;                                  // distance/pace/HR/RPE present
+  if (env.tempC!=null || env.humidity!=null) c += 0.06;
+  if (dd.actual && dd.actual.notes) c += 0.05;
+  if (coachCompletedScored().length >= 4) c += 0.06;
+  return Math.round(clamp(c, 0.3, 0.95)*100)/100;
+}
+// Persisting the review keeps it with the workout (and in the cloud backup), so
+// a completed session reads the same later. Stored only when the workout is
+// logged or the athlete asks for a refresh -- never regenerated on every render.
+function coachPersistReview(dd){
+  if (!dd || !dd.completed) return null;
+  var review = coachWorkoutReview(dd);
+  if (review) dd.coachReview = review;
+  else if (dd.coachReview) delete dd.coachReview;
+  return review;
+}
+function handleCoachRefreshReview(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  coachPersistReview(dd);
+  flushSave();
+  renderApp();
+  showToast('Coach review refreshed');
+}
 
 /* =========================================================
    ADAPTIVE AI COACH — rendering
@@ -4899,6 +5253,7 @@ function handleToggleComplete(dayId){
   // state -- a session just ticked off folds away, except today's, which
   // isDayExpanded keeps open so it stays loggable.
   delete dayExpandOverride[dd.id];
+  coachPersistReview(dd);
   replaceCard(dd);
   patchDerivedStats();
   scheduleSave();
@@ -4912,9 +5267,10 @@ function handleActualFieldChange(dayId, field, value){
   else if (field==='rpe') dd.actual.rpe = value===''?null:parseInt(value,10);
   else if (field==='pace') dd.actual.pace = value.trim() || null;
   else if (field==='notes') dd.actual.notes = value;
-  // Auto-run: the score and its coaching notes regenerate on every logged
+  // Auto-run: the score and its coaching review regenerate on every logged
   // change -- no "get review" button. patchExecutionUI touches only the
   // score mounts, so the input being edited keeps its focus and value.
+  coachPersistReview(dd);
   patchExecutionUI(dd);
   patchDerivedStats();
   scheduleSave();
@@ -5243,6 +5599,7 @@ document.addEventListener('click', function(e){
     case 'coach-accept': handleCoachAccept(target.getAttribute('data-day')); break;
     case 'coach-keep': handleCoachKeep(target.getAttribute('data-day')); break;
     case 'coach-restore': handleCoachRestore(target.getAttribute('data-day')); break;
+    case 'coach-refresh': handleCoachRefreshReview(target.getAttribute('data-day')); break;
     case 'set-units': handleSetUnits(target.getAttribute('data-units')); break;
     case 'apply-activity': handleApplyActivity(); break;
     case 'strava-connect': handleStravaConnect(); break;
