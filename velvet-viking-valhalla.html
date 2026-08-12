@@ -332,6 +332,10 @@
   .day-top{display:flex; align-items:flex-start; gap:10px;}
   .day-check{flex:none; margin-top:2px;}
   /* Display-only: still legible, clearly not something to press. */
+  .ef-completed input[type="checkbox"]{width:20px; height:20px; flex:none;}
+  .ef-completed label{min-height:44px; align-items:center; cursor:pointer;}
+  .ef-completed input[disabled]{opacity:.45; cursor:default;}
+  .ef-completed input[disabled] + *, .ef-completed input[disabled]{pointer-events:none;}
   #su-event-box[data-mode="event"] .when-none{display:none;}
   #su-event-box[data-mode="none"] .when-event{display:none;}
   .day-check.locked input{opacity:.5; cursor:default;}
@@ -5722,7 +5726,14 @@ function coachReviewConfidence(b, env, dd){
 // a completed session reads the same later. Stored only when the workout is
 // logged or the athlete asks for a refresh -- never regenerated on every render.
 function coachPersistReview(dd){
-  if (!dd || !dd.completed) return null;
+  if (!dd) return null;
+  // A session that is no longer complete must not keep the review of the
+  // session it used to be -- that is exactly the stale derived state an
+  // accidental completion leaves behind when it is corrected.
+  if (!dd.completed){
+    if (dd.coachReview) delete dd.coachReview;
+    return null;
+  }
   var review = coachWorkoutReview(dd);
   if (review) dd.coachReview = review;
   else if (dd.coachReview) delete dd.coachReview;
@@ -6054,6 +6065,12 @@ function dayTypeLabel(dd){
 }
 function canToggleCompletion(dd){
   return !!dd && dd.type!=='rest' && dd.date === todayStr();
+}
+/* Edit Session is the deliberate correction path: it reaches back over
+   sessions already run, but never forward. A workout that has not happened
+   cannot be marked as having happened from anywhere. */
+function canEditCompletion(dd){
+  return !!dd && dd.type!=='rest' && dd.date <= todayStr();
 }
 function renderDayCheck(dd){
   var locked = !canToggleCompletion(dd);
@@ -6626,6 +6643,7 @@ function openEditModal(dayId){
       '<div class="field"><label>Distance (km)</label><input type="number" step="0.1" min="0" id="ef-km" value="'+dd.km+'"></div>'+
     '</div>'+
     '<div class="field"><label style="display:flex; align-items:center;"><input type="checkbox" id="ef-mp" '+(dd.mpSegment?'checked':'')+' style="width:auto; margin-right:7px;">Includes a Goal-Pace segment</label></div>'+
+    renderEditCompletion(dd)+
     '<div class="field"><label>Workout Instructions</label><textarea id="ef-desc">'+escapeHtml(resolveDesc(dd.desc))+'</textarea></div>'+
     '<fieldset><legend>Reschedule</legend>'+
       '<div class="field" style="margin-bottom:0;"><label>Swap this session with\u2026</label><select id="ef-swap">'+swapOptions+'</select>'+
@@ -6645,6 +6663,25 @@ function findDay(dayId){
   return found;
 }
 
+/* The deliberate correction. Rest days have nothing to complete, and a
+   session in the future cannot have happened, so both render read-only with
+   the reason stated rather than being silently absent. */
+function renderEditCompletion(dd){
+  var allowed = canEditCompletion(dd);
+  var why = dd.type==='rest' ? 'Rest days are not workouts.'
+          : !allowed ? 'This session has not happened yet.'
+          : dd.date===todayStr() ? 'You can also tick this on the card.'
+          : 'Correcting a session you have already run.';
+  return '<fieldset class="ef-completed"><legend>Completed</legend>'+
+    '<div class="field" style="margin-bottom:0;">'+
+      '<label style="display:flex; align-items:center;">'+
+        '<input type="checkbox" id="ef-completed" '+(dd.completed?'checked':'')+
+        (allowed?'':' disabled')+' style="width:auto; margin-right:9px;">'+
+        'Mark this session as completed</label>'+
+      '<div class="field-hint">'+escapeHtml(why)+'</div>'+
+    '</div>'+
+  '</fieldset>';
+}
 function handleSaveEdit(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
@@ -6656,6 +6693,13 @@ function handleSaveEdit(dayId){
   var swapId = document.getElementById('ef-swap').value;
 
   dd.title=title; dd.type=type; dd.km=isNaN(km)?0:km; dd.mpSegment=mp; dd.desc=desc;
+
+  /* Completion is applied after the field edits, so switching a session to
+     Rest in the same save cannot leave it marked complete. The rule is
+     enforced here, in the mutation path, rather than relying on the disabled
+     attribute -- a crafted event or a direct call is refused identically. */
+  var cbox = document.getElementById('ef-completed');
+  if (cbox && canEditCompletion(dd)) applyCompletion(dd, cbox.checked);
 
   if (swapId){
     var other = findDay(swapId);
@@ -7389,20 +7433,36 @@ function replaceCard(dd){
 /* =========================================================
    STATE-MUTATING HANDLERS
    ========================================================= */
-function handleToggleComplete(dayId){
-  var dd = findDay(dayId);
-  if (!dd || dd.type==='rest') return;
-  // The rendered box is disabled for other days; this is the same rule
-  // enforced where it cannot be bypassed by a stale card or a crafted event.
-  if (!canToggleCompletion(dd)) return;
-  dd.completed = !dd.completed;
-  if (dd.completed && !dd.actual) dd.actual = { km:dd.km, pace:null, hr:null, rpe:null, notes:'' };
-  else if (dd.completed && dd.actual && dd.actual.km==null) dd.actual.km = dd.km;
+/* THE completion mutation. Every legitimate path -- the card checkbox, the
+   Edit Session correction, and by extension anything else that decides a
+   session happened -- goes through here, so there is one definition of what
+   completing a workout does. Callers decide WHO may act; this decides WHAT
+   happens. Returns whether anything actually changed. */
+function applyCompletion(dd, completed){
+  if (!dd || dd.type==='rest') return false;          // rest days are never workouts
+  if (!!dd.completed === !!completed) return false;
+  dd.completed = !!completed;
+  if (dd.completed){
+    // The planned distance is the one assumption, and it is the long-standing
+    // one the Execution Score is built on. Nothing else is invented: pace, HR,
+    // RPE, Feel and notes stay empty, so an unlogged session stays unscored.
+    if (!dd.actual) dd.actual = emptyActual();
+    if (dd.actual.km==null) dd.actual.km = dd.km;
+  }
   // Drop any manual override so the card returns to its default for the new
   // state -- a session just ticked off folds away, except today's, which
   // isDayExpanded keeps open so it stays loggable.
   delete dayExpandOverride[dd.id];
   coachPersistReview(dd);
+  return true;
+}
+function handleToggleComplete(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  // The rendered box is disabled for other days; this is the same rule
+  // enforced where it cannot be bypassed by a stale card or a crafted event.
+  if (!canToggleCompletion(dd)) return;
+  if (!applyCompletion(dd, !dd.completed)) return;
   replaceCard(dd);
   patchDerivedStats();
   scheduleSave();
