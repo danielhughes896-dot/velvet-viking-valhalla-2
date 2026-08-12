@@ -3971,6 +3971,12 @@ function coachNoticed(){
     else if (t.count>=3) out.push({ tone:'neutral',
       text:t.count+' of your recent sessions mention '+t.cue.say+' — the coach is discounting pace on those rather than reading them as fitness.' });
   });
+  /* Phase 5 speaks here, in the coach's voice, and only when what it has
+     learned actually says something. Silence is the default: mentioning that
+     nothing unusual happened is not coaching. */
+  personalResponseTrends().forEach(function(t){
+    out.push({ tone: t.direction==='negative' ? 'watch' : 'neutral', text: t.detail });
+  });
   return out;
 }
 
@@ -4142,7 +4148,12 @@ function coachDecision(){
     rpe_elevated_easy:'effort', rpe_elevated_quality:'effort', rpe_elevated_long:'effort',
     feel_negative:'feel', readiness_poor:'feel',
     execution_declining:'execution',
-    post_hard_recovery:'recovery_after', post_long_run_recovery:'recovery_after'
+    post_hard_recovery:'recovery_after', post_long_run_recovery:'recovery_after',
+    /* Phase 5 speaks about the same underlying event as the two trends above,
+       better founded because it is measured against this athlete's own
+       established timing rather than against a fixed rule. Same concept, so
+       only the strongest reading of the tiredness is ever counted. */
+    recovery_slower_than_personal:'recovery_after'
   };
   var trends = athleteTrends();
   var contributing = [];
@@ -4554,24 +4565,18 @@ function longRunRecoveryWindows(){
     // than mislabelled -- the safety path already owns it.
     if (days.some(function(r){ return (r.environment||{}).illness; })) return;
 
-    var rough = [], easedBack = false, evidence = [];
+    /* recoveryProbe() is the single definition of "did this day read rough",
+       shared with the per-family recovery models and with adjustment
+       outcomes, so those three can never disagree about what recovered
+       looks like. */
+    var rough = [], easedBack = false;
     days.forEach(function(r){
-      var hit = null;
-      if (r.feel && FEEL_META[r.feel] && FEEL_META[r.feel].rank < 0) hit = 'feel';
-      else if (r.readiness && (r.readiness.legs==='heavy' || r.readiness.sleep==='poor')) hit = 'readiness';
-      else if (r.type==='easy' && hrIsReadable(r) && ehr.sufficient && r.hr - ehr.baseline >= 4) hit = 'hr';
-      else if ((r.signals||[]).some(function(id){
-        return ['heavy_legs','tired','soreness','stiffness'].indexOf(id)!==-1; })) hit = 'notes';
-      if (hit){ rough.push(r.date); evidence.push(hit); }
-      // returning to normal: easy heart rate back at or under baseline
-      if (r.type==='easy' && hrIsReadable(r) && ehr.sufficient && r.hr - ehr.baseline <= 0) easedBack = true;
-      if (r.feel && FEEL_META[r.feel] && FEEL_META[r.feel].rank > 0) easedBack = true;
-      if (r.readiness && r.readiness.legs==='fresh') easedBack = true;
+      var p = recoveryProbe(r, ehr);
+      if (p.state==='rough') rough.push(r.date);
+      else if (p.state==='normal' && p.why==='eased') easedBack = true;
     });
     // nothing logged in the window: contributes neither way
-    var hasData = days.some(function(r){
-      return r.feel || r.readiness || (r.type==='easy' && r.hr!=null) || (r.signals||[]).length;
-    });
+    var hasData = days.some(function(r){ return recoveryProbe(r, ehr).state!=='unknown'; });
     if (!hasData) return;
     windows.push({ date:lr.date, km:lr.actualKm, rough:rough.length>0,
                    easedBack:easedBack && !rough.length, dates:rough });
@@ -4795,6 +4800,14 @@ function athleteTrends(){
     push(t);
   })();
 
+  /* ---- Phase 5: response measured against this athlete's OWN pattern ----
+     Only ever one statement, carrying the same `recovery_after` concept as
+     the trends above, so the decision engine counts the underlying tiredness
+     once however many ways it can be described. */
+  (function(){
+    personalResponseTrends().forEach(push);
+  })();
+
   /* ---- consistency, which is its own kind of evidence ---- */
   (function(){
     var planned = athleteMemory(14).filter(function(r){
@@ -4827,6 +4840,503 @@ function trendEvidence(){
 }
 function positiveTrends(){
   return athleteTrends().filter(function(t){ return t.direction==='positive'; });
+}
+
+/* =========================================================
+   PHASE 5 — ATHLETE LEARNING / PERSONAL RESPONSE MODEL
+   ---------------------------------------------------------
+   Phase 5 learns. Phase 4 decides.
+
+   VVV does not coach a generic runner: it learns the athlete in front of it.
+   But personalisation has to be EARNED by evidence -- claiming "you normally..."
+   on two sessions is worse than saying nothing, because the athlete will
+   believe it.
+
+   Nothing in this layer touches the plan. It produces evidence, which enters
+   the one authoritative decision path through athleteTrends() exactly like
+   every other historical pattern, carrying a concept so it cannot be counted
+   twice alongside the signals it is built from.
+
+   It reuses what already exists rather than recomputing it:
+     easyHRBaseline()  -- easy-run heart rate, the single source
+     baselineFor()     -- median pace / RPE / execution for a set of sessions
+     trendConfidence() -- the confidence vocabulary
+     recoveryProbe()   -- one definition of "did the day after read rough"
+     coachEnvironment(), hrIsReadable() -- environment and sensor exclusions
+   ========================================================= */
+var RESPONSE_MODEL_VERSION = 1;
+var RESPONSE_WINDOW_DAYS = 120;   // long enough for sparse long-run history
+
+/* ---------- session families ----------
+   Grouped ONLY where the physiological purpose is genuinely comparable. A
+   threshold session and a set of 400s are both "quality" in the old grouping,
+   and they are not the same stimulus; forcing them together to gain sample
+   size is how a model learns something that is true of neither.
+
+   Races and time trials have no family. They are maximal one-offs, not a
+   repeatable stimulus to learn a normal response from. */
+var SESSION_FAMILIES = ['easy','threshold','tempo','interval','repetition','long'];
+var FAMILY_LABEL = { easy:'Easy runs', threshold:'Threshold', tempo:'Tempo',
+                     interval:'Intervals', repetition:'Repetitions', long:'Long runs' };
+// singular form, for phrases like "Long run recovery" rather than "Long runs recovery"
+var FAMILY_NOUN  = { easy:'Easy', threshold:'Threshold', tempo:'Tempo',
+                     interval:'Interval', repetition:'Repetition', long:'Long run' };
+// Families whose recovery cost is worth learning at all.
+var DEMANDING_FAMILIES = ['threshold','tempo','interval','repetition','long'];
+function sessionFamily(type){
+  return SESSION_FAMILIES.indexOf(type)!==-1 ? type : null;
+}
+
+/* ---------- comparability ----------
+   Strict enough to be meaningful, loose enough that something can be learned.
+   Graded rather than binary: a 24km and a 30km long run are not the same
+   event, but they are far closer to each other than either is to a 12km one.
+   The grades are internal -- the athlete is never shown the word "partial". */
+var COMPARABILITY_RANK = { poor:0, partial:1, good:2 };
+function comparabilityOf(x){
+  if (!x || !x.type) return null;
+  // accepts a memory record or a plan day; both describe the same session
+  var isMem = (x.plannedKm!==undefined || x.actualKm!==undefined);
+  var dd = isMem ? findDayByDate(x.date) : x;
+  var env = isMem ? (x.environment || {})
+                  : (coachEnvironment((x.actual||{}).notes, x.actual) || {});
+  var km = isMem ? (x.actualKm!=null ? x.actualKm : x.plannedKm) : (x.km!=null ? x.km : null);
+  return {
+    date: x.date,
+    family: sessionFamily(x.type),
+    km: km,
+    // a marathon-pace block inside a long run makes it a different session
+    mpSegment: !!(dd ? dd.mpSegment : x.mpSegment),
+    phase: isMem ? x.phase : trainingPhase(x.week),
+    treadmill: !!env.treadmill,
+    // conditions that materially alter what the session cost
+    stressed: !!env.severe || (env.heatBand!=='none' && env.heatBand!=='mild' && env.heatBand!=null)
+  };
+}
+/* Phase is a weighting factor, not a hard filter: splitting history by phase
+   as well as by family collapses confidence to nothing on any real plan. */
+var PHASE_ORDER = ['Base','Build','Peak','Taper','Race Week','Final Week'];
+function phaseDistance(a, b){
+  var i = PHASE_ORDER.indexOf(a), j = PHASE_ORDER.indexOf(b);
+  return (i<0 || j<0) ? 0 : Math.abs(i-j);
+}
+function sessionComparability(a, b){
+  var x = comparabilityOf(a), y = comparabilityOf(b);
+  if (!x || !y || !x.family || !y.family) return 'poor';
+  if (x.family !== y.family) return 'poor';
+  var grade = 'good';
+  var down = function(g){ if (COMPARABILITY_RANK[g] < COMPARABILITY_RANK[grade]) grade = g; };
+
+  if (x.km!=null && y.km!=null && x.km>0 && y.km>0){
+    var ratio = x.km / y.km;
+    if (ratio < 0.6 || ratio > 1.4) return 'poor';        // a different event
+    if (ratio < 0.85 || ratio > 1.18) down('partial');
+  }
+  if (x.mpSegment !== y.mpSegment) down('partial');       // long-run structure
+  if (x.treadmill !== y.treadmill) down('partial');       // different surface, different cost
+  if (x.stressed || y.stressed) down('partial');          // conditions, not the athlete
+  if (phaseDistance(x.phase, y.phase) >= 2) down('partial');
+  return grade;
+}
+// The comparable set for a family, anchored on that family's own typical session.
+function comparableFamilyRecords(records, family, minGrade){
+  var fam = records.filter(function(r){
+    return r.completed && sessionFamily(r.type)===family;
+  });
+  if (fam.length < 2) return fam;
+  var anchorKm = median(fam.map(function(r){
+    return r.actualKm!=null ? r.actualKm : r.plannedKm;
+  }).filter(function(v){ return v!=null; }));
+  if (anchorKm==null) return fam;
+  var anchor = { date:'anchor', type:family, actualKm:anchorKm, plannedKm:anchorKm,
+                 phase:null, environment:{} };
+  var need = COMPARABILITY_RANK[minGrade || 'partial'];
+  return fam.filter(function(r){
+    return COMPARABILITY_RANK[sessionComparability(r, anchor)] >= need;
+  });
+}
+
+/* ---------- one definition of "did the day after read rough" ----------
+   This was previously inline inside longRunRecoveryWindows(). It is now the
+   single source, so long-run recovery, per-family recovery and adjustment
+   outcomes all agree about what a recovered day looks like. */
+var RECOVERY_ROUGH_SIGNALS = ['heavy_legs','tired','soreness','stiffness'];
+function recoveryProbe(rec, ehr){
+  if (!rec) return { state:'unknown', why:null };
+  var env = rec.environment || {};
+  // Illness and pain are safety, never training adaptation examples.
+  if (env.illness || env.pain) return { state:'excluded', why:'safety' };
+  var rough = null;
+  if (rec.feel && FEEL_META[rec.feel] && FEEL_META[rec.feel].rank < 0) rough = 'feel';
+  else if (rec.readiness && (rec.readiness.legs==='heavy' || rec.readiness.sleep==='poor')) rough = 'readiness';
+  else if (rec.type==='easy' && hrIsReadable(rec) && ehr && ehr.sufficient &&
+           rec.hr - ehr.baseline >= 4) rough = 'hr';
+  else if ((rec.signals||[]).some(function(id){ return RECOVERY_ROUGH_SIGNALS.indexOf(id)!==-1; })) rough = 'notes';
+  if (rough) return { state:'rough', why:rough };
+  var eased = false;
+  if (rec.type==='easy' && hrIsReadable(rec) && ehr && ehr.sufficient && rec.hr - ehr.baseline <= 0) eased = true;
+  if (rec.feel && FEEL_META[rec.feel] && FEEL_META[rec.feel].rank > 0) eased = true;
+  if (rec.readiness && rec.readiness.legs==='fresh') eased = true;
+  var hasData = !!(rec.feel || rec.readiness ||
+                   (rec.type==='easy' && rec.hr!=null) || (rec.signals||[]).length);
+  if (!hasData) return { state:'unknown', why:null };
+  return { state:'normal', why: eased ? 'eased' : 'nothing reported' };
+}
+
+/* ---------- learning confidence ----------
+   A simple baseline can be believed sooner than a claim about recovery
+   TIMING, which needs repeated windows before it means anything. */
+function learningConfidence(samples, complexity){
+  var need = complexity==='complex' ? { emerging:3, established:5 }
+                                    : { emerging:3, established:BASELINE_MIN_SAMPLES };
+  if (!samples || samples < need.emerging) return 'insufficient';
+  return samples >= need.established ? 'established' : 'emerging';
+}
+
+/* ---------- recovery response, per family ----------
+   What normally happens 24, 48 and 72 hours after this kind of session.
+   A window with nothing logged in it contributes nothing at all: silence is
+   not evidence of a fast recovery. */
+var RECOVERY_PROBE_HOURS = [24,48,72];
+function familyRecoveryModel(family, records, ehr, byDate){
+  var sessions = comparableFamilyRecords(records, family, 'partial')
+                   .filter(function(r){ return r.date < todayStr(); });
+  var windows = [];
+  sessions.forEach(function(s){
+    var probes = [1,2,3].map(function(n){ return recoveryProbe(byDate[addDays(s.date,n)], ehr); });
+    if (probes.some(function(p){ return p.state==='excluded'; })) return;   // safety window
+    if (probes.every(function(p){ return p.state==='unknown'; })) return;   // nothing logged
+    var hours = null;
+    for (var i=0;i<probes.length;i++){
+      if (probes[i].state!=='normal') continue;
+      var laterRough = probes.slice(i+1).some(function(p){ return p.state==='rough'; });
+      if (!laterRough){ hours = RECOVERY_PROBE_HOURS[i]; break; }
+    }
+    windows.push({
+      date: s.date,
+      km: s.actualKm!=null ? s.actualKm : s.plannedKm,
+      hours: hours,
+      beyond72: hours==null && probes.some(function(p){ return p.state==='rough'; }),
+      probes: probes.map(function(p){ return p.state; })
+    });
+  });
+  var conf = learningConfidence(windows.length, 'complex');
+  var timed = windows.map(function(w){ return w.hours; }).filter(function(h){ return h!=null; });
+  return {
+    family: family,
+    comparableSessions: sessions.length,
+    windows: windows.length,
+    // never stated until enough comparable windows exist
+    typicalHoursToNormal: (conf==='insufficient' || !timed.length) ? null : median(timed),
+    beyond72: windows.filter(function(w){ return w.beyond72; }).length,
+    confidence: conf,
+    detail: windows
+  };
+}
+// What this athlete typically reads at a given probe point.
+function typicalAtProbe(windows, idx){
+  var states = windows.map(function(w){ return w.probes[idx]; })
+                      .filter(function(s){ return s==='rough' || s==='normal'; });
+  if (states.length < 3) return null;
+  var rough = states.filter(function(s){ return s==='rough'; }).length;
+  return rough > states.length/2 ? 'rough' : 'normal';
+}
+
+/* ---------- per-family response ----------
+   Baselines come from baselineFor(), which every other baseline in the app
+   already uses. Easy heart rate comes from easyHRBaseline() and nowhere else. */
+function familyResponse(family, records, ehr, byDate){
+  var recs = comparableFamilyRecords(records, family, 'partial');
+  var b = baselineFor(recs);
+  var rec = DEMANDING_FAMILIES.indexOf(family)!==-1
+    ? familyRecoveryModel(family, records, ehr, byDate) : null;
+  var conf = learningConfidence(recs.length, 'simple');
+  var out = {
+    confidence: conf,
+    comparableSessions: recs.length,
+    baselineRPE: conf==='insufficient' ? null : b.rpe,
+    baselineExecution: conf==='insufficient' ? null : b.executionMedian,
+    executionSpread: conf==='insufficient' ? null : b.executionSpread,
+    baselinePace: conf==='insufficient' ? null : b.pace,
+    // one source for easy heart rate; other families use their own median
+    baselineHR: conf==='insufficient' ? null : (family==='easy' ? ehr.baseline : b.hr),
+    recovery24h: rec ? typicalAtProbe(rec.detail, 0) : null,
+    recovery48h: rec ? typicalAtProbe(rec.detail, 1) : null,
+    recovery72h: rec ? typicalAtProbe(rec.detail, 2) : null,
+    recovery: rec,
+    expectedResponse: null,
+    notes: null
+  };
+  out.expectedResponse = expectedResponseSentence(family, out);
+  if (conf==='insufficient')
+    out.notes = 'Too little comparable history to establish your usual response.';
+  return out;
+}
+/* Coaching language, or nothing. Never a number dressed as a sentence. */
+function expectedResponseSentence(family, f){
+  if (!f || f.confidence==='insufficient') return null;
+  var bits = [];
+  if (f.baselineRPE!=null) bits.push('effort usually around '+f.baselineRPE);
+  var r = f.recovery;
+  if (r && r.confidence!=='insufficient' && r.typicalHoursToNormal!=null)
+    bits.push('normally back to your baseline within about '+r.typicalHoursToNormal+' hours');
+  if (!bits.length) return null;
+  return (FAMILY_NOUN[family]||family)+': '+bits.join(', ')+'.';
+}
+
+/* ---------- personal training tolerance ----------
+   Which STRUCTURES this athlete has historically absorbed -- never a single
+   fitness number, and never an argument for doing more. That a 58km week was
+   absorbed well is a fact about the past, not a licence for a 64km week. */
+function loadToleranceModel(records, ehr, byDate){
+  var cur = currentWeekNum();
+  if (!cur || cur < 2) return { confidence:'insufficient', weeks:0, absorbedVolume:null,
+                                keyDensity:null, longProportion:null, notes:null };
+  var weeks = [];
+  for (var w=1; w<cur; w++){
+    var days = state.days.filter(function(dd){ return dd.week===w; });
+    var done = days.filter(function(dd){ return dd.completed; });
+    if (done.length < 3) continue;               // a barely-trained week says nothing
+    var km = done.reduce(function(s,dd){
+      return s + ((dd.actual && dd.actual.km!=null) ? dd.actual.km : (dd.km||0)); }, 0);
+    if (!km) continue;
+    var keys = days.filter(function(dd){ return sessionImportance(dd)==='KEY'; }).length;
+    var longKm = done.filter(function(dd){ return dd.type==='long'; })
+                     .reduce(function(s,dd){ return s + (dd.km||0); }, 0);
+    // demanding sessions in plan order, to see how closely they were packed
+    var hard = days.filter(function(dd){ return sessionImportance(dd)==='KEY'; })
+                   .sort(function(a,b){ return a.date<b.date?-1:1; });
+    var minGap = null;
+    for (var i=1;i<hard.length;i++){
+      var g = daysBetween(hard[i-1].date, hard[i].date);
+      if (minGap==null || g < minGap) minGap = g;
+    }
+    // how the week and the three days after it actually read
+    var range = days.map(function(dd){ return dd.date; });
+    for (var n=1;n<=3;n++) range.push(addDays(days[days.length-1].date, n));
+    var probes = range.map(function(d){ return recoveryProbe(byDate[d], ehr); });
+    if (probes.some(function(p){ return p.state==='excluded'; })) continue;  // illness week
+    var rough = probes.filter(function(p){ return p.state==='rough'; }).length;
+    var known = probes.filter(function(p){ return p.state!=='unknown'; }).length;
+    if (known < 2) continue;                     // not enough logged to judge the week
+    weeks.push({ week:w, km:Math.round(km*10)/10, keys:keys, minGap:minGap,
+                 longProportion: km ? Math.round((longKm/km)*100)/100 : null,
+                 absorbed: rough <= 1 });
+  }
+  var absorbed = weeks.filter(function(x){ return x.absorbed; });
+  var strained = weeks.filter(function(x){ return !x.absorbed; });
+  var conf = learningConfidence(absorbed.length, 'complex');
+  var kms = absorbed.map(function(x){ return x.km; });
+  var out = {
+    confidence: conf,
+    weeks: weeks.length,
+    absorbedWeeks: absorbed.length,
+    absorbedVolume: (conf==='insufficient' || !kms.length) ? null
+      : { low: Math.min.apply(null, kms), high: Math.max.apply(null, kms), typical: median(kms) },
+    keyDensity: conf==='insufficient' ? null : median(absorbed.map(function(x){ return x.keys; })),
+    typicalGapBetweenKey: conf==='insufficient' ? null
+      : median(absorbed.map(function(x){ return x.minGap; }).filter(function(v){ return v!=null; })),
+    longProportion: conf==='insufficient' ? null
+      : median(absorbed.map(function(x){ return x.longProportion; }).filter(function(v){ return v!=null; })),
+    // stated only as an observation about what happened, never as a target
+    strainedWeeks: strained.length,
+    detail: weeks,
+    notes: conf==='insufficient' ? 'Not enough completed weeks yet to describe what you absorb well.' : null
+  };
+  return out;
+}
+
+/* ---------- did an accepted adjustment help? ----------
+   Recorded, not acted on. This is the evidence a future phase would need to
+   learn adaptation POLICY; nothing here invents a strategy.
+
+   Only accepted adjustments are examined. A declined proposal is a legitimate
+   choice and is never scored, never held against the athlete, and never read
+   as poor compliance. */
+function adjustmentOutcomes(records, ehr, byDate){
+  return records.filter(function(r){ return r.acceptedAdjustment; }).map(function(r){
+    var probes = [1,2,3].map(function(n){ return recoveryProbe(byDate[addDays(r.date,n)], ehr); });
+    var known = probes.filter(function(p){ return p.state==='rough' || p.state==='normal'; });
+    if (known.length < 2)
+      return { date:r.date, outcome:'unclear', reason:'Not enough logged afterwards to say.' };
+    var rough = known.filter(function(p){ return p.state==='rough'; }).length;
+    return {
+      date: r.date,
+      outcome: rough===0 ? 'helpful' : rough===known.length ? 'poor' : 'neutral',
+      reason: rough===0 ? 'The days after read normal.'
+            : rough===known.length ? 'The days after still read rough.'
+            : 'Mixed response in the days after.'
+    };
+  });
+}
+
+/* ---------- the one authoritative learning output ---------- */
+function responseSourceHash(){
+  var mem = (state.days||[]).filter(function(dd){
+    return dd.date <= todayStr() && (dd.completed || dd.readiness || dd.coachAdjust);
+  });
+  var str = RESPONSE_MODEL_VERSION+'#'+mem.map(function(dd){
+    var a = dd.actual || {};
+    return dd.date+':'+dd.type+':'+(dd.km||0)+':'+(dd.completed?1:0)+':'+
+           (a.km||'')+':'+(a.hr||'')+':'+(a.rpe||'')+':'+(a.pace||'')+':'+(a.feel||'')+
+           ':'+((a.notes||'').length)+':'+(dd.readiness?JSON.stringify(dd.readiness):'')+
+           ':'+(dd.coachAdjust?1:0);
+  }).join('|');
+  var h = 5381;
+  for (var i=0;i<str.length;i++){ h = ((h*33) ^ str.charCodeAt(i)) >>> 0; }
+  return 'rm'+h.toString(36);
+}
+/* Derived from session history every time, never persisted. Nothing to go
+   stale, nothing to migrate, and editing a past session recomputes the model
+   by construction. The in-memory memo is keyed on the source hash purely so
+   one render does not recompute it a dozen times. */
+var __responseModelMemo = null;
+function athleteResponseModel(){
+  if (!state.setup || !state.days || !state.days.length) return null;
+  var hash = responseSourceHash();
+  if (__responseModelMemo && __responseModelMemo.sourceHash === hash) return __responseModelMemo;
+
+  var mem = athleteMemory(RESPONSE_WINDOW_DAYS);
+  var ehr = easyHRBaseline();
+  var byDate = {};
+  mem.forEach(function(r){ byDate[r.date] = r; });
+  /* Illness and meaningful pain are excluded from physiological learning
+     outright. "This athlete runs badly when ill" is not a training baseline. */
+  var learnable = mem.filter(function(r){
+    var e = r.environment || {};
+    return !e.illness && !e.pain;
+  });
+
+  var families = {};
+  SESSION_FAMILIES.forEach(function(f){
+    families[f] = familyResponse(f, learnable, ehr, byDate);
+  });
+  var recoveryPatterns = DEMANDING_FAMILIES.map(function(f){ return families[f].recovery; })
+    .filter(function(r){ return r && r.confidence!=='insufficient'; });
+
+  var established = SESSION_FAMILIES.filter(function(f){ return families[f].confidence==='established'; }).length;
+  var emerging    = SESSION_FAMILIES.filter(function(f){ return families[f].confidence==='emerging'; }).length;
+
+  var model = {
+    modelVersion: RESPONSE_MODEL_VERSION,
+    sourceHash: hash,
+    confidence: established ? 'established' : emerging ? 'emerging' : 'insufficient',
+    // families, named as the athlete would name them
+    easy: families.easy, threshold: families.threshold, tempo: families.tempo,
+    intervals: families.interval, repetitions: families.repetition, longRun: families.long,
+    families: families,
+    loadTolerance: loadToleranceModel(learnable, ehr, byDate),
+    recoveryPatterns: recoveryPatterns,
+    adjustmentOutcomes: adjustmentOutcomes(mem, ehr, byDate),
+    unusualResponses: []
+  };
+  // computed last, against the model itself, so nothing here recurses
+  model.unusualResponses = mem.filter(function(r){ return r.completed; }).slice(-6)
+    .map(function(r){
+      var dd = findDayByDate(r.date);
+      var dev = dd ? personalDeviation(dd, model) : null;
+      return dev && dev.level!=='NORMAL' && dev.level!=='INSUFFICIENT_DATA'
+        ? { date:r.date, type:r.type, level:dev.level, signals:dev.signals } : null;
+    }).filter(Boolean);
+
+  __responseModelMemo = model;
+  return model;
+}
+
+/* ---------- is this response unusual FOR THIS ATHLETE? ----------
+   Not "was it hard" -- a threshold session at RPE 8 may be exactly this
+   athlete's normal. Multi-signal confirmation is required before anything is
+   called materially unusual, because one metric on its own is noise. Safety
+   is the single exception: it never waits for corroboration. */
+function personalDeviation(dd, model){
+  var none = function(reason){ return { level:'INSUFFICIENT_DATA', signals:[], reason:reason }; };
+  if (!dd || !dd.completed) return none('Not a completed session.');
+  var family = sessionFamily(dd.type);
+  if (!family) return none('This kind of session has no comparable history.');
+  var a = dd.actual || {};
+  var env = coachEnvironment(a.notes, a) || {};
+  if (env.illness || env.pain)
+    return { level:'MATERIALLY_UNUSUAL', signals:['safety'],
+             reason: env.illness ? 'Illness reported.' : 'Pain reported.' };
+
+  var m = model || athleteResponseModel();
+  var f = m && m.families ? m.families[family] : null;
+  if (!f || f.confidence==='insufficient')
+    return none('Too little comparable history to establish your usual response.');
+
+  var signals = [];
+  if (f.baselineRPE!=null && a.rpe!=null && a.rpe - f.baselineRPE >= 1.5) signals.push('effort');
+  var feel = feelOf(dd);
+  if (feel && FEEL_META[feel] && FEEL_META[feel].rank < 0) signals.push('feel');
+  /* Conditions are context, never the athlete. Where the session was run in
+     real heat or on a treadmill, the metrics those conditions move are not
+     read as a personal deviation at all. */
+  var conditioned = !!env.treadmill || (env.heatBand!=='none' && env.heatBand!=='mild' && env.heatBand!=null) || !!env.severe;
+  if (!conditioned){
+    if (f.baselineExecution!=null){
+      var score = computeExecutionScore(dd);
+      if (score!=null && f.baselineExecution - score >= 12) signals.push('execution');
+    }
+    if (f.baselineHR!=null && a.hr!=null &&
+        hrIsReadable({ hr:a.hr, environment:env }) && a.hr - f.baselineHR >= 5) signals.push('heart rate');
+  }
+  return {
+    level: signals.length >= 2 ? 'MATERIALLY_UNUSUAL'
+         : signals.length === 1 ? 'SLIGHTLY_UNUSUAL' : 'NORMAL',
+    signals: signals,
+    family: family,
+    reason: signals.length
+      ? signals.join(' and ')+' sat outside your usual response to this kind of session.'
+      : 'That response is normal for you after this kind of session.'
+  };
+}
+
+/* ---------- what Phase 5 hands to the decision engine ----------
+   ONE concept per underlying event. Recovery that is slower than this
+   athlete's own established pattern is a single, better-founded statement
+   than three correlated observations of the same tiredness, and it carries
+   the same `recovery_after` concept as the trends it supersedes so the
+   decision engine's de-duplication counts it once. */
+function personalResponseTrends(){
+  var m = athleteResponseModel();
+  if (!m) return [];
+  var out = [];
+  DEMANDING_FAMILIES.forEach(function(family){
+    var r = m.families[family] && m.families[family].recovery;
+    if (!r || r.confidence!=='established') return;
+    var windows = r.detail;
+    var recent = windows.slice(-3), older = windows.slice(0, -3);
+    // the baseline is drawn from windows OLDER than the ones being judged
+    if (older.length < 3 || recent.length < 2) return;
+    var baseTimes = older.map(function(w){ return w.hours; }).filter(function(h){ return h!=null; });
+    if (baseTimes.length < 3) return;
+    var base = median(baseTimes);
+    var slower = recent.filter(function(w){ return w.hours==null || (w.hours - base) >= 24; });
+    var faster = recent.filter(function(w){ return w.hours!=null && (base - w.hours) >= 24; });
+    var label = (FAMILY_LABEL[family]||family).toLowerCase();
+    if (slower.length >= 2){
+      out.push({ id:'recovery_slower_than_personal', area:'Recovery', direction:'negative',
+        confidence: trendConfidence(slower.length, recent.length, windows.length),
+        headline:'Watching',
+        detail:'Recovery after '+label+' has been slower than your usual pattern on '+
+               slower.length+' of the last '+recent.length+' — you normally read normal again within about '+base+' hours.',
+        observations:slower.length, of:recent.length,
+        evidenceDates: slower.map(function(w){ return w.date; }) });
+    } else if (faster.length >= 2){
+      out.push({ id:'recovery_faster_than_personal', area:'Recovery', direction:'positive',
+        confidence: trendConfidence(faster.length, recent.length, windows.length),
+        headline:'Improving',
+        detail:'You are coming back from '+label+' more quickly than your usual pattern.',
+        observations:faster.length, of:recent.length,
+        evidenceDates: faster.map(function(w){ return w.date; }) });
+    }
+  });
+  // only the strongest single recovery statement is offered, never one per family
+  out.sort(function(a,b){
+    return (TREND_CONF[b.confidence]||0)-(TREND_CONF[a.confidence]||0) ||
+           (a.direction==='negative' ? -1 : 1);
+  });
+  return out.slice(0,1);
 }
 
 /* =========================================================
@@ -5304,7 +5814,9 @@ function coachAnalyse(){
     watch: coachWatch(load, recovery, confidence),
     nextMove: coachNextMove(load, recovery, trend, status),
     decision: coachDecision(),
-    evolution: planEvolution()
+    evolution: planEvolution(),
+    // what has been learned about this athlete; evidence only, never a decision
+    response: athleteResponseModel()
   };
 }
 
@@ -6437,6 +6949,67 @@ function renderEvolutionProposal(ev, where){
   '</div>';
 }
 
+
+/* ---------- Phase 5 in the interface ----------
+   No new dashboard and no new card on TODAY. One collapsed Plan HQ section
+   that speaks in coaching language, and a line inside COACH NOTICED when the
+   learned pattern actually says something. Where nothing has been earned yet
+   it says so plainly rather than inventing a personality for the athlete. */
+function responsePatternsSummary(m){
+  if (!m) return 'learning';
+  var n = responsePatternLines(m).length;
+  if (m.confidence==='insufficient' || !n) return 'learning your response';
+  var est = SESSION_FAMILIES.filter(function(f){
+    return m.families[f] && m.families[f].confidence==='established'; }).length;
+  return est ? est+' established pattern'+(est===1?'':'s') : n+' pattern'+(n===1?'':'s');
+}
+/* At most a handful of high-value lines. Raw statistics stay out of the UI --
+   the athlete wants to know how long they normally take to come back, not a
+   sample count. */
+function responsePatternLines(m){
+  if (!m) return [];
+  var out = [];
+  DEMANDING_FAMILIES.forEach(function(f){
+    var fam = m.families[f], r = fam && fam.recovery;
+    if (!r || r.confidence==='insufficient' || r.typicalHoursToNormal==null) return;
+    out.push({ k:(FAMILY_NOUN[f]||f)+' recovery',
+               v:'usually normal again within about '+r.typicalHoursToNormal+'h' });
+  });
+  var easy = m.families.easy;
+  if (easy && easy.confidence!=='insufficient' && easy.baselineHR!=null)
+    out.push({ k:'Easy heart rate', v:'normally around '+easy.baselineHR+' bpm' });
+  ['threshold','interval','long'].forEach(function(f){
+    var fam = m.families[f];
+    if (fam && fam.confidence!=='insufficient' && fam.baselineRPE!=null)
+      out.push({ k:(FAMILY_NOUN[f]||f)+' effort', v:'normally around RPE '+fam.baselineRPE });
+  });
+  var lt = m.loadTolerance;
+  if (lt && lt.confidence!=='insufficient' && lt.absorbedVolume)
+    out.push({ k:'Weeks you absorb well',
+               v:fmtDist(lt.absorbedVolume.low)+'–'+fmtDist(lt.absorbedVolume.high)+
+                 (lt.keyDensity!=null ? ' with '+lt.keyDensity+' demanding session'+(lt.keyDensity===1?'':'s') : '') });
+  return out.slice(0,6);
+}
+function renderResponsePatternsSection(m){
+  if (!m) return '<div class="hq-empty">No training history yet.</div>';
+  var lines = responsePatternLines(m);
+  if (!lines.length)
+    return '<div class="hq-empty">Too little comparable history to establish your usual response yet. '+
+           'VVV will not guess at what is normal for you.</div>';
+  var body = lines.map(function(l){
+    return '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(l.k)+'</span>'+
+           '<span class="hq-row-v">'+escapeHtml(l.v)+'</span></div>';
+  }).join('');
+  var outcomes = (m.adjustmentOutcomes||[]).filter(function(o){ return o.outcome!=='unclear'; });
+  if (outcomes.length){
+    var helped = outcomes.filter(function(o){ return o.outcome==='helpful'; }).length;
+    body += '<div class="hq-empty" style="margin-top:8px;">'+escapeHtml(
+      helped+' of '+outcomes.length+' adjustment'+(outcomes.length===1?'':'s')+
+      ' you accepted were followed by a clean few days.')+'</div>';
+  }
+  return body;
+}
+
 /* The morning check. Not a permanent questionnaire: it appears only when the
    engine already has a concern and a quality session is next, and it
    disappears the moment it is answered. Answers inform the decision only --
@@ -6585,6 +7158,8 @@ function renderRaceReadinessCard(report){
       renderEvolutionSection(report.evolution))+
     hqSection('patterns','Recent patterns',
       shown.length ? shown.length+' noted' : 'learning', patternsBody)+
+    hqSection('response','Your response patterns',
+      responsePatternsSummary(report.response), renderResponsePatternsSection(report.response))+
     hqSection('adaptation','Adaptation history', bts.length+' breakthrough'+(bts.length===1?'':'s'), adaptBody)+
   '</div>';
 }
