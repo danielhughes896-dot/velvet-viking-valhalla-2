@@ -352,6 +352,17 @@
      how HR is treated in the Pace Reference and Plan HQ zone cards. */
   .day-targets .hr{color:var(--ink-faint);}
   .day-desc{font-size:12.5px; color:var(--ink-dim); margin-top:6px; line-height:1.45;}
+  /* card accordion -- same max-height technique as the week accordion above,
+     so both behave identically. The header row stays put; the detail and the
+     logging drawer collapse. */
+  .day-top{cursor:pointer;}
+  .day-chevron{flex:none; display:flex; align-items:center; color:var(--ink-faint); transition:transform .25s;}
+  .day-chevron svg{width:17px; height:17px; display:block;}
+  .day.open .day-chevron{transform:rotate(180deg);}
+  .day-detail, .day-drawer{max-height:0; overflow:hidden; transition:max-height .35s ease;}
+  .day.open .day-detail{max-height:1200px;}
+  .day.open .day-drawer{max-height:4000px;}
+  /* the drawer's own children carry the top spacing, so a shut card has none */
   .day-actions{display:flex; gap:6px; flex:none;}
   .day-actions button{background:none; border:none; color:var(--ink-faint); padding:4px; border-radius:6px; display:flex;}
   .day-actions button:hover{color:var(--bronze); background:var(--bg-4);}
@@ -408,13 +419,9 @@
   /* title yields first so the badge can never be pushed off or overlapped
      on a narrow phone; the badge itself never shrinks */
   .exec-review-head>span:first-of-type{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .exec-review-badge{
-    margin-left:auto; flex:none; font-weight:700; font-size:13px; letter-spacing:0;
-    text-transform:none; padding:3px 10px; border-radius:99px;
-  }
-  .exec-review-badge.good{color:var(--c-easy); background:var(--c-easy-soft);}
-  .exec-review-badge.ok{color:var(--c-tempo); background:var(--c-tempo-soft);}
-  .exec-review-badge.low{color:var(--c-threshold); background:var(--c-threshold-soft);}
+  /* the review header reuses the very same .exec-pill as the card header, so
+     the score reads as one component wherever it appears */
+  .exec-review-head .exec-pill{margin-left:auto; flex:none; text-transform:none;}
   .exec-review-summary{font-size:12.5px; color:var(--ink-dim); line-height:1.45;}
   /* component breakdown -- shows how the single score was reached */
   .exec-parts{display:flex; flex-wrap:wrap; gap:6px 10px; margin-top:9px; padding-top:8px; border-top:1px solid var(--line-soft);}
@@ -2428,6 +2435,24 @@ function renderFuelingCard(dd){
   '</details>';
 }
 
+// Per-card accordion state. Ephemeral like expandedWeeks -- deliberately not
+// persisted, so every launch starts from the sensible default rather than
+// restoring a card someone happened to leave open weeks ago. An entry exists
+// only where the runner has overridden that default by tapping a header.
+var dayExpandOverride = {};
+function isDayExpanded(dd){
+  if (dayExpandOverride.hasOwnProperty(dd.id)) return dayExpandOverride[dd.id];
+  if (dd.date === todayStr()) return true;   // today's session is the one you came to use
+  return !dd.completed;                      // done sessions fold away; upcoming ones stay open
+}
+function handleToggleDay(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  var next = !isDayExpanded(dd);
+  dayExpandOverride[dayId] = next;
+  var el = document.getElementById('day-'+dayId);
+  if (el) el.classList.toggle('open', next);
+}
 // Two presentations of the one computeExecutionScore: the at-a-glance pill
 // in the card header, and the badge in the Execution Review header. Each
 // sits in its own always-present mount so a logged field change can refresh
@@ -2467,19 +2492,27 @@ function renderDayCard(dd){
     '<div id="exec-review-'+dd.id+'">'+renderExecutionReview(dd)+'</div>';
   }
 
-  return '<div class="'+cls+'" id="day-'+dd.id+'" data-day="'+dd.id+'" draggable="true">'+
-    '<div class="day-top">'+
+  // Accordion: the header row always shows, everything below it collapses.
+  // Completed sessions default shut (the prescription has served its purpose,
+  // the EXEC pill is the summary), today's session always opens, and anything
+  // still to run stays open. A manual toggle overrides all of that.
+  var openCls = isDayExpanded(dd) ? ' open' : '';
+  return '<div class="'+cls+openCls+'" id="day-'+dd.id+'" data-day="'+dd.id+'" draggable="true">'+
+    '<div class="day-top" data-action="toggle-day" data-day="'+dd.id+'">'+
       '<div class="day-check"><input type="checkbox" '+(dd.completed?'checked':'')+' '+(dd.type==='rest'?'disabled':'')+' data-action="toggle-complete" data-day="'+dd.id+'" aria-label="Mark session complete"></div>'+
       '<div class="day-main">'+
         '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+tm.label+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
         '<div class="day-title">'+escapeHtml(dd.title)+'</div>'+
-        (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
-        '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>'+
-        renderFuelingCard(dd)+
+        '<div class="day-detail">'+
+          (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
+          '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>'+
+          renderFuelingCard(dd)+
+        '</div>'+
       '</div>'+
       '<div class="day-actions"><button type="button" data-action="open-edit" data-day="'+dd.id+'" aria-label="Edit session">'+ICONS.pencil+'</button></div>'+
+      '<div class="day-chevron" aria-hidden="true">'+ICONS.chevronDown+'</div>'+
     '</div>'+
-    actualHtml+
+    '<div class="day-drawer">'+actualHtml+'</div>'+
   '</div>';
 }
 
@@ -2704,7 +2737,6 @@ function renderExecutionReview(dd){
       '<div class="exec-review-summary">Log actual '+displayUnit().toUpperCase()+' and average pace to score this session.</div>'+
     '</div>';
   }
-  var band = b.score>=85 ? 'good' : (b.score>=60 ? 'ok' : 'low');
   var breakdown = b.parts.map(function(p){
     var val = p.score==null ? '—' : Math.round(p.score)+'%';
     return '<span class="exec-part'+(p.score==null?' exec-part-off':'')+'">'+p.label+' '+val+
@@ -2715,7 +2747,7 @@ function renderExecutionReview(dd){
   // same number was on screen twice inside one card.
   return '<div class="exec-review-card">'+
     '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span>'+
-      '<span class="exec-review-badge '+band+' font-mono">'+b.score+'%</span>'+
+      '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
     '</div>'+
     '<div class="exec-review-summary">'+escapeHtml(composeExecutionNotes(dd, b))+'</div>'+
     '<div class="exec-parts">'+breakdown+'</div>'+
@@ -3819,6 +3851,10 @@ function handleToggleComplete(dayId){
   dd.completed = !dd.completed;
   if (dd.completed && !dd.actual) dd.actual = { km:dd.km, pace:null, hr:null, rpe:null, notes:'' };
   else if (dd.completed && dd.actual && dd.actual.km==null) dd.actual.km = dd.km;
+  // Drop any manual override so the card returns to its default for the new
+  // state -- a session just ticked off folds away, except today's, which
+  // isDayExpanded keeps open so it stays loggable.
+  delete dayExpandOverride[dd.id];
   replaceCard(dd);
   patchDerivedStats();
   scheduleSave();
@@ -4131,6 +4167,7 @@ document.addEventListener('click', function(e){
   switch(action){
     case 'toggle-theme': handleToggleThemeQuick(); break;
     case 'toggle-week': handleToggleWeek(parseInt(target.getAttribute('data-week'),10)); break;
+    case 'toggle-day': handleToggleDay(target.getAttribute('data-day')); break;
     case 'set-goal': handleSetGoal(target.getAttribute('data-goal')); break;
     case 'open-edit': openEditModal(target.getAttribute('data-day')); break;
     case 'save-edit': handleSaveEdit(target.getAttribute('data-day')); break;
