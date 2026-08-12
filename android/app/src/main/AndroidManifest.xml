@@ -22,6 +22,42 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!--
+              Android App Link for the site itself. autoVerify asks Android to
+              fetch https://velvet-viking-valhalla-1.vercel.app/.well-known/assetlinks.json
+              and match this APK's signing certificate against it; only then will
+              tapping an /auth link open the app instead of the browser. That file
+              is served from the repo root but still needs the real signing
+              fingerprint pasted in (see ANDROID-APP-LINKS.md). Until it does,
+              this filter is inert and the custom scheme below is what carries
+              the sign-in link into the app.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="velvet-viking-valhalla-1.vercel.app"
+                    android:pathPrefix="/auth" />
+            </intent-filter>
+
+            <!--
+              Custom scheme: com.velvetviking.valhalla://auth#access_token=...
+              Needs no domain verification and no stable signing key, so it works
+              on a debug-signed APK today. The magic-link email points at
+              supabase.co, which 302s to whatever we passed as email_redirect_to;
+              pointing that at this scheme is what hands the tokens to the app.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="com.velvetviking.valhalla"
+                    android:host="auth" />
+            </intent-filter>
+
         </activity>
 
         <provider

@@ -16,7 +16,35 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Optional stable signing key.
+    //
+    // With nothing set, Gradle signs debug builds with a throwaway keystore that
+    // the build machine generates on demand. On a fresh CI runner that means a
+    // brand new certificate every single build, which breaks two things: App Link
+    // verification can never match a fixed fingerprint in assetlinks.json, and a
+    // newly downloaded APK refuses to install over the previously installed one.
+    //
+    // Setting the four VVV_KEYSTORE_* environment variables (CI writes them from
+    // repository secrets, see ANDROID-APP-LINKS.md) signs every build with the
+    // same key instead. Unset, this block is inert and the build behaves exactly
+    // as it did before.
+    signingConfigs {
+        stable {
+            def ksPath = System.getenv("VVV_KEYSTORE_FILE")
+            if (ksPath) {
+                storeFile file(ksPath)
+                storePassword System.getenv("VVV_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("VVV_KEY_ALIAS")
+                keyPassword System.getenv("VVV_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
+        debug {
+            if (System.getenv("VVV_KEYSTORE_FILE")) {
+                signingConfig signingConfigs.stable
+            }
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

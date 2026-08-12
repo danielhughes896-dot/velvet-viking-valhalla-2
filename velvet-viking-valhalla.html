@@ -1466,9 +1466,32 @@ function cloudFetch(path, opts){
   return fetch(SUPABASE_URL.replace(/\/$/,'')+path, { method:opts.method||'GET', headers:headers, body:opts.body });
 }
 
+/* ---------- native shell: deep links into the installed Android app ----------
+   The APK is a Capacitor WebView pointed at this same live site, so by default
+   a sign-in link opened from an email lands in Chrome rather than in the app.
+   Asking Supabase to redirect to a scheme the APK owns is what routes it back
+   into the installed app instead. */
+var NATIVE_AUTH_REDIRECT = 'com.velvetviking.valhalla://auth';
+
+function isNativeApp(){
+  try{ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
+  catch(e){ return false; }
+}
+function nativeAppPlugin(){
+  try{ return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) || null; }
+  catch(e){ return null; }
+}
+// In the browser the link must come back to the page that sent it; in the APK
+// it must come back to the app. Both have to be listed under Supabase ->
+// Authentication -> URL Configuration -> Redirect URLs or GoTrue ignores them.
+function authRedirectTarget(){
+  return isNativeApp() ? NATIVE_AUTH_REDIRECT
+                       : (window.location.origin + window.location.pathname);
+}
+
 /* ---------- auth: email magic link, so there is no password to store or leak ---------- */
 function cloudSendMagicLink(email){
-  var redirect = window.location.origin + window.location.pathname;
+  var redirect = authRedirectTarget();
   return cloudFetch('/auth/v1/otp', {
     method:'POST', auth:false,
     body: JSON.stringify({ email:email, create_user:true, options:{ email_redirect_to:redirect } })
@@ -1476,23 +1499,79 @@ function cloudSendMagicLink(email){
     if (!resp.ok) throw new Error('Could not send the sign-in link');
   });
 }
-// Supabase returns tokens in the URL fragment. Consume and strip them so they
-// never linger in history or travel inside a copied link.
-function cloudConsumeAuthHash(){
-  var hash = window.location.hash || '';
-  if (hash.indexOf('access_token=')===-1) return false;
-  var p = {};
-  hash.replace(/^#/,'').split('&').forEach(function(kv){
-    var i = kv.indexOf('=');
-    if (i>0) p[decodeURIComponent(kv.slice(0,i))] = decodeURIComponent(kv.slice(i+1));
+// Supabase returns tokens in the URL fragment on the web. A custom-scheme
+// redirect can arrive with them in the query string instead, so read both.
+function parseAuthParams(src){
+  var out = {}, segs = [];
+  var hashAt = src.indexOf('#');
+  if (hashAt!==-1){ segs.push(src.slice(hashAt+1)); src = src.slice(0, hashAt); }
+  var qAt = src.indexOf('?');
+  if (qAt!==-1) segs.push(src.slice(qAt+1));
+  segs.forEach(function(seg){
+    seg.split('&').forEach(function(kv){
+      var i = kv.indexOf('=');
+      if (i>0){
+        try{ out[decodeURIComponent(kv.slice(0,i))] = decodeURIComponent(kv.slice(i+1)); }catch(e){}
+      }
+    });
   });
+  return out;
+}
+// Consume the tokens and strip them from the address bar so they never linger
+// in history or travel inside a copied link. Pass a URL to read a deep link
+// delivered by the native shell; call it bare to read the current page.
+function cloudConsumeAuthHash(url){
+  var fromUrl = typeof url === 'string';
+  var src = fromUrl ? url : ((window.location.search||'') + (window.location.hash||''));
+  if (src.indexOf('access_token=')===-1) return false;
+  var p = parseAuthParams(src);
   if (!p.access_token) return false;
   cloudSetSession({
     access_token:p.access_token, refresh_token:p.refresh_token,
     expires_at: Date.now() + (parseInt(p.expires_in,10)||3600)*1000
   });
-  try{ window.history.replaceState(null, '', window.location.pathname + window.location.search); }catch(e){}
+  if (!fromUrl){
+    // Keep any unrelated query string (Strava's OAuth ?code= is handled later
+    // in init), but drop it if the tokens came through there.
+    var search = window.location.search || '';
+    if (search.indexOf('access_token=')!==-1) search = '';
+    // /auth exists only as an App Link landing path; it serves the same page,
+    // so send the address bar back to the root once the tokens are taken.
+    var path = window.location.pathname || '/';
+    if (path.indexOf('/auth')===0) path = '/';
+    try{ window.history.replaceState(null, '', path + search); }catch(e){}
+  }
   return true;
+}
+
+// A magic link opened on the phone re-enters the app through here rather than
+// through a page load, so the sign-in has to be completed by hand: adopt the
+// session, pull the account down, repaint.
+function handleAuthDeepLink(url){
+  if (!url || url.indexOf('access_token=')===-1) return false;
+  if (!cloudConsumeAuthHash(url)) return false;
+  cloudStatus = 'syncing'; patchCloudCard();
+  var who = cloudSession.user_id ? Promise.resolve() : cloudLoadUser();
+  who.then(cloudReconcile).then(function(){
+    renderApp();
+    showToast('Signed in — your plan is linked to your account');
+  }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
+  return true;
+}
+
+function cloudInitDeepLinks(){
+  var App = nativeAppPlugin();
+  if (!App || !App.addListener) return;
+  if (window.__vvvDeepLinkBound) return;
+  window.__vvvDeepLinkBound = true;
+  // Warm start: the app is already running and Android hands us the new URL.
+  try{ App.addListener('appUrlOpen', function(data){ handleAuthDeepLink(data && data.url); }); }catch(e){}
+  // Cold start: the launching URL never fires the event, it has to be asked for.
+  if (App.getLaunchUrl){
+    try{
+      App.getLaunchUrl().then(function(res){ if (res && res.url) handleAuthDeepLink(res.url); }, function(){});
+    }catch(e){}
+  }
 }
 function cloudSetSession(sess){
   cloudSession = sess;
@@ -1673,6 +1752,7 @@ function handleCloudKeepRemote(){
 
 function cloudInit(){
   if (!cloudConfigured()){ cloudStatus='off'; return Promise.resolve(); }
+  cloudInitDeepLinks();
   cloudConsumeAuthHash();
   if (!cloudSession) cloudSession = readStored(CLOUD_SESSION_KEY);
   if (!cloudSignedIn()){ cloudStatus='signed-out'; patchCloudCard(); return Promise.resolve(); }
