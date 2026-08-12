@@ -6541,8 +6541,21 @@ function coachNoticedForWorkout(dd, b, env){
   var ft = coachFeelTrend(dd.date);
   if (ft.repeated) return 'Objective execution holds up, but the legs have reported heavy in '+
     ft.negatives+' of the last '+ft.counted+' sessions.';
-  if (env.severe && hrOK) return 'Severe heat and humidity, and heart rate still stayed controlled.';
-  if (env.heatBand!=='none' && hrOK && envPhrase) return envPhrase+', with heart rate held inside the target zone.';
+  /* Same observation, told against the athlete's own normal once there is
+     enough comparable history to know what their normal is. */
+  var fam = sessionFamily(dd.type);
+  var voice = personalVoice(fam);
+  var withinNormal = voice && voice.baselineHR!=null && a.hr!=null &&
+                     a.hr - voice.baselineHR <= 4;
+  var mine = 'your normal '+(FAMILY_RESPONSE_PHRASE[fam]||'')+' response';
+  if (env.severe && hrOK)
+    return withinNormal
+      ? 'Severe heat and humidity, yet heart rate remained within '+mine+'.'
+      : 'Severe heat and humidity, and heart rate still stayed controlled.';
+  if (env.heatBand!=='none' && hrOK && envPhrase)
+    return withinNormal
+      ? envPhrase+', with heart rate still inside '+mine+'.'
+      : envPhrase+', with heart rate held inside the target zone.';
   if (env.tempC!=null && env.tempC<=5) return 'Ran at '+env.tempC+'°C — cold costs pace without meaning anything about fitness.';
   if (z && a.hr!=null && a.hr > z.hi && isRecoveryWorkoutType(dd.type)) return 'Easy run drifted above its heart-rate ceiling.';
   if (env.fatigue) return 'Fatigue reported without a matching rise in effort or heart rate.';
@@ -6567,6 +6580,25 @@ function coachNoticedForWorkout(dd, b, env){
   return 'Executed at '+b.score+'% of the prescribed session.';
 }
 var MISSING_NOUN = { hr:'heart rate', rpe:'an effort rating', distance:'a logged distance', pace:'a logged pace' };
+
+/* ---------- the gate on athlete-specific language ----------
+   "You normally...", "your usual response", "historically you" -- none of it
+   may be said until Phase 5 has actually earned it. Below the bar the coach
+   speaks in general terms, because generic knowledge presented as personal
+   knowledge is worse than saying nothing at all. */
+var FAMILY_RESPONSE_PHRASE = { easy:'easy-run', threshold:'threshold', tempo:'tempo',
+                               interval:'interval', repetition:'repetition', long:'long-run' };
+function personalVoice(family){
+  if (!family) return null;
+  var m = athleteResponseModel();
+  var f = m && m.families ? m.families[family] : null;
+  return (f && f.confidence==='established') ? f : null;
+}
+function personalRecoveryVoice(family){
+  var f = personalVoice(family);
+  var r = f && f.recovery;
+  return (r && r.confidence==='established' && r.typicalHoursToNormal!=null) ? r : null;
+}
 
 /* ---------- one instruction, pointed at the next real session ---------- */
 function coachNextMoveForWorkout(dd, env, signal, opts){
@@ -6607,7 +6639,17 @@ function coachNextMoveForWorkout(dd, env, signal, opts){
       ? 'Run '+when+' '+what+' by effort and heart rate rather than pace if the heat holds.'
       : 'Keep running to effort rather than pace while the heat holds.';
   }
-  if (nxt && isQuality) return 'Proceed as planned into '+when+' '+what+'.';
+  if (nxt && isQuality){
+    /* Where this athlete has an established habit of coming back quickly from
+       THIS kind of session, say so -- it is the difference between "proceed"
+       and knowing why proceeding is safe. It only ever supports leaving the
+       plan alone; it never asks for more. */
+    var rec = personalRecoveryVoice(sessionFamily(dd.type));
+    if (rec && rec.typicalHoursToNormal <= 24)
+      return 'You normally recover quickly from '+(FAMILY_RESPONSE_PHRASE[sessionFamily(dd.type)]||'this')+
+             ' work. Nothing here suggests '+when+' '+what+' needs changing.';
+    return 'Proceed as planned into '+when+' '+what+'.';
+  }
   if (nxt && nxt.type==='long') return 'Run '+when+' '+what+' for time on feet, not pace.';
   if (nxt) return 'Keep '+when+' '+what+' genuinely easy.';
   return 'Proceed as planned.';
@@ -6955,13 +6997,19 @@ function renderEvolutionProposal(ev, where){
    that speaks in coaching language, and a line inside COACH NOTICED when the
    learned pattern actually says something. Where nothing has been earned yet
    it says so plainly rather than inventing a personality for the athlete. */
-function responsePatternsSummary(m){
-  if (!m) return 'learning';
-  var n = responsePatternLines(m).length;
-  if (m.confidence==='insufficient' || !n) return 'learning your response';
-  var est = SESSION_FAMILIES.filter(function(f){
-    return m.families[f] && m.families[f].confidence==='established'; }).length;
-  return est ? est+' established pattern'+(est===1?'':'s') : n+' pattern'+(n===1?'':'s');
+function responsePatternsSummary(m, noted){
+  /* One row, one summary. It reports the learning state in Phase 5's own
+     vocabulary rather than inventing a second status model, and falls back to
+     the trend count when nothing personal has been earned yet. */
+  var est = 0, emg = 0;
+  if (m) SESSION_FAMILIES.forEach(function(f){
+    var c = m.families[f] && m.families[f].confidence;
+    if (c==='established') est++; else if (c==='emerging') emg++;
+  });
+  if (m && est && responsePatternLines(m).length) return est+' established';
+  if (m && emg) return emg+' emerging';
+  if (noted) return noted+' noted';
+  return 'learning';
 }
 /* At most a handful of high-value lines. Raw statistics stay out of the UI --
    the athlete wants to know how long they normally take to come back, not a
@@ -6991,12 +7039,14 @@ function responsePatternLines(m){
   return out.slice(0,6);
 }
 function renderResponsePatternsSection(m){
-  if (!m) return '<div class="hq-empty">No training history yet.</div>';
+  if (!m) return '';
   var lines = responsePatternLines(m);
+  /* Nothing earned yet: say so once, quietly, rather than inventing a
+     personality for the athlete. */
   if (!lines.length)
-    return '<div class="hq-empty">Too little comparable history to establish your usual response yet. '+
-           'VVV will not guess at what is normal for you.</div>';
-  var body = lines.map(function(l){
+    return '<div class="hq-empty">Still building your personal response history.</div>';
+  // reuses the existing section-key style rather than introducing a new one
+  var body = '<div class="evo-k" style="margin-top:10px;">Your response</div>' + lines.map(function(l){
     return '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(l.k)+'</span>'+
            '<span class="hq-row-v">'+escapeHtml(l.v)+'</span></div>';
   }).join('');
@@ -7157,9 +7207,8 @@ function renderRaceReadinessCard(report){
       EVOLUTION_META[(report.evolution||{state:'HOLD'}).state].label,
       renderEvolutionSection(report.evolution))+
     hqSection('patterns','Recent patterns',
-      shown.length ? shown.length+' noted' : 'learning', patternsBody)+
-    hqSection('response','Your response patterns',
-      responsePatternsSummary(report.response), renderResponsePatternsSection(report.response))+
+      responsePatternsSummary(report.response, shown.length),
+      patternsBody + renderResponsePatternsSection(report.response))+
     hqSection('adaptation','Adaptation history', bts.length+' breakthrough'+(bts.length===1?'':'s'), adaptBody)+
   '</div>';
 }
