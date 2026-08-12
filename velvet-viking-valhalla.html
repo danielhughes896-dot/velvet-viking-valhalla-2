@@ -1541,10 +1541,17 @@ function authRedirectTarget(){
 
 /* ---------- auth: email magic link, so there is no password to store or leak ---------- */
 function cloudSendMagicLink(email){
+  // GoTrue takes the redirect target from the ?redirect_to= query parameter,
+  // not from the body. The nested options:{email_redirect_to} shape belongs to
+  // supabase-js, which translates it into this query param before sending; we
+  // call the REST endpoint directly, so passing it in the body meant it was
+  // silently dropped and every link fell back to the project's Site URL. On the
+  // web that is indistinguishable from working -- the Site URL is the web app --
+  // which is why this only ever showed up as "the APK never gets signed in".
   var redirect = authRedirectTarget();
-  return cloudFetch('/auth/v1/otp', {
+  return cloudFetch('/auth/v1/otp?redirect_to='+encodeURIComponent(redirect), {
     method:'POST', auth:false,
-    body: JSON.stringify({ email:email, create_user:true, options:{ email_redirect_to:redirect } })
+    body: JSON.stringify({ email:email, create_user:true })
   }).then(function(resp){
     if (!resp.ok) throw new Error('Could not send the sign-in link');
   });
