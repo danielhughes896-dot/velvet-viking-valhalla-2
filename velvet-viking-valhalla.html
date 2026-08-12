@@ -268,10 +268,6 @@
     width:180px; max-width:60%; height:auto; border-radius:50%; display:block; margin:0 auto;
     box-shadow:0 10px 30px rgba(0,0,0,0.5);
   }
-  .hero-tagline{
-    font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.22em; text-transform:uppercase;
-    color:var(--ink-faint); margin-top:14px; margin-bottom:20px;
-  }
 
 
   .stat-row{display:flex; justify-content:center; gap:22px; margin-top:16px; flex-wrap:wrap;}
@@ -2766,8 +2762,11 @@ function renderGoalToggle(){
 }
 
 function renderMedallion(){
-  return '<img class="medallion-img" src="assets/medallion.png" width="300" height="300" alt="Velvet Viking Valhalla — viking running programs" loading="eager">'+
-    '<div class="hero-tagline">Earn Your Place.</div>';
+  /* "Earn Your Place" is part of the master artwork, so it is no longer rendered
+     as separate text -- one tagline, not two. The artwork carries its own
+     breathing room beneath the strapline, so the gap the eye actually sees
+     between the branding and TODAY is unchanged without any margin of its own. */
+  return '<img class="medallion-img" src="assets/medallion.png" width="640" height="640" alt="Velvet Viking Valhalla — Running Programs — Earn Your Place" loading="eager">';
 }
 function renderHero(){
   var html = '<div class="hero">'+renderMedallion();
