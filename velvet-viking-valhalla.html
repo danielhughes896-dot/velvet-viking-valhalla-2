@@ -331,6 +331,11 @@
   .day.dragging{opacity:.4;}
   .day-top{display:flex; align-items:flex-start; gap:10px;}
   .day-check{flex:none; margin-top:2px;}
+  /* Display-only: still legible, clearly not something to press. */
+  #su-event-box[data-mode="event"] .when-none{display:none;}
+  #su-event-box[data-mode="none"] .when-event{display:none;}
+  .day-check.locked input{opacity:.5; cursor:default;}
+  .day-check.locked input:checked{opacity:.75;}
   .day-check input{width:19px; height:19px; accent-color:var(--bronze); cursor:pointer;}
   .day-main{flex:1; min-width:0;}
   .day-row1{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
@@ -855,6 +860,31 @@
 var STORAGE_KEY = 'velvet-viking-generator-v2';
 var BUILD_ID = '2026-08-10.1';
 
+/* =========================================================
+   GOAL vs EVENT
+   ---------------------------------------------------------
+   A training block prepares an athlete for a DISTANCE. Whether they have an
+   entered event is a separate question, and most athletes do not. The stored
+   field is still `raceDate` -- renaming it would break every saved plan and
+   the sync signature for no functional gain -- but it is now understood as
+   the day the block culminates, and the athlete-facing words follow whether
+   an actual event exists.
+
+   Genuinely race-specific language is left alone: race-specific effort and
+   race rhythm are training terms that are correct whether or not a number is
+   pinned to a vest.
+   ========================================================= */
+function planHasEvent(su){
+  var setup = su || (typeof state!=='undefined' ? state.setup : null);
+  // undefined on every plan built before this existed -- those were created by
+  // entering a race date, so they keep race wording
+  return !setup || setup.hasEvent !== false;
+}
+function vGoalDay(su){ return planHasEvent(su) ? 'Race Day' : 'Goal Day'; }
+function vGoalWeek(su){ return planHasEvent(su) ? 'Race Week' : 'Final Week'; }
+function vGoalDate(su){ return planHasEvent(su) ? 'Race' : 'Goal day'; }
+function vShakeout(su){ return planHasEvent(su) ? 'Pre-Race Shakeout' : 'Pre-Goal Shakeout'; }
+
 var DISTANCE_PROFILES = {
   '5k':    { key:'5k',    label:'5K',              raceKm:5,     longCapKm:12, volMult:1.30, emphasis:'speed',     blockName:'Speed & Threshold Block' },
   '10k':   { key:'10k',   label:'10K',             raceKm:10,    longCapKm:15, volMult:1.35, emphasis:'speed',     blockName:'Speed & Threshold Block' },
@@ -1243,7 +1273,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput){
       phase = 'Taper';
     } else {
       volume = peakVolume*0.35;
-      phase = 'Race Week';
+      phase = 'Final Week';
     }
     volume = round1(volume);
 
@@ -1379,7 +1409,10 @@ function pickSpacedQty2(qty1, candidates){
   });
   return best;
 }
-function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr){
+function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, hasEvent){
+  // default true: every plan built before the event became optional was built
+  // by entering a race date
+  if (hasEvent === undefined) hasEvent = true;
   var profile = blockResult.profile;
   var weeks = blockResult.weeks;
 
@@ -1418,16 +1451,21 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr){
         var isRD = (dr===raceDateStr);
         var obj;
         if (isRD){
-          obj = { type:'race', title: profile.label+' Race Day', km: wk.raceDayKm,
-            desc:'Even effort through the first two-thirds, then give whatever is left. Target: Goal Pace throughout.', mpSegment:true };
+          obj = { type:'race', title: profile.label+' '+(hasEvent?'Race Day':'Goal Effort'), km: wk.raceDayKm,
+            desc: hasEvent
+              ? 'Even effort through the first two-thirds, then give whatever is left. Target: Goal Pace throughout.'
+              : 'The block culminates here. Even effort through the first two-thirds, then give whatever is left. Target: Goal Pace throughout.',
+            mpSegment:true };
         } else if (!activeSet[ir]){
           obj = { type:'rest', title:'Rest Day', km:0, desc:'Full rest.' };
         } else if (ir===qty1Day){
           obj = { type:'interval', title:'Sharpen: 6x100m Strides', km:perLeadUp,
             desc: dtok(Math.max(0,round1(perLeadUp-1)))+' @ Easy pace, then 6x100m relaxed strides w/ full recovery. Short and sharp.' };
         } else if (dr===addDays(raceDateStr,-1)){
-          obj = { type:'easy', title:'Pre-Race Shakeout', km:Math.min(4,perLeadUp),
-            desc:'Short and easy with a few relaxed strides. Lay out race kit, eat familiar food, sleep early.' };
+          obj = { type:'easy', title: hasEvent?'Pre-Race Shakeout':'Pre-Goal Shakeout', km:Math.min(4,perLeadUp),
+            desc: hasEvent
+              ? 'Short and easy with a few relaxed strides. Lay out race kit, eat familiar food, sleep early.'
+              : 'Short and easy with a few relaxed strides. Eat familiar food, sleep early.' };
         } else {
           obj = { type:'easy', title:'Easy Aerobic', km:perLeadUp, desc:dtok(perLeadUp)+' @ Easy pace.' };
         }
@@ -1560,7 +1598,7 @@ var TYPE_META = {
   interval:   { label:'Interval',    zoneKey:'I',   cls:'track' },
   repetition: { label:'Repetition',  zoneKey:'R',   cls:'track' },
   checkpoint: { label:'Checkpoint',  zoneKey:'T',   cls:'tuneup' },
-  race:       { label:'Race Day',    zoneKey:null,  cls:'race' }
+  race:       { label:'Race Day',    zoneKey:null,  cls:'race' }   // relabelled per-plan by dayTypeLabel()
 };
 
 /* =========================================================
@@ -2007,7 +2045,8 @@ function planSummary(st){
   if (!st || !st.setup) return 'empty plan';
   var p = DISTANCE_PROFILES[st.setup.distanceKey];
   var done = (st.days||[]).filter(function(d){ return d.completed; }).length;
-  return (p?p.label:'Plan')+', race '+(st.setup.raceDate||'?')+', '+done+' session'+(done===1?'':'s')+' logged';
+  return (p?p.label:'Plan')+', '+(planHasEvent(st.setup)?'race':'goal day')+' '+
+         (st.setup.raceDate||'?')+', '+done+' session'+(done===1?'':'s')+' logged';
 }
 // keepDevicePrefs: for a device that already has a plan, theme / km-mi / open
 // tab / notification toggle belong to the device, not the training block.
@@ -2661,7 +2700,7 @@ function renderCountdown(){
   if (!state.setup) return '';
   var target = new Date(state.setup.raceDate+'T00:00:00').getTime();
   var diff = Math.max(0, target-Date.now());
-  if (diff<=0) return '<div class="countdown"><span class="cd-race-day">Race Day \u2014 Go!</span></div>';
+  if (diff<=0) return '<div class="countdown"><span class="cd-race-day">'+vGoalDay()+' \u2014 Go!</span></div>';
   var days = Math.floor(diff/86400000);
   var hours = Math.floor((diff%86400000)/3600000);
   var mins = Math.floor((diff%3600000)/60000);
@@ -2725,7 +2764,7 @@ function renderHero(){
   if (!state.setup){
     html += '<div class="setup-cta">'+
       '<h2 class="font-display">Build Your Training Block</h2>'+
-      '<p>Pick a race distance, your current weekly mileage and a recent benchmark time \u2014 get a full VDOT-paced block for anything from a 5K to a 50K ultra.</p>'+
+      '<p>Pick a goal distance, your current weekly mileage and a recent benchmark time \u2014 get a full VDOT-paced block for anything from a 5K to a 50K ultra. An event is optional.</p>'+
       '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">'+ICONS.target+' Build My Plan</button>'+
     '</div></div>';
     return html;
@@ -2891,7 +2930,7 @@ function renderFuelingCard(dd){
       '<div class="fuel-row"><span class="k">Total carbs</span><span class="v font-mono">'+carbsLow+'\u2013'+carbsHigh+'g</span></div>'+
       '<div class="fuel-row"><span class="k">Gels / chews (\u224825g each)</span><span class="v font-mono">'+gelsLow+'\u2013'+gelsHigh+'</span></div>'+
       '<div class="fuel-row"><span class="k">Fluids</span><span class="v font-mono">'+fluidLow+'\u2013'+fluidHigh+'ml</span></div>'+
-      '<div class="fuel-hint">Dial this in during training \u2014 don\u2019t try anything new on race day.</div>'+
+      '<div class="fuel-hint">Dial this in during training \u2014 don\u2019t try anything new on '+vGoalDay().toLowerCase()+'.</div>'+
     '</div>'+
   '</details>';
 }
@@ -2977,9 +3016,9 @@ function renderDayCard(dd){
   var openCls = isDayExpanded(dd) ? ' open' : '';
   return '<div class="'+cls+openCls+'" id="day-'+dd.id+'" data-day="'+dd.id+'" draggable="true">'+
     '<div class="day-top" data-action="toggle-day" data-day="'+dd.id+'">'+
-      '<div class="day-check"><input type="checkbox" '+(dd.completed?'checked':'')+' '+(dd.type==='rest'?'disabled':'')+' data-action="toggle-complete" data-day="'+dd.id+'" aria-label="Mark session complete"></div>'+
+      renderDayCheck(dd)+
       '<div class="day-main">'+
-        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+tm.label+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
+        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
         '<div class="day-title">'+escapeHtml(dd.title)+'</div>'+
         '<div class="day-detail">'+
           (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
@@ -5138,7 +5177,7 @@ function trainingPhase(weekNum){
   var total = totalWeeksInPlan();
   if (!total || !weekNum) return 'Base';
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
-  if (wdays.some(function(dd){ return dd.type==='race'; })) return 'Race Week';
+  if (wdays.some(function(dd){ return dd.type==='race'; })) return vGoalWeek();
   if (isTaperWeek(weekNum)) return 'Taper';
   var frac = weekNum / total;
   return frac <= 0.40 ? 'Base' : frac <= 0.75 ? 'Build' : 'Peak';
@@ -5945,7 +5984,7 @@ function renderRaceReadinessCard(report){
   var goalBody = hqRow('Goal confidence', conf!=null ? conf+'%' : '—')+
     hqRow('Execution trend', report.trend.enough ? trendWord+(report.trend.delta?' ('+(report.trend.delta>0?'+':'')+report.trend.delta+')':'') : 'building history')+
     hqRow('Sessions logged', String(recent.sessionsLogged))+
-    hqRow('Race', su.raceDate ? dShort(su.raceDate)+(days!=null?' · '+days+' days':'') : '—')+
+    hqRow(vGoalDate(), su.raceDate ? dShort(su.raceDate)+(days!=null?' · '+days+' days':'') : '—')+
     hqRow('Phase', trainingPhase(currentWeekNum())+' · week '+currentWeekNum()+' of '+totalWeeksInPlan());
 
   var recoveryBody = hqRow('Recovery', { fresh:'Fresh', watch:'Watch', strained:'Strained' }[report.recovery.state])+
@@ -5995,12 +6034,37 @@ function renderRaceReadinessCard(report){
       (dec ? '<span class="coach-state '+COACH_DECISION_META[dec.state].cls+'"><span class="coach-state-dot"></span>'+
              COACH_DECISION_META[dec.state].label+'</span>' : '')+
     '</div>'+
-    hqSection('readiness','Race readiness', conf!=null?conf+'% confidence':'—', goalBody)+
+    hqSection('readiness',planHasEvent()?'Race readiness':'Goal readiness', conf!=null?conf+'% confidence':'—', goalBody)+
     hqSection('recovery','Recovery & fatigue', { fresh:'Fresh', watch:'Watch', strained:'Strained' }[report.recovery.state], recoveryBody)+
     hqSection('patterns','Recent patterns',
       shown.length ? shown.length+' noted' : 'learning', patternsBody)+
     hqSection('adaptation','Adaptation history', bts.length+' breakthrough'+(bts.length===1?'':'s'), adaptBody)+
   '</div>';
+}
+
+/* Ticking a session means "I did this today", so only today's box is
+   interactive. Past and future sessions still SHOW their state -- history is
+   never hidden or lost -- they simply cannot be toggled by a stray tap while
+   scrolling THIS WEEK or FULL PLAN. Automatic completion from an activity
+   import is unaffected: that is evidence, not a tap. */
+// The badge for the culminating session follows whether an event exists.
+function dayTypeLabel(dd){
+  var tm = TYPE_META[dd.type] || {};
+  return (dd.type==='race') ? vGoalDay() : (tm.label||dd.type);
+}
+function canToggleCompletion(dd){
+  return !!dd && dd.type!=='rest' && dd.date === todayStr();
+}
+function renderDayCheck(dd){
+  var locked = !canToggleCompletion(dd);
+  var why = dd.type==='rest' ? 'Rest day'
+          : dd.date > todayStr() ? 'Sessions are ticked off on the day they are run'
+          : dd.date < todayStr() ? 'Past sessions keep the record they were logged with'
+          : 'Mark session complete';
+  return '<div class="day-check'+(locked?' locked':'')+'">'+
+    '<input type="checkbox" '+(dd.completed?'checked':'')+' '+(locked?'disabled':'')+
+    ' data-action="toggle-complete" data-day="'+dd.id+'"'+
+    ' title="'+escapeHtml(why)+'" aria-label="'+escapeHtml(why)+'"></div>';
 }
 
 /* A single quiet word on the roadmap where a session is not simply "as
@@ -6052,7 +6116,7 @@ function weekPhaseLabel(weekNum){
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
   var hasCheckpoint = wdays.some(function(dd){ return dd.type==='checkpoint'; });
   var hasRace = wdays.some(function(dd){ return dd.type==='race'; });
-  if (hasRace) return 'Race Week';
+  if (hasRace) return vGoalWeek();
   if (hasCheckpoint) return 'Fitness Checkpoint';
   if (isTaperWeek(weekNum)) return 'Taper Phase';
   return 'Week '+weekNum;
@@ -6148,7 +6212,7 @@ function renderCheckpointCard(){
   }
   return '<div class="checkpoint">'+
     '<h3 class="font-display">Fitness Checkpoint</h3>'+
-    '<p>Week '+chkDay.week+' is your data point. Reconsider your Active Goal below \u2014 every workout pace and the race-day target update automatically.</p>'+
+    '<p>Week '+chkDay.week+' is your data point. Reconsider your Active Goal below \u2014 every workout pace and the '+vGoalDay().toLowerCase()+' target update automatically.</p>'+
     hint+
     renderGoalToggle()+
   '</div>';
@@ -6205,6 +6269,8 @@ function openSetupModal(){
   var benchTime = (su.benchmark && su.benchmark.timeSec) ? secToClock(su.benchmark.timeSec) : '';
   var vol = su.currentVolume!=null ? kmToDisplay(su.currentVolume) : '';
   var raceDate = su.raceDate || '';
+  var eventMode = planHasEvent(su) ? 'event' : 'none';
+  var blockWeeks = su.planWeeks || 14;
   var goals = su.goals || {};
   var schedule = su.schedule || { activeDays:[0,1,2,4,5], longRunDay:5 };
 
@@ -6229,7 +6295,7 @@ function openSetupModal(){
   var html = ''+
   '<div class="modal-head"><h2 class="font-head">Build Your Training Block</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
-    '<div class="setup-section-title">Target Race</div>'+
+    '<div class="setup-section-title">Your Goal</div>'+
     '<div class="field"><label>Units</label>'+
       '<div class="unit-toggle" role="group" aria-label="Distance units" id="su-units">'+
         '<button type="button" data-units="km" class="'+(state.units!=='mi'?'active':'')+'">KM</button>'+
@@ -6237,8 +6303,24 @@ function openSetupModal(){
       '</div>'+
       '<div class="field-hint">Applies everywhere once you generate — to switch units on an existing plan without regenerating, use the toggle in the header instead.</div>'+
     '</div>'+
-    '<div class="field"><label>Distance</label><select id="su-distance">'+distOptions+'</select></div>'+
-    '<div class="field"><label>Race Date</label><input type="date" id="su-racedate" value="'+raceDate+'"></div>'+
+    '<div class="field"><label>Goal Distance</label><select id="su-distance">'+distOptions+'</select>'+
+      '<div class="field-hint">The distance this block prepares you for. You do not need an event booked.</div>'+
+    '</div>'+
+    '<div class="field"><label>Do you have a target event?</label>'+
+      '<div class="unit-toggle" role="group" aria-label="Target event" id="su-event-toggle">'+
+        '<button type="button" data-action="set-event-mode" data-event-mode="event" class="'+(eventMode==='event'?'active':'')+'">Yes</button>'+
+        '<button type="button" data-action="set-event-mode" data-event-mode="none" class="'+(eventMode==='none'?'active':'')+'">No</button>'+
+      '</div>'+
+    '</div>'+
+    '<div id="su-event-box" data-mode="'+eventMode+'">'+
+      '<div class="field when-event"><label>Event Date</label><input type="date" id="su-racedate" value="'+raceDate+'">'+
+        '<div class="field-hint">Progression and taper anchor to this day.</div>'+
+      '</div>'+
+      '<div class="field when-none"><label>Training Block Length (weeks)</label>'+
+        '<input type="number" min="4" max="24" step="1" inputmode="numeric" id="su-weeks" value="'+blockWeeks+'">'+
+        '<div class="field-hint">A full distance-specific block, built and tapered to a culminating goal effort in the final week.</div>'+
+      '</div>'+
+    '</div>'+
     '<div class="field"><label id="su-volume-label">Current Weekly Volume ('+(state.units==='mi'?'mi':'km')+')</label><input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'"></div>'+
 
     '<div class="setup-section-title">Weekly Schedule</div>'+
@@ -6409,8 +6491,21 @@ function handleSuggestGoals(){
   showToast('Suggested A/B/C from your benchmark');
 }
 
+// Toggling the event question shows the matching field without re-rendering
+// the modal, so nothing already typed is lost.
+function handleSetEventMode(mode){
+  var m = (mode==='none') ? 'none' : 'event';
+  var box = document.getElementById('su-event-box');
+  if (box) box.setAttribute('data-mode', m);
+  var btns = document.querySelectorAll('#su-event-toggle button');
+  Array.prototype.forEach.call(btns, function(b){
+    b.classList.toggle('active', b.getAttribute('data-event-mode')===m);
+  });
+}
 function handleGeneratePlan(){
   var distanceKey = document.getElementById('su-distance').value;
+  var eventBox = document.getElementById('su-event-box');
+  var hasEvent = !eventBox || eventBox.getAttribute('data-mode')!=='none';
   var raceDate = document.getElementById('su-racedate').value;
   var unitsBox = document.getElementById('su-units');
   var chosenUnitsBtn = unitsBox ? unitsBox.querySelector('button.active') : null;
@@ -6429,11 +6524,21 @@ function handleGeneratePlan(){
   wdBoxes.forEach(function(cb){ if (cb.checked) activeDays.push(parseInt(cb.getAttribute('data-wd'),10)); });
   var longRunDay = parseInt(document.getElementById('su-longday').value,10);
 
-  if (!raceDate){ showToast('Pick a race date'); return; }
   if (!volume || volume<=0){ showToast('Enter your current weekly volume'); return; }
-  if (raceDate <= todayStr()){ showToast('Race date needs to be in the future'); return; }
   if (activeDays.length<3 || activeDays.length>6){ showToast('Pick between 3 and 6 running days'); return; }
   if (isNaN(longRunDay)){ showToast('Choose a long run day'); return; }
+  if (hasEvent){
+    if (!raceDate){ showToast('Pick an event date'); return; }
+    if (raceDate <= todayStr()){ showToast('Event date needs to be in the future'); return; }
+  } else {
+    // No event: the athlete chooses the block length and it culminates in a
+    // goal effort. The anchor date still exists internally so progression,
+    // taper and every date-based calculation work exactly as before.
+    var wks = parseInt(document.getElementById('su-weeks').value, 10);
+    if (isNaN(wks) || wks<4 || wks>24){ showToast('Choose a block length between 4 and 24 weeks'); return; }
+    var s0 = firstActiveDayOnOrAfter(todayStr(), activeDays);
+    raceDate = addDays(addDays(s0, -isoWeekday(s0)), wks*7 - 1);
+  }
 
   // The block always starts on the runner's very first available running day
   // from today -- never a hardcoded/default offset -- and its length is
@@ -6441,7 +6546,7 @@ function handleGeneratePlan(){
   // day and the race date, not a fixed weekly grid worked backward from race day.
   var startDate = firstActiveDayOnOrAfter(todayStr(), activeDays);
   if (raceDate < startDate){
-    showToast('Your first available running day falls after that race date \u2014 pick a later race date');
+    showToast('Your first available running day falls after that date \u2014 pick a later '+(hasEvent?'event date':'block length'));
     return;
   }
   var startMonday = addDays(startDate, -isoWeekday(startDate));
@@ -6463,10 +6568,11 @@ function handleGeneratePlan(){
   var profile = DISTANCE_PROFILES[distanceKey];
   var schedule = { activeDays:activeDays, longRunDay:longRunDay };
   var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks);
-  var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate);
+  var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);
 
   state.setup = {
-    distanceKey: distanceKey, currentVolume: volume, raceDate: raceDate, startDate: startDate, planWeeks: blockResult.planWeeks,
+    distanceKey: distanceKey, currentVolume: volume, raceDate: raceDate, hasEvent: hasEvent,
+    startDate: startDate, planWeeks: blockResult.planWeeks,
     schedule: schedule,
     benchmark: benchSec ? { distanceKey:benchDist, timeSec:benchSec } : (state.setup?state.setup.benchmark:null),
     goals: goals, activeGoal: activeGoal,
@@ -6588,7 +6694,7 @@ function openSettingsModal(){
     (state.setup ? (
       '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="open-setup">'+ICONS.target+' Edit Plan Settings</button>'+
-      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="open-pacing">'+ICONS.ruler+' Race Day Pacing Strategy</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="open-pacing">'+ICONS.ruler+' '+vGoalDay()+' Pacing Strategy</button>'+
       '<div class="divider-or"><div class="rule"></div>Export<div class="rule"></div></div>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-ics">'+ICONS.clock+' Export to iCal (.ics)</button>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="print-plan">'+ICONS.ruler+' Print / Save as PDF</button>'
@@ -6843,7 +6949,7 @@ function openPacingModal(){
     return '<tr><td>'+(isFinish?'Finish':fmtDist(cp))+'</td>'+cells+'</tr>';
   }).join('');
   var html = ''+
-  '<div class="modal-head"><h2 class="font-head">Race Day Pacing Strategy</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+  '<div class="modal-head"><h2 class="font-head">'+vGoalDay()+' Pacing Strategy</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
     '<div class="field-hint" style="margin-bottom:6px;">'+escapeHtml(profile.label)+' \u2014 even-effort cumulative splits for each goal.</div>'+
     '<table class="pace-table"><thead><tr><th>Checkpoint</th><th>Goal A</th><th>Goal B</th><th>Goal C</th></tr></thead><tbody>'+rows+'</tbody></table>'+
@@ -7145,7 +7251,7 @@ function generateExportText(){
   if (profile && state.setup){
     var goal = getActiveGoal();
     var vdot = getActiveVDOT();
-    lines.push(profile.label+' \u00b7 '+totalWeeksInPlan()+'-Week '+profile.blockName+' \u00b7 Race: '+dLong(state.setup.raceDate));
+    lines.push(profile.label+' \u00b7 '+totalWeeksInPlan()+'-Week '+profile.blockName+' \u00b7 '+vGoalDate()+': '+dLong(state.setup.raceDate));
     lines.push('Active Goal '+state.setup.activeGoal+': '+(goal?secToClock(goal.timeSec):'\u2014')+' (VDOT '+(vdot?vdot.toFixed(1):'\u2014')+')');
     var paces = getActivePaces();
     // ascending (fastest bound first), in the runner's own unit
@@ -7286,6 +7392,9 @@ function replaceCard(dd){
 function handleToggleComplete(dayId){
   var dd = findDay(dayId);
   if (!dd || dd.type==='rest') return;
+  // The rendered box is disabled for other days; this is the same rule
+  // enforced where it cannot be bypassed by a stale card or a crafted event.
+  if (!canToggleCompletion(dd)) return;
   dd.completed = !dd.completed;
   if (dd.completed && !dd.actual) dd.actual = { km:dd.km, pace:null, hr:null, rpe:null, notes:'' };
   else if (dd.completed && dd.actual && dd.actual.km==null) dd.actual.km = dd.km;
@@ -7573,7 +7682,7 @@ function renderProgrammeStatus(){
     '</div>'+
     '<div class="stat-row">'+
       '<div class="stat" id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>'+
-      '<div class="stat"><div class="l">Race Day</div><div id="countdown-mount">'+renderCountdown()+'</div></div>'+
+      '<div class="stat"><div class="l">'+vGoalDay()+'</div><div id="countdown-mount">'+renderCountdown()+'</div></div>'+
     '</div>';
 }
 function renderPlanHQView(){
@@ -7583,7 +7692,7 @@ function renderPlanHQView(){
     renderCoachPanel()+
     '<div id="planhq-stats-mount">'+renderPlanOverviewStats()+'</div>'+
     '<div class="plan-summary-bar" data-action="open-setup">'+
-      '<div class="psb-main"><div class="psb-title">Build New Block</div><div class="psb-sub">'+escapeHtml(profile.label)+' · '+fmtDist(state.setup.currentVolume)+'/wk start · Race '+dShort(state.setup.raceDate)+'</div></div>'+
+      '<div class="psb-main"><div class="psb-title">Build New Block</div><div class="psb-sub">'+escapeHtml(profile.label)+' · '+fmtDist(state.setup.currentVolume)+'/wk start · '+vGoalDate()+' '+dShort(state.setup.raceDate)+'</div></div>'+
       ICONS.chevronRight+
     '</div>'+
     renderCheckpointBanner()+
@@ -7675,7 +7784,7 @@ function renderSettingsHubView(){
       '<div class="setup-section-title">Training &amp; Zones</div>'+
       '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="open-setup">'+ICONS.target+' Edit Plan Settings</button>'+
-      '<button type="button" class="btn btn-ghost btn-block" data-action="open-pacing">'+ICONS.ruler+' Race Day Pacing Strategy</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="open-pacing">'+ICONS.ruler+' '+vGoalDay()+' Pacing Strategy</button>'+
     '</div>'+
     '<div class="hub-card">'+
       '<div class="setup-section-title">AI Coaching</div>'+
@@ -7766,6 +7875,7 @@ document.addEventListener('click', function(e){
     case 'close-modal': closeModal(); break;
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
     case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;
+    case 'set-event-mode': handleSetEventMode(target.getAttribute('data-event-mode')); break;
     case 'coach-why': handleCoachWhy(target.getAttribute('data-day')); break;
     case 'set-readiness': handleSetReadiness(target.getAttribute('data-rk'), target.getAttribute('data-rv')); break;
     case 'toggle-hq-section': handleToggleHQSection(target.getAttribute('data-section')); break;
