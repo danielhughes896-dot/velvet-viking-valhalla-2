@@ -226,6 +226,9 @@
   .fuel-row .v{color:var(--ink);}
   .fuel-hint{font-size:10.5px; color:var(--ink-faint); margin-top:6px; line-height:1.5;}
   .build-tag{text-align:center; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--ink-faint); opacity:.6; margin-top:18px;}
+  /* Hidden file inputs are moved off-screen rather than display:none -- an
+     Android WebView refuses to open the picker for an unrendered input. */
+  .file-input-offscreen{position:absolute; width:1px; height:1px; padding:0; margin:-1px; border:0; opacity:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
   .congrats-banner{
     margin:22px 0 8px; padding:28px 20px; text-align:center; border-radius:var(--radius-lg);
     background:linear-gradient(155deg, var(--bg-3), var(--bg-2)); border:2px solid var(--gold);
@@ -1477,9 +1480,56 @@ function isNativeApp(){
   try{ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
   catch(e){ return false; }
 }
-function nativeAppPlugin(){
-  try{ return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) || null; }
+function nativePlugin(name){
+  try{ return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins[name]) || null; }
   catch(e){ return null; }
+}
+function nativeAppPlugin(){ return nativePlugin('App'); }
+
+/* ---------- saving files out of the app ----------
+   A blob: download is a browser affordance. Inside the Android shell there is
+   no download manager behind it, so the link click does nothing at all and the
+   backup silently never arrives. On native, write the file into the app's own
+   cache and hand it to the system share sheet instead -- that is what lets it
+   land in Drive, Downloads or Files.
+
+   The plugin check matters beyond feature detection: the APK loads this page
+   from the live site, so an older installed build runs this code without the
+   Filesystem/Share plugins compiled in. Those fall back to the browser path,
+   which is exactly what they do today. */
+function canNativeShareFiles(){
+  return !!(isNativeApp() && nativePlugin('Filesystem') && nativePlugin('Share'));
+}
+function saveTextFile(o){
+  if (canNativeShareFiles()) return nativeSaveTextFile(o);
+  try{
+    var blob = new Blob([o.text], { type:o.mime });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = o.filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(o.done);
+  }catch(err){ showToast('Could not save the file — try again'); }
+  return Promise.resolve();
+}
+function nativeSaveTextFile(o){
+  var FS = nativePlugin('Filesystem'), Share = nativePlugin('Share');
+  // Directory.Cache / Encoding.UTF8 -- the string values the bridge expects,
+  // since the plugin's ESM enums are not loaded on this no-build-step page.
+  return FS.writeFile({ path:o.filename, data:o.text, directory:'CACHE', encoding:'utf8' })
+    .then(function(res){
+      // Only `url` and `title` -- passing `text` as well would make Android
+      // treat the whole thing as a plain-text share and drop the attachment.
+      return Share.share({ title:o.filename, url:res.uri, dialogTitle:o.dialog||'Save file' });
+    })
+    .then(function(){ showToast(o.done); })
+    .catch(function(err){
+      var msg = (err && (err.message || err.errorMessage)) || '';
+      // Backing out of the share sheet is an ordinary thing to do, not a fault.
+      if (/cancel/i.test(msg)) return;
+      showToast('Could not save the file — try again');
+    });
 }
 // In the browser the link must come back to the page that sent it; in the APK
 // it must come back to the app. Both have to be listed under Supabase ->
@@ -3414,8 +3464,8 @@ function openSettingsModal(){
     ) : '')+
     '<div class="divider-or"><div class="rule"></div>Backup<div class="rule"></div></div>'+
     '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-json">'+ICONS.download+' Export Full Backup (JSON)</button>'+
-    '<label class="btn btn-ghost btn-block" style="margin-bottom:8px;" for="import-json-input">'+ICONS.upload+' Import Backup (JSON)</label>'+
-    '<input type="file" accept="application/json" id="import-json-input" style="display:none;">'+
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="import-json" data-target="import-json-input">'+ICONS.upload+' Import Backup (JSON)</button>'+
+    '<input type="file" accept=".json,application/json" id="import-json-input" class="file-input-offscreen">'+
     '<div class="divider-or"><div class="rule"></div>Sync<div class="rule"></div></div>'+
     '<div class="connect-row"><div><div class="name">Strava &amp; Garmin</div><div class="desc">'+(isStravaConnected()?'Strava connected':'Connect or import a file')+'</div></div><button type="button" class="btn btn-sm btn-ghost" data-action="open-import">'+ICONS.link+' Tools &amp; Import</button></div>'+
     (state.setup ? (
@@ -3439,31 +3489,54 @@ function handleResetPlan(){
   showToast('Plan reset \u2014 build a new one whenever you\u2019re ready');
 }
 function handleExportJson(){
-  var blob = new Blob([JSON.stringify(state,null,2)], { type:'application/json' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href=url; a.download='velvet-viking-backup.json';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Backup downloaded');
+  saveTextFile({
+    filename:'velvet-viking-backup.json',
+    mime:'application/json',
+    text: JSON.stringify(state,null,2),
+    done: canNativeShareFiles() ? 'Backup saved' : 'Backup downloaded',
+    dialog:'Save your backup'
+  });
+}
+// The file input is off-screen rather than display:none -- an Android WebView
+// will not open the picker for an input it considers unrendered.
+function handleImportJsonClick(target){
+  var id = target && target.getAttribute && target.getAttribute('data-target');
+  var input = id ? document.getElementById(id) : null;
+  if (input) input.click();
 }
 function handleImportJsonFile(e){
-  var file = e.target.files && e.target.files[0];
+  var input = e.target;
+  var file = input.files && input.files[0];
   if (!file) return;
-  var reader = new FileReader();
-  reader.onload = function(){
+  // Clear the input so re-picking the same file fires change again.
+  var resetInput = function(){ try{ input.value = ''; }catch(err){} };
+  var finish = function(text){
     try{
-      var parsed = JSON.parse(reader.result);
+      var parsed = JSON.parse(text);
       if (!parsed.days || !Array.isArray(parsed.days)) throw new Error('bad shape');
       state = Object.assign({}, makeDefaultState(), parsed);
       closeModal();
       initExpanded();
       renderApp();
-      scheduleSave();
+      // Write straight through rather than on the debounce: an import is
+      // usually the first thing done on a fresh install, and the app may well
+      // be closed again immediately afterwards.
+      flushSave();
       showToast('Backup imported');
     }catch(err){ showToast('That file doesn\u2019t look like a Velvet Viking backup'); }
+    resetInput();
   };
-  reader.readAsText(file);
+  var readWithFileReader = function(){
+    var reader = new FileReader();
+    reader.onload = function(){ finish(reader.result); };
+    reader.onerror = function(){ showToast('Could not read that file'); resetInput(); };
+    reader.readAsText(file);
+  };
+  // Android's picker hands back a content:// backed File. Blob.text() reports
+  // a failure properly where FileReader can just sit silent, so prefer it and
+  // keep FileReader as the fallback for older WebViews.
+  if (typeof file.text === 'function') file.text().then(finish, readWithFileReader);
+  else readWithFileReader();
 }
 /* =========================================================
    RACE DAY PACING STRATEGY MODAL
@@ -3851,13 +3924,13 @@ function handleCopyExport(){
   } else fallbackCopy(ta);
 }
 function handleDownloadExport(){
-  var blob = new Blob([generateExportText()], { type:'text/plain' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url; a.download = 'velvet-viking-training-log.txt';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Log downloaded');
+  saveTextFile({
+    filename:'velvet-viking-training-log.txt',
+    mime:'text/plain',
+    text: generateExportText(),
+    done: canNativeShareFiles() ? 'Training log saved' : 'Log downloaded',
+    dialog:'Save your training log'
+  });
 }
 
 /* =========================================================
@@ -3886,13 +3959,13 @@ function generateICS(){
 }
 function handleExportICS(){
   if (!state.days.length){ showToast('Build a plan first'); return; }
-  var blob = new Blob([generateICS()], { type:'text/calendar;charset=utf-8' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url; a.download = 'velvet-viking-training-block.ics';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Calendar file downloaded \u2014 import it into Apple or Google Calendar');
+  saveTextFile({
+    filename:'velvet-viking-training-block.ics',
+    mime:'text/calendar;charset=utf-8',
+    text: generateICS(),
+    done:'Calendar file saved \u2014 import it into Apple or Google Calendar',
+    dialog:'Save your calendar file'
+  });
 }
 function handlePrintPlan(){
   if (!state.days.length){ showToast('Build a plan first'); return; }
@@ -4183,8 +4256,8 @@ function renderSettingsHubView(){
     '<div class="hub-card">'+
       '<div class="setup-section-title">Backup &amp; Reset</div>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-json">'+ICONS.download+' Export Full Backup (JSON)</button>'+
-      '<label class="btn btn-ghost btn-block" style="margin-bottom:14px;" for="import-json-input">'+ICONS.upload+' Import Backup (JSON)</label>'+
-      '<input type="file" accept="application/json" id="import-json-input" style="display:none;">'+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="import-json" data-target="import-json-input-hub">'+ICONS.upload+' Import Backup (JSON)</button>'+
+      '<input type="file" accept=".json,application/json" id="import-json-input-hub" class="file-input-offscreen">'+
       '<button type="button" class="btn btn-danger btn-block" data-action="reset-plan">'+ICONS.trash+' Reset Plan — Start Over</button>'+
     '</div>'+
     '<div class="build-tag">Build '+BUILD_ID+'</div>';
@@ -4266,6 +4339,7 @@ document.addEventListener('click', function(e){
     case 'suggest-goals': handleSuggestGoals(); break;
     case 'generate-plan': handleGeneratePlan(); break;
     case 'export-json': handleExportJson(); break;
+    case 'import-json': handleImportJsonClick(target); break;
     case 'set-units': handleSetUnits(target.getAttribute('data-units')); break;
     case 'apply-activity': handleApplyActivity(); break;
     case 'strava-connect': handleStravaConnect(); break;
@@ -4288,7 +4362,8 @@ document.addEventListener('click', function(e){
 
 document.addEventListener('change', function(e){
   var t = e.target;
-  if (t.id === 'import-json-input'){ handleImportJsonFile(e); return; }
+  // both the Settings modal and the Settings tab carry one of these
+  if (t.id && t.id.indexOf('import-json-input')===0){ handleImportJsonFile(e); return; }
   var actionEl = t.closest ? t.closest('[data-action]') : null;
   if (!actionEl) return;
   var action = actionEl.getAttribute('data-action');
