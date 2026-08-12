@@ -357,14 +357,6 @@
   .day-actions button:hover{color:var(--bronze); background:var(--bg-4);}
   .day-actions svg{width:16px; height:16px;}
 
-  /* expanded-card execution score -- prominent gold banner above the
-     logging fields, same visual language as .checkpoint-banner. */
-  .execution-score-banner{
-    display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px;
-    background:var(--c-gold-soft); border:1.5px solid var(--gold); border-radius:var(--radius-sm); padding:10px 14px;
-  }
-  .esb-label{font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-dim);}
-  .esb-pct{font-size:20px; font-weight:800; color:var(--gold);}
   .actual-panel{margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); display:grid; grid-template-columns:1fr 1fr; gap:8px;}
   .actual-field{display:flex; flex-direction:column; gap:3px;}
   .actual-field label{font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint);}
@@ -411,14 +403,18 @@
 
   /* ---------- AI post-session execution review ---------- */
   .exec-review-card{margin-top:10px; padding:11px 12px; background:var(--bg-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
-  .exec-review-head{display:flex; align-items:center; gap:6px; font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze); margin-bottom:8px;}
-  .exec-review-head svg{width:14px; height:14px;}
-  .exec-review-src{margin-left:auto; font-size:9px; text-transform:none; letter-spacing:0; color:var(--ink-faint); background:var(--bg-3); border-radius:99px; padding:2px 7px;}
-  .exec-review-body{display:flex; align-items:center; gap:12px;}
-  .exec-review-score{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:20px; flex:none; min-width:52px; text-align:center; border-radius:10px; padding:6px 4px;}
-  .exec-review-score.good{color:var(--c-easy); background:var(--c-easy-soft);}
-  .exec-review-score.ok{color:var(--c-tempo); background:var(--c-tempo-soft);}
-  .exec-review-score.low{color:var(--c-threshold); background:var(--c-threshold-soft);}
+  .exec-review-head{display:flex; align-items:center; gap:8px; font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze); margin-bottom:8px;}
+  .exec-review-head svg{width:14px; height:14px; flex:none;}
+  /* title yields first so the badge can never be pushed off or overlapped
+     on a narrow phone; the badge itself never shrinks */
+  .exec-review-head>span:first-of-type{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .exec-review-badge{
+    margin-left:auto; flex:none; font-weight:700; font-size:13px; letter-spacing:0;
+    text-transform:none; padding:3px 10px; border-radius:99px;
+  }
+  .exec-review-badge.good{color:var(--c-easy); background:var(--c-easy-soft);}
+  .exec-review-badge.ok{color:var(--c-tempo); background:var(--c-tempo-soft);}
+  .exec-review-badge.low{color:var(--c-threshold); background:var(--c-threshold-soft);}
   .exec-review-summary{font-size:12.5px; color:var(--ink-dim); line-height:1.45;}
   /* component breakdown -- shows how the single score was reached */
   .exec-parts{display:flex; flex-wrap:wrap; gap:6px 10px; margin-top:9px; padding-top:8px; border-top:1px solid var(--line-soft);}
@@ -2432,23 +2428,17 @@ function renderFuelingCard(dd){
   '</details>';
 }
 
-// The score has three presentations -- collapsed pill, expanded banner and
-// the review block -- all reading the one computeExecutionScore. Each sits
-// in its own always-present mount so a logged field change can refresh them
-// in place, without replacing the card and stealing focus mid-entry.
+// Two presentations of the one computeExecutionScore: the at-a-glance pill
+// in the card header, and the badge in the Execution Review header. Each
+// sits in its own always-present mount so a logged field change can refresh
+// them in place, without replacing the card and stealing focus mid-entry.
 function renderExecutionPill(dd){
   var s = computeExecutionScore(dd);
   return s==null ? '' : '<span class="exec-pill font-mono">'+s+'% EXEC</span>';
 }
-function renderExecutionBanner(dd){
-  var s = computeExecutionScore(dd);
-  return s==null ? '' : '<div class="execution-score-banner"><span class="esb-label font-head">Execution Score</span><span class="esb-pct font-mono">'+s+'%</span></div>';
-}
 function patchExecutionUI(dd){
   var pill = document.getElementById('exec-pill-'+dd.id);
   if (pill) pill.innerHTML = renderExecutionPill(dd);
-  var banner = document.getElementById('exec-banner-'+dd.id);
-  if (banner) banner.innerHTML = renderExecutionBanner(dd);
   var review = document.getElementById('exec-review-'+dd.id);
   if (review) review.innerHTML = renderExecutionReview(dd);
 }
@@ -2466,8 +2456,7 @@ function renderDayCard(dd){
   var actualHtml = '';
   if (dd.completed){
     var a = dd.actual || {};
-    actualHtml = '<div id="exec-banner-'+dd.id+'">'+renderExecutionBanner(dd)+'</div>'+
-    '<div class="actual-panel">'+
+    actualHtml = '<div class="actual-panel">'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg Pace /'+displayUnit()+'</label><input type="text" placeholder="m:ss" value="'+(a.pace||'')+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'+
@@ -2721,12 +2710,14 @@ function renderExecutionReview(dd){
     return '<span class="exec-part'+(p.score==null?' exec-part-off':'')+'">'+p.label+' '+val+
       ' <span class="exec-part-w">×'+Math.round(p.weight*100)+'%</span></span>';
   }).join('');
+  // Score lives in the header as a compact badge -- it used to also appear
+  // as a standalone gold banner above the logging fields, which meant the
+  // same number was on screen twice inside one card.
   return '<div class="exec-review-card">'+
-    '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span><span class="exec-review-src">Auto-Coach</span></div>'+
-    '<div class="exec-review-body">'+
-      '<div class="exec-review-score '+band+'">'+b.score+'%</div>'+
-      '<div class="exec-review-summary">'+escapeHtml(composeExecutionNotes(dd, b))+'</div>'+
+    '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span>'+
+      '<span class="exec-review-badge '+band+' font-mono">'+b.score+'%</span>'+
     '</div>'+
+    '<div class="exec-review-summary">'+escapeHtml(composeExecutionNotes(dd, b))+'</div>'+
     '<div class="exec-parts">'+breakdown+'</div>'+
   '</div>';
 }
