@@ -1445,6 +1445,7 @@ var SUPABASE_URL = 'https://eqiydxissphygnycpouu.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_PLiExuCqvMmjYwal4DtFQA_m4eZuCd-';
 var CLOUD_SESSION_KEY = 'vvv_cloud_session';
 var CLOUD_BACKUP_KEY = 'vvv_cloud_displaced_plan';
+var CLOUD_SYNC_KEY = 'vvv_cloud_last_sync';   // { updated_at, signature }
 var cloudSession = null;   // { access_token, refresh_token, expires_at, email, user_id }
 var cloudStatus = 'off';   // off | signed-out | syncing | synced | error
 var cloudPushTimer = null;
@@ -1698,6 +1699,10 @@ function handleCloudDeleteAccount(){
 function cloudSignOut(){
   cloudSession = null;
   writeStored(CLOUD_SESSION_KEY, null);
+  // The mark records agreement with one account's row; signing in as someone
+  // else must not inherit it, or the first reconcile would silently pick a
+  // winner on the strength of a comparison that no longer applies.
+  writeStored(CLOUD_SYNC_KEY, null);
   cloudStatus = 'signed-out';
   patchCloudCard();
   showToast('Signed out — your plan stays on this device');
@@ -1712,11 +1717,25 @@ function cloudGetPlan(){
 }
 function cloudPutPlan(){
   if (!cloudSignedIn() || !cloudSession.user_id) return Promise.resolve();
+  var sig = planContentSignature(state);
   return cloudFetch('/rest/v1/plans', {
     method:'POST',
-    headers:{ 'Prefer':'resolution=merge-duplicates,return=minimal' },
+    // return=representation so the row comes back and the sync mark can record
+    // the timestamp the server actually stored, rather than this device's clock
+    // -- the next launch then compares against the same value it will be handed.
+    headers:{ 'Prefer':'resolution=merge-duplicates,return=representation' },
     body: JSON.stringify({ user_id:cloudSession.user_id, data:state, updated_at:new Date().toISOString() })
-  }).then(function(resp){ if (!resp.ok) throw new Error('push failed'); });
+  }).then(function(resp){
+    if (!resp.ok) throw new Error('push failed');
+    return resp.json().then(function(rows){
+      var row = rows && rows[0];
+      writeSyncMark(row && row.updated_at, sig);
+    }, function(){
+      // Body missing or unparseable: the write still landed, and the signature
+      // is the part that matters for deciding who moved next time.
+      writeSyncMark(null, sig);
+    });
+  });
 }
 // Debounced so a burst of log edits produces one upload, and always fired
 // AFTER the local write -- local is the source of truth, the cloud a mirror.
@@ -1732,6 +1751,47 @@ function scheduleCloudPush(){
   }, 1500);
 }
 
+/* ---------- what makes two plans "the same plan" ----------
+   The old check compared JSON.stringify of the entire state, which folded in
+   things that are not the plan at all: which tab was open, the theme, km/mi,
+   the notification toggle, and each day's aiReview.ts (a per-device timestamp
+   on a derived value). Open the app on a different tab from the one that was
+   pushed and the two blobs differ, so the conflict modal fired on every single
+   launch even though nothing about the training had changed.
+
+   The signature below covers the training content only, with keys sorted so a
+   round trip through storage cannot reorder its way into a false conflict. */
+function stableStringify(v){
+  if (v===null || typeof v!=='object') return JSON.stringify(v===undefined ? null : v);
+  if (Array.isArray(v)) return '['+v.map(stableStringify).join(',')+']';
+  return '{'+Object.keys(v).sort().map(function(k){
+    return JSON.stringify(k)+':'+stableStringify(v[k]);
+  }).join(',')+'}';
+}
+function nz(v){ return v===undefined ? null : v; }
+function planContentSignature(st){
+  if (!st || !st.setup || !st.days) return 'empty';
+  return stableStringify({
+    setup: st.setup,                       // race date, goals, zones, schedule
+    days: st.days.map(function(d){
+      return {
+        id:nz(d.id), date:nz(d.date), week:nz(d.week), type:nz(d.type),
+        title:nz(d.title), km:nz(d.km), desc:nz(d.desc), mpSegment:!!d.mpSegment,
+        completed:!!d.completed,
+        actual: d.actual ? { km:nz(d.actual.km), pace:nz(d.actual.pace), hr:nz(d.actual.hr),
+                             rpe:nz(d.actual.rpe), notes:nz(d.actual.notes) } : null
+      };
+    })
+  });
+}
+// What this device last agreed with the server about: the row's own timestamp
+// as the server returned it, plus the content signature at that moment. Having
+// the signature is what lets a later divergence be attributed to one side.
+function readSyncMark(){ return readStored(CLOUD_SYNC_KEY) || null; }
+function writeSyncMark(updatedAt, signature){
+  writeStored(CLOUD_SYNC_KEY, { updated_at:updatedAt||null, signature:signature });
+}
+
 /* ---------- reconcile ---------- */
 function planSummary(st){
   if (!st || !st.setup) return 'empty plan';
@@ -1739,9 +1799,24 @@ function planSummary(st){
   var done = (st.days||[]).filter(function(d){ return d.completed; }).length;
   return (p?p.label:'Plan')+', race '+(st.setup.raceDate||'?')+', '+done+' session'+(done===1?'':'s')+' logged';
 }
-function adoptCloudState(remote){
+// keepDevicePrefs: for a device that already has a plan, theme / km-mi / open
+// tab / notification toggle belong to the device, not the training block.
+// Carrying the other device's across would make a quiet background sync
+// visibly change the app under the user. A brand-new device has no
+// preferences worth keeping, so there it takes the account's.
+function adoptCloudState(remote, keepDevicePrefs){
   writeStored(CLOUD_BACKUP_KEY, state);   // never discard what was already here
+  var prefs = keepDevicePrefs ? {
+    theme: state.theme, units: state.units,
+    view: state.view, notifyEnabled: state.notifyEnabled
+  } : null;
   state = remote;
+  if (prefs){
+    if (prefs.theme!=null) state.theme = prefs.theme;
+    if (prefs.units!=null) state.units = prefs.units;
+    if (prefs.view!=null) state.view = prefs.view;
+    if (prefs.notifyEnabled!=null) state.notifyEnabled = prefs.notifyEnabled;
+  }
   if (state.view==='detailed') state.view='planhq';
   if (!state.view) state.view='today';
   if (state.notifyEnabled==null) state.notifyEnabled=false;
@@ -1763,21 +1838,53 @@ function cloudReconcile(){
       return seed.then(patchCloudCard);
     }
     if (!localHasPlan){
-      adoptCloudState(remote);                      // a new device pulls the plan down
+      adoptCloudState(remote, false);               // a new device pulls the plan down
+      writeSyncMark(row.updated_at, planContentSignature(state));
       cloudStatus='synced'; patchCloudCard();
       showToast('Plan restored from your account');
       return;
     }
-    if (JSON.stringify(remote)===JSON.stringify(state)){
+
+    var localSig  = planContentSignature(state);
+    var remoteSig = planContentSignature(remote);
+
+    // Same training content on both sides. Timestamps and device preferences
+    // can differ all they like -- there is nothing here to resolve.
+    if (localSig===remoteSig){
+      writeSyncMark(row.updated_at, localSig);
       cloudStatus='synced'; patchCloudCard();
       return;
     }
-    // Two different real plans. Never guess -- ask, and keep the loser.
+
+    // The content genuinely differs. Compare each side against what this
+    // device last synced: if only one of them moved, that side simply wins and
+    // no question needs asking.
+    var mark = readSyncMark();
+    var base = mark && mark.signature;
+    if (base===localSig){
+      // this device has logged nothing new; the account has. Take it.
+      adoptCloudState(remote, true);
+      writeSyncMark(row.updated_at, remoteSig);
+      cloudStatus='synced'; patchCloudCard();
+      showToast('Updated from your account');
+      return;
+    }
+    if (base===remoteSig){
+      // the account is untouched since last sync; this device has new work.
+      return cloudPutPlan().then(function(){
+        cloudStatus='synced'; patchCloudCard();
+      }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
+    }
+
+    // Both sides moved since the last sync (or this device has never synced,
+    // so there is no way to tell). Only now is it a real conflict: never
+    // guess, ask -- and keep the loser.
     openCloudConflictModal(remote, row.updated_at);
   }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
 }
 function openCloudConflictModal(remote, remoteUpdated){
   window.__cloudPendingRemote = remote;
+  window.__cloudPendingRemoteUpdated = remoteUpdated || null;
   openModal(''+
   '<div class="modal-head"><h2 class="font-head">Two plans found</h2></div>'+
   '<div class="modal-body">'+
@@ -1793,6 +1900,7 @@ function openCloudConflictModal(remote, remoteUpdated){
 function handleCloudKeepLocal(){
   closeModal();
   window.__cloudPendingRemote = null;
+  window.__cloudPendingRemoteUpdated = null;
   cloudPutPlan().then(function(){
     cloudStatus='synced'; patchCloudCard();
     showToast('This device’s plan is now the one in your account');
@@ -1800,9 +1908,15 @@ function handleCloudKeepLocal(){
 }
 function handleCloudKeepRemote(){
   var remote = window.__cloudPendingRemote;
+  var remoteUpdated = window.__cloudPendingRemoteUpdated;
   window.__cloudPendingRemote = null;
+  window.__cloudPendingRemoteUpdated = null;
   closeModal();
-  if (remote) adoptCloudState(remote);
+  if (remote){
+    adoptCloudState(remote, true);
+    // Record the agreement, or the same conflict is raised again next launch.
+    writeSyncMark(remoteUpdated, planContentSignature(state));
+  }
   cloudStatus='synced'; patchCloudCard();
   showToast('Switched to your account’s plan — the other is backed up on this device');
 }
