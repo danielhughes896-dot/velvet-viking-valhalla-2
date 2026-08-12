@@ -5062,12 +5062,25 @@ function evolutionConfidence(dec, trends, recoverable){
 function evolutionChanges(stateName, phase, pending, recoverable){
   var out = [];
   var byDate = pending.slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
-  /* A session the coach has already reshaped is settled, and is never a
+  /* What evolution is allowed to touch at all.
+
+     A session the coach has already reshaped is settled, and is never a
      candidate again. Without this the same day is re-cut to 70% of its new
      length on every render, and a plan quietly collapses one acceptance at a
-     time -- which is the opposite of protecting the block. `byDate` is still
-     used wherever the FULL shape of the week matters, such as spacing. */
-  var open = byDate.filter(function(dd){ return !dd.coachAdjust; });
+     time -- which is the opposite of protecting the block.
+
+     A race or a checkpoint is never touched. They are the point of the block,
+     not a stimulus to be traded against recovery, and the percentage
+     arithmetic that makes sense for a threshold session is meaningless
+     applied to them -- "Race Day -> easy 29.5km" is not coaching. When racing
+     is genuinely a bad idea the coach already says so in its own voice, which
+     is a conversation to have, not a one-tap plan edit.
+
+     `byDate` is still used wherever the FULL shape of the week matters, such
+     as spacing, so a protected session is still counted as the hard day it is. */
+  var open = byDate.filter(function(dd){
+    return !dd.coachAdjust && dd.type!=='race' && dd.type!=='checkpoint';
+  });
 
   // ---- RECOVER: protect the next demanding session, and only that ----
   if (stateName==='RECOVER'){
