@@ -4196,6 +4196,18 @@ function coachDecision(){
   var positives = trends.filter(function(t){ return t.direction==='positive'; });
   var adjusted = (positives.length && !safety) ? Math.max(0, score - 1) : score;
 
+  /* Phase 6 contributes NO evidence of its own: every dimension it reads is
+     already counted above, so adding it to `raw` would count one underlying
+     signal a second time under a longer name. What a multi-week conclusion
+     legitimately changes is how much confidence the existing evidence
+     deserves -- a strained block makes an already-corroborated concern more
+     actionable, an adapting block makes a borderline one less so. */
+  var block = blockEffectiveness();
+  if (block && !safety){
+    if (block.state==='STRAINED' && independent >= 2) adjusted += 1;
+    else if (block.state==='ADAPTING') adjusted = Math.max(0, adjusted - 1);
+  }
+
   // MODIFY needs more than one independent line of evidence: a single
   // corroborated concern is a reason to check, not to rewrite the session.
   var st = safety ? 'recover'
@@ -4226,6 +4238,8 @@ function coachDecision(){
     // show history only when history mattered
     materialTrends: material,
     positives: positives,
+    // long-horizon context, reported so WHY? can show it; never an evidence item
+    block: block ? { state:block.state, phase:block.phase } : null,
     recommendation: coachDecisionSentence(st, tier, ev, positives, nxt, quality),
     // The readiness prompt is earned, not permanent: it appears only when the
     // recent evidence already says something, and only before quality work.
@@ -5340,6 +5354,389 @@ function personalResponseTrends(){
 }
 
 /* =========================================================
+   PHASE 6 — TRAINING EFFECTIVENESS / BLOCK INTELLIGENCE
+   ---------------------------------------------------------
+   One question, asked over weeks rather than days: is the block producing the
+   adaptation it was designed to produce?
+
+   It is deliberately the slowest layer in the app. Execution Review judges a
+   session, Phase 4 reshapes a week, Phase 5 learns the athlete -- Phase 6
+   judges the PROGRAMME, and a programme cannot be judged on one run, one bad
+   week, or one flattering session.
+
+   It owns no measurements of its own. Every dimension below is read from the
+   layer that already owns it:
+     easyHRBaseline()        easy-run heart rate
+     athleteResponseModel()  personal baselines and recovery timing (Phase 5)
+     athleteTrends()         detected patterns
+     trainingPhase()         what this part of the block is FOR
+   Creating a second recovery baseline or a second HR baseline here would put
+   two numbers behind one idea, which is the mistake the whole architecture is
+   built to avoid.
+
+   It never mutates a workout. It produces a state and its reasons; any actual
+   plan change still has to pass Phase 4's conservative rules and the athlete's
+   tap.
+   ========================================================= */
+var BLOCK_WINDOW_DAYS = 28;
+var BLOCK_MODEL_VERSION = 1;
+var BLOCK_MIN_SESSIONS = 8;          // a month of real training, not a fortnight
+var BLOCK_MIN_SESSIONS_TAPER = 5;    // taper weeks legitimately carry fewer
+var BLOCK_META = {
+  LEARNING:   { label:'Learning',   cls:'proceed',
+                text:'Not enough longitudinal evidence yet to judge the block.' },
+  RESPONDING: { label:'Responding', cls:'proceed',
+                text:'Training is being absorbed, with early positive evidence.' },
+  ADAPTING:   { label:'Adapting',   cls:'proceed',
+                text:'The current structure is producing the intended response.' },
+  PLATEAU:    { label:'Plateau',    cls:'check',
+                text:'Exposure is there, but the expected adaptation has stalled.' },
+  STRAINED:   { label:'Strained',   cls:'modify',
+                text:'Training cost is running ahead of productive absorption.' }
+};
+
+/* ---------- which dimensions this part of the block is actually about ----------
+   A flat threshold response in Base is not a stalled block: base training is
+   not trying to move threshold yet. Phase changes what counts toward a stall,
+   never whether evidence is true. */
+function blockDimensionRelevance(id, phase){
+  if (phase==='Taper' || phase==='Race Week' || phase==='Final Week')
+    return id==='checkpoint' ? 'primary' : 'context';
+  if (phase==='Base')  return id==='quality' ? 'context' : 'primary';
+  if (phase==='Peak')  return id==='easy' ? 'context' : 'primary';
+  return 'primary';
+}
+// A trend, if it is present and confident enough to mean anything.
+function blockTrend(trends, ids){
+  return (trends||[]).filter(function(t){
+    return ids.indexOf(t.id)!==-1 && t.confidence!=='insufficient';
+  })[0] || null;
+}
+
+/* ---------- block-scale change ----------
+   The trend layer asks "is the last fortnight different from the weeks just
+   before it", which is the right question for a WEEK and the wrong one for a
+   BLOCK: an athlete who improves steadily for two months never trips it,
+   because each improvement quietly becomes the new normal. Without this, a
+   genuinely improving block reads as a plateau.
+
+   This is not a second baseline and nothing consults it as one. It holds no
+   number, answers only "did this move across the window", and reads the same
+   records through the same exclusions the rest of the app uses. Phase 5 owns
+   what is normal for the athlete; this owns whether that normal has shifted. */
+function blockDirection(records, pick, lowerIsBetter, minChange){
+  var usable = records.filter(function(r){ return pick(r)!=null; })
+                      .sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  /* Two observations either side is the floor. A 28-day window holds only
+     about four quality sessions and four long runs, so demanding more would
+     leave those dimensions permanently silent and push every athlete toward
+     a plateau verdict they have not earned. The change thresholds below, and
+     the trend layer taking precedence, are what keep this honest. */
+  if (usable.length < 4) return null;
+  var half = Math.floor(usable.length/2);
+  var early = usable.slice(0, half).map(pick);
+  var late  = usable.slice(usable.length-half).map(pick);
+  var a = median(early), b = median(late);
+  if (a==null || b==null || !a) return null;
+  var delta = b - a;
+  if (Math.abs(delta) < minChange) return 'flat';
+  var better = lowerIsBetter ? delta < 0 : delta > 0;
+  /* A block verdict may never rest on one session. Over a short window two
+     observations make a median, and a single disastrous or flattering run can
+     drag it on its own -- so the direction has to be confirmed by MOST of the
+     recent half individually sitting on that side of where the block started.
+     Applied identically to improvement and deterioration. */
+  var confirms = late.filter(function(v){
+    return better === (lowerIsBetter ? v < a : v > a);
+  }).length;
+  if (confirms < 2 || confirms < Math.ceil(late.length/2)) return 'flat';
+  return better ? 'positive' : 'negative';
+}
+// bpm per minute-per-km: what a given easy pace is costing this athlete.
+function blockEasyCost(r){
+  return (hrIsReadable(r) && r.actualPace) ? r.hr / (r.actualPace/60) : null;
+}
+
+/* ---------- the five dimensions ----------
+   Each returns a direction or null. Null means "no read" -- not "flat".
+   Silence and a stall are different findings and are never merged. */
+function blockRecords(excludeDate){
+  /* The block's own horizon, with the exclusions the whole app already
+     applies: illness and pain are safety, never adaptation evidence. */
+  return athleteMemory(BLOCK_WINDOW_DAYS).filter(function(r){
+    var e = r.environment || {};
+    return r.completed && r.type!=='rest' && !e.illness && !e.pain &&
+           (!excludeDate || Math.abs(daysBetween(r.date, excludeDate)) > 3);
+  });
+}
+/* Neither one session nor one week may carry a block verdict. Before STRAINED
+   is declared the same evidence is re-read with the WEEK around the window's
+   worst session removed -- from the block-scale comparisons, and from any
+   trend whose entire evidence sits in that week's shadow.
+
+   One poor run can make two dimensions look negative at once: it drags the
+   quality comparison and, because a single rough day falls inside the recovery
+   window of several preceding hard sessions, the recovery pattern too. And one
+   hard week can do the same across five. Two readings of one bad week is not a
+   strained block -- a block is judged on repeated evidence or not at all. */
+function blockWorstSession(){
+  var recs = blockRecords().filter(function(r){ return r.executionScore!=null; });
+  if (!recs.length) return null;
+  return recs.slice().sort(function(a,b){ return a.executionScore - b.executionScore; })[0];
+}
+function blockTrendsExcluding(trends, date){
+  if (!date) return trends || [];
+  return (trends||[]).filter(function(t){
+    var d = t.evidenceDates || [];
+    if (!d.length) return true;
+    return !d.every(function(x){ return Math.abs(daysBetween(x, date)) <= 3; });
+  });
+}
+function blockDimensions(model, trends, excludeDate){
+  var out = [];
+  var add = function(id, label, direction, detail, samples){
+    out.push({ id:id, label:label, direction:direction, detail:detail, samples:samples||0 });
+  };
+
+  // A. easy aerobic efficiency -- owned by easyHRBaseline() and the easy trends
+  (function(){
+    var b = easyHRBaseline();
+    if (!b.sufficient){ add('easy','Easy aerobic efficiency', null, 'Not enough comparable easy runs.', b.samples); return; }
+    var up   = blockTrend(trends, ['easy_hr_improved','easy_efficiency_up']);
+    var down = blockTrend(trends, ['easy_hr_elevated','easy_efficiency_down']);
+    if (up)   return add('easy','Easy aerobic efficiency','positive', up.detail, b.samples);
+    if (down) return add('easy','Easy aerobic efficiency','negative', down.detail, b.samples);
+    var easies = blockRecords(excludeDate).filter(function(r){ return r.type==='easy'; });
+    var dir = blockDirection(easies, blockEasyCost, true, 1.5);
+    if (dir==='positive') return add('easy','Easy aerobic efficiency','positive',
+      'Easy pace is costing less heart rate than it did earlier in the block.', b.samples);
+    if (dir==='negative') return add('easy','Easy aerobic efficiency','negative',
+      'Easy pace is costing more heart rate than it did earlier in the block.', b.samples);
+    add('easy','Easy aerobic efficiency','flat','Easy aerobic response is holding steady.', b.samples);
+  })();
+
+  // B. quality response -- Phase 5's per-family knowledge, not a new baseline
+  (function(){
+    var fams = ['threshold','tempo','interval','repetition'];
+    var n = fams.reduce(function(s,f){
+      return s + ((model && model.families[f]) ? model.families[f].comparableSessions : 0); }, 0);
+    var known = fams.some(function(f){
+      return model && model.families[f] && model.families[f].confidence!=='insufficient'; });
+    if (!known || n < 3){ add('quality','Quality session response', null, 'Not enough comparable quality sessions.', n); return; }
+    var up   = blockTrend(trends, ['rpe_lower_quality','execution_consistent']);
+    var down = blockTrend(trends, ['rpe_elevated_quality','execution_declining']);
+    if (down) return add('quality','Quality session response','negative', down.detail, n);
+    if (up)   return add('quality','Quality session response','positive', up.detail, n);
+    var qual = blockRecords(excludeDate).filter(function(r){ return fams.indexOf(r.type)!==-1; });
+    var byRpe = blockDirection(qual, function(r){ return r.rpe; }, true, 0.5);
+    var byExec = blockDirection(qual, function(r){ return r.executionScore; }, false, 5);
+    if (byRpe==='positive' || byExec==='positive')
+      return add('quality','Quality session response','positive',
+        'Quality work is being completed at a lower relative cost than earlier in the block.', n);
+    if (byRpe==='negative' || byExec==='negative')
+      return add('quality','Quality session response','negative',
+        'Quality work is costing more, or landing further from prescription, than earlier in the block.', n);
+    add('quality','Quality session response','flat','Quality work is landing about where it has been.', n);
+  })();
+
+  // C. long-run durability
+  (function(){
+    var f = model && model.longRun;
+    var n = f ? f.comparableSessions : 0;
+    if (!f || f.confidence==='insufficient'){ add('long','Long-run durability', null, 'Not enough comparable long runs.', n); return; }
+    var up   = blockTrend(trends, ['rpe_lower_long','post_long_run_recovery_improved']);
+    var down = blockTrend(trends, ['rpe_elevated_long','post_long_run_recovery']);
+    if (down) return add('long','Long-run durability','negative', down.detail, n);
+    if (up)   return add('long','Long-run durability','positive', up.detail, n);
+    var longs = blockRecords(excludeDate).filter(function(r){ return r.type==='long'; });
+    var dirL = blockDirection(longs, function(r){ return r.rpe; }, true, 0.5);
+    if (dirL==='positive') return add('long','Long-run durability','positive',
+      'Long runs are being held at a lower effort than earlier in the block.', n);
+    if (dirL==='negative') return add('long','Long-run durability','negative',
+      'Long runs are costing more effort than they did earlier in the block.', n);
+    add('long','Long-run durability','flat','Long runs are being completed as prescribed.', n);
+  })();
+
+  // D. recovery / absorption -- read entirely from Phase 5's personal timing
+  (function(){
+    var pats = (model && model.recoveryPatterns) || [];
+    var windows = pats.reduce(function(s,r){ return s + r.windows; }, 0);
+    if (!pats.length || windows < 3){ add('recovery','Recovery and absorption', null, 'Not enough logged recovery evidence.', windows); return; }
+    var down = blockTrend(trends, ['recovery_slower_than_personal','post_hard_recovery','feel_negative','readiness_poor']);
+    var up   = blockTrend(trends, ['recovery_faster_than_personal','feel_positive']);
+    if (down) return add('recovery','Recovery and absorption','negative', down.detail, windows);
+    if (up)   return add('recovery','Recovery and absorption','positive', up.detail, windows);
+    add('recovery','Recovery and absorption','flat','Recovery is landing within your established normal.', windows);
+  })();
+
+  // E. checkpoint / benchmark -- the strongest single explicit recalibration
+  (function(){
+    var from = addDays(todayStr(), -BLOCK_WINDOW_DAYS);
+    var chk = state.days.filter(function(dd){
+      return (dd.type==='checkpoint' || dd.type==='race') && dd.completed &&
+             dd.date >= from && dd.date <= todayStr();
+    });
+    if (!chk.length){ add('checkpoint','Checkpoint', null, 'No checkpoint in this window.', 0); return; }
+    var scores = chk.map(function(dd){ return computeExecutionScore(dd); })
+                    .filter(function(v){ return v!=null; });
+    if (!scores.length){ add('checkpoint','Checkpoint', null, 'Checkpoint logged without enough detail to read.', chk.length); return; }
+    var best = Math.max.apply(null, scores);
+    if (best >= 95) return add('checkpoint','Checkpoint','positive','The checkpoint was delivered at or inside its target.', chk.length);
+    if (best < 75)  return add('checkpoint','Checkpoint','negative','The checkpoint came in well under its target.', chk.length);
+    add('checkpoint','Checkpoint','flat','The checkpoint landed close to its target.', chk.length);
+  })();
+
+  return out;
+}
+
+/* ---------- the block state ----------
+   Multiple independent observations before any conclusion is drawn, and where
+   evidence genuinely conflicts the honest answer is RESPONDING, not a forced
+   verdict in either direction. */
+/* The state table, asked of whatever set of dimension readings it is given. */
+function blockStateFrom(dims, phase, qualifying, minSessions){
+  var reads = dims.filter(function(d){ return d.direction!=null; });
+  var pos = reads.filter(function(d){ return d.direction==='positive'; });
+  var neg = reads.filter(function(d){ return d.direction==='negative'; });
+  var flatPrimary = reads.filter(function(d){
+    return d.direction==='flat' && blockDimensionRelevance(d.id, phase)==='primary'; });
+  if (qualifying < minSessions || reads.length < 2) return 'LEARNING';
+  if (neg.length >= 2) return 'STRAINED';
+  if (pos.length >= 2 && neg.length === 0) return 'ADAPTING';
+  if (pos.length === 0 && neg.length <= 1 && flatPrimary.length >= 2) return 'PLATEAU';
+  if (pos.length >= 1) return 'RESPONDING';
+  return 'LEARNING';
+}
+var __blockMemo = null;
+function blockEffectiveness(){
+  if (!state.setup || !state.days || !state.days.length) return null;
+  // same source data, same conclusion -- and computed once per render
+  var key = responseSourceHash()+'|'+todayStr()+'|'+planShapeHash(state.days);
+  if (__blockMemo && __blockMemo.key===key) return __blockMemo.value;
+  var out = blockEffectivenessCompute();
+  __blockMemo = { key:key, value:out };
+  return out;
+}
+function blockEffectivenessCompute(){
+  var phase = trainingPhase(currentWeekNum());
+  var from = addDays(todayStr(), -BLOCK_WINDOW_DAYS);
+  var model = athleteResponseModel();
+  var trends = athleteTrends();
+
+  // sessions that could support a conclusion: completed, real, not compromised
+  var qualifying = athleteMemory(BLOCK_WINDOW_DAYS).filter(function(r){
+    var e = r.environment || {};
+    return r.completed && r.type!=='rest' && r.date >= from && !e.illness && !e.pain;
+  });
+  var dims = blockDimensions(model, trends);
+  var reads = dims.filter(function(d){ return d.direction!=null; });
+  var pos = reads.filter(function(d){ return d.direction==='positive'; });
+  var neg = reads.filter(function(d){ return d.direction==='negative'; });
+  var flat = reads.filter(function(d){ return d.direction==='flat'; });
+  var flatPrimary = flat.filter(function(d){ return blockDimensionRelevance(d.id, phase)==='primary'; });
+
+  var taper = (phase==='Taper' || phase==='Race Week' || phase==='Final Week');
+  var minSessions = taper ? BLOCK_MIN_SESSIONS_TAPER : BLOCK_MIN_SESSIONS;
+
+  var st = blockStateFrom(dims, phase, qualifying.length, minSessions);
+
+  /* STRAINED is the only verdict that can cost the athlete training, so it is
+     the only one required to survive the loss of its worst single session. */
+  var robust = true;
+  if (st==='STRAINED'){
+    var worst = blockWorstSession();
+    if (worst){
+      // the whole week around the worst session, not just the session
+      var reduced = blockDimensions(model, blockTrendsExcluding(trends, worst.date), worst.date);
+      if (blockStateFrom(reduced, phase, qualifying.length, minSessions) !== 'STRAINED'){
+        st = blockStateFrom(reduced, phase, qualifying.length, minSessions);
+        robust = false;
+      }
+    }
+  }
+
+  /* A checkpoint is strong evidence, never proof that everything is optimal:
+     it can lift RESPONDING to ADAPTING, and it can stop a single flat month
+     reading as a plateau. It cannot on its own overturn repeated negatives. */
+  var chk = dims.filter(function(d){ return d.id==='checkpoint'; })[0];
+  var checkpointInvolved = !!(chk && chk.direction);
+  if (checkpointInvolved && chk.direction==='positive'){
+    if (st==='RESPONDING' && pos.length >= 2) st = 'ADAPTING';
+    if (st==='PLATEAU') st = 'RESPONDING';
+  }
+
+  var evidence = reads.filter(function(d){ return d.direction!=='flat'; })
+                      .map(function(d){ return d.detail; });
+  if (!evidence.length) evidence = flat.map(function(d){ return d.detail; });
+
+  return {
+    modelVersion: BLOCK_MODEL_VERSION,
+    state: st,
+    windowDays: BLOCK_WINDOW_DAYS,
+    phase: phase,
+    qualifyingSessions: qualifying.length,
+    dimensions: dims,
+    positives: pos.map(function(d){ return d.label; }),
+    negatives: neg.map(function(d){ return d.label; }),
+    evidence: evidence.slice(0,4),
+    checkpointInvolved: checkpointInvolved,
+    // false when a strained reading did not survive losing its worst WEEK
+    robust: robust,
+    read: blockCoachRead(st, phase)
+  };
+}
+/* Direct, specific, and honest about what it does and does not justify.
+   Never motivational, never a diagnosis. */
+function blockCoachRead(st, phase){
+  if (st==='ADAPTING')
+    return 'The current structure is producing the intended response. Continue the progression already prescribed — no programme-level change is justified.';
+  if (st==='RESPONDING')
+    return 'Training is being absorbed. There is early positive evidence, but not yet enough to call the block adapted.';
+  if (st==='PLATEAU')
+    return 'The exposure is there but the expected response has stalled across repeated evidence. Worth reviewing the programme rather than any single session.';
+  if (st==='STRAINED')
+    return 'This is a repeated pattern rather than one poor run. The current load warrants review.';
+  return (phase==='Taper' || phase==='Race Week' || phase==='Final Week')
+    ? 'Taper volume is doing its job; there is deliberately not enough training here to judge a block by.'
+    : 'Still gathering enough longitudinal evidence to judge the block.';
+}
+
+/* ---------- append-only block review history ----------
+   So the app can tell "currently adapting" from "has repeatedly adapted".
+   Written only when a session is actually logged or edited and the conclusion
+   has genuinely moved -- a re-render or a reload can never create evidence. */
+function recordBlockReview(){
+  var b = blockEffectiveness();
+  if (!b) return null;
+  // a corrupt or hand-edited save must not be able to crash a render
+  if (!Array.isArray(state.blockReviews)) state.blockReviews = [];
+  var last = state.blockReviews[state.blockReviews.length-1];
+  var material = !last || last.state !== b.state ||
+                 (b.checkpointInvolved && !last.checkpointInvolved);
+  if (!material) return null;
+  state.blockReviews.push({
+    at: new Date().toISOString(),
+    date: todayStr(),
+    modelVersion: BLOCK_MODEL_VERSION,
+    windowDays: b.windowDays,
+    state: b.state,
+    phase: b.phase,
+    evidence: b.evidence.slice(),
+    positives: b.positives.slice(),
+    negatives: b.negatives.slice(),
+    qualifyingSessions: b.qualifyingSessions,
+    checkpointInvolved: b.checkpointInvolved
+  });
+  if (state.blockReviews.length > 40) state.blockReviews = state.blockReviews.slice(-40);
+  return b;
+}
+// Has this block earned its conclusion more than once?
+function blockReviewStreak(st){
+  var h = Array.isArray(state.blockReviews) ? state.blockReviews : [];
+  return h.filter(function(r){ return r && r.state===st; }).length;
+}
+
+/* =========================================================
    PHASE 4 — PLAN EVOLUTION
    ---------------------------------------------------------
    VVV is not trying to maximise completed workouts. It is trying to maximise
@@ -5816,7 +6213,9 @@ function coachAnalyse(){
     decision: coachDecision(),
     evolution: planEvolution(),
     // what has been learned about this athlete; evidence only, never a decision
-    response: athleteResponseModel()
+    response: athleteResponseModel(),
+    // is the BLOCK working -- the slowest layer, judged over four weeks
+    block: blockEffectiveness()
   };
 }
 
@@ -6581,6 +6980,49 @@ function coachNoticedForWorkout(dd, b, env){
 }
 var MISSING_NOUN = { hr:'heart rate', rpe:'an effort rating', distance:'a logged distance', pace:'a logged pace' };
 
+
+/* ---------- Phase 6 in the interface ----------
+   No new dashboard, no new gauge, no new percentage, and no sixth row on a
+   card the athlete already reads at a glance. The block verdict lives inside
+   Adaptation History, which is exactly what it is: the record of whether this
+   block has produced adaptation, with the breakthroughs beneath it. */
+function blockSectionSummary(b){
+  return b ? BLOCK_META[b.state].label : 'learning';
+}
+function renderBlockSection(b, bts){
+  var breakthroughs = (bts && bts.length)
+    ? bts.slice(-4).reverse().map(function(dd){
+        return hqRow(dShort(dd.date), (dd.title||dd.type)+' · '+computeExecutionScore(dd)+'%');
+      }).join('')
+    : '<div class="hq-empty">No breakthrough sessions logged yet. They appear here once a quality session lands at the fast end of its window with heart rate in zone.</div>';
+  if (!b) return breakthroughs;
+
+  var changing = b.dimensions.filter(function(d){ return d.direction && d.direction!=='flat'; });
+  if (!changing.length) changing = b.dimensions.filter(function(d){ return d.direction==='flat'; });
+  var streak = blockReviewStreak(b.state);
+
+  return '<div class="evo-k">Block response</div>'+
+    '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(BLOCK_META[b.state].label)+'</span>'+
+      '<span class="hq-row-v">'+escapeHtml(b.windowDays+'-day window')+'</span></div>'+
+    (changing.length
+      ? '<div class="evo-k" style="margin-top:8px;">What’s changing</div>'+
+        '<ul class="evo-list">'+changing.slice(0,4).map(function(d){
+            return '<li>'+escapeHtml(d.label+' — '+
+              (d.direction==='positive'?'improving':d.direction==='negative'?'deteriorating':'steady'))+'</li>';
+          }).join('')+'</ul>'
+      : '')+
+    '<div class="evo-k" style="margin-top:8px;">Coach’s read</div>'+
+    '<div class="hq-empty">'+escapeHtml(b.read)+'</div>'+
+    '<div class="evo-k" style="margin-top:8px;">Evidence</div>'+
+    '<div class="hq-empty">'+escapeHtml(
+       b.windowDays+' days · '+b.qualifyingSessions+' qualifying session'+(b.qualifyingSessions===1?'':'s')+
+       (b.checkpointInvolved ? ' · checkpoint included' : '')+
+       (streak > 1 ? ' · '+BLOCK_META[b.state].label.toLowerCase()+' on '+streak+' reviews' : ''))+
+    '</div>'+
+    '<div class="evo-k" style="margin-top:10px;">Breakthroughs</div>'+
+    breakthroughs;
+}
+
 /* ---------- the gate on athlete-specific language ----------
    "You normally...", "your usual response", "historically you" -- none of it
    may be said until Phase 5 has actually earned it. Below the bar the coach
@@ -6640,6 +7082,17 @@ function coachNextMoveForWorkout(dd, env, signal, opts){
       : 'Keep running to effort rather than pace while the heat holds.';
   }
   if (nxt && isQuality){
+    /* The wider block outranks a single result in BOTH directions. A month of
+       evidence that the programme is working is a reason not to overreact to
+       one poor session; a month of evidence that it is not is a reason to stop
+       reading each bad session as a one-off. Wording only -- the decision and
+       any plan change still belong to the layers that own them. */
+    var blk = blockEffectiveness();
+    var poorToday = opts.scoreLow;
+    if (blk && blk.state==='ADAPTING' && poorToday)
+      return 'The wider block is responding well. Today’s result does not justify changing '+when+' '+what+'.';
+    if (blk && blk.state==='STRAINED')
+      return 'This is now a repeated pattern across the block rather than one poor session — the wider trend matters more than today’s score before '+when+' '+what+'.';
     /* Where this athlete has an established habit of coming back quickly from
        THIS kind of session, say so -- it is the difference between "proceed"
        and knowing why proceeding is safe. It only ever supports leaving the
@@ -6682,6 +7135,8 @@ function coachWorkoutReview(dd){
     breakthroughReason: bt ? 'Ran at or inside the fast end of the target window with heart rate still in zone.' : null,
     coachNoticed: coachNoticedForWorkout(dd, b, env),
     nextMove: coachNextMoveForWorkout(dd, env, sig.signal, {
+      // today's session landed clearly under its prescription
+      scoreLow: b.score!=null && b.score < 80,
       // one subjective report, with effort and heart rate both where they
       // should be and the week otherwise clean
       mildFatigue: env.fatigue && !env.pain && !env.illness &&
@@ -6753,6 +7208,11 @@ function coachPersistReview(dd){
   var review = coachWorkoutReview(dd);
   if (review) dd.coachReview = review;
   else if (dd.coachReview) delete dd.coachReview;
+  /* A block review is written here and nowhere else: logging or editing a
+     session is the only thing that can change the block picture. Rendering
+     must never create evidence, so this is deliberately not on the render
+     path, and recordBlockReview() appends only when the conclusion moves. */
+  recordBlockReview();
   return review;
 }
 function handleCoachRefreshReview(dayId){
@@ -7164,11 +7624,7 @@ function renderRaceReadinessCard(report){
       return b.sufficient ? (b.delta>0?'+':'')+b.delta+' bpm' : 'building baseline'; })())+
     hqRow('Load', report.load.ratio!=null ? report.load.ratio.toFixed(2)+'x four-week average' : 'building history');
 
-  var adaptBody = (bts.length
-      ? bts.slice(-4).reverse().map(function(dd){
-          return hqRow(dShort(dd.date), (dd.title||dd.type)+' · '+computeExecutionScore(dd)+'%');
-        }).join('')
-      : '<div class="hq-empty">No breakthrough sessions logged yet. They appear here once a quality session lands at the fast end of its window with heart rate in zone.</div>');
+  var adaptBody = renderBlockSection(report.block, bts);
 
   var dec = report.decision;
 
@@ -7209,7 +7665,7 @@ function renderRaceReadinessCard(report){
     hqSection('patterns','Recent patterns',
       responsePatternsSummary(report.response, shown.length),
       patternsBody + renderResponsePatternsSection(report.response))+
-    hqSection('adaptation','Adaptation history', bts.length+' breakthrough'+(bts.length===1?'':'s'), adaptBody)+
+    hqSection('adaptation','Adaptation history', blockSectionSummary(report.block), adaptBody)+
   '</div>';
 }
 
