@@ -245,9 +245,9 @@
     .week{break-inside:avoid; page-break-inside:avoid; border-color:#999 !important; background:#fff !important;}
     .day{break-inside:avoid; background:#fff !important; border-color:#ccc !important;}
     .hero, .day, .week, .zone-card, .congrats-banner, .fuel-card,
-    .distance-badge, .stat, .day-badge, .week-vol, .week-num, .fuel-row, .zone-head,
+    .stat, .day-badge, .week-vol, .week-num, .fuel-row, .zone-head,
     .cd-cell{ color:#111 !important; background:#fff !important; border-color:#999 !important; }
-    .day-title, .week-phase, .cg-title, .distance-badge, .zbar-seg{color:#111 !important;}
+    .day-title, .week-phase, .cg-title, .zbar-seg{color:#111 !important;}
     .zbar-seg{filter:grayscale(0.3) contrast(1.3);}
     .wrap{max-width:none !important;}
   }
@@ -595,13 +595,6 @@
   .setup-cta h2{font-family:'Cinzel',serif; font-size:19px; margin:0 0 8px; color:var(--gold); text-transform:uppercase; letter-spacing:.03em;}
   .setup-cta p{font-size:12.5px; color:var(--ink-dim); line-height:1.55; margin:0 0 16px; max-width:44ch; margin-left:auto; margin-right:auto;}
 
-  .distance-badge{
-    display:inline-flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:11px;
-    letter-spacing:.5px; text-transform:uppercase; color:var(--bronze); background:var(--bg-3); border:1px solid var(--line);
-    padding:4px 11px; border-radius:99px; margin-top:4px;
-  }
-  .distance-badge svg{width:12px; height:12px; flex:none;}
-  [data-theme="light"] .distance-badge{background:#E5E0D8; color:#2B2317;}
   .plan-summary-bar{
     display:flex; align-items:center; gap:10px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);
     padding:10px 12px; margin:14px 0; cursor:pointer; transition:background .15s ease, border-color .15s ease;
@@ -1735,7 +1728,6 @@ var ICONS = {
   upload: svgWrap('<path d="M12 16V4"/><polyline points="7,9 12,4 17,9"/><path d="M5 20h14"/>'),
   download: svgWrap('<path d="M12 4v12"/><polyline points="7,11 12,16 17,11"/><path d="M5 20h14"/>'),
   pencil: svgWrap('<path d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20z"/><line x1="13.3" y1="6.7" x2="17.3" y2="10.7"/>'),
-  flag: svgWrap('<line x1="5" y1="21" x2="5" y2="4"/><path d="M5 4h13l-3 4 3 4H5"/>'),
   ruler: svgWrap('<rect x="3" y="9" width="18" height="6" rx="1.5"/><line x1="7" y1="9" x2="7" y2="12"/><line x1="11" y1="9" x2="11" y2="12"/><line x1="15" y1="9" x2="15" y2="12"/>'),
   clock: svgWrap('<circle cx="12" cy="12" r="8.5"/><line x1="12" y1="12" x2="12" y2="7.5"/><line x1="12" y1="12" x2="15.2" y2="13.8"/>'),
   sparkles: svgWrap('<path d="M12 3l1.4 4.6L18 9l-4.6 1.4L12 15l-1.4-4.6L6 9l4.6-1.4z"/><path d="M19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7z"/>'),
@@ -2133,9 +2125,19 @@ function executionWeightForType(type){
   if (type==='tempo' || type==='threshold' || type==='interval' || type==='repetition' || type==='checkpoint') return 2.0;
   return 1.0; // easy/recovery, and any other completed type that scores
 }
+// Evidence-weighted. A fresh plan starts at a neutral 50% carrying the
+// weight of 5 easy sessions, and real results are averaged in against that
+// prior -- so one great session nudges confidence to ~58% rather than
+// declaring the whole block a success, and confidence only earns its way up
+// as evidence accumulates. Capped either side because no finite number of
+// sessions should ever read as certainty or as total failure.
+var CONFIDENCE_PRIOR_SCORE = 50;
+var CONFIDENCE_PRIOR_WEIGHT = 5;   // ≈ five easy/recovery runs of evidence
+var CONFIDENCE_MIN = 10, CONFIDENCE_MAX = 95;
 function computeConfidenceScore(){
   if (!state.setup) return null;
-  var totalWeight = 0, weightedSum = 0;
+  var totalWeight = CONFIDENCE_PRIOR_WEIGHT;
+  var weightedSum = CONFIDENCE_PRIOR_SCORE * CONFIDENCE_PRIOR_WEIGHT;
   state.days.forEach(function(dd){
     if (!dd.completed) return;
     var score = computeExecutionScore(dd);
@@ -2144,8 +2146,7 @@ function computeConfidenceScore(){
     totalWeight += w;
     weightedSum += score*w;
   });
-  if (!totalWeight) return 0;
-  return weightedSum/totalWeight;
+  return clamp(weightedSum/totalWeight, CONFIDENCE_MIN, CONFIDENCE_MAX);
 }
 // whole numbers, matching the execution-score pills/banner -- the gauge and
 // the scores feeding it are the same family of metric.
@@ -3966,7 +3967,6 @@ function renderPlanHQView(){
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
   return '<div class="view-heading font-head">Plan HQ</div>'+
     renderProgrammeStatus()+
-    '<div class="distance-badge">'+ICONS.flag+' '+escapeHtml(profile.label)+' — '+escapeHtml(profile.blockName)+'</div>'+
     '<div id="planhq-stats-mount">'+renderPlanOverviewStats()+'</div>'+
     '<div class="plan-summary-bar" data-action="open-setup">'+
       '<div class="psb-main"><div class="psb-title">Build New Block</div><div class="psb-sub">'+escapeHtml(profile.label)+' · '+fmtDist(state.setup.currentVolume)+'/wk start · Race '+dShort(state.setup.raceDate)+'</div></div>'+
