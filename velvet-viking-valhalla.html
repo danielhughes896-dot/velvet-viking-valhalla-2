@@ -154,6 +154,8 @@
     padding:6px 9px; color:var(--ink-faint); background:transparent;
   }
   .unit-toggle button.active{background:var(--bronze); color:var(--bg);}
+  /* three-way variant: share the width evenly so longer labels still fit at 320px */
+  .unit-toggle.exp-toggle button{flex:1 1 0; min-width:0; padding:7px 4px; text-align:center;}
   /* transparent pill + a light-grey border reads as washed-out/grey on the
      cream light theme -- fill it with a warm neutral instead. */
   [data-theme="light"] .unit-toggle{background:#E5E0D8;}
@@ -211,6 +213,10 @@
     padding:8px 16px; background:var(--c-gold-soft); border-top:1px dashed var(--line);
   }
   .taper-note svg{width:13px; height:13px; flex:none;}
+  .taper-note.race-split{align-items:flex-start;}
+  .taper-note.race-split svg{margin-top:2px;}
+  .race-split-txt{line-height:1.45;}
+  .race-split-txt b{font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--ink);}
   .zone-card{margin:10px 14px 14px; padding:12px 13px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .zone-head{display:flex; align-items:center; justify-content:space-between; font-size:11.5px; margin-bottom:9px;}
   .zone-head span:first-child{text-transform:uppercase; letter-spacing:1px; color:var(--ink-dim); font-size:10.5px;}
@@ -237,6 +243,13 @@
   .fuel-row .k{color:var(--ink-dim);}
   .fuel-row .v{color:var(--ink);}
   .fuel-hint{font-size:10.5px; color:var(--ink-faint); margin-top:6px; line-height:1.5;}
+  /* Coaching depth (athlete experience) -- presentation only. */
+  .coach-cue{display:flex; align-items:flex-start; gap:6px; margin-top:7px; font-size:11.5px; line-height:1.5; color:var(--bronze-text);}
+  .coach-cue svg{width:13px; height:13px; flex:none; margin-top:2px;}
+  .how-row{padding:6px 0; border-bottom:1px solid var(--line-soft);}
+  .how-row:last-of-type{border-bottom:none;}
+  .how-row .k{display:block; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:2px;}
+  .how-row .v{display:block; font-size:11.5px; line-height:1.5; color:var(--ink-dim);}
   .build-tag{text-align:center; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--ink-faint); opacity:.6; margin-top:18px;}
   /* Hidden file inputs are moved off-screen rather than display:none -- an
      Android WebView refuses to open the picker for an unrendered input. */
@@ -381,7 +394,7 @@
   .day-chevron svg{width:17px; height:17px; display:block;}
   .day.open .day-chevron{transform:rotate(180deg);}
   .day-detail, .day-drawer{max-height:0; overflow:hidden; transition:max-height .35s ease;}
-  .day.open .day-detail{max-height:1200px;}
+  .day.open .day-detail{max-height:1600px;}
   .day.open .day-drawer{max-height:4000px;}
   /* the drawer's own children carry the top spacing, so a shut card has none */
   .day-actions{display:flex; gap:6px; flex:none;}
@@ -1626,6 +1639,108 @@ var TYPE_META = {
 };
 
 /* =========================================================
+   ATHLETE EXPERIENCE / COACHING DEPTH
+
+   PRESENTATION ONLY. This layer decides how much of a session is
+   *explained*, never what the session is. It is deliberately kept away
+   from every training-load path: it does not touch VDOT, zones, paces,
+   weekly structure, progression, taper, execution scoring or any of the
+   Phase 4/5/6 coaching engines, and nothing downstream of plan
+   generation reads it. The prescription a runner is given is byte-for-byte
+   identical at all three levels -- only the surrounding explanation
+   changes.
+
+   Levels (stable internal values, never rename -- they are persisted):
+     novice      -- new to structured training: what to do, how, how it should feel
+     experienced -- the session, targets and the important cues  (DEFAULT)
+     advanced    -- prescription only, no commentary
+
+   Storage: state.experience is the athlete-level preference; a snapshot is
+   written to state.setup.experience when a block is generated so an
+   exported/imported plan carries its own answer. athleteExperience() is
+   the single accessor -- plan snapshot first, athlete preference second,
+   'experienced' for any legacy save that has neither.
+   ========================================================= */
+var EXPERIENCE_LEVELS = ['novice','experienced','advanced'];
+var EXPERIENCE_META = {
+  novice:      { label:'New to structured training', short:'New',
+                 hint:'Tell me what to do, how to do it and what it should feel like.' },
+  experienced: { label:'Experienced', short:'Experienced',
+                 hint:'Give me the session, targets and the important coaching cues.' },
+  advanced:    { label:'Advanced', short:'Advanced',
+                 hint:'Keep it concise. Give me the prescription and let me run.' }
+};
+function normaliseExperience(v){
+  return EXPERIENCE_LEVELS.indexOf(v)!==-1 ? v : null;
+}
+// Single source of truth for coaching depth. Legacy plans and legacy saves
+// (no property at either level) resolve to 'experienced'.
+function athleteExperience(su){
+  var s = su || (typeof state!=='undefined' && state ? state.setup : null);
+  return normaliseExperience(s && s.experience)
+      || normaliseExperience(typeof state!=='undefined' && state ? state.experience : null)
+      || 'experienced';
+}
+// Per-type coaching copy. Keyed by the same TYPE_META ids so a new workout
+// type only ever needs one entry here -- there is no second switch anywhere.
+//   cue  -- one line, shown from 'experienced' upward
+//   why/how/feel -- the novice-only "How to run this" disclosure
+var COACH_GUIDANCE = {
+  easy: {
+    cue: 'Conversational the whole way — if you can’t talk in full sentences, ease off.',
+    why: 'Builds the aerobic base and keeps you fresh enough to run the hard days properly.',
+    how: 'Start slower than feels natural and hold the easy window from the first kilometre to the last. There is no benefit to pushing this one.',
+    feel: 'Comfortable and chatty. You should finish thinking you could have gone further.'
+  },
+  long: {
+    cue: 'Steady and patient — the last third should be no slower than the first.',
+    why: 'Extends endurance and fatigue resistance. This is the backbone of the whole block.',
+    how: 'Easy pace throughout unless the session says otherwise. Take fluid and carbohydrate on anything past about 90 minutes.',
+    feel: 'Easy early, honest work late. Tired legs at the end are normal; laboured breathing is not.'
+  },
+  tempo: {
+    cue: 'Comfortably hard — controlled and rhythmic, never a race.',
+    why: 'Teaches you to hold goal race effort economically for a long stretch.',
+    how: 'Warm up first, settle into the target window inside the first kilometre, hold it, then cool down easy.',
+    feel: 'Breathing deep but rhythmic. Short phrases, not full sentences.'
+  },
+  threshold: {
+    cue: 'Hold the pace you could race for about an hour — hard, but repeatable.',
+    why: 'Raises the pace at which lactate starts to pile up — the single biggest lever on race pace.',
+    how: 'Warm up, hit the threshold window on the very first rep, keep recoveries short and jogging, cool down easy.',
+    feel: 'Hard but controlled. If you are gasping, you have gone too fast.'
+  },
+  interval: {
+    cue: 'Even splits — the last rep should match the first.',
+    why: 'Develops VO₂ max and running economy at hard aerobic effort.',
+    how: 'Warm up thoroughly. Run every rep in the target window and jog the recoveries rather than standing still. Cool down easy.',
+    feel: 'Hard. Breathing heavy by the end of each rep, recovered just enough to start the next on time.'
+  },
+  repetition: {
+    cue: 'Fast and relaxed — quality of movement matters more than effort.',
+    why: 'Sharpens speed, mechanics and economy without digging a deep fatigue hole.',
+    how: 'Warm up well. Run each rep quick but smooth and take the full recovery between them.',
+    feel: 'Fast, never straining. If your form falls apart, the rep was too fast.'
+  },
+  checkpoint: {
+    cue: 'Run it honestly — this is what the paces ahead are built from.',
+    why: 'Measures where your fitness actually is so goals and paces stay grounded in reality.',
+    how: 'Warm up as you would for a race, run an even effort start to finish, then log the result.',
+    feel: 'Genuinely hard by the end. Finish knowing you gave it a true reading.'
+  },
+  race: {
+    cue: 'Even effort through the first two-thirds, then everything that is left.',
+    why: 'The day the whole block has been building towards.',
+    how: 'Hold goal pace early even while it feels too easy, fuel to the plan you rehearsed, and race the last third.',
+    feel: 'Comfortable early, hard late. Discomfort in the final third is the job, not a mistake.'
+  },
+  rest: {
+    cue: 'Rest is part of the plan — adaptation happens on the days you don’t run.',
+    why: null, how: null, feel: null
+  }
+};
+
+/* =========================================================
    STORAGE — localStorage (this app is deployed standalone on
    Vercel for the user's friends/wife, not viewed only inside
    Claude, so real browser storage is the correct choice here).
@@ -2236,6 +2351,7 @@ function makeDefaultState(){
     view:'today', // 'today' | 'week' | 'full' | 'planhq' | 'settings' -- which bottom-nav view is active
     setup:null, // { distanceKey, currentVolume, raceDate, benchmark:{distanceKey,timeSec}, goals:{A,B,C:{label,timeSec}}, activeGoal:'A' }
     days:[],
+    experience:'experienced', // athlete experience -- see ATHLETE EXPERIENCE below; presentation only
     notifyEnabled:false // daily 08:00 workout-reminder notification toggle
   };
 }
@@ -2941,6 +3057,32 @@ function needsFueling(dd){
   if (dd.type==='rest') return false;
   return getDayDurationSec(dd) > 75*60 || dd.km > 14;
 }
+// Coaching depth for one session, driven entirely by athleteExperience().
+// Rendered inside .day-detail, i.e. only once a card is expanded -- collapsed
+// cards stay identical at every level, and the prescription (title, targets,
+// description) is untouched in all three cases.
+//   advanced    -- nothing at all
+//   experienced -- one cue line
+//   novice      -- cue line + a closed "How to run this" disclosure
+function renderCoachingDepth(dd){
+  var level = athleteExperience();
+  if (level==='advanced') return '';
+  var g = COACH_GUIDANCE[dd.type];
+  if (!g) return '';
+  if (dd.type==='rest' && level!=='novice') return ''; // a rest day needs no cue for anyone else
+  var out = g.cue ? '<div class="coach-cue">'+ICONS.info+'<span>'+escapeHtml(g.cue)+'</span></div>' : '';
+  if (level==='novice' && g.how){
+    out += '<details class="fuel-card how-card">'+
+      '<summary>'+ICONS.info+'How to run this</summary>'+
+      '<div class="fuel-body">'+
+        '<div class="how-row"><span class="k">Why</span><span class="v">'+escapeHtml(g.why)+'</span></div>'+
+        '<div class="how-row"><span class="k">How</span><span class="v">'+escapeHtml(g.how)+'</span></div>'+
+        '<div class="how-row"><span class="k">Feel</span><span class="v">'+escapeHtml(g.feel)+'</span></div>'+
+      '</div>'+
+    '</details>';
+  }
+  return out;
+}
 function renderFuelingCard(dd){
   if (!needsFueling(dd)) return '';
   var durSec = getDayDurationSec(dd);
@@ -3050,6 +3192,7 @@ function renderDayCard(dd){
         '<div class="day-detail">'+
           (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
           '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>'+
+          renderCoachingDepth(dd)+
           renderFuelingCard(dd)+
         '</div>'+
       '</div>'+
@@ -7754,12 +7897,13 @@ function currentWeekNum(){
 }
 function weekVolume(weekNum){
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
-  var totalKm=0, doneKm=0;
+  var totalKm=0, doneKm=0, raceKm=0;
   wdays.forEach(function(dd){
     totalKm += dd.km||0;
+    if (dd.type==='race') raceKm += dd.km||0;
     if (dd.completed) doneKm += (dd.actual&&dd.actual.km!=null)?dd.actual.km:(dd.km||0);
   });
-  return { total: round1(totalKm), done: round1(doneKm) };
+  return { total: round1(totalKm), done: round1(doneKm), race: round1(raceKm), training: round1(totalKm-raceKm) };
 }
 function weekPhaseLabel(weekNum){
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
@@ -7780,6 +7924,9 @@ function renderWeekAccordion(weekNum, forceOpen){
   var openCls = (forceOpen || expandedWeeks[weekNum]) ? ' open' : '';
   var taper = isTaperWeek(weekNum);
   var taperNote = taper ? '<div class="taper-note">'+ICONS.zap+' Taper: volume drops, but keep hitting these paces \u2014 sharpness matters more than mileage from here.</div>' : '';
+  var raceNote = vol.race>0 ? '<div class="taper-note race-split">'+ICONS.target+
+      '<span class="race-split-txt">Total includes '+vGoalDay().toLowerCase()+': <b>'+kmToDisplay(vol.training)+'</b> training + <b>'+kmToDisplay(vol.race)+'</b> '+
+      (planHasEvent()?'race':'goal effort')+' = <b>'+kmToDisplay(vol.total)+'</b> '+displayUnit()+'</span></div>' : '';
   return '<div class="week'+openCls+(taper?' is-taper':'')+'" id="week-'+weekNum+'">'+
     '<button type="button" class="week-head" data-action="toggle-week" data-week="'+weekNum+'">'+
       '<div class="week-num font-display">'+(weekNum<10?'0':'')+weekNum+'</div>'+
@@ -7790,7 +7937,7 @@ function renderWeekAccordion(weekNum, forceOpen){
       '<div class="week-vol"><div class="v font-mono">'+kmToDisplay(vol.done)+'/'+kmToDisplay(vol.total)+'</div><div class="l font-head">'+displayUnit()+'</div></div>'+
       '<div class="week-chevron">'+ICONS.chevronDown+'</div>'+
     '</button>'+
-    taperNote+
+    taperNote+raceNote+
     '<div class="week-body"><div class="week-body-inner">'+daysHtml+renderZoneBreakdown(weekNum)+'</div></div>'+
   '</div>';
 }
@@ -7919,6 +8066,7 @@ function openSetupModal(){
   var vol = su.currentVolume!=null ? kmToDisplay(su.currentVolume) : '';
   var raceDate = su.raceDate || '';
   var eventMode = planHasEvent(su) ? 'event' : 'none';
+  var experience = athleteExperience(su);
   var blockWeeks = su.planWeeks || 14;
   var goals = su.goals || {};
   var schedule = su.schedule || { activeDays:[0,1,2,4,5], longRunDay:5 };
@@ -7971,6 +8119,19 @@ function openSetupModal(){
       '</div>'+
     '</div>'+
     '<div class="field"><label id="su-volume-label">Current Weekly Volume ('+(state.units==='mi'?'mi':'km')+')</label><input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'"></div>'+
+
+    '<div class="setup-section-title">Athlete Experience</div>'+
+    '<div class="field-hint" style="margin-bottom:8px;">Changes how much each session is explained — never the training itself. Your paces, workouts and progression are identical at every level.</div>'+
+    '<div class="field">'+
+      '<div class="unit-toggle exp-toggle" role="group" aria-label="Athlete experience" id="su-experience">'+
+        EXPERIENCE_LEVELS.map(function(k){
+          return '<button type="button" data-action="set-experience" data-experience="'+k+'" '+
+            'aria-pressed="'+(experience===k?'true':'false')+'" class="'+(experience===k?'active':'')+'">'+
+            EXPERIENCE_META[k].short+'</button>';
+        }).join('')+
+      '</div>'+
+      '<div class="field-hint" id="su-experience-hint">'+escapeHtml(EXPERIENCE_META[experience].hint)+'</div>'+
+    '</div>'+
 
     '<div class="setup-section-title">Weekly Schedule</div>'+
     '<div class="field-hint" style="margin-bottom:8px;">Pick 3\u20136 days you can run \u2014 workouts land only on these; everything else is rest.</div>'+
@@ -8151,6 +8312,26 @@ function handleSetEventMode(mode){
     b.classList.toggle('active', b.getAttribute('data-event-mode')===m);
   });
 }
+// Coaching depth applies the instant it is chosen -- it is a display
+// preference, so nobody has to regenerate (and lose logged actuals) just to
+// change how much explanation they get. Generating a block later snapshots
+// whatever is selected here into state.setup.
+function handleSetExperience(level){
+  var lv = normaliseExperience(level);
+  if (!lv || athleteExperience()===lv) return;
+  state.experience = lv;
+  if (state.setup) state.setup.experience = lv;
+  persistState();
+  var btns = document.querySelectorAll('#su-experience button');
+  Array.prototype.forEach.call(btns, function(b){
+    var on = b.getAttribute('data-experience')===lv;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on?'true':'false');
+  });
+  var hintEl = document.getElementById('su-experience-hint');
+  if (hintEl) hintEl.textContent = EXPERIENCE_META[lv].hint;
+  if (state.setup) renderApp(); // modal lives on document.body, so this is safe
+}
 function handleGeneratePlan(){
   var distanceKey = document.getElementById('su-distance').value;
   var eventBox = document.getElementById('su-event-box');
@@ -8227,7 +8408,11 @@ function handleGeneratePlan(){
     goals: goals, activeGoal: activeGoal,
     paceOverrides: state.setup ? (state.setup.paceOverrides || {}) : {},
     lthr: lthr!=null ? lthr : (state.setup ? state.setup.lthr : null),
-    maxHR: maxHR!=null ? maxHR : (state.setup ? state.setup.maxHR : null)
+    maxHR: maxHR!=null ? maxHR : (state.setup ? state.setup.maxHR : null),
+    // Presentation depth only -- read by renderCoachingDepth(), by nothing
+    // in the generation path above. Snapshotted so an exported plan carries
+    // its own answer; athleteExperience() still defaults legacy plans.
+    experience: athleteExperience()
   };
   state.days = days;
   initExpanded();
@@ -8939,7 +9124,8 @@ function generateExportText(){
   var totalWeeks = totalWeeksInPlan();
   for (var w=1; w<=totalWeeks; w++){
     var vol = weekVolume(w);
-    lines.push('WEEK '+w+' ('+weekPhaseLabel(w)+') \u2014 '+kmToDisplay(vol.done)+'/'+fmtDist(vol.total));
+    lines.push('WEEK '+w+' ('+weekPhaseLabel(w)+') \u2014 '+kmToDisplay(vol.done)+'/'+fmtDist(vol.total)+
+      (vol.race>0 ? ' (incl. '+fmtDist(vol.race)+' '+vGoalDay().toLowerCase()+'; '+fmtDist(vol.training)+' training)' : ''));
     state.days.filter(function(dd){ return dd.week===w; }).forEach(function(dd){
       var line = '  '+dow(dd.date)+' '+dShort(dd.date)+' \u2014 '+TYPE_META[dd.type].label+' \u2014 '+dd.title;
       if (dd.km) line += ' ('+fmtDist(dd.km)+' planned)';
@@ -9568,6 +9754,7 @@ document.addEventListener('click', function(e){
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
     case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;
     case 'set-event-mode': handleSetEventMode(target.getAttribute('data-event-mode')); break;
+    case 'set-experience': handleSetExperience(target.getAttribute('data-experience')); break;
     case 'coach-why': handleCoachWhy(target.getAttribute('data-day')); break;
     case 'toggle-evolution': evolutionOpen = !evolutionOpen; renderApp(); break;
     case 'accept-evolution': handleAcceptEvolution(); break;
