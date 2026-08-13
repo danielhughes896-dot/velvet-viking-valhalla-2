@@ -303,9 +303,16 @@
   .progress-bars{margin-top:16px; display:flex; flex-direction:column; gap:8px;}
   .pbar-row{display:flex; align-items:center; gap:10px;}
   .pbar-label{font-size:10px; letter-spacing:1px; color:var(--ink-faint); text-transform:uppercase; width:76px; text-align:right; flex:none;}
-  .pbar-track{flex:1; height:7px; border-radius:99px; background:var(--bg-3); overflow:hidden; border:1px solid var(--line-soft);}
+  /* min-width:0 lets the bar give up space instead of the number overflowing:
+     a flex item's default min-width is auto, so without this the track refuses
+     to shrink below its content and the row pushes past the viewport. */
+  .pbar-track{flex:1 1 auto; min-width:24px; height:7px; border-radius:99px; background:var(--bg-3); overflow:hidden; border:1px solid var(--line-soft);}
   .pbar-fill{height:100%; background:linear-gradient(90deg,var(--bronze),var(--gold)); border-radius:99px; transition:width .5s ease;}
-  .pbar-num{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim); width:56px; flex:none;}
+  /* 56px is the space RESERVED so the two rows' numbers line up, not a cap.
+     "697.7/1190.4km" is wider than that, and a fixed width made it overflow
+     the row rather than the row making room for it. */
+  .pbar-num{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim);
+            min-width:56px; flex:0 0 auto; text-align:right; white-space:nowrap;}
 
   /* ---------- section labels ---------- */
   .section-label{
@@ -821,8 +828,14 @@
   .hq-sec.open .hq-sec-chev{transform:rotate(90deg);}
   .hq-sec-body{padding:2px 0 11px;}
   .hq-row{display:flex; align-items:baseline; gap:10px; padding:3px 0;}
-  .hq-row-l{font-size:11px; color:var(--ink-faint); flex:1 1 auto;}
-  .hq-row-v{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim); text-align:right; flex:none;}
+  .hq-row-l{font-size:11px; color:var(--ink-faint); flex:1 1 auto; min-width:0;}
+  /* Values here are not all short: "usually normal again within about 34h" and
+     "Fitness Checkpoint: 5.2km Time Trial" both appear. flex:none meant they
+     could neither shrink nor wrap, so on a 320px screen the row ran off the
+     side. It keeps its right alignment and its priority over the label -- it
+     simply wraps rather than overflowing. */
+  .hq-row-v{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim);
+            text-align:right; flex:0 1 auto; min-width:0; overflow-wrap:anywhere;}
   .hq-empty{font-size:11px; color:var(--ink-faint); line-height:1.5;}
   /* Recent patterns: a label, a word, a sentence. No chart, no big number. */
   .hq-pattern{padding:6px 0;}
@@ -7306,7 +7319,9 @@ function planEvolution(){
       displacedSessions: [],
       stimulus: { before:before, after:before, preserved:stimulusPreserved(before, before) },
       missed: missed, phase: phase,
-      playbook: { decision:pb.decision, why:pb.change.why, evidenceHash:pb.evidenceHash },
+      playbook: { decision:pb.decision, why:pb.change.why, evidenceHash:pb.evidenceHash,
+                  selection:pb.change.selection, stimulus:pb.change.stimulus },
+      proposalId: pb.proposalId,
       evidenceHash: pb.evidenceHash,
       originalPlanHash: planShapeHash(pending),
       evolvedPlanHash: planShapeHash(pending)
@@ -9123,11 +9138,24 @@ function playbookBlockPos(weekNum){
 /* The week a day belongs to, rebuilt from setup so the cap and the easy/long
    distribution have the same targets the generator used. Deterministic; null
    if the plan cannot be reconstructed, which again means HOLD. */
-function playbookWeekInfo(weekNum){
+/* buildBlockWeeks() is a pure function of exactly three values, so the result
+   is memoised on those three and cannot go stale -- the same shape
+   blockEffectiveness() already uses. Without it a single Accept rebuilt the
+   whole block several times to read one week's target volume. */
+var __pbWeeksMemo = null;
+function playbookBlockWeeks(){
   var su = state.setup;
   if (!su || !su.distanceKey || !su.currentVolume || !su.planWeeks) return null;
+  var key = su.distanceKey+'|'+su.currentVolume+'|'+su.planWeeks;
+  if (__pbWeeksMemo && __pbWeeksMemo.key === key) return __pbWeeksMemo.weeks;
   var blk = buildBlockWeeks(su.distanceKey, su.currentVolume, su.planWeeks);
-  return blk.weeks.filter(function(w){ return w.week === weekNum; })[0] || null;
+  __pbWeeksMemo = { key:key, weeks:blk.weeks };
+  return blk.weeks;
+}
+function playbookWeekInfo(weekNum){
+  var weeks = playbookBlockWeeks();
+  if (!weeks) return null;
+  return weeks.filter(function(w){ return w.week === weekNum; })[0] || null;
 }
 /* Everything a transformation or a substitution needs, all of it real. */
 function playbookLiveContext(dd){
@@ -9196,6 +9224,54 @@ function playbookWindowState(assessment){
    produced it. */
 var PLAYBOOK_HORIZON_DAYS = 7;
 var PLAYBOOK_MAX_HORIZON_DAYS = 14;
+/* ---------- which STIMULUS the evidence is actually about ----------
+   The Playbook holds whole-session aggregates, so this stays deliberately
+   coarse: how many recent completed sessions OF A GIVEN STIMULUS cleared the
+   good bar, or fell under the poor one. That supports "threshold work has
+   repeatedly been compatible with its prescription" and supports nothing
+   finer -- certainly not "the fourth rep went well", which no aggregate can
+   say. The bars and the observation counts are the ones the Playbook already
+   uses everywhere else; no new confidence score is invented to rank targets.
+
+   `aerobic` regularly earns support and has no progressable archetype behind
+   it -- an easy run's distance belongs to the week, not the session -- so a
+   supported stimulus does not always yield a target. That is a real gap and
+   is reported as one rather than papered over with a near-enough match. */
+function playbookStimulusOf(dd){
+  var p = prescriptionOf(dd);
+  var e = p && libraryEntry(p.archetype);
+  return e ? e.stimulus : null;
+}
+function playbookStimulusEvidence(){
+  var from = addDays(todayStr(), -BLOCK_WINDOW_DAYS);
+  var by = {};
+  coachCompletedScored().forEach(function(dd){
+    if (dd.date < from) return;
+    var st = playbookStimulusOf(dd);
+    if (!st) return;
+    var sc = computeExecutionScore(dd);
+    if (sc == null) return;
+    var b = by[st] = by[st] || { stimulus:st, total:0, good:0, poor:0, certainty:'high' };
+    b.total++;
+    if (sc >= PLAYBOOK_GOOD_EXECUTION) b.good++;
+    else if (sc <= PLAYBOOK_POOR_EXECUTION) b.poor++;
+    var c = playbookSessionCertainty(dd);
+    if (PLAYBOOK_MIN_OBSERVATIONS[c] > PLAYBOOK_MIN_OBSERVATIONS[b.certainty]) b.certainty = c;
+  });
+  Object.keys(by).forEach(function(k){
+    var b = by[k];
+    b.required = PLAYBOOK_MIN_OBSERVATIONS[b.certainty];
+    b.supported  = b.good >= b.required && b.poor === 0;
+    b.struggling = b.poor >= b.required;
+  });
+  return by;
+}
+function playbookSupportedStimuli(direction){
+  var by = playbookStimulusEvidence();
+  return Object.keys(by).filter(function(k){
+    return direction==='PROGRESS' ? by[k].supported : by[k].struggling;
+  });
+}
 function playbookEligibleTargets(direction, horizonDays){
   var today = todayStr();
   var until = addDays(today, horizonDays);
@@ -9219,12 +9295,47 @@ function playbookEligibleTargets(direction, horizonDays){
     return a.date < b.date ? -1 : 1;
   });
 }
+/* ---------- choosing the session the evidence is actually about ----------
+   KEY-first-then-earliest is safe but says nothing: it progressed a marathon
+   long run because long runs rank KEY, on evidence that was about threshold
+   work. The evidence should point at the stimulus being changed.
+
+   THREE TIERS, and the tier is recorded so a test can tell them apart and so
+   the athlete-facing copy never claims stimulus-specific evidence it does not
+   have:
+
+     matched_stimulus       a future session whose stimulus the recent evidence
+                            actually supports (PROGRESS) or shows repeated
+                            difficulty with (REGRESS). Searched over 7 days,
+                            then 14.
+     key_session_fallback   no such session exists. The previous KEY/earliest
+                            rule applies unchanged, and the copy stays generic.
+     (none)                 nothing eligible at all -> HOLD, as before.
+
+   A second tier keyed on "same training purpose" was measured and dropped:
+   the library represents purpose as prose, and the only structural proxy
+   available (variety group) groups by shape rather than by what a session
+   trains. Guessing across stimuli is exactly the precision this layer is not
+   entitled to, so the fallback goes straight to the honest generic one. */
 function playbookSelectTarget(direction){
-  var t = playbookEligibleTargets(direction, PLAYBOOK_HORIZON_DAYS);
-  if (t.length) return { day:t[0], horizonDays:PLAYBOOK_HORIZON_DAYS };
-  // extended only to FIND an appropriate session, never to reshape more of the plan
-  t = playbookEligibleTargets(direction, PLAYBOOK_MAX_HORIZON_DAYS);
-  return t.length ? { day:t[0], horizonDays:PLAYBOOK_MAX_HORIZON_DAYS } : null;
+  var supported = playbookSupportedStimuli(direction);
+  var horizons = [PLAYBOOK_HORIZON_DAYS, PLAYBOOK_MAX_HORIZON_DAYS];
+  for (var i=0; i<horizons.length; i++){
+    var t = playbookEligibleTargets(direction, horizons[i]);
+    if (!t.length) continue;
+    if (supported.length){
+      var m = t.filter(function(dd){ return supported.indexOf(playbookStimulusOf(dd))!==-1; });
+      if (m.length) return { day:m[0], horizonDays:horizons[i],
+                             selection:'matched_stimulus', stimulus:playbookStimulusOf(m[0]) };
+    }
+  }
+  // no evidence-matched session anywhere in the horizon: the original rule
+  for (var j=0; j<horizons.length; j++){
+    var f = playbookEligibleTargets(direction, horizons[j]);
+    if (f.length) return { day:f[0], horizonDays:horizons[j],
+                           selection:'key_session_fallback', stimulus:playbookStimulusOf(f[0]) };
+  }
+  return null;
 }
 
 /* ---------- the proposal ----------
@@ -9292,7 +9403,8 @@ function playbookProposal(){
                dayId:dd.id, date:dd.date, field:action.field, from:action.from, to:action.to,
                fromKm:dd.km, toKm:rebuilt.day.km, fromTitle:dd.title, toTitle:rebuilt.day.title,
                archetype:action.archetype, substituted:false,
-               why: playbookChangeWhy(decision, action, dd) };
+               selection:sel.selection, stimulus:sel.stimulus,
+               why: playbookChangeWhy(decision, action, dd, sel) };
   } else if (action.action === 'SUBSTITUTE'){
     var sub = planSubstitution(dd, action.to, ctx);
     if (!sub.ok) return Object.assign(base, { held:true, decision:'HOLD', suppressed:decision,
@@ -9302,22 +9414,66 @@ function playbookProposal(){
                dayId:dd.id, date:dd.date, field:null, from:action.from, to:action.to,
                fromKm:dd.km, toKm:sub.day.km, fromTitle:dd.title, toTitle:sub.day.title,
                archetype:action.to, substituted:true,
+               selection:sel.selection, stimulus:sel.stimulus,
                why:'The session in the plan is at the limit of its own range, so the same stimulus comes from another eligible structure.' };
   }
   if (!change) return Object.assign(base, { held:true, decision:'HOLD', suppressed:decision,
     reason:'Nothing safe to change.' });
 
-  return Object.assign(base, {
+  var out = Object.assign(base, {
     held:false, change:change, week:week.week, day:week.day || null,
-    horizonDays:sel.horizonDays,
+    horizonDays:sel.horizonDays, selection:sel.selection,
     protectedSessions: playbookProtectedSessions(dd, sel.horizonDays),
-    reason: assessment.why[0] || null
+    reason: change.why || assessment.why[0] || null
   });
+  out.proposalId = playbookProposalId(out);
+  return out;
 }
-function playbookChangeWhy(decision, action, dd){
+/* Names the stimulus ONLY when the target was chosen because the evidence is
+   about that stimulus. On a fallback it stays generic, because claiming
+   "your recent threshold work has been controlled" about a session picked for
+   being the earliest KEY one would be a coach inventing a reason. */
+var PLAYBOOK_STIMULUS_NOUN = {
+  threshold:'threshold work', aerobic_power:'aerobic-power work', vo2:'interval work',
+  speed:'speed work', strength:'hill work', race_specific:'race-specific work',
+  endurance:'long-run work', aerobic:'easy running', assessment:'testing',
+  sharpening:'sharpening', race:'racing'
+};
+/* ---------- proposal identity ----------
+   What the athlete accepts must be what the athlete saw. The id covers the
+   evidence that produced the proposal, the change itself, and the shape of the
+   week it would be applied to -- so a run logged, a session edited, a goal
+   changed or a plan rescheduled between render and tap all move it. Derived,
+   never stored: a stale id simply fails to match and the proposal is rebuilt. */
+function playbookProposalId(prop){
+  if (!prop || !prop.change) return null;
+  var wkDays = (state.days||[]).filter(function(d){
+    return prop.week && prop.week.some(function(x){ return x.id===d.id; }); });
+  var su = state.setup || {};
+  var str = [ prop.decision, prop.evidenceHash,
+              prop.change.dayId, prop.change.field, prop.change.from, prop.change.to,
+              prop.change.archetype, prop.change.substituted?1:0,
+              planShapeHash(wkDays),
+              /* The zones every target is derived from. Changing the Active Goal
+                 moves VDOT, which moves the pace and heart-rate windows, which
+                 moves what the proposed step even means -- and it does not
+                 always shift the evidence tiers enough to move their hash. The
+                 same three values reviewInputHash() includes, for the same
+                 reason. */
+              nz(su.activeGoal), nz(getActiveVDOT()), nz(su.distanceKey) ].join('#');
+  var h = 5381;
+  for (var i=0;i<str.length;i++){ h = ((h*33) ^ str.charCodeAt(i)) >>> 0; }
+  return 'pp'+h.toString(36);
+}
+function playbookChangeWhy(decision, action, dd, sel){
+  var named = sel && sel.selection==='matched_stimulus' && PLAYBOOK_STIMULUS_NOUN[sel.stimulus];
   if (decision==='PROGRESS')
-    return 'Repeated evidence that this stimulus is being absorbed, so it grows by one step — the same session, slightly more of it.';
-  return 'The session is not being completed as written, so it is reduced by one step to something that can be.';
+    return named
+      ? 'Your recent '+named+' has been consistently compatible with what was prescribed, so the next one grows by one step — the same session, slightly more of it.'
+      : 'Repeated evidence that this stimulus is being absorbed, so it grows by one step — the same session, slightly more of it.';
+  return named
+    ? 'Your recent '+named+' has repeatedly fallen short of what was prescribed, so it is reduced by one step to something that can be completed.'
+    : 'The session is not being completed as written, so it is reduced by one step to something that can be.';
 }
 /* Everything demanding in the horizon that the proposal deliberately leaves
    alone. One decision changes at most one session; this is the list of what it
@@ -9381,9 +9537,23 @@ function playbookRebalanceWeek(oldDay, newDay, ctx){
 }
 
 /* ---------- accepting, declining, and the bounded history ---------- */
-function handleAcceptPlaybook(){
+function handleAcceptPlaybook(shownId){
   var prop = playbookProposal();
-  if (!prop || prop.held || !prop.week) return;
+  if (!prop || prop.held || !prop.week){
+    /* The proposal the athlete was looking at no longer exists -- something
+       material changed between render and tap. Nothing is applied; the panel
+       simply shows whatever is true now. */
+    renderApp();
+    showToast('That suggestion is out of date — here is the current read');
+    return;
+  }
+  if (shownId && prop.proposalId !== shownId){
+    // it still exists, but it is not the same proposal. Ask again rather than
+    // quietly applying something the athlete never saw.
+    renderApp();
+    showToast('Something changed — take another look before accepting');
+    return;
+  }
   // ATOMIC: the whole rebuilt week, never only the changed day, or the week's
   // volume ends up describing a plan that no longer exists.
   var byId = {};
@@ -9423,9 +9593,16 @@ function handleAcceptPlaybook(){
   showToast(prop.decision==='PROGRESS' ? 'Plan evolved — one session progressed'
                                        : 'Plan evolved — one session eased');
 }
-function handleDeclinePlaybook(){
+function handleDeclinePlaybook(shownId){
   var prop = playbookProposal();
-  if (!prop || prop.held) return;
+  if (!prop || prop.held){ renderApp(); return; }
+  // A decline records the evidence it was declining. If the proposal has moved
+  // on, recording the new hash would silence a suggestion never actually shown.
+  if (shownId && prop.proposalId !== shownId){
+    renderApp();
+    showToast('Something changed — take another look');
+    return;
+  }
   /* Respected until the evidence genuinely changes. A decline is a statement
      about this proposal, never a permanent veto: the hash moves as sessions
      accumulate, and safety evidence bypasses it entirely. */
@@ -10754,8 +10931,10 @@ function renderEvolutionProposal(ev, where){
         (vol ? ' · volume '+(vol>0?'+':'')+vol+'km' : ' · volume unchanged'))+
       '</div></div>'+
     '<div class="coach-actions">'+
-      '<button type="button" class="btn btn-primary btn-block" data-action="accept-evolution">Accept Evolution</button>'+
-      '<button type="button" class="btn btn-ghost btn-block" data-action="decline-evolution">Keep Current Plan</button>'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="accept-evolution"'+
+        (ev.proposalId ? ' data-proposal="'+escapeHtml(ev.proposalId)+'"' : '')+'>Accept Evolution</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="decline-evolution"'+
+        (ev.proposalId ? ' data-proposal="'+escapeHtml(ev.proposalId)+'"' : '')+'>Keep Current Plan</button>'+
     '</div>'+
   '</div>';
 }
@@ -13013,13 +13192,13 @@ document.addEventListener('click', function(e){
        the whole rebuilt week; the existing fatigue hierarchy commits its own
        changes. The athlete sees one Accept and one Keep either way. */
     case 'accept-evolution': {
-      var evA = planEvolution();
-      if (evA && evA.playbook) handleAcceptPlaybook(); else handleAcceptEvolution();
+      var shownA = target.getAttribute('data-proposal');
+      if (shownA) handleAcceptPlaybook(shownA); else handleAcceptEvolution();
       break;
     }
     case 'decline-evolution': {
-      var evD = planEvolution();
-      if (evD && evD.playbook) handleDeclinePlaybook(); else handleDeclineEvolution();
+      var shownD = target.getAttribute('data-proposal');
+      if (shownD) handleDeclinePlaybook(shownD); else handleDeclineEvolution();
       break;
     }
 
