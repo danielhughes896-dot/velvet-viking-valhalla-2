@@ -2239,6 +2239,30 @@ function pickQualityDays(pool, fixedDemanding, count){
   });
   return best ? best.slice() : [];
 }
+/* ---------- HOW A WEEK'S VOLUME IS DISTRIBUTED ----------
+   Lifted out of the day loop unchanged so that generation and any later
+   rebalance read one authority rather than two. Pure arithmetic: quality
+   distance is whatever its structure prescribes and is never inflated to
+   consume volume; what is left goes to easy running first, then to the long
+   run up to its cap, and whatever still will not fit is reported rather than
+   forced somewhere it does not belong. */
+function distributeWeekVolume(volumeKm, qualityKm, longKm, secondLongKm, easyDayCount, longCapKm){
+  var easyBudget = Math.max(0, volumeKm - qualityKm - longKm - secondLongKm);
+  var perEasy = 0;
+  if (easyDayCount>0){
+    var easyCap = Math.max(EASY_MIN_KM, (longKm||EASY_MIN_KM)*EASY_MAX_FRACTION_OF_LONG);
+    perEasy = clamp(round1(easyBudget/easyDayCount), EASY_MIN_KM, round1(easyCap));
+    easyBudget = Math.max(0, round1(easyBudget - perEasy*easyDayCount));
+  }
+  if (easyBudget>0){
+    var room = Math.max(0, longCapKm-longKm);
+    var addToLong = Math.min(room, easyBudget);
+    longKm = round1(longKm+addToLong);
+    easyBudget = round1(easyBudget-addToLong);
+  }
+  return { perEasy:perEasy, longKm:longKm, undistributedKm:round1(easyBudget) };
+}
+
 function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, hasEvent){
   // default true: every plan built before the event became optional was built
   // by entering a race date
@@ -2337,21 +2361,12 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
                   : qualityDays.length===1 ? (singleSlotKind==='interval' ? qKmThisWeek : tKmThisWeek)
                   : 0;
 
-    var easyBudget = Math.max(0, wk.volume - qualityKm - longKm - secondLongKm);
-    var perEasy = 0;
-    if (easyDays.length>0){
-      var easyCap = Math.max(EASY_MIN_KM, (longKm||EASY_MIN_KM)*EASY_MAX_FRACTION_OF_LONG);
-      perEasy = clamp(round1(easyBudget/easyDays.length), EASY_MIN_KM, round1(easyCap));
-      easyBudget = Math.max(0, round1(easyBudget - perEasy*easyDays.length));
-    }
-    if (easyBudget>0){
-      var room = Math.max(0, profile.longCapKm-longKm);
-      var addToLong = Math.min(room, easyBudget);
-      longKm = round1(longKm+addToLong);
-      easyBudget = round1(easyBudget-addToLong);
-    }
-    if (easyBudget>0.5 && !wk.isRace){
-      planBuildNotes.push({ week:wk.week, target:wk.volume, undistributedKm:round1(easyBudget),
+    var dist = distributeWeekVolume(wk.volume, qualityKm, longKm, secondLongKm,
+                                     easyDays.length, profile.longCapKm);
+    var perEasy = dist.perEasy;
+    longKm = dist.longKm;
+    if (dist.undistributedKm>0.5 && !wk.isRace){
+      planBuildNotes.push({ week:wk.week, target:wk.volume, undistributedKm:dist.undistributedKm,
         reason:'Weekly volume cannot be distributed across '+activeDays.length+
                ' running days without over-filling the easy days or the long run.' });
     }
@@ -8203,7 +8218,7 @@ var WORKOUT_LIBRARY = {
     phase:libPhases('preferred','allowed','preferred','allowed','disallowed'),
     profile:libProfiles('allowed','preferred','preferred','allowed'),
     byDistance:{ '5k':'allowed', '10k':'preferred' },   // a 10K block is a threshold block
-    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    taperEligible:true, raceSpecific:false, slot:'tempo', poolSelectable:true,
     varietyGroup:'threshold_continuous', weight:1.0, minRunDays:3, minWeeklyVolumeKm:25,
     preferenceEligible:true,
     presentation:{ novice:true, experienced:true, advanced:true }
@@ -8215,7 +8230,7 @@ var WORKOUT_LIBRARY = {
     progressField:'min', regressField:'min',
     phase:libPhases('preferred','allowed','discouraged','allowed','disallowed'),
     profile:libProfiles('allowed','preferred','preferred','preferred'),
-    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    taperEligible:true, raceSpecific:false, slot:'tempo', poolSelectable:true,
     varietyGroup:'tempo_continuous', weight:1.0, minRunDays:3, minWeeklyVolumeKm:20,
     preferenceEligible:true,
     presentation:{ novice:true, experienced:true, advanced:true }
@@ -8227,7 +8242,7 @@ var WORKOUT_LIBRARY = {
     progressField:'min', regressField:'min',
     phase:libPhases('allowed','preferred','allowed','discouraged','disallowed'),
     profile:libProfiles('allowed','preferred','preferred','preferred'),
-    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    taperEligible:true, raceSpecific:false, slot:'tempo', poolSelectable:true,
     varietyGroup:'tempo_continuous', weight:1.0, minRunDays:3, minWeeklyVolumeKm:25,
     preferenceEligible:true,
     presentation:{ novice:true, experienced:true, advanced:true }
@@ -8241,7 +8256,7 @@ var WORKOUT_LIBRARY = {
     phase:libPhases('discouraged','preferred','allowed','allowed','disallowed'),
     profile:libProfiles('allowed','preferred','preferred','allowed'),
     byDistance:{ '5k':'allowed', '10k':'preferred' },
-    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    taperEligible:true, raceSpecific:false, slot:'tempo', poolSelectable:true,
     varietyGroup:'tempo_broken', weight:1.0, minRunDays:3, minWeeklyVolumeKm:30,
     preferenceEligible:true,
     presentation:{ novice:true, experienced:true, advanced:true }
@@ -8253,7 +8268,7 @@ var WORKOUT_LIBRARY = {
     progressField:'km', regressField:'km',
     phase:libPhases('disallowed','allowed','preferred','allowed','disallowed'),
     profile:libProfiles('discouraged','allowed','preferred','preferred'),
-    taperEligible:true, raceSpecific:true, poolSelectable:true,
+    taperEligible:true, raceSpecific:true, slot:'tempo', poolSelectable:true,
     varietyGroup:'goal_pace', weight:1.0, minRunDays:3, minWeeklyVolumeKm:30,
     preferenceEligible:true,
     presentation:{ novice:true, experienced:true, advanced:true }
@@ -8269,7 +8284,7 @@ var WORKOUT_LIBRARY = {
     progressField:'reps', regressField:'reps',
     phase:libPhases('discouraged','preferred','preferred','allowed','disallowed'),
     profile:libProfiles('preferred','preferred','allowed','discouraged'),
-    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    taperEligible:true, raceSpecific:false, slot:'interval', poolSelectable:true,
     varietyGroup:'reps_interval', weight:1.0, minRunDays:3, minWeeklyVolumeKm:30,
     preferenceEligible:true,
     presentation:{ novice:true, experienced:true, advanced:true }
@@ -8281,7 +8296,7 @@ var WORKOUT_LIBRARY = {
     progressField:'reps', regressField:'reps',
     phase:libPhases('allowed','preferred','allowed','allowed','disallowed'),
     profile:libProfiles('preferred','allowed','discouraged','discouraged'),
-    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    taperEligible:true, raceSpecific:false, slot:'interval', poolSelectable:true,
     byDistance:{ '5k':'preferred', '10k':'allowed' },   // pure speed work is a 5K priority, a 10K extra
     varietyGroup:'reps_short', weight:1.0, minRunDays:3, minWeeklyVolumeKm:20,
     preferenceEligible:true,
@@ -8297,7 +8312,7 @@ var WORKOUT_LIBRARY = {
     progressField:'rungs', regressField:'rungs', symmetricPairs:true,
     phase:libPhases('discouraged','preferred','allowed','discouraged','disallowed'),
     profile:libProfiles('preferred','preferred','allowed','discouraged'),
-    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    taperEligible:true, raceSpecific:false, slot:'interval', poolSelectable:true,
     varietyGroup:'reps_interval', weight:0.9, minRunDays:4, minWeeklyVolumeKm:35,
     preferenceEligible:true,
     presentation:{ novice:true, experienced:true, advanced:true }
@@ -8312,7 +8327,7 @@ var WORKOUT_LIBRARY = {
     progressField:'reps', regressField:'reps', setsFloorOnly:true,
     phase:libPhases('disallowed','preferred','allowed','discouraged','disallowed'),
     profile:libProfiles('preferred','preferred','allowed','discouraged'),
-    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    taperEligible:true, raceSpecific:false, slot:'interval', poolSelectable:true,
     varietyGroup:'reps_interval', weight:0.85, minRunDays:4, minWeeklyVolumeKm:40,
     preferenceEligible:true,
     presentation:{ novice:true, experienced:true, advanced:true }
@@ -8324,7 +8339,7 @@ var WORKOUT_LIBRARY = {
     progressField:'reps', regressField:'reps',
     phase:libPhases('disallowed','allowed','preferred','allowed','disallowed'),
     profile:libProfiles('allowed','preferred','preferred','allowed'),
-    taperEligible:true, raceSpecific:true, poolSelectable:true,
+    taperEligible:true, raceSpecific:true, slot:'interval', poolSelectable:true,
     varietyGroup:'goal_pace', weight:1.0, minRunDays:3, minWeeklyVolumeKm:30,
     preferenceEligible:true,
     presentation:{ novice:true, experienced:true, advanced:true }
@@ -8337,7 +8352,7 @@ var WORKOUT_LIBRARY = {
     progressField:'reps', regressField:'reps',
     phase:libPhases('preferred','allowed','discouraged','discouraged','disallowed'),
     profile:libProfiles('preferred','preferred','allowed','preferred'),
-    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    taperEligible:true, raceSpecific:false, slot:'interval', poolSelectable:true,
     varietyGroup:'strength', weight:1.0, minRunDays:3, minWeeklyVolumeKm:20,
     preferenceEligible:true,
     presentation:{ novice:true, experienced:true, advanced:true }
@@ -8349,7 +8364,7 @@ var WORKOUT_LIBRARY = {
     progressField:'reps', regressField:'reps',
     phase:libPhases('preferred','allowed','discouraged','allowed','disallowed'),
     profile:libProfiles('preferred','preferred','preferred','preferred'),
-    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    taperEligible:true, raceSpecific:false, slot:'interval', poolSelectable:true,
     varietyGroup:'strength', weight:1.0, minRunDays:3, minWeeklyVolumeKm:20,
     preferenceEligible:true,
     presentation:{ novice:true, experienced:true, advanced:true }
@@ -8677,6 +8692,337 @@ function rankLibraryCandidates(ctx){
     if (b.score !== a.score) return b.score - a.score;
     return a.archetype < b.archetype ? -1 : 1;     // deterministic tie-break, never random
   });
+}
+
+
+/* =========================================================
+   SUBSTITUTION — one canonical day rebuild, and the rules around it
+   ---------------------------------------------------------
+   Replacing one planned structure with another touches almost everything a
+   day is: its text, its distance, its week's volume, its targets, its zone
+   time, its duration and its evidence contract. Doing that field by field is
+   how state goes stale, so there is exactly ONE rebuild here and it derives
+   every field from the same canonical sources the generator uses.
+
+   Nothing in this section is called by the generator, by a render path, or by
+   any coaching layer. It is invoked by tests and by the corpus simulation.
+
+   SUBSTITUTION IS IN PLACE. The date, the week, the id and the day's position
+   in the schedule are calendar facts and are never touched; only the workout
+   changes. Moving a session between days is a different operation, and Phase 4
+   already owns it.
+   ========================================================= */
+var SUBSTITUTION_VERSION = 1;
+/* Every way this can say no. A refusal is a result, not an error: the caller
+   sees exactly one reason and never a silent retry with something less
+   appropriate. */
+var SUBSTITUTION_REFUSALS = [
+  'manual_edit', 'completed', 'logged_actuals', 'coach_adjusted',
+  'no_prescription', 'unknown_archetype', 'no_library_entry', 'fixed_purpose',
+  'incompatible_stimulus', 'incompatible_slot', 'same_archetype',
+  'ineligible_phase', 'ineligible_distance', 'insufficient_frequency',
+  'insufficient_volume', 'taper_block', 'race_week',
+  'quality_never_longest', 'weekly_cap', 'cannot_rebalance', 'no_week_context'
+];
+function subRefuse(code, reason){ return { ok:false, code:code, reason:reason }; }
+
+/* ---------- has the athlete taken ownership of this day? ----------
+   Checked before anything else, and in this order, because each is a stronger
+   claim on the day than the one after it. A logged session is historical
+   evidence: rewriting the prescription it was judged against would silently
+   re-point an old run at a workout it was never run for. */
+function daySubstitutionBlock(dd){
+  if (!dd) return subRefuse('no_prescription','No day.');
+  if (dd.manualEdit)
+    return subRefuse('manual_edit','The athlete has edited this session. Their version is authoritative and is never reinterpreted.');
+  if (dd.completed)
+    return subRefuse('completed','A completed session is the record of what was run. It is history, not a plan to rewrite.');
+  var a = dd.actual || {};
+  var logged = ['km','pace','hr','rpe','feel'].some(function(k){ return a[k]!=null; }) ||
+               (a.notes && a.notes.length>0);
+  if (logged)
+    return subRefuse('logged_actuals','This day already carries logged data. A previous run is never re-attached to a different prescription.');
+  if (dd.coachAdjust)
+    return subRefuse('coach_adjusted','The coach has already reshaped this session and the athlete accepted it. It is settled.');
+  if (dd.type==='rest')
+    return subRefuse('fixed_purpose','A rest day carries no workout to substitute.');
+  /* An id this build does not know is a DIFFERENT answer from no structure at
+     all: one is a day from a newer version, the other is a legacy or
+     hand-written day. prescriptionOf() collapses both to null, so the raw
+     field is read here to keep the two apart for the caller. */
+  if (dd.prescription && dd.prescription.archetype && !isKnownArchetype(dd.prescription.archetype))
+    return subRefuse('unknown_archetype','Unknown archetype id "'+dd.prescription.archetype+'". A structure this build does not understand is left exactly as it is.');
+  var p = prescriptionOf(dd);
+  if (!p)
+    return subRefuse('no_prescription','No structured prescription. A legacy or hand-written day is never guessed into a library workout.');
+  var e = libraryEntry(p.archetype);
+  if (!e) return subRefuse('no_library_entry','No library entry for '+p.archetype+'.');
+  if (!e.poolSelectable)
+    return subRefuse('fixed_purpose','A '+p.archetype.replace(/_/g,' ')+' is placed by the plan, not chosen from a pool. Races, checkpoints, shakeouts, strides, easy runs and long runs are not varied.');
+  return null;
+}
+
+/* ---------- what may legitimately replace it ----------
+   Same SLOT and same STIMULUS. Slot is which of the week's two quality places
+   the session occupies, and a tempo-slot session and an interval-slot one are
+   not interchangeable even where the stimulus matches -- swapping across them
+   changes the shape of the week rather than the workout. Stimulus comes from
+   the library, never from dd.type, because dd.type groups sessions that train
+   different things. */
+function stimulusCompatible(fromArchetype, toArchetype){
+  var a = libraryEntry(fromArchetype), b = libraryEntry(toArchetype);
+  if (!a || !b) return false;
+  return a.stimulus === b.stimulus && a.slot === b.slot;
+}
+function substitutionCandidates(dd, ctx){
+  var block = daySubstitutionBlock(dd);
+  if (block) return { ok:false, code:block.code, reason:block.reason, candidates:[] };
+  var p = prescriptionOf(dd);
+  var c = libraryContext(ctx || {});
+  var out = [], refusedBy = {};
+  var note = function(code){ refusedBy[code] = (refusedBy[code]||0)+1; };
+  Object.keys(WORKOUT_LIBRARY).forEach(function(id){
+    if (id === p.archetype) return;                       // itself is not a substitute
+    var e = WORKOUT_LIBRARY[id];
+    if (!e.poolSelectable){ note('fixed_purpose'); return; }
+    if (!stimulusCompatible(p.archetype, id)){ note('incompatible_stimulus'); return; }
+    if (LIB_ELIGIBILITY_RANK[libraryPhaseEligibility(id, c.phase)] <= 0){ note('ineligible_phase'); return; }
+    if (c.distanceKey && LIB_ELIGIBILITY_RANK[libraryProfileEligibility(id, c.distanceKey)] <= 0){ note('ineligible_distance'); return; }
+    if (c.runDays && e.minRunDays && c.runDays < e.minRunDays){ note('insufficient_frequency'); return; }
+    if (c.weeklyVolumeKm && e.minWeeklyVolumeKm && c.weeklyVolumeKm < e.minWeeklyVolumeKm){ note('insufficient_volume'); return; }
+    out.push(id);
+  });
+  return { ok:true, from:p.archetype, stimulus:libraryEntry(p.archetype).stimulus,
+           slot:libraryEntry(p.archetype).slot, candidates:out.sort(), refusedBy:refusedBy };
+}
+/* Ranked by the same terms rankLibraryCandidates uses, so substitution and
+   selection cannot disagree about what a good fit is. Preference stays last,
+   variety stays capped, and ties break alphabetically rather than by chance. */
+function rankSubstitutionCandidates(dd, ctx){
+  var found = substitutionCandidates(dd, ctx);
+  if (!found.ok) return found;
+  var c = libraryContext(ctx || {});
+  c.neededStimulus = found.stimulus;
+  var ranked = rankLibraryCandidates(c).filter(function(r){
+    return found.candidates.indexOf(r.archetype) !== -1;
+  });
+  return { ok:true, from:found.from, stimulus:found.stimulus, ranked:ranked,
+           refusedBy:found.refusedBy };
+}
+
+/* ---------- the one rebuild ----------
+   Every field is re-derived. Nothing is patched, and nothing from the old
+   workout survives except the calendar. Returns a NEW day object; the input is
+   never mutated, so a caller can inspect the result before committing to it. */
+function rebuildWorkoutDay(dd, newPrescription, ctx){
+  ctx = ctx || {};
+  if (!newPrescription || !isKnownArchetype(newPrescription.archetype))
+    return subRefuse('unknown_archetype','Unknown archetype id.');
+  var txt = textFor(newPrescription, ctx.textCtx);
+  if (!txt) return subRefuse('unknown_archetype','No text template for '+newPrescription.archetype+'.');
+
+  // distance, from the same budget the generator sizes a day with
+  var meta = ARCHETYPES[newPrescription.archetype];
+  var rawKm;
+  if (meta.dayKmParam && newPrescription.params[meta.dayKmParam]!=null){
+    rawKm = newPrescription.params[meta.dayKmParam];
+  } else {
+    var spec = prescriptionSpec(newPrescription);
+    if (!spec) return subRefuse('unknown_archetype','No spec form for '+newPrescription.archetype+'.');
+    rawKm = qualitySessionKm(spec, (meta.family==='interval'||meta.family==='repetition') ? 'interval' : 'tempo');
+  }
+  var km = roundWorkoutKm(txt.type, rawKm);
+
+  var out = {};
+  Object.keys(dd).forEach(function(k){ out[k] = dd[k]; });
+  // CALENDAR IDENTITY, untouched: id, date, week, readiness and the log slot
+  out.type = txt.type;
+  out.title = txt.title;
+  out.km = km;
+  out.mpSegment = !!txt.mpSegment;
+  out.desc = syncDescDistance(txt.type, txt.desc, km);
+  out.prescription = { v:PRESCRIPTION_VERSION, archetype:newPrescription.archetype,
+                       params: JSON.parse(JSON.stringify(newPrescription.params)) };
+  // the settle-up the generator runs last: a param that IS the day distance
+  // has to follow it through rounding
+  if (meta.dayKmParam) out.prescription.params[meta.dayKmParam] = round1(km);
+  /* DERIVED STATE. A review is judged against a prescription, so one written
+     for the old structure is meaningless against the new one -- it is dropped
+     rather than left to look current. Segments, targets, zone time and
+     duration are never stored, so there is nothing else to invalidate: they
+     re-derive from the prescription above on the next read. */
+  delete out.coachReview;
+  return { ok:true, day:out, from:{ type:dd.type, title:dd.title, km:dd.km, desc:dd.desc,
+                                    mpSegment:!!dd.mpSegment,
+                                    prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null } };
+}
+
+/* ---------- the whole operation, on a copy of the week ----------
+   Rebuilds the day, then re-runs the generator's OWN week arithmetic over the
+   result. There is no second rebalance algorithm: distributeWeekVolume() and
+   capWeeklyVolume() are the same two functions buildDaysFromWeeks uses.
+   Returns the rebuilt week; the caller decides whether to commit it. */
+function planSubstitution(dd, newArchetypeOrPrescription, ctx){
+  ctx = ctx || {};
+  var block = daySubstitutionBlock(dd);
+  if (block) return block;
+  var cur = prescriptionOf(dd);
+  var toId = typeof newArchetypeOrPrescription==='string'
+    ? newArchetypeOrPrescription : (newArchetypeOrPrescription||{}).archetype;
+  if (!toId) return subRefuse('unknown_archetype','No target archetype.');
+  if (toId === cur.archetype) return subRefuse('same_archetype','That is the session it already is.');
+  if (!stimulusCompatible(cur.archetype, toId))
+    return subRefuse('incompatible_stimulus','A '+toId.replace(/_/g,' ')+' does not deliver the same training stimulus as a '+
+                     cur.archetype.replace(/_/g,' ')+'.');
+  var found = substitutionCandidates(dd, ctx);
+  if (found.ok && found.candidates.indexOf(toId)===-1){
+    // report the specific gate rather than a generic "not eligible"
+    var c = libraryContext(ctx);
+    var e = libraryEntry(toId);
+    if (LIB_ELIGIBILITY_RANK[libraryPhaseEligibility(toId, c.phase)] <= 0)
+      return subRefuse('ineligible_phase', toId.replace(/_/g,' ')+' is not eligible in '+c.phase+'.');
+    if (c.distanceKey && LIB_ELIGIBILITY_RANK[libraryProfileEligibility(toId, c.distanceKey)] <= 0)
+      return subRefuse('ineligible_distance', toId.replace(/_/g,' ')+' is not appropriate for this race distance.');
+    if (c.runDays && e.minRunDays && c.runDays < e.minRunDays)
+      return subRefuse('insufficient_frequency', toId.replace(/_/g,' ')+' needs at least '+e.minRunDays+' running days.');
+    if (c.weeklyVolumeKm && e.minWeeklyVolumeKm && c.weeklyVolumeKm < e.minWeeklyVolumeKm)
+      return subRefuse('insufficient_volume', toId.replace(/_/g,' ')+' needs at least '+e.minWeeklyVolumeKm+'km a week.');
+    return subRefuse('incompatible_stimulus','Not an eligible substitute here.');
+  }
+
+  /* Parameters for the new structure. The generator builds these from the
+     phase pool, and this reuses exactly that, so a substituted session is
+     parameterised the way a generated one would have been -- never carried
+     across from a structure that measured something else. */
+  var params = ctx.params || substitutionParams(toId, ctx);
+  if (!params) return subRefuse('unknown_archetype','No parameters could be derived for '+toId+'.');
+  var next = { v:PRESCRIPTION_VERSION, archetype:toId, params:params };
+
+  var rebuilt = rebuildWorkoutDay(dd, next, ctx);
+  if (!rebuilt.ok) return rebuilt;
+
+  // ---- the week, rebalanced by the generator's own rules ----
+  var week = (ctx.weekDays || []).map(function(x){
+    return x.id===dd.id ? rebuilt.day : JSON.parse(JSON.stringify(x));
+  });
+  if (!ctx.weekDays || !ctx.weekInfo) {
+    return { ok:true, day:rebuilt.day, from:rebuilt.from, week:null,
+             note:'No week context supplied, so no rebalance was attempted.' };
+  }
+  var wk = ctx.weekInfo;
+  var profile = DISTANCE_PROFILES[ctx.distanceKey || (state.setup&&state.setup.distanceKey)];
+  var longEntry = week.filter(function(x){ return x.type==='long'; })
+                      .sort(function(a,b){ return b.km-a.km; })[0];
+  var qualityKm = week.filter(function(x){ return isQualityType(x.type); })
+                      .reduce(function(sum,x){ return sum+(x.km||0); }, 0);
+
+  if (profile && wk && !wk.isRace){
+    var easyDays = week.filter(function(x){ return x.type==='easy'; });
+    var secondLong = week.filter(function(x){ return x!==longEntry && x.type==='long'; })
+                         .reduce(function(s,x){ return s+(x.km||0); }, 0);
+    var dist = distributeWeekVolume(wk.volume, qualityKm, longEntry?longEntry.km:0, secondLong,
+                                    easyDays.length, profile.longCapKm);
+    easyDays.forEach(function(x){
+      x.km = roundWorkoutKm('easy', dist.perEasy);
+      x.desc = syncDescDistance('easy', x.desc, x.km);
+      var m = ARCHETYPES[(prescriptionOf(x)||{}).archetype];
+      if (m && m.dayKmParam && x.prescription) x.prescription.params[m.dayKmParam] = round1(x.km);
+    });
+    if (longEntry && dist.longKm !== longEntry.km){
+      longEntry.km = roundWorkoutKm('long', dist.longKm);
+      longEntry.desc = syncDescDistance('long', longEntry.desc, longEntry.km);
+      var lm = ARCHETYPES[(prescriptionOf(longEntry)||{}).archetype];
+      if (lm && lm.dayKmParam && longEntry.prescription)
+        longEntry.prescription.params[lm.dayKmParam] = round1(longEntry.km);
+    }
+    capWeeklyVolume(week, [wk]);
+    var total = week.reduce(function(s,x){ return s+(x.km||0); }, 0);
+    if (total > wk.volume*1.03 + 0.05)
+      return subRefuse('weekly_cap','The week cannot absorb that structure without breaking its volume cap.');
+  }
+  /* quality_never_longest, checked LAST and against the FINAL week. Checking it
+     before the rebalance was wrong: capWeeklyVolume's last resort trims the long
+     run, so a session that fitted under the long run beforehand could sit above
+     the trimmed one afterwards. The invariant is about the week the athlete ends
+     up with, not the week we started from. */
+  var finalLong = week.filter(function(x){ return x.type==='long'; })
+                      .sort(function(a,b){ return b.km-a.km; })[0];
+  if (finalLong && isQualityType(rebuilt.day.type) && rebuilt.day.km > finalLong.km + 0.001)
+    return subRefuse('quality_never_longest','That structure would be longer than the week’s long run.');
+  return { ok:true, day:rebuilt.day, from:rebuilt.from, week:week,
+           archetype:toId, fromArchetype:cur.archetype,
+           reason:'Same stimulus, same slot, rebuilt from the prescription.' };
+}
+
+/* Parameters a substituted structure should carry. Built from the generator's
+   own phase pool at the same position in the block, so the result is exactly
+   what the generator would have produced had it chosen this structure -- not a
+   translation of the parameters of a workout that measured something else. */
+function substitutionParams(archetype, ctx){
+  ctx = ctx || {};
+  var su = state.setup || {};
+  var profile = DISTANCE_PROFILES[ctx.distanceKey || su.distanceKey];
+  if (!profile) return null;
+  var pos = ctx.pos!=null ? ctx.pos : 0.5;
+  var e = libraryEntry(archetype);
+  if (!e || !e.slot) return null;
+  var pool = e.slot==='interval' ? INTERVAL_STRUCTURE_POOL : TEMPO_STRUCTURE_POOL;
+  var spec = null;
+  Object.keys(pool).forEach(function(ph){
+    pool[ph].forEach(function(fn){
+      if (spec) return;
+      var s = fn(pos, profile.emphasis);
+      var p = prescriptionFromSpec(s, e.slot);
+      if (p && p.archetype===archetype) spec = s;
+    });
+  });
+  if (!spec) return null;
+  var p2 = prescriptionFromSpec(spec, e.slot);
+  return p2 ? p2.params : null;
+}
+
+/* =========================================================
+   PROGRESSION BEFORE SUBSTITUTION — the priority contract
+   ---------------------------------------------------------
+   Minimum intervention, made concrete. Substitution is the LAST thing tried,
+   never the way a decision is delivered: an athlete whose threshold session is
+   going well should get a slightly longer threshold session, not a different
+   workout. Variety and preference cannot reach this function at all -- they
+   only ever order candidates once substitution has already been justified.
+
+   Observational. Nothing calls it.
+   ========================================================= */
+function playbookNextAction(dd, decision, ctx){
+  ctx = ctx || {};
+  var p = prescriptionOf(dd);
+  if (!p) return { action:'NONE', code:'no_prescription',
+                   reason:'No structure to act on. A legacy or hand-edited day is left exactly as it is.' };
+  // A. HOLD is a decision, and it is the one that changes nothing.
+  if (decision==='HOLD' || !decision)
+    return { action:'KEEP', reason:vvvPrinciple('minimum_intervention').statement };
+  // B. can the CURRENT archetype deliver the step? Always preferred.
+  var step = decision==='PROGRESS' ? progressPrescription(p, ctx) : regressPrescription(p, ctx);
+  if (step.ok)
+    return { action:'TRANSFORM', direction:step.direction, field:step.field,
+             from:step.from, to:step.to, prescription:step.prescription,
+             archetype:p.archetype,
+             reason:'The session already in the plan can carry this step. Keeping it is the smaller intervention.' };
+  /* C. it cannot. Substitution is considered ONLY now, and only when the
+        reason the step failed is that this structure has run out of room --
+        never when the phase, the athlete's own edit or the long-run ceiling
+        said no, because a different workout does not fix any of those. */
+  var SUBSTITUTABLE_BLOCKS = ['at_max','at_min','no_field','not_progressable','not_regressable'];
+  if (SUBSTITUTABLE_BLOCKS.indexOf(step.code)===-1)
+    return { action:'KEEP', code:step.code, reason:step.reason,
+             blockedReason:'That refusal is not something a different workout would solve.' };
+  var alts = rankSubstitutionCandidates(dd, ctx);
+  if (!alts.ok || !alts.ranked.length)
+    return { action:'KEEP', code: alts.ok ? 'no_alternative' : alts.code,
+             reason: alts.ok ? 'This structure is at its limit and nothing else delivers the same stimulus here.' : alts.reason };
+  return { action:'SUBSTITUTE', to:alts.ranked[0].archetype, from:p.archetype,
+           ranked:alts.ranked.map(function(r){ return r.archetype; }),
+           reason:'The current structure is at the '+(decision==='PROGRESS'?'top':'bottom')+
+                  ' of its legal range, so the same stimulus is delivered by another eligible structure.' };
 }
 
 
