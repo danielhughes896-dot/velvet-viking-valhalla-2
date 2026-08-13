@@ -10866,19 +10866,32 @@ function renderEvolutionLink(){
 /* One short explanation, at the depth the athlete asked for. The DECISION is
    identical at every level -- this only changes how much is said about it,
    exactly as renderCoachingDepth already does for a session. */
+/* When the target had to be chosen by the older KEY/earliest rule -- because
+   no session close to what the athlete has actually been doing was available
+   in the horizon -- say so. The copy already avoids CLAIMING a match in that
+   case (playbookChangeWhy stays generic); this closes the other half, which is
+   that the athlete was never told a closer one did not exist. No jargon: the
+   words "stimulus", "fallback", "tier" and "selection" stay out of the app. */
+function evolutionFallbackNote(ev, lvl){
+  var c = ev.changes[0] || {};
+  if (c.selection !== 'key_session_fallback') return '';
+  if (lvl === 'advanced') return ' No closely matching session this week.';
+  return ' Nothing closer to your recent work was available this week, so VVV chose the safest useful session to adjust.';
+}
 function evolutionRationale(ev){
   var pb = ev.playbook;
   if (!pb) return '';
   var lvl = athleteExperience();
   var c = ev.changes[0] || {};
+  var note = evolutionFallbackNote(ev, lvl);
   if (lvl==='advanced')
-    return c.field ? ((PLAYBOOK_FIELD_NOUN[c.field]||c.field)+' '+c.from+' → '+c.to+
-                      (PLAYBOOK_FIELD_UNIT[c.field]||'')+'.')
-                   : (c.fromTitle+' → '+c.toTitle+'.');
+    return (c.field ? ((PLAYBOOK_FIELD_NOUN[c.field]||c.field)+' '+c.from+' → '+c.to+
+                       (PLAYBOOK_FIELD_UNIT[c.field]||'')+'.')
+                    : (c.fromTitle+' → '+c.toTitle+'.')) + note;
   if (lvl==='novice')
-    return pb.why+' Nothing else in the week changes, the session keeps its pace targets and its purpose, '+
+    return pb.why+note+' Nothing else in the week changes, the session keeps its pace targets and its purpose, '+
            'and you can put it back at any time.';
-  return pb.why;
+  return pb.why+note;
 }
 /* Plain words for the dimension a step moved, for the one line the athlete
    reads. Descriptive, and the same vocabulary the library uses. */
