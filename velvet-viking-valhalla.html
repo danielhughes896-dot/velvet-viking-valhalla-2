@@ -1630,10 +1630,24 @@ var ARCHETYPES = {
   time_trial:            { family:'checkpoint' },
   /* dd.type is the UI taxonomy and stays 'interval' -- this IS the race-week
      quality slot and the athlete should recognise it as one. But the SESSION is
-     5km of easy running plus six 100m strides, so every whole-run measurement
-     VVV takes of it is an easy-run measurement. Judging it against the interval
-     window scored a correctly executed sharpener at 46% with pace=0. `exec`
-     overrides only the execution semantics; nothing else changes. */
+     5km of easy running plus six 100m strides, so nothing about an interval
+     session describes it.
+
+     WHAT THIS TABLE IS NOW FOR. Scoring no longer reads it: mixed sessions are
+     handled by the composite execution targets, which derive the expected
+     whole-session result from the segments and need no per-archetype constant.
+     A NEW ENTRY MUST NEVER ADD A zoneKey -- that was the architectural shortcut
+     and it is gone. What is left are the three things whole-session aggregate
+     data genuinely cannot derive, kept only because each is a real limit:
+       zoneKey      the number to show on the CARD, i.e. what the athlete should
+                    see on their watch during the session. Not a scoring input.
+       rpe          effort is perceptual and peak-weighted -- an athlete rates a
+                    session by its hardest part, not by a time-weighted mean, so
+                    there is no honest way to compute this from a segment mix.
+       weight,      how much evidence a session carries and how much stress it
+       recoveryLike,  imposes, and which direction of miss is the real failure.
+       load         All three are statements of INTENT, which is what dd.type is
+                    for, and which is wrong here for this one archetype. */
   easy_strides:          { family:'interval',
                            exec:{ zoneKey:'E', rpe:[2,5], weight:1.0, recoveryLike:true, load:1.05 } },
   race:                  { family:'race' }
@@ -1919,18 +1933,34 @@ var INTENSITY_ZONE_BUCKET = {
 // A range recovery ("3-4min between sets") costs its midpoint. Stated as an
 // estimate rather than smuggled in as a single number.
 function segSeconds(sec){ return Array.isArray(sec) ? (sec[0]+sec[1])/2 : sec; }
-/* Walks a segment tree and reports how long each zone bucket is worked for,
-   using the app's own pace sources. Returns the distance it could account for
-   too, so the caller can attribute a day's remainder without inventing one. */
-function segmentZoneTime(segs){
-  var out = { easy:0, mp:0, threshold:0, interval:0 };
-  var accountedKm = 0, hasUnquantified = false;
+function midPaceForIntensity(intensity, paces, goalPace){
+  if (intensity==='goal_pace') return goalPace;
+  var z = paces[INTENSITY_ZONE_KEY[intensity]];
+  return (z && z.slow!=null) ? (z.slow+z.fast)/2 : null;
+}
+/* THE segment walker. Everything downstream -- the zone chart, the duration
+   estimate and the execution targets below -- folds from this one traversal,
+   so no two of them can ever disagree about what a prescription contains.
+
+   Reports, per intensity: the distance prescribed at it, the time that costs,
+   and how much of that time sits in blocks too short for heart rate to settle.
+   Time-based work is converted to distance at the app's own zone pace, because
+   time-based running still covers ground and that ground has to count towards
+   accountedKm -- otherwise the day's residual charges for it a second time (a
+   26min tempo was once counted as 26min of tempo AND ~5km of easy).
+   `unpricedSec` is time we could not price because the zone has no pace (no
+   VDOT, no goal); it is reported rather than silently dropped. */
+var HR_STEADY_STATE_SEC = 240;      // ~4min: the usual time for HR to plateau
+function segmentDistanceMix(segs){
+  var byIntensity = {}, timeByIntensity = {}, unpricedSec = {};
+  var accountedKm = 0, hasUnquantified = false, hasMaximal = false;
+  var unsettledSec = 0, totalSec = 0;
   var paces = getActivePaces();
   var goalPace = getGoalPaceSecPerKm();
-  var paceFor = function(intensity){
-    if (intensity==='goal_pace') return goalPace;
-    var z = paces[INTENSITY_ZONE_KEY[intensity]];
-    return (z && z.slow!=null) ? (z.slow+z.fast)/2 : null;
+  var add = function(map, k, v){ map[k] = (map[k]||0) + v; };
+  var countTime = function(sec, each){
+    totalSec += sec;
+    if (each < HR_STEADY_STATE_SEC) unsettledSec += sec;
   };
   (function walk(list, mult){
     (list||[]).forEach(function(s){
@@ -1938,30 +1968,47 @@ function segmentZoneTime(segs){
         s.children.forEach(function(c){ walk([c], mult*repeatChildCount(s, c)); });
         return;
       }
-      var bucket = INTENSITY_ZONE_BUCKET[s.intensity] || 'easy';
+      if (s.maximal) hasMaximal = true;
       var km = s.km!=null ? s.km : (s.m!=null ? s.m/1000 : null);
+      var mid = midPaceForIntensity(s.intensity, paces, goalPace);
       if (km!=null){
         accountedKm += km*mult;
-        var p = paceFor(s.intensity) || DEFAULT_PACE_SEC_PER_KM;
-        out[bucket] += km*mult*p;
+        add(byIntensity, s.intensity, km*mult);
+        var each = km*(mid || DEFAULT_PACE_SEC_PER_KM);
+        add(timeByIntensity, s.intensity, each*mult);
+        countTime(each*mult, each);
         return;
       }
       if (s.sec!=null){
-        var sec = segSeconds(s.sec)*mult;
-        out[bucket] += sec;
-        /* Time-based running still covers ground, and that ground has to count
-           towards accountedKm or the residual below treats it as unmeasured and
-           charges the day for it twice -- a 26min tempo would have been counted
-           as 26min of tempo AND ~5km of easy. The conversion is the app's own
-           zone pace, not a new estimate. */
-        var tp = paceFor(s.intensity);
-        if (tp) accountedKm += sec/tp;
+        var one = segSeconds(s.sec);
+        add(timeByIntensity, s.intensity, one*mult);
+        countTime(one*mult, one);
+        if (mid) add(byIntensity, s.intensity, (one*mult)/mid), accountedKm += (one*mult)/mid;
+        else add(unpricedSec, s.intensity, one*mult);
         return;
       }
       hasUnquantified = true;                 // no number of any kind: see below
     });
   })(segs, 1);
-  return { zones:out, accountedKm:round1(accountedKm), hasUnquantified:hasUnquantified };
+  return { byIntensity:byIntensity, timeByIntensity:timeByIntensity, unpricedSec:unpricedSec,
+           accountedKm:accountedKm, hasUnquantified:hasUnquantified, hasMaximal:hasMaximal,
+           unsettledSec:unsettledSec, totalSec:totalSec };
+}
+/* Zone-bucket time, folded from the one walker above. Distance x its zone's
+   mid pace is exactly the time that distance was counted for, so this is the
+   same arithmetic it always was -- just no longer a second traversal. */
+function segmentZoneTime(segs){
+  var out = { easy:0, mp:0, threshold:0, interval:0 };
+  var mix = segmentDistanceMix(segs);
+  var paces = getActivePaces(), goalPace = getGoalPaceSecPerKm();
+  Object.keys(mix.byIntensity).forEach(function(i){
+    var bucket = INTENSITY_ZONE_BUCKET[i] || 'easy';
+    out[bucket] += mix.byIntensity[i] * (midPaceForIntensity(i, paces, goalPace) || DEFAULT_PACE_SEC_PER_KM);
+  });
+  Object.keys(mix.unpricedSec).forEach(function(i){
+    out[INTENSITY_ZONE_BUCKET[i] || 'easy'] += mix.unpricedSec[i];
+  });
+  return { zones:out, accountedKm:mix.accountedKm, hasUnquantified:mix.hasUnquantified };
 }
 /* A structured day's zone time, including whatever the prescription leaves
    unmeasured. The residual is NOT invented: dd.km is known and the accounted
@@ -1976,7 +2023,10 @@ function structuredZoneTime(dd){
   var segs = segmentsFor(p);
   if (!segs) return null;
   var r = segmentZoneTime(segs);
-  var residualKm = round1((dd.km||0) - r.accountedKm);
+  // The residual is attributed at full precision and only ROUNDED for display.
+  // Rounding first made this derivation disagree with executionMix() below by
+  // up to 17 seconds on the same day, from the same walker.
+  var residualKm = (dd.km||0) - r.accountedKm;
   if (residualKm > 0.05){
     var paces = getActivePaces();
     var easyPace = (paces.E && paces.E.slow!=null) ? (paces.E.slow+paces.E.fast)/2 : DEFAULT_PACE_SEC_PER_KM;
@@ -3440,8 +3490,9 @@ function getDayTargets(dd){
   // reads a day's targets gets it from one place. Null (and so omitted) for
   // rest/race days, which have no zone, and whenever LTHR isn't configured.
   out.hr = fmtHRRange(getTargetHRRangeForDay(dd));
-  if (tm.zoneKey && paces[tm.zoneKey] && paces[tm.zoneKey].slow!=null){
-    var z = paces[tm.zoneKey];
+  var displayKey = executionZoneKey(dd);
+  if (displayKey && paces[displayKey] && paces[displayKey].slow!=null){
+    var z = paces[displayKey];
     // Ascending (fastest bound first), matching the Pace Reference card and
     // the Plan HQ zone table -- the same range printed in two orders on one
     // screen reads like two different targets.
@@ -4158,6 +4209,129 @@ function actualPaceSecPerKm(dd){
 }
 
 /* =========================================================
+   COMPOSITE EXECUTION TARGETS
+   ---------------------------------------------------------
+   The two functions above answer "what pace/heart rate is this session's zone",
+   which is what the athlete needs to see on the card and on their watch.
+   Scoring asks a different question, and asking the first one got the wrong
+   answer: what VVV records is a WHOLE-SESSION average, and a 3km easy + 8km
+   threshold day cannot average inside the pure threshold window no matter how
+   perfectly it is run. A correctly executed threshold session scored pace 69;
+   a correctly executed 8x1200m scored pace 0.
+
+   So: derive from the prescription the whole-session result that WOULD be
+   consistent with correct execution, and judge the average against that.
+   The direction matters -- prescription -> expected aggregate. We never go the
+   other way and pretend to know how each segment was actually run, because the
+   athlete logs one pace and one heart rate for the whole session and nothing
+   in that number says which kilometre was which.
+
+   Both fall back to the zone window whenever there is no prescription (legacy
+   days, hand-edited days) or no VDOT, so nothing about those days changes.
+   ========================================================= */
+
+/* Every kilometre of the day, keyed by the intensity it is prescribed at.
+   The residual -- the day's known distance minus what the prescription
+   numbers -- is easy running by the same argument structuredZoneTime already
+   makes: unnumbered warm-ups, cool-downs and jog recoveries are all easy, so
+   the intensity is certain even where the individual lengths are not. */
+function executionMix(dd){
+  var p = prescriptionOf(dd);
+  if (!p) return null;
+  var segs = segmentsFor(p);
+  if (!segs) return null;
+  var mix = segmentDistanceMix(segs);
+  var byIntensity = {};
+  Object.keys(mix.byIntensity).forEach(function(k){ byIntensity[k] = mix.byIntensity[k]; });
+  var residual = (dd.km||0) - mix.accountedKm;
+  if (residual > 0.05){
+    byIntensity.easy = (byIntensity.easy||0) + residual;
+    var paces = getActivePaces();
+    var ep = midPaceForIntensity('easy', paces, null) || DEFAULT_PACE_SEC_PER_KM;
+    mix.timeByIntensity.easy = (mix.timeByIntensity.easy||0) + residual*ep;
+    mix.totalSec += residual*ep;                 // unnumbered flanks are long, so settled
+  }
+  var km = 0;
+  Object.keys(byIntensity).forEach(function(k){ km += byIntensity[k]; });
+  if (km <= 0) return null;
+  mix.byIntensity = byIntensity;
+  mix.km = km;
+  return mix;
+}
+
+/* PACE. The whole-session average is a distance-weighted mean of the paces of
+   its parts, and it is monotone in each of them -- so running every segment at
+   the fast end of its own window produces exactly the fastest average that
+   correct execution can produce, and the slow ends produce the slowest. Those
+   two are the bounds; there is no estimation in between.
+
+   Time-based work is allocated its distance at the zone's mid pace (the same
+   conversion the zone chart has always used) so the parts still sum to the
+   day's prescribed distance. Goal-pace work is a single pace, not a window, so
+   it contributes width of zero -- which is why a session that is entirely goal
+   pace gets the floor below rather than a zero-width target. */
+var MIN_PACE_WINDOW_SEC = 6;      // ±3 s/km across a whole session is noise
+function executionPaceTarget(dd){
+  var fallback = getTargetPaceRangeSecPerKm(dd);
+  var mix = executionMix(dd);
+  if (!mix) return fallback;
+  var paces = getActivePaces(), goalPace = getGoalPaceSecPerKm();
+  var fastSec = 0, slowSec = 0, km = 0;
+  var bad = false;
+  Object.keys(mix.byIntensity).forEach(function(i){
+    var d = mix.byIntensity[i];
+    var lo, hi;
+    if (i==='goal_pace'){ lo = hi = goalPace; }
+    else { var z = paces[INTENSITY_ZONE_KEY[i]]; if (z && z.slow!=null){ lo = z.fast; hi = z.slow; } }
+    if (lo==null || hi==null){ bad = true; return; }
+    fastSec += d*lo; slowSec += d*hi; km += d;
+  });
+  if (bad || km<=0) return fallback;
+  var fast = fastSec/km, slow = slowSec/km;
+  if (slow-fast < MIN_PACE_WINDOW_SEC){
+    var mid = (fast+slow)/2;
+    fast = mid - MIN_PACE_WINDOW_SEC/2; slow = mid + MIN_PACE_WINDOW_SEC/2;
+  }
+  return { slow:slow, fast:fast, composite:true };
+}
+
+/* HEART RATE. Pace maths does NOT transfer. Heart rate is a rate over time,
+   not over distance, so the weighting is by time. More importantly it lags:
+   it does not fall to the easy zone during a 90-second jog and does not reach
+   the interval zone during a 400m rep, so for short work the time-weighted
+   band is a central estimate rather than a boundary. Those two errors point in
+   opposite directions and partly cancel, which is why the estimate is usable
+   at all -- but the residual uncertainty is real and is stated as width rather
+   than hidden: the band is widened in proportion to how much of the session
+   sits in blocks shorter than HR can settle in. A continuous easy or threshold
+   session has no such blocks, so its band is exactly its zone and nothing
+   about those days changes.
+
+   A maximal segment makes the ceiling open. VVV does not know how high the
+   average should go in an all-out test, and going higher is not a failure --
+   which is the same thing the strain model already says about time trials. */
+var HR_LAG_BPM = 8;               // full-width uncertainty for all-short work
+function executionHRTarget(dd){
+  var fallback = getTargetHRRangeForDay(dd);
+  var mix = executionMix(dd);
+  if (!mix || !mix.totalSec) return fallback;
+  var hz = getActiveHRZones();
+  var loSec = 0, hiSec = 0, sec = 0, open = mix.hasMaximal, bad = false;
+  Object.keys(mix.timeByIntensity).forEach(function(i){
+    var t = mix.timeByIntensity[i];
+    var z = hz[i==='goal_pace' ? 'M' : INTENSITY_ZONE_KEY[i]];
+    if (!z || z.lo==null){ bad = true; return; }
+    if (z.hi==null) open = true;                     // open-ended zone, no max HR set
+    loSec += t*z.lo; hiSec += t*(z.hi!=null ? z.hi : z.lo); sec += t;
+  });
+  if (bad || sec<=0) return fallback;
+  var margin = HR_LAG_BPM * Math.min(1, mix.unsettledSec/(mix.totalSec||1));
+  var lo = Math.round(loSec/sec - margin);
+  var hi = open ? null : Math.round(hiSec/sec + margin);
+  return { lo:lo, hi:hi, openEnded:hi==null, composite:true };
+}
+
+/* =========================================================
    WORKOUT EXECUTION SCORE (0-100) — Distance 40% + Pace 40% + HR 20%.
    A separate, always-on metric from the opt-in AI Coach review above
    (which scores RPE, not HR, and only runs when the runner asks for it):
@@ -4183,7 +4357,7 @@ function computeDistanceScore(targetKm, actualKm){
 // Running faster is never rewarded above 100 either way.
 function computePaceScore(dd, actualPaceSp){
   if (actualPaceSp==null) return null;
-  var targetRange = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
+  var targetRange = dd.type==='race' ? null : executionPaceTarget(dd);
   var goalPace = (dd.type==='race' || dd.mpSegment) ? getGoalPaceSecPerKm() : null;
   var recovery = isRecoveryLikeDay(dd);
 
@@ -4211,7 +4385,7 @@ function computePaceScore(dd, actualPaceSp){
 // for easy/recovery days, and never rewarded regardless of type).
 function computeHRScore(dd, actualHR){
   if (actualHR==null) return null;
-  var zone = getTargetHRRangeForDay(dd);
+  var zone = executionHRTarget(dd);
   if (!zone || zone.lo==null) return null;
   var recovery = isRecoveryLikeDay(dd);
   var hi = zone.hi!=null ? zone.hi : Infinity;
@@ -4547,8 +4721,8 @@ function coachRecovery(){
     var a = dd.actual || {};
     var band = expectedRPEBand(dd);
     if (a.rpe!=null && band){ counted++; if (a.rpe > band[1]) overRPE++; }
-    var z = getTargetHRRangeForDay(dd);
-    if (a.hr!=null && z && a.hr > z.hi) overHR++;
+    var z = executionHRTarget(dd);
+    if (a.hr!=null && z && z.hi!=null && a.hr > z.hi) overHR++;
   });
   // hard days back to back, in plan order
   var ordered = state.days.slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
@@ -4981,14 +5155,14 @@ function coachBreakthroughs(){
     // heart rate" is not there to make it with.
     if (coachEnvironment(dd.actual && dd.actual.notes).hrDoubt) return false;
     if (dd.type==='checkpoint' || dd.type==='race') return true;
-    var tr = getTargetPaceRangeSecPerKm(dd);
+    var tr = executionPaceTarget(dd);
     var ap = actualPaceSecPerKm(dd);
     if (!tr || ap==null) return false;
     if (ap > tr.fast) return false;                       // not faster than the window
-    if (isRecoveryWorkoutType(dd.type)) return false;     // easy days are not breakthroughs
-    var z = getTargetHRRangeForDay(dd);
+    if (isRecoveryLikeDay(dd)) return false;              // easy days are not breakthroughs
+    var z = executionHRTarget(dd);
     var a = dd.actual || {};
-    if (z && a.hr!=null && a.hr > z.hi) return false;     // bought with heart rate, not fitness
+    if (z && z.hi!=null && a.hr!=null && a.hr > z.hi) return false;  // bought with heart rate, not fitness
     return true;
   });
 }
@@ -7445,7 +7619,10 @@ function handleCoachRestore(dayId){
 // changing anything reviewInputHash() reads (same archetype, same params), so
 // an already-logged easy+strides day would have kept its 46% verdict forever.
 // The version is the one input that catches "the rules changed, the day did not".
-var COACH_REVIEW_VERSION = 6;
+// 7: composite execution targets. Every structured session is now judged against
+// the whole-session result its own prescription implies, so every stored verdict
+// on a flanked or mixed session was reached against the wrong window.
+var COACH_REVIEW_VERSION = 7;
 
 /* ---------- environment parsed out of the notes ----------
    Numbers, not just keywords: "37 degrees" and "67% humidity" carry a severity
@@ -7795,8 +7972,8 @@ function coachTrainingSignal(dd, env, breakdown){
   // a Breakthrough and told the athlete to monitor fatigue in the same breath.
   var maximal = dd.type==='checkpoint' || dd.type==='race';
   var rpeHigh = !maximal && band && a.rpe!=null && a.rpe > band[1];
-  var z = getTargetHRRangeForDay(dd);
-  var hrHigh = !maximal && z && a.hr!=null && a.hr > z.hi;
+  var z = executionHRTarget(dd);
+  var hrHigh = !maximal && z && z.hi!=null && a.hr!=null && a.hr > z.hi;
 
   if (env.pain || env.illness)
     return { signal:'recovery_priority',
@@ -7859,16 +8036,20 @@ var COACH_SIGNAL_META = {
 function coachVerdict(dd, b, env){
   var a = dd.actual || {};
   var out = [];
-  var tr = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
+  var tr = dd.type==='race' ? null : executionPaceTarget(dd);
   var ap = actualPaceSecPerKm(dd);
-  var z = getTargetHRRangeForDay(dd);
+  var z = executionHRTarget(dd);
   // When the athlete has said the heart-rate data was wrong, every heart-rate
   // claim below goes quiet rather than being asserted and then hedged. The
   // score is untouched -- this governs what the coach is willing to say.
   var hrTrust = !env.hrDoubt;
-  var hrInZone = hrTrust && z && a.hr!=null && a.hr >= z.lo && a.hr <= z.hi;
+  // A null ceiling means "no ceiling" -- an open-ended zone with no max HR set,
+  // or a maximal test, where running higher is not an error. `hr > null`
+  // coerces to `hr > 0` and read as over every single time.
+  var hrCeil = (z && z.hi!=null) ? z.hi : Infinity;
+  var hrInZone = hrTrust && z && a.hr!=null && a.hr >= z.lo && a.hr <= hrCeil;
   var hrUnder = hrTrust && z && a.hr!=null && a.hr < z.lo;
-  var hrOver  = hrTrust && z && a.hr!=null && a.hr > z.hi;
+  var hrOver  = hrTrust && z && a.hr!=null && a.hr > hrCeil;
   var paceSlow = tr && ap!=null && ap > tr.slow;
   var paceFast = tr && ap!=null && ap < tr.fast;
   // Staying out of the quickest quarter of the window is a decision, not a
@@ -8033,8 +8214,8 @@ function coachVerdict(dd, b, env){
 /* ---------- one concise observation ---------- */
 function coachNoticedForWorkout(dd, b, env){
   var a = dd.actual || {};
-  var z = getTargetHRRangeForDay(dd);
-  var hrOK = z && a.hr!=null && a.hr <= z.hi;
+  var z = executionHRTarget(dd);
+  var hrOK = z && a.hr!=null && (z.hi==null || a.hr <= z.hi);
   var envPhrase = coachEnvPhrase(env);
   if (env.illness) return 'Illness reported — that outranks anything the numbers say about this session.';
   if (env.pain) return 'Soreness reported — the next quality session depends on it settling.';
@@ -8075,13 +8256,14 @@ function coachNoticedForWorkout(dd, b, env){
       ? envPhrase+', with heart rate still inside '+mine+'.'
       : envPhrase+', with heart rate held inside the target zone.';
   if (env.tempC!=null && env.tempC<=5) return 'Ran at '+env.tempC+'°C — cold costs pace without meaning anything about fitness.';
-  if (z && a.hr!=null && a.hr > z.hi && isRecoveryWorkoutType(dd.type)) return 'Easy run drifted above its heart-rate ceiling.';
+  if (z && z.hi!=null && a.hr!=null && a.hr > z.hi && isRecoveryLikeDay(dd))
+    return 'Heart rate drifted above the ceiling for a session meant to stay easy.';
   if (env.fatigue) return 'Fatigue reported without a matching rise in effort or heart rate.';
   if (env.treadmill) return 'Treadmill session — pace read in context rather than against road targets.';
   // Wind, hills, cold and soft ground previously produced the bare percentage
   // fallback, so an athlete who explained the session got no sign it was read.
   var ctx = coachExcuses(dd,'pace').filter(function(c){ return c.key!=='heat' && c.key!=='treadmill'; });
-  var tr = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
+  var tr = dd.type==='race' ? null : executionPaceTarget(dd);
   var ap = actualPaceSecPerKm(dd);
   if (ctx.length && tr && ap!=null && ap > tr.slow){
     var phrase = listPhrase(ctx.map(function(c){ return c.say; }));
@@ -8092,7 +8274,7 @@ function coachNoticedForWorkout(dd, b, env){
   // on distance and pace alone has not had "everything" land, because heart
   // rate and effort were never seen.
   if (b.missing.length) return 'Scored without '+listPhrase(b.missing.map(function(p){ return MISSING_NOUN[p.key]||p.label.toLowerCase(); }))+'.';
-  if (b.score>=99) return isRecoveryWorkoutType(dd.type)
+  if (b.score>=99) return isRecoveryLikeDay(dd)
     ? 'Easy discipline held exactly where it was set.'
     : 'Everything landed on the numbers it was set to hit.';
   return 'Executed at '+b.score+'% of the prescribed session.';
@@ -8260,11 +8442,11 @@ function coachWorkoutReview(dd){
       // should be and the week otherwise clean
       mildFatigue: env.fatigue && !env.pain && !env.illness &&
                    coachRecovery().state==='fresh' && coachTrend().direction!=='falling' &&
-                   !(function(){ var z=getTargetHRRangeForDay(dd), band=expectedRPEBand(dd);
-                     return (z && a.hr!=null && a.hr>z.hi) || (band && a.rpe!=null && a.rpe>band[1]); })(),
+                   !(function(){ var z=executionHRTarget(dd), band=expectedRPEBand(dd);
+                     return (z && z.hi!=null && a.hr!=null && a.hr>z.hi) || (band && a.rpe!=null && a.rpe>band[1]); })(),
       // the pace window was missed and the notes already account for it
       paceExplained: (function(){
-        var tr = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
+        var tr = dd.type==='race' ? null : executionPaceTarget(dd);
         var ap = actualPaceSecPerKm(dd);
         return !!(tr && ap!=null && ap > tr.slow && coachExcuses(dd,'pace').length);
       })()
