@@ -548,11 +548,6 @@
   .cr-adjust{margin-top:11px; padding:11px 12px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .cr-adjust-line{font-size:12px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere;}
   .cr-adjust-why{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:4px; overflow-wrap:anywhere;}
-  /* component breakdown -- shows how the single score was reached */
-  .exec-parts{display:flex; flex-wrap:wrap; gap:6px 10px; margin-top:9px; padding-top:8px; border-top:1px solid var(--line-soft);}
-  .exec-part{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-dim); white-space:nowrap;}
-  .exec-part-w{color:var(--ink-faint);}
-  .exec-part-off{opacity:.45;}
 
   /* ---------- tune-up checkpoint card ---------- */
   .checkpoint{
@@ -4612,11 +4607,15 @@ function renderExecutionReview(dd){
       '<div class="exec-review-summary">Log actual '+displayUnit().toUpperCase()+' and average pace to score this session.</div>'+
     '</div>';
   }
-  var breakdown = b.parts.map(function(p){
-    var val = p.score==null ? '—' : Math.round(p.score)+'%';
-    return '<span class="exec-part'+(p.score==null?' exec-part-off':'')+'">'+p.label+' '+val+
-      ' <span class="exec-part-w">×'+Math.round(p.weight*100)+'%</span></span>';
-  }).join('');
+  /* The per-component weighted calculation that used to close this card
+     (Distance 100% x35%, Pace 100% x35%, ...) is deliberately not rendered.
+     It was the arithmetic behind the score, not coaching: it invited the
+     athlete to audit a formula instead of reading the judgement, and no
+     coach hands over their marking scheme. computeExecutionBreakdown() is
+     untouched and still supplies every part, weight and threshold to the
+     score, the review, the training signal and the Playbook -- this is a
+     presentation removal only, with nothing put in its place. The message
+     is meant to end where the coach stops talking. */
   // Score lives in the header as a compact badge -- it used to also appear
   // as a standalone gold banner above the logging fields, which meant the
   // same number was on screen twice inside one card.
@@ -4686,7 +4685,6 @@ function renderExecutionReview(dd){
       '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
     '</div>'+
     body+
-    '<div class="exec-parts">'+breakdown+'</div>'+
   '</div>';
 }
 
@@ -12535,131 +12533,334 @@ function dayPickerOptions(matchId){
 }
 
 /* =========================================================
-   STRAVA INTEGRATION \u2014 OAuth 2.0 + activity sync.
-   The Client Secret lives only in /api/strava-auth.js's server environment
-   (STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET, set in Vercel Project Settings
-   -> Environment Variables) -- it is never sent to or stored in the browser.
-   The client only ever handles the resulting access/refresh tokens.
-   ========================================================= */
-var STRAVA_TOKENS_KEY = 'vvv_strava_tokens';
+   STRAVA INTEGRATION — server-held OAuth + automatic ingestion.
 
-function getStravaTokens(){
-  if (!storageAvailable) return null;
-  try{ var raw = window.localStorage.getItem(STRAVA_TOKENS_KEY); return raw ? JSON.parse(raw) : null; }
-  catch(e){ return null; }
-}
-function setStravaTokens(tok){
+   NOTHING about the Strava authorization lives in the browser any more. The
+   Client Secret, the access token and the refresh token all stay inside the
+   Vercel functions and Supabase (see api/_strava.js). This side holds only a
+   status word that came from the server on this page load.
+
+   That is the fix for the old "Connected" lie: connection used to be a local
+   predicate over a localStorage blob -- once any token object existed the app
+   said Connected forever, with no Strava round trip, even when the grant had
+   expired, been revoked, or failed to refresh. Now the only thing that can
+   produce 'connected' is a server reply that has just proved it can obtain a
+   usable access token.
+
+   Ingestion is push-based. Strava calls /api/strava-webhook when an activity
+   appears; the server fetches and stages it; opening the app reads VVV's own
+   staged rows. There is no polling loop and no background timer -- one read on
+   open, and Sync Strava as the manual fallback.
+   ========================================================= */
+var STRAVA_LEGACY_TOKENS_KEY = 'vvv_strava_tokens';
+
+// status: off | connecting | connected | syncing | error
+var stravaConn = { status:'off', athleteName:null, message:'' };
+
+/* Any token blob left by an older build is deleted, not migrated. It cannot be
+   used server-side (the server holds its own copy or none at all) and leaving
+   an access token sitting in localStorage is precisely what this pass removes. */
+function stravaPurgeLegacyTokens(){
   if (!storageAvailable) return;
-  if (tok) window.localStorage.setItem(STRAVA_TOKENS_KEY, JSON.stringify(tok));
-  else window.localStorage.removeItem(STRAVA_TOKENS_KEY);
+  try{ window.localStorage.removeItem(STRAVA_LEGACY_TOKENS_KEY); }catch(e){}
 }
-function isStravaConnected(){ var t = getStravaTokens(); return !!(t && t.access_token); }
+
+function isStravaConnected(){
+  return stravaConn.status === 'connected' || stravaConn.status === 'syncing';
+}
+
+/* Every Strava route is POST + the athlete's Supabase access token, so the
+   server always knows which VVV account it is acting for. The token is
+   refreshed first: an expired VVV session must read as "sign in again", never
+   as "Strava is disconnected". */
+function stravaPost(endpoint, body){
+  if (!cloudSignedIn()) return Promise.reject(stravaErr('signin'));
+  return cloudRefreshIfNeeded().then(function(fresh){
+    if (!fresh) throw stravaErr('signin');
+    return fetch('/api/'+endpoint, {
+      method:'POST',
+      headers:{ 'content-type':'application/json',
+                'Authorization':'Bearer '+cloudSession.access_token },
+      body: JSON.stringify(body||{})
+    });
+  }).then(function(resp){
+    return resp.json().catch(function(){ return {}; }).then(function(data){
+      if (!resp.ok) throw stravaErr(data.error || 'http_'+resp.status);
+      return data;
+    });
+  });
+}
+function stravaErr(code){ var e = new Error(code); e.code = code; return e; }
+var STRAVA_ERROR_COPY = {
+  signin:                 'Sign in to VVV first — your Strava connection is saved to your account',
+  not_connected:          'Connect Strava first',
+  authorization_revoked:  'Strava access has expired — connect again',
+  strava_unavailable:     'Strava is not responding — try again shortly'
+};
+function stravaMessage(err){
+  return STRAVA_ERROR_COPY[err && err.code] || 'Could not reach Strava — try again';
+}
+
+/* ---------- connection state, always from the server ---------- */
+function stravaSetState(status, extra){
+  stravaConn = { status:status, athleteName:(extra&&extra.athleteName)||null,
+                 message:(extra&&extra.message)||'' };
+  patchStravaSection();
+}
+function stravaRefreshStatus(){
+  if (!cloudSignedIn()){ stravaSetState('off'); return Promise.resolve(false); }
+  return stravaPost('strava-auth', { action:'status' }).then(function(d){
+    // Only an explicit connected:true counts. A transport failure, a 500 or a
+    // missing field all mean "not usable", which is the honest answer.
+    if (d && d.connected){ stravaSetState('connected', { athleteName:d.athleteName }); return true; }
+    stravaSetState('off');
+    return false;
+  }).catch(function(err){
+    stravaSetState(err.code==='signin' ? 'off' : 'error', { message:stravaMessage(err) });
+    return false;
+  });
+}
 
 function handleStravaConnect(){
-  window.location.href = '/api/strava-auth?action=authorize';
-}
-function handleStravaDisconnect(){
-  setStravaTokens(null);
-  showToast('Strava disconnected');
-  openImportModal();
-}
-async function exchangeStravaCode(code){
-  try{
-    var resp = await fetch('/api/strava-auth', {
-      method:'POST',
-      headers:{ 'content-type':'application/json' },
-      body: JSON.stringify({ code:code })
-    });
-    var data = await resp.json();
-    if (!resp.ok) throw new Error(data.error || 'Strava rejected the token exchange');
-    if (!data.access_token) throw new Error('No access token in the response');
-    setStravaTokens({ access_token:data.access_token, refresh_token:data.refresh_token, expires_at:data.expires_at });
-    showToast('Strava connected \u2014 syncing your recent runs\u2026');
-    await fetchStravaRuns();
-  }catch(err){
-    showToast(err.message || 'Strava connection failed');
-  }
-}
-async function handleStravaOAuthCallback(){
-  var params = new URLSearchParams(window.location.search);
-  var code = params.get('code');
-  var error = params.get('error');
-  if (!code && !error) return;
-  var cleanUrl = window.location.origin + window.location.pathname;
-  window.history.replaceState({}, document.title, cleanUrl);
-  if (error){ showToast('Strava connection cancelled'); return; }
-  await exchangeStravaCode(code);
-}
-async function ensureStravaAccessToken(){
-  var t = getStravaTokens();
-  if (!t) return null;
-  var nowSec = Math.floor(Date.now()/1000);
-  if (t.expires_at && t.expires_at > nowSec+60) return t.access_token;
-  if (!t.refresh_token) return t.access_token;
-  try{
-    var resp = await fetch('/api/strava-auth', {
-      method:'POST', headers:{ 'content-type':'application/json' },
-      body: JSON.stringify({ refresh_token:t.refresh_token })
-    });
-    if (!resp.ok) throw new Error('refresh failed');
-    var data = await resp.json();
-    var fresh = { access_token:data.access_token, refresh_token:data.refresh_token||t.refresh_token, expires_at:data.expires_at };
-    setStravaTokens(fresh);
-    return fresh.access_token;
-  }catch(e){ return t.access_token; }
-}
-async function fetchStravaRuns(){
-  if (!isStravaConnected()){ showToast('Connect Strava first'); return; }
-  var token = await ensureStravaAccessToken();
-  if (!token){ showToast('Strava session expired \u2014 reconnect'); return; }
-  showToast('Syncing from Strava\u2026');
-  try{
-    var resp = await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=50', {
-      headers:{ 'Authorization':'Bearer '+token }
-    });
-    if (resp.status===401){ setStravaTokens(null); throw new Error('Strava session expired \u2014 reconnect'); }
-    if (!resp.ok) throw new Error('Strava request failed (status '+resp.status+')');
-    var activities = await resp.json();
-    var runs = activities.filter(function(a){ return a.type==='Run' || a.sport_type==='Run'; });
-    var applied = 0;
-    runs.forEach(function(a){
-      var dateStr = (a.start_date_local || a.start_date || '').slice(0,10);
-      if (!dateStr) return;
-      var dd = findDayByDate(dateStr);
-      if (!dd || dd.type==='rest') return;
-      var km = a.distance!=null ? round1(a.distance/1000) : null;
-      var paceSecPerKm = (a.moving_time && a.distance) ? (a.moving_time/(a.distance/1000)) : null;
-      dd.completed = true;
-      dd.actual = dd.actual || emptyActual();
-      if (km!=null) dd.actual.km = km;
-      if (paceSecPerKm) dd.actual.pace = paceSecPerKmToStoredStr(paceSecPerKm);
-      if (a.average_heartrate) dd.actual.hr = Math.round(a.average_heartrate);
-      if (!dd.actual.notes) dd.actual.notes = 'Synced from Strava';
-      applied++;
-    });
-    if (applied){ scheduleSave(); renderApp(); showToast('Synced '+applied+' run'+(applied===1?'':'s')+' from Strava'); }
-    else showToast('No Strava runs matched a day in your current plan');
-    if (document.getElementById('modal-overlay')) openImportModal();
-  }catch(err){
-    showToast(err.message || 'Strava sync failed');
-  }
+  if (!cloudSignedIn()){ showToast(STRAVA_ERROR_COPY.signin); return; }
+  stravaSetState('connecting');
+  stravaPost('strava-auth', { action:'start' }).then(function(d){
+    if (!d || !d.url) throw stravaErr('no_url');
+    // Leaves VVV for Strava's own authorization page. Nothing is marked
+    // connected here -- only the callback, after a real token exchange, can.
+    window.location.href = d.url;
+  }).catch(function(err){
+    stravaSetState('error', { message:stravaMessage(err) });
+    showToast(stravaMessage(err));
+  });
 }
 
+function handleStravaDisconnect(){
+  var was = stravaConn.status;
+  stravaSetState('off');
+  stravaPost('strava-auth', { action:'disconnect' }).then(function(){
+    showToast('Strava disconnected');
+  }).catch(function(err){
+    stravaSetState(was, { message:stravaMessage(err) });
+    showToast(stravaMessage(err));
+  });
+}
+
+/* The browser comes back from Strava through /api/strava-callback, which has
+   already done the token exchange server-side and redirects here with one
+   word. No code, no token and no athlete id ever reaches this page. */
+var STRAVA_RETURN_COPY = {
+  connected:    'Strava connected — importing your recent runs…',
+  denied:       'Strava connection cancelled',
+  scope:        'VVV needs permission to read your activities — connect again and allow it',
+  unconfigured: 'Strava is not set up on this server yet',
+  failed:       'Strava connection failed — try again'
+};
+function handleStravaReturn(){
+  var params = new URLSearchParams(window.location.search||'');
+  var outcome = params.get('strava');
+  if (!outcome) return false;
+  params.delete('strava');
+  var qs = params.toString();
+  // /auth is an App Link landing path that serves this same page; once the
+  // outcome is read the address bar goes back to the root, exactly as the
+  // magic-link return already does.
+  var path = window.location.pathname || '/';
+  if (path.indexOf('/auth') === 0) path = '/';
+  try{
+    window.history.replaceState({}, document.title, path + (qs ? '?'+qs : ''));
+  }catch(e){}
+  showToast(STRAVA_RETURN_COPY[outcome] || STRAVA_RETURN_COPY.failed);
+  if (outcome !== 'connected'){ stravaSetState('off'); return true; }
+  stravaRefreshStatus().then(function(ok){
+    // First connection backfills a block's worth of history, so a plan that is
+    // already underway is scored from real runs rather than starting empty.
+    if (ok) fetchStravaRuns(180);
+  });
+  return true;
+}
+
+/* =========================================================
+   STRAVA → VVV INGESTION
+   One path, shared by the webhook pull and the manual sync. It does exactly
+   what the file importer does -- match a day, write objective actuals, run the
+   canonical completion -- so nothing downstream can tell where the numbers
+   came from.
+   ========================================================= */
+
+/* Matching is deliberately narrow. VVV holds exactly one day per date, so a
+   date is an identity, not a similarity score: either the plan has that day or
+   it does not. Nothing is inferred from the activity's title or from distance
+   proximity, because an athlete who runs 6km of a 10km session has still run
+   that session, and a title is prose. A wrong automatic match is worse than
+   none, so every uncertain case falls through to unmatched. */
+function stravaMatchDay(a){
+  if (!a || !a.isRun || !a.date) return null;
+  if (!state.days || !state.days.length) return null;
+  var days = state.days.filter(function(d){ return d.date === a.date; });
+  if (days.length !== 1) return null;        // no plan day on that date (or, defensively, more than one)
+  if (days[0].type === 'rest') return null;  // a run on a rest day is not evidence of the rest day
+  return days[0];
+}
+
+/* Objective values the athlete typed in themselves. A day that was merely
+   ticked off carries the PLANNED distance as an assumption (applyCompletion
+   puts it there), which is not a log -- so that case is not treated as manual
+   and Strava is allowed to replace it with what was actually run. */
+function stravaHasManualObjective(dd){
+  var a = dd.actual || {};
+  if (a.pace || a.hr != null) return true;
+  if (a.km == null) return false;
+  return Math.abs(a.km - (dd.km || 0)) > 0.001;
+}
+function stravaObjectiveSnapshot(dd){
+  var a = dd.actual || {};
+  return [dd.completed?1:0, a.km, a.pace, a.hr, a.maxHR, a.cadence,
+          a.movingTimeSec, a.elapsedTimeSec, a.elevationGainM, a.activityType].join('|');
+}
+
+/* Returns one of:
+     applied   - objective actuals written (or refreshed by an update)
+     same      - already ingested, nothing changed
+     conflict  - the day is spoken for; the athlete's data was left alone
+     unmatched - no day this activity can safely belong to           */
+function stravaApplyActivity(a){
+  var dd = stravaMatchDay(a);
+  if (!dd) return 'unmatched';
+  // Another Strava run already owns this day. The first one stays; a second
+  // run on the same date is never allowed to overwrite it.
+  if (dd.stravaActivityId && dd.stravaActivityId !== a.activityId) return 'conflict';
+  // Hand-logged objective numbers are the athlete's own record and outrank an
+  // import. Reported, never silently replaced.
+  if (!dd.stravaActivityId && dd.completed && stravaHasManualObjective(dd)) return 'conflict';
+
+  var before = stravaObjectiveSnapshot(dd);
+  // The canonical completion, not a second notion of "Strava completed".
+  applyCompletion(dd, true);
+  dd.actual = dd.actual || emptyActual();
+  var A = dd.actual;
+  // Objective only. RPE, Feel, notes, soreness and anything else the athlete
+  // said are never written here and never overwritten -- Strava has no opinion
+  // about how a run felt, and a fast pace is not evidence of a good day.
+  if (a.km != null)             A.km = a.km;
+  if (a.paceSecPerKm)           A.pace = paceSecPerKmToStoredStr(a.paceSecPerKm);
+  if (a.hr != null)             A.hr = a.hr;
+  if (a.maxHR != null)          A.maxHR = a.maxHR;
+  if (a.cadence != null)        A.cadence = a.cadence;
+  if (a.movingTimeSec != null)  A.movingTimeSec = a.movingTimeSec;
+  if (a.elapsedTimeSec != null) A.elapsedTimeSec = a.elapsedTimeSec;
+  if (a.elevationGainM != null) A.elevationGainM = a.elevationGainM;
+  if (a.activityType)           A.activityType = a.activityType;
+  dd.stravaActivityId = a.activityId;
+
+  // The review must never predate the objective data it is about. This is the
+  // existing invalidation path -- reviewInputHash already covers every field
+  // written above via ACTUAL_SYNCED_FIELDS -- not a parallel cache.
+  coachPersistReview(dd);
+  return stravaObjectiveSnapshot(dd) === before ? 'same' : 'applied';
+}
+
+function stravaIngestActivities(list){
+  var out = { applied:0, same:0, conflict:0, unmatched:0, ack:[] };
+  (list||[]).forEach(function(a){
+    var r = stravaApplyActivity(a);
+    out[r]++;
+    // Unmatched activities stay pending: a plan generated later may yet cover
+    // that date. Everything resolved is acknowledged so it is never re-offered.
+    if (r !== 'unmatched') out.ack.push(a.activityId);
+  });
+  return out;
+}
+
+function stravaConsume(d){
+  var res = stravaIngestActivities((d && d.activities) || []);
+  if (res.ack.length) stravaPost('strava-sync', { action:'ack', ids:res.ack }).catch(function(){});
+  if (res.applied){ scheduleSave(); renderApp(); }
+  return res;
+}
+
+/* Opening the app. Costs no Strava call -- the webhook has normally already
+   fetched and staged the run -- and stays silent when there is nothing new, so
+   an ordinary launch is unchanged. */
+function stravaAutoPull(){
+  if (!cloudSignedIn()) return Promise.resolve(null);
+  return stravaPost('strava-sync', {}).then(function(d){
+    var res = stravaConsume(d);
+    if (res.applied) showToast('Imported '+res.applied+' run'+(res.applied===1?'':'s')+' from Strava');
+    return res;
+  }).catch(function(){ return null; });
+}
+
+/* The manual fallback. Idempotent by construction: the server keys staging on
+   the activity id and the day carries the activity that owns it, so running
+   this repeatedly re-writes the same numbers and creates nothing. */
+function fetchStravaRuns(days){
+  if (!cloudSignedIn()){ showToast(STRAVA_ERROR_COPY.signin); return Promise.resolve(null); }
+  if (!isStravaConnected()){ showToast(STRAVA_ERROR_COPY.not_connected); return Promise.resolve(null); }
+  stravaSetState('syncing', { athleteName:stravaConn.athleteName });
+  return stravaPost('strava-sync', { action:'sync', days:days||60 }).then(function(d){
+    var res = stravaConsume(d);
+    stravaSetState('connected', { athleteName:stravaConn.athleteName });
+    if (res.applied) showToast('Imported '+res.applied+' run'+(res.applied===1?'':'s')+' from Strava');
+    else if (res.conflict) showToast('Your logged runs were kept — nothing was overwritten');
+    else if (res.same) showToast('Already up to date');
+    else showToast('No Strava runs matched a day in your current plan');
+    return res;
+  }).catch(function(err){
+    if (err.code === 'authorization_revoked') stravaSetState('off', { message:stravaMessage(err) });
+    else stravaSetState('connected', { athleteName:stravaConn.athleteName });
+    showToast(stravaMessage(err));
+    return null;
+  });
+}
+
+/* ---------- Settings UI ----------
+   Same card, same row, same two buttons. The only additions are the transient
+   Connecting/Syncing labels and a short human error line, because saying
+   "Connected" while none of this works is the thing being fixed. */
 function renderStravaSection(){
-  var connected = isStravaConnected();
-  if (connected){
-    return ''+
-      '<div class="connect-row">'+
+  var s = stravaConn.status;
+  var inner;
+  if (s === 'connected' || s === 'syncing'){
+    inner = '<div class="connect-row">'+
         '<div><div class="name">Strava</div><div class="desc"><span class="status-pill status-connected">'+ICONS.check+' Connected</span></div></div>'+
         '<div style="display:flex; gap:6px;">'+
-          '<button type="button" class="btn btn-sm btn-primary" data-action="strava-sync">Sync Strava</button>'+
+          '<button type="button" class="btn btn-sm btn-primary" data-action="strava-sync"'+(s==='syncing'?' disabled':'')+'>'+(s==='syncing'?'Syncing…':'Sync Strava')+'</button>'+
           '<button type="button" class="btn btn-sm btn-ghost" data-action="strava-disconnect">Disconnect</button>'+
         '</div>'+
       '</div>';
+  } else {
+    inner = '<div class="field-hint" style="margin-bottom:10px;">'+
+        (s === 'error' && stravaConn.message
+          ? escapeHtml(stravaConn.message)
+          : 'Securely connect your Strava account — the connection is handled by our server, so no credentials are ever stored in your browser.')+
+      '</div>'+
+      '<button type="button" class="btn btn-block strava-connect-btn" data-action="strava-connect"'+(s==='connecting'?' disabled':'')+'>'+
+        ICONS.pulse+' '+(s==='connecting'?'Connecting…':'Connect Strava')+'</button>';
   }
-  return ''+
-    '<div class="field-hint" style="margin-bottom:10px;">Securely connect your Strava account \u2014 the connection is handled by our server, so no credentials are ever stored in your browser.</div>'+
-    '<button type="button" class="btn btn-block strava-connect-btn" data-action="strava-connect">'+ICONS.pulse+' Connect Strava</button>';
+  return '<div id="strava-section">'+inner+'</div>';
+}
+/* On Android the Strava page opens in the system browser (Capacitor sends
+   off-origin navigation there, and an embedded WebView is the wrong place for
+   somebody else's login form anyway). The app therefore never sees the
+   callback: it finds out the same way any other device would, by asking the
+   server when it comes back to the foreground. Bounded to the one moment it
+   matters -- a connection attempt in flight -- so this is not a poll. */
+function stravaBindResume(){
+  if (typeof document === 'undefined' || !document.addEventListener) return;
+  if (window.__vvvStravaResumeBound) return;
+  window.__vvvStravaResumeBound = true;
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState !== 'visible') return;
+    if (stravaConn.status !== 'connecting') return;
+    stravaRefreshStatus().then(function(ok){ if (ok) fetchStravaRuns(180); });
+  });
+}
+
+function patchStravaSection(){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  var nodes = document.querySelectorAll('#strava-section');
+  for (var i=0; i<nodes.length; i++) nodes[i].outerHTML = renderStravaSection();
 }
 function openImportModal(){
   var html = ''+
@@ -12769,11 +12970,16 @@ function handleApplyActivity(){
   state.days.forEach(function(x){ if (x.id===sel.value) dd = x; });
   var parsed = window.__pendingActivity;
   if (!dd || !parsed) return;
-  dd.completed = true;
+  // The canonical completion, same as the card checkbox and the Strava import.
+  // This used to set dd.completed directly, which skipped the one place that
+  // defines what completing a workout does -- so a file-imported session was
+  // left without the review every other completion path writes.
+  applyCompletion(dd, true);
   dd.actual = dd.actual || emptyActual();
   if (parsed.km!=null) dd.actual.km = parsed.km;
   if (parsed.pace) dd.actual.pace = paceSecPerKmToStoredStr(paceToSec(parsed.pace));
   if (parsed.hr!=null) dd.actual.hr = parsed.hr;
+  coachPersistReview(dd);
   closeModal();
   scheduleSave();
   renderApp();
@@ -12787,11 +12993,12 @@ function handleApplyCsvRow(rowIdx){
   state.days.forEach(function(x){ if (x.id===sel.value) dd = x; });
   var row = window.__csvRows && window.__csvRows[rowIdx];
   if (!dd || !row) return;
-  dd.completed = true;
+  applyCompletion(dd, true);
   dd.actual = dd.actual || emptyActual();
   if (row.km!=null) dd.actual.km = row.km;
   if (row.pace) dd.actual.pace = paceSecPerKmToStoredStr(paceToSec(row.pace));
   if (row.hr!=null) dd.actual.hr = row.hr;
+  coachPersistReview(dd);
   scheduleSave();
   showToast('Logged to '+dow(dd.date)+' '+dShort(dd.date));
   patchDerivedStats();
@@ -13679,8 +13886,25 @@ function init(){
   // Deliberately last and un-awaited: the app is already painted from
   // localStorage by this point, so cloud sync can never delay startup and a
   // cloud failure can never prevent the app from opening.
-  try{ cloudInit(); }catch(e){ cloudStatus='error'; }
-  if (window.location.search.indexOf('code=')!==-1 || window.location.search.indexOf('error=')!==-1) handleStravaOAuthCallback();
+  var cloudInitReady;
+  try{ cloudInitReady = cloudInit(); }catch(e){ cloudStatus='error'; }
+  /* Strava. The old hook fired on ANY `?code=` in the address bar and posted
+     whatever it found to the token endpoint -- which also catches Supabase's
+     PKCE sign-in code, a completely unrelated protocol. The return is now
+     marked with an unambiguous `?strava=` flag written by our own callback.
+
+     Both of these need the Supabase session, which cloudInit() establishes
+     asynchronously, so they are chained off it rather than raced with it. */
+  stravaPurgeLegacyTokens();
+  stravaBindResume();
+  try{
+    Promise.resolve(cloudInitReady).catch(function(){}).then(function(){
+      if (handleStravaReturn()) return;
+      // One read of VVV's own staged rows, on open. Not a poll, not a timer:
+      // the webhook has already done the Strava side before the app opened.
+      stravaRefreshStatus().then(function(ok){ if (ok) stravaAutoPull(); });
+    });
+  }catch(e){}
 }
 try{ init(); }
 catch(err){
