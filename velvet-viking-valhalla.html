@@ -7236,6 +7236,9 @@ function planShapeHash(list){
    ========================================================= */
 var EVOLUTION_META = {
   HOLD:    { label:'Hold',    cls:'proceed', text:'Current structure remains appropriate.' },
+  /* The one state that ADDS. It exists only because the Playbook can now say
+     the stimulus is being absorbed; every other state here reduces or waits. */
+  PROGRESS:{ label:'Progress',cls:'proceed', text:'The current stimulus is being absorbed, and one small step up is appropriate.' },
   MONITOR: { label:'Monitor', cls:'check',   text:'Evidence is building, but not enough to reshape the week.' },
   ADAPT:   { label:'Adapt',   cls:'modify',  text:'Upcoming training should be reshaped while keeping the block on purpose.' },
   RECOVER: { label:'Recover', cls:'recover', text:'Recovery currently outranks planned progression.' }
@@ -7260,6 +7263,25 @@ function planEvolution(){
   // A missed key session is a reason to reshape even when the athlete is fine.
   if (stateName==='HOLD' && recoverable.length) stateName = 'ADAPT';
 
+  /* ---- the Playbook, consulted rather than duplicated ----
+     It only ever gets a say where the coach has nothing to reshape. A coach
+     state of modify or recover is already reducing the week through the
+     hierarchy below, and a second opinion arriving beside it is exactly the
+     two-engine problem this architecture exists to avoid.
+
+     INVARIANTS, enforced here rather than trusted:
+       coach = recover/modify  ->  the Playbook never adds
+       playbook = HOLD         ->  no proposal is manufactured
+       playbook = PROGRESS     ->  only reachable from a clean coach state */
+  var pb = null;
+  if (stateName==='HOLD' || stateName==='MONITOR'){
+    pb = playbookProposal();
+    if (pb && !pb.held && pb.change){
+      if (pb.decision==='PROGRESS' && dec && dec.state!=='proceed') pb = null;   // invariant
+      else stateName = pb.decision==='PROGRESS' ? 'PROGRESS' : 'ADAPT';
+    }
+  }
+
   var reasons = [];
   if (dec && dec.reasons.length) reasons = dec.reasons.slice(0,2);
   if (recoverable.length)
@@ -7269,6 +7291,28 @@ function planEvolution(){
   var before = horizonStimulus(pending);
   var changes = [];
   var protectedSessions = [];
+
+  if (pb && !pb.held && pb.change && (stateName==='PROGRESS' || pb.decision==='REGRESS')){
+    changes = [ pb.change ];
+    protectedSessions = pb.protectedSessions;
+    if (pb.reason) reasons = [pb.reason].concat(reasons).slice(0,3);
+    return {
+      state: stateName,
+      confidence: pb.assessment.sufficiency.sufficient ? 'established' : 'emerging',
+      horizonDays: pb.horizonDays,
+      reasons: reasons.slice(0,3),
+      changes: changes,
+      protectedSessions: protectedSessions,
+      displacedSessions: [],
+      stimulus: { before:before, after:before, preserved:stimulusPreserved(before, before) },
+      missed: missed, phase: phase,
+      playbook: { decision:pb.decision, why:pb.change.why, evidenceHash:pb.evidenceHash },
+      evidenceHash: pb.evidenceHash,
+      originalPlanHash: planShapeHash(pending),
+      evolvedPlanHash: planShapeHash(pending)
+    };
+  }
+  if (pb && pb.held && stateName==='HOLD') reasons = (pb.reason ? [pb.reason] : []).concat(reasons).slice(0,3);
 
   if (stateName==='ADAPT' || stateName==='RECOVER'){
     changes = evolutionChanges(stateName, phase, pending, recoverable);
@@ -7460,7 +7504,11 @@ function applyChangesToCopy(pending, changes){
 function evolutionProposalVisible(ev){
   if (!ev || !ev.changes.length) return false;
   var st = state.evolution || {};
-  return st.declinedHash !== ev.evidenceHash;
+  if (st.declinedHash === ev.evidenceHash) return false;
+  // a Playbook proposal keeps its own decline record, so the two sources never
+  // overwrite each other's answer
+  if (ev.playbook && (state.playbook||{}).declinedHash === ev.evidenceHash) return false;
+  return true;
 }
 function handleAcceptEvolution(){
   var ev = planEvolution();
@@ -9027,6 +9075,422 @@ function playbookNextAction(dd, decision, ctx){
 
 
 /* =========================================================
+   PLAYBOOK ACTIVATION — the proposal layer
+   ---------------------------------------------------------
+   ONE ADAPTATION CHAIN, three layers, each answering a different question:
+
+     coachDecision()   what is happening with the athlete
+                       proceed / check / modify / recover
+     playbookAssess()  should the stimulus increase, stay, or reduce
+                       PROGRESS / HOLD / REGRESS
+     planEvolution()   what change, if any, to PROPOSE
+                       HOLD / MONITOR / ADAPT / RECOVER / PROGRESS
+
+   None of them forms a second opinion about the layer above. The Playbook
+   reads the coach's state rather than re-deriving it, and planEvolution reads
+   the Playbook's decision rather than re-deciding it. The existing fatigue
+   hierarchy (ADAPT/RECOVER) remains the sole authority for relief reductions;
+   what is genuinely new here is the INCREASE direction, which VVV has never
+   had, and a reduction path for the one case the fatigue hierarchy cannot see:
+   an athlete who is fresh but repeatedly unable to complete the session.
+
+   THE PLAYBOOK PROPOSES. THE ATHLETE DECIDES. Nothing below mutates a day.
+   ========================================================= */
+var PLAYBOOK_ACTIVE_VERSION = 1;
+// New scored sessions that must land before another adaptive step is offered.
+// Matches the mixed-session observation count: a decision is not repeated
+// until the evidence that produced it has genuinely been replaced.
+var PLAYBOOK_REFILL_SESSIONS = 3;
+var PLAYBOOK_HISTORY_MAX = 40;
+
+/* ---------- the real position in the block ----------
+   The generator derives `pos` from the week number and the block's build
+   length, and every structure it builds is sized from it. A live decision must
+   use the same number: the 0.5 fallback that is fine for dormant test
+   infrastructure would silently size a substituted session for the middle of a
+   block the athlete is not in. Null when it cannot be derived, and null means
+   HOLD. */
+function playbookBlockPos(weekNum){
+  if (!state.setup) return null;
+  var total = totalWeeksInPlan();
+  if (!total || total < 2) return null;
+  var info = computeTaperInfo(total);
+  if (!info || !info.buildWeeks || info.buildWeeks <= 1) return null;
+  var w = weekNum || currentWeekNum();
+  if (!w || w < 1) return null;
+  return (Math.min(w, info.buildWeeks) - 1) / (info.buildWeeks - 1);
+}
+/* The week a day belongs to, rebuilt from setup so the cap and the easy/long
+   distribution have the same targets the generator used. Deterministic; null
+   if the plan cannot be reconstructed, which again means HOLD. */
+function playbookWeekInfo(weekNum){
+  var su = state.setup;
+  if (!su || !su.distanceKey || !su.currentVolume || !su.planWeeks) return null;
+  var blk = buildBlockWeeks(su.distanceKey, su.currentVolume, su.planWeeks);
+  return blk.weeks.filter(function(w){ return w.week === weekNum; })[0] || null;
+}
+/* Everything a transformation or a substitution needs, all of it real. */
+function playbookLiveContext(dd){
+  if (!dd || !state.setup) return null;
+  var pos = playbookBlockPos(dd.week);
+  if (pos == null) return null;                       // never guess the block position
+  var wk = playbookWeekInfo(dd.week);
+  if (!wk) return null;
+  var weekDays = state.days.filter(function(x){ return x.week === dd.week; });
+  var longEntry = weekDays.filter(function(x){ return x.type==='long'; })
+                          .sort(function(a,b){ return b.km-a.km; })[0];
+  return {
+    phase: trainingPhase(dd.week),
+    distanceKey: state.setup.distanceKey,
+    runDays: (state.setup.schedule && state.setup.schedule.activeDays || []).length,
+    weeklyVolumeKm: wk.volume,
+    longRunKm: longEntry ? longEntry.km : null,
+    weekDays: weekDays, weekInfo: wk, pos: pos,
+    manualEdit: dd.manualEdit || null, dayKm: dd.km
+  };
+}
+
+/* ---------- one decision per evidence window ----------
+   An accepted step closes the window. It reopens only when the evidence that
+   produced it has been replaced -- new scored sessions AND a different
+   evidence hash -- so a good week cannot be spent three times. A DECLINE is
+   respected the same way, except that safety evidence is never gated: an
+   athlete who declined a progression last week must still be told when
+   something is wrong this week. */
+function playbookEvidenceHash(ev){
+  var str = (ev||[]).map(function(e){ return e.tier+':'+e.id+':'+e.direction; }).sort().join('|');
+  // the same small deterministic string hash the file already uses four times
+  var h = 5381;
+  for (var i=0;i<str.length;i++){ h = ((h*33) ^ str.charCodeAt(i)) >>> 0; }
+  return 'pb'+h.toString(36);
+}
+function playbookWindowState(assessment){
+  var st = state.playbook || {};
+  var scoredNow = coachCompletedScored().length;
+  var hash = playbookEvidenceHash(assessment.evidence);
+  var safety = assessment.evidence.some(function(e){ return e.tier==='safety'; });
+  if (safety) return { open:true, hash:hash, scoredNow:scoredNow,
+                       reason:'Safety evidence is never held behind an evidence window.' };
+  if (st.declinedHash && st.declinedHash === hash)
+    return { open:false, hash:hash, scoredNow:scoredNow,
+             reason:'The athlete kept the current plan on this same evidence.' };
+  if (st.lastDecisionAt && st.sessionsAtDecision != null){
+    var fresh = scoredNow - st.sessionsAtDecision;
+    if (fresh < PLAYBOOK_REFILL_SESSIONS)
+      return { open:false, hash:hash, scoredNow:scoredNow, fresh:fresh,
+               reason:'Only '+fresh+' new session'+(fresh===1?'':'s')+' since the last change. '+
+                      PLAYBOOK_REFILL_SESSIONS+' are needed before the next one.' };
+    if (st.evidenceHash === hash)
+      return { open:false, hash:hash, scoredNow:scoredNow,
+               reason:'The evidence has not materially changed since the last decision.' };
+  }
+  return { open:true, hash:hash, scoredNow:scoredNow };
+}
+
+/* ---------- which future session to adapt ----------
+   Never blindly the next workout. Only sessions the Playbook is allowed to
+   touch at all: future, unlogged, unedited, not already reshaped, carrying a
+   structure the library can step. Among those, the session that MATTERS is
+   preferred -- a KEY quality session ahead of a support one -- and the
+   earliest such session wins, so a decision lands close to the evidence that
+   produced it. */
+var PLAYBOOK_HORIZON_DAYS = 7;
+var PLAYBOOK_MAX_HORIZON_DAYS = 14;
+function playbookEligibleTargets(direction, horizonDays){
+  var today = todayStr();
+  var until = addDays(today, horizonDays);
+  return state.days.filter(function(dd){
+    if (dd.date <= today || dd.date > until) return false;   // future only
+    if (dd.completed || dd.type==='rest') return false;
+    var a = dd.actual || {};
+    if (['km','pace','hr','rpe','feel'].some(function(k){ return a[k]!=null; })) return false;
+    if (a.notes) return false;
+    if (dd.manualEdit) return false;                          // the athlete owns it
+    if (dd.coachAdjust) return false;                         // already settled
+    var p = prescriptionOf(dd);
+    if (!p) return false;                                     // legacy: never guessed
+    var e = libraryEntry(p.archetype);
+    if (!e) return false;
+    return direction==='PROGRESS' ? e.progressable : e.regressable;
+  }).sort(function(a,b){
+    var ia = sessionImportance(a)==='KEY' ? 0 : 1;
+    var ib = sessionImportance(b)==='KEY' ? 0 : 1;
+    if (ia !== ib) return ia - ib;
+    return a.date < b.date ? -1 : 1;
+  });
+}
+function playbookSelectTarget(direction){
+  var t = playbookEligibleTargets(direction, PLAYBOOK_HORIZON_DAYS);
+  if (t.length) return { day:t[0], horizonDays:PLAYBOOK_HORIZON_DAYS };
+  // extended only to FIND an appropriate session, never to reshape more of the plan
+  t = playbookEligibleTargets(direction, PLAYBOOK_MAX_HORIZON_DAYS);
+  return t.length ? { day:t[0], horizonDays:PLAYBOOK_MAX_HORIZON_DAYS } : null;
+}
+
+/* ---------- the proposal ----------
+   Returns the change the Playbook would propose, or null with the reason it
+   would not. It builds a rebuilt WEEK, never a rebuilt day, because weekly
+   volume is a week-level fact -- but it commits nothing. */
+function playbookProposal(){
+  if (!state.setup || !state.days || !state.days.length) return null;
+  var assessment = playbookAssess();
+  if (!assessment) return null;
+  var decision = assessment.decision;
+  var win = playbookWindowState(assessment);
+  var base = { decision:decision, assessment:assessment, evidenceHash:win.hash,
+               sessionsAtDecision:win.scoredNow, change:null, week:null };
+
+  if (decision === 'HOLD')
+    /* The specific gate first -- "three more sessions are needed" tells the
+       athlete something; the principle behind it does not. The principle is
+       still the answer when nothing is actually missing, which is the case
+       where HOLD really does just mean the training is working. */
+    return Object.assign(base, { held:true,
+      reason: (assessment.blockedBy && assessment.blockedBy[0]) ||
+              assessment.why[0] || 'The current stimulus remains appropriate.' });
+  if (!win.open)
+    return Object.assign(base, { held:true, decision:'HOLD', suppressed:decision,
+      reason:win.reason });
+
+  /* REGRESS that the fatigue hierarchy already owns is left to it. planEvolution
+     turns a coach state of modify/recover into ADAPT/RECOVER and reduces the
+     week through its own cheapest-first ladder; proposing a second reduction
+     beside it would be two coaches talking at once. The Playbook only acts on
+     the case that hierarchy cannot see: repeated inability to execute, with the
+     athlete otherwise fresh. */
+  if (decision === 'REGRESS'){
+    var dec = coachDecision();
+    if (dec && (dec.state==='modify' || dec.state==='recover'))
+      return Object.assign(base, { held:true, deferredToEvolution:true,
+        reason:'Recovery evidence is already reshaping the week; the Playbook does not add a second reduction.' });
+  }
+
+  var sel = playbookSelectTarget(decision);
+  if (!sel) return Object.assign(base, { held:true, decision:'HOLD', suppressed:decision,
+    reason:'No eligible session in the next '+PLAYBOOK_MAX_HORIZON_DAYS+
+           ' days — the ones there are either logged, edited, already adjusted, or carry no structure the library can step.' });
+
+  var dd = sel.day;
+  var ctx = playbookLiveContext(dd);
+  if (!ctx) return Object.assign(base, { held:true, decision:'HOLD', suppressed:decision,
+    reason:'The real position in the block could not be derived, so nothing is changed.' });
+
+  var action = playbookNextAction(dd, decision, ctx);
+  if (action.action === 'KEEP' || action.action === 'NONE')
+    return Object.assign(base, { held:true, decision:'HOLD', suppressed:decision,
+      reason: action.reason, code: action.code });
+
+  var change = null, week = null;
+  if (action.action === 'TRANSFORM'){
+    var rebuilt = rebuildWorkoutDay(dd, action.prescription, ctx);
+    if (!rebuilt.ok) return Object.assign(base, { held:true, decision:'HOLD', suppressed:decision,
+      reason:rebuilt.reason, code:rebuilt.code });
+    week = playbookRebalanceWeek(dd, rebuilt.day, ctx);
+    if (!week.ok) return Object.assign(base, { held:true, decision:'HOLD', suppressed:decision,
+      reason:week.reason, code:week.code });
+    change = { kind: decision==='PROGRESS' ? 'progress' : 'regress',
+               dayId:dd.id, date:dd.date, field:action.field, from:action.from, to:action.to,
+               fromKm:dd.km, toKm:rebuilt.day.km, fromTitle:dd.title, toTitle:rebuilt.day.title,
+               archetype:action.archetype, substituted:false,
+               why: playbookChangeWhy(decision, action, dd) };
+  } else if (action.action === 'SUBSTITUTE'){
+    var sub = planSubstitution(dd, action.to, ctx);
+    if (!sub.ok) return Object.assign(base, { held:true, decision:'HOLD', suppressed:decision,
+      reason:sub.reason, code:sub.code });
+    week = { ok:true, week:sub.week, day:sub.day };
+    change = { kind: decision==='PROGRESS' ? 'progress' : 'regress',
+               dayId:dd.id, date:dd.date, field:null, from:action.from, to:action.to,
+               fromKm:dd.km, toKm:sub.day.km, fromTitle:dd.title, toTitle:sub.day.title,
+               archetype:action.to, substituted:true,
+               why:'The session in the plan is at the limit of its own range, so the same stimulus comes from another eligible structure.' };
+  }
+  if (!change) return Object.assign(base, { held:true, decision:'HOLD', suppressed:decision,
+    reason:'Nothing safe to change.' });
+
+  return Object.assign(base, {
+    held:false, change:change, week:week.week, day:week.day || null,
+    horizonDays:sel.horizonDays,
+    protectedSessions: playbookProtectedSessions(dd, sel.horizonDays),
+    reason: assessment.why[0] || null
+  });
+}
+function playbookChangeWhy(decision, action, dd){
+  if (decision==='PROGRESS')
+    return 'Repeated evidence that this stimulus is being absorbed, so it grows by one step — the same session, slightly more of it.';
+  return 'The session is not being completed as written, so it is reduced by one step to something that can be.';
+}
+/* Everything demanding in the horizon that the proposal deliberately leaves
+   alone. One decision changes at most one session; this is the list of what it
+   did not touch. */
+function playbookProtectedSessions(target, horizonDays){
+  var today = todayStr(), until = addDays(today, horizonDays);
+  return state.days.filter(function(dd){
+    return dd.date > today && dd.date <= until && dd.id !== target.id &&
+           !dd.completed && sessionImportance(dd)==='KEY';
+  }).map(function(dd){ return { dayId:dd.id, date:dd.date, title:dd.title, why:'KEY session' }; });
+}
+
+/* ---------- the week, rebalanced by the generator's own arithmetic ----------
+   The same two functions buildDaysFromWeeks uses, in the same order, with the
+   quality_never_longest check last because capWeeklyVolume can trim the long
+   run underneath it. There is no parallel maths here. */
+function playbookRebalanceWeek(oldDay, newDay, ctx){
+  var week = ctx.weekDays.map(function(x){
+    return x.id===oldDay.id ? newDay : JSON.parse(JSON.stringify(x));
+  });
+  var wk = ctx.weekInfo, profile = DISTANCE_PROFILES[ctx.distanceKey];
+  if (!profile || !wk) return { ok:false, code:'cannot_rebalance', reason:'The week could not be reconstructed.' };
+  if (!wk.isRace){
+    var longEntry = week.filter(function(x){ return x.type==='long'; })
+                        .sort(function(a,b){ return b.km-a.km; })[0];
+    var qualityKm = week.filter(function(x){ return isQualityType(x.type); })
+                        .reduce(function(s,x){ return s+(x.km||0); }, 0);
+    var easyDays = week.filter(function(x){ return x.type==='easy'; });
+    var secondLong = week.filter(function(x){ return x!==longEntry && x.type==='long'; })
+                         .reduce(function(s,x){ return s+(x.km||0); }, 0);
+    var dist = distributeWeekVolume(wk.volume, qualityKm, longEntry?longEntry.km:0, secondLong,
+                                    easyDays.length, profile.longCapKm);
+    easyDays.forEach(function(x){
+      x.km = roundWorkoutKm('easy', dist.perEasy);
+      x.desc = syncDescDistance('easy', x.desc, x.km);
+      var m = ARCHETYPES[(prescriptionOf(x)||{}).archetype];
+      if (m && m.dayKmParam && x.prescription) x.prescription.params[m.dayKmParam] = round1(x.km);
+    });
+    if (longEntry && dist.longKm !== longEntry.km){
+      longEntry.km = roundWorkoutKm('long', dist.longKm);
+      longEntry.desc = syncDescDistance('long', longEntry.desc, longEntry.km);
+      var lm = ARCHETYPES[(prescriptionOf(longEntry)||{}).archetype];
+      if (lm && lm.dayKmParam && longEntry.prescription)
+        longEntry.prescription.params[lm.dayKmParam] = round1(longEntry.km);
+    }
+    capWeeklyVolume(week, [wk]);
+    var total = week.reduce(function(s,x){ return s+(x.km||0); }, 0);
+    if (total > wk.volume*1.03 + 0.05)
+      return { ok:false, code:'weekly_cap', reason:'The week cannot absorb that step without breaking its volume cap.' };
+    var finalLong = week.filter(function(x){ return x.type==='long'; })
+                        .sort(function(a,b){ return b.km-a.km; })[0];
+    if (finalLong && isQualityType(newDay.type) && newDay.km > finalLong.km + 0.001)
+      return { ok:false, code:'quality_never_longest', reason:'That step would make the session longer than the week’s long run.' };
+  }
+  /* Spacing: a PROGRESS decision is not permission to make the week more
+     aggressive everywhere. The step never changes a session's type, so a new
+     stacked pair cannot appear -- this asserts it rather than assuming it. */
+  if (stackedQualityPairs(week).length > stackedQualityPairs(ctx.weekDays).length)
+    return { ok:false, code:'cannot_rebalance', reason:'That change would put two demanding sessions back to back.' };
+  return { ok:true, week:week, day:newDay };
+}
+
+/* ---------- accepting, declining, and the bounded history ---------- */
+function handleAcceptPlaybook(){
+  var prop = playbookProposal();
+  if (!prop || prop.held || !prop.week) return;
+  // ATOMIC: the whole rebuilt week, never only the changed day, or the week's
+  // volume ends up describing a plan that no longer exists.
+  var byId = {};
+  prop.week.forEach(function(x){ byId[x.id] = x; });
+  var target = findDay(prop.change.dayId);
+  var from = target ? { km:target.km, type:target.type, title:target.title, desc:target.desc,
+                        mpSegment:!!target.mpSegment,
+                        prescription: target.prescription ? JSON.parse(JSON.stringify(target.prescription)) : null } : null;
+  // the whole week's previous shape, so a restore puts the volume back too
+  var weekFrom = state.days.filter(function(x){ return byId[x.id]; }).map(function(x){
+    return { id:x.id, km:x.km, type:x.type, title:x.title, desc:x.desc, mpSegment:!!x.mpSegment,
+             prescription: x.prescription ? JSON.parse(JSON.stringify(x.prescription)) : null };
+  });
+  state.days = state.days.map(function(x){
+    if (!byId[x.id]) return x;
+    // never write over the athlete's own record
+    if (x.completed || x.manualEdit) return x;
+    return byId[x.id];
+  });
+  var applied = findDay(prop.change.dayId);
+  if (applied){
+    applied.coachAdjust = {
+      at:new Date().toISOString(), reason:prop.change.why,
+      evidence:(prop.assessment.why||[]).slice(0,2),
+      state:prop.decision, source:'playbook',
+      from:from, weekFrom:weekFrom
+    };
+  }
+  state.playbook = {
+    lastDecision:prop.decision, lastDecisionAt:new Date().toISOString(),
+    lastDayId:prop.change.dayId, evidenceHash:prop.evidenceHash,
+    sessionsAtDecision:prop.sessionsAtDecision, declinedHash:null, status:'accepted'
+  };
+  recordPlaybookDecision(prop, 'accepted');
+  flushSave();
+  renderApp();
+  showToast(prop.decision==='PROGRESS' ? 'Plan evolved — one session progressed'
+                                       : 'Plan evolved — one session eased');
+}
+function handleDeclinePlaybook(){
+  var prop = playbookProposal();
+  if (!prop || prop.held) return;
+  /* Respected until the evidence genuinely changes. A decline is a statement
+     about this proposal, never a permanent veto: the hash moves as sessions
+     accumulate, and safety evidence bypasses it entirely. */
+  var st = state.playbook || {};
+  state.playbook = {
+    lastDecision:st.lastDecision||null, lastDecisionAt:st.lastDecisionAt||null,
+    lastDayId:st.lastDayId||null, evidenceHash:st.evidenceHash||null,
+    sessionsAtDecision:st.sessionsAtDecision!=null?st.sessionsAtDecision:null,
+    declinedHash:prop.evidenceHash, status:'declined'
+  };
+  recordPlaybookDecision(prop, 'declined');
+  flushSave();
+  renderApp();
+  showToast('Keeping the current plan');
+}
+/* Restores the whole week, not just the changed day's words -- weekly volume
+   was rebalanced across the easy days and the long run, and putting back only
+   the session would leave the week describing a plan that never existed. */
+function handleRestorePlaybook(dayId){
+  var dd = findDay(dayId);
+  if (!dd || !dd.coachAdjust || dd.coachAdjust.source!=='playbook') return;
+  var wf = dd.coachAdjust.weekFrom || [];
+  wf.forEach(function(prev){
+    var day = findDay(prev.id);
+    // a day the athlete has since run or edited is theirs; it is never overwritten
+    if (!day || day.completed || day.manualEdit) return;
+    day.km = prev.km; day.type = prev.type; day.title = prev.title;
+    day.desc = prev.desc; day.mpSegment = !!prev.mpSegment;
+    if (prev.prescription) day.prescription = JSON.parse(JSON.stringify(prev.prescription));
+    else delete day.prescription;
+    delete day.coachReview;
+  });
+  delete dd.coachAdjust;
+  var st = state.playbook || {};
+  state.playbook = { lastDecision:st.lastDecision||null, lastDecisionAt:st.lastDecisionAt||null,
+                     lastDayId:st.lastDayId||null, evidenceHash:st.evidenceHash||null,
+                     sessionsAtDecision:st.sessionsAtDecision!=null?st.sessionsAtDecision:null,
+                     declinedHash:st.declinedHash||null, status:'restored' };
+  recordPlaybookDecision({ decision:st.lastDecision, evidenceHash:st.evidenceHash,
+                           change:{ dayId:dayId, kind:'restore' } }, 'restored');
+  flushSave();
+  renderApp();
+  showToast('Original session restored');
+}
+/* Bounded, and small on purpose: ids and hashes rather than evidence blobs, so
+   a year of coaching cannot grow the save without limit. */
+function recordPlaybookDecision(prop, status){
+  state.playbookHistory = state.playbookHistory || [];
+  state.playbookHistory.push({
+    at:new Date().toISOString(), date:todayStr(),
+    decision:prop.decision||null, status:status,
+    evidenceHash:prop.evidenceHash||null,
+    dayId:prop.change ? prop.change.dayId : null,
+    kind:prop.change ? prop.change.kind : null,
+    field:prop.change ? (prop.change.field||null) : null,
+    from:prop.change ? (prop.change.from!=null?prop.change.from:null) : null,
+    to:prop.change ? (prop.change.to!=null?prop.change.to:null) : null,
+    substituted:prop.change ? !!prop.change.substituted : false
+  });
+  if (state.playbookHistory.length > PLAYBOOK_HISTORY_MAX)
+    state.playbookHistory = state.playbookHistory.slice(-PLAYBOOK_HISTORY_MAX);
+}
+
+
+/* =========================================================
    PER-WORKOUT COACH REVIEW
    ---------------------------------------------------------
    The qualitative half of a completed session. The Execution Score stays
@@ -10222,6 +10686,28 @@ function renderEvolutionLink(){
 }
 /* The proposal itself: why, what, what is protected, and what it costs. The
    same markup serves TODAY and Plan HQ. */
+/* One short explanation, at the depth the athlete asked for. The DECISION is
+   identical at every level -- this only changes how much is said about it,
+   exactly as renderCoachingDepth already does for a session. */
+function evolutionRationale(ev){
+  var pb = ev.playbook;
+  if (!pb) return '';
+  var lvl = athleteExperience();
+  var c = ev.changes[0] || {};
+  if (lvl==='advanced')
+    return c.field ? ((PLAYBOOK_FIELD_NOUN[c.field]||c.field)+' '+c.from+' → '+c.to+
+                      (PLAYBOOK_FIELD_UNIT[c.field]||'')+'.')
+                   : (c.fromTitle+' → '+c.toTitle+'.');
+  if (lvl==='novice')
+    return pb.why+' Nothing else in the week changes, the session keeps its pace targets and its purpose, '+
+           'and you can put it back at any time.';
+  return pb.why;
+}
+/* Plain words for the dimension a step moved, for the one line the athlete
+   reads. Descriptive, and the same vocabulary the library uses. */
+var PLAYBOOK_FIELD_NOUN = { reps:'reps', sets:'sets', rungs:'rungs', min:'minutes',
+                            km:'distance', finishKm:'goal-pace finish' };
+var PLAYBOOK_FIELD_UNIT = { min:'min', km:'km', finishKm:'km' };
 function renderEvolutionProposal(ev, where){
   if (!ev || !ev.changes.length) return '';
   var line = function(c){
@@ -10232,6 +10718,17 @@ function renderEvolutionProposal(ev, where){
     if (c.kind==='reschedule') return dShort(c.date)+' → '+(TYPE_META[c.toType]||{}).label+' '+fmtDist(c.toKm);
     if (c.kind==='move')       return dShort(c.date)+' '+name+' → '+dShort(c.toDate);
     if (c.kind==='drop')       return dShort(c.date)+' '+name+' → rest';
+    if (c.kind==='progress' || c.kind==='regress'){
+      if (c.fromKm !== c.toKm)
+        return dShort(c.date)+' '+(c.fromTitle||name)+' → '+c.toTitle+
+               ' ('+fmtDist(c.fromKm)+' → '+fmtDist(c.toKm)+')';
+      // the day distance did not move, so name the dimension that did
+      if (c.field)
+        return dShort(c.date)+' '+(c.fromTitle||name)+' → '+
+               PLAYBOOK_FIELD_NOUN[c.field]+' '+c.from+' → '+c.to+
+               (PLAYBOOK_FIELD_UNIT[c.field]||'');
+      return dShort(c.date)+' '+(c.fromTitle||name)+' → '+c.toTitle;
+    }
     return dShort(c.date)+' '+name;
   };
   var vol = ev.stimulus.preserved.volumeDelta;
@@ -10246,6 +10743,9 @@ function renderEvolutionProposal(ev, where){
           escapeHtml(ev.protectedSessions.map(function(p){
             return (findDay(p.dayId)||{}).title || 'Key session'; }).slice(0,3).join(' · '))+
         '</div></div>' : '')+
+    (ev.playbook
+      ? '<div class="evo-sec"><div class="evo-k">Why this is better</div><div class="evo-v">'+
+          escapeHtml(evolutionRationale(ev))+'</div></div>' : '')+
     '<div class="evo-sec"><div class="evo-k">Training kept</div><div class="evo-v">'+
       escapeHtml(
         (ev.stimulus.preserved.qualityKept ? 'Quality exposures unchanged ('+ev.stimulus.after.qualityExposures+')'
@@ -12509,8 +13009,20 @@ document.addEventListener('click', function(e){
     case 'set-experience': handleSetExperience(target.getAttribute('data-experience')); break;
     case 'coach-why': handleCoachWhy(target.getAttribute('data-day')); break;
     case 'toggle-evolution': evolutionOpen = !evolutionOpen; renderApp(); break;
-    case 'accept-evolution': handleAcceptEvolution(); break;
-    case 'decline-evolution': handleDeclineEvolution(); break;
+    /* One pair of controls, two proposal sources. A Playbook proposal commits
+       the whole rebuilt week; the existing fatigue hierarchy commits its own
+       changes. The athlete sees one Accept and one Keep either way. */
+    case 'accept-evolution': {
+      var evA = planEvolution();
+      if (evA && evA.playbook) handleAcceptPlaybook(); else handleAcceptEvolution();
+      break;
+    }
+    case 'decline-evolution': {
+      var evD = planEvolution();
+      if (evD && evD.playbook) handleDeclinePlaybook(); else handleDeclineEvolution();
+      break;
+    }
+
     case 'set-readiness': handleSetReadiness(target.getAttribute('data-rk'), target.getAttribute('data-rv')); break;
     case 'toggle-hq-section': handleToggleHQSection(target.getAttribute('data-section')); break;
     case 'notes-wand': handleNotesWand(target.getAttribute('data-day')); break;
@@ -12534,7 +13046,15 @@ document.addEventListener('click', function(e){
     case 'copy-backup-field': handleCopyBackupField(); break;
     case 'coach-accept': handleCoachAccept(target.getAttribute('data-day')); break;
     case 'coach-keep': handleCoachKeep(target.getAttribute('data-day')); break;
-    case 'coach-restore': handleCoachRestore(target.getAttribute('data-day')); break;
+    /* One Restore Original control. A Playbook evolution rebalanced the whole
+       week, so it restores the whole week; a Phase-4 adjustment restores its
+       own day. The athlete sees one button either way. */
+    case 'coach-restore': {
+      var rd = findDay(target.getAttribute('data-day'));
+      if (rd && rd.coachAdjust && rd.coachAdjust.source==='playbook') handleRestorePlaybook(rd.id);
+      else handleCoachRestore(target.getAttribute('data-day'));
+      break;
+    }
     case 'set-units': handleSetUnits(target.getAttribute('data-units')); break;
     case 'apply-activity': handleApplyActivity(); break;
     case 'strava-connect': handleStravaConnect(); break;
