@@ -7660,6 +7660,425 @@ function handleCoachRestore(dayId){
 
 
 /* =========================================================
+   VVV TRAINING PRINCIPLES — the coaching constitution
+   ---------------------------------------------------------
+   VVV's own methodology, stated once. Everything adaptive that gets built
+   after this has to be checkable against it, which is the whole point: a
+   Playbook assembled out of ad-hoc rules is a Playbook nobody can audit.
+
+   These are principles, not code paths. Some are already enforced by the
+   generator or the coaching layers and say so; some exist here first and
+   constrain what the Playbook is later allowed to do. `enforcedBy` names
+   where a principle already lives, or is null when this contract is
+   currently its only home.
+
+   This is VVV's own system, expressed in VVV's own words. No external
+   coach, athlete or published training system is named, imitated or
+   implied here or anywhere in the product.
+   ========================================================= */
+var VVV_PRINCIPLES_VERSION = 1;
+var VVV_PRINCIPLES = [
+  { id:'consistency_first', area:'training',
+    statement:'Consistency beats isolated hero sessions. A block is built from sessions that keep happening, not from the best one in it.',
+    enforcedBy:'blockEffectiveness (28-day window, 8 qualifying sessions)' },
+  { id:'easy_stays_easy', area:'training',
+    statement:'Easy running exists to support adaptation and the next quality session. It is not hidden moderate training.',
+    enforcedBy:'computePaceScore/computeHRScore recovery asymmetry, isRecoveryLikeDay' },
+  { id:'control_before_progress', area:'training',
+    statement:'Quality is controlled before it is progressed. Executing a session inside its window is the precondition for being given more of it.',
+    enforcedBy:null },
+  { id:'threshold_is_control', area:'training',
+    statement:'Threshold work develops sustainable control. Racing a threshold session is not a better threshold session.',
+    enforcedBy:'ARCHETYPE_GUIDANCE.threshold_continuous, coachVerdict' },
+  { id:'specificity_rises', area:'training',
+    statement:'Race-specific work matters more as the event approaches, and is protected ahead of general fitness work late in a block.',
+    enforcedBy:'INTERVAL_STRUCTURE_POOL/TEMPO_STRUCTURE_POOL phase pools, evolutionChanges' },
+  { id:'volume_before_intensity', area:'progression',
+    statement:'Progressive overload normally moves volume before it moves intensity.',
+    enforcedBy:'shrinkIntervalSpec/shrinkTempoSpec (volume dimensions only)' },
+  { id:'recovery_follows_stress', area:'training',
+    statement:'Recovery follows meaningful stress. It is prescribed, not earned back afterwards.',
+    enforcedBy:'buildBlockWeeks cutback weeks, pickQualityDays spacing' },
+  { id:'long_run_anchor', area:'training',
+    statement:'The long run is the primary endurance anchor of the week.',
+    enforcedBy:'LONG_FRACTION, profile.longCapKm, capWeeklyVolume trim order' },
+  { id:'quality_never_longest', area:'training',
+    statement:'A quality workout is never the longest run of the week.',
+    enforcedBy:'buildBlockWeeks week-fit sizing (shrinkIntervalSpec/shrinkTempoSpec)' },
+  { id:'evidence_across_sessions', area:'decision',
+    statement:'Progression decisions require evidence across multiple sessions.',
+    enforcedBy:'blockDirection confirmation rule, trendConfidence' },
+  { id:'one_good_is_not_evidence', area:'decision',
+    statement:'One excellent session is not sufficient evidence to progress.',
+    enforcedBy:'coachDecision ("positive adaptation never earns a promotion")' },
+  { id:'one_bad_is_not_evidence', area:'decision',
+    statement:'One poor session is not sufficient evidence to regress, unless a safety or recovery signal stands on its own.',
+    enforcedBy:'blockEffectiveness robustness check, coachDecision independent-evidence rule' },
+  { id:'response_outranks_plan', area:'decision',
+    statement:'How the athlete is actually responding outranks rigid adherence to the original prescription.',
+    enforcedBy:'planEvolution, coachAdjust' },
+  { id:'phase_constrains', area:'decision',
+    statement:'The training phase constrains which adaptations are appropriate at all.',
+    enforcedBy:'phaseForWeek, blockDimensionRelevance' },
+  { id:'next_session_matters', area:'decision',
+    statement:'What the next important session is matters when deciding whether to add load now.',
+    enforcedBy:'coachDecision (quality flag on the next session), sessionImportance' },
+  { id:'minimum_intervention', area:'decision',
+    statement:'If training is working, do not change it merely because the system can. HOLD is a successful coaching decision, not a failure to progress.',
+    enforcedBy:'evolutionChanges (cheapest-first, stops at the first step that solves it)' },
+  { id:'preserve_identity', area:'progression',
+    statement:'Progression and regression may move volume dimensions — reps, minutes, sets, rungs. They must not casually change pace zone, rep length, or what the session is for.',
+    enforcedBy:'shrinkIntervalSpec/shrinkTempoSpec' },
+  { id:'score_is_compatibility', area:'evidence',
+    statement:'Execution Score is evidence that the logged result is compatible with the prescription. It is not proof that every segment was executed correctly.',
+    enforcedBy:'executionPaceTarget/executionHRTarget (whole-session envelopes)' },
+  { id:'mixed_is_less_certain', area:'evidence',
+    statement:'A mixed session’s Execution Score carries less certainty than a homogeneous one’s, because its target window is legitimately wider.',
+    enforcedBy:'executionPaceTarget composite width' },
+  { id:'athlete_edit_wins', area:'evidence',
+    statement:'A manual athlete edit outranks automated structure. A dropped prescription is never reconstructed by parsing prose.',
+    enforcedBy:'rescaleOrDropPrescription' }
+];
+function vvvPrinciple(id){
+  return VVV_PRINCIPLES.filter(function(p){ return p.id===id; })[0] || null;
+}
+
+/* =========================================================
+   PLAYBOOK DECISION CONTRACT — defined, deliberately not active
+   ---------------------------------------------------------
+   Nothing in the render path calls any of this. It builds a decision and the
+   evidence behind it so the contract can be written down, argued with and
+   tested BEFORE any behaviour depends on it. When the Playbook is built it
+   consumes these; it does not get to invent a second opinion.
+
+   The three outcomes are not a scale from bad to good. HOLD is the expected
+   result of a block that is working.
+   ========================================================= */
+var PLAYBOOK_CONTRACT_VERSION = 1;
+var PLAYBOOK_DECISIONS = {
+  PROGRESS: { id:'PROGRESS',
+    means:'Repeated evidence says the current stimulus is being absorbed, and a small increase is appropriate.',
+    changes:'A single volume dimension of one archetype, by one step.',
+    principles:['evidence_across_sessions','one_good_is_not_evidence','volume_before_intensity','preserve_identity'] },
+  HOLD: { id:'HOLD',
+    means:'The current stimulus remains appropriate. This is a positive and common outcome, not an absence of a decision.',
+    changes:'Nothing.',
+    principles:['minimum_intervention','consistency_first'] },
+  REGRESS: { id:'REGRESS',
+    means:'Evidence says the current stimulus should be reduced or simplified to preserve useful training and recovery.',
+    changes:'A single volume dimension downward, or a simplification that keeps the session’s purpose.',
+    principles:['recovery_follows_stress','one_bad_is_not_evidence','response_outranks_plan'] }
+};
+
+/* ---------- the evidence hierarchy ----------
+   Ordered by how much a reading is allowed to move a decision, and by what it
+   is allowed to move it TOWARDS. The asymmetry is deliberate and is the
+   safety property of the whole contract: safety evidence can block or force a
+   reduction on its own, and no amount of good news can do the opposite.
+
+   Every source below already exists. Nothing here computes a new baseline,
+   a new trend or a second opinion -- that would put two numbers behind one
+   idea, which is the mistake the architecture is built to avoid. */
+var PLAYBOOK_EVIDENCE_TIERS = {
+  safety:     { rank:4, canBlockProgress:true,  canForceRegress:true,
+                note:'Stands alone. Never needs corroboration and is never outweighed.' },
+  strong:     { rank:3, canBlockProgress:true,  canForceRegress:false,
+                note:'Multi-session patterns. Can support either direction, but never alone for REGRESS.' },
+  contextual: { rank:2, canBlockProgress:true,  canForceRegress:false,
+                note:'Shapes what is appropriate. Never evidence on its own.' },
+  weak:       { rank:1, canBlockProgress:false, canForceRegress:false,
+                note:'A single session. Recorded so it is visible, never decisive.' }
+};
+
+/* How certain one session's Execution Score is. A session whose prescription
+   is a single intensity is judged against that intensity's own window; a
+   flanked or mixed one is judged against a composite that is legitimately
+   wider, so the same score means less. See principle mixed_is_less_certain. */
+function playbookSessionCertainty(dd){
+  var p = prescriptionOf(dd);
+  if (!p) return 'low';                      // legacy/hand-edited: type-based fallback
+  var segs = segmentsFor(p);
+  if (!segs) return 'low';
+  var mix = segmentDistanceMix(segs);
+  var kinds = Object.keys(mix.byIntensity).filter(function(k){ return mix.byIntensity[k] > 0.05; });
+  if (mix.hasUnquantified) return 'moderate';
+  return kinds.length <= 1 ? 'high' : 'moderate';
+}
+// Observations needed before a direction may be acted on, by how certain the
+// underlying sessions are. Mixed sessions do not become unusable -- they need
+// one more of them.
+var PLAYBOOK_MIN_OBSERVATIONS = { high:2, moderate:3, low:3 };
+var PLAYBOOK_GOOD_EXECUTION = 90;     // the app's existing "this went well" bar
+var PLAYBOOK_POOR_EXECUTION = 75;
+
+/* ---------- what each phase permits ----------
+   Uses the app's own canonical phase vocabulary (phaseForWeek/trainingPhase):
+   Base, Build, Peak, Taper, and the race week, which trainingPhase() names
+   'Race Week' or 'Final Week' depending on whether an event exists. */
+var PLAYBOOK_PHASE_RULES = {
+  Base:        { progress:'volume_only',
+                 note:'Progression comes from consistency and sustainable aerobic volume. Quality volume is not the lever here.' },
+  Build:       { progress:'volume_and_quality_volume',
+                 note:'Controlled increases in quality VOLUME become appropriate. Intensity identity still does not move.' },
+  Peak:        { progress:'race_specific_only',
+                 note:'Race-specific stimulus is protected and takes priority. General fitness volume is not added on top of it.' },
+  Taper:       { progress:'none',
+                 note:'Reduction is the intent of the phase. A falling load here is the plan working and is NEVER read as declining fitness needing progression.' },
+  'Race Week': { progress:'none', note:'Nothing is added. The block is over; the race is the session.' },
+  'Final Week':{ progress:'none', note:'Nothing is added. The block is over; the goal effort is the session.' }
+};
+function playbookPhaseRule(phase){
+  return PLAYBOOK_PHASE_RULES[phase] || PLAYBOOK_PHASE_RULES.Build;
+}
+function playbookPhaseAllowsProgress(phase){
+  return playbookPhaseRule(phase).progress !== 'none';
+}
+
+/* ---------- what a decision is allowed to change ----------
+   Volume dimensions may move. Intensity identity may not. This is the same
+   line shrinkIntervalSpec/shrinkTempoSpec already draw for the taper and for
+   week-fit sizing, stated once so the Playbook inherits it rather than
+   redrawing it. */
+var PLAYBOOK_MUTABLE = {
+  reps:        { dimension:'volume', archetypes:['track_reps','short_reps','goal_pace_reps','deuce','hill_repeats','fartlek'] },
+  sets:        { dimension:'volume', archetypes:['deuce'] },
+  rungs:       { dimension:'volume', archetypes:['ladder'] },
+  minutes:     { dimension:'volume', archetypes:['steady_tempo','progressive_tempo','split_tempo','fartlek'] },
+  workKm:      { dimension:'volume', archetypes:['threshold_continuous','goal_pace_block'] },
+  goalPaceKm:  { dimension:'volume', archetypes:['long_run_goal_finish','goal_pace_block'] },
+  longRunKm:   { dimension:'volume', archetypes:['long_run','long_run_b2b'] },
+  recoverySec: { dimension:'volume', archetypes:['track_reps','deuce','split_tempo'],
+                 note:'Only where the archetype states a recovery time. Never invented for an unquantified one.' }
+};
+var PLAYBOOK_IMMUTABLE = [
+  { id:'pace_zone',        why:'Executing a session well is evidence you can repeat it, not evidence you should run it faster.' },
+  { id:'rep_length',       why:'Rep length is what the session IS. 8x400m and 8x1200m are different workouts.' },
+  { id:'archetype_family', why:'Threshold work does not become interval work because a threshold session went well.' },
+  { id:'easy_to_quality',  why:'Easy running is not a place to find spare training load.' },
+  { id:'quality_over_long',why:'A quality session never becomes the longest run of the week. See quality_never_longest.' },
+  { id:'weekly_cap',       why:'capWeeklyVolume owns the week. A per-session decision does not get to overspend it.' },
+  { id:'taper_shape',      why:'The taper is deliberate. Nothing is added back into it.' },
+  { id:'cutback_weeks',    why:'A cutback week is prescribed recovery, not an underused week.' }
+];
+function playbookMayChange(archetype, field){
+  var m = PLAYBOOK_MUTABLE[field];
+  return !!(m && m.archetypes.indexOf(archetype)!==-1);
+}
+
+/* ---------- where preference will enter, and where it will not ----------
+   Contract only. Nothing reads this yet and there is no favourites UI.
+   Preference is a tie-breaker between workouts that are ALREADY eligible.
+   It sits last on purpose: every training constraint is resolved before
+   anyone asks what the athlete enjoys. */
+var PLAYBOOK_SELECTION_ORDER = [
+  { step:1, gate:'safety',        overridable:false, note:'Recovery and injury state. Nothing selects past this.' },
+  { step:2, gate:'phase',         overridable:false, note:'What this part of the block is for.' },
+  { step:3, gate:'training_need', overridable:false, note:'Which stimulus the week actually needs.' },
+  { step:4, gate:'eligibility',   overridable:false, note:'Archetype fits the day, the week and the athlete’s frequency.' },
+  { step:5, gate:'progression',   overridable:false, note:'PROGRESS/HOLD/REGRESS and the mutation bounds above.' },
+  { step:6, gate:'variety',       overridable:true,  note:'Avoid repeating the same structure week on week.' },
+  { step:7, gate:'preference',    overridable:true,
+    note:'Favourites and repeated subjective response. A TIE-BREAKER between equally appropriate options, never a training principle. Disliking a stimulus never removes it when the athlete needs it.' }
+];
+
+/* ---------- repeated inability to execute the prescription ----------
+   Top-tier by the contract, and NOT the same reading as a declining trend:
+   an athlete can be perfectly flat and consistently unable to complete the
+   session as written. A trend answers "is this getting worse", this answers
+   "is this working at all". Both are computed from the one execution score;
+   neither introduces a baseline of its own.
+
+   It takes the whole recent run of relevant sessions to be at or under the
+   poor bar -- not most of them, all of them -- because a single bad session
+   is never evidence (principle one_bad_is_not_evidence) and a mixed run is a
+   trend question, which the trend layer already owns. */
+function playbookRelevantScored(archetype){
+  return coachCompletedScored().filter(function(dd){
+    if (!archetype) return isQualityType(dd.type);
+    var p = prescriptionOf(dd), meta = p && ARCHETYPES[p.archetype];
+    return !!(meta && ARCHETYPES[archetype] && meta.family === ARCHETYPES[archetype].family);
+  });
+}
+function playbookRepeatedShortfall(archetype, need){
+  var recent = playbookRelevantScored(archetype).slice(-need);
+  if (recent.length < need) return null;
+  var scores = recent.map(function(dd){ return computeExecutionScore(dd); });
+  if (!scores.every(function(s){ return s!=null && s <= PLAYBOOK_POOR_EXECUTION; })) return null;
+  return { count:recent.length, worst:Math.min.apply(null, scores),
+           detail:'The last '+recent.length+' relevant sessions were all executed at or below '+
+                  PLAYBOOK_POOR_EXECUTION+'% of their prescription.' };
+}
+
+/* ---------- evidence, gathered from the sources that already exist ---------- */
+function playbookEvidence(archetype){
+  if (!state.setup || !state.days || !state.days.length) return [];
+  var out = [];
+  var addEv = function(tier, id, direction, detail, source){
+    out.push({ tier:tier, rank:PLAYBOOK_EVIDENCE_TIERS[tier].rank, id:id,
+               direction:direction, detail:detail, source:source });
+  };
+  // --- SAFETY: the existing decision layer already owns this judgement
+  var dec = coachDecision();
+  if (dec && dec.state==='recover')
+    addEv('safety','recovery_priority','negative', dec.reasons[0] || 'Recovery evidence outranks the next session.', 'coachDecision');
+  var rec = coachRecovery();
+  if (rec.state==='strained')
+    addEv('safety','strained_week','negative','Effort and heart rate have both been above target this week.','coachRecovery');
+  var shortfall = playbookRepeatedShortfall(archetype, PLAYBOOK_MIN_OBSERVATIONS.moderate);
+  if (shortfall)
+    addEv('safety','repeated_shortfall','negative', shortfall.detail, 'computeExecutionScore');
+
+  // --- STRONG: multi-session patterns
+  var block = blockEffectiveness();
+  if (block && block.state!=='LEARNING')
+    addEv('strong','block_'+block.state.toLowerCase(),
+          block.state==='ADAPTING'||block.state==='RESPONDING' ? 'positive'
+            : block.state==='STRAINED' ? 'negative' : 'flat',
+          block.read, 'blockEffectiveness');
+  var trend = coachTrend();
+  if (trend.enough && trend.direction!=='flat')
+    addEv('strong','execution_'+trend.direction, trend.direction==='rising'?'positive':'negative',
+          'Execution has been '+trend.direction+' across recent sessions.', 'coachTrend');
+  (athleteTrends()||[]).forEach(function(t){
+    if (t.confidence==='insufficient') return;
+    addEv('strong','trend_'+t.id, t.direction, t.detail, 'athleteTrends');
+  });
+
+  // --- CONTEXTUAL
+  var phase = trainingPhase(currentWeekNum());
+  addEv('contextual','phase_'+phase.replace(/\s+/g,'_').toLowerCase(),'flat', playbookPhaseRule(phase).note, 'trainingPhase');
+  var load = coachLoad();
+  if (load.band!=='unknown')
+    addEv('contextual','load_'+load.band, load.band==='spike'||load.band==='elevated' ? 'negative' : 'flat',
+          'Recent load is '+load.band+'.', 'coachLoad');
+  var nxt = coachNextSession();
+  if (nxt && isQualityType(nxt.type))
+    addEv('contextual','next_is_quality','flat','The next session is '+(nxt.title||nxt.type)+'.','coachNextSession');
+
+  // --- WEAK: single sessions, recorded so they are visible and never decisive
+  var scored = coachCompletedScored();
+  var relevant = archetype ? playbookRelevantScored(archetype) : scored;
+  relevant.slice(-6).forEach(function(dd){
+    var s = computeExecutionScore(dd);
+    if (s==null) return;
+    addEv('weak','session_'+dd.id, s>=PLAYBOOK_GOOD_EXECUTION ? 'positive'
+                                  : s<=PLAYBOOK_POOR_EXECUTION ? 'negative' : 'flat',
+          (dd.title||dd.type)+' executed at '+s+'%.', 'computeExecutionScore');
+  });
+  return out.sort(function(a,b){ return b.rank-a.rank; });
+}
+
+/* ---------- is there enough to decide anything at all? ----------
+   Reported SEPARATELY from the decision, because "the training is fine" and
+   "we cannot yet tell" are different findings and must never be merged. */
+function playbookSufficiency(archetype){
+  var reasons = [];
+  var block = blockEffectiveness();
+  var trend = coachTrend();
+  var relevant = playbookRelevantScored(archetype);
+  // certainty of the evidence we actually have, worst-case
+  var certainty = relevant.reduce(function(worst, dd){
+    var c = playbookSessionCertainty(dd);
+    return (PLAYBOOK_MIN_OBSERVATIONS[c] > PLAYBOOK_MIN_OBSERVATIONS[worst]) ? c : worst;
+  }, 'high');
+  var need = PLAYBOOK_MIN_OBSERVATIONS[certainty];
+
+  if (!block || block.state==='LEARNING')
+    reasons.push('Not enough longitudinal evidence to judge the block yet.');
+  if (!trend.enough)
+    reasons.push('Fewer than four scored sessions, so there is no execution trend to read.');
+  if (relevant.length < need)
+    reasons.push(relevant.length+' relevant scored session'+(relevant.length===1?'':'s')+
+                 ', and '+need+' are needed at '+certainty+' certainty.');
+  return {
+    sufficient: reasons.length===0,
+    reasons: reasons,
+    relevantSessions: relevant.length,
+    requiredSessions: need,
+    certainty: certainty,
+    qualifyingSessions: block ? block.qualifyingSessions : 0,
+    blockState: block ? block.state : 'LEARNING'
+  };
+}
+
+/* ---------- the assessment ----------
+   OBSERVATIONAL. Returns what the Playbook WOULD conclude and why. Nothing
+   calls it from a render path, nothing stores it, and it never touches a day.
+   Its job in this pass is to be testable. */
+function playbookAssess(archetype){
+  if (!state.setup || !state.days || !state.days.length) return null;
+  var phase = trainingPhase(currentWeekNum());
+  var ev = playbookEvidence(archetype);
+  var suf = playbookSufficiency(archetype);
+  var byTier = function(t, dir){
+    return ev.filter(function(e){ return e.tier===t && (!dir || e.direction===dir); });
+  };
+  var safety = byTier('safety');
+  var block = blockEffectiveness();
+  var trend = coachTrend();
+  var load = coachLoad();
+  var rec = coachRecovery();
+
+  var decision = 'HOLD', why = [], blockedBy = [];
+
+  // --- REGRESS. Safety stands alone; everything else needs a repeated pattern.
+  if (safety.length){
+    decision = 'REGRESS';
+    why.push(safety[0].detail);
+  } else if (block && block.state==='STRAINED' && block.robust){
+    decision = 'REGRESS';
+    why.push(block.read);
+  } else if (trend.enough && trend.direction==='falling' &&
+             byTier('strong','negative').length >= 2){
+    decision = 'REGRESS';
+    why.push('Execution is falling and more than one multi-session pattern agrees.');
+  }
+
+  // --- PROGRESS. Every one of these has to hold. Any one missing is a HOLD,
+  //     and the reason it is a HOLD is recorded rather than swallowed.
+  if (decision==='HOLD'){
+    var gates = [
+      { ok: suf.sufficient, why:'Insufficient evidence: '+suf.reasons.join(' ') },
+      { ok: playbookPhaseAllowsProgress(phase), why:'The '+phase+' phase does not add load. '+playbookPhaseRule(phase).note },
+      { ok: !!block && (block.state==='ADAPTING' || (block.state==='RESPONDING' && block.checkpointInvolved)),
+        why:'The block is '+(block?block.state:'LEARNING')+', which is not yet evidence the stimulus is being absorbed.' },
+      { ok: trend.direction!=='falling', why:'Execution is trending down.' },
+      { ok: rec.state==='fresh', why:'Recovery state is '+rec.state+'.' },
+      { ok: load.band!=='spike' && load.band!=='elevated', why:'Recent load is '+load.band+'.' },
+      { ok: byTier('strong','negative').length===0, why:'A multi-session pattern is pointing the other way.' },
+      { ok: (function(){
+          // repeated GOOD execution on relevant sessions, not one flattering score
+          var good = ev.filter(function(e){ return e.tier==='weak' && e.direction==='positive'; }).length;
+          return good >= suf.requiredSessions;
+        })(), why:'Fewer than '+suf.requiredSessions+' recent relevant sessions were executed well.' }
+    ];
+    blockedBy = gates.filter(function(g){ return !g.ok; }).map(function(g){ return g.why; });
+    if (!blockedBy.length){ decision = 'PROGRESS'; why.push('Repeated evidence that the current stimulus is being absorbed.'); }
+    else why.push(vvvPrinciple('minimum_intervention').statement);
+  }
+
+  return {
+    contractVersion: PLAYBOOK_CONTRACT_VERSION,
+    decision: decision,
+    definition: PLAYBOOK_DECISIONS[decision].means,
+    archetype: archetype || null,
+    phase: phase,
+    phaseRule: playbookPhaseRule(phase),
+    sufficiency: suf,
+    evidence: ev,
+    why: why,
+    blockedBy: blockedBy,
+    // what a future Playbook would be permitted to touch if it acted on this
+    mutable: archetype ? Object.keys(PLAYBOOK_MUTABLE).filter(function(f){
+               return playbookMayChange(archetype, f); }) : [],
+    immutable: PLAYBOOK_IMMUTABLE.map(function(x){ return x.id; }),
+    // OBSERVATIONAL: this pass defines the contract and changes no training
+    active: false
+  };
+}
+
+
+/* =========================================================
    PER-WORKOUT COACH REVIEW
    ---------------------------------------------------------
    The qualitative half of a completed session. The Execution Score stays
