@@ -8079,6 +8079,608 @@ function playbookAssess(archetype){
 
 
 /* =========================================================
+   WORKOUT LIBRARY — the hidden registry, above ARCHETYPES
+   ---------------------------------------------------------
+   ARCHETYPES stays what it is: a small identity table read on every render by
+   prescriptionOf, segmentsFor, rescaleOrDropPrescription, executionProfileOf
+   and the coaching lookup. It answers "what IS this session". Nothing here is
+   added to it -- Prompt 2.5 already showed what happens when that table takes
+   a second job.
+
+   This layer answers the questions a SELECTOR needs and a renderer never does:
+   what is this session for, when is it appropriate, which parameters may move,
+   how far, and by how much per step. It is keyed by archetype id, so an
+   archetype can exist without a library entry (and several deliberately do).
+
+   WHAT IS NOT HERE, and never will be: rendered text, segments, pace windows,
+   HR windows, scores or day distances. Every one of those is derived from the
+   prescription on read, and duplicating any of them here would put two numbers
+   behind one idea.
+
+   NOT A CATALOGUE. There is one entry per archetype, describing a safe
+   PARAMETER SPACE. 6x1000m and 7x1000m are the same workout at two settings,
+   not two workouts. A second entry would only be justified if the structure or
+   the purpose genuinely differed.
+
+   OBSERVATIONAL IN THIS PASS. Nothing in the generator or any render path
+   reads any of it.
+   ========================================================= */
+var WORKOUT_LIBRARY_VERSION = 1;
+
+/* Phase eligibility vocabulary. Uses the app's own phase names and adds none.
+   'preferred' and 'allowed' are both selectable; 'discouraged' is selectable
+   only when nothing better is eligible; 'disallowed' never is. */
+var LIB_ELIGIBILITY = ['preferred','allowed','discouraged','disallowed'];
+var LIB_ELIGIBILITY_RANK = { preferred:3, allowed:2, discouraged:1, disallowed:0 };
+// Shorthand for the six phases, written out so a missing phase is a test
+// failure rather than a silent default.
+function libPhases(base, build, peak, taper, raceWeek){
+  return { Base:base, Build:build, Peak:peak, Taper:taper,
+           'Race Week':raceWeek, 'Final Week':raceWeek };
+}
+function libProfiles(speed, threshold, endurance, timeonfeet){
+  return { speed:speed, threshold:threshold, endurance:endurance, timeonfeet:timeonfeet };
+}
+/* A mutable parameter's legal space. `step` is ONE conservative move; there is
+   no multi-step form on purpose. `fixed:true` marks a parameter that is part
+   of the workout's identity and may never move -- rep length, hill duration,
+   surge length, the split count, the number of sets in a two-set session. */
+function libRange(min, max, step){ return { min:min, max:max, step:step, fixed:false }; }
+var LIB_FIXED = { fixed:true };
+
+var WORKOUT_LIBRARY = {
+  /* ---- aerobic: volume is owned by the week, not by the session ---- */
+  easy_run: {
+    stimulus:'aerobic', purpose:'Aerobic development and recovery between quality days.',
+    homogeneous:true, progressable:false, regressable:false,
+    nonProgressableReason:'An easy run’s distance is the week’s residual volume, divided across the easy days. The week owns it; the session does not.',
+    params:{ km:LIB_FIXED },
+    phase:libPhases('preferred','preferred','preferred','preferred','preferred'),
+    profile:libProfiles('preferred','preferred','preferred','preferred'),
+    taperEligible:true, raceSpecific:false, poolSelectable:false,
+    varietyGroup:'aerobic', weight:1.0, minRunDays:1, minWeeklyVolumeKm:0,
+    preferenceEligible:false,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  shakeout: {
+    stimulus:'aerobic', purpose:'Loosen the legs the day before the goal effort without adding fatigue.',
+    homogeneous:true, progressable:false, regressable:false,
+    nonProgressableReason:'A shakeout exists to cost nothing. Progressing it defeats the only thing it is for.',
+    params:{ km:LIB_FIXED },
+    phase:libPhases('disallowed','disallowed','disallowed','allowed','preferred'),
+    profile:libProfiles('preferred','preferred','preferred','preferred'),
+    taperEligible:true, raceSpecific:true, poolSelectable:false,
+    varietyGroup:'aerobic', weight:1.0, minRunDays:1, minWeeklyVolumeKm:0,
+    preferenceEligible:false,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  long_run: {
+    stimulus:'endurance', purpose:'The week’s endurance anchor: sustained aerobic time on feet.',
+    homogeneous:true, progressable:true, regressable:true,
+    params:{ km:libRange(8, 42, 1) },
+    progressField:'km', regressField:'km',
+    phase:libPhases('preferred','preferred','preferred','allowed','disallowed'),
+    profile:libProfiles('allowed','preferred','preferred','preferred'),
+    taperEligible:true, raceSpecific:false, poolSelectable:false,
+    varietyGroup:'long', weight:1.0, minRunDays:1, minWeeklyVolumeKm:0,
+    preferenceEligible:false,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  long_run_b2b: {
+    stimulus:'endurance', purpose:'A second sustained run on tired legs, for durability.',
+    homogeneous:true, progressable:false, regressable:false,
+    nonProgressableReason:'Its distance is a fixed share of the primary long run. It follows that run rather than moving on its own.',
+    params:{ km:LIB_FIXED },
+    phase:libPhases('disallowed','preferred','preferred','disallowed','disallowed'),
+    profile:libProfiles('disallowed','disallowed','discouraged','preferred'),
+    taperEligible:false, raceSpecific:false, poolSelectable:false,
+    varietyGroup:'long', weight:1.0, minRunDays:4, minWeeklyVolumeKm:45,
+    preferenceEligible:false,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  long_run_goal_finish: {
+    stimulus:'race_specific', purpose:'Race rhythm on already-tired legs — the most specific session a distance block has.',
+    homogeneous:false, progressable:true, regressable:true,
+    /* The long run’s own distance is owned by the week. What progresses here
+       is the goal-pace FINISH, which is what makes this session different from
+       a plain long run. maxFractionOfDay mirrors the generator’s own ceiling. */
+    params:{ km:LIB_FIXED, finishKm:libRange(3, 21, 1) },
+    progressField:'finishKm', regressField:'finishKm', maxFractionOfDay:{ finishKm:0.5 },
+    phase:libPhases('disallowed','preferred','preferred','discouraged','disallowed'),
+    profile:libProfiles('disallowed','allowed','preferred','allowed'),
+    taperEligible:false, raceSpecific:true, poolSelectable:false,
+    varietyGroup:'long', weight:1.0, minRunDays:3, minWeeklyVolumeKm:40,
+    preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+
+  /* ---- threshold and tempo ---- */
+  threshold_continuous: {
+    stimulus:'threshold', purpose:'Sustainable control at threshold, held unbroken.',
+    homogeneous:false, progressable:true, regressable:true,
+    params:{ km:libRange(2, 12, 0.5) },
+    progressField:'km', regressField:'km',
+    phase:libPhases('preferred','allowed','preferred','allowed','disallowed'),
+    profile:libProfiles('allowed','preferred','preferred','allowed'),
+    byDistance:{ '5k':'allowed', '10k':'preferred' },   // a 10K block is a threshold block
+    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    varietyGroup:'threshold_continuous', weight:1.0, minRunDays:3, minWeeklyVolumeKm:25,
+    preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  steady_tempo: {
+    stimulus:'aerobic_power', purpose:'A long, strong aerobic effort below threshold.',
+    homogeneous:false, progressable:true, regressable:true,
+    params:{ min:libRange(10, 50, 2) },
+    progressField:'min', regressField:'min',
+    phase:libPhases('preferred','allowed','discouraged','allowed','disallowed'),
+    profile:libProfiles('allowed','preferred','preferred','preferred'),
+    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    varietyGroup:'tempo_continuous', weight:1.0, minRunDays:3, minWeeklyVolumeKm:20,
+    preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  progressive_tempo: {
+    stimulus:'aerobic_power', purpose:'Builds from steady to tempo, teaching pace judgement under fatigue.',
+    homogeneous:false, progressable:true, regressable:true,
+    params:{ min:libRange(10, 50, 2) },
+    progressField:'min', regressField:'min',
+    phase:libPhases('allowed','preferred','allowed','discouraged','disallowed'),
+    profile:libProfiles('allowed','preferred','preferred','preferred'),
+    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    varietyGroup:'tempo_continuous', weight:1.0, minRunDays:3, minWeeklyVolumeKm:25,
+    preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  split_tempo: {
+    stimulus:'threshold', purpose:'More quality time at tempo than one continuous block allows.',
+    homogeneous:false, progressable:true, regressable:true,
+    // minutes stay divisible by the split, exactly as structSplitTempo requires
+    params:{ min:libRange(10, 50, 2), split:LIB_FIXED },
+    progressField:'min', regressField:'min', divisibleBy:{ min:'split' },
+    phase:libPhases('discouraged','preferred','allowed','allowed','disallowed'),
+    profile:libProfiles('allowed','preferred','preferred','allowed'),
+    byDistance:{ '5k':'allowed', '10k':'preferred' },
+    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    varietyGroup:'tempo_broken', weight:1.0, minRunDays:3, minWeeklyVolumeKm:30,
+    preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  goal_pace_block: {
+    stimulus:'race_specific', purpose:'An unbroken block at goal race rhythm.',
+    homogeneous:false, progressable:true, regressable:true,
+    params:{ km:libRange(2, 16, 0.5) },
+    progressField:'km', regressField:'km',
+    phase:libPhases('disallowed','allowed','preferred','allowed','disallowed'),
+    profile:libProfiles('discouraged','allowed','preferred','preferred'),
+    taperEligible:true, raceSpecific:true, poolSelectable:true,
+    varietyGroup:'goal_pace', weight:1.0, minRunDays:3, minWeeklyVolumeKm:30,
+    preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+
+  /* ---- interval and repetition ---- */
+  track_reps: {
+    stimulus:'vo2', purpose:'Repeated hard aerobic efforts at interval pace.',
+    homogeneous:false, progressable:true, regressable:true,
+    // rep LENGTH is the workout's identity. 8x400m and 8x1200m are different
+    // sessions, so only the COUNT moves.
+    params:{ reps:libRange(3, 12, 1), m:LIB_FIXED },
+    progressField:'reps', regressField:'reps',
+    phase:libPhases('discouraged','preferred','preferred','allowed','disallowed'),
+    profile:libProfiles('preferred','preferred','allowed','discouraged'),
+    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    varietyGroup:'reps_interval', weight:1.0, minRunDays:3, minWeeklyVolumeKm:30,
+    preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  short_reps: {
+    stimulus:'speed', purpose:'Sharpens speed, mechanics and economy without deep fatigue.',
+    homogeneous:false, progressable:true, regressable:true,
+    params:{ reps:libRange(3, 12, 1), m:LIB_FIXED },
+    progressField:'reps', regressField:'reps',
+    phase:libPhases('allowed','preferred','allowed','allowed','disallowed'),
+    profile:libProfiles('preferred','allowed','discouraged','discouraged'),
+    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    byDistance:{ '5k':'preferred', '10k':'allowed' },   // pure speed work is a 5K priority, a 10K extra
+    varietyGroup:'reps_short', weight:1.0, minRunDays:3, minWeeklyVolumeKm:20,
+    preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  ladder: {
+    stimulus:'vo2', purpose:'A range of rep lengths in one session, and the judgement to pace each.',
+    homogeneous:false, progressable:true, regressable:true,
+    /* A ladder goes up and comes back down. Rungs are added and removed as
+       MATCHED PAIRS so the shape stays symmetrical -- the same rule
+       shrinkIntervalSpec already uses when the taper trims one. */
+    params:{ rungs:libRange(3, 9, 2) },
+    progressField:'rungs', regressField:'rungs', symmetricPairs:true,
+    phase:libPhases('discouraged','preferred','allowed','discouraged','disallowed'),
+    profile:libProfiles('preferred','preferred','allowed','discouraged'),
+    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    varietyGroup:'reps_interval', weight:0.9, minRunDays:4, minWeeklyVolumeKm:35,
+    preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  deuce: {
+    stimulus:'vo2', purpose:'Two matched sets, so the second set is run as well as the first.',
+    homogeneous:false, progressable:true, regressable:true,
+    /* The two-set structure IS the session. Progression adds reps WITHIN a set
+       and never a third set. Regression may collapse to a single set only as
+       its final step, which is what the taper already does to it. */
+    params:{ reps:libRange(2, 6, 1), sets:libRange(1, 2, 1), m:LIB_FIXED },
+    progressField:'reps', regressField:'reps', setsFloorOnly:true,
+    phase:libPhases('disallowed','preferred','allowed','discouraged','disallowed'),
+    profile:libProfiles('preferred','preferred','allowed','discouraged'),
+    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    varietyGroup:'reps_interval', weight:0.85, minRunDays:4, minWeeklyVolumeKm:40,
+    preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  goal_pace_reps: {
+    stimulus:'race_specific', purpose:'Race rhythm in repeats, with the pace locked in rather than found.',
+    homogeneous:false, progressable:true, regressable:true,
+    params:{ reps:libRange(2, 8, 1), m:LIB_FIXED },
+    progressField:'reps', regressField:'reps',
+    phase:libPhases('disallowed','allowed','preferred','allowed','disallowed'),
+    profile:libProfiles('allowed','preferred','preferred','allowed'),
+    taperEligible:true, raceSpecific:true, poolSelectable:true,
+    varietyGroup:'goal_pace', weight:1.0, minRunDays:3, minWeeklyVolumeKm:30,
+    preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  hill_repeats: {
+    stimulus:'strength', purpose:'Strength and aerobic power without the pounding of flat speed work.',
+    homogeneous:false, progressable:true, regressable:true,
+    // effort DURATION is the rep length of a hill session and does not move
+    params:{ reps:libRange(3, 12, 1), sec:LIB_FIXED },
+    progressField:'reps', regressField:'reps',
+    phase:libPhases('preferred','allowed','discouraged','discouraged','disallowed'),
+    profile:libProfiles('preferred','preferred','allowed','preferred'),
+    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    varietyGroup:'strength', weight:1.0, minRunDays:3, minWeeklyVolumeKm:20,
+    preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  fartlek: {
+    stimulus:'aerobic_power', purpose:'Hard aerobic surges by feel, off the clock and off the track.',
+    homogeneous:false, progressable:true, regressable:true,
+    params:{ reps:libRange(3, 12, 1), min:LIB_FIXED },
+    progressField:'reps', regressField:'reps',
+    phase:libPhases('preferred','allowed','discouraged','allowed','disallowed'),
+    profile:libProfiles('preferred','preferred','preferred','preferred'),
+    taperEligible:true, raceSpecific:false, poolSelectable:true,
+    varietyGroup:'strength', weight:1.0, minRunDays:3, minWeeklyVolumeKm:20,
+    preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+
+  /* ---- fixed-purpose sessions ---- */
+  time_trial: {
+    stimulus:'assessment', purpose:'A calibration effort: what the training has actually produced.',
+    homogeneous:false, progressable:false, regressable:false,
+    nonProgressableReason:'A test whose distance moves is not a test. Its distance is fixed by the race profile so successive checkpoints can be compared.',
+    params:{ ttKm:LIB_FIXED, flankKm:LIB_FIXED },
+    phase:libPhases('allowed','preferred','preferred','discouraged','disallowed'),
+    profile:libProfiles('preferred','preferred','preferred','preferred'),
+    taperEligible:false, raceSpecific:true, poolSelectable:false,
+    varietyGroup:'assessment', weight:1.0, minRunDays:3, minWeeklyVolumeKm:20,
+    preferenceEligible:false,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  easy_strides: {
+    stimulus:'sharpening', purpose:'Race-week sharpener: easy running with brief fast, relaxed strides.',
+    homogeneous:false, progressable:false, regressable:false,
+    nonProgressableReason:'A race-week sharpener is deliberately trivial. Adding to it turns the last quality touch of the block into a session that costs something.',
+    params:{ easyKm:LIB_FIXED, reps:LIB_FIXED, m:LIB_FIXED },
+    phase:libPhases('disallowed','disallowed','disallowed','allowed','preferred'),
+    profile:libProfiles('preferred','preferred','preferred','preferred'),
+    taperEligible:true, raceSpecific:true, poolSelectable:false,
+    varietyGroup:'sharpening', weight:1.0, minRunDays:3, minWeeklyVolumeKm:0,
+    preferenceEligible:false,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  race: {
+    stimulus:'race', purpose:'The event the block was built for.',
+    homogeneous:true, progressable:false, regressable:false,
+    nonProgressableReason:'The race distance is the race distance.',
+    params:{ km:LIB_FIXED },
+    phase:libPhases('disallowed','disallowed','disallowed','disallowed','preferred'),
+    profile:libProfiles('preferred','preferred','preferred','preferred'),
+    taperEligible:false, raceSpecific:true, poolSelectable:false,
+    varietyGroup:'race', weight:1.0, minRunDays:1, minWeeklyVolumeKm:0,
+    preferenceEligible:false,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  }
+};
+function libraryEntry(archetype){
+  return Object.prototype.hasOwnProperty.call(WORKOUT_LIBRARY, archetype) ? WORKOUT_LIBRARY[archetype] : null;
+}
+function libraryPhaseEligibility(archetype, phase){
+  var e = libraryEntry(archetype);
+  if (!e) return 'disallowed';
+  return e.phase[phase] || 'disallowed';
+}
+/* Eligibility by race distance. `profile` is keyed by EMPHASIS, which is the
+   app's own four-way grouping and is the right default -- but two distances can
+   share an emphasis and still want different work: 5K and 10K are both 'speed',
+   and a 10K block wants more threshold than a 5K block does. `byDistance` is an
+   optional per-distanceKey override consulted first, so the capability exists
+   without duplicating the whole table on every entry. */
+function libraryProfileEligibility(archetype, distanceKey){
+  var e = libraryEntry(archetype);
+  var prof = DISTANCE_PROFILES[distanceKey];
+  if (!e || !prof) return 'disallowed';
+  if (e.byDistance && e.byDistance[distanceKey]) return e.byDistance[distanceKey];
+  return e.profile[prof.emphasis] || 'disallowed';
+}
+
+/* =========================================================
+   TRANSFORMATION REGISTRY — one conservative step, or nothing
+   ---------------------------------------------------------
+   Pure. Takes a prescription and returns a NEW one, or a refusal with the
+   reason. Never mutates its input, never touches a day, and nothing in the
+   live plan calls it in this pass.
+
+   Every refusal is a first-class result. "No" with a reason is the answer far
+   more often than "yes", and the Playbook needs to be able to say why.
+   ========================================================= */
+function libStepReject(reason, code){ return { ok:false, reason:reason, code:code||'refused' }; }
+
+/* The guards that apply to BOTH directions, in the order the selection
+   contract puts them: the athlete's own edit first, then the archetype, then
+   the phase. */
+function libTransformGuards(p, ctx, direction){
+  ctx = ctx || {};
+  if (ctx.manualEdit)
+    return libStepReject('The athlete has edited this session. Their version is authoritative and is never reinterpreted.', 'manual_edit');
+  if (!p || !p.archetype)
+    return libStepReject('No prescription. A legacy or hand-written day is never guessed into a library workout.', 'no_prescription');
+  if (!isKnownArchetype(p.archetype))
+    return libStepReject('Unknown archetype id.', 'unknown_archetype');
+  var e = libraryEntry(p.archetype);
+  if (!e) return libStepReject('No library entry for '+p.archetype+'.', 'no_entry');
+  if (direction==='progress' && !e.progressable)
+    return libStepReject(e.nonProgressableReason || 'This archetype does not progress.', 'not_progressable');
+  if (direction==='regress' && !e.regressable)
+    return libStepReject(e.nonProgressableReason || 'This archetype does not regress.', 'not_regressable');
+  if (direction==='progress' && ctx.phase){
+    if (!playbookPhaseAllowsProgress(ctx.phase))
+      return libStepReject('The '+ctx.phase+' phase adds no load. '+playbookPhaseRule(ctx.phase).note, 'phase');
+    if (LIB_ELIGIBILITY_RANK[libraryPhaseEligibility(p.archetype, ctx.phase)] <= 0)
+      return libStepReject(p.archetype+' is not eligible in '+ctx.phase+'.', 'phase');
+  }
+  return null;
+}
+
+/* The one place a stepped prescription is built, so progression and regression
+   cannot drift apart. `dir` is +1 or -1. */
+function libApplyStep(p, ctx, dir){
+  var e = libraryEntry(p.archetype);
+  var field = dir > 0 ? e.progressField : e.regressField;
+  var range = field && e.params[field];
+  if (!field || !range || range.fixed)
+    return libStepReject('No movable dimension.', 'no_field');
+
+  var next = { v:p.v||PRESCRIPTION_VERSION, archetype:p.archetype, params:{} };
+  Object.keys(p.params).forEach(function(k){
+    next.params[k] = Array.isArray(p.params[k]) ? p.params[k].slice() : p.params[k];
+  });
+
+  var from, to;
+  if (e.symmetricPairs && field==='rungs'){
+    // a ladder gains or loses a MATCHED PAIR, keeping its shape symmetrical
+    var rungs = next.params.rungs.slice();
+    from = rungs.length;
+    if (dir > 0){
+      if (rungs.length + 2 > e.params.rungs.max)
+        return libStepReject('Already at the longest legal ladder.', 'at_max');
+      /* The pair is added by REPEATING the outermost rung either side, never by
+         building a taller peak. A taller peak would be a new rep length, which
+         is a change of identity and is forbidden -- this adds volume and leaves
+         every rung length in the session exactly as it was. */
+      rungs = [rungs[0]].concat(rungs).concat([rungs[rungs.length-1]]);
+    } else {
+      if (rungs.length - 2 < e.params.rungs.min)
+        return libStepReject('Already at the shortest legal ladder.', 'at_min');
+      rungs = rungs.slice(1, -1);
+    }
+    next.params.rungs = rungs;
+    to = rungs.length;
+  } else {
+    var cur = next.params[field];
+    if (typeof cur !== 'number') return libStepReject('Parameter '+field+' is not set.', 'no_field');
+    from = cur;
+    to = cur + dir*range.step;
+    if (e.divisibleBy && e.divisibleBy[field]){
+      var by = next.params[e.divisibleBy[field]] || 1;
+      to = Math.round(to/by)*by;
+      if (to === from) to = from + dir*by;
+    }
+    to = Math.round(to*100)/100;
+    if (to > range.max) return libStepReject('Already at the top of the legal range for '+field+'.', 'at_max');
+    if (to < range.min) return libStepReject('Already at the bottom of the legal range for '+field+'.', 'at_min');
+    // a share-of-the-day ceiling, where the archetype declares one
+    if (dir > 0 && e.maxFractionOfDay && e.maxFractionOfDay[field]){
+      var whole = next.params.km || ctx.dayKm;
+      if (whole && to > whole*e.maxFractionOfDay[field])
+        return libStepReject('That would make '+field+' more than '+
+          Math.round(e.maxFractionOfDay[field]*100)+'% of the run.', 'at_max');
+    }
+    next.params[field] = to;
+  }
+
+  /* PRINCIPLE quality_never_longest, enforced rather than trusted. A stepped
+     quality session is re-measured through the generator's own budget and
+     refused if it would outgrow the week's long run. */
+  if (dir > 0 && ctx.longRunKm){
+    var spec = prescriptionSpec(next);
+    if (spec){
+      var kind = (ARCHETYPES[next.archetype].family==='interval' ||
+                  ARCHETYPES[next.archetype].family==='repetition') ? 'interval' : 'tempo';
+      var km = qualitySessionKm(spec, kind);
+      if (km > ctx.longRunKm)
+        return libStepReject('That step would make this session longer than the week’s long run.', 'quality_never_longest');
+    }
+  }
+  return { ok:true, prescription:next, archetype:next.archetype, field:field,
+           from:from, to:to, direction: dir>0 ? 'progress' : 'regress',
+           step: dir>0 ? '+1 step' : '-1 step',
+           reason:(dir>0?'One conservative increase in ':'One conservative reduction in ')+field+'.' };
+}
+function progressPrescription(p, ctx){
+  var bad = libTransformGuards(p, ctx, 'progress');
+  return bad || libApplyStep(p, ctx||{}, +1);
+}
+function regressPrescription(p, ctx){
+  var bad = libTransformGuards(p, ctx, 'regress');
+  if (bad) return bad;
+  var out = libApplyStep(p, ctx||{}, -1);
+  /* The deuce's last regression step, and only its last: when reps are already
+     at the floor, the two sets collapse to one. That is the same simplification
+     the taper already applies, and it is a REDUCTION -- there is no matching
+     move in the progress direction. */
+  if (!out.ok && out.code==='at_min'){
+    var e = libraryEntry(p.archetype);
+    if (e && e.setsFloorOnly && p.params.sets > 1){
+      var next = { v:p.v||PRESCRIPTION_VERSION, archetype:p.archetype, params:{} };
+      Object.keys(p.params).forEach(function(k){ next.params[k]=p.params[k]; });
+      next.params.sets = p.params.sets - 1;
+      return { ok:true, prescription:next, archetype:p.archetype, field:'sets',
+               from:p.params.sets, to:next.params.sets, direction:'regress', step:'-1 step',
+               reason:'Reps are already at the floor, so the final reduction is one fewer set.' };
+    }
+  }
+  return out;
+}
+
+/* =========================================================
+   CANDIDATES, RANKING AND REPETITION — deterministic, and inactive
+   ---------------------------------------------------------
+   Nothing here draws a random number. The same context always produces the
+   same order, because a plan an athlete cannot reproduce is a plan they cannot
+   trust, and a selection nobody can replay is a selection nobody can debug a
+   year from now.
+   ========================================================= */
+function libraryContext(overrides){
+  var o = overrides || {};
+  var su = state.setup || {};
+  var week = o.week || currentWeekNum();
+  return {
+    phase: o.phase || trainingPhase(week),
+    distanceKey: o.distanceKey || su.distanceKey,
+    weeklyVolumeKm: o.weeklyVolumeKm!=null ? o.weeklyVolumeKm : (su.currentVolume||0),
+    runDays: o.runDays!=null ? o.runDays : ((su.schedule&&su.schedule.activeDays||[]).length),
+    longRunKm: o.longRunKm,
+    currentArchetype: o.currentArchetype || null,
+    decision: o.decision || 'HOLD',
+    historyDays: o.historyDays!=null ? o.historyDays : 28
+  };
+}
+/* Everything the athlete could legitimately be given, with the reason each
+   candidate survived. Eligibility only -- no ordering yet. */
+function libraryCandidates(ctx){
+  ctx = ctx || libraryContext();
+  var out = [];
+  Object.keys(WORKOUT_LIBRARY).forEach(function(id){
+    var e = WORKOUT_LIBRARY[id];
+    if (!e.poolSelectable) return;                 // fixed-purpose sessions are placed, not chosen
+    var ph = libraryPhaseEligibility(id, ctx.phase);
+    if (LIB_ELIGIBILITY_RANK[ph] <= 0) return;
+    var pf = ctx.distanceKey ? libraryProfileEligibility(id, ctx.distanceKey) : 'allowed';
+    if (LIB_ELIGIBILITY_RANK[pf] <= 0) return;
+    if (ctx.runDays && e.minRunDays && ctx.runDays < e.minRunDays) return;
+    if (ctx.weeklyVolumeKm && e.minWeeklyVolumeKm && ctx.weeklyVolumeKm < e.minWeeklyVolumeKm) return;
+    out.push({ archetype:id, stimulus:e.stimulus, varietyGroup:e.varietyGroup,
+               phaseEligibility:ph, profileEligibility:pf, weight:e.weight });
+  });
+  return out.sort(function(a,b){ return a.archetype < b.archetype ? -1 : 1; });
+}
+
+/* ---- how recently and how often an archetype has been used ----
+   Pure, and used for nothing yet. Repetition is NOT treated as bad: a familiar
+   session run again is often exactly right, and manufacturing variety for its
+   own sake is how a plan stops making sense. This only reports. */
+function archetypeHistory(archetype, windowDays){
+  var days = windowDays || 28;
+  var from = addDays(todayStr(), -days);
+  var seen = (state.days||[]).filter(function(dd){
+    if (dd.date < from || dd.date > todayStr()) return false;
+    var p = prescriptionOf(dd);
+    return p && p.archetype === archetype;
+  }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  var last = seen[seen.length-1] || null;
+  var lastParams = last ? stableStringify(prescriptionOf(last).params) : null;
+  var identical = lastParams ? seen.filter(function(dd){
+    return stableStringify(prescriptionOf(dd).params) === lastParams; }).length : 0;
+  return {
+    archetype: archetype,
+    windowDays: days,
+    count: seen.length,
+    lastDate: last ? last.date : null,
+    daysSince: last ? daysBetween(last.date, todayStr()) : null,
+    identicalStructureCount: identical,
+    repeatedIdenticalStructure: identical >= 3
+  };
+}
+// Other eligible archetypes that deliver the same stimulus, so a selector can
+// offer a genuine alternative rather than a cosmetic one.
+function equivalentArchetypes(archetype, ctx){
+  var e = libraryEntry(archetype);
+  if (!e) return [];
+  return libraryCandidates(ctx).filter(function(c){
+    return c.archetype !== archetype && WORKOUT_LIBRARY[c.archetype].stimulus === e.stimulus;
+  }).map(function(c){ return c.archetype; });
+}
+
+/* ---- preference: the interface, with nothing behind it ----
+   No UI, no storage, no persistence. preferenceOf() reads a map that does not
+   exist yet and answers 'neutral' for everything, so the ranking below can be
+   written and tested now and wired up later without changing its shape. */
+var LIB_PREFERENCE_LEVELS = ['favourite','neutral','disliked'];
+var LIB_PREFERENCE_BONUS = { favourite:0.5, neutral:0, disliked:-0.5 };
+function preferenceOf(archetype){
+  var prefs = state && state.workoutPreferences;     // deliberately never written
+  var v = prefs && prefs[archetype];
+  return LIB_PREFERENCE_LEVELS.indexOf(v)!==-1 ? v : 'neutral';
+}
+
+/* ---- ranking, in the order PLAYBOOK_SELECTION_ORDER lays down ----
+   Safety and phase and eligibility have already removed candidates before this
+   runs; what is left is ordering among things that are all acceptable. Variety
+   and preference are the last two terms and are deliberately small: neither can
+   reorder past a difference in phase fit or training need. */
+function rankLibraryCandidates(ctx){
+  ctx = ctx || libraryContext();
+  var cands = libraryCandidates(ctx);
+  var need = ctx.neededStimulus || null;
+  return cands.map(function(c){
+    var hist = archetypeHistory(c.archetype, ctx.historyDays);
+    var pref = preferenceOf(c.archetype);
+    var parts = {
+      phase:   LIB_ELIGIBILITY_RANK[c.phaseEligibility] * 10,
+      profile: LIB_ELIGIBILITY_RANK[c.profileEligibility] * 6,
+      need:    need ? (c.stimulus===need ? 8 : 0) : 0,
+      weight:  c.weight * 2,
+      // staleness, capped: an unused structure rises, but never past a
+      // difference in what the week actually needs
+      variety: hist.count===0 ? 1.5 : Math.min(1.5, (hist.daysSince||0)/14),
+      repeat:  hist.repeatedIdenticalStructure ? -1 : 0,
+      preference: WORKOUT_LIBRARY[c.archetype].preferenceEligible ? LIB_PREFERENCE_BONUS[pref] : 0
+    };
+    var score = parts.phase + parts.profile + parts.need + parts.weight +
+                parts.variety + parts.repeat + parts.preference;
+    return { archetype:c.archetype, stimulus:c.stimulus, score:Math.round(score*1000)/1000,
+             parts:parts, history:hist, preference:pref,
+             phaseEligibility:c.phaseEligibility, profileEligibility:c.profileEligibility };
+  }).sort(function(a,b){
+    if (b.score !== a.score) return b.score - a.score;
+    return a.archetype < b.archetype ? -1 : 1;     // deterministic tie-break, never random
+  });
+}
+
+
+/* =========================================================
    PER-WORKOUT COACH REVIEW
    ---------------------------------------------------------
    The qualitative half of a completed session. The Execution Score stays
