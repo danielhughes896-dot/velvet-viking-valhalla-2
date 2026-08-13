@@ -1502,9 +1502,17 @@ function intervalWorkoutText(spec){
     desc:'Easy warm-up. '+spec.reps+' x '+spec.fartlekMin+'min surges at a strong, controlled effort with an equal-time easy jog between. Easy cool-down.' };
   var type = spec.t || 'interval';
   var label = type==='repetition' ? 'Repetition' : 'Interval';
-  var recovery = spec.m<=400 ? Math.round(spec.m/2)+'m jog' : (spec.m>=1000 ? '3min jog' : '90s jog');
+  var recovery = repRecovery(spec.m);
   return { title: label+': '+spec.reps+'x'+spec.m+'m', type:type,
-    desc: dtok(2)+' warm-up. '+spec.reps+' x '+spec.m+'m @ '+label+' pace w/ '+recovery+' recovery. '+dtok(2)+' cool-down.' };
+    desc: dtok(2)+' warm-up. '+spec.reps+' x '+spec.m+'m @ '+label+' pace w/ '+recovery.text+' recovery. '+dtok(2)+' cool-down.' };
+}
+/* The rep-recovery rule, in one place: short reps jog back half the rep
+   distance, long reps take a fixed time. The sentence and the structured
+   segment now read the same rule instead of restating it. */
+function repRecovery(m){
+  if (m<=400) return { m:Math.round(m/2), text:Math.round(m/2)+'m jog' };
+  if (m>=1000) return { sec:180, text:'3min jog' };
+  return { sec:90, text:'90s jog' };
 }
 function tempoWorkoutText(spec){
   if (spec.type==='goalpace') return { title:'Goal Pace Block: '+spec.km+'km', type:'tempo', mpSegment:true,
@@ -1522,6 +1530,38 @@ function tempoWorkoutText(spec){
   return { title:'Threshold: '+spec.km+'km', type:'threshold',
     desc: dtok(2)+' warm-up. '+dtok(spec.km)+' continuous @ Threshold pace. '+dtok(1)+' cool-down.' };
 }
+/* The remaining workout texts, lifted verbatim out of buildDaysFromWeeks so
+   the generator and textFor() below read the same words from one place. No
+   wording changed -- these are the exact strings the day loop used to inline,
+   and the generator now calls them instead. */
+function easyRunText(km){
+  return { title:'Easy Aerobic', type:'easy', desc: dtok(km)+' @ Easy pace.' };
+}
+function restDayText(isRaceWeek){
+  return { title:'Rest Day', type:'rest',
+    desc: isRaceWeek ? 'Full rest.' : 'Full rest. Legs up, hydrate, stay ahead of the block.' };
+}
+function raceDayText(km, hasEvent, profileLabel){
+  return { title: profileLabel+' '+(hasEvent?'Race Day':'Goal Effort'), type:'race', mpSegment:true,
+    desc: hasEvent
+      ? 'Even effort through the first two-thirds, then give whatever is left. Target: Goal Pace throughout.'
+      : 'The block culminates here. Even effort through the first two-thirds, then give whatever is left. Target: Goal Pace throughout.' };
+}
+function shakeoutText(hasEvent){
+  return { title: hasEvent?'Pre-Race Shakeout':'Pre-Goal Shakeout', type:'easy',
+    desc: hasEvent
+      ? 'Short and easy with a few relaxed strides. Lay out race kit, eat familiar food, sleep early.'
+      : 'Short and easy with a few relaxed strides. Eat familiar food, sleep early.' };
+}
+function stridesText(easyKm, reps, m){
+  return { title:'Sharpen: '+reps+'x'+m+'m Strides', type:'interval',
+    desc: dtok(easyKm)+' @ Easy pace, then '+reps+'x'+m+'m relaxed strides w/ full recovery. Short and sharp.' };
+}
+function timeTrialText(ttKm, flankKm){
+  return { title:'Fitness Checkpoint: '+ttKm+'km Time Trial', type:'checkpoint',
+    desc: dtok(flankKm)+' warm-up, '+dtok(ttKm)+' at hard, honest effort, '+dtok(flankKm)+
+          ' cool-down. Use today’s time to reconsider your Active Goal for the rest of the block.' };
+}
 function longRunText(km, hasGoalSegment, goalSegKm, isB2BPrimary, isB2BSecondary){
   if (isB2BSecondary){
     return { title:'Back-to-Back Long Run', type:'long', desc: dtok(km)+' @ Easy pace, on tired legs from yesterday \u2014 this specificity is what makes ultra training work.' };
@@ -1532,6 +1572,280 @@ function longRunText(km, hasGoalSegment, goalSegKm, isB2BPrimary, isB2BSecondary
       desc: dtok(km)+' @ Easy pace, last '+dtok(goalSegKm)+' @ Goal Pace.'+note };
   }
   return { title:'Long Run', type:'long', desc: dtok(km)+' @ Easy pace, steady and controlled.'+note };
+}
+
+/* =========================================================
+   STRUCTURED PRESCRIPTION
+
+   The generator has always built a structured workout and then thrown it
+   away: buildBlockWeeks computes a spec ({reps:8,m:1200}), the *WorkoutText
+   functions render it to a sentence, and only the sentence reaches the day.
+   This keeps the structure instead.
+
+   ONE SOURCE OF TRUTH. What is persisted is the archetype id and the
+   parameters -- nothing that can be computed. Segments, pace windows, HR
+   windows, titles and descriptions stay derived, exactly as they are today,
+   so changing the Active Goal still updates every card instantly.
+
+   Rest days deliberately carry no prescription: "rest" plus km 0 already says
+   everything, and a structure representing nothing is complexity for its own
+   sake. Legacy days have no prescription either, and every consumer must keep
+   working without one -- absence is the normal case, not an error.
+   ========================================================= */
+var PRESCRIPTION_VERSION = 1;
+
+/* Archetype ids are a PERSISTED CONTRACT. They travel in saves, backups and
+   cloud sync, so they are never renamed -- an unknown id must degrade to the
+   legacy type-based path, never throw.
+     dayKmParam  the param that IS the whole-day distance, so the settle-up
+                 pass can keep it in step with dd.km the way syncDescDistance
+                 keeps the text in step. Absent where no param means that. */
+var ARCHETYPES = {
+  easy_run:              { family:'easy',      dayKmParam:'km', rescalableKm:true },
+  shakeout:              { family:'easy',      dayKmParam:'km', rescalableKm:true },
+  long_run:              { family:'long',      dayKmParam:'km', rescalableKm:true },
+  // NOT rescalable: shortening the run leaves the goal-pace finish the wrong
+  // share of it, and re-deriving that share would be inventing prescription
+  long_run_goal_finish:  { family:'long',      dayKmParam:'km' },
+  long_run_b2b:          { family:'long',      dayKmParam:'km', rescalableKm:true },
+  threshold_continuous:  { family:'threshold' },
+  goal_pace_block:       { family:'tempo' },
+  steady_tempo:          { family:'tempo' },
+  progressive_tempo:     { family:'tempo' },
+  split_tempo:           { family:'tempo' },
+  track_reps:            { family:'interval' },
+  short_reps:            { family:'repetition' },
+  ladder:                { family:'interval' },
+  deuce:                 { family:'interval' },
+  goal_pace_reps:        { family:'interval' },
+  hill_repeats:          { family:'interval' },
+  fartlek:               { family:'interval' },
+  time_trial:            { family:'checkpoint' },
+  easy_strides:          { family:'interval' },
+  race:                  { family:'race' }
+};
+function isKnownArchetype(id){ return Object.prototype.hasOwnProperty.call(ARCHETYPES, id); }
+// The one accessor. Returns null for legacy days, rest days, hand-edited days
+// and anything carrying an id this build does not know.
+function prescriptionOf(dd){
+  var p = dd && dd.prescription;
+  if (!p || !p.archetype || !isKnownArchetype(p.archetype) || !p.params) return null;
+  return p;
+}
+
+/* ---- spec <-> prescription ----
+   The params ARE the generator's spec, renamed. Round-tripping through these
+   two functions is what lets textFor() reuse the existing text generators
+   instead of restating their wording. */
+function prescriptionFromSpec(spec, kind){
+  if (!spec) return null;
+  if (kind==='interval'){
+    if (spec.ladder) return { archetype:'ladder', params:{ rungs:spec.ladder.slice() } };
+    if (spec.sets)   return { archetype:'deuce', params:{ sets:spec.sets, reps:spec.reps, m:spec.m } };
+    if (spec.t==='goalpace') return { archetype:'goal_pace_reps', params:{ reps:spec.reps, m:spec.m } };
+    if (spec.hillSec)    return { archetype:'hill_repeats', params:{ reps:spec.reps, sec:spec.hillSec } };
+    if (spec.fartlekMin) return { archetype:'fartlek', params:{ reps:spec.reps, min:spec.fartlekMin } };
+    // one generator, two identities: the label is fixed by the id rather than
+    // by a `pos` the day object never sees
+    return { archetype: spec.t==='repetition' ? 'short_reps' : 'track_reps',
+             params:{ reps:spec.reps, m:spec.m } };
+  }
+  if (spec.type==='goalpace')    return { archetype:'goal_pace_block', params:{ km:spec.km } };
+  if (spec.type==='progressive') return { archetype:'progressive_tempo', params:{ min:spec.min } };
+  if (spec.type==='steady')      return { archetype:'steady_tempo', params:{ min:spec.min } };
+  if (spec.type==='tempo')       return { archetype:'split_tempo', params:{ min:spec.min, split:spec.split||2 } };
+  return { archetype:'threshold_continuous', params:{ km:spec.km } };
+}
+function prescriptionSpec(p){
+  var a = p.archetype, q = p.params;
+  switch(a){
+    case 'ladder':               return { ladder:q.rungs.slice(), t:'interval' };
+    case 'deuce':                return { sets:q.sets, reps:q.reps, m:q.m, t:'interval' };
+    case 'goal_pace_reps':       return { reps:q.reps, m:q.m, t:'goalpace' };
+    case 'hill_repeats':         return { reps:q.reps, hillSec:q.sec, t:'interval' };
+    case 'fartlek':              return { reps:q.reps, fartlekMin:q.min, t:'interval' };
+    case 'track_reps':           return { reps:q.reps, m:q.m, t:'interval' };
+    case 'short_reps':           return { reps:q.reps, m:q.m, t:'repetition' };
+    case 'goal_pace_block':      return { type:'goalpace', km:q.km };
+    case 'progressive_tempo':    return { type:'progressive', min:q.min };
+    case 'steady_tempo':         return { type:'steady', min:q.min };
+    case 'split_tempo':          return { type:'tempo', min:q.min, split:q.split };
+    case 'threshold_continuous': return { type:'threshold', km:q.km };
+  }
+  return null;
+}
+/* Prescription -> the same {title,type,desc,mpSegment} the generator produces.
+   Deliberately delegates to the existing text functions rather than repeating
+   their wording, so there is no second copy of the prose to drift. ctx is only
+   needed for the two plan-level names (race day vs goal effort); it defaults
+   to the live plan the way vGoalDay() does. */
+function textFor(p, ctx){
+  if (!p || !isKnownArchetype(p.archetype)) return null;
+  var q = p.params;
+  var su = (ctx && ctx.setup!==undefined) ? ctx.setup : (typeof state!=='undefined' ? state.setup : null);
+  var hasEvent = ctx && ctx.hasEvent!==undefined ? ctx.hasEvent : planHasEvent(su);
+  var label = (ctx && ctx.profileLabel) ||
+              ((su && DISTANCE_PROFILES[su.distanceKey]) ? DISTANCE_PROFILES[su.distanceKey].label : '');
+  switch(p.archetype){
+    case 'easy_run':             return easyRunText(q.km);
+    case 'shakeout':             return shakeoutText(hasEvent);
+    case 'race':                 return raceDayText(q.km, hasEvent, label);
+    case 'easy_strides':         return stridesText(q.easyKm, q.reps, q.m);
+    case 'time_trial':           return timeTrialText(q.ttKm, q.flankKm);
+    case 'long_run':             return longRunText(q.km, false, 0, !!q.b2bPrimary, false);
+    case 'long_run_goal_finish': return longRunText(q.km, true, q.finishKm, false, false);
+    case 'long_run_b2b':         return longRunText(q.km, false, 0, false, true);
+  }
+  var spec = prescriptionSpec(p);
+  if (!spec) return null;
+  return (ARCHETYPES[p.archetype].family==='interval' || ARCHETYPES[p.archetype].family==='repetition')
+    ? intervalWorkoutText(spec) : tempoWorkoutText(spec);
+}
+
+/* ---- segmentsFor() ----
+   DERIVED, never stored. The shape is the smallest one the real archetypes
+   need: three kinds, one optional ramp origin, and quantities that are allowed
+   to be absent.
+
+   Quantities are NEVER invented. Where VVV prescribes a flank or a recovery
+   qualitatively ("Easy warm-up jog", "short jog between reps"), the segment
+   carries no number and says so -- guessing one would be the app writing
+   prescription the coach deliberately withheld. */
+function segWork(q, intensity, extra){
+  var s = { kind:'work', intensity:intensity };
+  if (q){ if (q.km!=null) s.km=q.km; if (q.m!=null) s.m=q.m; if (q.sec!=null) s.sec=q.sec; }
+  if (extra) Object.keys(extra).forEach(function(k){ s[k]=extra[k]; });
+  return s;
+}
+function segRecovery(q, extra){
+  var s = { kind:'recovery', intensity:'easy', mode:'jog' };
+  if (q){ if (q.m!=null) s.m=q.m; if (q.sec!=null) s.sec=q.sec; }
+  if (extra) Object.keys(extra).forEach(function(k){ s[k]=extra[k]; });
+  return s;
+}
+function segRepeat(times, children){ return { kind:'repeat', times:times, children:children }; }
+// Numbered flanks, matching what the text actually writes. null = the text
+// says "Easy warm-up" with no distance, so neither do we.
+function segFlanks(wuKm, cdKm){
+  return { wu: segWork(wuKm!=null?{km:wuKm}:null, 'easy', { role:'warmup' }),
+           cd: segWork(cdKm!=null?{km:cdKm}:null, 'easy', { role:'cooldown' }) };
+}
+function segmentsFor(p){
+  if (!p || !isKnownArchetype(p.archetype) || !p.params) return null;
+  var q = p.params, f, out;
+  switch(p.archetype){
+    case 'easy_run':
+    case 'shakeout':
+      // a shakeout's distance is prescribed as a number even though its text is prose
+      return [ segWork({km:q.km}, 'easy') ];
+    case 'long_run':
+    case 'long_run_b2b':
+      return [ segWork({km:q.km}, 'easy') ];
+    case 'long_run_goal_finish':
+      return [ segWork({km:round1(q.km-q.finishKm)}, 'easy'),
+               segWork({km:q.finishKm}, 'goal_pace') ];
+    case 'race':
+      return [ segWork({km:q.km}, 'goal_pace') ];
+    case 'time_trial':
+      f = segFlanks(q.flankKm, q.flankKm);
+      return [ f.wu, segWork({km:q.ttKm}, 'threshold', { effortNamed:true }), f.cd ];
+    case 'threshold_continuous':
+      f = segFlanks(2, 1);
+      return [ f.wu, segWork({km:q.km}, 'threshold'), f.cd ];
+    case 'goal_pace_block':
+      f = segFlanks(2, 2);
+      return [ f.wu, segWork({km:q.km}, 'goal_pace'), f.cd ];
+    case 'steady_tempo':
+      f = segFlanks(null, null);                       // "Easy warm-up jog" -- no distance given
+      return [ f.wu, segWork({sec:q.min*60}, 'steady'), f.cd ];
+    case 'progressive_tempo':
+      f = segFlanks(null, null);
+      return [ f.wu, segWork({sec:q.min*60}, 'tempo', { from:'steady' }), f.cd ];
+    case 'split_tempo':
+      f = segFlanks(2, 2);
+      return [ f.wu,
+               segRepeat(q.split, [ segWork({sec:Math.round(q.min/q.split)*60}, 'tempo'),
+                                    segRecovery({sec:[120,180]}) ]),
+               f.cd ];
+    case 'track_reps':
+    case 'short_reps':
+      f = segFlanks(2, 2);
+      var rec = repRecovery(q.m);
+      return [ f.wu,
+               segRepeat(q.reps, [ segWork({m:q.m}, p.archetype==='short_reps' ? 'repetition' : 'interval'),
+                                   segRecovery({ m:rec.m, sec:rec.sec }) ]),
+               f.cd ];
+    case 'goal_pace_reps':
+      f = segFlanks(2, 2);
+      return [ f.wu,
+               segRepeat(q.reps, [ segWork({m:q.m}, 'goal_pace'),
+                                   segRecovery(null, { mode:'float', qualifier:'short' }) ]),
+               f.cd ];
+    case 'ladder':
+      f = segFlanks(2, 2);
+      out = [ f.wu ];
+      q.rungs.forEach(function(m, i){
+        out.push(segWork({m:m}, 'interval'));
+        // the text prescribes recovery "scaled to each rep's length" -- a rule,
+        // not a number, and there is none after the final rung
+        if (i < q.rungs.length-1) out.push(segRecovery(null, { qualifier:'scaled' }));
+      });
+      out.push(f.cd);
+      return out;
+    case 'deuce':
+      f = segFlanks(2, 2);
+      return [ f.wu,
+               segRepeat(q.sets, [
+                 segRepeat(q.reps, [ segWork({m:q.m}, 'interval'),
+                                     segRecovery(null, { qualifier:'short' }) ]),
+                 segRecovery({sec:[180,240]}) ]),
+               f.cd ];
+    case 'hill_repeats':
+      f = segFlanks(null, null);
+      return [ f.wu,
+               segRepeat(q.reps, [ segWork({sec:q.sec}, 'hard_effort', { terrain:'uphill' }),
+                                   segRecovery(null, { mode:'walk_jog', qualifier:'back_down' }) ]),
+               f.cd ];
+    case 'fartlek':
+      f = segFlanks(null, null);
+      return [ f.wu,
+               segRepeat(q.reps, [ segWork({sec:q.min*60}, 'hard_effort'),
+                                   segRecovery({sec:q.min*60}, { qualifier:'equal_time' }) ]),
+               f.cd ];
+    case 'easy_strides':
+      return [ segWork({km:q.easyKm}, 'easy'),
+               segRepeat(q.reps, [ segWork({m:q.m}, 'repetition'),
+                                   segRecovery(null, { qualifier:'full' }) ]) ];
+  }
+  return null;
+}
+/* ---- when a session stops matching its prescription ----
+   One rule, used by every path that rewrites a day: an archetype whose only
+   parameter IS the whole-day distance still describes the session after a
+   distance change, so it rescales. Everything else no longer describes what
+   the athlete is being asked to run, and is dropped so the day falls back to
+   the legacy type-based behaviour. Reverse-engineering a new structure from a
+   changed session is exactly the clever-parsing trap; we never do it. */
+function rescaleOrDropPrescription(dd, newKm){
+  var p = prescriptionOf(dd), meta = p && ARCHETYPES[p.archetype];
+  if (meta && meta.rescalableKm && newKm>0){ p.params[meta.dayKmParam] = round1(newKm); return true; }
+  if (dd) delete dd.prescription;
+  return false;
+}
+// Total distance a prescription actually states, and how much of it is left
+// unstated. Reported separately on purpose: the caller must be able to tell
+// "3km easy" from "an unmeasured warm-up".
+function segmentTotals(segs){
+  var km = 0, unknown = 0;
+  (function walk(list, mult){
+    (list||[]).forEach(function(s){
+      if (s.kind==='repeat'){ walk(s.children, mult*(s.times||1)); return; }
+      if (s.km!=null) km += s.km*mult;
+      else if (s.m!=null) km += (s.m/1000)*mult;
+      else if (s.sec==null) unknown += mult;          // no quantity of any kind
+    });
+  })(segs, 1);
+  return { km:round1(km), unquantifiedSegments:unknown };
 }
 
 /* =========================================================
@@ -1705,28 +2019,27 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         if (dr<startDateStr) continue;
         if (dr>raceDateStr) continue; // plan ends exactly at the target race date, never past it
         var isRD = (dr===raceDateStr);
-        var obj;
+        var obj, rx;
         if (isRD){
-          obj = { type:'race', title: profile.label+' '+(hasEvent?'Race Day':'Goal Effort'), km: wk.raceDayKm,
-            desc: hasEvent
-              ? 'Even effort through the first two-thirds, then give whatever is left. Target: Goal Pace throughout.'
-              : 'The block culminates here. Even effort through the first two-thirds, then give whatever is left. Target: Goal Pace throughout.',
-            mpSegment:true };
+          rx = { archetype:'race', params:{ km:wk.raceDayKm } };
+          obj = raceDayText(wk.raceDayKm, hasEvent, profile.label); obj.km = wk.raceDayKm;
         } else if (!activeSet[ir]){
-          obj = { type:'rest', title:'Rest Day', km:0, desc:'Full rest.' };
+          obj = restDayText(true); obj.km = 0; rx = null;   // a rest day carries no structure
         } else if (ir===qty1Day){
-          obj = { type:'interval', title:'Sharpen: 6x100m Strides', km:perLeadUp,
-            desc: dtok(Math.max(0,round1(perLeadUp-1)))+' @ Easy pace, then 6x100m relaxed strides w/ full recovery. Short and sharp.' };
+          var strEasy = Math.max(0, round1(perLeadUp-1));
+          rx = { archetype:'easy_strides', params:{ easyKm:strEasy, reps:6, m:100 } };
+          obj = stridesText(strEasy, 6, 100); obj.km = perLeadUp;
         } else if (dr===addDays(raceDateStr,-1)){
-          obj = { type:'easy', title: hasEvent?'Pre-Race Shakeout':'Pre-Goal Shakeout', km:Math.min(4,perLeadUp),
-            desc: hasEvent
-              ? 'Short and easy with a few relaxed strides. Lay out race kit, eat familiar food, sleep early.'
-              : 'Short and easy with a few relaxed strides. Eat familiar food, sleep early.' };
+          var shakeKm = Math.min(4,perLeadUp);
+          rx = { archetype:'shakeout', params:{ km:shakeKm } };
+          obj = shakeoutText(hasEvent); obj.km = shakeKm;
         } else {
-          obj = { type:'easy', title:'Easy Aerobic', km:perLeadUp, desc:dtok(perLeadUp)+' @ Easy pace.' };
+          rx = { archetype:'easy_run', params:{ km:perLeadUp } };
+          obj = easyRunText(perLeadUp); obj.km = perLeadUp;
         }
         days.push({ id:dr, date:dr, week:wk.week, type:obj.type, title:obj.title, km:roundWorkoutKm(obj.type, obj.km), desc:obj.desc,
-          mpSegment:!!obj.mpSegment, completed:false, actual:{km:null,pace:null,hr:null,rpe:null,notes:''} });
+          mpSegment:!!obj.mpSegment, prescription: rx ? { v:PRESCRIPTION_VERSION, archetype:rx.archetype, params:rx.params } : undefined,
+          completed:false, actual:{km:null,pace:null,hr:null,rpe:null,notes:''} });
       }
       return;
     }
@@ -1780,9 +2093,10 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       if (kind==='tempo' && wk.isCheckpoint){
         var ttKm = Math.min(TT_DISTANCE_KM[profile.emphasis], Math.max(2, round1(tKmThisWeek-3)));
         var flank = Math.max(1, round1((tKmThisWeek-ttKm)/2));
-        return { type:'checkpoint', title:'Fitness Checkpoint: '+ttKm+'km Time Trial',
+        var tt = timeTrialText(ttKm, flank);
+        return { type:tt.type, title:tt.title, desc:tt.desc,
           km: Math.max(tKmThisWeek, round1(ttKm+flank*2)),
-          desc: dtok(flank)+' warm-up, '+dtok(ttKm)+' at hard, honest effort, '+dtok(flank)+' cool-down. Use today’s time to reconsider your Active Goal for the rest of the block.' };
+          prescription: { archetype:'time_trial', params:{ ttKm:ttKm, flankKm:flank } } };
       }
       // INVARIANT, enforced rather than assumed: the day is never shorter than
       // the session written on it. Both sides come from the same spec today,
@@ -1790,11 +2104,13 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       if (kind==='interval'){
         var q = intervalWorkoutText(wk.qSpec);
         return { type:q.type, title:q.title, desc:q.desc, mpSegment:!!q.mpSegment,
-                 km: qKmThisWeek + qualityDayShortfallKm(qKmThisWeek, wk.qSpec, 'interval') };
+                 km: qKmThisWeek + qualityDayShortfallKm(qKmThisWeek, wk.qSpec, 'interval'),
+                 prescription: prescriptionFromSpec(wk.qSpec, 'interval') };
       }
       var t3 = tempoWorkoutText(wk.tSpec);
       return { type:t3.type, title:t3.title, desc:t3.desc, mpSegment:!!t3.mpSegment,
-               km: tKmThisWeek + qualityDayShortfallKm(tKmThisWeek, wk.tSpec, 'tempo') };
+               km: tKmThisWeek + qualityDayShortfallKm(tKmThisWeek, wk.tSpec, 'tempo'),
+               prescription: prescriptionFromSpec(wk.tSpec, 'tempo') };
     }
 
     for (var iso=0; iso<7; iso++){
@@ -1803,21 +2119,30 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       var dayObj;
       if (iso===longDay && activeSet[iso]){
         var tl = longRunText(longKm, wk.hasGoalSegment, wk.goalSegKm, b2bActive, false);
-        dayObj = { type:tl.type, title:tl.title, km:longKm, desc:tl.desc, mpSegment:!!tl.mpSegment };
+        dayObj = { type:tl.type, title:tl.title, km:longKm, desc:tl.desc, mpSegment:!!tl.mpSegment,
+          prescription: (wk.hasGoalSegment && wk.goalSegKm>0)
+            ? { archetype:'long_run_goal_finish', params:{ km:longKm, finishKm:wk.goalSegKm } }
+            : { archetype:'long_run', params: b2bActive ? { km:longKm, b2bPrimary:true } : { km:longKm } } };
       } else if (b2bActive && iso===b2bDay){
         var t2 = longRunText(secondLongKm, false, 0, false, true);
-        dayObj = { type:t2.type, title:t2.title, km:secondLongKm, desc:t2.desc };
+        dayObj = { type:t2.type, title:t2.title, km:secondLongKm, desc:t2.desc,
+          prescription: { archetype:'long_run_b2b', params:{ km:secondLongKm } } };
       } else if (activeSet[iso] && iso===qty1Day){
         dayObj = buildQualityDay(singleSlot ? singleSlotKind : 'interval');
       } else if (activeSet[iso] && iso===qty2Day){
         dayObj = buildQualityDay('tempo');
       } else if (activeSet[iso]){
-        dayObj = { type:'easy', title:'Easy Aerobic', km:perEasy, desc:dtok(perEasy)+' @ Easy pace.' };
+        var er = easyRunText(perEasy);
+        dayObj = { type:er.type, title:er.title, km:perEasy, desc:er.desc,
+                   prescription:{ archetype:'easy_run', params:{ km:perEasy } } };
       } else {
-        dayObj = { type:'rest', title:'Rest Day', km:0, desc:'Full rest. Legs up, hydrate, stay ahead of the block.' };
+        var rd = restDayText(false);
+        dayObj = { type:rd.type, title:rd.title, km:0, desc:rd.desc };  // rest carries no structure
       }
       days.push({ id:date, date:date, week:wk.week, type:dayObj.type, title:dayObj.title, km:roundWorkoutKm(dayObj.type, dayObj.km), desc:dayObj.desc,
-        mpSegment:!!dayObj.mpSegment, completed:false, actual:{km:null,pace:null,hr:null,rpe:null,notes:''} });
+        mpSegment:!!dayObj.mpSegment,
+        prescription: dayObj.prescription ? { v:PRESCRIPTION_VERSION, archetype:dayObj.prescription.archetype, params:dayObj.prescription.params } : undefined,
+        completed:false, actual:{km:null,pace:null,hr:null,rpe:null,notes:''} });
     }
   });
   capWeeklyVolume(days, weeks);
@@ -1825,7 +2150,14 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   // rounding AND the weekly-volume cap have both had their say, so syncing
   // the descriptions here catches every adjustment in one place rather than
   // needing a fix-up at each individual site that touches km.
-  days.forEach(function(dd){ dd.desc = syncDescDistance(dd.type, dd.desc, dd.km); });
+  days.forEach(function(dd){
+    dd.desc = syncDescDistance(dd.type, dd.desc, dd.km);
+    // Same settle-up for the structure: where a param IS the whole-day
+    // distance, it has to follow dd.km through smart rounding and the weekly
+    // cap, or the prescription and the card would disagree about the same run.
+    var p = dd.prescription, meta = p && ARCHETYPES[p.archetype];
+    if (meta && meta.dayKmParam) p.params[meta.dayKmParam] = round1(dd.km);
+  });
   return days;
 }
 // Smart rounding above can push a week's total past its calculated
@@ -2016,6 +2348,10 @@ function scheduleSave(){
 }
 function persistState(){
   if (!storageAvailable) return;
+  // Anything worth saving may have changed a review's inputs. This is the one
+  // choke point every mutation path already goes through, so correctness does
+  // not depend on each of them remembering. No-op when nothing is stale.
+  refreshStaleReviews();
   try{ window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
   catch(e){ console.error('Save failed', e); showToast('Couldn\u2019t save \u2014 storage may be full or unavailable'); }
   // mirror upward only after the local write has succeeded; no-ops unless
@@ -3663,14 +3999,13 @@ function renderExecutionReview(dd){
   // as a standalone gold banner above the logging fields, which meant the
   // same number was on screen twice inside one card.
   //
-  // ONE authoritative qualitative path. The stored review is used when it was
-  // written by the current engine; anything older (or missing, on a workout
-  // logged before the coach existed) is recomputed here so the athlete never
-  // sees a stale paragraph. The old free-prose summary that used to sit here
-  // is gone -- it is now the first section of the review below, so the same
-  // ground is not covered twice in different words.
-  var r = (dd.coachReview && dd.coachReview.version===COACH_REVIEW_VERSION)
-    ? dd.coachReview : coachWorkoutReview(dd);
+  // ONE authoritative qualitative path. coachReviewFor() returns the stored
+  // review when its inputs are unchanged, and otherwise recomputes, stamps and
+  // stores it -- so the paragraph can never contradict the score beside it,
+  // whatever changed the targets since the session was logged. The old free-
+  // prose summary that used to sit here is gone -- it is now the first section
+  // of the review below, so the same ground is not covered twice.
+  var r = coachReviewFor(dd) || coachWorkoutReview(dd);
   var sigMeta = r ? COACH_SIGNAL_META[r.trainingSignal] : null;
 
   var body = '';
@@ -6533,26 +6868,35 @@ function handleAcceptEvolution(){
   ev.changes.forEach(function(c){
     var dd = findDay(c.dayId);
     if (!dd || dd.completed) return;
-    var from = { km:dd.km, type:dd.type, title:dd.title, desc:dd.desc };
+    var from = { km:dd.km, type:dd.type, title:dd.title, desc:dd.desc,
+                 prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
     if (c.kind==='reduce'){
       dd.km = c.toKm; dd.desc = resolveDescForReducedDistance(dd.desc, c.toKm);
+      rescaleOrDropPrescription(dd, c.toKm);
     } else if (c.kind==='downgrade'){
       dd.km = c.toKm; dd.type = 'easy'; dd.title = 'Easy Aerobic';
       dd.desc = '@@D:'+c.toKm+'@@ @ Easy pace.';
+      // the coach authored a real easy run, so it gets that structure -- this
+      // is generation, not reverse-engineering the session it replaced
+      dd.prescription = { v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:c.toKm } };
     } else if (c.kind==='reschedule'){
       var src = findDay(c.sourceDayId);
       dd.type = c.toType; dd.km = c.toKm;
       dd.title = src ? src.title : dd.title;
       dd.desc = src ? src.desc : dd.desc;
+      // the moved session brings its own structure, or none
+      if (src && src.prescription) dd.prescription = JSON.parse(JSON.stringify(src.prescription));
+      else delete dd.prescription;
     } else if (c.kind==='move'){
       var other = findDay(c.swapWithId);
       if (other && !other.completed){
-        var tmp = { type:dd.type, title:dd.title, km:dd.km, desc:dd.desc, mpSegment:dd.mpSegment };
-        dd.type=other.type; dd.title=other.title; dd.km=other.km; dd.desc=other.desc; dd.mpSegment=other.mpSegment;
-        other.type=tmp.type; other.title=tmp.title; other.km=tmp.km; other.desc=tmp.desc; other.mpSegment=tmp.mpSegment;
+        var tmp = { type:dd.type, title:dd.title, km:dd.km, desc:dd.desc, mpSegment:dd.mpSegment,
+                    prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
+        swapWorkoutFields(dd, other, MOVED_WORKOUT_FIELDS);
         other.coachAdjust = { at:new Date().toISOString(), reason:c.why, evidence:ev.reasons.slice(),
                               state:ev.state, source:'evolution',
-                              from:{ km:tmp.km, type:tmp.type, title:tmp.title, desc:tmp.desc } };
+                              from:{ km:tmp.km, type:tmp.type, title:tmp.title, desc:tmp.desc,
+                                     prescription:tmp.prescription } };
       }
     }
     dd.coachAdjust = { at:new Date().toISOString(), reason:c.why, evidence:ev.reasons.slice(),
@@ -6655,7 +6999,8 @@ function handleCoachAccept(dayId){
     // the whole evidence set, so a later reader knows this was a decision
     evidence: dec ? dec.reasons.slice() : [],
     state: dec ? dec.state : null,
-    from: { km:dd.km, type:dd.type, title:dd.title, desc:dd.desc }
+    from: { km:dd.km, type:dd.type, title:dd.title, desc:dd.desc,
+            prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null }
   };
   dd.km = adj.km;
   dd.type = adj.type;
@@ -6663,6 +7008,8 @@ function handleCoachAccept(dayId){
   dd.desc = adj.kind==='downgrade'
     ? '@@D:'+adj.km+'@@ @ Easy pace.'
     : resolveDescForReducedDistance(dd.desc, adj.km);
+  if (adj.kind==='downgrade') dd.prescription = { v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:adj.km } };
+  else rescaleOrDropPrescription(dd, adj.km);
   flushSave();
   renderApp();
   showToast('Session adjusted — the original is kept and can be restored');
@@ -6714,6 +7061,10 @@ function handleCoachRestore(dayId){
   if (!dd || !dd.coachAdjust || !dd.coachAdjust.from) return;
   var f = dd.coachAdjust.from;
   dd.km = f.km; dd.type = f.type; dd.title = f.title; dd.desc = f.desc;
+  // restore the structure the session had before the coach touched it; a
+  // record written before prescriptions existed simply has none to restore
+  if (f.prescription) dd.prescription = JSON.parse(JSON.stringify(f.prescription));
+  else delete dd.prescription;
   delete dd.coachAdjust;
   flushSave();
   renderApp();
@@ -7611,6 +7962,92 @@ function coachReviewConfidence(b, env, dd){
 // Persisting the review keeps it with the workout (and in the cloud backup), so
 // a completed session reads the same later. Stored only when the workout is
 // logged or the athlete asks for a refresh -- never regenerated on every render.
+/* ---------- REVIEW STALENESS, BY INPUT SIGNATURE ----------
+   A persisted review used to survive every change to the things it was built
+   from. Seven mutation paths -- the Active Goal, pace overrides, LTHR/Max HR,
+   session swaps, accepted evolution, accepted coach adjustments, restores and
+   activity imports -- rewrote a review's inputs without ever recomputing it,
+   so a logged session could show a verdict that contradicted its own
+   Execution Score on the same card.
+
+   Dirty flags were the wrong answer: seven paths already forgot, and an
+   eighth would too. This is the same djb2-over-a-deterministic-string pattern
+   the file already uses three times (responseSourceHash, planShapeHash,
+   evolutionEvidenceHash). A hash cannot be forgotten, because it is computed
+   from the inputs themselves.
+
+   WHAT IS IN: the engine version, the prescription the session was judged
+   against, the log, and the athlete's zones -- i.e. everything that can make
+   the verdict disagree with the score on the same card.
+
+   WHAT IS DELIBERATELY OUT: the whole-history aggregates the review's closing
+   sentence consults (recovery state, trend, breakthroughs). Those move every
+   time ANY session is logged, so including them would restamp every review in
+   the plan on every log -- rewriting history the coach wrote at the time, and
+   churning storage for wording that was never wrong. */
+function reviewInputHash(dd){
+  if (!dd) return '';
+  var a = dd.actual || {};
+  var su = state.setup || {};
+  var nxt = coachSessionAfter(dd);
+  var parts = [
+    COACH_REVIEW_VERSION,
+    // the prescription this session is judged against
+    dd.type, nz(dd.km), dd.mpSegment?1:0, dd.completed?1:0,
+    dd.prescription ? stableStringify({a:dd.prescription.archetype, p:dd.prescription.params}) : '',
+    // what the athlete logged, using the same field list sync trusts
+    stableStringify(ACTUAL_SYNCED_FIELDS.reduce(function(o,k){ o[k]=nz(a[k]); return o; }, {})),
+    // the zones every target is resolved from
+    nz(getActiveVDOT()), stableStringify(su.paceOverrides||{}), nz(su.lthr), nz(su.maxHR),
+    nz(su.distanceKey), nz(su.activeGoal),
+    // the next session, which the review's closing move is written about
+    nxt ? nxt.type+':'+nz(nxt.km) : ''
+  ].join('|');
+  var h = 5381;
+  for (var i=0;i<parts.length;i++){ h = ((h*33) ^ parts.charCodeAt(i)) >>> 0; }
+  return 'cr'+h.toString(36);
+}
+function coachReviewIsStale(dd){
+  if (!dd || !dd.completed || !dd.coachReview) return false;
+  return dd.coachReview.version !== COACH_REVIEW_VERSION ||
+         dd.coachReview.inputHash !== reviewInputHash(dd);
+}
+/* The ONE way anything should read a review. Self-healing: a stale or missing
+   review is recomputed, stamped and stored here, so no caller has to remember
+   to refresh and the Refresh control is no longer required for correctness.
+   Safe to call from a render path -- unlike coachPersistReview() it never
+   appends to the block-review history, so rendering still creates no evidence. */
+function coachReviewFor(dd){
+  if (!dd || !dd.completed) return null;
+  if (!refreshReviewIfStale(dd)) return dd.coachReview || null;
+  // the heal is a real state change and must survive a reload. Debounced, and
+  // idempotent -- once healed the hash matches and nothing runs again, so this
+  // cannot loop however many times the card re-renders.
+  scheduleSave();
+  return dd.coachReview || null;
+}
+// Recompute + stamp, with no save side effect. Returns true when something
+// actually changed, so callers already inside a save can skip re-scheduling.
+function refreshReviewIfStale(dd){
+  if (!dd || !dd.completed || !dd.coachReview) return false;
+  if (!coachReviewIsStale(dd)) return false;
+  var review = coachWorkoutReview(dd);
+  if (review){ review.inputHash = reviewInputHash(dd); dd.coachReview = review; }
+  else delete dd.coachReview;
+  return true;
+}
+/* Swept immediately before every write to storage, so no mutation path can
+   persist a review that disagrees with its own inputs -- including the paths
+   that never call coachPersistReview (Active Goal, pace overrides, LTHR/Max HR,
+   swaps, evolution, coach adjustments, restores, activity imports, manual
+   edits). Hashing is cheap; the expensive recompute only runs for days that
+   genuinely changed, and only once, because the stamp then matches. */
+function refreshStaleReviews(){
+  if (!state || !state.days) return 0;
+  var n = 0;
+  state.days.forEach(function(dd){ if (refreshReviewIfStale(dd)) n++; });
+  return n;
+}
 function coachPersistReview(dd){
   if (!dd) return null;
   // A session that is no longer complete must not keep the review of the
@@ -7621,7 +8058,7 @@ function coachPersistReview(dd){
     return null;
   }
   var review = coachWorkoutReview(dd);
-  if (review) dd.coachReview = review;
+  if (review){ review.inputHash = reviewInputHash(dd); dd.coachReview = review; }
   else if (dd.coachReview) delete dd.coachReview;
   /* A block review is written here and nowhere else: logging or editing a
      session is the only thing that can change the block picture. Rendering
@@ -8802,7 +9239,44 @@ function handleSaveEdit(dayId){
   var desc = document.getElementById('ef-desc').value;
   var swapId = document.getElementById('ef-swap').value;
 
-  dd.title=title; dd.type=type; dd.km=isNaN(km)?0:km; dd.mpSegment=mp; dd.desc=desc;
+  /* PROVENANCE. Manual editing is unchanged -- every field the athlete can
+     already change, they still can, and their words are stored exactly as
+     typed. What is new is that the day now remembers it was hand-edited and
+     what it was before, mirroring coachAdjust for coach-driven changes so
+     there is one pattern rather than two. */
+  var before = { title:dd.title, type:dd.type, km:dd.km, desc:dd.desc, mpSegment:!!dd.mpSegment,
+                 prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
+  var newKm = isNaN(km) ? 0 : km;
+  var changed = [];
+  if (title !== before.title) changed.push('title');
+  if (type !== before.type) changed.push('type');
+  if (newKm !== before.km) changed.push('km');
+  if (!!mp !== before.mpSegment) changed.push('mpSegment');
+  if (desc !== resolveDesc(before.desc)) changed.push('desc');
+
+  dd.title=title; dd.type=type; dd.km=newKm; dd.mpSegment=mp;
+  /* The modal shows resolved text, so writing it back unconditionally used to
+     strip the @@D:n@@ tokens from every session that was opened and saved --
+     even when the description was never touched -- and a de-tokenised day can
+     no longer follow a distance change or a switch to miles. Only write it
+     when it genuinely changed. */
+  if (changed.indexOf('desc')!==-1) dd.desc = desc;
+
+  if (changed.length){
+    /* Which edits the structure can survive. A retitled session is the same
+       session. A shorter easy run is still an easy run. A changed type,
+       changed instructions or a changed goal-pace flag means the athlete is
+       running something else, and no structure we hold still describes it --
+       so it is dropped and the day falls back to today's behaviour. */
+    var structural = changed.some(function(f){ return f==='type' || f==='desc' || f==='mpSegment'; });
+    if (structural) delete dd.prescription;
+    else if (changed.indexOf('km')!==-1) rescaleOrDropPrescription(dd, newKm);
+
+    // first edit wins: editing twice must not lose what VVV originally set
+    if (!dd.manualEdit) dd.manualEdit = { at:new Date().toISOString(), fields:[], from:before };
+    dd.manualEdit.at = new Date().toISOString();
+    changed.forEach(function(f){ if (dd.manualEdit.fields.indexOf(f)===-1) dd.manualEdit.fields.push(f); });
+  }
 
   /* Completion is applied after the field edits, so switching a session to
      Rest in the same save cannot leave it marked complete. The rule is
@@ -8814,9 +9288,9 @@ function handleSaveEdit(dayId){
   if (swapId){
     var other = findDay(swapId);
     if (other){
-      var tmp = { type:dd.type, title:dd.title, km:dd.km, desc:dd.desc, mpSegment:dd.mpSegment, completed:dd.completed, actual:dd.actual };
-      dd.type=other.type; dd.title=other.title; dd.km=other.km; dd.desc=other.desc; dd.mpSegment=other.mpSegment; dd.completed=other.completed; dd.actual=other.actual;
-      other.type=tmp.type; other.title=tmp.title; other.km=tmp.km; other.desc=tmp.desc; other.mpSegment=tmp.mpSegment; other.completed=tmp.completed; other.actual=tmp.actual;
+      // the structure and its provenance belong to the WORKOUT, not the date,
+      // so they travel with everything else a swap moves
+      swapWorkoutFields(dd, other);
       showToast('Swapped '+dow(dd.date)+' '+dShort(dd.date)+' with '+dow(other.date)+' '+dShort(other.date));
     }
   } else {
@@ -9741,12 +10215,25 @@ function handleSetUnits(units){
   renderApp();
 }
 
+/* Everything that is a property of the WORKOUT rather than of the calendar
+   day, in one place, so a swap can never move some of it and leave the rest
+   behind. prescription and manualEdit join the list they always belonged in. */
+var SWAPPED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','completed','actual','prescription','manualEdit'];
+// Phase 4's `move` deliberately relocates only the prescription, never the log:
+// both days are incomplete by the time it runs, and swapping their actuals was
+// never part of that behaviour.
+var MOVED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','prescription','manualEdit'];
+function swapWorkoutFields(a, b, fields){
+  (fields || SWAPPED_WORKOUT_FIELDS).forEach(function(k){
+    var t = a[k];
+    if (b[k]===undefined) delete a[k]; else a[k] = b[k];
+    if (t===undefined) delete b[k]; else b[k] = t;
+  });
+}
 function doSwapDays(idA, idB){
   var a = findDay(idA), b = findDay(idB);
   if (!a || !b) return;
-  var tmp = { type:a.type, title:a.title, km:a.km, desc:a.desc, mpSegment:a.mpSegment, completed:a.completed, actual:a.actual };
-  a.type=b.type; a.title=b.title; a.km=b.km; a.desc=b.desc; a.mpSegment=b.mpSegment; a.completed=b.completed; a.actual=b.actual;
-  b.type=tmp.type; b.title=tmp.title; b.km=tmp.km; b.desc=tmp.desc; b.mpSegment=tmp.mpSegment; b.completed=tmp.completed; b.actual=tmp.actual;
+  swapWorkoutFields(a, b);
   scheduleSave();
   renderApp();
   showToast('Swapped '+dow(a.date)+' '+dShort(a.date)+' with '+dow(b.date)+' '+dShort(b.date));
