@@ -533,10 +533,6 @@
   .cr-adjust{margin-top:11px; padding:11px 12px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .cr-adjust-line{font-size:12px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere;}
   .cr-adjust-why{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:4px; overflow-wrap:anywhere;}
-  .cr-refresh{display:block; width:100%; margin-top:12px; padding:7px 8px; background:none; border:none; cursor:pointer;
-    font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.3px; text-transform:uppercase;
-    color:var(--ink-faint); text-align:center;}
-  .cr-refresh:active{color:var(--bronze);}
   /* component breakdown -- shows how the single score was reached */
   .exec-parts{display:flex; flex-wrap:wrap; gap:6px 10px; margin-top:9px; padding-top:8px; border-top:1px solid var(--line-soft);}
   .exec-part{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-dim); white-space:nowrap;}
@@ -1278,7 +1274,17 @@ function intervalSessionKm(spec){
   var f = intervalFlankKm();
   if (spec.ladder) return round1(spec.ladder.reduce(function(a,b){return a+b;},0)/1000 + f);
   if (spec.sets) return round1((spec.sets*spec.reps*spec.m)/1000 + f);
-  if (spec.m) return round1((spec.reps*spec.m)/1000 + f);
+  if (spec.m){
+    /* Short reps recover over a stated DISTANCE ("7 x 400m w/ 200m jog
+       recovery"), and that jogging was never in the day's budget -- a 7x400m
+       session prescribed 1.2km more running than the day it sat on. Recovery
+       that the session states in metres is running the athlete is told to do,
+       so it counts. Recoveries stated in time, or not stated at all, add no
+       distance here and are not invented. */
+    var rec = repRecovery(spec.m);
+    var recKm = rec.m ? (spec.reps*rec.m)/1000 : 0;
+    return round1((spec.reps*spec.m)/1000 + recKm + f);
+  }
   if (spec.hillSec) return round1((spec.reps*spec.hillSec*3.2)/1000 + f);
   if (spec.fartlekMin) return round1(spec.reps*spec.fartlekMin*0.24 + f);
   return 6;
@@ -1831,6 +1837,88 @@ function rescaleOrDropPrescription(dd, newKm){
   if (meta && meta.rescalableKm && newKm>0){ p.params[meta.dayKmParam] = round1(newKm); return true; }
   if (dd) delete dd.prescription;
   return false;
+}
+/* ---- intensity -> the zone the app already resolves paces from ----
+   No new pace maths anywhere: every intensity maps onto an existing VDOT zone
+   key, or onto goal pace, which getGoalPaceSecPerKm() already owns. */
+var INTENSITY_ZONE_KEY = {
+  easy:'E', steady:'M', tempo:'M', threshold:'T',
+  interval:'I', repetition:'R',
+  hard_effort:'I'          // hills and fartlek run by feel; I is the closest cost
+};
+// Which bar of the Zone Distribution chart an intensity belongs to. The four
+// buckets are unchanged -- only the distances going into them get better.
+var INTENSITY_ZONE_BUCKET = {
+  easy:'easy', steady:'threshold', tempo:'threshold', threshold:'threshold',
+  interval:'interval', repetition:'interval', hard_effort:'interval',
+  goal_pace:'mp'
+};
+// A range recovery ("3-4min between sets") costs its midpoint. Stated as an
+// estimate rather than smuggled in as a single number.
+function segSeconds(sec){ return Array.isArray(sec) ? (sec[0]+sec[1])/2 : sec; }
+/* Walks a segment tree and reports how long each zone bucket is worked for,
+   using the app's own pace sources. Returns the distance it could account for
+   too, so the caller can attribute a day's remainder without inventing one. */
+function segmentZoneTime(segs){
+  var out = { easy:0, mp:0, threshold:0, interval:0 };
+  var accountedKm = 0, hasUnquantified = false;
+  var paces = getActivePaces();
+  var goalPace = getGoalPaceSecPerKm();
+  var paceFor = function(intensity){
+    if (intensity==='goal_pace') return goalPace;
+    var z = paces[INTENSITY_ZONE_KEY[intensity]];
+    return (z && z.slow!=null) ? (z.slow+z.fast)/2 : null;
+  };
+  (function walk(list, mult){
+    (list||[]).forEach(function(s){
+      if (s.kind==='repeat'){ walk(s.children, mult*(s.times||1)); return; }
+      var bucket = INTENSITY_ZONE_BUCKET[s.intensity] || 'easy';
+      var km = s.km!=null ? s.km : (s.m!=null ? s.m/1000 : null);
+      if (km!=null){
+        accountedKm += km*mult;
+        var p = paceFor(s.intensity) || DEFAULT_PACE_SEC_PER_KM;
+        out[bucket] += km*mult*p;
+        return;
+      }
+      if (s.sec!=null){
+        var sec = segSeconds(s.sec)*mult;
+        out[bucket] += sec;
+        /* Time-based running still covers ground, and that ground has to count
+           towards accountedKm or the residual below treats it as unmeasured and
+           charges the day for it twice -- a 26min tempo would have been counted
+           as 26min of tempo AND ~5km of easy. The conversion is the app's own
+           zone pace, not a new estimate. */
+        var tp = paceFor(s.intensity);
+        if (tp) accountedKm += sec/tp;
+        return;
+      }
+      hasUnquantified = true;                 // no number of any kind: see below
+    });
+  })(segs, 1);
+  return { zones:out, accountedKm:round1(accountedKm), hasUnquantified:hasUnquantified };
+}
+/* A structured day's zone time, including whatever the prescription leaves
+   unmeasured. The residual is NOT invented: dd.km is known and the accounted
+   distance is known, so the difference is known exactly. Only its split
+   between an unnumbered warm-up, cool-down and jog recovery is unknown -- and
+   every one of those is easy running, so the ZONE is certain even where the
+   individual segment lengths are not. */
+var DEFAULT_PACE_SEC_PER_KM = 330;
+function structuredZoneTime(dd){
+  var p = prescriptionOf(dd);
+  if (!p) return null;
+  var segs = segmentsFor(p);
+  if (!segs) return null;
+  var r = segmentZoneTime(segs);
+  var residualKm = round1((dd.km||0) - r.accountedKm);
+  if (residualKm > 0.05){
+    var paces = getActivePaces();
+    var easyPace = (paces.E && paces.E.slow!=null) ? (paces.E.slow+paces.E.fast)/2 : DEFAULT_PACE_SEC_PER_KM;
+    r.zones.easy += residualKm*easyPace;
+  }
+  r.residualKm = Math.max(0, residualKm);
+  r.totalSec = r.zones.easy + r.zones.mp + r.zones.threshold + r.zones.interval;
+  return r;
 }
 // Total distance a prescription actually states, and how much of it is left
 // unstated. Reported separately on purpose: the caller must be able to tell
@@ -2741,6 +2829,16 @@ function planContentSignature(st){
         id:nz(d.id), date:nz(d.date), week:nz(d.week), type:nz(d.type),
         title:nz(d.title), km:nz(d.km), desc:nz(d.desc), mpSegment:!!d.mpSegment,
         completed:!!d.completed,
+        /* The prescription is authoritative plan content now that the zone
+           chart, duration and coaching all read it -- a structure-only change
+           is a real change and has to reach the other device. Only archetype +
+           params: segments and rendered text are reproducible from these, so
+           signing them too would be a second competing source. Days without a
+           prescription (legacy, rest, hand-edited) sign null, exactly as they
+           did before, so their signature is unchanged. */
+        prescription: d.prescription
+          ? { a:nz(d.prescription.archetype), v:nz(d.prescription.v), p:d.prescription.params||null }
+          : null,
         // so a deliberately modified session reads as modified everywhere,
         // rather than as one the athlete simply failed to run as written
         coachAdjust: d.coachAdjust ? { at:nz(d.coachAdjust.at), reason:nz(d.coachAdjust.reason),
@@ -3631,6 +3729,12 @@ function dow2(d){ return dow(d); } // alias kept for clarity in day-card code be
    ========================================================= */
 function getDayDurationSec(dd){
   if (!dd.km || dd.type==='rest') return 0;
+  /* A structured day is costed segment by segment: an 11km threshold day is
+     3km of easy flanks and 8km of threshold, not 11km at threshold pace, and a
+     time-based session costs the minutes it actually states. Legacy and
+     hand-edited days keep the whole-day estimate below, unchanged. */
+  var st = structuredZoneTime(dd);
+  if (st && st.totalSec > 0) return st.totalSec;
   var tm = TYPE_META[dd.type];
   var paces = getActivePaces();
   var paceSec = null;
@@ -3638,7 +3742,7 @@ function getDayDurationSec(dd){
     paceSec = (paces[tm.zoneKey].slow+paces[tm.zoneKey].fast)/2;
   }
   if (dd.type==='race'){ var gp=getGoalPaceSecPerKm(); if (gp) paceSec=gp; }
-  if (!paceSec) paceSec = 330;
+  if (!paceSec) paceSec = DEFAULT_PACE_SEC_PER_KM;
   return dd.km*paceSec;
 }
 function needsFueling(dd){
@@ -3652,12 +3756,185 @@ function needsFueling(dd){
 //   advanced    -- nothing at all
 //   experienced -- one cue line
 //   novice      -- cue line + a closed "How to run this" disclosure
+/* ---- ARCHETYPE COACHING ----
+   Hand-written, one entry per canonical archetype. Not generated: coaching
+   prose composed from parameters reads like a machine, and the voice is the
+   product. Twenty short entries are cheaper to maintain and better to read
+   than any generator.
+
+   `essential` is the only line an ADVANCED athlete sees, and it exists on the
+   six archetypes where getting one thing wrong ruins the session -- everywhere
+   else advanced sees the prescription and nothing at all.
+   `avoid` is the novice-only mistake line, present only where there is a real
+   and common mistake to name.
+
+   A day with no prescription -- legacy, or hand-edited past recognition --
+   falls back to the type-keyed COACH_GUIDANCE above, unchanged. */
+var ARCHETYPE_GUIDANCE = {
+  easy_run: {
+    cue:'Conversational the whole way — if you can’t talk in full sentences, ease off.',
+    why:'Builds the aerobic base and keeps you fresh enough to run the hard days properly.',
+    how:'Start slower than feels natural and hold the easy window from the first kilometre to the last.',
+    feel:'Comfortable and chatty. You should finish thinking you could have gone further.',
+    avoid:'Drifting up to a “comfortably quick” pace. That turns a recovery day into a mediocre hard day.'
+  },
+  shakeout: {
+    cue:'Short, easy, and finished feeling fresher than when you started.',
+    why:'Keeps the legs awake without spending anything you need tomorrow.',
+    how:'Easy from the first step, a few relaxed strides, and stop early rather than late.',
+    feel:'Light. If it feels like training, you have done too much.',
+    avoid:'Testing your legs. Nothing you find out today can be fixed by tomorrow.'
+  },
+  long_run: {
+    cue:'Steady and patient — the last third should be no slower than the first.',
+    why:'Extends endurance and fatigue resistance. This is the backbone of the whole block.',
+    how:'Easy pace throughout. Take fluid and carbohydrate on anything past about 90 minutes.',
+    feel:'Easy early, honest work late. Tired legs at the end are normal; laboured breathing is not.',
+    avoid:'Starting at the pace you finish at. Almost every bad long run was decided in the first 5km.'
+  },
+  long_run_goal_finish: {
+    essential:'Run the easy section genuinely easy — the goal-pace finish is the session.',
+    cue:'Hold back early. The point is goal pace on legs that are already tired.',
+    why:'Teaches you to hold race effort in the state you will actually be in late in the race.',
+    how:'Easy pace until the final block, then change gear once and hold it to the end.',
+    feel:'The change of pace should feel like work but not like racing. Controlled, rhythmic, deliberate.',
+    avoid:'Racing the easy portion and then limping through the finish. That is two sessions badly done instead of one done well.'
+  },
+  long_run_b2b: {
+    cue:'Easy on tired legs. Today is about durability, not distance.',
+    why:'Running long on an already-fatigued system is the specific adaptation ultra racing needs.',
+    how:'Slower than yesterday from the start. Walk the steep climbs if that keeps the effort easy.',
+    feel:'Heavy legs, easy breathing. That combination is the whole point.',
+    avoid:'Trying to match yesterday. Today is deliberately the smaller run.'
+  },
+  threshold_continuous: {
+    cue:'One continuous effort — the pace you could race for about an hour.',
+    why:'Raises the pace at which lactate starts to accumulate, which is the biggest single lever on race pace.',
+    how:'Settle into the window inside the first kilometre and hold it. No surges, no finishing sprint.',
+    feel:'Hard but controlled, and even the whole way. If you are gasping, you have gone too fast.',
+    avoid:'Treating it as a time trial. Threshold work only pays if you could have held it a little longer.'
+  },
+  goal_pace_block: {
+    cue:'Exactly race rhythm — not a second faster.',
+    why:'Rehearses the pace, the effort and the concentration you will need on the day.',
+    how:'Lock onto goal pace from the first kilometre and let it feel unremarkable.',
+    feel:'Comfortable now, which is the point. Race day makes it hard for you.',
+    avoid:'Running it quicker to prove something. Beating goal pace in training proves nothing about holding it for the full distance.'
+  },
+  steady_tempo: {
+    cue:'A strong, steady aerobic effort — firm, not hard.',
+    why:'Builds aerobic strength at a cost you can absorb and repeat.',
+    how:'Warm up, settle into a rhythm you could hold well past the time given, and stay there.',
+    feel:'Working, but you could still speak in short phrases.',
+    avoid:'Letting it creep up to threshold. This one earns its value by staying under.'
+  },
+  progressive_tempo: {
+    essential:'Start controlled — this only works if the last third is the fastest part.',
+    cue:'Build steadily, so the final third is the quickest running of the day.',
+    why:'Teaches pace judgement and finishing strength in one session.',
+    how:'Begin at a strong aerobic effort and step down gradually. One change of gear per third, not a sprint at the end.',
+    feel:'Comfortable, then firm, then genuinely hard — in that order.',
+    avoid:'Going out at tempo pace. Then it is not a progression, it is just a tempo you fade out of.'
+  },
+  split_tempo: {
+    cue:'Both halves at the same pace — the jog between is a reset, not a rest.',
+    why:'Accumulates more quality time at tempo than one continuous block would allow.',
+    how:'Hit the target window in the first rep and match it in the second. Keep the recovery jogging.',
+    feel:'Hard but repeatable. The second rep should feel like the first.',
+    avoid:'Emptying the tank on the first rep. The session is the total, not the opener.'
+  },
+  track_reps: {
+    cue:'Even splits — the last rep should match the first.',
+    why:'Develops VO₂ max and running economy at hard aerobic effort.',
+    how:'Run every rep in the target window and jog the recoveries rather than standing still.',
+    feel:'Hard. Breathing heavy by the end of each rep, recovered just enough to start the next on time.',
+    avoid:'Racing the first two reps. A session that falls apart at rep four delivered less than an even one.'
+  },
+  short_reps: {
+    cue:'Fast and relaxed — quality of movement matters more than effort.',
+    why:'Sharpens speed, mechanics and economy without digging a deep fatigue hole.',
+    how:'Quick but smooth, and jog the full recovery distance before starting the next one.',
+    feel:'Fast, never straining. If your form falls apart, the rep was too fast.',
+    avoid:'Cutting the recovery short. These reps are only worth running when you are fresh enough to run them well.'
+  },
+  ladder: {
+    cue:'Pace by rep length — the long rung is not meant to match the short ones.',
+    why:'Covers a range of speeds in one session and trains judgement between them.',
+    how:'Hold the effort constant as the reps grow and shrink. Recovery scales with the rep you just ran.',
+    feel:'Each rep hard for its length. The longest rung is the honest test.',
+    avoid:'Running every rung at the same pace. The short ones should be quicker.'
+  },
+  deuce: {
+    essential:'Take the full recovery between sets — that is what makes the second set possible.',
+    cue:'Two matched sets. The second should look like the first.',
+    why:'Splitting the work into sets buys more quality reps than one long block would.',
+    how:'Short jog between reps, then the full recovery between sets before starting again.',
+    feel:'Hard within a set, genuinely recovered before the next one starts.',
+    avoid:'Shortening the between-sets recovery to “keep the rhythm”. That turns two sharp sets into one blunt one.'
+  },
+  goal_pace_reps: {
+    cue:'Race rhythm with a float between — not intervals.',
+    why:'Locks in the pace and cadence of race day without the cost of a full race-pace block.',
+    how:'Hit goal pace exactly on each rep and keep the recovery running, not standing.',
+    feel:'Familiar rather than hard. The point is that it should feel repeatable.',
+    avoid:'Running the reps faster than goal pace. That is a different session with a different cost.'
+  },
+  hill_repeats: {
+    essential:'Walk or jog back down. The descent is recovery, not part of the effort.',
+    cue:'Strong and upright uphill, fully recovered before the next one.',
+    why:'Builds power and running strength at a much lower impact cost than flat speed work.',
+    how:'Drive from the hips, short quick steps, eyes up. Take as long as you need coming down.',
+    feel:'Hard on the way up, genuinely recovered at the bottom. There is no pace target — run by effort.',
+    avoid:'Racing the descent. That is where hill sessions cause injuries and where the next rep is lost.'
+  },
+  fartlek: {
+    cue:'Surges by feel — strong and controlled, not flat out.',
+    why:'Aerobic power without the precision or the cost of a track session.',
+    how:'Change gear cleanly at the start of each surge, and jog easy for the same time between.',
+    feel:'Strong, controlled, and repeatable. Every surge should look the same.',
+    avoid:'Treating the surges as sprints. There is no pace target here for a reason.'
+  },
+  time_trial: {
+    essential:'Run it honestly — every pace in the rest of the block is set from this result.',
+    cue:'A true, even effort. This is a measurement, not a workout.',
+    why:'Recalibrates your goal and every training pace against where your fitness actually is.',
+    how:'Warm up properly, start at an effort you can hold, and finish with nothing left.',
+    feel:'Genuinely hard by the end. You should finish knowing it was a fair reading.',
+    avoid:'Going out too hard and fading. A positive split gives you a worse number than you deserve.'
+  },
+  easy_strides: {
+    essential:'The strides are relaxed and short — this is a sharpener, not a session.',
+    cue:'Easy running, then a handful of quick, relaxed strides.',
+    why:'Wakes the legs and the nervous system up without adding fatigue.',
+    how:'Run easy, then accelerate smoothly over each stride and shut it down. Full recovery between.',
+    feel:'Quick and light. You should finish feeling sharper, not tired.',
+    avoid:'Turning the strides into reps. Anything hard here is borrowed from race day.'
+  },
+  race: {
+    cue:'Even effort through the first two-thirds, then everything that is left.',
+    why:'The day the whole block has been building towards.',
+    how:'Hold goal pace early even while it feels too easy, fuel to the plan you rehearsed, and race the last third.',
+    feel:'Comfortable early, hard late. Discomfort in the final third is the job, not a mistake.',
+    avoid:'Banking time early. Every minute gained in the first third costs more than it returns.'
+  }
+};
+function coachingEntryFor(dd){
+  var p = prescriptionOf(dd);
+  // archetype first, type second: a hand-edited or legacy day still gets the
+  // guidance it has always had, it simply cannot get the specific version
+  return (p && ARCHETYPE_GUIDANCE[p.archetype]) || COACH_GUIDANCE[dd.type] || null;
+}
 function renderCoachingDepth(dd){
   var level = athleteExperience();
-  if (level==='advanced') return '';
-  var g = COACH_GUIDANCE[dd.type];
+  var g = coachingEntryFor(dd);
   if (!g) return '';
   if (dd.type==='rest' && level!=='novice') return ''; // a rest day needs no cue for anyone else
+  if (level==='advanced'){
+    // one line, only where getting it wrong ruins the session
+    return g.essential
+      ? '<div class="coach-cue">'+ICONS.info+'<span>'+escapeHtml(g.essential)+'</span></div>'
+      : '';
+  }
   var out = g.cue ? '<div class="coach-cue">'+ICONS.info+'<span>'+escapeHtml(g.cue)+'</span></div>' : '';
   if (level==='novice' && g.how){
     out += '<details class="fuel-card how-card">'+
@@ -3666,6 +3943,7 @@ function renderCoachingDepth(dd){
         '<div class="how-row"><span class="k">Why</span><span class="v">'+escapeHtml(g.why)+'</span></div>'+
         '<div class="how-row"><span class="k">How</span><span class="v">'+escapeHtml(g.how)+'</span></div>'+
         '<div class="how-row"><span class="k">Feel</span><span class="v">'+escapeHtml(g.feel)+'</span></div>'+
+        (g.avoid ? '<div class="how-row"><span class="k">Avoid</span><span class="v">'+escapeHtml(g.avoid)+'</span></div>' : '')+
       '</div>'+
     '</details>';
   }
@@ -4077,7 +4355,6 @@ function renderExecutionReview(dd){
     '</div>'+
     body+
     '<div class="exec-parts">'+breakdown+'</div>'+
-    '<button type="button" class="cr-refresh" data-action="coach-refresh" data-day="'+dd.id+'">Refresh coach review</button>'+
   '</div>';
 }
 
@@ -8067,14 +8344,6 @@ function coachPersistReview(dd){
   recordBlockReview();
   return review;
 }
-function handleCoachRefreshReview(dayId){
-  var dd = findDay(dayId);
-  if (!dd) return;
-  coachPersistReview(dd);
-  flushSave();
-  renderApp();
-  showToast('Coach review refreshed');
-}
 
 /* =========================================================
    ADAPTIVE AI COACH — rendering
@@ -8644,8 +8913,23 @@ function computeWeekZoneBreakdown(weekNum){
   var zones = { easy:0, mp:0, threshold:0, interval:0 };
   function addTime(key, km, paceSec){ if (km>0 && paceSec) zones[key] += km*paceSec; }
 
+  var structured = 0, approximated = 0;
   wdays.forEach(function(dd){
     if (dd.type==='rest' || !dd.km) return;
+    /* A structured day reports what it actually prescribes. This is where the
+       chart stopped guessing: an 11km threshold day is 3km easy + 8km
+       threshold, not 11km of threshold, and a goal-pace long run uses its real
+       finish distance instead of a flat 30%. */
+    var st = structuredZoneTime(dd);
+    if (st){
+      structured++;
+      ['easy','mp','threshold','interval'].forEach(function(k){ zones[k] += st.zones[k]; });
+      return;
+    }
+    /* Legacy and hand-edited days keep the original approximation, unchanged.
+       Their structure is genuinely unknown and guessing it from free text is
+       the one thing this architecture will not do. */
+    approximated++;
     if (dd.type==='easy'){ addTime('easy', dd.km, easyPace); }
     else if (dd.type==='long'){
       if (dd.mpSegment && goalPace){ addTime('mp', dd.km*0.3, goalPace); addTime('easy', dd.km*0.7, easyPace); }
@@ -8657,7 +8941,7 @@ function computeWeekZoneBreakdown(weekNum){
     else if (dd.type==='race'){ if (goalPace) addTime('mp', dd.km, goalPace); else addTime('easy', dd.km, easyPace); }
   });
   var totalSec = zones.easy+zones.mp+zones.threshold+zones.interval;
-  return { zones:zones, totalSec:totalSec };
+  return { zones:zones, totalSec:totalSec, structuredDays:structured, approximatedDays:approximated };
 }
 
 function renderZoneBreakdown(weekNum){
@@ -10563,7 +10847,6 @@ document.addEventListener('click', function(e){
     case 'coach-accept': handleCoachAccept(target.getAttribute('data-day')); break;
     case 'coach-keep': handleCoachKeep(target.getAttribute('data-day')); break;
     case 'coach-restore': handleCoachRestore(target.getAttribute('data-day')); break;
-    case 'coach-refresh': handleCoachRefreshReview(target.getAttribute('data-day')); break;
     case 'set-units': handleSetUnits(target.getAttribute('data-units')); break;
     case 'apply-activity': handleApplyActivity(); break;
     case 'strava-connect': handleStravaConnect(); break;
