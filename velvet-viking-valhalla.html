@@ -1032,9 +1032,9 @@ function getActiveHRZones(){
 // just against the HR table instead of the pace table. Returns null for
 // rest/race (no zoneKey) or when LTHR hasn't been configured.
 function getTargetHRRangeForDay(dd){
-  var tm = TYPE_META[dd.type];
-  if (!tm || !tm.zoneKey) return null;
-  var z = getActiveHRZones()[tm.zoneKey];
+  var key = executionZoneKey(dd);
+  if (!key) return null;
+  var z = getActiveHRZones()[key];
   if (!z || z.lo==null) return null;
   return z;
 }
@@ -1282,7 +1282,8 @@ function intervalSessionKm(spec){
        so it counts. Recoveries stated in time, or not stated at all, add no
        distance here and are not invented. */
     var rec = repRecovery(spec.m);
-    var recKm = rec.m ? (spec.reps*rec.m)/1000 : 0;
+    // N reps means N-1 recoveries -- see segRepeat's cardinality contract
+    var recKm = rec.m ? (Math.max(0, spec.reps-1)*rec.m)/1000 : 0;
     return round1((spec.reps*spec.m)/1000 + recKm + f);
   }
   if (spec.hillSec) return round1((spec.reps*spec.hillSec*3.2)/1000 + f);
@@ -1627,10 +1628,45 @@ var ARCHETYPES = {
   hill_repeats:          { family:'interval' },
   fartlek:               { family:'interval' },
   time_trial:            { family:'checkpoint' },
-  easy_strides:          { family:'interval' },
+  /* dd.type is the UI taxonomy and stays 'interval' -- this IS the race-week
+     quality slot and the athlete should recognise it as one. But the SESSION is
+     5km of easy running plus six 100m strides, so every whole-run measurement
+     VVV takes of it is an easy-run measurement. Judging it against the interval
+     window scored a correctly executed sharpener at 46% with pace=0. `exec`
+     overrides only the execution semantics; nothing else changes. */
+  easy_strides:          { family:'interval',
+                           exec:{ zoneKey:'E', rpe:[2,5], weight:1.0, recoveryLike:true, load:1.05 } },
   race:                  { family:'race' }
 };
 function isKnownArchetype(id){ return Object.prototype.hasOwnProperty.call(ARCHETYPES, id); }
+/* ARCHETYPE vs TYPE, made explicit.
+   dd.type answers "what family of session is this, for the UI and the plan".
+   prescription.archetype answers "what exactly is it, and how should it be
+   executed and judged". They agree for 19 of 20 archetypes, so consumers keep
+   reading dd.type; this returns an override only where the broad type produces
+   a proven wrong answer. Null for legacy and hand-edited days, which keep
+   today's type-based behaviour exactly. */
+function executionProfileOf(dd){
+  var p = prescriptionOf(dd);
+  var meta = p && ARCHETYPES[p.archetype];
+  return (meta && meta.exec) || null;
+}
+function executionZoneKey(dd){
+  var ex = executionProfileOf(dd);
+  if (ex && ex.zoneKey) return ex.zoneKey;
+  var tm = TYPE_META[dd.type];
+  return tm ? tm.zoneKey : null;
+}
+// Day-aware forms of the two type-keyed helpers the SCORING path uses.
+function isRecoveryLikeDay(dd){
+  var ex = executionProfileOf(dd);
+  if (ex && ex.recoveryLike!=null) return !!ex.recoveryLike;
+  return isRecoveryWorkoutType(dd.type);
+}
+function executionWeightForDay(dd){
+  var ex = executionProfileOf(dd);
+  return (ex && ex.weight!=null) ? ex.weight : executionWeightForType(dd.type);
+}
 // The one accessor. Returns null for legacy days, rest days, hand-edited days
 // and anything carrying an id this build does not know.
 function prescriptionOf(dd){
@@ -1729,7 +1765,26 @@ function segRecovery(q, extra){
   if (extra) Object.keys(extra).forEach(function(k){ s[k]=extra[k]; });
   return s;
 }
-function segRepeat(times, children){ return { kind:'repeat', times:times, children:children }; }
+/* REPEAT RECOVERY CARDINALITY -- an explicit contract, not an accident of
+   repeat(). "N x M with R recovery" gives N work reps and N-1 recoveries: the
+   athlete does not jog a recovery after the last rep, they go to the cool-down.
+   The one genuine exception is hill repeats, where the descent IS the recovery
+   and happens after every rep including the last, because the athlete is
+   standing at the top of the hill.
+     'between'    (default) recovery children run times-1
+     'after_each'           every child runs times
+   segmentTotals(), segmentZoneTime() and the session-distance budget all read
+   this, so the structure and the numbers cannot disagree. */
+function segRepeat(times, children, recoveryMode){
+  return { kind:'repeat', times:times, children:children,
+           recoveryMode: recoveryMode==='after_each' ? 'after_each' : 'between' };
+}
+// How many times one child of a repeat actually happens.
+function repeatChildCount(rep, child){
+  var n = rep.times || 1;
+  if (child.kind!=='recovery' || rep.recoveryMode==='after_each') return n;
+  return Math.max(0, n-1);
+}
 // Numbered flanks, matching what the text actually writes. null = the text
 // says "Easy warm-up" with no distance, so neither do we.
 function segFlanks(wuKm, cdKm){
@@ -1754,7 +1809,12 @@ function segmentsFor(p){
       return [ segWork({km:q.km}, 'goal_pace') ];
     case 'time_trial':
       f = segFlanks(q.flankKm, q.flankKm);
-      return [ f.wu, segWork({km:q.ttKm}, 'threshold', { effortNamed:true }), f.cd ];
+      /* The TT segment is a maximal effort by instruction, by its RPE band of
+         8-10, and by the app's own note that time trials "are meant to exceed
+         threshold heart rate". Labelling it threshold work at segment level was
+         wrong; the whole-DAY target stays on the T zone, which is a well
+         calibrated proxy for the diluted whole-run average (see TYPE_META). */
+      return [ f.wu, segWork({km:q.ttKm}, 'hard_effort', { maximal:true }), f.cd ];
     case 'threshold_continuous':
       f = segFlanks(2, 1);
       return [ f.wu, segWork({km:q.km}, 'threshold'), f.cd ];
@@ -1809,8 +1869,11 @@ function segmentsFor(p){
     case 'hill_repeats':
       f = segFlanks(null, null);
       return [ f.wu,
+               // the descent happens after EVERY rep -- you cannot start the
+               // next one, or the cool-down, from the top of the hill
                segRepeat(q.reps, [ segWork({sec:q.sec}, 'hard_effort', { terrain:'uphill' }),
-                                   segRecovery(null, { mode:'walk_jog', qualifier:'back_down' }) ]),
+                                   segRecovery(null, { mode:'walk_jog', qualifier:'back_down' }) ],
+                         'after_each'),
                f.cd ];
     case 'fartlek':
       f = segFlanks(null, null);
@@ -1871,7 +1934,10 @@ function segmentZoneTime(segs){
   };
   (function walk(list, mult){
     (list||[]).forEach(function(s){
-      if (s.kind==='repeat'){ walk(s.children, mult*(s.times||1)); return; }
+      if (s.kind==='repeat'){
+        s.children.forEach(function(c){ walk([c], mult*repeatChildCount(s, c)); });
+        return;
+      }
       var bucket = INTENSITY_ZONE_BUCKET[s.intensity] || 'easy';
       var km = s.km!=null ? s.km : (s.m!=null ? s.m/1000 : null);
       if (km!=null){
@@ -1927,7 +1993,10 @@ function segmentTotals(segs){
   var km = 0, unknown = 0;
   (function walk(list, mult){
     (list||[]).forEach(function(s){
-      if (s.kind==='repeat'){ walk(s.children, mult*(s.times||1)); return; }
+      if (s.kind==='repeat'){
+        s.children.forEach(function(c){ walk([c], mult*repeatChildCount(s, c)); });
+        return;
+      }
       if (s.km!=null) km += s.km*mult;
       else if (s.m!=null) km += (s.m/1000)*mult;
       else if (s.sec==null) unknown += mult;          // no quantity of any kind
@@ -3471,7 +3540,7 @@ function computeConfidenceScore(){
     if (!dd.completed) return;
     var score = computeExecutionScore(dd);
     if (score==null) return;
-    var w = executionWeightForType(dd.type);
+    var w = executionWeightForDay(dd);
     totalWeight += w;
     weightedSum += score*w;
   });
@@ -4075,9 +4144,9 @@ function renderDayCard(dd){
    ========================================================= */
 
 function getTargetPaceRangeSecPerKm(dd){
-  var tm = TYPE_META[dd.type];
-  if (!tm || !tm.zoneKey) return null;
-  var z = getActivePaces()[tm.zoneKey];
+  var key = executionZoneKey(dd);
+  if (!key) return null;
+  var z = getActivePaces()[key];
   if (!z || z.slow==null) return null;
   return { slow:z.slow, fast:z.fast }; // slow = larger sec/km (easier bound), fast = smaller sec/km (harder bound)
 }
@@ -4116,7 +4185,7 @@ function computePaceScore(dd, actualPaceSp){
   if (actualPaceSp==null) return null;
   var targetRange = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
   var goalPace = (dd.type==='race' || dd.mpSegment) ? getGoalPaceSecPerKm() : null;
-  var recovery = isRecoveryWorkoutType(dd.type);
+  var recovery = isRecoveryLikeDay(dd);
 
   if (targetRange && targetRange.slow!=null){
     // slow = larger sec/km (easier/slower bound), fast = smaller sec/km (harder/faster bound)
@@ -4144,7 +4213,7 @@ function computeHRScore(dd, actualHR){
   if (actualHR==null) return null;
   var zone = getTargetHRRangeForDay(dd);
   if (!zone || zone.lo==null) return null;
-  var recovery = isRecoveryWorkoutType(dd.type);
+  var recovery = isRecoveryLikeDay(dd);
   var hi = zone.hi!=null ? zone.hi : Infinity;
   if (actualHR>=zone.lo && actualHR<=hi) return 100;
   if (actualHR<zone.lo){
@@ -4240,6 +4309,8 @@ var ACTUAL_SYNCED_FIELDS   = ACTUAL_MANUAL_FIELDS.concat(ACTUAL_IMPORTED_FIELDS)
 function emptyActual(){ return { km:null, pace:null, hr:null, rpe:null, feel:null, notes:'' }; }
 
 function expectedRPEBand(dd){
+  var ex = executionProfileOf(dd);
+  if (ex && ex.rpe) return ex.rpe.slice();
   if (dd.type==='easy' || dd.type==='long') return [2,5];
   if (dd.type==='tempo' || dd.type==='threshold') return [6,8];
   if (dd.type==='interval' || dd.type==='repetition') return [7,9];
@@ -4391,7 +4462,8 @@ function coachDayLoad(dd){
   if (!dd || !dd.completed || dd.type==='rest') return 0;
   var a = dd.actual || {};
   var km = (a.km!=null) ? a.km : (dd.km||0);
-  return km * coachLoadFactor(dd.type);
+  var ex = executionProfileOf(dd);
+  return km * ((ex && ex.load!=null) ? ex.load : coachLoadFactor(dd.type));
 }
 function coachDaysInWindow(from, to){
   return state.days.filter(function(dd){
@@ -7369,7 +7441,11 @@ function handleCoachRestore(dayId){
 // trusts a stored review whose version matches, so every workout logged before
 // these fixes regenerates with the corrected prose instead of keeping a
 // paragraph that told the athlete their notes explained nothing.
-var COACH_REVIEW_VERSION = 5;
+// 6: the semantic-integrity pass changed how two archetypes are JUDGED without
+// changing anything reviewInputHash() reads (same archetype, same params), so
+// an already-logged easy+strides day would have kept its 46% verdict forever.
+// The version is the one input that catches "the rules changed, the day did not".
+var COACH_REVIEW_VERSION = 6;
 
 /* ---------- environment parsed out of the notes ----------
    Numbers, not just keywords: "37 degrees" and "67% humidity" carry a severity
