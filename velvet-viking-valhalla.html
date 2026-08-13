@@ -531,6 +531,14 @@
      the row, expanded you see it on the review it belongs to. */
   .day.open .day-row1 .exec-pill{display:none;}
   .cr-sec{margin-top:10px;}
+  /* One block of coach prose. Deliberately unadorned: no border, no label, no
+     background -- it should read like a short message, not another panel. */
+  .coach-msg{margin-top:9px;}
+  .coach-msg-p{font-size:12.5px; line-height:1.62; color:var(--ink-dim); margin:0 0 8px;
+               overflow-wrap:anywhere;}
+  .coach-msg-p:last-child{margin-bottom:0;}
+  .coach-msg-p:first-child{color:var(--ink);}
+  .coach-msg-brief{margin-top:8px;}
   .cr-k{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.3px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px;}
   .cr-v{font-size:12.5px; color:var(--ink-dim); line-height:1.5; overflow-wrap:anywhere;}
   .cr-sub{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:2px; overflow-wrap:anywhere;}
@@ -4624,26 +4632,21 @@ function renderExecutionReview(dd){
 
   var body = '';
   if (r){
-    // What the session was for, stated before how it went -- the verdict is a
-    // judgement against this, not against the pace window alone.
-    var purpose = r.purpose || sessionPurpose(dd);
-    if (purpose){
-      body += '<div class="cr-sec"><div class="cr-k">Session Purpose</div>'+
-                '<div class="cr-v cr-purpose"><strong>'+escapeHtml(purpose.label)+'</strong> \u2014 '+
-                escapeHtml(purpose.text)+'</div></div>';
-    }
-    body += '<div class="cr-sec"><div class="cr-k">Coach’s Verdict</div>'+
-              '<div class="cr-v">'+escapeHtml(r.executionVerdict)+'</div></div>';
+    /* ONE MESSAGE, not five labelled fields. The same engine sentences the
+       review has always produced -- verdict, what was noticed, the signal's
+       reason, what it means for the next session -- composed into the message
+       a coach would actually send, at the depth the situation earned. The
+       session's purpose is folded into that prose rather than restated as a
+       header, because the verdict is a judgement against it.
+
+       The signal dot stays: it is one glyph carrying the state at a glance,
+       and it is not prose. */
+    var msg = coachDebrief(dd);
     if (sigMeta){
-      body += '<div class="cr-sec"><div class="cr-k">Training Signal</div>'+
-                '<div class="cr-signal"><span class="cr-sig-dot">'+sigMeta.dot+'</span>'+
-                '<span class="cr-sig-label">'+escapeHtml(sigMeta.label)+'</span></div>'+
-                '<div class="cr-sub">'+escapeHtml(r.trainingSignalReason)+'</div></div>';
+      body += '<div class="cr-signal"><span class="cr-sig-dot">'+sigMeta.dot+'</span>'+
+              '<span class="cr-sig-label">'+escapeHtml(sigMeta.label)+'</span></div>';
     }
-    if (r.coachNoticed){
-      body += '<div class="cr-sec"><div class="cr-k">Coach Noticed</div>'+
-                '<div class="cr-v">'+escapeHtml(r.coachNoticed)+'</div></div>';
-    }
+    body += renderCoachMessage(msg, 'coach-msg-review');
     // Like-for-like only, and only when a comparable session exists.
     if (r.comparable && r.comparable.length){
       body += '<div class="cr-sec"><div class="cr-k">Compared With</div><div class="cr-v cr-compare">'+
@@ -4657,14 +4660,7 @@ function renderExecutionReview(dd){
       body += '<div class="cr-sec"><div class="cr-k">HR Drift</div>'+
                 '<div class="cr-v">'+(r.hrDrift>0?'+':'')+r.hrDrift+'% first half to second</div></div>';
     }
-    if (r.breakthrough){
-      body += '<div class="cr-sec"><div class="cr-k">Breakthrough Session</div>'+
-                '<div class="cr-v">'+escapeHtml(r.breakthroughReason||'')+'</div></div>';
-    }
-    if (r.nextMove){
-      body += '<div class="cr-sec"><div class="cr-k">Next Move</div>'+
-                '<div class="cr-v">'+escapeHtml(r.nextMove)+'</div></div>';
-    }
+
     // Buttons appear only when an adjustment is actually recommended, so a
     // normal session is not cluttered with choices that mean nothing.
     if (r.recommendPlanAdjustment){
@@ -7608,6 +7604,262 @@ function recordEvolution(ev, accepted, applied){
   });
   if (state.evolutionHistory.length > 60) state.evolutionHistory = state.evolutionHistory.slice(-60);
 }
+
+/* =========================================================
+   COACHING VOICE — one presentation layer, no second opinion
+   ---------------------------------------------------------
+   Everything here READS existing intelligence and turns it into the words a
+   coach would use. It decides nothing: not whether to progress, not whether to
+   reduce, not whether the athlete is fatigued. coachDecision, playbookAssess,
+   planEvolution, blockEffectiveness, coachTrend, coachRecovery, coachLoad and
+   athleteTrends remain the thinking layer, and this never contradicts them.
+
+   Three rules govern the writing:
+
+   1. LENGTH IS EARNED. Response depth comes from how much is actually at stake
+      -- a normal easy day gets one sentence, a safety concern gets enough to
+      act on. It never scales with how much data happens to exist.
+   2. NOTHING IS INVENTED. A claim about a pattern needs the observations
+      behind it. Where there is no evidence the coach says less, and where
+      there is nothing to say it says nothing at all.
+   3. THE ATHLETE NEVER READS MACHINERY. No state names, no scores recited back
+      that are already on the card, no jargon.
+   ========================================================= */
+var COACH_VOICE_VERSION = 1;
+
+/* ---------- how much is actually at stake ----------
+   Deterministic, from state the app already holds. `brief` is the default,
+   because most days genuinely are ordinary. */
+function coachSignificance(dd, when){
+  if (!dd) return 'brief';
+  var a = dd.actual || {};
+  var env = coachEnvironment(a.notes, a);
+  var dec = coachDecision();
+  // safety always earns room to explain itself
+  if (env.pain || env.illness) return 'full';
+  if (dec && dec.state === 'recover') return 'full';
+  var pts = 0;
+  if (sessionImportance(dd) === 'KEY') pts++;
+  if (dec && dec.state === 'modify') pts += 2;
+  else if (dec && dec.state === 'check') pts++;
+  var rec = coachRecovery();
+  if (rec.state === 'strained') pts += 2;
+  else if (rec.state === 'watch') pts++;
+  var trend = coachTrend();
+  if (trend.enough && trend.direction !== 'flat') pts++;
+  var block = blockEffectiveness();
+  if (block && (block.state === 'STRAINED' || block.state === 'PLATEAU')) pts++;
+  if (when === 'after'){
+    var score = computeExecutionScore(dd);
+    if (score != null && score < 80) pts++;
+    if (coachBreakthroughs().indexOf(dd) !== -1) pts++;
+    if (coachContinuity(dd)) pts++;
+  } else {
+    var ev = planEvolution();
+    if (ev && ev.changes && ev.changes.length) pts++;
+  }
+  return pts >= 3 ? 'full' : pts >= 1 ? 'normal' : 'brief';
+}
+var COACH_DEPTH_PARAGRAPHS = { brief:1, normal:3, full:5 };
+
+/* ---------- continuity, with the evidence rules enforced ----------
+   A coach remembers, but only says "again" when it happened again. Comparable
+   means the SAME structured stimulus, scored, recent, and not compromised by
+   illness or pain -- taken from the prescription, never from prose. One
+   observation is never a pattern, and a run must be unbroken to be called one. */
+var COACH_MEMORY_DAYS = 42;
+var COACH_MEMORY_MIN = 2;      // prior comparable sessions before anything is said
+function coachComparableSessions(dd){
+  var st = playbookStimulusOf(dd);
+  if (!st) return [];
+  var from = addDays(todayStr(), -COACH_MEMORY_DAYS);
+  return coachCompletedScored().filter(function(x){
+    if (x.id === dd.id || x.date < from || x.date > dd.date) return false;
+    if (playbookStimulusOf(x) !== st) return false;
+    var e = coachEnvironment((x.actual||{}).notes, x.actual);
+    return !e.illness && !e.pain;
+  });
+}
+/* Easy running is excluded on purpose. "That is three easy runs in a row you
+   ran easily" is noise, not coaching, and it crowds out the one sentence an
+   ordinary day actually deserves. */
+var COACH_MEMORY_SKIP_STIMULI = ['aerobic','sharpening','race','assessment'];
+function coachContinuity(dd){
+  if (!dd || !dd.completed) return null;
+  var stim = playbookStimulusOf(dd);
+  if (!stim || COACH_MEMORY_SKIP_STIMULI.indexOf(stim) !== -1) return null;
+  var score = computeExecutionScore(dd);
+  if (score == null) return null;
+  var prior = coachComparableSessions(dd);
+  if (prior.length < COACH_MEMORY_MIN) return null;
+  var noun = PLAYBOOK_STIMULUS_NOUN[playbookStimulusOf(dd)] || 'this kind of session';
+  var recent = prior.slice(-2).map(function(x){ return computeExecutionScore(x); });
+  /* A positive claim may not contradict the verdict standing beside it. A run
+     whose heart rate blew through its ceiling can still score well on distance
+     and pace, and "three in a row executed as written" underneath "the session
+     did not do the job it was set for" is two coaches disagreeing in one card. */
+  var sig = (dd.coachReview && dd.coachReview.trainingSignal) ||
+            (coachWorkoutReview(dd)||{}).trainingSignal;
+  var criticised = sig === 'recovery_priority' || sig === 'monitor_fatigue';
+  // an unbroken run of well-executed sessions, this one included
+  if (!criticised && score >= PLAYBOOK_GOOD_EXECUTION &&
+      recent.every(function(s){ return s!=null && s>=PLAYBOOK_GOOD_EXECUTION; }))
+    return { kind:'positive', n:recent.length+1,
+             text:'That is '+(recent.length+1)+' '+noun+' sessions in a row you have executed the way they were written.' };
+  // an unbroken run of shortfalls
+  if (score <= PLAYBOOK_POOR_EXECUTION && recent.every(function(s){ return s!=null && s<=PLAYBOOK_POOR_EXECUTION; }))
+    return { kind:'negative', n:recent.length+1,
+             text:'That is '+(recent.length+1)+' '+noun+' sessions now that have not come out as prescribed. Worth keeping an eye on rather than reacting to.' };
+  // a single clear improvement against the immediately comparable one
+  var last = prior[prior.length-1];
+  var lastScore = computeExecutionScore(last);
+  if (!criticised && lastScore != null && score - lastScore >= 15 && score >= PLAYBOOK_GOOD_EXECUTION)
+    return { kind:'improved', n:2,
+             text:'Better controlled than the last one of these.' };
+  return null;
+}
+
+/* ---------- readiness, in words rather than a state name ---------- */
+function coachReadinessLine(dd){
+  var dec = coachDecision();
+  var rec = coachRecovery();
+  var load = coachLoad();
+  var quality = dd && isQualityType(dd.type);
+  var sentence = function(t){ return /[.!?]$/.test(t) ? t : t+'.'; };
+  if (dec && dec.state === 'recover')
+    return dec.reasons[0] ? sentence(dec.reasons[0])+' Recovery comes before this session.'
+                          : 'Recovery comes before this session.';
+  if (rec.state === 'strained')
+    return 'Effort and heart rate have both been running above target this week. Start the session, but stop if the effort climbs out of proportion to the pace.';
+  if (rec.state === 'watch')
+    return quality
+      ? 'You have carried a little more fatigue through the last few runs. I am happy for you to start this, but do not force the closing reps if the effort starts climbing.'
+      : 'A little more fatigue than usual in the last few runs, so keep this one genuinely easy.';
+  if (load.band === 'spike')
+    return 'This week is well above your recent average, so today is not the day to add anything to it.';
+  if (dec && dec.state === 'check' && dec.reasons.length)
+    return sentence(dec.reasons[0])+' Nothing that changes the session, but worth knowing before you start.';
+  if (!quality) return '';
+  var trend = coachTrend();
+  if (trend.enough && trend.direction === 'rising')
+    return 'You are coming into this in a good place. Nothing in the recent running gives me a reason to hold you back.';
+  return 'Nothing unusual is showing up in the recent running. Run it as prescribed.';
+}
+
+/* ---------- what today is FOR ----------
+   The card already says what the session is. This says what it is trying to
+   achieve and how to run it, which is the part a coach actually adds. */
+function coachIntentLine(dd){
+  var g = coachingEntryFor(dd);
+  var purpose = sessionPurpose(dd);
+  var bits = [];
+  if (purpose) bits.push(purpose.text);
+  if (g && g.cue) bits.push(g.cue);
+  return bits.join(' ');
+}
+/* How much of the "how to run this" a coach says out loud is exactly what the
+   experience setting has always controlled -- explanation depth, never the
+   session. Advanced gets the cue already in the intent line and nothing more;
+   novice gets what it should feel like and the mistake that ruins it. */
+function coachFocusLine(dd, depth){
+  var g = coachingEntryFor(dd);
+  if (!g) return '';
+  var lvl = athleteExperience();
+  if (lvl === 'advanced') return '';
+  if (depth === 'brief' && lvl !== 'novice') return '';
+  var out = [];
+  if (g.feel) out.push('It should feel '+g.feel.charAt(0).toLowerCase()+g.feel.slice(1));
+  if (lvl === 'novice' && g.avoid) out.push('The thing that ruins it: '+
+    g.avoid.charAt(0).toLowerCase()+g.avoid.slice(1));
+  return out.join(' ');
+}
+
+/* ---------- what today means for what comes next ----------
+   Reads the plan; never changes it. */
+function coachNextConnection(dd){
+  var nxt = coachSessionAfter(dd);
+  if (!nxt) return '';
+  var dec = coachDecision();
+  if (dec && dec.state === 'recover') return '';        // the recovery message already owns this
+  if (nxt.type === 'rest') return 'Nothing else to do today — tomorrow is a rest day.';
+  if (isRecoveryWorkoutType(nxt.type))
+    return 'Keep '+(nxt.date===addDays(dd.date,1)?'tomorrow':dShort(nxt.date))+'’s '+
+           (nxt.title||'easy run').toLowerCase()+' genuinely easy — it is there to let this land.';
+  if (isQualityType(nxt.type))
+    return 'Next up is '+(nxt.title||'the next session')+' on '+dShort(nxt.date)+
+           '. Everything between now and then is about arriving fresh for it.';
+  return '';
+}
+
+/* =========================================================
+   THE TWO MESSAGES
+   ---------------------------------------------------------
+   Paragraphs, not labelled fields. Each returns only what it has grounds to
+   say, trimmed to the depth the situation earned.
+   ========================================================= */
+function coachBrief(dd){
+  if (!dd || dd.completed || dd.type === 'rest') return null;
+  var depth = coachSignificance(dd, 'before');
+  var paras = [];
+  var intent = coachIntentLine(dd);
+  if (intent) paras.push(intent);
+  var ready = coachReadinessLine(dd);
+  if (ready) paras.push(ready);
+  var focus = coachFocusLine(dd, depth);
+  if (focus) paras.push(focus);
+  if (depth !== 'brief'){
+    /* The plan is deliberately being left alone. Saying so is a coaching act;
+       going silent reads as the coach having nothing to offer. */
+    var ev = planEvolution();
+    if (ev && !ev.changes.length && ev.state === 'HOLD' && ev.reasons.length)
+      paras.push(ev.reasons[0]);
+  }
+  paras = paras.slice(0, COACH_DEPTH_PARAGRAPHS[depth]);
+  return paras.length ? { when:'before', depth:depth, paragraphs:paras } : null;
+}
+var COACH_GENERIC_CLOSERS = [
+  'Everything landed on the numbers it was set to hit.',
+  'Easy discipline held exactly where it was set.'
+];
+function coachDebrief(dd){
+  if (!dd || !dd.completed) return null;
+  var r = coachReviewFor(dd) || coachWorkoutReview(dd);
+  if (!r) return null;
+  var depth = coachSignificance(dd, 'after');
+  var paras = [];
+  if (r.executionVerdict) paras.push(r.executionVerdict);
+  if (r.breakthrough && r.breakthroughReason) paras.push(r.breakthroughReason);
+  var cont = coachContinuity(dd);
+  if (cont) paras.push(cont.text);
+  if (depth !== 'brief'){
+    /* coachNoticed's two generic closers exist because the review card needed
+       something in that slot. In prose they land directly under a verdict that
+       has already said the session went well, which is the same thing twice.
+       They are dropped; anything SPECIFIC it noticed is kept. */
+    if (r.coachNoticed && COACH_GENERIC_CLOSERS.indexOf(r.coachNoticed) === -1)
+      paras.push(r.coachNoticed);
+    if (depth === 'full' && r.trainingSignalReason) paras.push(r.trainingSignalReason);
+  }
+  var next = r.nextMove || coachNextConnection(dd);
+  if (next) paras.push(next);
+  // de-duplicate: two layers occasionally reach the same sentence
+  var seen = {};
+  paras = paras.filter(function(p){
+    var k = p.trim().toLowerCase();
+    if (!k || seen[k]) return false;
+    seen[k] = 1; return true;
+  }).slice(0, COACH_DEPTH_PARAGRAPHS[depth]);
+  return paras.length ? { when:'after', depth:depth, paragraphs:paras, signal:r.trainingSignal } : null;
+}
+/* One block of prose, rendered the same way in both places. Paragraph breaks
+   where a coach would pause; no mini-headings, no badges, no second card. */
+function renderCoachMessage(msg, cls){
+  if (!msg || !msg.paragraphs.length) return '';
+  return '<div class="coach-msg'+(cls?' '+cls:'')+'">'+
+    msg.paragraphs.map(function(p){ return '<p class="coach-msg-p">'+escapeHtml(p)+'</p>'; }).join('')+
+  '</div>';
+}
+
 
 /* ---------- the single report every surface reads ---------- */
 function coachAnalyse(){
@@ -10802,6 +11054,16 @@ function renderCoachNextMoveCard(report){
   var body = '<div class="coach-next-session">'+escapeHtml(mv.title)+' · '+dShort(mv.date)+
     (mv.km?' · '+fmtDist(mv.km):'')+'</div>'+
     '<div class="coach-next-rec">'+escapeHtml(line)+'</div>';
+  /* The brief: what the session is trying to achieve, how ready the athlete
+     looks for it, and what to concentrate on. It goes inside this card rather
+     than beside it -- the whole point is one message, not another panel. The
+     recommendation line above stays as the opening statement. */
+  var brief = coachBrief(dd);
+  if (brief){
+    var briefParas = brief.paragraphs.filter(function(p){ return p !== line; });
+    if (briefParas.length)
+      body += renderCoachMessage({ paragraphs:briefParas }, 'coach-msg-brief');
+  }
 
   // WHY? only where there is something to explain. PROCEED stays silent.
   if (dec && dec.state!=='proceed' && dec.reasons.length){
