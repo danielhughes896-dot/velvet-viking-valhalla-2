@@ -1071,7 +1071,11 @@ function round2(n){ return Math.round(n*100)/100; }
 // (e.g. 42.2km) or a calibration time-trial would corrupt them.
 function roundWorkoutKm(type, km){
   if (type==='long') return roundTo(km, 1);
-  if (type==='easy' || type==='tempo' || type==='threshold' || type==='interval' || type==='repetition') return roundTo(km, 0.5);
+  // Quality days round UP to the half km. Nearest-rounding could shave 0.25km
+  // off a session and leave the day fractionally shorter than the workout
+  // written on it -- see qualityDayShortfallKm().
+  if (type==='tempo' || type==='threshold' || type==='interval' || type==='repetition') return Math.ceil(km*2)/2;
+  if (type==='easy') return roundTo(km, 0.5);
   return round1(km);
 }
 
@@ -1218,7 +1222,10 @@ function structProgressiveTempo(pos, emphasis){
 }
 function structSplitTempo(pos, emphasis){
   var r = EMPHASIS_TEMPO_RANGE[emphasis] || EMPHASIS_TEMPO_RANGE.threshold;
-  return { type:'tempo', min:Math.round(lerp(r.minLo, r.minHi, pos)), split:2 };
+  // A multiple of the split, so the per-rep minutes the description prints
+  // (min/split) multiply back to exactly the minutes the day is budgeted for.
+  // An odd total was rounded UP per rep -- 19min budgeted, "10min x2" written.
+  return { type:'tempo', min:roundTo(lerp(r.minLo, r.minHi, pos), 2), split:2 };
 }
 function structThresholdContinuous(pos, emphasis){
   var r = EMPHASIS_TEMPO_RANGE[emphasis] || EMPHASIS_TEMPO_RANGE.threshold;
@@ -1242,18 +1249,97 @@ function pickQualityStructure(pool, phase, weekNum, pos, emphasis){
   return candidates[weekNum % candidates.length](pos, emphasis);
 }
 
+/* Warm-up + cool-down as ACTUALLY WRITTEN by the text templates below. The
+   sizing functions read these same numbers, so a session can never be
+   budgeted less distance than its own description prescribes. Previously
+   tempoSessionKm assumed 3km of flanks for every tempo structure while
+   structGoalPaceBlock and structSplitTempo both write 2km + 2km -- every
+   goal-pace block was budgeted 1km short of what it told the runner to run. */
+function intervalFlankKm(){ return 4; }   // every interval text writes 2km + 2km
+function tempoFlankKm(spec){
+  // threshold-continuous is the one structure that writes a 1km cool-down;
+  // steady/progressive write unnumbered easy flanks, so 3km stays their budget
+  if (spec.type==='threshold' || spec.type==='steady' || spec.type==='progressive') return 3;
+  return 4;                                // goalpace block, split tempo
+}
 function intervalSessionKm(spec){
-  if (spec.ladder) return round1(spec.ladder.reduce(function(a,b){return a+b;},0)/1000 + 4);
-  if (spec.sets) return round1((spec.sets*spec.reps*spec.m)/1000 + 4);
-  if (spec.m) return round1((spec.reps*spec.m)/1000 + 4);
-  if (spec.hillSec) return round1((spec.reps*spec.hillSec*3.2)/1000 + 4);
-  if (spec.fartlekMin) return round1(spec.reps*spec.fartlekMin*0.24 + 4);
+  var f = intervalFlankKm();
+  if (spec.ladder) return round1(spec.ladder.reduce(function(a,b){return a+b;},0)/1000 + f);
+  if (spec.sets) return round1((spec.sets*spec.reps*spec.m)/1000 + f);
+  if (spec.m) return round1((spec.reps*spec.m)/1000 + f);
+  if (spec.hillSec) return round1((spec.reps*spec.hillSec*3.2)/1000 + f);
+  if (spec.fartlekMin) return round1(spec.reps*spec.fartlekMin*0.24 + f);
   return 6;
 }
 function tempoSessionKm(spec){
-  if (spec.km) return round1(spec.km + 3);
-  if (spec.min) return round1(spec.min*0.185 + 3);
+  var f = tempoFlankKm(spec);
+  if (spec.km) return round1(spec.km + f);
+  if (spec.min) return round1(spec.min*0.185 + f);
   return 6;
+}
+
+/* ---------- TAPER: shrink the SPEC, never just the budget ----------
+   The old code scaled the day's kilometre allowance by 0.6 and left qSpec /
+   tSpec untouched -- but the title and description are generated from the
+   spec, so a 6.5km taper day was still told to run "2km warm-up, 8km
+   continuous @ Threshold, 1km cool-down". Impossible, and it meant the taper
+   reduced nothing a runner following the card would actually notice.
+
+   These reduce the VOLUME dimensions of a structure -- rep count, minutes,
+   kilometres, ladder rungs -- and never the INTENSITY ones: rep length, hill
+   duration, pace zone and the structure itself are untouched. That is the
+   taper principle, and it makes the day distance and the prescription agree
+   by construction rather than by assertion. */
+var TAPER_QUALITY_FACTOR = 0.6;
+var TAPER_MIN_REPS = 3;       // below this a rep session stops being a session
+var TAPER_MIN_SET_REPS = 2;
+var TAPER_MIN_LADDER = 3;     // a ladder still has to go up and come back down
+var TAPER_MIN_WORK_KM = 2;
+var TAPER_MIN_WORK_MIN = 10;
+function copySpec(spec){
+  var s = {};
+  Object.keys(spec).forEach(function(k){ s[k] = Array.isArray(spec[k]) ? spec[k].slice() : spec[k]; });
+  return s;
+}
+function taperIntervalSpec(spec){
+  var s = copySpec(spec);
+  var target = intervalSessionKm(spec) * TAPER_QUALITY_FACTOR;
+  if (s.ladder){
+    // trim matched pairs off the outside; the shape and every rung length stay
+    while (s.ladder.length > TAPER_MIN_LADDER && intervalSessionKm(s) > target){
+      s.ladder = s.ladder.slice(1, -1);
+    }
+    return s;
+  }
+  if (s.sets && s.sets > 1 && intervalSessionKm(s) > target) s.sets = 1;
+  var floor = s.sets ? TAPER_MIN_SET_REPS : TAPER_MIN_REPS;
+  var guard = 0;
+  while (s.reps > floor && intervalSessionKm(s) > target && guard++ < 60) s.reps--;
+  return s;
+}
+function taperTempoSpec(spec){
+  var s = copySpec(spec);
+  var work = Math.max(0, tempoSessionKm(spec)*TAPER_QUALITY_FACTOR - tempoFlankKm(spec));
+  if (s.km!=null) s.km = Math.max(TAPER_MIN_WORK_KM, roundTo(work, 0.5));
+  else if (s.min!=null){
+    var mins = work/0.185;
+    // a split session's minutes stay divisible by the split (see structSplitTempo)
+    s.min = Math.max(TAPER_MIN_WORK_MIN, s.split ? roundTo(mins, s.split) : Math.round(mins));
+  }
+  return s;
+}
+
+/* ---------- THE INVARIANT ----------
+   A quality day's allocated distance must always contain the session it
+   prescribes. Returns the shortfall in km, 0 when the day is big enough.
+   The generator guarantees this by construction (the day IS the session, and
+   quality distances round up); this exists so a future change cannot break it
+   silently, and so the tests can state the rule directly. */
+function qualitySessionKm(spec, kind){
+  return kind==='interval' ? intervalSessionKm(spec) : tempoSessionKm(spec);
+}
+function qualityDayShortfallKm(dayKm, spec, kind){
+  return Math.max(0, round1(qualitySessionKm(spec, kind) - (dayKm||0)));
 }
 
 /* =========================================================
@@ -1273,11 +1359,33 @@ function computeTaperInfo(planWeeks){
   if (buildWeeks + taper + 1 > planWeeks) taper = Math.max(0, planWeeks - buildWeeks - 1);
   return { taper:taper, buildWeeks:buildWeeks };
 }
+/* ---------- CANONICAL TRAINING PHASE ----------
+   ONE definition, used by the generator, the coaching layers, Plan HQ and
+   every visible label. Previously three functions answered "what phase is
+   week N" with three different boundaries and disagreed on 5 of 14 weeks.
+
+   The GENERATOR's boundaries are canonical, because they are the only ones
+   with behavioural consequences: they select which structure pool a week
+   draws from. A week the generator built out of the Build pool is a Build
+   week, whatever any other layer would prefer to call it.
+
+   Pure and state-free so buildBlockWeeks can call it before state.days
+   exists; trainingPhase() is the state-aware wrapper. */
+var PHASE_BASE_END  = 0.25;   // fraction of BUILD weeks, not of the whole block
+var PHASE_BUILD_END = 0.80;
+function phaseForWeek(weekNum, totalWeeks){
+  if (!totalWeeks || !weekNum) return 'Base';
+  if (weekNum >= totalWeeks) return 'Final';
+  var info = computeTaperInfo(totalWeeks);
+  if (weekNum > info.buildWeeks) return 'Taper';
+  var progress = weekNum / info.buildWeeks;
+  return progress <= PHASE_BASE_END ? 'Base'
+       : progress <= PHASE_BUILD_END ? 'Build'
+       : 'Peak';
+}
 function isTaperWeek(weekNum){
   if (!state.setup) return false;
-  var totalWeeks = totalWeeksInPlan();
-  var info = computeTaperInfo(totalWeeks);
-  return weekNum > info.buildWeeks && weekNum < totalWeeks;
+  return phaseForWeek(weekNum, totalWeeksInPlan())==='Taper';
 }
 function buildBlockWeeks(distKey, currentVolume, planWeeksInput){
   var profile = DISTANCE_PROFILES[distKey];
@@ -1296,31 +1404,35 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput){
     var isCheckpoint = false;
     var volume, phase, isCutback=false;
 
+    // phaseForWeek() is the canonical definition -- this loop no longer carries
+    // boundaries of its own, so the generator and every coaching layer agree.
+    phase = phaseForWeek(w, N);
+    if (phase==='Final') phase = 'Final Week';
+
     if (!isTaper && !isRace){
       var progress = w/buildWeeks;
       var trend = currentVolume + (peakVolume-currentVolume)*progress;
       isCutback = (w%4===0) && w!==buildWeeks && buildWeeks>=4;
       volume = isCutback ? trend*0.78 : trend;
-      phase = progress<=0.25 ? 'Base' : (progress<=0.80 ? 'Build' : 'Peak');
       isCheckpoint = (w === Math.max(1,Math.round(buildWeeks*0.6)));
     } else if (isTaper){
       var taperIdx = w-buildWeeks;
       var frac = taper>0 ? taperIdx/taper : 1;
       volume = peakVolume*(1-frac*0.5);
-      phase = 'Taper';
     } else {
       volume = peakVolume*0.35;
-      phase = 'Final Week';
     }
     volume = round1(volume);
 
     var pos = buildWeeks>1 ? (Math.min(w,buildWeeks)-1)/(buildWeeks-1) : 0;
     var qSpec = pickQualityStructure(INTERVAL_STRUCTURE_POOL, phase, w, pos, profile.emphasis);
     var tSpec = pickQualityStructure(TEMPO_STRUCTURE_POOL, phase, w, pos, profile.emphasis);
+    // Taper shrinks the STRUCTURE, then the day is sized from that structure --
+    // so the number on the card and the session written on it cannot disagree.
+    if (isTaper){ qSpec = taperIntervalSpec(qSpec); tSpec = taperTempoSpec(tSpec); }
     var qKm = intervalSessionKm(qSpec);
     var tKm = tempoSessionKm(tSpec);
     if (isRace){ qKm=0; tKm=0; }
-    if (isTaper){ qKm=round1(qKm*0.6); tKm=round1(tKm*0.6); }
 
     var longFrac = LONG_FRACTION[profile.emphasis];
     var longTarget = isRace ? 0 : Math.min(profile.longCapKm, volume*longFrac);
@@ -1436,15 +1548,100 @@ function planLengthLabel(totalDays){
   if (days<=0) return weeks+(weeks===1?' week':' weeks');
   return weeks+(weeks===1?' week ':' weeks ')+days+(days===1?' day':' days');
 }
+// Circular weekday distance -- Sunday and Monday are one day apart.
+function isoGap(a, b){ var d = Math.abs(a-b); return Math.min(d, 7-d); }
 function pickSpacedQty2(qty1, candidates){
   if (!candidates.length) return null;
   if (candidates.length===1) return candidates[0];
   var best=candidates[0], bestDist=-1;
   candidates.forEach(function(c){
-    var d = Math.min(Math.abs(c-qty1), 7-Math.abs(c-qty1));
+    var d = isoGap(c, qty1);
     if (d>bestDist){ bestDist=d; best=c; }
   });
   return best;
+}
+
+/* ---------- TRAINING-FREQUENCY CONTRACT ----------
+   How many QUALITY slots a week gets, decided by how often the athlete
+   actually runs rather than by how much distance is left over. The old
+   generator always placed two quality days and then divided the remainder
+   across whatever was left -- so a three-day athlete got quality + quality +
+   long and no aerobic running at all, and any spare distance was loaded onto
+   the two hard sessions. Aerobic dominance is now a rule, not a residue.
+
+     3 days -> 1 quality + 1 easy + long
+     4 days -> 1 quality + 2 easy + long
+     5-7    -> 2 quality + the rest easy + long
+
+   The long run is never counted as the week's easy run, even when it carries
+   no quality segment: it is the week's biggest single stress. */
+function qualitySlotsForDayCount(dayCount){
+  if (dayCount <= 2) return 0;   // long run plus, at most, one easy day
+  if (dayCount <= 4) return 1;
+  return 2;
+}
+var EASY_MIN_KM = 3;
+// An easy day is never longer than the long run. Without this the whole
+// residue of a low-frequency week lands on the single easy day and produces
+// an "easy" run longer than the long run.
+var EASY_MAX_FRACTION_OF_LONG = 1.0;
+/* Weeks whose requested volume could not be distributed across the selected
+   running days without breaking a training rule. Diagnostic only -- read by
+   the tests and reported to the athlete nowhere, because the answer is
+   always "run more days", which is their decision, not the app's. */
+var planBuildNotes = [];
+
+/* ---------- HARD-DAY SPACING AT GENERATION ----------
+   Chooses the quality days by looking at EVERY demanding day in the week --
+   including the long run and, for ultras, the back-to-back day. The old code
+   picked the earliest available day and then the day furthest from it, with no
+   knowledge of the long run at all, which is how Mon quality / Tue quality /
+   Wed long survived generation and had to be repaired later by Phase 4.
+
+   The candidate pool is at most six days, so this enumerates every valid
+   arrangement and keeps the best. Ranking, in order:
+     1. largest MINIMUM gap between any two demanding days
+     2. largest gap between the quality days themselves  (preserves the
+        established Mon/Thu/Sat shape, which ties on rule 1)
+     3. largest total separation
+     4. earliest days, so the result is deterministic
+   No availability is invented: when the schedule cannot be spaced, the least
+   bad valid arrangement is used. */
+function combinationsOf(list, k){
+  var out = [];
+  (function walk(start, acc){
+    if (acc.length===k){ out.push(acc.slice()); return; }
+    for (var i=start; i<list.length; i++){ acc.push(list[i]); walk(i+1, acc); acc.pop(); }
+  })(0, []);
+  return out;
+}
+function spacingRank(qualityDays, fixedDemanding){
+  var all = qualityDays.concat(fixedDemanding);
+  var min = 99, sum = 0;
+  for (var i=0;i<all.length;i++) for (var j=i+1;j<all.length;j++){
+    var g = isoGap(all[i], all[j]);
+    if (g<min) min = g;
+    sum += g;
+  }
+  if (all.length<2) min = 7;
+  var qGap = qualityDays.length===2 ? isoGap(qualityDays[0], qualityDays[1]) : 0;
+  return { min:min, qGap:qGap, sum:sum };
+}
+function pickQualityDays(pool, fixedDemanding, count){
+  if (count<=0 || !pool.length) return [];
+  var n = Math.min(count, pool.length);
+  var sorted = pool.slice().sort(function(a,b){ return a-b; });
+  var best = null, bestRank = null;
+  combinationsOf(sorted, n).forEach(function(combo){
+    var r = spacingRank(combo, fixedDemanding);
+    if (!bestRank ||
+        r.min > bestRank.min ||
+        (r.min===bestRank.min && r.qGap > bestRank.qGap) ||
+        (r.min===bestRank.min && r.qGap===bestRank.qGap && r.sum > bestRank.sum)){
+      best = combo; bestRank = r;
+    }
+  });
+  return best ? best.slice() : [];
 }
 function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, hasEvent){
   // default true: every plan built before the event became optional was built
@@ -1452,6 +1649,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   if (hasEvent === undefined) hasEvent = true;
   var profile = blockResult.profile;
   var weeks = blockResult.weeks;
+  planBuildNotes = [];
 
   var activeDays = schedule.activeDays.slice();
   var longDay = schedule.longRunDay;
@@ -1464,8 +1662,17 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   // reserve the back-to-back day out of the quality-session pool when this distance uses it, so a hard
   // session never lands on the same day back-to-back training needs -- unless that leaves too few days
   var qtyPool = (b2bAvailable && nonLongActive.length>2) ? nonLongActive.filter(function(d){return d!==b2bDay;}) : nonLongActive;
-  var qty1Day = qtyPool.length ? qtyPool[0] : null;
-  var qty2Day = qty1Day!=null ? pickSpacedQty2(qty1Day, qtyPool.filter(function(d){return d!==qty1Day;})) : null;
+
+  // How many quality days this athlete's frequency supports, then WHERE they
+  // go given every other demanding day in the week.
+  var qualitySlots = Math.min(qualitySlotsForDayCount(activeDays.length), qtyPool.length);
+  // never spend the last non-long day on quality: a week must keep a real easy run
+  if (qualitySlots >= nonLongActive.length && nonLongActive.length > 0) qualitySlots = nonLongActive.length - 1;
+  var fixedDemanding = b2bAvailable ? [longDay, b2bDay] : [longDay];
+  var qualityDays = pickQualityDays(qtyPool, fixedDemanding, qualitySlots);
+  var qty1Day = qualityDays.length>0 ? qualityDays[0] : null;   // interval slot
+  var qty2Day = qualityDays.length>1 ? qualityDays[1] : null;   // tempo / checkpoint slot
+  var singleSlot = qualityDays.length===1;
   var easyDaysBase = nonLongActive.filter(function(d){ return d!==qty1Day && d!==qty2Day; });
 
   var raceIso = isoWeekday(raceDateStr);
@@ -1521,19 +1728,61 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     // since that day's volume comes from secondLongKm instead, not the generic easy budget
     var easyDays = b2bActive ? easyDaysBase.filter(function(d){return d!==b2bDay;}) : easyDaysBase;
 
-    var usedBeforeEasy = wk.qKm+wk.tKm+longKm+secondLongKm;
-    var remainder = Math.max(0, wk.volume-usedBeforeEasy);
-    var perEasy = 0;
+    /* ---- aerobic / quality balance ----
+       Quality distance is exactly what its structure prescribes and is never
+       inflated to consume weekly volume -- the old fallback split the residue
+       50/50 onto the two hard sessions, which is how a three-day week ended up
+       as three hard days. Spare distance goes to easy running first, then to
+       the long run up to its cap, and never to a quality session. */
     var qKmThisWeek = wk.qKm, tKmThisWeek = wk.tKm;
+    // With one slot the two stimuli alternate week to week rather than one of
+    // them being dropped for the whole block; the checkpoint always takes it.
+    var singleSlotKind = wk.isCheckpoint ? 'tempo' : (wk.week % 2 === 0 ? 'tempo' : 'interval');
+    var qualityKm = qualityDays.length>=2 ? (qKmThisWeek + tKmThisWeek)
+                  : qualityDays.length===1 ? (singleSlotKind==='interval' ? qKmThisWeek : tKmThisWeek)
+                  : 0;
+
+    var easyBudget = Math.max(0, wk.volume - qualityKm - longKm - secondLongKm);
+    var perEasy = 0;
     if (easyDays.length>0){
-      perEasy = Math.max(3, round1(remainder/easyDays.length));
-    } else {
+      var easyCap = Math.max(EASY_MIN_KM, (longKm||EASY_MIN_KM)*EASY_MAX_FRACTION_OF_LONG);
+      perEasy = clamp(round1(easyBudget/easyDays.length), EASY_MIN_KM, round1(easyCap));
+      easyBudget = Math.max(0, round1(easyBudget - perEasy*easyDays.length));
+    }
+    if (easyBudget>0){
       var room = Math.max(0, profile.longCapKm-longKm);
-      var addToLong = Math.min(room, remainder);
+      var addToLong = Math.min(room, easyBudget);
       longKm = round1(longKm+addToLong);
-      remainder = Math.max(0, remainder-addToLong);
-      qKmThisWeek = round1(wk.qKm + remainder*0.5);
-      tKmThisWeek = round1(wk.tKm + remainder*0.5);
+      easyBudget = round1(easyBudget-addToLong);
+    }
+    if (easyBudget>0.5 && !wk.isRace){
+      planBuildNotes.push({ week:wk.week, target:wk.volume, undistributedKm:round1(easyBudget),
+        reason:'Weekly volume cannot be distributed across '+activeDays.length+
+               ' running days without over-filling the easy days or the long run.' });
+    }
+
+    /* One implementation of a quality day, used by both the two-slot and the
+       single-slot week so the two can never drift apart. The day's distance is
+       the session's own distance, so the card and its description agree. */
+    function buildQualityDay(kind){
+      if (kind==='tempo' && wk.isCheckpoint){
+        var ttKm = Math.min(TT_DISTANCE_KM[profile.emphasis], Math.max(2, round1(tKmThisWeek-3)));
+        var flank = Math.max(1, round1((tKmThisWeek-ttKm)/2));
+        return { type:'checkpoint', title:'Fitness Checkpoint: '+ttKm+'km Time Trial',
+          km: Math.max(tKmThisWeek, round1(ttKm+flank*2)),
+          desc: dtok(flank)+' warm-up, '+dtok(ttKm)+' at hard, honest effort, '+dtok(flank)+' cool-down. Use today’s time to reconsider your Active Goal for the rest of the block.' };
+      }
+      // INVARIANT, enforced rather than assumed: the day is never shorter than
+      // the session written on it. Both sides come from the same spec today,
+      // so this only ever fires if a future change breaks that.
+      if (kind==='interval'){
+        var q = intervalWorkoutText(wk.qSpec);
+        return { type:q.type, title:q.title, desc:q.desc, mpSegment:!!q.mpSegment,
+                 km: qKmThisWeek + qualityDayShortfallKm(qKmThisWeek, wk.qSpec, 'interval') };
+      }
+      var t3 = tempoWorkoutText(wk.tSpec);
+      return { type:t3.type, title:t3.title, desc:t3.desc, mpSegment:!!t3.mpSegment,
+               km: tKmThisWeek + qualityDayShortfallKm(tKmThisWeek, wk.tSpec, 'tempo') };
     }
 
     for (var iso=0; iso<7; iso++){
@@ -1547,18 +1796,9 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         var t2 = longRunText(secondLongKm, false, 0, false, true);
         dayObj = { type:t2.type, title:t2.title, km:secondLongKm, desc:t2.desc };
       } else if (activeSet[iso] && iso===qty1Day){
-        var q = intervalWorkoutText(wk.qSpec);
-        dayObj = { type:q.type, title:q.title, km:qKmThisWeek, desc:q.desc, mpSegment:!!q.mpSegment };
+        dayObj = buildQualityDay(singleSlot ? singleSlotKind : 'interval');
       } else if (activeSet[iso] && iso===qty2Day){
-        if (wk.isCheckpoint){
-          var ttKm = Math.min(TT_DISTANCE_KM[profile.emphasis], Math.max(2, round1(tKmThisWeek-3)));
-          var flank = Math.max(1, round1((tKmThisWeek-ttKm)/2));
-          dayObj = { type:'checkpoint', title:'Fitness Checkpoint: '+ttKm+'km Time Trial', km:tKmThisWeek,
-            desc: dtok(flank)+' warm-up, '+dtok(ttKm)+' at hard, honest effort, '+dtok(flank)+' cool-down. Use today\u2019s time to reconsider your Active Goal for the rest of the block.' };
-        } else {
-          var t3 = tempoWorkoutText(wk.tSpec);
-          dayObj = { type:t3.type, title:t3.title, km:tKmThisWeek, desc:t3.desc, mpSegment:!!t3.mpSegment };
-        }
+        dayObj = buildQualityDay('tempo');
       } else if (activeSet[iso]){
         dayObj = { type:'easy', title:'Easy Aerobic', km:perEasy, desc:dtok(perEasy)+' @ Easy pace.' };
       } else {
@@ -6708,15 +6948,19 @@ function coachNoteConceptStreak(concept, before, windowN){
    week for the UI ("Week 5", "Taper Phase"). The coach needs to know whether
    a session sits in base, build or peak, because the same execution means
    different things at each: a hard week in base is building, the same week
-   three weeks out is a taper compromised. */
+   three weeks out is a taper compromised.
+
+   Boundaries are NOT decided here -- phaseForWeek() is the one definition,
+   shared with the generator. This wrapper only adds the two things that need
+   plan state: the plan's own length, and the fact that a week actually
+   containing race day is named for the race rather than called "Final". */
 function trainingPhase(weekNum){
   var total = totalWeeksInPlan();
   if (!total || !weekNum) return 'Base';
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
   if (wdays.some(function(dd){ return dd.type==='race'; })) return vGoalWeek();
-  if (isTaperWeek(weekNum)) return 'Taper';
-  var frac = weekNum / total;
-  return frac <= 0.40 ? 'Base' : frac <= 0.75 ? 'Build' : 'Peak';
+  var p = phaseForWeek(weekNum, total);
+  return p==='Final' ? vGoalWeek() : p;
 }
 function coachSessionContext(dd){
   if (!dd) return null;
@@ -8419,7 +8663,18 @@ function handleGeneratePlan(){
   closeModal();
   scheduleSave();
   renderApp();
-  showToast('Plan generated \u2014 '+planLengthLabel(daysBetween(startDate,raceDate)+1)+' to '+profile.label+', starting '+dShort(startDate));
+  /* When the entered weekly volume genuinely will not fit across the selected
+     running days -- a 5K block caps the long run at 12km, so 50km/week over
+     three runs cannot be reached without either an easy run longer than the
+     long run or a third hard day -- the plan is built to the training rules
+     and the athlete is told, rather than silently handed a smaller block. The
+     answer is always "run more days", which is their call, not the app's. */
+  if (planBuildNotes.length){
+    showToast('Plan generated \u2014 but '+fmtDist(volume)+'/week needs more than '+
+      schedule.activeDays.length+' running days at this distance. Weekly volume was reduced to keep the training safe.');
+  } else {
+    showToast('Plan generated \u2014 '+planLengthLabel(daysBetween(startDate,raceDate)+1)+' to '+profile.label+', starting '+dShort(startDate));
+  }
 }
 
 function handleSetGoal(key){
