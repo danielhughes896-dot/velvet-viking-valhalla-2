@@ -317,6 +317,18 @@
   /* ---------- week accordion ---------- */
   .week{border:1px solid var(--line); border-radius:var(--radius); margin-bottom:12px; background:var(--bg-2); overflow:hidden; box-shadow:var(--shadow-sm);}
   .week:last-child{margin-bottom:0;}
+  /* ---------- FULL PLAN phase dividers ----------
+     Section markers between week cards, deliberately NOT a card: no
+     background, no border box, no radius, no padding block -- just the label
+     and a hairline that fades out. The extra top margin is what makes each
+     phase read as its own run of weeks. */
+  .phase-divider{display:flex; align-items:center; gap:10px; margin:28px 2px 12px;
+                 break-after:avoid; page-break-after:avoid;}
+  .phase-divider.is-first{margin-top:12px;}
+  .phase-divider .l{font-size:10.5px; font-weight:600; letter-spacing:2.2px;
+                    color:var(--gold-text); white-space:nowrap;}
+  .phase-divider .r{flex:1; height:1px; min-width:0;
+                    background:linear-gradient(to right, var(--line) 0%, transparent 100%);}
   .week-head{width:100%; text-align:left; background:none; border:none; padding:14px 16px; display:flex; align-items:center; gap:12px; color:var(--ink); transition:background .15s ease;}
   .week-head:hover{background:var(--bg-3);}
   .week-head:active{background:var(--bg-4);}
@@ -8266,12 +8278,38 @@ function renderCongratsBanner(){
     '<div class="cg-quote font-head">THE PLAN IS EXECUTED.<br>VALHALLA AWAITS THE BOLD!<br>GO KILL IT, VIKING!</div>'+
   '</div>';
 }
+/* ---------- FULL PLAN phase dividers ----------
+   The phase and its boundaries come from the canonical source and nowhere
+   else: trainingPhase() is phaseForWeek() plus the plan-aware naming of the
+   final week, so a divider can never disagree with the block the generator
+   actually built. Presentation only -- the week cards, their own phase line,
+   the Now badge, distances and accordion behaviour are untouched, and
+   renderWeeksList() is called only by FULL PLAN. */
+function phaseDividerLabel(weekNum){
+  var p = trainingPhase(weekNum);
+  // Base/Build/Peak/Taper name a stretch of training, so they read as a
+  // section; the last week is already named for what it is ("Race Week" /
+  // "Final Week") and takes no suffix.
+  return (p==='Base' || p==='Build' || p==='Peak' || p==='Taper') ? p+' Phase' : p;
+}
+function renderPhaseDivider(weekNum, isFirst){
+  return '<div class="phase-divider'+(isFirst?' is-first':'')+'">'+
+    '<span class="l font-head">'+escapeHtml(phaseDividerLabel(weekNum))+'</span>'+
+    '<span class="r" aria-hidden="true"></span>'+
+  '</div>';
+}
 function renderWeeksList(forceOpenAll){
   var totalWeeks = totalWeeksInPlan();
   var chkWeek = null;
   state.days.forEach(function(dd){ if (dd.type==='checkpoint') chkWeek = dd.week; });
   var html = '';
+  var lastPhase = null;
   for (var w=1; w<=totalWeeks; w++){
+    var phase = trainingPhase(w);
+    if (phase !== lastPhase){
+      html += renderPhaseDivider(w, lastPhase===null);
+      lastPhase = phase;
+    }
     html += renderWeekAccordion(w, forceOpenAll);
     if (w===chkWeek) html += renderCheckpointCard();
   }
