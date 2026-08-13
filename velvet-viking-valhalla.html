@@ -1264,36 +1264,67 @@ function pickQualityStructure(pool, phase, weekNum, pos, emphasis){
    structGoalPaceBlock and structSplitTempo both write 2km + 2km -- every
    goal-pace block was budgeted 1km short of what it told the runner to run. */
 function intervalFlankKm(){ return 4; }   // every interval text writes 2km + 2km
+// Stated recovery times that appear in both a description and a segment. Named
+// here so the budget below and segmentsFor() cannot quietly disagree.
+var DEUCE_SET_RECOVERY_SEC = [180,240];      // "3-4min between sets"
+var SPLIT_TEMPO_RECOVERY_SEC = [120,180];    // "2-3min easy jog between reps"
 function tempoFlankKm(spec){
   // threshold-continuous is the one structure that writes a 1km cool-down;
   // steady/progressive write unnumbered easy flanks, so 3km stays their budget
   if (spec.type==='threshold' || spec.type==='steady' || spec.type==='progressive') return 3;
   return 4;                                // goalpace block, split tempo
 }
+/* ---------- WHAT A RECOVERY COSTS: one rule, used everywhere ----------
+   A recovery jog is running the athlete is told to do. It belongs in the day's
+   distance for the same reason the reps do, and there are exactly three cases:
+
+     stated in metres   the metres, exactly. Nothing to derive.
+     stated in seconds  those seconds at the app's nominal easy pace. A recovery
+                        jog IS easy running, and DEFAULT_PACE_SEC_PER_KM is the
+                        number the app already uses to cost easy running when it
+                        cannot ask the athlete -- structuredZoneTime() has always
+                        attributed the unnumbered remainder of a day with it.
+     stated as neither  nothing. "Jog back down the hill" is a rule, not a
+                        number, and we do not invent one.
+
+   The pace is deliberately NOT the athlete's own easy pace. buildBlockWeeks()
+   runs before state.setup is assigned, so no VDOT exists while a plan is being
+   sized; and a plan's distances must not shift when a goal time is edited.
+   segmentDistanceMix() prices a timed recovery with this same constant, so the
+   description, the day distance, the zone chart, the duration estimate and the
+   execution target are all reading one number. */
+function recoveryKm(q){
+  if (!q) return 0;
+  if (q.m!=null) return q.m/1000;
+  if (q.sec!=null) return segSeconds(q.sec)/DEFAULT_PACE_SEC_PER_KM;
+  return 0;
+}
+// N reps means N-1 recoveries -- see segRepeat's cardinality contract. Hill
+// repeats are the exception and their descent carries no number anyway.
+function betweenRepRecoveryKm(reps, q){ return Math.max(0, (reps||0)-1) * recoveryKm(q); }
 function intervalSessionKm(spec){
   var f = intervalFlankKm();
+  // a ladder's recoveries are "scaled to each rep" -- a rule, no number
   if (spec.ladder) return round1(spec.ladder.reduce(function(a,b){return a+b;},0)/1000 + f);
-  if (spec.sets) return round1((spec.sets*spec.reps*spec.m)/1000 + f);
-  if (spec.m){
-    /* Short reps recover over a stated DISTANCE ("7 x 400m w/ 200m jog
-       recovery"), and that jogging was never in the day's budget -- a 7x400m
-       session prescribed 1.2km more running than the day it sat on. Recovery
-       that the session states in metres is running the athlete is told to do,
-       so it counts. Recoveries stated in time, or not stated at all, add no
-       distance here and are not invented. */
-    var rec = repRecovery(spec.m);
-    // N reps means N-1 recoveries -- see segRepeat's cardinality contract
-    var recKm = rec.m ? (Math.max(0, spec.reps-1)*rec.m)/1000 : 0;
-    return round1((spec.reps*spec.m)/1000 + recKm + f);
-  }
+  // the deuce jogs between reps unnumbered, and takes a stated 3-4min between SETS
+  if (spec.sets) return round1((spec.sets*spec.reps*spec.m)/1000 +
+                               betweenRepRecoveryKm(spec.sets, {sec:DEUCE_SET_RECOVERY_SEC}) + f);
+  // goal-pace reps recover on a "short float" -- no number in the text, none in
+  // the segments, so none here either
+  if (spec.t==='goalpace' && spec.m) return round1((spec.reps*spec.m)/1000 + f);
+  if (spec.m) return round1((spec.reps*spec.m)/1000 +
+                            betweenRepRecoveryKm(spec.reps, repRecovery(spec.m)) + f);
+  // the descent back down the hill carries no stated distance or time
   if (spec.hillSec) return round1((spec.reps*spec.hillSec*3.2)/1000 + f);
-  if (spec.fartlekMin) return round1(spec.reps*spec.fartlekMin*0.24 + f);
+  if (spec.fartlekMin) return round1(spec.reps*spec.fartlekMin*0.24 +
+                                     betweenRepRecoveryKm(spec.reps, {sec:spec.fartlekMin*60}) + f);
   return 6;
 }
 function tempoSessionKm(spec){
   var f = tempoFlankKm(spec);
   if (spec.km) return round1(spec.km + f);
-  if (spec.min) return round1(spec.min*0.185 + f);
+  if (spec.min) return round1(spec.min*0.185 +
+                              betweenRepRecoveryKm(spec.split||1, {sec:SPLIT_TEMPO_RECOVERY_SEC}) + f);
   return 6;
 }
 
@@ -1321,8 +1352,13 @@ function copySpec(spec){
   return s;
 }
 function taperIntervalSpec(spec){
+  return shrinkIntervalSpec(spec, intervalSessionKm(spec) * TAPER_QUALITY_FACTOR);
+}
+function taperTempoSpec(spec){
+  return shrinkTempoSpec(spec, tempoSessionKm(spec) * TAPER_QUALITY_FACTOR);
+}
+function shrinkIntervalSpec(spec, target){
   var s = copySpec(spec);
-  var target = intervalSessionKm(spec) * TAPER_QUALITY_FACTOR;
   if (s.ladder){
     // trim matched pairs off the outside; the shape and every rung length stay
     while (s.ladder.length > TAPER_MIN_LADDER && intervalSessionKm(s) > target){
@@ -1336,9 +1372,13 @@ function taperIntervalSpec(spec){
   while (s.reps > floor && intervalSessionKm(s) > target && guard++ < 60) s.reps--;
   return s;
 }
-function taperTempoSpec(spec){
+function shrinkTempoSpec(spec, target){
   var s = copySpec(spec);
-  var work = Math.max(0, tempoSessionKm(spec)*TAPER_QUALITY_FACTOR - tempoFlankKm(spec));
+  // shrink only. Called with a week-fit ceiling as well as a taper target, and
+  // a ceiling a session already fits inside must leave it exactly alone.
+  if (!(tempoSessionKm(spec) > target)) return s;
+  var work = Math.max(0, target - tempoFlankKm(spec));
+  work = Math.max(0, work - betweenRepRecoveryKm(spec.split||1, {sec:SPLIT_TEMPO_RECOVERY_SEC}));
   if (s.km!=null) s.km = Math.max(TAPER_MIN_WORK_KM, roundTo(work, 0.5));
   else if (s.min!=null){
     var mins = work/0.185;
@@ -1448,7 +1488,26 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput){
     var tSpec = pickQualityStructure(TEMPO_STRUCTURE_POOL, phase, w, pos, profile.emphasis);
     // Taper shrinks the STRUCTURE, then the day is sized from that structure --
     // so the number on the card and the session written on it cannot disagree.
-    if (isTaper){ qSpec = taperIntervalSpec(qSpec); tSpec = taperTempoSpec(tSpec); }
+    /* ---- a quality session is never the longest run of the week ----
+       The structure for the week is already chosen; this only reduces its
+       VOLUME dimensions -- rep count, minutes, ladder rungs -- by the same
+       machinery the taper uses, and never its intensity, its rep length or
+       its shape. It is a sizing rule, not a selection rule.
+
+       Budgeting recovery jogs (see recoveryKm) revealed how big some sessions
+       really are: a 10x1000m prescribes ~19km of running, which on a 5K block
+       is longer than the long run and was previously hidden by the missing
+       recovery distance. The floors in the shrink functions stop this from
+       mutilating a session -- a structure that cannot fit stays at its floor
+       and the week's own volume note reports the mismatch, as it already did. */
+    var fitTarget = isRace ? Infinity
+                   : Math.min(isTaper ? intervalSessionKm(qSpec)*TAPER_QUALITY_FACTOR : Infinity,
+                              Math.min(profile.longCapKm, volume*LONG_FRACTION[profile.emphasis]));
+    qSpec = shrinkIntervalSpec(qSpec, fitTarget);
+    var tFit = isRace ? Infinity
+              : Math.min(isTaper ? tempoSessionKm(tSpec)*TAPER_QUALITY_FACTOR : Infinity,
+                         Math.min(profile.longCapKm, volume*LONG_FRACTION[profile.emphasis]));
+    tSpec = shrinkTempoSpec(tSpec, tFit);
     var qKm = intervalSessionKm(qSpec);
     var tKm = tempoSessionKm(tSpec);
     if (isRace){ qKm=0; tKm=0; }
@@ -1845,7 +1904,7 @@ function segmentsFor(p){
       f = segFlanks(2, 2);
       return [ f.wu,
                segRepeat(q.split, [ segWork({sec:Math.round(q.min/q.split)*60}, 'tempo'),
-                                    segRecovery({sec:[120,180]}) ]),
+                                    segRecovery({sec:SPLIT_TEMPO_RECOVERY_SEC}) ]),
                f.cd ];
     case 'track_reps':
     case 'short_reps':
@@ -1878,7 +1937,7 @@ function segmentsFor(p){
                segRepeat(q.sets, [
                  segRepeat(q.reps, [ segWork({m:q.m}, 'interval'),
                                      segRecovery(null, { qualifier:'short' }) ]),
-                 segRecovery({sec:[180,240]}) ]),
+                 segRecovery({sec:DEUCE_SET_RECOVERY_SEC}) ]),
                f.cd ];
     case 'hill_repeats':
       f = segFlanks(null, null);
@@ -1970,7 +2029,12 @@ function segmentDistanceMix(segs){
       }
       if (s.maximal) hasMaximal = true;
       var km = s.km!=null ? s.km : (s.m!=null ? s.m/1000 : null);
-      var mid = midPaceForIntensity(s.intensity, paces, goalPace);
+      // A timed recovery is priced by recoveryKm()'s rule, not by the athlete's
+      // easy window, because that is the number the day's distance was built
+      // from. Its TIME is still exact, so zone time and the HR envelope are
+      // untouched -- only the distance it is credited with.
+      var mid = s.kind==='recovery' ? DEFAULT_PACE_SEC_PER_KM
+                                    : midPaceForIntensity(s.intensity, paces, goalPace);
       if (km!=null){
         accountedKm += km*mult;
         add(byIntensity, s.intensity, km*mult);
@@ -2000,13 +2064,12 @@ function segmentDistanceMix(segs){
 function segmentZoneTime(segs){
   var out = { easy:0, mp:0, threshold:0, interval:0 };
   var mix = segmentDistanceMix(segs);
-  var paces = getActivePaces(), goalPace = getGoalPaceSecPerKm();
-  Object.keys(mix.byIntensity).forEach(function(i){
-    var bucket = INTENSITY_ZONE_BUCKET[i] || 'easy';
-    out[bucket] += mix.byIntensity[i] * (midPaceForIntensity(i, paces, goalPace) || DEFAULT_PACE_SEC_PER_KM);
-  });
-  Object.keys(mix.unpricedSec).forEach(function(i){
-    out[INTENSITY_ZONE_BUCKET[i] || 'easy'] += mix.unpricedSec[i];
+  // Fold the TIME the walker measured, never distance x a pace re-derived here.
+  // Recovery distance is priced by recoveryKm()'s nominal pace while its time is
+  // exactly what the prescription states, so multiplying its kilometres back by
+  // an easy-zone pace inflated an 8x1200m day by a full minute.
+  Object.keys(mix.timeByIntensity).forEach(function(i){
+    out[INTENSITY_ZONE_BUCKET[i] || 'easy'] += mix.timeByIntensity[i];
   });
   return { zones:out, accountedKm:mix.accountedKm, hasUnquantified:mix.hasUnquantified };
 }
