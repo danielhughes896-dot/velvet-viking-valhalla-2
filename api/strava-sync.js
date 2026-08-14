@@ -67,6 +67,7 @@ module.exports = async function handler(req, res){
   const cfg = S.config();
   if (req.method !== 'POST'){
     res.setHeader('Allow', 'POST');
+    S.log('sync', 'BAD_METHOD ' + req.method);
     return S.json(res, 405, { error: 'Method not allowed' });
   }
   if (!cfg.serviceKey){
@@ -74,13 +75,24 @@ module.exports = async function handler(req, res){
     return S.json(res, 503, { error: 'supabase_key_unusable', code: 'SUPABASE_KEY_UNUSABLE' });
   }
 
-  const uid = await S.userIdFromRequest(req, cfg);
-  if (!uid) return S.json(res, 401, { error: 'not_signed_in' });
-
   const body = S.readBody(req);
+  const who = await S.verifyUser(req, cfg);
+  if (!who.uid){
+    // Previously silent. A sync the athlete actually pressed would leave no
+    // trace at all if their session had lapsed, which is indistinguishable
+    // from the logging being broken -- exactly the wrong thing to be unsure
+    // about while commissioning.
+    S.log('sync', 'REJECTED action=' + (body.action || 'pull') + ' ' + who.code);
+    return S.json(res, 401, { error: 'not_signed_in', code: who.code });
+  }
+  const uid = who.uid;
+
   if (body.action === 'sync') return handleSync(req, res, cfg, uid, body);
   if (body.action === 'ack')  return handleAck(req, res, cfg, uid, body);
   const out = await pending(cfg, uid);
-  if (out.length) S.log('sync', 'PULL pending=' + out.length);
+  // Always logged, including pending=0: "the app asked and there was nothing"
+  // is a result, and a missing line must only ever mean the request did not
+  // arrive.
+  S.log('sync', 'PULL pending=' + out.length);
   return S.json(res, 200, { activities: out });
 };

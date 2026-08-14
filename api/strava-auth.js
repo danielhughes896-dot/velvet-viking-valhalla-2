@@ -69,6 +69,7 @@ module.exports = async function handler(req, res){
 
   if (req.method !== 'POST'){
     res.setHeader('Allow', 'POST');
+    S.log('auth', 'BAD_METHOD ' + req.method);
     return S.json(res, 405, { error: 'Method not allowed' });
   }
   if (!cfg.serviceKey){
@@ -76,11 +77,14 @@ module.exports = async function handler(req, res){
     return S.json(res, 503, { error: 'supabase_key_unusable', code: 'SUPABASE_KEY_UNUSABLE' });
   }
 
-  const uid = await S.userIdFromRequest(req, cfg);
-  if (!uid)
-    return S.json(res, 401, { error: 'Sign in to VVV before connecting Strava.' });
-
   const action = S.readBody(req).action;
+  const who = await S.verifyUser(req, cfg);
+  if (!who.uid){
+    S.log('auth', 'REJECTED action=' + (action || 'none') + ' ' + who.code);
+    return S.json(res, 401, { error: 'Sign in to VVV before connecting Strava.', code: who.code });
+  }
+  const uid = who.uid;
+
   if (action === 'start')      return handleStart(req, res, cfg, uid);
   if (action === 'status')     return handleStatus(req, res, cfg, uid);
   if (action === 'disconnect') return handleDisconnect(req, res, cfg, uid);
