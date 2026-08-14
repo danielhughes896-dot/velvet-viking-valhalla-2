@@ -48,6 +48,10 @@ async function ingest(cfg, event){
   if (!a){ S.log('webhook', tag + ' UNREADABLE_ACTIVITY'); return; }
   if (!a.isRun){ S.log('webhook', tag + ' NOT_A_RUN type=' + a.activityType); return; }
   if (!a.date){ S.log('webhook', tag + ' NO_LOCAL_DATE'); return; }
+  // Strava fires `create` before it has processed the upload, so this is the
+  // normal first event for a watch upload, not an error. The `update` event
+  // that follows carries the real distance and stages it properly.
+  if (a.km == null){ S.log('webhook', tag + ' NO_DISTANCE_YET'); return; }
 
   const saved = await S.stageActivity(cfg, conn.user_id, a);
   S.log('webhook', tag + (saved && saved.ok ? ' STAGED' : ' STAGE_FAILED') +

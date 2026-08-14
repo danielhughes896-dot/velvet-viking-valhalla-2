@@ -12711,7 +12711,14 @@ function handleStravaReturn(){
    wrong automatic match is worse than no match, so every uncertain case is left
    alone. */
 function stravaMatchDay(a){
+  /* Distance is required, not optional. Strava fires its `create` webhook
+     before it has processed an upload, so an activity is briefly readable with
+     distance 0 -- which normaliseActivity records as absent rather than as a
+     real zero. Without a distance there is nothing to populate, nothing to
+     score and nothing to judge plausibility against, so such an activity is
+     never a match. The `update` event that follows carries the real numbers. */
   if (!a || !a.isRun || !a.date) return null;
+  if (a.km == null || !(a.km > 0)) return null;
   if (!state.days || !state.days.length) return null;
   var days = state.days.filter(function(d){ return d.date === a.date; });
   if (days.length !== 1) return null;        // no plan day on that date (or, defensively, more than one)

@@ -37,7 +37,7 @@ async function handleSync(req, res, cfg, uid, body){
   if (!r.ok){ S.log('sync', 'MANUAL strava_status=' + r.status); return S.json(res, 502, { error: 'strava_unavailable', status: r.status }); }
 
   const all = (r.data || []).map(S.normaliseActivity).filter(Boolean);
-  const runs = all.filter(a => a.isRun && a.date);
+  const runs = all.filter(S.isUsableRun);
   // Staged one at a time so a single malformed activity cannot lose the batch.
   let staged = 0;
   for (const a of runs){ try{ const w = await S.stageActivity(cfg, uid, a); if (w && w.ok) staged++; }catch(e){} }

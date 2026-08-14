@@ -350,9 +350,20 @@ async function stravaApi(path, token){
 function normaliseActivity(a){
   if (!a || a.id == null) return null;
   const type = a.sport_type || a.type || null;
+  /* Zero is not a measurement. Strava creates the activity record and fires
+     the `create` webhook BEFORE the uploaded file is processed, so a device
+     upload is routinely readable for a few seconds with distance 0 and moving
+     time 0 -- an `update` event follows once the real numbers exist. Recording
+     that as a genuine 0 would be inventing a measurement out of its absence,
+     and a 0km run would then be offered to the matcher as evidence.
+
+     Distance, times, cadence and heart rate are therefore absent when zero.
+     Elevation gain is NOT: a flat run really does climb 0m, and treating that
+     as missing would throw away a true reading. */
   const num = v => (typeof v === 'number' && isFinite(v)) ? v : null;
-  const dist = num(a.distance);
-  const moving = num(a.moving_time);
+  const pos = v => (typeof v === 'number' && isFinite(v) && v > 0) ? v : null;
+  const dist = pos(a.distance);
+  const moving = pos(a.moving_time);
   const out = {
     activityId: String(a.id),
     startLocal: (a.start_date_local || a.start_date || '').slice(0, 19) || null,
@@ -361,21 +372,27 @@ function normaliseActivity(a){
     isRun: type === 'Run' || type === 'TrailRun' || type === 'VirtualRun' || type === 'Treadmill',
     km: dist != null ? Math.round(dist / 100) / 10 : null,
     movingTimeSec: moving,
-    elapsedTimeSec: num(a.elapsed_time),
+    elapsedTimeSec: pos(a.elapsed_time),
     // Strava reports average_speed in m/s. Pace is derived from the two
     // primitives VVV trusts (distance + moving time) rather than from the
     // rounded average, so it agrees with the imported distance exactly.
     paceSecPerKm: (dist && moving) ? (moving / (dist / 1000)) : null,
-    hr: a.has_heartrate && num(a.average_heartrate) != null ? Math.round(a.average_heartrate) : null,
-    maxHR: a.has_heartrate && num(a.max_heartrate) != null ? Math.round(a.max_heartrate) : null,
+    hr: a.has_heartrate && pos(a.average_heartrate) != null ? Math.round(a.average_heartrate) : null,
+    maxHR: a.has_heartrate && pos(a.max_heartrate) != null ? Math.round(a.max_heartrate) : null,
     // Strava's average_cadence for a run is one leg: steps/min is twice it.
-    cadence: num(a.average_cadence) != null ? Math.round(a.average_cadence * 2) : null,
+    cadence: pos(a.average_cadence) != null ? Math.round(a.average_cadence * 2) : null,
     elevationGainM: num(a.total_elevation_gain) != null ? Math.round(a.total_elevation_gain) : null,
     trainer: !!a.trainer,
     manual: !!a.manual
   };
   return out;
 }
+
+/* An activity is only training evidence once it has a sport, a local date and
+   a real distance. Anything short of that cannot populate a workout, cannot be
+   scored and cannot be judged by the matcher, so it is not staged at all --
+   the `update` event that follows a device upload stages it properly. */
+function isUsableRun(a){ return !!(a && a.isRun && a.date && a.km != null && a.km > 0); }
 
 async function stageActivity(cfg, userId, activity){
   return sb(cfg, '/strava_activities', {
@@ -420,5 +437,5 @@ module.exports = {
   VVV_SUPABASE_URL, VVV_SUPABASE_REF,
   sb, getConnection, getConnectionByAthlete, saveConnection, deleteConnection,
   exchangeCode, accessTokenFor, stravaApi, stravaTokenRequest,
-  normaliseActivity, stageActivity, json, log
+  normaliseActivity, isUsableRun, stageActivity, json, log
 };
