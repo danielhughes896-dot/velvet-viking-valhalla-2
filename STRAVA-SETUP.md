@@ -52,8 +52,25 @@ preview deployments work too.
 | --- | --- | --- |
 | `STRAVA_CLIENT_ID` | your Client ID | Part 1 |
 | `STRAVA_CLIENT_SECRET` | your Client Secret | Part 1 — **secret**, paste it only here |
-| `STRAVA_WEBHOOK_VERIFY_TOKEN` | any random string you invent | make one up, e.g. 20 random letters. Write it down, you need it in Part 4 |
+| `STRAVA_WEBHOOK_VERIFY_TOKEN` | any random string you invent | make one up, e.g. 20 random letters. You never need to type it again — it is only used server-to-server between Strava and VVV |
 | `SUPABASE_SERVICE_ROLE_KEY` | your Supabase service-role key | Supabase → Project Settings → API → **service_role** — **secret** |
+| `VVV_OWNER_USER_ID` | your Supabase user UUID | see Part 2b below. Not a secret, but it is what authorises webhook administration, so only set it to your own id |
+
+### Part 2b — find your VVV owner user ID
+
+You need this once, for `VVV_OWNER_USER_ID`.
+
+1. Open the VVV app and sign in with your email magic link (if you have not
+   already). This creates your account.
+2. Supabase dashboard → **Authentication** → **Users**.
+3. Find the row with your email address.
+4. Copy the **UID** column — a UUID like
+   `3f2a91c4-7b6e-4d81-9a02-5c8ef1d0b7aa`.
+
+That UUID is immutable and is not tied to your email or display name, which is
+why it is used rather than the address. It is safe to paste into Vercel; it
+grants nothing on its own (the server still requires a valid signed-in session
+belonging to that id).
 
 Optional, only if you ever move Supabase projects:
 
@@ -92,25 +109,31 @@ protection.
 
 This is the step that makes runs appear without pressing Sync.
 
-Open this in your phone browser, replacing `YOURTOKEN` with the
-`STRAVA_WEBHOOK_VERIFY_TOKEN` you invented in Part 2:
+1. Open the VVV app in your phone browser and make sure you are **signed in**.
+2. In the same browser, go to:
 
 ```
-https://velvet-viking-valhalla-1.vercel.app/api/strava-webhook?admin=YOURTOKEN&op=create
+https://velvet-viking-valhalla-1.vercel.app/admin
 ```
 
-A successful reply looks like `{"id":123456}`. That is your subscription id.
+3. Tap **Create subscription**. A successful reply looks like `{"id":123456}`.
 
-- `…&op=view` lists your current subscription(s).
-- `…&op=delete&id=123456` removes one.
+That page is owner-only deployment administration. It is not linked from
+anywhere in the app, it holds no credentials of its own, and it is not the thing
+protecting the operation — the server checks that your signed-in Supabase user
+id equals `VVV_OWNER_USER_ID` before it will do anything. Anyone else who finds
+the URL gets "Not authorised" from every button.
 
-Strava allows **one subscription per application**. If `op=create` complains
-that one already exists, run `op=view`, then `op=delete&id=…`, then `op=create`
-again.
+- **View subscription** lists the current one.
+- **Delete subscription** removes one (paste the id from View first).
 
-Behind the scenes Strava immediately calls the endpoint back to check the
-verify token before it accepts the subscription — that is why this only works
-after Part 2 is deployed.
+Strava allows **one subscription per application**. If Create says one already
+exists, use View, then Delete with that id, then Create again.
+
+Behind the scenes Strava immediately calls `/api/strava-webhook` back to check
+the verify token before it accepts the subscription — that is why this only
+works after Part 2 is deployed. That token does nothing else: it is not, and
+must not be, an administrative credential.
 
 ---
 
@@ -149,7 +172,22 @@ requirement.
    and heart rate filled in — and RPE, Feel and Notes still blank for you.
 
 If step 4 does not happen but **Sync Strava** works, the webhook (Part 4) is
-not registered — run `op=view` and check.
+not registered — open `/admin` and tap **View subscription** to check.
+
+### If a run is not logged automatically
+
+VVV attaches a Strava run to a planned workout only when it is confident. It
+refuses in two situations, both deliberate:
+
+- **the distance is nowhere near the prescription** — a 3 km jog is not a 12 km
+  threshold session, even on the right day;
+- **you ran more than once that day and more than one run is credible** — VVV
+  will not guess which one was the session.
+
+In both cases the day is left exactly as it was for you to tick off and log
+yourself. Manual **Sync Strava** will say so in one line. This is on purpose: a
+wrong automatic match feeds a bad execution score into the coaching engine,
+which is worse than no match at all.
 
 ---
 

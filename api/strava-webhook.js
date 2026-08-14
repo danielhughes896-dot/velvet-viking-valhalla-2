@@ -7,10 +7,12 @@
 //        Strava's one-time subscription handshake. Must echo the challenge.
 //
 //   POST { object_type, aspect_type, object_id, owner_id, updates }
-//        An activity or athlete event. Strava expects 200 within 2 seconds and
-//        retries otherwise, so this answers immediately and does the fetch
-//        after responding; a lost retry costs nothing because staging is
-//        keyed on the activity id and is idempotent.
+//        An activity or athlete event. The fetch completes before the 200 goes
+//        out (see below); a Strava retry costs nothing because staging is keyed
+//        on the activity id and is idempotent.
+//
+// Subscription management is NOT here. It is owner-only administration and
+// lives behind an authenticated POST in api/strava-admin.js.
 
 const S = require('./_strava.js');
 
@@ -44,38 +46,6 @@ async function ingest(cfg, event){
   await S.stageActivity(cfg, conn.user_id, a);
 }
 
-const SUBS_URL = 'https://www.strava.com/api/v3/push_subscriptions';
-
-async function admin(req, res, cfg, op){
-  if (!cfg.clientId || !cfg.clientSecret)
-    return S.json(res, 503, { error: 'Strava is not configured on this server.' });
-  const creds = 'client_id=' + encodeURIComponent(cfg.clientId) +
-                '&client_secret=' + encodeURIComponent(cfg.clientSecret);
-  try{
-    if (op === 'view'){
-      const r = await fetch(SUBS_URL + '?' + creds);
-      return S.json(res, r.status, await r.json().catch(() => []));
-    }
-    if (op === 'create'){
-      const r = await fetch(SUBS_URL, {
-        method: 'POST',
-        headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body: creds +
-          '&callback_url=' + encodeURIComponent(S.siteOrigin(req) + '/api/strava-webhook') +
-          '&verify_token=' + encodeURIComponent(cfg.verifyToken)
-      });
-      return S.json(res, r.status, await r.json().catch(() => ({})));
-    }
-    if (op === 'delete'){
-      const id = String(req.query.id || '').replace(/[^0-9]/g, '');
-      if (!id) return S.json(res, 400, { error: 'pass &id= from op=view' });
-      const r = await fetch(SUBS_URL + '/' + id + '?' + creds, { method: 'DELETE' });
-      return S.json(res, r.status, { deleted: r.ok });
-    }
-  }catch(e){ return S.json(res, 502, { error: 'could not reach Strava' }); }
-  return S.json(res, 400, { error: 'op must be view, create or delete' });
-}
-
 module.exports = async function handler(req, res){
   const cfg = S.config();
 
@@ -84,11 +54,12 @@ module.exports = async function handler(req, res){
     if (q['hub.mode'] === 'subscribe' && cfg.verifyToken && q['hub.verify_token'] === cfg.verifyToken){
       return S.json(res, 200, { 'hub.challenge': q['hub.challenge'] });
     }
-    // Owner-only subscription management, so the one-off registration can be
-    // done from a phone browser instead of a terminal. Gated on the same
-    // verify token the subscription itself is protected by, which the owner
-    // has already had to set as a server secret.
-    if (q.op && cfg.verifyToken && q.admin === cfg.verifyToken) return admin(req, res, cfg, q.op);
+    // Nothing else is served here. Subscription management used to live on
+    // this route, authorised by the verify token in the query string -- which
+    // made a callback-verification value double as a reusable administrative
+    // credential, in a URL, mutating on GET. It now lives behind an
+    // authenticated owner-only POST in api/strava-admin.js, and this token has
+    // no authority beyond the handshake above.
     return S.json(res, 403, { error: 'forbidden' });
   }
 

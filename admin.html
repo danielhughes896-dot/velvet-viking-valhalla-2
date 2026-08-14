@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>VVV — deployment admin</title>
+<!--
+  Owner-only deployment administration. Deliberately NOT part of the app:
+  nothing in Velvet Viking Valhalla links here, it adds no Settings control,
+  and it is not athlete product surface.
+
+  It holds no credential of its own. It reuses the Supabase session the owner
+  already has on this origin and sends it as an Authorization header; the
+  server alone decides whether that user is the owner. Anyone else who finds
+  this URL can load the page and get 404s from every action, which is the
+  point -- the page is not the security boundary, the server is.
+-->
+<style>
+  :root{ color-scheme: dark; }
+  body{ margin:0; padding:22px; background:#15110D; color:#EDE3D0; line-height:1.55;
+        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:15px; }
+  main{ max-width:520px; margin:0 auto; }
+  h1{ font-size:17px; margin:0 0 4px; }
+  p{ color:#B3A48C; font-size:13px; margin:0 0 16px; }
+  button{ display:block; width:100%; margin:0 0 10px; padding:13px 16px; font-size:15px;
+          border-radius:9px; border:1px solid #3A3128; background:#231C16; color:#EDE3D0; }
+  button:active{ filter:brightness(1.25); }
+  input{ width:100%; box-sizing:border-box; margin:0 0 10px; padding:12px 14px; font-size:15px;
+         border-radius:9px; border:1px solid #3A3128; background:#1B1610; color:#EDE3D0; }
+  pre{ white-space:pre-wrap; overflow-wrap:anywhere; background:#1B1610; border:1px solid #3A3128;
+       border-radius:9px; padding:12px 14px; font-size:12px; color:#B3A48C; margin:16px 0 0; }
+  .who{ font-size:12px; color:#8A7C68; margin:0 0 18px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Strava webhook subscription</h1>
+  <p>Deployment administration. Sign in to Velvet Viking Valhalla in this browser
+     first — this page uses that session and holds no credentials of its own.</p>
+  <div class="who" id="who">Checking your session…</div>
+
+  <button type="button" id="view">View subscription</button>
+  <button type="button" id="create">Create subscription</button>
+  <input type="text" id="sub-id" inputmode="numeric" placeholder="subscription id to delete">
+  <button type="button" id="del">Delete subscription</button>
+
+  <pre id="out">Ready.</pre>
+</main>
+<script>
+(function(){
+  var out = document.getElementById('out');
+  function show(x){ out.textContent = typeof x === 'string' ? x : JSON.stringify(x, null, 2); }
+
+  function session(){
+    try{ return JSON.parse(localStorage.getItem('vvv_cloud_session') || 'null'); }
+    catch(e){ return null; }
+  }
+  var s = session();
+  document.getElementById('who').textContent = s && s.access_token
+    ? 'Signed in as ' + (s.email || s.user_id || 'this account')
+    : 'Not signed in — open the app, sign in, then come back to this page.';
+
+  function call(body){
+    var sess = session();
+    if (!sess || !sess.access_token){ show('Not signed in. Sign in to VVV first.'); return; }
+    show('Working…');
+    fetch('/api/strava-admin', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json',
+                 'Authorization': 'Bearer ' + sess.access_token },
+      body: JSON.stringify(body)
+    }).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(d){
+        if (r.status === 404) return show('Not authorised for this deployment.');
+        if (r.status === 401) return show('Your session has expired — reopen the app and try again.');
+        show(d);
+      });
+    }).catch(function(e){ show('Request failed: ' + e.message); });
+  }
+
+  document.getElementById('view').addEventListener('click', function(){
+    call({ action: 'subscription_view' });
+  });
+  document.getElementById('create').addEventListener('click', function(){
+    call({ action: 'subscription_create' });
+  });
+  document.getElementById('del').addEventListener('click', function(){
+    var id = document.getElementById('sub-id').value.trim();
+    if (!id){ show('Enter the id shown by View subscription.'); return; }
+    call({ action: 'subscription_delete', id: id });
+  });
+})();
+</script>
+</body>
+</html>

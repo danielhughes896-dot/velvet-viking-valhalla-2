@@ -12688,12 +12688,20 @@ function handleStravaReturn(){
    came from.
    ========================================================= */
 
-/* Matching is deliberately narrow. VVV holds exactly one day per date, so a
-   date is an identity, not a similarity score: either the plan has that day or
-   it does not. Nothing is inferred from the activity's title or from distance
-   proximity, because an athlete who runs 6km of a 10km session has still run
-   that session, and a title is prose. A wrong automatic match is worse than
-   none, so every uncertain case falls through to unmatched. */
+/* Matching is deliberately narrow, and answers for the DATE as a whole rather
+   than for one activity at a time.
+
+   VVV holds exactly one day per date, so the date is an identity: either the
+   plan has that day or it does not. Nothing is inferred from the activity's
+   title or from VVV's own workout prose — a title is prose, and prose is not
+   evidence.
+
+   Date alone is not sufficient, though, which is what this pass fixes. A 3km
+   shakeout and a 9.4km threshold run share a date; attaching the shakeout to a
+   10km threshold session does not merely mislabel it, it feeds a 30%-execution
+   session into the Playbook as though the athlete had failed the workout. A
+   wrong automatic match is worse than no match, so every uncertain case is left
+   alone. */
 function stravaMatchDay(a){
   if (!a || !a.isRun || !a.date) return null;
   if (!state.days || !state.days.length) return null;
@@ -12701,6 +12709,107 @@ function stravaMatchDay(a){
   if (days.length !== 1) return null;        // no plan day on that date (or, defensively, more than one)
   if (days[0].type === 'rest') return null;  // a run on a rest day is not evidence of the rest day
   return days[0];
+}
+
+/* ---------- plausibility, not exactness ----------
+   Distance is used only to ask "could this activity BE that session?", never
+   "was it executed well?" — that judgement is the Execution Score's and it must
+   be free to say the session went badly.
+
+   So the band is deliberately blunt and wide:
+
+     at least HALF the prescribed distance, and
+     no more than half again as far (or +3km, whichever is more generous).
+
+   Half is a round number chosen because it is honest, not tuned: there is no
+   physiological constant here and pretending otherwise would be inventing
+   precision. It is wide enough that ordinary under-completion is untouched —
+   a 10km session run as 8.7km, or abandoned at 6km, is still plainly that
+   session — and narrow enough that a 2km jog cannot become a 12km threshold
+   workout or a 4km recovery trot become a 28km long run.
+
+   The upper bound has the +3km absolute allowance so an interval session whose
+   watch-recorded warm-up and cool-down inflate the total is not refused on a
+   short prescription.
+
+   An activity with no distance, or a day with no prescribed distance, cannot be
+   judged this way — those return true rather than inventing a reason to refuse,
+   and the ambiguity rules below still apply. */
+var STRAVA_MIN_SHARE     = 0.5;
+var STRAVA_MAX_SHARE     = 1.5;
+var STRAVA_ABS_HEADROOM  = 3;
+/* How much closer to the prescription the winner must be than the runner-up
+   before "clearly the strongest" is an honest description. Below this, two runs
+   are both credible and the athlete's own record is not ours to guess at. */
+var STRAVA_CLEAR_MARGIN  = 0.25;
+
+function stravaPlannedKm(dd){
+  return (dd && typeof dd.km === 'number' && dd.km > 0) ? dd.km : null;
+}
+function stravaPlausible(dd, a){
+  var planned = stravaPlannedKm(dd);
+  if (planned == null || a.km == null) return true;
+  if (a.km < planned * STRAVA_MIN_SHARE) return false;
+  return a.km <= Math.max(planned * STRAVA_MAX_SHARE, planned + STRAVA_ABS_HEADROOM);
+}
+function stravaDistanceDelta(dd, a){
+  var planned = stravaPlannedKm(dd);
+  if (planned == null || a.km == null) return 0;
+  return Math.abs(a.km - planned) / planned;
+}
+
+/* The activity currently attached to this day, expressed as a candidate so it
+   competes on the same terms as anything arriving later. Without this, whichever
+   run happened to reach VVV first would own the day for good. */
+function stravaIncumbentCandidate(dd){
+  if (!dd || !dd.stravaActivityId) return null;
+  var a = dd.actual || {};
+  return { activityId:dd.stravaActivityId, date:dd.date, isRun:true,
+           km:(a.km!=null?a.km:null), incumbent:true };
+}
+
+/* Decide, for one plan day, which of the day's running activities — if any — is
+   the session. Returns:
+     match     : exactly one activity is safe to attach automatically
+     ambiguous : more than one remains credible; leave it alone
+     none      : nothing on that date could be this session
+
+   Deliverd order cannot influence the outcome: the candidate list is sorted by
+   activity id before anything is compared, and every comparison is on the
+   objective values, so [A,B] and [B,A] resolve identically. */
+function stravaResolveDay(dd, candidates){
+  var seen = {}, list = [];
+  (candidates||[]).forEach(function(a){
+    if (!a || a.activityId == null) return;
+    var id = String(a.activityId);
+    // A real incoming activity always beats the synthetic incumbent stand-in
+    // for the same id, because it carries the up-to-date payload.
+    if (seen[id]!=null){ if (!a.incumbent) list[seen[id]] = a; return; }
+    seen[id] = list.length; list.push(a);
+  });
+  list.sort(function(x,y){
+    var a=String(x.activityId), b=String(y.activityId);
+    return a<b ? -1 : a>b ? 1 : 0;
+  });
+
+  var plausible = list.filter(function(a){ return stravaPlausible(dd, a); });
+  if (!plausible.length) return { decision:'none', activity:null, candidates:[] };
+  if (plausible.length === 1) return { decision:'match', activity:plausible[0], candidates:plausible };
+
+  // An activity already attached and still credible keeps the day. Swapping a
+  // reasonable attachment for a marginally closer one every time a new activity
+  // arrives would make the athlete's log jump around for no gain.
+  var incumbent = plausible.filter(function(a){ return a.activityId === dd.stravaActivityId; })[0];
+  if (incumbent) return { decision:'match', activity:incumbent, candidates:plausible };
+
+  var scored = plausible.map(function(a){ return { a:a, d:stravaDistanceDelta(dd, a) }; });
+  scored.sort(function(x,y){
+    if (x.d !== y.d) return x.d - y.d;
+    return String(x.a.activityId) < String(y.a.activityId) ? -1 : 1;
+  });
+  if (scored[1].d - scored[0].d >= STRAVA_CLEAR_MARGIN)
+    return { decision:'match', activity:scored[0].a, candidates:plausible };
+  return { decision:'ambiguous', activity:null, candidates:plausible };
 }
 
 /* Objective values the athlete typed in themselves. A day that was merely
@@ -12719,21 +12828,8 @@ function stravaObjectiveSnapshot(dd){
           a.movingTimeSec, a.elapsedTimeSec, a.elevationGainM, a.activityType].join('|');
 }
 
-/* Returns one of:
-     applied   - objective actuals written (or refreshed by an update)
-     same      - already ingested, nothing changed
-     conflict  - the day is spoken for; the athlete's data was left alone
-     unmatched - no day this activity can safely belong to           */
-function stravaApplyActivity(a){
-  var dd = stravaMatchDay(a);
-  if (!dd) return 'unmatched';
-  // Another Strava run already owns this day. The first one stays; a second
-  // run on the same date is never allowed to overwrite it.
-  if (dd.stravaActivityId && dd.stravaActivityId !== a.activityId) return 'conflict';
-  // Hand-logged objective numbers are the athlete's own record and outrank an
-  // import. Reported, never silently replaced.
-  if (!dd.stravaActivityId && dd.completed && stravaHasManualObjective(dd)) return 'conflict';
-
+/* The write half: only ever reached for an activity the resolver chose. */
+function stravaWriteActivity(dd, a){
   var before = stravaObjectiveSnapshot(dd);
   // The canonical completion, not a second notion of "Strava completed".
   applyCompletion(dd, true);
@@ -12760,15 +12856,63 @@ function stravaApplyActivity(a){
   return stravaObjectiveSnapshot(dd) === before ? 'same' : 'applied';
 }
 
+/* One activity at a time, for callers that have exactly one. Goes through the
+   same resolver as a batch, so a single activity is judged by the same rules. */
+function stravaApplyActivity(a){
+  var r = stravaIngestActivities([a]);
+  return r.applied ? 'applied' : r.same ? 'same' : r.conflict ? 'conflict'
+       : r.ambiguous ? 'ambiguous' : 'unmatched';
+}
+
+/* Returns per-activity outcomes:
+     applied   - objective actuals written (or refreshed by an update)
+     same      - already ingested, nothing changed
+     conflict  - the day is spoken for; the athlete's data was left alone
+     ambiguous - more than one credible run that day; nothing was attached
+     unmatched - no day this activity can safely belong to               */
 function stravaIngestActivities(list){
-  var out = { applied:0, same:0, conflict:0, unmatched:0, ack:[] };
+  var out = { applied:0, same:0, conflict:0, ambiguous:0, unmatched:0, ack:[] };
+  var byDate = {};
   (list||[]).forEach(function(a){
-    var r = stravaApplyActivity(a);
-    out[r]++;
-    // Unmatched activities stay pending: a plan generated later may yet cover
-    // that date. Everything resolved is acknowledged so it is never re-offered.
-    if (r !== 'unmatched') out.ack.push(a.activityId);
+    if (!a || !a.isRun || !a.date){ out.unmatched++; return; }
+    (byDate[a.date] = byDate[a.date] || []).push(a);
   });
+  Object.keys(byDate).sort().forEach(function(date){
+    var group = byDate[date];
+    var dd = stravaMatchDay(group[0]);
+    if (!dd){ out.unmatched += group.length; return; }
+
+    // Hand-logged objective numbers are the athlete's own record and outrank an
+    // import. Reported, never silently replaced.
+    if (!dd.stravaActivityId && dd.completed && stravaHasManualObjective(dd)){
+      group.forEach(function(a){ out.conflict++; out.ack.push(a.activityId); });
+      return;
+    }
+
+    var inc = stravaIncumbentCandidate(dd);
+    var res = stravaResolveDay(dd, inc ? group.concat([inc]) : group);
+
+    if (res.decision === 'match'){
+      var winner = String(res.activity.activityId);
+      group.forEach(function(a){
+        if (String(a.activityId) === winner) out[stravaWriteActivity(dd, a)]++;
+        else out.conflict++;                     // a real run, just not this session
+        out.ack.push(a.activityId);
+      });
+      return;
+    }
+    /* Ambiguous and no-match are both left pending rather than acknowledged, so
+       a later arrival, a regenerated plan or a manual log can still resolve the
+       date. Nothing is attached, so nothing downstream can see them: the day is
+       not completed, has no actuals, no Execution Score, no Coach Review and
+       contributes no Playbook evidence. */
+    if (res.decision === 'ambiguous') out.ambiguous += group.length;
+    else out.unmatched += group.length;
+  });
+  // The acknowledgement list is a set, not a sequence. Sorting it means even
+  // the request VVV sends back is independent of the order Strava happened to
+  // deliver the activities in.
+  out.ack.sort();
   return out;
 }
 
@@ -12801,7 +12945,12 @@ function fetchStravaRuns(days){
   return stravaPost('strava-sync', { action:'sync', days:days||60 }).then(function(d){
     var res = stravaConsume(d);
     stravaSetState('connected', { athleteName:stravaConn.athleteName });
-    if (res.applied) showToast('Imported '+res.applied+' run'+(res.applied===1?'':'s')+' from Strava');
+    /* One line, no inbox. An unresolved date is reported honestly and then
+       left alone -- the athlete is not made to manage ordinary imports, and
+       the day stays exactly as it was so they can simply log it themselves. */
+    if (res.applied) showToast('Imported '+res.applied+' run'+(res.applied===1?'':'s')+' from Strava'+
+      (res.ambiguous ? ' — more than one run on another day, so that one was left for you' : ''));
+    else if (res.ambiguous) showToast('More than one run that day — left it for you to log rather than guess');
     else if (res.conflict) showToast('Your logged runs were kept — nothing was overwritten');
     else if (res.same) showToast('Already up to date');
     else showToast('No Strava runs matched a day in your current plan');

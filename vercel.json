@@ -6,6 +6,7 @@
   "rewrites": [
     { "source": "/", "destination": "/velvet-viking-valhalla.html" },
     { "source": "/get", "destination": "/get.html" },
+    { "source": "/admin", "destination": "/admin.html" },
     { "source": "/.well-known/assetlinks.json", "destination": "/assetlinks.json" },
     { "source": "/auth", "destination": "/velvet-viking-valhalla.html" },
     { "source": "/auth/(.*)", "destination": "/velvet-viking-valhalla.html" }
