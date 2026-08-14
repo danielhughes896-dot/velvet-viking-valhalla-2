@@ -289,8 +289,13 @@
 
   /* ---------- hero / progress ---------- */
   .hero{padding:32px 0 18px; text-align:center; position:relative;}
+  /* Full crest artwork (ring + VALHALLA AWAITS + EARN YOUR PLACE), not just
+     the circular medallion -- a 50% circular crop would clip the EARN YOUR
+     PLACE line, which sits below the ring. height:auto follows the image's
+     real (portrait) aspect ratio, so radius-lg reads as a soft plaque edge
+     rather than an arbitrary crop. */
   .medallion-img{
-    width:180px; max-width:60%; height:auto; border-radius:50%; display:block; margin:0 auto;
+    width:180px; max-width:60%; height:auto; border-radius:var(--radius-lg); display:block; margin:0 auto;
     box-shadow:0 10px 30px rgba(0,0,0,0.5);
   }
 
@@ -3798,8 +3803,11 @@ function renderMedallion(){
   /* "Earn Your Place" is part of the master artwork, so it is no longer rendered
      as separate text -- one tagline, not two. The artwork carries its own
      breathing room beneath the strapline, so the gap the eye actually sees
-     between the branding and TODAY is unchanged without any margin of its own. */
-  return '<img class="medallion-img" src="assets/medallion.png" width="640" height="640" alt="Velvet Viking Valhalla — Running Programs — Earn Your Place" loading="eager">';
+     between the branding and TODAY is unchanged without any margin of its own.
+     Canonical crest: assets/velvet-viking-crest.png (see README "Brand assets"
+     for the master/derivative map) -- width/height match its real 1184x1328
+     portrait artwork so .medallion-img's height:auto never has to guess. */
+  return '<img class="medallion-img" src="assets/velvet-viking-crest.png" width="1184" height="1328" alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place" loading="eager">';
 }
 function renderHero(){
   var html = '<div class="hero">'+renderMedallion();

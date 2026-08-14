@@ -1,6 +1,32 @@
 # velvet-viking-valhalla-2
 Running training
 
+## Brand assets
+
+`assets/velvet-viking-crest.png` is the canonical Velvet Viking crest —
+the single master asset (identical to the website repo's
+`public/brand/velvet-viking-crest.png`). Approved wording:
+
+```
+VELVET VIKING
+VALHALLA AWAITS
+EARN YOUR PLACE
+```
+
+An earlier "RUNNING PROGRAMS" crest variant is retired and must not be
+reintroduced. Everything else under `assets/` is a **generated derivative**
+of this master, not a competing master — don't hand-edit them independently
+of it:
+
+| File | Purpose | How it's derived |
+|---|---|---|
+| `velvet-viking-crest.png` | Canonical master | — |
+| In-app hero (`<img class="medallion-img">` in `velvet-viking-valhalla.html`, and `get.html`'s install-page medallion) | Full crest, unmodified | Same file, referenced directly |
+| `icon.png` | Favicon / apple-touch-icon / notification icon / OG image | Master losslessly pillarboxed onto a square black canvas (no crop) |
+| `icon-foreground.png` (+ per-density `android/.../mipmap-*/ic_launcher_foreground.png`) | Android adaptive-icon foreground layer | Same square-pillarbox as `icon.png`, resized per density — the adaptive-icon XML (`mipmap-anydpi-v26/ic_launcher.xml`) already wraps it in `<inset android:inset="16.7%">`, so no manual safe-zone padding is baked in here |
+| `icon-background.png` (+ per-density `ic_launcher_background.png`) | Android adaptive-icon background layer | Solid black — brand-agnostic, not crest-derived, unrelated to the master |
+| Per-density `ic_launcher.png` / `ic_launcher_round.png` (legacy pre-Android-8 launcher icon) | Legacy launcher icon | Master's circular emblem only (ring/axes/wheel/"VELVET VIKING"/"VALHALLA AWAITS" — no "EARN YOUR PLACE" line, illegible at 36–192px regardless), composited onto solid black with the same 16.7% inset as the adaptive icon, at each legacy resolution |
+
 ## Strava integration setup
 
 The "Connect Strava" flow uses a serverless function (`api/strava-auth.js`) so
