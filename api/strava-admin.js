@@ -26,6 +26,12 @@ const S = require('./_strava.js');
 
 const SUBS_URL = 'https://www.strava.com/api/v3/push_subscriptions';
 
+// Server-side diagnostics only, and deliberately value-free: it records WHICH
+// case was hit, never a token, key, user id, email or secret. Vercel function
+// logs are readable by the deployment owner alone, and there is nothing in here
+// worth reading anyway.
+function log(what){ try{ console.log('strava-admin: ' + what); }catch(e){} }
+
 function creds(cfg){
   return 'client_id=' + encodeURIComponent(cfg.clientId) +
          '&client_secret=' + encodeURIComponent(cfg.clientSecret);
@@ -39,20 +45,38 @@ module.exports = async function handler(req, res){
     res.setHeader('Allow', 'POST');
     return S.json(res, 405, { error: 'Method not allowed' });
   }
-  if (!cfg.serviceKey || !cfg.clientId || !cfg.clientSecret)
-    return S.json(res, 503, { error: 'Strava is not configured on this server.' });
+  if (!cfg.serviceKey || !cfg.clientId || !cfg.clientSecret){
+    log('strava is not configured');
+    return S.json(res, 503, { error: 'strava_not_configured' });
+  }
 
   // Fail closed. With no owner configured there is no such thing as an
   // authorised caller, so administration is simply unavailable rather than
   // open to the first signed-in account that finds the route.
-  if (!ownerId)
-    return S.json(res, 503, { error: 'No owner is configured for this deployment.' });
+  if (!ownerId){
+    log('no owner is configured');
+    return S.json(res, 503, { error: 'owner_not_configured' });
+  }
 
-  const uid = await S.userIdFromRequest(req, cfg);
-  if (!uid) return S.json(res, 401, { error: 'not_signed_in' });
+  const who = await S.verifyUser(req, cfg);
+  if (who.error === 'auth_unavailable'){
+    // Not the caller's fault and not an expired session. Saying "sign in again"
+    // here is what sent the owner round in circles, so it is now its own case.
+    log('could not verify the caller with supabase');
+    return S.json(res, 503, { error: 'auth_unavailable' });
+  }
+  if (!who.uid){
+    log('rejected: ' + who.error);
+    return S.json(res, 401, { error: 'not_signed_in', reason: who.error });
+  }
   // Same 404 an unknown route would give: an ordinary signed-in athlete learns
-  // nothing about whether this endpoint exists or who the owner is.
-  if (uid !== ownerId) return S.json(res, 404, { error: 'not_found' });
+  // nothing about whether this endpoint exists or who the owner is. The
+  // distinction is recorded in the server log, which only the deployment owner
+  // can read -- and without either id, so the log itself identifies nobody.
+  if (who.uid !== ownerId){
+    log('authenticated caller is not the configured owner');
+    return S.json(res, 404, { error: 'not_found' });
+  }
 
   const body = S.readBody(req);
   const action = body.action;
@@ -63,8 +87,10 @@ module.exports = async function handler(req, res){
       return S.json(res, r.status, { subscriptions: await r.json().catch(() => []) });
     }
     if (action === 'subscription_create'){
-      if (!cfg.verifyToken)
-        return S.json(res, 503, { error: 'STRAVA_WEBHOOK_VERIFY_TOKEN is not set on this server.' });
+      if (!cfg.verifyToken){
+        log('webhook verify token is not set');
+        return S.json(res, 503, { error: 'verify_token_not_configured' });
+      }
       const r = await fetch(SUBS_URL, {
         method: 'POST',
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
@@ -77,11 +103,13 @@ module.exports = async function handler(req, res){
     if (action === 'subscription_delete'){
       const id = String(body.id || '').replace(/[^0-9]/g, '');
       if (!id) return S.json(res, 400, { error: 'Pass the id from subscription_view.' });
+      log('deleting a subscription');
       const r = await fetch(SUBS_URL + '/' + id + '?' + creds(cfg), { method: 'DELETE' });
       return S.json(res, r.ok ? 200 : r.status, { deleted: r.ok });
     }
   }catch(e){
-    return S.json(res, 502, { error: 'Could not reach Strava' });
+    log('upstream strava administration call failed');
+    return S.json(res, 502, { error: 'strava_unavailable' });
   }
-  return S.json(res, 400, { error: 'Unknown action' });
+  return S.json(res, 400, { error: 'unknown_action' });
 };

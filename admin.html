@@ -49,34 +49,138 @@
 </main>
 <script>
 (function(){
+  /* The canonical Supabase session lifecycle, matching the app exactly.
+
+     The live failure this fixes: this page used to read the persisted
+     vvv_cloud_session snapshot and send its access_token verbatim. Supabase
+     access tokens last an hour; the refresh token lasts far longer. So once the
+     access token aged out, every admin request was rejected -- while the page
+     still said "Signed in as ..." because the identity line came from the same
+     stale snapshot. Reopening the app could not help when /admin was open in a
+     different browser than the installed app, because that is a different
+     localStorage.
+
+     These two constants are public by design -- they are the same values the
+     app itself ships -- and the session they unlock is the owner's own. No
+     server secret, owner id or Strava credential is here or ever could be. */
+  var SUPABASE_URL = 'https://eqiydxissphygnycpouu.supabase.co';
+  var SUPABASE_ANON_KEY = 'sb_publishable_PLiExuCqvMmjYwal4DtFQA_m4eZuCd-';
+  var SESSION_KEY = 'vvv_cloud_session';
+  var SKEW_MS = 60000;
+
   var out = document.getElementById('out');
+  var busy = false;
   function show(x){ out.textContent = typeof x === 'string' ? x : JSON.stringify(x, null, 2); }
 
-  function session(){
-    try{ return JSON.parse(localStorage.getItem('vvv_cloud_session') || 'null'); }
+  function getSession(){
+    try{ return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); }
     catch(e){ return null; }
   }
-  var s = session();
-  document.getElementById('who').textContent = s && s.access_token
-    ? 'Signed in as ' + (s.email || s.user_id || 'this account')
-    : 'Not signed in — open the app, sign in, then come back to this page.';
+  function putSession(s){
+    try{ localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }catch(e){}
+  }
+
+  /* Exchange the refresh token for a new access token and write the result back
+     in the app's own shape, so the app benefits from the refresh too. */
+  function refresh(sess){
+    return fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'content-type': 'application/json' },
+      body: JSON.stringify({ refresh_token: sess.refresh_token })
+    }).then(function(r){
+      if (!r.ok) return { code: 'refresh_failed' };
+      return r.json().then(function(t){
+        if (!t || !t.access_token) return { code: 'refresh_failed' };
+        var fresh = {
+          access_token: t.access_token,
+          refresh_token: t.refresh_token || sess.refresh_token,
+          expires_at: Date.now() + (t.expires_in || 3600) * 1000,
+          user_id: sess.user_id, email: sess.email
+        };
+        putSession(fresh);
+        return { token: fresh.access_token, refreshed: true };
+      });
+    }).catch(function(){ return { code: 'network' }; });
+  }
+
+  /* A currently valid access token, or a reason there is not one.
+     force=true refreshes even when the stored expiry still looks healthy --
+     used once after a server 401, which is the only reliable way to handle a
+     token that is expired in fact but not according to this device's clock. */
+  function accessToken(force){
+    var sess = getSession();
+    if (!sess || !sess.access_token) return Promise.resolve({ code: 'no_session' });
+    var stillGood = sess.expires_at && Date.now() < sess.expires_at - SKEW_MS;
+    if (stillGood && !force) return Promise.resolve({ token: sess.access_token, refreshed: false });
+    if (!sess.refresh_token) return Promise.resolve({ code: 'session_expired' });
+    return refresh(sess);
+  }
+
+  var MESSAGE = {
+    no_session:      'Not signed in. Open Velvet Viking Valhalla in THIS browser, sign in, then reload this page.',
+    session_expired: 'Your session has expired. Sign in to VVV again in this browser, then reload this page.',
+    refresh_failed:  'Your session has expired. Sign in to VVV again in this browser, then reload this page.',
+    network:         'Could not reach the server — check your connection and try again.',
+    not_owner:       'Not authorised for this deployment.',
+    not_configured:  'This deployment is not configured for administration yet.',
+    strava_down:     'Could not reach Strava — try again shortly.'
+  };
+
+  function identify(){
+    var sess = getSession();
+    var el = document.getElementById('who');
+    if (!sess || !sess.access_token){
+      el.textContent = 'Not signed in — open the app in this browser, sign in, then come back.';
+      return;
+    }
+    // Say only what is actually known. A stored email proves who signed in
+    // once, not that the session still works -- claiming otherwise is what
+    // made the original failure so confusing.
+    var aged = !sess.expires_at || Date.now() >= sess.expires_at - SKEW_MS;
+    el.textContent = 'Signed in as ' + (sess.email || sess.user_id || 'this account') +
+                     (aged ? ' — session needs refreshing, which happens automatically' : '');
+  }
+  identify();
+
+  function send(body, token){
+    return fetch('/api/strava-admin', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify(body)
+    });
+  }
 
   function call(body){
-    var sess = session();
-    if (!sess || !sess.access_token){ show('Not signed in. Sign in to VVV first.'); return; }
+    if (busy) return;
+    busy = true;
     show('Working…');
-    fetch('/api/strava-admin', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json',
-                 'Authorization': 'Bearer ' + sess.access_token },
-      body: JSON.stringify(body)
-    }).then(function(r){
-      return r.json().catch(function(){ return {}; }).then(function(d){
-        if (r.status === 404) return show('Not authorised for this deployment.');
-        if (r.status === 401) return show('Your session has expired — reopen the app and try again.');
-        show(d);
+    accessToken(false).then(function(a){
+      if (a.code){ show(MESSAGE[a.code] || MESSAGE.session_expired); return null; }
+      return send(body, a.token).then(function(r){
+        // A 401 here means the server asked Supabase and Supabase said no. The
+        // stored expiry can be wrong (clock skew, a token revoked early), so
+        // force exactly one refresh and retry before believing it.
+        if (r.status !== 401) return r;
+        return accessToken(true).then(function(b){
+          if (b.code){ return { forced: MESSAGE[b.code] || MESSAGE.session_expired }; }
+          return send(body, b.token);
+        });
+      }).then(function(r){
+        if (!r) return;
+        if (r.forced){ show(r.forced); return; }
+        return r.json().catch(function(){ return {}; }).then(function(d){
+          if (r.status === 401) return show(MESSAGE.session_expired);
+          if (r.status === 404) return show(MESSAGE.not_owner);
+          if (r.status === 503) return show(MESSAGE.not_configured +
+            (d.error === 'owner_not_configured' ? ' (no owner is set)' : ''));
+          if (r.status === 502) return show(MESSAGE.strava_down);
+          if (!r.ok) return show(d.error ? String(d.error) : 'Request failed (' + r.status + ').');
+          show(d);
+        });
       });
-    }).catch(function(e){ show('Request failed: ' + e.message); });
+    }).catch(function(e){
+      show('Request failed: ' + e.message);
+    }).then(function(){ busy = false; identify(); });
   }
 
   document.getElementById('view').addEventListener('click', function(){

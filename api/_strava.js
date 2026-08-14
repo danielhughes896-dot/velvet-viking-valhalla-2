@@ -33,7 +33,13 @@ function config(){
     clientSecret: env('STRAVA_CLIENT_SECRET'),
     verifyToken:  env('STRAVA_WEBHOOK_VERIFY_TOKEN'),
     supabaseUrl:  (env('SUPABASE_URL') || 'https://eqiydxissphygnycpouu.supabase.co').replace(/\/$/, ''),
-    serviceKey:   env('SUPABASE_SERVICE_ROLE_KEY')
+    serviceKey:   env('SUPABASE_SERVICE_ROLE_KEY'),
+    // The publishable key, which is public by design and is the same value the
+    // app ships. Used ONLY as the apikey header when verifying a user's own
+    // JWT: that is the call the app itself makes, so identity resolves through
+    // exactly the path the token was minted for. The service-role key stays for
+    // data access, where it belongs.
+    anonKey:      env('SUPABASE_ANON_KEY') || 'sb_publishable_PLiExuCqvMmjYwal4DtFQA_m4eZuCd-'
   };
 }
 
@@ -85,18 +91,36 @@ function verifyState(state, secret){
    The caller's Supabase access token is verified against Supabase itself
    rather than decoded here, so a forged or expired JWT cannot get through and
    this server never needs the project's JWT secret. */
-async function userIdFromRequest(req, cfg){
+// Returns { uid } or { error }, where error is one of:
+//   no_bearer        no Authorization header at all
+//   invalid_token    Supabase rejected it (expired, revoked, malformed)
+//   auth_unavailable Supabase could not be reached or errored
+// The distinction matters: an outage previously looked identical to an expired
+// session, so the athlete was told to sign in again when nothing was wrong with
+// their session. Never returns or logs the token itself.
+async function verifyUser(req, cfg){
   const auth = req.headers['authorization'] || '';
   const token = /^Bearer\s+(.+)$/i.exec(auth);
-  if (!token) return null;
+  if (!token) return { error: 'no_bearer' };
+  let r;
   try{
-    const r = await fetch(cfg.supabaseUrl + '/auth/v1/user', {
-      headers: { 'Authorization': 'Bearer ' + token[1], 'apikey': cfg.serviceKey }
+    r = await fetch(cfg.supabaseUrl + '/auth/v1/user', {
+      headers: { 'Authorization': 'Bearer ' + token[1], 'apikey': cfg.anonKey }
     });
-    if (!r.ok) return null;
-    const u = await r.json();
-    return (u && u.id) || null;
-  }catch(e){ return null; }
+  }catch(e){ return { error: 'auth_unavailable' }; }
+  if (r.status === 401 || r.status === 403) return { error: 'invalid_token' };
+  if (!r.ok) return { error: 'auth_unavailable' };
+  let u;
+  try{ u = await r.json(); }catch(e){ return { error: 'auth_unavailable' }; }
+  if (!u || !u.id) return { error: 'invalid_token' };
+  return { uid: u.id };
+}
+
+// The long-standing shape the other endpoints use, unchanged in behaviour:
+// a user id or null.
+async function userIdFromRequest(req, cfg){
+  const v = await verifyUser(req, cfg);
+  return v.uid || null;
 }
 
 /* ---------- Supabase, service role ---------- */
@@ -249,7 +273,7 @@ function json(res, status, obj){
 module.exports = {
   STRAVA_AUTHORIZE_URL, STRAVA_TOKEN_URL, STRAVA_DEAUTH_URL, STRAVA_API, STRAVA_SCOPE,
   config, siteOrigin, redirectUri, readBody,
-  signState, verifyState, userIdFromRequest,
+  signState, verifyState, userIdFromRequest, verifyUser,
   sb, getConnection, getConnectionByAthlete, saveConnection, deleteConnection,
   exchangeCode, accessTokenFor, stravaApi, stravaTokenRequest,
   normaliseActivity, stageActivity, json
