@@ -298,12 +298,13 @@
   .hero{padding:32px 0 18px; text-align:center; position:relative;}
   /* Full crest artwork (ring + VALHALLA AWAITS + EARN YOUR PLACE), not just
      the circular medallion -- a 50% circular crop would clip the EARN YOUR
-     PLACE line, which sits below the ring. height:auto follows the image's
-     real (portrait) aspect ratio, so radius-lg reads as a soft plaque edge
-     rather than an arbitrary crop. */
+     PLACE line, which sits below the ring. The master is transparent outside
+     the crest silhouette (no canvas), so border-radius/box-shadow -- both
+     leftover from the old solid-canvas artwork, where they read as a soft
+     plaque edge -- are dropped: on transparent art they paint a visible
+     rounded-rectangle halo instead. */
   .medallion-img{
-    width:180px; max-width:60%; height:auto; border-radius:var(--radius-lg); display:block; margin:0 auto;
-    box-shadow:0 10px 30px rgba(0,0,0,0.5);
+    width:180px; max-width:60%; height:auto; display:block; margin:0 auto;
   }
 
 
@@ -3812,9 +3813,9 @@ function renderMedallion(){
      breathing room beneath the strapline, so the gap the eye actually sees
      between the branding and TODAY is unchanged without any margin of its own.
      Canonical crest: assets/velvet-viking-crest.png (see README "Brand assets"
-     for the master/derivative map) -- width/height match its real 1184x1328
+     for the master/derivative map) -- width/height match its real 1223x1286
      portrait artwork so .medallion-img's height:auto never has to guess. */
-  return '<img class="medallion-img" src="assets/velvet-viking-crest.png" width="1184" height="1328" alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place" loading="eager">';
+  return '<img class="medallion-img" src="assets/velvet-viking-crest.png" width="1223" height="1286" alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place" loading="eager">';
 }
 function renderHero(){
   var html = '<div class="hero">'+renderMedallion();

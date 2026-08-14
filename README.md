@@ -27,6 +27,17 @@ of it:
 | `icon-background.png` (+ per-density `ic_launcher_background.png`) | Android adaptive-icon background layer | Solid black — brand-agnostic, not crest-derived, unrelated to the master |
 | Per-density `ic_launcher.png` / `ic_launcher_round.png` (legacy pre-Android-8 launcher icon) | Legacy launcher icon | Master's circular emblem only (ring/axes/wheel/"VELVET VIKING"/"VALHALLA AWAITS" — no "EARN YOUR PLACE" line, illegible at 36–192px regardless), composited onto solid black with the same 16.7% inset as the adaptive icon, at each legacy resolution |
 
+**`icon.png`, `icon-foreground.png` and all launcher icons are currently
+STALE** — they were derived from the master's previous (solid-canvas)
+version and dimensions, not from the current transparent master. Regenerate
+them from the current master with the same pillarbox process before relying
+on them for anything beyond what's already shipped; a side-by-side at
+32/48/96/180px (in the brand-asset task history) shows the illegibility
+below ~48px is unchanged either way, so this isn't urgent, just outstanding.
+`velvet-viking-valhalla.html`'s inline base64 apple-touch-icon (in its
+`<head>`, not a file under `assets/`) is separately stale for the same
+reason.
+
 ## Strava integration setup
 
 The "Connect Strava" flow uses a serverless function (`api/strava-auth.js`) so
