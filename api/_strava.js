@@ -27,12 +27,49 @@ const STATE_TTL_SEC = 15 * 60;
 
 function env(name){ return process.env[name] || ''; }
 
+// Deliberately regex-based rather than `new URL()`. These run on every auth
+// call and must never throw, whatever a misconfigured value looks like, so
+// there is no dependency on a URL implementation being present or on the input
+// being parseable at all.
+function projectOrigin(u){
+  if (!u) return '';
+  const m = /^(https?:\/\/[^\/?#]+)/i.exec(String(u).trim());
+  return m ? m[1] : String(u).trim().replace(/\/+$/, '');
+}
+function hostOf(u){
+  const m = /^(?:https?:\/\/)?([^\/?#]+)/i.exec(String(u || '').trim());
+  return m ? m[1].toLowerCase() : '';
+}
+
+/* Read the `iss` claim out of a Supabase JWT WITHOUT verifying it.
+   This is used for diagnostics only and never for authorization: a token is
+   still only trusted after Supabase itself confirms it. The point is to catch
+   the one misconfiguration that is otherwise invisible -- a token minted by
+   project A being checked against project B, which returns a plain 401 and is
+   indistinguishable from an expired session. The issuer is deliberately never
+   followed; doing so would let a caller aim verification at a project they
+   control. */
+function jwtIssuerHost(token){
+  try{
+    const parts = String(token).split('.');
+    if (parts.length !== 3) return null;
+    const json = Buffer.from(parts[1].replace(/-/g,'+').replace(/_/g,'/'), 'base64').toString('utf8');
+    const claims = JSON.parse(json);
+    return claims && claims.iss ? hostOf(claims.iss) : null;
+  }catch(e){ return null; }
+}
+
 function config(){
   return {
     clientId:     env('STRAVA_CLIENT_ID'),
     clientSecret: env('STRAVA_CLIENT_SECRET'),
     verifyToken:  env('STRAVA_WEBHOOK_VERIFY_TOKEN'),
-    supabaseUrl:  (env('SUPABASE_URL') || 'https://eqiydxissphygnycpouu.supabase.co').replace(/\/$/, ''),
+    // Only the ORIGIN is ever used. The Supabase dashboard shows a REST URL
+    // ending in /rest/v1, and pasting that into SUPABASE_URL would send every
+    // auth call to /rest/v1/auth/v1/user -- a 404 that looks nothing like the
+    // real problem. Normalising here makes that class of misconfiguration
+    // harmless instead of mysterious.
+    supabaseUrl:  projectOrigin(env('SUPABASE_URL')) || 'https://eqiydxissphygnycpouu.supabase.co',
     serviceKey:   env('SUPABASE_SERVICE_ROLE_KEY'),
     // The publishable key, which is public by design and is the same value the
     // app ships. Used ONLY as the apikey header when verifying a user's own
@@ -91,29 +128,81 @@ function verifyState(state, secret){
    The caller's Supabase access token is verified against Supabase itself
    rather than decoded here, so a forged or expired JWT cannot get through and
    this server never needs the project's JWT secret. */
-// Returns { uid } or { error }, where error is one of:
-//   no_bearer        no Authorization header at all
-//   invalid_token    Supabase rejected it (expired, revoked, malformed)
-//   auth_unavailable Supabase could not be reached or errored
-// The distinction matters: an outage previously looked identical to an expired
-// session, so the athlete was told to sign in again when nothing was wrong with
-// their session. Never returns or logs the token itself.
+/* Returns { uid, code, diag } or { code, diag }.
+
+   `code` is a short, safe classification the owner can read off the screen and
+   correlate with the server log:
+
+     AUTH_HEADER_MISSING    no Authorization header arrived at the function
+     AUTH_JWT_MALFORMED     the bearer value is not a three-part JWT
+     AUTH_PROJECT_MISMATCH  the token was minted by a different Supabase project
+                            than this server verifies against
+     AUTH_ANON_KEY_REJECTED Supabase refused the apikey, not the user's token
+     AUTH_VERIFY_401/403    Supabase rejected the token itself
+     AUTH_VERIFY_404        the auth endpoint is not where we are looking
+     AUTH_UNAVAILABLE       Supabase could not be reached, or returned 5xx
+     AUTH_OK                verified
+
+   `diag` carries facts, never values: booleans, a hostname and an HTTP status.
+   No token, key, id or email is in it, so it is safe to log and safe to show. */
 async function verifyUser(req, cfg){
+  const diag = {
+    authHeader: false, jwtShape: false,
+    project: hostOf(cfg.supabaseUrl),
+    anonKey: !!cfg.anonKey,
+    status: null, tokenIssuer: null
+  };
   const auth = req.headers['authorization'] || '';
-  const token = /^Bearer\s+(.+)$/i.exec(auth);
-  if (!token) return { error: 'no_bearer' };
+  const m = /^Bearer\s+(.+)$/i.exec(auth);
+  if (!m) return { code: 'AUTH_HEADER_MISSING', diag };
+  diag.authHeader = true;
+
+  const token = m[1].trim();
+  const parts = token.split('.');
+  diag.jwtShape = parts.length === 3;
+  if (!diag.jwtShape) return { code: 'AUTH_JWT_MALFORMED', diag };
+
+  // Diagnostic only -- see jwtIssuerHost. Authorization still comes from
+  // Supabase's own answer below, never from these claims.
+  diag.tokenIssuer = jwtIssuerHost(token);
+  if (diag.tokenIssuer && diag.project && diag.tokenIssuer !== diag.project)
+    return { code: 'AUTH_PROJECT_MISMATCH', diag };
+
   let r;
   try{
     r = await fetch(cfg.supabaseUrl + '/auth/v1/user', {
-      headers: { 'Authorization': 'Bearer ' + token[1], 'apikey': cfg.anonKey }
+      headers: { 'Authorization': 'Bearer ' + token, 'apikey': cfg.anonKey }
     });
-  }catch(e){ return { error: 'auth_unavailable' }; }
-  if (r.status === 401 || r.status === 403) return { error: 'invalid_token' };
-  if (!r.ok) return { error: 'auth_unavailable' };
+  }catch(e){ return { code: 'AUTH_UNAVAILABLE', diag }; }
+  diag.status = r.status;
+
+  if (r.status === 404) return { code: 'AUTH_VERIFY_404', diag };
+  if (r.status === 401 || r.status === 403){
+    // GoTrue says "Invalid API key" for a bad apikey and "invalid JWT ..." for
+    // a bad token. Matched as a pattern so the two are distinguishable; the
+    // message itself is never returned or logged.
+    let why = '';
+    try{ const b = await r.json(); why = String((b && (b.message || b.msg || b.error_description)) || ''); }catch(e){}
+    if (/api\s*key/i.test(why)) return { code: 'AUTH_ANON_KEY_REJECTED', diag };
+    return { code: r.status === 403 ? 'AUTH_VERIFY_403' : 'AUTH_VERIFY_401', diag };
+  }
+  if (!r.ok) return { code: 'AUTH_UNAVAILABLE', diag };
+
   let u;
-  try{ u = await r.json(); }catch(e){ return { error: 'auth_unavailable' }; }
-  if (!u || !u.id) return { error: 'invalid_token' };
-  return { uid: u.id };
+  try{ u = await r.json(); }catch(e){ return { code: 'AUTH_UNAVAILABLE', diag }; }
+  if (!u || !u.id) return { code: 'AUTH_VERIFY_401', diag };
+  return { uid: u.id, code: 'AUTH_OK', diag };
+}
+
+// One line, facts only: booleans, a hostname, an HTTP status and a code.
+function diagLine(code, diag){
+  return code +
+    ' authHeader=' + (diag.authHeader ? 'yes' : 'no') +
+    ' jwtShape=' + (diag.jwtShape ? 'yes' : 'no') +
+    ' project=' + (diag.project || 'unset') +
+    ' tokenIssuer=' + (diag.tokenIssuer || 'unknown') +
+    ' anonKey=' + (diag.anonKey ? 'configured' : 'missing') +
+    ' userStatus=' + (diag.status == null ? 'none' : diag.status);
 }
 
 // The long-standing shape the other endpoints use, unchanged in behaviour:
@@ -273,7 +362,8 @@ function json(res, status, obj){
 module.exports = {
   STRAVA_AUTHORIZE_URL, STRAVA_TOKEN_URL, STRAVA_DEAUTH_URL, STRAVA_API, STRAVA_SCOPE,
   config, siteOrigin, redirectUri, readBody,
-  signState, verifyState, userIdFromRequest, verifyUser,
+  signState, verifyState, userIdFromRequest, verifyUser, diagLine,
+  projectOrigin, hostOf, jwtIssuerHost,
   sb, getConnection, getConnectionByAthlete, saveConnection, deleteConnection,
   exchangeCode, accessTokenFor, stravaApi, stravaTokenRequest,
   normaliseActivity, stageActivity, json

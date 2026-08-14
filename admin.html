@@ -88,9 +88,9 @@
       headers: { 'apikey': SUPABASE_ANON_KEY, 'content-type': 'application/json' },
       body: JSON.stringify({ refresh_token: sess.refresh_token })
     }).then(function(r){
-      if (!r.ok) return { code: 'refresh_failed' };
+      if (!r.ok) return { code: 'AUTH_REFRESH_FAILED' };
       return r.json().then(function(t){
-        if (!t || !t.access_token) return { code: 'refresh_failed' };
+        if (!t || !t.access_token) return { code: 'AUTH_REFRESH_FAILED' };
         var fresh = {
           access_token: t.access_token,
           refresh_token: t.refresh_token || sess.refresh_token,
@@ -100,7 +100,7 @@
         putSession(fresh);
         return { token: fresh.access_token, refreshed: true };
       });
-    }).catch(function(){ return { code: 'network' }; });
+    }).catch(function(){ return { code: 'AUTH_NETWORK' }; });
   }
 
   /* A currently valid access token, or a reason there is not one.
@@ -109,22 +109,40 @@
      token that is expired in fact but not according to this device's clock. */
   function accessToken(force){
     var sess = getSession();
-    if (!sess || !sess.access_token) return Promise.resolve({ code: 'no_session' });
+    if (!sess || !sess.access_token) return Promise.resolve({ code: 'AUTH_NO_SESSION' });
     var stillGood = sess.expires_at && Date.now() < sess.expires_at - SKEW_MS;
     if (stillGood && !force) return Promise.resolve({ token: sess.access_token, refreshed: false });
-    if (!sess.refresh_token) return Promise.resolve({ code: 'session_expired' });
+    if (!sess.refresh_token) return Promise.resolve({ code: 'AUTH_SESSION_EXPIRED' });
     return refresh(sess);
   }
 
+  /* Every outcome carries a short code so a live failure can be read off this
+     page and matched against the Vercel function log without either of them
+     containing anything sensitive. The codes are the whole point: "your session
+     has expired" was previously shown for problems that had nothing to do with
+     the session, which is what made this take three attempts to pin down. */
   var MESSAGE = {
-    no_session:      'Not signed in. Open Velvet Viking Valhalla in THIS browser, sign in, then reload this page.',
-    session_expired: 'Your session has expired. Sign in to VVV again in this browser, then reload this page.',
-    refresh_failed:  'Your session has expired. Sign in to VVV again in this browser, then reload this page.',
-    network:         'Could not reach the server — check your connection and try again.',
-    not_owner:       'Not authorised for this deployment.',
-    not_configured:  'This deployment is not configured for administration yet.',
-    strava_down:     'Could not reach Strava — try again shortly.'
+    AUTH_NO_SESSION:       'Not signed in. Open Velvet Viking Valhalla in THIS browser, sign in, then reload this page.',
+    AUTH_SESSION_EXPIRED:  'Your session has expired. Sign in to VVV again in this browser, then reload this page.',
+    AUTH_REFRESH_FAILED:   'Your session could not be renewed. Sign in to VVV again in this browser, then reload this page.',
+    AUTH_NETWORK:          'Could not reach the server — check your connection and try again.',
+    AUTH_HEADER_MISSING:   'The sign-in header did not reach the server. This is a deployment problem, not your session.',
+    AUTH_JWT_MALFORMED:    'The stored sign-in token is not readable. Sign in to VVV again in this browser.',
+    AUTH_PROJECT_MISMATCH: 'This deployment verifies sign-ins against a different Supabase project than the app uses. Check SUPABASE_URL in Vercel.',
+    AUTH_ANON_KEY_REJECTED:'Supabase refused this deployment’s API key. Check SUPABASE_ANON_KEY in Vercel.',
+    AUTH_VERIFY_404:       'The Supabase auth endpoint was not found. Check SUPABASE_URL in Vercel — it must be the project URL, not the REST URL.',
+    AUTH_VERIFY_401:       'Supabase rejected the sign-in token. Sign in to VVV again in this browser, then reload this page.',
+    AUTH_VERIFY_403:       'Supabase refused the sign-in token. Sign in to VVV again in this browser, then reload this page.',
+    AUTH_UNAVAILABLE:      'Supabase could not be reached from the server. Nothing is wrong with your session — try again shortly.',
+    OWNER_MISMATCH:        'Not authorised for this deployment.',
+    OWNER_NOT_CONFIGURED:  'No owner is configured for this deployment. Set VVV_OWNER_USER_ID in Vercel and redeploy.',
+    STRAVA_NOT_CONFIGURED: 'Strava is not configured on this server yet.',
+    VERIFY_TOKEN_NOT_CONFIGURED: 'STRAVA_WEBHOOK_VERIFY_TOKEN is not set on this server.',
+    STRAVA_UNAVAILABLE:    'Could not reach Strava — try again shortly.'
   };
+  function fail(code){
+    show((MESSAGE[code] || 'Request failed.') + '\n\nCode: ' + code);
+  }
 
   function identify(){
     var sess = getSession();
@@ -155,26 +173,22 @@
     busy = true;
     show('Working…');
     accessToken(false).then(function(a){
-      if (a.code){ show(MESSAGE[a.code] || MESSAGE.session_expired); return null; }
+      if (a.code){ fail(a.code); return null; }
       return send(body, a.token).then(function(r){
         // A 401 here means the server asked Supabase and Supabase said no. The
         // stored expiry can be wrong (clock skew, a token revoked early), so
         // force exactly one refresh and retry before believing it.
         if (r.status !== 401) return r;
         return accessToken(true).then(function(b){
-          if (b.code){ return { forced: MESSAGE[b.code] || MESSAGE.session_expired }; }
+          if (b.code) return { forced: b.code };
           return send(body, b.token);
         });
       }).then(function(r){
         if (!r) return;
-        if (r.forced){ show(r.forced); return; }
+        if (r.forced){ fail(r.forced); return; }
         return r.json().catch(function(){ return {}; }).then(function(d){
-          if (r.status === 401) return show(MESSAGE.session_expired);
-          if (r.status === 404) return show(MESSAGE.not_owner);
-          if (r.status === 503) return show(MESSAGE.not_configured +
-            (d.error === 'owner_not_configured' ? ' (no owner is set)' : ''));
-          if (r.status === 502) return show(MESSAGE.strava_down);
-          if (!r.ok) return show(d.error ? String(d.error) : 'Request failed (' + r.status + ').');
+          // The server names the case; it is always more specific than a status.
+          if (!r.ok) return fail(d.code || ('HTTP_' + r.status));
           show(d);
         });
       });

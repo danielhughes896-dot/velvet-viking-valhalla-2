@@ -30,6 +30,10 @@ const SUBS_URL = 'https://www.strava.com/api/v3/push_subscriptions';
 // case was hit, never a token, key, user id, email or secret. Vercel function
 // logs are readable by the deployment owner alone, and there is nothing in here
 // worth reading anyway.
+// Server-side diagnostics: facts only -- booleans, a hostname, an HTTP status
+// and a classification code. Never a token, key, user id, email or secret.
+// Vercel function logs are readable by the deployment owner alone, and there is
+// nothing in these lines worth reading anyway.
 function log(what){ try{ console.log('strava-admin: ' + what); }catch(e){} }
 
 function creds(cfg){
@@ -46,37 +50,40 @@ module.exports = async function handler(req, res){
     return S.json(res, 405, { error: 'Method not allowed' });
   }
   if (!cfg.serviceKey || !cfg.clientId || !cfg.clientSecret){
-    log('strava is not configured');
-    return S.json(res, 503, { error: 'strava_not_configured' });
+    log('STRAVA_NOT_CONFIGURED');
+    return S.json(res, 503, { error: 'strava_not_configured', code: 'STRAVA_NOT_CONFIGURED' });
   }
 
   // Fail closed. With no owner configured there is no such thing as an
   // authorised caller, so administration is simply unavailable rather than
   // open to the first signed-in account that finds the route.
   if (!ownerId){
-    log('no owner is configured');
-    return S.json(res, 503, { error: 'owner_not_configured' });
+    log('OWNER_NOT_CONFIGURED');
+    return S.json(res, 503, { error: 'owner_not_configured', code: 'OWNER_NOT_CONFIGURED' });
   }
 
   const who = await S.verifyUser(req, cfg);
-  if (who.error === 'auth_unavailable'){
-    // Not the caller's fault and not an expired session. Saying "sign in again"
-    // here is what sent the owner round in circles, so it is now its own case.
-    log('could not verify the caller with supabase');
-    return S.json(res, 503, { error: 'auth_unavailable' });
-  }
+  log(S.diagLine(who.code, who.diag) + ' ownerConfigured=yes ownerMatch=' +
+      (who.uid ? (who.uid === ownerId ? 'yes' : 'no') : 'n/a'));
+
   if (!who.uid){
-    log('rejected: ' + who.error);
-    return S.json(res, 401, { error: 'not_signed_in', reason: who.error });
+    // The status separates "your session is stale" (401 -- the caller can fix
+    // it by signing in) from "this deployment is pointed at the wrong Supabase
+    // project or holds a bad key" (503 -- only the owner can fix that, and
+    // telling them to sign in again would waste their time, as it did).
+    const deployment = who.code === 'AUTH_PROJECT_MISMATCH' ||
+                       who.code === 'AUTH_ANON_KEY_REJECTED' ||
+                       who.code === 'AUTH_VERIFY_404' ||
+                       who.code === 'AUTH_UNAVAILABLE';
+    return S.json(res, deployment ? 503 : 401,
+      { error: deployment ? 'auth_misconfigured' : 'not_signed_in', code: who.code });
   }
   // Same 404 an unknown route would give: an ordinary signed-in athlete learns
   // nothing about whether this endpoint exists or who the owner is. The
   // distinction is recorded in the server log, which only the deployment owner
   // can read -- and without either id, so the log itself identifies nobody.
-  if (who.uid !== ownerId){
-    log('authenticated caller is not the configured owner');
-    return S.json(res, 404, { error: 'not_found' });
-  }
+  if (who.uid !== ownerId)
+    return S.json(res, 404, { error: 'not_found', code: 'OWNER_MISMATCH' });
 
   const body = S.readBody(req);
   const action = body.action;
@@ -88,8 +95,8 @@ module.exports = async function handler(req, res){
     }
     if (action === 'subscription_create'){
       if (!cfg.verifyToken){
-        log('webhook verify token is not set');
-        return S.json(res, 503, { error: 'verify_token_not_configured' });
+        log('VERIFY_TOKEN_NOT_CONFIGURED');
+        return S.json(res, 503, { error: 'verify_token_not_configured', code: 'VERIFY_TOKEN_NOT_CONFIGURED' });
       }
       const r = await fetch(SUBS_URL, {
         method: 'POST',
@@ -103,13 +110,12 @@ module.exports = async function handler(req, res){
     if (action === 'subscription_delete'){
       const id = String(body.id || '').replace(/[^0-9]/g, '');
       if (!id) return S.json(res, 400, { error: 'Pass the id from subscription_view.' });
-      log('deleting a subscription');
       const r = await fetch(SUBS_URL + '/' + id + '?' + creds(cfg), { method: 'DELETE' });
       return S.json(res, r.ok ? 200 : r.status, { deleted: r.ok });
     }
   }catch(e){
-    log('upstream strava administration call failed');
-    return S.json(res, 502, { error: 'strava_unavailable' });
+    log('STRAVA_UNAVAILABLE');
+    return S.json(res, 502, { error: 'strava_unavailable', code: 'STRAVA_UNAVAILABLE' });
   }
   return S.json(res, 400, { error: 'unknown_action' });
 };

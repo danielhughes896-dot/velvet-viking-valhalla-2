@@ -77,6 +77,16 @@ Optional, only if you ever move Supabase projects:
 | Name | Value |
 | --- | --- |
 | `SUPABASE_URL` | `https://eqiydxissphygnycpouu.supabase.co` (this is already the default, so you can skip it) |
+| `SUPABASE_ANON_KEY` | the project's **publishable** key (already the default too — skip it) |
+
+⚠️ **If Vercel's Supabase integration is connected, it injects `SUPABASE_URL`,
+`SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` automatically — possibly
+for a different project than the one the app is hardcoded to use.** That makes
+the server verify sign-ins against the wrong project and every admin request is
+refused. Check Vercel → Settings → Environment Variables: if `SUPABASE_URL` is
+present and is **not** `https://eqiydxissphygnycpouu.supabase.co`, either delete
+it or correct it. `/admin` now reports this as `AUTH_PROJECT_MISMATCH` and names
+the offending host in the Vercel function log.
 
 ⚠️ The **service_role** key bypasses Row Level Security. It belongs in Vercel
 and nowhere else — never in the HTML file, never in a commit, never in a chat.
@@ -173,6 +183,26 @@ requirement.
 
 If step 4 does not happen but **Sync Strava** works, the webhook (Part 4) is
 not registered — open `/admin` and tap **View subscription** to check.
+
+### If /admin refuses you
+
+Every failure now shows a short `Code:` under the message. Match it here:
+
+| Code | What it means | Where to fix it |
+| --- | --- | --- |
+| `AUTH_NO_SESSION` | not signed in **in this browser** | open the app in the same browser and sign in |
+| `AUTH_REFRESH_FAILED` / `AUTH_VERIFY_401` | the session really has expired | sign in to VVV again in this browser |
+| `AUTH_PROJECT_MISMATCH` | the server checks sign-ins against a different Supabase project than the app uses | Vercel → `SUPABASE_URL` (delete it, or set the project URL above) |
+| `AUTH_ANON_KEY_REJECTED` | Supabase refused the server's API key | Vercel → `SUPABASE_ANON_KEY` (delete it to use the default) |
+| `AUTH_VERIFY_404` | `SUPABASE_URL` points at the REST URL, not the project URL | Vercel → `SUPABASE_URL` |
+| `AUTH_HEADER_MISSING` | the sign-in header never reached the function | a proxy/deployment problem, not your session |
+| `AUTH_UNAVAILABLE` | Supabase was unreachable from the server | nothing is wrong — retry shortly |
+| `OWNER_MISMATCH` | you are signed in as someone other than the configured owner | Vercel → `VVV_OWNER_USER_ID` |
+| `OWNER_NOT_CONFIGURED` | no owner is set | Vercel → `VVV_OWNER_USER_ID`, then redeploy |
+
+The Vercel function log carries the same code plus the project host it
+contacted, the host that issued your token, and the HTTP status Supabase
+returned — and never a token, key, id or email.
 
 ### If a run is not logged automatically
 
