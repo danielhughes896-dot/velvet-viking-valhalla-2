@@ -1,4 +1,4 @@
--- Velvet Viking Valhalla — cloud sync setup
+-- Velvet Viking — cloud sync setup
 -- Run this once in your Supabase project: SQL Editor -> New query -> paste -> Run.
 --
 -- One row per user holding the whole training block as JSON. The app already

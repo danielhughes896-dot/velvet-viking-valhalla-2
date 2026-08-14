@@ -28,7 +28,7 @@ const STATE_TTL_SEC = 15 * 60;
 function env(name){ return process.env[name] || ''; }
 
 /* ---------- the canonical Supabase project ----------
-   Velvet Viking Valhalla has exactly one Supabase project, and the app has it
+   Velvet Viking has exactly one Supabase project, and the app has it
    hardcoded. The server must use the SAME one or nothing lines up: access
    tokens minted by the app are rejected, and strava_connections /
    strava_activities are read and written in a database that does not have

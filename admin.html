@@ -7,7 +7,7 @@
 <title>VVV — deployment admin</title>
 <!--
   Owner-only deployment administration. Deliberately NOT part of the app:
-  nothing in Velvet Viking Valhalla links here, it adds no Settings control,
+  nothing in Velvet Viking links here, it adds no Settings control,
   and it is not athlete product surface.
 
   It holds no credential of its own. It reuses the Supabase session the owner
@@ -36,7 +36,7 @@
 <body>
 <main>
   <h1>Strava webhook subscription</h1>
-  <p>Deployment administration. Sign in to Velvet Viking Valhalla in this browser
+  <p>Deployment administration. Sign in to Velvet Viking in this browser
      first — this page uses that session and holds no credentials of its own.</p>
   <div class="who" id="who">Checking your session…</div>
 
@@ -122,7 +122,7 @@
      has expired" was previously shown for problems that had nothing to do with
      the session, which is what made this take three attempts to pin down. */
   var MESSAGE = {
-    AUTH_NO_SESSION:       'Not signed in. Open Velvet Viking Valhalla in THIS browser, sign in, then reload this page.',
+    AUTH_NO_SESSION:       'Not signed in. Open Velvet Viking in THIS browser, sign in, then reload this page.',
     AUTH_SESSION_EXPIRED:  'Your session has expired. Sign in to VVV again in this browser, then reload this page.',
     AUTH_REFRESH_FAILED:   'Your session could not be renewed. Sign in to VVV again in this browser, then reload this page.',
     AUTH_NETWORK:          'Could not reach the server — check your connection and try again.',
@@ -137,7 +137,7 @@
     OWNER_MISMATCH:        'Not authorised for this deployment.',
     OWNER_NOT_CONFIGURED:  'No owner is configured for this deployment. Set VVV_OWNER_USER_ID in Vercel and redeploy.',
     STRAVA_NOT_CONFIGURED: 'Strava is not configured on this server yet.',
-    SUPABASE_KEY_UNUSABLE: 'This deployment has no usable Supabase service key for the Valhalla project. Set VVV_SUPABASE_SERVICE_ROLE_KEY in Vercel and redeploy.',
+    SUPABASE_KEY_UNUSABLE: 'This deployment has no usable Supabase service key for the Velvet Viking project. Set VVV_SUPABASE_SERVICE_ROLE_KEY in Vercel and redeploy.',
     VERIFY_TOKEN_NOT_CONFIGURED: 'STRAVA_WEBHOOK_VERIFY_TOKEN is not set on this server.',
     STRAVA_UNAVAILABLE:    'Could not reach Strava — try again shortly.'
   };

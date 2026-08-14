@@ -1,4 +1,4 @@
-// Velvet Viking Valhalla -- minimal service worker whose only job is to let
+// Velvet Viking -- minimal service worker whose only job is to let
 // the app show a notification via registration.showNotification() so the
 // daily 08:00 workout reminder can still appear while the tab is only
 // backgrounded (not closed). No caching/offline behavior is implemented.

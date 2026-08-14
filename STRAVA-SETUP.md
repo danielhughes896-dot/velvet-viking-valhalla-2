@@ -21,7 +21,7 @@ If you have never made an app there, it asks you to create one.
 
 | Field | What to put |
 | --- | --- |
-| Application Name | Velvet Viking Valhalla |
+| Application Name | Velvet Viking |
 | Category | Training |
 | Website | `https://velvet-viking-valhalla-1.vercel.app` |
 | **Authorization Callback Domain** | `velvet-viking-valhalla-1.vercel.app` |
@@ -78,16 +78,16 @@ Vercel's Supabase integration injects `SUPABASE_URL`, `SUPABASE_ANON_KEY` and
 `SUPABASE_SERVICE_ROLE_KEY` automatically, and those values are
 integration-managed — you cannot edit or remove them in the environment
 variables UI. On this deployment they belong to a **different** Supabase
-project than Valhalla's, which silently repointed the whole server side of the
+project than Velvet Viking's, which silently repointed the whole server side of the
 Strava integration at the wrong database.
 
-The server therefore no longer reads any of those three names. Valhalla's
+The server therefore no longer reads any of those three names. Velvet Viking's
 project (`eqiydxissphygnycpouu`) is pinned in the code, and the only way to
 supply the service-role key is the `VVV_`-prefixed name above, which no
 integration writes. **You do not need to delete, disconnect or change the
 Supabase integration** — its variables are simply ignored now.
 
-If you ever genuinely move Valhalla to a different Supabase project, override
+If you ever genuinely move Velvet Viking to a different Supabase project, override
 all three together: `VVV_SUPABASE_URL`, `VVV_SUPABASE_ANON_KEY`,
 `VVV_SUPABASE_SERVICE_ROLE_KEY`.
 
@@ -177,7 +177,7 @@ requirement.
 
 1. Open VVV → **Settings** → **Connect Strava**.
 2. Strava's own page should open and ask you to authorise Velvet Viking
-   Valhalla. If it shows an error about the callback domain, re-check Part 1.
+   Velvet Viking. If it shows an error about the callback domain, re-check Part 1.
 3. Approve. You come back to VVV and it says **✓ Connected**, then imports your
    recent runs.
 4. Go for a run (or upload any run to Strava). Wait a minute, then open VVV.
@@ -195,7 +195,7 @@ Every failure now shows a short `Code:` under the message. Match it here:
 | --- | --- | --- |
 | `AUTH_NO_SESSION` | not signed in **in this browser** | open the app in the same browser and sign in |
 | `AUTH_REFRESH_FAILED` / `AUTH_VERIFY_401` | the session really has expired | sign in to VVV again in this browser |
-| `SUPABASE_KEY_UNUSABLE` | no service-role key that provably belongs to Valhalla's project | Vercel → add `VVV_SUPABASE_SERVICE_ROLE_KEY`, then redeploy |
+| `SUPABASE_KEY_UNUSABLE` | no service-role key that provably belongs to Velvet Viking's project | Vercel → add `VVV_SUPABASE_SERVICE_ROLE_KEY`, then redeploy |
 | `AUTH_PROJECT_MISMATCH` | the server checks sign-ins against a different Supabase project than the app uses | Vercel → `VVV_SUPABASE_URL` (remove it — the correct project is pinned in code) |
 | `AUTH_ANON_KEY_REJECTED` | Supabase refused the server's API key | Vercel → `VVV_SUPABASE_ANON_KEY` (remove it to use the default) |
 | `AUTH_VERIFY_404` | `VVV_SUPABASE_URL` points at the REST URL, not the project URL | Vercel → `VVV_SUPABASE_URL` |
