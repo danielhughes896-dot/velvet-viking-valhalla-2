@@ -133,7 +133,14 @@
      Firefox, since it relies on the standard `color` cascade rather than
      just -webkit-text-fill-color). */
   .word-metallic{
-    font-family:'Cinzel',serif; font-weight:800; font-size:clamp(0.85rem, 4.2vw, 1.05rem); letter-spacing:0.05em;
+    /* Sized for the two-word mark. At the old three-word size those two words
+       filled only ~40% of the header bar and read as shrunken; this restores
+       the wordmark to ~55-62%, close to the ~63-70% the longer name occupied,
+       without letting it grow into a hero heading. The clamp keeps the same
+       three-stage behaviour: a floor for the narrowest phones, viewport-
+       proportional through the common range, and a ceiling so it stops
+       growing on wide screens. */
+    font-family:'Cinzel',serif; font-weight:800; font-size:clamp(1.28rem, 6.3vw, 1.58rem); letter-spacing:0.05em;
     text-transform:uppercase; white-space:nowrap;
     background:linear-gradient(180deg, var(--gold-bright) 0%, var(--modal-active) 100%);
     -webkit-background-clip:text; background-clip:text;
@@ -3635,7 +3642,7 @@ function totalWeeksInPlan(){ return state.days.length ? state.days[state.days.le
    TOPBAR / HERO / GOAL TOGGLE
    ========================================================= */
 function renderTopbar(){
-  var titleHtml = '<div class="brandmark"><span class="word word-metallic">Velvet Viking Valhalla</span></div>';
+  var titleHtml = '<div class="brandmark"><span class="word word-metallic">Velvet Viking</span></div>';
 
   if (!state.setup){
     // Onboarding only (before the bottom nav / five main tabs exist): shield
