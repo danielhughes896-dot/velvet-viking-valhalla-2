@@ -53,7 +53,7 @@ preview deployments work too.
 | `STRAVA_CLIENT_ID` | your Client ID | Part 1 |
 | `STRAVA_CLIENT_SECRET` | your Client Secret | Part 1 — **secret**, paste it only here |
 | `STRAVA_WEBHOOK_VERIFY_TOKEN` | any random string you invent | make one up, e.g. 20 random letters. You never need to type it again — it is only used server-to-server between Strava and VVV |
-| `SUPABASE_SERVICE_ROLE_KEY` | your Supabase service-role key | Supabase → Project Settings → API → **service_role** — **secret** |
+| `VVV_SUPABASE_SERVICE_ROLE_KEY` | your Supabase service-role key | Supabase (project `eqiydxissphygnycpouu`) → Project Settings → API → **service_role** — **secret** |
 | `VVV_OWNER_USER_ID` | your Supabase user UUID | see Part 2b below. Not a secret, but it is what authorises webhook administration, so only set it to your own id |
 
 ### Part 2b — find your VVV owner user ID
@@ -72,21 +72,24 @@ why it is used rather than the address. It is safe to paste into Vercel; it
 grants nothing on its own (the server still requires a valid signed-in session
 belonging to that id).
 
-Optional, only if you ever move Supabase projects:
+### Why the name starts with `VVV_`
 
-| Name | Value |
-| --- | --- |
-| `SUPABASE_URL` | `https://eqiydxissphygnycpouu.supabase.co` (this is already the default, so you can skip it) |
-| `SUPABASE_ANON_KEY` | the project's **publishable** key (already the default too — skip it) |
+Vercel's Supabase integration injects `SUPABASE_URL`, `SUPABASE_ANON_KEY` and
+`SUPABASE_SERVICE_ROLE_KEY` automatically, and those values are
+integration-managed — you cannot edit or remove them in the environment
+variables UI. On this deployment they belong to a **different** Supabase
+project than Valhalla's, which silently repointed the whole server side of the
+Strava integration at the wrong database.
 
-⚠️ **If Vercel's Supabase integration is connected, it injects `SUPABASE_URL`,
-`SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` automatically — possibly
-for a different project than the one the app is hardcoded to use.** That makes
-the server verify sign-ins against the wrong project and every admin request is
-refused. Check Vercel → Settings → Environment Variables: if `SUPABASE_URL` is
-present and is **not** `https://eqiydxissphygnycpouu.supabase.co`, either delete
-it or correct it. `/admin` now reports this as `AUTH_PROJECT_MISMATCH` and names
-the offending host in the Vercel function log.
+The server therefore no longer reads any of those three names. Valhalla's
+project (`eqiydxissphygnycpouu`) is pinned in the code, and the only way to
+supply the service-role key is the `VVV_`-prefixed name above, which no
+integration writes. **You do not need to delete, disconnect or change the
+Supabase integration** — its variables are simply ignored now.
+
+If you ever genuinely move Valhalla to a different Supabase project, override
+all three together: `VVV_SUPABASE_URL`, `VVV_SUPABASE_ANON_KEY`,
+`VVV_SUPABASE_SERVICE_ROLE_KEY`.
 
 ⚠️ The **service_role** key bypasses Row Level Security. It belongs in Vercel
 and nowhere else — never in the HTML file, never in a commit, never in a chat.
@@ -192,9 +195,10 @@ Every failure now shows a short `Code:` under the message. Match it here:
 | --- | --- | --- |
 | `AUTH_NO_SESSION` | not signed in **in this browser** | open the app in the same browser and sign in |
 | `AUTH_REFRESH_FAILED` / `AUTH_VERIFY_401` | the session really has expired | sign in to VVV again in this browser |
-| `AUTH_PROJECT_MISMATCH` | the server checks sign-ins against a different Supabase project than the app uses | Vercel → `SUPABASE_URL` (delete it, or set the project URL above) |
-| `AUTH_ANON_KEY_REJECTED` | Supabase refused the server's API key | Vercel → `SUPABASE_ANON_KEY` (delete it to use the default) |
-| `AUTH_VERIFY_404` | `SUPABASE_URL` points at the REST URL, not the project URL | Vercel → `SUPABASE_URL` |
+| `SUPABASE_KEY_UNUSABLE` | no service-role key that provably belongs to Valhalla's project | Vercel → add `VVV_SUPABASE_SERVICE_ROLE_KEY`, then redeploy |
+| `AUTH_PROJECT_MISMATCH` | the server checks sign-ins against a different Supabase project than the app uses | Vercel → `VVV_SUPABASE_URL` (remove it — the correct project is pinned in code) |
+| `AUTH_ANON_KEY_REJECTED` | Supabase refused the server's API key | Vercel → `VVV_SUPABASE_ANON_KEY` (remove it to use the default) |
+| `AUTH_VERIFY_404` | `VVV_SUPABASE_URL` points at the REST URL, not the project URL | Vercel → `VVV_SUPABASE_URL` |
 | `AUTH_HEADER_MISSING` | the sign-in header never reached the function | a proxy/deployment problem, not your session |
 | `AUTH_UNAVAILABLE` | Supabase was unreachable from the server | nothing is wrong — retry shortly |
 | `OWNER_MISMATCH` | you are signed in as someone other than the configured owner | Vercel → `VVV_OWNER_USER_ID` |

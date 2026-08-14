@@ -49,9 +49,17 @@ module.exports = async function handler(req, res){
     res.setHeader('Allow', 'POST');
     return S.json(res, 405, { error: 'Method not allowed' });
   }
-  if (!cfg.serviceKey || !cfg.clientId || !cfg.clientSecret){
+  if (!cfg.clientId || !cfg.clientSecret){
     log('STRAVA_NOT_CONFIGURED');
     return S.json(res, 503, { error: 'strava_not_configured', code: 'STRAVA_NOT_CONFIGURED' });
+  }
+  // A refused service key is its own diagnosis, not "Strava is not set up".
+  // foreign_project / unattributable both mean an integration-injected key that
+  // is not provably ours, which the owner fixes by setting the namespaced one.
+  if (!cfg.serviceKey){
+    log('SUPABASE_KEY_UNUSABLE serviceKey=' + cfg.serviceKeySource);
+    return S.json(res, 503, { error: 'supabase_key_unusable', code: 'SUPABASE_KEY_UNUSABLE',
+                              reason: cfg.serviceKeySource });
   }
 
   // Fail closed. With no owner configured there is no such thing as an

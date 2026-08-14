@@ -27,10 +27,29 @@ const STATE_TTL_SEC = 15 * 60;
 
 function env(name){ return process.env[name] || ''; }
 
+/* ---------- the canonical Supabase project ----------
+   Velvet Viking Valhalla has exactly one Supabase project, and the app has it
+   hardcoded. The server must use the SAME one or nothing lines up: access
+   tokens minted by the app are rejected, and strava_connections /
+   strava_activities are read and written in a database that does not have
+   those tables.
+
+   That is not hypothetical. A Vercel Supabase integration attached to this
+   deployment injects SUPABASE_URL, SUPABASE_ANON_KEY and
+   SUPABASE_SERVICE_ROLE_KEY for a DIFFERENT project, and those values are
+   integration-managed -- they cannot simply be edited or removed in the
+   environment variables UI. Reading them silently repointed the entire server
+   half of the Strava integration at an unrelated database.
+
+   So the project is pinned here instead of taken from the environment. An
+   override is still possible, but only through VVV_-namespaced names that no
+   integration writes, so this cannot be captured by accident again. */
+const VVV_SUPABASE_URL      = 'https://eqiydxissphygnycpouu.supabase.co';
+const VVV_SUPABASE_REF      = 'eqiydxissphygnycpouu';
+const VVV_SUPABASE_ANON_KEY = 'sb_publishable_PLiExuCqvMmjYwal4DtFQA_m4eZuCd-';
+
 // Deliberately regex-based rather than `new URL()`. These run on every auth
-// call and must never throw, whatever a misconfigured value looks like, so
-// there is no dependency on a URL implementation being present or on the input
-// being parseable at all.
+// call and must never throw, whatever a misconfigured value looks like.
 function projectOrigin(u){
   if (!u) return '';
   const m = /^(https?:\/\/[^\/?#]+)/i.exec(String(u).trim());
@@ -40,43 +59,63 @@ function hostOf(u){
   const m = /^(?:https?:\/\/)?([^\/?#]+)/i.exec(String(u || '').trim());
   return m ? m[1].toLowerCase() : '';
 }
+function projectRef(u){
+  const m = /^([a-z0-9]+)\.supabase\./i.exec(hostOf(u));
+  return m ? m[1].toLowerCase() : '';
+}
 
-/* Read the `iss` claim out of a Supabase JWT WITHOUT verifying it.
-   This is used for diagnostics only and never for authorization: a token is
-   still only trusted after Supabase itself confirms it. The point is to catch
-   the one misconfiguration that is otherwise invisible -- a token minted by
-   project A being checked against project B, which returns a plain 401 and is
-   indistinguishable from an expired session. The issuer is deliberately never
-   followed; doing so would let a caller aim verification at a project they
-   control. */
-function jwtIssuerHost(token){
+/* Decode a JWT payload WITHOUT verifying it. Used only to read which project a
+   token or key belongs to, never as proof of identity or authority. */
+function jwtClaims(token){
   try{
     const parts = String(token).split('.');
     if (parts.length !== 3) return null;
-    const json = Buffer.from(parts[1].replace(/-/g,'+').replace(/_/g,'/'), 'base64').toString('utf8');
-    const claims = JSON.parse(json);
-    return claims && claims.iss ? hostOf(claims.iss) : null;
+    return JSON.parse(Buffer.from(parts[1].replace(/-/g,'+').replace(/_/g,'/'), 'base64').toString('utf8'));
   }catch(e){ return null; }
+}
+function jwtIssuerHost(token){
+  const c = jwtClaims(token);
+  return c && c.iss ? hostOf(c.iss) : null;
+}
+/* Legacy Supabase keys are JWTs carrying a `ref` claim naming their project.
+   The newer sb_secret_... format is opaque, so the honest answer is null. */
+function serviceKeyRef(key){
+  const c = jwtClaims(key);
+  return (c && typeof c.ref === 'string') ? c.ref.toLowerCase() : null;
+}
+
+/* The service-role key is the dangerous one: with another project's key the
+   server reads and writes a database that is not ours. It is therefore accepted
+   only when explicitly namespaced for VVV, or when it provably belongs to the
+   canonical project. An integration-injected key for a different project is
+   refused rather than used, and the reason is recorded. */
+function resolveServiceKey(){
+  const own = env('VVV_SUPABASE_SERVICE_ROLE_KEY');
+  if (own) return { key: own, source: 'vvv_namespaced' };
+  const injected = env('SUPABASE_SERVICE_ROLE_KEY');
+  if (!injected) return { key: '', source: 'absent' };
+  const ref = serviceKeyRef(injected);
+  if (ref === VVV_SUPABASE_REF) return { key: injected, source: 'env_verified' };
+  if (ref) return { key: '', source: 'foreign_project' };
+  // Opaque key that cannot be attributed to a project. Refusing is the safe
+  // answer -- using a key that might belong to another project is exactly how
+  // data ends up in the wrong database.
+  return { key: '', source: 'unattributable' };
 }
 
 function config(){
+  const svc = resolveServiceKey();
   return {
     clientId:     env('STRAVA_CLIENT_ID'),
     clientSecret: env('STRAVA_CLIENT_SECRET'),
     verifyToken:  env('STRAVA_WEBHOOK_VERIFY_TOKEN'),
-    // Only the ORIGIN is ever used. The Supabase dashboard shows a REST URL
-    // ending in /rest/v1, and pasting that into SUPABASE_URL would send every
-    // auth call to /rest/v1/auth/v1/user -- a 404 that looks nothing like the
-    // real problem. Normalising here makes that class of misconfiguration
-    // harmless instead of mysterious.
-    supabaseUrl:  projectOrigin(env('SUPABASE_URL')) || 'https://eqiydxissphygnycpouu.supabase.co',
-    serviceKey:   env('SUPABASE_SERVICE_ROLE_KEY'),
-    // The publishable key, which is public by design and is the same value the
-    // app ships. Used ONLY as the apikey header when verifying a user's own
-    // JWT: that is the call the app itself makes, so identity resolves through
-    // exactly the path the token was minted for. The service-role key stays for
-    // data access, where it belongs.
-    anonKey:      env('SUPABASE_ANON_KEY') || 'sb_publishable_PLiExuCqvMmjYwal4DtFQA_m4eZuCd-'
+    // SUPABASE_URL and SUPABASE_ANON_KEY are deliberately NOT read: those are
+    // precisely the names a Vercel Supabase integration claims. Only a
+    // VVV_-namespaced override can move the project.
+    supabaseUrl:  projectOrigin(env('VVV_SUPABASE_URL')) || VVV_SUPABASE_URL,
+    anonKey:      env('VVV_SUPABASE_ANON_KEY') || VVV_SUPABASE_ANON_KEY,
+    serviceKey:   svc.key,
+    serviceKeySource: svc.source
   };
 }
 
@@ -150,6 +189,7 @@ async function verifyUser(req, cfg){
     authHeader: false, jwtShape: false,
     project: hostOf(cfg.supabaseUrl),
     anonKey: !!cfg.anonKey,
+    serviceKeySource: cfg.serviceKeySource,
     status: null, tokenIssuer: null
   };
   const auth = req.headers['authorization'] || '';
@@ -202,7 +242,8 @@ function diagLine(code, diag){
     ' project=' + (diag.project || 'unset') +
     ' tokenIssuer=' + (diag.tokenIssuer || 'unknown') +
     ' anonKey=' + (diag.anonKey ? 'configured' : 'missing') +
-    ' userStatus=' + (diag.status == null ? 'none' : diag.status);
+    ' userStatus=' + (diag.status == null ? 'none' : diag.status) +
+    (diag.serviceKeySource ? ' serviceKey=' + diag.serviceKeySource : '');
 }
 
 // The long-standing shape the other endpoints use, unchanged in behaviour:
@@ -363,7 +404,8 @@ module.exports = {
   STRAVA_AUTHORIZE_URL, STRAVA_TOKEN_URL, STRAVA_DEAUTH_URL, STRAVA_API, STRAVA_SCOPE,
   config, siteOrigin, redirectUri, readBody,
   signState, verifyState, userIdFromRequest, verifyUser, diagLine,
-  projectOrigin, hostOf, jwtIssuerHost,
+  projectOrigin, hostOf, projectRef, jwtIssuerHost, serviceKeyRef, resolveServiceKey,
+  VVV_SUPABASE_URL, VVV_SUPABASE_REF,
   sb, getConnection, getConnectionByAthlete, saveConnection, deleteConnection,
   exchangeCode, accessTokenFor, stravaApi, stravaTokenRequest,
   normaliseActivity, stageActivity, json
