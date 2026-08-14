@@ -248,3 +248,31 @@ runs stay in your plan — they are your training history, not Strava's.
 Deleting a run on Strava does not delete it from your plan either; VVV only
 retires the external link. Revoking VVV from Strava's own settings page reaches
 VVV through the webhook and disconnects it there too.
+
+
+---
+
+## Reading the deployment logs
+
+Vercel → your project → **Deployments** → the current one → **Functions** →
+pick the function → **Logs**. Every line is prefixed `strava-<endpoint>:` and
+contains only facts — never a token, key, secret, Supabase user id or email.
+
+| Line | Meaning |
+| --- | --- |
+| `strava-callback: OUTCOME connected` | an athlete finished Strava authorization |
+| `strava-callback: OUTCOME denied / scope / failed` | they cancelled, refused activity access, or the exchange failed |
+| `strava-sync: MANUAL days=180 returned=12 runs=9 staged=9 pending=3` | Sync Strava: what Strava returned, how many were runs, how many staged, how many still waiting to be logged |
+| `strava-sync: PULL pending=1` | the app opened and found staged activities waiting |
+| `strava-sync: ACK n=1 ok` | the app confirmed it has logged them |
+| `strava-webhook: HANDSHAKE_OK` | Strava validated the subscription |
+| `strava-webhook: EVENT type=activity aspect=create` | a real push event arrived |
+| `strava-webhook: activity=1234 aspect=create STAGED date=2026-08-14 km=10.2` | **delivery proved end to end** |
+| `strava-webhook: activity=… NO_MATCHING_CONNECTION` | that Strava athlete is not connected to any VVV account |
+| `strava-webhook: activity=… NOT_A_RUN type=Ride` | correctly ignored |
+| `strava-webhook: activity=… AUTHORIZATION_UNUSABLE` | the athlete's Strava grant is dead — reconnect |
+| `strava-webhook: activity=… FETCH_FAILED status=…` | Strava refused the activity fetch |
+
+If you see `EVENT` but no `STAGED`, the line immediately after `EVENT` says why.
+If you see no `EVENT` at all, Strava never called — check the subscription with
+`/admin` → **View subscription**.

@@ -19,10 +19,13 @@ const S = require('./_strava.js');
 async function ingest(cfg, event){
   const athleteId = event.owner_id;
   const activityId = event.object_id;
-  if (athleteId == null || activityId == null) return;
+  const tag = 'activity=' + activityId + ' aspect=' + event.aspect_type;
+  if (athleteId == null || activityId == null){ S.log('webhook', tag + ' INCOMPLETE_EVENT'); return; }
 
+  // Resolution is by Strava athlete id, which is UNIQUE across connections, so
+  // an event can only ever land on the one VVV account that authorised it.
   const conn = await S.getConnectionByAthlete(cfg, athleteId);
-  if (!conn) return;                       // not a VVV athlete, or already disconnected
+  if (!conn){ S.log('webhook', tag + ' NO_MATCHING_CONNECTION'); return; }
 
   if (event.aspect_type === 'delete'){
     // The athlete's own training history is theirs: the logged workout stays
@@ -32,18 +35,23 @@ async function ingest(cfg, event){
                     '&activity_id=eq.' + encodeURIComponent(activityId), {
       method: 'PATCH', body: JSON.stringify({ deleted: true }), prefer: 'return=minimal'
     });
+    S.log('webhook', tag + ' PROVENANCE_RETIRED');
     return;
   }
 
   const token = await S.accessTokenFor(cfg, conn);
-  if (!token) return;                      // revoked; accessTokenFor has cleared the row
+  if (!token){ S.log('webhook', tag + ' AUTHORIZATION_UNUSABLE'); return; }
 
   const r = await S.stravaApi('/activities/' + activityId + '?include_all_efforts=false', token);
-  if (!r.ok) return;
+  if (!r.ok){ S.log('webhook', tag + ' FETCH_FAILED status=' + r.status); return; }
   const a = S.normaliseActivity(r.data);
-  if (!a || !a.isRun || !a.date) return;   // rides, swims and walks are not VVV evidence
+  if (!a){ S.log('webhook', tag + ' UNREADABLE_ACTIVITY'); return; }
+  if (!a.isRun){ S.log('webhook', tag + ' NOT_A_RUN type=' + a.activityType); return; }
+  if (!a.date){ S.log('webhook', tag + ' NO_LOCAL_DATE'); return; }
 
-  await S.stageActivity(cfg, conn.user_id, a);
+  const saved = await S.stageActivity(cfg, conn.user_id, a);
+  S.log('webhook', tag + (saved && saved.ok ? ' STAGED' : ' STAGE_FAILED') +
+        ' date=' + a.date + ' km=' + a.km);
 }
 
 module.exports = async function handler(req, res){
@@ -52,8 +60,10 @@ module.exports = async function handler(req, res){
   if (req.method === 'GET'){
     const q = req.query || {};
     if (q['hub.mode'] === 'subscribe' && cfg.verifyToken && q['hub.verify_token'] === cfg.verifyToken){
+      S.log('webhook', 'HANDSHAKE_OK');
       return S.json(res, 200, { 'hub.challenge': q['hub.challenge'] });
     }
+    if (q['hub.mode']) S.log('webhook', 'HANDSHAKE_REFUSED');
     // Nothing else is served here. Subscription management used to live on
     // this route, authorised by the verify token in the query string -- which
     // made a callback-verification value double as a reusable administrative
@@ -77,6 +87,9 @@ module.exports = async function handler(req, res){
   // path here is keyed on the activity id and idempotent, so a retry after a
   // slow round trip simply does the same work again harmlessly. Correctness
   // under freeze is worth more than shaving a second off the acknowledgement.
+  S.log('webhook', 'EVENT type=' + (event && event.object_type) +
+        ' aspect=' + (event && event.aspect_type) +
+        (cfg.serviceKey ? '' : ' NO_SERVICE_KEY source=' + cfg.serviceKeySource));
   if (cfg.serviceKey && event){
     try{
       if (event.object_type === 'activity'){
@@ -87,7 +100,7 @@ module.exports = async function handler(req, res){
         const conn = await S.getConnectionByAthlete(cfg, event.owner_id);
         if (conn) await S.deleteConnection(cfg, conn.user_id);
       }
-    }catch(e){}
+    }catch(e){ S.log('webhook', 'HANDLER_THREW'); }
   }
 
   S.json(res, 200, { received: true });

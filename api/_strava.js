@@ -394,6 +394,18 @@ async function stageActivity(cfg, userId, activity){
   });
 }
 
+/* Value-free operational logging, shared by every endpoint.
+
+   These lines exist so a REAL delivery can be verified after the fact: without
+   them a live webhook that silently does nothing is indistinguishable from one
+   that never arrived. They record what happened and to what, never who or with
+   what credential -- no JWT, refresh token, access token, service-role key,
+   anon key, client secret, webhook verify token, Supabase user id or email.
+   Strava activity ids ARE included, because they are the only way to correlate
+   a log line with the athlete's own Strava feed, and they are the athlete's own
+   data in the athlete's own deployment logs. */
+function log(scope, what){ try{ console.log('strava-' + scope + ': ' + what); }catch(e){} }
+
 function json(res, status, obj){
   res.setHeader('content-type', 'application/json');
   res.setHeader('cache-control', 'no-store');
@@ -408,5 +420,5 @@ module.exports = {
   VVV_SUPABASE_URL, VVV_SUPABASE_REF,
   sb, getConnection, getConnectionByAthlete, saveConnection, deleteConnection,
   exchangeCode, accessTokenFor, stravaApi, stravaTokenRequest,
-  normaliseActivity, stageActivity, json
+  normaliseActivity, stageActivity, json, log
 };

@@ -27,20 +27,25 @@ async function pending(cfg, uid){
 
 async function handleSync(req, res, cfg, uid, body){
   const conn = await S.getConnection(cfg, uid);
-  if (!conn) return S.json(res, 409, { error: 'not_connected' });
+  if (!conn){ S.log('sync', 'MANUAL not_connected'); return S.json(res, 409, { error: 'not_connected' }); }
   const token = await S.accessTokenFor(cfg, conn);
-  if (!token) return S.json(res, 409, { error: 'authorization_revoked' });
+  if (!token){ S.log('sync', 'MANUAL authorization_revoked'); return S.json(res, 409, { error: 'authorization_revoked' }); }
 
   const days = Math.min(MAX_SYNC_DAYS, Math.max(1, parseInt(body.days, 10) || 60));
   const after = Math.floor(Date.now()/1000) - days*86400;
   const r = await S.stravaApi('/athlete/activities?per_page=' + PER_PAGE + '&after=' + after, token);
-  if (!r.ok) return S.json(res, 502, { error: 'strava_unavailable', status: r.status });
+  if (!r.ok){ S.log('sync', 'MANUAL strava_status=' + r.status); return S.json(res, 502, { error: 'strava_unavailable', status: r.status }); }
 
-  const runs = (r.data || []).map(S.normaliseActivity).filter(a => a && a.isRun && a.date);
+  const all = (r.data || []).map(S.normaliseActivity).filter(Boolean);
+  const runs = all.filter(a => a.isRun && a.date);
   // Staged one at a time so a single malformed activity cannot lose the batch.
-  for (const a of runs){ try{ await S.stageActivity(cfg, uid, a); }catch(e){} }
+  let staged = 0;
+  for (const a of runs){ try{ const w = await S.stageActivity(cfg, uid, a); if (w && w.ok) staged++; }catch(e){} }
 
-  S.json(res, 200, { activities: await pending(cfg, uid), fetched: runs.length });
+  const out = await pending(cfg, uid);
+  S.log('sync', 'MANUAL days=' + days + ' returned=' + all.length +
+        ' runs=' + runs.length + ' staged=' + staged + ' pending=' + out.length);
+  S.json(res, 200, { activities: out, fetched: runs.length });
 }
 
 async function handleAck(req, res, cfg, uid, body){
@@ -54,6 +59,7 @@ async function handleAck(req, res, cfg, uid, body){
       method: 'PATCH', body: JSON.stringify({ ingested_at: new Date().toISOString() }),
       prefer: 'return=minimal'
     });
+  S.log('sync', 'ACK n=' + clean.length + (r.ok ? ' ok' : ' failed'));
   S.json(res, r.ok ? 200 : 502, r.ok ? { acked: ids.length } : { error: 'ack_failed' });
 }
 
@@ -63,7 +69,10 @@ module.exports = async function handler(req, res){
     res.setHeader('Allow', 'POST');
     return S.json(res, 405, { error: 'Method not allowed' });
   }
-  if (!cfg.serviceKey) return S.json(res, 503, { error: 'Strava is not configured on this server.' });
+  if (!cfg.serviceKey){
+    S.log('sync', 'SUPABASE_KEY_UNUSABLE source=' + cfg.serviceKeySource);
+    return S.json(res, 503, { error: 'supabase_key_unusable', code: 'SUPABASE_KEY_UNUSABLE' });
+  }
 
   const uid = await S.userIdFromRequest(req, cfg);
   if (!uid) return S.json(res, 401, { error: 'not_signed_in' });
@@ -71,5 +80,7 @@ module.exports = async function handler(req, res){
   const body = S.readBody(req);
   if (body.action === 'sync') return handleSync(req, res, cfg, uid, body);
   if (body.action === 'ack')  return handleAck(req, res, cfg, uid, body);
-  return S.json(res, 200, { activities: await pending(cfg, uid) });
+  const out = await pending(cfg, uid);
+  if (out.length) S.log('sync', 'PULL pending=' + out.length);
+  return S.json(res, 200, { activities: out });
 };

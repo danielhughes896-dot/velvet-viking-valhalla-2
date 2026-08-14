@@ -15,6 +15,7 @@ const S = require('./_strava.js');
 // athlete in Chrome. No new custom scheme, no second OAuth implementation in
 // the app, and on the web it is just another URL that serves the same page.
 function back(res, origin, outcome){
+  S.log('callback', 'OUTCOME ' + outcome);
   res.writeHead(302, {
     'Location': origin + '/auth?strava=' + encodeURIComponent(outcome),
     'cache-control': 'no-store'
@@ -52,6 +53,7 @@ module.exports = async function handler(req, res){
   if (!ex.ok || !ex.data.access_token || !ex.data.refresh_token) return back(res, origin, 'failed');
 
   const ath = ex.data.athlete || {};
+  S.log('callback', 'TOKEN_EXCHANGED scope=' + (granted || 'default'));
   const saved = await S.saveConnection(cfg, {
     user_id: uid,
     strava_athlete_id: ath.id != null ? ath.id : null,

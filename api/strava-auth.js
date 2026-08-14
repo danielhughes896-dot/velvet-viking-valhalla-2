@@ -35,7 +35,10 @@ async function handleStatus(req, res, cfg, uid){
   // runs here. A refusal deletes the row, so a revoked grant reports
   // disconnected on the very next status call instead of lingering.
   const token = await S.accessTokenFor(cfg, conn);
-  if (!token) return S.json(res, 200, { connected: false, reason: 'authorization_revoked' });
+  if (!token){
+    S.log('auth', 'STATUS authorization_revoked');
+    return S.json(res, 200, { connected: false, reason: 'authorization_revoked' });
+  }
   S.json(res, 200, {
     connected: true,
     athleteName: conn.athlete_name || null,
@@ -68,8 +71,10 @@ module.exports = async function handler(req, res){
     res.setHeader('Allow', 'POST');
     return S.json(res, 405, { error: 'Method not allowed' });
   }
-  if (!cfg.serviceKey)
-    return S.json(res, 503, { error: 'Strava is not configured on this server.' });
+  if (!cfg.serviceKey){
+    S.log('auth', 'SUPABASE_KEY_UNUSABLE source=' + cfg.serviceKeySource);
+    return S.json(res, 503, { error: 'supabase_key_unusable', code: 'SUPABASE_KEY_UNUSABLE' });
+  }
 
   const uid = await S.userIdFromRequest(req, cfg);
   if (!uid)
