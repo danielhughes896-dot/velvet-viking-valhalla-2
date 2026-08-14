@@ -12733,6 +12733,36 @@ function stravaMatchDay(a){
   return days[0];
 }
 
+/* ---------- reporting only ----------
+   Never consulted by the matcher and it changes no decision: it re-asks
+   stravaMatchDay's questions in the same order purely so a refusal in
+   production can be NAMED instead of guessed at. Fixed codes, no free text,
+   nothing about the activity beyond why it could not be placed. */
+function stravaRefusalReason(a){
+  if (!a || !a.isRun || !a.date) return 'not_a_run';
+  if (a.km == null || !(a.km > 0)) return 'no_distance_yet';
+  if (!state.days || !state.days.length) return 'no_plan';
+  var days = state.days.filter(function(d){ return d.date === a.date; });
+  if (!days.length) return 'no_plan_day_on_date';
+  if (days.length > 1) return 'multiple_plan_days';
+  if (days[0].type === 'rest') return 'rest_day';
+  if (!stravaPlausible(days[0], a)) return 'implausible_distance';
+  return 'ambiguous_or_conflict';
+}
+/* Tally of why the activities that were NOT attached were refused. Anything
+   acknowledged is excluded: it was either attached or deliberately kept. */
+function stravaRefusalReasons(list, res){
+  var acked = {};
+  (res && res.ack || []).forEach(function(id){ acked[String(id)] = true; });
+  var tally = {};
+  (list||[]).forEach(function(a){
+    if (a && a.activityId != null && acked[String(a.activityId)]) return;
+    var why = stravaRefusalReason(a);
+    tally[why] = (tally[why]||0) + 1;
+  });
+  return tally;
+}
+
 /* ---------- plausibility, not exactness ----------
    Distance is used only to ask "could this activity BE that session?", never
    "was it executed well?" — that judgement is the Execution Score's and it must
@@ -12939,17 +12969,45 @@ function stravaIngestActivities(list){
 }
 
 function stravaConsume(d){
-  var res = stravaIngestActivities((d && d.activities) || []);
-  if (res.ack.length) stravaPost('strava-sync', { action:'ack', ids:res.ack }).catch(function(){});
+  var list = (d && d.activities) || [];
+  var res = stravaIngestActivities(list);
+  /* One report per delivery. The matching decision happens here in the browser,
+     so without this a refusal is indistinguishable from the app never having
+     asked: the server log would read "PULL pending=1" and then nothing at all.
+     Counts and fixed reason codes only. */
+  if (list.length){
+    stravaPost('strava-sync', { action:'ack', ids:res.ack, outcome:{
+      offered:list.length, applied:res.applied, same:res.same,
+      conflict:res.conflict, ambiguous:res.ambiguous, unmatched:res.unmatched,
+      reasons:stravaRefusalReasons(list, res)
+    }}).catch(function(){});
+  }
   if (res.applied){ scheduleSave(); renderApp(); }
   return res;
 }
 
-/* Opening the app. Costs no Strava call -- the webhook has normally already
-   fetched and staged the run -- and stays silent when there is nothing new, so
-   an ordinary launch is unchanged. */
-function stravaAutoPull(){
+/* Opening the app, or returning to it. Costs no Strava call -- the webhook has
+   normally already fetched and staged the run -- and stays silent when there is
+   nothing new, so an ordinary launch is unchanged.
+
+   Because the read is cheap it could run on every foreground, but
+   visibilitychange also fires on a glance, so repeated foregrounding is bounded
+   to once a minute.
+
+   `force` exists because that bound must never swallow the case this whole
+   path is for: the athlete leaves VVV, the run uploads, they come back a
+   moment later. Any real excursion to another app re-checks immediately;
+   only rapid flapping without a genuine background is throttled.
+
+   Manual Sync is deliberately NOT throttled at all -- the athlete pressed a
+   button and must always get a real answer. */
+var STRAVA_PULL_MIN_GAP_MS = 60000;
+var stravaLastPullAt = 0;
+function stravaAutoPull(force){
   if (!cloudSignedIn()) return Promise.resolve(null);
+  var now = Date.now();
+  if (!force && stravaLastPullAt && (now - stravaLastPullAt) < STRAVA_PULL_MIN_GAP_MS) return Promise.resolve(null);
+  stravaLastPullAt = now;
   return stravaPost('strava-sync', {}).then(function(d){
     var res = stravaConsume(d);
     if (res.applied) showToast('Imported '+res.applied+' run'+(res.applied===1?'':'s')+' from Strava');
@@ -14006,10 +14064,24 @@ function startNotificationScheduler(){
   maybeFireDailyNotification();
   notifyTimer = setInterval(maybeFireDailyNotification, 60000);
 }
+/* How long VVV has been in the background. A real excursion to another app is
+   the signal that something may have arrived while away; a momentary blur is
+   not. */
+var stravaHiddenSince = 0;
+var STRAVA_AWAY_MS = 5000;
 document.addEventListener('visibilitychange', function(){
-  if (document.visibilityState!=='visible'){ flushSave(); return; }
+  if (document.visibilityState!=='visible'){ stravaHiddenSince = Date.now(); flushSave(); return; }
+  var awayMs = stravaHiddenSince ? (Date.now() - stravaHiddenSince) : 0;
+  stravaHiddenSince = 0;
   checkDateRollover();
   maybeFireDailyNotification();
+  /* Coming back to the foreground is the other moment a staged run can be
+     waiting. The webhook stages it while VVV is in the background, and on
+     Android resuming does NOT re-run init() -- the WebView is still alive --
+     so without this the athlete has to force-quit the app or press Sync for a
+     run that already arrived. Skipped mid-connect because stravaBindResume
+     already covers that case. */
+  try{ if (stravaConn.status !== 'connecting') stravaAutoPull(awayMs >= STRAVA_AWAY_MS); }catch(e){}
 });
 window.addEventListener('pagehide', flushSave);
 function handleToggleNotify(){

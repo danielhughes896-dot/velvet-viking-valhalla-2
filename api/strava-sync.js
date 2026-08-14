@@ -48,7 +48,30 @@ async function handleSync(req, res, cfg, uid, body){
   S.json(res, 200, { activities: out, fetched: runs.length });
 }
 
+/* What the app DECIDED about what it was given. The matching runs in the
+   browser, so from here a refusal would otherwise look identical to the app
+   never having asked -- "PULL pending=1" followed by silence. Counts and fixed
+   reason codes only: no title, no notes, no location, nothing about the
+   athlete. Reason keys are whitelisted by shape before they reach the log, so
+   a client cannot inject text into it. */
+function logOutcome(o){
+  if (!o || typeof o !== 'object') return;
+  const n = k => Number.isFinite(o[k]) ? o[k] : 0;
+  let reasons = '';
+  if (o.reasons && typeof o.reasons === 'object'){
+    reasons = Object.keys(o.reasons).filter(k => /^[a-z_]{1,32}$/.test(k)).sort()
+      .map(k => k + '=' + (Number(o.reasons[k]) || 0)).join(',');
+  }
+  S.log('sync', 'OUTCOME offered=' + n('offered') + ' applied=' + n('applied') +
+        ' same=' + n('same') + ' conflict=' + n('conflict') +
+        ' ambiguous=' + n('ambiguous') + ' unmatched=' + n('unmatched') +
+        (reasons ? ' reasons=' + reasons : ''));
+}
+
 async function handleAck(req, res, cfg, uid, body){
+  // Logged before the early return: "the app looked and attached nothing" is a
+  // result, and is exactly the case worth seeing.
+  logOutcome(body.outcome);
   const ids = Array.isArray(body.ids) ? body.ids.map(String).filter(Boolean).slice(0, 200) : [];
   if (!ids.length) return S.json(res, 200, { acked: 0 });
   const clean = ids.map(id => id.replace(/[^0-9]/g, '')).filter(Boolean);
