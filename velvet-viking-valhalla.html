@@ -2943,21 +2943,36 @@ function authRedirectTarget(){
                        : (window.location.origin + window.location.pathname);
 }
 
-/* ---------- auth: email magic link, so there is no password to store or leak ---------- */
+/* ---------- auth: email magic link, so there is no password to store or leak ----------
+
+   PRIVATE BETA. The request goes to our own /api/beta-signin rather than
+   straight to GoTrue, so an address that is not on the beta list gets one clear
+   sentence instead of a database error. The server checks the list with a key
+   this page does not have, and the list itself never reaches the browser.
+
+   That endpoint is NOT the gate. The publishable key is public by design, so
+   anyone can post at /auth/v1/otp directly; what actually refuses is the
+   BEFORE INSERT trigger on auth.users, and what refuses a revoked tester is the
+   is_beta_approved() predicate on the row-level policies. Both live in the
+   database (supabase-beta-gate.sql). This call is for the message.
+
+   The redirect target is still computed here and still sent as a parameter --
+   GoTrue takes it from ?redirect_to=, not from the body, which is the detail
+   that once made every APK magic link land on the web Site URL instead of the
+   app. The server re-validates it against its own origin before use, so a
+   tampered value cannot redirect a sign-in link somewhere else. */
 function cloudSendMagicLink(email){
-  // GoTrue takes the redirect target from the ?redirect_to= query parameter,
-  // not from the body. The nested options:{email_redirect_to} shape belongs to
-  // supabase-js, which translates it into this query param before sending; we
-  // call the REST endpoint directly, so passing it in the body meant it was
-  // silently dropped and every link fell back to the project's Site URL. On the
-  // web that is indistinguishable from working -- the Site URL is the web app --
-  // which is why this only ever showed up as "the APK never gets signed in".
-  var redirect = authRedirectTarget();
-  return cloudFetch('/auth/v1/otp?redirect_to='+encodeURIComponent(redirect), {
-    method:'POST', auth:false,
-    body: JSON.stringify({ email:email, create_user:true })
+  return fetch('/api/beta-signin', {
+    method:'POST',
+    headers:{ 'content-type':'application/json' },
+    body: JSON.stringify({ email:email, redirect: authRedirectTarget() })
   }).then(function(resp){
-    if (!resp.ok) throw new Error('Could not send the sign-in link');
+    return resp.json().catch(function(){ return {}; }).then(function(data){
+      if (resp.ok) return;
+      var err = new Error(data.error || 'send_failed');
+      err.code = data.error || 'send_failed';
+      throw err;
+    });
   });
 }
 // Supabase returns tokens in the URL fragment on the web. A custom-scheme
@@ -3187,6 +3202,12 @@ function cloudPutPlan(){
     headers:{ 'Prefer':'resolution=merge-duplicates,return=representation' },
     body: JSON.stringify({ user_id:cloudSession.user_id, data:state, updated_at:new Date().toISOString() })
   }).then(function(resp){
+    /* A revoked beta tester is refused by the row-level policy, not by this
+       page. 403 is the only way the app finds out, so it is distinguished from
+       an ordinary failure and reported honestly -- "your access to the beta has
+       ended", not "check your connection". The local plan is untouched either
+       way: the athlete keeps everything, it simply stops mirroring. */
+    if (resp.status === 403){ var e = new Error('not_in_beta'); e.code = 'not_in_beta'; throw e; }
     if (!resp.ok) throw new Error('push failed');
     return resp.json().then(function(rows){
       var row = rows && rows[0];
@@ -3208,7 +3229,15 @@ function scheduleCloudPush(){
     cloudRefreshIfNeeded().then(function(ok){
       if (!ok) return null;
       return cloudPutPlan().then(function(){ cloudStatus='synced'; patchCloudCard(); });
-    }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
+    }).catch(function(err){
+      cloudStatus='error'; patchCloudCard();
+      // Said once per session, not on every debounced push, so a revoked
+      // tester is told what happened without being nagged about it.
+      if (err && err.code === 'not_in_beta' && !window.__vvvBetaRevokedTold){
+        window.__vvvBetaRevokedTold = true;
+        showToast('Your private-beta access has ended — your plan stays on this device');
+      }
+    });
   }, 1500);
 }
 
@@ -13056,6 +13085,29 @@ var STRAVA_LEGACY_TOKENS_KEY = 'vvv_strava_tokens';
 // status: off | connecting | connected | syncing | error
 var stravaConn = { status:'off', athleteName:null, message:'' };
 
+/* PRIVATE-BETA AVAILABILITY. Whether this deployment permits Strava at all,
+   which is a different question from whether THIS athlete is connected.
+
+   Defaults to false and only becomes true when the server says so, so a failed,
+   blocked or slow request leaves Strava switched OFF rather than on. The app
+   cannot turn it on for itself: every Strava route re-checks the same flag
+   server-side, and this variable only decides what is drawn. */
+var stravaAvailable = false;
+function stravaSetAvailable(on){
+  var was = stravaAvailable;
+  stravaAvailable = !!on;
+  if (was !== stravaAvailable) patchStravaSection();
+}
+/* One unauthenticated read, so Settings can be drawn correctly for a signed-out
+   athlete too -- the status call needs a session and would otherwise leave the
+   card in its beta state forever once Strava is switched back on. */
+function stravaCheckAvailability(){
+  return fetch('/api/strava-enabled', { headers:{ 'accept':'application/json' } })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){ stravaSetAvailable(d && d.enabled); return stravaAvailable; })
+    .catch(function(){ stravaSetAvailable(false); return false; });
+}
+
 /* Any token blob left by an older build is deleted, not migrated. It cannot be
    used server-side (the server holds its own copy or none at all) and leaving
    an access token sitting in localStorage is precisely what this pass removes. */
@@ -13091,6 +13143,7 @@ function stravaPost(endpoint, body){
 }
 function stravaErr(code){ var e = new Error(code); e.code = code; return e; }
 var STRAVA_ERROR_COPY = {
+  strava_disabled:        'Strava sync is switched off during the private beta',
   signin:                 'Sign in to VVV first — your Strava connection is saved to your account',
   not_connected:          'Connect Strava first',
   authorization_revoked:  'Strava access has expired — connect again',
@@ -13109,6 +13162,9 @@ function stravaSetState(status, extra){
 function stravaRefreshStatus(){
   if (!cloudSignedIn()){ stravaSetState('off'); return Promise.resolve(false); }
   return stravaPost('strava-auth', { action:'status' }).then(function(d){
+    // The same round trip also carries whether this deployment permits Strava
+    // at all, so the two can never disagree on the one screen.
+    if (d && typeof d.enabled === 'boolean') stravaSetAvailable(d.enabled);
     // Only an explicit connected:true counts. A transport failure, a 500 or a
     // missing field all mean "not usable", which is the honest answer.
     if (d && d.connected){ stravaSetState('connected', { athleteName:d.athleteName }); return true; }
@@ -13121,6 +13177,10 @@ function stravaRefreshStatus(){
 }
 
 function handleStravaConnect(){
+  // The control is not rendered while the gate is shut, so this only catches a
+  // dispatched action that arrived some other way. The server refuses `start`
+  // regardless -- no authorize URL is ever issued.
+  if (!stravaAvailable){ showToast(STRAVA_ERROR_COPY.strava_disabled); return; }
   if (!cloudSignedIn()){ showToast(STRAVA_ERROR_COPY.signin); return; }
   stravaSetState('connecting');
   stravaPost('strava-auth', { action:'start' }).then(function(d){
@@ -13152,6 +13212,7 @@ var STRAVA_RETURN_COPY = {
   connected:    'Strava connected — importing your recent runs…',
   denied:       'Strava connection cancelled',
   scope:        'VVV needs permission to read your activities — connect again and allow it',
+  unavailable:  'Strava sync is switched off during the private beta',
   unconfigured: 'Strava is not set up on this server yet',
   failed:       'Strava connection failed — try again'
 };
@@ -13488,6 +13549,10 @@ function stravaConsume(d){
 var STRAVA_PULL_MIN_GAP_MS = 60000;
 var stravaLastPullAt = 0;
 function stravaAutoPull(force){
+  // Beta gate, checked before init and before resume alike -- both reach here.
+  // The server refuses /api/strava-sync outright as well; this stops the
+  // request being made at all rather than relying on it being turned away.
+  if (!stravaAvailable) return Promise.resolve(null);
   if (!cloudSignedIn()) return Promise.resolve(null);
   var now = Date.now();
   if (!force && stravaLastPullAt && (now - stravaLastPullAt) < STRAVA_PULL_MIN_GAP_MS) return Promise.resolve(null);
@@ -13503,6 +13568,7 @@ function stravaAutoPull(force){
    the activity id and the day carries the activity that owns it, so running
    this repeatedly re-writes the same numbers and creates nothing. */
 function fetchStravaRuns(days){
+  if (!stravaAvailable){ showToast(STRAVA_ERROR_COPY.strava_disabled); return Promise.resolve(null); }
   if (!cloudSignedIn()){ showToast(STRAVA_ERROR_COPY.signin); return Promise.resolve(null); }
   if (!isStravaConnected()){ showToast(STRAVA_ERROR_COPY.not_connected); return Promise.resolve(null); }
   stravaSetState('syncing', { athleteName:stravaConn.athleteName });
@@ -13534,6 +13600,21 @@ function fetchStravaRuns(days){
 function renderStravaSection(){
   var s = stravaConn.status;
   var inner;
+  /* Beta gate. An intentional, explained state -- not a hidden control and not
+     a button that fails when pressed. Nothing here is actionable, so there is
+     no path from this card into an integration the server would refuse. */
+  if (!stravaAvailable){
+    return '<div id="strava-section">'+
+      '<div class="connect-row">'+
+        '<div><div class="name">Strava</div>'+
+        '<div class="desc">Not available during the private beta</div></div>'+
+      '</div>'+
+      '<div class="field-hint" style="margin-top:8px;">'+
+        'Automatic Strava sync is switched off while we confirm approval with Strava. '+
+        'You can still log runs yourself, or use Garmin File Import below.'+
+      '</div>'+
+    '</div>';
+  }
   if (s === 'connected' || s === 'syncing'){
     inner = '<div class="connect-row">'+
         '<div><div class="name">Strava</div><div class="desc"><span class="status-pill status-connected">'+ICONS.check+' Connected</span></div></div>'+
@@ -14197,7 +14278,15 @@ function handleCloudSignIn(){
   showToast('Sending your sign-in link…');
   cloudSendMagicLink(email)
     .then(function(){ showToast('Check your email for the sign-in link'); })
-    .catch(function(){ showToast('Couldn’t send the link — check your connection'); });
+    .catch(function(err){
+      /* A refused address is told the truth -- that this is a closed beta --
+         rather than being left to retry a connection that is working perfectly
+         well. Every other failure keeps the old message, because for those the
+         connection really is the likely cause. */
+      showToast((err && err.code) === 'not_in_beta'
+        ? 'Velvet Viking is in private beta — this email address is not on the tester list yet'
+        : 'Couldn’t send the link — check your connection');
+    });
 }
 function renderThemeToggleRow(){
   var isDark = state.theme==='dark';
@@ -14265,6 +14354,21 @@ function renderBottomNav(){
 function handleSetView(view){
   if (state.view===view) return;
   state.view = view;
+  /* Strava availability is learned lazily, when the athlete actually navigates
+     to the screen that shows it. A signed-in athlete has normally learned it
+     already from the status call at open; this covers the signed-out case,
+     where there is no session to ask with and the card would otherwise be stuck
+     on its fail-closed default.
+
+     Deliberately here rather than in renderStravaSection(): a render must stay
+     a pure function of state, and deliberately not at startup, because an
+     unconfigured build has to remain an app that makes no network request at
+     all. Asked once per session, and the section patches itself if the answer
+     changes what is drawn. */
+  if (view==='settings' && cloudConfigured() && !window.__vvvStravaProbed){
+    window.__vvvStravaProbed = true;
+    try{ stravaCheckAvailability(); }catch(e){}
+  }
   scheduleSave();
   renderApp();
 }
@@ -14559,8 +14663,11 @@ function init(){
   try{
     Promise.resolve(cloudInitReady).catch(function(){}).then(function(){
       if (handleStravaReturn()) return;
-      // One read of VVV's own staged rows, on open. Not a poll, not a timer:
-      // the webhook has already done the Strava side before the app opened.
+      /* Availability arrives on the SAME round trip as connection status, so
+         opening the app costs no extra request and the two can never disagree.
+         stravaAutoPull() re-checks it before doing anything, so the gate is
+         honoured on this path and on resume alike -- and the server refuses
+         /api/strava-sync regardless of what this page believes. */
       stravaRefreshStatus().then(function(ok){ if (ok) stravaAutoPull(); });
     });
   }catch(e){}

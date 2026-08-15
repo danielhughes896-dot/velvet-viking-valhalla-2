@@ -32,6 +32,16 @@ module.exports = async function handler(req, res){
     res.setHeader('Allow', 'GET');
     return S.json(res, 405, { error: 'Method not allowed' });
   }
+  /* Closed while the beta gate is shut, even though /api/strava-auth already
+     refuses to issue an authorize URL. An athlete can arrive here holding a
+     link generated before the gate closed, or one assembled by hand -- and this
+     is the route that would actually WRITE tokens. Refusing at the point of
+     storage is what makes the gate real; refusing only at the point of issue
+     would be a UI convention. */
+  if (!cfg.stravaEnabled){
+    S.log('callback', 'REFUSED strava_disabled');
+    return back(res, origin, 'unavailable');
+  }
   if (!cfg.clientId || !cfg.clientSecret || !cfg.serviceKey) return back(res, origin, 'unconfigured');
 
   // The athlete pressed Cancel/Authorize-denied on Strava's page.

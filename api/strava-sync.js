@@ -110,6 +110,20 @@ module.exports = async function handler(req, res){
   }
   const uid = who.uid;
 
+  /* The beta gate closes this endpoint completely -- sync, pull and ack alike.
+     `sync` is the obvious one (it calls Strava), but `pull` matters just as
+     much: it hands already-staged Strava data to the app, which then logs it
+     into the athlete's plan. That is ingestion, and "no new Strava data enters
+     a training log during the beta" is the actual requirement. Blocking the
+     whole route rather than one action leaves no third path open.
+
+     Nothing is deleted here. Staged rows and the connection survive the gate
+     being shut, so turning Strava back on resumes where it left off. */
+  if (!cfg.stravaEnabled){
+    S.log('sync', 'REFUSED action=' + (body.action || 'pull') + ' strava_disabled');
+    return S.json(res, 403, { error: 'strava_disabled', code: 'STRAVA_DISABLED' });
+  }
+
   if (body.action === 'sync') return handleSync(req, res, cfg, uid, body);
   if (body.action === 'ack')  return handleAck(req, res, cfg, uid, body);
   const out = await pending(cfg, uid);

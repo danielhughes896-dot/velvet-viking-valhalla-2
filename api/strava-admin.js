@@ -102,6 +102,14 @@ module.exports = async function handler(req, res){
       return S.json(res, r.status, { subscriptions: await r.json().catch(() => []) });
     }
     if (action === 'subscription_create'){
+      /* View and delete stay available while the beta gate is shut -- HQ needs
+         both to inspect and to remove a subscription. Creating one is the only
+         action that would start deliveries into a deployment that has decided
+         not to ingest, so it is the only one refused. */
+      if (!cfg.stravaEnabled){
+        log('SUBSCRIPTION_CREATE_REFUSED strava_disabled');
+        return S.json(res, 403, { error: 'strava_disabled', code: 'STRAVA_DISABLED' });
+      }
       if (!cfg.verifyToken){
         log('VERIFY_TOKEN_NOT_CONFIGURED');
         return S.json(res, 503, { error: 'verify_token_not_configured', code: 'VERIFY_TOKEN_NOT_CONFIGURED' });

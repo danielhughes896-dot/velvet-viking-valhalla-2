@@ -46,6 +46,21 @@
   <button type="button" id="del">Delete subscription</button>
 
   <pre id="out">Ready.</pre>
+
+  <h1 style="margin-top:34px;">Delete a beta tester</h1>
+  <p>For a withdrawal request received at support@velvetviking.co.uk. Look the
+     address up first and check what comes back — deletion cannot be undone.</p>
+
+  <input type="email" id="del-email" inputmode="email" autocapitalize="off"
+         autocomplete="off" spellcheck="false" placeholder="tester@example.com">
+  <button type="button" id="user-lookup">Look up this address</button>
+  <button type="button" id="user-delete" style="border-color:#7A2E2E; background:#2A1616;">
+    Delete this account permanently</button>
+
+  <p style="margin-top:14px;">This erases the account and every server-side
+     record we hold for it. It cannot reach the copy on the tester's own phone
+     or browser, or any backup in their own Google account — the response says
+     so explicitly, and that wording matters when answering them.</p>
 </main>
 <script>
 (function(){
@@ -139,7 +154,12 @@
     STRAVA_NOT_CONFIGURED: 'Strava is not configured on this server yet.',
     SUPABASE_KEY_UNUSABLE: 'This deployment has no usable Supabase service key for the Velvet Viking project. Set VVV_SUPABASE_SERVICE_ROLE_KEY in Vercel and redeploy.',
     VERIFY_TOKEN_NOT_CONFIGURED: 'STRAVA_WEBHOOK_VERIFY_TOKEN is not set on this server.',
-    STRAVA_UNAVAILABLE:    'Could not reach Strava — try again shortly.'
+    STRAVA_UNAVAILABLE:    'Could not reach Strava — try again shortly.',
+    STRAVA_DISABLED:       'Strava is switched off for the private beta (VVV_STRAVA_ENABLED is not on). View and Delete still work; Create does not.',
+    no_such_user:          'No account exists for that address on this deployment.',
+    bad_email:             'That does not look like an email address.',
+    confirmation_required: 'The deletion was not confirmed, so nothing was deleted.',
+    lookup_failed:         'Could not read the user list from Supabase. Nothing was deleted.'
   };
   function fail(code){
     show((MESSAGE[code] || 'Request failed.') + '\n\nCode: ' + code);
@@ -161,28 +181,28 @@
   }
   identify();
 
-  function send(body, token){
-    return fetch('/api/strava-admin', {
+  function send(body, token, route){
+    return fetch(route || '/api/strava-admin', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'Authorization': 'Bearer ' + token },
       body: JSON.stringify(body)
     });
   }
 
-  function call(body){
+  function call(body, route){
     if (busy) return;
     busy = true;
     show('Working…');
     accessToken(false).then(function(a){
       if (a.code){ fail(a.code); return null; }
-      return send(body, a.token).then(function(r){
+      return send(body, a.token, route).then(function(r){
         // A 401 here means the server asked Supabase and Supabase said no. The
         // stored expiry can be wrong (clock skew, a token revoked early), so
         // force exactly one refresh and retry before believing it.
         if (r.status !== 401) return r;
         return accessToken(true).then(function(b){
           if (b.code) return { forced: b.code };
-          return send(body, b.token);
+          return send(body, b.token, route);
         });
       }).then(function(r){
         if (!r) return;
@@ -208,6 +228,30 @@
     var id = document.getElementById('sub-id').value.trim();
     if (!id){ show('Enter the id shown by View subscription.'); return; }
     call({ action: 'subscription_delete', id: id });
+  });
+
+  /* Beta-tester deletion. Two steps on purpose: the lookup shows exactly what
+     is held for that address, so the destructive call is made against something
+     the operator has actually seen rather than an address they typed. */
+  function targetEmail(){
+    var v = (document.getElementById('del-email').value || '').trim().toLowerCase();
+    if (!v || v.indexOf('@') < 1){ show('Enter the tester\u2019s email address.'); return null; }
+    return v;
+  }
+  document.getElementById('user-lookup').addEventListener('click', function(){
+    var email = targetEmail();
+    if (email) call({ action: 'user_lookup', email: email }, '/api/admin-user');
+  });
+  document.getElementById('user-delete').addEventListener('click', function(){
+    var email = targetEmail();
+    if (!email) return;
+    // Typed, not clicked. An owner-authenticated page is exactly where a
+    // mis-click would be most expensive.
+    if (window.prompt('Permanently delete ' + email + ' and all their server-side data?\n\nType DELETE to confirm.') !== 'DELETE'){
+      show('Cancelled — nothing was deleted.');
+      return;
+    }
+    call({ action: 'user_delete', email: email, confirm: 'DELETE' }, '/api/admin-user');
   });
 })();
 </script>

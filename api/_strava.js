@@ -103,12 +103,32 @@ function resolveServiceKey(){
   return { key: '', source: 'unattributable' };
 }
 
+/* ---------- the private-beta availability switch ----------
+   Strava is a product requirement and the integration below is intact. What
+   this controls is whether it may RUN, while written clarification is sought
+   from Strava for the external beta.
+
+   Deliberately its own explicit flag, and deliberately NOT "are the credentials
+   set". Unsetting STRAVA_CLIENT_ID would make these endpoints 503 while the
+   athlete still saw a Connect button and a broken feature, and it would conflate
+   "switched off on purpose" with "misconfigured" in every log line.
+
+   Default OFF. An unset variable is the beta state, so the gate cannot be left
+   open by forgetting to close it; turning Strava back on is one environment
+   variable and a redeploy, with no source change anywhere.
+
+   Accepts the obvious spellings so a redeploy is not lost to "true" vs "on". */
+function stravaEnabled(){
+  return /^(on|true|1|yes|enabled)$/i.test(String(env('VVV_STRAVA_ENABLED')).trim());
+}
+
 function config(){
   const svc = resolveServiceKey();
   return {
     clientId:     env('STRAVA_CLIENT_ID'),
     clientSecret: env('STRAVA_CLIENT_SECRET'),
     verifyToken:  env('STRAVA_WEBHOOK_VERIFY_TOKEN'),
+    stravaEnabled: stravaEnabled(),
     // SUPABASE_URL and SUPABASE_ANON_KEY are deliberately NOT read: those are
     // precisely the names a Vercel Supabase integration claims. Only a
     // VVV_-namespaced override can move the project.
@@ -444,7 +464,7 @@ function json(res, status, obj){
 
 module.exports = {
   STRAVA_AUTHORIZE_URL, STRAVA_TOKEN_URL, STRAVA_DEAUTH_URL, STRAVA_API, STRAVA_SCOPE,
-  config, siteOrigin, redirectUri, readBody,
+  config, stravaEnabled, siteOrigin, redirectUri, readBody,
   signState, verifyState, userIdFromRequest, verifyUser, diagLine,
   projectOrigin, hostOf, projectRef, jwtIssuerHost, serviceKeyRef, resolveServiceKey,
   VVV_SUPABASE_URL, VVV_SUPABASE_REF,

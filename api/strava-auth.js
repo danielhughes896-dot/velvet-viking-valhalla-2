@@ -12,6 +12,14 @@
 const S = require('./_strava.js');
 
 async function handleStart(req, res, cfg, uid){
+  /* The beta gate, checked here rather than only in the UI: `start` is the one
+     action that creates a NEW authorization, so refusing it server-side is what
+     makes "no Strava during the private beta" true even for someone posting at
+     this route directly. */
+  if (!cfg.stravaEnabled){
+    S.log('auth', 'START strava_disabled');
+    return S.json(res, 403, { error: 'strava_disabled', code: 'STRAVA_DISABLED' });
+  }
   if (!cfg.clientId || !cfg.clientSecret)
     return S.json(res, 503, { error: 'Strava is not configured on this server.' });
   const params = new URLSearchParams({
@@ -28,8 +36,20 @@ async function handleStart(req, res, cfg, uid){
 }
 
 async function handleStatus(req, res, cfg, uid){
+  /* `enabled` rides along on every status answer so the app learns availability
+     from the same round trip it already makes, and cannot end up drawing a
+     Connect button the server would refuse.
+
+     When the gate is OFF this reports connected:false WITHOUT asking Strava for
+     a token. An existing grant is not exercised at all while the beta gate is
+     shut -- the point is that nothing reaches Strava, not merely that nothing
+     new is stored. The connection row is left intact so turning the gate back
+     on restores the athlete's connection rather than silently dropping it. */
+  if (!cfg.stravaEnabled)
+    return S.json(res, 200, { enabled: false, connected: false });
+
   const conn = await S.getConnection(cfg, uid);
-  if (!conn) return S.json(res, 200, { connected: false });
+  if (!conn) return S.json(res, 200, { enabled: true, connected: false });
   // A row is not proof of a usable authorization. Ask for a token: if the
   // access token is live it is returned as-is, and if it is stale the refresh
   // runs here. A refusal deletes the row, so a revoked grant reports
@@ -37,9 +57,10 @@ async function handleStatus(req, res, cfg, uid){
   const token = await S.accessTokenFor(cfg, conn);
   if (!token){
     S.log('auth', 'STATUS authorization_revoked');
-    return S.json(res, 200, { connected: false, reason: 'authorization_revoked' });
+    return S.json(res, 200, { enabled: true, connected: false, reason: 'authorization_revoked' });
   }
   S.json(res, 200, {
+    enabled: true,
     connected: true,
     athleteName: conn.athlete_name || null,
     since: conn.connected_at || null
@@ -101,6 +122,10 @@ module.exports = async function handler(req, res){
 
   if (action === 'start')      return handleStart(req, res, cfg, uid);
   if (action === 'status')     return handleStatus(req, res, cfg, uid);
+  /* `disconnect` is deliberately NOT gated by the beta switch. Turning Strava
+     off must never trap an athlete who is already connected: removing the grant
+     and purging the staged rows has to stay available in every state, because
+     it only ever reduces what is held. */
   if (action === 'disconnect') return handleDisconnect(req, res, cfg, uid);
   return S.json(res, 400, { error: 'Unknown action' });
 };

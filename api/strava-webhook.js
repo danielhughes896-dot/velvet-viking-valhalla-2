@@ -27,6 +27,20 @@ async function ingest(cfg, event){
   const conn = await S.getConnectionByAthlete(cfg, athleteId);
   if (!conn){ S.log('webhook', tag + ' NO_MATCHING_CONNECTION'); return; }
 
+  /* The beta gate, applied to the one path that runs with no athlete present.
+     A subscription that outlives the switch keeps delivering, so the refusal
+     has to be here rather than in the app.
+
+     Placed AFTER the delete branch below would be wrong, so note what is and is
+     not gated: `delete` still runs while the gate is shut, because it REMOVES
+     Strava-derived data, and Strava requires deletions to be honoured
+     expeditiously whether or not we are currently ingesting. Only the fetch and
+     stage path -- the one that brings new activity data in -- is stopped. */
+  if (!cfg.stravaEnabled && event.aspect_type !== 'delete'){
+    S.log('webhook', tag + ' INGEST_DISABLED');
+    return;
+  }
+
   if (event.aspect_type === 'delete'){
     /* The row is REMOVED, not flagged. Marking it deleted:true kept it out of
        the pending list but left the Strava-derived payload sitting in the
