@@ -2957,8 +2957,31 @@ function handleCloudDeleteAccount(){
   );
   if (!ok) return;
   showToast('Deleting your account…');
+  var stravaRevoked = false;
+  // Only warn about Strava if Strava was actually connected: an athlete who
+  // never linked it should not be told to go and unlink it.
+  var stravaConnectedAtDelete = isStravaConnected();
   cloudRefreshIfNeeded().then(function(fresh){
     if (!fresh) throw new Error('session expired');
+    /* Strava first, while the account (and therefore the connection row and the
+       session that authorises reading it) still exists. delete_own_account() is
+       a Postgres function and cannot call Strava, so deleting the account first
+       would strand the authorization: the tokens would be gone from VVV while
+       Strava still listed VVV as connected on the athlete's own settings page,
+       with no way left to revoke it.
+
+       This reuses the ordinary disconnect endpoint, so it deauthorizes with
+       Strava AND purges the staged activity rows through one already-tested
+       path rather than a second, parallel notion of "remove Strava".
+
+       Deliberately non-fatal. If Strava is unreachable the athlete has still
+       asked to be deleted and that must not be blocked by a third party being
+       down -- the outcome is reported honestly below rather than glossed. */
+    return stravaPost('strava-auth', { action:'disconnect' })
+      .then(function(d){ return !!(d && d.deauthorized); })
+      .catch(function(){ return false; });
+  }).then(function(deauthorized){
+    stravaRevoked = deauthorized;
     return cloudFetch('/rest/v1/rpc/delete_own_account', { method:'POST', body:'{}' });
   }).then(function(resp){
     if (!resp.ok) throw new Error('delete failed');
@@ -2967,7 +2990,12 @@ function handleCloudDeleteAccount(){
     writeStored(CLOUD_BACKUP_KEY, null);
     cloudStatus = 'signed-out';
     patchCloudCard();
-    showToast('Account deleted — your plan remains on this device');
+    /* If Strava could not be reached, say so rather than implying a clean
+       sweep. The athlete can finish the job themselves on Strava's own
+       settings page, and telling them is the only way they would know to. */
+    showToast(stravaRevoked || !stravaConnectedAtDelete
+      ? 'Account deleted — your plan remains on this device'
+      : 'Account deleted. Strava couldn\u2019t be reached \u2014 remove Velvet Viking in your Strava settings');
   }).catch(function(){
     showToast('Couldn’t delete the account — check your connection and try again');
   });
@@ -13234,86 +13262,24 @@ function handleApplyCsvRow(rowIdx){
 }
 
 
-function generateExportText(){
-  var lines = [];
-  var profile = state.setup ? DISTANCE_PROFILES[state.setup.distanceKey] : null;
-  lines.push('VELVET VIKING \u2014 TRAINING BLOCK');
-  if (profile && state.setup){
-    var goal = getActiveGoal();
-    var vdot = getActiveVDOT();
-    lines.push(profile.label+' \u00b7 '+totalWeeksInPlan()+'-Week '+profile.blockName+' \u00b7 '+vGoalDate()+': '+dLong(state.setup.raceDate));
-    lines.push('Active Goal '+state.setup.activeGoal+': '+(goal?secToClock(goal.timeSec):'\u2014')+' (VDOT '+(vdot?vdot.toFixed(1):'\u2014')+')');
-    var paces = getActivePaces();
-    // ascending (fastest bound first), in the runner's own unit
-    var pRange = function(z){ return z.slow ? secToPace(paceSecToDisplay(z.fast))+'-'+secToPace(paceSecToDisplay(z.slow)) : '\u2014'; };
-    var u = '/'+displayUnit();
-    lines.push('Paces \u2014 Easy '+pRange(paces.E)+u+', Threshold '+pRange(paces.T)+u+', Interval '+pRange(paces.I)+u);
-  }
-  lines.push('');
-  var totalWeeks = totalWeeksInPlan();
-  for (var w=1; w<=totalWeeks; w++){
-    var vol = weekVolume(w);
-    lines.push('WEEK '+w+' ('+weekPhaseLabel(w)+') \u2014 '+kmToDisplay(vol.done)+'/'+fmtDist(vol.total)+
-      (vol.race>0 ? ' (incl. '+fmtDist(vol.race)+' '+vGoalDay().toLowerCase()+'; '+fmtDist(vol.training)+' training)' : ''));
-    state.days.filter(function(dd){ return dd.week===w; }).forEach(function(dd){
-      var line = '  '+dow(dd.date)+' '+dShort(dd.date)+' \u2014 '+TYPE_META[dd.type].label+' \u2014 '+dd.title;
-      if (dd.km) line += ' ('+fmtDist(dd.km)+' planned)';
-      if (dd.type==='rest'){ line += ' \u2014 REST'; }
-      else if (dd.completed){
-        var a = dd.actual||{};
-        var parts = [];
-        if (a.km!=null) parts.push(fmtDist(a.km));
-        if (a.pace) parts.push(a.pace+'/'+displayUnit());
-        if (a.hr!=null) parts.push(a.hr+'bpm');
-        if (a.rpe!=null) parts.push('RPE '+a.rpe);
-        line += ' \u2014 COMPLETED: '+parts.join(', ');
-        if (a.notes) line += ' \u2014 "'+String(a.notes).replace(/"/g,'\'')+'"';
-      } else {
-        line += ' \u2014 planned, not yet logged';
-      }
-      lines.push(line);
-    });
-    lines.push('');
-  }
-  return lines.join('\n');
-}
+/* The "AI Coaching Export" was removed here.
 
-function openExportModal(){
-  var text = generateExportText();
-  var html = ''+
-  '<div class="modal-head"><h2 class="font-head">AI Coaching Export</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
-  '<div class="modal-body">'+
-    '<div class="field-hint" style="margin-bottom:10px;">Copy this into any AI chat assistant for coaching feedback on how training is tracking against plan.</div>'+
-    '<textarea class="export-text" id="export-text-area" readonly>'+escapeHtml(text)+'</textarea>'+
-    '<div class="modal-actions">'+
-      '<button type="button" class="btn btn-ghost" data-action="download-export">'+ICONS.download+' Download .txt</button>'+
-      '<button type="button" class="btn btn-primary" data-action="copy-export">'+ICONS.copy+' Copy</button>'+
-    '</div>'+
-  '</div>';
-  openModal(html);
-}
-function fallbackCopy(ta){
-  ta.removeAttribute('readonly'); ta.focus(); ta.select();
-  try{ document.execCommand('copy'); showToast('Copied to clipboard'); }
-  catch(e){ showToast('Couldn\u2019t copy automatically \u2014 select the text manually'); }
-  ta.setAttribute('readonly','readonly');
-}
-function handleCopyExport(){
-  var ta = document.getElementById('export-text-area');
-  if (!ta) return;
-  if (navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(ta.value).then(function(){ showToast('Copied to clipboard'); }).catch(function(){ fallbackCopy(ta); });
-  } else fallbackCopy(ta);
-}
-function handleDownloadExport(){
-  saveTextFile({
-    filename:'velvet-viking-training-log.txt',
-    mime:'text/plain',
-    text: generateExportText(),
-    done: canNativeShareFiles() ? 'Training log saved' : 'Log downloaded',
-    dialog:'Save your training log'
-  });
-}
+   It rendered the athlete's training log -- including km, pace and heart rate
+   that are Strava-derived once a run has been imported, plus their own notes --
+   into a text block, under the instruction "Copy this into any AI chat
+   assistant for coaching feedback".
+
+   Strava's API Policy (effective 1 June 2026) restricts Strava Data being used
+   in connection with the operation of an AI Application, and the prohibited
+   activities include ingestion into a context window. Valhalla itself calls no
+   AI service and this feature did not either -- but it existed specifically to
+   put Strava-derived data in front of one, and told the athlete to do it. That
+   is not a defensible position to hold on a technicality, so the feature is
+   gone rather than reworded.
+
+   The athlete's own export routes are deliberately untouched: Export Full
+   Backup (JSON), Export to iCal (.ics), and Print Plan all remain, because
+   they exist to give the athlete their own data, not to feed a model. */
 
 /* =========================================================
    ICAL EXPORT
@@ -13807,10 +13773,6 @@ function renderSettingsHubView(){
       '<button type="button" class="btn btn-ghost btn-block" data-action="open-pacing">'+ICONS.ruler+' '+vGoalDay()+' Pacing Strategy</button>'+
     '</div>'+
     '<div class="hub-card">'+
-      '<div class="setup-section-title">AI Coaching</div>'+
-      '<button type="button" class="btn btn-ghost btn-block" data-action="open-export">'+ICONS.sparkles+' Export AI Coaching Prompt</button>'+
-    '</div>'+
-    '<div class="hub-card">'+
       '<div class="setup-section-title">Sync &amp; Export</div>'+
       renderStravaSection()+
       '<button type="button" class="btn btn-ghost btn-block" style="margin:10px 0 8px;" data-action="open-import">'+ICONS.watch+' Garmin File Import</button>'+
@@ -13920,7 +13882,6 @@ document.addEventListener('click', function(e){
     case 'drop-note-signal': handleDropNoteSignal(target.getAttribute('data-day'), target.getAttribute('data-signal')); break;
     case 'open-settings': openSettingsModal(); break;
     case 'open-import': openImportModal(); break;
-    case 'open-export': openExportModal(); break;
     case 'open-setup': openSetupModal(); break;
     case 'open-recalibrate': openRecalibrateModal(); break;
     case 'rc-suggest-goals': handleRecalibrateSuggest(); break;
@@ -13951,8 +13912,6 @@ document.addEventListener('click', function(e){
     case 'strava-sync': fetchStravaRuns(); break;
     case 'strava-disconnect': handleStravaDisconnect(); break;
     case 'apply-csv-row': handleApplyCsvRow(parseInt(target.getAttribute('data-row'),10)); break;
-    case 'copy-export': handleCopyExport(); break;
-    case 'download-export': handleDownloadExport(); break;
     case 'export-ics': handleExportICS(); break;
     case 'print-plan': handlePrintPlan(); break;
     case 'reset-pace-overrides': handleResetPaceOverrides(); break;

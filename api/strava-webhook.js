@@ -28,14 +28,25 @@ async function ingest(cfg, event){
   if (!conn){ S.log('webhook', tag + ' NO_MATCHING_CONNECTION'); return; }
 
   if (event.aspect_type === 'delete'){
-    // The athlete's own training history is theirs: the logged workout stays
-    // exactly as it is. Only the external provenance is retired, so a later
-    // sync cannot resurrect the row and nothing claims Strava still backs it.
-    await S.sb(cfg, '/strava_activities?user_id=eq.' + encodeURIComponent(conn.user_id) +
-                    '&activity_id=eq.' + encodeURIComponent(activityId), {
-      method: 'PATCH', body: JSON.stringify({ deleted: true }), prefer: 'return=minimal'
-    });
-    S.log('webhook', tag + ' PROVENANCE_RETIRED');
+    /* The row is REMOVED, not flagged. Marking it deleted:true kept it out of
+       the pending list but left the Strava-derived payload sitting in the
+       database indefinitely -- the athlete had deleted the activity on Strava
+       and VVV still held its distance, pace and heart rate. Strava requires
+       deleted activities to stop being retained and disclosed expeditiously,
+       and a tombstone row is not that.
+
+       Dropping the row entirely is also self-correcting: staging is keyed on
+       (user, activity id), so if the activity somehow reappears it simply
+       stages again rather than being permanently suppressed by a stale flag.
+
+       What this does NOT do is reach into the athlete's training history. If
+       the run was already logged, the session stays in their plan -- it is
+       their record of a run they actually did, and deleting it on Strava is
+       not a statement that it never happened. That boundary is a product
+       decision and is called out in the audit, not an oversight. */
+    const gone = await S.sb(cfg, '/strava_activities?user_id=eq.' + encodeURIComponent(conn.user_id) +
+                    '&activity_id=eq.' + encodeURIComponent(activityId), { method: 'DELETE' });
+    S.log('webhook', tag + (gone && gone.ok ? ' STAGED_ROW_DELETED' : ' STAGED_ROW_DELETE_FAILED'));
     return;
   }
 
