@@ -4003,9 +4003,72 @@ function getDayDurationSec(dd){
   if (!paceSec) paceSec = DEFAULT_PACE_SEC_PER_KM;
   return dd.km*paceSec;
 }
+/* =========================================================
+   FUELLING CONSTANTS — evidence provenance
+   ---------------------------------------------------------
+   Every athlete-facing nutrition quantity in this app comes from here. They
+   are fixed ranges from published sports-nutrition consensus, never computed
+   per athlete and never derived from bodyweight or body composition — VVV
+   asks for neither and must not start.
+
+   ⚠ SOURCES NOT MACHINE-VERIFIED. This deployment has no outbound access to
+   acsm.org or the journals, so the citations below are recorded from
+   established consensus rather than fetched and quoted. Treat them as
+   provenance to be confirmed by a human before any value here is changed.
+
+   FUEL_CARB_G_PER_HOUR_LO / _HI = 60-90 g/h
+     What it represents: carbohydrate ingested DURING prolonged endurance
+       exercise, to spare glycogen and sustain work rate.
+     Source: ACSM / Academy of Nutrition and Dietetics / Dietitians of Canada
+       joint position statement, "Nutrition and Athletic Performance" (2016),
+       which grades intake by DURATION — broadly ~30-60 g/h for efforts of
+       roughly 1-2.5 h, rising toward 90 g/h only for efforts beyond ~2.5-3 h
+       and only with multiple transportable carbohydrates (glucose:fructose),
+       since a single transportable source saturates near 60 g/h.
+     Limitations: the upper end requires gut training and a mixed-carbohydrate
+       product; taking 90 g/h untrained commonly causes GI distress.
+     ⚠ KNOWN CONFLICT WITH CURRENT BEHAVIOUR — see FUEL_LONG_SESSION_SEC.
+       This range is presented flat, without the duration grading the source
+       applies. It is preserved EXACTLY as it has always been rather than
+       silently corrected; the conflict is reported for a human decision.
+
+   FUEL_FLUID_ML_PER_HOUR_LO / _HI = 500-750 ml/h
+     What it represents: a starting fluid replacement range during exercise.
+     Source: ACSM position stand "Exercise and Fluid Replacement" (2007),
+       commonly summarised as ~0.4-0.8 L/h. 500-750 ml/h sits inside that.
+     Limitations: sweat rate varies enormously with heat, humidity, body size
+       and acclimatisation. The source's central point is that replacement
+       should be INDIVIDUALISED by measuring sweat loss; a fixed range is a
+       starting point only. Over-drinking beyond sweat losses carries a real
+       hyponatraemia risk, which is why the upper bound is not raised.
+
+   FUEL_GEL_CARB_G = 25 g
+     What it represents: typical carbohydrate per commercial gel or chew
+       serving, used ONLY to translate a gram target into a countable number
+       of items. This is a product-packaging convention, NOT a consensus
+       guideline, and products range roughly 20-30 g.
+
+   FUEL_LONG_SESSION_SEC / FUEL_LONG_SESSION_KM = 75 min / 14 km
+     What they represent: the threshold at which a session is long enough for
+       intake DURING it to matter. Unchanged from the original inline values.
+     Note: 75 min is below the ~2.5 h at which the 60-90 g/h upper end
+       becomes appropriate, which is the conflict flagged above.
+
+   Deliberately absent, and must stay absent: calorie targets, macronutrient
+   splits, bodyweight-scaled doses (e.g. g/kg), weight or body-composition
+   guidance, supplement or caffeine recommendations, meal plans.
+   ========================================================= */
+var FUEL_CARB_G_PER_HOUR_LO  = 60;
+var FUEL_CARB_G_PER_HOUR_HI  = 90;
+var FUEL_FLUID_ML_PER_HOUR_LO = 500;
+var FUEL_FLUID_ML_PER_HOUR_HI = 750;
+var FUEL_GEL_CARB_G           = 25;
+var FUEL_LONG_SESSION_SEC     = 75*60;
+var FUEL_LONG_SESSION_KM      = 14;
+
 function needsFueling(dd){
   if (dd.type==='rest') return false;
-  return getDayDurationSec(dd) > 75*60 || dd.km > 14;
+  return getDayDurationSec(dd) > FUEL_LONG_SESSION_SEC || dd.km > FUEL_LONG_SESSION_KM;
 }
 // Coaching depth for one session, driven entirely by athleteExperience().
 // Rendered inside .day-detail, i.e. only once a card is expanded -- collapsed
@@ -4211,17 +4274,17 @@ function renderFuelingCard(dd){
   if (!needsFueling(dd)) return '';
   var durSec = getDayDurationSec(dd);
   var hours = durSec/3600;
-  var carbsLow = Math.round(hours*60), carbsHigh = Math.round(hours*90);
-  var gelsLow = Math.max(1,Math.round(carbsLow/25)), gelsHigh = Math.max(1,Math.round(carbsHigh/25));
-  var fluidLow = Math.round(hours*500), fluidHigh = Math.round(hours*750);
+  var carbsLow = Math.round(hours*FUEL_CARB_G_PER_HOUR_LO), carbsHigh = Math.round(hours*FUEL_CARB_G_PER_HOUR_HI);
+  var gelsLow = Math.max(1,Math.round(carbsLow/FUEL_GEL_CARB_G)), gelsHigh = Math.max(1,Math.round(carbsHigh/FUEL_GEL_CARB_G));
+  var fluidLow = Math.round(hours*FUEL_FLUID_ML_PER_HOUR_LO), fluidHigh = Math.round(hours*FUEL_FLUID_ML_PER_HOUR_HI);
   var h = Math.floor(durSec/3600), m = Math.round((durSec%3600)/60);
   return '<details class="fuel-card">'+
     '<summary>'+ICONS.zap+'Fueling &amp; Hydration Strategy</summary>'+
     '<div class="fuel-body">'+
       '<div class="fuel-row"><span class="k">Est. time-on-feet</span><span class="v font-mono">'+h+'h '+(m<10?'0':'')+m+'m</span></div>'+
-      '<div class="fuel-row"><span class="k">Carb intake</span><span class="v font-mono">60\u201390g/hr</span></div>'+
+      '<div class="fuel-row"><span class="k">Carb intake</span><span class="v font-mono">'+FUEL_CARB_G_PER_HOUR_LO+'\u2013'+FUEL_CARB_G_PER_HOUR_HI+'g/hr</span></div>'+
       '<div class="fuel-row"><span class="k">Total carbs</span><span class="v font-mono">'+carbsLow+'\u2013'+carbsHigh+'g</span></div>'+
-      '<div class="fuel-row"><span class="k">Gels / chews (\u224825g each)</span><span class="v font-mono">'+gelsLow+'\u2013'+gelsHigh+'</span></div>'+
+      '<div class="fuel-row"><span class="k">Gels / chews (\u2248'+FUEL_GEL_CARB_G+'g each)</span><span class="v font-mono">'+gelsLow+'\u2013'+gelsHigh+'</span></div>'+
       '<div class="fuel-row"><span class="k">Fluids</span><span class="v font-mono">'+fluidLow+'\u2013'+fluidHigh+'ml</span></div>'+
       '<div class="fuel-hint">Dial this in during training \u2014 don\u2019t try anything new on '+vGoalDay().toLowerCase()+'.</div>'+
     '</div>'+
@@ -7839,6 +7902,73 @@ function coachNextConnection(dd){
    Paragraphs, not labelled fields. Each returns only what it has grounds to
    say, trimmed to the depth the situation earned.
    ========================================================= */
+/* ---------- preparation ----------
+   A coach mentions food the evening before a session that will actually be
+   limited by it, and says nothing the rest of the time. That asymmetry is the
+   whole feature: this returns null far more often than it returns a sentence.
+
+   Demand is judged from the prescription, not from duration alone. An 8km
+   threshold session is under an hour and still worth arriving fuelled for,
+   which a duration gate would miss -- so the primary test is time spent at
+   quality intensity, taken from the same structuredZoneTime() the rest of the
+   app costs sessions with.
+
+   Deliberately NOT here: any quantity. The during-session numbers live in the
+   fuel card and are not repeated -- PREPARE is about turning up ready, FUEL is
+   about what happens once running. No calories, no macros, no bodyweight
+   scaling, no supplements. */
+/* A quarter of an hour of genuine work at MP/threshold/interval intensity.
+   Chosen against the real generated corpus rather than picked round: an 8km
+   threshold session lands around 20-25 minutes of quality and must qualify,
+   while the early-block introductory intervals (a 5km session carries about 3
+   minutes of actual interval work, a 7.5km one about 9) must not. 15 minutes
+   separates those cleanly with margin on both sides.
+
+   Demand is measured, not labelled -- sessionImportance() is deliberately NOT
+   consulted, because a 34-minute tempo is worth arriving fuelled for even
+   though it is classed SUPPORT, and a KEY interval with 3 minutes of work is
+   not. What the athlete's body has to do outranks what the plan calls it. */
+var FUEL_PREPARE_QUALITY_SEC = 15*60;
+
+function fuelPrepareDemand(dd){
+  if (!dd || dd.type==='rest' || dd.completed) return null;
+  if (dd.type==='race' || dd.type==='checkpoint') return 'event';
+  var z = structuredZoneTime(dd);
+  var qualitySec = z ? (z.zones.mp + z.zones.threshold + z.zones.interval) : 0;
+  if (qualitySec >= FUEL_PREPARE_QUALITY_SEC) return 'quality';
+  // Long enough that intake during it already matters; arriving empty is worse.
+  if (needsFueling(dd)) return 'long';
+  return null;
+}
+
+/* One sentence, or nothing. The temporal half is answered from the schedule,
+   never assumed: "tonight" is only ever said when the session really is
+   tomorrow, and anything further out stays silent because a coach does not
+   brief you on Monday about Thursday's dinner. */
+function fuelPrepareCue(dd){
+  var demand = fuelPrepareDemand(dd);
+  if (!demand) return null;
+  var away = daysBetween(todayStr(), dd.date);
+  if (away < 0 || away > 1) return null;
+
+  /* Safety outranks preparation. If the athlete is being told to back off, or
+     their own notes have raised pain or illness, discussing carbohydrate is
+     the wrong thing to say -- and it must never compete for the space that
+     message needs. */
+  var dec = coachDecision();
+  if (dec && dec.state === 'recover') return null;
+  if (coachNoticed().some(function(n){ return n.tone==='warn'; })) return null;
+
+  if (away === 1){
+    if (demand === 'event')   return 'Tomorrow is the one you have been rehearsing for. Keep carbohydrate central to tonight’s meal, drink normally through the evening, and take nothing new into it.';
+    if (demand === 'long')    return 'Tomorrow’s long run is worth arriving fuelled for. Make carbohydrate the bulk of tonight’s meal and keep drinking through the evening.';
+    return 'Do not start tomorrow’s session under-fuelled — it is the part that decides whether the hard running is any good. Carbohydrate with tonight’s meal, and arrive properly hydrated.';
+  }
+  if (demand === 'event')   return 'Nothing new today. Your usual pre-race meal two to three hours out, and arrive hydrated.';
+  if (demand === 'long')    return 'Start this one fuelled rather than topping up on the move — an ordinary carbohydrate-based meal two to three hours before, and arrive hydrated.';
+  return 'Do not start this under-fuelled. Your usual carbohydrate-based meal two to three hours out is enough, and arrive hydrated.';
+}
+
 function coachBrief(dd){
   if (!dd || dd.completed || dd.type === 'rest') return null;
   var depth = coachSignificance(dd, 'before');
@@ -7856,6 +7986,13 @@ function coachBrief(dd){
     if (ev && !ev.changes.length && ev.state === 'HOLD' && ev.reasons.length)
       paras.push(ev.reasons[0]);
   }
+  /* Preparation is supplementary and goes LAST on purpose. Intent, readiness,
+     focus and a live plan-evolution reason all outrank it, so when the budget
+     is tight the slice below drops the fuelling cue and never the coaching --
+     which is also why this is pushed rather than spliced in anywhere earlier.
+     At depth 'brief' the budget is one paragraph and PREPARE never appears. */
+  var prep = fuelPrepareCue(dd);
+  if (prep) paras.push(prep);
   paras = paras.slice(0, COACH_DEPTH_PARAGRAPHS[depth]);
   return paras.length ? { when:'before', depth:depth, paragraphs:paras } : null;
 }
