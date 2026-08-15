@@ -4016,55 +4016,85 @@ function getDayDurationSec(dd){
    established consensus rather than fetched and quoted. Treat them as
    provenance to be confirmed by a human before any value here is changed.
 
-   FUEL_CARB_G_PER_HOUR_LO / _HI = 60-90 g/h
-     What it represents: carbohydrate ingested DURING prolonged endurance
-       exercise, to spare glycogen and sustain work rate.
-     Source: ACSM / Academy of Nutrition and Dietetics / Dietitians of Canada
-       joint position statement, "Nutrition and Athletic Performance" (2016),
-       which grades intake by DURATION — broadly ~30-60 g/h for efforts of
-       roughly 1-2.5 h, rising toward 90 g/h only for efforts beyond ~2.5-3 h
-       and only with multiple transportable carbohydrates (glucose:fructose),
-       since a single transportable source saturates near 60 g/h.
-     Limitations: the upper end requires gut training and a mixed-carbohydrate
-       product; taking 90 g/h untrained commonly causes GI distress.
-     ⚠ KNOWN CONFLICT WITH CURRENT BEHAVIOUR — see FUEL_LONG_SESSION_SEC.
-       This range is presented flat, without the duration grading the source
-       applies. It is preserved EXACTLY as it has always been rather than
-       silently corrected; the conflict is reported for a human decision.
+   ---- CARBOHYDRATE DURING EXERCISE (consensus guidance) ----
+   Graded by duration, because the source grades it by duration. Presenting a
+   single flat range from 75 minutes told an athlete on a 1h20 run to take the
+   amount reserved for efforts more than twice that long; that is corrected
+   here and is the only athlete-facing value in this file that has moved.
 
+   FUEL_CARB_G_PER_HOUR_LO / _HI = 30-60 g/h
+     Applies to: sustained efforts of roughly 1 to 2.5 hours — the great
+       majority of sessions that reach the fuelling threshold at all.
+     Source: ACSM / Academy of Nutrition and Dietetics / Dietitians of Canada
+       joint position statement, "Nutrition and Athletic Performance" (2016).
+     Why it stops at 60: a single transportable carbohydrate saturates
+       intestinal absorption near 60 g/h, so more offers no further benefit
+       without a mixed-carbohydrate source.
+
+   FUEL_CARB_G_PER_HOUR_PROLONGED_LO / _HI = 60-90 g/h
+     Applies to: genuinely prolonged efforts beyond FUEL_PROLONGED_HOURS.
+     Conditions, which are NOT optional and are stated to the athlete: the
+       upper end depends on tolerability built up in training and on multiple
+       transportable carbohydrates (e.g. glucose:fructose). It is a ceiling
+       for well-practised athletes on long efforts, not a universal target,
+       and attempting it untrained commonly causes GI distress.
+     Ceiling: 90 g/h is the highest figure this app will ever display. Higher
+       intakes exist in the literature for elite/experimental settings and are
+       deliberately out of scope.
+
+   FUEL_PROLONGED_HOURS = 2.5 h
+     The duration above which the 60-90 g/h band becomes appropriate.
+
+   ---- FLUID (consensus guidance, deliberately soft) ----
    FUEL_FLUID_ML_PER_HOUR_LO / _HI = 500-750 ml/h
-     What it represents: a starting fluid replacement range during exercise.
+     What it represents: a STARTING POINT for fluid replacement, not a target
+       to be hit. Presented to the athlete as a guide alongside thirst.
      Source: ACSM position stand "Exercise and Fluid Replacement" (2007),
        commonly summarised as ~0.4-0.8 L/h. 500-750 ml/h sits inside that.
-     Limitations: sweat rate varies enormously with heat, humidity, body size
-       and acclimatisation. The source's central point is that replacement
-       should be INDIVIDUALISED by measuring sweat loss; a fixed range is a
-       starting point only. Over-drinking beyond sweat losses carries a real
-       hyponatraemia risk, which is why the upper bound is not raised.
+     Limitations: the source's central point is that sweat rate varies
+       enormously with heat, humidity, body size, intensity and
+       acclimatisation, and that replacement should be INDIVIDUALISED by
+       measuring one's own losses. Drinking to a fixed schedule beyond thirst
+       and beyond sweat losses carries a real hyponatraemia risk, which is why
+       the upper bound is not raised and why the card does not instruct the
+       athlete to reach it.
 
+   ---- PRODUCT ASSUMPTION (NOT consensus guidance) ----
    FUEL_GEL_CARB_G = 25 g
-     What it represents: typical carbohydrate per commercial gel or chew
-       serving, used ONLY to translate a gram target into a countable number
-       of items. This is a product-packaging convention, NOT a consensus
-       guideline, and products range roughly 20-30 g.
+     A typical carbohydrate content per commercial gel or chew serving, used
+     ONLY to turn a gram range into a countable number of items. This is a
+     packaging convention, not a recommendation from any position statement,
+     and real products range roughly 20-30 g. It is labelled as approximate
+     wherever it is shown.
 
+   ---- SESSION THRESHOLD ----
    FUEL_LONG_SESSION_SEC / FUEL_LONG_SESSION_KM = 75 min / 14 km
-     What they represent: the threshold at which a session is long enough for
-       intake DURING it to matter. Unchanged from the original inline values.
-     Note: 75 min is below the ~2.5 h at which the 60-90 g/h upper end
-       becomes appropriate, which is the conflict flagged above.
+     The point at which intake DURING a session starts to matter at all.
+     Unchanged. Sessions crossing it now receive the 30-60 g/h range rather
+     than the prolonged-effort one.
 
    Deliberately absent, and must stay absent: calorie targets, macronutrient
    splits, bodyweight-scaled doses (e.g. g/kg), weight or body-composition
-   guidance, supplement or caffeine recommendations, meal plans.
+   guidance, supplement or caffeine recommendations, meal plans, and any
+   intake figure above 90 g/h.
    ========================================================= */
-var FUEL_CARB_G_PER_HOUR_LO  = 60;
-var FUEL_CARB_G_PER_HOUR_HI  = 90;
+var FUEL_CARB_G_PER_HOUR_LO           = 30;
+var FUEL_CARB_G_PER_HOUR_HI           = 60;
+var FUEL_CARB_G_PER_HOUR_PROLONGED_LO = 60;
+var FUEL_CARB_G_PER_HOUR_PROLONGED_HI = 90;
+var FUEL_PROLONGED_HOURS              = 2.5;
 var FUEL_FLUID_ML_PER_HOUR_LO = 500;
 var FUEL_FLUID_ML_PER_HOUR_HI = 750;
 var FUEL_GEL_CARB_G           = 25;
 var FUEL_LONG_SESSION_SEC     = 75*60;
 var FUEL_LONG_SESSION_KM      = 14;
+
+/* Which carbohydrate band applies to a session of this length. */
+function fuelCarbRange(hours){
+  return hours > FUEL_PROLONGED_HOURS
+    ? { lo:FUEL_CARB_G_PER_HOUR_PROLONGED_LO, hi:FUEL_CARB_G_PER_HOUR_PROLONGED_HI, prolonged:true }
+    : { lo:FUEL_CARB_G_PER_HOUR_LO,           hi:FUEL_CARB_G_PER_HOUR_HI,           prolonged:false };
+}
 
 function needsFueling(dd){
   if (dd.type==='rest') return false;
@@ -4274,7 +4304,8 @@ function renderFuelingCard(dd){
   if (!needsFueling(dd)) return '';
   var durSec = getDayDurationSec(dd);
   var hours = durSec/3600;
-  var carbsLow = Math.round(hours*FUEL_CARB_G_PER_HOUR_LO), carbsHigh = Math.round(hours*FUEL_CARB_G_PER_HOUR_HI);
+  var band = fuelCarbRange(hours);
+  var carbsLow = Math.round(hours*band.lo), carbsHigh = Math.round(hours*band.hi);
   var gelsLow = Math.max(1,Math.round(carbsLow/FUEL_GEL_CARB_G)), gelsHigh = Math.max(1,Math.round(carbsHigh/FUEL_GEL_CARB_G));
   var fluidLow = Math.round(hours*FUEL_FLUID_ML_PER_HOUR_LO), fluidHigh = Math.round(hours*FUEL_FLUID_ML_PER_HOUR_HI);
   var h = Math.floor(durSec/3600), m = Math.round((durSec%3600)/60);
@@ -4282,10 +4313,18 @@ function renderFuelingCard(dd){
     '<summary>'+ICONS.zap+'Fueling &amp; Hydration Strategy</summary>'+
     '<div class="fuel-body">'+
       '<div class="fuel-row"><span class="k">Est. time-on-feet</span><span class="v font-mono">'+h+'h '+(m<10?'0':'')+m+'m</span></div>'+
-      '<div class="fuel-row"><span class="k">Carb intake</span><span class="v font-mono">'+FUEL_CARB_G_PER_HOUR_LO+'\u2013'+FUEL_CARB_G_PER_HOUR_HI+'g/hr</span></div>'+
+      '<div class="fuel-row"><span class="k">Carb intake</span><span class="v font-mono">'+band.lo+'\u2013'+band.hi+'g/hr</span></div>'+
       '<div class="fuel-row"><span class="k">Total carbs</span><span class="v font-mono">'+carbsLow+'\u2013'+carbsHigh+'g</span></div>'+
       '<div class="fuel-row"><span class="k">Gels / chews (\u2248'+FUEL_GEL_CARB_G+'g each)</span><span class="v font-mono">'+gelsLow+'\u2013'+gelsHigh+'</span></div>'+
-      '<div class="fuel-row"><span class="k">Fluids</span><span class="v font-mono">'+fluidLow+'\u2013'+fluidHigh+'ml</span></div>'+
+      '<div class="fuel-row"><span class="k">Fluid guide</span><span class="v font-mono">'+fluidLow+'\u2013'+fluidHigh+'ml</span></div>'+
+      /* The upper carbohydrate end is conditional, so it is never shown as a
+         bare number the athlete might read as a target. */
+      (band.prolonged
+        ? '<div class="fuel-hint">The top of that range is for well-practised guts and needs a mixed-carbohydrate product \u2014 build up to it in training rather than treating it as the target.</div>'
+        : '')+
+      /* Fluid is a starting point, not a quota. ACSM\u2019s own emphasis is that
+         sweat rate varies enormously between athletes and conditions. */
+      '<div class="fuel-hint">Fluid is a starting guide, not a target \u2014 sweat rates vary a lot, so drink to thirst and adjust for the heat rather than forcing the number.</div>'+
       '<div class="fuel-hint">Dial this in during training \u2014 don\u2019t try anything new on '+vGoalDay().toLowerCase()+'.</div>'+
     '</div>'+
   '</details>';
