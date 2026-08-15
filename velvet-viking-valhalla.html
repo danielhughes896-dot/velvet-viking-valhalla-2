@@ -2672,6 +2672,107 @@ function persistState(){
   // cloud sync is configured and signed in
   scheduleCloudPush();
 }
+
+/* =========================================================
+   PLAN OWNERSHIP — shared-device isolation
+   ---------------------------------------------------------
+   The local plan used to be a device-global singleton with no owner. On a
+   shared device that meant the next athlete to sign in inherited whatever was
+   already here, and -- because an empty cloud account is seeded from local
+   state -- the previous athlete's plan, notes and reviews were uploaded into
+   the new athlete's row. That is the defect this closes.
+
+   The stamp is the authenticated Supabase uid, held on the state itself as
+   `ownerUid`. It is internal metadata: nothing renders it, and it is never
+   shown to an athlete. The uid is used rather than email, display name or
+   Strava athlete id precisely because those are mutable or externally owned.
+
+   planContentSignature() reads a fixed field list (setup + selected day
+   fields), so adding this top-level property does not perturb sync
+   comparisons or raise spurious conflicts on upgrade.
+   ========================================================= */
+var PLAN_ARCHIVE_KEY = 'vvv_plan_archive';
+var PLAN_ARCHIVE_MAX = 4;   // bound the parked states; each is a full plan blob
+
+/* A local write with NO cloud mirror. Ownership resolution must never push:
+   resetting to a clean state for an incoming athlete and then mirroring it
+   would overwrite that athlete's real cloud plan with an empty one. */
+function persistStateLocalOnly(){
+  if (!storageAvailable) return;
+  try{ window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+}
+function planOwnerUid(st){
+  var s = st || state;
+  return (s && typeof s.ownerUid === 'string' && s.ownerUid) ? s.ownerUid : null;
+}
+function planHasContent(st){
+  var s = st || state;
+  return !!(s && s.setup && s.days && s.days.length);
+}
+function stampPlanOwner(uid, st){
+  var s = st || state;
+  if (s && uid) s.ownerUid = uid;
+  return s;
+}
+function readPlanArchive(){
+  var a = readStored(PLAN_ARCHIVE_KEY);
+  return (a && typeof a === 'object' && !Array.isArray(a)) ? a : {};
+}
+/* Park a departing athlete's plan rather than destroying it. The product
+   deliberately lets a plan live on after sign-out, so switching accounts must
+   quarantine it from the incoming athlete, not delete it. */
+function archivePlanFor(uid, st){
+  if (!uid || !planHasContent(st)) return;
+  var arch = readPlanArchive();
+  arch[uid] = { at: Date.now(), state: st };
+  var keys = Object.keys(arch);
+  if (keys.length > PLAN_ARCHIVE_MAX){
+    keys.sort(function(a,b){ return (arch[a].at||0) - (arch[b].at||0); });
+    while (keys.length > PLAN_ARCHIVE_MAX) delete arch[keys.shift()];
+  }
+  writeStored(PLAN_ARCHIVE_KEY, arch);
+}
+function takeArchivedPlan(uid){
+  if (!uid) return null;
+  var arch = readPlanArchive();
+  var entry = arch[uid];
+  if (!entry || !planHasContent(entry.state)) return null;
+  delete arch[uid];
+  writeStored(PLAN_ARCHIVE_KEY, arch);
+  return entry.state;
+}
+
+/* Decide what the signed-in athlete may see, BEFORE any reconciliation runs.
+   Returns one of:
+     'own'            the local plan already belongs to this uid
+     'legacy-adopted' unstamped local plan claimed once by this uid
+     'restored'       this uid's parked plan brought back after a switch
+     'cleared'        someone else's plan parked; this uid starts clean
+     'no-session'     not signed in; ownership is not asserted at all */
+function resolvePlanOwnership(uid){
+  if (!uid) return 'no-session';
+  var owner = planOwnerUid();
+  if (owner === uid) return 'own';
+
+  if (!owner){
+    /* One-time legacy adoption. Every existing install -- including the live
+       athlete's -- has a real plan and no stamp, and must survive the upgrade
+       untouched. Claiming it here is what preserves it. Once stamped, no other
+       uid can ever take it silently: the branch below handles that instead. */
+    stampPlanOwner(uid);
+    persistStateLocalOnly();
+    return planHasContent() ? 'legacy-adopted' : 'own';
+  }
+
+  // Foreign. Park it, and bring back this athlete's own plan if we kept one.
+  archivePlanFor(owner, state);
+  var mine = takeArchivedPlan(uid);
+  state = mine || makeDefaultState();
+  stampPlanOwner(uid);
+  initExpanded();
+  persistStateLocalOnly();
+  return mine ? 'restored' : 'cleared';
+}
 // Write immediately instead of waiting out scheduleSave's debounce, and
 // first commit whatever field is being edited. Two ways the last thing a
 // runner did could otherwise be lost when the app closes:
@@ -3009,6 +3110,14 @@ function cloudSignOut(){
   // winner on the strength of a comparison that no longer applies.
   writeStored(CLOUD_SYNC_KEY, null);
   cloudStatus = 'signed-out';
+  /* Identity-bound volatile state goes with the session. stravaConn is an
+     in-memory cache of "is THIS athlete connected", derived from the server;
+     leaving it set meant the next athlete to sign in on this device saw the
+     previous one's Connected pill until something happened to refresh it. No
+     token is involved -- none is ever client-side -- but the status is still
+     the previous athlete's and must not be shown. */
+  stravaConn = { status:'off', athleteName:null, message:'' };
+  patchStravaSection();
   patchCloudCard();
   showToast('Signed out — your plan stays on this device');
 }
@@ -3134,6 +3243,10 @@ function planSummary(st){
 // preferences worth keeping, so there it takes the account's.
 function adoptCloudState(remote, keepDevicePrefs){
   writeStored(CLOUD_BACKUP_KEY, state);   // never discard what was already here
+  /* A row downloaded from this athlete's own account belongs to them by
+     definition, but legacy rows predate the stamp -- so it is applied on the
+     way in and the adopted state is never left unowned. */
+  if (cloudSession && cloudSession.user_id) stampPlanOwner(cloudSession.user_id, remote);
   var prefs = keepDevicePrefs ? {
     theme: state.theme, units: state.units,
     view: state.view, notifyEnabled: state.notifyEnabled
@@ -3155,6 +3268,13 @@ function adoptCloudState(remote, keepDevicePrefs){
 // Reached only with a SUCCESSFUL fetch, so a network failure can never take
 // a plan away.
 function cloudReconcile(){
+  /* Ownership is settled BEFORE anything is compared or uploaded. After this
+     call the local state either belongs to the signed-in athlete or is empty,
+     so every branch below is reasoning about one athlete's own data -- which
+     is what makes the `!remoteHasPlan -> seed from local` branch safe again.
+     A foreign plan is parked here, never merged, never displayed, and never
+     offered in the conflict modal. */
+  var ownership = resolvePlanOwnership(cloudSession && cloudSession.user_id);
   return cloudGetPlan().then(function(row){
     var localHasPlan = !!(state.setup && state.days && state.days.length);
     var remote = row && row.data;
@@ -12597,7 +12717,27 @@ function applyBackupJson(text){
     else showToast('That doesn\u2019t look like a Velvet Viking backup');
     return false;
   }
+  /* Backup import is the same contamination shape as the sign-in path, but
+     user-initiated: the athlete deliberately chose this file. So it is not
+     blocked -- it is made explicit. A backup carrying someone else's owner
+     stamp is confirmed once, and only then re-stamped to the signed-in
+     athlete; without that it would silently become their cloud state on the
+     next sync. An unstamped (legacy) backup needs no prompt: it has no
+     competing owner, and gets claimed the same way a legacy local plan does.
+     No uid is shown -- the athlete is told there is a different owner, not
+     who. */
+  var me = cloudSession && cloudSession.user_id;
+  var backupOwner = (parsed && typeof parsed.ownerUid === 'string') ? parsed.ownerUid : null;
+  if (me && backupOwner && backupOwner !== me){
+    var accept = window.confirm(
+      'This backup belongs to a different Velvet Viking account.\n\n'+
+      'Importing it will make this plan yours on this device and in your account.\n\n'+
+      'Continue?');
+    if (!accept){ showToast('Import cancelled — nothing was changed'); return false; }
+  }
   state = Object.assign({}, makeDefaultState(), parsed);
+  // Ownership follows the athlete who accepted the import, never the file.
+  if (me) stampPlanOwner(me); else delete state.ownerUid;
   closeModal();
   initExpanded();
   renderApp();
