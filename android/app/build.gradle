@@ -48,6 +48,33 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // Release must always carry the stable production key -- never the
+            // auto-generated debug keystore -- so App Link verification and
+            // update installs stay tied to one fixed fingerprint. There is
+            // deliberately no fallback here: if the four VVV_KEYSTORE_* secrets
+            // are missing, signingConfigs.stable has no storeFile and the task
+            // below fails the build outright rather than shipping an artifact
+            // signed with the wrong (or no) key.
+            signingConfig signingConfigs.stable
+        }
+    }
+}
+
+// Release tasks specifically (not debug) require the real signing secrets.
+// Gradle's own "storeFile not set" error is easy to miss in CI output, so
+// fail loudly and early with a message that says exactly what's missing.
+gradle.taskGraph.whenReady { graph ->
+    def wantsRelease = graph.allTasks.any { it.name in ['assembleRelease', 'bundleRelease'] }
+    if (wantsRelease) {
+        def missing = ['VVV_KEYSTORE_FILE', 'VVV_KEYSTORE_PASSWORD', 'VVV_KEY_ALIAS', 'VVV_KEY_PASSWORD']
+            .findAll { !System.getenv(it) }
+        if (missing) {
+            throw new GradleException(
+                "Release build requires the stable production keystore, but " +
+                missing.join(', ') + " ${missing.size() > 1 ? 'are' : 'is'} not set. " +
+                "Release builds never fall back to debug signing -- see ANDROID-APP-LINKS.md " +
+                "for how to configure the four VVV_KEYSTORE_* secrets."
+            )
         }
     }
 }

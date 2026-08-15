@@ -3,7 +3,6 @@
   "appName": "Velvet Viking",
   "webDir": "www",
   "server": {
-    "url": "https://velvet-viking-valhalla-1.vercel.app",
-    "cleartext": true
+    "url": "https://velvet-viking-valhalla-1.vercel.app"
   }
 }
