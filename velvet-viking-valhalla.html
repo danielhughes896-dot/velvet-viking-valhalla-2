@@ -306,6 +306,10 @@
 
   /* ---------- hero / progress ---------- */
   .hero{padding:32px 0 18px; text-align:center; position:relative;}
+  /* Entry/build page only, with no crest above it -- a bit more top air so
+     the Build Your Training Block card still reads as deliberately placed,
+     not just cut off short under the topbar. */
+  .hero-setup{padding:52px 0 8px;}
   /* Full crest artwork (ring + VALHALLA AWAITS + EARN YOUR PLACE), not just
      the circular medallion -- a 50% circular crop would clip the EARN YOUR
      PLACE line, which sits below the ring. The master is transparent outside
@@ -4009,19 +4013,18 @@ function renderMedallion(){
   return '<img class="medallion-img" src="assets/velvet-viking-crest.png" width="1223" height="1286" alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place" loading="eager">';
 }
 function renderHero(){
-  var html = '<div class="hero">'+renderMedallion();
-
+  // Entry/build page (no plan yet): text-led, matching the rest of the app's
+  // brand-only topbar -- the old large circular crest is Today-view-only now
+  // (renderTodayView() still renders it via the branch below, unchanged).
   if (!state.setup){
-    html += '<div class="setup-cta">'+
+    return '<div class="hero hero-setup"><div class="setup-cta">'+
       '<h2 class="font-display">Build Your Training Block</h2>'+
-      '<p>Pick a goal distance, your current weekly mileage and a recent benchmark time \u2014 get a full VDOT-paced block for anything from a 5K to a 50K ultra. An event is optional.</p>'+
+      '<p>Pick a goal distance, your current weekly mileage and a recent benchmark time \u2014 get a full pace-zoned training block for anything from a 5K to a 50K ultra. An event is optional.</p>'+
       '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">'+ICONS.target+' Build My Plan</button>'+
     '</div></div>';
-    return html;
   }
 
-  html += '</div>';
-  return html;
+  return '<div class="hero">'+renderMedallion()+'</div>';
 }
 // Runs/volume completion + Goal stat -- lives in Plan HQ, patched in place
 // via #planhq-stats-mount whenever a session's completion state changes.
