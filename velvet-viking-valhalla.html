@@ -2852,38 +2852,60 @@ function parseAuthParams(src){
   });
   return out;
 }
+// GoTrue appends these when a magic link can't be used — expired, already
+// clicked once, or otherwise rejected. Mirrors STRAVA_RETURN_COPY: map what
+// the backend actually says to calm, specific, athlete-facing copy rather
+// than exposing the raw error or saying nothing at all.
+var CLOUD_AUTH_ERROR_COPY = {
+  otp_expired: 'That sign-in link has expired — request a new one from Settings',
+  access_denied: 'That sign-in link didn’t work — request a new one from Settings',
+  default: 'That sign-in link didn’t work — request a new one from Settings'
+};
 // Consume the tokens and strip them from the address bar so they never linger
 // in history or travel inside a copied link. Pass a URL to read a deep link
 // delivered by the native shell; call it bare to read the current page.
 function cloudConsumeAuthHash(url){
   var fromUrl = typeof url === 'string';
   var src = fromUrl ? url : ((window.location.search||'') + (window.location.hash||''));
-  if (src.indexOf('access_token=')===-1) return false;
+  var hasToken = src.indexOf('access_token=')!==-1;
+  var hasError = src.indexOf('error=')!==-1 || src.indexOf('error_code=')!==-1;
+  if (!hasToken && !hasError) return false;
   var p = parseAuthParams(src);
-  if (!p.access_token) return false;
-  cloudSetSession({
-    access_token:p.access_token, refresh_token:p.refresh_token,
-    expires_at: Date.now() + (parseInt(p.expires_in,10)||3600)*1000
-  });
+  if (hasToken && p.access_token){
+    cloudSetSession({
+      access_token:p.access_token, refresh_token:p.refresh_token,
+      expires_at: Date.now() + (parseInt(p.expires_in,10)||3600)*1000
+    });
+  }
   if (!fromUrl){
     // Keep any unrelated query string (Strava's OAuth ?code= is handled later
-    // in init), but drop it if the tokens came through there.
+    // in init), but drop it if the auth attempt came through there.
     var search = window.location.search || '';
-    if (search.indexOf('access_token=')!==-1) search = '';
+    if (search.indexOf('access_token=')!==-1 || search.indexOf('error=')!==-1) search = '';
     // /auth exists only as an App Link landing path; it serves the same page,
     // so send the address bar back to the root once the tokens are taken.
     var path = window.location.pathname || '/';
     if (path.indexOf('/auth')===0) path = '/';
     try{ window.history.replaceState(null, '', path + search); }catch(e){}
   }
-  return true;
+  if (hasToken && p.access_token) return true;
+  // A link was opened but carried no usable session — surface why instead of
+  // silently landing the athlete back on the signed-out screen with nothing
+  // to explain it. Never shows the raw backend error.
+  showToast(CLOUD_AUTH_ERROR_COPY[p.error_code] || CLOUD_AUTH_ERROR_COPY.default);
+  return false;
 }
 
 // A magic link opened on the phone re-enters the app through here rather than
 // through a page load, so the sign-in has to be completed by hand: adopt the
 // session, pull the account down, repaint.
 function handleAuthDeepLink(url){
-  if (!url || url.indexOf('access_token=')===-1) return false;
+  if (!url) return false;
+  if (url.indexOf('access_token=')===-1 && url.indexOf('error')===-1) return false;
+  // cloudConsumeAuthHash() itself surfaces a toast when the link carried an
+  // error rather than a session, so a false return here needs no extra
+  // handling — it means either outcome was already handled, or there was
+  // genuinely nothing to consume.
   if (!cloudConsumeAuthHash(url)) return false;
   cloudStatus = 'syncing'; patchCloudCard();
   var who = cloudSession.user_id ? Promise.resolve() : cloudLoadUser();
@@ -8088,12 +8110,14 @@ function vvvPrinciple(id){
 }
 
 /* =========================================================
-   PLAYBOOK DECISION CONTRACT — defined, deliberately not active
+   PLAYBOOK DECISION CONTRACT — live, consumed by playbookAssess()
    ---------------------------------------------------------
-   Nothing in the render path calls any of this. It builds a decision and the
-   evidence behind it so the contract can be written down, argued with and
-   tested BEFORE any behaviour depends on it. When the Playbook is built it
-   consumes these; it does not get to invent a second opinion.
+   playbookAssess() (below) reads PLAYBOOK_DECISIONS directly, and is called
+   from playbookProposal(), which planEvolution() calls on every render and
+   which the live Accept-Evolution UI path acts on. This contract is the
+   evidence and reasoning behind that live decision, written down, argued
+   with and tested up front — when the Playbook is built it consumes these;
+   it does not get to invent a second opinion.
 
    The three outcomes are not a scale from bad to good. HOLD is the expected
    result of a block that is working.
@@ -8346,9 +8370,11 @@ function playbookSufficiency(archetype){
 }
 
 /* ---------- the assessment ----------
-   OBSERVATIONAL. Returns what the Playbook WOULD conclude and why. Nothing
-   calls it from a render path, nothing stores it, and it never touches a day.
-   Its job in this pass is to be testable. */
+   Returns what the Playbook concludes and why. It never touches a day
+   itself — playbookProposal() (below) calls this, and planEvolution() calls
+   that on every render, so this result reaches the live Accept-Evolution UI.
+   Read-only/side-effect-free either way: nothing here stores anything or
+   mutates state on its own. */
 function playbookAssess(archetype){
   if (!state.setup || !state.days || !state.days.length) return null;
   var phase = trainingPhase(currentWeekNum());
@@ -11819,7 +11845,7 @@ function openSetupModal(){
     '<div class="modal-actions">'+
       '<button type="button" class="btn btn-primary" data-action="generate-plan">'+ICONS.check+' '+(state.setup?'Regenerate Plan':'Generate My Plan')+'</button>'+
     '</div>'+
-    (state.setup ? '<div class="field-hint" style="margin-top:10px; text-align:center;">Regenerating rebuilds the whole schedule from these settings \u2014 logged actuals for days that no longer exist will be lost.</div>' : '')+
+    (state.setup ? '<div class="field-hint" style="margin-top:10px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history \u2014 only untouched future days are replaced.</div>' : '')+
   '</div>';
   openModal(html);
 
@@ -11991,6 +12017,52 @@ function handleSetExperience(level){
   if (hintEl) hintEl.textContent = EXPERIENCE_META[lv].hint;
   if (state.setup) renderApp(); // modal lives on document.body, so this is safe
 }
+/* ---------- regenerate: preserve athlete history ----------
+   INVARIANT: regenerating a programme must not casually erase the athlete's
+   completed training history. A day's id is its calendar date -- identity
+   in this data model is already date-based -- but a freshly generated day
+   for that same date can carry a different prescription than what the
+   athlete actually did, so on a date collision history always wins outright
+   rather than being merged into the new day's shape. */
+// A day "carries history" when there is real athlete-authored evidence on
+// it: a completed session, logged actuals, a coach review/adjustment, a
+// stamped Athlete State read, or an attached Strava activity. An untouched
+// future placeholder carries nothing worth protecting and is always
+// replaced by the fresh generation.
+function dayCarriesHistory(dd){
+  if (!dd) return false;
+  if (dd.completed) return true;
+  if (dd.actual && (dd.actual.km!=null || (dd.actual.notes && dd.actual.notes.trim()))) return true;
+  if (dd.coachReview || dd.coachAdjust || dd.athleteState || dd.stravaActivityId) return true;
+  return false;
+}
+// A history day whose date falls inside the new plan's own span is given
+// that plan's real week number, so it still appears in the right Full
+// Plan/This Week card. History further back -- normally everything, since
+// history can only exist for today-or-earlier and a new block always starts
+// today-or-later -- gets week 0, a number no generated block ever hands out,
+// so it can never be pulled into an unrelated week's card by a
+// coincidentally-matching old week number. It stays in state.days either
+// way, so it still counts toward load/trend/confidence, which read
+// state.days directly rather than through week grouping.
+function reconcileRegeneratedDays(oldDays, newDays, startDateStr){
+  var history = (oldDays||[]).filter(dayCarriesHistory);
+  if (!history.length) return { days:newDays, preserved:0 };
+  var startMonday = addDays(startDateStr, -isoWeekday(startDateStr));
+  var historyDates = {};
+  history.forEach(function(dd){
+    historyDates[dd.date] = true;
+    if (dd.date >= startDateStr){
+      var dMonday = addDays(dd.date, -isoWeekday(dd.date));
+      dd.week = Math.round(daysBetween(startMonday, dMonday)/7) + 1;
+    } else {
+      dd.week = 0;
+    }
+  });
+  var kept = newDays.filter(function(dd){ return !historyDates[dd.date]; });
+  var merged = history.concat(kept).sort(function(a,b){ return a.date<b.date?-1:a.date>b.date?1:0; });
+  return { days:merged, preserved:history.length };
+}
 function handleGeneratePlan(){
   var distanceKey = document.getElementById('su-distance').value;
   var eventBox = document.getElementById('su-event-box');
@@ -12058,6 +12130,8 @@ function handleGeneratePlan(){
   var schedule = { activeDays:activeDays, longRunDay:longRunDay };
   var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks);
   var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);
+  var reconciled = reconcileRegeneratedDays(state.days, days, startDate);
+  days = reconciled.days;
 
   state.setup = {
     distanceKey: distanceKey, currentVolume: volume, raceDate: raceDate, hasEvent: hasEvent,
@@ -12084,11 +12158,13 @@ function handleGeneratePlan(){
      long run or a third hard day -- the plan is built to the training rules
      and the athlete is told, rather than silently handed a smaller block. The
      answer is always "run more days", which is their call, not the app's. */
+  var historyNote = reconciled.preserved ? (' \u2014 '+reconciled.preserved+' logged '+
+    (reconciled.preserved===1?'day':'days')+' kept as history') : '';
   if (planBuildNotes.length){
     showToast('Plan generated \u2014 but '+fmtDist(volume)+'/week needs more than '+
-      schedule.activeDays.length+' running days at this distance. Weekly volume was reduced to keep the training safe.');
+      schedule.activeDays.length+' running days at this distance. Weekly volume was reduced to keep the training safe.'+historyNote);
   } else {
-    showToast('Plan generated \u2014 '+planLengthLabel(daysBetween(startDate,raceDate)+1)+' to '+profile.label+', starting '+dShort(startDate));
+    showToast('Plan generated \u2014 '+planLengthLabel(daysBetween(startDate,raceDate)+1)+' to '+profile.label+', starting '+dShort(startDate)+historyNote);
   }
 }
 
@@ -13827,7 +13903,8 @@ function renderSettingsHubView(){
       '<div class="field-hint" style="margin:8px 0 14px;">Copy/paste works on any version of the app, so use it to move a plan across a reinstall.</div>'+
       '<button type="button" class="btn btn-danger btn-block" data-action="reset-plan">'+ICONS.trash+' Reset Plan — Start Over</button>'+
     '</div>'+
-    '<div class="build-tag">Build '+BUILD_ID+'</div>';
+    '<div class="build-tag">Build '+BUILD_ID+'</div>'+
+    '<div class="build-tag"><a href="/privacy" style="color:inherit;">Privacy</a> &middot; <a href="/terms" style="color:inherit;">Terms</a></div>';
 }
 function renderBottomNav(){
   var view = state.view || 'today';

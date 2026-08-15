@@ -7,6 +7,8 @@
     { "source": "/", "destination": "/velvet-viking-valhalla.html" },
     { "source": "/get", "destination": "/get.html" },
     { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/terms", "destination": "/terms.html" },
     { "source": "/.well-known/assetlinks.json", "destination": "/assetlinks.json" },
     { "source": "/auth", "destination": "/velvet-viking-valhalla.html" },
     { "source": "/auth/(.*)", "destination": "/velvet-viking-valhalla.html" }
