@@ -286,6 +286,19 @@ async function deleteConnection(cfg, uid){
   return sb(cfg, '/strava_connections?user_id=eq.' + encodeURIComponent(uid), { method: 'DELETE' });
 }
 
+/* Every staged activity VVV holds for this athlete. Deleting the connection
+   alone used to leave these rows behind indefinitely -- the tokens went, the
+   Strava-derived payloads stayed -- which is neither what "disconnect" means to
+   an athlete nor defensible under Strava's retention restrictions.
+
+   This clears the SERVER-side store only. Objective values already logged into
+   the athlete's own training history are their record of their own run and are
+   deliberately not touched here; that boundary is a product decision, not an
+   accident, and is documented in the audit. */
+async function deleteStagedActivities(cfg, uid){
+  return sb(cfg, '/strava_activities?user_id=eq.' + encodeURIComponent(uid), { method: 'DELETE' });
+}
+
 /* ---------- tokens ----------
    Refresh is server-side and unconditional once inside the skew window. A
    failed refresh is NEVER papered over by returning the dead token: the caller
@@ -436,6 +449,7 @@ module.exports = {
   projectOrigin, hostOf, projectRef, jwtIssuerHost, serviceKeyRef, resolveServiceKey,
   VVV_SUPABASE_URL, VVV_SUPABASE_REF,
   sb, getConnection, getConnectionByAthlete, saveConnection, deleteConnection,
+  deleteStagedActivities,
   exchangeCode, accessTokenFor, stravaApi, stravaTokenRequest,
   normaliseActivity, isUsableRun, stageActivity, json, log
 };

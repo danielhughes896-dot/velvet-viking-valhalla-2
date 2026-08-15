@@ -48,20 +48,34 @@ async function handleStatus(req, res, cfg, uid){
 
 async function handleDisconnect(req, res, cfg, uid){
   const conn = await S.getConnection(cfg, uid);
+  let deauthorized = false;
   if (conn){
     // Best effort: tell Strava too, so VVV disappears from the athlete's own
     // Strava settings rather than just being forgotten on this side.
     const token = await S.accessTokenFor(cfg, conn);
     if (token){
       try{
-        await fetch(S.STRAVA_DEAUTH_URL, {
+        const d = await fetch(S.STRAVA_DEAUTH_URL, {
           method: 'POST', headers: { 'Authorization': 'Bearer ' + token }
         });
+        deauthorized = !!(d && d.ok);
       }catch(e){}
     }
     await S.deleteConnection(cfg, uid);
   }
-  S.json(res, 200, { connected: false });
+  /* Unconditional, and deliberately not gated on `conn`. Staged rows can
+     outlive the connection row -- a half-finished disconnect, or a connection
+     removed by a revoke webhook -- and leaving Strava-derived payloads behind
+     after the athlete pressed Disconnect is exactly the retention problem this
+     closes. Running it either way makes the endpoint self-healing. */
+  const purge = await S.deleteStagedActivities(cfg, uid);
+  const purged = !!(purge && purge.ok);
+  S.log('auth', 'DISCONNECT had_connection=' + (conn ? 1 : 0) +
+        ' deauthorized=' + (deauthorized ? 1 : 0) + ' staged_purged=' + (purged ? 1 : 0));
+  // Reported honestly rather than always claiming a clean sweep: the athlete's
+  // VVV side is disconnected regardless, but a failed purge is a fact the
+  // caller (and the log) should see.
+  S.json(res, 200, { connected: false, deauthorized: deauthorized, purged: purged });
 }
 
 module.exports = async function handler(req, res){
