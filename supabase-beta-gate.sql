@@ -4,16 +4,20 @@
 -- It is idempotent: running it twice changes nothing.
 --
 -- ===========================================================================
--- READ THIS BEFORE RUNNING. THE ORDER MATTERS.
+-- BEFORE YOU RUN IT: EDIT STEP 2.
 -- ===========================================================================
--- Step 3 makes cloud access conditional on the allowlist. An empty allowlist
--- therefore denies EVERYONE, including the athlete already using the app.
--- That is deliberate -- a beta gate that fails open is not a gate -- but it
--- means STEP 2 MUST BE EDITED AND RUN BEFORE STEP 3 TAKES EFFECT. Running the
--- whole file top to bottom in one go does that correctly, PROVIDED you have
--- filled in the five addresses in step 2 first.
+-- Step 2 is the only part you have to change. Replace the five placeholder
+-- addresses with the real tester addresses, and include the address the
+-- existing athlete/owner signs in with if they need cloud access -- if their
+-- address is missing, step 4 locks them out of their own backup.
 --
--- To verify afterwards, see the checks at the bottom.
+-- You cannot get this wrong silently. Step 3 is a safety gate that ABORTS the
+-- whole run if any @example.com placeholder is still present or the list is
+-- empty, and step 4 -- the part that makes access conditional -- is never
+-- reached. The failure mode is "nothing changed", not "nobody can sign in".
+--
+-- On success the last statement prints how many testers are active. Check that
+-- number is what HQ authorised before telling anyone the beta is open.
 -- ===========================================================================
 
 
@@ -76,11 +80,12 @@ grant execute on function public.is_beta_approved() to authenticated;
 
 
 -- ---------------------------------------------------------------------------
--- STEP 2. THE FIVE TESTERS.  <<-- EDIT THIS BEFORE RUNNING STEP 3.
+-- STEP 2. THE FIVE TESTERS.   <<<<  EDIT THESE FIVE LINES  >>>>
 --
--- Replace the five placeholder addresses with the real ones. Add or remove
--- rows to match exactly who HQ has authorised. Addresses are lowercased on the
--- way in so a tester typing "Name@Example.com" still matches.
+-- Replace each placeholder with a real address. Add or remove rows to match
+-- exactly who HQ has authorised, and include the existing athlete/owner if they
+-- need cloud access. Addresses are lowercased on the way in, so a tester typing
+-- "Name@Example.com" still matches.
 -- ---------------------------------------------------------------------------
 insert into public.beta_allowlist (email, note) values
   (lower(trim('tester1@example.com')), 'beta tester 1'),
@@ -90,12 +95,43 @@ insert into public.beta_allowlist (email, note) values
   (lower(trim('tester5@example.com')), 'beta tester 5')
 on conflict (email) do nothing;
 
--- Do NOT forget the existing account. If an athlete is already using the app,
--- their address must be on this list or step 3 will lock them out.
+
+-- ---------------------------------------------------------------------------
+-- STEP 3. SAFETY GATE. Nothing below this runs if step 2 was not edited.
+--
+-- Without this, pasting the file unedited would install a working gate whose
+-- only authorised users are five example.com addresses -- locking out the real
+-- athlete while looking like it succeeded. Aborting here leaves the database
+-- exactly as it was.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  placeholders int;
+  active       int;
+begin
+  select count(*) into placeholders
+    from public.beta_allowlist where email like '%@example.com';
+  select count(*) into active
+    from public.beta_allowlist where revoked_at is null;
+
+  if placeholders > 0 then
+    raise exception
+      'ABORTED: % placeholder address(es) still in beta_allowlist. Edit STEP 2 with the real tester addresses, delete the example.com rows, and run again. Nothing has been changed.',
+      placeholders;
+  end if;
+
+  if active = 0 then
+    raise exception
+      'ABORTED: the allowlist is empty, which would deny everyone including the existing athlete. Add the authorised addresses in STEP 2 and run again. Nothing has been changed.';
+  end if;
+
+  raise notice 'Safety gate passed: % active tester(s) on the allowlist.', active;
+end $$;
+
 
 
 -- ---------------------------------------------------------------------------
--- STEP 3a. CREATION GATE — an unapproved address cannot become a user at all.
+-- STEP 4a. CREATION GATE — an unapproved address cannot become a user at all.
 --
 -- The app calls /api/beta-signin, which checks the allowlist before asking
 -- GoTrue for a link. That endpoint is the clean-UX layer, NOT the security
@@ -127,7 +163,7 @@ create trigger beta_allowlist_gate
 
 
 -- ---------------------------------------------------------------------------
--- STEP 3b. USE GATE — revocation, and anyone who already has an account.
+-- STEP 4b. USE GATE — revocation, and anyone who already has an account.
 --
 -- The trigger above only fires when an account is CREATED. It cannot help with
 -- the two cases that matter just as much:
@@ -210,3 +246,18 @@ create policy "own activities: update" on public.strava_activities
 -- The allowlist is not client-readable (expect rowsecurity=true, 0 policies):
 --   select relrowsecurity from pg_class where relname = 'beta_allowlist';
 --   select count(*) from pg_policies where tablename = 'beta_allowlist';
+
+-- ---------------------------------------------------------------------------
+-- FINAL CHECK — read this output before telling anyone the beta is open.
+-- Expect: the number HQ authorised, trigger_installed = 1, policies_with_gate = 5,
+--         allowlist_client_readable = false.
+-- ---------------------------------------------------------------------------
+select
+  (select count(*) from public.beta_allowlist where revoked_at is null)      as active_testers,
+  (select count(*) from public.beta_allowlist where revoked_at is not null)  as revoked_testers,
+  (select count(*) from pg_trigger where tgname = 'beta_allowlist_gate')     as trigger_installed,
+  (select count(*) from pg_policies
+     where tablename in ('plans','strava_activities')
+       and (coalesce(qual,'') like '%is_beta_approved%'
+         or coalesce(with_check,'') like '%is_beta_approved%'))              as policies_with_gate,
+  (select count(*) from pg_policies where tablename = 'beta_allowlist') > 0  as allowlist_client_readable;

@@ -76,9 +76,11 @@
   <p class="updated">Velvet Viking (Valhalla) · describes what the app actually does, not a generic template</p>
 
   <div class="callout">
-    <b>Owner/contact details in this policy are placeholders</b> — [OWNER NAME] and [CONTACT EMAIL] —
-    pending confirmation from whoever operates this service before this page is relied on for a public
-    or store release. Everything else describes real, current behaviour, verified against the code.
+    <b>Private beta.</b> Velvet Viking is currently a small invitation-only beta, not a public service.
+    It is operated by the individual who runs Velvet Viking — no company has been incorporated, so no
+    company name is given here rather than one being invented. Contact for anything on this page,
+    including a request about your data: <a href="mailto:support@velvetviking.co.uk">support@velvetviking.co.uk</a>.
+    Everything below describes real, current behaviour, verified against the code.
   </div>
 
   <p>Valhalla is a running-training app. Most of what it does happens entirely on your own device. This
@@ -89,12 +91,14 @@
     <li>By default, your training plan lives only on your device. Nothing is sent anywhere.</li>
     <li>If you turn on sign-in to back up your plan or use it on more than one device, your email
     address and training plan are stored in your account with our database provider, and nowhere else.</li>
-    <li>If you connect Strava, we read your recent running activities to help log your training. We
-    never write anything back to Strava, and we never see your Strava password.</li>
+    <li>Strava sync is <strong>switched off for this private beta</strong>, so no Strava data is read
+    or stored for any beta tester. When it is available, it reads your recent running activities to help
+    log your training — it never writes anything back to Strava, and never sees your Strava password.</li>
     <li>We don't run ads, don't sell data, don't use tracking/analytics scripts, and no AI or language
     model service ever receives your training data. Valhalla's coaching logic is deterministic code, not
     an AI model, and calls no AI service itself.</li>
-    <li>You can delete your account and everything in it at any time from Settings.</li>
+    <li>You can delete your account and everything we hold on our servers at any time from Settings,
+    or by asking us. The copy on your own phone or browser is removed by you.</li>
   </ul>
 
   <h2>What's stored on your device only</h2>
@@ -116,6 +120,10 @@
   behalf, so tokens and credentials never reach your device.</p>
 
   <h2>What's stored if you connect Strava</h2>
+  <p><strong>Not available during the private beta.</strong> Strava sync is switched off for this beta
+  while we confirm approval with Strava, so no Strava data is read, received or stored for any beta
+  tester. The Connect control is not offered, and the server refuses a connection even if the app is
+  bypassed. This section describes how it works when it is switched back on.</p>
   <p>Connecting Strava is optional. If you connect it:</p>
   <ul>
     <li><strong>Your Strava sign-in tokens</strong> are stored server-side only, protected so that no
@@ -139,7 +147,7 @@
     <tr><th>Service</th><th>What it sees</th><th>When</th></tr>
     <tr><td>Vercel</td><td>Hosts the app and its server functions; sees ordinary web request data (like any website you visit)</td><td>Every visit</td></tr>
     <tr><td>Supabase</td><td>Your email and training plan, only if you sign in</td><td>Only if sign-in is turned on</td></tr>
-    <tr><td>Strava</td><td>Nothing from us until you choose to connect; then your activity data as described above</td><td>Only if Strava is connected</td></tr>
+    <tr><td>Strava</td><td>Nothing from us until you choose to connect; then your activity data as described above</td><td>Not during the private beta — the integration is switched off</td></tr>
     <tr><td>Google Fonts</td><td>Your device's IP address and browser, as a normal side effect of loading the typefaces this page uses</td><td>Every visit</td></tr>
   </table>
   <p>We don't use any analytics, advertising, or tracking service, and no language model or AI service
@@ -147,28 +155,42 @@
   written to give the same answer every time, not an AI model.</p>
 
   <h2>How long we keep it, and how to delete it</h2>
-  <p>Device-only data is kept until you clear your browser's storage or uninstall the app — entirely
-  under your control. Account data (if you signed in) and any connected Strava data are kept until you
-  delete your account, which you can do at any time from Settings. Deleting your account removes your
-  email, your stored plan, your Strava connection, and any staged Strava activity data — all in one
-  action, immediately.</p>
+  <p><strong>On our servers.</strong> If you signed in, your account and stored plan are kept until the
+  account is deleted. You can do that yourself at any time from Settings, and it removes your email,
+  your stored plan, your Strava connection and any staged Strava activity data in one action. If you
+  are a beta tester and would rather just ask, email
+  <a href="mailto:support@velvetviking.co.uk">support@velvetviking.co.uk</a> and we will delete your
+  account and all identifiable personal and training data Velvet Viking holds on its servers within 30
+  days of receiving your request.</p>
+  <p><strong>On your own device.</strong> This part we cannot reach, and we would rather say so than
+  imply otherwise. Your plan, your logged runs and your saved sign-in are stored by the app on your own
+  phone or browser. Deleting your account does not erase them, and neither does anything we can do from
+  our side. They stay under your control: <em>Reset Plan</em> in Settings clears the training plan
+  itself, and clearing the app's or browser's stored data, or uninstalling the app, removes everything
+  the app has kept locally — including any plan parked on a shared device and your stored sign-in.</p>
+  <p>If your phone backs its apps up to your own cloud account — Android's own backup, for example —
+  a copy may exist there too. That backup belongs to you and your device maker, not to Velvet Viking,
+  and we have no way to reach into it. Your device's backup settings are where that is managed.</p>
 
   <h2>Your rights</h2>
   <ul>
     <li><strong>Access</strong> — export a full copy of your data at any time from Settings.</li>
     <li><strong>Correction</strong> — edit your plan, logs, and settings directly in the app.</li>
-    <li><strong>Deletion</strong> — delete your account and all associated data from Settings.</li>
+    <li><strong>Deletion</strong> — delete your account and everything stored on our servers, from
+    Settings, or by asking us at support@velvetviking.co.uk. Copies on your own device are removed by
+    you, as described above.</li>
   </ul>
   <p>This section describes the mechanisms actually built into the app. It isn't a claim that this
   service meets every requirement of GDPR, CCPA, or any other specific privacy law in full — if that
   assurance matters for your audience or jurisdiction, get that confirmed by someone qualified to say so.</p>
 
   <h2>Changes to this policy</h2>
-  <p>If what the app actually does changes, this page will be updated to match. [OWNER NAME] is
-  responsible for keeping it accurate.</p>
+  <p>If what the app actually does changes, this page will be updated to match. The person who operates
+  Velvet Viking is responsible for keeping it accurate.</p>
 
   <h2>Contact</h2>
-  <p>Questions about this policy, or a request about your data: [CONTACT EMAIL].</p>
+  <p>Questions about this policy, or a request about your data:
+  <a href="mailto:support@velvetviking.co.uk">support@velvetviking.co.uk</a>.</p>
 
   <a class="back" href="/">← Back to Velvet Viking</a>
 </div>
