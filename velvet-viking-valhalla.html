@@ -9,16 +9,21 @@
 <meta name="apple-mobile-web-app-title" content="Velvet Viking">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#15110D">
+<meta name="theme-color" content="#151417">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 
   :root{
-    --bg:#15110D; --bg-2:#1D1712; --bg-3:#261D14; --bg-4:#2E2318;
-    --ink:#EDE3D0; --ink-dim:#B3A48C; --ink-faint:#948970;
-    --line:#3B2E20; --line-soft:#2A2015;
+    /* Neutral-charcoal foundation (RC2 palette refinement) -- replaces the
+       former warm brown-black ramp (H~30deg) with a near-neutral one
+       (H~255deg, S<=8%) so gold reads as a deliberate accent against it
+       rather than blending into an atmospheric brown cast. Ink stays a warm
+       ivory (unlike the neutral bg) by design -- see B2 in the RC2 audit. */
+    --bg:#151417; --bg-2:#1B1A1E; --bg-3:#201F23; --bg-4:#26252A;
+    --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#9D9787;
+    --line:#302E36; --line-soft:#232126;
     --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
     /* Gold used as TEXT. Identical to --gold/--bronze in dark, so the dark theme
        is unchanged by construction; deepened in light, where the same gold sits on
@@ -53,13 +58,18 @@
   }
   [data-theme="light"]{
     color-scheme:light;
-    --bg:#F2ECDC; --bg-2:#FFFCF6; --bg-3:#EBE1C8; --bg-4:#E3D7B8;
-    --ink:#241C15; --ink-dim:#5E5443; --ink-faint:#6B5F49;
-    --line:#DCCEA9; --line-soft:#E7DABB;
+    /* Clean-ivory foundation (RC2 palette refinement) -- less saturated and
+       slightly lighter than the former sand/parchment ramp (S~44-46% at
+       H~43deg), so the page reads as warm ivory rather than beige card
+       stock. Ink switches to a true neutral near-black (was a warm
+       brown-black) for a cleaner hierarchy -- see B3 in the RC2 audit. */
+    --bg:#F4F1EA; --bg-2:#FCFBFB; --bg-3:#EBE5D8; --bg-4:#E2DAC9;
+    --ink:#171717; --ink-dim:#514D45; --ink-faint:#5D574C;
+    --line:#DAD1BB; --line-soft:#E5DECD;
     --shadow:0 10px 30px rgba(90,70,30,0.14);
     --shadow-sm:0 4px 12px rgba(90,70,30,0.10);
-      /* deep bronze for informational gold text on cream: 6.1:1 on card,
-       5.3:1 on page, 4.8:1 on the tinted panel -- all above AA */
+      /* deep bronze for informational gold text on ivory: 6.0:1 on the
+       raised card, 5.5:1 on the page, 4.95:1 on a tinted panel -- all AA */
     --gold-text:#7A5C1E; --bronze-text:#7A5C1E;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -296,6 +306,10 @@
 
   /* ---------- hero / progress ---------- */
   .hero{padding:32px 0 18px; text-align:center; position:relative;}
+  /* Entry/build page only, with no crest above it -- a bit more top air so
+     the Build Your Training Block card still reads as deliberately placed,
+     not just cut off short under the topbar. */
+  .hero-setup{padding:52px 0 8px;}
   /* Full crest artwork (ring + VALHALLA AWAITS + EARN YOUR PLACE), not just
      the circular medallion -- a 50% circular crop would clip the EARN YOUR
      PLACE line, which sits below the ring. The master is transparent outside
@@ -410,7 +424,12 @@
   /* collapsed-card execution score -- always visible in the header row
      once a workout is completed and scoreable, regardless of whether the
      actual-panel below is showing. */
-  .exec-pill{font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold);}
+  /* Text color uses --gold-text (not --gold) so this reads correctly in
+     light mode too: --gold-text deepens to a bronze that stays AA-contrast
+     against this same translucent-gold background (see --gold-text's own
+     comment above), while dark mode is unchanged since --gold-text==--gold
+     there. */
+  .exec-pill{font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold-text);}
   .day-title{font-weight:600; font-size:14.5px; margin-top:3px; color:var(--ink);}
   .day-targets{font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
   .day-targets .mp{color:var(--gold-text);}
@@ -764,6 +783,12 @@
   .coach-actions{display:flex; flex-direction:column; gap:8px; margin-top:11px;}
   .coach-actions .btn{width:100%;}
   .coach-adjusted-note{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:8px; overflow-wrap:anywhere;}
+  /* PENDING vs SETTLED decision-state flag on the NEXT MOVE card -- a proposed
+     adjustment is awaiting a tap (gold, active); a decided one is a record of
+     what happened (muted, no action attached to it). */
+  .coach-decision-flag{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.1px; text-transform:uppercase; display:block; margin-bottom:5px;}
+  .coach-decision-flag.pending{color:var(--gold-text);}
+  .coach-decision-flag.settled{color:var(--ink-faint);}
   /* ---------- decision state ----------
      Built on the same pill geometry as .day-badge and coloured from the
      existing muted workout-type tokens, so the four states read as part of
@@ -3988,19 +4013,18 @@ function renderMedallion(){
   return '<img class="medallion-img" src="assets/velvet-viking-crest.png" width="1223" height="1286" alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place" loading="eager">';
 }
 function renderHero(){
-  var html = '<div class="hero">'+renderMedallion();
-
+  // Entry/build page (no plan yet): text-led, matching the rest of the app's
+  // brand-only topbar -- the old large circular crest is Today-view-only now
+  // (renderTodayView() still renders it via the branch below, unchanged).
   if (!state.setup){
-    html += '<div class="setup-cta">'+
+    return '<div class="hero hero-setup"><div class="setup-cta">'+
       '<h2 class="font-display">Build Your Training Block</h2>'+
-      '<p>Pick a goal distance, your current weekly mileage and a recent benchmark time \u2014 get a full VDOT-paced block for anything from a 5K to a 50K ultra. An event is optional.</p>'+
+      '<p>Pick a goal distance, your current weekly mileage and a recent benchmark time \u2014 get a full pace-zoned training block for anything from a 5K to a 50K ultra. An event is optional.</p>'+
       '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">'+ICONS.target+' Build My Plan</button>'+
     '</div></div>';
-    return html;
   }
 
-  html += '</div>';
-  return html;
+  return '<div class="hero">'+renderMedallion()+'</div>';
 }
 // Runs/volume completion + Goal stat -- lives in Plan HQ, patched in place
 // via #planhq-stats-mount whenever a session's completion state changes.
@@ -11473,7 +11497,10 @@ function renderCoachNextMoveCard(report){
   body += renderEvolutionLink();
 
   if (adj){
+    // PENDING: the athlete has not answered yet, so both the accept and the
+    // decline path stay on the card together until they tap one.
     body += '<div class="coach-adjust">'+
+      '<div class="coach-decision-flag pending">Pending Decision</div>'+
       '<div class="coach-adjust-line">Suggested: '+
         (adj.kind==='downgrade'
           ? 'swap to an easy '+fmtDist(adj.km)+' run'
@@ -11486,9 +11513,16 @@ function renderCoachNextMoveCard(report){
       '</div>'+
     '</div>';
   } else if (dd && dd.coachAdjust){
-    body += '<div class="coach-adjusted-note">Adjusted by the coach on '+dShort(dd.coachAdjust.at.slice(0,10))+
-      ' — was '+escapeHtml(dd.coachAdjust.from.title)+' '+fmtDist(dd.coachAdjust.from.km)+'.</div>'+
-      '<div class="coach-actions"><button type="button" class="btn btn-ghost btn-block" data-action="coach-restore" data-day="'+mv.dayId+'">Restore Original</button></div>';
+    // SETTLED (accepted): a record of what changed, not a standing offer --
+    // once answered, the card stops asking. The reversibility data itself
+    // (dd.coachAdjust.from) is untouched and still exists; only the always-on
+    // Restore control is removed from this card.
+    body += '<div class="coach-adjusted-note"><span class="coach-decision-flag settled">Settled</span>Adjusted by the coach on '+dShort(dd.coachAdjust.at.slice(0,10))+
+      ' — was '+escapeHtml(dd.coachAdjust.from.title)+' '+fmtDist(dd.coachAdjust.from.km)+'.</div>';
+  } else if (dd && dd.coachKeptAt){
+    // SETTLED (kept original): symmetrical record for the other answer, so
+    // pending vs settled is visually distinguishable either way it resolved.
+    body += '<div class="coach-adjusted-note"><span class="coach-decision-flag settled">Settled</span>Original session kept on '+dShort(dd.coachKeptAt.slice(0,10))+'.</div>';
   }
 
   var meta = dec ? COACH_DECISION_META[dec.state] : null;
