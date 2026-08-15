@@ -1,6 +1,41 @@
 # velvet-viking-valhalla-2
 Running training
 
+## Tests
+
+`npm test` runs a deliberately small, targeted regression suite — not broad
+coverage of the app. It exists to protect the coaching-decision invariants
+that would be dangerous or hard to notice by eye if they silently regressed,
+and the RC1 fix that keeps a regenerated plan from erasing logged history:
+
+- `test/harness.js` loads `velvet-viking-valhalla.html`'s inline `<script>`
+  into a sandboxed Node VM (stubbed `document`/`window`/`localStorage`) so
+  tests call the app's real functions without a browser or a build step.
+- `test/fixtures.js` builds a real plan through the app's own
+  `buildBlockWeeks`/`buildDaysFromWeeks`, mirroring `handleGeneratePlan()`,
+  so fixtures exercise the same pace-zone/prescription machinery the app
+  relies on rather than a hand-rolled shape that could quietly diverge from it.
+- `test/computeExecutionScore.test.js` — the Execution Score's distance/pace
+  weighting, HR/RPE reweighting when data is missing, and the abandoned-session
+  cap (a partial-distance session must never read as a fully good one).
+- `test/buildBlockWeeks.test.js` — periodisation invariants: race week is
+  always last, peak volume follows the distance profile, cutback weeks are
+  lighter than the week before them, taper decreases toward the race.
+- `test/evolutionChanges.test.js` — the cheapest-first adaptation hierarchy
+  and its floor: a key session is shortened, never removed; race/checkpoint
+  days and already-adjusted days are never touched again.
+- `test/coachDecision.test.js` — insufficient evidence never manufactures a
+  state, a single weak signal doesn't reach MODIFY, two independent
+  corroborating signals do, repeated pain reports trip the RECOVER safety
+  threshold, positive execution alone never escalates, and a hot/humid
+  session is attributed to conditions rather than misread as pain or illness.
+- `test/reconcileRegeneratedDays.test.js` — the RC1 history-preservation fix
+  itself: a completed day survives a regenerate that changes the whole
+  schedule, with its logged actuals intact; untouched future days are still
+  fully replaced; no two days in the merged result ever share a date; and
+  preserved history is never pulled into an unrelated week's card by a
+  coincidentally-matching old week number.
+
 ## Brand assets
 
 `assets/velvet-viking-crest.png` is the canonical Velvet Viking crest —

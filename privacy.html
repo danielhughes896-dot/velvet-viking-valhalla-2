@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Privacy Policy — Velvet Viking</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#15110D">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="icon" href="/assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15110D; --bg-2:#1D1712; --bg-3:#261D14;
+    --ink:#EDE3D0; --ink-dim:#B3A48C; --ink-faint:#948970;
+    --line:#3B2E20;
+    --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
+    --gold-bright:#F5D061; --modal-active:#c5a059;
+    --gold-shadow-1:#7A5C1E; --gold-shadow-2:#543E12;
+    --radius:16px; --radius-sm:10px;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.65;
+    padding:calc(28px + env(safe-area-inset-top,0px)) 20px calc(48px + env(safe-area-inset-bottom,0px));
+  }
+  .wrap{max-width:640px; margin:0 auto;}
+  h1{
+    font-family:'Cinzel',serif; font-weight:800; font-size:clamp(1.3rem,5vw,1.7rem);
+    letter-spacing:0.02em; margin:0 0 6px;
+    background:linear-gradient(180deg,var(--gold-bright) 0%,var(--modal-active) 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+  }
+  .updated{font-size:12px; color:var(--ink-faint); margin:0 0 28px;}
+  h2{
+    font-family:'Oswald',sans-serif; font-size:13px; letter-spacing:1.2px; text-transform:uppercase;
+    color:var(--bronze); margin:34px 0 12px; border-bottom:1px solid var(--line); padding-bottom:8px;
+  }
+  p{font-size:14.5px; color:var(--ink-dim); margin:0 0 14px;}
+  a{color:var(--bronze);}
+  strong{color:var(--ink);}
+  table{width:100%; border-collapse:collapse; font-size:13px; margin:12px 0 18px;}
+  th,td{text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:var(--ink-dim);}
+  th{color:var(--ink-faint); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;}
+  ul{margin:0 0 14px; padding-left:20px; color:var(--ink-dim); font-size:14.5px;}
+  li{margin-bottom:6px;}
+  .callout{
+    background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:14px 16px; font-size:13px; color:var(--ink-dim); margin:0 0 20px;
+  }
+  .callout b{color:var(--bronze);}
+  .back{display:inline-block; margin-top:36px; font-size:13px; color:var(--bronze); text-decoration:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Privacy Policy</h1>
+  <p class="updated">Velvet Viking (Valhalla) · describes what the app actually does, not a generic template</p>
+
+  <div class="callout">
+    <b>Owner/contact details in this policy are placeholders</b> — [OWNER NAME] and [CONTACT EMAIL] —
+    pending confirmation from whoever operates this service before this page is relied on for a public
+    or store release. Everything else describes real, current behaviour, verified against the code.
+  </div>
+
+  <p>Valhalla is a running-training app. Most of what it does happens entirely on your own device. This
+  page explains exactly what leaves your device, when, and why — no more and no less than that.</p>
+
+  <h2>The short version</h2>
+  <ul>
+    <li>By default, your training plan lives only on your device. Nothing is sent anywhere.</li>
+    <li>If you turn on sign-in to back up your plan or use it on more than one device, your email
+    address and training plan are stored in your account with our database provider, and nowhere else.</li>
+    <li>If you connect Strava, we read your recent running activities to help log your training. We
+    never write anything back to Strava, and we never see your Strava password.</li>
+    <li>We don't run ads, don't sell data, don't use tracking/analytics scripts, and no AI or language
+    model service ever receives your training data. Valhalla's coaching logic is deterministic code, not
+    an AI model, and calls no AI service itself.</li>
+    <li>You can delete your account and everything in it at any time from Settings.</li>
+  </ul>
+
+  <h2>What's stored on your device only</h2>
+  <p>By default — with no account and no sign-in — everything Valhalla knows about your training is
+  kept in your browser's local storage on your own device: your plan, your logged workouts, your notes,
+  your preferences. This never leaves your device unless you explicitly export a backup file yourself.</p>
+
+  <h2>What's stored if you turn on sign-in</h2>
+  <p>Sign-in is optional and off by default. If you choose to sign in (a passwordless email link — there
+  is no password to store or leak), the following is stored with our database provider, Supabase:</p>
+  <table>
+    <tr><th>Data</th><th>Why</th></tr>
+    <tr><td>Your email address</td><td>To send you sign-in links and identify your account</td></tr>
+    <tr><td>Your training plan and log, as one record</td><td>So it backs up and follows you to another device</td></tr>
+  </table>
+  <p>This data is protected so that only your own signed-in session can read it — not other users, and
+  not us browsing the database casually. Supabase hosts this data on our behalf as our data processor;
+  Vercel hosts the app itself and the small server functions that talk to Supabase and Strava on your
+  behalf, so tokens and credentials never reach your device.</p>
+
+  <h2>What's stored if you connect Strava</h2>
+  <p>Connecting Strava is optional. If you connect it:</p>
+  <ul>
+    <li><strong>Your Strava sign-in tokens</strong> are stored server-side only, protected so that no
+    browser — including your own — can read them back out. They exist purely so the server can fetch
+    your activities on your behalf.</li>
+    <li><strong>From each running activity</strong>, we read and store: distance, duration, pace, heart
+    rate, cadence, and elevation gain. We do <strong>not</strong> store GPS routes or maps, photos, or
+    any Strava social data (kudos, comments, followers).</li>
+    <li>The connection is <strong>read-only</strong> — Valhalla cannot post, edit, or delete anything in
+    your Strava account, and never requests permission to.</li>
+    <li>You can disconnect Strava at any time from Settings. Disconnecting stops any further access
+    <strong>and deletes your stored activity data</strong> — it isn't kept around after you disconnect.</li>
+  </ul>
+
+  <h2>Other services this app talks to</h2>
+  <table>
+    <tr><th>Service</th><th>What it sees</th><th>When</th></tr>
+    <tr><td>Vercel</td><td>Hosts the app and its server functions; sees ordinary web request data (like any website you visit)</td><td>Every visit</td></tr>
+    <tr><td>Supabase</td><td>Your email and training plan, only if you sign in</td><td>Only if sign-in is turned on</td></tr>
+    <tr><td>Strava</td><td>Nothing from us until you choose to connect; then your activity data as described above</td><td>Only if Strava is connected</td></tr>
+    <tr><td>Google Fonts</td><td>Your device's IP address and browser, as a normal side effect of loading the typefaces this page uses</td><td>Every visit</td></tr>
+  </table>
+  <p>We don't use any analytics, advertising, or tracking service, and no language model or AI service
+  ever receives your data — automatically or otherwise. Valhalla's coaching logic is deterministic code
+  written to give the same answer every time, not an AI model.</p>
+
+  <h2>How long we keep it, and how to delete it</h2>
+  <p>Device-only data is kept until you clear your browser's storage or uninstall the app — entirely
+  under your control. Account data (if you signed in) and any connected Strava data are kept until you
+  delete your account, which you can do at any time from Settings. Deleting your account removes your
+  email, your stored plan, your Strava connection, and any staged Strava activity data — all in one
+  action, immediately.</p>
+
+  <h2>Your rights</h2>
+  <ul>
+    <li><strong>Access</strong> — export a full copy of your data at any time from Settings.</li>
+    <li><strong>Correction</strong> — edit your plan, logs, and settings directly in the app.</li>
+    <li><strong>Deletion</strong> — delete your account and all associated data from Settings.</li>
+  </ul>
+  <p>This section describes the mechanisms actually built into the app. It isn't a claim that this
+  service meets every requirement of GDPR, CCPA, or any other specific privacy law in full — if that
+  assurance matters for your audience or jurisdiction, get that confirmed by someone qualified to say so.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If what the app actually does changes, this page will be updated to match. [OWNER NAME] is
+  responsible for keeping it accurate.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy, or a request about your data: [CONTACT EMAIL].</p>
+
+  <a class="back" href="/">← Back to Velvet Viking</a>
+</div>
+</body>
+</html>
