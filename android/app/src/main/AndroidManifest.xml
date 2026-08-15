@@ -27,9 +27,11 @@
               fetch https://velvet-viking-valhalla-1.vercel.app/.well-known/assetlinks.json
               and match this APK's signing certificate against it; only then will
               tapping an /auth link open the app instead of the browser. That file
-              is served from the repo root but still needs the real signing
-              fingerprint pasted in (see ANDROID-APP-LINKS.md). Until it does,
-              this filter is inert and the custom scheme below is what carries
+              already carries the real vvv-release.keystore fingerprint; what's
+              still missing is CI actually signing a build with that same key
+              (the four VVV_KEYSTORE_* secrets; see ANDROID-APP-LINKS.md). Until a
+              build is installed that matches the published fingerprint, this
+              filter stays unverified and the custom scheme below is what carries
               the sign-in link into the app.
             -->
             <intent-filter android:autoVerify="true">

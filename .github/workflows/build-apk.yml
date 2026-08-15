@@ -64,7 +64,7 @@ jobs:
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/vvv.keystore"
           echo "path=$RUNNER_TEMP/vvv.keystore" >> "$GITHUB_OUTPUT"
 
-      - name: Build debug APK
+      - name: "Build DEBUG TEST BUILD (assembleDebug)"
         working-directory: android
         env:
           VVV_KEYSTORE_FILE: ${{ steps.keystore.outputs.path }}
@@ -75,7 +75,7 @@ jobs:
 
       # The value that has to go into assetlinks.json. Only worth copying once a
       # stable keystore is configured above -- otherwise it changes every build.
-      - name: Print APK signing fingerprint
+      - name: Print DEBUG TEST BUILD signing fingerprint
         run: |
           APK=$(find android/app/build/outputs/apk/debug -name '*.apk' | head -1)
           # Pick exactly one build-tools version: the glob matches several, and
@@ -84,11 +84,62 @@ jobs:
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           "$APKSIGNER" verify --print-certs "$APK" | grep -i 'SHA-256 digest'
 
-      - name: Upload APK artifact
+      - name: Upload DEBUG TEST BUILD artifact
         uses: actions/upload-artifact@v4
         with:
-          name: velvet-viking-valhalla-debug-apk
+          name: velvet-viking-valhalla-DEBUG-TEST-apk
           path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      # Everything below produces the SIGNED RELEASE BUILD -- the artifact a
+      # human actually uploads to Play Console or installs for controlled
+      # device verification. It only runs once the four VVV_KEYSTORE_* secrets
+      # are configured (same guard as the "Restore signing keystore" step
+      # above): the release buildType has no debug-signing fallback at all
+      # (see android/app/build.gradle), so without a real key there is nothing
+      # valid to build. Skipped, not attempted-and-failed, until the owner
+      # adds the secrets -- the debug build above still gives a green signal
+      # in the meantime.
+      - name: Note release build skipped (no signing secrets yet)
+        if: ${{ env.ANDROID_KEYSTORE_BASE64 == '' }}
+        run: |
+          echo "::notice::SIGNED RELEASE BUILD skipped -- ANDROID_KEYSTORE_BASE64 (and the matching ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD) are not yet configured as repository secrets. See ANDROID-APP-LINKS.md."
+
+      - name: "Build SIGNED RELEASE BUILD -- Play Store artifact (bundleRelease)"
+        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
+        working-directory: android
+        env:
+          VVV_KEYSTORE_FILE: ${{ steps.keystore.outputs.path }}
+          VVV_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          VVV_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          VVV_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew bundleRelease --no-daemon
+
+      - name: "Build SIGNED RELEASE BUILD -- device-testing artifact (assembleRelease)"
+        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
+        working-directory: android
+        env:
+          VVV_KEYSTORE_FILE: ${{ steps.keystore.outputs.path }}
+          VVV_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          VVV_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          VVV_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Print SIGNED RELEASE BUILD fingerprint
+        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          APK=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs "$APK" | grep -i 'SHA-256 digest'
+
+      - name: Upload SIGNED RELEASE BUILD artifacts
+        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: velvet-viking-valhalla-SIGNED-RELEASE
+          path: |
+            android/app/build/outputs/bundle/release/*.aab
+            android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
   # Only runs for a pushed tag or a manually-triggered run (workflow_dispatch)
@@ -101,10 +152,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download APK artifact
+      - name: Download DEBUG TEST BUILD artifact
         uses: actions/download-artifact@v4
         with:
-          name: velvet-viking-valhalla-debug-apk
+          name: velvet-viking-valhalla-DEBUG-TEST-apk
           path: dist
 
       - name: Determine release tag

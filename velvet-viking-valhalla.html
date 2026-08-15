@@ -9,16 +9,21 @@
 <meta name="apple-mobile-web-app-title" content="Velvet Viking">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#15110D">
+<meta name="theme-color" content="#151417">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 
   :root{
-    --bg:#15110D; --bg-2:#1D1712; --bg-3:#261D14; --bg-4:#2E2318;
-    --ink:#EDE3D0; --ink-dim:#B3A48C; --ink-faint:#948970;
-    --line:#3B2E20; --line-soft:#2A2015;
+    /* Neutral-charcoal foundation (RC2 palette refinement) -- replaces the
+       former warm brown-black ramp (H~30deg) with a near-neutral one
+       (H~255deg, S<=8%) so gold reads as a deliberate accent against it
+       rather than blending into an atmospheric brown cast. Ink stays a warm
+       ivory (unlike the neutral bg) by design -- see B2 in the RC2 audit. */
+    --bg:#151417; --bg-2:#1B1A1E; --bg-3:#201F23; --bg-4:#26252A;
+    --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#9D9787;
+    --line:#302E36; --line-soft:#232126;
     --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
     /* Gold used as TEXT. Identical to --gold/--bronze in dark, so the dark theme
        is unchanged by construction; deepened in light, where the same gold sits on
@@ -53,13 +58,18 @@
   }
   [data-theme="light"]{
     color-scheme:light;
-    --bg:#F2ECDC; --bg-2:#FFFCF6; --bg-3:#EBE1C8; --bg-4:#E3D7B8;
-    --ink:#241C15; --ink-dim:#5E5443; --ink-faint:#6B5F49;
-    --line:#DCCEA9; --line-soft:#E7DABB;
+    /* Clean-ivory foundation (RC2 palette refinement) -- less saturated and
+       slightly lighter than the former sand/parchment ramp (S~44-46% at
+       H~43deg), so the page reads as warm ivory rather than beige card
+       stock. Ink switches to a true neutral near-black (was a warm
+       brown-black) for a cleaner hierarchy -- see B3 in the RC2 audit. */
+    --bg:#F4F1EA; --bg-2:#FCFBFB; --bg-3:#EBE5D8; --bg-4:#E2DAC9;
+    --ink:#171717; --ink-dim:#514D45; --ink-faint:#5D574C;
+    --line:#DAD1BB; --line-soft:#E5DECD;
     --shadow:0 10px 30px rgba(90,70,30,0.14);
     --shadow-sm:0 4px 12px rgba(90,70,30,0.10);
-      /* deep bronze for informational gold text on cream: 6.1:1 on card,
-       5.3:1 on page, 4.8:1 on the tinted panel -- all above AA */
+      /* deep bronze for informational gold text on ivory: 6.0:1 on the
+       raised card, 5.5:1 on the page, 4.95:1 on a tinted panel -- all AA */
     --gold-text:#7A5C1E; --bronze-text:#7A5C1E;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
