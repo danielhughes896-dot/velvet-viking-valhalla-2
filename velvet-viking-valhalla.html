@@ -5082,6 +5082,34 @@ function coachTrend(){
    RPE above the band the session type expects, or HR above its zone, are the
    two signals a plan can actually see. Consecutive quality days without a rest
    or easy day between them is the third. */
+/* Can this session's EFFORT be read as evidence about the athlete, or is it
+   mostly evidence about the weather?
+
+   In real heat, heart rate and perceived exertion both rise for the same
+   physiological work. Counting those excursions as strain reads the conditions
+   as declining readiness and reduces training that was never in trouble --
+   which is the opposite of earning the right to intervene.
+
+   This mirrors hrIsReadable(), which has always guarded the easy-HR baseline
+   on exactly this reasoning; the strain counters below simply never applied it.
+
+   Deliberately narrow. It suppresses ONLY the RPE/HR excursion counters for
+   that one session. Everything else still reaches the decision untouched:
+   pain and illness (which return true here so a hot injured session still
+   counts), load spikes, missed training, hard-day streaks, trend, block
+   effectiveness, and fatigue the athlete reported in their own words. Heat is
+   context, never a veto.
+
+   Note the natural limiter: conditions are only known when the athlete
+   mentions them, so this cannot silently excuse an athlete who never writes
+   about the weather. */
+function effortIsReadable(dd){
+  var a = dd.actual || {};
+  var env = coachEnvironment(a.notes, a);
+  if (env.pain || env.illness) return true;
+  return !(env.heatBand==='significant' || env.heatBand==='severe' ||
+           env.humidBand==='significant' || env.humidBand==='severe');
+}
 function coachRecovery(){
   var today = todayStr();
   var week = coachDaysInWindow(addDays(today,-6), today).filter(function(dd){ return dd.completed; });
@@ -5092,10 +5120,11 @@ function coachRecovery(){
     // like overreaching.
     if (dd.type==='checkpoint' || dd.type==='race') return;
     var a = dd.actual || {};
+    var readable = effortIsReadable(dd);
     var band = expectedRPEBand(dd);
-    if (a.rpe!=null && band){ counted++; if (a.rpe > band[1]) overRPE++; }
+    if (a.rpe!=null && band){ counted++; if (a.rpe > band[1] && readable) overRPE++; }
     var z = executionHRTarget(dd);
-    if (a.hr!=null && z && z.hi!=null && a.hr > z.hi) overHR++;
+    if (a.hr!=null && z && z.hi!=null && a.hr > z.hi && readable) overHR++;
   });
   // hard days back to back, in plan order
   var ordered = state.days.slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
