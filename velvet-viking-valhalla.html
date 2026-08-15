@@ -420,7 +420,12 @@
   /* collapsed-card execution score -- always visible in the header row
      once a workout is completed and scoreable, regardless of whether the
      actual-panel below is showing. */
-  .exec-pill{font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold);}
+  /* Text color uses --gold-text (not --gold) so this reads correctly in
+     light mode too: --gold-text deepens to a bronze that stays AA-contrast
+     against this same translucent-gold background (see --gold-text's own
+     comment above), while dark mode is unchanged since --gold-text==--gold
+     there. */
+  .exec-pill{font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold-text);}
   .day-title{font-weight:600; font-size:14.5px; margin-top:3px; color:var(--ink);}
   .day-targets{font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
   .day-targets .mp{color:var(--gold-text);}
@@ -774,6 +779,12 @@
   .coach-actions{display:flex; flex-direction:column; gap:8px; margin-top:11px;}
   .coach-actions .btn{width:100%;}
   .coach-adjusted-note{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:8px; overflow-wrap:anywhere;}
+  /* PENDING vs SETTLED decision-state flag on the NEXT MOVE card -- a proposed
+     adjustment is awaiting a tap (gold, active); a decided one is a record of
+     what happened (muted, no action attached to it). */
+  .coach-decision-flag{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.1px; text-transform:uppercase; display:block; margin-bottom:5px;}
+  .coach-decision-flag.pending{color:var(--gold-text);}
+  .coach-decision-flag.settled{color:var(--ink-faint);}
   /* ---------- decision state ----------
      Built on the same pill geometry as .day-badge and coloured from the
      existing muted workout-type tokens, so the four states read as part of
@@ -11454,7 +11465,10 @@ function renderCoachNextMoveCard(report){
   body += renderEvolutionLink();
 
   if (adj){
+    // PENDING: the athlete has not answered yet, so both the accept and the
+    // decline path stay on the card together until they tap one.
     body += '<div class="coach-adjust">'+
+      '<div class="coach-decision-flag pending">Pending Decision</div>'+
       '<div class="coach-adjust-line">Suggested: '+
         (adj.kind==='downgrade'
           ? 'swap to an easy '+fmtDist(adj.km)+' run'
@@ -11467,9 +11481,16 @@ function renderCoachNextMoveCard(report){
       '</div>'+
     '</div>';
   } else if (dd && dd.coachAdjust){
-    body += '<div class="coach-adjusted-note">Adjusted by the coach on '+dShort(dd.coachAdjust.at.slice(0,10))+
-      ' — was '+escapeHtml(dd.coachAdjust.from.title)+' '+fmtDist(dd.coachAdjust.from.km)+'.</div>'+
-      '<div class="coach-actions"><button type="button" class="btn btn-ghost btn-block" data-action="coach-restore" data-day="'+mv.dayId+'">Restore Original</button></div>';
+    // SETTLED (accepted): a record of what changed, not a standing offer --
+    // once answered, the card stops asking. The reversibility data itself
+    // (dd.coachAdjust.from) is untouched and still exists; only the always-on
+    // Restore control is removed from this card.
+    body += '<div class="coach-adjusted-note"><span class="coach-decision-flag settled">Settled</span>Adjusted by the coach on '+dShort(dd.coachAdjust.at.slice(0,10))+
+      ' — was '+escapeHtml(dd.coachAdjust.from.title)+' '+fmtDist(dd.coachAdjust.from.km)+'.</div>';
+  } else if (dd && dd.coachKeptAt){
+    // SETTLED (kept original): symmetrical record for the other answer, so
+    // pending vs settled is visually distinguishable either way it resolved.
+    body += '<div class="coach-adjusted-note"><span class="coach-decision-flag settled">Settled</span>Original session kept on '+dShort(dd.coachKeptAt.slice(0,10))+'.</div>';
   }
 
   var meta = dec ? COACH_DECISION_META[dec.state] : null;

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Privacy Policy — Velvet Viking</title>
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#15110D">
+<meta name="theme-color" content="#151417">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="icon" href="/assets/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,14 +13,27 @@
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#15110D; --bg-2:#1D1712; --bg-3:#261D14;
-    --ink:#EDE3D0; --ink-dim:#B3A48C; --ink-faint:#948970;
-    --line:#3B2E20;
+    /* RC2 neutral-charcoal / clean-ivory palette (matches the main app) --
+       gold behaves like jewellery/detail here, not atmosphere. */
+    --bg:#151417; --bg-2:#1B1A1E; --bg-3:#201F23;
+    --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#9D9787;
+    --line:#302E36;
     --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
+    /* Text-only aliases: identical to --gold/--bronze in dark, deepened in
+       light (below) so gold-as-text stays AA-contrast on ivory. */
+    --gold-text:var(--gold); --bronze-text:var(--bronze);
     --gold-bright:#F5D061; --modal-active:#c5a059;
     --gold-shadow-1:#7A5C1E; --gold-shadow-2:#543E12;
     --radius:16px; --radius-sm:10px;
-    color-scheme:dark;
+    color-scheme:dark light;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#F4F1EA; --bg-2:#FCFBFB; --bg-3:#EBE5D8;
+      --ink:#171717; --ink-dim:#514D45; --ink-faint:#5D574C;
+      --line:#DAD1BB;
+      --gold-text:#7A5C1E; --bronze-text:#7A5C1E;
+    }
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   body{
@@ -39,10 +52,10 @@
   .updated{font-size:12px; color:var(--ink-faint); margin:0 0 28px;}
   h2{
     font-family:'Oswald',sans-serif; font-size:13px; letter-spacing:1.2px; text-transform:uppercase;
-    color:var(--bronze); margin:34px 0 12px; border-bottom:1px solid var(--line); padding-bottom:8px;
+    color:var(--bronze-text); margin:34px 0 12px; border-bottom:1px solid var(--line); padding-bottom:8px;
   }
   p{font-size:14.5px; color:var(--ink-dim); margin:0 0 14px;}
-  a{color:var(--bronze);}
+  a{color:var(--bronze-text);}
   strong{color:var(--ink);}
   table{width:100%; border-collapse:collapse; font-size:13px; margin:12px 0 18px;}
   th,td{text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; color:var(--ink-dim);}
@@ -53,8 +66,8 @@
     background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);
     padding:14px 16px; font-size:13px; color:var(--ink-dim); margin:0 0 20px;
   }
-  .callout b{color:var(--bronze);}
-  .back{display:inline-block; margin-top:36px; font-size:13px; color:var(--bronze); text-decoration:none;}
+  .callout b{color:var(--bronze-text);}
+  .back{display:inline-block; margin-top:36px; font-size:13px; color:var(--bronze-text); text-decoration:none;}
 </style>
 </head>
 <body>
