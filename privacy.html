@@ -79,8 +79,8 @@
     <li>If you connect Strava, we read your recent running activities to help log your training. We
     never write anything back to Strava, and we never see your Strava password.</li>
     <li>We don't run ads, don't sell data, don't use tracking/analytics scripts, and no AI or language
-    model ever sees your training data unless you personally choose to copy and paste it into one
-    yourself, from the app's own "AI Coaching Export" feature.</li>
+    model service ever receives your training data. Valhalla's coaching logic is deterministic code, not
+    an AI model, and calls no AI service itself.</li>
     <li>You can delete your account and everything in it at any time from Settings.</li>
   </ul>
 
@@ -113,7 +113,8 @@
     any Strava social data (kudos, comments, followers).</li>
     <li>The connection is <strong>read-only</strong> — Valhalla cannot post, edit, or delete anything in
     your Strava account, and never requests permission to.</li>
-    <li>You can disconnect Strava at any time from Settings, which stops any further access.</li>
+    <li>You can disconnect Strava at any time from Settings. Disconnecting stops any further access
+    <strong>and deletes your stored activity data</strong> — it isn't kept around after you disconnect.</li>
   </ul>
 
   <h2>Other services this app talks to</h2>
@@ -124,10 +125,9 @@
     <tr><td>Strava</td><td>Nothing from us until you choose to connect; then your activity data as described above</td><td>Only if Strava is connected</td></tr>
     <tr><td>Google Fonts</td><td>Your device's IP address and browser, as a normal side effect of loading the typefaces this page uses</td><td>Every visit</td></tr>
   </table>
-  <p>We don't use any analytics, advertising, or tracking service. No language model or AI service ever
-  receives your data automatically — the app's "AI Coaching Export" feature only prepares a text summary
-  for <em>you</em> to copy and paste into a chat tool of your own choosing, if you want to; it doesn't
-  send anything anywhere by itself.</p>
+  <p>We don't use any analytics, advertising, or tracking service, and no language model or AI service
+  ever receives your data — automatically or otherwise. Valhalla's coaching logic is deterministic code
+  written to give the same answer every time, not an AI model.</p>
 
   <h2>How long we keep it, and how to delete it</h2>
   <p>Device-only data is kept until you clear your browser's storage or uninstall the app — entirely
