@@ -1625,9 +1625,20 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput){
    WORKOUT TEXT GENERATION
    ========================================================= */
 function dtok(km){ return '@@D:'+km+'@@'; }
+/* The SESSION TOTAL, as its own token.
+
+   A segment distance and the day's total are different facts and go stale for
+   different reasons, so they are not the same token. @@D: is a piece of the
+   session -- a 2km warm-up stays 2km. @@T: is the number on the card, and
+   rounding or the weekly volume cap can still move it after the text was
+   composed, so syncDescDistance keeps it in step for every workout type.
+
+   Both render through fmtDist, so km/mi conversion is inherited rather than
+   reimplemented and the prescription can never contradict the card's units. */
+function ttok(km){ return '@@T:'+km+'@@'; }
 function resolveDesc(desc){
   if (!desc) return desc;
-  return desc.replace(/@@D:([\d.]+)@@/g, function(_, km){ return fmtDist(parseFloat(km)); });
+  return desc.replace(/@@[DT]:([\d.]+)@@/g, function(_, km){ return fmtDist(parseFloat(km)); });
 }
 // For easy and long runs the description's LEADING distance is the whole-day
 // distance, so it has to track dd.km after the generator settles that number
@@ -1641,21 +1652,62 @@ function resolveDesc(desc){
 // the runner has hand-edited -- the edit modal resolves tokens to plain text,
 // so an edited description has none left to match.
 function syncDescDistance(type, desc, km){
-  if (!desc || (type!=='easy' && type!=='long')) return desc;
-  return desc.replace(/@@D:[\d.]+@@/, dtok(round1(km)));
+  if (!desc) return desc;
+  /* The total is the number the athlete is told to run TO, so it must agree
+     with the number on the card for every workout type -- not only the two
+     whose leading segment happens to be the whole day. Rounding and the volume
+     cap both move km after the text is composed; this is the existing hook
+     that runs once they have. */
+  var out = (km == null) ? desc
+          : desc.replace(/@@T:[\d.]+@@/g, ttok(round1(km)));
+  if (type!=='easy' && type!=='long') return out;
+  return out.replace(/@@D:[\d.]+@@/, dtok(round1(km)));
 }
 
-function intervalWorkoutText(spec){
+/* How much easy running to NAME at the front of a session whose work is timed.
+
+   The number is descriptive, never prescriptive of load: it does not change
+   dd.km, the spec, or anything the engine computes. Its only job is to stop the
+   athlete guessing. It is deliberately conservative and refuses to name a
+   figure it cannot honour -- a warm-up must never approach the whole session,
+   which is exactly the wording a naive `total * fraction` would produce on a
+   short day. Below 2.5km there is no honest number to give, so the sentence
+   stays qualitative, as it is today. */
+function statedWarmupKm(totalKm){
+  if (!totalKm || totalKm < 2.5) return null;
+  return totalKm < 4 ? 1 : 2;
+}
+/* "1.5km easy warm-up." or "Easy warm-up." -- one place, so four archetypes
+   cannot drift apart. */
+function warmupClause(totalKm){
+  var w = statedWarmupKm(totalKm);
+  return w ? dtok(w) + ' easy warm-up.' : 'Easy warm-up.';
+}
+/* How to reach the number on the card. Timed work covers a distance nobody can
+   know in advance, so the honest instruction is the remainder rather than a
+   fabricated cool-down figure. Falls back to today's wording when no total is
+   available -- textFor() re-renders a stored prescription without one. */
+function completionClause(totalKm){
+  return totalKm ? 'Easy running afterwards to complete ' + ttok(round1(totalKm)) + ' total.'
+                 : 'Easy cool-down.';
+}
+
+function intervalWorkoutText(spec, totalKm){
   if (spec.ladder) return { title:'Ladder: '+spec.ladder.join('-')+'m', type:'interval',
     desc: dtok(2)+' warm-up. Ladder '+spec.ladder.join('–')+'m @ Interval pace, jog recovery scaled to each rep’s length. '+dtok(2)+' cool-down.' };
   if (spec.sets) return { title:'Deuce: '+spec.sets+'x('+spec.reps+'x'+spec.m+'m)', type:'interval',
     desc: dtok(2)+' warm-up. '+spec.sets+' sets of '+spec.reps+' x '+spec.m+'m @ Interval pace, short jog between reps, 3–4min jog between sets. '+dtok(2)+' cool-down.' };
   if (spec.t==='goalpace') return { title:'Goal Pace: '+spec.reps+'x'+spec.m+'m', type:'interval', mpSegment:true,
     desc: dtok(2)+' warm-up. '+spec.reps+' x '+spec.m+'m @ Goal Pace w/ short float recovery — locking in race rhythm. '+dtok(2)+' cool-down.' };
+  /* Hills, fartlek and the two unnumbered tempos are the sessions whose WORK is
+     timed rather than measured, so the generator never had a rep distance to
+     write and the athlete was left with a total on the card and no idea how to
+     reach it. The work itself is untouched -- same reps, same seconds, same
+     effort, same recovery -- only the easy running around it is now quantified. */
   if (spec.hillSec) return { title:'Hill Repeats '+spec.reps+'x'+spec.hillSec+'s', type:'interval',
-    desc:'Easy warm-up. '+spec.reps+' x '+spec.hillSec+'s strong uphill effort, walk/jog back down to recover. Easy cool-down.' };
+    desc: warmupClause(totalKm)+' '+spec.reps+' x '+spec.hillSec+'s strong uphill effort, walk/jog back down for full recovery. '+completionClause(totalKm) };
   if (spec.fartlekMin) return { title:'Fartlek '+spec.reps+'x'+spec.fartlekMin+'min', type:'interval',
-    desc:'Easy warm-up. '+spec.reps+' x '+spec.fartlekMin+'min surges at a strong, controlled effort with an equal-time easy jog between. Easy cool-down.' };
+    desc: warmupClause(totalKm)+' '+spec.reps+' x '+spec.fartlekMin+'min surges at a strong, controlled effort with an equal-time easy jog between. '+completionClause(totalKm) };
   var type = spec.t || 'interval';
   var label = type==='repetition' ? 'Repetition' : 'Interval';
   var recovery = repRecovery(spec.m);
@@ -1670,13 +1722,13 @@ function repRecovery(m){
   if (m>=1000) return { sec:180, text:'3min jog' };
   return { sec:90, text:'90s jog' };
 }
-function tempoWorkoutText(spec){
+function tempoWorkoutText(spec, totalKm){
   if (spec.type==='goalpace') return { title:'Goal Pace Block: '+spec.km+'km', type:'tempo', mpSegment:true,
     desc: dtok(2)+' warm-up. '+dtok(spec.km)+' continuous @ Goal Pace — locked in and controlled, exactly race rhythm. '+dtok(2)+' cool-down.' };
   if (spec.type==='progressive') return { title:'Progressive Tempo: '+spec.min+'min', type:'tempo',
-    desc:'Easy warm-up jog. '+spec.min+'min continuous, building steadily from a strong aerobic effort down to Tempo pace by the final third. Easy cool-down.' };
+    desc: warmupClause(totalKm)+' '+spec.min+'min continuous, building steadily from a strong aerobic effort down to Tempo pace by the final third. '+completionClause(totalKm) };
   if (spec.type==='steady') return { title:'Steady: '+spec.min+'min', type:'tempo',
-    desc:'Easy warm-up jog. '+spec.min+'min continuous @ a strong, steady aerobic effort. Easy cool-down.' };
+    desc: warmupClause(totalKm)+' '+spec.min+'min continuous @ a strong, steady aerobic effort, held unbroken. '+completionClause(totalKm) };
   if (spec.type==='tempo'){
     if (spec.split) return { title:'Tempo: '+spec.min+'min (split)', type:'tempo',
       desc: dtok(2)+' warm-up. '+Math.round(spec.min/spec.split)+'min @ Tempo pace x'+spec.split+', with 2-3min easy jog between reps. '+dtok(2)+' cool-down.' };
@@ -1884,7 +1936,7 @@ function prescriptionSpec(p){
    their wording, so there is no second copy of the prose to drift. ctx is only
    needed for the two plan-level names (race day vs goal effort); it defaults
    to the live plan the way vGoalDay() does. */
-function textFor(p, ctx){
+function textFor(p, ctx, totalKm){
   if (!p || !isKnownArchetype(p.archetype)) return null;
   var q = p.params;
   var su = (ctx && ctx.setup!==undefined) ? ctx.setup : (typeof state!=='undefined' ? state.setup : null);
@@ -1904,7 +1956,7 @@ function textFor(p, ctx){
   var spec = prescriptionSpec(p);
   if (!spec) return null;
   return (ARCHETYPES[p.archetype].family==='interval' || ARCHETYPES[p.archetype].family==='repetition')
-    ? intervalWorkoutText(spec) : tempoWorkoutText(spec);
+    ? intervalWorkoutText(spec, totalKm) : tempoWorkoutText(spec, totalKm);
 }
 
 /* ---- segmentsFor() ----
@@ -2477,14 +2529,19 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       // the session written on it. Both sides come from the same spec today,
       // so this only ever fires if a future change breaks that.
       if (kind==='interval'){
-        var q = intervalWorkoutText(wk.qSpec);
+        /* The day's km is the same expression it always was, merely named
+           before it is used so the text can be told what total it is writing
+           to. Nothing about the number changes. */
+        var qDayKm = qKmThisWeek + qualityDayShortfallKm(qKmThisWeek, wk.qSpec, 'interval');
+        var q = intervalWorkoutText(wk.qSpec, qDayKm);
         return { type:q.type, title:q.title, desc:q.desc, mpSegment:!!q.mpSegment,
-                 km: qKmThisWeek + qualityDayShortfallKm(qKmThisWeek, wk.qSpec, 'interval'),
+                 km: qDayKm,
                  prescription: prescriptionFromSpec(wk.qSpec, 'interval') };
       }
-      var t3 = tempoWorkoutText(wk.tSpec);
+      var tDayKm = tKmThisWeek + qualityDayShortfallKm(tKmThisWeek, wk.tSpec, 'tempo');
+      var t3 = tempoWorkoutText(wk.tSpec, tDayKm);
       return { type:t3.type, title:t3.title, desc:t3.desc, mpSegment:!!t3.mpSegment,
-               km: tKmThisWeek + qualityDayShortfallKm(tKmThisWeek, wk.tSpec, 'tempo'),
+               km: tDayKm,
                prescription: prescriptionFromSpec(wk.tSpec, 'tempo') };
     }
 
@@ -10339,10 +10396,10 @@ function rebuildWorkoutDay(dd, newPrescription, ctx){
   ctx = ctx || {};
   if (!newPrescription || !isKnownArchetype(newPrescription.archetype))
     return subRefuse('unknown_archetype','Unknown archetype id.');
-  var txt = textFor(newPrescription, ctx.textCtx);
-  if (!txt) return subRefuse('unknown_archetype','No text template for '+newPrescription.archetype+'.');
-
-  // distance, from the same budget the generator sizes a day with
+  /* Sized BEFORE the text is written. rawKm never depended on the text -- only
+     the final rounding does -- so naming it first is a reordering, not a change
+     of value, and it lets the prescription state the total it is writing to.
+     syncDescDistance below then corrects the token to the rounded number. */
   var meta = ARCHETYPES[newPrescription.archetype];
   var rawKm;
   if (meta.dayKmParam && newPrescription.params[meta.dayKmParam]!=null){
@@ -10352,6 +10409,8 @@ function rebuildWorkoutDay(dd, newPrescription, ctx){
     if (!spec) return subRefuse('unknown_archetype','No spec form for '+newPrescription.archetype+'.');
     rawKm = qualitySessionKm(spec, (meta.family==='interval'||meta.family==='repetition') ? 'interval' : 'tempo');
   }
+  var txt = textFor(newPrescription, ctx.textCtx, rawKm);
+  if (!txt) return subRefuse('unknown_archetype','No text template for '+newPrescription.archetype+'.');
   var km = roundWorkoutKm(txt.type, rawKm);
 
   var out = {};
