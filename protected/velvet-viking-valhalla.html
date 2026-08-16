@@ -9,7 +9,24 @@
 <meta name="apple-mobile-web-app-title" content="Velvet Viking">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#151417">
+<meta name="theme-color" content="#F4F1EA">
+<!--
+  THEME BOOT, before the first paint.
+
+  The stylesheet's :root is the dark ramp, so a light-mode athlete used to see
+  a dark page for as long as it took the script at the end of <body> to parse
+  and call renderApp(). On a phone that is a visible black flash on every
+  launch, and it got worse the moment light became the product default.
+
+  This reads the small mirror key the app writes whenever the theme changes --
+  never the 25KB plan blob -- and applies it to <html> before anything renders.
+  It is the same snippet every Velvet Viking surface carries, so the app,
+  the account shell and the public pages all arrive in the same theme;
+  test/themeSystem.test.js asserts they stay byte-identical rather than
+  drifting apart. Absent or unreadable storage resolves to LIGHT, which is the
+  product default. The OS preference is deliberately never consulted.
+-->
+<script data-vvv-theme-boot>/*VVV-THEME-BOOT*/(function(){try{var s=localStorage.getItem('vvv_theme');var t=s?(JSON.parse(s)||{}).theme:null;document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -54,6 +71,25 @@
     --gold-bright:#F5D061; --gold-deep:#8A6D2B;
     --gold-shadow-1:#7A5C1E; --gold-shadow-2:#543E12;
     --strava-orange:#FC4C02;
+    /* ---------- CONTROL TOKENS ----------
+       The --modal-* ramp above is deliberately fixed dark in BOTH themes: a
+       modal is a lit stage, and that decision stands. What went wrong is that
+       ordinary in-page controls -- the Settings email field above all -- were
+       drawn from the same ramp, so a light-mode athlete got a near-black
+       input sitting on a cream page. That is not a light theme; it is a dark
+       component someone forgot to convert.
+
+       These tokens split the two apart. In DARK they are the modal values
+       character for character, so the dark theme is unchanged by
+       construction. In LIGHT they belong to the cream/warm-stone/deep-bronze
+       system. Inside .modal-card they are pinned back to the fixed ramp, so a
+       modal looks the same in either theme exactly as it did before. */
+    --ctl-bg:#24201c; --ctl-border:#3d352b; --ctl-text:#e6dfd5;
+    --ctl-placeholder:#8d857a;
+    --ctl-accent:#c5a059; --ctl-accent-rgb:197,160,89;
+    --ctl-disabled-bg:#1d1a17; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2e2921;
+    --ctl-surface:#141210; --ctl-surface-border:#3d352b;
+    --danger-text:var(--c-threshold);
     color-scheme:dark;
   }
   [data-theme="light"]{
@@ -71,6 +107,20 @@
       /* deep bronze for informational gold text on ivory: 6.0:1 on the
        raised card, 5.5:1 on the page, 4.95:1 on a tinted panel -- all AA */
     --gold-text:#7A5C1E; --bronze-text:#7A5C1E;
+    /* Warm paper, warm stone edge, near-black ink. Measured against the tokens
+       they actually sit on rather than against white:
+         border  #8F8569  3.57:1 on the field, 3.25:1 on the page   (AA non-text)
+         text    #171717 17.46:1 on the field                        (AAA)
+         holder  #6B6558  5.64:1 on the field                        (AA)
+         focus   #8A6D2B  4.75:1 on the field                        (AA non-text)
+       Gold stays an accent -- it edges the focus ring and nothing else here.
+       Filling controls with gold would turn the product into a sea of it. */
+    --ctl-bg:#FDFCF8; --ctl-border:#8F8569; --ctl-text:#171717;
+    --ctl-placeholder:#6B6558;
+    --ctl-accent:#8A6D2B; --ctl-accent-rgb:138,109,43;
+    --ctl-disabled-bg:#EDEAE1; --ctl-disabled-text:#847E71; --ctl-disabled-border:#C4BCA6;
+    --ctl-surface:#F5F2EC; --ctl-surface-border:#DCCEA9;
+    --danger-text:#9A3540;   /* 6.30:1 on the page, vs 4.37:1 for the family hue */
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html{-webkit-text-size-adjust:100%;}
@@ -613,11 +663,30 @@
     border-radius:var(--radius-sm); padding:11px 18px; font-size:13.5px; font-weight:600;
     border:1px solid var(--line); background:var(--bg-3); color:var(--ink); transition:.2s;
   }
+  /* 37px is what 11px of padding around 13.5px type comes to, and it is under
+     every platform's minimum for something a thumb has to hit. The padding is
+     left alone -- it sets the optical weight -- and a floor is added instead,
+     so nothing that already cleared it moves. .btn-sm is deliberately exempt:
+     it exists to sit inline beside a row of text, and giving it 44px would
+     make those rows taller than the content they belong to. */
+  .btn:not(.btn-sm){min-height:44px;}
   .btn:hover{border-color:var(--bronze);}
   .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink); border:none;}
   .btn-primary:hover{filter:brightness(1.08);}
   .btn-ghost{background:none; border:1px solid var(--line);}
-  .btn-danger{background:none; border:1px solid var(--c-threshold); color:var(--c-threshold);}
+  /* --danger-text, not --c-threshold. The workout-type hues are deliberately
+     identical in both themes, and that one lands at 4.37:1 on cream -- close
+     enough to look fine and still short of AA for a button an athlete only
+     presses to destroy something. Deepened in light only; the border and the
+     dark theme keep the family hue. */
+  .btn-danger{background:none; border:1px solid var(--c-threshold); color:var(--danger-text);}
+  /* Every disabled control says the same thing the same way: flatter fill,
+     softer edge, quieted label -- never invisible, never still clickable. */
+  .btn:disabled, .btn[disabled]{
+    background:var(--ctl-disabled-bg); border-color:var(--ctl-disabled-border);
+    color:var(--ctl-disabled-text); cursor:default; filter:none;
+  }
+  .btn:disabled:hover, .btn[disabled]:hover{border-color:var(--ctl-disabled-border);}
   .btn-block{width:100%;}
   .btn-sm{padding:7px 12px; font-size:12px;}
   .btn svg{width:15px; height:15px; flex:none;}
@@ -634,6 +703,16 @@
     background:var(--modal-surface); border:1px solid var(--modal-border); width:100%; max-width:560px;
     border-radius:20px 20px 0 0; max-height:92vh; overflow-y:auto; box-shadow:var(--shadow);
     animation:slideup .22s ease; color-scheme:dark;
+    /* A modal is a lit stage in both themes -- that was already true and stays
+       true. Pinning the control tokens back to the fixed ramp HERE, rather
+       than leaving the controls hard-coded to it, is what lets the same
+       .field markup be cream in Settings and dark-Viking in a modal without a
+       second set of rules. Custom properties inherit, so everything inside
+       the card picks this up automatically. */
+    --ctl-bg:var(--modal-input-bg); --ctl-border:var(--modal-border);
+    --ctl-text:var(--modal-text); --ctl-placeholder:#8d857a;
+    --ctl-accent:var(--modal-active); --ctl-accent-rgb:var(--modal-active-rgb);
+    --ctl-disabled-bg:#1d1a17; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2e2921;
   }
   @media (min-width:640px){ .modal-card{border-radius:var(--radius-lg);} }
   @keyframes slideup{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
@@ -641,15 +720,25 @@
   .modal-head h2{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1px; font-size:16px; margin:0; color:var(--modal-text);}
   .modal-body{padding:16px 18px 22px; color:var(--modal-text);}
   .field{margin-bottom:14px;}
-  .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--modal-text); opacity:.65; margin-bottom:5px;}
+  .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); opacity:.65; margin-bottom:5px;}
   .field input, .field select, .field textarea{
-    width:100%; background:var(--modal-input-bg); border:1px solid var(--modal-border); border-radius:9px;
-    color:var(--modal-text); padding:10px 11px; font-size:14px;
+    width:100%; background:var(--ctl-bg); border:1px solid var(--ctl-border); border-radius:9px;
+    color:var(--ctl-text); padding:10px 11px; font-size:14px;
+    min-height:44px;   /* a thumb has to land in it before a keyboard appears */
   }
+  .field input::placeholder, .field textarea::placeholder{ color:var(--ctl-placeholder); opacity:1; }
   .field input:focus, .field select:focus, .field textarea:focus{
-    outline:none; border-color:var(--modal-active); box-shadow:0 0 0 2px rgba(var(--modal-active-rgb),0.25);
+    outline:none; border-color:var(--ctl-accent); box-shadow:0 0 0 2px rgba(var(--ctl-accent-rgb),0.25);
   }
-  .field select option{ background:var(--modal-input-bg); color:var(--modal-text); }
+  /* A disabled control has to be legible AND obviously inert. Opacity alone
+     does both jobs badly: it dims the label past readable while leaving the
+     field looking much as it did. Its own flatter fill and softer edge say
+     "not now" without hiding what it says. */
+  .field input:disabled, .field select:disabled, .field textarea:disabled{
+    background:var(--ctl-disabled-bg); border-color:var(--ctl-disabled-border);
+    color:var(--ctl-disabled-text); cursor:default;
+  }
+  .field select option{ background:var(--ctl-bg); color:var(--ctl-text); }
   .field textarea{resize:vertical; min-height:70px; font-family:'Inter',sans-serif;}
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .field-hint{font-size:11px; color:var(--ink-faint); margin-top:4px;}
@@ -673,7 +762,14 @@
   .status-connected{background:var(--c-easy-soft); color:var(--c-easy);}
   .switch{position:relative; display:inline-block; width:42px; height:24px; flex:none;}
   .switch input{position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;}
-  .switch-track{position:absolute; inset:0; background:var(--line); border-radius:99px; transition:.2s;}
+  /* The off state needs its own edge on cream. --line reads as a hairline
+     between rows, which is right for a divider and wrong for a control an
+     athlete has to find: the track and the card underneath it were within a
+     shade of each other. The inset ring gives it a boundary in both themes
+     without changing the on state, which was never unclear. */
+  .switch-track{position:absolute; inset:0; background:var(--line); border-radius:99px; transition:.2s;
+    box-shadow:inset 0 0 0 1px var(--ctl-border);}
+  .switch input:checked + .switch-track{box-shadow:none;}
   .switch-track::before{content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:var(--bg-2); border-radius:50%; transition:.2s; box-shadow:var(--shadow-sm);}
   .switch input:checked + .switch-track{background:var(--bronze);}
   .switch input:checked + .switch-track::before{transform:translateX(18px);}
@@ -717,12 +813,11 @@
   /* ---------- sticky bottom nav — 5 view toggles ---------- */
   .bottom-nav{
     position:fixed; left:0; right:0; bottom:0; z-index:55; display:flex;
-    background:var(--modal-surface); border-top:1px solid var(--modal-border);
+    background:var(--ctl-surface); border-top:1px solid var(--ctl-surface-border);
     padding:6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
     max-width:var(--maxw); margin:0 auto;
   }
-  @media (min-width:640px){ .bottom-nav{ left:50%; transform:translateX(-50%); border-left:1px solid var(--modal-border); border-right:1px solid var(--modal-border); } }
-  @media (min-width:640px){ [data-theme="light"] .bottom-nav{ border-left-color:#DCCEA9; border-right-color:#DCCEA9; } }
+  @media (min-width:640px){ .bottom-nav{ left:50%; transform:translateX(-50%); border-left:1px solid var(--ctl-surface-border); border-right:1px solid var(--ctl-surface-border); } }
   .bn-item{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0;
     padding:7px 1px; color:var(--ink-faint); font-family:'Oswald',sans-serif; font-size:8.5px;
@@ -732,12 +827,26 @@
   .bn-item span{max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .bn-item.active{ color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14); }
   .bn-item:active{ transform:scale(.95); }
-  /* the bottom nav otherwise stays on the fixed dark modal palette (like
-     modals/dropdowns) -- overridden here so it reads as part of the light
-     theme instead of a dark bar left stranded against the cream page. */
-  [data-theme="light"] .bottom-nav{background:#F5F2EC; border-top-color:#DCCEA9;}
-  [data-theme="light"] .bn-item{color:#665C4D;}
-  [data-theme="light"] .bn-item.active{color:#F5D061; background:#2B2317;}
+  /* LIGHT-MODE ACTIVE TAB.
+     It used to be a near-black slab with bright gold on it -- the dark
+     treatment transplanted onto cream, and the single loudest thing on the
+     Settings screen. The selected tab is a state, not a headline.
+
+     Replaced with a raised warm-paper tab: the page's own material lifted
+     forward, edged in deep antique gold, carrying a gold rule along its top
+     where a selected tab meets the bar. Three independent cues -- fill,
+     border, and the rule -- so the state does not rest on colour alone, and
+     the deep-bronze label reads at 6.1:1 against it.
+       pill  #FFFDF7 lifted off the #F5F2EC bar
+       edge  #9B7B2E  3.92:1 on the pill, 3.57:1 on the bar (AA non-text)
+       label #7A5C1E  6.11:1 on the pill                    (AA)
+       idle  #6B6558  5.18:1 on the bar, plainly subordinate (AA)
+     Dark mode is untouched: its gold-on-charcoal tab was never the problem. */
+  [data-theme="light"] .bn-item{color:#6B6558;}
+  [data-theme="light"] .bn-item.active{
+    color:#7A5C1E; background:#FFFDF7;
+    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
+  }
   .view-heading{
     font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-faint);
     text-align:center; margin:18px 0 4px;
@@ -3502,6 +3611,7 @@ function cloudSignOut(){
   entitlementInfo = null;
   lastEntitlementAt = 0;
   cloudSession = null;
+  landingDismissed = false;   // the next arrival is a new arrival
   writeStored(CLOUD_SESSION_KEY, null);
   // The mark records agreement with one account's row; signing in as someone
   // else must not inherit it, or the first reconcile would silently pick a
@@ -3653,6 +3763,16 @@ function planSummary(st){
 // Carrying the other device's across would make a quiet background sync
 // visibly change the app under the user. A brand-new device has no
 // preferences worth keeping, so there it takes the account's.
+//
+// THE THEME IS THE ONE EXCEPTION, and it had a real bug. "A brand-new device
+// has no preferences worth keeping" is true of the tab you last had open. It
+// is not true of the theme, because an athlete can open Valhalla on a new
+// phone, set it to dark before building anything, and then sign in -- at which
+// point keepDevicePrefs is false, `state = remote` replaces everything, and
+// their choice is silently overwritten by whatever theme happened to be
+// stored in the plan row. themeExplicit is exactly the fact needed to tell
+// that athlete apart from one who never touched the switch, so the theme is
+// carried across on its own terms whichever branch we are in.
 function adoptCloudState(remote, keepDevicePrefs){
   writeStored(CLOUD_BACKUP_KEY, state);   // never discard what was already here
   /* A row downloaded from this athlete's own account belongs to them by
@@ -3663,6 +3783,7 @@ function adoptCloudState(remote, keepDevicePrefs){
     theme: state.theme, units: state.units,
     view: state.view, notifyEnabled: state.notifyEnabled
   } : null;
+  var chosenTheme = state.themeExplicit ? state.theme : null;
   state = remote;
   if (prefs){
     if (prefs.theme!=null) state.theme = prefs.theme;
@@ -3670,6 +3791,9 @@ function adoptCloudState(remote, keepDevicePrefs){
     if (prefs.view!=null) state.view = prefs.view;
     if (prefs.notifyEnabled!=null) state.notifyEnabled = prefs.notifyEnabled;
   }
+  migrateThemePreference(state);
+  if (chosenTheme){ state.theme = chosenTheme; state.themeExplicit = true; }
+  syncThemeMirror();
   if (state.view==='detailed') state.view='planhq';
   if (!state.view) state.view='today';
   if (state.notifyEnabled==null) state.notifyEnabled=false;
@@ -3743,6 +3867,7 @@ function cloudReconcile(){
   }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
 }
 function openCloudConflictModal(remote, remoteUpdated){
+  cloudPendingReconcile = true;
   window.__cloudPendingRemote = remote;
   window.__cloudPendingRemoteUpdated = remoteUpdated || null;
   openModal(''+
@@ -3759,6 +3884,7 @@ function openCloudConflictModal(remote, remoteUpdated){
 }
 function handleCloudKeepLocal(){
   closeModal();
+  cloudPendingReconcile = false;
   window.__cloudPendingRemote = null;
   window.__cloudPendingRemoteUpdated = null;
   cloudPutPlan().then(function(){
@@ -3769,6 +3895,7 @@ function handleCloudKeepLocal(){
 function handleCloudKeepRemote(){
   var remote = window.__cloudPendingRemote;
   var remoteUpdated = window.__cloudPendingRemoteUpdated;
+  cloudPendingReconcile = false;
   window.__cloudPendingRemote = null;
   window.__cloudPendingRemoteUpdated = null;
   closeModal();
@@ -3878,17 +4005,94 @@ function loadState(){
           if (parsed.view==='detailed') parsed.view = 'planhq';
           else if (!parsed.view) parsed.view = 'today';
           if (parsed.notifyEnabled==null) parsed.notifyEnabled = false;
+          migrateThemePreference(parsed);
           state = parsed;
+          syncThemeMirror();
           return;
         }
       }
     }catch(e){ /* corrupt or unavailable — fall through to fresh state */ }
   }
+  /* No usable plan state -- either a genuinely new device, or an athlete who
+     has not built anything yet. The guard above deliberately rejects a stored
+     blob without setup AND days, because a half-written plan is worse than no
+     plan; but the theme is not part of the plan and must not be collateral.
+
+     An athlete who opens Valhalla, switches to dark, and closes the app before
+     building anything used to reopen it in light. The mirror key survives that
+     independently of the plan blob, so it is read back here. Only an EXPLICIT
+     choice is honoured: a mirrored default is just the default. */
   state = makeDefaultState();
+  try{
+    var mirror = JSON.parse(window.localStorage.getItem(THEME_MIRROR_KEY) || 'null');
+    if (mirror && mirror.explicit && (mirror.theme==='dark' || mirror.theme==='light')){
+      state.theme = mirror.theme; state.themeExplicit = true;
+    }
+  }catch(e){}
+  syncThemeMirror();
+}
+
+/* =========================================================
+   THEME
+   =========================================================
+   PRECEDENCE, in order, and nothing else gets a vote:
+
+     1. an explicit choice made on THIS device  (state.themeExplicit)
+     2. the account's theme, on a device that has never expressed one
+     3. LIGHT -- the Velvet Viking product default
+
+   The operating system is deliberately absent from that list. There is no
+   prefers-color-scheme query anywhere in this file and none should be added:
+   a dark phone is a fact about the phone, not a request about this product.
+
+   MIGRATION, and why nobody's stored theme moves.
+
+   Before this, `theme` was the whole preference and it defaulted to 'dark'.
+   That means a stored 'dark' is genuinely ambiguous -- it is either an athlete
+   who chose dark or an athlete who never touched the switch. There is no way
+   to tell them apart after the fact, and flipping them all to light would
+   reset real choices, which is the one thing we were told not to do. So a
+   state that predates this marker keeps exactly the theme it had and is
+   recorded as explicit. New states, and only new states, start light. */
+var DEFAULT_THEME = 'light';
+var THEME_MIRROR_KEY = 'vvv_theme';
+function migrateThemePreference(st){
+  if (!st || typeof st !== 'object') return st;
+  if (st.themeExplicit == null){
+    if (st.theme !== 'dark' && st.theme !== 'light') st.theme = DEFAULT_THEME;
+    else st.themeExplicit = true;   // whatever it was, it stays what it was
+  }
+  if (st.theme !== 'dark' && st.theme !== 'light') st.theme = DEFAULT_THEME;
+  if (st.themeExplicit == null) st.themeExplicit = false;
+  return st;
+}
+/* The one small key every Velvet Viking surface reads before its first paint.
+   The account shell and the public pages must not have to parse a 25KB plan
+   blob -- or know anything about plans at all -- to arrive in the athlete's
+   theme, and the boot snippet in <head> has to be fast enough to run before
+   the page draws. state.theme stays the source of truth; this is its echo. */
+function syncThemeMirror(){
+  try{
+    window.localStorage.setItem(THEME_MIRROR_KEY,
+      JSON.stringify({ theme: state.theme, explicit: !!state.themeExplicit }));
+  }catch(e){}
+}
+function applyThemeToDocument(){
+  try{ document.documentElement.setAttribute('data-theme', state.theme); }catch(e){}
+  /* The Android status bar and the browser chrome are painted from this, so
+     leaving it on the dark value made a light-mode phone wear a black cap. */
+  try{
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', state.theme==='dark' ? '#151417' : '#F4F1EA');
+  }catch(e){}
 }
 function makeDefaultState(){
   return {
-    theme:'dark',
+    theme:DEFAULT_THEME,
+    /* false means "nobody has chosen" -- which is what lets a fresh device
+       take the account's theme on first sign-in without ever overriding an
+       athlete who did choose. */
+    themeExplicit:false,
     units:'km',
     view:'today', // 'today' | 'week' | 'full' | 'planhq' | 'settings' -- which bottom-nav view is active
     setup:null, // { distanceKey, currentVolume, raceDate, benchmark:{distanceKey,timeSec}, goals:{A,B,C:{label,timeSec}}, activeGoal:'A' }
@@ -15021,7 +15225,12 @@ function handleToggleWeek(weekNum){
 }
 function handleSetTheme(theme){
   state.theme = theme;
-  document.documentElement.setAttribute('data-theme', theme);
+  /* Touching the switch is the only thing in the product that sets this. From
+     here on the athlete's choice outranks the default AND outranks whatever
+     theme arrives with a plan downloaded from their account. */
+  state.themeExplicit = true;
+  syncThemeMirror();
+  applyThemeToDocument();
   scheduleSave();
   // .tb-theme-btn only exists on the pre-plan onboarding header now; the
   // Settings switch is the theme control everywhere else.
@@ -15464,7 +15673,9 @@ function renderSettingsHubView(){
       '<button type="button" class="btn btn-danger btn-block" data-action="reset-plan">'+ICONS.trash+' Reset Plan — Start Over</button>'+
     '</div>'+
     '<div class="build-tag">Build '+BUILD_ID+'</div>'+
-    '<div class="build-tag"><a href="/privacy" style="color:inherit;">Privacy</a> &middot; <a href="/terms" style="color:inherit;">Terms</a></div>';
+    /* padded rather than merely coloured: an 11px line of text is a link a
+       thumb misses, and these two are the only route to the legal pages. */
+    '<div class="build-tag"><a href="/privacy" style="color:inherit; display:inline-block; padding:9px 6px;">Privacy</a> &middot; <a href="/terms" style="color:inherit; display:inline-block; padding:9px 6px;">Terms</a></div>';
 }
 function renderBottomNav(){
   var view = state.view || 'today';
@@ -15502,7 +15713,109 @@ function handleSetView(view){
   scheduleSave();
   renderApp();
 }
+/* =========================================================
+   APPLICATION STATE
+   =========================================================
+   Signing out leaves the athlete sitting inside the ordinary five-tab app.
+   The DATA behaviour underneath that is correct and is not changing -- the
+   plan is the device's, and sign-out has never taken it away. What was
+   missing is that the app had no idea which of these situations it was in.
+   Authentication was a thing Settings knew about; the shell did not.
+
+   So the shell now asks one question and gets one answer, instead of five
+   screens each deciding for themselves:
+
+   state                    plan on device?  signed in?  what it means
+   ----------------------------------------------------------------------
+   reconcile-required       yes              yes         two plans exist and the
+                                                         athlete must choose;
+                                                         nothing is written until
+                                                         they do
+   signed-in-plan           yes              yes         training, backed up
+   signed-in-no-plan        no               yes         account ready, nothing
+                                                         to train yet
+   signed-out-local-plan    yes              no          this device's own plan,
+                                                         no account behind it
+   signed-out-no-plan       no               no          arrival
+
+   Two rules this encodes, both of which were previously only conventions:
+
+   1. Authentication state and the existence of local training data are
+      SEPARATE axes. A plan does not imply an account and an account does not
+      imply a plan; conflating them is what produces "sign in to see your
+      plan" screens in front of a plan that is already on the device.
+   2. reconcile-required OUTRANKS everything. While an ownership decision is
+      open the athlete has not agreed to anything, so no other state may claim
+      the screen and quietly pick a winner. Phase 3A1's safeguards are the
+      authority on what happens next; this only makes the situation nameable. */
+/* `nav` records what the shell exposes TODAY, not what it ideally would.
+   reconcile-required keeps the five tabs because the decision is enforced by a
+   blocking modal over the top of them, which is how it already worked and is
+   not something this pass is changing. Naming the state is the point; moving
+   the enforcement into the shell is a decision for the landing design. */
+var APP_STATES = {
+  'reconcile-required':    { hasPlan:true,  signedIn:true,  nav:true,  landing:false },
+  'signed-in-plan':        { hasPlan:true,  signedIn:true,  nav:true,  landing:false },
+  'signed-in-no-plan':     { hasPlan:false, signedIn:true,  nav:false, landing:false },
+  'signed-out-local-plan': { hasPlan:true,  signedIn:false, nav:true,  landing:true  },
+  'signed-out-no-plan':    { hasPlan:false, signedIn:false, nav:false, landing:true  }
+};
+/* Set while the "Two plans found" decision is open. A module variable rather
+   than a reading of the modal's DOM: the state must be knowable before
+   anything is painted, and a state derived from what is currently on screen
+   is not a state, it is a description of a screen. */
+var cloudPendingReconcile = false;
+function resolveAppState(){
+  if (cloudPendingReconcile) return 'reconcile-required';
+  var hasPlan = planHasContent();
+  if (cloudSignedIn()) return hasPlan ? 'signed-in-plan' : 'signed-in-no-plan';
+  return hasPlan ? 'signed-out-local-plan' : 'signed-out-no-plan';
+}
+function appStateAllowsNav(st){
+  var d = APP_STATES[st || resolveAppState()];
+  return !!(d && d.nav);
+}
+
+/* THE INSERTION POINT FOR THE WELCOME STATE, AND NOTHING MORE.
+
+   The signed-out arrival is going to become a branded Valhalla welcome --
+   wordmark, crest, EARN YOUR PLACE, and for a device that already holds a
+   training block, a "welcome back" that recognises it rather than treating
+   the athlete as new. That design is deliberately NOT being invented here;
+   it is being approved separately after the product audit.
+
+   What this pass owes it is a clean seam, which is what this is: one flag,
+   one renderer, one routing branch, all reachable and all covered by tests.
+   The flag is OFF, so production behaviour is byte-for-byte what it was --
+   an athlete who signs out still lands in their plan, exactly as today. The
+   renderer below is scaffolding to prove the routing works and will be
+   replaced wholesale; it is deliberately not polished, because polishing a
+   screen we intend to redesign is how placeholder copy ends up shipping. */
+var SIGNED_OUT_LANDING_ENABLED = false;
+/* Dismissal is per-session and in memory only. The landing is an arrival, not
+   a wall: continuing past it must not write anything, because writing would
+   make "I looked at my plan" indistinguishable from a preference, and the
+   plan on this device is not the thing being decided. */
+var landingDismissed = false;
+function shouldRenderLanding(st){
+  if (!SIGNED_OUT_LANDING_ENABLED || landingDismissed) return false;
+  var d = APP_STATES[st];
+  return !!(d && d.landing);
+}
+function handleLandingContinue(){ landingDismissed = true; renderApp(); }
+function renderSignedOutLanding(st){
+  var back = st === 'signed-out-local-plan';
+  return '<div class="hero hero-setup"><div class="setup-cta">'+
+    '<h2 class="font-display">'+(back ? 'Welcome back' : 'Velvet Viking')+'</h2>'+
+    (back
+      ? '<button type="button" class="btn btn-primary btn-block" data-action="landing-continue">Continue this device’s training block</button>'
+      : '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">'+ICONS.target+' Build My Plan</button>')+
+  '</div></div>';
+}
+
 function renderMainContent(){
+  var appState = resolveAppState();
+  if (shouldRenderLanding(appState)) return renderSignedOutLanding(appState);
   if (!state.setup) return renderHero();
   var view = state.view || 'today';
   if (view==='week') return renderWeekView();
@@ -15519,14 +15832,14 @@ function renderMainContent(){
 // and Full Plan. checkDateRollover() below repairs that.
 var lastRenderedDate = null;
 function renderApp(){
-  document.documentElement.setAttribute('data-theme', state.theme);
+  applyThemeToDocument();
   var app = document.getElementById('app');
   if (!app) return;
   lastRenderedDate = todayStr();
   app.innerHTML =
     renderTopbar()+
     '<div class="wrap"><div id="view-mount" class="view-fade">'+renderMainContent()+'</div></div>'+
-    (state.setup ? renderBottomNav() : '');
+    (appStateAllowsNav() ? renderBottomNav() : '');
 }
 
 /* =========================================================
@@ -15562,6 +15875,7 @@ document.addEventListener('click', function(e){
   var action = target.getAttribute('data-action');
   switch(action){
     case 'toggle-theme': handleToggleThemeQuick(); break;
+    case 'landing-continue': handleLandingContinue(); break;
     case 'toggle-week': handleToggleWeek(parseInt(target.getAttribute('data-week'),10)); break;
     case 'toggle-day': handleToggleDay(target.getAttribute('data-day')); break;
     case 'set-goal': handleSetGoal(target.getAttribute('data-goal')); break;

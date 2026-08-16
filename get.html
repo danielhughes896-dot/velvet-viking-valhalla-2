@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Get Velvet Viking</title>
 <meta name="description" content="Pace-zoned running training blocks from 5K to 50K ultra. Install on Android, or add to your home screen on iPhone.">
-<meta name="theme-color" content="#151417">
+<meta name="theme-color" content="#F4F1EA">
+<script data-vvv-theme-boot>/*VVV-THEME-BOOT*/(function(){try{var s=localStorage.getItem('vvv_theme');var t=s?(JSON.parse(s)||{}).theme:null;document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="icon" href="/assets/icon.png">
 <meta name="apple-mobile-web-app-title" content="Velvet Viking">
@@ -15,21 +16,15 @@
 <meta property="og:image" content="https://velvet-viking-valhalla-1.vercel.app/assets/icon.png">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/assets/vvv-shell.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   /* palette lifted verbatim from the app so the two read as one product */
-  :root{
-    --bg:#151417; --bg-2:#1B1A1E; --bg-3:#201F23;
-    --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#9D9787;
-    --line:#302E36;
-    --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
-    --gold-bright:#F5D061; --modal-active:#c5a059;
-    --gold-shadow-1:#7A5C1E; --gold-shadow-2:#543E12;
-    --radius:16px; --radius-sm:10px;
-    color-scheme:dark;
-  }
+  /* Palette and controls come from /assets/vvv-shell.css -- this page used to
+     carry its own pasted copy of them, which is how the surfaces drifted
+     apart in the first place. Layout below is this page's own. */
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html{-webkit-text-size-adjust:100%;}
   body{
@@ -48,6 +43,14 @@
     -webkit-background-clip:text; background-clip:text;
     -webkit-text-fill-color:transparent; color:transparent;
     text-shadow:0 1px 0 var(--gold-shadow-1),0 2px 0 var(--gold-shadow-2),0 3px 6px rgba(0,0,0,.8);
+  }
+  /* The metallic gradient is built for a near-black header; on cream it loses
+     its contrast and keeps a heavy black drop shadow that has nothing to sit
+     against. Same treatment the app already gives its own wordmark in light:
+     drop the gradient, use ink, keep a soft gold lift. */
+  :root[data-theme="light"] h1{
+    background:none; -webkit-text-fill-color:#2B2317; color:#2B2317;
+    text-shadow:0 1px 2px rgba(197,160,89,0.4);
   }
   .rule{width:64%; height:1px; margin:7px auto 0; background:rgba(197,160,89,.35);}
   .blurb{font-size:13.5px; line-height:1.6; color:var(--ink-dim); margin:20px 0 26px;}

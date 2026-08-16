@@ -27,73 +27,46 @@
   exactly as it does today.
 -->
 <link rel="icon" href="/assets/icon.png">
+<meta name="theme-color" content="#F4F1EA">
+<script data-vvv-theme-boot>/*VVV-THEME-BOOT*/(function(){try{var s=localStorage.getItem('vvv_theme');var t=s?(JSON.parse(s)||{}).theme:null;document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/vvv-shell.css">
 <style>
-  /* palette lifted verbatim from the app, same as get.html, so this shell reads
-     as the same product rather than a generic sign-in page bolted on */
-  :root{
-    --bg:#151417; --bg-2:#1B1A1E; --line:#302E36;
-    --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#9D9787;
-    --gold:#E3B15A; --gold-ink:#1A1204;
-  }
-  *{box-sizing:border-box;}
-  html,body{height:100%; margin:0;}
-  body{
-    background:var(--bg); color:var(--ink); padding:24px;
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-    display:flex; align-items:center; justify-content:center;
-  }
-  .card{width:100%; max-width:380px;}
-  .mark{
-    font-family:'Cinzel',serif; font-weight:800; letter-spacing:.18em;
-    text-transform:uppercase; font-size:13px; color:var(--gold);
-    text-align:center; margin-bottom:28px;
-  }
-  h1{font-size:19px; margin:0 0 10px; letter-spacing:.02em;}
-  p{font-size:13.5px; line-height:1.6; color:var(--ink-dim); margin:0 0 18px;}
-  label{display:block; font-size:11px; letter-spacing:1px; text-transform:uppercase;
-        color:var(--ink-faint); margin-bottom:6px;}
-  input{
-    width:100%; padding:12px 13px; font-size:15px; border-radius:8px;
-    background:var(--bg-2); border:1px solid var(--line); color:var(--ink);
-  }
-  input:focus{outline:none; border-color:var(--gold);}
-  button{
-    width:100%; min-height:46px; margin-top:14px; border:0; border-radius:8px;
-    background:var(--gold); color:var(--gold-ink); font-size:14px; font-weight:600;
-    letter-spacing:.04em; cursor:pointer;
-  }
-  button[disabled]{opacity:.55; cursor:default;}
-  .msg{margin-top:16px; font-size:12.5px; line-height:1.55; min-height:1em;}
-  .msg.err{color:#E0A0A0;}
-  .msg.ok{color:var(--gold);}
-  .foot{margin-top:26px; text-align:center; font-size:11.5px; color:var(--ink-faint);}
-  .foot a{color:var(--ink-faint);}
-  .hidden{display:none;}
+  /* Page-specific only. Everything structural, every colour and every control
+     now comes from the shared shell, so this page cannot drift away from the
+     rest of the product the way its pasted palette copy did. */
+  body{display:flex; align-items:center; justify-content:center;
+       padding:calc(24px + env(safe-area-inset-top,0px)) 20px calc(24px + env(safe-area-inset-bottom,0px));}
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="mark">Velvet Viking</div>
+<div class="vvv-shell">
+  <div class="vvv-brand">
+    <p class="vvv-wordmark">Velvet Viking</p>
+    <img class="vvv-crest" src="/assets/velvet-viking-crest.png" width="1223" height="1286"
+         alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place" loading="eager" decoding="async">
+    <p class="vvv-tagline">Earn Your Place</p>
+    <div class="vvv-rule"></div>
+  </div>
 
   <div id="pane-signin">
     <h1 id="headline">Sign in to Velvet Viking</h1>
     <p id="lede">Velvet Viking now needs an account so your training block is tied to you and can follow you between devices. We email you a sign-in link — there is no password.</p>
     <label for="email">Email</label>
     <input type="email" id="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
-    <button type="button" id="send">Email me a sign-in link</button>
-    <div class="msg" id="msg"></div>
+    <button type="button" id="send" class="vvv-btn">Email me a sign-in link</button>
+    <div class="vvv-msg" id="msg"></div>
   </div>
 
-  <div id="pane-working" class="hidden">
+  <div id="pane-working" class="vvv-hidden">
     <h1>Signing you in…</h1>
     <p id="working-note">One moment.</p>
-    <div class="msg" id="msg2"></div>
+    <div class="vvv-msg" id="msg2"></div>
   </div>
 
-  <div class="foot">
+  <div class="vvv-foot">
     <a href="/privacy">Privacy</a> &nbsp;·&nbsp; <a href="/terms">Terms</a>
   </div>
 </div>
@@ -109,12 +82,12 @@
            (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   }
   function show(pane){
-    $('pane-signin').classList.toggle('hidden', pane !== 'signin');
-    $('pane-working').classList.toggle('hidden', pane !== 'working');
+    $('pane-signin').classList.toggle('vvv-hidden', pane !== 'signin');
+    $('pane-working').classList.toggle('vvv-hidden', pane !== 'working');
   }
   function say(el, text, kind){
     var n = $(el); n.textContent = text || '';
-    n.className = 'msg' + (kind ? ' ' + kind : '');
+    n.className = 'vvv-msg' + (kind ? ' ' + kind : '');
   }
 
   /* Why the athlete is looking at this page. /api/app appends it so the shell

@@ -1,0 +1,161 @@
+/* =========================================================
+   VELVET VIKING — SHARED SYSTEM SHELL
+   =========================================================
+   ONE stylesheet for every surface that is not the training app itself:
+   the account/sign-in shell, the install page, Privacy, Terms and the
+   internal admin console.
+
+   Before this, each of those pages carried its own copy of the palette,
+   pasted from the app and annotated "lifted verbatim ... so the two read as
+   one product". They did read as one product on the day each was written, and
+   then the app's palette moved and theirs did not. Copies drift; that is what
+   copies do. This file is the one they now share, so a change to the brand is
+   a change in one place.
+
+   WHAT LIVES HERE
+     - the token ramps, dark and light, named exactly as the app names them
+     - the brand shell: wordmark, crest, EARN YOUR PLACE
+     - controls: inputs, buttons, focus, disabled, messages
+
+   WHAT DOES NOT
+     - anything a single page needs and no other page does. Those stay on
+       their page. This is a shell, not a dumping ground.
+
+   THEME
+     Light is the product default. `data-theme` is written onto <html> by the
+     boot snippet in each page's <head> before the first paint, from the small
+     `vvv_theme` mirror key the app maintains. The OS preference is
+     deliberately not consulted anywhere in this file -- a dark phone is a
+     fact about the phone, not a request about Velvet Viking. */
+
+:root{
+  --bg:#151417; --bg-2:#1B1A1E; --bg-3:#201F23;
+  --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#9D9787;
+  --line:#302E36;
+  --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
+  --gold-text:var(--gold); --bronze-text:var(--bronze);
+  --gold-bright:#F5D061; --modal-active:#c5a059;
+  --gold-shadow-1:#7A5C1E; --gold-shadow-2:#543E12;
+  /* Controls. Dark keeps the app's fixed dark-Viking ramp character for
+     character, so nothing about the dark theme moves. */
+  --ctl-bg:#24201c; --ctl-border:#3d352b; --ctl-text:#e6dfd5;
+  --ctl-placeholder:#8d857a;
+  --ctl-accent:#c5a059; --ctl-accent-rgb:197,160,89;
+  --ctl-disabled-bg:#1d1a17; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2e2921;
+  --danger-ink:#E0A0A0;
+  --radius:16px; --radius-sm:10px;
+  color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --bg:#F4F1EA; --bg-2:#FCFBFB; --bg-3:#EBE5D8;
+  --ink:#171717; --ink-dim:#514D45; --ink-faint:#5D574C;
+  --line:#DAD1BB;
+  --gold-text:#7A5C1E; --bronze-text:#7A5C1E;
+  /* Warm paper, warm stone edge, near-black ink -- the same measured set the
+     app uses, so the sign-in field on this page and the sign-in field inside
+     Settings are the same control. Ratios are against what they sit on:
+       border  #8F8569  3.57:1 on the field, 3.25:1 on the page  (AA non-text)
+       text    #171717 17.46:1 on the field                       (AAA)
+       holder  #6B6558  5.64:1 on the field                       (AA)
+       focus   #8A6D2B  4.75:1 on the field                       (AA non-text) */
+  --ctl-bg:#FDFCF8; --ctl-border:#8F8569; --ctl-text:#171717;
+  --ctl-placeholder:#6B6558;
+  --ctl-accent:#8A6D2B; --ctl-accent-rgb:138,109,43;
+  --ctl-disabled-bg:#EDEAE1; --ctl-disabled-text:#847E71; --ctl-disabled-border:#C4BCA6;
+  --danger-ink:#9A3540;   /* 6.30:1 on the page; the dark theme's #E0A0A0 is 1.9:1 there */
+  color-scheme:light;
+}
+
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--bronze-text);}
+:focus-visible{outline:2px solid var(--ctl-accent); outline-offset:2px; border-radius:4px;}
+
+/* ---------- the shell ----------
+   The website's arrival is the reference, not the template. A webpage hero
+   dropped into an app reads as a webpage dropped into an app; what carries
+   across is the ORDER and the restraint -- wordmark, crest, EARN YOUR PLACE,
+   then the page's own business -- at a scale that suits a phone holding a
+   sign-in field rather than a landing page. */
+.vvv-shell{width:100%; max-width:420px; margin:0 auto;}
+.vvv-brand{text-align:center; margin-bottom:24px;}
+/* The canonical crest already CARRIES the wordmark and EARN YOUR PLACE, cast
+   into the artwork. Setting both again above and below it is the repetitive
+   decoration we were told to avoid -- the athlete reads the same two phrases
+   three times before reaching the sign-in field.
+   So: at full size the crest speaks for itself and the type is suppressed. At
+   `compact`, where the crest is 86px and its cast lettering is unreadable, the
+   type carries the identity instead. One shell, two legitimate sizes. */
+.vvv-brand:not(.compact) .vvv-wordmark,
+.vvv-brand:not(.compact) .vvv-tagline{display:none;}
+.vvv-wordmark{
+  font-family:'Cinzel',serif; font-weight:800;
+  /* clamped, because VELVET VIKING at a fixed size is the first thing to
+     overflow a narrow phone and the last thing anyone tests */
+  font-size:clamp(0.72rem, 3.6vw, 0.94rem);
+  letter-spacing:.2em; text-transform:uppercase; color:var(--gold-text);
+  margin:0; white-space:nowrap;
+}
+.vvv-crest{
+  display:block; margin:0 auto 14px;
+  width:min(34vw,132px); height:auto;
+}
+.vvv-crest.sm{width:min(24vw,86px); margin:10px auto 8px;}
+.vvv-tagline{
+  font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.34em;
+  text-transform:uppercase; color:var(--ink-faint); margin:0;
+}
+.vvv-rule{width:58%; height:1px; margin:14px auto 0;
+  background:linear-gradient(90deg,transparent,rgba(197,160,89,.45),transparent);}
+
+/* ---------- type ---------- */
+.vvv-shell h1{font-size:19px; margin:0 0 10px; letter-spacing:.02em; color:var(--ink);}
+.vvv-shell p{font-size:13.5px; line-height:1.6; color:var(--ink-dim); margin:0 0 18px;}
+.vvv-shell label{
+  display:block; font-size:11px; letter-spacing:1px; text-transform:uppercase;
+  color:var(--ink-faint); margin-bottom:6px;
+}
+
+/* ---------- controls ---------- */
+.vvv-shell input, .vvv-shell select, .vvv-shell textarea{
+  width:100%; padding:12px 13px; font-size:16px; /* 16px: anything smaller makes iOS zoom the page on focus */
+  border-radius:8px; font-family:inherit;
+  background:var(--ctl-bg); border:1px solid var(--ctl-border); color:var(--ctl-text);
+}
+.vvv-shell input::placeholder, .vvv-shell textarea::placeholder{color:var(--ctl-placeholder); opacity:1;}
+.vvv-shell input:focus, .vvv-shell select:focus, .vvv-shell textarea:focus{
+  outline:none; border-color:var(--ctl-accent);
+  box-shadow:0 0 0 2px rgba(var(--ctl-accent-rgb),0.25);
+}
+.vvv-shell input:disabled, .vvv-shell select:disabled, .vvv-shell textarea:disabled{
+  background:var(--ctl-disabled-bg); border-color:var(--ctl-disabled-border);
+  color:var(--ctl-disabled-text); cursor:default;
+}
+.vvv-btn{
+  display:flex; align-items:center; justify-content:center;
+  width:100%; min-height:48px; margin-top:14px; padding:12px 18px;
+  border:1px solid transparent; border-radius:8px; font-family:inherit;
+  background:var(--bronze); color:var(--bronze-ink);
+  font-size:14px; font-weight:600; letter-spacing:.04em; cursor:pointer;
+}
+.vvv-btn:hover{filter:brightness(1.06);}
+.vvv-btn-ghost{background:none; border-color:var(--line); color:var(--ink);}
+/* Disabled says so with its own fill and edge, not with opacity -- opacity
+   dims the label past reading while leaving the control looking pressable. */
+.vvv-btn:disabled, .vvv-btn[disabled]{
+  background:var(--ctl-disabled-bg); border-color:var(--ctl-disabled-border);
+  color:var(--ctl-disabled-text); cursor:default; filter:none;
+}
+
+/* ---------- messages ---------- */
+.vvv-msg{margin-top:16px; font-size:12.5px; line-height:1.55; min-height:1em;}
+.vvv-msg.err{color:var(--danger-ink);}
+.vvv-msg.ok{color:var(--gold-text);}
+.vvv-foot{margin-top:26px; text-align:center; font-size:11.5px; color:var(--ink-faint);}
+.vvv-foot a{color:var(--ink-faint);}
+.vvv-hidden{display:none;}
