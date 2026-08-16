@@ -3193,7 +3193,20 @@ function handleAuthDeepLink(url){
   if (!cloudConsumeAuthHash(url)) return false;
   cloudStatus = 'syncing'; patchCloudCard();
   var who = cloudSession.user_id ? Promise.resolve() : cloudLoadUser();
-  who.then(cloudReconcile).then(function(){
+  /* THE NATIVE HALF OF THE COOKIE BRIDGE, and the reason it needs its own step.
+
+     On the web the sign-in link is an ordinary https navigation, so anything
+     the server sets on that response lands in the browser jar. Here the link
+     arrives over com.velvetviking.valhalla:// -- a custom scheme handled by the
+     Android shell, not an https request at all -- so no response exists for a
+     cookie to ride back on. The WebView holds cookies perfectly well; it has
+     simply never made the request that would produce one.
+
+     So the token is exchanged explicitly. Without this the athlete signs in
+     successfully, uses the app for the rest of the session, and is bounced to
+     the account shell the next time the app cold-starts -- the worst kind of
+     bug, because it works right up until it doesn't. */
+  who.then(establishDeliverySession).then(cloudReconcile).then(function(){
     renderApp();
     showToast('Signed in — your plan is linked to your account');
   }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
@@ -3292,6 +3305,21 @@ function handleCloudDeleteAccount(){
     return cloudFetch('/rest/v1/rpc/delete_own_account', { method:'POST', body:'{}' });
   }).then(function(resp){
     if (!resp.ok) throw new Error('delete failed');
+    /* Kill the delivery lease as part of deletion, not as a consequence of it.
+       The access_leases rows cascade from auth.users, so the database will
+       remove them regardless -- but the COOKIE in this browser is not a
+       database row, and until it is cleared the browser still presents a
+       credential for an account that no longer exists. Doing it here means a
+       deleted account cannot leave a working product behind on the device that
+       deleted it. Fire-and-forget for the same reason as sign-out: the
+       response clears the cookie, and an unreachable server leaves a lease
+       whose account is already gone. */
+    try{
+      fetch(ENTITLEMENT_ENDPOINT, { method:'DELETE', credentials:'same-origin' })
+        .catch(function(){});
+    }catch(e){}
+    entitlementInfo = null;
+    lastEntitlementAt = 0;
     cloudSession = null;
     writeStored(CLOUD_SESSION_KEY, null);
     writeStored(CLOUD_BACKUP_KEY, null);
@@ -3333,6 +3361,18 @@ function handleCloudDeleteAccount(){
   });
 }
 function cloudSignOut(){
+  /* Revoke the delivery lease FIRST, while the bearer token still exists to
+     authenticate the request. Clearing the local session and leaving a live
+     cookie behind would mean the next person to open this browser is still
+     handed the runtime -- signed out of the account, but not out of the
+     product. Fire-and-forget: the cookie is cleared by the response, and if
+     the request never lands the lease expires on its own. */
+  try{
+    fetch(ENTITLEMENT_ENDPOINT, { method:'DELETE', credentials:'same-origin' })
+      .catch(function(){});
+  }catch(e){}
+  entitlementInfo = null;
+  lastEntitlementAt = 0;
   cloudSession = null;
   writeStored(CLOUD_SESSION_KEY, null);
   // The mark records agreement with one account's row; signing in as someone
@@ -3613,6 +3653,65 @@ function handleCloudKeepRemote(){
   showToast('Switched to your account’s plan — the other is backed up on this device');
 }
 
+/* ---------- the delivery session ----------
+
+   A browser fetching a DOCUMENT cannot send an Authorization header, so the
+   access token this app keeps in localStorage -- which authenticates every
+   other request perfectly well -- cannot protect delivery of the app itself.
+   /api/session trades a verified token for an HttpOnly cookie that the browser
+   attaches on its own, and that cookie is what /api/app requires before it
+   hands over the runtime.
+
+   Three properties worth stating, because each is load-bearing:
+
+     * the cookie is HttpOnly, so nothing here can read, copy or forge it.
+       This function's job is to ASK for one, never to construct one;
+     * the JSON that comes back is for display only. `entitlementInfo` is read
+       by the account card and by nothing that decides what the athlete may do,
+       because the server re-resolves the same question before every delivery.
+       Editing it in a console changes what the card says and nothing else;
+     * a failure here is deliberately not fatal. While ACCOUNT_REQUIRED is off
+       the runtime was served without a cookie in the first place, so a failed
+       call must not break an app that is working; when it is on, the athlete
+       simply revalidates on the next foreground or is bounced to the shell on
+       the next load. Either way the authority is the server, not this call. */
+var ENTITLEMENT_ENDPOINT = '/api/session';
+var entitlementInfo = null;             // display only -- never a permission
+var lastEntitlementAt = 0;
+
+function establishDeliverySession(){
+  if (!cloudSignedIn()) return Promise.resolve(null);
+  return fetch(ENTITLEMENT_ENDPOINT, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'authorization': 'Bearer ' + cloudSession.access_token }
+  }).then(function(r){
+    return r.json().catch(function(){ return null; }).then(function(body){
+      if (r.status === 200 && body){
+        entitlementInfo = body;
+        lastEntitlementAt = Date.now();
+        patchCloudCard();
+        return body;
+      }
+      /* 403 means authenticated but not entitled. Recorded so the account card
+         can say so honestly; the actual lock is the server refusing the next
+         delivery, not anything decided here. */
+      if (r.status === 403 && body){ entitlementInfo = body; patchCloudCard(); }
+      return null;
+    });
+  }).catch(function(){ return null; });   // offline: the existing lease stands
+}
+
+/* Called when the app comes back to the foreground. The lease is deliberately
+   short, so a device that was asleep across its expiry revalidates here rather
+   than discovering the problem on a reload the athlete did not ask for. */
+var ENTITLEMENT_MIN_RECHECK_MS = 5 * 60 * 1000;
+function revalidateDeliverySession(){
+  if (!cloudSignedIn()) return Promise.resolve(null);
+  if (Date.now() - lastEntitlementAt < ENTITLEMENT_MIN_RECHECK_MS) return Promise.resolve(entitlementInfo);
+  return establishDeliverySession();
+}
+
 function cloudInit(){
   if (!cloudConfigured()){ cloudStatus='off'; return Promise.resolve(); }
   cloudInitDeepLinks();
@@ -3623,7 +3722,12 @@ function cloudInit(){
   return cloudRefreshIfNeeded().then(function(ok){
     if (!ok){ cloudSignOut(); return null; }
     var who = cloudSession.user_id ? Promise.resolve() : cloudLoadUser();
-    return who.then(cloudReconcile);
+    /* The delivery cookie is minted alongside the ordinary cloud work rather
+       than before it: it is not needed to READ anything -- RLS and the bearer
+       token already govern that -- only to be handed the runtime next time. */
+    return who.then(function(){
+      return establishDeliverySession().then(cloudReconcile);
+    });
   });
 }
 
@@ -15475,6 +15579,13 @@ document.addEventListener('visibilitychange', function(){
      run that already arrived. Skipped mid-connect because stravaBindResume
      already covers that case. */
   try{ if (stravaConn.status !== 'connecting') stravaAutoPull(awayMs >= STRAVA_AWAY_MS); }catch(e){}
+  /* Revalidate the delivery lease on the same signal. On Android resuming does
+     not re-run init(), so a device that slept across the lease expiry would
+     otherwise carry a dead credential until something forced a reload -- and
+     the athlete would meet the account shell at the least convenient moment
+     rather than at the moment they opened the app. Rate-limited internally, so
+     a glance at the notification shade costs nothing. */
+  try{ revalidateDeliverySession(); }catch(e){}
 });
 window.addEventListener('pagehide', flushSave);
 function handleToggleNotify(){

@@ -1,0 +1,299 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+const { loadApp } = require('./harness.js');
+const { buildPlan } = require('./fixtures.js');
+
+// Making an account mandatory means every existing athlete meets a sign-in
+// screen holding a plan they built without one. That is the single riskiest
+// moment in Phase 3, and the answer is that it introduces no new path: the
+// gate forces sign-in, and sign-in runs the ownership resolution and cloud
+// reconciliation that Phase 1 and 2B already made green.
+//
+// These tests re-prove the migration transitions THROUGH that lens, and pin the
+// new obligations the delivery cookie adds -- principally that signing out or
+// deleting an account must not leave a working product behind on the device.
+const PINNED = '2026-03-11T09:00:00Z';
+const OLD = 'uid-old-1111', NEW = 'uid-new-2222';
+
+function app() { return loadApp({ pinnedDate: PINNED }); }
+function withPlan(a, opts) {
+  buildPlan(a, Object.assign({ weeks: 12, startDate: a.addDays(a.todayStr(), -42) }, opts || {}));
+  const today = a.todayStr();
+  a.state.days.filter(d => d.date < today && d.type !== 'rest').forEach(d => {
+    d.completed = true;
+    d.actual = { km: d.km, pace: '5:30', hr: 145, rpe: 4, notes: '' };
+  });
+  return a;
+}
+const shape = a => ({
+  days: (a.state.days || []).length,
+  done: (a.state.days || []).filter(d => d.completed).length,
+});
+
+/* Records the calls the app makes to /api/session without a network. The point
+   is not to test fetch -- it is to prove the app ASKS at the right moments,
+   because a bridge that is never called is the failure that only shows up on
+   the next cold start. */
+function captureSessionCalls(a) {
+  const calls = [];
+  a.fetch = function (url, opts) {
+    calls.push({ url: String(url), method: (opts && opts.method) || 'GET' });
+    return Promise.resolve({
+      ok: true, status: 200,
+      json: () => Promise.resolve({ access: true, tier: 'standard', capabilities: [] }),
+    });
+  };
+  return calls;
+}
+const sessionCalls = calls => calls.filter(c => /\/api\/session$/.test(c.url));
+
+// ---------------------------------------------------------------------------
+// THE MIGRATION TRANSITIONS
+// ---------------------------------------------------------------------------
+test('an unowned local plan is adopted by the first account to sign in', () => {
+  const a = withPlan(app());
+  const before = shape(a);
+  a.persistStateLocalOnly();
+  assert.equal(a.planOwnerUid(), null, 'precondition: built before accounts were required');
+
+  assert.equal(a.resolvePlanOwnership(NEW), 'legacy-adopted');
+  assert.deepEqual(shape(a), before, 'every session and every logged run survives the gate');
+  assert.equal(a.planOwnerUid(), NEW);
+});
+
+test('an athlete signing back into their own account keeps their plan untouched', () => {
+  const a = withPlan(app());
+  a.stampPlanOwner(NEW);
+  a.persistStateLocalOnly();
+  const before = shape(a);
+  assert.equal(a.resolvePlanOwnership(NEW), 'own');
+  assert.deepEqual(shape(a), before);
+});
+
+test('a plan belonging to someone else is parked, never handed over', () => {
+  const a = withPlan(app());
+  a.stampPlanOwner(OLD);
+  a.persistStateLocalOnly();
+  const before = shape(a);
+
+  assert.equal(a.resolvePlanOwnership(NEW), 'cleared');
+  assert.equal(shape(a).days, 0, 'the new account starts clean');
+  const arch = a.readPlanArchive();
+  assert.ok(arch[OLD], 'and the previous athlete’s plan is parked, not destroyed');
+  assert.equal(arch[OLD].state.days.length, before.days);
+});
+
+test('a parked plan is returned to the account that owns it', () => {
+  const a = withPlan(app());
+  a.stampPlanOwner(OLD);
+  a.persistStateLocalOnly();
+  const before = shape(a);
+  a.resolvePlanOwnership(NEW);              // parks it
+  assert.equal(a.resolvePlanOwnership(OLD), 'restored');
+  assert.deepEqual(shape(a), before);
+});
+
+test('the recovery route still finds a plan parked by the migration', () => {
+  const a = withPlan(app());
+  a.stampPlanOwner(OLD);
+  a.persistStateLocalOnly();
+  a.resolvePlanOwnership(NEW);
+  const found = a.recoverablePlans();
+  assert.equal(found.length, 1, 'Phase 1 recovery must survive the account gate');
+  assert.equal(found[0].key, 'archive:' + OLD);
+});
+
+test('identical local and cloud copies are not a conflict at migration', () => {
+  const a = withPlan(app());
+  const remote = JSON.parse(JSON.stringify(a.state));
+  assert.equal(a.planContentSignature(a.state), a.planContentSignature(remote),
+    'signing in must not raise a question that has no answer');
+});
+
+test('genuinely different copies stay distinguishable, so the athlete is asked', () => {
+  const a = withPlan(app());
+  const remote = JSON.parse(JSON.stringify(a.state));
+  remote.days[0].km = remote.days[0].km + 3;
+  assert.notEqual(a.planContentSignature(a.state), a.planContentSignature(remote));
+});
+
+// ---------------------------------------------------------------------------
+// THE DELIVERY SESSION IS ESTABLISHED AND REVOKED AT THE RIGHT MOMENTS
+// ---------------------------------------------------------------------------
+test('signing out revokes the delivery lease, not just the local session', async () => {
+  const a = withPlan(app());
+  a.cloudSession = { access_token: 't', user_id: NEW, email: 'a@b.c' };
+  const calls = captureSessionCalls(a);
+
+  a.cloudSignOut();
+  await new Promise(r => setImmediate(r));
+
+  const del = sessionCalls(calls).filter(c => c.method === 'DELETE');
+  assert.equal(del.length, 1,
+    'a cleared localStorage session with a live cookie still opens the product');
+  assert.equal(a.cloudSession, null);
+});
+
+test('the revocation is sent while the token still exists to authorise it', () => {
+  const a = withPlan(app());
+  a.cloudSession = { access_token: 't', user_id: NEW, email: 'a@b.c' };
+  let sessionAtCall = 'not-called';
+  a.fetch = function (url, opts) {
+    if (/\/api\/session$/.test(String(url)) && opts && opts.method === 'DELETE') {
+      sessionAtCall = a.cloudSession;
+    }
+    return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
+  };
+  a.cloudSignOut();
+  assert.notEqual(sessionAtCall, 'not-called', 'the call must happen');
+  assert.ok(sessionAtCall, 'and before cloudSession is cleared, or it cannot be authorised');
+});
+
+test('the app asks for a lease when a native sign-in link is consumed', () => {
+  const a = app();
+  const src = fs.readFileSync(
+    path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  const fn = src.slice(src.indexOf('function handleAuthDeepLink'),
+                       src.indexOf('function cloudInitDeepLinks'));
+  assert.match(fn, /establishDeliverySession/,
+    'the custom-scheme return is not an https response, so no cookie rides back on it — ' +
+    'without an explicit exchange the athlete is bounced out at the next cold start');
+  assert.ok(typeof a.establishDeliverySession === 'function');
+  assert.ok(typeof a.revalidateDeliverySession === 'function');
+});
+
+test('returning to the foreground revalidates rather than trusting a stale lease', () => {
+  const src = fs.readFileSync(
+    path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  const handler = src.slice(src.indexOf("var STRAVA_AWAY_MS"),
+                            src.indexOf("window.addEventListener('pagehide'"));
+  assert.match(handler, /revalidateDeliverySession/,
+    'Android resume does not re-run init(), so nothing else would notice an expired lease');
+});
+
+test('revalidation is rate limited, so glancing at the app is not a request storm', async () => {
+  const a = withPlan(app());
+  a.cloudSession = { access_token: 't', user_id: NEW, email: 'a@b.c' };
+  const calls = captureSessionCalls(a);
+  await a.establishDeliverySession();
+  await a.revalidateDeliverySession();
+  await a.revalidateDeliverySession();
+  assert.equal(sessionCalls(calls).length, 1, 'one exchange, then a quiet window');
+});
+
+test('the entitlement the client holds is display-only and grants nothing', async () => {
+  const a = withPlan(app());
+  a.cloudSession = { access_token: 't', user_id: NEW, email: 'a@b.c' };
+  captureSessionCalls(a);
+  await a.establishDeliverySession();
+  // a tampered client promoting itself
+  a.entitlementInfo = { access: true, tier: 'pro', capabilities: ['everything'], override: 'owner' };
+  const src = fs.readFileSync(
+    path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  const script = src.slice(src.indexOf('<script>'));
+  assert.ok(!/if\s*\(\s*entitlementInfo\s*(&&\s*entitlementInfo\.)?(access|tier)/.test(script),
+    'no branch may decide what the athlete can do from a value the client can edit');
+});
+
+test('an offline exchange failure does not break a working app', async () => {
+  const a = withPlan(app());
+  a.cloudSession = { access_token: 't', user_id: NEW, email: 'a@b.c' };
+  a.fetch = () => Promise.reject(new Error('offline'));
+  const before = shape(a);
+  const got = await a.establishDeliverySession();
+  assert.equal(got, null, 'it reports failure');
+  assert.deepEqual(shape(a), before, 'and changes nothing — the existing lease still stands');
+});
+
+test('the bridge is never called for a signed-out athlete', async () => {
+  const a = withPlan(app());
+  a.cloudSession = null;
+  const calls = captureSessionCalls(a);
+  assert.equal(await a.establishDeliverySession(), null);
+  assert.equal(sessionCalls(calls).length, 0, 'there is no token to exchange');
+});
+
+// ---------------------------------------------------------------------------
+// ACCOUNT DELETION -- PHASE 2B GUARANTEES MUST SURVIVE
+// ---------------------------------------------------------------------------
+test('deletion still releases the ownership stamp, so the plan is not stranded', () => {
+  const a = withPlan(app());
+  a.stampPlanOwner(OLD);
+  a.persistStateLocalOnly();
+  const before = shape(a);
+
+  // exactly what the delete handler does to local state after the RPC succeeds
+  delete a.state.ownerUid;
+  a.persistStateLocalOnly();
+
+  assert.equal(a.planOwnerUid(), null);
+  assert.equal(a.resolvePlanOwnership(NEW), 'legacy-adopted',
+    're-signing in after deletion adopts the plan rather than parking it — the Phase 2B fix');
+  assert.deepEqual(shape(a), before, 'and the plan is whole');
+});
+
+test('the delete path revokes the delivery cookie too', () => {
+  const src = fs.readFileSync(
+    path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  const region = src.slice(src.indexOf("rpc/delete_own_account"),
+                           src.indexOf("RELEASE THE OWNERSHIP STAMP"));
+  assert.match(region, /ENTITLEMENT_ENDPOINT[\s\S]*DELETE/,
+    'a deleted account must not leave a browser still holding a working product');
+});
+
+test('deletion does not touch the local plan or the archive', () => {
+  const a = withPlan(app());
+  a.stampPlanOwner(OLD);
+  a.archivePlanFor('someone-else', JSON.parse(JSON.stringify(a.state)));
+  a.persistStateLocalOnly();
+  const archBefore = a.localStorage.getItem('vvv_plan_archive');
+  const planBefore = a.localStorage.getItem('velvet-viking-generator-v2');
+
+  delete a.state.ownerUid;
+  a.persistStateLocalOnly();
+
+  assert.equal(a.localStorage.getItem('vvv_plan_archive'), archBefore, 'archive untouched');
+  assert.ok(a.localStorage.getItem('velvet-viking-generator-v2'), 'plan still stored');
+  assert.notEqual(planBefore, null);
+});
+
+// ---------------------------------------------------------------------------
+// THE SHELL
+// ---------------------------------------------------------------------------
+test('the account shell is public, small, and carries no coaching engine', () => {
+  const shell = fs.readFileSync(path.join(__dirname, '..', 'account.html'), 'utf8');
+  assert.ok(shell.length < 20000, 'the shell must stay a shell (' + shell.length + ' bytes)');
+  ['coachDecision', 'playbookAssess', 'athleteMemory', 'buildBlockWeeks', 'ARCHETYPE_GUIDANCE']
+    .forEach(sym => assert.ok(shell.indexOf(sym) === -1, 'shell must not contain ' + sym));
+});
+
+test('the shell can complete a magic-link return, since the gate redirects them to it', () => {
+  const shell = fs.readFileSync(path.join(__dirname, '..', 'account.html'), 'utf8');
+  assert.match(shell, /access_token/, 'it must read the fragment the gate bounced here');
+  assert.match(shell, /\/api\/session/, 'and exchange it for a delivery cookie');
+  assert.match(shell, /history\.replaceState|location\.hash\s*=\s*''/,
+    'and strip the tokens so a copied URL cannot carry a live session');
+});
+
+test('the shell sells nothing — 3A2 owns that', () => {
+  // Comments stripped first: a note saying "3A2 adds checkout here" is the
+  // opposite of a leak, and matching it would make this assertion punish
+  // documentation instead of catching commercial content.
+  const shell = fs.readFileSync(path.join(__dirname, '..', 'account.html'), 'utf8')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^\s*\/\/.*$/gm, ' ');
+  [/£\s*\d/, /\bcheckout\b/i, /\bsubscribe\b/i, /\bper month\b/i, /\bPro\b/, /\btrial\b/i]
+    .forEach(rx => assert.ok(!rx.test(shell), 'commercial content leaked into 3A1: ' + rx));
+});
+
+test('legal routes stay reachable without any entitlement', () => {
+  const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8'));
+  const dests = (cfg.routes || []).map(r => r.dest).filter(Boolean);
+  ['/privacy.html', '/terms.html', '/account.html'].forEach(d => {
+    assert.ok(dests.indexOf(d) !== -1, d + ' must not sit behind the gate');
+  });
+});

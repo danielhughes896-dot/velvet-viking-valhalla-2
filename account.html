@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Velvet Viking — Account</title>
+<!--
+  THE PUBLIC SHELL.
+
+  Deliberately small, and deliberately public. Its whole job is to be the one
+  page an athlete can always reach: sign in, find out why they are here, and be
+  handed into VVV once access is established.
+
+  It is public on purpose. If it were behind the gate there would be nowhere to
+  sign in FROM, and once commercial gating arrives in 3A2 there would be nowhere
+  for an expired athlete to manage or restore their subscription -- which the
+  access contract requires stay available without entitlement.
+
+  It contains no coaching engine, no training data and no pricing. 3A2 expands
+  it with subscription state and checkout; nothing here anticipates that beyond
+  leaving room for it.
+
+  It also completes the magic-link return. When the gate is on, a sign-in link
+  landing on /auth has no cookie yet, so /api/app bounces it here -- the URL
+  fragment carrying the tokens survives that redirect, and consumeAuthHash()
+  below picks it up. With the gate off the app handles the same fragment itself,
+  exactly as it does today.
+-->
+<link rel="icon" href="/assets/icon-192.png">
+<style>
+  :root{
+    --bg:#151417; --bg-2:#1C1A1E; --line:#2C2930;
+    --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#7E7869;
+    --gold:#C6A15B; --gold-ink:#1A1206;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%; margin:0;}
+  body{
+    background:var(--bg); color:var(--ink); padding:24px;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .card{width:100%; max-width:380px;}
+  .mark{
+    font-family:Georgia,'Times New Roman',serif; letter-spacing:.18em;
+    text-transform:uppercase; font-size:13px; color:var(--gold);
+    text-align:center; margin-bottom:28px;
+  }
+  h1{font-size:19px; margin:0 0 10px; letter-spacing:.02em;}
+  p{font-size:13.5px; line-height:1.6; color:var(--ink-dim); margin:0 0 18px;}
+  label{display:block; font-size:11px; letter-spacing:1px; text-transform:uppercase;
+        color:var(--ink-faint); margin-bottom:6px;}
+  input{
+    width:100%; padding:12px 13px; font-size:15px; border-radius:8px;
+    background:var(--bg-2); border:1px solid var(--line); color:var(--ink);
+  }
+  input:focus{outline:none; border-color:var(--gold);}
+  button{
+    width:100%; min-height:46px; margin-top:14px; border:0; border-radius:8px;
+    background:var(--gold); color:var(--gold-ink); font-size:14px; font-weight:600;
+    letter-spacing:.04em; cursor:pointer;
+  }
+  button[disabled]{opacity:.55; cursor:default;}
+  .msg{margin-top:16px; font-size:12.5px; line-height:1.55; min-height:1em;}
+  .msg.err{color:#E0A0A0;}
+  .msg.ok{color:var(--gold);}
+  .foot{margin-top:26px; text-align:center; font-size:11.5px; color:var(--ink-faint);}
+  .foot a{color:var(--ink-faint);}
+  .hidden{display:none;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="mark">Velvet Viking</div>
+
+  <div id="pane-signin">
+    <h1 id="headline">Sign in to Velvet Viking</h1>
+    <p id="lede">Velvet Viking now needs an account so your training block is tied to you and can follow you between devices. We email you a sign-in link — there is no password.</p>
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
+    <button type="button" id="send">Email me a sign-in link</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div id="pane-working" class="hidden">
+    <h1>Signing you in…</h1>
+    <p id="working-note">One moment.</p>
+    <div class="msg" id="msg2"></div>
+  </div>
+
+  <div class="foot">
+    <a href="/privacy">Privacy</a> &nbsp;·&nbsp; <a href="/terms">Terms</a>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var NATIVE_REDIRECT = 'com.velvetviking.valhalla://auth';
+
+  function isNativeApp(){
+    return /VelvetViking|Capacitor/i.test(navigator.userAgent || '') ||
+           (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  }
+  function show(pane){
+    $('pane-signin').classList.toggle('hidden', pane !== 'signin');
+    $('pane-working').classList.toggle('hidden', pane !== 'working');
+  }
+  function say(el, text, kind){
+    var n = $(el); n.textContent = text || '';
+    n.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+
+  /* Why the athlete is looking at this page. /api/app appends it so the shell
+     can be specific instead of showing the same sentence to someone who has
+     never signed in and someone whose tester access was withdrawn. */
+  var why = (function(){
+    try{ return new URLSearchParams(location.search).get('why') || ''; }catch(e){ return ''; }
+  })();
+  if (why === 'locked'){
+    $('headline').textContent = 'Your access has ended';
+    $('lede').textContent = 'Your training plan and history are safe and still stored. Sign in to see your account, or get in touch if you think this is wrong.';
+  } else if (why === 'unavailable'){
+    $('headline').textContent = 'We could not check your account';
+    $('lede').textContent = 'Something on our side is not answering, so we cannot confirm your access right now. Please try again in a moment — nothing has changed on your account.';
+  }
+
+  /* ---- magic-link return ----
+     Supabase puts the tokens in the URL fragment, which never reaches a server.
+     They are read, exchanged for a delivery cookie, and then stripped from the
+     address bar so a copied URL cannot carry a live session to someone else. */
+  function readAuthHash(){
+    var h = (location.hash || '').replace(/^#/, '');
+    if (!h) return null;
+    var p = {};
+    h.split('&').forEach(function(kv){
+      var i = kv.indexOf('=');
+      if (i > 0) p[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1));
+    });
+    return p.access_token ? p : null;
+  }
+
+  function stripHash(){
+    try{ history.replaceState(null, '', location.pathname + location.search); }
+    catch(e){ location.hash = ''; }
+  }
+
+  /* The bridge. A verified Supabase token in, an HttpOnly delivery cookie out.
+     The response body is only used to decide what to say -- it is not, and must
+     never be treated as, permission to do anything. */
+  function establish(accessToken){
+    return fetch('/api/session', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'authorization': 'Bearer ' + accessToken }
+    }).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(body){
+        return { status: r.status, body: body };
+      });
+    });
+  }
+
+  function enter(){ location.replace('/'); }
+
+  var hash = readAuthHash();
+  if (hash){
+    show('working');
+    /* Persist the session where the app already looks for it, so the runtime
+       finds itself signed in on arrival. The cookie is what grants delivery;
+       this is what stops the athlete having to sign in twice. */
+    try{
+      localStorage.setItem('vvv_cloud_session', JSON.stringify({
+        access_token: hash.access_token,
+        refresh_token: hash.refresh_token || null,
+        expires_at: Date.now() + (parseInt(hash.expires_in, 10) || 3600) * 1000
+      }));
+    }catch(e){ /* private mode -- the cookie still works for this session */ }
+
+    stripHash();
+    establish(hash.access_token).then(function(r){
+      if (r.status === 200) return enter();
+      if (r.status === 403){
+        show('signin');
+        $('headline').textContent = 'Your access has ended';
+        $('lede').textContent = 'You are signed in, but this account does not currently have access to Velvet Viking. Your training data is still stored.';
+        return;
+      }
+      show('signin');
+      say('msg', 'We signed you in but could not open Velvet Viking. Please try again.', 'err');
+    }).catch(function(){
+      show('signin');
+      say('msg', 'We signed you in but could not reach Velvet Viking. Check your connection and try again.', 'err');
+    });
+  } else {
+    /* Already holding a Supabase session from a previous visit? Try to trade it
+       for a cookie before asking the athlete to do anything. This is what makes
+       the gate invisible to someone who is simply already signed in. */
+    var stored = null;
+    try{ stored = JSON.parse(localStorage.getItem('vvv_cloud_session') || 'null'); }catch(e){}
+    if (stored && stored.access_token){
+      show('working');
+      establish(stored.access_token).then(function(r){
+        if (r.status === 200) return enter();
+        show('signin');
+        if (r.status === 403){
+          $('headline').textContent = 'Your access has ended';
+          $('lede').textContent = 'Your training plan and history are safe and still stored.';
+        }
+      }).catch(function(){ show('signin'); });
+    }
+  }
+
+  $('send').addEventListener('click', function(){
+    var email = ($('email').value || '').trim();
+    if (!email || email.indexOf('@') < 1){ say('msg', 'Enter the email address you use for Velvet Viking.', 'err'); return; }
+    $('send').disabled = true;
+    say('msg', 'Sending…');
+    fetch('/api/beta-signin', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        email: email,
+        redirect: isNativeApp() ? NATIVE_REDIRECT : (location.origin + '/auth')
+      })
+    }).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(b){ return { status:r.status, body:b }; });
+    }).then(function(r){
+      $('send').disabled = false;
+      if (r.status === 200){ say('msg', 'Check your email for the sign-in link.', 'ok'); return; }
+      if (r.status === 403){ say('msg', 'That address is not on the Velvet Viking list yet.', 'err'); return; }
+      say('msg', 'We could not send the link just now. Please try again shortly.', 'err');
+    }).catch(function(){
+      $('send').disabled = false;
+      say('msg', 'We could not reach Velvet Viking. Check your connection and try again.', 'err');
+    });
+  });
+
+  $('email').addEventListener('keydown', function(e){ if (e.key === 'Enter') $('send').click(); });
+})();
+</script>
+</body>
+</html>

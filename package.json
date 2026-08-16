@@ -2,7 +2,7 @@
   "name": "velvet-viking-valhalla",
   "version": "1.0.0",
   "private": true,
-  "description": "Native app tooling (Capacitor) for the Velvet Viking training block generator. The web app itself is a static file (velvet-viking-valhalla.html) deployed to Vercel and is not built by this package.",
+  "description": "Native app tooling (Capacitor) for the Velvet Viking training block generator. The web app itself is a single file (protected/velvet-viking-valhalla.html) served through the /api/app delivery gate on Vercel, and is not built by this package.",
   "scripts": {
     "test": "node --test test/*.test.js",
     "cap:sync": "cap sync android",
