@@ -158,3 +158,53 @@ test('a successful send still reports success', async () => {
   await settle();
   assert.match(toasts.join(' '), /Check your email/i);
 });
+
+// ---------------------------------------------------------------------------
+// THE THREE WAYS THE EMAIL PROVIDER CAN REFUSE
+//
+// A live Pixel hit the 502 branch. Rate limit, a redirect target the project
+// does not allow, and a disabled email provider all produced that one 502 and
+// one sentence, so the three were indistinguishable from outside -- and each
+// needs a completely different action. The server now classifies by upstream
+// status and returns its own vocabulary; the upstream error code is logged and
+// never returned, because GoTrue's `msg` can echo the submitted address.
+// ---------------------------------------------------------------------------
+test('each refusal class tells the reader a different thing to do', async () => {
+  const seen = {};
+  for (const reason of ['rate_limited', 'request_rejected', 'provider_error']) {
+    const a = app();
+    const toasts = withServer(a, httpFail(502, { error: 'send_failed', reason }));
+    a.handleCloudSignIn();
+    await settle();
+    seen[reason] = toasts.join(' ');
+    assert.ok(!/check your connection/i.test(seen[reason]),
+      reason + ' is not a network fault: ' + seen[reason]);
+  }
+  assert.equal(new Set(Object.values(seen)).size, 3,
+    'three different actions cannot share one sentence');
+  assert.match(seen.rate_limited, /wait a few minutes/i, 'the only one the athlete can act on alone');
+});
+
+test('the specific reason outranks the general error code', async () => {
+  const a = app();
+  const toasts = withServer(a, httpFail(502, { error: 'send_failed', reason: 'rate_limited' }));
+  a.handleCloudSignIn();
+  await settle();
+  assert.match(toasts.join(' '), /wait a few minutes/i,
+    'falling back to "send_failed" would discard the only useful part of the answer');
+});
+
+test('a 502 with no reason still degrades to the general sentence', async () => {
+  const a = app();
+  const toasts = withServer(a, httpFail(502, { error: 'send_failed' }));
+  a.handleCloudSignIn();
+  await settle();
+  assert.match(toasts.join(' '), /couldn’t be sent just now/i);
+});
+
+test('no refusal copy names a provider, a project or an address', () => {
+  const a = app();
+  const all = Object.keys(a.SIGNIN_ERROR_COPY).map(k => a.SIGNIN_ERROR_COPY[k]).join(' ');
+  [/supabase/i, /gotrue/i, /smtp/i, /@/, /vercel/i, /redirect_to/i]
+    .forEach(rx => assert.ok(!rx.test(all), 'athlete copy must not leak internals: ' + rx));
+});

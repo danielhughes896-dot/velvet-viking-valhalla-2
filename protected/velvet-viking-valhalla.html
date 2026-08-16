@@ -3182,6 +3182,12 @@ var SIGNIN_ERROR_COPY = {
   bad_email:    'That doesn’t look like an email address — check it and try again',
   unavailable:  'Velvet Viking can’t reach its sign-in service right now — please try again shortly',
   send_failed:  'The sign-in email couldn’t be sent just now — please try again in a moment',
+  /* The three ways the email provider can refuse. Each needs a different thing
+     from whoever reads it, so each says a different thing: wait, or tell us.
+     None of them names a provider, a project or an address. */
+  rate_limited:     'Too many sign-in emails have been requested — wait a few minutes, then try again',
+  request_rejected: 'Velvet Viking couldn’t request that sign-in link — please let us know',
+  provider_error:   'The sign-in email service isn’t responding — please try again shortly',
   offline:      'Couldn’t reach Velvet Viking — check your connection',
   method_not_allowed: 'The sign-in email couldn’t be sent just now — please try again in a moment',
   default:      'Couldn’t send the sign-in link — please try again in a moment'
@@ -3202,8 +3208,12 @@ function cloudSendMagicLink(email){
   }).then(function(resp){
     return resp.json().catch(function(){ return {}; }).then(function(data){
       if (resp.ok) return;
-      var err = new Error(data.error || 'send_failed');
-      err.code = data.error || 'send_failed';
+      /* `reason` is the specific classification when the server has one --
+         which of the three ways the provider refused -- and `error` is the
+         general case. Preferring the specific one is what turns "couldn't be
+         sent" into an instruction the reader can act on. */
+      var err = new Error(data.reason || data.error || 'send_failed');
+      err.code = data.reason || data.error || 'send_failed';
       /* Kept for diagnosis, never shown: `status` separates a 503 (our server
          cannot reach Supabase) from a 502 (Supabase refused to send) from a
          404 (the endpoint is not deployed at all), which the athlete does not

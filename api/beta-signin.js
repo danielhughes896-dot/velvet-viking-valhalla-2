@@ -98,12 +98,32 @@ module.exports = async function handler(req, res){
     });
   }catch(e){
     log('GOTRUE_UNREACHABLE');
-    return S.json(res, 502, { error: 'send_failed' });
+    return S.json(res, 502, { error: 'send_failed', reason: 'provider_error' });
   }
 
   if (!r.ok){
-    log('GOTRUE_REFUSED status=' + r.status);
-    return S.json(res, 502, { error: 'send_failed' });
+    /* WHY THIS READS THE BODY.
+
+       Every refusal from GoTrue used to collapse into one 502 and one sentence,
+       so a rate limit, a redirect target the project does not allow, and an
+       email provider that is switched off were indistinguishable from the
+       outside -- and each needs a completely different action. The status alone
+       is not enough either: 400 and 422 both mean "we rejected your request"
+       without saying which part.
+
+       Classified by STATUS, deliberately, rather than by guessing at GoTrue's
+       error strings. The upstream error_code is recorded in the server log for
+       whoever is actually debugging, and never returned: `msg` in particular
+       can echo the address that was submitted, so nothing from this body
+       reaches the browser. What we return is our own vocabulary. */
+    const upstream = await r.json().catch(function(){ return {}; });
+    const code = upstream.error_code || upstream.code || null;
+    const reason = r.status === 429 ? 'rate_limited'
+                 : (r.status >= 400 && r.status < 500) ? 'request_rejected'
+                 : 'provider_error';
+    log('GOTRUE_REFUSED status=' + r.status + ' reason=' + reason +
+        (code ? ' upstream=' + String(code).slice(0, 40) : ''));
+    return S.json(res, 502, { error: 'send_failed', reason: reason });
   }
   log('SENT');
   return S.json(res, 200, { sent: true });
