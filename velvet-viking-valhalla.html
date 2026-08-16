@@ -248,9 +248,14 @@
   .zleg-item{display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--ink-dim);}
   .zleg-dot{width:8px; height:8px; border-radius:50%; display:inline-block; flex:none;}
   .fuel-card{margin-top:10px; border:1px dashed var(--line); border-radius:8px; background:var(--bg-3);}
+  /* min-height, not more padding: this is a thumb target on a phone and it sat
+     at roughly 29px, well under the ~44px a finger actually needs. The card is
+     otherwise unchanged -- the row simply stops being a near-miss. */
   .fuel-card summary{
-    display:flex; align-items:center; gap:6px; padding:8px 10px; font-size:11px; font-weight:600;
+    display:flex; align-items:center; gap:6px; padding:8px 10px; min-height:44px;
+    font-size:11px; font-weight:600;
     color:var(--bronze-text); cursor:pointer; list-style:none; user-select:none;
+    -webkit-tap-highlight-color:transparent;
   }
   .fuel-card summary::-webkit-details-marker{display:none;}
   .fuel-card summary svg{width:13px; height:13px; flex:none;}
@@ -266,7 +271,9 @@
   .how-row{padding:6px 0; border-bottom:1px solid var(--line-soft);}
   .how-row:last-of-type{border-bottom:none;}
   .how-row .k{display:block; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:2px;}
-  .how-row .v{display:block; font-size:11.5px; line-height:1.5; color:var(--ink-dim);}
+  /* overflow-wrap so a long pace range or an unbroken term cannot push the
+     card sideways on a narrow phone; the page body must never scroll across. */
+  .how-row .v{display:block; font-size:11.5px; line-height:1.5; color:var(--ink-dim); overflow-wrap:anywhere;}
   .build-tag{text-align:center; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--ink-faint); opacity:.6; margin-top:18px;}
   /* Hidden file inputs are moved off-screen rather than display:none -- an
      Android WebView refuses to open the picker for an unrendered input. */
@@ -2642,49 +2649,57 @@ var COACH_GUIDANCE = {
     cue: 'Conversational the whole way — if you can’t talk in full sentences, ease off.',
     why: 'Builds the aerobic base and keeps you fresh enough to run the hard days properly.',
     how: 'Start slower than feels natural and hold the easy window from the first kilometre to the last. There is no benefit to pushing this one.',
-    feel: 'Comfortable and chatty. You should finish thinking you could have gone further.'
+    feel: 'Comfortable and chatty. You should finish thinking you could have gone further.',
+    avoid: 'Drifting up to a “comfortably quick” pace. That turns a recovery day into a mediocre hard day.'
   },
   long: {
     cue: 'Steady and patient — the last third should be no slower than the first.',
     why: 'Extends endurance and fatigue resistance. This is the backbone of the whole block.',
     how: 'Easy pace throughout unless the session says otherwise. Take fluid and carbohydrate on anything past about 90 minutes.',
-    feel: 'Easy early, honest work late. Tired legs at the end are normal; laboured breathing is not.'
+    feel: 'Easy early, honest work late. Tired legs at the end are normal; laboured breathing is not.',
+    avoid: 'Starting at the pace you finish at. Almost every bad long run was decided in the first 5km.'
   },
   tempo: {
     cue: 'Comfortably hard — controlled and rhythmic, never a race.',
     why: 'Teaches you to hold goal race effort economically for a long stretch.',
     how: 'Warm up first, settle into the target window inside the first kilometre, hold it, then cool down easy.',
-    feel: 'Breathing deep but rhythmic. Short phrases, not full sentences.'
+    feel: 'Breathing deep but rhythmic. Short phrases, not full sentences.',
+    avoid: 'Letting it turn into a race. Tempo pays for itself by staying controlled.'
   },
   threshold: {
     cue: 'Hold the pace you could race for about an hour — hard, but repeatable.',
     why: 'Raises the pace at which lactate starts to pile up — the single biggest lever on race pace.',
     how: 'Warm up, hit the threshold window on the very first rep, keep recoveries short and jogging, cool down easy.',
-    feel: 'Hard but controlled. If you are gasping, you have gone too fast.'
+    feel: 'Hard but controlled. If you are gasping, you have gone too fast.',
+    avoid: 'Treating it as a time trial. Threshold work only pays if you could have held it a little longer.'
   },
   interval: {
     cue: 'Even splits — the last rep should match the first.',
     why: 'Develops VO₂ max and running economy at hard aerobic effort.',
     how: 'Warm up thoroughly. Run every rep in the target window and jog the recoveries rather than standing still. Cool down easy.',
-    feel: 'Hard. Breathing heavy by the end of each rep, recovered just enough to start the next on time.'
+    feel: 'Hard. Breathing heavy by the end of each rep, recovered just enough to start the next on time.',
+    avoid: 'Racing the first two reps. A session that falls apart at rep four delivered less than an even one.'
   },
   repetition: {
     cue: 'Fast and relaxed — quality of movement matters more than effort.',
     why: 'Sharpens speed, mechanics and economy without digging a deep fatigue hole.',
     how: 'Warm up well. Run each rep quick but smooth and take the full recovery between them.',
-    feel: 'Fast, never straining. If your form falls apart, the rep was too fast.'
+    feel: 'Fast, never straining. If your form falls apart, the rep was too fast.',
+    avoid: 'Cutting the recovery short. These reps are only worth running when you are fresh enough to run them well.'
   },
   checkpoint: {
     cue: 'Run it honestly — this is what the paces ahead are built from.',
     why: 'Measures where your fitness actually is so goals and paces stay grounded in reality.',
     how: 'Warm up as you would for a race, run an even effort start to finish, then log the result.',
-    feel: 'Genuinely hard by the end. Finish knowing you gave it a true reading.'
+    feel: 'Genuinely hard by the end. Finish knowing you gave it a true reading.',
+    avoid: 'Going out too hard and fading. A positive split gives you a worse number than you deserve.'
   },
   race: {
     cue: 'Even effort through the first two-thirds, then everything that is left.',
     why: 'The day the whole block has been building towards.',
     how: 'Hold goal pace early even while it feels too easy, fuel to the plan you rehearsed, and race the last third.',
-    feel: 'Comfortable early, hard late. Discomfort in the final third is the job, not a mistake.'
+    feel: 'Comfortable early, hard late. Discomfort in the final third is the job, not a mistake.',
+    avoid: 'Banking time early. Every minute gained in the first third costs more than it returns.'
   },
   rest: {
     cue: 'Rest is part of the plan — adaptation happens on the days you don’t run.',
@@ -4629,54 +4644,221 @@ var ARCHETYPE_GUIDANCE = {
     avoid:'Banking time early. Every minute gained in the first third costs more than it returns.'
   }
 };
+/* ---- THE SAME COACHING, WITH LESS OF IT ----
+   Experienced and advanced athletes get the identical WHY / HOW / FEEL / AVOID
+   structure, written for someone who already knows what a threshold rep is.
+   Kept as a parallel map rather than folded into the entries above so the
+   full-length voice stays exactly as written.
+
+   Two rules, both deliberate:
+     - where an entry exists it is used WHOLE, so an omitted heading means
+       "nothing an experienced runner needs told here", not "not written yet";
+     - where no entry exists the athlete keeps the full copy, so a new
+       archetype gains the aid the moment it has guidance at all, rather than
+       silently losing it. */
+var TERSE_GUIDANCE = {
+  easy_run: { why:'Aerobic base, and freshness for the hard days.',
+              how:'Hold the easy window from the first kilometre to the last.',
+              feel:'Conversational throughout.',
+              avoid:'Drifting up to comfortably quick.' },
+  easy:     { why:'Aerobic base, and freshness for the hard days.',
+              how:'Hold the easy window from the first kilometre to the last.',
+              feel:'Conversational throughout.',
+              avoid:'Drifting up to comfortably quick.' },
+  shakeout: { why:'Legs awake, nothing spent.',
+              how:'Easy from the first step, a few relaxed strides, stop early.',
+              feel:'Light. Finish fresher than you started.',
+              avoid:'Testing your legs.' },
+  long_run: { why:'Endurance and fatigue resistance — the backbone of the block.',
+              how:'Easy throughout. Fluid and carbohydrate past 90 minutes.',
+              feel:'Easy early, honest work late.',
+              avoid:'Starting at the pace you mean to finish at.' },
+  long:     { why:'Endurance and fatigue resistance — the backbone of the block.',
+              how:'Easy throughout. Fluid and carbohydrate past 90 minutes.',
+              feel:'Easy early, honest work late.',
+              avoid:'Starting at the pace you mean to finish at.' },
+  long_run_goal_finish: { why:'Goal pace on legs that are already tired.',
+              how:'Easy until the final block, then one change of gear and hold it.',
+              feel:'Work, not racing.',
+              avoid:'Racing the easy portion.' },
+  long_run_b2b: { why:'Durability on an already-fatigued system.',
+              how:'Slower than yesterday from the start.',
+              feel:'Heavy legs, easy breathing.',
+              avoid:'Trying to match yesterday.' },
+  threshold_continuous: { why:'Raises the pace at which lactate starts to accumulate.',
+              how:'Into the window inside the first kilometre, then hold. No surges, no sprint finish.',
+              feel:'Hard but even, and repeatable.',
+              avoid:'Racing it.' },
+  threshold:{ why:'Raises the pace at which lactate starts to pile up.',
+              how:'Threshold window on the first rep, recoveries short and jogging.',
+              feel:'Hard but controlled.',
+              avoid:'Racing it.' },
+  goal_pace_block: { why:'Rehearses race pace, effort and concentration.',
+              how:'Lock onto goal pace from the first kilometre.',
+              feel:'Unremarkable now. Race day makes it hard.',
+              avoid:'Beating goal pace.' },
+  steady_tempo: { why:'Aerobic strength at a cost you can repeat.',
+              how:'A rhythm you could hold well past the time given.',
+              feel:'Firm, not hard.',
+              avoid:'Letting it creep up to threshold.' },
+  tempo:    { why:'Holds goal race effort economically for a long stretch.',
+              how:'Into the target window inside the first kilometre, then hold.',
+              feel:'Deep but rhythmic. Short phrases.',
+              avoid:'Letting it turn into a race.' },
+  progressive_tempo: { why:'Pace judgement and finishing strength in one session.',
+              how:'One change of gear per third. The last third is the fastest.',
+              feel:'Comfortable, firm, hard — in that order.',
+              avoid:'Opening at tempo pace.' },
+  split_tempo: { why:'More quality time at tempo than one block would allow.',
+              how:'Match the second rep to the first. Keep the recovery jogging.',
+              feel:'Hard but repeatable.',
+              avoid:'Emptying the tank on the opener.' },
+  track_reps: { why:'VO₂ max and running economy.',
+              how:'Every rep in the window, recoveries jogged rather than stood.',
+              feel:'Hard. Recovered just enough to start the next on time.',
+              avoid:'Racing the first two reps.' },
+  interval: { why:'VO₂ max and running economy.',
+              how:'Every rep in the window, recoveries jogged rather than stood.',
+              feel:'Hard. Recovered just enough to start the next on time.',
+              avoid:'Racing the first two reps.' },
+  short_reps: { why:'Speed, mechanics and economy without deep fatigue.',
+              how:'Quick but smooth, and jog the full recovery.',
+              feel:'Fast, never straining.',
+              avoid:'Cutting the recovery short.' },
+  repetition:{ why:'Speed and mechanics without deep fatigue.',
+              how:'Quick but smooth, and take the full recovery.',
+              feel:'Fast, never straining.',
+              avoid:'Cutting the recovery short.' },
+  ladder:   { why:'A range of speeds in one session, and judgement between them.',
+              how:'Effort constant as the reps grow and shrink. Recovery scales with the rep.',
+              feel:'Each rep hard for its length.',
+              avoid:'One pace for every rung.' },
+  deuce:    { why:'Sets buy more quality reps than one long block.',
+              how:'Short jog between reps, full recovery between sets.',
+              feel:'Hard within a set, genuinely recovered before the next.',
+              avoid:'Trimming the between-sets recovery.' },
+  goal_pace_reps: { why:'Race rhythm without the cost of a full race-pace block.',
+              how:'Goal pace exactly, and keep the float running.',
+              feel:'Familiar rather than hard.',
+              avoid:'Running the reps quicker than goal pace.' },
+  hill_repeats: { why:'Power and running strength at a low impact cost.',
+              how:'Drive from the hips, short quick steps, eyes up. Effort, not pace.',
+              feel:'Hard up, genuinely recovered at the bottom.',
+              avoid:'Racing the descent.' },
+  fartlek:  { why:'Aerobic power without the precision or cost of a track session.',
+              how:'Clean gear change in, easy jog for the same time between.',
+              feel:'Every surge should look the same.',
+              avoid:'Treating the surges as sprints.' },
+  time_trial: { why:'Resets your goal and every training pace in the block.',
+              how:'Warm up properly, even effort, nothing left.',
+              feel:'Hard enough that the number is a fair reading.',
+              avoid:'Going out hard and fading.' },
+  checkpoint:{ why:'Sets every pace that follows it.',
+              how:'Race warm-up, even effort start to finish, then log it.',
+              feel:'Hard enough that the number is a fair reading.',
+              avoid:'Going out hard and fading.' },
+  easy_strides: { why:'Wakes the legs and the nervous system up without adding fatigue.',
+              how:'Accelerate smoothly, shut it down, full recovery between.',
+              feel:'Quick and light.',
+              avoid:'Turning the strides into reps.' },
+  race:     { why:'The day the block was built for.',
+              how:'Goal pace early even while it feels too easy. Race the last third.',
+              feel:'Comfortable early, hard late.',
+              avoid:'Banking time early.' }
+};
 function coachingEntryFor(dd){
   var p = prescriptionOf(dd);
   // archetype first, type second: a hand-edited or legacy day still gets the
   // guidance it has always had, it simply cannot get the specific version
   return (p && ARCHETYPE_GUIDANCE[p.archetype]) || COACH_GUIDANCE[dd.type] || null;
 }
+// The key coachingEntryFor resolved to, so the terse copy is looked up from
+// the same place the full copy came from and the two can never disagree.
+function coachingKeyFor(dd){
+  var p = prescriptionOf(dd);
+  if (p && ARCHETYPE_GUIDANCE[p.archetype]) return p.archetype;
+  return COACH_GUIDANCE[dd.type] ? dd.type : null;
+}
+/* WHY / HOW / FEEL / AVOID for this session at this athlete's depth. Same
+   structure at every level -- only the length changes. */
+function coachingDisclosureFor(dd, level){
+  var g = coachingEntryFor(dd);
+  if (!g) return null;
+  var terse = (level !== 'novice') ? TERSE_GUIDANCE[coachingKeyFor(dd)] : null;
+  var src = terse || g;
+  if (!src.how) return null;                 // nothing substantive to disclose
+  return { why:src.why||null, how:src.how, feel:src.feel||null, avoid:src.avoid||null,
+           terse:!!terse };
+}
 function renderCoachingDepth(dd){
   var level = athleteExperience();
   var g = coachingEntryFor(dd);
   if (!g) return '';
   if (dd.type==='rest' && level!=='novice') return ''; // a rest day needs no cue for anyone else
+  /* The cue line is where depth used to be decided; it still is. Advanced sees
+     one only where getting it wrong ruins the session, everyone else sees the
+     standing cue. */
+  var out = '';
   if (level==='advanced'){
-    // one line, only where getting it wrong ruins the session
-    return g.essential
-      ? '<div class="coach-cue">'+ICONS.info+'<span>'+escapeHtml(g.essential)+'</span></div>'
-      : '';
+    if (g.essential) out = '<div class="coach-cue">'+ICONS.info+'<span>'+escapeHtml(g.essential)+'</span></div>';
+  } else if (g.cue){
+    out = '<div class="coach-cue">'+ICONS.info+'<span>'+escapeHtml(g.cue)+'</span></div>';
   }
-  var out = g.cue ? '<div class="coach-cue">'+ICONS.info+'<span>'+escapeHtml(g.cue)+'</span></div>' : '';
-  if (level==='novice' && g.how){
+  /* "How to run this" is now offered at every level rather than to novices
+     only. It was the strongest coaching in the product and there is no version
+     of an athlete who is not allowed to look something up; experience changes
+     how much is written, not whether the aid exists. It stays a CLOSED
+     disclosure, so an athlete who does not want it pays one line of card for
+     it and nothing else. */
+  var gd = coachingDisclosureFor(dd, level);
+  if (gd && dd.type!=='rest'){
+    var row = function(k, v){
+      return v ? '<div class="how-row"><span class="k">'+k+'</span><span class="v">'+escapeHtml(v)+'</span></div>' : '';
+    };
     out += '<details class="fuel-card how-card">'+
       '<summary>'+ICONS.info+'How to run this</summary>'+
       '<div class="fuel-body">'+
-        '<div class="how-row"><span class="k">Why</span><span class="v">'+escapeHtml(g.why)+'</span></div>'+
-        '<div class="how-row"><span class="k">How</span><span class="v">'+escapeHtml(g.how)+'</span></div>'+
-        '<div class="how-row"><span class="k">Feel</span><span class="v">'+escapeHtml(g.feel)+'</span></div>'+
-        (g.avoid ? '<div class="how-row"><span class="k">Avoid</span><span class="v">'+escapeHtml(g.avoid)+'</span></div>' : '')+
+        row('Why', gd.why)+ row('How', gd.how)+ row('Feel', gd.feel)+ row('Avoid', gd.avoid)+
       '</div>'+
     '</details>';
   }
   return out;
 }
+/* An estimate should not be printed to the millilitre. "816-1224 ml" is a
+   per-hour guide band multiplied by a predicted duration -- two approximations
+   -- and every one of those four digits reads as though the number were
+   measured. Rounded to something an athlete can actually act on (a bottle,
+   not a millilitre), and shown in litres once the total is large enough that
+   litres are how anyone would think about it. */
+function fmtFluidEstimate(mlLow, mlHigh){
+  var lo = Math.max(100, Math.round(mlLow/100)*100);
+  var hi = Math.max(lo+100, Math.round(mlHigh/100)*100);
+  if (hi >= 1000){
+    var l = function(ml){ return (Math.round(ml/100)/10).toFixed(1); };
+    return '\u2248' + l(lo) + '\u2013' + l(hi) + ' L';
+  }
+  return '\u2248' + lo + '\u2013' + hi + ' ml';
+}
+// Same reasoning, smaller effect: a carbohydrate total carries the duration
+// estimate too, so it is rounded to the nearest 5g rather than shown exact.
+function roundCarbEstimate(g){ return Math.max(5, Math.round(g/5)*5); }
 function renderFuelingCard(dd){
   if (!needsFueling(dd)) return '';
   var durSec = getDayDurationSec(dd);
   var hours = durSec/3600;
   var band = fuelCarbRange(hours);
-  var carbsLow = Math.round(hours*band.lo), carbsHigh = Math.round(hours*band.hi);
+  var carbsLow = roundCarbEstimate(hours*band.lo), carbsHigh = roundCarbEstimate(hours*band.hi);
   var gelsLow = Math.max(1,Math.round(carbsLow/FUEL_GEL_CARB_G)), gelsHigh = Math.max(1,Math.round(carbsHigh/FUEL_GEL_CARB_G));
-  var fluidLow = Math.round(hours*FUEL_FLUID_ML_PER_HOUR_LO), fluidHigh = Math.round(hours*FUEL_FLUID_ML_PER_HOUR_HI);
+  var fluidLow = hours*FUEL_FLUID_ML_PER_HOUR_LO, fluidHigh = hours*FUEL_FLUID_ML_PER_HOUR_HI;
   var h = Math.floor(durSec/3600), m = Math.round((durSec%3600)/60);
   return '<details class="fuel-card">'+
     '<summary>'+ICONS.zap+'Fueling &amp; Hydration Strategy</summary>'+
     '<div class="fuel-body">'+
       '<div class="fuel-row"><span class="k">Est. time-on-feet</span><span class="v font-mono">'+h+'h '+(m<10?'0':'')+m+'m</span></div>'+
       '<div class="fuel-row"><span class="k">Carb intake</span><span class="v font-mono">'+band.lo+'\u2013'+band.hi+'g/hr</span></div>'+
-      '<div class="fuel-row"><span class="k">Total carbs</span><span class="v font-mono">'+carbsLow+'\u2013'+carbsHigh+'g</span></div>'+
+      '<div class="fuel-row"><span class="k">Total carbs (est.)</span><span class="v font-mono">\u2248'+carbsLow+'\u2013'+carbsHigh+'g</span></div>'+
       '<div class="fuel-row"><span class="k">Gels / chews (\u2248'+FUEL_GEL_CARB_G+'g each)</span><span class="v font-mono">'+gelsLow+'\u2013'+gelsHigh+'</span></div>'+
-      '<div class="fuel-row"><span class="k">Fluid guide</span><span class="v font-mono">'+fluidLow+'\u2013'+fluidHigh+'ml</span></div>'+
+      '<div class="fuel-row"><span class="k">Fluid guide (est.)</span><span class="v font-mono">'+fmtFluidEstimate(fluidLow, fluidHigh)+'</span></div>'+
       /* The upper carbohydrate end is conditional, so it is never shown as a
          bare number the athlete might read as a target. */
       (band.prolonged
@@ -6214,9 +6396,15 @@ function coachDecisionSentence(st, tier, ev, positives, nxt, quality, observed){
   if (ev.length)
     return 'Noted and not acted on: on this evidence the plan still stands as written.';
 
+  /* There IS positive evidence here, so the claim can be positive: this is the
+     one PROCEED branch entitled to say the training supports the decision
+     rather than merely failing to argue against it. */
   if (positives.length)
-    return positives[0].detail+' Nothing in recent training suggests holding back.';
-  return 'Nothing unusual in the recent training. Proceed as planned.';
+    return positives[0].detail+' Your recent training supports keeping this session as written.';
+  /* And this branch is not entitled to that. Reaching here means the evidence
+     model found nothing either way -- an absence of concern, which is not the
+     same as evidence of readiness and must not be dressed up as it. */
+  return 'Nothing in the recent training argues against it. Proceed as planned.';
 }
 
 /* =========================================================
@@ -8475,7 +8663,17 @@ function coachContinuity(dd){
   return null;
 }
 
-/* ---------- readiness, in words rather than a state name ---------- */
+/* ---------- readiness, in words rather than a state name ----------
+   ONE job: how this athlete looks going into the session. What to do about it
+   is the recommendation's job and is already printed directly above this;
+   what to concentrate on is the focus line's, directly below. Every branch
+   here therefore reports the state and stops -- restating the decision is what
+   made the card say "Run it as prescribed" twice in four lines.
+
+   Silence is a legitimate answer. When there is nothing about this athlete's
+   readiness worth saying, saying "nothing unusual is showing up" fills a
+   paragraph with the absence of news and makes the coach sound like it is
+   padding. The recommendation has already told them to run it. */
 function coachReadinessLine(dd){
   var dec = coachDecision();
   var rec = coachRecovery();
@@ -8486,20 +8684,24 @@ function coachReadinessLine(dd){
     return dec.reasons[0] ? sentence(dec.reasons[0])+' Recovery comes before this session.'
                           : 'Recovery comes before this session.';
   if (rec.state === 'strained')
-    return 'Effort and heart rate have both been running above target this week. Start the session, but stop if the effort climbs out of proportion to the pace.';
+    return 'Effort and heart rate have both been running above target this week. Stop if the effort climbs out of proportion to the pace.';
   if (rec.state === 'watch')
     return quality
-      ? 'You have carried a little more fatigue through the last few runs. I am happy for you to start this, but do not force the closing reps if the effort starts climbing.'
-      : 'A little more fatigue than usual in the last few runs, so keep this one genuinely easy.';
+      ? 'You have carried a little more fatigue through the last few runs. Do not force the closing reps if the effort starts climbing.'
+      : 'A little more fatigue than usual in the last few runs.';
   if (load.band === 'spike')
     return 'This week is well above your recent average, so today is not the day to add anything to it.';
+  // the evidence, without repeating the decision it did not change
   if (dec && dec.state === 'check' && dec.reasons.length)
-    return sentence(dec.reasons[0])+' Nothing that changes the session, but worth knowing before you start.';
+    return sentence(dec.reasons[0])+' Worth knowing before you start.';
   if (!quality) return '';
   var trend = coachTrend();
+  /* A positive claim, made only where there is positive evidence to make it
+     from: an established rising execution trend. Absence of concern is not
+     evidence of good form, so there is no equivalent line below. */
   if (trend.enough && trend.direction === 'rising')
-    return 'You are coming into this in a good place. Nothing in the recent running gives me a reason to hold you back.';
-  return 'Nothing unusual is showing up in the recent running. Run it as prescribed.';
+    return 'Execution has been trending up, so you are coming into this in a good place.';
+  return '';
 }
 
 /* ---------- what today is FOR ----------
@@ -15044,9 +15246,33 @@ function renderApp(){
 /* =========================================================
    EVENT DELEGATION
    ========================================================= */
+/* A disclosure owns the clicks that land inside it.
+
+   `.day-detail` -- targets, description, "How to run this" and the fueling
+   card -- is rendered INSIDE `.day-top`, which carries data-action="toggle-day"
+   for the whole header row. Delegation therefore walked straight past the
+   <summary> an athlete actually tapped and found the card's own toggle, so
+   opening the guidance collapsed the workout underneath it and the athlete had
+   to reopen the card to read what they had just asked for.
+
+   Stated as a rule rather than as a patch for that one card: <details> manages
+   its own open state natively, so when a click lands inside one, no ANCESTOR
+   action may also fire. A control with its own data-action inside the
+   disclosure still works normally -- closest() finds that control first, and it
+   is not an ancestor of the disclosure, so this returns false for it. */
+function clickOwnedByDisclosure(eventTarget, actionEl){
+  if (!eventTarget || !actionEl || !eventTarget.closest) return false;
+  var disclosure = eventTarget.closest('details');
+  if (!disclosure) return false;
+  // only when the action being considered WRAPS the disclosure
+  return actionEl !== disclosure &&
+         !!(actionEl.contains && actionEl.contains(disclosure)) &&
+         !(disclosure.contains && disclosure.contains(actionEl));
+}
 document.addEventListener('click', function(e){
   var target = e.target.closest ? e.target.closest('[data-action]') : null;
   if (!target) return;
+  if (clickOwnedByDisclosure(e.target, target)) return;
   var action = target.getAttribute('data-action');
   switch(action){
     case 'toggle-theme': handleToggleThemeQuick(); break;
@@ -15135,6 +15361,9 @@ document.addEventListener('change', function(e){
   if (t.id && t.id.indexOf('import-json-input')===0){ handleImportJsonFile(e); return; }
   var actionEl = t.closest ? t.closest('[data-action]') : null;
   if (!actionEl) return;
+  // same boundary as the click dispatcher: a field inside a disclosure belongs
+  // to that disclosure, never to an action wrapping it
+  if (clickOwnedByDisclosure(t, actionEl)) return;
   var action = actionEl.getAttribute('data-action');
   if (action === 'toggle-complete') handleToggleComplete(actionEl.getAttribute('data-day'));
   // Only real form fields belong on `change`. Buttons fire `click` and are
