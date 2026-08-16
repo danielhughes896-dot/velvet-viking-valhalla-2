@@ -5,36 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Terms — Velvet Viking</title>
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#151417">
+<meta name="theme-color" content="#F4F1EA">
+<script data-vvv-theme-boot>/*VVV-THEME-BOOT*/(function(){try{var s=localStorage.getItem('vvv_theme');var t=s?(JSON.parse(s)||{}).theme:null;document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="icon" href="/assets/icon.png">
+<link rel="stylesheet" href="/assets/vvv-shell.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  :root{
-    /* RC2 neutral-charcoal / clean-ivory palette (matches the main app) --
-       gold behaves like jewellery/detail here, not atmosphere. */
-    --bg:#151417; --bg-2:#1B1A1E; --bg-3:#201F23;
-    --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#9D9787;
-    --line:#302E36;
-    --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
-    /* Text-only aliases: identical to --gold/--bronze in dark, deepened in
-       light (below) so gold-as-text stays AA-contrast on ivory. */
-    --gold-text:var(--gold); --bronze-text:var(--bronze);
-    --gold-bright:#F5D061; --modal-active:#c5a059;
-    --gold-shadow-1:#7A5C1E; --gold-shadow-2:#543E12;
-    --radius:16px; --radius-sm:10px;
-    color-scheme:dark light;
-  }
-  @media (prefers-color-scheme: light){
-    :root{
-      --bg:#F4F1EA; --bg-2:#FCFBFB; --bg-3:#EBE5D8;
-      --ink:#171717; --ink-dim:#514D45; --ink-faint:#5D574C;
-      --line:#DAD1BB;
-      --gold-text:#7A5C1E; --bronze-text:#7A5C1E;
-    }
-  }
+  /* Palette, controls and the brand shell come from /assets/vvv-shell.css.
+     The @media (prefers-color-scheme: light) block that used to live here is
+     gone on purpose: the OS no longer decides which theme Velvet Viking wears,
+     the athlete's explicit choice does, and absent one the product default is
+     light. */
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   body{
     margin:0; min-height:100vh; background:var(--bg); color:var(--ink);
@@ -48,6 +32,14 @@
     letter-spacing:0.02em; margin:0 0 6px;
     background:linear-gradient(180deg,var(--gold-bright) 0%,var(--modal-active) 100%);
     -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+  }
+  /* The metallic gradient is a dark-header device: on cream its lightest stop
+     lands at 2.0:1, so the document title of a legal page was the least
+     readable thing on it. Light gets ink with a gold lift instead -- the same
+     answer the app gives its own wordmark. */
+  :root[data-theme="light"] h1{
+    background:none; -webkit-text-fill-color:#2B2317; color:#2B2317;
+    text-shadow:0 1px 2px rgba(197,160,89,0.4);
   }
   .updated{font-size:12px; color:var(--ink-faint); margin:0 0 28px;}
   h2{
@@ -74,6 +66,13 @@
 </head>
 <body>
 <div class="wrap">
+  <div class="vvv-brand compact">
+    <p class="vvv-wordmark">Velvet Viking</p>
+    <img class="vvv-crest sm" src="/assets/velvet-viking-crest.png" width="1223" height="1286"
+         alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place" loading="lazy" decoding="async">
+    <p class="vvv-tagline">Earn Your Place</p>
+    <div class="vvv-rule"></div>
+  </div>
   <h1>Terms</h1>
   <p class="updated">Velvet Viking (Valhalla) · plain language, matching how the app itself talks to you</p>
 

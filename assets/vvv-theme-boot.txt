@@ -1,0 +1,26 @@
+THE THEME BOOT SNIPPET — the canonical copy.
+
+Every Velvet Viking surface carries this verbatim in <head>, before any
+stylesheet, so the page arrives in the athlete's theme instead of flashing the
+wrong one while a script at the end of <body> catches up.
+
+It is inline rather than shared through a file on purpose: a <script src> is
+another round trip in front of the first paint, and the whole job of this
+snippet is to have already finished by then. Inlining it is the only way to
+guarantee that, and the cost is that the same three lines exist on several
+pages.
+
+That cost is paid down by test/themeSystem.test.js, which reads this file and
+asserts that every surface carries it byte for byte. Change it here and the
+suite will name every page that has not been changed with it, which is the
+failure mode that "lifted verbatim so the two read as one product" comments
+were never able to prevent.
+
+Rules the snippet encodes:
+  - the source of truth is the small `vvv_theme` mirror key, never the plan blob
+  - anything other than an explicit 'dark' resolves to LIGHT
+  - unreadable or absent storage resolves to LIGHT
+  - prefers-color-scheme is never consulted
+
+--- SNIPPET BELOW THIS LINE, EXACTLY AS IT MUST APPEAR ---
+<script data-vvv-theme-boot>/*VVV-THEME-BOOT*/(function(){try{var s=localStorage.getItem('vvv_theme');var t=s?(JSON.parse(s)||{}).theme:null;document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>

@@ -20,11 +20,19 @@ const vm = require('vm');
 // future callers cannot drift from the suite.
 const RUNTIME_RELATIVE = path.join('protected', 'velvet-viking-valhalla.html');
 
+// The page carries more than one inline script: a tiny theme boot in <head>
+// that runs before the first paint, and the application itself at the end of
+// <body>. Slicing from the first <script> to the last </script> would have
+// swallowed the stylesheet in between and fed it to the VM as JavaScript, so
+// the blocks are enumerated and the largest -- the app -- is the one loaded.
 function extractInlineScript(html) {
-  const start = html.indexOf('<script>');
-  const end = html.lastIndexOf('</script>');
-  if (start === -1 || end === -1) throw new Error('Could not find the inline <script> block');
-  return html.slice(start + '<script>'.length, end);
+  const re = /<script\b[^>]*>([\s\S]*?)<\/script>/g;
+  let best = null, m;
+  while ((m = re.exec(html)) !== null) {
+    if (best === null || m[1].length > best.length) best = m[1];
+  }
+  if (best === null) throw new Error('Could not find the inline <script> block');
+  return best;
 }
 
 function makeStubDocument() {
