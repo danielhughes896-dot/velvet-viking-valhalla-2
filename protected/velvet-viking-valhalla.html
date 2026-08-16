@@ -3957,6 +3957,51 @@ function establishDeliverySession(){
   }).catch(function(){ return null; });   // offline: the existing lease stands
 }
 
+/* ---------- what the athlete is told about their subscription ----------
+   Phase 3A2, and display ONLY -- like everything else derived from
+   entitlementInfo, editing it in a console changes a sentence and nothing
+   else, because /api/app re-resolves access server-side before it hands over
+   a byte of runtime.
+
+   Every branch below is a combination the entitlement model can actually
+   produce. "Cancelled but paid through Friday" is state='active' plus
+   cancel_at_period_end plus an access_until -- three facts that cannot
+   contradict each other -- so it is READ here the same way it is stored,
+   rather than being given a state of its own that could drift out of step.
+
+   Silence is a legitimate answer. While the commercial gate is off there is
+   nothing true to say about a subscription, and inventing a reassuring
+   sentence for a product that is not selling anything yet is exactly the kind
+   of claim this product does not make. */
+function subscriptionSentence(info){
+  if (!info || !info.signed_in) return '';
+  if (info.override === 'owner') return 'Owner access';
+  if (info.override === 'beta') return 'Private beta access';
+  if (!info.commercial_required) return '';
+  var until = info.access_until ? dLong(info.access_until) : '';
+  if (info.state === 'grace')
+    return 'A payment didn\u2019t go through' + (until ? (' \u2014 access continues until ' + until) : '') +
+           ' while it\u2019s sorted out';
+  if (info.state === 'trial') return until ? ('Trial until ' + until) : 'Trial running';
+  if (info.cancel_at_period_end && until) return 'Cancelled \u2014 paid up until ' + until;
+  if (info.state === 'active' && until) return 'Subscription active until ' + until;
+  if (info.state === 'expired' && until) return 'Access ended on ' + until;
+  return '';
+}
+/* A date an athlete reads, not one a machine does. Falls back to the raw
+   value rather than rendering "Invalid Date" at somebody. */
+function dLong(iso){
+  try{
+    /* Guard the absent case before Date sees it. new Date(null) is the epoch,
+       not an error, so a missing timestamp would render as "January 1, 1970"
+       -- which is worse than saying nothing, because it looks like a fact. */
+    if (iso == null || iso === '') return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(undefined, { day:'numeric', month:'long', year:'numeric' });
+  }catch(e){ return ''; }
+}
+
 /* Called when the app comes back to the foreground. The lease is deliberately
    short, so a device that was asleep across its expiry revalidates here rather
    than discovering the problem on a reload the athlete did not ask for. */
@@ -15518,11 +15563,13 @@ function renderCloudCard(){
     var revoked = !!(entitlementInfo && entitlementInfo.signed_in && entitlementInfo.access === false);
     var label = revoked ? 'Access ended'
       : ({ syncing:'Syncing…', synced:'Backed up', error:'Offline — will retry' }[cloudStatus] || 'Signed in');
+    var sub = subscriptionSentence(entitlementInfo);
     body = '<div class="connect-row">'+
         '<div><div class="name">'+escapeHtml(cloudSession.email||'Signed in')+'</div><div class="desc">'+label+'</div></div>'+
         '<button type="button" class="btn btn-sm btn-ghost" data-action="cloud-sign-out">Sign out</button>'+
       '</div>'+
       (revoked ? '<div class="field-hint" style="margin-top:8px;">This account no longer has access to Velvet Viking. Your plan and history are unaffected and remain on this device.</div>' : '')+
+      (sub ? '<div class="field-hint" style="margin-top:8px;">'+escapeHtml(sub)+'</div>' : '')+
       '<button type="button" class="btn btn-danger btn-block" style="margin-top:12px;" data-action="cloud-delete-account">'+ICONS.trash+' Delete Account &amp; Cloud Data</button>'+
       '<div class="field-hint" style="margin-top:8px;">Erases your account and everything stored on our server. Your plan stays on this device.</div>';
   } else {
