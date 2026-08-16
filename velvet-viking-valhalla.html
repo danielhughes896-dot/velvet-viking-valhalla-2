@@ -3169,6 +3169,31 @@ function handleCloudDeleteAccount(){
     cloudSession = null;
     writeStored(CLOUD_SESSION_KEY, null);
     writeStored(CLOUD_BACKUP_KEY, null);
+    /* RELEASE THE OWNERSHIP STAMP. This is what makes "your plan stays on THIS
+       device" survive the athlete signing in again.
+
+       delete_own_account() removes the auth.users row, so signing in with the
+       same address afterwards mints a BRAND NEW uid. The plan on this device
+       was still stamped with the deleted account's uid, and ownership
+       resolution -- correctly, for a shared device -- reads "stamped with
+       somebody else's uid" as a different athlete: it parked the plan in
+       vvv_plan_archive and started the new account clean. The athlete had been
+       promised their plan would still be here, opened the app after re-auth,
+       and was shown Build My Plan.
+
+       Nothing was ever deleted -- the plan sat in the archive under a uid that
+       could never sign in again -- but it was unreachable, which for an athlete
+       is the same thing.
+
+       The account that owned this plan no longer exists, so the stamp is
+       released rather than repointed. That returns the plan to the unowned
+       state the one-time adoption branch already handles: the next athlete to
+       sign in on this device claims it, and cloudReconcile then seeds their
+       empty cloud account from it. Shared-device protection is untouched --
+       that branch only fires for a uid that is still stamped, which now means
+       an account that still exists. */
+    delete state.ownerUid;
+    persistStateLocalOnly();
     cloudStatus = 'signed-out';
     patchCloudCard();
     /* If Strava could not be reached, say so rather than implying a clean
@@ -5855,6 +5880,12 @@ function coachDecision(){
   if (!nxt) return null;
   var quality = !isRecoveryWorkoutType(nxt.type) && nxt.type!=='rest';
   var recovery = coachRecovery(), trend = coachTrend(), load = coachLoad();
+  /* How many sessions were actually completed in the window this decision
+     reasons over. Zero is the difference between "assessed and clear" and
+     "nothing to assess", and the two must not sound the same. Read here
+     rather than returned from coachRecovery so no engine output shape moves. */
+  var observedSessions = coachDaysInWindow(addDays(todayStr(),-6), todayStr())
+                           .filter(function(dd){ return dd.completed; }).length;
   var feel = coachFeelTrend();
   var ready = coachReadinessToday();
   var recent = coachRecentSessions(4);
@@ -6007,7 +6038,7 @@ function coachDecision(){
     positives: positives,
     // long-horizon context, reported so WHY? can show it; never an evidence item
     block: block ? { state:block.state, phase:block.phase } : null,
-    recommendation: coachDecisionSentence(st, tier, ev, positives, nxt, quality),
+    recommendation: coachDecisionSentence(st, tier, ev, positives, nxt, quality, observedSessions),
     // The readiness prompt is earned, not permanent: it appears only when the
     // recent evidence already says something, and only before quality work.
     needsReadiness: !ready && quality && st !== 'proceed' && ev.length > 0
@@ -6015,7 +6046,12 @@ function coachDecision(){
 }
 /* One sentence, in the coaching voice: what the evidence is, and what it does
    or does not justify doing about tomorrow. Never a diagnosis. */
-function coachDecisionSentence(st, tier, ev, positives, nxt, quality){
+/* The sentence must never make a categorical claim that the evidence listed
+   directly beneath it contradicts, and must never report an assessment that did
+   not happen. `observed` is how many sessions were actually completed in the
+   window the decision reasons over -- zero means there was nothing to read, not
+   that everything was fine. */
+function coachDecisionSentence(st, tier, ev, positives, nxt, quality, observed){
   var what = nxt ? (nxt.title || (TYPE_META[nxt.type]||{}).label || 'the next session') : 'the next session';
   if (st==='recover')
     return 'The evidence says recover first. '+(quality ? what+' is not the session to push through.' : 'Keep the next few days genuinely easy.');
@@ -6025,6 +6061,22 @@ function coachDecisionSentence(st, tier, ev, positives, nxt, quality){
     return 'Worth watching rather than acting on yet. '+(quality
       ? what+' stays on — the warm-up will tell you more than the data can.'
       : 'Nothing here changes what the next session should be.');
+
+  /* No training in the window. "Nothing unusual in the recent training" is a
+     claim about training that did not happen, and "nothing suggests holding
+     back" is a conclusion drawn from no evidence at all. Say what is true --
+     there was nothing to read -- without implying either reassurance or alarm. */
+  if (observed === 0)
+    return 'No recent sessions logged, so there is nothing to read yet. The plan stands as written.';
+
+  /* PROCEED with evidence on the card. The evidence was not enough to change
+     anything -- which is the restraint working, not a reason to pretend it was
+     not there. Saying "nothing suggests holding back" directly above "this week
+     is 1.57x your four-week average" is the contradiction this avoids; the plan
+     still stands, and it is still not being reduced. */
+  if (ev.length)
+    return 'Noted and not acted on: on this evidence the plan still stands as written.';
+
   if (positives.length)
     return positives[0].detail+' Nothing in recent training suggests holding back.';
   return 'Nothing unusual in the recent training. Proceed as planned.';
@@ -6434,12 +6486,37 @@ function athleteTrends(){
              evidenceDates: low.map(function(r){ return r.date; }) });
   })();
 
-  /* ---- pace held at the same heart-rate cost, in both directions ---- */
+  /* ---- pace held at the same heart-rate cost, in both directions ----
+     KNOWN DEFECT, correction deferred -- do not "tidy" this without reading on.
+
+     `cost` divides by pace, which is heart rate times SPEED. That is only the
+     right question while pace is constant; the moment pace moves it inverts.
+     Measured in all four directions: 40s/km faster at the same heart rate is
+     reported as `easy_efficiency_down` ("costing more heart rate"), and 60s/km
+     slower at the same heart rate as `easy_efficiency_up`. An athlete whose
+     easy runs get quicker at unchanged cost -- which is what aerobic progress
+     looks like -- is told their easy pace is costing more, and because this
+     trend maps to the `hr` concept it can push them toward CHECK for improving.
+     The `easy_efficiency_up` wording also asserts "holding the same easy pace"
+     without ever checking the pace actually run.
+
+     The fix is beats per kilometre: `r.hr * (r.actualPace/60)`, lower is
+     better, which measures correctly in all four directions. It was written,
+     verified against all four, and then REVERTED, because it changes which
+     blocks the Playbook will progress: a block that deteriorated and then
+     recovered reads its recent window as genuinely better than a base that now
+     contains the bad stretch, so `easy_efficiency_up` fires and helps PROGRESS
+     through its gates. sim_playbook's "a deteriorating block never progresses"
+     currently holds only because this inversion happens to block it.
+
+     So the metric and the Playbook progression gate have to move together, and
+     that is an adaptation-threshold decision rather than a units bug. Handed to
+     Council with the four directional tests already written. */
   (function(){
     var readable = easy.filter(function(r){ return hrIsReadable(r) && r.actualPace!=null; });
     var sp = trendSplit(readable);
     if (sp.base.length < BASELINE_MIN_SAMPLES || sp.recent.length < 2) return;
-    var cost = function(r){ return r.hr / (r.actualPace/60); };   // bpm per min/km
+    var cost = function(r){ return r.hr / (r.actualPace/60); };   // bpm per min/km  (SEE COMMENT: known-inverted, deferred)
     var base = median(sp.base.map(cost));
     var better = sp.recent.filter(function(r){ return (base - cost(r))/base >= 0.02; });
     var worse  = sp.recent.filter(function(r){ return (cost(r) - base)/base >= 0.02; });

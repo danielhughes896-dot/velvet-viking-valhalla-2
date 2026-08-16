@@ -60,7 +60,34 @@ function makeStubLocalStorage() {
   };
 }
 
-function loadApp() {
+/* A clock the app cannot tell from the real one, pinned to a fixed instant.
+   Coaching fixtures are built relative to todayStr(), so a suite run on a
+   Tuesday and the same suite run on a Saturday ask the engine different
+   questions: the phase position moves, the 7-day window covers different
+   sessions, and "today" can be a rest day. That made identical code at an
+   identical commit produce different results on different calendar days, which
+   is not a property a deterministic coaching engine's tests may have.
+
+   Test-time only. The app reads `Date` from its sandbox, so pinning it here
+   changes nothing about production date behaviour -- there is no branch in the
+   app that knows this exists. Callers opt in: loadApp() with no argument keeps
+   the real clock, exactly as before. */
+function makePinnedDate(iso) {
+  const fixed = new Date(iso).getTime();
+  if (!isFinite(fixed)) throw new Error('pinnedDate must be a valid date: ' + iso);
+  class PinnedDate extends Date {
+    constructor(...args) {
+      // `new Date()` means "now", which is the only call that gets pinned;
+      // every explicit construction is left alone so date arithmetic is real.
+      if (args.length === 0) super(fixed); else super(...args);
+    }
+    static now() { return fixed; }
+  }
+  return PinnedDate;
+}
+
+function loadApp(options) {
+  const opts = options || {};
   const htmlPath = path.join(__dirname, '..', 'velvet-viking-valhalla.html');
   const html = fs.readFileSync(htmlPath, 'utf8');
   const src = extractInlineScript(html);
@@ -93,7 +120,7 @@ function loadApp() {
   sandbox.clearInterval = function(){};
   sandbox.console = console;
   sandbox.URLSearchParams = URLSearchParams;
-  sandbox.Date = Date;
+  sandbox.Date = opts.pinnedDate ? makePinnedDate(opts.pinnedDate) : Date;
   sandbox.Math = Math;
   sandbox.JSON = JSON;
 
@@ -103,4 +130,4 @@ function loadApp() {
   return sandbox;
 }
 
-module.exports = { loadApp };
+module.exports = { loadApp, makePinnedDate };
