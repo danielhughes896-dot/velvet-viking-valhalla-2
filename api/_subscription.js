@@ -57,7 +57,7 @@ function publicView(decision, ent, uid, email){
 
 function checkoutUrl(){ return (process.env.VVV_CHECKOUT_URL || '').trim(); }
 
-module.exports = async function handler(req, res){
+async function handle(req, res){
   const cfg = S.config();
 
   if (req.method !== 'GET' && req.method !== 'POST'){
@@ -119,5 +119,4 @@ module.exports = async function handler(req, res){
   });
 };
 
-module.exports.publicView = publicView;
-module.exports.checkoutUrl = checkoutUrl;
+module.exports = { handle, publicView, checkoutUrl };

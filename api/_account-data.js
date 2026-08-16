@@ -43,7 +43,7 @@ function entitlementSummary(ent){
   };
 }
 
-module.exports = async function handler(req, res){
+async function handle(req, res){
   if (req.method !== 'GET'){
     res.setHeader('Allow', 'GET');
     return S.json(res, 405, { error: 'method_not_allowed' });
@@ -86,4 +86,4 @@ module.exports = async function handler(req, res){
   });
 };
 
-module.exports.entitlementSummary = entitlementSummary;
+module.exports = { handle, entitlementSummary };

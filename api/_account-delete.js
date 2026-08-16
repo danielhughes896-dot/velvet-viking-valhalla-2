@@ -48,7 +48,7 @@ function bearer(req){
   return m ? m[1].trim() : null;
 }
 
-module.exports = async function handler(req, res){
+async function handle(req, res){
   if (req.method !== 'POST'){
     res.setHeader('Allow', 'POST');
     return S.json(res, 405, { error: 'method_not_allowed' });
@@ -95,5 +95,4 @@ module.exports = async function handler(req, res){
   return S.json(res, 200, { deleted: true });
 };
 
-module.exports.asAthlete = asAthlete;
-module.exports.bearer = bearer;
+module.exports = { handle, asAthlete, bearer };

@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const A = require('../api/_access.js');
 const B = require('../api/_billing.js');
-const SUB = require('../api/subscription.js');
+const SUB = require('../api/_subscription.js');
 const { loadApp } = require('./harness.js');
 
 // Phase 3A2. The question this answers is not "how do we stop people who have
@@ -76,7 +76,7 @@ test('every reason for refusal keeps the same four', () => {
 // THE ENDPOINT THAT TALKS TO A LOCKED-OUT ATHLETE
 // ---------------------------------------------------------------------------
 test('subscription status answers a lapsed athlete rather than refusing them', () => {
-  const src = read('api/subscription.js');
+  const src = read('api/_subscription.js');
   assert.match(src, /if \(req\.method === 'GET'\)\{[\s\S]*?S\.json\(res, 200, publicView/,
     '403 here would leave the locked shell with nothing to say');
 });
@@ -110,13 +110,13 @@ test('checkout is honest about not being configured', () => {
   try{
     assert.equal(SUB.checkoutUrl(), '');
     assert.equal(SUB.publicView(denied(), {}, 'u1', null).checkout_configured, false);
-    assert.match(read('api/subscription.js'), /CHECKOUT_NOT_CONFIGURED/,
+    assert.match(read('api/_subscription.js'), /CHECKOUT_NOT_CONFIGURED/,
       'a button that opens nothing is worse than a sentence saying payments are not open');
   } finally { if (saved === undefined) delete process.env.VVV_CHECKOUT_URL; else process.env.VVV_CHECKOUT_URL = saved; }
 });
 
 test('checkout carries the athlete’s id and not their email', () => {
-  const src = read('api/subscription.js');
+  const src = read('api/_subscription.js');
   assert.match(src, /client_reference_id=' \+ encodeURIComponent\(who\.uid\)/,
     'the provider must hand something back that lands the payment on the right row');
   assert.ok(!/checkout[\s\S]{0,200}who\.email/.test(src),
@@ -127,7 +127,7 @@ test('checkout carries the athlete’s id and not their email', () => {
 // EXPORT
 // ---------------------------------------------------------------------------
 test('export is server-side, so it works from a device that never held the plan', () => {
-  const src = read('api/account-data.js');
+  const src = read('api/_account-data.js');
   assert.match(src, /S\.verifyUser\(req, cfg\)/);
   assert.match(src, /\/plans\?select=data,updated_at&user_id=eq\.' \+\s*encodeURIComponent\(who\.uid\)/,
     'scoped to the verified uid, with no parameter that could name somebody else');
@@ -135,7 +135,7 @@ test('export is server-side, so it works from a device that never held the plan'
 });
 
 test('export summarises the entitlement instead of dumping provider references', () => {
-  const ENT = require('../api/account-data.js').entitlementSummary;
+  const ENT = require('../api/_account-data.js').entitlementSummary;
   const s = ENT({ state: 'expired', tier: 'standard', access_until: days(-1),
                   provider_customer_id: 'cus_SECRET', provider_sub_id: 'sub_SECRET',
                   event_seq: 9, override: 'beta' });
@@ -145,7 +145,7 @@ test('export summarises the entitlement instead of dumping provider references',
 });
 
 test('an athlete with no cloud copy gets an answer, not an error', () => {
-  assert.match(read('api/account-data.js'), /plan_present: !!row/,
+  assert.match(read('api/_account-data.js'), /plan_present: !!row/,
     '"I exported and got nothing" must never be confusable with "the export is broken"');
 });
 
@@ -159,7 +159,7 @@ test('the shell exports both copies when both exist', () => {
 // DELETION
 // ---------------------------------------------------------------------------
 test('deletion still goes through the database function, with the athlete’s own token', () => {
-  const src = read('api/account-delete.js');
+  const src = read('api/_account-delete.js');
   assert.match(src, /rpc\/delete_own_account/, 'the same SECURITY DEFINER function Settings calls');
   assert.match(src, /'Authorization': 'Bearer ' \+ token/,
     'forwarded, never substituted — auth.uid() inside Postgres stays the authority');
@@ -169,7 +169,7 @@ test('deletion still goes through the database function, with the athlete’s ow
 });
 
 test('Strava is disconnected before the account that authorises it disappears', () => {
-  const src = read('api/account-delete.js');
+  const src = read('api/_account-delete.js');
   const stravaAt = src.indexOf('/api/strava-auth');
   const deleteAt = src.indexOf('rpc/delete_own_account');
   assert.ok(stravaAt > 0 && stravaAt < deleteAt,
@@ -177,7 +177,7 @@ test('Strava is disconnected before the account that authorises it disappears', 
 });
 
 test('deletion revokes leases and clears the cookie', () => {
-  const src = read('api/account-delete.js');
+  const src = read('api/_account-delete.js');
   assert.match(src, /revokeLeasesForUser/);
   assert.match(src, /Set-Cookie', A\.clearCookie\(\)/,
     'a cookie is not a database row and does not cascade');
