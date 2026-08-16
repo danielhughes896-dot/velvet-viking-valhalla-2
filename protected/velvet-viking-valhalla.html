@@ -12686,7 +12686,11 @@ function renderDayCheck(dd){
           : dd.date < todayStr() ? 'Past sessions keep the record they were logged with'
           : 'Mark session complete';
   return '<div class="day-check'+(locked?' locked':'')+'">'+
-    '<input type="checkbox" '+(dd.completed?'checked':'')+' '+(locked?'disabled':'')+
+    /* sessionRan, not dd.completed: a future day must never render ticked, and
+       a past day whose Strava activity is still attached must not render blank.
+       The box shows what the evidence says, and the evidence is what the coach
+       reads too. */
+    '<input type="checkbox" '+(sessionRan(dd)?'checked':'')+' '+(locked?'disabled':'')+
     ' data-action="toggle-complete" data-day="'+dd.id+'"'+
     ' title="'+escapeHtml(why)+'" aria-label="'+escapeHtml(why)+'"></div>';
 }
@@ -12700,13 +12704,35 @@ function renderDayCheck(dd){
    the five, matching how little there is to flag. This is the same
    coachKeptAt/coachAdjust pair Next Move already settles on Today; This Week
    and Full Plan previously showed only one half of that pair. */
+/* Did this session actually happen, judged by evidence rather than by a flag?
+
+   `completed` is a stored boolean and it can drift -- a plan restored from an
+   archive, a copy adopted from the account, a swap, a sync that half-applied.
+   Two facts outrank it, and both are answered here so that every surface that
+   asks "did this run happen" gets the same answer:
+
+     * a day in the future has not happened, whatever it stores;
+     * a day carrying an attached Strava activity HAS happened, because that
+       attachment is the record of a real run and is not something the app
+       invents. A long run that came in from Strava must never be shown as
+       Missed while its activity is still attached to it.
+
+   This reads; it does not repair. Nothing here rewrites the athlete's plan --
+   a display that quietly mutated stored data to match itself would be a worse
+   bug than the one it was fixing. */
+function sessionRan(dd){
+  if (!dd || dd.type === 'rest') return false;
+  if (dd.date > todayStr()) return false;
+  return !!dd.completed || !!dd.stravaActivityId;
+}
 function dayStatusLabel(dd){
   var word = null, tone = null;
+  var ran = sessionRan(dd);
   if (dd.coachAdjust){ word = 'Adjusted'; tone = 'adjusted'; }
   else if (dd.coachKeptAt){ word = 'Kept'; tone = 'kept'; }
   else if (dd.type==='checkpoint' || dd.type==='race'){ word = 'Key'; tone = 'key'; }
-  else if (!dd.completed && dd.type!=='rest' && dd.date < todayStr()){ word = 'Missed'; tone = 'missed'; }
-  else if (dd.completed && (function(){ var r=coachReviewFor(dd); return r && r.trainingSignal==='recovery_priority'; })()){ word = 'Recovery'; tone = 'recovery'; }
+  else if (!ran && dd.type!=='rest' && dd.date < todayStr()){ word = 'Missed'; tone = 'missed'; }
+  else if (ran && (function(){ var r=coachReviewFor(dd); return r && r.trainingSignal==='recovery_priority'; })()){ word = 'Recovery'; tone = 'recovery'; }
   return word ? '<span class="day-status-label font-head '+tone+'"><span class="day-status-dot"></span>'+word+'</span>' : '';
 }
 
@@ -14675,6 +14701,18 @@ function replaceCard(dd){
    happens. Returns whether anything actually changed. */
 function applyCompletion(dd, completed){
   if (!dd || dd.type==='rest') return false;          // rest days are never workouts
+  /* A session that has not happened cannot be marked as having happened -- the
+     rule canEditCompletion() already states, now enforced where it cannot be
+     bypassed rather than at each caller.
+
+     It was NOT enforced here, and Strava is the path that proved it: the sync
+     writes completion by calling this function directly, so it never passed
+     the UI guard that holds the date rule. One activity resolved to a day
+     ahead of the athlete's today -- a clock skew, a timezone boundary, a run
+     recorded just past midnight -- and a future workout came back ticked.
+     Phase 2D had already taught the evidence model to refuse such a day, so
+     the coach correctly ignored it while the plan visibly disagreed. */
+  if (!!completed && dd.date > todayStr()) return false;
   if (!!dd.completed === !!completed) return false;
   dd.completed = !!completed;
   if (dd.completed){
