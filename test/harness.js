@@ -77,6 +77,11 @@ function loadApp() {
   sandbox.location = { href: 'http://localhost/', pathname: '/', search: '', hash: '', origin: 'http://localhost' };
   sandbox.history = { replaceState(){}, pushState(){} };
   sandbox.Notification = { permission: 'default', requestPermission(){ return Promise.resolve('default'); } };
+  // Defaults to "accept" so existing flows that happen to be confirm-gated
+  // (Reset Plan, Delete Account, a logged-session swap) keep working without
+  // every test needing to know about it; a test that wants to simulate the
+  // athlete declining can override `app.confirm = () => false`.
+  sandbox.confirm = function(){ return true; };
   sandbox.fetch = function(){ return Promise.reject(new Error('network disabled in test harness')); };
   // Real timers would keep the Node process alive for no benefit here -- the
   // suite calls the app's pure logic functions directly rather than waiting
