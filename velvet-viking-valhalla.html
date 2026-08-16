@@ -12066,7 +12066,7 @@ function dayStatusLabel(dd){
   else if (dd.coachKeptAt){ word = 'Kept'; tone = 'kept'; }
   else if (dd.type==='checkpoint' || dd.type==='race'){ word = 'Key'; tone = 'key'; }
   else if (!dd.completed && dd.type!=='rest' && dd.date < todayStr()){ word = 'Missed'; tone = 'missed'; }
-  else if (dd.completed && dd.coachReview && dd.coachReview.trainingSignal==='recovery_priority'){ word = 'Recovery'; tone = 'recovery'; }
+  else if (dd.completed && (function(){ var r=coachReviewFor(dd); return r && r.trainingSignal==='recovery_priority'; })()){ word = 'Recovery'; tone = 'recovery'; }
   return word ? '<span class="day-status-label font-head '+tone+'"><span class="day-status-dot"></span>'+word+'</span>' : '';
 }
 
@@ -12859,10 +12859,14 @@ function handleSaveEdit(dayId){
   if (swapId){
     var other = findDay(swapId);
     // the structure and its provenance belong to the WORKOUT, not the date,
-    // so they travel with everything else a swap moves -- but if either side
-    // is already logged, that consequence is confirmed explicitly first
-    // (confirmSwapIfLogged), same as the drag-and-drop path.
-    if (other && confirmSwapIfLogged(dd, other)){
+    // so they travel with everything else a swap moves -- but a swap can
+    // never invent a future completed session (swapWouldPlaceCompletionInFuture,
+    // same rule as the drag-and-drop path), and if either side is already
+    // logged and the swap is otherwise allowed, that consequence is confirmed
+    // explicitly first (confirmSwapIfLogged).
+    if (other && swapWouldPlaceCompletionInFuture(dd, other)){
+      showToast('Can’t swap — a logged session can’t move onto a future date.');
+    } else if (other && confirmSwapIfLogged(dd, other)){
       swapWorkoutFields(dd, other);
       showToast('Swapped '+dow(dd.date)+' '+dShort(dd.date)+' with '+dow(other.date)+' '+dShort(other.date));
     }
@@ -14223,8 +14227,32 @@ function handleSetUnits(units){
 
 /* Everything that is a property of the WORKOUT rather than of the calendar
    day, in one place, so a swap can never move some of it and leave the rest
-   behind. prescription and manualEdit join the list they always belonged in. */
-var SWAPPED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','completed','actual','prescription','manualEdit'];
+   behind. prescription and manualEdit join the list they always belonged in.
+   stravaActivityId and coachAdjust joined them for the same reason: a Strava
+   attachment identifies which real activity a LOG entry is, and coachAdjust
+   records what a WORKOUT was before a coaching decision changed it -- both
+   describe the workout/log being moved, not the calendar cell, exactly like
+   manualEdit already did. Leaving them behind let a day keep another
+   session's Strava attribution or "adjusted" history after a swap gave it
+   completely different content.
+   readiness and coachReview are deliberately NOT here. Readiness is what the
+   athlete answered about a DATE that morning (see dayReadiness()'s own
+   comment: "belongs to the day it was given about, not to the device") --
+   it must stay put. coachReview is derived, versioned output computed FROM
+   a day's other fields; every read already goes through coachReviewFor(),
+   which recomputes it the moment those fields (now on a new day) disagree
+   with the stored review -- so it is not swapped, it heals itself on the
+   next read. The one gap that self-healing does not cover on its own:
+   coachReviewFor()/coachPersistReview() both already refuse to hand back a
+   review for a day that is not completed (coachPersistReview's own rule:
+   "a session that is no longer complete must not keep the review of the
+   session it used to be"), but a day that LOSES its completion in a swap
+   would otherwise keep the review object sitting in memory, correct only by
+   virtue of every current caller checking .completed first. Cleared here so
+   that invariant holds structurally, not by every future caller remembering
+   to ask. */
+var SWAPPED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','completed','actual',
+                               'prescription','manualEdit','stravaActivityId','coachAdjust'];
 // Phase 4's `move` deliberately relocates only the prescription, never the log:
 // both days are incomplete by the time it runs, and swapping their actuals was
 // never part of that behaviour.
@@ -14235,6 +14263,18 @@ function swapWorkoutFields(a, b, fields){
     if (b[k]===undefined) delete a[k]; else a[k] = b[k];
     if (t===undefined) delete b[k]; else b[k] = t;
   });
+  if (!a.completed && a.coachReview) delete a.coachReview;
+  if (!b.completed && b.coachReview) delete b.coachReview;
+}
+/* A deliberate swap moves a log to a corrected date; it must never invent a
+   completed session in the future, which the product does not model at all
+   (canToggleCompletion only ever allows ticking TODAY). Checked against what
+   each side's completed flag WOULD BE after the exchange, i.e. the other
+   side's current flag -- not a workflow, a hard refusal, since there is no
+   confirmation that makes a future-dated completed run coherent. */
+function swapWouldPlaceCompletionInFuture(a, b){
+  var today = todayStr();
+  return (a.date > today && b.completed) || (b.date > today && a.completed);
 }
 /* Historical training data is coaching evidence, so a swap that would move a
    logged session's actual/completed record onto a different date is gated
@@ -14259,6 +14299,10 @@ function confirmSwapIfLogged(a, b){
 function doSwapDays(idA, idB){
   var a = findDay(idA), b = findDay(idB);
   if (!a || !b) return;
+  if (swapWouldPlaceCompletionInFuture(a, b)){
+    showToast('Can’t swap — a logged session can’t move onto a future date.');
+    return;
+  }
   if (!confirmSwapIfLogged(a, b)) return;
   swapWorkoutFields(a, b);
   scheduleSave();

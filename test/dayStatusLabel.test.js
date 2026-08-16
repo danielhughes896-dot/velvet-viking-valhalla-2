@@ -2,6 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
+const { buildPlan } = require('./fixtures.js');
 
 // dayStatusLabel() used to render four different facts (a coach change, a
 // notable day, a missed session, a fatigue signal) as one identical grey
@@ -16,10 +17,22 @@ test('dayStatusLabel: Adjusted, Key, Missed and Recovery each get a distinct ton
   const adjusted = app.dayStatusLabel({ coachAdjust: { at: 'x' }, type: 'easy', completed: false, date: today });
   const key = app.dayStatusLabel({ type: 'checkpoint', completed: false, date: today });
   const missed = app.dayStatusLabel({ type: 'easy', completed: false, date: yesterday });
-  const recovery = app.dayStatusLabel({
-    type: 'easy', completed: true, date: yesterday,
-    coachReview: { trainingSignal: 'recovery_priority' },
-  });
+
+  // Recovery reads through coachReviewFor(), the ONE self-healing way to read
+  // a review, so this needs a real, plan-integrated day rather than a bare
+  // object -- computing a real review first, then only overwriting its
+  // trainingSignal (reviewInputHash never depends on that field, so the
+  // stamped hash stays valid and coachReviewFor() returns it as-is, not a
+  // freshly recomputed one).
+  const { days } = buildPlan(app, {});
+  const dd = days.find(d => d.type === 'easy' && d.km > 0);
+  const target = app.executionPaceTarget(dd);
+  dd.completed = true;
+  dd.actual = { km: dd.km, pace: app.secToPace((target.slow + target.fast) / 2), hr: null, rpe: null, notes: '' };
+  app.coachPersistReview(dd);
+  assert.ok(dd.coachReview, 'fixture must produce a real review to forge the signal onto');
+  dd.coachReview.trainingSignal = 'recovery_priority';
+  const recovery = app.dayStatusLabel(dd);
 
   assert.match(adjusted, /class="day-status-label font-head adjusted"/);
   assert.match(key, /class="day-status-label font-head key"/);
