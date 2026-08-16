@@ -24,8 +24,13 @@ test('dayStatusLabel: Adjusted, Key, Missed and Recovery each get a distinct ton
   // trainingSignal (reviewInputHash never depends on that field, so the
   // stamped hash stays valid and coachReviewFor() returns it as-is, not a
   // freshly recomputed one).
-  const { days } = buildPlan(app, {});
-  const dd = days.find(d => d.type === 'easy' && d.km > 0);
+  // A day that has ALREADY HAPPENED. buildPlan starts the block today by
+  // default, so the first easy day it returns is in the future -- and a future
+  // session is never rendered as run, however its `completed` flag is forged.
+  // The fixture, not the assertion, was the thing that had to be legal.
+  const { days } = buildPlan(app, { startDate: app.addDays(today, -21) });
+  const dd = days.find(d => d.type === 'easy' && d.km > 0 && d.date < today);
+  assert.ok(dd, 'fixture must find a past easy session to review');
   const target = app.executionPaceTarget(dd);
   dd.completed = true;
   dd.actual = { km: dd.km, pace: app.secToPace((target.slow + target.fast) / 2), hr: null, rpe: null, notes: '' };
