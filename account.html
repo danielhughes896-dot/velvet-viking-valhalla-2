@@ -26,12 +26,17 @@
   below picks it up. With the gate off the app handles the same fragment itself,
   exactly as it does today.
 -->
-<link rel="icon" href="/assets/icon-192.png">
+<link rel="icon" href="/assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&display=swap" rel="stylesheet">
 <style>
+  /* palette lifted verbatim from the app, same as get.html, so this shell reads
+     as the same product rather than a generic sign-in page bolted on */
   :root{
-    --bg:#151417; --bg-2:#1C1A1E; --line:#2C2930;
-    --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#7E7869;
-    --gold:#C6A15B; --gold-ink:#1A1206;
+    --bg:#151417; --bg-2:#1B1A1E; --line:#302E36;
+    --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#9D9787;
+    --gold:#E3B15A; --gold-ink:#1A1204;
   }
   *{box-sizing:border-box;}
   html,body{height:100%; margin:0;}
@@ -42,7 +47,7 @@
   }
   .card{width:100%; max-width:380px;}
   .mark{
-    font-family:Georgia,'Times New Roman',serif; letter-spacing:.18em;
+    font-family:'Cinzel',serif; font-weight:800; letter-spacing:.18em;
     text-transform:uppercase; font-size:13px; color:var(--gold);
     text-align:center; margin-bottom:28px;
   }

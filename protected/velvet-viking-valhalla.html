@@ -15128,11 +15128,18 @@ function renderCloudCard(){
   if (!cloudConfigured()) return '';
   var body;
   if (cloudSignedIn()){
-    var label = { syncing:'Syncing…', synced:'Backed up', error:'Offline — will retry' }[cloudStatus] || 'Signed in';
+    // entitlementInfo is display-only (never authority -- /api/app re-checks
+    // server-side on every load), but showing it here is what keeps Settings
+    // truthful once a revalidation on resume finds access has ended, rather
+    // than silently claiming "Signed in" until the athlete's next reload.
+    var revoked = !!(entitlementInfo && entitlementInfo.signed_in && entitlementInfo.access === false);
+    var label = revoked ? 'Access ended'
+      : ({ syncing:'Syncing…', synced:'Backed up', error:'Offline — will retry' }[cloudStatus] || 'Signed in');
     body = '<div class="connect-row">'+
         '<div><div class="name">'+escapeHtml(cloudSession.email||'Signed in')+'</div><div class="desc">'+label+'</div></div>'+
         '<button type="button" class="btn btn-sm btn-ghost" data-action="cloud-sign-out">Sign out</button>'+
       '</div>'+
+      (revoked ? '<div class="field-hint" style="margin-top:8px;">This account no longer has access to Velvet Viking. Your plan and history are unaffected and remain on this device.</div>' : '')+
       '<button type="button" class="btn btn-danger btn-block" style="margin-top:12px;" data-action="cloud-delete-account">'+ICONS.trash+' Delete Account &amp; Cloud Data</button>'+
       '<div class="field-hint" style="margin-top:8px;">Erases your account and everything stored on our server. Your plan stays on this device.</div>';
   } else {
