@@ -3161,16 +3161,55 @@ function authRedirectTarget(){
    that once made every APK magic link land on the web Site URL instead of the
    app. The server re-validates it against its own origin before use, so a
    tampered value cannot redirect a sign-in link somewhere else. */
+/* WHAT ACTUALLY WENT WRONG, kept distinct.
+
+   /api/beta-signin can fail six materially different ways, and only one of them
+   -- the request never leaving the device -- is a connection problem. Every
+   other one used to be reported as "check your connection", which sent an
+   athlete on a working network to go and look at their wifi, and left us unable
+   to tell a refused address from an unreachable database.
+
+   That is not a cosmetic complaint. It is what made the first physical-device
+   sign-in attempt undiagnosable: the app loads fine even when the server cannot
+   reach Supabase, because delivery does not need the service key while the
+   account gate is off, so "the app works but sign-in says check your
+   connection" is exactly the shape a server-side outage takes.
+
+   The codes below are the server's own, never a raw error, and carry nothing
+   about the athlete, the allowlist or any credential. */
+var SIGNIN_ERROR_COPY = {
+  not_in_beta:  'Velvet Viking is in private beta — this email address is not on the tester list yet',
+  bad_email:    'That doesn’t look like an email address — check it and try again',
+  unavailable:  'Velvet Viking can’t reach its sign-in service right now — please try again shortly',
+  send_failed:  'The sign-in email couldn’t be sent just now — please try again in a moment',
+  offline:      'Couldn’t reach Velvet Viking — check your connection',
+  method_not_allowed: 'The sign-in email couldn’t be sent just now — please try again in a moment',
+  default:      'Couldn’t send the sign-in link — please try again in a moment'
+};
+function signInErrorCopy(code){
+  return SIGNIN_ERROR_COPY[code] || SIGNIN_ERROR_COPY.default;
+}
 function cloudSendMagicLink(email){
   return fetch('/api/beta-signin', {
     method:'POST',
     headers:{ 'content-type':'application/json' },
     body: JSON.stringify({ email:email, redirect: authRedirectTarget() })
+  }).catch(function(){
+    /* fetch() only rejects when the request never completed -- no DNS, no
+       route, TLS refused, radio off. THIS is the one case where telling the
+       athlete to check their connection is true. */
+    var e = new Error('offline'); e.code = 'offline'; throw e;
   }).then(function(resp){
     return resp.json().catch(function(){ return {}; }).then(function(data){
       if (resp.ok) return;
       var err = new Error(data.error || 'send_failed');
       err.code = data.error || 'send_failed';
+      /* Kept for diagnosis, never shown: `status` separates a 503 (our server
+         cannot reach Supabase) from a 502 (Supabase refused to send) from a
+         404 (the endpoint is not deployed at all), which the athlete does not
+         need and we very much do. */
+      err.status = resp.status;
+      err.diag = data.code || null;
       throw err;
     });
   });
@@ -15331,13 +15370,14 @@ function handleCloudSignIn(){
   cloudSendMagicLink(email)
     .then(function(){ showToast('Check your email for the sign-in link'); })
     .catch(function(err){
-      /* A refused address is told the truth -- that this is a closed beta --
-         rather than being left to retry a connection that is working perfectly
-         well. Every other failure keeps the old message, because for those the
-         connection really is the likely cause. */
-      showToast((err && err.code) === 'not_in_beta'
-        ? 'Velvet Viking is in private beta — this email address is not on the tester list yet'
-        : 'Couldn’t send the link — check your connection');
+      var code = (err && err.code) || 'default';
+      /* One line, no address, no credential, no server internals -- enough to
+         tell a refused tester from an unreachable database when someone is
+         standing in a car park with a phone and it did not work. */
+      try{ console.log('signin: failed code=' + code +
+                       (err && err.status ? ' status=' + err.status : '') +
+                       (err && err.diag ? ' diag=' + err.diag : '')); }catch(e){}
+      showToast(signInErrorCopy(code));
     });
 }
 function renderThemeToggleRow(){
