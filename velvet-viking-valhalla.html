@@ -5260,9 +5260,23 @@ function coachLoad(){
 }
 
 /* ---------- trend: are the last few sessions going better or worse? ---------- */
+/* The coach's completed-session history, and the only door to it -- every
+   execution trend, streak, effectiveness and readiness reader below comes
+   through here.
+
+   The date guard is the same rule athleteMemory enforces on the evidence side,
+   applied at the one place the coach reads sessions directly. A day that is
+   both in the future and completed is incoherent by construction: the app
+   refuses to create one (swapWouldPlaceCompletionInFuture), so this only ever
+   excludes a record that a bad swap, a wrong device clock or a backup restored
+   from another device left behind. Without it, such a day reached the decision
+   engine as execution evidence for training that has not happened -- which is
+   the same contamination the memory model was hardened against, arriving by a
+   different route. */
 function coachCompletedScored(){
+  var today = todayStr();
   return state.days.filter(function(dd){
-    return dd.completed && computeExecutionScore(dd)!=null;
+    return dd.completed && dd.date <= today && computeExecutionScore(dd)!=null;
   }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
 }
 /* Two exponentially-weighted moving averages of the execution score -- a fast
@@ -6264,45 +6278,64 @@ function athleteMemory(limitDays){
        adaptation evidence as training that has not happened. App now prevents
        the swap that produced it (swapWouldPlaceCompletionInFuture); this is the
        independent defence on the evidence side, because the memory model's rule
-       is that history is what already happened. */
-    if (dd.coachAdjust){
-      if (dd.date <= today) return true;
-      return !!(dayReadiness(dd) || dd.athleteState);   // the decision, never the log
-    }
+       is that history is what already happened.
+
+       So the decision is admitted whatever the session's date, and the record
+       built for it below carries the decision only. Requiring an unrelated
+       readiness answer or decided state before the decision could be kept was
+       the wrong lever: it made remembering "this athlete backs off when asked"
+       depend on whether they happened to log how they felt that morning, so an
+       adjustment accepted for a session still ahead vanished from the record
+       until its date passed. Admission is a question about the DECISION;
+       whether the training happened is answered separately, per field. */
+    if (dd.coachAdjust) return true;
     // A day earns a record if anything happened on it worth remembering --
     // including a state the coach decided before the session was run.
     return dd.date <= today && (dd.completed || dayReadiness(dd) || dd.athleteState);
   }).sort(function(a,b){ return a.date < b.date ? -1 : 1; })
     .map(function(dd){
       var a = dd.actual || {};
-      var review = (dd.coachReview && dd.coachReview.version===COACH_REVIEW_VERSION) ? dd.coachReview : null;
+      var isPast = dd.date <= today;
+      /* A coach review is derived FROM a session that was run, so on a day that
+         has not happened it can only be a leftover -- and everything read from
+         it below (conditions, training signal, whether an adjustment was
+         recommended) would be a statement about a run that does not exist. */
+      var review = (isPast && dd.coachReview && dd.coachReview.version===COACH_REVIEW_VERSION)
+        ? dd.coachReview : null;
       var env = review ? review.environment : coachEnvironment(a.notes, a);
       var tr = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
       var z = getTargetHRRangeForDay(dd);
       /* A day that has not happened yet is never training, whatever flags it
-         carries. Kept here as well as in the filter above so every derived
-         field -- completed, pace, score, asPlanned -- agrees, and so a future
-         record admitted for its readiness or decided state can never leak a
-         training statistic into a baseline or a trend. */
-      var isPast = dd.date <= today;
+         carries. This is where that rule is actually enforced, because a record
+         can be admitted above for a decision the athlete really did make -- and
+         a decision about a session says nothing whatsoever about how that
+         session went.
+
+         Every PERFORMED field is therefore gated on the date, not on the
+         completion flag: a future day's `actual` can only be incoherent (a swap
+         that placed a log ahead, a device clock that disagrees, a backup
+         restored from another device), and reading it would put a run that has
+         not happened into a baseline, a trend or an adaptation decision.
+         Gating on isPast rather than on `ran` leaves every past day's record
+         exactly as it was, including a part-logged one. */
       var ran = !!dd.completed && isPast;
       var score = ran ? computeExecutionScore(dd) : null;
       return {
         date: dd.date, type: dd.type, title: dd.title,
         phase: trainingPhase(dd.week),
-        // prescribed
+        // prescribed -- true of the session as written, whenever it falls
         plannedKm: dd.km!=null ? dd.km : null,
         plannedPace: tr, plannedHR: z, plannedRPE: expectedRPEBand(dd),
-        // performed
+        // performed -- only ever readable once the day has actually happened
         completed: ran,
-        actualKm: a.km!=null ? a.km : null,
+        actualKm: (isPast && a.km!=null) ? a.km : null,
         actualPace: ran ? actualPaceSecPerKm(dd) : null,
-        hr: a.hr!=null ? a.hr : null,
-        rpe: a.rpe!=null ? a.rpe : null,
-        feel: feelOf(dd),
-        notes: a.notes || '',
-        signals: effectiveNoteSignals(a).signals.map(function(x){ return x.id; }),
-        environment: env || null,
+        hr: (isPast && a.hr!=null) ? a.hr : null,
+        rpe: (isPast && a.rpe!=null) ? a.rpe : null,
+        feel: isPast ? feelOf(dd) : null,
+        notes: isPast ? (a.notes || '') : '',
+        signals: isPast ? effectiveNoteSignals(a).signals.map(function(x){ return x.id; }) : [],
+        environment: isPast ? (env || null) : null,
         // did it happen as written
         asPlanned: !!(ran && score!=null && score>=90 && !dd.coachAdjust),
         executionScore: score,
