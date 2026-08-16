@@ -6129,10 +6129,23 @@ function athleteMemory(limitDays){
        an answer or a decided state; it is never "completed", so it cannot
        reach any baseline or execution statistic. */
     if (dd.type==='rest') return !!(dayReadiness(dd) || dd.athleteState);
-    // Accepting an adjustment is a decision the athlete made in the past, even
-    // when the session it changed is still ahead. Excluding it would lose
-    // exactly the evidence that says this athlete does back off when asked.
-    if (dd.coachAdjust) return true;
+    /* Accepting an adjustment is a decision the athlete made in the past, even
+       when the session it changed is still ahead. Excluding it would lose
+       exactly the evidence that says this athlete does back off when asked.
+
+       But a FUTURE day is admitted here for the decision, never for the
+       training: it has not been run, so its completed/actual can only be
+       incoherent -- a swap that placed a log on a future date, a clock that
+       disagrees, a restored backup from another device. This used to return
+       before the date check, so such a day reached baselines, trends and
+       adaptation evidence as training that has not happened. App now prevents
+       the swap that produced it (swapWouldPlaceCompletionInFuture); this is the
+       independent defence on the evidence side, because the memory model's rule
+       is that history is what already happened. */
+    if (dd.coachAdjust){
+      if (dd.date <= today) return true;
+      return !!(dayReadiness(dd) || dd.athleteState);   // the decision, never the log
+    }
     // A day earns a record if anything happened on it worth remembering --
     // including a state the coach decided before the session was run.
     return dd.date <= today && (dd.completed || dayReadiness(dd) || dd.athleteState);
@@ -6143,7 +6156,14 @@ function athleteMemory(limitDays){
       var env = review ? review.environment : coachEnvironment(a.notes, a);
       var tr = dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd);
       var z = getTargetHRRangeForDay(dd);
-      var score = dd.completed ? computeExecutionScore(dd) : null;
+      /* A day that has not happened yet is never training, whatever flags it
+         carries. Kept here as well as in the filter above so every derived
+         field -- completed, pace, score, asPlanned -- agrees, and so a future
+         record admitted for its readiness or decided state can never leak a
+         training statistic into a baseline or a trend. */
+      var isPast = dd.date <= today;
+      var ran = !!dd.completed && isPast;
+      var score = ran ? computeExecutionScore(dd) : null;
       return {
         date: dd.date, type: dd.type, title: dd.title,
         phase: trainingPhase(dd.week),
@@ -6151,9 +6171,9 @@ function athleteMemory(limitDays){
         plannedKm: dd.km!=null ? dd.km : null,
         plannedPace: tr, plannedHR: z, plannedRPE: expectedRPEBand(dd),
         // performed
-        completed: !!dd.completed,
+        completed: ran,
         actualKm: a.km!=null ? a.km : null,
-        actualPace: dd.completed ? actualPaceSecPerKm(dd) : null,
+        actualPace: ran ? actualPaceSecPerKm(dd) : null,
         hr: a.hr!=null ? a.hr : null,
         rpe: a.rpe!=null ? a.rpe : null,
         feel: feelOf(dd),
@@ -6161,7 +6181,7 @@ function athleteMemory(limitDays){
         signals: effectiveNoteSignals(a).signals.map(function(x){ return x.id; }),
         environment: env || null,
         // did it happen as written
-        asPlanned: !!(dd.completed && score!=null && score>=90 && !dd.coachAdjust),
+        asPlanned: !!(ran && score!=null && score>=90 && !dd.coachAdjust),
         executionScore: score,
         // what the coach did about it
         recommendedAdjustment: !!(review && review.recommendPlanAdjustment),
@@ -6259,7 +6279,12 @@ function easyHRBaseline(windowDays){
   var sp = trendSplit(readable);
   var base = trendMedian(sp.base, function(r){ return r.hr; });
   var out = { sufficient:false, baseline:null, recent:null, delta:null,
-              samples:readable.length, baseSamples:sp.base.length, recentSessions:sp.recent };
+              samples:readable.length, baseSamples:sp.base.length, recentSessions:sp.recent,
+              /* The level this athlete has established, alongside the current
+                 baseline. A hard or hot stretch inside the base window pulls
+                 `baseline` upward; `established` does not follow it down, so a
+                 return to normal cannot be read as a heart-rate improvement. */
+              established: trendEstablished(sp.base.map(function(r){ return r.hr; }), true) };
   if (base==null || sp.recent.length < 2) return out;
   var recentMed = median(sp.recent.map(function(r){ return r.hr; }));
   out.sufficient = true;
@@ -6365,6 +6390,30 @@ function trendSplit(records, recentN){
   var n = recentN || 3;
   return { recent: records.slice(-n), base: records.slice(0, Math.max(0, records.length-n)) };
 }
+/* THE LEVEL THIS ATHLETE HAS ESTABLISHED, as opposed to whatever the weeks
+   just before now happened to be.
+
+   trendSplit answers "recent versus the window before it". For a DECLINE that
+   is exactly right -- worse than lately is the earliest honest warning. For an
+   IMPROVEMENT it is not, because if the preceding window was itself degraded,
+   simply returning to normal reads as improvement. Measured on a block that
+   dipped and recovered, six trends reported positive at once -- heart rate,
+   efficiency, effort on easy and quality, execution and the block itself --
+   while nothing about the athlete had improved on their own established level.
+
+   So a positive trend has to clear two bars: better than lately, AND better
+   than the level this athlete has actually demonstrated. This is the second
+   bar. It is the median of the BETTER HALF of the base window, so a degraded
+   stretch sitting inside the base cannot drag "normal" down far enough to make
+   a recovery look like a gain. Genuine improvement clears it; a rebound does
+   not; and nothing here can ever manufacture a NEGATIVE. */
+function trendEstablished(values, lowerIsBetter){
+  var v = (values||[]).filter(function(x){ return x!=null; })
+            .sort(function(a,b){ return lowerIsBetter ? a-b : b-a; });   // best first
+  if (!v.length) return null;
+  return median(v.slice(0, Math.max(1, Math.ceil(v.length/2))));
+}
+
 function trendMedian(list, pick, filter){
   var v = list.filter(filter || function(){ return true; }).map(pick).filter(function(x){ return x!=null; });
   return v.length >= BASELINE_MIN_SAMPLES ? median(v) : null;
@@ -6459,7 +6508,37 @@ function athleteTrends(){
   var byType = function(types){ return usable.filter(function(r){ return types.indexOf(r.type)!==-1; }); };
   var easy = byType(['easy']), quality = byType(['tempo','threshold','interval','repetition']), long = byType(['long']);
   var out = [];
-  var push = function(t){ if (t && t.confidence!=='insufficient') out.push(t); };
+  /* SOURCE -> CONCEPT. Which underlying fact about the athlete each trend is a
+     reading OF. Several trends legitimately read the same fact from different
+     angles, and when they do they must corroborate nothing: an athlete simply
+     running slower at unchanged heart rate produces execution_declining AND
+     easy_efficiency_down from one pace change, and those two alone used to
+     satisfy every "two independent patterns agree" bar in the system.
+
+     One fact is one vote. Genuinely independent facts still corroborate, and
+     corroboration is still what earns a change to training.
+
+     easy_efficiency_* is deliberately absent: it is a composite of heart rate
+     and pace, so it computes its own concept from whichever of the two actually
+     moved, and only claims to be its own observation when both did. */
+  var TREND_CONCEPT = {
+    easy_hr_elevated:'hr_cost',            easy_hr_improved:'hr_cost',
+    execution_declining:'execution',       execution_consistent:'execution',
+    rpe_elevated_easy:'effort',            rpe_lower_easy:'effort',
+    rpe_elevated_quality:'effort',         rpe_lower_quality:'effort',
+    rpe_elevated_long:'effort',            rpe_lower_long:'effort',
+    feel_negative:'feel',                  feel_positive:'feel',
+    readiness_poor:'feel',
+    post_hard_recovery:'recovery',         post_long_run_recovery:'recovery',
+    post_long_run_recovery_improved:'recovery',
+    recovery_slower_than_personal:'recovery', recovery_faster_than_personal:'recovery',
+    consistency:'consistency'
+  };
+  var push = function(t){
+    if (!t || t.confidence==='insufficient') return;
+    if (!t.concept) t.concept = TREND_CONCEPT[t.id] || t.id;
+    out.push(t);
+  };
 
   /* ---- easy-run cardiovascular cost, the earliest honest fatigue signal ----
      Reads easyHRBaseline() so the number quoted here is exactly the number
@@ -6468,7 +6547,12 @@ function athleteTrends(){
     var b = easyHRBaseline();
     if (!b.sufficient) return;
     var high = b.recentSessions.filter(function(r){ return r.hr - b.baseline >= 4; });
-    var low  = b.recentSessions.filter(function(r){ return b.baseline - r.hr >= 4; });
+    /* An improvement has to beat the established easy heart rate, not merely
+       the current baseline -- which a recent hard or hot stretch will have
+       pulled upward, turning a return to normal into a phantom gain. */
+    var estabHR = b.established;
+    var low  = b.recentSessions.filter(function(r){
+      return b.baseline - r.hr >= 4 && (estabHR==null || estabHR - r.hr >= 4); });
     if (high.length >= 2)
       push({ id:'easy_hr_elevated', area:'Easy efficiency', direction:'negative',
              confidence: trendConfidence(high.length, b.recentSessions.length, b.samples),
@@ -6486,51 +6570,52 @@ function athleteTrends(){
              evidenceDates: low.map(function(r){ return r.date; }) });
   })();
 
-  /* ---- pace held at the same heart-rate cost, in both directions ----
-     KNOWN DEFECT, correction deferred -- do not "tidy" this without reading on.
+  /* ---- the heart-rate cost of covering ground, in both directions ----
+     The quantity is BEATS PER KILOMETRE: heart rate times pace in minutes per
+     kilometre. Lower is better, in the one way that holds in every case --
+     fewer heartbeats spent to cover the same distance.
 
-     `cost` divides by pace, which is heart rate times SPEED. That is only the
-     right question while pace is constant; the moment pace moves it inverts.
-     Measured in all four directions: 40s/km faster at the same heart rate is
-     reported as `easy_efficiency_down` ("costing more heart rate"), and 60s/km
-     slower at the same heart rate as `easy_efficiency_up`. An athlete whose
-     easy runs get quicker at unchanged cost -- which is what aerobic progress
-     looks like -- is told their easy pace is costing more, and because this
-     trend maps to the `hr` concept it can push them toward CHECK for improving.
-     The `easy_efficiency_up` wording also asserts "holding the same easy pace"
-     without ever checking the pace actually run.
+     It used to divide by pace, which is heart rate times SPEED, and that is
+     only the right question while pace is constant. As soon as pace moved it
+     inverted: 40s/km faster at the same heart rate was reported as costing MORE
+     heart rate, and 60s/km slower as costing less. An athlete whose easy runs
+     get quicker at unchanged cost -- which is what aerobic progress looks like
+     -- was told their easy pace was costing more.
 
-     The fix is beats per kilometre: `r.hr * (r.actualPace/60)`, lower is
-     better, which measures correctly in all four directions. It was written,
-     verified against all four, and then REVERTED, because it changes which
-     blocks the Playbook will progress: a block that deteriorated and then
-     recovered reads its recent window as genuinely better than a base that now
-     contains the bad stretch, so `easy_efficiency_up` fires and helps PROGRESS
-     through its gates. sim_playbook's "a deteriorating block never progresses"
-     currently holds only because this inversion happens to block it.
-
-     So the metric and the Playbook progression gate have to move together, and
-     that is an adaptation-threshold decision rather than a units bug. Handed to
-     Council with the four directional tests already written. */
+     `concept` records which underlying fact this reading actually came from, so
+     no consumer can count it twice. Efficiency is a composite of two numbers:
+     when only pace moved it is the same fact `execution` already reports, when
+     only heart rate moved it is the same fact `hr_cost` reports, and only when
+     both moved is it an observation neither of them made. */
   (function(){
     var readable = easy.filter(function(r){ return hrIsReadable(r) && r.actualPace!=null; });
     var sp = trendSplit(readable);
     if (sp.base.length < BASELINE_MIN_SAMPLES || sp.recent.length < 2) return;
-    var cost = function(r){ return r.hr / (r.actualPace/60); };   // bpm per min/km  (SEE COMMENT: known-inverted, deferred)
+    var cost = function(r){ return r.hr * (r.actualPace/60); };   // beats per km
     var base = median(sp.base.map(cost));
-    var better = sp.recent.filter(function(r){ return (base - cost(r))/base >= 0.02; });
+    var estab = trendEstablished(sp.base.map(cost), true);
+    var better = sp.recent.filter(function(r){
+      return (base - cost(r))/base >= 0.02 && (estab==null || (estab - cost(r))/estab >= 0.02); });
     var worse  = sp.recent.filter(function(r){ return (cost(r) - base)/base >= 0.02; });
+    /* Which of the two inputs actually moved decides what this is evidence OF. */
+    var medOf = function(list, pick){ return median(list.map(pick)); };
+    var hrMoved   = Math.abs(medOf(sp.recent,function(r){return r.hr;}) -
+                             medOf(sp.base,function(r){return r.hr;})) >= 3;
+    var paceMoved = Math.abs(medOf(sp.recent,function(r){return r.actualPace;}) -
+                             medOf(sp.base,function(r){return r.actualPace;})) >= 10;
+    var concept = (hrMoved && paceMoved) ? 'efficiency' : paceMoved ? 'execution'
+                : hrMoved ? 'hr_cost' : 'efficiency';
     if (better.length >= 2)
-      push({ id:'easy_efficiency_up', area:'Easy efficiency', direction:'positive',
+      push({ id:'easy_efficiency_up', area:'Easy efficiency', direction:'positive', concept:concept,
              confidence: trendConfidence(better.length, sp.recent.length, readable.length),
              headline:'Improving',
-             detail:'Holding the same easy pace at a lower cardiovascular cost across recent runs.',
+             detail:'Easy running is costing fewer heartbeats per kilometre than it normally does.',
              observations:better.length, of:sp.recent.length });
     else if (worse.length >= 2)
-      push({ id:'easy_efficiency_down', area:'Easy efficiency', direction:'negative',
+      push({ id:'easy_efficiency_down', area:'Easy efficiency', direction:'negative', concept:concept,
              confidence: trendConfidence(worse.length, sp.recent.length, readable.length),
              headline:'Watching',
-             detail:'Easy pace is costing more heart rate than it normally does.',
+             detail:'Easy running is costing more heartbeats per kilometre than it normally does.',
              observations:worse.length, of:sp.recent.length });
   })();
 
@@ -6542,8 +6627,13 @@ function athleteTrends(){
       var sp = trendSplit(recs);
       var base = trendMedian(sp.base, function(r){ return r.rpe; });
       if (base==null || sp.recent.length < 2) return;
+      /* Lower effort than lately is only ADAPTATION if it is also lower than
+         the effort this athlete has established. After a hard stretch, coming
+         back to normal is not "the same work feeling easier". */
+      var estabRpe = trendEstablished(sp.base.map(function(r){ return r.rpe; }), true);
       var high = sp.recent.filter(function(r){ return r.rpe - base >= 1; });
-      var low  = sp.recent.filter(function(r){ return base - r.rpe >= 1; });
+      var low  = sp.recent.filter(function(r){
+        return base - r.rpe >= 1 && (estabRpe==null || estabRpe - r.rpe >= 1); });
       if (high.length >= 2)
         push({ id:'rpe_elevated_'+fam[0], area:fam[2], direction:'negative',
                confidence: trendConfidence(high.length, sp.recent.length, recs.length),
@@ -6611,7 +6701,13 @@ function athleteTrends(){
     }
     var sdBase = stdev(sp.base.map(function(r){ return r.executionScore; }));
     var sdNow  = stdev(sp.recent.map(function(r){ return r.executionScore; }));
-    if (sdBase!=null && sdNow!=null && sdBase >= 6 && sdNow <= sdBase*0.6)
+    /* Variance narrowing straight after a volatile bad stretch is the textbook
+       rebound shape, so consistency only counts as adaptation when the level
+       it has settled at is at least the level this athlete established. */
+    var estabExec = trendEstablished(sp.base.map(function(r){ return r.executionScore; }), false);
+    var nowLevel  = median(sp.recent.map(function(r){ return r.executionScore; }));
+    var levelHeld = estabExec==null || nowLevel==null || nowLevel >= estabExec;
+    if (sdBase!=null && sdNow!=null && sdBase >= 6 && sdNow <= sdBase*0.6 && levelHeld)
       push({ id:'execution_consistent', area:'Quality execution', direction:'positive',
              confidence:'emerging', headline:'Improving',
              detail:'Quality sessions are landing more consistently than they were.',
@@ -7338,8 +7434,13 @@ function blockTrendsExcluding(trends, date){
 }
 function blockDimensions(model, trends, excludeDate){
   var out = [];
-  var add = function(id, label, direction, detail, samples){
-    out.push({ id:id, label:label, direction:direction, detail:detail, samples:samples||0 });
+  /* `concept` travels with the dimension so blockStateFrom can tell two
+     independent readings from two views of one fact. Where a dimension was
+     decided by a trend, it inherits that trend's concept; where it was decided
+     by the block-scale comparison instead, the dimension is its own concept. */
+  var add = function(id, label, direction, detail, samples, concept){
+    out.push({ id:id, label:label, direction:direction, detail:detail,
+               samples:samples||0, concept: concept || id });
   };
 
   // A. easy aerobic efficiency -- owned by easyHRBaseline() and the easy trends
@@ -7348,8 +7449,8 @@ function blockDimensions(model, trends, excludeDate){
     if (!b.sufficient){ add('easy','Easy aerobic efficiency', null, 'Not enough comparable easy runs.', b.samples); return; }
     var up   = blockTrend(trends, ['easy_hr_improved','easy_efficiency_up']);
     var down = blockTrend(trends, ['easy_hr_elevated','easy_efficiency_down']);
-    if (up)   return add('easy','Easy aerobic efficiency','positive', up.detail, b.samples);
-    if (down) return add('easy','Easy aerobic efficiency','negative', down.detail, b.samples);
+    if (up)   return add('easy','Easy aerobic efficiency','positive', up.detail, b.samples, up.concept);
+    if (down) return add('easy','Easy aerobic efficiency','negative', down.detail, b.samples, down.concept);
     var easies = blockRecords(excludeDate).filter(function(r){ return r.type==='easy'; });
     var dir = blockDirection(easies, blockEasyCost, true, 1.5);
     if (dir==='positive') return add('easy','Easy aerobic efficiency','positive',
@@ -7369,8 +7470,8 @@ function blockDimensions(model, trends, excludeDate){
     if (!known || n < 3){ add('quality','Quality session response', null, 'Not enough comparable quality sessions.', n); return; }
     var up   = blockTrend(trends, ['rpe_lower_quality','execution_consistent']);
     var down = blockTrend(trends, ['rpe_elevated_quality','execution_declining']);
-    if (down) return add('quality','Quality session response','negative', down.detail, n);
-    if (up)   return add('quality','Quality session response','positive', up.detail, n);
+    if (down) return add('quality','Quality session response','negative', down.detail, n, down.concept);
+    if (up)   return add('quality','Quality session response','positive', up.detail, n, up.concept);
     var qual = blockRecords(excludeDate).filter(function(r){ return fams.indexOf(r.type)!==-1; });
     var byRpe = blockDirection(qual, function(r){ return r.rpe; }, true, 0.5);
     var byExec = blockDirection(qual, function(r){ return r.executionScore; }, false, 5);
@@ -7390,8 +7491,8 @@ function blockDimensions(model, trends, excludeDate){
     if (!f || f.confidence==='insufficient'){ add('long','Long-run durability', null, 'Not enough comparable long runs.', n); return; }
     var up   = blockTrend(trends, ['rpe_lower_long','post_long_run_recovery_improved']);
     var down = blockTrend(trends, ['rpe_elevated_long','post_long_run_recovery']);
-    if (down) return add('long','Long-run durability','negative', down.detail, n);
-    if (up)   return add('long','Long-run durability','positive', up.detail, n);
+    if (down) return add('long','Long-run durability','negative', down.detail, n, down.concept);
+    if (up)   return add('long','Long-run durability','positive', up.detail, n, up.concept);
     var longs = blockRecords(excludeDate).filter(function(r){ return r.type==='long'; });
     var dirL = blockDirection(longs, function(r){ return r.rpe; }, true, 0.5);
     if (dirL==='positive') return add('long','Long-run durability','positive',
@@ -7408,8 +7509,8 @@ function blockDimensions(model, trends, excludeDate){
     if (!pats.length || windows < 3){ add('recovery','Recovery and absorption', null, 'Not enough logged recovery evidence.', windows); return; }
     var down = blockTrend(trends, ['recovery_slower_than_personal','post_hard_recovery','feel_negative','readiness_poor']);
     var up   = blockTrend(trends, ['recovery_faster_than_personal','feel_positive']);
-    if (down) return add('recovery','Recovery and absorption','negative', down.detail, windows);
-    if (up)   return add('recovery','Recovery and absorption','positive', up.detail, windows);
+    if (down) return add('recovery','Recovery and absorption','negative', down.detail, windows, down.concept);
+    if (up)   return add('recovery','Recovery and absorption','positive', up.detail, windows, up.concept);
     add('recovery','Recovery and absorption','flat','Recovery is landing within your established normal.', windows);
   })();
 
@@ -7440,13 +7541,24 @@ function blockDimensions(model, trends, excludeDate){
 /* The state table, asked of whatever set of dimension readings it is given. */
 function blockStateFrom(dims, phase, qualifying, minSessions){
   var reads = dims.filter(function(d){ return d.direction!=null; });
+  /* Two dimensions are two observations only when they read two facts. Easy
+     efficiency and quality execution both move when an athlete simply runs
+     slower at unchanged heart rate, and STRAINED is the one verdict that can
+     cost an athlete training -- so it must not be reachable by one fact
+     appearing in two rows. Counted by concept, which each dimension inherits
+     from whatever decided it. */
+  var distinctConcepts = function(list){
+    var seen = {}; list.forEach(function(d){ seen[d.concept || d.id] = 1; });
+    return Object.keys(seen).length;
+  };
   var pos = reads.filter(function(d){ return d.direction==='positive'; });
   var neg = reads.filter(function(d){ return d.direction==='negative'; });
+  var posN = distinctConcepts(pos), negN = distinctConcepts(neg);
   var flatPrimary = reads.filter(function(d){
     return d.direction==='flat' && blockDimensionRelevance(d.id, phase)==='primary'; });
   if (qualifying < minSessions || reads.length < 2) return 'LEARNING';
-  if (neg.length >= 2) return 'STRAINED';
-  if (pos.length >= 2 && neg.length === 0) return 'ADAPTING';
+  if (negN >= 2) return 'STRAINED';
+  if (posN >= 2 && neg.length === 0) return 'ADAPTING';
   if (pos.length === 0 && neg.length <= 1 && flatPrimary.length >= 2) return 'PLATEAU';
   if (pos.length >= 1) return 'RESPONDING';
   return 'LEARNING';
@@ -8807,9 +8919,13 @@ function playbookRepeatedShortfall(archetype, need){
 function playbookEvidence(archetype){
   if (!state.setup || !state.days || !state.days.length) return [];
   var out = [];
-  var addEv = function(tier, id, direction, detail, source){
+  /* `concept` is the underlying fact this item reads, carried through from the
+     trend layer so the Playbook's "more than one pattern agrees" bar counts
+     patterns rather than readings. Items without one are their own concept. */
+  var addEv = function(tier, id, direction, detail, source, concept){
     out.push({ tier:tier, rank:PLAYBOOK_EVIDENCE_TIERS[tier].rank, id:id,
-               direction:direction, detail:detail, source:source });
+               direction:direction, detail:detail, source:source,
+               concept: concept || id });
   };
   // --- SAFETY: the existing decision layer already owns this judgement
   var dec = coachDecision();
@@ -8835,7 +8951,7 @@ function playbookEvidence(archetype){
           'Execution has been '+trend.direction+' across recent sessions.', 'coachTrend');
   (athleteTrends()||[]).forEach(function(t){
     if (t.confidence==='insufficient') return;
-    addEv('strong','trend_'+t.id, t.direction, t.detail, 'athleteTrends');
+    addEv('strong','trend_'+t.id, t.direction, t.detail, 'athleteTrends', t.concept);
   });
 
   // --- CONTEXTUAL
@@ -8901,6 +9017,63 @@ function playbookSufficiency(archetype){
    that on every render, so this result reaches the live Accept-Evolution UI.
    Read-only/side-effect-free either way: nothing here stores anything or
    mutates state on its own. */
+/* CAN THIS EVIDENCE WINDOW SUPPORT A CLAIM OF ESTABLISHED ADAPTATION?
+
+   The established-level bar in the trend layer handles the ordinary case: an
+   improvement must beat the level this athlete has demonstrated, not merely the
+   weeks just gone. That test needs a trustworthy reference to exist inside the
+   window, and after a long enough bad stretch it does not -- if most of the
+   42-day memory is degraded, the athlete's real normal has aged out of view and
+   every reference the engine can compute is itself depressed.
+
+   So this asks the epistemic question the level test cannot: is what we are
+   reading clean enough to conclude anything positive from? A window still
+   substantially made of below-par sessions cannot establish adaptation, whatever
+   direction its last few sessions point. That is the difference between STABLE
+   RETURN TO BASELINE -- back to normal, nothing yet earned -- and ESTABLISHED
+   POSITIVE ADAPTATION.
+
+   A third is the line because it is the point at which the degraded period stops
+   being a passage within the evidence and starts being a substantial part of what
+   the evidence IS. It is proportional rather than a session count, so it scales
+   with how much the athlete has logged, and it clears itself as clean sessions
+   accumulate -- which is exactly how a genuinely recovered athlete earns the
+   right to progress again.
+
+   It can only ever WITHHOLD a progression. It is never consulted for REGRESS and
+   can never reduce anyone's training. */
+var PLAYBOOK_CLEAN_WINDOW_SHARE = 1/3;
+function playbookWindowContaminated(){
+  var scored = athleteMemory(42).filter(function(r){
+    return r.completed && r.executionScore != null; });
+  if (scored.length < BASELINE_MIN_SAMPLES * 2) return null;   // too little to judge either way
+  /* "Below par" means below what THIS athlete establishes, not below a fixed
+     mark: a fixed bar would call a modest athlete permanently contaminated and
+     would miss a strong one sliding within their own range. The materiality
+     step is the same 8 points execution_declining already uses, so one
+     definition of "meaningfully worse execution" serves the whole engine. */
+  var estab = trendEstablished(scored.map(function(r){ return r.executionScore; }), false);
+  if (estab == null) return null;
+  var below = scored.filter(function(r){ return estab - r.executionScore >= 8; });
+  if (below.length <= scored.length * PLAYBOOK_CLEAN_WINDOW_SHARE) return null;
+  return { below:below.length, of:scored.length, established:estab,
+           why:'Recent sessions have improved, but '+below.length+' of the last '+
+               scored.length+' were still below par -- that is a return toward your '+
+               'usual level rather than a step above it.' };
+}
+
+/* How many genuinely distinct facts a set of evidence items represents.
+   Used where the contract says "more than one pattern agrees" -- which has to
+   mean more than one PATTERN, not more than one reading of the same one.
+   Deliberately used only on the REGRESS side: withholding a progression on any
+   single negative pattern is the conservative direction and needs no
+   independence test. */
+function playbookDistinctConcepts(items){
+  var seen = {};
+  (items||[]).forEach(function(e){ seen[e.concept || e.id] = 1; });
+  return Object.keys(seen).length;
+}
+
 function playbookAssess(archetype){
   if (!state.setup || !state.days || !state.days.length) return null;
   var phase = trainingPhase(currentWeekNum());
@@ -8925,7 +9098,7 @@ function playbookAssess(archetype){
     decision = 'REGRESS';
     why.push(block.read);
   } else if (trend.enough && trend.direction==='falling' &&
-             byTier('strong','negative').length >= 2){
+             playbookDistinctConcepts(byTier('strong','negative')) >= 2){
     decision = 'REGRESS';
     why.push('Execution is falling and more than one multi-session pattern agrees.');
   }
@@ -8942,6 +9115,11 @@ function playbookAssess(archetype){
       { ok: rec.state==='fresh', why:'Recovery state is '+rec.state+'.' },
       { ok: load.band!=='spike' && load.band!=='elevated', why:'Recent load is '+load.band+'.' },
       { ok: byTier('strong','negative').length===0, why:'A multi-session pattern is pointing the other way.' },
+      /* Recovery is not adaptation. Sits with the other PROGRESS gates rather
+         than in the trend layer, because "better than lately" is a true and
+         useful thing to notice -- it is only an unsound basis for asking the
+         athlete to do MORE. */
+      (function(){ var c = playbookWindowContaminated(); return { ok: !c, why: c ? c.why : '' }; })(),
       { ok: (function(){
           // repeated GOOD execution on relevant sessions, not one flattering score
           var good = ev.filter(function(e){ return e.tier==='weak' && e.direction==='positive'; }).length;

@@ -79,35 +79,44 @@ test('efficiency: lower heart rate at the same pace is an improvement', () => {
   assert.equal(t.direction, 'positive');
 });
 
-// KNOWN DEFECT, correction deferred to the Playbook-gate review (see the
-// `cost` comment in athleteTrends). These two record the CURRENT inverted
-// behaviour so the suite stays honest: flip the assertions when the metric and
-// the progression gate move together.
-test('efficiency [DEFERRED DEFECT]: faster at the same HR is currently mis-read as a decline', () => {
+// Heart-rate cost per kilometre is HR x pace(min/km); lower is better. Dividing
+// by pace instead measures HR x SPEED, which is only the right question while
+// pace is constant and inverts the moment it moves. Both pace directions are
+// asserted because the divide-by form passes the two HR-only cases and fails
+// exactly these.
+test('efficiency: FASTER at the same heart rate is an improvement', () => {
   const t = easyShift(-40, 0);
   assert.ok(t, 'a trend should be detected');
-  assert.equal(t.id, 'easy_efficiency_down',
-    'documents the inversion: this SHOULD be easy_efficiency_up');
+  assert.equal(t.id, 'easy_efficiency_up',
+    '40s/km quicker for the same heart rate is fewer heartbeats per kilometre');
+  assert.equal(t.direction, 'positive');
 });
 
-test('efficiency [DEFERRED DEFECT]: slower at the same HR is currently mis-read as improvement', () => {
+test('efficiency: SLOWER at the same heart rate is a decline', () => {
   const t = easyShift(60, 0);
   assert.ok(t, 'a trend should be detected');
-  assert.equal(t.id, 'easy_efficiency_up',
-    'documents the inversion: this SHOULD be easy_efficiency_down');
-});
-
-test('efficiency: higher heart rate at the same pace is a decline', () => {
-  const t = easyShift(0, 10);
-  assert.ok(t, 'a trend should be detected');
-  assert.equal(t.id, 'easy_efficiency_down');
+  assert.equal(t.id, 'easy_efficiency_down',
+    'needing 60s/km more for the same heart rate costs more beats per kilometre');
   assert.equal(t.direction, 'negative');
 });
 
-test('efficiency [DEFERRED DEFECT]: the wording asserts a pace that was not held', () => {
+test('efficiency: the wording describes what was measured, not a pace that was held', () => {
   const slower = easyShift(60, 0);
-  assert.match(slower.detail, /holding the same easy pace/i,
-    'documents the overclaim: pace moved 60s/km, so this sentence is false');
+  assert.match(slower.detail, /heartbeats per kilometre/i);
+  assert.ok(!/holding the same easy pace/i.test(slower.detail),
+    'pace moved 60s/km, so the sentence must not assert it was held');
+});
+
+test('efficiency: a pace-only change is attributed to execution, not to a second fact', () => {
+  const t = easyShift(60, 0);
+  assert.equal(t.concept, 'execution',
+    'HR did not move, so this reading is the same fact execution_declining reports');
+});
+
+test('efficiency: an HR-only change is attributed to heart-rate cost', () => {
+  const t = easyShift(0, 10);
+  assert.equal(t.concept, 'hr_cost',
+    'pace did not move, so this reading is the same fact easy_hr_elevated reports');
 });
 
 // ---------------------------------------------------------------------------
