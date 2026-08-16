@@ -3349,14 +3349,36 @@ function cloudLoadUser(){
     });
   });
 }
+/* WHY THE LAST REFRESH FAILED, which is a different question from whether it
+   failed.
+
+   A refresh can fail because GoTrue rejected the token -- the athlete really is
+   signed out -- or because the request never got there. Those were the same
+   `false`, and cloudInit() signs out on `false`, so opening the app on a train
+   with an expired access token signed the athlete out of an account that was
+   perfectly valid. Since sign-out now also revokes the delivery lease, an
+   offline launch would additionally have cost them the credential that lets the
+   product be delivered once the account gate is switched on.
+
+   The boolean contract is unchanged, deliberately: every other caller already
+   treats `false` as "do not act", which stays exactly right whichever the
+   cause. Only the decision to END the session consults this. */
+var cloudRefreshUnreachable = false;
 function cloudRefreshIfNeeded(){
+  cloudRefreshUnreachable = false;
   if (!cloudSignedIn()) return Promise.resolve(false);
   if (cloudSession.expires_at && Date.now() < cloudSession.expires_at - 60000) return Promise.resolve(true);
   if (!cloudSession.refresh_token) return Promise.resolve(false);
   return cloudFetch('/auth/v1/token?grant_type=refresh_token', {
     method:'POST', auth:false, body: JSON.stringify({ refresh_token:cloudSession.refresh_token })
   }).then(function(resp){
-    if (!resp.ok) return false;
+    if (!resp.ok){
+      /* 400/401 is GoTrue saying this refresh token is no longer good: that IS
+         a sign-out. Every other status is the server having a problem, which
+         says nothing about the athlete's session. */
+      cloudRefreshUnreachable = !(resp.status===400 || resp.status===401);
+      return false;
+    }
     return resp.json().then(function(t){
       if (!t.access_token) return false;
       cloudSetSession({
@@ -3366,7 +3388,7 @@ function cloudRefreshIfNeeded(){
       });
       return true;
     });
-  }).catch(function(){ return false; });
+  }).catch(function(){ cloudRefreshUnreachable = true; return false; });
 }
 // Right to erasure. Calls the SECURITY DEFINER function in
 // supabase-setup.sql, since deleting an auth user needs privileges the
@@ -3826,7 +3848,13 @@ function cloudInit(){
   if (!cloudSignedIn()){ cloudStatus='signed-out'; patchCloudCard(); return Promise.resolve(); }
   cloudStatus='syncing'; patchCloudCard();
   return cloudRefreshIfNeeded().then(function(ok){
-    if (!ok){ cloudSignOut(); return null; }
+    if (!ok){
+      /* Unreachable is not expired. Keep the session, say the account cannot be
+         reached, and try again on the next launch or foreground -- the local
+         plan is already painted and the athlete loses nothing. */
+      if (cloudRefreshUnreachable){ cloudStatus='error'; patchCloudCard(); return null; }
+      cloudSignOut(); return null;
+    }
     var who = cloudSession.user_id ? Promise.resolve() : cloudLoadUser();
     /* The delivery cookie is minted alongside the ordinary cloud work rather
        than before it: it is not needed to READ anything -- RLS and the bearer
