@@ -504,7 +504,7 @@
     background:var(--bg-3); color:var(--ink-faint); border:1px solid var(--line);
     border-radius:6px; cursor:pointer; transition:background .12s, color .12s, border-color .12s;
   }
-  .feel-btn.on{background:var(--modal-active); color:var(--bg-1); border-color:var(--modal-active);}
+  .feel-btn.on{background:var(--modal-active); color:var(--bronze-ink); border-color:var(--modal-active);}
   .cr-purpose{opacity:.85;}
   .cr-compare{display:flex; flex-wrap:wrap; gap:6px;}
   .cr-cmp{font-size:10px; padding:2px 7px; border:1px solid var(--line); border-radius:99px; color:var(--ink-faint);}
@@ -844,17 +844,34 @@
     background:var(--bg-3); color:var(--ink-faint); border:1px solid var(--line);
     transition:background .12s, color .12s, border-color .12s;
   }
-  .readiness-btn.on{background:var(--modal-active); color:var(--bg-1); border-color:var(--modal-active);}
+  .readiness-btn.on{background:var(--modal-active); color:var(--bronze-ink); border-color:var(--modal-active);}
   /* ---------- week status: one line, no dashboard ---------- */
   .week-status{margin:0 0 12px; padding:11px 13px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .week-status-head{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:5px;}
   .week-status-line{font-size:12px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere;}
   .week-status-note{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:3px;}
-  /* ---------- full plan status label ---------- */
+  /* ---------- full plan status label ----------
+     Four different facts (a coach change, a notable day, a gap, a fatigue
+     signal) used to render in one identical grey pill. The word stays the
+     primary signal -- these tints and dots are reinforcement, not a
+     colour-only code, and reuse tones already meaning the same thing
+     elsewhere (adjusted=gold, matching Next Move's own settled flag;
+     recovery=the same tempo/threshold family Execution Review's signal dot
+     already uses for fatigue vs a real gap). */
   .day-status-label{
-    font-size:8.5px; letter-spacing:1px; text-transform:uppercase; padding:1px 5px;
+    font-size:8.5px; letter-spacing:1px; text-transform:uppercase; padding:1px 5px 1px 4px;
     border-radius:99px; border:1px solid var(--line); color:var(--ink-faint);
+    display:inline-flex; align-items:center; gap:3px;
   }
+  .day-status-dot{width:4px; height:4px; border-radius:99px; background:var(--ink-faint); flex:none;}
+  .day-status-label.adjusted{color:var(--gold-text); border-color:var(--gold-deep);}
+  .day-status-label.adjusted .day-status-dot{background:var(--gold);}
+  .day-status-label.key{color:var(--bronze-text); border-color:var(--bronze-2);}
+  .day-status-label.key .day-status-dot{background:var(--bronze);}
+  .day-status-label.missed{color:var(--c-threshold); border-color:var(--c-threshold);}
+  .day-status-label.missed .day-status-dot{background:var(--c-threshold);}
+  .day-status-label.recovery{color:var(--c-tempo); border-color:var(--c-tempo);}
+  .day-status-label.recovery .day-status-dot{background:var(--c-tempo);}
   /* ---------- Plan HQ expandable sections ---------- */
   .hq-sec{border-top:1px solid var(--line-soft);}
   .hq-sec:first-of-type{border-top:none;}
@@ -7573,7 +7590,7 @@ function missedStimulus(){
              reason: phase==='Taper' || phase==='Race Week'
                        ? 'Taper — volume is not made up.'
                        : imp==='KEY' && isQualityType(dd.type)
-                         ? 'The threshold/interval stimulus is still worth having this week.'
+                         ? 'That threshold/interval session is still worth having this week.'
                          : 'Easy and recovery mileage is worth what it was worth on the day. Let it go.' };
   });
 }
@@ -7615,7 +7632,7 @@ var EVOLUTION_META = {
   HOLD:    { label:'Hold',    cls:'proceed', text:'Current structure remains appropriate.' },
   /* The one state that ADDS. It exists only because the Playbook can now say
      the stimulus is being absorbed; every other state here reduces or waits. */
-  PROGRESS:{ label:'Progress',cls:'proceed', text:'The current stimulus is being absorbed, and one small step up is appropriate.' },
+  PROGRESS:{ label:'Progress',cls:'proceed', text:'Recent training is being absorbed well, and one small step up is appropriate.' },
   MONITOR: { label:'Monitor', cls:'check',   text:'Evidence is building, but not enough to reshape the week.' },
   ADAPT:   { label:'Adapt',   cls:'modify',  text:'Upcoming training should be reshaped while keeping the block on purpose.' },
   RECOVER: { label:'Recover', cls:'recover', text:'Recovery currently outranks planned progression.' }
@@ -7663,7 +7680,7 @@ function planEvolution(){
   if (dec && dec.reasons.length) reasons = dec.reasons.slice(0,2);
   if (recoverable.length)
     reasons.push('A '+(TYPE_META[recoverable[0].type]||{label:recoverable[0].type}).label.toLowerCase()+
-                 ' session went unlogged on '+dShort(recoverable[0].date)+' and the stimulus is still worth having.');
+                 ' session went unlogged on '+dShort(recoverable[0].date)+' and it is still worth having this week.');
 
   var before = horizonStimulus(pending);
   var changes = [];
@@ -7766,7 +7783,7 @@ function evolutionChanges(stateName, phase, pending, recoverable){
       out.push({ kind:'downgrade', dayId:nextKey.id, date:nextKey.date,
                  fromType:nextKey.type, toType:'easy',
                  fromKm:nextKey.km, toKm:Math.max(1, Math.round(nextKey.km*0.7*2)/2),
-                 why:'Recovery evidence outranks this session’s stimulus right now.' });
+                 why:'Recovery evidence outranks this session right now.' });
       return out;
     }
     var biggest = open.slice().sort(function(a,b){ return (b.km||0)-(a.km||0); })[0];
@@ -7792,7 +7809,7 @@ function evolutionChanges(stateName, phase, pending, recoverable){
                  fromType:slot.type, toType:lost.type,
                  fromKm:slot.km, toKm:lost.km, sourceDayId:lost.dayId,
                  why:'Recovering the missed '+(TYPE_META[lost.type]||{label:lost.type}).label.toLowerCase()+
-                     ' stimulus without stacking it against another hard day.' });
+                     ' session without stacking it against another hard day.' });
     }
     // If there is no safe slot, that is the answer: the stimulus is let go.
     return out;
@@ -7805,7 +7822,7 @@ function evolutionChanges(stateName, phase, pending, recoverable){
     var o = optional[0];
     out.push({ kind:'reduce', dayId:o.id, date:o.date, fromKm:o.km,
                toKm:Math.max(1, Math.round(o.km*0.6*2)/2),
-               why:'Trimming the lowest-value mileage first, which costs no training stimulus.' });
+               why:'Trimming the lowest-value mileage first, which costs nothing the block actually needs.' });
     return out;
   }
   // 2. recovery/support mileage
@@ -7849,7 +7866,7 @@ function evolutionChanges(stateName, phase, pending, recoverable){
     var k = keys[0];
     out.push({ kind:'reduce', dayId:k.id, date:k.date, fromKm:k.km,
                toKm:Math.max(1, Math.round(k.km*0.8*2)/2),
-               why:'Keeping the session and its stimulus, with less volume.' });
+               why:'Keeping the session and its purpose, with less volume.' });
   }
   return out;
 }
@@ -8531,15 +8548,15 @@ function vvvPrinciple(id){
 var PLAYBOOK_CONTRACT_VERSION = 1;
 var PLAYBOOK_DECISIONS = {
   PROGRESS: { id:'PROGRESS',
-    means:'Repeated evidence says the current stimulus is being absorbed, and a small increase is appropriate.',
+    means:'Repeated evidence says recent training is being absorbed, and a small increase is appropriate.',
     changes:'A single volume dimension of one archetype, by one step.',
     principles:['evidence_across_sessions','one_good_is_not_evidence','volume_before_intensity','preserve_identity'] },
   HOLD: { id:'HOLD',
-    means:'The current stimulus remains appropriate. This is a positive and common outcome, not an absence of a decision.',
+    means:'The current training remains appropriate. This is a positive and common outcome, not an absence of a decision.',
     changes:'Nothing.',
     principles:['minimum_intervention','consistency_first'] },
   REGRESS: { id:'REGRESS',
-    means:'Evidence says the current stimulus should be reduced or simplified to preserve useful training and recovery.',
+    means:'Evidence says the current training should be reduced or simplified to preserve useful training and recovery.',
     changes:'A single volume dimension downward, or a simplification that keeps the session’s purpose.',
     principles:['recovery_follows_stress','one_bad_is_not_evidence','response_outranks_plan'] }
 };
@@ -8595,7 +8612,7 @@ var PLAYBOOK_PHASE_RULES = {
   Build:       { progress:'volume_and_quality_volume',
                  note:'Controlled increases in quality VOLUME become appropriate. Intensity identity still does not move.' },
   Peak:        { progress:'race_specific_only',
-                 note:'Race-specific stimulus is protected and takes priority. General fitness volume is not added on top of it.' },
+                 note:'Race-specific work is protected and takes priority. General fitness volume is not added on top of it.' },
   Taper:       { progress:'none',
                  note:'Reduction is the intent of the phase. A falling load here is the plan working and is NEVER read as declining fitness needing progression.' },
   'Race Week': { progress:'none', note:'Nothing is added. The block is over; the race is the session.' },
@@ -8817,7 +8834,7 @@ function playbookAssess(archetype){
       { ok: suf.sufficient, why:'Insufficient evidence: '+suf.reasons.join(' ') },
       { ok: playbookPhaseAllowsProgress(phase), why:'The '+phase+' phase does not add load. '+playbookPhaseRule(phase).note },
       { ok: !!block && (block.state==='ADAPTING' || (block.state==='RESPONDING' && block.checkpointInvolved)),
-        why:'The block is '+(block?block.state:'LEARNING')+', which is not yet evidence the stimulus is being absorbed.' },
+        why:'The block is '+(block?block.state:'LEARNING')+', which is not yet evidence recent training is being absorbed.' },
       { ok: trend.direction!=='falling', why:'Execution is trending down.' },
       { ok: rec.state==='fresh', why:'Recovery state is '+rec.state+'.' },
       { ok: load.band!=='spike' && load.band!=='elevated', why:'Recent load is '+load.band+'.' },
@@ -8829,7 +8846,7 @@ function playbookAssess(archetype){
         })(), why:'Fewer than '+suf.requiredSessions+' recent relevant sessions were executed well.' }
     ];
     blockedBy = gates.filter(function(g){ return !g.ok; }).map(function(g){ return g.why; });
-    if (!blockedBy.length){ decision = 'PROGRESS'; why.push('Repeated evidence that the current stimulus is being absorbed.'); }
+    if (!blockedBy.length){ decision = 'PROGRESS'; why.push('Repeated evidence that recent training is being absorbed.'); }
     else why.push(vvvPrinciple('minimum_intervention').statement);
   }
 
@@ -10056,7 +10073,7 @@ function playbookProposal(){
        where HOLD really does just mean the training is working. */
     return Object.assign(base, { held:true,
       reason: (assessment.blockedBy && assessment.blockedBy[0]) ||
-              assessment.why[0] || 'The current stimulus remains appropriate.' });
+              assessment.why[0] || 'The current training remains appropriate.' });
   if (!win.open)
     return Object.assign(base, { held:true, decision:'HOLD', suppressed:decision,
       reason:win.reason });
@@ -10113,7 +10130,7 @@ function playbookProposal(){
                fromKm:dd.km, toKm:sub.day.km, fromTitle:dd.title, toTitle:sub.day.title,
                archetype:action.to, substituted:true,
                selection:sel.selection, stimulus:sel.stimulus,
-               why:'The session in the plan is at the limit of its own range, so the same stimulus comes from another eligible structure.' };
+               why:'The session in the plan is at the limit of its own range, so the same training effect comes from another eligible structure.' };
   }
   if (!change) return Object.assign(base, { held:true, decision:'HOLD', suppressed:decision,
     reason:'Nothing safe to change.' });
@@ -10168,7 +10185,7 @@ function playbookChangeWhy(decision, action, dd, sel){
   if (decision==='PROGRESS')
     return named
       ? 'Your recent '+named+' has been consistently compatible with what was prescribed, so the next one grows by one step — the same session, slightly more of it.'
-      : 'Repeated evidence that this stimulus is being absorbed, so it grows by one step — the same session, slightly more of it.';
+      : 'Repeated evidence that this training is being absorbed, so it grows by one step — the same session, slightly more of it.';
   return named
     ? 'Your recent '+named+' has repeatedly fallen short of what was prescribed, so it is reduced by one step to something that can be completed.'
     : 'The session is not being completed as written, so it is reduced by one step to something that can be.';
@@ -11412,9 +11429,15 @@ function renderAthleteStatusCard(report){
 
 function renderCoachSignalsCard(report){
   if (!report || !report.signals.length) return '';
+  // Load already has its own voice -- the Athlete Status metric tile, right
+  // above this card, with its own tone dot. Repeating the same ratio here as
+  // a second sentence was the same interpretation read twice; every other
+  // signal (effort, HR, streak, trend) has no tile of its own, so it stays.
+  var signals = report.signals.filter(function(sig){ return sig.key!=='load'; });
+  if (!signals.length) return '';
   return '<div class="hub-card">'+
     '<div class="setup-section-title">Training Signals</div>'+
-    report.signals.map(function(sig){
+    signals.map(function(sig){
       return '<div class="coach-signal">'+
         '<span class="coach-dot '+coachToneClass(sig.tone)+'"></span>'+
         '<div class="coach-signal-body">'+
@@ -11827,21 +11850,27 @@ function renderRaceReadinessCard(report){
   var recent = coachRecentContext(null);
   var bts = report.breakthroughs || [];
 
-  var goalBody = hqRow('Goal confidence', conf!=null ? conf+'%' : '—')+
+  // "Goal confidence" and "Recovery" are dropped from these two bodies below:
+  // both already sit in the section's own collapsed summary chip (hqSection's
+  // 3rd argument, right below) the instant the athlete sees the row, opened
+  // or not -- repeating the same word again inside the opened body added
+  // nothing. Everything else here is depth Athlete Status doesn't carry.
+  var goalBody =
     hqRow('Execution trend', report.trend.enough ? trendWord+(report.trend.delta?' ('+(report.trend.delta>0?'+':'')+report.trend.delta+')':'') : 'building history')+
     hqRow('Sessions logged', String(recent.sessionsLogged))+
     hqRow(vGoalDate(), su.raceDate ? dShort(su.raceDate)+(days!=null?' · '+days+' days':'') : '—')+
     hqRow('Phase', trainingPhase(currentWeekNum())+' · week '+currentWeekNum()+' of '+totalWeeksInPlan());
 
-  var recoveryBody = hqRow('Recovery', { fresh:'Fresh', watch:'Watch', strained:'Strained' }[report.recovery.state])+
+  var recoveryBody =
     hqRow('Effort above band', report.recovery.overRPE+' this week')+
     hqRow('HR above zone', report.recovery.overHR+' this week')+
     hqRow('Longest hard streak', report.recovery.hardStreak+' days')+
     hqRow('Feel', recent.feel.counted ? recent.feel.negatives+' heavy of last '+recent.feel.counted : 'not logged')+
     hqRow('Easy HR vs baseline', (function(){
       var b=easyHRBaseline();
-      return b.sufficient ? (b.delta>0?'+':'')+b.delta+' bpm' : 'building baseline'; })())+
-    hqRow('Load', report.load.ratio!=null ? report.load.ratio.toFixed(2)+'x four-week average' : 'building history');
+      return b.sufficient ? (b.delta>0?'+':'')+b.delta+' bpm' : 'building baseline'; })());
+  // Load itself is Athlete Status's own metric tile, right above this card --
+  // not repeated here.
 
   var adaptBody = renderBlockSection(report.block, bts);
 
@@ -11920,15 +11949,22 @@ function renderDayCheck(dd){
 }
 
 /* A single quiet word on the roadmap where a session is not simply "as
-   written": deliberately modified, a recovery session, a key session, or one
-   that never got logged. No analytics on the plan view -- just the label. */
+   written": deliberately modified, a declined adjustment, a recovery
+   session, a key session, or one that never got logged. No analytics on the
+   plan view -- just the label. "Kept" is the only settled decision state
+   with nothing else to show for it (the session looks exactly like the
+   original plan), so it renders with no tone override -- the quietest of
+   the five, matching how little there is to flag. This is the same
+   coachKeptAt/coachAdjust pair Next Move already settles on Today; This Week
+   and Full Plan previously showed only one half of that pair. */
 function dayStatusLabel(dd){
-  var word = null;
-  if (dd.coachAdjust) word = 'Adjusted';
-  else if (dd.type==='checkpoint' || dd.type==='race') word = 'Key';
-  else if (!dd.completed && dd.type!=='rest' && dd.date < todayStr()) word = 'Missed';
-  else if (dd.completed && dd.coachReview && dd.coachReview.trainingSignal==='recovery_priority') word = 'Recovery';
-  return word ? '<span class="day-status-label font-head">'+word+'</span>' : '';
+  var word = null, tone = null;
+  if (dd.coachAdjust){ word = 'Adjusted'; tone = 'adjusted'; }
+  else if (dd.coachKeptAt){ word = 'Kept'; tone = 'kept'; }
+  else if (dd.type==='checkpoint' || dd.type==='race'){ word = 'Key'; tone = 'key'; }
+  else if (!dd.completed && dd.type!=='rest' && dd.date < todayStr()){ word = 'Missed'; tone = 'missed'; }
+  else if (dd.completed && dd.coachReview && dd.coachReview.trainingSignal==='recovery_priority'){ word = 'Recovery'; tone = 'recovery'; }
+  return word ? '<span class="day-status-label font-head '+tone+'"><span class="day-status-dot"></span>'+word+'</span>' : '';
 }
 
 /* =========================================================
@@ -12719,9 +12755,11 @@ function handleSaveEdit(dayId){
 
   if (swapId){
     var other = findDay(swapId);
-    if (other){
-      // the structure and its provenance belong to the WORKOUT, not the date,
-      // so they travel with everything else a swap moves
+    // the structure and its provenance belong to the WORKOUT, not the date,
+    // so they travel with everything else a swap moves -- but if either side
+    // is already logged, that consequence is confirmed explicitly first
+    // (confirmSwapIfLogged), same as the drag-and-drop path.
+    if (other && confirmSwapIfLogged(dd, other)){
       swapWorkoutFields(dd, other);
       showToast('Swapped '+dow(dd.date)+' '+dShort(dd.date)+' with '+dow(other.date)+' '+dShort(other.date));
     }
@@ -14095,9 +14133,30 @@ function swapWorkoutFields(a, b, fields){
     if (t===undefined) delete b[k]; else b[k] = t;
   });
 }
+/* Historical training data is coaching evidence, so a swap that would move a
+   logged session's actual/completed record onto a different date is gated
+   behind one explicit, specific confirmation before it happens -- the same
+   window.confirm() pattern already used for Reset Plan / Delete Account,
+   not a new modal or workflow. A swap between two not-yet-run days (the
+   ordinary reschedule case) needs no gate at all and is unaffected.
+   The data itself is unchanged by this: SWAPPED_WORKOUT_FIELDS still moves
+   completed+actual, because the log is a property of the WORKOUT, not the
+   calendar cell (see that comment above) -- a corrected date is exactly what
+   "swap" is for when one side is already logged. This only stops a swap the
+   athlete did not mean to make. */
+function confirmSwapIfLogged(a, b){
+  var logged = [a, b].filter(function(d){ return d.completed; });
+  if (!logged.length) return true;
+  var name = function(d){ return dow(d.date)+' '+dShort(d.date); };
+  var msg = logged.length===2
+    ? 'Both '+name(a)+' and '+name(b)+' have logged runs. Swapping moves each one’s log to the other date — the training itself already happened; only which day it counts against changes.'
+    : name(logged[0])+' has a logged run. Swapping moves that log to '+name(logged[0]===a?b:a)+' instead — the training itself already happened; only which day it counts against changes.';
+  return window.confirm(msg+'\n\nContinue?');
+}
 function doSwapDays(idA, idB){
   var a = findDay(idA), b = findDay(idB);
   if (!a || !b) return;
+  if (!confirmSwapIfLogged(a, b)) return;
   swapWorkoutFields(a, b);
   scheduleSave();
   renderApp();
@@ -14206,7 +14265,9 @@ function renderProgrammeStatus(){
     '<div class="stat-row">'+
       '<div class="stat" id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>'+
       '<div class="stat"><div class="l">'+vGoalDay()+'</div><div id="countdown-mount">'+renderCountdown()+'</div></div>'+
-    '</div>';
+    '</div>'+
+    (state.setup ? '<div class="field-hint">Confidence reflects how closely your logged sessions have matched '+
+      'what was prescribed — it settles as more sessions are logged, and no single session moves it far.</div>' : '');
 }
 function renderPlanHQView(){
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
