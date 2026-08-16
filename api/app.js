@@ -35,6 +35,29 @@ function runtime(){
   return cachedRuntime;
 }
 
+/* WHY THIS HEADER EXISTS.
+
+   When the gate was first tested on a real Preview, /protected/…html returned
+   the full runtime. Two completely different faults produce that, byte for
+   byte identically:
+
+     A. the routes never ran, and Vercel's filesystem served the static file;
+     B. the routes ran, /api/app handled it, and VVV_ACCOUNT_REQUIRED was not
+        visible to that deployment, so the gate was legitimately open.
+
+   Nothing in the response told them apart, so the failure could only be
+   guessed at. A security boundary that cannot be observed cannot be operated:
+   the ONE question "did my code even run, and what did it decide" has to be
+   answerable from a single request.
+
+   It leaks nothing. The values are the gate's own posture, which is already
+   evident from its behaviour, and never an identity, a lease or an entitlement.
+   Its PRESENCE is the more important half: if this header is absent, /api/app
+   did not handle the request at all. */
+function stamp(res, state){
+  try{ res.setHeader('x-vvv-gate', state); }catch(e){}
+}
+
 function serveRuntime(res){
   const body = runtime();
   res.setHeader('content-type', 'text/html; charset=utf-8');
@@ -69,6 +92,7 @@ module.exports = async function handler(req, res){
      flag unset, an athlete cannot tell any of this exists, and rollback is
      turning the flag off again rather than reverting code. */
   if (!A.accountRequired()){
+    stamp(res, 'off');
     serveRuntime(res);
     return;
   }
@@ -80,18 +104,19 @@ module.exports = async function handler(req, res){
        one. Sending the athlete to the shell -- which can explain itself and
        offer a retry -- is kinder than a bare 503 and gives away nothing. */
     log('SUPABASE_KEY_UNUSABLE source=' + cfg.serviceKeySource);
+    stamp(res, 'unavailable');
     return toShell(res, 'unavailable');
   }
 
   const leaseId = A.readGateCookie(req);
-  if (!leaseId) return toShell(res, 'signin');
+  if (!leaseId){ stamp(res, 'no-session'); return toShell(res, 'signin'); }
 
   let lease = null;
   try{ lease = await A.resolveLease(S, cfg, leaseId); }
-  catch(e){ log('LEASE_LOOKUP_FAILED'); return toShell(res, 'unavailable'); }
+  catch(e){ log('LEASE_LOOKUP_FAILED'); stamp(res, 'unavailable'); return toShell(res, 'unavailable'); }
 
   // missing, revoked and expired are deliberately indistinguishable here
-  if (!lease) return toShell(res, 'signin');
+  if (!lease){ stamp(res, 'no-lease'); return toShell(res, 'signin'); }
 
   /* Re-resolve entitlement on every delivery rather than trusting that a live
      lease implies current access. A lease proves WHO, not WHETHER: an operator
@@ -100,7 +125,7 @@ module.exports = async function handler(req, res){
      on downgrade, so this is belt and braces -- but the belt is the part that
      must not be the only thing holding it up. */
   const ent = await A.readEntitlement(S, cfg, lease.user_id);
-  if (!ent.ok){ log('ENTITLEMENT_READ_FAILED'); return toShell(res, 'unavailable'); }
+  if (!ent.ok){ log('ENTITLEMENT_READ_FAILED'); stamp(res, 'unavailable'); return toShell(res, 'unavailable'); }
 
   const decision = A.resolveAccess({
     uid: lease.user_id,
@@ -112,9 +137,11 @@ module.exports = async function handler(req, res){
 
   if (!decision.allow){
     log('DENIED reason=' + decision.reason);
+    stamp(res, 'denied');
     return toShell(res, decision.reason === 'no_account' ? 'signin' : 'locked');
   }
 
+  stamp(res, 'granted');
   serveRuntime(res);
 };
 
