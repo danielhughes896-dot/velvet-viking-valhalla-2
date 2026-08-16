@@ -213,22 +213,34 @@ begin
   on conflict (user_id) do update
     set override = 'owner', override_expires_at = null, updated_at = now();
 
-  -- BETA. Every approved, unrevoked tester who has an account.
+  /* BETA. Every approved, unrevoked tester who has an account.
+
+     The join is what makes `beta_users` smaller than the allowlist and that is
+     correct: a tester who has never signed in has no auth.users row, so there
+     is no id to attach an entitlement to. STEP 6 covers them on first signup.
+     trim() as well as lower() because beta_allowlist stores lower(trim(email))
+     and matching on only half of that normalisation is a silent miss. */
   with approved as (
     select u.id
       from public.beta_allowlist b
-      join auth.users u on lower(u.email) = b.email
+      join auth.users u on lower(trim(u.email)) = b.email
      where b.revoked_at is null
   )
   insert into public.entitlements (user_id, override, override_note)
   select id, 'beta', 'phase 3a1 backfill' from approved
   on conflict (user_id) do update
-    -- never demote an owner to a beta tester
-    set override = case when public.entitlements.override = 'owner' then 'owner' else 'beta' end,
+    /* Preserve ANY override this athlete already holds rather than only
+       'owner'. Writing 'beta' over an existing grant is a demotion, and this
+       statement is meant to add access, never to remove it. Today the only
+       value it could overwrite is 'owner', so the two forms behave identically
+       -- but the moment a promotional grant exists, `else 'beta'` would quietly
+       downgrade it on the next re-run of a migration advertised as idempotent.
+       This is not promo functionality; it is the absence of a data bug. */
+    set override = coalesce(public.entitlements.override, 'beta'),
         updated_at = now();
 
   select count(*) into beta_n from public.entitlements where override = 'beta';
-  raise notice 'backfill complete: owner=1 beta=%', beta_n;
+  raise notice 'backfill complete: owner=1 beta=% (testers who have not signed in yet have no row, by design)', beta_n;
 end $$;
 
 -- ---------------------------------------------------------------------------
@@ -266,19 +278,75 @@ create trigger seed_entitlement_on_signup
 -- ---------------------------------------------------------------------------
 -- STEP 7 -- VERIFY
 --
--- Run on its own and read the result. Every number should be explicable.
+-- Run on its own. Safe to run any number of times: it reads and changes nothing.
+--
+-- WHY THIS QUERY LOOKS THE WAY IT DOES. An earlier version reported
+-- `beta_users` next to `approved_testers` and invited the reader to compare
+-- them. That comparison is WRONG, and it raised a false alarm on the first real
+-- migration: the backfill joins beta_allowlist to auth.users, so it can only
+-- create rows for testers who have actually signed in at least once. A tester
+-- who has been approved but never opened the app has no auth account, so has no
+-- entitlement row, and SHOULD NOT have one -- STEP 6 gives them beta the moment
+-- they first sign in. `beta_users = 0` with five approved testers is the
+-- expected reading of a beta where only the owner has signed in so far.
+--
+-- The real invariant is COVERAGE, not equality:
+--
+--     every approved tester who HAS an account must hold beta or owner access
+--     => uncovered_MUST_BE_0 = 0
+--
+-- The owner is frequently also on the allowlist. Their row correctly says
+-- 'owner', not 'beta', and counting them as covered is right -- owner access is
+-- strictly greater than beta access, not different from it.
 -- ---------------------------------------------------------------------------
+with approved as (
+  select b.email
+    from public.beta_allowlist b
+   where b.revoked_at is null
+),
+approved_accounts as (
+  select u.id
+    from approved a
+    join auth.users u on lower(trim(u.email)) = a.email
+)
 select
-  (select count(*) from public.entitlements where override = 'owner')          as owners,
-  (select count(*) from public.entitlements where override = 'beta')           as beta_users,
-  (select count(*) from public.beta_allowlist where revoked_at is null)        as approved_testers,
-  (select count(*) from public.access_leases where revoked_at is null
-      and expires_at > now())                                                  as live_leases,
+  -- access grants
+  (select count(*) from public.entitlements where override = 'owner')          as owner_overrides,
+  (select count(*) from public.entitlements where override = 'beta')           as beta_overrides,
+
+  -- the allowlist, and how much of it has actually arrived
+  (select count(*) from approved)                                              as approved_testers,
+  (select count(*) from approved_accounts)                                     as approved_with_account,
+  (select count(*) from approved a
+     where not exists (select 1 from auth.users u
+                        where lower(trim(u.email)) = a.email))                 as approved_never_signed_in,
+
+  -- THE INVARIANT. Anything other than 0 is a backfill defect and blocks
+  -- activation: an approved tester who has an account but no valid override
+  -- would be refused the product the moment ACCOUNT_REQUIRED is switched on.
+  (select count(*) from approved_accounts aa
+     where not exists (select 1 from public.entitlements e
+                        where e.user_id = aa.id
+                          and e.override in ('beta','owner')
+                          and (e.override_expires_at is null
+                               or e.override_expires_at > now())))             as uncovered_MUST_BE_0,
+
+  -- Any account at all with no override. Expected 0 while the private beta is
+  -- the only route in: the beta trigger refuses to create an account for an
+  -- unapproved address, and STEP 6 seeds every account that IS created. A
+  -- non-zero value means someone exists who would be refused at activation.
+  (select count(*) from auth.users u
+     where not exists (select 1 from public.entitlements e
+                        where e.user_id = u.id and e.override is not null))    as accounts_without_override,
+
+  -- security surface
   (select count(*) from pg_policies
-     where schemaname='public' and tablename='entitlements')                   as entitlement_policies,
+     where schemaname='public' and tablename='entitlements')                   as entitlement_policies_expect_1,
   (select count(*) from pg_policies
      where schemaname='public' and tablename='access_leases')                  as lease_policies_expect_0,
   (select count(*) from pg_trigger
-     where tgname = 'seed_entitlement_on_signup')                              as signup_trigger,
+     where tgname = 'seed_entitlement_on_signup')                              as signup_trigger_expect_1,
   (select count(*) from pg_trigger
-     where tgname = 'entitlement_revocation_kills_leases')                     as revocation_trigger;
+     where tgname = 'entitlement_revocation_kills_leases')                     as revocation_trigger_expect_1,
+  (select count(*) from public.access_leases
+     where revoked_at is null and expires_at > now())                          as live_leases;
