@@ -920,6 +920,18 @@
   .setup-cta h2{font-family:'Cinzel',serif; font-size:19px; margin:0 0 8px; color:var(--gold-text); text-transform:uppercase; letter-spacing:.03em;}
   .setup-cta p{font-size:12.5px; color:var(--ink-dim); line-height:1.55; margin:0 0 16px; max-width:44ch; margin-left:auto; margin-right:auto;}
 
+  /* The returning-athlete route, set below the primary action and separated by
+     a rule so the page still reads as one decision with an obvious default. */
+  .hero-return{ margin-top:18px; padding-top:16px; border-top:1px solid var(--line); }
+  .hero-return-q{ font-size:12.5px; color:var(--ink-dim); margin:0 0 10px; }
+  .recover-card{
+    border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px 14px;
+    margin-bottom:10px; background:var(--bg-2); text-align:left;
+  }
+  .recover-card .rc-goal{ font-family:'Oswald',sans-serif; font-size:14px; color:var(--ink); letter-spacing:.02em; }
+  .recover-card .rc-meta{ font-size:12px; color:var(--ink-dim); margin-top:3px; line-height:1.5; }
+  .recover-card .rc-why{ font-size:11.5px; color:var(--ink-faint); margin-top:6px; }
+
   .plan-summary-bar{
     display:flex; align-items:center; gap:10px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);
     padding:10px 12px; margin:14px 0; cursor:pointer; transition:background .15s ease, border-color .15s ease;
@@ -2784,6 +2796,105 @@ function takeArchivedPlan(uid){
   return entry.state;
 }
 
+/* ---------- recovering a plan the athlete can no longer reach ----------
+
+   archivePlanFor() parks a plan under the uid that owned it, and
+   takeArchivedPlan() only ever returns it to that exact uid signing in again.
+   That is right for a shared device, and it leaves one plan stranded: deleting
+   an account removes the auth user, so signing in with the same address mints a
+   NEW uid, and the parked plan belongs to a uid that can never sign in. Nothing
+   destroyed it; nothing could reach it either, which for an athlete is the same
+   thing. (Deletion now releases the ownership stamp so this cannot recur, but
+   plans parked before that fix are still sitting there.)
+
+   These two functions are the way back. Discovery is strictly READ-ONLY --
+   takeArchivedPlan is deliberately not used, because it deletes what it
+   returns -- and restoring is explicit, never automatic, and never overwrites
+   anything without parking it first. */
+var RECOVERY_SOURCE_LABEL = { archive:'Put aside when another account signed in',
+                              displaced:'Replaced by a plan from your account' };
+/* What this plan IS, in the terms an athlete recognises. Deliberately not a
+   timestamp of "last trained": the model does not record one, and the archive's
+   `at` is when the plan was parked, which is a different fact and is labelled
+   as such. */
+function describeRecoverablePlan(st, source, at){
+  /* Explicitly, because planHasContent() falls back to the ACTIVE state when
+     given nothing -- which is the right default for its own callers and
+     exactly wrong here: a missing archive entry would otherwise be described
+     as though it were the plan already open. */
+  if (!st || typeof st !== 'object' || !planHasContent(st)) return null;
+  var su = st.setup || {}, days = st.days || [];
+  var prof = DISTANCE_PROFILES[su.distanceKey];
+  var done = days.filter(function(d){ return d.completed; }).length;
+  var dates = days.map(function(d){ return d.date; }).sort();
+  return {
+    goal: prof ? prof.label : (su.distanceKey || 'Training block'),
+    raceDate: su.raceDate || null,
+    startDate: su.startDate || dates[0] || null,
+    endDate: dates[dates.length-1] || null,
+    sessions: days.length,
+    completed: done,
+    source: source,
+    sourceLabel: RECOVERY_SOURCE_LABEL[source] || '',
+    parkedAt: at || null,
+    signature: planContentSignature(st)
+  };
+}
+/* Every plan on this device that is not the active one. READ-ONLY: it opens no
+   entry, deletes nothing and writes nothing, so an athlete can look without
+   risking what they are looking for. */
+function recoverablePlans(){
+  var out = [];
+  var arch = readPlanArchive();
+  Object.keys(arch).forEach(function(uid){
+    var e = arch[uid];
+    var d = describeRecoverablePlan(e && e.state, 'archive', e && e.at);
+    if (d){ d.key = 'archive:' + uid; out.push(d); }
+  });
+  var displaced = readStored(CLOUD_BACKUP_KEY);
+  var dd = describeRecoverablePlan(displaced, 'displaced', null);
+  if (dd){ dd.key = 'displaced'; out.push(dd); }
+  /* An identical copy of what is already loaded is not something to offer
+     back -- it would only invite the athlete to "restore" what they have. */
+  var activeSig = planHasContent() ? planContentSignature(state) : null;
+  return out.filter(function(d){ return d.signature !== activeSig; });
+}
+function findRecoverablePlanState(key){
+  if (key === 'displaced') return readStored(CLOUD_BACKUP_KEY);
+  var m = /^archive:(.+)$/.exec(String(key||''));
+  if (!m) return null;
+  var e = readPlanArchive()[m[1]];
+  return (e && e.state) || null;
+}
+/* Load a recovered plan, keeping everything else recoverable.
+
+   Whatever is currently loaded is parked BEFORE the swap, under its own owner
+   where it has one, so restoring can never be the action that loses a plan --
+   including the case where the athlete restores the wrong one and wants to go
+   back. The recovered plan is stamped to whoever is signed in now, so from this
+   point it is theirs and the ordinary ownership rules apply; if nobody is
+   signed in it stays unowned and the next sign-in adopts it. */
+function restoreRecoverablePlan(key){
+  var found = findRecoverablePlanState(key);
+  if (!found || typeof found !== 'object' || !planHasContent(found)) return null;
+  if (planHasContent(state) && planContentSignature(state) !== planContentSignature(found)){
+    var owner = planOwnerUid() || ('local-' + todayStr());
+    archivePlanFor(owner, state);
+  }
+  var uid = cloudSession && cloudSession.user_id;
+  state = found;
+  if (uid) stampPlanOwner(uid); else delete state.ownerUid;
+  /* Drop the sync mark. It records what this device last agreed with the
+     account about, and that agreement was about the plan just replaced --
+     keeping it would let cloudReconcile read "this device has logged nothing
+     new" and adopt the account's copy over the one the athlete just chose.
+     With no mark, a genuine difference can only reach the branch that asks. */
+  writeStored(CLOUD_SYNC_KEY, null);
+  initExpanded();
+  persistStateLocalOnly();
+  return describeRecoverablePlan(state, 'restored', null);
+}
+
 /* Decide what the signed-in athlete may see, BEFORE any reconciliation runs.
    Returns one of:
      'own'            the local plan already belongs to this uid
@@ -4092,6 +4203,18 @@ function renderHero(){
       '<h2 class="font-display">Build Your Training Block</h2>'+
       '<p>Pick a goal distance, your current weekly mileage and a recent benchmark time \u2014 get a full pace-zoned training block for anything from a 5K to a 50K ultra. An event is optional.</p>'+
       '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">'+ICONS.target+' Build My Plan</button>'+
+      /* A returning athlete must not be funnelled into building over the top of
+         a plan they already have. This screen is also what an athlete sees
+         after signing out, after an account switch, and -- before the ownership
+         fix -- after deleting an account and signing back in, where their real
+         plan was sitting parked on the very same device. Building is the right
+         answer for a new athlete and the wrong one for everybody else, so the
+         other route is offered plainly rather than hidden in Settings. */
+      '<div class="hero-return">'+
+        '<div class="hero-return-q">Trained with Velvet Viking before?</div>'+
+        '<button type="button" class="btn btn-ghost btn-block" data-action="open-restore">'+
+          ICONS.link+' Sign in or restore a plan</button>'+
+      '</div>'+
     '</div></div>';
   }
 
@@ -14633,6 +14756,35 @@ function renderNotifyToggleRow(){
 // button used to, so there's still only one theme system.
 // Account card. Hidden entirely until cloud sync is configured, so the app
 // never advertises a feature that isn't wired up.
+/* ---------- where this plan actually lives ----------
+   Honest about a model that is not a simple Cloud/Local switch. The plan is
+   ALWAYS on the device; the account is a mirror of it, and the mirror can be
+   absent, agreed, ahead, behind or unknown. Every state below is read from
+   something the app genuinely knows -- the session, cloudStatus, and the sync
+   mark written when the two last agreed -- and there is a state for "we cannot
+   currently tell", because pretending otherwise is how a backup indicator
+   becomes a lie.
+
+   Deliberately NOT reported: "last backed up at". The sync mark records the
+   signature the two sides agreed on, not a time this device can vouch for. */
+function planStorageStatus(){
+  if (!planHasContent()) return { key:'none', label:'No plan on this device' };
+  if (!cloudConfigured()) return { key:'local', label:'Saved on this device' };
+  if (!cloudSignedIn())
+    return { key:'local-only', label:'Saved on this device only',
+             hint:'Sign in to back it up and use it on another device.' };
+  if (cloudStatus === 'error')
+    return { key:'unknown', label:'Saved on this device \u00b7 account unreachable',
+             hint:'The backup will catch up on its own when the connection returns.' };
+  if (cloudStatus === 'syncing')
+    return { key:'syncing', label:'Saved on this device \u00b7 backing up\u2026' };
+  var mark = readSyncMark();
+  if (mark && mark.signature === planContentSignature(state))
+    return { key:'synced', label:'Saved on this device and backed up to your account' };
+  return { key:'pending', label:'Saved on this device \u00b7 backup pending',
+           hint:'Changes since your last backup have not reached your account yet.' };
+}
+
 function renderCloudCard(){
   if (!cloudConfigured()) return '';
   var body;
@@ -14649,13 +14801,84 @@ function renderCloudCard(){
       '<div class="field" style="margin-bottom:8px;"><label>Email</label><input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
       '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">'+ICONS.link+' Email me a sign-in link</button>';
   }
+  var st = planStorageStatus();
   return '<div class="hub-card" id="cloud-card">'+
-    '<div class="setup-section-title">Account &amp; Backup</div>'+body+
+    '<div class="setup-section-title">Account &amp; Backup</div>'+
+    '<div class="field-hint" style="margin-bottom:10px;"><strong>'+escapeHtml(st.label)+'</strong>'+
+      (st.hint ? '<br>'+escapeHtml(st.hint) : '')+'</div>'+
+    body+
+    /* The way back for an athlete whose plan is parked on this device, or in
+       an account they have not signed into yet. Also reachable from the
+       no-plan screen, which is where a returning athlete usually lands. */
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-top:12px;" '+
+      'data-action="open-restore">'+ICONS.link+' Restore a plan</button>'+
   '</div>';
 }
 function patchCloudCard(){
   var el = document.getElementById('cloud-card');
   if (el) el.outerHTML = renderCloudCard();
+}
+/* ---------- restore a plan ----------
+   One screen for the returning athlete, covering both routes back: a plan still
+   on this device, and a plan in their account. It never restores anything on
+   its own -- everything here is a list plus an explicit choice. */
+function renderRecoverList(){
+  var found = recoverablePlans();
+  if (!found.length) return '';
+  return '<div class="setup-section-title" style="margin-top:4px;">On this device</div>'+
+    found.map(function(p){
+      var span = p.startDate && p.endDate ? dShort(p.startDate)+' \u2013 '+dShort(p.endDate) : '';
+      var logged = p.completed ? p.completed+' of '+p.sessions+' sessions logged'
+                               : p.sessions+' sessions';
+      return '<div class="recover-card">'+
+          '<div class="rc-goal">'+escapeHtml(p.goal)+' block</div>'+
+          '<div class="rc-meta">'+escapeHtml([span, logged].filter(Boolean).join(' \u00b7 '))+
+            (p.raceDate ? '<br>Goal day '+escapeHtml(dShort(p.raceDate)) : '')+'</div>'+
+          (p.sourceLabel ? '<div class="rc-why">'+escapeHtml(p.sourceLabel)+'</div>' : '')+
+          '<button type="button" class="btn btn-sm btn-primary btn-block" style="margin-top:10px;" '+
+            'data-action="restore-plan" data-key="'+escapeHtml(p.key)+'">Restore this plan</button>'+
+        '</div>';
+    }).join('');
+}
+function openRestoreModal(){
+  var list = renderRecoverList();
+  var signedIn = cloudSignedIn();
+  var account = !cloudConfigured() ? '' :
+    signedIn
+      ? '<div class="field-hint">Signed in as '+escapeHtml((cloudSession && cloudSession.email) || 'your account')+
+        '. If your account holds a plan it will be offered automatically \u2014 close this and reopen the app if you have just signed in.</div>'
+      : '<div class="field-hint" style="margin-bottom:10px;">Signing in restores a plan you backed up to your account, on this or any other device. We email you a link \u2014 there is no password.</div>'+
+        '<div class="field" style="margin-bottom:8px;"><label>Email</label>'+
+          '<input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
+        '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">'+
+          ICONS.link+' Email me a sign-in link</button>';
+  openModal(
+    '<div class="modal-head"><h2 class="font-head">Restore a Plan</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body">'+
+      (list ||
+        '<div class="field-hint">No plan is stored on this device beyond the one you are using. '+
+        'If you backed one up to your account, sign in below and it will come back.</div>')+
+      (list && account ? '<div class="setup-section-title" style="margin-top:16px;">From your account</div>' : '')+
+      account+
+      '<div class="field-hint" style="margin-top:14px;">Nothing is changed until you choose. '+
+      'Restoring never deletes another plan \u2014 whatever is open now is kept and can be restored back.</div>'+
+    '</div>'
+  );
+}
+function handleRestorePlan(key){
+  var found = recoverablePlans().filter(function(p){ return p.key === key; })[0];
+  if (!found){ showToast('That plan is no longer available'); return; }
+  var ok = window.confirm('Restore your '+found.goal+' block?\n\n'+
+    (found.completed ? found.completed+' logged sessions come back with it.\n\n' : '')+
+    'The plan open now is kept and can be restored again from this screen.');
+  if (!ok) return;
+  var done = restoreRecoverablePlan(key);
+  if (!done){ showToast('That plan could not be read'); return; }
+  closeModal();
+  state.view = 'today';
+  renderApp();
+  showToast('Plan restored \u2014 '+done.goal+' block');
 }
 function handleCloudSignIn(){
   var el = document.getElementById('cloud-email');
@@ -14830,6 +15053,8 @@ document.addEventListener('click', function(e){
     case 'open-settings': openSettingsModal(); break;
     case 'open-import': openImportModal(); break;
     case 'open-setup': openSetupModal(); break;
+    case 'open-restore': openRestoreModal(); break;
+    case 'restore-plan': handleRestorePlan(target.getAttribute('data-key')); break;
     case 'open-recalibrate': openRecalibrateModal(); break;
     case 'rc-suggest-goals': handleRecalibrateSuggest(); break;
     case 'save-recalibrate': handleSaveRecalibrate(); break;
