@@ -3,28 +3,31 @@
   "installCommand": "",
   "buildCommand": "",
   "outputDirectory": ".",
-  "rewrites": [
-    { "source": "/", "destination": "/velvet-viking-valhalla.html" },
-    { "source": "/get", "destination": "/get.html" },
-    { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/privacy", "destination": "/privacy.html" },
-    { "source": "/terms", "destination": "/terms.html" },
-    { "source": "/.well-known/assetlinks.json", "destination": "/assetlinks.json" },
-    { "source": "/auth", "destination": "/velvet-viking-valhalla.html" },
-    { "source": "/auth/(.*)", "destination": "/velvet-viking-valhalla.html" }
-  ],
-  "headers": [
-    {
-      "source": "/(.*\\.html)",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
-      ]
-    },
-    {
-      "source": "/",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
-      ]
-    }
+
+  "functions": {
+    "api/app.js": { "includeFiles": "protected/**" }
+  },
+
+  "routes": [
+    { "src": "/(.*\\.html)", "headers": { "Cache-Control": "no-cache, must-revalidate" }, "continue": true },
+    { "src": "/", "headers": { "Cache-Control": "no-cache, must-revalidate" }, "continue": true },
+
+    { "src": "/", "dest": "/api/app" },
+    { "src": "/app", "dest": "/api/app" },
+
+    { "src": "/protected/(.*)", "dest": "/api/app" },
+    { "src": "/velvet-viking-valhalla\\.html", "dest": "/api/app" },
+
+    { "src": "/auth", "dest": "/api/app" },
+    { "src": "/auth/(.*)", "dest": "/api/app" },
+
+    { "src": "/account", "dest": "/account.html" },
+    { "src": "/get", "dest": "/get.html" },
+    { "src": "/admin", "dest": "/admin.html" },
+    { "src": "/privacy", "dest": "/privacy.html" },
+    { "src": "/terms", "dest": "/terms.html" },
+    { "src": "/\\.well-known/assetlinks\\.json", "dest": "/assetlinks.json" },
+
+    { "handle": "filesystem" }
   ]
 }

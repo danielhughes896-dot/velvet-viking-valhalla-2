@@ -8,7 +8,7 @@ coverage of the app. It exists to protect the coaching-decision invariants
 that would be dangerous or hard to notice by eye if they silently regressed,
 and the RC1 fix that keeps a regenerated plan from erasing logged history:
 
-- `test/harness.js` loads `velvet-viking-valhalla.html`'s inline `<script>`
+- `test/harness.js` loads `protected/velvet-viking-valhalla.html`'s inline `<script>`
   into a sandboxed Node VM (stubbed `document`/`window`/`localStorage`) so
   tests call the app's real functions without a browser or a build step.
 - `test/fixtures.js` builds a real plan through the app's own

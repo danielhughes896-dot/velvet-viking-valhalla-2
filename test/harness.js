@@ -16,6 +16,10 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
+// One place that knows where the runtime lives, exported so scratch tooling and
+// future callers cannot drift from the suite.
+const RUNTIME_RELATIVE = path.join('protected', 'velvet-viking-valhalla.html');
+
 function extractInlineScript(html) {
   const start = html.indexOf('<script>');
   const end = html.lastIndexOf('</script>');
@@ -88,7 +92,10 @@ function makePinnedDate(iso) {
 
 function loadApp(options) {
   const opts = options || {};
-  const htmlPath = path.join(__dirname, '..', 'velvet-viking-valhalla.html');
+  // protected/ rather than the site root: Phase 3A1 moved the runtime out of
+  // Vercel's static output so that /api/app is the only way to obtain it. The
+  // file itself is byte-identical, so the suite still reads exactly what ships.
+  const htmlPath = path.join(__dirname, '..', RUNTIME_RELATIVE);
   const html = fs.readFileSync(htmlPath, 'utf8');
   const src = extractInlineScript(html);
 
@@ -130,4 +137,4 @@ function loadApp(options) {
   return sandbox;
 }
 
-module.exports = { loadApp, makePinnedDate };
+module.exports = { loadApp, makePinnedDate, RUNTIME_RELATIVE };
