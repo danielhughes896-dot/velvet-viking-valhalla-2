@@ -68,6 +68,29 @@ function capabilitiesFor(tier){
   return (CAPABILITIES[tier] || CAPABILITIES.standard).slice();
 }
 
+/* ---------- what an athlete keeps when they have nothing ----------
+   Phase 3A2. A subscription ending is not a reason to hold somebody's training
+   history hostage, and an account they cannot reach is an account they cannot
+   close. These four are therefore a POSITIVE contract, stated here, rather
+   than whatever happens to survive when access is refused:
+
+     account_manage  see the state, and pay again
+     data_export     take the whole training history out, in full
+     account_delete  leave entirely, and take the erasure right with them
+     legal           privacy and terms, which must never be behind a paywall
+
+   Deliberately absent: everything that produces or interprets training.
+   plan_generation, adaptation, execution_review and next_move are the product;
+   the list above is the door.
+
+   These are what the LOCKED SHELL is for. account.html is public by
+   construction precisely so this set is reachable with zero entitlement -- if
+   it lived behind the delivery gate there would be nowhere to resubscribe
+   from, which is the failure mode that turns a lapsed subscriber into a
+   support ticket and then into a chargeback. */
+const LOCKED_CAPABILITIES = ['account_manage', 'data_export', 'account_delete', 'legal'];
+function lockedCapabilities(){ return LOCKED_CAPABILITIES.slice(); }
+
 /* ---------- the decision ----------
    Pure. Given the flags, an entitlement row (or null) and a clock, decide
    whether this athlete may be handed the product.
@@ -131,7 +154,13 @@ function deny(reason, ent){
   return { allow: false, reason: reason,
            state: (ent && ent.state) || null,
            override: (ent && ent.override) || null,
+           /* No tier, because a tier is a thing you are paying for. But the
+              locked set is stated rather than empty: "you may still export
+              your training and close your account" is a promise the product
+              makes, and a promise expressed as an absence is one nobody can
+              test. */
            tier: null, capabilities: [],
+           locked_capabilities: lockedCapabilities(),
            access_until: (ent && ent.access_until) || null,
            cancel_at_period_end: !!(ent && ent.cancel_at_period_end) };
 }
@@ -246,6 +275,7 @@ async function revokeLeasesForUser(S, cfg, uid){
 module.exports = {
   GATE_COOKIE, LEASE_TTL_SEC, CAPABILITIES,
   flagOn, accountRequired, commercialRequired,
+  LOCKED_CAPABILITIES, lockedCapabilities,
   capabilitiesFor, resolveAccess, overrideOf,
   parseCookies, buildSetCookie, clearCookie, readGateCookie, newLeaseId,
   readEntitlement, createLease, resolveLease, revokeLease, revokeLeasesForUser

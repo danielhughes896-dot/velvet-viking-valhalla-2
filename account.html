@@ -39,6 +39,12 @@
      rest of the product the way its pasted palette copy did. */
   body{display:flex; align-items:center; justify-content:center;
        padding:calc(24px + env(safe-area-inset-top,0px)) 20px calc(24px + env(safe-area-inset-bottom,0px));}
+  /* Locked shell. The state line is a fact, not a warning -- it is set in the
+     same quiet ink as body copy so the screen reads as information rather than
+     as an alarm. */
+  .vvv-state{font-size:12.5px; color:var(--ink-faint); margin:0 0 18px; line-height:1.5;}
+  .vvv-quiet{font-size:11.5px; color:var(--ink-faint); line-height:1.5; margin:26px 0 0;}
+  .vvv-btn-danger{color:var(--danger-ink); border-color:var(--danger-ink);}
 </style>
 </head>
 <body>
@@ -66,6 +72,35 @@
     <div class="vvv-msg" id="msg2"></div>
   </div>
 
+  <!--
+    THE LOCKED SHELL (Phase 3A2).
+
+    Reachable with zero entitlement, which is the whole reason this page is
+    public. An athlete whose subscription has lapsed can still see what
+    happened, pay again, take every byte of their training with them, and close
+    the account entirely. Those four are the locked-capability contract stated
+    in api/_access.js, and they are the only things here.
+
+    What is deliberately absent: any part of the product. No plan, no coach, no
+    workout. The locked shell is the door, not a sample.
+  -->
+  <div id="pane-locked" class="vvv-hidden">
+    <h1 id="locked-title">Your access has ended</h1>
+    <p id="locked-lede">Your training plan and history are safe and still stored.</p>
+    <p id="locked-state" class="vvv-state"></p>
+
+    <button type="button" id="resubscribe" class="vvv-btn">Set up my subscription</button>
+    <button type="button" id="export" class="vvv-btn vvv-btn-ghost">Export my training</button>
+    <button type="button" id="signout" class="vvv-btn vvv-btn-ghost">Sign out</button>
+    <div class="vvv-msg" id="msg3"></div>
+
+    <p class="vvv-quiet">
+      Closing your account erases it and everything in it, permanently.
+      Export first if you want to keep your training.
+    </p>
+    <button type="button" id="delete" class="vvv-btn vvv-btn-ghost vvv-btn-danger">Delete my account</button>
+  </div>
+
   <div class="vvv-foot">
     <a href="/privacy">Privacy</a> &nbsp;·&nbsp; <a href="/terms">Terms</a>
   </div>
@@ -82,8 +117,9 @@
            (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   }
   function show(pane){
-    $('pane-signin').classList.toggle('vvv-hidden', pane !== 'signin');
-    $('pane-working').classList.toggle('vvv-hidden', pane !== 'working');
+    ['signin','working','locked'].forEach(function(p){
+      $('pane-' + p).classList.toggle('vvv-hidden', pane !== p);
+    });
   }
   function say(el, text, kind){
     var n = $(el); n.textContent = text || '';
@@ -141,6 +177,90 @@
 
   function enter(){ location.replace('/'); }
 
+  /* ---------- the locked shell ----------
+     Reached two ways: /api/session answered 403 (access has genuinely ended),
+     or the athlete arrived here already signed in. Either way the question the
+     screen has to answer is "what happened to me and what can I do", and only
+     /api/subscription answers 200 to an athlete without access -- which is why
+     it exists separately from /api/session at all. */
+  function storedToken(){
+    try{
+      var s = JSON.parse(localStorage.getItem('vvv_cloud_session') || 'null');
+      return (s && s.access_token) || null;
+    }catch(e){ return null; }
+  }
+  function authed(url, opts){
+    var t = storedToken();
+    if (!t) return Promise.reject(new Error('no_session'));
+    var o = opts || {};
+    o.headers = Object.assign({ 'authorization': 'Bearer ' + t }, o.headers || {});
+    o.credentials = 'same-origin';
+    return fetch(url, o);
+  }
+
+  /* Dates the athlete can read, in their own locale, without a library. An
+     invalid or absent timestamp yields nothing rather than "Invalid Date". */
+  function whenText(iso){
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '';
+    try{ return d.toLocaleDateString(undefined, { day:'numeric', month:'long', year:'numeric' }); }
+    catch(e){ return d.toISOString().slice(0, 10); }
+  }
+
+  /* One sentence, chosen from facts the server sent. Every branch is a real
+     combination the entitlement model can produce -- "cancelled but paid
+     through Friday" is state='active' + cancel_at_period_end, not a fourth
+     state, so it is read here the same way. */
+  function stateSentence(v){
+    var until = whenText(v.access_until);
+    if (v.override === 'owner') return 'Owner access.';
+    if (v.override === 'beta')  return 'Private beta access.';
+    if (v.state === 'grace')
+      return 'A payment did not go through' + (until ? ', so access continues until ' + until : '') +
+             ' while it is sorted out.';
+    if (v.state === 'trial')
+      return until ? 'Your trial runs until ' + until + '.' : 'Your trial is running.';
+    if (v.cancel_at_period_end && until)
+      return 'Cancelled, and paid up until ' + until + '. Nothing changes before then.';
+    if (v.state === 'active' && until) return 'Active until ' + until + '.';
+    if (v.state === 'expired' && until) return 'Access ended on ' + until + '.';
+    return '';
+  }
+
+  function showLocked(v){
+    show('locked');
+    var hasAccess = !!(v && v.access);
+    /* The title is chosen from the STATE, not from the boolean alone. Grace
+       means a payment failed and access is continuing meanwhile -- telling
+       that athlete "your access has ended" directly above a line saying it
+       continues until the 20th is the screen contradicting itself, and it is
+       the sort of thing that turns a card retry into a cancellation. */
+    var grace = !!(v && v.state === 'grace');
+    $('locked-title').textContent = hasAccess ? 'Your Velvet Viking account'
+      : grace ? 'There is a problem with your payment'
+      : 'Your access has ended';
+    $('locked-lede').textContent = hasAccess
+      ? 'Everything below belongs to you and stays available from here.'
+      : grace
+        ? 'Nothing has been lost, and your training is still here.'
+        : 'Your training plan and history are safe and still stored.';
+    $('locked-state').textContent = stateSentence(v || {});
+    /* The resubscribe button is hidden rather than disabled when payments are
+       not open: a greyed-out button invites a support message asking when it
+       will work, and we would rather say nothing than say "soon". */
+    $('resubscribe').classList.toggle('vvv-hidden', hasAccess || !v.checkout_configured);
+  }
+
+  function loadSubscription(){
+    return authed('/api/subscription').then(function(r){
+      return r.json().catch(function(){ return null; }).then(function(v){
+        if (r.status === 200 && v) return v;
+        return null;
+      });
+    }).catch(function(){ return null; });
+  }
+
   var hash = readAuthHash();
   if (hash){
     show('working');
@@ -159,10 +279,11 @@
     establish(hash.access_token).then(function(r){
       if (r.status === 200) return enter();
       if (r.status === 403){
-        show('signin');
-        $('headline').textContent = 'Your access has ended';
-        $('lede').textContent = 'You are signed in, but this account does not currently have access to Velvet Viking. Your training data is still stored.';
-        return;
+        /* Signed in, no access. This is the case the locked shell exists for:
+           the athlete is known to us, so they get their state, their export
+           and their account rather than a sign-in form they have already
+           completed. */
+        return loadSubscription().then(function(v){ showLocked(v || { access:false }); });
       }
       show('signin');
       say('msg', 'We signed you in but could not open Velvet Viking. Please try again.', 'err');
@@ -180,11 +301,10 @@
       show('working');
       establish(stored.access_token).then(function(r){
         if (r.status === 200) return enter();
-        show('signin');
         if (r.status === 403){
-          $('headline').textContent = 'Your access has ended';
-          $('lede').textContent = 'Your training plan and history are safe and still stored.';
+          return loadSubscription().then(function(v){ showLocked(v || { access:false }); });
         }
+        show('signin');
       }).catch(function(){ show('signin'); });
     }
   }
@@ -215,6 +335,121 @@
   });
 
   $('email').addEventListener('keydown', function(e){ if (e.key === 'Enter') $('send').click(); });
+
+  /* ---------- the four things a locked-out athlete may still do ----------
+     These are the locked-capability contract in api/_access.js, made real.
+     Each one is deliberately available with no entitlement whatsoever. */
+
+  // account_manage
+  $('resubscribe').addEventListener('click', function(){
+    $('resubscribe').disabled = true;
+    say('msg3', 'One moment…');
+    authed('/api/subscription', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'resubscribe' })
+    }).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(b){
+        $('resubscribe').disabled = false;
+        if (r.status === 200 && b.checkout_url){ location.href = b.checkout_url; return; }
+        say('msg3', 'Subscriptions are not open yet — nothing has changed on your account.', 'err');
+      });
+    }).catch(function(){
+      $('resubscribe').disabled = false;
+      say('msg3', 'We could not reach Velvet Viking. Check your connection and try again.', 'err');
+    });
+  });
+
+  // data_export -- the ACCOUNT's copy, so this works from a device that never
+  // held the plan, which is the case a lapsed athlete is most likely to be in.
+  $('export').addEventListener('click', function(){
+    $('export').disabled = true;
+    say('msg3', 'Preparing your export…');
+    authed('/api/account-data').then(function(r){
+      return r.json().catch(function(){ return null; }).then(function(b){
+        $('export').disabled = false;
+        if (r.status !== 200 || !b){
+          say('msg3', 'We could not prepare your export just now. Please try again shortly.', 'err');
+          return;
+        }
+        if (!b.plan_present && !localPlan()){
+          say('msg3', 'There is no training block stored on your account or on this device.', 'err');
+          return;
+        }
+        /* Both copies when both exist. They can legitimately differ -- the
+           device may hold sessions logged after the last backup -- and an
+           export that silently picked one would be the first time this product
+           chose between two plans without asking. */
+        download('velvet-viking-export.json', JSON.stringify({
+          exported_at: b.exported_at,
+          account: b.account,
+          entitlement: b.entitlement,
+          account_plan: b.plan,
+          account_plan_updated_at: b.plan_updated_at,
+          this_device_plan: localPlan()
+        }, null, 2));
+        say('msg3', 'Export saved.', 'ok');
+      });
+    }).catch(function(){
+      $('export').disabled = false;
+      say('msg3', 'We could not reach Velvet Viking. Check your connection and try again.', 'err');
+    });
+  });
+
+  function localPlan(){
+    try{ return JSON.parse(localStorage.getItem('velvet-viking-generator-v2') || 'null'); }
+    catch(e){ return null; }
+  }
+  function download(filename, text){
+    try{
+      var url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      var a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }catch(e){ say('msg3', 'Your browser would not save the file.', 'err'); }
+  }
+
+  // Sign out. Revokes the delivery lease first, while the token still exists to
+  // authenticate the request -- the same order the app uses, and for the same
+  // reason: a cleared session with a live cookie is signed out of the account
+  // but not out of the product.
+  $('signout').addEventListener('click', function(){
+    fetch('/api/session', { method: 'DELETE', credentials: 'same-origin' })
+      .catch(function(){})
+      .then(function(){
+        try{ localStorage.removeItem('vvv_cloud_session'); }catch(e){}
+        /* The training block stays on this device. That has been true of every
+           sign-out in this product since Phase 1 and is not changing here. */
+        show('signin');
+        say('msg', 'Signed out — your plan stays on this device.', 'ok');
+      });
+  });
+
+  // account_delete. Two confirmations, because it is irreversible and because
+  // the athlete reaching this screen did not come here intending to.
+  $('delete').addEventListener('click', function(){
+    if (!window.confirm('Delete your Velvet Viking account? This erases your account and everything stored in it. It cannot be undone.')) return;
+    if (!window.confirm('Last check — export your training first if you want to keep it. Delete permanently?')) return;
+    $('delete').disabled = true;
+    say('msg3', 'Deleting your account…');
+    authed('/api/account-delete', { method: 'POST' }).then(function(r){
+      $('delete').disabled = false;
+      if (r.status !== 200){
+        say('msg3', 'We could not delete the account just now. Please try again shortly.', 'err');
+        return;
+      }
+      try{ localStorage.removeItem('vvv_cloud_session'); }catch(e){}
+      show('signin');
+      /* The plan on this device is deliberately left alone. It is the runner's
+         own copy on their own hardware, and wiping it would be a surprise the
+         athlete did not ask for -- the same rule the in-app deletion follows. */
+      say('msg', 'Your account has been deleted. The training block on this device is still here.', 'ok');
+    }).catch(function(){
+      $('delete').disabled = false;
+      say('msg3', 'We could not reach Velvet Viking. Check your connection and try again.', 'err');
+    });
+  });
 })();
 </script>
 </body>

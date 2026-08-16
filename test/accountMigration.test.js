@@ -265,7 +265,16 @@ test('deletion does not touch the local plan or the archive', () => {
 // ---------------------------------------------------------------------------
 test('the account shell is public, small, and carries no coaching engine', () => {
   const shell = fs.readFileSync(path.join(__dirname, '..', 'account.html'), 'utf8');
-  assert.ok(shell.length < 20000, 'the shell must stay a shell (' + shell.length + ' bytes)');
+  /* Re-baselined for Phase 3A2, which added the locked shell -- the four
+     things an athlete keeps when they have no entitlement. That is the
+     phase's deliverable, so the page legitimately grew.
+
+     The ceiling is not the real guard and never was: a shell that stayed
+     under 20KB while importing the coaching engine would pass a byte count
+     and fail the point. The symbol list below is what actually holds, and it
+     is unchanged. The number is here to make growth a DECISION -- if a later
+     phase needs to raise it again, somebody has to write down why. */
+  assert.ok(shell.length < 26000, 'the shell must stay a shell (' + shell.length + ' bytes)');
   ['coachDecision', 'playbookAssess', 'athleteMemory', 'buildBlockWeeks', 'ARCHETYPE_GUIDANCE']
     .forEach(sym => assert.ok(shell.indexOf(sym) === -1, 'shell must not contain ' + sym));
 });
@@ -278,16 +287,25 @@ test('the shell can complete a magic-link return, since the gate redirects them 
     'and strip the tokens so a copied URL cannot carry a live session');
 });
 
-test('the shell sells nothing — 3A2 owns that', () => {
-  // Comments stripped first: a note saying "3A2 adds checkout here" is the
-  // opposite of a leak, and matching it would make this assertion punish
-  // documentation instead of catching commercial content.
+test('the shell still names no price and makes no claim', () => {
+  /* Superseded by Phase 3A2, exactly as this test's original name anticipated.
+     The shell may now speak about subscriptions -- that is the whole locked
+     shell, and refusing the vocabulary would mean a lapsed athlete could not
+     be told what happened to them.
+
+     What has NOT changed is where a price may live. _access.js states it: the
+     capability map is not a pricing table, and the commercial meaning of a
+     tier belongs to the payment provider and the offering. A number on this
+     page is a second source of truth for what something costs, and the second
+     one is always the one that goes stale. Marketing claims stay out for the
+     older reason -- this product does not make claims it has not earned. */
   const shell = fs.readFileSync(path.join(__dirname, '..', 'account.html'), 'utf8')
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/^\s*\/\/.*$/gm, ' ');
-  [/£\s*\d/, /\bcheckout\b/i, /\bsubscribe\b/i, /\bper month\b/i, /\bPro\b/, /\btrial\b/i]
-    .forEach(rx => assert.ok(!rx.test(shell), 'commercial content leaked into 3A1: ' + rx));
+  [/£\s*\d/, /\$\s*\d/, /€\s*\d/, /\bper month\b/i, /\ba month\b/i, /\bcancel any ?time\b/i,
+   /\bfree forever\b/i, /\bmoney[- ]back\b/i, /\bbest value\b/i, /\bPro\b/]
+    .forEach(rx => assert.ok(!rx.test(shell), 'a price or a claim reached the shell: ' + rx));
 });
 
 test('legal routes stay reachable without any entitlement', () => {

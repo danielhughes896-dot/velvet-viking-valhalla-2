@@ -16,6 +16,10 @@
     { "src": "/auth", "dest": "/api/app" },
     { "src": "/auth/(.*)", "dest": "/api/app" },
 
+    { "src": "/api/subscription", "dest": "/api/account?resource=subscription" },
+    { "src": "/api/account-data", "dest": "/api/account?resource=account-data" },
+    { "src": "/api/account-delete", "dest": "/api/account?resource=account-delete" },
+
     { "src": "/account", "dest": "/account.html" },
     { "src": "/get", "dest": "/get.html" },
     { "src": "/admin", "dest": "/admin.html" },
