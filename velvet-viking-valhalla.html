@@ -5858,8 +5858,34 @@ function coachDecision(){
   if (sore.length >= 2) add('pain', 10, 'Pain or soreness reported in '+sore.length+' recent sessions', true);
   else if (sore.length === 1) add('pain', 3, 'Soreness reported in your last session');
 
-  // ---- this week's acute state ----
-  if (recovery.state === 'strained') add('effort', 4, 'Effort and heart rate have both been above target this week');
+  /* ---- this week's acute state ----
+     `strained` is reached by RPE excursions, HR excursions, or both, so it must
+     be attributed to whichever actually happened. Announcing it as "both" every
+     time did two things wrong at once.
+
+     It told the athlete something untrue about their own week -- an HR-only
+     week was reported as effort AND heart rate above target, and an RPE-only
+     week likewise -- which is exactly the claim an athlete checks the coach
+     against.
+
+     And it turned one fact into two votes. Attributing every `strained` to the
+     `effort` concept meant an HR-only excursion scored once as `hr` and again
+     as `effort`, while an RPE-only excursion scored once, because `effort`
+     absorbed both of its routes. Heart rate was silently worth double, and
+     genuine RPE evidence arriving later was masked as a weaker duplicate of an
+     item it had never contributed to -- so corroboration could not raise the
+     score above one signal alone.
+
+     Attributing it to the concept that caused it fixes both: the sentence is
+     true, and one underlying reading counts once. Where both really did happen
+     the two concepts stand side by side, which is the only case that should
+     score higher than either alone. */
+  if (recovery.state === 'strained' && recovery.overRPE > 0 && recovery.overHR > 0)
+    add('effort', 4, 'Effort and heart rate have both been above target this week');
+  else if (recovery.state === 'strained' && recovery.overRPE > 0)
+    add('effort', 4, 'Effort has been above target on '+recovery.overRPE+' sessions this week');
+  else if (recovery.state === 'strained' && recovery.overHR > 0)
+    add('hr', 4, 'Heart rate has been above target on '+recovery.overHR+' sessions this week');
   else if (recovery.overRPE >= 2) add('effort', 2, 'Effort above band on '+recovery.overRPE+' sessions this week');
   if (recovery.overHR >= 2) add('hr', 2, recovery.overHR+' sessions this week averaged above their heart-rate zone');
   if (recovery.hardStreak >= 3) add('streak', 1, recovery.hardStreak+' quality days in a row without an easy day');
