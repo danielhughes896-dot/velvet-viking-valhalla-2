@@ -731,6 +731,11 @@
   }
   .btn:disabled:hover, .btn[disabled]:hover{border-color:var(--ctl-disabled-border);}
   .btn-block{width:100%;}
+  /* Legal/support rows are real links, not buttons that fake it: an <a> can be
+     long-pressed, copied and opened in a new tab, which is what somebody reading
+     a privacy policy on a phone actually wants. .btn is a bare class so the
+     styling already applies -- only the underline needs removing. */
+  a.btn{text-decoration:none;}
   .btn-sm{padding:7px 12px; font-size:12px;}
   .btn svg{width:15px; height:15px; flex:none;}
 
@@ -1160,6 +1165,22 @@
    ========================================================= */
 var STORAGE_KEY = 'velvet-viking-generator-v2';
 var BUILD_ID = '2026-08-10.1';
+
+/* ---------- THE CANONICAL LEGAL DOCUMENTS ----------
+   These two live on the website and NOWHERE ELSE. The app links to them; it does
+   not carry its own copy, and it must not start to. Three copies of a privacy
+   policy is three chances to be out of date, and the one a tester reads would be
+   whichever we happened to update last.
+
+   They are absolute https URLs on purpose. Capacitor has no allowNavigation
+   entry for velvetviking.co.uk, so the native shell hands an off-origin host to
+   the system browser rather than trapping the tester inside the WebView on a page
+   with no way back. In a normal browser target="_blank" does the same thing. */
+var LEGAL_URLS = {
+  privacy:   'https://velvetviking.co.uk/privacy',
+  betaTerms: 'https://velvetviking.co.uk/beta-terms',
+  support:   'support@velvetviking.co.uk'
+};
 
 /* =========================================================
    GOAL vs EVENT
@@ -14823,7 +14844,19 @@ function openSetupModal(){
     '<div class="modal-actions">'+
       '<button type="button" class="btn btn-primary" data-action="generate-plan">'+ICONS.check+' '+(state.setup?'Regenerate Plan':'Generate My Plan')+'</button>'+
     '</div>'+
-    (state.setup ? '<div class="field-hint" style="margin-top:10px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history \u2014 only untouched future days are replaced.</div>' : '')+
+    /* PRIVATE BETA: the two documents named once, at the point the athlete is
+       about to start using the product properly, and only on the FIRST build.
+       Deliberately a sentence rather than a gate: no wall, no checkbox, nothing
+       pre-ticked, and nothing that pretends to collect a consent this task has
+       no authority to collect. A tester who wants to read them can, before they
+       commit their training to it; a tester regenerating a plan in week six is
+       not shown it again, because by then it is nagging rather than informing. */
+    (state.setup
+      ? '<div class="field-hint" style="margin-top:10px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history \u2014 only untouched future days are replaced.</div>'
+      : '<div class="field-hint" style="margin-top:10px; text-align:center;">Using the private beta is covered by our '+
+        '<a href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and '+
+        '<a href="'+LEGAL_URLS.betaTerms+'" target="_blank" rel="noopener noreferrer">Private Beta Terms</a>. '+
+        'Both are always in Settings.</div>')+
   '</div>';
   openModal(html);
 
@@ -17205,6 +17238,18 @@ function renderSettingsHubView(){
       renderStravaSection()+
       '<button type="button" class="btn btn-ghost btn-block" style="margin:10px 0 8px;" data-action="open-import">'+ICONS.watch+' Garmin File Import</button>'+
       '<button type="button" class="btn btn-ghost btn-block" data-action="export-ics">'+ICONS.clock+' Export to iCal (.ics)</button>'+
+    '</div>'+
+    /* LEGAL & SUPPORT. One card, three links, no copies. The two documents open
+       the canonical pages on the website; Support opens the athlete's own mail
+       client with the address already filled in, because "email support@..." as
+       dead text makes somebody retype an address at the moment they are already
+       annoyed. */
+    '<div class="hub-card">'+
+      '<div class="setup-section-title">Legal &amp; Support</div>'+
+      '<a class="btn btn-ghost btn-block" style="margin-bottom:8px;" href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">'+ICONS.shieldmark+' Privacy Policy</a>'+
+      '<a class="btn btn-ghost btn-block" style="margin-bottom:8px;" href="'+LEGAL_URLS.betaTerms+'" target="_blank" rel="noopener noreferrer">'+ICONS.info+' Private Beta Terms</a>'+
+      '<a class="btn btn-ghost btn-block" href="mailto:'+LEGAL_URLS.support+'">'+ICONS.link+' Contact Support</a>'+
+      '<div class="field-hint" style="margin-top:10px;">Your use of the private beta is covered by these two documents. Support is '+LEGAL_URLS.support+'</div>'+
     '</div>'+
     '<div class="hub-card">'+
       '<div class="setup-section-title">Backup &amp; Reset</div>'+
