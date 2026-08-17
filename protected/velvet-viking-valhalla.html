@@ -6842,11 +6842,28 @@ function splitsMismatch(dd){
   if (diff < 0.3 && diff/logged < 0.08) return null;
   return { total:total, logged:logged };
 }
+/* A structured log is expected to be partial: an athlete who fills in five
+   reps and leaves the warm-up, recoveries and cool-down blank has not
+   contradicted anything, they have simply logged the part that matters.
+   Comparing that subtotal to the whole session and calling it a discrepancy
+   would be manufacturing a problem out of normal use -- so the mismatch
+   warning only applies once every distance the log asks for has an answer.
+   A flat lap list is unchanged: its laps ARE meant to cover the session. */
+function structuredLogIncomplete(dd){
+  var m = loggingModeFor(dd);
+  if (m.mode !== 'structured') return false;
+  return m.plan.rows.some(function(r){
+    var s = structuredSplitFor(dd, r.segId);
+    return !s || s.km == null;
+  });
+}
 function renderSplitsTotal(dd){
   var total = splitsTotalKm(dd);
   if (total==null) return '';
-  var mismatch = splitsMismatch(dd);
-  return '<div class="splits-total">Lap total <span class="font-mono">'+fmtDist(total)+'</span>'+
+  var partial = structuredLogIncomplete(dd);
+  var mismatch = partial ? null : splitsMismatch(dd);
+  return '<div class="splits-total">'+(partial ? 'Logged so far ' : 'Lap total ')+
+    '<span class="font-mono">'+fmtDist(total)+'</span>'+
     (mismatch ? '<span class="splits-warn">Logged session says '+fmtDist(mismatch.logged)+' — keeping both; correct whichever is off.</span>' : '')+
   '</div>';
 }

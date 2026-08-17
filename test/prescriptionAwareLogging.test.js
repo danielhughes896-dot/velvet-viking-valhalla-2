@@ -519,3 +519,24 @@ test('the worst-case sessions stay bounded and collapsed by default', () => {
     a.state.days.pop();
   });
 });
+
+test('a partial structured log is not reported as a discrepancy', () => {
+  const a = app();
+  const dd = loggedFartlek(a, [0.58, 0.57, 0.56, 0.55, 0.54]);   // reps only
+  assert.equal(dd.actual.km, 8, 'the whole-session distance is still 8km');
+  const html = a.renderSplitsBlock(dd);
+  assert.match(html, /Logged so far/, 'five reps out of eleven segments is normal use');
+  assert.doesNotMatch(html, /correct whichever is off/,
+    'the athlete has contradicted nothing by leaving recoveries blank');
+});
+
+test('a complete structured log that really disagrees still says so', () => {
+  const a = app();
+  const dd = fartlekDay(a);
+  const plan = a.structuredLoggingPlan(dd);
+  plan.rows.forEach(r => a.handleStructuredSplitChange(dd.id, r.segId, 'km', '0.2'));
+  const html = a.renderSplitsBlock(dd);
+  assert.match(html, /Lap total/);
+  assert.match(html, /correct whichever is off/,
+    'every segment answered and the total is 2.2km against a logged 8km');
+});
