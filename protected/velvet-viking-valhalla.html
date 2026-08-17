@@ -3750,6 +3750,78 @@ function writeSyncMark(updatedAt, signature){
   writeStored(CLOUD_SYNC_KEY, { updated_at:updatedAt||null, signature:signature });
 }
 
+/* ---------- the decisions an athlete made about a plan both devices share ----
+   THE PROBLEM. cloudPutPlan() uploads the whole state, so a decline recorded
+   on the phone genuinely reaches the account. planContentSignature() signs
+   setup and day content and deliberately NOT the decline ledgers -- which is
+   right, because a decline is not training content and signing it would make
+   two devices that agree about every session look like they disagree, and
+   manufacture a conflict modal out of nothing.
+
+   Both facts are correct, and together they lost the answer: the identical-
+   content branch returns without adopting anything, so the athlete declines a
+   proposal on their phone, opens the laptop, and is asked the identical
+   question again. That is the one thing this product promises never to do.
+
+   THE RULE, and it is deliberately the conservative one.
+
+   Only four keys cross, and every one of them is a record of something the
+   ATHLETE decided -- never a session, never a preference, never a device's own
+   settings. Anything outside this list stays exactly where it is, so this
+   cannot become last-write-wins over unrelated state.
+
+   A local answer is never overwritten. An absent remote ledger never erases a
+   local one, and a remote ledger carrying no answer is not a newer answer --
+   it is silence. So the only thing that crosses is an answer arriving where
+   there was none, which is precisely the case that was broken.
+
+   The histories are unioned rather than replaced, de-duplicated on the
+   identity of the decision itself: the same question, answered the same way,
+   on the same day is ONE answer that two devices happened to record, not two.
+   That keeps one true history without either side's record being thrown away.
+
+   Only reached on the identical-content path. Where the training genuinely
+   differs, the existing reconciliation owns the outcome and this has no
+   opinion about it. */
+var RECONCILED_DECISION_KEYS = ['evolution', 'evolutionHistory', 'playbook', 'playbookHistory'];
+function ledgerHasAnswer(l){
+  if (!l || typeof l !== 'object') return false;
+  return !!(l.declinedHash || l.lastAcceptedHash || l.status || l.lastDecision);
+}
+function mergeDecisionHistory(mine, theirs, cap){
+  var seen = {}, out = [];
+  (mine||[]).concat(theirs||[]).forEach(function(e){
+    if (!e) return;
+    var k = [e.date||'', e.evidenceHash||'', e.accepted===undefined ? (e.status||'') : String(e.accepted)].join('|');
+    if (seen[k]) return;
+    seen[k] = true; out.push(e);
+  });
+  out.sort(function(a,b){ return String(a.at||'') < String(b.at||'') ? -1 : 1; });
+  return cap && out.length > cap ? out.slice(-cap) : out;
+}
+function adoptDecisionLedgers(remote){
+  if (!remote || typeof remote !== 'object') return false;
+  var before = stableStringify({
+    e: state.evolution || null, p: state.playbook || null,
+    eh: (state.evolutionHistory||[]).length, ph: (state.playbookHistory||[]).length
+  });
+
+  if (!ledgerHasAnswer(state.evolution) && ledgerHasAnswer(remote.evolution))
+    state.evolution = JSON.parse(JSON.stringify(remote.evolution));
+  if (!ledgerHasAnswer(state.playbook) && ledgerHasAnswer(remote.playbook))
+    state.playbook = JSON.parse(JSON.stringify(remote.playbook));
+
+  var eh = mergeDecisionHistory(state.evolutionHistory, remote.evolutionHistory, 60);
+  if (eh.length) state.evolutionHistory = eh;
+  var ph = mergeDecisionHistory(state.playbookHistory, remote.playbookHistory, PLAYBOOK_HISTORY_MAX);
+  if (ph.length) state.playbookHistory = ph;
+
+  return stableStringify({
+    e: state.evolution || null, p: state.playbook || null,
+    eh: (state.evolutionHistory||[]).length, ph: (state.playbookHistory||[]).length
+  }) !== before;
+}
+
 /* ---------- reconcile ---------- */
 function planSummary(st){
   if (!st || !st.setup) return 'empty plan';
@@ -3833,8 +3905,11 @@ function cloudReconcile(){
     var remoteSig = planContentSignature(remote);
 
     // Same training content on both sides. Timestamps and device preferences
-    // can differ all they like -- there is nothing here to resolve.
+    // can differ all they like -- there is nothing here to resolve about the
+    // TRAINING. The decisions the athlete made about it are a different
+    // question, and adoptDecisionLedgers() answers it.
     if (localSig===remoteSig){
+      if (adoptDecisionLedgers(remote)) persistStateLocalOnly();
       writeSyncMark(row.updated_at, localSig);
       cloudStatus='synced'; patchCloudCard();
       return;
@@ -5694,6 +5769,39 @@ function computeRPEScore(dd, rpe){
 // review block names any component that sat out, so the number is never
 // silently based on less than it appears.
 var EXECUTION_WEIGHTS = { distance:0.35, pace:0.35, hr:0.20, rpe:0.10 };
+/* WHY THIS ASKS FOR `completed` AND NOT sessionRan(), which is the newer and
+   in most places the better authority.
+
+   They answer different questions on purpose. sessionRan() is the PERFORMANCE
+   boundary -- did this session happen -- and it is right for a card label, for
+   missed training and for what belongs in the athlete's record. `completed` is
+   the CONFIRMATION boundary: the athlete, or an import acting through
+   applyCompletion(), has affirmed this session as their own. An Execution
+   Score is coaching evidence: it feeds baselines, the trend, Block
+   Intelligence and the Playbook, and through them what the coach decides to do
+   next week. Evidence should rest on the confirmed record, not on the presence
+   of an attachment.
+
+   The case that makes this concrete is Strava completion drift: a run recorded
+   just past midnight lands attached and un-confirmed, because applyCompletion
+   refuses a future-dated day and stravaWriteActivity stamps the attachment
+   anyway. Widening this gate would score it immediately -- and would also
+   score every attached-but-unconfirmed day in the 180-day window
+   fetchStravaRuns() pulls, so a first Strava connect could inject a season of
+   retrospective scores into evidence the coach had already reasoned from, and
+   yesterday's decision would silently have rested on different numbers.
+
+   Nothing is lost by waiting, and that is what makes KEEP NARROW the right
+   answer rather than the cautious one: the drift is transient. The same
+   activity arriving on any later sync calls applyCompletion() again, by which
+   time the day is in the past, and it succeeds -- the score then appears
+   through this same gate with no second definition of "scored" anywhere.
+   canEditCompletion() also lets the athlete confirm any past day by hand, so
+   nothing depends on Strava coming back. See test/stravaDriftEvidence.js.
+
+   The gate is not really the flag in any case: without a distance AND a pace
+   this returns null however the day is flagged. A score is never fabricated
+   from insufficient data. */
 function computeExecutionBreakdown(dd){
   if (!dd || !dd.completed) return null;
   var a = dd.actual || {};
@@ -8621,6 +8729,20 @@ function sessionImportance(dd){
 function isQualityType(t){
   return ['threshold','interval','repetition','tempo','checkpoint','race'].indexOf(t)!==-1;
 }
+/* ---------- the phases where nothing is ever added back ----------
+   Written once because it was written four times and two of them were wrong.
+   blockDimensionRelevance() and the block-evidence minimum both name all three
+   phases; missedStimulus() and evolutionChanges() named only Taper and Race
+   Week, so FINAL WEEK -- the last week before the race, the one where cramming
+   a threshold session back in does the most damage -- was not protected at
+   all. A missed key session in that week was marked still-useful and the
+   hierarchy would reschedule it.
+
+   The rule is one rule: in a taper the plan is already the answer, and missed
+   work is absorbed rather than repaid. */
+function isTaperPhase(phase){
+  return phase==='Taper' || phase==='Race Week' || phase==='Final Week';
+}
 
 /* ---------- stimulus, not kilometres ----------
    A 60km week with the wrong stimulus is worse than a 52km week with the
@@ -8704,11 +8826,10 @@ function missedStimulus(){
     var imp = sessionImportance(dd);
     // Easy and recovery mileage is never worth rescheduling: its value was the
     // day it would have happened. Taper never makes anything up.
-    var worth = (phase!=='Taper' && phase!=='Race Week') &&
-                (imp==='KEY') && isQualityType(dd.type);
+    var worth = !isTaperPhase(phase) && (imp==='KEY') && isQualityType(dd.type);
     return { dayId:dd.id, date:dd.date, type:dd.type, km:dd.km,
              importance:imp, stimulusStillUseful:worth,
-             reason: phase==='Taper' || phase==='Race Week'
+             reason: isTaperPhase(phase)
                        ? 'Taper — volume is not made up.'
                        : imp==='KEY' && isQualityType(dd.type)
                          ? 'That threshold/interval session is still worth having this week.'
@@ -8858,7 +8979,25 @@ function planEvolution(){
     phase: phase,
     evidenceHash: evolutionEvidenceHash(dec, trends, horizon),
     originalPlanHash: planShapeHash(pending),
-    evolvedPlanHash: planShapeHash(applyChangesToCopy(pending, changes))
+    evolvedPlanHash: planShapeHash(applyChangesToCopy(pending, changes)),
+    /* WHAT THE ATHLETE IS ACTUALLY AGREEING TO.
+
+       A Playbook proposal has carried an identity since it was built, and its
+       accept/decline handlers refuse to act when the identity on screen is not
+       the identity in front of them. The fatigue hierarchy had none, so its
+       Accept applied whatever the engine computed at the moment of the tap --
+       which is not the same thing as what the athlete read.
+
+       Both halves matter, so both are in the identity. The EVIDENCE, because a
+       new readiness answer or an imported run can change what the coach is
+       reasoning from; and the PLAN THE PROPOSAL WAS COMPUTED AGAINST, because
+       the athlete can edit the very session being discussed. That second half
+       is not theoretical: a missed-stimulus reschedule does not depend on the
+       target day's distance, so an athlete who shortened that day by hand
+       could tap Accept and watch their edit replaced by a session they had
+       not been shown, with the proposal reading identical throughout. */
+    proposalId: 'ev:' + evolutionEvidenceHash(dec, trends, horizon) +
+                ':' + planShapeHash(pending)
   };
 }
 function evolutionConfidence(dec, trends, recoverable){
@@ -8915,7 +9054,7 @@ function evolutionChanges(stateName, phase, pending, recoverable){
   }
 
   // ---- rescheduling a missed KEY stimulus, where spacing allows ----
-  if (recoverable.length && phase!=='Taper' && phase!=='Race Week'){
+  if (recoverable.length && !isTaperPhase(phase)){
     var lost = recoverable[0];
     var slot = open.filter(function(dd){
       if (dd.type!=='rest' && sessionImportance(dd)!=='OPTIONAL' && sessionImportance(dd)!=='RECOVERY') return false;
@@ -9047,9 +9186,18 @@ function evolutionProposalVisible(ev){
   if (ev.playbook && (state.playbook||{}).declinedHash === ev.evidenceHash) return false;
   return true;
 }
-function handleAcceptEvolution(){
+function handleAcceptEvolution(shownId){
   var ev = planEvolution();
   if (!ev || !ev.changes.length) return;
+  /* The same rule the Playbook path has always had, for the same reason: the
+     proposal on screen is the only thing an Accept may apply. Nothing is
+     applied and nothing is recorded -- the panel simply shows what is true
+     now, and the athlete answers the question they can actually see. */
+  if (shownId && ev.proposalId !== shownId){
+    renderApp();
+    showToast('Something changed — take another look before accepting');
+    return;
+  }
   var applied = [];
   ev.changes.forEach(function(c){
     var dd = findDay(c.dayId);
@@ -9096,9 +9244,16 @@ function handleAcceptEvolution(){
   showToast(applied.length===1 ? 'Plan evolved — one session changed'
                                : 'Plan evolved — '+applied.length+' sessions changed');
 }
-function handleDeclineEvolution(){
+function handleDeclineEvolution(shownId){
   var ev = planEvolution();
   if (!ev) return;
+  /* Recording a decline against evidence the athlete never saw would silence a
+     suggestion nobody made. Same rule as the Playbook decline. */
+  if (shownId && ev.proposalId !== shownId){
+    renderApp();
+    showToast('Something changed — take another look');
+    return;
+  }
   // Respected until materially new evidence appears -- never asked again for
   // the same reasons, and never counted against the athlete.
   state.evolution = { declinedHash:ev.evidenceHash, lastAcceptedHash:(state.evolution||{}).lastAcceptedHash||null };
@@ -12908,9 +13063,15 @@ function renderEvolutionProposal(ev, where){
         (vol ? ' · volume '+(vol>0?'+':'')+vol+'km' : ' · volume unchanged'))+
       '</div></div>'+
     '<div class="coach-actions">'+
+      /* data-source, not the presence of data-proposal: both sources carry an
+         identity now, so "has an id" no longer identifies which handler owns
+         the tap. Routing on the source keeps the two paths distinct even
+         though the athlete sees one pair of buttons. */
       '<button type="button" class="btn btn-primary btn-block" data-action="accept-evolution"'+
+        ' data-source="'+(ev.playbook ? 'playbook' : 'evolution')+'"'+
         (ev.proposalId ? ' data-proposal="'+escapeHtml(ev.proposalId)+'"' : '')+'>Accept Evolution</button>'+
       '<button type="button" class="btn btn-ghost btn-block" data-action="decline-evolution"'+
+        ' data-source="'+(ev.playbook ? 'playbook' : 'evolution')+'"'+
         (ev.proposalId ? ' data-proposal="'+escapeHtml(ev.proposalId)+'"' : '')+'>Keep Current Plan</button>'+
     '</div>'+
   '</div>';
@@ -16103,12 +16264,14 @@ document.addEventListener('click', function(e){
        changes. The athlete sees one Accept and one Keep either way. */
     case 'accept-evolution': {
       var shownA = target.getAttribute('data-proposal');
-      if (shownA) handleAcceptPlaybook(shownA); else handleAcceptEvolution();
+      if (target.getAttribute('data-source')==='playbook') handleAcceptPlaybook(shownA);
+      else handleAcceptEvolution(shownA);
       break;
     }
     case 'decline-evolution': {
       var shownD = target.getAttribute('data-proposal');
-      if (shownD) handleDeclinePlaybook(shownD); else handleDeclineEvolution();
+      if (target.getAttribute('data-source')==='playbook') handleDeclinePlaybook(shownD);
+      else handleDeclineEvolution(shownD);
       break;
     }
 
