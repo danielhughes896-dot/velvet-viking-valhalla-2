@@ -6919,9 +6919,14 @@ function upsertStructuredSplit(dd, plan, row){
      they do enter. It is an assumption, but the honest one: it is exactly
      the instruction the athlete was given, and it is never applied to a
      distance-prescribed segment, where the time is the unknown. */
+  var seeded = !row.asks.time && row.presSec != null;
   var fresh = { segId:row.segId, role:row.role, label:row.label,
                 repIndex:row.repIndex || null,
-                km:null, sec:(row.asks.time ? null : (row.presSec!=null ? row.presSec : null)),
+                km:null, sec:(seeded ? row.presSec : null),
+                // Records that this time came from the prescription rather
+                // than a watch. It is also what stops a seeded row from
+                // looking "filled in" when the athlete has entered nothing.
+                secSeeded: seeded || undefined,
                 paceSec:null, hr:null };
   var order = plan.rows.map(function(r){ return r.segId; });
   var at = dd.actual.splits.findIndex(function(s){
@@ -17204,6 +17209,7 @@ function handleStructuredSplitChange(dayId, segId, field, value){
   } else if (field === 'sec'){
     var sec = value.trim()===''?null:clockToSec(value);
     s.sec = (sec!=null && sec>0) ? sec : null;
+    delete s.secSeeded;                      // an entered time is not a seeded one
   } else if (field === 'hr'){
     var hr = value===''?null:parseInt(value,10);
     s.hr = (hr!=null && !isNaN(hr) && hr>0) ? hr : null;
@@ -17211,8 +17217,10 @@ function handleStructuredSplitChange(dayId, segId, field, value){
   s.paceSec = (s.km!=null && s.km>0 && s.sec!=null) ? Math.round(s.sec/s.km) : null;
   /* A row the athlete emptied again leaves no trace: an all-null segment is
      not evidence, and keeping it would let coachSplitMetrics count rows that
-     say nothing. */
-  if (s.km==null && s.sec==null && s.hr==null){
+     say nothing. A time seeded from the prescription does not count as
+     something the athlete entered -- otherwise every rep they merely tapped
+     would survive as a phantom row carrying only its own instruction back. */
+  if (s.km==null && s.hr==null && (s.sec==null || s.secSeeded)){
     var at = dd.actual.splits.indexOf(s);
     if (at !== -1) dd.actual.splits.splice(at, 1);
   }
