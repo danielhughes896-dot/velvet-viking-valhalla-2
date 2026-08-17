@@ -6,12 +6,12 @@ const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
-// EXECUTION STRATEGY — PROTOTYPE TESTS.
+// EXECUTION STRATEGY — TESTS.
 //
-// The feature is unwired: EXECUTION_STRATEGY_ENABLED is false and no render
-// path calls any of it. These tests exercise the engine directly, which is the
-// point of building it this way — the behaviour can be proven before anybody
-// decides whether an athlete should see it.
+// The feature is live: EXECUTION_STRATEGY_ENABLED is true and it is wired into
+// "How to run this" through renderExecutionStrategyBlock, the single seam
+// proven by test 1 below. Most of what follows still exercises the engine
+// directly, since that is where the properties that matter are decided.
 //
 // Two properties matter more than any individual output. First, the strategy
 // must be a pure function of the prescription and the athlete's own zones, so
@@ -50,22 +50,32 @@ const clone = o => JSON.parse(JSON.stringify(o));
 const groovyless = s => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 
 // ---------------------------------------------------------------------------
-// 1. IT IS OFF, AND IT IS NOT REACHABLE
+// 1. IT IS LIVE, AND IT IS REACHABLE THROUGH EXACTLY ONE SEAM
 // ---------------------------------------------------------------------------
-test('1. the feature is switched off and wired to nothing', () => {
+// The prototype graduated: HQ approved Execution Strategy as CORE coaching and
+// it is now wired into the athlete-facing "How to run this" disclosure. What
+// still matters is that it did not become a second surface -- no separate
+// card, dashboard, tab or coaching voice. So instead of proving the feature is
+// unreachable, this proves it is reachable through exactly one function
+// (renderExecutionStrategyBlock), called from exactly one place
+// (renderCoachingDepth) -- never scattered across the render tree.
+test('1. the feature is switched on and reachable through exactly one seam', () => {
   const a = app();
-  assert.equal(a.EXECUTION_STRATEGY_ENABLED, false, 'the prototype must ship inert');
-  /* Reachability, not just the flag. If any render function called into the
-     strategy the flag would be the only thing standing between a prototype and
-     an athlete, and flags get flipped by accident. */
+  assert.equal(a.EXECUTION_STRATEGY_ENABLED, true, 'Execution Strategy is now CORE, per HQ');
   const code = groovyless(SRC);
   const callers = Array.from(code.matchAll(/function (render[A-Za-z]*|patch[A-Za-z]*)\(/g)).map(m => m[1]);
+  const reach = [];
   callers.forEach(fn => {
     const at = code.indexOf('function ' + fn + '(');
     const body = code.slice(at, code.indexOf('\n}', at));
-    assert.ok(!/executionStrategy(ForDisplay)?\(/.test(body),
-      fn + ' calls into the Execution Strategy prototype — it must reach no render path');
+    if (/executionStrategy(ForDisplay)?\(/.test(body)) reach.push(fn);
   });
+  assert.deepEqual(reach, ['renderExecutionStrategyBlock'],
+    'exactly one render function may call into the Execution Strategy engine — everything else must go through it');
+  const callerAt = code.indexOf('function renderCoachingDepth(');
+  const callerBody = code.slice(callerAt, code.indexOf('\n}', callerAt));
+  assert.ok(/renderExecutionStrategyBlock\(/.test(callerBody),
+    'renderExecutionStrategyBlock must be reached from "How to run this", not a new surface');
 });
 
 // ---------------------------------------------------------------------------

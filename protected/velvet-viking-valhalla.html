@@ -324,6 +324,23 @@
   /* overflow-wrap so a long pace range or an unbroken term cannot push the
      card sideways on a narrow phone; the page body must never scroll across. */
   .how-row .v{display:block; font-size:11.5px; line-height:1.5; color:var(--ink-dim); overflow-wrap:anywhere;}
+  /* A sub-heading inside the unified "How to run this" disclosure -- marks
+     where Execution or Fuel begins without becoming a card of its own. */
+  .how-row-heading{font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin:10px 0 4px; padding-top:8px; border-top:1px solid var(--line-soft);}
+  .how-row-heading:first-child{margin-top:0; padding-top:0; border-top:none;}
+  /* Execution Strategy phases -- a staged reading of the prescription, not a
+     second set of numbers. Each phase is its own compact block so a race's
+     four-to-six stages stay scannable rather than one dense paragraph. */
+  .strat-phases{display:flex; flex-direction:column; gap:8px;}
+  .strat-phase{padding:6px 0; border-bottom:1px solid var(--line-soft);}
+  .strat-phase:last-of-type{border-bottom:none; padding-bottom:0;}
+  .strat-phase-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px;}
+  .strat-phase-label{font-size:11px; font-weight:600; color:var(--ink);}
+  .strat-phase-span{font-size:10px; color:var(--ink-faint);}
+  .strat-phase-target{font-size:11.5px; color:var(--bronze-text); margin-top:2px;}
+  .strat-phase-purpose{font-size:11px; line-height:1.5; color:var(--ink-dim); margin-top:3px;}
+  .strat-phase-cue{font-size:11px; line-height:1.5; color:var(--ink-dim); margin-top:2px; font-style:italic;}
+  .strat-phase-watch{font-size:10.5px; line-height:1.5; color:var(--ink-faint); margin-top:3px;}
   .build-tag{text-align:center; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--ink-faint); opacity:.6; margin-top:18px;}
   /* Hidden file inputs are moved off-screen rather than display:none -- an
      Android WebView refuses to open the picker for an unrendered input. */
@@ -5408,16 +5425,35 @@ function renderCoachingDepth(dd){
      of an athlete who is not allowed to look something up; experience changes
      how much is written, not whether the aid exists. It stays a CLOSED
      disclosure, so an athlete who does not want it pays one line of card for
-     it and nothing else. */
+     it and nothing else.
+
+     ONE coherent home for the whole answer to "how should I run this session",
+     rather than this disclosure plus a second Fueling card sitting beside it:
+     Why -> Execution -> Feel -> Watch For -> Fuel, when relevant. Execution is
+     coachingDisclosureFor()'s existing 'how' sentence for every session that
+     does not earn a staged plan, and the Execution Strategy phases (read from
+     the exact same prescription, never a second engine) where it does --
+     never both, so nothing is said twice. Fuel reuses needsFueling()'s own
+     gate and fuelSectionBody()'s own numbers; there is no second fuelling
+     system here, only a second place its existing output is allowed to sit. */
   var gd = coachingDisclosureFor(dd, level);
   if (gd && dd.type!=='rest'){
     var row = function(k, v){
       return v ? '<div class="how-row"><span class="k">'+k+'</span><span class="v">'+escapeHtml(v)+'</span></div>' : '';
     };
+    var stratBlock = renderExecutionStrategyBlock(dd);
+    var fuelOn;
+    try { fuelOn = needsFueling(dd); } catch(e) { fuelOn = false; }
     out += '<details class="fuel-card how-card">'+
       '<summary>'+ICONS.info+'How to run this</summary>'+
       '<div class="fuel-body">'+
-        row('Why', gd.why)+ row('How', gd.how)+ row('Feel', gd.feel)+ row('Avoid', gd.avoid)+
+        row('Why', gd.why)+
+        (stratBlock
+          ? '<div class="how-row-heading">Execution</div>'+stratBlock
+          : row('Execution', gd.how))+
+        row('Feel', gd.feel)+
+        row('Watch For', gd.avoid)+
+        (fuelOn ? '<div class="how-row-heading">Fuel</div>'+fuelSectionBody(dd) : '')+
       '</div>'+
     '</details>';
   }
@@ -5441,8 +5477,7 @@ function fmtFluidEstimate(mlLow, mlHigh){
 // Same reasoning, smaller effect: a carbohydrate total carries the duration
 // estimate too, so it is rounded to the nearest 5g rather than shown exact.
 function roundCarbEstimate(g){ return Math.max(5, Math.round(g/5)*5); }
-function renderFuelingCard(dd){
-  if (!needsFueling(dd)) return '';
+function fuelSectionBody(dd){
   var durSec = getDayDurationSec(dd);
   var hours = durSec/3600;
   var band = fuelCarbRange(hours);
@@ -5450,24 +5485,26 @@ function renderFuelingCard(dd){
   var gelsLow = Math.max(1,Math.round(carbsLow/FUEL_GEL_CARB_G)), gelsHigh = Math.max(1,Math.round(carbsHigh/FUEL_GEL_CARB_G));
   var fluidLow = hours*FUEL_FLUID_ML_PER_HOUR_LO, fluidHigh = hours*FUEL_FLUID_ML_PER_HOUR_HI;
   var h = Math.floor(durSec/3600), m = Math.round((durSec%3600)/60);
+  return '<div class="fuel-row"><span class="k">Est. time-on-feet</span><span class="v font-mono">'+h+'h '+(m<10?'0':'')+m+'m</span></div>'+
+    '<div class="fuel-row"><span class="k">Carb intake</span><span class="v font-mono">'+band.lo+'\u2013'+band.hi+'g/hr</span></div>'+
+    '<div class="fuel-row"><span class="k">Total carbs (est.)</span><span class="v font-mono">\u2248'+carbsLow+'\u2013'+carbsHigh+'g</span></div>'+
+    '<div class="fuel-row"><span class="k">Gels / chews (\u2248'+FUEL_GEL_CARB_G+'g each)</span><span class="v font-mono">'+gelsLow+'\u2013'+gelsHigh+'</span></div>'+
+    '<div class="fuel-row"><span class="k">Fluid guide (est.)</span><span class="v font-mono">'+fmtFluidEstimate(fluidLow, fluidHigh)+'</span></div>'+
+    /* The upper carbohydrate end is conditional, so it is never shown as a
+       bare number the athlete might read as a target. */
+    (band.prolonged
+      ? '<div class="fuel-hint">The top of that range is for well-practised guts and needs a mixed-carbohydrate product \u2014 build up to it in training rather than treating it as the target.</div>'
+      : '')+
+    /* Fluid is a starting point, not a quota. ACSM\u2019s own emphasis is that
+       sweat rate varies enormously between athletes and conditions. */
+    '<div class="fuel-hint">Fluid is a starting guide, not a target \u2014 sweat rates vary a lot, so drink to thirst and adjust for the heat rather than forcing the number.</div>'+
+    '<div class="fuel-hint">Dial this in during training \u2014 don\u2019t try anything new on '+vGoalDay().toLowerCase()+'.</div>';
+}
+function renderFuelingCard(dd){
+  if (!needsFueling(dd)) return '';
   return '<details class="fuel-card">'+
     '<summary>'+ICONS.zap+'Fueling &amp; Hydration Strategy</summary>'+
-    '<div class="fuel-body">'+
-      '<div class="fuel-row"><span class="k">Est. time-on-feet</span><span class="v font-mono">'+h+'h '+(m<10?'0':'')+m+'m</span></div>'+
-      '<div class="fuel-row"><span class="k">Carb intake</span><span class="v font-mono">'+band.lo+'\u2013'+band.hi+'g/hr</span></div>'+
-      '<div class="fuel-row"><span class="k">Total carbs (est.)</span><span class="v font-mono">\u2248'+carbsLow+'\u2013'+carbsHigh+'g</span></div>'+
-      '<div class="fuel-row"><span class="k">Gels / chews (\u2248'+FUEL_GEL_CARB_G+'g each)</span><span class="v font-mono">'+gelsLow+'\u2013'+gelsHigh+'</span></div>'+
-      '<div class="fuel-row"><span class="k">Fluid guide (est.)</span><span class="v font-mono">'+fmtFluidEstimate(fluidLow, fluidHigh)+'</span></div>'+
-      /* The upper carbohydrate end is conditional, so it is never shown as a
-         bare number the athlete might read as a target. */
-      (band.prolonged
-        ? '<div class="fuel-hint">The top of that range is for well-practised guts and needs a mixed-carbohydrate product \u2014 build up to it in training rather than treating it as the target.</div>'
-        : '')+
-      /* Fluid is a starting point, not a quota. ACSM\u2019s own emphasis is that
-         sweat rate varies enormously between athletes and conditions. */
-      '<div class="fuel-hint">Fluid is a starting guide, not a target \u2014 sweat rates vary a lot, so drink to thirst and adjust for the heat rather than forcing the number.</div>'+
-      '<div class="fuel-hint">Dial this in during training \u2014 don\u2019t try anything new on '+vGoalDay().toLowerCase()+'.</div>'+
-    '</div>'+
+    '<div class="fuel-body">'+fuelSectionBody(dd)+'</div>'+
   '</details>';
 }
 
@@ -5560,7 +5597,6 @@ function renderDayCard(dd){
           (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
           '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>'+
           renderCoachingDepth(dd)+
-          renderFuelingCard(dd)+
           renderAdjustedDetail(dd)+
         '</div>'+
       '</div>'+
@@ -5716,10 +5752,11 @@ function executionHRTarget(dd){
 /* =========================================================
    EXECUTION STRATEGY — PROTOTYPE, NOT WIRED
    ---------------------------------------------------------
-   PROTOTYPE STATUS. Nothing below is reachable from any render path.
-   EXECUTION_STRATEGY_ENABLED is false and is the only seam; the pattern is
-   SIGNED_OUT_LANDING_ENABLED's, deliberately, so the code can be tested
-   against the real engine without existing for an athlete.
+   LIVE, IN THE PRIVATE BETA. Reachable through exactly one seam:
+   renderCoachingDepth()'s EXECUTION section, inside the existing "How to run
+   this" disclosure -- the same pattern SIGNED_OUT_LANDING_ENABLED established,
+   now switched on rather than proven off. See the presentation layer just
+   above renderCoachingDepth for the one call site.
 
    WHAT THIS IS. The prescription already says WHAT to run. ARCHETYPE_GUIDANCE
    already says how to run it, as one paragraph about the whole session. What is
@@ -5745,7 +5782,7 @@ function executionHRTarget(dd){
    existed. Every question in a staleness matrix answers itself.
    ========================================================= */
 var EXECUTION_STRATEGY_VERSION = 1;
-var EXECUTION_STRATEGY_ENABLED = false;
+var EXECUTION_STRATEGY_ENABLED = true;
 
 /* Phase vocabulary. Six words, each earning its place by naming a distinct
    instruction; RACE is deliberately absent because "race" is not something to
@@ -6214,6 +6251,76 @@ function executionStrategyForDisplay(dd){
                purpose:ph.purpose, cue:ph.cue };
     })
   };
+}
+
+/* ---------- Execution Strategy presentation ----------
+   Formats numbers executionStrategyForDisplay() already computed; invents
+   none. paceRole controls the WORDS around a pace, never the pace itself --
+   'ceiling' reads as a limit with permission to go slower (the fast edge of
+   the band only, since a ceiling caps how fast, not how slow); 'open' is
+   tagged conditional rather than dressed up as a flat instruction; 'target'
+   (the default) is the ordinary band every other pace reference in the app
+   already uses. This is the one call site EXECUTION_STRATEGY_ENABLED gates. */
+function fmtStrategyPace(pace, paceRole){
+  if (!pace || pace.fast==null) return null;
+  var unit = displayUnit();
+  var toDisp = function(s){ return state.units==='mi' ? s*1.60934 : s; };
+  var lo = secToPace(toDisp(pace.fast));
+  if (paceRole==='ceiling') return 'no faster than '+lo+'/'+unit;
+  if (pace.slow==null || pace.fast===pace.slow) return lo+'/'+unit;
+  var hi = secToPace(toDisp(pace.slow));
+  return lo+'–'+hi+'/'+unit;
+}
+function fmtStrategyHR(hr){
+  if (!hr || hr.lo==null) return null;
+  return hr.hi!=null ? (hr.lo+'–'+hr.hi+' BPM') : ('>'+hr.lo+' BPM');
+}
+// Distance markers when the session is measured in distance; a duration when
+// it is measured in time; a rep count for a set. Never more than one of these
+// -- strategyPhase() itself never sets more than one, so this is a read, not
+// a choice.
+function fmtStrategySpan(ph){
+  if (ph.from!=null && ph.to!=null) return fmtDist(ph.from)+'–'+fmtDist(ph.to);
+  if (ph.to!=null) return 'to '+fmtDist(ph.to);
+  if (ph.from!=null) return 'from '+fmtDist(ph.from);
+  if (ph.sec!=null) return Math.round(ph.sec/60)+'min';
+  if (ph.reps!=null) return '×'+ph.reps;
+  return '';
+}
+function renderStrategyPhase(ph){
+  var target = fmtStrategyPace(ph.pace, ph.paceRole);
+  var hr = fmtStrategyHR(ph.hr);
+  var targetLine = [target, hr].filter(function(x){ return x; }).join(' · ');
+  if (!targetLine && ph.effort) targetLine = ph.effort;
+  // 'Conditional' is HQ's own word for paceRole 'open' -- available only if
+  // the earlier phases were executed. The number itself is unchanged; only
+  // this tag marks it as conditional rather than a flat command.
+  var tag = ph.paceRole==='open' ? '<span class="pzr-tag">Conditional</span>' : '';
+  var span = fmtStrategySpan(ph);
+  return '<div class="strat-phase">'+
+    '<div class="strat-phase-head"><span class="strat-phase-label">'+escapeHtml(ph.label)+'</span>'+
+      (span?'<span class="strat-phase-span font-mono">'+escapeHtml(span)+'</span>':'')+
+    '</div>'+
+    (targetLine?'<div class="strat-phase-target font-mono">'+escapeHtml(targetLine)+tag+'</div>':'')+
+    (ph.purpose?'<div class="strat-phase-purpose">'+escapeHtml(ph.purpose)+'</div>':'')+
+    (ph.cue?'<div class="strat-phase-cue">'+escapeHtml(ph.cue)+'</div>':'')+
+    (ph.watch?'<div class="strat-phase-watch">'+escapeHtml(ph.watch)+'</div>':'')+
+  '</div>';
+}
+// The EXECUTION section's content when the session earns one. Suppressed
+// (recover state) and ineligible sessions both return '' here, deliberately
+// identical -- renderCoachingDepth() falls back to the plain existing 'how'
+// sentence in both cases, rather than a second explanation of why there is
+// no staged plan today; Next Move and Plan Evolution already say that. A
+// malformed/incomplete prescription (hand-edited fixture, legacy day) is
+// treated the same way rather than crashing the whole card -- "How to run
+// this" must survive a day it cannot stage a plan for.
+function renderExecutionStrategyBlock(dd){
+  if (!EXECUTION_STRATEGY_ENABLED) return '';
+  var s;
+  try { s = executionStrategyForDisplay(dd); } catch(e) { return ''; }
+  if (!s || s.suppressed || !s.phases || !s.phases.length) return '';
+  return '<div class="strat-phases">'+s.phases.map(renderStrategyPhase).join('')+'</div>';
 }
 
 /* =========================================================
