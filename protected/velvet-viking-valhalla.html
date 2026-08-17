@@ -572,7 +572,6 @@
   .zone-paces-card{margin:14px 14px 0; padding:14px 15px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);}
   .zpc-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;}
   .zpc-head span:first-child{font-size:13px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
-  .zpc-vdot{font-size:11px; color:var(--bronze-text);}
   .pzr{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line-soft);}
   .pzr:last-of-type{border-bottom:none;}
   .pzr-label{font-size:12.5px; color:var(--ink-dim); flex:1; min-width:0;}
@@ -594,7 +593,6 @@
   .pace-ref-card{margin:14px 0 0; padding:12px 15px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);}
   .pace-ref-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;}
   .pace-ref-head span:first-child{font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
-  .pace-ref-vdot{font-size:11px; color:var(--bronze-text);}
   .pace-ref-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid var(--line-soft); font-size:12px;}
   .pace-ref-row:last-of-type{border-bottom:none;}
   .pace-ref-label{color:var(--ink-dim);}
@@ -1061,7 +1059,6 @@
 
   .goal-toggle-hero{margin-top:16px;}
   .goal-toggle-hero .goal-options{margin-top:8px;}
-  .goal-opt .vdot-tag{font-size:9px; color:var(--ink-faint); margin-top:1px; font-family:'JetBrains Mono',monospace;}
 
   .pace-table{width:100%; border-collapse:collapse; margin-top:10px; font-size:11.5px;}
   .pace-table th, .pace-table td{padding:7px 6px; text-align:center; border-bottom:1px solid var(--line-soft);}
@@ -4749,10 +4746,9 @@ function renderGoalButtons(){
     var g = state.setup.goals[k];
     if (!g || !g.timeSec) return '';
     var active = state.setup.activeGoal===k ? ' active' : '';
-    var vdot = vdotFromPerformance(profile.raceKm*1000, g.timeSec);
     return '<button type="button" class="goal-opt'+active+'" data-action="set-goal" data-goal="'+k+'">'+
       '<div class="t font-mono">'+k+'</div><div class="p font-mono">'+secToClock(g.timeSec)+'</div>'+
-      '<div class="vdot-tag">VDOT '+vdot.toFixed(1)+'</div></button>';
+      '</button>';
   }).join('');
   return '<div class="goal-options">'+opts+'</div>';
 }
@@ -4817,7 +4813,6 @@ function renderPlanOverviewStats(){
 // zone-paces-card (with override inputs) lives in Plan HQ instead.
 function renderCompactPaceReference(){
   if (!state.setup) return '';
-  var vdot = getActiveVDOT();
   var paces = getActivePaces();
   var hrZones = getActiveHRZones();
   var unit = displayUnit();
@@ -4837,7 +4832,7 @@ function renderCompactPaceReference(){
       '<span class="pace-ref-val font-mono">'+secToPace(toDisplaySec(z.fast))+'\u2013'+secToPace(toDisplaySec(z.slow))+'/'+unit+'</span></div>';
   }).join('');
   return '<div class="pace-ref-card">'+
-    '<div class="pace-ref-head"><span class="font-head">Pace Reference</span><span class="pace-ref-vdot font-mono">VDOT '+(vdot?vdot.toFixed(1):'\u2014')+'</span></div>'+
+    '<div class="pace-ref-head"><span class="font-head">Pace Reference</span></div>'+
     rows+
   '</div>';
 }
@@ -4862,7 +4857,6 @@ var ZONE_PACE_LABELS = {E:'Easy / Recovery',M:'Tempo',T:'Threshold',I:'Interval 
 var ZONE_PACE_ORDER = ['E','M','T','I','R'];
 function renderZonePacesCard(){
   if (!state.setup) return '';
-  var vdot = getActiveVDOT();
   var paces = getActivePaces();
   var hrZones = getActiveHRZones();
   var overrides = state.setup.paceOverrides || {};
@@ -4891,7 +4885,7 @@ function renderZonePacesCard(){
   var hrHint = (state.setup.lthr==null) ? ' Set your LTHR/Max HR (Edit Plan Settings) to also see target HR ranges here.' : '';
 
   return '<div class="zone-paces-card">'+
-    '<div class="zpc-head"><span class="font-head">Training Zone Paces</span><span class="zpc-vdot font-mono">VDOT '+(vdot?vdot.toFixed(1):'—')+'</span></div>'+
+    '<div class="zpc-head"><span class="font-head">Training Zone Paces</span></div>'+
     '<div class="field-hint" style="margin-bottom:10px;">Edit any pace by hand to fine-tune it — edits stick until reset or re-calibrated from a new goal/benchmark.'+hrHint+'</div>'+
     rows+
     (anyOverride ? '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:10px;" data-action="reset-pace-overrides">'+ICONS.zap+' Reset to Calculated Paces</button>' : '')+
