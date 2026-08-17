@@ -2290,6 +2290,122 @@ function segmentsFor(p){
   }
   return null;
 }
+/* =========================================================
+   ORDERED SEGMENTS — the prescription in the order it is run
+   ---------------------------------------------------------
+   segmentsFor() returns the workout as a TREE, and the two existing walkers
+   (segmentDistanceMix, structuredZoneTime) flatten it children-first because
+   they only ever needed totals: all five reps, then all four recoveries.
+   That is correct arithmetic and useless as a running order.
+
+   An athlete logging a session runs rep 1, recovery 1, rep 2 -- so this
+   emits the leaves INTERLEAVED, which is the one genuinely new thing the
+   structured log needs. It computes no distances, no paces and no
+   cardinality of its own: repeatChildCount() remains the single authority
+   on how many times a child happens, which is what keeps fartlek at 5 reps
+   and 4 recoveries while hill repeats stay 8 and 8.
+
+   Each leaf carries a stable `segId` derived from its position, so an actual
+   logged against it can be matched back after a reload without depending on
+   array order, and `repIndex` so "rep 3" means rep 3 to the athlete, the
+   renderer and the review alike.
+   ========================================================= */
+function orderedSegments(p){
+  var segs = segmentsFor(p);
+  if (!segs) return null;
+  var out = [];
+  // `path` makes the id stable and unique without a counter that would
+  // renumber everything when a rung or a set is added.
+  (function walk(list, path, inRepeat){
+    (list||[]).forEach(function(s, i){
+      var here = path + '.' + i;
+      if (s.kind === 'repeat'){
+        var times = s.times || 1;
+        for (var n = 0; n < times; n++){
+          s.children.forEach(function(c, ci){
+            /* The cardinality rule, borrowed rather than restated: a
+               'between' recovery does not happen after the final rep, so on
+               the last pass its child is simply skipped. repeatChildCount
+               already knows this; asking it per-child keeps hill repeats
+               ('after_each') working with no special case here. */
+            if (repeatChildCount(s, c) <= n) return;
+            walk([c], here + '.' + n + '.' + ci, true);
+          });
+        }
+        return;
+      }
+      out.push({
+        segId: here,
+        kind: s.kind,                                  // 'work' | 'recovery'
+        // Only a segment that came out of a repeat is a "rep". The 8km base
+        // of an easy_strides session is a work segment too, and calling it
+        // "Rep 1" would be nonsense.
+        inRepeat: !!inRepeat,
+        role: s.role || (s.kind === 'recovery' ? 'recovery' : 'work'),
+        intensity: s.intensity,
+        km: s.km != null ? s.km : null,
+        m:  s.m  != null ? s.m  : null,
+        sec: s.sec != null ? s.sec : null,
+        qualifier: s.qualifier || null,
+        maximal: !!s.maximal,
+        terrain: s.terrain || null
+      });
+    });
+  })(segs, 's');
+  /* Rep/recovery numbering the athlete recognises: "Rep 3", "Recovery 2".
+     Numbered by INTENSITY GROUP rather than by "came out of a repeat",
+     because a ladder is five genuine reps that segmentsFor() emits as five
+     separate segments rather than a repeat -- numbering only repeat children
+     would show the athlete five identical rows called "Interval". Grouping
+     also keeps the 8km base of a strides session out of the rep count: it is
+     the only 'easy' work segment, so it stays "Easy" while the six
+     'repetition' segments become Rep 1-6. */
+  var groupSize = {};
+  out.forEach(function(s){
+    if (s.role === 'warmup' || s.role === 'cooldown') return;
+    var key = s.kind === 'recovery' ? 'recovery' : 'work:' + s.intensity;
+    groupSize[key] = (groupSize[key] || 0) + 1;
+  });
+  var seen = {};
+  out.forEach(function(s){
+    if (s.role === 'warmup' || s.role === 'cooldown') return;
+    var key = s.kind === 'recovery' ? 'recovery' : 'work:' + s.intensity;
+    seen[key] = (seen[key] || 0) + 1;
+    s.grouped = groupSize[key] > 1;
+    if (s.grouped) s.repIndex = seen[key];
+  });
+  return out;
+}
+/* What the athlete was actually asked to do, in words, for ONE segment.
+   Returns null where the prescription genuinely carries no number -- a
+   fartlek warm-up, a hill-repeat descent, a ladder recovery "scaled to each
+   rep". Those are rules, not quantities, and printing a number there would
+   invent a prescription that does not exist. The caller renders nothing
+   rather than a fabricated target. */
+var SEGMENT_QUALIFIER_TEXT = {
+  scaled:'scaled to the rep', short:'short', full:'full recovery',
+  back_down:'jog/walk back down', equal_time:'equal time', float:'floating'
+};
+function segmentPrescribed(s){
+  if (!s) return null;
+  if (s.km != null) return fmtDist(s.km);
+  if (s.m != null)  return s.m + 'm';
+  if (s.sec != null) return s.sec >= 60 ? Math.round(s.sec/60) + 'min' : s.sec + 's';
+  return SEGMENT_QUALIFIER_TEXT[s.qualifier] || null;
+}
+/* Which actual is worth asking for. A segment prescribed as a DISTANCE is
+   logged by the time it took; one prescribed as a TIME is logged by the
+   distance covered. Asking for both would be asking the athlete to hand back
+   the prescription, and pace is derived from the pair either way. A segment
+   with no prescribed quantity at all gets both fields, because nothing about
+   it is known in advance. */
+function segmentAsksFor(s){
+  if (!s) return { dist:true, time:true };
+  if (s.km != null || s.m != null) return { dist:false, time:true };
+  if (s.sec != null) return { dist:true, time:false };
+  return { dist:true, time:true };
+}
+
 /* ---- when a session stops matching its prescription ----
    One rule, used by every path that rewrites a day: an archetype whose only
    parameter IS the whole-day distance still describes the session after a
@@ -6569,6 +6685,114 @@ function emptyActual(){ return { km:null, pace:null, hr:null, rpe:null, feel:nul
    second, possibly contradictory number.
    ========================================================= */
 function emptySplit(){ return { km:null, sec:null, paceSec:null, hr:null }; }
+
+/* =========================================================
+   STRUCTURED LOGGING PLAN — one deterministic mapping, two sources
+   ---------------------------------------------------------
+   Neither available structure is right for every session, and the evidence
+   for that is not an opinion:
+
+     long run   -- raw segments give ONE row ("20km easy"); Execution
+                   Strategy gives Settle / Hold. Phases win.
+     race       -- raw segments give ONE row; Strategy gives four. Phases win.
+     intervals  -- Strategy collapses every rep into a single "Press" phase;
+                   raw segments give warm-up, five reps, four recoveries and
+                   a cool-down. Segments win.
+     threshold  -- both give warm-up / work / cool-down. Identical, so the
+                   cheaper and more literal source (segments) is used.
+
+   So the mapping switches on what the session actually IS, and both sources
+   already exist and are already tested. Nothing here computes a distance, a
+   pace or a rep count of its own.
+
+   Returns null when there is nothing worth structuring -- an easy run is one
+   row, and one row is a worse version of the flat editor, not a better one.
+   The caller falls back to flat splits, which is also what happens for a day
+   with no prescription at all. */
+function structuredLoggingPlan(dd){
+  if (!dd || dd.type === 'rest') return null;
+  var p = prescriptionOf(dd);
+  var segs = p ? orderedSegments(p) : null;
+
+  /* PHASE-SOURCED, and deliberately only here: a session whose ENTIRE
+     prescription is one or two continuous blocks with no warm-up, cool-down
+     or recovery of its own -- a long run, a goal-finish long run, a race.
+     For those, raw segments give a single useless row and Strategy's
+     Settle/Hold/Commit is a real improvement.
+
+     A FLANKED session (threshold, tempo, time trial) is deliberately NOT
+     routed here even though Strategy would also produce three phases, and
+     the reason is false precision: segmentsFor() gives a steady_tempo a
+     warm-up with NO prescribed distance ("Easy warm-up jog"), while the
+     Strategy phase for the same session reports "from 0km" / "to 10km" --
+     boundaries derived from the day's total, not prescribed anywhere. Those
+     are fine as reading guidance in "How to run this", where they are framed
+     as a strategy; presenting them as the thing the athlete was told to run,
+     and asking for actuals against them, would invent a prescription. Raw
+     segments say "Warm up -- no prescribed distance" and ask honestly. */
+  var noFlanks = segs && !segs.some(function(s){
+    return s.role === 'warmup' || s.role === 'cooldown' || s.kind === 'recovery';
+  });
+  var oneBlock = noFlanks && segs.length <= 2;
+  if (oneBlock){
+    var strat = null;
+    try { strat = executionStrategy(dd); } catch(e) { strat = null; }
+    if (strat && !strat.suppressed && strat.phases && strat.phases.length > 1){
+      return {
+        source: 'phases',
+        rows: strat.phases.map(function(ph, i){
+          return {
+            segId: 'p.' + i,
+            label: ph.label,
+            role: 'phase',
+            kind: 'work',
+            // A phase bounded by distance is logged by the time it took; the
+            // boundary is already on screen, so re-typing it is pointless.
+            prescribed: fmtStrategySpan(ph) || null,
+            asks: (ph.from != null || ph.to != null) ? { dist:false, time:true }
+                                                     : { dist:true, time:true }
+          };
+        })
+      };
+    }
+  }
+
+  /* SEGMENT-SOURCED: everything with real internal structure. */
+  if (segs && segs.length > 1){
+    return {
+      source: 'segments',
+      rows: segs.map(function(s){
+        return {
+          segId: s.segId,
+          label: segmentLabel(s),
+          role: s.role,
+          kind: s.kind,
+          repIndex: s.repIndex || null,
+          prescribed: segmentPrescribed(s),
+          asks: segmentAsksFor(s)
+        };
+      })
+    };
+  }
+  return null;
+}
+/* What the athlete calls each row. Garmin's own vocabulary, because it is
+   also the athlete's: Warm Up, Rep 3, Recovery 2, Cool Down. A work segment
+   that is NOT part of a repeat is named for what it is instead -- the 8km
+   base of a strides session is not "Rep 1", and the threshold block of a
+   threshold session is not "Rep 1" either. */
+var INTENSITY_SEGMENT_LABEL = {
+  easy:'Easy', steady:'Steady', tempo:'Tempo', threshold:'Threshold',
+  interval:'Interval', repetition:'Strides', goal_pace:'Goal pace',
+  hard_effort:'Hard effort'
+};
+function segmentLabel(s){
+  if (s.role === 'warmup') return 'Warm up';
+  if (s.role === 'cooldown') return 'Cool down';
+  if (s.kind === 'recovery') return 'Recovery' + (s.repIndex ? ' ' + s.repIndex : '');
+  if (s.grouped) return 'Rep' + (s.repIndex ? ' ' + s.repIndex : '');
+  return INTENSITY_SEGMENT_LABEL[s.intensity] || 'Work';
+}
 
 // Ephemeral like dayExpandOverride -- deliberately not persisted, so a
 // closed editor stays closed on the next launch rather than the app
