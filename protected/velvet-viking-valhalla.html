@@ -3750,6 +3750,78 @@ function writeSyncMark(updatedAt, signature){
   writeStored(CLOUD_SYNC_KEY, { updated_at:updatedAt||null, signature:signature });
 }
 
+/* ---------- the decisions an athlete made about a plan both devices share ----
+   THE PROBLEM. cloudPutPlan() uploads the whole state, so a decline recorded
+   on the phone genuinely reaches the account. planContentSignature() signs
+   setup and day content and deliberately NOT the decline ledgers -- which is
+   right, because a decline is not training content and signing it would make
+   two devices that agree about every session look like they disagree, and
+   manufacture a conflict modal out of nothing.
+
+   Both facts are correct, and together they lost the answer: the identical-
+   content branch returns without adopting anything, so the athlete declines a
+   proposal on their phone, opens the laptop, and is asked the identical
+   question again. That is the one thing this product promises never to do.
+
+   THE RULE, and it is deliberately the conservative one.
+
+   Only four keys cross, and every one of them is a record of something the
+   ATHLETE decided -- never a session, never a preference, never a device's own
+   settings. Anything outside this list stays exactly where it is, so this
+   cannot become last-write-wins over unrelated state.
+
+   A local answer is never overwritten. An absent remote ledger never erases a
+   local one, and a remote ledger carrying no answer is not a newer answer --
+   it is silence. So the only thing that crosses is an answer arriving where
+   there was none, which is precisely the case that was broken.
+
+   The histories are unioned rather than replaced, de-duplicated on the
+   identity of the decision itself: the same question, answered the same way,
+   on the same day is ONE answer that two devices happened to record, not two.
+   That keeps one true history without either side's record being thrown away.
+
+   Only reached on the identical-content path. Where the training genuinely
+   differs, the existing reconciliation owns the outcome and this has no
+   opinion about it. */
+var RECONCILED_DECISION_KEYS = ['evolution', 'evolutionHistory', 'playbook', 'playbookHistory'];
+function ledgerHasAnswer(l){
+  if (!l || typeof l !== 'object') return false;
+  return !!(l.declinedHash || l.lastAcceptedHash || l.status || l.lastDecision);
+}
+function mergeDecisionHistory(mine, theirs, cap){
+  var seen = {}, out = [];
+  (mine||[]).concat(theirs||[]).forEach(function(e){
+    if (!e) return;
+    var k = [e.date||'', e.evidenceHash||'', e.accepted===undefined ? (e.status||'') : String(e.accepted)].join('|');
+    if (seen[k]) return;
+    seen[k] = true; out.push(e);
+  });
+  out.sort(function(a,b){ return String(a.at||'') < String(b.at||'') ? -1 : 1; });
+  return cap && out.length > cap ? out.slice(-cap) : out;
+}
+function adoptDecisionLedgers(remote){
+  if (!remote || typeof remote !== 'object') return false;
+  var before = stableStringify({
+    e: state.evolution || null, p: state.playbook || null,
+    eh: (state.evolutionHistory||[]).length, ph: (state.playbookHistory||[]).length
+  });
+
+  if (!ledgerHasAnswer(state.evolution) && ledgerHasAnswer(remote.evolution))
+    state.evolution = JSON.parse(JSON.stringify(remote.evolution));
+  if (!ledgerHasAnswer(state.playbook) && ledgerHasAnswer(remote.playbook))
+    state.playbook = JSON.parse(JSON.stringify(remote.playbook));
+
+  var eh = mergeDecisionHistory(state.evolutionHistory, remote.evolutionHistory, 60);
+  if (eh.length) state.evolutionHistory = eh;
+  var ph = mergeDecisionHistory(state.playbookHistory, remote.playbookHistory, PLAYBOOK_HISTORY_MAX);
+  if (ph.length) state.playbookHistory = ph;
+
+  return stableStringify({
+    e: state.evolution || null, p: state.playbook || null,
+    eh: (state.evolutionHistory||[]).length, ph: (state.playbookHistory||[]).length
+  }) !== before;
+}
+
 /* ---------- reconcile ---------- */
 function planSummary(st){
   if (!st || !st.setup) return 'empty plan';
@@ -3833,8 +3905,11 @@ function cloudReconcile(){
     var remoteSig = planContentSignature(remote);
 
     // Same training content on both sides. Timestamps and device preferences
-    // can differ all they like -- there is nothing here to resolve.
+    // can differ all they like -- there is nothing here to resolve about the
+    // TRAINING. The decisions the athlete made about it are a different
+    // question, and adoptDecisionLedgers() answers it.
     if (localSig===remoteSig){
+      if (adoptDecisionLedgers(remote)) persistStateLocalOnly();
       writeSyncMark(row.updated_at, localSig);
       cloudStatus='synced'; patchCloudCard();
       return;
@@ -5694,6 +5769,39 @@ function computeRPEScore(dd, rpe){
 // review block names any component that sat out, so the number is never
 // silently based on less than it appears.
 var EXECUTION_WEIGHTS = { distance:0.35, pace:0.35, hr:0.20, rpe:0.10 };
+/* WHY THIS ASKS FOR `completed` AND NOT sessionRan(), which is the newer and
+   in most places the better authority.
+
+   They answer different questions on purpose. sessionRan() is the PERFORMANCE
+   boundary -- did this session happen -- and it is right for a card label, for
+   missed training and for what belongs in the athlete's record. `completed` is
+   the CONFIRMATION boundary: the athlete, or an import acting through
+   applyCompletion(), has affirmed this session as their own. An Execution
+   Score is coaching evidence: it feeds baselines, the trend, Block
+   Intelligence and the Playbook, and through them what the coach decides to do
+   next week. Evidence should rest on the confirmed record, not on the presence
+   of an attachment.
+
+   The case that makes this concrete is Strava completion drift: a run recorded
+   just past midnight lands attached and un-confirmed, because applyCompletion
+   refuses a future-dated day and stravaWriteActivity stamps the attachment
+   anyway. Widening this gate would score it immediately -- and would also
+   score every attached-but-unconfirmed day in the 180-day window
+   fetchStravaRuns() pulls, so a first Strava connect could inject a season of
+   retrospective scores into evidence the coach had already reasoned from, and
+   yesterday's decision would silently have rested on different numbers.
+
+   Nothing is lost by waiting, and that is what makes KEEP NARROW the right
+   answer rather than the cautious one: the drift is transient. The same
+   activity arriving on any later sync calls applyCompletion() again, by which
+   time the day is in the past, and it succeeds -- the score then appears
+   through this same gate with no second definition of "scored" anywhere.
+   canEditCompletion() also lets the athlete confirm any past day by hand, so
+   nothing depends on Strava coming back. See test/stravaDriftEvidence.js.
+
+   The gate is not really the flag in any case: without a distance AND a pace
+   this returns null however the day is flagged. A score is never fabricated
+   from insufficient data. */
 function computeExecutionBreakdown(dd){
   if (!dd || !dd.completed) return null;
   var a = dd.actual || {};
@@ -6169,9 +6277,21 @@ var NOTE_SIGNAL_RULES = [
     re:/\b(stiff|stiffness|tight|tightness|locked\s+up)\b/i,
     vetoes:[/\btight\s+(turn|bend|corner|schedule|window)\b/i] },
   { id:'pain', cat:'physical', concept:'pain', label:'Pain', strength:3, flag:'pain',
-    re:/\b(pain|painful|injur\w+|strained|sharp\s+\w+|shooting|cramp|cramped|cramping|pulled\s+\w+)\b/i,
+    /* `hurt` joined this list because an athlete writing "my shin hurts" was
+       reporting pain and the coach could not see it. That is the exact shape
+       of the failure the safety boundary exists to prevent: the note said
+       "flew along, though my shin hurts", the numbers were excellent, and with
+       only the numbers visible the coach read a good week. Positive training
+       evidence must never be the only thing left standing after a pain report
+       is dropped on the floor.
+
+       The two vetoes below it are the running vernacular for effort, exactly
+       like the pain cave: "the hurt locker" and "a world of hurt" are how
+       runners describe a hard finish, not a symptom. */
+    re:/\b(pain|painful|injur\w+|strained|sharp\s+\w+|shooting|cramp|cramped|cramping|pulled\s+\w+|hurt|hurts|hurting)\b/i,
     // the pain cave is a metaphor for effort, not a symptom
-    vetoes:[/\bpain\s+(cave|train|barrier)\b/i, /\bno\s+pain\s+no\s+gain\b/i, /\bpain[\s-]?free\b/i] },
+    vetoes:[/\bpain\s+(cave|train|barrier)\b/i, /\bno\s+pain\s+no\s+gain\b/i, /\bpain[\s-]?free\b/i,
+            /\bhurt\s*locker\b/i, /\bworld\s+of\s+hurt\b/i, /\bhurt\s+(so\s+)?good\b/i] },
   { id:'niggle', cat:'physical', concept:'pain', label:'Niggle', strength:2, flag:'pain',
     re:/\b(niggle|niggling|twinge|grumbl\w+)\b/i, vetoes:[] },
   { id:'illness', cat:'physical', concept:'illness', label:'Illness', strength:3, flag:'illness',
@@ -6735,29 +6855,36 @@ function coachDecision(){
      the two concepts stand side by side, which is the only case that should
      score higher than either alone. */
   if (recovery.state === 'strained' && recovery.overRPE > 0 && recovery.overHR > 0)
-    add('effort', 4, 'Effort and heart rate have both been above target this week');
+    add(EVIDENCE_CONCEPT.effort, 4, 'Effort and heart rate have both been above target this week');
   else if (recovery.state === 'strained' && recovery.overRPE > 0)
-    add('effort', 4, 'Effort has been above target on '+recovery.overRPE+' sessions this week');
+    add(EVIDENCE_CONCEPT.effort, 4, 'Effort has been above target on '+recovery.overRPE+' sessions this week');
   else if (recovery.state === 'strained' && recovery.overHR > 0)
-    add('hr', 4, 'Heart rate has been above target on '+recovery.overHR+' sessions this week');
-  else if (recovery.overRPE >= 2) add('effort', 2, 'Effort above band on '+recovery.overRPE+' sessions this week');
-  if (recovery.overHR >= 2) add('hr', 2, recovery.overHR+' sessions this week averaged above their heart-rate zone');
+    add(EVIDENCE_CONCEPT.hrCost, 4, 'Heart rate has been above target on '+recovery.overHR+' sessions this week');
+  else if (recovery.overRPE >= 2) add(EVIDENCE_CONCEPT.effort, 2, 'Effort above band on '+recovery.overRPE+' sessions this week');
+  if (recovery.overHR >= 2) add(EVIDENCE_CONCEPT.hrCost, 2, recovery.overHR+' sessions this week averaged above their heart-rate zone');
   if (recovery.hardStreak >= 3) add('streak', 1, recovery.hardStreak+' quality days in a row without an easy day');
-  if (trend.direction === 'falling') add('execution', 2, 'Execution has been slipping across recent sessions');
+  if (trend.direction === 'falling') add(EVIDENCE_CONCEPT.execution, 2, 'Execution has been slipping across recent sessions');
   if (load.band === 'spike') add('load', 2, 'This week is '+load.ratio.toFixed(2)+'x your four-week average');
 
   // ---- historical patterns, from the one place that detects them ----
+  /* Grouping unchanged from before the vocabulary was unified; only the names
+     moved. easy_efficiency_down is grouped with the heart-rate signal HERE and
+     nowhere else, because in this layer it is being weighed against an acute
+     heart-rate excursion -- athleteTrends() lets that trend compute its own
+     concept from whichever of pace or heart rate actually moved, which is the
+     finer answer and the right one for the Playbook's pattern count. */
   var CONCEPT_OF_TREND = {
-    easy_hr_elevated:'hr', easy_efficiency_down:'hr',
-    rpe_elevated_easy:'effort', rpe_elevated_quality:'effort', rpe_elevated_long:'effort',
-    feel_negative:'feel', readiness_poor:'feel',
-    execution_declining:'execution',
-    post_hard_recovery:'recovery_after', post_long_run_recovery:'recovery_after',
+    easy_hr_elevated:EVIDENCE_CONCEPT.hrCost, easy_efficiency_down:EVIDENCE_CONCEPT.hrCost,
+    rpe_elevated_easy:EVIDENCE_CONCEPT.effort, rpe_elevated_quality:EVIDENCE_CONCEPT.effort,
+    rpe_elevated_long:EVIDENCE_CONCEPT.effort,
+    feel_negative:EVIDENCE_CONCEPT.feel, readiness_poor:EVIDENCE_CONCEPT.feel,
+    execution_declining:EVIDENCE_CONCEPT.execution,
+    post_hard_recovery:EVIDENCE_CONCEPT.recovery, post_long_run_recovery:EVIDENCE_CONCEPT.recovery,
     /* Phase 5 speaks about the same underlying event as the two trends above,
        better founded because it is measured against this athlete's own
        established timing rather than against a fixed rule. Same concept, so
        only the strongest reading of the tiredness is ever counted. */
-    recovery_slower_than_personal:'recovery_after'
+    recovery_slower_than_personal:EVIDENCE_CONCEPT.recovery
   };
   var trends = athleteTrends();
   var contributing = [];
@@ -6779,7 +6906,7 @@ function coachDecision(){
   });
 
   // ---- this morning, one subjective input each ----
-  if (ready && ready.legs === 'heavy') add('feel', 2, 'You reported heavy legs this morning');
+  if (ready && ready.legs === 'heavy') add(EVIDENCE_CONCEPT.feel, 2, 'You reported heavy legs this morning');
   if (ready && ready.sleep === 'poor') add('sleep', 1, 'You reported poor sleep this morning');
 
   // keep only the strongest reading of each underlying signal
@@ -6912,6 +7039,39 @@ function coachDecisionSentence(st, tier, ev, positives, nxt, quality, observed){
    reader can see why a decision was made and whether it proved right.
    ========================================================= */
 
+/* ---------- ONE VOCABULARY FOR THE UNDERLYING SIGNALS ----------
+   Two layers ask "what fact is this evidence about", and both answer by
+   grouping trend ids into concepts:
+
+     coachDecision()  keeps only the STRONGEST reading of each concept, so one
+                      underlying fact cannot vote twice;
+     athleteTrends()  stamps each trend with its concept, which the Playbook
+                      then counts so its "more than one pattern agrees" bar
+                      counts PATTERNS rather than readings of one pattern.
+
+   They used to spell two of those concepts differently -- the heartbeat-cost
+   signal was `hr` in one and `hr_cost` in the other, and the day-after-a-hard-
+   session signal was `recovery_after` in one and `recovery` in the other. The
+   two never met, so nothing was broken; what was broken was that a change to
+   one map looked complete and was not. This is the vocabulary both now use, so
+   there is one name per fact and a rename cannot half-happen.
+
+   NOTHING ABOUT GROUPING CHANGED. The same trend ids share a concept as
+   before, in both layers, and the decision's acute heart-rate evidence still
+   collides with the heart-rate TREND exactly as it did -- that collision is
+   deliberate and load-bearing (see the `strained` comment in coachDecision:
+   heart rate counting twice is a bug this product has already fixed once).
+   Only the strings changed. */
+var EVIDENCE_CONCEPT = {
+  hrCost:      'hr_cost',      // heartbeats spent per kilometre, and its excursions
+  effort:      'effort',       // RPE against band or against this athlete's norm
+  feel:        'feel',         // what the athlete reported, morning or after
+  execution:   'execution',    // how close sessions land to their prescription
+  recovery:    'recovery',     // how the day after a hard session reads
+  efficiency:  'efficiency',   // pace and heart rate moving together
+  consistency: 'consistency'
+};
+
 // Recorded once per day, when it changes. The point is the journal: it is how
 // the coach can later see that this athlete has been in CHECK for four days.
 function recordAthleteState(){
@@ -6964,9 +7124,21 @@ function athleteMemory(limitDays){
        until its date passed. Admission is a question about the DECISION;
        whether the training happened is answered separately, per field. */
     if (dd.coachAdjust) return true;
-    // A day earns a record if anything happened on it worth remembering --
-    // including a state the coach decided before the session was run.
-    return dd.date <= today && (dd.completed || dayReadiness(dd) || dd.athleteState);
+    /* A day earns a record if anything happened on it worth remembering --
+       including a state the coach decided before the session was run.
+
+       sessionRan() rather than the completion flag, and for the same reason
+       missedStimulus() now asks it: a Strava-attached session whose completion
+       was refused for being future-dated is a real run once that date passes,
+       and it was being excluded from the record entirely unless the athlete
+       happened to have answered a readiness question that morning. A performed
+       session missing from the evidence contributes nothing to baselines,
+       trends, Block Intelligence or the Playbook -- a quieter failure than the
+       missed-stimulus one, and a worse one, because nothing on any screen
+       shows it. sessionRan() already carries the date rule, so this widens the
+       record by exactly the sessions that really happened and by nothing
+       else. */
+    return dd.date <= today && (sessionRan(dd) || dayReadiness(dd) || dd.athleteState);
   }).sort(function(a,b){ return a.date < b.date ? -1 : 1; })
     .map(function(dd){
       var a = dd.actual || {};
@@ -6993,7 +7165,13 @@ function athleteMemory(limitDays){
          not happened into a baseline, a trend or an adaptation decision.
          Gating on isPast rather than on `ran` leaves every past day's record
          exactly as it was, including a part-logged one. */
-      var ran = !!dd.completed && isPast;
+      /* `ran` is the canonical authority. It already means exactly what the
+         old expression meant -- not a rest day, not in the future, and
+         evidence that it happened -- plus the one case the flag alone cannot
+         see: an attached Strava activity on a day whose completion was
+         refused. Its actuals are real, so its Execution Score and its pace are
+         real, and they belong in the record. */
+      var ran = sessionRan(dd);
       var score = ran ? computeExecutionScore(dd) : null;
       return {
         date: dd.date, type: dd.type, title: dd.title,
@@ -7352,18 +7530,19 @@ function athleteTrends(){
      easy_efficiency_* is deliberately absent: it is a composite of heart rate
      and pace, so it computes its own concept from whichever of the two actually
      moved, and only claims to be its own observation when both did. */
+  var C = EVIDENCE_CONCEPT;
   var TREND_CONCEPT = {
-    easy_hr_elevated:'hr_cost',            easy_hr_improved:'hr_cost',
-    execution_declining:'execution',       execution_consistent:'execution',
-    rpe_elevated_easy:'effort',            rpe_lower_easy:'effort',
-    rpe_elevated_quality:'effort',         rpe_lower_quality:'effort',
-    rpe_elevated_long:'effort',            rpe_lower_long:'effort',
-    feel_negative:'feel',                  feel_positive:'feel',
-    readiness_poor:'feel',
-    post_hard_recovery:'recovery',         post_long_run_recovery:'recovery',
-    post_long_run_recovery_improved:'recovery',
-    recovery_slower_than_personal:'recovery', recovery_faster_than_personal:'recovery',
-    consistency:'consistency'
+    easy_hr_elevated:C.hrCost,             easy_hr_improved:C.hrCost,
+    execution_declining:C.execution,       execution_consistent:C.execution,
+    rpe_elevated_easy:C.effort,            rpe_lower_easy:C.effort,
+    rpe_elevated_quality:C.effort,         rpe_lower_quality:C.effort,
+    rpe_elevated_long:C.effort,            rpe_lower_long:C.effort,
+    feel_negative:C.feel,                  feel_positive:C.feel,
+    readiness_poor:C.feel,
+    post_hard_recovery:C.recovery,         post_long_run_recovery:C.recovery,
+    post_long_run_recovery_improved:C.recovery,
+    recovery_slower_than_personal:C.recovery, recovery_faster_than_personal:C.recovery,
+    consistency:C.consistency
   };
   var push = function(t){
     if (!t || t.confidence==='insufficient') return;
@@ -7434,8 +7613,9 @@ function athleteTrends(){
                              medOf(sp.base,function(r){return r.hr;})) >= 3;
     var paceMoved = Math.abs(medOf(sp.recent,function(r){return r.actualPace;}) -
                              medOf(sp.base,function(r){return r.actualPace;})) >= 10;
-    var concept = (hrMoved && paceMoved) ? 'efficiency' : paceMoved ? 'execution'
-                : hrMoved ? 'hr_cost' : 'efficiency';
+    var concept = (hrMoved && paceMoved) ? EVIDENCE_CONCEPT.efficiency
+                : paceMoved ? EVIDENCE_CONCEPT.execution
+                : hrMoved ? EVIDENCE_CONCEPT.hrCost : EVIDENCE_CONCEPT.efficiency;
     if (better.length >= 2)
       push({ id:'easy_efficiency_up', area:'Easy efficiency', direction:'positive', concept:concept,
              confidence: trendConfidence(better.length, sp.recent.length, readable.length),
@@ -8561,6 +8741,20 @@ function sessionImportance(dd){
 function isQualityType(t){
   return ['threshold','interval','repetition','tempo','checkpoint','race'].indexOf(t)!==-1;
 }
+/* ---------- the phases where nothing is ever added back ----------
+   Written once because it was written four times and two of them were wrong.
+   blockDimensionRelevance() and the block-evidence minimum both name all three
+   phases; missedStimulus() and evolutionChanges() named only Taper and Race
+   Week, so FINAL WEEK -- the last week before the race, the one where cramming
+   a threshold session back in does the most damage -- was not protected at
+   all. A missed key session in that week was marked still-useful and the
+   hierarchy would reschedule it.
+
+   The rule is one rule: in a taper the plan is already the answer, and missed
+   work is absorbed rather than repaid. */
+function isTaperPhase(phase){
+  return phase==='Taper' || phase==='Race Week' || phase==='Final Week';
+}
 
 /* ---------- stimulus, not kilometres ----------
    A 60km week with the wrong stimulus is worse than a 52km week with the
@@ -8621,19 +8815,33 @@ function stackedQualityPairs(list){
 function missedStimulus(){
   var today = todayStr();
   var phase = trainingPhase(currentWeekNum());
+  /* sessionRan(), not the raw completion flag, and the difference is a real
+     run being offered back to the athlete who already did it.
+
+     stravaWriteActivity() calls applyCompletion() and then stamps the
+     attachment regardless of what applyCompletion decided. applyCompletion
+     refuses a future-dated day -- correctly -- so a run recorded just past
+     midnight, or on a device whose clock disagrees, lands with the attachment
+     and the actuals written and `completed` still false. The next day it is a
+     past session with real data on it, dayStatusLabel() reads it as run, and
+     this used to read it as missed: the same session shown as done on the card
+     and proposed again by the coach.
+
+     The date and rest-day rules below are unchanged -- sessionRan() answers
+     both of them the same way -- so this strictly narrows what counts as
+     missed. Nothing that was genuinely missed stops being missed. */
   var recent = state.days.filter(function(dd){
-    return !dd.completed && dd.type!=='rest' && !dd.coachAdjust &&
+    return !sessionRan(dd) && dd.type!=='rest' && !dd.coachAdjust &&
            dd.date < today && dd.date >= addDays(today, -4);
   }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
   return recent.map(function(dd){
     var imp = sessionImportance(dd);
     // Easy and recovery mileage is never worth rescheduling: its value was the
     // day it would have happened. Taper never makes anything up.
-    var worth = (phase!=='Taper' && phase!=='Race Week') &&
-                (imp==='KEY') && isQualityType(dd.type);
+    var worth = !isTaperPhase(phase) && (imp==='KEY') && isQualityType(dd.type);
     return { dayId:dd.id, date:dd.date, type:dd.type, km:dd.km,
              importance:imp, stimulusStillUseful:worth,
-             reason: phase==='Taper' || phase==='Race Week'
+             reason: isTaperPhase(phase)
                        ? 'Taper — volume is not made up.'
                        : imp==='KEY' && isQualityType(dd.type)
                          ? 'That threshold/interval session is still worth having this week.'
@@ -8783,7 +8991,25 @@ function planEvolution(){
     phase: phase,
     evidenceHash: evolutionEvidenceHash(dec, trends, horizon),
     originalPlanHash: planShapeHash(pending),
-    evolvedPlanHash: planShapeHash(applyChangesToCopy(pending, changes))
+    evolvedPlanHash: planShapeHash(applyChangesToCopy(pending, changes)),
+    /* WHAT THE ATHLETE IS ACTUALLY AGREEING TO.
+
+       A Playbook proposal has carried an identity since it was built, and its
+       accept/decline handlers refuse to act when the identity on screen is not
+       the identity in front of them. The fatigue hierarchy had none, so its
+       Accept applied whatever the engine computed at the moment of the tap --
+       which is not the same thing as what the athlete read.
+
+       Both halves matter, so both are in the identity. The EVIDENCE, because a
+       new readiness answer or an imported run can change what the coach is
+       reasoning from; and the PLAN THE PROPOSAL WAS COMPUTED AGAINST, because
+       the athlete can edit the very session being discussed. That second half
+       is not theoretical: a missed-stimulus reschedule does not depend on the
+       target day's distance, so an athlete who shortened that day by hand
+       could tap Accept and watch their edit replaced by a session they had
+       not been shown, with the proposal reading identical throughout. */
+    proposalId: 'ev:' + evolutionEvidenceHash(dec, trends, horizon) +
+                ':' + planShapeHash(pending)
   };
 }
 function evolutionConfidence(dec, trends, recoverable){
@@ -8840,7 +9066,7 @@ function evolutionChanges(stateName, phase, pending, recoverable){
   }
 
   // ---- rescheduling a missed KEY stimulus, where spacing allows ----
-  if (recoverable.length && phase!=='Taper' && phase!=='Race Week'){
+  if (recoverable.length && !isTaperPhase(phase)){
     var lost = recoverable[0];
     var slot = open.filter(function(dd){
       if (dd.type!=='rest' && sessionImportance(dd)!=='OPTIONAL' && sessionImportance(dd)!=='RECOVERY') return false;
@@ -8928,6 +9154,26 @@ function applyChangesToCopy(pending, changes){
     if (c.kind==='reduce') d.km = c.toKm;
     else if (c.kind==='downgrade'){ d.type = c.toType; d.km = c.toKm; }
     else if (c.kind==='reschedule'){ d.type = c.toType; d.km = c.toKm; }
+    /* `drop` is EXECUTION SUPPORT THAT NOTHING CURRENTLY EMITS, and it is kept
+       deliberately rather than deleted.
+
+       Normal Plan Evolution never produces a dropped session. evolutionChanges()
+       emits only reduce, downgrade, reschedule and move -- because its floor
+       invariant is that a key session is SHORTENED, never removed, and because
+       normal fatigue adaptation reducing quality work to nothing would be the
+       engine erasing the training the block exists for. Race and checkpoint
+       sessions are protected above that, and never become candidates at all.
+
+       So this branch is unreachable today. It stays because the projection
+       this function computes must be able to model any change the hierarchy
+       could ever legitimately name, and because deleting it would mean the day
+       somebody adds a genuine drop -- an illness week, an injury pause, a
+       withdrawal from a race -- the preview would silently show a session that
+       is no longer there. A projection that cannot represent a change is worse
+       than a branch that nothing calls.
+
+       It has no behaviour to regress: nothing reaches it, and this pass adds
+       nothing that does. */
     else if (c.kind==='drop'){ d.type = 'rest'; d.km = 0; }
     else if (c.kind==='move'){
       var other = copy.filter(function(x){ return x.id===c.swapWithId; })[0];
@@ -8952,15 +9198,59 @@ function evolutionProposalVisible(ev){
   if (ev.playbook && (state.playbook||{}).declinedHash === ev.evidenceHash) return false;
   return true;
 }
-function handleAcceptEvolution(){
+/* Everything a restore has to put back, in one shape so a snapshot and a
+   restore can never disagree about which fields a workout is made of.
+   mpSegment is here because MOVED_WORKOUT_FIELDS moves it: without it a
+   marathon-pace long run came back as an ordinary one. */
+function workoutSnapshot(dd){
+  return { km:dd.km, type:dd.type, title:dd.title, desc:dd.desc,
+           mpSegment: !!dd.mpSegment,
+           prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
+}
+
+/* THE MOVE, and why it is its own function.
+
+   A move exchanges two days, so BOTH sides change and both need a record of
+   what they were. The previous code captured the mover's content twice and
+   wrote it to both days: the partner's own original was never stored anywhere,
+   and restoring the mover put the mover's workout back on top of the copy the
+   partner was already holding -- one workout duplicated, the other gone.
+
+   Each side now snapshots ITSELF before the exchange, and each names the other
+   by day id. The identity is explicit and stored, never inferred from matching
+   type, distance or title, because two easy runs of the same length in the
+   same week are not distinguishable that way and never will be.
+
+   Returns the partner's id when the move happened, so the caller can complete
+   the pair on its own side. */
+function applyMoveChange(dd, c, ev){
+  var other = findDay(c.swapWithId);
+  if (!other || other.completed) return null;
+  var theirs = workoutSnapshot(other);
+  swapWorkoutFields(dd, other, MOVED_WORKOUT_FIELDS);
+  other.coachAdjust = { at:new Date().toISOString(), reason:c.why, evidence:ev.reasons.slice(),
+                        state:ev.state, source:'evolution', from:theirs, pairedWith:dd.id };
+  return other.id;
+}
+
+function handleAcceptEvolution(shownId){
   var ev = planEvolution();
   if (!ev || !ev.changes.length) return;
+  /* The same rule the Playbook path has always had, for the same reason: the
+     proposal on screen is the only thing an Accept may apply. Nothing is
+     applied and nothing is recorded -- the panel simply shows what is true
+     now, and the athlete answers the question they can actually see. */
+  if (shownId && ev.proposalId !== shownId){
+    renderApp();
+    showToast('Something changed — take another look before accepting');
+    return;
+  }
   var applied = [];
   ev.changes.forEach(function(c){
     var dd = findDay(c.dayId);
     if (!dd || dd.completed) return;
-    var from = { km:dd.km, type:dd.type, title:dd.title, desc:dd.desc,
-                 prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
+    var pairedWith = null;
+    var from = workoutSnapshot(dd);
     if (c.kind==='reduce'){
       dd.km = c.toKm; dd.desc = resolveDescForReducedDistance(dd.desc, c.toKm);
       rescaleOrDropPrescription(dd, c.toKm);
@@ -8979,19 +9269,16 @@ function handleAcceptEvolution(){
       if (src && src.prescription) dd.prescription = JSON.parse(JSON.stringify(src.prescription));
       else delete dd.prescription;
     } else if (c.kind==='move'){
-      var other = findDay(c.swapWithId);
-      if (other && !other.completed){
-        var tmp = { type:dd.type, title:dd.title, km:dd.km, desc:dd.desc, mpSegment:dd.mpSegment,
-                    prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
-        swapWorkoutFields(dd, other, MOVED_WORKOUT_FIELDS);
-        other.coachAdjust = { at:new Date().toISOString(), reason:c.why, evidence:ev.reasons.slice(),
-                              state:ev.state, source:'evolution',
-                              from:{ km:tmp.km, type:tmp.type, title:tmp.title, desc:tmp.desc,
-                                     prescription:tmp.prescription } };
-      }
+      var moved = applyMoveChange(dd, c, ev);
+      if (moved) pairedWith = moved;
     }
     dd.coachAdjust = { at:new Date().toISOString(), reason:c.why, evidence:ev.reasons.slice(),
                        state:ev.state, source:'evolution', from:from };
+    /* A move is ONE logical change across TWO days, so each side names the
+       other explicitly. Absent on every other kind and on every record written
+       before this existed, which is exactly how restore stays backward
+       compatible: no reference means one day, as it always did. */
+    if (pairedWith) dd.coachAdjust.pairedWith = pairedWith;
     applied.push(c);
   });
   recordEvolution(ev, true, applied);
@@ -9001,9 +9288,16 @@ function handleAcceptEvolution(){
   showToast(applied.length===1 ? 'Plan evolved — one session changed'
                                : 'Plan evolved — '+applied.length+' sessions changed');
 }
-function handleDeclineEvolution(){
+function handleDeclineEvolution(shownId){
   var ev = planEvolution();
   if (!ev) return;
+  /* Recording a decline against evidence the athlete never saw would silence a
+     suggestion nobody made. Same rule as the Playbook decline. */
+  if (shownId && ev.proposalId !== shownId){
+    renderApp();
+    showToast('Something changed — take another look');
+    return;
+  }
   // Respected until materially new evidence appears -- never asked again for
   // the same reasons, and never counted against the athlete.
   state.evolution = { declinedHash:ev.evidenceHash, lastAcceptedHash:(state.evolution||{}).lastAcceptedHash||null };
@@ -9491,19 +9785,114 @@ function handleCoachKeep(dayId){
   renderApp();
   showToast('Keeping the original session');
 }
-function handleCoachRestore(dayId){
-  var dd = findDay(dayId);
-  if (!dd || !dd.coachAdjust || !dd.coachAdjust.from) return;
-  var f = dd.coachAdjust.from;
+/* ---------- when an adjustment may be undone ----------
+   One place that answers it, because the interface must be able to ask rather
+   than re-derive the rules -- and because a rule that lives only in a render
+   function is a rule a direct call can walk around.
+
+   THE TWO REFUSALS, and neither is new thinking: both are already the
+   product's positions, taken from the Playbook week restore, which has skipped
+   completed and hand-edited days since it was written.
+
+     session_ran     The athlete performed this session. Putting a different
+                     prescription under a run that already happened makes the
+                     record say they executed something they were never given,
+                     and every score, trend and coaching read downstream is
+                     computed against that prescription. sessionRan() is the
+                     authority, so a Strava-attached day whose completion flag
+                     has not caught up is protected too.
+     athlete_edited  manualEdit is this product's existing marker of athlete
+                     ownership. An edit made after the adjustment is a newer
+                     answer to the same question, and a snapshot from before it
+                     is not permission to overwrite one.
+
+   A MOVE IS ONE CHANGE. Both sides must be restorable or neither is: a
+   half-restored pair leaves one day showing as adjusted forever and the other
+   holding a workout that now exists twice. */
+/* The union of the two notions the product already has, because restore needs
+   both and neither alone is enough. sessionRan() is the evidence authority and
+   catches the Strava-attached day whose completion flag has not caught up.
+   The raw flag catches a day that CLAIMS to be complete even where sessionRan
+   would say otherwise -- a future-dated completion left by an older build, a
+   restored backup, a clock that disagrees. Re-prescribing either would put a
+   different session under something the record says was performed, and the
+   accept path already refuses to move a `completed` day for the same reason. */
+function performedOrClaimed(dd){
+  return !!dd && (sessionRan(dd) || !!dd.completed);
+}
+var RESTORE_REFUSAL_COPY = {
+  not_adjusted:   'There is nothing to restore on this session',
+  no_snapshot:    'This session doesn’t have an original recorded',
+  session_ran:    'This session has already been run, so its plan stays as it was run',
+  athlete_edited: 'You’ve edited this session since, so your version stays',
+  partner_ran:    'The session this one swapped with has already been run',
+  partner_edited: 'The session this one swapped with has been edited since'
+};
+function restoreRefusalCopy(reason){
+  return RESTORE_REFUSAL_COPY[reason] || RESTORE_REFUSAL_COPY.not_adjusted;
+}
+function coachRestoreState(dd){
+  if (!dd || !dd.coachAdjust) return { ok:false, reason:'not_adjusted' };
+  var adj = dd.coachAdjust;
+  var source = adj.source || 'coach';
+  var scope = source==='playbook' ? 'week' : 'day';
+  var base = { ok:false, reason:null, source:source, scope:scope,
+               pairedWith: adj.pairedWith || null, atomic: !!adj.pairedWith };
+  if (source==='playbook'){
+    if (!adj.weekFrom && !adj.from) return Object.assign(base, { reason:'no_snapshot' });
+    return Object.assign(base, { ok:true });
+  }
+  if (!adj.from) return Object.assign(base, { reason:'no_snapshot' });
+  if (performedOrClaimed(dd)) return Object.assign(base, { reason:'session_ran' });
+  if (dd.manualEdit)          return Object.assign(base, { reason:'athlete_edited' });
+  if (adj.pairedWith){
+    var partner = findDay(adj.pairedWith);
+    /* A partner that is simply gone -- a regenerated block, a trimmed plan --
+       must not make this day permanently un-restorable. There is nothing left
+       to keep in step with, so this side restores alone. */
+    if (partner){
+      if (performedOrClaimed(partner)) return Object.assign(base, { reason:'partner_ran' });
+      if (partner.manualEdit)          return Object.assign(base, { reason:'partner_edited' });
+    }
+  }
+  return Object.assign(base, { ok:true });
+}
+
+function restoreOneDay(dd){
+  var f = dd.coachAdjust && dd.coachAdjust.from;
+  if (!f) return false;
   dd.km = f.km; dd.type = f.type; dd.title = f.title; dd.desc = f.desc;
+  if (f.mpSegment !== undefined) dd.mpSegment = !!f.mpSegment;
   // restore the structure the session had before the coach touched it; a
   // record written before prescriptions existed simply has none to restore
   if (f.prescription) dd.prescription = JSON.parse(JSON.stringify(f.prescription));
   else delete dd.prescription;
+  /* A review is derived from a day's other fields. Leaving it attached to a
+     session that has just become a different session is the same mistake the
+     swap path already fixed; the Playbook restore has cleared it since it was
+     written, and this now does too. */
+  delete dd.coachReview;
   delete dd.coachAdjust;
+  return true;
+}
+
+function handleCoachRestore(dayId){
+  var dd = findDay(dayId);
+  var st = coachRestoreState(dd);
+  if (!st.ok){
+    /* Nothing is mutated, nothing is deleted, and the athlete is told which
+       true thing stopped it rather than being shown a failure. */
+    if (dd && dd.coachAdjust) showToast(restoreRefusalCopy(st.reason));
+    return;
+  }
+  var partner = st.pairedWith ? findDay(st.pairedWith) : null;
+  restoreOneDay(dd);
+  // both halves or neither: the pair was one change, so this is one change
+  if (partner && partner.coachAdjust && partner.coachAdjust.pairedWith === dd.id)
+    restoreOneDay(partner);
   flushSave();
   renderApp();
-  showToast('Original session restored');
+  showToast(partner ? 'Original sessions restored' : 'Original session restored');
 }
 
 
@@ -12813,9 +13202,15 @@ function renderEvolutionProposal(ev, where){
         (vol ? ' · volume '+(vol>0?'+':'')+vol+'km' : ' · volume unchanged'))+
       '</div></div>'+
     '<div class="coach-actions">'+
+      /* data-source, not the presence of data-proposal: both sources carry an
+         identity now, so "has an id" no longer identifies which handler owns
+         the tap. Routing on the source keeps the two paths distinct even
+         though the athlete sees one pair of buttons. */
       '<button type="button" class="btn btn-primary btn-block" data-action="accept-evolution"'+
+        ' data-source="'+(ev.playbook ? 'playbook' : 'evolution')+'"'+
         (ev.proposalId ? ' data-proposal="'+escapeHtml(ev.proposalId)+'"' : '')+'>Accept Evolution</button>'+
       '<button type="button" class="btn btn-ghost btn-block" data-action="decline-evolution"'+
+        ' data-source="'+(ev.playbook ? 'playbook' : 'evolution')+'"'+
         (ev.proposalId ? ' data-proposal="'+escapeHtml(ev.proposalId)+'"' : '')+'>Keep Current Plan</button>'+
     '</div>'+
   '</div>';
@@ -13917,7 +14312,7 @@ function handleSaveEdit(dayId){
     // explicitly first (confirmSwapIfLogged).
     if (other && swapWouldPlaceCompletionInFuture(dd, other)){
       showToast('Can’t swap — a logged session can’t move onto a future date.');
-    } else if (other && confirmSwapIfLogged(dd, other)){
+    } else if (other && confirmSwapIfLogged(dd, other) && confirmSwapIfStacksQuality(dd, other)){
       swapWorkoutFields(dd, other);
       showToast('Swapped '+dow(dd.date)+' '+dShort(dd.date)+' with '+dow(other.date)+' '+dShort(other.date));
     }
@@ -15364,6 +15759,66 @@ function confirmSwapIfLogged(a, b){
     : name(logged[0])+' has a logged run. Swapping moves that log to '+name(logged[0]===a?b:a)+' instead — the training itself already happened; only which day it counts against changes.';
   return window.confirm(msg+'\n\nContinue?');
 }
+/* ---------- quality spacing, on the athlete's own edits ----------
+   Plan Evolution will not create two demanding sessions on consecutive days:
+   stackedQualityPairs() is the definition it uses, and evolutionChanges()
+   checks it against the ORIGINAL plan too, so a stacking the methodology
+   deliberately intended is never "fixed" and one evolution would create is
+   never allowed.
+
+   A manual swap had no such check. An athlete dragging Thursday's threshold
+   onto the day after Saturday's long run could build by hand exactly the
+   compression the adaptive engine refuses to build for them, and nothing said
+   a word. VVV is not trying to maximise completed workouts; it is trying to
+   maximise useful training, and two hard days back to back is usually less
+   useful training than the same two spaced.
+
+   THREE THINGS THIS DELIBERATELY IS NOT.
+
+   It is not a second taxonomy. stackedQualityPairs() already answers "which
+   sessions are demanding", including a long run that is KEY by distance or by
+   its marathon-pace segment. Writing a list of hard types here is how the
+   coach and the calendar end up disagreeing about the same week.
+
+   It is not a snapshot. It compares stacking BEFORE against stacking AFTER
+   and speaks only when the swap makes it worse -- because a block can
+   legitimately ship with a stacked pair in it, and an athlete rearranging the
+   easy days around one must not be interrogated about a pairing they did not
+   create and are not changing.
+
+   It is not a refusal. The athlete is the final authority on their own week.
+   The coach's job here is to be sure they knew, which is why this is the same
+   window.confirm() pattern confirmSwapIfLogged() already uses rather than a
+   new modal, a new workflow or a veto.
+
+   Only training still to come is considered. A swap between two days that
+   already happened cannot be spaced differently by warning about it now. */
+function swapWorsensQualitySpacing(a, b){
+  if (!a || !b) return false;
+  var today = todayStr();
+  var ahead = function(dd){ return dd.date >= today; };
+  var upcoming = (state.days||[]).filter(ahead);
+  if (!upcoming.length) return false;
+
+  /* A shallow copy carrying only what stacking reads, with the two sessions
+     exchanged. The real fields swap through SWAPPED_WORKOUT_FIELDS; type, km
+     and mpSegment are the three of them stackedQualityPairs() looks at, so
+     exchanging exactly those reproduces the swap faithfully without touching
+     a single stored day. Nothing here mutates the plan -- a guard that had to
+     apply a change to decide whether to allow it would be its own defect. */
+  var swapped = upcoming.map(function(dd){
+    var src = dd.id===a.id ? b : dd.id===b.id ? a : dd;
+    return { id:dd.id, date:dd.date, type:src.type, km:src.km, mpSegment:src.mpSegment };
+  });
+  return stackedQualityPairs(swapped).length > stackedQualityPairs(upcoming).length;
+}
+function confirmSwapIfStacksQuality(a, b){
+  if (!swapWorsensQualitySpacing(a, b)) return true;
+  return window.confirm(
+    'That swap puts two demanding sessions on back-to-back days.\n\n' +
+    'Hard days work because of the easy ones around them \u2014 run together, ' +
+    'they usually cost more than they give.\n\nSwap anyway?');
+}
 function doSwapDays(idA, idB){
   var a = findDay(idA), b = findDay(idB);
   if (!a || !b) return;
@@ -15372,6 +15827,12 @@ function doSwapDays(idA, idB){
     return;
   }
   if (!confirmSwapIfLogged(a, b)) return;
+  /* After the logged question, not before: whether historical data moves is a
+     data-integrity matter and outranks a training-quality one. In practice the
+     two cannot both fire -- a logged day swapping with a future day is refused
+     outright above, so any swap reaching here with a log has both days at or
+     before today, where the spacing guard looks at nothing. */
+  if (!confirmSwapIfStacksQuality(a, b)) return;
   swapWorkoutFields(a, b);
   scheduleSave();
   renderApp();
@@ -15942,12 +16403,14 @@ document.addEventListener('click', function(e){
        changes. The athlete sees one Accept and one Keep either way. */
     case 'accept-evolution': {
       var shownA = target.getAttribute('data-proposal');
-      if (shownA) handleAcceptPlaybook(shownA); else handleAcceptEvolution();
+      if (target.getAttribute('data-source')==='playbook') handleAcceptPlaybook(shownA);
+      else handleAcceptEvolution(shownA);
       break;
     }
     case 'decline-evolution': {
       var shownD = target.getAttribute('data-proposal');
-      if (shownD) handleDeclinePlaybook(shownD); else handleDeclineEvolution();
+      if (target.getAttribute('data-source')==='playbook') handleDeclinePlaybook(shownD);
+      else handleDeclineEvolution(shownD);
       break;
     }
 
