@@ -40,7 +40,18 @@ the list and is unchanged — browser sign-in keeps working exactly as before.
 
 ---
 
-## 2. https App Link — key generated, secrets pending
+## 2. https App Link — key generated, secrets configured, verification still pending
+
+> **Status correction (store-readiness workstream).** The four repository secrets
+> described below **are now set**, and CI signs both `bundleRelease` and
+> `assembleRelease` with `vvv-release.keystore` — verified on workflow run 214.
+> What remains is installing a build signed with that key on a device and letting
+> Android verify the link. The rest of this section is still accurate as
+> background; only "secrets pending" was out of date.
+>
+> **And one thing changes once Play is involved:** Play App Signing re-signs the
+> bundle with Google's own key, so `assetlinks.json` will need the **app signing**
+> SHA-256 added alongside the fingerprint below. See `STORE-READINESS.md` §2.
 
 `https://velvet-viking-valhalla-1.vercel.app/auth`
 

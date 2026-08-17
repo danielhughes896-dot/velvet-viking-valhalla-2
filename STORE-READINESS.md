@@ -19,8 +19,8 @@ schema, the coaching engine and both commercial flags are untouched.
 | Toolchain | AGP 8.13.0, Gradle 8.14.3, JDK 21 | Xcode 26 + iOS 26 SDK required by Apple from 28 Apr 2026 |
 | Auth callback | intent-filter, custom scheme + https App Link | `CFBundleURLTypes`, custom scheme |
 | Deep-link verification | `assetlinks.json` served, **unverified** | `apple-app-site-association` **not served** — needs a Team ID |
-| Signing | plumbing complete, secrets **not set** | **nothing** — needs an Apple team |
-| Store artifact | AAB built by CI when secrets exist | **blocked on macOS + Xcode** |
+| Signing | **working** — release AAB built and signed in CI | **nothing** — needs an Apple team |
+| Store artifact | **signed AAB produced** (run 214, commit `7dc7291`) | **blocked on macOS + Xcode** |
 | Privacy manifest | n/a | `PrivacyInfo.xcprivacy` present |
 | Permissions | `INTERNET` only | none |
 
@@ -40,15 +40,23 @@ device verification only and must not be uploaded. Both are named
 `velvet-viking-<shellVersion>-<versionCode>-<shortSha>.{aab,apk}` with a
 `SHA256SUMS.txt` and a `PROVENANCE.txt`.
 
-### Signing — the one thing that matters most
-The four `VVV_KEYSTORE_*` secrets are **not set**, so:
-- CI builds a debug APK signed with a throwaway key that changes every run;
-- `bundleRelease` is skipped rather than attempted, because the release build
-  type has no debug fallback and fails loudly without them.
+### Signing — verified working
+**The four `VVV_KEYSTORE_*` secrets are configured**, and the release path is
+proven end to end. Verified on workflow run **214** (commit `7dc7291`), not
+inferred:
 
-`vvv-release.keystore` exists outside the repository. Adding the four secrets
-(`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
-`ANDROID_KEY_PASSWORD` — see `ANDROID-APP-LINKS.md`) turns the release build on.
+- `bundleRelease` — **success**, signed with the stable key
+- `assembleRelease` — **success**
+- artifact `velvet-viking-valhalla-SIGNED-RELEASE` — **uploaded, 4 files**
+  (`.aab`, `.apk`, `SHA256SUMS.txt`, `PROVENANCE.txt`), 10.1 MB
+
+Earlier notes in `ANDROID-APP-LINKS.md` describing the secrets as pending are
+stale; they were correct when written and are not now.
+
+`vvv-release.keystore` stays outside the repository. It is **unrecoverable**: lose
+it and no new build can ever install as an update over an existing one. It is now
+also the **upload key** for Play App Signing, which makes the warning below the
+most important paragraph in this document.
 
 > **The App Links fingerprint will change once Play is involved, and this is the
 > trap.** With **Play App Signing** — which is mandatory for new apps — Google
