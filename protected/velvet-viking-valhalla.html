@@ -6277,9 +6277,21 @@ var NOTE_SIGNAL_RULES = [
     re:/\b(stiff|stiffness|tight|tightness|locked\s+up)\b/i,
     vetoes:[/\btight\s+(turn|bend|corner|schedule|window)\b/i] },
   { id:'pain', cat:'physical', concept:'pain', label:'Pain', strength:3, flag:'pain',
-    re:/\b(pain|painful|injur\w+|strained|sharp\s+\w+|shooting|cramp|cramped|cramping|pulled\s+\w+)\b/i,
+    /* `hurt` joined this list because an athlete writing "my shin hurts" was
+       reporting pain and the coach could not see it. That is the exact shape
+       of the failure the safety boundary exists to prevent: the note said
+       "flew along, though my shin hurts", the numbers were excellent, and with
+       only the numbers visible the coach read a good week. Positive training
+       evidence must never be the only thing left standing after a pain report
+       is dropped on the floor.
+
+       The two vetoes below it are the running vernacular for effort, exactly
+       like the pain cave: "the hurt locker" and "a world of hurt" are how
+       runners describe a hard finish, not a symptom. */
+    re:/\b(pain|painful|injur\w+|strained|sharp\s+\w+|shooting|cramp|cramped|cramping|pulled\s+\w+|hurt|hurts|hurting)\b/i,
     // the pain cave is a metaphor for effort, not a symptom
-    vetoes:[/\bpain\s+(cave|train|barrier)\b/i, /\bno\s+pain\s+no\s+gain\b/i, /\bpain[\s-]?free\b/i] },
+    vetoes:[/\bpain\s+(cave|train|barrier)\b/i, /\bno\s+pain\s+no\s+gain\b/i, /\bpain[\s-]?free\b/i,
+            /\bhurt\s*locker\b/i, /\bworld\s+of\s+hurt\b/i, /\bhurt\s+(so\s+)?good\b/i] },
   { id:'niggle', cat:'physical', concept:'pain', label:'Niggle', strength:2, flag:'pain',
     re:/\b(niggle|niggling|twinge|grumbl\w+)\b/i, vetoes:[] },
   { id:'illness', cat:'physical', concept:'illness', label:'Illness', strength:3, flag:'illness',
@@ -9186,6 +9198,41 @@ function evolutionProposalVisible(ev){
   if (ev.playbook && (state.playbook||{}).declinedHash === ev.evidenceHash) return false;
   return true;
 }
+/* Everything a restore has to put back, in one shape so a snapshot and a
+   restore can never disagree about which fields a workout is made of.
+   mpSegment is here because MOVED_WORKOUT_FIELDS moves it: without it a
+   marathon-pace long run came back as an ordinary one. */
+function workoutSnapshot(dd){
+  return { km:dd.km, type:dd.type, title:dd.title, desc:dd.desc,
+           mpSegment: !!dd.mpSegment,
+           prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
+}
+
+/* THE MOVE, and why it is its own function.
+
+   A move exchanges two days, so BOTH sides change and both need a record of
+   what they were. The previous code captured the mover's content twice and
+   wrote it to both days: the partner's own original was never stored anywhere,
+   and restoring the mover put the mover's workout back on top of the copy the
+   partner was already holding -- one workout duplicated, the other gone.
+
+   Each side now snapshots ITSELF before the exchange, and each names the other
+   by day id. The identity is explicit and stored, never inferred from matching
+   type, distance or title, because two easy runs of the same length in the
+   same week are not distinguishable that way and never will be.
+
+   Returns the partner's id when the move happened, so the caller can complete
+   the pair on its own side. */
+function applyMoveChange(dd, c, ev){
+  var other = findDay(c.swapWithId);
+  if (!other || other.completed) return null;
+  var theirs = workoutSnapshot(other);
+  swapWorkoutFields(dd, other, MOVED_WORKOUT_FIELDS);
+  other.coachAdjust = { at:new Date().toISOString(), reason:c.why, evidence:ev.reasons.slice(),
+                        state:ev.state, source:'evolution', from:theirs, pairedWith:dd.id };
+  return other.id;
+}
+
 function handleAcceptEvolution(shownId){
   var ev = planEvolution();
   if (!ev || !ev.changes.length) return;
@@ -9202,8 +9249,8 @@ function handleAcceptEvolution(shownId){
   ev.changes.forEach(function(c){
     var dd = findDay(c.dayId);
     if (!dd || dd.completed) return;
-    var from = { km:dd.km, type:dd.type, title:dd.title, desc:dd.desc,
-                 prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
+    var pairedWith = null;
+    var from = workoutSnapshot(dd);
     if (c.kind==='reduce'){
       dd.km = c.toKm; dd.desc = resolveDescForReducedDistance(dd.desc, c.toKm);
       rescaleOrDropPrescription(dd, c.toKm);
@@ -9222,19 +9269,16 @@ function handleAcceptEvolution(shownId){
       if (src && src.prescription) dd.prescription = JSON.parse(JSON.stringify(src.prescription));
       else delete dd.prescription;
     } else if (c.kind==='move'){
-      var other = findDay(c.swapWithId);
-      if (other && !other.completed){
-        var tmp = { type:dd.type, title:dd.title, km:dd.km, desc:dd.desc, mpSegment:dd.mpSegment,
-                    prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
-        swapWorkoutFields(dd, other, MOVED_WORKOUT_FIELDS);
-        other.coachAdjust = { at:new Date().toISOString(), reason:c.why, evidence:ev.reasons.slice(),
-                              state:ev.state, source:'evolution',
-                              from:{ km:tmp.km, type:tmp.type, title:tmp.title, desc:tmp.desc,
-                                     prescription:tmp.prescription } };
-      }
+      var moved = applyMoveChange(dd, c, ev);
+      if (moved) pairedWith = moved;
     }
     dd.coachAdjust = { at:new Date().toISOString(), reason:c.why, evidence:ev.reasons.slice(),
                        state:ev.state, source:'evolution', from:from };
+    /* A move is ONE logical change across TWO days, so each side names the
+       other explicitly. Absent on every other kind and on every record written
+       before this existed, which is exactly how restore stays backward
+       compatible: no reference means one day, as it always did. */
+    if (pairedWith) dd.coachAdjust.pairedWith = pairedWith;
     applied.push(c);
   });
   recordEvolution(ev, true, applied);
@@ -9741,19 +9785,114 @@ function handleCoachKeep(dayId){
   renderApp();
   showToast('Keeping the original session');
 }
-function handleCoachRestore(dayId){
-  var dd = findDay(dayId);
-  if (!dd || !dd.coachAdjust || !dd.coachAdjust.from) return;
-  var f = dd.coachAdjust.from;
+/* ---------- when an adjustment may be undone ----------
+   One place that answers it, because the interface must be able to ask rather
+   than re-derive the rules -- and because a rule that lives only in a render
+   function is a rule a direct call can walk around.
+
+   THE TWO REFUSALS, and neither is new thinking: both are already the
+   product's positions, taken from the Playbook week restore, which has skipped
+   completed and hand-edited days since it was written.
+
+     session_ran     The athlete performed this session. Putting a different
+                     prescription under a run that already happened makes the
+                     record say they executed something they were never given,
+                     and every score, trend and coaching read downstream is
+                     computed against that prescription. sessionRan() is the
+                     authority, so a Strava-attached day whose completion flag
+                     has not caught up is protected too.
+     athlete_edited  manualEdit is this product's existing marker of athlete
+                     ownership. An edit made after the adjustment is a newer
+                     answer to the same question, and a snapshot from before it
+                     is not permission to overwrite one.
+
+   A MOVE IS ONE CHANGE. Both sides must be restorable or neither is: a
+   half-restored pair leaves one day showing as adjusted forever and the other
+   holding a workout that now exists twice. */
+/* The union of the two notions the product already has, because restore needs
+   both and neither alone is enough. sessionRan() is the evidence authority and
+   catches the Strava-attached day whose completion flag has not caught up.
+   The raw flag catches a day that CLAIMS to be complete even where sessionRan
+   would say otherwise -- a future-dated completion left by an older build, a
+   restored backup, a clock that disagrees. Re-prescribing either would put a
+   different session under something the record says was performed, and the
+   accept path already refuses to move a `completed` day for the same reason. */
+function performedOrClaimed(dd){
+  return !!dd && (sessionRan(dd) || !!dd.completed);
+}
+var RESTORE_REFUSAL_COPY = {
+  not_adjusted:   'There is nothing to restore on this session',
+  no_snapshot:    'This session doesn’t have an original recorded',
+  session_ran:    'This session has already been run, so its plan stays as it was run',
+  athlete_edited: 'You’ve edited this session since, so your version stays',
+  partner_ran:    'The session this one swapped with has already been run',
+  partner_edited: 'The session this one swapped with has been edited since'
+};
+function restoreRefusalCopy(reason){
+  return RESTORE_REFUSAL_COPY[reason] || RESTORE_REFUSAL_COPY.not_adjusted;
+}
+function coachRestoreState(dd){
+  if (!dd || !dd.coachAdjust) return { ok:false, reason:'not_adjusted' };
+  var adj = dd.coachAdjust;
+  var source = adj.source || 'coach';
+  var scope = source==='playbook' ? 'week' : 'day';
+  var base = { ok:false, reason:null, source:source, scope:scope,
+               pairedWith: adj.pairedWith || null, atomic: !!adj.pairedWith };
+  if (source==='playbook'){
+    if (!adj.weekFrom && !adj.from) return Object.assign(base, { reason:'no_snapshot' });
+    return Object.assign(base, { ok:true });
+  }
+  if (!adj.from) return Object.assign(base, { reason:'no_snapshot' });
+  if (performedOrClaimed(dd)) return Object.assign(base, { reason:'session_ran' });
+  if (dd.manualEdit)          return Object.assign(base, { reason:'athlete_edited' });
+  if (adj.pairedWith){
+    var partner = findDay(adj.pairedWith);
+    /* A partner that is simply gone -- a regenerated block, a trimmed plan --
+       must not make this day permanently un-restorable. There is nothing left
+       to keep in step with, so this side restores alone. */
+    if (partner){
+      if (performedOrClaimed(partner)) return Object.assign(base, { reason:'partner_ran' });
+      if (partner.manualEdit)          return Object.assign(base, { reason:'partner_edited' });
+    }
+  }
+  return Object.assign(base, { ok:true });
+}
+
+function restoreOneDay(dd){
+  var f = dd.coachAdjust && dd.coachAdjust.from;
+  if (!f) return false;
   dd.km = f.km; dd.type = f.type; dd.title = f.title; dd.desc = f.desc;
+  if (f.mpSegment !== undefined) dd.mpSegment = !!f.mpSegment;
   // restore the structure the session had before the coach touched it; a
   // record written before prescriptions existed simply has none to restore
   if (f.prescription) dd.prescription = JSON.parse(JSON.stringify(f.prescription));
   else delete dd.prescription;
+  /* A review is derived from a day's other fields. Leaving it attached to a
+     session that has just become a different session is the same mistake the
+     swap path already fixed; the Playbook restore has cleared it since it was
+     written, and this now does too. */
+  delete dd.coachReview;
   delete dd.coachAdjust;
+  return true;
+}
+
+function handleCoachRestore(dayId){
+  var dd = findDay(dayId);
+  var st = coachRestoreState(dd);
+  if (!st.ok){
+    /* Nothing is mutated, nothing is deleted, and the athlete is told which
+       true thing stopped it rather than being shown a failure. */
+    if (dd && dd.coachAdjust) showToast(restoreRefusalCopy(st.reason));
+    return;
+  }
+  var partner = st.pairedWith ? findDay(st.pairedWith) : null;
+  restoreOneDay(dd);
+  // both halves or neither: the pair was one change, so this is one change
+  if (partner && partner.coachAdjust && partner.coachAdjust.pairedWith === dd.id)
+    restoreOneDay(partner);
   flushSave();
   renderApp();
-  showToast('Original session restored');
+  showToast(partner ? 'Original sessions restored' : 'Original session restored');
 }
 
 
