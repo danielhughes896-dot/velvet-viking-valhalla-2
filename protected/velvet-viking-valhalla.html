@@ -711,6 +711,16 @@
     --ctl-text:var(--modal-text); --ctl-placeholder:#8d857a;
     --ctl-accent:var(--modal-active); --ctl-accent-rgb:var(--modal-active-rgb);
     --ctl-disabled-bg:#1d1a17; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2e2921;
+    /* The --ctl-* pin above only ever covered form controls. Ordinary prose
+       and .btn-ghost read the general --ink/--line family instead, which
+       light theme redefines to near-black -- so a light-mode athlete got a
+       #171717-on-#141210 button (1:1 contrast, unreadable) the first time a
+       modal used plain text rather than a field. Same bug, same fix, wider
+       net: pin the whole family to the values dark theme already uses here
+       (dark is unaffected, since these already equal its :root defaults). */
+    --ink:var(--modal-text); --ink-dim:#BBB4A4; --ink-faint:#9D9787;
+    --line:var(--modal-border); --line-soft:#232126;
+    --bronze-text:var(--bronze); --gold-text:var(--gold);
   }
   @media (min-width:640px){ .modal-card{border-radius:var(--radius-lg);} }
   @keyframes slideup{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
@@ -3562,6 +3572,24 @@ function handleCloudDeleteAccount(){
     cloudSession = null;
     writeStored(CLOUD_SESSION_KEY, null);
     writeStored(CLOUD_BACKUP_KEY, null);
+    /* AND DROP THE SYNC MARK, for the reason cloudSignOut() already drops it:
+       it records what this device last agreed with ONE account's row about,
+       and that account has just ceased to exist.
+
+       Leaving it behind is not inert. The stamp is released just below so the
+       plan survives on this device, which means the next athlete to sign in
+       here adopts it -- and cloudReconcile then compares local against THEIR
+       account with a base signature inherited from the deleted one. The base
+       still matches local (nothing has been logged since), so reconcile reads
+       "this device has logged nothing new", takes the other account's plan,
+       and never asks. Reproduced: four logged sessions off the screen with no
+       modal. Nothing was destroyed -- adoptCloudState parks the displaced copy
+       and Recovery can reach it -- but the athlete was told their plan would
+       remain on this device, and it silently did not.
+
+       With no mark there is no base, so a genuine difference can only reach
+       the branch that asks. */
+    writeStored(CLOUD_SYNC_KEY, null);
     /* RELEASE THE OWNERSHIP STAMP. This is what makes "your plan stays on THIS
        device" survive the athlete signing in again.
 
@@ -3634,7 +3662,16 @@ function cloudSignOut(){
 
 /* ---------- the plan row ---------- */
 function cloudGetPlan(){
-  return cloudFetch('/rest/v1/plans?select=data,updated_at&limit=1').then(function(resp){
+  /* Scoped by user_id as well as by RLS. The policy on public.plans is what
+     actually isolates one athlete from another and it is not being relied on
+     less -- but `select=...&limit=1` with no predicate asks the database for
+     "a plan", and the only thing standing between that and somebody else's
+     training is a policy in another repository's migration file. Naming the
+     athlete costs one query parameter and means a policy regression shows up
+     as an empty result rather than as the wrong plan. */
+  var mine = (cloudSession && cloudSession.user_id)
+    ? '&user_id=eq.' + encodeURIComponent(cloudSession.user_id) : '';
+  return cloudFetch('/rest/v1/plans?select=data,updated_at' + mine + '&limit=1').then(function(resp){
     if (!resp.ok) throw new Error('fetch failed');
     return resp.json();
   }).then(function(rows){ return (rows && rows[0]) || null; });
@@ -4771,7 +4808,7 @@ function renderMedallion(){
      Canonical crest: assets/velvet-viking-crest.png (see README "Brand assets"
      for the master/derivative map) -- width/height match its real 1223x1286
      portrait artwork so .medallion-img's height:auto never has to guess. */
-  return '<img class="medallion-img" src="assets/velvet-viking-crest.png" width="1223" height="1286" alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place" loading="eager">';
+  return '<img class="medallion-img" src="/assets/velvet-viking-crest.png" width="1223" height="1286" alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place" loading="eager">';
 }
 function renderHero(){
   // Entry/build page (no plan yet): text-led, matching the rest of the app's
@@ -6766,11 +6803,23 @@ function coachNextMove(load, recovery, trend, status){
      - Hard conditions explain a hard session. Heat and hills contextualise
        performance; they never count as the athlete being tired.
    ========================================================= */
+/* Presentation only -- 'proceed'/'check'/'modify'/'recover' are read all over
+   this file as the decision's identity and never change. What athletes
+   actually saw for two of the four was the internal verb itself: "Check" (of
+   what?) and "Modify" -- a dashboard imperative, not a coach's status word.
+   Sibling states already got a coaching pass (EVOLUTION_META); these two are
+   this same pill, unrenamed. 'Worth watching' is lifted straight from
+   coachDecisionSentence's own check copy, so the pill and the sentence agree
+   instead of coining a second phrase for the same thing. 'Scale back' names
+   what 'modify' actually does to today's session (coachDecisionSentence:
+   "Reducing … protects the quality of the rest of the week"), which "a small
+   evolution" -- EVOLUTION_META's phrase for the unrelated multi-day case --
+   does not. Proceed and Recover were already plain coaching language. */
 var COACH_DECISION_META = {
-  proceed:{ label:'Proceed', cls:'proceed' },
-  check:  { label:'Check',   cls:'check' },
-  modify: { label:'Modify',  cls:'modify' },
-  recover:{ label:'Recover', cls:'recover' }
+  proceed:{ label:'Proceed',        cls:'proceed' },
+  check:  { label:'Worth watching', cls:'check' },
+  modify: { label:'Scale back',     cls:'modify' },
+  recover:{ label:'Recover',        cls:'recover' }
 };
 /* Easy-run heart rate against the athlete's own recent baseline. Sessions run
    in real heat are excluded from both halves -- a hot easy run costs bpm for
@@ -9826,7 +9875,30 @@ function handleCoachKeep(dayId){
    different session under something the record says was performed, and the
    accept path already refuses to move a `completed` day for the same reason. */
 function performedOrClaimed(dd){
-  return !!dd && (sessionRan(dd) || !!dd.completed);
+  /* THE THIRD LIMB, and it is not redundant with the first.
+
+     sessionRan() refuses any day dated in the future, deliberately and
+     correctly -- a session that has not arrived cannot have been run, and
+     athleteMemory and missedStimulus both depend on that.
+
+     But the Strava write path produces exactly the shape that rule cannot see.
+     stravaWriteActivity() stamps dd.stravaActivityId and the actuals even when
+     applyCompletion() has refused the day for being future-dated -- a run
+     recorded just past midnight, a device whose clock disagrees, a timezone
+     boundary. Phase 4 proved that shape reachable and closed it for the
+     coaching consumers; restore was still reading it through sessionRan() and
+     therefore still said yes.
+
+     Reproduced: a proposal accepted on a future day, a real activity attached
+     to it, and Restore rewrote the prescription under a run that had actually
+     happened. The following day the same day refuses, which is the tell -- the
+     guard was right and its window was wrong.
+
+     An activity id is only ever written when a real activity was matched to
+     this day, so its presence is evidence on its own terms and needs no date.
+     This can only ever REFUSE more than before; no path that previously
+     refused now succeeds. */
+  return !!dd && (sessionRan(dd) || !!dd.completed || !!dd.stravaActivityId);
 }
 var RESTORE_REFUSAL_COPY = {
   not_adjusted:   'There is nothing to restore on this session',
@@ -13330,7 +13402,11 @@ function responsePatternsSummary(m, noted){
   if (m && est && responsePatternLines(m).length) return est+' established';
   if (m && emg) return emg+' emerging';
   if (noted) return noted+' noted';
-  return 'learning';
+  // A bare status word, not a counted phrase like the branches above --
+  // Title Case to match every other standalone status word in the app
+  // (BLOCK_META, COACH_DECISION_META, EVOLUTION_META), and the literal
+  // "Adaptation history" row directly beside it, which reads "Learning".
+  return 'Learning';
 }
 /* At most a handful of high-value lines. Raw statistics stay out of the UI --
    the athlete wants to know how long they normally take to come back, not a
