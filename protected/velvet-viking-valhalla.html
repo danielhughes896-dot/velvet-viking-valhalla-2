@@ -928,6 +928,12 @@
   .coach-state.modify .coach-state-dot{background:var(--c-tempo);}
   .coach-state.recover{background:var(--c-threshold-soft);}
   .coach-state.recover .coach-state-dot{background:var(--c-threshold);}
+  /* PROGRESS: the one state that adds training, and the only one the athlete
+     earned. A bronze ring on the gold ground the palette already carries --
+     no new colour, no motion. It reads as "you did something" without ever
+     becoming the loudest thing on the screen. */
+  .coach-state.progress{background:var(--c-gold-soft); box-shadow:inset 0 0 0 1px var(--bronze-2);}
+  .coach-state.progress .coach-state-dot{background:var(--bronze);}
   .coach-why-btn{
     background:none; border:none; padding:6px 0 0; margin:0; cursor:pointer;
     font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px;
@@ -986,6 +992,34 @@
   .day-status-label.missed .day-status-dot{background:var(--c-threshold);}
   .day-status-label.recovery{color:var(--c-tempo); border-color:var(--c-tempo);}
   .day-status-label.recovery .day-status-dot{background:var(--c-tempo);}
+  /* EDITED is the athlete's own mark, so it is the quietest of the set: no
+     accent colour, because nothing here was a coaching event. */
+  .day-status-label.edited{color:var(--ink-dim); border-color:var(--line);}
+  .day-status-label.edited .day-status-dot{background:var(--ink-dim);}
+  /* The Adjusted marker, opened. A flex item in .day-row1 while shut, taking
+     its own line when open (the row already wraps), so the panel never has to
+     escape the header it belongs to. */
+  .day-adjusted{flex:none; min-width:0;}
+  .day-adjusted[open]{flex-basis:100%;}
+  .day-adjusted-sum{
+    display:inline-flex; align-items:center; gap:3px; cursor:pointer;
+    list-style:none; user-select:none; -webkit-tap-highlight-color:transparent;
+    /* the badge is 8.5px type, so the tap target is grown around it rather
+       than by inflating the badge -- same fix .fuel-card summary already made */
+    padding:11px 0; margin:-11px 0;
+  }
+  .day-adjusted-sum::-webkit-details-marker{display:none;}
+  .day-adjusted-sum svg{width:11px; height:11px; flex:none; color:var(--ink-faint); transition:transform .25s;}
+  .day-adjusted[open] .day-adjusted-sum svg{transform:rotate(180deg);}
+  .adj-body{
+    margin-top:8px; padding:8px 10px; border:1px dashed var(--line);
+    border-radius:8px; background:var(--bg-3);
+  }
+  .adj-row{display:flex; gap:10px; justify-content:space-between; padding:3px 0; font-size:11.5px; line-height:1.5;}
+  .adj-row .k{color:var(--ink-dim); flex:none;}
+  .adj-row .v{color:var(--ink); text-align:right;}
+  .adj-note{font-size:10.5px; color:var(--ink-faint); line-height:1.5; margin-top:6px;}
+  .adj-restore{margin-top:8px;}
   /* ---------- Plan HQ expandable sections ---------- */
   .hq-sec{border-top:1px solid var(--line-soft);}
   .hq-sec:first-of-type{border-top:none;}
@@ -1009,6 +1043,13 @@
   .hq-row-v{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim);
             text-align:right; flex:0 1 auto; min-width:0; overflow-wrap:anywhere;}
   .hq-empty{font-size:11px; color:var(--ink-faint); line-height:1.5;}
+  /* Recently evolved: two rows at most, so it is styled as a footnote to the
+     section rather than as a list that wants scrolling. */
+  .hq-recent{margin-top:10px; padding-top:8px; border-top:1px solid var(--line-soft);}
+  .hq-recent-k{font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:4px;}
+  .hq-recent-row{display:flex; gap:8px; align-items:baseline; padding:2px 0; font-size:11px; line-height:1.5;}
+  .hq-recent-d{color:var(--ink-faint); flex:none;}
+  .hq-recent-v{color:var(--ink-dim); min-width:0; overflow-wrap:anywhere;}
   /* Recent patterns: a label, a word, a sentence. No chart, no big number. */
   .hq-pattern{padding:6px 0;}
   .hq-pattern + .hq-pattern{border-top:1px solid var(--line-soft);}
@@ -5511,7 +5552,7 @@ function renderDayCard(dd){
     '<div class="day-top" data-action="toggle-day" data-day="'+dd.id+'">'+
       renderDayCheck(dd)+
       '<div class="day-main">'+
-        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
+        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusMarker(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
         '<div class="day-title">'+escapeHtml(dd.title)+'</div>'+
         '<div class="day-detail">'+
           (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
@@ -8876,14 +8917,27 @@ function planShapeHash(list){
 /* =========================================================
    THE EVOLUTION DECISION
    ========================================================= */
+/* The five engine states, and the five things an athlete is actually told.
+   HOLD/PROGRESS/MONITOR/ADAPT/RECOVER are the engine's vocabulary and stay
+   exactly as they are -- every decision, hash, ledger and test speaks them.
+   `label` is the athlete's half of the same word: what the coach would say out
+   loud. One-word statuses ("Hold", "Adapt") read like a verdict on the athlete;
+   these read like a position in a training block, which is what they are.
+   HOLD is deliberately the quietest of the five and renders nothing on TODAY --
+   "on track" is worth knowing when you go looking for it, and worth nobody's
+   attention when you do not. */
 var EVOLUTION_META = {
-  HOLD:    { label:'Hold',    cls:'proceed', text:'Current structure remains appropriate.' },
+  HOLD:    { label:'On track',           cls:'proceed', text:'The week ahead is right as it stands.' },
   /* The one state that ADDS. It exists only because the Playbook can now say
      the stimulus is being absorbed; every other state here reduces or waits. */
-  PROGRESS:{ label:'Progress',cls:'proceed', text:'Recent training is being absorbed well, and one small step up is appropriate.' },
-  MONITOR: { label:'Monitor', cls:'check',   text:'Evidence is building, but not enough to reshape the week.' },
-  ADAPT:   { label:'Adapt',   cls:'modify',  text:'Upcoming training should be reshaped while keeping the block on purpose.' },
-  RECOVER: { label:'Recover', cls:'recover', text:'Recovery currently outranks planned progression.' }
+  /* Its own tone, not HOLD's. PROGRESS is the only state that adds training,
+     and it is the only one the athlete earned; sharing HOLD's "proceed" green
+     made a step-up look like nothing happening. Bronze, from the palette the
+     product already uses for achievement -- a ring, not a fanfare. */
+  PROGRESS:{ label:'Ready to progress',  cls:'progress', text:'Recent training is being absorbed well, and one small step up is appropriate.' },
+  MONITOR: { label:'Worth watching',     cls:'check',   text:'Evidence is building, but not enough to reshape the week.' },
+  ADAPT:   { label:'A small evolution',  cls:'modify',  text:'The week ahead is worth reshaping, without losing what this block is for.' },
+  RECOVER: { label:'Recovery first',     cls:'recover', text:'Recovery currently outranks planned progression.' }
 };
 function planEvolution(){
   if (!state.setup || !state.days || !state.days.length) return null;
@@ -9814,6 +9868,14 @@ function handleCoachKeep(dayId){
 function performedOrClaimed(dd){
   return !!dd && (sessionRan(dd) || !!dd.completed);
 }
+/* THE ONE SENTENCE THE APP IS ALLOWED TO SAY ABOUT REVERSIBILITY.
+   "You can put it back at any time" is not true and never was: the moment the
+   session is run, or the athlete edits it, coachRestoreState() refuses -- and
+   it is right to, because re-prescribing a session that already happened makes
+   the record say the athlete executed something they were never given. A
+   promise the system will not keep is worse than no promise, so the offer is
+   stated with its boundary attached, in the same breath, everywhere it appears. */
+var RESTORE_WINDOW_COPY = 'Can be restored until you run or edit it.';
 var RESTORE_REFUSAL_COPY = {
   not_adjusted:   'There is nothing to restore on this session',
   no_snapshot:    'This session doesn’t have an original recorded',
@@ -13130,20 +13192,58 @@ function evolutionFallbackNote(ev, lvl){
   if (lvl === 'advanced') return ' No closely matching session this week.';
   return ' Nothing closer to your recent work was available this week, so VVV chose the safest useful session to adjust.';
 }
+/* What the athlete keeps, stated only where the engine says they keep it.
+   Read from ev.stimulus.preserved -- the same object the "Training kept"
+   section renders -- so this sentence cannot claim a protection the proposal
+   did not actually provide. */
+function evolutionKeptSentence(ev){
+  var p = (ev.stimulus && ev.stimulus.preserved) || {};
+  var parts = [];
+  if (p.qualityKept) parts.push('the week’s hard sessions stay where they are');
+  if (p.longKept)    parts.push('your long run is untouched');
+  if (!parts.length) return 'Everything not listed above stays as it is.';
+  return parts.join(' and ').replace(/^./, function(m){ return m.toUpperCase(); })+'.';
+}
+/* WHY THIS IS BETTER -- and it is answered for both kinds of proposal now.
+ *
+ * The section used to render only when ev.playbook was present, which meant a
+ * Playbook step-up explained itself and an ADAPT or RECOVER reshape did not.
+ * That is backwards: the reshape is the proposal that takes something away, so
+ * it is the one that owes the athlete a reason.
+ *
+ * Nothing new is written to close it. evolutionChanges() has always attached a
+ * `why` to every branch it produces -- "Trimming the lowest-value mileage
+ * first, which costs nothing the block actually needs", "Giving the two
+ * demanding sessions a day between them" -- and that sentence is exactly the
+ * mechanism claim this section exists for. ev.reasons[0], which the "Why"
+ * section above already shows, is the *evidence*; c.why is the *benefit*. Two
+ * different questions, two answers the System already computed.
+ *
+ * Experience level changes how much is said and never what was decided. The
+ * hierarchy path has one sentence of mechanism and nothing terser to fall back
+ * to, so experienced and advanced legitimately coincide there; novice adds the
+ * two things a newer athlete is actually worried about -- what survives, and
+ * whether this is reversible. */
 function evolutionRationale(ev){
-  var pb = ev.playbook;
-  if (!pb) return '';
+  if (!ev || !ev.changes || !ev.changes.length) return '';
   var lvl = athleteExperience();
   var c = ev.changes[0] || {};
   var note = evolutionFallbackNote(ev, lvl);
-  if (lvl==='advanced')
-    return (c.field ? ((PLAYBOOK_FIELD_NOUN[c.field]||c.field)+' '+c.from+' → '+c.to+
-                       (PLAYBOOK_FIELD_UNIT[c.field]||'')+'.')
-                    : (c.fromTitle+' → '+c.toTitle+'.')) + note;
+  var pb = ev.playbook;
+  if (pb){
+    if (lvl==='advanced')
+      return (c.field ? ((PLAYBOOK_FIELD_NOUN[c.field]||c.field)+' '+c.from+' → '+c.to+
+                         (PLAYBOOK_FIELD_UNIT[c.field]||'')+'.')
+                      : (c.fromTitle+' → '+c.toTitle+'.')) + note;
+    if (lvl==='novice')
+      return pb.why+note+' The session keeps its pace targets and its purpose. '+
+             evolutionKeptSentence(ev)+' '+RESTORE_WINDOW_COPY;
+    return pb.why+note;
+  }
+  if (!c.why) return '';
   if (lvl==='novice')
-    return pb.why+note+' Nothing else in the week changes, the session keeps its pace targets and its purpose, '+
-           'and you can put it back at any time.';
-  return pb.why+note;
+    return c.why+' '+evolutionKeptSentence(ev)+' '+RESTORE_WINDOW_COPY;
+  return c.why;
 }
 /* Plain words for the dimension a step moved, for the one line the athlete
    reads. Descriptive, and the same vocabulary the library uses. */
@@ -13185,9 +13285,12 @@ function renderEvolutionProposal(ev, where){
           escapeHtml(ev.protectedSessions.map(function(p){
             return (findDay(p.dayId)||{}).title || 'Key session'; }).slice(0,3).join(' · '))+
         '</div></div>' : '')+
-    (ev.playbook
-      ? '<div class="evo-sec"><div class="evo-k">Why this is better</div><div class="evo-v">'+
-          escapeHtml(evolutionRationale(ev))+'</div></div>' : '')+
+    /* Gated on there being an answer, not on which engine produced it. A
+       reshape that takes training away owes the athlete this section at least
+       as much as a step-up that adds it. */
+    (function(){ var r = evolutionRationale(ev);
+      return r ? '<div class="evo-sec"><div class="evo-k">Why this is better</div><div class="evo-v">'+
+                   escapeHtml(r)+'</div></div>' : ''; })()+
     '<div class="evo-sec"><div class="evo-k">Training kept</div><div class="evo-v">'+
       escapeHtml(
         (ev.stimulus.preserved.qualityKept ? 'Quality exposures unchanged ('+ev.stimulus.after.qualityExposures+')'
@@ -13339,19 +13442,92 @@ function hqSection(key, title, summary, bodyHtml){
     (open ? '<div class="hq-sec-body">'+bodyHtml+'</div>' : '')+
   '</div>';
 }
+/* RECENTLY EVOLVED.
+ *
+ * An accepted change used to disappear the instant it was applied: the
+ * proposal panel is gone, the plan simply looks different, and the athlete has
+ * no way to see that they agreed to it. Both ledgers already record every
+ * acceptance -- state.evolutionHistory and state.playbookHistory, written by
+ * recordEvolution() and recordPlaybookDecision() -- so this reads them rather
+ * than storing anything new.
+ *
+ * Two entries, and two is the point. This is a memory, not a changelog; the
+ * question it answers is "did I agree to something recently", which the last
+ * couple of decisions answer and a scrolling list does not. */
+var HQ_RECENT_EVOLUTIONS = 2;
+function recentEvolutions(limit){
+  var out = [];
+  (state.evolutionHistory || []).forEach(function(h){
+    if (!h.accepted || !h.changes || !h.changes.length) return;
+    out.push({ at:h.at, date:h.date, state:h.state, changes:h.changes });
+  });
+  (state.playbookHistory || []).forEach(function(h){
+    if (h.status !== 'accepted') return;
+    out.push({ at:h.at, date:h.date, state:h.decision, playbook:h });
+  });
+  out.sort(function(a, b){ return String(a.at) < String(b.at) ? 1 : -1; });
+  return out.slice(0, limit || HQ_RECENT_EVOLUTIONS);
+}
+/* Named from the day where the day still exists, and from the recorded types
+   where it does not -- a plan can be rebuilt under a ledger entry, and history
+   that crashes on a missing day is worse than history that reads generically. */
+function recentEvolutionLine(r){
+  var dist = function(km){ return km!=null ? fmtDist(km) : ''; };
+  if (r.playbook){
+    var p = r.playbook;
+    var dayName = (findDay(p.dayId) || {}).title || 'a session';
+    var moved = p.field
+      ? (PLAYBOOK_FIELD_NOUN[p.field] || p.field)+' '+p.from+' → '+p.to+(PLAYBOOK_FIELD_UNIT[p.field] || '')
+      : null;
+    return dayName+(p.decision === 'REGRESS' ? ' eased' : ' progressed')+(moved ? ' · '+moved : '');
+  }
+  var c = r.changes[0];
+  var d = findDay(c.dayId);
+  var name = (d && d.title) || (TYPE_META[c.fromType || (d && d.type)] || {}).label || 'Session';
+  var more = r.changes.length > 1 ? ' · +'+(r.changes.length - 1)+' more' : '';
+  var line;
+  if (c.kind === 'reduce')           line = name+' shortened to '+dist(c.toKm);
+  else if (c.kind === 'downgrade')   line = name+' eased to an easy '+dist(c.toKm);
+  else if (c.kind === 'reschedule')  line = ((TYPE_META[c.toType] || {}).label || 'Session')+' rescheduled to '+dShort(c.date);
+  else if (c.kind === 'move')        line = name+' moved to '+dShort(c.toDate);
+  else if (c.kind === 'drop')        line = name+' replaced with rest';
+  else if (c.kind === 'regress')     line = name+' eased';
+  else if (c.kind === 'progress')    line = name+' progressed';
+  else                               line = name+' changed';
+  return line+more;
+}
+function renderRecentEvolutions(){
+  var recent = recentEvolutions(HQ_RECENT_EVOLUTIONS);
+  if (!recent.length) return '';
+  return '<div class="hq-recent">'+
+    '<div class="hq-recent-k">Recently evolved</div>'+
+    recent.map(function(r){
+      return '<div class="hq-recent-row">'+
+        '<span class="hq-recent-d font-mono">'+escapeHtml(dShort(r.date))+'</span>'+
+        '<span class="hq-recent-v">'+escapeHtml(recentEvolutionLine(r))+'</span>'+
+      '</div>';
+    }).join('')+
+  '</div>';
+}
 function renderEvolutionSection(ev){
   if (!ev) return '<div class="hq-empty">No plan to evolve yet.</div>';
   var meta = EVOLUTION_META[ev.state];
-  var head = '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(meta.label)+'</span>'+
-             '<span class="hq-row-v">'+escapeHtml(ev.confidence)+'</span></div>'+
+  /* The state gets the pill the rest of the app already uses for a coaching
+     position, rather than a bare word in a row label. That is what carries
+     PROGRESS's bronze -- one component, five states, no bespoke styling. */
+  var head = '<div class="hq-row">'+
+               '<span class="coach-state '+meta.cls+'"><span class="coach-state-dot"></span>'+
+                 escapeHtml(meta.label)+'</span>'+
+               '<span class="hq-row-v">'+escapeHtml(ev.confidence)+'</span></div>'+
              '<div class="hq-empty" style="margin:4px 0 8px;">'+escapeHtml(
                ev.changes.length ? (ev.changes.length+' change'+(ev.changes.length===1?'':'s')+
                                     ' suggested across the next '+ev.horizonDays+' days.')
                                  : meta.text)+'</div>';
-  if (!ev.changes.length) return head;
+  var recent = renderRecentEvolutions();
+  if (!ev.changes.length) return head+recent;
   if (!evolutionProposalVisible(ev))
-    return head+'<div class="hq-empty">You kept the current plan. This will not be raised again unless the evidence changes.</div>';
-  return head+renderEvolutionProposal(ev, 'hq');
+    return head+'<div class="hq-empty">You kept the current plan. This will not be raised again unless the evidence changes.</div>'+recent;
+  return head+renderEvolutionProposal(ev, 'hq')+recent;
 }
 function hqRow(label, value){
   return '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(label)+'</span>'+
@@ -13499,6 +13675,13 @@ function sessionRan(dd){
   if (dd.date > todayStr()) return false;
   return !!dd.completed || !!dd.stravaActivityId;
 }
+/* ADJUSTED IS NOT EDITED, AND THE CARD MUST NOT SAY OTHERWISE.
+   `coachAdjust` means VVV proposed a change and the athlete accepted it.
+   `manualEdit` means the athlete changed the session themselves. They are
+   different events with different owners, they lead to different answers about
+   restoring, and one marker for both told the athlete their own edit had been
+   made by the coach. Edited sits at the bottom of the order deliberately: an
+   edited session that was then missed is a missed session first. */
 function dayStatusLabel(dd){
   var word = null, tone = null;
   var ran = sessionRan(dd);
@@ -13507,7 +13690,62 @@ function dayStatusLabel(dd){
   else if (dd.type==='checkpoint' || dd.type==='race'){ word = 'Key'; tone = 'key'; }
   else if (!ran && dd.type!=='rest' && dd.date < todayStr()){ word = 'Missed'; tone = 'missed'; }
   else if (ran && (function(){ var r=coachReviewFor(dd); return r && r.trainingSignal==='recovery_priority'; })()){ word = 'Recovery'; tone = 'recovery'; }
+  else if (dd.manualEdit){ word = 'Edited'; tone = 'edited'; }
   return word ? '<span class="day-status-label font-head '+tone+'"><span class="day-status-dot"></span>'+word+'</span>' : '';
+}
+/* THE ADJUSTED MARKER, OPENED.
+ *
+ * Four questions in the order an athlete asks them -- what changed, why, when,
+ * and whether it can go back -- and not one of them answered by anything
+ * invented here. `coachAdjust.from` is the same snapshot restore itself puts
+ * back; `coachAdjust.reason` is the sentence the proposal was accepted on;
+ * `coachRestoreState()` is the same authority handleCoachRestore() consults,
+ * asked once and rendered rather than re-derived. Offering a Restore the
+ * handler would then refuse is the failure this shape rules out: the button
+ * exists only where the authority already said ok, and where it said no the
+ * athlete is told which true thing stopped it.
+ *
+ * No new screen and no second badge. It is a <details>, the disclosure this
+ * app already uses for fueling and How To Run This, sitting where the marker
+ * already sat -- and clickOwnedByDisclosure() already stops the tap from also
+ * toggling the day card underneath it. */
+function adjustedDisclosureBody(dd){
+  var adj = dd.coachAdjust, f = adj.from || {};
+  var st = coachRestoreState(dd);
+  var row = function(k, v){
+    return v ? '<div class="adj-row"><span class="k">'+k+'</span><span class="v">'+escapeHtml(v)+'</span></div>' : '';
+  };
+  var shape = function(title, km){
+    return (title || 'this session')+(km!=null ? ' · '+fmtDist(km) : '');
+  };
+  var body = '';
+  if (f.title != null || f.km != null){
+    body += row('Was', shape(f.title, f.km));
+    body += row('Now', shape(dd.title, dd.km));
+  }
+  body += row('Why', adj.reason);
+  body += row('When', adj.at ? dShort(String(adj.at).slice(0,10)) : null);
+  /* Scope is stated, not assumed. A Playbook evolution rebalanced the whole
+     week and restores the whole week; a paired move was one change across two
+     days and restores both or neither. Saying "the original session" for
+     either of those would be a smaller promise than the button keeps. */
+  var restoreWord = st.scope==='week' ? 'Restore the original week'
+                  : st.atomic         ? 'Restore both sessions'
+                                      : 'Restore the original session';
+  body += st.ok
+    ? '<div class="adj-note">'+escapeHtml(RESTORE_WINDOW_COPY)+'</div>'+
+      '<button type="button" class="btn btn-ghost btn-block btn-sm adj-restore" '+
+        'data-action="coach-restore" data-day="'+dd.id+'">'+restoreWord+'</button>'
+    : '<div class="adj-note">'+escapeHtml(restoreRefusalCopy(st.reason))+'</div>';
+  return '<div class="adj-body">'+body+'</div>';
+}
+function dayStatusMarker(dd){
+  var label = dayStatusLabel(dd);
+  if (!dd.coachAdjust || !label) return label;
+  return '<details class="day-adjusted">'+
+    '<summary class="day-adjusted-sum">'+label+ICONS.chevronDown+'</summary>'+
+    adjustedDisclosureBody(dd)+
+  '</details>';
 }
 
 /* =========================================================
