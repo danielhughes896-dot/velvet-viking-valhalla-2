@@ -609,6 +609,23 @@
     background:none; border:1px dashed var(--line); border-radius:6px; color:var(--ink-dim);
     font-size:11px; padding:6px 10px; margin-top:2px; cursor:pointer; min-height:32px; width:100%;
   }
+  /* Structured logging: one compact block per prescribed segment. Two lines
+     rather than a wide table, because a phone is narrow and an 18-row hill
+     session must still be thumb-usable. */
+  .slog-hint{font-size:10px; line-height:1.4; color:var(--ink-faint); margin:2px 0 8px;}
+  .slog-row{margin-bottom:7px; padding-left:8px; border-left:2px solid var(--line);}
+  .slog-row.is-rec{border-left-color:var(--line-soft); opacity:.86;}
+  .slog-row.is-flank{border-left-color:var(--line-soft);}
+  .slog-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:3px;}
+  .slog-label{font-size:10.5px; font-weight:600; color:var(--ink); letter-spacing:.2px;}
+  .slog-presc{font-size:10px; color:var(--bronze-text);}
+  .slog-ins{display:flex; gap:5px;}
+  .slog-in{
+    flex:1 1 0; min-width:0; background:var(--bg-4); border:1px solid var(--line);
+    border-radius:6px; color:var(--ink); padding:6px; font-size:12.5px;
+    font-family:'JetBrains Mono',monospace; min-height:34px;
+  }
+  .slog-in.slog-hr{flex:0 0 62px;}
   .splits-total{font-size:10.5px; color:var(--ink-faint); margin-top:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .splits-total .font-mono{color:var(--ink-dim);}
   .splits-warn{color:var(--gold-deep);}
@@ -6769,6 +6786,9 @@ function structuredLoggingPlan(dd){
           kind: s.kind,
           repIndex: s.repIndex || null,
           prescribed: segmentPrescribed(s),
+          // The prescribed duration in raw seconds, kept so a rep logged only
+          // by distance can still yield a pace. See upsertStructuredSplit.
+          presSec: s.sec != null ? s.sec : null,
           asks: segmentAsksFor(s)
         };
       })
@@ -6857,16 +6877,131 @@ function renderSplitsBody(dd){
     '<div id="splits-total-'+dd.id+'">'+renderSplitsTotal(dd)+'</div>'+
   '</div>';
 }
-// Quiet by default: a closed one-line control, not another card. It opens
-// only when tapped, or when the day already carries real lap data (an
-// import, or a previous session's laps) -- never forced.
+
+/* =========================================================
+   STRUCTURED LOGGING — the prescription, waiting for its actuals
+   ---------------------------------------------------------
+   The athlete already ran a session Valhalla wrote. Asking them to rebuild
+   it as anonymous numbered laps is asking them to do the app's work: a
+   watch shows Warm Up / Run 1 / Recovery / Run 2, and so should this.
+
+   A structured entry is an ordinary member of dd.actual.splits -- the same
+   array coachSplitMetrics() and coachHRDrift() already read -- carrying
+   extra keys those functions ignore. There is no second persistence model,
+   so sync, backup, archive, restore and the content signature all keep
+   working with no change at all. */
+function splitHasStructure(s){ return !!(s && s.segId); }
+// A log written before this existed (or by a future flat import) has no
+// segIds. It is never silently converted: the athlete's own rows are their
+// record, and rebuilding them as segments would be guessing which lap was
+// which rep. Those days keep the flat editor.
+function splitsAreLegacyFlat(dd){
+  var splits = (dd.actual && dd.actual.splits) || [];
+  return splits.length > 0 && !splits.some(splitHasStructure);
+}
+function structuredSplitFor(dd, segId){
+  var splits = (dd.actual && dd.actual.splits) || [];
+  for (var i=0;i<splits.length;i++) if (splits[i] && splits[i].segId === segId) return splits[i];
+  return null;
+}
+/* Rows are written in plan order, so the array the analysis layer reads is
+   already in the order the session was run -- which is exactly what
+   coachSplitMetrics()'s first-half/second-half comparison assumes. */
+function upsertStructuredSplit(dd, plan, row){
+  dd.actual = dd.actual || emptyActual();
+  dd.actual.splits = dd.actual.splits || [];
+  var existing = structuredSplitFor(dd, row.segId);
+  if (existing) return existing;
+  /* A segment prescribed as a DURATION is not asked for its time -- the
+     athlete was told to run for two minutes, so two minutes is what they
+     ran, and the thing only they know is how far they got. Seeding sec from
+     the prescription is what makes the pace derivable from the one number
+     they do enter. It is an assumption, but the honest one: it is exactly
+     the instruction the athlete was given, and it is never applied to a
+     distance-prescribed segment, where the time is the unknown. */
+  var fresh = { segId:row.segId, role:row.role, label:row.label,
+                repIndex:row.repIndex || null,
+                km:null, sec:(row.asks.time ? null : (row.presSec!=null ? row.presSec : null)),
+                paceSec:null, hr:null };
+  var order = plan.rows.map(function(r){ return r.segId; });
+  var at = dd.actual.splits.findIndex(function(s){
+    return splitHasStructure(s) && order.indexOf(s.segId) > order.indexOf(row.segId);
+  });
+  if (at === -1) dd.actual.splits.push(fresh); else dd.actual.splits.splice(at, 0, fresh);
+  return fresh;
+}
+/* kmToDisplay() rounds to one decimal, which is right for a whole session
+   and wrong for one rep: it would redisplay a stored 0.55km rep as 0.6 and
+   then write that back on the next edit, quietly coarsening the athlete's
+   own number. Structured rows round-trip at the precision they are stored. */
+function segKmToDisplay(km){
+  if (km == null) return '';
+  return round2(state.units === 'mi' ? km * 0.621371 : km);
+}
+function renderStructuredRow(dd, row){
+  var s = structuredSplitFor(dd, row.segId) || {};
+  var unit = displayUnit();
+  var inputs = '';
+  if (row.asks.dist)
+    inputs += '<input type="number" step="0.01" min="0" inputmode="decimal" class="slog-in" '+
+      'placeholder="'+unit+'" aria-label="'+escapeHtml(row.label)+' distance" '+
+      'value="'+segKmToDisplay(s.km)+'" data-action="slog-field" data-field="km" '+
+      'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
+  if (row.asks.time)
+    inputs += '<input type="text" inputmode="numeric" class="slog-in" placeholder="m:ss" '+
+      'aria-label="'+escapeHtml(row.label)+' time" '+
+      'value="'+(s.sec!=null?secToPace(s.sec):'')+'" data-action="slog-field" data-field="sec" '+
+      'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
+  inputs += '<input type="number" min="0" inputmode="numeric" class="slog-in slog-hr" placeholder="HR" '+
+    'aria-label="'+escapeHtml(row.label)+' average heart rate" '+
+    'value="'+(s.hr!=null?s.hr:'')+'" data-action="slog-field" data-field="hr" '+
+    'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
+  var cls = 'slog-row' + (row.kind==='recovery' ? ' is-rec' : '') +
+            (row.role==='warmup'||row.role==='cooldown' ? ' is-flank' : '');
+  return '<div class="'+cls+'">'+
+    '<div class="slog-head">'+
+      '<span class="slog-label">'+escapeHtml(row.label)+'</span>'+
+      /* Only where a prescribed value genuinely exists. A fartlek warm-up, a
+         hill-repeat descent and a ladder recovery are prescribed as rules,
+         not numbers, and printing one here would invent a target the athlete
+         was never given. */
+      (row.prescribed ? '<span class="slog-presc font-mono">'+escapeHtml(row.prescribed)+'</span>' : '')+
+    '</div>'+
+    '<div class="slog-ins">'+inputs+'</div>'+
+  '</div>';
+}
+function renderStructuredBody(dd, plan){
+  return '<div class="splits-body">'+
+    '<div class="slog-hint">Prescribed values are already filled in — just add what you actually ran. Every field is optional.</div>'+
+    plan.rows.map(function(r){ return renderStructuredRow(dd, r); }).join('')+
+    '<div id="splits-total-'+dd.id+'">'+renderSplitsTotal(dd)+'</div>'+
+  '</div>';
+}
+/* Quiet by default: a closed one-line control, not another card. It opens
+   only when tapped, or when the day already carries real lap data -- never
+   forced, and the whole-session log above stays sufficient on its own.
+
+   Structured where the session has a structure worth mirroring, flat
+   otherwise. A day carrying a legacy flat log keeps the flat editor even if
+   its prescription could be structured: those rows are the athlete's record
+   and guessing which lap was which rep would be inventing history. */
+function loggingModeFor(dd){
+  if (splitsAreLegacyFlat(dd)) return { mode:'flat', plan:null };
+  var plan = null;
+  try { plan = structuredLoggingPlan(dd); } catch(e) { plan = null; }
+  return plan ? { mode:'structured', plan:plan } : { mode:'flat', plan:null };
+}
 function renderSplitsBlock(dd){
   var open = isSplitsOpen(dd);
+  var m = loggingModeFor(dd);
+  var label = m.mode === 'structured'
+    ? (open ? 'Hide session breakdown' : '+ Log the session breakdown (optional)')
+    : (open ? 'Hide laps / splits' : '+ Add laps / splits (optional)');
   return '<div class="actual-field full splits-block">'+
     '<button type="button" class="splits-toggle" data-action="toggle-splits" data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
-      (open ? 'Hide laps / splits' : '+ Add laps / splits (optional)')+
+      label+
     '</button>'+
-    (open ? renderSplitsBody(dd) : '')+
+    (open ? (m.mode === 'structured' ? renderStructuredBody(dd, m.plan) : renderSplitsBody(dd)) : '')+
   '</div>';
 }
 
@@ -16950,6 +17085,52 @@ function handleSplitFieldChange(dayId, index, field, value){
   patchDerivedStats();
   scheduleSave();
 }
+/* One prescribed segment's actual. The row already exists on screen because
+   the prescription put it there, so the first edit is what brings the
+   underlying split into being -- a session the athlete never touches stores
+   nothing at all, and a partly-filled one stores only the segments they
+   actually answered. Same validation as the flat editor, and pace is
+   derived rather than asked for. */
+function handleStructuredSplitChange(dayId, segId, field, value){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  var m = loggingModeFor(dd);
+  if (m.mode !== 'structured') return;
+  var row = null;
+  for (var i=0;i<m.plan.rows.length;i++) if (m.plan.rows[i].segId === segId) row = m.plan.rows[i];
+  if (!row) return;                                   // a stale card; ignore rather than invent
+  var s = upsertStructuredSplit(dd, m.plan, row);
+  if (field === 'km'){
+    /* round2, not parseDistInput's round1. A whole-session distance to one
+       decimal is fine; a single rep is not. A two-minute fartlek rep covers
+       something like 0.55km, and rounding that to 0.6 is a 9% error carried
+       straight into the derived pace. (The mile branch of parseDistInput
+       already uses round2 for exactly this reason.) */
+    var raw = parseFloat(value);
+    var km = (value==='' || isNaN(raw)) ? null
+           : round2(state.units==='mi' ? raw/0.621371 : raw);
+    s.km = (km!=null && km>0) ? km : null;
+  } else if (field === 'sec'){
+    var sec = value.trim()===''?null:clockToSec(value);
+    s.sec = (sec!=null && sec>0) ? sec : null;
+  } else if (field === 'hr'){
+    var hr = value===''?null:parseInt(value,10);
+    s.hr = (hr!=null && !isNaN(hr) && hr>0) ? hr : null;
+  }
+  s.paceSec = (s.km!=null && s.km>0 && s.sec!=null) ? Math.round(s.sec/s.km) : null;
+  /* A row the athlete emptied again leaves no trace: an all-null segment is
+     not evidence, and keeping it would let coachSplitMetrics count rows that
+     say nothing. */
+  if (s.km==null && s.sec==null && s.hr==null){
+    var at = dd.actual.splits.indexOf(s);
+    if (at !== -1) dd.actual.splits.splice(at, 1);
+  }
+  coachPersistReview(dd);
+  patchExecutionUI(dd);
+  patchSplitsTotal(dd);
+  patchDerivedStats();
+  scheduleSave();
+}
 function handleToggleWeek(weekNum){
   if (expandedWeeks[weekNum]) delete expandedWeeks[weekNum];
   else expandedWeeks[weekNum] = true;
@@ -17790,6 +17971,7 @@ document.addEventListener('change', function(e){
   // nothing at all when tapped.
   else if (action === 'actual-field') handleActualFieldChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'split-field') handleSplitFieldChange(actionEl.getAttribute('data-day'), parseInt(actionEl.getAttribute('data-index'),10), actionEl.getAttribute('data-field'), actionEl.value);
+  else if (action === 'slog-field') handleStructuredSplitChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-seg'), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'pace-override') handlePaceOverrideChange(actionEl.getAttribute('data-zone'));
   else if (action === 'toggle-notify') handleToggleNotify();
   else if (action === 'toggle-theme-switch') handleToggleThemeQuick();
