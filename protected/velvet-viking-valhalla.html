@@ -1130,6 +1130,538 @@ var BUILD_ID = '2026-08-10.1';
    race rhythm are training terms that are correct whether or not a number is
    pinned to a vest.
    ========================================================= */
+/* =========================================================
+   RACE FINDER — PROTOTYPE, NOT WIRED, NO LIVE PROVIDER
+   ---------------------------------------------------------
+   PROTOTYPE STATUS. RACE_FINDER_ENABLED is false, nothing below is reachable
+   from a render path, and there is NO PROVIDER CONNECTED. Every function here
+   takes provider payloads as an argument; none of them fetches anything. That
+   is deliberate and it is the honest shape: the architecture is buildable today
+   and the data is not, because obtaining a race catalogue on commercially
+   defensible terms is a licensing conversation rather than an API key. See
+   RACE-FINDER-DATA-STRATEGY.md.
+
+   WHAT THIS SOLVES. Valhalla asks the athlete for a distance and a date. An
+   athlete who knows they want "a marathon around October" has to go and find
+   one somewhere else first. Race Finder closes that gap and hands the answer to
+   the EXISTING goal fields -- distanceKey, raceDate, hasEvent -- rather than
+   creating a second notion of what the plan is for.
+
+   THE ONE ARCHITECTURAL RULE. Provider vocabulary stops at normaliseRace().
+   Nothing downstream of it knows which feed a race came from, so changing
+   provider is a new normaliser and nothing else. Every function below takes
+   canonical races; a test asserts no provider field name survives the boundary.
+   ========================================================= */
+var RACE_FINDER_VERSION = 1;
+var RACE_FINDER_ENABLED = false;
+
+/* Terrain and status are closed vocabularies with an explicit unknown, because
+   a provider that does not say is a fact to record rather than a gap to fill.
+   'unknown' is a first-class value everywhere below. */
+var RACE_TERRAIN = ['road', 'trail', 'track', 'mixed', 'unknown'];
+var RACE_STATUS  = ['scheduled', 'cancelled', 'postponed', 'sold_out', 'unknown'];
+
+/* A race is only selectable as a goal if its distance maps onto a block the
+   generator can actually build. The tolerances are tight on purpose: a 15km
+   race is a real race and a searchable one, but calling it a 10K goal would
+   hand the generator a lie. Unmapped distances stay visible and are not
+   offered as goals. */
+var RACE_DISTANCE_MATCH = [
+  { key:'5k',    km:5,    tol:0.3 },
+  { key:'10k',   km:10,   tol:0.5 },
+  { key:'half',  km:21.1, tol:0.6 },
+  { key:'full',  km:42.2, tol:0.8 },
+  { key:'ultra', km:50,   tol:10  }     // "ultra" is a family, not a distance
+];
+function raceDistanceKey(km){
+  if (km==null || !isFinite(km)) return null;
+  for (var i=0;i<RACE_DISTANCE_MATCH.length;i++){
+    var m = RACE_DISTANCE_MATCH[i];
+    if (Math.abs(km - m.km) <= m.tol) return m.key;
+  }
+  return km > 50 ? 'ultra' : null;
+}
+
+/* ---------- untrusted input ----------
+   Provider text is athlete-facing and arrives from someone else's database.
+   It is cleaned once, here, at the boundary: control characters removed,
+   length bounded, and no markup interpretation anywhere. Rendering still
+   escapes -- this is the belt, escapeHtml is the braces -- because a value
+   that is safe in one surface is not automatically safe in the next. */
+var RACE_TEXT_MAX = 140;
+function raceText(v){
+  if (typeof v !== 'string') return null;
+  var s = v.replace(/[\x00-\x1F\x7F]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!s) return null;
+  return s.length > RACE_TEXT_MAX ? s.slice(0, RACE_TEXT_MAX-1)+'…' : s;
+}
+/* Only an absolute http(s) URL survives. javascript:, data:, vbscript: and
+   protocol-relative forms are refused rather than sanitised, because a URL this
+   function cannot vouch for is one the athlete should not be handed. */
+function safeRaceUrl(v){
+  if (typeof v !== 'string') return null;
+  var s = v.trim();
+  if (!/^https?:\/\/[^\s/?#]+\.[^\s/?#]+/i.test(s)) return null;
+  if (/[\x00-\x20<>"'`\\]/.test(s)) return null;
+  if (s.length > 400) return null;
+  return s;
+}
+function raceNum(v, lo, hi){
+  var n = typeof v === 'number' ? v : parseFloat(v);
+  if (!isFinite(n)) return null;
+  if (lo!=null && n < lo) return null;
+  if (hi!=null && n > hi) return null;
+  return n;
+}
+function raceDateOf(v){
+  if (typeof v !== 'string') return null;
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v.trim());
+  if (!m) return null;
+  var d = m[0];
+  // a date the calendar does not have is not a date
+  var t = new Date(d+'T12:00:00Z');
+  if (!isFinite(t.getTime()) || t.toISOString().slice(0,10) !== d) return null;
+  return d;
+}
+
+/* ---------- the normaliser: the only place provider vocabulary exists ----------
+   Takes one raw provider record plus a descriptor saying which field means
+   what, and returns a canonical race or null. Returning null is normal: a
+   record with no name, no date or no usable distance is not a race Valhalla
+   can do anything with, and admitting it would push the problem downstream. */
+function normaliseRace(raw, source){
+  if (!raw || !source || !source.provider || !source.map) return null;
+  var m = source.map, pick = function(k){ return m[k] ? raw[m[k]] : undefined; };
+
+  var name = raceText(pick('name'));
+  var date = raceDateOf(pick('date'));
+  var km   = raceNum(pick('km'), 0.5, 500);
+  if (!name || !date || km==null) return null;
+
+  var providerId = pick('providerId');
+  providerId = providerId==null ? null : String(providerId).slice(0, 80);
+  if (!providerId) return null;
+
+  var terr = raceText(pick('terrain'));
+  terr = terr ? terr.toLowerCase() : null;
+  if (RACE_TERRAIN.indexOf(terr) === -1) terr = 'unknown';
+
+  var st = raceText(pick('status'));
+  st = st ? st.toLowerCase().replace(/[\s-]+/g,'_') : null;
+  if (RACE_STATUS.indexOf(st) === -1) st = 'unknown';
+
+  var ctry = raceText(pick('country'));
+
+  return {
+    v: RACE_FINDER_VERSION,
+    provider: String(source.provider).slice(0, 40),
+    providerId: providerId,
+    name: name,
+    date: date,
+    km: Math.round(km*100)/100,
+    distanceKey: raceDistanceKey(km),
+    location: raceText(pick('location')),
+    country: ctry ? ctry.toUpperCase().slice(0,2) : null,
+    lat: raceNum(pick('lat'), -90, 90),
+    lon: raceNum(pick('lon'), -180, 180),
+    terrain: terr,
+    /* Elevation is NEVER inferred. No provider value, no number -- a guessed
+       elevation is worse than an absent one, because a flat/hilly label built
+       on it would be read as fact. */
+    elevationM: raceNum(pick('elevationM'), 0, 20000),
+    organiser: raceText(pick('organiser')),
+    officialUrl: safeRaceUrl(pick('officialUrl')),
+    status: st,
+    sourceUpdatedAt: raceDateOf(pick('sourceUpdatedAt'))
+  };
+}
+function normaliseRaces(rawList, source){
+  return (rawList||[]).map(function(r){ return normaliseRace(r, source); })
+                      .filter(function(r){ return !!r; });
+}
+
+/* ---------- identity ----------
+   Two feeds carrying the same event must collapse to one row; two different
+   events must never collapse. The key is deliberately NOT the name: names
+   differ across feeds ("Cambridge Half" vs "Saucony Cambridge Half Marathon")
+   and identical names recur ("Summer 10K"). What actually identifies an
+   occurrence is WHEN, HOW FAR and WHERE, so the key is date + rounded distance
+   + a coarse geographic cell. The key narrows the candidates; it does not
+   decide the merge, and the note below explains what does. */
+var RACE_DEDUPE_GRID = 0.15;              // ~15km of latitude; a town, not a street
+function raceIdentityKey(r){
+  var cell = (r.lat!=null && r.lon!=null)
+    ? Math.round(r.lat/RACE_DEDUPE_GRID)+','+Math.round(r.lon/RACE_DEDUPE_GRID)
+    : (r.location ? 'loc:'+r.location.toLowerCase() : 'nowhere');
+  return r.date+'|'+Math.round(r.km*2)/2+'|'+cell;
+}
+/* WHY NAMES ARE NOT USED TO MERGE, having tried.
+
+   The obvious tiebreak inside an identity cell is a normalised name, and it
+   does not work. "Cambridge Half Marathon" and "Saucony Cambridge Half
+   Marathon 2026" are one event under a sponsor prefix; "Cambridge Chariots
+   Charity Half" is a different event on the same morning in the same town at
+   the same distance. Every textual rule that merges the first pair also merges
+   the second, because a sponsor prefix and a distinguishing name are the same
+   thing to a string comparison. There is no threshold that separates them.
+
+   So merging requires STRONG evidence, and there is exactly one signal that
+   qualifies: two feeds pointing at the same official page. Without it, races
+   that land in one identity cell are reported as POSSIBLE duplicates and left
+   as separate rows for a human to look at. That is the safe direction -- a
+   duplicate on screen is untidy, a wrongly merged pair loses a real event and
+   sends somebody to the wrong start line. */
+function raceUrlKey(r){
+  if (!r.officialUrl) return null;
+  return String(r.officialUrl).toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/\/+$/, '')
+    .split(/[?#]/)[0];
+}
+/* PROVENANCE IS PRESERVED, always. A merge keeps the record with the most
+   fields filled as the display row and lists every source that reported it, so
+   "where did this come from" is answerable after the fact and a provider that
+   turns out to be wrong can be identified rather than guessed at. */
+function raceCompleteness(r){
+  var n = 0;
+  ['location','lat','lon','organiser','officialUrl','elevationM','country'].forEach(function(k){
+    if (r[k]!=null) n++;
+  });
+  if (r.terrain!=='unknown') n++;
+  if (r.status!=='unknown') n++;
+  return n;
+}
+function dedupeRaces(list){
+  var cells = {};
+  (list||[]).forEach(function(r){
+    var k = raceIdentityKey(r);
+    (cells[k] = cells[k] || []).push(r);
+  });
+  var out = [];
+  Object.keys(cells).forEach(function(cellKey){
+    var cell = cells[cellKey];
+    // Within one cell, group ONLY by official URL. No URL means its own group:
+    // never merged, and flagged for a human instead.
+    var groups = {};
+    cell.forEach(function(r){
+      var uk = raceUrlKey(r);
+      var g = uk ? 'url:'+uk : 'solo:'+r.provider+':'+r.providerId;
+      (groups[g] = groups[g] || []).push(r);
+    });
+    var keys = Object.keys(groups);
+    keys.forEach(function(g){
+      var same = groups[g].slice().sort(function(a,b){
+        return raceCompleteness(b) - raceCompleteness(a);
+      });
+      var best = same[0];
+      var merged = {};
+      Object.keys(best).forEach(function(f){ merged[f] = best[f]; });
+      // A field the winner lacks is taken from a sibling that has it; the
+      // winner's own values are never overwritten.
+      same.slice(1).forEach(function(other){
+        Object.keys(other).forEach(function(f){
+          if (merged[f]==null && other[f]!=null) merged[f] = other[f];
+        });
+      });
+      merged.sources = same.map(function(r){
+        return { provider:r.provider, providerId:r.providerId, sourceUpdatedAt:r.sourceUpdatedAt };
+      });
+      merged.mergedFrom = same.length > 1 ? same.length : null;
+      /* Same day, same distance, same town, no shared URL. Not merged, and not
+         silently identical-looking either: the surface can group these and say
+         "these may be the same event" rather than the engine deciding. */
+      merged.possibleDuplicates = keys.length > 1 ? keys.length - 1 : 0;
+      merged.identityCell = cellKey;
+      out.push(merged);
+    });
+  });
+  return out.sort(function(a,b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+}
+
+/* ---------- distance on the ground ----------
+   Haversine, so a radius means the same thing everywhere. Returns null rather
+   than a number when either point is unknown, and a race with no coordinates is
+   therefore never excluded by a radius filter -- excluding it would hide real
+   races for a reason that is about the data rather than the race. */
+/* Reuses the existing haversineKm() -- which already serves the GPX route
+   summer -- rather than shipping a second copy of the same trigonometry. The
+   wrapper exists because the contracts genuinely differ: summing track points
+   wants raw kilometres and cannot be handed a null, while a search result wants
+   one decimal place and must say "unknown" when a race has no coordinates. */
+function raceDistanceFromKm(aLat, aLon, bLat, bLon){
+  if (aLat==null || aLon==null || bLat==null || bLon==null) return null;
+  return Math.round(haversineKm(aLat, aLon, bLat, bLon) * 10) / 10;
+}
+
+/* ---------- SEARCH: deterministic filtering, and nothing else ----------
+   Search answers "which races could this be". It applies only criteria the
+   athlete stated, and every exclusion is a fact about the race rather than a
+   judgement about it. Fit comes afterwards and separately. */
+function raceSearchReject(r, q){
+  if (r.status === 'cancelled') return 'cancelled';
+  if (q.distanceKey && r.distanceKey !== q.distanceKey) return 'distance';
+  if (q.from && r.date < q.from) return 'before_window';
+  if (q.to   && r.date > q.to)   return 'after_window';
+  if (q.terrain && q.terrain !== 'any'){
+    // 'unknown' is never filtered out by a terrain preference: the athlete
+    // asked about the race, and the provider's silence is not the race's answer.
+    if (r.terrain !== 'unknown' && r.terrain !== q.terrain) return 'terrain';
+  }
+  if (q.radiusKm != null && q.lat != null && q.lon != null){
+    var d = raceDistanceFromKm(q.lat, q.lon, r.lat, r.lon);
+    if (d != null && d > q.radiusKm) return 'radius';
+  }
+  return null;
+}
+
+/* ---------- VALHALLA FIT: deterministic and explainable ----------
+   Not a score with a threshold and a "perfect match" badge. Fit is the answer
+   to one question the athlete cannot easily work out themselves -- is there
+   enough time to prepare properly -- plus the facts that bear on it. Every
+   reason is a sentence about real data, and where data is missing nothing is
+   claimed and the gap is named instead.
+
+   The week bands come from the generator's own limits rather than an opinion:
+   under 8 weeks there is not enough runway for the block Valhalla builds, and
+   past 24 a single block cannot reach that far. */
+var FIT_MIN_WEEKS = 8, FIT_IDEAL_MIN = 12, FIT_IDEAL_MAX = 20, FIT_MAX_WEEKS = 24;
+function weeksUntilRace(dateStr, fromStr){
+  return Math.floor(daysBetween(fromStr, dateStr) / 7);
+}
+function raceFit(r, q, fromStr){
+  var query = q || {};
+  var weeks = weeksUntilRace(r.date, fromStr);
+  var reasons = [], caveats = [], band;
+  if (weeks < 0)                  band = 'past';
+  else if (weeks < FIT_MIN_WEEKS) band = 'too_soon';
+  else if (weeks > FIT_MAX_WEEKS) band = 'far_off';
+  else if (weeks >= FIT_IDEAL_MIN && weeks <= FIT_IDEAL_MAX) band = 'good';
+  else band = 'workable';
+
+  if (band === 'good' || band === 'workable')
+    reasons.push('Gives you ' + weeks + ' weeks to prepare.');
+  if (band === 'too_soon')
+    caveats.push('Only ' + weeks + ' weeks away, which is less than a full block.');
+  if (band === 'far_off')
+    caveats.push(weeks + ' weeks away, further out than a single block reaches.');
+
+  if (query.distanceKey && r.distanceKey === query.distanceKey && DISTANCE_PROFILES[r.distanceKey])
+    reasons.push('Matches the ' + DISTANCE_PROFILES[r.distanceKey].label + ' you asked for.');
+  if (r.terrain !== 'unknown') reasons.push(capFirst(r.terrain) + ' course.');
+  var dist = (query.lat!=null && query.lon!=null) ? raceDistanceFromKm(query.lat, query.lon, r.lat, r.lon) : null;
+  if (dist != null) reasons.push(dist + 'km from ' + (query.locationLabel || 'your search'));
+
+  /* Everything the product does not know, said rather than omitted. An athlete
+     choosing a race deserves to know which of these is a blank. */
+  if (r.elevationM == null) caveats.push('No elevation data for this course.');
+  if (r.terrain === 'unknown') caveats.push('Terrain not stated by the source.');
+  if (r.status === 'postponed') caveats.push('The source lists this event as postponed.');
+  if (r.status === 'sold_out')  caveats.push('The source lists this event as sold out.');
+  if (r.lat == null || r.lon == null) caveats.push('No coordinates, so distance from you is unknown.');
+
+  return { band:band, weeks:weeks, distanceFromSearchKm:dist,
+           reasons:reasons, caveats:caveats,
+           selectable: band !== 'past' && r.distanceKey != null && r.status !== 'cancelled' };
+}
+function capFirst(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : s; }
+
+/* Order: fit band first, then the date. Deliberately NOT a weighted score --
+   a single number invites "we ranked this highest so it must be right", and it
+   is the mechanism by which paid placement would eventually become invisible.
+   Ordering by band keeps the reason for a race's position stateable in words. */
+var FIT_BAND_ORDER = { good:0, workable:1, far_off:2, too_soon:3, past:4 };
+function searchRaces(canonical, q, fromStr){
+  var query = q || {};
+  var from = fromStr || todayStr();
+  var kept = [], rejected = {};
+  dedupeRaces(canonical).forEach(function(r){
+    var why = raceSearchReject(r, query);
+    if (why){ rejected[why] = (rejected[why]||0) + 1; return; }
+    kept.push({ race:r, fit:raceFit(r, query, from) });
+  });
+  kept.sort(function(a, b){
+    var d = FIT_BAND_ORDER[a.fit.band] - FIT_BAND_ORDER[b.fit.band];
+    if (d) return d;
+    return a.race.date < b.race.date ? -1 : a.race.date > b.race.date ? 1 : 0;
+  });
+  return { results:kept, rejected:rejected, from:from,
+           /* Never required. The athlete can always type a race in, and this
+              says so in the result object so no surface can forget it. */
+           manualEntryAlwaysAvailable:true };
+}
+
+/* ---------- selection maps onto the EXISTING goal ----------
+   Three fields the generator already reads, plus one additive provenance
+   object. No second race-goal system: distanceKey and raceDate are the same
+   fields Build Your Plan writes today, and everything downstream -- phases,
+   taper, vGoalDay(), the countdown -- keeps working without knowing Race
+   Finder exists.
+
+   goalRace is metadata ABOUT the goal, never a substitute for it. Deliberately
+   small: enough to show the athlete what they picked, to link back to the
+   official page, and to hand terrain and elevation to Execution Strategy one
+   day -- and nothing that would make plan rendering depend on a provider being
+   reachable. */
+function raceToPlanInput(r, fit){
+  if (!r || r.distanceKey == null) return null;
+  if (fit && !fit.selectable) return null;
+  if (r.status === 'cancelled') return null;
+  return {
+    distanceKey: r.distanceKey,
+    raceDate: r.date,
+    hasEvent: true,
+    goalRace: {
+      v: RACE_FINDER_VERSION,
+      name: r.name,
+      km: r.km,
+      location: r.location,
+      country: r.country,
+      lat: r.lat, lon: r.lon,
+      terrain: r.terrain,
+      elevationM: r.elevationM,
+      organiser: r.organiser,
+      officialUrl: r.officialUrl,
+      provider: r.provider,
+      providerId: r.providerId,
+      sourceUpdatedAt: r.sourceUpdatedAt,
+      selectedAt: new Date().toISOString()
+    }
+  };
+}
+
+/* ---------- the minimum Build Your Plan interaction ----------
+   A VIEW MODEL, NOT A SCREEN. This returns the shape a Race Finder step would
+   render and nothing else: no DOM, no fetch, no state writes. It exists so the
+   integration can be argued about and tested before any markup is committed,
+   and so the one rule that matters most is enforceable rather than aspirational.
+
+   THE INTERACTION IS ONE EXTRA MODE ON A CONTROL THAT ALREADY EXISTS. Build Your
+   Plan already asks the athlete to choose between having an event and not having
+   one (su-event-box, data-mode). Race Finder is a third answer to that same
+   question -- "help me find one" -- and its only output is the two fields the
+   other two modes already write, su-distance and su-racedate. No parallel goal,
+   no separate screen, no new persisted shape beyond the additive goalRace stamp.
+
+   MANUAL ENTRY IS ALWAYS PRESENT. Not "when the search fails", not "as a
+   fallback link at the bottom" -- present in every single state this function
+   can return, including the states where the search worked well. A provider
+   outage, an empty result set, a race that simply is not listed anywhere must
+   never be able to stop somebody building a plan, so manualEntry is assembled
+   before the results are and is never conditional on them. */
+function raceFinderStepModel(canonical, q, fromStr){
+  var query = q || {};
+  var from = fromStr || todayStr();
+  /* Built first, on purpose. Everything below can be empty, stale or broken and
+     this object is the same either way. */
+  var manualEntry = {
+    available: true,
+    label: 'Enter my race myself',
+    /* The existing fields, named so it is obvious nothing new is being created. */
+    writes: ['distanceKey', 'raceDate'],
+    note: 'You never need to find your race here. Typing the date in works exactly the same.'
+  };
+  var search = searchRaces(canonical || [], query, from);
+  var offerable = search.results.filter(function(x){ return x.fit.selectable; });
+
+  /* Why there is nothing to show, said in the product's own words. An empty
+     screen invites the athlete to assume they have done something wrong; each of
+     these says which it is, and none of them is a dead end. */
+  var emptyReason = null;
+  if (!canonical || !canonical.length) emptyReason = 'no_source';
+  else if (!search.results.length)     emptyReason = 'no_matches';
+  else if (!offerable.length)          emptyReason = 'none_selectable';
+
+  return {
+    v: RACE_FINDER_VERSION,
+    /* A question, because that is what the step is. No terminal full stop:
+       it is a heading. */
+    heading: 'Find your race',
+    from: from,
+    query: {
+      distanceKey: query.distanceKey || null,
+      from: query.from || null, to: query.to || null,
+      terrain: query.terrain || 'any',
+      radiusKm: query.radiusKm != null ? query.radiusKm : null,
+      locationLabel: query.locationLabel || null
+    },
+    results: search.results,
+    selectableCount: offerable.length,
+    /* Counted exclusions, so "why is my race not here" has an answer that is
+       about the data rather than a shrug. */
+    excluded: search.rejected,
+    emptyReason: emptyReason,
+    emptyMessage: emptyReason === 'no_source'
+        ? 'Race search is not available right now.'
+      : emptyReason === 'no_matches'
+        ? 'Nothing in the calendar matches that yet.'
+      : emptyReason === 'none_selectable'
+        ? 'The races found are not ones a full block can be built for.'
+      : null,
+    manualEntry: manualEntry,
+    /* Possible-duplicate groups are surfaced, not resolved. The engine refused
+       to guess; the step says so rather than showing two rows that look like a
+       bug. */
+    possibleDuplicateGroups: offerable.filter(function(x){
+      return x.race.possibleDuplicates > 0;
+    }).length,
+    /* No paid placement, ever, and the absence is asserted rather than assumed:
+       there is no promoted list, no sponsored slot and no field a commercial
+       deal could be written into. If paid placement is ever sold it must appear
+       as its own labelled block outside these results. */
+    promoted: null,
+    orderedBy: 'fit band, then date'
+  };
+}
+
+/* ---------- changing the race on a plan that already exists ----------
+   Moving a race date changes the shape of the block, so this returns a
+   DESCRIPTION of the consequence and never performs it. Plan HQ would show
+   this and ask; nothing here rebuilds anything, and completed sessions are
+   counted so the athlete can see what is at stake before they answer. */
+function raceChangeImpact(newRace, fromStr){
+  var su = state.setup || {};
+  var from = fromStr || todayStr();
+  var completed = (state.days||[]).filter(function(d){ return d.completed; }).length;
+  var logged = (state.days||[]).filter(function(d){ return sessionRan(d); }).length;
+  var oldWeeks = su.raceDate ? weeksUntilRace(su.raceDate, from) : null;
+  var newWeeks = weeksUntilRace(newRace.date, from);
+  var distanceChanges = su.distanceKey !== newRace.distanceKey;
+  var dateChanges = su.raceDate !== newRace.date;
+  return {
+    distanceChanges: distanceChanges,
+    dateChanges: dateChanges,
+    weeksBefore: oldWeeks, weeksAfter: newWeeks,
+    completedSessions: completed, loggedSessions: logged,
+    requiresRegeneration: distanceChanges || dateChanges,
+    /* The honest warning, and the reason this returns a description rather than
+       performing a one-tap "change race". */
+    warning: distanceChanges
+      ? 'A different distance means a different block. Your current plan would be rebuilt.'
+      : dateChanges
+        ? 'A different race date reshapes the remaining weeks. Your current plan would be rebuilt.'
+        : null,
+    historyPreserved: 'Logged sessions and coaching history are never deleted by a rebuild.'
+  };
+}
+
+/* ---------- the future Execution Strategy seam, defined and not wired ----------
+   One function, no coupling. Execution Strategy does not import Race Finder and
+   Race Finder does not know Execution Strategy exists; if a strategy ever wants
+   course context it asks for this shape and gets nulls when there is no race.
+   Nothing consumes it today. */
+function goalRaceCourseContext(){
+  var g = state.setup && state.setup.goalRace;
+  if (!g) return null;
+  return { terrain: g.terrain || 'unknown',
+           elevationM: g.elevationM != null ? g.elevationM : null,
+           km: g.km != null ? g.km : null,
+           /* Absent on purpose: no flat/hilly label is derived here. A single
+              elevation number is not a course profile, and the product must not
+              imply it read one. */
+           profile: null };
+}
+
 function planHasEvent(su){
   var setup = su || (typeof state!=='undefined' ? state.setup : null);
   // undefined on every plan built before this existed -- those were created by
