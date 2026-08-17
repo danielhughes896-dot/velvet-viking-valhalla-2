@@ -572,7 +572,6 @@
   .zone-paces-card{margin:14px 14px 0; padding:14px 15px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);}
   .zpc-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;}
   .zpc-head span:first-child{font-size:13px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
-  .zpc-vdot{font-size:11px; color:var(--bronze-text);}
   .pzr{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line-soft);}
   .pzr:last-of-type{border-bottom:none;}
   .pzr-label{font-size:12.5px; color:var(--ink-dim); flex:1; min-width:0;}
@@ -594,7 +593,6 @@
   .pace-ref-card{margin:14px 0 0; padding:12px 15px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);}
   .pace-ref-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;}
   .pace-ref-head span:first-child{font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
-  .pace-ref-vdot{font-size:11px; color:var(--bronze-text);}
   .pace-ref-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid var(--line-soft); font-size:12px;}
   .pace-ref-row:last-of-type{border-bottom:none;}
   .pace-ref-label{color:var(--ink-dim);}
@@ -944,6 +942,11 @@
   .coach-why-list li{font-size:11.5px; color:var(--ink-dim); line-height:1.55; margin:3px 0; overflow-wrap:anywhere;}
   /* ---------- conditional morning check ---------- */
   .evo-link{display:block; text-align:left;}
+  /* PROGRESS: quietly confident, not an achievement badge. The same bronze
+     already used for a Key session and for .evo-k's own section labels --
+     no new colour, border/text only, nothing animated. */
+  .evo-link.is-progress{color:var(--bronze-text);}
+  .evo-link.is-progress:hover, .evo-link.is-progress:focus-visible{color:var(--bronze);}
   .evo-panel{margin-top:9px; padding:10px 11px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .evo-sec + .evo-sec{margin-top:9px;}
   .evo-k{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px;}
@@ -1061,7 +1064,6 @@
 
   .goal-toggle-hero{margin-top:16px;}
   .goal-toggle-hero .goal-options{margin-top:8px;}
-  .goal-opt .vdot-tag{font-size:9px; color:var(--ink-faint); margin-top:1px; font-family:'JetBrains Mono',monospace;}
 
   .pace-table{width:100%; border-collapse:collapse; margin-top:10px; font-size:11.5px;}
   .pace-table th, .pace-table td{padding:7px 6px; text-align:center; border-bottom:1px solid var(--line-soft);}
@@ -4744,15 +4746,15 @@ function startCountdownTimer(){
 
 function renderGoalButtons(){
   if (!state.setup || !state.setup.goals) return '';
-  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
   var opts = GOAL_KEYS.map(function(k){
     var g = state.setup.goals[k];
     if (!g || !g.timeSec) return '';
     var active = state.setup.activeGoal===k ? ' active' : '';
-    var vdot = vdotFromPerformance(profile.raceKm*1000, g.timeSec);
+    // The goal time is the meaningful, athlete-facing number here; no internal
+    // score is shown alongside it (see HQ's customer-facing VDOT removal).
     return '<button type="button" class="goal-opt'+active+'" data-action="set-goal" data-goal="'+k+'">'+
       '<div class="t font-mono">'+k+'</div><div class="p font-mono">'+secToClock(g.timeSec)+'</div>'+
-      '<div class="vdot-tag">VDOT '+vdot.toFixed(1)+'</div></button>';
+      '</button>';
   }).join('');
   return '<div class="goal-options">'+opts+'</div>';
 }
@@ -4817,7 +4819,6 @@ function renderPlanOverviewStats(){
 // zone-paces-card (with override inputs) lives in Plan HQ instead.
 function renderCompactPaceReference(){
   if (!state.setup) return '';
-  var vdot = getActiveVDOT();
   var paces = getActivePaces();
   var hrZones = getActiveHRZones();
   var unit = displayUnit();
@@ -4837,7 +4838,7 @@ function renderCompactPaceReference(){
       '<span class="pace-ref-val font-mono">'+secToPace(toDisplaySec(z.fast))+'\u2013'+secToPace(toDisplaySec(z.slow))+'/'+unit+'</span></div>';
   }).join('');
   return '<div class="pace-ref-card">'+
-    '<div class="pace-ref-head"><span class="font-head">Pace Reference</span><span class="pace-ref-vdot font-mono">VDOT '+(vdot?vdot.toFixed(1):'\u2014')+'</span></div>'+
+    '<div class="pace-ref-head"><span class="font-head">Pace Reference</span></div>'+
     rows+
   '</div>';
 }
@@ -4862,7 +4863,6 @@ var ZONE_PACE_LABELS = {E:'Easy / Recovery',M:'Tempo',T:'Threshold',I:'Interval 
 var ZONE_PACE_ORDER = ['E','M','T','I','R'];
 function renderZonePacesCard(){
   if (!state.setup) return '';
-  var vdot = getActiveVDOT();
   var paces = getActivePaces();
   var hrZones = getActiveHRZones();
   var overrides = state.setup.paceOverrides || {};
@@ -4891,7 +4891,7 @@ function renderZonePacesCard(){
   var hrHint = (state.setup.lthr==null) ? ' Set your LTHR/Max HR (Edit Plan Settings) to also see target HR ranges here.' : '';
 
   return '<div class="zone-paces-card">'+
-    '<div class="zpc-head"><span class="font-head">Training Zone Paces</span><span class="zpc-vdot font-mono">VDOT '+(vdot?vdot.toFixed(1):'—')+'</span></div>'+
+    '<div class="zpc-head"><span class="font-head">Training Zone Paces</span></div>'+
     '<div class="field-hint" style="margin-bottom:10px;">Edit any pace by hand to fine-tune it — edits stick until reset or re-calibrated from a new goal/benchmark.'+hrHint+'</div>'+
     rows+
     (anyOverride ? '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:10px;" data-action="reset-pace-overrides">'+ICONS.zap+' Reset to Calculated Paces</button>' : '')+
@@ -5524,6 +5524,7 @@ function renderDayCard(dd){
           '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>'+
           renderCoachingDepth(dd)+
           renderFuelingCard(dd)+
+          renderAdjustedDetail(dd)+
         '</div>'+
       '</div>'+
       '<div class="day-actions"><button type="button" data-action="open-edit" data-day="'+dd.id+'" aria-label="Edit session">'+ICONS.pencil+'</button></div>'+
@@ -8882,14 +8883,21 @@ function planShapeHash(list){
 /* =========================================================
    THE EVOLUTION DECISION
    ========================================================= */
+/* Athlete-facing language for the five real System states. The internal state
+   names (HOLD/PROGRESS/MONITOR/ADAPT/RECOVER) are never renamed -- only what a
+   human reads here changes. HOLD is deliberately the quietest: it has no pill
+   anywhere and this label only ever surfaces as plain text inside the already
+   -collapsed Plan HQ evolution row, never as an attention-seeking element. */
 var EVOLUTION_META = {
-  HOLD:    { label:'Hold',    cls:'proceed', text:'Current structure remains appropriate.' },
+  HOLD:    { label:'On track', cls:'proceed', text:'Current structure remains appropriate.' },
   /* The one state that ADDS. It exists only because the Playbook can now say
-     the stimulus is being absorbed; every other state here reduces or waits. */
-  PROGRESS:{ label:'Progress',cls:'proceed', text:'Recent training is being absorbed well, and one small step up is appropriate.' },
-  MONITOR: { label:'Monitor', cls:'check',   text:'Evidence is building, but not enough to reshape the week.' },
-  ADAPT:   { label:'Adapt',   cls:'modify',  text:'Upcoming training should be reshaped while keeping the block on purpose.' },
-  RECOVER: { label:'Recover', cls:'recover', text:'Recovery currently outranks planned progression.' }
+     the stimulus is being absorbed; every other state here reduces or waits.
+     Quietly confident, not celebratory -- see renderEvolutionLink's PROGRESS
+     accent for the one restrained visual distinction this state gets. */
+  PROGRESS:{ label:'Ready to progress', cls:'proceed', text:'Training is landing well and one small progression has been earned.' },
+  MONITOR: { label:'Worth watching', cls:'check', text:'Evidence is building but there is nothing to act on yet.' },
+  ADAPT:   { label:'A small evolution', cls:'modify', text:'Reshaping the next few days keeps the block on purpose.' },
+  RECOVER: { label:'Recovery first', cls:'recover', text:'Recovery currently outranks planned progression.' }
 };
 function planEvolution(){
   if (!state.setup || !state.days || !state.days.length) return null;
@@ -9893,6 +9901,43 @@ function handleCoachRestore(dayId){
   flushSave();
   renderApp();
   showToast(partner ? 'Original sessions restored' : 'Original session restored');
+}
+
+/* ---------- the Adjusted disclosure ----------
+   Lives inside the day's own existing expand (This Week / Full Plan already
+   open a day on tap; this is content revealed there, not a second tap
+   target), so the Adjusted pill becomes meaningful without a new interaction
+   pattern or a second badge. coachRestoreState() is the sole authority for
+   whether Restore may be offered -- this never re-derives session_ran,
+   athlete_edited or the paired-move rules itself. */
+function renderAdjustedDetail(dd){
+  if (!dd || !dd.coachAdjust) return '';
+  var adj = dd.coachAdjust;
+  var st = coachRestoreState(dd);
+  var rows = '';
+  if (adj.from){
+    var fromName = escapeHtml(adj.from.title || (TYPE_META[adj.from.type]||{}).label || 'Session');
+    var toName = escapeHtml(dd.title || (TYPE_META[dd.type]||{}).label || 'Session');
+    rows += '<div class="evo-sec"><div class="evo-k">What changed</div><div class="evo-v">'+
+      fromName+(adj.from.km!=null?' '+fmtDist(adj.from.km):'')+' → '+toName+(dd.km?' '+fmtDist(dd.km):'')+
+    '</div></div>';
+  }
+  if (adj.reason)
+    rows += '<div class="evo-sec"><div class="evo-k">Why</div><div class="evo-v">'+escapeHtml(adj.reason)+'</div></div>';
+  rows += '<div class="evo-sec"><div class="evo-k">When</div><div class="evo-v">'+dShort(adj.at.slice(0,10))+'</div></div>';
+  var restore;
+  if (st.ok){
+    // System's own definition of "original": the workout immediately before
+    // the most recent coaching decision on this day, not necessarily the
+    // first one the block ever generated -- "can be undone at any time"
+    // would overstate that, so this says only what stays true.
+    var label = st.pairedWith ? 'Restore both sessions' : 'Restore the original session';
+    restore = '<button type="button" class="btn btn-ghost btn-sm" data-action="coach-restore" data-day="'+dd.id+'">'+
+      label+'</button><div class="field-hint">Can be restored until you run or edit it.</div>';
+  } else {
+    restore = '<div class="field-hint">'+escapeHtml(restoreRefusalCopy(st.reason))+'</div>';
+  }
+  return '<div class="evo-panel adjusted-detail">'+rows+'<div class="evo-sec">'+restore+'</div></div>';
 }
 
 
@@ -13111,11 +13156,15 @@ function renderEvolutionLink(){
   var ev = planEvolution();
   if (!evolutionProposalVisible(ev)) return '';
   var n = ev.changes.length;
+  // The one restrained accent PROGRESS gets: the same bronze token .evo-k and
+  // Key-tone day-status labels already use elsewhere, on the entry link only
+  // -- no new colour, no card repaint, no badge.
+  var cls = 'coach-why-btn evo-link'+(ev.state==='PROGRESS' ? ' is-progress' : '');
   if (!evolutionOpen){
-    return '<button type="button" class="coach-why-btn evo-link" data-action="toggle-evolution" '+
+    return '<button type="button" class="'+cls+'" data-action="toggle-evolution" '+
              'aria-expanded="false">7-day plan · '+n+' change'+(n===1?'':'s')+' suggested</button>';
   }
-  return '<button type="button" class="coach-why-btn evo-link" data-action="toggle-evolution" '+
+  return '<button type="button" class="'+cls+'" data-action="toggle-evolution" '+
            'aria-expanded="true">7-day plan</button>'+
          renderEvolutionProposal(ev, 'today');
 }
@@ -13148,8 +13197,48 @@ function evolutionRationale(ev){
                     : (c.fromTitle+' → '+c.toTitle+'.')) + note;
   if (lvl==='novice')
     return pb.why+note+' Nothing else in the week changes, the session keeps its pace targets and its purpose, '+
-           'and you can put it back at any time.';
+           'and it can be restored until you run or edit it.';
   return pb.why+note;
+}
+/* ---------- the hierarchy-branch equivalent ----------
+   evolutionRationale() only ever had a Playbook answer; a hierarchy-sourced
+   proposal (reduce/downgrade/reschedule/move) got Why/Changes/Protected and
+   then silence where "why this is better" belonged. This closes that gap
+   from data already on the decision object -- ev.reasons, ev.changes,
+   ev.protectedSessions, ev.stimulus.preserved, phase, athleteExperience() --
+   nothing here computes a new judgement the engine has not already made. */
+function hierarchyEvolutionRationale(ev){
+  var c = ev.changes[0] || {};
+  var lvl = athleteExperience();
+  var dd = findDay(c.dayId);
+  var name = dd ? (dd.title || (TYPE_META[dd.type]||{}).label) : 'the session';
+  var kept = ev.stimulus.preserved;
+  if (lvl === 'advanced'){
+    if (c.kind === 'reduce')     return c.dayId+': '+fmtDist(c.fromKm)+' → '+fmtDist(c.toKm)+'. Quality kept: '+kept.qualityKept+'.';
+    if (c.kind === 'downgrade')  return c.dayId+': '+c.fromType+' → easy, '+fmtDist(c.toKm)+'.';
+    if (c.kind === 'reschedule') return c.sourceDayId+' → '+c.dayId+', '+c.fromType+' → '+c.toType+'.';
+    if (c.kind === 'move')       return c.dayId+' ↔ '+c.swapWithId+', '+dShort(c.date)+' → '+dShort(c.toDate)+'.';
+    return '';
+  }
+  if (c.kind === 'reduce' && ev.state === 'RECOVER')
+    return 'Easing the largest session while recovery is the priority.';
+  if (c.kind === 'reduce')
+    return lvl === 'novice'
+      ? 'Trimming '+fmtDist(c.fromKm)+' to '+fmtDist(c.toKm)+' costs nothing your block needs — the sessions that build your fitness are untouched.'
+      : 'Lowest-value mileage first, protecting what matters this week.';
+  if (c.kind === 'downgrade')
+    return lvl === 'novice'
+      ? name+' becomes an easy run today — recovery outranks this session right now.'
+      : 'Recovery evidence outranks this session right now.';
+  if (c.kind === 'reschedule')
+    return lvl === 'novice'
+      ? 'The missed session moves to '+dShort(c.date)+' instead, on a day that was already easy — nothing else in the week gets harder.'
+      : 'Recovering the missed session without stacking it against another hard day.';
+  if (c.kind === 'move')
+    return lvl === 'novice'
+      ? name+' moves to '+dShort(c.toDate)+' so it isn’t stacked right after another hard day — same session, better spacing.'
+      : 'Giving two demanding sessions a day between them.';
+  return ev.reasons[0] || '';
 }
 /* Plain words for the dimension a step moved, for the one line the athlete
    reads. Descriptive, and the same vocabulary the library uses. */
@@ -13191,9 +13280,16 @@ function renderEvolutionProposal(ev, where){
           escapeHtml(ev.protectedSessions.map(function(p){
             return (findDay(p.dayId)||{}).title || 'Key session'; }).slice(0,3).join(' · '))+
         '</div></div>' : '')+
-    (ev.playbook
-      ? '<div class="evo-sec"><div class="evo-k">Why this is better</div><div class="evo-v">'+
-          escapeHtml(evolutionRationale(ev))+'</div></div>' : '')+
+    (function(){
+      // Parity between the two proposal sources: a hierarchy-driven change
+      // gets the same "why this is better" section a Playbook change always
+      // had, derived only from fields already on ev/ev.changes[0] -- no new
+      // evidence is computed here.
+      var rationale = ev.playbook ? evolutionRationale(ev) : hierarchyEvolutionRationale(ev);
+      return rationale
+        ? '<div class="evo-sec"><div class="evo-k">Why this is better</div><div class="evo-v">'+
+            escapeHtml(rationale)+'</div></div>' : '';
+    })()+
     '<div class="evo-sec"><div class="evo-k">Training kept</div><div class="evo-v">'+
       escapeHtml(
         (ev.stimulus.preserved.qualityKept ? 'Quality exposures unchanged ('+ev.stimulus.after.qualityExposures+')'
@@ -13345,6 +13441,25 @@ function hqSection(key, title, summary, bodyHtml){
     (open ? '<div class="hq-sec-body">'+bodyHtml+'</div>' : '')+
   '</div>';
 }
+/* ---------- a reminder, not a history screen ----------
+   evolutionHistory is already persisted and, until now, never read back by
+   any renderer. At most two lines -- what changed, on which day -- so an
+   athlete who saw the acceptance toast and moved on can still find it here
+   without a second history screen, pagination or raw evidence metadata. */
+function recentlyEvolvedSummary(){
+  var hist = (state.evolutionHistory || []).filter(function(e){ return e.accepted && e.changes.length; });
+  if (!hist.length) return '';
+  var lines = hist.slice(-2).reverse().map(function(e){
+    var first = e.changes[0];
+    var dd = first ? findDay(first.dayId) : null;
+    var n = e.changes.length;
+    var name = dd ? (dd.title || (TYPE_META[dd.type]||{}).label) : (n+' session'+(n===1?'':'s'));
+    return dShort(e.date)+': '+name+(n>1?' +'+(n-1)+' more':'');
+  });
+  return '<div class="evo-sec"><div class="evo-k">Recently evolved</div>'+
+    lines.map(function(l){ return '<div class="evo-v">'+escapeHtml(l)+'</div>'; }).join('')+
+  '</div>';
+}
 function renderEvolutionSection(ev){
   if (!ev) return '<div class="hq-empty">No plan to evolve yet.</div>';
   var meta = EVOLUTION_META[ev.state];
@@ -13353,7 +13468,8 @@ function renderEvolutionSection(ev){
              '<div class="hq-empty" style="margin:4px 0 8px;">'+escapeHtml(
                ev.changes.length ? (ev.changes.length+' change'+(ev.changes.length===1?'':'s')+
                                     ' suggested across the next '+ev.horizonDays+' days.')
-                                 : meta.text)+'</div>';
+                                 : meta.text)+'</div>'+
+             recentlyEvolvedSummary();
   if (!ev.changes.length) return head;
   if (!evolutionProposalVisible(ev))
     return head+'<div class="hq-empty">You kept the current plan. This will not be raised again unless the evidence changes.</div>';
@@ -13508,7 +13624,16 @@ function sessionRan(dd){
 function dayStatusLabel(dd){
   var word = null, tone = null;
   var ran = sessionRan(dd);
+  /* dd.coachAdjust is a Valhalla intervention; dd.manualEdit is the athlete's
+     own ownership marker (the Playbook week-restore and coachRestoreState()
+     have always treated them as opposite things -- the one thing System will
+     never overwrite is a session the athlete edited themselves). Labelling an
+     athlete's own edit "Adjusted" would misattribute it to the coach, so it
+     gets its own word. No new tone/colour is introduced: like Kept, an edit
+     the athlete made needs no explanation from Valhalla, so it renders in the
+     same quiet default styling Kept already uses. */
   if (dd.coachAdjust){ word = 'Adjusted'; tone = 'adjusted'; }
+  else if (dd.manualEdit){ word = 'Edited'; tone = 'edited'; }
   else if (dd.coachKeptAt){ word = 'Kept'; tone = 'kept'; }
   else if (dd.type==='checkpoint' || dd.type==='race'){ word = 'Key'; tone = 'key'; }
   else if (!ran && dd.type!=='rest' && dd.date < todayStr()){ word = 'Missed'; tone = 'missed'; }
