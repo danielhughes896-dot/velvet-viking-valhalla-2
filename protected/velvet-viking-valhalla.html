@@ -609,6 +609,23 @@
     background:none; border:1px dashed var(--line); border-radius:6px; color:var(--ink-dim);
     font-size:11px; padding:6px 10px; margin-top:2px; cursor:pointer; min-height:32px; width:100%;
   }
+  /* Structured logging: one compact block per prescribed segment. Two lines
+     rather than a wide table, because a phone is narrow and an 18-row hill
+     session must still be thumb-usable. */
+  .slog-hint{font-size:10px; line-height:1.4; color:var(--ink-faint); margin:2px 0 8px;}
+  .slog-row{margin-bottom:7px; padding-left:8px; border-left:2px solid var(--line);}
+  .slog-row.is-rec{border-left-color:var(--line-soft); opacity:.86;}
+  .slog-row.is-flank{border-left-color:var(--line-soft);}
+  .slog-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:3px;}
+  .slog-label{font-size:10.5px; font-weight:600; color:var(--ink); letter-spacing:.2px;}
+  .slog-presc{font-size:10px; color:var(--bronze-text);}
+  .slog-ins{display:flex; gap:5px;}
+  .slog-in{
+    flex:1 1 0; min-width:0; background:var(--bg-4); border:1px solid var(--line);
+    border-radius:6px; color:var(--ink); padding:6px; font-size:12.5px;
+    font-family:'JetBrains Mono',monospace; min-height:34px;
+  }
+  .slog-in.slog-hr{flex:0 0 62px;}
   .splits-total{font-size:10.5px; color:var(--ink-faint); margin-top:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .splits-total .font-mono{color:var(--ink-dim);}
   .splits-warn{color:var(--gold-deep);}
@@ -2290,6 +2307,122 @@ function segmentsFor(p){
   }
   return null;
 }
+/* =========================================================
+   ORDERED SEGMENTS — the prescription in the order it is run
+   ---------------------------------------------------------
+   segmentsFor() returns the workout as a TREE, and the two existing walkers
+   (segmentDistanceMix, structuredZoneTime) flatten it children-first because
+   they only ever needed totals: all five reps, then all four recoveries.
+   That is correct arithmetic and useless as a running order.
+
+   An athlete logging a session runs rep 1, recovery 1, rep 2 -- so this
+   emits the leaves INTERLEAVED, which is the one genuinely new thing the
+   structured log needs. It computes no distances, no paces and no
+   cardinality of its own: repeatChildCount() remains the single authority
+   on how many times a child happens, which is what keeps fartlek at 5 reps
+   and 4 recoveries while hill repeats stay 8 and 8.
+
+   Each leaf carries a stable `segId` derived from its position, so an actual
+   logged against it can be matched back after a reload without depending on
+   array order, and `repIndex` so "rep 3" means rep 3 to the athlete, the
+   renderer and the review alike.
+   ========================================================= */
+function orderedSegments(p){
+  var segs = segmentsFor(p);
+  if (!segs) return null;
+  var out = [];
+  // `path` makes the id stable and unique without a counter that would
+  // renumber everything when a rung or a set is added.
+  (function walk(list, path, inRepeat){
+    (list||[]).forEach(function(s, i){
+      var here = path + '.' + i;
+      if (s.kind === 'repeat'){
+        var times = s.times || 1;
+        for (var n = 0; n < times; n++){
+          s.children.forEach(function(c, ci){
+            /* The cardinality rule, borrowed rather than restated: a
+               'between' recovery does not happen after the final rep, so on
+               the last pass its child is simply skipped. repeatChildCount
+               already knows this; asking it per-child keeps hill repeats
+               ('after_each') working with no special case here. */
+            if (repeatChildCount(s, c) <= n) return;
+            walk([c], here + '.' + n + '.' + ci, true);
+          });
+        }
+        return;
+      }
+      out.push({
+        segId: here,
+        kind: s.kind,                                  // 'work' | 'recovery'
+        // Only a segment that came out of a repeat is a "rep". The 8km base
+        // of an easy_strides session is a work segment too, and calling it
+        // "Rep 1" would be nonsense.
+        inRepeat: !!inRepeat,
+        role: s.role || (s.kind === 'recovery' ? 'recovery' : 'work'),
+        intensity: s.intensity,
+        km: s.km != null ? s.km : null,
+        m:  s.m  != null ? s.m  : null,
+        sec: s.sec != null ? s.sec : null,
+        qualifier: s.qualifier || null,
+        maximal: !!s.maximal,
+        terrain: s.terrain || null
+      });
+    });
+  })(segs, 's');
+  /* Rep/recovery numbering the athlete recognises: "Rep 3", "Recovery 2".
+     Numbered by INTENSITY GROUP rather than by "came out of a repeat",
+     because a ladder is five genuine reps that segmentsFor() emits as five
+     separate segments rather than a repeat -- numbering only repeat children
+     would show the athlete five identical rows called "Interval". Grouping
+     also keeps the 8km base of a strides session out of the rep count: it is
+     the only 'easy' work segment, so it stays "Easy" while the six
+     'repetition' segments become Rep 1-6. */
+  var groupSize = {};
+  out.forEach(function(s){
+    if (s.role === 'warmup' || s.role === 'cooldown') return;
+    var key = s.kind === 'recovery' ? 'recovery' : 'work:' + s.intensity;
+    groupSize[key] = (groupSize[key] || 0) + 1;
+  });
+  var seen = {};
+  out.forEach(function(s){
+    if (s.role === 'warmup' || s.role === 'cooldown') return;
+    var key = s.kind === 'recovery' ? 'recovery' : 'work:' + s.intensity;
+    seen[key] = (seen[key] || 0) + 1;
+    s.grouped = groupSize[key] > 1;
+    if (s.grouped) s.repIndex = seen[key];
+  });
+  return out;
+}
+/* What the athlete was actually asked to do, in words, for ONE segment.
+   Returns null where the prescription genuinely carries no number -- a
+   fartlek warm-up, a hill-repeat descent, a ladder recovery "scaled to each
+   rep". Those are rules, not quantities, and printing a number there would
+   invent a prescription that does not exist. The caller renders nothing
+   rather than a fabricated target. */
+var SEGMENT_QUALIFIER_TEXT = {
+  scaled:'scaled to the rep', short:'short', full:'full recovery',
+  back_down:'jog/walk back down', equal_time:'equal time', float:'floating'
+};
+function segmentPrescribed(s){
+  if (!s) return null;
+  if (s.km != null) return fmtDist(s.km);
+  if (s.m != null)  return s.m + 'm';
+  if (s.sec != null) return s.sec >= 60 ? Math.round(s.sec/60) + 'min' : s.sec + 's';
+  return SEGMENT_QUALIFIER_TEXT[s.qualifier] || null;
+}
+/* Which actual is worth asking for. A segment prescribed as a DISTANCE is
+   logged by the time it took; one prescribed as a TIME is logged by the
+   distance covered. Asking for both would be asking the athlete to hand back
+   the prescription, and pace is derived from the pair either way. A segment
+   with no prescribed quantity at all gets both fields, because nothing about
+   it is known in advance. */
+function segmentAsksFor(s){
+  if (!s) return { dist:true, time:true };
+  if (s.km != null || s.m != null) return { dist:false, time:true };
+  if (s.sec != null) return { dist:true, time:false };
+  return { dist:true, time:true };
+}
+
 /* ---- when a session stops matching its prescription ----
    One rule, used by every path that rewrites a day: an archetype whose only
    parameter IS the whole-day distance still describes the session after a
@@ -6570,6 +6703,117 @@ function emptyActual(){ return { km:null, pace:null, hr:null, rpe:null, feel:nul
    ========================================================= */
 function emptySplit(){ return { km:null, sec:null, paceSec:null, hr:null }; }
 
+/* =========================================================
+   STRUCTURED LOGGING PLAN — one deterministic mapping, two sources
+   ---------------------------------------------------------
+   Neither available structure is right for every session, and the evidence
+   for that is not an opinion:
+
+     long run   -- raw segments give ONE row ("20km easy"); Execution
+                   Strategy gives Settle / Hold. Phases win.
+     race       -- raw segments give ONE row; Strategy gives four. Phases win.
+     intervals  -- Strategy collapses every rep into a single "Press" phase;
+                   raw segments give warm-up, five reps, four recoveries and
+                   a cool-down. Segments win.
+     threshold  -- both give warm-up / work / cool-down. Identical, so the
+                   cheaper and more literal source (segments) is used.
+
+   So the mapping switches on what the session actually IS, and both sources
+   already exist and are already tested. Nothing here computes a distance, a
+   pace or a rep count of its own.
+
+   Returns null when there is nothing worth structuring -- an easy run is one
+   row, and one row is a worse version of the flat editor, not a better one.
+   The caller falls back to flat splits, which is also what happens for a day
+   with no prescription at all. */
+function structuredLoggingPlan(dd){
+  if (!dd || dd.type === 'rest') return null;
+  var p = prescriptionOf(dd);
+  var segs = p ? orderedSegments(p) : null;
+
+  /* PHASE-SOURCED, and deliberately only here: a session whose ENTIRE
+     prescription is one or two continuous blocks with no warm-up, cool-down
+     or recovery of its own -- a long run, a goal-finish long run, a race.
+     For those, raw segments give a single useless row and Strategy's
+     Settle/Hold/Commit is a real improvement.
+
+     A FLANKED session (threshold, tempo, time trial) is deliberately NOT
+     routed here even though Strategy would also produce three phases, and
+     the reason is false precision: segmentsFor() gives a steady_tempo a
+     warm-up with NO prescribed distance ("Easy warm-up jog"), while the
+     Strategy phase for the same session reports "from 0km" / "to 10km" --
+     boundaries derived from the day's total, not prescribed anywhere. Those
+     are fine as reading guidance in "How to run this", where they are framed
+     as a strategy; presenting them as the thing the athlete was told to run,
+     and asking for actuals against them, would invent a prescription. Raw
+     segments say "Warm up -- no prescribed distance" and ask honestly. */
+  var noFlanks = segs && !segs.some(function(s){
+    return s.role === 'warmup' || s.role === 'cooldown' || s.kind === 'recovery';
+  });
+  var oneBlock = noFlanks && segs.length <= 2;
+  if (oneBlock){
+    var strat = null;
+    try { strat = executionStrategy(dd); } catch(e) { strat = null; }
+    if (strat && !strat.suppressed && strat.phases && strat.phases.length > 1){
+      return {
+        source: 'phases',
+        rows: strat.phases.map(function(ph, i){
+          return {
+            segId: 'p.' + i,
+            label: ph.label,
+            role: 'phase',
+            kind: 'work',
+            // A phase bounded by distance is logged by the time it took; the
+            // boundary is already on screen, so re-typing it is pointless.
+            prescribed: fmtStrategySpan(ph) || null,
+            asks: (ph.from != null || ph.to != null) ? { dist:false, time:true }
+                                                     : { dist:true, time:true }
+          };
+        })
+      };
+    }
+  }
+
+  /* SEGMENT-SOURCED: everything with real internal structure. */
+  if (segs && segs.length > 1){
+    return {
+      source: 'segments',
+      rows: segs.map(function(s){
+        return {
+          segId: s.segId,
+          label: segmentLabel(s),
+          role: s.role,
+          kind: s.kind,
+          repIndex: s.repIndex || null,
+          prescribed: segmentPrescribed(s),
+          // The prescribed duration in raw seconds, kept so a rep logged only
+          // by distance can still yield a pace. See upsertStructuredSplit.
+          presSec: s.sec != null ? s.sec : null,
+          asks: segmentAsksFor(s)
+        };
+      })
+    };
+  }
+  return null;
+}
+/* What the athlete calls each row. Garmin's own vocabulary, because it is
+   also the athlete's: Warm Up, Rep 3, Recovery 2, Cool Down. A work segment
+   that is NOT part of a repeat is named for what it is instead -- the 8km
+   base of a strides session is not "Rep 1", and the threshold block of a
+   threshold session is not "Rep 1" either. */
+var INTENSITY_SEGMENT_LABEL = {
+  easy:'Easy', steady:'Steady', tempo:'Tempo', threshold:'Threshold',
+  interval:'Interval', repetition:'Strides', goal_pace:'Goal pace',
+  hard_effort:'Hard effort'
+};
+function segmentLabel(s){
+  if (s.role === 'warmup') return 'Warm up';
+  if (s.role === 'cooldown') return 'Cool down';
+  if (s.kind === 'recovery') return 'Recovery' + (s.repIndex ? ' ' + s.repIndex : '');
+  if (s.grouped) return 'Rep' + (s.repIndex ? ' ' + s.repIndex : '');
+  return INTENSITY_SEGMENT_LABEL[s.intensity] || 'Work';
+}
+
 // Ephemeral like dayExpandOverride -- deliberately not persisted, so a
 // closed editor stays closed on the next launch rather than the app
 // remembering which days someone happened to expand.
@@ -6598,11 +6842,28 @@ function splitsMismatch(dd){
   if (diff < 0.3 && diff/logged < 0.08) return null;
   return { total:total, logged:logged };
 }
+/* A structured log is expected to be partial: an athlete who fills in five
+   reps and leaves the warm-up, recoveries and cool-down blank has not
+   contradicted anything, they have simply logged the part that matters.
+   Comparing that subtotal to the whole session and calling it a discrepancy
+   would be manufacturing a problem out of normal use -- so the mismatch
+   warning only applies once every distance the log asks for has an answer.
+   A flat lap list is unchanged: its laps ARE meant to cover the session. */
+function structuredLogIncomplete(dd){
+  var m = loggingModeFor(dd);
+  if (m.mode !== 'structured') return false;
+  return m.plan.rows.some(function(r){
+    var s = structuredSplitFor(dd, r.segId);
+    return !s || s.km == null;
+  });
+}
 function renderSplitsTotal(dd){
   var total = splitsTotalKm(dd);
   if (total==null) return '';
-  var mismatch = splitsMismatch(dd);
-  return '<div class="splits-total">Lap total <span class="font-mono">'+fmtDist(total)+'</span>'+
+  var partial = structuredLogIncomplete(dd);
+  var mismatch = partial ? null : splitsMismatch(dd);
+  return '<div class="splits-total">'+(partial ? 'Logged so far ' : 'Lap total ')+
+    '<span class="font-mono">'+fmtDist(total)+'</span>'+
     (mismatch ? '<span class="splits-warn">Logged session says '+fmtDist(mismatch.logged)+' — keeping both; correct whichever is off.</span>' : '')+
   '</div>';
 }
@@ -6633,16 +6894,136 @@ function renderSplitsBody(dd){
     '<div id="splits-total-'+dd.id+'">'+renderSplitsTotal(dd)+'</div>'+
   '</div>';
 }
-// Quiet by default: a closed one-line control, not another card. It opens
-// only when tapped, or when the day already carries real lap data (an
-// import, or a previous session's laps) -- never forced.
+
+/* =========================================================
+   STRUCTURED LOGGING — the prescription, waiting for its actuals
+   ---------------------------------------------------------
+   The athlete already ran a session Valhalla wrote. Asking them to rebuild
+   it as anonymous numbered laps is asking them to do the app's work: a
+   watch shows Warm Up / Run 1 / Recovery / Run 2, and so should this.
+
+   A structured entry is an ordinary member of dd.actual.splits -- the same
+   array coachSplitMetrics() and coachHRDrift() already read -- carrying
+   extra keys those functions ignore. There is no second persistence model,
+   so sync, backup, archive, restore and the content signature all keep
+   working with no change at all. */
+function splitHasStructure(s){ return !!(s && s.segId); }
+// A log written before this existed (or by a future flat import) has no
+// segIds. It is never silently converted: the athlete's own rows are their
+// record, and rebuilding them as segments would be guessing which lap was
+// which rep. Those days keep the flat editor.
+function splitsAreLegacyFlat(dd){
+  var splits = (dd.actual && dd.actual.splits) || [];
+  return splits.length > 0 && !splits.some(splitHasStructure);
+}
+function structuredSplitFor(dd, segId){
+  var splits = (dd.actual && dd.actual.splits) || [];
+  for (var i=0;i<splits.length;i++) if (splits[i] && splits[i].segId === segId) return splits[i];
+  return null;
+}
+/* Rows are written in plan order, so the array the analysis layer reads is
+   already in the order the session was run -- which is exactly what
+   coachSplitMetrics()'s first-half/second-half comparison assumes. */
+function upsertStructuredSplit(dd, plan, row){
+  dd.actual = dd.actual || emptyActual();
+  dd.actual.splits = dd.actual.splits || [];
+  var existing = structuredSplitFor(dd, row.segId);
+  if (existing) return existing;
+  /* A segment prescribed as a DURATION is not asked for its time -- the
+     athlete was told to run for two minutes, so two minutes is what they
+     ran, and the thing only they know is how far they got. Seeding sec from
+     the prescription is what makes the pace derivable from the one number
+     they do enter. It is an assumption, but the honest one: it is exactly
+     the instruction the athlete was given, and it is never applied to a
+     distance-prescribed segment, where the time is the unknown. */
+  var seeded = !row.asks.time && row.presSec != null;
+  var fresh = { segId:row.segId, role:row.role, label:row.label,
+                repIndex:row.repIndex || null,
+                km:null, sec:(seeded ? row.presSec : null),
+                // Records that this time came from the prescription rather
+                // than a watch. It is also what stops a seeded row from
+                // looking "filled in" when the athlete has entered nothing.
+                secSeeded: seeded || undefined,
+                paceSec:null, hr:null };
+  var order = plan.rows.map(function(r){ return r.segId; });
+  var at = dd.actual.splits.findIndex(function(s){
+    return splitHasStructure(s) && order.indexOf(s.segId) > order.indexOf(row.segId);
+  });
+  if (at === -1) dd.actual.splits.push(fresh); else dd.actual.splits.splice(at, 0, fresh);
+  return fresh;
+}
+/* kmToDisplay() rounds to one decimal, which is right for a whole session
+   and wrong for one rep: it would redisplay a stored 0.55km rep as 0.6 and
+   then write that back on the next edit, quietly coarsening the athlete's
+   own number. Structured rows round-trip at the precision they are stored. */
+function segKmToDisplay(km){
+  if (km == null) return '';
+  return round2(state.units === 'mi' ? km * 0.621371 : km);
+}
+function renderStructuredRow(dd, row){
+  var s = structuredSplitFor(dd, row.segId) || {};
+  var unit = displayUnit();
+  var inputs = '';
+  if (row.asks.dist)
+    inputs += '<input type="number" step="0.01" min="0" inputmode="decimal" class="slog-in" '+
+      'placeholder="'+unit+'" aria-label="'+escapeHtml(row.label)+' distance" '+
+      'value="'+segKmToDisplay(s.km)+'" data-action="slog-field" data-field="km" '+
+      'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
+  if (row.asks.time)
+    inputs += '<input type="text" inputmode="numeric" class="slog-in" placeholder="m:ss" '+
+      'aria-label="'+escapeHtml(row.label)+' time" '+
+      'value="'+(s.sec!=null?secToPace(s.sec):'')+'" data-action="slog-field" data-field="sec" '+
+      'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
+  inputs += '<input type="number" min="0" inputmode="numeric" class="slog-in slog-hr" placeholder="HR" '+
+    'aria-label="'+escapeHtml(row.label)+' average heart rate" '+
+    'value="'+(s.hr!=null?s.hr:'')+'" data-action="slog-field" data-field="hr" '+
+    'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
+  var cls = 'slog-row' + (row.kind==='recovery' ? ' is-rec' : '') +
+            (row.role==='warmup'||row.role==='cooldown' ? ' is-flank' : '');
+  return '<div class="'+cls+'">'+
+    '<div class="slog-head">'+
+      '<span class="slog-label">'+escapeHtml(row.label)+'</span>'+
+      /* Only where a prescribed value genuinely exists. A fartlek warm-up, a
+         hill-repeat descent and a ladder recovery are prescribed as rules,
+         not numbers, and printing one here would invent a target the athlete
+         was never given. */
+      (row.prescribed ? '<span class="slog-presc font-mono">'+escapeHtml(row.prescribed)+'</span>' : '')+
+    '</div>'+
+    '<div class="slog-ins">'+inputs+'</div>'+
+  '</div>';
+}
+function renderStructuredBody(dd, plan){
+  return '<div class="splits-body">'+
+    '<div class="slog-hint">Prescribed values are already filled in — just add what you actually ran. Every field is optional.</div>'+
+    plan.rows.map(function(r){ return renderStructuredRow(dd, r); }).join('')+
+    '<div id="splits-total-'+dd.id+'">'+renderSplitsTotal(dd)+'</div>'+
+  '</div>';
+}
+/* Quiet by default: a closed one-line control, not another card. It opens
+   only when tapped, or when the day already carries real lap data -- never
+   forced, and the whole-session log above stays sufficient on its own.
+
+   Structured where the session has a structure worth mirroring, flat
+   otherwise. A day carrying a legacy flat log keeps the flat editor even if
+   its prescription could be structured: those rows are the athlete's record
+   and guessing which lap was which rep would be inventing history. */
+function loggingModeFor(dd){
+  if (splitsAreLegacyFlat(dd)) return { mode:'flat', plan:null };
+  var plan = null;
+  try { plan = structuredLoggingPlan(dd); } catch(e) { plan = null; }
+  return plan ? { mode:'structured', plan:plan } : { mode:'flat', plan:null };
+}
 function renderSplitsBlock(dd){
   var open = isSplitsOpen(dd);
+  var m = loggingModeFor(dd);
+  var label = m.mode === 'structured'
+    ? (open ? 'Hide session breakdown' : '+ Log the session breakdown (optional)')
+    : (open ? 'Hide laps / splits' : '+ Add laps / splits (optional)');
   return '<div class="actual-field full splits-block">'+
     '<button type="button" class="splits-toggle" data-action="toggle-splits" data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
-      (open ? 'Hide laps / splits' : '+ Add laps / splits (optional)')+
+      label+
     '</button>'+
-    (open ? renderSplitsBody(dd) : '')+
+    (open ? (m.mode === 'structured' ? renderStructuredBody(dd, m.plan) : renderSplitsBody(dd)) : '')+
   '</div>';
 }
 
@@ -6739,6 +7120,17 @@ function renderExecutionReview(dd){
     if (r.splitMetrics){
       body += '<div class="cr-sec"><div class="cr-k">Splits</div>'+
                 '<div class="cr-v">'+escapeHtml(describeSplitEvidence(r.splitMetrics))+'</div></div>';
+    }
+    /* The structured read, when the log mirrors the prescription. This is
+       what the flat-lap version could never say: how the REPS behaved, not
+       merely how the first half of the laps compared to the second. Each
+       line is individually gated on the evidence it needs, so a session
+       logged only at warm-up level says nothing here. */
+    var se = structuredExecutionEvidence(dd);
+    if (se){
+      body += '<div class="cr-sec"><div class="cr-k">Execution by segment</div><div class="cr-v">'+
+        se.claims.map(function(c){ return escapeHtml(c); }).join(' ')+
+      '</div></div>';
     }
 
     // Buttons appear only when an adjustment is actually recommended, so a
@@ -12945,6 +13337,86 @@ function describeSplitEvidence(sm){
   return lead + fade + ', ' + sm.consistencyPct + '% pace consistency across ' + sm.splits + ' laps.';
 }
 
+/* =========================================================
+   STRUCTURED EXECUTION EVIDENCE
+   ---------------------------------------------------------
+   When the log mirrors the prescription, questions become answerable that a
+   flat list of laps could never answer: not "were the laps even" but "were
+   the REPS even", "did the work hold while the recoveries did their job",
+   "was the goal-pace finish actually run at goal pace".
+
+   Every claim here is gated on evidence that genuinely exists. The hard
+   rule, and the reason several obvious-sounding claims are absent: a
+   segment prescribed as a RULE rather than a number has no target to judge
+   against. A hill-repeat descent is "jog/walk back down"; a ladder recovery
+   is "scaled to the rep". There is no prescribed recovery pace or duration
+   anywhere in the model for those, so no "your recoveries were too slow"
+   verdict is possible without inventing the target it is measured against.
+   Recovery discipline is therefore reported ONLY as the separation between
+   work and recovery the athlete's own numbers show, never as adherence. */
+function structuredSplitsOf(dd){
+  var splits = (dd && dd.actual && dd.actual.splits) || [];
+  return splits.filter(splitHasStructure);
+}
+function structuredExecutionEvidence(dd){
+  var all = structuredSplitsOf(dd);
+  if (!all.length) return null;
+  var paced = function(list){ return list.filter(function(s){ return s.paceSec != null; }); };
+  var reps = paced(all.filter(function(s){ return s.role === 'work' && /^Rep/.test(s.label || ''); }));
+  var recs = paced(all.filter(function(s){ return s.role === 'recovery'; }));
+  var out = { reps:reps.length, recoveries:recs.length, claims:[] };
+  var mean = function(list){ return list.reduce(function(t,x){ return t + x.paceSec; }, 0) / list.length; };
+
+  /* REP CONSISTENCY and FADE. Three is the minimum that can show a trend
+     rather than a difference between two numbers. */
+  if (reps.length >= 3){
+    var avg = mean(reps);
+    var sd = Math.sqrt(reps.reduce(function(t,x){ return t + Math.pow(x.paceSec-avg,2); },0)/reps.length);
+    var consistency = Math.round((1 - sd/avg) * 1000) / 10;
+    out.repConsistencyPct = consistency;
+    var firstRep = reps[0].paceSec, lastRep = reps[reps.length-1].paceSec;
+    var drift = Math.round(((lastRep - firstRep) / firstRep) * 1000) / 10;
+    out.repFadePct = drift;
+    out.claims.push(consistency >= 97
+      ? 'Reps held together: ' + consistency + '% pace consistency across ' + reps.length + ' reps.'
+      : 'Rep pace varied by more than it looks — ' + consistency + '% consistency across ' + reps.length + ' reps.');
+    if (Math.abs(drift) >= 2){
+      out.claims.push(drift > 0
+        ? 'The last rep came in ' + Math.abs(drift) + '% slower than the first.'
+        : 'The last rep came in ' + Math.abs(drift) + '% faster than the first.');
+    } else {
+      out.claims.push('First and last rep were run at effectively the same pace.');
+    }
+  }
+
+  /* OPENING CONTROL, and only against a target that exists. Execution
+     Strategy's first phase carries paceRole 'ceiling' precisely where going
+     out too fast is the failure mode; comparing the opening to a ceiling is
+     the one opening claim with a real prescribed number behind it. */
+  var strat = null;
+  try { strat = executionStrategy(dd); } catch(e) { strat = null; }
+  var opener = paced(all)[0];
+  if (strat && !strat.suppressed && strat.phases && strat.phases.length && opener){
+    var p0 = strat.phases[0];
+    if (p0.paceRole === 'ceiling' && p0.pace && p0.pace.fast != null){
+      out.openingVsCeiling = opener.paceSec - p0.pace.fast;
+      out.claims.push(opener.paceSec < p0.pace.fast
+        ? 'Opened faster than the ceiling the plan set for the start.'
+        : 'Opening was held at or inside the ceiling, which is the hard part.');
+    }
+  }
+
+  /* WORK vs RECOVERY SEPARATION. Descriptive, never a verdict: see the
+     header note on why no recovery-adherence claim is made. */
+  if (reps.length >= 2 && recs.length >= 2){
+    var gap = Math.round(mean(recs) - mean(reps));
+    out.workRecoveryGapSec = gap;
+    if (gap > 0)
+      out.claims.push('Recoveries ran ' + secToPace(gap) + '/km slower than the reps, so the two were genuinely different efforts.');
+  }
+  return out.claims.length ? out : null;
+}
+
 /* ---------- the next planned session, so advice can point somewhere ---------- */
 function coachSessionAfter(dd){
   if (!dd) return null;
@@ -16726,6 +17198,55 @@ function handleSplitFieldChange(dayId, index, field, value){
   patchDerivedStats();
   scheduleSave();
 }
+/* One prescribed segment's actual. The row already exists on screen because
+   the prescription put it there, so the first edit is what brings the
+   underlying split into being -- a session the athlete never touches stores
+   nothing at all, and a partly-filled one stores only the segments they
+   actually answered. Same validation as the flat editor, and pace is
+   derived rather than asked for. */
+function handleStructuredSplitChange(dayId, segId, field, value){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  var m = loggingModeFor(dd);
+  if (m.mode !== 'structured') return;
+  var row = null;
+  for (var i=0;i<m.plan.rows.length;i++) if (m.plan.rows[i].segId === segId) row = m.plan.rows[i];
+  if (!row) return;                                   // a stale card; ignore rather than invent
+  var s = upsertStructuredSplit(dd, m.plan, row);
+  if (field === 'km'){
+    /* round2, not parseDistInput's round1. A whole-session distance to one
+       decimal is fine; a single rep is not. A two-minute fartlek rep covers
+       something like 0.55km, and rounding that to 0.6 is a 9% error carried
+       straight into the derived pace. (The mile branch of parseDistInput
+       already uses round2 for exactly this reason.) */
+    var raw = parseFloat(value);
+    var km = (value==='' || isNaN(raw)) ? null
+           : round2(state.units==='mi' ? raw/0.621371 : raw);
+    s.km = (km!=null && km>0) ? km : null;
+  } else if (field === 'sec'){
+    var sec = value.trim()===''?null:clockToSec(value);
+    s.sec = (sec!=null && sec>0) ? sec : null;
+    delete s.secSeeded;                      // an entered time is not a seeded one
+  } else if (field === 'hr'){
+    var hr = value===''?null:parseInt(value,10);
+    s.hr = (hr!=null && !isNaN(hr) && hr>0) ? hr : null;
+  }
+  s.paceSec = (s.km!=null && s.km>0 && s.sec!=null) ? Math.round(s.sec/s.km) : null;
+  /* A row the athlete emptied again leaves no trace: an all-null segment is
+     not evidence, and keeping it would let coachSplitMetrics count rows that
+     say nothing. A time seeded from the prescription does not count as
+     something the athlete entered -- otherwise every rep they merely tapped
+     would survive as a phantom row carrying only its own instruction back. */
+  if (s.km==null && s.hr==null && (s.sec==null || s.secSeeded)){
+    var at = dd.actual.splits.indexOf(s);
+    if (at !== -1) dd.actual.splits.splice(at, 1);
+  }
+  coachPersistReview(dd);
+  patchExecutionUI(dd);
+  patchSplitsTotal(dd);
+  patchDerivedStats();
+  scheduleSave();
+}
 function handleToggleWeek(weekNum){
   if (expandedWeeks[weekNum]) delete expandedWeeks[weekNum];
   else expandedWeeks[weekNum] = true;
@@ -17566,6 +18087,7 @@ document.addEventListener('change', function(e){
   // nothing at all when tapped.
   else if (action === 'actual-field') handleActualFieldChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'split-field') handleSplitFieldChange(actionEl.getAttribute('data-day'), parseInt(actionEl.getAttribute('data-index'),10), actionEl.getAttribute('data-field'), actionEl.value);
+  else if (action === 'slog-field') handleStructuredSplitChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-seg'), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'pace-override') handlePaceOverrideChange(actionEl.getAttribute('data-zone'));
   else if (action === 'toggle-notify') handleToggleNotify();
   else if (action === 'toggle-theme-switch') handleToggleThemeQuick();
