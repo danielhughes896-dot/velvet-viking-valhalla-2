@@ -210,7 +210,7 @@ test('dayStatusLabel: a Valhalla adjustment reads Adjusted, an athlete edit read
   assert.doesNotMatch(label, /Edited/, 'a Valhalla change must never be described as the athlete’s own edit, or vice versa');
 });
 
-test('renderAdjustedDetail: shows What/Why/When and a working Restore for an ordinary adjustment', () => {
+test('renderAdjustedDetail: shows What/Why/consent provenance and a working Restore for an ordinary adjustment', () => {
   const a = withPlan(app());
   const dd = a.state.days.find(d => d.type !== 'rest' && d.date > a.todayStr());
   const originalTitle = dd.title, originalKm = dd.km;
@@ -222,7 +222,13 @@ test('renderAdjustedDetail: shows What/Why/When and a working Restore for an ord
   const html = a.renderAdjustedDetail(dd);
   assert.match(html, /What changed/);
   assert.match(html, /Why/);
-  assert.match(html, /When/);
+  /* The third row used to be labelled "When" and print the date alone, which
+     left an athlete looking at an ADJUSTED session days later with no way to
+     tell whether anybody had asked them. coachAdjust.at is only ever stamped
+     by an accept handler, so it IS the record of their decision, and the row
+     now says so. The date must still be there -- that part never changed. */
+  assert.match(html, /Accepted/);
+  assert.match(html, /You accepted this change on Mar 10\./);
   assert.match(html, /Restore the original session/);
   assert.match(html, /Can be restored until you run or edit it\./);
   assert.doesNotMatch(html, /at any time/i);

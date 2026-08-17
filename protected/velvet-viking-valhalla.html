@@ -10284,30 +10284,26 @@ function coachReadinessLine(dd){
 /* ---------- what today is FOR ----------
    The card already says what the session is. This says what it is trying to
    achieve and how to run it, which is the part a coach actually adds. */
+/* The ONE session-specific instruction Next Move carries.
+   It used to open with sessionPurpose().text as well -- why the session
+   exists -- which is precisely what the "How to run this" disclosure now
+   states as WHY, two taps away on the same screen. Next Move's job is to
+   name the next session and give one instruction; the standing cue is that
+   instruction, so the purpose sentence is dropped rather than restated in
+   different words directly above the disclosure that owns it. */
 function coachIntentLine(dd){
   var g = coachingEntryFor(dd);
-  var purpose = sessionPurpose(dd);
-  var bits = [];
-  if (purpose) bits.push(purpose.text);
-  if (g && g.cue) bits.push(g.cue);
-  return bits.join(' ');
+  return (g && g.cue) ? g.cue : '';
 }
-/* How much of the "how to run this" a coach says out loud is exactly what the
-   experience setting has always controlled -- explanation depth, never the
-   session. Advanced gets the cue already in the intent line and nothing more;
-   novice gets what it should feel like and the mistake that ruins it. */
-function coachFocusLine(dd, depth){
-  var g = coachingEntryFor(dd);
-  if (!g) return '';
-  var lvl = athleteExperience();
-  if (lvl === 'advanced') return '';
-  if (depth === 'brief' && lvl !== 'novice') return '';
-  var out = [];
-  if (g.feel) out.push('It should feel '+g.feel.charAt(0).toLowerCase()+g.feel.slice(1));
-  if (lvl === 'novice' && g.avoid) out.push('The thing that ruins it: '+
-    g.avoid.charAt(0).toLowerCase()+g.avoid.slice(1));
-  return out.join(' ');
-}
+/* coachFocusLine() lived here. It turned the archetype's `feel` and `avoid`
+   into a spoken paragraph for the pre-session brief, at a depth the
+   experience setting controlled.
+
+   Both of those fields are now rendered directly, by name, as the FEEL and
+   WATCH FOR rows of the unified "How to run this" disclosure -- on the same
+   screen as Next Move. Keeping this meant the card said the same coaching
+   point twice in slightly different words. It is removed rather than left
+   uncalled, so nothing reads as though a second voice is still available. */
 
 /* ---------- what today means for what comes next ----------
    Reads the plan; never changes it. */
@@ -10407,8 +10403,12 @@ function coachBrief(dd){
   if (intent) paras.push(intent);
   var ready = coachReadinessLine(dd);
   if (ready) paras.push(ready);
-  var focus = coachFocusLine(dd, depth);
-  if (focus) paras.push(focus);
+  /* No focus paragraph: what the session should feel like, and the mistake
+     that ruins it, are the FEEL and WATCH FOR rows of the "How to run this"
+     disclosure on this same screen. Saying them here as well made Next Move
+     restate its own cue in near-identical words ("strong and controlled, not
+     flat out" / "strong, controlled and repeatable"). See the note where
+     coachFocusLine() used to be defined. */
   if (depth !== 'brief'){
     /* The plan is deliberately being left alone. Saying so is a coaching act;
        going silent reads as the coach having nothing to offer. */
@@ -10735,7 +10735,17 @@ function renderAdjustedDetail(dd){
   }
   if (adj.reason)
     rows += '<div class="evo-sec"><div class="evo-k">Why</div><div class="evo-v">'+escapeHtml(adj.reason)+'</div></div>';
-  rows += '<div class="evo-sec"><div class="evo-k">When</div><div class="evo-v">'+dShort(adj.at.slice(0,10))+'</div></div>';
+  /* CONSENT PROVENANCE, not merely a date. `adj.at` is stamped at the moment
+     an accept handler runs and at no other time -- every writer of coachAdjust
+     (handleAcceptEvolution, handleAcceptPlaybook, handleCoachAccept) is
+     reached only by an explicit Accept tap -- so this timestamp IS the record
+     of the athlete's decision. It used to be labelled "When", which reads as
+     "when the plan changed" and leaves the athlete to wonder whether anyone
+     asked them. Naming it for what it actually is costs one line and closes
+     the gap between a correctly-consented mutation and an athlete who cannot
+     tell that they consented, days later on a different screen. */
+  rows += '<div class="evo-sec"><div class="evo-k">Accepted</div><div class="evo-v">You accepted this change on '+
+    dShort(adj.at.slice(0,10))+'.</div></div>';
   var restore;
   if (st.ok){
     // System's own definition of "original": the workout immediately before
@@ -11197,7 +11207,16 @@ function playbookAssess(archetype){
   //     and the reason it is a HOLD is recorded rather than swallowed.
   if (decision==='HOLD'){
     var gates = [
-      { ok: suf.sufficient, why:'Insufficient evidence: '+suf.reasons.join(' ') },
+      /* Presentation only. suf.reasons is unchanged and still drives
+         suf.sufficient (reasons.length===0) -- the thresholds, the counts and
+         the certainty tiers are all exactly as they were. What changed is
+         that the athlete-facing gate no longer concatenates three internal
+         diagnostics ("longitudinal evidence", "N relevant scored sessions,
+         and M are needed at high certainty") into one paragraph of
+         implementation detail. The full reason list is still on the
+         sufficiency object for any surface that genuinely needs it. */
+      { ok: suf.sufficient,
+        why:'Insufficient evidence: Not enough scored sessions yet to judge your training trend confidently.' },
       { ok: playbookPhaseAllowsProgress(phase), why:'The '+phase+' phase does not add load. '+playbookPhaseRule(phase).note },
       { ok: !!block && (block.state==='ADAPTING' || (block.state==='RESPONDING' && block.checkpointInvolved)),
         why:'The block is '+(block?block.state:'LEARNING')+', which is not yet evidence recent training is being absorbed.' },
@@ -13956,7 +13975,11 @@ function renderCoachNextMoveCard(report){
     // once answered, the card stops asking. The reversibility data itself
     // (dd.coachAdjust.from) is untouched and still exists; only the always-on
     // Restore control is removed from this card.
-    body += '<div class="coach-adjusted-note"><span class="coach-decision-flag settled">Settled</span>Adjusted by the coach on '+dShort(dd.coachAdjust.at.slice(0,10))+
+    /* "Adjusted by the coach on ..." attributed the change to the coach acting
+       alone, which is the opposite of what happened: this note only ever
+       renders after the athlete tapped Accept. The wording now matches the
+       mechanism. */
+    body += '<div class="coach-adjusted-note"><span class="coach-decision-flag settled">Settled</span>You accepted this change on '+dShort(dd.coachAdjust.at.slice(0,10))+
       ' — was '+escapeHtml(dd.coachAdjust.from.title)+' '+fmtDist(dd.coachAdjust.from.km)+'.</div>';
   } else if (dd && dd.coachKeptAt){
     // SETTLED (kept original): symmetrical record for the other answer, so
