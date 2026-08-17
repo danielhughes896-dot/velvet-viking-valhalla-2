@@ -5714,6 +5714,509 @@ function executionHRTarget(dd){
 }
 
 /* =========================================================
+   EXECUTION STRATEGY — PROTOTYPE, NOT WIRED
+   ---------------------------------------------------------
+   PROTOTYPE STATUS. Nothing below is reachable from any render path.
+   EXECUTION_STRATEGY_ENABLED is false and is the only seam; the pattern is
+   SIGNED_OUT_LANDING_ENABLED's, deliberately, so the code can be tested
+   against the real engine without existing for an athlete.
+
+   WHAT THIS IS. The prescription already says WHAT to run. ARCHETYPE_GUIDANCE
+   already says how to run it, as one paragraph about the whole session. What is
+   missing between them is the thing a coach actually says at the start line of
+   a 28km marathon-specific long run: which part of it is which, and what to do
+   in each part. That is a STAGED reading of a session that already exists.
+
+   WHAT IT IS NOT. It does not change a single prescribed number. Distance,
+   reps, paces and zones are read, never written. A strategy that altered the
+   workout would be a second planning engine, and the product already has one.
+
+   WHY IT IS CHEAP. segmentsFor() already decomposes all nineteen archetypes
+   into work/recovery/repeat segments carrying intensities, and
+   INTENSITY_ZONE_KEY already maps those to the athlete's own zones. That was
+   built for scoring. Reading it forwards instead of backwards is most of this
+   feature, which is why no new engine appears below.
+
+   DERIVED, NEVER PERSISTED — the same decision athleteResponseModel() made and
+   for the same reasons. A strategy computed from the prescription cannot go
+   stale, cannot be restored wrongly, cannot survive an edit it should not
+   survive, adds no bytes to the plan JSON, no bytes to the cloud row, nothing
+   to the sync signature, and works retroactively on plans built before it
+   existed. Every question in a staleness matrix answers itself.
+   ========================================================= */
+var EXECUTION_STRATEGY_VERSION = 1;
+var EXECUTION_STRATEGY_ENABLED = false;
+
+/* Phase vocabulary. Six words, each earning its place by naming a distinct
+   instruction; RACE is deliberately absent because "race" is not something to
+   do to a segment, it is what the whole day is. */
+var STRATEGY_PHASES = {
+  settle:   { label:'Settle',   purpose:'Get into the session without spending anything.' },
+  build:    { label:'Build',    purpose:'Step up deliberately, one gear at a time.' },
+  hold:     { label:'Hold',     purpose:'Stay on the prescribed effort.' },
+  press:    { label:'Press',    purpose:'The hard work of the session, run to the target.' },
+  commit:   { label:'Commit',   purpose:'Everything that is left, from here to the line.' },
+  recover:  { label:'Recover',  purpose:'Restore enough to run the next one properly.' },
+  absorb:   { label:'Absorb',   purpose:'Come down out of the effort rather than stopping in it.' }
+};
+
+/* Long runs are a single intensity, so structure alone cannot tell a 10km easy
+   long run from a 30km one. This is the same threshold sessionImportance()
+   already uses to call a long run KEY, reused rather than re-chosen: below it
+   the run is aerobic maintenance and tactical staging is noise. */
+var STRATEGY_LONG_MIN_KM = 16;
+/* Opening restraint as a fraction of the easy portion. A quarter is coaching
+   convention, not a measured constant, and it is expressed as a share of the
+   run rather than a distance so it scales with the session. */
+var STRATEGY_SETTLE_FRACTION = 0.25;
+/* Archetypes that never get one. Not a blocklist of types -- a statement that
+   these sessions have one instruction and it already fits on the card. */
+var STRATEGY_EXCLUDED_ARCHETYPES = ['easy_run', 'shakeout', 'easy_strides'];
+
+/* ---------- eligibility, from structure ----------
+   No flag, no setting, no per-session toggle. Three questions, in order:
+   is there a prescription to stage; does the session have more than one thing
+   going on; and if it does not, is it long enough or maximal enough that HOW it
+   is run changes the outcome. */
+function executionStrategyEligible(dd){
+  if (!dd || dd.type==='rest') return false;
+  var p = prescriptionOf(dd);
+  if (!p || !p.archetype) return false;
+  if (STRATEGY_EXCLUDED_ARCHETYPES.indexOf(p.archetype) !== -1) return false;
+  var segs = segmentsFor(p);
+  if (!segs) return false;
+
+  // A race and a time trial are the two sessions where execution IS the result.
+  if (p.archetype==='race' || p.archetype==='time_trial') return true;
+
+  // More than one work intensity means the session has parts, and parts can be
+  // run in the wrong order of effort. That is what staging is for.
+  var intensities = {};
+  (function walk(list){
+    (list||[]).forEach(function(s){
+      if (s.kind==='repeat') return walk(s.children);
+      if (s.kind==='work' && s.role!=='warmup' && s.role!=='cooldown') intensities[s.intensity] = true;
+    });
+  })(segs);
+  if (Object.keys(intensities).length > 1) return true;
+  if (Object.keys(intensities).length === 1 && !intensities.easy) return true;
+
+  // Single-intensity easy work: long runs only, and only once they are long
+  // enough that the first 5km decides the last 5km.
+  return dd.type==='long' && (dd.km||0) >= STRATEGY_LONG_MIN_KM;
+}
+
+/* ---------- targets, read from the athlete's own zones ----------
+   No new arithmetic. `half` narrows a band to its easier or harder half, which
+   is how opening restraint is expressed without inventing a number: "the
+   easier half of your easy window" is a real sub-range of a real range. */
+function strategyPaceBand(intensity, half){
+  var paces = getActivePaces();
+  if (intensity==='goal_pace'){
+    var g = getGoalPaceSecPerKm();
+    return g!=null ? { fast:g, slow:g, exact:true } : null;
+  }
+  var z = paces[INTENSITY_ZONE_KEY[intensity]];
+  if (!z || z.slow==null || z.fast==null) return null;
+  if (half==='easier') return { fast:(z.fast+z.slow)/2, slow:z.slow };
+  if (half==='harder') return { fast:z.fast, slow:(z.fast+z.slow)/2 };
+  return { fast:z.fast, slow:z.slow };
+}
+function strategyHRBand(intensity){
+  var hz = getActiveHRZones();
+  var z = hz[intensity==='goal_pace' ? 'M' : INTENSITY_ZONE_KEY[intensity]];
+  return (z && z.lo!=null) ? { lo:z.lo, hi:z.hi!=null ? z.hi : null } : null;
+}
+
+/* ---------- one phase ----------
+   from/to are kilometres into the session when the session is measured in
+   distance, and null when it is not -- a 20-minute tempo has no kilometre
+   marks and pretending otherwise would be the first piece of false precision
+   in the feature. */
+function strategyPhase(key, opts){
+  var o = opts || {};
+  var meta = STRATEGY_PHASES[key];
+  return {
+    key: key,
+    label: meta.label,
+    from: o.from!=null ? Math.round(o.from*10)/10 : null,
+    to:   o.to!=null   ? Math.round(o.to*10)/10   : null,
+    sec:  o.sec!=null  ? o.sec : null,
+    reps: o.reps!=null ? o.reps : null,
+    intensity: o.intensity || null,
+    pace: o.pace || null,
+    /* WHAT THE NUMBER MEANS, which is not the same as the number.
+       'target'  run in this band
+       'ceiling' do not go faster than this; slower is fine and often right
+       'open'    conditional -- only if the earlier phases were executed
+       A race's opening quarter carries a ceiling, and rendering it as a target
+       is how a pacing plan becomes a pacing instruction to run too fast. */
+    paceRole: o.paceRole || (o.pace ? 'target' : null),
+    hr:   o.hr || null,
+    effort: o.effort || null,
+    purpose: o.purpose || meta.purpose,
+    cue: o.cue || null,
+    watch: o.watch || null
+  };
+}
+
+/* ---------- the strategies ----------
+   One function per session family rather than one big switch with a comment
+   apologising for itself. Each reads the segments it was given and returns
+   phases; none of them looks at the clock, the athlete's history or anything
+   that could make the same workout produce two different strategies. */
+
+function strategyForLongRun(dd, p, segs){
+  var km = dd.km || 0;
+  var goalSeg = null;
+  segs.forEach(function(s){ if (s.kind==='work' && s.intensity==='goal_pace') goalSeg = s; });
+  var easyKm = goalSeg ? Math.max(0, km - (goalSeg.km||0)) : km;
+  var settleKm = Math.max(2, Math.round(easyKm * STRATEGY_SETTLE_FRACTION));
+  var out = [];
+
+  out.push(strategyPhase('settle', {
+    from:0, to:settleKm, intensity:'easy',
+    pace: strategyPaceBand('easy','easier'), paceRole:'ceiling', hr: strategyHRBand('easy'),
+    purpose:'Open in the easier half of your easy range.',
+    cue:'Do not chase pace. Almost every bad long run was decided here.',
+    watch:'If this feels like a comfortable rhythm rather than deliberately slow, it is too quick.'
+  }));
+
+  if (easyKm > settleKm){
+    out.push(strategyPhase('hold', {
+      from:settleKm, to:easyKm, intensity:'easy',
+      pace: strategyPaceBand('easy'), hr: strategyHRBand('easy'),
+      purpose: goalSeg ? 'Easy running, on purpose, so the finish is the session.'
+                       : 'Settle into easy pace and stay there.',
+      cue: goalSeg ? 'Stay genuinely easy. The change of gear is still to come.'
+                   : 'Even effort. The last third should be no slower than the first.'
+    }));
+  }
+
+  if (goalSeg){
+    out.push(strategyPhase('hold', {
+      from:easyKm, to:km, intensity:'goal_pace',
+      pace: strategyPaceBand('goal_pace'), hr: strategyHRBand('goal_pace'),
+      purpose:'Goal pace on legs that are already tired. This is the point of the day.',
+      cue:'One change of gear, then hold it to the end.',
+      watch:'Faster than goal pace here proves nothing about holding it on the day.'
+    }));
+  }
+  return out;
+}
+
+function strategyForContinuousQuality(dd, p, segs){
+  /* threshold_continuous, goal_pace_block, steady_tempo: warm-up, one block,
+     cool-down. The staging is the restraint at the front of the block and the
+     refusal to finish it fast. */
+  var out = [], work = null, wu = null, cd = null;
+  segs.forEach(function(s){
+    if (s.role==='warmup') wu = s;
+    else if (s.role==='cooldown') cd = s;
+    else if (s.kind==='work') work = s;
+  });
+  if (!work) return null;
+  var at = wu && wu.km!=null ? wu.km : null;
+
+  out.push(strategyPhase('settle', {
+    from:0, to:at, intensity:'easy', pace: strategyPaceBand('easy'),
+    purpose:'Warm up until the first hard kilometre does not feel like a shock.',
+    cue:'Easy, then a few strides if you use them.'
+  }));
+  out.push(strategyPhase('hold', {
+    from:at, to: (at!=null && work.km!=null) ? at+work.km : null,
+    sec: work.sec!=null ? work.sec : null,
+    intensity: work.intensity,
+    pace: strategyPaceBand(work.intensity), hr: strategyHRBand(work.intensity),
+    purpose:'One continuous effort, even from start to finish.',
+    cue:'Reach the window inside the first kilometre, then stop making decisions.',
+    watch:'A fast opening kilometre is the most common way this session is lost. No finishing sprint either.'
+  }));
+  out.push(strategyPhase('absorb', {
+    from: (at!=null && work.km!=null) ? at+work.km : null,
+    to: dd.km!=null ? dd.km : null,
+    intensity:'easy', pace: strategyPaceBand('easy'),
+    purpose:'Come down out of the effort rather than stopping in it.'
+  }));
+  return out;
+}
+
+function strategyForProgression(dd, p, segs){
+  var out = [], work = null, wu = null;
+  segs.forEach(function(s){
+    if (s.role==='warmup') wu = s;
+    else if (s.kind==='work' && s.role!=='cooldown') work = s;
+  });
+  if (!work) return null;
+  out.push(strategyPhase('settle', {
+    intensity:'easy', pace: strategyPaceBand('easy'),
+    purpose:'Warm up properly. A progression run has nowhere to hide a bad start.'
+  }));
+  out.push(strategyPhase('build', {
+    sec: work.sec!=null ? work.sec : null, intensity: work.intensity,
+    pace: strategyPaceBand(work.from || 'steady', 'easier'),
+    hr: strategyHRBand(work.from || 'steady'),
+    purpose:'Open at the easier end. This only works if the last third is the fastest part.',
+    cue:'One change of gear per third. Not a sprint at the end.',
+    watch:'Starting at tempo pace turns this into a tempo you fade out of.'
+  }));
+  out.push(strategyPhase('press', {
+    intensity: work.intensity,
+    pace: strategyPaceBand(work.intensity, 'harder'), hr: strategyHRBand(work.intensity),
+    purpose:'The final third, and the fastest running of the day.',
+    cue:'Earned, not forced. If you had to lunge for it, the opening was too quick.'
+  }));
+  out.push(strategyPhase('absorb', { intensity:'easy', pace: strategyPaceBand('easy') }));
+  return out;
+}
+
+function strategyForReps(dd, p, segs){
+  /* ONE phase for the whole rep set, not two per rep. An 8x400m session staged
+     rep by rep is seventeen rows describing one instruction, which is a worse
+     card than no card. The set is the unit an athlete executes. */
+  var out = [], rep = null, wu = null;
+  segs.forEach(function(s){
+    if (s.role==='warmup') wu = s;
+    else if (s.kind==='repeat') rep = s;
+  });
+  var work = null, rec = null, reps = null;
+  if (rep){
+    reps = rep.times;
+    (function find(list){
+      (list||[]).forEach(function(c){
+        if (c.kind==='repeat') return find(c.children);
+        if (c.kind==='work' && !work) work = c;
+        if (c.kind==='recovery' && !rec) rec = c;
+      });
+    })(rep.children);
+  } else {
+    /* A ladder is not wrapped in a repeat -- segmentsFor() emits its rungs
+       flat, because each one is a different distance and "5 x the same thing"
+       would be a lie about the session. The set is still the unit the athlete
+       executes, so it is counted rather than special-cased into five phases. */
+    var rungs = [];
+    segs.forEach(function(sg){
+      if (sg.kind==='work' && sg.role!=='warmup' && sg.role!=='cooldown' && sg.intensity!=='easy') rungs.push(sg);
+      if (sg.kind==='recovery' && !rec) rec = sg;
+    });
+    if (!rungs.length) return null;
+    work = rungs[0];
+    reps = rungs.length;
+  }
+  if (!work) return null;
+  var at = wu && wu.km!=null ? wu.km : null;
+
+  out.push(strategyPhase('settle', {
+    from:0, to:at, intensity:'easy', pace: strategyPaceBand('easy'),
+    purpose:'Warm up until the first rep can be run at the target rather than found.'
+  }));
+  out.push(strategyPhase('press', {
+    from:at, reps: reps, intensity: work.intensity,
+    pace: strategyPaceBand(work.intensity), hr: strategyHRBand(work.intensity),
+    purpose:'Every rep in the target window, first to last.',
+    cue:'Run the first rep at the pace you intend to run the last one.',
+    watch:'A session that falls apart at rep four delivered less than an even one.'
+  }));
+  if (rec){
+    out.push(strategyPhase('recover', {
+      intensity:'easy',
+      purpose:'Recovery is part of the prescription, not a gap in it.',
+      cue:'Keep jogging. Standing still recovers you more than the session intends.'
+    }));
+  }
+  out.push(strategyPhase('absorb', {
+    to: dd.km!=null ? dd.km : null, intensity:'easy', pace: strategyPaceBand('easy')
+  }));
+  return out;
+}
+
+function strategyForBenchmark(dd, p, segs){
+  /* A benchmark's job is to produce trustworthy evidence, and a time trial run
+     as three even thirds produces better evidence than one run as a fast start
+     and a survival. Thirds of the measured distance, named for what the athlete
+     is doing in each. */
+  var q = p.params || {};
+  var ttKm = q.ttKm != null ? q.ttKm : null;
+  var flank = q.flankKm != null ? q.flankKm : null;
+  if (ttKm == null) return null;
+  var third = ttKm/3;
+  var start = flank!=null ? flank : null;
+  var mark = function(n){ return start!=null ? start + third*n : null; };
+
+  return [
+    strategyPhase('settle', {
+      from:0, to:start, intensity:'easy', pace: strategyPaceBand('easy'),
+      purpose:'Warm up thoroughly. A cold first kilometre costs you the whole reading.'
+    }),
+    strategyPhase('build', {
+      from:mark(0), to:mark(1), intensity:'hard_effort',
+      effort:'Hard, honest, and controlled.',
+      purpose:'Establish a pace you believe you can hold for all of it.',
+      cue:'Find the effort in the first minute, then stop adjusting.',
+      watch:'Going out fast does not produce a faster time here, it produces a worse measurement.'
+    }),
+    strategyPhase('hold', {
+      from:mark(1), to:mark(2), intensity:'hard_effort',
+      effort:'The same effort, now that it is uncomfortable.',
+      purpose:'Hold what you established. This third is the honest part of the test.',
+      watch:'If the pace is drifting off here, the opening third was too quick.'
+    }),
+    strategyPhase('commit', {
+      from:mark(2), to:mark(3), intensity:'hard_effort', paceRole:'open',
+      effort:'Everything that is left.',
+      purpose:'Finish it. A benchmark you did not finish is not a benchmark.'
+    }),
+    strategyPhase('absorb', {
+      from:mark(3), to: dd.km!=null ? dd.km : null,
+      intensity:'easy', pace: strategyPaceBand('easy')
+    })
+  ];
+}
+
+function strategyForRace(dd, p, segs){
+  /* THE ONE PLACE THIS FEATURE COULD DO REAL HARM, so read what it does NOT do.
+
+     It does not convert the goal time into a constant pace and print it four
+     times. It does not move the athlete's declared goal. It does not claim to
+     know what the weather, the course or the day will do. What it does is stage
+     the distance and say where restraint belongs, which is the part of race
+     execution that is actually knowable in advance.
+
+     The opening band is the goal pace's SLOWER side rather than a computed
+     offset: "no faster than goal pace, and a few seconds slower is the right
+     error" is a coaching position that can be stated honestly. A number like
+     "+3 s/km" would be false precision wearing a decimal point. */
+  var km = dd.km || (p.params && p.params.km) || 0;
+  if (!km) return null;
+  var goal = strategyPaceBand('goal_pace');
+  var hr = strategyHRBand('goal_pace');
+  var at = function(f){ return Math.round(km*f*10)/10; };
+
+  return [
+    strategyPhase('settle', {
+      from:0, to:at(0.25), intensity:'goal_pace', pace:goal, paceRole:'ceiling', hr:hr,
+      purpose:'Opening quarter. The only part of the race you can still ruin for free.',
+      cue:'No faster than goal pace. A few seconds slower here is the right mistake to make.',
+      watch:'Feeling easy is not a reason to go faster. It is what the opening is supposed to feel like.'
+    }),
+    strategyPhase('hold', {
+      from:at(0.25), to:at(0.75), intensity:'goal_pace', pace:goal, hr:hr,
+      purpose:'The long middle. Nothing is won here and a lot can be lost.',
+      cue:'Goal pace, unremarkable, boring. Take your fuel on schedule.',
+      watch:'Do not chase a group that has gone. Their race is not yours.'
+    }),
+    strategyPhase('hold', {
+      from:at(0.75), to:at(0.9), intensity:'goal_pace', pace:goal, hr:hr,
+      purpose:'Where the race actually starts. Hold what you have.',
+      cue:'Effort will rise for the same pace now. That is normal and not a signal to slow.'
+    }),
+    strategyPhase('commit', {
+      from:at(0.9), to:km, intensity:'goal_pace', pace:goal, paceRole:'open', hr:hr,
+      purpose:'The last stretch.',
+      cue:'If you are still in control, this is where you may press. If you are not, hold on and finish.',
+      watch:'Pressing from a position you cannot sustain costs more than it gains.'
+    })
+  ];
+}
+
+/* ---------- the composer ----------
+   Deterministic dispatch on the archetype, which is the same key
+   ARCHETYPE_GUIDANCE and segmentsFor() already dispatch on. */
+function strategyPhasesFor(dd, p, segs){
+  switch (p.archetype){
+    case 'long_run':
+    case 'long_run_b2b':
+    case 'long_run_goal_finish':  return strategyForLongRun(dd, p, segs);
+    case 'threshold_continuous':
+    case 'goal_pace_block':
+    case 'steady_tempo':          return strategyForContinuousQuality(dd, p, segs);
+    case 'progressive_tempo':     return strategyForProgression(dd, p, segs);
+    case 'split_tempo':
+    case 'track_reps':
+    case 'short_reps':
+    case 'goal_pace_reps':
+    case 'ladder':
+    case 'deuce':
+    case 'hill_repeats':
+    case 'fartlek':               return strategyForReps(dd, p, segs);
+    case 'time_trial':            return strategyForBenchmark(dd, p, segs);
+    case 'race':                  return strategyForRace(dd, p, segs);
+  }
+  return null;
+}
+
+/* Identity, for tests and for the review seam. Same djb2 the other hashes use.
+   It covers exactly what the strategy is derived from, so two days that would
+   produce the same strategy share an id and two that would not, do not. */
+function executionStrategyId(dd){
+  var p = prescriptionOf(dd);
+  if (!p) return null;
+  var str = [ p.archetype, stableStringify(p.params||{}), dd.km||0, dd.type,
+              dd.mpSegment?1:0, EXECUTION_STRATEGY_VERSION,
+              nz(getGoalPaceSecPerKm()), stableStringify(getActivePaces()||{}) ].join('#');
+  var h = 5381;
+  for (var i=0;i<str.length;i++){ h = ((h*33) ^ str.charCodeAt(i)) >>> 0; }
+  return 'es'+h.toString(36);
+}
+
+/* ---------- the entry point ----------
+   SAFETY OUTRANKS STRATEGY, and it does so before a single phase is built.
+   A recover state means the coach has already decided this session should be
+   smaller or easier; handing the athlete a tactical plan for executing it well
+   is the product arguing with itself, and the more forceful voice would win. */
+function executionStrategy(dd){
+  if (!executionStrategyEligible(dd)) return null;
+  var p = prescriptionOf(dd);
+  var segs = segmentsFor(p);
+
+  var dec = coachDecision();
+  if (dec && dec.state === 'recover'){
+    return { version:EXECUTION_STRATEGY_VERSION, id:executionStrategyId(dd),
+             archetype:p.archetype, suppressed:true, phases:[],
+             reason:'Recovery currently outranks planned progression, so there is no tactical plan for this session today.' };
+  }
+
+  var phases = strategyPhasesFor(dd, p, segs);
+  if (!phases || !phases.length) return null;
+
+  return {
+    version: EXECUTION_STRATEGY_VERSION,
+    id: executionStrategyId(dd),
+    archetype: p.archetype,
+    suppressed: false,
+    phases: phases,
+    /* Composed, not duplicated: the fuelling system already decides whether
+       this session needs a plan and what it is. Strategy links to that answer
+       rather than restating it in different words. */
+    fuel: (typeof fuelPlanFor==='function') ? null : null,
+    reason: null
+  };
+}
+
+/* ---------- experience depth ----------
+   Reuses athleteExperience(). The DECISION is identical at every level and
+   that is asserted by test: same phases, same boundaries, same targets. Only
+   how much is said changes, exactly as renderCoachingDepth already does. */
+function executionStrategyForDisplay(dd){
+  var s = executionStrategy(dd);
+  if (!s || s.suppressed) return s;
+  var level = athleteExperience();
+  return {
+    version: s.version, id: s.id, archetype: s.archetype, suppressed: false,
+    level: level,
+    phases: s.phases.map(function(ph){
+      if (level==='advanced')
+        return { key:ph.key, label:ph.label, from:ph.from, to:ph.to, sec:ph.sec,
+                 reps:ph.reps, pace:ph.pace, paceRole:ph.paceRole, hr:ph.hr, effort:ph.effort };
+      if (level==='novice') return ph;                       // everything, including watch
+      return { key:ph.key, label:ph.label, from:ph.from, to:ph.to, sec:ph.sec,
+               reps:ph.reps, pace:ph.pace, paceRole:ph.paceRole, hr:ph.hr, effort:ph.effort,
+               purpose:ph.purpose, cue:ph.cue };
+    })
+  };
+}
+
+/* =========================================================
    WORKOUT EXECUTION SCORE (0-100) — Distance 40% + Pace 40% + HR 20%.
    A separate, always-on metric from the opt-in AI Coach review above
    (which scores RPE, not HR, and only runs when the runner asks for it):
