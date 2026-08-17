@@ -9,3 +9,9 @@ android/local.properties
 *.keystore
 *.jks
 *.p12
+
+# Environment files never belong in the repository -- they are exactly the
+# place a service-role key or a webhook secret ends up by accident.
+.env
+.env.*
+!.env.example

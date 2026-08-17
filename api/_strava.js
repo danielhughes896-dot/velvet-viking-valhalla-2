@@ -139,7 +139,24 @@ function config(){
   };
 }
 
+/* WHERE THIS DEPLOYMENT THINKS IT LIVES.
+
+   Derived from the forwarded Host, which is what makes previews, the apex
+   domain and localhost all work without configuration -- and which is also a
+   value that arrives in a request header. Three call sites consume it and one
+   of them matters: _account-delete.js forwards the athlete's own Supabase
+   access token to `siteOrigin(req) + '/api/strava-auth'`, so an origin taken
+   from a header is, in principle, an origin an attacker could name.
+
+   Whether a spoofed Host can actually reach a Vercel function is a property of
+   Vercel's edge routing that cannot be established from this repository, so
+   this is not a claim that the hole is reachable. It is the cheap way to stop
+   depending on the answer: set VVV_SITE_ORIGIN and the value is pinned, with
+   no header consulted at all. Unset -- which is the state today -- behaves
+   exactly as it always has, so this changes nothing until it is configured. */
 function siteOrigin(req){
+  const pinned = String(process.env.VVV_SITE_ORIGIN || '').trim().replace(/\/+$/, '');
+  if (pinned) return pinned;
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host  = req.headers['x-forwarded-host'] || req.headers.host;
   return proto + '://' + host;
@@ -251,7 +268,19 @@ async function verifyUser(req, cfg){
   let u;
   try{ u = await r.json(); }catch(e){ return { code: 'AUTH_UNAVAILABLE', diag }; }
   if (!u || !u.id) return { code: 'AUTH_VERIFY_401', diag };
-  return { uid: u.id, code: 'AUTH_OK', diag };
+  /* The address comes back too, and three callers already asked for it:
+     _account-data.js puts it in the athlete's export, and session.js and
+     _subscription.js render it on the account card. None of them ever got it,
+     because this function returned only the uid -- so `who.email` was
+     undefined at every one of those sites and the export has always said
+     "email": null. That is a data-export completeness defect, not a display
+     nicety: an export that omits the identifier the account is keyed on is not
+     the whole of what is held.
+
+     It is returned, never logged. diagLine() below carries booleans, a
+     hostname and a status code, and nothing here changes that. */
+  return { uid: u.id, email: (typeof u.email === 'string' && u.email) ? u.email : null,
+           code: 'AUTH_OK', diag };
 }
 
 // One line, facts only: booleans, a hostname, an HTTP status and a code.
