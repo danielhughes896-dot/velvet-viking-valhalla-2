@@ -1,0 +1,53 @@
+{
+  "//": [
+    "TEMPLATE, NOT SERVED. This file is deliberately not routed by vercel.json,",
+    "because publishing an apple-app-site-association whose appID is a",
+    "placeholder is worse than publishing none: Apple's CDN caches the file, and",
+    "a cached invalid one makes universal links fail in a way that takes days to",
+    "clear. It is completed and routed in one step, once a real Apple Team ID",
+    "exists.",
+    "",
+    "TO ACTIVATE, three edits and nothing else:",
+    "  1. replace APPLE_TEAM_ID below with the real 10-character Team ID from",
+    "     developer.apple.com > Membership. Do not guess it; it is not derivable",
+    "     from anything in this repository.",
+    "  2. rename this file to apple-app-site-association.json",
+    "  3. add ONE route to vercel.json, immediately beside the assetlinks route",
+    "     that is already there, and before { \"handle\": \"filesystem\" }:",
+    "",
+    "       { \"src\": \"/\\\\.well-known/apple-app-site-association\", \"dest\": \"/apple-app-site-association.json\" }",
+    "",
+    "     Routing to a .json file is what makes Vercel serve it as",
+    "     application/json, which Apple requires and which a file with no",
+    "     extension would not get. It adds no Serverless Function, so the 12/12",
+    "     budget is unaffected.",
+    "  4. rename ios/App/App/App.entitlements.template to App.entitlements and",
+    "     add it to the App target in Xcode.",
+    "",
+    "The path Apple fetches is https://<host>/.well-known/apple-app-site-association",
+    "with no extension and no redirect. Apple does not follow redirects for this",
+    "file.",
+    "",
+    "PATHS: /auth and everything under it, matching the Android App Link",
+    "intent-filter's android:pathPrefix=\"/auth\" exactly. Nothing else is claimed",
+    "-- claiming / would hand every link to the site to the app, including the",
+    "account shell and the legal pages, which must stay in the browser.",
+    "",
+    "This key is ignored by Apple; JSON has no comments and a \"//\" member is the",
+    "conventional way to leave one in a file that must stay valid JSON."
+  ],
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["APPLE_TEAM_ID.com.velvetviking.valhalla"],
+        "components": [
+          { "/": "/auth", "comment": "the magic-link landing itself" },
+          { "/": "/auth/*", "comment": "and anything beneath it" }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["APPLE_TEAM_ID.com.velvetviking.valhalla"]
+  }
+}

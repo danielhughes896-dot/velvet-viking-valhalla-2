@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  VELVET VIKING - APPLE PRIVACY MANIFEST
+
+  Required for App Store submission, not optional. @capacitor/filesystem's own
+  README states it: an app using that plugin must declare
+  NSPrivacyAccessedAPICategoryFileTimestamp with reason C617.1, because the
+  plugin reads file timestamps and Apple classifies that as a required-reason
+  API. Valhalla does use it - canNativeShareFiles() gates the backup export on
+  Filesystem and Share both being present, and nativeSaveTextFile() writes the
+  export into the app cache before handing it to the share sheet.
+
+  C617.1 is the reason Apple defines for "accessing timestamps of files inside
+  the app container", which is exactly and only what happens here: the file is
+  written to Directory.CACHE under this app's own container and read straight
+  back. Nothing outside the container is touched.
+
+  EVERY OTHER ARRAY IS EMPTY, AND EACH EMPTINESS IS A STATEMENT.
+
+  NSPrivacyTracking false, NSPrivacyTrackingDomains empty: Valhalla has no
+  advertising identifier, no ad SDK, no analytics SDK and no third-party
+  tracker. There is nothing to declare and no ATT prompt to show, so there is
+  none.
+
+  NSPrivacyCollectedDataTypes empty: this manifest describes what THIS BUNDLE's
+  code collects. The bundle is a WKWebView plus three Capacitor plugins; it
+  collects nothing on its own account. What the PRODUCT collects - email,
+  training plans, workout data - is collected by the web runtime against the
+  athlete's own Supabase account, and is declared in the App Privacy
+  questionnaire in App Store Connect rather than here. STORE-DATA-INVENTORY.md
+  is the factual source for that questionnaire.
+-->
+<plist version="1.0">
+  <dict>
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+      <dict>
+        <key>NSPrivacyAccessedAPIType</key>
+        <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+        <key>NSPrivacyAccessedAPITypeReasons</key>
+        <array>
+          <string>C617.1</string>
+        </array>
+      </dict>
+    </array>
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+    <key>NSPrivacyTracking</key>
+    <false/>
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+  </dict>
+</plist>

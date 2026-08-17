@@ -1,0 +1,5 @@
+{
+  "//": "THE NATIVE SHELL'S OWN VERSION. One file, read by CI for Gradle's versionName and by the iOS validation job, so the number is never duplicated across build files. It changes when the SHELL changes -- a new plugin, a manifest change, a new signing key -- and NOT when the web runtime changes, because the shell loads that from Vercel at launch. RELEASE-VERSION-MODEL.md explains the whole model.",
+  "shellVersion": "1.0.0",
+  "shellVersionNotes": "First store-candidate shell. Android versionCode comes from the CI run number, not from here."
+}

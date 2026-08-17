@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 and above, where cloud backup and device-to-device transfer became
+  two separate decisions. Both are refused, for the same reason: the WebView's
+  localStorage holds a live Supabase refresh token, and neither a Google Drive
+  backup nor a phone-to-phone transfer is a place a credential should travel
+  unattended.
+
+  The athlete's training is not at risk from this. It is mirrored in their
+  Supabase account and comes back on the next sign-in, which is exactly what
+  happens on any second device today.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+    </device-transfer>
+</data-extraction-rules>

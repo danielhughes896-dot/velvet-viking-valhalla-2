@@ -1,8 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!--
+      BACKUP IS OFF, and this is a security decision rather than a preference.
+
+      The WebView's localStorage is where vvv_cloud_session lives, and that holds
+      the Supabase access and refresh tokens. With allowBackup="true" Android Auto
+      Backup copies the app's data directory to the athlete's Google Drive, so a
+      refresh token good for a live account ends up in third-party cloud storage
+      that neither the athlete nor Valhalla is managing as a credential store.
+      admin-user.js already acknowledges the exposure in prose ("any Android Auto
+      Backup of it are on hardware we do not control and cannot reach"); this is
+      the line that stops it happening.
+
+      WHAT AN ATHLETE LOSES, stated honestly: restoring onto a new phone no longer
+      carries the plan or the session across, so they sign in again and
+      cloudReconcile() pulls the plan down from their account. That is the path the
+      product is built around and the one every second device already takes. The
+      alternative was a token in a Drive backup, which is not a trade worth making
+      to save one sign-in.
+
+      dataExtractionRules covers Android 12+ (device-to-device transfer and cloud
+      backup are separate switches there), and fullBackupContent covers 11 and
+      below. Both point at rules that exclude everything, so the two eras agree.
+    -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"

@@ -7,8 +7,25 @@ android {
         applicationId "com.velvetviking.valhalla"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        /* VERSION, AND WHY IT COMES FROM THE ENVIRONMENT.
+
+           Play refuses an upload whose versionCode is not strictly greater than
+           every versionCode already uploaded for this package, and it refuses it
+           after the upload, by which time the build is wasted. A hardcoded 1 can
+           therefore be uploaded exactly once in the lifetime of the app.
+
+           CI passes the run number, which is monotonic by construction and needs
+           nobody to remember to bump anything. A local build with nothing set
+           still gets 1 and "1.0", so `./gradlew assembleDebug` on a laptop
+           behaves exactly as it did before this change.
+
+           versionName is the human string and is deliberately NOT derived from
+           the run number: it tracks the SHELL's own version, which changes only
+           when the native shell changes. RELEASE-VERSION-MODEL.md explains why
+           that is a different number from the web runtime's commit, and how a
+           tester's build is traced back to both. */
+        versionCode System.getenv("VVV_VERSION_CODE") ? System.getenv("VVV_VERSION_CODE").toInteger() : 1
+        versionName System.getenv("VVV_VERSION_NAME") ?: "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

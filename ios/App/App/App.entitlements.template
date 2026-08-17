@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  TEMPLATE, NOT ACTIVE. Rename to App.entitlements and add it to the App target
+  in Xcode when Associated Domains are wanted.
+
+  It is a template rather than the real file for one reason: an Associated
+  Domains entitlement that is present but not matched by a served
+  apple-app-site-association is a build that fails signing or an app whose
+  universal links silently never verify. Both need a real Apple Team ID, which
+  does not exist yet and is not invented here.
+
+  UNIVERSAL LINKS ARE NOT REQUIRED FOR SIGN-IN. The custom URL scheme declared
+  in Info.plist carries the magic link into the app today with no Team ID, no
+  hosted file and no verification step, exactly as it does on Android. This
+  entitlement is the iOS equivalent of the https App Link intent-filter in
+  AndroidManifest.xml, which is also still unverified on Android for the same
+  reason. It is an improvement, not a prerequisite.
+-->
+<plist version="1.0">
+<dict>
+  <key>com.apple.developer.associated-domains</key>
+  <array>
+    <string>applinks:velvet-viking-valhalla-1.vercel.app</string>
+  </array>
+</dict>
+</plist>

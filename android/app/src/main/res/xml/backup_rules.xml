@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 11 and below. allowBackup="false" already stops the backup, so this
+  file is belt and braces: if a future build ever turns backup on, the exclusion
+  is what stops the session token going with it.
+
+  domain="root" excludes the app's own data directory. The WebView's
+  localStorage lives under it, which is where vvv_cloud_session (Supabase access
+  and refresh tokens) and the athlete's plan are kept.
+-->
+<full-backup-content>
+    <exclude domain="root" />
+    <exclude domain="database" />
+    <exclude domain="sharedpref" />
+    <exclude domain="file" />
+</full-backup-content>
