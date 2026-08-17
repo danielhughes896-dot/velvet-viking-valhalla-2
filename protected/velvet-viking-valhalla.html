@@ -1405,15 +1405,45 @@ function fmtPaceFromSecPerKm(secPerKm){
   if (secPerKm==null) return null;
   return secToPace(paceSecToDisplay(secPerKm))+'/'+displayUnit();
 }
-// dd.actual.pace is stored in the runner's DISPLAY unit -- the log field is
-// labelled "Avg Pace /mi" in miles mode, and actualPaceSecPerKm() converts
-// back on that assumption. Anything arriving as sec/km (file import, Strava
-// sync, CSV) must therefore be converted before it is stored, or in miles
-// mode it gets read back as a per-mile pace and scored against the wrong
-// target. Returns the "m:ss" string ready to store.
+/* dd.actual.pace is stored as an "m:ss" string in the unit the athlete was
+   looking at when they typed it, and dd.actual.paceUnit records WHICH unit
+   that was. The stamp is the whole fix.
+
+   Without it the string is ambiguous, and the ambiguity was not merely a
+   display problem: actualPaceSecPerKm() resolved it against whatever unit
+   happened to be selected NOW, so toggling km -> mi silently reinterpreted a
+   logged 5:13/km as 5:13/mi -- 3:14/km -- and every downstream consumer
+   (Execution Score, verdicts, comparables) scored the session against a run
+   the athlete never did.
+
+   The stamp is written once, at the moment of entry, and never rewritten
+   when units change. Conversion happens only on the way out, so toggling
+   km -> mi -> km is a pure round trip through a value that never moved and
+   cannot accumulate drift. */
 function paceSecPerKmToStoredStr(secPerKm){
   if (secPerKm==null) return null;
   return secToPace(paceSecToDisplay(secPerKm));
+}
+// The unit a stored pace is expressed in. Legacy logs carry no stamp; they
+// are read against the current selection, which is exactly what the app did
+// before this existed, so nothing already on disk changes meaning here.
+function actualPaceUnit(dd){
+  var a = dd && dd.actual;
+  return (a && a.paceUnit) ? a.paceUnit : ((state && state.units==='mi') ? 'mi' : 'km');
+}
+// Canonical sec/km, whatever unit it was typed in. THE read boundary.
+function actualPaceToSecPerKm(dd){
+  var a = dd && dd.actual;
+  if (!a || !a.pace) return null;
+  var sec = paceToSec(a.pace);
+  if (sec==null) return null;
+  return actualPaceUnit(dd)==='mi' ? sec/1.60934 : sec;
+}
+// What the field and every read-only surface should SHOW, in the unit
+// currently selected. THE write-to-screen boundary.
+function actualPaceDisplayStr(dd){
+  var sec = actualPaceToSecPerKm(dd);
+  return sec==null ? '' : secToPace(paceSecToDisplay(sec));
 }
 function clamp(n,lo,hi){ return Math.max(lo,Math.min(hi,n)); }
 function escapeHtml(s){
@@ -4089,6 +4119,11 @@ function adoptCloudState(remote, keepDevicePrefs){
      definition, but legacy rows predate the stamp -- so it is applied on the
      way in and the adopted state is never left unowned. */
   if (cloudSession && cloudSession.user_id) stampPlanOwner(cloudSession.user_id, remote);
+  /* Stamp the incoming row against ITS OWN units, here, before device prefs
+     below can replace state.units with this phone's setting. A plan written
+     on a mile device and adopted on a kilometre one would otherwise have its
+     unstamped paces labelled km and read as a completely different run. */
+  migrateActualPaceUnits(remote);
   var prefs = keepDevicePrefs ? {
     theme: state.theme, units: state.units,
     view: state.view, notifyEnabled: state.notifyEnabled
@@ -4364,6 +4399,7 @@ function loadState(){
           else if (!parsed.view) parsed.view = 'today';
           if (parsed.notifyEnabled==null) parsed.notifyEnabled = false;
           migrateThemePreference(parsed);
+          migrateActualPaceUnits(parsed);
           state = parsed;
           syncThemeMirror();
           return;
@@ -4422,6 +4458,23 @@ function migrateThemePreference(st){
   }
   if (st.theme !== 'dark' && st.theme !== 'light') st.theme = DEFAULT_THEME;
   if (st.themeExplicit == null) st.themeExplicit = false;
+  return st;
+}
+/* A logged pace written before paceUnit existed carries no unit. Every read
+   of it -- then and now -- resolves it against the CURRENT selection, so the
+   unit in effect at load is by definition the one the value already means.
+   Writing that down changes nothing about how the log reads today, and stops
+   the next unit toggle from changing what it means tomorrow.
+
+   Deliberately not a conversion: no stored number is touched, only labelled.
+   Run at load, before anything can toggle units -- the only moment the
+   existing interpretation is still knowable. */
+function migrateActualPaceUnits(st){
+  if (!st || !st.days || !st.days.length) return st;
+  var unit = st.units==='mi' ? 'mi' : 'km';
+  st.days.forEach(function(d){
+    if (d && d.actual && d.actual.pace && !d.actual.paceUnit) d.actual.paceUnit = unit;
+  });
   return st;
 }
 /* The one small key every Velvet Viking surface reads before its first paint.
@@ -5738,7 +5791,7 @@ function renderDayCard(dd){
     var a = dd.actual || {};
     actualHtml = '<div class="actual-panel">'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
-      '<div class="actual-field"><label>Avg Pace /'+displayUnit()+'</label><input type="text" placeholder="m:ss" value="'+(a.pace||'')+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
+      '<div class="actual-field"><label>Avg Pace /'+displayUnit()+'</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>RPE (1\u201310)</label><input type="number" min="1" max="10" inputmode="numeric" value="'+(a.rpe!=null?a.rpe:'')+'" data-action="actual-field" data-field="rpe" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field full feel-field"><label>Feel</label>'+
@@ -5802,11 +5855,10 @@ function getTargetPaceRangeSecPerKm(dd){
   if (!z || z.slow==null) return null;
   return { slow:z.slow, fast:z.fast }; // slow = larger sec/km (easier bound), fast = smaller sec/km (harder bound)
 }
+// Reads the stamp rather than the current selection, so a session scores
+// against the pace that was actually run no matter what units are showing.
 function actualPaceSecPerKm(dd){
-  if (!dd.actual || !dd.actual.pace) return null;
-  var sec = paceToSec(dd.actual.pace);
-  if (sec==null) return null;
-  return state.units==='mi' ? sec/1.60934 : sec;
+  return actualPaceToSecPerKm(dd);
 }
 
 /* =========================================================
@@ -6684,7 +6736,7 @@ function computeExecutionScore(dd){
    the array actually exists -- coachHRDrift() is the existing precedent and
    returns null rather than inventing drift from an average.
    ========================================================= */
-var ACTUAL_MANUAL_FIELDS   = ['km','pace','hr','rpe','feel','notes','notesSignals','notesOriginal'];
+var ACTUAL_MANUAL_FIELDS   = ['km','pace','paceUnit','hr','rpe','feel','notes','notesSignals','notesOriginal'];
 var ACTUAL_IMPORTED_FIELDS = ['maxHR','cadence','movingTimeSec','elapsedTimeSec',
                               'elevationGainM','tempC','humidity','activityType','splits'];
 var ACTUAL_SYNCED_FIELDS   = ACTUAL_MANUAL_FIELDS.concat(ACTUAL_IMPORTED_FIELDS);
@@ -7102,7 +7154,8 @@ function renderExecutionReview(dd){
       body += '<div class="cr-sec"><div class="cr-k">Compared With</div><div class="cr-v cr-compare">'+
         r.comparable.map(function(c){
           return '<span class="cr-cmp">'+escapeHtml(dShort(c.date))+' \u00b7 '+fmtDist(c.km)+
-                 (c.pace?' @ '+escapeHtml(c.pace):'')+' \u00b7 '+c.score+'%</span>';
+                 (c.paceSecPerKm!=null?' @ '+escapeHtml(fmtPaceFromSecPerKm(c.paceSecPerKm)):
+                  (c.pace?' @ '+escapeHtml(c.pace):''))+' \u00b7 '+c.score+'%</span>';
         }).join('')+'</div></div>';
     }
     // Only when there is genuinely something to show -- never invented.
@@ -13412,7 +13465,7 @@ function structuredExecutionEvidence(dd){
     var gap = Math.round(mean(recs) - mean(reps));
     out.workRecoveryGapSec = gap;
     if (gap > 0)
-      out.claims.push('Recoveries ran ' + secToPace(gap) + '/km slower than the reps, so the two were genuinely different efforts.');
+      out.claims.push('Recoveries ran ' + fmtPaceFromSecPerKm(gap) + ' slower than the reps, so the two were genuinely different efforts.');
   }
   return out.claims.length ? out : null;
 }
@@ -14154,7 +14207,10 @@ function coachWorkoutReview(dd){
     uncertainty: env.hrDoubt ? 'hr' : null,
     comparable: coachComparable(dd, 3).map(function(x){
       return { date:x.date, title:x.title||x.type, km:x.km,
-               score:computeExecutionScore(x), pace:(x.actual||{}).pace, hr:(x.actual||{}).hr };
+               score:computeExecutionScore(x),
+               // canonical sec/km, so a comparable rendered months later in
+               // different units still describes the run that happened
+               paceSecPerKm:actualPaceToSecPerKm(x), hr:(x.actual||{}).hr };
     }),
     confidence: coachReviewConfidence(b, env, dd)
   };
@@ -15134,7 +15190,7 @@ function renderCheckpointCard(){
   if (!chkDay) return '';
   var hint = '';
   if (chkDay.completed && chkDay.actual && chkDay.actual.pace){
-    hint = '<div class="hint font-mono">Your checkpoint effort: '+chkDay.actual.pace+'/'+displayUnit()+(chkDay.actual.hr?(' @ '+chkDay.actual.hr+' bpm'):'')+'</div>';
+    hint = '<div class="hint font-mono">Your checkpoint effort: '+actualPaceDisplayStr(chkDay)+'/'+displayUnit()+(chkDay.actual.hr?(' @ '+chkDay.actual.hr+' bpm'):'')+'</div>';
   }
   return '<div class="checkpoint">'+
     '<h3 class="font-display">Fitness Checkpoint</h3>'+
@@ -16509,7 +16565,8 @@ function stravaWriteActivity(dd, a){
   // said are never written here and never overwritten -- Strava has no opinion
   // about how a run felt, and a fast pace is not evidence of a good day.
   if (a.km != null)             A.km = a.km;
-  if (a.paceSecPerKm)           A.pace = paceSecPerKmToStoredStr(a.paceSecPerKm);
+  if (a.paceSecPerKm){          A.pace = paceSecPerKmToStoredStr(a.paceSecPerKm);
+                                A.paceUnit = displayUnit(); }
   if (a.hr != null)             A.hr = a.hr;
   if (a.maxHR != null)          A.maxHR = a.maxHR;
   if (a.cadence != null)        A.cadence = a.cadence;
@@ -16844,7 +16901,8 @@ function handleApplyActivity(){
   applyCompletion(dd, true);
   dd.actual = dd.actual || emptyActual();
   if (parsed.km!=null) dd.actual.km = parsed.km;
-  if (parsed.pace) dd.actual.pace = paceSecPerKmToStoredStr(paceToSec(parsed.pace));
+  if (parsed.pace){ dd.actual.pace = paceSecPerKmToStoredStr(paceToSec(parsed.pace));
+                    dd.actual.paceUnit = displayUnit(); }
   if (parsed.hr!=null) dd.actual.hr = parsed.hr;
   coachPersistReview(dd);
   closeModal();
@@ -16863,7 +16921,8 @@ function handleApplyCsvRow(rowIdx){
   applyCompletion(dd, true);
   dd.actual = dd.actual || emptyActual();
   if (row.km!=null) dd.actual.km = row.km;
-  if (row.pace) dd.actual.pace = paceSecPerKmToStoredStr(paceToSec(row.pace));
+  if (row.pace){ dd.actual.pace = paceSecPerKmToStoredStr(paceToSec(row.pace));
+                 dd.actual.paceUnit = displayUnit(); }
   if (row.hr!=null) dd.actual.hr = row.hr;
   coachPersistReview(dd);
   scheduleSave();
@@ -17009,7 +17068,13 @@ function handleActualFieldChange(dayId, field, value){
   if (field==='km') dd.actual.km = value===''?null:parseDistInput(value);
   else if (field==='hr') dd.actual.hr = value===''?null:parseInt(value,10);
   else if (field==='rpe') dd.actual.rpe = value===''?null:parseInt(value,10);
-  else if (field==='pace') dd.actual.pace = value.trim() || null;
+  else if (field==='pace'){
+    dd.actual.pace = value.trim() || null;
+    // Stamp what the athlete was looking at. Written here and nowhere else
+    // on this path, so a later unit toggle re-reads rather than reinterprets.
+    if (dd.actual.pace) dd.actual.paceUnit = displayUnit();
+    else delete dd.actual.paceUnit;
+  }
   else if (field==='notes') dd.actual.notes = value;
   else if (field==='feel') dd.actual.feel = FEEL_META[value] ? value : null;
   // Auto-run: the score and its coaching review regenerate on every logged
