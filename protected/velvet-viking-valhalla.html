@@ -711,6 +711,16 @@
     --ctl-text:var(--modal-text); --ctl-placeholder:#8d857a;
     --ctl-accent:var(--modal-active); --ctl-accent-rgb:var(--modal-active-rgb);
     --ctl-disabled-bg:#1d1a17; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2e2921;
+    /* The --ctl-* pin above only ever covered form controls. Ordinary prose
+       and .btn-ghost read the general --ink/--line family instead, which
+       light theme redefines to near-black -- so a light-mode athlete got a
+       #171717-on-#141210 button (1:1 contrast, unreadable) the first time a
+       modal used plain text rather than a field. Same bug, same fix, wider
+       net: pin the whole family to the values dark theme already uses here
+       (dark is unaffected, since these already equal its :root defaults). */
+    --ink:var(--modal-text); --ink-dim:#BBB4A4; --ink-faint:#9D9787;
+    --line:var(--modal-border); --line-soft:#232126;
+    --bronze-text:var(--bronze); --gold-text:var(--gold);
   }
   @media (min-width:640px){ .modal-card{border-radius:var(--radius-lg);} }
   @keyframes slideup{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
@@ -6766,11 +6776,23 @@ function coachNextMove(load, recovery, trend, status){
      - Hard conditions explain a hard session. Heat and hills contextualise
        performance; they never count as the athlete being tired.
    ========================================================= */
+/* Presentation only -- 'proceed'/'check'/'modify'/'recover' are read all over
+   this file as the decision's identity and never change. What athletes
+   actually saw for two of the four was the internal verb itself: "Check" (of
+   what?) and "Modify" -- a dashboard imperative, not a coach's status word.
+   Sibling states already got a coaching pass (EVOLUTION_META); these two are
+   this same pill, unrenamed. 'Worth watching' is lifted straight from
+   coachDecisionSentence's own check copy, so the pill and the sentence agree
+   instead of coining a second phrase for the same thing. 'Scale back' names
+   what 'modify' actually does to today's session (coachDecisionSentence:
+   "Reducing … protects the quality of the rest of the week"), which "a small
+   evolution" -- EVOLUTION_META's phrase for the unrelated multi-day case --
+   does not. Proceed and Recover were already plain coaching language. */
 var COACH_DECISION_META = {
-  proceed:{ label:'Proceed', cls:'proceed' },
-  check:  { label:'Check',   cls:'check' },
-  modify: { label:'Modify',  cls:'modify' },
-  recover:{ label:'Recover', cls:'recover' }
+  proceed:{ label:'Proceed',        cls:'proceed' },
+  check:  { label:'Worth watching', cls:'check' },
+  modify: { label:'Scale back',     cls:'modify' },
+  recover:{ label:'Recover',        cls:'recover' }
 };
 /* Easy-run heart rate against the athlete's own recent baseline. Sessions run
    in real heat are excluded from both halves -- a hot easy run costs bpm for
@@ -13330,7 +13352,11 @@ function responsePatternsSummary(m, noted){
   if (m && est && responsePatternLines(m).length) return est+' established';
   if (m && emg) return emg+' emerging';
   if (noted) return noted+' noted';
-  return 'learning';
+  // A bare status word, not a counted phrase like the branches above --
+  // Title Case to match every other standalone status word in the app
+  // (BLOCK_META, COACH_DECISION_META, EVOLUTION_META), and the literal
+  // "Adaptation history" row directly beside it, which reads "Learning".
+  return 'Learning';
 }
 /* At most a handful of high-value lines. Raw statistics stay out of the UI --
    the athlete wants to know how long they normally take to come back, not a
