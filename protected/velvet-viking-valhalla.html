@@ -7099,6 +7099,17 @@ function renderExecutionReview(dd){
       body += '<div class="cr-sec"><div class="cr-k">Splits</div>'+
                 '<div class="cr-v">'+escapeHtml(describeSplitEvidence(r.splitMetrics))+'</div></div>';
     }
+    /* The structured read, when the log mirrors the prescription. This is
+       what the flat-lap version could never say: how the REPS behaved, not
+       merely how the first half of the laps compared to the second. Each
+       line is individually gated on the evidence it needs, so a session
+       logged only at warm-up level says nothing here. */
+    var se = structuredExecutionEvidence(dd);
+    if (se){
+      body += '<div class="cr-sec"><div class="cr-k">Execution by segment</div><div class="cr-v">'+
+        se.claims.map(function(c){ return escapeHtml(c); }).join(' ')+
+      '</div></div>';
+    }
 
     // Buttons appear only when an adjustment is actually recommended, so a
     // normal session is not cluttered with choices that mean nothing.
@@ -13302,6 +13313,86 @@ function describeSplitEvidence(sm){
       : 'Held pace evenly across the laps';
   var fade = sm.splitType==='even' ? '' : ' — ' + Math.abs(sm.fadePct) + (sm.splitType==='positive' ? '% slower' : '% faster');
   return lead + fade + ', ' + sm.consistencyPct + '% pace consistency across ' + sm.splits + ' laps.';
+}
+
+/* =========================================================
+   STRUCTURED EXECUTION EVIDENCE
+   ---------------------------------------------------------
+   When the log mirrors the prescription, questions become answerable that a
+   flat list of laps could never answer: not "were the laps even" but "were
+   the REPS even", "did the work hold while the recoveries did their job",
+   "was the goal-pace finish actually run at goal pace".
+
+   Every claim here is gated on evidence that genuinely exists. The hard
+   rule, and the reason several obvious-sounding claims are absent: a
+   segment prescribed as a RULE rather than a number has no target to judge
+   against. A hill-repeat descent is "jog/walk back down"; a ladder recovery
+   is "scaled to the rep". There is no prescribed recovery pace or duration
+   anywhere in the model for those, so no "your recoveries were too slow"
+   verdict is possible without inventing the target it is measured against.
+   Recovery discipline is therefore reported ONLY as the separation between
+   work and recovery the athlete's own numbers show, never as adherence. */
+function structuredSplitsOf(dd){
+  var splits = (dd && dd.actual && dd.actual.splits) || [];
+  return splits.filter(splitHasStructure);
+}
+function structuredExecutionEvidence(dd){
+  var all = structuredSplitsOf(dd);
+  if (!all.length) return null;
+  var paced = function(list){ return list.filter(function(s){ return s.paceSec != null; }); };
+  var reps = paced(all.filter(function(s){ return s.role === 'work' && /^Rep/.test(s.label || ''); }));
+  var recs = paced(all.filter(function(s){ return s.role === 'recovery'; }));
+  var out = { reps:reps.length, recoveries:recs.length, claims:[] };
+  var mean = function(list){ return list.reduce(function(t,x){ return t + x.paceSec; }, 0) / list.length; };
+
+  /* REP CONSISTENCY and FADE. Three is the minimum that can show a trend
+     rather than a difference between two numbers. */
+  if (reps.length >= 3){
+    var avg = mean(reps);
+    var sd = Math.sqrt(reps.reduce(function(t,x){ return t + Math.pow(x.paceSec-avg,2); },0)/reps.length);
+    var consistency = Math.round((1 - sd/avg) * 1000) / 10;
+    out.repConsistencyPct = consistency;
+    var firstRep = reps[0].paceSec, lastRep = reps[reps.length-1].paceSec;
+    var drift = Math.round(((lastRep - firstRep) / firstRep) * 1000) / 10;
+    out.repFadePct = drift;
+    out.claims.push(consistency >= 97
+      ? 'Reps held together: ' + consistency + '% pace consistency across ' + reps.length + ' reps.'
+      : 'Rep pace varied by more than it looks — ' + consistency + '% consistency across ' + reps.length + ' reps.');
+    if (Math.abs(drift) >= 2){
+      out.claims.push(drift > 0
+        ? 'The last rep came in ' + Math.abs(drift) + '% slower than the first.'
+        : 'The last rep came in ' + Math.abs(drift) + '% faster than the first.');
+    } else {
+      out.claims.push('First and last rep were run at effectively the same pace.');
+    }
+  }
+
+  /* OPENING CONTROL, and only against a target that exists. Execution
+     Strategy's first phase carries paceRole 'ceiling' precisely where going
+     out too fast is the failure mode; comparing the opening to a ceiling is
+     the one opening claim with a real prescribed number behind it. */
+  var strat = null;
+  try { strat = executionStrategy(dd); } catch(e) { strat = null; }
+  var opener = paced(all)[0];
+  if (strat && !strat.suppressed && strat.phases && strat.phases.length && opener){
+    var p0 = strat.phases[0];
+    if (p0.paceRole === 'ceiling' && p0.pace && p0.pace.fast != null){
+      out.openingVsCeiling = opener.paceSec - p0.pace.fast;
+      out.claims.push(opener.paceSec < p0.pace.fast
+        ? 'Opened faster than the ceiling the plan set for the start.'
+        : 'Opening was held at or inside the ceiling, which is the hard part.');
+    }
+  }
+
+  /* WORK vs RECOVERY SEPARATION. Descriptive, never a verdict: see the
+     header note on why no recovery-adherence claim is made. */
+  if (reps.length >= 2 && recs.length >= 2){
+    var gap = Math.round(mean(recs) - mean(reps));
+    out.workRecoveryGapSec = gap;
+    if (gap > 0)
+      out.claims.push('Recoveries ran ' + secToPace(gap) + '/km slower than the reps, so the two were genuinely different efforts.');
+  }
+  return out.claims.length ? out : null;
 }
 
 /* ---------- the next planned session, so advice can point somewhere ---------- */
