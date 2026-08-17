@@ -585,6 +585,34 @@
   .actual-clear{grid-column:1/-1; text-align:right;}
   .actual-clear button{background:none; border:none; color:var(--ink-faint); font-size:11px; text-decoration:underline; padding:2px;}
 
+  /* Manual laps/splits: a quiet, closed-by-default control inside the same
+     whole-session log, not a spreadsheet or a second card. */
+  .splits-toggle{
+    background:none; border:none; padding:6px 0; font-size:11px; font-weight:600;
+    color:var(--bronze-text); cursor:pointer; text-align:left; min-height:32px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .splits-body{margin-top:2px;}
+  .split-row{display:grid; grid-template-columns:16px 1fr 1fr 46px 32px; gap:5px; align-items:center; margin-bottom:6px;}
+  .split-head{font-size:8.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:1px;}
+  .split-idx{font-size:10px; color:var(--ink-faint); text-align:center;}
+  .split-row input{
+    background:var(--bg-4); border:1px solid var(--line); border-radius:6px; color:var(--ink);
+    padding:6px; font-size:12.5px; font-family:'JetBrains Mono',monospace; width:100%; min-height:32px;
+  }
+  .split-remove{
+    background:none; border:none; color:var(--ink-faint); font-size:16px; line-height:1;
+    padding:4px; min-width:32px; min-height:32px; cursor:pointer; border-radius:6px;
+  }
+  .split-remove:hover, .split-remove:focus-visible{color:var(--gold-deep); background:var(--bg-4);}
+  .splits-add{
+    background:none; border:1px dashed var(--line); border-radius:6px; color:var(--ink-dim);
+    font-size:11px; padding:6px 10px; margin-top:2px; cursor:pointer; min-height:32px; width:100%;
+  }
+  .splits-total{font-size:10.5px; color:var(--ink-faint); margin-top:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .splits-total .font-mono{color:var(--ink-dim);}
+  .splits-warn{color:var(--gold-deep);}
+
   /* ---------- zone paces card (main dashboard) ---------- */
   .zone-paces-card{margin:14px 14px 0; padding:14px 15px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);}
   .zpc-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;}
@@ -5577,6 +5605,7 @@ function renderDayCard(dd){
         '<span class="field-hint">Anything the numbers don\u2019t show \u2014 tired legs, poor sleep, heat, wind, hills, illness, pain, treadmill, HR sensor trouble.</span>'+
         renderNoteSignalChips(dd)+
       '</div>'+
+      renderSplitsBlock(dd)+
       '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>'+
     '</div>'+
     '<div id="exec-review-'+dd.id+'">'+renderExecutionReview(dd)+'</div>';
@@ -6507,6 +6536,95 @@ var ACTUAL_IMPORTED_FIELDS = ['maxHR','cadence','movingTimeSec','elapsedTimeSec'
 var ACTUAL_SYNCED_FIELDS   = ACTUAL_MANUAL_FIELDS.concat(ACTUAL_IMPORTED_FIELDS);
 function emptyActual(){ return { km:null, pace:null, hr:null, rpe:null, feel:null, notes:'' }; }
 
+/* =========================================================
+   MANUAL LAPS / SPLITS
+   Optional, evidence-grade logging alongside the whole-session log --
+   never a requirement to complete a session. dd.actual.splits is the
+   existing contract coachSplitMetrics()/coachHRDrift() already read
+   (an array of {paceSec, hr}); this is the first production writer of
+   it. Distance and elapsed time are what the athlete can actually enter
+   honestly on a watch or a track, so those are the raw fields, and
+   paceSec is derived from them here rather than asked for twice as a
+   second, possibly contradictory number.
+   ========================================================= */
+function emptySplit(){ return { km:null, sec:null, paceSec:null, hr:null }; }
+
+// Ephemeral like dayExpandOverride -- deliberately not persisted, so a
+// closed editor stays closed on the next launch rather than the app
+// remembering which days someone happened to expand.
+var splitsEditorOpen = {};
+function isSplitsOpen(dd){
+  return !!splitsEditorOpen[dd.id] || !!(dd.actual && dd.actual.splits && dd.actual.splits.length);
+}
+// Sum of the athlete's OWN entered lap distances -- null (not 0) until at
+// least one lap carries a distance, same "unknown stays unknown" rule
+// coachSplitMetrics() already uses for pace.
+function splitsTotalKm(dd){
+  var splits = (dd.actual && dd.actual.splits) || [];
+  var sum = 0, any = false;
+  splits.forEach(function(s){ if (s && s.km!=null){ sum += s.km; any = true; } });
+  return any ? round2(sum) : null;
+}
+// The split log and the whole-session log are two honest readings of the
+// same run and are allowed to disagree a little -- a missed lap button, a
+// watch auto-pause -- without either one silently overwriting the other.
+// Only a material gap (not a rounding difference) is worth a word.
+function splitsMismatch(dd){
+  var total = splitsTotalKm(dd);
+  var logged = dd.actual && dd.actual.km;
+  if (total==null || logged==null || logged<=0) return null;
+  var diff = Math.abs(total - logged);
+  if (diff < 0.3 && diff/logged < 0.08) return null;
+  return { total:total, logged:logged };
+}
+function renderSplitsTotal(dd){
+  var total = splitsTotalKm(dd);
+  if (total==null) return '';
+  var mismatch = splitsMismatch(dd);
+  return '<div class="splits-total">Lap total <span class="font-mono">'+fmtDist(total)+'</span>'+
+    (mismatch ? '<span class="splits-warn">Logged session says '+fmtDist(mismatch.logged)+' — keeping both; correct whichever is off.</span>' : '')+
+  '</div>';
+}
+function patchSplitsTotal(dd){
+  var el = document.getElementById('splits-total-'+dd.id);
+  if (el) el.outerHTML = '<div id="splits-total-'+dd.id+'">'+renderSplitsTotal(dd)+'</div>';
+}
+function renderSplitRow(dd, s, i){
+  var unit = displayUnit();
+  return '<div class="split-row">'+
+    '<span class="split-idx font-mono">'+(i+1)+'</span>'+
+    '<input type="number" step="0.01" min="0" inputmode="decimal" class="split-km" placeholder="'+unit+'" '+
+      'value="'+(s.km!=null?kmToDisplay(s.km):'')+'" data-action="split-field" data-field="km" data-day="'+dd.id+'" data-index="'+i+'">'+
+    '<input type="text" inputmode="numeric" class="split-time" placeholder="m:ss" '+
+      'value="'+(s.sec!=null?secToPace(s.sec):'')+'" data-action="split-field" data-field="sec" data-day="'+dd.id+'" data-index="'+i+'">'+
+    '<input type="number" min="0" inputmode="numeric" class="split-hr" placeholder="HR" '+
+      'value="'+(s.hr!=null?s.hr:'')+'" data-action="split-field" data-field="hr" data-day="'+dd.id+'" data-index="'+i+'">'+
+    '<button type="button" class="split-remove" data-action="delete-split" data-day="'+dd.id+'" data-index="'+i+'" aria-label="Remove lap '+(i+1)+'">×</button>'+
+  '</div>';
+}
+function renderSplitsBody(dd){
+  var splits = (dd.actual && dd.actual.splits) || [];
+  var unit = displayUnit();
+  return '<div class="splits-body">'+
+    (splits.length ? '<div class="split-row split-head"><span></span><span>'+unit+'</span><span>Time</span><span>HR</span><span></span></div>' : '')+
+    splits.map(function(s,i){ return renderSplitRow(dd, s, i); }).join('')+
+    '<button type="button" class="splits-add" data-action="add-split" data-day="'+dd.id+'">+ Add lap</button>'+
+    '<div id="splits-total-'+dd.id+'">'+renderSplitsTotal(dd)+'</div>'+
+  '</div>';
+}
+// Quiet by default: a closed one-line control, not another card. It opens
+// only when tapped, or when the day already carries real lap data (an
+// import, or a previous session's laps) -- never forced.
+function renderSplitsBlock(dd){
+  var open = isSplitsOpen(dd);
+  return '<div class="actual-field full splits-block">'+
+    '<button type="button" class="splits-toggle" data-action="toggle-splits" data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
+      (open ? 'Hide laps / splits' : '+ Add laps / splits (optional)')+
+    '</button>'+
+    (open ? renderSplitsBody(dd) : '')+
+  '</div>';
+}
+
 function expectedRPEBand(dd){
   var ex = executionProfileOf(dd);
   if (ex && ex.rpe) return ex.rpe.slice();
@@ -6589,6 +6707,17 @@ function renderExecutionReview(dd){
     if (r.hrDrift!=null){
       body += '<div class="cr-sec"><div class="cr-k">HR Drift</div>'+
                 '<div class="cr-v">'+(r.hrDrift>0?'+':'')+r.hrDrift+'% first half to second</div></div>';
+    }
+    // Same rule as HR Drift: appears only once coachSplitMetrics() has real
+    // per-lap evidence (4+ logged splits with a pace), and says only what
+    // that whole-session comparison actually supports -- first half against
+    // second half. It does not attempt to match individual laps to
+    // Execution Strategy phases; where that mapping would be ambiguous the
+    // honest answer is to say less, not to manufacture a phase-by-phase
+    // verdict from laps that may not line up with the staged plan at all.
+    if (r.splitMetrics){
+      body += '<div class="cr-sec"><div class="cr-k">Splits</div>'+
+                '<div class="cr-v">'+escapeHtml(describeSplitEvidence(r.splitMetrics))+'</div></div>';
     }
 
     // Buttons appear only when an adjustment is actually recommended, so a
@@ -12761,6 +12890,20 @@ function coachSplitMetrics(dd){
     splits: paced.length
   };
 }
+// The one sentence Execution Review is allowed to say from split evidence:
+// what the first half of the logged laps looked like against the second
+// half, and how even they were. Deliberately the only claim made from
+// coachSplitMetrics() -- see the comment at its call site for why this
+// stops short of a phase-by-phase verdict.
+function describeSplitEvidence(sm){
+  var lead = sm.splitType==='positive'
+    ? 'Paced slower in the second half than the first'
+    : sm.splitType==='negative'
+      ? 'Paced faster in the second half than the first (a negative split)'
+      : 'Held pace evenly across the laps';
+  var fade = sm.splitType==='even' ? '' : ' — ' + Math.abs(sm.fadePct) + (sm.splitType==='positive' ? '% slower' : '% faster');
+  return lead + fade + ', ' + sm.consistencyPct + '% pace consistency across ' + sm.splits + ' laps.';
+}
 
 /* ---------- the next planned session, so advice can point somewhere ---------- */
 function coachSessionAfter(dd){
@@ -16468,6 +16611,65 @@ function handleClearActual(dayId){
   scheduleSave();
   showToast('Log cleared');
 }
+function handleToggleSplits(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  if (splitsEditorOpen[dd.id]) delete splitsEditorOpen[dd.id];
+  else splitsEditorOpen[dd.id] = true;
+  replaceCard(dd);
+}
+function handleAddSplit(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  dd.actual = dd.actual || emptyActual();
+  dd.actual.splits = dd.actual.splits || [];
+  var prev = dd.actual.splits[dd.actual.splits.length-1];
+  var row = emptySplit();
+  // Laps are usually the same distance -- reusing the previous one is the
+  // common case and saves a tap; the athlete can still change it.
+  if (prev && prev.km!=null) row.km = prev.km;
+  dd.actual.splits.push(row);
+  splitsEditorOpen[dd.id] = true;
+  coachPersistReview(dd);
+  replaceCard(dd);
+  patchDerivedStats();
+  scheduleSave();
+}
+function handleDeleteSplit(dayId, index){
+  var dd = findDay(dayId);
+  if (!dd || !dd.actual || !dd.actual.splits) return;
+  dd.actual.splits.splice(index, 1);
+  coachPersistReview(dd);
+  replaceCard(dd);
+  patchDerivedStats();
+  scheduleSave();
+}
+// Same field-level pattern as handleActualFieldChange -- patches the score
+// and lap-total mounts in place rather than re-rendering the row, so the
+// input being edited keeps its focus and cursor while typing.
+function handleSplitFieldChange(dayId, index, field, value){
+  var dd = findDay(dayId);
+  if (!dd || !dd.actual || !dd.actual.splits || !dd.actual.splits[index]) return;
+  var row = dd.actual.splits[index];
+  if (field==='km'){
+    var km = value===''?null:parseDistInput(value);
+    row.km = (km!=null && km>0) ? km : null;               // no negative/zero distance
+  } else if (field==='sec'){
+    var sec = value.trim()===''?null:clockToSec(value);
+    row.sec = (sec!=null && sec>0) ? sec : null;            // no negative/zero elapsed time
+  } else if (field==='hr'){
+    var hr = value===''?null:parseInt(value,10);
+    row.hr = (hr!=null && !isNaN(hr) && hr>0) ? hr : null;  // no negative/zero/malformed HR
+  }
+  // Pace is derived from the two raw fields the athlete can actually read
+  // off a watch, never entered as a third, possibly contradictory number.
+  row.paceSec = (row.km!=null && row.km>0 && row.sec!=null) ? Math.round(row.sec/row.km) : null;
+  coachPersistReview(dd);
+  patchExecutionUI(dd);
+  patchSplitsTotal(dd);
+  patchDerivedStats();
+  scheduleSave();
+}
 function handleToggleWeek(weekNum){
   if (expandedWeeks[weekNum]) delete expandedWeeks[weekNum];
   else expandedWeeks[weekNum] = true;
@@ -17205,6 +17407,9 @@ document.addEventListener('click', function(e){
     case 'close-modal': closeModal(); break;
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
     case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;
+    case 'toggle-splits': handleToggleSplits(target.getAttribute('data-day')); break;
+    case 'add-split': handleAddSplit(target.getAttribute('data-day')); break;
+    case 'delete-split': handleDeleteSplit(target.getAttribute('data-day'), parseInt(target.getAttribute('data-index'),10)); break;
     case 'set-event-mode': handleSetEventMode(target.getAttribute('data-event-mode')); break;
     case 'set-experience': handleSetExperience(target.getAttribute('data-experience')); break;
     case 'coach-why': handleCoachWhy(target.getAttribute('data-day')); break;
@@ -17292,6 +17497,7 @@ document.addEventListener('change', function(e){
   // notes-wand here is what made both controls render correctly and do
   // nothing at all when tapped.
   else if (action === 'actual-field') handleActualFieldChange(actionEl.getAttribute('data-day'), actionEl.getAttribute('data-field'), actionEl.value);
+  else if (action === 'split-field') handleSplitFieldChange(actionEl.getAttribute('data-day'), parseInt(actionEl.getAttribute('data-index'),10), actionEl.getAttribute('data-field'), actionEl.value);
   else if (action === 'pace-override') handlePaceOverrideChange(actionEl.getAttribute('data-zone'));
   else if (action === 'toggle-notify') handleToggleNotify();
   else if (action === 'toggle-theme-switch') handleToggleThemeQuick();
