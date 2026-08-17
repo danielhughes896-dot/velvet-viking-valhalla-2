@@ -48,6 +48,17 @@ function everythingSaid(a) {
     (ev.changes || []).forEach(c => push(c.why));
     (ev.protectedSessions || []).forEach(p => push(p.why));
     push((a.EVOLUTION_META[ev.state] || {}).text);
+    push((a.EVOLUTION_META[ev.state] || {}).label);
+    /* "Why this is better" is athlete-facing copy sitting directly downstream
+       of a safety signal, and it now renders for the hierarchy proposals a
+       pain or illness report produces -- so it is judged at every depth, not
+       only at whichever one the fixture happens to have set. */
+    ['novice', 'experienced', 'advanced'].forEach(lvl => {
+      const was = a.state.setup && a.state.setup.experience;
+      if (a.state.setup) a.state.setup.experience = lvl;
+      try { push(a.evolutionRationale(ev)); } catch (e) {}
+      if (a.state.setup) a.state.setup.experience = was;
+    });
   }
   (a.missedStimulus() || []).forEach(m => push(m.reason));
   (a.athleteTrends() || []).forEach(t => { push(t.detail); push(t.headline); });

@@ -1043,6 +1043,10 @@
   .hq-row-v{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim);
             text-align:right; flex:0 1 auto; min-width:0; overflow-wrap:anywhere;}
   .hq-empty{font-size:11px; color:var(--ink-faint); line-height:1.5;}
+  /* .coach-state carries margin-left:auto so it sits at the end of a card
+     header. In an hq-row it is the LABEL, so it takes the label's place at the
+     start and leaves the right-hand column to the confidence word. */
+  .hq-row .coach-state{margin-left:0;}
   /* Recently evolved: two rows at most, so it is styled as a footnote to the
      section rather than as a list that wants scrolling. */
   .hq-recent{margin-top:10px; padding-top:8px; border-top:1px solid var(--line-soft);}

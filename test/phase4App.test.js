@@ -542,6 +542,29 @@ test('12. the two answers are offered as equals', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 12b. THE DISCLOSURE INHERITS THE NON-MEDICAL BOUNDARY
+// ---------------------------------------------------------------------------
+/* The realistic route to an Adjusted marker carrying a safety reason: a pain
+   report reaches RECOVER, the athlete accepts, and the sentence they accepted
+   on is then replayed to them inside the disclosure. New surface, same rule --
+   observational, never diagnostic, never reassuring, never certain. */
+test('12b. an adjustment made on a pain report explains itself without diagnosing it', () => {
+  const a = hurting(plan(app()));
+  assert.equal(a.coachDecision().state, 'recover');
+  const ev = a.planEvolution();
+  a.handleAcceptEvolution(ev.proposalId);
+  const dd = a.findDay(ev.changes[0].dayId);
+  assert.ok(dd.coachAdjust, 'the acceptance must have landed for this to test anything');
+  const said = text(a.dayStatusMarker(dd)) + ' | ' + a.RESTORE_WINDOW_COPY + ' | ' +
+    Object.keys(a.RESTORE_REFUSAL_COPY).map(k => a.RESTORE_REFUSAL_COPY[k]).join(' | ');
+  [/you (are|'re) injured/i, /diagnos/i, /tear|torn|fracture|tendinitis/i, /inflamm/i, /damage/i,
+   /safe to (run|train)/i, /cleared to/i, /medically/i, /nothing to worry about/i,
+   /(fully )?recovered\b/i, /no longer (injured|ill|unwell)/i,
+   /see a (doctor|physio|specialist)/i, /you (need|must|should) (to )?(rest|stop|see)/i]
+    .forEach(rx => assert.ok(!rx.test(said), rx + ' in: ' + said));
+});
+
+// ---------------------------------------------------------------------------
 // 13. THE ORDER OF THE PROPOSAL
 // ---------------------------------------------------------------------------
 test('13. the expanded proposal reads in the order the athlete needs it', () => {
