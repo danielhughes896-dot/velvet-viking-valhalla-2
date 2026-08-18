@@ -7907,6 +7907,124 @@ function coachBreakthroughs(){
   });
 }
 
+/* =========================================================
+   CONTENT CANDIDATE -- PROTOTYPE, INERT, NOT WIRED
+   ---------------------------------------------------------
+   PROTOTYPE STATUS. CONTENT_CANDIDATE_ENABLED is false, nothing below is
+   reachable from any render path, and nothing here transmits anything. These
+   are pure functions over state that a caller must ask for by name.
+
+   WHAT THIS IS FOR, stated so it cannot drift. Velvet Viking would like to
+   notice when a training session was genuinely worth telling somebody about, so
+   a human can decide whether to make something of it. That is the ONLY thing
+   this emits: a neutral, minimal statement that an event happened and was
+   notable.
+
+   WHAT VALHALLA MUST NEVER KNOW, and does not know. There is no mention below --
+   and there must never be -- of Instagram, Facebook, captions, campaigns,
+   scheduling, content calendars, publishing, or any social network. Valhalla is
+   a coaching product. It emits a neutral eligible event and stops. Everything
+   that turns an event into marketing lives outside this application entirely,
+   and a test asserts that vocabulary never appears in this runtime.
+
+   NO NEW COACHING CONCEPT. Eligibility is coachBreakthroughs(), which already
+   exists, is already deterministic, is already evidence-based, and whose own
+   comment already describes its output as "a session worth telling someone
+   about". Marketing interest does not get a vote in what counts as a good
+   session, because the thing that decides is the same function the athlete's own
+   Plan HQ reads. If a session is not a breakthrough to the athlete, it is not a
+   candidate for anything.
+
+   THE PAYLOAD IS AN ALLOW-LIST, BY CONSTRUCTION. contentCandidate() builds a new
+   object with named fields. It never copies, spreads or merges a day, an actual,
+   a setup or a state, so a field added to the plan in future cannot leak by
+   default -- it has to be added here on purpose. Everything about the athlete's
+   body and their words is excluded: no heart rate, no pace, no RPE, no feel, no
+   notes, no email, no user id, no coordinates, no plan.
+
+   NO EGRESS. Nothing here fetches, posts or stores. The prototype's transport
+   lives outside this file, outside /api, and is run by hand by the operator --
+   so there is no automatic path from any athlete's device to anywhere.
+   ========================================================= */
+var CONTENT_CANDIDATE_VERSION = 1;
+var CONTENT_CANDIDATE_ENABLED = false;
+
+/* The complete set of fields permitted to cross the boundary. A test asserts
+   that a built candidate has exactly these keys and no others, so widening the
+   payload is a deliberate, reviewable act rather than a side effect. */
+var CONTENT_CANDIDATE_FIELDS = [
+  'v', 'candidateId', 'date', 'sessionKind', 'distanceKm',
+  'notableBecause', 'executionScore', 'goalDistanceLabel',
+  'contentSource', 'marketingEligible'
+];
+
+/* A stable id derived from facts that already identify the session to the
+   athlete. Deterministic, so the same session proposed twice is recognisably
+   the same candidate rather than a duplicate row for a human to reconcile.
+   Deliberately NOT the athlete's uid or email, and not reversible into them. */
+function contentCandidateId(dd){
+  var p = prescriptionOf(dd);
+  return 'vv-' + dd.date + '-' + ((p && p.archetype) || dd.type);
+}
+
+/* WHY THIS SESSION WAS NOTABLE, in the product's own words.
+   Reuses the existing deterministic coaching vocabulary rather than writing a
+   second description of the same event -- and it is a QUALITATIVE statement on
+   purpose. A marketer deciding whether something is worth a post needs to know
+   that it was a strong threshold run; they do not need the athlete's heart rate
+   to decide that, and the number is health data. Any figure that ends up in
+   published material is added by a human, from the athlete in front of them,
+   at approval time. */
+function contentCandidateReason(dd){
+  if (dd.type === 'race')       return 'Race completed to plan.';
+  if (dd.type === 'checkpoint') return 'Benchmark effort completed to plan, resetting training paces.';
+  return 'Quality session executed at the fast end of its prescribed window with heart rate controlled.';
+}
+
+/* One candidate, or null. Takes a day; returns a NEW object with only the
+   allow-listed fields. `source` must be stated by the caller and only 'founder'
+   is accepted, so a candidate cannot be produced for anybody else even by
+   mistake -- see the note on where the real ownership check lives. */
+function contentCandidate(dd, source){
+  if (!dd || !dd.completed) return null;
+  /* FOUNDER ONLY. This is a guard, not the security boundary: this file runs in
+     the athlete's own browser, where any check can be edited. The authoritative
+     ownership check is made outside Valhalla, by the operator tooling, against
+     VVV_OWNER_USER_ID. Both exist on purpose -- this one so the runtime cannot
+     casually build a candidate for a beta tester, that one so it would not
+     matter if someone tried. */
+  if (source !== 'founder') return null;
+  var p = prescriptionOf(dd);
+  var profile = state.setup && DISTANCE_PROFILES[state.setup.distanceKey];
+  return {
+    v: CONTENT_CANDIDATE_VERSION,
+    candidateId: contentCandidateId(dd),
+    date: dd.date,
+    sessionKind: (p && p.archetype) || dd.type,
+    distanceKm: dd.km != null ? dd.km : null,
+    notableBecause: contentCandidateReason(dd),
+    executionScore: computeExecutionScore(dd),
+    goalDistanceLabel: profile ? profile.label : null,
+    /* Stated explicitly rather than inferred, so a reader of a stored candidate
+       can see on what basis it was allowed to exist. */
+    contentSource: 'founder',
+    marketingEligible: true
+  };
+}
+
+/* Every eligible session, newest first. Eligibility is coachBreakthroughs() and
+   nothing else. Returns [] when the flag is off, so a caller wired up by mistake
+   gets nothing rather than a live feed. */
+function contentCandidates(source){
+  if (!CONTENT_CANDIDATE_ENABLED) return [];
+  if (source !== 'founder') return [];
+  return coachBreakthroughs()
+    .map(function(dd){ return contentCandidate(dd, source); })
+    .filter(function(c){ return !!c; })
+    .sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+}
+
+
 /* ---------- athlete status ---------- */
 function coachStatus(load, recovery, trend, confidence){
   var completed = coachCompletedScored().length;
