@@ -1481,6 +1481,41 @@ function clockToSec(str){
   if (parts.length===2) return parts[0]*60+parts[1];
   return null;
 }
+/* ELAPSED TIME AS A PHONE CAN ACTUALLY TYPE IT.
+   clockToSec() requires a colon and returns null without one, which is
+   correct for the benchmark field (a full keyboard, "0:45:00") and was
+   quietly fatal on the lap editors: those fields carry inputmode="numeric",
+   which on Android and iOS is a DIGITS-ONLY keypad with no colon on it. The
+   athlete could not type the format the placeholder asked for, so every lap
+   time was parsed as null and silently dropped -- while distance (decimal
+   keypad, has its point) and heart rate (digits only, needs nothing else)
+   both saved fine. That is exactly the "times reset to m:ss" report.
+
+   So this accepts what the keypad can produce as well as what the
+   placeholder asks for, using the compressed convention a running watch
+   already uses: the rightmost two digits are seconds.
+
+     "18:00" -> 1080     "1800" -> 1080     "930" -> 570     "45" -> 45
+     "1:23:45" -> 5025   "18 00"/"18.00" -> 1080
+
+   Ambiguity is refused rather than guessed: "1875" has no valid seconds
+   part, so it returns null instead of inventing 21:15. */
+function parseElapsedInput(str){
+  if (str==null) return null;
+  var s = String(str).trim();
+  if (!s) return null;
+  // any separator the athlete or a paste might use means the same thing
+  s = s.replace(/[.\s\-;,]+/g, ':');
+  if (s.indexOf(':') !== -1){
+    if (!/^\d+(:\d+)+$/.test(s)) return null;
+    return clockToSec(s);
+  }
+  if (!/^\d+$/.test(s)) return null;
+  if (s.length <= 2) return parseInt(s, 10);          // "45" is 45 seconds
+  var sec = parseInt(s.slice(-2), 10);
+  if (sec >= 60) return null;                          // no valid reading
+  return parseInt(s.slice(0, -2), 10) * 60 + sec;
+}
 
 /* =========================================================
    QUALITY DAY STRUCTURE LIBRARY (by distance emphasis + phase)
@@ -6929,7 +6964,10 @@ function renderSplitRow(dd, s, i){
     '<span class="split-idx font-mono">'+(i+1)+'</span>'+
     '<input type="number" step="0.01" min="0" inputmode="decimal" class="split-km" placeholder="'+unit+'" '+
       'value="'+(s.km!=null?kmToDisplay(s.km):'')+'" data-action="split-field" data-field="km" data-day="'+dd.id+'" data-index="'+i+'">'+
-    '<input type="text" inputmode="numeric" class="split-time" placeholder="m:ss" '+
+    /* No inputmode: "numeric" is a digits-only keypad with no colon, and
+       this field's format needs one. parseElapsedInput() accepts bare digits
+       too, so either way of typing it now lands. */
+    '<input type="text" class="split-time" placeholder="m:ss" '+
       'value="'+(s.sec!=null?secToPace(s.sec):'')+'" data-action="split-field" data-field="sec" data-day="'+dd.id+'" data-index="'+i+'">'+
     '<input type="number" min="0" inputmode="numeric" class="split-hr" placeholder="HR" '+
       'value="'+(s.hr!=null?s.hr:'')+'" data-action="split-field" data-field="hr" data-day="'+dd.id+'" data-index="'+i+'">'+
@@ -7022,7 +7060,7 @@ function renderStructuredRow(dd, row){
       'value="'+segKmToDisplay(s.km)+'" data-action="slog-field" data-field="km" '+
       'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
   if (row.asks.time)
-    inputs += '<input type="text" inputmode="numeric" class="slog-in" placeholder="m:ss" '+
+    inputs += '<input type="text" class="slog-in" placeholder="m:ss" '+
       'aria-label="'+escapeHtml(row.label)+' time" '+
       'value="'+(s.sec!=null?secToPace(s.sec):'')+'" data-action="slog-field" data-field="sec" '+
       'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
@@ -17248,7 +17286,7 @@ function handleSplitFieldChange(dayId, index, field, value){
     var km = value===''?null:parseDistInput(value);
     row.km = (km!=null && km>0) ? km : null;               // no negative/zero distance
   } else if (field==='sec'){
-    var sec = value.trim()===''?null:clockToSec(value);
+    var sec = parseElapsedInput(value);
     row.sec = (sec!=null && sec>0) ? sec : null;            // no negative/zero elapsed time
   } else if (field==='hr'){
     var hr = value===''?null:parseInt(value,10);
@@ -17289,7 +17327,7 @@ function handleStructuredSplitChange(dayId, segId, field, value){
            : round2(state.units==='mi' ? raw/0.621371 : raw);
     s.km = (km!=null && km>0) ? km : null;
   } else if (field === 'sec'){
-    var sec = value.trim()===''?null:clockToSec(value);
+    var sec = parseElapsedInput(value);
     s.sec = (sec!=null && sec>0) ? sec : null;
     delete s.secSeeded;                      // an entered time is not a seeded one
   } else if (field === 'hr'){
