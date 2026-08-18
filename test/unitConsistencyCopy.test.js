@@ -300,6 +300,11 @@ test('no copy table hard-codes a unit noun any more', () => {
     region('var COACH_GUIDANCE = {', 'var ARCHETYPE_GUIDANCE'),
     region('var ARCHETYPE_GUIDANCE = {', 'THE SAME COACHING, WITH LESS OF IT'),
     region('var TERSE_GUIDANCE = {', 'function coachingEntryFor'),
+    // Next Move's own copy table. Added after it shipped with "the closing
+    // kilometres" in it: the scan above named three tables by hand, so a
+    // FOURTH table was outside the guard the moment it was written. Every
+    // athlete-facing copy table belongs on this list.
+    region('var SESSION_INTENT = {', 'function coachIntentLine'),
   ];
   const offenders = [];
   regions.forEach(r => literalsIn(r).forEach(lit => {
@@ -321,4 +326,70 @@ test('there is exactly one unit-noun decision in the whole runtime', () => {
   assert.equal(decisions.length, 1,
     'a second place choosing the word is a second source of truth -- ' +
     'route new callers through displayUnitNoun() instead');
+});
+
+// ---------------------------------------------------------------------------
+// 7. NEXT MOVE'S OWN COPY TABLE
+//
+// SESSION_INTENT arrived after this suite did, giving Next Move a sentence of
+// its own instead of repeating the workout card cue. That fix was right, but it
+// shipped "The value of this one is in the closing kilometres" -- so an athlete
+// on miles read a kilometre in Next Move, on exactly the archetype (a long run
+// with a goal-pace finish) where the closing distance is the point.
+//
+// The plural needs no token of its own: both nouns pluralise regularly, so
+// @@U@@s resolves through the same single decision.
+// ---------------------------------------------------------------------------
+test('the Next Move intent line follows the unit selection', () => {
+  const mi = app('mi'), km = app('km');
+  const dm = dayWith(mi, 'long_run_goal_finish'), dk = dayWith(km, 'long_run_goal_finish');
+  assert.match(mi.coachIntentLine(dm), /the closing miles/,
+    'an athlete on miles must be told about the closing MILES');
+  assert.match(km.coachIntentLine(dk), /the closing kilometres/);
+});
+
+test('the plural token resolves through the one decision, not a second one', () => {
+  const mi = app('mi'), km = app('km');
+  assert.equal(mi.resolveDesc('the closing @@U@@s'), 'the closing miles');
+  assert.equal(km.resolveDesc('the closing @@U@@s'), 'the closing kilometres');
+});
+
+test('no Next Move line leaks the wrong unit or a raw token, any archetype', () => {
+  const offenders = [];
+  UNITS.forEach(u => LEVELS.forEach(level => {
+    const a = app(u, level);
+    Object.keys(a.ARCHETYPE_GUIDANCE).forEach(arch => {
+      const line = a.coachIntentLine(dayWith(a, arch));
+      if (!line) { offenders.push(arch + '/' + u + '/' + level + ' (blank)'); return; }
+      if (line.indexOf('@@') !== -1) offenders.push(arch + '/' + u + ' (raw token)');
+      if (u === 'mi' && KM_WORD.test(line)) offenders.push(arch + ' says km on mi');
+      if (u === 'km' && MI_WORD.test(line)) offenders.push(arch + ' says mi on km');
+    });
+    // and the type-keyed fallback a legacy or hand-edited day lands on
+    Object.keys(a.SESSION_INTENT_BY_TYPE).forEach(type => {
+      const line = a.coachIntentLine({ id: 'y', date: a.todayStr(), type: type, title: 't', km: 10 });
+      if (u === 'mi' && KM_WORD.test(line)) offenders.push('type:' + type + ' says km on mi');
+      if (u === 'km' && MI_WORD.test(line)) offenders.push('type:' + type + ' says mi on km');
+      if (line.indexOf('@@') !== -1) offenders.push('type:' + type + ' (raw token)');
+    });
+  }));
+  assert.deepEqual(offenders, [], 'Next Move is athlete-facing copy like any other');
+});
+
+test('resolving the intent line did not make it repeat the workout cue', () => {
+  // The two fixes must hold together: routing SESSION_INTENT through the
+  // formatter must not collapse Next Move back onto a guidance string.
+  const offenders = [];
+  UNITS.forEach(u => LEVELS.forEach(level => {
+    const a = app(u, level);
+    Object.keys(a.ARCHETYPE_GUIDANCE).forEach(arch => {
+      const dd = dayWith(a, arch);
+      const g = a.coachingEntryFor(dd) || {};
+      const line = a.coachIntentLine(dd);
+      ['cue', 'essential', 'why', 'how', 'feel', 'avoid'].forEach(f => {
+        if (g[f] && line === g[f]) offenders.push(arch + '.' + f + '/' + u + '/' + level);
+      });
+    });
+  }));
+  assert.deepEqual(offenders, [], 'Next Move keeps its own voice in both units');
 });
