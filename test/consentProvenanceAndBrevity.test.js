@@ -186,16 +186,42 @@ test('Next Move does not also state the session purpose the disclosure owns', ()
 });
 
 test('the session-specific instruction is still present -- this got shorter, not emptier', () => {
+  /* This used to require the workout card's CUE to appear here, because at the
+     time the cue WAS Next Move's session-specific line. That turned out to be the
+     defect rather than the guarantee: the cue renders on the card directly above,
+     so requiring it here required a byte-identical sentence twice on one screen.
+
+     The guarantee this test exists to protect is unchanged and still worth
+     protecting -- Next Move must carry a concrete, session-specific line and must
+     not be quietly hollowed out to nothing. Only the source of that line has
+     moved, from the shared cue to Next Move's own coachIntentLine(). */
   const missing = [];
   CASES.forEach(([arch, type, title, km, params]) => {
     const a = sessionApp(arch, type, title, km, params, 'experienced');
     const dd = a.findDay(a.coachAnalyse().nextMove.dayId);
-    const g = a.coachingEntryFor(dd);
+    const intent = a.coachIntentLine(dd);
     const lines = nextMoveLines(a);
     if (lines.length < 2) { missing.push(title + ' (no instruction at all)'); return; }
-    if (g && g.cue && lines.join(' ').indexOf(g.cue) === -1) missing.push(title + ' (cue dropped)');
+    if (!intent) { missing.push(title + ' (no intent line)'); return; }
+    if (lines.join(' ').indexOf(intent) === -1) missing.push(title + ' (intent line dropped)');
   });
   assert.deepEqual(missing, [], 'one concrete instruction must survive on every card');
+});
+
+test('and that instruction is not the workout card cue repeated', () => {
+  // The inverse of the test above, so the pair cannot both be satisfied by
+  // reintroducing the duplicate.
+  const offenders = [];
+  CASES.forEach(([arch, type, title, km, params]) => {
+    LEVELS.forEach(level => {
+      const a = sessionApp(arch, type, title, km, params, level);
+      const dd = a.findDay(a.coachAnalyse().nextMove.dayId);
+      const g = a.coachingEntryFor(dd);
+      const intent = a.coachIntentLine(dd);
+      if (g && g.cue && intent && g.cue === intent) offenders.push(title + '/' + level);
+    });
+  });
+  assert.deepEqual(offenders, [], 'Next Move must not restate the card cue verbatim');
 });
 
 /* Sentence-level, because the real failure mode was a whole sentence appearing
