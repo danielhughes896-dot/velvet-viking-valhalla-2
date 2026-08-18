@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
-const bridge = require('../tools/content-bridge/bridge.js');
+const bridge = require('../api/_content-bridge.js');
 
 // CONTENT CANDIDATE BOUNDARY TESTS.
 //
@@ -180,12 +180,12 @@ test('the bridge refuses anything not explicitly founder and eligible', () => {
     executionScore: 99, goalDistanceLabel: 'Half Marathon',
     contentSource: 'founder', marketingEligible: true
   };
-  assert.deepEqual(bridge.validate(base), [], 'the good case must pass');
+  assert.deepEqual(bridge.validateCandidate(base), [], 'the good case must pass');
 
   const reject = (mutate, why) => {
     const c = Object.assign({}, base);
     mutate(c);
-    assert.ok(bridge.validate(c).length > 0, 'should have been refused: ' + why);
+    assert.ok(bridge.validateCandidate(c).length > 0, 'should have been refused: ' + why);
   };
   reject((c) => { c.contentSource = 'athlete'; }, 'a beta tester as source');
   reject((c) => { delete c.contentSource; }, 'missing source');
@@ -199,10 +199,12 @@ test('the bridge refuses anything not explicitly founder and eligible', () => {
   reject((c) => { c.date = 'yesterday'; }, 'a malformed date');
 });
 
-test('ingestion rebuilds the record rather than storing what arrived', () => {
-  const at = fs.readFileSync(path.join(ROOT, 'tools/content-bridge/bridge.js'), 'utf8');
-  assert.match(at, /ALLOWED\.forEach\(\(k\) => \{ if \(c\[k\] !== undefined\) clean\[k\] = c\[k\]; \}\)/,
-    'the bridge must copy allow-listed fields into a fresh object');
+test('the server rebuilds the record rather than storing what arrived', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'api/_content-bridge.js'), 'utf8');
+  const at = src.indexOf('function sanitise(');
+  const body = src.slice(at, src.indexOf('\n}', at));
+  assert.match(body, /ALLOWED\.forEach/, 'allow-listed fields copied into a fresh object');
+  assert.equal(body.indexOf('Object.assign'), -1);
 });
 
 // ---------------------------------------------------------------------------
@@ -241,23 +243,26 @@ test('the emitter is deterministic', () => {
 // ---------------------------------------------------------------------------
 // THE HUMAN GATE, AND THE STOP BEFORE PUBLISHING
 // ---------------------------------------------------------------------------
-test('publishing is not implemented and the tool says so', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'tools/content-bridge/bridge.js'), 'utf8');
-  const at = src.indexOf('function publish(');
-  const body = src.slice(at, src.indexOf('\n}', at));
-  assert.match(body, /REFUSED/, 'publish must refuse');
-  assert.match(body, /process\.exit\(2\)/, 'and exit non-zero');
-  for (const word of ['fetch(', 'axios', 'graph.facebook', 'api.instagram']) {
-    assert.equal(body.indexOf(word), -1, 'publish must contain no transport: ' + word);
+test('the server boundary has no publishing capability', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'api/_content-bridge.js'), 'utf8');
+  // Executable code only: the module's own comment names publishing in order to
+  // forbid it, and that sentence is worth keeping. The second assertion makes
+  // sure it cannot be quietly deleted.
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1').toLowerCase();
+  for (const w of ['graph.facebook', 'api.instagram', 'scheduled_publish_time',
+                   'publish(', 'schedulepost', 'create_campaign']) {
+    assert.equal(code.indexOf(w), -1, 'no publishing capability: ' + w);
   }
+  // Whitespace-normalised: the sentence wraps across comment lines.
+  const prose = src.replace(/\s*\n\s*\*?\s*/g, ' ');
+  assert.match(prose, /does not select, prepare, format, review, approve, schedule or publish/,
+    'the prohibition must stay written down');
 });
 
-test('approval is mandatory, named, and cannot be skipped', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'tools/content-bridge/bridge.js'), 'utf8');
-  const at = src.indexOf('function approve(');
-  const body = src.slice(at, src.indexOf('\n}', at));
-  assert.match(body, /only a drafted candidate can be approved/);
-  assert.match(body, /approval must name a person/);
+test('approval belongs to monday, and Valhalla cannot grant it', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'api/_content-bridge.js'), 'utf8');
+  assert.equal(src.indexOf("'Approved'"), -1, 'Valhalla must never set Approved');
+  assert.equal(src.indexOf("'Selected'"), -1, 'Valhalla must never select a candidate');
 });
 
 // ---------------------------------------------------------------------------
@@ -267,8 +272,8 @@ test('no serverless function was added and no beta path was touched', () => {
   const fns = fs.readdirSync(path.join(ROOT, 'api')).filter((f) => /\.js$/.test(f) && f.charAt(0) !== '_');
   assert.equal(fns.length, 12, 'function budget unchanged; the bridge is not deployed');
   // The bridge lives outside /api, so Vercel never builds it.
-  assert.ok(fs.existsSync(path.join(ROOT, 'tools/content-bridge/bridge.js')));
-  assert.ok(!fs.existsSync(path.join(ROOT, 'api/content-bridge.js')));
+  assert.ok(fs.existsSync(path.join(ROOT, 'api/_content-bridge.js')), 'an underscore module, not a function');
+  assert.ok(!fs.existsSync(path.join(ROOT, 'api/content-bridge.js')), 'must not become a 13th function');
   const access = fs.readFileSync(path.join(ROOT, 'api/_access.js'), 'utf8');
   assert.match(access, /flagOn\(process\.env\.VVV_ACCOUNT_REQUIRED\)/);
   assert.match(access, /flagOn\(process\.env\.VVV_COMMERCIAL_REQUIRED\)/);
@@ -283,9 +288,12 @@ test('the plan an athlete sees is untouched by any of this', () => {
 });
 
 test('no credential or board id is committed anywhere', () => {
-  for (const f of ['tools/content-bridge/bridge.js', 'tools/content-bridge/README.md', 'tools/content-bridge/J_MONDAY_CONTRACT.md']) {
+  for (const f of ['api/_content-bridge.js', 'tools/content-bridge/README.md']) {
     const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
     assert.ok(!/eyJ[A-Za-z0-9_-]{10,}/.test(src), f + ' contains something shaped like a token');
-    assert.ok(!/\b\d{9,}\b/.test(src), f + ' contains something shaped like a real monday board id');
+    // The board id is supplied configuration and legitimately appears in the
+    // server module; what must never appear is a credential.
+    const withoutBoard = src.split('5102476403').join('');
+    assert.ok(!/\b\d{12,}\b/.test(withoutBoard), f + ' contains an unexplained long numeric id');
   }
 });

@@ -1,65 +1,56 @@
-# Content bridge — prototype, operator-run, no automatic egress
+# Content bridge — where it now lives
 
-This is **not** part of Valhalla and is **not** deployed. Only `api/*.js` becomes a
-Vercel Serverless Function; everything here runs by hand, on the operator's own
-machine, when the operator chooses to run it.
+The server-side boundary is **`api/_content-bridge.js`**. This directory no longer
+holds an implementation.
 
-That is the whole privacy design. There is **no network path** from any athlete's
-device to monday.com, to an AI provider, or to any social network. A candidate
-only moves because a human exported it and ran a command.
+## What changed, and why
 
-## The pipeline, and where it stops
+The first prototype kept the whole pipeline out of Valhalla in an operator-run
+script here, because the monday.com board did not exist yet and the AI and
+approval steps had nowhere real to happen. Both of those are now configured:
+
+- the board `Velvet Viking — Content Pipeline` (`5102476403`) exists;
+- the **Velvet Viking Social Content Agent** runs inside monday.com, triggered by
+  `Workflow Status → Selected` and `→ Changes Requested`.
+
+So the mock `generate` and `approve` steps this directory used to hold are
+superseded by the real thing, on the far side of the boundary where they belong.
+Keeping a second half-implementation would have meant two versions of the same
+pipeline, and the wrong one would eventually get used.
+
+## The boundary now
 
 ```
-Valhalla (coaching product)
-  coachBreakthroughs()            already exists; already means
-                                  "a session worth telling someone about"
-  contentCandidate(dd,'founder')  builds a minimal, allow-listed, neutral event
+VALHALLA (coaching product — knows nothing about marketing)
+  coachBreakthroughs()             deterministic, athlete-first, already existed
+  contentCandidate(dd,'founder')   ten allow-listed fields, no I/O
         │
-        │  founder exports by hand. no automatic transmission.
         ▼
-  1  ingest    verify + allow-list + founder-only            tools/content-bridge
-  2  push      create a monday.com item                      MOCK in this prototype
-  3  generate  prepare suggested angles                      MOCK in this prototype
-  4  approve   HUMAN. mandatory. nothing proceeds without it
+  api/admin-user.js  action:"content_export"      owner-only, server-verified
+  api/_content-bridge.js                          the only file that knows monday
+        │  creates one item, Workflow Status = Candidate
+        ▼
+  ── VALHALLA'S RESPONSIBILITY ENDS HERE ──
         │
-        ▼
-  5  publish   NOT BUILT. refuses to run. see below.
+  monday.com   HUMAN sets Selected
+               → Social Content Agent writes AI Content Pack, sets Review
+               → HUMAN sets Approved / Changes Requested / Rejected
+               → publishing: a later, separately authorised boundary
 ```
 
-**Valhalla knows nothing about any of this.** It emits a neutral eligible event
-and stops. No social network, caption, campaign, schedule or calendar exists
-anywhere in the coaching product, and a test asserts that vocabulary never
-appears in its runtime.
+Valhalla never writes Format, AI Content Pack, Review Feedback or Assets, never
+moves an item past `Candidate`, and has no publishing capability. Tests assert
+each of those.
 
-## Why steps 2 and 3 are mocks
+## Configuration
 
-The monday.com MCP connector was **not available** in the session that built this,
-so no live board was read, created or written. Rather than guess at a board
-schema and call it done, the transport is an interface with a mock behind it and
-`J_MONDAY_CONTRACT.md` states exactly what the real board needs. Swapping the
-mock for the live client is one file, once HQ confirms the board structure.
-
-The AI step is mocked for a different reason: it is the step most able to cause
-harm by being wired up early, and it must never receive more than the
-allow-listed candidate. The mock proves the seam and the payload; it does not
-call a model.
-
-## Publishing
-
-`publish` is deliberately unimplemented and **refuses to run**. Automatic social
-publication is out of scope for this prototype and stays out until HQ has seen a
-demonstration in a non-production account.
-
-## Run it
+Server-side environment only, never committed and never sent to a browser:
 
 ```
-node tools/content-bridge/bridge.js ingest   <candidates.json>
-node tools/content-bridge/bridge.js review
-node tools/content-bridge/bridge.js generate <candidateId>
-node tools/content-bridge/bridge.js approve  <candidateId>
-node tools/content-bridge/bridge.js publish  <candidateId>   # refuses
+MONDAY_API_TOKEN              secret
+MONDAY_CONTENT_BOARD_ID       5102476403
+VVV_CONTENT_BRIDGE_ENABLED    off unless explicitly set
+VVV_OWNER_USER_ID             already used by the existing owner-only routes
 ```
 
-State is written to `tools/content-bridge/.state.json`, which is git-ignored.
-Nothing here reads Supabase, and no credential is stored in this repository.
+With `VVV_CONTENT_BRIDGE_ENABLED` unset the export fails closed and sends nothing.
