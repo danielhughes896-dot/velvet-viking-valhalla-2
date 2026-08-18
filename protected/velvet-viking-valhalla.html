@@ -10823,17 +10823,86 @@ function coachReadinessLine(dd){
 /* ---------- what today is FOR ----------
    The card already says what the session is. This says what it is trying to
    achieve and how to run it, which is the part a coach actually adds. */
-/* The ONE session-specific instruction Next Move carries.
-   It used to open with sessionPurpose().text as well -- why the session
-   exists -- which is precisely what the "How to run this" disclosure now
-   states as WHY, two taps away on the same screen. Next Move's job is to
-   name the next session and give one instruction; the standing cue is that
-   instruction, so the purpose sentence is dropped rather than restated in
-   different words directly above the disclosure that owns it. */
+/* ---------- WHAT TODAY IS FOR: Next Move's own sentence ----------
+
+   THE DEFECT THIS FIXES. coachIntentLine() used to return coachingEntryFor()'s
+   `cue`, which is the exact string the workout card renders directly above it.
+   The athlete read one byte-identical sentence twice on one screen, on every
+   session -- 60 out of 60 running days in a 12-week block, and the easy-run cue
+   alone 24 times in that block before it was doubled.
+
+   WHY NOT sessionPurpose(). It exists, it is deterministic and it is still
+   factually correct, and reusing it here was the obvious move. It is the wrong
+   one twice over. Its register is clinical ("Develop aerobic capacity at a low
+   enough physiological cost") where Next Move speaks to the athlete, and its
+   content is the physiological rationale -- which is precisely what the WHY row
+   of "How to run this" already states in plain words two taps away on this same
+   screen. Restoring it would have swapped a literal duplicate for a near one.
+   It keeps its three existing callers and is left alone.
+
+   THE DISTINCT JOB, which is the whole point of the fix. Four surfaces speak
+   about one session and each is now answering a different question:
+
+     card cue          HOW to run it        "Conversational the whole way..."
+     How to run this   WHY it exists        "Builds the aerobic base..."
+     NEXT MOVE         WHERE IT SITS        what today is for, and what it is
+                                            worth spending or protecting
+     Execution Review  HOW IT WENT          from the numbers actually logged
+
+   So these lines are about allocation rather than physiology: what this session
+   is buying, and what the rest of the week needs from it. That is a coaching
+   thought the product was not expressing anywhere, which is why this reads as a
+   third voice rather than a paraphrase of the first two.
+
+   DELIBERATELY NOT the variation architecture. One line per archetype, chosen by
+   lookup. No randomisation, no rotation, no persisted phrasing history, no
+   recency window. This is the surgical fix; the audit's intent/expression design
+   is a separate piece of work.
+
+   Keyed by archetype with a type fallback, the same precedence coachingEntryFor()
+   uses, so a legacy or hand-edited day still gets a sentence. */
+var SESSION_INTENT = {
+  easy_run:             'Today is about banking aerobic time cheaply. Save the hard running for the sessions built for it.',
+  shakeout:             'Today exists to set up tomorrow. Doing less than you feel like doing is the correct outcome.',
+  long_run:             'This is the session the week is built around. Everything else this week is arranged to protect it.',
+  long_run_goal_finish: 'The value of this one is in the closing kilometres. The early part is there to make them possible.',
+  long_run_b2b:         'This one is judged on how it leaves you for tomorrow rather than on how it feels today.',
+  threshold_continuous: 'This is the session that moves endurance fitness furthest for the time it costs. Today is about accumulating that effort.',
+  goal_pace_block:      'Today is a rehearsal for race day, so precision is the skill being practised.',
+  steady_tempo:         'Today buys aerobic strength at a price you can afford to pay again this week.',
+  progressive_tempo:    'The point of today is the finish. The opening exists to make the finish possible.',
+  split_tempo:          'Splitting the work buys more quality time than one unbroken effort would. The second half is what you are protecting.',
+  track_reps:           'This is the hardest aerobic work of the week. Arriving at the final rep in one piece is the whole test.',
+  short_reps:           'Today is about speed and mechanics, and it should cost you very little.',
+  ladder:               'Today covers several speeds in one session, so judgement matters as much as effort.',
+  deuce:                'The work is split so the quality holds all the way through. The second set is the one that counts.',
+  goal_pace_reps:       'Today rehearses race rhythm at a cost you can recover from inside the week.',
+  hill_repeats:         'Today builds strength that flat running cannot, and the hill sets the effort for you.',
+  fartlek:              'Today is aerobic power without the precision of a track session. Judgement is the skill being trained.',
+  time_trial:           'This one exists to reset your training paces. The weeks after it are built on what it returns.',
+  easy_strides:         'Today keeps the legs sharp without adding anything to the week.',
+  race:                 'Everything from here is execution. The training that matters is already done.'
+};
+/* Legacy and hand-edited days that resolve to no archetype. Keyed on the same
+   taxonomy TYPE_META and COACH_GUIDANCE use. `rest` is absent on purpose:
+   coachBrief() returns before this for a rest day. */
+var SESSION_INTENT_BY_TYPE = {
+  easy:       'Today is about banking aerobic time cheaply. Save the hard running for the sessions built for it.',
+  long:       'This is the session the week is built around. Everything else this week is arranged to protect it.',
+  tempo:      'Today buys aerobic strength at a price you can afford to pay again this week.',
+  threshold:  'This is the session that moves endurance fitness furthest for the time it costs. Today is about accumulating that effort.',
+  interval:   'This is the hardest aerobic work of the week. Arriving at the final rep in one piece is the whole test.',
+  repetition: 'Today is about speed and mechanics, and it should cost you very little.',
+  checkpoint: 'This one exists to reset your training paces. The weeks after it are built on what it returns.',
+  race:       'Everything from here is execution. The training that matters is already done.'
+};
 function coachIntentLine(dd){
-  var g = coachingEntryFor(dd);
-  return (g && g.cue) ? g.cue : '';
+  if (!dd) return '';
+  var p = prescriptionOf(dd);
+  var byArchetype = p && SESSION_INTENT[p.archetype];
+  return byArchetype || SESSION_INTENT_BY_TYPE[dd.type] || '';
 }
+
 /* coachFocusLine() lived here. It turned the archetype's `feel` and `avoid`
    into a spoken paragraph for the pre-session brief, at a depth the
    experience setting controlled.
