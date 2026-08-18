@@ -1916,7 +1916,12 @@ function ttok(km){ return '@@T:'+km+'@@'; }
    window from the first kilometre to the last" underneath a target line
    quoted in /mi. The token resolves through displayUnitNoun(), which reads
    the same state.units as displayUnit(), so prose inherits the setting the
-   same way the numbers already do instead of deciding it a second time. */
+   same way the numbers already do instead of deciding it a second time.
+
+   The PLURAL is written @@U@@s and needs no token of its own: both nouns
+   pluralise regularly, so "the closing @@U@@s" resolves to "the closing
+   kilometres" or "the closing miles" through the one decision above. A second
+   token would have been a second place to get the preference wrong. */
 function resolveDesc(desc){
   if (!desc) return desc;
   return desc
@@ -10865,7 +10870,7 @@ var SESSION_INTENT = {
   easy_run:             'Today is about banking aerobic time cheaply. Save the hard running for the sessions built for it.',
   shakeout:             'Today exists to set up tomorrow. Doing less than you feel like doing is the correct outcome.',
   long_run:             'This is the session the week is built around. Everything else this week is arranged to protect it.',
-  long_run_goal_finish: 'The value of this one is in the closing kilometres. The early part is there to make them possible.',
+  long_run_goal_finish: 'The value of this one is in the closing @@U@@s. The early part is there to make them possible.',
   long_run_b2b:         'This one is judged on how it leaves you for tomorrow rather than on how it feels today.',
   threshold_continuous: 'This is the session that moves endurance fitness furthest for the time it costs. Today is about accumulating that effort.',
   goal_pace_block:      'Today is a rehearsal for race day, so precision is the skill being practised.',
@@ -10896,11 +10901,16 @@ var SESSION_INTENT_BY_TYPE = {
   checkpoint: 'This one exists to reset your training paces. The weeks after it are built on what it returns.',
   race:       'Everything from here is execution. The training that matters is already done.'
 };
+/* Resolved on the way out, exactly as coachingEntryFor() resolves the guidance
+   tables: SESSION_INTENT is a frozen copy table like the others, so the unit
+   noun in a sentence follows state.units rather than being typed in. This is
+   the accessor boundary -- the one door every intent line leaves by -- so a
+   future entry gains the behaviour by being read, not by being remembered. */
 function coachIntentLine(dd){
   if (!dd) return '';
   var p = prescriptionOf(dd);
   var byArchetype = p && SESSION_INTENT[p.archetype];
-  return byArchetype || SESSION_INTENT_BY_TYPE[dd.type] || '';
+  return resolveDesc(byArchetype || SESSION_INTENT_BY_TYPE[dd.type] || '');
 }
 
 /* coachFocusLine() lived here. It turned the archetype's `feel` and `avoid`
