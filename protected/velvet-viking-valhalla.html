@@ -1387,6 +1387,11 @@ function roundWorkoutKm(type, km){
    needs to know or care which unit the person is looking at.
    ========================================================= */
 function displayUnit(){ return (state && state.units==='mi') ? 'mi' : 'km'; }
+/* The same preference as displayUnit(), spelled as the word a sentence needs:
+   coaching prose says "the first mile", never "the first mi". It reads
+   state.units and nothing else, so the abbreviation on a target line and the
+   noun in the sentence underneath it can never disagree. */
+function displayUnitNoun(){ return (state && state.units==='mi') ? 'mile' : 'kilometre'; }
 function kmToDisplay(km){ if (km==null) return null; return (state && state.units==='mi') ? round2(km*0.621371) : round1(km); }
 function fmtDist(km){ if (km==null) return '\u2014'; return kmToDisplay(km)+displayUnit(); }
 function parseDistInput(val){
@@ -1905,9 +1910,32 @@ function dtok(km){ return '@@D:'+km+'@@'; }
    Both render through fmtDist, so km/mi conversion is inherited rather than
    reimplemented and the prescription can never contradict the card's units. */
 function ttok(km){ return '@@T:'+km+'@@'; }
+/* @@U@@ is the third token, and it carries a WORD rather than a number: the
+   unit noun a sentence needs. Coaching copy used to have "kilometre" typed
+   into it, which is how an athlete on miles ends up reading "hold the easy
+   window from the first kilometre to the last" underneath a target line
+   quoted in /mi. The token resolves through displayUnitNoun(), which reads
+   the same state.units as displayUnit(), so prose inherits the setting the
+   same way the numbers already do instead of deciding it a second time. */
 function resolveDesc(desc){
   if (!desc) return desc;
-  return desc.replace(/@@[DT]:([\d.]+)@@/g, function(_, km){ return fmtDist(parseFloat(km)); });
+  return desc
+    .replace(/@@[DT]:([\d.]+)@@/g, function(_, km){ return fmtDist(parseFloat(km)); })
+    .replace(/@@U@@/g, function(){ return displayUnitNoun(); });
+}
+/* One guidance entry with every string resolved. Guidance tables are frozen
+   literals read from several places (the cue line, the disclosure, the terse
+   variant), so resolution belongs at the accessor rather than at each render
+   site -- a new reader of a table then cannot forget it. Non-string fields
+   pass through untouched. */
+function resolveGuidance(entry){
+  if (!entry) return entry;
+  var out = {};
+  for (var k in entry){
+    if (!Object.prototype.hasOwnProperty.call(entry, k)) continue;
+    out[k] = (typeof entry[k]==='string') ? resolveDesc(entry[k]) : entry[k];
+  }
+  return out;
 }
 // For easy and long runs the description's LEADING distance is the whole-day
 // distance, so it has to track dd.km after the generator settles that number
@@ -3090,7 +3118,7 @@ var COACH_GUIDANCE = {
   easy: {
     cue: 'Conversational the whole way — if you can’t talk in full sentences, ease off.',
     why: 'Builds the aerobic base and keeps you fresh enough to run the hard days properly.',
-    how: 'Start slower than feels natural and hold the easy window from the first kilometre to the last. There is no benefit to pushing this one.',
+    how: 'Start slower than feels natural and hold the easy window from the first @@U@@ to the last. There is no benefit to pushing this one.',
     feel: 'Comfortable and chatty. You should finish thinking you could have gone further.',
     avoid: 'Drifting up to a “comfortably quick” pace. That turns a recovery day into a mediocre hard day.'
   },
@@ -3104,7 +3132,7 @@ var COACH_GUIDANCE = {
   tempo: {
     cue: 'Comfortably hard — controlled and rhythmic, never a race.',
     why: 'Teaches you to hold goal race effort economically for a long stretch.',
-    how: 'Warm up first, settle into the target window inside the first kilometre, hold it, then cool down easy.',
+    how: 'Warm up first, settle into the target window inside the first @@U@@, hold it, then cool down easy.',
     feel: 'Breathing deep but rhythmic. Short phrases, not full sentences.',
     avoid: 'Letting it turn into a race. Tempo pays for itself by staying controlled.'
   },
@@ -5386,7 +5414,7 @@ var ARCHETYPE_GUIDANCE = {
   easy_run: {
     cue:'Conversational the whole way — if you can’t talk in full sentences, ease off.',
     why:'Builds the aerobic base and keeps you fresh enough to run the hard days properly.',
-    how:'Start slower than feels natural and hold the easy window from the first kilometre to the last.',
+    how:'Start slower than feels natural and hold the easy window from the first @@U@@ to the last.',
     feel:'Comfortable and chatty. You should finish thinking you could have gone further.',
     avoid:'Drifting up to a “comfortably quick” pace. That turns a recovery day into a mediocre hard day.'
   },
@@ -5422,14 +5450,14 @@ var ARCHETYPE_GUIDANCE = {
   threshold_continuous: {
     cue:'One continuous effort — the pace you could race for about an hour.',
     why:'Raises the pace at which lactate starts to accumulate, which is the biggest single lever on race pace.',
-    how:'Settle into the window inside the first kilometre and hold it. No surges, no finishing sprint.',
+    how:'Settle into the window inside the first @@U@@ and hold it. No surges, no finishing sprint.',
     feel:'Hard but controlled, and even the whole way. If you are gasping, you have gone too fast.',
     avoid:'Treating it as a time trial. Threshold work only pays if you could have held it a little longer.'
   },
   goal_pace_block: {
     cue:'Exactly race rhythm — not a second faster.',
     why:'Rehearses the pace, the effort and the concentration you will need on the day.',
-    how:'Lock onto goal pace from the first kilometre and let it feel unremarkable.',
+    how:'Lock onto goal pace from the first @@U@@ and let it feel unremarkable.',
     feel:'Comfortable now, which is the point. Race day makes it hard for you.',
     avoid:'Running it quicker to prove something. Beating goal pace in training proves nothing about holding it for the full distance.'
   },
@@ -5544,11 +5572,11 @@ var ARCHETYPE_GUIDANCE = {
        silently losing it. */
 var TERSE_GUIDANCE = {
   easy_run: { why:'Aerobic base, and freshness for the hard days.',
-              how:'Hold the easy window from the first kilometre to the last.',
+              how:'Hold the easy window from the first @@U@@ to the last.',
               feel:'Conversational throughout.',
               avoid:'Drifting up to comfortably quick.' },
   easy:     { why:'Aerobic base, and freshness for the hard days.',
-              how:'Hold the easy window from the first kilometre to the last.',
+              how:'Hold the easy window from the first @@U@@ to the last.',
               feel:'Conversational throughout.',
               avoid:'Drifting up to comfortably quick.' },
   shakeout: { why:'Legs awake, nothing spent.',
@@ -5572,7 +5600,7 @@ var TERSE_GUIDANCE = {
               feel:'Heavy legs, easy breathing.',
               avoid:'Trying to match yesterday.' },
   threshold_continuous: { why:'Raises the pace at which lactate starts to accumulate.',
-              how:'Into the window inside the first kilometre, then hold. No surges, no sprint finish.',
+              how:'Into the window inside the first @@U@@, then hold. No surges, no sprint finish.',
               feel:'Hard but even, and repeatable.',
               avoid:'Racing it.' },
   threshold:{ why:'Raises the pace at which lactate starts to pile up.',
@@ -5580,7 +5608,7 @@ var TERSE_GUIDANCE = {
               feel:'Hard but controlled.',
               avoid:'Racing it.' },
   goal_pace_block: { why:'Rehearses race pace, effort and concentration.',
-              how:'Lock onto goal pace from the first kilometre.',
+              how:'Lock onto goal pace from the first @@U@@.',
               feel:'Unremarkable now. Race day makes it hard.',
               avoid:'Beating goal pace.' },
   steady_tempo: { why:'Aerobic strength at a cost you can repeat.',
@@ -5588,7 +5616,7 @@ var TERSE_GUIDANCE = {
               feel:'Firm, not hard.',
               avoid:'Letting it creep up to threshold.' },
   tempo:    { why:'Holds goal race effort economically for a long stretch.',
-              how:'Into the target window inside the first kilometre, then hold.',
+              how:'Into the target window inside the first @@U@@, then hold.',
               feel:'Deep but rhythmic. Short phrases.',
               avoid:'Letting it turn into a race.' },
   progressive_tempo: { why:'Pace judgement and finishing strength in one session.',
@@ -5656,7 +5684,7 @@ function coachingEntryFor(dd){
   var p = prescriptionOf(dd);
   // archetype first, type second: a hand-edited or legacy day still gets the
   // guidance it has always had, it simply cannot get the specific version
-  return (p && ARCHETYPE_GUIDANCE[p.archetype]) || COACH_GUIDANCE[dd.type] || null;
+  return resolveGuidance((p && ARCHETYPE_GUIDANCE[p.archetype]) || COACH_GUIDANCE[dd.type] || null);
 }
 // The key coachingEntryFor resolved to, so the terse copy is looked up from
 // the same place the full copy came from and the two can never disagree.
@@ -5670,7 +5698,7 @@ function coachingKeyFor(dd){
 function coachingDisclosureFor(dd, level){
   var g = coachingEntryFor(dd);
   if (!g) return null;
-  var terse = (level !== 'novice') ? TERSE_GUIDANCE[coachingKeyFor(dd)] : null;
+  var terse = (level !== 'novice') ? resolveGuidance(TERSE_GUIDANCE[coachingKeyFor(dd)]) : null;
   var src = terse || g;
   if (!src.how) return null;                 // nothing substantive to disclose
   return { why:src.why||null, how:src.how, feel:src.feel||null, avoid:src.avoid||null,
@@ -6227,7 +6255,7 @@ function strategyForContinuousQuality(dd, p, segs){
 
   out.push(strategyPhase('settle', {
     from:0, to:at, intensity:'easy', pace: strategyPaceBand('easy'),
-    purpose:'Warm up until the first hard kilometre does not feel like a shock.',
+    purpose:'Warm up until the first hard @@U@@ does not feel like a shock.',
     cue:'Easy, then a few strides if you use them.'
   }));
   out.push(strategyPhase('hold', {
@@ -6236,8 +6264,8 @@ function strategyForContinuousQuality(dd, p, segs){
     intensity: work.intensity,
     pace: strategyPaceBand(work.intensity), hr: strategyHRBand(work.intensity),
     purpose:'One continuous effort, even from start to finish.',
-    cue:'Reach the window inside the first kilometre, then stop making decisions.',
-    watch:'A fast opening kilometre is the most common way this session is lost. No finishing sprint either.'
+    cue:'Reach the window inside the first @@U@@, then stop making decisions.',
+    watch:'A fast opening @@U@@ is the most common way this session is lost. No finishing sprint either.'
   }));
   out.push(strategyPhase('absorb', {
     from: (at!=null && work.km!=null) ? at+work.km : null,
@@ -6353,7 +6381,7 @@ function strategyForBenchmark(dd, p, segs){
   return [
     strategyPhase('settle', {
       from:0, to:start, intensity:'easy', pace: strategyPaceBand('easy'),
-      purpose:'Warm up thoroughly. A cold first kilometre costs you the whole reading.'
+      purpose:'Warm up thoroughly. A cold first @@U@@ costs you the whole reading.'
     }),
     strategyPhase('build', {
       from:mark(0), to:mark(1), intensity:'hard_effort',
@@ -6572,9 +6600,12 @@ function renderStrategyPhase(ph){
       (span?'<span class="strat-phase-span font-mono">'+escapeHtml(span)+'</span>':'')+
     '</div>'+
     (targetLine?'<div class="strat-phase-target font-mono">'+escapeHtml(targetLine)+tag+'</div>':'')+
-    (ph.purpose?'<div class="strat-phase-purpose">'+escapeHtml(ph.purpose)+'</div>':'')+
-    (ph.cue?'<div class="strat-phase-cue">'+escapeHtml(ph.cue)+'</div>':'')+
-    (ph.watch?'<div class="strat-phase-watch">'+escapeHtml(ph.watch)+'</div>':'')+
+    // Phase prose carries the same @@U@@ token the prescriptions do, and is
+    // resolved here rather than in strategyPhase(): the STRATEGY must not vary
+    // with a display preference, only the sentence the athlete reads.
+    (ph.purpose?'<div class="strat-phase-purpose">'+escapeHtml(resolveDesc(ph.purpose))+'</div>':'')+
+    (ph.cue?'<div class="strat-phase-cue">'+escapeHtml(resolveDesc(ph.cue))+'</div>':'')+
+    (ph.watch?'<div class="strat-phase-watch">'+escapeHtml(resolveDesc(ph.watch))+'</div>':'')+
   '</div>';
 }
 // The EXECUTION section's content when the session earns one. Suppressed
@@ -8840,6 +8871,10 @@ function athleteTrends(){
   var push = function(t){
     if (!t || t.confidence==='insufficient') return;
     if (!t.concept) t.concept = TREND_CONCEPT[t.id] || t.id;
+    // Every trend sentence leaves by this door, and a trend's detail travels a
+    // long way (evidence lists, Next Move, Plan HQ) with no single render site
+    // to catch it -- so the unit noun is resolved once, here.
+    if (t.detail) t.detail = resolveDesc(t.detail);
     out.push(t);
   };
 
@@ -8913,13 +8948,13 @@ function athleteTrends(){
       push({ id:'easy_efficiency_up', area:'Easy efficiency', direction:'positive', concept:concept,
              confidence: trendConfidence(better.length, sp.recent.length, readable.length),
              headline:'Improving',
-             detail:'Easy running is costing fewer heartbeats per kilometre than it normally does.',
+             detail:'Easy running is costing fewer heartbeats per @@U@@ than it normally does.',
              observations:better.length, of:sp.recent.length });
     else if (worse.length >= 2)
       push({ id:'easy_efficiency_down', area:'Easy efficiency', direction:'negative', concept:concept,
              confidence: trendConfidence(worse.length, sp.recent.length, readable.length),
              headline:'Watching',
-             detail:'Easy running is costing more heartbeats per kilometre than it normally does.',
+             detail:'Easy running is costing more heartbeats per @@U@@ than it normally does.',
              observations:worse.length, of:sp.recent.length });
   })();
 
