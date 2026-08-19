@@ -518,3 +518,125 @@ test('ID5. an edited session does not create a second monday row', async () => {
     assert.equal(m.items.length, 1, 'ONE row, not two');
   });
 });
+
+// ---------------------------------------------------------------------------
+// PROTECTED COLUMNS, VERIFIED AGAINST THE LIVE BOARD
+//
+// The ids below were read back from board 5102476403 rather than assumed. Final
+// Caption and Content Pillar exist there and are downstream creative fields, so
+// they are named on the prohibition list even though columnValues() could never
+// have reached them. The publishing columns are named for the same reason.
+// ---------------------------------------------------------------------------
+test('P1. every protected column id is named explicitly', () => {
+  assert.equal(CB.NEVER_WRITTEN.format, 'text_mm6bgw2m');
+  assert.equal(CB.NEVER_WRITTEN.aiContentPack, 'long_text_mm6b1ffe');
+  assert.equal(CB.NEVER_WRITTEN.reviewFeedback, 'long_text_mm6bqk4t');
+  assert.equal(CB.NEVER_WRITTEN.assets, 'file_mm6b29rv');
+  assert.equal(CB.NEVER_WRITTEN.finalCaption, 'long_text_mm6cs4p5');
+  assert.equal(CB.NEVER_WRITTEN.contentPillar, 'dropdown_mm6c1y7x');
+  assert.equal(CB.PUBLISH_COLUMNS.publishStatus, 'color_mm6bbheh');
+  assert.equal(CB.PUBLISH_COLUMNS.publishAt, 'date_mm6bp6jk');
+  assert.equal(CB.PUBLISH_COLUMNS.publishChannel, 'text_mm6b33ak');
+  assert.equal(CB.PUBLISH_COLUMNS.publishedUrl, 'link_mm6b3wv1');
+  assert.equal(CB.PUBLISH_COLUMNS.publishNotes, 'long_text_mm6b2h52');
+});
+
+test('P2. no protected column can be written, and none overlaps the mapping', async () => {
+  const protectedIds = Object.values(CB.NEVER_WRITTEN).concat(Object.values(CB.PUBLISH_COLUMNS));
+  const written = Object.values(CB.COL);
+  for (const id of protectedIds)
+    assert.equal(written.includes(id), false, 'protected column is in the write mapping: ' + id);
+
+  const { a, dd } = syntheticApp();
+  const c = a.contentCandidate(dd, 'founder');
+  await configured(async () => {
+    const m = fakeMonday();
+    await CB.exportCandidate(c, true, { fetch: m.fetch });
+    const cols = Object.keys(m.items[0].cols);
+    for (const [name, id] of Object.entries(CB.NEVER_WRITTEN))
+      assert.equal(cols.includes(id), false, 'Valhalla wrote ' + name);
+    for (const [name, id] of Object.entries(CB.PUBLISH_COLUMNS))
+      assert.equal(cols.includes(id), false, 'Valhalla wrote ' + name);
+    // And no protected id appears anywhere on the wire, in any position.
+    const wire = JSON.stringify(m.calls);
+    for (const id of protectedIds)
+      assert.equal(wire.indexOf(id), -1, 'protected column id reached the request: ' + id);
+  });
+});
+
+test('P3. the exact write set is still the seven evidence columns', async () => {
+  const { a, dd } = syntheticApp();
+  const c = a.contentCandidate(dd, 'founder');
+  await configured(async () => {
+    const m = fakeMonday();
+    await CB.exportCandidate(c, true, { fetch: m.fetch });
+    assert.equal(Object.keys(m.items[0].cols).length, 7,
+      'hardening the prohibition list must not change what is written');
+  });
+});
+
+test('P4. the live board and group ids are the shipped defaults', () => {
+  assert.equal(CB.BOARD_ID, '5102476403');
+  assert.equal(CB.GROUP_ID, 'group_mm6bbdp2');
+});
+
+// ---------------------------------------------------------------------------
+// WIRE SHAPE -- the defect live commissioning found
+//
+// findExisting() declared ($board: [ID!], ... $val: [String]) and passed
+// board: [cfg.boardId]. The live API takes board_id as a single ID! and
+// column_values as [String]!, so it rejected every lookup: the export returned
+// monday_unavailable and created nothing at all. The recording double could not
+// catch it, because a double that pattern-matches the query string validates no
+// types. These assertions pin the shapes that were verified against the live
+// board so the same class of defect fails here instead of in production.
+// ---------------------------------------------------------------------------
+test('W1. the idempotency lookup uses the types the live API accepts', async () => {
+  const { a, dd } = syntheticApp();
+  const c = a.contentCandidate(dd, 'founder');
+  await configured(async () => {
+    const m = fakeMonday();
+    await CB.exportCandidate(c, true, { fetch: m.fetch });
+    const lookup = m.calls[0];
+    assert.match(lookup.query, /\$board:\s*ID!/, 'board_id is a single ID!, not a list');
+    assert.doesNotMatch(lookup.query, /\$board:\s*\[ID!\]/, 'the list form is what the API rejected');
+    assert.match(lookup.query, /\$val:\s*\[String\]!/, 'column_values is a non-null list');
+    assert.equal(typeof lookup.variables.board, 'string', 'board must be sent as a scalar');
+    assert.ok(Array.isArray(lookup.variables.val), 'val must be sent as a list');
+  });
+});
+
+test('W2. the create mutation uses the types the live API accepts', async () => {
+  const { a, dd } = syntheticApp();
+  const c = a.contentCandidate(dd, 'founder');
+  await configured(async () => {
+    const m = fakeMonday();
+    await CB.exportCandidate(c, true, { fetch: m.fetch });
+    const create = m.calls[1];
+    assert.match(create.query, /\$board:\s*ID!/);
+    assert.match(create.query, /\$group:\s*String!/);
+    assert.match(create.query, /\$cols:\s*JSON!/);
+    assert.equal(typeof create.variables.board, 'string');
+    assert.equal(typeof create.variables.group, 'string');
+    assert.equal(typeof create.variables.cols, 'string', 'column_values is JSON-as-string');
+  });
+});
+
+test('W3. a GraphQL error on the lookup creates nothing', async () => {
+  // What the broken query actually produced in production terms: the lookup
+  // fails, and the bridge must NOT fall through to creating a row blind.
+  const { a, dd } = syntheticApp();
+  const c = a.contentCandidate(dd, 'founder');
+  await configured(async () => {
+    const calls = [];
+    const fetch = async (url, opts) => {
+      calls.push(JSON.parse(opts.body).query);
+      return { ok: true, status: 200,
+               text: async () => JSON.stringify({ errors: [{ message: 'type mismatch' }] }) };
+    };
+    const out = await CB.exportCandidate(c, true, { fetch });
+    assert.equal(out.ok, false);
+    assert.equal(out.code, 'monday_unavailable');
+    assert.equal(calls.length, 1, 'it stops at the failed lookup and never creates');
+  });
+});

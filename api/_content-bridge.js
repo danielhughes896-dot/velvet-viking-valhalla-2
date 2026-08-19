@@ -13,9 +13,12 @@
  *
  * WHAT THIS WILL NEVER DO. It creates a candidate row and sets its status to
  * Candidate. It does not select, prepare, format, review, approve, schedule or
- * publish anything, and it never writes Format, AI Content Pack, Review Feedback
- * or Assets -- those belong to the monday agent and to human editors. Valhalla's
- * responsibility ends the moment a candidate exists with status Candidate.
+ * publish anything, and it writes none of the downstream creative fields
+ * (Format, AI Content Pack, Review Feedback, Assets, Final Caption, Content
+ * Pillar) or publishing fields (Publish Status, Publish At, Publish Channel,
+ * Published URL, Publish Notes) -- those belong to the monday agent, to human
+ * editors and to the publisher. Valhalla's responsibility ends the moment a
+ * candidate exists with status Candidate.
  */
 
 /* ---------------------------------------------------------------------------
@@ -41,12 +44,38 @@ const COL = {
 };
 
 /* Columns Valhalla must NEVER write. Named here so the prohibition is visible
- * at the boundary rather than implied by absence, and asserted by test. */
+ * at the boundary rather than implied by absence, and asserted by test.
+ *
+ * Being on this list is belt and braces, not the mechanism: columnValues() only
+ * ever builds the seven ids in COL, so a column that is not there cannot be
+ * written whether or not it is named here. The list exists so that a human
+ * reading this file can see WHICH fields are somebody else's, and so that a
+ * future edit adding one of them to the mapping fails a test instead of quietly
+ * writing into editorial work.
+ *
+ * Every id below was read back from the live board (5102476403) rather than
+ * assumed. Final Caption and Content Pillar were added after that read: they
+ * exist on the board and are downstream creative fields, so they belong on the
+ * prohibition list even though they were already unreachable. */
 const NEVER_WRITTEN = {
   format:         'text_mm6bgw2m',
   aiContentPack:  'long_text_mm6b1ffe',
   reviewFeedback: 'long_text_mm6bqk4t',
-  assets:         'file_mm6b29rv'
+  assets:         'file_mm6b29rv',
+  finalCaption:   'long_text_mm6cs4p5',
+  contentPillar:  'dropdown_mm6c1y7x'
+};
+
+/* The publishing-authority columns, likewise read from the live board. Valhalla
+ * has no publishing capability at all, so these are listed for the same reason:
+ * a reader can see the whole set of fields this boundary refuses, and a future
+ * mapping edit that reached one would fail rather than schedule a post. */
+const PUBLISH_COLUMNS = {
+  publishStatus:  'color_mm6bbheh',
+  publishAt:      'date_mm6bp6jk',
+  publishChannel: 'text_mm6b33ak',
+  publishedUrl:   'link_mm6b3wv1',
+  publishNotes:   'long_text_mm6b2h52'
 };
 
 const INITIAL_STATUS = 'Candidate';
@@ -95,12 +124,12 @@ const ALLOWED_REASONS = [
 function config(){
   const token   = process.env.MONDAY_API_TOKEN || '';
   const boardId = String(process.env.MONDAY_CONTENT_BOARD_ID || BOARD_ID);
-  /* The destination group. It is passed on EVERY create_item and is never left
-     to monday's default: a group-less create lands in the board's first group,
+  /* The destination group, passed on EVERY create_item and never left to
+     monday's default: a group-less create lands in the board's first group,
      which is where human editorial work sits, and machine evidence appearing
-     there would be a real defect. An empty override is still a refusal to
-     write rather than a silent fallback. */
-  /* UNSET means "use the documented default". Set-but-empty means somebody
+     there would be a real defect.
+
+     UNSET means "use the documented default". Set-but-empty means somebody
      deliberately blanked it, and that is a refusal to write rather than a
      silent fallback -- otherwise the guard below could never fire. */
   const rawGroup = process.env.MONDAY_CONTENT_GROUP_ID;
@@ -225,11 +254,18 @@ async function mondayQuery(cfg, query, variables, deps){
  * in practice -- but it is a real limitation and the fix is a monday-side
  * uniqueness automation or a lock, not more retries here. */
 async function findExisting(cfg, candidateId, deps){
-  const query = `query ($board: [ID!], $col: String!, $val: [String]) {
+  /* THE TYPES HERE ARE NOT COSMETIC. This was written as
+       ($board: [ID!], $col: String!, $val: [String])   board: [cfg.boardId]
+     which the live API rejects: items_page_by_column_values takes board_id as a
+     single ID!, and column_values as a non-null [String]!. Every export would
+     have failed the lookup, returned monday_unavailable, and created NOTHING --
+     the whole pipeline dead on arrival, in a way a mock that only pattern-matched
+     the query string could never reveal. Verified against the live board. */
+  const query = `query ($board: ID!, $col: String!, $val: [String]!) {
     items_page_by_column_values (limit: 1, board_id: $board,
       columns: [{column_id: $col, column_values: $val}]) { items { id name } } }`;
   const res = await mondayQuery(cfg, query, {
-    board: [cfg.boardId], col: COL.candidateId, val: [candidateId]
+    board: cfg.boardId, col: COL.candidateId, val: [candidateId]
   }, deps);
   if (!res.ok) return { ok: false, code: res.code };
   const items = (((res.data || {}).items_page_by_column_values || {}).items) || [];
@@ -286,7 +322,7 @@ async function exportCandidate(candidate, founderVerified, deps){
 }
 
 module.exports = {
-  BOARD_ID, COL, NEVER_WRITTEN, INITIAL_STATUS, SOURCE_LABEL,
+  BOARD_ID, GROUP_ID, COL, NEVER_WRITTEN, PUBLISH_COLUMNS, INITIAL_STATUS, SOURCE_LABEL,
   ALLOWED, PROHIBITED, ALLOWED_REASONS,
   config, validateCandidate, sanitise, itemName, columnValues,
   findExisting, createItem, exportCandidate
