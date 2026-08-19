@@ -40,10 +40,15 @@ async function withMonday(script, fn, env) {
   const saved = {
     MONDAY_API_TOKEN: process.env.MONDAY_API_TOKEN,
     MONDAY_CONTENT_BOARD_ID: process.env.MONDAY_CONTENT_BOARD_ID,
+    MONDAY_CONTENT_GROUP_ID: process.env.MONDAY_CONTENT_GROUP_ID,
+    MONDAY_CONTENT_SOURCE_LABEL: process.env.MONDAY_CONTENT_SOURCE_LABEL,
     VVV_CONTENT_BRIDGE_ENABLED: process.env.VVV_CONTENT_BRIDGE_ENABLED
   };
   process.env.MONDAY_API_TOKEN = 'test-token-never-real';
   process.env.MONDAY_CONTENT_BOARD_ID = '5102476403';
+  // The destination group, "APP DATA — Valhalla Evidence". Required config.
+  process.env.MONDAY_CONTENT_GROUP_ID = 'group_test_valhalla_evidence';
+  delete process.env.MONDAY_CONTENT_SOURCE_LABEL;
   process.env.VVV_CONTENT_BRIDGE_ENABLED = 'on';
   Object.assign(process.env, env || {});
   const calls = [];
@@ -228,7 +233,14 @@ test('9. the mapping uses the approved board and the exact column ids', async ()
   assert.equal(calls[1].variables.board, '5102476403');
   const cols = JSON.parse(calls[1].variables.cols);
   assert.equal(cols[CB.COL.candidateId], GOOD.candidateId);
-  assert.equal(cols[CB.COL.source], 'Founder / Valhalla');
+  // HQ's upstream mapping names this value. It was 'Founder / Valhalla' while
+  // the bridge was a manual founder export; the destination group now carries
+  // that meaning and the column says which SYSTEM supplied the evidence.
+  assert.equal(cols[CB.COL.source], 'Valhalla');
+  assert.equal(CB.SOURCE_LABEL, 'Valhalla');
+  // And it lands in the evidence group, never the board's default editorial one.
+  assert.equal(calls[1].variables.group, 'group_test_valhalla_evidence');
+  assert.match(calls[1].query, /group_id:\s*\$group/, 'create_item must target a group');
   assert.equal(cols[CB.COL.eventType], 'threshold_continuous');
   assert.deepEqual(cols[CB.COL.eventDate], { date: '2026-06-04' });
   assert.deepEqual(cols[CB.COL.marketingEligible], { checked: 'true' });
