@@ -24,6 +24,11 @@
  * unknown field on a live board.
  * ------------------------------------------------------------------------- */
 const BOARD_ID = '5102476403';
+/* "APP DATA — Valhalla Evidence" on that board. A documented default rather than
+ * a required variable: it is a structural fact of the destination, not a secret,
+ * and a deployment that forgot to set it would otherwise fail closed for a
+ * reason nobody could see. Still overridable by environment. */
+const GROUP_ID = 'group_mm6bbdp2';
 
 const COL = {
   workflowStatus: 'color_mm6b6sh8',
@@ -45,7 +50,14 @@ const NEVER_WRITTEN = {
 };
 
 const INITIAL_STATUS = 'Candidate';
-const SOURCE_LABEL   = 'Founder / Valhalla';
+
+/* HQ's upstream mapping names this value as `Valhalla`. It was `Founder /
+ * Valhalla` while the bridge was a founder-only manual export; the destination
+ * group now carries that meaning ("APP DATA — Valhalla Evidence") and the
+ * column says which SYSTEM supplied the evidence. Overridable by environment so
+ * a downstream automation keyed to the older string can be reconciled without a
+ * deploy. */
+const SOURCE_LABEL = 'Valhalla';
 
 /* The complete permitted payload -- ten fields, mirroring
  * CONTENT_CANDIDATE_FIELDS in the coaching runtime. A test asserts the two lists
@@ -83,12 +95,25 @@ const ALLOWED_REASONS = [
 function config(){
   const token   = process.env.MONDAY_API_TOKEN || '';
   const boardId = String(process.env.MONDAY_CONTENT_BOARD_ID || BOARD_ID);
+  /* The destination group. It is passed on EVERY create_item and is never left
+     to monday's default: a group-less create lands in the board's first group,
+     which is where human editorial work sits, and machine evidence appearing
+     there would be a real defect. An empty override is still a refusal to
+     write rather than a silent fallback. */
+  /* UNSET means "use the documented default". Set-but-empty means somebody
+     deliberately blanked it, and that is a refusal to write rather than a
+     silent fallback -- otherwise the guard below could never fire. */
+  const rawGroup = process.env.MONDAY_CONTENT_GROUP_ID;
+  const groupId = (rawGroup === undefined ? GROUP_ID : String(rawGroup)).trim();
   const enabled = /^(on|true|1|yes|enabled)$/i.test(
     String(process.env.VVV_CONTENT_BRIDGE_ENABLED || '').trim());
   return {
     boardId,
+    groupId,
+    sourceLabel: String(process.env.MONDAY_CONTENT_SOURCE_LABEL || SOURCE_LABEL),
     enabled,
     hasToken: !!token,
+    hasGroup: !!groupId,
     // Deliberately a getter rather than a field on the returned object, so a
     // careless JSON.stringify(cfg) in a future log line cannot serialise it.
     token: function(){ return token; }
@@ -141,10 +166,10 @@ function itemName(c){
   return parts.join(' · ');
 }
 
-function columnValues(c){
+function columnValues(c, sourceLabel){
   const v = {};
   v[COL.candidateId]  = c.candidateId;
-  v[COL.source]       = SOURCE_LABEL;
+  v[COL.source]       = sourceLabel || SOURCE_LABEL;
   v[COL.eventType]    = c.sessionKind;           // the candidate's own representation
   v[COL.eventDate]    = { date: c.date };
   v[COL.marketingEligible] = { checked: 'true' };
@@ -159,8 +184,13 @@ function columnValues(c){
 /* ---------------------------------------------------------------------------
  * TRANSPORT
  * ------------------------------------------------------------------------- */
-async function mondayQuery(cfg, query, variables){
-  const r = await fetch('https://api.monday.com/v2', {
+/* The HTTP call is injectable so the commissioning test can drive the complete
+ * upstream path -- eligibility, DTO, validation, idempotency, mapping -- against
+ * a recording double instead of a live board. It is the ONLY seam: everything
+ * above it is the same code production runs. */
+async function mondayQuery(cfg, query, variables, deps){
+  const doFetch = (deps && deps.fetch) || fetch;
+  const r = await doFetch('https://api.monday.com/v2', {
     method: 'POST',
     headers: {
       'Authorization': cfg.token(),
@@ -194,25 +224,28 @@ async function mondayQuery(cfg, query, variables){
  * manually triggered MVP with serial invocation, so the window is not reachable
  * in practice -- but it is a real limitation and the fix is a monday-side
  * uniqueness automation or a lock, not more retries here. */
-async function findExisting(cfg, candidateId){
+async function findExisting(cfg, candidateId, deps){
   const query = `query ($board: [ID!], $col: String!, $val: [String]) {
     items_page_by_column_values (limit: 1, board_id: $board,
       columns: [{column_id: $col, column_values: $val}]) { items { id name } } }`;
   const res = await mondayQuery(cfg, query, {
     board: [cfg.boardId], col: COL.candidateId, val: [candidateId]
-  });
+  }, deps);
   if (!res.ok) return { ok: false, code: res.code };
   const items = (((res.data || {}).items_page_by_column_values || {}).items) || [];
   return { ok: true, existing: items.length ? items[0] : null };
 }
 
-async function createItem(cfg, c){
-  const query = `mutation ($board: ID!, $name: String!, $cols: JSON!) {
-    create_item (board_id: $board, item_name: $name, column_values: $cols,
-                 create_labels_if_missing: false) { id } }`;
+async function createItem(cfg, c, deps){
+  /* group_id is mandatory here, not optional: see config(). The item must land
+     in "APP DATA — Valhalla Evidence", never in the editorial group. */
+  const query = `mutation ($board: ID!, $group: String!, $name: String!, $cols: JSON!) {
+    create_item (board_id: $board, group_id: $group, item_name: $name,
+                 column_values: $cols, create_labels_if_missing: false) { id } }`;
   const res = await mondayQuery(cfg, query, {
-    board: cfg.boardId, name: itemName(c), cols: JSON.stringify(columnValues(c))
-  });
+    board: cfg.boardId, group: cfg.groupId, name: itemName(c),
+    cols: JSON.stringify(columnValues(c, cfg.sourceLabel))
+  }, deps);
   if (!res.ok) return { ok: false, code: res.code };
   const id = ((res.data || {}).create_item || {}).id || null;
   return id ? { ok: true, itemId: id } : { ok: false, code: 'no_item_id' };
@@ -226,25 +259,26 @@ async function createItem(cfg, c){
  * is trusted to establish who the athlete is: a client-supplied
  * marketingEligible:true is necessary and never sufficient.
  * ------------------------------------------------------------------------- */
-async function exportCandidate(candidate, founderVerified){
+async function exportCandidate(candidate, founderVerified, deps){
   const cfg = config();
 
   if (founderVerified !== true) return { ok: false, status: 403, code: 'not_founder' };
   if (!cfg.enabled)             return { ok: false, status: 503, code: 'bridge_disabled' };
   if (!cfg.hasToken)            return { ok: false, status: 503, code: 'bridge_not_configured' };
+  if (!cfg.hasGroup)            return { ok: false, status: 503, code: 'bridge_group_not_configured' };
 
   const problems = validateCandidate(candidate);
   if (problems.length) return { ok: false, status: 400, code: 'candidate_rejected', problems };
 
   const clean = sanitise(candidate);
 
-  const found = await findExisting(cfg, clean.candidateId);
+  const found = await findExisting(cfg, clean.candidateId, deps);
   if (!found.ok) return { ok: false, status: 502, code: 'monday_unavailable', detail: found.code };
   if (found.existing)
     return { ok: true, status: 200, created: false, itemId: found.existing.id,
              candidateId: clean.candidateId };
 
-  const made = await createItem(cfg, clean);
+  const made = await createItem(cfg, clean, deps);
   if (!made.ok) return { ok: false, status: 502, code: 'monday_write_failed', detail: made.code };
 
   return { ok: true, status: 201, created: true, itemId: made.itemId,

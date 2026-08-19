@@ -7942,12 +7942,50 @@ function coachBreakthroughs(){
    body and their words is excluded: no heart rate, no pace, no RPE, no feel, no
    notes, no email, no user id, no coordinates, no plan.
 
-   NO EGRESS. Nothing here fetches, posts or stores. The prototype's transport
-   lives outside this file, outside /api, and is run by hand by the operator --
-   so there is no automatic path from any athlete's device to anywhere.
+   EGRESS IS ONE SILENT, GATED, OWNER-DECIDED POST. contentCandidateNotify() is
+   called from coachPersistReview() -- the domain function that already runs when
+   a session is logged or edited, and deliberately never from a render path. It
+   hands the ten-field candidate to our OWN origin and stops. It does not know
+   what happens next, cannot see the response body, and cannot fail a workout:
+   every path is wrapped, every failure is swallowed, and nothing it does is
+   visible to the athlete.
+
+   WHO IT IS FOR IS DECIDED ON THE SERVER, NOT HERE. This file runs in the
+   athlete's browser, so no check in it is a security boundary. The route it
+   posts to verifies the caller's Supabase token against VVV_OWNER_USER_ID and
+   answers 404 to everyone else. A beta tester's device therefore learns nothing,
+   sends at most one refused request ever (see contentCandidateBlocked), and no
+   candidate of theirs can reach monday however the client behaves.
    ========================================================= */
 var CONTENT_CANDIDATE_VERSION = 1;
-var CONTENT_CANDIDATE_ENABLED = false;
+var CONTENT_CANDIDATE_ENABLED = true;
+
+/* Delivery bookkeeping, local to the device. NOT the idempotency guarantee --
+   that is the server asking monday whether this candidateId already exists, and
+   it holds across reinstalls, devices and retries. This exists so an athlete who
+   edits one session ten times does not make ten identical requests. */
+var CONTENT_SENT_KEY = 'vvvContentSent';
+var CONTENT_SENT_CAP = 200;
+function contentSentState(){
+  var v = readStored(CONTENT_SENT_KEY);
+  if (!v || typeof v !== 'object') return { blocked:false, ids:[] };
+  return { blocked: v.blocked === true,
+           ids: Array.isArray(v.ids) ? v.ids : [] };
+}
+/* A device told "not you" stops asking. The founder gate lives on the server;
+   this only spares every other athlete a pointless request per breakthrough. */
+function contentCandidateBlocked(){ return contentSentState().blocked === true; }
+function contentMarkBlocked(){
+  var st = contentSentState(); st.blocked = true; writeStored(CONTENT_SENT_KEY, st);
+}
+function contentAlreadySent(id){ return contentSentState().ids.indexOf(id) !== -1; }
+function contentMarkSent(id){
+  var st = contentSentState();
+  if (st.ids.indexOf(id) !== -1) return;
+  st.ids.push(id);
+  if (st.ids.length > CONTENT_SENT_CAP) st.ids = st.ids.slice(-CONTENT_SENT_CAP);
+  writeStored(CONTENT_SENT_KEY, st);
+}
 
 /* The complete set of fields permitted to cross the boundary. A test asserts
    that a built candidate has exactly these keys and no others, so widening the
@@ -7958,13 +7996,39 @@ var CONTENT_CANDIDATE_FIELDS = [
   'contentSource', 'marketingEligible'
 ];
 
-/* A stable id derived from facts that already identify the session to the
-   athlete. Deterministic, so the same session proposed twice is recognisably
-   the same candidate rather than a duplicate row for a human to reconcile.
-   Deliberately NOT the athlete's uid or email, and not reversible into them. */
+/* The block this plan IS, as a short non-personal key. Derived from the three
+   facts that make one training block a different block from another -- when it
+   started, what it is aimed at, and which distance -- and hashed, so the key
+   itself carries no schedule detail outward. Contains no uid, no email, no
+   name, and nothing about how the athlete ran.
+
+   It exists because a date alone is not a stable identity ACROSS blocks: a
+   regenerated plan can put a different session on the same date, and reusing an
+   id there would silently dedupe a genuinely new candidate against an old row. */
+function contentBlockKey(){
+  var s = (typeof state === 'object' && state && state.setup) || null;
+  if (!s) return 'nb';
+  var str = [s.startDate || '', s.raceDate || '', s.distanceKey || ''].join('|');
+  var h = 5381;
+  for (var i = 0; i < str.length; i++) h = ((h * 33) ^ str.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
+/* A stable id for one session inside one block.
+
+   WHY NOT THE ARCHETYPE. The first version was vv-<date>-<archetype>, which
+   broke the property that matters most: editing a logged session -- correcting
+   its type, or re-prescribing it -- CHANGED the id, so the same session came
+   back as a second monday row for a human to reconcile. The archetype is a
+   description of the session, not its identity. dd.id is (one day per date), so
+   an edit that changes everything about how the session was run still resolves
+   to the same candidate.
+
+   Deterministic across retries, identical after an edit, different across
+   blocks, and reversible into nothing: no uid, no email, no pace, no heart
+   rate, no score. */
 function contentCandidateId(dd){
-  var p = prescriptionOf(dd);
-  return 'vv-' + dd.date + '-' + ((p && p.archetype) || dd.type);
+  return 'vv-' + contentBlockKey() + '-' + (dd.id || dd.date);
 }
 
 /* WHY THIS SESSION WAS NOTABLE, in the product's own words.
@@ -8022,6 +8086,53 @@ function contentCandidates(source){
     .map(function(dd){ return contentCandidate(dd, source); })
     .filter(function(c){ return !!c; })
     .sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+}
+
+/* Is THIS session one the product already considers notable? Eligibility is
+   coachBreakthroughs() and nothing else -- the same deterministic, evidence-based
+   judgement the athlete's own Plan HQ reads. There is no marketing score, no
+   second analysis engine and no threshold invented for this purpose: if a session
+   is not a breakthrough to the athlete, it is not a candidate for anything. */
+function contentCandidateEligible(dd){
+  if (!CONTENT_CANDIDATE_ENABLED) return false;
+  if (!dd || !dd.completed) return false;
+  try { return coachBreakthroughs().indexOf(dd) !== -1; }
+  catch (e) { return false; }          // ambiguous evidence is not evidence
+}
+
+/* THE ONLY EGRESS. Own origin, athlete's own bearer token, no response read
+   beyond its status, and nothing rendered either way.
+
+   FAILURE IS NOT AN EVENT. Network down, server 500, monday down, offline in a
+   tunnel -- all identical here: the promise is swallowed and the session is
+   already logged. The candidate is only marked delivered on a 2xx, so a genuine
+   loss is retried the next time that session is touched; a 401/403/404 marks
+   this device as not-the-founder and it never asks again. */
+function contentCandidateSend(c){
+  if (!c || !c.candidateId) return;
+  return fetch('/api/admin-user', {
+    method:'POST',
+    headers:{ 'content-type':'application/json',
+              'Authorization':'Bearer '+cloudSession.access_token },
+    body: JSON.stringify({ action:'content_export', candidate:c })
+  }).then(function(resp){
+    if (resp.status===401 || resp.status===403 || resp.status===404) contentMarkBlocked();
+    else if (resp.ok) contentMarkSent(c.candidateId);
+  }).catch(function(){ /* ancillary by design */ });
+}
+
+/* Called from coachPersistReview(). Everything is inside one try/catch because
+   the caller is the coaching path: no branch of this may ever throw into it. */
+function contentCandidateNotify(dd){
+  try {
+    if (!CONTENT_CANDIDATE_ENABLED) return;
+    if (!cloudSignedIn()) return;              // no token, nothing to authorise
+    if (contentCandidateBlocked()) return;     // server has already said no
+    if (!contentCandidateEligible(dd)) return;
+    var c = contentCandidate(dd, 'founder');
+    if (!c || contentAlreadySent(c.candidateId)) return;
+    contentCandidateSend(c);
+  } catch (e) { /* never reaches the athlete */ }
 }
 
 
@@ -14611,6 +14722,12 @@ function coachPersistReview(dd){
      must never create evidence, so this is deliberately not on the render
      path, and recordBlockReview() appends only when the conclusion moves. */
   recordBlockReview();
+  /* ANCILLARY, LAST, AND UNABLE TO INTERFERE. The review and the block picture
+     are already written above; this is a side effect that reads them and can
+     only be a no-op if anything at all is wrong with it. It is here rather than
+     on a render path for the same reason recordBlockReview() is: logging or
+     editing a session is the event, not looking at one. */
+  contentCandidateNotify(dd);
   return review;
 }
 
