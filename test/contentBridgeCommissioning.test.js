@@ -438,3 +438,83 @@ test('no athlete-facing surface was added', () => {
   for (const ui of [/\bsettings?\b/i, /\bbadge\b/i, /\bnotification\b/i, /\bshare\b/i])
     assert.equal(ui.test(code), false, 'the bridge must stay invisible: ' + ui);
 });
+
+// ---------------------------------------------------------------------------
+// CANDIDATE IDENTITY -- the two defects this run fixed
+//
+// The first pattern was vv-<date>-<archetype>. It looked stable and was not:
+// the archetype DESCRIBES a session, it does not identify one. Editing a logged
+// session changed the id, so the same session came back as a second monday row;
+// and across two blocks the same date could reuse an id for a different session,
+// silently deduping a genuinely new candidate against an old row.
+// ---------------------------------------------------------------------------
+test('ID1. editing the session does not change its candidate identity', () => {
+  const { a, dd } = syntheticApp();
+  const before = a.contentCandidateId(dd);
+  // Everything a founder might correct after logging: the prescription, the
+  // type, the distance, and every number they actually ran.
+  dd.prescription = { v: a.PRESCRIPTION_VERSION, archetype: 'steady_tempo', params: { km: 9 } };
+  dd.type = 'tempo';
+  dd.km = 9;
+  dd.actual.pace = a.secToPace(230);
+  dd.actual.hr = 161;
+  assert.equal(a.contentCandidateId(dd), before,
+    'a re-prescribed session is the same session, so it is the same candidate');
+});
+
+test('ID2. two different blocks do not share an id for the same date', () => {
+  const a = syntheticApp().a, b = syntheticApp().a;
+  const dd = a.state.days.find(d => d.completed);
+  const same = b.state.days.find(d => d.id === dd.id);
+  assert.equal(a.contentCandidateId(dd), b.contentCandidateId(same),
+    'the same block and date is the same candidate');
+  // Now make b a genuinely different block: a different goal race.
+  b.state.setup.raceDate = b.addDays(b.state.setup.raceDate, 63);
+  assert.notEqual(a.contentCandidateId(dd), b.contentCandidateId(same),
+    'a different block on the same date must be a different candidate');
+});
+
+test('ID3. the id carries no identity and no performance value', () => {
+  const { a, dd } = syntheticApp();
+  const id = a.contentCandidateId(dd);
+  // Distinctive multi-character values only. A single RPE digit necessarily
+  // appears somewhere in a date or a hash, so searching for it proves nothing.
+  for (const leak of [dd.actual.pace, String(dd.actual.hr)])
+    assert.equal(id.indexOf(leak), -1, 'id leaks ' + leak);
+  assert.match(id, /^vv-[a-z0-9]+-\d{4}-\d{2}-\d{2}$/, 'shape is block key plus date');
+  assert.equal(/@|uid|user/i.test(id), false, 'no account identity');
+  // The date in the id is the session's own date, which is already an
+  // allow-listed DTO field. The BLOCK, by contrast, is hashed: neither the
+  // start date nor the goal race date appears in clear.
+  const key = a.contentBlockKey();
+  assert.equal(key.indexOf(a.state.setup.raceDate), -1, 'race date must be hashed');
+  assert.equal(key.indexOf(a.state.setup.startDate), -1, 'start date must be hashed');
+  assert.equal(key.indexOf(a.state.setup.distanceKey), -1, 'goal distance must be hashed');
+  assert.ok(key.length <= 8, 'a short opaque key, not a payload');
+});
+
+test('ID4. the id is deterministic -- same state, same id, every time', () => {
+  const { a, dd } = syntheticApp();
+  const ids = new Set();
+  for (let i = 0; i < 5; i++) ids.add(a.contentCandidateId(dd));
+  assert.equal(ids.size, 1);
+  // and it survives a reload of the same plan
+  const again = syntheticApp();
+  assert.equal(again.a.contentCandidateId(again.dd), a.contentCandidateId(dd));
+});
+
+test('ID5. an edited session does not create a second monday row', async () => {
+  const { a, dd } = syntheticApp();
+  const first = a.contentCandidate(dd, 'founder');
+  await configured(async () => {
+    const m = fakeMonday();
+    await CB.exportCandidate(first, true, { fetch: m.fetch });
+    // The founder corrects the session and it is reprocessed.
+    dd.type = 'tempo';
+    dd.prescription = { v: a.PRESCRIPTION_VERSION, archetype: 'steady_tempo', params: { km: 9 } };
+    const edited = a.contentCandidate(dd, 'founder');
+    const out = await CB.exportCandidate(edited, true, { fetch: m.fetch });
+    assert.equal(out.created, false, 'the edit resolved to the existing candidate');
+    assert.equal(m.items.length, 1, 'ONE row, not two');
+  });
+});

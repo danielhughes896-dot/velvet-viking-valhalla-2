@@ -24,6 +24,11 @@
  * unknown field on a live board.
  * ------------------------------------------------------------------------- */
 const BOARD_ID = '5102476403';
+/* "APP DATA — Valhalla Evidence" on that board. A documented default rather than
+ * a required variable: it is a structural fact of the destination, not a secret,
+ * and a deployment that forgot to set it would otherwise fail closed for a
+ * reason nobody could see. Still overridable by environment. */
+const GROUP_ID = 'group_mm6bbdp2';
 
 const COL = {
   workflowStatus: 'color_mm6b6sh8',
@@ -90,12 +95,16 @@ const ALLOWED_REASONS = [
 function config(){
   const token   = process.env.MONDAY_API_TOKEN || '';
   const boardId = String(process.env.MONDAY_CONTENT_BOARD_ID || BOARD_ID);
-  /* The destination group, "APP DATA — Valhalla Evidence". Required rather than
-     defaulted: monday drops a group-less create_item into the board's FIRST
-     group, which is where human editorial work sits. Landing machine evidence
-     in the editorial group would be a real defect, so with no group configured
-     the bridge refuses to write at all. */
-  const groupId = String(process.env.MONDAY_CONTENT_GROUP_ID || '').trim();
+  /* The destination group. It is passed on EVERY create_item and is never left
+     to monday's default: a group-less create lands in the board's first group,
+     which is where human editorial work sits, and machine evidence appearing
+     there would be a real defect. An empty override is still a refusal to
+     write rather than a silent fallback. */
+  /* UNSET means "use the documented default". Set-but-empty means somebody
+     deliberately blanked it, and that is a refusal to write rather than a
+     silent fallback -- otherwise the guard below could never fire. */
+  const rawGroup = process.env.MONDAY_CONTENT_GROUP_ID;
+  const groupId = (rawGroup === undefined ? GROUP_ID : String(rawGroup)).trim();
   const enabled = /^(on|true|1|yes|enabled)$/i.test(
     String(process.env.VVV_CONTENT_BRIDGE_ENABLED || '').trim());
   return {
