@@ -5,6 +5,9 @@
 //
 //   POST { action:"user_lookup", email }                  -> what we hold
 //   POST { action:"user_delete", email, confirm:"DELETE" } -> erase it
+//   POST { action:"content_export", candidate }          -> owner-only content
+//                                                           candidate export; see
+//                                                           _content-bridge.js
 //
 // Authorization is the same three server-side requirements as strava-admin.js,
 // which this deliberately mirrors rather than inventing a second notion of
@@ -24,6 +27,7 @@
 // reach. The response says so explicitly rather than reporting a clean sweep.
 
 const S = require('./_strava.js');
+const CB = require('./_content-bridge.js');
 
 function log(what){ try{ console.log('admin-user: ' + what); }catch(e){} }
 
@@ -123,6 +127,30 @@ module.exports = async function handler(req, res){
   const body   = S.readBody(req);
   const action = body.action;
   const email  = String(body.email || '').trim().toLowerCase();
+
+  /* CONTENT CANDIDATE EXPORT -- handled here and returned before the email
+     requirement below, because it is the one owner action that is not about a
+     tester's account and has no email to look up.
+
+     WHY IT LIVES ON THIS ROUTE. Vercel makes a Serverless Function of every
+     non-underscore file in /api and the budget is full at 12/12, so a
+     thirteenth route is not available. This one already IS the authenticated
+     owner-only surface: the gate above -- POST, service key usable, owner
+     configured, token verified against Supabase itself, uid must equal
+     VVV_OWNER_USER_ID, 404 otherwise -- is exactly the check the export needs,
+     and reusing it is safer than inventing a second notion of "owner"
+     somewhere else. The integration logic itself is isolated in
+     _content-bridge.js and shares nothing with the deletion path below. */
+  if (action === 'content_export'){
+    const out = await CB.exportCandidate(body.candidate, who.uid === ownerId);
+    // Codes only. A candidate carries no prohibited field by construction, and
+    // nothing from the payload is echoed into the log line.
+    log('CONTENT_EXPORT ok=' + (out.ok ? 'yes' : 'no') + ' code=' + (out.code || 'created') +
+        (out.created === false ? ' idempotent=hit' : ''));
+    return S.json(res, out.status, out.ok
+      ? { ok: true, created: out.created, itemId: out.itemId, candidateId: out.candidateId }
+      : { error: out.code, code: out.code, problems: out.problems || undefined });
+  }
 
   if (action !== 'user_lookup' && action !== 'user_delete')
     return S.json(res, 400, { error: 'unknown_action', code: 'unknown_action' });
