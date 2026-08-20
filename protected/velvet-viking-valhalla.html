@@ -58,6 +58,21 @@
     --c-track:var(--bronze); --c-track-soft:rgba(192,146,63,0.16);
     --c-long:#5E93AC; --c-long-soft:rgba(94,147,172,0.16);
     --c-gold:var(--gold); --c-gold-soft:rgba(227,177,90,0.20);
+    /* ---------- TYPOGRAPHY SCALE (readability prototype) ----------
+       Beta feedback: coaching/body copy read small next to apps like Strava,
+       whose body text sits around 14-16px. Valhalla's primary copy was
+       11.5-12.5px, set as 168 one-off px values with no scale behind them.
+
+       Seven steps, so a rule states its ROLE rather than a number, and a future
+       change is one token rather than a sweep. Metadata and chips deliberately
+       move least: the complaint is about reading sentences, not labels. */
+    --fs-meta:11px;       /* chips, badges, tiny uppercase labels   */
+    --fs-label:11px;      /* row keys, section headings            */
+    --fs-support:13.5px;  /* tertiary support copy, hints, spans   */
+    --fs-data:15px;       /* mono metrics: pace, distance, HR      */
+    --fs-body:16px;       /* PRIMARY coaching and body copy        */
+    --fs-title:20px;      /* session title                         */
+    --lh-body:1.5; --lh-support:1.45;
     --radius:16px; --radius-sm:10px; --radius-lg:22px;
     --shadow:0 10px 30px rgba(0,0,0,0.4);
     --shadow-sm:0 4px 12px rgba(0,0,0,0.3);
@@ -271,7 +286,7 @@
     border:1.5px solid var(--gold); border-radius:var(--radius-sm); padding:13px 14px; margin:16px 0;
   }
   .cb-icon{font-size:18px; line-height:1; flex:none;}
-  .cb-text{font-size:12.5px; line-height:1.55; color:var(--ink);}
+  .cb-text{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink);}
   .cb-text b{color:var(--gold-text);}
   .week.is-taper{border-color:var(--bronze);}
   .week.is-taper .week-head{background:var(--c-gold-soft);}
@@ -310,23 +325,23 @@
   .fuel-card summary::-webkit-details-marker{display:none;}
   .fuel-card summary svg{width:13px; height:13px; flex:none;}
   .fuel-body{padding:2px 12px 10px;}
-  .fuel-row{display:flex; align-items:center; justify-content:space-between; padding:4px 0; font-size:11.5px; border-bottom:1px solid var(--line-soft);}
+  .fuel-row{display:flex; align-items:center; justify-content:space-between; padding:4px 0; font-size:var(--fs-body); border-bottom:1px solid var(--line-soft);}
   .fuel-row:last-of-type{border-bottom:none;}
   .fuel-row .k{color:var(--ink-dim);}
   .fuel-row .v{color:var(--ink);}
-  .fuel-hint{font-size:10.5px; color:var(--ink-faint); margin-top:6px; line-height:1.5;}
+  .fuel-hint{font-size:var(--fs-support); color:var(--ink-faint); margin-top:6px; line-height:var(--lh-support);}
   /* Coaching depth (athlete experience) -- presentation only. */
-  .coach-cue{display:flex; align-items:flex-start; gap:6px; margin-top:7px; font-size:11.5px; line-height:1.5; color:var(--bronze-text);}
+  .coach-cue{display:flex; align-items:flex-start; gap:6px; margin-top:7px; font-size:var(--fs-body); line-height:var(--lh-body); color:var(--bronze-text);}
   .coach-cue svg{width:13px; height:13px; flex:none; margin-top:2px;}
   .how-row{padding:6px 0; border-bottom:1px solid var(--line-soft);}
   .how-row:last-of-type{border-bottom:none;}
-  .how-row .k{display:block; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:2px;}
+  .how-row .k{display:block; font-size:var(--fs-label); letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:2px;}
   /* overflow-wrap so a long pace range or an unbroken term cannot push the
      card sideways on a narrow phone; the page body must never scroll across. */
-  .how-row .v{display:block; font-size:11.5px; line-height:1.5; color:var(--ink-dim); overflow-wrap:anywhere;}
+  .how-row .v{display:block; font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); overflow-wrap:anywhere;}
   /* A sub-heading inside the unified "How to run this" disclosure -- marks
      where Execution or Fuel begins without becoming a card of its own. */
-  .how-row-heading{font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin:10px 0 4px; padding-top:8px; border-top:1px solid var(--line-soft);}
+  .how-row-heading{font-size:var(--fs-label); letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin:10px 0 4px; padding-top:8px; border-top:1px solid var(--line-soft);}
   .how-row-heading:first-child{margin-top:0; padding-top:0; border-top:none;}
   /* Execution Strategy phases -- a staged reading of the prescription, not a
      second set of numbers. Each phase is its own compact block so a race's
@@ -335,12 +350,12 @@
   .strat-phase{padding:6px 0; border-bottom:1px solid var(--line-soft);}
   .strat-phase:last-of-type{border-bottom:none; padding-bottom:0;}
   .strat-phase-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px;}
-  .strat-phase-label{font-size:11px; font-weight:600; color:var(--ink);}
-  .strat-phase-span{font-size:10px; color:var(--ink-faint);}
-  .strat-phase-target{font-size:11.5px; color:var(--bronze-text); margin-top:2px;}
-  .strat-phase-purpose{font-size:11px; line-height:1.5; color:var(--ink-dim); margin-top:3px;}
-  .strat-phase-cue{font-size:11px; line-height:1.5; color:var(--ink-dim); margin-top:2px; font-style:italic;}
-  .strat-phase-watch{font-size:10.5px; line-height:1.5; color:var(--ink-faint); margin-top:3px;}
+  .strat-phase-label{font-size:var(--fs-body); font-weight:600; color:var(--ink);}
+  .strat-phase-span{font-size:var(--fs-support); color:var(--ink-faint);}
+  .strat-phase-target{font-size:var(--fs-data); color:var(--bronze-text); margin-top:2px;}
+  .strat-phase-purpose{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin-top:3px;}
+  .strat-phase-cue{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin-top:2px; font-style:italic;}
+  .strat-phase-watch{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:3px;}
   .build-tag{text-align:center; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--ink-faint); opacity:.6; margin-top:18px;}
   /* Hidden file inputs are moved off-screen rather than display:none -- an
      Android WebView refuses to open the picker for an unrendered input. */
@@ -485,8 +500,8 @@
   .day-check input{width:19px; height:19px; accent-color:var(--bronze); cursor:pointer;}
   .day-main{flex:1; min-width:0;}
   .day-row1{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
-  .day-date{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint);}
-  .day-badge{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; padding:2px 6px; border-radius:99px; font-weight:600;}
+  .day-date{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); color:var(--ink-faint);}
+  .day-badge{font-family:'Oswald',sans-serif; font-size:var(--fs-meta); letter-spacing:1px; text-transform:uppercase; padding:2px 6px; border-radius:99px; font-weight:600;}
   .day-badge.type-rest{background:var(--c-rest-soft); color:var(--c-rest);}
   .day-badge.type-easy{background:var(--c-easy-soft); color:var(--c-easy);}
   .day-badge.type-tempo{background:var(--c-tempo-soft); color:var(--c-tempo);}
@@ -504,13 +519,13 @@
      comment above), while dark mode is unchanged since --gold-text==--gold
      there. */
   .exec-pill{font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold-text);}
-  .day-title{font-weight:600; font-size:14.5px; margin-top:3px; color:var(--ink);}
-  .day-targets{font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
+  .day-title{font-weight:600; font-size:var(--fs-title); margin-top:3px; color:var(--ink);}
+  .day-targets{font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
   .day-targets .mp{color:var(--gold-text);}
   /* target HR sits alongside pace/distance but reads as secondary, matching
      how HR is treated in the Pace Reference and Plan HQ zone cards. */
   .day-targets .hr{color:var(--ink-faint);}
-  .day-desc{font-size:12.5px; color:var(--ink-dim); margin-top:6px; line-height:1.45;}
+  .day-desc{font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px; line-height:var(--lh-body);}
   /* card accordion -- same max-height technique as the week accordion above,
      so both behave identically. The header row stays put; the detail and the
      logging drawer collapse. */
@@ -536,7 +551,7 @@
   }
   .actual-field textarea{font-family:'Inter',sans-serif; resize:vertical; min-height:38px;}
   .actual-field.full{grid-column:1/-1;}
-  .field-hint{font-size:10px; line-height:1.35; color:var(--ink-faint); margin-top:2px;}
+  .field-hint{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:2px;}
   /* Notes Wand: sits inside the textarea's corner so it reads as part of the
      field rather than another control competing with it. */
   .notes-wrap{position:relative;}
@@ -655,7 +670,7 @@
   .pace-ref-card{margin:14px 0 0; padding:12px 15px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);}
   .pace-ref-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;}
   .pace-ref-head span:first-child{font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
-  .pace-ref-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid var(--line-soft); font-size:12px;}
+  .pace-ref-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid var(--line-soft); font-size:var(--fs-data);}
   .pace-ref-row:last-of-type{border-bottom:none;}
   .pace-ref-label{color:var(--ink-dim);}
   .pace-ref-val{color:var(--ink);}
@@ -683,13 +698,13 @@
   /* One block of coach prose. Deliberately unadorned: no border, no label, no
      background -- it should read like a short message, not another panel. */
   .coach-msg{margin-top:9px;}
-  .coach-msg-p{font-size:12.5px; line-height:1.62; color:var(--ink-dim); margin:0 0 8px;
+  .coach-msg-p{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 8px;
                overflow-wrap:anywhere;}
   .coach-msg-p:last-child{margin-bottom:0;}
   .coach-msg-p:first-child{color:var(--ink);}
   .coach-msg-brief{margin-top:8px;}
-  .cr-k{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.3px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px;}
-  .cr-v{font-size:12.5px; color:var(--ink-dim); line-height:1.5; overflow-wrap:anywhere;}
+  .cr-k{font-family:'Oswald',sans-serif; font-size:var(--fs-label); letter-spacing:1.3px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px;}
+  .cr-v{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); overflow-wrap:anywhere;}
   .cr-sub{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:2px; overflow-wrap:anywhere;}
   .cr-signal{display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
   .cr-sig-dot{font-size:12px; line-height:1;}
@@ -816,7 +831,7 @@
   .field select option{ background:var(--ctl-bg); color:var(--ctl-text); }
   .field textarea{resize:vertical; min-height:70px; font-family:'Inter',sans-serif;}
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
-  .field-hint{font-size:11px; color:var(--ink-faint); margin-top:4px;}
+  .field-hint{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:4px;}
   .modal-actions{display:flex; gap:8px; margin-top:18px;}
   .modal-actions .btn{flex:1;}
 
@@ -943,7 +958,7 @@
   .coach-dot.warn{background:#C4643C;} .coach-dot.neutral{background:var(--ink-faint);}
   .coach-status-main{min-width:0; flex:1 1 auto;}
   .coach-status-label{font-family:'Oswald',sans-serif; font-size:15px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink); line-height:1.25;}
-  .coach-status-detail{font-size:12px; color:var(--ink-dim); line-height:1.5; margin-top:3px; overflow-wrap:anywhere;}
+  .coach-status-detail{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); margin-top:3px; overflow-wrap:anywhere;}
   .coach-phase{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); white-space:nowrap; flex:none; padding-top:4px;}
   .coach-metrics{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:12px;}
   .coach-metric{background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:9px 8px; min-width:0; text-align:center;}
@@ -954,7 +969,7 @@
   .coach-signal:first-child{border-top:none;}
   .coach-signal-body{min-width:0;}
   .coach-signal-label{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:.8px; text-transform:uppercase; color:var(--ink); line-height:1.3;}
-  .coach-signal-detail{font-size:11.5px; color:var(--ink-dim); line-height:1.5; margin-top:2px; overflow-wrap:anywhere;}
+  .coach-signal-detail{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); margin-top:2px; overflow-wrap:anywhere;}
   .coach-bt{display:flex; gap:9px; align-items:flex-start; padding:9px 0; border-top:1px solid var(--line);}
   .coach-bt:first-child{border-top:none;}
   .coach-bt svg{width:15px; height:15px; flex:none; color:var(--gold); margin-top:1px;}
@@ -964,8 +979,8 @@
   .coach-next-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;}
   .coach-next-head svg{width:15px; height:15px; flex:none; color:var(--gold);}
   .coach-next-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text);}
-  .coach-next-session{font-size:12px; color:var(--ink); line-height:1.5; margin-bottom:6px; overflow-wrap:anywhere;}
-  .coach-next-rec{font-size:12px; color:var(--ink-dim); line-height:1.55; overflow-wrap:anywhere;}
+  .coach-next-session{font-size:var(--fs-body); color:var(--ink); line-height:var(--lh-body); margin-bottom:6px; overflow-wrap:anywhere;}
+  .coach-next-rec{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); overflow-wrap:anywhere;}
   .coach-adjust{margin-top:11px; padding:11px 12px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .coach-adjust-line{font-size:12px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere;}
   .coach-adjust-why{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:4px; overflow-wrap:anywhere;}
