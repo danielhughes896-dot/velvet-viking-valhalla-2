@@ -56,7 +56,11 @@ test('the budget is stated with its remaining headroom, so growth is a decision'
 
 test('shared modules are underscored, or they silently become functions', () => {
   ['_access.js', '_billing.js', '_strava.js',
-   '_subscription.js', '_account-data.js', '_account-delete.js']
+   '_subscription.js', '_account-data.js', '_account-delete.js',
+   /* The Stripe foundation. Every one of these is a module rather than an
+      endpoint precisely because the budget is full — an un-prefixed rename
+      would cost a slot and the deployment failure would look unrelated. */
+   '_checkout.js', '_commerce.js', '_stripe.js', '_ledger.js']
     .forEach(m => assert.ok(fs.existsSync(path.join(ROOT, 'api', m)),
       m + ' must exist and must stay underscored — an un-prefixed rename costs a ' +
       'function slot and nobody would connect the deployment failure to it'));
@@ -69,7 +73,7 @@ const account = require('../api/account.js');
 
 test('every consolidated resource resolves, and nothing else does', () => {
   assert.deepEqual(account.ROUTES.slice().sort(),
-    ['account-data', 'account-delete', 'subscription']);
+    ['account-data', 'account-delete', 'checkout', 'subscription']);
   account.ROUTES.forEach(r => {
     assert.equal(account.resolveResource({ query: { resource: r } }), r);
     assert.equal(account.resolveResource({ url: '/api/account?resource=' + r }), r);

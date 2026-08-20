@@ -48,6 +48,13 @@ function flagOn(v){
 }
 function accountRequired(){ return flagOn(process.env.VVV_ACCOUNT_REQUIRED); }
 function commercialRequired(){ return flagOn(process.env.VVV_COMMERCIAL_REQUIRED); }
+/* A THIRD flag, and deliberately not folded into the other two.
+   VVV_COMMERCIAL_REQUIRED asks "is entitlement enforced" -- it locks people
+   OUT. This asks "may anyone be charged" -- it lets money IN. They are
+   different risks and they get switched on at different moments: enforcement
+   first with beta overrides in place, selling second. Collapsing them would
+   mean the act of enforcing entitlement also opened the tills. */
+function commerceEnabled(){ return flagOn(process.env.VVV_COMMERCE_ENABLED); }
 
 /* ---------- capabilities ----------
    The product asks `can('execution_review')`, never `if (tier === 'standard')`.
@@ -133,6 +140,19 @@ function resolveAccess(input){
   if (!until || !(until > now)) return deny('expired', ent);
   if (['trial','active','grace'].indexOf(ent.state) === -1) return deny('state_' + ent.state, ent);
   return allow('subscription_' + ent.state, ent, tierOf(ent));
+}
+
+/* Does this row currently grant access, ignoring the flags entirely?
+   Used by the checkout seam to refuse a second purchase. Deliberately reads
+   access_until first, exactly as resolveAccess does, so the two can never
+   disagree about what "still has access" means. */
+function hasLiveAccess(ent, now){
+  if (!ent) return false;
+  const t = now instanceof Date ? now : new Date(now || Date.now());
+  if (overrideOf(ent, t)) return true;
+  const until = ent.access_until ? new Date(ent.access_until) : null;
+  if (!until || !(until > t)) return false;
+  return ['trial', 'active', 'grace'].indexOf(ent.state) !== -1;
 }
 
 function overrideOf(ent, now){
@@ -273,6 +293,7 @@ async function revokeLeasesForUser(S, cfg, uid){
 }
 
 module.exports = {
+  commerceEnabled, hasLiveAccess,
   GATE_COOKIE, LEASE_TTL_SEC, CAPABILITIES,
   flagOn, accountRequired, commercialRequired,
   LOCKED_CAPABILITIES, lockedCapabilities,
