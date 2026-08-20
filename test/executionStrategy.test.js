@@ -519,7 +519,14 @@ test('10. execution scoring, zones and the review layer are untouched', () => {
 test('10. no Serverless Function was added and no flag moved', () => {
   const fns = fs.readdirSync(path.join(ROOT, 'api'))
     .filter(f => /\.js$/.test(f) && f.charAt(0) !== '_');
-  assert.equal(fns.length, 12, 'the prototype is entirely client-side');
+  /* Stated as a CEILING rather than a constant. Every one of these
+     assertions was written to mean "my feature added no Serverless
+     Function", and pinning the absolute total made a legitimate
+     CONSOLIDATION look like a regression: the Strava routes moved
+     behind one router and the count fell 12 -> 7, which is the same
+     claim holding more strongly, not a broken one. The limit is what
+     the deployment actually enforces. */
+  assert.ok(fns.length <= 12, 'the prototype is entirely client-side');
   const access = fs.readFileSync(path.join(ROOT, 'api/_access.js'), 'utf8');
   assert.match(access, /flagOn\(process\.env\.VVV_ACCOUNT_REQUIRED\)/);
   assert.match(access, /flagOn\(process\.env\.VVV_COMMERCIAL_REQUIRED\)/);

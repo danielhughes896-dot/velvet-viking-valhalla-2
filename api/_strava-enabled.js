@@ -15,7 +15,7 @@
 
 const S = require('./_strava.js');
 
-module.exports = async function handler(req, res){
+async function handle(req, res){
   if (req.method !== 'GET' && req.method !== 'HEAD'){
     res.setHeader('Allow', 'GET');
     return S.json(res, 405, { error: 'method_not_allowed' });
@@ -23,3 +23,5 @@ module.exports = async function handler(req, res){
   res.setHeader('cache-control', 'no-store');
   return S.json(res, 200, { enabled: S.stravaEnabled() });
 };
+
+module.exports = { handle };

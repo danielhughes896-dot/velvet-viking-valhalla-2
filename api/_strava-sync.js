@@ -86,7 +86,7 @@ async function handleAck(req, res, cfg, uid, body){
   S.json(res, r.ok ? 200 : 502, r.ok ? { acked: ids.length } : { error: 'ack_failed' });
 }
 
-module.exports = async function handler(req, res){
+async function handle(req, res){
   const cfg = S.config();
   if (req.method !== 'POST'){
     res.setHeader('Allow', 'POST');
@@ -133,3 +133,5 @@ module.exports = async function handler(req, res){
   S.log('sync', 'PULL pending=' + out.length);
   return S.json(res, 200, { activities: out });
 };
+
+module.exports = { handle };

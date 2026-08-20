@@ -444,6 +444,13 @@ test('23. the integration changes no coaching prescription or decision', () => {
 
 test('the function budget is unchanged and the bridge is not a function', () => {
   const fns = fs.readdirSync(path.join(ROOT, 'api')).filter(f => /\.js$/.test(f) && f.charAt(0) !== '_');
-  assert.equal(fns.length, 12, 'no thirteenth serverless function');
+  /* Stated as a CEILING rather than a constant. Every one of these
+     assertions was written to mean "my feature added no Serverless
+     Function", and pinning the absolute total made a legitimate
+     CONSOLIDATION look like a regression: the Strava routes moved
+     behind one router and the count fell 12 -> 7, which is the same
+     claim holding more strongly, not a broken one. The limit is what
+     the deployment actually enforces. */
+  assert.ok(fns.length <= 12, 'no thirteenth serverless function');
   assert.ok(fs.existsSync(path.join(ROOT, 'api/_content-bridge.js')), 'the bridge is an underscore module');
 });
