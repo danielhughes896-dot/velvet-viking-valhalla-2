@@ -240,12 +240,29 @@
   }
   var enter = function(){ location.replace('/'); };
 
+  /* A hung request is not an error, so .catch() never fires for it and the
+     athlete would sit on "One moment." indefinitely. Every route decision is
+     therefore raced against a deadline: if the server has not answered in ten
+     seconds, we show the surface they can act from rather than a spinner they
+     cannot. Deciding late in favour of the sign-in screen is safe -- it grants
+     nothing, and /api/app re-resolves access before serving any runtime. */
+  function within(ms, p){
+    return new Promise(function(resolve, reject){
+      var settled = false;
+      var timer = setTimeout(function(){
+        if (!settled){ settled = true; reject(new Error('timeout')); }
+      }, ms);
+      p.then(function(v){ if (!settled){ settled = true; clearTimeout(timer); resolve(v); } },
+             function(e){ if (!settled){ settled = true; clearTimeout(timer); reject(e); } });
+    });
+  }
+
   /* ---------- routing ----------
      The server is asked where this athlete stands; the page only reacts. */
   function route(){
     var tok = consumeAuthHash() || storedToken();
     if (!tok){ show('pane-auth'); return; }
-    establish(tok).then(function(r){
+    within(10000, establish(tok)).then(function(r){
       var b = r.body || {};
       if (!b.signed_in){ show('pane-auth'); return; }
       /* Access already -- beta, trialling, paid, or inside a cancelled period.
@@ -255,7 +272,12 @@
          history; the locked shell is where that conversation belongs. */
       if (b.reason === 'expired' || b.state === 'expired'){ show('pane-locked'); return; }
       show('pane-build');
-    }).catch(function(){ show('pane-auth'); });
+    }).catch(function(){
+      /* Unreachable, refused, or too slow to be useful. The sign-in surface is
+         the one screen that works from any of those. */
+      show('pane-auth');
+      fail('auth-err', 'We could not reach Valhalla just then. Sign in to continue.');
+    });
   }
 
   /* ---------- auth ---------- */

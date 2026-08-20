@@ -166,6 +166,18 @@ test('an expired athlete lands on the locked shell, not a dead end', () => {
   assert.match(html, /Nothing has been deleted/);
 });
 
+test('a hung server does not strand the athlete on a spinner', () => {
+  // A request that never answers is not an error, so .catch() never fires for
+  // it. Without a deadline the resolving pane is a dead end.
+  const html = read('start.html');
+  assert.match(html, /function within\(ms, p\)/, 'route resolution must be time-bounded');
+  assert.match(html, /within\(10000, establish\(tok\)\)/);
+  assert.match(html, /We could not reach Valhalla just then/,
+    'and it must say something actionable rather than nothing');
+  // Falling back to sign-in grants nothing: the server still decides access.
+  assert.match(html, /show\('pane-auth'\);\s*\n\s*fail\('auth-err'/);
+});
+
 test('the front door claims no authority of its own', () => {
   const html = read('start.html');
   // It may ask, render and route. It may not decide.
