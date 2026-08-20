@@ -38,7 +38,7 @@
 -- flagged four things once the schema was live, all of them corrected in
 -- production and all of them now stated here so the repository and the
 -- deployed schema cannot drift:
---   1. touch_updated_at() has a PINNED search_path            (STEP 5)
+--   1. touch_updated_at() has a PINNED search_path of `public`  (STEP 5)
 --   2. seed_account_commercial() -- SECURITY DEFINER -- is EXECUTE-revoked
 --      from public/anon/authenticated                          (STEP 6)
 --   3. every read-own policy uses (select auth.uid()) so the planner evaluates
@@ -332,7 +332,18 @@ alter table public.billing_events enable row level security;
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
-set search_path = public, pg_catalog
+-- JUST `public`, and the omission of pg_catalog is the point.
+--
+-- Postgres searches pg_catalog IMPLICITLY FIRST unless it is named explicitly,
+-- in which case it is searched in the position given. So `public, pg_catalog`
+-- puts public AHEAD of the catalog, and a function defined in public then
+-- shadows the builtin the body calls -- demonstrated on a scratch database:
+-- with `search_path = public, pg_catalog` a public.abs(integer) wins over
+-- pg_catalog.abs(integer); with `search_path = public` it does not.
+--
+-- Naming pg_catalog looked like the more explicit, safer choice and is the
+-- weaker one. Production already carries the correct form; this file did not.
+set search_path = public
 as $$
 begin
   new.updated_at = now();

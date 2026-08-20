@@ -98,3 +98,45 @@ test('purchases and entitlements are not redefined alongside the canonical model
   assert.deepEqual(definitionsOf('commercial_accounts').concat(definitionsOf('account_commercial')),
     ['supabase-commercial-core.sql']);
 });
+
+// ---------------------------------------------------------------------------
+// FUNCTION SEARCH PATH
+//
+// Found during the fresh-environment reconstruction, and worth a test because
+// the wrong form is the one that LOOKS more careful.
+//
+// Postgres searches pg_catalog implicitly FIRST unless it is named explicitly,
+// in which case it is searched in the position given. So `search_path = public,
+// pg_catalog` puts public AHEAD of the catalog, and a function defined in
+// public then shadows the builtin a body calls. Demonstrated on a scratch
+// Postgres 16: with `public, pg_catalog` a public.abs(integer) wins over
+// pg_catalog.abs(integer); with `public` alone it does not.
+// ---------------------------------------------------------------------------
+test('no pinned search_path puts public ahead of the catalog', () => {
+  const offenders = [];
+  for (const f of sqlFiles){
+    const src = read(f);
+    const re = /set\s+search_path\s*=\s*([^\n;]+)/gi;
+    let m;
+    while ((m = re.exec(src)) !== null){
+      const path = m[1].trim().replace(/\s+/g, ' ');
+      const parts = path.split(',').map(function(x){ return x.trim(); });
+      const cat = parts.indexOf('pg_catalog');
+      /* Naming pg_catalog anywhere but first is weaker than omitting it. */
+      if (cat > 0) offenders.push(f + ' :: search_path = ' + path);
+    }
+  }
+  assert.deepEqual(offenders, [],
+    'pg_catalog named after another schema is searched after it, which lets ' +
+    'that schema shadow a builtin. Omit it, or name it first.');
+});
+
+test('the commercial core pins touch_updated_at to public alone', () => {
+  const src = read('supabase-commercial-core.sql');
+  const at = src.indexOf('function public.touch_updated_at()');
+  assert.ok(at !== -1);
+  const decl = src.slice(at, at + 1200);
+  assert.match(decl, /set search_path = public\s*$/m,
+    'production carries `public`; the repository must reproduce it exactly');
+  assert.equal(/set search_path = public,\s*pg_catalog/.test(decl), false);
+});
