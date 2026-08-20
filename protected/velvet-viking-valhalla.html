@@ -406,7 +406,11 @@
   .strat-phase-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px;}
   .strat-phase-label{font-size:var(--fs-body); font-weight:600; color:var(--ink);}
   .strat-phase-span{font-size:var(--fs-support); color:var(--ink-faint);}
-  .strat-phase-target{font-size:var(--fs-data); color:var(--bronze-text); margin-top:2px;}
+  /* Settle / Hold / Absorb carry the SAME paces and heart rates as the step
+     list above them -- gold here was the same mistake in a second place. The
+     'Conditional' tag beside them keeps its own colour: that is a qualifier
+     on the number, not the number. See .ws-target. */
+  .strat-phase-target{font-size:var(--fs-data); color:var(--ink); margin-top:2px;}
   .strat-phase-purpose{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin-top:3px;}
   .strat-phase-cue{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin-top:2px; font-style:italic;}
   .strat-phase-watch{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:3px;}
@@ -463,7 +467,19 @@
      wrapped to three lines and took over the card; at body size it reads as
      the sequence it is, and the step still leads with its name. */
   .ws-k-ladder .ws-qty{font-size:var(--fs-body); line-height:var(--lh-support);}
-  .ws-target{font-size:var(--fs-data); color:var(--bronze-text); margin-top:2px;}
+  /* A PRESCRIBED VALUE IS DATA, NOT BRAND. The same 4:10–4:19/km sits in normal
+     ink on the session summary a few lines above; rendering it gold down here
+     made one number look like two different kinds of thing. Gold now marks
+     only what gold means everywhere else -- headings, session badges, status,
+     the confidence figure -- and the prescription reads at the same weight as
+     the quantity beside it. --ink resolves per theme, so dark mode gets the
+     dark-theme ivory rather than literal black.
+
+     HR keeps --ink-faint: that is not gold, it is the same secondary weight HR
+     already has in the session summary, the Pace Reference and the Plan HQ
+     zone cards. Flattening it would break a hierarchy this pass was not
+     asked to change. */
+  .ws-target{font-size:var(--fs-data); color:var(--ink); margin-top:2px;}
   .ws-hr{font-size:var(--fs-data); color:var(--ink-faint); margin-top:1px;}
   .ws-effort{font-size:var(--fs-body); line-height:var(--lh-support); color:var(--ink-dim); margin-top:2px;}
   .ws-note{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:3px;}
@@ -640,7 +656,11 @@
   .exec-pill{font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold-text);}
   .day-title{font-weight:600; font-size:var(--fs-title); margin-top:3px; color:var(--ink);}
   .day-targets{font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
-  .day-targets .mp{color:var(--gold-text);}
+  /* Goal pace is a pace, and it sits in a row of paces and distances -- so it
+     takes the row's colour like the rest of them. Nothing is lost: the value
+     already arrives labelled ('Goal 4:30/km'), so the word did the
+     distinguishing and the gold was only saying it twice. */
+  .day-targets .mp{color:inherit;}
   /* target HR sits alongside pace/distance but reads as secondary, matching
      how HR is treated in the Pace Reference and Plan HQ zone cards. */
   .day-targets .hr{color:var(--ink-faint);}
@@ -766,7 +786,10 @@
   .slog-row.is-flank{border-left-color:var(--line-soft);}
   .slog-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:3px;}
   .slog-label{font-size:10.5px; font-weight:600; color:var(--ink); letter-spacing:.2px;}
-  .slog-presc{font-size:10px; color:var(--bronze-text);}
+  /* The prescribed value echoed beside a logging row is the SAME number the
+     step list showed. It stays secondary to the row's label, but secondary is
+     --ink-dim, not gold. See .ws-target. */
+  .slog-presc{font-size:10px; color:var(--ink-dim);}
   .slog-ins{display:flex; gap:5px;}
   .slog-in{
     flex:1 1 0; min-width:0; background:var(--bg-4); border:1px solid var(--line);
@@ -18557,8 +18580,8 @@ function renderGarminSection(){
         '<div class="desc">Not yet available</div></div>'+
       '</div>'+
       '<div class="field-hint" style="margin-top:8px;">'+
-        'Once this is switched on, connecting here is all you’ll need to do — '+
-        'your upcoming sessions will appear on your watch automatically.'+
+        'Once this is switched on, connecting here is all you’ll need to do. '+
+        'Your upcoming sessions will appear on your watch automatically.'+
       '</div>';
   } else if (c.connected){
     inner = '<div class="connect-row">'+
