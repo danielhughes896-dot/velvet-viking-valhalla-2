@@ -5516,7 +5516,25 @@ function loadState(){
       var raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw){
         var parsed = JSON.parse(raw);
-        if (parsed && parsed.setup && parsed.days){
+        /* A PLAN, OR AN ATHLETE. The guard used to require both setup and
+           days, on the reasoning that a half-written plan is worse than no
+           plan -- which was right while state held nothing but a plan.
+
+           It stopped being right the moment the athlete record existed. After
+           Reset Plan there is deliberately no setup and no days, and this
+           guard threw the whole save away and started from
+           makeDefaultState(): reset, close the app, reopen it, and every
+           archived session, every block and every measured performance was
+           gone. The reset kept the history and the next cold start deleted it.
+
+           So a save is usable if it carries a plan OR a person. The
+           half-written-plan protection is unchanged for the plan half. */
+        var hasAthlete = !!(parsed && parsed.athlete && (
+          (Array.isArray(parsed.athlete.sessions) && parsed.athlete.sessions.length) ||
+          (Array.isArray(parsed.athlete.blocks) && parsed.athlete.blocks.length) ||
+          (Array.isArray(parsed.athlete.performances) && parsed.athlete.performances.length)));
+        if (parsed && ((parsed.setup && parsed.days) || hasAthlete)){
+          if (!Array.isArray(parsed.days)) parsed.days = [];
           // 'detailed' was the old key for today's 'planhq' tab; older saves
           // predating the bottom-nav toggle entirely have no view at all --
           // both now land on 'today', the current default landing tab.
@@ -5526,6 +5544,12 @@ function loadState(){
           migrateThemePreference(parsed);
           migrateActualPaceUnits(parsed);
           state = parsed;
+          /* Every save written before the athlete record existed is a plan
+             with no person behind it. athlete() creates the record on first
+             touch; migrateAthleteRecord() additionally adopts the plan the
+             athlete is already in, so an existing block keeps its identity
+             rather than looking like it began the moment they upgraded. */
+          migrateAthleteRecord();
           syncThemeMirror();
           return;
         }
@@ -5631,8 +5655,12 @@ function makeDefaultState(){
     themeExplicit:false,
     units:'km',
     view:'today', // 'today' | 'week' | 'full' | 'planhq' | 'settings' -- which bottom-nav view is active
-    setup:null, // { distanceKey, currentVolume, raceDate, benchmark:{distanceKey,timeSec}, goals:{A,B,C:{label,timeSec}}, activeGoal:'A' }
+    setup:null, // { distanceKey, currentVolume, raceDate, benchmark:{distanceKey,timeSec}, goals:{A,B,C:{label,timeSec}}, activeGoal:'A', blockId, purpose }
     days:[],
+    /* THE PERSON, as distinct from the plan. Completed training, the block
+       ledger and measured performances all outlive whatever plan scheduled
+       them. See "THE ATHLETE" below. */
+    athlete:makeAthleteRecord(),
     experience:'experienced', // athlete experience -- see ATHLETE EXPERIENCE below; presentation only
     notifyEnabled:false // daily 08:00 workout-reminder notification toggle
   };
@@ -9778,14 +9806,652 @@ function recordAthleteState(){
   return dec;
 }
 
+/* =========================================================
+   THE ATHLETE
+   ---------------------------------------------------------
+   ATHLETE != PLAN.
+
+   A plan is a prescription with an end date. An athlete is the person, and
+   what they have actually done does not stop being true when the plan that
+   scheduled it finishes. Until now every model in this file -- baselines,
+   response, load tolerance, recovery patterns -- read state.days, and
+   state.days IS the plan. So Valhalla learned an athlete for the length of one
+   race build and then forgot them, and Reset Plan deleted the lot.
+
+   state.athlete is where the person lives. It holds three things and no more:
+
+     sessions[]      completed training that outlived its plan
+     blocks[]        the ledger: what was trained, for what, and how it ended
+     performances[]  measured efforts -- races and time trials
+
+   WHY SESSIONS ARE SNAPSHOTS AND NOT RAW DAYS. athleteMemory() interprets a
+   day against the CURRENT plan's context: trainingPhase() needs the current
+   week count, getTargetPaceRangeSecPerKm() needs the current zones, and the
+   zones move whenever the athlete recalibrates. Recomputing a session from
+   last autumn against this spring's targets would not be remembering it --
+   it would be re-judging it against a standard it was never given. So the
+   record is interpreted ONCE, at the moment the block ends and the context is
+   still correct, and stored as the record. That is the one class of derived
+   value this file persists, and it persists it because it genuinely cannot be
+   recomputed later.
+
+   WHERE IT IS STORED. Inside state, which already round-trips to localStorage
+   and to plans.data in Supabase with RLS that has been live since 3A1. No new
+   table, no migration, no second source of truth, and export/import/backup and
+   cloud restore all carry it for free. A session record is a couple of hundred
+   bytes; three years of five runs a week is well under a megabyte of jsonb.
+   ========================================================= */
+var ATHLETE_MODEL_VERSION = 1;
+
+/* What a block is FOR. The purpose drives generation, the phase vocabulary and
+   what Next Move offers afterwards. 'race' is what every existing plan is, so
+   a plan built before this existed reads as a race block and nothing changes
+   for it. */
+var BLOCK_PURPOSES = ['race', 'recovery', 'maintain', 'base', 'speed'];
+var BLOCK_PURPOSE_META = {
+  race:     { label:'Race Build',                 goalTerm:'race' },
+  recovery: { label:'Recovery',                   goalTerm:'return to training' },
+  maintain: { label:'Maintain & Protect',         goalTerm:'staying sharp' },
+  base:     { label:'Aerobic Base',               goalTerm:'building capacity' },
+  speed:    { label:'Speed & Threshold',          goalTerm:'sharpening' }
+};
+function isBlockPurpose(p){ return BLOCK_PURPOSES.indexOf(p) !== -1; }
+function blockPurposeLabel(p){
+  var m = BLOCK_PURPOSE_META[p];
+  return m ? m.label : BLOCK_PURPOSE_META.race.label;
+}
+
+function makeAthleteRecord(){
+  return { version: ATHLETE_MODEL_VERSION, sessions: [], blocks: [], performances: [] };
+}
+
+/* Adopt a plan that predates the athlete record. The block is back-dated to
+   the plan's own origin rather than to today, so an athlete eight weeks into a
+   marathon build does not appear to have started it this morning -- the same
+   principle as blockAnchor(), for the same reason.
+
+   Measured performances already run are recovered here too: a checkpoint or a
+   race completed before this existed is a real measurement, and the alternative
+   is an athlete whose fitness history starts blank despite the evidence being
+   right there in their plan. Nothing is invented -- performanceFromDay()
+   refuses anything that is not a completed maximal effort with a real time. */
+function migrateAthleteRecord(){
+  var a = athlete();
+  if (!state.setup || !Array.isArray(state.days) || !state.days.length) return a;
+  if (state.setup.blockId && blockById(state.setup.blockId)) return a;
+
+  var b = openBlock({
+    purpose: isBlockPurpose(state.setup.purpose) ? state.setup.purpose : 'race',
+    startDate: state.setup.startDate || state.days[0].date,
+    distanceKey: state.setup.distanceKey || null,
+    goalDate: state.setup.raceDate || null,
+    hasEvent: planHasEvent(state.setup)
+  });
+  state.setup.blockId = b.id;
+  if (!isBlockPurpose(state.setup.purpose)) state.setup.purpose = b.purpose;
+  state.days.forEach(function(dd){
+    if (dd.completed && (dd.type === 'race' || dd.type === 'checkpoint')) recordMeasuredPerformance(dd);
+  });
+  return a;
+}
+
+/* The one accessor. Every read and write goes through it, so a state saved
+   before this existed -- or hand-edited, or restored from an old backup --
+   gains the record on first touch instead of throwing. */
+function athlete(){
+  if (!state.athlete || typeof state.athlete !== 'object') state.athlete = makeAthleteRecord();
+  var a = state.athlete;
+  if (!Array.isArray(a.sessions)) a.sessions = [];
+  if (!Array.isArray(a.blocks)) a.blocks = [];
+  if (!Array.isArray(a.performances)) a.performances = [];
+  if (a.version == null) a.version = ATHLETE_MODEL_VERSION;
+  return a;
+}
+
+/* ---------- the block ledger ----------
+   Deliberately thin. A block is an identity, a purpose, when it ran and how it
+   ended -- and nothing that can be derived from the sessions inside it.
+
+   The CURRENT block is not stored here twice: setup.blockId points at its
+   ledger row, and setup itself remains the authority on the live plan. */
+function newBlockId(){
+  /* Date plus a short random suffix. Readable in a debug dump, and unique
+     enough that two blocks started on one day cannot collide. */
+  return 'blk-' + todayStr() + '-' + Math.random().toString(36).slice(2, 8);
+}
+function currentBlock(){
+  var id = state.setup && state.setup.blockId;
+  if (!id) return null;
+  return athlete().blocks.filter(function(b){ return b.id === id; })[0] || null;
+}
+function blockById(id){
+  return athlete().blocks.filter(function(b){ return b.id === id; })[0] || null;
+}
+function openBlock(opts){
+  var o = opts || {};
+  var purpose = isBlockPurpose(o.purpose) ? o.purpose : 'race';
+  var b = {
+    id: o.id || newBlockId(),
+    purpose: purpose,
+    startDate: o.startDate || todayStr(),
+    endDate: o.endDate || null,
+    distanceKey: o.distanceKey || null,
+    goalDate: o.goalDate || null,          // race date, or the block's goal day
+    hasEvent: o.hasEvent !== false,
+    status: 'active',
+    outcome: null,
+    openedAt: new Date().toISOString()
+  };
+  athlete().blocks.push(b);
+  if (athlete().blocks.length > 60) athlete().blocks = athlete().blocks.slice(-60);
+  return b;
+}
+/* Ending a block is a statement about the block, never about the training
+   inside it: the sessions are archived separately and survive whatever is
+   concluded here. */
+function closeBlock(id, outcome){
+  var b = blockById(id);
+  if (!b || b.status !== 'active') return null;
+  b.status = 'closed';
+  b.endDate = todayStr();
+  b.closedAt = new Date().toISOString();
+  if (outcome) b.outcome = outcome;
+  return b;
+}
+
+/* ---------- archiving ----------
+   THE OWNERSHIP BOUNDARY, stated once:
+
+     the plan owns   what is scheduled -- everything from today forward
+     the athlete owns what was done    -- every session that actually happened
+
+   So this takes exactly the days that carry history, interprets each one while
+   the plan that scheduled it is still loaded, and files the result under the
+   athlete. A future prescription is NOT history and is never archived: an
+   abandoned plan's remaining weeks are a plan nobody ran, and writing them
+   into the athlete's record would fabricate training.
+
+   Idempotent by date. Re-archiving the same block adds nothing, so an
+   interrupted reset, a double-tap or a rebuild that runs twice cannot
+   duplicate a session. */
+function archiveCompletedSessions(blockId){
+  var a = athlete();
+  var have = {};
+  a.sessions.forEach(function(s){ have[s.date] = true; });
+  var records = athleteMemoryFromDays(state.days, null);
+  var added = 0;
+  records.forEach(function(r){
+    /* Only what actually happened. A day admitted to the memory for a DECISION
+       about a session still ahead is not training and is not archived -- the
+       decision belongs to a plan that is ending. */
+    if (!r.completed) return;
+    if (have[r.date]) return;
+    have[r.date] = true;
+    r.blockId = blockId || (state.setup && state.setup.blockId) || null;
+    a.sessions.push(r);
+    added++;
+  });
+  a.sessions.sort(function(x, y){ return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
+  return added;
+}
+
+/* ---------- measured performances ----------
+   The honest input for longitudinal fitness, and the ONLY one.
+
+   Every pace zone in this product descends from getActiveVDOT(), which reads
+   the athlete's GOAL TIME. That is an aspiration. Charting it as fitness would
+   show an athlete their own changing ambition and call it progress, which is
+   the most misleading thing this programme could possibly ship.
+
+   A race and a Fitness Checkpoint are different: both are maximal efforts over
+   a known distance, actually run. vdotFromPerformance() on one of those is a
+   measurement. Nothing else qualifies, and an ordinary training session never
+   will, however fast it was. */
+function performanceFromDay(dd){
+  if (!dd || !dd.completed) return null;
+  if (dd.type !== 'race' && dd.type !== 'checkpoint') return null;
+  var a = dd.actual || {};
+  var km = (a.km != null) ? a.km : dd.km;
+  var paceSec = actualPaceSecPerKm(dd);
+  if (!km || km <= 0 || paceSec == null || !(paceSec > 0)) return null;
+  var timeSec = Math.round(km * paceSec);
+  /* Below about 3km the VDOT relationship is not the tool for the job, and a
+     mis-logged distance is more likely than a genuine effort that short. */
+  if (km < 3) return null;
+  var vdot = vdotFromPerformance(km * 1000, timeSec);
+  if (!vdot || !isFinite(vdot)) return null;
+  return {
+    date: dd.date,
+    source: dd.type === 'race' ? 'race' : 'checkpoint',
+    km: Math.round(km * 100) / 100,
+    timeSec: timeSec,
+    vdot: Math.round(vdot * 10) / 10,
+    blockId: (state.setup && state.setup.blockId) || null,
+    /* Whether the effort was run as a maximal one. A race the athlete jogged
+       as a training run is not a measurement of their ceiling, and the outcome
+       question is what settles it. */
+    qualified: true
+  };
+}
+/* Recorded when a race or checkpoint is completed. Keyed on the date, so
+   re-logging the same effort corrects the record rather than adding a second
+   one -- an athlete fixing a typo must not create a second fitness point. */
+function recordMeasuredPerformance(dd){
+  var p = performanceFromDay(dd);
+  if (!p) return null;
+  var a = athlete();
+  var i = -1;
+  a.performances.forEach(function(x, n){ if (x.date === p.date) i = n; });
+  if (i === -1) a.performances.push(p); else a.performances[i] = p;
+  a.performances.sort(function(x, y){ return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
+  if (a.performances.length > 80) a.performances = a.performances.slice(-80);
+  return p;
+}
+function measuredPerformances(){
+  return athlete().performances.filter(function(p){ return p && p.qualified !== false; });
+}
+function forgetMeasuredPerformance(date){
+  var a = athlete();
+  var before = a.performances.length;
+  a.performances = a.performances.filter(function(p){ return p.date !== date; });
+  return before - a.performances.length;
+}
+/* Disqualify rather than delete. An athlete who jogged their goal race as a
+   training run, or who started and stopped, really did run that day -- the
+   session stays in the record as training. What it is not is a measurement of
+   their ceiling, so it stops counting as one and says why. */
+function disqualifyMeasuredPerformance(date, reason){
+  var hit = athlete().performances.filter(function(p){ return p.date === date; })[0];
+  if (!hit) return null;
+  hit.qualified = false;
+  hit.disqualifiedReason = reason || 'not_maximal';
+  return hit;
+}
+
+/* =========================================================
+   THE YEAR-ROUND LIFECYCLE
+   ---------------------------------------------------------
+   Race preparation -> race -> recovery -> development -> next goal.
+
+   NO NEW TRAINING METHODOLOGY IS INVENTED HERE. Every block below is built by
+   the SAME generator that builds a race block -- buildBlockWeeks() and
+   buildDaysFromWeeks() -- given a different distance profile, a different
+   volume and a different length. A development block is a plan with
+   hasEvent:false, a capability the product already shipped and already words
+   correctly everywhere through vGoalDay()/vGoalWeek()/vShakeout().
+
+   What IS new, and is deliberately small:
+     - how long a block of each purpose runs
+     - what volume it starts from, taken from what this athlete has actually
+       absorbed rather than from a rule of thumb
+     - a deterministic ceiling on intensity after a race
+
+   Everything else -- session mix, progression, taper, prescriptions, pace and
+   heart-rate targets -- is untouched.
+   ========================================================= */
+
+/* ---------- post-race recovery ----------
+   DETERMINISTIC AND CONSERVATIVE. These are safety floors, not model outputs,
+   and nothing an athlete logs can shorten them. The ordering is the part that
+   is genuinely well supported: the longer and harder the race, the longer the
+   return. The exact numbers are a conservative reading of ordinary coaching
+   practice and are stated here so they can be reviewed as numbers rather than
+   discovered inside a generator.
+
+   `noIntensityDays` is the window in which no quality session is prescribed at
+   all. `weeks` is the length of the recovery block. `volumeFactor` is the
+   fraction of the athlete's own recent absorbed volume the block starts from
+   -- their own training, not a table. */
+var RECOVERY_PROFILE = {
+  '5k':    { weeks:1, noIntensityDays:4,  volumeFactor:0.55 },
+  '10k':   { weeks:1, noIntensityDays:6,  volumeFactor:0.55 },
+  'half':  { weeks:2, noIntensityDays:10, volumeFactor:0.50 },
+  'full':  { weeks:3, noIntensityDays:18, volumeFactor:0.40 },
+  'ultra': { weeks:4, noIntensityDays:24, volumeFactor:0.35 }
+};
+function recoveryProfileFor(distanceKey){
+  return RECOVERY_PROFILE[distanceKey] || RECOVERY_PROFILE.half;
+}
+
+/* What this athlete has actually shown they absorb, in km per week.
+   loadToleranceModel() already learns this and already gates itself on
+   confidence; this is the one place that converts it into a number a
+   generator can use, and it falls back to the volume the athlete themselves
+   entered rather than to an invented figure. */
+function absorbedWeeklyVolume(){
+  var stated = (state.setup && state.setup.currentVolume) || null;
+  var model = null;
+  try { model = athleteResponseModel(); } catch(e){ model = null; }
+  var lt = model && model.loadTolerance;
+  if (lt && lt.confidence !== 'insufficient' && lt.absorbedVolume && lt.absorbedVolume.typical)
+    return { km: lt.absorbedVolume.typical, source: 'measured', confidence: lt.confidence };
+  return { km: stated, source: stated ? 'stated' : 'unknown', confidence: 'insufficient' };
+}
+
+/* ---------- what each purpose builds ----------
+   Length and volume only. `distanceFor` picks which existing distance profile
+   supplies the session mix, so a speed block trains the way the product
+   already trains 5K athletes and a base block the way it already trains the
+   athlete's own event. */
+function developmentBlockSpec(purpose, opts){
+  var o = opts || {};
+  var absorbed = absorbedWeeklyVolume();
+  var lastDistance = o.distanceKey || (state.setup && state.setup.distanceKey) || 'half';
+  var base = absorbed.km;
+
+  if (purpose === 'recovery'){
+    var rp = recoveryProfileFor(o.raceDistanceKey || lastDistance);
+    return { purpose:'recovery', weeks: rp.weeks, distanceKey: lastDistance,
+             volume: base ? Math.round(base * rp.volumeFactor) : null,
+             noIntensityDays: rp.noIntensityDays, volumeSource: absorbed.source };
+  }
+  if (purpose === 'maintain'){
+    /* Maintenance holds fitness rather than building it, so volume sits below
+       what the athlete absorbs while intensity is preserved -- reducing
+       frequency and volume but keeping some quality is the part of the
+       maintenance literature that is actually well supported. Eight weeks is
+       a review point, not a limit: Next Move asks what is next rather than
+       the block simply stopping. */
+    return { purpose:'maintain', weeks: o.weeks || 8, distanceKey: lastDistance,
+             volume: base ? Math.round(base * 0.75) : null, volumeSource: absorbed.source };
+  }
+  if (purpose === 'base'){
+    /* Starts at what was absorbed, not above it. The generator's own
+       progression and cutbacks then do the building -- there is deliberately
+       no "+10% a week" anywhere, because the progression that matters is
+       whether the athlete absorbed the last block, which loadToleranceModel()
+       already answers. */
+    return { purpose:'base', weeks: o.weeks || 10, distanceKey: lastDistance,
+             volume: base, volumeSource: absorbed.source };
+  }
+  if (purpose === 'speed'){
+    /* The 5K profile already carries emphasis:'speed' and the block name
+       "Speed & Threshold Block". Reusing it means no new intensity
+       methodology is written for this programme at all. */
+    return { purpose:'speed', weeks: o.weeks || 6, distanceKey: '5k',
+             volume: base, volumeSource: absorbed.source };
+  }
+  return null;
+}
+
+/* ---------- the intensity ceiling ----------
+   The one thing a generated recovery block cannot express on its own. Within
+   the no-intensity window every quality session becomes easy running of the
+   same distance; the session is not deleted, because a day the athlete can
+   run is better than a hole in the week.
+
+   Deterministic. No athlete evidence shortens this window -- one good easy
+   run is not permission to do a threshold session nine days after a marathon,
+   and that is precisely the intervention the product must not make. */
+var RECOVERY_QUALITY_TYPES = ['tempo','threshold','interval','repetition','checkpoint','race'];
+function applyRecoveryCeiling(days, raceDate, noIntensityDays){
+  var until = addDays(raceDate, noIntensityDays);
+  (days || []).forEach(function(dd){
+    if (dd.date > until) return;
+    if (RECOVERY_QUALITY_TYPES.indexOf(dd.type) === -1) return;
+    dd.type = 'easy';
+    dd.title = 'Easy Aerobic';
+    dd.desc = 'Easy running only — you are still recovering. Conversational the whole way.';
+    dd.recoveryCeiling = true;
+    if (dd.prescription) delete dd.prescription;
+  });
+  return days;
+}
+
+/* ---------- race outcome ----------
+   Valhalla must not decide on its own that somebody did not finish. A short
+   activity on race day is a DNF, a training run, a mis-logged distance or a
+   watch that died, and the data cannot tell those apart -- so the athlete is
+   asked, once, and the answer is the authority.
+
+   The question is only ever pending when the goal day has actually passed. */
+var RACE_OUTCOMES = ['raced','dns','dnf','later'];
+function raceOutcomePending(){
+  var su = state.setup;
+  if (!su || !su.raceDate) return false;
+  if (su.purpose && su.purpose !== 'race') return false;
+  if (su.raceDate >= todayStr()) return false;
+  var b = currentBlock();
+  if (b && b.outcome && b.outcome.race) return false;
+  return true;
+}
+function recordRaceOutcome(outcome, opts){
+  if (RACE_OUTCOMES.indexOf(outcome) === -1) return null;
+  var o = opts || {};
+  var b = currentBlock();
+  if (!b) return null;
+  b.outcome = b.outcome || {};
+  b.outcome.race = { outcome: outcome, at: new Date().toISOString(), date: state.setup.raceDate };
+
+  var raceDay = findDayByDate(state.setup.raceDate);
+  if (outcome === 'dns'){
+    /* Did not start. There is no performance and there was no race: the day
+       is not a completed session and must never become a measurement. */
+    if (raceDay){ raceDay.completed = false; if (raceDay.actual) raceDay.actual = null; }
+    forgetMeasuredPerformance(state.setup.raceDate);
+  } else if (outcome === 'dnf'){
+    /* Did not finish. Whatever was run is real training and stays logged --
+       but it is not a measurement of what this athlete can do over the
+       distance, so it stops counting as one. */
+    disqualifyMeasuredPerformance(state.setup.raceDate, 'dnf');
+  } else if (outcome === 'raced'){
+    if (raceDay && raceDay.completed) recordMeasuredPerformance(raceDay);
+  }
+  scheduleSave();
+  return b.outcome.race;
+}
+
+/* ---------- measured progression ----------
+   WHAT IS CLAIMED, AND WHAT IS NOT.
+
+   CLAIMED: "your measured fitness moved between these two efforts you actually
+   ran." Both endpoints are races or time trials over a known distance, so the
+   comparison is between two measurements.
+
+   NOT CLAIMED, ever: that a changing goal time is a changing fitness. Every
+   pace zone descends from getActiveVDOT(), which reads the athlete's GOAL --
+   an aspiration. Plotting that as progress would show somebody their own
+   ambition and call it improvement. Nothing below can reach a goal time.
+
+   NOT CLAIMED either: a continuous trend line. Two points a season apart are
+   two points. They are reported as points, with their dates, and the athlete
+   can see the gap for themselves. */
+function measuredProgression(){
+  var perfs = measuredPerformances();
+  if (perfs.length < 2) return { enough:false, points: perfs.slice(), latest: perfs[perfs.length-1] || null };
+  var first = perfs[0], last = perfs[perfs.length - 1];
+  return {
+    enough: true,
+    points: perfs.slice(),
+    latest: last,
+    previous: perfs[perfs.length - 2],
+    /* Direction only, against the immediately previous measurement -- the
+       comparison an athlete actually asks about. */
+    movedSince: perfs[perfs.length - 2].date,
+    improved: last.vdot > perfs[perfs.length - 2].vdot,
+    spanDays: daysBetween(first.date, last.date)
+  };
+}
+
+/* An equivalent-performance range from measured evidence only.
+   RANGE, NOT A TIME. Equivalence across distances is a good model and not a
+   promise, so a single number would be false precision. The band is
+   deliberately wide enough to be honest. */
+function measuredFitnessEstimate(distanceKey){
+  var perfs = measuredPerformances();
+  if (!perfs.length) return null;
+  var p = perfs[perfs.length - 1];
+  var profile = DISTANCE_PROFILES[distanceKey];
+  if (!profile) return null;
+  var mid = equivalentTimeSec(p.vdot, profile.raceKm * 1000);
+  if (!mid || !isFinite(mid)) return null;
+
+  /* MARATHON IS DIFFERENT AND IS TREATED DIFFERENTLY. Equivalence from a short
+     effort systematically over-predicts the marathon for an athlete who has
+     not done the volume -- the limiter is not the same one. So a marathon
+     estimate is only offered when this athlete's own absorbed volume supports
+     it, and is withheld rather than caveated when it does not. */
+  if (distanceKey === 'full'){
+    var absorbed = absorbedWeeklyVolume();
+    if (absorbed.source !== 'measured' || !absorbed.km || absorbed.km < 50)
+      return { distanceKey: distanceKey, withheld: true,
+               reason: 'Not enough sustained weekly volume yet to estimate a marathon honestly.' };
+  }
+  var spread = distanceKey === 'full' ? 0.05 : distanceKey === 'half' ? 0.035 : 0.025;
+  return {
+    distanceKey: distanceKey,
+    withheld: false,
+    fastSec: Math.round(mid * (1 - spread)),
+    slowSec: Math.round(mid * (1 + spread)),
+    fromDate: p.date,
+    fromSource: p.source
+  };
+}
+
+/* ---------- building a development block ----------
+   The same three calls handleGeneratePlan() makes, with the block's purpose
+   choosing the inputs instead of a form. The athlete's schedule, units, zones,
+   goals, benchmark and experience are all carried through untouched: they
+   chose a new objective, not a new life.
+
+   The current block is archived and closed first, so the training already done
+   becomes athlete history before the prescription that scheduled it goes. */
+function startDevelopmentBlock(purpose, opts){
+  var o = opts || {};
+  if (!isBlockPurpose(purpose) || purpose === 'race') return null;
+  if (!state.setup || !state.setup.schedule) return null;
+
+  var spec = developmentBlockSpec(purpose, o);
+  if (!spec || !spec.volume || spec.volume <= 0) return null;
+
+  var schedule = state.setup.schedule;
+  var prevRaceDate = state.setup.raceDate;
+  var prevBlockId = state.setup.blockId;
+
+  /* Recovery begins the day after the race; everything else begins on the
+     athlete's next available running day. */
+  var startDate = purpose === 'recovery' && prevRaceDate
+    ? firstActiveDayOnOrAfter(maxDateStr(addDays(prevRaceDate, 1), todayStr()), schedule.activeDays)
+    : firstActiveDayOnOrAfter(todayStr(), schedule.activeDays);
+
+  var startMonday = addDays(startDate, -isoWeekday(startDate));
+  var goalDate = addDays(startMonday, spec.weeks * 7 - 1);
+  if (goalDate <= startDate) return null;
+
+  /* Archive BEFORE the prescription is replaced -- the interpretation needs
+     the plan that scheduled it to still be loaded. */
+  archiveCompletedSessions(prevBlockId);
+  if (prevBlockId) closeBlock(prevBlockId, { reason: 'transition', to: purpose });
+
+  var blockResult = buildBlockWeeks(spec.distanceKey, spec.volume,
+    daysBetween(startMonday, addDays(goalDate, -isoWeekday(goalDate)))/7 + 1);
+  var days = buildDaysFromWeeks(blockResult, goalDate, schedule, startDate, false);
+  if (purpose === 'recovery' && prevRaceDate)
+    days = applyRecoveryCeiling(days, prevRaceDate, spec.noIntensityDays);
+
+  /* NO reconcileRegeneratedDays HERE, and the distinction matters.
+     That function exists for a REBUILD, where the history belongs to the block
+     being rebuilt and must keep its week inside it. This is a different block:
+     the previous one's training has just been archived to the athlete, where
+     every model still reads it. Merging those days in would put a marathon
+     build's sessions inside a recovery block, before its week 1 -- exactly the
+     week-zero shape the history-placement fix removed. */
+
+  var block = openBlock({ purpose: purpose, startDate: startDate,
+                          distanceKey: spec.distanceKey, goalDate: goalDate, hasEvent: false });
+  block.fromBlockId = prevBlockId || null;
+  block.volumeSource = spec.volumeSource;
+
+  state.setup = {
+    distanceKey: spec.distanceKey, currentVolume: spec.volume,
+    raceDate: goalDate, hasEvent: false,
+    startDate: startDate, planWeeks: blockResult.planWeeks,
+    schedule: schedule,
+    blockId: block.id, purpose: purpose,
+    benchmark: state.setup.benchmark, goals: state.setup.goals, activeGoal: state.setup.activeGoal,
+    paceOverrides: state.setup.paceOverrides || {},
+    lthr: state.setup.lthr, maxHR: state.setup.maxHR,
+    experience: state.setup.experience
+  };
+  state.days = days;
+  initExpanded();
+  scheduleSave();
+  return block;
+}
+function maxDateStr(a, b){ return a > b ? a : b; }
+
+/* ---------- what comes next ----------
+   RECOMMEND, NEVER SEIZE. This returns one suggestion and a reason; the
+   athlete chooses, and choosing nothing is a legitimate answer.
+
+   The only transition Valhalla offers unprompted is recovery after a race,
+   because the alternative is silence at the moment the athlete is most
+   invested -- which is what the product did before this programme. */
+function nextBlockRecommendation(){
+  var su = state.setup;
+  if (!su || !state.days || !state.days.length) return null;
+  var purpose = isBlockPurpose(su.purpose) ? su.purpose : 'race';
+  var today = todayStr();
+  var lastDay = state.days[state.days.length - 1];
+  var goalPassed = su.raceDate && su.raceDate < today;
+  var nearEnd = lastDay && daysBetween(today, lastDay.date) <= 7;
+
+  if (purpose === 'race' && goalPassed){
+    if (raceOutcomePending()) return { kind:'race_outcome' };
+    var b = currentBlock();
+    var oc = b && b.outcome && b.outcome.race && b.outcome.race.outcome;
+    if (oc === 'dns') return { kind:'block', purpose:'maintain',
+      why:'You did not start, so there is nothing to recover from — let us keep the fitness you built.' };
+    return { kind:'block', purpose:'recovery',
+      why:'You raced. The next few weeks are for recovering properly, not for training through it.' };
+  }
+  if (!nearEnd && !goalPassed) return null;
+
+  if (purpose === 'recovery') return { kind:'choice', options:['maintain','base','speed','race'],
+    why:'Recovery is done. What would you like to build next?' };
+  if (purpose === 'maintain') return { kind:'choice', options:['base','speed','race','maintain'],
+    why:'You have held your fitness. Ready to build something, or keep ticking over?' };
+  if (purpose === 'base') return { kind:'choice', options:['race','speed','maintain'],
+    why:'You have built the capacity. A race block would use it.' };
+  if (purpose === 'speed') return { kind:'choice', options:['race','base','maintain'],
+    why:'Sharpening done. A race block or some base work would both follow well.' };
+  return { kind:'choice', options:['recovery','maintain','base','speed','race'], why:null };
+}
+
 /* One evidence record per completed session -- section by section, what the
    athlete did, what the coach saw, and what it decided. Derived from stored
    data, so it can never disagree with the workout it describes. */
 function athleteMemory(limitDays){
   var today = todayStr();
   var from = addDays(today, -(limitDays || 120));
-  return state.days.filter(function(dd){
-    if (dd.date < from) return false;
+  /* LONGITUDINAL. Archived sessions first, then the live plan interpreted as
+     it always was. The live plan WINS any date they share: a day still in
+     state.days is the current, editable truth, and an archive entry for the
+     same date can only be a leftover from a block that was rebuilt rather than
+     replaced.
+
+     The window is unchanged. Widening the memory means it can now reach
+     BEYOND the current plan, not further back in time -- every caller's
+     confidence gating, sample counts and staleness rules keep working exactly
+     as they were tuned. */
+  var live = athleteMemoryFromDays(state.days, from);
+  var seen = {};
+  live.forEach(function(r){ seen[r.date] = true; });
+  var archived = athlete().sessions.filter(function(s){
+    return s && s.date >= from && s.date <= today && !seen[s.date];
+  });
+  return archived.concat(live)
+    .sort(function(x, y){ return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
+}
+
+/* The original body, unchanged in what it computes, taken as a parameter so
+   the same interpretation serves the live plan and the archive snapshot. */
+function athleteMemoryFromDays(days, from){
+  var today = todayStr();
+  /* `from` null means "no window" -- what archiving wants, because a block is
+     archived whole rather than only its recent weeks. */
+  return (days || []).filter(function(dd){
+    if (from && dd.date < from) return false;
     /* Rest days normally carry nothing worth remembering -- but the morning
        after a long run is usually a rest day, and that is exactly when an
        athlete reports heavy legs. A rest day is included only when it carries
@@ -15845,8 +16511,19 @@ function coachPersistReview(dd){
   // accidental completion leaves behind when it is corrected.
   if (!dd.completed){
     if (dd.coachReview) delete dd.coachReview;
+    /* A race or checkpoint that is no longer complete is no longer a
+       measurement. Leaving the performance behind would keep a fitness point
+       the athlete has just told us did not happen. */
+    forgetMeasuredPerformance(dd.date);
     return null;
   }
+  /* MEASURED FITNESS IS RECORDED HERE, AND ONLY HERE.
+     Same reason the block review is: logging or editing a session is the only
+     thing that can produce a new measurement, and the render path must never
+     create evidence. performanceFromDay() refuses anything that is not a
+     completed race or checkpoint with a real distance and a real time, so an
+     ordinary training session -- however fast -- can never become one. */
+  if (dd.type === 'race' || dd.type === 'checkpoint') recordMeasuredPerformance(dd);
   var review = coachWorkoutReview(dd);
   if (review){ review.inputHash = reviewInputHash(dd); dd.coachReview = review; }
   else if (dd.coachReview) delete dd.coachReview;
@@ -17490,10 +18167,32 @@ function handleGeneratePlan(){
   var reconciled = reconcileRegeneratedDays(state.days, days, startDate);
   days = reconciled.days;
 
+  /* WHICH BLOCK IS THIS?
+     A REBUILD keeps the block it is rebuilding -- same identity, same origin,
+     same ledger row -- because re-tailoring a plan is not starting a new
+     phase of training. A build with no block to rebuild opens one.
+
+     Purpose is carried through a rebuild and defaults to 'race', so every plan
+     that existed before this programme reads as exactly what it is. */
+  var rebuilding = !!(state.setup && state.setup.blockId && blockById(state.setup.blockId)
+                      && state.days && state.days.length);
+  var purpose = (state.setup && isBlockPurpose(state.setup.purpose)) ? state.setup.purpose : 'race';
+  var block = rebuilding ? blockById(state.setup.blockId)
+                         : openBlock({ purpose: purpose, startDate: startDate,
+                                       distanceKey: distanceKey, goalDate: raceDate,
+                                       hasEvent: hasEvent });
+  if (rebuilding){
+    block.distanceKey = distanceKey;
+    block.goalDate = raceDate;
+    block.hasEvent = hasEvent;
+  }
+
   state.setup = {
     distanceKey: distanceKey, currentVolume: volume, raceDate: raceDate, hasEvent: hasEvent,
     startDate: startDate, planWeeks: blockResult.planWeeks,
     schedule: schedule,
+    // which block this prescription belongs to, and what it is for
+    blockId: block.id, purpose: purpose,
     benchmark: benchSec ? { distanceKey:benchDist, timeSec:benchSec } : (state.setup?state.setup.benchmark:null),
     goals: goals, activeGoal: activeGoal,
     paceOverrides: state.setup ? (state.setup.paceOverrides || {}) : {},
@@ -17724,16 +18423,35 @@ function openSettingsModal(){
   '</div>';
   openModal(html);
 }
+/* RESET IS A NEW BLOCK, NOT AMNESIA.
+//
+   This used to empty state.days, and state.days was where every model in the
+   product kept its evidence -- so pressing Reset Plan deleted the athlete's
+   baselines, their learned recovery patterns, their volume tolerance and every
+   measured performance they had ever run. The confirmation said so, which made
+   it honest and did not make it right: an athlete choosing a new race is not
+   asking to be forgotten.
+
+   Now the completed training is archived to the athlete first, and only the
+   PRESCRIPTION is cleared. A plan nobody ran does not become history -- the
+   remaining weeks of an abandoned block are discarded exactly as they always
+   were, because archiving them would fabricate training.
+
+   The wording changes with the behaviour. Saying "all logged runs" when the
+   runs are kept would be the same defect in the other direction. */
 function handleResetPlan(){
-  var ok = window.confirm('Reset everything and start over? This clears your whole plan, schedule and all logged runs \u2014 it can\u2019t be undone.');
+  var ok = window.confirm('Start a new training block? This clears your current plan and schedule. Your logged runs and everything Valhalla has learned about your training are kept.');
   if (!ok) return;
+  var id = state.setup && state.setup.blockId;
+  archiveCompletedSessions(id);
+  if (id) closeBlock(id, { reason:'reset' });
   state.setup = null;
   state.days = [];
   expandedWeeks = {};
   closeModal();
   scheduleSave();
   renderApp();
-  showToast('Plan reset \u2014 build a new one whenever you\u2019re ready');
+  showToast('Plan cleared \u2014 your training history is kept. Build a new block whenever you\u2019re ready');
 }
 function handleExportJson(){
   saveTextFile({
