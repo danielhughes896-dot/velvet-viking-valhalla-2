@@ -350,7 +350,13 @@
   .zone-card{margin:10px 14px 14px; padding:12px 13px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .zone-head{display:flex; align-items:center; justify-content:space-between; font-size:11.5px; margin-bottom:9px;}
   .zone-head span:first-child{text-transform:uppercase; letter-spacing:1px; color:var(--ink-dim); font-size:10.5px;}
-  .zone-time{color:var(--gold-text);}
+  /* Time-on-feet is a duration -- a metric, like every pace and distance in
+     the app, and metrics are ink. --ink rather than --ink-dim because it is
+     the one hard figure in the card and its own label, plus the legend, are
+     already --ink-dim: dimming it too would flatten the card to a single grey
+     and the figure would stop reading as the figure. Same relationship
+     .ws-qty has to .ws-name. */
+  .zone-time{color:var(--ink);}
   .zbar{display:flex; height:9px; border-radius:99px; overflow:hidden; background:var(--bg-4);}
   .zbar-seg{height:100%;}
   .z-easy{background:var(--c-easy);}

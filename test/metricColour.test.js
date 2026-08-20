@@ -23,7 +23,10 @@ const APP = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla
 const VALUE_RULES = ['.ws-target', '.ws-hr', '.ws-qty', '.ws-effort', '.ws-note',
                      '.strat-phase-target', '.strat-phase-span',
                      '.day-targets', '.day-targets .mp', '.day-targets .hr',
-                     '.slog-presc'];
+                     '.slog-presc',
+                     // a duration is a metric too: 'time-on-feet' in the
+                     // Weekly Zone Breakdown is a figure, not a heading
+                     '.zone-time'];
 
 function ruleBody(sel){
   // the declaration block for `sel{...}` -- anchored so `.ws-target` does not
