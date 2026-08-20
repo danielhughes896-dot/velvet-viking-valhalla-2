@@ -58,6 +58,42 @@
     --c-track:var(--bronze); --c-track-soft:rgba(192,146,63,0.16);
     --c-long:#5E93AC; --c-long-soft:rgba(94,147,172,0.16);
     --c-gold:var(--gold); --c-gold-soft:rgba(227,177,90,0.20);
+
+    /* ---------- VALHALLA VIOLET ----------
+       GOLD REMAINS THE IDENTITY. This is an accent for a specific, closed set
+       of things -- progression and the one interaction that changes the whole
+       app's appearance -- and it is a token precisely so that set stays
+       closed: a scattered hex is how an accent becomes a second brand.
+
+       Every section heading, every card, every other button and every
+       existing gold surface is deliberately untouched.
+
+       The hue was not picked at random. The dark theme's own near-blacks
+       (#151417, #232126) already sit at 255-264deg, so a violet at ~271deg is
+       the same family the product was already built in rather than a colour
+       imported from outside it. Deep royal rather than bright: on cream,
+       #4C2A6B reads 10.06:1, close to ink's authority, and carries white at
+       11.35:1 on a filled button.
+
+       Dark mode inverts the problem -- #4C2A6B on #151417 is 1.62:1 and
+       invisible -- so the accent lightens to #A88FD8 (6.63:1) rather than the
+       component being redesigned.
+
+       --violet-ink is the one token that does NOT flip with the theme. It is
+       the numeral inside a violet node, and that node is light in BOTH themes,
+       so the numeral is dark in both: #171717 on the light fill is 14.22:1,
+       and on the dark-theme fill 6.48:1. Flipping it to --ink would make the
+       dark-mode numerals ivory-on-lilac and unreadable. */
+    --violet:#A88FD8;
+    --violet-soft:#A88FD8;              /* node fill; the accent itself here */
+    --violet-line:rgba(168,143,216,0.34);
+    --violet-dim:rgba(168,143,216,0.45);
+    --violet-2:#B79FDF;                 /* gradient partner, lighter here */
+    --violet-ink:#171717;               /* numerals inside a node, both themes */
+    /* A filled violet button is DEEP in light and LIGHT in dark, so its label
+       has to flip: white on #4C2A6B is 11.35:1, white on #A88FD8 is 2.77:1 and
+       unreadable. Dark ink on the dark-theme violet is 6.48:1. */
+    --violet-btn-ink:#171717;
     /* ---------- TYPOGRAPHY SCALE (readability prototype) ----------
        Beta feedback: coaching/body copy read small next to apps like Strava,
        whose body text sits around 14-16px. Valhalla's primary copy was
@@ -136,6 +172,18 @@
     --ctl-disabled-bg:#EDEAE1; --ctl-disabled-text:#847E71; --ctl-disabled-border:#C4BCA6;
     --ctl-surface:#F5F2EC; --ctl-surface-border:#DCCEA9;
     --danger-text:#9A3540;   /* 6.30:1 on the page, vs 4.37:1 for the family hue */
+
+    /* VALHALLA VIOLET, light. The direction is strongest here: deep royal on
+       cream, 10.06:1, with white carried at 11.35:1 on a filled button. The
+       node fill is a pale tint of the same hue so the numeral inside can stay
+       near-black -- a numeral on saturated #4C2A6B would be unreadable. */
+    --violet:#4C2A6B;
+    --violet-soft:#E9E2F5;
+    --violet-line:rgba(76,42,107,0.30);
+    --violet-dim:rgba(76,42,107,0.42);
+    --violet-2:#5B3580;                 /* gradient partner, deeper here */
+    --violet-ink:#171717;
+    --violet-btn-ink:#FFFFFF;           /* 11.35:1 on the deep violet fill */
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html{-webkit-text-size-adjust:100%;}
@@ -313,6 +361,12 @@
   .zleg-item{display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--ink-dim);}
   .zleg-dot{width:8px; height:8px; border-radius:50%; display:inline-block; flex:none;}
   .fuel-card{margin-top:10px; border:1px dashed var(--line); border-radius:8px; background:var(--bg-3);}
+  /* HOW TO RUN THIS -- the outline, and nothing else. .how-card is the coaching
+     disclosure; the Fueling card shares .fuel-card and keeps its neutral edge.
+     The words, the icon and the interior are deliberately unchanged: the
+     border alone is enough to mark it as the thing worth opening, and
+     colouring the content would make a reading surface shout. */
+  .fuel-card.how-card{border-color:var(--violet); border-style:solid;}
   /* min-height, not more padding: this is a thumb target on a phone and it sat
      at roughly 29px, well under the ~44px a finger actually needs. The card is
      otherwise unchanged -- the row simply stops being a near-miss. */
@@ -367,15 +421,42 @@
   .ws-block{margin-top:10px;}
   .ws-head{font-size:var(--fs-label); letter-spacing:1.4px; text-transform:uppercase;
            color:var(--ink-faint); margin-bottom:6px;}
-  .ws-steps{list-style:none; margin:0; padding:0 0 0 12px; border-left:1px solid var(--line-soft);}
-  .ws-step{padding:0 0 11px 0;}
+  /* WORKOUT PROGRESSION. The steps were a plain list with a hairline down the
+     side and a small gold numeral beside each name -- the numeral said "this
+     is step 2" and the rail said nothing, so the SEQUENCE was something you
+     inferred rather than saw.
+
+     Now the numeral IS the node: one violet disc per step, sitting on a violet
+     connector that runs from each node to the next. The number did not move
+     twice and there is no second numeral anywhere -- the same span, positioned
+     differently.
+
+     BUILT FROM THE STEP, NOT FROM A COUNT. The connector is drawn per step by
+     ::before and suppressed on :last-child, so three steps and nine steps both
+     work with no arithmetic and nothing hardcoded. An earlier version drew one
+     long line down the <ol> and had to guess where the first and last nodes
+     were; this cannot get that wrong.
+
+     The disc carries its own opaque fill, which is also what lets it sit ON
+     the line without needing a mask the colour of the card underneath -- and a
+     day card is tinted by session type, so no single mask colour existed. */
+  .ws-steps{list-style:none; margin:0; padding:0 0 0 27px;}
+  .ws-step{position:relative; padding:0 0 12px 0;}
   .ws-step:last-child{padding-bottom:0;}
   .ws-step-label{display:flex; align-items:baseline; gap:8px;}
-  /* The numeral leads the label rather than sitting on the rail. Hanging it
-     over the line needed an opaque background to mask the rail behind it, and
-     a day card is tinted by session type -- there is no one colour that mask
-     could be. Inline, it needs no mask and cannot be clipped by the card. */
-  .ws-n{flex:none; font-size:var(--fs-meta); color:var(--bronze-text); line-height:1;}
+  .ws-n{
+    position:absolute; left:-27px; top:-1px; width:19px; height:19px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:50%; background:var(--violet-soft); border:1.5px solid var(--violet);
+    color:var(--violet-ink); font-size:var(--fs-meta); line-height:1; font-weight:700;
+  }
+  /* From just under this node to just under the step box, which is where the
+     next node begins. Never drawn after the last one. */
+  .ws-step::before{
+    content:''; position:absolute; left:-18.25px; top:19px; bottom:-1px;
+    width:1.5px; background:var(--violet-line);
+  }
+  .ws-step:last-child::before{display:none;}
   .ws-name{font-size:var(--fs-body); letter-spacing:.6px; text-transform:uppercase; color:var(--ink);}
   .ws-qty{font-size:var(--fs-title); line-height:1.15; color:var(--ink); margin-top:2px;}
   /* A ladder's quantity is a LIST of rungs, not one figure. At display size it
@@ -800,6 +881,17 @@
   .btn:hover{border-color:var(--bronze);}
   .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink); border:none;}
   .btn-primary:hover{filter:brightness(1.08);}
+  /* THE BUILDER'S PRIMARY ACTION, and only the builder's. Continue and Build
+     My Training Block / Regenerate Plan are the forward motion of a flow that
+     is already marked in violet by its progress rail, so the button that
+     advances it belongs to the same accent.
+
+     Scoped to .builder-light -- the class the staged builder already carries
+     for its positioning -- so every other .btn-primary in the product keeps
+     the bronze gradient. Save & Re-tailor, Log Session and the rest are
+     untouched, which is what stops this becoming "the primary button is
+     purple now". Secondary controls inside the builder keep .btn-ghost. */
+  .builder-light .btn-primary{background:linear-gradient(135deg,var(--violet),var(--violet-2)); color:var(--violet-btn-ink);}
   .btn-ghost{background:none; border:1px solid var(--line);}
   /* --danger-text, not --c-threshold. The workout-type hues are deliberately
      identical in both themes, and that one lands at 4.37:1 on cream -- close
@@ -919,10 +1011,15 @@
   /* Progress. Numerals on mobile, so five labels cannot crowd a 360px header. */
   .bld-progress{display:flex; align-items:center; gap:6px;}
   .bld-step{flex:1 1 0; height:3px; border-radius:99px; background:var(--line); transition:background .2s;}
-  .bld-step.done{background:var(--bronze-2);}
-  .bld-step.now{background:var(--bronze);}
+  /* PROGRESS. Violet marks how far through the build you are: the segment you
+     are on, the ground already covered behind it at lower weight, and the
+     stage numeral that names it. Future segments stay --line, unchanged and
+     neutral, so the accent reads as progress rather than decoration. The stage
+     NAME beside the numeral stays --ink-faint: it is a label, not progress. */
+  .bld-step.done{background:var(--violet-dim);}
+  .bld-step.now{background:var(--violet);}
   .bld-progress-meta{display:flex; align-items:baseline; justify-content:space-between; margin:9px 0 2px;}
-  .bld-stage-no{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--bronze-text);}
+  .bld-stage-no{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--violet);}
   .bld-stage-name{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.4px; font-size:var(--fs-label); color:var(--ink-faint);}
   .bld-stage-h{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.8px; font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px;}
   .bld-lede{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 18px;}
@@ -1075,6 +1172,11 @@
   .switch input:checked + .switch-track{box-shadow:none;}
   .switch-track::before{content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:var(--bg-2); border-radius:50%; transition:.2s; box-shadow:var(--shadow-sm);}
   .switch input:checked + .switch-track{background:var(--bronze);}
+  /* THE APP THEME SWITCH, and only it. There are exactly two .switch controls
+     in the product -- this one and notifications -- so the accent is scoped by
+     the row it lives in rather than applied to .switch, which would have
+     coloured a toggle nobody asked to change. */
+  #theme-toggle-row .switch input:checked + .switch-track{background:var(--violet);}
   .switch input:checked + .switch-track::before{transform:translateX(18px);}
   .callout{background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 12px; font-size:12px; color:var(--ink-dim); line-height:1.5; display:flex; gap:9px;}
   .callout svg{flex:none; width:16px; height:16px; color:var(--bronze); margin-top:1px;}
@@ -5972,13 +6074,18 @@ function renderConfidenceGauge(){
         '<filter id="gaugeGlow" x="-60%" y="-60%" width="220%" height="220%">'+
           '<feGaussianBlur stdDeviation="1" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>'+
         '</filter>'+
-        '<linearGradient id="gaugeFillGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="var(--gold-deep)"/><stop offset="100%" stop-color="var(--modal-active)"/></linearGradient>'+
+        /* THE GAUGE'S PROGRESS, and only that. The filled arc and the needle
+           are what the number actually is; the ticks stay gold because they
+           are the scale the reading sits against, and .gauge-pct stays
+           --gold-text because it is the confidence FIGURE, not the gauge. The
+           card, its PROGRAMME STATUS heading and every label are untouched. */
+        '<linearGradient id="gaugeFillGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="var(--violet-dim)"/><stop offset="100%" stop-color="var(--violet)"/></linearGradient>'+
       '</defs>'+
       '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="var(--bg-4)" stroke-width="6" stroke-linecap="round"/>'+
       '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="url(#gaugeFillGrad)" stroke-width="6" stroke-linecap="round" '+
         'stroke-dasharray="'+fillLen.toFixed(1)+' '+(arcLen-fillLen).toFixed(1)+'"/>'+
       '<g filter="url(#gaugeGlow)">'+ticks+'</g>'+
-      '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleX.toFixed(1)+'" y2="'+needleY.toFixed(1)+'" stroke="var(--modal-active)" stroke-width="2.4" stroke-linecap="round" filter="url(#gaugeGlow)"/>'+
+      '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleX.toFixed(1)+'" y2="'+needleY.toFixed(1)+'" stroke="var(--violet)" stroke-width="2.4" stroke-linecap="round" filter="url(#gaugeGlow)"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="3" fill="var(--modal-active)"/>'+
       '<text x="'+(cx-r)+'" y="'+(cy+11)+'" class="gauge-elabel">E</text>'+
       '<text x="'+(cx+r-6)+'" y="'+(cy+11)+'" class="gauge-flabel">F</text>'+
