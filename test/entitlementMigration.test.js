@@ -148,10 +148,15 @@ test('the pruner is not executable by a browser', () => {
   assert.match(CODE, /revoke all on function public\.prune_access_leases\(\) from public, anon, authenticated/i);
 });
 
-test('the signup seeder is flagged as something 3A2 must replace', () => {
+test('the signup seeder that 3A2 had to replace is now gone entirely', () => {
+  // This test used to assert the seeder was FLAGGED for replacement. Phase 3
+  // replaced it: the beta cohort is carried by canonical entitlement_grants,
+  // and a signup auto-grant would have given every arriving athlete permanent
+  // free access the moment the commercial front door opened.
   const step6 = SQL.slice(SQL.indexOf('STEP 6'), SQL.indexOf('STEP 7'));
-  assert.match(step6, /3A2 must replace/i,
-    'left in place after commerce launches, every new signup gets free access');
+  assert.match(step6, /RETIRED/i, 'STEP 6 must say what happened to it');
+  assert.equal(/create trigger seed_entitlement_on_signup/i.test(step6), false);
+  assert.equal(/create or replace function public\.seed_entitlement_for_new_user/i.test(step6), false);
 });
 
 // ---------------------------------------------------------------------------

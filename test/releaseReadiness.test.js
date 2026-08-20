@@ -381,14 +381,19 @@ test('7. an auto-seeded beta override outranks every commercial rule', () => {
     'beta and is the first thing supabase-commercial-activation.sql changes');
 });
 
-test('7. the signup trigger really does grant it unconditionally today', () => {
-  const sql = read('supabase-entitlement.sql');
-  const at = sql.indexOf('function public.seed_entitlement_for_new_user');
-  assert.ok(at !== -1, 'the trigger function must be findable');
-  const body = sql.slice(at, sql.indexOf('$$;', at));
-  assert.match(body, /override, override_note/, 'it writes an override');
-  assert.ok(!/beta_email_approved|is_beta_approved/.test(body),
-    'and asks nothing about who the account belongs to');
+test('7. no signup trigger grants access unconditionally any more', () => {
+  // This used to assert the OPPOSITE -- that the signup trigger granted an
+  // override without asking who the account belonged to. That was accurate
+  // while private beta was the only route in. Phase 3 opened a commercial
+  // front door, at which point an unconditional grant would have handed every
+  // arriving athlete permanent free access, so the trigger was retired.
+  const sql = read('supabase-entitlement.sql').replace(/--.*$/gm, ' ');
+  assert.equal(/create trigger seed_entitlement_on_signup/i.test(sql), false,
+    'a signup trigger writing an override is what the commercial gate cannot survive');
+  // What a new account DOES get is the Phase 1 row, and nothing else.
+  const core = read('supabase-commercial-core.sql');
+  assert.match(core, /create trigger seed_account_commercial_on_signup/);
+  assert.match(core, /NO TRIAL\. NO ENTITLEMENT\./);
 });
 
 test('7. cloud sync is beta-gated, so a customer who is not a tester cannot use it', () => {

@@ -102,31 +102,26 @@ end $$;
 -- state='trial' with an access_until is a single UPDATE away when HQ has made
 -- it. Guessing one in a migration is how a free month ends up being permanent.
 -- ---------------------------------------------------------------------------
-create or replace function public.seed_entitlement_for_new_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = public, auth
-as $$
-begin
-  if public.beta_email_approved(new.email) then
-    insert into public.entitlements (user_id, override, override_note)
-    values (new.id, 'beta', 'allowlisted tester, first sign-in after commercial launch')
-    on conflict (user_id) do nothing;
-  else
-    insert into public.entitlements (user_id, state, override_note)
-    values (new.id, 'expired', 'ordinary signup -- access decided by the entitlement engine')
-    on conflict (user_id) do nothing;
-  end if;
-  return new;
-end;
-$$;
-
--- unchanged: same trigger, same timing, same name
-drop trigger if exists seed_entitlement_on_signup on auth.users;
-create trigger seed_entitlement_on_signup
-  after insert on auth.users
-  for each row execute function public.seed_entitlement_for_new_user();
+-- RETIRED. This step used to redefine seed_entitlement_for_new_user() so that
+-- ordinary signups got state='expired' while allowlisted testers still got
+-- override='beta'. That was the right shape at the time and it is superseded
+-- now, for two reasons.
+--
+-- First, the beta half duplicates canonical authority: entitlement_grants rows
+-- with source='admin_beta' already carry the cohort, created by
+-- supabase-commercial-core.sql STEP 7 from the same beta_allowlist. Two places
+-- granting the same access is how they drift.
+--
+-- Second, the ordinary half is no longer needed. resolveAccess() denies
+-- 'no_entitlement' and denies 'expired' identically, so writing an expired row
+-- at signup buys nothing the absence of a row does not already give. Phase 1's
+-- seed_account_commercial_on_signup creates the account_commercial row a trial
+-- allowance is recorded against, and that is the whole of what a new account
+-- should receive.
+--
+-- A new account therefore arrives with: an account_commercial row, no trial
+-- consumed, no entitlement, and no access -- until an explicit path grants one.
+-- That is the commercial front door working, rather than being bypassed.
 
 
 -- ---------------------------------------------------------------------------

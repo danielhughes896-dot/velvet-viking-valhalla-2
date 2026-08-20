@@ -44,7 +44,16 @@
 -- and it was reachable at /rest/v1/rpc/rls_auto_enable without signing in.
 -- ---------------------------------------------------------------------------
 revoke all on function public.enforce_beta_allowlist()              from public, anon, authenticated;
-revoke all on function public.seed_entitlement_for_new_user()       from public, anon, authenticated;
+-- seed_entitlement_for_new_user() was retired with the signup auto-grant, so
+-- this revoke is guarded rather than deleted: an older database that still has
+-- the function must still have it locked down, and a fresh one must not error
+-- on a function that was never created.
+do $$ begin
+  if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+              where n.nspname = 'public' and p.proname = 'seed_entitlement_for_new_user') then
+    revoke all on function public.seed_entitlement_for_new_user() from public, anon, authenticated;
+  end if;
+end $$;
 revoke all on function public.revoke_leases_on_entitlement_change() from public, anon, authenticated;
 revoke all on function public.rls_auto_enable()                     from public, anon, authenticated;
 
