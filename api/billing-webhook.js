@@ -32,6 +32,10 @@ const crypto = require('crypto');
 const S = require('./_strava.js');     // canonical Supabase access layer
 const A = require('./_access.js');
 const B = require('./_billing.js');
+const P = require('./_stripe.js');
+const L = require('./_ledger.js');
+
+const STRIPE_SIG_HEADER = 'stripe-signature';
 
 const SIGNATURE_HEADER = 'x-vvv-billing-signature';
 const TIMESTAMP_HEADER = 'x-vvv-billing-timestamp';
@@ -47,9 +51,14 @@ function ref(v){ return v ? String(v).slice(0, 8) + '…' : '-'; }
 
 /* ---------- the adapter ----------
    A real provider's payload arrives with its own vocabulary. This is the one
-   place that knows any of it, and today it knows only Velvet Viking's own
-   shape -- which is what a provider adapter will produce. Adding a provider
-   means adding a branch here and nothing else. */
+   place that knows any of it. It knows two shapes now: Velvet Viking's own,
+   and Stripe's -- and Stripe's is not decoded here, it is decoded in
+   _stripe.js. Adding Apple or Google means adding a branch and an adapter
+   module, and touching nothing downstream.
+
+   WHICH ADAPTER, decided by the request rather than by sniffing the body: a
+   Stripe delivery carries a `stripe-signature` header, and a body-shape guess
+   would be a way for a forged payload to choose its own verifier. */
 function normaliseEvent(body){
   const b = body || {};
   const ev = {
@@ -113,12 +122,138 @@ function rawBodyOf(req){
   try{ return JSON.stringify(req.body == null ? {} : req.body); }catch(e){ return ''; }
 }
 
+
+/* ---------- the Stripe boundary ----------
+ *
+ * Order is the design and it is deliberate:
+ *   1. verify the signature, before the body is trusted for anything at all
+ *   2. CLAIM the event, so a duplicate delivery stops here
+ *   3. translate to our vocabulary; an untranslatable event is recorded and
+ *      dropped rather than guessed at
+ *   4. apply through the existing pure reducer -- the same one the generic
+ *      provider uses, which is what keeps Stripe out of the access model
+ *   5. record what the event actually did
+ *
+ * Step 2 before step 4 is what makes a replay free: the second delivery never
+ * reaches the reducer.
+ */
+async function handleStripe(req, res, cfg){
+  const stripe = P.config();
+  if (!stripe.hasWebhookSecret){
+    log('STRIPE_NOT_CONFIGURED');
+    return S.json(res, 503, { error: 'unavailable', code: 'STRIPE_NOT_CONFIGURED' });
+  }
+  if (!cfg.serviceKey){
+    log('SUPABASE_KEY_UNUSABLE source=' + cfg.serviceKeySource);
+    return S.json(res, 503, { error: 'unavailable', code: 'SUPABASE_KEY_UNUSABLE' });
+  }
+
+  const raw = rawBodyOf(req);
+  const check = P.verifySignature(raw, req.headers[STRIPE_SIG_HEADER],
+                                  stripe.webhookSecret(), Math.floor(Date.now() / 1000));
+  if (!check.ok){
+    log('STRIPE_REJECTED reason=' + check.reason);
+    return S.json(res, 401, { error: 'not_authenticated', code: 'BAD_SIGNATURE' });
+  }
+
+  let parsed = null;
+  try{ parsed = JSON.parse(raw); }catch(e){ parsed = null; }
+  if (!parsed || !parsed.id) return S.json(res, 400, { error: 'bad_request', code: 'NO_EVENT' });
+
+  const ev = P.normaliseEvent(parsed);
+  if (!ev){
+    /* Stripe emits well over a hundred event types and most mean nothing to an
+       entitlement. Answering 200 is correct -- it was received and understood
+       to be irrelevant. A non-2xx would have Stripe retry it forever. */
+    log('STRIPE_IGNORED type=' + String(parsed.type).slice(0, 40));
+    return S.json(res, 200, { ok: true, applied: false, reason: 'not_entitlement_relevant' });
+  }
+
+  const claim = await L.claimEvent(cfg, ev);
+  if (!claim.ok){
+    log('STRIPE_CLAIM_FAILED id=' + P.ref(ev.provider_event_id));
+    return S.json(res, 503, { error: 'unavailable', code: 'LEDGER_UNAVAILABLE' });
+  }
+  if (claim.duplicate){
+    /* 200, never 5xx. A provider reads 5xx as "try again", so erroring on a
+       replay guarantees receiving that replay until the provider gives up. */
+    log('STRIPE_DUPLICATE id=' + P.ref(ev.provider_event_id));
+    return S.json(res, 200, { ok: true, applied: false, reason: 'already_applied' });
+  }
+
+  /* The purchase record is written whether or not access moves: it is evidence,
+     and evidence that only exists when something changed is not evidence. */
+  if (ev.sub_id && ev.user_id){
+    const owner = await L.purchaseOwner(cfg, P.PROVIDER, ev.sub_id);
+    if (owner && owner !== ev.user_id){
+      /* A store subscription already belongs to a different athlete. Refusing
+         is the only safe answer -- silently moving it would be an
+         account-takeover primitive dressed as a convenience. */
+      log('STRIPE_SUB_OWNED_ELSEWHERE sub=' + P.ref(ev.sub_id));
+      await L.recordConsequence(cfg, claim.id, { applied: false });
+      return S.json(res, 200, { ok: true, applied: false, reason: 'subscription_owned_by_another_account' });
+    }
+    await L.upsertPurchase(cfg, {
+      user_id: ev.user_id, provider: P.PROVIDER, provider_sub_id: ev.sub_id,
+      provider_customer_id: ev.customer_id, billing_period: ev.billing_period,
+      tier: ev.tier, status: ev.type, current_period_end: ev.period_end,
+      cancel_at_period_end: ev.type === 'subscription_cancelled'
+    });
+  }
+
+  if (ev.ledger_only || !ev.type){
+    await L.recordConsequence(cfg, claim.id, { applied: false });
+    return S.json(res, 200, { ok: true, applied: false, reason: ev.note || 'recorded_only' });
+  }
+
+  const ent = await A.readEntitlement(S, cfg, ev.user_id);
+  if (!ent.ok){
+    log('ENTITLEMENT_READ_FAILED user=' + ref(ev.user_id));
+    return S.json(res, 503, { error: 'unavailable', code: 'ENTITLEMENT_UNREADABLE' });
+  }
+
+  const now = new Date();
+  const result = B.applyBillingEvent(ent.row, ev, now);
+  if (!result.applied){
+    await L.recordConsequence(cfg, claim.id, { applied: false });
+    return S.json(res, 200, { ok: true, applied: false, reason: result.reason });
+  }
+
+  /* The same write the generic provider path performs, deliberately not
+     factored into a shared helper: two call sites that must stay identical are
+     easier to keep honest than one abstraction that hides which columns a
+     webhook is allowed to touch. billingPatch() is the thing that guarantees
+     only the nine billing columns move, and the override is never among them. */
+  const patch = B.billingPatch(result.next);
+  const write = ent.row
+    ? await S.sb(cfg, '/entitlements?user_id=eq.' + encodeURIComponent(ev.user_id),
+        { method: 'PATCH', body: JSON.stringify(patch) })
+    : await S.sb(cfg, '/entitlements',
+        { method: 'POST', body: JSON.stringify(Object.assign({ user_id: ev.user_id }, patch)) });
+  if (!write.ok){
+    log('ENTITLEMENT_WRITE_FAILED user=' + ref(ev.user_id));
+    return S.json(res, 503, { error: 'unavailable', code: 'ENTITLEMENT_UNWRITABLE' });
+  }
+
+  await L.recordConsequence(cfg, claim.id, {
+    applied: true, state: result.next.state, access_until: result.next.access_until
+  });
+  log('STRIPE_APPLIED type=' + ev.type + ' user=' + ref(ev.user_id) + ' state=' + result.next.state);
+  return S.json(res, 200, { ok: true, applied: true, state: result.next.state });
+}
+
 module.exports = async function handler(req, res){
   if (req.method !== 'POST'){
     res.setHeader('Allow', 'POST');
     return S.json(res, 405, { error: 'method_not_allowed' });
   }
   const cfg = S.config();
+
+  /* STRIPE DELIVERIES TAKE THE STRIPE PATH. Chosen on the header, not on the
+     body: letting a payload's own shape select its verifier would let a forged
+     body pick the verifier it can satisfy. */
+  if (req.headers[STRIPE_SIG_HEADER]) return handleStripe(req, res, cfg);
+
   const secret = process.env.VVV_BILLING_WEBHOOK_SECRET || '';
 
   if (!secret){

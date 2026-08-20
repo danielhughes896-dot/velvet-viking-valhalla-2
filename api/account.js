@@ -42,7 +42,12 @@ const S = require('./_strava.js');
 const ROUTES = {
   subscription:     require('./_subscription.js'),
   'account-data':   require('./_account-data.js'),
-  'account-delete': require('./_account-delete.js')
+  'account-delete': require('./_account-delete.js'),
+  /* Starting a subscription. Mounted here rather than as its own function
+     because the plan allows twelve and twelve are used -- and because this is
+     what the router is for. The concern keeps its own module and its own
+     tests, exactly like the three above. */
+  checkout:         require('./_checkout.js')
 };
 
 /* Which resource is being asked for, resolved from the request rather than
