@@ -858,6 +858,44 @@ test('no commercial table grants an athlete any write policy', () => {
   });
 });
 
+test('the production hardening is in the repository, or the schema has drifted', () => {
+  /* These four were flagged by Supabase's linter after the first production
+     run and corrected in the live database. The repository SQL is the thing a
+     fresh environment is built from, so it has to carry them too -- otherwise
+     staging is built without them and the drift is discovered by the linter a
+     second time. */
+  const sql = sqlCode();
+
+  // 1. both functions pin their search_path
+  ['touch_updated_at', 'seed_account_commercial'].forEach(fn => {
+    const m = new RegExp('create or replace function public\\.' + fn +
+                         '\\(\\)[^]*?\\bas \\$\\$').exec(sql);
+    assert.ok(m, fn + ': function not found');
+    assert.match(m[0], /set search_path\s*=/,
+      fn + ' has a mutable search_path (function_search_path_mutable)');
+  });
+
+  // 2. the SECURITY DEFINER trigger function is not executable by an athlete
+  assert.match(sql, /revoke all on function public\.seed_account_commercial\(\)\s*from[^;]*\bpublic\b[^;]*\banon\b[^;]*\bauthenticated\b/i,
+    'a signed-in athlete can invoke the SECURITY DEFINER seed function directly');
+  assert.match(sql, /grant execute on function public\.seed_account_commercial\(\)[^;]*service_role/i,
+    'the trigger function was revoked from everyone, including the roles that fire it');
+
+  // 3. every commercial policy hoists auth.uid() out of the per-row path
+  const policies = sql.match(/create policy[^;]*;/gi) || [];
+  assert.equal(policies.length, 3);
+  policies.forEach(p => {
+    assert.match(p, /\(\s*select auth\.uid\(\)\s*\)/i,
+      'a policy still calls auth.uid() per row (auth_rls_initplan):\n' + p);
+    assert.doesNotMatch(p, /(?<!select\s)(?<!\()auth\.uid\(\)\s*=/i,
+      'a bare auth.uid() remains in:\n' + p);
+  });
+
+  // 4. the foreign key from billing_events to subscriptions is covered
+  assert.match(sql, /create index if not exists billing_events_subscription_idx\s*\n?\s*on public\.billing_events \(subscription_id\)/i,
+    'billing_events.subscription_id is an unindexed foreign key');
+});
+
 test('billing_events denies the athlete outright, even for their own rows', () => {
   const sql = fs.readFileSync(path.join(ROOT, 'supabase-commercial-core.sql'), 'utf8');
   const policies = sql.match(/create policy[^;]*on public\.billing_events[^;]*;/gi) || [];

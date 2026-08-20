@@ -316,9 +316,28 @@ verification belongs to each provider's adapter and is not built here.
 | malformed dates | **fail closed** — a present-but-unparseable date is refused, never fallen back from |
 | event replay | unique `(provider, provider_event_id)` |
 | test vs production billing | `environment` column on subscriptions and events |
+| SECURITY DEFINER not athlete-reachable | `seed_account_commercial()` is `EXECUTE`-revoked from `public`/`anon`/`authenticated` |
+| definer/trigger functions pin resolution | both functions carry `set search_path` |
 
 The coaching runtime references none of these tables and names no payment
 provider. Both are asserted.
+
+### Post-deployment hardening
+
+Four items Supabase's linter raised once the schema was live. All four were
+corrected in production and then folded back into `supabase-commercial-core.sql`,
+so a fresh environment is built with them rather than acquiring them by hand:
+
+| | correction | why |
+|---|---|---|
+| `function_search_path_mutable` | `touch_updated_at()` pins `search_path` | a trigger firing on every write must not resolve names against whatever the writer put in front of `pg_catalog` |
+| exposed `SECURITY DEFINER` | `seed_account_commercial()` revoked from `public`/`anon`/`authenticated`, granted to `postgres`/`service_role`/`supabase_auth_admin` | Postgres grants EXECUTE to PUBLIC by default; a definer function reachable through PostgREST bypasses the RLS that denies the caller the table |
+| `auth_rls_initplan` | every read-own policy uses `(select auth.uid())` | the bare call is volatile and re-evaluates **per row**; the subquery lets the planner hoist it to once per statement |
+| unindexed foreign key | `billing_events_subscription_idx` | without it, touching a subscription sequentially scans the event ledger to check the reference |
+
+`test/commercialCore.test.js` asserts all four, so the repository cannot drift
+back behind the deployed schema. The migration's STEP 9 block carries the
+catalogue queries that prove a given environment matches.
 
 ---
 
@@ -377,7 +396,7 @@ own parallel one.
 | `api/_entitlement.js` | the resolver, trial eligibility, duplicate purchase, projection — all pure |
 | `api/_commercial-store.js` | Supabase IO, idempotency, race-safe trial consumption |
 | `supabase-commercial-core.sql` | schema, RLS, triggers, beta backfill |
-| `test/commercialCore.test.js` | 96 tests |
+| `test/commercialCore.test.js` | 99 tests |
 | `test/fakeSupabase.js` | in-memory PostgREST that enforces the real unique constraints |
 
 All three modules are underscore-prefixed, so no Vercel serverless function was

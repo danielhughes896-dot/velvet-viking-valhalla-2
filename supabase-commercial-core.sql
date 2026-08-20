@@ -33,6 +33,18 @@
 -- that the allowance is UNUSED. There is no code path in this file that writes
 -- trial_consumed_at, and the backfill deliberately leaves every migrated beta
 -- athlete's fourteen days intact.
+--
+-- HARDENING, folded back in after the first production run. Supabase's linter
+-- flagged four things once the schema was live, all of them corrected in
+-- production and all of them now stated here so the repository and the
+-- deployed schema cannot drift:
+--   1. touch_updated_at() has a PINNED search_path            (STEP 5)
+--   2. seed_account_commercial() -- SECURITY DEFINER -- is EXECUTE-revoked
+--      from public/anon/authenticated                          (STEP 6)
+--   3. every read-own policy uses (select auth.uid()) so the planner evaluates
+--      it once per statement rather than once per row          (STEPS 1-3)
+--   4. billing_events.subscription_id is indexed               (STEP 4)
+-- Re-running this file is what brings a fresh environment to the same state.
 -- ===========================================================================
 
 
@@ -81,9 +93,16 @@ alter table public.account_commercial enable row level security;
 -- already been used" honestly. They may not write it under any circumstances:
 -- there is no insert, update or delete policy, and RLS with no policy is
 -- deny-all. The service role inside Vercel is the only writer.
+--
+-- `(select auth.uid())` rather than a bare `auth.uid()`, on this and every
+-- other policy below. Postgres treats the bare call as volatile and
+-- re-evaluates it PER ROW; wrapping it in a scalar subquery lets the planner
+-- hoist it into an InitPlan and evaluate it once per statement. Same predicate,
+-- same security, and it stops the policy degrading as a table grows. Supabase's
+-- own linter flags the unwrapped form (auth_rls_initplan).
 drop policy if exists "read own commercial state" on public.account_commercial;
 create policy "read own commercial state" on public.account_commercial
-  for select using (auth.uid() = account_id);
+  for select using ((select auth.uid()) = account_id);
 
 
 -- ---------------------------------------------------------------------------
@@ -175,7 +194,7 @@ alter table public.subscriptions enable row level security;
 -- subscription, and cannot edit a period end to extend their own access.
 drop policy if exists "read own subscriptions" on public.subscriptions;
 create policy "read own subscriptions" on public.subscriptions
-  for select using (auth.uid() = account_id);
+  for select using ((select auth.uid()) = account_id);
 
 
 -- ---------------------------------------------------------------------------
@@ -234,7 +253,7 @@ alter table public.entitlement_grants enable row level security;
 -- cannot issue themselves a comp.
 drop policy if exists "read own grants" on public.entitlement_grants;
 create policy "read own grants" on public.entitlement_grants
-  for select using (auth.uid() = account_id);
+  for select using ((select auth.uid()) = account_id);
 
 
 -- ---------------------------------------------------------------------------
@@ -283,6 +302,14 @@ create unique index if not exists billing_events_provider_identity
 create index if not exists billing_events_account_idx
   on public.billing_events (account_id, received_at desc);
 
+-- Covers the foreign key to subscriptions. Without it, deleting or updating a
+-- subscription forces a sequential scan of this table to check the reference,
+-- and "which events belong to this purchase" -- the first question anybody
+-- asks when reconciling one -- has no index behind it either. Supabase's
+-- linter flags the unindexed key.
+create index if not exists billing_events_subscription_idx
+  on public.billing_events (subscription_id);
+
 alter table public.billing_events enable row level security;
 -- No policies at all: deny-all to anon and authenticated alike. An athlete has
 -- no business reading the provider event stream, not even their own.
@@ -293,9 +320,20 @@ alter table public.billing_events enable row level security;
 --
 -- Cheap, and it removes a whole class of "why does this row say it changed in
 -- March" question. Written as one function used by both tables.
+--
+-- search_path is PINNED. A function that inherits the caller's search_path can
+-- be made to resolve `now()` -- or anything else it names -- against a schema
+-- the caller put in front of pg_catalog. This one is not SECURITY DEFINER, so
+-- the exposure is smaller than it would otherwise be, but a trigger that fires
+-- on every write is the last place to leave resolution up to whoever happens
+-- to be writing. Supabase's linter flags the mutable form
+-- (function_search_path_mutable).
 -- ---------------------------------------------------------------------------
 create or replace function public.touch_updated_at()
-returns trigger language plpgsql as $$
+returns trigger
+language plpgsql
+set search_path = public, pg_catalog
+as $$
 begin
   new.updated_at = now();
   return new;
@@ -341,6 +379,27 @@ begin
   return new;
 end;
 $$;
+
+-- LEAST PRIVILEGE ON A SECURITY DEFINER FUNCTION.
+--
+-- Postgres grants EXECUTE on a new function to PUBLIC by default. This one is
+-- SECURITY DEFINER, so left as-is any signed-in athlete -- or any anonymous
+-- caller -- could invoke it directly through PostgREST and write a row into
+-- account_commercial with the definer's rights, bypassing the RLS that denies
+-- them that table.
+--
+-- It is a TRIGGER function and has no legitimate caller other than the trigger
+-- itself, which runs as the auth admin during signup. So the grant is removed
+-- from everyone and returned only to the privileged roles that actually fire
+-- it. Nothing an athlete can reach may call it.
+--
+-- What it could write today is harmless -- a row recording that the trial is
+-- unused, which the backfill creates for everybody anyway. That is not the
+-- point: the reachable surface of a definer function is the thing to keep
+-- closed, not the damage the current body happens to do.
+revoke all on function public.seed_account_commercial() from public, anon, authenticated;
+grant execute on function public.seed_account_commercial()
+  to postgres, service_role, supabase_auth_admin;
 
 drop trigger if exists seed_account_commercial_on_signup on auth.users;
 create trigger seed_account_commercial_on_signup
@@ -434,4 +493,31 @@ on conflict do nothing;
 --   -- update public.account_commercial set trial_consumed_at = null;
 --   -- insert into public.subscriptions (account_id, provider, provider_subscription_id, condition)
 --   --   values (auth.uid(), 'web', 'x', 'active');
+--
+--   -- HARDENING (STEP 5/6 and the policies above), so a fresh environment can
+--   -- be proved equal to production rather than assumed equal to it:
+--
+--   -- 1. both functions have a pinned search_path
+--   select p.proname, p.proconfig
+--     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+--    where n.nspname = 'public'
+--      and p.proname in ('touch_updated_at','seed_account_commercial');
+--   -- expect: proconfig contains a search_path= entry for BOTH
+--
+--   -- 2. no unprivileged role may execute the definer function
+--   select has_function_privilege('anon',          'public.seed_account_commercial()', 'execute'),
+--          has_function_privilege('authenticated', 'public.seed_account_commercial()', 'execute');
+--   -- expect: false, false
+--
+--   -- 3. every commercial policy hoists auth.uid()
+--   select tablename, policyname, qual from pg_policies
+--    where schemaname = 'public'
+--      and tablename in ('account_commercial','subscriptions','entitlement_grants');
+--   -- expect: three rows, each qual containing "( SELECT auth.uid()" and no
+--   --         bare auth.uid(); billing_events appears NOT AT ALL
+--
+--   -- 4. the foreign key is covered
+--   select indexname from pg_indexes
+--    where schemaname = 'public' and tablename = 'billing_events';
+--   -- expect: billing_events_subscription_idx among them
 -- ---------------------------------------------------------------------------
