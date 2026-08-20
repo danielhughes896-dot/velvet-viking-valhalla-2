@@ -2882,22 +2882,54 @@ function stepFromRepeat(rep){
       else if (!innerWork) innerWork = c;
     });
     if (!innerWork) return null;
-    return { role:'work', kind:'set', intensity:innerWork.intensity,
+    return { role:'work', kind:'set', intensity:innerWork.intensity, build:null, note:null,
              label:stepWorkLabel(innerWork),
              sets:rep.times, reps:inner.times, each:segmentPrescribed(innerWork),
              qty:null, target:stepTarget(innerWork), effort:stepEffortWord(innerWork),
              recovery:stepRecoveryText(innerRec), setRecovery:stepRecoveryText(rec) };
   }
   if (!work) return null;
-  return { role:'work', kind:'reps', intensity:work.intensity,
+  return { role:'work', kind:'reps', intensity:work.intensity, build:null, note:null,
            label:stepWorkLabel(work),
            sets:null, reps:rep.times, each:segmentPrescribed(work),
            qty:null, target:stepTarget(work), effort:stepEffortWord(work),
            recovery:stepRecoveryText(rec), setRecovery:null };
 }
-function stepFromWork(seg){
+/* A ramped effort names both ends. segmentsFor() records the origin of a
+   progressive block as `from`, and dropping it left a 25-minute build looking
+   like 25 minutes held flat at the destination pace -- a different session.
+   Only the two intensities the segment actually carries are stated; where in
+   the block the change happens is prose, not data, so it is not claimed. */
+function stepBuild(seg){
+  if (!seg.from) return null;
+  var a = STEP_INTENSITY_LABEL[seg.from], b = STEP_INTENSITY_LABEL[seg.intensity];
+  return (a && b) ? ('Building from ' + a + ' to ' + b) : null;
+}
+/* THE FLANKS OF A TIMED SESSION. Four archetypes call segFlanks(null, null),
+   so neither flank carries a distance -- correctly, because timed work covers
+   ground nobody can know in advance and the segment tree is what the distance
+   arithmetic folds from. The DESCRIPTION has always told the athlete more:
+   warmupClause() states a 1-2km warm-up, and completionClause() makes the
+   cool-down whatever running reaches the day's total.
+
+   Both are read back out of the same two functions the prose itself calls, so
+   the step and the sentence cannot drift, and nothing is computed here that
+   the app was not already computing. This is what lets those descriptions
+   stop repeating themselves without the instruction going missing with them. */
+function stepFlankExtras(seg, dayKm){
+  if (seg.km != null || seg.m != null || seg.sec != null) return null;
+  if (seg.role === 'warmup'){
+    var w = statedWarmupKm(dayKm);
+    return w ? { qty:fmtDist(w) } : null;
+  }
+  if (seg.role === 'cooldown' && dayKm)
+    return { note:'Easy running to complete ' + fmtDist(round1(dayKm)) + ' total' };
+  return null;
+}
+function stepFromWork(seg, dayKm){
+  var extra = stepFlankExtras(seg, dayKm) || {};
   return { role:seg.role === 'warmup' ? 'warmup' : (seg.role === 'cooldown' ? 'cooldown' : 'work'),
-           kind:'single', intensity:seg.intensity,
+           kind:'single', intensity:seg.intensity, build:stepBuild(seg),
            label:seg.role === 'warmup' ? 'Warm up'
                : seg.role === 'cooldown' ? 'Cool down'
                // a maximal effort is the checkpoint itself, not an intensity;
@@ -2905,7 +2937,9 @@ function stepFromWork(seg){
                : seg.maximal ? 'Time trial'
                : stepWorkLabel(seg),
            sets:null, reps:null, each:null,
-           qty:segmentPrescribed(seg), target:stepTarget(seg), effort:stepEffortWord(seg),
+           qty:segmentPrescribed(seg) || extra.qty || null,
+           note:extra.note || null,
+           target:stepTarget(seg), effort:stepEffortWord(seg),
            recovery:null, setRecovery:null };
 }
 /* A rep set that segmentsFor() emits as loose siblings rather than a repeat,
@@ -2927,16 +2961,63 @@ function ladderRunAt(segs, i){
 }
 function stepFromLadder(run){
   var first = run.rungs[0];
-  return { role:'work', kind:'ladder', intensity:first.intensity,
+  return { role:'work', kind:'ladder', intensity:first.intensity, build:null, note:null,
            label:stepWorkLabel(first),
            sets:null, reps:run.rungs.length, each:null,
            rungs:run.rungs.map(segmentPrescribed),
            qty:null, target:stepTarget(first), effort:stepEffortWord(first),
            recovery:stepRecoveryText(run.recovery), setRecovery:null };
 }
+/* ---- when the step list makes the description redundant ----
+   With the workout written out as steps, some session descriptions say
+   nothing further: "2km warm-up. 5km continuous @ Threshold pace. 1km
+   cool-down." is the list again, in a sentence, directly above the list.
+
+   Most are NOT redundant, which is why this is a list of the few rather than
+   a rule with exceptions. Four archetypes state a warm-up distance in prose
+   that segmentsFor() deliberately does not carry, so the prose holds a number
+   the steps cannot show. Every timed session ends with completionClause() --
+   "Easy running afterwards to complete 10km total" -- which is an instruction
+   about the remainder, not a cool-down figure, and no step expresses it.
+   Others carry genuine coaching in the same sentence as the structure
+   ("held unbroken", "locked in and controlled", "on tired legs from
+   yesterday"), and a shakeout's description is almost entirely about eating
+   and sleeping.
+
+   So: an archetype earns a place here only by review, and the DEFAULT IS TO
+   KEEP. A new archetype, an unknown one, or a day whose prescription was
+   dropped all keep their description automatically -- the failure direction
+   is redundancy, never a lost instruction. structuredWorkout.test.js checks
+   that every archetype named here has all of its description's quantities
+   present in the step list. */
+var WORKOUT_COVERS_DESCRIPTION = {
+  easy_run:true,               // "9km @ Easy pace."
+  long_run_goal_finish:true,   // steps also do the subtraction the prose leaves to the reader
+  threshold_continuous:true,
+  split_tempo:true,
+  track_reps:true,
+  short_reps:true,
+  ladder:true,
+  deuce:true,
+  /* The timed four. These only qualify because stepFlankExtras() now puts the
+     stated warm-up and the completion rule on the flank steps; without that
+     their descriptions carry two instructions the steps do not, and they
+     belong in the keep column instead. */
+  steady_tempo:true,
+  progressive_tempo:true,
+  hill_repeats:true,
+  fartlek:true
+};
+function workoutCoversDescription(dd){
+  var p = prescriptionOf(dd);
+  if (!p || !WORKOUT_COVERS_DESCRIPTION[p.archetype]) return false;
+  var steps = workoutSteps(dd);
+  return !!(steps && steps.length);
+}
 function workoutSteps(dd){
   var p = prescriptionOf(dd);
   if (!p) return null;
+  var dayKm = (dd && dd.km) || null;
   var segs;
   try { segs = segmentsFor(p); } catch(e) { return null; }
   if (!segs || !segs.length) return null;
@@ -2948,7 +3029,7 @@ function workoutSteps(dd){
     else {
       var run = ladderRunAt(segs, i);
       if (run){ step = stepFromLadder(run); i = run.end + 1; }
-      else { step = stepFromWork(s); i += 1; }
+      else { step = stepFromWork(s, dayKm); i += 1; }
     }
     if (step) out.push(step);
   }
@@ -6196,6 +6277,10 @@ function renderWorkoutStep(st, i){
   if (!lines.length && st.effort && !st.wholeSession)
     lines.push('<div class="ws-effort">'+escapeHtml(st.effort)+'</div>');
   var extra = '';
+  if (st.build)
+    extra += '<div class="ws-note">'+escapeHtml(st.build)+'</div>';
+  if (st.note)
+    extra += '<div class="ws-note">'+escapeHtml(st.note)+'</div>';
   if (st.recovery)
     extra += '<div class="ws-note">Recovery: '+escapeHtml(st.recovery)+'</div>';
   if (st.setRecovery)
@@ -6407,11 +6492,14 @@ function renderDayCard(dd){
         '<div class="day-title">'+escapeHtml(dd.title)+'</div>'+
         '<div class="day-detail">'+
           (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
-          '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>'+
-          /* WHAT, then HOW and WHY. The structured list goes between the
-             description and the coaching disclosure, so the order down the
-             card is: what this session is -> what you will actually run ->
-             how to run it. */
+          /* WHAT, then HOW and WHY. The step list is the execution
+             prescription now, so the description is dropped where it only
+             restates it -- and kept wherever it still carries an instruction
+             of its own. The stored dd.desc is untouched either way: Edit
+             Session and the calendar export both still read it. */
+          (workoutCoversDescription(dd)
+            ? ''
+            : '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>')+
           renderStructuredWorkout(dd)+
           renderCoachingDepth(dd)+
           renderAdjustedDetail(dd)+

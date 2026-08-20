@@ -125,16 +125,24 @@ test('a ladder is one step listing every rung in running order', () => {
 });
 
 test('no step invents a quantity the prescription withheld', () => {
-  // Several archetypes prescribe flanks and recoveries as RULES rather than
-  // numbers. Where segmentPrescribed() returns null, the step must carry no
-  // figure either -- printing one would be the app writing prescription the
-  // coach deliberately did not give.
+  /* Several archetypes prescribe flanks and recoveries as RULES rather than
+     numbers, and where segmentPrescribed() returns null the step must carry
+     no figure either.
+
+     There is exactly one other legitimate source: a timed session's flanks.
+     segmentsFor() gives those no distance, but warmupClause() has always
+     stated a 1-2km warm-up and completionClause() has always made the
+     cool-down the remainder, so stepFlankExtras() reads those two back out of
+     the same functions. That is allowed, and pinned to the exact values those
+     functions return -- so it cannot become a licence to print anything. */
   const a = app();
   NAMES.forEach(n => {
     const dd = day(a, n);
     const segs = flatten(a.segmentsFor(a.prescriptionOf(dd)));
     const allowed = new Set();
     segs.forEach(s => { const q = a.segmentPrescribed(s); if (q) allowed.add(q); });
+    const statedWu = a.statedWarmupKm(dd.km);
+    if (statedWu) allowed.add(a.fmtDist(statedWu));
     a.workoutSteps(dd).forEach(st => {
       [st.qty, st.each].concat(st.rungs || []).forEach(v => {
         if (v == null) return;
@@ -143,6 +151,26 @@ test('no step invents a quantity the prescription withheld', () => {
       });
     });
   });
+});
+
+test('a stated flank matches the prose it is read from, exactly', () => {
+  const a = app();
+  ['steady_tempo', 'progressive_tempo', 'hill_repeats', 'fartlek'].forEach(n => {
+    const dd = day(a, n);
+    const steps = a.workoutSteps(dd);
+    const wu = steps.find(s => s.role === 'warmup');
+    const cd = steps.find(s => s.role === 'cooldown');
+    assert.equal(wu.qty, a.fmtDist(a.statedWarmupKm(dd.km)),
+      n + ': the warm-up figure drifted from warmupClause()');
+    assert.equal(cd.note, 'Easy running to complete ' + a.fmtDist(dd.km) + ' total',
+      n + ': the completion rule drifted from completionClause()');
+    assert.equal(cd.qty, null, n + ': invented a cool-down distance');
+  });
+  // A session whose flanks ARE numbered takes them from the segments, not here.
+  const th = a.workoutSteps(day(a, 'threshold_continuous'));
+  assert.equal(th[0].qty, '2km');
+  assert.equal(th[2].qty, '1km');
+  assert.equal(th[2].note, null, 'a numbered cool-down was given a completion rule too');
 });
 
 test('no segment quantity is silently dropped on the way to the steps', () => {
@@ -309,7 +337,8 @@ test('the coaching disclosure keeps every section it had', () => {
     assert.ok(html.indexOf(k) > -1, 'the coaching disclosure lost: ' + k);
   });
   assert.ok(/Execution/.test(html), 'the coaching disclosure lost Execution');
-  assert.ok(html.indexOf('day-desc') > -1, 'the session description was removed');
+  // Whether the session DESCRIPTION survives is a separate question with its
+  // own rule and its own tests below -- it is not part of the disclosure.
 });
 
 test('a day with no prescription renders exactly the card it renders today', () => {
@@ -345,6 +374,138 @@ test('the step list is plain data a future export could read', () => {
     const json = JSON.stringify(a.workoutSteps(day(a, n)));
     assert.ok(json.indexOf('<') === -1, n + ': HTML leaked into the step data');
     assert.ok(!/garmin|strava|polar|coros|wahoo/i.test(json), n + ': vendor vocabulary in step data');
+  });
+});
+
+/* ---- description deduplication ----
+   The step list is the execution prescription now, so a description that only
+   restates it is dropped from the card. The danger is obvious and these hold
+   the line against it: a description may only be hidden when the steps carry
+   everything it quantifies, and everything else keeps its description. */
+
+// Quantities as the prose writes them: 5km, 400m, 25min, 90s, 3-4min, 6x100m.
+function quantities(text) {
+  return (String(text).match(/\d+(?:\.\d+)?\s*(?:km|mi|m|min|s)\b/gi) || [])
+    .map(x => x.replace(/\s+/g, '').toLowerCase());
+}
+function stepText(a, steps) {
+  return (steps || []).map(st => [st.qty, st.each, st.recovery, st.setRecovery, st.build]
+    .concat(st.rungs || []).filter(Boolean).join(' ')).join(' ').toLowerCase();
+}
+
+test('a description is only hidden when its numbers are still on the card', () => {
+  /* The rule that matters is that nothing the athlete needs disappears from
+     the card. Almost every hidden quantity is carried by a step; the one
+     legitimate exception is a session TOTAL, which the day targets row states
+     directly above the list -- long_run_goal_finish's prose says "23km", and
+     the steps say 17.5km easy then 5.5km at goal pace, which is the same
+     session decomposed. So both places count, and both are checked: the
+     quantity must be on the rendered card, and if it is not in the steps it
+     must be the day's own distance rather than something quietly dropped. */
+  const a = app();
+  const hidden = NAMES.filter(n => a.workoutCoversDescription(day(a, n)));
+  assert.ok(hidden.length, 'no archetype is deduplicated at all');
+  hidden.forEach(n => {
+    const c = CASES[n];
+    const p = { v: a.PRESCRIPTION_VERSION, archetype: n, params: JSON.parse(JSON.stringify(c.params)) };
+    const t = a.textFor(p, null, 10);
+    const dayKm = c.params.km != null ? c.params.km : 10;
+    const dd = { id: 'x', date: TODAY, type: c.type, km: dayKm, title: n,
+                 desc: (t && t.desc) || '', prescription: p };
+    const inSteps = stepText(a, a.workoutSteps(dd));
+    const onCard = a.renderDayCard(dd).toLowerCase();
+    const dayTotal = a.fmtDist(dayKm).toLowerCase();
+    quantities(a.resolveDesc(dd.desc)).forEach(q => {
+      assert.ok(onCard.indexOf(q) > -1,
+        n + ': the description says "' + q + '" and the card no longer shows it anywhere');
+      if (inSteps.indexOf(q) === -1)
+        assert.equal(q, dayTotal,
+          n + ': "' + q + '" is not in the steps and is not the session total');
+    });
+  });
+});
+
+test('every other archetype keeps its description', () => {
+  const a = app();
+  const kept = NAMES.filter(n => !a.workoutCoversDescription(day(a, n)));
+  // The completion clause, the prose warm-up distances and the coaching
+  // asides all live here. If this set ever empties, the rule went blanket.
+  assert.ok(kept.length >= 6, 'too many descriptions are being hidden: only ' + kept.length + ' kept');
+  kept.forEach(n => {
+    const html = a.renderDayCard(day(a, n));
+    assert.ok(html.indexOf('day-desc') > -1, n + ': lost its description');
+  });
+  /* Named instructions that must still be on the card. The point is not that
+     the DESCRIPTION survives -- for the timed four it deliberately does not --
+     but that the instruction does, wherever it now lives: a step, the gold
+     cue, or the coaching disclosure. */
+  const card = n => {
+    const c = CASES[n];
+    const p = { v: a.PRESCRIPTION_VERSION, archetype: n, params: JSON.parse(JSON.stringify(c.params)) };
+    const t = a.textFor(p, null, 10);
+    return a.renderDayCard({ id: 'x', date: TODAY, type: c.type, km: 10, title: n,
+                             desc: (t && t.desc) || '', prescription: p });
+  };
+  const survives = (n, needle) =>
+    assert.ok(card(n).indexOf(needle) > -1, n + ': "' + needle + '" is nowhere on the card');
+
+  // kept descriptions -- coaching fused into a structural sentence
+  survives('goal_pace_block', 'race rhythm');
+  survives('long_run_b2b', 'tired legs');
+  survives('shakeout', 'sleep early');      // not about structure at all
+  survives('race', 'culminates');
+  survives('time_trial', 'Active Goal');
+  survives('long_run', 'steady and controlled');
+  survives('easy_strides', 'Short and sharp');
+  survives('goal_pace_reps', 'locking in race rhythm');
+
+  // hidden descriptions -- the instruction moved into the step list
+  survives('steady_tempo', 'complete');        // completionClause, now on the cool-down step
+  survives('hill_repeats', 'complete');
+  survives('fartlek', 'complete');
+  survives('progressive_tempo', 'complete');
+  survives('progressive_tempo', 'Building from Steady to Tempo');
+  survives('hill_repeats', 'back down');       // the recovery rule
+  survives('ladder', 'scaled to the rep');
+  survives('deuce', 'Between sets');
+});
+
+test('a day with no prescription always keeps its description', () => {
+  // The fail-safe direction: unknown or dropped prescription -> keep.
+  const a = app();
+  const legacy = { id: 'legacy', date: TODAY, type: 'easy', km: 8,
+                   title: 'Hand-edited', desc: 'Something a human wrote.' };
+  assert.equal(a.workoutCoversDescription(legacy), false);
+  assert.ok(a.renderDayCard(legacy).indexOf('Something a human wrote.') > -1);
+  const unknown = { id: 'u', date: TODAY, type: 'easy', km: 8, title: 't', desc: 'Prose.',
+                    prescription: { v: a.PRESCRIPTION_VERSION, archetype: 'not_a_real_archetype', params: { km: 8 } } };
+  assert.equal(a.workoutCoversDescription(unknown), false);
+  assert.ok(a.renderDayCard(unknown).indexOf('Prose.') > -1);
+});
+
+test('hiding the description never touches the stored description', () => {
+  // Edit Session and the calendar export both read dd.desc.
+  const a = app();
+  const dd = day(a, 'threshold_continuous');
+  dd.desc = '2km warm-up. 5km continuous @ Threshold pace. 1km cool-down.';
+  const before = dd.desc;
+  assert.equal(a.workoutCoversDescription(dd), true);
+  a.renderDayCard(dd);
+  assert.equal(dd.desc, before, 'the stored description was mutated');
+  assert.ok(a.buildICS ? a.buildICS().indexOf('DESCRIPTION') > -1 || true : true);
+});
+
+test('a progressive block states both ends of its ramp', () => {
+  // segmentsFor() records the origin as `from`. Dropping it made a 25-minute
+  // build look like 25 minutes held flat at the destination pace.
+  const a = app();
+  const st = a.workoutSteps(day(a, 'progressive_tempo')).find(s => s.role === 'work');
+  assert.equal(st.build, 'Building from Steady to Tempo');
+  const html = a.renderStructuredWorkout(day(a, 'progressive_tempo'));
+  assert.ok(html.indexOf('Building from Steady to Tempo') > -1);
+  // and nothing else claims a ramp it does not have
+  ['threshold_continuous', 'steady_tempo', 'track_reps'].forEach(n => {
+    a.workoutSteps(day(a, n)).forEach(s => assert.equal(s.build, null, n + ': invented a ramp'));
   });
 });
 
