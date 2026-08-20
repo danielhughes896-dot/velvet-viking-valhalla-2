@@ -221,7 +221,13 @@ create table if not exists public.entitlement_grants (
   id            uuid primary key default gen_random_uuid(),
   account_id    uuid not null references auth.users(id) on delete cascade,
 
-  source        text not null check (source in ('admin_beta','admin_comp')),
+  -- 'trial' joined these in the Phase 1 trial extension. It is not an
+  -- administrative grant: it is customer-acquisition access with no provider
+  -- behind it, which is why it lives here rather than in subscriptions, where
+  -- it would have needed a fabricated provider_subscription_id. See
+  -- supabase-trial-grant-source.sql, which migrates databases created before
+  -- this line changed.
+  source        text not null check (source in ('admin_beta','admin_comp','trial')),
   product_code  text not null default 'VALHALLA_STANDARD'
                   check (product_code = 'VALHALLA_STANDARD'),
 

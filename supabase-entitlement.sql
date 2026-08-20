@@ -244,36 +244,26 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- STEP 6 -- NEW SIGN-INS INHERIT BETA AUTOMATICALLY
+-- STEP 6 -- RETIRED: THE SIGNUP AUTO-GRANT
 --
--- The beta trigger already refuses to create an auth user for an address that
--- is not on the allowlist, so any account that comes into existence from here
--- IS an approved tester. Giving it the override on creation means a tester who
--- signs in for the first time after this migration is not locked out by an
--- ordering accident.
+-- This step used to install seed_entitlement_on_signup on auth.users, giving
+-- every new account entitlements.override = 'beta'. Its own comment named the
+-- assumption it rested on -- "while private beta is the only route in" -- and
+-- commercial entry is the change that ended that.
 --
--- This becomes the wrong default the moment ordinary paying customers can sign
--- up, so 3A2 must replace it -- noted here rather than in a ticket because the
--- consequence of forgetting is free access.
+-- WHY IT IS GONE RATHER THAN COMMENTED OUT. resolveAccess() checks the
+-- override BEFORE any commercial rule, so while this existed, every athlete
+-- who created an account received permanent free access and never met a trial
+-- or a paywall. A commented-out version is a thing somebody restores.
+--
+-- WHAT REPLACED IT. Nothing needed to: the canonical model already carries the
+-- beta cohort as entitlement_grants rows with source = 'admin_beta', created
+-- by supabase-commercial-core.sql STEP 7 from the same beta_allowlist. This
+-- trigger had become duplicate access authority.
+--
+-- Existing databases are migrated by supabase-retire-legacy-beta-autogrant.sql,
+-- which refuses to run if anybody still depends on the legacy override alone.
 -- ---------------------------------------------------------------------------
-create or replace function public.seed_entitlement_for_new_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = public, auth
-as $$
-begin
-  insert into public.entitlements (user_id, override, override_note)
-  values (new.id, 'beta', 'auto-seeded at signup while private beta is the only route in')
-  on conflict (user_id) do nothing;
-  return new;
-end;
-$$;
-
-drop trigger if exists seed_entitlement_on_signup on auth.users;
-create trigger seed_entitlement_on_signup
-  after insert on auth.users
-  for each row execute function public.seed_entitlement_for_new_user();
 
 -- ---------------------------------------------------------------------------
 -- STEP 7 -- VERIFY
@@ -345,7 +335,7 @@ select
   (select count(*) from pg_policies
      where schemaname='public' and tablename='access_leases')                  as lease_policies_expect_0,
   (select count(*) from pg_trigger
-     where tgname = 'seed_entitlement_on_signup')                              as signup_trigger_expect_1,
+     where tgname = 'seed_entitlement_on_signup')                              as signup_trigger_expect_0,
   (select count(*) from pg_trigger
      where tgname = 'entitlement_revocation_kills_leases')                     as revocation_trigger_expect_1,
   (select count(*) from public.access_leases

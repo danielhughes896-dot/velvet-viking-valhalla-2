@@ -72,8 +72,10 @@ test('shared modules are underscored, or they silently become functions', () => 
 const account = require('../api/account.js');
 
 test('every consolidated resource resolves, and nothing else does', () => {
+  // Phase 3 added preview and trial. Both mount here rather than as new
+  // functions -- the plan allows twelve and the router is what it is for.
   assert.deepEqual(account.ROUTES.slice().sort(),
-    ['account-data', 'account-delete', 'checkout', 'subscription']);
+    ['account-data', 'account-delete', 'checkout', 'preview', 'subscription', 'trial']);
   account.ROUTES.forEach(r => {
     assert.equal(account.resolveResource({ query: { resource: r } }), r);
     assert.equal(account.resolveResource({ url: '/api/account?resource=' + r }), r);
