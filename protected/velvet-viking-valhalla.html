@@ -356,6 +356,40 @@
   .strat-phase-purpose{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin-top:3px;}
   .strat-phase-cue{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin-top:2px; font-style:italic;}
   .strat-phase-watch{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:3px;}
+  /* STRUCTURED WORKOUT — what the athlete will actually run.
+     A stacked rhythm rather than a stack of cards. Each step is a numbered
+     row against a single hairline rail, so five steps read as one workout
+     instead of five competing objects; the rail does the grouping that five
+     bordered boxes would do more loudly. Nothing here introduces a colour:
+     the numerals and the rail are the existing bronze, the targets use the
+     same --fs-data mono the day targets and strategy phases already use, and
+     the surface is whatever the card is sitting on. */
+  .ws-block{margin-top:10px;}
+  .ws-head{font-size:var(--fs-label); letter-spacing:1.4px; text-transform:uppercase;
+           color:var(--ink-faint); margin-bottom:6px;}
+  .ws-steps{list-style:none; margin:0; padding:0 0 0 12px; border-left:1px solid var(--line-soft);}
+  .ws-step{padding:0 0 11px 0;}
+  .ws-step:last-child{padding-bottom:0;}
+  .ws-step-label{display:flex; align-items:baseline; gap:8px;}
+  /* The numeral leads the label rather than sitting on the rail. Hanging it
+     over the line needed an opaque background to mask the rail behind it, and
+     a day card is tinted by session type -- there is no one colour that mask
+     could be. Inline, it needs no mask and cannot be clipped by the card. */
+  .ws-n{flex:none; font-size:var(--fs-meta); color:var(--bronze-text); line-height:1;}
+  .ws-name{font-size:var(--fs-body); letter-spacing:.6px; text-transform:uppercase; color:var(--ink);}
+  .ws-qty{font-size:var(--fs-title); line-height:1.15; color:var(--ink); margin-top:2px;}
+  /* A ladder's quantity is a LIST of rungs, not one figure. At display size it
+     wrapped to three lines and took over the card; at body size it reads as
+     the sequence it is, and the step still leads with its name. */
+  .ws-k-ladder .ws-qty{font-size:var(--fs-body); line-height:var(--lh-support);}
+  .ws-target{font-size:var(--fs-data); color:var(--bronze-text); margin-top:2px;}
+  .ws-hr{font-size:var(--fs-data); color:var(--ink-faint); margin-top:1px;}
+  .ws-effort{font-size:var(--fs-body); line-height:var(--lh-support); color:var(--ink-dim); margin-top:2px;}
+  .ws-note{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:3px;}
+  /* A flank is scaffolding, not the session. Quieter and smaller so the eye
+     lands on the work step between them. */
+  .ws-warmup .ws-name, .ws-cooldown .ws-name{color:var(--ink-faint);}
+  .ws-warmup .ws-qty, .ws-cooldown .ws-qty{font-size:var(--fs-body); color:var(--ink-dim);}
   .build-tag{text-align:center; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--ink-faint); opacity:.6; margin-top:18px;}
   /* Hidden file inputs are moved off-screen rather than display:none -- an
      Android WebView refuses to open the picker for an unrendered input. */
@@ -534,7 +568,21 @@
   .day-chevron svg{width:17px; height:17px; display:block;}
   .day.open .day-chevron{transform:rotate(180deg);}
   .day-detail, .day-drawer{max-height:0; overflow:hidden; transition:max-height .35s ease;}
-  .day.open .day-detail{max-height:1600px;}
+  /* THIS NUMBER IS A CEILING, NOT A HEIGHT. max-height is how the open/shut
+     transition is animated, and overflow:hidden means anything past it is not
+     merely unscrollable but invisible. At 1600px a race day at novice depth on
+     a 320px screen measured 3517px, so well over half of "How to run this" --
+     the fuelling plan, Watch For, the closing phases of the strategy -- was
+     silently cut off, and had been before the workout list was added to the
+     same container.
+
+     6000px clears the tallest card the app can currently produce -- measured
+     across every archetype at 320px and novice depth, the most verbose
+     combination -- with room to spare. structuredWorkout.test.js holds the
+     floor so it cannot be quietly lowered again; the measurement itself needs
+     a browser the suite does not have, so re-measure with a real viewport
+     before adding anything substantial to this container. */
+  .day.open .day-detail{max-height:6000px;}
   .day.open .day-drawer{max-height:4000px;}
   /* the drawer's own children carry the top spacing, so a shut card has none */
   .day-actions{display:flex; gap:6px; flex:none;}
@@ -2677,11 +2725,35 @@ var SEGMENT_QUALIFIER_TEXT = {
   scaled:'scaled to the rep', short:'short', full:'full recovery',
   back_down:'jog/walk back down', equal_time:'equal time', float:'floating'
 };
+/* Minutes ONLY where the value is a whole number of them. Rounding to the
+   nearest minute restated a 90-second jog recovery as "2min" -- a third longer
+   than the prescription, on the same card whose own description says "90s jog
+   recovery". A prescription is not an estimate and must not be rounded into
+   one; the seconds are printed instead wherever they do not divide. */
+function fmtSegSeconds(sec){
+  if (sec >= 60 && sec % 60 === 0) return (sec/60) + 'min';
+  return sec + 's';
+}
 function segmentPrescribed(s){
   if (!s) return null;
   if (s.km != null) return fmtDist(s.km);
   if (s.m != null)  return s.m + 'm';
-  if (s.sec != null) return s.sec >= 60 ? Math.round(s.sec/60) + 'min' : s.sec + 's';
+  if (s.sec != null){
+    /* A recovery prescribed as a RANGE is two numbers and has to read as two.
+       DEUCE_SET_RECOVERY_SEC and SPLIT_TEMPO_RECOVERY_SEC are both [lo,hi],
+       and letting the array stringify itself put "180,240s" on the structured
+       log for every set-based session -- while the prose it was written from
+       had always said "3-4min between sets". Both bounds are rendered in the
+       unit the LARGER one earns, so a 90-180s range cannot read "90s-3min". */
+    if (Array.isArray(s.sec)){
+      if (s.sec.length !== 2) return fmtSegSeconds(segSeconds(s.sec));
+      var lo = Math.min(s.sec[0], s.sec[1]), hi = Math.max(s.sec[0], s.sec[1]);
+      return hi >= 60
+        ? Math.round(lo/60) + '–' + Math.round(hi/60) + 'min'
+        : lo + '–' + hi + 's';
+    }
+    return fmtSegSeconds(s.sec);
+  }
   return SEGMENT_QUALIFIER_TEXT[s.qualifier] || null;
 }
 /* Which actual is worth asking for. A segment prescribed as a DISTANCE is
@@ -2695,6 +2767,288 @@ function segmentAsksFor(s){
   if (s.km != null || s.m != null) return { dist:false, time:true };
   if (s.sec != null) return { dist:true, time:false };
   return { dist:true, time:true };
+}
+
+/* =========================================================
+   WORKOUT STEPS — the prescription as the athlete will run it
+   ---------------------------------------------------------
+   THE PROBLEM. A session's structure was only ever readable as prose. "8km
+   with 5km at threshold, 2km warm-up, 1km cool-down" is a sentence you parse;
+   the athlete standing at the trailhead wants a list they can glance at.
+
+   WHAT THIS IS. A third view of segmentsFor(), alongside the two that already
+   exist, and deliberately the shallowest of the three:
+
+     segmentDistanceMix()  flattens the tree for arithmetic  (totals, zones)
+     orderedSegments()     flattens it into running order     (structured log)
+     workoutSteps()        keeps the tree shape               (this)
+
+   Keeping the tree is the whole point. orderedSegments() correctly expands
+   5x1000m into five reps and four recoveries, which is what a logging screen
+   needs and exactly what a pre-run summary must not show -- the athlete wants
+   one line saying "5 x 1000m", not nine rows. So this walks the TOP LEVEL of
+   segmentsFor() and lets a repeat stay a repeat.
+
+   WHAT IT MAY NOT DO. It computes no distance, no time, no rep count and no
+   pace of its own. Every quantity is read straight off the segment via
+   segmentPrescribed(), every band comes from strategyPaceBand()/
+   strategyHRBand() -- the same two functions the Execution Strategy uses --
+   and where segmentsFor() deliberately carries no number, neither does this.
+   It is a re-presentation of the prescription and has no authority to change
+   distance, time, reps, recovery, targets, type or purpose.
+
+   PROVIDER-NEUTRAL BY CONSTRUCTION. The step list is plain data with no HTML
+   and no vocabulary belonging to any device maker, so a later export adapter
+   can read it without the athlete-facing presentation being rewritten around
+   whatever that adapter happens to need. Nothing here knows what a watch is.
+   ========================================================= */
+
+/* What the athlete calls each intensity. Deliberately the SAME words as the
+   Pace Reference card (ZONE_PACE_LABELS), shortened where a step label wants
+   one word, so a step and the zone table are recognisably about one thing. */
+var STEP_INTENSITY_LABEL = {
+  easy:'Easy', steady:'Steady', tempo:'Tempo', threshold:'Threshold',
+  interval:'Interval', repetition:'Repetition',
+  hard_effort:'Hard effort', goal_pace:'Goal pace'
+};
+/* Intensities the app itself declines to price, so neither do we.
+   segmentsFor() maps hills and fartlek to hard_effort and INTENSITY_ZONE_KEY
+   notes that I is "the closest cost" rather than the prescription; a time
+   trial is maximal by instruction. Printing a pace window on any of them
+   would turn a run-by-feel instruction into a number to chase, which is the
+   one thing the segment engine is written not to do. They show the effort
+   word instead -- the same thing the prose already tells them. */
+function stepShowsPaceBand(seg){
+  return !(seg.maximal || seg.intensity === 'hard_effort');
+}
+function stepEffortWord(seg){
+  if (seg.maximal) return 'Maximal effort';
+  if (seg.intensity === 'hard_effort') return 'Hard, by feel';
+  return STEP_INTENSITY_LABEL[seg.intensity] || 'Easy';
+}
+/* The terrain IS the workout when it is a hill session, so it names the step.
+   Everything else is named by its intensity. */
+function stepWorkLabel(seg){
+  if (seg.terrain === 'uphill') return 'Hill repeats';
+  return STEP_INTENSITY_LABEL[seg.intensity] || 'Work';
+}
+/* Targets for one step, read from the athlete's own zones through the
+   existing two resolvers. Returns null rather than a fabricated band when the
+   athlete has no VDOT or no goal time yet -- the step still renders, carrying
+   its effort word. */
+function stepTarget(seg){
+  if (!stepShowsPaceBand(seg)) return null;
+  /* A flank carries the effort word and no window. Three steps all showing the
+     same easy band is noise on the one screen that has to be scannable, and
+     several archetypes prescribe their warm-up with no distance at all -- a
+     precise pace range on an unquantified jog is the sort of false precision
+     the rest of this engine refuses. "Easy" is the whole instruction. */
+  if (seg.role === 'warmup' || seg.role === 'cooldown') return null;
+  var pace = null, hr = null;
+  try { pace = strategyPaceBand(seg.intensity); } catch(e) { pace = null; }
+  try { hr = strategyHRBand(seg.intensity); } catch(e) { hr = null; }
+  if (!pace && !hr) return null;
+  return { pace:pace, hr:hr };
+}
+/* A recovery in words. segmentPrescribed() already returns null where the
+   prescription is a rule rather than a number ("scaled to the rep",
+   "jog/walk back down"), and SEGMENT_QUALIFIER_TEXT supplies that rule's
+   wording, so this adds nothing of its own beyond the jog/float verb. */
+function stepRecoveryText(seg){
+  if (!seg || seg.kind !== 'recovery') return null;
+  var q = segmentPrescribed(seg);
+  var verb = seg.mode === 'walk_jog' ? '' : (seg.mode === 'float' ? 'floating' : 'easy');
+  if (!q) return verb || null;
+  /* The qualifier IS the quantity for a ruled recovery, so it must not then
+     be repeated as a verb: "scaled to the rep easy" reads as nonsense. */
+  if (q === SEGMENT_QUALIFIER_TEXT[seg.qualifier]) return q;
+  return verb ? q + ' ' + verb : q;
+}
+/* A repeat becomes ONE step. A nested repeat -- the only case is a set-based
+   session, N sets of M reps -- keeps both counts, because "2 sets of 4x400m"
+   and "8x400m" are different workouts and flattening them would be the
+   presentation layer rewriting the prescription. */
+function stepFromRepeat(rep){
+  var work = null, rec = null, inner = null;
+  (rep.children || []).forEach(function(c){
+    if (c.kind === 'repeat') inner = c;
+    else if (c.kind === 'recovery') rec = c;
+    else if (!work) work = c;
+  });
+  if (inner){
+    var innerWork = null, innerRec = null;
+    (inner.children || []).forEach(function(c){
+      if (c.kind === 'recovery') innerRec = c;
+      else if (!innerWork) innerWork = c;
+    });
+    if (!innerWork) return null;
+    return { role:'work', kind:'set', intensity:innerWork.intensity, build:null, note:null,
+             label:stepWorkLabel(innerWork),
+             sets:rep.times, reps:inner.times, each:segmentPrescribed(innerWork),
+             qty:null, target:stepTarget(innerWork), effort:stepEffortWord(innerWork),
+             recovery:stepRecoveryText(innerRec), setRecovery:stepRecoveryText(rec) };
+  }
+  if (!work) return null;
+  return { role:'work', kind:'reps', intensity:work.intensity, build:null, note:null,
+           label:stepWorkLabel(work),
+           sets:null, reps:rep.times, each:segmentPrescribed(work),
+           qty:null, target:stepTarget(work), effort:stepEffortWord(work),
+           recovery:stepRecoveryText(rec), setRecovery:null };
+}
+/* A ramped effort names both ends. segmentsFor() records the origin of a
+   progressive block as `from`, and dropping it left a 25-minute build looking
+   like 25 minutes held flat at the destination pace -- a different session.
+   Only the two intensities the segment actually carries are stated; where in
+   the block the change happens is prose, not data, so it is not claimed. */
+function stepBuild(seg){
+  if (!seg.from) return null;
+  var a = STEP_INTENSITY_LABEL[seg.from], b = STEP_INTENSITY_LABEL[seg.intensity];
+  return (a && b) ? ('Building from ' + a + ' to ' + b) : null;
+}
+/* THE FLANKS OF A TIMED SESSION. Four archetypes call segFlanks(null, null),
+   so neither flank carries a distance -- correctly, because timed work covers
+   ground nobody can know in advance and the segment tree is what the distance
+   arithmetic folds from. The DESCRIPTION has always told the athlete more:
+   warmupClause() states a 1-2km warm-up, and completionClause() makes the
+   cool-down whatever running reaches the day's total.
+
+   Both are read back out of the same two functions the prose itself calls, so
+   the step and the sentence cannot drift, and nothing is computed here that
+   the app was not already computing. This is what lets those descriptions
+   stop repeating themselves without the instruction going missing with them. */
+function stepFlankExtras(seg, dayKm){
+  if (seg.km != null || seg.m != null || seg.sec != null) return null;
+  if (seg.role === 'warmup'){
+    var w = statedWarmupKm(dayKm);
+    return w ? { qty:fmtDist(w) } : null;
+  }
+  if (seg.role === 'cooldown' && dayKm)
+    return { note:'Easy running to complete ' + fmtDist(round1(dayKm)) + ' total' };
+  return null;
+}
+function stepFromWork(seg, dayKm){
+  var extra = stepFlankExtras(seg, dayKm) || {};
+  return { role:seg.role === 'warmup' ? 'warmup' : (seg.role === 'cooldown' ? 'cooldown' : 'work'),
+           kind:'single', intensity:seg.intensity, build:stepBuild(seg),
+           label:seg.role === 'warmup' ? 'Warm up'
+               : seg.role === 'cooldown' ? 'Cool down'
+               // a maximal effort is the checkpoint itself, not an intensity;
+               // "Hard effort / Maximal effort" would say the same thing twice
+               : seg.maximal ? 'Time trial'
+               : stepWorkLabel(seg),
+           sets:null, reps:null, each:null,
+           qty:segmentPrescribed(seg) || extra.qty || null,
+           note:extra.note || null,
+           target:stepTarget(seg), effort:stepEffortWord(seg),
+           recovery:null, setRecovery:null };
+}
+/* A rep set that segmentsFor() emits as loose siblings rather than a repeat,
+   because its reps differ in length -- a ladder. Structurally it is the same
+   thing a repeat is (several work bouts of one intensity, recoveries between
+   them) so it reads as one step, listing the rungs in the order they are run.
+   Detected by shape, not by archetype name: the presentation layer never asks
+   which generator produced a session. */
+function ladderRunAt(segs, i){
+  var rungs = [], j = i, rec = null;
+  while (j < segs.length && segs[j].kind === 'work' && !segs[j].role &&
+         segs[j].intensity === segs[i].intensity){
+    rungs.push(segs[j]);
+    if (segs[j+1] && segs[j+1].kind === 'recovery'){ rec = rec || segs[j+1]; j += 2; }
+    else { j += 1; break; }
+  }
+  if (rungs.length < 2) return null;
+  return { rungs:rungs, recovery:rec, end:j - 1 };
+}
+function stepFromLadder(run){
+  var first = run.rungs[0];
+  return { role:'work', kind:'ladder', intensity:first.intensity, build:null, note:null,
+           label:stepWorkLabel(first),
+           sets:null, reps:run.rungs.length, each:null,
+           rungs:run.rungs.map(segmentPrescribed),
+           qty:null, target:stepTarget(first), effort:stepEffortWord(first),
+           recovery:stepRecoveryText(run.recovery), setRecovery:null };
+}
+/* ---- when the step list makes the description redundant ----
+   With the workout written out as steps, some session descriptions say
+   nothing further: "2km warm-up. 5km continuous @ Threshold pace. 1km
+   cool-down." is the list again, in a sentence, directly above the list.
+
+   Most are NOT redundant, which is why this is a list of the few rather than
+   a rule with exceptions. Four archetypes state a warm-up distance in prose
+   that segmentsFor() deliberately does not carry, so the prose holds a number
+   the steps cannot show. Every timed session ends with completionClause() --
+   "Easy running afterwards to complete 10km total" -- which is an instruction
+   about the remainder, not a cool-down figure, and no step expresses it.
+   Others carry genuine coaching in the same sentence as the structure
+   ("held unbroken", "locked in and controlled", "on tired legs from
+   yesterday"), and a shakeout's description is almost entirely about eating
+   and sleeping.
+
+   So: an archetype earns a place here only by review, and the DEFAULT IS TO
+   KEEP. A new archetype, an unknown one, or a day whose prescription was
+   dropped all keep their description automatically -- the failure direction
+   is redundancy, never a lost instruction. structuredWorkout.test.js checks
+   that every archetype named here has all of its description's quantities
+   present in the step list. */
+var WORKOUT_COVERS_DESCRIPTION = {
+  easy_run:true,               // "9km @ Easy pace."
+  long_run_goal_finish:true,   // steps also do the subtraction the prose leaves to the reader
+  threshold_continuous:true,
+  split_tempo:true,
+  track_reps:true,
+  short_reps:true,
+  ladder:true,
+  deuce:true,
+  /* The timed four. These only qualify because stepFlankExtras() now puts the
+     stated warm-up and the completion rule on the flank steps; without that
+     their descriptions carry two instructions the steps do not, and they
+     belong in the keep column instead. */
+  steady_tempo:true,
+  progressive_tempo:true,
+  hill_repeats:true,
+  fartlek:true
+};
+function workoutCoversDescription(dd){
+  var p = prescriptionOf(dd);
+  if (!p || !WORKOUT_COVERS_DESCRIPTION[p.archetype]) return false;
+  var steps = workoutSteps(dd);
+  return !!(steps && steps.length);
+}
+function workoutSteps(dd){
+  var p = prescriptionOf(dd);
+  if (!p) return null;
+  var dayKm = (dd && dd.km) || null;
+  var segs;
+  try { segs = segmentsFor(p); } catch(e) { return null; }
+  if (!segs || !segs.length) return null;
+  var out = [], i = 0;
+  while (i < segs.length){
+    var s = segs[i], step = null;
+    if (s.kind === 'repeat'){ step = stepFromRepeat(s); i += 1; }
+    else if (s.kind === 'recovery'){ i += 1; continue; }   // only loose between ladder rungs
+    else {
+      var run = ladderRunAt(segs, i);
+      if (run){ step = stepFromLadder(run); i = run.end + 1; }
+      else { step = stepFromWork(s, dayKm); i += 1; }
+    }
+    if (step) out.push(step);
+  }
+  if (!out.length) return null;
+  /* A session that is one step is not "Easy" or "Goal pace" -- it IS the
+     session, and the athlete already knows it by the name on the card. Using
+     that name keeps the step list from restating the intensity chip directly
+     above it, and is what makes a long run say LONG RUN rather than EASY.
+
+     It is also the one case where the step's target and the DAY's target are
+     the same numbers, because there is nothing else in the session to average
+     with. The day targets row sits two lines above the step list, so printing
+     the band again here put an identical pace and heart rate on screen twice.
+     `wholeSession` marks that, and the renderer drops the duplicate. */
+  if (out.length === 1 && out[0].role === 'work'){
+    out[0].label = dayTypeLabel(dd);
+    out[0].wholeSession = true;
+  }
+  return out;
 }
 
 /* ---- when a session stops matching its prescription ----
@@ -5885,6 +6239,69 @@ function coachingDisclosureFor(dd, level){
   return { why:src.why||null, how:src.how, feel:src.feel||null, avoid:src.avoid||null,
            terse:!!terse };
 }
+/* =========================================================
+   STRUCTURED WORKOUT — the WHAT, above the coach's HOW and WHY
+   ---------------------------------------------------------
+   The card already answered "how should I run this" very well, and "what am I
+   actually doing" only in prose. This is the second question, answered as a
+   list, sitting above the first: structure first, then the coaching that
+   explains it. Nothing was taken out of "How to run this" to make room.
+
+   It is NOT a second opinion about the session. Every line is workoutSteps()
+   read back out, and workoutSteps() is a view of the prescription -- so this
+   cannot disagree with the description above it or the strategy below it.
+
+   Suppressed rather than faked where there is no prescription: legacy days and
+   hand-edited days keep exactly the card they have today.
+   ========================================================= */
+function renderStepQty(st){
+  if (st.kind === 'ladder')
+    return st.rungs.filter(function(r){ return r; }).join(' · ');
+  if (st.kind === 'set')
+    return st.sets + ' × ' + st.reps + (st.each ? ' × ' + st.each : '');
+  if (st.kind === 'reps')
+    return st.reps + (st.each ? ' × ' + st.each : '');
+  return st.qty || '';
+}
+function renderWorkoutStep(st, i){
+  var qty = renderStepQty(st);
+  var lines = [];
+  if (st.target && !st.wholeSession){
+    var pace = fmtStrategyPace(st.target.pace, null);
+    var hr = fmtStrategyHR(st.target.hr);
+    if (pace) lines.push('<div class="ws-target font-mono">'+escapeHtml(pace)+'</div>');
+    if (hr) lines.push('<div class="ws-hr font-mono">'+escapeHtml(hr)+'</div>');
+  }
+  // The effort word stands in for a window the prescription never gave -- but
+  // never for a whole-session step, whose window is on the card already.
+  if (!lines.length && st.effort && !st.wholeSession)
+    lines.push('<div class="ws-effort">'+escapeHtml(st.effort)+'</div>');
+  var extra = '';
+  if (st.build)
+    extra += '<div class="ws-note">'+escapeHtml(st.build)+'</div>';
+  if (st.note)
+    extra += '<div class="ws-note">'+escapeHtml(st.note)+'</div>';
+  if (st.recovery)
+    extra += '<div class="ws-note">Recovery: '+escapeHtml(st.recovery)+'</div>';
+  if (st.setRecovery)
+    extra += '<div class="ws-note">Between sets: '+escapeHtml(st.setRecovery)+'</div>';
+  return '<li class="ws-step ws-'+st.role+' ws-k-'+st.kind+'">'+
+    '<div class="ws-step-label"><span class="ws-n font-mono">'+(i+1)+'</span>'+
+      '<span class="ws-name font-head">'+escapeHtml(st.label)+'</span></div>'+
+    (qty ? '<div class="ws-qty font-mono">'+escapeHtml(qty)+'</div>' : '')+
+    lines.join('')+extra+
+  '</li>';
+}
+function renderStructuredWorkout(dd){
+  if (!dd || dd.type === 'rest') return '';
+  var steps;
+  try { steps = workoutSteps(dd); } catch(e) { return ''; }
+  if (!steps || !steps.length) return '';
+  return '<section class="ws-block" aria-label="Structured workout">'+
+    '<div class="ws-head font-head">Workout</div>'+
+    '<ol class="ws-steps">'+steps.map(renderWorkoutStep).join('')+'</ol>'+
+  '</section>';
+}
 function renderCoachingDepth(dd){
   var level = athleteExperience();
   var g = coachingEntryFor(dd);
@@ -6075,7 +6492,15 @@ function renderDayCard(dd){
         '<div class="day-title">'+escapeHtml(dd.title)+'</div>'+
         '<div class="day-detail">'+
           (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
-          '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>'+
+          /* WHAT, then HOW and WHY. The step list is the execution
+             prescription now, so the description is dropped where it only
+             restates it -- and kept wherever it still carries an instruction
+             of its own. The stored dd.desc is untouched either way: Edit
+             Session and the calendar export both still read it. */
+          (workoutCoversDescription(dd)
+            ? ''
+            : '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>')+
+          renderStructuredWorkout(dd)+
           renderCoachingDepth(dd)+
           renderAdjustedDetail(dd)+
         '</div>'+
