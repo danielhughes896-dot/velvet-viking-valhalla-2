@@ -33,7 +33,7 @@ const S = require('./_strava.js');     // canonical Supabase access layer
 const A = require('./_access.js');
 const B = require('./_billing.js');
 const P = require('./_stripe.js');
-const L = require('./_ledger.js');
+const Store = require('./_commercial-store.js');
 
 const STRIPE_SIG_HEADER = 'stripe-signature';
 
@@ -162,16 +162,26 @@ async function handleStripe(req, res, cfg){
 
   const ev = P.normaliseEvent(parsed);
   if (!ev){
-    /* Stripe emits well over a hundred event types and most mean nothing to an
-       entitlement. Answering 200 is correct -- it was received and understood
-       to be irrelevant. A non-2xx would have Stripe retry it forever. */
+    /* Stripe emits well over a hundred event types and most mean nothing to a
+       subscription. 200 is correct: received, understood to be irrelevant. A
+       non-2xx would have Stripe retry it forever. */
     log('STRIPE_IGNORED type=' + String(parsed.type).slice(0, 40));
     return S.json(res, 200, { ok: true, applied: false, reason: 'not_entitlement_relevant' });
   }
 
-  const claim = await L.claimEvent(cfg, ev);
-  if (!claim.ok){
-    log('STRIPE_CLAIM_FAILED id=' + P.ref(ev.provider_event_id));
+  /* 1. CLAIM FIRST. The unique index on (provider, provider_event_id) is what
+        makes this safe under concurrent delivery: two simultaneous copies both
+        attempt the insert and exactly one wins. A read-then-write would let
+        both pass. */
+  const claim = await Store.claimBillingEvent(S, cfg, {
+    provider: P.PROVIDER,
+    provider_event_id: ev.provider_event_id,
+    event_type: ev.stripe_type || null,
+    account_id: ev.account_id || null,
+    environment: stripe.environment
+  });
+  if (!claim.ok && !claim.duplicate){
+    log('STRIPE_CLAIM_FAILED id=' + P.ref(ev.provider_event_id) + ' reason=' + claim.reason);
     return S.json(res, 503, { error: 'unavailable', code: 'LEDGER_UNAVAILABLE' });
   }
   if (claim.duplicate){
@@ -181,65 +191,56 @@ async function handleStripe(req, res, cfg){
     return S.json(res, 200, { ok: true, applied: false, reason: 'already_applied' });
   }
 
-  /* The purchase record is written whether or not access moves: it is evidence,
-     and evidence that only exists when something changed is not evidence. */
-  if (ev.sub_id && ev.user_id){
-    const owner = await L.purchaseOwner(cfg, P.PROVIDER, ev.sub_id);
-    if (owner && owner !== ev.user_id){
-      /* A store subscription already belongs to a different athlete. Refusing
-         is the only safe answer -- silently moving it would be an
-         account-takeover primitive dressed as a convenience. */
-      log('STRIPE_SUB_OWNED_ELSEWHERE sub=' + P.ref(ev.sub_id));
-      await L.recordConsequence(cfg, claim.id, { applied: false });
-      return S.json(res, 200, { ok: true, applied: false, reason: 'subscription_owned_by_another_account' });
-    }
-    await L.upsertPurchase(cfg, {
-      user_id: ev.user_id, provider: P.PROVIDER, provider_sub_id: ev.sub_id,
-      provider_customer_id: ev.customer_id, billing_period: ev.billing_period,
-      tier: ev.tier, status: ev.type, current_period_end: ev.period_end,
-      cancel_at_period_end: ev.type === 'subscription_cancelled'
+  /* 2. FAIL CLOSED ON AN UNKNOWN ACCOUNT. A subscription we cannot attribute
+        must not silently create or move one. */
+  if (!ev.account_id || !ev.subscription_ref){
+    await Store.markBillingEventProcessed(S, cfg, {
+      provider: P.PROVIDER, provider_event_id: ev.provider_event_id, result: 'unattributable'
     });
+    log('STRIPE_UNATTRIBUTABLE id=' + P.ref(ev.provider_event_id));
+    return S.json(res, 200, { ok: true, applied: false, reason: 'unattributable' });
   }
 
-  if (ev.ledger_only || !ev.type){
-    await L.recordConsequence(cfg, claim.id, { applied: false });
-    return S.json(res, 200, { ok: true, applied: false, reason: ev.note || 'recorded_only' });
-  }
-
-  const ent = await A.readEntitlement(S, cfg, ev.user_id);
-  if (!ent.ok){
-    log('ENTITLEMENT_READ_FAILED user=' + ref(ev.user_id));
-    return S.json(res, 503, { error: 'unavailable', code: 'ENTITLEMENT_UNREADABLE' });
-  }
-
-  const now = new Date();
-  const result = B.applyBillingEvent(ent.row, ev, now);
-  if (!result.applied){
-    await L.recordConsequence(cfg, claim.id, { applied: false });
-    return S.json(res, 200, { ok: true, applied: false, reason: result.reason });
-  }
-
-  /* The same write the generic provider path performs, deliberately not
-     factored into a shared helper: two call sites that must stay identical are
-     easier to keep honest than one abstraction that hides which columns a
-     webhook is allowed to touch. billingPatch() is the thing that guarantees
-     only the nine billing columns move, and the override is never among them. */
-  const patch = B.billingPatch(result.next);
-  const write = ent.row
-    ? await S.sb(cfg, '/entitlements?user_id=eq.' + encodeURIComponent(ev.user_id),
-        { method: 'PATCH', body: JSON.stringify(patch) })
-    : await S.sb(cfg, '/entitlements',
-        { method: 'POST', body: JSON.stringify(Object.assign({ user_id: ev.user_id }, patch)) });
-  if (!write.ok){
-    log('ENTITLEMENT_WRITE_FAILED user=' + ref(ev.user_id));
-    return S.json(res, 503, { error: 'unavailable', code: 'ENTITLEMENT_UNWRITABLE' });
-  }
-
-  await L.recordConsequence(cfg, claim.id, {
-    applied: true, state: result.next.state, access_until: result.next.access_until
+  /* 3. The subscription row, upserted on (provider, provider_subscription_id).
+        Same constraint, same reason: one provider subscription belongs to one
+        account, enforced by the database rather than by application care. */
+  const up = await Store.upsertSubscription(S, cfg, {
+    provider: P.PROVIDER,
+    provider_subscription_id: ev.subscription_ref,
+    account_id: ev.account_id,
+    environment: stripe.environment,
+    condition: ev.condition,
+    product_code: 'STANDARD',
+    offer_code: ev.offer_code,
+    billing_period: ev.billing_period,
+    trial_start: ev.trial_start,
+    trial_end: ev.trial_end,
+    current_period_end: ev.period_end,
+    cancel_at_period_end: !!ev.cancel_at_period_end,
+    auto_renew: !ev.cancel_at_period_end,
+    provider_updated_at: ev.occurred_at
   });
-  log('STRIPE_APPLIED type=' + ev.type + ' user=' + ref(ev.user_id) + ' state=' + result.next.state);
-  return S.json(res, 200, { ok: true, applied: true, state: result.next.state });
+  if (!up.ok){
+    await Store.markBillingEventProcessed(S, cfg, {
+      provider: P.PROVIDER, provider_event_id: ev.provider_event_id, result: 'failed_' + up.reason
+    });
+    log('STRIPE_SUBSCRIPTION_WRITE_FAILED reason=' + up.reason);
+    /* 503 so Stripe retries: the event is claimed but explicitly marked failed,
+       which is the recoverable state rather than a silent loss. */
+    return S.json(res, 503, { error: 'unavailable', code: 'SUBSCRIPTION_UNWRITABLE' });
+  }
+
+  /* 4. Re-derive access from the canonical facts. Never computed here. */
+  const sync = await Store.syncEntitlementRow(S, cfg, ev.account_id);
+
+  await Store.markBillingEventProcessed(S, cfg, {
+    provider: P.PROVIDER, provider_event_id: ev.provider_event_id,
+    account_id: ev.account_id, subscription_id: up.id || null,
+    result: sync && sync.ok ? 'processed' : 'processed_entitlement_stale'
+  });
+
+  log('STRIPE_APPLIED condition=' + ev.condition + ' account=' + ref(ev.account_id));
+  return S.json(res, 200, { ok: true, applied: true, condition: ev.condition });
 }
 
 module.exports = async function handler(req, res){

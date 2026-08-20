@@ -22,42 +22,40 @@
 'use strict';
 
 const crypto = require('crypto');
-const C = require('./_commerce.js');
+const Prod = require('./_products.js');
 
 const API = 'https://api.stripe.com/v1';
-const PROVIDER = 'stripe';
 
-/* Which environment variable holds the Stripe price for each approved period.
-   This mapping lives here rather than in _commerce.js because a price id is a
-   fact about Stripe, and _commerce.js must read the same whether the offering
-   is sold through Stripe, Apple or Google. */
-const PRICE_ENV = {
-  monthly: 'STRIPE_PRICE_STANDARD_MONTHLY',
-  yearly:  'STRIPE_PRICE_STANDARD_YEARLY'
+/* THE PROVIDER IS 'web', NOT 'stripe'.
+ *
+ * The canonical model's provider axis answers "which commercial rail did this
+ * arrive on" -- web, apple or google -- because that is the axis the product,
+ * the entitlement resolver and the store-policy rules turn on. Stripe is the
+ * processor BENEATH the web rail, not a peer of the App Store.
+ *
+ * Naming the processor here would have made the provider column mean two
+ * different things at once, and would have forced a translation every time a
+ * web subscription was compared with an Apple one. The Stripe-specific facts
+ * -- session ids, price ids, event ids -- stay inside this file as metadata. */
+const PROVIDER = 'web';
+
+/* Stripe subscription status -> the canonical condition vocabulary. Explicit,
+ * because a status this file does not recognise must not be guessed into a
+ * condition that grants access. */
+const CONDITION_OF = {
+  trialing: 'trialing',
+  active: 'active',
+  past_due: 'past_due',
+  unpaid: 'past_due',
+  canceled: 'expired',
+  incomplete: 'past_due',
+  incomplete_expired: 'expired',
+  paused: 'past_due'
 };
 
-/* The Stripe price for a period, or a reason there isn't one. Read at call time
-   rather than captured at module scope: Vercel evaluates module scope once per
-   cold start, so a captured value would outlive a corrected variable.
-   NO PRICE ID IS INVENTED -- until a human creates them in a Stripe account and
-   sets them here, checkout refuses. An unset variable must never resolve to
-   "charge them something". */
-function priceFor(period, env){
-  const plan = C.planFor(period);
-  if (!plan) return { ok: false, code: 'unknown_billing_period' };
-  const e = env || process.env;
-  const id = String(e[PRICE_ENV[period]] || '').trim();
-  if (!id) return { ok: false, code: 'price_not_configured' };
-  /* Shape-checked to catch the commonest configuration mistake -- a product id,
-     a lookup key or a whole dashboard URL pasted in -- before it reaches Stripe
-     as a confusing 400. */
-  if (!/^price_[A-Za-z0-9]+$/.test(id)) return { ok: false, code: 'price_id_malformed' };
-  return { ok: true, priceId: id, plan: plan };
-}
-
-/* Five minutes, matching the existing generic webhook and Stripe's own
-   published tolerance. Long enough for a retry queued behind an outage, short
-   enough that a request captured off the wire is useless when replayed. */
+/* Five minutes, matching Stripe's own published tolerance. Long enough for a
+ * retry queued behind an outage, short enough that a request captured off the
+ * wire is useless by the time anyone replays it. */
 const MAX_SKEW_SEC = 5 * 60;
 
 function ref(v){ return v ? String(v).slice(0, 8) + '…' : '-'; }
@@ -66,9 +64,8 @@ function log(what){ try{ console.log('stripe: ' + what); }catch(e){} }
 /* ---------- configuration ----------
    Read through a function, never captured at module scope: Vercel evaluates
    module scope once per cold start and a captured secret would outlive a
-   rotation. `live` is deliberately NOT "a key exists" -- see _access.js for the
-   same discipline. Commerce goes live when a human says so, not when a
-   credential happens to be present. */
+   rotation. `live` is deliberately NOT "a key exists" -- commerce goes live
+   when a human says so, not when a credential happens to be present. */
 function config(env){
   const e = env || process.env;
   const secret = String(e.STRIPE_SECRET_KEY || '').trim();
@@ -77,22 +74,10 @@ function config(env){
     secret: function(){ return secret; },
     hasWebhookSecret: !!String(e.STRIPE_WEBHOOK_SECRET || '').trim(),
     webhookSecret: function(){ return String(e.STRIPE_WEBHOOK_SECRET || '').trim(); },
-    /* Test keys are usable; live keys additionally require the commercial flag
-       to be on, so a live key sitting in a preview environment cannot charge. */
     isLiveKey: /^sk_live_/.test(secret),
-    /* TWO ORIGINS, BECAUSE THERE ARE TWO DEPLOYMENTS.
-     *
-     * The marketing site and this backend are separate Vercel projects on
-     * separate hosts, and Vercel does not route across projects. /account is
-     * served by THIS repository's vercel.json; /pricing is a page in the
-     * website repository. Building both redirect URLs from one origin sends
-     * half of them somewhere that does not exist.
-     *
-     * VVV_SITE_ORIGIN is reused rather than renamed: _strava.js already uses it
-     * to mean "this deployment's public origin", and inventing a second name
-     * for the same fact is how two variables drift apart. There is deliberately
-     * NO fallback -- a guessed origin becomes a redirect to a 404 that only
-     * shows up after a real payment. */
+    /* Which billing environment a Stripe test key represents, so sandbox rows
+       are never mistaken for production ones in the ledger. */
+    environment: /^sk_live_/.test(secret) ? 'production' : 'sandbox',
     appOrigin: String(e.VVV_SITE_ORIGIN || '').trim().replace(/\/+$/, ''),
     marketingOrigin: String(e.VVV_MARKETING_ORIGIN || 'https://velvetviking.co.uk').trim().replace(/\/+$/, '')
   };
@@ -113,13 +98,33 @@ function encode(obj, prefix, out){
   return out;
 }
 
+/* The Stripe price id for an approved offer, read from the canonical
+   catalogue's own environment convention (VVV_PRICE_WEB_STANDARD_MONTHLY and
+   friends) rather than a second naming scheme of this file's invention. Two
+   conventions for one fact is how a price ends up configured in the variable
+   nobody reads.
+
+   NO PRICE ID IS INVENTED. Until a human creates them in a Stripe account and
+   sets them, checkout refuses: an unset variable must never resolve to
+   "charge them something". */
+function priceFor(offerCode, env){
+  if (!Prod.isOffer(offerCode)) return { ok: false, code: 'unknown_offer' };
+  const id = Prod.providerRef(PROVIDER, offerCode, env);
+  if (!id) return { ok: false, code: 'price_not_configured' };
+  /* A Stripe price id looks like price_XXXX. Checking the shape catches the
+     commonest configuration mistake -- a product id, a lookup key or a whole
+     dashboard URL pasted in -- before it reaches Stripe as a confusing 400. */
+  if (!/^price_[A-Za-z0-9]+$/.test(id)) return { ok: false, code: 'price_id_malformed' };
+  return { ok: true, priceId: id, offer: Prod.offer(offerCode) };
+}
+
 async function call(cfg, method, path, params, opts){
   if (!cfg.hasSecret) return { ok: false, code: 'stripe_not_configured' };
   const headers = {
     'Authorization': 'Bearer ' + cfg.secret(),
     'Content-Type': 'application/x-www-form-urlencoded'
   };
-  /* Idempotency-Key makes a retried create safe. Without it, a network timeout
+  /* Idempotency-Key makes a retried create safe. Without it a network timeout
      on checkout creation is indistinguishable from a failure, and retrying
      produces a second session -- which is how duplicate charges begin. */
   if (opts && opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
@@ -167,7 +172,7 @@ async function ensureCustomer(cfg, uid, email, existingCustomerId, opts){
    environment and hands Stripe that. No amount, no currency and no price id
    ever crosses the wire from a client. */
 async function createCheckoutSession(cfg, input, opts){
-  const price = priceFor(input.period, input.env);
+  const price = priceFor(input.offerCode, input.env);
   if (!price.ok) return { ok: false, code: price.code };
 
   if (!cfg.appOrigin) return { ok: false, code: 'app_origin_not_configured' };
@@ -185,10 +190,19 @@ async function createCheckoutSession(cfg, input, opts){
     'line_items[0][price]': price.priceId,
     'line_items[0][quantity]': 1,
     subscription_data: {
-      trial_period_days: price.plan.trialDays,
-      metadata: { vvv_user_id: input.uid, vvv_period: price.plan.period, vvv_tier: price.plan.tier }
+      trial_period_days: price.offer.trialDays,
+      /* Everything needed to reconstruct the purchase from a webhook alone,
+         because a webhook may arrive before, after, or instead of the browser
+         ever returning to the success page. */
+      metadata: {
+        vvv_account_id: input.accountId, vvv_offer: price.offer.code,
+        vvv_period: price.offer.billingPeriod, vvv_product: price.offer.product
+      }
     },
-    metadata: { vvv_user_id: input.uid, vvv_period: price.plan.period }
+    metadata: {
+      vvv_account_id: input.accountId, vvv_offer: price.offer.code,
+      vvv_period: price.offer.billingPeriod
+    }
   };
   const r = await call(cfg, 'POST', '/checkout/sessions', params, opts);
   if (!r.ok) return r;
@@ -196,8 +210,9 @@ async function createCheckoutSession(cfg, input, opts){
     ok: true,
     sessionId: r.data.id,
     url: r.data.url,
-    period: price.plan.period,
-    trialDays: price.plan.trialDays
+    offerCode: price.offer.code,
+    period: price.offer.billingPeriod,
+    trialDays: price.offer.trialDays
   };
 }
 
@@ -250,15 +265,34 @@ function periodEndOf(sub){
   return secs ? new Date(Number(secs) * 1000).toISOString() : null;
 }
 
-function uidOf(obj){
+/* The ACCOUNT this belongs to. Carried in metadata we set at checkout, with
+   client_reference_id as the fallback Stripe echoes back on the session. */
+function accountOf(obj){
   const o = obj || {};
   const md = o.metadata || {};
-  return md.vvv_user_id || o.client_reference_id || null;
+  return md.vvv_account_id || o.client_reference_id || null;
+}
+
+/* The offer this subscription is for, from metadata first and from the price's
+   recurring interval as a fallback -- so a subscription created outside our own
+   checkout is still classifiable. */
+function offerOf(sub){
+  const md = (sub && sub.metadata) || {};
+  if (Prod.isOffer(md.vvv_offer)) return md.vvv_offer;
+  const p = periodOf(sub);
+  const o = p ? Prod.offerForPeriod(p) : null;
+  return o ? o.code : null;
+}
+
+/* Stripe status -> canonical condition. An unrecognised status returns null so
+   the caller refuses rather than inventing one that grants access. */
+function conditionOf(status){
+  return CONDITION_OF[String(status || '')] || null;
 }
 
 function periodOf(sub){
   const md = (sub && sub.metadata) || {};
-  if (C.isPeriod(md.vvv_period)) return md.vvv_period;
+  if (Prod.BILLING_PERIODS.indexOf(md.vvv_period) !== -1) return md.vvv_period;
   const item = sub && sub.items && sub.items.data && sub.items.data[0];
   const interval = item && item.price && item.price.recurring && item.price.recurring.interval;
   if (interval === 'month') return 'monthly';
@@ -266,118 +300,62 @@ function periodOf(sub){
   return null;
 }
 
-/* One Stripe event -> zero or one Velvet Viking billing event. */
+/* ONE STRIPE EVENT -> THE FACTS THE CANONICAL MODEL NEEDS.
+ *
+ * This returns subscription FACTS, not a state transition. The old design
+ * translated each event into a verb -- trial_started, payment_failed -- and let
+ * a reducer move a state machine. That put two state machines in the system:
+ * Stripe's and ours, and they could disagree after a missed or reordered event.
+ *
+ * Stripe already maintains the authoritative subscription object. So every
+ * relevant event is treated the same way: read the current subscription off the
+ * event and write it down. An out-of-order delivery then cannot corrupt
+ * anything -- it simply restates a fact, and provider_updated_at records which
+ * telling was newer.
+ *
+ * Returns null for the many event types that carry no subscription. */
 function normaliseEvent(stripeEvent){
   const ev = stripeEvent || {};
   const obj = (ev.data && ev.data.object) || {};
-  const type = ev.type || '';
+  const type = String(ev.type || '');
 
-  /* `seq` orders events that arrive out of order. Stripe's `created` is
-     seconds, which is coarse enough that two events in the same second would
-     tie; the existing reducer treats a tie as "already applied", which is the
-     safe direction. */
-  const base = {
+  /* Only subscription-bearing events. An invoice or a charge tells us nothing
+     the subscription object does not already say more reliably. */
+  const isSub = /^customer\.subscription\./.test(type);
+  if (!isSub) return null;
+
+  const account_id = accountOf(obj);
+  const condition = conditionOf(obj.status);
+  /* An unrecognised Stripe status must not be guessed into a condition that
+     grants access. Deleted subscriptions are the one case where Stripe's status
+     may lag, and 'expired' is unambiguous there. */
+  const finalCondition = type === 'customer.subscription.deleted' ? 'expired' : condition;
+  if (!finalCondition) return null;
+
+  const secs = function(v){ return v ? new Date(Number(v) * 1000).toISOString() : null; };
+
+  return {
     provider: PROVIDER,
     provider_event_id: ev.id || null,
-    seq: ev.created == null ? null : Number(ev.created),
-    occurred_at: ev.created ? new Date(Number(ev.created) * 1000).toISOString() : null
+    /* Stripe's own type, kept for the ledger so an operator can see what
+       arrived without needing this file to have named it. */
+    stripe_type: type,
+    occurred_at: secs(ev.created),
+    account_id: account_id,
+    subscription_ref: obj.id || null,
+    customer_ref: obj.customer || null,
+    condition: finalCondition,
+    offer_code: offerOf(obj),
+    billing_period: periodOf(obj),
+    trial_start: secs(obj.trial_start),
+    trial_end: secs(obj.trial_end),
+    period_end: periodEndOf(obj),
+    cancel_at_period_end: !!obj.cancel_at_period_end
   };
-
-  function out(t, sub, extra){
-    const uid = uidOf(sub) || uidOf(obj);
-    if (!uid) return null;
-    return Object.assign({}, base, {
-      type: t,
-      user_id: uid,
-      period_end: periodEndOf(sub),
-      tier: (sub && sub.metadata && sub.metadata.vvv_tier) || 'standard',
-      billing_period: periodOf(sub),
-      customer_id: (sub && sub.customer) || obj.customer || null,
-      sub_id: (sub && sub.id) || obj.subscription || null
-    }, extra || {});
-  }
-
-  switch (type){
-    /* Checkout completing is the FIRST signal, and it is deliberately mapped
-       to nothing on its own: the subscription object that follows carries the
-       authoritative trial and period dates. Recording it in the ledger without
-       moving entitlement is the honest treatment. */
-    case 'checkout.session.completed':
-      return Object.assign({}, base, {
-        type: null, ledger_only: true, user_id: uidOf(obj),
-        customer_id: obj.customer || null, sub_id: obj.subscription || null,
-        billing_period: C.isPeriod((obj.metadata || {}).vvv_period) ? obj.metadata.vvv_period : null,
-        note: 'checkout_completed'
-      });
-
-    case 'customer.subscription.created': {
-      const s = obj;
-      if (s.status === 'trialing') return out('trial_started', s);
-      if (s.status === 'active') return out('subscription_started', s);
-      return out('subscription_started', s);
-    }
-
-    case 'customer.subscription.updated': {
-      const s = obj;
-      const prev = (ev.data && ev.data.previous_attributes) || {};
-      /* Cancellation scheduled, and un-scheduled. Both are about a flag, not
-         about access -- access continues to period end either way, which is
-         exactly what the existing model expresses without a new state. */
-      if (s.cancel_at_period_end === true && prev.cancel_at_period_end === false){
-        return out('subscription_cancelled', s);
-      }
-      if (s.cancel_at_period_end === false && prev.cancel_at_period_end === true){
-        return out('subscription_resumed', s);
-      }
-      if (s.status === 'past_due' || s.status === 'unpaid') return out('payment_failed', s);
-      if (s.status === 'active' && (prev.status === 'past_due' || prev.status === 'unpaid' || prev.status === 'trialing')){
-        return out(prev.status === 'trialing' ? 'subscription_started' : 'payment_recovered', s);
-      }
-      if (s.status === 'canceled') return out('subscription_ended', s);
-      /* A period rolling forward with no status change is a renewal. */
-      if (s.status === 'active' && prev.current_period_end) return out('subscription_renewed', s);
-      return Object.assign({}, base, { type: null, ledger_only: true, user_id: uidOf(s), note: 'subscription_updated_no_access_change' });
-    }
-
-    case 'customer.subscription.deleted':
-      return out('subscription_ended', obj);
-
-    case 'invoice.payment_failed':
-      return Object.assign({}, base, {
-        type: 'payment_failed', user_id: uidOf(obj),
-        customer_id: obj.customer || null, sub_id: obj.subscription || null,
-        period_end: null, tier: 'standard', billing_period: null
-      });
-
-    case 'invoice.payment_succeeded':
-      return Object.assign({}, base, {
-        type: 'payment_recovered', user_id: uidOf(obj),
-        customer_id: obj.customer || null, sub_id: obj.subscription || null,
-        period_end: obj.lines && obj.lines.data && obj.lines.data[0] && obj.lines.data[0].period
-          ? new Date(Number(obj.lines.data[0].period.end) * 1000).toISOString() : null,
-        tier: 'standard', billing_period: null
-      });
-
-    /* A refund or a dispute ends access now. It is a provider EVENT mapped to
-       the existing subscription_ended, not a new entitlement state -- the
-       access consequence is identical and a separate state would change no
-       decision while adding a way for the row to disagree with itself. */
-    case 'charge.refunded':
-    case 'charge.dispute.created':
-      return Object.assign({}, base, {
-        type: 'subscription_ended', user_id: uidOf(obj),
-        customer_id: obj.customer || null, sub_id: null,
-        period_end: null, tier: 'standard', billing_period: null,
-        note: type === 'charge.refunded' ? 'refunded' : 'disputed'
-      });
-
-    default:
-      return null;
-  }
 }
 
 module.exports = {
   API, PROVIDER, MAX_SKEW_SEC,
-  config, encode, call, ensureCustomer, createCheckoutSession, priceFor, PRICE_ENV,
-  parseSigHeader, verifySignature, normaliseEvent, periodOf, periodEndOf, uidOf, ref, log
+  config, encode, call, ensureCustomer, createCheckoutSession, priceFor, PROVIDER, CONDITION_OF,
+  parseSigHeader, verifySignature, normaliseEvent, periodOf, periodEndOf, accountOf, offerOf, conditionOf, ref, log
 };

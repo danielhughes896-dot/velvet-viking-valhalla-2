@@ -52,33 +52,49 @@ test('billing_events has exactly one definition in the repository', () => {
     'expected one definition, found: ' + (files.join(', ') || 'none'));
 });
 
-test('a commercial migration cannot silently skip an existing table', () => {
-  // `create table if not exists` is legitimate for a table only this repository
-  // owns. For a commercial table that another workstream may already have
-  // created, it must be paired with a guard that inspects the existing shape
-  // and refuses rather than proceeding.
-  for (const f of sqlFiles){
-    const src = read(f);
-    for (const t of COMMERCIAL){
-      const re = new RegExp('create\\s+table\\s+if\\s+not\\s+exists\\s+public\\.' + t + '\\b', 'i');
-      if (!re.test(src)) continue;
-      assert.match(src, /raise\s+exception/i,
-        f + ' creates ' + t + ' with IF NOT EXISTS and no guard: it would report ' +
-        'success against an incompatible existing table');
+test('each commercial table has exactly one owning migration', () => {
+  // `create table if not exists` is correct for the SOLE owner of a table --
+  // that is what makes a migration rerunnable. It becomes dangerous only when a
+  // second file claims the same name, because then the second one reports
+  // success while doing nothing. Single ownership is therefore the invariant
+  // worth enforcing, and the two tests above enforce it directly.
+  const owners = {};
+  for (const t of COMMERCIAL){
+    const files = definitionsOf(t);
+    if (files.length) owners[t] = files[0];
+  }
+  assert.equal(owners.billing_events, 'supabase-commercial-core.sql',
+    'billing_events belongs to the commercial core');
+  assert.equal(owners.subscriptions, 'supabase-commercial-core.sql');
+  assert.equal(owners.entitlements, 'supabase-entitlement.sql',
+    'the legacy entitlements projection is still owned by its own file');
+});
+
+test('the superseded web-billing schema is gone, not merely discouraged', () => {
+  // supabase-purchases.sql defined a second billing_events and a purchases
+  // table that duplicated subscriptions. Both are answered by
+  // supabase-commercial-core.sql, so the file was deleted rather than left in
+  // the tree with a warning comment for a future engineer to misread.
+  assert.equal(fs.existsSync(path.join(ROOT, 'supabase-purchases.sql')), false,
+    'supabase-purchases.sql must not return');
+  for (const dead of ['api/_commerce.js', 'api/_ledger.js']) {
+    assert.equal(fs.existsSync(path.join(ROOT, dead)), false, dead + ' must not return');
+  }
+  // And nothing may reference them.
+  const live = fs.readdirSync(path.join(ROOT, 'api')).filter((f) => /\.js$/.test(f));
+  for (const f of live) {
+    const src = fs.readFileSync(path.join(ROOT, 'api', f), 'utf8');
+    for (const dead of ['_commerce.js', '_ledger.js', 'supabase-purchases']) {
+      assert.equal(src.indexOf(dead), -1, f + ' still references ' + dead);
     }
   }
 });
 
-test('the purchases migration refuses an incompatible billing_events', () => {
-  const src = read('supabase-purchases.sql');
-  assert.match(src, /to_regclass\('public\.billing_events'\)/,
-    'it must look before it leaps');
-  assert.match(src, /information_schema\.columns/,
-    'the shape must be inspected, not just the existence');
-  assert.match(src, /provider_event_id/,
-    'the discriminating column must be the thing checked');
-  assert.match(src, /refusing to run/i);
-  // And the guard must come BEFORE the create, or it guards nothing.
-  assert.ok(src.indexOf('refusing to run') < src.indexOf('create table if not exists public.purchases'),
-    'the guard must precede the tables it protects');
+test('purchases and entitlements are not redefined alongside the canonical model', () => {
+  // Two tables answering "does this athlete have access" is the defect this
+  // reconciliation removed. subscriptions and entitlement_grants are canonical.
+  assert.deepEqual(definitionsOf('purchases'), []);
+  assert.deepEqual(definitionsOf('subscriptions'), ['supabase-commercial-core.sql']);
+  assert.deepEqual(definitionsOf('commercial_accounts').concat(definitionsOf('account_commercial')),
+    ['supabase-commercial-core.sql']);
 });

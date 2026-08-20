@@ -60,7 +60,7 @@ test('shared modules are underscored, or they silently become functions', () => 
    /* The Stripe foundation. Every one of these is a module rather than an
       endpoint precisely because the budget is full — an un-prefixed rename
       would cost a slot and the deployment failure would look unrelated. */
-   '_checkout.js', '_commerce.js', '_stripe.js', '_ledger.js']
+   '_checkout.js', '_stripe.js']
     .forEach(m => assert.ok(fs.existsSync(path.join(ROOT, 'api', m)),
       m + ' must exist and must stay underscored — an un-prefixed rename costs a ' +
       'function slot and nobody would connect the deployment failure to it'));
