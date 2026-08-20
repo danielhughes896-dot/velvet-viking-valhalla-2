@@ -17356,15 +17356,43 @@ function dayCarriesHistory(dd){
   if (dd.coachReview || dd.coachAdjust || dd.athleteState || dd.stravaActivityId) return true;
   return false;
 }
-// A history day whose date falls inside the new plan's own span is given
-// that plan's real week number, so it still appears in the right Full
-// Plan/This Week card. History further back -- normally everything, since
-// history can only exist for today-or-earlier and a new block always starts
-// today-or-later -- gets week 0, a number no generated block ever hands out,
-// so it can never be pulled into an unrelated week's card by a
-// coincidentally-matching old week number. It stays in state.days either
-// way, so it still counts toward load/trend/confidence, which read
-// state.days directly rather than through week grouping.
+/* WHERE THIS BLOCK BEGINS.
+//
+   A block has an origin, and a rebuild is not a new beginning. Re-anchoring to
+   today on every regenerate was the whole defect: a completed session is by
+   definition dated today-or-earlier, so a block that starts today puts ALL of
+   its own history before its own week 1. The training had not moved and had
+   not been lost -- the block had been slid out from underneath it, which is
+   how "3/79 runs done" ended up sitting over weeks that showed nothing done.
+
+   So the origin is state.setup.startDate whenever there is a block to rebuild.
+   Only a genuinely new block gets a fresh week 1 -- first ever, or after Reset
+   Plan, both of which leave state.setup null and state.days empty, so there is
+   no previous-block training to inherit and nothing to contaminate. That
+   distinction needs no new identity field: setup.startDate already IS this
+   block's origin and Reset Plan already clears it.
+
+   The clamp underneath is the floor. If any logged training somehow predates
+   the origin -- a restored backup, an imported plan -- the block starts at
+   that training instead, because a week number is a position within a block
+   and there is no position before week 1. That is what makes a zero or
+   negative week structurally impossible rather than merely unused. */
+function blockAnchor(activeDays){
+  var rebuilding = !!(state.setup && state.setup.startDate && state.days && state.days.length);
+  var anchor = rebuilding ? state.setup.startDate
+                          : firstActiveDayOnOrAfter(todayStr(), activeDays);
+  (state.days||[]).forEach(function(dd){
+    if (dayCarriesHistory(dd) && dd.date < anchor) anchor = dd.date;
+  });
+  return anchor;
+}
+
+// Every history day keeps its date, its id, its log and its review, and is
+// given this block's real week number for that date -- the same arithmetic
+// every generated day gets. No special case and no synthetic bucket: a session
+// run in week 2 stays in week 2 and appears in This Week and Full Plan exactly
+// where the athlete left it. blockAnchor() guarantees the date is on or after
+// the start, so this can only produce a real week number.
 function reconcileRegeneratedDays(oldDays, newDays, startDateStr){
   var history = (oldDays||[]).filter(dayCarriesHistory);
   if (!history.length) return { days:newDays, preserved:0 };
@@ -17372,12 +17400,8 @@ function reconcileRegeneratedDays(oldDays, newDays, startDateStr){
   var historyDates = {};
   history.forEach(function(dd){
     historyDates[dd.date] = true;
-    if (dd.date >= startDateStr){
-      var dMonday = addDays(dd.date, -isoWeekday(dd.date));
-      dd.week = Math.round(daysBetween(startMonday, dMonday)/7) + 1;
-    } else {
-      dd.week = 0;
-    }
+    var dMonday = addDays(dd.date, -isoWeekday(dd.date));
+    dd.week = Math.round(daysBetween(startMonday, dMonday)/7) + 1;
   });
   var kept = newDays.filter(function(dd){ return !historyDates[dd.date]; });
   var merged = history.concat(kept).sort(function(a,b){ return a.date<b.date?-1:a.date>b.date?1:0; });
@@ -17417,15 +17441,28 @@ function handleGeneratePlan(){
     // taper and every date-based calculation work exactly as before.
     var wks = parseInt(document.getElementById('su-weeks').value, 10);
     if (isNaN(wks) || wks<4 || wks>24){ showToast('Choose a block length between 4 and 24 weeks'); return; }
-    var s0 = firstActiveDayOnOrAfter(todayStr(), activeDays);
+    /* Measured from the block's own origin, not from today. On a rebuild "a
+       twelve week block" means twelve weeks of THIS block, counting the weeks
+       already trained -- measuring from today instead would silently make it
+       twelve weeks longer every time the athlete re-tailored it. */
+    var s0 = blockAnchor(activeDays);
     raceDate = addDays(addDays(s0, -isoWeekday(s0)), wks*7 - 1);
+    if (raceDate <= todayStr()){
+      showToast('That block length has already been trained through — choose a longer one');
+      return;
+    }
   }
 
-  // The block always starts on the runner's very first available running day
-  // from today -- never a hardcoded/default offset -- and its length is
-  // whatever real span (weeks + leftover days) actually falls between that
-  // day and the race date, not a fixed weekly grid worked backward from race day.
-  var startDate = firstActiveDayOnOrAfter(todayStr(), activeDays);
+  // A NEW block starts on the runner's very first available running day from
+  // today -- never a hardcoded/default offset. A REBUILD keeps the origin the
+  // block already has, so the training already logged against it keeps the
+  // week it was logged in. See blockAnchor().
+  //
+  // Either way the length is whatever real span actually falls between the
+  // origin and the race date, not a fixed weekly grid worked backward from
+  // race day -- so a rebuild four weeks in produces a block whose week 5 is
+  // week 5, with the first four weeks still holding their sessions.
+  var startDate = blockAnchor(activeDays);
   if (raceDate < startDate){
     showToast('Your first available running day falls after that date \u2014 pick a later '+(hasEvent?'event date':'block length'));
     return;

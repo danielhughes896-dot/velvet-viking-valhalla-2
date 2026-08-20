@@ -67,17 +67,36 @@ test('reconcileRegeneratedDays: no two days in the merged result share the same 
 });
 
 test('reconcileRegeneratedDays: preserved history never collides into an unrelated week card', () => {
+  /* UPDATED for the approved change of behaviour. The CONCERN is unchanged --
+     a preserved session must never land in a week card it did not belong to --
+     but the guarantee now comes from somewhere else.
+
+     This used to pass `today` as the start, so history necessarily fell
+     outside the block, and then assert survivor.week === 0. That was the old
+     design and it is the one the founder rejected: a session in week 0 is a
+     session in no week card at all, which is how three completed runs came to
+     be rendered nowhere while Plan HQ went on counting them.
+
+     A rebuild now anchors to the block's own origin through blockAnchor(), so
+     history sits INSIDE the block and carries the real week number for its
+     date. Collision is prevented by the merge being keyed on date: history
+     wins that date outright and never duplicates alongside a generated day.
+     So the test drives the anchoring the app actually performs, rather than a
+     start date the app no longer produces. */
   const app = loadApp();
-  // History clearly outside the new plan's date span -- the normal case,
-  // since regenerating always starts today-or-later and history can only
-  // exist for today-or-earlier.
   const startDate = app.addDays(app.todayStr(), -20);
   const { days: oldDays } = buildPlan(app, { startDate, distanceKey: '10k', volume: 35 });
   const oldHistory = oldDays.find(d => d.date <= app.todayStr() && d.type !== 'rest');
   oldHistory.completed = true;
   oldHistory.actual = { km: oldHistory.km, pace: '5:10', hr: 148, rpe: 4, notes: '' };
+  const originalWeek = oldHistory.week;
 
-  const newStart = app.todayStr();
+  app.state.setup = { startDate: startDate,
+                      schedule: { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 } };
+  app.state.days = oldDays;
+  const newStart = app.blockAnchor([1, 2, 3, 5, 6]);
+  assert.equal(newStart, startDate, 'a rebuild must keep the block’s own origin');
+
   const block2 = app.buildBlockWeeks('10k', 35, 10);
   const freshDays = app.buildDaysFromWeeks(block2, app.addDays(newStart, 10 * 7 - 1),
     { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 }, newStart, false);
@@ -85,9 +104,15 @@ test('reconcileRegeneratedDays: preserved history never collides into an unrelat
 
   const survivor = result.days.find(d => d.date === oldHistory.date);
   assert.ok(survivor);
-  assert.equal(survivor.week, 0, 'history that predates the new plan’s own span must not carry a week number any real week card uses');
-  const realWeekNumbers = new Set(freshDays.map(d => d.week));
-  assert.ok(!realWeekNumbers.has(0), 'no generated block ever hands out week 0, so it can never collide with a real week card');
+  assert.equal(survivor.week, originalWeek,
+    'the preserved session left the week it was actually run in');
+  assert.ok(survivor.week >= 1,
+    'a preserved session must carry a real week number, not a bucket no card renders');
+  // Occupying its date alone is what prevents the collision.
+  assert.equal(result.days.filter(d => d.date === oldHistory.date).length, 1,
+    'history duplicated alongside a generated day');
+  assert.ok(result.days.every(d => d.week >= 1),
+    'the merge produced a day outside the block');
 });
 
 test('reconcileRegeneratedDays: history within the new plan\'s own span is given that plan\'s real week number', () => {
