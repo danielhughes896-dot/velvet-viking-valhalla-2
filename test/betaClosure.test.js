@@ -216,7 +216,10 @@ test('4. the RLS predicate does not go through the oracle, so revoking it is saf
 
 test('4. nothing that ships writes a staged activity, which is what makes the column grant safe', () => {
   assert.equal(RUNTIME.indexOf('strava_activities'), -1, 'not from the browser');
-  const sync = read('api/strava-sync.js');
+  // Renamed to a _-prefixed module when the six Strava routes moved behind
+  // one router. Same file, same writer, same service key -- only Vercel's
+  // count of Serverless Functions changed.
+  const sync = read('api/_strava-sync.js');
   assert.match(sync, /ingested_at: new Date\(\)\.toISOString\(\)/,
     'the only writer of ingested_at is the server');
   assert.match(sync, /S\.sb\(cfg,\s*\n?\s*'\/strava_activities/,

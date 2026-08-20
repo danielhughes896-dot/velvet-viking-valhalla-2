@@ -58,6 +58,57 @@
     --c-track:var(--bronze); --c-track-soft:rgba(192,146,63,0.16);
     --c-long:#5E93AC; --c-long-soft:rgba(94,147,172,0.16);
     --c-gold:var(--gold); --c-gold-soft:rgba(227,177,90,0.20);
+
+    /* ---------- VALHALLA VIOLET ----------
+       GOLD REMAINS THE IDENTITY. This is an accent for a specific, closed set
+       of things -- progression and the one interaction that changes the whole
+       app's appearance -- and it is a token precisely so that set stays
+       closed: a scattered hex is how an accent becomes a second brand.
+
+       Every section heading, every card, every other button and every
+       existing gold surface is deliberately untouched.
+
+       The hue was not picked at random. The dark theme's own near-blacks
+       (#151417, #232126) already sit at 255-264deg, so a violet at ~271deg is
+       the same family the product was already built in rather than a colour
+       imported from outside it. Deep royal rather than bright: on cream,
+       #4C2A6B reads 10.06:1, close to ink's authority, and carries white at
+       11.35:1 on a filled button.
+
+       Dark mode inverts the problem -- #4C2A6B on #151417 is 1.62:1 and
+       invisible -- so the accent lightens to #A88FD8 (6.63:1) rather than the
+       component being redesigned.
+
+       --violet-ink is the one token that does NOT flip with the theme. It is
+       the numeral inside a violet node, and that node is light in BOTH themes,
+       so the numeral is dark in both: #171717 on the light fill is 14.22:1,
+       and on the dark-theme fill 6.48:1. Flipping it to --ink would make the
+       dark-mode numerals ivory-on-lilac and unreadable. */
+    --violet:#A88FD8;
+    --violet-soft:#A88FD8;              /* node fill; the accent itself here */
+    --violet-line:rgba(168,143,216,0.34);
+    --violet-dim:rgba(168,143,216,0.45);
+    --violet-2:#B79FDF;                 /* gradient partner, lighter here */
+    --violet-ink:#171717;               /* numerals inside a node, both themes */
+    /* A filled violet button is DEEP in light and LIGHT in dark, so its label
+       has to flip: white on #4C2A6B is 11.35:1, white on #A88FD8 is 2.77:1 and
+       unreadable. Dark ink on the dark-theme violet is 6.48:1. */
+    --violet-btn-ink:#171717;
+    /* ---------- TYPOGRAPHY SCALE (readability prototype) ----------
+       Beta feedback: coaching/body copy read small next to apps like Strava,
+       whose body text sits around 14-16px. Valhalla's primary copy was
+       11.5-12.5px, set as 168 one-off px values with no scale behind them.
+
+       Seven steps, so a rule states its ROLE rather than a number, and a future
+       change is one token rather than a sweep. Metadata and chips deliberately
+       move least: the complaint is about reading sentences, not labels. */
+    --fs-meta:11px;       /* chips, badges, tiny uppercase labels   */
+    --fs-label:11px;      /* row keys, section headings            */
+    --fs-support:13.5px;  /* tertiary support copy, hints, spans   */
+    --fs-data:15px;       /* mono metrics: pace, distance, HR      */
+    --fs-body:16px;       /* PRIMARY coaching and body copy        */
+    --fs-title:20px;      /* session title                         */
+    --lh-body:1.5; --lh-support:1.45;
     --radius:16px; --radius-sm:10px; --radius-lg:22px;
     --shadow:0 10px 30px rgba(0,0,0,0.4);
     --shadow-sm:0 4px 12px rgba(0,0,0,0.3);
@@ -121,6 +172,18 @@
     --ctl-disabled-bg:#EDEAE1; --ctl-disabled-text:#847E71; --ctl-disabled-border:#C4BCA6;
     --ctl-surface:#F5F2EC; --ctl-surface-border:#DCCEA9;
     --danger-text:#9A3540;   /* 6.30:1 on the page, vs 4.37:1 for the family hue */
+
+    /* VALHALLA VIOLET, light. The direction is strongest here: deep royal on
+       cream, 10.06:1, with white carried at 11.35:1 on a filled button. The
+       node fill is a pale tint of the same hue so the numeral inside can stay
+       near-black -- a numeral on saturated #4C2A6B would be unreadable. */
+    --violet:#4C2A6B;
+    --violet-soft:#E9E2F5;
+    --violet-line:rgba(76,42,107,0.30);
+    --violet-dim:rgba(76,42,107,0.42);
+    --violet-2:#5B3580;                 /* gradient partner, deeper here */
+    --violet-ink:#171717;
+    --violet-btn-ink:#FFFFFF;           /* 11.35:1 on the deep violet fill */
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html{-webkit-text-size-adjust:100%;}
@@ -271,7 +334,7 @@
     border:1.5px solid var(--gold); border-radius:var(--radius-sm); padding:13px 14px; margin:16px 0;
   }
   .cb-icon{font-size:18px; line-height:1; flex:none;}
-  .cb-text{font-size:12.5px; line-height:1.55; color:var(--ink);}
+  .cb-text{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink);}
   .cb-text b{color:var(--gold-text);}
   .week.is-taper{border-color:var(--bronze);}
   .week.is-taper .week-head{background:var(--c-gold-soft);}
@@ -287,7 +350,13 @@
   .zone-card{margin:10px 14px 14px; padding:12px 13px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .zone-head{display:flex; align-items:center; justify-content:space-between; font-size:11.5px; margin-bottom:9px;}
   .zone-head span:first-child{text-transform:uppercase; letter-spacing:1px; color:var(--ink-dim); font-size:10.5px;}
-  .zone-time{color:var(--gold-text);}
+  /* Time-on-feet is a duration -- a metric, like every pace and distance in
+     the app, and metrics are ink. --ink rather than --ink-dim because it is
+     the one hard figure in the card and its own label, plus the legend, are
+     already --ink-dim: dimming it too would flatten the card to a single grey
+     and the figure would stop reading as the figure. Same relationship
+     .ws-qty has to .ws-name. */
+  .zone-time{color:var(--ink);}
   .zbar{display:flex; height:9px; border-radius:99px; overflow:hidden; background:var(--bg-4);}
   .zbar-seg{height:100%;}
   .z-easy{background:var(--c-easy);}
@@ -298,6 +367,12 @@
   .zleg-item{display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--ink-dim);}
   .zleg-dot{width:8px; height:8px; border-radius:50%; display:inline-block; flex:none;}
   .fuel-card{margin-top:10px; border:1px dashed var(--line); border-radius:8px; background:var(--bg-3);}
+  /* HOW TO RUN THIS -- the outline, and nothing else. .how-card is the coaching
+     disclosure; the Fueling card shares .fuel-card and keeps its neutral edge.
+     The words, the icon and the interior are deliberately unchanged: the
+     border alone is enough to mark it as the thing worth opening, and
+     colouring the content would make a reading surface shout. */
+  .fuel-card.how-card{border-color:var(--violet); border-style:solid;}
   /* min-height, not more padding: this is a thumb target on a phone and it sat
      at roughly 29px, well under the ~44px a finger actually needs. The card is
      otherwise unchanged -- the row simply stops being a near-miss. */
@@ -310,23 +385,23 @@
   .fuel-card summary::-webkit-details-marker{display:none;}
   .fuel-card summary svg{width:13px; height:13px; flex:none;}
   .fuel-body{padding:2px 12px 10px;}
-  .fuel-row{display:flex; align-items:center; justify-content:space-between; padding:4px 0; font-size:11.5px; border-bottom:1px solid var(--line-soft);}
+  .fuel-row{display:flex; align-items:center; justify-content:space-between; padding:4px 0; font-size:var(--fs-body); border-bottom:1px solid var(--line-soft);}
   .fuel-row:last-of-type{border-bottom:none;}
   .fuel-row .k{color:var(--ink-dim);}
   .fuel-row .v{color:var(--ink);}
-  .fuel-hint{font-size:10.5px; color:var(--ink-faint); margin-top:6px; line-height:1.5;}
+  .fuel-hint{font-size:var(--fs-support); color:var(--ink-faint); margin-top:6px; line-height:var(--lh-support);}
   /* Coaching depth (athlete experience) -- presentation only. */
-  .coach-cue{display:flex; align-items:flex-start; gap:6px; margin-top:7px; font-size:11.5px; line-height:1.5; color:var(--bronze-text);}
+  .coach-cue{display:flex; align-items:flex-start; gap:6px; margin-top:7px; font-size:var(--fs-body); line-height:var(--lh-body); color:var(--bronze-text);}
   .coach-cue svg{width:13px; height:13px; flex:none; margin-top:2px;}
   .how-row{padding:6px 0; border-bottom:1px solid var(--line-soft);}
   .how-row:last-of-type{border-bottom:none;}
-  .how-row .k{display:block; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:2px;}
+  .how-row .k{display:block; font-size:var(--fs-label); letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:2px;}
   /* overflow-wrap so a long pace range or an unbroken term cannot push the
      card sideways on a narrow phone; the page body must never scroll across. */
-  .how-row .v{display:block; font-size:11.5px; line-height:1.5; color:var(--ink-dim); overflow-wrap:anywhere;}
+  .how-row .v{display:block; font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); overflow-wrap:anywhere;}
   /* A sub-heading inside the unified "How to run this" disclosure -- marks
      where Execution or Fuel begins without becoming a card of its own. */
-  .how-row-heading{font-size:9.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin:10px 0 4px; padding-top:8px; border-top:1px solid var(--line-soft);}
+  .how-row-heading{font-size:var(--fs-label); letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin:10px 0 4px; padding-top:8px; border-top:1px solid var(--line-soft);}
   .how-row-heading:first-child{margin-top:0; padding-top:0; border-top:none;}
   /* Execution Strategy phases -- a staged reading of the prescription, not a
      second set of numbers. Each phase is its own compact block so a race's
@@ -335,12 +410,93 @@
   .strat-phase{padding:6px 0; border-bottom:1px solid var(--line-soft);}
   .strat-phase:last-of-type{border-bottom:none; padding-bottom:0;}
   .strat-phase-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px;}
-  .strat-phase-label{font-size:11px; font-weight:600; color:var(--ink);}
-  .strat-phase-span{font-size:10px; color:var(--ink-faint);}
-  .strat-phase-target{font-size:11.5px; color:var(--bronze-text); margin-top:2px;}
-  .strat-phase-purpose{font-size:11px; line-height:1.5; color:var(--ink-dim); margin-top:3px;}
-  .strat-phase-cue{font-size:11px; line-height:1.5; color:var(--ink-dim); margin-top:2px; font-style:italic;}
-  .strat-phase-watch{font-size:10.5px; line-height:1.5; color:var(--ink-faint); margin-top:3px;}
+  .strat-phase-label{font-size:var(--fs-body); font-weight:600; color:var(--ink);}
+  .strat-phase-span{font-size:var(--fs-support); color:var(--ink-faint);}
+  /* Settle / Hold / Absorb carry the SAME paces and heart rates as the step
+     list above them -- gold here was the same mistake in a second place. The
+     'Conditional' tag beside them keeps its own colour: that is a qualifier
+     on the number, not the number. See .ws-target. */
+  .strat-phase-target{font-size:var(--fs-data); color:var(--ink); margin-top:2px;}
+  .strat-phase-purpose{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin-top:3px;}
+  .strat-phase-cue{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin-top:2px; font-style:italic;}
+  .strat-phase-watch{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:3px;}
+  /* STRUCTURED WORKOUT — what the athlete will actually run.
+     A stacked rhythm rather than a stack of cards. Each step is a numbered
+     row against a single hairline rail, so five steps read as one workout
+     instead of five competing objects; the rail does the grouping that five
+     bordered boxes would do more loudly. Nothing here introduces a colour:
+     the numerals and the rail are the existing bronze, the targets use the
+     same --fs-data mono the day targets and strategy phases already use, and
+     the surface is whatever the card is sitting on. */
+  .ws-block{margin-top:10px;}
+  .ws-head{font-size:var(--fs-label); letter-spacing:1.4px; text-transform:uppercase;
+           color:var(--ink-faint); margin-bottom:6px;}
+  /* WORKOUT PROGRESSION. The steps were a plain list with a hairline down the
+     side and a small gold numeral beside each name -- the numeral said "this
+     is step 2" and the rail said nothing, so the SEQUENCE was something you
+     inferred rather than saw.
+
+     Now the numeral IS the node: one violet disc per step, sitting on a violet
+     connector that runs from each node to the next. The number did not move
+     twice and there is no second numeral anywhere -- the same span, positioned
+     differently.
+
+     BUILT FROM THE STEP, NOT FROM A COUNT. The connector is drawn per step by
+     ::before and suppressed on :last-child, so three steps and nine steps both
+     work with no arithmetic and nothing hardcoded. An earlier version drew one
+     long line down the <ol> and had to guess where the first and last nodes
+     were; this cannot get that wrong.
+
+     The disc carries its own opaque fill, which is also what lets it sit ON
+     the line without needing a mask the colour of the card underneath -- and a
+     day card is tinted by session type, so no single mask colour existed. */
+  .ws-steps{list-style:none; margin:0; padding:0 0 0 27px;}
+  .ws-step{position:relative; padding:0 0 12px 0;}
+  .ws-step:last-child{padding-bottom:0;}
+  .ws-step-label{display:flex; align-items:baseline; gap:8px;}
+  .ws-n{
+    position:absolute; left:-27px; top:-1px; width:19px; height:19px;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:50%; background:var(--violet-soft); border:1.5px solid var(--violet);
+    color:var(--violet-ink); font-size:var(--fs-meta); line-height:1; font-weight:700;
+  }
+  /* From just under this node to just under the step box, which is where the
+     next node begins. Never drawn after the last one. */
+  .ws-step::before{
+    content:''; position:absolute; left:-18.25px; top:19px; bottom:-1px;
+    width:1.5px; background:var(--violet-line);
+  }
+  .ws-step:last-child::before{display:none;}
+  .ws-name{font-size:var(--fs-body); letter-spacing:.6px; text-transform:uppercase; color:var(--ink);}
+  .ws-qty{font-size:var(--fs-title); line-height:1.15; color:var(--ink); margin-top:2px;}
+  /* A ladder's quantity is a LIST of rungs, not one figure. At display size it
+     wrapped to three lines and took over the card; at body size it reads as
+     the sequence it is, and the step still leads with its name. */
+  .ws-k-ladder .ws-qty{font-size:var(--fs-body); line-height:var(--lh-support);}
+  /* A PRESCRIBED VALUE IS DATA, NOT BRAND. The same 4:10–4:19/km sits in normal
+     ink on the session summary a few lines above; rendering it gold down here
+     made one number look like two different kinds of thing. Gold now marks
+     only what gold means everywhere else -- headings, session badges, status,
+     the confidence figure -- and the prescription reads at the same weight as
+     the quantity beside it. --ink resolves per theme, so dark mode gets the
+     dark-theme ivory rather than literal black.
+
+     HR keeps --ink-faint: that is not gold, it is the same secondary weight HR
+     already has in the session summary, the Pace Reference and the Plan HQ
+     zone cards. Flattening it would break a hierarchy this pass was not
+     asked to change. */
+  .ws-target{font-size:var(--fs-data); color:var(--ink); margin-top:2px;}
+  .ws-hr{font-size:var(--fs-data); color:var(--ink-faint); margin-top:1px;}
+  .ws-effort{font-size:var(--fs-body); line-height:var(--lh-support); color:var(--ink-dim); margin-top:2px;}
+  .ws-note{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:3px;}
+  /* A flank is scaffolding, not the session. Quieter and smaller so the eye
+     lands on the work step between them. */
+  .ws-warmup .ws-name, .ws-cooldown .ws-name{color:var(--ink-faint);}
+  .ws-warmup .ws-qty, .ws-cooldown .ws-qty{font-size:var(--fs-body); color:var(--ink-dim);}
+  /* One integration card follows another inside Sync & Export, so the second
+     needs a rule to stop the two reading as one long block. Same hairline the
+     rest of the card system uses; no colour of its own. */
+  #garmin-section{margin-top:14px; padding-top:14px; border-top:1px solid var(--line-soft);}
   .build-tag{text-align:center; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--ink-faint); opacity:.6; margin-top:18px;}
   /* Hidden file inputs are moved off-screen rather than display:none -- an
      Android WebView refuses to open the picker for an unrendered input. */
@@ -485,8 +641,8 @@
   .day-check input{width:19px; height:19px; accent-color:var(--bronze); cursor:pointer;}
   .day-main{flex:1; min-width:0;}
   .day-row1{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
-  .day-date{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint);}
-  .day-badge{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1px; text-transform:uppercase; padding:2px 6px; border-radius:99px; font-weight:600;}
+  .day-date{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); color:var(--ink-faint);}
+  .day-badge{font-family:'Oswald',sans-serif; font-size:var(--fs-meta); letter-spacing:1px; text-transform:uppercase; padding:2px 6px; border-radius:99px; font-weight:600;}
   .day-badge.type-rest{background:var(--c-rest-soft); color:var(--c-rest);}
   .day-badge.type-easy{background:var(--c-easy-soft); color:var(--c-easy);}
   .day-badge.type-tempo{background:var(--c-tempo-soft); color:var(--c-tempo);}
@@ -504,13 +660,17 @@
      comment above), while dark mode is unchanged since --gold-text==--gold
      there. */
   .exec-pill{font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.3px; padding:2px 7px; border-radius:99px; background:var(--c-gold-soft); color:var(--gold-text);}
-  .day-title{font-weight:600; font-size:14.5px; margin-top:3px; color:var(--ink);}
-  .day-targets{font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
-  .day-targets .mp{color:var(--gold-text);}
+  .day-title{font-weight:600; font-size:var(--fs-title); margin-top:3px; color:var(--ink);}
+  .day-targets{font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); color:var(--ink-dim); margin-top:3px; display:flex; gap:10px; flex-wrap:wrap;}
+  /* Goal pace is a pace, and it sits in a row of paces and distances -- so it
+     takes the row's colour like the rest of them. Nothing is lost: the value
+     already arrives labelled ('Goal 4:30/km'), so the word did the
+     distinguishing and the gold was only saying it twice. */
+  .day-targets .mp{color:inherit;}
   /* target HR sits alongside pace/distance but reads as secondary, matching
      how HR is treated in the Pace Reference and Plan HQ zone cards. */
   .day-targets .hr{color:var(--ink-faint);}
-  .day-desc{font-size:12.5px; color:var(--ink-dim); margin-top:6px; line-height:1.45;}
+  .day-desc{font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px; line-height:var(--lh-body);}
   /* card accordion -- same max-height technique as the week accordion above,
      so both behave identically. The header row stays put; the detail and the
      logging drawer collapse. */
@@ -519,7 +679,21 @@
   .day-chevron svg{width:17px; height:17px; display:block;}
   .day.open .day-chevron{transform:rotate(180deg);}
   .day-detail, .day-drawer{max-height:0; overflow:hidden; transition:max-height .35s ease;}
-  .day.open .day-detail{max-height:1600px;}
+  /* THIS NUMBER IS A CEILING, NOT A HEIGHT. max-height is how the open/shut
+     transition is animated, and overflow:hidden means anything past it is not
+     merely unscrollable but invisible. At 1600px a race day at novice depth on
+     a 320px screen measured 3517px, so well over half of "How to run this" --
+     the fuelling plan, Watch For, the closing phases of the strategy -- was
+     silently cut off, and had been before the workout list was added to the
+     same container.
+
+     6000px clears the tallest card the app can currently produce -- measured
+     across every archetype at 320px and novice depth, the most verbose
+     combination -- with room to spare. structuredWorkout.test.js holds the
+     floor so it cannot be quietly lowered again; the measurement itself needs
+     a browser the suite does not have, so re-measure with a real viewport
+     before adding anything substantial to this container. */
+  .day.open .day-detail{max-height:6000px;}
   .day.open .day-drawer{max-height:4000px;}
   /* the drawer's own children carry the top spacing, so a shut card has none */
   .day-actions{display:flex; gap:6px; flex:none;}
@@ -536,7 +710,7 @@
   }
   .actual-field textarea{font-family:'Inter',sans-serif; resize:vertical; min-height:38px;}
   .actual-field.full{grid-column:1/-1;}
-  .field-hint{font-size:10px; line-height:1.35; color:var(--ink-faint); margin-top:2px;}
+  .field-hint{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:2px;}
   /* Notes Wand: sits inside the textarea's corner so it reads as part of the
      field rather than another control competing with it. */
   .notes-wrap{position:relative;}
@@ -618,7 +792,10 @@
   .slog-row.is-flank{border-left-color:var(--line-soft);}
   .slog-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:3px;}
   .slog-label{font-size:10.5px; font-weight:600; color:var(--ink); letter-spacing:.2px;}
-  .slog-presc{font-size:10px; color:var(--bronze-text);}
+  /* The prescribed value echoed beside a logging row is the SAME number the
+     step list showed. It stays secondary to the row's label, but secondary is
+     --ink-dim, not gold. See .ws-target. */
+  .slog-presc{font-size:10px; color:var(--ink-dim);}
   .slog-ins{display:flex; gap:5px;}
   .slog-in{
     flex:1 1 0; min-width:0; background:var(--bg-4); border:1px solid var(--line);
@@ -655,7 +832,7 @@
   .pace-ref-card{margin:14px 0 0; padding:12px 15px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);}
   .pace-ref-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;}
   .pace-ref-head span:first-child{font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
-  .pace-ref-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid var(--line-soft); font-size:12px;}
+  .pace-ref-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid var(--line-soft); font-size:var(--fs-data);}
   .pace-ref-row:last-of-type{border-bottom:none;}
   .pace-ref-label{color:var(--ink-dim);}
   .pace-ref-val{color:var(--ink);}
@@ -683,13 +860,13 @@
   /* One block of coach prose. Deliberately unadorned: no border, no label, no
      background -- it should read like a short message, not another panel. */
   .coach-msg{margin-top:9px;}
-  .coach-msg-p{font-size:12.5px; line-height:1.62; color:var(--ink-dim); margin:0 0 8px;
+  .coach-msg-p{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 8px;
                overflow-wrap:anywhere;}
   .coach-msg-p:last-child{margin-bottom:0;}
   .coach-msg-p:first-child{color:var(--ink);}
   .coach-msg-brief{margin-top:8px;}
-  .cr-k{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.3px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px;}
-  .cr-v{font-size:12.5px; color:var(--ink-dim); line-height:1.5; overflow-wrap:anywhere;}
+  .cr-k{font-family:'Oswald',sans-serif; font-size:var(--fs-label); letter-spacing:1.3px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px;}
+  .cr-v{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); overflow-wrap:anywhere;}
   .cr-sub{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:2px; overflow-wrap:anywhere;}
   .cr-signal{display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
   .cr-sig-dot{font-size:12px; line-height:1;}
@@ -733,6 +910,17 @@
   .btn:hover{border-color:var(--bronze);}
   .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink); border:none;}
   .btn-primary:hover{filter:brightness(1.08);}
+  /* THE BUILDER'S PRIMARY ACTION, and only the builder's. Continue and Build
+     My Training Block / Regenerate Plan are the forward motion of a flow that
+     is already marked in violet by its progress rail, so the button that
+     advances it belongs to the same accent.
+
+     Scoped to .builder-light -- the class the staged builder already carries
+     for its positioning -- so every other .btn-primary in the product keeps
+     the bronze gradient. Save & Re-tailor, Log Session and the rest are
+     untouched, which is what stops this becoming "the primary button is
+     purple now". Secondary controls inside the builder keep .btn-ghost. */
+  .builder-light .btn-primary{background:linear-gradient(135deg,var(--violet),var(--violet-2)); color:var(--violet-btn-ink);}
   .btn-ghost{background:none; border:1px solid var(--line);}
   /* --danger-text, not --c-threshold. The workout-type hues are deliberately
      identical in both themes, and that one lands at 4.37:1 on cream -- close
@@ -789,6 +977,164 @@
     --line:var(--modal-border); --line-soft:#232126;
     --bronze-text:var(--bronze); --gold-text:var(--gold);
   }
+  /* ---------- MODALS THAT FOLLOW THE THEME ----------
+     .modal-card pins the whole token family to the fixed dark ramp, which is
+     right for a transient confirm on a lit stage. It is wrong for the surfaces
+     an athlete works IN: the plan builder and Re-calibrate Training Zones are
+     places you sit and think, and a near-black sheet over a cream app breaks
+     the journey.
+
+     .modal-themed un-pins exactly the properties .modal-card pinned, back to
+     whatever the document is using -- cream in light, charcoal in dark. It adds
+     no colour of its own, and a modal that does not opt in keeps the fixed ramp
+     unchanged.
+
+     THE RULE: light selected -> primary pages, builder/edit flows and settings
+     modals are light. Dark selected -> the same surfaces are dark. */
+  .modal-card.modal-themed{
+    background:var(--bg); border-color:var(--line); color:var(--ink);
+    color-scheme:normal;
+    --ctl-bg:inherit; --ctl-border:inherit; --ctl-text:inherit;
+    --ctl-placeholder:inherit; --ctl-accent:inherit; --ctl-accent-rgb:inherit;
+    --ctl-disabled-bg:inherit; --ctl-disabled-text:inherit; --ctl-disabled-border:inherit;
+    --ink:inherit; --ink-dim:inherit; --ink-faint:inherit;
+    --line:inherit; --line-soft:inherit;
+    --bronze-text:inherit; --gold-text:inherit;
+  }
+  /* POSITIONING. Every other modal stays a bottom sheet -- that is right for a
+     short confirm, and it is untouched. The builder is a journey with stages
+     that vary a lot in height, and anchoring it to the bottom left a short
+     stage like 02 hanging off the foot of the screen with dead space above.
+
+     Scoped with :has() so ONLY the overlay containing a builder is affected,
+     and so the whole change degrades atomically: an engine without :has()
+     simply keeps today's bottom sheet rather than getting half of this.
+
+     The card keeps its own internal scrolling and its own max-height, which is
+     what makes this safe -- the overlay never scrolls, so there is no
+     flex-centring clip, and bldStage()'s card.scrollTop = 0 still works. When
+     the content fits, align-items:center floats the card in the usable area;
+     when it does not, the card hits max-height and scrolls inside itself while
+     staying evenly inset. No fixed height is imposed to line stages up.
+
+     100dvh rather than vh so the keyboard-open case shrinks the card with the
+     visual viewport instead of hiding its bottom behind the keyboard, with a
+     vh line first for anything that does not know dvh. Padding carries the
+     safe-area insets on both edges, so the Continue and Build My Training
+     Block buttons can never sit under a gesture bar. */
+  .modal-overlay:has(> .builder-light){
+    align-items:center;
+    padding:calc(14px + env(safe-area-inset-top, 0px)) 10px
+            calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .modal-overlay:has(> .builder-light) > .builder-light{
+    border-radius:var(--radius-lg);
+    max-height:calc(100vh - 28px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-height:calc(100dvh - 28px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    animation:fadein .2s ease;
+  }
+  .modal-themed .modal-head{background:var(--bg); border-bottom-color:var(--line);}
+  .modal-themed .modal-head h2{color:var(--ink);}
+  .modal-themed .modal-body{color:var(--ink);}
+
+  /* Progress. Numerals on mobile, so five labels cannot crowd a 360px header. */
+  .bld-progress{display:flex; align-items:center; gap:6px;}
+  .bld-step{flex:1 1 0; height:3px; border-radius:99px; background:var(--line); transition:background .2s;}
+  /* PROGRESS. Violet marks how far through the build you are: the segment you
+     are on, the ground already covered behind it at lower weight, and the
+     stage numeral that names it. Future segments stay --line, unchanged and
+     neutral, so the accent reads as progress rather than decoration. The stage
+     NAME beside the numeral stays --ink-faint: it is a label, not progress. */
+  .bld-step.done{background:var(--violet-dim);}
+  .bld-step.now{background:var(--violet);}
+  .bld-progress-meta{display:flex; align-items:baseline; justify-content:space-between; margin:9px 0 2px;}
+  .bld-stage-no{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--violet);}
+  .bld-stage-name{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.4px; font-size:var(--fs-label); color:var(--ink-faint);}
+  .bld-stage-h{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.8px; font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px;}
+  .bld-lede{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 18px;}
+
+  /* OPTION GRID. The one new control. .unit-toggle is a single-row pill with
+     overflow:hidden, so four goal distances cannot fit one row at 360px. The
+     button treatment is lifted from .unit-toggle button/.active unchanged --
+     bronze fill and page-ink when selected, transparent with a hairline border
+     when not -- so no new colour enters the system. */
+  .opt-grid{display:grid; gap:8px; grid-template-columns:1fr 1fr;}
+  .opt-grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  .opt-grid button{
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); font-weight:700;
+    letter-spacing:.4px; min-height:52px; padding:12px 8px; text-align:center;
+    border:1px solid var(--ctl-border); border-radius:12px;
+    background:var(--ctl-bg); color:var(--ink-faint);
+    transition:box-shadow .18s, background .18s, color .18s;
+  }
+  .opt-grid button .sub{display:block; font-family:'Inter',sans-serif; font-weight:400;
+    font-size:var(--fs-support); letter-spacing:0; color:var(--ink-faint); margin-top:3px;}
+  .opt-grid button:disabled{opacity:.5;}
+  .opt-grid button:active{transform:scale(.98);}
+
+  /* SELECTED IS A STATE, NOT A HEADLINE. This is .bn-item.active -- the
+     selected bottom-nav tab -- reused as the language for every finite choice
+     in the builder, so picking a distance reads like selecting a tab rather
+     than pressing a gold CTA. Continue and Build My Training Block keep the
+     stronger primary treatment precisely because they are actions, not
+     choices. Dark first, matching the nav's own base rule. */
+  .opt-grid button.active{
+    color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14);
+    border-color:rgba(var(--modal-active-rgb),0.5);
+  }
+  .opt-grid button.active .sub{color:var(--modal-active); opacity:.8;}
+  /* LIGHT: the raised warm-paper tab, character for character the values
+     [data-theme="light"] .bn-item.active already uses -- lifted paper, antique
+     gold edge, a gold rule along the top, deep-bronze label at 6.1:1. Three
+     independent cues, so the state never rests on colour alone. */
+  [data-theme="light"] .opt-grid button{color:#6B6558;}
+  [data-theme="light"] .opt-grid button.active{
+    color:#7A5C1E; background:#FFFDF7; border-color:transparent;
+    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
+  }
+  [data-theme="light"] .opt-grid button.active .sub{color:#7A5C1E; opacity:.85;}
+
+  /* THE DATE FIELD. Native picker kept -- it is the safest control on a phone
+     and the one athletes already know. Only the surround is dressed: the same
+     radius and padding as an option tile, a mono value so the date reads like
+     every other number in the product, and the browser's black calendar glyph
+     tinted to the control's own accent instead of sitting there as chrome. */
+  .bld-date input[type="date"]{
+    border-radius:12px; padding:14px 13px; min-height:52px;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-data);
+    letter-spacing:.4px; color:var(--ctl-text);
+  }
+  .bld-date input[type="date"]::-webkit-calendar-picker-indicator{
+    opacity:.75; cursor:pointer; padding:4px; border-radius:6px;
+    filter:invert(41%) sepia(38%) saturate(720%) hue-rotate(6deg) brightness(92%);
+  }
+  .bld-date input[type="date"]::-webkit-calendar-picker-indicator:hover{opacity:1;}
+  [data-theme="light"] .bld-date input[type="date"]{border-color:#9B7B2E;}
+  .bld-date input[type="date"]::-webkit-datetime-edit{padding:0;}
+
+  /* The select each grid mirrors stays in the DOM, and stays the value the
+     generator reads. Hidden from sight, never from the code. */
+  .bld-mirror{position:absolute; left:0; top:0; width:1px; height:1px; padding:0;
+    margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;}
+
+  .bld-actions{display:flex; gap:10px; margin-top:22px;}
+  .bld-actions .btn{flex:1 1 0;}
+  .bld-actions .btn-back{flex:0 0 104px;}
+  .bld-error{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--danger-text); margin-top:6px;}
+  .field.invalid input, .field.invalid select{border-color:var(--c-threshold);}
+  .field.invalid .opt-grid button{border-color:var(--c-threshold);}
+
+  .bld-review-hero{text-align:center; padding:18px 0 6px;}
+  .bld-review-hero .d{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:2px; font-size:26px; color:var(--gold-text); line-height:1.1;}
+  .bld-review-hero .s{font-family:'JetBrains Mono',monospace; font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
+  .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--line-soft);}
+  .bld-review-row:last-child{border-bottom:none;}
+  .bld-review-k{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.2px; font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
+  .bld-review-v{font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); color:var(--ink); text-align:right; overflow-wrap:anywhere;}
+
+  /* The day selector draws a NATIVE checkbox, so it was showing the browser's
+     blue system tick against Valhalla gold. One property, approved separately. */
+  .wd-check input{accent-color:var(--bronze);}
   @media (min-width:640px){ .modal-card{border-radius:var(--radius-lg);} }
   @keyframes slideup{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
   .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--modal-border); position:sticky; top:0; background:var(--modal-surface); z-index:2;}
@@ -796,13 +1142,21 @@
   .modal-body{padding:16px 18px 22px; color:var(--modal-text);}
   .field{margin-bottom:14px;}
   .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); opacity:.65; margin-bottom:5px;}
-  .field input, .field select, .field textarea{
+  /* .goal-input-row is listed alongside .field because a goal time entry is a
+     field like any other, and it is not always inside one -- the builder wraps
+     its three rows in #f-goals, Re-calibrate emits them bare. Left unlisted it
+     fell through to the browser's own control: a 21px box at 13.3px, coloured
+     by whatever colour-scheme happened to be in force rather than by the
+     theme. Naming it here is what makes the two goal editors identical. */
+  .field input, .field select, .field textarea, .goal-input-row input{
     width:100%; background:var(--ctl-bg); border:1px solid var(--ctl-border); border-radius:9px;
     color:var(--ctl-text); padding:10px 11px; font-size:14px;
     min-height:44px;   /* a thumb has to land in it before a keyboard appears */
   }
-  .field input::placeholder, .field textarea::placeholder{ color:var(--ctl-placeholder); opacity:1; }
-  .field input:focus, .field select:focus, .field textarea:focus{
+  .field input::placeholder, .field textarea::placeholder,
+  .goal-input-row input::placeholder{ color:var(--ctl-placeholder); opacity:1; }
+  .field input:focus, .field select:focus, .field textarea:focus,
+  .goal-input-row input:focus{
     outline:none; border-color:var(--ctl-accent); box-shadow:0 0 0 2px rgba(var(--ctl-accent-rgb),0.25);
   }
   /* A disabled control has to be legible AND obviously inert. Opacity alone
@@ -816,7 +1170,7 @@
   .field select option{ background:var(--ctl-bg); color:var(--ctl-text); }
   .field textarea{resize:vertical; min-height:70px; font-family:'Inter',sans-serif;}
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
-  .field-hint{font-size:11px; color:var(--ink-faint); margin-top:4px;}
+  .field-hint{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:4px;}
   .modal-actions{display:flex; gap:8px; margin-top:18px;}
   .modal-actions .btn{flex:1;}
 
@@ -847,6 +1201,11 @@
   .switch input:checked + .switch-track{box-shadow:none;}
   .switch-track::before{content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:var(--bg-2); border-radius:50%; transition:.2s; box-shadow:var(--shadow-sm);}
   .switch input:checked + .switch-track{background:var(--bronze);}
+  /* THE APP THEME SWITCH, and only it. There are exactly two .switch controls
+     in the product -- this one and notifications -- so the accent is scoped by
+     the row it lives in rather than applied to .switch, which would have
+     coloured a toggle nobody asked to change. */
+  #theme-toggle-row .switch input:checked + .switch-track{background:var(--violet);}
   .switch input:checked + .switch-track::before{transform:translateX(18px);}
   .callout{background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 12px; font-size:12px; color:var(--ink-dim); line-height:1.5; display:flex; gap:9px;}
   .callout svg{flex:none; width:16px; height:16px; color:var(--bronze); margin-top:1px;}
@@ -943,7 +1302,7 @@
   .coach-dot.warn{background:#C4643C;} .coach-dot.neutral{background:var(--ink-faint);}
   .coach-status-main{min-width:0; flex:1 1 auto;}
   .coach-status-label{font-family:'Oswald',sans-serif; font-size:15px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink); line-height:1.25;}
-  .coach-status-detail{font-size:12px; color:var(--ink-dim); line-height:1.5; margin-top:3px; overflow-wrap:anywhere;}
+  .coach-status-detail{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); margin-top:3px; overflow-wrap:anywhere;}
   .coach-phase{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); white-space:nowrap; flex:none; padding-top:4px;}
   .coach-metrics{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:12px;}
   .coach-metric{background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:9px 8px; min-width:0; text-align:center;}
@@ -954,7 +1313,7 @@
   .coach-signal:first-child{border-top:none;}
   .coach-signal-body{min-width:0;}
   .coach-signal-label{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:.8px; text-transform:uppercase; color:var(--ink); line-height:1.3;}
-  .coach-signal-detail{font-size:11.5px; color:var(--ink-dim); line-height:1.5; margin-top:2px; overflow-wrap:anywhere;}
+  .coach-signal-detail{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); margin-top:2px; overflow-wrap:anywhere;}
   .coach-bt{display:flex; gap:9px; align-items:flex-start; padding:9px 0; border-top:1px solid var(--line);}
   .coach-bt:first-child{border-top:none;}
   .coach-bt svg{width:15px; height:15px; flex:none; color:var(--gold); margin-top:1px;}
@@ -964,8 +1323,8 @@
   .coach-next-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;}
   .coach-next-head svg{width:15px; height:15px; flex:none; color:var(--gold);}
   .coach-next-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text);}
-  .coach-next-session{font-size:12px; color:var(--ink); line-height:1.5; margin-bottom:6px; overflow-wrap:anywhere;}
-  .coach-next-rec{font-size:12px; color:var(--ink-dim); line-height:1.55; overflow-wrap:anywhere;}
+  .coach-next-session{font-size:var(--fs-body); color:var(--ink); line-height:var(--lh-body); margin-bottom:6px; overflow-wrap:anywhere;}
+  .coach-next-rec{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); overflow-wrap:anywhere;}
   .coach-adjust{margin-top:11px; padding:11px 12px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .coach-adjust-line{font-size:12px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere;}
   .coach-adjust-why{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:4px; overflow-wrap:anywhere;}
@@ -2501,11 +2860,35 @@ var SEGMENT_QUALIFIER_TEXT = {
   scaled:'scaled to the rep', short:'short', full:'full recovery',
   back_down:'jog/walk back down', equal_time:'equal time', float:'floating'
 };
+/* Minutes ONLY where the value is a whole number of them. Rounding to the
+   nearest minute restated a 90-second jog recovery as "2min" -- a third longer
+   than the prescription, on the same card whose own description says "90s jog
+   recovery". A prescription is not an estimate and must not be rounded into
+   one; the seconds are printed instead wherever they do not divide. */
+function fmtSegSeconds(sec){
+  if (sec >= 60 && sec % 60 === 0) return (sec/60) + 'min';
+  return sec + 's';
+}
 function segmentPrescribed(s){
   if (!s) return null;
   if (s.km != null) return fmtDist(s.km);
   if (s.m != null)  return s.m + 'm';
-  if (s.sec != null) return s.sec >= 60 ? Math.round(s.sec/60) + 'min' : s.sec + 's';
+  if (s.sec != null){
+    /* A recovery prescribed as a RANGE is two numbers and has to read as two.
+       DEUCE_SET_RECOVERY_SEC and SPLIT_TEMPO_RECOVERY_SEC are both [lo,hi],
+       and letting the array stringify itself put "180,240s" on the structured
+       log for every set-based session -- while the prose it was written from
+       had always said "3-4min between sets". Both bounds are rendered in the
+       unit the LARGER one earns, so a 90-180s range cannot read "90s-3min". */
+    if (Array.isArray(s.sec)){
+      if (s.sec.length !== 2) return fmtSegSeconds(segSeconds(s.sec));
+      var lo = Math.min(s.sec[0], s.sec[1]), hi = Math.max(s.sec[0], s.sec[1]);
+      return hi >= 60
+        ? Math.round(lo/60) + '–' + Math.round(hi/60) + 'min'
+        : lo + '–' + hi + 's';
+    }
+    return fmtSegSeconds(s.sec);
+  }
   return SEGMENT_QUALIFIER_TEXT[s.qualifier] || null;
 }
 /* Which actual is worth asking for. A segment prescribed as a DISTANCE is
@@ -2519,6 +2902,680 @@ function segmentAsksFor(s){
   if (s.km != null || s.m != null) return { dist:false, time:true };
   if (s.sec != null) return { dist:true, time:false };
   return { dist:true, time:true };
+}
+
+/* =========================================================
+   WORKOUT STEPS — the prescription as the athlete will run it
+   ---------------------------------------------------------
+   THE PROBLEM. A session's structure was only ever readable as prose. "8km
+   with 5km at threshold, 2km warm-up, 1km cool-down" is a sentence you parse;
+   the athlete standing at the trailhead wants a list they can glance at.
+
+   WHAT THIS IS. A third view of segmentsFor(), alongside the two that already
+   exist, and deliberately the shallowest of the three:
+
+     segmentDistanceMix()  flattens the tree for arithmetic  (totals, zones)
+     orderedSegments()     flattens it into running order     (structured log)
+     workoutSteps()        keeps the tree shape               (this)
+
+   Keeping the tree is the whole point. orderedSegments() correctly expands
+   5x1000m into five reps and four recoveries, which is what a logging screen
+   needs and exactly what a pre-run summary must not show -- the athlete wants
+   one line saying "5 x 1000m", not nine rows. So this walks the TOP LEVEL of
+   segmentsFor() and lets a repeat stay a repeat.
+
+   WHAT IT MAY NOT DO. It computes no distance, no time, no rep count and no
+   pace of its own. Every quantity is read straight off the segment via
+   segmentPrescribed(), every band comes from strategyPaceBand()/
+   strategyHRBand() -- the same two functions the Execution Strategy uses --
+   and where segmentsFor() deliberately carries no number, neither does this.
+   It is a re-presentation of the prescription and has no authority to change
+   distance, time, reps, recovery, targets, type or purpose.
+
+   PROVIDER-NEUTRAL BY CONSTRUCTION. The step list is plain data with no HTML
+   and no vocabulary belonging to any device maker, so a later export adapter
+   can read it without the athlete-facing presentation being rewritten around
+   whatever that adapter happens to need. Nothing here knows what a watch is.
+   ========================================================= */
+
+/* What the athlete calls each intensity. Deliberately the SAME words as the
+   Pace Reference card (ZONE_PACE_LABELS), shortened where a step label wants
+   one word, so a step and the zone table are recognisably about one thing. */
+var STEP_INTENSITY_LABEL = {
+  easy:'Easy', steady:'Steady', tempo:'Tempo', threshold:'Threshold',
+  interval:'Interval', repetition:'Repetition',
+  hard_effort:'Hard effort', goal_pace:'Goal pace'
+};
+/* Intensities the app itself declines to price, so neither do we.
+   segmentsFor() maps hills and fartlek to hard_effort and INTENSITY_ZONE_KEY
+   notes that I is "the closest cost" rather than the prescription; a time
+   trial is maximal by instruction. Printing a pace window on any of them
+   would turn a run-by-feel instruction into a number to chase, which is the
+   one thing the segment engine is written not to do. They show the effort
+   word instead -- the same thing the prose already tells them. */
+function stepShowsPaceBand(seg){
+  return !(seg.maximal || seg.intensity === 'hard_effort');
+}
+function stepEffortWord(seg){
+  if (seg.maximal) return 'Maximal effort';
+  if (seg.intensity === 'hard_effort') return 'Hard, by feel';
+  return STEP_INTENSITY_LABEL[seg.intensity] || 'Easy';
+}
+/* The terrain IS the workout when it is a hill session, so it names the step.
+   Everything else is named by its intensity. */
+function stepWorkLabel(seg){
+  if (seg.terrain === 'uphill') return 'Hill repeats';
+  return STEP_INTENSITY_LABEL[seg.intensity] || 'Work';
+}
+/* Targets for one step, read from the athlete's own zones through the
+   existing two resolvers. Returns null rather than a fabricated band when the
+   athlete has no VDOT or no goal time yet -- the step still renders, carrying
+   its effort word. */
+function stepTarget(seg){
+  if (!stepShowsPaceBand(seg)) return null;
+  /* A flank carries the effort word and no window. Three steps all showing the
+     same easy band is noise on the one screen that has to be scannable, and
+     several archetypes prescribe their warm-up with no distance at all -- a
+     precise pace range on an unquantified jog is the sort of false precision
+     the rest of this engine refuses. "Easy" is the whole instruction. */
+  if (seg.role === 'warmup' || seg.role === 'cooldown') return null;
+  var pace = null, hr = null;
+  try { pace = strategyPaceBand(seg.intensity); } catch(e) { pace = null; }
+  try { hr = strategyHRBand(seg.intensity); } catch(e) { hr = null; }
+  if (!pace && !hr) return null;
+  return { pace:pace, hr:hr };
+}
+/* A recovery in words. segmentPrescribed() already returns null where the
+   prescription is a rule rather than a number ("scaled to the rep",
+   "jog/walk back down"), and SEGMENT_QUALIFIER_TEXT supplies that rule's
+   wording, so this adds nothing of its own beyond the jog/float verb. */
+function stepRecoveryText(seg){
+  if (!seg || seg.kind !== 'recovery') return null;
+  var q = segmentPrescribed(seg);
+  var verb = seg.mode === 'walk_jog' ? '' : (seg.mode === 'float' ? 'floating' : 'easy');
+  if (!q) return verb || null;
+  /* The qualifier IS the quantity for a ruled recovery, so it must not then
+     be repeated as a verb: "scaled to the rep easy" reads as nonsense. */
+  if (q === SEGMENT_QUALIFIER_TEXT[seg.qualifier]) return q;
+  return verb ? q + ' ' + verb : q;
+}
+/* A repeat becomes ONE step. A nested repeat -- the only case is a set-based
+   session, N sets of M reps -- keeps both counts, because "2 sets of 4x400m"
+   and "8x400m" are different workouts and flattening them would be the
+   presentation layer rewriting the prescription. */
+function stepFromRepeat(rep){
+  var work = null, rec = null, inner = null;
+  (rep.children || []).forEach(function(c){
+    if (c.kind === 'repeat') inner = c;
+    else if (c.kind === 'recovery') rec = c;
+    else if (!work) work = c;
+  });
+  if (inner){
+    var innerWork = null, innerRec = null;
+    (inner.children || []).forEach(function(c){
+      if (c.kind === 'recovery') innerRec = c;
+      else if (!innerWork) innerWork = c;
+    });
+    if (!innerWork) return null;
+    return { role:'work', kind:'set', intensity:innerWork.intensity, build:null, note:null,
+             label:stepWorkLabel(innerWork),
+             sets:rep.times, reps:inner.times, each:segmentPrescribed(innerWork),
+             qty:null, target:stepTarget(innerWork), effort:stepEffortWord(innerWork),
+             recovery:stepRecoveryText(innerRec), setRecovery:stepRecoveryText(rec) };
+  }
+  if (!work) return null;
+  return { role:'work', kind:'reps', intensity:work.intensity, build:null, note:null,
+           label:stepWorkLabel(work),
+           sets:null, reps:rep.times, each:segmentPrescribed(work),
+           qty:null, target:stepTarget(work), effort:stepEffortWord(work),
+           recovery:stepRecoveryText(rec), setRecovery:null };
+}
+/* A ramped effort names both ends. segmentsFor() records the origin of a
+   progressive block as `from`, and dropping it left a 25-minute build looking
+   like 25 minutes held flat at the destination pace -- a different session.
+   Only the two intensities the segment actually carries are stated; where in
+   the block the change happens is prose, not data, so it is not claimed. */
+function stepBuild(seg){
+  if (!seg.from) return null;
+  var a = STEP_INTENSITY_LABEL[seg.from], b = STEP_INTENSITY_LABEL[seg.intensity];
+  return (a && b) ? ('Building from ' + a + ' to ' + b) : null;
+}
+/* THE FLANKS OF A TIMED SESSION. Four archetypes call segFlanks(null, null),
+   so neither flank carries a distance -- correctly, because timed work covers
+   ground nobody can know in advance and the segment tree is what the distance
+   arithmetic folds from. The DESCRIPTION has always told the athlete more:
+   warmupClause() states a 1-2km warm-up, and completionClause() makes the
+   cool-down whatever running reaches the day's total.
+
+   Both are read back out of the same two functions the prose itself calls, so
+   the step and the sentence cannot drift, and nothing is computed here that
+   the app was not already computing. This is what lets those descriptions
+   stop repeating themselves without the instruction going missing with them. */
+function stepFlankExtras(seg, dayKm){
+  if (seg.km != null || seg.m != null || seg.sec != null) return null;
+  if (seg.role === 'warmup'){
+    var w = statedWarmupKm(dayKm);
+    return w ? { qty:fmtDist(w) } : null;
+  }
+  if (seg.role === 'cooldown' && dayKm)
+    return { note:'Easy running to complete ' + fmtDist(round1(dayKm)) + ' total' };
+  return null;
+}
+function stepFromWork(seg, dayKm){
+  var extra = stepFlankExtras(seg, dayKm) || {};
+  return { role:seg.role === 'warmup' ? 'warmup' : (seg.role === 'cooldown' ? 'cooldown' : 'work'),
+           kind:'single', intensity:seg.intensity, build:stepBuild(seg),
+           label:seg.role === 'warmup' ? 'Warm up'
+               : seg.role === 'cooldown' ? 'Cool down'
+               // a maximal effort is the checkpoint itself, not an intensity;
+               // "Hard effort / Maximal effort" would say the same thing twice
+               : seg.maximal ? 'Time trial'
+               : stepWorkLabel(seg),
+           sets:null, reps:null, each:null,
+           qty:segmentPrescribed(seg) || extra.qty || null,
+           note:extra.note || null,
+           target:stepTarget(seg), effort:stepEffortWord(seg),
+           recovery:null, setRecovery:null };
+}
+/* A rep set that segmentsFor() emits as loose siblings rather than a repeat,
+   because its reps differ in length -- a ladder. Structurally it is the same
+   thing a repeat is (several work bouts of one intensity, recoveries between
+   them) so it reads as one step, listing the rungs in the order they are run.
+   Detected by shape, not by archetype name: the presentation layer never asks
+   which generator produced a session. */
+function ladderRunAt(segs, i){
+  var rungs = [], j = i, rec = null;
+  while (j < segs.length && segs[j].kind === 'work' && !segs[j].role &&
+         segs[j].intensity === segs[i].intensity){
+    rungs.push(segs[j]);
+    if (segs[j+1] && segs[j+1].kind === 'recovery'){ rec = rec || segs[j+1]; j += 2; }
+    else { j += 1; break; }
+  }
+  if (rungs.length < 2) return null;
+  return { rungs:rungs, recovery:rec, end:j - 1 };
+}
+function stepFromLadder(run){
+  var first = run.rungs[0];
+  return { role:'work', kind:'ladder', intensity:first.intensity, build:null, note:null,
+           label:stepWorkLabel(first),
+           sets:null, reps:run.rungs.length, each:null,
+           rungs:run.rungs.map(segmentPrescribed),
+           qty:null, target:stepTarget(first), effort:stepEffortWord(first),
+           recovery:stepRecoveryText(run.recovery), setRecovery:null };
+}
+/* ---- when the step list makes the description redundant ----
+   With the workout written out as steps, some session descriptions say
+   nothing further: "2km warm-up. 5km continuous @ Threshold pace. 1km
+   cool-down." is the list again, in a sentence, directly above the list.
+
+   Most are NOT redundant, which is why this is a list of the few rather than
+   a rule with exceptions. Four archetypes state a warm-up distance in prose
+   that segmentsFor() deliberately does not carry, so the prose holds a number
+   the steps cannot show. Every timed session ends with completionClause() --
+   "Easy running afterwards to complete 10km total" -- which is an instruction
+   about the remainder, not a cool-down figure, and no step expresses it.
+   Others carry genuine coaching in the same sentence as the structure
+   ("held unbroken", "locked in and controlled", "on tired legs from
+   yesterday"), and a shakeout's description is almost entirely about eating
+   and sleeping.
+
+   So: an archetype earns a place here only by review, and the DEFAULT IS TO
+   KEEP. A new archetype, an unknown one, or a day whose prescription was
+   dropped all keep their description automatically -- the failure direction
+   is redundancy, never a lost instruction. structuredWorkout.test.js checks
+   that every archetype named here has all of its description's quantities
+   present in the step list. */
+var WORKOUT_COVERS_DESCRIPTION = {
+  easy_run:true,               // "9km @ Easy pace."
+  long_run_goal_finish:true,   // steps also do the subtraction the prose leaves to the reader
+  threshold_continuous:true,
+  split_tempo:true,
+  track_reps:true,
+  short_reps:true,
+  ladder:true,
+  deuce:true,
+  /* The timed four. These only qualify because stepFlankExtras() now puts the
+     stated warm-up and the completion rule on the flank steps; without that
+     their descriptions carry two instructions the steps do not, and they
+     belong in the keep column instead. */
+  steady_tempo:true,
+  progressive_tempo:true,
+  hill_repeats:true,
+  fartlek:true
+};
+function workoutCoversDescription(dd){
+  var p = prescriptionOf(dd);
+  if (!p || !WORKOUT_COVERS_DESCRIPTION[p.archetype]) return false;
+  var steps = workoutSteps(dd);
+  return !!(steps && steps.length);
+}
+function workoutSteps(dd){
+  var p = prescriptionOf(dd);
+  if (!p) return null;
+  var dayKm = (dd && dd.km) || null;
+  var segs;
+  try { segs = segmentsFor(p); } catch(e) { return null; }
+  if (!segs || !segs.length) return null;
+  var out = [], i = 0;
+  while (i < segs.length){
+    var s = segs[i], step = null;
+    if (s.kind === 'repeat'){ step = stepFromRepeat(s); i += 1; }
+    else if (s.kind === 'recovery'){ i += 1; continue; }   // only loose between ladder rungs
+    else {
+      var run = ladderRunAt(segs, i);
+      if (run){ step = stepFromLadder(run); i = run.end + 1; }
+      else { step = stepFromWork(s, dayKm); i += 1; }
+    }
+    if (step) out.push(step);
+  }
+  if (!out.length) return null;
+  /* A session that is one step is not "Easy" or "Goal pace" -- it IS the
+     session, and the athlete already knows it by the name on the card. Using
+     that name keeps the step list from restating the intensity chip directly
+     above it, and is what makes a long run say LONG RUN rather than EASY.
+
+     It is also the one case where the step's target and the DAY's target are
+     the same numbers, because there is nothing else in the session to average
+     with. The day targets row sits two lines above the step list, so printing
+     the band again here put an identical pace and heart rate on screen twice.
+     `wholeSession` marks that, and the renderer drops the duplicate. */
+  if (out.length === 1 && out[0].role === 'work'){
+    out[0].label = dayTypeLabel(dd);
+    out[0].wholeSession = true;
+  }
+  return out;
+}
+
+/* =========================================================
+   PROVIDER WORKOUT — the canonical machine contract
+   ---------------------------------------------------------
+   WHAT THIS IS FOR. A watch or training platform needs the session as
+   numbers: metres, seconds, iterations, speeds. workoutSteps() cannot supply
+   that and must never be asked to -- it is the CARD. Its quantities are
+   localised display strings ("1000m", "25min", and "3.11mi" for the same
+   session when the athlete has chosen miles), so an exporter reading it would
+   be parsing athlete-facing text and would send mile-derived numbers to a
+   device that wants metres.
+
+   So this is a THIRD consumer of segmentsFor(), beside the card and the log,
+   and the only one an integration may use:
+
+     workoutSteps()      display strings, localised     -> the athlete
+     orderedSegments()   running order, stable segIds   -> the log
+     providerWorkout()   metres, seconds, m/s           -> a provider
+
+   UNIT-INDEPENDENT BY CONSTRUCTION. Nothing here reads state.units and
+   nothing here calls fmtDist(). Metres come from the prescription's own km/m,
+   seconds from its sec. An athlete switching to miles changes the card and
+   changes nothing a provider ever sees.
+
+   PROVIDER-NEUTRAL BY CONSTRUCTION. No vendor's vocabulary, no vendor's step
+   types, no vendor's id scheme. A second platform should be able to consume
+   this without Valhalla's workout engine being touched -- which is the test of
+   whether the boundary is in the right place.
+
+   IT INVENTS NOTHING. Where segmentsFor() carries no quantity -- a fartlek
+   warm-up, a hill descent, a recovery "scaled to the rep" -- this emits an
+   OPEN duration that says so, rather than a number. An adapter may map open to
+   whatever manual-advance mechanism its provider supports, but the absence is
+   recorded here as a fact about the prescription, not papered over.
+   ========================================================= */
+var PROVIDER_WORKOUT_VERSION = 1;
+
+/* ---- pace ----
+   Valhalla holds pace as sec/km. A provider may want speed in metres/second.
+   The conversion is trivial and the INVERSION is not: a smaller sec/km is a
+   faster pace and therefore a LARGER m/s, so the fast bound of a pace band is
+   the HIGH bound of a speed band. Getting this backwards would hand every
+   athlete a target window they cannot hit, on every workout, silently. Both
+   representations are carried so an adapter never has to do the arithmetic
+   itself, and the boundary is asserted in the tests. */
+function secPerKmToMetresPerSecond(secPerKm){
+  if (secPerKm == null || !isFinite(secPerKm) || secPerKm <= 0) return null;
+  return 1000 / secPerKm;
+}
+function metresPerSecondToSecPerKm(mps){
+  if (mps == null || !isFinite(mps) || mps <= 0) return null;
+  return 1000 / mps;
+}
+function providerPaceTarget(band){
+  if (!band || band.fast == null || band.slow == null) return null;
+  var fastMps = secPerKmToMetresPerSecond(band.fast);
+  var slowMps = secPerKmToMetresPerSecond(band.slow);
+  if (fastMps == null || slowMps == null) return null;
+  return {
+    type: 'pace',
+    // sec/km: fast is the smaller number
+    secPerKmFast: band.fast,
+    secPerKmSlow: band.slow,
+    // m/s: the SAME two bounds, and fast is now the larger number
+    metresPerSecondLow:  Math.min(fastMps, slowMps),
+    metresPerSecondHigh: Math.max(fastMps, slowMps),
+    // a goal pace is one number, not a window; the bounds are equal and this
+    // says so rather than leaving an adapter to infer it from fast === slow
+    exact: band.fast === band.slow
+  };
+}
+function providerHeartRateTarget(band){
+  if (!band || band.lo == null) return null;
+  return { type: 'heart_rate', bpmLow: band.lo, bpmHigh: band.hi != null ? band.hi : null };
+}
+/* Both targets are carried, never one. Which a provider can express is the
+   provider's business: Garmin takes one target per step, another platform may
+   take both, and choosing here would bake one vendor's limit into the
+   canonical model. An empty array is an OPEN step and `openReason` says why. */
+function providerTargets(seg){
+  if (seg.maximal) return { targets: [], openReason: 'maximal' };
+  if (seg.intensity === 'hard_effort') return { targets: [], openReason: 'by_feel' };
+  var out = [];
+  var pace = null, hr = null;
+  try { pace = providerPaceTarget(strategyPaceBand(seg.intensity)); } catch(e) { pace = null; }
+  try { hr = providerHeartRateTarget(strategyHRBand(seg.intensity)); } catch(e) { hr = null; }
+  if (pace) out.push(pace);
+  if (hr) out.push(hr);
+  return { targets: out, openReason: out.length ? null : 'unresolved_zones' };
+}
+
+/* ---- duration ----
+   Exactly one of distance, time or open. A segment prescribed in metres stays
+   in metres (a 400m rep is a track distance, not 0.4 of anything), a segment
+   in km is converted once, and a segment with neither is OPEN.
+
+   OPEN carries `advance:'manual'` -- the athlete decides when the step ends --
+   plus the RULE that governs it, so a provider can show the athlete why. The
+   rule is the prescription's own qualifier, not a sentence written here. */
+var PROVIDER_OPEN_RULE = {
+  scaled:'scaled_to_rep', short:'short', full:'full_recovery',
+  back_down:'return_to_start', equal_time:'equal_to_work', float:'float'
+};
+function providerDuration(seg){
+  if (seg.km != null) return { type:'distance', metres: Math.round(seg.km * 1000) };
+  if (seg.m != null)  return { type:'distance', metres: seg.m };
+  if (seg.sec != null){
+    /* A range recovery ("3-4min between sets") is two numbers. The canonical
+       model keeps both and states the midpoint an adapter would otherwise
+       compute for itself -- segSeconds() is the app's own existing answer to
+       "what does a range cost", so this cannot drift from the zone maths. */
+    if (Array.isArray(seg.sec)){
+      var lo = Math.min(seg.sec[0], seg.sec[1]), hi = Math.max(seg.sec[0], seg.sec[1]);
+      return { type:'time', seconds: segSeconds(seg.sec), secondsLow: lo, secondsHigh: hi, range: true };
+    }
+    return { type:'time', seconds: seg.sec };
+  }
+  return { type:'open', advance:'manual',
+           rule: PROVIDER_OPEN_RULE[seg.qualifier] || null };
+}
+
+function providerStep(seg, dayKm){
+  var t = providerTargets(seg);
+  var d = providerDuration(seg);
+  /* A cool-down with no prescribed distance on a timed session is not merely
+     unknown -- completionClause() gives it a RULE: run easy until the session
+     reaches its total. That total is a real number the provider can show, so
+     the open step carries it rather than dropping the instruction. */
+  if (d.type === 'open' && seg.role === 'cooldown' && dayKm)
+    d = { type:'open', advance:'manual', rule:'complete_session_total',
+          sessionTotalMetres: Math.round(dayKm * 1000) };
+  var step = {
+    kind: 'step',
+    role: seg.role || (seg.kind === 'recovery' ? 'recovery' : 'work'),
+    intensity: seg.intensity,
+    duration: d,
+    targets: t.targets,
+    openReason: t.openReason
+  };
+  if (seg.from)
+    /* A ramp is two intensities and no third fact. Where in the block the
+       change happens is prose, not prescription, so it is not claimed here --
+       an adapter picks the most faithful shape its provider supports. */
+    step.ramp = { fromIntensity: seg.from, toIntensity: seg.intensity };
+  if (seg.terrain) step.terrain = seg.terrain;
+  if (seg.maximal) step.maximal = true;
+  return step;
+}
+
+function providerSteps(segs, dayKm){
+  return (segs || []).map(function(s){
+    if (s.kind === 'repeat'){
+      var children = providerSteps(s.children, dayKm);
+      /* REPEAT CARDINALITY, carried rather than resolved. "N x M with R
+         recovery" gives N work reps and N-1 recoveries -- the athlete does not
+         jog a recovery after the last rep, they go to the cool-down. Hill
+         repeats are the exception: the descent happens after every rep because
+         you cannot start the cool-down from the top of the hill.
+
+         A naive repeat group of [work, recovery] x N produces N recoveries, so
+         the child that must not happen on the final pass is flagged. Whether
+         the provider honours that with a shortened group or by expanding the
+         repeat into discrete steps is the adapter's decision; losing the fact
+         here would silently add a recovery to most interval sessions. */
+      s.children.forEach(function(c, i){
+        if (children[i] && repeatChildCount(s, c) < (s.times || 1))
+          children[i].omitOnFinalIteration = true;
+      });
+      return { kind:'repeat', iterations: s.times || 1, steps: children };
+    }
+    return providerStep(s, dayKm);
+  });
+}
+
+/* Deterministic identity for a session's CONTENT. Two plans that prescribe the
+   same thing produce the same fingerprint; any change to a distance, a target,
+   an iteration count or the order produces a different one. This is what lets
+   reconciliation answer "has this workout changed" without asking a provider,
+   and it is deliberately computed over the canonical DTO rather than over the
+   day object -- a retitled session with identical prescription is not a change
+   worth pushing to a watch.
+
+   djb2, the same hash contentBlockKey() already uses, over JSON with the keys
+   emitted in a fixed order by construction. */
+function providerFingerprint(obj){
+  var str = JSON.stringify(obj);
+  var h = 5381;
+  for (var i = 0; i < str.length; i++) h = ((h * 33) ^ str.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
+function providerWorkout(dd){
+  var p = prescriptionOf(dd);
+  if (!p) return null;
+  var segs;
+  try { segs = segmentsFor(p); } catch(e) { return null; }
+  if (!segs || !segs.length) return null;
+  var dayKm = (dd && dd.km) || null;
+  var body = {
+    version: PROVIDER_WORKOUT_VERSION,
+    sport: 'running',
+    archetype: p.archetype,
+    sessionType: dd.type,
+    /* The title is carried because a provider shows the athlete a name, but it
+       is NOT part of the fingerprint: renaming a session is not a change to
+       what the athlete runs. */
+    totalDistanceMetres: dayKm ? Math.round(dayKm * 1000) : null,
+    steps: providerSteps(segs, dayKm)
+  };
+  return {
+    sessionId: dd.id,
+    date: dd.date,
+    name: dd.title || null,
+    workout: body,
+    fingerprint: providerFingerprint(body)
+  };
+}
+
+/* =========================================================
+   SCHEDULED TRAINING — which workout belongs on which date
+   ---------------------------------------------------------
+   NOT A SECOND SOURCE OF TRUTH. state.days is the plan and stays the plan;
+   this is a projection of it into the shape an external calendar needs, and
+   it is recomputed rather than stored. Nothing here decides what an athlete
+   should run -- it only says which already-decided session belongs on which
+   date, with an identity stable enough to update later.
+
+   THE PAST IS NEVER SCHEDULED. A session that has been run, or whose date has
+   passed, is not future training and must never be pushed, updated or removed
+   on a provider's calendar -- the athlete's history is theirs and a sync is
+   not entitled to rewrite it. `from` defaults to today for exactly that
+   reason; the horizon at the other end is a product decision, so it is a
+   parameter rather than a constant.
+   ========================================================= */
+function scheduledTraining(opts){
+  var o = opts || {};
+  var from = o.from || todayStr();
+  var days = (typeof state === 'object' && state && state.days) || [];
+  var to = o.to || (o.horizonDays ? addDays(from, o.horizonDays) : null);
+  var out = [];
+  days.forEach(function(dd){
+    if (!dd || !dd.date || dd.date < from) return;      // never the past
+    if (to && dd.date > to) return;
+    if (dd.type === 'rest') return;                     // a rest day is not a workout
+    if (dd.completed) return;                           // already run
+    var w = providerWorkout(dd);
+    if (!w) return;                                     // no prescription -> nothing canonical to send
+    out.push(w);
+  });
+  out.sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  return out;
+}
+
+/* =========================================================
+   RECONCILIATION — what a provider's calendar should be told
+   ---------------------------------------------------------
+   Pure, provider-neutral, and deliberately the only place that decides what a
+   sync does. Given what the plan currently prescribes and what a provider is
+   already known to hold, it answers with actions and nothing else: it performs
+   no I/O, knows no vendor, and cannot change training.
+
+   IDEMPOTENCE IS THE POINT. Reconciling an unchanged plan twice must produce
+   nothing but noop -- that is what stops a periodic safety check from filling
+   an athlete's calendar with duplicates. Identity is (sessionId), change is
+   (fingerprint), and both come from the canonical DTO rather than from
+   anything a provider returned.
+
+   EXTERNAL STATE NEVER FEEDS BACK. `known` is read to decide what to send and
+   is never allowed to alter the plan. If a provider has a workout Valhalla no
+   longer prescribes, the answer is to remove it there, never to reinstate it
+   here.
+   ========================================================= */
+var RECONCILE_ACTIONS = ['create', 'update', 'remove', 'noop', 'skip_past'];
+
+function reconcileScheduledTraining(desired, known, opts){
+  var o = opts || {};
+  var today = o.today || todayStr();
+  var byId = {};
+  (known || []).forEach(function(k){ if (k && k.sessionId) byId[k.sessionId] = k; });
+
+  var out = [], seen = {};
+  (desired || []).forEach(function(d){
+    seen[d.sessionId] = true;
+    var k = byId[d.sessionId];
+    if (!k){
+      out.push({ action:'create', sessionId:d.sessionId, date:d.date,
+                 fingerprint:d.fingerprint, remoteId:null, workout:d });
+      return;
+    }
+    /* A DATE change is a change even when the prescription is identical: the
+       same session moved to another day is a different calendar entry, and a
+       fingerprint over content alone would call it unchanged. */
+    if (k.fingerprint === d.fingerprint && k.date === d.date){
+      out.push({ action:'noop', sessionId:d.sessionId, date:d.date,
+                 fingerprint:d.fingerprint, remoteId:k.remoteId || null });
+      return;
+    }
+    out.push({ action:'update', sessionId:d.sessionId, date:d.date,
+               fingerprint:d.fingerprint, remoteId:k.remoteId || null, workout:d,
+               was:{ fingerprint:k.fingerprint || null, date:k.date || null } });
+  });
+
+  (known || []).forEach(function(k){
+    if (!k || !k.sessionId || seen[k.sessionId]) return;
+    /* Held by the provider, no longer prescribed. If its date has passed it is
+       history -- the athlete ran it, or did not, and either way a sync does not
+       get to tidy it away. Only future entries are withdrawn. */
+    if (k.date && k.date < today){
+      out.push({ action:'skip_past', sessionId:k.sessionId, date:k.date,
+                 fingerprint:k.fingerprint || null, remoteId:k.remoteId || null });
+      return;
+    }
+    out.push({ action:'remove', sessionId:k.sessionId, date:k.date || null,
+               fingerprint:k.fingerprint || null, remoteId:k.remoteId || null });
+  });
+
+  out.sort(function(a, b){
+    var ad = a.date || '', bd = b.date || '';
+    if (ad !== bd) return ad < bd ? -1 : 1;
+    return a.sessionId < b.sessionId ? -1 : a.sessionId > b.sessionId ? 1 : 0;
+  });
+  return out;
+}
+// Whether a reconciliation would do anything at all -- the cheap check an
+// orchestrator makes before opening a connection it does not need.
+function reconciliationIsNoop(actions){
+  return (actions || []).every(function(a){
+    return a.action === 'noop' || a.action === 'skip_past';
+  });
+}
+
+/* =========================================================
+   PROVIDER SYNC — the orchestration seam, currently wired to nothing
+   ---------------------------------------------------------
+   FAIL CLOSED, AND NOT AS A CONVENTION. There is no Garmin configuration and
+   no approved Garmin contract, so providerSyncAvailable() is false and every
+   path below stops at it. Not "shows a disabled button" -- no request is
+   built, no token is read, no connection is opened, and no error is logged,
+   because nothing is attempted. Availability is answered by the SERVER
+   (/api/garmin?route=garmin-status), never by anything the browser stores, so
+   a client cannot talk itself into being connected.
+
+   WHY THE TRIGGERS EXIST NOW. The events that should cause a sync are events
+   the app already has: a plan is generated, an evolution is accepted, a
+   provider is connected. Naming them here, at the moment they happen, is the
+   part that is genuinely hard to retrofit -- finding every place training
+   legitimately changes, months later, is how integrations end up polling.
+   Each call is a no-op today and becomes a real sync when a provider exists.
+
+   NO POLLING. There is no timer. A periodic safety reconciliation may be
+   justified later -- providers drop writes, and an athlete may edit a workout
+   on the provider's own site -- but it would be justified by observed drift,
+   not added speculatively, and it would run against reconcileScheduledTraining()
+   which already returns noop for an unchanged plan.
+   ========================================================= */
+var PROVIDER_SYNC_TRIGGERS = [
+  'provider_connected',    // the athlete linked an account
+  'plan_generated',        // a new block exists
+  'plan_evolved',          // an accepted adaptation changed future training
+  'session_edited',        // a future session was changed by hand
+  'periodic_safety'        // reserved; nothing schedules this today
+];
+/* The single gate. Everything else asks this, and it can only ever be made
+   true by a server that has real credentials. */
+var providerSyncCapability = { available:false, provider:null, connected:false, reason:'unconfigured' };
+function providerSyncAvailable(){
+  return !!(providerSyncCapability && providerSyncCapability.available &&
+            providerSyncCapability.connected);
+}
+/* The one entry point. Returns the actions it WOULD take, so the seam is
+   observable and testable without a provider, and performs none of them while
+   the gate is shut. */
+function providerSyncRequest(trigger, opts){
+  var result = { trigger: trigger || null, ran:false, reason:null, actions:[] };
+  if (PROVIDER_SYNC_TRIGGERS.indexOf(trigger) === -1){
+    result.reason = 'unknown_trigger';
+    return result;
+  }
+  if (!providerSyncAvailable()){
+    result.reason = (providerSyncCapability && providerSyncCapability.reason) || 'unavailable';
+    return result;
+  }
+  /* Reached only once a provider is configured AND connected. The adapter that
+     performs these actions is api/_garmin.js, which refuses for the same
+     reason until Garmin's approved contract exists. */
+  var desired = scheduledTraining(opts);
+  var known = (opts && opts.known) || [];
+  result.actions = reconcileScheduledTraining(desired, known, opts);
+  result.ran = !reconciliationIsNoop(result.actions);
+  if (!result.ran) result.reason = 'nothing_to_do';
+  return result;
 }
 
 /* ---- when a session stops matching its prescription ----
@@ -5046,13 +6103,18 @@ function renderConfidenceGauge(){
         '<filter id="gaugeGlow" x="-60%" y="-60%" width="220%" height="220%">'+
           '<feGaussianBlur stdDeviation="1" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>'+
         '</filter>'+
-        '<linearGradient id="gaugeFillGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="var(--gold-deep)"/><stop offset="100%" stop-color="var(--modal-active)"/></linearGradient>'+
+        /* THE GAUGE'S PROGRESS, and only that. The filled arc and the needle
+           are what the number actually is; the ticks stay gold because they
+           are the scale the reading sits against, and .gauge-pct stays
+           --gold-text because it is the confidence FIGURE, not the gauge. The
+           card, its PROGRAMME STATUS heading and every label are untouched. */
+        '<linearGradient id="gaugeFillGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="var(--violet-dim)"/><stop offset="100%" stop-color="var(--violet)"/></linearGradient>'+
       '</defs>'+
       '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="var(--bg-4)" stroke-width="6" stroke-linecap="round"/>'+
       '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="url(#gaugeFillGrad)" stroke-width="6" stroke-linecap="round" '+
         'stroke-dasharray="'+fillLen.toFixed(1)+' '+(arcLen-fillLen).toFixed(1)+'"/>'+
       '<g filter="url(#gaugeGlow)">'+ticks+'</g>'+
-      '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleX.toFixed(1)+'" y2="'+needleY.toFixed(1)+'" stroke="var(--modal-active)" stroke-width="2.4" stroke-linecap="round" filter="url(#gaugeGlow)"/>'+
+      '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleX.toFixed(1)+'" y2="'+needleY.toFixed(1)+'" stroke="var(--violet)" stroke-width="2.4" stroke-linecap="round" filter="url(#gaugeGlow)"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="3" fill="var(--modal-active)"/>'+
       '<text x="'+(cx-r)+'" y="'+(cy+11)+'" class="gauge-elabel">E</text>'+
       '<text x="'+(cx+r-6)+'" y="'+(cy+11)+'" class="gauge-flabel">F</text>'+
@@ -5709,6 +6771,69 @@ function coachingDisclosureFor(dd, level){
   return { why:src.why||null, how:src.how, feel:src.feel||null, avoid:src.avoid||null,
            terse:!!terse };
 }
+/* =========================================================
+   STRUCTURED WORKOUT — the WHAT, above the coach's HOW and WHY
+   ---------------------------------------------------------
+   The card already answered "how should I run this" very well, and "what am I
+   actually doing" only in prose. This is the second question, answered as a
+   list, sitting above the first: structure first, then the coaching that
+   explains it. Nothing was taken out of "How to run this" to make room.
+
+   It is NOT a second opinion about the session. Every line is workoutSteps()
+   read back out, and workoutSteps() is a view of the prescription -- so this
+   cannot disagree with the description above it or the strategy below it.
+
+   Suppressed rather than faked where there is no prescription: legacy days and
+   hand-edited days keep exactly the card they have today.
+   ========================================================= */
+function renderStepQty(st){
+  if (st.kind === 'ladder')
+    return st.rungs.filter(function(r){ return r; }).join(' · ');
+  if (st.kind === 'set')
+    return st.sets + ' × ' + st.reps + (st.each ? ' × ' + st.each : '');
+  if (st.kind === 'reps')
+    return st.reps + (st.each ? ' × ' + st.each : '');
+  return st.qty || '';
+}
+function renderWorkoutStep(st, i){
+  var qty = renderStepQty(st);
+  var lines = [];
+  if (st.target && !st.wholeSession){
+    var pace = fmtStrategyPace(st.target.pace, null);
+    var hr = fmtStrategyHR(st.target.hr);
+    if (pace) lines.push('<div class="ws-target font-mono">'+escapeHtml(pace)+'</div>');
+    if (hr) lines.push('<div class="ws-hr font-mono">'+escapeHtml(hr)+'</div>');
+  }
+  // The effort word stands in for a window the prescription never gave -- but
+  // never for a whole-session step, whose window is on the card already.
+  if (!lines.length && st.effort && !st.wholeSession)
+    lines.push('<div class="ws-effort">'+escapeHtml(st.effort)+'</div>');
+  var extra = '';
+  if (st.build)
+    extra += '<div class="ws-note">'+escapeHtml(st.build)+'</div>';
+  if (st.note)
+    extra += '<div class="ws-note">'+escapeHtml(st.note)+'</div>';
+  if (st.recovery)
+    extra += '<div class="ws-note">Recovery: '+escapeHtml(st.recovery)+'</div>';
+  if (st.setRecovery)
+    extra += '<div class="ws-note">Between sets: '+escapeHtml(st.setRecovery)+'</div>';
+  return '<li class="ws-step ws-'+st.role+' ws-k-'+st.kind+'">'+
+    '<div class="ws-step-label"><span class="ws-n font-mono">'+(i+1)+'</span>'+
+      '<span class="ws-name font-head">'+escapeHtml(st.label)+'</span></div>'+
+    (qty ? '<div class="ws-qty font-mono">'+escapeHtml(qty)+'</div>' : '')+
+    lines.join('')+extra+
+  '</li>';
+}
+function renderStructuredWorkout(dd){
+  if (!dd || dd.type === 'rest') return '';
+  var steps;
+  try { steps = workoutSteps(dd); } catch(e) { return ''; }
+  if (!steps || !steps.length) return '';
+  return '<section class="ws-block" aria-label="Structured workout">'+
+    '<div class="ws-head font-head">Workout</div>'+
+    '<ol class="ws-steps">'+steps.map(renderWorkoutStep).join('')+'</ol>'+
+  '</section>';
+}
 function renderCoachingDepth(dd){
   var level = athleteExperience();
   var g = coachingEntryFor(dd);
@@ -5899,7 +7024,15 @@ function renderDayCard(dd){
         '<div class="day-title">'+escapeHtml(dd.title)+'</div>'+
         '<div class="day-detail">'+
           (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
-          '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>'+
+          /* WHAT, then HOW and WHY. The step list is the execution
+             prescription now, so the description is dropped where it only
+             restates it -- and kept wherever it still carries an instruction
+             of its own. The stored dd.desc is untouched either way: Edit
+             Session and the calendar export both still read it. */
+          (workoutCoversDescription(dd)
+            ? ''
+            : '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>')+
+          renderStructuredWorkout(dd)+
           renderCoachingDepth(dd)+
           renderAdjustedDetail(dd)+
         '</div>'+
@@ -7942,12 +9075,50 @@ function coachBreakthroughs(){
    body and their words is excluded: no heart rate, no pace, no RPE, no feel, no
    notes, no email, no user id, no coordinates, no plan.
 
-   NO EGRESS. Nothing here fetches, posts or stores. The prototype's transport
-   lives outside this file, outside /api, and is run by hand by the operator --
-   so there is no automatic path from any athlete's device to anywhere.
+   EGRESS IS ONE SILENT, GATED, OWNER-DECIDED POST. contentCandidateNotify() is
+   called from coachPersistReview() -- the domain function that already runs when
+   a session is logged or edited, and deliberately never from a render path. It
+   hands the ten-field candidate to our OWN origin and stops. It does not know
+   what happens next, cannot see the response body, and cannot fail a workout:
+   every path is wrapped, every failure is swallowed, and nothing it does is
+   visible to the athlete.
+
+   WHO IT IS FOR IS DECIDED ON THE SERVER, NOT HERE. This file runs in the
+   athlete's browser, so no check in it is a security boundary. The route it
+   posts to verifies the caller's Supabase token against VVV_OWNER_USER_ID and
+   answers 404 to everyone else. A beta tester's device therefore learns nothing,
+   sends at most one refused request ever (see contentCandidateBlocked), and no
+   candidate of theirs can reach monday however the client behaves.
    ========================================================= */
 var CONTENT_CANDIDATE_VERSION = 1;
-var CONTENT_CANDIDATE_ENABLED = false;
+var CONTENT_CANDIDATE_ENABLED = true;
+
+/* Delivery bookkeeping, local to the device. NOT the idempotency guarantee --
+   that is the server asking monday whether this candidateId already exists, and
+   it holds across reinstalls, devices and retries. This exists so an athlete who
+   edits one session ten times does not make ten identical requests. */
+var CONTENT_SENT_KEY = 'vvvContentSent';
+var CONTENT_SENT_CAP = 200;
+function contentSentState(){
+  var v = readStored(CONTENT_SENT_KEY);
+  if (!v || typeof v !== 'object') return { blocked:false, ids:[] };
+  return { blocked: v.blocked === true,
+           ids: Array.isArray(v.ids) ? v.ids : [] };
+}
+/* A device told "not you" stops asking. The founder gate lives on the server;
+   this only spares every other athlete a pointless request per breakthrough. */
+function contentCandidateBlocked(){ return contentSentState().blocked === true; }
+function contentMarkBlocked(){
+  var st = contentSentState(); st.blocked = true; writeStored(CONTENT_SENT_KEY, st);
+}
+function contentAlreadySent(id){ return contentSentState().ids.indexOf(id) !== -1; }
+function contentMarkSent(id){
+  var st = contentSentState();
+  if (st.ids.indexOf(id) !== -1) return;
+  st.ids.push(id);
+  if (st.ids.length > CONTENT_SENT_CAP) st.ids = st.ids.slice(-CONTENT_SENT_CAP);
+  writeStored(CONTENT_SENT_KEY, st);
+}
 
 /* The complete set of fields permitted to cross the boundary. A test asserts
    that a built candidate has exactly these keys and no others, so widening the
@@ -7958,13 +9129,39 @@ var CONTENT_CANDIDATE_FIELDS = [
   'contentSource', 'marketingEligible'
 ];
 
-/* A stable id derived from facts that already identify the session to the
-   athlete. Deterministic, so the same session proposed twice is recognisably
-   the same candidate rather than a duplicate row for a human to reconcile.
-   Deliberately NOT the athlete's uid or email, and not reversible into them. */
+/* The block this plan IS, as a short non-personal key. Derived from the three
+   facts that make one training block a different block from another -- when it
+   started, what it is aimed at, and which distance -- and hashed, so the key
+   itself carries no schedule detail outward. Contains no uid, no email, no
+   name, and nothing about how the athlete ran.
+
+   It exists because a date alone is not a stable identity ACROSS blocks: a
+   regenerated plan can put a different session on the same date, and reusing an
+   id there would silently dedupe a genuinely new candidate against an old row. */
+function contentBlockKey(){
+  var s = (typeof state === 'object' && state && state.setup) || null;
+  if (!s) return 'nb';
+  var str = [s.startDate || '', s.raceDate || '', s.distanceKey || ''].join('|');
+  var h = 5381;
+  for (var i = 0; i < str.length; i++) h = ((h * 33) ^ str.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
+/* A stable id for one session inside one block.
+
+   WHY NOT THE ARCHETYPE. The first version was vv-<date>-<archetype>, which
+   broke the property that matters most: editing a logged session -- correcting
+   its type, or re-prescribing it -- CHANGED the id, so the same session came
+   back as a second monday row for a human to reconcile. The archetype is a
+   description of the session, not its identity. dd.id is (one day per date), so
+   an edit that changes everything about how the session was run still resolves
+   to the same candidate.
+
+   Deterministic across retries, identical after an edit, different across
+   blocks, and reversible into nothing: no uid, no email, no pace, no heart
+   rate, no score. */
 function contentCandidateId(dd){
-  var p = prescriptionOf(dd);
-  return 'vv-' + dd.date + '-' + ((p && p.archetype) || dd.type);
+  return 'vv-' + contentBlockKey() + '-' + (dd.id || dd.date);
 }
 
 /* WHY THIS SESSION WAS NOTABLE, in the product's own words.
@@ -8022,6 +9219,53 @@ function contentCandidates(source){
     .map(function(dd){ return contentCandidate(dd, source); })
     .filter(function(c){ return !!c; })
     .sort(function(a, b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+}
+
+/* Is THIS session one the product already considers notable? Eligibility is
+   coachBreakthroughs() and nothing else -- the same deterministic, evidence-based
+   judgement the athlete's own Plan HQ reads. There is no marketing score, no
+   second analysis engine and no threshold invented for this purpose: if a session
+   is not a breakthrough to the athlete, it is not a candidate for anything. */
+function contentCandidateEligible(dd){
+  if (!CONTENT_CANDIDATE_ENABLED) return false;
+  if (!dd || !dd.completed) return false;
+  try { return coachBreakthroughs().indexOf(dd) !== -1; }
+  catch (e) { return false; }          // ambiguous evidence is not evidence
+}
+
+/* THE ONLY EGRESS. Own origin, athlete's own bearer token, no response read
+   beyond its status, and nothing rendered either way.
+
+   FAILURE IS NOT AN EVENT. Network down, server 500, monday down, offline in a
+   tunnel -- all identical here: the promise is swallowed and the session is
+   already logged. The candidate is only marked delivered on a 2xx, so a genuine
+   loss is retried the next time that session is touched; a 401/403/404 marks
+   this device as not-the-founder and it never asks again. */
+function contentCandidateSend(c){
+  if (!c || !c.candidateId) return;
+  return fetch('/api/admin-user', {
+    method:'POST',
+    headers:{ 'content-type':'application/json',
+              'Authorization':'Bearer '+cloudSession.access_token },
+    body: JSON.stringify({ action:'content_export', candidate:c })
+  }).then(function(resp){
+    if (resp.status===401 || resp.status===403 || resp.status===404) contentMarkBlocked();
+    else if (resp.ok) contentMarkSent(c.candidateId);
+  }).catch(function(){ /* ancillary by design */ });
+}
+
+/* Called from coachPersistReview(). Everything is inside one try/catch because
+   the caller is the coaching path: no branch of this may ever throw into it. */
+function contentCandidateNotify(dd){
+  try {
+    if (!CONTENT_CANDIDATE_ENABLED) return;
+    if (!cloudSignedIn()) return;              // no token, nothing to authorise
+    if (contentCandidateBlocked()) return;     // server has already said no
+    if (!contentCandidateEligible(dd)) return;
+    var c = contentCandidate(dd, 'founder');
+    if (!c || contentAlreadySent(c.candidateId)) return;
+    contentCandidateSend(c);
+  } catch (e) { /* never reaches the athlete */ }
 }
 
 
@@ -14611,6 +15855,12 @@ function coachPersistReview(dd){
      must never create evidence, so this is deliberately not on the render
      path, and recordBlockReview() appends only when the conclusion moves. */
   recordBlockReview();
+  /* ANCILLARY, LAST, AND UNABLE TO INTERFERE. The review and the block picture
+     are already written above; this is a side effect that reads them and can
+     only be a no-op if anything at all is wrong with it. It is here rather than
+     on a render path for the same reason recordBlockReview() is: logging or
+     editing a session is the event, not looking at one. */
+  contentCandidateNotify(dd);
   return review;
 }
 
@@ -15571,92 +16821,176 @@ function openSetupModal(){
     return '<option value="'+iso+'" '+(schedule.longRunDay===iso?'selected':'')+'>'+ISO_WEEKDAY_NAMES[iso]+'</option>';
   }).join('');
 
+  /* ---------- THE FIVE STAGES ----------
+     Same fifteen inputs, same element ids, same handlers -- only the
+     presentation is staged. Every panel stays MOUNTED and is shown or hidden,
+     never destroyed: handleGeneratePlan() reads these ids straight out of the
+     DOM, handleSuggestGoals() reads stage 02's benchmark to fill stage 04's
+     goals, and the units handler converts stage 02's volume from stage 01. All
+     three would break the moment a panel was unmounted.
+
+     The three <select>s the athlete used to operate are still here and still
+     hold the value the generator reads. They are visually hidden and mirrored
+     by an option grid, so the choice became visible without the data path
+     moving an inch. */
+  var stageMeta = [
+    ['Goal','Your goal','What are we building towards? You do not need an event booked.'],
+    ['You','You','Where your training is right now. This is what the coach reasons from.'],
+    ['Week','Your week','Pick 3–6 days you can run. Workouts land only on these; everything else is rest.'],
+    ['Training','Training','Two optional refinements, and the finish times you are chasing.'],
+    ['Review','What Valhalla understands','Check this reads like your training. Step back to change anything.']
+  ];
+  var railHtml = stageMeta.map(function(_, i){
+    return '<div class="bld-step'+(i===0?' now':'')+'"></div>';
+  }).join('');
+  function stageHead(i){
+    return '<h3 class="bld-stage-h">'+stageMeta[i][1]+'</h3>'+
+           '<p class="bld-lede">'+stageMeta[i][2]+'</p>';
+  }
+  function navBtns(i){
+    var back = i>0 ? '<button type="button" class="btn btn-ghost btn-back" data-action="bld-back">← Back</button>' : '';
+    return '<div class="bld-actions">'+back+
+      '<button type="button" class="btn btn-primary" data-action="bld-next">Continue →</button></div>';
+  }
+
+  var distGrid = DISTANCE_ORDER.map(function(k){
+    var pr = DISTANCE_PROFILES[k];
+    var on = (su.distanceKey||'full')===k;
+    return '<button type="button" data-v="'+k+'" class="'+(on?'active':'')+'">'+
+      pr.label.toUpperCase()+'</button>';
+  }).join('');
+
   var html = ''+
   '<div class="modal-head"><h2 class="font-head">Build Your Training Block</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
-    '<div class="setup-section-title">Your Goal</div>'+
-    '<div class="field"><label>Units</label>'+
-      '<div class="unit-toggle" role="group" aria-label="Distance units" id="su-units">'+
-        '<button type="button" data-units="km" class="'+(state.units!=='mi'?'active':'')+'">KM</button>'+
-        '<button type="button" data-units="mi" class="'+(state.units==='mi'?'active':'')+'">MI</button>'+
+    '<div class="bld-progress" id="bld-rail">'+railHtml+'</div>'+
+    '<div class="bld-progress-meta"><span class="bld-stage-no" id="bld-no">01 / 05</span>'+
+      '<span class="bld-stage-name" id="bld-name">Goal</span></div>'+
+
+    /* ---------- 01 GOAL ---------- */
+    '<section class="bld-panel" data-stage="0">'+
+      stageHead(0)+
+      '<div class="field"><label>Units</label>'+
+        '<div class="opt-grid" role="group" aria-label="Distance units" id="su-units">'+
+          '<button type="button" data-units="km" class="'+(state.units!=='mi'?'active':'')+'">KM</button>'+
+          '<button type="button" data-units="mi" class="'+(state.units==='mi'?'active':'')+'">MI</button>'+
+        '</div>'+
+        '<div class="field-hint">Applies everywhere once you generate — to switch units on an existing plan without regenerating, use the toggle in the header instead.</div>'+
       '</div>'+
-      '<div class="field-hint">Applies everywhere once you generate — to switch units on an existing plan without regenerating, use the toggle in the header instead.</div>'+
-    '</div>'+
-    '<div class="field"><label>Goal Distance</label><select id="su-distance">'+distOptions+'</select>'+
-      '<div class="field-hint">The distance this block prepares you for. You do not need an event booked.</div>'+
-    '</div>'+
-    '<div class="field"><label>Do you have a target event?</label>'+
-      '<div class="unit-toggle" role="group" aria-label="Target event" id="su-event-toggle">'+
-        '<button type="button" data-action="set-event-mode" data-event-mode="event" class="'+(eventMode==='event'?'active':'')+'">Yes</button>'+
-        '<button type="button" data-action="set-event-mode" data-event-mode="none" class="'+(eventMode==='none'?'active':'')+'">No</button>'+
+      '<div class="field" id="f-distance"><label>Goal distance</label>'+
+        '<div class="opt-grid" data-mirror="su-distance" role="group" aria-label="Goal distance">'+distGrid+'</div>'+
+        '<select id="su-distance" class="bld-mirror" tabindex="-1" aria-hidden="true">'+distOptions+'</select>'+
+        '<div class="field-hint">The distance this block prepares you for. You do not need an event booked.</div>'+
       '</div>'+
-    '</div>'+
-    '<div id="su-event-box" data-mode="'+eventMode+'">'+
-      '<div class="field when-event"><label>Event Date</label><input type="date" id="su-racedate" value="'+raceDate+'">'+
-        '<div class="field-hint">Progression and taper anchor to this day.</div>'+
+      '<div class="field"><label>Do you have a target event?</label>'+
+        '<div class="opt-grid" role="group" aria-label="Target event" id="su-event-toggle">'+
+          '<button type="button" data-action="set-event-mode" data-event-mode="event" class="'+(eventMode==='event'?'active':'')+'">YES</button>'+
+          '<button type="button" data-action="set-event-mode" data-event-mode="none" class="'+(eventMode==='none'?'active':'')+'">NOT YET</button>'+
+        '</div>'+
       '</div>'+
-      '<div class="field when-none"><label>Training Block Length (weeks)</label>'+
-        '<input type="number" min="4" max="24" step="1" inputmode="numeric" id="su-weeks" value="'+blockWeeks+'">'+
-        '<div class="field-hint">A full distance-specific block, built and tapered to a culminating goal effort in the final week.</div>'+
+      '<div id="su-event-box" data-mode="'+eventMode+'">'+
+        '<div class="field when-event bld-date" id="f-racedate"><label>Event date</label><input type="date" id="su-racedate" value="'+raceDate+'">'+
+          '<div class="field-hint">Progression and taper anchor to this day.</div>'+
+        '</div>'+
+        '<div class="field when-none" id="f-weeks"><label>Training block length (weeks)</label>'+
+          '<input type="number" min="4" max="24" step="1" inputmode="numeric" id="su-weeks" value="'+blockWeeks+'">'+
+          '<div class="field-hint">A full distance-specific block, built and tapered to a culminating goal effort in the final week.</div>'+
+        '</div>'+
       '</div>'+
-    '</div>'+
-    '<div class="field"><label id="su-volume-label">Current Weekly Volume ('+(state.units==='mi'?'mi':'km')+')</label><input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'"></div>'+
+      navBtns(0)+
+    '</section>'+
 
-    '<div class="setup-section-title">Athlete Experience</div>'+
-    '<div class="field-hint" style="margin-bottom:8px;">Changes how much each session is explained — never the training itself. Your paces, workouts and progression are identical at every level.</div>'+
-    '<div class="field">'+
-      '<div class="unit-toggle exp-toggle" role="group" aria-label="Athlete experience" id="su-experience">'+
-        EXPERIENCE_LEVELS.map(function(k){
-          return '<button type="button" data-action="set-experience" data-experience="'+k+'" '+
-            'aria-pressed="'+(experience===k?'true':'false')+'" class="'+(experience===k?'active':'')+'">'+
-            EXPERIENCE_META[k].short+'</button>';
-        }).join('')+
+    /* ---------- 02 YOU ---------- */
+    '<section class="bld-panel" data-stage="1" hidden>'+
+      stageHead(1)+
+      '<div class="field" id="f-volume"><label id="su-volume-label">Current Weekly Volume ('+(state.units==='mi'?'mi':'km')+')</label>'+
+        '<input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'">'+
+        '<div class="field-hint">Your honest recent average, not your best week.</div>'+
       '</div>'+
-      '<div class="field-hint" id="su-experience-hint">'+escapeHtml(EXPERIENCE_META[experience].hint)+'</div>'+
-    '</div>'+
+      '<div class="field"><label>Athlete experience</label>'+
+        '<div class="opt-grid cols-3" role="group" aria-label="Athlete experience" id="su-experience">'+
+          EXPERIENCE_LEVELS.map(function(k){
+            return '<button type="button" data-action="set-experience" data-experience="'+k+'" '+
+              'aria-pressed="'+(experience===k?'true':'false')+'" class="'+(experience===k?'active':'')+'">'+
+              EXPERIENCE_META[k].short.toUpperCase()+'</button>';
+          }).join('')+
+        '</div>'+
+        '<div class="field-hint" id="su-experience-hint">'+escapeHtml(EXPERIENCE_META[experience].hint)+'</div>'+
+      '</div>'+
+      '<div class="setup-section-title">Recent benchmark</div>'+
+      '<p class="bld-lede">A recent honest-effort 5K or 10K — your paces are built from this.</p>'+
+      '<div class="field"><label>Benchmark distance</label>'+
+        '<div class="opt-grid" data-mirror="su-bench-dist" role="group" aria-label="Benchmark distance">'+
+          '<button type="button" data-v="5k" class="'+(benchDist==='5k'?'active':'')+'">5K</button>'+
+          '<button type="button" data-v="10k" class="'+(benchDist==='10k'?'active':'')+'">10K</button>'+
+        '</div>'+
+        '<select id="su-bench-dist" class="bld-mirror" tabindex="-1" aria-hidden="true">'+
+          '<option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option>'+
+          '<option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select>'+
+      '</div>'+
+      '<div class="field"><label>Benchmark time</label>'+
+        '<input type="text" id="su-bench-time" placeholder="mm:ss" value="'+benchTime+'"></div>'+
+      navBtns(1)+
+    '</section>'+
 
-    '<div class="setup-section-title">Weekly Schedule</div>'+
-    '<div class="field-hint" style="margin-bottom:8px;">Pick 3\u20136 days you can run \u2014 workouts land only on these; everything else is rest.</div>'+
-    '<div class="weekday-grid" id="su-weekdays">'+wdCheckboxes+'</div>'+
-    '<div class="field"><label>Long Run Day</label><select id="su-longday">'+longDayOptions+'</select></div>'+
+    /* ---------- 03 WEEK ---------- */
+    '<section class="bld-panel" data-stage="2" hidden>'+
+      stageHead(2)+
+      '<div class="field" id="f-weekdays"><label>Training days</label>'+
+        '<div class="weekday-grid" id="su-weekdays">'+wdCheckboxes+'</div>'+
+      '</div>'+
+      '<div class="field" id="f-longday"><label>Long run day</label>'+
+        '<div class="opt-grid cols-3" data-mirror="su-longday" role="group" aria-label="Long run day" id="bld-longday-grid"></div>'+
+        '<select id="su-longday" class="bld-mirror" tabindex="-1" aria-hidden="true">'+longDayOptions+'</select>'+
+        '<div class="field-hint">Only the days you picked above can hold the long run.</div>'+
+      '</div>'+
+      navBtns(2)+
+    '</section>'+
 
-    '<div class="setup-section-title">Recent Benchmark</div>'+
-    '<div class="field-hint" style="margin-bottom:8px;">A recent honest-effort 5K or 10K \u2014 your paces are built from this.</div>'+
-    '<div class="benchmark-row">'+
-      '<div class="field" style="margin-bottom:0;"><label>Distance</label><select id="su-bench-dist"><option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option><option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select></div>'+
-      '<div class="field" style="margin-bottom:0;"><label>Time</label><input type="text" id="su-bench-time" placeholder="mm:ss" value="'+benchTime+'"></div>'+
-    '</div>'+
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
+    /* ---------- 04 TRAINING ---------- */
+    '<section class="bld-panel" data-stage="3" hidden>'+
+      stageHead(3)+
+      '<div class="setup-section-title">Lactate Threshold HR (LTHR) / Max HR</div>'+
+      '<p class="bld-lede">Optional — adds target HR ranges to your zone paces and unlocks HR-based execution scoring on logged workouts. Leave blank to skip; pace and distance tracking work fine without it.</p>'+
+      '<div class="benchmark-row">'+
+        '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-lthr" placeholder="172" value="'+(su.lthr!=null?su.lthr:'')+'"></div>'+
+        '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-maxhr" placeholder="188" value="'+(su.maxHR!=null?su.maxHR:'')+'"></div>'+
+      '</div>'+
+      '<div class="setup-section-title" style="margin-top:22px;">Goal A / B / C — for the distance you picked</div>'+
+      '<p class="bld-lede">Toggle the Active Goal any time afterwards — every workout pace updates instantly.</p>'+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:12px;" data-action="suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
+      '<div class="field" id="f-goals" style="margin-bottom:0;">'+goalRows+'</div>'+
+      navBtns(3)+
+    '</section>'+
 
-    '<div class="setup-section-title">Lactate Threshold HR (LTHR) / Max HR</div>'+
-    '<div class="field-hint" style="margin-bottom:8px;">Optional \u2014 e.g. LTHR 172 BPM / Max HR 188 BPM. Adds target HR ranges to your zone paces and unlocks HR-based execution scoring on logged workouts. Leave blank to skip \u2014 pace and distance tracking work fine without it.</div>'+
-    '<div class="benchmark-row">'+
-      '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-lthr" placeholder="172" value="'+(su.lthr!=null?su.lthr:'')+'"></div>'+
-      '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-maxhr" placeholder="188" value="'+(su.maxHR!=null?su.maxHR:'')+'"></div>'+
-    '</div>'+
-
-    '<div class="setup-section-title">Goal A / B / C \u2014 for the distance above</div>'+
-    goalRows+
-    '<div class="field-hint">Finish-time targets for whichever distance you picked. Toggle the Active Goal any time afterward \u2014 every workout pace updates instantly.</div>'+
-
-    '<div class="modal-actions">'+
-      '<button type="button" class="btn btn-primary" data-action="generate-plan">'+ICONS.check+' '+(state.setup?'Regenerate Plan':'Generate My Plan')+'</button>'+
-    '</div>'+
-    /* PRIVATE BETA: the two documents named once, at the point the athlete is
-       about to start using the product properly, and only on the FIRST build.
-       Deliberately a sentence rather than a gate: no wall, no checkbox, nothing
-       pre-ticked, and nothing that pretends to collect a consent this task has
-       no authority to collect. A tester who wants to read them can, before they
-       commit their training to it; a tester regenerating a plan in week six is
-       not shown it again, because by then it is nagging rather than informing. */
-    (state.setup
-      ? '<div class="field-hint" style="margin-top:10px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history \u2014 only untouched future days are replaced.</div>'
-      : '<div class="field-hint" style="margin-top:10px; text-align:center;">Using the private beta is covered by our '+
-        '<a href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and '+
-        '<a href="'+LEGAL_URLS.betaTerms+'" target="_blank" rel="noopener noreferrer">Private Beta Terms</a>. '+
-        'Both are always in Settings.</div>')+
+    /* ---------- 05 REVIEW ---------- */
+    '<section class="bld-panel" data-stage="4" hidden>'+
+      stageHead(4)+
+      '<div id="bld-review"></div>'+
+      '<div class="bld-actions">'+
+        '<button type="button" class="btn btn-ghost btn-back" data-action="bld-back">← Back</button>'+
+        '<button type="button" class="btn btn-primary" data-action="generate-plan">'+ICONS.check+' '+(state.setup?'Regenerate Plan':'Build My Training Block')+'</button>'+
+      '</div>'+
+      (state.setup
+        ? '<div class="field-hint" style="margin-top:12px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history — only untouched future days are replaced.</div>'
+        : '<div class="field-hint" style="margin-top:12px; text-align:center;">Using the private beta is covered by our '+
+          '<a href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and '+
+          '<a href="'+LEGAL_URLS.betaTerms+'" target="_blank" rel="noopener noreferrer">Private Beta Terms</a>. '+
+          'Both are always in Settings.</div>')+
+    '</section>'+
   '</div>';
-  openModal(html);
+  openModal(html, 'modal-themed builder-light');
+
+  /* Grid -> mirrored select. Delegated on the card so the three grids share one
+     listener, and a grid rebuilt later (the long-run day) needs no rebinding. */
+  var cardEl = document.querySelector('.modal-card');
+  if (cardEl){
+    cardEl.addEventListener('click', function(e){
+      var btn = e.target.closest('.opt-grid[data-mirror] button');
+      if (!btn) return;
+      bldMirrorPick(btn.closest('.opt-grid'), btn);
+    });
+  }
 
   var unitsBox = document.getElementById('su-units');
   if (unitsBox){
@@ -15696,9 +17030,183 @@ function openSetupModal(){
       sel.innerHTML = checked.length
         ? checked.map(function(iso){ return '<option value="'+iso+'" '+(iso===current?'selected':'')+'>'+ISO_WEEKDAY_NAMES[iso]+'</option>'; }).join('')
         : '<option value="">\u2014 pick at least 3 days \u2014</option>';
+      /* The grid is redrawn FROM the select the existing line above just
+         rebuilt, so an athlete who goes back and removes the day currently
+         holding their long run cannot be left with an impossible value: the
+         select has already fallen to its first remaining option and the grid
+         simply shows what the generator will read. */
+      bldSyncLongDay();
     });
   }
+
+  bldSyncLongDay();
+  bldStage(0);
 }
+
+/* =========================================================
+   STAGED BUILDER — navigation, mirroring and validation.
+
+   Presentation only. Every value still lives in the element
+   handleGeneratePlan() already reads; nothing here computes,
+   stores or validates anything the generator did not already.
+   ========================================================= */
+var BLD_STAGE_NAMES = ['Goal','You','Week','Training','Review'];
+var bldCurrentStage = 0;
+
+/* Redraw the long-run grid from #su-longday, which is the value that counts. */
+function bldSyncLongDay(){
+  var sel = document.getElementById('su-longday');
+  var grid = document.getElementById('bld-longday-grid');
+  if (!sel || !grid) return;
+  var opts = Array.prototype.slice.call(sel.options).filter(function(o){ return o.value !== ''; });
+  grid.innerHTML = opts.length
+    ? opts.map(function(o){
+        return '<button type="button" data-v="'+o.value+'" class="'+(o.value===sel.value?'active':'')+'">'+
+          o.textContent.toUpperCase()+'</button>';
+      }).join('')
+    : '<button type="button" disabled>Pick at least 3 training days first</button>';
+}
+
+/* One grid click -> the mirrored <select>. A real change event is dispatched so
+   any listener the select already had still fires. */
+function bldMirrorPick(grid, btn){
+  var id = grid.getAttribute('data-mirror');
+  var sel = id && document.getElementById(id);
+  if (!sel || btn.disabled) return;
+  sel.value = btn.getAttribute('data-v');
+  grid.querySelectorAll('button').forEach(function(b){ b.classList.toggle('active', b===btn); });
+  try { sel.dispatchEvent(new Event('change', { bubbles:true })); } catch(e) {}
+}
+
+function bldClearErrors(){
+  document.querySelectorAll('.bld-panel .field.invalid').forEach(function(f){ f.classList.remove('invalid'); });
+  document.querySelectorAll('.bld-panel .bld-error').forEach(function(e){ e.remove(); });
+}
+function bldFail(fieldId, message){
+  var f = document.getElementById(fieldId);
+  if (!f) return;
+  f.classList.add('invalid');
+  var e = document.createElement('div');
+  e.className = 'bld-error';
+  e.textContent = message;
+  f.appendChild(e);
+  try { f.scrollIntoView({ block:'center', behavior:'smooth' }); } catch(err) { f.scrollIntoView(); }
+  var focusable = f.querySelector('input, select:not(.bld-mirror), .opt-grid button');
+  if (focusable) { try { focusable.focus({ preventScroll:true }); } catch(err) {} }
+}
+
+/* THE SAME REQUIREMENTS handleGeneratePlan() already enforces, shown at the
+   stage they belong to instead of all at once at the end. No rule is added,
+   removed or loosened here, and the generator still checks all of them. */
+function bldValidateStage(i){
+  bldClearErrors();
+  if (i === 0){
+    var box = document.getElementById('su-event-box');
+    var hasEvent = !box || box.getAttribute('data-mode') !== 'none';
+    if (hasEvent){
+      var rd = document.getElementById('su-racedate').value;
+      if (!rd){ bldFail('f-racedate', 'Pick an event date.'); return false; }
+      if (rd <= todayStr()){ bldFail('f-racedate', 'Event date needs to be in the future.'); return false; }
+    } else {
+      var wks = parseInt(document.getElementById('su-weeks').value, 10);
+      if (isNaN(wks) || wks < 4 || wks > 24){
+        bldFail('f-weeks', 'Choose a block length between 4 and 24 weeks.'); return false; }
+    }
+    return true;
+  }
+  if (i === 1){
+    var volume = parseDistInput(document.getElementById('su-volume').value);
+    if (!volume || volume <= 0){
+      bldFail('f-volume', 'Enter your current weekly volume.'); return false; }
+    return true;
+  }
+  if (i === 2){
+    var checked = document.querySelectorAll('#su-weekdays input[type=checkbox]:checked').length;
+    if (checked < 3 || checked > 6){
+      bldFail('f-weekdays', 'Pick between 3 and 6 running days.'); return false; }
+    if (isNaN(parseInt(document.getElementById('su-longday').value, 10))){
+      bldFail('f-longday', 'Choose a long run day.'); return false; }
+    return true;
+  }
+  if (i === 3){
+    var any = GOAL_KEYS.some(function(k){
+      var el = document.getElementById('su-goal-' + k);
+      return el && clockToSec(el.value.trim());
+    });
+    if (!any){ bldFail('f-goals', 'Enter at least one goal time, or tap Suggest above.'); return false; }
+    return true;
+  }
+  return true;
+}
+
+/* A presentation layer over the inputs, read at the moment Review is shown.
+   It stores nothing and derives nothing the generator does not already. */
+function bldRenderReview(){
+  var host = document.getElementById('bld-review');
+  if (!host) return;
+  var distSel = document.getElementById('su-distance');
+  var profile = DISTANCE_PROFILES[distSel.value];
+  var unitBtn = document.querySelector('#su-units button.active');
+  var units = unitBtn ? unitBtn.getAttribute('data-units') : state.units;
+  var volume = document.getElementById('su-volume').value;
+  var days = document.querySelectorAll('#su-weekdays input[type=checkbox]:checked').length;
+  var box = document.getElementById('su-event-box');
+  var hasEvent = !box || box.getAttribute('data-mode') !== 'none';
+  var longSel = document.getElementById('su-longday');
+  var longLabel = longSel.options[longSel.selectedIndex] ? longSel.options[longSel.selectedIndex].textContent : '\u2014';
+  var lthr = document.getElementById('su-lthr').value;
+  var maxhr = document.getElementById('su-maxhr').value;
+  var goals = GOAL_KEYS.map(function(k){
+    var v = document.getElementById('su-goal-' + k).value.trim();
+    return v ? k + ' ' + v : null;
+  }).filter(Boolean);
+
+  function row(k, v){
+    return '<div class="bld-review-row"><span class="bld-review-k">'+k+'</span>'+
+           '<span class="bld-review-v">'+escapeHtml(v)+'</span></div>';
+  }
+  var rows = '';
+  rows += hasEvent
+    ? row('Event date', document.getElementById('su-racedate').value || '\u2014')
+    : row('Block length', document.getElementById('su-weeks').value + ' weeks');
+  rows += row('Experience', EXPERIENCE_META[athleteExperience()].short);
+  rows += row('Long run day', longLabel);
+  var benchTimeVal = document.getElementById('su-bench-time').value.trim();
+  rows += row('Benchmark', document.getElementById('su-bench-dist').value.toUpperCase() +
+              (benchTimeVal ? ' \u00b7 ' + benchTimeVal : ' \u00b7 \u2014'));
+  if (lthr || maxhr)
+    rows += row('Heart rate', (lthr ? 'LTHR ' + lthr : '') + (lthr && maxhr ? ' \u00b7 ' : '') + (maxhr ? 'Max ' + maxhr : ''));
+  if (goals.length) rows += row('Goals', goals.join(' \u00b7 '));
+  rows += row('Units', units.toUpperCase());
+
+  host.innerHTML =
+    '<div class="bld-review-hero"><div class="d">'+escapeHtml(profile ? profile.label : '\u2014')+'</div>'+
+      '<div class="s">'+escapeHtml((volume || '0') + ' ' + units + ' / week \u00b7 ' + days + ' running days')+'</div></div>'+
+    '<div style="margin-top:14px;">'+rows+'</div>';
+}
+
+function bldStage(n){
+  bldCurrentStage = Math.max(0, Math.min(BLD_STAGE_NAMES.length - 1, n));
+  document.querySelectorAll('.bld-panel').forEach(function(p){
+    p.hidden = (parseInt(p.getAttribute('data-stage'), 10) !== bldCurrentStage);
+  });
+  var rail = document.getElementById('bld-rail');
+  if (rail) Array.prototype.forEach.call(rail.children, function(seg, i){
+    seg.className = 'bld-step' + (i < bldCurrentStage ? ' done' : i === bldCurrentStage ? ' now' : '');
+  });
+  var no = document.getElementById('bld-no'), nm = document.getElementById('bld-name');
+  if (no) no.textContent = '0' + (bldCurrentStage + 1) + ' / 0' + BLD_STAGE_NAMES.length;
+  if (nm) nm.textContent = BLD_STAGE_NAMES[bldCurrentStage];
+  if (bldCurrentStage === 4) bldRenderReview();
+  var card = document.querySelector('.modal-card');
+  if (card) card.scrollTop = 0;
+}
+
+function handleBldNext(){
+  if (!bldValidateStage(bldCurrentStage)) return;
+  bldStage(bldCurrentStage + 1);
+}
+function handleBldBack(){ bldClearErrors(); bldStage(bldCurrentStage - 1); }
 
 /* =========================================================
    RE-CALIBRATE ZONES MODAL \u2014 updates benchmark/goal paces
@@ -15738,7 +17246,10 @@ function openRecalibrateModal(){
       '<button type="button" class="btn btn-primary" data-action="save-recalibrate">'+ICONS.check+' Save & Re-tailor</button>'+
     '</div>'+
   '</div>';
-  openModal(html);
+  /* Follows the theme, like the builder: this is a surface the athlete works in,
+     not a transient confirm. Structure, zone logic, recalibration, validation
+     and data handling are untouched -- only the token ramp it draws from. */
+  openModal(html, 'modal-themed');
 }
 function handleRecalibrateSuggest(){
   var benchDist = document.getElementById('rc-bench-dist').value;
@@ -17034,6 +18545,78 @@ function renderStravaSection(){
   }
   return '<div id="strava-section">'+inner+'</div>';
 }
+/* =========================================================
+   GARMIN CONNECT — one card, three states, one of them reachable
+   ---------------------------------------------------------
+   THE STATE THE ATHLETE SEES TODAY is "Not yet available". It is not a
+   failure, it asks nothing of them, and there is no control to press: an
+   integration that cannot honour a Connect button does not draw one. This is
+   the same decision the Strava card makes while its beta gate is shut, in the
+   same markup, which is why it needs no styling of its own.
+
+   THE OTHER TWO STATES ARE WRITTEN NOW because the shape is the point. When
+   Garmin's contract arrives, this card gains a working action and loses
+   nothing else -- connecting in Settings is intended to be the ONLY Garmin
+   step an athlete ever takes, with everything after it automatic.
+
+   AVAILABILITY IS THE SERVER'S ANSWER, never this file's. garminCapability is
+   whatever /api/garmin-status reported, and it starts unavailable, so a client
+   cannot talk itself into drawing a control the server would refuse. */
+var garminCapability = { provider:'garmin', available:false, connected:false, reason:'awaiting_approval' };
+
+function garminRefreshCapability(){
+  if (typeof fetch !== 'function') return Promise.resolve(garminCapability);
+  return fetch('/api/garmin-status', { headers:{ 'accept':'application/json' } })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){
+      if (j && typeof j === 'object' && typeof j.available === 'boolean') garminCapability = j;
+      return garminCapability;
+    })
+    .catch(function(){ return garminCapability; });   // unreachable stays unavailable
+}
+
+function renderGarminSection(){
+  var c = garminCapability || {};
+  var inner;
+  if (!c.available){
+    /* Nothing actionable, and deliberately no explanation of our approval
+       process -- the athlete needs to know it is coming, not who is deciding. */
+    inner = '<div class="connect-row">'+
+        '<div><div class="name">Garmin Connect</div>'+
+        '<div class="desc">Not yet available</div></div>'+
+      '</div>'+
+      '<div class="field-hint" style="margin-top:8px;">'+
+        'Once this is switched on, connecting here is all you’ll need to do. '+
+        'Your upcoming sessions will appear on your watch automatically.'+
+      '</div>';
+  } else if (c.connected){
+    inner = '<div class="connect-row">'+
+        '<div><div class="name">Garmin Connect</div><div class="desc">'+
+          '<span class="status-pill status-connected">'+ICONS.check+' Connected</span></div></div>'+
+        '<div style="display:flex; gap:6px;">'+
+          '<button type="button" class="btn btn-sm btn-ghost" data-action="garmin-disconnect">Disconnect</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="field-hint" style="margin-top:8px;">'+
+        'Your upcoming sessions sync to Garmin Connect automatically.'+
+      '</div>';
+  } else {
+    inner = '<div class="field-hint" style="margin-bottom:10px;">'+
+        'Connect once and your upcoming sessions appear on your watch — the '+
+        'connection is handled by our server, so no credentials are ever stored '+
+        'in your browser.'+
+      '</div>'+
+      '<button type="button" class="btn btn-block" data-action="garmin-connect">'+
+        ICONS.pulse+' Connect Garmin</button>';
+  }
+  return '<div id="garmin-section">'+inner+'</div>';
+}
+function patchGarminSection(){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  var nodes = document.querySelectorAll('#garmin-section');
+  for (var i=0; i<nodes.length; i++) nodes[i].outerHTML = renderGarminSection();
+}
+
 /* On Android the Strava page opens in the system browser (Capacitor sends
    off-origin navigation there, and an embedded WebView is the wrong place for
    somebody else's login form anyway). The app therefore never sees the
@@ -18092,6 +19675,12 @@ function renderSettingsHubView(){
     '<div class="hub-card">'+
       '<div class="setup-section-title">Sync &amp; Export</div>'+
       renderStravaSection()+
+      /* Garmin sits with Strava because it is the same kind of thing to an
+         athlete -- an account you link once. It is deliberately NOT on Today,
+         This Week, Full Plan or any workout card: integrations are managed in
+         Settings, and the sync that follows is automatic rather than something
+         to press per session. */
+      renderGarminSection()+
       '<button type="button" class="btn btn-ghost btn-block" style="margin:10px 0 8px;" data-action="open-import">'+ICONS.watch+' Garmin File Import</button>'+
       '<button type="button" class="btn btn-ghost btn-block" data-action="export-ics">'+ICONS.clock+' Export to iCal (.ics)</button>'+
     '</div>'+
@@ -18154,6 +19743,11 @@ function handleSetView(view){
   if (view==='settings' && cloudConfigured() && !window.__vvvStravaProbed){
     window.__vvvStravaProbed = true;
     try{ stravaCheckAvailability(); }catch(e){}
+    /* One unauthenticated read, same shape and same reason as Strava's: the
+       Settings card has to be drawn correctly before anyone signs in, and it
+       must never draw a Connect control this deployment cannot honour. It
+       reaches our own server only -- no Garmin host is contacted. */
+    try{ garminRefreshCapability().then(patchGarminSection); }catch(e){}
   }
   scheduleSave();
   renderApp();
@@ -18368,6 +19962,8 @@ document.addEventListener('click', function(e){
     case 'rc-suggest-goals': handleRecalibrateSuggest(); break;
     case 'save-recalibrate': handleSaveRecalibrate(); break;
     case 'open-pacing': openPacingModal(); break;
+    case 'bld-next': handleBldNext(); break;
+    case 'bld-back': handleBldBack(); break;
     case 'suggest-goals': handleSuggestGoals(); break;
     case 'generate-plan': handleGeneratePlan(); break;
     case 'export-json': handleExportJson(); break;

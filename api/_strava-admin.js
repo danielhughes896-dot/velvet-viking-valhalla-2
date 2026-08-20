@@ -41,7 +41,7 @@ function creds(cfg){
          '&client_secret=' + encodeURIComponent(cfg.clientSecret);
 }
 
-module.exports = async function handler(req, res){
+async function handle(req, res){
   const cfg = S.config();
   const ownerId = process.env.VVV_OWNER_USER_ID || '';
 
@@ -135,3 +135,5 @@ module.exports = async function handler(req, res){
   }
   return S.json(res, 400, { error: 'unknown_action' });
 };
+
+module.exports = { handle };

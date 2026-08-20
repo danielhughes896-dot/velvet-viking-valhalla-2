@@ -37,41 +37,87 @@ function founderApp() {
 }
 
 // ---------------------------------------------------------------------------
-// INERT BY DEFAULT
+// GATED, SILENT, AND UNABLE TO INTERFERE
+//
+// These tests replaced an "inert by default" set. The bridge is now commissioned:
+// the emitter is on and coachPersistReview() notifies it. What has to hold is no
+// longer "nothing happens" but "nothing happens that the athlete can see, that a
+// non-founder can cause, or that can break a workout".
 // ---------------------------------------------------------------------------
-test('the emitter is off, and off means it emits nothing', () => {
-  const { a } = founderApp();
-  assert.equal(a.CONTENT_CANDIDATE_ENABLED, false, 'the flag ships false');
-  assert.equal(a.contentCandidates('founder').length, 0, 'flag off must yield no candidates');
-});
-
-test('nothing in the runtime calls the emitter', () => {
-  const code = RUNTIME.replace(/\/\*[\s\S]*?\*\//g, ' ');
-  for (const fn of ['contentCandidates', 'contentCandidate', 'contentCandidateId', 'contentCandidateReason']) {
-    const calls = (code.match(new RegExp('\\b' + fn + '\\s*\\(', 'g')) || []).length;
-    const defs = (code.match(new RegExp('function ' + fn + '\\s*\\(', 'g')) || []).length;
-    assert.equal(calls - defs, fn === 'contentCandidate' || fn === 'contentCandidateId' || fn === 'contentCandidateReason' ? calls - defs : 0,
-      fn + ' should only be called from within this region');
-  }
-  // Nothing outside the region reaches it: no render path, no event handler.
-  const at = code.indexOf('var CONTENT_CANDIDATE_VERSION');
-  const end = code.indexOf('/* ---------- athlete status ---------- */');
-  const outside = code.slice(0, at) + code.slice(end);
-  assert.equal(outside.indexOf('contentCandidate'), -1, 'no caller outside the region');
-});
-
-test('the emitter performs no I/O of any kind', () => {
+const REGION = (() => {
   const at = RUNTIME.indexOf('var CONTENT_CANDIDATE_VERSION');
   const end = RUNTIME.indexOf('/* ---------- athlete status ---------- */');
-  const region = RUNTIME.slice(at, end);
-  for (const bad of ['fetch(', 'XMLHttpRequest', 'navigator.send', 'localStorage', 'document.', 'window.open']) {
-    assert.equal(region.indexOf(bad), -1, 'the emitter must not ' + bad);
+  return RUNTIME.slice(at, end);
+})();
+// The same region with prose removed. The forbidden-substring checks below must
+// read CODE, not the comments explaining why the code does not do those things.
+const REGION_CODE = REGION.replace(/\/\*[\s\S]*?\*\//g, ' ')
+                          .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+
+test('the emitter is on, and eligibility still decides everything', () => {
+  const { a, dd } = founderApp();
+  assert.equal(a.CONTENT_CANDIDATE_ENABLED, true, 'the bridge is commissioned');
+  assert.ok(a.contentCandidateEligible(dd), 'a breakthrough is eligible');
+  const ordinary = a.state.days.filter(d => d.completed && !a.coachBreakthroughs().includes(d))[0];
+  if (ordinary) assert.equal(a.contentCandidateEligible(ordinary), false,
+    'an ordinary session is not eligible');
+});
+
+test('eligibility is coachBreakthroughs() and no second analysis engine', () => {
+  // No threshold, score or rule of its own -- it asks the existing judgement.
+  const body = REGION.slice(REGION.indexOf('function contentCandidateEligible'));
+  const fn = body.slice(0, body.indexOf('\n}'));
+  assert.match(fn, /coachBreakthroughs\(\)/, 'it must defer to the existing rule');
+  assert.equal(/[<>]=?\s*\d/.test(fn.replace(/-1/g, '')), false,
+    'no numeric threshold may be invented here');
+});
+
+test('the only caller is the domain hook, never a render path', () => {
+  const code = RUNTIME.replace(/\/\*[\s\S]*?\*\//g, ' ');
+  const at = code.indexOf('var CONTENT_CANDIDATE_VERSION');
+  // A marker that survives comment stripping -- the first function after the
+  // region. Using the comment banner here silently matched nothing and made the
+  // assertion vacuous, which is exactly the kind of green this test must not be.
+  const end = code.indexOf('function coachStatus(');
+  assert.ok(at > 0 && end > at, 'region markers must both resolve');
+  const outside = code.slice(0, at) + code.slice(end);
+  const callers = (outside.match(/\bcontentCandidate[A-Za-z]*\s*\(/g) || []);
+  assert.deepEqual([...new Set(callers)], ['contentCandidateNotify('],
+    'exactly one entry point may be called from outside the region');
+  // and it is called from coachPersistReview, which is not a render path
+  const cpr = code.slice(code.indexOf('function coachPersistReview('));
+  assert.match(cpr.slice(0, cpr.indexOf('\n}')), /contentCandidateNotify\(dd\)/);
+  for (const render of ['renderTodayView', 'renderWeekView', 'renderFullPlanView',
+                        'renderPlanHQView', 'renderCoachingDepth', 'renderApp']) {
+    const fnAt = code.indexOf('function ' + render + '(');
+    if (fnAt === -1) continue;
+    const fnBody = code.slice(fnAt, code.indexOf('\n}', fnAt));
+    assert.equal(fnBody.indexOf('contentCandidate'), -1, render + ' must not emit');
   }
 });
 
-// ---------------------------------------------------------------------------
-// VALHALLA MUST NOT KNOW WHAT THIS IS FOR
-// ---------------------------------------------------------------------------
+test('the only egress is one POST to our own origin', () => {
+  const fetches = REGION_CODE.match(/fetch\(([^,)]*)/g) || [];
+  assert.equal(fetches.length, 1, 'exactly one fetch in the whole region');
+  assert.match(fetches[0], /'\/api\/admin-user'/, 'own origin only, never monday');
+  for (const bad of ['api.monday.com', 'XMLHttpRequest', 'navigator.sendBeacon',
+                     'window.open', 'document.']) {
+    assert.equal(REGION_CODE.indexOf(bad), -1, 'the emitter must not use ' + bad);
+  }
+});
+
+test('the emitter can neither throw nor be seen', () => {
+  const notify = REGION.slice(REGION.indexOf('function contentCandidateNotify'));
+  const body = notify.slice(0, notify.indexOf('\n}\n'));
+  assert.match(body, /try\s*{/, 'the whole hook is wrapped');
+  assert.match(body, /catch/, 'and every failure is swallowed');
+  // Nothing in the region renders, alerts, toasts or navigates.
+  for (const bad of ['showToast', 'alert(', 'innerHTML', 'render', 'location.']) {
+    assert.equal(REGION_CODE.indexOf(bad), -1, 'the emitter must not ' + bad);
+  }
+  assert.match(REGION_CODE, /\.catch\(function\(\)\s*{/, 'the request itself cannot reject upward');
+});
+
 test('the coaching product contains no marketing or social vocabulary', () => {
   /* Unambiguous product/platform names, plus phrases precise enough not to fire
      on ordinary code. Bare "caption" is deliberately NOT here: the runtime has a
@@ -270,7 +316,14 @@ test('approval belongs to monday, and Valhalla cannot grant it', () => {
 // ---------------------------------------------------------------------------
 test('no serverless function was added and no beta path was touched', () => {
   const fns = fs.readdirSync(path.join(ROOT, 'api')).filter((f) => /\.js$/.test(f) && f.charAt(0) !== '_');
-  assert.equal(fns.length, 12, 'function budget unchanged; the bridge is not deployed');
+  /* Stated as a CEILING rather than a constant. Every one of these
+     assertions was written to mean "my feature added no Serverless
+     Function", and pinning the absolute total made a legitimate
+     CONSOLIDATION look like a regression: the Strava routes moved
+     behind one router and the count fell 12 -> 7, which is the same
+     claim holding more strongly, not a broken one. The limit is what
+     the deployment actually enforces. */
+  assert.ok(fns.length <= 12, 'function budget safe; the bridge is not deployed');
   // The bridge lives outside /api, so Vercel never builds it.
   assert.ok(fs.existsSync(path.join(ROOT, 'api/_content-bridge.js')), 'an underscore module, not a function');
   assert.ok(!fs.existsSync(path.join(ROOT, 'api/content-bridge.js')), 'must not become a 13th function');

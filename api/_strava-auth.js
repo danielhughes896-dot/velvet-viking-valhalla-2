@@ -99,7 +99,7 @@ async function handleDisconnect(req, res, cfg, uid){
   S.json(res, 200, { connected: false, deauthorized: deauthorized, purged: purged });
 }
 
-module.exports = async function handler(req, res){
+async function handle(req, res){
   const cfg = S.config();
 
   if (req.method !== 'POST'){
@@ -129,3 +129,5 @@ module.exports = async function handler(req, res){
   if (action === 'disconnect') return handleDisconnect(req, res, cfg, uid);
   return S.json(res, 400, { error: 'Unknown action' });
 };
+
+module.exports = { handle };
