@@ -804,14 +804,21 @@
     --line:var(--modal-border); --line-soft:#232126;
     --bronze-text:var(--bronze); --gold-text:var(--gold);
   }
-  /* ---------- STAGED BUILDER ----------
-     LIGHT BY DESIGN, AND ONLY THIS MODAL. .modal-card deliberately pins the
-     whole token family to the fixed dark ramp, and that decision stands for
-     every other modal. The builder is the one surface where the athlete should
-     feel they never left the app, so .builder-light un-pins the same properties
-     back to whatever the document is using -- cream in light, unchanged in dark.
-     It adds no colour of its own and touches no other modal. */
-  .modal-card.builder-light{
+  /* ---------- MODALS THAT FOLLOW THE THEME ----------
+     .modal-card pins the whole token family to the fixed dark ramp, which is
+     right for a transient confirm on a lit stage. It is wrong for the surfaces
+     an athlete works IN: the plan builder and Re-calibrate Training Zones are
+     places you sit and think, and a near-black sheet over a cream app breaks
+     the journey.
+
+     .modal-themed un-pins exactly the properties .modal-card pinned, back to
+     whatever the document is using -- cream in light, charcoal in dark. It adds
+     no colour of its own, and a modal that does not opt in keeps the fixed ramp
+     unchanged.
+
+     THE RULE: light selected -> primary pages, builder/edit flows and settings
+     modals are light. Dark selected -> the same surfaces are dark. */
+  .modal-card.modal-themed{
     background:var(--bg); border-color:var(--line); color:var(--ink);
     color-scheme:normal;
     --ctl-bg:inherit; --ctl-border:inherit; --ctl-text:inherit;
@@ -821,9 +828,41 @@
     --line:inherit; --line-soft:inherit;
     --bronze-text:inherit; --gold-text:inherit;
   }
-  .builder-light .modal-head{background:var(--bg); border-bottom-color:var(--line);}
-  .builder-light .modal-head h2{color:var(--ink);}
-  .builder-light .modal-body{color:var(--ink);}
+  /* POSITIONING. Every other modal stays a bottom sheet -- that is right for a
+     short confirm, and it is untouched. The builder is a journey with stages
+     that vary a lot in height, and anchoring it to the bottom left a short
+     stage like 02 hanging off the foot of the screen with dead space above.
+
+     Scoped with :has() so ONLY the overlay containing a builder is affected,
+     and so the whole change degrades atomically: an engine without :has()
+     simply keeps today's bottom sheet rather than getting half of this.
+
+     The card keeps its own internal scrolling and its own max-height, which is
+     what makes this safe -- the overlay never scrolls, so there is no
+     flex-centring clip, and bldStage()'s card.scrollTop = 0 still works. When
+     the content fits, align-items:center floats the card in the usable area;
+     when it does not, the card hits max-height and scrolls inside itself while
+     staying evenly inset. No fixed height is imposed to line stages up.
+
+     100dvh rather than vh so the keyboard-open case shrinks the card with the
+     visual viewport instead of hiding its bottom behind the keyboard, with a
+     vh line first for anything that does not know dvh. Padding carries the
+     safe-area insets on both edges, so the Continue and Build My Training
+     Block buttons can never sit under a gesture bar. */
+  .modal-overlay:has(> .builder-light){
+    align-items:center;
+    padding:calc(14px + env(safe-area-inset-top, 0px)) 10px
+            calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .modal-overlay:has(> .builder-light) > .builder-light{
+    border-radius:var(--radius-lg);
+    max-height:calc(100vh - 28px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-height:calc(100dvh - 28px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    animation:fadein .2s ease;
+  }
+  .modal-themed .modal-head{background:var(--bg); border-bottom-color:var(--line);}
+  .modal-themed .modal-head h2{color:var(--ink);}
+  .modal-themed .modal-body{color:var(--ink);}
 
   /* Progress. Numerals on mobile, so five labels cannot crowd a 360px header. */
   .bld-progress{display:flex; align-items:center; gap:6px;}
@@ -925,13 +964,21 @@
   .modal-body{padding:16px 18px 22px; color:var(--modal-text);}
   .field{margin-bottom:14px;}
   .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); opacity:.65; margin-bottom:5px;}
-  .field input, .field select, .field textarea{
+  /* .goal-input-row is listed alongside .field because a goal time entry is a
+     field like any other, and it is not always inside one -- the builder wraps
+     its three rows in #f-goals, Re-calibrate emits them bare. Left unlisted it
+     fell through to the browser's own control: a 21px box at 13.3px, coloured
+     by whatever colour-scheme happened to be in force rather than by the
+     theme. Naming it here is what makes the two goal editors identical. */
+  .field input, .field select, .field textarea, .goal-input-row input{
     width:100%; background:var(--ctl-bg); border:1px solid var(--ctl-border); border-radius:9px;
     color:var(--ctl-text); padding:10px 11px; font-size:14px;
     min-height:44px;   /* a thumb has to land in it before a keyboard appears */
   }
-  .field input::placeholder, .field textarea::placeholder{ color:var(--ctl-placeholder); opacity:1; }
-  .field input:focus, .field select:focus, .field textarea:focus{
+  .field input::placeholder, .field textarea::placeholder,
+  .goal-input-row input::placeholder{ color:var(--ctl-placeholder); opacity:1; }
+  .field input:focus, .field select:focus, .field textarea:focus,
+  .goal-input-row input:focus{
     outline:none; border-color:var(--ctl-accent); box-shadow:0 0 0 2px rgba(var(--ctl-accent-rgb),0.25);
   }
   /* A disabled control has to be legible AND obviously inert. Opacity alone
@@ -15975,7 +16022,7 @@ function openSetupModal(){
           'Both are always in Settings.</div>')+
     '</section>'+
   '</div>';
-  openModal(html, 'builder-light');
+  openModal(html, 'modal-themed builder-light');
 
   /* Grid -> mirrored select. Delegated on the card so the three grids share one
      listener, and a grid rebuilt later (the long-run day) needs no rebinding. */
@@ -16242,7 +16289,10 @@ function openRecalibrateModal(){
       '<button type="button" class="btn btn-primary" data-action="save-recalibrate">'+ICONS.check+' Save & Re-tailor</button>'+
     '</div>'+
   '</div>';
-  openModal(html);
+  /* Follows the theme, like the builder: this is a surface the athlete works in,
+     not a transient confirm. Structure, zone logic, recalibration, validation
+     and data handling are untouched -- only the token ramp it draws from. */
+  openModal(html, 'modal-themed');
 }
 function handleRecalibrateSuggest(){
   var benchDist = document.getElementById('rc-bench-dist').value;
