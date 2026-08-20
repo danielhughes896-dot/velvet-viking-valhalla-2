@@ -39,6 +39,28 @@ test('the preview response is an allow-list, so the plan cannot escape', () => {
   assert.match(fn, /weekday: |type: |title: |km: /);
 });
 
+test('the preview shows real structure and the athlete\'s own paces', () => {
+  // Both were silently empty on first build: days carry no `phase` field, and
+  // paceZones() does not exist. An empty preview is a preview that argues
+  // nothing, so it is worth pinning what it actually renders.
+  const app = require('../test/harness.js').loadApp({ pinnedDate: '2026-08-20T09:00:00Z' });
+  const input = { distanceKey: 'half', weeks: 12, volume: 45,
+                  activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 };
+  const start = app.todayStr();
+  const race = app.addDays(app.addDays(start, -app.isoWeekday(start)), 12 * 7 - 1);
+  const block = app.buildBlockWeeks('half', 45, 12);
+  const days = app.buildDaysFromWeeks(block, race, { activeDays: input.activeDays, longRunDay: 6 }, start, false);
+  app.state = app.makeDefaultState(); app.state.setup = { raceDate: race };
+  const s = Preview.summarise(app, days, block, input);
+
+  assert.ok(s.phases.length >= 2, 'the block shape must be described');
+  assert.deepEqual(s.phases.map((x) => x.phase), ['Build', 'Taper']);
+  assert.ok(s.paces && s.paces.length >= 3, 'pace guidance is the evidence it is THEIR plan');
+  assert.match(s.paces[0].range, /\d+:\d\d\/km – \d+:\d\d\/km/);
+  assert.ok(s.programme.totalSessions > 0 && s.programme.totalKm > 0);
+  assert.ok(s.firstWeek.length > 0);
+});
+
 test('the preview withholds the coaching product', () => {
   const src = read('api/_preview.js');
   const fn = src.slice(src.indexOf('function summarise'), src.indexOf('async function handle'))

@@ -126,12 +126,16 @@ function summarise(app, days, blockResult, input){
     keySessions.push({ type: t, title: d.title || null, week: d.week || null });
   });
 
-  const phases = [];
-  let last = null;
-  weekNumbers.forEach(function(w){
-    const ph = (byWeek[w][0] && byWeek[w][0].phase) || null;
-    if (ph && ph !== last){ phases.push({ phase: ph, fromWeek: w }); last = ph; }
-  });
+  /* STRUCTURE COMES FROM THE BLOCK, NOT FROM THE DAYS. An earlier version of
+     this file read a `phase` field off each day; days do not carry one. The
+     block result does carry the shape -- how many weeks build, how many taper,
+     and where volume peaks -- which is the same information stated once rather
+     than inferred thirty times. */
+  const shape = [];
+  if (blockResult){
+    if (blockResult.buildWeeks) shape.push({ phase: 'Build', weeks: blockResult.buildWeeks });
+    if (blockResult.taperWeeks) shape.push({ phase: 'Taper', weeks: blockResult.taperWeeks });
+  }
 
   const totalKm = days.reduce(function(a, d){ return a + (typeof d.km === 'number' ? d.km : 0); }, 0);
 
@@ -146,20 +150,29 @@ function summarise(app, days, blockResult, input){
       totalSessions: days.filter(function(d){ return (d.type || 'rest') !== 'rest'; }).length,
       totalKm: Math.round(totalKm)
     },
-    phases: phases,
+    phases: shape,
     firstWeek: firstWeek,
     keySessions: keySessions.slice(0, 6),
-    /* Pace guidance the engine already derived. Shown because it is the most
-       legible evidence that the programme is built around THIS athlete. */
+    /* Pace guidance the engine derived for THIS athlete, from their own
+       benchmark. The most legible evidence that the programme is theirs and
+       not a template. Formatted here; the raw seconds stay on the server. */
     paces: (function(){
       try{
-        const z = app.paceZones ? app.paceZones() : null;
+        const vdot = app.vdotFromPerformance(10000, input.benchmarkSeconds);
+        if (!vdot) return null;
+        const z = app.trainingPacesFromVDOT(vdot);
         if (!z) return null;
-        const out = {};
-        ['easy', 'steady', 'threshold', 'interval'].forEach(function(k){
-          if (z[k]) out[k] = typeof z[k] === 'string' ? z[k] : (z[k].label || null);
+        const LABEL = { E: 'Easy', M: 'Marathon', T: 'Threshold', I: 'Interval', R: 'Repetition' };
+        const out = [];
+        ['E', 'M', 'T', 'I'].forEach(function(k){
+          const band = z[k];
+          if (!band || typeof band.slow !== 'number' || typeof band.fast !== 'number') return;
+          out.push({
+            zone: LABEL[k] || k,
+            range: app.fmtPaceFromSecPerKm(band.slow) + ' – ' + app.fmtPaceFromSecPerKm(band.fast)
+          });
         });
-        return Object.keys(out).length ? out : null;
+        return out.length ? out : null;
       }catch(e){ return null; }
     })()
   };
@@ -171,8 +184,6 @@ async function handle(req, res){
 
   const cfg = S.config();
   const uid = await S.userIdFromRequest(req, cfg);
-  /* Authenticated only. A preview costs real compute and is tied to an
-     athlete's own inputs; it is not an anonymous demo endpoint. */
   if (!uid) return S.json(res, 401, { error: 'not_signed_in' });
 
   const body = await S.readBody(req);

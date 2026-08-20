@@ -368,7 +368,7 @@
       });
 
     var ph = $('pv-phases'); ph.innerHTML = '';
-    (p.phases || []).forEach(function(x){ ph.appendChild(row(x.phase, 'from week ' + x.fromWeek)); });
+    (p.phases || []).forEach(function(x){ ph.appendChild(row(x.phase, x.weeks + ' weeks')); });
     $('pv-phases-card').classList.toggle('vvv-hidden', !(p.phases || []).length);
 
     var wk = $('pv-week'); wk.innerHTML = '';
@@ -382,9 +382,8 @@
     $('pv-key-card').classList.toggle('vvv-hidden', !(p.keySessions || []).length);
 
     var pc = $('pv-paces'); pc.innerHTML = '';
-    if (p.paces){ Object.keys(p.paces).forEach(function(k){
-      pc.appendChild(row(k.charAt(0).toUpperCase() + k.slice(1), p.paces[k])); }); }
-    $('pv-paces-card').classList.toggle('vvv-hidden', !p.paces);
+    (p.paces || []).forEach(function(z){ pc.appendChild(row(z.zone, z.range)); });
+    $('pv-paces-card').classList.toggle('vvv-hidden', !(p.paces || []).length);
   }
 
   /* ---------- the one explicit act ---------- */
