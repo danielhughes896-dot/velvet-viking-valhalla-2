@@ -15,6 +15,44 @@
 -- and changes no access decision. resolveAccess() does not read them.
 
 -- ---------------------------------------------------------------------------
+-- REFUSE TO RUN AGAINST AN INCOMPATIBLE billing_events.
+--
+-- WHY THIS GUARD EXISTS. `create table if not exists` is the wrong tool for a
+-- table name that another workstream may already have created. If a
+-- billing_events with a DIFFERENT shape already exists, the statement below
+-- succeeds, does nothing, and reports success -- and the application then reads
+-- and writes columns that are not there. The failure surfaces at the first real
+-- webhook rather than at migration time, which is the worst possible ordering.
+--
+-- Production is reported to hold a billing_events owned by the commercial core,
+-- keyed on account_id/subscription_id, with provider vocabulary 'web'. This
+-- file's billing_events is keyed on user_id/provider_sub_id with provider
+-- vocabulary 'stripe'. They are not the same table and one of them is wrong.
+--
+-- Until that is reconciled deliberately, this file STOPS rather than appearing
+-- to deploy. A migration that cannot prove it is safe must not report success.
+-- ---------------------------------------------------------------------------
+do $$
+declare existing_cols text;
+begin
+  if to_regclass('public.billing_events') is not null then
+    select string_agg(column_name, ',' order by column_name)
+      into existing_cols
+      from information_schema.columns
+     where table_schema = 'public' and table_name = 'billing_events';
+
+    if existing_cols is null or position('provider_event_id' in existing_cols) = 0 then
+      raise exception using
+        errcode = 'raise_exception',
+        message = 'billing_events already exists with an incompatible shape; refusing to run',
+        detail  = 'existing columns: ' || coalesce(existing_cols, '(none)'),
+        hint    = 'Reconcile the commercial core and web-billing schemas first. '
+                  'This file must not be applied until one canonical billing_events is agreed.';
+    end if;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- purchases: one row per provider subscription
 -- ---------------------------------------------------------------------------
 create table if not exists public.purchases (
