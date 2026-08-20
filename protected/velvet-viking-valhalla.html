@@ -390,6 +390,10 @@
      lands on the work step between them. */
   .ws-warmup .ws-name, .ws-cooldown .ws-name{color:var(--ink-faint);}
   .ws-warmup .ws-qty, .ws-cooldown .ws-qty{font-size:var(--fs-body); color:var(--ink-dim);}
+  /* One integration card follows another inside Sync & Export, so the second
+     needs a rule to stop the two reading as one long block. Same hairline the
+     rest of the card system uses; no colour of its own. */
+  #garmin-section{margin-top:14px; padding-top:14px; border-top:1px solid var(--line-soft);}
   .build-tag{text-align:center; font-family:'JetBrains Mono',monospace; font-size:9.5px; color:var(--ink-faint); opacity:.6; margin-top:18px;}
   /* Hidden file inputs are moved off-screen rather than display:none -- an
      Android WebView refuses to open the picker for an unrendered input. */
@@ -3049,6 +3053,398 @@ function workoutSteps(dd){
     out[0].wholeSession = true;
   }
   return out;
+}
+
+/* =========================================================
+   PROVIDER WORKOUT — the canonical machine contract
+   ---------------------------------------------------------
+   WHAT THIS IS FOR. A watch or training platform needs the session as
+   numbers: metres, seconds, iterations, speeds. workoutSteps() cannot supply
+   that and must never be asked to -- it is the CARD. Its quantities are
+   localised display strings ("1000m", "25min", and "3.11mi" for the same
+   session when the athlete has chosen miles), so an exporter reading it would
+   be parsing athlete-facing text and would send mile-derived numbers to a
+   device that wants metres.
+
+   So this is a THIRD consumer of segmentsFor(), beside the card and the log,
+   and the only one an integration may use:
+
+     workoutSteps()      display strings, localised     -> the athlete
+     orderedSegments()   running order, stable segIds   -> the log
+     providerWorkout()   metres, seconds, m/s           -> a provider
+
+   UNIT-INDEPENDENT BY CONSTRUCTION. Nothing here reads state.units and
+   nothing here calls fmtDist(). Metres come from the prescription's own km/m,
+   seconds from its sec. An athlete switching to miles changes the card and
+   changes nothing a provider ever sees.
+
+   PROVIDER-NEUTRAL BY CONSTRUCTION. No vendor's vocabulary, no vendor's step
+   types, no vendor's id scheme. A second platform should be able to consume
+   this without Valhalla's workout engine being touched -- which is the test of
+   whether the boundary is in the right place.
+
+   IT INVENTS NOTHING. Where segmentsFor() carries no quantity -- a fartlek
+   warm-up, a hill descent, a recovery "scaled to the rep" -- this emits an
+   OPEN duration that says so, rather than a number. An adapter may map open to
+   whatever manual-advance mechanism its provider supports, but the absence is
+   recorded here as a fact about the prescription, not papered over.
+   ========================================================= */
+var PROVIDER_WORKOUT_VERSION = 1;
+
+/* ---- pace ----
+   Valhalla holds pace as sec/km. A provider may want speed in metres/second.
+   The conversion is trivial and the INVERSION is not: a smaller sec/km is a
+   faster pace and therefore a LARGER m/s, so the fast bound of a pace band is
+   the HIGH bound of a speed band. Getting this backwards would hand every
+   athlete a target window they cannot hit, on every workout, silently. Both
+   representations are carried so an adapter never has to do the arithmetic
+   itself, and the boundary is asserted in the tests. */
+function secPerKmToMetresPerSecond(secPerKm){
+  if (secPerKm == null || !isFinite(secPerKm) || secPerKm <= 0) return null;
+  return 1000 / secPerKm;
+}
+function metresPerSecondToSecPerKm(mps){
+  if (mps == null || !isFinite(mps) || mps <= 0) return null;
+  return 1000 / mps;
+}
+function providerPaceTarget(band){
+  if (!band || band.fast == null || band.slow == null) return null;
+  var fastMps = secPerKmToMetresPerSecond(band.fast);
+  var slowMps = secPerKmToMetresPerSecond(band.slow);
+  if (fastMps == null || slowMps == null) return null;
+  return {
+    type: 'pace',
+    // sec/km: fast is the smaller number
+    secPerKmFast: band.fast,
+    secPerKmSlow: band.slow,
+    // m/s: the SAME two bounds, and fast is now the larger number
+    metresPerSecondLow:  Math.min(fastMps, slowMps),
+    metresPerSecondHigh: Math.max(fastMps, slowMps),
+    // a goal pace is one number, not a window; the bounds are equal and this
+    // says so rather than leaving an adapter to infer it from fast === slow
+    exact: band.fast === band.slow
+  };
+}
+function providerHeartRateTarget(band){
+  if (!band || band.lo == null) return null;
+  return { type: 'heart_rate', bpmLow: band.lo, bpmHigh: band.hi != null ? band.hi : null };
+}
+/* Both targets are carried, never one. Which a provider can express is the
+   provider's business: Garmin takes one target per step, another platform may
+   take both, and choosing here would bake one vendor's limit into the
+   canonical model. An empty array is an OPEN step and `openReason` says why. */
+function providerTargets(seg){
+  if (seg.maximal) return { targets: [], openReason: 'maximal' };
+  if (seg.intensity === 'hard_effort') return { targets: [], openReason: 'by_feel' };
+  var out = [];
+  var pace = null, hr = null;
+  try { pace = providerPaceTarget(strategyPaceBand(seg.intensity)); } catch(e) { pace = null; }
+  try { hr = providerHeartRateTarget(strategyHRBand(seg.intensity)); } catch(e) { hr = null; }
+  if (pace) out.push(pace);
+  if (hr) out.push(hr);
+  return { targets: out, openReason: out.length ? null : 'unresolved_zones' };
+}
+
+/* ---- duration ----
+   Exactly one of distance, time or open. A segment prescribed in metres stays
+   in metres (a 400m rep is a track distance, not 0.4 of anything), a segment
+   in km is converted once, and a segment with neither is OPEN.
+
+   OPEN carries `advance:'manual'` -- the athlete decides when the step ends --
+   plus the RULE that governs it, so a provider can show the athlete why. The
+   rule is the prescription's own qualifier, not a sentence written here. */
+var PROVIDER_OPEN_RULE = {
+  scaled:'scaled_to_rep', short:'short', full:'full_recovery',
+  back_down:'return_to_start', equal_time:'equal_to_work', float:'float'
+};
+function providerDuration(seg){
+  if (seg.km != null) return { type:'distance', metres: Math.round(seg.km * 1000) };
+  if (seg.m != null)  return { type:'distance', metres: seg.m };
+  if (seg.sec != null){
+    /* A range recovery ("3-4min between sets") is two numbers. The canonical
+       model keeps both and states the midpoint an adapter would otherwise
+       compute for itself -- segSeconds() is the app's own existing answer to
+       "what does a range cost", so this cannot drift from the zone maths. */
+    if (Array.isArray(seg.sec)){
+      var lo = Math.min(seg.sec[0], seg.sec[1]), hi = Math.max(seg.sec[0], seg.sec[1]);
+      return { type:'time', seconds: segSeconds(seg.sec), secondsLow: lo, secondsHigh: hi, range: true };
+    }
+    return { type:'time', seconds: seg.sec };
+  }
+  return { type:'open', advance:'manual',
+           rule: PROVIDER_OPEN_RULE[seg.qualifier] || null };
+}
+
+function providerStep(seg, dayKm){
+  var t = providerTargets(seg);
+  var d = providerDuration(seg);
+  /* A cool-down with no prescribed distance on a timed session is not merely
+     unknown -- completionClause() gives it a RULE: run easy until the session
+     reaches its total. That total is a real number the provider can show, so
+     the open step carries it rather than dropping the instruction. */
+  if (d.type === 'open' && seg.role === 'cooldown' && dayKm)
+    d = { type:'open', advance:'manual', rule:'complete_session_total',
+          sessionTotalMetres: Math.round(dayKm * 1000) };
+  var step = {
+    kind: 'step',
+    role: seg.role || (seg.kind === 'recovery' ? 'recovery' : 'work'),
+    intensity: seg.intensity,
+    duration: d,
+    targets: t.targets,
+    openReason: t.openReason
+  };
+  if (seg.from)
+    /* A ramp is two intensities and no third fact. Where in the block the
+       change happens is prose, not prescription, so it is not claimed here --
+       an adapter picks the most faithful shape its provider supports. */
+    step.ramp = { fromIntensity: seg.from, toIntensity: seg.intensity };
+  if (seg.terrain) step.terrain = seg.terrain;
+  if (seg.maximal) step.maximal = true;
+  return step;
+}
+
+function providerSteps(segs, dayKm){
+  return (segs || []).map(function(s){
+    if (s.kind === 'repeat'){
+      var children = providerSteps(s.children, dayKm);
+      /* REPEAT CARDINALITY, carried rather than resolved. "N x M with R
+         recovery" gives N work reps and N-1 recoveries -- the athlete does not
+         jog a recovery after the last rep, they go to the cool-down. Hill
+         repeats are the exception: the descent happens after every rep because
+         you cannot start the cool-down from the top of the hill.
+
+         A naive repeat group of [work, recovery] x N produces N recoveries, so
+         the child that must not happen on the final pass is flagged. Whether
+         the provider honours that with a shortened group or by expanding the
+         repeat into discrete steps is the adapter's decision; losing the fact
+         here would silently add a recovery to most interval sessions. */
+      s.children.forEach(function(c, i){
+        if (children[i] && repeatChildCount(s, c) < (s.times || 1))
+          children[i].omitOnFinalIteration = true;
+      });
+      return { kind:'repeat', iterations: s.times || 1, steps: children };
+    }
+    return providerStep(s, dayKm);
+  });
+}
+
+/* Deterministic identity for a session's CONTENT. Two plans that prescribe the
+   same thing produce the same fingerprint; any change to a distance, a target,
+   an iteration count or the order produces a different one. This is what lets
+   reconciliation answer "has this workout changed" without asking a provider,
+   and it is deliberately computed over the canonical DTO rather than over the
+   day object -- a retitled session with identical prescription is not a change
+   worth pushing to a watch.
+
+   djb2, the same hash contentBlockKey() already uses, over JSON with the keys
+   emitted in a fixed order by construction. */
+function providerFingerprint(obj){
+  var str = JSON.stringify(obj);
+  var h = 5381;
+  for (var i = 0; i < str.length; i++) h = ((h * 33) ^ str.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
+function providerWorkout(dd){
+  var p = prescriptionOf(dd);
+  if (!p) return null;
+  var segs;
+  try { segs = segmentsFor(p); } catch(e) { return null; }
+  if (!segs || !segs.length) return null;
+  var dayKm = (dd && dd.km) || null;
+  var body = {
+    version: PROVIDER_WORKOUT_VERSION,
+    sport: 'running',
+    archetype: p.archetype,
+    sessionType: dd.type,
+    /* The title is carried because a provider shows the athlete a name, but it
+       is NOT part of the fingerprint: renaming a session is not a change to
+       what the athlete runs. */
+    totalDistanceMetres: dayKm ? Math.round(dayKm * 1000) : null,
+    steps: providerSteps(segs, dayKm)
+  };
+  return {
+    sessionId: dd.id,
+    date: dd.date,
+    name: dd.title || null,
+    workout: body,
+    fingerprint: providerFingerprint(body)
+  };
+}
+
+/* =========================================================
+   SCHEDULED TRAINING — which workout belongs on which date
+   ---------------------------------------------------------
+   NOT A SECOND SOURCE OF TRUTH. state.days is the plan and stays the plan;
+   this is a projection of it into the shape an external calendar needs, and
+   it is recomputed rather than stored. Nothing here decides what an athlete
+   should run -- it only says which already-decided session belongs on which
+   date, with an identity stable enough to update later.
+
+   THE PAST IS NEVER SCHEDULED. A session that has been run, or whose date has
+   passed, is not future training and must never be pushed, updated or removed
+   on a provider's calendar -- the athlete's history is theirs and a sync is
+   not entitled to rewrite it. `from` defaults to today for exactly that
+   reason; the horizon at the other end is a product decision, so it is a
+   parameter rather than a constant.
+   ========================================================= */
+function scheduledTraining(opts){
+  var o = opts || {};
+  var from = o.from || todayStr();
+  var days = (typeof state === 'object' && state && state.days) || [];
+  var to = o.to || (o.horizonDays ? addDays(from, o.horizonDays) : null);
+  var out = [];
+  days.forEach(function(dd){
+    if (!dd || !dd.date || dd.date < from) return;      // never the past
+    if (to && dd.date > to) return;
+    if (dd.type === 'rest') return;                     // a rest day is not a workout
+    if (dd.completed) return;                           // already run
+    var w = providerWorkout(dd);
+    if (!w) return;                                     // no prescription -> nothing canonical to send
+    out.push(w);
+  });
+  out.sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  return out;
+}
+
+/* =========================================================
+   RECONCILIATION — what a provider's calendar should be told
+   ---------------------------------------------------------
+   Pure, provider-neutral, and deliberately the only place that decides what a
+   sync does. Given what the plan currently prescribes and what a provider is
+   already known to hold, it answers with actions and nothing else: it performs
+   no I/O, knows no vendor, and cannot change training.
+
+   IDEMPOTENCE IS THE POINT. Reconciling an unchanged plan twice must produce
+   nothing but noop -- that is what stops a periodic safety check from filling
+   an athlete's calendar with duplicates. Identity is (sessionId), change is
+   (fingerprint), and both come from the canonical DTO rather than from
+   anything a provider returned.
+
+   EXTERNAL STATE NEVER FEEDS BACK. `known` is read to decide what to send and
+   is never allowed to alter the plan. If a provider has a workout Valhalla no
+   longer prescribes, the answer is to remove it there, never to reinstate it
+   here.
+   ========================================================= */
+var RECONCILE_ACTIONS = ['create', 'update', 'remove', 'noop', 'skip_past'];
+
+function reconcileScheduledTraining(desired, known, opts){
+  var o = opts || {};
+  var today = o.today || todayStr();
+  var byId = {};
+  (known || []).forEach(function(k){ if (k && k.sessionId) byId[k.sessionId] = k; });
+
+  var out = [], seen = {};
+  (desired || []).forEach(function(d){
+    seen[d.sessionId] = true;
+    var k = byId[d.sessionId];
+    if (!k){
+      out.push({ action:'create', sessionId:d.sessionId, date:d.date,
+                 fingerprint:d.fingerprint, remoteId:null, workout:d });
+      return;
+    }
+    /* A DATE change is a change even when the prescription is identical: the
+       same session moved to another day is a different calendar entry, and a
+       fingerprint over content alone would call it unchanged. */
+    if (k.fingerprint === d.fingerprint && k.date === d.date){
+      out.push({ action:'noop', sessionId:d.sessionId, date:d.date,
+                 fingerprint:d.fingerprint, remoteId:k.remoteId || null });
+      return;
+    }
+    out.push({ action:'update', sessionId:d.sessionId, date:d.date,
+               fingerprint:d.fingerprint, remoteId:k.remoteId || null, workout:d,
+               was:{ fingerprint:k.fingerprint || null, date:k.date || null } });
+  });
+
+  (known || []).forEach(function(k){
+    if (!k || !k.sessionId || seen[k.sessionId]) return;
+    /* Held by the provider, no longer prescribed. If its date has passed it is
+       history -- the athlete ran it, or did not, and either way a sync does not
+       get to tidy it away. Only future entries are withdrawn. */
+    if (k.date && k.date < today){
+      out.push({ action:'skip_past', sessionId:k.sessionId, date:k.date,
+                 fingerprint:k.fingerprint || null, remoteId:k.remoteId || null });
+      return;
+    }
+    out.push({ action:'remove', sessionId:k.sessionId, date:k.date || null,
+               fingerprint:k.fingerprint || null, remoteId:k.remoteId || null });
+  });
+
+  out.sort(function(a, b){
+    var ad = a.date || '', bd = b.date || '';
+    if (ad !== bd) return ad < bd ? -1 : 1;
+    return a.sessionId < b.sessionId ? -1 : a.sessionId > b.sessionId ? 1 : 0;
+  });
+  return out;
+}
+// Whether a reconciliation would do anything at all -- the cheap check an
+// orchestrator makes before opening a connection it does not need.
+function reconciliationIsNoop(actions){
+  return (actions || []).every(function(a){
+    return a.action === 'noop' || a.action === 'skip_past';
+  });
+}
+
+/* =========================================================
+   PROVIDER SYNC — the orchestration seam, currently wired to nothing
+   ---------------------------------------------------------
+   FAIL CLOSED, AND NOT AS A CONVENTION. There is no Garmin configuration and
+   no approved Garmin contract, so providerSyncAvailable() is false and every
+   path below stops at it. Not "shows a disabled button" -- no request is
+   built, no token is read, no connection is opened, and no error is logged,
+   because nothing is attempted. Availability is answered by the SERVER
+   (/api/garmin?route=garmin-status), never by anything the browser stores, so
+   a client cannot talk itself into being connected.
+
+   WHY THE TRIGGERS EXIST NOW. The events that should cause a sync are events
+   the app already has: a plan is generated, an evolution is accepted, a
+   provider is connected. Naming them here, at the moment they happen, is the
+   part that is genuinely hard to retrofit -- finding every place training
+   legitimately changes, months later, is how integrations end up polling.
+   Each call is a no-op today and becomes a real sync when a provider exists.
+
+   NO POLLING. There is no timer. A periodic safety reconciliation may be
+   justified later -- providers drop writes, and an athlete may edit a workout
+   on the provider's own site -- but it would be justified by observed drift,
+   not added speculatively, and it would run against reconcileScheduledTraining()
+   which already returns noop for an unchanged plan.
+   ========================================================= */
+var PROVIDER_SYNC_TRIGGERS = [
+  'provider_connected',    // the athlete linked an account
+  'plan_generated',        // a new block exists
+  'plan_evolved',          // an accepted adaptation changed future training
+  'session_edited',        // a future session was changed by hand
+  'periodic_safety'        // reserved; nothing schedules this today
+];
+/* The single gate. Everything else asks this, and it can only ever be made
+   true by a server that has real credentials. */
+var providerSyncCapability = { available:false, provider:null, connected:false, reason:'unconfigured' };
+function providerSyncAvailable(){
+  return !!(providerSyncCapability && providerSyncCapability.available &&
+            providerSyncCapability.connected);
+}
+/* The one entry point. Returns the actions it WOULD take, so the seam is
+   observable and testable without a provider, and performs none of them while
+   the gate is shut. */
+function providerSyncRequest(trigger, opts){
+  var result = { trigger: trigger || null, ran:false, reason:null, actions:[] };
+  if (PROVIDER_SYNC_TRIGGERS.indexOf(trigger) === -1){
+    result.reason = 'unknown_trigger';
+    return result;
+  }
+  if (!providerSyncAvailable()){
+    result.reason = (providerSyncCapability && providerSyncCapability.reason) || 'unavailable';
+    return result;
+  }
+  /* Reached only once a provider is configured AND connected. The adapter that
+     performs these actions is api/_garmin.js, which refuses for the same
+     reason until Garmin's approved contract exists. */
+  var desired = scheduledTraining(opts);
+  var known = (opts && opts.known) || [];
+  result.actions = reconcileScheduledTraining(desired, known, opts);
+  result.ran = !reconciliationIsNoop(result.actions);
+  if (!result.ran) result.reason = 'nothing_to_do';
+  return result;
 }
 
 /* ---- when a session stops matching its prescription ----
@@ -18013,6 +18409,78 @@ function renderStravaSection(){
   }
   return '<div id="strava-section">'+inner+'</div>';
 }
+/* =========================================================
+   GARMIN CONNECT — one card, three states, one of them reachable
+   ---------------------------------------------------------
+   THE STATE THE ATHLETE SEES TODAY is "Not yet available". It is not a
+   failure, it asks nothing of them, and there is no control to press: an
+   integration that cannot honour a Connect button does not draw one. This is
+   the same decision the Strava card makes while its beta gate is shut, in the
+   same markup, which is why it needs no styling of its own.
+
+   THE OTHER TWO STATES ARE WRITTEN NOW because the shape is the point. When
+   Garmin's contract arrives, this card gains a working action and loses
+   nothing else -- connecting in Settings is intended to be the ONLY Garmin
+   step an athlete ever takes, with everything after it automatic.
+
+   AVAILABILITY IS THE SERVER'S ANSWER, never this file's. garminCapability is
+   whatever /api/garmin-status reported, and it starts unavailable, so a client
+   cannot talk itself into drawing a control the server would refuse. */
+var garminCapability = { provider:'garmin', available:false, connected:false, reason:'awaiting_approval' };
+
+function garminRefreshCapability(){
+  if (typeof fetch !== 'function') return Promise.resolve(garminCapability);
+  return fetch('/api/garmin-status', { headers:{ 'accept':'application/json' } })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){
+      if (j && typeof j === 'object' && typeof j.available === 'boolean') garminCapability = j;
+      return garminCapability;
+    })
+    .catch(function(){ return garminCapability; });   // unreachable stays unavailable
+}
+
+function renderGarminSection(){
+  var c = garminCapability || {};
+  var inner;
+  if (!c.available){
+    /* Nothing actionable, and deliberately no explanation of our approval
+       process -- the athlete needs to know it is coming, not who is deciding. */
+    inner = '<div class="connect-row">'+
+        '<div><div class="name">Garmin Connect</div>'+
+        '<div class="desc">Not yet available</div></div>'+
+      '</div>'+
+      '<div class="field-hint" style="margin-top:8px;">'+
+        'Once this is switched on, connecting here is all you’ll need to do — '+
+        'your upcoming sessions will appear on your watch automatically.'+
+      '</div>';
+  } else if (c.connected){
+    inner = '<div class="connect-row">'+
+        '<div><div class="name">Garmin Connect</div><div class="desc">'+
+          '<span class="status-pill status-connected">'+ICONS.check+' Connected</span></div></div>'+
+        '<div style="display:flex; gap:6px;">'+
+          '<button type="button" class="btn btn-sm btn-ghost" data-action="garmin-disconnect">Disconnect</button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="field-hint" style="margin-top:8px;">'+
+        'Your upcoming sessions sync to Garmin Connect automatically.'+
+      '</div>';
+  } else {
+    inner = '<div class="field-hint" style="margin-bottom:10px;">'+
+        'Connect once and your upcoming sessions appear on your watch — the '+
+        'connection is handled by our server, so no credentials are ever stored '+
+        'in your browser.'+
+      '</div>'+
+      '<button type="button" class="btn btn-block" data-action="garmin-connect">'+
+        ICONS.pulse+' Connect Garmin</button>';
+  }
+  return '<div id="garmin-section">'+inner+'</div>';
+}
+function patchGarminSection(){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  var nodes = document.querySelectorAll('#garmin-section');
+  for (var i=0; i<nodes.length; i++) nodes[i].outerHTML = renderGarminSection();
+}
+
 /* On Android the Strava page opens in the system browser (Capacitor sends
    off-origin navigation there, and an embedded WebView is the wrong place for
    somebody else's login form anyway). The app therefore never sees the
@@ -19071,6 +19539,12 @@ function renderSettingsHubView(){
     '<div class="hub-card">'+
       '<div class="setup-section-title">Sync &amp; Export</div>'+
       renderStravaSection()+
+      /* Garmin sits with Strava because it is the same kind of thing to an
+         athlete -- an account you link once. It is deliberately NOT on Today,
+         This Week, Full Plan or any workout card: integrations are managed in
+         Settings, and the sync that follows is automatic rather than something
+         to press per session. */
+      renderGarminSection()+
       '<button type="button" class="btn btn-ghost btn-block" style="margin:10px 0 8px;" data-action="open-import">'+ICONS.watch+' Garmin File Import</button>'+
       '<button type="button" class="btn btn-ghost btn-block" data-action="export-ics">'+ICONS.clock+' Export to iCal (.ics)</button>'+
     '</div>'+
@@ -19133,6 +19607,11 @@ function handleSetView(view){
   if (view==='settings' && cloudConfigured() && !window.__vvvStravaProbed){
     window.__vvvStravaProbed = true;
     try{ stravaCheckAvailability(); }catch(e){}
+    /* One unauthenticated read, same shape and same reason as Strava's: the
+       Settings card has to be drawn correctly before anyone signs in, and it
+       must never draw a Connect control this deployment cannot honour. It
+       reaches our own server only -- no Garmin host is contacted. */
+    try{ garminRefreshCapability().then(patchGarminSection); }catch(e){}
   }
   scheduleSave();
   renderApp();

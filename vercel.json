@@ -27,6 +27,8 @@
     { "src": "/api/strava-webhook", "dest": "/api/strava?route=strava-webhook" },
     { "src": "/api/strava-admin", "dest": "/api/strava?route=strava-admin" },
 
+    { "src": "/api/garmin-status", "dest": "/api/garmin?route=garmin-status" },
+
     { "src": "/account", "dest": "/account.html" },
     { "src": "/get", "dest": "/get.html" },
     { "src": "/admin", "dest": "/admin.html" },

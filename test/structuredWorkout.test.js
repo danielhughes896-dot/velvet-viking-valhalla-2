@@ -550,12 +550,27 @@ test('no device-integration surface has been added', () => {
      file and a backup, both local, neither talking to a device maker -- so
      they are named here as known and allowed rather than left to make this
      assertion vacuous by widening the pattern. */
-  const ALLOWED_EXPORTS = ['export-ics', 'export-json'];
+  const ALLOWED = [
+    'export-ics', 'export-json',      // the plan's own local file exports
+    /* The Settings account-linking pair. These are NOT per-workout controls:
+       they render only inside the Garmin card, only once the SERVER reports the
+       integration available, and never on a training surface -- which
+       garminFoundation.test.js sweeps Today, This Week, Full Plan, Plan HQ and
+       the day card to prove. Naming them here keeps this assertion meaningful
+       rather than widening the pattern until it catches nothing. */
+    'garmin-connect', 'garmin-disconnect'
+  ];
   const actions = [...new Set([...code.matchAll(/data-action="([^"]+)"/g)].map(m => m[1]))];
   const offending = actions.filter(x =>
-    /garmin|coros|polar|wahoo|send-to|push-to|sync-workout|to-watch|to-device/i.test(x) ||
-    (/export|calendar/i.test(x) && ALLOWED_EXPORTS.indexOf(x) === -1));
-  assert.deepEqual(offending, [], 'a device/export control was exposed: ' + offending.join(', '));
+    ALLOWED.indexOf(x) === -1 &&
+    (/garmin|coros|polar|wahoo|send-to|push-to|sync-workout|to-watch|to-device/i.test(x) ||
+     /export|calendar/i.test(x)));
+  assert.equal(offending.join(','), '', 'a device/export control was exposed: ' + offending.join(', '));
+
+  /* And the forbidden SHAPE, independent of naming: nothing anywhere offers to
+     push one session to a device. */
+  [/send to garmin/i, /push to (watch|garmin)/i, /sync workout/i, /export to garmin/i]
+    .forEach(re => assert.doesNotMatch(code, re, 'a per-workout device control exists'));
 
   // And the new layer itself carries no vendor vocabulary, so it stays
   // provider-neutral for whatever adapter reads it later.
@@ -564,6 +579,9 @@ test('no device-integration surface has been added', () => {
   assert.ok(start > -1 && end > start, 'could not locate the segment/steps region');
   const region = code.slice(start, end);
   assert.ok(region.indexOf('workoutSteps') > -1, 'wrong region -- workoutSteps is not in it');
+  assert.ok(region.indexOf('providerWorkout') > -1,
+    'wrong region -- the canonical layer is not in it either');
   assert.doesNotMatch(region, /garmin|coros|polar|wahoo|suunto|fit_?file|tcx/i,
-    'vendor vocabulary leaked into the structured workout transformation');
+    'vendor vocabulary leaked into the workout transformation, which must stay ' +
+    'provider-neutral so a second platform needs no engine change');
 });
