@@ -804,6 +804,120 @@
     --line:var(--modal-border); --line-soft:#232126;
     --bronze-text:var(--bronze); --gold-text:var(--gold);
   }
+  /* ---------- STAGED BUILDER ----------
+     LIGHT BY DESIGN, AND ONLY THIS MODAL. .modal-card deliberately pins the
+     whole token family to the fixed dark ramp, and that decision stands for
+     every other modal. The builder is the one surface where the athlete should
+     feel they never left the app, so .builder-light un-pins the same properties
+     back to whatever the document is using -- cream in light, unchanged in dark.
+     It adds no colour of its own and touches no other modal. */
+  .modal-card.builder-light{
+    background:var(--bg); border-color:var(--line); color:var(--ink);
+    color-scheme:normal;
+    --ctl-bg:inherit; --ctl-border:inherit; --ctl-text:inherit;
+    --ctl-placeholder:inherit; --ctl-accent:inherit; --ctl-accent-rgb:inherit;
+    --ctl-disabled-bg:inherit; --ctl-disabled-text:inherit; --ctl-disabled-border:inherit;
+    --ink:inherit; --ink-dim:inherit; --ink-faint:inherit;
+    --line:inherit; --line-soft:inherit;
+    --bronze-text:inherit; --gold-text:inherit;
+  }
+  .builder-light .modal-head{background:var(--bg); border-bottom-color:var(--line);}
+  .builder-light .modal-head h2{color:var(--ink);}
+  .builder-light .modal-body{color:var(--ink);}
+
+  /* Progress. Numerals on mobile, so five labels cannot crowd a 360px header. */
+  .bld-progress{display:flex; align-items:center; gap:6px;}
+  .bld-step{flex:1 1 0; height:3px; border-radius:99px; background:var(--line); transition:background .2s;}
+  .bld-step.done{background:var(--bronze-2);}
+  .bld-step.now{background:var(--bronze);}
+  .bld-progress-meta{display:flex; align-items:baseline; justify-content:space-between; margin:9px 0 2px;}
+  .bld-stage-no{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--bronze-text);}
+  .bld-stage-name{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.4px; font-size:var(--fs-label); color:var(--ink-faint);}
+  .bld-stage-h{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.8px; font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px;}
+  .bld-lede{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 18px;}
+
+  /* OPTION GRID. The one new control. .unit-toggle is a single-row pill with
+     overflow:hidden, so four goal distances cannot fit one row at 360px. The
+     button treatment is lifted from .unit-toggle button/.active unchanged --
+     bronze fill and page-ink when selected, transparent with a hairline border
+     when not -- so no new colour enters the system. */
+  .opt-grid{display:grid; gap:8px; grid-template-columns:1fr 1fr;}
+  .opt-grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  .opt-grid button{
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); font-weight:700;
+    letter-spacing:.4px; min-height:52px; padding:12px 8px; text-align:center;
+    border:1px solid var(--ctl-border); border-radius:12px;
+    background:var(--ctl-bg); color:var(--ink-faint);
+    transition:box-shadow .18s, background .18s, color .18s;
+  }
+  .opt-grid button .sub{display:block; font-family:'Inter',sans-serif; font-weight:400;
+    font-size:var(--fs-support); letter-spacing:0; color:var(--ink-faint); margin-top:3px;}
+  .opt-grid button:disabled{opacity:.5;}
+  .opt-grid button:active{transform:scale(.98);}
+
+  /* SELECTED IS A STATE, NOT A HEADLINE. This is .bn-item.active -- the
+     selected bottom-nav tab -- reused as the language for every finite choice
+     in the builder, so picking a distance reads like selecting a tab rather
+     than pressing a gold CTA. Continue and Build My Training Block keep the
+     stronger primary treatment precisely because they are actions, not
+     choices. Dark first, matching the nav's own base rule. */
+  .opt-grid button.active{
+    color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14);
+    border-color:rgba(var(--modal-active-rgb),0.5);
+  }
+  .opt-grid button.active .sub{color:var(--modal-active); opacity:.8;}
+  /* LIGHT: the raised warm-paper tab, character for character the values
+     [data-theme="light"] .bn-item.active already uses -- lifted paper, antique
+     gold edge, a gold rule along the top, deep-bronze label at 6.1:1. Three
+     independent cues, so the state never rests on colour alone. */
+  [data-theme="light"] .opt-grid button{color:#6B6558;}
+  [data-theme="light"] .opt-grid button.active{
+    color:#7A5C1E; background:#FFFDF7; border-color:transparent;
+    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
+  }
+  [data-theme="light"] .opt-grid button.active .sub{color:#7A5C1E; opacity:.85;}
+
+  /* THE DATE FIELD. Native picker kept -- it is the safest control on a phone
+     and the one athletes already know. Only the surround is dressed: the same
+     radius and padding as an option tile, a mono value so the date reads like
+     every other number in the product, and the browser's black calendar glyph
+     tinted to the control's own accent instead of sitting there as chrome. */
+  .bld-date input[type="date"]{
+    border-radius:12px; padding:14px 13px; min-height:52px;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-data);
+    letter-spacing:.4px; color:var(--ctl-text);
+  }
+  .bld-date input[type="date"]::-webkit-calendar-picker-indicator{
+    opacity:.75; cursor:pointer; padding:4px; border-radius:6px;
+    filter:invert(41%) sepia(38%) saturate(720%) hue-rotate(6deg) brightness(92%);
+  }
+  .bld-date input[type="date"]::-webkit-calendar-picker-indicator:hover{opacity:1;}
+  [data-theme="light"] .bld-date input[type="date"]{border-color:#9B7B2E;}
+  .bld-date input[type="date"]::-webkit-datetime-edit{padding:0;}
+
+  /* The select each grid mirrors stays in the DOM, and stays the value the
+     generator reads. Hidden from sight, never from the code. */
+  .bld-mirror{position:absolute; left:0; top:0; width:1px; height:1px; padding:0;
+    margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;}
+
+  .bld-actions{display:flex; gap:10px; margin-top:22px;}
+  .bld-actions .btn{flex:1 1 0;}
+  .bld-actions .btn-back{flex:0 0 104px;}
+  .bld-error{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--danger-text); margin-top:6px;}
+  .field.invalid input, .field.invalid select{border-color:var(--c-threshold);}
+  .field.invalid .opt-grid button{border-color:var(--c-threshold);}
+
+  .bld-review-hero{text-align:center; padding:18px 0 6px;}
+  .bld-review-hero .d{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:2px; font-size:26px; color:var(--gold-text); line-height:1.1;}
+  .bld-review-hero .s{font-family:'JetBrains Mono',monospace; font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
+  .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--line-soft);}
+  .bld-review-row:last-child{border-bottom:none;}
+  .bld-review-k{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.2px; font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
+  .bld-review-v{font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); color:var(--ink); text-align:right; overflow-wrap:anywhere;}
+
+  /* The day selector draws a NATIVE checkbox, so it was showing the browser's
+     blue system tick against Valhalla gold. One property, approved separately. */
+  .wd-check input{accent-color:var(--bronze);}
   @media (min-width:640px){ .modal-card{border-radius:var(--radius-lg);} }
   @keyframes slideup{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
   .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--modal-border); position:sticky; top:0; background:var(--modal-surface); z-index:2;}
@@ -15703,92 +15817,176 @@ function openSetupModal(){
     return '<option value="'+iso+'" '+(schedule.longRunDay===iso?'selected':'')+'>'+ISO_WEEKDAY_NAMES[iso]+'</option>';
   }).join('');
 
+  /* ---------- THE FIVE STAGES ----------
+     Same fifteen inputs, same element ids, same handlers -- only the
+     presentation is staged. Every panel stays MOUNTED and is shown or hidden,
+     never destroyed: handleGeneratePlan() reads these ids straight out of the
+     DOM, handleSuggestGoals() reads stage 02's benchmark to fill stage 04's
+     goals, and the units handler converts stage 02's volume from stage 01. All
+     three would break the moment a panel was unmounted.
+
+     The three <select>s the athlete used to operate are still here and still
+     hold the value the generator reads. They are visually hidden and mirrored
+     by an option grid, so the choice became visible without the data path
+     moving an inch. */
+  var stageMeta = [
+    ['Goal','Your goal','What are we building towards? You do not need an event booked.'],
+    ['You','You','Where your training is right now. This is what the coach reasons from.'],
+    ['Week','Your week','Pick 3–6 days you can run. Workouts land only on these; everything else is rest.'],
+    ['Training','Training','Two optional refinements, and the finish times you are chasing.'],
+    ['Review','What Valhalla understands','Check this reads like your training. Step back to change anything.']
+  ];
+  var railHtml = stageMeta.map(function(_, i){
+    return '<div class="bld-step'+(i===0?' now':'')+'"></div>';
+  }).join('');
+  function stageHead(i){
+    return '<h3 class="bld-stage-h">'+stageMeta[i][1]+'</h3>'+
+           '<p class="bld-lede">'+stageMeta[i][2]+'</p>';
+  }
+  function navBtns(i){
+    var back = i>0 ? '<button type="button" class="btn btn-ghost btn-back" data-action="bld-back">← Back</button>' : '';
+    return '<div class="bld-actions">'+back+
+      '<button type="button" class="btn btn-primary" data-action="bld-next">Continue →</button></div>';
+  }
+
+  var distGrid = DISTANCE_ORDER.map(function(k){
+    var pr = DISTANCE_PROFILES[k];
+    var on = (su.distanceKey||'full')===k;
+    return '<button type="button" data-v="'+k+'" class="'+(on?'active':'')+'">'+
+      pr.label.toUpperCase()+'</button>';
+  }).join('');
+
   var html = ''+
   '<div class="modal-head"><h2 class="font-head">Build Your Training Block</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
-    '<div class="setup-section-title">Your Goal</div>'+
-    '<div class="field"><label>Units</label>'+
-      '<div class="unit-toggle" role="group" aria-label="Distance units" id="su-units">'+
-        '<button type="button" data-units="km" class="'+(state.units!=='mi'?'active':'')+'">KM</button>'+
-        '<button type="button" data-units="mi" class="'+(state.units==='mi'?'active':'')+'">MI</button>'+
+    '<div class="bld-progress" id="bld-rail">'+railHtml+'</div>'+
+    '<div class="bld-progress-meta"><span class="bld-stage-no" id="bld-no">01 / 05</span>'+
+      '<span class="bld-stage-name" id="bld-name">Goal</span></div>'+
+
+    /* ---------- 01 GOAL ---------- */
+    '<section class="bld-panel" data-stage="0">'+
+      stageHead(0)+
+      '<div class="field"><label>Units</label>'+
+        '<div class="opt-grid" role="group" aria-label="Distance units" id="su-units">'+
+          '<button type="button" data-units="km" class="'+(state.units!=='mi'?'active':'')+'">KM</button>'+
+          '<button type="button" data-units="mi" class="'+(state.units==='mi'?'active':'')+'">MI</button>'+
+        '</div>'+
+        '<div class="field-hint">Applies everywhere once you generate — to switch units on an existing plan without regenerating, use the toggle in the header instead.</div>'+
       '</div>'+
-      '<div class="field-hint">Applies everywhere once you generate — to switch units on an existing plan without regenerating, use the toggle in the header instead.</div>'+
-    '</div>'+
-    '<div class="field"><label>Goal Distance</label><select id="su-distance">'+distOptions+'</select>'+
-      '<div class="field-hint">The distance this block prepares you for. You do not need an event booked.</div>'+
-    '</div>'+
-    '<div class="field"><label>Do you have a target event?</label>'+
-      '<div class="unit-toggle" role="group" aria-label="Target event" id="su-event-toggle">'+
-        '<button type="button" data-action="set-event-mode" data-event-mode="event" class="'+(eventMode==='event'?'active':'')+'">Yes</button>'+
-        '<button type="button" data-action="set-event-mode" data-event-mode="none" class="'+(eventMode==='none'?'active':'')+'">No</button>'+
+      '<div class="field" id="f-distance"><label>Goal distance</label>'+
+        '<div class="opt-grid" data-mirror="su-distance" role="group" aria-label="Goal distance">'+distGrid+'</div>'+
+        '<select id="su-distance" class="bld-mirror" tabindex="-1" aria-hidden="true">'+distOptions+'</select>'+
+        '<div class="field-hint">The distance this block prepares you for. You do not need an event booked.</div>'+
       '</div>'+
-    '</div>'+
-    '<div id="su-event-box" data-mode="'+eventMode+'">'+
-      '<div class="field when-event"><label>Event Date</label><input type="date" id="su-racedate" value="'+raceDate+'">'+
-        '<div class="field-hint">Progression and taper anchor to this day.</div>'+
+      '<div class="field"><label>Do you have a target event?</label>'+
+        '<div class="opt-grid" role="group" aria-label="Target event" id="su-event-toggle">'+
+          '<button type="button" data-action="set-event-mode" data-event-mode="event" class="'+(eventMode==='event'?'active':'')+'">YES</button>'+
+          '<button type="button" data-action="set-event-mode" data-event-mode="none" class="'+(eventMode==='none'?'active':'')+'">NOT YET</button>'+
+        '</div>'+
       '</div>'+
-      '<div class="field when-none"><label>Training Block Length (weeks)</label>'+
-        '<input type="number" min="4" max="24" step="1" inputmode="numeric" id="su-weeks" value="'+blockWeeks+'">'+
-        '<div class="field-hint">A full distance-specific block, built and tapered to a culminating goal effort in the final week.</div>'+
+      '<div id="su-event-box" data-mode="'+eventMode+'">'+
+        '<div class="field when-event bld-date" id="f-racedate"><label>Event date</label><input type="date" id="su-racedate" value="'+raceDate+'">'+
+          '<div class="field-hint">Progression and taper anchor to this day.</div>'+
+        '</div>'+
+        '<div class="field when-none" id="f-weeks"><label>Training block length (weeks)</label>'+
+          '<input type="number" min="4" max="24" step="1" inputmode="numeric" id="su-weeks" value="'+blockWeeks+'">'+
+          '<div class="field-hint">A full distance-specific block, built and tapered to a culminating goal effort in the final week.</div>'+
+        '</div>'+
       '</div>'+
-    '</div>'+
-    '<div class="field"><label id="su-volume-label">Current Weekly Volume ('+(state.units==='mi'?'mi':'km')+')</label><input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'"></div>'+
+      navBtns(0)+
+    '</section>'+
 
-    '<div class="setup-section-title">Athlete Experience</div>'+
-    '<div class="field-hint" style="margin-bottom:8px;">Changes how much each session is explained — never the training itself. Your paces, workouts and progression are identical at every level.</div>'+
-    '<div class="field">'+
-      '<div class="unit-toggle exp-toggle" role="group" aria-label="Athlete experience" id="su-experience">'+
-        EXPERIENCE_LEVELS.map(function(k){
-          return '<button type="button" data-action="set-experience" data-experience="'+k+'" '+
-            'aria-pressed="'+(experience===k?'true':'false')+'" class="'+(experience===k?'active':'')+'">'+
-            EXPERIENCE_META[k].short+'</button>';
-        }).join('')+
+    /* ---------- 02 YOU ---------- */
+    '<section class="bld-panel" data-stage="1" hidden>'+
+      stageHead(1)+
+      '<div class="field" id="f-volume"><label id="su-volume-label">Current Weekly Volume ('+(state.units==='mi'?'mi':'km')+')</label>'+
+        '<input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'">'+
+        '<div class="field-hint">Your honest recent average, not your best week.</div>'+
       '</div>'+
-      '<div class="field-hint" id="su-experience-hint">'+escapeHtml(EXPERIENCE_META[experience].hint)+'</div>'+
-    '</div>'+
+      '<div class="field"><label>Athlete experience</label>'+
+        '<div class="opt-grid cols-3" role="group" aria-label="Athlete experience" id="su-experience">'+
+          EXPERIENCE_LEVELS.map(function(k){
+            return '<button type="button" data-action="set-experience" data-experience="'+k+'" '+
+              'aria-pressed="'+(experience===k?'true':'false')+'" class="'+(experience===k?'active':'')+'">'+
+              EXPERIENCE_META[k].short.toUpperCase()+'</button>';
+          }).join('')+
+        '</div>'+
+        '<div class="field-hint" id="su-experience-hint">'+escapeHtml(EXPERIENCE_META[experience].hint)+'</div>'+
+      '</div>'+
+      '<div class="setup-section-title">Recent benchmark</div>'+
+      '<p class="bld-lede">A recent honest-effort 5K or 10K — your paces are built from this.</p>'+
+      '<div class="field"><label>Benchmark distance</label>'+
+        '<div class="opt-grid" data-mirror="su-bench-dist" role="group" aria-label="Benchmark distance">'+
+          '<button type="button" data-v="5k" class="'+(benchDist==='5k'?'active':'')+'">5K</button>'+
+          '<button type="button" data-v="10k" class="'+(benchDist==='10k'?'active':'')+'">10K</button>'+
+        '</div>'+
+        '<select id="su-bench-dist" class="bld-mirror" tabindex="-1" aria-hidden="true">'+
+          '<option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option>'+
+          '<option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select>'+
+      '</div>'+
+      '<div class="field"><label>Benchmark time</label>'+
+        '<input type="text" id="su-bench-time" placeholder="mm:ss" value="'+benchTime+'"></div>'+
+      navBtns(1)+
+    '</section>'+
 
-    '<div class="setup-section-title">Weekly Schedule</div>'+
-    '<div class="field-hint" style="margin-bottom:8px;">Pick 3\u20136 days you can run \u2014 workouts land only on these; everything else is rest.</div>'+
-    '<div class="weekday-grid" id="su-weekdays">'+wdCheckboxes+'</div>'+
-    '<div class="field"><label>Long Run Day</label><select id="su-longday">'+longDayOptions+'</select></div>'+
+    /* ---------- 03 WEEK ---------- */
+    '<section class="bld-panel" data-stage="2" hidden>'+
+      stageHead(2)+
+      '<div class="field" id="f-weekdays"><label>Training days</label>'+
+        '<div class="weekday-grid" id="su-weekdays">'+wdCheckboxes+'</div>'+
+      '</div>'+
+      '<div class="field" id="f-longday"><label>Long run day</label>'+
+        '<div class="opt-grid cols-3" data-mirror="su-longday" role="group" aria-label="Long run day" id="bld-longday-grid"></div>'+
+        '<select id="su-longday" class="bld-mirror" tabindex="-1" aria-hidden="true">'+longDayOptions+'</select>'+
+        '<div class="field-hint">Only the days you picked above can hold the long run.</div>'+
+      '</div>'+
+      navBtns(2)+
+    '</section>'+
 
-    '<div class="setup-section-title">Recent Benchmark</div>'+
-    '<div class="field-hint" style="margin-bottom:8px;">A recent honest-effort 5K or 10K \u2014 your paces are built from this.</div>'+
-    '<div class="benchmark-row">'+
-      '<div class="field" style="margin-bottom:0;"><label>Distance</label><select id="su-bench-dist"><option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option><option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select></div>'+
-      '<div class="field" style="margin-bottom:0;"><label>Time</label><input type="text" id="su-bench-time" placeholder="mm:ss" value="'+benchTime+'"></div>'+
-    '</div>'+
-    '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
+    /* ---------- 04 TRAINING ---------- */
+    '<section class="bld-panel" data-stage="3" hidden>'+
+      stageHead(3)+
+      '<div class="setup-section-title">Lactate Threshold HR (LTHR) / Max HR</div>'+
+      '<p class="bld-lede">Optional — adds target HR ranges to your zone paces and unlocks HR-based execution scoring on logged workouts. Leave blank to skip; pace and distance tracking work fine without it.</p>'+
+      '<div class="benchmark-row">'+
+        '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-lthr" placeholder="172" value="'+(su.lthr!=null?su.lthr:'')+'"></div>'+
+        '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-maxhr" placeholder="188" value="'+(su.maxHR!=null?su.maxHR:'')+'"></div>'+
+      '</div>'+
+      '<div class="setup-section-title" style="margin-top:22px;">Goal A / B / C — for the distance you picked</div>'+
+      '<p class="bld-lede">Toggle the Active Goal any time afterwards — every workout pace updates instantly.</p>'+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:12px;" data-action="suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
+      '<div class="field" id="f-goals" style="margin-bottom:0;">'+goalRows+'</div>'+
+      navBtns(3)+
+    '</section>'+
 
-    '<div class="setup-section-title">Lactate Threshold HR (LTHR) / Max HR</div>'+
-    '<div class="field-hint" style="margin-bottom:8px;">Optional \u2014 e.g. LTHR 172 BPM / Max HR 188 BPM. Adds target HR ranges to your zone paces and unlocks HR-based execution scoring on logged workouts. Leave blank to skip \u2014 pace and distance tracking work fine without it.</div>'+
-    '<div class="benchmark-row">'+
-      '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-lthr" placeholder="172" value="'+(su.lthr!=null?su.lthr:'')+'"></div>'+
-      '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-maxhr" placeholder="188" value="'+(su.maxHR!=null?su.maxHR:'')+'"></div>'+
-    '</div>'+
-
-    '<div class="setup-section-title">Goal A / B / C \u2014 for the distance above</div>'+
-    goalRows+
-    '<div class="field-hint">Finish-time targets for whichever distance you picked. Toggle the Active Goal any time afterward \u2014 every workout pace updates instantly.</div>'+
-
-    '<div class="modal-actions">'+
-      '<button type="button" class="btn btn-primary" data-action="generate-plan">'+ICONS.check+' '+(state.setup?'Regenerate Plan':'Generate My Plan')+'</button>'+
-    '</div>'+
-    /* PRIVATE BETA: the two documents named once, at the point the athlete is
-       about to start using the product properly, and only on the FIRST build.
-       Deliberately a sentence rather than a gate: no wall, no checkbox, nothing
-       pre-ticked, and nothing that pretends to collect a consent this task has
-       no authority to collect. A tester who wants to read them can, before they
-       commit their training to it; a tester regenerating a plan in week six is
-       not shown it again, because by then it is nagging rather than informing. */
-    (state.setup
-      ? '<div class="field-hint" style="margin-top:10px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history \u2014 only untouched future days are replaced.</div>'
-      : '<div class="field-hint" style="margin-top:10px; text-align:center;">Using the private beta is covered by our '+
-        '<a href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and '+
-        '<a href="'+LEGAL_URLS.betaTerms+'" target="_blank" rel="noopener noreferrer">Private Beta Terms</a>. '+
-        'Both are always in Settings.</div>')+
+    /* ---------- 05 REVIEW ---------- */
+    '<section class="bld-panel" data-stage="4" hidden>'+
+      stageHead(4)+
+      '<div id="bld-review"></div>'+
+      '<div class="bld-actions">'+
+        '<button type="button" class="btn btn-ghost btn-back" data-action="bld-back">← Back</button>'+
+        '<button type="button" class="btn btn-primary" data-action="generate-plan">'+ICONS.check+' '+(state.setup?'Regenerate Plan':'Build My Training Block')+'</button>'+
+      '</div>'+
+      (state.setup
+        ? '<div class="field-hint" style="margin-top:12px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history — only untouched future days are replaced.</div>'
+        : '<div class="field-hint" style="margin-top:12px; text-align:center;">Using the private beta is covered by our '+
+          '<a href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and '+
+          '<a href="'+LEGAL_URLS.betaTerms+'" target="_blank" rel="noopener noreferrer">Private Beta Terms</a>. '+
+          'Both are always in Settings.</div>')+
+    '</section>'+
   '</div>';
-  openModal(html);
+  openModal(html, 'builder-light');
+
+  /* Grid -> mirrored select. Delegated on the card so the three grids share one
+     listener, and a grid rebuilt later (the long-run day) needs no rebinding. */
+  var cardEl = document.querySelector('.modal-card');
+  if (cardEl){
+    cardEl.addEventListener('click', function(e){
+      var btn = e.target.closest('.opt-grid[data-mirror] button');
+      if (!btn) return;
+      bldMirrorPick(btn.closest('.opt-grid'), btn);
+    });
+  }
 
   var unitsBox = document.getElementById('su-units');
   if (unitsBox){
@@ -15828,9 +16026,183 @@ function openSetupModal(){
       sel.innerHTML = checked.length
         ? checked.map(function(iso){ return '<option value="'+iso+'" '+(iso===current?'selected':'')+'>'+ISO_WEEKDAY_NAMES[iso]+'</option>'; }).join('')
         : '<option value="">\u2014 pick at least 3 days \u2014</option>';
+      /* The grid is redrawn FROM the select the existing line above just
+         rebuilt, so an athlete who goes back and removes the day currently
+         holding their long run cannot be left with an impossible value: the
+         select has already fallen to its first remaining option and the grid
+         simply shows what the generator will read. */
+      bldSyncLongDay();
     });
   }
+
+  bldSyncLongDay();
+  bldStage(0);
 }
+
+/* =========================================================
+   STAGED BUILDER — navigation, mirroring and validation.
+
+   Presentation only. Every value still lives in the element
+   handleGeneratePlan() already reads; nothing here computes,
+   stores or validates anything the generator did not already.
+   ========================================================= */
+var BLD_STAGE_NAMES = ['Goal','You','Week','Training','Review'];
+var bldCurrentStage = 0;
+
+/* Redraw the long-run grid from #su-longday, which is the value that counts. */
+function bldSyncLongDay(){
+  var sel = document.getElementById('su-longday');
+  var grid = document.getElementById('bld-longday-grid');
+  if (!sel || !grid) return;
+  var opts = Array.prototype.slice.call(sel.options).filter(function(o){ return o.value !== ''; });
+  grid.innerHTML = opts.length
+    ? opts.map(function(o){
+        return '<button type="button" data-v="'+o.value+'" class="'+(o.value===sel.value?'active':'')+'">'+
+          o.textContent.toUpperCase()+'</button>';
+      }).join('')
+    : '<button type="button" disabled>Pick at least 3 training days first</button>';
+}
+
+/* One grid click -> the mirrored <select>. A real change event is dispatched so
+   any listener the select already had still fires. */
+function bldMirrorPick(grid, btn){
+  var id = grid.getAttribute('data-mirror');
+  var sel = id && document.getElementById(id);
+  if (!sel || btn.disabled) return;
+  sel.value = btn.getAttribute('data-v');
+  grid.querySelectorAll('button').forEach(function(b){ b.classList.toggle('active', b===btn); });
+  try { sel.dispatchEvent(new Event('change', { bubbles:true })); } catch(e) {}
+}
+
+function bldClearErrors(){
+  document.querySelectorAll('.bld-panel .field.invalid').forEach(function(f){ f.classList.remove('invalid'); });
+  document.querySelectorAll('.bld-panel .bld-error').forEach(function(e){ e.remove(); });
+}
+function bldFail(fieldId, message){
+  var f = document.getElementById(fieldId);
+  if (!f) return;
+  f.classList.add('invalid');
+  var e = document.createElement('div');
+  e.className = 'bld-error';
+  e.textContent = message;
+  f.appendChild(e);
+  try { f.scrollIntoView({ block:'center', behavior:'smooth' }); } catch(err) { f.scrollIntoView(); }
+  var focusable = f.querySelector('input, select:not(.bld-mirror), .opt-grid button');
+  if (focusable) { try { focusable.focus({ preventScroll:true }); } catch(err) {} }
+}
+
+/* THE SAME REQUIREMENTS handleGeneratePlan() already enforces, shown at the
+   stage they belong to instead of all at once at the end. No rule is added,
+   removed or loosened here, and the generator still checks all of them. */
+function bldValidateStage(i){
+  bldClearErrors();
+  if (i === 0){
+    var box = document.getElementById('su-event-box');
+    var hasEvent = !box || box.getAttribute('data-mode') !== 'none';
+    if (hasEvent){
+      var rd = document.getElementById('su-racedate').value;
+      if (!rd){ bldFail('f-racedate', 'Pick an event date.'); return false; }
+      if (rd <= todayStr()){ bldFail('f-racedate', 'Event date needs to be in the future.'); return false; }
+    } else {
+      var wks = parseInt(document.getElementById('su-weeks').value, 10);
+      if (isNaN(wks) || wks < 4 || wks > 24){
+        bldFail('f-weeks', 'Choose a block length between 4 and 24 weeks.'); return false; }
+    }
+    return true;
+  }
+  if (i === 1){
+    var volume = parseDistInput(document.getElementById('su-volume').value);
+    if (!volume || volume <= 0){
+      bldFail('f-volume', 'Enter your current weekly volume.'); return false; }
+    return true;
+  }
+  if (i === 2){
+    var checked = document.querySelectorAll('#su-weekdays input[type=checkbox]:checked').length;
+    if (checked < 3 || checked > 6){
+      bldFail('f-weekdays', 'Pick between 3 and 6 running days.'); return false; }
+    if (isNaN(parseInt(document.getElementById('su-longday').value, 10))){
+      bldFail('f-longday', 'Choose a long run day.'); return false; }
+    return true;
+  }
+  if (i === 3){
+    var any = GOAL_KEYS.some(function(k){
+      var el = document.getElementById('su-goal-' + k);
+      return el && clockToSec(el.value.trim());
+    });
+    if (!any){ bldFail('f-goals', 'Enter at least one goal time, or tap Suggest above.'); return false; }
+    return true;
+  }
+  return true;
+}
+
+/* A presentation layer over the inputs, read at the moment Review is shown.
+   It stores nothing and derives nothing the generator does not already. */
+function bldRenderReview(){
+  var host = document.getElementById('bld-review');
+  if (!host) return;
+  var distSel = document.getElementById('su-distance');
+  var profile = DISTANCE_PROFILES[distSel.value];
+  var unitBtn = document.querySelector('#su-units button.active');
+  var units = unitBtn ? unitBtn.getAttribute('data-units') : state.units;
+  var volume = document.getElementById('su-volume').value;
+  var days = document.querySelectorAll('#su-weekdays input[type=checkbox]:checked').length;
+  var box = document.getElementById('su-event-box');
+  var hasEvent = !box || box.getAttribute('data-mode') !== 'none';
+  var longSel = document.getElementById('su-longday');
+  var longLabel = longSel.options[longSel.selectedIndex] ? longSel.options[longSel.selectedIndex].textContent : '\u2014';
+  var lthr = document.getElementById('su-lthr').value;
+  var maxhr = document.getElementById('su-maxhr').value;
+  var goals = GOAL_KEYS.map(function(k){
+    var v = document.getElementById('su-goal-' + k).value.trim();
+    return v ? k + ' ' + v : null;
+  }).filter(Boolean);
+
+  function row(k, v){
+    return '<div class="bld-review-row"><span class="bld-review-k">'+k+'</span>'+
+           '<span class="bld-review-v">'+escapeHtml(v)+'</span></div>';
+  }
+  var rows = '';
+  rows += hasEvent
+    ? row('Event date', document.getElementById('su-racedate').value || '\u2014')
+    : row('Block length', document.getElementById('su-weeks').value + ' weeks');
+  rows += row('Experience', EXPERIENCE_META[athleteExperience()].short);
+  rows += row('Long run day', longLabel);
+  var benchTimeVal = document.getElementById('su-bench-time').value.trim();
+  rows += row('Benchmark', document.getElementById('su-bench-dist').value.toUpperCase() +
+              (benchTimeVal ? ' \u00b7 ' + benchTimeVal : ' \u00b7 \u2014'));
+  if (lthr || maxhr)
+    rows += row('Heart rate', (lthr ? 'LTHR ' + lthr : '') + (lthr && maxhr ? ' \u00b7 ' : '') + (maxhr ? 'Max ' + maxhr : ''));
+  if (goals.length) rows += row('Goals', goals.join(' \u00b7 '));
+  rows += row('Units', units.toUpperCase());
+
+  host.innerHTML =
+    '<div class="bld-review-hero"><div class="d">'+escapeHtml(profile ? profile.label : '\u2014')+'</div>'+
+      '<div class="s">'+escapeHtml((volume || '0') + ' ' + units + ' / week \u00b7 ' + days + ' running days')+'</div></div>'+
+    '<div style="margin-top:14px;">'+rows+'</div>';
+}
+
+function bldStage(n){
+  bldCurrentStage = Math.max(0, Math.min(BLD_STAGE_NAMES.length - 1, n));
+  document.querySelectorAll('.bld-panel').forEach(function(p){
+    p.hidden = (parseInt(p.getAttribute('data-stage'), 10) !== bldCurrentStage);
+  });
+  var rail = document.getElementById('bld-rail');
+  if (rail) Array.prototype.forEach.call(rail.children, function(seg, i){
+    seg.className = 'bld-step' + (i < bldCurrentStage ? ' done' : i === bldCurrentStage ? ' now' : '');
+  });
+  var no = document.getElementById('bld-no'), nm = document.getElementById('bld-name');
+  if (no) no.textContent = '0' + (bldCurrentStage + 1) + ' / 0' + BLD_STAGE_NAMES.length;
+  if (nm) nm.textContent = BLD_STAGE_NAMES[bldCurrentStage];
+  if (bldCurrentStage === 4) bldRenderReview();
+  var card = document.querySelector('.modal-card');
+  if (card) card.scrollTop = 0;
+}
+
+function handleBldNext(){
+  if (!bldValidateStage(bldCurrentStage)) return;
+  bldStage(bldCurrentStage + 1);
+}
+function handleBldBack(){ bldClearErrors(); bldStage(bldCurrentStage - 1); }
 
 /* =========================================================
    RE-CALIBRATE ZONES MODAL \u2014 updates benchmark/goal paces
@@ -18500,6 +18872,8 @@ document.addEventListener('click', function(e){
     case 'rc-suggest-goals': handleRecalibrateSuggest(); break;
     case 'save-recalibrate': handleSaveRecalibrate(); break;
     case 'open-pacing': openPacingModal(); break;
+    case 'bld-next': handleBldNext(); break;
+    case 'bld-back': handleBldBack(); break;
     case 'suggest-goals': handleSuggestGoals(); break;
     case 'generate-plan': handleGeneratePlan(); break;
     case 'export-json': handleExportJson(); break;
