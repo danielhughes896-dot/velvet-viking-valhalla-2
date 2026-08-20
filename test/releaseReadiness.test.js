@@ -517,8 +517,14 @@ test('9. corrupted local storage boots rather than throwing', () => {
 });
 
 test('9. every API handler answers a wrong method without describing itself', async () => {
+  /* The Strava routes are _-prefixed modules behind api/strava.js now, so
+     the sweep names both the router and the modules it dispatches to --
+     otherwise consolidating an endpoint would quietly drop it from this
+     check rather than keep testing it. */
   const handlers = ['app.js', 'session.js', 'account.js', 'billing-webhook.js',
-                    'strava-enabled.js', 'admin-user.js', 'strava-admin.js', 'beta-signin.js'];
+                    'admin-user.js', 'beta-signin.js', 'strava.js',
+                    '_strava-enabled.js', '_strava-admin.js', '_strava-auth.js',
+                    '_strava-sync.js', '_strava-callback.js', '_strava-webhook.js'];
   for (const h of handlers) {
     const mod = require('../api/' + h);
     const fn = typeof mod === 'function' ? mod : mod.handle;

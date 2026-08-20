@@ -83,7 +83,7 @@ async function ingest(cfg, event){
         ' date=' + a.date + ' km=' + a.km);
 }
 
-module.exports = async function handler(req, res){
+async function handle(req, res){
   const cfg = S.config();
 
   if (req.method === 'GET'){
@@ -134,3 +134,5 @@ module.exports = async function handler(req, res){
 
   S.json(res, 200, { received: true });
 };
+
+module.exports = { handle };

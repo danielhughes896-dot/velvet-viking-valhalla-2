@@ -23,7 +23,7 @@ function back(res, origin, outcome){
   res.end();
 }
 
-module.exports = async function handler(req, res){
+async function handle(req, res){
   const cfg = S.config();
   const origin = S.siteOrigin(req);
   const q = req.query || {};
@@ -79,3 +79,5 @@ module.exports = async function handler(req, res){
 
   back(res, origin, 'connected');
 };
+
+module.exports = { handle };
