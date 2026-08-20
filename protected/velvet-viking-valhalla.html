@@ -5994,6 +5994,16 @@ function computeStats(){
   var totalRuns=0, completedRuns=0, totalKm=0, completedKm=0;
   state.days.forEach(function(dd){
     if (dd.type==='rest') return;
+    /* THIS BLOCK ONLY. Week 0 is carried-over history: sessions from a
+       PREVIOUS block that predate this one's start date, kept in state.days by
+       reconcileRegeneratedDays() so trend, load and confidence still see them.
+       They are real training and they are not lost -- but they were not run
+       against this block's schedule, so counting them here produced the exact
+       contradiction this guard exists to prevent: a numerator from the old
+       block over a denominator from the new one ("3/79 runs done" on a block
+       whose every week showed nothing completed). Carried-over history is
+       shown in its own Full Plan group instead; see renderWeeksList(). */
+    if (dd.week === 0) return;
     totalRuns++; totalKm += dd.km||0;
     if (dd.completed){ completedRuns++; completedKm += (dd.actual&&dd.actual.km!=null)?dd.actual.km:(dd.km||0); }
   });
@@ -16597,6 +16607,10 @@ function weekVolume(weekNum){
   return { total: round1(totalKm), done: round1(doneKm), race: round1(raceKm), training: round1(totalKm-raceKm) };
 }
 function weekPhaseLabel(weekNum){
+  /* Week 0 is not a week of this block, so it must not be labelled like one --
+     "Week 0" and "Base Phase" would both claim it belongs to a schedule it was
+     never part of. */
+  if (weekNum === 0) return 'Before This Block';
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
   var hasCheckpoint = wdays.some(function(dd){ return dd.type==='checkpoint'; });
   var hasRace = wdays.some(function(dd){ return dd.type==='race'; });
@@ -16736,6 +16750,8 @@ function renderCongratsBanner(){
    the Now badge, distances and accordion behaviour are untouched, and
    renderWeeksList() is called only by FULL PLAN. */
 function phaseDividerLabel(weekNum){
+  // Week 0 is not a phase of this block. See renderWeeksList().
+  if (weekNum === 0) return 'Earlier Training';
   var p = trainingPhase(weekNum);
   // Base/Build/Peak/Taper name a stretch of training, so they read as a
   // section; the last week is already named for what it is ("Race Week" /
@@ -16754,10 +16770,28 @@ function renderWeeksList(forceOpenAll){
   state.days.forEach(function(dd){ if (dd.type==='checkpoint') chkWeek = dd.week; });
   var html = '';
   var lastPhase = null;
+
+  /* CARRIED-OVER HISTORY, FIRST.
+     Building a new block does not erase what came before it: sessions that
+     predate this block's start date keep their rows, their dates, their ids,
+     their logs and their reviews, and reconcileRegeneratedDays() marks them
+     week 0. Every week loop in the product runs 1..totalWeeks, so before this
+     they existed in state.days and appeared on no screen at all -- completed
+     training that had silently stopped being visible anywhere, which is the
+     one thing a training log may never do.
+     Rendered as an ordinary week accordion so each session keeps its card, its
+     completed state and its expandable execution review. Collapsed by default,
+     because it is history rather than the work in front of the athlete. */
+  var carried = state.days.filter(function(dd){ return dd.week===0; });
+  if (carried.length){
+    html += renderPhaseDivider(0, true);
+    html += renderWeekAccordion(0, forceOpenAll);
+  }
+
   for (var w=1; w<=totalWeeks; w++){
     var phase = trainingPhase(w);
     if (phase !== lastPhase){
-      html += renderPhaseDivider(w, lastPhase===null);
+      html += renderPhaseDivider(w, lastPhase===null && !carried.length);
       lastPhase = phase;
     }
     html += renderWeekAccordion(w, forceOpenAll);
