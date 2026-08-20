@@ -298,7 +298,8 @@ test('a clean main with no Stripe credentials behaves', () => {
   assert.equal(cfg.hasSecret, false);
   assert.equal(cfg.hasWebhookSecret, false);
   assert.equal(cfg.isLiveKey, false);
-  assert.equal(cfg.siteOrigin, 'https://velvetviking.co.uk', 'the .co.uk domain is the default, not a Vercel URL');
+  assert.equal(cfg.appOrigin, '', 'no guessed backend origin — it must be configured');
+  assert.equal(cfg.marketingOrigin, 'https://velvetviking.co.uk');
   assert.equal(decideCheckout(base({ stripeConfigured: false })).code, 'provider_not_configured');
 });
 
@@ -386,4 +387,69 @@ test('the ledger admits Apple and Google without a redesign', () => {
   for (const forbidden of ['card_number', 'pan', 'cvv', 'cvc', 'card_last4']) {
     assert.equal(sql.indexOf(forbidden), -1, 'schema names ' + forbidden);
   }
+});
+
+// ---------------------------------------------------------------------------
+// REDIRECT ORIGINS — the marketing site and this backend are separate projects
+// ---------------------------------------------------------------------------
+test('checkout refuses rather than guessing this deployment\'s origin', async () => {
+  // A guessed origin becomes a redirect to a 404 that only surfaces after a
+  // real payment has been taken, which is the worst moment to find it.
+  const cfg = P.config({ STRIPE_SECRET_KEY: 'sk_test_1' });
+  const r = await P.createCheckoutSession(cfg, { uid: 'u1', customerId: 'cus_1', period: 'monthly', env: PRICES }, {});
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'app_origin_not_configured');
+});
+
+test('success returns to the backend and cancel to the marketing site', async () => {
+  const cfg = P.config({
+    STRIPE_SECRET_KEY: 'sk_test_1',
+    VVV_SITE_ORIGIN: 'https://app.velvetviking.co.uk/',
+    VVV_MARKETING_ORIGIN: 'https://velvetviking.co.uk'
+  });
+  let sent = null;
+  await P.createCheckoutSession(cfg, { uid: 'u1', customerId: 'cus_1', period: 'yearly', env: PRICES }, {
+    fetch: async (url, init) => { sent = String(init.body); return { ok: true, text: async () => JSON.stringify({ id: 'cs_1', url: 'https://checkout.stripe.com/x' }) }; }
+  });
+  const body = decodeURIComponent(sent);
+  assert.ok(body.indexOf('success_url=https://app.velvetviking.co.uk/account') !== -1, body);
+  assert.ok(body.indexOf('cancel_url=https://velvetviking.co.uk/pricing') !== -1, body);
+  assert.ok(body.indexOf('https://app.velvetviking.co.uk/pricing') === -1,
+    'pricing lives in the website project, not this one');
+});
+
+test('the trial is set on the session, never inherited from a Price', async () => {
+  // The Price objects must NOT carry trial semantics: two sources of trial
+  // truth is one too many, and the server-side session is the one the client
+  // cannot influence.
+  const cfg = P.config({ STRIPE_SECRET_KEY: 'sk_test_1', VVV_SITE_ORIGIN: 'https://app.test' });
+  for (const period of ['monthly', 'yearly']) {
+    let sent = null;
+    await P.createCheckoutSession(cfg, { uid: 'u1', customerId: 'cus_1', period: period, env: PRICES }, {
+      fetch: async (url, init) => { sent = decodeURIComponent(String(init.body)); return { ok: true, text: async () => JSON.stringify({ id: 'cs_1', url: 'u' }) }; }
+    });
+    assert.ok(sent.indexOf('subscription_data[trial_period_days]=14') !== -1,
+      period + ' must carry an explicit 14-day trial: ' + sent);
+  }
+});
+
+test('a client cannot influence the trial length', () => {
+  // The only thing the browser sends is `period`. There is no path from a
+  // request body to trial_period_days.
+  // The property is not "trials are never mentioned" -- the response reports
+  // trial_days back, which is useful. It is that nothing READ FROM THE REQUEST
+  // reaches the trial. The only field taken from the body is `period`.
+  const src = fs.readFileSync(path.join(ROOT, 'api/_checkout.js'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1 ');
+  const bodyReads = src.match(/body\s*&&\s*body\.[A-Za-z_]+|body\.[A-Za-z_]+/g) || [];
+  const fields = Array.from(new Set(bodyReads.map(function(m){ return m.split('.').pop(); })));
+  assert.deepEqual(fields.sort(), ['period'],
+    'the request body may name a period and nothing else, got: ' + fields.join(','));
+
+  const stripe = fs.readFileSync(path.join(ROOT, 'api/_stripe.js'), 'utf8');
+  assert.ok(stripe.indexOf('trial_period_days: price.plan.trialDays') !== -1,
+    'the trial must come from the server-side offering');
+  // And the offering is the only place 14 is written down.
+  assert.equal(C.OFFERING.monthly.trialDays, 14);
+  assert.equal(C.OFFERING.yearly.trialDays, 14);
 });

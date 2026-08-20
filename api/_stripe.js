@@ -80,7 +80,21 @@ function config(env){
     /* Test keys are usable; live keys additionally require the commercial flag
        to be on, so a live key sitting in a preview environment cannot charge. */
     isLiveKey: /^sk_live_/.test(secret),
-    siteOrigin: String(e.VVV_PUBLIC_ORIGIN || 'https://velvetviking.co.uk').replace(/\/+$/, '')
+    /* TWO ORIGINS, BECAUSE THERE ARE TWO DEPLOYMENTS.
+     *
+     * The marketing site and this backend are separate Vercel projects on
+     * separate hosts, and Vercel does not route across projects. /account is
+     * served by THIS repository's vercel.json; /pricing is a page in the
+     * website repository. Building both redirect URLs from one origin sends
+     * half of them somewhere that does not exist.
+     *
+     * VVV_SITE_ORIGIN is reused rather than renamed: _strava.js already uses it
+     * to mean "this deployment's public origin", and inventing a second name
+     * for the same fact is how two variables drift apart. There is deliberately
+     * NO fallback -- a guessed origin becomes a redirect to a 404 that only
+     * shows up after a real payment. */
+    appOrigin: String(e.VVV_SITE_ORIGIN || '').trim().replace(/\/+$/, ''),
+    marketingOrigin: String(e.VVV_MARKETING_ORIGIN || 'https://velvetviking.co.uk').trim().replace(/\/+$/, '')
   };
 }
 
@@ -156,14 +170,18 @@ async function createCheckoutSession(cfg, input, opts){
   const price = priceFor(input.period, input.env);
   if (!price.ok) return { ok: false, code: price.code };
 
-  const origin = cfg.siteOrigin;
+  if (!cfg.appOrigin) return { ok: false, code: 'app_origin_not_configured' };
   const params = {
     mode: 'subscription',
     customer: input.customerId,
     /* Stripe returns the athlete here; the session id lets the success page ask
        our server what happened rather than believing a query string. */
-    success_url: origin + '/account?checkout=complete&session_id={CHECKOUT_SESSION_ID}',
-    cancel_url: origin + '/pricing?checkout=cancelled',
+    /* Success returns the athlete to THIS deployment, which serves /account and
+       can therefore actually resolve their new entitlement. */
+    success_url: cfg.appOrigin + '/account?checkout=complete&session_id={CHECKOUT_SESSION_ID}',
+    /* Cancelling returns them to the marketing site's pricing page, which is a
+       different project on a different host. */
+    cancel_url: cfg.marketingOrigin + '/pricing?checkout=cancelled',
     client_reference_id: input.uid,
     'line_items[0][price]': price.priceId,
     'line_items[0][quantity]': 1,
