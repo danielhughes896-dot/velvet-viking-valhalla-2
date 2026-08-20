@@ -174,10 +174,9 @@ async function createCheckoutSession(cfg, input, opts){
   const params = {
     mode: 'subscription',
     customer: input.customerId,
-    /* Stripe returns the athlete here; the session id lets the success page ask
-       our server what happened rather than believing a query string. */
     /* Success returns the athlete to THIS deployment, which serves /account and
-       can therefore actually resolve their new entitlement. */
+       can therefore resolve their new entitlement. The session id lets that
+       page ask our server what happened rather than believing a query string. */
     success_url: cfg.appOrigin + '/account?checkout=complete&session_id={CHECKOUT_SESSION_ID}',
     /* Cancelling returns them to the marketing site's pricing page, which is a
        different project on a different host. */
