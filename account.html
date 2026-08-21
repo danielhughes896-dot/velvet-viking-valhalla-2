@@ -33,6 +33,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/vvv-shell.css">
+<script src="/passkey.js" defer></script>
 <style>
   /* Page-specific only. Everything structural, every colour and every control
      now comes from the shared shell, so this page cannot drift away from the
@@ -59,7 +60,18 @@
 
   <div id="pane-signin">
     <h1 id="headline">Sign in to Velvet Viking</h1>
-    <p id="lede">Velvet Viking now needs an account so your training block is tied to you and can follow you between devices. We email you a sign-in link, so there is no password for you to create or remember.</p>
+    <p id="lede">Velvet Viking needs an account so your training block is tied to you and can follow you between devices. There is no password for you to create or remember — we email you a link.</p>
+    <!-- PASSKEY FIRST, WHEN THE DEVICE CAN ACTUALLY DO IT.
+         Hidden in the markup and revealed by script, never the other way round:
+         a control that appears and then vanishes is worse than one that was
+         never offered, and a browser with JavaScript off must still be left
+         with a working email link rather than a dead button. -->
+    <div id="passkey-block" class="vvv-hidden">
+      <button type="button" id="passkey" class="vvv-btn">Sign in with a passkey</button>
+      <p class="vvv-note">Your phone or laptop checks it’s you, the way it unlocks.
+        Velvet Viking is never sent your fingerprint or your face.</p>
+      <div class="vvv-or" aria-hidden="true"><span>or</span></div>
+    </div>
     <label for="email">Email</label>
     <input type="email" id="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
     <button type="button" id="send" class="vvv-btn">Email me a sign-in link</button>
@@ -341,6 +353,67 @@
   });
 
   $('email').addEventListener('keydown', function(e){ if (e.key === 'Enter') $('send').click(); });
+
+  /* ---------- passkey sign-in ----------
+     The everyday route back in, for somebody who has already set one up inside
+     the app. The email link directly below is the route that always works and
+     is never removed -- it is the way in on a new device, the way back after a
+     lost one, and the choice of anybody who would rather have an email.
+
+     PAST THE SESSION, NOTHING IS DIFFERENT. establish() is the same bridge the
+     magic-link return uses, so the same server applies the same allowlist,
+     trial and subscription rules, and the athlete lands in the same three
+     places. A passkey changes how somebody proves who they are; it changes
+     nothing about what that person may then do.
+
+     passkey.js is deferred, so it has run by DOMContentLoaded but not while
+     this script is being parsed -- hence the listener rather than a bare check. */
+  document.addEventListener('DOMContentLoaded', function(){
+    var pk = window.VVVPasskey;
+    if (!pk || !pk.available()) return;   // no control at all rather than a broken one
+    $('passkey-block').classList.remove('vvv-hidden');
+    /* Only now is a passkey a true thing to say about this device, so only now
+       is it said. The static sentence stays provable on its own for a browser
+       that never reaches this line -- or never runs script at all. */
+    if (!why) $('lede').textContent = 'Velvet Viking needs an account so your training block is tied to you '+
+      'and can follow you between devices. There is no password for you to create or remember — a passkey '+
+      'on this device, or a link we email you.';
+    /* The email link is now the second option, so it stops looking like the
+       only one. It keeps its id, its handler and its endpoint exactly. */
+    $('send').classList.add('vvv-btn-ghost');
+    $('passkey').addEventListener('click', function(){
+      $('passkey').disabled = true;
+      say('msg', 'Waiting for your device…');
+      pk.signIn().then(function(sess){
+        say('msg', '');
+        show('working');
+        /* Persist where the runtime already looks, exactly as the magic-link
+           return does, so nobody is asked to sign in twice. */
+        try{
+          localStorage.setItem('vvv_cloud_session', JSON.stringify({
+            access_token: sess.access_token,
+            refresh_token: sess.refresh_token || null,
+            expires_at: Date.now() + (parseInt(sess.expires_in, 10) || 3600) * 1000,
+            email: sess.user && sess.user.email,
+            user_id: sess.user && sess.user.id
+          }));
+        }catch(e){ /* private mode -- the cookie still works for this session */ }
+        return establish(sess.access_token).then(function(r){
+          if (r.status === 200) return enter();
+          if (r.status === 403)
+            return loadSubscription().then(function(v){ showLocked(v || { access:false }); });
+          show('signin');
+          $('passkey').disabled = false;
+          say('msg', 'We signed you in but could not open Velvet Viking. Please try again.', 'err');
+        });
+      }).catch(function(err){
+        $('passkey').disabled = false;
+        var code = (err && err.code) || 'default';
+        /* Dismissing the system prompt is an answer, not a fault. */
+        say('msg', code === 'cancelled' ? '' : pk.copy(code), code === 'cancelled' ? '' : 'err');
+      });
+    });
+  });
 
   /* ---------- the four things a locked-out athlete may still do ----------
      These are the locked-capability contract in api/_access.js, made real.

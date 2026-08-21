@@ -152,6 +152,22 @@ a{color:var(--bronze-text);}
   color:var(--ctl-disabled-text); cursor:default; filter:none;
 }
 
+/* A labelled hairline separating two ways of doing the same thing -- today,
+   the passkey and the email link on the sign-in shells. Built from .vvv-rule's
+   own gradient vocabulary rather than a new one, so the shells keep saying
+   "divider" the single way they already say it. It is a SEPARATOR, not a
+   heading: aria-hidden at the call sites, because "OR" read aloud between two
+   buttons is noise on top of two perfectly clear labels. */
+.vvv-or{display:flex; align-items:center; gap:12px; margin:22px 0 18px;}
+.vvv-or::before, .vvv-or::after{content:""; flex:1; height:1px; min-width:0;
+  background:linear-gradient(90deg,transparent,rgba(197,160,89,.45),transparent);}
+.vvv-or span{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.28em;
+  text-transform:uppercase; color:var(--ink-faint);}
+
+/* The one-line promise under the passkey control. Quieter than body copy
+   because it is reassurance, not instruction. */
+.vvv-note{font-size:11.5px; line-height:1.5; color:var(--ink-faint); margin:8px 0 0;}
+
 /* ---------- messages ---------- */
 .vvv-msg{margin-top:16px; font-size:12.5px; line-height:1.55; min-height:1em;}
 .vvv-msg.err{color:var(--danger-ink);}

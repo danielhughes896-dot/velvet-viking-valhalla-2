@@ -597,6 +597,15 @@
                     color:var(--gold-text); white-space:nowrap;}
   .phase-divider .r{flex:1; height:1px; min-width:0;
                     background:linear-gradient(to right, var(--line) 0%, transparent 100%);}
+  /* THE SAME HAIRLINE, DOING A DIFFERENT JOB. Heading a run of weeks, the label
+     belongs at the left in gold and the rule trails away from it. Separating two
+     equal ways of signing in, that same treatment reads as a section title --
+     "OR" announcing a section called OR. So this variant centres the label
+     between two rules and drops it to quiet ink: it is a junction between two
+     choices, not a heading over one of them. */
+  .phase-divider.is-between{margin:20px 2px 14px;}
+  .phase-divider.is-between .l{color:var(--ink-faint); letter-spacing:2.6px;}
+  .phase-divider.is-between .r:first-child{transform:scaleX(-1);}
   .week-head{width:100%; text-align:left; background:none; border:none; padding:14px 16px; display:flex; align-items:center; gap:12px; color:var(--ink); transition:background .15s ease;}
   .week-head:hover{background:var(--bg-3);}
   .week-head:active{background:var(--bg-4);}
@@ -5035,6 +5044,310 @@ function cloudSendMagicLink(email){
     });
   });
 }
+
+/* =========================================================
+   PASSKEYS — the fast way back in
+   ---------------------------------------------------------
+   A passkey is a key pair. The private half never leaves the athlete's device
+   (or their platform keychain); Velvet Viking is only ever sent the public
+   half and a signature. THE FINGERPRINT, FACE OR SCREEN LOCK IS CHECKED BY THE
+   DEVICE, NOT BY US: the biometric never reaches the browser, let alone this
+   application or our servers. There is no template to store and nothing to
+   leak, which is the entire reason to prefer this over a password.
+
+   AND THERE IS STILL NO PASSWORD. Passkeys replace the magic link as the
+   EVERYDAY route; the magic link stays exactly as it was, as the way in on a
+   new device, the way back when a device is lost, and the choice of anybody
+   who would rather have an email. An athlete must never be locked out because
+   they are holding the wrong phone.
+
+   WHY RAW FETCH AND NOT THE SDK. This file talks to GoTrue over its REST API
+   and has always done so, which is what keeps the app a single file with no
+   build step and no CDN dependency in the authentication path. The endpoints
+   and payload shapes below were read out of @supabase/auth-js v2.112.3 rather
+   than recalled: see PASSKEY_ENDPOINTS.
+
+   SUPABASE PASSKEY SUPPORT IS MARKED EXPERIMENTAL by its own documentation --
+   "the API may change without notice". Everything specific to that API is
+   therefore confined to this one section, and every failure it can produce
+   falls back to the magic link rather than to a dead end. */
+
+/* The GoTrue REST contract, transcribed from the installed SDK. Registration
+   needs the athlete's own access token; authentication cannot have one,
+   because it is how a session is obtained in the first place. */
+var PASSKEY_ENDPOINTS = {
+  registerOptions: '/auth/v1/passkeys/registration/options',
+  registerVerify:  '/auth/v1/passkeys/registration/verify',
+  signInOptions:   '/auth/v1/passkeys/authentication/options',
+  signInVerify:    '/auth/v1/passkeys/authentication/verify',
+  list:            '/auth/v1/passkeys'
+};
+
+/* Signing in has no session to authorise with, so GoTrue is addressed with the
+   publishable key in BOTH headers -- which is exactly what the SDK sends on
+   these two endpoints. cloudFetch already sets `apikey`; this adds the bearer
+   it would otherwise fill with a stale athlete token. */
+function PASSKEY_ANON_HEADERS(){ return { 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }; }
+
+/* ---------- capability ----------
+   ONE question, answered synchronously, because the control has to be drawn or
+   not drawn in the same breath as the rest of the screen.
+
+   WHY NOT isUserVerifyingPlatformAuthenticatorAvailable(). It is the obvious
+   second check -- "is there a fingerprint reader on this machine" -- and it was
+   written and then deliberately taken out again, because a `false` from it does
+   NOT mean a passkey is impossible. A desktop with no Touch ID still signs in
+   perfectly well with a phone over the cross-device flow, or with a security
+   key; hiding the control there would remove a working route on the strength of
+   a question nobody asked. It is also asynchronous, and putting an await
+   between the athlete's tap and navigator.credentials.get() costs the transient
+   activation some browsers require. So the rule is simply: if the browser can
+   run the ceremony, offer it, and let the platform decide how. */
+function passkeyApiAvailable(){
+  try{
+    return typeof window.PublicKeyCredential === 'function' &&
+           !!(navigator.credentials && navigator.credentials.create && navigator.credentials.get);
+  }catch(e){ return false; }
+}
+
+/* ---------- base64url <-> bytes ----------
+   WebAuthn speaks ArrayBuffers and JSON does not, so every binary field
+   crosses the wire base64url-encoded. Written out rather than pulled in
+   because it is fifteen lines and a dependency in the auth path is not. */
+function b64uToBytes(s){
+  var t = String(s).replace(/-/g, '+').replace(/_/g, '/');
+  while (t.length % 4) t += '=';
+  var bin = atob(t), out = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function bytesToB64u(buf){
+  var b = new Uint8Array(buf), s = '';
+  for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/* ---------- options in, credential out ----------
+   WebAuthn Level 3 gives browsers native converters for exactly this. Where
+   they exist they are used, because they are the specification's own answer
+   and will stay correct as the shapes grow; the manual path below is the
+   fallback for browsers that predate them. */
+function passkeyParseCreationOptions(json){
+  var P = window.PublicKeyCredential;
+  if (P && typeof P.parseCreationOptionsFromJSON === 'function')
+    return P.parseCreationOptionsFromJSON(json);
+  var o = {}; Object.keys(json).forEach(function(k){ o[k] = json[k]; });
+  o.challenge = b64uToBytes(json.challenge).buffer;
+  o.user = { id: b64uToBytes(json.user.id).buffer, name: json.user.name, displayName: json.user.displayName };
+  if (json.excludeCredentials && json.excludeCredentials.length)
+    o.excludeCredentials = json.excludeCredentials.map(function(c){
+      return { id: b64uToBytes(c.id).buffer, type: c.type || 'public-key', transports: c.transports };
+    });
+  return o;
+}
+function passkeyParseRequestOptions(json){
+  var P = window.PublicKeyCredential;
+  if (P && typeof P.parseRequestOptionsFromJSON === 'function')
+    return P.parseRequestOptionsFromJSON(json);
+  var o = {}; Object.keys(json).forEach(function(k){ o[k] = json[k]; });
+  o.challenge = b64uToBytes(json.challenge).buffer;
+  if (json.allowCredentials && json.allowCredentials.length)
+    o.allowCredentials = json.allowCredentials.map(function(c){
+      return { id: b64uToBytes(c.id).buffer, type: c.type || 'public-key', transports: c.transports };
+    });
+  return o;
+}
+/* One serialiser for both ceremonies: the response half differs, so it is read
+   off whichever fields the credential actually carries. */
+function passkeySerializeCredential(cred){
+  if (cred && typeof cred.toJSON === 'function') return cred.toJSON();
+  var r = cred.response, out = {
+    id: cred.id, rawId: cred.id, type: 'public-key',
+    clientExtensionResults: cred.getClientExtensionResults ? cred.getClientExtensionResults() : {},
+    response: { clientDataJSON: bytesToB64u(r.clientDataJSON) }
+  };
+  if (cred.authenticatorAttachment) out.authenticatorAttachment = cred.authenticatorAttachment;
+  if (r.attestationObject) out.response.attestationObject = bytesToB64u(r.attestationObject);
+  if (r.authenticatorData){
+    out.response.authenticatorData = bytesToB64u(r.authenticatorData);
+    out.response.signature = bytesToB64u(r.signature);
+    if (r.userHandle) out.response.userHandle = bytesToB64u(r.userHandle);
+  }
+  return out;
+}
+
+/* ---------- what the athlete is told when it does not work ----------
+   Concise, human, and never the raw exception. Every one of these ends with
+   the athlete still able to get in, because the email link is always there.
+
+   `cancelled` is deliberately silent at the call sites: somebody who dismissed
+   the system prompt knows they dismissed it, and being told so is nagging. */
+var PASSKEY_ERROR_COPY = {
+  unsupported:        'This device can’t use a passkey — use the email link instead',
+  passkey_disabled:   'Passkey sign-in isn’t switched on yet — use the email link',
+  no_credential:      'No passkey found on this device — use the email link, then set one up in Settings',
+  webauthn_credential_not_found: 'That passkey isn’t registered to a Velvet Viking account — use the email link',
+  webauthn_credential_exists:    'This device already has a passkey for your account',
+  too_many_passkeys:  'This account already has as many passkeys as it can hold',
+  webauthn_challenge_expired:    'That took a little too long — try again',
+  webauthn_challenge_not_found:  'That attempt has already been used — try again',
+  webauthn_verification_failed:  'That passkey couldn’t be verified — use the email link',
+  email_not_confirmed: 'Confirm your email first — use the sign-in link we email you',
+  user_banned:        'This account can’t be signed in to',
+  offline:            'Couldn’t reach Velvet Viking — check your connection',
+  session_missing:    'Sign in first, then you can add a passkey',
+  default:            'That didn’t work — use the email link instead'
+};
+function passkeyErrorCopy(code){
+  return PASSKEY_ERROR_COPY[code] || PASSKEY_ERROR_COPY.default;
+}
+/* GoTrue names the reason in the body; the browser names its own refusals
+   through DOMException. Both are mapped to our vocabulary here so that no
+   caller ever sees, or shows, either one. */
+function passkeyErrFrom(code){ var e = new Error(code); e.code = code; return e; }
+function passkeyCeremonyError(err){
+  var name = err && err.name;
+  if (name === 'NotAllowedError') return passkeyErrFrom('cancelled');
+  if (name === 'InvalidStateError') return passkeyErrFrom('webauthn_credential_exists');
+  if (name === 'AbortError') return passkeyErrFrom('cancelled');
+  if (name === 'SecurityError') return passkeyErrFrom('unsupported');
+  return passkeyErrFrom('default');
+}
+function passkeyReadError(resp){
+  return resp.json().catch(function(){ return {}; }).then(function(body){
+    var code = body.error_code || body.code || body.error || 'default';
+    if (resp.status === 404 || code === 'passkey_disabled') code = 'passkey_disabled';
+    /* Logged for whoever is debugging, never rendered: GoTrue's `msg` can echo
+       an address, and its exception text is not athlete-facing copy. */
+    try{ console.log('passkey: refused status=' + resp.status + ' code=' + String(code).slice(0, 40)); }catch(e){}
+    throw passkeyErrFrom(code);
+  });
+}
+
+/* ---------- sign in ----------
+   A discoverable-credential ceremony: no email is asked for, because the
+   authenticator already knows which account the credential belongs to. What
+   comes back is an ordinary Supabase session -- the same shape, stored the
+   same way, resolving to the SAME user id as the magic link -- so everything
+   downstream of sign-in is untouched by which door was used. */
+function passkeySignIn(){
+  if (!passkeyApiAvailable()) return Promise.reject(passkeyErrFrom('unsupported'));
+  return cloudFetch(PASSKEY_ENDPOINTS.signInOptions, {
+    method: 'POST', auth: false, headers: PASSKEY_ANON_HEADERS(), body: JSON.stringify({})
+  }).catch(function(){ throw passkeyErrFrom('offline'); })
+    .then(function(resp){
+      if (!resp.ok) return passkeyReadError(resp);
+      return resp.json();
+    })
+    .then(function(start){
+      return navigator.credentials.get({ publicKey: passkeyParseRequestOptions(start.options) })
+        .catch(function(e){ throw passkeyCeremonyError(e); })
+        .then(function(cred){
+          if (!cred) throw passkeyErrFrom('cancelled');
+          return cloudFetch(PASSKEY_ENDPOINTS.signInVerify, {
+            method: 'POST', auth: false, headers: PASSKEY_ANON_HEADERS(),
+            body: JSON.stringify({ challenge_id: start.challenge_id,
+                                   credential: passkeySerializeCredential(cred) })
+          }).catch(function(){ throw passkeyErrFrom('offline'); });
+        });
+    })
+    .then(function(resp){
+      if (!resp.ok) return passkeyReadError(resp);
+      return resp.json();
+    })
+    .then(function(sess){
+      if (!sess || !sess.access_token) throw passkeyErrFrom('default');
+      /* THE SAME SESSION THE MAGIC LINK PRODUCES, stored by the same function.
+         No second account can be created here: this endpoint only ever returns
+         the user the credential was registered to. */
+      cloudSetSession({
+        access_token: sess.access_token, refresh_token: sess.refresh_token,
+        expires_at: Date.now() + (parseInt(sess.expires_in, 10) || 3600) * 1000,
+        email: sess.user && sess.user.email, user_id: sess.user && sess.user.id
+      });
+      return sess;
+    });
+}
+
+/* ---------- enrol ----------
+   Only ever offered to an athlete who is ALREADY SIGNED IN. That is not a
+   nicety: registration is how a device is added to an existing identity, so
+   the identity has to exist and be proven first. It is also what keeps the
+   beta allowlist, the entitlement state and the trial gates in charge -- a
+   passkey cannot create an account, so it cannot walk around the rules that
+   decide who gets one. */
+function passkeyRegister(){
+  if (!passkeyApiAvailable()) return Promise.reject(passkeyErrFrom('unsupported'));
+  if (!cloudSignedIn()) return Promise.reject(passkeyErrFrom('session_missing'));
+  return cloudFetch(PASSKEY_ENDPOINTS.registerOptions, { method: 'POST', body: JSON.stringify({}) })
+    .catch(function(){ throw passkeyErrFrom('offline'); })
+    .then(function(resp){
+      if (!resp.ok) return passkeyReadError(resp);
+      return resp.json();
+    })
+    .then(function(start){
+      return navigator.credentials.create({ publicKey: passkeyParseCreationOptions(start.options) })
+        .catch(function(e){ throw passkeyCeremonyError(e); })
+        .then(function(cred){
+          if (!cred) throw passkeyErrFrom('cancelled');
+          return cloudFetch(PASSKEY_ENDPOINTS.registerVerify, {
+            method: 'POST',
+            body: JSON.stringify({ challenge_id: start.challenge_id,
+                                   credential: passkeySerializeCredential(cred) })
+          }).catch(function(){ throw passkeyErrFrom('offline'); });
+        });
+    })
+    .then(function(resp){
+      if (!resp.ok) return passkeyReadError(resp);
+      return resp.json();
+    });
+}
+
+/* ---------- what this account already has ----------
+   Asked of the server, never cached to disk. Whether an account has a passkey
+   is not a secret, but it is also not this device's business to remember: the
+   authoritative answer is one request away and a stale local one would show
+   the athlete a control that does not match reality. */
+function passkeyList(){
+  if (!cloudSignedIn()) return Promise.resolve([]);
+  return cloudFetch(PASSKEY_ENDPOINTS.list).then(function(resp){
+    if (!resp.ok) return [];
+    return resp.json().catch(function(){ return []; });
+  }, function(){ return []; }).then(function(rows){
+    return Array.isArray(rows) ? rows : (rows && Array.isArray(rows.passkeys) ? rows.passkeys : []);
+  });
+}
+function passkeyForget(id){
+  return cloudFetch(PASSKEY_ENDPOINTS.list + '/' + encodeURIComponent(id), { method: 'DELETE' })
+    .then(function(resp){ if (!resp.ok) return passkeyReadError(resp); return true; });
+}
+
+/* ---------- what Settings is allowed to claim ----------
+   `null` means "not asked yet" and is NOT the same as "none", which is why the
+   row draws nothing definite until an answer exists: a row that says "Not set
+   up" while the request is still in flight is a row that lies to an athlete
+   who has one. Held in memory only, for the life of the page, and thrown away
+   on sign-out along with everything else about the account. */
+var passkeyInfo = null;             // null = unknown; array = the server's answer
+var passkeyAsked = false;
+function passkeyRefreshStatus(){
+  if (!passkeyApiAvailable() || !cloudSignedIn()){ return Promise.resolve(null); }
+  passkeyAsked = true;
+  return passkeyList().then(function(rows){
+    passkeyInfo = rows;
+    patchCloudCard();
+    return rows;
+  });
+}
+/* Asked once per page, lazily, from the surface that displays it. Rendering
+   Settings is the only reason to know, so it is also the only thing that asks. */
+function passkeyEnsureStatus(){
+  if (passkeyAsked || passkeyInfo !== null) return;
+  if (!passkeyApiAvailable() || !cloudSignedIn()) return;
+  passkeyRefreshStatus();
+}
+function passkeyForgetLocalStatus(){ passkeyInfo = null; passkeyAsked = false; }
+
 // Supabase returns tokens in the URL fragment on the web. A custom-scheme
 // redirect can arrive with them in the query string instead, so read both.
 function parseAuthParams(src){
@@ -5129,6 +5442,24 @@ function handleAuthDeepLink(url){
   // handling — it means either outcome was already handled, or there was
   // genuinely nothing to consume.
   if (!cloudConsumeAuthHash(url)) return false;
+  cloudCompleteSignIn();
+  return true;
+}
+
+/* ---------- what happens once a session exists, WHEREVER IT CAME FROM ----------
+   The magic link and the passkey are two doors into the same room. Past the
+   threshold the work is identical: find out whose account this is, mint the
+   delivery lease, reconcile what the account holds against what is on this
+   device, repaint. Extracted so there is exactly ONE such path -- a second door
+   that grew its own completion would be a second authentication system, which
+   is precisely what this must not become.
+
+   Note what is NOT here. No account is created, no entitlement is decided, no
+   gate is opened: establishDeliverySession() asks the server, and the server
+   applies the same allowlist, trial and subscription rules it always has. A
+   passkey changes how somebody proves who they are and nothing about what that
+   person is then allowed to do. */
+function cloudCompleteSignIn(){
   cloudStatus = 'syncing'; patchCloudCard();
   var who = cloudSession.user_id ? Promise.resolve() : cloudLoadUser();
   /* THE NATIVE HALF OF THE COOKIE BRIDGE, and the reason it needs its own step.
@@ -5144,11 +5475,13 @@ function handleAuthDeepLink(url){
      successfully, uses the app for the rest of the session, and is bounced to
      the account shell the next time the app cold-starts -- the worst kind of
      bug, because it works right up until it doesn't. */
-  who.then(establishDeliverySession).then(cloudReconcile).then(function(){
+  return who.then(establishDeliverySession).then(cloudReconcile).then(function(){
+    /* Ask what this account holds only once it is known WHICH account, and only
+       from the door that just opened -- Settings will not be on screen yet. */
+    passkeyRefreshStatus();
     renderApp();
     showToast('Signed in — your plan is linked to your account');
   }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
-  return true;
 }
 
 function cloudInitDeepLinks(){
@@ -5280,6 +5613,7 @@ function handleCloudDeleteAccount(){
     }catch(e){}
     entitlementInfo = null;
     lastEntitlementAt = 0;
+    passkeyForgetLocalStatus();
     cloudSession = null;
     writeStored(CLOUD_SESSION_KEY, null);
     writeStored(CLOUD_BACKUP_KEY, null);
@@ -5351,6 +5685,7 @@ function cloudSignOut(){
   }catch(e){}
   entitlementInfo = null;
   lastEntitlementAt = 0;
+  passkeyForgetLocalStatus();
   cloudSession = null;
   landingDismissed = false;   // the next arrival is a new arrival
   writeStored(CLOUD_SESSION_KEY, null);
@@ -6220,6 +6555,16 @@ var ICONS = {
   target: svgWrap('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>'),
   shieldmark: svgWrap('<path d="M12 2.5l8 3.5v5.2c0 5-3.4 8.3-8 10.3-4.6-2-8-5.3-8-10.3V6z"/><path d="M12 7.5v9M8.3 10.3L12 7.5l3.7 2.8" stroke-width="1.6"/>', ' style="color:var(--bronze)"'),
   zap: svgWrap('<path d="M12.5 2.5L4 13h6l-1 8.5L20 11h-6.5z"/>'),
+  /* Nested ridges, drawn in the same hairline vocabulary as every other icon
+     here. It is a MARK meaning "your device checks it is you" -- deliberately
+     not an operating-system fingerprint asset, and never a picture of the
+     athlete's own print. Face ID, a screen lock and a security key all sign in
+     through the same control; the ridge motif is simply the one people read
+     fastest. */
+  passkey: svgWrap('<path d="M12 11.2a2.2 2.2 0 0 1 2.2 2.2c0 2.1.2 3.8.8 5.3"/>'+
+                   '<path d="M8.6 13.4a3.4 3.4 0 0 1 6.8 0c0 2.7.4 4.6 1.2 6"/>'+
+                   '<path d="M5.8 16.8a11 11 0 0 1-.4-3.4 6.6 6.6 0 0 1 13.2 0c0 2.1.1 3.7.5 5"/>'+
+                   '<path d="M4.3 8.9A8.6 8.6 0 0 1 12 4.4c2.1 0 4.1.8 5.6 2"/>'),
   // Generic activity-pulse glyph for the Strava connect button -- an angular
   // ascending line evoking a heart-rate/activity trace, not a reproduction
   // of Strava's trademarked logomark.
@@ -21405,6 +21750,80 @@ function planStorageStatus(){
            hint:'Changes since your last backup have not reached your account yet.' };
 }
 
+/* ---------- ONE sign-in surface, rendered in every place that asks ----------
+   Valhalla asks somebody to sign in in two places -- the Account & Backup card
+   and Restore a Plan -- and they used to carry two copies of the same control.
+   A second door is fine; a second BEHAVIOUR is not, so both now render this.
+
+   THE HIERARCHY IS THE WHOLE POINT. The passkey is the everyday route: one tap,
+   the device checks it is you, done. The email link is the route that always
+   works -- a new phone, a lost phone, a borrowed laptop, or simply somebody who
+   would rather have an email -- so it is DEMOTED, never removed, and keeps its
+   id, its action and its endpoint exactly as they were. If passkeys are not
+   available on this device the email link is the primary control again and the
+   athlete is never told about a capability they do not have.
+
+   And there is still no password anywhere in here. */
+/* THE PROMISE HAS TO MATCH THE DEVICE. Offering "a passkey on this device" to
+   a browser that has no WebAuthn is describing a capability it does not have,
+   so the sentence is composed from the same answer that decides whether the
+   control is drawn. Both halves are equally true and equally provable: there is
+   no password either way, and the email link is there either way. */
+var SIGN_IN_NO_PASSWORD = {
+  passkey: 'There is no password for you to create or remember \u2014 a passkey on this device, or a link we email you.',
+  email:   'There is no password for you to create or remember \u2014 we email you a link.'
+};
+function renderSignInOptions(lede){
+  var pk = passkeyApiAvailable();
+  lede = lede + ' ' + (pk ? SIGN_IN_NO_PASSWORD.passkey : SIGN_IN_NO_PASSWORD.email);
+  var emailBlock =
+    '<div class="field" style="margin-bottom:8px;"><label>Email</label>'+
+      '<input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
+    '<button type="button" class="btn '+(pk ? 'btn-ghost' : 'btn-primary')+' btn-block" '+
+      'data-action="cloud-sign-in">'+ICONS.link+' Email me a sign-in link</button>';
+  return '<div class="field-hint" style="margin-bottom:10px;">'+escapeHtml(lede)+'</div>'+
+    (pk
+      ? '<button type="button" class="btn btn-primary btn-block" data-action="passkey-sign-in">'+
+          ICONS.passkey+' Sign in with a passkey</button>'+
+        /* Said plainly, once, at the moment of the promise. The device does the
+           checking; we are sent a signature and nothing else. */
+        '<div class="field-hint" style="margin:8px 2px 0;">Your phone or laptop checks it\u2019s you, '+
+          'the way it unlocks. Velvet Viking is never sent your fingerprint or your face.</div>'+
+        /* aria-hidden throughout: "OR" read aloud between two buttons that
+           already say what they do is noise, not information. */
+        '<div class="phase-divider is-between" aria-hidden="true">'+
+          '<span class="r"></span><span class="l font-head">OR</span><span class="r"></span></div>'
+      : '')+
+    emailBlock;
+}
+
+/* ---------- SETTINGS \u2192 ACCOUNT & BACKUP \u2192 Passkey ----------
+   Drawn from the server\u2019s answer rather than a local flag, so it cannot offer
+   to "manage" a passkey that was removed on another device, nor claim there is
+   none while the question is still in flight. Nothing is rendered at all on a
+   device that cannot do passkeys -- an inert row explaining an absent feature
+   is just clutter in the one card an athlete comes to for facts. */
+function renderPasskeyRow(){
+  if (!passkeyApiAvailable() || !cloudSignedIn()) return '';
+  var known = passkeyInfo;
+  var desc, btn;
+  if (known === null){
+    desc = 'Checking\u2026';
+    btn  = '';
+  } else if (known.length){
+    desc = known.length === 1 ? 'Ready on this account'
+                              : known.length + ' registered on this account';
+    btn  = '<button type="button" class="btn btn-sm btn-ghost" data-action="passkey-manage">Manage</button>';
+  } else {
+    desc = 'Not set up \u2014 sign in with the email link every time';
+    btn  = '<button type="button" class="btn btn-sm btn-primary" data-action="passkey-setup">Set up</button>';
+  }
+  return '<div class="connect-row" id="passkey-row">'+
+      '<div><div class="name">Passkey</div><div class="desc">'+escapeHtml(desc)+'</div></div>'+
+      btn+
+    '</div>';
+}
+
 function renderCloudCard(){
   if (!cloudConfigured()) return '';
   var body;
@@ -21424,6 +21843,12 @@ function renderCloudCard(){
         '<div><div class="name">'+escapeHtml(cloudSession.email||'Signed in')+'</div><div class="desc">'+label+'</div></div>'+
         '<button type="button" class="btn btn-sm btn-ghost" data-action="cloud-sign-out">Sign out</button>'+
       '</div>'+
+      /* Enrolment lives HERE, next to the identity it belongs to, because a
+         passkey is a property of this account on this device and nothing else
+         in Settings is. It sits below the account row and above the permanent
+         actions, so it reads as part of getting in rather than part of
+         leaving. */
+      renderPasskeyRow()+
       (revoked ? '<div class="field-hint" style="margin-top:8px;">This account no longer has access to Velvet Viking. Your plan and history are unaffected and remain on this device.</div>' : '')+
       /* DELETE ACCOUNT AND RESET PLAN MUST NOT LOOK ALIKE.
          Both were btn-danger, so Settings offered two identical red buttons:
@@ -21440,9 +21865,7 @@ function renderCloudCard(){
         'This is not the same as resetting your plan. Your training on this device is left alone.</div>'+
       '</div>';
   } else {
-    body = '<div class="field-hint" style="margin-bottom:10px;">Sign in to back your plan up and use it on more than one device. We email you a link — there is no password.</div>'+
-      '<div class="field" style="margin-bottom:8px;"><label>Email</label><input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
-      '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">'+ICONS.link+' Email me a sign-in link</button>';
+    body = renderSignInOptions('Sign in to back your plan up and use it on more than one device.');
   }
   var st = planStorageStatus();
   return '<div class="hub-card" id="cloud-card">'+
@@ -21492,11 +21915,7 @@ function openRestoreModal(){
     signedIn
       ? '<div class="field-hint">Signed in as '+escapeHtml((cloudSession && cloudSession.email) || 'your account')+
         '. If your account holds a plan it will be offered automatically \u2014 close this and reopen the app if you have just signed in.</div>'
-      : '<div class="field-hint" style="margin-bottom:10px;">Signing in restores a plan you backed up to your account, on this or any other device. We email you a link \u2014 there is no password.</div>'+
-        '<div class="field" style="margin-bottom:8px;"><label>Email</label>'+
-          '<input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
-        '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">'+
-          ICONS.link+' Email me a sign-in link</button>';
+      : renderSignInOptions('Signing in restores a plan you backed up to your account, on this or any other device.');
   openModal(
     '<div class="modal-head"><h2 class="font-head">Restore a Plan</h2>'+
       '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
@@ -21543,6 +21962,100 @@ function handleCloudSignIn(){
       showToast(signInErrorCopy(code));
     });
 }
+/* ---------- the passkey handlers ----------
+   Three deliberate rules run through all of them.
+
+   ONE, `cancelled` is silent. Dismissing the operating system's own prompt is
+   an answer, not an error, and telling somebody they cancelled the thing they
+   just cancelled is nagging.
+
+   TWO, every failure ends with the athlete still able to get in. There is no
+   branch here that leaves somebody staring at a dead end -- the email link is
+   on the same screen, and the copy points at it.
+
+   THREE, nothing here decides anything about access. Signing in with a passkey
+   goes through cloudCompleteSignIn(), the same path the magic link takes, and
+   the server re-applies every rule it always did. */
+function handlePasskeySignIn(){
+  if (!passkeyApiAvailable()){ showToast(passkeyErrorCopy('unsupported')); return; }
+  /* Between the tap and the system prompt there is a network round trip for the
+     challenge, which on a bad connection is long enough to look like nothing
+     happened. */
+  showToast('Waiting for your device\u2026');
+  passkeySignIn().then(function(){
+    /* Reached from Restore a Plan as well as Settings; closing a modal that is
+       not open is a no-op, and leaving one open over a freshly signed-in app
+       would hide the thing the athlete came back for. */
+    closeModal();
+    return cloudCompleteSignIn();
+  }).catch(function(err){
+    var code = (err && err.code) || 'default';
+    if (code === 'cancelled') return;
+    showToast(passkeyErrorCopy(code));
+  });
+}
+/* ENROLMENT IS ONLY EVER OFFERED TO SOMEBODY ALREADY SIGNED IN, and this is the
+   second place that is enforced -- passkeyRegister() refuses without a session
+   too. That is what keeps a passkey incapable of creating an account, and so
+   incapable of walking around the allowlist, the trial or the subscription. */
+function handlePasskeySetup(){
+  if (!cloudSignedIn()){ showToast(passkeyErrorCopy('session_missing')); return; }
+  showToast('Waiting for your device\u2026');
+  passkeyRegister().then(function(){
+    return passkeyRefreshStatus();
+  }).then(function(){
+    showToast('Passkey ready \u2014 use it to sign in next time');
+  }).catch(function(err){
+    var code = (err && err.code) || 'default';
+    if (code === 'cancelled') return;
+    /* An existing credential is not a failure worth alarming anybody about, but
+       the row should stop offering to create one. */
+    if (code === 'webauthn_credential_exists') passkeyRefreshStatus();
+    showToast(passkeyErrorCopy(code));
+  });
+}
+function handlePasskeyManage(){
+  var rows = passkeyInfo || [];
+  var list = rows.length
+    ? rows.map(function(k){
+        var when = k.created_at ? dShort(String(k.created_at).slice(0, 10)) : '';
+        return '<div class="connect-row">'+
+            '<div><div class="name">'+escapeHtml(k.friendly_name || 'Passkey')+'</div>'+
+              '<div class="desc">'+escapeHtml(when ? 'Added '+when : 'On this account')+'</div></div>'+
+            '<button type="button" class="btn btn-sm btn-ghost" data-action="passkey-forget" '+
+              'data-key="'+escapeHtml(String(k.id))+'">Remove</button>'+
+          '</div>';
+      }).join('')
+    : '<div class="field-hint">No passkey is registered to this account.</div>';
+  openModal(
+    '<div class="modal-head"><h2 class="font-head">Passkey</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body">'+
+      /* Said here rather than only at sign-in, because this is the screen an
+         athlete opens when they want to know what we actually hold. */
+      '<div class="field-hint" style="margin-bottom:10px;">A passkey is a key kept by your device. '+
+      'Velvet Viking holds only the public half and can never see your fingerprint, your face or your screen lock.</div>'+
+      list+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-top:12px;" '+
+        'data-action="passkey-setup">'+ICONS.passkey+' Add a passkey on this device</button>'+
+      '<div class="field-hint" style="margin-top:12px;">Removing every passkey does not close your account '+
+      'and never touches your training. You sign in with the email link again, and can set a new one up whenever you like.</div>'+
+    '</div>'
+  );
+}
+function handlePasskeyForget(id){
+  if (!id) return;
+  if (!window.confirm('Remove this passkey?\n\nYou will sign in with the email link instead, '+
+                      'and can set a new passkey up at any time. Your training is not affected.')) return;
+  passkeyForget(id).then(function(){
+    return passkeyRefreshStatus();
+  }).then(function(){
+    closeModal();
+    showToast('Passkey removed');
+  }).catch(function(err){
+    showToast(passkeyErrorCopy((err && err.code) || 'default'));
+  });
+}
 function renderThemeToggleRow(){
   var isDark = state.theme==='dark';
   return '<div class="connect-row" id="theme-toggle-row">'+
@@ -21559,6 +22072,11 @@ function patchThemeToggle(){
 // key, export/reset) or open one of the existing modals -- openModal() always
 // closes any modal already open first, so there's never a nesting risk.
 function renderSettingsHubView(){
+  /* The only surface that displays whether this account has a passkey is also
+     the only thing that asks. Inert unless the device can do passkeys AND
+     somebody is signed in; when the answer lands it patches the card in place,
+     exactly as the entitlement read already does. */
+  passkeyEnsureStatus();
   return '<div class="view-heading font-head">Settings</div>'+
     /* Subscription FIRST, above the account it belongs to. A paying customer
        opening Settings is most often here for one of two reasons -- what am I
@@ -21918,6 +22436,10 @@ document.addEventListener('click', function(e){
     case 'reset-pace-overrides': handleResetPaceOverrides(); break;
     case 'set-view': handleSetView(target.getAttribute('data-view')); break;
     case 'cloud-sign-in': handleCloudSignIn(); break;
+    case 'passkey-sign-in': handlePasskeySignIn(); break;
+    case 'passkey-setup': handlePasskeySetup(); break;
+    case 'passkey-manage': handlePasskeyManage(); break;
+    case 'passkey-forget': handlePasskeyForget(target.getAttribute('data-key')); break;
     case 'cloud-sign-out': cloudSignOut(); break;
     case 'cloud-delete-account': handleCloudDeleteAccount(); break;
     case 'cloud-keep-local': handleCloudKeepLocal(); break;

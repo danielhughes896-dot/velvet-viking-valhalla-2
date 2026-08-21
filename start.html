@@ -22,6 +22,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/vvv-shell.css">
+<script src="/passkey.js" defer></script>
 <style>
   /* Page-specific only. Palette, controls and structure come from the shared
      shell, so this cannot drift away from the rest of the product. */
@@ -86,6 +87,19 @@
     <button class="vvv-btn" id="send" style="margin-top:16px;">Send my link</button>
     <p class="quiet">The same link creates your account if you are new, and signs you in if
        you are not. Nothing is charged and no trial begins by making an account.</p>
+    <!-- THE PASSKEY IS SECOND HERE, AND THAT IS DELIBERATE.
+         This screen's first job is making an account, and only the emailed link
+         can do that -- a passkey proves an identity, it never creates one. So
+         the returning athlete who already has one gets a fast way past this
+         screen, and the new athlete is not offered a control that cannot work
+         for them yet. On /account, which is sign-in only, the order is the
+         other way round. Revealed by script; never present without one. -->
+    <div id="passkey-block" class="vvv-hidden">
+      <div class="vvv-or" aria-hidden="true"><span>or</span></div>
+      <button class="vvv-btn vvv-btn-ghost" id="passkey">Sign in with a passkey</button>
+      <p class="quiet">Already set one up? Your phone or laptop checks it’s you, the way it
+         unlocks. Velvet Viking is never sent your fingerprint or your face.</p>
+    </div>
     <p class="err vvv-hidden" id="auth-err"></p>
   </div>
 
@@ -383,6 +397,44 @@
       .catch(function(){ $('send').disabled = false; fail('auth-err', 'We could not send that link. Try again in a moment.'); });
   });
   $('again').addEventListener('click', function(){ show('pane-auth'); });
+
+  /* ---------- passkey sign-in ----------
+     A shortcut past this screen for somebody who already has an account and has
+     already enrolled a passkey inside the app. It produces a Supabase session
+     and then hands straight back to route(), which is the SAME function the
+     magic-link return goes through -- so the server re-decides access, the
+     trial and the entitlement exactly as it always did, and this adds no way
+     around any of it. No account can be created here.
+
+     passkey.js is deferred, so it has run by DOMContentLoaded but not while
+     this script is being parsed. */
+  document.addEventListener('DOMContentLoaded', function(){
+    var pk = window.VVVPasskey;
+    if (!pk || !pk.available()) return;   // no control at all rather than a broken one
+    $('passkey-block').classList.remove('vvv-hidden');
+    $('passkey').addEventListener('click', function(){
+      clear('auth-err');
+      $('passkey').disabled = true;
+      pk.signIn().then(function(sess){
+        try{
+          localStorage.setItem('vvv_cloud_session', JSON.stringify({
+            access_token: sess.access_token,
+            refresh_token: sess.refresh_token || null,
+            expires_at: Date.now() + (parseInt(sess.expires_in, 10) || 3600) * 1000,
+            email: sess.user && sess.user.email,
+            user_id: sess.user && sess.user.id
+          }));
+        }catch(e){ /* private mode -- the cookie still works for this session */ }
+        show('pane-resolving');
+        route();
+      }).catch(function(err){
+        $('passkey').disabled = false;
+        var code = (err && err.code) || 'default';
+        /* Dismissing the system prompt is an answer, not a fault. */
+        if (code !== 'cancelled') fail('auth-err', pk.copy(code));
+      });
+    });
+  });
 
   /* ---------- the objective shapes the questions ----------
      Same five inputs, asked in the language of what is being built. The

@@ -133,6 +133,12 @@ function loadApp(options) {
   sandbox.clearTimeout = function(){};
   sandbox.setInterval = function(){ return ++fakeTimerId; };
   sandbox.clearInterval = function(){};
+  /* Base64 is a browser global, not a Node one. The passkey code base64url-
+     encodes WebAuthn's ArrayBuffers with it, so the sandbox needs the same two
+     functions every browser already has -- Buffer is the Node equivalent and
+     produces byte-identical output. */
+  sandbox.atob = (s) => Buffer.from(String(s), 'base64').toString('binary');
+  sandbox.btoa = (s) => Buffer.from(String(s), 'binary').toString('base64');
   sandbox.console = console;
   sandbox.URLSearchParams = URLSearchParams;
   sandbox.Date = opts.pinnedDate ? makePinnedDate(opts.pinnedDate) : Date;

@@ -27,7 +27,7 @@ const SUBSET = ['stripeLifecycle','monthlyPause','commercialCore','securityPostu
   'betaClosure','entitlementMigration','releaseReadiness','observability','accessGate',
   'billingWebhook','stripeFoundation','commercialEntry','legacyBetaRetirement',
   'commercialSchemaCollision','adjustedSessionStructure',
-  'prescriptionAwareLogging'].map(n => 'test/' + n + '.test.js').join(' ');
+  'prescriptionAwareLogging','passkey'].map(n => 'test/' + n + '.test.js').join(' ');
 
 const CASES = [
   // ---- ACCESS ----
@@ -196,7 +196,58 @@ const CASES = [
   ['workout: the coach’s move leaves the prescription on the old day',
    'protected/velvet-viking-valhalla.html',
    "var MOVED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','prescription','manualEdit'];",
-   "var MOVED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','manualEdit'];"]
+   "var MOVED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','manualEdit'];"],
+
+  // ---- PASSKEY ----
+  // Each of these is a promise the feature was allowed to ship on. If a
+  // mutation here survives, the promise is not actually being checked.
+  ['passkey: the magic link is still drawn but no longer wired to anything',
+   'protected/velvet-viking-valhalla.html',
+   "'data-action=\"cloud-sign-in\">'+ICONS.link+' Email me a sign-in link</button>';",
+   "'data-action=\"cloud-sign-in-x\">'+ICONS.link+' Email me a sign-in link</button>';"],
+  ['passkey: the email control is dropped when a passkey exists',
+   'protected/velvet-viking-valhalla.html',
+   "      : '')+\n    emailBlock;", "      : '');"],
+  ['passkey: a browser with no WebAuthn is offered one anyway',
+   'protected/velvet-viking-valhalla.html',
+   "  var pk = passkeyApiAvailable();\n  lede =", "  var pk = true;\n  lede ="],
+  ['passkey: the athlete’s own token is sent to the sign-in endpoints',
+   'protected/velvet-viking-valhalla.html',
+   "    method: 'POST', auth: false, headers: PASSKEY_ANON_HEADERS(), body: JSON.stringify({})",
+   "    method: 'POST', body: JSON.stringify({})"],
+  ['passkey: enrolment stops requiring a signed-in identity',
+   'protected/velvet-viking-valhalla.html',
+   "  if (!cloudSignedIn()) return Promise.reject(passkeyErrFrom('session_missing'));", ""],
+  ['passkey: a session without an access token is adopted anyway',
+   'protected/velvet-viking-valhalla.html',
+   "      if (!sess || !sess.access_token) throw passkeyErrFrom('default');", ""],
+  ['passkey: a project with passkeys switched off looks like a generic failure',
+   'protected/velvet-viking-valhalla.html',
+   "    if (resp.status === 404 || code === 'passkey_disabled') code = 'passkey_disabled';", ""],
+  ['passkey: base64url keeps its padding, so the server cannot read it',
+   'protected/velvet-viking-valhalla.html',
+   ".replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');",
+   ".replace(/\\+/g, '-').replace(/\\//g, '_');"],
+  ['passkey: what the account holds survives a sign-out',
+   'protected/velvet-viking-valhalla.html',
+   "function passkeyForgetLocalStatus(){ passkeyInfo = null; passkeyAsked = false; }",
+   "function passkeyForgetLocalStatus(){ }"],
+  ['passkey: Settings guesses "none" before the server has answered',
+   'protected/velvet-viking-valhalla.html',
+   "  if (known === null){\n    desc = 'Checking\\u2026';\n    btn  = '';\n  } else if (known.length){",
+   "  if (false){\n    desc = 'Checking\\u2026';\n    btn  = '';\n  } else if (known && known.length){"],
+  ['passkey: an unreachable list is reported as a passkey that exists',
+   'protected/velvet-viking-valhalla.html',
+   "    if (!resp.ok) return [];\n    return resp.json().catch(function(){ return []; });\n  }, function(){ return []; })",
+   "    if (!resp.ok) return [{ id: 'assumed' }];\n    return resp.json().catch(function(){ return [{ id: 'assumed' }]; });\n  }, function(){ return [{ id: 'assumed' }]; })"],
+  ['passkey: the shells gain the power to create credentials',
+   'passkey.js',
+   "  window.VVVPasskey = { available: available, signIn: signIn, copy: copy };",
+   "  window.VVVPasskey = { available: available, signIn: signIn, copy: copy,\n    register: function(){ return navigator.credentials.create({}); },\n    registerOptions: '/auth/v1/passkeys/registration/options' };"],
+  ['passkey: the two doors stop sharing one completion path',
+   'protected/velvet-viking-valhalla.html',
+   "  cloudCompleteSignIn();\n  return true;",
+   "  cloudStatus = 'syncing'; patchCloudCard();\n  return true;"]
 ];
 
 let survived = [], killed = 0;
