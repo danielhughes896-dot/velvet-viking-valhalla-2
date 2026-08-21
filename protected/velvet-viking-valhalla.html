@@ -18593,10 +18593,27 @@ function dayCarriesHistory(dd){
    that training instead, because a week number is a position within a block
    and there is no position before week 1. That is what makes a zero or
    negative week structurally impossible rather than merely unused. */
-function blockAnchor(activeDays){
-  var rebuilding = !!(state.setup && state.setup.startDate && state.days && state.days.length);
-  var anchor = rebuilding ? state.setup.startDate
-                          : firstActiveDayOnOrAfter(todayStr(), activeDays);
+function blockAnchor(activeDays, isRebuild){
+  /* A REBUILD KEEPS ITS ORIGIN; A NEW BLOCK STARTS TODAY. The caller may
+     already know which this is -- handleGeneratePlan does, because changing
+     the block's PURPOSE makes it a new block however much else stayed the
+     same -- so it can say. Callers that do not pass anything keep the
+     original meaning exactly. */
+  var rebuilding = isRebuild !== undefined ? !!isRebuild
+    : !!(state.setup && state.setup.startDate && state.days && state.days.length);
+  if (!rebuilding) return firstActiveDayOnOrAfter(todayStr(), activeDays);
+  /* A REBUILD IS PULLED BACK BY ITS OWN HISTORY, and only a rebuild.
+     Reaching back to the earliest logged day is what keeps a session logged in
+     week 2 in week 2 when the block is re-tailored -- see
+     reconcileRegeneratedDays(). But when the athlete is starting a DIFFERENT
+     block, state.days still holds the previous one's training, and letting it
+     drag the new origin backwards would begin a maintenance block twelve weeks
+     ago and file a marathon build's sessions inside it. That is the week-zero
+     shape again, arriving through a different door.
+
+     Unchanged for every caller that existed before: a first build has no days
+     to be pulled back by, and a rebuild behaves exactly as it did. */
+  var anchor = state.setup.startDate;
   (state.days||[]).forEach(function(dd){
     if (dayCarriesHistory(dd) && dd.date < anchor) anchor = dd.date;
   });
@@ -18659,6 +18676,35 @@ function handleGeneratePlan(){
   if (!volume || volume<=0){ showToast('Enter your current weekly volume'); return; }
   if (activeDays.length<3 || activeDays.length>6){ showToast('Pick between 3 and 6 running days'); return; }
   if (isNaN(longRunDay)){ showToast('Choose a long run day'); return; }
+
+  /* WHICH BLOCK IS THIS? Decided before anything is dated, because the answer
+     chooses the anchor every date below is measured from.
+
+     A REBUILD keeps the block it is rebuilding -- same identity, same origin,
+     same ledger row -- because re-tailoring a plan is not starting a new phase
+     of training.
+
+     CHANGING THE PURPOSE IS NOT RE-TAILORING. An athlete turning a finished
+     marathon build into maintenance is starting a different phase, and it must
+     get a different block: the same identity would file maintenance weeks
+     under a ledger row that says "marathon", and -- the reason this was found
+     -- the old origin would be reused, so an eight-week maintenance block
+     measured from a start date twelve weeks ago lands entirely in the past and
+     the builder refuses it with "that block length has already been trained
+     through". The athlete changes one dropdown and the app tells them their
+     block is over.
+
+     So a purpose change opens a new block from today, archiving and closing
+     the old one first -- exactly what startDevelopmentBlock() does when the
+     same transition arrives through a recommendation instead. Two doors into
+     one behaviour. */
+  var priorBlock = state.setup && state.setup.blockId ? blockById(state.setup.blockId) : null;
+  var priorPurpose = priorBlock ? priorBlock.purpose
+                    : (state.setup && isBlockPurpose(state.setup.purpose) ? state.setup.purpose : 'race');
+  var hasLivePlan = !!(state.setup && state.days && state.days.length);
+  var purposeChanged = hasLivePlan && priorPurpose !== buildPurpose;
+  var rebuilding = !!priorBlock && hasLivePlan && !purposeChanged;
+
   if (hasEvent){
     if (!raceDate){ showToast('Pick an event date'); return; }
     if (raceDate <= todayStr()){ showToast('Event date needs to be in the future'); return; }
@@ -18672,7 +18718,7 @@ function handleGeneratePlan(){
        twelve week block" means twelve weeks of THIS block, counting the weeks
        already trained -- measuring from today instead would silently make it
        twelve weeks longer every time the athlete re-tailored it. */
-    var s0 = blockAnchor(activeDays);
+    var s0 = blockAnchor(activeDays, rebuilding);
     raceDate = addDays(addDays(s0, -isoWeekday(s0)), wks*7 - 1);
     if (raceDate <= todayStr()){
       showToast('That block length has already been trained through — choose a longer one');
@@ -18689,7 +18735,7 @@ function handleGeneratePlan(){
   // origin and the race date, not a fixed weekly grid worked backward from
   // race day -- so a rebuild four weeks in produces a block whose week 5 is
   // week 5, with the first four weeks still holding their sessions.
-  var startDate = blockAnchor(activeDays);
+  var startDate = blockAnchor(activeDays, rebuilding);
   if (raceDate < startDate){
     showToast('Your first available running day falls after that date \u2014 pick a later '+(hasEvent?'event date':'block length'));
     return;
@@ -18714,31 +18760,35 @@ function handleGeneratePlan(){
   var schedule = { activeDays:activeDays, longRunDay:longRunDay };
   var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks);
   var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);
-  var reconciled = reconcileRegeneratedDays(state.days, days, startDate);
+
+  /* HISTORY IS RECONCILED INTO A REBUILD AND ARCHIVED OUT OF A TRANSITION.
+
+     reconcileRegeneratedDays() exists for a rebuild: the logged days belong to
+     the block being rebuilt and must keep their week INSIDE it. A purpose
+     change is a different block, so merging them in would place a marathon
+     build's sessions before week 1 of a maintenance block -- precisely the
+     week-zero shape the history-placement fix removed. startDevelopmentBlock()
+     already says this in its own words; the builder now honours the same rule.
+
+     Archiving happens BEFORE the prescription is replaced, because interpreting
+     a session needs the plan that scheduled it to still be loaded. */
+  var reconciled;
+  if (purposeChanged){
+    archiveCompletedSessions(state.setup.blockId);
+    if (state.setup.blockId) closeBlock(state.setup.blockId, { reason:'transition', to:buildPurpose });
+    reconciled = { days: days, preserved: 0 };
+  } else {
+    reconciled = reconcileRegeneratedDays(state.days, days, startDate);
+  }
   days = reconciled.days;
 
-  /* WHICH BLOCK IS THIS?
-     A REBUILD keeps the block it is rebuilding -- same identity, same origin,
-     same ledger row -- because re-tailoring a plan is not starting a new
-     phase of training. A build with no block to rebuild opens one.
-
-     Purpose is carried through a rebuild and defaults to 'race', so every plan
-     that existed before this programme reads as exactly what it is. */
-  /* PURPOSE COMES FROM THE BUILDER, INCLUDING ON A REBUILD.
-     Re-tailoring a plan keeps the block's identity and origin, but the athlete
-     may genuinely be turning a finished race build into maintenance -- and the
-     selector is right there, showing the current purpose, so whatever it says
-     is a deliberate answer. Reading state.setup instead would silently discard
-     a change the athlete had just made and watched the questions respond to. */
-  var rebuilding = !!(state.setup && state.setup.blockId && blockById(state.setup.blockId)
-                      && state.days && state.days.length);
   var purpose = buildPurpose;
   var block = rebuilding ? blockById(state.setup.blockId)
                          : openBlock({ purpose: purpose, startDate: startDate,
                                        distanceKey: distanceKey, goalDate: raceDate,
                                        hasEvent: hasEvent });
+  if (purposeChanged) block.fromBlockId = priorBlock ? priorBlock.id : null;
   if (rebuilding){
-    block.purpose = purpose;
     block.distanceKey = distanceKey;
     block.goalDate = raceDate;
     block.hasEvent = hasEvent;

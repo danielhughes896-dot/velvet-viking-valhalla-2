@@ -1,0 +1,791 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
+const { buildPlan } = require('./fixtures.js');
+
+// YEAR-ROUND LIFECYCLE — THE WHOLE SEASON, NOT ONE BLOCK.
+//
+// yearRound.test.js proves each engine part in isolation. This drives the
+// athlete through the transitions between them, because that is where a
+// year-round product actually breaks: not in a recovery block, but in the
+// handover from a race to it, and from it to whatever comes next.
+//
+// Every path below ends somewhere. "No dead end" is the property under test as
+// much as any individual recommendation, so each campaign asserts that Valhalla
+// still has something to say at the end of it.
+
+const ROOT = path.join(__dirname, '..');
+const TODAY = '2026-08-21T09:00:00Z';
+const SCHEDULE = { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 };
+
+function app(){
+  const a = loadApp({ pinnedDate: TODAY });
+  a.showToast = () => {};
+  a.renderApp = () => {};
+  a.confirm = () => true;
+  return a;
+}
+
+/* An athlete mid-way through a race block, with real logged training behind
+   them -- built through the real generator so nothing is hand-forged. */
+function racingAthlete(opts){
+  const o = opts || {};
+  const a = app();
+  buildPlan(a, { weeks: o.weeks || 14, startDate: a.addDays('2026-08-21', -(o.back || 84)),
+                 distanceKey: o.distanceKey || 'half', volume: o.volume || 55,
+                 benchSec: 45 * 60 });
+  a.state.setup.schedule = SCHEDULE;
+  a.state.setup.benchmark = { distanceKey: '10k', timeSec: 45 * 60 };
+  a.state.setup.goals = { A: { timeSec: 100 * 60 } };
+  a.migrateAthleteRecord();
+  return a;
+}
+
+function logPast(a, opts){
+  const o = opts || {};
+  const t = a.todayStr();
+  a.state.days.filter(d => d.date < t && d.type !== 'rest').forEach((d, i) => {
+    if (o.skipEvery && i % o.skipEvery === o.skipEvery - 1) return;
+    d.completed = true;
+    d.actual = { km: d.km, pace: '5:20', hr: 148, rpe: 5, feel: 'ok',
+                 notes: '', splits: [], paceUnit: 'km' };
+  });
+}
+
+/* Move the block's goal day into the past and log the effort, which is what an
+   athlete who has just raced actually leaves behind. */
+function raceHappened(a, opts){
+  const o = opts || {};
+  const race = a.state.days.filter(d => d.type === 'race')[0];
+  assert.ok(race, 'the fixture needs a goal day');
+  const past = a.addDays(a.todayStr(), -1);
+  race.date = past; race.id = past;
+  a.state.setup.raceDate = past;
+  const b = a.currentBlock();
+  if (b) b.goalDate = past;
+  if (o.ran !== false){
+    race.completed = true;
+    race.actual = { km: race.km, pace: o.pace || '4:44', hr: 175, rpe: 9, feel: 'ok',
+                    notes: '', splits: [], paceUnit: 'km' };
+  }
+  return race;
+}
+
+// ===========================================================================
+// 1. THE RACE CAMPAIGN, END TO END
+//    race -> race day -> outcome -> recovery offered -> recovery -> next
+// ===========================================================================
+test('LIFECYCLE: race → outcome → recovery → what next, with nothing lost', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const trained = a.state.days.filter(d => d.completed).length;
+  assert.ok(trained > 10, 'the fixture needs a real block behind it');
+  raceHappened(a);
+
+  // 1. the question is asked, and it is the only thing asked
+  assert.equal(a.raceOutcomePending(), true, 'a passed goal day with no answer must ask');
+  assert.equal(a.nextBlockRecommendation().kind, 'race_outcome',
+    'nothing may be recommended before the outcome is known');
+
+  // 2. answered
+  const res = a.recordRaceOutcome('raced');
+  assert.equal(res.outcome, 'raced');
+  assert.equal(a.raceOutcomePending(), false, 'the question stops being asked once answered');
+  assert.equal(a.measuredPerformances().length, 1, 'a raced race is a measurement');
+
+  // 3. recovery is now the recommendation, and it is a recommendation
+  const rec = a.nextBlockRecommendation();
+  assert.equal(rec.kind, 'block');
+  assert.equal(rec.purpose, 'recovery');
+  assert.ok(rec.why && rec.why.length > 10, 'a recommendation without a reason is an instruction');
+  assert.equal(a.state.setup.purpose, 'race', 'recommending must not have changed anything');
+
+  // 4. accepted
+  const block = a.startDevelopmentBlock('recovery');
+  assert.ok(block, 'recovery could not be built');
+  assert.equal(a.state.setup.purpose, 'recovery');
+  assert.equal(a.state.athlete.sessions.length, trained,
+    'the race block’s training must survive into the athlete record');
+  assert.equal(a.measuredPerformances().length, 1, 'and so must the measurement');
+
+  // 5. recovery ends somewhere
+  const last = a.state.days[a.state.days.length - 1];
+  a.state.setup.raceDate = a.addDays(a.todayStr(), -1);
+  const after = a.nextBlockRecommendation();
+  assert.ok(after, 'recovery must not be a dead end');
+  assert.equal(after.kind, 'choice');
+  assert.ok(after.options.indexOf('base') !== -1 && after.options.indexOf('race') !== -1,
+    'after recovery the athlete should be able to develop or race again');
+  assert.ok(last, 'the recovery block has days');
+});
+
+test('LIFECYCLE: a DNS is not recovered from, and measures nothing', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a, { ran: false });
+
+  a.recordRaceOutcome('dns');
+  assert.equal(a.measuredPerformances().length, 0, 'a race nobody started measures nothing');
+  const rec = a.nextBlockRecommendation();
+  assert.equal(rec.kind, 'block');
+  assert.equal(rec.purpose, 'maintain',
+    'there is nothing to recover from, so maintenance is the honest offer');
+  assert.match(rec.why, /did not start/i);
+});
+
+test('LIFECYCLE: a DNF keeps the training and refuses the measurement', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const race = raceHappened(a);
+  assert.ok(a.performanceFromDay(race), 'precondition: the effort would otherwise qualify');
+
+  a.recordRaceOutcome('dnf');
+  assert.equal(race.completed, true, 'whatever was run is still training and stays logged');
+  assert.equal(a.measuredPerformances().length, 0,
+    'a did-not-finish is not a measurement of what this athlete can do');
+
+  const rec = a.nextBlockRecommendation();
+  assert.equal(rec.kind, 'block');
+  assert.equal(rec.purpose, 'recovery', 'they still raced hard enough to need it');
+});
+
+// ===========================================================================
+// 2. BETWEEN RACES
+// ===========================================================================
+test('LIFECYCLE: maintain → review → develop or race', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  assert.ok(a.startDevelopmentBlock('maintain'), 'maintenance could not be built');
+  assert.equal(a.state.setup.purpose, 'maintain');
+  assert.equal(a.state.setup.hasEvent, false, 'maintenance must not carry an event');
+
+  a.state.setup.raceDate = a.addDays(a.todayStr(), -1);   // the review point arrives
+  const rec = a.nextBlockRecommendation();
+  assert.equal(rec.kind, 'choice');
+  ['base', 'speed', 'race', 'maintain'].forEach(p =>
+    assert.ok(rec.options.indexOf(p) !== -1, 'maintenance should be able to lead to ' + p));
+  assert.ok(rec.why, 'the review point needs a reason too');
+});
+
+test('LIFECYCLE: base → race campaign', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  assert.ok(a.startDevelopmentBlock('base'));
+  a.state.setup.raceDate = a.addDays(a.todayStr(), -1);
+  const rec = a.nextBlockRecommendation();
+  assert.equal(rec.options[0], 'race', 'the capacity built is for racing on');
+  assert.match(rec.why, /race block/i);
+});
+
+test('LIFECYCLE: speed → race, base or maintain', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  const b = a.startDevelopmentBlock('speed');
+  assert.ok(b);
+  assert.equal(a.state.setup.distanceKey, '5k', 'speed reuses the 5K methodology');
+  a.state.setup.raceDate = a.addDays(a.todayStr(), -1);
+  const rec = a.nextBlockRecommendation();
+  assert.equal(rec.kind, 'choice');
+  ['race', 'base', 'maintain'].forEach(p => assert.ok(rec.options.indexOf(p) !== -1));
+});
+
+// ===========================================================================
+// 3. A SEASON: FOUR BLOCKS, ONE ATHLETE
+// ===========================================================================
+test('LIFECYCLE: after several blocks the athlete record is still one athlete', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const raceTrained = a.state.days.filter(d => d.completed).length;
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+
+  const seen = [];
+  ['recovery', 'base', 'speed', 'maintain'].forEach(p => {
+    const b = a.startDevelopmentBlock(p);
+    assert.ok(b, p + ' could not be built');
+    seen.push(b.id);
+    // train a little inside each block so there is something to carry forward
+    const t = a.todayStr();
+    a.state.days.filter(d => d.date >= t && d.type !== 'rest').slice(0, 3).forEach(d => {
+      d.date = a.addDays(t, -1); d.id = d.date;
+      d.completed = true;
+      d.actual = { km: d.km, pace: '5:30', hr: 145, rpe: 4, feel: 'ok',
+                   notes: '', splits: [], paceUnit: 'km' };
+    });
+  });
+
+  const ids = {};
+  a.state.athlete.blocks.forEach(b => {
+    assert.ok(!ids[b.id], 'two blocks share an id');
+    ids[b.id] = true;
+  });
+  assert.ok(a.state.athlete.blocks.length >= 5, 'every block must be on the ledger');
+  assert.ok(a.state.athlete.sessions.length >= raceTrained,
+    'the original race block’s training must still be there four blocks later');
+
+  const dates = {};
+  a.state.athlete.sessions.forEach(s => {
+    assert.ok(!dates[s.date], 'the same day was archived twice: ' + s.date);
+    dates[s.date] = true;
+  });
+
+  // and a new race block after all of it still reads the history
+  const before = a.state.athlete.sessions.length;
+  a.state.setup.purpose = 'race';
+  assert.ok(a.athleteMemory(400).length > 0, 'the memory must survive a whole season');
+  assert.equal(a.state.athlete.sessions.length, before, 'reading history must not write to it');
+});
+
+// ===========================================================================
+// 4. MEASURED-FITNESS SAFETY
+//    Everything that must NEVER become a measurement.
+// ===========================================================================
+test('SAFETY: changing Goal A/B/C creates no measured point', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const before = a.measuredPerformances().length;
+  a.state.setup.goals = { A: { timeSec: 80 * 60 }, B: { timeSec: 85 * 60 }, C: { timeSec: 95 * 60 } };
+  a.state.setup.activeGoal = 'A';
+  assert.equal(a.measuredPerformances().length, before,
+    'a goal is an aspiration and can never be a measurement');
+  a.state.setup.activeGoal = 'C';
+  assert.equal(a.measuredPerformances().length, before);
+});
+
+test('SAFETY: a recalibration suggestion creates nothing without a real effort', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const before = a.measuredPerformances().length;
+  try { a.handleSuggestGoals(); } catch (e) { /* needs DOM; the point is it writes nothing */ }
+  assert.equal(a.measuredPerformances().length, before,
+    'suggesting goals must not manufacture a fitness point');
+});
+
+test('SAFETY: an ordinary easy run cannot create or move an estimate', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  const est = a.measuredFitnessEstimate('10k');
+  assert.ok(est && !est.withheld, 'precondition: there is an estimate to move');
+
+  const easy = a.state.days.filter(d => d.type === 'easy' && d.date < a.todayStr())[0];
+  assert.ok(easy);
+  easy.completed = true;
+  easy.actual = { km: easy.km, pace: '3:20', hr: 190, rpe: 10, feel: 'ok',
+                  notes: '', splits: [], paceUnit: 'km' };   // absurdly fast, still an easy run
+  const after = a.measuredFitnessEstimate('10k');
+  assert.equal(after.fastSec, est.fastSec, 'an easy run moved the estimate');
+  assert.equal(after.slowSec, est.slowSec);
+  assert.equal(a.measuredPerformances().length, 1, 'and it must not have become a measurement');
+});
+
+test('SAFETY: re-logging the same effort corrects it rather than duplicating it', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const race = raceHappened(a);
+  a.recordRaceOutcome('raced');
+  assert.equal(a.measuredPerformances().length, 1);
+  const first = a.measuredPerformances()[0].timeSec;
+
+  race.actual.pace = '4:30';                 // fixing a typo, same day
+  a.recordMeasuredPerformance(race);
+  const perfs = a.measuredPerformances();
+  assert.equal(perfs.length, 1, 'a corrected time must not create a second athlete');
+  assert.notEqual(perfs[0].timeSec, first, 'and the correction must actually land');
+});
+
+test('SAFETY: a measured result survives a block reset', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  const before = a.measuredPerformances().map(p => p.date + '|' + p.timeSec).join(',');
+  assert.ok(before, 'precondition');
+
+  a.handleResetPlan();
+  assert.equal(a.state.setup, null, 'the prescription is gone');
+  assert.equal(a.measuredPerformances().map(p => p.date + '|' + p.timeSec).join(','), before,
+    'measured fitness is a fact about the athlete, not about the plan');
+});
+
+test('SAFETY: the estimate is a range or nothing, never a prophecy', () => {
+  const a = racingAthlete();
+  assert.equal(a.measuredFitnessEstimate('10k'), null,
+    'with nothing measured the honest answer is nothing at all');
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  const est = a.measuredFitnessEstimate('10k');
+  assert.ok(est.fastSec < est.slowSec, 'a single number would be false precision');
+});
+
+test('SAFETY: the marathon keeps its volume qualification', () => {
+  const a = racingAthlete({ volume: 30 });
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  const est = a.measuredFitnessEstimate('full');
+  assert.ok(est, 'the marathon must be answered, even if the answer is a refusal');
+  assert.equal(est.withheld, true,
+    'equivalence over-predicts the marathon without the volume behind it');
+  assert.match(est.reason, /volume/i, 'and it must say why rather than simply going blank');
+});
+
+// ===========================================================================
+// 5. LONGITUDINAL DATA
+// ===========================================================================
+test('DATA: reset preserves completed evidence and drops the future', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const done = a.state.days.filter(d => d.completed).length;
+  const future = a.state.days.filter(d => d.date > a.todayStr() && d.type !== 'rest').length;
+  assert.ok(future > 5, 'the fixture needs abandoned future days to prove they are dropped');
+
+  a.handleResetPlan();
+  assert.equal(a.state.athlete.sessions.length, done,
+    'exactly what was done, and nothing that merely was going to be');
+  a.state.athlete.sessions.forEach(s =>
+    assert.equal(s.completed, true, 'a session nobody ran reached the athlete record'));
+});
+
+test('DATA: archiving twice adds nothing', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const id = a.state.setup.blockId;
+  const first = a.archiveCompletedSessions(id);
+  assert.ok(first > 0);
+  assert.equal(a.archiveCompletedSessions(id), 0, 'a second pass must file nothing');
+  assert.equal(a.archiveCompletedSessions(id), 0, 'nor a third');
+});
+
+test('DATA: the athlete record survives a save and a cold reload', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  a.handleResetPlan();
+  const expected = a.state.athlete.sessions.length;
+  const perfs = a.measuredPerformances().length;
+  assert.ok(expected > 0 && perfs > 0, 'the fixture needs something to lose');
+  const saved = JSON.stringify(a.state);
+
+  /* A genuinely cold app, handed only the bytes that were stored. This is the
+     path that used to wipe the athlete: loadState() refused any save without a
+     plan, and after Reset Plan there is no plan by design. */
+  const b = loadApp({ pinnedDate: TODAY });
+  b.showToast = () => {};
+  b.localStorage.setItem('velvet-viking-generator-v2', saved);
+  b.loadState();
+
+  assert.ok(b.state.athlete, 'a cold start lost the athlete');
+  assert.equal(b.state.athlete.sessions.length, expected);
+  assert.equal(b.state.athlete.performances.length, perfs);
+  assert.equal(b.measuredPerformances().length, perfs,
+    'a measured race must still be readable after a reinstall-shaped reload');
+});
+
+test('DATA: the live plan wins any date it shares with the archive', () => {
+  const a = racingAthlete();
+  logPast(a);
+  a.archiveCompletedSessions(a.state.setup.blockId);
+  const day = a.state.days.filter(d => d.completed)[0];
+  const archived = a.state.athlete.sessions.filter(s => s.date === day.date)[0];
+  assert.ok(archived, 'precondition');
+
+  day.actual.rpe = 9;                        // the athlete corrects the live plan
+  const mem = a.athleteMemory(400).filter(r => r.date === day.date);
+  assert.equal(mem.length, 1, 'one day, one record');
+  assert.equal(mem[0].rpe, 9, 'the archive must not shadow a correction to the live plan');
+});
+
+test('DATA: stale evidence stays inside the approved window', () => {
+  const a = racingAthlete({ back: 400, weeks: 60 });
+  logPast(a);
+  a.archiveCompletedSessions(a.state.setup.blockId);
+  const cutoff = a.addDays(a.todayStr(), -120);
+  a.athleteMemory(120).forEach(r =>
+    assert.ok(r.date >= cutoff, 'a 120-day window returned ' + r.date));
+  assert.ok(a.athleteMemory(400).length >= a.athleteMemory(120).length,
+    'a wider window must be able to see more, not less');
+});
+
+// ===========================================================================
+// 6. HIGH-VALUE MUTATIONS
+//    Each of these is a defect somebody could plausibly reintroduce. The test
+//    is not that the code is written a particular way -- it is that the
+//    behaviour these describe is impossible.
+// ===========================================================================
+test('MUTATION: reset cannot destroy athlete history', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const done = a.state.days.filter(d => d.completed).length;
+  a.handleResetPlan();
+  assert.ok(a.state.athlete.sessions.length >= done,
+    'if this fails, Reset Plan has gone back to deleting the athlete with the plan');
+});
+
+test('MUTATION: a DNF cannot qualify as race performance', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('dnf');
+  a.measuredPerformances().forEach(p =>
+    assert.notEqual(p.date, a.state.setup.raceDate, 'a DNF became a measured performance'));
+});
+
+test('MUTATION: a goal time cannot become measured progress', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  const before = JSON.stringify(a.measuredPerformances());
+  [60, 70, 90, 120].forEach(m => {
+    a.state.setup.goals = { A: { timeSec: m * 60 } };
+    a.state.setup.activeGoal = 'A';
+    a.measuredProgression();
+  });
+  assert.equal(JSON.stringify(a.measuredPerformances()), before,
+    'the athlete’s ambition changed and their measured fitness moved with it');
+});
+
+test('MUTATION: an abandoned future session cannot become history', () => {
+  const a = racingAthlete();
+  logPast(a);
+  /* Incoherent on purpose: a day still ahead, marked done. The archive must
+     refuse it on the date, not on the flag. */
+  const future = a.state.days.filter(d => d.date > a.todayStr() && d.type !== 'rest')[0];
+  future.completed = true;
+  future.actual = { km: future.km, pace: '5:00', hr: 150, rpe: 5, feel: 'ok',
+                    notes: '', splits: [], paceUnit: 'km' };
+  a.archiveCompletedSessions(a.state.setup.blockId);
+  assert.ok(!a.state.athlete.sessions.some(s => s.date === future.date),
+    'a session that has not happened was written into the athlete record');
+});
+
+test('MUTATION: recovery cannot allow quality inside the safety window', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const raceDate = raceHappened(a).date;
+  a.recordRaceOutcome('raced');
+  const b = a.startDevelopmentBlock('recovery');
+  assert.ok(b);
+  const profile = a.recoveryProfileFor('half');
+  const until = a.addDays(raceDate, profile.noIntensityDays);
+  const banned = ['tempo', 'threshold', 'interval', 'repetition', 'checkpoint', 'race'];
+  a.state.days.filter(d => d.date <= until).forEach(d =>
+    assert.equal(banned.indexOf(d.type), -1,
+      'a ' + d.type + ' session was prescribed on ' + d.date + ', inside the recovery window'));
+});
+
+test('MUTATION: athlete evidence cannot shorten the recovery ceiling', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const raceDate = raceHappened(a).date;
+  a.recordRaceOutcome('raced');
+  /* Everything an athlete could log to look recovered: perfect execution,
+     low effort, easy heart rate, feeling good. The ceiling is deterministic
+     and must not care. */
+  a.state.days.filter(d => d.completed).forEach(d => {
+    d.actual.rpe = 2; d.actual.hr = 120; d.actual.feel = 'good';
+  });
+  const profile = a.recoveryProfileFor('half');
+  const b = a.startDevelopmentBlock('recovery');
+  assert.ok(b);
+  const until = a.addDays(raceDate, profile.noIntensityDays);
+  a.state.days.filter(d => d.date <= until).forEach(d =>
+    assert.ok(['easy', 'rest', 'long'].indexOf(d.type) !== -1 || d.recoveryCeiling,
+      'feeling good bought intensity inside the recovery window'));
+});
+
+test('MUTATION: historical coaching cannot fall back to current-plan-only', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const done = a.state.days.filter(d => d.completed).length;
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  a.startDevelopmentBlock('base');
+  /* The new block's own days carry almost no history. If any model has gone
+     back to reading state.days alone, the memory collapses to that. */
+  const mem = a.athleteMemory(400);
+  assert.ok(mem.length >= done,
+    'the athlete record shrank to the current plan — ' + mem.length + ' vs ' + done);
+});
+
+/* THE GAP THIS CLOSES, found by mutation rather than by inspection.
+
+   The test below drives startDevelopmentBlock(), which is how Valhalla builds
+   a non-race block when the athlete accepts a recommendation. But there is a
+   SECOND way in -- handleGeneratePlan(), the builder -- and forcing hasEvent
+   to true there changed nothing any test could see. An athlete who picked
+   "Aerobic Base" in the builder would have got a Race Day and a pre-race
+   shakeout, and the suite would have stayed green.
+
+   So the builder is driven here through its real DOM path: the same ids
+   openSetupModal() renders and handleGeneratePlan() reads. */
+function builderDom(a, values){
+  const store = Object.assign({
+    'su-purpose': 'race', 'su-distance': 'half', 'su-racedate': '',
+    'su-weeks': '10', 'su-volume': '50', 'su-bench-dist': '10k',
+    'su-bench-time': '45:00', 'su-lthr': '', 'su-maxhr': '',
+    'su-longday': '6', 'su-goal-A': '1:40:00', 'su-goal-B': '', 'su-goal-C': ''
+  }, values || {});
+  const eventMode = store['su-purpose'] === 'race' && store['su-racedate'] ? 'event' : 'none';
+  const checkboxes = [1, 2, 3, 5, 6].map(iso => ({
+    checked: true, getAttribute: n => (n === 'data-wd' ? String(iso) : null)
+  }));
+  a.document.getElementById = id => {
+    if (id === 'su-event-box') return { getAttribute: n => (n === 'data-mode' ? eventMode : null) };
+    if (id === 'su-units') return { querySelector: () => null };
+    if (store[id] === undefined) return null;
+    return { value: store[id], getAttribute: () => null };
+  };
+  a.document.querySelectorAll = sel =>
+    (sel.indexOf('su-weekdays') !== -1 ? checkboxes : []);
+  a.closeModal = () => {};
+  return store;
+}
+
+test('MUTATION: the BUILDER cannot produce race language for a non-race purpose', () => {
+  ['maintain', 'base', 'speed'].forEach(p => {
+    const a = racingAthlete();
+    logPast(a);
+    builderDom(a, { 'su-purpose': p, 'su-racedate': '2027-05-01' });
+    a.handleGeneratePlan();
+
+    assert.equal(a.state.setup.purpose, p, 'the builder ignored the chosen objective');
+    assert.equal(a.state.setup.hasEvent, false,
+      p + ' was built with an event even though the purpose has none');
+    assert.equal(a.currentBlock().purpose, p, 'the ledger disagrees with the plan');
+    a.state.days.forEach(d => {
+      assert.doesNotMatch(String(d.title || ''), /race day|pre-race/i,
+        p + ' prescribed "' + d.title + '"');
+      assert.doesNotMatch(String(d.desc || ''), /race kit/i,
+        p + ' used race-day language on ' + d.date);
+    });
+  });
+});
+
+test('MUTATION: the builder still builds a race block exactly as before', () => {
+  const a = racingAthlete();
+  logPast(a);
+  builderDom(a, { 'su-purpose': 'race', 'su-racedate': '2027-05-01' });
+  a.handleGeneratePlan();
+  assert.equal(a.state.setup.purpose, 'race');
+  assert.equal(a.state.setup.hasEvent, true, 'a race with a date must keep its event');
+  assert.equal(a.state.setup.raceDate, '2027-05-01');
+  assert.ok(a.state.days.some(d => /Race Day/.test(d.title || '')),
+    'a real race block must still have a race day');
+});
+
+test('MUTATION: a non-race block cannot emit race-only language', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  ['maintain', 'base', 'speed'].forEach(p => {
+    const b = a.startDevelopmentBlock(p);
+    assert.ok(b, p + ' could not be built');
+    assert.equal(a.state.setup.hasEvent, false, p + ' must not claim an event');
+    assert.equal(a.vGoalDay(a.state.setup), 'Goal Day', p + ' called it Race Day');
+    assert.equal(a.vGoalWeek(a.state.setup), 'Final Week', p + ' called it Race Week');
+    a.state.days.forEach(d => {
+      assert.doesNotMatch(String(d.title || ''), /race day|pre-race/i,
+        p + ' prescribed "' + d.title + '" on ' + d.date);
+      assert.doesNotMatch(String(d.desc || ''), /race kit|on race day/i,
+        p + ' used race-day language on ' + d.date);
+    });
+  });
+});
+
+// ===========================================================================
+// 7. THE SURFACES SAY WHAT THE ENGINE DECIDED
+// ===========================================================================
+test('SURFACE: Plan HQ names the block and the week within it', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  assert.match(a.blockIdentityLine(), /Half Marathon Build · Week \d+ of \d+/,
+    'a race block should read as its distance');
+
+  a.startDevelopmentBlock('maintain');
+  assert.match(a.blockIdentityLine(), /^Maintain & Protect · Week \d+ of \d+$/);
+  a.startDevelopmentBlock('base');
+  assert.match(a.blockIdentityLine(), /^Aerobic Base · Week \d+ of \d+$/);
+  a.startDevelopmentBlock('speed');
+  assert.match(a.blockIdentityLine(), /^Speed & Threshold · Week \d+ of \d+$/);
+});
+
+test('SURFACE: the outcome prompt appears only while the question is open', () => {
+  const a = racingAthlete();
+  logPast(a);
+  assert.equal(a.renderRaceOutcomePrompt(), '', 'nothing to ask before the goal day passes');
+
+  raceHappened(a);
+  const asking = a.renderRaceOutcomePrompt();
+  assert.match(asking, /How did it go\?/);
+  ['raced', 'dnf', 'dns', 'later'].forEach(k =>
+    assert.match(asking, new RegExp('data-outcome="' + k + '"'), 'missing the ' + k + ' answer'));
+
+  a.recordRaceOutcome('raced');
+  assert.equal(a.renderRaceOutcomePrompt(), '', 'an answered question must stop being asked');
+});
+
+test('SURFACE: the transition card recommends and never acts', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  const before = JSON.stringify({ p: a.state.setup.purpose, d: a.state.days.length });
+  const card = a.renderBlockTransitionCard();
+  assert.match(card, /data-action="start-block"/, 'the athlete needs something to press');
+  assert.match(card, /data-purpose="recovery"/);
+  assert.match(card, /Nothing changes until you choose/);
+  assert.equal(JSON.stringify({ p: a.state.setup.purpose, d: a.state.days.length }), before,
+    'rendering a recommendation changed the plan');
+});
+
+test('SURFACE: Measured Fitness reports measurements and refuses everything else', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const empty = a.renderMeasuredFitness();
+  assert.match(empty, /Nothing measured yet/,
+    'with no race or checkpoint the section must say so rather than derive something');
+  assert.doesNotMatch(empty, /\d\d:\d\d/, 'and must show no time at all');
+
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  const filled = a.renderMeasuredFitness();
+  assert.match(filled, /Latest/);
+  assert.match(filled, /Equivalent right now/);
+});
+
+test('SURFACE: no rejected fitness concept reaches any year-round surface', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  const painted = [a.renderMeasuredFitness(), a.renderBlockTransitionCard(),
+                   a.renderRaceOutcomePrompt(), a.blockIdentityLine()].join('\n');
+  [/\bCTL\b/, /\bATL\b/, /\bTSB\b/, /banister/i, /\bVDOT\b/].forEach(re =>
+    assert.doesNotMatch(painted, re, 'an internal model reached the athlete'));
+});
+
+// ===========================================================================
+// 8. THE BUILDER'S OBJECTIVE SELECTOR
+// ===========================================================================
+test('BUILDER: four objectives are offered and recovery is not one of them', () => {
+  const a = racingAthlete();
+  assert.equal(a.BUILDER_PURPOSE_ORDER.join(','), 'race,maintain,base,speed');
+  assert.equal(a.BUILDER_PURPOSE_ORDER.indexOf('recovery'), -1,
+    'recovery is a coach recommendation after a race, never a menu choice');
+  a.BUILDER_PURPOSE_ORDER.forEach(p =>
+    assert.ok(a.isBlockPurpose(p), p + ' is not a real block purpose'));
+
+  /* THE THREE DEVELOPMENT BLOCKS ARE CALLED ONE THING EVERYWHERE. What the
+     athlete picks in the builder is what Plan HQ shows and what the next
+     recommendation offers, because a block that changes name between screens
+     is a second block as far as the athlete is concerned. */
+  ['maintain', 'base', 'speed'].forEach(p =>
+    assert.equal(a.BUILDER_PURPOSE_META[p].label, a.blockPurposeLabel(p),
+      p + ' is called one thing in the builder and another in the ledger'));
+
+  /* RACE IS THE DELIBERATE EXCEPTION, and it is not an inconsistency. "Race
+     Goal" is the CHOICE -- what you are setting out to do. Plan HQ then names
+     the block by its distance, "Half Marathon Build", because once the block
+     exists the distance is the useful fact and "Race Build" would be vaguer
+     than what it replaced. Pinned so the difference stays intentional. */
+  assert.equal(a.BUILDER_PURPOSE_META.race.label, 'Race Goal');
+  assert.equal(a.blockPurposeLabel('race'), 'Race Build');
+});
+
+test('BUILDER: the offered length is the length the engine would have built', () => {
+  const a = racingAthlete();
+  logPast(a);
+  ['maintain', 'base', 'speed'].forEach(p =>
+    assert.equal(a.builderDefaultWeeks(p), a.developmentBlockSpec(p, {}).weeks,
+      'the builder offers a different length for ' + p + ' than the engine uses'));
+  assert.equal(a.builderDefaultWeeks('race'), 14);
+});
+
+test('BUILDER: the server preview agrees with the app about every purpose', () => {
+  const Preview = require(path.join(ROOT, 'api', '_preview.js'));
+  const a = racingAthlete();
+  logPast(a);
+  Preview.PURPOSES.forEach(p => {
+    assert.equal(Preview.defaultWeeksFor(p), a.builderDefaultWeeks(p),
+      'preview and builder disagree about how long a ' + p + ' block is');
+  });
+  assert.equal(Preview.PURPOSES.indexOf('recovery'), -1,
+    'recovery must not be previewable — it is never chosen');
+  /* DRIVEN, NOT READ. Asserting PURPOSE_SHAPE.speed.forceDistance === '5k'
+     only says the constant is right; it says nothing about whether validate()
+     applies it. Mutation testing caught exactly that -- dropping forceDistance
+     from the resolution left every guard green while the server sent the
+     generator a distance the speed block does not train. */
+  const speed = Preview.validate({ purpose: 'speed', distanceKey: 'full', weeks: 6, volume: 50,
+    activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 });
+  assert.equal(speed.ok, true);
+  assert.equal(speed.input.buildDistance, '5k',
+    'a speed block must be built from the 5K profile whatever distance was asked for');
+  const base = Preview.validate({ purpose: 'base', distanceKey: 'full', weeks: 10, volume: 50,
+    activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 });
+  assert.equal(base.input.buildDistance, 'full',
+    'and a purpose with no forced distance must keep the athlete’s own');
+  assert.equal(base.input.buildVolume, 50, 'base starts at what is absorbed, not above it');
+  const maint = Preview.validate({ purpose: 'maintain', distanceKey: 'full', weeks: 8, volume: 50,
+    activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 });
+  assert.ok(maint.input.buildVolume < 50, 'maintenance must sit below what is absorbed');
+  /* Race blocks are untouched by any of this. */
+  const race = Preview.validate({ purpose: 'race', distanceKey: 'full', weeks: 14, volume: 50,
+    activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 });
+  assert.equal(race.input.buildDistance, 'full');
+  assert.equal(race.input.buildVolume, 50);
+  /* The one factor the preview restates rather than reads. If the engine's
+     maintenance factor moves, this is what notices. */
+  const spec = a.developmentBlockSpec('maintain', {});
+  const absorbed = a.absorbedWeeklyVolume();
+  assert.equal(Math.round(absorbed.km * Preview.PURPOSE_SHAPE.maintain.volumeFactor),
+    spec.volume, 'the preview and the engine shape maintenance differently');
+});
+
+test('BUILDER: every distance the entry copy promises can actually be built', () => {
+  const Preview = require(path.join(ROOT, 'api', '_preview.js'));
+  const a = racingAthlete();
+  /* The gateway promises "anything from a 5K to a 50K ultra". This is that
+     sentence, executed. */
+  a.DISTANCE_ORDER.forEach(k => {
+    assert.ok(Preview.DISTANCES.indexOf(k) !== -1,
+      k + ' can be built by the app but is refused by the preview');
+    assert.ok(a.DISTANCE_PROFILES[k], k + ' has no profile');
+  });
+  assert.equal(Preview.DISTANCE_ALIASES.marathon, 'full',
+    'the old client value must still resolve to a key the engine has');
+  const v = Preview.validate({ distanceKey: 'marathon', weeks: 12, volume: 40,
+    activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 });
+  assert.equal(v.ok, true);
+  assert.equal(v.input.buildDistance, 'full',
+    'THE MARATHON PREVIEW BUG: this used to reach buildBlockWeeks as "marathon" and throw');
+});
+
+// ===========================================================================
+// 9. NOTHING NEW IN THE DATABASE
+// ===========================================================================
+test('the whole programme still needs no migration and no new function', () => {
+  const before = fs.readdirSync(path.join(ROOT, 'api'))
+    .filter(f => f[0] !== '_' && /\.js$/.test(f));
+  assert.ok(before.length <= 12, 'the function budget is 12 on Hobby: ' + before.join(', '));
+  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+  assert.match(src, /athlete: makeAthleteRecord\(\)|athlete: *makeAthleteRecord/,
+    'the athlete record must still live inside the state that plans.data already stores');
+});
