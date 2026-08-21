@@ -508,6 +508,10 @@
   }
   .cg-title{font-size:22px; letter-spacing:.08em; color:var(--gold-text); margin-bottom:12px;}
   .cg-quote{font-size:13px; letter-spacing:1.5px; line-height:2; color:var(--ink); text-transform:uppercase; font-weight:600;}
+  /* The way onward, in the banner's quietest voice -- a pointer, not a
+     second call to action competing with the moment. */
+  .cg-next{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint);
+    margin-top:14px; padding-top:12px; border-top:1px solid var(--line-soft);}
 
   /* ---------- print ---------- */
   @media print{
@@ -1094,6 +1098,44 @@
   }
   [data-theme="light"] .opt-grid button.active .sub{color:#7A5C1E; opacity:.85;}
 
+  /* ---------- WHAT IS THIS BLOCK FOR ----------
+     Cards, not toggles: four objectives that are not variations of one
+     setting, each needing a name and a reason to pick it. One column, so the
+     four read as a list to choose from rather than a 2x2 grid where the eye
+     has to work out which pairs go together.
+
+     Deliberately NOT a new visual language -- the selected state is the same
+     three-cue treatment .opt-grid button.active already uses, inherited by
+     reusing those exact declarations rather than inventing a fifth accent.
+     Left-aligned and taller because these carry a sentence; that is the only
+     thing that differs from a distance chip. */
+  .bld-purpose{display:grid; gap:8px; grid-template-columns:1fr;}
+  .bld-purpose button{
+    display:block; width:100%; text-align:left; padding:13px 14px; min-height:52px;
+    border:1px solid var(--ctl-border); border-radius:12px;
+    background:var(--ctl-bg); color:var(--ink-faint);
+    transition:box-shadow .18s, background .18s, color .18s;
+  }
+  .bld-purpose button:active{transform:scale(.995);}
+  .bpc-name{display:block; font-size:var(--fs-data); letter-spacing:.4px; font-weight:700;}
+  .bpc-why{display:block; font-family:'Inter',sans-serif; font-size:var(--fs-support);
+    line-height:var(--lh-support); color:var(--ink-faint); margin-top:3px; letter-spacing:0;}
+  .bld-purpose button.active{
+    color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14);
+    border-color:rgba(var(--modal-active-rgb),0.5);
+  }
+  .bld-purpose button.active .bpc-why{color:var(--modal-active); opacity:.8;}
+  [data-theme="light"] .bld-purpose button{color:#6B6558;}
+  [data-theme="light"] .bld-purpose button.active{
+    color:#7A5C1E; background:#FFFDF7; border-color:transparent;
+    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
+  }
+  [data-theme="light"] .bld-purpose button.active .bpc-why{color:#7A5C1E; opacity:.85;}
+  /* A locked choice still shows what was chosen and why it cannot move -- the
+     grid is dimmed, not removed, so "Speed uses the 5K block" is visible
+     rather than mysterious. */
+  .bld-locked .opt-grid{opacity:.6;}
+
   /* THE DATE FIELD. Native picker kept -- it is the safest control on a phone
      and the one athletes already know. Only the surround is dressed: the same
      radius and padding as an option tile, a mono value so the date reads like
@@ -1475,17 +1517,16 @@
   .setup-cta h2{font-family:'Cinzel',serif; font-size:19px; margin:0 0 8px; color:var(--gold-text); text-transform:uppercase; letter-spacing:.03em;}
   .setup-cta p{font-size:12.5px; color:var(--ink-dim); line-height:1.55; margin:0 0 16px; max-width:44ch; margin-left:auto; margin-right:auto;}
 
-  /* STEP TWO OF THREE -- the same visual family as /start.
+  /* THE DOOR TO THE BUILDER, in the builder's own visual language.
      The dashed border and the gold wash were a standalone landing page's
-     decoration; a step in a journey is a step, not a poster. Solid hairline,
-     the page's own ground, and the eyebrow doing the work the box used to. */
+     decoration; a door into a five-stage flow is not a poster. Solid hairline,
+     the page's own ground, and -- because .hero-setup carries .builder-light
+     -- the same violet primary action, the same radius and the same control
+     metrics as the stage panels one tap behind it. The eyebrow rule is gone
+     with the step number it used to hold: this card no longer counts. */
   .setup-cta.setup-step{
-    border:1px solid var(--line); background:var(--bg-2);
+    border:1px solid var(--line); background:var(--bg-2); border-radius:14px;
     padding:30px 22px 26px; text-align:left; max-width:34rem; margin:14px auto;
-  }
-  .setup-step .setup-eyebrow{
-    font-size:var(--fs-label); letter-spacing:1.6px; text-transform:uppercase;
-    color:var(--ink-faint); margin:0 0 10px;
   }
   .setup-step h2{ font-size:23px; letter-spacing:.02em; margin:0 0 10px; }
   .setup-step p{ margin-left:0; margin-right:0; max-width:none; }
@@ -1544,6 +1585,56 @@
      any width instead of the pill wrapping under the heading. */
   .programme-status-head{display:flex; align-items:center; justify-content:space-between; gap:8px;}
   .programme-status-head .setup-section-title{margin:0;}
+  /* "Maintain & Protect · Week 4 of 8". Display weight, quiet colour -- a
+     label for the screen, not a headline competing with the gauge below it. */
+  .block-identity{
+    font-size:var(--fs-data); letter-spacing:.6px; color:var(--ink-dim);
+    margin:2px 0 10px;
+  }
+
+  /* ---------- YEAR-ROUND CARDS ----------
+     All three reuse .hub-card and .coach-next-head, so a block recommendation
+     sits in the same furniture as Next Move rather than arriving as a new
+     kind of object. Nothing here introduces a colour. */
+  .yr-outcome-q, .yr-why{
+    font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-dim);
+    margin-bottom:12px;
+  }
+  .yr-choices{display:grid; gap:8px;}
+  .yr-choices .btn{margin:0;}
+  .yr-foot{
+    font-size:var(--fs-meta); color:var(--ink-faint); line-height:var(--lh-support);
+    margin-top:12px; padding-top:10px; border-top:1px solid var(--line-soft);
+  }
+  .yr-lead-pill{
+    margin-left:auto; font-family:'Oswald',sans-serif; font-size:var(--fs-meta);
+    letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint);
+    border:1px solid var(--line); border-radius:99px; padding:2px 8px;
+  }
+  /* Measured fitness: two efforts and the gap. Deliberately a short list, not
+     a chart -- two points a season apart are two points. */
+  .yr-fit-main, .yr-fit-prev{
+    display:grid; grid-template-columns:1fr auto; gap:2px 10px; align-items:baseline;
+  }
+  .yr-fit-prev{margin-top:12px; padding-top:12px; border-top:1px solid var(--line-soft);}
+  .yr-fit-l{font-size:var(--fs-support); color:var(--ink-dim);}
+  .yr-fit-main .yr-fit-v{font-size:26px; letter-spacing:.02em; grid-row:1 / span 2;}
+  .yr-fit-prev .yr-fit-v{font-size:var(--fs-data); color:var(--ink-dim); grid-row:1 / span 2;}
+  .yr-fit-d{font-size:var(--fs-meta); color:var(--ink-faint);}
+  .yr-fit-delta{
+    font-family:'Oswald',sans-serif; font-size:var(--fs-meta); letter-spacing:1px;
+    text-transform:uppercase; margin-top:10px; color:var(--ink-faint);
+  }
+  .yr-fit-delta.up{color:var(--c-easy);}
+  .yr-est{margin-top:14px; padding-top:12px; border-top:1px solid var(--line-soft);}
+  .yr-est-head{
+    font-family:'Oswald',sans-serif; font-size:var(--fs-meta); letter-spacing:1.2px;
+    text-transform:uppercase; color:var(--ink-faint); margin-bottom:6px;
+  }
+  .yr-est-row{display:flex; justify-content:space-between; gap:12px; padding:3px 0;
+    font-size:var(--fs-support); color:var(--ink-dim);}
+  .yr-est-withheld{color:var(--ink-faint); font-size:var(--fs-meta); text-align:right; display:block;}
+  .yr-est-v{text-align:right; min-width:0;}
   .weekday-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin-bottom:12px;}
   .wd-check{
     display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px 2px;
@@ -6249,18 +6340,23 @@ function renderHero(){
   // brand-only topbar -- the old large circular crest is Today-view-only now
   // (renderTodayView() still renders it via the branch below, unchanged).
   if (!state.setup){
-    /* STEP TWO OF THREE.
+    /* THE DOOR TO THE BUILDER.
 
        This screen was a standalone landing page from before the product had a
        front door, and it carried its own sign-in route because nothing else
        offered one. /start owns authentication and returning-athlete routing
        now, and an athlete only reaches this screen having already been
-       resolved through it.
+       resolved through it. Two sign-in entry points is one too many, and the
+       second is the one that sends an athlete back round a loop they have
+       just finished -- so the duplicate is gone.
 
-       Two sign-in entry points is one too many. The second is the one nobody
-       maintains, and it is the one that sends an athlete back round a loop
-       they have just finished -- so the duplicate is gone, and what remains
-       says where in the journey this is. */
+       NO GLOBAL STEP NUMBER, and its removal is a correction rather than a
+       simplification. This card said "Step two of three" and the builder it
+       opens says "01 / 05", so step two became step one the moment the athlete
+       pressed the button. Two numbering systems for one journey is worse than
+       none, and the builder's is the one that counts real work: five stages
+       the athlete actually fills in. So this card stopped counting, and no
+       step one or step three was invented elsewhere to keep it company. */
     /* ONE THING THE REMOVAL MUST NOT TAKE WITH IT.
 
        The bottom nav is hidden in both no-plan app states, so with the old
@@ -6276,8 +6372,13 @@ function renderHero(){
        address field, no magic link, nothing that competes with /start. A new
        athlete never sees it. */
     var parked = recoverablePlans().length;
-    return '<div class="hero hero-setup"><div class="setup-cta setup-step">'+
-      '<p class="setup-eyebrow font-head">Step two of three</p>'+
+    /* `builder-light` is the class the staged builder already carries, and it
+       is what makes a primary action violet rather than bronze. Borrowing it
+       here rather than writing a new rule is the whole point: this card and
+       the builder one tap behind it now share one accent because they share
+       one stylesheet rule, so they cannot drift apart later. No new colour
+       language, no token invented, crest untouched, header untouched. */
+    return '<div class="hero hero-setup builder-light"><div class="setup-cta setup-step">'+
       '<h2 class="font-display">Build Your Training Block</h2>'+
       /* Names the three things the builder actually asks for -- goal distance,
          "Current Weekly Volume", "Recent benchmark" -- rather than gesturing at
@@ -9909,6 +10010,61 @@ function isBlockPurpose(p){ return BLOCK_PURPOSES.indexOf(p) !== -1; }
 function blockPurposeLabel(p){
   var m = BLOCK_PURPOSE_META[p];
   return m ? m.label : BLOCK_PURPOSE_META.race.label;
+}
+
+/* ---------- WHAT THE ATHLETE MAY CHOOSE ----------
+   Four of the five purposes. RECOVERY IS NOT HERE, and its absence is the
+   design: recovery is what Valhalla recommends after a race it watched the
+   athlete run, sized from that race's distance. Putting it in a menu would
+   let somebody choose to recover from nothing, and would turn a deterministic
+   safety response into a preference.
+
+   `label` is the athlete-facing name and is the SAME string BLOCK_PURPOSE_META
+   uses, so a block is called the same thing in the builder that chose it, in
+   Plan HQ, and in the recommendation that offers it next. `distanceLabel` and
+   the two hints are what changes when the purpose changes -- the questions
+   stay the same questions, asked in the language of what is being built. */
+var BUILDER_PURPOSE_ORDER = ['race', 'maintain', 'base', 'speed'];
+var BUILDER_PURPOSE_META = {
+  race: {
+    label: 'Race Goal',
+    blurb: 'Train for a distance, with or without an event booked.',
+    distanceLabel: 'Goal distance',
+    distanceHint: 'The distance this block prepares you for. You do not need an event booked.',
+    weeksHint: 'A full distance-specific block, built and tapered to a culminating goal effort in the final week.',
+    lockDistance: null
+  },
+  maintain: {
+    label: 'Maintain & Protect',
+    blurb: 'Hold the fitness you have built, at a lower cost.',
+    distanceLabel: 'Fitness to protect',
+    distanceHint: 'The shape of running to hold on to. Volume sits below what you have been absorbing; the quality stays.',
+    weeksHint: 'Eight weeks is a review point, not a limit — Valhalla asks what is next rather than simply stopping.',
+    lockDistance: null
+  },
+  base: {
+    label: 'Aerobic Base',
+    blurb: 'Build sustainable running capacity.',
+    distanceLabel: 'Building towards',
+    distanceHint: 'The distance this capacity is for. Base work starts at what you already absorb, and builds from there.',
+    weeksHint: 'Long enough for the aerobic work to count. There is no weekly percentage rule — progression follows what you actually absorb.',
+    lockDistance: null
+  },
+  speed: {
+    label: 'Speed & Threshold',
+    blurb: 'Sharpen speed and threshold without a race to aim at.',
+    distanceLabel: 'Sharpening at',
+    distanceHint: 'Speed work uses the 5K block’s existing methodology — no new intensity system, and nothing invented for this purpose.',
+    weeksHint: 'Short and sharp. Sharpening is a phase, not a season.',
+    lockDistance: '5k'
+  }
+};
+/* The engine's own default length for a purpose, so the builder offers the
+   same number the recommendation would have built. */
+function builderDefaultWeeks(purpose){
+  if (purpose === 'race' || !isBlockPurpose(purpose)) return 14;
+  var spec = developmentBlockSpec(purpose, {});
+  return (spec && spec.weeks) || 8;
 }
 
 function makeAthleteRecord(){
@@ -16792,6 +16948,210 @@ function renderCoachNextMoveCard(report){
     body+
   '</div>';
 }
+/* =========================================================
+   YEAR-ROUND SURFACES
+   The engine already knows what happened and what should come next. These
+   are the four places it becomes visible, and there are only four:
+
+     TODAY      one question after a race, and only until it is answered
+     NEXT MOVE  one recommendation for the next block, which the athlete takes
+     PLAN HQ    what block this is, and what has actually been measured
+
+   No dashboard was added for any of it. Everything below reads the engine and
+   renders; nothing decides.
+   ========================================================= */
+
+/* ---------- HOW DID IT GO? ----------
+   Valhalla will not decide on its own that somebody did not finish. A short
+   activity on race day is a DNF, a training run, a mis-logged distance or a
+   watch that died, and no amount of data separates those -- so the athlete is
+   asked once and their answer is the authority. See raceOutcomePending().
+
+   "Not yet" is a real answer and stays available: an athlete who has not
+   uploaded the run should not have to lie to clear a card. It leaves the
+   question pending rather than resolving it. */
+var RACE_OUTCOME_CHOICES = [
+  { k:'raced',  label:'I raced it' },
+  { k:'dnf',    label:'Did not finish' },
+  { k:'dns',    label:'Did not start' },
+  { k:'later',  label:'Not yet — I will log it' }
+];
+function renderRaceOutcomePrompt(){
+  if (!raceOutcomePending()) return '';
+  var su = state.setup || {};
+  var profile = DISTANCE_PROFILES[su.distanceKey];
+  return '<div class="hub-card yr-outcome">'+
+    '<div class="coach-next-head">'+ICONS.sparkles+
+      '<span class="coach-next-title">How did it go?</span></div>'+
+    '<div class="yr-outcome-q">Your '+escapeHtml(profile ? profile.label : 'goal')+
+      ' was '+dShort(su.raceDate)+'. What Valhalla learns from it depends on this answer.</div>'+
+    '<div class="yr-choices">'+
+      RACE_OUTCOME_CHOICES.map(function(c){
+        return '<button type="button" class="btn '+(c.k==='raced'?'btn-primary':'btn-ghost')+' btn-block" '+
+          'data-action="race-outcome" data-outcome="'+c.k+'">'+escapeHtml(c.label)+'</button>';
+      }).join('')+
+    '</div>'+
+  '</div>';
+}
+
+/* ---------- WHAT COMES NEXT ----------
+   ONE recommendation, ONE reason, and the athlete decides. Nothing here
+   starts a block; every path runs through a button they press.
+
+   The 'choice' shape offers several destinations because at the end of a
+   maintenance or base block there is no single right answer -- but the first
+   option is the engine's own lead, and the card says why. Doing nothing is
+   a legitimate outcome and is not nagged about: the card simply stays. */
+function renderBlockTransitionCard(){
+  var rec = nextBlockRecommendation();
+  if (!rec || rec.kind === 'race_outcome') return '';   // the outcome card owns that moment
+
+  var opts = rec.kind === 'block' ? [rec.purpose] : (rec.options || []);
+  if (!opts.length) return '';
+  var lead = opts[0];
+
+  var body = rec.why ? '<div class="yr-why">'+escapeHtml(rec.why)+'</div>' : '';
+  body += '<div class="yr-choices">'+opts.map(function(p, i){
+    var label = p === 'race' ? 'Build a race block' : 'Start ' + blockPurposeLabel(p);
+    return '<button type="button" class="btn '+(i===0?'btn-primary':'btn-ghost')+' btn-block" '+
+      'data-action="start-block" data-purpose="'+p+'">'+escapeHtml(label)+'</button>';
+  }).join('')+'</div>';
+  body += '<div class="yr-foot">Nothing changes until you choose. Your training history stays either way.</div>';
+
+  return '<div class="hub-card yr-next">'+
+    '<div class="coach-next-head">'+ICONS.sparkles+
+      '<span class="coach-next-title">'+(rec.kind === 'block' ? 'Recommended next' : 'What next?')+'</span>'+
+      '<span class="yr-lead-pill">'+escapeHtml(blockPurposeLabel(lead))+'</span></div>'+
+    body+
+  '</div>';
+}
+
+/* ---------- WHICH BLOCK IS THIS ----------
+   "Recovery · Week 2 of 3". One line, inside Programme Status, using the
+   ledger's own label so the block is called the same thing everywhere. */
+function blockIdentityLine(){
+  if (!state.setup) return '';
+  var purpose = isBlockPurpose(state.setup.purpose) ? state.setup.purpose : 'race';
+  var label = purpose === 'race' && state.setup.distanceKey && DISTANCE_PROFILES[state.setup.distanceKey]
+    ? DISTANCE_PROFILES[state.setup.distanceKey].label + ' Build'
+    : blockPurposeLabel(purpose);
+  var wk = currentWeekNum(), total = totalWeeksInPlan();
+  return wk && total ? label + ' · Week ' + wk + ' of ' + total : label;
+}
+
+/* ---------- MEASURED FITNESS ----------
+   The narrowest claim in the product, and it stays narrow.
+
+   A point appears here ONLY when the athlete actually ran a race or a Fitness
+   Checkpoint -- see performanceFromDay(), which refuses everything else.
+   A goal time cannot reach this surface; neither can a fast easy run, a
+   recalibration suggestion, a DNS or a DNF. When there is nothing measured,
+   this says so plainly rather than filling the space with something derived.
+
+   No CTL, no ATL, no TSB, no Banister curve, no chart. Two times and the gap
+   between them is what an athlete asked "am I fitter?" actually wants. */
+function renderMeasuredFitness(){
+  var prog = measuredProgression();
+  var latest = prog.latest;
+  if (!latest){
+    return '<div class="setup-section-title">Measured Fitness</div>'+
+      '<div class="hub-card yr-fitness"><div class="hq-empty">'+
+      'Nothing measured yet. A completed race or Fitness Checkpoint is what counts here — '+
+      'training paces come from your goal, so they are not a measurement.</div></div>';
+  }
+  var srcWord = function(p){ return p.source === 'race' ? 'race' : 'checkpoint'; };
+  var rows = '<div class="yr-fit-main">'+
+      '<div class="yr-fit-l">Latest '+fmtDist(latest.km)+' '+srcWord(latest)+'</div>'+
+      '<div class="yr-fit-v font-mono">'+secToClock(latest.timeSec)+'</div>'+
+      '<div class="yr-fit-d">'+dShort(latest.date)+'</div>'+
+    '</div>';
+  if (prog.enough){
+    var prev = prog.previous;
+    var delta = prev.timeSec - latest.timeSec;   // positive = faster now
+    var comparable = Math.abs(prev.km - latest.km) < 0.35;
+    rows += '<div class="yr-fit-prev">'+
+        '<div class="yr-fit-l">Previous '+fmtDist(prev.km)+' '+srcWord(prev)+'</div>'+
+        '<div class="yr-fit-v font-mono">'+secToClock(prev.timeSec)+'</div>'+
+        '<div class="yr-fit-d">'+dShort(prev.date)+'</div>'+
+      '</div>'+
+      /* A time difference is only a time difference when the two efforts were
+         over the same distance. Across distances the honest statement is the
+         direction, not a number of seconds that would mean nothing. */
+      '<div class="yr-fit-delta '+(prog.improved?'up':'down')+'">'+
+        (comparable && delta !== 0
+          ? Math.abs(delta) + ' sec ' + (delta > 0 ? 'faster' : 'slower')
+          : (prog.improved ? 'Faster over the distance' : 'Not faster than last time'))+
+      '</div>';
+  }
+  return '<div class="setup-section-title">Measured Fitness</div>'+
+    '<div class="hub-card yr-fitness">'+rows+renderFitnessEstimate()+'</div>';
+}
+
+/* Equivalent-performance ranges, from the measurement above and nothing else.
+   A RANGE, because equivalence across distances is a decent model and not a
+   promise -- and a single time would be false precision dressed as insight.
+   The marathon carries its approved volume qualification and is WITHHELD, with
+   the reason stated, rather than caveated into uselessness. */
+function renderFitnessEstimate(){
+  var su = state.setup || {};
+  var keys = [];
+  ['5k', '10k', 'half', 'full'].forEach(function(k){
+    if (k === su.distanceKey || keys.length < 2) keys.push(k);
+  });
+  keys = keys.filter(function(k, i){ return keys.indexOf(k) === i; }).slice(0, 3);
+
+  var rows = keys.map(function(k){
+    var est = measuredFitnessEstimate(k);
+    if (!est) return '';
+    var label = DISTANCE_PROFILES[k] ? DISTANCE_PROFILES[k].label : k;
+    var v = est.withheld
+      ? '<span class="yr-est-withheld">' + escapeHtml(est.reason) + '</span>'
+      : '<span class="font-mono">' + secToClock(est.fastSec) + ' – ' + secToClock(est.slowSec) + '</span>';
+    return '<div class="yr-est-row"><span class="yr-est-l">'+escapeHtml(label)+'</span>'+
+           '<span class="yr-est-v">'+v+'</span></div>';
+  }).filter(Boolean).join('');
+  if (!rows) return '';
+  return '<div class="yr-est"><div class="yr-est-head">Equivalent right now</div>'+rows+
+    '<div class="yr-foot">Ranges, from your last measured effort. Training runs do not move these.</div></div>';
+}
+
+function handleRaceOutcome(outcome){
+  if (outcome === 'later'){
+    /* Explicitly deferred. Nothing is recorded, because nothing is known --
+       the question stays pending and the card comes back tomorrow. */
+    showToast('No problem — log the run and Valhalla will ask again');
+    return;
+  }
+  var res = recordRaceOutcome(outcome);
+  if (!res){ showToast('That could not be recorded'); return; }
+  renderApp();
+  showToast(outcome === 'raced' ? 'Logged — that effort now counts as measured fitness'
+          : outcome === 'dnf'   ? 'Logged — the training is kept, the result is not counted as a measurement'
+                                : 'Logged — nothing to recover from, so nothing was recorded');
+}
+
+/* The athlete pressed a recommendation. A race block opens the builder they
+   already know, pre-set to that purpose; everything else is built by the
+   engine from the schedule and evidence it already has. Either way this is
+   the first moment anything changes, and it changes because they asked. */
+function handleStartBlock(purpose){
+  if (purpose === 'race'){
+    if (state.setup) state.setup.purpose = 'race';
+    openSetupModal();
+    return;
+  }
+  if (!isBlockPurpose(purpose)) return;
+  var label = blockPurposeLabel(purpose);
+  if (!window.confirm('Start your ' + label + ' block?\n\n' +
+      'Your completed training is kept as history and everything Valhalla has ' +
+      'learned about you carries over. Only the remaining schedule is replaced.')) return;
+  var block = startDevelopmentBlock(purpose);
+  if (!block){ showToast('That block could not be built from your current settings'); return; }
+  state.view = 'today';
+  renderApp();
+  showToast(label + ' block started');
+}
+
 /* Plan Evolution on TODAY is one line, and only when there is genuinely a
    multi-day proposal to look at. Tapping expands it inside the same card --
    no second dashboard, no seven-day table living permanently on TODAY. */
@@ -17450,9 +17810,21 @@ function renderCheckpointCard(){
 function renderCongratsBanner(){
   var s = computeStats();
   if (!s.totalRuns || s.completedRuns<s.totalRuns) return '';
+  /* THE DEAD END THIS USED TO BE.
+     An athlete who completed every session in their block was congratulated
+     and then left standing there -- the last screen in the product said the
+     plan was executed and offered nothing after it. That was defensible when
+     a plan was the whole relationship; it is not now that there is a next
+     block to recommend. One line, pointing at the recommendation rather than
+     repeating it, so the banner stays a banner. */
+  var rec = nextBlockRecommendation();
+  var onward = rec
+    ? '<div class="cg-next">Valhalla has a recommendation for what comes next — it is on Today.</div>'
+    : '';
   return '<div class="congrats-banner">'+
     '<div class="cg-title font-display">VALHALLA AWAITS</div>'+
     '<div class="cg-quote font-head">THE PLAN IS EXECUTED.<br>VALHALLA AWAITS THE BOLD!<br>GO KILL IT, VIKING!</div>'+
+    onward+
   '</div>';
 }
 /* ---------- FULL PLAN phase dividers ----------
@@ -17524,9 +17896,12 @@ function openSetupModal(){
   var benchTime = (su.benchmark && su.benchmark.timeSec) ? secToClock(su.benchmark.timeSec) : '';
   var vol = su.currentVolume!=null ? kmToDisplay(su.currentVolume) : '';
   var raceDate = su.raceDate || '';
-  var eventMode = planHasEvent(su) ? 'event' : 'none';
+  /* A non-race block has no event, so the box opens on the length question
+     rather than on a date field the purpose cannot use. */
+  var openPurpose = isBlockPurpose(su.purpose) && su.purpose !== 'recovery' ? su.purpose : 'race';
+  var eventMode = (openPurpose === 'race' && planHasEvent(su)) ? 'event' : 'none';
   var experience = athleteExperience(su);
-  var blockWeeks = su.planWeeks || 14;
+  var blockWeeks = su.planWeeks || builderDefaultWeeks(openPurpose);
   var goals = su.goals || {};
   var schedule = su.schedule || { activeDays:[0,1,2,4,5], longRunDay:5 };
 
@@ -17587,6 +17962,32 @@ function openSetupModal(){
       pr.label.toUpperCase()+'</button>';
   }).join('');
 
+  /* ---------- WHAT IS THIS BLOCK FOR ----------
+     One selector, four objectives, inside the builder the athlete already
+     knows -- not a second builder and not a settings toggle. RECOVERY IS
+     DELIBERATELY ABSENT: it is a coach recommendation made after an actual
+     race, and offering it as a thing to pick would let an athlete choose to
+     recover from nothing.
+
+     Everything downstream keys off the mirrored <select>, so this follows the
+     same grid-mirrors-a-real-form-control pattern as goal distance and reads
+     through the identical path in handleGeneratePlan(). */
+  var buildPurpose = openPurpose;
+  var purposeMeta = BUILDER_PURPOSE_META[buildPurpose];
+  var purposeCards = BUILDER_PURPOSE_ORDER.map(function(k){
+    var m = BUILDER_PURPOSE_META[k];
+    var on = buildPurpose === k;
+    return '<button type="button" data-v="'+k+'" class="bld-purpose-card'+(on?' active':'')+'" '+
+      'aria-pressed="'+(on?'true':'false')+'">'+
+      '<span class="bpc-name font-head">'+escapeHtml(m.label)+'</span>'+
+      '<span class="bpc-why">'+escapeHtml(m.blurb)+'</span>'+
+    '</button>';
+  }).join('');
+  var purposeOptions = BUILDER_PURPOSE_ORDER.map(function(k){
+    return '<option value="'+k+'" '+(buildPurpose===k?'selected':'')+'>'+
+      escapeHtml(BUILDER_PURPOSE_META[k].label)+'</option>';
+  }).join('');
+
   var html = ''+
   '<div class="modal-head"><h2 class="font-head">Build Your Training Block</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
@@ -17604,24 +18005,34 @@ function openSetupModal(){
         '</div>'+
         '<div class="field-hint">Applies everywhere once you generate — to switch units on an existing plan without regenerating, use the toggle in the header instead.</div>'+
       '</div>'+
-      '<div class="field" id="f-distance"><label>Goal distance</label>'+
+      '<div class="field" id="f-purpose"><label>What is this block for?</label>'+
+        '<div class="bld-purpose" data-mirror="su-purpose" role="group" aria-label="Block purpose">'+purposeCards+'</div>'+
+        '<select id="su-purpose" class="bld-mirror" tabindex="-1" aria-hidden="true">'+purposeOptions+'</select>'+
+      '</div>'+
+      '<div class="field" id="f-distance"><label id="su-distance-label">'+escapeHtml(purposeMeta.distanceLabel)+'</label>'+
         '<div class="opt-grid" data-mirror="su-distance" role="group" aria-label="Goal distance">'+distGrid+'</div>'+
         '<select id="su-distance" class="bld-mirror" tabindex="-1" aria-hidden="true">'+distOptions+'</select>'+
-        '<div class="field-hint">The distance this block prepares you for. You do not need an event booked.</div>'+
+        '<div class="field-hint" id="su-distance-hint">'+escapeHtml(purposeMeta.distanceHint)+'</div>'+
       '</div>'+
-      '<div class="field"><label>Do you have a target event?</label>'+
+      /* RACE-ONLY, AND HIDDEN RATHER THAN ANSWERED ON THE ATHLETE'S BEHALF.
+         A maintenance or base block has no event to taper to, so asking
+         "do you have a target event?" invites an answer the block cannot
+         honour. bldApplyPurpose() pins the event box to 'none' for every
+         non-race purpose -- which is the same switch that already makes the
+         generator write "Goal Effort" instead of "Race Day". */
+      '<div class="field bld-race-only" id="f-event-toggle"><label>Do you have a target event?</label>'+
         '<div class="opt-grid" role="group" aria-label="Target event" id="su-event-toggle">'+
           '<button type="button" data-action="set-event-mode" data-event-mode="event" class="'+(eventMode==='event'?'active':'')+'">YES</button>'+
           '<button type="button" data-action="set-event-mode" data-event-mode="none" class="'+(eventMode==='none'?'active':'')+'">NOT YET</button>'+
         '</div>'+
       '</div>'+
       '<div id="su-event-box" data-mode="'+eventMode+'">'+
-        '<div class="field when-event bld-date" id="f-racedate"><label>Event date</label><input type="date" id="su-racedate" value="'+raceDate+'">'+
+        '<div class="field when-event bld-date bld-race-only" id="f-racedate"><label>Event date</label><input type="date" id="su-racedate" value="'+raceDate+'">'+
           '<div class="field-hint">Progression and taper anchor to this day.</div>'+
         '</div>'+
         '<div class="field when-none" id="f-weeks"><label>Training block length (weeks)</label>'+
           '<input type="number" min="4" max="24" step="1" inputmode="numeric" id="su-weeks" value="'+blockWeeks+'">'+
-          '<div class="field-hint">A full distance-specific block, built and tapered to a culminating goal effort in the final week.</div>'+
+          '<div class="field-hint" id="su-weeks-hint">'+escapeHtml(purposeMeta.weeksHint)+'</div>'+
         '</div>'+
       '</div>'+
       navBtns(0)+
@@ -17713,11 +18124,14 @@ function openSetupModal(){
   var cardEl = document.querySelector('.modal-card');
   if (cardEl){
     cardEl.addEventListener('click', function(e){
-      var btn = e.target.closest('.opt-grid[data-mirror] button');
+      var btn = e.target.closest('.opt-grid[data-mirror] button, .bld-purpose[data-mirror] button');
       if (!btn) return;
-      bldMirrorPick(btn.closest('.opt-grid'), btn);
+      var grid = btn.closest('[data-mirror]');
+      bldMirrorPick(grid, btn);
+      if (grid.getAttribute('data-mirror') === 'su-purpose') bldApplyPurpose();
     });
   }
+  bldApplyPurpose();
 
   var unitsBox = document.getElementById('su-units');
   if (unitsBox){
@@ -17803,6 +18217,81 @@ function bldMirrorPick(grid, btn){
   sel.value = btn.getAttribute('data-v');
   grid.querySelectorAll('button').forEach(function(b){ b.classList.toggle('active', b===btn); });
   try { sel.dispatchEvent(new Event('change', { bubbles:true })); } catch(e) {}
+}
+
+/* ---------- THE BUILDER, SPEAKING THE PURPOSE'S LANGUAGE ----------
+   ONE questionnaire, not four. Every field, id and handler is the one that
+   was already there; what changes is which questions are ASKED and what the
+   remaining ones are called.
+
+   What changes, and why each one:
+
+     event toggle / date   hidden for a non-race purpose, and the event box is
+                           pinned to 'none'. That single switch is what already
+                           makes the generator write "Goal Effort" rather than
+                           "Race Day" and "Pre-Goal Shakeout" rather than
+                           "Pre-Race Shakeout" -- no new branch, no second
+                           methodology, and no Race Day manufactured for a
+                           block that has no race.
+
+     block length          defaults to the same number the engine's own
+                           developmentBlockSpec() would have used, so a block
+                           the athlete builds and a block Valhalla recommends
+                           are the same length. Still editable: the default is
+                           a starting point, not a rule.
+
+     distance              relabelled -- "Goal distance" is only true for a
+                           race. Speed LOCKS to 5K, because the speed block
+                           reuses the 5K profile's existing methodology and
+                           offering another distance would promise a session
+                           library that does not exist for it.
+
+   Called once at open and again on every purpose change, so the DOM is a pure
+   function of the current selection rather than a sequence of toggles. */
+function bldApplyPurpose(){
+  var sel = document.getElementById('su-purpose');
+  if (!sel) return;
+  var purpose = sel.value;
+  var meta = BUILDER_PURPOSE_META[purpose] || BUILDER_PURPOSE_META.race;
+  var isRace = purpose === 'race';
+
+  document.querySelectorAll('.bld-race-only').forEach(function(el){ el.hidden = !isRace; });
+  if (!isRace) handleSetEventMode('none');
+
+  var label = document.getElementById('su-distance-label');
+  if (label) label.textContent = meta.distanceLabel;
+  var hint = document.getElementById('su-distance-hint');
+  if (hint) hint.textContent = meta.distanceHint;
+  var wHint = document.getElementById('su-weeks-hint');
+  if (wHint) wHint.textContent = meta.weeksHint;
+
+  /* The length field follows the purpose unless the athlete has typed over it
+     -- once they have, their number is theirs. `data-bld-auto` records that
+     the value on screen is still the one this function put there. */
+  var weeks = document.getElementById('su-weeks');
+  if (weeks && weeks.getAttribute('data-bld-auto') !== 'off'){
+    weeks.value = String(builderDefaultWeeks(purpose));
+    weeks.setAttribute('data-bld-auto', 'on');
+    if (!weeks.__bldBound){
+      weeks.__bldBound = true;
+      weeks.addEventListener('input', function(){ weeks.setAttribute('data-bld-auto', 'off'); });
+    }
+  }
+
+  var distField = document.getElementById('f-distance');
+  var distSel = document.getElementById('su-distance');
+  var distGridEl = distField && distField.querySelector('.opt-grid[data-mirror="su-distance"]');
+  if (distField) distField.classList.toggle('bld-locked', !!meta.lockDistance);
+  if (meta.lockDistance && distSel && distGridEl){
+    distSel.value = meta.lockDistance;
+    distGridEl.querySelectorAll('button').forEach(function(b){
+      var on = b.getAttribute('data-v') === meta.lockDistance;
+      b.classList.toggle('active', on);
+      b.disabled = !on;
+    });
+  } else if (distGridEl){
+    distGridEl.querySelectorAll('button').forEach(function(b){ b.disabled = false; });
+  }
 }
 
 function bldClearErrors(){
@@ -18135,9 +18624,20 @@ function reconcileRegeneratedDays(oldDays, newDays, startDateStr){
   return { days:merged, preserved:history.length };
 }
 function handleGeneratePlan(){
+  /* WHAT IS BEING BUILT, read from the builder rather than inherited.
+     A missing selector means a caller that predates the objective step, which
+     is a race build -- the same default the block ledger already uses. A
+     recovery block can never arrive here: it is not in the selector, and
+     startDevelopmentBlock() builds it on its own path with its own ceiling. */
+  var purposeSel = document.getElementById('su-purpose');
+  var buildPurpose = purposeSel && isBlockPurpose(purposeSel.value) && purposeSel.value !== 'recovery'
+    ? purposeSel.value : 'race';
   var distanceKey = document.getElementById('su-distance').value;
   var eventBox = document.getElementById('su-event-box');
-  var hasEvent = !eventBox || eventBox.getAttribute('data-mode')!=='none';
+  /* Only a race block can have an event. Anything else has a length and a
+     goal effort, which is what hasEvent=false already means everywhere
+     downstream -- so this is a single authority, not a second rule. */
+  var hasEvent = buildPurpose === 'race' && (!eventBox || eventBox.getAttribute('data-mode')!=='none');
   var raceDate = document.getElementById('su-racedate').value;
   var unitsBox = document.getElementById('su-units');
   var chosenUnitsBtn = unitsBox ? unitsBox.querySelector('button.active') : null;
@@ -18224,14 +18724,21 @@ function handleGeneratePlan(){
 
      Purpose is carried through a rebuild and defaults to 'race', so every plan
      that existed before this programme reads as exactly what it is. */
+  /* PURPOSE COMES FROM THE BUILDER, INCLUDING ON A REBUILD.
+     Re-tailoring a plan keeps the block's identity and origin, but the athlete
+     may genuinely be turning a finished race build into maintenance -- and the
+     selector is right there, showing the current purpose, so whatever it says
+     is a deliberate answer. Reading state.setup instead would silently discard
+     a change the athlete had just made and watched the questions respond to. */
   var rebuilding = !!(state.setup && state.setup.blockId && blockById(state.setup.blockId)
                       && state.days && state.days.length);
-  var purpose = (state.setup && isBlockPurpose(state.setup.purpose)) ? state.setup.purpose : 'race';
+  var purpose = buildPurpose;
   var block = rebuilding ? blockById(state.setup.blockId)
                          : openBlock({ purpose: purpose, startDate: startDate,
                                        distanceKey: distanceKey, goalDate: raceDate,
                                        hasEvent: hasEvent });
   if (rebuilding){
+    block.purpose = purpose;
     block.distanceKey = distanceKey;
     block.goalDate = raceDate;
     block.hasEvent = hasEvent;
@@ -18270,7 +18777,11 @@ function handleGeneratePlan(){
     showToast('Plan generated \u2014 but '+fmtDist(volume)+'/week needs more than '+
       schedule.activeDays.length+' running days at this distance. Weekly volume was reduced to keep the training safe.'+historyNote);
   } else {
-    showToast('Plan generated \u2014 '+planLengthLabel(daysBetween(startDate,raceDate)+1)+' to '+profile.label+', starting '+dShort(startDate)+historyNote);
+    /* "14 weeks to Full Marathon" is only true of a race block. Maintenance
+       is not "to" anything, so it is named for what it is. */
+    var toward = purpose === 'race' ? ' to '+profile.label
+                                    : ' of '+blockPurposeLabel(purpose);
+    showToast('Plan generated \u2014 '+planLengthLabel(daysBetween(startDate,raceDate)+1)+toward+', starting '+dShort(startDate)+historyNote);
   }
 }
 
@@ -18464,10 +18975,21 @@ function openSettingsModal(){
     '<div class="field-hint" style="margin-bottom:14px;">Copy/paste works on any version of the app, so use it to move a plan across a reinstall.</div>'+
     '<div class="divider-or"><div class="rule"></div>Sync<div class="rule"></div></div>'+
     '<div class="connect-row"><div><div class="name">Strava &amp; Garmin</div><div class="desc">'+(isStravaConnected()?'Strava connected':'Connect or import a file')+'</div></div><button type="button" class="btn btn-sm btn-ghost" data-action="open-import">'+ICONS.link+' Tools &amp; Import</button></div>'+
+    /* THIS SENTENCE WAS FALSE, and it was false one tap away from a dialog
+       saying the opposite. It promised that resetting clears "your whole plan,
+       schedule and logged runs" -- written when a plan WAS the athlete record.
+       Since training evidence moved to state.athlete, handleResetPlan archives
+       every completed session before clearing anything, and its own confirm
+       dialog says so. An athlete reading this hint would have been talked out
+       of a safe action by a warning about a consequence that no longer exists.
+
+       "Danger Zone" went with it, for the same reason: a new prescription is
+       not a dangerous act. Deleting the account still is, and that lives on
+       the Account card where it belongs -- the two must not read alike. */
     (state.setup ? (
-      '<div class="divider-or"><div class="rule"></div>Danger Zone<div class="rule"></div></div>'+
+      '<div class="divider-or"><div class="rule"></div>Start Over<div class="rule"></div></div>'+
       '<button type="button" class="btn btn-danger btn-block" data-action="reset-plan">'+ICONS.trash+' Reset Plan \u2014 Start Over</button>'+
-      '<div class="field-hint" style="margin-top:8px; text-align:center;">Clears your whole plan, schedule and logged runs and takes you back to the first screen.</div>'
+      '<div class="field-hint" style="margin-top:8px; text-align:center;">'+RESET_PLAN_HINT+'</div>'
     ) : '')+
     '<div class="build-tag">Build '+BUILD_ID+'</div>'+
   '</div>';
@@ -18489,6 +19011,14 @@ function openSettingsModal(){
 
    The wording changes with the behaviour. Saying "all logged runs" when the
    runs are kept would be the same defect in the other direction. */
+/* ONE SENTENCE, WRITTEN ONCE, SHOWN EVERYWHERE RESET IS OFFERED.
+   Settings and Plan HQ both present this control, and they used to describe it
+   differently -- one of them wrongly. A shared constant is why they cannot
+   disagree again. It is deliberately about the PRESCRIPTION: deleting the
+   account is a separate, genuinely destructive action, described in its own
+   place, and nothing here should read like it. */
+var RESET_PLAN_HINT = 'Clears the current plan and schedule so you can build a new one. ' +
+  'Your logged runs, measured results and everything Valhalla has learned about you are kept.';
 function handleResetPlan(){
   var ok = window.confirm('Start a new training block? This clears your current plan and schedule. Your logged runs and everything Valhalla has learned about your training are kept.');
   if (!ok) return;
@@ -20182,7 +20712,13 @@ function renderTodayView(){
   // looked like. Writes only when it changes, and never re-renders.
   recordAthleteState();
   var html = renderHero()+'<div class="view-heading font-head">Today</div>';
+  /* The outcome question comes FIRST and only while it is genuinely open --
+     everything downstream (recovery sizing, measured fitness, what Next Move
+     may recommend) depends on the answer, so asking for it after the day's
+     session would be asking at the wrong moment. */
+  html += renderRaceOutcomePrompt();
   html += renderCoachNextMoveCard(coachAnalyse());
+  html += renderBlockTransitionCard();
   html += dd ? renderDayCard(dd) : '<div class="empty-note">No session scheduled for today — it falls outside the current plan’s dates.</div>';
   html += renderCompactPaceReference();
   return html;
@@ -20251,6 +20787,11 @@ function renderProgrammeStatus(){
       '<div class="setup-section-title">Programme Status</div>'+
       unitToggle+
     '</div>'+
+    /* WHICH BLOCK, AND HOW FAR IN. One line under the heading, before the
+       gauge -- the athlete's first question on this screen is "what am I
+       doing at the moment", and the confidence number only means something
+       once that is answered. */
+    (state.setup ? '<div class="block-identity font-head">'+escapeHtml(blockIdentityLine())+'</div>' : '')+
     '<div class="stat-row">'+
       '<div class="stat" id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>'+
       '<div class="stat"><div class="l">'+vGoalDay()+'</div><div id="countdown-mount">'+renderCountdown()+'</div></div>'+
@@ -20269,6 +20810,7 @@ function renderPlanHQView(){
       ICONS.chevronRight+
     '</div>'+
     renderCheckpointBanner()+
+    renderMeasuredFitness()+
     renderGoalToggle()+
     '<div class="setup-section-title">Benchmark</div>'+
     renderBenchmarkSummary()+
@@ -20512,6 +21054,7 @@ function renderSettingsHubView(){
       '<button type="button" class="btn btn-ghost btn-block" data-action="paste-backup">'+ICONS.upload+' Paste Backup</button>'+
       '<div class="field-hint" style="margin:8px 0 14px;">Copy/paste works on any version of the app, so use it to move a plan across a reinstall.</div>'+
       '<button type="button" class="btn btn-danger btn-block" data-action="reset-plan">'+ICONS.trash+' Reset Plan — Start Over</button>'+
+      '<div class="field-hint" style="margin-top:8px;">'+RESET_PLAN_HINT+'</div>'+
     '</div>'+
     '<div class="build-tag">Build '+BUILD_ID+'</div>'+
     /* padded rather than merely coloured: an 11px line of text is a link a
@@ -20736,6 +21279,8 @@ document.addEventListener('click', function(e){
     case 'add-split': handleAddSplit(target.getAttribute('data-day')); break;
     case 'delete-split': handleDeleteSplit(target.getAttribute('data-day'), parseInt(target.getAttribute('data-index'),10)); break;
     case 'set-event-mode': handleSetEventMode(target.getAttribute('data-event-mode')); break;
+    case 'race-outcome': handleRaceOutcome(target.getAttribute('data-outcome')); break;
+    case 'start-block': handleStartBlock(target.getAttribute('data-purpose')); break;
     case 'set-experience': handleSetExperience(target.getAttribute('data-experience')); break;
     case 'coach-why': handleCoachWhy(target.getAttribute('data-day')); break;
     case 'toggle-evolution': evolutionOpen = !evolutionOpen; renderApp(); break;

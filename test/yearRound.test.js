@@ -655,10 +655,38 @@ test('an estimate does not move because of one ordinary easy run', () => {
     'a single easy run moved the fitness estimate');
 });
 
+/* THE GUARD SCANS CODE, NOT THE PROSE BESIDE IT.
+
+   This asserted against the raw file, so the comment explaining that Measured
+   Fitness carries "no CTL, no ATL, no TSB" failed it -- the sentence promising
+   the rule and a violation of the rule were indistinguishable to a regex.
+   Weakening the rule would have been the wrong fix twice over: the rule is
+   right, and a scan that cannot survive being documented is not much of a scan.
+
+   Comments are stripped; STRING LITERALS ARE NOT, so an athlete-facing "TSB"
+   still fails exactly as it should. Only whole-line `//` comments go, because
+   `//` also appears in every URL in the file. */
+function runtimeCode(){
+  return fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8')
+    .replace(/\/\*[^]*?\*\//g, '')
+    .replace(/<!--[^]*?-->/g, '')
+    .replace(/^[ \t]*\/\/[^\n]*$/gm, '');
+}
 test('CTL, ATL and TSB are not exposed, and no Banister model appeared', () => {
-  const src = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
+  const code = runtimeCode();
   [/\bCTL\b/, /\bATL\b/, /\bTSB\b/, /banister/i].forEach(re =>
-    assert.doesNotMatch(src, re, 'a rejected fitness/fatigue concept has appeared'));
+    assert.doesNotMatch(code, re, 'a rejected fitness/fatigue concept has appeared'));
+});
+
+test('stripping comments does not blind the concept guard', () => {
+  /* The scan above is only worth anything if it would still catch a real one.
+     Same two replacements, run over a sample that contains both shapes. */
+  const strip = s => s.replace(/\/\*[^]*?\*\//g, '').replace(/^[ \t]*\/\/[^\n]*$/gm, '');
+  const sample = 'var a=1; /* no TSB here */\n  // and no CTL either\nvar msg = "Your TSB is 4";';
+  assert.doesNotMatch(strip(sample), /here|either/, 'comments must be gone');
+  assert.match(strip(sample), /"Your TSB is 4"/,
+    'but anything an athlete could read must survive the strip');
+  assert.match(strip(sample), /\bTSB\b/, 'so the guard would still fail on it');
 });
 
 // ===========================================================================
