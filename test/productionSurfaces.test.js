@@ -289,15 +289,43 @@ test('the native shell loads the canonical production domain, not a preview host
      domain. Different origin means different localStorage: an athlete who
      signed in on the web was not signed in inside the app, and the sign-in
      link their email carried pointed at a host the app did not claim. */
-  ['capacitor.config.json', 'android/app/src/main/assets/capacitor.config.json'].forEach(f => {
-    const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, f), 'utf8'));
+  /* THE SOURCE OF TRUTH IS THE ROOT CONFIG, and it is the only one committed.
+     android/app/src/main/assets/capacitor.config.json is GITIGNORED -- `cap
+     sync` generates it from this file. Asserting it unconditionally made this
+     test fail in any fresh clone, which has never run a sync and does not have
+     the file at all; it passed only on a machine that happened to have a stale
+     build artefact lying around. So the generated copy is checked when it is
+     present, because a STALE one is a real defect -- that copy is what the
+     built APK reads, and it is how the wrong host shipped in the first place --
+     and its absence is not a failure. */
+  const check = (f, cfg) => {
     assert.equal(cfg.appId, 'com.velvetviking.valhalla', f + ' has the wrong package identity');
     assert.ok(cfg.server && cfg.server.url, f + ' has no server url');
     assert.equal(cfg.server.url, 'https://' + CANONICAL_HOST,
       f + ' ships pointing at ' + cfg.server.url);
     assert.doesNotMatch(cfg.server.url, /vercel\.app|localhost|127\.0\.0\.1|ngrok/,
       f + ' ships a preview or development endpoint');
-  });
+  };
+
+  const root = 'capacitor.config.json';
+  check(root, JSON.parse(fs.readFileSync(path.join(ROOT, root), 'utf8')));
+
+  const generated = 'android/app/src/main/assets/capacitor.config.json';
+  const at = path.join(ROOT, generated);
+  if (fs.existsSync(at)){
+    check(generated, JSON.parse(fs.readFileSync(at, 'utf8')));
+  }
+});
+
+test('the generated Capacitor config is not committed, so it cannot go stale in git', () => {
+  // It is a build artefact. Committing it creates a second place the APK's
+  // origin is written down, and the second place is the one nobody edits.
+  const ignore = fs.readFileSync(path.join(ROOT, 'android', '.gitignore'), 'utf8');
+  assert.match(ignore, /app\/src\/main\/assets\/capacitor\.config\.json/);
+  const tracked = require('child_process')
+    .execSync('git ls-files android/app/src/main/assets/capacitor.config.json', { cwd: ROOT })
+    .toString().trim();
+  assert.equal(tracked, '', 'the generated config is tracked; run cap sync instead of committing it');
 });
 
 test('App Links claim the domain sign-in links are actually sent to', () => {
