@@ -10341,6 +10341,18 @@ function coachNextMove(load, recovery, trend, status){
   var quality = !isRecoveryWorkoutType(dd.type) && dd.type!=='rest';
   var strained = recovery.state==='strained' || load.band==='spike';
   var painCue = coachNoticed().some(function(n){ return n.tone==='warn'; });
+  /* ONE PATTERN SENTENCE, NOT TWO. An athlete who is missing sessions is
+     usually also executing the ones they do run badly, and printing both
+     findings is how a coach turns into a list of complaints. Missing the
+     session outranks running it below target, because it is the one that
+     changes what the programme should be. */
+  var patternSpeaks = (function(){
+    var m = missPattern();
+    if (m && m.tier !== 'isolated') return { kind:'missed', tier:m.tier, sentence:missPatternSentence(m) };
+    var e = executionPattern();
+    if (e && e.tier !== 'isolated') return { kind:'execution', tier:e.tier, sentence:executionPatternSentence(e) };
+    return null;
+  })();
 
   if (strained && quality){
     var cutKm = Math.max(1, Math.round(dd.km * 0.75 * 2)/2);
@@ -10359,6 +10371,14 @@ function coachNextMove(load, recovery, trend, status){
       kind:'downgrade', km:Math.max(1, Math.round(dd.km*0.8*2)/2), type:'easy',
       title:'Easy Aerobic', reason:'Soreness reported in recent notes'
     };
+  } else if (patternSpeaks && patternSpeaks.tier !== 'isolated'){
+    /* ABOVE the load-band branch, because "load has dropped off" is a symptom
+       of the thing this sentence names, and the athlete reading a description
+       of the symptom while the cause goes unsaid is exactly the flat, endlessly
+       repeated language the audit found. Below safety, because soreness and a
+       spiking load are still the more urgent conversation. */
+    move.recommendation = patternSpeaks.sentence;
+    move.pattern = { kind: patternSpeaks.kind, tier: patternSpeaks.tier };
   } else if (load.band==='low'){
     move.recommendation = 'Load has dropped off. Run this one exactly as written — consistency is what is missing, not intensity.';
   } else if (trend.direction==='rising' && quality){
@@ -13091,6 +13111,111 @@ function sessionImportance(dd){
 function isQualityType(t){
   return ['threshold','interval','repetition','tempo','checkpoint','race'].indexOf(t)!==-1;
 }
+
+/* =========================================================
+   WHEN ONE BAD WEEK BECOMES A PATTERN
+   ---------------------------------------------------------
+   Valhalla said the same thing to an athlete who had missed one session and to
+   an athlete who had missed seven: "A threshold session went unlogged on
+   Wednesday and it is still worth having this week." Poor execution escalated
+   exactly once and then flattened. A programme an athlete uses for years has
+   to be able to notice that something has changed and say so -- and then stop
+   saying it, because a coach who repeats the same warning forever is not
+   coaching, they are nagging.
+
+   THREE TIERS, and the difference between them is what Valhalla DOES:
+
+     ISOLATED    one session. Acknowledged, nothing changed. Most missed
+                 sessions are a late meeting, not a crisis.
+     EMERGING    the misses have a shape. Named plainly once, with the offer
+                 that the plan can be re-tailored around the days the athlete
+                 actually has.
+     PERSISTENT  the programme and the athlete's life have come apart. The
+                 honest thing is to say so and offer to rebuild the block, not
+                 to keep proposing sessions into a week that will not hold
+                 them.
+
+   MEASURED IN SESSIONS, NEVER IN DAYS. The brief is explicit that nothing may
+   escalate merely because calendar time has passed, and this is the mechanism
+   that guarantees it: the window is the last PATTERN_WINDOW_SESSIONS PLANNED
+   SESSIONS, and below PATTERN_MIN_PLANNED there is no tier at all. An athlete
+   two weeks into a three-day-a-week block cannot be told they have a
+   persistent problem, however long the app has been open.
+
+   NOT A BEHAVIOURAL ANALYTICS SYSTEM. Nothing is stored, nothing is counted
+   over time, nothing is sent anywhere. This reads the plan the athlete already
+   has and answers a question about it. */
+var PATTERN_WINDOW_SESSIONS  = 12;
+var PATTERN_MIN_PLANNED      = 6;
+var PATTERN_EMERGING_RATE    = 0.80;   // at or above this, still isolated
+var PATTERN_PERSISTENT_RATE  = 0.60;   // below this, persistent
+
+function plannedSessionWindow(){
+  var today = todayStr();
+  return (state.days||[]).filter(function(dd){
+    return dd && dd.type!=='rest' && dd.date < today;
+  }).sort(function(a,b){ return a.date<b.date?-1:1; }).slice(-PATTERN_WINDOW_SESSIONS);
+}
+function patternTier(good, total){
+  if (total - good <= 1) return 'isolated';
+  var rate = good/total;
+  return rate >= PATTERN_EMERGING_RATE ? 'isolated'
+       : rate >= PATTERN_PERSISTENT_RATE ? 'emerging'
+       : 'persistent';
+}
+function missPattern(){
+  var win = plannedSessionWindow();
+  if (win.length < PATTERN_MIN_PLANNED) return null;
+  /* An accepted adjustment is a session the athlete and Valhalla agreed to
+     change, which is the opposite of one they ignored. */
+  var ran = win.filter(function(dd){ return sessionRan(dd) || !!dd.coachAdjust; });
+  if (ran.length === win.length) return null;
+  return { tier: patternTier(ran.length, win.length), missed: win.length-ran.length,
+           ran: ran.length, planned: win.length };
+}
+function executionPattern(){
+  /* Quality only. An easy run logged short is a decision the athlete made
+     about an easy run; a threshold session repeatedly falling apart is the
+     programme asking for more than the athlete has. */
+  var win = plannedSessionWindow().filter(function(dd){
+    return sessionRan(dd) && isQualityType(dd.type);
+  });
+  var scored = win.map(function(dd){ return computeExecutionScore(dd); })
+                  .filter(function(v){ return v != null; });
+  if (scored.length < 3) return null;
+  var held = scored.filter(function(s){ return s >= PLAYBOOK_POOR_EXECUTION; });
+  if (held.length === scored.length) return null;
+  return { tier: patternTier(held.length, scored.length),
+           poor: scored.length-held.length, held: held.length, scored: scored.length };
+}
+/* WHAT IT SAYS, and what it does not. No exclamation, no second person
+   accusation, no "you have missed", no streak, no encouragement theatre. The
+   sentence states the count, names what it means, and -- from the second tier
+   on -- offers the athlete something they can do. */
+function missPatternSentence(p){
+  if (!p) return null;
+  if (p.tier === 'isolated')
+    return (p.missed === 1 ? 'One session' : p.missed + ' sessions') + ' of the last ' +
+           p.planned + ' went unrun. The block still works.';
+  if (p.tier === 'emerging')
+    return p.missed + ' of the last ' + p.planned + ' sessions went unrun. That reads as a ' +
+           'pattern rather than a bad week — the block can be re-tailored around the days you actually have.';
+  return 'You have run ' + p.ran + ' of the last ' + p.planned + ' prescribed sessions. ' +
+         'A plan that does not fit the weeks you are having is not worth carrying: rebuilding this ' +
+         'block around your current availability will do more than any single session.';
+}
+function executionPatternSentence(p){
+  if (!p) return null;
+  if (p.tier === 'isolated')
+    return (p.poor === 1 ? 'One quality session' : p.poor + ' quality sessions') + ' of the last ' +
+           p.scored + ' came in under target. That is training.';
+  if (p.tier === 'emerging')
+    return p.poor + ' of the last ' + p.scored + ' quality sessions came in under target. ' +
+           'The prescription is running slightly ahead of where you are, and it can be brought back.';
+  return 'Most of your recent quality work has come in under target (' + p.held + ' of ' + p.scored +
+         ' held). That is the block asking for more than it is currently getting back — ' +
+         'a lighter, more repeatable prescription will produce more fitness than this one.';
+}
 /* ---------- the phases where nothing is ever added back ----------
    Written once because it was written four times and two of them were wrong.
    blockDimensionRelevance() and the block-evidence minimum both name all three
@@ -14862,7 +14987,11 @@ function playbookAssess(archetype){
         why:'Insufficient evidence: Not enough scored sessions yet to judge your training trend confidently.' },
       { ok: playbookPhaseAllowsProgress(phase), why:'The '+phase+' phase does not add load. '+playbookPhaseRule(phase).note },
       { ok: !!block && (block.state==='ADAPTING' || (block.state==='RESPONDING' && block.checkpointInvolved)),
-        why:'The block is '+(block?block.state:'LEARNING')+', which is not yet evidence recent training is being absorbed.' },
+        /* The LABEL, not the enum. This sentence is athlete-facing and was
+           printing the internal state token: "The block is PLATEAU". BLOCK_META
+           has carried the athlete's word for each state all along. */
+        why:'The block reads as '+((BLOCK_META[block?block.state:'LEARNING']||BLOCK_META.LEARNING).label)+
+            ', which is not yet evidence recent training is being absorbed.' },
       { ok: trend.direction!=='falling', why:'Execution is trending down.' },
       { ok: rec.state==='fresh', why:'Recovery state is '+rec.state+'.' },
       { ok: load.band!=='spike' && load.band!=='elevated', why:'Recent load is '+load.band+'.' },
