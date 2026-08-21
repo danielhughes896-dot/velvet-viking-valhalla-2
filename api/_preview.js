@@ -190,8 +190,14 @@ function summarise(app, days, blockResult, input){
      than inferred thirty times. */
   const shape = [];
   if (blockResult){
-    if (blockResult.buildWeeks) shape.push({ phase: 'Build', weeks: blockResult.buildWeeks });
-    if (blockResult.taperWeeks) shape.push({ phase: 'Taper', weeks: blockResult.taperWeeks });
+    /* A steady block has one phase because it has one shape. Reporting
+       "Build 8 weeks" for maintenance would describe an arc it does not have,
+       and "Taper 0 weeks" is already suppressed by the truthiness check. */
+    if (blockResult.steady) shape.push({ phase: 'Maintain', weeks: blockResult.planWeeks });
+    else {
+      if (blockResult.buildWeeks) shape.push({ phase: 'Build', weeks: blockResult.buildWeeks });
+      if (blockResult.taperWeeks) shape.push({ phase: 'Taper', weeks: blockResult.taperWeeks });
+    }
   }
 
   const totalKm = days.reduce(function(a, d){ return a + (typeof d.km === 'number' ? d.km : 0); }, 0);
@@ -259,6 +265,42 @@ function summarise(app, days, blockResult, input){
   };
 }
 
+/* ---------- THE GENERATION ITSELF ----------
+   Split out of handle() so it can be driven directly. It used to sit inside
+   the handler's try block, which meant the only way to reach it was through
+   an authenticated HTTP request -- so nothing verified that a maintenance
+   preview is actually generated in steady mode, and removing that option
+   changed nothing any test could see. A boundary worth having is a boundary
+   worth exercising.
+
+   Pure with respect to the request: it takes a loaded engine and a validated
+   input, and returns what the summary needs. */
+function generate(app, input){
+  const startDate = input.startDate || app.todayStr();
+  const startMonday = app.addDays(startDate, -app.isoWeekday(startDate));
+  const raceDate = app.addDays(startMonday, input.weeks * 7 - 1);
+  const schedule = { activeDays: input.activeDays, longRunDay: input.longRunDay };
+
+  /* Maintenance is generated in STEADY mode here for the same reason it is in
+     the app: it has no goal effort to taper into, and a preview that showed
+     one would be advertising a block the product does not build. */
+  const blockResult = app.buildBlockWeeks(input.buildDistance, input.buildVolume, input.weeks,
+                                          { steady: input.purpose === 'maintain' });
+  const days = app.buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, input.hasEvent);
+
+  app.state = app.makeDefaultState();
+  app.state.setup = {
+    distanceKey: input.buildDistance, currentVolume: input.buildVolume, raceDate: raceDate,
+    hasEvent: input.hasEvent, purpose: input.purpose,
+    startDate: startDate, planWeeks: blockResult.planWeeks, schedule: schedule,
+    benchmark: { distanceKey: '10k', timeSec: input.benchmarkSeconds },
+    goals: { A: { timeSec: Math.round(input.benchmarkSeconds * 0.95) } }, activeGoal: 'A',
+    paceOverrides: {}, lthr: null, maxHR: null, experience: 'experienced'
+  };
+  app.state.days = days;
+  return { app: app, days: days, blockResult: blockResult };
+}
+
 async function handle(req, res){
   if (String(req.method || '').toUpperCase() !== 'POST')
     return S.json(res, 405, { error: 'method_not_allowed' });
@@ -271,27 +313,9 @@ async function handle(req, res){
   const v = validate(body);
   if (!v.ok) return S.json(res, 400, { error: v.code });
 
-  let app, days, blockResult;
+  let built;
   try{
-    app = loadEngine(new Date().toISOString());
-    const startDate = v.input.startDate || app.todayStr();
-    const startMonday = app.addDays(startDate, -app.isoWeekday(startDate));
-    const raceDate = app.addDays(startMonday, v.input.weeks * 7 - 1);
-    const schedule = { activeDays: v.input.activeDays, longRunDay: v.input.longRunDay };
-
-    blockResult = app.buildBlockWeeks(v.input.buildDistance, v.input.buildVolume, v.input.weeks);
-    days = app.buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, v.input.hasEvent);
-
-    app.state = app.makeDefaultState();
-    app.state.setup = {
-      distanceKey: v.input.buildDistance, currentVolume: v.input.buildVolume, raceDate: raceDate,
-      hasEvent: v.input.hasEvent, purpose: v.input.purpose,
-      startDate: startDate, planWeeks: blockResult.planWeeks, schedule: schedule,
-      benchmark: { distanceKey: '10k', timeSec: v.input.benchmarkSeconds },
-      goals: { A: { timeSec: Math.round(v.input.benchmarkSeconds * 0.95) } }, activeGoal: 'A',
-      paceOverrides: {}, lthr: null, maxHR: null, experience: 'experienced'
-    };
-    app.state.days = days;
+    built = generate(loadEngine(new Date().toISOString()), v.input);
   }catch(e){
     /* A code, never the error. A stack from the runtime would describe the
        product's internals to somebody who has not bought it. */
@@ -305,12 +329,12 @@ async function handle(req, res){
   log('generated uid=' + String(uid).slice(0, 8) + ' purpose=' + v.input.purpose +
       ' distance=' + v.input.buildDistance);
   return S.json(res, 200, {
-    preview: summarise(app, days, blockResult, v.input),
+    preview: summarise(built.app, built.days, built.blockResult, v.input),
     trial: { available: true },
     /* Said plainly rather than implied: this is a summary, not the product. */
     note: 'This is a preview of your programme. Valhalla itself coaches it.'
   });
 }
 
-module.exports = { handle, validate, summarise, defaultWeeksFor,
+module.exports = { handle, validate, summarise, generate, defaultWeeksFor,
                    DISTANCES, DISTANCE_ALIASES, PURPOSES, PURPOSE_SHAPE, LIMITS };

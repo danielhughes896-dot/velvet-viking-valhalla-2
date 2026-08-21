@@ -1693,9 +1693,14 @@ function planHasEvent(su){
   // entering a race date, so they keep race wording
   return !setup || setup.hasEvent !== false;
 }
-function vGoalDay(su){ return planHasEvent(su) ? 'Race Day' : 'Goal Day'; }
-function vGoalWeek(su){ return planHasEvent(su) ? 'Race Week' : 'Final Week'; }
-function vGoalDate(su){ return planHasEvent(su) ? 'Race' : 'Goal day'; }
+/* A STEADY BLOCK HAS A REVIEW POINT, NOT A GOAL DAY. Its end date exists so
+   Valhalla can ask what comes next; calling it a goal day would promise an
+   effort the block deliberately does not build towards. planIsSteady() is
+   declared later in the file -- function declarations hoist, and these are
+   only ever called during a render. */
+function vGoalDay(su){ return planIsSteady(su) ? 'Review' : planHasEvent(su) ? 'Race Day' : 'Goal Day'; }
+function vGoalWeek(su){ return (!planIsSteady(su) && planHasEvent(su)) ? 'Race Week' : 'Final Week'; }
+function vGoalDate(su){ return planIsSteady(su) ? 'Review' : planHasEvent(su) ? 'Race' : 'Goal day'; }
 function vShakeout(su){ return planHasEvent(su) ? 'Pre-Race Shakeout' : 'Pre-Goal Shakeout'; }
 
 var DISTANCE_PROFILES = {
@@ -2270,8 +2275,23 @@ function computeTaperInfo(planWeeks){
    exists; trainingPhase() is the state-aware wrapper. */
 var PHASE_BASE_END  = 0.25;   // fraction of BUILD weeks, not of the whole block
 var PHASE_BUILD_END = 0.80;
-function phaseForWeek(weekNum, totalWeeks){
+/* ---------- A STEADY BLOCK HAS NO ARC ----------
+   Base, Build, Peak, Taper and Final describe a block that is going somewhere:
+   each phase exists because of the effort at the end. Maintain & Protect has
+   no effort at the end -- it exists to hold fitness between campaigns -- so
+   every week is the same kind of week, and calling week 6 "Peak" would be
+   describing a shape the block does not have.
+
+   ONE phase name for the whole block, from the same canonical function every
+   other layer already asks, so the generator, Plan HQ, the week dividers and
+   the coaching copy cannot disagree about it. */
+function planIsSteady(su){
+  var s = su || (typeof state !== 'undefined' ? state.setup : null);
+  return !!(s && s.purpose === 'maintain');
+}
+function phaseForWeek(weekNum, totalWeeks, steady){
   if (!totalWeeks || !weekNum) return 'Base';
+  if (steady) return 'Maintain';
   if (weekNum >= totalWeeks) return 'Final';
   var info = computeTaperInfo(totalWeeks);
   if (weekNum > info.buildWeeks) return 'Taper';
@@ -2282,36 +2302,69 @@ function phaseForWeek(weekNum, totalWeeks){
 }
 function isTaperWeek(weekNum){
   if (!state.setup) return false;
-  return phaseForWeek(weekNum, totalWeeksInPlan())==='Taper';
+  return phaseForWeek(weekNum, totalWeeksInPlan(), planIsSteady())==='Taper';
 }
-function buildBlockWeeks(distKey, currentVolume, planWeeksInput){
+/* STEADY MODE, and what it switches off.
+
+   Maintain & Protect is not a smaller race block. A race block ramps to a peak
+   and tapers into an effort; maintenance exists precisely because there is no
+   effort to aim at, so inheriting the shared generator's arc gave it three
+   things it should never have had:
+
+     a TAPER      -- reducing load ahead of nothing;
+     a GOAL DAY   -- a synthetic maximal effort in the final week, which is a
+                     peak by another name and the opposite of protecting what
+                     the athlete has;
+     a RAMP       -- volume climbing to currentVolume x profile.volMult, i.e.
+                     BUILDING, under a heading that says it is not.
+
+   Steady mode removes exactly those three and nothing else. Volume holds flat
+   at what the athlete absorbs, the four-weekly cutback stays (an easier week
+   is recovery, not peaking), and quality stays -- reducing frequency and
+   volume while keeping some intensity is the well-supported part of the
+   maintenance literature and is what "lower cost, same sharpness" means.
+
+   Structure selection uses the BUILD pool rather than a pool of its own: no
+   new session library is introduced for this, and the Peak pool -- which is
+   what an unknown phase name would silently have fallen back to -- would have
+   handed a maintenance block the hardest sessions in the product. */
+function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   var profile = DISTANCE_PROFILES[distKey];
+  var steady = !!(opts && opts.steady);
   // planWeeksInput must be the exact week-bucket count derived from the real
   // start-date -> race-date gap (see handleGeneratePlan) -- no hardcoded
   // default and no clamp, so short or long blocks are represented exactly.
   var N = Math.max(1, Math.round(planWeeksInput));
   var info = computeTaperInfo(N);
-  var taper = info.taper, buildWeeks = info.buildWeeks;
-  var peakVolume = currentVolume * profile.volMult;
+  var taper = steady ? 0 : info.taper;
+  var buildWeeks = steady ? N : info.buildWeeks;
+  var peakVolume = steady ? currentVolume : currentVolume * profile.volMult;
   var weeks = [];
 
   for (var w=1; w<=N; w++){
-    var isRace = (w===N);
-    var isTaper = (!isRace && w>buildWeeks);
+    var isRace = !steady && (w===N);
+    var isTaper = !steady && (!isRace && w>buildWeeks);
     var isCheckpoint = false;
     var volume, phase, isCutback=false;
 
     // phaseForWeek() is the canonical definition -- this loop no longer carries
     // boundaries of its own, so the generator and every coaching layer agree.
-    phase = phaseForWeek(w, N);
+    phase = phaseForWeek(w, N, steady);
     if (phase==='Final') phase = 'Final Week';
+    // The pool this phase name selects from. 'Maintain' has no pool of its own
+    // and must not fall through to Peak, which is what pickQualityStructure
+    // does with any name it does not know.
+    var structPhase = steady ? 'Build' : phase;
 
     if (!isTaper && !isRace){
       var progress = w/buildWeeks;
-      var trend = currentVolume + (peakVolume-currentVolume)*progress;
-      isCutback = (w%4===0) && w!==buildWeeks && buildWeeks>=4;
+      var trend = steady ? currentVolume
+                         : currentVolume + (peakVolume-currentVolume)*progress;
+      isCutback = (w%4===0) && (steady ? w!==N : w!==buildWeeks) && buildWeeks>=4;
       volume = isCutback ? trend*0.78 : trend;
-      isCheckpoint = (w === Math.max(1,Math.round(buildWeeks*0.6)));
+      /* A checkpoint is a maximal time trial. Maintenance is not the time to
+         test what the athlete has -- it is the time to keep it. */
+      isCheckpoint = !steady && (w === Math.max(1,Math.round(buildWeeks*0.6)));
     } else if (isTaper){
       var taperIdx = w-buildWeeks;
       var frac = taper>0 ? taperIdx/taper : 1;
@@ -2322,8 +2375,8 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput){
     volume = round1(volume);
 
     var pos = buildWeeks>1 ? (Math.min(w,buildWeeks)-1)/(buildWeeks-1) : 0;
-    var qSpec = pickQualityStructure(INTERVAL_STRUCTURE_POOL, phase, w, pos, profile.emphasis);
-    var tSpec = pickQualityStructure(TEMPO_STRUCTURE_POOL, phase, w, pos, profile.emphasis);
+    var qSpec = pickQualityStructure(INTERVAL_STRUCTURE_POOL, structPhase, w, pos, profile.emphasis);
+    var tSpec = pickQualityStructure(TEMPO_STRUCTURE_POOL, structPhase, w, pos, profile.emphasis);
     // Taper shrinks the STRUCTURE, then the day is sized from that structure --
     // so the number on the card and the session written on it cannot disagree.
     /* ---- a quality session is never the longest run of the week ----
@@ -2366,7 +2419,8 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput){
       hasGoalSegment:hasGoalSegment, goalSegKm:goalSegKm, raceDayKm:raceDayKm
     });
   }
-  return { profile:profile, weeks:weeks, peakVolume:round1(peakVolume), buildWeeks:buildWeeks, taperWeeks:taper, planWeeks:N };
+  return { profile:profile, weeks:weeks, peakVolume:round1(peakVolume),
+           buildWeeks:buildWeeks, taperWeeks:taper, planWeeks:N, steady:steady };
 }
 
 /* =========================================================
@@ -10577,7 +10631,8 @@ function startDevelopmentBlock(purpose, opts){
   if (prevBlockId) closeBlock(prevBlockId, { reason: 'transition', to: purpose });
 
   var blockResult = buildBlockWeeks(spec.distanceKey, spec.volume,
-    daysBetween(startMonday, addDays(goalDate, -isoWeekday(goalDate)))/7 + 1);
+    daysBetween(startMonday, addDays(goalDate, -isoWeekday(goalDate)))/7 + 1,
+    { steady: purpose === 'maintain' });
   var days = buildDaysFromWeeks(blockResult, goalDate, schedule, startDate, false);
   if (purpose === 'recovery' && prevRaceDate)
     days = applyRecoveryCeiling(days, prevRaceDate, spec.noIntensityDays);
@@ -16003,7 +16058,7 @@ function trainingPhase(weekNum){
   if (!total || !weekNum) return 'Base';
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
   if (wdays.some(function(dd){ return dd.type==='race'; })) return vGoalWeek();
-  var p = phaseForWeek(weekNum, total);
+  var p = phaseForWeek(weekNum, total, planIsSteady());
   return p==='Final' ? vGoalWeek() : p;
 }
 function coachSessionContext(dd){
@@ -18797,7 +18852,7 @@ function handleGeneratePlan(){
 
   var profile = DISTANCE_PROFILES[distanceKey];
   var schedule = { activeDays:activeDays, longRunDay:longRunDay };
-  var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks);
+  var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks, { steady: buildPurpose === 'maintain' });
   var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);
 
   /* HISTORY IS RECONCILED INTO A REBUILD AND ARCHIVED OUT OF A TRANSITION.

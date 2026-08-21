@@ -596,7 +596,12 @@ test('MUTATION: a non-race block cannot emit race-only language', () => {
     const b = a.startDevelopmentBlock(p);
     assert.ok(b, p + ' could not be built');
     assert.equal(a.state.setup.hasEvent, false, p + ' must not claim an event');
-    assert.equal(a.vGoalDay(a.state.setup), 'Goal Day', p + ' called it Race Day');
+    /* Base and speed build to a goal effort and so have a Goal Day.
+       Maintenance builds to nothing on purpose, so its end date is a Review
+       point -- see the MAINTAIN block above. Neither is ever a Race Day. */
+    assert.equal(a.vGoalDay(a.state.setup), p === 'maintain' ? 'Review' : 'Goal Day',
+      p + ' named its end date wrongly');
+    assert.doesNotMatch(a.vGoalDay(a.state.setup), /Race/, p + ' called it Race Day');
     assert.equal(a.vGoalWeek(a.state.setup), 'Final Week', p + ' called it Race Week');
     a.state.days.forEach(d => {
       assert.doesNotMatch(String(d.title || ''), /race day|pre-race/i,
@@ -605,6 +610,279 @@ test('MUTATION: a non-race block cannot emit race-only language', () => {
         p + ' used race-day language on ' + d.date);
     });
   });
+});
+
+// ===========================================================================
+// 6b. MAINTAIN & PROTECT DOES NOT PEAK
+//
+//     Maintenance inherited the shared generator's arc, so it ramped to a
+//     peak, tapered, and finished with a synthetic goal effort -- a block
+//     whose whole purpose is to hold fitness between campaigns was quietly
+//     building towards nothing. Steady mode removes exactly those three
+//     things. These pin all three, and pin that nothing else moved.
+// ===========================================================================
+function maintainBlock(){
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  assert.ok(a.startDevelopmentBlock('maintain'), 'maintenance could not be built');
+  return a;
+}
+
+test('MAINTAIN: no taper', () => {
+  const a = maintainBlock();
+  const n = a.totalWeeksInPlan();
+  for (let w = 1; w <= n; w++)
+    assert.equal(a.isTaperWeek(w), false, 'week ' + w + ' is a taper week');
+  const br = a.buildBlockWeeks('half', 45, 8, { steady: true });
+  assert.equal(br.taperWeeks, 0);
+  assert.ok(!br.weeks.some(w => w.isTaper), 'the generator still produced taper weeks');
+});
+
+test('MAINTAIN: no culminating goal effort', () => {
+  const a = maintainBlock();
+  a.state.days.forEach(d => {
+    assert.notEqual(d.type, 'race', 'a goal effort was prescribed on ' + d.date);
+    assert.notEqual(d.type, 'checkpoint',
+      'a maximal time trial was prescribed on ' + d.date + ' — maintenance holds, it does not test');
+  });
+  const br = a.buildBlockWeeks('half', 45, 8, { steady: true });
+  assert.ok(!br.weeks.some(w => w.isRace), 'the generator still produced a goal-effort week');
+  assert.ok(!br.weeks.some(w => w.isCheckpoint), 'and still produced a checkpoint');
+  assert.ok(!br.weeks.some(w => w.raceDayKm > 0), 'and still budgeted race-day distance');
+});
+
+test('MAINTAIN: volume holds rather than ramps', () => {
+  const br = maintainBlock().buildBlockWeeks('half', 45, 8, { steady: true });
+  const full = br.weeks.filter(w => !w.isCutback).map(w => w.volume);
+  full.forEach(v => assert.equal(v, 45,
+    'a maintenance week is not the athlete’s own volume: ' + full.join(', ')));
+  assert.equal(br.peakVolume, 45, 'maintenance has no peak above what is absorbed');
+  /* The four-weekly cutback stays. An easier week is recovery, not peaking,
+     and removing it would make maintenance harder than the block it follows. */
+  assert.ok(br.weeks.some(w => w.isCutback), 'the cutback rhythm was lost');
+  br.weeks.filter(w => w.isCutback).forEach(w =>
+    assert.ok(w.volume < 45, 'a cutback week must actually be easier'));
+});
+
+test('MAINTAIN: one phase, because it has one shape', () => {
+  const a = maintainBlock();
+  const n = a.totalWeeksInPlan();
+  for (let w = 1; w <= n; w++)
+    assert.equal(a.trainingPhase(w), 'Maintain',
+      'week ' + w + ' reads as "' + a.trainingPhase(w) + '" in a block with no arc');
+  assert.equal(a.vGoalDay(a.state.setup), 'Review',
+    'the end of a maintenance block is a review point, not a goal day');
+  assert.equal(a.vGoalDate(a.state.setup), 'Review');
+});
+
+test('MAINTAIN: keeps its quality — it holds fitness, it does not shed it', () => {
+  const a = maintainBlock();
+  const quality = a.state.days.filter(d =>
+    ['tempo', 'threshold', 'interval', 'repetition'].indexOf(d.type) !== -1);
+  assert.ok(quality.length >= 4,
+    'lower cost means less volume and frequency, not no intensity — found ' + quality.length);
+});
+
+/* THE POOL, NOT A PROXY FOR THE POOL.
+
+   'Maintain' is not a key in either structure pool, and pickQualityStructure
+   falls back to pool.Peak for any name it does not know -- so getting this
+   wrong hands a maintenance block the hardest sessions in the product. The
+   first version of this test compared session DISTANCES against the race
+   block's peak week, which stayed true either way because a maintenance week
+   has less volume to fit a session into. Distance was never the claim.
+
+   This compares the structures themselves against blocks built entirely from
+   each pool, which is what the claim actually is. */
+test('MAINTAIN: sessions come from the Build pool, never the Peak pool', () => {
+  const a = racingAthlete();
+  const steady = a.buildBlockWeeks('half', 45, 8, { steady: true });
+  /* `t` is the structure's kind -- interval, repetition, goalpace, threshold.
+     The generator shrinks a chosen spec's dimensions afterwards but never its
+     kind, so this is the part that survives selection and identifies the pool
+     it came from. (An earlier version read `.type`, which these specs do not
+     have; every comparison was undefined === undefined and the guard could
+     not have failed. The self-check at the bottom is what caught it.) */
+  const kind = w => [w.qSpec && w.qSpec.t, w.tSpec && w.tSpec.t].join('/');
+  const fromPool = (phase, w, pos) =>
+    [a.pickQualityStructure(a.INTERVAL_STRUCTURE_POOL, phase, w, pos, 'threshold').t,
+     a.pickQualityStructure(a.TEMPO_STRUCTURE_POOL, phase, w, pos, 'threshold').t].join('/');
+
+  steady.weeks.forEach(w => {
+    const pos = (w.week - 1) / 7;
+    const build = fromPool('Build', w.week, pos);
+    const peak = fromPool('Peak', w.week, pos);
+    assert.equal(kind(w), build, 'week ' + w.week + ' did not come from the Build pool');
+    if (peak !== build) assert.notEqual(kind(w), peak,
+      'week ' + w.week + ' fell through to the Peak pool');
+  });
+  /* And the two pools genuinely differ somewhere, or the check above proves
+     nothing at all. */
+  const differs = steady.weeks.some(w =>
+    fromPool('Build', w.week, (w.week - 1) / 7) !== fromPool('Peak', w.week, (w.week - 1) / 7));
+  assert.ok(differs, 'Build and Peak select identically — this guard would never bite');
+});
+
+/* THE BUILDER PATH, which the recommendation path does not cover. Every other
+   MAINTAIN test above drives startDevelopmentBlock(); an athlete who picks
+   Maintain & Protect in the builder goes through handleGeneratePlan() instead,
+   and removing steady mode from THAT call changed nothing any test could see. */
+test('MAINTAIN: the BUILDER builds it steady too', () => {
+  const a = racingAthlete();
+  logPast(a);
+  builderDom(a, { 'su-purpose': 'maintain', 'su-weeks': '8' });
+  a.handleGeneratePlan();
+
+  assert.equal(a.state.setup.purpose, 'maintain');
+  const n = a.totalWeeksInPlan();
+  for (let w = 1; w <= n; w++){
+    assert.equal(a.trainingPhase(w), 'Maintain',
+      'the builder produced an arc: week ' + w + ' is ' + a.trainingPhase(w));
+    assert.equal(a.isTaperWeek(w), false, 'the builder produced a taper in week ' + w);
+  }
+  a.state.days.forEach(d => {
+    assert.notEqual(d.type, 'race', 'the builder gave maintenance a goal effort on ' + d.date);
+    assert.notEqual(d.type, 'checkpoint', 'the builder gave maintenance a time trial');
+  });
+  assert.equal(a.vGoalDay(a.state.setup), 'Review');
+});
+
+test('MAINTAIN: no race, taper or goal-effort language anywhere in the block', () => {
+  const a = maintainBlock();
+  a.state.days.forEach(d => {
+    const said = String(d.title || '') + ' ' + String(d.desc || '');
+    [/race day/i, /pre-race/i, /race kit/i, /goal effort/i, /pre-goal/i,
+     /taper/i, /culminates here/i].forEach(re =>
+      assert.doesNotMatch(said, re, 'maintenance said "' + said.trim() + '" on ' + d.date));
+  });
+  assert.equal(a.state.setup.hasEvent, false);
+});
+
+test('MAINTAIN: the 8-week review still arrives and still asks', () => {
+  const a = maintainBlock();
+  assert.equal(a.totalWeeksInPlan(), 8, 'the approved review period must stay 8 weeks');
+  assert.equal(a.developmentBlockSpec('maintain', {}).weeks, 8);
+
+  a.state.setup.raceDate = a.addDays(a.todayStr(), -1);   // the review point arrives
+  const rec = a.nextBlockRecommendation();
+  assert.ok(rec, 'the review point must not be a dead end');
+  assert.equal(rec.kind, 'choice', 'it asks rather than decides');
+  ['base', 'speed', 'race', 'maintain'].forEach(p =>
+    assert.ok(rec.options.indexOf(p) !== -1, 'the review should be able to lead to ' + p));
+  assert.ok(rec.why, 'and it should say why it is asking');
+  const before = JSON.stringify({ p: a.state.setup.purpose, n: a.state.days.length });
+  a.renderBlockTransitionCard();
+  assert.equal(JSON.stringify({ p: a.state.setup.purpose, n: a.state.days.length }), before,
+    'the review must not transition on its own');
+});
+
+/* DRIVEN THROUGH THE PREVIEW'S OWN GENERATOR, not through a copy of it.
+
+   The first version of this test computed the steady flag itself and then
+   called buildBlockWeeks -- so it asserted that the ENGINE can build a steady
+   block, and said nothing about whether the preview asks it to. Removing the
+   option from _preview.js left it green. generate() is exported for exactly
+   this reason and is what the handler calls. */
+function previewFor(purpose, over){
+  const Preview = require(path.join(ROOT, 'api', '_preview.js'));
+  const v = Preview.validate(Object.assign({
+    purpose: purpose, distanceKey: 'half', weeks: Preview.defaultWeeksFor(purpose),
+    volume: 60, activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700
+  }, over || {}));
+  assert.equal(v.ok, true, 'the preview refused a legitimate ' + purpose + ' request: ' + v.code);
+  const built = Preview.generate(loadApp({ pinnedDate: TODAY }), v.input);
+  return { Preview, input: v.input, built, summary: Preview.summarise(
+    built.app, built.days, built.blockResult, v.input) };
+}
+
+test('MAINTAIN: the preview builds the same steady block the app does', () => {
+  const { built, summary } = previewFor('maintain');
+  assert.equal(built.blockResult.steady, true,
+    'THE PREVIEW ITSELF must ask for steady mode, not merely be able to');
+  assert.equal(built.blockResult.taperWeeks, 0);
+  assert.ok(!built.blockResult.weeks.some(w => w.isRace),
+    'the preview would have advertised a goal effort');
+  built.days.forEach(d => {
+    assert.notEqual(d.type, 'race', 'the previewed maintenance block contains a goal effort');
+    assert.doesNotMatch(String(d.title || ''), /race|goal effort/i,
+      'race language in a previewed maintenance session: ' + d.title);
+  });
+  assert.equal(summary.phases.length, 1, 'a steady block has one phase');
+  assert.equal(summary.phases[0].phase, 'Maintain');
+  assert.ok(!('raceDate' in summary.goal), 'maintenance must not be given a race date');
+});
+
+test('PREVIEW: every purpose comes back complete, and only race talks about racing', () => {
+  ['race', 'maintain', 'base', 'speed'].forEach(p => {
+    const { summary, built } = previewFor(p);
+    assert.ok(summary.programme.weeks > 0, p + ' has no length');
+    assert.ok(summary.programme.totalSessions > 0, p + ' has no sessions');
+    assert.ok(summary.programme.totalKm > 0, p + ' has no distance');
+    assert.ok(summary.phases.length > 0, p + ' has no structure');
+    assert.ok(summary.firstWeek.length > 0, p + ' has no first week');
+    assert.ok(summary.keySessions.length > 0, p + ' has no representative sessions');
+    assert.ok(summary.paces && summary.paces.length > 0, p + ' has no personal pace guidance');
+    assert.equal(summary.purpose.key, p);
+    if (p === 'race'){
+      assert.ok('raceDate' in summary.goal, 'a race block should carry its race date');
+    } else {
+      assert.ok('goalDay' in summary.goal, p + ' should have a goal day, not a race date');
+      assert.ok(!('raceDate' in summary.goal), p + ' was given a race date');
+      const said = JSON.stringify(summary) + JSON.stringify(built.days.map(d => d.title));
+      assert.doesNotMatch(said, /Race Day|Pre-Race|race kit/i,
+        p + ' leaked race language into the preview');
+    }
+  });
+});
+
+// ===========================================================================
+// 6c. THE OTHER PURPOSES ARE UNTOUCHED BY THE MAINTAIN CORRECTION
+// ===========================================================================
+test('PRESERVED: a race block still ramps, tapers and finishes with a race', () => {
+  const a = racingAthlete();
+  const br = a.buildBlockWeeks('half', 50, 14);
+  assert.equal(br.steady, false);
+  assert.ok(br.taperWeeks > 0, 'a race block must still taper');
+  assert.ok(br.weeks.some(w => w.isRace), 'and must still end in a race');
+  assert.ok(br.weeks.some(w => w.isCheckpoint), 'and must still checkpoint mid-block');
+  assert.ok(br.peakVolume > 50, 'and must still build above the starting volume');
+  /* Byte-for-byte against a block built the way it always was: the fourth
+     argument is optional and an omitted one must change nothing. */
+  const withOpts = a.buildBlockWeeks('half', 50, 14, {});
+  assert.equal(JSON.stringify(withOpts), JSON.stringify(br),
+    'passing an empty options object changed a race block');
+});
+
+test('PRESERVED: base and speed still build towards a goal effort', () => {
+  const a = racingAthlete();
+  logPast(a);
+  raceHappened(a);
+  a.recordRaceOutcome('raced');
+  ['base', 'speed'].forEach(p => {
+    const b = racingAthlete();
+    logPast(b); raceHappened(b); b.recordRaceOutcome('raced');
+    assert.ok(b.startDevelopmentBlock(p), p + ' could not be built');
+    assert.ok(b.state.days.some(d => d.type === 'race'),
+      p + ' lost its culminating goal effort — only maintenance should have');
+    assert.notEqual(b.trainingPhase(1), 'Maintain', p + ' became a steady block');
+    assert.equal(b.vGoalDay(b.state.setup), 'Goal Day',
+      p + ' should still have a goal day, just not a race day');
+  });
+});
+
+test('PRESERVED: recovery still has its deterministic ceiling', () => {
+  const a = racingAthlete();
+  logPast(a);
+  const raceDate = raceHappened(a).date;
+  a.recordRaceOutcome('raced');
+  assert.ok(a.startDevelopmentBlock('recovery'));
+  assert.notEqual(a.trainingPhase(1), 'Maintain', 'recovery is not a steady block');
+  const until = a.addDays(raceDate, a.recoveryProfileFor('half').noIntensityDays);
+  a.state.days.filter(d => d.date <= until).forEach(d =>
+    assert.equal(['tempo','threshold','interval','repetition','checkpoint','race'].indexOf(d.type), -1,
+      'the recovery ceiling moved'));
 });
 
 // ===========================================================================
