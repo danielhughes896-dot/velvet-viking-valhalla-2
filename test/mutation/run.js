@@ -26,8 +26,8 @@ const SUBSET = ['stripeLifecycle','monthlyPause','commercialCore','securityPostu
   'mondayOperational','accountActivity','providerTrial','productionReadiness',
   'betaClosure','entitlementMigration','releaseReadiness','observability','accessGate',
   'billingWebhook','stripeFoundation','commercialEntry','legacyBetaRetirement',
-  'commercialSchemaCollision','adjustedSessionStructure',
-  'prescriptionAwareLogging'].map(n => 'test/' + n + '.test.js').join(' ');
+  'commercialSchemaCollision','adjustedSessionStructure','prescriptionAwareLogging',
+  'historicalImmutability','historyIntegrity','reconcileRegeneratedDays'].map(n => 'test/' + n + '.test.js').join(' ');
 
 const CASES = [
   // ---- ACCESS ----
@@ -196,7 +196,21 @@ const CASES = [
   ['workout: the coach’s move leaves the prescription on the old day',
    'protected/velvet-viking-valhalla.html',
    "var MOVED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','prescription','manualEdit'];",
-   "var MOVED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','manualEdit'];"]
+   "var MOVED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','manualEdit'];"],
+  /* ---- HISTORICAL IMMUTABILITY ----
+     Elapsed training is evidence. A regeneration may re-tailor today and the
+     future and must not touch the calendar behind the athlete. */
+  ['history: a rebuild may refill elapsed days again', 'protected/velvet-viking-valhalla.html',
+   "    return dd.date < today && dd.date >= startMonday;",
+   "    return false;"],
+  ['history: a rebuild freezes today as well as the past', 'protected/velvet-viking-valhalla.html',
+   "    return dd.date < today && dd.date >= startMonday;",
+   "    return dd.date <= today && dd.date >= startMonday;"],
+  ['history: a previous block\u2019s days are dragged into this one', 'protected/velvet-viking-valhalla.html',
+   "    return dd.date < today && dd.date >= startMonday;",
+   "    return dd.date < today;"],
+  ['history: a logged day outside the block stops being preserved', 'protected/velvet-viking-valhalla.html',
+   "    if (dayCarriesHistory(dd)) return true;", ""]
 ];
 
 let survived = [], killed = 0;

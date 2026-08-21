@@ -19107,21 +19107,66 @@ function blockAnchor(activeDays, isRebuild){
   return anchor;
 }
 
-// Every history day keeps its date, its id, its log and its review, and is
-// given this block's real week number for that date -- the same arithmetic
-// every generated day gets. No special case and no synthetic bucket: a session
-// run in week 2 stays in week 2 and appears in This Week and Full Plan exactly
-// where the athlete left it. blockAnchor() guarantees the date is on or after
-// the start, so this can only produce a real week number.
+/* ---------- ELAPSED TRAINING IS NOT A SLOT TO BE REFILLED ----------
+   Every preserved day keeps its date, its id, its log and its review, and is
+   given this block's real week number for that date -- the same arithmetic
+   every generated day gets. No special case and no synthetic bucket: a session
+   run in week 2 stays in week 2 and appears in This Week and Full Plan exactly
+   where the athlete left it.
+
+   WHAT DECIDES "PRESERVED", AND WHY IT CHANGED.
+
+   This used to ask dayCarriesHistory() alone -- did the athlete leave a TRACE
+   on this day: a completed tick, a log, a review, an accepted adjustment, a
+   Strava attachment. Every date without a trace was treated as an empty slot
+   and refilled from the freshly generated plan.
+
+   A MISSED SESSION HAS NO TRACE. That is what missed means. So the one kind of
+   elapsed day the athlete has nothing to show for -- the Wednesday they did
+   not run -- was the one kind a rebuild felt free to rewrite, and rewriting it
+   is how a week the athlete had already lived through came back wearing
+   different sessions: a Monday rest day gaining an easy run, a Wednesday easy
+   run becoming a rest day, a Thursday fitness checkpoint becoming an easy run
+   -- while the Tuesday beside them survived intact for no better reason than
+   that it happened to carry an accepted adjustment.
+
+   It also produced weeks no generator could ever emit. Quality placement is
+   capped at two sessions a week by qualitySlotsForDayCount() and spaced by
+   pickQualityDays(); merging a preserved old quality day with a newly
+   generated one on a different weekday puts three in a week, two of them back
+   to back. The athlete is shown a week their own programme would refuse to
+   write.
+
+   So the question is the calendar's now, not the log's: A DATE THE ATHLETE HAS
+   ALREADY LIVED THROUGH IS HISTORY, whether or not they ran. Today and
+   everything after it remain the plan's to rewrite -- that is what
+   re-tailoring a block IS -- and a today already logged is preserved by the
+   trace rule exactly as before.
+
+   dayCarriesHistory() is deliberately NOT changed. blockAnchor() reads it to
+   decide how far back a rebuild's origin reaches, and widening it there would
+   drag a new block's origin back across the previous block's elapsed dates --
+   the week-zero shape, arriving through a different door. Two different
+   questions, which now have two different answers. */
 function reconcileRegeneratedDays(oldDays, newDays, startDateStr){
-  var history = (oldDays||[]).filter(dayCarriesHistory);
-  if (!history.length) return { days:newDays, preserved:0 };
+  var today = todayStr();
   var startMonday = addDays(startDateStr, -isoWeekday(startDateStr));
+  var history = (oldDays||[]).filter(function(dd){
+    if (!dd) return false;
+    if (dayCarriesHistory(dd)) return true;
+    /* An elapsed day, but only one belonging to THIS block. A day older than
+       the block's own first week is not this block's history and must not be
+       dragged into it: a transition archives the previous block rather than
+       merging it, and this is the backstop for a state that somehow still
+       holds one. */
+    return dd.date < today && dd.date >= startMonday;
+  });
+  if (!history.length) return { days:newDays, preserved:0 };
   var historyDates = {};
   history.forEach(function(dd){
     historyDates[dd.date] = true;
     var dMonday = addDays(dd.date, -isoWeekday(dd.date));
-    dd.week = Math.round(daysBetween(startMonday, dMonday)/7) + 1;
+    dd.week = Math.max(1, Math.round(daysBetween(startMonday, dMonday)/7) + 1);
   });
   var kept = newDays.filter(function(dd){ return !historyDates[dd.date]; });
   var merged = history.concat(kept).sort(function(a,b){ return a.date<b.date?-1:a.date>b.date?1:0; });
