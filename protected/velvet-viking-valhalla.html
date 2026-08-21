@@ -19547,7 +19547,52 @@ function reconcileRegeneratedDays(oldDays, newDays, startDateStr){
   });
   var kept = newDays.filter(function(dd){ return !historyDates[dd.date]; });
   var merged = history.concat(kept).sort(function(a,b){ return a.date<b.date?-1:a.date>b.date?1:0; });
+  capCurrentWeekQuality(merged, newDays, today);
   return { days:merged, preserved:history.length };
+}
+/* ---------- the week the athlete is standing in ----------
+   Preserving elapsed days truthfully means the REMAINDER of the current week
+   is re-tailored around a past the generator no longer controls. Where a
+   schedule change moves quality onto a later weekday, the calendar week ends
+   up holding the elapsed quality session AND its replacement -- three hard
+   sessions in a week against a cap of two. Before elapsed days were preserved
+   this never showed, because the elapsed half was silently overwritten to
+   match: the week looked right and the history was false.
+
+   The cap is NOT restated here. newDays contains the generator's own
+   uncorrected version of this same week, so counting its quality days asks the
+   generator what it intended -- including every special case it knows about
+   and this function does not, such as a taper or a race week.
+
+   WHAT GIVES WAY IS ALWAYS THE FUTURE. The surplus is taken from the end of
+   the remaining week backwards; not one elapsed day is touched, and a week
+   that is over its cap entirely because of days already trained is left alone,
+   because there is nothing left to change that would not be a lie. A demoted
+   day becomes easy running of the same distance rather than a hole in the
+   week -- the same treatment, for the same reason, as the recovery ceiling. */
+function capCurrentWeekQuality(merged, newDays, today){
+  var monday = addDays(today, -isoWeekday(today));
+  var sunday = addDays(monday, 6);
+  var inWeek = function(dd){ return dd && dd.date >= monday && dd.date <= sunday; };
+  var isQuality = function(dd){ return dd && RECOVERY_QUALITY_TYPES.indexOf(dd.type) !== -1; };
+
+  var cap = (newDays || []).filter(function(dd){ return inWeek(dd) && isQuality(dd); }).length;
+  var week = merged.filter(inWeek);
+  var quality = week.filter(isQuality);
+  if (quality.length <= cap) return merged;
+
+  // Only days the athlete has not reached yet may be changed.
+  var changeable = quality.filter(function(dd){ return dd.date >= today && !dayCarriesHistory(dd); })
+                          .sort(function(a, b){ return a.date < b.date ? 1 : -1; });
+  var surplus = quality.length - cap;
+  changeable.slice(0, surplus).forEach(function(dd){
+    dd.type = 'easy';
+    dd.title = 'Easy Aerobic';
+    dd.desc = 'Easy running — the week already holds its hard sessions. Conversational the whole way.';
+    dd.weekQualityCap = true;
+    dd.prescription = { v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:round1(dd.km) } };
+  });
+  return merged;
 }
 function handleGeneratePlan(){
   /* WHAT IS BEING BUILT, read from the builder rather than inherited.

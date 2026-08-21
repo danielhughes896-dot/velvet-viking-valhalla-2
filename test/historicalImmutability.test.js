@@ -358,34 +358,53 @@ test('every surface renders the mixed old/new plan without throwing', () => {
 });
 
 // ---------------------------------------------------------------------------
-// THE KNOWN LIMIT, WRITTEN DOWN RATHER THAN LEFT TO BE REDISCOVERED
+// THE WEEK THE ATHLETE IS STANDING IN
 // ---------------------------------------------------------------------------
-test('a mid-week re-tailor can leave the calendar week over its quality cap', () => {
-  /* NOT A REGRESSION, AND NOT SILENTLY ACCEPTED EITHER.
+test('a mid-week re-tailor does not stack a third quality session on the week', () => {
+  /* THE ONE THAT WAS ONCE A KNOWN LIMIT, NOW A RULE.
      Preserving elapsed days truthfully means the remainder of the current week
      is re-tailored around a past the generator no longer controls. Where a
-     schedule change moves quality onto a later weekday, the calendar week can
-     hold the elapsed quality session AND its replacement -- three in a week,
-     against a cap of two.
-     Before the fix this never showed, because the elapsed half was being
-     overwritten to match. The week looked right and the history was false;
-     this is the honest trade. Reported for a methodology decision rather than
-     changed here, because how many quality sessions a week may hold is not a
-     defect to be fixed quietly. Pinned so the day it IS decided, the decision
-     lands somewhere visible. */
+     schedule change moves quality onto a later weekday, the calendar week ended
+     up holding the elapsed quality session AND its replacement -- three hard
+     sessions against a cap of two. Before elapsed days were preserved this
+     never showed, because the elapsed half was being overwritten to match: the
+     week looked right and the history was false.
+     The surplus is now taken out of the FUTURE half of the week. */
   const a = athlete();
   const elapsedBefore = snapshot(a);
   rebuild(a, { schedule: { activeDays: [0, 1, 3, 4, 6], longRunDay: 6 } });
   const week = a.state.days.filter(d => d.date >= MONDAY && d.date <= a.addDays(MONDAY, 6));
   const q = week.filter(d => QUALITY.indexOf(d.type) !== -1).length;
   assert.ok(q >= 2, 'the week still holds real quality work');
-  assert.ok(q <= 3, 'a re-tailor must never stack more than one extra quality session');
+  assert.equal(q, 2, 'the calendar week holds ' + q + ' quality sessions against a cap of 2');
+  assert.deepEqual(diff(elapsedBefore, snapshot(a)), [],
+    'the cap was paid for out of the past');
+});
 
-  /* The overflow is only ever ahead of the athlete. Whatever the calendar week
-     now totals, not one elapsed day moved to produce it -- which is the whole
-     difference between an honest limitation and the defect. */
+test('what gives way is a future day, and it becomes running rather than a hole', () => {
+  const a = athlete();
+  rebuild(a, { schedule: { activeDays: [0, 1, 3, 4, 6], longRunDay: 6 } });
+  const demoted = a.state.days.filter(d => d.weekQualityCap);
+  assert.equal(demoted.length, 1);
+  assert.ok(demoted[0].date >= TODAY, 'an elapsed day was demoted');
+  assert.equal(demoted[0].type, 'easy');
+  assert.ok(demoted[0].km > 0, 'the day became a hole in the week');
+  assert.equal((demoted[0].prescription || {}).archetype, 'easy_run',
+    'the demoted day kept a title and lost the session behind it');
+});
+
+test('a week already over its cap because of days ALREADY TRAINED is left alone', () => {
+  /* The limit that remains, and the only honest answer to it. If both hard
+     sessions are behind the athlete and the generator now wants one a week,
+     there is nothing left to change that would not be a lie about what they
+     ran. Historical preservation is not sacrificed to satisfy the cap. */
+  const a = athlete();
+  const elapsedBefore = snapshot(a);
+  rebuild(a, { schedule: { activeDays: [1, 3, 5], longRunDay: 5 } });
+  const week = a.state.days.filter(d => d.date >= MONDAY && d.date <= a.addDays(MONDAY, 6));
+  const past = week.filter(d => d.date < TODAY && QUALITY.indexOf(d.type) !== -1);
+  const future = week.filter(d => d.date >= TODAY && QUALITY.indexOf(d.type) !== -1);
+  assert.ok(past.length >= 2, 'the fixture no longer produces the case it was written for');
+  assert.equal(future.length, 0, 'the future half still adds quality to an over-cap week');
   assert.deepEqual(diff(elapsedBefore, snapshot(a)), []);
-  const extra = week.filter(d => d.date >= TODAY && QUALITY.indexOf(d.type) !== -1);
-  assert.ok(q <= 2 || extra.length > 0,
-    'an over-cap week must be over because of a FUTURE session, never a past one');
 });
