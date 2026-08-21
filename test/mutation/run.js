@@ -28,7 +28,8 @@ const SUBSET = ['stripeLifecycle','monthlyPause','commercialCore','securityPostu
   'billingWebhook','stripeFoundation','commercialEntry','legacyBetaRetirement',
   'commercialSchemaCollision','adjustedSessionStructure',
   'prescriptionAwareLogging','healthDataConsent',
-  'medicalBoundary'].map(n => 'test/' + n + '.test.js').join(' ');
+  'medicalBoundary','healthErasure','commercialJourney',
+  'productionReadiness'].map(n => 'test/' + n + '.test.js').join(' ');
 
 const CASES = [
   // ---- ACCESS ----
@@ -331,7 +332,47 @@ const CASES = [
   ['consent: a covered field is added to the operational allow list',
    'api/_monday-operational.js',
    "  'syncedAt'\n];",
-   "  'syncedAt',\n  'readiness'\n];"]
+   "  'syncedAt',\n  'readiness'\n];"],
+
+  // ---- HEALTH CONSENT: THE ASYMMETRY, AND THE ERASURE ----
+  ['consent: a grant no longer needs a record to prove it', 'protected/velvet-viking-valhalla.html',
+   "  if (granted && cloudSignedIn()){", "  if (false){"],
+  ['consent: the builder reads LTHR before the grant is recorded', 'protected/velvet-viking-valhalla.html',
+   "if (consentBox) await handleHealthConsentDecision(!!consentBox.checked, { quiet:true });",
+   "if (consentBox) handleHealthConsentDecision(!!consentBox.checked, { quiet:true });"],
+  ['consent: a failed record is treated as a success', 'protected/velvet-viking-valhalla.html',
+   "      if (!recorded){", "      if (false){"],
+  ['erasure: it removes something that is not covered', 'api/_health-erasure.js',
+   "const PLAN_ACTUAL_FIELDS = ['hr', 'feel'];", "const PLAN_ACTUAL_FIELDS = ['hr', 'feel', 'rpe'];"],
+  ['erasure: the subtractive check stops checking', 'api/_health-erasure.js',
+   "    if (problems.length) return { ok: false, reason: 'not_subtractive', problems: problems };",
+   "    if (false) return { ok: false, reason: 'not_subtractive', problems: problems };"],
+  ['erasure: a dry run writes anyway', 'api/_health-erasure.js',
+   "    if (!dryRun && report.plan.changed){", "    if (report.plan.changed){"],
+  ['erasure: it destroys the consent record with the values', 'api/_health-erasure.js',
+   "  const out = Object.assign({}, planData);",
+   "  const out = Object.assign({}, planData); delete out.healthConsent;"],
+  ['erasure: it mutates the caller document', 'api/_health-erasure.js',
+   "  const out = Object.assign({}, obj);", "  const out = obj;"],
+
+  // ---- STORE STEERING ----
+  ['store: the prices come back inside the native shell', 'start.html',
+   "  if (isNativeApp()){", "  if (false){"],
+
+  // ---- ANDROID ----
+  ['android: a manifest comment breaks XML again', 'android/app/src/main/AndroidManifest.xml',
+   "locally cached plan — which, for a", "locally cached plan -- which, for a"],
+  ['android: device backup of the cached plan is allowed again', 'android/app/src/main/AndroidManifest.xml',
+   'android:allowBackup="false"', 'android:allowBackup="true"'],
+
+  // ---- MONDAY MIRROR ----
+  ['monday: the mirror trusts the caller instead of re-reading', 'api/_monday-operational.js',
+   "    const facts = await Store.readCommercialFacts(S, cfg, accountId);",
+   "    const facts = { ok: true, account: null, subscriptions: [], grants: [] };"],
+  ['monday: a mirror failure fails the webhook', 'api/billing-webhook.js',
+   "    if (!mirrored.ok && mirrored.code !== 'operational_sync_disabled'){",
+   "    if (!mirrored.ok){ return S.json(res, 503, { error: 'unavailable' }); }\n    if (false){"]
+
 ];
 
 let survived = [], killed = 0;

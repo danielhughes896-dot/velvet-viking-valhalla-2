@@ -303,6 +303,50 @@ test('the Garmin application describes the integration that exists', () => {
   assert.equal(/HealthKit|SamsungHealth/i.test(read('android/app/src/main/AndroidManifest.xml')), false);
 });
 
+test('the Android manifest is well-formed XML, which is not a formality', () => {
+  /* THE DEFECT THIS PINS, and it was live on main. XML forbids the string "--"
+     inside a comment, outright, in every conforming parser. A comment written
+     in this codebase's own house style, which uses a double hyphen as a prose
+     dash everywhere else, made the manifest unparseable -- and the manifest is
+     the first thing aapt2 reads, so the build fails at step one with an error
+     that says nothing about a comment.
+
+     Confirmed with three parsers before fixing: xmllint, Java's own
+     DocumentBuilder (the family aapt2 uses), and Python's expat. No lint in the
+     repository would have caught it and no test did, because nothing had ever
+     parsed the file. */
+  const { execSync } = require('child_process');
+  const manifest = path.join(ROOT, 'android/app/src/main/AndroidManifest.xml');
+  const src = fs.readFileSync(manifest, 'utf8');
+
+  for (const m of src.match(/<!--[\s\S]*?-->/g) || []){
+    const inner = m.slice(4, -3);
+    assert.equal(inner.indexOf('--'), -1,
+      'a comment contains "--", which XML forbids: ' + inner.trim().slice(0, 60));
+  }
+  // And the whole file, by a real parser rather than by a regex.
+  execSync('python3 -c "import xml.dom.minidom,sys; xml.dom.minidom.parse(sys.argv[1])" ' +
+           JSON.stringify(manifest), { stdio: 'pipe' });
+});
+
+test('every XML the Android build reads is well-formed', () => {
+  const { execSync } = require('child_process');
+  const dir = path.join(ROOT, 'android/app/src/main');
+  const found = [];
+  (function walk(d){
+    for (const e of fs.readdirSync(d, { withFileTypes: true })){
+      const full = path.join(d, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (e.name.endsWith('.xml')) found.push(full);
+    }
+  })(dir);
+  assert.ok(found.length >= 1);
+  for (const f of found){
+    execSync('python3 -c "import xml.dom.minidom,sys; xml.dom.minidom.parse(sys.argv[1])" ' +
+             JSON.stringify(f), { stdio: 'pipe' });
+  }
+});
+
 test('the Android release document matches the manifest and the gradle build', () => {
   const doc = read('ANDROID-RELEASE.md');
   const manifest = read('android/app/src/main/AndroidManifest.xml');

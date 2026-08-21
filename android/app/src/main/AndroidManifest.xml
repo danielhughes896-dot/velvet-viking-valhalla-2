@@ -4,7 +4,7 @@
     <!--
       allowBackup=false, and it is not caution for its own sake. The shell is a
       WebView pointed at the live site, so what lives on the device is the
-      athlete's signed-in session and their locally cached plan -- which, for a
+      athlete's signed-in session and their locally cached plan — which, for a
       consenting athlete, includes heart rates, readiness answers and how each
       session felt. Android's auto-backup would copy that to the user's Google
       Drive, and `adb backup` would copy it to any machine the phone is plugged
@@ -54,7 +54,7 @@
               THE CANONICAL DOMAIN IS FIRST, AND THAT IS THE CORRECTION. This
               filter claimed only the *.vercel.app deployment host, while the
               auth callback, VVV_SITE_ORIGIN and the Supabase Site URL were all
-              moved to app.velvetviking.co.uk -- so a sign-in link sent to an
+              moved to app.velvetviking.co.uk — so a sign-in link sent to an
               athlete's real domain would not have opened the app at all. The
               deployment host is kept alongside it rather than replaced: the
               same deployment answers on both, both serve the same assetlinks
