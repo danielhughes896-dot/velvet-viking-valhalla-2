@@ -2810,10 +2810,18 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
 
     var raceDayKm = isRace ? profile.raceKm : 0;
 
+    /* WHICH WAY THIS WEEK'S LONG RUN IS RUN. Same distance, same zone, same
+       structured prescription -- only the emphasis rotates, on the same
+       deterministic dial as the quality structures. Held at 'steady' through
+       the taper and the final week, where the whole point is that nothing is
+       being asked of the athlete beyond turning up. */
+    var longShape = (isTaper || isRace) ? 'steady'
+      : LONG_RUN_SHAPE_ORDER[(w + rotation) % LONG_RUN_SHAPE_ORDER.length];
+
     weeks.push({
       week:w, phase:phase, isCutback:isCutback, isTaper:isTaper, isRace:isRace, isCheckpoint:isCheckpoint,
       volume:volume, qSpec:qSpec, qKm:qKm, tSpec:tSpec, tKm:tKm,
-      longTarget:round1(longTarget), b2bEligible:b2bEligible,
+      longTarget:round1(longTarget), b2bEligible:b2bEligible, longShape:longShape,
       hasGoalSegment:hasGoalSegment, goalSegKm:goalSegKm, raceDayKm:raceDayKm
     });
   }
@@ -2998,7 +3006,27 @@ function timeTrialText(ttKm, flankKm){
     desc: dtok(flankKm)+' warm-up, '+dtok(ttKm)+' at hard, honest effort, '+dtok(flankKm)+
           ' cool-down. Use today’s time to reconsider your Active Goal for the rest of the block.' };
 }
-function longRunText(km, hasGoalSegment, goalSegKm, isB2BPrimary, isB2BSecondary){
+/* THE SAME SESSION, RUN THREE WAYS.
+   Outside a race block every long run in a programme was byte-identical: eight
+   consecutive weeks of "Long Run -- Xkm @ Easy pace, steady and controlled",
+   which is the longest and most demanding session of the week arriving with
+   nothing to think about.
+
+   These are execution emphases inside the SAME easy-aerobic session, not three
+   different workouts: the distance, the zone and the structured prescription
+   are identical, and only the instruction changes. That is deliberate -- a
+   long run whose intensity rotated would be a methodology change; a long run
+   whose emphasis rotates is what a coach actually says. */
+var LONG_RUN_SHAPES = {
+  steady:   { title:'Long Run',
+              cue:' @ Easy pace, steady and controlled.' },
+  negative: { title:'Long Run \u2014 Even or Better',
+              cue:' @ Easy pace. Start at the slow end of the window and run the second half no slower than the first.' },
+  rolling:  { title:'Long Run \u2014 Rolling',
+              cue:' @ Easy pace over undulating ground if you can find it. Run the climbs by effort, not pace, and let the descents come to you.' }
+};
+var LONG_RUN_SHAPE_ORDER = ['steady', 'negative', 'rolling'];
+function longRunText(km, hasGoalSegment, goalSegKm, isB2BPrimary, isB2BSecondary, shape){
   if (isB2BSecondary){
     return { title:'Back-to-Back Long Run', type:'long', desc: dtok(km)+' @ Easy pace, on tired legs from yesterday \u2014 this specificity is what makes ultra training work.' };
   }
@@ -3007,7 +3035,8 @@ function longRunText(km, hasGoalSegment, goalSegKm, isB2BPrimary, isB2BSecondary
     return { title:'Long Run + Goal Pace', type:'long', mpSegment:true,
       desc: dtok(km)+' @ Easy pace, last '+dtok(goalSegKm)+' @ Goal Pace.'+note };
   }
-  return { title:'Long Run', type:'long', desc: dtok(km)+' @ Easy pace, steady and controlled.'+note };
+  var s = LONG_RUN_SHAPES[shape] || LONG_RUN_SHAPES.steady;
+  return { title:s.title, type:'long', desc: dtok(km)+s.cue+note };
 }
 
 /* =========================================================
@@ -3177,7 +3206,7 @@ function textFor(p, ctx, totalKm){
     case 'race':                 return raceDayText(q.km, hasEvent, label);
     case 'easy_strides':         return stridesText(q.easyKm, q.reps, q.m);
     case 'time_trial':           return timeTrialText(q.ttKm, q.flankKm);
-    case 'long_run':             return longRunText(q.km, false, 0, !!q.b2bPrimary, false);
+    case 'long_run':             return longRunText(q.km, false, 0, !!q.b2bPrimary, false, q.shape);
     case 'long_run_goal_finish': return longRunText(q.km, true, q.finishKm, false, false);
     case 'long_run_b2b':         return longRunText(q.km, false, 0, false, true);
   }
@@ -4695,11 +4724,13 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       if (date<startDateStr) continue;
       var dayObj;
       if (iso===longDay && activeSet[iso]){
-        var tl = longRunText(longKm, wk.hasGoalSegment, wk.goalSegKm, b2bActive, false);
+        var tl = longRunText(longKm, wk.hasGoalSegment, wk.goalSegKm, b2bActive, false, wk.longShape);
         dayObj = { type:tl.type, title:tl.title, km:longKm, desc:tl.desc, mpSegment:!!tl.mpSegment,
           prescription: (wk.hasGoalSegment && wk.goalSegKm>0)
             ? { archetype:'long_run_goal_finish', params:{ km:longKm, finishKm:wk.goalSegKm } }
-            : { archetype:'long_run', params: b2bActive ? { km:longKm, b2bPrimary:true } : { km:longKm } } };
+            : { archetype:'long_run', params: b2bActive
+                  ? { km:longKm, b2bPrimary:true, shape:wk.longShape }
+                  : { km:longKm, shape:wk.longShape } } };
       } else if (b2bActive && iso===b2bDay){
         var t2 = longRunText(secondLongKm, false, 0, false, true);
         dayObj = { type:t2.type, title:t2.title, km:secondLongKm, desc:t2.desc,
@@ -14190,6 +14221,53 @@ var COACH_GENERIC_CLOSERS = [
   'Everything landed on the numbers it was set to hit.',
   'Easy discipline held exactly where it was set.'
 ];
+
+/* =========================================================
+   A TRUE SENTENCE SAID FOR THE FOURTH TIME IS NOISE
+   ---------------------------------------------------------
+   Every sentence in this product is written once. The repetition happens in
+   the SEQUENCE: "Nothing in recent sessions points strongly either way" was
+   correct on all thirty of the forty cards it appeared on, and by the third an
+   athlete has stopped reading that paragraph -- which is how they come to miss
+   the one time it says something else.
+
+   Only COMMENTARY is suppressed: the observation about the session and the
+   week-level signal reason. The verdict on the session and the instruction for
+   the next one are never suppressed, because they are the card's job. Nor is
+   anything safety-critical, at any cadence: a coach who stops mentioning pain
+   because they mentioned it on Tuesday is not being concise.
+
+   Deterministic and stateless. It asks the previous sessions what they said,
+   which is a pure function of the plan -- no counters, no stored history, and
+   nothing that could drift between two renders of the same day. There is no
+   recursion: the review OBJECT is unsuppressed, and suppression happens only
+   here, at composition. */
+var PHRASE_SUPPRESS_WINDOW = 3;
+/* Words whose presence makes a sentence worth repeating however recently it
+   was said. Deliberately broad -- a false positive costs one repeated line,
+   a false negative costs a silence about an injury. */
+var PHRASE_ALWAYS_SAY = /\b(pain|painful|sore|soreness|injur|illness|ill\b|unwell|fever|chest|breath|dizz|faint|blood|medical|doctor|physio|stop|do not run|rest completely)\b/i;
+/* THE WINDOW COUNTS CARDS THAT COULD HAVE SAID IT, not calendar sessions.
+   trainingSignalReason only appears at depth 'full', which is roughly one card
+   in four. Counting raw sessions therefore put the previous full card inside
+   every three-session window and suppressed the line to nothing -- which is a
+   deletion, not a cadence. `eligible` narrows the lookback to the cards where
+   the sentence was actually in play. */
+function phraseSaidRecently(dd, sentence, field, eligible){
+  if (!sentence || PHRASE_ALWAYS_SAY.test(sentence)) return false;
+  var prior = (state.days || []).filter(function(x){
+    return x && x.completed && x.type !== 'rest' && x.date < dd.date &&
+           (!eligible || eligible(x));
+  }).sort(function(a, b){ return a.date < b.date ? 1 : -1; })
+    .slice(0, PHRASE_SUPPRESS_WINDOW);
+  return prior.some(function(p){
+    var r = null; try { r = coachReviewFor(p); } catch (e) { return false; }
+    return !!r && r[field] === sentence;
+  });
+}
+function phraseAtFullDepth(x){
+  try { return coachSignificance(x, 'after') === 'full'; } catch (e) { return false; }
+}
 function coachDebrief(dd){
   if (!dd || !dd.completed) return null;
   var r = coachReviewFor(dd) || coachWorkoutReview(dd);
@@ -14205,9 +14283,12 @@ function coachDebrief(dd){
        something in that slot. In prose they land directly under a verdict that
        has already said the session went well, which is the same thing twice.
        They are dropped; anything SPECIFIC it noticed is kept. */
-    if (r.coachNoticed && COACH_GENERIC_CLOSERS.indexOf(r.coachNoticed) === -1)
+    if (r.coachNoticed && COACH_GENERIC_CLOSERS.indexOf(r.coachNoticed) === -1 &&
+        !phraseSaidRecently(dd, r.coachNoticed, 'coachNoticed'))
       paras.push(r.coachNoticed);
-    if (depth === 'full' && r.trainingSignalReason) paras.push(r.trainingSignalReason);
+    if (depth === 'full' && r.trainingSignalReason &&
+        !phraseSaidRecently(dd, r.trainingSignalReason, 'trainingSignalReason', phraseAtFullDepth))
+      paras.push(r.trainingSignalReason);
   }
   var next = r.nextMove || coachNextConnection(dd);
   if (next) paras.push(next);
@@ -16777,10 +16858,23 @@ function structuredExecutionEvidence(dd){
 }
 
 /* ---------- the next planned session, so advice can point somewhere ---------- */
+/* THE SESSION THAT ACTUALLY CAME NEXT, which is not the same as the next
+   session the athlete has not yet run.
+
+   This used to filter on `!x.completed`, and for any session in the past that
+   is today's next session -- so the review of a run from six weeks ago ended
+   "Keep Aug 22's Easy Aerobic genuinely easy", pointing six weeks forward. It
+   was the single most repeated coaching sentence in the product: 39 of 45
+   cards in a fortnight of Full Plan carried the identical line, because all 39
+   were being pointed at the same future day.
+
+   By date, every card names its own successor, which is both what the sentence
+   means and different on every card. Nothing changes for today or later: no
+   day after today is ever completed, so the two rules agree there. */
 function coachSessionAfter(dd){
   if (!dd) return null;
   var later = state.days.filter(function(x){
-    return x.date > dd.date && x.type!=='rest' && !x.completed;
+    return x.date > dd.date && x.type!=='rest';
   }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
   return later[0] || null;
 }
@@ -17140,7 +17234,30 @@ function coachVerdict(dd, b, env){
     else
       out.push(fmtDist(a.km!=null?a.km:dd.km)+' completed at easy intent.');
   } else {
-    if (b.score>=90) out.push('Quality work delivered close to the prescription.');
+    /* COMPOSED FROM THE EVIDENCE THAT IS ACTUALLY THERE, not chosen from a list
+       of interchangeable compliments. The easy-run branch above already works
+       this way -- it names the distance and the heart rate -- while a well
+       executed quality session got one fixed sentence, which landed on 14 of 40
+       cards in a fortnight and read as a form letter.
+
+       Nothing here is invented. Every clause is gated on the component having
+       been logged AND having held: no heart rate logged, no heart-rate clause;
+       heart rate the athlete has disowned (hrTrust) stays unsaid, exactly as it
+       does everywhere else in this function. A session logged with distance and
+       pace alone still gets a true sentence about distance and pace. */
+    if (b.score>=90){
+      var held = [];
+      if (tr && ap!=null && !paceSlow && !paceFast)
+        held.push('pace inside the '+fmtPaceFromSecPerKm(tr.fast)+'–'+fmtPaceFromSecPerKm(tr.slow)+' window');
+      if (hrInZone) held.push('heart rate at '+a.hr+' bpm');
+      var band = expectedRPEBand(dd);
+      if (a.rpe!=null && band && a.rpe>=band[0] && a.rpe<=band[1])
+        held.push('effort at RPE '+a.rpe);
+      var what = SESSION_PURPOSE[dd.type] ? SESSION_PURPOSE[dd.type].label.toLowerCase() : 'quality work';
+      out.push(held.length
+        ? fmtDist(a.km!=null?a.km:dd.km)+' of '+what+' with '+listPhrase(held)+'.'
+        : 'Quality work delivered close to the prescription.');
+    }
     else if (b.score>=70) out.push('The session landed, with some drift from the targets it was set to hit.');
     else out.push('This ran well away from the session it was meant to be.');
   }
