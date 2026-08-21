@@ -282,10 +282,15 @@ const CASES = [
    'api/_strava.js',
    '  const staged = await HC.forIngest(cfg, sb, userId, activity);',
    '  const staged = activity;'],
+  /* The anchor here is the LOGGED refusal, not the bare `return false` this
+     case was written against: adding the diagnostic split that line into a
+     block and silently turned the case into an ANCHOR NOT FOUND -- a mutation
+     testing nothing, which is exactly the failure a mutation pass exists to
+     catch and did. */
   ['consent: an unreadable consent table is read as agreement',
    'api/_health-consent.js',
-   '    if (!r || !r.ok) return false;',
-   '    if (!r || !r.ok) return true;'],
+   "      log('READ_FAILED status=' + (r ? r.status : 'none'));\n      return false;",
+   "      log('READ_FAILED status=' + (r ? r.status : 'none'));\n      return true;"],
   ['consent: the ingest strip stops removing the covered fields',
    'api/_health-consent.js',
    "const COVERED_ACTIVITY_FIELDS = ['hr', 'maxHR'];",

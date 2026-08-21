@@ -245,3 +245,54 @@ test('the runbook exists and says it is an operator action', () => {
   assert.match(facts, /erasure request/i);
   assert.match(facts, /withdrawal of consent is not by itself a request for erasure/i);
 });
+
+test('the run REFUSES and writes nothing when the transform is not subtractive', async () => {
+  /* THE GAP THIS CLOSES, found by the mutation pass and not by review.
+     Deleting the `not_subtractive` check from eraseCoveredForAccount() changed
+     no test result at all: every test exercised verifySubtractive() directly,
+     and nothing ever reached the refusal through the run. A guard nobody can
+     trigger is a guard nobody can trust -- and this one is the only thing
+     standing between a future edit and somebody's deleted training history. */
+  const f = fakeStore(seed());
+  const before = JSON.stringify(f.db.plans[0].data);
+
+  // A transform that removes a day's RPE -- ordinary training data, and exactly
+  // the kind of thing a careless edit to the covered list would take with it.
+  const careless = (data) => {
+    const out = JSON.parse(JSON.stringify(data));
+    out.days.forEach(d => { if (d.actual) delete d.actual.rpe; });
+    return { data: out, removed: { logged: 2 } };
+  };
+
+  const r = await E.eraseCoveredForAccount(f.S, f.cfg, 'u1',
+    { dryRun: false, transformPlan: careless });
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'not_subtractive');
+  assert.ok(r.problems.some(p => /rpe/.test(p)), 'and it names what it refused over');
+  assert.equal(JSON.stringify(f.db.plans[0].data), before, 'nothing was written');
+  assert.equal(f.calls.filter(c => /^PATCH/.test(c)).length, 0);
+});
+
+test('the refusal happens before the activities are touched as well', async () => {
+  const f = fakeStore(seed());
+  const wipe = () => ({ data: {}, removed: {} });
+  const r = await E.eraseCoveredForAccount(f.S, f.cfg, 'u1',
+    { dryRun: false, transformPlan: wipe });
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'not_subtractive');
+  assert.equal(f.db.strava_activities[0].payload.hr, 150,
+    'a plan that failed its check must not leave the activities half erased');
+});
+
+test('production has exactly one transform, and it is the real one', () => {
+  // The seam exists to prove the guard fires, not to make the behaviour
+  // configurable. Nothing may call this with a transform in earnest.
+  const src = read('api/_health-erasure.js');
+  assert.match(src, /const transformPlan = o\.transformPlan \|\| eraseFromPlan;/);
+  const api = fs.readdirSync(path.join(ROOT, 'api')).filter(f => f.endsWith('.js'));
+  for (const f of api){
+    if (f === '_health-erasure.js') continue;
+    assert.equal(/transformPlan/.test(read(path.join('api', f))), false,
+      'api/' + f + ' passes its own transform');
+  }
+});

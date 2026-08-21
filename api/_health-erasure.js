@@ -140,6 +140,19 @@ function verifySubtractive(before, after, allowed){
 async function eraseCoveredForAccount(S, cfg, userId, opts){
   const o = opts || {};
   const dryRun = o.dryRun !== false;
+  /* THE TRANSFORM IS INJECTABLE, AND THAT IS NOT A TEST ACCOMMODATION.
+   *
+   * The whole value of this function is the refusal below: it compares before
+   * and after and stops if the transformation did anything except remove named
+   * covered fields. A guard nobody can trigger is a guard nobody can trust --
+   * and with eraseFromPlan() hardcoded there is no way to reach the refusal at
+   * all, so a mutation that deleted the check went unnoticed by every test.
+   *
+   * So the seam exists to prove the guard fires. It has exactly one production
+   * value, and passing anything else is what an operator would do to verify
+   * the safety net before running an irreversible deletion against somebody's
+   * record. */
+  const transformPlan = o.transformPlan || eraseFromPlan;
   if (!userId) return { ok: false, reason: 'no_user_id' };
 
   const report = { ok: true, dryRun: dryRun, userId: userId, plan: null, activities: null };
@@ -151,7 +164,7 @@ async function eraseCoveredForAccount(S, cfg, userId, opts){
   const planRow = (planRows || [])[0] || null;
 
   if (planRow){
-    const erased = eraseFromPlan(planRow.data);
+    const erased = transformPlan(planRow.data);
     const problems = verifySubtractive(planRow.data, erased.data);
     if (problems.length) return { ok: false, reason: 'not_subtractive', problems: problems };
     report.plan = { removed: erased.removed, changed: JSON.stringify(erased.data) !== JSON.stringify(planRow.data) };
