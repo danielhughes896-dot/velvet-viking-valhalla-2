@@ -33,6 +33,7 @@ const S = require('./_strava.js');     // canonical Supabase access layer
 const A = require('./_access.js');
 const B = require('./_billing.js');
 const P = require('./_stripe.js');
+const Prod = require('./_products.js');
 const Store = require('./_commercial-store.js');
 
 const STRIPE_SIG_HEADER = 'stripe-signature';
@@ -210,22 +211,24 @@ async function handleStripe(req, res, cfg){
     account_id: ev.account_id,
     environment: stripe.environment,
     condition: ev.condition,
-    product_code: 'STANDARD',
+    /* THE PRODUCT CODE IS THE CATALOGUE'S, NOT A LITERAL. This read 'STANDARD'
+       -- close enough to look right in review, and rejected by the store's
+       own validation as an unknown product, so every Stripe subscription
+       failed to write and every delivery got a 503 Stripe would retry until it
+       gave up. A constant nobody can mistype is the fix, not a corrected
+       literal that can drift again. */
+    product_code: Prod.STANDARD,
     offer_code: ev.offer_code,
     billing_period: ev.billing_period,
     trial_start: ev.trial_start,
     trial_end: ev.trial_end,
+    current_period_start: ev.period_start,
     current_period_end: ev.period_end,
+    cancelled_at: ev.cancelled_at,
     cancel_at_period_end: !!ev.cancel_at_period_end,
     auto_renew: !ev.cancel_at_period_end,
-    provider_updated_at: ev.occurred_at,
-    /* FOUNDING PRICE. What this athlete agreed to, recorded once at the start
-       of the relationship from the catalogue that sold it. Never billed from --
-       Stripe bills from its own price object -- but a catalogue change must not
-       be able to rewrite what somebody was told they would pay. */
-    agreed_price_minor: ev.agreed_price_minor,
-    agreed_currency: ev.agreed_currency,
-    catalogue_version: ev.catalogue_version
+    provider_customer_id: ev.customer_ref,
+    provider_updated_at: ev.occurred_at
   });
   if (!up.ok){
     await Store.markBillingEventProcessed(S, cfg, {
@@ -236,6 +239,26 @@ async function handleStripe(req, res, cfg){
        which is the recoverable state rather than a silent loss. */
     return S.json(res, 503, { error: 'unavailable', code: 'SUBSCRIPTION_UNWRITABLE' });
   }
+
+  /* 3b. THE AGREEMENT, LOCKED ONCE.
+   *
+   * Deliberately NOT part of the upsert above. That merges every column it is
+   * handed on every delivery, so an agreed price riding a routine renewal
+   * would be rewritten from whatever the catalogue says today -- a founding
+   * subscriber's price quietly becoming the new one, through the single event
+   * nobody inspects. The store writes it under a price_locked_at IS NULL
+   * filter instead, so the database decides whether this is the first telling.
+   *
+   * Not fatal if it fails. The athlete has access either way, and the next
+   * event locks it; refusing the whole delivery over a price record would be
+   * refusing the subscription over its footnote. */
+  const lock = await Store.lockAgreedPrice(S, cfg, {
+    provider: P.PROVIDER,
+    provider_subscription_id: ev.subscription_ref,
+    offer_code: ev.offer_code,
+    at: ev.trial_start || ev.occurred_at
+  });
+  if (!lock.ok) log('STRIPE_AGREEMENT_NOT_LOCKED reason=' + lock.reason);
 
   /* 4. THE TRIAL ALLOWANCE IS SPENT HERE, AND ONLY HERE.
    *
@@ -248,7 +271,7 @@ async function handleStripe(req, res, cfg){
    * second trialing event cannot move the timestamp forward and quietly extend
    * the lifetime rule's reference point. */
   if (ev.condition === 'trialing'){
-    await S.sb(cfg, '/rest/v1/account_commercial?account_id=eq.' +
+    await S.sb(cfg, '/account_commercial?account_id=eq.' +
       encodeURIComponent(ev.account_id) + '&trial_consumed_at=is.null', {
         method: 'PATCH',
         prefer: 'return=minimal',
@@ -265,7 +288,11 @@ async function handleStripe(req, res, cfg){
 
   await Store.markBillingEventProcessed(S, cfg, {
     provider: P.PROVIDER, provider_event_id: ev.provider_event_id,
-    account_id: ev.account_id, subscription_id: up.id || null,
+    account_id: ev.account_id,
+    /* upsertSubscription returns { ok, subscription }. Reading up.id gave
+       undefined on every event, so the ledger recorded which account paid but
+       never which subscription it was for. */
+    subscription_id: (up.subscription && up.subscription.id) || null,
     result: sync && sync.ok ? 'processed' : 'processed_entitlement_stale'
   });
 

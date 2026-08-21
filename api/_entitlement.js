@@ -96,11 +96,11 @@ const GRANT_SOURCES = ['admin_beta', 'admin_comp'];
    there are reasons an athlete needs to be given. */
 const REASONS = [
   'trial', 'paid', 'grace_period', 'admin_beta', 'admin_comp',
-  'none', 'expired', 'payment_hold', 'revoked', 'invalid'
+  'none', 'expired', 'payment_hold', 'revoked', 'invalid', 'paused'
 ];
 
 /* Product-facing commercial states, derived. See derivedCommercialState(). */
-const COMMERCIAL_STATES = ['none', 'trial', 'paid', 'cancelled_active', 'expired'];
+const COMMERCIAL_STATES = ['none', 'trial', 'paid', 'paused', 'cancelled_active', 'expired'];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -152,6 +152,32 @@ function laterBound(a, b){
 // SUBSCRIPTIONS
 // ===========================================================================
 
+/* IS THIS SUBSCRIPTION INSIDE A PAUSE WINDOW RIGHT NOW.
+ *
+ * Lives here rather than in _pause.js because it is an ACCESS question, and
+ * because the access decision must not depend on the policy module -- the rules
+ * about who may pause and for how long can change without the resolver
+ * learning a new way to be wrong. _pause.js imports this; nothing imports
+ * _pause.js from here.
+ *
+ * DERIVED FROM THE WINDOW, NEVER FROM A FLAG. A stored is_paused boolean has to
+ * be switched off by something, and that something is a job that can fail, be
+ * delayed or run twice -- which is how an athlete stays locked out for a
+ * fortnight after their pause ended. A window that simply stops containing
+ * `now` cannot fail to expire.
+ *
+ * A paused_at with no resume date is NOT a pause. An open-ended suspension with
+ * no automatic end is exactly what the policy forbids, so a half-written row
+ * fails towards the athlete keeping access rather than towards losing it. */
+function pausedNow(sub, now){
+  const s = sub || {};
+  const at = asDate(now) || new Date();
+  const started = asDate(s.paused_at);
+  const resumes = asDate(s.pause_resumes_at);
+  if (!started || !resumes) return null;
+  return (started <= at && at < resumes) ? { since: started, until: resumes } : null;
+}
+
 /* Does this one subscription grant access right now, and until when?
    Returns { active, reason, until, commercial:true }.
 
@@ -176,6 +202,17 @@ function subscriptionAccess(sub, now){
   /* Revocation outranks every timestamp on the row. A refunded purchase whose
      period_end is next month must not keep granting access for a month. */
   if (s.condition === 'revoked') return out(false, 'revoked', null);
+
+  /* PAUSED. Checked before every date branch below, because a pause suspends
+     access regardless of how much of the period is left -- that is the whole
+     point of it. `until` is the resume date rather than null: the athlete has
+     not lost the subscription, they have an access date in the future, and
+     every surface that shows "until" should be able to say so.
+
+     A pause that keeps the product working is a free month with extra steps.
+     Billing and access stop together and come back together. */
+  const pause = pausedNow(s, at);
+  if (pause) return out(false, 'paused', pause.until);
 
   if (s.condition === 'trialing'){
     /* Trial end, falling back to the period end -- some providers express a
@@ -235,10 +272,16 @@ function subscriptionAccess(sub, now){
 /* Is this subscription an ORDINARY ACTIVE COMMERCIAL subscription -- the kind
    that should stop the same athlete buying a second one somewhere else?
    Grace counts (they are still a customer, the provider is still retrying);
-   expired and revoked do not. */
+   expired and revoked do not.
+
+   A PAUSE COUNTS TOO, and this is the one place it is not obvious. A paused
+   subscription grants no access, so reading `active` alone would say "not
+   blocking" -- and a paused athlete would be free to buy a second subscription
+   while still holding the first, ending up with two the day the pause resumes.
+   Pausing is not leaving. */
 function isBlockingCommercial(sub, now){
   const a = subscriptionAccess(sub, now);
-  return a.active === true;
+  return a.active === true || a.reason === 'paused';
 }
 
 // ===========================================================================
@@ -303,7 +346,10 @@ function resolveStandardEntitlement(input){
     /* Why NOT, chosen from the most informative refusal present. 'revoked'
        first because it is the one an athlete will ring up about; then a
        payment hold, which they can fix; then plain expiry. */
-    const rank = ['revoked', 'payment_hold', 'expired', 'invalid'];
+    /* 'paused' ranks straight after 'revoked': it is something the athlete
+       chose, it has an end date they can be shown, and reporting it as 'none'
+       tells somebody who is mid-pause that they never had a subscription. */
+    const rank = ['revoked', 'paused', 'payment_hold', 'expired', 'invalid'];
     let reason = 'none';
     rank.forEach(function(r){
       if (reason === 'none' && evaluated.some(function(e){ return e.reason === r; })) reason = r;
@@ -384,6 +430,11 @@ function derivedCommercialState(subs, now){
   if (live.length){
     /* Most-generous-first among live rows so a stacked upgrade does not report
        the lesser of the two. */
+    /* Paused first: it is the most specific true thing about the relationship,
+       and every other branch below would report the state the athlete WOULD be
+       in if they were not paused -- which is exactly the sentence that gets a
+       paused athlete told they are "active". */
+    if (live.some(function(s){ return subscriptionAccess(s, at).reason === 'paused'; })) return 'paused';
     if (live.some(function(s){ return subscriptionAccess(s, at).reason === 'trial'; })) return 'trial';
     if (live.some(function(s){ return s.condition === 'active' || s.condition === 'past_due'; })) return 'paid';
     if (live.some(function(s){ return s.condition === 'cancelled'; })) return 'cancelled_active';
@@ -611,6 +662,7 @@ module.exports = {
   asDate, iso, laterBound, boundary,
   subscriptionAccess, isBlockingCommercial, grantAccess,
   resolveStandardEntitlement, managementProviderFor, derivedCommercialState,
+  pausedNow,
   trialEligibility, consumeTrial, mayStartStandardPurchase,
   projectToEntitlementRow, publicEntitlement
 };

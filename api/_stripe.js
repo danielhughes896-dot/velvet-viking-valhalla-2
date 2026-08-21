@@ -189,6 +189,14 @@ async function createCheckoutSession(cfg, input, opts){
     client_reference_id: input.uid,
     'line_items[0][price]': price.priceId,
     'line_items[0][quantity]': 1,
+    /* PAYMENT METHOD REQUIRED UPFRONT, SAID OUT LOUD.
+       Stripe's default for a subscription Checkout is already 'always', so this
+       line changes no behaviour today. It is here because the commercial model
+       HQ chose rests entirely on it -- a fourteen-day trial that converts
+       automatically is a different product from a card-free trial -- and a
+       requirement that important must not be a default somebody could flip in
+       a dashboard, or that Stripe could change, without a diff. */
+    payment_method_collection: 'always',
     subscription_data: {
       trial_period_days: price.offer.trialDays,
       /* Everything needed to reconstruct the purchase from a webhook alone,
@@ -329,7 +337,28 @@ function normaliseEvent(stripeEvent){
   /* An unrecognised Stripe status must not be guessed into a condition that
      grants access. Deleted subscriptions are the one case where Stripe's status
      may lag, and 'expired' is unambiguous there. */
-  const finalCondition = type === 'customer.subscription.deleted' ? 'expired' : condition;
+  let finalCondition = type === 'customer.subscription.deleted' ? 'expired' : condition;
+
+  /* REVOKED, AND WHERE IT LEGITIMATELY COMES FROM.
+   *
+   * 'expired' means the period ran out and nothing is owed. 'revoked' means the
+   * provider pulled the purchase -- a dispute or a chargeback -- and it must
+   * outrank every date on the row, because a refunded subscription whose period
+   * ends next month must not keep granting access for a month.
+   *
+   * Stripe has no 'revoked' status, so this reads the one documented field that
+   * says why a subscription ended: cancellation_details.reason. Its published
+   * values are cancellation_requested, payment_disputed and payment_failed, and
+   * only the disputed one is a revocation -- somebody asking to cancel, or a
+   * card that stopped working, is an ordinary ending and stays 'expired'.
+   *
+   * NOTHING IS INFERRED BEYOND THAT. A refund issued from the dashboard with no
+   * dispute produces no subscription event at all, so it is an operator action
+   * against the subscriptions row, not something this file pretends to see. */
+  if (finalCondition === 'expired'){
+    const why = obj.cancellation_details && obj.cancellation_details.reason;
+    if (why === 'payment_disputed') finalCondition = 'revoked';
+  }
   if (!finalCondition) return null;
 
   const secs = function(v){ return v ? new Date(Number(v) * 1000).toISOString() : null; };
@@ -356,8 +385,15 @@ function normaliseEvent(stripeEvent){
     catalogue_version: Prod.CATALOGUE_VERSION,
     trial_start: secs(obj.trial_start),
     trial_end: secs(obj.trial_end),
+    period_start: secs(obj.current_period_start),
     period_end: periodEndOf(obj),
-    cancel_at_period_end: !!obj.cancel_at_period_end
+    /* When the provider says the relationship actually ended, as distinct from
+       cancel_at_period_end, which says it is going to. */
+    cancelled_at: secs(obj.canceled_at),
+    cancel_at_period_end: !!obj.cancel_at_period_end,
+    /* Why it ended, in Stripe's own words, so an operator can tell a dispute
+       from a request without this file having to name every value. */
+    cancellation_reason: (obj.cancellation_details && obj.cancellation_details.reason) || null
   };
 }
 
