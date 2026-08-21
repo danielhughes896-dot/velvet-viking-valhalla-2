@@ -19448,7 +19448,13 @@ function reconcileRegeneratedDays(oldDays, newDays, startDateStr){
   var merged = history.concat(kept).sort(function(a,b){ return a.date<b.date?-1:a.date>b.date?1:0; });
   return { days:merged, preserved:history.length };
 }
-function handleGeneratePlan(){
+/* ASYNC, and only for one reason: the consent decision below has to be
+   RECORDED before the two fields it governs are read. A grant we cannot prove
+   is worse than no grant, so if the audit row does not land, nothing is turned
+   on -- and reading LTHR a millisecond later would otherwise store a heart rate
+   against a consent that failed to save. Every early return in here still
+   behaves exactly as it did; the one caller discards the result. */
+async function handleGeneratePlan(){
   /* WHAT IS BEING BUILT, read from the builder rather than inherited.
      A missing selector means a caller that predates the objective step, which
      is a race build -- the same default the block ledger already uses. A
@@ -19482,7 +19488,7 @@ function handleGeneratePlan(){
      absent (the athlete has answered before) the stored decision stands and
      Settings is where they change it. */
   var consentBox = document.getElementById('su-health-consent');
-  if (consentBox) handleHealthConsentDecision(!!consentBox.checked, { quiet:true });
+  if (consentBox) await handleHealthConsentDecision(!!consentBox.checked, { quiet:true });
 
   var lthrInput = parseInt(document.getElementById('su-lthr').value, 10);
   var maxHRInput = parseInt(document.getElementById('su-maxhr').value, 10);
@@ -21441,14 +21447,57 @@ function handleSetUnits(units){
    heart rate, whether they finished onboarding, or whether they are paying. */
 function handleHealthConsentDecision(granted, opts){
   var was = healthConsentGranted();
-  state.healthConsent = makeHealthConsentRecord(granted ? 'granted' : 'declined');
+  var rec = makeHealthConsentRecord(granted ? 'granted' : 'declined');
+
+  /* GRANTING AND WITHDRAWING ARE NOT SYMMETRICAL, and treating them as one
+     thing is the mistake that would hide here.
+
+     WITHDRAWAL is the athlete exercising a right. It takes effect on this
+     device the instant they tap, and a network failure, an outage or a table
+     that does not exist yet must never leave somebody unable to turn it off.
+     Best effort on the audit copy, always.
+
+     GRANTING is us acquiring a lawful basis to process information about their
+     body. A grant we cannot prove is worse than no grant: the processing
+     happens and the evidence does not exist. So when the athlete is signed in,
+     the audit row has to land before the decision counts -- and if it cannot,
+     nothing is stored, nothing is processed, and they are told plainly.
+
+     THIS IS ALSO WHAT MAKES THE DEPLOYMENT ORDER STOP MATTERING. Ship this
+     code before supabase-health-consent.sql exists in production and the
+     insert 404s, so no athlete can reach a granted state at all -- rather than
+     reaching one whose only record is a browser's localStorage. The migration
+     then simply turns the feature on. */
+  if (granted && cloudSignedIn()){
+    return recordHealthConsentAudit(rec).then(function(recorded){
+      if (!recorded){
+        showToast('We could not save that just now — nothing has been turned on. Please try again.');
+        return false;
+      }
+      applyHealthConsentDecision(rec, was, opts);
+      return true;
+    });
+  }
+
+  /* A withdrawal, a decline, or an athlete with no cloud account at all --
+     whose covered data never leaves their device and is never processed by a
+     server, so there is nothing for a server-side record to be evidence of. */
+  recordHealthConsentAudit(rec);
+  applyHealthConsentDecision(rec, was, opts);
+  return Promise.resolve(true);
+}
+
+/* The part that actually changes what the product does, split out so the
+   granted path above can run it only after the record exists. */
+function applyHealthConsentDecision(rec, was, opts){
+  var granted = rec.decision === 'granted';
+  state.healthConsent = rec;
   /* Withdrawal stops COLLECTION as well as use, so the two profile values the
      builder collects for heart-rate zones are cleared at the moment consent
      ends. Nothing else stored is touched: see the note on historical values in
      the consent block above -- they are excluded from every computation while
      consent is absent, and are the athlete's own record to keep. */
   if (!granted && state.setup){ state.setup.lthr = null; state.setup.maxHR = null; }
-  recordHealthConsentAudit(state.healthConsent);
   flushSave();
   /* `quiet` is for the builder, which takes this decision in the middle of
      reading its own form: a toast would talk over the plan being built, and a

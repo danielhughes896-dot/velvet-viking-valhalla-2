@@ -316,3 +316,90 @@ test('the salt is never returned from anything that gets serialised', () => {
   assert.equal(cfg.hasSalt, true);
   assert.equal(cfg.salt(), 'the-actual-salt');
 });
+
+// ===========================================================================
+// THE WIRING -- THE MIRROR ACTUALLY RUNS, AND CANNOT BREAK A PURCHASE
+// ===========================================================================
+test('the mirror reads the database after the write, not the writer"s intention', () => {
+  /* syncAccountFromStore re-reads account_operational_state and the canonical
+     rows rather than taking a payload from the caller. Those are the same
+     thing right up until they are not, and the version that mirrors the
+     writer's belief is the one that hides a bug. */
+  const src = fs.readFileSync(path.join(ROOT, 'api', '_monday-operational.js'), 'utf8');
+  assert.match(src, /account_operational_state\?select=\*&account_id=eq\./);
+  assert.match(src, /Store\.readCommercialFacts\(S, cfg, accountId\)/);
+});
+
+test('the webhook mirrors after the ledger, and a mirror failure is not a 503', async () => {
+  // A 503 here would have Stripe redeliver an event that has already been
+  // applied -- the mirror would turn a working purchase into a retry loop.
+  const hook = fs.readFileSync(path.join(ROOT, 'api', 'billing-webhook.js'), 'utf8');
+  const mirrorAt = hook.indexOf('Ops.syncAccountFromStore');
+  const ledgerAt = hook.indexOf('markBillingEventProcessed', mirrorAt);
+  assert.ok(mirrorAt > 0, 'the webhook no longer mirrors at all');
+  assert.ok(hook.indexOf('syncEntitlementRow') < mirrorAt,
+    'the entitlement must be re-derived before the board is told about it');
+  assert.ok(ledgerAt > mirrorAt);
+  const around = hook.slice(mirrorAt - 400, mirrorAt + 400);
+  assert.match(around, /try\{/);
+  assert.match(around, /catch\(e\)\{ log\('OPS_MIRROR_THREW'\); \}/);
+  assert.equal(/return S\.json\(res, 5\d\d/.test(around), false,
+    'a stale board must never answer a provider with an error');
+});
+
+test('the mirror is off unless it is switched on, even when wired in', async () => {
+  const Store = require(path.join(ROOT, 'api', '_commercial-store.js'));
+  const off = M.config({ MONDAY_API_TOKEN: 't', MONDAY_OPERATIONAL_BOARD_ID: '1',
+                         MONDAY_OPERATIONAL_SALT: 's' });
+  const r = await M.syncAccountFromStore(
+    { sb: async () => { throw new Error('must not read anything'); } },
+    Store, E, { serviceKey: 'x' }, ACC, { config: off });
+  assert.equal(r.code, 'operational_sync_disabled');
+});
+
+test('an unreadable view is reported, never guessed around', async () => {
+  const Store = require(path.join(ROOT, 'api', '_commercial-store.js'));
+  const S = { sb: async (cfg, p) => {
+    if (/account_operational_state/.test(p)) return { ok: false, status: 503, json: async () => null };
+    return { ok: true, status: 200, json: async () => [] };
+  } };
+  const r = await M.syncAccountFromStore(S, Store, E, { serviceKey: 'x' }, ACC,
+    { config: CFG, fetch: async () => { throw new Error('must not reach monday'); } });
+  assert.equal(r.ok, false);
+  assert.equal(r.code, 'view_unreadable');
+});
+
+test('the mirror sends the subscription the athlete is living under', async () => {
+  // A cancelled leftover sorted above a live one would put the wrong period and
+  // the wrong pause state on the board.
+  const Store = require(path.join(ROOT, 'api', '_commercial-store.js'));
+  const dead = { id: 'old', account_id: ACC, provider: 'web', product_code: 'VALHALLA_STANDARD',
+                 condition: 'expired', billing_period: 'yearly',
+                 current_period_end: '2025-01-01T00:00:00Z' };
+  const livesub = { id: 'now', account_id: ACC, provider: 'web', product_code: 'VALHALLA_STANDARD',
+                 condition: 'active', billing_period: 'monthly',
+                 current_period_end: '2099-01-01T00:00:00Z' };
+  const S = { sb: async (cfg, p) => {
+    if (/account_operational_state/.test(p))
+      return { ok: true, status: 200, json: async () => [view({ subscription_condition: 'active',
+                                                                subscription_provider: 'web' })] };
+    if (/^\/subscriptions/.test(p)) return { ok: true, status: 200, json: async () => [dead, livesub] };
+    if (/^\/account_commercial/.test(p)) return { ok: true, status: 200, json: async () => [{ account_id: ACC }] };
+    if (/^\/entitlement_grants/.test(p)) return { ok: true, status: 200, json: async () => [] };
+    throw new Error('unexpected ' + p);
+  } };
+  let sent = null;
+  const r = await M.syncAccountFromStore(S, Store, E, { serviceKey: 'x' }, ACC, {
+    config: CFG,
+    fetch: async (u, init) => {
+      const q = JSON.parse(init.body);
+      if (/items_page_by_column_values/.test(q.query))
+        return { ok: true, status: 200, json: async () => ({ data: { items_page_by_column_values: { items: [] } } }) };
+      sent = JSON.parse(q.variables.cols);
+      return { ok: true, status: 200, json: async () => ({ data: { create_item: { id: '9' } } }) };
+    }
+  });
+  assert.equal(r.ok, true);
+  assert.deepEqual(sent[M.COLUMN_IDS.billingPeriod], { label: 'monthly' },
+    'the expired yearly row was mirrored instead of the live monthly one');
+});

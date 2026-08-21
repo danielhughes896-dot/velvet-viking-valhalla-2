@@ -35,6 +35,8 @@ const B = require('./_billing.js');
 const P = require('./_stripe.js');
 const Prod = require('./_products.js');
 const Store = require('./_commercial-store.js');
+const E = require('./_entitlement.js');
+const Ops = require('./_monday-operational.js');
 
 const STRIPE_SIG_HEADER = 'stripe-signature';
 
@@ -285,6 +287,21 @@ async function handleStripe(req, res, cfg){
 
   /* 5. Re-derive access from the canonical facts. Never computed here. */
   const sync = await Store.syncEntitlementRow(S, cfg, ev.account_id);
+
+  /* 6. MIRROR IT TO THE OPERATIONAL BOARD.
+   *
+   * After the ledger, not before, and after the entitlement, not instead of:
+   * the board shows what the database says once the writes have landed. It is
+   * OFF unless VVV_MONDAY_OPERATIONAL says otherwise, it never throws, and its
+   * failure is logged and ignored. A mirror being late is not a reason to fail
+   * a purchase -- and a 503 here would have Stripe redeliver an event that has
+   * already been applied. */
+  try{
+    const mirrored = await Ops.syncAccountFromStore(S, Store, E, cfg, ev.account_id);
+    if (!mirrored.ok && mirrored.code !== 'operational_sync_disabled'){
+      log('OPS_MIRROR_FAILED code=' + mirrored.code);
+    }
+  }catch(e){ log('OPS_MIRROR_THREW'); }
 
   await Store.markBillingEventProcessed(S, cfg, {
     provider: P.PROVIDER, provider_event_id: ev.provider_event_id,

@@ -160,26 +160,60 @@ programme continue unchanged.
 
 ---
 
-**Remaining legal decisions, not settled by System:**
+**Decisions HQ has now taken, and the code matches them:**
 
-1. **RPE.** Rating of perceived exertion is currently treated as ordinary
-   training data: it is a measure of how hard prescribed work felt relative to
-   the prescription, and it is what the engine falls back to for load when
-   heart rate is absent. If legal concludes RPE is health-indicating, moving it
-   inside the boundary is a one-line change to the covered list — but it would
-   materially reduce what an athlete who declines gets, which is why it has not
-   been assumed either way.
-2. **Erasure of historical covered values on withdrawal.** The implemented
-   behaviour is exclusion, not deletion: the athlete's own logged heart rates
-   and readiness answers remain in their own record and stop being processed.
-   Deleting them on withdrawal is a defensible alternative and would be
-   straightforward, but it destroys the athlete's data without them asking, and
-   withdrawal of consent is not by itself a request for erasure. Account
-   deletion already removes everything.
-3. **Whether "life stress" belongs inside the boundary.** It is currently
-   included, conservatively, on the basis that it can indicate mental health.
-   It is the one item on the covered list that is there by caution rather than
-   by obvious necessity.
+1. **RPE stays OUTSIDE the boundary.** Rating of perceived exertion is ordinary
+   training-effort and execution evidence: it measures how hard prescribed work
+   felt relative to the prescription, and it is what the engine falls back to
+   for load when heart rate is absent. It is processed for every athlete,
+   consented or not. It is named in the runtime's own not-covered list and in
+   the erasure module's, and a test fails if it moves.
+2. **"Life stress" stays INSIDE the boundary.** It is included conservatively,
+   on the basis that it can indicate mental health. It is the one item on the
+   covered list that is there by caution rather than by obvious necessity, and
+   that is the deliberate direction to be wrong in.
+3. **Withdrawal does not delete history.** Withdrawing consent stops future
+   collection and use immediately; covered values already logged are retained
+   and become inert — excluded from every adaptation, coaching decision, target
+   and longitudinal reading while consent is absent. Ordinary training history
+   is unaffected. No new lawful basis is invented to keep processing them: they
+   are not processed at all.
+
+**Erasure is a separate right, and is supported separately.**
+
+Withdrawal of consent is not by itself a request for erasure, and the two are
+implemented as the different things they are. Where erasure of the covered
+values is legally required, `api/_health-erasure.js` performs it:
+
+- It removes `setup.lthr`, `setup.maxHR`, every day's `readiness`, and every
+  day's logged `hr` and `feel` from the plan document, and `hr` and `maxHR` from
+  every staged provider activity.
+- It removes **nothing else**. Distances, paces, times, splits, RPE, the
+  athlete's own note text, benchmarks, race results, adherence and the whole
+  programme history are untouched — and that is not a promise, it is a check:
+  the run compares before and after and **refuses** if anything was added,
+  changed, reordered, shortened, or removed that is not a named covered field.
+- The **consent record survives** an erasure. It holds no value about the
+  athlete's body, and destroying it would remove the evidence that the
+  processing which already happened was lawful at the time.
+- It is an **operator action**, not a button. There is no endpoint, nothing
+  routes to it, and a test fails if anything imports it. An erasure request is
+  assessed by a person and carried out by a person. An irreversible deletion one
+  mis-click away from an athlete who meant to *withdraw consent* is exactly the
+  confusion the split between the two exists to prevent.
+- It offers a **dry run by default**, reporting exactly what would be removed
+  before anything is.
+
+**Account deletion** remains the complete route: it removes the plan, every
+staged activity, the connection tokens, the entitlement, the leases, the
+commercial record, the subscriptions **and the consent history**, by CASCADE.
+
+**Still not settled by System, and correctly a legal decision:** whether the
+consent obtained at signup is specific enough for special-category data on its
+own, and whether the separate health-and-readiness consent described here
+discharges that. System has implemented the separate consent; whether it is
+sufficient is not System's call.
+
 
 ---
 

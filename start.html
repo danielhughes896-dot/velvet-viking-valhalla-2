@@ -540,6 +540,25 @@
 
      Nothing on this page decides anything commercial. It names a period; the
      server validates that against the catalogue and resolves the price. */
+  /* NATIVE STORE RULES, AND WHY THIS PAGE NEEDS THEM TOO.
+
+     Apple and Google both prohibit an app distributed through their store from
+     steering a customer to an external web payment for the same digital
+     subscription. The app runtime already honours that -- renderSubscriptionActions()
+     shows a sentence rather than a subscribe button inside the shell -- but
+     THIS page was not covered, and it is the one with the prices on it. The
+     Android manifest routes https://app.velvetviking.co.uk/start into the
+     installed app, so a tapped link would have opened the purchase flow inside
+     the native shell: exactly the steering the rule forbids.
+
+     isNativeApp() is the same question the runtime asks, answered the same way.
+     A second way of asking it is a second thing to get wrong. */
+  function isNativeApp(){
+    try{ return !!(window.Capacitor && window.Capacitor.isNativePlatform &&
+                   window.Capacitor.isNativePlatform()); }
+    catch(e){ return false; }
+  }
+
   var period = 'monthly';
   var AFTER = { monthly: 'After 14 days this becomes £11.99 a month, unless you cancel.',
                 yearly:  'After 14 days this becomes £89.99 a year, unless you cancel.' };
@@ -552,6 +571,22 @@
       $('choice-note').textContent = AFTER[period];
     });
   });
+
+  /* Inside the shell the prices, the interval choice and the button all go, and
+     a sentence takes their place. Hiding the BUTTON alone would leave the
+     prices on screen, which is still the steering -- the rule is about
+     presenting the external purchase, not about the tap that completes it. */
+  if (isNativeApp()){
+    var card = $('plan-choice') && $('plan-choice').closest('.card');
+    if (card){
+      card.innerHTML = '<h3>Start your 14 days</h3>' +
+        '<p class="say" style="margin:0;">Subscriptions are set up on the web. ' +
+        'Open <b>velvetviking.co.uk</b> in your browser to start your trial, then ' +
+        'come back here and sign in \u2014 everything will be waiting.</p>';
+    }
+    var t = $('trial'); if (t) t.classList.add('vvv-hidden');
+    var tn = $('trial-note'); if (tn) tn.classList.add('vvv-hidden');
+  }
 
   $('trial').addEventListener('click', function(){
     clear('trial-err');
