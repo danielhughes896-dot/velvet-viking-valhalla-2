@@ -3812,17 +3812,120 @@ function providerSyncRequest(trigger, opts){
 }
 
 /* ---- when a session stops matching its prescription ----
-   One rule, used by every path that rewrites a day: an archetype whose only
-   parameter IS the whole-day distance still describes the session after a
-   distance change, so it rescales. Everything else no longer describes what
-   the athlete is being asked to run, and is dropped so the day falls back to
-   the legacy type-based behaviour. Reverse-engineering a new structure from a
-   changed session is exactly the clever-parsing trap; we never do it. */
+   One rule, used by every path that rewrites a day, asked in three steps.
+     1. An archetype whose only parameter IS the whole-day distance still
+        describes the session after a distance change, so it rescales.
+     2. Otherwise the session is shrunk to fit through the taper's own spec
+        shrinkers -- same code, same floors. See fitPrescriptionToDistance.
+     3. Only when neither can honestly restate the session is it dropped, and
+        the day falls back to the legacy type-based behaviour.
+   Reverse-engineering a new structure from a changed session is exactly the
+   clever-parsing trap; we never do it, at any of the three steps. */
 function rescaleOrDropPrescription(dd, newKm){
   var p = prescriptionOf(dd), meta = p && ARCHETYPES[p.archetype];
   if (meta && meta.rescalableKm && newKm>0){ p.params[meta.dayKmParam] = round1(newKm); return true; }
+  if (fitPrescriptionToDistance(dd, newKm)) return true;
   if (dd) delete dd.prescription;
   return false;
+}
+
+/* ---- a shorter session of the same shape ----
+   THE REGRESSION THIS FIXES, and why the old behaviour was not simply a bug.
+
+   Dropping the prescription was the right answer to the question it was
+   asking. A 6km threshold block cut to 4km is no longer a 6km threshold block,
+   and if the prescription stayed put the structured card would print segments
+   adding to 9km on a 6km day -- a session that does not fit inside itself.
+   Keeping it would have been the lie; dropping it was honest.
+
+   But the CONSEQUENCE was wrong, and much wider than the threshold session it
+   was reported on: fourteen of the seventeen archetypes lost their structured
+   workout entirely the moment a coach adjustment cut a distance. The athlete
+   went from "1 WARM UP / 2 THRESHOLD / 3 COOL DOWN" with paces and heart rate
+   to a title and a line of prose -- the legacy presentation, arrived at by
+   accident rather than by decision.
+
+   The third answer is the one the product already had. shrinkTempoSpec() and
+   shrinkIntervalSpec() are how the TAPER makes a quality session fit a smaller
+   week: they shrink the spec's own dimensions -- reps, minutes, ladder rungs --
+   and never its intensity, its rep length or its shape, with floors that stop
+   a session being reduced into nonsense. That is exactly the operation a
+   distance cut asks for, so this uses it rather than inventing a second one.
+
+   NOTHING IS REVERSE-ENGINEERED. The structure comes from the prescription
+   that is already there; only its size moves, through the same code and the
+   same floors the taper uses. Where the spec cannot be shrunk to fit -- a
+   floor reached, an archetype with no spec form -- this refuses and the
+   caller drops the prescription exactly as before, because a session that
+   cannot honestly be made smaller must not be made to look as though it has
+   been. */
+function fitPrescriptionToDistance(dd, newKm){
+  var p = prescriptionOf(dd);
+  if (!p || !(newKm > 0)) return false;
+  var meta = ARCHETYPES[p.archetype];
+  if (!meta) return false;
+  if (p.archetype === 'easy_strides') return fitStridesToDistance(dd, p, newKm);
+  var spec = prescriptionSpec(p);
+  if (!spec) return false;
+
+  var kind = (meta.family === 'interval' || meta.family === 'repetition') ? 'interval' : 'tempo';
+  /* Already fits: a cut that does not bite leaves the session alone rather
+     than shrinking it for the sake of having done something. */
+  if (qualitySessionKm(spec, kind) <= newKm) return true;
+
+  var shrunk = kind === 'interval' ? shrinkIntervalSpec(spec, newKm)
+                                   : shrinkTempoSpec(spec, newKm);
+  if (!shrunk) return false;
+  /* The floors did not let it get small enough. Refuse rather than print a
+     structure the day cannot contain. */
+  if (qualitySessionKm(shrunk, kind) > newKm + 0.5) return false;
+
+  var next = prescriptionFromSpec(shrunk, kind === 'interval' ? 'interval' : 'tempo');
+  if (!next || next.archetype !== p.archetype) return false;
+  var wasTitle = titleFromPrescription(p, dd.km);
+  dd.prescription = { v: PRESCRIPTION_VERSION, archetype: next.archetype, params: next.params };
+  renameToMatchPrescription(dd, wasTitle, newKm);
+  return true;
+}
+/* ---- the name has to agree with the steps ----
+   Keeping the prescription means the card now prints "2 THRESHOLD 2.5km"
+   under a heading that still reads "Threshold: 4km". The title is generated
+   from the prescription by textFor(), so re-asking that same function is the
+   whole fix -- no second naming rule, and nothing parsed back out of prose.
+
+   ONLY where the title is still VALHALLA'S. If it no longer matches what the
+   old prescription generated, the athlete renamed the session, and their words
+   outrank ours (playbook invariant athlete_edit_wins). Silence there is the
+   point, not an omission. */
+function titleFromPrescription(p, totalKm){
+  var t = p && textFor(p, null, totalKm);
+  return t ? t.title : null;
+}
+function renameToMatchPrescription(dd, wasTitle, newKm){
+  if (!wasTitle || dd.title !== wasTitle) return;
+  var now = titleFromPrescription(prescriptionOf(dd), newKm);
+  if (now) dd.title = now;
+}
+/* ---- the one archetype with no spec form and a genuinely separable easy leg ----
+   easy_strides is easy running plus a fixed set of strides, and only the easy
+   leg is a distance. Shortening it is the same operation rescalableKm performs
+   on easy_run -- the strides are copied through untouched, reps and length
+   alike -- so no part of the prescription is re-derived. It is handled here
+   rather than by a table flag because easyKm is NOT the whole-day distance:
+   the strides sit on top of it, and a settle-up pass that wrote dd.km into
+   easyKm would silently count them twice.
+
+   Below the generator's own easy-day floor there is no easy run left to hang
+   strides on, so this refuses and the caller drops, as everywhere else. */
+function fitStridesToDistance(dd, p, newKm){
+  var q = p.params;
+  var stridesKm = ((q.reps || 0) * (q.m || 0)) / 1000;
+  if (round1(q.easyKm) + stridesKm <= newKm) return true;
+  var easy = round1(newKm - stridesKm);
+  if (!(easy >= EASY_MIN_KM)) return false;
+  dd.prescription = { v: PRESCRIPTION_VERSION, archetype: 'easy_strides',
+                      params: { easyKm: easy, reps: q.reps, m: q.m } };
+  return true;
 }
 /* ---- intensity -> the zone the app already resolves paces from ----
    No new pace maths anywhere: every intensity maps onto an existing VDOT zone
@@ -10734,7 +10837,12 @@ function applyRecoveryCeiling(days, raceDate, noIntensityDays){
     dd.title = 'Easy Aerobic';
     dd.desc = 'Easy running only — you are still recovering. Conversational the whole way.';
     dd.recoveryCeiling = true;
-    if (dd.prescription) delete dd.prescription;
+    /* The three lines above have just AUTHORED an easy run of this distance,
+       so the day gets that structure, exactly as the coach's downgrade does.
+       Deleting the prescription instead left a session Valhalla had written
+       showing as a title and a line of prose. Generation, not
+       reverse-engineering: nothing here is read back off the old session. */
+    dd.prescription = { v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:round1(dd.km) } };
   });
   return days;
 }

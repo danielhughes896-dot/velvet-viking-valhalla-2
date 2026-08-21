@@ -393,11 +393,27 @@ test('a day with no prescription falls back to the flat editor', () => {
   assert.match(a.renderSplitsBlock(dd), /Add laps \/ splits/);
 });
 
-test('an edited-down workout that dropped its prescription falls back cleanly', () => {
+// An edited-down workout keeps the structured form wherever the session can
+// honestly be made smaller -- the shrink is the taper's own, so the fartlek is
+// still a fartlek, just fewer reps of it, and the athlete still logs it by
+// segment rather than as anonymous laps.
+test('an edited-down workout that can be shrunk keeps its structured form', () => {
   const a = app();
   const dd = dayFor(a, 'fartlek', { completed:true, actual:a.emptyActual() });
   assert.equal(a.loggingModeFor(dd).mode, 'structured');
-  a.rescaleOrDropPrescription(dd, 6);           // fartlek is not rescalable -> dropped
+  assert.equal(a.rescaleOrDropPrescription(dd, 12), true);
+  assert.equal(a.prescriptionOf(dd).archetype, 'fartlek');
+  assert.equal(a.loggingModeFor(dd).mode, 'structured');
+  assert.doesNotThrow(() => a.renderSplitsBlock(dd));
+});
+
+test('an edited-down workout that cannot be shrunk falls back cleanly', () => {
+  const a = app();
+  // A time trial has no spec form: the trial distance IS the session, and a
+  // shorter one is a different test, so the prescription is dropped.
+  const dd = dayFor(a, 'time_trial', { km:9, completed:true, actual:a.emptyActual() });
+  assert.equal(a.loggingModeFor(dd).mode, 'structured');
+  a.rescaleOrDropPrescription(dd, 6);
   assert.equal(a.prescriptionOf(dd), null);
   assert.equal(a.loggingModeFor(dd).mode, 'flat');
   assert.doesNotThrow(() => a.renderSplitsBlock(dd));
