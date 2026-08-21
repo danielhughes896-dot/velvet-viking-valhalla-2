@@ -650,3 +650,58 @@ test('35. the passkey icon is drawn in the app’s own icon vocabulary', () => {
   assert.ok(app.ICONS.passkey.indexOf('<image') === -1 && app.ICONS.passkey.indexOf('base64') === -1,
     'no imported operating-system asset');
 });
+
+// ---------------------------------------------------------------------------
+// 9. ANDROID CREDENTIAL ASSOCIATION
+//
+// Two DIFFERENT permissions, on two DIFFERENT domains, doing two different
+// jobs. Conflating them is the easy mistake here, so both are stated:
+//
+//   handle_all_urls  lets the installed app open https://app.velvetviking.co.uk
+//                    links -- that is App Links, and Android verifies it against
+//                    the domain in the manifest's intent filter, which is
+//                    app.velvetviking.co.uk. This file, served from this
+//                    deployment, is the one that satisfies it.
+//
+//   get_login_creds  lets the installed app use passkeys belonging to the
+//                    relying party -- and Android verifies THAT against the
+//                    RP ID's own domain. The RP ID is velvetviking.co.uk (the
+//                    apex), so the file Android actually reads for this is
+//                    https://velvetviking.co.uk/.well-known/assetlinks.json,
+//                    which is the MARKETING SITE and is not in this repository.
+//
+// So the statement below is necessary and not sufficient: it makes this
+// deployment correct, and the apex file has to carry the same statement before
+// the native app can use a passkey. Recorded here because the next person to
+// look will assume one file covers both, and it does not.
+//
+// None of this affects Chrome on Android, which needs no asset link at all --
+// it is a web origin talking to a web relying party.
+// ---------------------------------------------------------------------------
+test('38. the app is declared for BOTH link handling and credential sharing', () => {
+  const links = JSON.parse(read('assetlinks.json'));
+  const rel = (r) => links.filter((s) => s.relation.indexOf('delegate_permission/common.' + r) !== -1);
+
+  const urls = rel('handle_all_urls');
+  assert.equal(urls.length, 1, 'the existing App Links statement is preserved, exactly once');
+
+  const creds = rel('get_login_creds');
+  assert.equal(creds.length, 1, 'and credential sharing is now declared');
+
+  for (const s of urls.concat(creds)) {
+    assert.equal(s.target.namespace, 'android_app');
+    assert.equal(s.target.package_name, 'com.velvetviking.valhalla');
+    /* A statement without the signing fingerprint associates nothing, and one
+       with the WRONG fingerprint associates somebody else's build. */
+    assert.deepEqual(s.target.sha256_cert_fingerprints,
+      ['FF:74:F0:CE:A8:C9:87:41:CD:A5:8B:3A:D9:67:95:8E:86:FA:E8:85:09:3D:6A:20:CE:D6:99:30:FA:69:04:EE'],
+      'both statements name the same release signing certificate');
+  }
+});
+
+test('39. the asset-link file is still served where App Links looks for it', () => {
+  const routes = JSON.parse(read('vercel.json')).routes;
+  assert.ok(routes.some((r) => r.src && r.src.indexOf('assetlinks') !== -1 &&
+                               r.dest === '/assetlinks.json'),
+    '/.well-known/assetlinks.json still resolves');
+});

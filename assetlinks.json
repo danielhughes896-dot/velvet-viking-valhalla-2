@@ -8,5 +8,15 @@
         "FF:74:F0:CE:A8:C9:87:41:CD:A5:8B:3A:D9:67:95:8E:86:FA:E8:85:09:3D:6A:20:CE:D6:99:30:FA:69:04:EE"
       ]
     }
+  },
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.velvetviking.valhalla",
+      "sha256_cert_fingerprints": [
+        "FF:74:F0:CE:A8:C9:87:41:CD:A5:8B:3A:D9:67:95:8E:86:FA:E8:85:09:3D:6A:20:CE:D6:99:30:FA:69:04:EE"
+      ]
+    }
   }
 ]
