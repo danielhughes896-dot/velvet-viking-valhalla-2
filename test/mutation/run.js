@@ -27,9 +27,7 @@ const SUBSET = ['stripeLifecycle','monthlyPause','commercialCore','securityPostu
   'betaClosure','entitlementMigration','releaseReadiness','observability','accessGate',
   'billingWebhook','stripeFoundation','commercialEntry','legacyBetaRetirement',
   'commercialSchemaCollision','adjustedSessionStructure','prescriptionAwareLogging',
-  'historicalImmutability','historyIntegrity','reconcileRegeneratedDays',
-  'volumeCeiling','maintenanceBlock','blockShape','escalation','coachVoice',
-  'blockTransitions','learningWithoutHealthData','copyRepetition'].map(n => 'test/' + n + '.test.js').join(' ');
+  'historicalImmutability','historyIntegrity','reconcileRegeneratedDays'].map(n => 'test/' + n + '.test.js').join(' ');
 
 const CASES = [
   // ---- ACCESS ----
@@ -220,53 +218,53 @@ const CASES = [
      years. Every mutation here reopens one part of the loop that closes it. */
   ['volume: the peak is no longer capped', 'protected/velvet-viking-valhalla.html',
    "  var peakVolume = Math.min(currentVolume * volMult, ceiling);",
-   "  var peakVolume = currentVolume * volMult;"],
+   "  var peakVolume = currentVolume * volMult;", ['volumeCeiling','blockShape','blockTransitions','learningWithoutHealthData']],
   ['volume: a block may start from whatever the last one prescribed',
    'protected/velvet-viking-valhalla.html',
-   "  if (dem) out = Math.min(out, round1(dem * VOLUME_BLOCK_GROWTH_CAP));", ""],
+   "  if (dem) out = Math.min(out, round1(dem * VOLUME_BLOCK_GROWTH_CAP));", "", ['volumeCeiling','blockShape','blockTransitions','learningWithoutHealthData']],
   ['volume: the ceiling ratchets on demonstrated capacity again',
    'protected/velvet-viking-valhalla.html',
    "  return round1(Math.min(Math.max(dem, backstop), backstop * CEILING_MAX_OVER_BACKSTOP));",
-   "  return round1(Math.max(dem * 1.05, backstop));"],
+   "  return round1(Math.max(dem * 1.05, backstop));", ['volumeCeiling','blockShape','blockTransitions','learningWithoutHealthData']],
   ['volume: one heroic week counts as capacity', 'protected/velvet-viking-valhalla.html',
-   "var SUSTAINED_WEEKS_REQUIRED = 3;", "var SUSTAINED_WEEKS_REQUIRED = 1;"],
+   "var SUSTAINED_WEEKS_REQUIRED = 3;", "var SUSTAINED_WEEKS_REQUIRED = 1;", ['volumeCeiling','blockShape','blockTransitions','learningWithoutHealthData']],
   ['volume: capacity from years ago still counts', 'protected/velvet-viking-valhalla.html',
    "  var cutoff = addDays(todayStr(), -7 * DEMONSTRATED_WINDOW_WEEKS);",
-   "  var cutoff = '1970-01-01';"],
+   "  var cutoff = '1970-01-01';", ['volumeCeiling','blockShape','blockTransitions','learningWithoutHealthData']],
 
   /* ---- MAINTENANCE ----
      A block called Maintain & Protect grew quality load 56-66% across eight
      weeks, invisibly, because the weekly volume never moved. */
   ['maintain: the block progresses again', 'protected/velvet-viking-valhalla.html',
    "    var pos = steady ? MAINTAIN_POS_CYCLE[(w - 1) % MAINTAIN_POS_CYCLE.length]",
-   "    var pos = steady ? (w - 1) / Math.max(1, N - 1)"],
+   "    var pos = steady ? (w - 1) / Math.max(1, N - 1)", ['maintenanceBlock','blockShape','blockTransitions']],
   ['maintain: the dose cycle acquires a trend', 'protected/velvet-viking-valhalla.html',
    "var MAINTAIN_POS_CYCLE = [0.5, 0.35, 0.65];",
-   "var MAINTAIN_POS_CYCLE = [0.35, 0.5, 0.65];"],
+   "var MAINTAIN_POS_CYCLE = [0.35, 0.5, 0.65];", ['maintenanceBlock','blockShape','blockTransitions']],
   ['maintain: goal pace comes back to a block with no goal',
    'protected/velvet-viking-valhalla.html',
-   "  var goalOriented = purpose === 'race';", "  var goalOriented = true;"],
+   "  var goalOriented = purpose === 'race';", "  var goalOriented = true;", ['maintenanceBlock','blockShape','blockTransitions']],
   ['maintain: the coach may add quality volume in maintenance again',
    'protected/velvet-viking-valhalla.html',
-   "  Maintain:    { progress:'none',", "  Maintain:    { progress:'volume_and_quality_volume',"],
+   "  Maintain:    { progress:'none',", "  Maintain:    { progress:'volume_and_quality_volume',", ['maintenanceBlock','blockShape','blockTransitions']],
   ['maintain: the block borrows the Build pool again', 'protected/velvet-viking-valhalla.html',
    "    var structPhase = steady ? 'Maintain' : phase;",
-   "    var structPhase = steady ? 'Build' : phase;"],
+   "    var structPhase = steady ? 'Build' : phase;", ['maintenanceBlock','blockShape','blockTransitions']],
 
   /* ---- ROTATION ----
      Two consecutive maintenance blocks were byte-identical, 8 weeks of 8. */
   ['rotation: the next block opens on the same session as the last',
    'protected/velvet-viking-valhalla.html',
    "  return candidates[(weekNum + (rotation || 0)) % candidates.length](pos, emphasis);",
-   "  return candidates[weekNum % candidates.length](pos, emphasis);"],
+   "  return candidates[weekNum % candidates.length](pos, emphasis);", ['maintenanceBlock','coachVoice','blockTransitions']],
   ['rotation: the live block counts itself and re-rotates on every rebuild',
    'protected/velvet-viking-valhalla.html',
    "    return b && b.purpose === purpose && b.status === 'closed';",
-   "    return b && b.purpose === purpose;"],
+   "    return b && b.purpose === purpose;", ['maintenanceBlock','coachVoice','blockTransitions']],
   ['rotation: every long run in a block is the same one again',
    'protected/velvet-viking-valhalla.html',
    "      : LONG_RUN_SHAPE_ORDER[(w + rotation) % LONG_RUN_SHAPE_ORDER.length];",
-   "      : 'steady';"],
+   "      : 'steady';", ['maintenanceBlock','coachVoice','blockTransitions']],
 
   /* ---- BLOCK SHAPE ----
      Aerobic Base was a ten-week block with one base week, a mid-block time
@@ -274,87 +272,95 @@ const CASES = [
   ['shape: the base block tapers for a race that does not exist',
    'protected/velvet-viking-valhalla.html',
    "             baseEnd: BASE_PHASE_SPLIT, buildEnd: 1.01, volumeMult: BASE_VOLUME_MULT };",
-   "             baseEnd: PHASE_BASE_END, buildEnd: PHASE_BUILD_END, volumeMult: null };"],
+   "             baseEnd: PHASE_BASE_END, buildEnd: PHASE_BUILD_END, volumeMult: null };", ['blockShape','maintenanceBlock','blockTransitions','yearRoundLifecycle']],
   ['shape: a block with no goal effort ends in one anyway',
    'protected/velvet-viking-valhalla.html',
    "    var isRace = !steady && arc.hasGoalEffort && (w===N);",
-   "    var isRace = !steady && (w===N);"],
+   "    var isRace = !steady && (w===N);", ['blockShape','maintenanceBlock','blockTransitions','yearRoundLifecycle']],
   ['shape: the mid-block time trial comes back everywhere',
    'protected/velvet-viking-valhalla.html',
    "      isCheckpoint = !steady && arc.hasCheckpoint && (w === Math.max(1,Math.round(buildWeeks*0.6)));",
-   "      isCheckpoint = !steady && (w === Math.max(1,Math.round(buildWeeks*0.6)));"],
+   "      isCheckpoint = !steady && (w === Math.max(1,Math.round(buildWeeks*0.6)));", ['blockShape','maintenanceBlock','blockTransitions','yearRoundLifecycle']],
   ['shape: the speed block goes back to three development weeks',
    'protected/velvet-viking-valhalla.html',
-   "var SPEED_CONSOLIDATION_WEEKS = 1;", "var SPEED_CONSOLIDATION_WEEKS = 2;"],
+   "var SPEED_CONSOLIDATION_WEEKS = 1;", "var SPEED_CONSOLIDATION_WEEKS = 2;", ['blockShape','maintenanceBlock','blockTransitions','yearRoundLifecycle']],
   ['shape: a recovery block ramps on the race multiplier again',
    'protected/velvet-viking-valhalla.html',
    "             baseEnd: 1.01, buildEnd: 1.01, volumeMult: 1 };",
-   "             baseEnd: 1.01, buildEnd: 1.01, volumeMult: null };"],
+   "             baseEnd: 1.01, buildEnd: 1.01, volumeMult: null };", ['blockShape','maintenanceBlock','blockTransitions','yearRoundLifecycle']],
   ['shape: the base block ends at its own peak', 'protected/velvet-viking-valhalla.html',
-   "      if (!steady && !arc.hasGoalEffort && w===N && N>=4) isCutback = true;", ""],
+   "      if (!steady && !arc.hasGoalEffort && w===N && N>=4) isCutback = true;", "", ['blockShape','maintenanceBlock','blockTransitions','yearRoundLifecycle']],
 
   /* ---- THE WEEK THE ATHLETE IS STANDING IN ---- */
   ['cap: a mid-week re-tailor stacks a third hard session again',
    'protected/velvet-viking-valhalla.html',
-   "  capCurrentWeekQuality(merged, newDays, today);", ""],
+   "  capCurrentWeekQuality(merged, newDays, today);", "", ['historicalImmutability','reconcileRegeneratedDays','historyIntegrity']],
   ['cap: the cap is paid for out of the past', 'protected/velvet-viking-valhalla.html',
    "  var changeable = quality.filter(function(dd){ return dd.date >= today && !dayCarriesHistory(dd); })",
-   "  var changeable = quality.filter(function(dd){ return true; })"],
+   "  var changeable = quality.filter(function(dd){ return true; })", ['historicalImmutability','reconcileRegeneratedDays','historyIntegrity']],
 
   /* ---- ESCALATION ----
      One missed session and seven produced the same sentence. */
   ['escalation: every miss is an isolated one again', 'protected/velvet-viking-valhalla.html',
    "  return { tier: patternTier(ran.length, win.length), missed: win.length-ran.length,",
-   "  return { tier: 'isolated', missed: win.length-ran.length,"],
+   "  return { tier: 'isolated', missed: win.length-ran.length,", ['escalation','learningWithoutHealthData']],
   ['escalation: a handful of sessions is enough to call it persistent',
    'protected/velvet-viking-valhalla.html',
-   "var PATTERN_MIN_PLANNED      = 6;", "var PATTERN_MIN_PLANNED      = 1;"],
+   "var PATTERN_MIN_PLANNED      = 6;", "var PATTERN_MIN_PLANNED      = 1;", ['escalation','learningWithoutHealthData']],
   ['escalation: rest days count towards the window', 'protected/velvet-viking-valhalla.html',
    "    return dd && dd.type!=='rest' && dd.date < today;",
-   "    return dd && dd.date < today;"],
+   "    return dd && dd.date < today;", ['escalation','learningWithoutHealthData']],
   ['escalation: an accepted adjustment counts as a missed session',
    'protected/velvet-viking-valhalla.html',
    "  var ran = win.filter(function(dd){ return sessionRan(dd) || !!dd.coachAdjust; });",
-   "  var ran = win.filter(function(dd){ return sessionRan(dd); });"],
+   "  var ran = win.filter(function(dd){ return sessionRan(dd); });", ['escalation','learningWithoutHealthData']],
   ['escalation: an easy run logged short reads as the block being too hard',
    'protected/velvet-viking-valhalla.html',
    "    return sessionRan(dd) && isQualityType(dd.type);",
-   "    return sessionRan(dd);"],
+   "    return sessionRan(dd);", ['escalation','learningWithoutHealthData']],
   ['escalation: the pattern never reaches the athlete', 'protected/velvet-viking-valhalla.html',
    "  } else if (patternSpeaks && patternSpeaks.tier !== 'isolated'){",
-   "  } else if (false){"],
+   "  } else if (false){", ['escalation','learningWithoutHealthData']],
 
   /* ---- COACHING VOICE ---- */
   ['voice: every past card points at today again', 'protected/velvet-viking-valhalla.html',
    "    return x.date > dd.date && x.type!=='rest';",
-   "    return x.date > dd.date && x.type!=='rest' && !x.completed;"],
+   "    return x.date > dd.date && x.type!=='rest' && !x.completed;", ['coachVoice','copyRepetition','escalation']],
   ['voice: safety-critical language is suppressed like anything else',
    'protected/velvet-viking-valhalla.html',
    "  if (!sentence || PHRASE_ALWAYS_SAY.test(sentence)) return false;",
-   "  if (!sentence) return false;"],
+   "  if (!sentence) return false;", ['coachVoice','copyRepetition','escalation']],
   ['voice: the same commentary lands on every card again',
    'protected/velvet-viking-valhalla.html',
-   "var PHRASE_SUPPRESS_WINDOW = 3;", "var PHRASE_SUPPRESS_WINDOW = 0;"],
+   "var PHRASE_SUPPRESS_WINDOW = 3;", "var PHRASE_SUPPRESS_WINDOW = 0;", ['coachVoice','copyRepetition','escalation']],
   ['voice: a heart rate the athlete never logged is claimed',
    'protected/velvet-viking-valhalla.html',
    "      if (hrInZone) held.push('heart rate at '+a.hr+' bpm');",
-   "      held.push('heart rate at '+a.hr+' bpm');"],
+   "      held.push('heart rate at '+a.hr+' bpm');", ['coachVoice','copyRepetition','escalation']],
   ['voice: the internal block state reaches the athlete again',
    'protected/velvet-viking-valhalla.html',
    "        why:'The block reads as '+((BLOCK_META[block?block.state:'LEARNING']||BLOCK_META.LEARNING).label)+",
-   "        why:'The block reads as '+(block?block.state:'LEARNING')+"]
+   "        why:'The block reads as '+(block?block.state:'LEARNING')+", ['coachVoice','copyRepetition','escalation']]
 ];
 
 let survived = [], killed = 0;
-for (const [name, file, from, to] of CASES){
+for (const [name, file, from, to, suites] of CASES){
   const p = ROOT + '/' + file;
   const orig = fs.readFileSync(p, 'utf8');
   if (orig.indexOf(from) === -1){ survived.push(name + '   [ANCHOR NOT FOUND]'); continue; }
   fs.writeFileSync(p, orig.replace(from, to));
+  /* A case may name the suites that guard it. The programme suites build and
+     log whole plans and are minutes each, so running all of them for every one
+     of sixty-four cases is hours -- and a mutation is only ever killed by the
+     suite written for it. A case with no list falls back to the shared
+     SUBSET, which is what every commercial case still uses. */
+  const files = suites && suites.length
+    ? suites.map(n => 'test/' + n + '.test.js').join(' ')
+    : SUBSET;
   let out;
   try{
-    out = cp.execSync('cd ' + ROOT + ' && node --test ' + SUBSET + ' 2>&1 | grep -c "^not ok "',
-                      { encoding: 'utf8', timeout: 600000 });
+    out = cp.execSync('cd ' + ROOT + ' && node --test ' + files + ' 2>&1 | grep -c "^not ok "',
+                      { encoding: 'utf8', timeout: 900000 });
   }catch(e){ out = (e.stdout || '0'); }
   fs.writeFileSync(p, orig);
   const fails = parseInt(String(out).trim(), 10) || 0;

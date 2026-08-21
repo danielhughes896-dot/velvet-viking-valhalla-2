@@ -169,8 +169,14 @@ async function shoot(ctx, url, name, opts){
          page. Failures are raised now rather than caught. */
       after: async page => {
         await page.click('[data-action="open-setup"]');
-        await page.waitForSelector('#su-purpose', { timeout: 5000 });
-        await page.selectOption('#su-purpose', job.purpose);
+        await page.waitForSelector('.bld-purpose-card', { timeout: 5000 });
+        /* The CARD, not the hidden <select>. Setting the select's value does
+           not press the button the athlete presses, so the fields the purpose
+           governs never change and all four frames come out identical -- which
+           is what the first two attempts at this capture produced. */
+        await page.click('.bld-purpose-card[data-v="' + job.purpose + '"]');
+        await page.waitForSelector('.bld-purpose-card[data-v="' + job.purpose + '"].active',
+                                   { timeout: 5000 });
         await page.waitForTimeout(400);
       },
     });

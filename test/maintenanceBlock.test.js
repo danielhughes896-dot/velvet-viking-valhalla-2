@@ -86,6 +86,23 @@ test('the dose cycle returns to where it started and averages the middle', () =>
     'the maintenance dose cycle has a trend built into its own average');
 });
 
+test('and the cycle is not a three-week ramp with a drop on the end', () => {
+  /* A MUTATION SURVIVED HERE, which is how this test came to exist. Reordering
+     the cycle to 0.35 / 0.5 / 0.65 keeps the same average and the same members,
+     so every assertion above still passed -- and it is a different block: three
+     progressively harder weeks then a reset is a mini-build repeated forever,
+     which is the shape maintenance is specifically not supposed to have.
+     Undulation is fine; a ramp, however short, is not. */
+  const cyc = app().MAINTAIN_POS_CYCLE;
+  let rising = true, falling = true;
+  for (let i = 1; i < cyc.length; i++){
+    if (cyc[i] <= cyc[i - 1]) rising = false;
+    if (cyc[i] >= cyc[i - 1]) falling = false;
+  }
+  assert.equal(rising, false, 'the maintenance cycle is a ramp: ' + cyc.join(' -> '));
+  assert.equal(falling, false, 'the maintenance cycle is a decline: ' + cyc.join(' -> '));
+});
+
 test('a race block still progresses -- the flattening did not leak', () => {
   const a = app();
   const ys = a.buildBlockWeeks('half', 45, 12, { purpose: 'race' })
