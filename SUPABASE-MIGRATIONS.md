@@ -23,11 +23,18 @@ dependency shows up.
 | 8 | `supabase-trial-via-provider.sql` | retires the card-free trial; founding-price and pause columns |
 | 9 | `supabase-operational-view-provider-trial.sql` | rebuilds `account_operational_state` so the trial is read from `subscriptions` |
 | 10 | `supabase-security-posture.sql` | InitPlan policy rewrite, service-only assertions, definer search paths, `rls_auto_enable()` |
+| 11 | `supabase-health-consent.sql` | `health_data_consent` — the append-only explicit-consent record for health and readiness information |
 
 Applied in this order against an empty database plus the Supabase substrate
 (`auth.users`, `auth.uid()`, `auth.jwt()`, the platform roles, and the default
-table grants to `anon`/`authenticated`/`service_role`), all ten apply cleanly and
-are individually re-runnable.
+table grants to `anon`/`authenticated`/`service_role`), all eleven apply cleanly
+and are individually re-runnable.
+
+File 11 goes **after** file 10 rather than anywhere convenient. File 10 asserts
+that every table in `public` has row-level security enabled, so a new table
+created before it would have to be added to that file's reasoning to pass.
+Created last, with RLS on from its first statement and its own append-only
+assertions, the two agree whichever order they are re-run in.
 
 The default table grants matter and are easy to leave out of a rebuild. Supabase
 grants the browser roles table privileges and lets ROW-LEVEL SECURITY do the

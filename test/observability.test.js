@@ -42,6 +42,11 @@ test('every diagnosable subsystem has a named failure code', () => {
     'entitlement':     ['session.js',     /log\('(DENIED|ENTITLEMENT_READ_FAILED|LEASE_CREATE_FAILED)/],
     'entitlement (runtime)': ['app.js',   /log\('(DENIED|LEASE_LOOKUP_FAILED)/],
     'monday sync':     ['_monday-operational.js', /log\('OPS_[A-Z_]*(FAILED|UNAVAILABLE|REJECTED)/],
+    /* Consent failing closed is correct AND invisible. "Why is this athlete's
+       heart rate missing" has three different answers -- they declined, the
+       table is unreachable, or their consent is against a retired version --
+       and without a code they are indistinguishable in production. */
+    'consent persistence': ['_health-consent.js', /log\('(READ_FAILED|NO_DECISION|NOT_GRANTED|STALE_VERSION|READ_THREW)/],
     'external strava': ['_strava-callback.js', /log\(/]
   };
   for (const [what, [file, re]] of Object.entries(required)){
@@ -185,4 +190,18 @@ test('the shared auth diagnostic reports classifications, never material', () =>
   // And nothing that could be the credential.
   assert.equal(/diag\.(token|jwt|secret|key)\b(?!Issuer|Shape)/.test(body), false,
     'the diagnostic emits credential material');
+});
+
+test('the consent diagnostic distinguishes a refusal from an outage', () => {
+  // They fail the same way -- no consent -- and they need different responses.
+  // A 404 is what a deployment that has not yet run migration 11 looks like.
+  const c = code('_health-consent.js');
+  assert.match(c, /log\('READ_FAILED status=' \+ \(r \? r\.status : 'none'\)\)/);
+  assert.match(c, /log\('NOT_GRANTED decision=' \+ row\.decision\)/);
+  assert.match(c, /log\('STALE_VERSION'\)/);
+  // And it names nobody. The account reference is not in a single line.
+  for (const call of (c.match(/\blog\([^;]*?\)\s*;/g) || [])){
+    assert.equal(/userId|user_id|email/.test(call), false,
+      'the consent diagnostic names an athlete: ' + call.trim());
+  }
 });

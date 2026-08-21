@@ -1,8 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!--
+      allowBackup=false, and it is not caution for its own sake. The shell is a
+      WebView pointed at the live site, so what lives on the device is the
+      athlete's signed-in session and their locally cached plan — which, for a
+      consenting athlete, includes heart rates, readiness answers and how each
+      session felt. Android's auto-backup would copy that to the user's Google
+      Drive, and `adb backup` would copy it to any machine the phone is plugged
+      into. Neither is a place special-category data has any business being, and
+      neither is disclosed anywhere the athlete would see it.
+
+      usesCleartextTraffic=false is already the platform default at targetSdk 36.
+      It is stated anyway, because the Play Data Safety declaration asserts that
+      data is encrypted in transit and an assertion should be checkable in the
+      manifest rather than inferred from an SDK level that a future bump could
+      move.
+    -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -37,7 +54,7 @@
               THE CANONICAL DOMAIN IS FIRST, AND THAT IS THE CORRECTION. This
               filter claimed only the *.vercel.app deployment host, while the
               auth callback, VVV_SITE_ORIGIN and the Supabase Site URL were all
-              moved to app.velvetviking.co.uk -- so a sign-in link sent to an
+              moved to app.velvetviking.co.uk — so a sign-in link sent to an
               athlete's real domain would not have opened the app at all. The
               deployment host is kept alongside it rather than replaced: the
               same deployment answers on both, both serve the same assetlinks

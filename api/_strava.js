@@ -12,6 +12,7 @@
 // origin, survives a shared device, and travels inside an exported backup.
 
 const crypto = require('crypto');
+const HC = require('./_health-consent.js');
 
 const STRAVA_AUTHORIZE_URL = 'https://www.strava.com/oauth/authorize';
 const STRAVA_TOKEN_URL     = 'https://www.strava.com/oauth/token';
@@ -457,12 +458,20 @@ function normaliseActivity(a){
 function isUsableRun(a){ return !!(a && a.isRun && a.date && a.km != null && a.km > 0); }
 
 async function stageActivity(cfg, userId, activity){
+  /* THE HEALTH BOUNDARY, ENFORCED WHERE THE ROW IS WRITTEN. Authorising Strava
+     is permission to read the athlete's activities; it is not their explicit
+     agreement to Valhalla processing the health-indicating part of them. Both
+     ingest paths -- the manual sync and the webhook -- land here, so stripping
+     the heart rate at this one point means an athlete who has not consented
+     never has it stored, rather than having it stored and then ignored.
+     Fails closed on an unreadable consent table: see api/_health-consent.js. */
+  const staged = await HC.forIngest(cfg, sb, userId, activity);
   return sb(cfg, '/strava_activities', {
     method: 'POST',
     body: JSON.stringify({
       user_id: userId,
-      activity_id: activity.activityId,
-      payload: activity,
+      activity_id: staged.activityId,
+      payload: staged,
       deleted: false,
       received_at: new Date().toISOString()
     }),

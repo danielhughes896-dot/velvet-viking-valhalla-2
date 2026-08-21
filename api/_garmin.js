@@ -28,6 +28,7 @@
 // before Garmin existed in the codebase.
 
 const S = require('./_strava.js');
+const HC = require('./_health-consent.js');
 
 /* The three things a real integration cannot run without. All three are read
    from the environment and none has a default -- a fallback here is how a
@@ -125,10 +126,35 @@ async function ingestActivity(uid, payload){
   throw contractMissing('activity payload schema and delivery/webhook shape');
 }
 
+/* ---------- the health boundary, waiting for the integration ----------
+   A watch is the richest source of health-indicating data Valhalla will ever
+   have, and Garmin is off, which is exactly when a boundary is cheap to build
+   and impossible to remember later. This is the seam: whoever implements
+   ingestActivity() hands the normalised activity through here before it
+   reaches storage or scoring, and the same api/_health-consent.js that guards
+   the Strava path decides what survives.
+
+   It ASSERTS ITS OWN RESULT rather than trusting it. Stripping and then
+   checking looks redundant and is not: the check is what turns a future edit
+   to stripCovered() -- a renamed field, a shortened list, a covered field
+   added to the activity shape and forgotten here -- into a thrown error at
+   integration time instead of a heart rate quietly reaching storage. There is
+   no argument, flag or option that turns it off. */
+async function ingestGuard(cfg, sb, uid, activity){
+  const granted = await HC.isGranted(cfg, sb, uid);
+  const out = granted ? activity : HC.stripCovered(activity);
+  if (!granted && HC.carriesCovered(out)){
+    const e = new Error('garmin: health-indicating fields present without consent');
+    e.code = 'health_consent_required';
+    throw e;
+  }
+  return out;
+}
+
 module.exports = {
   config, configured, availability, redirectUri,
   beginAuthorization, completeAuthorization, disconnect,
-  applyScheduledTraining, ingestActivity,
+  applyScheduledTraining, ingestActivity, ingestGuard,
   // exported for tests: the refusal shapes are part of the contract
   notAvailable, contractMissing
 };

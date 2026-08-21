@@ -374,8 +374,13 @@ test('an athlete writing "hurts" is reporting pain', () => {
      adversarial case -- excellent numbers plus an explicit pain report -- the
      pain half was invisible and only the good numbers reached the decision.
      That is positive training evidence standing in for medical evidence, which
-     is the beta stop-rule. */
-  const a = app();
+     is the beta stop-rule.
+
+     plan() rather than a bare app(): reading a pain report out of a note is
+     processing health information, so it needs an athlete who agreed to it.
+     The withheld case is the other half of the same rule and is asserted in
+     test/healthDataConsent.test.js. */
+  const a = plan(app());
   ['my shin hurts', 'it hurt the whole way', 'knee hurting since Tuesday']
     .forEach(n => assert.equal(!!a.coachEnvironment(n, { notes: n }).pain, true, n));
 });
