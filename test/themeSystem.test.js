@@ -261,3 +261,65 @@ test('the mirror carries no training data, no identity and no credential', () =>
   [/AT-SECRET/, /uid-1/, /x@y\.z/, /days/, /setup/].forEach(rx =>
     assert.ok(!rx.test(raw), 'the mirror must not carry ' + rx));
 });
+
+// ---------------------------------------------------------------------------
+// THE SWITCH COMPONENT
+//
+// Two controls that do the same KIND of thing must not be two colours. Settings
+// used to show the App Theme switch in violet and every other switch in gold,
+// which read as a distinction and was not one -- gold is the brand (headings,
+// the selected tab, the primary action, the crest) and violet is already the
+// interactive-control treatment, so a switch takes violet.
+//
+// These tests guard the COMPONENT, not a screen: the fix was to the shared rule
+// and the deletion of a per-row override, and re-introducing either a gold ON
+// state or a one-off exception is what would undo it.
+// ---------------------------------------------------------------------------
+test('every binary switch shares one ON colour, and it is the control violet', () => {
+  const css = read('protected/velvet-viking-valhalla.html');
+  const on = css.match(/\.switch input:checked \+ \.switch-track\{background:var\(--(\w+)\);\}/);
+  assert.ok(on, 'the shared ON rule still exists');
+  assert.equal(on[1], 'violet', 'ON is the control colour, not the brand gold');
+  assert.ok(!/switch input:checked \+ \.switch-track\{background:var\(--bronze\)/.test(css),
+    'no switch anywhere turns gold when it is on');
+});
+
+test('no switch carries a per-instance ON colour', () => {
+  const css = read('protected/velvet-viking-valhalla.html');
+  /* A scoped override is how the App Theme switch and the rest drifted apart.
+     One shared rule means the next toggle added to the product is the right
+     colour without anybody remembering to make it so. */
+  const overrides = css.match(/^\s*[#.][\w-]+[^{\n]*\.switch input:checked[^\n]*background[^\n]*$/gm) || [];
+  assert.deepEqual(overrides, [], 'found a scoped switch colour override: ' + overrides.join(' | '));
+});
+
+test('the switch OFF state and the focus ring are untouched by the ON colour', () => {
+  const css = read('protected/velvet-viking-valhalla.html');
+  assert.match(css, /\.switch-track\{position:absolute; inset:0; background:var\(--line\)/,
+    'OFF is still the neutral line colour');
+  assert.match(css, /\.switch-track\{[^}]*box-shadow:inset 0 0 0 1px var\(--ctl-border\)/,
+    'and still keeps the inset ring that gives it an edge on cream');
+  /* Focus is the app-wide treatment, deliberately NOT re-specified per control:
+     changing what "on" looks like must not change what "focused" looks like. */
+  assert.match(css, /:focus-visible\{outline:2px solid var\(--gold\)/,
+    'the global gold focus outline is unchanged');
+});
+
+test('violet is defined in both themes, so the switch needs no per-theme rule', () => {
+  const css = read('protected/velvet-viking-valhalla.html');
+  const defs = css.match(/--violet:\s*#[0-9a-f]{6}/gi) || [];
+  assert.ok(defs.length >= 2, 'violet is a per-theme token, not a single literal: ' + defs.join(', '));
+  assert.equal((css.match(/\.switch input:checked \+ \.switch-track\{background/g) || []).length, 1,
+    'and exactly one rule paints the ON state');
+});
+
+test('the toggle fix moved no other gold in the product', () => {
+  /* The scope guard, stated as a test. Gold remains the brand treatment on
+     everything it was already on; only the switch gave it up. */
+  const css = read('protected/velvet-viking-valhalla.html');
+  for (const kept of [
+    /:focus-visible\{outline:2px solid var\(--gold\)/,          // focus rings
+    /\.callout svg\{[^}]*color:var\(--bronze\)/,                // callout icons
+    /--bronze:#C0923F/,                                          // the token itself
+  ]) assert.match(css, kept, 'gold must remain: ' + kept);
+});

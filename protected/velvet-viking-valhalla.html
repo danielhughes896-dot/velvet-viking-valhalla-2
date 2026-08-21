@@ -1242,12 +1242,27 @@
     box-shadow:inset 0 0 0 1px var(--ctl-border);}
   .switch input:checked + .switch-track{box-shadow:none;}
   .switch-track::before{content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:var(--bg-2); border-radius:50%; transition:.2s; box-shadow:var(--shadow-sm);}
-  .switch input:checked + .switch-track{background:var(--bronze);}
-  /* THE APP THEME SWITCH, and only it. There are exactly two .switch controls
-     in the product -- this one and notifications -- so the accent is scoped by
-     the row it lives in rather than applied to .switch, which would have
-     coloured a toggle nobody asked to change. */
-  #theme-toggle-row .switch input:checked + .switch-track{background:var(--violet);}
+  /* ON IS PURPLE, FOR EVERY BINARY SWITCH IN THE PRODUCT.
+
+     This was gold, with a single-row override painting the App Theme switch
+     violet -- so Settings offered two identical controls doing identical kinds
+     of thing in two different colours, and the difference meant nothing.
+     Whichever colour won, the inconsistency was the defect.
+
+     Purple wins because of what the two colours already mean here. Gold is the
+     brand: headings, the selected tab, the primary action, the crest. Violet is
+     already the interactive-control treatment. A switch is a control and never a
+     brand mark, so it takes the control colour -- and the #theme-toggle-row
+     override is DELETED rather than duplicated onto each new toggle, because a
+     shared component with per-instance colour exceptions is exactly how these
+     drifted apart in the first place.
+
+     Both themes come free: --violet is defined per theme (light #4C2A6B, dark
+     #A88FD8), which is the same token that already governed the App Theme
+     switch, so the thumb contrast here is the contrast that switch has always
+     had. The off state is untouched, and focus stays the global gold
+     :focus-visible outline every other control in the app uses. */
+  .switch input:checked + .switch-track{background:var(--violet);}
   .switch input:checked + .switch-track::before{transform:translateX(18px);}
   .callout{background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 12px; font-size:12px; color:var(--ink-dim); line-height:1.5; display:flex; gap:9px;}
   .callout svg{flex:none; width:16px; height:16px; color:var(--bronze); margin-top:1px;}
