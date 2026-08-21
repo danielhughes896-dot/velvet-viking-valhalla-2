@@ -24,20 +24,37 @@
 
             <!--
               Android App Link for the site itself. autoVerify asks Android to
-              fetch https://velvet-viking-valhalla-1.vercel.app/.well-known/assetlinks.json
-              and match this APK's signing certificate against it; only then will
-              tapping an /auth link open the app instead of the browser. That file
+              fetch /.well-known/assetlinks.json from EACH host below and match
+              this APK's signing certificate against it; only then will tapping
+              an /auth link open the app instead of the browser. That file
               already carries the real vvv-release.keystore fingerprint; what's
               still missing is CI actually signing a build with that same key
-              (the four VVV_KEYSTORE_* secrets; see ANDROID-APP-LINKS.md). Until a
-              build is installed that matches the published fingerprint, this
-              filter stays unverified and the custom scheme below is what carries
-              the sign-in link into the app.
+              (the four VVV_KEYSTORE_* secrets; see ANDROID-APP-LINKS.md). Until
+              a build is installed that matches the published fingerprint, this
+              filter stays unverified and the custom scheme below is what
+              carries the sign-in link into the app.
+
+              THE CANONICAL DOMAIN IS FIRST, AND THAT IS THE CORRECTION. This
+              filter claimed only the *.vercel.app deployment host, while the
+              auth callback, VVV_SITE_ORIGIN and the Supabase Site URL were all
+              moved to app.velvetviking.co.uk -- so a sign-in link sent to an
+              athlete's real domain would not have opened the app at all. The
+              deployment host is kept alongside it rather than replaced: the
+              same deployment answers on both, both serve the same assetlinks
+              file, and an athlete with an older link should not be stranded.
             -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="app.velvetviking.co.uk"
+                    android:pathPrefix="/auth" />
+                <data
+                    android:scheme="https"
+                    android:host="app.velvetviking.co.uk"
+                    android:pathPrefix="/start" />
                 <data
                     android:scheme="https"
                     android:host="velvet-viking-valhalla-1.vercel.app"

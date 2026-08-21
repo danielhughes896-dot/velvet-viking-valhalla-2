@@ -39,7 +39,13 @@ function app() {
 test('the canonical URLs are declared once and used everywhere', () => {
   const a = app();
   assert.equal(a.LEGAL_URLS.privacy, CANON_PRIVACY);
-  assert.equal(a.LEGAL_URLS.betaTerms, CANON_BETA_TERMS);
+  /* Renamed from `betaTerms` to `terms`: the document that governs a paid
+     subscription is not "the beta terms", and the alias that briefly held
+     both names was a second place to change one URL -- which is exactly what
+     the test below forbids. One key, one URL. */
+  assert.equal(a.LEGAL_URLS.terms, CANON_BETA_TERMS);
+  assert.equal(a.LEGAL_URLS.betaTerms, undefined,
+    'the old key must be gone rather than kept alongside the new one');
   assert.equal(a.LEGAL_URLS.support, SUPPORT);
   // One declaration. Two would be how the app and the website drift apart.
   assert.equal(

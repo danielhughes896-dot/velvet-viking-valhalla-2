@@ -1587,6 +1587,41 @@
   .programme-status-head .setup-section-title{margin:0;}
   /* "Maintain & Protect · Week 4 of 8". Display weight, quiet colour -- a
      label for the screen, not a headline competing with the gauge below it. */
+  /* ---------- SUBSCRIPTION ----------
+     Status is INFORMATION, so the pill borrows the same quiet chip language
+     the rest of the product uses for state and never the primary action's
+     violet. Only "Subscribe again" and "Update payment details" are primary
+     actions, and they inherit .btn-primary like every other one. */
+  .sub-pill{
+    font-family:'Oswald',sans-serif; font-size:var(--fs-meta); letter-spacing:1px;
+    text-transform:uppercase; padding:2px 9px; border-radius:99px;
+    border:1px solid var(--line); color:var(--ink-faint); white-space:nowrap;
+  }
+  .sub-pill.sub-active{border-color:rgba(var(--modal-active-rgb),0.5); color:var(--modal-active);}
+  .sub-pill.sub-trial{border-color:var(--violet-line); color:var(--violet);}
+  .sub-pill.sub-grace{border-color:var(--c-threshold); color:var(--danger-text);}
+  .sub-pill.sub-ended{border-color:var(--line); color:var(--ink-faint);}
+  .sub-line{font-size:var(--fs-data); color:var(--ink); margin:2px 0 8px;}
+  .sub-offers{display:grid; gap:6px; margin:12px 0 2px;}
+  .sub-offer{
+    display:grid; grid-template-columns:1fr auto auto; gap:8px; align-items:baseline;
+    padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:var(--bg-2);
+  }
+  .so-l{font-size:var(--fs-support); color:var(--ink);}
+  .so-v{font-size:var(--fs-data); color:var(--ink);}
+  .so-p{font-size:var(--fs-meta); color:var(--ink-faint);}
+  /* ---------- THE ONE IRREVERSIBLE CONTROL ----------
+     Set apart so it cannot be mistaken for the reversible one two cards down.
+     A rule, a label and its own breathing room -- three cues, not just a
+     colour, for the same reason every other state in this product uses three. */
+  .danger-zone{
+    margin-top:16px; padding-top:14px; border-top:1px solid var(--line);
+  }
+  .dz-title{
+    font-family:'Oswald',sans-serif; font-size:var(--fs-meta); letter-spacing:1.4px;
+    text-transform:uppercase; color:var(--ink-faint); margin-bottom:8px;
+  }
+
   .block-identity{
     font-size:var(--fs-data); letter-spacing:.6px; color:var(--ink-dim);
     margin:2px 0 10px;
@@ -1667,11 +1702,40 @@ var BUILD_ID = '2026-08-10.1';
    entry for velvetviking.co.uk, so the native shell hands an off-origin host to
    the system browser rather than trapping the tester inside the WebView on a page
    with no way back. In a normal browser target="_blank" does the same thing. */
+/* THE CANONICAL DOCUMENTS live on the website; the app's own /privacy and
+   /terms routes are stubs pointing there, so there is one copy to maintain
+   rather than two that drift.
+
+   `terms` REPLACES `betaTerms`, and the rename is the point. Calling the
+   governing document "Private Beta Terms" to somebody paying GBP 11.99 a
+   month is wrong twice over: it is not the document that governs a paid
+   subscription, and it tells a customer they are a test subject. `betaTerms`
+   stays as an alias so nothing that still reads it breaks, and for now both
+   resolve to the same page -- the beta terms ARE the terms in force until
+   Business publishes commercial ones, and pointing at a URL that does not
+   exist yet would be the placeholder link this pass is meant to remove.
+
+   legalTermsLabel() decides which NAME an athlete sees, from the same server
+   flag that decides whether anybody is being charged, so the label changes
+   when the reality does rather than when somebody remembers. */
 var LEGAL_URLS = {
   privacy:   'https://velvetviking.co.uk/privacy',
-  betaTerms: 'https://velvetviking.co.uk/beta-terms',
+  terms:     'https://velvetviking.co.uk/beta-terms',
   support:   'support@velvetviking.co.uk'
 };
+/* entitlementInfo is display-only and may be absent; absent means we do not
+   know yet, and the beta wording is the safe reading while the product is
+   still a private beta. */
+function commercialLive(){
+  return !!(typeof entitlementInfo !== 'undefined' && entitlementInfo &&
+            entitlementInfo.commercial_required);
+}
+function legalTermsLabel(){ return commercialLive() ? 'Terms of Service' : 'Private Beta Terms'; }
+function legalCoverSentence(){
+  return commercialLive()
+    ? 'Your subscription is covered by these documents.'
+    : 'Your use of the private beta is covered by these two documents.';
+}
 
 /* =========================================================
    GOAL vs EVENT
@@ -4890,11 +4954,32 @@ function parseAuthParams(src){
 // clicked once, or otherwise rejected. Mirrors STRAVA_RETURN_COPY: map what
 // the backend actually says to calm, specific, athlete-facing copy rather
 // than exposing the raw error or saying nothing at all.
-var CLOUD_AUTH_ERROR_COPY = {
-  otp_expired: 'That sign-in link has expired — request a new one from Settings',
-  access_denied: 'That sign-in link didn’t work — request a new one from Settings',
-  default: 'That sign-in link didn’t work — request a new one from Settings'
+/* WHERE TO GO NEXT, AND ONLY SOMEWHERE THAT EXISTS.
+
+   Every one of these used to end "request a new one from Settings". Settings
+   lives on the bottom nav, and appStateAllowsNav() hides the bottom nav in
+   BOTH no-plan states -- so the athlete most likely to be reading this, one
+   whose sign-in failed before they ever built a plan, was told to go
+   somewhere they could not reach. A failure message naming an unreachable
+   destination is worse than one naming none: it makes the athlete think they
+   are the one who cannot find it.
+
+   So the destination is decided by the same predicate that decides whether
+   the nav is drawn, and when Settings is not there they are pointed at the
+   front door, which always is. */
+function authRetryDestination(){
+  return appStateAllowsNav() ? 'request a new one from Settings'
+                             : 'sign in again at app.velvetviking.co.uk/start';
+}
+var CLOUD_AUTH_ERROR_REASON = {
+  otp_expired: 'That sign-in link has expired',
+  access_denied: 'That sign-in link didn’t work',
+  default: 'That sign-in link didn’t work'
 };
+function cloudAuthErrorCopy(code){
+  return (CLOUD_AUTH_ERROR_REASON[code] || CLOUD_AUTH_ERROR_REASON.default) +
+         ' — ' + authRetryDestination();
+}
 // Consume the tokens and strip them from the address bar so they never linger
 // in history or travel inside a copied link. Pass a URL to read a deep link
 // delivered by the native shell; call it bare to read the current page.
@@ -4926,7 +5011,7 @@ function cloudConsumeAuthHash(url){
   // A link was opened but carried no usable session — surface why instead of
   // silently landing the athlete back on the signed-out screen with nothing
   // to explain it. Never shows the raw backend error.
-  showToast(CLOUD_AUTH_ERROR_COPY[p.error_code] || CLOUD_AUTH_ERROR_COPY.default);
+  showToast(cloudAuthErrorCopy(p.error_code));
   return false;
 }
 
@@ -5630,6 +5715,169 @@ function subscriptionSentence(info){
   if (info.state === 'expired' && until) return 'Access ended on ' + until;
   return '';
 }
+
+/* ---------- SUBSCRIPTION, AS A CUSTOMER SURFACE ----------
+   A single hint line inside Account & Backup was enough while nothing was
+   being sold. It is not enough for somebody paying monthly: they need to see
+   WHAT they are on, WHEN it renews or ends, and -- the part that was missing
+   entirely -- HOW TO CANCEL. A subscription with no visible cancellation
+   route is not a finished product, and in the UK it is not a lawful one
+   either.
+
+   Everything below is derived from the entitlement the server already
+   returns. Nothing here decides access; /api/app re-resolves that server-side
+   before it hands over a byte of runtime. */
+var SUBSCRIPTION_STATE_META = {
+  trial:   { label:'Trial',     cls:'sub-trial'  },
+  active:  { label:'Active',    cls:'sub-active' },
+  grace:   { label:'Payment issue', cls:'sub-grace' },
+  expired: { label:'Ended',     cls:'sub-ended'  }
+};
+/* Prices live in api/_products.js, which is the catalogue of record. They are
+   restated here for display only, and pinned by a test against that file so
+   the two cannot drift -- an app that quotes a price the billing system does
+   not charge is worse than an app that quotes none. */
+var PLAN_PRICING = [
+  { period:'monthly', label:'Monthly', price:'\u00a311.99', per:'a month' },
+  { period:'yearly',  label:'Yearly',  price:'\u00a389.99', per:'a year' }
+];
+var TRIAL_DAYS_SHOWN = 14;
+
+function subscriptionStatePill(info){
+  var st = info && info.state;
+  if (info && info.override === 'owner') return { label:'Owner', cls:'sub-active' };
+  if (info && info.override === 'beta') return { label:'Beta access', cls:'sub-active' };
+  /* NO STATUS WHERE THERE IS NO SUBSCRIPTION. While the commercial gate is
+     off, `state` is still populated -- and an "Active" chip beside the words
+     "Valhalla is not charging for access yet" is a card contradicting itself
+     in the space of one line. */
+  if (!info || !info.commercial_required) return null;
+  if (info.cancel_at_period_end && st === 'active')
+    return { label:'Cancelling', cls:'sub-grace' };
+  return SUBSCRIPTION_STATE_META[st] || null;
+}
+
+function renderSubscriptionCard(){
+  if (!cloudConfigured() || !cloudSignedIn()) return '';
+  var info = entitlementInfo;
+  /* Before the first entitlement read there is nothing true to say, and a
+     placeholder would be a claim. */
+  if (!info || !info.signed_in) return '';
+
+  var pill = subscriptionStatePill(info);
+  var sentence = subscriptionSentence(info);
+  var head = '<div class="programme-status-head">'+
+      '<div class="setup-section-title">Subscription</div>'+
+      (pill ? '<span class="sub-pill '+pill.cls+'">'+escapeHtml(pill.label)+'</span>' : '')+
+    '</div>';
+
+  /* An override is not a subscription. Saying "Active \u2014 \u00a311.99 a month" to a
+     beta athlete who is not being charged would be a straightforward lie. */
+  if (info.override === 'owner' || info.override === 'beta'){
+    return '<div class="hub-card" id="subscription-card">'+head+
+      '<div class="field-hint">'+escapeHtml(sentence || 'Access granted')+
+      '. Nothing is being charged for this account.</div>'+
+    '</div>';
+  }
+
+  if (!info.commercial_required){
+    /* The commercial gate is off. There is no subscription to describe and
+       inventing a reassuring one is exactly the claim this product does not
+       make -- but silence in a card headed "Subscription" reads as broken, so
+       it says what is actually true. */
+    return '<div class="hub-card" id="subscription-card">'+head+
+      '<div class="field-hint">Valhalla is not charging for access yet. '+
+      'You will be told before that changes.</div>'+
+    '</div>';
+  }
+
+  var body = sentence ? '<div class="sub-line">'+escapeHtml(sentence)+'</div>' : '';
+
+  if (info.state === 'trial'){
+    body += '<div class="field-hint">Your trial runs for '+TRIAL_DAYS_SHOWN+' days. '+
+      'You can cancel before it ends and you will not be charged.</div>';
+  } else if (info.cancel_at_period_end){
+    body += '<div class="field-hint">Your subscription is set to end. '+
+      'You keep full access until the date above, and nothing further is charged.</div>';
+  } else if (info.state === 'grace'){
+    body += '<div class="field-hint">Update your payment details to keep your access. '+
+      'Your plan and history are safe either way.</div>';
+  } else if (info.state === 'expired'){
+    body += '<div class="field-hint">Your plan, your logged training and everything '+
+      'Valhalla has learned about you are still here and still yours.</div>';
+  }
+
+  body += renderPlanPricing(info);
+  body += renderSubscriptionActions(info);
+  return '<div class="hub-card" id="subscription-card">'+head+body+'</div>';
+}
+
+/* What the two offers cost, shown only where an athlete could act on it.
+   Someone mid-subscription does not need a price list; someone whose access
+   has ended, or who is deciding whether to keep a trial, does. */
+function renderPlanPricing(info){
+  var relevant = info.state === 'expired' || info.state === 'trial' || info.state === 'grace';
+  if (!relevant) return '';
+  return '<div class="sub-offers">'+
+    PLAN_PRICING.map(function(p){
+      return '<div class="sub-offer"><span class="so-l">'+escapeHtml(p.label)+'</span>'+
+        '<span class="so-v font-mono">'+p.price+'</span>'+
+        '<span class="so-p">'+escapeHtml(p.per)+'</span></div>';
+    }).join('')+
+  '</div>';
+}
+
+/* THE CONTROLS, and the rule that governs them.
+
+   NATIVE STORE RULES. Apple and Google both prohibit an app distributed
+   through their store from steering a customer to an external web payment
+   for the same digital subscription. Valhalla ships as a Capacitor build to
+   Google Play, so the manage/subscribe controls below are shown ONLY on the
+   web build. Inside the native shell the athlete is told where their
+   subscription is managed instead of being handed a link that would breach
+   the channel's rules -- and, on a store purchase, would be the wrong place
+   anyway, because the store owns the billing relationship.
+
+   A control that opens nothing is worse than a sentence, so each of these
+   appears only when the server has said the corresponding route exists. */
+function renderSubscriptionActions(info){
+  /* isNativeApp() already exists and is the one answer to "are we inside the
+     Capacitor shell" -- a second copy of that question is a second thing to
+     get wrong. */
+  if (isNativeApp()){
+    return '<div class="field-hint" style="margin-top:12px;">'+
+      'Manage or cancel your subscription where you bought it \u2014 your app store '+
+      'account, or velvetviking.co.uk if you subscribed on the web.</div>';
+  }
+  var out = '';
+  var canResubscribe = (info.state === 'expired' || info.state === 'grace') && info.checkout_configured;
+  if (canResubscribe){
+    out += '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" '+
+      'data-action="subscription-resubscribe">'+ICONS.link+' '+
+      (info.state === 'grace' ? 'Update payment details' : 'Subscribe again')+'</button>';
+  }
+  if (info.manage_url){
+    out += '<a class="btn btn-ghost btn-block" style="margin-top:8px;" href="'+
+      escapeHtml(info.manage_url)+'" target="_blank" rel="noopener noreferrer">'+
+      ICONS.settings+' Manage or cancel subscription</a>';
+  } else if ((info.state === 'trial' || info.state === 'active') && !info.cancel_at_period_end){
+    /* Already cancelling: there is nothing left to cancel, and offering it
+       again invites an athlete to wonder whether the first one worked. */
+    /* No portal configured yet. The athlete still has to be able to cancel,
+       and the address that reaches a human is the honest answer -- not a
+       missing button and not a broken one. */
+    out += '<a class="btn btn-ghost btn-block" style="margin-top:8px;" '+
+      'href="mailto:'+LEGAL_URLS.support+'?subject=Cancel%20my%20Valhalla%20subscription">'+
+      ICONS.link+' Cancel my subscription</a>'+
+      '<div class="field-hint" style="margin-top:8px;">Email us and we will cancel it. '+
+      'You keep access until the end of the period you have already paid for.</div>';
+  }
+  if (!canResubscribe && info.state === 'expired' && !info.checkout_configured){
+    out += '<div class="field-hint" style="margin-top:12px;">Subscriptions are not open yet. '+
+      'Email '+LEGAL_URLS.support+' and we will sort your access out.</div>';
+  }
+  return out;
+}
 /* A date an athlete reads, not one a machine does. Falls back to the raw
    value rather than rendering "Invalid Date" at somebody. */
 function dLong(iso){
@@ -5845,6 +6093,12 @@ var ICONS = {
   close: svgWrap('<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>'),
   check: svgWrap('<polyline points="5,13 10,18 19,7"/>'),
   chevronDown: svgWrap('<polyline points="6,9 12,15 18,9"/>'),
+  /* Start again, not throw away. Reset Plan clears a schedule and keeps every
+     logged run, so it gets a cycle rather than the bin the delete controls
+     use -- an icon is the first thing read on a button and the two acts must
+     not look like each other. */
+  refresh: svgWrap('<polyline points="21,10 21,4 15,4"/><polyline points="3,14 3,20 9,20"/>'+
+    '<path d="M21 4l-6.6 6.6a7.5 7.5 0 0 0-11.2 1"/><path d="M3 20l6.6-6.6a7.5 7.5 0 0 0 11.2-1"/>'),
   chevronRight: svgWrap('<polyline points="9,6 15,12 9,18"/>'),
   settings: svgWrap('<line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2.1"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2.1"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="10" cy="17" r="2.1"/>'),
   upload: svgWrap('<path d="M12 16V4"/><polyline points="7,9 12,4 17,9"/><path d="M5 20h14"/>'),
@@ -17197,6 +17451,37 @@ function renderFitnessEstimate(){
     '<div class="yr-foot">Ranges, from your last measured effort. Training runs do not move these.</div></div>';
 }
 
+/* Resubscribe / update payment. The server issues the URL -- this never
+   constructs a checkout link, because a client-built payment URL is a payment
+   URL somebody can edit. Every failure lands on a sentence and leaves the
+   athlete somewhere they can act. */
+function handleResubscribe(){
+  if (!cloudConfigured() || !cloudSignedIn()){ showToast('Sign in first'); return; }
+  showToast('One moment…');
+  fetch('/api/subscription', {
+    method:'POST',
+    headers:{ 'content-type':'application/json',
+              'Authorization':'Bearer '+cloudSession.access_token },
+    body: JSON.stringify({ action:'resubscribe' })
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(b){ return { r:r, b:b }; });
+  }).then(function(x){
+    if (x.r.status === 200 && x.b.checkout_url){
+      try{ window.open(x.b.checkout_url, '_blank', 'noopener'); }
+      catch(e){ window.location.href = x.b.checkout_url; }
+      return;
+    }
+    if (x.b && x.b.code === 'CHECKOUT_NOT_CONFIGURED'){
+      showToast('Subscriptions are not open yet — email ' + LEGAL_URLS.support);
+      return;
+    }
+    if (x.r.status === 401){ showToast('Your session has expired — sign in again'); return; }
+    showToast('That could not be opened just now. Try again, or email ' + LEGAL_URLS.support);
+  }).catch(function(){
+    showToast('You appear to be offline — try again when you have a connection');
+  });
+}
+
 function handleRaceOutcome(outcome){
   if (outcome === 'later'){
     /* Explicitly deferred. Nothing is recorded, because nothing is known --
@@ -18202,7 +18487,7 @@ function openSetupModal(){
         ? '<div class="field-hint" style="margin-top:12px; text-align:center;">Regenerating rebuilds the schedule from these settings. Completed and logged days are always kept as history — only untouched future days are replaced.</div>'
         : '<div class="field-hint" style="margin-top:12px; text-align:center;">Using the private beta is covered by our '+
           '<a href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and '+
-          '<a href="'+LEGAL_URLS.betaTerms+'" target="_blank" rel="noopener noreferrer">Private Beta Terms</a>. '+
+          '<a href="'+LEGAL_URLS.terms+'" target="_blank" rel="noopener noreferrer">'+escapeHtml(legalTermsLabel())+'</a>. '+
           'Both are always in Settings.</div>')+
     '</section>'+
   '</div>';
@@ -19132,7 +19417,7 @@ function openSettingsModal(){
        the Account card where it belongs -- the two must not read alike. */
     (state.setup ? (
       '<div class="divider-or"><div class="rule"></div>Start Over<div class="rule"></div></div>'+
-      '<button type="button" class="btn btn-danger btn-block" data-action="reset-plan">'+ICONS.trash+' Reset Plan \u2014 Start Over</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="reset-plan">'+ICONS.refresh+' Reset Plan \u2014 Start Over</button>'+
       '<div class="field-hint" style="margin-top:8px; text-align:center;">'+RESET_PLAN_HINT+'</div>'
     ) : '')+
     '<div class="build-tag">Build '+BUILD_ID+'</div>'+
@@ -21023,15 +21308,29 @@ function renderCloudCard(){
     var revoked = !!(entitlementInfo && entitlementInfo.signed_in && entitlementInfo.access === false);
     var label = revoked ? 'Access ended'
       : ({ syncing:'Syncing…', synced:'Backed up', error:'Offline — will retry' }[cloudStatus] || 'Signed in');
-    var sub = subscriptionSentence(entitlementInfo);
+    /* The subscription sentence used to live here, and now has a card of its
+       own directly above -- so repeating it made Settings say the same thing
+       twice in the space of one screen. This card is about the ACCOUNT: who
+       is signed in, whether the backup has landed, and how to leave. */
     body = '<div class="connect-row">'+
         '<div><div class="name">'+escapeHtml(cloudSession.email||'Signed in')+'</div><div class="desc">'+label+'</div></div>'+
         '<button type="button" class="btn btn-sm btn-ghost" data-action="cloud-sign-out">Sign out</button>'+
       '</div>'+
       (revoked ? '<div class="field-hint" style="margin-top:8px;">This account no longer has access to Velvet Viking. Your plan and history are unaffected and remain on this device.</div>' : '')+
-      (sub ? '<div class="field-hint" style="margin-top:8px;">'+escapeHtml(sub)+'</div>' : '')+
-      '<button type="button" class="btn btn-danger btn-block" style="margin-top:12px;" data-action="cloud-delete-account">'+ICONS.trash+' Delete Account &amp; Cloud Data</button>'+
-      '<div class="field-hint" style="margin-top:8px;">Erases your account and everything stored on our server. Your plan stays on this device.</div>';
+      /* DELETE ACCOUNT AND RESET PLAN MUST NOT LOOK ALIKE.
+         Both were btn-danger, so Settings offered two identical red buttons:
+         one clears a schedule and explicitly keeps everything, the other
+         erases the account permanently. Same weight, same colour, opposite
+         consequences -- and the reversible one was the one people would reach
+         for first. This is the irreversible one, so it says so, sits behind a
+         rule of its own, and keeps the danger treatment. Reset Plan gives its
+         up. */
+      '<div class="danger-zone">'+
+        '<div class="dz-title">Permanent</div>'+
+        '<button type="button" class="btn btn-danger btn-block" data-action="cloud-delete-account">'+ICONS.trash+' Delete Account &amp; Cloud Data</button>'+
+        '<div class="field-hint" style="margin-top:8px;">Erases your Velvet Viking account and everything stored on our server, for good. '+
+        'This is not the same as resetting your plan. Your training on this device is left alone.</div>'+
+      '</div>';
   } else {
     body = '<div class="field-hint" style="margin-bottom:10px;">Sign in to back your plan up and use it on more than one device. We email you a link — there is no password.</div>'+
       '<div class="field" style="margin-bottom:8px;"><label>Email</label><input type="email" id="cloud-email" placeholder="you@example.com" autocomplete="email"></div>'+
@@ -21153,6 +21452,12 @@ function patchThemeToggle(){
 // closes any modal already open first, so there's never a nesting risk.
 function renderSettingsHubView(){
   return '<div class="view-heading font-head">Settings</div>'+
+    /* Subscription FIRST, above the account it belongs to. A paying customer
+       opening Settings is most often here for one of two reasons -- what am I
+       paying, and how do I stop -- and both used to be a single grey hint
+       line buried inside Account & Backup. It renders nothing at all until
+       the server has said something true about this account. */
+    renderSubscriptionCard()+
     renderCloudCard()+
     '<div class="hub-card">'+
       '<div class="setup-section-title">Preferences &amp; Notifications</div>'+
@@ -21185,9 +21490,18 @@ function renderSettingsHubView(){
     '<div class="hub-card">'+
       '<div class="setup-section-title">Legal &amp; Support</div>'+
       '<a class="btn btn-ghost btn-block" style="margin-bottom:8px;" href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">'+ICONS.shieldmark+' Privacy Policy</a>'+
-      '<a class="btn btn-ghost btn-block" style="margin-bottom:8px;" href="'+LEGAL_URLS.betaTerms+'" target="_blank" rel="noopener noreferrer">'+ICONS.info+' Private Beta Terms</a>'+
+      '<a class="btn btn-ghost btn-block" style="margin-bottom:8px;" href="'+LEGAL_URLS.terms+'" target="_blank" rel="noopener noreferrer">'+ICONS.info+' '+escapeHtml(legalTermsLabel())+'</a>'+
       '<a class="btn btn-ghost btn-block" href="mailto:'+LEGAL_URLS.support+'">'+ICONS.link+' Contact Support</a>'+
-      '<div class="field-hint" style="margin-top:10px;">Your use of the private beta is covered by these two documents. Support is '+LEGAL_URLS.support+'</div>'+
+      '<div class="field-hint" style="margin-top:10px;">'+escapeHtml(legalCoverSentence())+' Support is '+LEGAL_URLS.support+'</div>'+
+      /* CANCELLATION, STATED IN THE APP RATHER THAN ONLY IN A DOCUMENT.
+         An athlete looking for how to stop paying should not have to open a
+         PDF-shaped web page to find out. This describes the mechanism the
+         billing code actually implements -- cancel_at_period_end plus
+         access_until, see api/_billing.js -- and nothing beyond it. */
+      '<div class="field-hint" style="margin-top:10px;"><strong>Cancelling.</strong> '+
+      'You can cancel at any time from the Subscription card above. Your access '+
+      'continues to the end of the period you have already paid for, and nothing '+
+      'further is charged. Cancelling never deletes your training.</div>'+
     '</div>'+
     '<div class="hub-card">'+
       '<div class="setup-section-title">Backup &amp; Reset</div>'+
@@ -21197,7 +21511,12 @@ function renderSettingsHubView(){
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="copy-backup">'+ICONS.copy+' Copy Backup to Clipboard</button>'+
       '<button type="button" class="btn btn-ghost btn-block" data-action="paste-backup">'+ICONS.upload+' Paste Backup</button>'+
       '<div class="field-hint" style="margin:8px 0 14px;">Copy/paste works on any version of the app, so use it to move a plan across a reinstall.</div>'+
-      '<button type="button" class="btn btn-danger btn-block" data-action="reset-plan">'+ICONS.trash+' Reset Plan — Start Over</button>'+
+      /* GHOST, NOT DANGER. Reset Plan keeps every logged run, every measured
+         result and everything Valhalla has learned; the only thing it clears
+         is the schedule. Dressing it in the same red as account deletion made
+         a safe, ordinary act look like the destructive one -- and made the
+         genuinely destructive one look ordinary by comparison. */
+      '<button type="button" class="btn btn-ghost btn-block" data-action="reset-plan">'+ICONS.refresh+' Reset Plan — Start Over</button>'+
       '<div class="field-hint" style="margin-top:8px;">'+RESET_PLAN_HINT+'</div>'+
     '</div>'+
     '<div class="build-tag">Build '+BUILD_ID+'</div>'+
@@ -21424,6 +21743,7 @@ document.addEventListener('click', function(e){
     case 'delete-split': handleDeleteSplit(target.getAttribute('data-day'), parseInt(target.getAttribute('data-index'),10)); break;
     case 'set-event-mode': handleSetEventMode(target.getAttribute('data-event-mode')); break;
     case 'race-outcome': handleRaceOutcome(target.getAttribute('data-outcome')); break;
+    case 'subscription-resubscribe': handleResubscribe(); break;
     case 'start-block': handleStartBlock(target.getAttribute('data-purpose')); break;
     case 'set-experience': handleSetExperience(target.getAttribute('data-experience')); break;
     case 'coach-why': handleCoachWhy(target.getAttribute('data-day')); break;
