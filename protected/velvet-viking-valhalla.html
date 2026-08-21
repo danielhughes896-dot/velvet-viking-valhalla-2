@@ -2123,7 +2123,16 @@ function structGoalPaceIntervals(pos, emphasis){
 var INTERVAL_STRUCTURE_POOL = {
   Base:  [structHillRepeats, structFartlek],
   Build: [structTrackIntervals, structLadder, structDeuce],
-  Peak:  [structGoalPaceIntervals, structTrackIntervals]
+  Peak:  [structGoalPaceIntervals, structTrackIntervals],
+  /* MAINTENANCE DRAWS WIDE AND FLAT. No new intensity methodology: this is the
+     union of the Base and Build pools, minus anything goal-pace, because a
+     maintenance block has no goal to sharpen toward (see buildBlockWeeks).
+     Five candidates rather than three because a maintenance block no longer
+     ramps -- with the dose held level, the SHAPE is the only thing left to
+     vary, and a three-week rotation would have made weeks 1, 4 and 7 of an
+     eight-week block byte-identical. */
+  Maintain: [structFartlek, structTrackIntervals, structLadder,
+             structDeuce, structHillRepeats]
 };
 
 /* ---- Tempo / Threshold day structures ---- */
@@ -2153,15 +2162,57 @@ function structGoalPaceBlock(pos, emphasis){
 var TEMPO_STRUCTURE_POOL = {
   Base:  [structSteadyTempo, structThresholdContinuous],
   Build: [structProgressiveTempo, structSplitTempo],
-  Peak:  [structGoalPaceBlock, structThresholdContinuous]
+  Peak:  [structGoalPaceBlock, structThresholdContinuous],
+  Maintain: [structSteadyTempo, structProgressiveTempo,
+             structSplitTempo, structThresholdContinuous]
 };
+
+/* Where a maintenance block sits inside every structure's dimension range.
+   A CYCLE RATHER THAN A CONSTANT, and the distinction is the whole of what
+   makes maintenance maintenance:
+
+     it has no TREND        the three values average exactly 0.5 and the
+                            sequence returns to where it started, so eight
+                            weeks of maintenance end at the dose they began at.
+                            This is the property the audit asked for and the
+                            one the tests assert.
+     it has UNDULATION      a real week is not the same as the week before it.
+                            0.35 / 0.5 / 0.65 is a modest wave around the
+                            middle of each structure's own range -- roughly
+                            +/- 15% of the dose -- which is ordinary hard/easy
+                            week alternation, not progression.
+
+   Three long, so that against a four-structure tempo pool and a five-structure
+   interval pool the combined patterns run 12 and 15 weeks before repeating.
+   An eight-week maintenance block therefore contains no repeated session at
+   all, and two consecutive maintenance blocks do not line up either. */
+var MAINTAIN_POS_CYCLE = [0.5, 0.35, 0.65];
+
+/* HOW FAR THE ROTATION HAS TURNED. Counted from the athlete's own closed
+   blocks of the same purpose, so it is derived from real history rather than
+   stored, and it cannot drift: a rebuild of the live block does not change how
+   many blocks came before it, so re-tailoring a plan mid-block leaves every
+   session it does not touch exactly where it was.
+
+   Deterministic on purpose. The brief is explicit that workouts must not be
+   randomised for novelty -- an athlete's second maintenance block should differ
+   from their first because it is their second, not because a coin came up
+   differently. */
+function blockRotationFor(purpose){
+  var blocks = (state && state.athlete && state.athlete.blocks) || [];
+  return blocks.filter(function(b){
+    return b && b.purpose === purpose && b.status === 'closed';
+  }).length;
+}
 
 // Rotates through the phase's candidate structures by absolute week number so
 // the exact same format never repeats on consecutive weeks; unmapped phases
-// (Taper, Race Week) fall back to the race-specific Peak pool.
-function pickQualityStructure(pool, phase, weekNum, pos, emphasis){
+// (Taper, Race Week) fall back to the race-specific Peak pool. `rotation`
+// offsets the whole sequence so that the athlete's next block of the same
+// purpose does not open on the session their last one opened on.
+function pickQualityStructure(pool, phase, weekNum, pos, emphasis, rotation){
   var candidates = pool[phase] || pool.Peak;
-  return candidates[weekNum % candidates.length](pos, emphasis);
+  return candidates[(weekNum + (rotation || 0)) % candidates.length](pos, emphasis);
 }
 
 /* Warm-up + cool-down as ACTUALLY WRITTEN by the text templates below. The
@@ -2536,6 +2587,26 @@ function cappedBlockStartVolume(base, distKey){
 function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   var profile = DISTANCE_PROFILES[distKey];
   var steady = !!(opts && opts.steady);
+  /* WHAT THIS BLOCK IS FOR, carried explicitly rather than inferred.
+     'race' is the default for the two callers that predate year-round training
+     (the plan preview and the server-side builder preview), both of which only
+     ever build race blocks. A steady block that arrives without a purpose is
+     maintenance -- there is no other steady purpose that reaches here. */
+  var purpose = (opts && opts.purpose) || (steady ? 'maintain' : 'race');
+  /* A GOAL PACE NEEDS A GOAL. A race block culminates in a goal effort whether
+     or not there is an entry in a real event -- the builder says so in as many
+     words -- so goal-pace work belongs there. Maintenance does not culminate in
+     anything; it holds what the athlete has. Prescribing "last 5km at Goal
+     Pace" every week of a maintenance block was sharpening toward a race the
+     athlete had not entered, and it was the single most repeated session in the
+     whole programme. */
+  var goalOriented = purpose === 'race';
+  /* HOW MANY BLOCKS OF THIS PURPOSE CAME BEFORE. Offsets the whole structure
+     rotation so an athlete's third maintenance block does not open on the same
+     session as their first. Callers may pass it explicitly (the preview
+     endpoint has no athlete to count); otherwise it is read from the ledger. */
+  var rotation = (opts && opts.rotation != null) ? opts.rotation
+                 : (function(){ try { return blockRotationFor(purpose); } catch (e){ return 0; } })();
   // planWeeksInput must be the exact week-bucket count derived from the real
   // start-date -> race-date gap (see handleGeneratePlan) -- no hardcoded
   // default and no clamp, so short or long blocks are represented exactly.
@@ -2566,10 +2637,11 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     // boundaries of its own, so the generator and every coaching layer agree.
     phase = phaseForWeek(w, N, steady);
     if (phase==='Final') phase = 'Final Week';
-    // The pool this phase name selects from. 'Maintain' has no pool of its own
-    // and must not fall through to Peak, which is what pickQualityStructure
-    // does with any name it does not know.
-    var structPhase = steady ? 'Build' : phase;
+    /* The pool this phase name selects from. A steady block now has one of its
+       own: it used to borrow 'Build', which is a pool written for a block that
+       is going somewhere, and with the maintenance dose held level a
+       three-structure rotation repeated inside a single eight-week block. */
+    var structPhase = steady ? 'Maintain' : phase;
 
     if (!isTaper && !isRace){
       var progress = w/buildWeeks;
@@ -2589,9 +2661,24 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     }
     volume = round1(volume);
 
-    var pos = buildWeeks>1 ? (Math.min(w,buildWeeks)-1)/(buildWeeks-1) : 0;
-    var qSpec = pickQualityStructure(INTERVAL_STRUCTURE_POOL, structPhase, w, pos, profile.emphasis);
-    var tSpec = pickQualityStructure(TEMPO_STRUCTURE_POOL, structPhase, w, pos, profile.emphasis);
+    /* MAINTENANCE HOLDS A DOSE; IT DOES NOT WALK ONE UPWARD.
+       `pos` is progress through the build, and every quality structure lerps
+       its dimensions across it -- minutes, rep count, ladder size. In a steady
+       block buildWeeks is the whole block, so pos still ran 0 -> 1 and the
+       block progressed: tempo 16 -> 25 minutes, interval sessions 7.6 -> 12.6
+       km, a 56-66% increase in quality load across eight weeks that called
+       itself "Maintain & Protect". The weekly volume was flat, which is what
+       made it invisible -- the number on the card never moved.
+
+       Held at the middle of the range rather than at either end. The bottom is
+       a detraining dose and the top is a peak the athlete cannot hold
+       indefinitely; the middle is the dose maintenance is actually for. Week
+       to week the SHAPE still rotates (see pickQualityStructure), so the block
+       is varied without being progressive. */
+    var pos = steady ? MAINTAIN_POS_CYCLE[(w - 1) % MAINTAIN_POS_CYCLE.length]
+                     : (buildWeeks>1 ? (Math.min(w,buildWeeks)-1)/(buildWeeks-1) : 0);
+    var qSpec = pickQualityStructure(INTERVAL_STRUCTURE_POOL, structPhase, w, pos, profile.emphasis, rotation);
+    var tSpec = pickQualityStructure(TEMPO_STRUCTURE_POOL, structPhase, w, pos, profile.emphasis, rotation);
     // Taper shrinks the STRUCTURE, then the day is sized from that structure --
     // so the number on the card and the session written on it cannot disagree.
     /* ---- a quality session is never the longest run of the week ----
@@ -2622,7 +2709,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     var longTarget = isRace ? 0 : Math.min(profile.longCapKm, volume*longFrac);
     var b2bEligible = !!profile.backToBack && !isTaper && !isRace && phase!=='Base';
 
-    var hasGoalSegment = !isRace && !isTaper && (profile.emphasis==='threshold'||profile.emphasis==='endurance') && phase!=='Base';
+    var hasGoalSegment = goalOriented && !isRace && !isTaper && (profile.emphasis==='threshold'||profile.emphasis==='endurance') && phase!=='Base';
     var goalSegKm = hasGoalSegment ? round1(clamp(longTarget*(0.2+0.18*pos),3,longTarget*0.5)) : 0;
 
     var raceDayKm = isRace ? profile.raceKm : 0;
@@ -11150,7 +11237,7 @@ function startDevelopmentBlock(purpose, opts){
 
   var blockResult = buildBlockWeeks(spec.distanceKey, spec.volume,
     daysBetween(startMonday, addDays(goalDate, -isoWeekday(goalDate)))/7 + 1,
-    { steady: purpose === 'maintain' });
+    { steady: purpose === 'maintain', purpose: purpose });
   var days = buildDaysFromWeeks(blockResult, goalDate, schedule, startDate, false);
   if (purpose === 'recovery' && prevRaceDate)
     days = applyRecoveryCeiling(days, prevRaceDate, spec.noIntensityDays);
@@ -19476,7 +19563,8 @@ function handleGeneratePlan(){
 
   var profile = DISTANCE_PROFILES[distanceKey];
   var schedule = { activeDays:activeDays, longRunDay:longRunDay };
-  var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks, { steady: buildPurpose === 'maintain' });
+  var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks,
+    { steady: buildPurpose === 'maintain', purpose: buildPurpose });
   var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);
 
   /* HISTORY IS RECONCILED INTO A REBUILD AND ARCHIVED OUT OF A TRANSITION.
