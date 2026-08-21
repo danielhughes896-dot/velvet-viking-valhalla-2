@@ -102,15 +102,34 @@
   <div id="pane-build" class="vvv-hidden">
     <p class="step">Step two of three</p>
     <h1 class="lead">Build your plan</h1>
-    <p class="say">Answer five things and Valhalla will build a full programme around them.
+    <p class="say">Answer a few things and Valhalla will build a full programme around them.
        You will see it before you decide anything.</p>
 
-    <label for="distance">What are you training for</label>
+    <!-- WHAT THE BLOCK IS FOR. The same four objectives the app's own builder
+         offers, in the same order and under the same names. Recovery is not
+         here for the same reason it is not there: it is recommended after a
+         race, never chosen from a list. -->
+    <label for="purpose">What is this block for</label>
+    <select id="purpose">
+      <option value="race" selected>Race goal — train for a distance</option>
+      <option value="maintain">Maintain &amp; Protect — hold what you have</option>
+      <option value="base">Aerobic Base — build capacity</option>
+      <option value="speed">Speed &amp; Threshold — sharpen</option>
+    </select>
+    <p class="quiet" id="purpose-say" style="margin:6px 0 16px;"></p>
+
+    <!-- The engine's own keys. This list said "marathon", which the training
+         engine has never had a profile for -- its key is 'full' -- so every
+         marathon preview failed. The server still accepts the old value as an
+         alias; this list now sends what the engine actually understands, and
+         offers the ultra the entry copy has been promising all along. -->
+    <label for="distance" id="distance-label">What are you training for</label>
     <select id="distance">
       <option value="5k">5K</option>
       <option value="10k" selected>10K</option>
       <option value="half">Half marathon</option>
-      <option value="marathon">Marathon</option>
+      <option value="full">Marathon</option>
+      <option value="ultra">Ultra</option>
     </select>
 
     <div class="grid2">
@@ -352,6 +371,37 @@
   });
   $('again').addEventListener('click', function(){ show('pane-auth'); });
 
+  /* ---------- the objective shapes the questions ----------
+     Same five inputs, asked in the language of what is being built. The
+     defaults mirror the app builder's builderDefaultWeeks() and the engine's
+     developmentBlockSpec(), so a block previewed here is the length the app
+     would have offered. Speed locks to the 5K profile for the same reason it
+     does in the app: the speed block reuses that session library and no other
+     exists for it. */
+  var PURPOSE_UI = {
+    race:     { say:'A full distance-specific block, tapering to a goal effort at the end.',
+                distanceLabel:'What are you training for', weeks:14, lock:null },
+    maintain: { say:'Holds the fitness you have at a lower weekly cost. Volume drops, the quality stays.',
+                distanceLabel:'Fitness to protect', weeks:8, lock:null },
+    base:     { say:'Builds sustainable capacity from what you already run. No weekly percentage rule.',
+                distanceLabel:'Building towards', weeks:10, lock:null },
+    speed:    { say:'Sharpens speed and threshold using the 5K session library. No race needed.',
+                distanceLabel:'Sharpening at', weeks:6, lock:'5k' }
+  };
+  var weeksTouched = false;
+  $('weeks').addEventListener('input', function(){ weeksTouched = true; });
+  function applyPurpose(){
+    var ui = PURPOSE_UI[$('purpose').value] || PURPOSE_UI.race;
+    $('purpose-say').textContent = ui.say;
+    $('distance-label').textContent = ui.distanceLabel;
+    if (!weeksTouched) $('weeks').value = String(ui.weeks);
+    var dsel = $('distance');
+    if (ui.lock){ dsel.value = ui.lock; dsel.disabled = true; }
+    else { dsel.disabled = false; }
+  }
+  $('purpose').addEventListener('change', applyPurpose);
+  applyPurpose();
+
   /* ---------- build ---------- */
   var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   var DOW  = [1,2,3,4,5,6,0];      // the runtime's weekday numbering
@@ -399,6 +449,7 @@
     if (!isFinite(bench)){ fail('build-err', 'Give your 10K time as minutes and seconds, like 45:00.'); return; }
     $('build').disabled = true;
     authed('/api/preview', { method:'POST', body: JSON.stringify({
+      purpose: $('purpose').value,
       distanceKey: $('distance').value,
       weeks: Number($('weeks').value),
       volume: Number($('volume').value),
@@ -416,7 +467,10 @@
   $('rebuild').addEventListener('click', function(){ show('pane-build'); window.scrollTo(0,0); });
 
   /* ---------- preview ---------- */
-  var NAME = { '5k':'5K', '10k':'10K', 'half':'half marathon', 'marathon':'marathon' };
+  /* Keyed on what the server sends back, which is now always an engine key --
+     'marathon' is kept because an older cached page may still send it. */
+  var NAME = { '5k':'5K', '10k':'10K', 'half':'half marathon',
+               'full':'marathon', 'ultra':'ultra', 'marathon':'marathon' };
   var WD = { 0:'Sun',1:'Mon',2:'Tue',3:'Wed',4:'Thu',5:'Fri',6:'Sat' };
   function row(l, r){
     var d = document.createElement('div'); d.className = 'row';
@@ -426,9 +480,17 @@
   }
   function renderPreview(p){
     if (!p) return;
-    $('pv-lead').textContent = 'A ' + p.programme.weeks + '-week build to your ' +
-      (NAME[p.goal.distance] || p.goal.distance) + ', on ' + p.programme.trainingDaysPerWeek +
-      ' days a week.';
+    /* The lede names the PURPOSE, because "a 14-week build to your marathon"
+       is only true of a race block. Older responses have no purpose field and
+       are described exactly as they always were. */
+    var dist = NAME[p.goal.distance] || p.goal.distance;
+    var pu = p.purpose && p.purpose.key;
+    $('pv-lead').textContent =
+      (!pu || pu === 'race')
+        ? 'A ' + p.programme.weeks + '-week build to your ' + dist + ', on ' +
+          p.programme.trainingDaysPerWeek + ' days a week.'
+        : p.purpose.label + ' — ' + p.programme.weeks + ' weeks, on ' +
+          p.programme.trainingDaysPerWeek + ' days a week. ' + p.purpose.summary;
     $('pv-big').innerHTML = '';
     [[p.programme.weeks,'Weeks'], [p.programme.totalSessions,'Sessions'], [p.programme.totalKm + ' km','Total']]
       .forEach(function(pair){

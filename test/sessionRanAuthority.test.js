@@ -238,8 +238,18 @@ test('no consumer keeps a competing definition of whether a session happened', (
     assert.ok(at !== -1, fn + ' not found');
     return src.slice(at, src.indexOf('\n}', at));
   };
-  ['missedStimulus', 'athleteMemory'].forEach(fn => {
+  /* athleteMemoryFromDays rather than athleteMemory: the year-round programme
+     split the memory into "WHICH days" (athleteMemory, which now also reaches
+     the athlete's archived sessions) and "what each day MEANS"
+     (athleteMemoryFromDays, the original body, unchanged). The authority
+     question lives in the interpretation, so that is where it is asserted --
+     the invariant is identical and only the function holding it moved. */
+  ['missedStimulus', 'athleteMemoryFromDays'].forEach(fn => {
     assert.match(body(fn), /sessionRan\(/,
       fn + ' must ask the canonical authority rather than re-deriving the answer');
   });
+  /* And the archive must not become a second definition. It files whatever the
+     interpretation produced and never decides for itself what happened. */
+  assert.doesNotMatch(body('archiveCompletedSessions'), /sessionRan\(|dd\.completed/,
+    'archiveCompletedSessions has grown its own opinion about whether a session happened');
 });

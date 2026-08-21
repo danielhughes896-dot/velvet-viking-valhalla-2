@@ -88,11 +88,27 @@ test('generating a preview writes nothing commercial', () => {
 // ---------------------------------------------------------------------------
 // INPUT VALIDATION — these values reach a generator
 // ---------------------------------------------------------------------------
+/* `ultra` MOVED SIDES, and it moved because it was on the wrong one.
+
+   This list used to assert that 'ultra' was refused as an unknown distance.
+   That was never a rule about safety -- DISTANCE_PROFILES has a complete ultra
+   profile and the entry copy promises "anything from a 5K to a 50K ultra" --
+   it was the allow-list having drifted from the engine's own list. The same
+   drift is what made every marathon preview fail: the list accepted
+   'marathon', which the engine has never had a key for, and refused 'full',
+   which is the key it does have.
+
+   So the guard now asserts the real rule -- only a distance the generator can
+   actually build -- and a genuinely unknown value takes ultra's place below,
+   so the refusal path is still exercised. */
 test('the builder refuses input that would abuse the engine', () => {
   const ok = { distanceKey: '10k', weeks: 12, volume: 40, activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 };
   assert.equal(Preview.validate(ok).ok, true);
   const bad = [
-    [{ distanceKey: 'ultra' }, 'unknown_distance'],
+    [{ distanceKey: 'parkrun' }, 'unknown_distance'],
+    [{ distanceKey: '' }, 'unknown_distance'],
+    [{ purpose: 'recovery' }, 'unknown_purpose'],
+    [{ purpose: 'whatever' }, 'unknown_purpose'],
     [{ weeks: 500 }, 'weeks_out_of_range'],
     [{ weeks: 1 }, 'weeks_out_of_range'],
     [{ volume: 9999 }, 'volume_out_of_range'],

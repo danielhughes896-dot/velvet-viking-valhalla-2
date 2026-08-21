@@ -49,14 +49,50 @@ function loadEngine(nowIso){
 
 /* ---------- what the client may ask for ----------
    Validated as an allow-list, because these values reach a generator. An
-   unbounded `weeks` is a denial-of-service dressed as a training preference. */
-const DISTANCES = ['5k', '10k', 'half', 'marathon'];
+   unbounded `weeks` is a denial-of-service dressed as a training preference.
+
+   THE ALLOW-LIST WAS NOT THE ENGINE'S LIST, and that was a live defect rather
+   than a tidiness point. It accepted 'marathon', which DISTANCE_PROFILES has
+   never had -- its key is 'full' -- so buildBlockWeeks() threw on volMult and
+   every marathon preview returned 503 preview_unavailable. It also rejected
+   'full' as an unknown distance, and never offered 'ultra' at all, while the
+   builder gateway promises "anything from a 5K to a 50K ultra".
+
+   So the list is now the engine's own DISTANCE_ORDER, and 'marathon' survives
+   as an ALIAS that normalises to 'full' -- an older client must not start
+   failing to fix a bug it did not cause. What reaches the generator is always
+   a key the generator has. */
+const DISTANCES = ['5k', '10k', 'half', 'full', 'ultra'];
+const DISTANCE_ALIASES = { marathon: 'full' };
+/* Which objective the block serves. Same four the builder offers, and
+   deliberately NOT recovery: recovery is prescribed after a race Valhalla
+   watched, never chosen from a menu, so it can never arrive here. */
+const PURPOSES = ['race', 'maintain', 'base', 'speed'];
+/* The engine's own shaping, restated as data because the preview has no
+   athlete history to read: developmentBlockSpec() derives these from
+   absorbedWeeklyVolume(), which for a first-time athlete IS the volume they
+   just typed in. Same factors, same default lengths, same forced 5K profile
+   for speed -- asserted against the runtime by the test suite so the two
+   cannot drift apart in silence. */
+const PURPOSE_SHAPE = {
+  race:     { weeks: 14, volumeFactor: 1,    forceDistance: null },
+  maintain: { weeks: 8,  volumeFactor: 0.75, forceDistance: null },
+  base:     { weeks: 10, volumeFactor: 1,    forceDistance: null },
+  speed:    { weeks: 6,  volumeFactor: 1,    forceDistance: '5k' }
+};
 const LIMITS = { weeks: [4, 24], volume: [0, 200], days: [2, 7] };
 
 function validate(body){
   const b = body || {};
-  const distanceKey = String(b.distanceKey || '').toLowerCase();
+  const asked = String(b.distanceKey || '').toLowerCase();
+  const distanceKey = DISTANCE_ALIASES[asked] || asked;
   if (DISTANCES.indexOf(distanceKey) === -1) return { ok: false, code: 'unknown_distance' };
+
+  /* Absent means race -- every client that predates the objective selector is
+     asking for a race block, which is what it always built. */
+  const purpose = b.purpose === undefined || b.purpose === null || b.purpose === ''
+    ? 'race' : String(b.purpose).toLowerCase();
+  if (PURPOSES.indexOf(purpose) === -1) return { ok: false, code: 'unknown_purpose' };
 
   const weeks = parseInt(b.weeks, 10);
   if (!isFinite(weeks) || weeks < LIMITS.weeks[0] || weeks > LIMITS.weeks[1])
@@ -81,11 +117,32 @@ function validate(body){
   if (!isFinite(benchSec) || benchSec < 300 || benchSec > 40000)
     return { ok: false, code: 'benchmark_out_of_range' };
 
+  /* THE PURPOSE SHAPES THE BLOCK, HERE, ONCE. Everything downstream reads
+     these resolved values, so no later stage has to remember that a speed
+     block trains at 5K or that maintenance sits below the athlete's own
+     volume. `volume` stays as submitted for the record; `buildVolume` is what
+     the generator is given. */
+  const shape = PURPOSE_SHAPE[purpose];
+  const buildDistance = shape.forceDistance || distanceKey;
+  const buildVolume = Math.round(volume * shape.volumeFactor * 10) / 10;
+
   return { ok: true, input: {
-    distanceKey: distanceKey, weeks: weeks, volume: volume,
+    purpose: purpose,
+    distanceKey: distanceKey, buildDistance: buildDistance,
+    weeks: weeks, volume: volume, buildVolume: buildVolume,
+    /* Only a race block can have an event to aim at. Everything else
+       culminates in a goal effort, which is what hasEvent=false means to the
+       generator -- the same single switch the app itself uses. */
+    hasEvent: purpose === 'race' && b.hasEvent === true,
     activeDays: uniq.sort(), longRunDay: longRunDay, benchmarkSeconds: benchSec,
     startDate: typeof b.startDate === 'string' ? b.startDate : null
   } };
+}
+/* The length the builder would have offered for this purpose, so a client that
+   omits `weeks` and the app itself agree. Exported for the suite. */
+function defaultWeeksFor(purpose){
+  const s = PURPOSE_SHAPE[purpose];
+  return s ? s.weeks : PURPOSE_SHAPE.race.weeks;
 }
 
 /* ---------- the summary ----------
@@ -133,22 +190,52 @@ function summarise(app, days, blockResult, input){
      than inferred thirty times. */
   const shape = [];
   if (blockResult){
-    if (blockResult.buildWeeks) shape.push({ phase: 'Build', weeks: blockResult.buildWeeks });
-    if (blockResult.taperWeeks) shape.push({ phase: 'Taper', weeks: blockResult.taperWeeks });
+    /* A steady block has one phase because it has one shape. Reporting
+       "Build 8 weeks" for maintenance would describe an arc it does not have,
+       and "Taper 0 weeks" is already suppressed by the truthiness check. */
+    if (blockResult.steady) shape.push({ phase: 'Maintain', weeks: blockResult.planWeeks });
+    else {
+      if (blockResult.buildWeeks) shape.push({ phase: 'Build', weeks: blockResult.buildWeeks });
+      if (blockResult.taperWeeks) shape.push({ phase: 'Taper', weeks: blockResult.taperWeeks });
+    }
   }
 
   const totalKm = days.reduce(function(a, d){ return a + (typeof d.km === 'number' ? d.km : 0); }, 0);
 
+  const purpose = input.purpose || 'race';
+  const isRace = purpose === 'race';
+  const PURPOSE_COPY = {
+    race:     { label: 'Race Build',         says: 'Built to a goal effort at your target distance.' },
+    maintain: { label: 'Maintain & Protect', says: 'Holds the fitness you have, at a lower weekly cost.' },
+    base:     { label: 'Aerobic Base',       says: 'Builds sustainable capacity from what you already absorb.' },
+    speed:    { label: 'Speed & Threshold',  says: 'Sharpens speed and threshold using the 5K session library.' }
+  };
+
   return {
-    goal: {
+    /* A NON-RACE BLOCK IS NOT SHOWN RACE FIELDS. `raceDate` exists internally
+       for every block -- it is the anchor progression counts back from -- but
+       presenting it as a race date to somebody building maintenance would be
+       inventing an event they never entered. A goal day is offered instead,
+       and only a race block gets `raceDate` at all. */
+    purpose: {
+      key: purpose,
+      label: PURPOSE_COPY[purpose].label,
+      summary: PURPOSE_COPY[purpose].says,
+      hasEvent: !!input.hasEvent
+    },
+    goal: isRace ? {
       distance: input.distanceKey,
       raceDate: (app.state && app.state.setup && app.state.setup.raceDate) || null
+    } : {
+      distance: input.buildDistance || input.distanceKey,
+      goalDay: (app.state && app.state.setup && app.state.setup.raceDate) || null
     },
     programme: {
       weeks: blockResult && blockResult.planWeeks ? blockResult.planWeeks : input.weeks,
       trainingDaysPerWeek: input.activeDays.length,
       totalSessions: days.filter(function(d){ return (d.type || 'rest') !== 'rest'; }).length,
-      totalKm: Math.round(totalKm)
+      totalKm: Math.round(totalKm),
+      weeklyVolume: input.buildVolume != null ? input.buildVolume : input.volume
     },
     phases: shape,
     firstWeek: firstWeek,
@@ -178,6 +265,42 @@ function summarise(app, days, blockResult, input){
   };
 }
 
+/* ---------- THE GENERATION ITSELF ----------
+   Split out of handle() so it can be driven directly. It used to sit inside
+   the handler's try block, which meant the only way to reach it was through
+   an authenticated HTTP request -- so nothing verified that a maintenance
+   preview is actually generated in steady mode, and removing that option
+   changed nothing any test could see. A boundary worth having is a boundary
+   worth exercising.
+
+   Pure with respect to the request: it takes a loaded engine and a validated
+   input, and returns what the summary needs. */
+function generate(app, input){
+  const startDate = input.startDate || app.todayStr();
+  const startMonday = app.addDays(startDate, -app.isoWeekday(startDate));
+  const raceDate = app.addDays(startMonday, input.weeks * 7 - 1);
+  const schedule = { activeDays: input.activeDays, longRunDay: input.longRunDay };
+
+  /* Maintenance is generated in STEADY mode here for the same reason it is in
+     the app: it has no goal effort to taper into, and a preview that showed
+     one would be advertising a block the product does not build. */
+  const blockResult = app.buildBlockWeeks(input.buildDistance, input.buildVolume, input.weeks,
+                                          { steady: input.purpose === 'maintain' });
+  const days = app.buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, input.hasEvent);
+
+  app.state = app.makeDefaultState();
+  app.state.setup = {
+    distanceKey: input.buildDistance, currentVolume: input.buildVolume, raceDate: raceDate,
+    hasEvent: input.hasEvent, purpose: input.purpose,
+    startDate: startDate, planWeeks: blockResult.planWeeks, schedule: schedule,
+    benchmark: { distanceKey: '10k', timeSec: input.benchmarkSeconds },
+    goals: { A: { timeSec: Math.round(input.benchmarkSeconds * 0.95) } }, activeGoal: 'A',
+    paceOverrides: {}, lthr: null, maxHR: null, experience: 'experienced'
+  };
+  app.state.days = days;
+  return { app: app, days: days, blockResult: blockResult };
+}
+
 async function handle(req, res){
   if (String(req.method || '').toUpperCase() !== 'POST')
     return S.json(res, 405, { error: 'method_not_allowed' });
@@ -190,26 +313,9 @@ async function handle(req, res){
   const v = validate(body);
   if (!v.ok) return S.json(res, 400, { error: v.code });
 
-  let app, days, blockResult;
+  let built;
   try{
-    app = loadEngine(new Date().toISOString());
-    const startDate = v.input.startDate || app.todayStr();
-    const startMonday = app.addDays(startDate, -app.isoWeekday(startDate));
-    const raceDate = app.addDays(startMonday, v.input.weeks * 7 - 1);
-    const schedule = { activeDays: v.input.activeDays, longRunDay: v.input.longRunDay };
-
-    blockResult = app.buildBlockWeeks(v.input.distanceKey, v.input.volume, v.input.weeks);
-    days = app.buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, false);
-
-    app.state = app.makeDefaultState();
-    app.state.setup = {
-      distanceKey: v.input.distanceKey, currentVolume: v.input.volume, raceDate: raceDate,
-      hasEvent: false, startDate: startDate, planWeeks: blockResult.planWeeks, schedule: schedule,
-      benchmark: { distanceKey: '10k', timeSec: v.input.benchmarkSeconds },
-      goals: { A: { timeSec: Math.round(v.input.benchmarkSeconds * 0.95) } }, activeGoal: 'A',
-      paceOverrides: {}, lthr: null, maxHR: null, experience: 'experienced'
-    };
-    app.state.days = days;
+    built = generate(loadEngine(new Date().toISOString()), v.input);
   }catch(e){
     /* A code, never the error. A stack from the runtime would describe the
        product's internals to somebody who has not bought it. */
@@ -220,13 +326,15 @@ async function handle(req, res){
   /* GENERATING A PREVIEW MUST NOT SPEND THE TRIAL. Nothing here writes to
      account_commercial, entitlement_grants or subscriptions -- the athlete can
      rebuild as often as they like and their allowance is untouched. */
-  log('generated uid=' + String(uid).slice(0, 8) + ' distance=' + v.input.distanceKey);
+  log('generated uid=' + String(uid).slice(0, 8) + ' purpose=' + v.input.purpose +
+      ' distance=' + v.input.buildDistance);
   return S.json(res, 200, {
-    preview: summarise(app, days, blockResult, v.input),
+    preview: summarise(built.app, built.days, built.blockResult, v.input),
     trial: { available: true },
     /* Said plainly rather than implied: this is a summary, not the product. */
     note: 'This is a preview of your programme. Valhalla itself coaches it.'
   });
 }
 
-module.exports = { handle, validate, summarise, DISTANCES, LIMITS };
+module.exports = { handle, validate, summarise, generate, defaultWeeksFor,
+                   DISTANCES, DISTANCE_ALIASES, PURPOSES, PURPOSE_SHAPE, LIMITS };
