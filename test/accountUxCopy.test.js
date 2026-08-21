@@ -49,19 +49,55 @@ function captureModalHtml(a) {
 // renderHero -- the no-plan screen's route back for a returning athlete
 // ---------------------------------------------------------------------------
 
-test('the no-plan hero offers "Sign in or restore a plan" alongside Build My Plan', () => {
+/* WHAT CHANGED HERE, AND WHY THIS IS NOT A TEST WEAKENED TO GO GREEN.
+
+   This screen used to carry "Sign in or restore a plan" unconditionally,
+   because it was a standalone landing page and nothing else offered a way in.
+   /start owns authentication and returning-athlete routing now, so a second
+   sign-in entry point on the screen AFTER it sends an athlete back round a
+   loop they have just finished -- it is gone deliberately.
+
+   The RECOVERY half of that route is not stale and has not gone with it. The
+   bottom nav is hidden in both no-plan states, so Settings -> Restore a Plan
+   is unreachable without a plan, and the athlete who needs it most is the one
+   whose block was displaced by a second account on a shared device. So the
+   route survives, narrowed to when this device actually holds a parked plan.
+   These tests assert BOTH halves: the duplicate sign-in is gone, and the
+   recovery route is not offered on an empty device and IS offered on a
+   stranded one. */
+test('the no-plan hero offers Build My Plan and no second sign-in', () => {
   const a = app();
   assert.equal(!!a.state.setup, false, 'precondition: a fresh app has no plan');
   const html = a.renderHero();
-  assert.match(html, /Sign in or restore a plan/);
-  assert.match(html, /data-action="open-restore"/);
-  assert.match(html, /Build My Plan/, 'the new-athlete path must still be offered, not replaced');
+  assert.match(html, /Build My Plan/, 'the new-athlete path must still be offered');
+  assert.doesNotMatch(html, /Sign in or restore a plan/,
+    '/start owns sign-in; a second entry point here is the duplicate that was removed');
+  assert.doesNotMatch(html, /data-action="cloud-sign-in"/,
+    'no sign-in form may appear on the builder gateway');
+});
+
+test('a fresh device with nothing to recover is not offered recovery', () => {
+  const a = app();
+  assert.equal(a.recoverablePlans().length, 0, 'precondition: nothing parked');
+  assert.doesNotMatch(a.renderHero(), /data-action="open-restore"/,
+    'a door onto an empty room is worse than no door');
+});
+
+test('a stranded athlete keeps a route back to their displaced plan', () => {
+  const a = strandedPlan();
+  assert.equal(!!a.state.setup, false, 'precondition: the plan was parked, none is active');
+  assert.ok(a.recoverablePlans().length, 'precondition: the parked plan is recoverable');
+  const html = a.renderHero();
+  assert.match(html, /data-action="open-restore"/,
+    'with no bottom nav this is the only way back to Restore a Plan');
+  assert.match(html, /Restore a plan from this device/);
 });
 
 test('a built plan replaces the no-plan hero, so the recovery route is not offered on top of an active plan', () => {
   const a = withPlan(app());
   const html = a.renderHero();
   assert.doesNotMatch(html, /Sign in or restore a plan/);
+  assert.doesNotMatch(html, /data-action="open-restore"/);
 });
 
 // ---------------------------------------------------------------------------
