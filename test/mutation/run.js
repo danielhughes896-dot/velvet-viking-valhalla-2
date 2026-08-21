@@ -29,7 +29,7 @@ const SUBSET = ['stripeLifecycle','monthlyPause','commercialCore','securityPostu
   'commercialSchemaCollision','adjustedSessionStructure',
   'prescriptionAwareLogging','healthDataConsent',
   'medicalBoundary','healthErasure','commercialJourney',
-  'productionReadiness'].map(n => 'test/' + n + '.test.js').join(' ');
+  'productionReadiness','authEmailTemplates'].map(n => 'test/' + n + '.test.js').join(' ');
 
 const CASES = [
   // ---- ACCESS ----
@@ -377,6 +377,25 @@ const CASES = [
   ['monday: a mirror failure fails the webhook', 'api/billing-webhook.js',
    "    if (!mirrored.ok && mirrored.code !== 'operational_sync_disabled'){",
    "    if (!mirrored.ok){ return S.json(res, 503, { error: 'unavailable' }); }\n    if (false){"]
+,
+
+  // ---- AUTH EMAILS ----
+  ['auth email: the template builds its own link from a token', 'supabase-auth-emails/magic-link.html',
+   'href="{{ .ConfirmationURL }}"', 'href="{{ .SiteURL }}/auth/v1/verify?token={{ .Token }}"'],
+  ['auth email: the credential is printed as visible text', 'supabase-auth-emails/magic-link.html',
+   "              Sign in to Valhalla\n                  </a>",
+   "              Sign in to Valhalla\n                  </a><p>{{ .ConfirmationURL }}</p>"],
+  ['auth email: the provider footer comes back', 'supabase-auth-emails/invite.html',
+   'Earn&nbsp;Your&nbsp;Place', 'Earn&nbsp;Your&nbsp;Place &mdash; powered by Supabase'],
+  ['auth email: the two identical templates drift apart', 'supabase-auth-emails/confirm-signup.html',
+   'Your secure sign-in link is ready.', 'Your secure signin link is ready.'],
+  ['auth email: a remote image is added', 'supabase-auth-emails/magic-link.html',
+   '<!-- wordmark -->', '<!-- wordmark --><img src="https://velvetviking.co.uk/assets/crest.png">'],
+  ['auth email: a layout table becomes a data table', 'supabase-auth-emails/change-email.html',
+   '<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F4F1EA;">',
+   '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F4F1EA;">'],
+  ['auth email: an off-palette colour is introduced', 'supabase-auth-emails/magic-link.html',
+   'color:#514D45;', 'color:#999999;']
 
 ];
 
