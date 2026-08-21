@@ -16838,16 +16838,46 @@ function coachNoticedForWorkout(dd, b, env){
     return phrase.charAt(0).toUpperCase()+phrase.slice(1)+
            ' in the notes — pace is read in that context rather than as lost fitness.';
   }
-  // Honesty about missing evidence outranks congratulation: a session scored
-  // on distance and pace alone has not had "everything" land, because heart
-  // rate and effort were never seen.
-  if (b.missing.length) return 'Scored without '+listPhrase(b.missing.map(function(p){ return MISSING_NOUN[p.key]||p.label.toLowerCase(); }))+'.';
+  /* Honesty about missing evidence outranks congratulation: a session scored
+     on distance and pace alone has not had "everything" land, because heart
+     rate and effort were never seen.
+
+     BUT ONLY WHERE IT IS NEWS. This is the most repeated sentence in the
+     product -- 43 identical "Scored without heart rate." lines across a
+     fortnight of cards for an athlete who does not own a chest strap, and it
+     would repeat on every session they ever log. A component the athlete has
+     never recorded is a settled choice, not an omission worth noticing, and
+     saying so once a session is nagging rather than coaching. A component they
+     usually DO record and did not this time is genuinely worth a line. */
+  var worthSaying = b.missing.filter(function(p){ return athleteUsuallyLogs(dd, p.key); });
+  if (worthSaying.length) return 'Scored without '+listPhrase(worthSaying.map(function(p){ return MISSING_NOUN[p.key]||p.label.toLowerCase(); }))+'.';
   if (b.score>=99) return isRecoveryLikeDay(dd)
     ? 'Easy discipline held exactly where it was set.'
     : 'Everything landed on the numbers it was set to hit.';
   return 'Executed at '+b.score+'% of the prescribed session.';
 }
 var MISSING_NOUN = { hr:'heart rate', rpe:'an effort rating', distance:'a logged distance', pace:'a logged pace' };
+/* Does this athlete normally record this component? Read from the sessions
+   BEFORE this one so the answer is about their habit rather than about the
+   session being judged. Two out of the last ten is deliberately a low bar: the
+   question is "do they ever", not "do they always", and one missed entry from
+   somebody who usually logs it is exactly the case worth mentioning. */
+var USUALLY_LOGS_WINDOW = 10;
+var USUALLY_LOGS_MIN = 2;
+function athleteUsuallyLogs(dd, key){
+  var before = (state.days||[]).filter(function(x){
+    return x.completed && x.actual && x.date < dd.date;
+  }).sort(function(a,b){ return a.date<b.date?-1:1; }).slice(-USUALLY_LOGS_WINDOW);
+  if (!before.length) return false;      // nothing to compare against yet
+  var seen = before.filter(function(x){
+    if (key==='hr')   return x.actual.hr!=null;
+    if (key==='rpe')  return x.actual.rpe!=null;
+    if (key==='distance') return x.actual.km!=null;
+    if (key==='pace') return !!x.actual.pace;
+    return false;
+  }).length;
+  return seen >= USUALLY_LOGS_MIN;
+}
 
 
 /* ---------- Phase 6 in the interface ----------
