@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Velvet Viking Valhalla — Start</title>
+<!--
+  THE FRONT DOOR.
+
+  One route that works out where an athlete actually is and takes them there:
+  signed out, signed in with access, signed in without a plan, or signed in with
+  a plan and no access yet. Nothing here decides whether anybody may use the
+  product -- /api/app re-resolves that server-side before it hands over a byte
+  of runtime, and this page cannot talk it round.
+
+  What this page is allowed to do is ask, render, and route.
+-->
+<link rel="icon" href="/assets/icon.png">
+<meta name="theme-color" content="#F4F1EA">
+<script data-vvv-theme-boot>/*VVV-THEME-BOOT*/(function(){try{var s=localStorage.getItem('vvv_theme');var t=s?(JSON.parse(s)||{}).theme:null;document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/vvv-shell.css">
+<style>
+  /* Page-specific only. Palette, controls and structure come from the shared
+     shell, so this cannot drift away from the rest of the product. */
+  body{display:flex; align-items:flex-start; justify-content:center;
+       padding:calc(24px + env(safe-area-inset-top,0px)) 20px calc(40px + env(safe-area-inset-bottom,0px));}
+  .vvv-shell{max-width:560px;}
+  .step{font-family:Oswald,system-ui,sans-serif; font-size:11px; letter-spacing:.16em;
+        text-transform:uppercase; color:var(--ink-faint); margin:0 0 10px;}
+  h1.lead{font-family:Cinzel,Georgia,serif; font-size:22px; line-height:1.25; margin:0 0 10px;}
+  p.say{font-size:14px; line-height:1.6; margin:0 0 18px; color:var(--ink);}
+  p.quiet{font-size:12px; line-height:1.55; color:var(--ink-faint); margin:14px 0 0;}
+  label{display:block; font-size:12px; letter-spacing:.04em; text-transform:uppercase;
+        color:var(--ink-faint); margin:14px 0 5px; font-family:Oswald,system-ui,sans-serif;}
+  input,select{width:100%; padding:11px 12px; font:inherit; font-size:15px;
+        color:var(--ink); background:var(--bg-2); border:1px solid var(--line);
+        border-radius:8px; -webkit-appearance:none;}
+  .days{display:flex; gap:6px; flex-wrap:wrap;}
+  .day{flex:1 1 0; min-width:40px; padding:9px 0; text-align:center; font-size:12px;
+       border:1px solid var(--line); border-radius:8px; background:var(--bg-2);
+       cursor:pointer; user-select:none;}
+  .day[aria-pressed="true"]{border-color:var(--ink); background:var(--bg-3); font-weight:600;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .card{border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin:12px 0;
+        background:var(--bg-2);}
+  .card h3{font-family:Oswald,system-ui,sans-serif; font-size:12px; letter-spacing:.1em;
+           text-transform:uppercase; color:var(--ink-faint); margin:0 0 8px; font-weight:500;}
+  .row{display:flex; justify-content:space-between; gap:12px; font-size:13.5px;
+       padding:4px 0; border-bottom:1px solid var(--line);}
+  .row:last-child{border-bottom:none;}
+  .row .r{color:var(--ink-faint); text-align:right; white-space:nowrap;}
+  .big{display:flex; gap:18px; margin:4px 0 2px;}
+  .big div{flex:1;}
+  .big b{display:block; font-family:Cinzel,Georgia,serif; font-size:24px; line-height:1.1;}
+  .big span{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);}
+  .err{color:var(--danger-ink); font-size:13px; margin:12px 0 0;}
+</style>
+</head>
+<body>
+<div class="vvv-shell">
+  <div class="vvv-brand">
+    <p class="vvv-wordmark">Velvet Viking</p>
+    <img class="vvv-crest" src="/assets/velvet-viking-crest.png" width="1223" height="1286"
+         alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place" loading="eager" decoding="async">
+    <p class="vvv-tagline">Earn Your Place</p>
+    <div class="vvv-rule"></div>
+  </div>
+
+  <!-- Working out where you are. Shown for a moment, replaced by one of the below. -->
+  <div id="pane-resolving">
+    <p class="say">One moment.</p>
+  </div>
+
+  <!-- SIGNED OUT -->
+  <div id="pane-auth" class="vvv-hidden">
+    <p class="step">Step one of three</p>
+    <h1 class="lead">Create your account, or sign in</h1>
+    <p class="say">One address is all we need. We send a link; opening it signs you in.
+       There is no password for you to create or remember.</p>
+    <label for="email">Email address</label>
+    <input id="email" type="email" autocomplete="email" inputmode="email"
+           placeholder="you@example.com" spellcheck="false">
+    <button class="vvv-btn" id="send" style="margin-top:16px;">Send my link</button>
+    <p class="quiet">The same link creates your account if you are new, and signs you in if
+       you are not. Nothing is charged and no trial begins by making an account.</p>
+    <p class="err vvv-hidden" id="auth-err"></p>
+  </div>
+
+  <!-- LINK SENT -->
+  <div id="pane-sent" class="vvv-hidden">
+    <h1 class="lead">Check your email</h1>
+    <p class="say">We have sent a link to <b id="sent-to"></b>. Open it on this device and
+       you will land back here, signed in.</p>
+    <p class="quiet">No link? Check spam, then try again.</p>
+    <button class="vvv-btn vvv-btn-ghost" id="again" style="margin-top:14px;">Use a different address</button>
+  </div>
+
+  <!-- BUILD -->
+  <div id="pane-build" class="vvv-hidden">
+    <p class="step">Step two of three</p>
+    <h1 class="lead">Build your plan</h1>
+    <p class="say">Answer five things and Valhalla will build a full programme around them.
+       You will see it before you decide anything.</p>
+
+    <label for="distance">What are you training for</label>
+    <select id="distance">
+      <option value="5k">5K</option>
+      <option value="10k" selected>10K</option>
+      <option value="half">Half marathon</option>
+      <option value="marathon">Marathon</option>
+    </select>
+
+    <div class="grid2">
+      <div>
+        <label for="weeks">Weeks to build over</label>
+        <input id="weeks" type="number" min="4" max="24" value="12" inputmode="numeric">
+      </div>
+      <div>
+        <label for="volume">Weekly km right now</label>
+        <input id="volume" type="number" min="0" max="200" value="40" inputmode="numeric">
+      </div>
+    </div>
+
+    <label>Which days can you run</label>
+    <div class="days" id="days"></div>
+
+    <div class="grid2">
+      <div>
+        <label for="longday">Long run day</label>
+        <select id="longday"></select>
+      </div>
+      <div>
+        <label for="bench">Recent 10K time</label>
+        <input id="bench" type="text" value="45:00" inputmode="numeric" placeholder="45:00">
+      </div>
+    </div>
+
+    <button class="vvv-btn" id="build" style="margin-top:18px;">Build my plan</button>
+    <p class="err vvv-hidden" id="build-err"></p>
+  </div>
+
+  <!-- PREVIEW -->
+  <div id="pane-preview" class="vvv-hidden">
+    <p class="step">Step three of three</p>
+    <h1 class="lead">Here is your programme</h1>
+    <p class="say" id="pv-lead"></p>
+
+    <div class="big" id="pv-big"></div>
+
+    <div class="card" id="pv-phases-card">
+      <h3>How it is structured</h3>
+      <div id="pv-phases"></div>
+    </div>
+
+    <div class="card">
+      <h3>Your first week</h3>
+      <div id="pv-week"></div>
+    </div>
+
+    <div class="card" id="pv-key-card">
+      <h3>Sessions that shape the block</h3>
+      <div id="pv-key"></div>
+    </div>
+
+    <div class="card vvv-hidden" id="pv-paces-card">
+      <h3>Your paces</h3>
+      <div id="pv-paces"></div>
+    </div>
+
+    <p class="say" style="margin-top:20px;">Valhalla coaches this programme day by day —
+       telling you what today is for, reading how it actually went, and adapting only when
+       a real pattern appears. Start your free trial to begin.</p>
+
+    <button class="vvv-btn" id="trial">Start my free trial</button>
+    <p class="quiet" id="trial-note"></p>
+    <button class="vvv-btn vvv-btn-ghost" id="rebuild" style="margin-top:10px;">Change something</button>
+    <p class="err vvv-hidden" id="trial-err"></p>
+  </div>
+
+  <!-- LOCKED / EXPIRED -->
+  <div id="pane-locked" class="vvv-hidden">
+    <h1 class="lead">Your access has ended</h1>
+    <p class="say" id="locked-say">Everything you have done is still here — your plan, your
+       completed sessions and your history. Only the coaching is paused.</p>
+    <a class="vvv-btn" href="/account">Restore access</a>
+    <p class="quiet">Nothing has been deleted, and nothing will be.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var show = function(id){
+    ['pane-resolving','pane-auth','pane-sent','pane-build','pane-preview','pane-locked']
+      .forEach(function(p){ $(p).classList.toggle('vvv-hidden', p !== id); });
+  };
+  var fail = function(id, msg){ var e = $(id); e.textContent = msg; e.classList.remove('vvv-hidden'); };
+  var clear = function(id){ $(id).classList.add('vvv-hidden'); };
+
+  /* ---------- session ---------- */
+  function storedToken(){
+    try{ var s = JSON.parse(localStorage.getItem('vvv_cloud_session') || 'null');
+         return (s && s.access_token) || null; }catch(e){ return null; }
+  }
+  /* A magic link returns with the tokens in the fragment. Capture, store, and
+     strip -- a token left in the address bar is a token in somebody's history. */
+  function consumeAuthHash(){
+    var h = location.hash || '';
+    if (h.indexOf('access_token=') === -1) return null;
+    var p = {};
+    h.replace(/^#/, '').split('&').forEach(function(kv){
+      var i = kv.indexOf('='); if (i < 1) return;
+      p[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1));
+    });
+    if (!p.access_token) return null;
+    try{ localStorage.setItem('vvv_cloud_session', JSON.stringify(p)); }catch(e){}
+    try{ history.replaceState(null, '', location.pathname + location.search); }
+    catch(e){ location.hash = ''; }
+    return p.access_token;
+  }
+  /* GoTrue reports a refused link in the fragment (and sometimes the query) as
+     error / error_code / error_description. Mapped to one calm sentence per
+     cause, and stripped from the address bar with the same care the tokens
+     get -- error_description echoes back what was attempted. */
+  var AUTH_ERROR_COPY = {
+    otp_expired: 'That sign-in link has expired. Enter your email and we will send a fresh one.',
+    access_denied: 'That sign-in link has already been used. Enter your email for a new one.'
+  };
+  function consumeAuthError(){
+    var raw = (location.hash || '').replace(/^#/, '');
+    var q = (location.search || '').replace(/^\?/, '');
+    var src = raw.indexOf('error') !== -1 ? raw : (q.indexOf('error') !== -1 ? q : '');
+    if (!src) return null;
+    var p = {};
+    src.split('&').forEach(function(kv){
+      var i = kv.indexOf('='); if (i < 1) return;
+      p[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1).replace(/\+/g, ' '));
+    });
+    if (!p.error && !p.error_code) return null;
+    try{ history.replaceState(null, '', location.pathname); }catch(e){ location.hash = ''; }
+    return AUTH_ERROR_COPY[p.error_code] || AUTH_ERROR_COPY[p.error] ||
+           'That sign-in link did not work. Enter your email and we will send a fresh one.';
+  }
+
+  function establish(tok){
+    return fetch('/api/session', { method:'POST', credentials:'same-origin',
+      headers:{ 'authorization':'Bearer ' + tok } })
+      .then(function(r){ return r.json().catch(function(){ return {}; })
+        .then(function(b){ return { status:r.status, body:b }; }); });
+  }
+  function authed(url, opts){
+    var t = storedToken();
+    if (!t) return Promise.reject(new Error('no_session'));
+    opts = opts || {};
+    opts.headers = Object.assign({ 'authorization':'Bearer ' + t, 'content-type':'application/json' }, opts.headers || {});
+    opts.credentials = 'same-origin';
+    return fetch(url, opts).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(b){ return { status:r.status, body:b }; });
+    });
+  }
+  var enter = function(){ location.replace('/'); };
+
+  /* A hung request is not an error, so .catch() never fires for it and the
+     athlete would sit on "One moment." indefinitely. Every route decision is
+     therefore raced against a deadline: if the server has not answered in ten
+     seconds, we show the surface they can act from rather than a spinner they
+     cannot. Deciding late in favour of the sign-in screen is safe -- it grants
+     nothing, and /api/app re-resolves access before serving any runtime. */
+  function within(ms, p){
+    return new Promise(function(resolve, reject){
+      var settled = false;
+      var timer = setTimeout(function(){
+        if (!settled){ settled = true; reject(new Error('timeout')); }
+      }, ms);
+      p.then(function(v){ if (!settled){ settled = true; clearTimeout(timer); resolve(v); } },
+             function(e){ if (!settled){ settled = true; clearTimeout(timer); reject(e); } });
+    });
+  }
+
+  /* ---------- routing ----------
+     The server is asked where this athlete stands; the page only reacts. */
+  function route(){
+    /* A LINK THAT DID NOT WORK MUST SAY SO. GoTrue does not always come back
+       with tokens: an expired or already-used link returns error/error_code in
+       the same fragment. Before this, /start looked only for access_token,
+       found none, and showed the sign-in form as though the athlete had simply
+       arrived -- so the one person who needed an explanation got a blank form
+       and no idea why. */
+    var authErr = consumeAuthError();
+    var tok = consumeAuthHash() || storedToken();
+    if (!tok){
+      show('pane-auth');
+      if (authErr) fail('auth-err', authErr);
+      return;
+    }
+    within(10000, establish(tok)).then(function(r){
+      var b = r.body || {};
+      if (!b.signed_in){ show('pane-auth'); return; }
+      /* Access already -- beta, trialling, paid, or inside a cancelled period.
+         They do not see acquisition screens again. */
+      if (b.access === true){ enter(); return; }
+      /* Signed in without access. Had they been here before, they would have
+         history; the locked shell is where that conversation belongs. */
+      if (b.reason === 'expired' || b.state === 'expired'){ show('pane-locked'); return; }
+      show('pane-build');
+    }).catch(function(){
+      /* Unreachable, refused, or too slow to be useful. The sign-in surface is
+         the one screen that works from any of those. */
+      show('pane-auth');
+      fail('auth-err', 'We could not reach Valhalla just then. Sign in to continue.');
+    });
+  }
+
+  /* ---------- auth ---------- */
+  $('send').addEventListener('click', function(){
+    clear('auth-err');
+    var email = ($('email').value || '').trim();
+    if (!email || email.indexOf('@') < 1){ fail('auth-err', 'That does not look like an email address.'); return; }
+    $('send').disabled = true;
+    fetch('/api/beta-signin', { method:'POST', headers:{'content-type':'application/json'},
+      body: JSON.stringify({ email: email, redirect: location.origin + '/start' }) })
+      .then(function(r){ return r.json().catch(function(){ return {}; })
+        .then(function(b){ return { status:r.status, body:b }; }); })
+      .then(function(r){
+        $('send').disabled = false;
+        if (r.status === 200){ $('sent-to').textContent = email; show('pane-sent'); return; }
+        if (r.status === 403){
+          fail('auth-err', 'Valhalla is not open to new accounts just yet. If you are expecting access, use the address we invited.');
+          return;
+        }
+        fail('auth-err', 'We could not send that link. Try again in a moment.');
+      })
+      .catch(function(){ $('send').disabled = false; fail('auth-err', 'We could not send that link. Try again in a moment.'); });
+  });
+  $('again').addEventListener('click', function(){ show('pane-auth'); });
+
+  /* ---------- build ---------- */
+  var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var DOW  = [1,2,3,4,5,6,0];      // the runtime's weekday numbering
+  var picked = { 1:true, 2:true, 3:true, 5:true, 6:true };
+  function renderDays(){
+    $('days').innerHTML = '';
+    DAYS.forEach(function(label, i){
+      var d = DOW[i];
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'day'; b.textContent = label;
+      b.setAttribute('aria-pressed', picked[d] ? 'true' : 'false');
+      b.addEventListener('click', function(){
+        picked[d] = !picked[d];
+        b.setAttribute('aria-pressed', picked[d] ? 'true' : 'false');
+        renderLongDay();
+      });
+      $('days').appendChild(b);
+    });
+    renderLongDay();
+  }
+  function renderLongDay(){
+    var sel = $('longday'), prev = sel.value;
+    sel.innerHTML = '';
+    DAYS.forEach(function(label, i){
+      var d = DOW[i]; if (!picked[d]) return;
+      var o = document.createElement('option'); o.value = String(d); o.textContent = label;
+      sel.appendChild(o);
+    });
+    if (prev && picked[Number(prev)]) sel.value = prev;
+    else if (picked[6]) sel.value = '6';
+  }
+  function clockToSec(v){
+    var parts = String(v || '').split(':').map(Number);
+    if (parts.some(function(n){ return !isFinite(n); })) return NaN;
+    if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+    if (parts.length === 2) return parts[0]*60 + parts[1];
+    return NaN;
+  }
+
+  $('build').addEventListener('click', function(){
+    clear('build-err');
+    var active = Object.keys(picked).filter(function(d){ return picked[d]; }).map(Number);
+    if (active.length < 2){ fail('build-err', 'Pick at least two days you can run.'); return; }
+    var bench = clockToSec($('bench').value);
+    if (!isFinite(bench)){ fail('build-err', 'Give your 10K time as minutes and seconds, like 45:00.'); return; }
+    $('build').disabled = true;
+    authed('/api/preview', { method:'POST', body: JSON.stringify({
+      distanceKey: $('distance').value,
+      weeks: Number($('weeks').value),
+      volume: Number($('volume').value),
+      activeDays: active,
+      longRunDay: Number($('longday').value),
+      benchmarkSeconds: bench
+    })}).then(function(r){
+      $('build').disabled = false;
+      if (r.status !== 200){ fail('build-err', 'We could not build that. Check the numbers and try again.'); return; }
+      renderPreview(r.body.preview);
+      show('pane-preview');
+      window.scrollTo(0, 0);
+    }).catch(function(){ $('build').disabled = false; fail('build-err', 'We could not build that just now.'); });
+  });
+  $('rebuild').addEventListener('click', function(){ show('pane-build'); window.scrollTo(0,0); });
+
+  /* ---------- preview ---------- */
+  var NAME = { '5k':'5K', '10k':'10K', 'half':'half marathon', 'marathon':'marathon' };
+  var WD = { 0:'Sun',1:'Mon',2:'Tue',3:'Wed',4:'Thu',5:'Fri',6:'Sat' };
+  function row(l, r){
+    var d = document.createElement('div'); d.className = 'row';
+    var a = document.createElement('span'); a.textContent = l;
+    var b = document.createElement('span'); b.className = 'r'; b.textContent = r;
+    d.appendChild(a); d.appendChild(b); return d;
+  }
+  function renderPreview(p){
+    if (!p) return;
+    $('pv-lead').textContent = 'A ' + p.programme.weeks + '-week build to your ' +
+      (NAME[p.goal.distance] || p.goal.distance) + ', on ' + p.programme.trainingDaysPerWeek +
+      ' days a week.';
+    $('pv-big').innerHTML = '';
+    [[p.programme.weeks,'Weeks'], [p.programme.totalSessions,'Sessions'], [p.programme.totalKm + ' km','Total']]
+      .forEach(function(pair){
+        var d = document.createElement('div');
+        var b = document.createElement('b'); b.textContent = pair[0];
+        var s = document.createElement('span'); s.textContent = pair[1];
+        d.appendChild(b); d.appendChild(s); $('pv-big').appendChild(d);
+      });
+
+    var ph = $('pv-phases'); ph.innerHTML = '';
+    (p.phases || []).forEach(function(x){ ph.appendChild(row(x.phase, x.weeks + ' weeks')); });
+    $('pv-phases-card').classList.toggle('vvv-hidden', !(p.phases || []).length);
+
+    var wk = $('pv-week'); wk.innerHTML = '';
+    (p.firstWeek || []).forEach(function(d){
+      wk.appendChild(row((WD[d.weekday] || '') + ' — ' + (d.title || d.type),
+                         d.km ? d.km + ' km' : (d.type === 'rest' ? 'rest' : '')));
+    });
+
+    var ks = $('pv-key'); ks.innerHTML = '';
+    (p.keySessions || []).forEach(function(s){ ks.appendChild(row(s.title || s.type, 'week ' + s.week)); });
+    $('pv-key-card').classList.toggle('vvv-hidden', !(p.keySessions || []).length);
+
+    var pc = $('pv-paces'); pc.innerHTML = '';
+    (p.paces || []).forEach(function(z){ pc.appendChild(row(z.zone, z.range)); });
+    $('pv-paces-card').classList.toggle('vvv-hidden', !(p.paces || []).length);
+  }
+
+  /* ---------- the one explicit act ---------- */
+  $('trial').addEventListener('click', function(){
+    clear('trial-err');
+    $('trial').disabled = true;
+    authed('/api/trial', { method:'POST' }).then(function(r){
+      if (r.status === 200 && r.body.started){ enter(); return; }
+      $('trial').disabled = false;
+      if (r.body && r.body.reason === 'already_used'){
+        fail('trial-err', 'You have already used your free trial on this account.');
+        return;
+      }
+      fail('trial-err', 'We could not start your trial just now. Nothing has been charged or used.');
+    }).catch(function(){
+      $('trial').disabled = false;
+      fail('trial-err', 'We could not start your trial just now. Nothing has been charged or used.');
+    });
+  });
+
+  renderDays();
+  route();
+})();
+</script>
+</body>
+</html>

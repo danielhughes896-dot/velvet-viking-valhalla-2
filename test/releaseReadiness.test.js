@@ -332,13 +332,31 @@ test('6. set, it wins over any header the request carried', () => {
   } finally { if (was === undefined) delete process.env.VVV_SITE_ORIGIN; else process.env.VVV_SITE_ORIGIN = was; }
 });
 
+/* This used to read safeRedirect's SOURCE for the spellings `indexOf(origin`
+   and `return origin`. It was checking that the function still looked the way
+   it looked, which is a different thing from checking what it guarantees --
+   and when the canonical-domain fix gave it a LIST of this deployment's
+   origins instead of a single one, the guarantee was untouched while every
+   spelling changed. So it is driven rather than read now: the same three
+   claims, asserted against what the function actually returns. */
 test('6. the redirect target is still confined to this deployment', () => {
-  const src = read('api/beta-signin.js');
-  const at = src.indexOf('function safeRedirect');
-  const body = src.slice(at, src.indexOf('\n}', at));
-  assert.match(body, /indexOf\(origin/, 'anything not this origin is discarded');
-  assert.match(body, /NATIVE_REDIRECT/, 'except the app’s own custom scheme');
-  assert.match(body, /return origin/, 'and the fallback is this deployment, never the request');
+  const B = require('../api/beta-signin.js');
+  const own = ['https://app.velvetviking.co.uk', 'https://vvv.vercel.app'];
+
+  own.forEach(o => assert.equal(B.safeRedirect(o + '/start', own), o + '/start',
+    'this deployment answers on both of its own origins'));
+
+  ['https://attacker.example/steal',
+   'https://app.velvetviking.co.uk.attacker.example/steal',
+   'https://attacker.example/?u=https://app.velvetviking.co.uk',
+   '//attacker.example', 'javascript:alert(1)', ''
+  ].forEach(bad => assert.equal(B.safeRedirect(bad, own), own[0] + B.ENTRY_PATH,
+    'anything not this deployment is discarded — ' + JSON.stringify(bad)));
+
+  assert.equal(B.safeRedirect(B.NATIVE_REDIRECT, own), B.NATIVE_REDIRECT,
+    'except the app’s own custom scheme');
+  assert.equal(B.safeRedirect('https://attacker.example', own).indexOf(own[0]), 0,
+    'and the fallback is this deployment, never the request');
 });
 
 // ---------------------------------------------------------------------------
@@ -381,14 +399,19 @@ test('7. an auto-seeded beta override outranks every commercial rule', () => {
     'beta and is the first thing supabase-commercial-activation.sql changes');
 });
 
-test('7. the signup trigger really does grant it unconditionally today', () => {
-  const sql = read('supabase-entitlement.sql');
-  const at = sql.indexOf('function public.seed_entitlement_for_new_user');
-  assert.ok(at !== -1, 'the trigger function must be findable');
-  const body = sql.slice(at, sql.indexOf('$$;', at));
-  assert.match(body, /override, override_note/, 'it writes an override');
-  assert.ok(!/beta_email_approved|is_beta_approved/.test(body),
-    'and asks nothing about who the account belongs to');
+test('7. no signup trigger grants access unconditionally any more', () => {
+  // This used to assert the OPPOSITE -- that the signup trigger granted an
+  // override without asking who the account belonged to. That was accurate
+  // while private beta was the only route in. Phase 3 opened a commercial
+  // front door, at which point an unconditional grant would have handed every
+  // arriving athlete permanent free access, so the trigger was retired.
+  const sql = read('supabase-entitlement.sql').replace(/--.*$/gm, ' ');
+  assert.equal(/create trigger seed_entitlement_on_signup/i.test(sql), false,
+    'a signup trigger writing an override is what the commercial gate cannot survive');
+  // What a new account DOES get is the Phase 1 row, and nothing else.
+  const core = read('supabase-commercial-core.sql');
+  assert.match(core, /create trigger seed_account_commercial_on_signup/);
+  assert.match(core, /NO TRIAL\. NO ENTITLEMENT\./);
 });
 
 test('7. cloud sync is beta-gated, so a customer who is not a tester cannot use it', () => {

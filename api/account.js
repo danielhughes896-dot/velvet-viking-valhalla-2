@@ -47,7 +47,11 @@ const ROUTES = {
      because the plan allows twelve and twelve are used -- and because this is
      what the router is for. The concern keeps its own module and its own
      tests, exactly like the three above. */
-  checkout:         require('./_checkout.js')
+  checkout:         require('./_checkout.js'),
+  /* Phase 3 commercial entry. Both mount here rather than as new functions --
+     the plan allows twelve and the router is what it is for. */
+  preview:          require('./_preview.js'),
+  trial:            require('./_trial.js')
 };
 
 /* Which resource is being asked for, resolved from the request rather than

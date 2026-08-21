@@ -77,7 +77,20 @@ const CONDITIONS = ['trialing', 'active', 'cancelled', 'past_due', 'expired', 'r
 /* Non-commercial entitlement sources. Both are administrative grants issued
    through the owner boundary; neither is a purchase and neither consumes the
    athlete's one introductory trial. */
-const GRANT_SOURCES = ['admin_beta', 'admin_comp'];
+/* Non-subscription entitlement sources.
+ *
+ * admin_beta and admin_comp are administrative grants issued through the owner
+ * boundary. Neither is a purchase and neither consumes the athlete's trial.
+ *
+ * 'trial' is different in kind and deliberately sits here rather than in
+ * subscriptions: it is customer-acquisition access with no provider behind it,
+ * so it has no provider_subscription_id and putting it in the subscriptions
+ * table would mean writing a fiction into the place reserved for real
+ * commercial relationships. It expires through the ordinary expires_at path,
+ * and the ONE-TIME allowance lives on account_commercial.trial_consumed_at --
+ * a grant that can be revoked and reissued must never be the thing that decides
+ * whether a trial was already used. */
+const GRANT_SOURCES = ['admin_beta', 'admin_comp', 'trial'];
 
 /* Why access is granted or refused. Product-facing, stable, and deliberately
    NOT one-per-provider-lifecycle-state -- there are more provider states than
