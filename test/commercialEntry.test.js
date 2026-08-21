@@ -4,7 +4,6 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const Preview = require('../api/_preview.js');
-const Trial = require('../api/_trial.js');
 const E = require('../api/_entitlement.js');
 const A = require('../api/_access.js');
 const P = require('../api/_products.js');
@@ -118,33 +117,44 @@ test('duplicate training days are de-duplicated, not counted twice', () => {
 });
 
 // ---------------------------------------------------------------------------
-// TRIAL ACTIVATION
+// THE COMMERCIAL DECISION
+//
+// The trial takes a payment method upfront and converts to the interval the
+// athlete chose, so there is no separate trial endpoint any more: Checkout
+// creates a real subscription with fourteen free days.
 // ---------------------------------------------------------------------------
-test('the trial endpoint reads nothing from the request body', () => {
-  // No account_id, no expiry, no product. The body being ignored is the point.
-  const src = read('api/_trial.js').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/.*$/gm, '$1 ');
-  assert.equal(/readBody|req\.body|body\./.test(src), false,
-    'the trial endpoint must not read the request body');
-  assert.match(src, /userIdFromRequest/, 'the account comes from the verified token');
-  assert.match(src, /p_account_id: uid/);
+test('the standalone trial endpoint is gone, not merely unrouted', () => {
+  assert.equal(fs.existsSync(path.join(ROOT, 'api/_trial.js')), false);
+  const vercel = JSON.parse(read('vercel.json'));
+  assert.equal(vercel.routes.filter((r) => /\/api\/trial/.test(r.src)).length, 0);
+  const account = read('api/account.js');
+  assert.equal(account.indexOf('_trial.js'), -1);
 });
 
-test('the trial duration comes from the offering, not from this file', () => {
-  const src = read('api/_trial.js');
-  assert.match(src, /p_trial_days: P\.TRIAL_DAYS/);
-  assert.equal(/p_trial_days: 14|= 14\b/.test(src), false, 'no second copy of the duration');
-  assert.equal(P.TRIAL_DAYS, 14);
+test('the entry surface makes the athlete choose an interval first', () => {
+  const html = read('start.html');
+  assert.match(html, /data-period="monthly"/);
+  assert.match(html, /data-period="yearly"/);
+  assert.match(html, /£11\.99/);
+  assert.match(html, /£89\.99/);
+  // And says what happens at the end of the fourteen days, for both.
+  assert.match(html, /After 14 days this becomes £11\.99 a month, unless you cancel/);
+  assert.match(html, /After 14 days this becomes £89\.99 a year, unless you cancel/);
+  assert.match(html, /A payment method is required to begin/);
 });
 
-test('only a started outcome is treated as success', () => {
-  assert.equal(Trial.OUTCOME.started.ok, true);
-  for (const k of Object.keys(Trial.OUTCOME)) {
-    if (k === 'started') continue;
-    assert.equal(Trial.OUTCOME[k].ok, false, k + ' must not be success');
-  }
-  // And an outcome the database invents that this file has not seen is a
-  // refusal, never a success.
-  assert.equal(Trial.OUTCOME.something_new, undefined);
+test('the entry surface starts a trial through Checkout, naming only a period', () => {
+  const html = read('start.html');
+  assert.match(html, /authed\('\/api\/checkout', \{ method:'POST', body: JSON\.stringify\(\{ period: period \}\) \}\)/);
+  assert.equal(html.indexOf('/api/trial'), -1, 'the card-free endpoint must not linger');
+  // No price, amount or Stripe identifier is ever sent from the browser.
+  assert.equal(/price_[A-Za-z0-9]|amount|priceMinor/.test(html), false);
+});
+
+test('a refused checkout says so truthfully and charges nothing', () => {
+  const html = read('start.html');
+  assert.match(html, /Subscriptions are not open yet\. Nothing has been charged\./);
+  assert.match(html, /You already have a subscription on this account\./);
 });
 
 // ---------------------------------------------------------------------------
@@ -204,7 +214,7 @@ test('the new routes cost no serverless functions', () => {
   const vercel = JSON.parse(read('vercel.json'));
   const srcs = vercel.routes.map((r) => r.src);
   assert.ok(srcs.indexOf('/api/preview') !== -1);
-  assert.ok(srcs.indexOf('/api/trial') !== -1);
+  assert.ok(srcs.indexOf('/api/checkout') !== -1);
   assert.ok(srcs.indexOf('/start') !== -1);
 });
 
@@ -228,11 +238,12 @@ test('the entry journey fabricates no paid state', () => {
   // matching it proves nothing about billing. What must be absent is a payment
   // ACTION while Stripe is inert.
   const html = read('start.html').replace(/<!--[\s\S]*?-->/g, ' ');
-  for (const rx of [/\bstripe\b/i, /\bcheckout\b/i, /\bsubscribe\b/i,
-                    /credit card/i, /\bpayment\b/i, /api\/checkout/]) {
-    assert.equal(rx.test(html), false, 'start.html offers a payment action: ' + rx);
-  }
-  // The only commercial action on the page is the card-free trial.
-  assert.match(html, /api\/trial/);
-  assert.equal(A.commerceEnabled(), false);
+  /* The trial now REQUIRES a payment method, so a payment path is correct and
+     expected here. What must still be true is that nothing is fabricated: the
+     page cannot name a price id, an amount or a Stripe object, and the server
+     refuses while commerce is disabled. */
+  assert.equal(/price_[A-Za-z0-9]{6,}|sk_live|sk_test|whsec_/.test(html), false,
+    'no Stripe identifier or secret may appear in the page');
+  assert.match(html, /Nothing has been charged/, 'a refusal must say so plainly');
+  assert.equal(A.commerceEnabled(), false, 'and the server still refuses');
 });

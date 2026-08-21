@@ -20,10 +20,17 @@ dependency shows up.
 | 5 | `supabase-retire-legacy-beta-autogrant.sql` | removes the signup auto-grant; refuses if anyone depends on it |
 | 6 | `supabase-trial-grant-source.sql` | `trial` grant source, `start_standard_trial()` |
 | 7 | `supabase-account-activity.sql` | `last_active_at`, `touch_last_active()`, `account_operational_state` |
+| 8 | `supabase-trial-via-provider.sql` | retires the card-free trial; founding-price and pause columns |
 
 Applied in this order against an empty database plus the Supabase substrate
-(`auth.users`, `auth.uid()`, `auth.jwt()`, the platform roles), all seven apply
+(`auth.users`, `auth.uid()`, `auth.jwt()`, the platform roles), all eight apply
 cleanly and are individually re-runnable.
+
+Files 6 and 8 are a pair worth reading together: 6 introduced a card-free trial
+as a third grant source, and 8 retires it after HQ moved the trial onto a real
+provider subscription. 6 is kept rather than edited away because an existing
+database has already run it, and a migration that quietly changes what it did
+last time is a migration nobody can reason about.
 
 ## Deployment parameters
 

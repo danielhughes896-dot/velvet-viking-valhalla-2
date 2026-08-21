@@ -50,8 +50,7 @@ const ROUTES = {
   checkout:         require('./_checkout.js'),
   /* Phase 3 commercial entry. Both mount here rather than as new functions --
      the plan allows twelve and the router is what it is for. */
-  preview:          require('./_preview.js'),
-  trial:            require('./_trial.js')
+  preview:          require('./_preview.js')
 };
 
 /* Which resource is being asked for, resolved from the request rather than

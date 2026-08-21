@@ -20,7 +20,6 @@
     { "src": "/api/subscription", "dest": "/api/account?resource=subscription" },
     { "src": "/api/checkout", "dest": "/api/account?resource=checkout" },
     { "src": "/api/preview", "dest": "/api/account?resource=preview" },
-    { "src": "/api/trial", "dest": "/api/account?resource=trial" },
     { "src": "/api/account-data", "dest": "/api/account?resource=account-data" },
     { "src": "/api/account-delete", "dest": "/api/account?resource=account-delete" },
 

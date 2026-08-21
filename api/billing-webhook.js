@@ -218,7 +218,14 @@ async function handleStripe(req, res, cfg){
     current_period_end: ev.period_end,
     cancel_at_period_end: !!ev.cancel_at_period_end,
     auto_renew: !ev.cancel_at_period_end,
-    provider_updated_at: ev.occurred_at
+    provider_updated_at: ev.occurred_at,
+    /* FOUNDING PRICE. What this athlete agreed to, recorded once at the start
+       of the relationship from the catalogue that sold it. Never billed from --
+       Stripe bills from its own price object -- but a catalogue change must not
+       be able to rewrite what somebody was told they would pay. */
+    agreed_price_minor: ev.agreed_price_minor,
+    agreed_currency: ev.agreed_currency,
+    catalogue_version: ev.catalogue_version
   });
   if (!up.ok){
     await Store.markBillingEventProcessed(S, cfg, {
@@ -230,7 +237,30 @@ async function handleStripe(req, res, cfg){
     return S.json(res, 503, { error: 'unavailable', code: 'SUBSCRIPTION_UNWRITABLE' });
   }
 
-  /* 4. Re-derive access from the canonical facts. Never computed here. */
+  /* 4. THE TRIAL ALLOWANCE IS SPENT HERE, AND ONLY HERE.
+   *
+   * Stamped when a provider tells us a trialing subscription EXISTS -- never
+   * when somebody opens Checkout. An athlete who reaches the payment screen and
+   * changes their mind has not used their trial, and a design that charged them
+   * for that decision would be indefensible.
+   *
+   * Conditional on trial_consumed_at being null, so a webhook replay or a
+   * second trialing event cannot move the timestamp forward and quietly extend
+   * the lifetime rule's reference point. */
+  if (ev.condition === 'trialing'){
+    await S.sb(cfg, '/rest/v1/account_commercial?account_id=eq.' +
+      encodeURIComponent(ev.account_id) + '&trial_consumed_at=is.null', {
+        method: 'PATCH',
+        prefer: 'return=minimal',
+        body: JSON.stringify({
+          trial_consumed_at: ev.trial_start || ev.occurred_at || new Date().toISOString(),
+          trial_consumed_provider: P.PROVIDER,
+          updated_at: new Date().toISOString()
+        })
+      });
+  }
+
+  /* 5. Re-derive access from the canonical facts. Never computed here. */
   const sync = await Store.syncEntitlementRow(S, cfg, ev.account_id);
 
   await Store.markBillingEventProcessed(S, cfg, {
