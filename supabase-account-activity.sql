@@ -84,6 +84,27 @@ grant execute on function public.touch_last_active(uuid) to postgres, service_ro
 -- so it cannot disagree with the tables it reads. No email, no name, no
 -- training data -- an account reference and its commercial state.
 --
+-- WHERE THE TRIAL COMES FROM. The subscriptions table, not entitlement_grants.
+-- This view once read a grant with source = 'trial', which was correct while
+-- the trial was card-free and had no provider behind it. HQ replaced that with
+-- a trial that takes a payment method upfront and converts automatically, so
+-- the trial IS a provider subscription in condition 'trialing' and the
+-- standalone grant source is gone. A view still looking for the grant would
+-- report every genuine trial as inactive -- not a stale label but a wrong
+-- number, on the one board that decides whether the product is working.
+--
+-- IT MIRRORS THE RESOLVER, DELIBERATELY. api/_entitlement.js grants a trialing
+-- subscription until trial_end, falling back to current_period_end for
+-- providers that express a trial as the first period. The same coalesce is
+-- written here so the board and the access decision cannot disagree. The two
+-- checks the resolver also makes -- a known provider, and product_code being
+-- the standard product -- are CHECK constraints on the table, so repeating
+-- them here would test the database against itself.
+--
+-- ADMIN GRANTS STAY WHERE THEY ARE. admin_beta and admin_comp are still
+-- entitlement_grants: they are the two remaining sources, they have no
+-- provider, and nothing about the trial change touches them.
+--
 -- SECURITY INVOKER (the default for a view): it is read with the service key by
 -- the server and is not exposed to anon or authenticated.
 -- ---------------------------------------------------------------------------
@@ -94,12 +115,26 @@ select
   ac.last_active_at,
   ac.trial_consumed_at,
   ac.trial_blocked_at,
-  (select g.expires_at from public.entitlement_grants g
-    where g.account_id = ac.account_id and g.source = 'trial'
-    order by g.created_at desc limit 1)                    as trial_ends_at,
-  exists (select 1 from public.entitlement_grants g
-           where g.account_id = ac.account_id and g.source = 'trial'
-             and g.revoked_at is null and g.expires_at > now())   as trial_active,
+  /* When the introductory period ends, or ended. max() ignores nulls, so a
+     converted subscription still reports the day its trial finished -- which is
+     the day it started earning -- and an account that never trialled reports
+     nothing rather than a zero date. Revoked rows are excluded because the
+     resolver says revocation outranks every timestamp on the row: a refunded
+     purchase whose trial_end is next week has no trial ending next week, and
+     reporting one would put a phantom renewal on the board. */
+  (select max(coalesce(s.trial_end,
+                       case when s.condition = 'trialing'
+                            then s.current_period_end end))
+     from public.subscriptions s
+    where s.account_id = ac.account_id
+      and s.condition <> 'revoked')                        as trial_ends_at,
+  /* EXISTS across every subscription, because the resolver grants if ANY
+     source grants. 'trialing' is a single value, so a revoked or expired row
+     cannot satisfy this however its dates read. */
+  exists (select 1 from public.subscriptions s
+           where s.account_id = ac.account_id
+             and s.condition = 'trialing'
+             and coalesce(s.trial_end, s.current_period_end) > now())  as trial_active,
   exists (select 1 from public.entitlement_grants g
            where g.account_id = ac.account_id and g.source in ('admin_beta','admin_comp')
              and g.revoked_at is null
