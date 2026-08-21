@@ -255,3 +255,97 @@ test('the boundary document describes the code as it is', () => {
   }
   assert.match(doc, /no unapproved store purchase flow is\s*\nenabled anywhere/);
 });
+
+// ===========================================================================
+// THE COMMISSIONING DOCUMENTS
+//
+// These are handed to a person who will act on them -- submit an application,
+// fill in a store form, configure a provider. A document that describes code
+// that has changed is worse than no document, because somebody will follow it.
+// ===========================================================================
+test('the environment inventory names every variable the code reads', () => {
+  const inv = read('ENVIRONMENT.md');
+  const dir = path.join(ROOT, 'api');
+  const names = new Set();
+  for (const f of fs.readdirSync(dir).filter(n => n.endsWith('.js'))){
+    const src = code(path.join('api', f));
+    for (const m of src.matchAll(/process\.env\.([A-Z][A-Z0-9_]+)/g)) names.add(m[1]);
+    for (const m of src.matchAll(/\benv\('([A-Z][A-Z0-9_]+)'\)/g)) names.add(m[1]);
+    for (const m of src.matchAll(/\be\.([A-Z][A-Z0-9_]{4,})\b/g)) names.add(m[1]);
+  }
+  const missing = [...names].filter(n => inv.indexOf(n) === -1).sort();
+  assert.deepEqual(missing, [], 'these variables are read by the code and undocumented');
+  // And no secret value was pasted into the inventory while writing it.
+  assert.equal(/sk_(live|test)_[A-Za-z0-9]{8,}|whsec_[A-Za-z0-9]{8,}|eyJ[A-Za-z0-9_-]{20,}/.test(inv),
+    false, 'the inventory carries something that looks like a credential');
+});
+
+test('the Garmin application describes the integration that exists', () => {
+  const doc = read('GARMIN-APPLICATION.md');
+  const garmin = code('api/_garmin.js');
+  // The consent guard it promises a reviewer.
+  assert.match(doc, /ingestGuard/);
+  assert.match(garmin, /async function ingestGuard/);
+  assert.match(garmin, /health_consent_required/);
+  // The switch, and the environment inventory that states its exact value.
+  assert.match(doc, /VVV_GARMIN_ENABLED/);
+  assert.match(read('ENVIRONMENT.md'), /Must be exactly `1`/);
+  assert.match(garmin, /VVV_GARMIN_ENABLED'\) === '1'/);
+  // The credential table must name what Garmin actually issues.
+  assert.match(doc, /VVV_GARMIN_CLIENT_ID/);
+  assert.match(doc, /VVV_GARMIN_CLIENT_SECRET/);
+  // Apple Health and Samsung Health are out of scope and must stay out.
+  assert.match(doc, /Apple Health and Samsung Health are explicitly out of scope/);
+  for (const f of fs.readdirSync(path.join(ROOT, 'api')).filter(n => n.endsWith('.js'))){
+    assert.equal(/HealthKit|Samsung ?Health|com\.samsung\.health/i.test(code(path.join('api', f))),
+      false, 'api/' + f + ' references an out-of-scope health platform');
+  }
+  assert.equal(/HealthKit|SamsungHealth/i.test(read('android/app/src/main/AndroidManifest.xml')), false);
+});
+
+test('the Android release document matches the manifest and the gradle build', () => {
+  const doc = read('ANDROID-RELEASE.md');
+  const manifest = read('android/app/src/main/AndroidManifest.xml');
+  const gradle = read('android/app/build.gradle');
+  assert.match(doc, /com\.velvetviking\.valhalla/);
+  assert.match(gradle, /applicationId "com\.velvetviking\.valhalla"/);
+  assert.match(doc, /`allowBackup=false`|allowBackup=false/);
+  assert.match(manifest, /android:allowBackup="false"/);
+  assert.match(doc, /INTERNET.*and nothing else|`INTERNET`, and nothing else/);
+  const perms = manifest.match(/uses-permission android:name="([^"]+)"/g) || [];
+  assert.deepEqual(perms, ['uses-permission android:name="android.permission.INTERNET"'],
+    'the document claims one permission; the manifest asks for more');
+  // The release-signing claim is the one that would ship a broken artifact.
+  assert.match(doc, /no fallback/);
+  assert.match(gradle, /signingConfig signingConfigs\.stable/);
+  assert.match(gradle, /throw new GradleException/);
+});
+
+test('the iOS document does not quietly create an iOS project', () => {
+  const doc = read('IOS-READINESS.md');
+  assert.match(doc, /post-Android track/);
+  assert.equal(fs.existsSync(path.join(ROOT, 'ios')), false,
+    'the document says the project is not generated yet');
+  assert.match(doc, /Apple Health and HealthKit are explicitly out of scope/);
+  const runtime = read('protected/velvet-viking-valhalla.html');
+  assert.equal(/HealthKit|Samsung ?Health/i.test(runtime), false);
+});
+
+test('the migration order names all eleven, and file 11 comes last', () => {
+  const full = read('SUPABASE-MIGRATIONS.md');
+  const doc = full.slice(full.indexOf('| # | File'), full.indexOf('## Deployment parameters'));
+  const order = ['supabase-setup.sql', 'supabase-beta-gate.sql', 'supabase-entitlement.sql',
+                 'supabase-commercial-core.sql', 'supabase-retire-legacy-beta-autogrant.sql',
+                 'supabase-trial-grant-source.sql', 'supabase-account-activity.sql',
+                 'supabase-trial-via-provider.sql',
+                 'supabase-operational-view-provider-trial.sql',
+                 'supabase-security-posture.sql', 'supabase-health-consent.sql'];
+  let at = -1;
+  for (const f of order){
+    const i = doc.indexOf(f);
+    assert.ok(i > at, f + ' must appear after the file it depends on');
+    at = i;
+  }
+  // Every numbered file exists.
+  for (const f of order) assert.ok(fs.existsSync(path.join(ROOT, f)), f + ' is named and missing');
+});
