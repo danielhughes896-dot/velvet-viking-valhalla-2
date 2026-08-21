@@ -185,8 +185,15 @@ const APP = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla
    sentence itself -- so the assertion stops describing the rendered markup and
    starts describing the prose next to it. Strip block comments first and the
    guards scan the strings that actually reach the screen. Only block comments:
-   `//` cannot be removed safely from a line that also contains a URL. */
-const markup = s => String(s).replace(/\/\*[^]*?\*\//g, '');
+   `//` cannot be removed safely from a line that also contains a URL.
+
+   The \uXXXX escapes are decoded for the same reason. This file keeps its
+   source ASCII, so an em-dash is spelt `—` on disk and rendered as `—`
+   in the browser; a guard reading the source sees the spelling, and copy
+   pinned as the words an athlete reads would never match it. */
+const markup = s => String(s)
+  .replace(/\/\*[^]*?\*\//g, '')
+  .replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
 
 test('DUPLICATE AUTH IS GONE from the builder gateway', () => {
   assert.doesNotMatch(APP, /Sign in or restore a plan/,
@@ -199,6 +206,32 @@ test('the gateway states its place in the journey', () => {
   assert.match(APP, /Step two of three/i, 'the gateway does not say where it is');
   assert.match(APP, /Build Your Training Block/);
   assert.match(APP, /Build My Plan/, 'the primary action is gone');
+});
+
+/* THE APPROVED WORDS, PINNED AS WORDS.
+
+   The gateway shipped with a paraphrase of this paragraph -- same meaning,
+   different sentence -- and the drift was only caught by a human reading the
+   screen against the approved copy. Copy that has been approved verbatim is
+   pinned verbatim, so the next paraphrase is caught by the suite instead.
+
+   It also happens to be the more honest sentence: "goal distance", "current
+   weekly mileage" and "a recent benchmark time" are the three inputs the
+   builder genuinely asks for (#f-volume is labelled "Current Weekly Volume",
+   and "Recent benchmark" is its own section), and a pace-zoned block is what
+   comes back. Each clause is checkable against the builder. */
+const APPROVED_GATEWAY_BODY =
+  'Pick a goal distance, your current weekly mileage and a recent benchmark ' +
+  'time — get a full pace-zoned training block for anything from a 5K ' +
+  'to a 50K ultra. An event is optional.';
+
+test('the approved gateway paragraph is rendered word for word', () => {
+  const fn = markup(/setup-cta setup-step[^]*?<\/div><\/div>';/.exec(APP)[0]);
+  assert.ok(fn.indexOf('<p>' + APPROVED_GATEWAY_BODY + '</p>') !== -1,
+    'the gateway paragraph has drifted from the approved copy');
+  ['Current Weekly Volume', 'Recent benchmark'].forEach(field =>
+    assert.match(APP, new RegExp(field),
+      'the paragraph promises an input the builder no longer asks for: ' + field));
 });
 
 test('the gateway makes the preview promise and no payment claim', () => {

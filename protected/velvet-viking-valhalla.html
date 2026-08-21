@@ -6251,7 +6251,11 @@ function renderHero(){
     return '<div class="hero hero-setup"><div class="setup-cta setup-step">'+
       '<p class="setup-eyebrow font-head">Step two of three</p>'+
       '<h2 class="font-display">Build Your Training Block</h2>'+
-      '<p>Tell Valhalla what you\u2019re training for, when you can run and where your fitness is now. Anything from a 5K to a 50K ultra \u2014 an event is optional.</p>'+
+      /* Names the three things the builder actually asks for -- goal distance,
+         "Current Weekly Volume", "Recent benchmark" -- rather than gesturing at
+         them, and states what comes back. Every clause is checkable against the
+         builder itself, which is the only reason it is allowed to promise. */
+      '<p>Pick a goal distance, your current weekly mileage and a recent benchmark time \u2014 get a full pace-zoned training block for anything from a 5K to a 50K ultra. An event is optional.</p>'+
       '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">'+ICONS.target+' Build My Plan</button>'+
       /* The preview promise, stated once. No payment language, and nothing
          implying the trial has begun -- it has not, and saying so here would
