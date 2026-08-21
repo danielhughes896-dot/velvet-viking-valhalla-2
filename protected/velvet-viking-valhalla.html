@@ -1475,6 +1475,30 @@
   .setup-cta h2{font-family:'Cinzel',serif; font-size:19px; margin:0 0 8px; color:var(--gold-text); text-transform:uppercase; letter-spacing:.03em;}
   .setup-cta p{font-size:12.5px; color:var(--ink-dim); line-height:1.55; margin:0 0 16px; max-width:44ch; margin-left:auto; margin-right:auto;}
 
+  /* STEP TWO OF THREE -- the same visual family as /start.
+     The dashed border and the gold wash were a standalone landing page's
+     decoration; a step in a journey is a step, not a poster. Solid hairline,
+     the page's own ground, and the eyebrow doing the work the box used to. */
+  .setup-cta.setup-step{
+    border:1px solid var(--line); background:var(--bg-2);
+    padding:30px 22px 26px; text-align:left; max-width:34rem; margin:14px auto;
+  }
+  .setup-step .setup-eyebrow{
+    font-size:var(--fs-label); letter-spacing:1.6px; text-transform:uppercase;
+    color:var(--ink-faint); margin:0 0 10px;
+  }
+  .setup-step h2{ font-size:23px; letter-spacing:.02em; margin:0 0 10px; }
+  .setup-step p{ margin-left:0; margin-right:0; max-width:none; }
+  /* The preview promise sits under the action, quieter than it and separated
+     by a hairline -- a reassurance, not a second instruction. */
+  .setup-step .setup-note{
+    font-size:var(--fs-support); color:var(--ink-faint); line-height:var(--lh-support);
+    margin:16px 0 0; padding-top:14px; border-top:1px solid var(--line-soft);
+  }
+  /* Recovery, only when there is something to recover. Ghost weight and last
+     in the box, so the build path stays the obvious default. */
+  .setup-step .setup-recover{ margin-top:14px; }
+
   /* The returning-athlete route, set below the primary action and separated by
      a rule so the page still reads as one decision with an obvious default. */
   .hero-return{ margin-top:18px; padding-top:16px; border-top:1px solid var(--line); }
@@ -6197,22 +6221,44 @@ function renderHero(){
   // brand-only topbar -- the old large circular crest is Today-view-only now
   // (renderTodayView() still renders it via the branch below, unchanged).
   if (!state.setup){
-    return '<div class="hero hero-setup"><div class="setup-cta">'+
+    /* STEP TWO OF THREE.
+
+       This screen was a standalone landing page from before the product had a
+       front door, and it carried its own sign-in route because nothing else
+       offered one. /start owns authentication and returning-athlete routing
+       now, and an athlete only reaches this screen having already been
+       resolved through it.
+
+       Two sign-in entry points is one too many. The second is the one nobody
+       maintains, and it is the one that sends an athlete back round a loop
+       they have just finished -- so the duplicate is gone, and what remains
+       says where in the journey this is. */
+    /* ONE THING THE REMOVAL MUST NOT TAKE WITH IT.
+
+       The bottom nav is hidden in both no-plan app states, so with the old
+       route gone this screen was the ONLY way to reach Restore a Plan without
+       a plan -- and the case that needs it is precisely a device that has one
+       parked: a second account signing in on a shared phone displaces the
+       first athlete's block, and they arrive back here with nothing loaded
+       and no way to ask for it.
+
+       So the recovery route survives, narrowed to when it is true.
+       recoverablePlans() is the same predicate the modal itself uses, so this
+       cannot offer a door onto an empty room. It is not a second sign-in: no
+       address field, no magic link, nothing that competes with /start. A new
+       athlete never sees it. */
+    var parked = recoverablePlans().length;
+    return '<div class="hero hero-setup"><div class="setup-cta setup-step">'+
+      '<p class="setup-eyebrow font-head">Step two of three</p>'+
       '<h2 class="font-display">Build Your Training Block</h2>'+
-      '<p>Pick a goal distance, your current weekly mileage and a recent benchmark time \u2014 get a full pace-zoned training block for anything from a 5K to a 50K ultra. An event is optional.</p>'+
+      '<p>Tell Valhalla what you\u2019re training for, when you can run and where your fitness is now. Anything from a 5K to a 50K ultra \u2014 an event is optional.</p>'+
       '<button type="button" class="btn btn-primary btn-block" data-action="open-setup">'+ICONS.target+' Build My Plan</button>'+
-      /* A returning athlete must not be funnelled into building over the top of
-         a plan they already have. This screen is also what an athlete sees
-         after signing out, after an account switch, and -- before the ownership
-         fix -- after deleting an account and signing back in, where their real
-         plan was sitting parked on the very same device. Building is the right
-         answer for a new athlete and the wrong one for everybody else, so the
-         other route is offered plainly rather than hidden in Settings. */
-      '<div class="hero-return">'+
-        '<div class="hero-return-q">Trained with Velvet Viking before?</div>'+
-        '<button type="button" class="btn btn-ghost btn-block" data-action="open-restore">'+
-          ICONS.link+' Sign in or restore a plan</button>'+
-      '</div>'+
+      /* The preview promise, stated once. No payment language, and nothing
+         implying the trial has begun -- it has not, and saying so here would
+         be the first dishonest sentence in the journey. */
+      '<p class="setup-note">We\u2019ll build the programme first. You\u2019ll see your personalised plan before your 14-day trial begins.</p>'+
+      (parked ? '<button type="button" class="btn btn-ghost btn-block setup-recover" '+
+        'data-action="open-restore">'+ICONS.link+' Restore a plan from this device</button>' : '')+
     '</div></div>';
   }
 
@@ -19590,8 +19636,10 @@ function renderCloudCard(){
       (st.hint ? '<br>'+escapeHtml(st.hint) : '')+'</div>'+
     body+
     /* The way back for an athlete whose plan is parked on this device, or in
-       an account they have not signed into yet. Also reachable from the
-       no-plan screen, which is where a returning athlete usually lands. */
+       an account they have not signed into yet. The no-plan screen offers the
+       same route, but only when this device actually holds a parked plan --
+       and that screen has no bottom nav, so this card is not reachable from
+       it. Both doors are needed; neither is a duplicate of the other. */
     '<button type="button" class="btn btn-ghost btn-block" style="margin-top:12px;" '+
       'data-action="open-restore">'+ICONS.link+' Restore a plan</button>'+
   '</div>';

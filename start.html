@@ -222,6 +222,30 @@
     catch(e){ location.hash = ''; }
     return p.access_token;
   }
+  /* GoTrue reports a refused link in the fragment (and sometimes the query) as
+     error / error_code / error_description. Mapped to one calm sentence per
+     cause, and stripped from the address bar with the same care the tokens
+     get -- error_description echoes back what was attempted. */
+  var AUTH_ERROR_COPY = {
+    otp_expired: 'That sign-in link has expired. Enter your email and we will send a fresh one.',
+    access_denied: 'That sign-in link has already been used. Enter your email for a new one.'
+  };
+  function consumeAuthError(){
+    var raw = (location.hash || '').replace(/^#/, '');
+    var q = (location.search || '').replace(/^\?/, '');
+    var src = raw.indexOf('error') !== -1 ? raw : (q.indexOf('error') !== -1 ? q : '');
+    if (!src) return null;
+    var p = {};
+    src.split('&').forEach(function(kv){
+      var i = kv.indexOf('='); if (i < 1) return;
+      p[decodeURIComponent(kv.slice(0, i))] = decodeURIComponent(kv.slice(i + 1).replace(/\+/g, ' '));
+    });
+    if (!p.error && !p.error_code) return null;
+    try{ history.replaceState(null, '', location.pathname); }catch(e){ location.hash = ''; }
+    return AUTH_ERROR_COPY[p.error_code] || AUTH_ERROR_COPY[p.error] ||
+           'That sign-in link did not work. Enter your email and we will send a fresh one.';
+  }
+
   function establish(tok){
     return fetch('/api/session', { method:'POST', credentials:'same-origin',
       headers:{ 'authorization':'Bearer ' + tok } })
@@ -260,8 +284,19 @@
   /* ---------- routing ----------
      The server is asked where this athlete stands; the page only reacts. */
   function route(){
+    /* A LINK THAT DID NOT WORK MUST SAY SO. GoTrue does not always come back
+       with tokens: an expired or already-used link returns error/error_code in
+       the same fragment. Before this, /start looked only for access_token,
+       found none, and showed the sign-in form as though the athlete had simply
+       arrived -- so the one person who needed an explanation got a blank form
+       and no idea why. */
+    var authErr = consumeAuthError();
     var tok = consumeAuthHash() || storedToken();
-    if (!tok){ show('pane-auth'); return; }
+    if (!tok){
+      show('pane-auth');
+      if (authErr) fail('auth-err', authErr);
+      return;
+    }
     within(10000, establish(tok)).then(function(r){
       var b = r.body || {};
       if (!b.signed_in){ show('pane-auth'); return; }

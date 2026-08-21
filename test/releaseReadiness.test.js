@@ -332,13 +332,31 @@ test('6. set, it wins over any header the request carried', () => {
   } finally { if (was === undefined) delete process.env.VVV_SITE_ORIGIN; else process.env.VVV_SITE_ORIGIN = was; }
 });
 
+/* This used to read safeRedirect's SOURCE for the spellings `indexOf(origin`
+   and `return origin`. It was checking that the function still looked the way
+   it looked, which is a different thing from checking what it guarantees --
+   and when the canonical-domain fix gave it a LIST of this deployment's
+   origins instead of a single one, the guarantee was untouched while every
+   spelling changed. So it is driven rather than read now: the same three
+   claims, asserted against what the function actually returns. */
 test('6. the redirect target is still confined to this deployment', () => {
-  const src = read('api/beta-signin.js');
-  const at = src.indexOf('function safeRedirect');
-  const body = src.slice(at, src.indexOf('\n}', at));
-  assert.match(body, /indexOf\(origin/, 'anything not this origin is discarded');
-  assert.match(body, /NATIVE_REDIRECT/, 'except the app’s own custom scheme');
-  assert.match(body, /return origin/, 'and the fallback is this deployment, never the request');
+  const B = require('../api/beta-signin.js');
+  const own = ['https://app.velvetviking.co.uk', 'https://vvv.vercel.app'];
+
+  own.forEach(o => assert.equal(B.safeRedirect(o + '/start', own), o + '/start',
+    'this deployment answers on both of its own origins'));
+
+  ['https://attacker.example/steal',
+   'https://app.velvetviking.co.uk.attacker.example/steal',
+   'https://attacker.example/?u=https://app.velvetviking.co.uk',
+   '//attacker.example', 'javascript:alert(1)', ''
+  ].forEach(bad => assert.equal(B.safeRedirect(bad, own), own[0] + B.ENTRY_PATH,
+    'anything not this deployment is discarded — ' + JSON.stringify(bad)));
+
+  assert.equal(B.safeRedirect(B.NATIVE_REDIRECT, own), B.NATIVE_REDIRECT,
+    'except the app’s own custom scheme');
+  assert.equal(B.safeRedirect('https://attacker.example', own).indexOf(own[0]), 0,
+    'and the fallback is this deployment, never the request');
 });
 
 // ---------------------------------------------------------------------------
