@@ -29,9 +29,17 @@ function engine(){
 hdr('17. PROGRAMME MATHEMATICS — every block, week by week');
 {
   const a = engine();
+  /* RECOVERY IS NOT IN THIS LIST, and its absence is the correction.
+     buildBlockWeeks() is only the middle third of what a recovery block is: the
+     volume the athlete actually gets comes from developmentBlockSpec(), which
+     multiplies by RECOVERY_PROFILE.volumeFactor (0.35-0.55 by distance), and
+     the intensity comes from applyRecoveryCeiling(), which is applied after the
+     days are laid out. Calling buildBlockWeeks alone reported a recovery block
+     at the athlete's full race volume with two quality sessions a week and a
+     15.4km long run -- none of which any athlete is ever prescribed. Section
+     17b below runs the real path end to end instead. */
   [['RACE GOAL', 'race', 'half', 12], ['MAINTAIN & PROTECT', 'maintain', 'half', 8],
-   ['AEROBIC BASE', 'base', 'half', 10], ['SPEED & THRESHOLD', 'speed', '5k', 6],
-   ['RECOVERY', 'recovery', 'half', 2]].forEach(([label, p, d, n]) => {
+   ['AEROBIC BASE', 'base', 'half', 10], ['SPEED & THRESHOLD', 'speed', '5k', 6]].forEach(([label, p, d, n]) => {
     const b = a.buildBlockWeeks(d, 55, n, { purpose: p, steady: p === 'maintain' });
     line('');
     line(label + '  (' + d + ', 55km/week start, ' + n + ' weeks)');
@@ -47,6 +55,30 @@ hdr('17. PROGRAMME MATHEMATICS — every block, week by week');
            String(a.round1(w.qKm + w.tKm)).padStart(9) + '   ' +
            String(w.longTarget).padStart(4) + '   ' + flags);
     });
+    /* DECOMPOSED, because the summed figure below is not a methodology finding
+       on its own. "Quality load up 49%" says nothing about whether the block is
+       aerobic development until it is put beside what the AEROBIC half of the
+       same block did -- which, in the base block, was +10%. */
+    {
+      const start = '2026-08-24';
+      const dys = a.buildDaysFromWeeks(b, a.addDays(start, n * 7 - 1),
+        { activeDays: [0, 1, 2, 4, 5], longRunDay: 5 }, start, false);
+      const QK = ['tempo', 'threshold', 'interval', 'repetition', 'checkpoint', 'race'];
+      const full = b.weeks.filter(w => !w.isCutback && !w.isTaper && !w.isRace);
+      const agg = w => {
+        const wd = dys.filter(x => x.week === w.week && x.type !== 'rest');
+        const sum = f => a.round1(wd.filter(f).reduce((s, x) => s + (x.km || 0), 0));
+        return { aer: sum(x => x.type === 'easy' || x.type === 'long'),
+                 q: sum(x => QK.indexOf(x.type) !== -1) };
+      };
+      if (full.length > 1){
+        const f = agg(full[0]), l = agg(full[full.length - 1]);
+        const pc = (x, y) => (x ? Math.round((y / x - 1) * 100) : 0) + '%';
+        line('  full weeks only, wk' + full[0].week + ' -> wk' + full[full.length - 1].week +
+             ':  aerobic ' + f.aer + ' -> ' + l.aer + ' (' + pc(f.aer, l.aer) + ')' +
+             '   quality ' + f.q + ' -> ' + l.q + ' (' + pc(f.q, l.q) + ')');
+      }
+    }
     const q = b.weeks.map(w => a.round1(w.qKm + w.tKm));
     const first = q.slice(0, Math.ceil(q.length / 3)).reduce((x, y) => x + y, 0);
     const last = q.slice(-Math.ceil(q.length / 3)).reduce((x, y) => x + y, 0);
@@ -55,6 +87,53 @@ hdr('17. PROGRAMME MATHEMATICS — every block, week by week');
     line('  long run as share of week: ' +
          [Math.min.apply(null, b.weeks.map(w => Math.round(w.longTarget / w.volume * 100))),
           Math.max.apply(null, b.weeks.map(w => Math.round(w.longTarget / w.volume * 100)))].join('–') + '%');
+  });
+}
+
+/* ---------------------------------------------------------------- *
+ * 17b. RECOVERY, THROUGH THE REAL PATH
+ * ---------------------------------------------------------------- */
+hdr('17b. RECOVERY — what the athlete is actually prescribed after a race');
+{
+  const QUAL = ['tempo', 'threshold', 'interval', 'repetition', 'checkpoint', 'race'];
+  [['5k', 40], ['10k', 45], ['half', 55], ['full', 60]].forEach(([dk, vol]) => {
+    const a = engine();
+    // A finished, fully logged race block, with the race yesterday.
+    buildPlan(a, { distanceKey: dk, volume: vol, weeks: 12,
+                   startDate: a.addDays(TODAY, -84), benchSec: 45 * 60 });
+    a.state.athlete = a.makeAthleteRecord();
+    a.state.setup.purpose = 'race';
+    const blk = a.openBlock({ purpose: 'race', startDate: a.state.setup.startDate, distanceKey: dk,
+                              goalDate: a.state.setup.raceDate, hasEvent: false,
+                              startVolume: vol });
+    a.state.setup.blockId = blk.id;
+    a.state.days.filter(d => d.date < TODAY && d.type !== 'rest')
+                .forEach(d => logAsPrescribed(a, d, { quality: 1 }));
+    a.state.setup.raceDate = a.addDays(TODAY, -1);
+    const dem = a.demonstratedSustainableVolume();
+    if (!a.startDevelopmentBlock('recovery', { raceDistanceKey: dk })){
+      line('');
+      line('RECOVERY AFTER ' + dk.toUpperCase() + ' — not generated');
+      return;
+    }
+    const days = a.state.days.filter(d => d.type !== 'rest');
+    const byWeek = {};
+    days.forEach(d => { (byWeek[d.week] = byWeek[d.week] || []).push(d); });
+    line('');
+    line('RECOVERY AFTER ' + dk.toUpperCase() + '  (race block from ' + vol + 'km/week)');
+    line('  demonstrated sustainable before it: ' + dem + 'km/week');
+    line('  prescribed recovery volume: ' + a.state.setup.currentVolume + 'km/week  (' +
+         Math.round(a.state.setup.currentVolume / dem * 100) + '% of demonstrated)');
+    line('  wk   totalKm   longest   qualityKm   sessions');
+    Object.keys(byWeek).sort((x, y) => x - y).forEach(w => {
+      const dd = byWeek[w];
+      const q = dd.filter(x => QUAL.indexOf(x.type) !== -1);
+      line('  ' + String(w).padStart(2) +
+           String(a.round1(dd.reduce((s2, x) => s2 + (x.km || 0), 0))).padStart(10) +
+           String(a.round1(Math.max.apply(null, dd.map(x => x.km || 0)))).padStart(10) +
+           String(a.round1(q.reduce((s2, x) => s2 + (x.km || 0), 0))).padStart(12) +
+           '   ' + dd.map(x => x.type + ' ' + x.km).join(', '));
+    });
   });
 }
 
@@ -119,7 +198,17 @@ hdr('18. REPETITION — what the athlete would actually meet');
 /* ---------------------------------------------------------------- *
  * 19. MULTI-YEAR SIMULATION
  * ---------------------------------------------------------------- */
-hdr('19. MULTI-YEAR SIMULATION — does volume converge?');
+hdr('19. MULTI-YEAR SIMULATION — the arithmetic bound, with no athlete in it');
+line('');
+line('  WHAT THIS DOES AND DOES NOT EXERCISE. It calls buildBlockWeeks() in a loop');
+line('  with no block ledger, no state.days and no logged sessions, so it measures');
+line('  ONE thing: can the volume arithmetic run away. It cannot see the');
+line('  progression gate at all -- progressionJustification() reads the block that');
+line('  just ended, and no block ends here -- so every athlete below grows');
+line('  identically and every column converges on the backstop. That convergence is');
+line('  the arithmetic bound holding, not a programme an athlete would be given.');
+line('  For what five different athletes are actually prescribed, run');
+line('  tools/shots/trajectories.js.');
 {
   const median = v => { const s = v.slice().sort((x, y) => x - y); const m = s.length >> 1;
     return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2 * 10) / 10; };

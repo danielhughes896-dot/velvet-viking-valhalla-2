@@ -2422,6 +2422,11 @@ var BASE_PHASE_SPLIT = 0.70;   // fraction of an aerobic base block spent in Bas
    for a marathon build"; it is the wrong question for a block with no race in
    it, and on the half profile it ramped a ten-week base block by 55%. */
 var BASE_VOLUME_MULT = 1.25;
+/* How far up each quality structure's own dimension range an aerobic base block
+   is allowed to travel. See the note at the `pos` assignment in
+   buildBlockWeeks: this is what keeps a base block's quality growing at the
+   pace of its aerobic work rather than at a race build's pace. */
+var BASE_QUALITY_POS_MAX = 0.5;
 var SPEED_CONSOLIDATION_WEEKS = 1;
 /* And that week is a CONSOLIDATION rather than a taper. A marathon taper sheds
    half the week's volume because the athlete needs two weeks of accumulated
@@ -2654,13 +2659,217 @@ function volumeCeilingFor(distKey){
   if (!dem) return backstop;
   return round1(Math.min(Math.max(dem, backstop), backstop * CEILING_MAX_OVER_BACKSTOP));
 }
-/* The start of a new block. Bounded by what the athlete has demonstrated
-   rather than by what the last block prescribed -- which is the whole
-   difference between learning from training and inheriting a number. */
+/* =========================================================
+   PERMISSION IS NOT A REASON
+   ---------------------------------------------------------
+   The ceiling above answers "how much is this athlete ALLOWED to run". It is a
+   safety limit and it is the wrong question to build a programme on, because a
+   limit says nothing about whether more training is the right prescription
+   today. Asked only that question, the generator answered it the only way it
+   could: yes, a little more, every block, forever.
+
+   THE RATCHET THAT SURVIVED THE CEILING, and why the ceiling did not catch it.
+   A block's start used to be absorbedWeeklyVolume() -- the MEDIAN completed
+   week of the block just finished -- capped at demonstrated x 1.10. The cap
+   never fired. The median of a ramped block always sits BELOW its third-highest
+   week, so `min(median, demonstrated x 1.10)` is the median, in every block of
+   every cycle. The guard was live code that could not bind.
+
+   What actually drove growth was the ramp feeding its own next start:
+
+     start 50  ->  peak 50 x 1.55 = 77.5  ->  median 58.1  ->  start 58.1
+
+   +16% per block, from nothing but the SHAPE of the block. Five blocks a year,
+   three of which multiply. The athlete supplied no evidence, asked for nothing
+   and demonstrated nothing new; they simply completed what they were given, and
+   completing it was read as a reason to be given more. Every column of the
+   five-year simulation converged on the global backstop, which turned a safety
+   limit into the destination.
+
+   THE RULE NOW HAS THREE SEPARATE PARTS AND THEY ARE NOT INTERCHANGEABLE:
+
+     REASON      progressionJustification() -- an affirmative, deterministic
+                 coaching finding that MORE is the right prescription. Without
+                 it a block starts exactly where the last one started.
+     PERMISSION  demonstrated sustainable volume. It can only ever hold the
+                 answer DOWN. It is never the anchor, because it is computed
+                 from the prescription and anything computed from the
+                 prescription can be walked upward by the prescription.
+     LIMIT       the backstop ceiling. Neither a target nor a plan.
+
+   THE ANCHOR IS THE PREVIOUS BLOCK'S PRESCRIBED START, not what its ramp
+   produced. That is the one quantity in the loop the ramp cannot inflate, and
+   choosing it is what turns a feedback loop into a step function. */
+
+/* One block's adaptation above what the athlete has actually held. A peak week
+   is temporary and is MEANT to exceed habitual volume -- that is what a build
+   is -- but it is not meant to exceed it by half. profile.volMult answers "what
+   does a peak marathon week look like relative to the start of a build", and
+   applied to a start that is already the athlete's ceiling it produced 105km/wk
+   for an athlete who had never held more than 60. Demonstrated capacity now
+   bounds the top of the ramp as well as the bottom. */
+var PEAK_OVER_DEMONSTRATED = 1.30;
+/* How much of the last twelve prescribed sessions must have been run, and run
+   close to their prescription, before more training is the right answer. Both
+   read the tiers the escalation layer already computes, so there is one
+   definition of "this is going well" in the product rather than two. */
+var PROGRESSION_TIERS_ALLOWED = ['isolated'];
+
+/* ---------- the anchor is a LEVEL, not a prescription ----------
+   Recovery opens at half the athlete's volume and maintenance at three
+   quarters, on purpose. Those are deliberate reductions, and anchoring the next
+   block to one of them walks the athlete DOWN as surely as anchoring to a ramp
+   walked them up -- a first version of this rule did exactly that, and three
+   simulated years of perfect compliance ended at 20km/week.
+
+   So the ledger records the DEVELOPMENT LEVEL each block was computed from,
+   before its purpose scaled it. Every block scales down from that level; only a
+   development block can move it up. */
+function previousBlockAnchorVolume(){
+  var blocks = ((state && state.athlete && state.athlete.blocks) || [])
+    .filter(function(b){ return b && b.anchorVolume > 0; });
+  if (!blocks.length) return null;
+  return blocks[blocks.length - 1].anchorVolume;
+}
+function previousBlockPeakVolume(){
+  var blocks = ((state && state.athlete && state.athlete.blocks) || [])
+    .filter(function(b){ return b && b.peakVolume > 0; });
+  if (!blocks.length) return null;
+  return blocks[blocks.length - 1].peakVolume;
+}
+/* THE BIGGEST WEEK A BLOCK ACTUALLY SCHEDULED, which is not blockResult
+   .peakVolume. That figure is the top of the arithmetic ramp; the week the
+   athlete is really given is what survives distributeWeekVolume() and
+   capWeeklyVolume(), and on a low-frequency week or a distance with a tight
+   long-run cap it lands materially lower -- a 5K block asked for 78km/week
+   schedules about 55, because five days and a 12km long-run cap cannot hold
+   it. Judging "did the athlete reach the top of the last block" against a
+   number the generator never wrote would fail an athlete who ran every metre
+   they were given. */
+function largestScheduledWeek(days){
+  var byWeek = {};
+  (days || []).forEach(function(dd){
+    if (!dd || dd.type === 'rest') return;
+    byWeek[dd.week] = (byWeek[dd.week] || 0) + (dd.km || 0);
+  });
+  var best = 0;
+  Object.keys(byWeek).forEach(function(k){ if (byWeek[k] > best) best = byWeek[k]; });
+  return best > 0 ? round1(best) : null;
+}
+/* The block the justification below is judging: the most recent one that has
+   ended. A block still open is the one being replaced. */
+function lastRecordedBlock(){
+  var blocks = (state && state.athlete && state.athlete.blocks) || [];
+  return blocks.length ? blocks[blocks.length - 1] : null;
+}
+/* Blocks in which progression can be earned at all. Recovery reduces training
+   and maintenance holds it; completing either says nothing about whether more
+   training is now the right prescription, and treating it as evidence would
+   let an athlete earn a step up by recovering from a race. */
+var PROGRESSION_EARNING_PURPOSES = ['race', 'base', 'speed'];
+
+/* ---------- the coaching reason, stated so it can be read back ----------
+   Deterministic and explainable: every gate is a fact about training the
+   athlete can check, and the function returns the sentence rather than only
+   the verdict, so "why is my volume the same as last block" has an answer.
+
+   NOTHING HERE READS COVERED HEALTH DATA, and that is a constraint rather than
+   a coincidence. missPattern() reads completion, executionPattern() reads
+   execution scores (which are computed from distance and pace, and redistribute
+   the weight of heart rate and effort when either is absent), and
+   demonstratedSustainableVolume() reads completed distance. An athlete who has
+   declined health-data consent earns progression on exactly the same evidence
+   as one who has granted it -- see test/learningWithoutHealthData.test.js. */
+function progressionJustification(){
+  var dem = demonstratedSustainableVolume();
+  var out = { earned:false, reason:null, blockedBy:null,
+              demonstrated:dem, missTier:null, executionTier:null, reachedPeak:null };
+  if (!dem){
+    out.blockedBy = 'no_capacity';
+    out.reason = 'There is not yet enough completed training to say what you hold, so this block starts where the last one did.';
+    return out;
+  }
+  var last = lastRecordedBlock();
+  out.lastPurpose = last ? last.purpose : null;
+  if (last && PROGRESSION_EARNING_PURPOSES.indexOf(last.purpose) === -1){
+    out.blockedBy = 'not_a_development_block';
+    out.reason = (last.purpose === 'recovery'
+      ? 'You have been recovering, which is not training you build on top of'
+      : 'The last block held your fitness rather than building it') +
+      ', so this one starts at the same level.';
+    return out;
+  }
+  if (!(previousBlockAnchorVolume() > 0)){
+    out.blockedBy = 'no_previous_block';
+    out.reason = 'This is the first block on record, so it starts at the volume you are running now.';
+    return out;
+  }
+  var miss = null, exec = null;
+  try { miss = missPattern(); } catch (e) { miss = null; }
+  try { exec = executionPattern(); } catch (e) { exec = null; }
+  out.missTier = miss ? miss.tier : null;
+  out.executionTier = exec ? exec.tier : null;
+
+  if (miss && PROGRESSION_TIERS_ALLOWED.indexOf(miss.tier) === -1){
+    out.blockedBy = 'missed_sessions';
+    out.reason = 'Sessions have been going unrun, so the next block holds its volume rather than adding to it.';
+    return out;
+  }
+  if (exec && PROGRESSION_TIERS_ALLOWED.indexOf(exec.tier) === -1){
+    out.blockedBy = 'execution';
+    out.reason = 'Recent quality sessions have not been landing on their prescription, so the next block holds its volume rather than adding to it.';
+    return out;
+  }
+  /* THE GATE THAT SEPARATES CAPACITY FROM COMPLIANCE. An athlete can complete
+     every session of a block they were never stretched by -- a maintenance
+     block, or a block whose peak they never reached because it was cut short.
+     Completing training is not evidence that the training was demanding; only
+     having actually reached the top of the last ramp is. */
+  var prevPeak = previousBlockPeakVolume();
+  if (prevPeak){
+    var best = weeklyCompletedVolumes()
+      .filter(function(w){ return w.week >= addDays(todayStr(), -7 * 16); })
+      .reduce(function(m, w){ return Math.max(m, w.km); }, 0);
+    out.reachedPeak = round1(best);
+    if (best < prevPeak * 0.95){
+      out.blockedBy = 'peak_not_reached';
+      out.reason = 'The last block peaked at ' + round1(prevPeak) + 'km and your biggest week was ' +
+                   round1(best) + 'km, so there is nothing yet to build on top of.';
+      return out;
+    }
+  }
+  out.earned = true;
+  out.reason = 'You ran the last block as prescribed and it landed, so this one starts a step above it.';
+  return out;
+}
+
+/* The start of a new block. `base` is what the athlete has recently been
+   running -- absorbed, or their stated figure on a first block -- and is a
+   CEILING on the answer rather than the answer: a block never opens above what
+   the athlete is currently doing. */
 function cappedBlockStartVolume(base, distKey){
   if (!(base > 0)) return base;
-  var out = base;
   var dem = demonstratedSustainableVolume();
+  var prev = previousBlockAnchorVolume();
+  /* Anchored to the recorded development LEVEL. `base` -- what the athlete has
+     recently been absorbing -- is only the fallback for a first block, because
+     it is an output of the last prescription and anything computed from the
+     prescription can be walked by the prescription.
+
+     NOTHING HERE BRINGS AN ATHLETE DOWN, and nothing needs to: demonstrated
+     sustainable volume is the third-highest completed week across a rolling
+     year, so an athlete who stops running has that number fall underneath them
+     and the permission clause below does the work. A prescribed reduction is
+     not the athlete dropping their training and must not read as one. */
+  /* WITH NO RECORDED BLOCK THERE IS NOTHING TO STEP ABOVE. A first block, a
+     legacy block from before the ledger carried these figures, and an athlete
+     returning after a layoff all land here, and all three want the same answer:
+     what they are actually running now. Growing that figure would ramp an
+     athlete coming back from illness on the strength of a capacity they held
+     before it. */
+  var out = (prev > 0)
+    ? (progressionJustification().earned ? prev * VOLUME_BLOCK_GROWTH_CAP : prev)
+    : base;
   if (dem) out = Math.min(out, round1(dem * VOLUME_BLOCK_GROWTH_CAP));
   return round1(Math.min(out, volumeCeilingFor(distKey)));
 }
@@ -2710,6 +2919,18 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      (see blockArcFor); a race block keeps the profile's. */
   var volMult = steady ? 1 : (arc.volumeMult != null ? arc.volumeMult : profile.volMult);
   var peakVolume = Math.min(currentVolume * volMult, ceiling);
+  /* AND THE PEAK IS BOUNDED BY CAPACITY TOO, which it was not. The start cap
+     alone left the multiplier free: an athlete whose demonstrated capacity was
+     60km/week opened a marathon block at 60 and was prescribed a peak of 105 --
+     75% above anything they had ever held, every block, forever, because the
+     backstop for `full` is 170 and never bound. They then fell short of the top
+     of every ramp and the shortfall read as a plateau rather than as the
+     programme asking for more than the evidence supported.
+
+     Null until there is a demonstrated figure, so a first block is unchanged
+     and the preview builders -- which run with no athlete at all -- are too. */
+  var demForPeak = demonstratedSustainableVolume();
+  if (demForPeak) peakVolume = Math.min(peakVolume, round1(demForPeak * PEAK_OVER_DEMONSTRATED));
   /* A start above the ceiling would otherwise ramp DOWNWARD across the block
      and read as a taper the athlete never asked for. */
   if (currentVolume > peakVolume) currentVolume = peakVolume;
@@ -2773,6 +2994,47 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        is varied without being progressive. */
     var pos = steady ? MAINTAIN_POS_CYCLE[(w - 1) % MAINTAIN_POS_CYCLE.length]
                      : (buildWeeks>1 ? (Math.min(w,buildWeeks)-1)/(buildWeeks-1) : 0);
+    /* AN AEROBIC BASE BLOCK PROGRESSES ITS AEROBIC WORK, and it was progressing
+       the other half instead. Decomposed into sessions, a ten-week base block
+       moved its easy-plus-long running by +10% across its non-cutback weeks and
+       its quality by +50% -- five times faster, in the block whose stated
+       purpose is "build sustainable running capacity". Quality's share of the
+       week climbed from 26% to 36%, which is a race build's proportion.
+
+       The cause is this line, and it is the same mechanism §2 removed from
+       maintenance: `pos` is progress through the build, every structure lerps
+       its dimensions across it, and in a base block buildWeeks is the whole
+       block, so every structure ran its full range. The weekly volume moving on
+       1.25 rather than 1.55 disguised it -- the number on the card grew slowly
+       while the session written on it grew fast.
+
+       BOUNDED, NOT REMOVED. A base block should progress; the constraint is
+       that its quality must not outpace the aerobic development it exists for.
+       Half a structure's range across ten weeks moves quality by roughly the
+       same proportion as BASE_VOLUME_MULT moves the week, so the two halves of
+       the block now grow together. Nothing else changes: the same pools, the
+       same structures in the same weeks, the same rotation.
+
+       THE COST, MEASURED AND NOT HIDDEN. Halving the range a block travels also
+       halves the number of distinct DOSES inside it: weeks 1 and 3 now round to
+       the same fartlek, and a base block that was 10 distinct quality sessions
+       out of 10 is 8. A three-value undulation of the kind maintenance uses was
+       tried and did not recover it -- the rounding granularity of a rep count
+       is coarser than the wave. The structures still alternate week to week,
+       consecutive blocks still differ, and a base block repeating one fartlek
+       dose three weeks apart is ordinary base training rather than a fault. The
+       real remedy is a wider Base structure pool, which is a methodology
+       decision and not a quiet edit -- the same conclusion §4 reached about the
+       same two-candidate pools. */
+    if (purpose === 'base') pos = pos * BASE_QUALITY_POS_MAX;
+    /* AND A RECOVERY BLOCK NEVER SIZES A SESSION AT THE TOP OF ITS RANGE.
+       applyRecoveryCeiling() turns these into easy running anyway, so this
+       changes nothing an athlete sees today -- which is exactly why it is worth
+       having. It is the second lock on the same door: if a quality session ever
+       reaches an athlete inside a recovery block, through a path nobody has
+       thought of yet, it is the smallest version of itself rather than the
+       largest. Depth in a safety rule costs nothing here. */
+    if (purpose === 'recovery') pos = 0;
     var qSpec = pickQualityStructure(INTERVAL_STRUCTURE_POOL, structPhase, w, pos, profile.emphasis, rotation);
     var tSpec = pickQualityStructure(TEMPO_STRUCTURE_POOL, structPhase, w, pos, profile.emphasis, rotation);
     // Taper shrinks the STRUCTURE, then the day is sized from that structure --
@@ -11000,6 +11262,14 @@ function openBlock(opts){
     hasEvent: o.hasEvent !== false,
     status: 'active',
     outcome: null,
+    /* WHAT THIS BLOCK PRESCRIBED, recorded because the next block is anchored
+       to it. The start is the one number in the volume loop that the block's
+       own ramp cannot inflate; the peak is what "did the athlete reach the top
+       of the last block" is measured against. Null on a block opened before
+       this existed, and every reader falls back rather than assuming. */
+    startVolume: o.startVolume > 0 ? round1(o.startVolume) : null,
+    peakVolume: o.peakVolume > 0 ? round1(o.peakVolume) : null,
+    anchorVolume: o.anchorVolume > 0 ? round1(o.anchorVolume) : null,
     openedAt: new Date().toISOString()
   };
   athlete().blocks.push(b);
@@ -11208,6 +11478,7 @@ function developmentBlockSpec(purpose, opts){
     var rp = recoveryProfileFor(o.raceDistanceKey || lastDistance);
     return { purpose:'recovery', weeks: rp.weeks, distanceKey: lastDistance,
              volume: base ? Math.round(base * rp.volumeFactor) : null,
+             anchorVolume: base,
              noIntensityDays: rp.noIntensityDays, volumeSource: absorbed.source };
   }
   if (purpose === 'maintain'){
@@ -11218,7 +11489,8 @@ function developmentBlockSpec(purpose, opts){
        a review point, not a limit: Next Move asks what is next rather than
        the block simply stopping. */
     return { purpose:'maintain', weeks: o.weeks || 8, distanceKey: lastDistance,
-             volume: base ? Math.round(base * 0.75) : null, volumeSource: absorbed.source };
+             volume: base ? Math.round(base * 0.75) : null,
+             anchorVolume: base, volumeSource: absorbed.source };
   }
   if (purpose === 'base'){
     /* Starts at what was absorbed, not above it. The generator's own
@@ -11227,14 +11499,14 @@ function developmentBlockSpec(purpose, opts){
        whether the athlete absorbed the last block, which loadToleranceModel()
        already answers. */
     return { purpose:'base', weeks: o.weeks || 10, distanceKey: lastDistance,
-             volume: base, volumeSource: absorbed.source };
+             volume: base, anchorVolume: base, volumeSource: absorbed.source };
   }
   if (purpose === 'speed'){
     /* The 5K profile already carries emphasis:'speed' and the block name
        "Speed & Threshold Block". Reusing it means no new intensity
        methodology is written for this programme at all. */
     return { purpose:'speed', weeks: o.weeks || 6, distanceKey: '5k',
-             volume: base, volumeSource: absorbed.source };
+             volume: base, anchorVolume: base, volumeSource: absorbed.source };
   }
   return null;
 }
@@ -11250,7 +11522,28 @@ function developmentBlockSpec(purpose, opts){
    and that is precisely the intervention the product must not make. */
 var RECOVERY_QUALITY_TYPES = ['tempo','threshold','interval','repetition','checkpoint','race'];
 function applyRecoveryCeiling(days, raceDate, noIntensityDays){
+  /* THE WINDOW AND THE BLOCK ARE MEASURED IN DIFFERENT UNITS, and the gap
+     between them was a hole.
+
+     noIntensityDays counts DAYS FROM THE RACE. The block is a whole number of
+     calendar WEEKS from the Monday after it. Those are never the same length:
+     a two-week half-marathon recovery block runs fourteen days from its Monday
+     against a ten-day window, and one to four days at the end of every recovery
+     block sat outside the ceiling. Whether a quality session landed on one of
+     them depended on which weekdays the generator had picked for quality --
+     which is luck, and a safety rule may not rest on luck.
+
+     It surfaced with a half-marathon on a Saturday: a 25-minute steady tempo
+     eleven days after the race, inside a block called Recovery. Worse, it was
+     the LONGEST steady tempo the product writes -- a two-week block has
+     buildWeeks of two, so `pos` ran 0 to 1 and the one session that escaped the
+     ceiling was the top of its own range.
+
+     A recovery block is recovery for its whole length. The window still sets
+     the FLOOR -- it is the deterministic post-race rule and nothing shortens it
+     -- and the block's own last day now sets the rest. */
   var until = addDays(raceDate, noIntensityDays);
+  (days || []).forEach(function(dd){ if (dd && dd.date > until) until = dd.date; });
   (days || []).forEach(function(dd){
     if (dd.date > until) return;
     if (RECOVERY_QUALITY_TYPES.indexOf(dd.type) === -1) return;
@@ -11429,7 +11722,9 @@ function startDevelopmentBlock(purpose, opts){
      week-zero shape the history-placement fix removed. */
 
   var block = openBlock({ purpose: purpose, startDate: startDate,
-                          distanceKey: spec.distanceKey, goalDate: goalDate, hasEvent: false });
+                          distanceKey: spec.distanceKey, goalDate: goalDate, hasEvent: false,
+                          startVolume: spec.volume, peakVolume: largestScheduledWeek(days),
+                          anchorVolume: spec.anchorVolume });
   block.fromBlockId = prevBlockId || null;
   block.volumeSource = spec.volumeSource;
 
@@ -20031,12 +20326,19 @@ function handleGeneratePlan(){
   var block = rebuilding ? blockById(state.setup.blockId)
                          : openBlock({ purpose: purpose, startDate: startDate,
                                        distanceKey: distanceKey, goalDate: raceDate,
-                                       hasEvent: hasEvent });
+                                       hasEvent: hasEvent,
+                                       startVolume: volume, peakVolume: largestScheduledWeek(days),
+                                       anchorVolume: volume });
   if (purposeChanged) block.fromBlockId = priorBlock ? priorBlock.id : null;
   if (rebuilding){
     block.distanceKey = distanceKey;
     block.goalDate = raceDate;
     block.hasEvent = hasEvent;
+    // A rebuild replaces the prescription, so the figures the NEXT block is
+    // anchored to are the new ones, not the ones this block opened with.
+    block.startVolume = round1(volume);
+    block.peakVolume = largestScheduledWeek(days);
+    block.anchorVolume = round1(volume);
   }
 
   state.setup = {

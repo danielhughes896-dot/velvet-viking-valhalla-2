@@ -1,0 +1,95 @@
+
+=== COMPLIANT / IMPROVING  (half, 50km/wk stated, 3 years) ===
+ yr purpose    start   peak   ran/planned  biggestWk  demonstrated  progression
+ 1  race          50     78        61/61         78          68.5   held: no_capacity
+ 1  recovery      28   28.5        10/10       28.5          68.5   EARNED
+ 1  maintain      41     42        40/40         42          68.5   held: not_a_development_block
+ 1  base          55   68.5        50/50       68.5          68.5   held: not_a_development_block
+ 1  speed       60.5   55.5        31/31       55.5          68.5   EARNED
+ 2  race        66.6     80        61/61         80            79   EARNED
+ 2  recovery      37     37        10/10         37            79   EARNED
+ 2  maintain      55   55.5        40/40       55.5            79   held: not_a_development_block
+ 2  base        73.3   76.5        50/50       76.5            79   held: not_a_development_block
+ 2  speed       80.6   55.5        31/31       55.5            79   EARNED
+ 3  race        86.9     85        61/61         85            80   EARNED
+ 3  recovery      44     44        10/10         44            80   EARNED
+ 3  maintain      66   67.5        40/40       67.5            80   held: not_a_development_block
+ 3  base          88   77.5        50/50       77.5            79   held: not_a_development_block
+ 3  speed       86.9     55        31/31         55            79   EARNED
+  peak volume year 1 -> year 3: 78 -> 85   ceiling 140   final demonstrated 79
+
+=== COMPLIANT / STABLE  (half, 50km/wk stated, 3 years) ===
+ yr purpose    start   peak   ran/planned  biggestWk  demonstrated  progression
+ 1  race          50     78        50/61       49.5          47.2   held: no_capacity
+ 1  recovery      25   25.5        10/10       25.5          47.2   held: peak_not_reached
+ 1  maintain      38     39        40/40         39          47.2   held: not_a_development_block
+ 1  base          50   61.5        43/50       49.5            49   held: not_a_development_block
+ 1  speed         50   55.5        28/31         50          49.5   held: peak_not_reached
+ 2  race          50     64        54/61       49.5          49.5   held: peak_not_reached
+ 2  recovery      25   25.5        10/10       25.5          49.5   held: peak_not_reached
+ 2  maintain      38     39        40/40         39          49.5   held: not_a_development_block
+ 2  base          50     61        43/50       49.5          49.5   held: not_a_development_block
+ 2  speed         50   55.5        28/31       47.5          49.5   held: peak_not_reached
+ 3  race          50     65        54/61         49          49.5   held: peak_not_reached
+ 3  recovery      25   25.5        10/10       25.5            49   held: peak_not_reached
+ 3  maintain      38     39        40/40         39            49   held: not_a_development_block
+ 3  base          50   61.5        43/50         50            49   held: not_a_development_block
+ 3  speed         50     55        28/31         50          49.5   held: peak_not_reached
+  peak volume year 1 -> year 3: 78 -> 65   ceiling 140   final demonstrated 49.5
+
+=== COMPLIANT / STRUGGLING  (half, 50km/wk stated, 3 years) ===
+ yr purpose    start   peak   ran/planned  biggestWk  demonstrated  progression
+ 1  race          50     78        61/61       54.5            48   held: no_capacity
+ 1  recovery      25   25.5        10/10       17.8            48   held: execution
+ 1  maintain      38     39        40/40       27.4            48   held: not_a_development_block
+ 1  base          50   61.5        50/50         43            48   held: not_a_development_block
+ 1  speed         50   55.5        31/31       38.8            48   held: execution
+ 2  race          50     63        61/61       44.2            48   held: execution
+ 2  recovery      25   25.5        10/10       17.8            48   held: execution
+ 2  maintain      38     39        40/40       27.5            43   held: not_a_development_block
+ 2  base        47.3     58        50/50       40.7          42.4   held: not_a_development_block
+ 2  speed       46.6   55.5        31/31       38.8          42.4   held: execution
+ 3  race        46.6   54.5        61/61       38.1          40.7   held: execution
+ 3  recovery      22   22.5        10/10       15.8          40.7   held: execution
+ 3  maintain      34     35        40/40       24.6          39.5   held: not_a_development_block
+ 3  base        43.5   53.5        50/50       37.5          38.8   held: not_a_development_block
+ 3  speed       42.7     53        31/31       37.1          38.8   held: execution
+  peak volume year 1 -> year 3: 78 -> 54.5   ceiling 140   final demonstrated 38.8
+
+=== PARTIALLY COMPLIANT  (half, 50km/wk stated, 3 years) ===
+ yr purpose    start   peak   ran/planned  biggestWk  demonstrated  progression
+ 1  race          50     78        40/61       65.6          49.9   held: no_capacity
+ 1  recovery      25   25.5         6/10       14.3          49.9   held: missed_sessions
+ 1  maintain      38     39        26/40       29.1          49.9   held: not_a_development_block
+ 1  base          50   61.5        33/50       50.5          50.5   held: not_a_development_block
+ 1  speed         50   55.5        20/31       45.1          50.5   held: missed_sessions
+ 2  race          50     65        40/61       52.2          52.2   held: missed_sessions
+ 2  recovery      25   25.5         6/10       16.2          52.2   held: missed_sessions
+ 2  maintain      38     39        26/40       29.9          50.5   held: not_a_development_block
+ 2  base          50     61        33/50       51.8          50.5   held: not_a_development_block
+ 2  speed         50   55.5        20/31       43.2          50.5   held: missed_sessions
+ 3  race          50     66        40/61       54.1          51.8   held: missed_sessions
+ 3  recovery      25   25.5         6/10       14.3          51.8   held: missed_sessions
+ 3  maintain      38     39        26/40       30.1          51.8   held: not_a_development_block
+ 3  base          50   61.5        33/50       50.3          50.8   held: not_a_development_block
+ 3  speed         50     55        20/31       44.7          50.8   held: missed_sessions
+  peak volume year 1 -> year 3: 78 -> 66   ceiling 140   final demonstrated 50.8
+
+=== RETURNING / LOW CAPACITY  (half, 50km/wk stated, 3 years) ===
+ yr purpose    start   peak   ran/planned  biggestWk  demonstrated  progression
+ 1  race          50     78        31/61       25.6            23   held: no_capacity
+ 1  recovery      13   20.5         7/10       13.3            23   held: missed_sessions
+ 1  maintain      19     24        30/40       17.9            23   held: not_a_development_block
+ 1  base        25.3   31.5        37/50       20.9            23   held: not_a_development_block
+ 1  speed       25.3   33.5        23/31       24.3          23.8   held: missed_sessions
+ 2  race        25.3   31.6        45/61       22.6          23.8   held: missed_sessions
+ 2  recovery      13   20.5         7/10         15          23.8   held: missed_sessions
+ 2  maintain      19     25        30/40       18.4          22.6   held: not_a_development_block
+ 2  base        24.9     31        37/50       21.8          21.8   held: not_a_development_block
+ 2  speed         24     32        23/31       23.8          22.6   held: missed_sessions
+ 3  race          24   31.6        45/61       20.9          21.8   held: missed_sessions
+ 3  recovery      12   19.5         7/10       12.4          21.8   held: missed_sessions
+ 3  maintain      18     23        30/40         17          20.9   held: not_a_development_block
+ 3  base          23   28.5        37/50       19.2          20.9   held: not_a_development_block
+ 3  speed         23   29.5        23/31       21.3          21.3   held: missed_sessions
+  peak volume year 1 -> year 3: 78 -> 31.6   ceiling 140   final demonstrated 21.3
