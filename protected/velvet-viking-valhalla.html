@@ -6267,8 +6267,27 @@ function renderConfidenceGauge(){
 }
 
 function pad2(n){ return n<10 ? '0'+n : ''+n; }
+/* WHAT A PASSED GOAL DAY SAYS.
+
+   `diff` was clamped to zero and then tested for <= 0, so every day AFTER the
+   goal day took the same branch as the goal day itself: an athlete who raced a
+   half marathon in August was still being told "Race Day \u2014 Go!" in September,
+   and would have gone on being told it until they built another block. The
+   countdown had no way of knowing the race had happened -- which is now
+   something the product knows.
+
+   Three states, each saying something true. The outcome is read from the block
+   ledger rather than inferred from the calendar, and while it is still
+   unanswered this says so rather than congratulating anybody. */
+var GOAL_DAY_PAST_COPY = { raced:'Raced', dnf:'Did not finish', dns:'Did not start' };
 function renderCountdown(){
   if (!state.setup) return '';
+  if (state.setup.raceDate < todayStr()){
+    var b = currentBlock();
+    var oc = b && b.outcome && b.outcome.race && b.outcome.race.outcome;
+    var said = GOAL_DAY_PAST_COPY[oc] || (raceOutcomePending() ? 'Waiting on your answer' : 'Complete');
+    return '<div class="countdown"><span class="cd-race-day">'+escapeHtml(said)+'</span></div>';
+  }
   var target = new Date(state.setup.raceDate+'T00:00:00').getTime();
   var diff = Math.max(0, target-Date.now());
   if (diff<=0) return '<div class="countdown"><span class="cd-race-day">'+vGoalDay()+' \u2014 Go!</span></div>';
@@ -10032,6 +10051,8 @@ var BUILDER_PURPOSE_META = {
     distanceLabel: 'Goal distance',
     distanceHint: 'The distance this block prepares you for. You do not need an event booked.',
     weeksHint: 'A full distance-specific block, built and tapered to a culminating goal effort in the final week.',
+    stageTitle: 'Your goal',
+    stageLede: 'What are we building towards? You do not need an event booked.',
     lockDistance: null
   },
   maintain: {
@@ -10040,6 +10061,8 @@ var BUILDER_PURPOSE_META = {
     distanceLabel: 'Fitness to protect',
     distanceHint: 'The shape of running to hold on to. Volume sits below what you have been absorbing; the quality stays.',
     weeksHint: 'Eight weeks is a review point, not a limit — Valhalla asks what is next rather than simply stopping.',
+    stageTitle: 'What you are protecting',
+    stageLede: 'The fitness you have already built. This block holds it rather than chasing more.',
     lockDistance: null
   },
   base: {
@@ -10048,6 +10071,8 @@ var BUILDER_PURPOSE_META = {
     distanceLabel: 'Building towards',
     distanceHint: 'The distance this capacity is for. Base work starts at what you already absorb, and builds from there.',
     weeksHint: 'Long enough for the aerobic work to count. There is no weekly percentage rule — progression follows what you actually absorb.',
+    stageTitle: 'What you are building',
+    stageLede: 'Sustainable capacity, built from what you already absorb. No event needed.',
     lockDistance: null
   },
   speed: {
@@ -10056,6 +10081,8 @@ var BUILDER_PURPOSE_META = {
     distanceLabel: 'Sharpening at',
     distanceHint: 'Speed work uses the 5K block’s existing methodology — no new intensity system, and nothing invented for this purpose.',
     weeksHint: 'Short and sharp. Sharpening is a phase, not a season.',
+    stageTitle: 'What you are sharpening',
+    stageLede: 'Speed and threshold work, using the 5K block’s existing sessions. No event needed.',
     lockDistance: '5k'
   }
 };
@@ -17946,8 +17973,15 @@ function openSetupModal(){
     return '<div class="bld-step'+(i===0?' now':'')+'"></div>';
   }).join('');
   function stageHead(i){
-    return '<h3 class="bld-stage-h">'+stageMeta[i][1]+'</h3>'+
-           '<p class="bld-lede">'+stageMeta[i][2]+'</p>';
+    /* Stage 01 introduces the objective, so its heading and lede are the two
+       lines that must change with it -- "you do not need an event booked" is
+       reassurance for somebody choosing a race and noise for somebody
+       building a base. Ids so bldApplyPurpose() can rewrite them in place;
+       every other stage is untouched. */
+    var idAttr = i === 0 ? ' id="bld-stage0-h"' : '';
+    var ledeId = i === 0 ? ' id="bld-stage0-lede"' : '';
+    return '<h3 class="bld-stage-h"'+idAttr+'>'+stageMeta[i][1]+'</h3>'+
+           '<p class="bld-lede"'+ledeId+'>'+stageMeta[i][2]+'</p>';
   }
   function navBtns(i){
     var back = i>0 ? '<button type="button" class="btn btn-ghost btn-back" data-action="bld-back">← Back</button>' : '';
@@ -18264,6 +18298,11 @@ function bldApplyPurpose(){
   if (hint) hint.textContent = meta.distanceHint;
   var wHint = document.getElementById('su-weeks-hint');
   if (wHint) wHint.textContent = meta.weeksHint;
+  var sTitle = document.getElementById('bld-stage0-h');
+  if (sTitle) sTitle.textContent = meta.stageTitle;
+  var sLede = document.getElementById('bld-stage0-lede');
+  if (sLede) sLede.textContent = meta.stageLede;
+
 
   /* The length field follows the purpose unless the athlete has typed over it
      -- once they have, their number is theirs. `data-bld-auto` records that

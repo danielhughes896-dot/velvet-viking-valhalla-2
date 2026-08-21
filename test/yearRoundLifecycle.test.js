@@ -626,6 +626,29 @@ test('SURFACE: Plan HQ names the block and the week within it', () => {
   assert.match(a.blockIdentityLine(), /^Speed & Threshold · Week \d+ of \d+$/);
 });
 
+test('SURFACE: the countdown stops shouting GO once the day has passed', () => {
+  const a = racingAthlete();
+  logPast(a);
+  assert.match(a.renderCountdown(), /\d+d/, 'before the day it counts down');
+
+  raceHappened(a);
+  const waiting = a.renderCountdown();
+  assert.doesNotMatch(waiting, /Go!/,
+    'THE DEFECT: every day after the race said "Race Day — Go!" indefinitely');
+  assert.match(waiting, /Waiting on your answer/,
+    'and while the outcome is unknown it should say so, not celebrate');
+
+  a.recordRaceOutcome('raced');
+  assert.match(a.renderCountdown(), /Raced/);
+
+  const dnf = racingAthlete();
+  logPast(dnf); raceHappened(dnf); dnf.recordRaceOutcome('dnf');
+  assert.match(dnf.renderCountdown(), /Did not finish/);
+  const dns = racingAthlete();
+  logPast(dns); raceHappened(dns, { ran: false }); dns.recordRaceOutcome('dns');
+  assert.match(dns.renderCountdown(), /Did not start/);
+});
+
 test('SURFACE: the outcome prompt appears only while the question is open', () => {
   const a = racingAthlete();
   logPast(a);
@@ -707,6 +730,24 @@ test('BUILDER: four objectives are offered and recovery is not one of them', () 
      than what it replaced. Pinned so the difference stays intentional. */
   assert.equal(a.BUILDER_PURPOSE_META.race.label, 'Race Goal');
   assert.equal(a.blockPurposeLabel('race'), 'Race Build');
+});
+
+test('BUILDER: only the race objective talks about events', () => {
+  const a = racingAthlete();
+  /* Everything stage 01 says about a purpose, in one place. An athlete
+     building a base should not be reassured that they "do not need an event
+     booked" -- there is no event in the question they asked. */
+  ['maintain', 'base', 'speed'].forEach(p => {
+    const m = a.BUILDER_PURPOSE_META[p];
+    const said = [m.blurb, m.distanceLabel, m.distanceHint, m.weeksHint,
+                  m.stageTitle, m.stageLede].join(' | ');
+    assert.doesNotMatch(said, /event booked|race date|taper to|on race day/i,
+      p + ' uses race framing: ' + said);
+    assert.ok(m.stageTitle && m.stageLede, p + ' has no stage copy of its own');
+  });
+  const race = a.BUILDER_PURPOSE_META.race;
+  assert.match(race.stageLede, /event/i,
+    'the race objective is the one that should mention an event');
 });
 
 test('BUILDER: the offered length is the length the engine would have built', () => {
