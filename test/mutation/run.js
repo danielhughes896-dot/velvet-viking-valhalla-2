@@ -26,7 +26,8 @@ const SUBSET = ['stripeLifecycle','monthlyPause','commercialCore','securityPostu
   'mondayOperational','accountActivity','providerTrial','productionReadiness',
   'betaClosure','entitlementMigration','releaseReadiness','observability','accessGate',
   'billingWebhook','stripeFoundation','commercialEntry','legacyBetaRetirement',
-  'commercialSchemaCollision'].map(n => 'test/' + n + '.test.js').join(' ');
+  'commercialSchemaCollision','adjustedSessionStructure',
+  'prescriptionAwareLogging'].map(n => 'test/' + n + '.test.js').join(' ');
 
 const CASES = [
   // ---- ACCESS ----
@@ -142,7 +143,60 @@ const CASES = [
    '  if (found.existing){', '  if (false){'],
   ['monday: a provider error body is echoed', 'api/_monday-operational.js',
    "    return { ok: false, code: 'graphql_error' };",
-   "    return { ok: false, code: 'graphql_error', message: json.errors[0].message };"]
+   "    return { ok: false, code: 'graphql_error', message: json.errors[0].message };"],
+
+  /* ---- THE STRUCTURED WORKOUT CARD ----
+     An adjusted session showed as a title and a paragraph of prose because the
+     day had silently lost its prescription. Nothing asserted that the card the
+     athlete is looking at is the one the plan wrote, so the loss was invisible
+     to the suite for as long as it was invisible in the code. Each case below
+     is one way to lose it again. */
+  ['workout: an adjusted session stops being shrunk and drops its structure',
+   'protected/velvet-viking-valhalla.html',
+   '  if (fitPrescriptionToDistance(dd, newKm)) return true;',
+   '  if (false && fitPrescriptionToDistance(dd, newKm)) return true;'],
+  ['workout: a shrunk session may prescribe more running than the day holds',
+   'protected/velvet-viking-valhalla.html',
+   '  if (qualitySessionKm(shrunk, kind) > newKm + 0.5) return false;', ''],
+  ['workout: a shrink may quietly change what the session is',
+   'protected/velvet-viking-valhalla.html',
+   '  if (!next || next.archetype !== p.archetype) return false;',
+   '  if (!next) return false;'],
+  ['workout: the recovery ceiling deletes the easy run it just wrote',
+   'protected/velvet-viking-valhalla.html',
+   "    dd.prescription = { v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:round1(dd.km) } };",
+   '    if (dd.prescription) delete dd.prescription;'],
+  ['workout: a strides session is no longer fitted',
+   'protected/velvet-viking-valhalla.html',
+   "  if (p.archetype === 'easy_strides') return fitStridesToDistance(dd, p, newKm);", ''],
+  ['workout: strides are hung on an easy run of nothing',
+   'protected/velvet-viking-valhalla.html',
+   '  if (!(easy >= EASY_MIN_KM)) return false;', ''],
+  ['workout: the adjustment record is rendered above the workout',
+   'protected/velvet-viking-valhalla.html',
+   '          renderStructuredWorkout(dd)+\n          renderCoachingDepth(dd)+\n          renderAdjustedDetail(dd)+',
+   '          renderAdjustedDetail(dd)+\n          renderCoachingDepth(dd)+\n          renderStructuredWorkout(dd)+'],
+  ['workout: the card stops rendering the structured workout at all',
+   'protected/velvet-viking-valhalla.html',
+   '          renderStructuredWorkout(dd)+\n', ''],
+  ['workout: restore leaves the day without the prescription it had',
+   'protected/velvet-viking-valhalla.html',
+   '  if (f.prescription) dd.prescription = JSON.parse(JSON.stringify(f.prescription));',
+   '  if (false) {}'],
+  ['workout: a rename overwrites the name the athlete typed',
+   'protected/velvet-viking-valhalla.html',
+   '  if (!wasTitle || dd.title !== wasTitle) return;', ''],
+  ['workout: the heading keeps naming the distance it no longer prescribes',
+   'protected/velvet-viking-valhalla.html',
+   '  renameToMatchPrescription(dd, wasTitle, newKm);', ''],
+  ['workout: a swap leaves the prescription on the old day',
+   'protected/velvet-viking-valhalla.html',
+   "'mpSegment','completed','actual',\n                               'prescription','manualEdit'",
+   "'mpSegment','completed','actual',\n                               'manualEdit'"],
+  ['workout: the coach’s move leaves the prescription on the old day',
+   'protected/velvet-viking-valhalla.html',
+   "var MOVED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','prescription','manualEdit'];",
+   "var MOVED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','manualEdit'];"]
 ];
 
 let survived = [], killed = 0;
