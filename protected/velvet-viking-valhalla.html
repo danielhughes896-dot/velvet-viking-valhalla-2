@@ -2392,6 +2392,147 @@ function isTaperWeek(weekNum){
    new session library is introduced for this, and the Peak pool -- which is
    what an unknown phase name would silently have fallen back to -- would have
    handed a maintenance block the hardest sessions in the product. */
+/* =========================================================
+   THE VOLUME CEILING — why a year-round product needs one
+   ---------------------------------------------------------
+   A single block is safe: volume ramps from what the athlete runs now to
+   currentVolume x profile.volMult, linearly, with cutbacks. Nothing in that
+   arithmetic is wrong.
+
+   ACROSS BLOCKS IT COMPOUNDED WITHOUT BOUND. The next block starts from
+   absorbedWeeklyVolume(), which is the median of the weeks the athlete
+   actually absorbed -- and the median of a ramping block always sits above its
+   start. So every block began higher than the last and multiplied again. A
+   compliant 50km/week athlete reached 86km/week after a year, 149 after two
+   and 257 after three, peaking at 343. The diligent athlete was punished
+   hardest, because the ratchet is driven by completing the training.
+
+   FOUR QUANTITIES, DELIBERATELY KEPT APART. Conflating any two is how the
+   ratchet got in:
+
+     STATED volume        what the athlete typed once. Never updated, and an
+                          opinion rather than evidence.
+     ABSORBED volume      the median completed week of the CURRENT block, from
+                          loadToleranceModel(), excluding strained weeks.
+     DEMONSTRATED         the volume this athlete has REPEATEDLY held across
+     SUSTAINABLE volume   their whole record. Not their best week -- the third
+                          best, so one heroic week proves nothing.
+     PEAK volume          the top of a single block's ramp. Temporary by
+                          definition, and never evidence of what is sustainable.
+
+   THE RULE. A block may start no more than VOLUME_BLOCK_GROWTH_CAP above what
+   the athlete has demonstrated, and may peak no higher than the ceiling. The
+   ceiling is anchored to the athlete's own demonstrated capacity and only
+   falls back to a fixed backstop when there is no evidence yet.
+
+   WHY IT CONVERGES. The peak is capped, every completed week is at or below
+   the peak, so demonstrated sustainable volume can never exceed the ceiling,
+   so the next block's start cannot either. The loop is closed rather than
+   damped: there is no input that can walk it upward indefinitely.
+
+   THE BACKSTOP NUMBERS are a safety net, not a target, and they are
+   deliberately generous -- roughly what a serious amateur peaks at for each
+   distance, well above what most athletes using this product will ever run.
+   They only bind an athlete with no demonstrated history; anyone who has
+   genuinely held more keeps their own number (see volumeCeilingFor). */
+var PROFILE_CEILING_KM = { '5k':110, '10k':120, 'half':140, 'full':170, 'ultra':190 };
+var VOLUME_CEILING_DEFAULT = 140;
+/* How much a new block may start above demonstrated sustainable volume. 10% is
+   the familiar weekly guideline applied ONCE PER BLOCK rather than per week --
+   a block is 6 to 16 weeks, so this is a far more conservative rule than it
+   looks, and it is the only place block-to-block growth enters. */
+var VOLUME_BLOCK_GROWTH_CAP = 1.10;
+/* An athlete who has genuinely held more than the backstop keeps their own
+   capacity: the backstop is a number chosen for somebody else, and capping a
+   legitimate 180km/week runner at 140 would be the rule doing harm.
+
+   BUT THE CEILING IS ITSELF HARD-BOUNDED, and that bound is what makes the
+   whole thing converge rather than merely slow down. A first attempt allowed
+   `demonstrated x 1.05`, which reads as a small allowance and is in fact a
+   ratchet: peak is capped by the ceiling, so demonstrated climbs to meet it,
+   so the ceiling rises 5%, so demonstrated climbs again. The 5K athlete
+   reached 118km/week against a 110 backstop and was still going. A multiplier
+   applied to a quantity that chases it is not an allowance, it is a feedback
+   loop.
+
+   So the ceiling is clamped into [backstop, backstop x CEILING_MAX_OVER_
+   BACKSTOP]. Demonstrated capacity can move it inside that band and can never
+   move it past the top of it. */
+var CEILING_MAX_OVER_BACKSTOP = 1.25;
+/* Three weeks at a volume before it counts as held rather than merely reached.
+   Weighed over a rolling year, not over the athlete's whole life: capacity two
+   years ago is not evidence about capacity now, and an all-time figure would
+   both anchor a returning athlete far too high and never fall after a layoff. */
+var SUSTAINED_WEEKS_REQUIRED = 3;
+var DEMONSTRATED_WINDOW_WEEKS = 52;
+
+/* Completed weekly volume across the athlete's WHOLE record -- archived
+   sessions from previous blocks and the current plan together. Uses actual
+   logged distance where there is one and the prescribed distance otherwise,
+   which is the same rule loadToleranceModel() uses.
+
+   NOTHING HEALTH-INDICATING IS READ HERE. Distance and completion are ordinary
+   training data, so this works identically for an athlete who has declined
+   health-data consent -- which is the point: sustainable volume must not be
+   inferable only from covered evidence. */
+function weeklyCompletedVolumes(){
+  var byWeek = {};
+  var add = function(dateStr, km){
+    if (!dateStr || !(km > 0)) return;
+    var monday = addDays(dateStr, -isoWeekday(dateStr));
+    byWeek[monday] = (byWeek[monday] || 0) + km;
+  };
+  var a = (state && state.athlete) || null;
+  ((a && a.sessions) || []).forEach(function(s){
+    if (s && s.completed) add(s.date, s.actualKm != null ? s.actualKm : (s.plannedKm || 0));
+  });
+  ((state && state.days) || []).forEach(function(dd){
+    if (!dd || !dd.completed) return;
+    add(dd.date, (dd.actual && dd.actual.km != null) ? dd.actual.km : (dd.km || 0));
+  });
+  return Object.keys(byWeek).sort().map(function(k){ return { week:k, km:round1(byWeek[k]) }; });
+}
+/* What this athlete has demonstrably HELD. The Nth highest completed week
+   rather than the highest: one big week is a week, three is a capacity. Null
+   until there are enough weeks to say anything, which is what keeps a new
+   athlete on the backstop instead of on a number derived from two runs.
+
+   Weighed over a rolling DEMONSTRATED_WINDOW_WEEKS by CALENDAR date, not over
+   the last N weeks that happened to contain a run. An athlete returning from a
+   six-month layoff must not be anchored to the winter they were fit, and weeks
+   in which they ran nothing are exactly the evidence that says so -- dropping
+   empty weeks from the count would let three good weeks last year keep the
+   number alive forever. */
+function demonstratedSustainableVolume(){
+  var cutoff = addDays(todayStr(), -7 * DEMONSTRATED_WINDOW_WEEKS);
+  var weeks = weeklyCompletedVolumes()
+    .filter(function(w){ return w.week >= cutoff; })
+    .map(function(w){ return w.km; });
+  if (weeks.length < SUSTAINED_WEEKS_REQUIRED) return null;
+  var desc = weeks.slice().sort(function(x, y){ return y - x; });
+  return desc[SUSTAINED_WEEKS_REQUIRED - 1];
+}
+/* The ceiling: anchored to the athlete's own demonstrated capacity, clamped
+   into [backstop, backstop x CEILING_MAX_OVER_BACKSTOP]. The lower bound is
+   what stops a beginner's ceiling collapsing onto their first three weeks; the
+   upper bound is what stops the ratchet described above. */
+function volumeCeilingFor(distKey){
+  var backstop = PROFILE_CEILING_KM[distKey] || VOLUME_CEILING_DEFAULT;
+  var dem = demonstratedSustainableVolume();
+  if (!dem) return backstop;
+  return round1(Math.min(Math.max(dem, backstop), backstop * CEILING_MAX_OVER_BACKSTOP));
+}
+/* The start of a new block. Bounded by what the athlete has demonstrated
+   rather than by what the last block prescribed -- which is the whole
+   difference between learning from training and inheriting a number. */
+function cappedBlockStartVolume(base, distKey){
+  if (!(base > 0)) return base;
+  var out = base;
+  var dem = demonstratedSustainableVolume();
+  if (dem) out = Math.min(out, round1(dem * VOLUME_BLOCK_GROWTH_CAP));
+  return round1(Math.min(out, volumeCeilingFor(distKey)));
+}
+
 function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   var profile = DISTANCE_PROFILES[distKey];
   var steady = !!(opts && opts.steady);
@@ -2402,7 +2543,17 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   var info = computeTaperInfo(N);
   var taper = steady ? 0 : info.taper;
   var buildWeeks = steady ? N : info.buildWeeks;
-  var peakVolume = steady ? currentVolume : currentVolume * profile.volMult;
+  /* THE CEILING IS APPLIED TO THE PEAK, which is what closes the loop: every
+     completed week is at or below the peak, so demonstrated sustainable volume
+     can never climb past the ceiling, so the next block cannot start higher.
+     A steady block has no ramp and is already at the athlete's own level, but
+     it is capped too -- an absorbed number inherited from a build that
+     predates this rule must not walk in through maintenance. */
+  var ceiling = volumeCeilingFor(distKey);
+  var peakVolume = Math.min(steady ? currentVolume : currentVolume * profile.volMult, ceiling);
+  /* A start above the ceiling would otherwise ramp DOWNWARD across the block
+     and read as a taper the athlete never asked for. */
+  if (currentVolume > peakVolume) currentVolume = peakVolume;
   var weeks = [];
 
   for (var w=1; w<=N; w++){
@@ -10781,7 +10932,12 @@ function developmentBlockSpec(purpose, opts){
   var o = opts || {};
   var absorbed = absorbedWeeklyVolume();
   var lastDistance = o.distanceKey || (state.setup && state.setup.distanceKey) || 'half';
-  var base = absorbed.km;
+  /* THE SECOND HALF OF THE CEILING. buildBlockWeeks() caps the PEAK; this caps
+     the START, so a block cannot open above what the athlete has demonstrated
+     they hold plus one block's growth. Both are needed: the peak cap alone
+     would let a block start at the ceiling and sit there, and the start cap
+     alone would let the ramp climb past it. */
+  var base = cappedBlockStartVolume(absorbed.km, lastDistance);
 
   if (purpose === 'recovery'){
     var rp = recoveryProfileFor(o.raceDistanceKey || lastDistance);
