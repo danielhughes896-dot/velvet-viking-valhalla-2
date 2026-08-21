@@ -106,6 +106,22 @@ module.exports = async function handler(req, res){
   }
 
   res.setHeader('Set-Cookie', A.buildSetCookie(lease.id, { maxAge: lease.ttl }));
+
+  /* THE ACTIVITY SIGNAL. A lease is minted when an athlete actually opens the
+     product, which is the only moment worth recording -- and the function
+     refuses to write again inside the same hour, so this costs one row update
+     a day per athlete rather than one per request.
+     
+     Deliberately not awaited for the response's sake, but deliberately awaited
+     at all: an unawaited promise in a serverless function is a promise the
+     platform may kill mid-flight. A failure here is logged and ignored, because
+     a metrics timestamp must never be the reason an athlete cannot get in. */
+  try{
+    await S.sb(cfg, '/rest/v1/rpc/touch_last_active', {
+      method: 'POST', body: JSON.stringify({ p_account_id: who.uid })
+    });
+  }catch(e){ log('LAST_ACTIVE_TOUCH_FAILED'); }
+
   log('ISSUED reason=' + decision.reason + ' ttl=' + lease.ttl);
   return S.json(res, 200, uiPayload(decision, who.uid, who.email));
 };
