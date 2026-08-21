@@ -331,3 +331,55 @@ test('the signing pipeline is configured for a real release key', () => {
   assert.doesNotMatch(gradle, /storePassword\s+"(?!\s*$)[A-Za-z0-9]/,
     'a literal keystore password is committed');
 });
+
+// ===========================================================================
+// THE ENTRY JOURNEY, AS SOURCE
+//
+// The full state matrix is driven in a real browser (see the commissioning
+// notes); what is pinned here is that each branch and each explanation exists
+// at all, because a browser run is not part of the suite and a deleted branch
+// would otherwise go unnoticed until an athlete found it.
+// ===========================================================================
+const START = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
+
+test('/start routes every commercial state, and explains every failure', () => {
+  /* access -> the product; expired -> the locked shell; signed in without a
+     subscription -> the builder; anything else -> sign in. */
+  assert.match(START, /if \(b\.access === true\)\{ enter\(\); return; \}/,
+    'an athlete with access must not be shown acquisition screens again');
+  assert.match(START, /reason === 'expired'[^]*?show\('pane-locked'\)/,
+    'an expired athlete needs the locked shell, not the builder');
+  assert.match(START, /show\('pane-build'\)/);
+
+  /* Four failures, four explanations. A blank form with no reason is the
+     defect these each exist to prevent. */
+  assert.match(START, /r\.status >= 500/,
+    'a server error is indistinguishable from "not signed in" without this');
+  assert.match(START, /having a moment/, 'a 5xx must say what happened');
+  assert.match(START, /could not reach Valhalla/, 'a timeout must say what happened');
+  assert.match(START, /otp_expired: 'That sign-in link has expired/);
+  assert.match(START, /access_denied: 'That sign-in link has already been used/);
+  assert.match(START, /within\(10000,/, 'a hung request must be raced against a deadline');
+});
+
+test('/start starts no trial by accident', () => {
+  /* Nothing on the entry page may spend the allowance. The only commercial
+     act is the one the athlete presses, and it goes through checkout. */
+  const scripts = START.slice(START.indexOf('<script>'));
+  assert.equal(/\/api\/trial/.test(scripts), false,
+    'the standalone trial endpoint is gone; nothing may call it');
+  const auto = /addEventListener\('load'|window\.onload|setTimeout\([^)]*checkout/i;
+  assert.equal(auto.test(scripts), false, 'a checkout is being opened without a press');
+  assert.match(scripts, /\$\('trial'\)\.addEventListener\('click'/,
+    'the commercial act must be a deliberate press');
+});
+
+test('/start offers every objective the app builds', () => {
+  const app = loadApp({ pinnedDate: TODAY });
+  app.BUILDER_PURPOSE_ORDER.forEach(p =>
+    assert.match(START, new RegExp('value="' + p + '"'),
+      '/start cannot build a ' + p + ' block the app offers'));
+  app.DISTANCE_ORDER.forEach(d =>
+    assert.match(START, new RegExp('value="' + d + '"'),
+      '/start cannot preview a ' + d + ' block the app builds'));
+});
