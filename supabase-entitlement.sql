@@ -96,9 +96,28 @@ alter table public.entitlements enable row level security;
 -- expiry date. They may not write it under any circumstances -- there is no
 -- insert/update/delete policy, and RLS with no policy is deny-all. The service
 -- role inside Vercel bypasses RLS and is the only writer.
+-- ---------------------------------------------------------------------------
+-- WHY `(select auth.uid())` AND NOT `auth.uid()`
+--
+-- A bare auth.uid() in a policy is evaluated ONCE PER ROW. Wrapped in a
+-- scalar sub-select it becomes an InitPlan: Postgres evaluates it once for the
+-- whole statement and reuses the result. On a table with a few hundred rows
+-- that is a rounding error; on a scan it is the difference between one call and
+-- one per row, and it is what Supabase's performance advisor is pointing at.
+--
+-- IT CHANGES NO SEMANTICS, and that is checkable rather than hopeful:
+-- auth.uid() is STABLE, takes no arguments and reads nothing from the row, so
+-- its value cannot differ between rows of one statement. The same is true of
+-- is_beta_approved(), which reads the caller's own JWT claim -- so it is
+-- hoisted for the same reason and with the same guarantee.
+--
+-- WHAT WOULD BE WRONG is hoisting something that DOES depend on the row. There
+-- is nothing of that kind in any policy here, and a new one must not be added
+-- inside a sub-select.
+-- ---------------------------------------------------------------------------
 drop policy if exists "read own entitlement" on public.entitlements;
 create policy "read own entitlement" on public.entitlements
-  for select using (auth.uid() = user_id);
+  for select using ((select auth.uid()) = user_id);
 
 -- ---------------------------------------------------------------------------
 -- STEP 3 -- ACCESS LEASES

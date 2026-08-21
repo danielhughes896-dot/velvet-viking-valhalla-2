@@ -103,7 +103,11 @@ test('2. entitlements are readable by their owner and writable by nobody', () =>
   const policies = (stmts.match(/create policy[\s\S]*?;/g) || [])
     .filter(p => /on public\.entitlements/.test(p));
   assert.equal(policies.length, 1, 'exactly one policy');
-  assert.match(policies[0], /for select using \(auth\.uid\(\) = user_id\)/);
+  /* Both forms accepted: `(select auth.uid()) = user_id` is the InitPlan
+     rewrite -- evaluated once per statement instead of once per row -- and it
+     is the SAME predicate. What this guards is that the caller's own id is
+     what scopes the row, not how many times Postgres works it out. */
+  assert.match(policies[0], /for select using \(\(?\s*(?:select\s+)?auth\.uid\(\)\s*\)?\s*= user_id\)/);
   assert.ok(!/for (insert|update|delete)[^;]*on public\.entitlements/.test(stmts),
     'access authority the client can write is not authority');
 });
@@ -114,7 +118,7 @@ test('2. the plan row is scoped to its owner AND to an approved tester', () => {
     .filter(p => /on public\.plans/.test(p));
   assert.equal(policies.length, 3, 'select, insert, update');
   policies.forEach(p => {
-    assert.match(p, /auth\.uid\(\) = user_id/, 'isolation: ' + p.slice(0, 60));
+    assert.match(p, /\(?\s*(?:select\s+)?auth\.uid\(\)\s*\)?\s*= user_id/, 'isolation: ' + p.slice(0, 60));
     assert.match(p, /is_beta_approved\(\)/, 'revocation: ' + p.slice(0, 60));
   });
   assert.ok(!/for delete[^;]*on public\.plans/.test(stmts),

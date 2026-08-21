@@ -189,6 +189,14 @@ async function createCheckoutSession(cfg, input, opts){
     client_reference_id: input.uid,
     'line_items[0][price]': price.priceId,
     'line_items[0][quantity]': 1,
+    /* PAYMENT METHOD REQUIRED UPFRONT, SAID OUT LOUD.
+       Stripe's default for a subscription Checkout is already 'always', so this
+       line changes no behaviour today. It is here because the commercial model
+       HQ chose rests entirely on it -- a fourteen-day trial that converts
+       automatically is a different product from a card-free trial -- and a
+       requirement that important must not be a default somebody could flip in
+       a dashboard, or that Stripe could change, without a diff. */
+    payment_method_collection: 'always',
     subscription_data: {
       trial_period_days: price.offer.trialDays,
       /* Everything needed to reconstruct the purchase from a webhook alone,
@@ -214,6 +222,69 @@ async function createCheckoutSession(cfg, input, opts){
     period: price.offer.billingPeriod,
     trialDays: price.offer.trialDays
   };
+}
+
+/* ---------- pause ----------
+ *
+ * THE POLICY IS NOT HERE. _pause.js decides whether an athlete may pause, for
+ * how long, and how often; this turns an already-made decision into the two
+ * Stripe calls that carry it out. That split is why the rule survives a change
+ * of provider: what moves is this file, and nothing that reasons about an
+ * athlete.
+ *
+ * WHY behavior = 'void' AND NOT 'mark_uncollectible' OR 'keep_as_draft'. All
+ * three are documented Stripe behaviours and they mean genuinely different
+ * things to the athlete:
+ *
+ *   void                 invoices are still raised for the paused period and
+ *                        then voided. Nothing is collected, and nothing is owed
+ *                        afterwards.
+ *   keep_as_draft        the invoices wait as drafts and can be finalised
+ *                        later -- a DEFERRAL, so the athlete comes back to a
+ *                        bill for the months they did not use.
+ *   mark_uncollectible   the debt is recorded and written off, which puts a
+ *                        bad-debt mark against somebody who did nothing wrong.
+ *
+ * Valhalla promised a pause, not a deferral and not a write-off, so 'void' is
+ * the only one that matches what was said.
+ *
+ * resumes_at is Stripe's own automatic resume. Nothing in Valhalla has to run a
+ * job, and no athlete has to come back and press anything -- a pause that needs
+ * either is a cancellation with a friendlier name.
+ *
+ * NOTHING IS INFERRED. Stripe's subscription STATUS does not change while
+ * collection is paused, so this file does not invent a condition for it: the
+ * pause lives in our own columns and the resolver reads it there. (Stripe does
+ * have a distinct 'paused' status, but it means something else entirely -- a
+ * trial that ended with no payment method -- and CONDITION_OF maps it to
+ * past_due, which is what it actually is.) */
+async function pauseCollection(cfg, subscriptionId, instruction, opts){
+  const i = instruction || {};
+  if (!subscriptionId) return { ok: false, code: 'no_subscription_id' };
+  if (i.action !== 'suspend_collection') return { ok: false, code: 'not_a_pause_instruction' };
+  const resumes = i.resumesAt ? Date.parse(i.resumesAt) : NaN;
+  if (!isFinite(resumes)) return { ok: false, code: 'no_resume_date' };
+  /* An open-ended pause is the failure the policy exists to prevent, and it is
+     the one this call could still produce by omitting a field. Refused here as
+     well as there: a second check costs nothing and this is the one that talks
+     to the money. */
+  if (i.chargeForPausedPeriod) return { ok: false, code: 'deferral_not_supported' };
+
+  return call(cfg, 'POST', '/subscriptions/' + encodeURIComponent(subscriptionId), {
+    pause_collection: { behavior: 'void', resumes_at: Math.floor(resumes / 1000) }
+  }, Object.assign({ idempotencyKey: 'pause:' + subscriptionId + ':' + Math.floor(resumes / 1000) },
+                   opts || {}));
+}
+
+/* Clearing the pause. Stripe unsets pause_collection when it is sent EMPTY, and
+   encode() drops nulls and undefineds -- so a null here would send no field at
+   all and silently leave the subscription paused. The empty string is the
+   difference between resuming somebody and appearing to. */
+async function resumeCollection(cfg, subscriptionId, opts){
+  if (!subscriptionId) return { ok: false, code: 'no_subscription_id' };
+  return call(cfg, 'POST', '/subscriptions/' + encodeURIComponent(subscriptionId), {
+    pause_collection: ''
+  }, Object.assign({ idempotencyKey: 'resume:' + subscriptionId }, opts || {}));
 }
 
 /* ---------- webhook signature ----------
@@ -329,7 +400,28 @@ function normaliseEvent(stripeEvent){
   /* An unrecognised Stripe status must not be guessed into a condition that
      grants access. Deleted subscriptions are the one case where Stripe's status
      may lag, and 'expired' is unambiguous there. */
-  const finalCondition = type === 'customer.subscription.deleted' ? 'expired' : condition;
+  let finalCondition = type === 'customer.subscription.deleted' ? 'expired' : condition;
+
+  /* REVOKED, AND WHERE IT LEGITIMATELY COMES FROM.
+   *
+   * 'expired' means the period ran out and nothing is owed. 'revoked' means the
+   * provider pulled the purchase -- a dispute or a chargeback -- and it must
+   * outrank every date on the row, because a refunded subscription whose period
+   * ends next month must not keep granting access for a month.
+   *
+   * Stripe has no 'revoked' status, so this reads the one documented field that
+   * says why a subscription ended: cancellation_details.reason. Its published
+   * values are cancellation_requested, payment_disputed and payment_failed, and
+   * only the disputed one is a revocation -- somebody asking to cancel, or a
+   * card that stopped working, is an ordinary ending and stays 'expired'.
+   *
+   * NOTHING IS INFERRED BEYOND THAT. A refund issued from the dashboard with no
+   * dispute produces no subscription event at all, so it is an operator action
+   * against the subscriptions row, not something this file pretends to see. */
+  if (finalCondition === 'expired'){
+    const why = obj.cancellation_details && obj.cancellation_details.reason;
+    if (why === 'payment_disputed') finalCondition = 'revoked';
+  }
   if (!finalCondition) return null;
 
   const secs = function(v){ return v ? new Date(Number(v) * 1000).toISOString() : null; };
@@ -356,13 +448,21 @@ function normaliseEvent(stripeEvent){
     catalogue_version: Prod.CATALOGUE_VERSION,
     trial_start: secs(obj.trial_start),
     trial_end: secs(obj.trial_end),
+    period_start: secs(obj.current_period_start),
     period_end: periodEndOf(obj),
-    cancel_at_period_end: !!obj.cancel_at_period_end
+    /* When the provider says the relationship actually ended, as distinct from
+       cancel_at_period_end, which says it is going to. */
+    cancelled_at: secs(obj.canceled_at),
+    cancel_at_period_end: !!obj.cancel_at_period_end,
+    /* Why it ended, in Stripe's own words, so an operator can tell a dispute
+       from a request without this file having to name every value. */
+    cancellation_reason: (obj.cancellation_details && obj.cancellation_details.reason) || null
   };
 }
 
 module.exports = {
   API, PROVIDER, MAX_SKEW_SEC,
   config, encode, call, ensureCustomer, createCheckoutSession, priceFor, PROVIDER, CONDITION_OF,
+  pauseCollection, resumeCollection,
   parseSigHeader, verifySignature, normaliseEvent, periodOf, periodEndOf, accountOf, offerOf, conditionOf, ref, log
 };

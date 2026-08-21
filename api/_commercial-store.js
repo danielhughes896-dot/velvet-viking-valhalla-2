@@ -247,6 +247,61 @@ async function upsertSubscription(S, cfg, input){
   return { ok: true, subscription: out[0] || null };
 }
 
+
+// ===========================================================================
+// THE AGREEMENT -- WRITTEN ONCE, AND ONLY ONCE
+//
+// "Your price stays the same for as long as you stay subscribed" is a promise
+// about a NUMBER, so the number has to be a fact of the relationship rather
+// than a lookup against today's catalogue. agreed_price_minor, agreed_currency
+// and catalogue_version are that fact.
+//
+// WHY IT IS NOT PART OF THE UPSERT ABOVE. The upsert merges every column it is
+// given on every delivery, so an agreed price carried on a routine renewal
+// event would be REWRITTEN from whatever the catalogue says today. A founding
+// subscriber's eleven ninety-nine would quietly become the new price on their
+// next renewal -- the exact failure the promise exists to prevent, arriving
+// through the one event nobody inspects.
+//
+// SO IT IS A CONDITIONAL UPDATE, filtered on price_locked_at being null. The
+// database decides whether this is the first telling; the application does not
+// read-then-write and hope. That is the same mechanism the one-per-athlete
+// trial allowance uses, for the same reason: under a redelivery or two
+// concurrent deliveries, exactly one write can win.
+//
+// A subscription with no offer we recognise gets no agreement rather than a
+// guessed one. We would rather hold no number than the wrong one.
+// ===========================================================================
+async function lockAgreedPrice(S, cfg, input){
+  const a = input || {};
+  if (!P.isProvider(a.provider)) return { ok: false, reason: 'unknown_provider' };
+  if (!a.provider_subscription_id) return { ok: false, reason: 'no_provider_subscription_id' };
+  if (!P.isOffer(a.offer_code)) return { ok: false, reason: 'unknown_offer', locked: false };
+
+  const offer = P.offer(a.offer_code);
+  const at = E.asDate(a.at) || new Date();
+
+  const q = '/subscriptions?provider=eq.' + encodeURIComponent(a.provider) +
+            '&provider_subscription_id=eq.' + encodeURIComponent(a.provider_subscription_id) +
+            '&price_locked_at=is.null';
+  const r = await S.sb(cfg, q, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      agreed_price_minor: offer.priceMinor,
+      agreed_currency: offer.currency,
+      catalogue_version: P.CATALOGUE_VERSION,
+      price_locked_at: at.toISOString(),
+      updated_at: at.toISOString()
+    }),
+    prefer: RETURN_REP
+  });
+  if (!r.ok) return { ok: false, reason: 'write_failed_' + r.status };
+  const out = (await rows(r)) || [];
+  /* Zero rows is the SUCCESS case on a redelivery: the agreement was already
+     locked, which is precisely what was wanted. */
+  return { ok: true, locked: out.length > 0, agreement: out[0] || null };
+}
+
 // ===========================================================================
 // ADMINISTRATIVE GRANTS
 // ===========================================================================
@@ -457,7 +512,7 @@ module.exports = {
   SUBSCRIPTION_COLUMNS,
   readCommercialFacts, resolveStandardEntitlement,
   ensureAccountCommercial, consumeTrialForAccount,
-  normaliseSubscription, upsertSubscription,
+  normaliseSubscription, upsertSubscription, lockAgreedPrice,
   grantEntitlement, revokeGrant,
   claimBillingEvent, markBillingEventProcessed,
   mayStartStandardPurchase, syncEntitlementRow

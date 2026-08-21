@@ -108,7 +108,7 @@ async function handle(req, res){
   });
 
   if (!decision.ok){
-    log(decision.code + ' uid=' + P.ref(uid));
+    log('REFUSED code=' + decision.code + ' uid=' + P.ref(uid));
     const out = { error: decision.code };
     if (decision.existingProvider) out.existing_provider = decision.existingProvider;
     return S.json(res, decision.status, out);
@@ -120,7 +120,7 @@ async function handle(req, res){
 
   const cust = await P.ensureCustomer(stripe, uid, null, null, {});
   if (!cust.ok){
-    log('customer_failed ' + cust.code);
+    log('CUSTOMER_FAILED code=' + cust.code);
     return S.json(res, 502, { error: 'provider_error', code: cust.code });
   }
 
@@ -130,11 +130,11 @@ async function handle(req, res){
   }, { idempotencyKey: 'co:' + uid + ':' + decision.offerCode + ':' + Math.floor(Date.now() / 60000) });
 
   if (!session.ok){
-    log('session_failed ' + session.code);
+    log('SESSION_FAILED code=' + session.code);
     return S.json(res, 502, { error: 'provider_error', code: session.code });
   }
 
-  log('session_created uid=' + P.ref(uid) + ' offer=' + decision.offerCode);
+  log('SESSION_CREATED uid=' + P.ref(uid) + ' offer=' + decision.offerCode);
   return S.json(res, 200, { url: session.url, period: session.period, trial_days: session.trialDays });
 }
 

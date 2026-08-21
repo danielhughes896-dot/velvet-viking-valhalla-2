@@ -141,7 +141,11 @@ test('the athlete may read their own entitlement and write nothing', () => {
   const pol = (CODE.match(/create policy[^;]*on public\.entitlements[\s\S]*?;/gi) || []);
   assert.equal(pol.length, 1, 'exactly one policy');
   assert.match(pol[0], /for select/i, 'read only');
-  assert.match(pol[0], /auth\.uid\(\) = user_id/, 'and only their own row');
+  /* Both forms accepted: `(select auth.uid()) = user_id` is the InitPlan
+     rewrite -- evaluated once per statement instead of once per row -- and it
+     is the SAME predicate. What this guards is that the caller's own id is
+     what scopes the row, not how many times Postgres works it out. */
+  assert.match(pol[0], /\(?\s*(?:select\s+)?auth\.uid\(\)\s*\)?\s*= user_id/, 'and only their own row');
 });
 
 test('the pruner is not executable by a browser', () => {

@@ -178,7 +178,11 @@ test('3. the plan is fetched for one athlete, not for whoever the policy allows'
 test('3. the isolation the policy provides is still relied on, not replaced', () => {
   const setup = read('supabase-setup.sql');
   ['select', 'insert', 'update'].forEach(op =>
-    assert.match(setup, new RegExp('for ' + op + '[\\s\\S]{0,80}auth\\.uid\\(\\) = user_id'),
+    /* Both forms accepted: `(select auth.uid()) = user_id` is the InitPlan
+     rewrite -- evaluated once per statement instead of once per row -- and it
+     is the SAME predicate. What this guards is that the caller's own id is
+     what scopes the row, not how many times Postgres works it out. */
+  assert.match(setup, new RegExp('for ' + op + '[\\s\\S]{0,120}\\(?\\s*(?:select\\s+)?auth\\.uid\\(\\)\\s*\\)?\\s*= user_id'),
       'plans.' + op + ' must remain scoped by auth.uid()'));
   assert.match(setup, /strava_connections[\s\S]*?enable row level security/,
     'the token table keeps RLS enabled');
@@ -453,7 +457,7 @@ test('7. isolation is not what the migration relaxes', () => {
   assert.ok(step3.length > 200, 'the slice must actually contain STEP 3');
   const policies = step3.match(/create policy[\s\S]*?;/g) || [];
   assert.equal(policies.length, 5, 'three on plans, two on strava_activities');
-  policies.forEach(p => assert.match(p, /auth\.uid\(\) = user_id/,
+  policies.forEach(p => assert.match(p, /\(?\s*(?:select\s+)?auth\.uid\(\)\s*\)?\s*= user_id/,
     'every policy keeps the predicate that separates one athlete from another'));
   assert.ok(!/strava_connections/.test(step3.replace(/--[^\n]*/g, '')),
     'and the token table is not touched');

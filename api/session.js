@@ -117,7 +117,7 @@ module.exports = async function handler(req, res){
      platform may kill mid-flight. A failure here is logged and ignored, because
      a metrics timestamp must never be the reason an athlete cannot get in. */
   try{
-    await S.sb(cfg, '/rest/v1/rpc/touch_last_active', {
+    await S.sb(cfg, '/rpc/touch_last_active', {
       method: 'POST', body: JSON.stringify({ p_account_id: who.uid })
     });
   }catch(e){ log('LAST_ACTIVE_TOUCH_FAILED'); }

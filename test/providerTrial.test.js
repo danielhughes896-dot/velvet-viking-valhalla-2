@@ -164,10 +164,38 @@ test('what the athlete agreed is recorded, not inferred from the catalogue', () 
   assert.equal(ev.agreed_price_minor, 8999);
   assert.equal(ev.agreed_currency, 'GBP');
   assert.equal(ev.catalogue_version, P.CATALOGUE_VERSION);
-  // Recorded on the subscription, which begins and ends with the relationship.
-  const hook = read('api/billing-webhook.js');
-  assert.match(hook, /agreed_price_minor: ev\.agreed_price_minor/);
-  assert.match(hook, /catalogue_version: ev\.catalogue_version/);
+});
+
+test('the agreed price reaches the row, and is not merely handed to a writer', async () => {
+  /* THIS TEST USED TO ASSERT THE SOURCE LINE. It matched
+     `agreed_price_minor: ev.agreed_price_minor` in the webhook and passed --
+     while the store dropped the value on the floor, because the column was
+     not in SUBSCRIPTION_COLUMNS and the upsert copies nothing else. The
+     founding-price promise was unimplemented behind a green test for as long
+     as the test looked at the caller instead of the row.
+
+     So it reads the row now. A grep can be satisfied by a line; a row cannot. */
+  const { createFakeSupabase } = require('./fakeSupabase.js');
+  const Store = require('../api/_commercial-store.js');
+  const f = createFakeSupabase({ subscriptions: [] });
+
+  await Store.upsertSubscription(f.S, f.cfg, {
+    provider: 'web', provider_subscription_id: 'sub_1', account_id: 'acc-1',
+    product_code: P.STANDARD, offer_code: 'STANDARD_YEARLY', billing_period: 'yearly',
+    condition: 'trialing', environment: 'production'
+  });
+  const lock = await Store.lockAgreedPrice(f.S, f.cfg, {
+    provider: 'web', provider_subscription_id: 'sub_1',
+    offer_code: 'STANDARD_YEARLY', at: NOW
+  });
+  assert.equal(lock.ok, true);
+  assert.equal(lock.locked, true);
+
+  const row = f.rows('subscriptions')[0];
+  assert.equal(row.agreed_price_minor, 8999);
+  assert.equal(row.agreed_currency, 'GBP');
+  assert.equal(row.catalogue_version, P.CATALOGUE_VERSION);
+  assert.equal(row.price_locked_at, NOW.toISOString());
 });
 
 test('the price is recorded but never billed from', () => {

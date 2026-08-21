@@ -44,7 +44,17 @@ const DEFAULTS = {
                         trial_consumed_subscription_id: null, trial_blocked_at: null,
                         trial_blocked_reason: null },
   subscriptions: { product_code: 'VALHALLA_STANDARD', environment: 'production',
-                   auto_renew: true, cancel_at_period_end: false },
+                   auto_renew: true, cancel_at_period_end: false,
+                   /* The columns supabase-trial-via-provider.sql added. Present
+                      and null, exactly as they are in the database -- a fake
+                      where they are simply ABSENT makes "was the agreement
+                      written" indistinguishable from "does the column exist",
+                      and a test can then pass against a column that was never
+                      created. */
+                   agreed_price_minor: null, agreed_currency: null,
+                   price_locked_at: null, catalogue_version: null,
+                   paused_at: null, pause_resumes_at: null,
+                   last_pause_started_at: null },
   entitlement_grants: { product_code: 'VALHALLA_STANDARD', revoked_at: null,
                         revoked_by: null, expires_at: null, granted_by: null, note: null },
   billing_events: { environment: 'production', processed_at: null, result: null },
