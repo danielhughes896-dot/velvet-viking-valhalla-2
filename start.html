@@ -332,6 +332,19 @@
     }
     within(10000, establish(tok)).then(function(r){
       var b = r.body || {};
+      /* THE SERVER COULD NOT ANSWER, WHICH IS NOT THE SAME AS "NOT SIGNED IN".
+         A 5xx has no `signed_in` field, so this fell through to the sign-in
+         form -- and showed it blank. An athlete holding a perfectly good
+         session was asked to sign in again, and would have got the same 503
+         from the send-link route thirty seconds later. Same shape of defect
+         as the silent expired link: the one person who needed an explanation
+         got a form and no reason. */
+      if (r.status >= 500){
+        show('pane-auth');
+        fail('auth-err', 'Valhalla is having a moment. Your account and your training are fine — ' +
+                         'reload this page in a minute and you will go straight in.');
+        return;
+      }
       if (!b.signed_in){ show('pane-auth'); return; }
       /* Access already -- beta, trialling, paid, or inside a cancelled period.
          They do not see acquisition screens again. */
