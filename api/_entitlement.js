@@ -77,20 +77,19 @@ const CONDITIONS = ['trialing', 'active', 'cancelled', 'past_due', 'expired', 'r
 /* Non-commercial entitlement sources. Both are administrative grants issued
    through the owner boundary; neither is a purchase and neither consumes the
    athlete's one introductory trial. */
-/* Non-subscription entitlement sources.
+/* Non-subscription entitlement sources. Both are administrative grants issued
+ * through the owner boundary; neither is a purchase and neither consumes the
+ * athlete's trial.
  *
- * admin_beta and admin_comp are administrative grants issued through the owner
- * boundary. Neither is a purchase and neither consumes the athlete's trial.
- *
- * 'trial' is different in kind and deliberately sits here rather than in
- * subscriptions: it is customer-acquisition access with no provider behind it,
- * so it has no provider_subscription_id and putting it in the subscriptions
- * table would mean writing a fiction into the place reserved for real
- * commercial relationships. It expires through the ordinary expires_at path,
- * and the ONE-TIME allowance lives on account_commercial.trial_consumed_at --
- * a grant that can be revoked and reissued must never be the thing that decides
- * whether a trial was already used. */
-const GRANT_SOURCES = ['admin_beta', 'admin_comp', 'trial'];
+ * 'trial' WAS a third source here, for a card-free trial with no provider
+ * behind it. HQ replaced that with a trial that takes a payment method upfront
+ * and converts automatically, which makes it a real provider subscription --
+ * and subscriptionAccess() already grants on condition='trialing' until
+ * trial_end, already keeps granting when somebody cancels mid-trial, and
+ * already reports the reason as 'trial'. So the standalone source is gone
+ * rather than kept alongside: two trial authorities is exactly the duplication
+ * this model has spent three phases removing. */
+const GRANT_SOURCES = ['admin_beta', 'admin_comp'];
 
 /* Why access is granted or refused. Product-facing, stable, and deliberately
    NOT one-per-provider-lifecycle-state -- there are more provider states than

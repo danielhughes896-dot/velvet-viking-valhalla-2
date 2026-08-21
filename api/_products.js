@@ -58,6 +58,17 @@ const ENVIRONMENTS = ['production', 'sandbox'];
    account_commercial row; stated here because it is a property of the offer. */
 const TRIAL_DAYS = 14;
 
+/* WHICH PUBLISHED CATALOGUE AN ATHLETE BOUGHT FROM.
+ *
+ * Recorded on every subscription so a founding cohort can be identified
+ * without inferring it from a signup date -- dates drift across timezones,
+ * migrations and backfills, and "who joined before the price rose" is a
+ * question that must survive all three.
+ *
+ * Bump this ONLY when the published prices change. Editing a price without
+ * bumping it makes two different agreements indistinguishable. */
+const CATALOGUE_VERSION = 'launch-2026-08';
+
 const OFFERS = {
   STANDARD_MONTHLY: {
     code: 'STANDARD_MONTHLY',
@@ -166,6 +177,7 @@ function catalogue(provider, env){
 
 module.exports = {
   STANDARD, PRODUCTS, OFFERS, PROVIDERS, ENVIRONMENTS, BILLING_PERIODS, TRIAL_DAYS,
+  CATALOGUE_VERSION,
   isProduct, isOffer, isProvider, isEnvironment,
   product, offer, offersFor, offerForPeriod,
   providerRefEnvName, providerRef, purchasable, catalogue

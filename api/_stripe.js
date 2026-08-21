@@ -347,6 +347,13 @@ function normaliseEvent(stripeEvent){
     condition: finalCondition,
     offer_code: offerOf(obj),
     billing_period: periodOf(obj),
+    /* What this athlete agreed to, read from the catalogue that sold the offer
+       rather than from the Stripe payload -- Stripe reports what it will
+       charge, which is the same number today and not necessarily the same fact.
+       Recorded once, at the start of the relationship. */
+    agreed_price_minor: (function(){ const o = offerOf(obj); const x = o && Prod.offer(o); return x ? x.priceMinor : null; })(),
+    agreed_currency: (function(){ const o = offerOf(obj); const x = o && Prod.offer(o); return x ? x.currency : null; })(),
+    catalogue_version: Prod.CATALOGUE_VERSION,
     trial_start: secs(obj.trial_start),
     trial_end: secs(obj.trial_end),
     period_end: periodEndOf(obj),

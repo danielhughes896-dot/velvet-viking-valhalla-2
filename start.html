@@ -172,10 +172,24 @@
 
     <p class="say" style="margin-top:20px;">Valhalla coaches this programme day by day —
        telling you what today is for, reading how it actually went, and adapting only when
-       a real pattern appears. Start your free trial to begin.</p>
+       a real pattern appears.</p>
 
-    <button class="vvv-btn" id="trial">Start my free trial</button>
-    <p class="quiet" id="trial-note"></p>
+    <div class="card">
+      <h3>Start your 14 days</h3>
+      <p class="say" style="margin:0 0 12px;">Choose how you would like to continue afterwards.
+         You will not be charged during the trial, and you can cancel any time before it ends.</p>
+      <div class="days" id="plan-choice">
+        <button type="button" class="day" data-period="monthly" aria-pressed="true">
+          <b>£11.99</b><br><span>per month</span></button>
+        <button type="button" class="day" data-period="yearly" aria-pressed="false">
+          <b>£89.99</b><br><span>per year</span></button>
+      </div>
+      <p class="quiet" id="choice-note">After 14 days this becomes £11.99 a month, unless you cancel.</p>
+    </div>
+
+    <button class="vvv-btn" id="trial">Start my 14-day trial</button>
+    <p class="quiet" id="trial-note">A payment method is required to begin. Nothing is taken
+       until the trial ends.</p>
     <button class="vvv-btn vvv-btn-ghost" id="rebuild" style="margin-top:10px;">Change something</button>
     <p class="err vvv-hidden" id="trial-err"></p>
   </div>
@@ -443,22 +457,49 @@
     $('pv-paces-card').classList.toggle('vvv-hidden', !(p.paces || []).length);
   }
 
-  /* ---------- the one explicit act ---------- */
+  /* ---------- the commercial decision ----------
+     The athlete chooses an interval and provides a payment method. The trial
+     is a real subscription from the first moment, which is why there is no
+     separate trial endpoint any more: Checkout creates it with fourteen free
+     days and it converts to the interval chosen here.
+
+     Nothing on this page decides anything commercial. It names a period; the
+     server validates that against the catalogue and resolves the price. */
+  var period = 'monthly';
+  var AFTER = { monthly: 'After 14 days this becomes £11.99 a month, unless you cancel.',
+                yearly:  'After 14 days this becomes £89.99 a year, unless you cancel.' };
+  Array.prototype.forEach.call(document.querySelectorAll('#plan-choice .day'), function(b){
+    b.addEventListener('click', function(){
+      period = b.getAttribute('data-period');
+      Array.prototype.forEach.call(document.querySelectorAll('#plan-choice .day'), function(o){
+        o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
+      });
+      $('choice-note').textContent = AFTER[period];
+    });
+  });
+
   $('trial').addEventListener('click', function(){
     clear('trial-err');
     $('trial').disabled = true;
-    authed('/api/trial', { method:'POST' }).then(function(r){
-      if (r.status === 200 && r.body.started){ enter(); return; }
-      $('trial').disabled = false;
-      if (r.body && r.body.reason === 'already_used'){
-        fail('trial-err', 'You have already used your free trial on this account.');
-        return;
-      }
-      fail('trial-err', 'We could not start your trial just now. Nothing has been charged or used.');
-    }).catch(function(){
-      $('trial').disabled = false;
-      fail('trial-err', 'We could not start your trial just now. Nothing has been charged or used.');
-    });
+    authed('/api/checkout', { method:'POST', body: JSON.stringify({ period: period }) })
+      .then(function(r){
+        if (r.status === 200 && r.body && r.body.url){ location.assign(r.body.url); return; }
+        $('trial').disabled = false;
+        var code = (r.body && r.body.error) || '';
+        if (code === 'commerce_disabled' || code === 'provider_not_configured'){
+          fail('trial-err', 'Subscriptions are not open yet. Nothing has been charged.');
+          return;
+        }
+        if (code === 'already_subscribed_here' || code === 'already_subscribed_elsewhere'){
+          fail('trial-err', 'You already have a subscription on this account.');
+          return;
+        }
+        fail('trial-err', 'We could not open the payment page. Nothing has been charged.');
+      })
+      .catch(function(){
+        $('trial').disabled = false;
+        fail('trial-err', 'We could not open the payment page. Nothing has been charged.');
+      });
   });
 
   renderDays();
