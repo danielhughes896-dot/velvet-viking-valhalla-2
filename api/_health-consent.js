@@ -25,6 +25,14 @@
  * any covered field by any code path in this repository.
  */
 
+/* One line, one code, no payload and no account reference. Consent failing
+   closed is CORRECT and is also INVISIBLE: "why is this athlete's heart rate
+   missing" has three very different answers -- they declined, the table is
+   unreachable, or their consent is against a retired version -- and without a
+   code they are indistinguishable from each other in production. The athlete
+   is never named; what is recorded is which of the three happened. */
+function log(what){ try{ console.log('health-consent: ' + what); }catch(e){} }
+
 /* Must equal HEALTH_CONSENT_VERSION in the app runtime. A consent recorded
    against a different version does not count: the two constants are asserted
    identical by test, so they cannot drift apart silently. */
@@ -50,14 +58,30 @@ async function isGranted(cfg, sb, userId) {
     const r = await sb(cfg,
       '/health_data_consent?user_id=eq.' + encodeURIComponent(userId) +
       '&select=decision,consent_version,decided_at&order=decided_at.desc&limit=1');
-    if (!r || !r.ok) return false;
+    if (!r || !r.ok){
+      /* Includes the 404 a missing table gives, which is what a deployment
+         that has not yet run supabase-health-consent.sql looks like. Named
+         separately from a refusal, because one is a decision and the other is
+         an outage and they need different responses. */
+      log('READ_FAILED status=' + (r ? r.status : 'none'));
+      return false;
+    }
     // sb() hands back the raw fetch Response, as every other caller in
     // api/_strava.js expects; the rows are one await further down.
     const rows = await r.json();
     const row = (rows || [])[0];
-    if (!row) return false;
-    return row.decision === 'granted' && row.consent_version === HEALTH_CONSENT_VERSION;
+    if (!row){ log('NO_DECISION'); return false; }
+    if (row.decision !== 'granted'){ log('NOT_GRANTED decision=' + row.decision); return false; }
+    if (row.consent_version !== HEALTH_CONSENT_VERSION){
+      /* A consent recorded against a retired version. The athlete agreed to
+         something else, so this counts for nothing -- and an operator seeing
+         this repeatedly is seeing a cohort that needs asking again. */
+      log('STALE_VERSION');
+      return false;
+    }
+    return true;
   } catch (e) {
+    log('READ_THREW');
     return false;
   }
 }
