@@ -326,7 +326,7 @@ async function handle(req, res){
   /* GENERATING A PREVIEW MUST NOT SPEND THE TRIAL. Nothing here writes to
      account_commercial, entitlement_grants or subscriptions -- the athlete can
      rebuild as often as they like and their allowance is untouched. */
-  log('generated uid=' + String(uid).slice(0, 8) + ' purpose=' + v.input.purpose +
+  log('GENERATED uid=' + String(uid).slice(0, 8) + ' purpose=' + v.input.purpose +
       ' distance=' + v.input.buildDistance);
   return S.json(res, 200, {
     preview: summarise(built.app, built.days, built.blockResult, v.input),
