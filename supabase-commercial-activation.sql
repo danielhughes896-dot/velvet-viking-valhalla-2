@@ -164,19 +164,19 @@ drop policy if exists "own plan: insert" on public.plans;
 drop policy if exists "own plan: update" on public.plans;
 
 create policy "own plan: select" on public.plans
-  for select using (auth.uid() = user_id);
+  for select using ((select auth.uid()) = user_id);
 create policy "own plan: insert" on public.plans
-  for insert with check (auth.uid() = user_id);
+  for insert with check ((select auth.uid()) = user_id);
 create policy "own plan: update" on public.plans
-  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for update using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 drop policy if exists "own activities: select" on public.strava_activities;
 drop policy if exists "own activities: update" on public.strava_activities;
 
 create policy "own activities: select" on public.strava_activities
-  for select using (auth.uid() = user_id);
+  for select using ((select auth.uid()) = user_id);
 create policy "own activities: update" on public.strava_activities
-  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for update using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 
 -- ---------------------------------------------------------------------------

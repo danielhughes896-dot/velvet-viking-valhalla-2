@@ -18,18 +18,37 @@ create table if not exists public.plans (
 -- be world-readable.
 alter table public.plans enable row level security;
 
+-- ---------------------------------------------------------------------------
+-- WHY `(select auth.uid())` AND NOT `auth.uid()`
+--
+-- A bare auth.uid() in a policy is evaluated ONCE PER ROW. Wrapped in a
+-- scalar sub-select it becomes an InitPlan: Postgres evaluates it once for the
+-- whole statement and reuses the result. On a table with a few hundred rows
+-- that is a rounding error; on a scan it is the difference between one call and
+-- one per row, and it is what Supabase's performance advisor is pointing at.
+--
+-- IT CHANGES NO SEMANTICS, and that is checkable rather than hopeful:
+-- auth.uid() is STABLE, takes no arguments and reads nothing from the row, so
+-- its value cannot differ between rows of one statement. The same is true of
+-- is_beta_approved(), which reads the caller's own JWT claim -- so it is
+-- hoisted for the same reason and with the same guarantee.
+--
+-- WHAT WOULD BE WRONG is hoisting something that DOES depend on the row. There
+-- is nothing of that kind in any policy here, and a new one must not be added
+-- inside a sub-select.
+-- ---------------------------------------------------------------------------
 drop policy if exists "own plan: select" on public.plans;
 drop policy if exists "own plan: insert" on public.plans;
 drop policy if exists "own plan: update" on public.plans;
 
 create policy "own plan: select" on public.plans
-  for select using (auth.uid() = user_id);
+  for select using ((select auth.uid()) = user_id);
 
 create policy "own plan: insert" on public.plans
-  for insert with check (auth.uid() = user_id);
+  for insert with check ((select auth.uid()) = user_id);
 
 create policy "own plan: update" on public.plans
-  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for update using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 -- Quick check: should return 3 policies, and rowsecurity = true.
 -- select relrowsecurity from pg_class where relname = 'plans';
@@ -120,16 +139,35 @@ create index if not exists strava_activities_pending
 
 alter table public.strava_activities enable row level security;
 
+-- ---------------------------------------------------------------------------
+-- WHY `(select auth.uid())` AND NOT `auth.uid()`
+--
+-- A bare auth.uid() in a policy is evaluated ONCE PER ROW. Wrapped in a
+-- scalar sub-select it becomes an InitPlan: Postgres evaluates it once for the
+-- whole statement and reuses the result. On a table with a few hundred rows
+-- that is a rounding error; on a scan it is the difference between one call and
+-- one per row, and it is what Supabase's performance advisor is pointing at.
+--
+-- IT CHANGES NO SEMANTICS, and that is checkable rather than hopeful:
+-- auth.uid() is STABLE, takes no arguments and reads nothing from the row, so
+-- its value cannot differ between rows of one statement. The same is true of
+-- is_beta_approved(), which reads the caller's own JWT claim -- so it is
+-- hoisted for the same reason and with the same guarantee.
+--
+-- WHAT WOULD BE WRONG is hoisting something that DOES depend on the row. There
+-- is nothing of that kind in any policy here, and a new one must not be added
+-- inside a sub-select.
+-- ---------------------------------------------------------------------------
 drop policy if exists "own activities: select" on public.strava_activities;
 drop policy if exists "own activities: update" on public.strava_activities;
 
 create policy "own activities: select" on public.strava_activities
-  for select using (auth.uid() = user_id);
+  for select using ((select auth.uid()) = user_id);
 
 -- The athlete's own session may only mark a row ingested. Insert and delete
 -- stay server-side so the client can never manufacture training evidence.
 create policy "own activities: update" on public.strava_activities
-  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+  for update using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
 
 -- delete_own_account() predates these tables; both cascade from auth.users, so
 -- deleting the account still removes the connection and every staged activity.

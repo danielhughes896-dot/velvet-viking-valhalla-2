@@ -173,8 +173,13 @@ function mayPause(sub, now){
  * never cleared afterwards. */
 function planPause(sub, months, now){
   const at = E.asDate(now) || new Date();
-  const n = Number(months);
-  if (!isFinite(n) || Math.floor(n) !== n ||
+  /* A NUMBER, not something number-shaped. Number('2') is 2, so a coercing
+     check accepts a string from a JSON body -- and the same coercion turns
+     Number('') into 0 and Number([2]) into 2. At a boundary that decides how
+     long somebody stops paying, the caller parses and this refuses; being
+     helpful here is how "2 months" arrives as something nobody typed. */
+  const n = months;
+  if (typeof n !== 'number' || !isFinite(n) || Math.floor(n) !== n ||
       n < PAUSE_POLICY.minMonths || n > PAUSE_POLICY.maxMonths){
     return { ok: false, reason: 'bad_duration' };
   }

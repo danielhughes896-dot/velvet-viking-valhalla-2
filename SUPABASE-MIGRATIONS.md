@@ -22,10 +22,18 @@ dependency shows up.
 | 7 | `supabase-account-activity.sql` | `last_active_at`, `touch_last_active()`, `account_operational_state` |
 | 8 | `supabase-trial-via-provider.sql` | retires the card-free trial; founding-price and pause columns |
 | 9 | `supabase-operational-view-provider-trial.sql` | rebuilds `account_operational_state` so the trial is read from `subscriptions` |
+| 10 | `supabase-security-posture.sql` | InitPlan policy rewrite, service-only assertions, definer search paths, `rls_auto_enable()` |
 
 Applied in this order against an empty database plus the Supabase substrate
-(`auth.users`, `auth.uid()`, `auth.jwt()`, the platform roles), all nine apply
-cleanly and are individually re-runnable.
+(`auth.users`, `auth.uid()`, `auth.jwt()`, the platform roles, and the default
+table grants to `anon`/`authenticated`/`service_role`), all ten apply cleanly and
+are individually re-runnable.
+
+The default table grants matter and are easy to leave out of a rebuild. Supabase
+grants the browser roles table privileges and lets ROW-LEVEL SECURITY do the
+deciding. A cluster without them refuses at the GRANT layer instead, so every
+RLS proof run against it proves the wrong refusal — "permission denied" for a
+reason production does not have.
 
 Files 6 and 8 are a pair worth reading together: 6 introduced a card-free trial
 as a third grant source, and 8 retires it after HQ moved the trial onto a real
@@ -58,10 +66,35 @@ Three values are substituted by the operator, not by the files:
 
 Those aborts are features. Each one refuses with *"Nothing has been changed."*
 
-## Known gap
+## Closed gap — `rls_auto_enable()`
 
-`supabase-pre-beta-least-privilege.sql` is **not** in the order above and cannot
-currently be applied to a fresh database: it calls `public.rls_auto_enable()`,
-which no repository migration creates. It is a hardening file that was applied
-to production by hand, so the repository cannot reproduce that part of
-production. Fixing it needs the function's definition, which is not in the repo.
+`supabase-pre-beta-least-privilege.sql` revokes EXECUTE on
+`public.rls_auto_enable()`, an event-trigger function that turns RLS on for any
+newly created table. That function was created by hand in production and its
+definition was never in this repository, so a database rebuilt from these files
+could not run that migration and the repository could not reproduce production.
+
+File 10 closes it, and closes it in the larger half first. Every table these
+migrations create already carries an explicit `enable row level security`, so a
+fresh rebuild reaches the intended posture from the explicit statements without
+the trigger. File 10 therefore **asserts** that every table in `public` has RLS
+on — that is the guarantee — and additionally supplies the helper and the
+`ensure_rls` event trigger as a net under tables added later by hand in the
+dashboard, which is a real thing that happens and exactly when somebody forgets.
+
+Creating an event trigger requires superuser and a managed Postgres may refuse.
+That refusal is caught and reported rather than failing the migration, because
+the assertion is the part that guarantees the posture.
+
+With file 10 applied, `supabase-pre-beta-least-privilege.sql` can be run against
+a fresh database. It stays out of the numbered order because it is a record of
+what was applied to production by hand, not a step in building a new one.
+
+## Not in the order, on purpose
+
+| File | Why |
+|---|---|
+| `supabase-commercial-activation.sql` | **Dismantles the private-beta gate** so the public can be charged. Applying it opens public signup. Not until HQ says so. |
+| `supabase-beta-hardening.sql` | Optional narrowing behind its own `STEP 0` authorisation switch. STEP 1 was applied via the least-privilege file; STEP 2 has not been authorised. |
+| `supabase-beta-verification.sql` | Read-only reporting. |
+| `supabase-pre-beta-least-privilege.sql` | The record of a hand-applied production hardening. See above. |
