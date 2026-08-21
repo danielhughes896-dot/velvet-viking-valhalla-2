@@ -3021,10 +3021,29 @@ var LONG_RUN_SHAPES = {
   steady:   { title:'Long Run',
               cue:' @ Easy pace, steady and controlled.' },
   negative: { title:'Long Run \u2014 Even or Better',
-              cue:' @ Easy pace. Start at the slow end of the window and run the second half no slower than the first.' },
+              cue:' @ Easy pace. Start at the slow end of the window and run the second half no slower than the first.',
+              /* The generic long-run guidance already says this, so the only
+                 thing a shape needs to add is where the emphasis goes. */
+              guidance:{ cue:'Start slower than feels natural \u2014 the second half is the session.',
+                         how:'Easy pace throughout, opening at the slow end of the window so there is somewhere to go. Take fluid and carbohydrate on anything past about 90 minutes.' } },
   rolling:  { title:'Long Run \u2014 Rolling',
-              cue:' @ Easy pace over undulating ground if you can find it. Run the climbs by effort, not pace, and let the descents come to you.' }
+              cue:' @ Easy pace over undulating ground if you can find it. Run the climbs by effort, not pace, and let the descents come to you.',
+              /* AND HERE THE GENERIC CUE HAS TO GO. "The last third should be
+                 no slower than the first" is good advice on flat ground and
+                 bad advice on hills, where holding pace up a climb is exactly
+                 how an easy run stops being one. A session and the guidance
+                 printed under it must not contradict each other. */
+              guidance:{ cue:'Effort stays even; pace will not, and should not.',
+                         how:'Run the climbs by effort and let the descents come to you. Easy pace is a guide on the flat and not a target on a hill. Take fluid and carbohydrate on anything past about 90 minutes.',
+                         avoid:'Holding your flat-ground pace up a climb. That turns an easy run into a threshold session you did not plan.' } }
 };
+/* The guidance overlay for a day, if it is a long run carrying a shape. */
+function longShapeGuidance(dd){
+  var p = prescriptionOf(dd);
+  if (!p || p.archetype !== 'long_run') return null;
+  var s = LONG_RUN_SHAPES[p.params && p.params.shape];
+  return (s && s.guidance) || null;
+}
 var LONG_RUN_SHAPE_ORDER = ['steady', 'negative', 'rolling'];
 function longRunText(km, hasGoalSegment, goalSegKm, isB2BPrimary, isB2BSecondary, shape){
   if (isB2BSecondary){
@@ -7725,7 +7744,17 @@ function coachingEntryFor(dd){
   var p = prescriptionOf(dd);
   // archetype first, type second: a hand-edited or legacy day still gets the
   // guidance it has always had, it simply cannot get the specific version
-  return resolveGuidance((p && ARCHETYPE_GUIDANCE[p.archetype]) || COACH_GUIDANCE[dd.type] || null);
+  var base = (p && ARCHETYPE_GUIDANCE[p.archetype]) || COACH_GUIDANCE[dd.type] || null;
+  /* A long run's SHAPE may override individual lines of its guidance -- see
+     LONG_RUN_SHAPES. Merged rather than replaced, so a shape states only what
+     it needs to and inherits everything else. */
+  var over = longShapeGuidance(dd);
+  if (base && over){
+    var merged = {}; Object.keys(base).forEach(function(k){ merged[k] = base[k]; });
+    Object.keys(over).forEach(function(k){ merged[k] = over[k]; });
+    base = merged;
+  }
+  return resolveGuidance(base);
 }
 // The key coachingEntryFor resolved to, so the terse copy is looked up from
 // the same place the full copy came from and the two can never disagree.
@@ -8336,7 +8365,9 @@ function strategyForLongRun(dd, p, segs){
       purpose: goalSeg ? 'Easy running, on purpose, so the finish is the session.'
                        : 'Settle into easy pace and stay there.',
       cue: goalSeg ? 'Stay genuinely easy. The change of gear is still to come.'
-                   : 'Even effort. The last third should be no slower than the first.'
+           : (p && p.params && p.params.shape === 'rolling')
+             ? 'Even effort, not even pace. The hills decide the pace; you decide the effort.'
+             : 'Even effort. The last third should be no slower than the first.'
     }));
   }
 

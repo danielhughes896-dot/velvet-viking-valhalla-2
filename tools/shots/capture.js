@@ -161,9 +161,17 @@ async function shoot(ctx, url, name, opts){
     });
     const r = await shoot(ctx, url, ['builder', job.purpose, job.theme, job.width].join('-'), {
       init: seedTheme, initArg: { theme: job.theme },
+      /* THE BUILDER IS BEHIND A DOOR. The first screen a new athlete sees is
+         the entry card with "Build My Plan" on it; the purpose selector only
+         exists once that has been pressed. The first version of this capture
+         selected the purpose without opening the builder, swallowed the
+         failure, and produced eight identical photographs of the landing
+         page. Failures are raised now rather than caught. */
       after: async page => {
-        await page.selectOption('#su-purpose', job.purpose).catch(() => {});
-        await page.waitForTimeout(250);
+        await page.click('[data-action="open-setup"]');
+        await page.waitForSelector('#su-purpose', { timeout: 5000 });
+        await page.selectOption('#su-purpose', job.purpose);
+        await page.waitForTimeout(400);
       },
     });
     results.push(Object.assign(r, { scenario: 'builder', view: job.purpose }, job));
