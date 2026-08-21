@@ -2390,6 +2390,78 @@ function computeTaperInfo(planWeeks){
    exists; trainingPhase() is the state-aware wrapper. */
 var PHASE_BASE_END  = 0.25;   // fraction of BUILD weeks, not of the whole block
 var PHASE_BUILD_END = 0.80;
+
+/* ---------- THE SHAPE OF A BLOCK IS A PROPERTY OF ITS PURPOSE ----------
+   Until now exactly one shape existed -- ramp, peak, taper, goal effort -- and
+   every purpose was poured into it. The audit found what that produced:
+
+     AEROBIC BASE   a ten-week block with ONE base week. Week 1 was Base;
+                    weeks 2-6 Build, 7 Peak, 8-9 Taper and week 10 a maximal
+                    goal effort, with a second maximal time trial at week 6.
+                    A block named for aerobic development spent 90% of itself
+                    doing something else, and tapered for a race that did not
+                    exist.
+     SPEED          six weeks: three development weeks, two taper weeks and a
+                    final week. Half the block was spent winding down.
+     RECOVERY       two weeks, non-steady, so it inherited the RAMP: week 1
+                    was generated at currentVolume x the distance profile's
+                    race multiplier. A recovery block that climbs.
+
+   Each purpose now states its own arc. Nothing here is a new training idea --
+   the phases, the pools, the cutback rule and the taper machinery are all the
+   ones that already existed. What changed is which of them each purpose gets.
+
+   THESE ARE METHODOLOGY DECISIONS AND ARE REPORTED AS SUCH, not slipped in:
+   base loses its taper, its goal effort and its mid-block time trial, and
+   ramps on a moderate multiplier instead of a race-distance one; speed trades
+   one of its two taper weeks for a fourth development week; recovery stops
+   ramping at all. */
+var BASE_PHASE_SPLIT = 0.70;   // fraction of an aerobic base block spent in Base
+/* A base block still progresses -- that is what base training is -- but not
+   toward a race peak. profile.volMult answers "what does peak week look like
+   for a marathon build"; it is the wrong question for a block with no race in
+   it, and on the half profile it ramped a ten-week base block by 55%. */
+var BASE_VOLUME_MULT = 1.25;
+var SPEED_CONSOLIDATION_WEEKS = 1;
+/* And that week is a CONSOLIDATION rather than a taper. A marathon taper sheds
+   half the week's volume because the athlete needs two weeks of accumulated
+   fatigue gone; a 5K benchmark needs freshness, which a quarter buys, and the
+   rest of the week is still training. */
+var SPEED_CONSOLIDATION_DEPTH = 0.25;
+var RACE_TAPER_DEPTH = 0.5;
+
+function blockPurposeOf(purposeOrSteady){
+  // The old third argument was a boolean `steady`. True still means maintain.
+  if (purposeOrSteady === true) return 'maintain';
+  if (typeof purposeOrSteady === 'string' && purposeOrSteady) return purposeOrSteady;
+  return 'race';
+}
+function blockArcFor(purpose, N){
+  var weeks = Math.max(1, N || 1);
+  if (purpose === 'base'){
+    return { buildWeeks: weeks, taper: 0, hasGoalEffort: false, hasCheckpoint: false,
+             baseEnd: BASE_PHASE_SPLIT, buildEnd: 1.01, volumeMult: BASE_VOLUME_MULT };
+  }
+  if (purpose === 'speed'){
+    /* One down week before the benchmark rather than two. A 5K time trial
+       needs freshness, not a marathon taper, and the week it buys back is a
+       development week -- which is the entire point of the block. */
+    var consol = weeks >= 4 ? SPEED_CONSOLIDATION_WEEKS : 0;
+    return { buildWeeks: Math.max(1, weeks - consol - 1), taper: consol,
+             hasGoalEffort: true, hasCheckpoint: false, taperDepth: SPEED_CONSOLIDATION_DEPTH,
+             baseEnd: PHASE_BASE_END, buildEnd: PHASE_BUILD_END, volumeMult: null };
+  }
+  if (purpose === 'recovery'){
+    /* Flat, short, and going nowhere on purpose. applyRecoveryCeiling() then
+       removes the intensity; this removes the climb underneath it. */
+    return { buildWeeks: weeks, taper: 0, hasGoalEffort: false, hasCheckpoint: false,
+             baseEnd: 1.01, buildEnd: 1.01, volumeMult: 1 };
+  }
+  var info = computeTaperInfo(weeks);
+  return { buildWeeks: info.buildWeeks, taper: info.taper,
+           hasGoalEffort: true, hasCheckpoint: true,
+           baseEnd: PHASE_BASE_END, buildEnd: PHASE_BUILD_END, volumeMult: null };
+}
 /* ---------- A STEADY BLOCK HAS NO ARC ----------
    Base, Build, Peak, Taper and Final describe a block that is going somewhere:
    each phase exists because of the effort at the end. Maintain & Protect has
@@ -2404,20 +2476,29 @@ function planIsSteady(su){
   var s = su || (typeof state !== 'undefined' ? state.setup : null);
   return !!(s && s.purpose === 'maintain');
 }
-function phaseForWeek(weekNum, totalWeeks, steady){
+/* The live plan's purpose, for every layer that needs to know which arc it is
+   looking at. Defaults to 'race' because that is the only shape a plan built
+   before year-round training could have had. */
+function planPurpose(su){
+  var s = su || (typeof state !== 'undefined' ? state.setup : null);
+  return (s && typeof s.purpose === 'string' && s.purpose) ? s.purpose : 'race';
+}
+function phaseForWeek(weekNum, totalWeeks, purposeOrSteady){
   if (!totalWeeks || !weekNum) return 'Base';
-  if (steady) return 'Maintain';
-  if (weekNum >= totalWeeks) return 'Final';
-  var info = computeTaperInfo(totalWeeks);
-  if (weekNum > info.buildWeeks) return 'Taper';
-  var progress = weekNum / info.buildWeeks;
-  return progress <= PHASE_BASE_END ? 'Base'
-       : progress <= PHASE_BUILD_END ? 'Build'
+  var purpose = blockPurposeOf(purposeOrSteady);
+  if (purpose === 'maintain') return 'Maintain';
+  var arc = blockArcFor(purpose, totalWeeks);
+  // Only a block that ends in something has a week named for the end of it.
+  if (arc.hasGoalEffort && weekNum >= totalWeeks) return 'Final';
+  if (weekNum > arc.buildWeeks) return 'Taper';
+  var progress = weekNum / arc.buildWeeks;
+  return progress <= arc.baseEnd ? 'Base'
+       : progress <= arc.buildEnd ? 'Build'
        : 'Peak';
 }
 function isTaperWeek(weekNum){
   if (!state.setup) return false;
-  return phaseForWeek(weekNum, totalWeeksInPlan(), planIsSteady())==='Taper';
+  return phaseForWeek(weekNum, totalWeeksInPlan(), planPurpose())==='Taper';
 }
 /* STEADY MODE, and what it switches off.
 
@@ -2611,9 +2692,11 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   // start-date -> race-date gap (see handleGeneratePlan) -- no hardcoded
   // default and no clamp, so short or long blocks are represented exactly.
   var N = Math.max(1, Math.round(planWeeksInput));
-  var info = computeTaperInfo(N);
-  var taper = steady ? 0 : info.taper;
-  var buildWeeks = steady ? N : info.buildWeeks;
+  // The arc this purpose actually has -- see blockArcFor. Steady mode keeps
+  // its own answer because it has no arc at all.
+  var arc = blockArcFor(purpose, N);
+  var taper = steady ? 0 : arc.taper;
+  var buildWeeks = steady ? N : arc.buildWeeks;
   /* THE CEILING IS APPLIED TO THE PEAK, which is what closes the loop: every
      completed week is at or below the peak, so demonstrated sustainable volume
      can never climb past the ceiling, so the next block cannot start higher.
@@ -2621,21 +2704,26 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      it is capped too -- an absorbed number inherited from a build that
      predates this rule must not walk in through maintenance. */
   var ceiling = volumeCeilingFor(distKey);
-  var peakVolume = Math.min(steady ? currentVolume : currentVolume * profile.volMult, ceiling);
+  /* WHICH MULTIPLIER, and why it is not always the profile's. profile.volMult
+     answers "what does peak week look like for a marathon build". A base block
+     has no race and a recovery block is going nowhere, so both state their own
+     (see blockArcFor); a race block keeps the profile's. */
+  var volMult = steady ? 1 : (arc.volumeMult != null ? arc.volumeMult : profile.volMult);
+  var peakVolume = Math.min(currentVolume * volMult, ceiling);
   /* A start above the ceiling would otherwise ramp DOWNWARD across the block
      and read as a taper the athlete never asked for. */
   if (currentVolume > peakVolume) currentVolume = peakVolume;
   var weeks = [];
 
   for (var w=1; w<=N; w++){
-    var isRace = !steady && (w===N);
+    var isRace = !steady && arc.hasGoalEffort && (w===N);
     var isTaper = !steady && (!isRace && w>buildWeeks);
     var isCheckpoint = false;
     var volume, phase, isCutback=false;
 
     // phaseForWeek() is the canonical definition -- this loop no longer carries
     // boundaries of its own, so the generator and every coaching layer agree.
-    phase = phaseForWeek(w, N, steady);
+    phase = phaseForWeek(w, N, steady ? 'maintain' : purpose);
     if (phase==='Final') phase = 'Final Week';
     /* The pool this phase name selects from. A steady block now has one of its
        own: it used to borrow 'Build', which is a pool written for a block that
@@ -2648,14 +2736,22 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       var trend = steady ? currentVolume
                          : currentVolume + (peakVolume-currentVolume)*progress;
       isCutback = (w%4===0) && (steady ? w!==N : w!==buildWeeks) && buildWeeks>=4;
+      /* A BLOCK THAT ENDS IN NOTHING STILL ENDS SOMEWHERE. With no goal effort
+         to taper into, the last week is a consolidation week: the block
+         finishes absorbed rather than at its own peak, which is the state the
+         next block wants to start from. */
+      if (!steady && !arc.hasGoalEffort && w===N && N>=4) isCutback = true;
       volume = isCutback ? trend*0.78 : trend;
-      /* A checkpoint is a maximal time trial. Maintenance is not the time to
-         test what the athlete has -- it is the time to keep it. */
-      isCheckpoint = !steady && (w === Math.max(1,Math.round(buildWeeks*0.6)));
+      /* A checkpoint is a maximal time trial, and it belongs only in a block
+         that is preparing for one. Maintenance is not the time to test what the
+         athlete has; aerobic base is not either; and a speed block already ends
+         in a benchmark, so a second maximal effort three weeks earlier is one
+         too many in six weeks. */
+      isCheckpoint = !steady && arc.hasCheckpoint && (w === Math.max(1,Math.round(buildWeeks*0.6)));
     } else if (isTaper){
       var taperIdx = w-buildWeeks;
       var frac = taper>0 ? taperIdx/taper : 1;
-      volume = peakVolume*(1-frac*0.5);
+      volume = peakVolume*(1 - frac*(arc.taperDepth != null ? arc.taperDepth : RACE_TAPER_DEPTH));
     } else {
       volume = peakVolume*0.35;
     }
@@ -14469,6 +14565,14 @@ var PLAYBOOK_PHASE_RULES = {
                  note:'Race-specific work is protected and takes priority. General fitness volume is not added on top of it.' },
   Taper:       { progress:'none',
                  note:'Reduction is the intent of the phase. A falling load here is the plan working and is NEVER read as declining fitness needing progression.' },
+  /* THE OTHER HALF OF MAKING MAINTENANCE MAINTAIN. The generator no longer
+     progresses a steady block, but the adaptation layer could still have done
+     it one decision at a time: an unlisted phase falls through to Build, and
+     Build permits controlled increases in quality volume. So maintenance was
+     the one phase whose whole purpose is not to progress, holding the rule
+     that says progression is appropriate. */
+  Maintain:    { progress:'none',
+                 note:'Holding what the athlete has IS the phase. Nothing is added here; the next block is where progression belongs.' },
   'Race Week': { progress:'none', note:'Nothing is added. The block is over; the race is the session.' },
   'Final Week':{ progress:'none', note:'Nothing is added. The block is over; the goal effort is the session.' }
 };
@@ -16663,7 +16767,7 @@ function trainingPhase(weekNum){
   if (!total || !weekNum) return 'Base';
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
   if (wdays.some(function(dd){ return dd.type==='race'; })) return vGoalWeek();
-  var p = phaseForWeek(weekNum, total, planIsSteady());
+  var p = phaseForWeek(weekNum, total, planPurpose());
   return p==='Final' ? vGoalWeek() : p;
 }
 function coachSessionContext(dd){
