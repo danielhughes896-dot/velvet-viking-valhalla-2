@@ -21,9 +21,10 @@ dependency shows up.
 | 6 | `supabase-trial-grant-source.sql` | `trial` grant source, `start_standard_trial()` |
 | 7 | `supabase-account-activity.sql` | `last_active_at`, `touch_last_active()`, `account_operational_state` |
 | 8 | `supabase-trial-via-provider.sql` | retires the card-free trial; founding-price and pause columns |
+| 9 | `supabase-operational-view-provider-trial.sql` | rebuilds `account_operational_state` so the trial is read from `subscriptions` |
 
 Applied in this order against an empty database plus the Supabase substrate
-(`auth.users`, `auth.uid()`, `auth.jwt()`, the platform roles), all eight apply
+(`auth.users`, `auth.uid()`, `auth.jwt()`, the platform roles), all nine apply
 cleanly and are individually re-runnable.
 
 Files 6 and 8 are a pair worth reading together: 6 introduced a card-free trial
@@ -31,6 +32,17 @@ as a third grant source, and 8 retires it after HQ moved the trial onto a real
 provider subscription. 6 is kept rather than edited away because an existing
 database has already run it, and a migration that quietly changes what it did
 last time is a migration nobody can reason about.
+
+File 9 is the same change catching up with file 7. `account_operational_state`
+was written while the trial was a grant, and once 8 retired that source the view
+was reading something that could no longer exist — so it reported every real
+trial as inactive, confidently, on the metrics surface. Two things were done,
+not one: **file 7 was corrected in place**, so a fresh environment builds the
+right view first time, and **file 9 exists**, so a database that already ran the
+old file 7 can be corrected without replaying anything. That is not the mistake
+file 6 avoids. A view is derived, not data: re-running the corrected 7 and
+running 9 leave a database in exactly the same state, and neither touches a row.
+The two definitions are asserted identical by test, not compared by eye.
 
 ## Deployment parameters
 
