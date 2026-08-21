@@ -63,6 +63,20 @@ absence is a deliberate off state, not a misconfiguration.
 | `MONDAY_CONTENT_SOURCE_LABEL` | no | Label written on exported candidates. | existing | monday |
 | `VVV_CONTENT_BRIDGE_ENABLED` | no | **SWITCH** for the content bridge. Unrelated to the operational mirror. | as configured | you |
 
+## Resend — the founder welcome email
+
+| Name | Secret | Purpose | Launch | Source |
+|---|---|---|---|---|
+| `VVV_WELCOME_EMAIL` | no | **SWITCH.** `on` enables the one-per-athlete founder welcome. Anything else and nothing is claimed and nothing is sent — a merge must not be able to start emailing real athletes. | **OFF** | you |
+| `RESEND_API_KEY` | **YES** | Resend API key (`re_…`). Server-side only; a test fails if any client file names it. Absent = no send, logged. | for the welcome | Resend → API Keys |
+| `VVV_WELCOME_FROM` | no | Overrides the sender. Defaults to `Dan from Velvet Viking <support@velvetviking.co.uk>`. | optional | you |
+| `VVV_WELCOME_REPLY_TO` | no | Overrides the reply address. Defaults to `support@velvetviking.co.uk`. | optional | you |
+
+The **same** Resend account also backs Supabase Auth's custom SMTP — see
+`AUTH-EMAIL-TEMPLATES.md`. Two different paths to one provider: Supabase sends
+the magic link over SMTP, this deployment sends the welcome over the API. They
+share a domain and nothing else.
+
 ## Strava
 
 | Name | Secret | Purpose | Launch | Source |

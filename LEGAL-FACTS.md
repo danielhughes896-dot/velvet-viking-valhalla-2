@@ -322,6 +322,7 @@ foreign keys reference `auth.users`:
 | `subscriptions` | CASCADE |
 | `entitlement_grants` | CASCADE |
 | `health_data_consent` | CASCADE |
+| `account_welcome_email` | CASCADE |
 | `billing_events` | **SET NULL** |
 
 **Website can safely state:**

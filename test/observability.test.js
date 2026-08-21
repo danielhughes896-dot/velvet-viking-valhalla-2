@@ -24,7 +24,13 @@ const code = (f) => src(f).replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/
 
 /* Every log call site, as written. */
 function logCalls(f){
-  return (code(f).match(/\blog\(([^;]*?)\)\s*;/g) || []);
+  /* CALL SITES ONLY. A logger's own definition -- console.log('scope: ' + what)
+     -- matches the same search, and its scope prefix is prose: _welcome-email.js
+     writes 'welcome-email: ', which contains the word every rule below is
+     looking for. The definition interpolates `what`, never a value, so
+     excluding it removes a false positive rather than a guard. */
+  return (code(f).match(/\blog\(([^;]*?)\)\s*;/g) || [])
+    .filter(c => !/console\.log/.test(c));
 }
 
 test('every diagnosable subsystem has a named failure code', () => {
@@ -47,6 +53,10 @@ test('every diagnosable subsystem has a named failure code', () => {
        table is unreachable, or their consent is against a retired version --
        and without a code they are indistinguishable in production. */
     'consent persistence': ['_health-consent.js', /log\('(READ_FAILED|NO_DECISION|NOT_GRANTED|STALE_VERSION|READ_THREW)/],
+    /* The welcome email is fire-and-forget by design, which means a failure is
+       silent unless it says something. "Nobody was welcomed" and "the provider
+       refused every time" look identical from outside. */
+    'welcome email':   ['_welcome-email.js', /log\('(CLAIM_FAILED|SEND_FAILED|SENT_BUT_UNSTAMPED|NOT_CONFIGURED)/],
     'external strava': ['_strava-callback.js', /log\(/]
   };
   for (const [what, [file, re]] of Object.entries(required)){

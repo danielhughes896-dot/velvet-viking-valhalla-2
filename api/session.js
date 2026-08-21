@@ -26,6 +26,7 @@
 
 const S = require('./_strava.js');     // canonical Supabase access layer
 const A = require('./_access.js');
+const W = require('./_welcome-email.js');
 
 function log(what){ try{ console.log('session: ' + what); }catch(e){} }
 
@@ -121,6 +122,26 @@ module.exports = async function handler(req, res){
       method: 'POST', body: JSON.stringify({ p_account_id: who.uid })
     });
   }catch(e){ log('LAST_ACTIVE_TOUCH_FAILED'); }
+
+  /* THE FOUNDER WELCOME, ONCE.
+   *
+   * HERE, and not at sign-up, because there is no server-side sign-up: the
+   * account row is created by GoTrue when a magic link is redeemed, and this
+   * deployment never sees that moment. A minted lease is the first thing this
+   * server can honestly call "they got in" -- as distinct from "they asked to".
+   *
+   * This runs on EVERY sign-in, and that is fine: it is the database that
+   * decides whether to send, in a single claiming statement whose primary key
+   * is the lock. A returning athlete's claim collides and returns nothing, so
+   * the provider is never called at all.
+   *
+   * Guarded and awaited for the same two reasons as the touch above -- an
+   * unawaited promise in a serverless function is one the platform may kill,
+   * and a welcome email must never be why somebody cannot get in. It has its
+   * own ten-second timeout so a hanging provider cannot hold this response. */
+  try{
+    await W.welcomeIfFirstEntry(S, cfg, who.uid, who.email);
+  }catch(e){ log('WELCOME_EMAIL_THREW'); }
 
   log('ISSUED reason=' + decision.reason + ' ttl=' + lease.ttl);
   return S.json(res, 200, uiPayload(decision, who.uid, who.email));

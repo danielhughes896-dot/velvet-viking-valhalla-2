@@ -29,7 +29,8 @@ const SUBSET = ['stripeLifecycle','monthlyPause','commercialCore','securityPostu
   'commercialSchemaCollision','adjustedSessionStructure',
   'prescriptionAwareLogging','healthDataConsent',
   'medicalBoundary','healthErasure','commercialJourney',
-  'productionReadiness','authEmailTemplates'].map(n => 'test/' + n + '.test.js').join(' ');
+  'productionReadiness','authEmailTemplates',
+  'welcomeEmail'].map(n => 'test/' + n + '.test.js').join(' ');
 
 const CASES = [
   // ---- ACCESS ----
@@ -396,6 +397,52 @@ const CASES = [
    '<table cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F4F1EA;">'],
   ['auth email: an off-palette colour is introduced', 'supabase-auth-emails/magic-link.html',
    'color:#514D45;', 'color:#999999;']
+,
+
+  // ---- FOUNDER WELCOME EMAIL ----
+  ['welcome: it sends before it claims, so a race sends twice', 'api/_welcome-email.js',
+   "  if (!claimed) return { ok: false, code: 'already_welcomed' };",
+   "  claimed = true;"],
+  ['welcome: an unrecordable claim sends anyway', 'api/_welcome-email.js',
+   "    if (!r || !r.ok){ log('CLAIM_FAILED status=' + (r ? r.status : 'none')); return { ok: false, code: 'claim_failed' }; }",
+   "    if (!r || !r.ok){ log('CLAIM_FAILED status=' + (r ? r.status : 'none')); }"],
+  ['welcome: a failed send is stamped as sent', 'api/_welcome-email.js',
+   "  if (!sent.ok){", "  if (false){"],
+  ['welcome: the switch stops mattering', 'api/_welcome-email.js',
+   "  if (!c.enabled) return { ok: false, code: 'welcome_email_disabled' };", ""],
+  ['welcome: it sends with no API key', 'api/_welcome-email.js',
+   "  if (!c.hasKey){ log('NOT_CONFIGURED'); return { ok: false, code: 'not_configured' }; }", ""],
+  ['welcome: the provider is asked to track the recipient', 'api/_welcome-email.js',
+   "        text: textBody()", "        text: textBody(),\n        tags: [{ name: 'open_tracking', value: 'on' }]"],
+  ['welcome: a call to action creeps into the copy', 'api/_welcome-email.js',
+   "              Welcome to Valhalla\n            </h1>",
+   "              Welcome to Valhalla\n            </h1>\n            <a href=\"https://velvetviking.co.uk/pricing\">Subscribe now</a>"],
+  ['welcome: the sender identity drifts', 'api/_welcome-email.js',
+   "const FROM = 'Dan from Velvet Viking <support@velvetviking.co.uk>';",
+   "const FROM = 'Velvet Viking <noreply@velvetviking.co.uk>';"],
+  ['welcome: the timeout is removed and a hang holds the sign-in', 'api/_welcome-email.js',
+   "      signal: controller ? controller.signal : undefined", "      signal: undefined"],
+  /* A case was removed here rather than made to pass: calling
+     welcomeIfFirstEntry twice from session.js survived every test, and it
+     SHOULD -- the module is idempotent, so the second call claims nothing,
+     sends nothing and changes nothing an athlete sees. That is the design
+     working, not a gap. Killing it would have needed a test that counts call
+     sites in a source file, which is the exact anti-pattern this whole runner
+     exists to catch. */
+  ['welcome: the claim stops being one atomic statement', 'supabase-welcome-email.sql',
+   "   where w.sent_at is null\n     and w.next_attempt_at <= now()\n     and w.attempts < p_max_attempts",
+   "   where w.sent_at is null"],
+  ['welcome: the retry budget is unbounded', 'supabase-welcome-email.sql',
+   "     and w.attempts < p_max_attempts", "     and w.attempts < 100000"],
+  ['welcome: the record becomes client-readable', 'supabase-welcome-email.sql',
+   "alter table public.account_welcome_email enable row level security;",
+   "alter table public.account_welcome_email enable row level security;\ncreate policy \"own welcome\" on public.account_welcome_email for select using ((select auth.uid()) = account_id);"],
+  ['welcome: a client is granted the claim', 'supabase-welcome-email.sql',
+   "grant execute on function public.claim_welcome_email(uuid, integer, interval) to postgres, service_role;",
+   "grant execute on function public.claim_welcome_email(uuid, integer, interval) to postgres, service_role, authenticated;"],
+  ['welcome: the state outlives the deleted account', 'supabase-welcome-email.sql',
+   "  account_id      uuid        primary key references auth.users(id) on delete cascade,",
+   "  account_id      uuid        primary key references auth.users(id) on delete set null,"]
 
 ];
 
