@@ -14247,26 +14247,39 @@ var PHRASE_SUPPRESS_WINDOW = 3;
    was said. Deliberately broad -- a false positive costs one repeated line,
    a false negative costs a silence about an injury. */
 var PHRASE_ALWAYS_SAY = /\b(pain|painful|sore|soreness|injur|illness|ill\b|unwell|fever|chest|breath|dizz|faint|blood|medical|doctor|physio|stop|do not run|rest completely)\b/i;
-/* THE WINDOW COUNTS CARDS THAT COULD HAVE SAID IT, not calendar sessions.
-   trainingSignalReason only appears at depth 'full', which is roughly one card
-   in four. Counting raw sessions therefore put the previous full card inside
-   every three-session window and suppressed the line to nothing -- which is a
-   deletion, not a cadence. `eligible` narrows the lookback to the cards where
-   the sentence was actually in play. */
-function phraseSaidRecently(dd, sentence, field, eligible){
-  if (!sentence || PHRASE_ALWAYS_SAY.test(sentence)) return false;
+/* HOW MANY CARDS IN A ROW HAVE ALREADY CARRIED THIS EXACT SENTENCE, and a
+   cadence derived from it: printed the first time, silent for the next
+   PHRASE_SUPPRESS_WINDOW, printed again, and so on. One line in four rather
+   than one line every time.
+
+   A first attempt asked "was this said on any of the last three cards", which
+   is the same question but answered the wrong way round: every review CARRIES
+   a signal reason whether or not the card printed it, so the answer was always
+   yes and the line vanished entirely. Narrowing the lookback to cards that
+   would have printed it fixed the count and cost twenty-four seconds a render
+   -- coachSignificance calls six whole-plan aggregates, and it was being asked
+   about forty prior days per card. A run length reads one stored field per day
+   and gives a cadence that is exactly as deterministic.
+
+   Reads the STORED review rather than coachReviewFor(), which heals a stale
+   one by recomputing it. The question is what the athlete has been reading, so
+   the persisted value is the right answer and a day with no stored review has
+   said nothing. */
+function phraseRunBefore(dd, sentence, field){
   var prior = (state.days || []).filter(function(x){
-    return x && x.completed && x.type !== 'rest' && x.date < dd.date &&
-           (!eligible || eligible(x));
-  }).sort(function(a, b){ return a.date < b.date ? 1 : -1; })
-    .slice(0, PHRASE_SUPPRESS_WINDOW);
-  return prior.some(function(p){
-    var r = null; try { r = coachReviewFor(p); } catch (e) { return false; }
-    return !!r && r[field] === sentence;
-  });
+    return x && x.completed && x.type !== 'rest' && x.date < dd.date;
+  }).sort(function(a, b){ return a.date < b.date ? 1 : -1; });
+  var n = 0;
+  for (var i = 0; i < prior.length; i++){
+    var r = prior[i] && prior[i].coachReview;
+    if (!r || r[field] !== sentence) break;
+    n++;
+  }
+  return n;
 }
-function phraseAtFullDepth(x){
-  try { return coachSignificance(x, 'after') === 'full'; } catch (e) { return false; }
+function phraseSaidRecently(dd, sentence, field){
+  if (!sentence || PHRASE_ALWAYS_SAY.test(sentence)) return false;
+  return (phraseRunBefore(dd, sentence, field) % (PHRASE_SUPPRESS_WINDOW + 1)) !== 0;
 }
 function coachDebrief(dd){
   if (!dd || !dd.completed) return null;
@@ -14287,7 +14300,7 @@ function coachDebrief(dd){
         !phraseSaidRecently(dd, r.coachNoticed, 'coachNoticed'))
       paras.push(r.coachNoticed);
     if (depth === 'full' && r.trainingSignalReason &&
-        !phraseSaidRecently(dd, r.trainingSignalReason, 'trainingSignalReason', phraseAtFullDepth))
+        !phraseSaidRecently(dd, r.trainingSignalReason, 'trainingSignalReason'))
       paras.push(r.trainingSignalReason);
   }
   var next = r.nextMove || coachNextConnection(dd);
