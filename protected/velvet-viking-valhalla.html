@@ -59,41 +59,57 @@
     --c-long:#5E93AC; --c-long-soft:rgba(94,147,172,0.16);
     --c-gold:var(--gold); --c-gold-soft:rgba(227,177,90,0.20);
 
-    /* ---------- VALHALLA VIOLET ----------
-       GOLD REMAINS THE IDENTITY. This is an accent for a specific, closed set
-       of things -- progression and the one interaction that changes the whole
-       app's appearance -- and it is a token precisely so that set stays
-       closed: a scattered hex is how an accent becomes a second brand.
+    /* ---------- CHERRY LACQUER ----------
+       THE VELVET VIKING INTERACTIVE ACCENT. Japanese maple / dark cherry /
+       wine. It replaced the Valhalla violet that used to live here, and it
+       carries the same closed set of meanings and no more:
 
-       Every section heading, every card, every other button and every
-       existing gold surface is deliberately untouched.
+         PRIMARY INTERACTION  the button that moves the athlete forward
+         PROGRESSION          where they are in a sequence
+         SELECTED BRAND STATE a control they have turned on
 
-       The hue was not picked at random. The dark theme's own near-blacks
-       (#151417, #232126) already sit at 255-264deg, so a violet at ~271deg is
-       the same family the product was already built in rather than a colour
-       imported from outside it. Deep royal rather than bright: on cream,
-       #4C2A6B reads 10.06:1, close to ink's authority, and carries white at
-       11.35:1 on a filled button.
+       GOLD REMAINS THE IDENTITY. Every section heading, every card, every gold
+       button and every gold border is untouched. So is every semantic colour:
+       green proceed, amber watch, red missed/destructive, the workout-type
+       hues and the subscription pill's active/grace/ended states. This accent
+       is a token precisely so its set stays closed -- a scattered hex is how
+       an accent becomes a second brand.
 
-       Dark mode inverts the problem -- #4C2A6B on #151417 is 1.62:1 and
-       invisible -- so the accent lightens to #A88FD8 (6.63:1) rather than the
-       component being redesigned.
+       CANONICAL VALUE #532D3A, and the light theme uses it unmodified: 10.32:1
+       on --bg, 11.27:1 on --bg-2, 9.27:1 on --bg-3, and it carries white at
+       11.64:1 on a filled button.
 
-       --violet-ink is the one token that does NOT flip with the theme. It is
-       the numeral inside a violet node, and that node is light in BOTH themes,
-       so the numeral is dark in both: #171717 on the light fill is 14.22:1,
-       and on the dark-theme fill 6.48:1. Flipping it to --ink would make the
-       dark-mode numerals ivory-on-lilac and unreadable. */
-    --violet:#A88FD8;
-    --violet-soft:#A88FD8;              /* node fill; the accent itself here */
-    --violet-line:rgba(168,143,216,0.34);
-    --violet-dim:rgba(168,143,216,0.45);
-    --violet-2:#B79FDF;                 /* gradient partner, lighter here */
-    --violet-ink:#171717;               /* numerals inside a node, both themes */
-    /* A filled violet button is DEEP in light and LIGHT in dark, so its label
-       has to flip: white on #4C2A6B is 11.35:1, white on #A88FD8 is 2.77:1 and
-       unreadable. Dark ink on the dark-theme violet is 6.48:1. */
-    --violet-btn-ink:#171717;
+       DARK MODE NEEDS A COMPANION, and the reason is measured rather than
+       aesthetic. #532D3A on #151417 is 1.58:1 -- the LABEL would be fine, but
+       the CONTROL would have no boundary, which is WCAG 1.4.11's 3:1 for
+       non-text contrast and the difference between a button and a smudge.
+
+       So the companion is #532D3A scaled x1.86 on every channel, which is the
+       SMALLEST lift that clears 3:1 against the WORST dark surface a control
+       sits on (--bg-3 #201F23, where it lands at exactly 3.01:1; 3.18:1 on
+       --bg-2 and 3.37:1 on --bg). Proportional scaling is what keeps it the
+       same colour: hue 339.43deg against the canonical 339.47deg. It is not a
+       different accent, it is Cherry Lacquer with the lights on.
+
+       --cherry-text is a SECOND dark companion, and only for the two places
+       the accent is small TEXT rather than a fill -- the builder's stage
+       numeral and the trial pill. Those need 4.5:1, not 3:1, so they need a
+       further lift: x2.36, hue 339.33deg, 4.5:1 on --bg-3 -- the worst surface
+       either of them can land on. Using the fill tone
+       for text would ship 3.18:1 body text, and using the text tone for fills
+       would lighten every control past what the colour should look like. */
+    --cherry:#9A546C;                   /* x1.86 of #532D3A -- see above */
+    --cherry-soft:#9A546C;              /* node fill; the accent itself here */
+    --cherry-line:rgba(154,84,108,0.45);
+    --cherry-dim:rgba(154,84,108,0.50);
+    --cherry-text:#C46A89;              /* x2.36 -- the accent AS TEXT, 4.5:1 */
+    /* Ink on --cherry-soft. Cherry Lacquer is a DARK colour in both themes'
+       terms -- deep on cream, lifted-but-still-deep on charcoal -- so unlike
+       the violet it replaced, its label does not have to flip: white clears AA
+       on both fills (11.64:1 light, 5.44:1 dark). --cherry-ink is dark only
+       where the fill is the pale light-theme tint. */
+    --cherry-ink:#FFFFFF;
+    --cherry-btn-ink:#FFFFFF;
     /* ---------- TYPOGRAPHY SCALE (readability prototype) ----------
        Beta feedback: coaching/body copy read small next to apps like Strava,
        whose body text sits around 14-16px. Valhalla's primary copy was
@@ -173,17 +189,22 @@
     --ctl-surface:#F5F2EC; --ctl-surface-border:#DCCEA9;
     --danger-text:#9A3540;   /* 6.30:1 on the page, vs 4.37:1 for the family hue */
 
-    /* VALHALLA VIOLET, light. The direction is strongest here: deep royal on
-       cream, 10.06:1, with white carried at 11.35:1 on a filled button. The
-       node fill is a pale tint of the same hue so the numeral inside can stay
-       near-black -- a numeral on saturated #4C2A6B would be unreadable. */
-    --violet:#4C2A6B;
-    --violet-soft:#E9E2F5;
-    --violet-line:rgba(76,42,107,0.30);
-    --violet-dim:rgba(76,42,107,0.42);
-    --violet-2:#5B3580;                 /* gradient partner, deeper here */
-    --violet-ink:#171717;
-    --violet-btn-ink:#FFFFFF;           /* 11.35:1 on the deep violet fill */
+    /* CHERRY LACQUER, light -- the canonical value, unmodified. The direction
+       is strongest here: deep Japanese maple on cream, 10.32:1, with white
+       carried at 11.64:1 on a filled button. No lift is needed and none is
+       applied; the dark theme's companion exists only because that theme's
+       ground made one necessary (see the block above).
+
+       The node fill is a pale tint of the same hue so the numeral inside can
+       stay near-black -- a numeral on saturated #532D3A would be unreadable --
+       which is the one place --cherry-ink is dark rather than white. */
+    --cherry:#532D3A;
+    --cherry-soft:#EFE4E8;              /* 88% toward white; hue 338.2deg */
+    --cherry-line:rgba(83,45,58,0.32);
+    --cherry-dim:rgba(83,45,58,0.42);
+    --cherry-text:#532D3A;              /* no lift needed: 10.32:1 as text */
+    --cherry-ink:#171717;               /* 14.46:1 on the pale node fill */
+    --cherry-btn-ink:#FFFFFF;           /* 11.64:1 on the filled button */
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html{-webkit-text-size-adjust:100%;}
@@ -372,7 +393,7 @@
      The words, the icon and the interior are deliberately unchanged: the
      border alone is enough to mark it as the thing worth opening, and
      colouring the content would make a reading surface shout. */
-  .fuel-card.how-card{border-color:var(--violet); border-style:solid;}
+  .fuel-card.how-card{border-color:var(--cherry); border-style:solid;}
   /* min-height, not more padding: this is a thumb target on a phone and it sat
      at roughly 29px, well under the ~44px a finger actually needs. The card is
      otherwise unchanged -- the row simply stops being a near-miss. */
@@ -436,8 +457,8 @@
      is step 2" and the rail said nothing, so the SEQUENCE was something you
      inferred rather than saw.
 
-     Now the numeral IS the node: one violet disc per step, sitting on a violet
-     connector that runs from each node to the next. The number did not move
+     Now the numeral IS the node: one Cherry Lacquer disc per step, sitting on
+     a Cherry Lacquer connector that runs from each node to the next. The number did not move
      twice and there is no second numeral anywhere -- the same span, positioned
      differently.
 
@@ -457,14 +478,14 @@
   .ws-n{
     position:absolute; left:-27px; top:-1px; width:19px; height:19px;
     display:flex; align-items:center; justify-content:center;
-    border-radius:50%; background:var(--violet-soft); border:1.5px solid var(--violet);
-    color:var(--violet-ink); font-size:var(--fs-meta); line-height:1; font-weight:700;
+    border-radius:50%; background:var(--cherry-soft); border:1.5px solid var(--cherry);
+    color:var(--cherry-ink); font-size:var(--fs-meta); line-height:1; font-weight:700;
   }
   /* From just under this node to just under the step box, which is where the
      next node begins. Never drawn after the last one. */
   .ws-step::before{
     content:''; position:absolute; left:-18.25px; top:19px; bottom:-1px;
-    width:1.5px; background:var(--violet-line);
+    width:1.5px; background:var(--cherry-line);
   }
   .ws-step:last-child::before{display:none;}
   .ws-name{font-size:var(--fs-body); letter-spacing:.6px; text-transform:uppercase; color:var(--ink);}
@@ -916,15 +937,19 @@
   .btn-primary:hover{filter:brightness(1.08);}
   /* THE BUILDER'S PRIMARY ACTION, and only the builder's. Continue and Build
      My Training Block / Regenerate Plan are the forward motion of a flow that
-     is already marked in violet by its progress rail, so the button that
-     advances it belongs to the same accent.
+     is already marked in Cherry Lacquer by its progress rail, so the button
+     that advances it belongs to the same accent.
 
      Scoped to .builder-light -- the class the staged builder already carries
      for its positioning -- so every other .btn-primary in the product keeps
      the bronze gradient. Save & Re-tailor, Log Session and the rest are
      untouched, which is what stops this becoming "the primary button is
-     purple now". Secondary controls inside the builder keep .btn-ghost. */
-  .builder-light .btn-primary{background:linear-gradient(135deg,var(--violet),var(--violet-2)); color:var(--violet-btn-ink);}
+     cherry now". Secondary controls inside the builder keep .btn-ghost.
+
+     SOLID, not a gradient. The gradient was the violet's; Cherry Lacquer was
+     chosen as a flat fill, and a flat fill is also what makes the button read
+     as one deliberate colour rather than a surface with a sheen. */
+  .builder-light .btn-primary{background:var(--cherry); color:var(--cherry-btn-ink);}
   .btn-ghost{background:none; border:1px solid var(--line);}
   /* --danger-text, not --c-threshold. The workout-type hues are deliberately
      identical in both themes, and that one lands at 4.37:1 on cream -- close
@@ -1044,15 +1069,16 @@
   /* Progress. Numerals on mobile, so five labels cannot crowd a 360px header. */
   .bld-progress{display:flex; align-items:center; gap:6px;}
   .bld-step{flex:1 1 0; height:3px; border-radius:99px; background:var(--line); transition:background .2s;}
-  /* PROGRESS. Violet marks how far through the build you are: the segment you
-     are on, the ground already covered behind it at lower weight, and the
-     stage numeral that names it. Future segments stay --line, unchanged and
+  /* PROGRESS. Cherry Lacquer marks how far through the build you are: the
+     segment you are on, the ground already covered behind it at lower weight,
+     and the stage numeral that names it -- which takes --cherry-text rather
+     than --cherry, because a numeral is text and needs 4.5:1. Future segments stay --line, unchanged and
      neutral, so the accent reads as progress rather than decoration. The stage
      NAME beside the numeral stays --ink-faint: it is a label, not progress. */
-  .bld-step.done{background:var(--violet-dim);}
-  .bld-step.now{background:var(--violet);}
+  .bld-step.done{background:var(--cherry-dim);}
+  .bld-step.now{background:var(--cherry);}
   .bld-progress-meta{display:flex; align-items:baseline; justify-content:space-between; margin:9px 0 2px;}
-  .bld-stage-no{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--violet);}
+  .bld-stage-no{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--cherry-text);}
   .bld-stage-name{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.4px; font-size:var(--fs-label); color:var(--ink-faint);}
   .bld-stage-h{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.8px; font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px;}
   .bld-lede{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 18px;}
@@ -1242,27 +1268,27 @@
     box-shadow:inset 0 0 0 1px var(--ctl-border);}
   .switch input:checked + .switch-track{box-shadow:none;}
   .switch-track::before{content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:var(--bg-2); border-radius:50%; transition:.2s; box-shadow:var(--shadow-sm);}
-  /* ON IS PURPLE, FOR EVERY BINARY SWITCH IN THE PRODUCT.
+  /* ON IS CHERRY LACQUER, FOR EVERY BINARY SWITCH IN THE PRODUCT.
 
-     This was gold, with a single-row override painting the App Theme switch
-     violet -- so Settings offered two identical controls doing identical kinds
-     of thing in two different colours, and the difference meant nothing.
+     This was gold, with a single-row override painting the App Theme switch in
+     the accent -- so Settings offered two identical controls doing identical
+     kinds of thing in two different colours, and the difference meant nothing.
      Whichever colour won, the inconsistency was the defect.
 
-     Purple wins because of what the two colours already mean here. Gold is the
-     brand: headings, the selected tab, the primary action, the crest. Violet is
+     The accent wins because of what the two colours already mean here. Gold is
+     the brand: headings, the selected tab, the primary action, the crest.
+     Cherry Lacquer is
      already the interactive-control treatment. A switch is a control and never a
      brand mark, so it takes the control colour -- and the #theme-toggle-row
      override is DELETED rather than duplicated onto each new toggle, because a
      shared component with per-instance colour exceptions is exactly how these
      drifted apart in the first place.
 
-     Both themes come free: --violet is defined per theme (light #4C2A6B, dark
-     #A88FD8), which is the same token that already governed the App Theme
-     switch, so the thumb contrast here is the contrast that switch has always
-     had. The off state is untouched, and focus stays the global gold
-     :focus-visible outline every other control in the app uses. */
-  .switch input:checked + .switch-track{background:var(--violet);}
+     Both themes come free: --cherry is defined per theme (light #532D3A, dark
+     #9A546C), which is the same token that governs every other interactive
+     accent in the product. The off state is untouched, and focus stays the
+     global gold :focus-visible outline every other control in the app uses. */
+  .switch input:checked + .switch-track{background:var(--cherry);}
   .switch input:checked + .switch-track::before{transform:translateX(18px);}
   .callout{background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 12px; font-size:12px; color:var(--ink-dim); line-height:1.5; display:flex; gap:9px;}
   .callout svg{flex:none; width:16px; height:16px; color:var(--bronze); margin-top:1px;}
@@ -1484,19 +1510,11 @@
   .day-status-label.missed .day-status-dot{background:var(--c-threshold);}
   .day-status-label.recovery{color:var(--c-tempo); border-color:var(--c-tempo);}
   .day-status-label.recovery .day-status-dot{background:var(--c-tempo);}
-  /* ---------- Plan HQ expandable sections ---------- */
-  .hq-sec{border-top:1px solid var(--line-soft);}
-  .hq-sec:first-of-type{border-top:none;}
-  .hq-sec-head{
-    display:flex; align-items:center; gap:8px; width:100%; padding:10px 0;
-    background:none; border:none; cursor:pointer; text-align:left;
-  }
-  .hq-sec-title{font-size:12px; color:var(--ink); flex:none;}
-  .hq-sec-sum{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint); margin-left:auto; text-align:right;}
-  .hq-sec-chev{display:flex; color:var(--ink-faint); transition:transform .25s; flex:none;}
-  .hq-sec-chev svg{width:14px; height:14px;}
-  .hq-sec.open .hq-sec-chev{transform:rotate(90deg);}
-  .hq-sec-body{padding:2px 0 11px;}
+  /* Plan HQ's five expandable sections are gone: they are THE READING's
+     destination cards now (.read-val above, .rec-card shell), and their bodies
+     open in a panel rather than pushing the page down. The row/pattern styles
+     below stayed -- those bodies are the same markup, rendered somewhere
+     else. */
   .hq-row{display:flex; align-items:baseline; gap:10px; padding:3px 0;}
   .hq-row-l{font-size:11px; color:var(--ink-faint); flex:1 1 auto; min-width:0;}
   /* Values here are not all short: "usually normal again within about 34h" and
@@ -1536,8 +1554,8 @@
      The dashed border and the gold wash were a standalone landing page's
      decoration; a door into a five-stage flow is not a poster. Solid hairline,
      the page's own ground, and -- because .hero-setup carries .builder-light
-     -- the same violet primary action, the same radius and the same control
-     metrics as the stage panels one tap behind it. The eyebrow rule is gone
+     -- the same Cherry Lacquer primary action, the same radius and the same
+     control metrics as the stage panels one tap behind it. The eyebrow rule is gone
      with the step number it used to hold: this card no longer counts. */
   .setup-cta.setup-step{
     border:1px solid var(--line); background:var(--bg-2); border-radius:14px;
@@ -1578,6 +1596,157 @@
   .plan-summary-bar .psb-sub{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); margin-top:2px;}
   .plan-summary-bar svg{width:16px; height:16px; color:var(--ink-faint); flex:none;}
 
+  /* ---------- THE RECORD ----------
+     Four cards, one per fact the plan is built on. Deliberately the SAME shell
+     as .plan-summary-bar directly above -- same surface, border, radius,
+     padding, hover and press -- because they are siblings: a thing you tap
+     that opens a surface. Two properties are added rather than a new family
+     invented.
+
+     THE RIGHT-HAND ELEMENT IS A VALUE, NOT A VERDICT. Everywhere else in Plan
+     HQ a right-hand element is a conclusion and may carry a status colour and
+     a dot. A Record card carries a fact: --ink-dim, sentence case, no dot, no
+     status hue, ever. That is the whole distinction between the two jobs the
+     one component does, so it is a rule here rather than a habit.
+
+     A <button>, because the whole card is the target and a target you can
+     reach with a keyboard is worth the two lines of font/appearance reset. */
+  .rec-card{
+    display:block; width:100%; text-align:left; font:inherit; -webkit-appearance:none; appearance:none;
+    background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:10px 12px; margin:8px 0; cursor:pointer;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .rec-card:hover{background:var(--bg-3); border-color:var(--bronze-2);}
+  .rec-card:active{background:var(--bg-4);}
+  .rec-top{display:flex; align-items:center; gap:10px;}
+  .rec-subject{
+    font-family:'Oswald',sans-serif; font-size:12.5px; letter-spacing:.5px;
+    text-transform:uppercase; color:var(--ink); flex:1 1 auto; min-width:0;
+  }
+  .rec-right{display:flex; align-items:center; gap:8px; flex:0 1 auto; min-width:0;}
+  .rec-val{font-size:11.5px; color:var(--ink-dim); text-align:right; min-width:0; overflow-wrap:anywhere;}
+  .rec-val.font-mono{font-size:11px;}
+  /* "Nothing measured" is an absence, not a value, so it is quieted rather
+     than coloured -- a status hue here would make an empty record look like a
+     warning about something. */
+  .rec-val.rec-none{color:var(--ink-faint);}
+  .rec-card svg{width:16px; height:16px; color:var(--ink-faint); flex:none;}
+  .rec-syn{
+    font-size:11px; line-height:1.5; color:var(--ink-faint);
+    margin-top:4px; padding-right:24px;
+  }
+  /* The section's own sub-line, set at the synopsis size rather than the
+     field-hint size: it is the label doing the structural work of separating
+     these four cards from the coaching above them, and a hint-sized line reads
+     as a first card that lost its box. */
+  .rec-lede{font-size:11px; line-height:1.5; color:var(--ink-faint); margin:-4px 0 4px;}
+
+  /* ---------- THE READING ----------
+     The same card, doing the other job. A Reading card is an interpretation,
+     so its right-hand element is a CONCLUSION and may carry the tone the
+     coaching engine already assigned it -- which is exactly what .rec-val is
+     forbidden from doing. One shell, two grammars, and the grammar is the
+     difference between a fact and a verdict. */
+  .read-val{
+    font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:.9px;
+    text-transform:uppercase; color:var(--ink-dim); text-align:right;
+    min-width:0; overflow-wrap:anywhere; display:inline-flex; align-items:center; gap:5px;
+  }
+  .read-val .read-dot{width:6px; height:6px; border-radius:50%; background:currentColor; flex:none;}
+  .read-val.good{color:var(--c-easy);}
+  .read-val.watch{color:var(--gold);}
+  .read-val.bad{color:var(--c-tempo);}
+
+  /* ---------- RACE OUTLOOK ----------
+     Where the last measured effort sits against the goal, and nothing else.
+     CHERRY LACQUER is the measured range -- the same accent the confidence
+     gauge above already uses for what the athlete's own running has produced. GOLD is the
+     goal, which is gold everywhere in this product. No third colour, no
+     probability, no number that is not already computed by
+     measuredFitnessEstimate(). */
+  .outlook{margin-top:14px;}
+  .outlook-head{
+    display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:8px;
+  }
+  .outlook-title{
+    font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.4px;
+    text-transform:uppercase; color:var(--bronze-text);
+  }
+  .outlook-dist{font-size:10.5px; color:var(--ink-faint); text-align:right;}
+  .outlook-track{
+    position:relative; height:12px; border-radius:99px; background:var(--bg-3);
+    border:1px solid var(--line-soft);
+  }
+  .outlook-band{
+    position:absolute; top:-1px; bottom:-1px; border-radius:99px;
+    background:var(--cherry);
+    min-width:8px;
+  }
+  /* The goal is a marker, not a region: a hairline through the whole track so
+     it reads against the band whether it falls inside, before or after it. */
+  /* The marker is gold, and gold on the pale light-theme track is 1.56:1 --
+     legible where it crosses the Cherry Lacquer band and faint where it does
+     not. A hairline of --bronze-2 (3.37:1 on that track, 3.87:1 on the dark
+     one) gives it an edge in both themes without introducing a colour: it is
+     the same gold family the marker is already made of. */
+  .outlook-goal{
+    position:absolute; top:-4px; bottom:-4px; width:2.5px; margin-left:-1.25px;
+    border-radius:2px; background:var(--gold); box-shadow:0 0 0 1px var(--bronze-2);
+  }
+  .outlook-goal::after{
+    content:''; position:absolute; left:50%; top:-4px; width:6px; height:6px;
+    margin-left:-3px; border-radius:50%; background:var(--gold);
+    box-shadow:0 0 0 1px var(--bronze-2);
+  }
+  .outlook-scale{
+    display:flex; justify-content:space-between; gap:10px; margin-top:6px;
+    font-size:10px; color:var(--ink-faint);
+  }
+  .outlook-legend{display:flex; flex-wrap:wrap; gap:14px; margin-top:8px;}
+  .ol-key{display:inline-flex; align-items:center; gap:6px; font-size:10.5px; color:var(--ink-dim);}
+  .ol-swatch{width:10px; height:10px; border-radius:3px; flex:none;}
+  .ol-swatch.measured{background:var(--cherry);}
+  .ol-swatch.goal{background:var(--gold);}
+  .outlook .field-hint{margin-top:6px;}
+
+  /* ---------- THE ACTION TRIO ----------
+     Three tiles at the foot of Plan HQ. They rhyme with the status chips
+     higher up the screen and must not be mistaken for them, so the
+     distinction is fill: STATUS IS FILLED, ACTION IS OUTLINED. Same grid,
+     same radius family, opposite surface treatment.
+     56px minimum, so the whole tile clears every platform's touch target. */
+  .act-trio{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:16px 0 4px;}
+  .act-tile{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    min-height:76px; padding:10px 6px; font:inherit; text-align:center; cursor:pointer;
+    background:none; border:1px solid var(--line); border-radius:var(--radius-sm);
+    color:var(--ink); transition:background .15s ease, border-color .15s ease;
+  }
+  .act-tile:hover{background:var(--bg-2); border-color:var(--bronze-2);}
+  .act-tile:active{background:var(--bg-3);}
+  .act-tile svg{width:19px; height:19px; color:var(--bronze-text); flex:none;}
+  .act-lab{
+    font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.9px;
+    text-transform:uppercase; color:var(--ink); line-height:1.3;
+  }
+  /* The panel a Record card opens. Same modal-themed surface and the same
+     circular close control as every other worked-in surface; the one addition
+     is the full-width Cherry Lacquer BACK at the foot, which is the builder's
+     own forward-motion accent doing the one job this surface has. */
+  .rec-panel-nav{margin-top:22px;}
+  /* CHERRY MEANS "THE WAY OUT OF THIS PANEL", and only that. builder-light is
+     borrowed for the centring and the accent, but a Plan HQ panel can host a
+     real primary of its own -- a Plan evolution proposal's Accept commits days
+     of training -- and a state-changing action must not wear the same colour
+     as the button that just closes the surface. So the panels put every
+     content primary back on bronze, and light the navigation alone. */
+  .hq-panel .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink);}
+  .hq-panel .rec-panel-nav .btn-primary{
+    background:var(--cherry); color:var(--cherry-btn-ink);
+  }
+  .modal-body .zone-paces-card{margin:0 0 4px;}
+
   .goal-toggle-hero{margin-top:16px;}
   .goal-toggle-hero .goal-options{margin-top:8px;}
 
@@ -1605,7 +1774,7 @@
   /* ---------- SUBSCRIPTION ----------
      Status is INFORMATION, so the pill borrows the same quiet chip language
      the rest of the product uses for state and never the primary action's
-     violet. Only "Subscribe again" and "Update payment details" are primary
+     fill -- it takes the accent's TEXT tone, at a text contrast ratio. Only "Subscribe again" and "Update payment details" are primary
      actions, and they inherit .btn-primary like every other one. */
   .sub-pill{
     font-family:'Oswald',sans-serif; font-size:var(--fs-meta); letter-spacing:1px;
@@ -1613,7 +1782,7 @@
     border:1px solid var(--line); color:var(--ink-faint); white-space:nowrap;
   }
   .sub-pill.sub-active{border-color:rgba(var(--modal-active-rgb),0.5); color:var(--modal-active);}
-  .sub-pill.sub-trial{border-color:var(--violet-line); color:var(--violet);}
+  .sub-pill.sub-trial{border-color:var(--cherry-line); color:var(--cherry-text);}
   .sub-pill.sub-grace{border-color:var(--c-threshold); color:var(--danger-text);}
   .sub-pill.sub-ended{border-color:var(--line); color:var(--ink-faint);}
   .sub-line{font-size:var(--fs-data); color:var(--ink); margin:2px 0 8px;}
@@ -5732,6 +5901,22 @@ function cloudReconcile(){
     openCloudConflictModal(remote, row.updated_at);
   }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
 }
+/* THE ONE MODAL THAT STAYS ON THE FIXED DARK RAMP, and it is a decision
+   rather than an oversight.
+
+   Every other modal in the product has been classified as a surface the
+   athlete WORKS IN -- the builder, Re-calibrate, Edit Session, Settings,
+   Pacing Strategy, Tools & Import, Restore a Plan, the two backup-text
+   surfaces and Plan HQ's panels -- and every one of those follows the theme,
+   because a near-black sheet over a cream app is wrong for something you sit
+   in and operate.
+
+   This is not one of those. It has NO close control, because there is nothing
+   to close it to: two plans exist, one must be chosen, and the athlete cannot
+   proceed until they choose. It is the lit stage .modal-card was written for,
+   and its deliberate difference from the surface behind it is what marks it as
+   a thing that has to be answered. Adding .modal-themed here would make the one
+   modal that must interrupt look like the ones that do not. */
 function openCloudConflictModal(remote, remoteUpdated){
   cloudPendingReconcile = true;
   window.__cloudPendingRemote = remote;
@@ -6908,13 +7093,13 @@ function renderConfidenceGauge(){
            are the scale the reading sits against, and .gauge-pct stays
            --gold-text because it is the confidence FIGURE, not the gauge. The
            card, its PROGRAMME STATUS heading and every label are untouched. */
-        '<linearGradient id="gaugeFillGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="var(--violet-dim)"/><stop offset="100%" stop-color="var(--violet)"/></linearGradient>'+
+        '<linearGradient id="gaugeFillGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="var(--cherry-dim)"/><stop offset="100%" stop-color="var(--cherry)"/></linearGradient>'+
       '</defs>'+
       '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="var(--bg-4)" stroke-width="6" stroke-linecap="round"/>'+
       '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="url(#gaugeFillGrad)" stroke-width="6" stroke-linecap="round" '+
         'stroke-dasharray="'+fillLen.toFixed(1)+' '+(arcLen-fillLen).toFixed(1)+'"/>'+
       '<g filter="url(#gaugeGlow)">'+ticks+'</g>'+
-      '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleX.toFixed(1)+'" y2="'+needleY.toFixed(1)+'" stroke="var(--violet)" stroke-width="2.4" stroke-linecap="round" filter="url(#gaugeGlow)"/>'+
+      '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleX.toFixed(1)+'" y2="'+needleY.toFixed(1)+'" stroke="var(--cherry)" stroke-width="2.4" stroke-linecap="round" filter="url(#gaugeGlow)"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="3" fill="var(--modal-active)"/>'+
       '<text x="'+(cx-r)+'" y="'+(cy+11)+'" class="gauge-elabel">E</text>'+
       '<text x="'+(cx+r-6)+'" y="'+(cy+11)+'" class="gauge-flabel">F</text>'+
@@ -7049,7 +7234,7 @@ function renderHero(){
        athlete never sees it. */
     var parked = recoverablePlans().length;
     /* `builder-light` is the class the staged builder already carries, and it
-       is what makes a primary action violet rather than bronze. Borrowing it
+       is what makes a primary action Cherry Lacquer rather than bronze. Borrowing it
        here rather than writing a new rule is the whole point: this card and
        the builder one tap behind it now share one accent because they share
        one stylesheet rule, so they cannot drift apart later. No new colour
@@ -7116,17 +7301,11 @@ function renderCompactPaceReference(){
     rows+
   '</div>';
 }
-// Current benchmark + a shortcut into Recalibrate -- Plan HQ's stand-in for
-// full inline benchmark editing, reusing the existing recalibrate modal
-// rather than duplicating its distance/time inputs on the dashboard.
-function renderBenchmarkSummary(){
-  var b = state.setup.benchmark;
-  var title = b ? (DISTANCE_PROFILES[b.distanceKey].label+' \u2014 '+secToClock(b.timeSec)) : 'No benchmark set yet';
-  return '<div class="plan-summary-bar" data-action="open-recalibrate">'+
-    '<div class="psb-main"><div class="psb-title">Benchmark</div><div class="psb-sub">'+escapeHtml(title)+' \u00b7 tap to update and recalibrate paces</div></div>'+
-    ICONS.chevronRight+
-  '</div>';
-}
+/* The Benchmark summary bar that used to live here is gone: The Record's
+   Benchmark card is the one place the benchmark is stated on Plan HQ now, and
+   its panel is where the athlete goes to change it. The route into
+   openRecalibrateModal() is unchanged -- the same data-action, the same
+   handler, the same modal -- only the control that fires it moved. */
 
 /* =========================================================
    ZONE PACES CARD — lives on the main dashboard (not buried in
@@ -7135,7 +7314,11 @@ function renderBenchmarkSummary(){
    ========================================================= */
 var ZONE_PACE_LABELS = {E:'Easy / Recovery',M:'Tempo',T:'Threshold',I:'Interval / Track',R:'Repetition'};
 var ZONE_PACE_ORDER = ['E','M','T','I','R'];
-function renderZonePacesCard(){
+/* `inPanel` suppresses the card's own head and nothing else -- see
+   renderMeasuredFitness() for the same reason. Every input, id, data-action,
+   handler and calculation below is untouched: the editable component the Record
+   panel hosts IS this one, relocated, not a second copy of it. */
+function renderZonePacesCard(inPanel){
   if (!state.setup) return '';
   var paces = getActivePaces();
   var hrZones = getActiveHRZones();
@@ -7165,7 +7348,7 @@ function renderZonePacesCard(){
   var hrHint = (state.setup.lthr==null) ? ' Set your LTHR/Max HR (Edit Plan Settings) to also see target HR ranges here.' : '';
 
   return '<div class="zone-paces-card">'+
-    '<div class="zpc-head"><span class="font-head">Training Zone Paces</span></div>'+
+    (inPanel ? '' : '<div class="zpc-head"><span class="font-head">Training Zone Paces</span></div>')+
     '<div class="field-hint" style="margin-bottom:10px;">Edit any pace by hand to fine-tune it — edits stick until reset or re-calibrated from a new goal/benchmark.'+hrHint+'</div>'+
     rows+
     (anyOverride ? '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:10px;" data-action="reset-pace-overrides">'+ICONS.zap+' Reset to Calculated Paces</button>' : '')+
@@ -7182,12 +7365,20 @@ function handlePaceOverrideChange(zone){
   else state.setup.paceOverrides[zone] = { fast:toKm(fastSec), slow:toKm(slowSec) };
   scheduleSave();
   renderApp();
+  /* This edit is made INSIDE the Training Zone Paces panel, over a Plan HQ the
+     athlete has scrolled down. renderApp() replaces #app wholesale, so without
+     these two the page behind the panel jumps to the top and the panel itself
+     goes on showing the pace as it was before the edit. */
+  restorePlanHQScroll();
+  refreshOpenRecordPanel();
 }
 function handleResetPaceOverrides(){
   if (!state.setup) return;
   state.setup.paceOverrides = {};
   scheduleSave();
   renderApp();
+  restorePlanHQScroll();
+  refreshOpenRecordPanel();
   showToast('Zone paces reset to calculated values');
 }
 
@@ -17822,11 +18013,16 @@ function blockIdentityLine(){
 
    No CTL, no ATL, no TSB, no Banister curve, no chart. Two times and the gap
    between them is what an athlete asked "am I fitter?" actually wants. */
-function renderMeasuredFitness(){
+/* `inPanel` suppresses the section heading and nothing else. The Record's
+   Measured Fitness panel is already titled by its own modal head, and printing
+   the same two words twice on one surface reads as a mistake. Called with no
+   argument this is byte-for-byte what it always rendered. */
+function renderMeasuredFitness(inPanel){
+  var heading = inPanel ? '' : '<div class="setup-section-title">Measured Fitness</div>';
   var prog = measuredProgression();
   var latest = prog.latest;
   if (!latest){
-    return '<div class="setup-section-title">Measured Fitness</div>'+
+    return heading+
       '<div class="hub-card yr-fitness"><div class="hq-empty">'+
       'Nothing measured yet. A completed race or Fitness Checkpoint is what counts here — '+
       'training paces come from your goal, so they are not a measurement.</div></div>';
@@ -17855,7 +18051,7 @@ function renderMeasuredFitness(){
           : (prog.improved ? 'Faster over the distance' : 'Not faster than last time'))+
       '</div>';
   }
-  return '<div class="setup-section-title">Measured Fitness</div>'+
+  return heading+
     '<div class="hub-card yr-fitness">'+rows+renderFitnessEstimate()+'</div>';
 }
 
@@ -18230,34 +18426,23 @@ function renderReadinessCheck(dec){
 }
 
 // Plan HQ gets the full picture; Today gets the one thing to act on.
+/* THE COACH'S READ — what stays on the page.
+   Athlete Status is the headline, and Signals / Coach Noticed / Breakthroughs /
+   Coach Watch are the coach speaking. All four are short, all four are
+   conditional on there being something to say, and none of them has a detail
+   view behind it -- so they are the part of Plan HQ that is genuinely worth
+   reading without tapping anything, and they stay inline.
+
+   The five interpretations that DID have depth behind them became THE READING
+   (see readingSections()), which is rendered separately. */
 function renderCoachPanel(){
   var report = coachAnalyse();
   if (!report) return '';
   return renderAthleteStatusCard(report)+
-    renderRaceReadinessCard(report)+
     renderCoachSignalsCard(report)+
     renderCoachNoticedCard(report)+
     renderBreakthroughCard(report)+
     renderCoachWatchCard(report);
-}
-// Which Plan HQ sections are open. UI state, not persisted.
-var hqOpen = {};
-function handleToggleHQSection(key){
-  if (!key) return;
-  hqOpen[key] = !hqOpen[key];
-  renderApp();
-}
-function hqSection(key, title, summary, bodyHtml){
-  var open = !!hqOpen[key];
-  return '<div class="hq-sec'+(open?' open':'')+'">'+
-    '<button type="button" class="hq-sec-head" data-action="toggle-hq-section" data-section="'+key+'" '+
-      'aria-expanded="'+(open?'true':'false')+'">'+
-      '<span class="hq-sec-title">'+escapeHtml(title)+'</span>'+
-      '<span class="hq-sec-sum">'+escapeHtml(summary)+'</span>'+
-      '<span class="hq-sec-chev">'+ICONS.chevronRight+'</span>'+
-    '</button>'+
-    (open ? '<div class="hq-sec-body">'+bodyHtml+'</div>' : '')+
-  '</div>';
 }
 /* ---------- a reminder, not a history screen ----------
    evolutionHistory is already persisted and, until now, never read back by
@@ -18297,9 +18482,29 @@ function hqRow(label, value){
   return '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(label)+'</span>'+
          '<span class="hq-row-v">'+escapeHtml(value)+'</span></div>';
 }
-/* The deeper read, kept out of Today. Collapsed by default so Plan HQ stays
-   as quiet as the rest of the app. */
-function renderRaceReadinessCard(report){
+/* THE READING — the five interpretations, as data rather than as markup.
+   =======================================================================
+   These five WERE five accordions inside an "Athlete State" card: tapping one
+   expanded it in place and pushed the rest of Plan HQ down the screen. They
+   are five destination cards now, and this function is the one place that
+   knows what they are -- title, live value, the tone the engine already
+   assigned, one useful line, and the body each panel shows.
+
+   NOTHING BELOW IS NEW COACHING. Every value, body and sentence comes from the
+   same report coachAnalyse() has always produced, and every status word is the
+   one its own META table already uses. The bodies are the identical markup the
+   accordions rendered.
+
+   TONE IS BORROWED, NEVER INVENTED. EVOLUTION_META and BLOCK_META already
+   classify themselves in the coach's proceed/check/modify/recover vocabulary,
+   and recovery already reports fresh/watch/strained. Anything with no such
+   classification of its own stays neutral rather than being given one here. */
+function readingTone(cls){
+  return cls === 'proceed' ? 'good'
+       : cls === 'check'   ? 'watch'
+       : (cls === 'modify' || cls === 'recover') ? 'bad' : null;
+}
+function readingSections(report){
   var su = state.setup || {};
   var conf = report.confidence!=null ? Math.round(report.confidence) : null;
   var days = su.raceDate ? daysBetween(todayStr(), su.raceDate) : null;
@@ -18308,10 +18513,9 @@ function renderRaceReadinessCard(report){
   var bts = report.breakthroughs || [];
 
   // "Goal confidence" and "Recovery" are dropped from these two bodies below:
-  // both already sit in the section's own collapsed summary chip (hqSection's
-  // 3rd argument, right below) the instant the athlete sees the row, opened
-  // or not -- repeating the same word again inside the opened body added
-  // nothing. Everything else here is depth Athlete Status doesn't carry.
+  // both already sit on the card the athlete tapped to get here, as its
+  // `value`, so repeating the same word inside the panel adds nothing.
+  // Everything else here is depth Athlete Status doesn't carry.
   var goalBody =
     hqRow('Execution trend', report.trend.enough ? trendWord+(report.trend.delta?' ('+(report.trend.delta>0?'+':'')+report.trend.delta+')':'') : 'building history')+
     hqRow('Sessions logged', String(recent.sessionsLogged))+
@@ -18357,21 +18561,65 @@ function renderRaceReadinessCard(report){
       }).join('')
     : '<div class="hq-empty">Still learning your baseline.</div>';
 
-  return '<div class="hub-card hq-state">'+
-    '<div class="coach-next-head">'+ICONS.sparkles+'<span class="coach-next-title">Athlete State</span>'+
-      (dec ? '<span class="coach-state '+COACH_DECISION_META[dec.state].cls+'"><span class="coach-state-dot"></span>'+
-             COACH_DECISION_META[dec.state].label+'</span>' : '')+
-    '</div>'+
-    hqSection('readiness',planHasEvent()?'Race readiness':'Goal readiness', conf!=null?conf+'% confidence':'—', goalBody)+
-    hqSection('recovery','Recovery & fatigue', { fresh:'Fresh', watch:'Watch', strained:'Strained' }[report.recovery.state], recoveryBody)+
-    hqSection('evolution','Plan evolution',
-      EVOLUTION_META[(report.evolution||{state:'HOLD'}).state].label,
-      renderEvolutionSection(report.evolution))+
-    hqSection('patterns','Recent patterns',
-      responsePatternsSummary(report.response, shown.length),
-      patternsBody + renderResponsePatternsSection(report.response))+
-    hqSection('adaptation','Adaptation history', blockSectionSummary(report.block), adaptBody)+
-  '</div>';
+  var ev = report.evolution || { state:'HOLD', changes:[], horizonDays:7 };
+  var evMeta = EVOLUTION_META[ev.state];
+  var blockMeta = report.block ? BLOCK_META[report.block.state] : null;
+  var rec = report.recovery;
+
+  return [
+    { key:'readiness',
+      title: planHasEvent() ? 'Race readiness' : 'Goal readiness',
+      value: conf!=null ? conf+'% confidence' : '—',
+      tone: null,
+      /* Confidence is execution fidelity, not probability, so the line under
+         it says what moved it rather than how likely anything is. */
+      syn: report.trend.enough
+        ? 'Execution '+trendWord+' · '+recent.sessionsLogged+' sessions logged.'
+        : recent.sessionsLogged+' sessions logged · still building history.',
+      body: goalBody+
+        '<div class="field-hint" style="margin-top:10px;">Confidence reflects how closely your '+
+        'logged sessions have matched what was prescribed — it settles as more sessions are '+
+        'logged, and no single session moves it far.</div>' },
+
+    { key:'recovery',
+      title:'Recovery & fatigue',
+      value: { fresh:'Fresh', watch:'Watch', strained:'Strained' }[rec.state],
+      tone: { fresh:'good', watch:'watch', strained:'bad' }[rec.state],
+      syn: rec.hardStreak>=3 ? rec.hardStreak+' hard sessions in a row.'
+         : (rec.overRPE||rec.overHR) ? 'Effort has run above its band this week.'
+         : 'Absorbing the work.',
+      body: recoveryBody },
+
+    { key:'evolution',
+      title:'Plan evolution',
+      value: evMeta.label,
+      tone: readingTone(evMeta.cls),
+      syn: ev.changes && ev.changes.length
+        ? ev.changes.length+' change'+(ev.changes.length===1?'':'s')+
+          ' suggested across the next '+ev.horizonDays+' days.'
+        : evMeta.text,
+      body: renderEvolutionSection(report.evolution) },
+
+    { key:'patterns',
+      title:'Recent patterns',
+      value: responsePatternsSummary(report.response, shown.length),
+      tone: null,
+      syn: shown.length ? shown[0].area+' — '+shown[0].headline+'.'
+                        : 'Still learning your baseline.',
+      body: patternsBody + renderResponsePatternsSection(report.response) },
+
+    { key:'adaptation',
+      title:'Adaptation history',
+      value: blockSectionSummary(report.block),
+      tone: blockMeta ? readingTone(blockMeta.cls) : null,
+      /* The state's own standard sentence, not b.read. b.read is the engine's
+         prose about THIS block and runs to whatever length it needs -- it is
+         the "Coach's read" line inside the panel, where it has room. A card
+         synopsis has one line, and a card that grows to three because the
+         engine was talkative stops being a card. */
+      syn: (blockMeta || BLOCK_META.LEARNING).text,
+      body: adaptBody }
+  ];
 }
 
 /* Ticking a session means "I did this today", so only today's box is
@@ -18689,6 +18937,10 @@ function openModal(html, extraClass){
   document.body.appendChild(overlay);
 }
 function closeModal(){
+  // whatever the overlay held, it is not a Record panel any more -- see
+  // refreshOpenRecordPanel(), which must never redraw over a modal that
+  // replaced one (openRecalibrateModal() does exactly that).
+  openRecordPanelKey = null;
   var existing = document.getElementById('modal-overlay');
   if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
 }
@@ -19325,6 +19577,12 @@ function handleSaveRecalibrate(){
   closeModal();
   scheduleSave();
   renderApp();
+  /* Reached from the Benchmark Record panel as well as from anywhere else. If
+     it was, the athlete was part-way down Plan HQ when they started, and that
+     is where saving should leave them; if it was not, there is nothing
+     remembered and this does nothing. */
+  restorePlanHQScroll();
+  forgetPlanHQScroll();
   showToast('Zones Updated! All future upcoming sessions have been re-tailored to your new target paces.');
 }
 
@@ -19728,7 +19986,20 @@ function openEditModal(dayId){
       '<button type="button" class="btn btn-primary" data-action="save-edit" data-day="'+dd.id+'">'+ICONS.check+' Save</button>'+
     '</div>'+
   '</div>';
-  openModal(html);
+  /* THEMED, because this is a surface an athlete works IN.
+     .modal-card pins the whole control/ink/line token family to a fixed dark
+     ramp, which is right for a transient confirm on a lit stage. Edit Session
+     is not one: it is a form with a title, a type, a distance, the session's
+     instructions, the completion log and a reschedule control, and a
+     light-mode athlete opening it got a near-black sheet dropped over a cream
+     app -- the exact bug .modal-themed was written for, on the one edit flow
+     that never opted in.
+
+     Structure, fields, validation, save/reset and the swap logic are
+     untouched; only the token ramp the same markup draws from moves. No
+     builder-light here: this is a bottom sheet like every other short form,
+     not the centred builder. */
+  openModal(html, 'modal-themed');
 }
 
 function findDay(dayId){
@@ -19887,7 +20158,7 @@ function openSettingsModal(){
     ) : '')+
     '<div class="build-tag">Build '+BUILD_ID+'</div>'+
   '</div>';
-  openModal(html);
+  openModal(html, 'modal-themed');
 }
 /* RESET IS A NEW BLOCK, NOT AMNESIA.
 //
@@ -20097,7 +20368,8 @@ function openBackupTextModal(payload){
       '<div class="field-hint" style="margin-bottom:10px;">Couldn\u2019t reach the clipboard automatically. Tap Copy below, or long-press the text and select all.</div>'+
       '<textarea id="backup-text-area" class="export-text" style="min-height:150px;" readonly>'+escapeHtml(payload)+'</textarea>'+
       '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" data-action="copy-backup-field">'+ICONS.copy+' Copy</button>'+
-    '</div>'
+    '</div>',
+    'modal-themed'
   );
 }
 function handleCopyBackupField(){
@@ -20116,7 +20388,8 @@ function openPasteBackupModal(){
       '<div class="field-hint" style="margin-bottom:10px;">Paste the backup text you copied from your other install. This replaces the plan on this device.</div>'+
       '<textarea id="paste-backup-area" class="export-text" style="min-height:150px;" placeholder="Paste your backup here"></textarea>'+
       '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" data-action="restore-pasted">'+ICONS.upload+' Restore This Backup</button>'+
-    '</div>'
+    '</div>',
+    'modal-themed'
   );
 }
 function handleRestorePasted(){
@@ -20174,7 +20447,7 @@ function openPacingModal(){
     '<table class="pace-table"><thead><tr><th>Checkpoint</th><th>Goal A</th><th>Goal B</th><th>Goal C</th></tr></thead><tbody>'+rows+'</tbody></table>'+
     '<div class="callout" style="margin-top:16px;">'+ICONS.info+'<div>Even splits are a starting strategy, not a rule \u2014 many runners run a controlled first half and let the second half follow feel. Adjust for course profile, weather and how you feel on the day.</div></div>'+
   '</div>';
-  openModal(html);
+  openModal(html, 'modal-themed');
 }
 
 /* =========================================================
@@ -20893,7 +21166,7 @@ function openImportModal(){
     '<div class="field-hint" style="margin-top:10px;">Garmin user? Sync your Garmin Connect account to Strava, then tap \u201cSync Strava\u201d above to auto-import your watch runs automatically!</div>'+
     '<div id="import-result"></div>'+
   '</div>';
-  openModal(html);
+  openModal(html, 'modal-themed');
   var dz = document.getElementById('import-dropzone');
   var fi = document.getElementById('import-file-input');
   dz.addEventListener('click', function(){ fi.click(); });
@@ -21090,6 +21363,9 @@ function patchDerivedStats(){
   if (statsEl) statsEl.innerHTML = renderPlanOverviewStats();
   var gaugeEl = document.getElementById('confidence-gauge-mount');
   if (gaugeEl) gaugeEl.innerHTML = renderConfidenceGauge();
+  // Logging the race or checkpoint that IS the measurement moves this line.
+  var outlookEl = document.getElementById('outlook-mount');
+  if (outlookEl) outlookEl.innerHTML = renderRaceOutlook();
   var totalWeeks = totalWeeksInPlan();
   for (var w=1; w<=totalWeeks; w++){
     var vol = weekVolume(w);
@@ -21816,24 +22092,654 @@ function renderProgrammeStatus(){
       '<div class="stat"><div class="l">'+vGoalDay()+'</div><div id="countdown-mount">'+renderCountdown()+'</div></div>'+
     '</div>'+
     (state.setup ? '<div class="field-hint">Confidence reflects how closely your logged sessions have matched '+
-      'what was prescribed — it settles as more sessions are logged, and no single session moves it far.</div>' : '');
+      'what was prescribed — it settles as more sessions are logged, and no single session moves it far.</div>' : '')+
+    /* THE SECOND READING IN PROGRAMME STATUS, and a deliberately different
+       question from the first. The gauge and the sentence above it are
+       untouched: they say how faithfully the training has been executed. The
+       line below says where the last MEASURED effort sits against the goal.
+       Neither is the other, and neither is a probability. #outlook-mount is
+       patched by patchDerivedStats() for the same reason the gauge is --
+       logging a race or a checkpoint changes it. */
+    (state.setup ? '<div id="outlook-mount">'+renderRaceOutlook()+'</div>' : '');
 }
-function renderPlanHQView(){
+/* =========================================================
+   THE RECORD
+   =========================================================
+   The four facts Plan HQ's coaching is built on -- what has been measured,
+   what the paces were set from, what those paces are, and how far through the
+   block the athlete is. They used to occupy 640px of the screen as four
+   full-height inline components; they are four compact cards now, and the
+   detail each of them carried opens in its own panel.
+
+   NOTHING WAS REBUILT. Every panel below hosts the component that already
+   existed:
+
+     Measured fitness   renderMeasuredFitness()   verbatim, heading suppressed
+     Benchmark          openRecalibrateModal()    via the existing data-action
+     Zone paces         renderZonePacesCard()     verbatim, head suppressed --
+                                                  same inputs, same ids, same
+                                                  handlers, same overrides
+     Progress           renderPlanOverviewStats() verbatim, mount id kept so
+                                                  patchDerivedStats() still
+                                                  finds it
+
+   There is no second source of truth for any of the four, and no methodology
+   here that was not already in the app. What IS new is the explanatory copy,
+   and it is written against the code rather than against the mock-up: training
+   paces descend from getActiveVDOT(), which reads the athlete's active GOAL --
+   so no panel claims the benchmark sets them, and none of them calls a
+   benchmark a measurement of current fitness. */
+
+/* WHERE THE ATHLETE WAS. Opening a panel remembers the Plan HQ scroll offset
+   and closing it puts them back on the card they tapped. Not decoration: the
+   Zone Paces panel edits state, every edit runs renderApp(), and renderApp()
+   replaces #app wholesale -- so without this, fine-tuning a pace would land the
+   athlete back at the top of Plan HQ with the panel still open over it. */
+var planhqReturnScrollY = null;
+function rememberPlanHQScroll(){
+  planhqReturnScrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+}
+function restorePlanHQScroll(){
+  if (planhqReturnScrollY == null) return;
+  try { window.scrollTo(0, planhqReturnScrollY); } catch(err) { }
+}
+function forgetPlanHQScroll(){ planhqReturnScrollY = null; }
+
+// The Fitness Checkpoint the generator already schedules into a block (see
+// isCheckpoint in the week builder). This is the ONLY real checkpoint
+// destination the product has -- there is no ad-hoc "schedule one now" flow,
+// so nothing below offers a control that would pretend otherwise.
+function scheduledCheckpointDay(){
+  var found = null;
+  state.days.forEach(function(dd){ if (dd.type === 'checkpoint') found = dd; });
+  return found;
+}
+
+function recordCard(key, subject, valueHtml, synopsis){
+  return '<button type="button" class="rec-card" data-action="open-record" data-record="'+key+'">'+
+      '<div class="rec-top">'+
+        '<span class="rec-subject">'+escapeHtml(subject)+'</span>'+
+        '<span class="rec-right">'+valueHtml+ICONS.chevronRight+'</span>'+
+      '</div>'+
+      (synopsis ? '<div class="rec-syn">'+escapeHtml(synopsis)+'</div>' : '')+
+    '</button>';
+}
+function recordValue(text, extraClass){
+  return '<span class="rec-val'+(extraClass?(' '+extraClass):'')+'">'+escapeHtml(text)+'</span>';
+}
+
+function recordFitnessCard(){
+  var latest = measuredProgression().latest;
+  if (!latest){
+    return recordCard('fitness', 'Measured fitness',
+      recordValue('Nothing measured', 'rec-none'),
+      'A race or a Fitness Checkpoint is what counts.');
+  }
+  var src = latest.source === 'race' ? 'Race' : 'Checkpoint';
+  return recordCard('fitness', 'Measured fitness',
+    recordValue(fmtDist(latest.km)+' · '+secToClock(latest.timeSec), 'font-mono'),
+    src+', '+dShort(latest.date)+'. Training runs do not move it.');
+}
+function recordBenchmarkCard(){
+  var b = state.setup.benchmark;
+  var value = b
+    ? recordValue(DISTANCE_PROFILES[b.distanceKey].label+' · '+secToClock(b.timeSec), 'font-mono')
+    : recordValue('Not set', 'rec-none');
+  return recordCard('benchmark', 'Benchmark', value,
+    'Your reference time. Update it here to re-calibrate.');
+}
+function recordZonesCard(){
+  var overrides = state.setup.paceOverrides || {};
+  var edited = ZONE_PACE_ORDER.filter(function(k){
+    return overrides[k] && overrides[k].slow!=null && overrides[k].fast!=null;
+  });
+  var syn;
+  if (!edited.length) syn = 'All five as calculated from your active goal.';
+  else if (edited.length >= 3) syn = edited.length+' zones edited by hand. The rest as calculated.';
+  else syn = edited.map(function(k){ return ZONE_PACE_LABELS[k]; }).join(' and ')+
+             ' edited by hand. The rest as calculated.';
+  return recordCard('zones', 'Training zone paces',
+    recordValue(ZONE_PACE_ORDER.length+' zones', 'font-mono'), syn);
+}
+function recordProgressCard(){
+  var s = computeStats();
+  var runsPct = s.totalRuns ? Math.round(100*s.completedRuns/s.totalRuns) : 0;
+  var week = currentWeekNum(), total = totalWeeksInPlan();
+  var syn = s.completedRuns+' of '+s.totalRuns+' runs'+
+    (week && total ? ' · week '+week+' of '+total : '')+'.';
+  return recordCard('progress', 'Progress', recordValue(runsPct+'%', 'font-mono'), syn);
+}
+
+function renderRecordSection(){
+  /* The sub-line is set at the synopsis size, not the field-hint size. Ten
+     cards run consecutively down this screen and the section labels are the
+     only thing structuring them, so the label has to read as a label rather
+     than as a first card that lost its box. */
+  return '<div class="setup-section-title">The Record</div>'+
+    '<div class="rec-lede">What this is based on, and what you can change.</div>'+
+    recordFitnessCard()+
+    recordBenchmarkCard()+
+    recordZonesCard()+
+    recordProgressCard();
+}
+
+/* ---------- the panels ----------
+   Same interaction model as Build Your Training Block: a modal-themed surface
+   over a dimmed Plan HQ, an uppercase heading and a circular close top-left/
+   right, and the builder's own Cherry Lacquer primary at the foot. `builder-light` is
+   borrowed exactly as renderHero() already borrows it -- it is the rule that
+   makes a primary action Cherry Lacquer, and reusing it is what stops a second accent
+   being invented here.
+
+   DELIBERATELY NO 01/05 RAIL. These are detail panels, not wizard steps: there
+   is nothing after them to advance to, so the only navigation is back. */
+function recordPanelShell(title, body){
+  return '<div class="modal-head"><h2 class="font-head">'+escapeHtml(title)+'</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-record-panel" aria-label="Close">'+ICONS.close+'</button>'+
+    '</div>'+
+    '<div class="modal-body">'+body+
+      '<div class="rec-panel-nav">'+
+        '<button type="button" class="btn btn-primary btn-block" data-action="close-record-panel">← BACK</button>'+
+      '</div>'+
+    '</div>';
+}
+function hqRow(label, value){
+  return '<div class="hq-row"><div class="hq-row-l">'+escapeHtml(label)+'</div>'+
+    '<div class="hq-row-v">'+escapeHtml(value)+'</div></div>';
+}
+
+function recordPanelFitness(){
+  var chk = scheduledCheckpointDay();
+  var body = renderMeasuredFitness(true)+
+    '<div class="setup-section-title">What counts as a measurement</div>'+
+    '<div class="hub-card">'+
+      hqRow('A completed race', 'any distance')+
+      hqRow('A Fitness Checkpoint', 'time trial')+
+    '</div>'+
+    '<div class="setup-section-title">What does not count</div>'+
+    '<div class="field-hint">Your benchmark, and the training paces calculated from your goal. '+
+      'Those set where you train — they are a target, not a measurement. Keeping the two apart '+
+      'is what stops Plan HQ telling you that you are fitter than it actually knows.</div>';
+  /* THE ONLY CHECKPOINT DESTINATION THAT EXISTS is the one the generator
+     already put in the block. It is stated as a fact, with its week and date,
+     and there is no "Schedule a Checkpoint" control -- because there is no
+     scheduling flow behind one, and a button that goes nowhere would be the
+     first dishonest thing on this surface. */
+  if (chk){
+    /* "Completed" and "measured" are not the same fact, and this panel is the
+       one place that must not blur them: recordMeasuredPerformance() only
+       accepts a checkpoint logged with a real distance and a real time, so a
+       checkpoint ticked off without a time is a completed session and not a
+       measurement. The copy is keyed on the performance record itself rather
+       than on the tick, and the third case says what to do about it. */
+    var counted = chk.completed && measuredPerformances().some(function(p){
+      return p.date === chk.date;
+    });
+    var note;
+    if (!chk.completed) note = 'It is already scheduled in this block. Run it and log it, and it becomes a measurement.';
+    else if (counted) note = 'Already run and logged. It is the measurement above.';
+    else note = 'Marked complete, but without a time it can be measured from. Add the time to that session and it becomes a measurement.';
+    body += '<div class="setup-section-title">'+(chk.completed ? 'Your checkpoint' : 'Your next checkpoint')+'</div>'+
+      '<div class="hub-card">'+
+        hqRow(chk.title || 'Fitness Checkpoint', 'Week '+chk.week+' · '+dShort(chk.date))+
+      '</div>'+
+      '<div class="field-hint">'+note+'</div>';
+  }
+  return recordPanelShell('Measured Fitness', body);
+}
+
+function recordPanelBenchmark(){
+  var b = state.setup.benchmark;
+  var goal = getActiveGoal();
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+  var body = '<div class="hub-card">'+
+      (b ? hqRow(DISTANCE_PROFILES[b.distanceKey].label, secToClock(b.timeSec))
+         : '<div class="hq-empty">No benchmark set yet.</div>')+
+    '</div>'+
+    '<div class="field-hint">A benchmark is a recent performance you have told Valhalla about. '+
+      'It is the number Suggest Goals works from, and the number to update when your fitness moves.</div>'+
+    '<div class="setup-section-title">What your paces actually come from</div>'+
+    '<div class="field-hint">'+
+      (goal && goal.timeSec
+        ? 'Your training paces are calculated from your active goal — Goal '+
+          escapeHtml(state.setup.activeGoal)+', '+secToClock(goal.timeSec)+' for the '+
+          escapeHtml(profile.label)+' — not directly from the benchmark. Re-calibrating below '+
+          'updates both, and every upcoming session is re-tailored to the result.'
+        : 'Your training paces are calculated from your active goal, not directly from the '+
+          'benchmark. Set a goal time below and every upcoming session is re-tailored to it.')+
+    '</div>'+
+    '<div class="setup-section-title">Not a measurement of current fitness</div>'+
+    '<div class="field-hint">A benchmark says where you are training. Only a completed race or a '+
+      'Fitness Checkpoint says where you are now — that is what Measured Fitness reports, and '+
+      'it is deliberately a different number.</div>'+
+    /* The existing action, reached the existing way. openRecalibrateModal()
+       owns benchmark and goal editing, validation and re-tailoring; this is a
+       door to it, not a second copy of it. btn-ghost so the Cherry Lacquer BACK stays
+       the only primary on the surface. */
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-top:14px;" '+
+      'data-action="open-recalibrate">'+ICONS.zap+' Update benchmark &amp; re-calibrate</button>';
+  return recordPanelShell('Benchmark', body);
+}
+
+function recordPanelZones(){
+  var goal = getActiveGoal();
+  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+  var body = renderZonePacesCard(true)+
+    '<div class="setup-section-title">Where these come from</div>'+
+    '<div class="field-hint">'+
+      (goal && goal.timeSec
+        ? 'Calculated from your active goal — Goal '+escapeHtml(state.setup.activeGoal)+', '+
+          secToClock(goal.timeSec)+' for the '+escapeHtml(profile.label)+'. '
+        : 'Calculated from your active goal for the '+escapeHtml(profile.label)+'. ')+
+      'They are paces to train at, not a measurement of your current fitness. Change your goal or '+
+      'your benchmark and they are recalculated; edit one by hand and that edit stays until you '+
+      'reset it.</div>';
+  return recordPanelShell('Training Zone Paces', body);
+}
+
+function recordPanelProgress(){
+  var s = computeStats();
+  var week = currentWeekNum(), total = totalWeeksInPlan();
+  var longestDone = 0, longestToCome = 0;
+  state.days.forEach(function(dd){
+    if (dd.type === 'rest') return;
+    if (dd.completed){
+      var ran = (dd.actual && dd.actual.km!=null) ? dd.actual.km : (dd.km||0);
+      if (ran > longestDone) longestDone = ran;
+    } else if ((dd.km||0) > longestToCome) longestToCome = dd.km||0;
+  });
+  /* The rows are what the bars above do NOT already say. Runs done and
+     distance done are both in renderPlanOverviewStats(), twice over -- as
+     figures and as bars -- so repeating them here would fill the panel with
+     the thing the athlete has just read. */
+  var body = '<div id="planhq-stats-mount">'+renderPlanOverviewStats()+'</div>'+
+    '<div class="setup-section-title">Where you are in the block</div>'+
+    '<div class="hub-card">'+
+      (week && total ? hqRow('Week', week+' of '+total) : '')+
+      hqRow('Sessions still to run', (s.totalRuns - s.completedRuns)+'')+
+      (longestDone ? hqRow('Longest run so far', fmtDist(longestDone)) : '')+
+      (longestToCome ? hqRow('Longest run still ahead', fmtDist(longestToCome)) : '')+
+    '</div>'+
+    '<div class="field-hint">Runs and distance move at different rates through a block — the '+
+      'long runs that carry the distance are weighted towards the back of it. Neither figure is a '+
+      'judgement; the coaching reading of your training is above, in Programme Status.</div>';
+  return recordPanelShell('Progress', body);
+}
+
+var RECORD_PANELS = {
+  fitness: recordPanelFitness,
+  benchmark: recordPanelBenchmark,
+  zones: recordPanelZones,
+  progress: recordPanelProgress
+};
+/* Every Plan HQ panel -- the four Record facts, the five Reading
+   interpretations, and the two action destinations -- is built by one of these
+   and opened, refreshed and closed by one path. That is deliberate: X, BACK
+   and the scroll restoration are the same promise on all eleven, so they are
+   the same code on all eleven.
+
+   READING_KEYS is derived from readingSections() rather than listed, so a
+   sixth interpretation cannot be added to the coaching engine and quietly not
+   get a panel. */
+var READING_KEYS = ['readiness','recovery','evolution','patterns','adaptation'];
+function hqPanelHtml(key){
+  if (RECORD_PANELS[key]) return RECORD_PANELS[key]();
+  if (ACTION_PANELS[key]) return ACTION_PANELS[key]();
+  if (READING_KEYS.indexOf(key) !== -1) return readingPanel(key);
+  return '';
+}
+var openRecordPanelKey = null;
+function openHQPanel(key){
+  if (!state.setup) return;
+  var html = hqPanelHtml(key);
+  if (!html) return;
+  rememberPlanHQScroll();
+  openModal(html, 'modal-themed builder-light hq-panel');
+  // after openModal, which clears the key through closeModal()
+  openRecordPanelKey = key;
+}
+function openRecordPanel(key){
+  if (!RECORD_PANELS[key]) return;
+  openHQPanel(key);
+}
+/* BOTH exits do the same thing, because they mean the same thing: this panel
+   is finished with. X and BACK close it and put the athlete back on the card
+   they tapped, at the scroll offset they left. */
+function closeRecordPanel(){
+  openRecordPanelKey = null;
+  closeModal();
+  restorePlanHQScroll();
+  forgetPlanHQScroll();
+}
+/* Re-render an open panel in place after an edit made inside it: the Zone
+   Paces panel gains a "custom" tag and a Reset button the moment a pace is
+   overridden, and loses them again on reset. Fires on `change`, so the input
+   that triggered it has already been left and nothing loses focus mid-typing.
+   Guarded on the overlay still being ours -- openRecalibrateModal() replaces
+   it from inside the Benchmark panel, and that surface must not be redrawn as
+   a Record panel underneath the athlete. */
+function refreshOpenRecordPanel(){
+  if (!openRecordPanelKey) return;
+  var overlay = document.getElementById('modal-overlay');
+  var card = overlay ? overlay.querySelector('.modal-card') : null;
+  if (!card || !card.querySelector('[data-action="close-record-panel"]')) return;
+  var html = hqPanelHtml(openRecordPanelKey);
+  if (html) card.innerHTML = html;
+}
+
+/* =========================================================
+   THE READING — five interpretations, five destinations
+   =========================================================
+   Same shell as a Record card, opposite grammar: a Reading card's right-hand
+   element is a CONCLUSION and may carry the tone the engine assigned it. The
+   five were accordions that expanded inline; the bodies they expanded are
+   rendered verbatim inside a panel now, so nothing on the page moves. */
+function readingCard(sec){
+  var tone = sec.tone ? ' '+sec.tone : '';
+  var value = '<span class="read-val'+tone+'">'+
+      (sec.tone ? '<span class="read-dot"></span>' : '')+
+      escapeHtml(sec.value)+
+    '</span>';
+  return '<button type="button" class="rec-card" data-action="open-reading" data-reading="'+sec.key+'">'+
+      '<div class="rec-top">'+
+        '<span class="rec-subject">'+escapeHtml(sec.title)+'</span>'+
+        '<span class="rec-right">'+value+ICONS.chevronRight+'</span>'+
+      '</div>'+
+      (sec.syn ? '<div class="rec-syn">'+escapeHtml(sec.syn)+'</div>' : '')+
+    '</button>';
+}
+function renderReadingSection(){
+  var report = coachAnalyse();
+  if (!report) return '';
+  var dec = report.decision;
+  /* The state verdict the "Athlete State" card used to carry in its header.
+     It is the heading's own chip now -- the card it belonged to is gone, and
+     the verdict is about all five readings rather than about any one. */
+  var pill = dec
+    ? '<span class="coach-state '+COACH_DECISION_META[dec.state].cls+'">'+
+        '<span class="coach-state-dot"></span>'+COACH_DECISION_META[dec.state].label+'</span>'
+    : '';
+  return '<div class="programme-status-head"><div class="setup-section-title">The Reading</div>'+pill+'</div>'+
+    '<div class="rec-lede">What Valhalla makes of your training. Tap any line for the evidence.</div>'+
+    readingSections(report).map(readingCard).join('');
+}
+function readingPanel(key){
+  var report = coachAnalyse();
+  if (!report) return '';
+  var secs = readingSections(report).filter(function(s){ return s.key === key; });
+  if (!secs.length) return '';
+  var sec = secs[0];
+  /* The card's own conclusion, restated once at the top of the panel it opened
+     -- the athlete tapped a verdict and the panel should open on it, not make
+     them remember which one they pressed. Then the evidence, unchanged. */
+  var head = '<div class="hub-card">'+
+      '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(sec.title)+'</span>'+
+        '<span class="hq-row-v"><span class="read-val'+(sec.tone?' '+sec.tone:'')+'">'+
+          (sec.tone ? '<span class="read-dot"></span>' : '')+escapeHtml(sec.value)+'</span></span></div>'+
+      (sec.syn ? '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(sec.syn)+'</div>' : '')+
+    '</div>'+
+    '<div class="setup-section-title">The evidence</div>';
+  return recordPanelShell(sec.title, head+'<div class="hub-card">'+sec.body+'</div>');
+}
+
+/* =========================================================
+   RACE OUTLOOK — where the last measurement sits against the goal
+   =========================================================
+   ONE QUESTION, ANSWERED FROM ONE SOURCE. The Cherry Lacquer band is
+   measuredFitnessEstimate() for the block's own distance -- which reads
+   measuredPerformances(), which performanceFromDay() only ever admits a
+   completed race or Fitness Checkpoint to. A fast easy run cannot reach it, a
+   benchmark cannot reach it, and a goal time cannot reach it. The gold marker
+   is the active goal, and it is a marker rather than a second band because a
+   goal is a chosen time, not a range.
+
+   WHAT THIS IS NOT: it is not a probability, it is not a prediction of race
+   day, and it is not the confidence gauge in another form. Confidence measures
+   how closely training has matched its prescription; this places one measured
+   performance against one chosen target. They are different questions and they
+   are deliberately different visuals.
+
+   NO EVIDENCE, NO PICTURE. Where nothing has been measured -- or where
+   measuredFitnessEstimate() withholds, as it does for a marathon without the
+   volume behind it -- this says so in the engine's own words and draws no
+   band at all. */
+function raceOutlook(){
+  if (!state.setup) return null;
+  var key = state.setup.distanceKey;
+  var profile = DISTANCE_PROFILES[key];
+  if (!profile) return null;
+  var goal = getActiveGoal();
+  var goalSec = (goal && goal.timeSec) ? goal.timeSec : null;
+  var est = measuredFitnessEstimate(key);
+  if (!est) return { state:'none', profile:profile, goalSec:goalSec };
+  if (est.withheld) return { state:'withheld', profile:profile, goalSec:goalSec, reason:est.reason };
+  return { state:'measured', profile:profile, goalSec:goalSec,
+           fastSec:est.fastSec, slowSec:est.slowSec,
+           fromDate:est.fromDate, fromSource:est.fromSource };
+}
+function renderRaceOutlook(){
+  var o = raceOutlook();
+  if (!o) return '';
+  var head = '<div class="outlook-head"><span class="outlook-title">Race Outlook</span>'+
+    '<span class="outlook-dist">'+escapeHtml(o.profile.label)+
+      (o.goalSec!=null ? ' · Goal '+escapeHtml(state.setup.activeGoal) : '')+'</span></div>';
+
+  if (o.state !== 'measured'){
+    return '<div class="outlook" id="outlook-mount-inner">'+head+
+      '<div class="field-hint">'+escapeHtml(o.state === 'withheld'
+        ? o.reason
+        : 'Nothing measured yet, so there is nothing to place against your goal. A completed race '+
+          'or a Fitness Checkpoint is what puts a band on this line.')+'</div>'+
+    '</div>';
+  }
+
+  /* The scale spans the measured band and the goal together, with a margin, so
+     a goal outside the band is still on the line rather than clipped off it.
+     Faster is left, which is the direction every pace in this product runs. */
+  var lo = Math.min(o.fastSec, o.goalSec!=null ? o.goalSec : o.fastSec);
+  var hi = Math.max(o.slowSec, o.goalSec!=null ? o.goalSec : o.slowSec);
+  var pad = Math.max(Math.round((hi - lo) * 0.18), Math.round(o.fastSec * 0.01), 20);
+  var min = lo - pad, max = hi + pad;
+  var span = max - min || 1;
+  var pct = function(sec){ return clamp(((sec - min) / span) * 100, 0, 100); };
+  var bandL = pct(o.fastSec), bandR = pct(o.slowSec);
+
+  // A gap of well under a minute reads as a wall-clock time ("0:41") when it is
+  // really a margin, so a margin is said in the unit a margin is said in.
+  var gap = function(sec){
+    return sec < 60 ? sec+' second'+(sec===1?'':'s') : secToClock(sec);
+  };
+  var verdict;
+  if (o.goalSec == null){
+    verdict = 'No goal time set, so there is nothing to place the band against yet.';
+  } else if (o.goalSec < o.fastSec){
+    verdict = 'Your goal is '+gap(o.fastSec - o.goalSec)+' faster than the quick end of '+
+      'what your last measured effort suggests. That is what the block is for.';
+  } else if (o.goalSec > o.slowSec){
+    verdict = 'Your last measured effort already suggests a time inside your goal.';
+  } else {
+    verdict = 'Your goal sits inside the range your last measured effort suggests.';
+  }
+
+  return '<div class="outlook" id="outlook-mount-inner">'+head+
+    '<div class="outlook-track" role="img" aria-label="Measured range '+
+      secToClock(o.fastSec)+' to '+secToClock(o.slowSec)+
+      (o.goalSec!=null ? ', goal '+secToClock(o.goalSec) : '')+'">'+
+      '<div class="outlook-band" style="left:'+bandL.toFixed(1)+'%; width:'+
+        Math.max(bandR - bandL, 2).toFixed(1)+'%"></div>'+
+      (o.goalSec!=null ? '<div class="outlook-goal" style="left:'+pct(o.goalSec).toFixed(1)+'%"></div>' : '')+
+    '</div>'+
+    '<div class="outlook-scale"><span class="font-mono">'+secToClock(min)+'</span>'+
+      '<span class="font-mono">'+secToClock(max)+'</span></div>'+
+    '<div class="outlook-legend">'+
+      '<span class="ol-key"><i class="ol-swatch measured"></i>Measured '+
+        secToClock(o.fastSec)+'–'+secToClock(o.slowSec)+'</span>'+
+      (o.goalSec!=null ? '<span class="ol-key"><i class="ol-swatch goal"></i>Goal '+
+        escapeHtml(state.setup.activeGoal)+' '+secToClock(o.goalSec)+'</span>' : '')+
+    '</div>'+
+    '<div class="field-hint">'+escapeHtml(verdict)+' From your '+
+      (o.fromSource === 'race' ? 'race' : 'Fitness Checkpoint')+' on '+dShort(o.fromDate)+
+      '. Training runs do not move it.</div>'+
+  '</div>';
+}
+
+/* =========================================================
+   THE ACTION TRIO — three tiles, three real destinations
+   =========================================================
+   NEW BLOCK and PLAN SETTINGS both fired data-action="open-setup" in the
+   approved mock-up, which would have shipped two tiles onto one modal. They
+   are resolved against what the product actually has:
+
+     NEW BLOCK      the block-transition journey. nextBlockRecommendation()
+                    and startDevelopmentBlock() already exist and already know
+                    which block should come next; until now that offer only
+                    ever appeared on Today, and only when a recommendation was
+                    live. The panel makes it reachable, and always offers the
+                    race-block builder alongside it.
+     PLAN SETTINGS  openSetupModal(). This IS the plan configuration editor --
+                    Settings has called it "Edit Plan Settings" all along --
+                    so the tile goes straight to it rather than to a router
+                    page in front of it.
+     CHECKPOINT     the Fitness Checkpoint the generator schedules into the
+                    block. Every state has real content and a real action: go
+                    to it in the plan, or re-calibrate from it once it is run.
+
+   No new subsystem, no new methodology, and nothing that only looks like a
+   destination. */
+function actionTile(action, icon, label, extra){
+  return '<button type="button" class="act-tile" data-action="'+action+'"'+(extra||'')+'>'+
+    icon+'<span class="act-lab">'+escapeHtml(label)+'</span></button>';
+}
+function renderActionTrio(){
+  return '<div class="act-trio">'+
+    actionTile('open-new-block', ICONS.layers, 'New block')+
+    actionTile('open-setup', ICONS.settings, 'Plan settings')+
+    actionTile('open-checkpoint', ICONS.target, 'Checkpoint')+
+  '</div>';
+}
+
+/* NEW BLOCK. The engine's own recommendation, presented with the engine's own
+   buttons -- data-action="start-block" is the existing handler, and
+   handleStartBlock() still asks for confirmation and still keeps history. */
+function actionPanelNewBlock(){
+  if (!state.setup) return '';
+  var rec = nextBlockRecommendation();
+  var opts = (rec && rec.kind === 'block') ? [rec.purpose]
+           : (rec && rec.options) ? rec.options : [];
+  /* Where the athlete actually is, first. Without it a panel opened mid-block
+     offers a new block with no acknowledgement that one is already running. */
+  var body = '<div class="hub-card">'+
+      hqRow('Current block', blockIdentityLine())+
+    '</div>';
+  if (rec && rec.why){
+    body += '<div class="setup-section-title">Why now</div>'+
+      '<div class="hub-card"><div class="hq-empty">'+escapeHtml(rec.why)+'</div></div>';
+  }
+  if (opts.length){
+    body += '<div class="setup-section-title">Recommended next</div>'+
+      opts.map(function(p){
+        return '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" '+
+          'data-action="start-block" data-purpose="'+p+'">'+
+          escapeHtml(p === 'race' ? 'Build a race block' : 'Start '+blockPurposeLabel(p))+'</button>';
+      }).join('');
+  } else {
+    /* nextBlockRecommendation() returns nothing while a block is still
+       running, which is the common case here. Saying so is better than an
+       empty space where a recommendation would have been. */
+    body += '<div class="field-hint" style="margin-top:10px;">Valhalla has no recommendation for '+
+      'what comes next yet — it makes one when this block finishes, or after you race. You can '+
+      'still start a new one now.</div>';
+  }
+  body += '<div class="setup-section-title">Build it yourself</div>'+
+    '<button type="button" class="btn btn-ghost btn-block" data-action="open-setup">'+
+      ICONS.target+' Build a new training block</button>'+
+    '<div class="field-hint" style="margin-top:8px;">Your completed training is kept as history '+
+      'and everything Valhalla has learned about you carries over. Only the remaining schedule is '+
+      'replaced, and nothing changes until you choose.</div>';
+  return recordPanelShell('New Block', body);
+}
+
+/* CHECKPOINT. About obtaining legitimate fitness evidence, and nothing else --
+   this never becomes a place to schedule ordinary workouts. */
+function actionPanelCheckpoint(){
+  if (!state.setup) return '';
+  var chk = scheduledCheckpointDay();
+  var body;
+  if (!chk){
+    body = '<div class="hub-card"><div class="hq-empty">This block has no Fitness Checkpoint '+
+      'scheduled in it. A steady maintenance block does not build to one — the evidence comes '+
+      'from a completed race instead.</div></div>'+
+      '<div class="setup-section-title">What a checkpoint is for</div>'+
+      '<div class="field-hint">A checkpoint is a maximal time trial over a known distance. It is '+
+      'one of only two things Valhalla will accept as a measurement of your current fitness; the '+
+      'other is a race you actually ran.</div>';
+  } else {
+    var counted = chk.completed && measuredPerformances().some(function(p){ return p.date === chk.date; });
+    /* No separate distance row: the session title already names the time-trial
+       distance, and dd.km is the whole session including its warm-up and
+       cool-down. Printing both side by side would read as a contradiction the
+       athlete has to resolve. */
+    body = '<div class="hub-card">'+
+        hqRow(chk.title || 'Fitness Checkpoint', 'Week '+chk.week+' · '+dShort(chk.date))+
+        hqRow('Status', chk.completed ? (counted ? 'Run and measured' : 'Run, not yet measurable') : 'Ahead of you')+
+      '</div>'+
+      '<div class="setup-section-title">What it is for</div>'+
+      '<div class="field-hint">A maximal effort over a known distance, so Valhalla has something '+
+      'real to measure you by. Run it hard and log the time — that is the whole job. It is one of '+
+      'only two things that count as a measurement; the other is a race.</div>';
+    if (chk.completed && counted){
+      body += '<div class="setup-section-title">Now use it</div>'+
+        '<button type="button" class="btn btn-ghost btn-block" data-action="open-recalibrate">'+
+          ICONS.zap+' Re-calibrate your goals and paces</button>'+
+        '<div class="field-hint" style="margin-top:8px;">A checkpoint is the strongest evidence '+
+        'you have for choosing a goal. Updating it here re-tailors every upcoming session.</div>';
+    } else {
+      body += '<div class="setup-section-title">Find it in your plan</div>'+
+        '<button type="button" class="btn btn-ghost btn-block" data-action="go-checkpoint">'+
+          ICONS.calendarWeek+' Open week '+chk.week+' in your plan</button>'+
+        (chk.completed && !counted
+          ? '<div class="field-hint" style="margin-top:8px;">It is ticked off, but logged without '+
+            'a time it can be measured from. Add the time to that session and it becomes a '+
+            'measurement.</div>'
+          : '');
+    }
+  }
+  return recordPanelShell('Fitness Checkpoint', body);
+}
+var ACTION_PANELS = { newblock: actionPanelNewBlock, checkpoint: actionPanelCheckpoint };
+/* Take the athlete to the checkpoint session itself: Full Plan, its week open,
+   scrolled to it. Real navigation to a real session -- no new screen. */
+function handleGoToCheckpoint(){
+  var chk = scheduledCheckpointDay();
+  if (!chk) return;
+  closeRecordPanel();
+  state.view = 'full';
+  expandedWeeks[chk.week] = true;
+  renderApp();
+  var el = document.getElementById('day-'+chk.id) || document.getElementById('week-'+chk.week);
+  if (el && el.scrollIntoView){ try { el.scrollIntoView({ block:'center' }); } catch(err){ el.scrollIntoView(); } }
+}
+
+function renderPlanHQView(){
+  /* SUMMARY FIRST, INTERPRETATION SECOND, RECORD THIRD, ACTIONS LAST.
+     Programme Status opens on the confidence gauge, its explainer and the Race
+     Outlook line. Then the coach's read, then the five interpretations, then
+     the block-transition offer and the goal, then the four facts, then three
+     deliberate actions. Nothing on this screen expands in place any more. */
   return '<div class="view-heading font-head">Plan HQ</div>'+
     renderProgrammeStatus()+
     renderCoachPanel()+
-    '<div id="planhq-stats-mount">'+renderPlanOverviewStats()+'</div>'+
-    '<div class="plan-summary-bar" data-action="open-setup">'+
-      '<div class="psb-main"><div class="psb-title">Build New Block</div><div class="psb-sub">'+escapeHtml(profile.label)+' · '+fmtDist(state.setup.currentVolume)+'/wk start · '+vGoalDate()+' '+dShort(state.setup.raceDate)+'</div></div>'+
-      ICONS.chevronRight+
-    '</div>'+
+    renderReadingSection()+
+    /* The "Build New Block" summary bar that used to sit here fired the same
+       open-setup as the trio's PLAN SETTINGS tile now does, so it was the
+       duplicate the trio was accused of being. What stands in its place is the
+       thing that is genuinely a block transition: the engine's recommendation,
+       rendered only when there is one. */
+    renderBlockTransitionCard()+
     renderCheckpointBanner()+
-    renderMeasuredFitness()+
     renderGoalToggle()+
-    '<div class="setup-section-title">Benchmark</div>'+
-    renderBenchmarkSummary()+
-    renderZonePacesCard();
+    renderRecordSection()+
+    renderActionTrio();
 }
 // Notification permission can be revoked from outside the app (browser/OS
 // settings) at any time, so the toggle always reflects the live
@@ -21990,7 +22896,8 @@ function openRestoreModal(){
       account+
       '<div class="field-hint" style="margin-top:14px;">Nothing is changed until you choose. '+
       'Restoring never deletes another plan \u2014 whatever is open now is kept and can be restored back.</div>'+
-    '</div>'
+    '</div>',
+    'modal-themed'
   );
 }
 function handleRestorePlan(key){
@@ -22359,7 +23266,10 @@ document.addEventListener('click', function(e){
     }
 
     case 'set-readiness': handleSetReadiness(target.getAttribute('data-rk'), target.getAttribute('data-rv')); break;
-    case 'toggle-hq-section': handleToggleHQSection(target.getAttribute('data-section')); break;
+    case 'open-reading': openHQPanel(target.getAttribute('data-reading')); break;
+    case 'open-new-block': openHQPanel('newblock'); break;
+    case 'open-checkpoint': openHQPanel('checkpoint'); break;
+    case 'go-checkpoint': handleGoToCheckpoint(); break;
     case 'notes-wand': handleNotesWand(target.getAttribute('data-day')); break;
     case 'undo-notes-wand': handleUndoNotesWand(target.getAttribute('data-day')); break;
     case 'drop-note-signal': handleDropNoteSignal(target.getAttribute('data-day'), target.getAttribute('data-signal')); break;
@@ -22368,6 +23278,8 @@ document.addEventListener('click', function(e){
     case 'open-setup': openSetupModal(); break;
     case 'open-restore': openRestoreModal(); break;
     case 'restore-plan': handleRestorePlan(target.getAttribute('data-key')); break;
+    case 'open-record': openRecordPanel(target.getAttribute('data-record')); break;
+    case 'close-record-panel': closeRecordPanel(); break;
     case 'open-recalibrate': openRecalibrateModal(); break;
     case 'rc-suggest-goals': handleRecalibrateSuggest(); break;
     case 'save-recalibrate': handleSaveRecalibrate(); break;
