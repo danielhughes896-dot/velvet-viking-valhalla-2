@@ -24,7 +24,7 @@ function goalTimeFor(a, distanceKey, benchSec){
 }
 
 /* A race block, built the way handleGeneratePlan builds one, minus the DOM. */
-function startRaceBlock(a, distanceKey, volume, weeks, startDate){
+function startRaceBlock(a, distanceKey, volume, weeks, startDate, stepped){
   const startMonday = a.addDays(startDate, -a.isoWeekday(startDate));
   const raceDate = a.addDays(startMonday, weeks * 7 - 1);
   const br = a.buildBlockWeeks(distanceKey, volume, weeks, { purpose: 'race' });
@@ -33,7 +33,7 @@ function startRaceBlock(a, distanceKey, volume, weeks, startDate){
   if (prev){ a.archiveCompletedSessions(prev); a.closeBlock(prev, { reason: 'transition', to: 'race' }); }
   const block = a.openBlock({ purpose: 'race', startDate, distanceKey, goalDate: raceDate,
                               hasEvent: false, startVolume: volume, peakVolume: a.largestScheduledWeek(days),
-                              anchorVolume: volume });
+                              anchorVolume: volume, progressionStep: !!stepped });
   const bench = (a.state.setup && a.state.setup.benchmark) || { distanceKey: '10k', timeSec: 45 * 60 };
   a.state.setup = { distanceKey, currentVolume: volume, raceDate, hasEvent: false,
     startDate, planWeeks: br.planWeeks, schedule: SCHEDULE, blockId: block.id, purpose: 'race',
@@ -72,7 +72,7 @@ function run(name, distKey, startVol){
       let br, startVolume;
       if (purpose === 'race'){
         startVolume = a.cappedBlockStartVolume(a.absorbedWeeklyVolume().km || vol, dk);
-        br = startRaceBlock(a, dk, startVolume, weeks, today).br;
+        br = startRaceBlock(a, dk, startVolume, weeks, today, just.earned).br;
         br = { peakVolume: a.largestScheduledWeek(a.state.days) };
       } else {
         const sp = a.developmentBlockSpec(purpose, { distanceKey: distKey, raceDistanceKey: distKey });

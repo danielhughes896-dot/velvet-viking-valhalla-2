@@ -2767,6 +2767,47 @@ function lastRecordedBlock(){
    training is now the right prescription, and treating it as evidence would
    let an athlete earn a step up by recovering from a race. */
 var PROGRESSION_EARNING_PURPOSES = ['race', 'base', 'speed'];
+/* ---------- ONE EARNED STEP PER PROGRAMME CYCLE ----------
+   The magnitude of a step is defensible on its own: 10% is the familiar weekly
+   guideline applied once per block rather than per week. Its FREQUENCY was not.
+   A cycle contains three development blocks -- race, base and speed -- so one
+   step per development block compounded to 1.10^3 = +33.1% a year for as long
+   as an athlete kept earning it, and the growth ladder showed a six-day athlete
+   holding that rate for two consecutive years and reaching a 105km peak for a
+   half marathon in year three from a 50km start.
+
+   Worse than the rate was what stopped it. Demonstrated sustainable volume is
+   computed from COMPLETED weeks, and a compliant athlete completes what they
+   are given -- so the permission clause climbed one step behind the
+   prescription rather than braking it, and the thing that actually halted the
+   trajectory was distributeWeekVolume() running out of places to put running.
+   An engineering limit was carrying a safety argument.
+
+   At one step per cycle the rate is defensible at every point on its own terms,
+   so nothing needs to stop it. That is the difference between a rule that is
+   safe and a rule that is merely bounded.
+
+   THREE, because a cycle contains three development blocks. An athlete who
+   cycles differently -- three base blocks in a row, say -- gets the same
+   answer for the same reason: one step per three blocks of genuine
+   development, whatever they were building. */
+var PROGRESSION_BLOCKS_PER_CYCLE = 3;
+
+/* Development blocks closed since the one that carried the last step, or null
+   if the athlete has never stepped. Walks the ledger rather than storing a
+   counter, so a restored backup, an imported plan and a hand-edited record all
+   answer from the same evidence. */
+function developmentBlocksSinceLastStep(){
+  var blocks = (state && state.athlete && state.athlete.blocks) || [];
+  var count = 0;
+  for (var i = blocks.length - 1; i >= 0; i--){
+    var b = blocks[i];
+    if (!b) continue;
+    if (b.progressionStep) return count;
+    if (PROGRESSION_EARNING_PURPOSES.indexOf(b.purpose) !== -1) count++;
+  }
+  return null;
+}
 
 /* ---------- the coaching reason, stated so it can be read back ----------
    Deterministic and explainable: every gate is a fact about training the
@@ -2838,7 +2879,20 @@ function progressionJustification(){
       return out;
     }
   }
+  /* LAST GATE, DELIBERATELY. Everything above answers "has this athlete earned
+     more training". This answers "have they already been given it this cycle",
+     which is a different question and must not be able to mask the first --
+     when the athlete has NOT earned a step, the reason they are held should say
+     so rather than reporting a cycle rule that was never reached. */
+  var since = developmentBlocksSinceLastStep();
+  if (since != null && since < PROGRESSION_BLOCKS_PER_CYCLE){
+    out.blockedBy = 'stepped_this_cycle';
+    out.blocksSinceStep = since;
+    out.reason = 'Your volume already stepped up this cycle. It moves once a cycle, not once a block, so this one holds the level you are training at.';
+    return out;
+  }
   out.earned = true;
+  out.blocksSinceStep = since;
   out.reason = 'You ran the last block as prescribed and it landed, so this one starts a step above it.';
   return out;
 }
@@ -11270,6 +11324,10 @@ function openBlock(opts){
     startVolume: o.startVolume > 0 ? round1(o.startVolume) : null,
     peakVolume: o.peakVolume > 0 ? round1(o.peakVolume) : null,
     anchorVolume: o.anchorVolume > 0 ? round1(o.anchorVolume) : null,
+    /* WHICH BLOCK CARRIED THE STEP. developmentBlocksSinceLastStep() counts
+       forward from here, so the cycle rule is answered from the ledger rather
+       than from a counter that a restore or an import could lose. */
+    progressionStep: !!o.progressionStep,
     openedAt: new Date().toISOString()
   };
   athlete().blocks.push(b);
@@ -11473,12 +11531,17 @@ function developmentBlockSpec(purpose, opts){
      would let a block start at the ceiling and sit there, and the start cap
      alone would let the ramp climb past it. */
   var base = cappedBlockStartVolume(absorbed.km, lastDistance);
+  /* Whether this block's level is a STEP above the last, carried through so the
+     ledger records it and the cycle rule can count from it. Asked once, here,
+     rather than re-derived by comparing anchors -- a rebuild rewrites an anchor
+     and would make the comparison lie. */
+  var stepped = progressionJustification().earned;
 
   if (purpose === 'recovery'){
     var rp = recoveryProfileFor(o.raceDistanceKey || lastDistance);
     return { purpose:'recovery', weeks: rp.weeks, distanceKey: lastDistance,
              volume: base ? Math.round(base * rp.volumeFactor) : null,
-             anchorVolume: base,
+             anchorVolume: base, progressionStep: stepped,
              noIntensityDays: rp.noIntensityDays, volumeSource: absorbed.source };
   }
   if (purpose === 'maintain'){
@@ -11490,7 +11553,7 @@ function developmentBlockSpec(purpose, opts){
        the block simply stopping. */
     return { purpose:'maintain', weeks: o.weeks || 8, distanceKey: lastDistance,
              volume: base ? Math.round(base * 0.75) : null,
-             anchorVolume: base, volumeSource: absorbed.source };
+             anchorVolume: base, progressionStep: stepped, volumeSource: absorbed.source };
   }
   if (purpose === 'base'){
     /* Starts at what was absorbed, not above it. The generator's own
@@ -11499,14 +11562,16 @@ function developmentBlockSpec(purpose, opts){
        whether the athlete absorbed the last block, which loadToleranceModel()
        already answers. */
     return { purpose:'base', weeks: o.weeks || 10, distanceKey: lastDistance,
-             volume: base, anchorVolume: base, volumeSource: absorbed.source };
+             volume: base, anchorVolume: base, progressionStep: stepped,
+             volumeSource: absorbed.source };
   }
   if (purpose === 'speed'){
     /* The 5K profile already carries emphasis:'speed' and the block name
        "Speed & Threshold Block". Reusing it means no new intensity
        methodology is written for this programme at all. */
     return { purpose:'speed', weeks: o.weeks || 6, distanceKey: '5k',
-             volume: base, anchorVolume: base, volumeSource: absorbed.source };
+             volume: base, anchorVolume: base, progressionStep: stepped,
+             volumeSource: absorbed.source };
   }
   return null;
 }
@@ -11724,7 +11789,8 @@ function startDevelopmentBlock(purpose, opts){
   var block = openBlock({ purpose: purpose, startDate: startDate,
                           distanceKey: spec.distanceKey, goalDate: goalDate, hasEvent: false,
                           startVolume: spec.volume, peakVolume: largestScheduledWeek(days),
-                          anchorVolume: spec.anchorVolume });
+                          anchorVolume: spec.anchorVolume,
+                          progressionStep: spec.progressionStep });
   block.fromBlockId = prevBlockId || null;
   block.volumeSource = spec.volumeSource;
 

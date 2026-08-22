@@ -190,6 +190,109 @@ test('running everything, well, and reaching the peak earns the step', () => {
 });
 
 /* ------------------------------------------------------------------ *
+ * ONE EARNED STEP PER PROGRAMME CYCLE
+ * ------------------------------------------------------------------ */
+
+/* A closed block that carried a step. */
+function stepBlock(a, opts){
+  const o = opts || {};
+  a.state.athlete.blocks.push({ id: 's' + a.state.athlete.blocks.length,
+    purpose: o.purpose || 'recovery', status: 'closed',
+    anchorVolume: o.anchor, startVolume: o.anchor, peakVolume: o.peak || 60,
+    progressionStep: true });
+}
+
+test('the magnitude of a step is 10%, and its frequency is once a cycle', () => {
+  const a = app();
+  assert.equal(a.VOLUME_BLOCK_GROWTH_CAP, 1.10);
+  assert.equal(a.PROGRESSION_BLOCKS_PER_CYCLE, 3);
+});
+
+test('a second step inside the same cycle is refused', () => {
+  /* THE WHOLE POINT. One step per DEVELOPMENT BLOCK compounded to 1.10^3 =
+     +33.1% a year, and what stopped it was distributeWeekVolume() running out
+     of places to put running rather than any coaching rule. One step per cycle
+     is +10% a year, which is defensible at every point on its own terms. */
+  const a = app();
+  record(a, [74, 72, 70]);
+  ledger(a, { purpose: 'base', anchor: 55, peak: 72 });
+  stepBlock(a, { purpose: 'recovery', anchor: 55, peak: 30 });
+  ledger(a, { purpose: 'base', anchor: 55, peak: 72 });   // one development block since
+  const j = a.progressionJustification();
+  assert.equal(j.earned, false, j.reason);
+  assert.equal(j.blockedBy, 'stepped_this_cycle');
+  assert.equal(j.blocksSinceStep, 1);
+  assert.equal(a.cappedBlockStartVolume(60, 'half'), 55);
+});
+
+test('a step is earned again once a full cycle of development has passed', () => {
+  const a = app();
+  record(a, [74, 72, 70]);
+  stepBlock(a, { purpose: 'recovery', anchor: 55, peak: 30 });
+  ['base', 'speed', 'race'].forEach(purpose =>
+    ledger(a, { purpose, anchor: 55, peak: 72 }));
+  const j = a.progressionJustification();
+  assert.equal(j.blocksSinceStep, 3);
+  assert.equal(j.earned, true, j.reason);
+  assert.equal(a.cappedBlockStartVolume(60, 'half'), 60.5);
+});
+
+test('recovery and maintenance blocks do not count toward the cycle', () => {
+  /* They are deliberate reductions. Three recovery blocks in a row is not a
+     cycle of training and must not buy a step. */
+  const a = app();
+  record(a, [74, 72, 70]);
+  stepBlock(a, { purpose: 'recovery', anchor: 55, peak: 30 });
+  ['recovery', 'maintain', 'recovery', 'maintain'].forEach(purpose =>
+    ledger(a, { purpose, anchor: 55, peak: 30 }));
+  ledger(a, { purpose: 'base', anchor: 55, peak: 72 });
+  const j = a.progressionJustification();
+  assert.equal(j.blocksSinceStep, 1, 'reductions were counted as development');
+  assert.equal(j.blockedBy, 'stepped_this_cycle');
+});
+
+test('an athlete who has never stepped is not held by the cycle rule', () => {
+  const a = app();
+  record(a, [74, 72, 70]);
+  ledger(a, { purpose: 'base', anchor: 55, peak: 72 });
+  const j = a.progressionJustification();
+  assert.equal(j.blocksSinceStep, null);
+  assert.equal(j.earned, true, j.reason);
+});
+
+test('the cycle rule never masks a reason the athlete has NOT earned a step', () => {
+  /* Gate order matters for the sentence. An athlete who missed sessions must be
+     told that, not told their volume already moved this cycle -- which would be
+     true and useless. */
+  const a = blockRun({ runs: i => i % 3 !== 0, quality: () => 1 });
+  // a DEVELOPMENT block that carried the step, so the earlier gates are live
+  a.state.athlete.blocks.push({ id: 'stepped', purpose: 'base', status: 'closed',
+    anchorVolume: 55, startVolume: 55, peakVolume: 30, progressionStep: true });
+  const j = a.progressionJustification();
+  assert.equal(j.blockedBy, 'missed_sessions', j.reason);
+});
+
+test('one step a cycle compounds to 10% a year, not 33%', () => {
+  /* Walked rather than asserted as arithmetic: three development blocks, one
+     step, whatever order they arrive in. */
+  const a = app();
+  record(a, [74, 72, 70]);
+  let level = 55, steps = 0;
+  ledger(a, { purpose: 'race', anchor: level, peak: 60 });
+  for (const purpose of ['recovery', 'maintain', 'base', 'speed', 'race',
+                         'recovery', 'maintain', 'base', 'speed', 'race']){
+    const earned = a.progressionJustification().earned;
+    if (earned){ level = a.round1(level * a.VOLUME_BLOCK_GROWTH_CAP); steps++; }
+    a.state.athlete.blocks.push({ id: 'b' + a.state.athlete.blocks.length, purpose,
+      status: 'closed', anchorVolume: level, startVolume: level, peakVolume: 60,
+      progressionStep: earned });
+  }
+  // two full cycles walked, so at most two steps
+  assert.equal(steps, 2, 'took ' + steps + ' steps across two cycles');
+  assert.equal(level, 66.6);   // 55 -> 60.5 -> 66.6
+});
+
+/* ------------------------------------------------------------------ *
  * THE PEAK IS BOUNDED BY CAPACITY TOO
  * ------------------------------------------------------------------ */
 

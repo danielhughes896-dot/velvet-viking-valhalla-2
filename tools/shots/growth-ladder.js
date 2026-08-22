@@ -36,7 +36,7 @@ function goalTimeFor(a, dk, benchSec){
   const vdot = a.vdotFromPerformance(10000, benchSec);
   return Math.round(a.equivalentTimeSec(vdot, a.DISTANCE_PROFILES[dk].raceKm * 1000) * 0.97);
 }
-function startRaceBlock(a, dk, volume, weeks, startDate){
+function startRaceBlock(a, dk, volume, weeks, startDate, stepped){
   const startMonday = a.addDays(startDate, -a.isoWeekday(startDate));
   const raceDate = a.addDays(startMonday, weeks * 7 - 1);
   const br = a.buildBlockWeeks(dk, volume, weeks, { purpose: 'race' });
@@ -45,7 +45,7 @@ function startRaceBlock(a, dk, volume, weeks, startDate){
   if (prev){ a.archiveCompletedSessions(prev); a.closeBlock(prev, { reason: 'transition', to: 'race' }); }
   const block = a.openBlock({ purpose: 'race', startDate, distanceKey: dk, goalDate: raceDate,
     hasEvent: false, startVolume: volume, peakVolume: a.largestScheduledWeek(days),
-    anchorVolume: volume });
+    anchorVolume: volume, progressionStep: !!stepped });
   const bench = (a.state.setup && a.state.setup.benchmark) || { distanceKey: '10k', timeSec: 45 * 60 };
   a.state.setup = { distanceKey: dk, currentVolume: volume, raceDate, hasEvent: false, startDate,
     planWeeks: br.planWeeks, schedule: SCHEDULE, blockId: block.id, purpose: 'race', benchmark: bench,
@@ -93,7 +93,7 @@ for (let y = 0; y < YEARS; y++){
     let br, prescribed;
     if (purpose === 'race'){
       prescribed = level;
-      br = startRaceBlock(a, dk, prescribed, weeks, today);
+      br = startRaceBlock(a, dk, prescribed, weeks, today, just.earned);
     } else {
       const sp = a.developmentBlockSpec(purpose, { distanceKey: DIST, raceDistanceKey: DIST });
       prescribed = sp && sp.volume;

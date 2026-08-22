@@ -7,29 +7,47 @@ yr block      anchor  reason              reason=  permit=  limit=   START   BOU
  1 recovery       50  EARNED                   55     75.9     140      55   REASON (step)    29  what the week can hold
  1 maintain       55  held: not_a_development_block     55     75.9     140      55   REASON (held)    42  what the week can hold
  1 base           55  held: not_a_development_block     55     75.9     140      55   REASON (held)  67.5  purpose multiplier
- 1 speed          55  EARNED                 60.5     75.9     110    60.5   REASON (step)  67.5  purpose multiplier
-   ---- end of year 1: development level 60.5  (+21% on the 50km start)   demonstrated 69
- 2 race         60.5  EARNED                 66.6     75.9     140    66.6   REASON (step)  89.5  purpose multiplier
- 2 recovery     66.6  EARNED                 73.3     90.8     140    73.3   REASON (step)  37.5  what the week can hold
- 2 maintain     73.3  held: not_a_development_block   73.3     90.8     140    73.3   REASON (held)  56.5  what the week can hold
- 2 base         73.3  held: not_a_development_block   73.3     90.8     140    73.3   REASON (held)    90  purpose multiplier
- 2 speed        73.3  EARNED                 80.6     95.7     110    80.6   REASON (step)  67.5  what the week can hold
-   ---- end of year 2: development level 80.6  (+61% on the 50km start)   demonstrated 87
- 3 race         80.6  EARNED                 88.7     95.7     140    88.7   REASON (step)   105  purpose multiplier
- 3 recovery     88.7  EARNED                 97.6    107.5     140    97.6   REASON (step)    50  what the week can hold
- 3 maintain     97.6  held: not_a_development_block   97.6    107.5     140    97.6   REASON (held)    74  what the week can hold
- 3 base         97.6  held: not_a_development_block   97.6    107.5     140    97.6   REASON (held)  97.5  what the week can hold
- 3 speed        97.6  EARNED                107.4    107.5     110   107.4   REASON (step)    67  what the week can hold
-   ---- end of year 3: development level 107.4  (+115% on the 50km start)   demonstrated 97.7
- 4 race        107.4  EARNED                118.1    107.5     140   107.5   PERMISSION      100  what the week can hold
- 4 recovery    107.5  EARNED                118.3      110     140     110   PERMISSION     55.5  what the week can hold
- 4 maintain      110  held: not_a_development_block    110      110     140     110   REASON (held)    84  what the week can hold
- 4 base          110  held: not_a_development_block    110      110     140     110   REASON (held)    98  what the week can hold
- 4 speed         110  EARNED                  121    107.8     110   107.8   PERMISSION     67.5  what the week can hold
-   ---- end of year 4: development level 107.8  (+116% on the 50km start)   demonstrated 98
- 5 race        107.8  EARNED                118.6    107.8     140   107.8   PERMISSION      105  what the week can hold
- 5 recovery    107.8  EARNED                118.6      110     140     110   PERMISSION     55.5  what the week can hold
- 5 maintain      110  held: not_a_development_block    110      110     140     110   REASON (held)    83  what the week can hold
- 5 base          110  held: not_a_development_block    110      110     140     110   REASON (held)    98  what the week can hold
- 5 speed         110  EARNED                  121      108     110     108   PERMISSION     65.5  what the week can hold
-   ---- end of year 5: development level 108  (+116% on the 50km start)   demonstrated 98.2
+ 1 speed          55  held: stepped_this_cycle     55     75.9     110      55   REASON (held)  67.5  purpose multiplier
+   ---- end of year 1: development level 55  (+10% on the 50km start)   demonstrated 69
+ 2 race           55  held: stepped_this_cycle     55     75.9     140      55   REASON (held)    85  purpose multiplier
+ 2 recovery       55  EARNED                 60.5     85.8     140    60.5   REASON (step)  30.5  what the week can hold
+ 2 maintain     60.5  held: not_a_development_block   60.5     85.8     140    60.5   REASON (held)    46  what the week can hold
+ 2 base         60.5  held: not_a_development_block   60.5     85.8     140    60.5   REASON (held)  73.5  purpose multiplier
+ 2 speed        60.5  held: stepped_this_cycle   60.5     82.5     110    60.5   REASON (held)  67.5  purpose multiplier
+   ---- end of year 2: development level 60.5  (+21% on the 50km start)   demonstrated 75
+ 3 race         60.5  held: stepped_this_cycle   60.5     82.5     140    60.5   REASON (held)  94.5  purpose multiplier
+ 3 recovery     60.5  EARNED                 66.6     93.5     140    66.6   REASON (step)  33.5  what the week can hold
+ 3 maintain     66.6  held: not_a_development_block   66.6     93.5     140    66.6   REASON (held)  50.5  what the week can hold
+ 3 base         66.6  held: not_a_development_block   66.6     93.5     140    66.6   REASON (held)  82.5  purpose multiplier
+ 3 speed        66.6  held: stepped_this_cycle   66.6     91.3     110    66.6   REASON (held)    67  what the week can hold
+   ---- end of year 3: development level 66.6  (+33% on the 50km start)   demonstrated 83
+ 4 race         66.6  held: stepped_this_cycle   66.6     91.3     140    66.6   REASON (held)   100  purpose multiplier
+ 4 recovery     66.6  EARNED                 73.3      104     140    73.3   REASON (step)  37.5  what the week can hold
+ 4 maintain     73.3  held: not_a_development_block   73.3      104     140    73.3   REASON (held)    56  what the week can hold
+ 4 base         73.3  held: not_a_development_block   73.3      104     140    73.3   REASON (held)  90.5  purpose multiplier
+ 4 speed        73.3  held: stepped_this_cycle   73.3    100.1     110    73.3   REASON (held)  67.5  what the week can hold
+   ---- end of year 4: development level 73.3  (+47% on the 50km start)   demonstrated 91
+ 5 race         73.3  held: stepped_this_cycle   73.3    100.1     140    73.3   REASON (held)   105  purpose multiplier
+ 5 recovery     73.3  EARNED                 80.6      110     140    80.6   REASON (step)    40  what the week can hold
+ 5 maintain     80.6  held: not_a_development_block   80.6      110     140    80.6   REASON (held)  60.5  what the week can hold
+ 5 base         80.6  held: not_a_development_block   80.6      110     140    80.6   REASON (held)    98  purpose multiplier
+ 5 speed        80.6  held: stepped_this_cycle   80.6    107.8     110    80.6   REASON (held)  65.5  what the week can hold
+   ---- end of year 5: development level 80.6  (+61% on the 50km start)   demonstrated 98
+ 6 race         80.6  held: stepped_this_cycle   80.6    107.8     140    80.6   REASON (held)   100  purpose multiplier
+ 6 recovery     80.6  EARNED                 88.7      110     140    88.7   REASON (step)    44  what the week can hold
+ 6 maintain     88.7  held: not_a_development_block   88.7      110     140    88.7   REASON (held)  67.5  what the week can hold
+ 6 base         88.7  held: not_a_development_block   88.7    109.5     140    88.7   REASON (held)  96.5  purpose multiplier
+ 6 speed        88.7  held: stepped_this_cycle   88.7    107.8     110    88.7   REASON (held)  67.5  what the week can hold
+   ---- end of year 6: development level 88.7  (+77% on the 50km start)   demonstrated 98
+ 7 race         88.7  held: stepped_this_cycle   88.7    107.8     140    88.7   REASON (held)   105  purpose multiplier
+ 7 recovery     88.7  EARNED                 97.6    109.5     140    97.6   REASON (step)    50  what the week can hold
+ 7 maintain     97.6  held: not_a_development_block   97.6    109.5     140    97.6   REASON (held)    74  what the week can hold
+ 7 base         97.6  held: not_a_development_block   97.6    108.9     140    97.6   REASON (held)  98.5  what the week can hold
+ 7 speed        97.6  held: stepped_this_cycle   97.6    108.4     110    97.6   REASON (held)  67.5  what the week can hold
+   ---- end of year 7: development level 97.6  (+95% on the 50km start)   demonstrated 98.5
+ 8 race         97.6  held: stepped_this_cycle   97.6    108.4     140    97.6   REASON (held)   100  what the week can hold
+ 8 recovery     97.6  EARNED                107.4    109.5     140   107.4   REASON (step)  54.5  what the week can hold
+ 8 maintain    107.4  held: not_a_development_block  107.4    109.5     140   107.4   REASON (held)    82  what the week can hold
+ 8 base        107.4  held: not_a_development_block  107.4    109.5     140   107.4   REASON (held)  97.5  what the week can hold
+ 8 speed       107.4  held: stepped_this_cycle  107.4    108.9     110   107.4   REASON (held)  67.5  what the week can hold
+   ---- end of year 8: development level 107.4  (+115% on the 50km start)   demonstrated 99
