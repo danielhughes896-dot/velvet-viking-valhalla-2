@@ -305,9 +305,20 @@ async function handle(req, res){
   if (String(req.method || '').toUpperCase() !== 'POST')
     return S.json(res, 405, { error: 'method_not_allowed' });
 
+  /* ANONYMOUS BY DESIGN, NOW. The preview used to require a Bearer token, back
+     when authentication came before it in the acquisition journey. Now the
+     journey is builder -> preview -> "Save My Plan" -> trial, so a first-time
+     visitor reaches this endpoint before they have ever signed in.
+
+     Nothing below actually needed uid for anything but a log line -- generate()
+     is a pure function of the validated input, and the comment on GENERATED
+     already recorded that no account table is touched here. So widening this
+     to "identify the caller if we can, but don't require it" costs nothing:
+     a signed-in athlete rebuilding from Plan Settings still gets uid logged,
+     and an anonymous visitor gets exactly the same preview they would have
+     gotten signed in, because it was always the same computation either way. */
   const cfg = S.config();
   const uid = await S.userIdFromRequest(req, cfg);
-  if (!uid) return S.json(res, 401, { error: 'not_signed_in' });
 
   const body = await S.readBody(req);
   const v = validate(body);
@@ -326,7 +337,7 @@ async function handle(req, res){
   /* GENERATING A PREVIEW MUST NOT SPEND THE TRIAL. Nothing here writes to
      account_commercial, entitlement_grants or subscriptions -- the athlete can
      rebuild as often as they like and their allowance is untouched. */
-  log('GENERATED uid=' + String(uid).slice(0, 8) + ' purpose=' + v.input.purpose +
+  log('GENERATED uid=' + (uid ? String(uid).slice(0, 8) : 'anon') + ' purpose=' + v.input.purpose +
       ' distance=' + v.input.buildDistance);
   return S.json(res, 200, {
     preview: summarise(built.app, built.days, built.blockResult, v.input),
