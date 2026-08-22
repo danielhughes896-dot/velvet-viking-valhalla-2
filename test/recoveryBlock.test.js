@@ -73,15 +73,26 @@ test('a recovery block is prescribed well below what the athlete has demonstrate
 
 test('the longer the race, the deeper the reduction', () => {
   /* Not a table lookup restated -- the ORDERING is the coaching claim, and it
-     must survive the volumes and the profiles that feed it. */
-  const shares = AFTER.map(([dk, vol]) => {
+     must survive the volumes and the profiles that feed it.
+
+     ORDERING ALONE IS TOO WEAK AN ASSERTION, and a mutation proved it: raising
+     the marathon's volumeFactor from 0.40 to 0.55 left the marathon share at
+     36% against the half's 37%, still in order, and the test passed. A rule
+     that says a marathon needs more recovery than a half is not satisfied by
+     one percentage point. So the ordering is asserted where the profiles are
+     equal, and a real SEPARATION where they are not. */
+  const shares = {};
+  AFTER.forEach(([dk, vol]) => {
     const r = recoverAfter(dk, vol);
-    return { dk, share: r.prescribed / r.demonstrated };
+    shares[dk] = r.prescribed / r.demonstrated;
   });
-  for (let i = 1; i < shares.length; i++)
-    assert.ok(shares[i].share <= shares[i - 1].share + 0.001,
-      shares[i].dk + ' (' + shares[i].share.toFixed(2) + ') reduced less than ' +
-      shares[i - 1].dk + ' (' + shares[i - 1].share.toFixed(2) + ')');
+  const pct = k => Math.round(shares[k] * 100) + '%';
+  assert.ok(shares['10k'] <= shares['5k'] + 0.001,
+    '10k ' + pct('10k') + ' vs 5k ' + pct('5k'));
+  assert.ok(shares.half <= shares['10k'] - 0.05,
+    'a half (' + pct('half') + ') barely recovers more than a 10K (' + pct('10k') + ')');
+  assert.ok(shares.full <= shares.half - 0.05,
+    'a marathon (' + pct('full') + ') barely recovers more than a half (' + pct('half') + ')');
 });
 
 test('no quality session survives into a recovery block', () => {
@@ -109,6 +120,46 @@ test('the long run in a recovery block is a run, not a long run', () => {
       dk + ': longest recovery run ' + r.longest + 'km against a demonstrated week of ' +
       r.demonstrated);
   });
+});
+
+test('a recovery block never sizes a session at the top of its range', () => {
+  /* DEFENCE IN DEPTH, ASSERTED WHERE IT IS OBSERVABLE. applyRecoveryCeiling()
+     turns every one of these into easy running, so nothing an athlete sees
+     changes and no test that reads the DAYS can see this rule -- a mutation
+     removing it survived the whole suite for exactly that reason. The rule is
+     real nonetheless: it is what makes a quality session that escapes the
+     ceiling through some future path the smallest version of itself rather than
+     the largest, and the one that escaped before this branch was a 25-minute
+     steady tempo, the longest the product writes.
+
+     So it is asserted one layer down, on the specs the generator emits, and by
+     the property that only holds when the dose is pinned: a block long enough
+     to return to a structure must return to the SAME structure at the SAME
+     size. With `pos` free it runs 0 to 1 across the block and the second
+     visit is bigger; pinned at 0, the two are identical. */
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  a.state = a.makeDefaultState(); a.state.athlete = a.makeAthleteRecord();
+  /* An ULTRA recovery block, because it is four weeks and therefore revisits
+     BOTH structures. A three-week block revisits only the fartlek, and at
+     recovery volumes shrinkIntervalSpec() floors a fartlek at either end of its
+     range to the same rep count -- so the one structure a shorter block
+     revisits is the one that cannot show the difference. That is not a reason
+     to weaken the property; it is a reason to test it where it is visible. */
+  const rec = a.buildBlockWeeks('ultra', 30, 4, { purpose: 'recovery' });
+  const seen = {};
+  rec.weeks.forEach(w => {
+    // structure identity, ignoring the dimensions the dose sets
+    const key = Object.keys(w.qSpec).filter(k => k !== 'reps').sort().join(',') + '/' +
+                w.tSpec.type;
+    const spec = JSON.stringify(w.qSpec) + '|' + JSON.stringify(w.tSpec);
+    if (seen[key]) assert.equal(spec, seen[key],
+      'a recovery block returned to the same structure at a different size:\n  ' +
+      seen[key] + '\n  ' + spec);
+    seen[key] = spec;
+  });
+  assert.equal(Object.keys(seen).length, 2,
+    'the fixture must revisit BOTH structures to prove anything: ' +
+    Object.keys(seen).join(' / '));
 });
 
 /* ------------------------------------------------------------------ *

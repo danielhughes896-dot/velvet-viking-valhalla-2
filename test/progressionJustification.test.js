@@ -30,6 +30,7 @@ const { buildPlan, logAsPrescribed } = require('./fixtures.js');
  */
 
 const TODAY = '2026-08-21';
+const SCHEDULE = { activeDays: [0, 1, 2, 4, 5], longRunDay: 5 };
 function app(){
   const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
@@ -232,6 +233,52 @@ test('the backstop is a limit and not a target: growth stops long before it', ()
   }
   assert.ok(anchor < 79, 'three earned steps reached ' + anchor);
   assert.ok(anchor < a.volumeCeilingFor('half'));
+});
+
+/* ------------------------------------------------------------------ *
+ * THE FIGURE THE LEDGER RECORDS IS THE ONE THE ATHLETE WAS GIVEN
+ * ------------------------------------------------------------------ */
+
+test('a block records the biggest week it actually scheduled, not the top of its ramp', () => {
+  /* blockResult.peakVolume is the top of the arithmetic ramp. The week the
+     athlete is really given is what survives distributeWeekVolume() and
+     capWeeklyVolume(), and on a low-frequency week or a distance with a tight
+     long-run cap it lands materially lower -- a 5K block asked for 78km/week
+     schedules about 55, because five days and a 12km long-run cap cannot hold
+     it.
+
+     This matters because it is what "did the athlete reach the top of the last
+     block" is measured against. Recording the ramp instead would fail an
+     athlete who ran every metre they were given, and hold their volume for a
+     reason that was never their doing. A mutation swapping the two survived the
+     suite, which is what this test is for. */
+  const a = app();
+  a.state.setup = { distanceKey: '5k', currentVolume: 60, schedule: SCHEDULE,
+                    benchmark: { distanceKey: '10k', timeSec: 45 * 60 } };
+  record(a, [60, 59, 58]);
+  a.state.athlete.blocks.push({ id: 'seed', purpose: 'base', status: 'closed',
+    anchorVolume: 60, startVolume: 60, peakVolume: 60 });
+  const block = a.startDevelopmentBlock('speed', { distanceKey: '5k' });
+  assert.ok(block, 'no block was generated');
+  const scheduled = a.largestScheduledWeek(a.state.days);
+  assert.equal(block.peakVolume, scheduled,
+    'ledger recorded ' + block.peakVolume + ' but the biggest week written was ' + scheduled);
+  const br = a.buildBlockWeeks('5k', block.startVolume, 6, { purpose: 'speed' });
+  assert.ok(scheduled < br.peakVolume,
+    'the fixture does not exercise the gap: scheduled ' + scheduled +
+    ' vs ramp ' + br.peakVolume);
+});
+
+test('largestScheduledWeek ignores rest days and reports a real week', () => {
+  const a = app();
+  const days = [
+    { week: 1, type: 'easy', km: 10 }, { week: 1, type: 'rest', km: 0 },
+    { week: 1, type: 'long', km: 15 },
+    { week: 2, type: 'easy', km: 8 }, { week: 2, type: 'long', km: 12 }
+  ];
+  assert.equal(a.largestScheduledWeek(days), 25);
+  assert.equal(a.largestScheduledWeek([]), null);
+  assert.equal(a.largestScheduledWeek(null), null);
 });
 
 /* ------------------------------------------------------------------ *
