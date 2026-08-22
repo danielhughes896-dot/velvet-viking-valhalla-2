@@ -48,6 +48,29 @@ const hue = h => {
 const light = h => { const c = hex(h); return (Math.max(...c) + Math.min(...c)) / 510; };
 // The cherry/wine family: magenta-red. Below this is purple, above it is brick.
 const IN_FAMILY = h => hue(h) >= 334 && hue(h) <= 356;
+/* CIE L*a*b* and deltaE76. Hue alone cannot answer "do these two look like the
+   same colour", because two colours a few degrees apart at the same lightness
+   and saturation are indistinguishable on a 4px strip. deltaE can. */
+const labOf = h => {
+  const [r, g, b] = hex(h).map(lin);
+  const X = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047;
+  const Y = r * 0.2126 + g * 0.7152 + b * 0.0722;
+  const Z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+  const f = t => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  return [116 * f(Y) - 16, 500 * (f(X) - f(Y)), 200 * (f(Y) - f(Z))];
+};
+const deltaE = (a, b) => {
+  const A = labOf(a), B = labOf(b);
+  return Math.round(Math.hypot(A[0] - B[0], A[1] - B[1], A[2] - B[2]) * 10) / 10;
+};
+/* The workout-type palette, read from the stylesheet rather than restated, so
+   changing a semantic colour is also checked against the accent. */
+function workoutColours() {
+  const out = {};
+  [...CODE.matchAll(/(--c-(?:rest|easy|tempo|threshold|long)):\s*(#[0-9A-Fa-f]{6})/g)]
+    .forEach(m => { out[m[1]] = m[2]; });
+  return out;
+}
 
 /* Token values are read from the shipped :root blocks, so these tests measure
    what the app renders rather than what this file remembers. The dark block is
@@ -297,4 +320,54 @@ test('the accent is a per-theme token, so no component carries a per-theme rule'
   assert.equal(inABlock, declared,
     'a --cherry declaration lives outside the two theme token blocks — a ' +
     'component is redefining the accent instead of using it');
+});
+
+
+/* THE ACCENT MUST NOT IMPERSONATE A WORKOUT TYPE.
+   ===========================================================================
+   This exists because it happened. Chasing "less pink" moved the dark accent
+   from 339deg to 347deg, which put it 6.8 deltaE from --c-threshold #B5505A --
+   the colour of a threshold session's left edge. On an expanded threshold card
+   the semantic edge and the brand accent then read as the same colour, and the
+   athlete loses the difference between "Valhalla" and "this session is hard".
+
+   Nothing caught it: every existing guard asked whether the accent was
+   ACCESSIBLE and whether it was still in the cherry family, and it was both.
+   None asked whether it had wandered onto a colour that already means
+   something. Hue is not enough for that question -- 8 degrees is nothing on a
+   4px strip -- so this measures perceptual distance instead. */
+test('the brand accent is never mistakable for a workout-type colour', () => {
+  const WORKOUT = workoutColours();
+  assert.ok(Object.keys(WORKOUT).length >= 5,
+    'could not read the workout palette: ' + JSON.stringify(WORKOUT));
+
+  const MIN = 15;   // below this two colours read as the same on a thin edge
+  ['dark', 'light'].forEach(scope => {
+    const t = tokens(scope);
+    ['--cherry', '--cherry-fill', '--cherry-text'].forEach(name => {
+      const v = t[name];
+      if (!v || !/^#[0-9A-Fa-f]{6}$/.test(v)) return;   // rgba/var forms are covered elsewhere
+      Object.keys(WORKOUT).forEach(sem => {
+        const d = deltaE(v, WORKOUT[sem]);
+        assert.ok(d >= MIN,
+          scope + ' ' + name + ' ' + v + ' is only ' + d + ' deltaE from ' +
+          sem + ' ' + WORKOUT[sem] + ' — the accent has wandered onto a colour ' +
+          'that already means something (minimum ' + MIN + ')');
+      });
+    });
+  });
+});
+
+test('the workout-type palette still says five different things', () => {
+  // The other half of the same rule: semantic colours must stay distinct from
+  // EACH OTHER, so "do not flatten them into the brand" cannot be satisfied by
+  // flattening them into one another instead.
+  const W = workoutColours();
+  const keys = Object.keys(W);
+  keys.forEach((a, i) => keys.slice(i + 1).forEach(b => {
+    const d = deltaE(W[a], W[b]);
+    assert.ok(d >= 20,
+      a + ' and ' + b + ' are only ' + d + ' deltaE apart — two workout types ' +
+      'now look like the same thing');
+  }));
 });

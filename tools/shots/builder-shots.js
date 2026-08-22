@@ -89,6 +89,7 @@ const PURPOSES = ['race','maintain','base','speed'];
           const numeral = document.getElementById('bld-no');
           return {
             over: Math.max(0, card.scrollHeight - card.clientHeight),
+            scrollH: card.scrollHeight, clientH: card.clientHeight,
             segs, segCount: segs.length,
             numeral: numeral ? numeral.textContent : '',
             primaryBg: cs ? cs.backgroundColor : null,
@@ -103,6 +104,8 @@ const PURPOSES = ['race','maintain','base','speed'];
         if (m.segCount !== 9) problems.push(`${tag}: rail has ${m.segCount} segments`);
         if (new Set(m.segs).size > 1) problems.push(`${tag}: rail segments are uneven (${m.segs.join(',')})`);
         if (m.over > 0) problems.push(`${tag}: OVERFLOWS by ${m.over}px`);
+        if (purpose === 'race' && (n === 6 || n === 8))
+          notes.push(`${theme}: stage 0${n+1} ${m.over ? 'OVER by '+m.over+'px' : 'fits'} (content ${m.scrollH}px in ${m.clientH}px)`);
         if (m.numeral !== `0${n+1} / 09`) problems.push(`${tag}: numeral reads "${m.numeral}"`);
 
         if (n === 0 && purpose === 'race'){
