@@ -1242,12 +1242,27 @@
     box-shadow:inset 0 0 0 1px var(--ctl-border);}
   .switch input:checked + .switch-track{box-shadow:none;}
   .switch-track::before{content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:var(--bg-2); border-radius:50%; transition:.2s; box-shadow:var(--shadow-sm);}
-  .switch input:checked + .switch-track{background:var(--bronze);}
-  /* THE APP THEME SWITCH, and only it. There are exactly two .switch controls
-     in the product -- this one and notifications -- so the accent is scoped by
-     the row it lives in rather than applied to .switch, which would have
-     coloured a toggle nobody asked to change. */
-  #theme-toggle-row .switch input:checked + .switch-track{background:var(--violet);}
+  /* ON IS PURPLE, FOR EVERY BINARY SWITCH IN THE PRODUCT.
+
+     This was gold, with a single-row override painting the App Theme switch
+     violet -- so Settings offered two identical controls doing identical kinds
+     of thing in two different colours, and the difference meant nothing.
+     Whichever colour won, the inconsistency was the defect.
+
+     Purple wins because of what the two colours already mean here. Gold is the
+     brand: headings, the selected tab, the primary action, the crest. Violet is
+     already the interactive-control treatment. A switch is a control and never a
+     brand mark, so it takes the control colour -- and the #theme-toggle-row
+     override is DELETED rather than duplicated onto each new toggle, because a
+     shared component with per-instance colour exceptions is exactly how these
+     drifted apart in the first place.
+
+     Both themes come free: --violet is defined per theme (light #4C2A6B, dark
+     #A88FD8), which is the same token that already governed the App Theme
+     switch, so the thumb contrast here is the contrast that switch has always
+     had. The off state is untouched, and focus stays the global gold
+     :focus-visible outline every other control in the app uses. */
+  .switch input:checked + .switch-track{background:var(--violet);}
   .switch input:checked + .switch-track::before{transform:translateX(18px);}
   .callout{background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 12px; font-size:12px; color:var(--ink-dim); line-height:1.5; display:flex; gap:9px;}
   .callout svg{flex:none; width:16px; height:16px; color:var(--bronze); margin-top:1px;}
@@ -1862,6 +1877,21 @@ function hrZonesFromLTHR(lthr, maxHR){
   return out;
 }
 function getActiveHRZones(){
+  /* THE ROOT OF EVERY HEART-RATE FIGURE IN THE PRODUCT, and therefore the
+     right place for the boundary. The zone table is computed from the
+     athlete's own LTHR and max HR, so producing it at all is processing their
+     health information -- and gating the three or four functions that READ it
+     leaves the others. It was written that way first, and a structured
+     workout card went on printing "165-175 BPM" underneath a session whose
+     target range had correctly been withheld, because the step builder reads
+     this table directly rather than through executionHRTarget().
+
+     An empty table rather than a throw: every consumer already handles a
+     missing zone (`if (!z || z.lo==null)`), because most athletes never enter
+     an LTHR. So the card, the prescription, the Execution Strategy phases, the
+     zone tables in Plan HQ and the scoring path all fall back to the
+     pace-only behaviour they have always had for those athletes. */
+  if (!healthConsentGranted()) return {};
   var su = state.setup;
   return hrZonesFromLTHR(su && su.lthr, su && su.maxHR);
 }
@@ -1869,6 +1899,12 @@ function getActiveHRZones(){
 // just against the HR table instead of the pace table. Returns null for
 // rest/race (no zoneKey) or when LTHR hasn't been configured.
 function getTargetHRRangeForDay(dd){
+  /* A target heart-rate range is derived from the athlete's own LTHR and max
+     HR, so producing one is processing their health information. Without
+     consent there is no range -- on the card, in the prescription, or in
+     scoring -- and every reader of this already handles null, because most
+     athletes never enter an LTHR at all. */
+  if (!healthConsentGranted()) return null;
   var key = executionZoneKey(dd);
   if (!key) return null;
   var z = getActiveHRZones()[key];
@@ -6866,6 +6902,211 @@ function applyThemeToDocument(){
     if (meta) meta.setAttribute('content', state.theme==='dark' ? '#151417' : '#F4F1EA');
   }catch(e){}
 }
+
+/* =========================================================
+   HEALTH AND READINESS INFORMATION — EXPLICIT CONSENT
+   ---------------------------------------------------------
+   Some of what an athlete may choose to tell Valhalla can reveal something
+   about their health: a heart rate, a night's sleep, a sore calf, whether they
+   are under the weather, how a session felt. Running a training programme is
+   not a lawful reason on its own to process that; it needs the athlete's
+   explicit, separate agreement, and the agreement has to be provable.
+
+   THREE PROPERTIES, AND THE WHOLE MECHANISM IS THESE THREE.
+
+   1. IT IS SEPARATE. Accepting the Terms is not this. Creating an account is
+      not this. Starting a trial is not this. Typing a heart rate is not this.
+      Reaching the end of onboarding is not this. Consent exists only where
+      healthConsentGranted() is true, and that is true only after the athlete
+      has ticked a box that was not ticked when they found it.
+
+   2. IT IS NARROW. Not everything an athlete records is health information,
+      and disabling ordinary training data would be its own kind of wrong. The
+      boundary below is drawn on the app's OWN evidence vocabulary rather than
+      on a fresh guess: heart rate, the morning readiness answers, session
+      feel, and the body/sleep/stress readings the notes parser derives. Pace,
+      distance, time, splits, completion, benchmarks, race results, plan
+      history and adherence are not health information and are untouched.
+
+   3. IT IS REVERSIBLE, AND THE REVERSE IS AS EASY AS THE FORWARD. One control
+      in Settings, both directions, no confirmation maze.
+
+   VERSIONING. Consent is recorded against HEALTH_CONSENT_VERSION, not against
+   whatever wording happened to be on screen. If the purpose of the processing
+   materially changes, the version changes, and every stored agreement to the
+   previous version stops counting -- healthConsentGranted() compares versions,
+   so a stale agreement fails closed without any migration having to run.
+
+   WHAT THIS IS NOT. It is not an analytics or event system and it is not a
+   consent-management framework. It is one record, one gate and one control,
+   and none of it -- nor any covered value it governs -- leaves for the
+   operational board or the billing rails. Those boundaries are enforced in
+   api/_monday-operational.js and the billing modules, which have no coaching
+   vocabulary at all, and are asserted by test from both directions. */
+var HEALTH_CONSENT_VERSION = 'health_data_consent_v1';
+
+/* The athlete-facing wording, in one place because it is the thing being
+   agreed TO. Held as data rather than inline in a renderer so the Settings
+   control, the onboarding step and the record all quote the same sentences,
+   and so a change to any of them is visible as a change to the consent. */
+var HEALTH_CONSENT_COPY = {
+  title:   'Use my health and readiness information',
+  what:    'If you choose to share things like heart rate, sleep, aches, pain, '+
+           'illness or how a session felt, Valhalla can read how you are '+
+           'responding to training and adjust your programme around it.',
+  optional:'Valhalla works without any of it. Your paces, distances and '+
+           'sessions are enough to run your programme.',
+  change:  'You can change your mind at any time in Settings.',
+  withdraw:'Withdrawing stops Valhalla using this information from that moment '+
+           'on. It does not undo anything it was lawfully used for before.'
+};
+
+/* ---- what is covered, stated once ----
+   Written as the app's own concepts rather than as field names, because a
+   field name changes and a concept does not. Each entry is here because the
+   value it names can reveal something about the athlete's body or health.
+
+   EVIDENCE_CONCEPT is the coaching engine's existing vocabulary (see its
+   definition below): hrCost is heartbeats spent, feel is what the athlete
+   reported that morning or afterwards, efficiency is pace and heart rate read
+   together. Those three cannot be computed at all without covered inputs.
+   effort (RPE), execution, consistency and recovery-from-execution can, and
+   are deliberately NOT covered -- see HEALTH_CONSENT_NOT_COVERED. */
+var HEALTH_COVERED_CONCEPTS = ['hr_cost', 'feel', 'efficiency'];
+/* The note-parser categories whose readings are about the athlete's body
+   rather than about the run or the weather. 'physical' is heavy legs, tired,
+   fresh legs, soreness, stiffness, pain, niggle and illness; 'sleep' and
+   'stress' are the two context concepts of the same kind. Environment (heat,
+   wind, treadmill), experience (faded late, cut short) and sensor doubt are
+   readings about conditions and equipment, and stay. */
+var HEALTH_COVERED_NOTE_CATS = ['physical'];
+var HEALTH_COVERED_NOTE_CONCEPTS = ['sleep', 'stress'];
+/* Recorded for the handoff to legal, and asserted by test, so the boundary is
+   a written claim rather than a reading of the code. */
+var HEALTH_CONSENT_NOT_COVERED = ['distance','pace','time','splits','completion',
+  'rpe','benchmark','race_result','pace_zones','plan_history','adherence','streak'];
+
+function isCoveredNoteSignal(rule){
+  if (!rule) return false;
+  return HEALTH_COVERED_NOTE_CATS.indexOf(rule.cat) !== -1 ||
+         HEALTH_COVERED_NOTE_CONCEPTS.indexOf(rule.concept) !== -1;
+}
+
+/* ---- the record ----
+   Never a bare boolean. `decision` is what the athlete chose, `version` is
+   what they chose it about, and the two timestamps are the audit: when they
+   agreed, and when they stopped agreeing. A withdrawal keeps grantedAt, so
+   the record still answers "was this processing consented to at the time".
+
+   null means NOBODY HAS BEEN ASKED, which is different from 'declined' and is
+   the state every existing account migrates into. Both read as no consent. */
+function makeHealthConsentRecord(decision){
+  var now = new Date().toISOString();
+  var prev = (state && state.healthConsent) || null;
+  return {
+    version: HEALTH_CONSENT_VERSION,
+    decision: decision === 'granted' ? 'granted' : 'declined',
+    decidedAt: now,
+    grantedAt: decision === 'granted' ? now : (prev ? prev.grantedAt || null : null),
+    withdrawnAt: decision === 'granted' ? null : (prev && prev.decision === 'granted' ? now : null)
+  };
+}
+function healthConsentRecord(){
+  var c = state && state.healthConsent;
+  return (c && typeof c === 'object' && c.decision) ? c : null;
+}
+/* THE GATE. Every covered read in the app goes through this one function, so
+   there is exactly one place where the answer can be wrong. Fails closed on a
+   missing record, a declined record, and a record agreed against a version
+   this build no longer considers current. */
+function healthConsentGranted(){
+  var c = healthConsentRecord();
+  return !!(c && c.decision === 'granted' && c.version === HEALTH_CONSENT_VERSION);
+}
+// Has this athlete ever been asked? Drives whether the one-time card appears,
+// and nothing else -- it must never be read as an answer.
+function healthConsentAnswered(){
+  var c = healthConsentRecord();
+  return !!(c && c.version === HEALTH_CONSENT_VERSION);
+}
+function healthConsentStateLabel(){
+  if (healthConsentGranted()) return 'On';
+  return healthConsentAnswered() ? 'Off' : 'Not set';
+}
+
+/* ---------- the three places the athlete meets this ----------
+   One piece of markup would have been neater and would have been wrong: the
+   three moments are genuinely different. The builder step is a question asked
+   once, before the first covered field on the same screen. The card is the
+   same question for an athlete who already had a plan when this shipped. The
+   Settings row is a standing control, and is the only one of the three that
+   is permanent. All three call one handler and quote one set of sentences. */
+
+// The unticked box, and it is only ever rendered unticked: an athlete who has
+// already answered sees nothing here and manages it in Settings instead. That
+// is why there is no `checked` in this function at all.
+function renderHealthConsentStep(){
+  if (healthConsentAnswered()) return '';
+  // The Edit Session modal's checkbox pattern, unchanged, so this introduces
+  // no new control and no new CSS. Note the absence of `checked`.
+  return '<div class="field" style="margin-bottom:14px;">'+
+    '<label style="display:flex; align-items:flex-start;">'+
+      '<input type="checkbox" id="su-health-consent" style="width:auto; margin:3px 7px 0 0;">'+
+      '<span>'+escapeHtml(HEALTH_CONSENT_COPY.title)+'</span>'+
+    '</label>'+
+    '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(HEALTH_CONSENT_COPY.what)+'</div>'+
+    '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(HEALTH_CONSENT_COPY.optional)+' '+
+      escapeHtml(HEALTH_CONSENT_COPY.change)+'</div>'+
+  '</div>';
+}
+
+/* Shown once, on Today, to an athlete who has never been asked -- which after
+   this ships is every existing account. Two buttons, both real answers, so
+   dismissing it IS a decision and it does not come back. It is a card in the
+   ordinary flow of the screen, not a modal and not a wall: nothing about
+   Valhalla is blocked behind answering it. */
+function renderHealthConsentCard(){
+  if (healthConsentAnswered()) return '';
+  if (!planHasContent()) return '';       // the builder asks its own version
+  return '<div class="hub-card">'+
+    '<div class="setup-section-title">'+escapeHtml(HEALTH_CONSENT_COPY.title)+'</div>'+
+    '<div class="field-hint" style="margin-bottom:8px;">'+escapeHtml(HEALTH_CONSENT_COPY.what)+'</div>'+
+    '<div class="field-hint" style="margin-bottom:12px;">'+escapeHtml(HEALTH_CONSENT_COPY.optional)+' '+
+      escapeHtml(HEALTH_CONSENT_COPY.change)+'</div>'+
+    '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" '+
+      'data-action="health-consent" data-grant="1">Yes — use it to adjust my training</button>'+
+    '<button type="button" class="btn btn-ghost btn-block" '+
+      'data-action="health-consent" data-grant="0">No thanks</button>'+
+  '</div>';
+}
+
+/* The permanent control. Withdrawing is one tap on the same row that granted
+   it -- no confirmation, no "are you sure", no second screen -- because
+   withdrawal has to be as easy as consent and anything else is friction
+   pointed in one direction. */
+function renderHealthConsentSettings(){
+  var on = healthConsentGranted();
+  /* The notifications row's own markup: .connect-row plus a .switch. Not a
+     stylistic choice so much as the absence of one -- a consent control that
+     looks unlike every other preference in Settings is a control an athlete
+     has to learn, and there was nothing to improve on. The switch reads OFF
+     until the athlete turns it on, and turning it back off is the same single
+     tap, which is what "as easy to withdraw as to give" means in practice. */
+  return '<div class="hub-card">'+
+    '<div class="setup-section-title">Health &amp; Readiness</div>'+
+    '<div class="connect-row" id="health-consent-row">'+
+      '<div><div class="name">'+escapeHtml(HEALTH_CONSENT_COPY.title)+'</div>'+
+        '<div class="desc">'+healthConsentStateLabel()+
+        (on ? ' — used to adjust your programme' : ' — not used')+'</div></div>'+
+      '<label class="switch"><input type="checkbox" data-action="toggle-health-consent" '+
+        (on?'checked':'')+'><span class="switch-track"></span></label>'+
+    '</div>'+
+    '<div class="field-hint" style="margin-top:10px;">'+escapeHtml(HEALTH_CONSENT_COPY.what)+'</div>'+
+    '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(HEALTH_CONSENT_COPY.optional)+'</div>'+
+    '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(HEALTH_CONSENT_COPY.withdraw)+'</div>'+
+  '</div>';
+}
+
 function makeDefaultState(){
   return {
     theme:DEFAULT_THEME,
@@ -6882,7 +7123,12 @@ function makeDefaultState(){
        them. See "THE ATHLETE" below. */
     athlete:makeAthleteRecord(),
     experience:'experienced', // athlete experience -- see ATHLETE EXPERIENCE below; presentation only
-    notifyEnabled:false // daily 08:00 workout-reminder notification toggle
+    notifyEnabled:false, // daily 08:00 workout-reminder notification toggle
+    /* null is not a default of convenience: it is the only correct starting
+       value. Nobody has been asked, so nobody has agreed, and an account
+       arriving from any earlier build has no key here and lands in exactly
+       the same place. See HEALTH AND READINESS INFORMATION above. */
+    healthConsent:null
   };
 }
 
@@ -8304,16 +8550,29 @@ function renderDayCard(dd){
     actualHtml = '<div class="actual-panel">'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg Pace /'+displayUnit()+'</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
-      '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'+
+      /* HEART RATE AND FEEL ARE THE TWO COVERED BOXES IN THIS PANEL. Without
+         consent they are not shown, because inviting somebody to type a
+         resting-heart-rate figure Valhalla is not allowed to read is worse
+         than not asking. Distance, pace, RPE and the athlete's own notes are
+         ordinary training data and are unchanged. One line says why the two
+         are missing and where the choice lives; it is an explanation attached
+         to an absent control, not a standing request. */
+      (healthConsentGranted()
+        ? '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'
+        : '')+
       '<div class="actual-field"><label>RPE (1\u201310)</label><input type="number" min="1" max="10" inputmode="numeric" value="'+(a.rpe!=null?a.rpe:'')+'" data-action="actual-field" data-field="rpe" data-day="'+dd.id+'"></div>'+
-      '<div class="actual-field full feel-field"><label>Feel</label>'+
-        '<div class="feel-row" role="group" aria-label="How the body felt">'+
-          FEEL_ORDER.map(function(k){
-            return '<button type="button" class="feel-btn'+(a.feel===k?' on':'')+'" '+
-              'aria-pressed="'+(a.feel===k?'true':'false')+'" '+
-              'data-action="set-feel" data-feel="'+k+'" data-day="'+dd.id+'">'+FEEL_META[k].short+'</button>';
-          }).join('')+
-        '</div></div>'+
+      (healthConsentGranted()
+        ? '<div class="actual-field full feel-field"><label>Feel</label>'+
+            '<div class="feel-row" role="group" aria-label="How the body felt">'+
+              FEEL_ORDER.map(function(k){
+                return '<button type="button" class="feel-btn'+(a.feel===k?' on':'')+'" '+
+                  'aria-pressed="'+(a.feel===k?'true':'false')+'" '+
+                  'data-action="set-feel" data-feel="'+k+'" data-day="'+dd.id+'">'+FEEL_META[k].short+'</button>';
+              }).join('')+
+            '</div></div>'
+        : '<div class="actual-field full"><div class="field-hint">Heart rate and how the session felt are '+
+          'health information, and Valhalla only records them if you have said it may. '+
+          'Settings \u2192 Health &amp; Readiness.</div></div>')+
       '<div class="actual-field full notes-field"><label>Notes \u2014 optional</label>'+
         '<div class="notes-wrap">'+
           '<textarea data-action="actual-field" data-field="notes" data-day="'+dd.id+'" '+
@@ -8485,6 +8744,7 @@ function executionPaceTarget(dd){
    which is the same thing the strain model already says about time trials. */
 var HR_LAG_BPM = 8;               // full-width uncertainty for all-short work
 function executionHRTarget(dd){
+  if (!healthConsentGranted()) return null;
   var fallback = getTargetHRRangeForDay(dd);
   var mix = executionMix(dd);
   if (!mix || !mix.totalSec) return fallback;
@@ -9136,6 +9396,14 @@ function computePaceScore(dd, actualPaceSp){
 // the required effort); above the zone is over-intensity (penalised harder
 // for easy/recovery days, and never rewarded regardless of type).
 function computeHRScore(dd, actualHR){
+  /* WHY THIS COSTS THE ATHLETE NOTHING. computeExecutionBreakdown() counts
+     only the parts that produced a score and re-normalises the weights over
+     them, because most athletes have never recorded a heart rate. Returning
+     null here therefore scores the session on distance, pace and effort at
+     full weight -- the identical answer an athlete who simply left the HR box
+     empty has always received. Withholding health information cannot lower an
+     Execution Score, and that is asserted by test, not assumed. */
+  if (!healthConsentGranted()) return null;
   if (actualHR==null) return null;
   var zone = executionHRTarget(dd);
   if (!zone || zone.lo==null) return null;
@@ -9459,8 +9727,11 @@ function renderSplitRow(dd, s, i){
        too, so either way of typing it now lands. */
     '<input type="text" class="split-time" placeholder="m:ss" '+
       'value="'+(s.sec!=null?secToPace(s.sec):'')+'" data-action="split-field" data-field="sec" data-day="'+dd.id+'" data-index="'+i+'">'+
-    '<input type="number" min="0" inputmode="numeric" class="split-hr" placeholder="HR" '+
-      'value="'+(s.hr!=null?s.hr:'')+'" data-action="split-field" data-field="hr" data-day="'+dd.id+'" data-index="'+i+'">'+
+    // A per-lap heart rate is the same information as the session average.
+    (healthConsentGranted()
+      ? '<input type="number" min="0" inputmode="numeric" class="split-hr" placeholder="HR" '+
+        'value="'+(s.hr!=null?s.hr:'')+'" data-action="split-field" data-field="hr" data-day="'+dd.id+'" data-index="'+i+'">'
+      : '')+
     '<button type="button" class="split-remove" data-action="delete-split" data-day="'+dd.id+'" data-index="'+i+'" aria-label="Remove lap '+(i+1)+'">×</button>'+
   '</div>';
 }
@@ -9554,10 +9825,11 @@ function renderStructuredRow(dd, row){
       'aria-label="'+escapeHtml(row.label)+' time" '+
       'value="'+(s.sec!=null?secToPace(s.sec):'')+'" data-action="slog-field" data-field="sec" '+
       'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
-  inputs += '<input type="number" min="0" inputmode="numeric" class="slog-in slog-hr" placeholder="HR" '+
-    'aria-label="'+escapeHtml(row.label)+' average heart rate" '+
-    'value="'+(s.hr!=null?s.hr:'')+'" data-action="slog-field" data-field="hr" '+
-    'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
+  if (healthConsentGranted())
+    inputs += '<input type="number" min="0" inputmode="numeric" class="slog-in slog-hr" placeholder="HR" '+
+      'aria-label="'+escapeHtml(row.label)+' average heart rate" '+
+      'value="'+(s.hr!=null?s.hr:'')+'" data-action="slog-field" data-field="hr" '+
+      'data-day="'+dd.id+'" data-seg="'+escapeHtml(row.segId)+'">';
   var cls = 'slog-row' + (row.kind==='recovery' ? ' is-rec' : '') +
             (row.role==='warmup'||row.role==='cooldown' ? ' is-flank' : '');
   return '<div class="'+cls+'">'+
@@ -9903,6 +10175,10 @@ function coachRecovery(){
     var readable = effortIsReadable(dd);
     var band = expectedRPEBand(dd);
     if (a.rpe!=null && band){ counted++; if (a.rpe > band[1] && readable) overRPE++; }
+    /* executionHRTarget() is null without consent, so overHR stays 0 and the
+       strain count is made from effort and hard-day spacing alone. Absence
+       reads as NOTHING, never as strain -- an athlete who withholds heart rate
+       is not thereby judged to be overreaching. */
     var z = executionHRTarget(dd);
     if (a.hr!=null && z && z.hi!=null && a.hr > z.hi && readable) overHR++;
   });
@@ -10183,8 +10459,20 @@ function parseRunnerNotes(note){
   var hum = noteHumidity(note);
   if (hum!=null && hum >= 60) addNum('humidity', NOTE_SIGNAL_BY_ID.humidity, hum+'% humidity');
 
+  /* THE NOTE STAYS; SOME OF WHAT IT SAYS STOPS BEING READ. The athlete's own
+     words are theirs and are never edited, dropped or withheld from them.
+     What consent governs is the READING: "sore left calf" produces a body
+     signal, and a body signal is health information. Withheld here, at the
+     single place every reading is produced, so a caller added later inherits
+     the boundary instead of having to remember it -- the coach's environment
+     model, the note chips, the restatement and the trends all come through
+     this one function. What is kept is everything that says nothing about the
+     athlete's health: heat, wind, treadmill, terrain, faded late, cut short,
+     GPS and heart-rate-sensor doubt. */
+  var withhold = !healthConsentGranted();
   Object.keys(best).forEach(function(k){
     var sig = best[k];
+    if (withhold && isCoveredNoteSignal(NOTE_SIGNAL_BY_ID[sig.id])) return;
     out.signals.push(sig);
     out.byCategory[sig.category].push(sig);
   });
@@ -10265,6 +10553,8 @@ function composeCoachNote(note){
 function effectiveNoteSignals(actual){
   var parsed = parseRunnerNotes(actual && actual.notes);
   var dismissed = (actual && actual.notesSignals && actual.notesSignals.dismissed) || [];
+  // Covered readings are already absent: parseRunnerNotes withholds them at
+  // source, so this only ever has the athlete's own dismissals to apply.
   if (!dismissed.length) return parsed;
   var out = { signals:[], byCategory:{}, at:parsed.at };
   NOTE_CATEGORIES.forEach(function(c){ out.byCategory[c] = []; });
@@ -10822,10 +11112,17 @@ function coachRecentSessions(days){
    overwrites today's. It sits beside `actual` rather than inside it, so it
    remains structurally incapable of reaching an Execution Score. */
 function dayReadiness(dd){
+  /* Legs, sleep and health are the three morning answers, and all three are
+     about the athlete's body. No consent, no reading -- including of answers
+     given while consent was in force, which stay in the record but stop
+     reaching any decision. Every caller already handles null, because most
+     days carry no readiness answer at all. */
+  if (!healthConsentGranted()) return null;
   return (dd && dd.readiness && (dd.readiness.legs || dd.readiness.sleep || dd.readiness.health))
     ? dd.readiness : null;
 }
 function coachReadinessToday(){
+  if (!healthConsentGranted()) return null;
   var dd = findDayByDate(todayStr());
   var onDay = dayReadiness(dd);
   if (onDay) return onDay;
@@ -11972,7 +12269,18 @@ function athleteMemoryFromDays(days, from){
         completed: ran,
         actualKm: (isPast && a.km!=null) ? a.km : null,
         actualPace: ran ? actualPaceSecPerKm(dd) : null,
-        hr: (isPast && a.hr!=null) ? a.hr : null,
+        /* ATHLETE MEMORY IS THE ONE FUNNEL, so it is where the consent
+           boundary bites hardest and most cheaply. Everything longitudinal --
+           personal baselines, athleteTrends, the response model, block
+           effectiveness, the Playbook -- reads these records and nothing else,
+           so a covered field that is null here is absent from every one of
+           them without any of them knowing consent exists.
+
+           ATHLETE IS STILL NOT PLAN. Distance, pace, execution, completion,
+           adherence, phase, adjustments and measured results are untouched:
+           the memory of who this athlete is survives in full. What stops
+           crossing blocks is the health-indicating half of it. */
+        hr: (isPast && healthConsentGranted() && a.hr!=null) ? a.hr : null,
         rpe: (isPast && a.rpe!=null) ? a.rpe : null,
         feel: isPast ? feelOf(dd) : null,
         notes: isPast ? (a.notes || '') : '',
@@ -14806,6 +15114,9 @@ function handleCoachWhy(dayId){
 function handleSetReadiness(key, value){
   var q = READINESS_QUESTIONS.filter(function(x){ return x.key===key; })[0];
   if (!q || !q.options.some(function(o){ return o[0]===value; })) return;
+  // Legs, sleep and health are all about the athlete's body: not asked without
+  // consent, and not accepted either. See renderReadinessCheck.
+  if (!healthConsentGranted()) return;
   var today = todayStr();
   var dd = findDayByDate(today);
   if (dd){
@@ -17132,6 +17443,13 @@ function coachEnvPhrase(env){
    nothing to compute -- and inventing a number from an average and a max would
    be a fabrication. Returns null until split data exists. */
 function coachHRDrift(dd){
+  /* SPLITS ARE NOT REACHED THROUGH athleteMemory, so this needs its own gate.
+     Every other heart-rate reader in the engine is fed either by a memory
+     record or by executionHRTarget(), both of which are already empty without
+     consent -- this one reads dd.actual.splits directly, and a set of laps
+     recorded while consent was in force would otherwise keep producing a drift
+     figure after it was withdrawn. */
+  if (!healthConsentGranted()) return null;
   var a = dd && dd.actual;
   var splits = a && a.splits;
   if (!splits || !splits.length || splits.length < 4) return null;
@@ -17336,6 +17654,8 @@ var FEEL_META = {
 };
 var FEEL_ORDER = ['very_good','good','normal','heavy','poor'];
 function feelOf(dd){
+  // How a session felt is what the athlete reported about themselves.
+  if (!healthConsentGranted()) return null;
   var f = dd && dd.actual && dd.actual.feel;
   return (f && FEEL_META[f]) ? f : null;
 }
@@ -17467,7 +17787,11 @@ function coachRecentContext(dd){
     plannedVolume7: plannedThisWeek,
     recentScores: doneBefore.slice(-5).map(function(x){ return computeExecutionScore(x); }),
     recentRPE: mean(doneBefore.slice(-5), function(x){ return (x.actual||{}).rpe; }),
-    recentEasyHR: mean(easies, function(x){ return (x.actual||{}).hr; }),
+    // Reads dd.actual directly rather than through a memory record, so the
+    // gate is here too. Null is already what this carries for the many
+    // athletes who never record a heart rate, so every consumer handles it.
+    recentEasyHR: healthConsentGranted()
+      ? mean(easies, function(x){ return (x.actual||{}).hr; }) : null,
     recentEasyPace: mean(easies, function(x){ return actualPaceSecPerKm(x); }),
     feel: coachFeelTrend(asOf),
     daysSinceQuality: since(function(x){ return x.type!=='rest' && !isRecoveryWorkoutType(x.type); }),
@@ -18068,7 +18392,11 @@ function coachWorkoutReview(dd){
                score:computeExecutionScore(x),
                // canonical sec/km, so a comparable rendered months later in
                // different units still describes the run that happened
-               paceSecPerKm:actualPaceToSecPerKm(x), hr:(x.actual||{}).hr };
+               paceSecPerKm:actualPaceToSecPerKm(x),
+               // The comparable list reads other days' logs directly, so the
+               // gate travels with it: three past sessions shown side by side
+               // must not put back the heart rate the rest of the card left out.
+               hr: healthConsentGranted() ? (x.actual||{}).hr : null };
     }),
     confidence: coachReviewConfidence(b, env, dd)
   };
@@ -18904,6 +19232,13 @@ var READINESS_QUESTIONS = [
 ];
 function renderReadinessCheck(dec){
   if (!dec || !dec.needsReadiness) return '';
+  /* THE QUESTION IS NOT ASKED. The brief's first option, and the better one:
+     an athlete who has not agreed to Valhalla reading how their body is today
+     should not be invited to type it in and then told it will be ignored.
+     Nothing replaces it -- Today is simply one block shorter -- because a
+     standing "turn this on" panel on the main screen is the coercive nagging
+     the whole mechanism exists to avoid. The offer lives in Settings. */
+  if (!healthConsentGranted()) return '';
   var r = coachReadinessToday() || {};
   return '<div class="readiness">'+
     '<div class="readiness-head">How are you today?</div>'+
@@ -19598,6 +19933,7 @@ function openSetupModal(){
     /* ---------- 04 TRAINING ---------- */
     '<section class="bld-panel" data-stage="3" hidden>'+
       stageHead(3)+
+      renderHealthConsentStep()+
       '<div class="setup-section-title">Lactate Threshold HR (LTHR) / Max HR</div>'+
       '<p class="bld-lede">Optional — adds target HR ranges to your zone paces and unlocks HR-based execution scoring on logged workouts. Leave blank to skip; pace and distance tracking work fine without it.</p>'+
       '<div class="benchmark-row">'+
@@ -20245,7 +20581,13 @@ function capCurrentWeekQuality(merged, newDays, today){
   });
   return merged;
 }
-function handleGeneratePlan(){
+/* ASYNC, and only for one reason: the consent decision below has to be
+   RECORDED before the two fields it governs are read. A grant we cannot prove
+   is worse than no grant, so if the audit row does not land, nothing is turned
+   on -- and reading LTHR a millisecond later would otherwise store a heart rate
+   against a consent that failed to save. Every early return in here still
+   behaves exactly as it did; the one caller discards the result. */
+async function handleGeneratePlan(){
   /* WHAT IS BEING BUILT, read from the builder rather than inherited.
      A missing selector means a caller that predates the objective step, which
      is a race build -- the same default the block ledger already uses. A
@@ -20268,10 +20610,25 @@ function handleGeneratePlan(){
   var volume = parseDistInput(document.getElementById('su-volume').value);
   var benchDist = document.getElementById('su-bench-dist').value;
   var benchSec = clockToSec(document.getElementById('su-bench-time').value.trim());
+  /* THE CONSENT DECISION IS TAKEN HERE, BEFORE THE TWO FIELDS IT GOVERNS ARE
+     READ. The box is on the same panel as LTHR and Max HR and it is rendered
+     unticked; ticking it is the affirmative act, and NOT ticking it is
+     recorded as a decision not to consent rather than left blank -- which is
+     what stops the one-time card asking the same athlete again tomorrow.
+
+     Nothing here infers anything. Reaching the end of the builder is not
+     consent; typing a heart rate is not consent; only the box is. When it is
+     absent (the athlete has answered before) the stored decision stands and
+     Settings is where they change it. */
+  var consentBox = document.getElementById('su-health-consent');
+  if (consentBox) await handleHealthConsentDecision(!!consentBox.checked, { quiet:true });
+
   var lthrInput = parseInt(document.getElementById('su-lthr').value, 10);
   var maxHRInput = parseInt(document.getElementById('su-maxhr').value, 10);
-  var lthr = (!isNaN(lthrInput) && lthrInput>0) ? lthrInput : null;
-  var maxHR = (!isNaN(maxHRInput) && maxHRInput>0) ? maxHRInput : null;
+  // Not collected at all without consent, so an athlete who typed a number and
+  // then left the box unticked is not stored either way.
+  var lthr = (healthConsentGranted() && !isNaN(lthrInput) && lthrInput>0) ? lthrInput : null;
+  var maxHR = (healthConsentGranted() && !isNaN(maxHRInput) && maxHRInput>0) ? maxHRInput : null;
 
   var wdBoxes = document.querySelectorAll('#su-weekdays input[type=checkbox]');
   var activeDays = [];
@@ -21346,8 +21703,17 @@ function stravaWriteActivity(dd, a){
   if (a.km != null)             A.km = a.km;
   if (a.paceSecPerKm){          A.pace = paceSecPerKmToStoredStr(a.paceSecPerKm);
                                 A.paceUnit = displayUnit(); }
-  if (a.hr != null)             A.hr = a.hr;
-  if (a.maxHR != null)          A.maxHR = a.maxHR;
+  /* AN IMPORT IS NOT A CONSENT. Authorising Strava lets Valhalla read the
+     activity; it says nothing about whether the athlete agreed to Valhalla
+     PROCESSING the health-indicating part of it. Without that agreement the
+     heart-rate fields are not written at all -- not written and then ignored,
+     not stored for later -- so withdrawal stops collection as well as use.
+     Distance, pace, cadence, elevation and timing are ordinary training data
+     and continue to import exactly as before. */
+  if (healthConsentGranted()){
+    if (a.hr != null)           A.hr = a.hr;
+    if (a.maxHR != null)        A.maxHR = a.maxHR;
+  }
   if (a.cadence != null)        A.cadence = a.cadence;
   if (a.movingTimeSec != null)  A.movingTimeSec = a.movingTimeSec;
   if (a.elapsedTimeSec != null) A.elapsedTimeSec = a.elapsedTimeSec;
@@ -21754,7 +22120,9 @@ function handleApplyActivity(){
   if (parsed.km!=null) dd.actual.km = parsed.km;
   if (parsed.pace){ dd.actual.pace = paceSecPerKmToStoredStr(paceToSec(parsed.pace));
                     dd.actual.paceUnit = displayUnit(); }
-  if (parsed.hr!=null) dd.actual.hr = parsed.hr;
+  // A file the athlete chose to import is still an import: see the note in
+  // stravaWriteActivity. Distance and pace land; heart rate needs consent.
+  if (healthConsentGranted() && parsed.hr!=null) dd.actual.hr = parsed.hr;
   coachPersistReview(dd);
   closeModal();
   scheduleSave();
@@ -21774,7 +22142,7 @@ function handleApplyCsvRow(rowIdx){
   if (row.km!=null) dd.actual.km = row.km;
   if (row.pace){ dd.actual.pace = paceSecPerKmToStoredStr(paceToSec(row.pace));
                  dd.actual.paceUnit = displayUnit(); }
-  if (row.hr!=null) dd.actual.hr = row.hr;
+  if (healthConsentGranted() && row.hr!=null) dd.actual.hr = row.hr;
   coachPersistReview(dd);
   scheduleSave();
   showToast('Logged to '+dow(dd.date)+' '+dShort(dd.date));
@@ -21917,7 +22285,16 @@ function handleActualFieldChange(dayId, field, value){
   if (!dd) return;
   dd.actual = dd.actual || emptyActual();
   if (field==='km') dd.actual.km = value===''?null:parseDistInput(value);
-  else if (field==='hr') dd.actual.hr = value===''?null:parseInt(value,10);
+  /* Withdrawal stops COLLECTION, not only use, so the writers refuse as well
+     as the readers. The controls for these two are not rendered without
+     consent, so reaching here means the state changed between paint and tap,
+     a stale card, or something calling the handler directly -- and all three
+     must land in the same place. Clearing a value is always allowed: an
+     athlete emptying a box is removing their own data, never adding to it. */
+  else if (field==='hr'){
+    if (value==='') dd.actual.hr = null;
+    else if (healthConsentGranted()) dd.actual.hr = parseInt(value,10);
+  }
   else if (field==='rpe') dd.actual.rpe = value===''?null:parseInt(value,10);
   else if (field==='pace'){
     dd.actual.pace = value.trim() || null;
@@ -21927,7 +22304,10 @@ function handleActualFieldChange(dayId, field, value){
     else delete dd.actual.paceUnit;
   }
   else if (field==='notes') dd.actual.notes = value;
-  else if (field==='feel') dd.actual.feel = FEEL_META[value] ? value : null;
+  else if (field==='feel'){
+    if (!FEEL_META[value]) dd.actual.feel = null;
+    else if (healthConsentGranted()) dd.actual.feel = value;
+  }
   // Auto-run: the score and its coaching review regenerate on every logged
   // change -- no "get review" button. patchExecutionUI touches only the
   // score mounts, so the input being edited keeps its focus and value.
@@ -22040,6 +22420,7 @@ function handleDropNoteSignal(dayId, signalId){
 function handleSetFeel(dayId, feel){
   var dd = findDay(dayId);
   if (!dd || !FEEL_META[feel]) return;
+  if (!healthConsentGranted()) return;   // how a session felt is health information
   dd.actual = dd.actual || emptyActual();
   dd.actual.feel = (dd.actual.feel === feel) ? null : feel;
   coachPersistReview(dd);
@@ -22102,7 +22483,8 @@ function handleSplitFieldChange(dayId, index, field, value){
     var sec = parseElapsedInput(value);
     row.sec = (sec!=null && sec>0) ? sec : null;            // no negative/zero elapsed time
   } else if (field==='hr'){
-    var hr = value===''?null:parseInt(value,10);
+    // A per-split heart rate is the same information as a session average.
+    var hr = (value!=='' && healthConsentGranted()) ? parseInt(value,10) : null;
     row.hr = (hr!=null && !isNaN(hr) && hr>0) ? hr : null;  // no negative/zero/malformed HR
   }
   // Pace is derived from the two raw fields the athlete can actually read
@@ -22144,7 +22526,8 @@ function handleStructuredSplitChange(dayId, segId, field, value){
     s.sec = (sec!=null && sec>0) ? sec : null;
     delete s.secSeeded;                      // an entered time is not a seeded one
   } else if (field === 'hr'){
-    var hr = value===''?null:parseInt(value,10);
+    // The per-segment column, same rule as the per-lap one above.
+    var hr = (value!=='' && healthConsentGranted()) ? parseInt(value,10) : null;
     s.hr = (hr!=null && !isNaN(hr) && hr>0) ? hr : null;
   }
   s.paceSec = (s.km!=null && s.km>0 && s.sec!=null) ? Math.round(s.sec/s.km) : null;
@@ -22192,6 +22575,99 @@ function handleSetUnits(units){
   state.units = units;
   scheduleSave();
   renderApp();
+}
+
+/* ---------- recording a health-consent decision ----------
+   The ONE writer. Everything that can change the athlete's mind -- the
+   onboarding step, the one-time card, the Settings control -- comes through
+   here, so there is a single place where a decision becomes a record and a
+   single place where the audit copy is sent.
+
+   `granted` must arrive as a genuine boolean from a genuine tap. Nothing
+   about this function infers: it does not look at whether the athlete typed a
+   heart rate, whether they finished onboarding, or whether they are paying. */
+function handleHealthConsentDecision(granted, opts){
+  var was = healthConsentGranted();
+  var rec = makeHealthConsentRecord(granted ? 'granted' : 'declined');
+
+  /* GRANTING AND WITHDRAWING ARE NOT SYMMETRICAL, and treating them as one
+     thing is the mistake that would hide here.
+
+     WITHDRAWAL is the athlete exercising a right. It takes effect on this
+     device the instant they tap, and a network failure, an outage or a table
+     that does not exist yet must never leave somebody unable to turn it off.
+     Best effort on the audit copy, always.
+
+     GRANTING is us acquiring a lawful basis to process information about their
+     body. A grant we cannot prove is worse than no grant: the processing
+     happens and the evidence does not exist. So when the athlete is signed in,
+     the audit row has to land before the decision counts -- and if it cannot,
+     nothing is stored, nothing is processed, and they are told plainly.
+
+     THIS IS ALSO WHAT MAKES THE DEPLOYMENT ORDER STOP MATTERING. Ship this
+     code before supabase-health-consent.sql exists in production and the
+     insert 404s, so no athlete can reach a granted state at all -- rather than
+     reaching one whose only record is a browser's localStorage. The migration
+     then simply turns the feature on. */
+  if (granted && cloudSignedIn()){
+    return recordHealthConsentAudit(rec).then(function(recorded){
+      if (!recorded){
+        showToast('We could not save that just now — nothing has been turned on. Please try again.');
+        return false;
+      }
+      applyHealthConsentDecision(rec, was, opts);
+      return true;
+    });
+  }
+
+  /* A withdrawal, a decline, or an athlete with no cloud account at all --
+     whose covered data never leaves their device and is never processed by a
+     server, so there is nothing for a server-side record to be evidence of. */
+  recordHealthConsentAudit(rec);
+  applyHealthConsentDecision(rec, was, opts);
+  return Promise.resolve(true);
+}
+
+/* The part that actually changes what the product does, split out so the
+   granted path above can run it only after the record exists. */
+function applyHealthConsentDecision(rec, was, opts){
+  var granted = rec.decision === 'granted';
+  state.healthConsent = rec;
+  /* Withdrawal stops COLLECTION as well as use, so the two profile values the
+     builder collects for heart-rate zones are cleared at the moment consent
+     ends. Nothing else stored is touched: see the note on historical values in
+     the consent block above -- they are excluded from every computation while
+     consent is absent, and are the athlete's own record to keep. */
+  if (!granted && state.setup){ state.setup.lthr = null; state.setup.maxHR = null; }
+  flushSave();
+  /* `quiet` is for the builder, which takes this decision in the middle of
+     reading its own form: a toast would talk over the plan being built, and a
+     renderApp() would tear down the modal the remaining fields are still
+     being read from. The caller renders once, afterwards. */
+  if (opts && opts.quiet) return;
+  showToast(granted
+    ? 'Health and readiness information is on — you can turn it off in Settings'
+    : (was ? 'Turned off — Valhalla will stop using it from now on'
+           : 'Left off — Valhalla will run your programme without it'));
+  renderApp();
+}
+/* The durable audit copy. One append-only row per decision, so "what did they
+   agree to and when" survives the athlete changing their mind, changing
+   device, or restoring a backup over the local record. Best effort by design:
+   the decision is already law on this device the moment it is stored locally,
+   and a network failure must never leave an athlete unable to withdraw. */
+function recordHealthConsentAudit(rec){
+  if (!rec || !cloudSignedIn() || !cloudSession.user_id) return Promise.resolve(false);
+  return cloudFetch('/rest/v1/health_data_consent', {
+    method:'POST',
+    headers:{ 'Prefer':'return=minimal' },
+    body: JSON.stringify({
+      user_id: cloudSession.user_id,
+      decision: rec.decision,
+      consent_version: rec.version,
+      decided_at: rec.decidedAt
+    })
+  }).then(function(resp){ return !!(resp && resp.ok); }, function(){ return false; });
 }
 
 /* Everything that is a property of the WORKOUT rather than of the calendar
@@ -22380,6 +22856,12 @@ function renderTodayView(){
      may recommend) depends on the answer, so asking for it after the day's
      session would be asking at the wrong moment. */
   html += renderRaceOutcomePrompt();
+  /* ONCE, AND ONLY FOR AN ATHLETE NOBODY HAS ASKED. Above Next Move because
+     the answer changes what Next Move is allowed to reason from; below the
+     race-outcome question because that one is time-critical and this is not.
+     It removes itself the moment either button is pressed and never returns
+     -- Settings is the permanent home. */
+  html += renderHealthConsentCard();
   html += renderCoachNextMoveCard(coachAnalyse());
   html += renderBlockTransitionCard();
   html += dd ? renderDayCard(dd) : '<div class="empty-note">No session scheduled for today — it falls outside the current plan’s dates.</div>';
@@ -22698,6 +23180,10 @@ function renderSettingsHubView(){
       renderNotifyToggleRow()+
       renderThemeToggleRow()+
     '</div>'+
+    /* High in Settings, not buried under Legal. An athlete looking for "what
+       is Valhalla allowed to do with what I tell it" should meet the control
+       itself, not a document about it. */
+    renderHealthConsentSettings()+
     '<div class="hub-card">'+
       '<div class="setup-section-title">Training &amp; Zones</div>'+
       '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
@@ -23034,6 +23520,8 @@ document.addEventListener('click', function(e){
       break;
     }
     case 'set-units': handleSetUnits(target.getAttribute('data-units')); break;
+    case 'health-consent':
+      handleHealthConsentDecision(target.getAttribute('data-grant')==='1'); break;
     case 'apply-activity': handleApplyActivity(); break;
     case 'strava-connect': handleStravaConnect(); break;
     case 'strava-sync': fetchStravaRuns(); break;
@@ -23072,6 +23560,11 @@ document.addEventListener('change', function(e){
   else if (action === 'pace-override') handlePaceOverrideChange(actionEl.getAttribute('data-zone'));
   else if (action === 'toggle-notify') handleToggleNotify();
   else if (action === 'toggle-theme-switch') handleToggleThemeQuick();
+  /* The Settings switch is a form field and belongs on `change`; the one-time
+     card's two buttons are buttons and are registered on `click`. Separate
+     action names rather than one, because a checkbox fires both events and a
+     single name would record the decision twice. */
+  else if (action === 'toggle-health-consent') handleHealthConsentDecision(!!actionEl.checked);
 });
 
 /* drag-and-drop reschedule (desktop enhancement; mobile uses the Swap-with dropdown in Edit Session) */

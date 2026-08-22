@@ -27,7 +27,9 @@ const SUBSET = ['stripeLifecycle','monthlyPause','commercialCore','securityPostu
   'betaClosure','entitlementMigration','releaseReadiness','observability','accessGate',
   'billingWebhook','stripeFoundation','commercialEntry','legacyBetaRetirement',
   'commercialSchemaCollision','adjustedSessionStructure','prescriptionAwareLogging',
-  'historicalImmutability','historyIntegrity','reconcileRegeneratedDays'].map(n => 'test/' + n + '.test.js').join(' ');
+  'historicalImmutability','historyIntegrity','reconcileRegeneratedDays',
+  'healthDataConsent','medicalBoundary','healthErasure','commercialJourney',
+  'productionReadiness'].map(n => 'test/' + n + '.test.js').join(' ');
 
 const CASES = [
   // ---- ACCESS ----
@@ -438,7 +440,186 @@ const CASES = [
   ['voice: the internal block state reaches the athlete again',
    'protected/velvet-viking-valhalla.html',
    "        why:'The block reads as '+((BLOCK_META[block?block.state:'LEARNING']||BLOCK_META.LEARNING).label)+",
-   "        why:'The block reads as '+(block?block.state:'LEARNING')+", ['coachVoice','copyRepetition','escalation']]
+   "        why:'The block reads as '+(block?block.state:'LEARNING')+", ['coachVoice','copyRepetition','escalation']],
+
+  /* ---- HEALTH AND READINESS CONSENT ----
+     Every case below is one way an athlete's health information could be
+     processed without their explicit agreement, or one way declining could
+     quietly cost them something. A guard nothing detects is not a guard, and
+     for this particular boundary "nothing detected it" is the whole failure
+     mode: the athlete never sees that it went wrong. */
+  ['consent: the gate stops fai1ing closed',
+   'protected/velvet-viking-valhalla.html',
+   "  return !!(c && c.decision === 'granted' && c.version === HEALTH_CONSENT_VERSION);",
+   '  return true;'],
+  ['consent: a stale version still counts as agreement',
+   'protected/velvet-viking-valhalla.html',
+   "  return !!(c && c.decision === 'granted' && c.version === HEALTH_CONSENT_VERSION);",
+   "  return !!(c && c.decision === 'granted');"],
+  ['consent: the default becomes granted',
+   'protected/velvet-viking-valhalla.html',
+   '    healthConsent:null\n  };',
+   "    healthConsent:{ version:HEALTH_CONSENT_VERSION, decision:'granted', decidedAt:null,\n"+
+   '                    grantedAt:null, withdrawnAt:null }\n  };'],
+  ['consent: the builder box is pre-ticked',
+   'protected/velvet-viking-valhalla.html',
+   "'<input type=\"checkbox\" id=\"su-health-consent\" style=\"width:auto; margin:3px 7px 0 0;\">'",
+   "'<input type=\"checkbox\" id=\"su-health-consent\" checked style=\"width:auto; margin:3px 7px 0 0;\">'"],
+  ['consent: heart rate reaches the athlete record anyway',
+   'protected/velvet-viking-valhalla.html',
+   '        hr: (isPast && healthConsentGranted() && a.hr!=null) ? a.hr : null,',
+   '        hr: (isPast && a.hr!=null) ? a.hr : null,'],
+  ['consent: how a session felt is read anyway',
+   'protected/velvet-viking-valhalla.html',
+   '  // How a session felt is what the athlete reported about themselves.\n  if (!healthConsentGranted()) return null;',
+   ''],
+  ['consent: the morning readiness answers are read anyway',
+   'protected/velvet-viking-valhalla.html',
+   '  if (!healthConsentGranted()) return null;\n  return (dd && dd.readiness && (dd.readiness.legs',
+   '  return (dd && dd.readiness && (dd.readiness.legs'],
+  ['consent: body and sleep readings are taken from the notes anyway',
+   'protected/velvet-viking-valhalla.html',
+   '    if (withhold && isCoveredNoteSignal(NOTE_SIGNAL_BY_ID[sig.id])) return;',
+   ''],
+  ['consent: the covered-signal classifier stops covering the body',
+   'protected/velvet-viking-valhalla.html',
+   "var HEALTH_COVERED_NOTE_CATS = ['physical'];",
+   'var HEALTH_COVERED_NOTE_CATS = [];'],
+  /* THE ZONE TABLE IS THE ROOT, and it is the one worth mutating. The target
+     range, the structured card's per-step BPM, the Execution Strategy phases,
+     the Plan HQ tables and the scoring path all read it.
+
+     The gates on its individual readers -- getTargetHRRangeForDay,
+     executionHRTarget, computeHRScore -- are deliberately kept as defence in
+     depth, and are deliberately NOT listed here as cases of their own: with
+     the root gate in place, removing any one of them changes no behaviour, so
+     a case for it would report as a survivor forever and teach the next reader
+     to ignore survivors. What must never survive is losing the root, and that
+     is this case. */
+  ['consent: the athlete’s heart-rate zones are computed anyway',
+   'protected/velvet-viking-valhalla.html',
+   '  if (!healthConsentGranted()) return {};\n  var su = state.setup;',
+   '  var su = state.setup;'],
+  ['consent: a typed heart rate is stored anyway',
+   'protected/velvet-viking-valhalla.html',
+   "    if (value==='') dd.actual.hr = null;\n    else if (healthConsentGranted()) dd.actual.hr = parseInt(value,10);",
+   "    dd.actual.hr = value===''?null:parseInt(value,10);"],
+  ['consent: heart-rate drift is still computed from saved laps',
+   'protected/velvet-viking-valhalla.html',
+   '  if (!healthConsentGranted()) return null;\n  var a = dd && dd.actual;\n  var splits = a && a.splits;',
+   '  var a = dd && dd.actual;\n  var splits = a && a.splits;'],
+  ['consent: the recent-context aggregate still averages heart rate',
+   'protected/velvet-viking-valhalla.html',
+   "    recentEasyHR: healthConsentGranted()\n      ? mean(easies, function(x){ return (x.actual||{}).hr; }) : null,",
+   '    recentEasyHR: mean(easies, function(x){ return (x.actual||{}).hr; }),'],
+  ['consent: comparable sessions put the heart rate back on the card',
+   'protected/velvet-viking-valhalla.html',
+   '               hr: healthConsentGranted() ? (x.actual||{}).hr : null };',
+   '               hr: (x.actual||{}).hr };'],
+  ['consent: a Strava heart rate is written into the log anyway',
+   'protected/velvet-viking-valhalla.html',
+   '  if (healthConsentGranted()){\n    if (a.hr != null)           A.hr = a.hr;\n    if (a.maxHR != null)        A.maxHR = a.maxHR;\n  }',
+   '  if (a.hr != null) A.hr = a.hr;\n  if (a.maxHR != null) A.maxHR = a.maxHR;'],
+  ['consent: a Strava heart rate is stored on the server anyway',
+   'api/_strava.js',
+   '  const staged = await HC.forIngest(cfg, sb, userId, activity);',
+   '  const staged = activity;'],
+  /* The anchor here is the LOGGED refusal, not the bare `return false` this
+     case was written against: adding the diagnostic split that line into a
+     block and silently turned the case into an ANCHOR NOT FOUND -- a mutation
+     testing nothing, which is exactly the failure a mutation pass exists to
+     catch and did. */
+  ['consent: an unreadable consent table is read as agreement',
+   'api/_health-consent.js',
+   "      log('READ_FAILED status=' + (r ? r.status : 'none'));\n      return false;",
+   "      log('READ_FAILED status=' + (r ? r.status : 'none'));\n      return true;"],
+  ['consent: the ingest strip stops removing the covered fields',
+   'api/_health-consent.js',
+   "const COVERED_ACTIVITY_FIELDS = ['hr', 'maxHR'];",
+   'const COVERED_ACTIVITY_FIELDS = [];'],
+  ['consent: the Garmin seam trusts its own strip',
+   'api/_garmin.js',
+   '  if (!granted && HC.carriesCovered(out)){',
+   '  if (false){'],
+  ['consent: withdrawal leaves the heart-rate profile values behind',
+   'protected/velvet-viking-valhalla.html',
+   '  if (!granted && state.setup){ state.setup.lthr = null; state.setup.maxHR = null; }',
+   ''],
+  ['consent: the record collapses to a bare boolean',
+   'protected/velvet-viking-valhalla.html',
+   "    grantedAt: decision === 'granted' ? now : (prev ? prev.grantedAt || null : null),",
+   '    grantedAt: null,'],
+  ['consent: withdrawal is not timestamped',
+   'protected/velvet-viking-valhalla.html',
+   "    withdrawnAt: decision === 'granted' ? null : (prev && prev.decision === 'granted' ? now : null)",
+   '    withdrawnAt: null'],
+  ['consent: the athlete is asked again after saying no',
+   'protected/velvet-viking-valhalla.html',
+   "function renderHealthConsentCard(){\n  if (healthConsentAnswered()) return '';",
+   "function renderHealthConsentCard(){\n  if (healthConsentGranted()) return '';"],
+  ['consent: Settings loses the way back out',
+   'protected/velvet-viking-valhalla.html',
+   "    renderHealthConsentSettings()+",
+   ''],
+  ['consent: the client and server versions drift apart',
+   'api/_health-consent.js',
+   "const HEALTH_CONSENT_VERSION = 'health_data_consent_v1';",
+   "const HEALTH_CONSENT_VERSION = 'health_data_consent_v2';"],
+  ['consent: the audit table becomes rewritable by its own subject',
+   'supabase-health-consent.sql',
+   'create policy "own health consent: insert" on public.health_data_consent\n  for insert with check ((select auth.uid()) = user_id);',
+   'create policy "own health consent: insert" on public.health_data_consent\n'+
+   '  for insert with check ((select auth.uid()) = user_id);\n'+
+   'create policy "own health consent: update" on public.health_data_consent\n'+
+   '  for update using ((select auth.uid()) = user_id);'],
+  ['consent: the audit table stops being scoped to the athlete',
+   'supabase-health-consent.sql',
+   'create policy "own health consent: select" on public.health_data_consent\n  for select using ((select auth.uid()) = user_id);',
+   'create policy "own health consent: select" on public.health_data_consent\n  for select using (true);'],
+  ['consent: a covered field is added to the operational allow list',
+   'api/_monday-operational.js',
+   "  'syncedAt'\n];",
+   "  'syncedAt',\n  'readiness'\n];"],
+
+  // ---- HEALTH CONSENT: THE ASYMMETRY, AND THE ERASURE ----
+  ['consent: a grant no longer needs a record to prove it', 'protected/velvet-viking-valhalla.html',
+   "  if (granted && cloudSignedIn()){", "  if (false){"],
+  ['consent: the builder reads LTHR before the grant is recorded', 'protected/velvet-viking-valhalla.html',
+   "if (consentBox) await handleHealthConsentDecision(!!consentBox.checked, { quiet:true });",
+   "if (consentBox) handleHealthConsentDecision(!!consentBox.checked, { quiet:true });"],
+  ['consent: a failed record is treated as a success', 'protected/velvet-viking-valhalla.html',
+   "      if (!recorded){", "      if (false){"],
+  ['erasure: it removes something that is not covered', 'api/_health-erasure.js',
+   "const PLAN_ACTUAL_FIELDS = ['hr', 'feel'];", "const PLAN_ACTUAL_FIELDS = ['hr', 'feel', 'rpe'];"],
+  ['erasure: the subtractive check stops checking', 'api/_health-erasure.js',
+   "    if (problems.length) return { ok: false, reason: 'not_subtractive', problems: problems };",
+   "    if (false) return { ok: false, reason: 'not_subtractive', problems: problems };"],
+  ['erasure: a dry run writes anyway', 'api/_health-erasure.js',
+   "    if (!dryRun && report.plan.changed){", "    if (report.plan.changed){"],
+  ['erasure: it destroys the consent record with the values', 'api/_health-erasure.js',
+   "  const out = Object.assign({}, planData);",
+   "  const out = Object.assign({}, planData); delete out.healthConsent;"],
+  ['erasure: it mutates the caller document', 'api/_health-erasure.js',
+   "  const out = Object.assign({}, obj);", "  const out = obj;"],
+
+  // ---- STORE STEERING ----
+  ['store: the prices come back inside the native shell', 'start.html',
+   "  if (isNativeApp()){", "  if (false){"],
+
+  // ---- ANDROID ----
+  ['android: a manifest comment breaks XML again', 'android/app/src/main/AndroidManifest.xml',
+   "locally cached plan — which, for a", "locally cached plan -- which, for a"],
+  ['android: device backup of the cached plan is allowed again', 'android/app/src/main/AndroidManifest.xml',
+   'android:allowBackup="false"', 'android:allowBackup="true"'],
+
+  // ---- MONDAY MIRROR ----
+  ['monday: the mirror trusts the caller instead of re-reading', 'api/_monday-operational.js',
+   "    const facts = await Store.readCommercialFacts(S, cfg, accountId);",
+   "    const facts = { ok: true, account: null, subscriptions: [], grants: [] };"],
+  ['monday: a mirror failure fails the webhook', 'api/billing-webhook.js',
+   "    if (!mirrored.ok && mirrored.code !== 'operational_sync_disabled'){",
+   "    if (!mirrored.ok){ return S.json(res, 503, { error: 'unavailable' }); }\n    if (false){"]
+
 ];
 
 let survived = [], killed = 0;

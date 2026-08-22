@@ -373,8 +373,58 @@ async function syncAccount(input, deps){
   return { ok: true, created: true, itemId: id, accountRef: payload.accountRef };
 }
 
+/* ---------------------------------------------------------------------------
+ * THE CALL SITE'S HELPER — read the facts, project, sync.
+ *
+ * Every lifecycle change already ends by re-deriving the entitlement from the
+ * canonical rows. This reads the same rows one more time and mirrors them. It
+ * is deliberately a SEPARATE read rather than a parameter threaded through the
+ * webhook: the board must show what the database says after the write, not what
+ * the writer believed it was writing. Those are the same thing right up until
+ * they are not, and the version that mirrors the writer's intention is the one
+ * that hides a bug.
+ *
+ * NEVER THROWS, NEVER FAILS A CALLER. Every path returns a report. The board is
+ * a mirror; a mirror being late is not a reason to fail a purchase.
+ * ------------------------------------------------------------------------- */
+async function syncAccountFromStore(S, Store, E, cfg, accountId, deps){
+  const c = (deps && deps.config) || config();
+  if (!c.enabled) return { ok: false, code: 'operational_sync_disabled' };
+  try{
+    const facts = await Store.readCommercialFacts(S, cfg, accountId);
+    if (!facts.ok) return { ok: false, code: 'facts_unreadable', detail: facts.reason };
+
+    const view = await S.sb(cfg, '/account_operational_state?select=*&account_id=eq.' +
+      encodeURIComponent(accountId) + '&limit=1');
+    if (!view || !view.ok) return { ok: false, code: 'view_unreadable' };
+    const row = ((await view.json().catch(function(){ return null; })) || [])[0] || null;
+    if (!row) return { ok: false, code: 'no_operational_row' };
+
+    const ent = E.resolveStandardEntitlement({
+      account: facts.account, subscriptions: facts.subscriptions,
+      grants: facts.grants, now: new Date()
+    });
+
+    /* The subscription the athlete is actually living under, which is the one
+       the resolver is granting from -- not simply the newest row. A cancelled
+       leftover sorted above a live one would put the wrong period and the wrong
+       pause state on the board. */
+    const at = new Date();
+    const live = (facts.subscriptions || []).filter(function(sub){
+      const a = E.subscriptionAccess ? E.subscriptionAccess(sub, at) : null;
+      return a ? (a.active || a.reason === 'paused') : false;
+    })[0] || (facts.subscriptions || [])[0] || {};
+
+    return await syncAccount({ operational: row, entitlement: ent, subscription: live,
+                               now: at }, Object.assign({ config: c }, deps || {}));
+  }catch(e){
+    log('OPS_SYNC_THREW');
+    return { ok: false, code: 'sync_threw' };
+  }
+}
+
 module.exports = {
   ALLOWED, PROHIBITED, SUSPICIOUS, ACCESS_STATES, COLUMN_IDS,
   config, accountRef, operationalPayload, validatePayload, accessStateOf,
-  columnValues, itemName, findItem, syncAccount
+  columnValues, itemName, findItem, syncAccount, syncAccountFromStore
 };

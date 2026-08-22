@@ -48,6 +48,31 @@ function buildPlan(app, opts) {
     experience: 'experienced',
   };
   app.state.days = days;
+  /* HEALTH AND READINESS CONSENT — WHY THE FIXTURE GRANTS IT.
+   *
+   * Most of this suite is about coaching: what heart rate, feel and the
+   * morning readiness answers tell the engine, and what it does about them.
+   * Every one of those tests describes an athlete who agreed to Valhalla
+   * reading that information, so the fixture says so explicitly instead of
+   * leaving it implied. The alternative -- a fixture that silently withholds
+   * consent -- would make a hundred coaching tests assert the behaviour of a
+   * different athlete than the one they are written about.
+   *
+   * THIS IS NOT A DEFAULT ANYWHERE ELSE. makeDefaultState() records no
+   * consent, loadApp() without buildPlan() records no consent, and a state
+   * blob restored from an earlier build records no consent. All three are
+   * asserted in test/healthDataConsent.test.js, which builds its
+   * non-consenting athletes by passing healthConsent:false here.
+   */
+  if (opts.healthConsent !== false){
+    app.state.healthConsent = {
+      version: app.HEALTH_CONSENT_VERSION,
+      decision: 'granted',
+      decidedAt: '2026-01-01T09:00:00.000Z',
+      grantedAt: '2026-01-01T09:00:00.000Z',
+      withdrawnAt: null
+    };
+  }
   return { app, blockResult, days };
 }
 

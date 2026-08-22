@@ -23,12 +23,21 @@ notes the athlete writes. It derives readiness/adaptation signals from those.
 Both are protected by row-level security scoped to the athlete's own id; both
 CASCADE-delete with the account.
 
-**Whether it is health data.** Resting/exercise heart rate, HRV where present,
-self-reported effort and free-text notes about how training felt are capable of
-indicating physical condition. The system treats the whole coaching record as
-health-indicating and applies the strictest handling it has, rather than
-attempting a field-by-field split — a split that would have to be re-argued
-every time a field is added.
+**Whether it is health data.** Heart rate, the morning readiness answers, how a
+session felt, and body/sleep readings derived from free-text notes are capable
+of indicating physical condition.
+
+**Two different boundaries, deliberately.** *Storage and handling* stay uniform:
+the whole coaching record gets the strictest handling the system has — own-row
+RLS, CASCADE deletion, no third-party transmission — because a field-by-field
+storage split would have to be re-argued every time a field is added.
+*Processing under explicit consent* is narrow and named, because the opposite
+error is real: disabling ordinary training data would take away the product the
+athlete came for, for no privacy gain. §1a is that list.
+
+**Consent mechanism: implemented.** See §1a. The open question this section
+previously carried — whether an additional, separate consent step was needed —
+has been answered in the product rather than left to policy.
 
 **Facts relevant to whether explicit consent is required:**
 - The data is supplied by the athlete, for the athlete, to produce their own
@@ -44,11 +53,167 @@ every time a field is added.
 - Strava data is ingested only with the athlete's explicit OAuth authorisation,
   at the scope in §8, and is deleted on disconnect.
 
-**Not settled by System, and correctly a legal decision:** whether the consent
-already obtained at signup is specific enough to constitute explicit consent for
-special-category data, and whether an additional consent step is needed before
-first use of the coaching engine. System can add such a step; nothing in the
-architecture prevents it.
+---
+
+## 1a. The health and readiness consent mechanism
+
+Consent version identifier: **`health_data_consent_v1`**. Consent is recorded
+against this identifier, not against screen wording. If the material purpose
+changes, the identifier changes and every stored agreement to the old one stops
+counting — enforced by a version comparison that fails closed, so no migration
+or backfill is involved.
+
+**The wording the athlete sees**, verbatim and in one place in the code
+(`HEALTH_CONSENT_COPY`):
+
+> **Use my health and readiness information**
+>
+> If you choose to share things like heart rate, sleep, aches, pain, illness or
+> how a session felt, Valhalla can read how you are responding to training and
+> adjust your programme around it.
+>
+> Valhalla works without any of it. Your paces, distances and sessions are
+> enough to run your programme. You can change your mind at any time in
+> Settings.
+>
+> *(Settings adds:)* Withdrawing stops Valhalla using this information from that
+> moment on. It does not undo anything it was lawfully used for before.
+
+**Covered — processed only with consent:**
+- heart rate: session average, per-lap and per-segment, and max HR, from any
+  source (typed, Strava, file/CSV import, and Garmin when it exists)
+- the athlete's LTHR and max-HR profile values, and every target HR range
+  derived from them
+- the morning readiness answers: legs, sleep, health
+- session "feel"
+- readings the notes parser derives about the body or sleep — pain, niggle,
+  illness, soreness, stiffness, heavy legs, tiredness, fresh legs, poor/good
+  sleep, life stress
+
+**Not covered — ordinary training data, unaffected:** distance, pace, time,
+splits, completion, RPE, benchmarks, race results, pace zones, plan history,
+adherence, streaks, execution scores, and the text of the athlete's own notes.
+
+**RPE is deliberately outside the boundary** — see "Remaining legal decisions"
+below.
+
+**Where consent is asked.** One unticked checkbox in the plan builder, on the
+same panel as the LTHR/Max HR fields and above them. An athlete who already had
+a plan when this shipped is asked once, on Today, by a card with two real
+buttons. Neither is a modal and neither blocks anything.
+
+**What is never inferred as consent:** accepting the Terms, creating an
+account, starting or paying for a trial, entering a heart rate, connecting
+Strava, or reaching the end of onboarding. Leaving the builder box unticked is
+recorded as a decision *not* to consent, which is why the athlete is not asked
+again.
+
+**Where consent is recorded.** `public.health_data_consent` — append-only, one
+row per decision (`user_id`, `decision`, `consent_version`, `decided_at`,
+`created_at`). RLS allows the athlete to SELECT and INSERT their own rows only;
+there is no UPDATE and no DELETE policy, so the athlete cannot rewrite their own
+consent history. The device also holds the current record (decision, version,
+granted_at, withdrawn_at) so the gate works offline.
+
+**How it is withdrawn.** One switch in Settings → Health & Readiness, the same
+control in both directions, no confirmation step.
+
+**Effect of declining.** Valhalla remains fully usable. The two covered input
+controls (Avg HR, Feel) and the readiness block are not shown, with one line
+saying why; every other control is unchanged. Sessions are still scored — the
+Execution Score re-normalises over the components present, so withholding heart
+rate produces exactly the score an athlete who never owned a strap receives, and
+confidence is likewise unaffected. Absence is never read as poor readiness.
+
+**Effect of withdrawal.** Covered information stops reaching any adaptation
+decision immediately, and stops being collected: typed, imported and
+provider-delivered heart rate are all refused, and the LTHR/max-HR profile
+values are cleared. Subscription, account, plan and training history are
+untouched.
+
+**Historical covered values.** Retained but inert — excluded from every
+computation while consent is absent, and never deleted by withdrawal. See
+"Remaining legal decisions".
+
+**Strava.** Provider authorisation is not Article 9 consent. Without consent,
+`hr` and `maxHR` are stripped **before** the activity row is written to
+`strava_activities`, so they are never stored rather than stored and ignored.
+Distance, pace, cadence, elevation and timing import normally.
+
+**Garmin.** Off, and unchanged by this work. The ingest seam carries a guard
+(`ingestGuard`) that applies the same strip and then throws if a covered field
+survives it, so the integration cannot be completed in a way that bypasses the
+boundary.
+
+**Manual imports.** File and CSV imports go through the same rule.
+
+**monday.com.** No covered field is on the allow list, and a payload carrying
+one is refused rather than trimmed. The consent record itself is not sent.
+
+**Stripe.** No covered field, and no consent record, appears anywhere in the
+billing path.
+
+**Existing athletes.** Not retrospectively consented. An account with no consent
+record — which is every account that predates this — reads as *un-asked*, which
+is distinct from *declined* and produces no consent. Their plan, history and
+programme continue unchanged.
+
+---
+
+**Decisions HQ has now taken, and the code matches them:**
+
+1. **RPE stays OUTSIDE the boundary.** Rating of perceived exertion is ordinary
+   training-effort and execution evidence: it measures how hard prescribed work
+   felt relative to the prescription, and it is what the engine falls back to
+   for load when heart rate is absent. It is processed for every athlete,
+   consented or not. It is named in the runtime's own not-covered list and in
+   the erasure module's, and a test fails if it moves.
+2. **"Life stress" stays INSIDE the boundary.** It is included conservatively,
+   on the basis that it can indicate mental health. It is the one item on the
+   covered list that is there by caution rather than by obvious necessity, and
+   that is the deliberate direction to be wrong in.
+3. **Withdrawal does not delete history.** Withdrawing consent stops future
+   collection and use immediately; covered values already logged are retained
+   and become inert — excluded from every adaptation, coaching decision, target
+   and longitudinal reading while consent is absent. Ordinary training history
+   is unaffected. No new lawful basis is invented to keep processing them: they
+   are not processed at all.
+
+**Erasure is a separate right, and is supported separately.**
+
+Withdrawal of consent is not by itself a request for erasure, and the two are
+implemented as the different things they are. Where erasure of the covered
+values is legally required, `api/_health-erasure.js` performs it:
+
+- It removes `setup.lthr`, `setup.maxHR`, every day's `readiness`, and every
+  day's logged `hr` and `feel` from the plan document, and `hr` and `maxHR` from
+  every staged provider activity.
+- It removes **nothing else**. Distances, paces, times, splits, RPE, the
+  athlete's own note text, benchmarks, race results, adherence and the whole
+  programme history are untouched — and that is not a promise, it is a check:
+  the run compares before and after and **refuses** if anything was added,
+  changed, reordered, shortened, or removed that is not a named covered field.
+- The **consent record survives** an erasure. It holds no value about the
+  athlete's body, and destroying it would remove the evidence that the
+  processing which already happened was lawful at the time.
+- It is an **operator action**, not a button. There is no endpoint, nothing
+  routes to it, and a test fails if anything imports it. An erasure request is
+  assessed by a person and carried out by a person. An irreversible deletion one
+  mis-click away from an athlete who meant to *withdraw consent* is exactly the
+  confusion the split between the two exists to prevent.
+- It offers a **dry run by default**, reporting exactly what would be removed
+  before anything is.
+
+**Account deletion** remains the complete route: it removes the plan, every
+staged activity, the connection tokens, the entitlement, the leases, the
+commercial record, the subscriptions **and the consent history**, by CASCADE.
+
+**Still not settled by System, and correctly a legal decision:** whether the
+consent obtained at signup is specific enough for special-category data on its
+own, and whether the separate health-and-readiness consent described here
+discharges that. System has implemented the separate consent; whether it is
+sufficient is not System's call.
+
 
 ---
 
@@ -143,7 +308,7 @@ churn risk. It is used for operations, not marketing.
 
 ## 6. Account deletion and anonymisation
 
-Proven on a fresh cluster against the completed commercial schema. Nine
+Proven on a fresh cluster against the completed commercial schema. Ten
 foreign keys reference `auth.users`:
 
 | Table | On delete |
@@ -156,12 +321,14 @@ foreign keys reference `auth.users`:
 | `account_commercial` | CASCADE |
 | `subscriptions` | CASCADE |
 | `entitlement_grants` | CASCADE |
+| `health_data_consent` | CASCADE |
 | `billing_events` | **SET NULL** |
 
 **Website can safely state:**
 - Deleting an account removes the athlete's training plan, every staged
   activity, any connected-service tokens, their entitlement, their access
-  credentials, their commercial account record and their subscription records.
+  credentials, their commercial account record, their subscription records and
+  their health-and-readiness consent history.
 - One category survives: the **billing event ledger**. Those rows are the record
   that a payment provider told us something happened, and they are retained for
   financial and audit purposes. On deletion the account reference and the
