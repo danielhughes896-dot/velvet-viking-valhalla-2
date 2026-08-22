@@ -554,10 +554,21 @@
     color:var(--cherry-ink); font-size:var(--fs-meta); line-height:1; font-weight:700;
   }
   /* From just under this node to just under the step box, which is where the
-     next node begins. Never drawn after the last one. */
+     next node begins. Never drawn after the last one.
+
+     OPAQUE, for the same reason the disc is opaque: a day card is tinted by
+     session type, so a translucent line does not sit on a neutral surface --
+     it blends with whatever colour is under it. Measured on the actual
+     rendered surfaces, --cherry-line's alpha let an interval/tempo/threshold
+     card's own tint pull the composited pixel to hue 335deg in dark mode --
+     one degree inside the cherry family and visually indistinguishable from
+     the violet it was migrated away from -- and a checkpoint card's warmer
+     tint pulled the light-mode composite to 19deg, amber, not cherry at all.
+     Solid var(--cherry) reads as the same tone as the disc it connects,
+     regardless of what it is drawn over. */
   .ws-step::before{
     content:''; position:absolute; left:-18.25px; top:19px; bottom:-1px;
-    width:1.5px; background:var(--cherry-line);
+    width:1.5px; background:var(--cherry);
   }
   .ws-step:last-child::before{display:none;}
   .ws-name{font-size:var(--fs-body); letter-spacing:.6px; text-transform:uppercase; color:var(--ink);}
@@ -594,18 +605,6 @@
   /* Hidden file inputs are moved off-screen rather than display:none -- an
      Android WebView refuses to open the picker for an unrendered input. */
   .file-input-offscreen{position:absolute; width:1px; height:1px; padding:0; margin:-1px; border:0; opacity:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
-  .congrats-banner{
-    margin:22px 0 8px; padding:28px 20px; text-align:center; border-radius:var(--radius-lg);
-    background:linear-gradient(155deg, var(--bg-3), var(--bg-2)); border:2px solid var(--gold);
-    box-shadow:0 0 0 1px var(--bronze) inset;
-  }
-  .cg-title{font-size:22px; letter-spacing:.08em; color:var(--gold-text); margin-bottom:12px;}
-  .cg-quote{font-size:13px; letter-spacing:1.5px; line-height:2; color:var(--ink); text-transform:uppercase; font-weight:600;}
-  /* The way onward, in the banner's quietest voice -- a pointer, not a
-     second call to action competing with the moment. */
-  .cg-next{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint);
-    margin-top:14px; padding-top:12px; border-top:1px solid var(--line-soft);}
-
   /* ---------- print ---------- */
   @media print{
     body{background:#fff !important; color:#111 !important;}
@@ -616,10 +615,10 @@
     .fuel-card .fuel-body{display:block !important;}
     .week{break-inside:avoid; page-break-inside:avoid; border-color:#999 !important; background:#fff !important;}
     .day{break-inside:avoid; background:#fff !important; border-color:#ccc !important;}
-    .hero, .day, .week, .zone-card, .congrats-banner, .fuel-card,
+    .hero, .day, .week, .zone-card, .hub-card, .fuel-card,
     .stat, .day-badge, .week-vol, .week-num, .fuel-row, .zone-head,
     .cd-cell{ color:#111 !important; background:#fff !important; border-color:#999 !important; }
-    .day-title, .week-phase, .cg-title, .zbar-seg{color:#111 !important;}
+    .day-title, .week-phase, .zbar-seg{color:#111 !important;}
     .zbar-seg{filter:grayscale(0.3) contrast(1.3);}
     .wrap{max-width:none !important;}
   }
@@ -11676,6 +11675,15 @@ function nextBlockRecommendation(){
     return { kind:'block', purpose:'recovery',
       why:'You raced. The next few weeks are for recovering properly, not for training through it.' };
   }
+  /* TAPER-WEEK GUARD. Reaching here with purpose 'race' means goalPassed is
+     false -- the branch above returns unconditionally whenever it is true --
+     so this is a race block still waiting for its goal day, taper included.
+     It has nothing to recommend: not recovery, not anything else. Without
+     this, nearEnd alone (true for the whole final week, taper week among
+     them) fell through every purpose check below to the generic catch-all
+     and returned the SAME "choice" recommendation -- Start Recovery included
+     -- that a just-finished race gets, days before the race had happened. */
+  if (purpose === 'race') return null;
   if (!nearEnd && !goalPassed) return null;
 
   if (purpose === 'recovery') return { kind:'choice', options:['maintain','base','speed','race'],
@@ -17877,7 +17885,7 @@ function renderAthleteStatusCard(report){
       '<div class="coach-metric"><div class="cm-k">Recovery</div><div class="cm-v">'+escapeHtml(recVal)+'</div><div class="cm-s">'+escapeHtml(recSub)+'</div></div>'+
       '<div class="coach-metric"><div class="cm-k">Trend</div><div class="cm-v">'+escapeHtml(trVal)+'</div><div class="cm-s">'+escapeHtml(trSub)+'</div></div>'+
     '</div>'+
-    '<div class="field-hint">Week '+report.phase.week+' of '+report.phase.of+' · load is this week against your 4-week average.</div>'+
+    '<div class="field-hint">'+(report.phase.week ? 'Week '+report.phase.week+' of '+report.phase.of+' · ' : '')+'load is this week against your 4-week average.</div>'+
   '</div>';
 }
 
@@ -18042,6 +18050,34 @@ function renderCoachNextMoveCard(report){
   return '<div class="hub-card coach-next">'+
     '<div class="coach-next-head">'+ICONS.sparkles+'<span class="coach-next-title">Next Move</span>'+pill+'</div>'+
     body+
+  '</div>';
+}
+
+/* ---------- NEXT MOVE, WHILE THE OUTCOME IS STILL UNANSWERED ----------
+   coachNextSession() correctly finds nothing to prescribe the moment a race
+   block runs out of future sessions -- which, for a race purpose, is exactly
+   the day after Race Day, before the athlete has said how it went. So
+   coachDecision() returns null, coachNextMove() returns null, and Next Move
+   above renders nothing at all: the last thing Today said was "how did it
+   go?", and then silence.
+
+   "Nothing to prescribe" is not "nothing to say". This does not prescribe
+   anything either -- there is still no session to reason about, and
+   starting the recovery BLOCK itself stays exactly where it already lives,
+   one tap away once the outcome is answered (renderBlockTransitionCard,
+   startDevelopmentBlock('recovery')). It reuses the engine's own recover
+   vocabulary (COACH_DECISION_META) and the exact Next Move furniture rather
+   than inventing a parallel card, so this reads as the same coach speaking
+   through a gap in the schedule, not a second mechanism. */
+function renderPostRaceRecoverCard(report){
+  if (report && report.nextMove) return '';        // Next Move already had something to say
+  if (!raceOutcomePending()) return '';
+  var meta = COACH_DECISION_META.recover;
+  return '<div class="hub-card coach-next">'+
+    '<div class="coach-next-head">'+ICONS.sparkles+'<span class="coach-next-title">Next Move</span>'+
+      '<span class="coach-state '+meta.cls+'"><span class="coach-state-dot"></span>'+meta.label+'</span></div>'+
+    '<div class="coach-next-rec">Nothing to prove today. Recover first. Tell Valhalla how Race Day '+
+      'went when you’re ready, and we’ll take it from there.</div>'+
   '</div>';
 }
 /* =========================================================
@@ -18653,7 +18689,10 @@ function readingSections(report){
     hqRow('Execution trend', report.trend.enough ? trendWord+(report.trend.delta?' ('+(report.trend.delta>0?'+':'')+report.trend.delta+')':'') : 'building history')+
     hqRow('Sessions logged', String(recent.sessionsLogged))+
     hqRow(vGoalDate(), su.raceDate ? dShort(su.raceDate)+(days!=null?' · '+days+' days':'') : '—')+
-    hqRow('Phase', trainingPhase(currentWeekNum())+' · week '+currentWeekNum()+' of '+totalWeeksInPlan());
+    hqRow('Phase', (function(){
+      var wk = currentWeekNum();
+      return trainingPhase(wk) + (wk ? ' · week '+wk+' of '+totalWeeksInPlan() : '');
+    })());
 
   var recoveryBody =
     hqRow('Effort above band', report.recovery.overRPE+' this week')+
@@ -18862,7 +18901,24 @@ function currentWeekNum(){
     var r = weekDateRange(w);
     if (today>=r.start && today<=r.end) return w;
   }
-  return totalWeeks>0 ? 1 : null;
+  /* Today matches no week's range at all -- which happens on both sides of a
+     block, for different reasons. BEFORE it: a block starting today can
+     still land its own week 1 a day or two out, because week 1 is Monday-
+     aligned and today is not always a Monday -- schedule() only guarantees
+     the first ACTIVE day is today or later, not that the week itself starts
+     today. That is still legitimately week 1; there is nothing else it could
+     be, and the block has not gone anywhere.
+
+     AFTER it is a different claim entirely: once every week's range,
+     including the last, ends before today, the block has actually finished
+     -- and week 1 stopped meaning "the start" and started meaning "the plan
+     that just ended was 1". THAT fallback used to fire here regardless of
+     which side of the block today was on, so a just-finished 16-week build
+     read as "Week 1 of 16". null is the honest answer once the block is
+     genuinely behind today; every caller either already treats a falsy week
+     as "no week to report" or is fixed alongside this to do the same. */
+  if (totalWeeks>0 && today<weekDateRange(1).start) return 1;
+  return null;
 }
 function weekVolume(weekNum){
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
@@ -18875,6 +18931,7 @@ function weekVolume(weekNum){
   return { total: round1(totalKm), done: round1(doneKm), race: round1(raceKm), training: round1(totalKm-raceKm) };
 }
 function weekPhaseLabel(weekNum){
+  if (!weekNum) return 'Block Complete';
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
   var hasCheckpoint = wdays.some(function(dd){ return dd.type==='checkpoint'; });
   var hasRace = wdays.some(function(dd){ return dd.type==='race'; });
@@ -18998,25 +19055,58 @@ function renderCheckpointCard(){
   '</div>';
 }
 
-function renderCongratsBanner(){
-  var s = computeStats();
-  if (!s.totalRuns || s.completedRuns<s.totalRuns) return '';
-  /* THE DEAD END THIS USED TO BE.
-     An athlete who completed every session in their block was congratulated
-     and then left standing there -- the last screen in the product said the
-     plan was executed and offered nothing after it. That was defensible when
-     a plan was the whole relationship; it is not now that there is a next
-     block to recommend. One line, pointing at the recommendation rather than
-     repeating it, so the banner stays a banner. */
-  var rec = nextBlockRecommendation();
-  var onward = rec
-    ? '<div class="cg-next">Valhalla has a recommendation for what comes next — it is on Today.</div>'
-    : '';
-  return '<div class="congrats-banner">'+
-    '<div class="cg-title font-display">VALHALLA AWAITS</div>'+
-    '<div class="cg-quote font-head">THE PLAN IS EXECUTED.<br>VALHALLA AWAITS THE BOLD!<br>GO KILL IT, VIKING!</div>'+
-    onward+
-  '</div>';
+/* ---------- WHAT'S NEXT (Full Plan) ----------
+   THE DEAD END THIS REPLACES.
+   Full Plan used to end at the last week, full stop -- and the one thing it
+   ever showed afterward, a congratulations banner, required literally every
+   non-rest day in the whole block marked complete, past days and future days
+   alike. Almost no real athlete ever satisfied that, so almost no real
+   athlete ever saw ANY acknowledgement that Valhalla kept coaching once the
+   block did. That banner is retired outright rather than kept alongside
+   this: the two would stack as duplicate continuity surfaces the moment an
+   athlete who happened to hit 100% also had a recommendation ready.
+
+   This is a PERMANENT card in the same position -- present from the start of
+   a race build, so the athlete learns before Race Day that the plan does not
+   end there. Its content evolves with exactly what the engine already knows,
+   and nothing here decides anything a real function has not already decided:
+
+     a real recommendation exists   ->  IS renderBlockTransitionCard() --
+                                         not a copy of it, the same card
+     outcome pending                ->  points at Today, the one place that
+                                         actually asks the question
+     an active race build           ->  a quiet promise, not a guess at what
+                                         has not happened yet
+
+   Any other case -- a development block running, mid-block, with nothing yet
+   to say -- renders nothing, exactly as before. */
+function renderContinuityCard(){
+  var su = state.setup;
+  if (!su || !state.days || !state.days.length) return '';
+
+  var transition = renderBlockTransitionCard();
+  if (transition) return transition;
+
+  if (raceOutcomePending()){
+    return '<div class="hub-card yr-next">'+
+      '<div class="coach-next-head">'+ICONS.sparkles+
+        '<span class="coach-next-title">What’s next</span></div>'+
+      '<div class="yr-why"><b>Race day has passed.</b> Tell Valhalla on Today how it went, '+
+        'and we’ll guide you from there.</div>'+
+    '</div>';
+  }
+
+  var purpose = isBlockPurpose(su.purpose) ? su.purpose : 'race';
+  if (purpose === 'race' && su.raceDate && su.raceDate >= todayStr()){
+    return '<div class="hub-card yr-next">'+
+      '<div class="coach-next-head">'+ICONS.sparkles+
+        '<span class="coach-next-title">What’s next</span></div>'+
+      '<div class="yr-why">Finish this block first. Once <b>Race Day</b> passes, Valhalla will '+
+        'guide your recovery and help you choose what comes next.</div>'+
+    '</div>';
+  }
+
+  return '';
 }
 /* ---------- FULL PLAN phase dividers ----------
    The phase and its boundaries come from the canonical source and nowhere
@@ -19053,7 +19143,7 @@ function renderWeeksList(forceOpenAll){
     html += renderWeekAccordion(w, forceOpenAll);
     if (w===chkWeek) html += renderCheckpointCard();
   }
-  html += renderCongratsBanner();
+  html += renderContinuityCard();
   return html;
 }
 
@@ -22291,7 +22381,9 @@ function renderTodayView(){
      It removes itself the moment either button is pressed and never returns
      -- Settings is the permanent home. */
   html += renderHealthConsentCard();
-  html += renderCoachNextMoveCard(coachAnalyse());
+  var report = coachAnalyse();
+  html += renderCoachNextMoveCard(report);
+  html += renderPostRaceRecoverCard(report);
   html += renderBlockTransitionCard();
   html += dd ? renderDayCard(dd) : '<div class="empty-note">No session scheduled for today — it falls outside the current plan’s dates.</div>';
   html += renderCompactPaceReference();

@@ -348,6 +348,63 @@ test('a DNS is offered maintenance, not recovery from a race that never happened
   assert.equal(a.nextBlockRecommendation().purpose, 'maintain');
 });
 
+/* Move the goal day just AHEAD of today instead of behind it -- taper, not
+   outcome. The block's actual final day has to move with it: nearEnd reads
+   state.days' own last date, not state.setup.raceDate, so leaving them out
+   of step would test a scenario nextBlockRecommendation() never sees. */
+function raceTaperWeek(a, daysOut){
+  const newRaceDate = a.addDays(a.todayStr(), daysOut);
+  const lastDay = a.state.days[a.state.days.length - 1];
+  lastDay.date = newRaceDate;
+  lastDay.id = newRaceDate;
+  a.state.setup.raceDate = newRaceDate;
+  a.state.setup.purpose = 'race';
+}
+
+// ===========================================================================
+// THE TAPER-WEEK GUARD
+// ===========================================================================
+/* nextBlockRecommendation() has always had a "final week" fast path (nearEnd)
+ * meant for a block that has finished -- maintain, base and speed all reach
+ * it once their last week arrives. A race block's OWN final week is taper,
+ * and taper is not finished: the race has not been run yet. Before this
+ * guard, nearEnd alone was enough to fall through every purpose-specific
+ * branch (recovery/maintain/base/speed, none of which matched 'race') to the
+ * generic catch-all, which returned the full post-race "choice" recommenda-
+ * tion -- Start Recovery included -- during taper, days before the athlete
+ * had actually raced. */
+test('a race block in taper recommends nothing before the race -- not even Start Recovery', () => {
+  const a = athleteWithBlock();
+  raceTaperWeek(a, 3);
+  assert.equal(a.raceOutcomePending(), false, 'the race has not happened yet');
+  const rec = a.nextBlockRecommendation();
+  assert.equal(rec, null,
+    'a taper-week race block recommended ' + JSON.stringify(rec) + ' before the race was run');
+});
+
+test('the taper-week guard holds across the whole final week, not just one day out', () => {
+  const a = athleteWithBlock();
+  [1, 2, 3, 5, 7].forEach(daysOut => {
+    raceTaperWeek(a, daysOut);
+    assert.equal(a.nextBlockRecommendation(), null,
+      daysOut + ' days out still produced a recommendation before the race: ' +
+      JSON.stringify(a.nextBlockRecommendation()));
+  });
+});
+
+test('the taper-week guard does not silence a block that has genuinely finished', () => {
+  // The fix must be specific to purpose 'race': maintain/base/speed still
+  // need their own final-week recommendation, taper guard or not.
+  const a = athleteWithBlock();
+  trainThroughPast(a);
+  a.startDevelopmentBlock('maintain');
+  const lastDay = a.state.days[a.state.days.length - 1];
+  lastDay.date = a.addDays(a.todayStr(), 3);
+  lastDay.id = lastDay.date;
+  const rec = a.nextBlockRecommendation();
+  assert.ok(rec && rec.kind === 'choice', 'a finishing maintain block lost its own recommendation');
+});
+
 // ===========================================================================
 // RECOVERY BLOCK
 // ===========================================================================
@@ -420,6 +477,44 @@ test('starting recovery archives the race block rather than losing it', () => {
     'the race block’s training was not archived');
   assert.ok(a.athleteMemory().filter(r => r.completed).length > 0,
     'entering recovery lost the block that earned it');
+});
+
+// ===========================================================================
+// A FINISHED BLOCK HAS NO CURRENT WEEK
+// ===========================================================================
+/* currentWeekNum() used to fall back to week 1 whenever today matched no
+ * week's date range at all -- which only happens BEFORE a block starts (does
+ * not occur in practice; a block's setup.startDate is always its week 1) or
+ * AFTER it has genuinely finished, since a finished block's last week's own
+ * end date is now in the past. So in practice the fallback fired exactly
+ * once a block was over, and said "Week 1 of N" about it -- the header for a
+ * just-finished 16-week build claiming to be in its first week. */
+test('once a block has genuinely finished, there is no current week -- not week 1', () => {
+  const a = athleteWithBlock({ weeks: 6, back: 70 });
+  assert.equal(a.currentWeekNum(), null,
+    'currentWeekNum() fell back to a week number for a block that ended weeks ago');
+  assert.doesNotMatch(a.blockIdentityLine(), /Week/,
+    'blockIdentityLine() still claims a week number after the block ended: "' + a.blockIdentityLine() + '"');
+  assert.equal(a.weekPhaseLabel(a.currentWeekNum()), 'Block Complete',
+    'weekPhaseLabel(null) says "Week null" instead of naming the state honestly');
+});
+
+test('Athlete Status stops claiming a week number once its block has finished', () => {
+  const a = athleteWithBlock({ weeks: 6, back: 70 });
+  const report = a.coachAnalyse();
+  assert.equal(report.phase.week, null);
+  assert.equal(report.phase.name, 'Block Complete',
+    'the phase badge still reads "Week null" or a stale week after the block ended');
+  const html = a.renderAthleteStatusCard(report);
+  assert.doesNotMatch(html, /Week null/, 'Athlete Status literally rendered "Week null"');
+  assert.doesNotMatch(html, />Week 1</, 'Athlete Status fell back to claiming week 1 of a finished block');
+});
+
+test('This Week shows an honest empty state once the block has finished, not week 1 again', () => {
+  const a = athleteWithBlock({ weeks: 6, back: 70 });
+  const html = a.renderWeekView();
+  assert.match(html, /No active week to show yet/,
+    'This Week fell back to showing week 1 of a finished block instead of the honest empty state');
 });
 
 // ===========================================================================
