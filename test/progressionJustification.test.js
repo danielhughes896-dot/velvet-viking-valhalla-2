@@ -372,6 +372,36 @@ test('a block records the biggest week it actually scheduled, not the top of its
     ' vs ramp ' + br.peakVolume);
 });
 
+test('the ledger records which block carried the step, and which did not', () => {
+  /* THE CYCLE RULE COUNTS FROM THE LEDGER, so a block that fails to record the
+     step it took makes the rule inert -- every block reads as "nobody has ever
+     stepped" and the athlete steps again immediately. Every other test in this
+     file pushes ledger rows by hand, so none of them can see it: a mutation
+     that wrote progressionStep:false for every block survived the whole suite.
+     This one drives the real lifecycle and reads back what was written. */
+  const a = app();
+  a.state.setup = { distanceKey: 'half', currentVolume: 55, schedule: SCHEDULE,
+                    benchmark: { distanceKey: '10k', timeSec: 45 * 60 } };
+  record(a, [74, 72, 70]);
+  // a finished development block the athlete reached the top of
+  a.state.athlete.blocks.push({ id: 'seed', purpose: 'base', status: 'closed',
+    anchorVolume: 55, startVolume: 55, peakVolume: 70 });
+
+  const first = a.startDevelopmentBlock('base', { distanceKey: 'half' });
+  assert.ok(first, 'no block was generated');
+  assert.equal(first.progressionStep, true,
+    'the block stepped to ' + first.anchorVolume + ' but did not record it');
+  assert.equal(first.anchorVolume, 60.5);
+
+  // and the very next development block must be held by the cycle rule, which
+  // is only possible if the step above was written down
+  assert.equal(a.progressionJustification().blockedBy, 'stepped_this_cycle');
+  const second = a.startDevelopmentBlock('base', { distanceKey: 'half' });
+  assert.ok(second);
+  assert.equal(second.progressionStep, false, 'a held block recorded a step');
+  assert.equal(second.anchorVolume, 60.5, 'a held block moved the level');
+});
+
 test('largestScheduledWeek ignores rest days and reports a real week', () => {
   const a = app();
   const days = [

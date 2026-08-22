@@ -1,0 +1,115 @@
+KILLED    4  access: a revoked subscription grants again
+KILLED    1  access: an unknown provider is trusted
+KILLED    3  access: past_due invents its own grace
+KILLED    2  access: an unreadable database reads as no subscription
+KILLED    2  trial: the allowance can be spent twice
+KILLED    9  trial: the trial length comes from somewhere else
+KILLED    2  trial: checkout stops requiring a card
+KILLED   17  subscription: the product code drifts again
+KILLED    1  webhook: a replay is applied twice
+KILLED    1  webhook: an unsigned delivery is accepted
+KILLED    2  webhook: a rotation drops every event
+KILLED   13  webhook: the S.sb prefix is doubled again
+KILLED    2  cancellation: a cancelled paid period ends immediately
+KILLED    4  cancellation: an ordinary cancellation revokes
+KILLED    3  pause: access continues while paused
+KILLED    3  pause: a paused athlete can buy a second subscription
+KILLED    5  pause: the yearly rule is dropped
+KILLED    2  pause: resume forgets the pause happened
+KILLED    2  pause: an annual subscriber may pause
+KILLED    1  pause: four months is allowed
+KILLED    1  pause: the provider is told to defer instead of void
+KILLED    1  pause: resume sends nothing at all
+KILLED    1  founding price: the lock is not conditional
+KILLED    1  founding price: an unpriceable offer is guessed
+KILLED    2  metrics: the view goes back to the retired grant model
+KILLED    2  metrics: last_active becomes a timeline
+KILLED    1  rls: a policy stops scoping to the caller
+KILLED    1  rls: the beta predicate is dropped from a policy
+KILLED    3  rls: a policy is added to a service-only table
+KILLED    2  rls: a definer function loses its search path
+KILLED    2  deletion: the money ledger cascades away
+KILLED    3  deletion: a delete is not scoped to the caller
+KILLED    2  deletion: anon may delete accounts
+KILLED    1  monday: the raw uuid is used when no salt is set
+KILLED    3  monday: the payload is a copy rather than a projection
+KILLED    1  monday: the allow list stops being enforced
+KILLED    1  monday: a re-sync creates a second item
+KILLED    1  monday: a provider error body is echoed
+KILLED   13  workout: an adjusted session stops being shrunk and drops its structure
+KILLED    2  workout: a shrunk session may prescribe more running than the day holds
+KILLED    1  workout: a shrink may quietly change what the session is
+KILLED    1  workout: the recovery ceiling deletes the easy run it just wrote
+KILLED    4  workout: a strides session is no longer fitted
+KILLED    1  workout: strides are hung on an easy run of nothing
+KILLED    1  workout: the adjustment record is rendered above the workout
+KILLED   13  workout: the card stops rendering the structured workout at all
+KILLED    1  workout: restore leaves the day without the prescription it had
+KILLED    1  workout: a rename overwrites the name the athlete typed
+KILLED    1  workout: the heading keeps naming the distance it no longer prescribes
+KILLED    2  workout: a swap leaves the prescription on the old day
+KILLED    1  workout: the coach’s move leaves the prescription on the old day
+KILLED   10  history: a rebuild may refill elapsed days again
+KILLED    3  history: a rebuild freezes today as well as the past
+KILLED    1  history: a previous block’s days are dragged into this one
+KILLED    1  history: a logged day outside the block stops being preserved
+KILLED    8  volume: the peak is no longer capped
+KILLED    1  volume: a block may start from whatever the last one prescribed
+KILLED    7  volume: the ceiling ratchets on demonstrated capacity again
+KILLED    5  volume: one heroic week counts as capacity
+KILLED    1  volume: capacity from years ago still counts
+KILLED    3  progression: compliance alone is a reason again
+KILLED    6  progression: the anchor goes back to what the last ramp produced
+KILLED    4  progression: recovering earns a step up
+KILLED    2  progression: missed sessions stop mattering
+KILLED    2  progression: sessions that never land stop mattering
+KILLED    1  progression: never reaching the last block is no obstacle
+KILLED    1  progression: a first block is ramped from a capacity it no longer has
+KILLED    3  progression: the step comes back once per block instead of once per cycle
+KILLED    4  progression: a cycle shrinks until the rule does nothing
+KILLED    2  progression: recovery and maintenance count toward the cycle
+SURVIVED       progression: the step is never recorded, so the cycle never starts
+KILLED    3  progression: the cycle rule masks a reason the athlete has not earned a step
+KILLED    7  progression: the magnitude of a step is widened
+KILLED    2  progression: the peak stops being bounded by capacity
+SURVIVED       progression: the peak is measured against a week never scheduled
+KILLED    1  recovery: the intensity ceiling stops at the date window again
+KILLED    1  recovery: a recovery block sizes sessions at the top of their range
+KILLED    3  recovery: the block no longer reduces volume
+KILLED    1  recovery: a longer race no longer means a deeper reduction
+KILLED    4  base: quality progresses at a race build's pace again
+KILLED    3  base: the quality bound is widened until it does nothing
+KILLED    2  base: the bound is tightened until the block stops developing
+KILLED    1  base: the bound leaks into a race block
+KILLED    3  maintain: the block progresses again
+KILLED    1  maintain: the dose cycle acquires a trend
+KILLED    3  maintain: goal pace comes back to a block with no goal
+KILLED    1  maintain: the coach may add quality volume in maintenance again
+KILLED    2  maintain: the block borrows the Build pool again
+KILLED    2  rotation: the next block opens on the same session as the last
+KILLED    1  rotation: the live block counts itself and re-rotates on every rebuild
+KILLED    2  rotation: every long run in a block is the same one again
+KILLED    5  shape: the base block tapers for a race that does not exist
+KILLED    5  shape: a block with no goal effort ends in one anyway
+KILLED    4  shape: the mid-block time trial comes back everywhere
+KILLED    3  shape: the speed block goes back to three development weeks
+KILLED    1  shape: a recovery block ramps on the race multiplier again
+KILLED    1  shape: the base block ends at its own peak
+KILLED    2  cap: a mid-week re-tailor stacks a third hard session again
+KILLED    1  cap: the cap is paid for out of the past
+KILLED    6  escalation: every miss is an isolated one again
+KILLED    1  escalation: a handful of sessions is enough to call it persistent
+KILLED   12  escalation: rest days count towards the window
+KILLED    1  escalation: an accepted adjustment counts as a missed session
+KILLED    3  escalation: an easy run logged short reads as the block being too hard
+KILLED    2  escalation: the pattern never reaches the athlete
+KILLED    3  voice: every past card points at today again
+KILLED    1  voice: safety-critical language is suppressed like anything else
+KILLED    2  voice: the same commentary lands on every card again
+KILLED    2  voice: a heart rate the athlete never logged is claimed
+KILLED    1  voice: the internal block state reaches the athlete again
+
+=== 108/110 mutations detected ===
+SURVIVORS:
+  progression: the step is never recorded, so the cycle never starts
+  progression: the peak is measured against a week never scheduled
