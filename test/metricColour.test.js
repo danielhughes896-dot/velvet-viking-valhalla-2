@@ -78,17 +78,17 @@ test('gold still means what it means: headings, badges, status, the confidence f
   });
 });
 
-test('the gauge keeps purple on the mechanism and gold on the reading', () => {
+test('the gauge keeps the accent on the mechanism and gold on the reading', () => {
   const grad = APP.match(/<linearGradient id="gaugeFillGrad"[^]*?<\/linearGradient>/);
   assert.ok(grad, 'the gauge fill gradient is gone');
-  assert.match(grad[0], /var\(--violet-dim\)/);
-  assert.match(grad[0], /var\(--violet\)/);
+  assert.match(grad[0], /var\(--cherry-dim\)/);
+  assert.match(grad[0], /var\(--cherry\)/);
   // the needle is the one <line> carrying an explicit stroke
-  assert.match(APP, /<line x1="'\+cx\+'"[^]*?stroke="var\(--violet\)"/,
-    'the gauge needle is no longer violet');
-  // ticks are class-styled and must not have been given a violet stroke
+  assert.match(APP, /<line x1="'\+cx\+'"[^]*?stroke="var\(--cherry\)"/,
+    'the gauge needle no longer carries the interactive accent');
+  // ticks are class-styled and must not have been given the accent
   const tick = ruleBody('.gauge-tick');
-  if (tick) assert.doesNotMatch(tick, /--violet/, 'the gauge ticks turned violet — they are the scale, not the progress');
+  if (tick) assert.doesNotMatch(tick, /--cherry/, 'the gauge ticks took the accent — they are the scale, not the progress');
   assert.match(APP, /<circle cx="'\+cx\+'"[^]*?fill="var\(--modal-active\)"/,
     'the gauge pivot is no longer the gold pivot');
 });

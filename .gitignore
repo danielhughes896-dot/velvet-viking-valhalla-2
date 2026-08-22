@@ -25,3 +25,12 @@ tools/shots/states.json
 # Mutation-pass scratch output; the run rewrites source files and this is
 # only its log. Never let it into a commit alongside a half-restored tree.
 mut.txt
+
+# Screenshot output from tools/shots/*.js -- regenerated on demand, and
+# several MB of PNG per run. The scripts are the artefact worth keeping.
+tools/shots/toggles/
+tools/shots/record/
+tools/shots/planhq/
+tools/shots/editsession/
+tools/shots/accent/
+tools/shots/builder/
