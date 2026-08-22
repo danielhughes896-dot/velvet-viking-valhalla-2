@@ -622,7 +622,24 @@ const CASES = [
 
 ];
 
-let survived = [], killed = 0;
+/* A SUITE THAT DID NOT RUN IS NOT A SUITE THAT PASSED.
+   The old loop piped node straight into `grep -c "^not ok "` and read the
+   count. A pipeline reports the exit status of its LAST command, so if the
+   test process was killed -- out of memory, reaped under load, timed out --
+   grep saw an empty stream, printed 0, and the case was recorded as a
+   SURVIVOR. One case in this file did exactly that on three consecutive full
+   runs while killing reliably every time it was run on its own, which is how
+   it was found.
+
+   Wrong in the safe direction, but wrong: it reports risk that is not there,
+   and the same blindness would let a genuine survivor hide behind noise. The
+   run now keeps the whole TAP output and requires POSITIVE EVIDENCE that the
+   suites executed -- node prints exactly one `# tests N` summary per
+   invocation -- and a case with no summary is an ERROR rather than a verdict.
+   Errors are reported separately and fail the run, because the honest answer
+   to "did this mutation survive" is that we do not know. */
+const OUT_FILE = require('os').tmpdir() + '/valhalla-mutation-out.txt';
+let survived = [], errored = [], killed = 0;
 for (const [name, file, from, to, suites] of CASES){
   const p = ROOT + '/' + file;
   const orig = fs.readFileSync(p, 'utf8');
@@ -636,15 +653,31 @@ for (const [name, file, from, to, suites] of CASES){
   const files = suites && suites.length
     ? suites.map(n => 'test/' + n + '.test.js').join(' ')
     : SUBSET;
-  let out;
+  try{ fs.unlinkSync(OUT_FILE); }catch(e){ /* first run */ }
   try{
-    out = cp.execSync('cd ' + ROOT + ' && node --test ' + files + ' 2>&1 | grep -c "^not ok "',
-                      { encoding: 'utf8', timeout: 900000 });
-  }catch(e){ out = (e.stdout || '0'); }
+    // A failing suite exits non-zero, which is the ordinary kill path.
+    cp.execSync('cd ' + ROOT + ' && node --test ' + files + ' > ' + OUT_FILE + ' 2>&1',
+                { encoding: 'utf8', timeout: 900000 });
+  }catch(e){ /* verdict comes from the output, never from the exit status */ }
   fs.writeFileSync(p, orig);
-  const fails = parseInt(String(out).trim(), 10) || 0;
-  if (fails > 0){ killed++; console.log('KILLED  ' + String(fails).padStart(3) + '  ' + name); }
-  else { survived.push(name); console.log('SURVIVED       ' + name); }
+  let tap = '';
+  try{ tap = fs.readFileSync(OUT_FILE, 'utf8'); }catch(e){ tap = ''; }
+  const summaries = (tap.match(/^# tests \d+/gm) || []);
+  const fails = (tap.match(/^not ok /gm) || []).length;
+  if (!summaries.length){
+    errored.push(name);
+    console.log('ERROR          ' + name + '   [the suites did not report a result]');
+  } else if (fails > 0){
+    killed++; console.log('KILLED  ' + String(fails).padStart(3) + '  ' + name);
+  } else {
+    survived.push(name); console.log('SURVIVED       ' + name);
+  }
 }
 console.log('\n=== ' + killed + '/' + CASES.length + ' mutations detected ===');
+if (errored.length){
+  console.log('ERRORED (no result reported, verdict unknown):');
+  errored.forEach(n => console.log('  ' + n));
+}
 if (survived.length) console.log('SURVIVORS:\n  ' + survived.join('\n  '));
+// A run that could not answer for a case has not verified the guard it names.
+process.exitCode = (survived.length || errored.length) ? 1 : 0;

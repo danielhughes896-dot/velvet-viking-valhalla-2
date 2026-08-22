@@ -3,15 +3,15 @@ KILLED    1  access: an unknown provider is trusted
 KILLED    3  access: past_due invents its own grace
 KILLED    2  access: an unreadable database reads as no subscription
 KILLED    2  trial: the allowance can be spent twice
-KILLED    9  trial: the trial length comes from somewhere else
-KILLED    2  trial: checkout stops requiring a card
-KILLED   17  subscription: the product code drifts again
+KILLED   10  trial: the trial length comes from somewhere else
+KILLED    3  trial: checkout stops requiring a card
+KILLED   20  subscription: the product code drifts again
 KILLED    1  webhook: a replay is applied twice
 KILLED    1  webhook: an unsigned delivery is accepted
 KILLED    2  webhook: a rotation drops every event
-KILLED   13  webhook: the S.sb prefix is doubled again
+KILLED   16  webhook: the S.sb prefix is doubled again
 KILLED    2  cancellation: a cancelled paid period ends immediately
-KILLED    4  cancellation: an ordinary cancellation revokes
+KILLED    5  cancellation: an ordinary cancellation revokes
 KILLED    3  pause: access continues while paused
 KILLED    3  pause: a paused athlete can buy a second subscription
 KILLED    5  pause: the yearly rule is dropped
@@ -33,7 +33,7 @@ KILLED    3  deletion: a delete is not scoped to the caller
 KILLED    2  deletion: anon may delete accounts
 KILLED    1  monday: the raw uuid is used when no salt is set
 KILLED    3  monday: the payload is a copy rather than a projection
-KILLED    1  monday: the allow list stops being enforced
+KILLED    2  monday: the allow list stops being enforced
 KILLED    1  monday: a re-sync creates a second item
 KILLED    1  monday: a provider error body is echoed
 KILLED   13  workout: an adjusted session stops being shrunk and drops its structure
@@ -43,7 +43,7 @@ KILLED    1  workout: the recovery ceiling deletes the easy run it just wrote
 KILLED    4  workout: a strides session is no longer fitted
 KILLED    1  workout: strides are hung on an easy run of nothing
 KILLED    1  workout: the adjustment record is rendered above the workout
-KILLED   13  workout: the card stops rendering the structured workout at all
+KILLED   14  workout: the card stops rendering the structured workout at all
 KILLED    1  workout: restore leaves the day without the prescription it had
 KILLED    1  workout: a rename overwrites the name the athlete typed
 KILLED    1  workout: the heading keeps naming the distance it no longer prescribes
@@ -58,19 +58,19 @@ KILLED    1  volume: a block may start from whatever the last one prescribed
 KILLED    7  volume: the ceiling ratchets on demonstrated capacity again
 KILLED    5  volume: one heroic week counts as capacity
 KILLED    1  volume: capacity from years ago still counts
-KILLED    3  progression: compliance alone is a reason again
-KILLED    6  progression: the anchor goes back to what the last ramp produced
+KILLED    4  progression: compliance alone is a reason again
+KILLED    7  progression: the anchor goes back to what the last ramp produced
 KILLED    4  progression: recovering earns a step up
 KILLED    2  progression: missed sessions stop mattering
 KILLED    2  progression: sessions that never land stop mattering
 KILLED    1  progression: never reaching the last block is no obstacle
 KILLED    1  progression: a first block is ramped from a capacity it no longer has
-KILLED    3  progression: the step comes back once per block instead of once per cycle
+KILLED    4  progression: the step comes back once per block instead of once per cycle
 KILLED    4  progression: a cycle shrinks until the rule does nothing
 KILLED    2  progression: recovery and maintenance count toward the cycle
-SURVIVED       progression: the step is never recorded, so the cycle never starts
+KILLED    1  progression: the step is never recorded, so the cycle never starts
 KILLED    3  progression: the cycle rule masks a reason the athlete has not earned a step
-KILLED    7  progression: the magnitude of a step is widened
+KILLED    8  progression: the magnitude of a step is widened
 KILLED    2  progression: the peak stops being bounded by capacity
 SURVIVED       progression: the peak is measured against a week never scheduled
 KILLED    1  recovery: the intensity ceiling stops at the date window again
@@ -108,8 +108,48 @@ KILLED    1  voice: safety-critical language is suppressed like anything else
 KILLED    2  voice: the same commentary lands on every card again
 KILLED    2  voice: a heart rate the athlete never logged is claimed
 KILLED    1  voice: the internal block state reaches the athlete again
+KILLED   24  consent: the gate stops fai1ing closed
+KILLED    3  consent: a stale version still counts as agreement
+KILLED   16  consent: the default becomes granted
+KILLED    1  consent: the builder box is pre-ticked
+KILLED    2  consent: heart rate reaches the athlete record anyway
+KILLED    2  consent: how a session felt is read anyway
+KILLED    4  consent: the morning readiness answers are read anyway
+KILLED    2  consent: body and sleep readings are taken from the notes anyway
+KILLED    3  consent: the covered-signal classifier stops covering the body
+KILLED    2  consent: the athlete’s heart-rate zones are computed anyway
+KILLED    1  consent: a typed heart rate is stored anyway
+KILLED    1  consent: heart-rate drift is still computed from saved laps
+KILLED    1  consent: the recent-context aggregate still averages heart rate
+KILLED    1  consent: comparable sessions put the heart rate back on the card
+KILLED    1  consent: a Strava heart rate is written into the log anyway
+KILLED    1  consent: a Strava heart rate is stored on the server anyway
+KILLED    2  consent: an unreadable consent table is read as agreement
+KILLED    6  consent: the ingest strip stops removing the covered fields
+KILLED    1  consent: the Garmin seam trusts its own strip
+KILLED    2  consent: withdrawal leaves the heart-rate profile values behind
+KILLED    1  consent: the record collapses to a bare boolean
+KILLED    1  consent: withdrawal is not timestamped
+KILLED    1  consent: the athlete is asked again after saying no
+KILLED    1  consent: Settings loses the way back out
+KILLED    1  consent: the client and server versions drift apart
+KILLED    1  consent: the audit table becomes rewritable by its own subject
+KILLED    1  consent: the audit table stops being scoped to the athlete
+KILLED    2  consent: a covered field is added to the operational allow list
+KILLED    1  consent: a grant no longer needs a record to prove it
+KILLED    1  consent: the builder reads LTHR before the grant is recorded
+KILLED    1  consent: a failed record is treated as a success
+KILLED    7  erasure: it removes something that is not covered
+KILLED    2  erasure: the subtractive check stops checking
+KILLED    1  erasure: a dry run writes anyway
+KILLED    4  erasure: it destroys the consent record with the values
+KILLED    2  erasure: it mutates the caller document
+KILLED    1  store: the prices come back inside the native shell
+KILLED    2  android: a manifest comment breaks XML again
+KILLED    2  android: device backup of the cached plan is allowed again
+KILLED    2  monday: the mirror trusts the caller instead of re-reading
+KILLED    7  monday: a mirror failure fails the webhook
 
-=== 108/110 mutations detected ===
+=== 150/151 mutations detected ===
 SURVIVORS:
-  progression: the step is never recorded, so the cycle never starts
   progression: the peak is measured against a week never scheduled
