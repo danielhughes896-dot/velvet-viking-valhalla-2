@@ -135,6 +135,11 @@ function loadApp(options) {
   sandbox.clearInterval = function(){};
   sandbox.console = console;
   sandbox.URLSearchParams = URLSearchParams;
+  // Real browsers have these globally; Node's VM sandbox does not. Only
+  // consumer today is decoding a JWT payload to read its `sub` claim, which
+  // needs the real base64 behaviour rather than a silent no-op.
+  sandbox.atob = function(b64){ return Buffer.from(b64, 'base64').toString('binary'); };
+  sandbox.btoa = function(str){ return Buffer.from(str, 'binary').toString('base64'); };
   sandbox.Date = opts.pinnedDate ? makePinnedDate(opts.pinnedDate) : Date;
   sandbox.Math = Math;
   sandbox.JSON = JSON;

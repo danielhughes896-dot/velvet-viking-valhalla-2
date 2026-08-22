@@ -1,0 +1,288 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { loadApp } = require('./harness.js');
+const Preview = require('../api/_preview.js');
+
+// THE CONTINUOUS BUILD.
+//
+// The approved journey is Builder -> Personalised Preview -> Save My Plan ->
+// Authenticate -> Trial/Purchase -> App, and the plan an athlete wakes up
+// with inside the app must be the exact one the preview showed them -- not a
+// second, independent build from the same raw answers, and never a plan
+// built from someone else's abandoned attempt on a shared device.
+//
+// These tests drive protected/velvet-viking-valhalla.html's real
+// adoptPendingBuildIfAny() through the harness, and cross-check its output
+// against api/_preview.js's real generate()/summarise() -- the same two
+// engine functions, called with the same arguments, must agree.
+
+const PINNED = '2026-08-20T09:00:00Z';
+const PINNED_MS = new Date(PINNED).getTime();
+
+function fakeJwt(sub){
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64').replace(/=+$/, '');
+  return b64({ alg: 'HS256' }) + '.' + b64({ sub }) + '.sig';
+}
+
+/* Runs the real server-side preview for a raw mini-builder input and returns
+   both the athlete-facing preview and the exact buildEcho() the endpoint
+   would bank to localStorage -- i.e. what /start actually produces today. */
+function realPreview(input){
+  const previewApp = loadApp({ pinnedDate: PINNED });
+  const v = Preview.validate(input);
+  assert.equal(v.ok, true, 'fixture input failed validation: ' + JSON.stringify(v.errors || v));
+  const g = Preview.generate(previewApp, v.input);
+  const preview = Preview.summarise(g.app, g.days, g.blockResult, v.input);
+  const build = Preview.buildEcho(v.input, g.startDate, g.raceDate);
+  return { preview, build };
+}
+
+const RAW_INPUT = {
+  purpose: 'race', distanceKey: 'half', weeks: 12, volume: 45,
+  activeDays: [0, 1, 2, 4, 5], longRunDay: 5, benchmarkSeconds: 2700 // 45:00 10K
+};
+
+function bankPending(app, build, extra){
+  // savedAt is measured against PINNED_MS, not the real wall clock -- the
+  // adopting app's own Date.now() is pinned to PINNED, and comparing a
+  // real-time savedAt against a pinned "now" would give a meaningless (and
+  // sign-flipped, once real time passes PINNED) age.
+  const pending = Object.assign({ build: build, savedAt: PINNED_MS }, extra || {});
+  app.window.localStorage.setItem('vvv_pending_build', JSON.stringify(pending));
+  return pending;
+}
+
+// ---------------------------------------------------------------------------
+// 4 & 5. THE ROUND TRIP CARRIES THE SAME ANSWERS INTO THE SAME REAL PLAN
+// ---------------------------------------------------------------------------
+test('adopting a banked build produces the exact plan the preview showed', () => {
+  const { preview, build } = realPreview(RAW_INPUT);
+
+  const app = loadApp({ pinnedDate: PINNED });
+  bankPending(app, build);
+
+  const adopted = app.adoptPendingBuildIfAny();
+  assert.equal(adopted, true, 'a valid banked build was not adopted');
+
+  assert.ok(app.state.setup, 'no plan was constructed');
+  assert.equal(app.state.setup.distanceKey, build.distanceKey);
+  assert.equal(app.state.setup.currentVolume, build.volume);
+  assert.equal(app.state.setup.raceDate, build.raceDate);
+  assert.equal(app.state.setup.startDate, build.startDate);
+  assert.equal(app.state.setup.hasEvent, false);
+  assert.equal(app.state.setup.purpose, 'race');
+  // JSON.stringify rather than assert.deepEqual: the adopted schedule's
+  // array was parsed inside the VM sandbox and Node's strict assertions
+  // treat that as a different realm even when every value matches.
+  assert.equal(JSON.stringify(app.state.setup.schedule),
+    JSON.stringify({ activeDays: build.activeDays, longRunDay: build.longRunDay }));
+  assert.equal(app.state.setup.planWeeks, preview.programme.weeks,
+    'the adopted plan runs a different number of weeks than the preview promised');
+
+  // Same shape: same total sessions, same total km, same first week.
+  const totalSessions = app.state.days.filter(d => (d.type || 'rest') !== 'rest').length;
+  const totalKm = Math.round(app.state.days.reduce((a, d) => a + (typeof d.km === 'number' ? d.km : 0), 0));
+  assert.equal(totalSessions, preview.programme.totalSessions);
+  assert.equal(totalKm, preview.programme.totalKm);
+
+  const week1 = app.state.days.filter(d => d.week === 1).sort((a, b) => a.date < b.date ? -1 : 1);
+  assert.equal(week1.length, preview.firstWeek.length, 'the first week has a different number of days');
+  week1.forEach((d, i) => {
+    const p = preview.firstWeek[i];
+    assert.equal(d.type || 'rest', p.type, 'day ' + i + ' type disagrees with the preview');
+    assert.equal(Math.round((d.km || 0) * 10) / 10, p.km, 'day ' + i + ' distance disagrees with the preview');
+  });
+
+  // No duplicate/second plan machinery: exactly one block was opened.
+  assert.equal(app.athlete().blocks.length, 1);
+  assert.equal(app.state.setup.blockId, app.athlete().blocks[0].id);
+});
+
+test('the adopted plan trains at the SAME paces the preview showed, not a different goal', () => {
+  const { preview, build } = realPreview(RAW_INPUT);
+  const app = loadApp({ pinnedDate: PINNED });
+  bankPending(app, build);
+  app.adoptPendingBuildIfAny();
+
+  const activeGoalTime = app.state.setup.goals[app.state.setup.activeGoal].timeSec;
+  const vdotFromGoal = app.vdotFromPerformance(
+    app.DISTANCE_PROFILES[app.state.setup.distanceKey].raceKm * 1000, activeGoalTime);
+  const vdotFromBenchmark = app.vdotFromPerformance(10000, build.benchmarkSeconds);
+  // Goal B is exactly the benchmark-equivalent pace -- see adoptPendingBuildIfAny()'s
+  // own comment. If this ever drifts, the athlete sees different training
+  // paces the moment they enter the app than the preview just showed them.
+  assert.ok(Math.abs(vdotFromGoal - vdotFromBenchmark) < 0.05,
+    'the active goal does not correspond to the benchmark VDOT the preview used: ' +
+    vdotFromGoal + ' vs ' + vdotFromBenchmark);
+  assert.ok(preview.paces && preview.paces.length > 0, 'fixture produced no comparable preview paces');
+});
+
+test('6 -- the builder gate never fires once a plan has been adopted', () => {
+  const { build } = realPreview(RAW_INPUT);
+  const app = loadApp({ pinnedDate: PINNED });
+  bankPending(app, build);
+  app.adoptPendingBuildIfAny();
+  // This is the literal condition renderHero() and renderMainContent() gate
+  // the "Build Your Training Block" screen on.
+  assert.equal(!app.state.setup, false, 'the athlete would still be shown the builder gate');
+  const hero = app.renderHero();
+  assert.doesNotMatch(hero, /Build Your Training Block/,
+    'the builder gateway still renders after a plan was adopted');
+});
+
+// ---------------------------------------------------------------------------
+// 9. AN EXISTING PLAN CAN NEVER BE OVERWRITTEN
+// ---------------------------------------------------------------------------
+test('9 -- a returning athlete\'s existing plan is never touched, even with a build banked', () => {
+  const { build } = realPreview(RAW_INPUT);
+  const app = loadApp({ pinnedDate: PINNED });
+  const existing = { distanceKey: 'full', currentVolume: 60, raceDate: '2026-12-01',
+    startDate: '2026-08-01', planWeeks: 16, schedule: { activeDays: [0,1,2,3,4], longRunDay: 4 },
+    blockId: 'existing-block', purpose: 'race',
+    benchmark: { distanceKey: '10k', timeSec: 2400 },
+    goals: { A: { timeSec: 12000 } }, activeGoal: 'A', paceOverrides: {}, lthr: null, maxHR: null,
+    experience: 'experienced' };
+  app.state.setup = Object.assign({}, existing);
+  app.state.days = [{ date: '2026-08-20', week: 3, type: 'easy', km: 8 }];
+  bankPending(app, build);
+
+  const adopted = app.adoptPendingBuildIfAny();
+  assert.equal(adopted, false, 'an existing plan was overwritten');
+  assert.deepEqual(app.state.setup, existing, 'the existing plan was mutated');
+  assert.equal(app.state.days.length, 1, 'existing training days were replaced');
+});
+
+// ---------------------------------------------------------------------------
+// 10. ABANDONED / CORRUPT / FOREIGN STATE IS SAFELY HANDLED
+// ---------------------------------------------------------------------------
+test('10a -- a stale banked build (older than 48h) is not adopted, and is cleared', () => {
+  const { build } = realPreview(RAW_INPUT);
+  const app = loadApp({ pinnedDate: PINNED });
+  bankPending(app, build, { savedAt: PINNED_MS - 49 * 60 * 60 * 1000 });
+
+  const adopted = app.adoptPendingBuildIfAny();
+  assert.equal(adopted, false, 'a 49-hour-old build was adopted');
+  assert.equal(app.state.setup, null);
+  assert.equal(app.window.localStorage.getItem('vvv_pending_build'), null,
+    'a rejected stale build was left sitting in storage');
+});
+
+test('10b -- corrupt JSON in the pending slot is not adopted, and is cleared', () => {
+  const app = loadApp({ pinnedDate: PINNED });
+  app.window.localStorage.setItem('vvv_pending_build', '{not valid json');
+  const adopted = app.adoptPendingBuildIfAny();
+  assert.equal(adopted, false);
+  assert.equal(app.state.setup, null);
+  assert.equal(app.window.localStorage.getItem('vvv_pending_build'), null);
+});
+
+test('10c -- a build missing required fields is not adopted, and is cleared', () => {
+  const app = loadApp({ pinnedDate: PINNED });
+  app.window.localStorage.setItem('vvv_pending_build', JSON.stringify({ savedAt: Date.now() }));
+  const adopted = app.adoptPendingBuildIfAny();
+  assert.equal(adopted, false);
+  assert.equal(app.state.setup, null);
+});
+
+test('10d -- a build that fails the real builder\'s own validation rules is refused', () => {
+  const app = loadApp({ pinnedDate: PINNED });
+  const { build } = realPreview(RAW_INPUT);
+  // 7 active days -- /start's mini-builder now refuses this client-side too
+  // (see start.html), but the app must refuse it independently regardless of
+  // what reaches localStorage.
+  const badBuild = Object.assign({}, build, { activeDays: [0,1,2,3,4,5,6] });
+  bankPending(app, badBuild);
+  assert.equal(app.adoptPendingBuildIfAny(), false, 'an out-of-range day count was adopted');
+  assert.equal(app.state.setup, null);
+});
+
+test('10e -- no pending build at all is a safe no-op', () => {
+  const app = loadApp({ pinnedDate: PINNED });
+  assert.equal(app.adoptPendingBuildIfAny(), false);
+  assert.equal(app.state.setup, null);
+});
+
+test('10f -- a build banked for a DIFFERENT account is refused, not silently inherited', () => {
+  const { build } = realPreview(RAW_INPUT);
+  const app = loadApp({ pinnedDate: PINNED });
+  app.cloudSession = { access_token: fakeJwt('athlete-b') };
+  bankPending(app, build, { uid: 'athlete-a' });
+
+  const adopted = app.adoptPendingBuildIfAny();
+  assert.equal(adopted, false, 'athlete B silently inherited athlete A\'s abandoned build');
+  assert.equal(app.state.setup, null);
+});
+
+test('a build already tagged for the SIGNED-IN account is adopted normally', () => {
+  const { build } = realPreview(RAW_INPUT);
+  const app = loadApp({ pinnedDate: PINNED });
+  app.cloudSession = { access_token: fakeJwt('athlete-a') };
+  bankPending(app, build, { uid: 'athlete-a' });
+  assert.equal(app.adoptPendingBuildIfAny(), true);
+});
+
+test('a build never claimed by anyone (no uid stamp) is still adopted normally', () => {
+  const { build } = realPreview(RAW_INPUT);
+  const app = loadApp({ pinnedDate: PINNED });
+  app.cloudSession = { access_token: fakeJwt('athlete-a') };
+  bankPending(app, build); // no uid field at all
+  assert.equal(app.adoptPendingBuildIfAny(), true);
+});
+
+// ---------------------------------------------------------------------------
+// IDEMPOTENCY -- init()'s fallback and cloudReconcile()'s hook can never
+// double-adopt, whichever one runs first.
+// ---------------------------------------------------------------------------
+test('adoption never fires twice, even if called again after succeeding', () => {
+  const { build } = realPreview(RAW_INPUT);
+  const app = loadApp({ pinnedDate: PINNED });
+  bankPending(app, build);
+  assert.equal(app.adoptPendingBuildIfAny(), true);
+  const firstBlockId = app.state.setup.blockId;
+  assert.equal(app.adoptPendingBuildIfAny(), false, 'a second call adopted again');
+  assert.equal(app.state.setup.blockId, firstBlockId, 'a second block was opened');
+  assert.equal(app.athlete().blocks.length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// PERSISTENCE -- consent and HR data are never smuggled in from an
+// unauthenticated build, and the athlete's existing consent card still fires.
+// ---------------------------------------------------------------------------
+test('an adopted plan never carries LTHR/MaxHR, and consent is left for the app to ask', () => {
+  const { build } = realPreview(RAW_INPUT);
+  const app = loadApp({ pinnedDate: PINNED });
+  bankPending(app, build);
+  app.adoptPendingBuildIfAny();
+  assert.equal(app.state.setup.lthr, null);
+  assert.equal(app.state.setup.maxHR, null);
+  assert.equal(app.state.healthConsent, null, 'consent must not be inferred from reaching the end of acquisition');
+});
+
+// ---------------------------------------------------------------------------
+// DEFECT REGRESSION -- start.html's weekday numbering must agree with the
+// engine's ISO numbering (Mon=0..Sun=6), or every previewed/adopted plan
+// runs on the wrong days.
+// ---------------------------------------------------------------------------
+test('start.html sends the engine\'s own ISO weekday numbering, not getDay()', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'start.html'), 'utf8');
+  assert.match(src, /var DOW\s*=\s*\[0,\s*1,\s*2,\s*3,\s*4,\s*5,\s*6\]/,
+    'start.html no longer sends ISO weekday numbers (Mon=0..Sun=6)');
+});
+
+test('a Saturday long run picked on /start lands on a Saturday in the adopted plan', () => {
+  // ISO 5 = Saturday. This is the exact regression the investigation found:
+  // getDay() numbering shifted every chosen day by one.
+  const input = Object.assign({}, RAW_INPUT, { activeDays: [0,1,2,4,5], longRunDay: 5 });
+  const { build } = realPreview(input);
+  const app = loadApp({ pinnedDate: PINNED });
+  bankPending(app, build);
+  app.adoptPendingBuildIfAny();
+  const longRuns = app.state.days.filter(d => d.type === 'long');
+  assert.ok(longRuns.length > 0, 'no long run was scheduled at all');
+  longRuns.forEach(d => {
+    assert.equal(app.isoWeekday(d.date), 5, 'a long run landed on the wrong weekday: ' + d.date);
+  });
+});

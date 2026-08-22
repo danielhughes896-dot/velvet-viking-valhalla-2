@@ -79,8 +79,10 @@ test('the banked build carries every field the builder actually asked for', () =
   const input = /var input = \{[^]*?\};/.exec(build)[0];
   ['purpose', 'distanceKey', 'weeks', 'volume', 'activeDays', 'longRunDay', 'benchmarkSeconds']
     .forEach(field => assert.match(input, new RegExp(field), 'the banked answers are missing ' + field));
-  assert.match(build, /savePending\(\{ input: input, preview: r\.body\.preview, period: period \}\)/,
+  assert.match(build, /savePending\(\{ input: input, preview: r\.body\.preview, build: r\.body\.build,/,
     'the preview is banked without the answers that produced it');
+  assert.match(build, /savedAt: Date\.now\(\)/,
+    'the banked build carries no timestamp, so it can never be aged out as abandoned');
 });
 
 test('every route() branch that would otherwise show the builder checks for a banked preview first', () => {

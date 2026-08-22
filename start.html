@@ -331,11 +331,36 @@
      and the preview on this device, the same way the session token already
      lives in localStorage, is the whole mechanism. */
   var PENDING_KEY = 'vvv_pending_build';
+  /* An abandoned build must not sit forever waiting for someone else to walk
+     up to the same device and sign in. Two days is generous for a genuine
+     "let me sleep on it" and still short enough that a stale record cannot
+     silently outlive the athlete who typed it. */
+  var PENDING_MAX_AGE_MS = 48 * 60 * 60 * 1000;
   function savePending(obj){ try{ localStorage.setItem(PENDING_KEY, JSON.stringify(obj)); }catch(e){} }
   function loadPending(){
-    try{ return JSON.parse(localStorage.getItem(PENDING_KEY) || 'null'); }catch(e){ return null; }
+    try{
+      var p = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null');
+      if (!p) return null;
+      if (!p.savedAt || (Date.now() - p.savedAt) > PENDING_MAX_AGE_MS){ clearPending(); return null; }
+      return p;
+    }catch(e){ return null; }
   }
   function clearPending(){ try{ localStorage.removeItem(PENDING_KEY); }catch(e){} }
+  /* Read-only, unverified -- the server verifies every request that matters
+     on its own. This exists only so a build banked before one athlete's
+     magic link is claimed cannot be silently inherited by a different real
+     person who later signs in on the same shared device: it tags the record
+     with whichever account was first to authenticate while it existed. */
+  function subFromToken(tok){
+    try{
+      var parts = String(tok).split('.');
+      if (parts.length < 2) return null;
+      var payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (payload.length % 4) payload += '=';
+      var json = JSON.parse(decodeURIComponent(escape(atob(payload))));
+      return json.sub || null;
+    }catch(e){ return null; }
+  }
 
   var enter = function(){ clearPending(); location.replace('/'); };
 
@@ -423,6 +448,15 @@
         show('pane-auth');
         return;
       }
+      /* Whoever is signed in now is claiming this pending build -- tag it with
+         them, once, the first time we see it authenticated. A record already
+         tagged for a DIFFERENT account is somebody else's abandoned build on
+         a shared device, not this athlete's: drop it rather than adopt it. */
+      if (pending){
+        var sub = subFromToken(tok);
+        if (sub && !pending.uid){ pending.uid = sub; savePending(pending); }
+        else if (sub && pending.uid && pending.uid !== sub){ clearPending(); pending = null; }
+      }
       /* Access already -- beta, trialling, paid, or inside a cancelled period.
          They do not see acquisition screens again. */
       if (b.access === true){ enter(); return; }
@@ -498,9 +532,16 @@
   applyPurpose();
 
   /* ---------- build ---------- */
+  /* THE RUNTIME'S WEEKDAY NUMBERING IS ISO -- Mon=0 ... Sun=6 -- not
+     JavaScript's getDay() (Sun=0 ... Sat=6). This used to send getDay()
+     numbers into a schedule the engine reads as ISO, so every preview and
+     every plan built from it silently ran on the wrong days: picking
+     Mon/Tue/Wed/Fri/Sat with a Saturday long run produced Tue/Wed/Thu/Fri/Sun
+     with the long run on Sunday. DAYS and DOW now agree with the engine, not
+     with the browser. */
   var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  var DOW  = [1,2,3,4,5,6,0];      // the runtime's weekday numbering
-  var picked = { 1:true, 2:true, 3:true, 5:true, 6:true };
+  var DOW  = [0,1,2,3,4,5,6];
+  var picked = { 0:true, 1:true, 2:true, 4:true, 5:true };  // Mon,Tue,Wed,Fri,Sat
   function renderDays(){
     $('days').innerHTML = '';
     DAYS.forEach(function(label, i){
@@ -526,7 +567,7 @@
       sel.appendChild(o);
     });
     if (prev && picked[Number(prev)]) sel.value = prev;
-    else if (picked[6]) sel.value = '6';
+    else if (picked[5]) sel.value = '5';   // prefer Saturday (ISO 5)
   }
   function clockToSec(v){
     var parts = String(v || '').split(':').map(Number);
@@ -539,7 +580,10 @@
   $('build').addEventListener('click', function(){
     clear('build-err');
     var active = Object.keys(picked).filter(function(d){ return picked[d]; }).map(Number);
-    if (active.length < 2){ fail('build-err', 'Pick at least two days you can run.'); return; }
+    /* Matches the real builder's own rule (3-6 running days), not a looser
+       one -- so nothing previewed here could ever fail to become the plan
+       the athlete actually gets once they authenticate. */
+    if (active.length < 3 || active.length > 6){ fail('build-err', 'Pick between 3 and 6 running days.'); return; }
     var bench = clockToSec($('bench').value);
     if (!isFinite(bench)){ fail('build-err', 'Give your 10K time as minutes and seconds, like 45:00.'); return; }
     var input = {
@@ -557,8 +601,13 @@
       if (r.status !== 200){ fail('build-err', 'We could not build that. Check the numbers and try again.'); return; }
       /* Banked before the preview is even shown -- a refresh one second later
          must still find it, and it is what "Save My Plan" and the post-auth
-         resume both read back. */
-      savePending({ input: input, preview: r.body.preview, period: period });
+         resume both read back. `build` is the exact, already-shaped argument
+         set the server used to generate this preview (see api/_preview.js's
+         buildEcho()); the app replays it verbatim once the athlete
+         authenticates, so the plan they wake up with is this preview, not a
+         second guess at it from the raw form fields. */
+      savePending({ input: input, preview: r.body.preview, build: r.body.build,
+                    period: period, savedAt: Date.now() });
       showPreview(r.body.preview, period);
       window.scrollTo(0, 0);
     }).catch(function(){ $('build').disabled = false; fail('build-err', 'We could not build that just now.'); });
