@@ -291,11 +291,16 @@ const CASES = [
   ['progression: the peak stops being bounded by capacity', 'protected/velvet-viking-valhalla.html',
    "  if (demForPeak) peakVolume = Math.min(peakVolume, round1(demForPeak * PEAK_OVER_DEMONSTRATED));",
    "", ['progressionJustification','volumeCeiling','blockShape']],
+  /* progressionJustification FIRST, and it was missing. The test that kills this
+     lives there; the case named only the other two, so the case ran 65 tests
+     rather than 91 and reported a survivor for five consecutive full passes.
+     Every "isolated" re-check added the suite by hand and killed it, which is
+     how a case-definition error read for hours as a runner defect. */
   ['progression: the peak is measured against a week never scheduled',
    'protected/velvet-viking-valhalla.html',
    "                          startVolume: spec.volume, peakVolume: largestScheduledWeek(days),",
    "                          startVolume: spec.volume, peakVolume: blockResult.peakVolume,",
-   ['blockTransitions','yearRoundLifecycle']],
+   ['progressionJustification','blockTransitions','yearRoundLifecycle']],
 
   /* ---- RECOVERY REDUCES TRAINING STRESS ---- */
   ['recovery: the intensity ceiling stops at the date window again',
@@ -678,8 +683,19 @@ function baselineFor(files){
   return baselines.get(files);
 }
 
+/* Narrowing a run. MUT_FROM/MUT_TO take case indices so a single case can be
+   re-checked, or a slice bisected, without a ninety-minute pass; MUT_TAP_DIR
+   saves each case's raw output there. Both exist because a case was reported as
+   surviving five full runs while being killed by every direct run of the
+   identical command, and finding out why needed the batch's own output rather
+   than another isolated reproduction. */
+const ONLY_FROM = parseInt(process.env.MUT_FROM || '0', 10);
+const ONLY_TO = parseInt(process.env.MUT_TO || String(CASES.length), 10);
+const TAP_DIR = process.env.MUT_TAP_DIR || '';
+
 let survived = [], errored = [], killed = 0;
-for (const [name, file, from, to, suites] of CASES){
+for (const [idx, [name, file, from, to, suites]] of CASES.entries()){
+  if (idx < ONLY_FROM || idx >= ONLY_TO) continue;
   const p = ROOT + '/' + file;
   const orig = fs.readFileSync(p, 'utf8');
   if (orig.indexOf(from) === -1){ survived.push(name + '   [ANCHOR NOT FOUND]'); continue; }
@@ -696,6 +712,9 @@ for (const [name, file, from, to, suites] of CASES){
   fs.writeFileSync(p, orig.replace(from, to));          // clean-source run, cached per suite set
   const r = runSuites(files);
   fs.writeFileSync(p, orig);
+  if (TAP_DIR){
+    try{ fs.copyFileSync(OUT_FILE, TAP_DIR + '/case-' + idx + '.tap'); }catch(e){ /* best effort */ }
+  }
   if (r.tests == null){
     errored.push(name);
     console.log('ERROR          ' + name + '   [the suites did not report a result]');
@@ -703,9 +722,9 @@ for (const [name, file, from, to, suites] of CASES){
     errored.push(name + '   [ran ' + r.tests + ' tests, expected ' + expected + ']');
     console.log('ERROR          ' + name + '   [ran ' + r.tests + ' of ' + expected + ' tests]');
   } else if (r.fails > 0){
-    killed++; console.log('KILLED  ' + String(r.fails).padStart(3) + '  ' + name);
+    killed++; console.log('KILLED  ' + String(r.fails).padStart(3) + '  [' + idx + '] ' + name);
   } else {
-    survived.push(name); console.log('SURVIVED       ' + name);
+    survived.push(name); console.log('SURVIVED       [' + idx + '] ' + name);
   }
 }
 console.log('\n=== ' + killed + '/' + CASES.length + ' mutations detected ===');
