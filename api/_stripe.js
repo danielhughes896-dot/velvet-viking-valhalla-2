@@ -2,7 +2,7 @@
 //
 // Everything Stripe-shaped stops here: its event names, its object shapes, its
 // signature scheme, its status vocabulary. What leaves this file is Velvet
-// Viking's own event vocabulary from _billing.js, which is why the entitlement
+// Viking's own provider-neutral event vocabulary, which is why the entitlement
 // resolver, the coaching engine and every website component remain unable to
 // tell which provider paid.
 //

@@ -24,7 +24,6 @@
 
 const S = require('./_strava.js');
 const A = require('./_access.js');
-const B = require('./_billing.js');
 
 function log(what){ try{ console.log('subscription: ' + what); }catch(e){} }
 
@@ -48,7 +47,6 @@ function publicView(decision, ent, uid, email){
     locked_capabilities: decision.locked_capabilities || A.lockedCapabilities(),
     access_until: decision.access_until,
     cancel_at_period_end: decision.cancel_at_period_end,
-    grace_days: B.GRACE_DAYS,
     commercial_required: A.commercialRequired(),
     account_required: A.accountRequired(),
     checkout_configured: !!checkoutUrl()

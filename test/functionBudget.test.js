@@ -26,7 +26,7 @@ const HOBBY_FUNCTION_LIMIT = 12;
 
 /* Vercel's rule, restated: every file directly under /api becomes a Serverless
    Function UNLESS its name begins with an underscore. That is what makes
-   _access.js, _billing.js and the rest shared modules rather than endpoints --
+   _access.js, _entitlement.js and the rest shared modules rather than endpoints --
    and it is not a convention this repository invented, it is the platform's,
    which the failed deployment confirmed by counting exactly the fourteen
    non-underscore files and no more. */
@@ -55,7 +55,7 @@ test('the budget is stated with its remaining headroom, so growth is a decision'
 });
 
 test('shared modules are underscored, or they silently become functions', () => {
-  ['_access.js', '_billing.js', '_strava.js',
+  ['_access.js', '_strava.js',
    '_subscription.js', '_account-data.js', '_account-delete.js',
    /* The Stripe foundation. Every one of these is a module rather than an
       endpoint precisely because the budget is full — an un-prefixed rename

@@ -61,6 +61,31 @@ const CASES = [
    "    return { ok: false, active: false, product: null, reason: 'invalid',",
    "    return { ok: true, active: false, product: null, reason: 'none',"],
 
+  /* ---- ONE COMMERCIAL AUTHORITY ----
+     The convergence invariants. Each of these reopens a route by which a
+     second source of commercial truth, a second ledger, a second trial counter
+     or a grace period of our own invention could come back. */
+  ['authority: the webhook writes the projection directly again',
+   'api/billing-webhook.js',
+   "  const sync = await Store.syncEntitlementRow(S, cfg, ev.account_id);",
+   "  const sync = { ok: true }; await S.sb(cfg, '/entitlements?user_id=eq.' + ev.account_id, { method: 'PATCH', body: '{}' });",
+   ['commercialAuthority','stripeLifecycle','billingWebhook']],
+  ['authority: a non-Stripe delivery is interpreted rather than refused',
+   'api/billing-webhook.js',
+   "  return S.json(res, 501, { error: 'not_implemented', code: 'PROVIDER_NOT_SUPPORTED' });",
+   "  return S.json(res, 200, { received: true });",
+   ['commercialAuthority','billingWebhook']],
+  ['grace: the resolver invents a window when the provider supplied none',
+   'api/_entitlement.js',
+   "    const grace = asDate(s.grace_period_end);",
+   "    const grace = asDate(s.grace_period_end) || new Date(at.getTime() + 7*DAY_MS);",
+   ['commercialAuthority','commercialCore','accessGate']],
+  ['ledger: the replay key drops the provider, so two providers collide',
+   'supabase-commercial-core.sql',
+   "  on public.billing_events (provider, provider_event_id);",
+   "  on public.billing_events (provider_event_id);",
+   ['commercialAuthority','commercialSchemaCollision']],
+
   // ---- TRIAL ----
   ['trial: the allowance can be spent twice', 'api/billing-webhook.js',
    "'&trial_consumed_at=is.null'", "''"],

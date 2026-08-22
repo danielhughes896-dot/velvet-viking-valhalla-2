@@ -206,7 +206,7 @@ test('a dead Strava grant is cleared rather than papered over', () => {
 // ===========================================================================
 test('only one file per rail knows a provider, and today there is one rail', () => {
   const neutral = ['_products.js', '_entitlement.js', '_commercial-store.js',
-                   '_pause.js', '_access.js', '_billing.js'];
+                   '_pause.js', '_access.js'];
   for (const f of neutral){
     const c = code(path.join('api', f));
     assert.equal(/\bstripe\b/i.test(c), false, 'api/' + f + ' names the processor');
