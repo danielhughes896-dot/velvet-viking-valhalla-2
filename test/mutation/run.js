@@ -639,12 +639,50 @@ const CASES = [
    Errors are reported separately and fail the run, because the honest answer
    to "did this mutation survive" is that we do not know. */
 const OUT_FILE = require('os').tmpdir() + '/valhalla-mutation-out.txt';
+
+/* HOW MANY TESTS THAT SET OF SUITES IS SUPPOSED TO RUN.
+   Requiring a `# tests N` summary was not enough. node --test runs the files
+   in parallel workers and flattens their results, so a worker killed under
+   sustained load simply removes its tests from the count -- the summary is
+   still printed, the remaining suites still pass, and the case is recorded as
+   a SURVIVOR. One case did that on four consecutive full runs while being
+   killed by five separate runs of the identical command, including a replay of
+   its exact neighbourhood with checksums proving the file was clean.
+
+   So each distinct suite set is run ONCE against unmutated source to learn how
+   many tests it contains, and a mutated run that reports a different number has
+   not answered the question. Lazily, because the sets repeat: fifteen or so
+   baselines across a hundred and fifty cases. */
+const baselines = new Map();
+function runSuites(files){
+  try{ fs.unlinkSync(OUT_FILE); }catch(e){ /* first run */ }
+  try{
+    // A failing suite exits non-zero, which is the ordinary kill path.
+    cp.execSync('cd ' + ROOT + ' && node --test ' + files + ' > ' + OUT_FILE + ' 2>&1',
+                { encoding: 'utf8', timeout: 900000 });
+  }catch(e){ /* verdict comes from the output, never from the exit status */ }
+  let tap = '';
+  try{ tap = fs.readFileSync(OUT_FILE, 'utf8'); }catch(e){ tap = ''; }
+  const m = tap.match(/^# tests (\d+)/m);
+  return { tests: m ? parseInt(m[1], 10) : null,
+           fails: (tap.match(/^not ok /gm) || []).length };
+}
+function baselineFor(files){
+  if (!baselines.has(files)){
+    const b = runSuites(files);
+    if (b.tests == null || b.fails > 0)
+      throw new Error('the baseline run for ' + files + ' did not come back clean: ' +
+                      JSON.stringify(b));
+    baselines.set(files, b.tests);
+  }
+  return baselines.get(files);
+}
+
 let survived = [], errored = [], killed = 0;
 for (const [name, file, from, to, suites] of CASES){
   const p = ROOT + '/' + file;
   const orig = fs.readFileSync(p, 'utf8');
   if (orig.indexOf(from) === -1){ survived.push(name + '   [ANCHOR NOT FOUND]'); continue; }
-  fs.writeFileSync(p, orig.replace(from, to));
   /* A case may name the suites that guard it. The programme suites build and
      log whole plans and are minutes each, so running all of them for every one
      of sixty-four cases is hours -- and a mutation is only ever killed by the
@@ -653,22 +691,19 @@ for (const [name, file, from, to, suites] of CASES){
   const files = suites && suites.length
     ? suites.map(n => 'test/' + n + '.test.js').join(' ')
     : SUBSET;
-  try{ fs.unlinkSync(OUT_FILE); }catch(e){ /* first run */ }
-  try{
-    // A failing suite exits non-zero, which is the ordinary kill path.
-    cp.execSync('cd ' + ROOT + ' && node --test ' + files + ' > ' + OUT_FILE + ' 2>&1',
-                { encoding: 'utf8', timeout: 900000 });
-  }catch(e){ /* verdict comes from the output, never from the exit status */ }
+  // BASELINE FIRST, on clean source, then mutate.
+  const expected = baselineFor(files);
+  fs.writeFileSync(p, orig.replace(from, to));          // clean-source run, cached per suite set
+  const r = runSuites(files);
   fs.writeFileSync(p, orig);
-  let tap = '';
-  try{ tap = fs.readFileSync(OUT_FILE, 'utf8'); }catch(e){ tap = ''; }
-  const summaries = (tap.match(/^# tests \d+/gm) || []);
-  const fails = (tap.match(/^not ok /gm) || []).length;
-  if (!summaries.length){
+  if (r.tests == null){
     errored.push(name);
     console.log('ERROR          ' + name + '   [the suites did not report a result]');
-  } else if (fails > 0){
-    killed++; console.log('KILLED  ' + String(fails).padStart(3) + '  ' + name);
+  } else if (r.tests !== expected){
+    errored.push(name + '   [ran ' + r.tests + ' tests, expected ' + expected + ']');
+    console.log('ERROR          ' + name + '   [ran ' + r.tests + ' of ' + expected + ' tests]');
+  } else if (r.fails > 0){
+    killed++; console.log('KILLED  ' + String(r.fails).padStart(3) + '  ' + name);
   } else {
     survived.push(name); console.log('SURVIVED       ' + name);
   }
