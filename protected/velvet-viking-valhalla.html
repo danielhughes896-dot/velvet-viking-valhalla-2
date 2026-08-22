@@ -59,6 +59,24 @@
     --c-long:#5E93AC; --c-long-soft:rgba(94,147,172,0.16);
     --c-gold:var(--gold); --c-gold-soft:rgba(227,177,90,0.20);
 
+    /* ---------- ORDINARY CONTAINER SURFACES ----------
+       An alias, not a new ramp. These are the fills of containers that hold
+       content and nothing else -- a card, a callout, a panel. They exist so
+       LIGHT can collapse all three to the page colour while DARK keeps the
+       ramp it was designed with, and so the decision lives in one place
+       instead of in forty rules.
+
+       WHAT IS DELIBERATELY NOT HERE: inputs, buttons, chips, hover and active
+       states, meter tracks, the switch thumb, selected options and the
+       congratulations banner. Those fills carry state or semantics, and
+       flattening them would delete information rather than decoration.
+
+       In dark these resolve to exactly the values those containers already
+       used, so dark mode is byte-for-byte unchanged. */
+    --surface-2:var(--bg-2);
+    --surface-3:var(--bg-3);
+    --surface-4:var(--bg-4);
+
     /* ---------- CHERRY LACQUER ----------
        THE VELVET VIKING INTERACTIVE ACCENT. Japanese maple / dark cherry /
        wine. It replaced the Valhalla violet that used to live here, and it
@@ -98,11 +116,22 @@
        --cherry       BARE INDICATORS -- the rail, the gauge arc and needle, the
                       Race Outlook band, a switch track, a hairline. Nothing but
                       colour identifies these, so 1.4.11's 3:1 applies and their
-                      lightness is forced. #AD4A5F clears 3.06:1 on the worst
-                      dark surface (--bg-3 #201F23) and 3.43:1 on --bg. Its hue
-                      sits at 347deg rather than the canonical 339deg -- pulled a
-                      few degrees toward red, which at this unavoidable lightness
-                      reads as claret instead of magenta-rose.
+                      lightness is forced. #9A546C is the canonical value scaled
+                      x1.86 on every channel, which is the SMALLEST lift that
+                      clears 3:1 against the worst dark surface (--bg-3 #201F23,
+                      exactly 3.01:1). Proportional scaling is what keeps it the
+                      same colour: hue 339.4deg against the canonical 339.5deg.
+
+                      IT MUST NOT BE PULLED TOWARD RED. An earlier attempt moved
+                      it to 347deg to look less rosy, and landed it 6.8 deltaE
+                      from --c-threshold #B5505A -- the Threshold workout colour.
+                      A threshold session's left edge and the brand accent then
+                      read as one colour on the same card, which quietly deletes
+                      the difference between "this is Valhalla" and "this is a
+                      threshold session". At 339deg the separation is 18.5, and
+                      every other workout colour is 47 or further. The rosiness
+                      that shift was chasing belonged to the BUTTON, and the
+                      button is --cherry-fill's job.
 
        --cherry-fill  FILLED CONTROLS THAT CARRY THEIR OWN LABEL -- Continue,
                       Back, the Plan HQ panel nav. A white label at 9.14:1
@@ -122,12 +151,12 @@
        4.69:1 on --bg-3, pulled to 352deg for the same reason. Using the fill
        tone for text would ship 3.18:1 body text; using the text tone for fills
        is how the rose happened in the first place. */
-    --cherry:#AD4A5F;                   /* bare indicators -- 3.06:1 on --bg-3 */
+    --cherry:#9A546C;                   /* bare indicators -- 3.01:1 on --bg-3 */
     --cherry-fill:#7A2E42;              /* labelled fills -- white at 9.14:1 */
-    --cherry-soft:#AD4A5F;              /* node fill; the accent itself here */
-    --cherry-line:rgba(173,74,95,0.45);
-    --cherry-dim:rgba(173,74,95,0.50);
-    --cherry-text:#D06A78;              /* the accent AS TEXT -- 4.69:1 */
+    --cherry-soft:#9A546C;              /* node fill; the accent itself here */
+    --cherry-line:rgba(154,84,108,0.45);
+    --cherry-dim:rgba(154,84,108,0.50);
+    --cherry-text:#C46A89;              /* the accent AS TEXT -- 4.50:1 */
     /* Ink on --cherry-soft and on --cherry-fill. Cherry Lacquer is a DARK
        colour in both themes' terms, so unlike the violet it replaced its label
        does not have to flip: white clears AA on both fills (11.64:1 light,
@@ -192,6 +221,19 @@
        stock. Ink switches to a true neutral near-black (was a warm
        brown-black) for a cleaner hierarchy -- see B3 in the RC2 audit. */
     --bg:#F4F1EA; --bg-2:#FCFBFB; --bg-3:#EBE5D8; --bg-4:#E2DAC9;
+    /* ONE CONTINUOUS CREAM. The page was #F4F1EA and every ordinary container
+       sat on it in a slightly different cream -- near-white #FCFBFB or beige
+       #EBE5D8 -- so the app read as cream page, then beige card, then content,
+       with the fill doing work the border was already doing. The website it
+       belongs to separates things with the continuous field and a fine rule,
+       and this is that: the container fills collapse to the page colour and
+       the existing 1px --line borders, radii, spacing and type carry the
+       hierarchy on their own.
+
+       #F4F1EA IS UNCHANGED. --bg-2/3/4 are unchanged and still do their real
+       jobs -- inputs, hovers, tracks, chips, selected states. Only the
+       ORDINARY container fills move. */
+    --surface-2:var(--bg); --surface-3:var(--bg); --surface-4:var(--bg);
     --ink:#171717; --ink-dim:#514D45; --ink-faint:#5D574C;
     --line:#DAD1BB; --line-soft:#E5DECD;
     --shadow:0 10px 30px rgba(90,70,30,0.14);
@@ -398,7 +440,7 @@
   .taper-note.race-split svg{margin-top:2px;}
   .race-split-txt{line-height:1.45;}
   .race-split-txt b{font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--ink);}
-  .zone-card{margin:10px 14px 14px; padding:12px 13px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .zone-card{margin:10px 14px 14px; padding:12px 13px; background:var(--surface-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .zone-head{display:flex; align-items:center; justify-content:space-between; font-size:11.5px; margin-bottom:9px;}
   .zone-head span:first-child{text-transform:uppercase; letter-spacing:1px; color:var(--ink-dim); font-size:10.5px;}
   /* Time-on-feet is a duration -- a metric, like every pace and distance in
@@ -417,7 +459,7 @@
   .zone-legend{display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:10px;}
   .zleg-item{display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--ink-dim);}
   .zleg-dot{width:8px; height:8px; border-radius:50%; display:inline-block; flex:none;}
-  .fuel-card{margin-top:10px; border:1px dashed var(--line); border-radius:8px; background:var(--bg-3);}
+  .fuel-card{margin-top:10px; border:1px dashed var(--line); border-radius:8px; background:var(--surface-3);}
   /* HOW TO RUN THIS -- the outline, and nothing else. .how-card is the coaching
      disclosure; the Fueling card shares .fuel-card and keeps its neutral edge.
      The words, the icon and the interior are deliberately unchanged: the
@@ -634,7 +676,7 @@
   .section-label .rule{flex:1; height:1px; background:var(--line);}
 
   /* ---------- week accordion ---------- */
-  .week{border:1px solid var(--line); border-radius:var(--radius); margin-bottom:12px; background:var(--bg-2); overflow:hidden; box-shadow:var(--shadow-sm);}
+  .week{border:1px solid var(--line); border-radius:var(--radius); margin-bottom:12px; background:var(--surface-2); overflow:hidden; box-shadow:var(--shadow-sm);}
   .week:last-child{margin-bottom:0;}
   /* ---------- FULL PLAN phase dividers ----------
      Section markers between week cards, deliberately NOT a card: no
@@ -668,8 +710,18 @@
 
   /* ---------- day card ---------- */
   .day{
-    border-left:4px solid var(--c-rest); background:var(--bg-3); border-radius:var(--radius-sm);
+    border-left:4px solid var(--c-rest); background:var(--surface-3); border-radius:var(--radius-sm);
     padding:11px 12px; margin-top:8px; transition:.2s; position:relative;
+  }
+  /* The ONE ordinary container that had no full border: a day row was separated
+     from the week around it by its fill alone, so collapsing that fill to the
+     page colour would have dissolved it. Light gets the fine rule the rest of
+     the containers already had; the semantic 4px type bar on the left is
+     untouched, and dark keeps the fill it always had. */
+  [data-theme="light"] .day{
+    border-top:1px solid var(--line-soft);
+    border-right:1px solid var(--line-soft);
+    border-bottom:1px solid var(--line-soft);
   }
   .day:hover{background:var(--bg-4);}
   .day.type-easy{border-left-color:var(--c-easy);}
@@ -863,7 +915,7 @@
   .splits-warn{color:var(--gold-deep);}
 
   /* ---------- zone paces card (main dashboard) ---------- */
-  .zone-paces-card{margin:14px 14px 0; padding:14px 15px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);}
+  .zone-paces-card{margin:14px 14px 0; padding:14px 15px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius);}
   .zpc-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;}
   .zpc-head span:first-child{font-size:13px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
   .pzr{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line-soft);}
@@ -884,7 +936,7 @@
   .pzr-unit{color:var(--ink-faint); font-size:11px; width:20px;}
 
   /* ---------- compact read-only pace reference (Today tab) ---------- */
-  .pace-ref-card{margin:14px 0 0; padding:12px 15px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius);}
+  .pace-ref-card{margin:14px 0 0; padding:12px 15px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius);}
   .pace-ref-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;}
   .pace-ref-head span:first-child{font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
   .pace-ref-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid var(--line-soft); font-size:var(--fs-data);}
@@ -893,7 +945,7 @@
   .pace-ref-val{color:var(--ink);}
 
   /* ---------- AI post-session execution review ---------- */
-  .exec-review-card{margin-top:10px; padding:11px 12px; background:var(--bg-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .exec-review-card{margin-top:10px; padding:11px 12px; background:var(--surface-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .exec-review-head{display:flex; align-items:center; gap:8px; font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
   .exec-review-head svg{width:14px; height:14px; flex:none;}
   /* title yields first so the badge can never be pushed off or overlapped
@@ -926,7 +978,7 @@
   .cr-signal{display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
   .cr-sig-dot{font-size:12px; line-height:1;}
   .cr-sig-label{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:.6px; text-transform:uppercase; color:var(--ink);}
-  .cr-adjust{margin-top:11px; padding:11px 12px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .cr-adjust{margin-top:11px; padding:11px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .cr-adjust-line{font-size:12px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere;}
   .cr-adjust-why{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:4px; overflow-wrap:anywhere;}
 
@@ -1255,7 +1307,10 @@
      question as small caps and pushed the tick onto its own line. This is a
      pre-existing rendering bug, not a new control: the markup, the id, the
      copy and the stored decision are untouched. */
-  .field.bld-consent{margin:20px 0 4px; padding-top:16px; border-top:1px solid var(--line-soft);}
+  .field.bld-consent{margin:0;}
+  /* A permission is not part of the summary above it, so it is separated by a
+     rule and named rather than tucked in beside the plan's facts. */
+  .bld-permission{margin-top:22px; padding-top:16px; border-top:1px solid var(--line);}
   .field.bld-consent > label{
     display:flex; align-items:flex-start; gap:8px;
     text-transform:none; letter-spacing:0; opacity:1;
@@ -1367,7 +1422,7 @@
      global gold :focus-visible outline every other control in the app uses. */
   .switch input:checked + .switch-track{background:var(--cherry);}
   .switch input:checked + .switch-track::before{transform:translateX(18px);}
-  .callout{background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 12px; font-size:12px; color:var(--ink-dim); line-height:1.5; display:flex; gap:9px;}
+  .callout{background:var(--surface-3); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 12px; font-size:12px; color:var(--ink-dim); line-height:1.5; display:flex; gap:9px;}
   .callout svg{flex:none; width:16px; height:16px; color:var(--bronze); margin-top:1px;}
 
   /* ---------- file import ---------- */
@@ -1379,7 +1434,7 @@
   .dropzone svg{width:26px; height:26px; margin-bottom:8px; color:var(--bronze);}
   .dropzone .main{font-size:13px; font-weight:600; color:var(--ink);}
   .dropzone .sub{font-size:11px; margin-top:3px;}
-  .parse-preview{border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px; margin-top:14px; background:var(--bg-3);}
+  .parse-preview{border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px; margin-top:14px; background:var(--surface-3);}
   .parse-row{display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line-soft); font-size:12.5px;}
   .parse-row:last-of-type{border-bottom:none;}
   .parse-row .k{color:var(--ink-faint);}
@@ -1446,7 +1501,7 @@
     text-align:center; margin:18px 0 4px;
   }
   .view-fade{ animation:fadein .18s ease; }
-  .hub-card{margin:0 0 14px; padding:14px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .hub-card{margin:0 0 14px; padding:14px; background:var(--surface-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
   /* The last card in a view must not add its own trailing margin on top of the
      shared bottom clearance, or a view ending in a hub-card finishes with half
      as much space again as one that does not. */
@@ -1465,7 +1520,7 @@
   .coach-status-detail{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); margin-top:3px; overflow-wrap:anywhere;}
   .coach-phase{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); white-space:nowrap; flex:none; padding-top:4px;}
   .coach-metrics{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:12px;}
-  .coach-metric{background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:9px 8px; min-width:0; text-align:center;}
+  .coach-metric{background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:9px 8px; min-width:0; text-align:center;}
   .coach-metric .cm-k{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); line-height:1.2;}
   .coach-metric .cm-v{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin-top:3px; line-height:1.2; overflow-wrap:anywhere;}
   .coach-metric .cm-s{font-size:10px; color:var(--ink-dim); margin-top:2px; line-height:1.3; overflow-wrap:anywhere;}
@@ -1485,7 +1540,7 @@
   .coach-next-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text);}
   .coach-next-session{font-size:var(--fs-body); color:var(--ink); line-height:var(--lh-body); margin-bottom:6px; overflow-wrap:anywhere;}
   .coach-next-rec{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); overflow-wrap:anywhere;}
-  .coach-adjust{margin-top:11px; padding:11px 12px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .coach-adjust{margin-top:11px; padding:11px 12px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .coach-adjust-line{font-size:12px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere;}
   .coach-adjust-why{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:4px; overflow-wrap:anywhere;}
   /* Stacked, full-width buttons: they never sit side by side, so they cannot
@@ -1533,7 +1588,7 @@
   .coach-why-btn:hover, .coach-why-btn:focus-visible{color:var(--bronze);}
   .coach-why-list{
     margin:8px 0 0; padding:9px 11px 9px 26px; list-style:disc;
-    background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);
+    background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);
   }
   .coach-why-list li{font-size:11.5px; color:var(--ink-dim); line-height:1.55; margin:3px 0; overflow-wrap:anywhere;}
   /* ---------- conditional morning check ---------- */
@@ -1543,13 +1598,13 @@
      no new colour, border/text only, nothing animated. */
   .evo-link.is-progress{color:var(--bronze-text);}
   .evo-link.is-progress:hover, .evo-link.is-progress:focus-visible{color:var(--bronze);}
-  .evo-panel{margin-top:9px; padding:10px 11px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .evo-panel{margin-top:9px; padding:10px 11px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .evo-sec + .evo-sec{margin-top:9px;}
   .evo-k{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:3px;}
   .evo-v{font-size:11.5px; color:var(--ink-dim); line-height:1.5; overflow-wrap:anywhere;}
   .evo-list{margin:0; padding-left:17px; list-style:disc;}
   .evo-list li{font-size:11.5px; color:var(--ink); line-height:1.55; margin:2px 0; overflow-wrap:anywhere;}
-  .readiness{margin-top:11px; padding:10px 11px; background:var(--bg-2); border:1px dashed var(--line); border-radius:var(--radius-sm);}
+  .readiness{margin-top:11px; padding:10px 11px; background:var(--surface-2); border:1px dashed var(--line); border-radius:var(--radius-sm);}
   .readiness-head{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
   .readiness-row{display:flex; align-items:center; gap:8px; margin-top:6px;}
   .readiness-label{font-size:10px; letter-spacing:.8px; text-transform:uppercase; color:var(--ink-faint); width:44px; flex:none;}
@@ -1561,7 +1616,7 @@
   }
   .readiness-btn.on{background:var(--modal-active); color:var(--bronze-ink); border-color:var(--modal-active);}
   /* ---------- week status: one line, no dashboard ---------- */
-  .week-status{margin:0 0 12px; padding:11px 13px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  .week-status{margin:0 0 12px; padding:11px 13px; background:var(--surface-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .week-status-head{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:5px;}
   .week-status-line{font-size:12px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere;}
   .week-status-note{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:3px;}
@@ -1656,14 +1711,14 @@
   .hero-return-q{ font-size:12.5px; color:var(--ink-dim); margin:0 0 10px; }
   .recover-card{
     border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px 14px;
-    margin-bottom:10px; background:var(--bg-2); text-align:left;
+    margin-bottom:10px; background:var(--surface-2); text-align:left;
   }
   .recover-card .rc-goal{ font-family:'Oswald',sans-serif; font-size:14px; color:var(--ink); letter-spacing:.02em; }
   .recover-card .rc-meta{ font-size:12px; color:var(--ink-dim); margin-top:3px; line-height:1.5; }
   .recover-card .rc-why{ font-size:11.5px; color:var(--ink-faint); margin-top:6px; }
 
   .plan-summary-bar{
-    display:flex; align-items:center; gap:10px; background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);
+    display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);
     padding:10px 12px; margin:14px 0; cursor:pointer; transition:background .15s ease, border-color .15s ease;
   }
   .plan-summary-bar:hover{background:var(--bg-3); border-color:var(--bronze-2);}
@@ -1690,7 +1745,7 @@
      reach with a keyboard is worth the two lines of font/appearance reset. */
   .rec-card{
     display:block; width:100%; text-align:left; font:inherit; -webkit-appearance:none; appearance:none;
-    background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);
+    background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);
     padding:10px 12px; margin:8px 0; cursor:pointer;
     transition:background .15s ease, border-color .15s ease;
   }
@@ -1867,7 +1922,7 @@
   .sub-offers{display:grid; gap:6px; margin:12px 0 2px;}
   .sub-offer{
     display:grid; grid-template-columns:1fr auto auto; gap:8px; align-items:baseline;
-    padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:var(--bg-2);
+    padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:var(--surface-2);
   }
   .so-l{font-size:var(--fs-support); color:var(--ink);}
   .so-v{font-size:var(--fs-data); color:var(--ink);}
@@ -20164,6 +20219,11 @@ function openSetupModal(){
      Everything downstream keys off the mirrored <select>, so this follows the
      same grid-mirrors-a-real-form-control pattern as goal distance and reads
      through the identical path in handleGeneratePlan(). */
+  /* Rendered once: it returns '' for an athlete who has already answered, and
+     that empty string is also what decides whether Review shows the section
+     heading at all -- so the heading can never appear above nothing. */
+  var consentStep = renderHealthConsentStep();
+
   var buildPurpose = openPurpose;
   var purposeMeta = BUILDER_PURPOSE_META[buildPurpose];
   var purposeCards = BUILDER_PURPOSE_ORDER.map(function(k){
@@ -20343,7 +20403,6 @@ function openSetupModal(){
       '</div>'+
       '<button type="button" class="btn btn-ghost btn-block bld-skip" data-action="bld-skip-hr">Skip — I don’t know these</button>'+
       '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine — Valhalla works without it.</div>'+
-      renderHealthConsentStep()+
       navBtns(6)+
     '</section>'+
 
@@ -20365,9 +20424,30 @@ function openSetupModal(){
     '</section>'+
 
     /* ---------- 09 REVIEW ---------- */
+    /* ---------- 09 REVIEW ----------
+       THE PERMISSION LIVES HERE, AND IT IS NOT THE SAME DECISION AS STAGE 07.
+       LTHR and Max HR are training target data: two numbers that shape pace
+       and HR ranges. Permission to read broader health and readiness
+       information -- sleep, aches, illness, how a session felt -- is a
+       separate question with a separate answer, and putting the two on one
+       screen made the heart-rate stage carry two decisions and implied the
+       numbers and the permission were one thing.
+
+       Review is where it belongs rather than a tenth stage: the decision is
+       RECORDED at Generate, which happens on this screen, so the ask and the
+       act now sit together. Nothing about how it is stored changes -- the box
+       is still read by id from a mounted panel, still rendered unticked, and
+       still the only affirmative act. Reaching this screen is not consent,
+       and neither is having typed a heart rate on stage 07. */
     '<section class="bld-panel" data-stage="8" hidden>'+
       stageHead(8)+
       '<div id="bld-review"></div>'+
+      (consentStep
+        ? '<div class="bld-permission">'+
+            '<div class="setup-section-title" style="margin-top:0;">Optional permission</div>'+
+            consentStep+
+          '</div>'
+        : '')+
       '<div class="bld-actions">'+
         '<button type="button" class="btn btn-ghost btn-back" data-action="bld-back">← Back</button>'+
         '<button type="button" class="btn btn-primary" data-action="generate-plan">'+ICONS.check+' '+(state.setup?'Regenerate Plan':'Build My Training Block')+'</button>'+
@@ -20673,7 +20753,10 @@ function bldRenderReview(){
   if (lthr || maxhr)
     rows += row('Heart rate', (lthr ? 'LTHR ' + lthr : '') + (lthr && maxhr ? ' \u00b7 ' : '') + (maxhr ? 'Max ' + maxhr : ''));
   if (goals.length) rows += row('Goals', goals.join(' \u00b7 '));
-  rows += row('Units', units.toUpperCase());
+  /* No Units row: the hero above already reads "42 km / week", so a separate
+     "Units  KM" line restated it. Review answers "has Valhalla understood me",
+     and saying the same thing twice is what makes a check sheet feel like a
+     form. `units` is still read -- the hero is what uses it. */
 
   host.innerHTML =
     '<div class="bld-review-hero"><div class="d">'+escapeHtml(profile ? profile.label : '\u2014')+'</div>'+
