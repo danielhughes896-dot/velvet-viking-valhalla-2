@@ -1,0 +1,35 @@
+
+PERFECT EXECUTION, half, starting at 50km/week
+VOLUME_BLOCK_GROWTH_CAP = 1.1   PEAK_OVER_DEMONSTRATED = 1.3   backstop = 140
+
+yr block      anchor  reason              reason=  permit=  limit=   START   BOUND BY      peak  peakBoundBy
+ 1 race            —  held: no_capacity        50        —     140      50   first block      78  purpose multiplier
+ 1 recovery       50  EARNED                   55     75.4     140      55   REASON (step)  28.5  what the week can hold
+ 1 maintain       55  held: not_a_development_block     55     75.4     140      55   REASON (held)    42  what the week can hold
+ 1 base           55  held: not_a_development_block     55     75.4     140      55   REASON (held)  68.5  purpose multiplier
+ 1 speed          55  EARNED                 60.5     75.4     110    60.5   REASON (step)  55.5  what the week can hold
+   ---- end of year 1: development level 60.5  (+21% on the 50km start)   demonstrated 68.5
+ 2 race         60.5  EARNED                 66.6     75.4     140    66.6   REASON (step)    80  purpose multiplier
+ 2 recovery     66.6  EARNED                 73.3     86.9     140    73.3   REASON (step)    37  what the week can hold
+ 2 maintain     73.3  held: not_a_development_block   73.3     86.9     140    73.3   REASON (held)  55.5  what the week can hold
+ 2 base         73.3  held: not_a_development_block   73.3     86.9     140    73.3   REASON (held)  76.5  what the week can hold
+ 2 speed        73.3  EARNED                 80.6     86.9     110    80.6   REASON (step)  55.5  what the week can hold
+   ---- end of year 2: development level 80.6  (+61% on the 50km start)   demonstrated 79
+ 3 race         80.6  EARNED                 88.7     86.9     140    86.9   PERMISSION       85  what the week can hold
+ 3 recovery     86.9  EARNED                 95.6       88     140      88   PERMISSION       44  what the week can hold
+ 3 maintain       88  held: not_a_development_block     88       88     140      88   REASON (held)  67.5  what the week can hold
+ 3 base           88  held: not_a_development_block     88       88     140      88   REASON (held)  77.5  what the week can hold
+ 3 speed          88  EARNED                 96.8     86.9     110    86.9   PERMISSION       55  what the week can hold
+   ---- end of year 3: development level 86.9  (+74% on the 50km start)   demonstrated 79
+ 4 race         86.9  EARNED                 95.6     86.9     140    86.9   PERMISSION       80  what the week can hold
+ 4 recovery     86.9  EARNED                 95.6       88     140      88   PERMISSION       44  what the week can hold
+ 4 maintain       88  held: not_a_development_block     88       88     140      88   REASON (held)  67.5  what the week can hold
+ 4 base           88  held: not_a_development_block     88       88     140      88   REASON (held)    78  what the week can hold
+ 4 speed          88  EARNED                 96.8     87.5     110    87.5   PERMISSION     55.5  what the week can hold
+   ---- end of year 4: development level 87.5  (+75% on the 50km start)   demonstrated 79.5
+ 5 race         87.5  EARNED                 96.3     87.5     140    87.5   PERMISSION       85  what the week can hold
+ 5 recovery     87.5  EARNED                 96.3       88     140      88   PERMISSION       44  what the week can hold
+ 5 maintain       88  held: not_a_development_block     88       88     140      88   REASON (held)  67.5  what the week can hold
+ 5 base           88  held: not_a_development_block     88       88     140      88   REASON (held)    78  what the week can hold
+ 5 speed          88  EARNED                 96.8     86.9     110    86.9   PERMISSION     53.5  what the week can hold
+   ---- end of year 5: development level 86.9  (+74% on the 50km start)   demonstrated 79
