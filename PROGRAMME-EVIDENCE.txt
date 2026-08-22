@@ -1,0 +1,166 @@
+
+========================================================================
+17. PROGRAMME MATHEMATICS — every block, week by week
+========================================================================
+
+RACE GOAL  (half, 55km/week start, 12 weeks)
+  peak 85.3km   development weeks 9   down weeks 2   ceiling 140
+  wk  phase        vol    quality km   long   flags
+   1  Base          58.4        14.9   16.4   
+   2  Base          61.7        10.6   17.3   
+   3  Build         65.1        15.9   18.2   goal-pace finish
+   4  Build         53.4        15.9     15   cutback goal-pace finish
+   5  Build         71.8          17     20   CHECKPOINT goal-pace finish
+   6  Build         75.2        18.1     20   goal-pace finish
+   7  Build         78.5        18.8     20   goal-pace finish
+   8  Peak          63.9          20   17.9   cutback goal-pace finish
+   9  Peak          85.3        24.8     20   goal-pace finish
+  10  Taper         63.9        13.6   17.9   down
+  11  Taper         42.6        13.6   11.9   down
+  12  Final Week    29.8           0      0   GOAL EFFORT
+  full weeks only, wk1 -> wk9:  aerobic 43 -> 60 (40%)   quality 15 -> 25 (67%)
+  quality load first third vs last third: 57.3 -> 52   (-9%)
+  long run as share of week: 0–28%
+
+MAINTAIN & PROTECT  (half, 55km/week start, 8 weeks)
+  peak 55km   development weeks 8   down weeks 0   ceiling 140
+  wk  phase        vol    quality km   long   flags
+   1  Maintain        55        16.3   15.4   
+   2  Maintain        55        16.3   15.4   
+   3  Maintain        55        17.9   15.4   
+   4  Maintain      42.9        11.8     12   cutback
+   5  Maintain        55        15.2   15.4   
+   6  Maintain        55        19.7   15.4   
+   7  Maintain        55        17.4   15.4   
+   8  Maintain        55        14.7   15.4   
+  full weeks only, wk1 -> wk8:  aerobic 38 -> 40 (5%)   quality 17 -> 15 (-12%)
+  quality load first third vs last third: 50.5 -> 51.8   (3%)
+  long run as share of week: 28–28%
+
+AEROBIC BASE  (half, 55km/week start, 10 weeks)
+  peak 68.8km   development weeks 10   down weeks 0   ceiling 140
+  wk  phase        vol    quality km   long   flags
+   1  Base          56.4        14.9   15.8   
+   2  Base          57.8        10.6   16.2   
+   3  Base          59.1        14.9   16.5   
+   4  Base          47.2        10.8   13.2   cutback
+   5  Base          61.9        16.2   17.3   
+   6  Base          63.3        11.1   17.7   
+   7  Base          64.6        16.2   18.1   
+   8  Build         51.5        14.7   14.4   cutback
+   9  Build         67.4        17.8   18.9   
+  10  Build         53.6        16.1     15   cutback
+  full weeks only, wk1 -> wk9:  aerobic 42 -> 50 (19%)   quality 15 -> 18.5 (23%)
+  quality load first third vs last third: 51.2 -> 64.8   (27%)
+  long run as share of week: 28–28%
+
+SPEED & THRESHOLD  (5k, 55km/week start, 6 weeks)
+  peak 71.5km   development weeks 4   down weeks 1   ceiling 110
+  wk  phase        vol    quality km   long   flags
+   1  Base          59.1        13.9     12   
+   2  Build         63.3        14.4     12   
+   3  Build         67.4          19     12   
+   4  Peak          71.5          17     12   
+   5  Taper         53.6        16.2     12   down
+   6  Final Week      25           0      0   GOAL EFFORT
+  full weeks only, wk1 -> wk4:  aerobic 36 -> 36 (0%)   quality 14 -> 17 (21%)
+  quality load first third vs last third: 28.3 -> 16.2   (-43%)
+  long run as share of week: 0–22%
+
+========================================================================
+17b. RECOVERY — what the athlete is actually prescribed after a race
+========================================================================
+
+RECOVERY AFTER 5K  (race block from 40km/week)
+  demonstrated sustainable before it: 49km/week
+  prescribed recovery volume: 22km/week  (45% of demonstrated)
+  wk   totalKm   longest   qualityKm   sessions
+   1         8         5           0   easy 3, long 5
+
+RECOVERY AFTER 10K  (race block from 45km/week)
+  demonstrated sustainable before it: 56km/week
+  prescribed recovery volume: 25km/week  (45% of demonstrated)
+  wk   totalKm   longest   qualityKm   sessions
+   1       9.5         6           0   easy 3.5, long 6
+
+RECOVERY AFTER HALF  (race block from 55km/week)
+  demonstrated sustainable before it: 75.5km/week
+  prescribed recovery volume: 28km/week  (37% of demonstrated)
+  wk   totalKm   longest   qualityKm   sessions
+   1        11         8           0   easy 3, long 8
+   2      28.5         8           0   easy 5, easy 4.5, easy 6, easy 5, long 8
+
+RECOVERY AFTER FULL  (race block from 60km/week)
+  demonstrated sustainable before it: 90.5km/week
+  prescribed recovery volume: 24km/week  (27% of demonstrated)
+  wk   totalKm   longest   qualityKm   sessions
+   1        11         8           0   easy 3, long 8
+   2        24         7           0   easy 5, easy 3, easy 7, easy 3, long 6
+   3      26.5       7.5           0   easy 7, easy 3, easy 7.5, easy 3, long 6
+
+========================================================================
+18. REPETITION — what the athlete would actually meet
+========================================================================
+
+MAINTAIN x3 consecutive blocks
+  distinct quality sessions within each block: 8/8, 8/8, 8/8
+  distinct across all three:                   24/24
+
+BASE x3 consecutive blocks
+  distinct quality sessions within each block: 8/10, 9/10, 8/10
+  distinct across all three:                   16/30
+
+SPEED x3 consecutive blocks
+  distinct quality sessions within each block: 5/6, 6/6, 5/6
+  distinct across all three:                   13/18
+
+  race      long runs: 11, distinct titles 4
+  base      long runs: 10, distinct titles 3
+  maintain  long runs: 8, distinct titles 3
+  speed     long runs: 5, distinct titles 3
+
+COACHING PROSE across 40 reviewed sessions
+  distinct paragraphs: 68   printed: 98
+  most repeated:
+    x 8 (20% of cards)  Keep tomorrow’s Easy Aerobic genuinely easy.
+    x 6 (15% of cards)  Run tomorrow’s Long Run + Goal Pace for time on feet, not pace.
+    x 4 (10% of cards)  Executed at 78% of the prescribed session.
+    x 4 (10% of cards)  20km completed at easy intent.
+    x 3 (8% of cards)  That is 3 race-specific work sessions in a row you have executed the way they were
+    x 2 (5% of cards)  17km completed at easy intent.
+
+========================================================================
+19. MULTI-YEAR SIMULATION — the arithmetic bound, with no athlete in it
+========================================================================
+
+  WHAT THIS DOES AND DOES NOT EXERCISE. It calls buildBlockWeeks() in a loop
+  with no block ledger, no state.days and no logged sessions, so it measures
+  ONE thing: can the volume arithmetic run away. It cannot see the
+  progression gate at all -- progressionJustification() reads the block that
+  just ended, and no block ends here -- so every athlete below grows
+  identically and every column converges on the backstop. That convergence is
+  the arithmetic bound holding, not a programme an athlete would be given.
+  For what five different athletes are actually prescribed, run
+  tools/shots/trajectories.js.
+
+PERFECTLY COMPLIANT — runs everything prescribed
+  dist   start   yr1    yr2    yr3    yr4    yr5   | ceiling  demonstrated
+  5k      40    58.9   76.8  100.1    110    110  |     110           110
+  10k     45      67   87.9    110    120    120  |     120         118.4
+  half    50    80.3  106.7  127.9    140    140  |     140           138
+  full    60   107.8  132.1  161.1    170    170  |     170         167.4
+
+CAPACITY-LIMITED — own hard ceiling at start x 1.4
+  dist   start   yr1    yr2    yr3    yr4    yr5   | ceiling  demonstrated
+  5k      40    58.9   72.8   72.8   72.8   72.8  |     110            56
+  10k     45      67   81.9   81.9   81.9   81.9  |     120            63
+  half    50    80.3     91     91     91     91  |     140            70
+  full    60   107.8  109.2  109.2  109.2  109.2  |     170            84
+
+CAPACITY-LIMITED — own hard ceiling at the start volume
+  dist   start   yr1    yr2    yr3    yr4    yr5   | ceiling  demonstrated
+  5k      40      52     52     52     52     52  |     110            40
+  10k     45    60.8   58.5   58.5   58.5   58.5  |     120            45
+  half    50    77.5     65     65     65     65  |     140            50
+  full    60     105     78     78     78     78  |     170            60
+

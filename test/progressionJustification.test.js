@@ -1,0 +1,444 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { loadApp } = require('./harness.js');
+const { buildPlan, logAsPrescribed } = require('./fixtures.js');
+
+/* DOES VALHALLA HAVE A DEFENSIBLE COACHING REASON FOR EVERY INCREASE?
+ *
+ * Before this file the answer was no, and the reason was arithmetic rather
+ * than a bug anyone could point at. A block started at absorbedWeeklyVolume()
+ * -- the MEDIAN completed week of the block just finished -- and the median of
+ * a ramped block sits above its start, so every block began higher than the
+ * last for no reason except that the last one had a shape:
+ *
+ *     start 50  ->  peak 50 x 1.55 = 77.5  ->  median 58.1  ->  start 58.1
+ *
+ * The demonstrated x 1.10 guard that was supposed to stop this could not: the
+ * median is always below the third-highest week it is compared to, so
+ * `min(median, demonstrated x 1.10)` returned the median in every block of
+ * every cycle. It was live code that never bound.
+ *
+ * The rule now separates three things that were one thing:
+ *
+ *   REASON       progressionJustification() -- an affirmative coaching finding
+ *   PERMISSION   demonstrated sustainable volume -- may only hold DOWN
+ *   LIMIT        the backstop ceiling -- neither a target nor a plan
+ *
+ * These tests are about the REASON. test/volumeCeiling.test.js owns the other
+ * two and still passes unchanged.
+ */
+
+const TODAY = '2026-08-21';
+const SCHEDULE = { activeDays: [0, 1, 2, 4, 5], longRunDay: 5 };
+function app(){
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  a.state = a.makeDefaultState();
+  a.state.athlete = a.makeAthleteRecord();
+  return a;
+}
+/* Completed weeks in the archive, most recent first. */
+function record(a, kms){
+  kms.forEach((km, i) =>
+    a.state.athlete.sessions.push({ date: a.addDays(TODAY, -7 * (i + 1)), completed: true, actualKm: km }));
+}
+/* A closed block on the ledger, with the figures the next block is judged
+   against. */
+function ledger(a, opts){
+  const o = opts || {};
+  a.state.athlete.blocks.push({
+    id: 'b' + a.state.athlete.blocks.length, purpose: o.purpose || 'race',
+    status: 'closed', startDate: a.addDays(TODAY, -84), endDate: a.addDays(TODAY, -1),
+    anchorVolume: o.anchor, startVolume: o.anchor, peakVolume: o.peak });
+}
+
+/* ------------------------------------------------------------------ *
+ * THE REASON EXISTS, AND IT IS SAYABLE
+ * ------------------------------------------------------------------ */
+
+test('every progression decision carries a sentence the athlete could be shown', () => {
+  const a = app();
+  const cases = [];
+  cases.push(a.progressionJustification());                       // nothing at all
+  record(a, [60, 58, 56]);
+  cases.push(a.progressionJustification());                       // capacity, no block
+  ledger(a, { anchor: 55, peak: 60 });
+  cases.push(a.progressionJustification());                       // a block to judge
+  ledger(a, { purpose: 'recovery', anchor: 55, peak: 30 });
+  cases.push(a.progressionJustification());
+  cases.forEach(c => {
+    assert.equal(typeof c.earned, 'boolean');
+    assert.ok(c.reason && c.reason.length > 20, 'no sentence: ' + JSON.stringify(c));
+    assert.ok(!/undefined|null|NaN/.test(c.reason), 'placeholder leaked: ' + c.reason);
+    // The enum is internal. It must never reach the sentence.
+    if (c.blockedBy) assert.ok(c.reason.indexOf(c.blockedBy) === -1, c.reason);
+  });
+});
+
+test('with no completed training there is no capacity, and no growth is claimed', () => {
+  const a = app();
+  const j = a.progressionJustification();
+  assert.equal(j.earned, false);
+  assert.equal(j.blockedBy, 'no_capacity');
+});
+
+test('a first block starts at what the athlete runs now, not a step above it', () => {
+  /* The athlete typed 40 and has a 76km history behind them -- returning from
+     a layoff is the case this protects. */
+  const a = app();
+  record(a, [80, 78, 76]);
+  const j = a.progressionJustification();
+  assert.equal(j.earned, false);
+  assert.equal(j.blockedBy, 'no_previous_block');
+  assert.equal(a.cappedBlockStartVolume(40, 'half'), 40);
+});
+
+/* ------------------------------------------------------------------ *
+ * COMPLIANCE IS NOT, BY ITSELF, A REASON
+ * ------------------------------------------------------------------ */
+
+test('completing a block that was never reached does not earn a step up', () => {
+  /* The heart of it. The athlete ran every session they attempted, but never
+     got near the top of the ramp -- so there is nothing to build on. */
+  const a = app();
+  record(a, [50, 49, 48]);
+  ledger(a, { anchor: 55, peak: 75 });          // prescribed 75, held 50
+  const j = a.progressionJustification();
+  assert.equal(j.earned, false);
+  assert.equal(j.blockedBy, 'peak_not_reached');
+  /* No step: the anchor is 55, so an earned block would open at 60.5. It does
+     not -- and permission then holds it further down still, to what the
+     athlete has actually demonstrated, which is the two clauses doing
+     different jobs in the same call. */
+  assert.equal(a.cappedBlockStartVolume(52, 'half'), 52.8);  // 48 x 1.10, not 60.5
+  assert.ok(a.cappedBlockStartVolume(52, 'half') < 55);
+});
+
+test('reaching the top of the last block does earn a step up', () => {
+  const a = app();
+  record(a, [74, 72, 70]);
+  ledger(a, { anchor: 55, peak: 72 });
+  const j = a.progressionJustification();
+  assert.equal(j.earned, true, j.reason);
+  assert.equal(a.cappedBlockStartVolume(60, 'half'), 60.5);  // 55 x 1.10
+});
+
+test('recovery and maintenance never earn a step up, however well they went', () => {
+  /* You do not earn more training by recovering from a race or by holding
+     what you have. Both blocks are deliberate reductions. */
+  ['recovery', 'maintain'].forEach(purpose => {
+    const a = app();
+    record(a, [74, 72, 70]);
+    ledger(a, { purpose, anchor: 55, peak: 72 });
+    const j = a.progressionJustification();
+    assert.equal(j.earned, false, purpose + ' earned progression');
+    assert.equal(j.blockedBy, 'not_a_development_block');
+    assert.equal(a.cappedBlockStartVolume(60, 'half'), 55);
+  });
+});
+
+test('a deliberate reduction does not become the athlete\'s new level', () => {
+  /* The failure mode of anchoring to the last block's START rather than its
+     LEVEL: recovery opens at half the athlete's volume, so three years of
+     perfect compliance ratcheted DOWN to 20km/week. The ledger records the
+     level each block was computed FROM. */
+  const a = app();
+  record(a, [74, 72, 70]);
+  a.state.athlete.blocks.push({ id: 'r', purpose: 'recovery', status: 'closed',
+    anchorVolume: 55, startVolume: 28, peakVolume: 28 });
+  assert.equal(a.cappedBlockStartVolume(28, 'half'), 55,
+    'the recovery block\'s own reduced volume became the new baseline');
+});
+
+/* ------------------------------------------------------------------ *
+ * THE EVIDENCE GATES, DRIVEN THROUGH REAL PLANS
+ * ------------------------------------------------------------------ */
+
+function blockRun(opts){
+  const o = opts || {};
+  const a = app();
+  buildPlan(a, { distanceKey: 'half', volume: 55, weeks: 12,
+                 startDate: a.addDays(TODAY, -84), benchSec: 45 * 60 });
+  a.state.athlete = a.makeAthleteRecord();
+  a.state.athlete.blocks.push({ id: 'prev', purpose: 'race', status: 'closed',
+    anchorVolume: 55, startVolume: 55, peakVolume: o.peak != null ? o.peak : 1 });
+  a.state.days.filter(d => d.date < TODAY && d.type !== 'rest')
+    .forEach((d, i) => { if (o.runs(i)) logAsPrescribed(a, d, { quality: o.quality(i) }); });
+  return a;
+}
+
+test('sessions going unrun holds the volume, and says so', () => {
+  const a = blockRun({ runs: i => i % 3 !== 0, quality: () => 1 });
+  const j = a.progressionJustification();
+  assert.equal(j.earned, false, j.reason);
+  assert.equal(j.blockedBy, 'missed_sessions');
+  assert.ok(/unrun/.test(j.reason), j.reason);
+});
+
+test('quality sessions not landing holds the volume, and says so', () => {
+  const a = blockRun({ runs: () => true, quality: () => 0.6 });
+  const j = a.progressionJustification();
+  assert.equal(j.earned, false, j.reason);
+  assert.equal(j.blockedBy, 'execution');
+});
+
+test('running everything, well, and reaching the peak earns the step', () => {
+  const a = blockRun({ runs: () => true, quality: () => 1 });
+  const j = a.progressionJustification();
+  assert.equal(j.earned, true, j.reason + ' / ' + JSON.stringify(j));
+});
+
+/* ------------------------------------------------------------------ *
+ * ONE EARNED STEP PER PROGRAMME CYCLE
+ * ------------------------------------------------------------------ */
+
+/* A closed block that carried a step. */
+function stepBlock(a, opts){
+  const o = opts || {};
+  a.state.athlete.blocks.push({ id: 's' + a.state.athlete.blocks.length,
+    purpose: o.purpose || 'recovery', status: 'closed',
+    anchorVolume: o.anchor, startVolume: o.anchor, peakVolume: o.peak || 60,
+    progressionStep: true });
+}
+
+test('the magnitude of a step is 10%, and its frequency is once a cycle', () => {
+  const a = app();
+  assert.equal(a.VOLUME_BLOCK_GROWTH_CAP, 1.10);
+  assert.equal(a.PROGRESSION_BLOCKS_PER_CYCLE, 3);
+});
+
+test('a second step inside the same cycle is refused', () => {
+  /* THE WHOLE POINT. One step per DEVELOPMENT BLOCK compounded to 1.10^3 =
+     +33.1% a year, and what stopped it was distributeWeekVolume() running out
+     of places to put running rather than any coaching rule. One step per cycle
+     is +10% a year, which is defensible at every point on its own terms. */
+  const a = app();
+  record(a, [74, 72, 70]);
+  ledger(a, { purpose: 'base', anchor: 55, peak: 72 });
+  stepBlock(a, { purpose: 'recovery', anchor: 55, peak: 30 });
+  ledger(a, { purpose: 'base', anchor: 55, peak: 72 });   // one development block since
+  const j = a.progressionJustification();
+  assert.equal(j.earned, false, j.reason);
+  assert.equal(j.blockedBy, 'stepped_this_cycle');
+  assert.equal(j.blocksSinceStep, 1);
+  assert.equal(a.cappedBlockStartVolume(60, 'half'), 55);
+});
+
+test('a step is earned again once a full cycle of development has passed', () => {
+  const a = app();
+  record(a, [74, 72, 70]);
+  stepBlock(a, { purpose: 'recovery', anchor: 55, peak: 30 });
+  ['base', 'speed', 'race'].forEach(purpose =>
+    ledger(a, { purpose, anchor: 55, peak: 72 }));
+  const j = a.progressionJustification();
+  assert.equal(j.blocksSinceStep, 3);
+  assert.equal(j.earned, true, j.reason);
+  assert.equal(a.cappedBlockStartVolume(60, 'half'), 60.5);
+});
+
+test('recovery and maintenance blocks do not count toward the cycle', () => {
+  /* They are deliberate reductions. Three recovery blocks in a row is not a
+     cycle of training and must not buy a step. */
+  const a = app();
+  record(a, [74, 72, 70]);
+  stepBlock(a, { purpose: 'recovery', anchor: 55, peak: 30 });
+  ['recovery', 'maintain', 'recovery', 'maintain'].forEach(purpose =>
+    ledger(a, { purpose, anchor: 55, peak: 30 }));
+  ledger(a, { purpose: 'base', anchor: 55, peak: 72 });
+  const j = a.progressionJustification();
+  assert.equal(j.blocksSinceStep, 1, 'reductions were counted as development');
+  assert.equal(j.blockedBy, 'stepped_this_cycle');
+});
+
+test('an athlete who has never stepped is not held by the cycle rule', () => {
+  const a = app();
+  record(a, [74, 72, 70]);
+  ledger(a, { purpose: 'base', anchor: 55, peak: 72 });
+  const j = a.progressionJustification();
+  assert.equal(j.blocksSinceStep, null);
+  assert.equal(j.earned, true, j.reason);
+});
+
+test('the cycle rule never masks a reason the athlete has NOT earned a step', () => {
+  /* Gate order matters for the sentence. An athlete who missed sessions must be
+     told that, not told their volume already moved this cycle -- which would be
+     true and useless. */
+  const a = blockRun({ runs: i => i % 3 !== 0, quality: () => 1 });
+  // a DEVELOPMENT block that carried the step, so the earlier gates are live
+  a.state.athlete.blocks.push({ id: 'stepped', purpose: 'base', status: 'closed',
+    anchorVolume: 55, startVolume: 55, peakVolume: 30, progressionStep: true });
+  const j = a.progressionJustification();
+  assert.equal(j.blockedBy, 'missed_sessions', j.reason);
+});
+
+test('one step a cycle compounds to 10% a year, not 33%', () => {
+  /* Walked rather than asserted as arithmetic: three development blocks, one
+     step, whatever order they arrive in. */
+  const a = app();
+  record(a, [74, 72, 70]);
+  let level = 55, steps = 0;
+  ledger(a, { purpose: 'race', anchor: level, peak: 60 });
+  for (const purpose of ['recovery', 'maintain', 'base', 'speed', 'race',
+                         'recovery', 'maintain', 'base', 'speed', 'race']){
+    const earned = a.progressionJustification().earned;
+    if (earned){ level = a.round1(level * a.VOLUME_BLOCK_GROWTH_CAP); steps++; }
+    a.state.athlete.blocks.push({ id: 'b' + a.state.athlete.blocks.length, purpose,
+      status: 'closed', anchorVolume: level, startVolume: level, peakVolume: 60,
+      progressionStep: earned });
+  }
+  // two full cycles walked, so at most two steps
+  assert.equal(steps, 2, 'took ' + steps + ' steps across two cycles');
+  assert.equal(level, 66.6);   // 55 -> 60.5 -> 66.6
+});
+
+/* ------------------------------------------------------------------ *
+ * THE PEAK IS BOUNDED BY CAPACITY TOO
+ * ------------------------------------------------------------------ */
+
+test('demonstrated capacity bounds the top of the ramp, not only its start', () => {
+  /* Reported as a launch question: an athlete whose demonstrated capacity was
+     60km/week was prescribed a 105km marathon peak, because profile.volMult
+     was applied to the start with nothing checking the result against the
+     athlete. The backstop for `full` is 170 and never bound. */
+  const a = app();
+  record(a, [61, 60, 60]);
+  const br = a.buildBlockWeeks('full', 60, 16, { purpose: 'race' });
+  assert.ok(br.peakVolume <= 60 * a.PEAK_OVER_DEMONSTRATED + 0.1,
+    'peaked at ' + br.peakVolume + ' from a demonstrated 60');
+  assert.ok(br.peakVolume < 105, 'the reported 105km peak is still reachable');
+});
+
+test('a half athlete demonstrating 50 is no longer given a 77.5km peak', () => {
+  const a = app();
+  record(a, [51, 50, 50]);
+  const br = a.buildBlockWeeks('half', 50, 12, { purpose: 'race' });
+  assert.ok(br.peakVolume <= 65.1, 'peaked at ' + br.peakVolume);
+});
+
+test('with no demonstrated capacity the peak is unchanged, so a first block is untouched', () => {
+  const a = app();
+  const br = a.buildBlockWeeks('half', 50, 12, { purpose: 'race' });
+  assert.equal(br.peakVolume, 77.5);
+});
+
+test('the backstop is a limit and not a target: growth stops long before it', () => {
+  /* An athlete who reaches the top of every block still steps 10% at a time
+     from their own level, and only from a development block. Three cycles of
+     flawless training from 50km/week must not arrive at the 140 backstop. */
+  const a = app();
+  record(a, [74, 72, 70]);
+  let anchor = 55;
+  for (let i = 0; i < 3; i++){
+    a.state.athlete.blocks.push({ id: 'b' + i, purpose: 'base', status: 'closed',
+      anchorVolume: anchor, startVolume: anchor, peakVolume: 60 });
+    anchor = a.cappedBlockStartVolume(anchor, 'half');
+  }
+  assert.ok(anchor < 79, 'three earned steps reached ' + anchor);
+  assert.ok(anchor < a.volumeCeilingFor('half'));
+});
+
+/* ------------------------------------------------------------------ *
+ * THE FIGURE THE LEDGER RECORDS IS THE ONE THE ATHLETE WAS GIVEN
+ * ------------------------------------------------------------------ */
+
+test('a block records the biggest week it actually scheduled, not the top of its ramp', () => {
+  /* blockResult.peakVolume is the top of the arithmetic ramp. The week the
+     athlete is really given is what survives distributeWeekVolume() and
+     capWeeklyVolume(), and on a low-frequency week or a distance with a tight
+     long-run cap it lands materially lower -- a 5K block asked for 78km/week
+     schedules about 55, because five days and a 12km long-run cap cannot hold
+     it.
+
+     This matters because it is what "did the athlete reach the top of the last
+     block" is measured against. Recording the ramp instead would fail an
+     athlete who ran every metre they were given, and hold their volume for a
+     reason that was never their doing. A mutation swapping the two survived the
+     suite, which is what this test is for. */
+  const a = app();
+  a.state.setup = { distanceKey: '5k', currentVolume: 60, schedule: SCHEDULE,
+                    benchmark: { distanceKey: '10k', timeSec: 45 * 60 } };
+  record(a, [60, 59, 58]);
+  a.state.athlete.blocks.push({ id: 'seed', purpose: 'base', status: 'closed',
+    anchorVolume: 60, startVolume: 60, peakVolume: 60 });
+  const block = a.startDevelopmentBlock('speed', { distanceKey: '5k' });
+  assert.ok(block, 'no block was generated');
+  const scheduled = a.largestScheduledWeek(a.state.days);
+  assert.equal(block.peakVolume, scheduled,
+    'ledger recorded ' + block.peakVolume + ' but the biggest week written was ' + scheduled);
+  const br = a.buildBlockWeeks('5k', block.startVolume, 6, { purpose: 'speed' });
+  assert.ok(scheduled < br.peakVolume,
+    'the fixture does not exercise the gap: scheduled ' + scheduled +
+    ' vs ramp ' + br.peakVolume);
+});
+
+test('the ledger records which block carried the step, and which did not', () => {
+  /* THE CYCLE RULE COUNTS FROM THE LEDGER, so a block that fails to record the
+     step it took makes the rule inert -- every block reads as "nobody has ever
+     stepped" and the athlete steps again immediately. Every other test in this
+     file pushes ledger rows by hand, so none of them can see it: a mutation
+     that wrote progressionStep:false for every block survived the whole suite.
+     This one drives the real lifecycle and reads back what was written. */
+  const a = app();
+  a.state.setup = { distanceKey: 'half', currentVolume: 55, schedule: SCHEDULE,
+                    benchmark: { distanceKey: '10k', timeSec: 45 * 60 } };
+  record(a, [74, 72, 70]);
+  // a finished development block the athlete reached the top of
+  a.state.athlete.blocks.push({ id: 'seed', purpose: 'base', status: 'closed',
+    anchorVolume: 55, startVolume: 55, peakVolume: 70 });
+
+  const first = a.startDevelopmentBlock('base', { distanceKey: 'half' });
+  assert.ok(first, 'no block was generated');
+  assert.equal(first.progressionStep, true,
+    'the block stepped to ' + first.anchorVolume + ' but did not record it');
+  assert.equal(first.anchorVolume, 60.5);
+
+  // and the very next development block must be held by the cycle rule, which
+  // is only possible if the step above was written down
+  assert.equal(a.progressionJustification().blockedBy, 'stepped_this_cycle');
+  const second = a.startDevelopmentBlock('base', { distanceKey: 'half' });
+  assert.ok(second);
+  assert.equal(second.progressionStep, false, 'a held block recorded a step');
+  assert.equal(second.anchorVolume, 60.5, 'a held block moved the level');
+});
+
+test('largestScheduledWeek ignores rest days and reports a real week', () => {
+  const a = app();
+  const days = [
+    { week: 1, type: 'easy', km: 10 }, { week: 1, type: 'rest', km: 0 },
+    { week: 1, type: 'long', km: 15 },
+    { week: 2, type: 'easy', km: 8 }, { week: 2, type: 'long', km: 12 }
+  ];
+  assert.equal(a.largestScheduledWeek(days), 25);
+  assert.equal(a.largestScheduledWeek([]), null);
+  assert.equal(a.largestScheduledWeek(null), null);
+});
+
+/* ------------------------------------------------------------------ *
+ * HEALTH-DATA CONSENT INDEPENDENCE
+ * ------------------------------------------------------------------ */
+
+test('progression is earned on identical evidence with and without health data', () => {
+  /* The constraint from §15: no learning mechanism may need covered data,
+     because declining consent must not silently degrade the training. Every
+     gate here reads completion, distance and pace. */
+  const withHR = blockRun({ runs: () => true, quality: () => 1 });
+  const withoutHR = blockRun({ runs: () => true, quality: () => 1 });
+  withoutHR.state.days.forEach(d => {
+    if (d.actual){ d.actual.hr = null; d.actual.rpe = null; }
+  });
+  withoutHR.state.setup.lthr = null; withoutHR.state.setup.maxHR = null;
+  const a1 = withHR.progressionJustification(), a2 = withoutHR.progressionJustification();
+  assert.equal(a1.earned, a2.earned);
+  assert.equal(a1.blockedBy, a2.blockedBy);
+  assert.equal(withHR.demonstratedSustainableVolume(), withoutHR.demonstratedSustainableVolume());
+  assert.equal(withHR.cappedBlockStartVolume(55, 'half'), withoutHR.cappedBlockStartVolume(55, 'half'));
+});
+
+test('a poor-execution hold is reachable from distance and pace alone', () => {
+  const a = blockRun({ runs: () => true, quality: () => 0.6 });
+  a.state.days.forEach(d => { if (d.actual){ d.actual.hr = null; d.actual.rpe = null; } });
+  a.state.setup.lthr = null; a.state.setup.maxHR = null;
+  const j = a.progressionJustification();
+  assert.equal(j.blockedBy, 'execution', 'withholding heart rate changed the answer');
+});

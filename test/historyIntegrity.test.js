@@ -188,7 +188,17 @@ test('a rebuild preserves identity, date, log and review', () => {
   const a = appWithBlock();
   const h = completeAllPast(a);
   const r = rebuild(a);
-  assert.equal(r.preserved, a.state.days.filter(d => a.dayCarriesHistory(d)).length);
+  /* THE CONTRACT WIDENED, DELIBERATELY. A rebuild used to preserve only the
+     days carrying a TRACE -- a log, a review, an accepted adjustment -- which
+     left every MISSED elapsed day free to be rewritten by the new generator.
+     A missed session has no trace by definition, so the one kind of elapsed
+     day the athlete has nothing to show for was the one kind a rebuild felt
+     free to rewrite. Preservation is the calendar's question now: elapsed, or
+     traced. See reconcileRegeneratedDays() and historicalImmutability.test.js. */
+  const today = a.todayStr();
+  assert.equal(r.preserved,
+    a.state.days.filter(d => a.dayCarriesHistory(d) || d.date < today).length,
+    'a rebuild must preserve every elapsed day, not only the ones with a log on them');
   h.done.forEach(d => {
     const x = row(a, d.id);
     assert.ok(x, d.id + ' was destroyed');
