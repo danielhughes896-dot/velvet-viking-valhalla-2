@@ -323,3 +323,77 @@ test('the toggle fix moved no other gold in the product', () => {
     /--bronze:#C0923F/,                                          // the token itself
   ]) assert.match(css, kept, 'gold must remain: ' + kept);
 });
+
+/* ONE CONTINUOUS CREAM, AND ONLY WHERE THE FILL WAS DECORATION.
+   ===========================================================================
+   Light used to stack shades: a #F4F1EA page, then a #FCFBFB or #EBE5D8 card,
+   then content -- with the fill repeating separation the 1px border was
+   already providing. The ordinary container fills now collapse to the page
+   colour and the border carries it, which is how the product's own website
+   separates things.
+
+   The two failure modes this guards are opposite, and both matter:
+     - the tinted card creeping back in light
+     - the flattening leaking into DARK, or into fills that carry STATE */
+const SURFACE_TOKENS = ['--surface-2', '--surface-3', '--surface-4'];
+const RUNTIME_CSS = read('protected/velvet-viking-valhalla.html');
+
+function themeBlock(scope) {
+  const src = RUNTIME_CSS;
+  const at = scope === 'light'
+    ? src.indexOf('[data-theme="light"]{')
+    : src.indexOf(':root{');
+  assert.notEqual(at, -1, 'no ' + scope + ' block');
+  return src.slice(at, src.indexOf('\n  }', at));
+}
+
+test('light collapses ordinary container fills onto the page colour', () => {
+  const block = themeBlock('light');
+  assert.match(block, /--bg:#F4F1EA/, 'the canonical page colour changed');
+  SURFACE_TOKENS.forEach(t => {
+    const m = block.match(new RegExp(t + ':\\s*([^;]+);'));
+    assert.ok(m, 'light does not declare ' + t);
+    assert.equal(m[1].trim(), 'var(--bg)',
+      t + ' is ' + m[1].trim() + ' in light — the tinted card is back');
+  });
+});
+
+test('dark keeps the ramp those containers were designed with', () => {
+  const block = themeBlock('dark');
+  SURFACE_TOKENS.forEach(t => {
+    const n = t.slice(-1);
+    const m = block.match(new RegExp(t + ':\\s*([^;]+);'));
+    assert.ok(m, 'dark does not declare ' + t);
+    assert.equal(m[1].trim(), 'var(--bg-' + n + ')',
+      t + ' is ' + m[1].trim() + ' in dark — this correction was light-only');
+  });
+});
+
+test('fills that carry state or semantics were not flattened', () => {
+  /* These read the raw ramp on purpose: a hover, a meter track, an input, the
+     switch thumb, a selected option. If any of them starts taking a --surface
+     token it becomes invisible in light, and that deletes information. */
+  const STATEFUL = [
+    ['.day:hover', '--bg-4'],
+    ['.week-head:hover', '--bg-3'],
+    ['.zbar', '--bg-4'],
+    ['.outlook-track', '--bg-3'],
+    ['.switch-track::before', '--bg-2'],
+    ['.rec-card:hover', '--bg-3'],
+    ['.plan-summary-bar:hover', '--bg-3'],
+    ['.goal-opt', '--bg-2'],
+  ];
+  STATEFUL.forEach(([sel, tok]) => {
+    const re = new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+      '\\{[^}]*background(?:-color)?:\\s*var\\(' + tok + '\\)');
+    assert.match(RUNTIME_CSS, re,
+      sel + ' no longer paints with ' + tok + ' — a state fill was flattened');
+  });
+});
+
+test('a day row keeps a visible edge once its fill matches the page', () => {
+  // It was the one ordinary container separated by fill alone.
+  assert.match(RUNTIME_CSS,
+    /\[data-theme="light"\] \.day\{[^}]*border-top:1px solid var\(--line-soft\)/,
+    'the light day row lost the border that replaced its fill');
+});

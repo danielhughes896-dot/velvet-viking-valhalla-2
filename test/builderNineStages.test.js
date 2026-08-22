@@ -242,15 +242,52 @@ test('the reassurance and the explanation are on the heart-rate screen', () => {
   assert.ok(hr.includes('data-action="bld-skip-hr"'), 'there is no visible no-HR affordance');
 });
 
-test('health consent stays on the screen holding the data it governs', () => {
+/* TWO DIFFERENT DECISIONS, TWO DIFFERENT SCREENS.
+   LTHR and Max HR are training target data. Permission to read broader health
+   and readiness information is a separate question, and it now lives on Review
+   -- the screen where the decision is actually recorded, since Generate is what
+   writes it. What must NOT happen is the two being conflated again, or the
+   permission being implied by anything other than the tick. */
+test('the health permission is a separate decision from the heart-rate numbers', () => {
   const { html } = buildJourney();
   const p = panels(html);
   const hr = p.find(x => x.stage === 6).body;
-  assert.ok(hr.includes('id="su-health-consent"'),
-    'the consent box is not on the same screen as LTHR and Max HR');
-  // and nowhere else in the journey
+  const review = p.find(x => x.stage === 8).body;
+
+  assert.doesNotMatch(hr, /su-health-consent/,
+    'the permission is back on the heart-rate screen, which is two decisions on one screen');
+  assert.ok(review.includes('id="su-health-consent"'),
+    'the permission is not on Review, where the decision is recorded');
+
+  // exactly once in the whole journey -- two boxes would be two answers
   const total = (html.match(/id="su-health-consent"/g) || []).length;
   assert.equal(total, 1, 'the consent box appears ' + total + ' times');
+
+  // named as optional, and separated from the plan summary rather than tucked in
+  assert.match(review, /class="bld-permission"/,
+    'the permission is not in its own separated section');
+  assert.match(review, /Optional permission/,
+    'the permission section is not named as optional');
+});
+
+test('the permission is never pre-granted, and nothing but the tick grants it', () => {
+  const { html } = buildJourney();
+  const box = html.match(/<input type="checkbox" id="su-health-consent"[^>]*>/);
+  assert.ok(box, 'the consent checkbox is gone');
+  assert.doesNotMatch(box[0], /\bchecked\b/,
+    'the consent box ships pre-ticked — consent would be assumed, not given');
+
+  // the generator still takes the decision from the box, before it reads the
+  // two fields the decision governs
+  const at = SRC.indexOf('async function handleGeneratePlan');
+  const body = SRC.slice(at, SRC.indexOf('\n}\n', at));
+  const consentAt = body.indexOf("getElementById('su-health-consent')");
+  const lthrAt = body.indexOf("getElementById('su-lthr')");
+  assert.ok(consentAt !== -1 && lthrAt !== -1, 'the generator stopped reading one of them');
+  assert.ok(consentAt < lthrAt,
+    'the heart rate is read before the permission that governs whether it may be stored');
+  assert.match(body.slice(lthrAt, lthrAt + 700), /healthConsentGranted\(\)/,
+    'heart rate is stored without checking the permission');
 });
 
 // ------------------------------------------------------- 6. goals, every purpose
