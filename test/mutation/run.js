@@ -684,7 +684,14 @@ function runSuites(files){
   try{
     // A failing suite exits non-zero, which is the ordinary kill path.
     cp.execSync('cd ' + ROOT + ' && node --test ' + files + ' > ' + OUT_FILE + ' 2>&1',
-                { encoding: 'utf8', timeout: 900000 });
+                /* The shared SUBSET is twenty-eight suites and its baseline run
+                   is the longest single command this tool issues. Fifteen
+                   minutes was enough until a stray runner from an interrupted
+                   pass was found competing for the same cores; the limit is
+                   generous now because a timeout here is indistinguishable from
+                   a suite that reported nothing, and that ambiguity is exactly
+                   what the rest of this file exists to remove. */
+                { encoding: 'utf8', timeout: 1800000 });
   }catch(e){ /* verdict comes from the output, never from the exit status */ }
   let tap = '';
   try{ tap = fs.readFileSync(OUT_FILE, 'utf8'); }catch(e){ tap = ''; }
