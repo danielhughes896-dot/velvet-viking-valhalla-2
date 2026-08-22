@@ -906,7 +906,7 @@ if (only) console.log('running ' + SELECTED.length + ' of ' + CASES.length + ' c
    invocation -- and a case with no summary is an ERROR rather than a verdict.
    Errors are reported separately and fail the run, because the honest answer
    to "did this mutation survive" is that we do not know. */
-const OUT_FILE = require('os').tmpdir() + '/valhalla-mutation-out.txt';
+let LAST_TAP = '';        // the raw output of the most recent suite run
 
 /* HOW MANY TESTS THAT SET OF SUITES IS SUPPOSED TO RUN.
    Requiring a `# tests N` summary was not enough. node --test runs the files
@@ -943,34 +943,47 @@ process.on('exit', restorePending);
 
 const baselines = new Map();
 function runSuites(suiteFiles){
-  try{ fs.unlinkSync(OUT_FILE); }catch(e){ /* first run */ }
+  /* STDOUT DIRECTLY, not through a temp file. Redirecting the child to a file
+     and reading it back put a filesystem between the run and its verdict, and
+     the read raced the child: the runner saw fifteen bytes -- "TAP version 13"
+     -- and reported a baseline that had not come back clean, while the same
+     command run by hand produced fifty-four passing tests. Capturing the pipe
+     removes the question. maxBuffer is generous because the full TAP of the
+     twenty-eight-suite subset is a few hundred kilobytes and truncating it
+     would put the ambiguity straight back. */
+  let tap = '';
   try{
     // A failing suite exits non-zero, which is the ordinary kill path.
-    cp.execSync('cd ' + ROOT + ' && node --test ' + suiteFiles + ' > ' + OUT_FILE + ' 2>&1',
-                /* The shared SUBSET is twenty-eight suites and its baseline run
-                   is the longest single command this tool issues. Fifteen
-                   minutes was enough until a stray runner from an interrupted
-                   pass was found competing for the same cores; the limit is
-                   generous now because a timeout here is indistinguishable from
-                   a suite that reported nothing, and that ambiguity is exactly
-                   what the rest of this file exists to remove. */
-                { encoding: 'utf8', timeout: 1800000 });
-  }catch(e){ /* verdict comes from the output, never from the exit status */ }
-  let tap = '';
-  try{ tap = fs.readFileSync(OUT_FILE, 'utf8'); }catch(e){ tap = ''; }
+    tap = cp.execSync('cd ' + ROOT + ' && node --test ' + suiteFiles + ' 2>&1',
+                      { encoding: 'utf8', timeout: 1800000, maxBuffer: 256 * 1024 * 1024 });
+  }catch(e){
+    // verdict comes from the output, never from the exit status
+    tap = (e.stdout != null) ? String(e.stdout) : '';
+  }
   const m = tap.match(/^# tests (\d+)/m);
+  LAST_TAP = tap;
   return { tests: m ? parseInt(m[1], 10) : null,
            fails: (tap.match(/^not ok /gm) || []).length };
 }
 function baselineFor(suiteFiles){
-  if (!baselines.has(files)){
+  /* KEYED ON THE SUITE LIST, and it was keyed on `files` -- main's helper
+     FUNCTION, whose string form is the same for every call. One cache entry
+     served every suite set, so the first baseline taken (the twenty-eight-suite
+     SUBSET, 687 tests) was returned as the expectation for four-suite sets that
+     run 54, and eight cases reported "ran 54 of 687".
+
+     Second time this file has been bitten by that name: the merge brought
+     main's `files` helper alongside my local of the same name, and both
+     mistakes were a reference the rename missed. The local is `suiteFiles`
+     everywhere now. */
+  if (!baselines.has(suiteFiles)){
     const b = runSuites(suiteFiles);
     if (b.tests == null || b.fails > 0)
       throw new Error('the baseline run for ' + suiteFiles + ' did not come back clean: ' +
                       JSON.stringify(b));
-    baselines.set(files, b.tests);
+    baselines.set(suiteFiles, b.tests);
   }
-  return baselines.get(files);
+  return baselines.get(suiteFiles);
 }
 
 /* Narrowing a run. MUT_FROM/MUT_TO take case indices so a single case can be
@@ -1009,7 +1022,7 @@ for (const [idx, [name, file, from, to, subset]] of SELECTED.entries()){
   if (fs.readFileSync(p, 'utf8') !== orig)
     throw new Error('failed to restore ' + file + ' after: ' + name);
   if (TAP_DIR){
-    try{ fs.copyFileSync(OUT_FILE, TAP_DIR + '/case-' + idx + '.tap'); }catch(e){ /* best effort */ }
+    try{ fs.writeFileSync(TAP_DIR + '/case-' + idx + '.tap', LAST_TAP); }catch(e){ /* best effort */ }
   }
   if (r.tests == null){
     errored.push(name);
