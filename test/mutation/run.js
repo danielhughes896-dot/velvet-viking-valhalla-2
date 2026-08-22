@@ -946,7 +946,7 @@ function runSuites(suiteFiles){
   try{ fs.unlinkSync(OUT_FILE); }catch(e){ /* first run */ }
   try{
     // A failing suite exits non-zero, which is the ordinary kill path.
-    cp.execSync('cd ' + ROOT + ' && node --test ' + files + ' > ' + OUT_FILE + ' 2>&1',
+    cp.execSync('cd ' + ROOT + ' && node --test ' + suiteFiles + ' > ' + OUT_FILE + ' 2>&1',
                 /* The shared SUBSET is twenty-eight suites and its baseline run
                    is the longest single command this tool issues. Fifteen
                    minutes was enough until a stray runner from an interrupted
