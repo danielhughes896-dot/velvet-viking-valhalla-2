@@ -20,7 +20,7 @@ const { buildPlan } = require('./fixtures.js');
  *    A Reading card MAY carry a verdict and a status colour; that is exactly
  *    what separates it from a Record card, and both rules are asserted.
  *  - Every one of the eleven Plan HQ panels goes through one opener, has one
- *    violet full-width BACK, one circular X, no build-stage rail, and restores
+ *    Cherry Lacquer full-width BACK, one circular X, no build-stage rail, and restores
  *    the scroll offset it was opened from.
  *  - THE RACE OUTLOOK is drawn from measuredFitnessEstimate() and the active
  *    goal, and from nothing else. An ordinary training run cannot move it; a
@@ -194,7 +194,7 @@ test('PANEL: all eleven go through one opener, one BACK, one X, no rail', () => 
     assert.match(panel, /class="icon-btn" data-action="close-record-panel"/, key + ' has no X');
     // Exactly one primary in the navigation. A panel MAY carry a content
     // primary of its own -- Plan evolution hosts the proposal's Accept -- and
-    // .hq-panel is what stops that one wearing the violet of the way out.
+    // .hq-panel is what stops that one wearing the accent of the way out.
     const nav = panel.slice(panel.indexOf('rec-panel-nav'));
     assert.equal((nav.match(/class="btn btn-primary[^"]*"/g) || []).length, 1,
       key + ' has more than one primary in its navigation');
@@ -207,9 +207,9 @@ test('PANEL: all eleven go through one opener, one BACK, one X, no rail', () => 
   });
   // The rule that keeps a content primary off the navigation colour.
   assert.match(CODE, /\.hq-panel \.btn-primary\{[^}]*var\(--bronze\)/,
-    'a Plan HQ panel repaints every primary violet again');
-  assert.match(CODE, /\.hq-panel \.rec-panel-nav \.btn-primary\{[^}]*var\(--violet\)/,
-    'BACK lost the violet that marks it as the way out');
+    'a Plan HQ panel repaints every primary in the accent again');
+  assert.match(CODE, /\.hq-panel \.rec-panel-nav \.btn-primary\{[^}]*var\(--cherry\)/,
+    'BACK lost the Cherry Lacquer that marks it as the way out');
   assert.match(CODE, /openModal\([\s\S]{0,80}?hq-panel/, 'the panels stopped carrying .hq-panel');
 });
 
@@ -295,7 +295,7 @@ test('OUTLOOK: a completed checkpoint draws the band, and the goal marker comes 
   assert.match(html, new RegExp('Goal ' + a.state.setup.activeGoal));
   // Violet is the measurement, gold is the goal, and that is a rule in the
   // stylesheet rather than a habit in this render.
-  assert.match(CODE, /\.outlook-band\{[^}]*var\(--violet\)/);
+  assert.match(CODE, /\.outlook-band\{[^}]*var\(--cherry\)/);
   assert.match(CODE, /\.outlook-goal\{[^}]*background\s*:\s*var\(--gold\)/);
 
   // Switching the active goal moves the marker and nothing else.

@@ -270,7 +270,7 @@ test('PANEL: every panel opens with an uppercase heading and a circular close', 
   assert.match(CODE, /\.modal-head h2\{[^}]*text-transform\s*:\s*uppercase/);
 });
 
-test('PANEL: every panel ends on one full-width violet BACK, and no other primary', () => {
+test('PANEL: every panel ends on one full-width Cherry Lacquer BACK, and no other primary', () => {
   const a = planHQ();
   Object.keys(a.RECORD_PANELS).forEach(k => {
     const panel = a.RECORD_PANELS[k]();
@@ -284,7 +284,7 @@ test('PANEL: every panel ends on one full-width violet BACK, and no other primar
     assert.ok(panel.indexOf('rec-panel-nav') > panel.indexOf('<div class="modal-body">'), k);
   });
   // Violet comes from the builder's own rule, not a second purple.
-  assert.match(CODE, /\.builder-light\s+\.btn-primary\{[^}]*var\(--violet\)/);
+  assert.match(CODE, /\.builder-light\s+\.btn-primary\{[^}]*var\(--cherry\)/);
 });
 
 test('PANEL: a detail panel is not a wizard step', () => {
@@ -436,15 +436,15 @@ test('HQ: the four inline components are gone from the page and live only in the
     'the old Benchmark summary bar is still on the page');
 });
 
-test('HQ: Programme Status is untouched — gauge, its violet arc and needle, and the line beneath it', () => {
+test('HQ: Programme Status is untouched — gauge, its accent arc and needle, and the line beneath it', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
   const gauge = a.renderConfidenceGauge();
   assert.ok(html.indexOf(gauge) !== -1, 'the confidence gauge is no longer rendered verbatim');
   assert.match(html, /id="confidence-gauge-mount"/, 'patchDerivedStats() lost the gauge mount');
-  assert.match(gauge, /url\(#gaugeFillGrad\)/, 'the violet gauge arc is gone');
-  assert.match(gauge, /stroke-width="2\.4"[\s\S]{0,40}gaugeGlow/, 'the violet needle is gone');
-  assert.match(gauge, /stop-color="var\(--violet\)"/);
+  assert.match(gauge, /url\(#gaugeFillGrad\)/, 'the gauge arc is gone');
+  assert.match(gauge, /stroke-width="2\.4"[\s\S]{0,40}gaugeGlow/, 'the gauge needle is gone');
+  assert.match(gauge, /stop-color="var\(--cherry\)"/);
   assert.match(gauge, /class="gauge-pct font-mono"/);
   // The explanatory line directly beneath the gauge row, unchanged.
   assert.match(html, /Confidence reflects how closely your logged sessions have matched/);

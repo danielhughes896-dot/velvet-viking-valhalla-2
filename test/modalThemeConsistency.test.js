@@ -26,10 +26,13 @@ const { buildPlan } = require('./fixtures.js');
 const ROOT = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
 
-// Comments in this file describe the old behaviour as often as the new, so a
-// scan that reads them will pass on prose alone. Every assertion below runs
-// against code with comments removed.
-const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ');
+/* Comments in this file describe the old behaviour as often as the new, so a
+   scan that reads them will pass on prose alone. Every assertion below runs
+   against code with comments removed -- WHOLE-LINE // comments as well as
+   block ones, because a line comment that merely mentions openModal() sits
+   inside the function above it as far as fnBody() is concerned, and that is
+   enough to make a function look like it opens a modal when it does not. */
+const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
 
 function styleBlock(selector) {
   const i = CODE.indexOf(selector + '{');
@@ -96,14 +99,49 @@ const WORK_SURFACES = [
   ['openSetupModal', 'the staged plan builder'],
   ['openRecalibrateModal', 'Re-calibrate Training Zones'],
   ['openEditModal', 'Edit Session'],
+  ['openSettingsModal', 'Settings'],
+  ['openPacingModal', 'Pacing Strategy'],
+  ['openImportModal', 'Tools & Import'],
+  ['openRestoreModal', 'Restore a Plan'],
+  ['openBackupTextModal', 'Copy Backup'],
+  ['openPasteBackupModal', 'Paste Backup'],
   ['openHQPanel', "Plan HQ's Record / Reading / action panels"],
 ];
 
+/* The other side of the classification, and the reason the count is a rule
+   rather than a ceiling. openCloudConflictModal has NO close control -- two
+   plans exist and one must be chosen before anything else happens -- so it is
+   the transient decision .modal-card's fixed dark ramp was written for, and
+   its deliberate difference from the surface behind it is what marks it as a
+   thing that has to be answered. */
+test('a modal that must interrupt keeps the fixed dark ramp', () => {
+  const body = fnBody('openCloudConflictModal');
+  assert.doesNotMatch(body, /modal-themed/,
+    'the one modal that must interrupt now looks like the ones that do not');
+  assert.doesNotMatch(body, /data-action="close-modal"/,
+    'it grew a close control -- if it can be dismissed it is no longer a forced choice');
+});
+
+/* Every function that calls openModal(), and whether it opts in. Working off
+   the function body rather than a fixed-width window past "openModal(" is what
+   makes this correct for the three callers that pass their whole markup inline
+   -- their class argument sits thousands of characters after the paren. */
+function openModalCallers() {
+  const out = [];
+  const re = /\nfunction ([A-Za-z0-9_]+)\(/g;
+  let m;
+  while ((m = re.exec(CODE)) !== null) {
+    const body = fnBody(m[1]);
+    if (/openModal\(/.test(body)) out.push([m[1], /['"]modal-themed\b/.test(body)]);
+  }
+  return out.filter(([n]) => n !== 'openModal');
+}
+
 test('every surface an athlete works in follows the theme', () => {
   WORK_SURFACES.forEach(([fn, what]) => {
-    // not [^)]* -- openHQPanel passes openModal(html, '...'), so the class sits
-    // past a comma, and openRecordPanel's argument used to carry a paren too.
-    assert.match(fnBody(fn), /openModal\([\s\S]{0,120}?['"][^'"]*\bmodal-themed\b/,
+    const body = fnBody(fn);
+    assert.match(body, /openModal\(/, what + ' no longer opens a modal at all');
+    assert.match(body, /['"]modal-themed\b/,
       what + ' opens on the fixed dark ramp whatever theme the athlete chose');
   });
 });
@@ -126,16 +164,25 @@ test('Edit Session in particular, because it is the one that regressed', () => {
 });
 
 test('a modal that does not opt in keeps the fixed dark ramp', () => {
-  // Any other openModal() call must not carry the class. This is the guard that
-  // stops "make it themed" from quietly becoming the default for every confirm.
-  // The number is WORK_SURFACES.length by construction, so adding a themed
-  // modal means naming it above rather than bumping a literal.
-  const calls = [...CODE.matchAll(/openModal\(([\s\S]{0,400}?)\);/g)]
-    .map(m => m[1])
-    .filter(a => /\bmodal-themed\b/.test(a));
-  assert.equal(calls.length, WORK_SURFACES.length,
-    'expected exactly ' + WORK_SURFACES.length + ' themed modals (' +
-    WORK_SURFACES.map(w => w[1]).join(', ') + '), found ' + calls.length);
+  /* The set of themed modals must equal the set named above -- not merely be
+     the same SIZE as it. That is the guard that stops "make it themed" from
+     quietly becoming the default for every confirm, and it names the offender
+     instead of reporting an off-by-one. */
+  const themed = openModalCallers().filter(([, on]) => on).map(([n]) => n).sort();
+  const declared = WORK_SURFACES.map(w => w[0]).sort();
+  assert.deepEqual(themed, declared,
+    'themed modals and declared work surfaces disagree.\n  themed:   ' +
+    themed.join(', ') + '\n  declared: ' + declared.join(', '));
+});
+
+test('every modal in the product has been classified one way or the other', () => {
+  // Nothing may open a modal without appearing in exactly one of the two sets.
+  const callers = openModalCallers().map(([n]) => n);
+  const declared = new Set(WORK_SURFACES.map(w => w[0]));
+  const unclassified = callers.filter(n => !declared.has(n) && n !== 'openCloudConflictModal');
+  assert.deepEqual(unclassified, [],
+    'these open a modal and are neither a declared work surface nor the one ' +
+    'deliberate interrupt: ' + unclassified.join(', '));
 });
 
 test('the Plan HQ panels opt in, and carry the builder accent deliberately', () => {
@@ -148,9 +195,9 @@ test('the Plan HQ panels opt in, and carry the builder accent deliberately', () 
   // is the rule that makes a primary action violet, and reusing it is what
   // stops a second purple being invented for the BACK button.
   assert.match(body, /\bbuilder-light\b/,
-    'the Plan HQ panel lost the class its violet BACK button depends on');
-  assert.match(CODE, /\.builder-light\s+\.btn-primary\s*\{[^}]*var\(--violet\)/,
-    'the violet primary rule the Plan HQ panels borrow no longer exists');
+    'the Plan HQ panel lost the class its Cherry Lacquer BACK button depends on');
+  assert.match(CODE, /\.builder-light\s+\.btn-primary\s*\{[^}]*var\(--cherry\)/,
+    'the Cherry Lacquer primary rule the Plan HQ panels borrow no longer exists');
   // One opener, so one theme decision, for every panel on the screen.
   assert.match(fnBody('openRecordPanel'), /openHQPanel\(/,
     'the Record panels stopped going through the shared opener');

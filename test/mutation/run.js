@@ -39,6 +39,10 @@ const SUBSET = files(['stripeLifecycle','monthlyPause','commercialCore','securit
    and anything that does not name one gets SUBSET. */
 const RECORD_SUBSET = files(['planHqRecord','planHqReading','modalThemeConsistency',
   'phase4AppUx','yearRoundLifecycle','coachSurfaceDistinctness']);
+// The accent migration's own guards, plus the two suites that already held
+// the switch component and the gauge's colour semantics.
+const ACCENT_SUBSET = files(['cherryLacquer','themeSystem','metricColour',
+  'modalThemeConsistency','planHqReading','lightModeSystem']);
 const HQ_SUBSET = RECORD_SUBSET;
 
 const CASES = [
@@ -509,6 +513,51 @@ const CASES = [
   ['trio: a tile drops below a thumb-sized target', 'protected/velvet-viking-valhalla.html',
    "    min-height:76px; padding:10px 6px; font:inherit; text-align:center; cursor:pointer;",
    "    min-height:28px; padding:10px 6px; font:inherit; text-align:center; cursor:pointer;", HQ_SUBSET],
+  // ---- CHERRY LACQUER: THE ACCENT MIGRATION ----
+  ['accent: the old violet comes back as a token', 'protected/velvet-viking-valhalla.html',
+   "    --cherry:#532D3A;\n    --cherry-soft:#EFE4E8;",
+   "    --cherry:#4C2A6B;\n    --cherry-soft:#E9E2F5;", ACCENT_SUBSET],
+  ['accent: a brand control hard-codes the colour instead of the token',
+   'protected/velvet-viking-valhalla.html',
+   "  .builder-light .btn-primary{background:var(--cherry); color:var(--cherry-btn-ink);}",
+   "  .builder-light .btn-primary{background:#532D3A; color:#FFFFFF;}", ACCENT_SUBSET],
+  ['accent: the primary goes back to a gradient', 'protected/velvet-viking-valhalla.html',
+   "  .hq-panel .rec-panel-nav .btn-primary{\n    background:var(--cherry); color:var(--cherry-btn-ink);",
+   "  .hq-panel .rec-panel-nav .btn-primary{\n    background:linear-gradient(135deg,var(--cherry),var(--cherry-text)); color:var(--cherry-btn-ink);", ACCENT_SUBSET],
+  ['accent: dark mode ships the raw brand value and loses its control boundary',
+   'protected/velvet-viking-valhalla.html',
+   "    --cherry:#9A546C;                   /* x1.86 of #532D3A -- see above */",
+   "    --cherry:#532D3A;                   /* x1.86 of #532D3A -- see above */", ACCENT_SUBSET],
+  ['accent: dark mode lifts further than it needs to', 'protected/velvet-viking-valhalla.html',
+   "    --cherry:#9A546C;                   /* x1.86 of #532D3A -- see above */",
+   "    --cherry:#C08094;                   /* x1.86 of #532D3A -- see above */", ACCENT_SUBSET],
+  ['accent: the dark companion drifts off the Cherry Lacquer hue',
+   'protected/velvet-viking-valhalla.html',
+   "    --cherry:#9A546C;                   /* x1.86 of #532D3A -- see above */",
+   "    --cherry:#6C549A;                   /* x1.86 of #532D3A -- see above */", ACCENT_SUBSET],
+  ['accent: small accent text is painted with the fill tone', 'protected/velvet-viking-valhalla.html',
+   "letter-spacing:1px; color:var(--cherry-text);}",
+   "letter-spacing:1px; color:var(--cherry);}", ACCENT_SUBSET],
+  ['accent: a semantic status colour is swallowed by the brand',
+   'protected/velvet-viking-valhalla.html',
+   "  .read-val.good{color:var(--c-easy);}", "  .read-val.good{color:var(--cherry);}", ACCENT_SUBSET],
+  ['accent: the destructive button takes the brand', 'protected/velvet-viking-valhalla.html',
+   "  .btn-danger{background:none; border:1px solid var(--c-threshold); color:var(--danger-text);}",
+   "  .btn-danger{background:none; border:1px solid var(--cherry); color:var(--cherry);}", ACCENT_SUBSET],
+  ['accent: gold gives up the focus ring', 'protected/velvet-viking-valhalla.html',
+   "  :focus-visible{outline:2px solid var(--gold); outline-offset:2px; border-radius:4px;}",
+   "  :focus-visible{outline:2px solid var(--cherry); outline-offset:2px; border-radius:4px;}", ACCENT_SUBSET],
+  ['accent: the switch stops sharing one ON colour', 'protected/velvet-viking-valhalla.html',
+   "  .switch input:checked + .switch-track{background:var(--cherry);}",
+   "  .switch input:checked + .switch-track{background:var(--bronze);}", ACCENT_SUBSET],
+  ['accent: the gauge needle stops carrying the accent', 'protected/velvet-viking-valhalla.html',
+   "stroke=\"var(--cherry)\" stroke-width=\"2.4\"",
+   "stroke=\"var(--gold)\" stroke-width=\"2.4\"", ACCENT_SUBSET],
+  ['accent: a component redefines the accent for one theme',
+   'protected/velvet-viking-valhalla.html',
+   "  .rec-panel-nav{margin-top:22px;}",
+   "  .rec-panel-nav{margin-top:22px; --cherry:#7A3F52;}", ACCENT_SUBSET],
+
   ['theme: Edit Session opens on the fixed dark ramp again',
    'protected/velvet-viking-valhalla.html',
    "  openModal(html, 'modal-themed');\n}\n\nfunction findDay(dayId){",

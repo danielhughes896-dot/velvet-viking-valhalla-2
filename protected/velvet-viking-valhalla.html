@@ -59,41 +59,57 @@
     --c-long:#5E93AC; --c-long-soft:rgba(94,147,172,0.16);
     --c-gold:var(--gold); --c-gold-soft:rgba(227,177,90,0.20);
 
-    /* ---------- VALHALLA VIOLET ----------
-       GOLD REMAINS THE IDENTITY. This is an accent for a specific, closed set
-       of things -- progression and the one interaction that changes the whole
-       app's appearance -- and it is a token precisely so that set stays
-       closed: a scattered hex is how an accent becomes a second brand.
+    /* ---------- CHERRY LACQUER ----------
+       THE VELVET VIKING INTERACTIVE ACCENT. Japanese maple / dark cherry /
+       wine. It replaced the Valhalla violet that used to live here, and it
+       carries the same closed set of meanings and no more:
 
-       Every section heading, every card, every other button and every
-       existing gold surface is deliberately untouched.
+         PRIMARY INTERACTION  the button that moves the athlete forward
+         PROGRESSION          where they are in a sequence
+         SELECTED BRAND STATE a control they have turned on
 
-       The hue was not picked at random. The dark theme's own near-blacks
-       (#151417, #232126) already sit at 255-264deg, so a violet at ~271deg is
-       the same family the product was already built in rather than a colour
-       imported from outside it. Deep royal rather than bright: on cream,
-       #4C2A6B reads 10.06:1, close to ink's authority, and carries white at
-       11.35:1 on a filled button.
+       GOLD REMAINS THE IDENTITY. Every section heading, every card, every gold
+       button and every gold border is untouched. So is every semantic colour:
+       green proceed, amber watch, red missed/destructive, the workout-type
+       hues and the subscription pill's active/grace/ended states. This accent
+       is a token precisely so its set stays closed -- a scattered hex is how
+       an accent becomes a second brand.
 
-       Dark mode inverts the problem -- #4C2A6B on #151417 is 1.62:1 and
-       invisible -- so the accent lightens to #A88FD8 (6.63:1) rather than the
-       component being redesigned.
+       CANONICAL VALUE #532D3A, and the light theme uses it unmodified: 10.32:1
+       on --bg, 11.27:1 on --bg-2, 9.27:1 on --bg-3, and it carries white at
+       11.64:1 on a filled button.
 
-       --violet-ink is the one token that does NOT flip with the theme. It is
-       the numeral inside a violet node, and that node is light in BOTH themes,
-       so the numeral is dark in both: #171717 on the light fill is 14.22:1,
-       and on the dark-theme fill 6.48:1. Flipping it to --ink would make the
-       dark-mode numerals ivory-on-lilac and unreadable. */
-    --violet:#A88FD8;
-    --violet-soft:#A88FD8;              /* node fill; the accent itself here */
-    --violet-line:rgba(168,143,216,0.34);
-    --violet-dim:rgba(168,143,216,0.45);
-    --violet-2:#B79FDF;                 /* gradient partner, lighter here */
-    --violet-ink:#171717;               /* numerals inside a node, both themes */
-    /* A filled violet button is DEEP in light and LIGHT in dark, so its label
-       has to flip: white on #4C2A6B is 11.35:1, white on #A88FD8 is 2.77:1 and
-       unreadable. Dark ink on the dark-theme violet is 6.48:1. */
-    --violet-btn-ink:#171717;
+       DARK MODE NEEDS A COMPANION, and the reason is measured rather than
+       aesthetic. #532D3A on #151417 is 1.58:1 -- the LABEL would be fine, but
+       the CONTROL would have no boundary, which is WCAG 1.4.11's 3:1 for
+       non-text contrast and the difference between a button and a smudge.
+
+       So the companion is #532D3A scaled x1.86 on every channel, which is the
+       SMALLEST lift that clears 3:1 against the WORST dark surface a control
+       sits on (--bg-3 #201F23, where it lands at exactly 3.01:1; 3.18:1 on
+       --bg-2 and 3.37:1 on --bg). Proportional scaling is what keeps it the
+       same colour: hue 339.43deg against the canonical 339.47deg. It is not a
+       different accent, it is Cherry Lacquer with the lights on.
+
+       --cherry-text is a SECOND dark companion, and only for the two places
+       the accent is small TEXT rather than a fill -- the builder's stage
+       numeral and the trial pill. Those need 4.5:1, not 3:1, so they need a
+       further lift: x2.36, hue 339.33deg, 4.5:1 on --bg-3 -- the worst surface
+       either of them can land on. Using the fill tone
+       for text would ship 3.18:1 body text, and using the text tone for fills
+       would lighten every control past what the colour should look like. */
+    --cherry:#9A546C;                   /* x1.86 of #532D3A -- see above */
+    --cherry-soft:#9A546C;              /* node fill; the accent itself here */
+    --cherry-line:rgba(154,84,108,0.45);
+    --cherry-dim:rgba(154,84,108,0.50);
+    --cherry-text:#C46A89;              /* x2.36 -- the accent AS TEXT, 4.5:1 */
+    /* Ink on --cherry-soft. Cherry Lacquer is a DARK colour in both themes'
+       terms -- deep on cream, lifted-but-still-deep on charcoal -- so unlike
+       the violet it replaced, its label does not have to flip: white clears AA
+       on both fills (11.64:1 light, 5.44:1 dark). --cherry-ink is dark only
+       where the fill is the pale light-theme tint. */
+    --cherry-ink:#FFFFFF;
+    --cherry-btn-ink:#FFFFFF;
     /* ---------- TYPOGRAPHY SCALE (readability prototype) ----------
        Beta feedback: coaching/body copy read small next to apps like Strava,
        whose body text sits around 14-16px. Valhalla's primary copy was
@@ -173,17 +189,22 @@
     --ctl-surface:#F5F2EC; --ctl-surface-border:#DCCEA9;
     --danger-text:#9A3540;   /* 6.30:1 on the page, vs 4.37:1 for the family hue */
 
-    /* VALHALLA VIOLET, light. The direction is strongest here: deep royal on
-       cream, 10.06:1, with white carried at 11.35:1 on a filled button. The
-       node fill is a pale tint of the same hue so the numeral inside can stay
-       near-black -- a numeral on saturated #4C2A6B would be unreadable. */
-    --violet:#4C2A6B;
-    --violet-soft:#E9E2F5;
-    --violet-line:rgba(76,42,107,0.30);
-    --violet-dim:rgba(76,42,107,0.42);
-    --violet-2:#5B3580;                 /* gradient partner, deeper here */
-    --violet-ink:#171717;
-    --violet-btn-ink:#FFFFFF;           /* 11.35:1 on the deep violet fill */
+    /* CHERRY LACQUER, light -- the canonical value, unmodified. The direction
+       is strongest here: deep Japanese maple on cream, 10.32:1, with white
+       carried at 11.64:1 on a filled button. No lift is needed and none is
+       applied; the dark theme's companion exists only because that theme's
+       ground made one necessary (see the block above).
+
+       The node fill is a pale tint of the same hue so the numeral inside can
+       stay near-black -- a numeral on saturated #532D3A would be unreadable --
+       which is the one place --cherry-ink is dark rather than white. */
+    --cherry:#532D3A;
+    --cherry-soft:#EFE4E8;              /* 88% toward white; hue 338.2deg */
+    --cherry-line:rgba(83,45,58,0.32);
+    --cherry-dim:rgba(83,45,58,0.42);
+    --cherry-text:#532D3A;              /* no lift needed: 10.32:1 as text */
+    --cherry-ink:#171717;               /* 14.46:1 on the pale node fill */
+    --cherry-btn-ink:#FFFFFF;           /* 11.64:1 on the filled button */
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html{-webkit-text-size-adjust:100%;}
@@ -372,7 +393,7 @@
      The words, the icon and the interior are deliberately unchanged: the
      border alone is enough to mark it as the thing worth opening, and
      colouring the content would make a reading surface shout. */
-  .fuel-card.how-card{border-color:var(--violet); border-style:solid;}
+  .fuel-card.how-card{border-color:var(--cherry); border-style:solid;}
   /* min-height, not more padding: this is a thumb target on a phone and it sat
      at roughly 29px, well under the ~44px a finger actually needs. The card is
      otherwise unchanged -- the row simply stops being a near-miss. */
@@ -436,8 +457,8 @@
      is step 2" and the rail said nothing, so the SEQUENCE was something you
      inferred rather than saw.
 
-     Now the numeral IS the node: one violet disc per step, sitting on a violet
-     connector that runs from each node to the next. The number did not move
+     Now the numeral IS the node: one Cherry Lacquer disc per step, sitting on
+     a Cherry Lacquer connector that runs from each node to the next. The number did not move
      twice and there is no second numeral anywhere -- the same span, positioned
      differently.
 
@@ -457,14 +478,14 @@
   .ws-n{
     position:absolute; left:-27px; top:-1px; width:19px; height:19px;
     display:flex; align-items:center; justify-content:center;
-    border-radius:50%; background:var(--violet-soft); border:1.5px solid var(--violet);
-    color:var(--violet-ink); font-size:var(--fs-meta); line-height:1; font-weight:700;
+    border-radius:50%; background:var(--cherry-soft); border:1.5px solid var(--cherry);
+    color:var(--cherry-ink); font-size:var(--fs-meta); line-height:1; font-weight:700;
   }
   /* From just under this node to just under the step box, which is where the
      next node begins. Never drawn after the last one. */
   .ws-step::before{
     content:''; position:absolute; left:-18.25px; top:19px; bottom:-1px;
-    width:1.5px; background:var(--violet-line);
+    width:1.5px; background:var(--cherry-line);
   }
   .ws-step:last-child::before{display:none;}
   .ws-name{font-size:var(--fs-body); letter-spacing:.6px; text-transform:uppercase; color:var(--ink);}
@@ -916,15 +937,19 @@
   .btn-primary:hover{filter:brightness(1.08);}
   /* THE BUILDER'S PRIMARY ACTION, and only the builder's. Continue and Build
      My Training Block / Regenerate Plan are the forward motion of a flow that
-     is already marked in violet by its progress rail, so the button that
-     advances it belongs to the same accent.
+     is already marked in Cherry Lacquer by its progress rail, so the button
+     that advances it belongs to the same accent.
 
      Scoped to .builder-light -- the class the staged builder already carries
      for its positioning -- so every other .btn-primary in the product keeps
      the bronze gradient. Save & Re-tailor, Log Session and the rest are
      untouched, which is what stops this becoming "the primary button is
-     purple now". Secondary controls inside the builder keep .btn-ghost. */
-  .builder-light .btn-primary{background:linear-gradient(135deg,var(--violet),var(--violet-2)); color:var(--violet-btn-ink);}
+     cherry now". Secondary controls inside the builder keep .btn-ghost.
+
+     SOLID, not a gradient. The gradient was the violet's; Cherry Lacquer was
+     chosen as a flat fill, and a flat fill is also what makes the button read
+     as one deliberate colour rather than a surface with a sheen. */
+  .builder-light .btn-primary{background:var(--cherry); color:var(--cherry-btn-ink);}
   .btn-ghost{background:none; border:1px solid var(--line);}
   /* --danger-text, not --c-threshold. The workout-type hues are deliberately
      identical in both themes, and that one lands at 4.37:1 on cream -- close
@@ -1044,15 +1069,16 @@
   /* Progress. Numerals on mobile, so five labels cannot crowd a 360px header. */
   .bld-progress{display:flex; align-items:center; gap:6px;}
   .bld-step{flex:1 1 0; height:3px; border-radius:99px; background:var(--line); transition:background .2s;}
-  /* PROGRESS. Violet marks how far through the build you are: the segment you
-     are on, the ground already covered behind it at lower weight, and the
-     stage numeral that names it. Future segments stay --line, unchanged and
+  /* PROGRESS. Cherry Lacquer marks how far through the build you are: the
+     segment you are on, the ground already covered behind it at lower weight,
+     and the stage numeral that names it -- which takes --cherry-text rather
+     than --cherry, because a numeral is text and needs 4.5:1. Future segments stay --line, unchanged and
      neutral, so the accent reads as progress rather than decoration. The stage
      NAME beside the numeral stays --ink-faint: it is a label, not progress. */
-  .bld-step.done{background:var(--violet-dim);}
-  .bld-step.now{background:var(--violet);}
+  .bld-step.done{background:var(--cherry-dim);}
+  .bld-step.now{background:var(--cherry);}
   .bld-progress-meta{display:flex; align-items:baseline; justify-content:space-between; margin:9px 0 2px;}
-  .bld-stage-no{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--violet);}
+  .bld-stage-no{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--cherry-text);}
   .bld-stage-name{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.4px; font-size:var(--fs-label); color:var(--ink-faint);}
   .bld-stage-h{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.8px; font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px;}
   .bld-lede{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 18px;}
@@ -1242,27 +1268,27 @@
     box-shadow:inset 0 0 0 1px var(--ctl-border);}
   .switch input:checked + .switch-track{box-shadow:none;}
   .switch-track::before{content:''; position:absolute; width:18px; height:18px; left:3px; top:3px; background:var(--bg-2); border-radius:50%; transition:.2s; box-shadow:var(--shadow-sm);}
-  /* ON IS PURPLE, FOR EVERY BINARY SWITCH IN THE PRODUCT.
+  /* ON IS CHERRY LACQUER, FOR EVERY BINARY SWITCH IN THE PRODUCT.
 
-     This was gold, with a single-row override painting the App Theme switch
-     violet -- so Settings offered two identical controls doing identical kinds
-     of thing in two different colours, and the difference meant nothing.
+     This was gold, with a single-row override painting the App Theme switch in
+     the accent -- so Settings offered two identical controls doing identical
+     kinds of thing in two different colours, and the difference meant nothing.
      Whichever colour won, the inconsistency was the defect.
 
-     Purple wins because of what the two colours already mean here. Gold is the
-     brand: headings, the selected tab, the primary action, the crest. Violet is
+     The accent wins because of what the two colours already mean here. Gold is
+     the brand: headings, the selected tab, the primary action, the crest.
+     Cherry Lacquer is
      already the interactive-control treatment. A switch is a control and never a
      brand mark, so it takes the control colour -- and the #theme-toggle-row
      override is DELETED rather than duplicated onto each new toggle, because a
      shared component with per-instance colour exceptions is exactly how these
      drifted apart in the first place.
 
-     Both themes come free: --violet is defined per theme (light #4C2A6B, dark
-     #A88FD8), which is the same token that already governed the App Theme
-     switch, so the thumb contrast here is the contrast that switch has always
-     had. The off state is untouched, and focus stays the global gold
-     :focus-visible outline every other control in the app uses. */
-  .switch input:checked + .switch-track{background:var(--violet);}
+     Both themes come free: --cherry is defined per theme (light #532D3A, dark
+     #9A546C), which is the same token that governs every other interactive
+     accent in the product. The off state is untouched, and focus stays the
+     global gold :focus-visible outline every other control in the app uses. */
+  .switch input:checked + .switch-track{background:var(--cherry);}
   .switch input:checked + .switch-track::before{transform:translateX(18px);}
   .callout{background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 12px; font-size:12px; color:var(--ink-dim); line-height:1.5; display:flex; gap:9px;}
   .callout svg{flex:none; width:16px; height:16px; color:var(--bronze); margin-top:1px;}
@@ -1528,8 +1554,8 @@
      The dashed border and the gold wash were a standalone landing page's
      decoration; a door into a five-stage flow is not a poster. Solid hairline,
      the page's own ground, and -- because .hero-setup carries .builder-light
-     -- the same violet primary action, the same radius and the same control
-     metrics as the stage panels one tap behind it. The eyebrow rule is gone
+     -- the same Cherry Lacquer primary action, the same radius and the same
+     control metrics as the stage panels one tap behind it. The eyebrow rule is gone
      with the step number it used to hold: this card no longer counts. */
   .setup-cta.setup-step{
     border:1px solid var(--line); background:var(--bg-2); border-radius:14px;
@@ -1634,8 +1660,8 @@
 
   /* ---------- RACE OUTLOOK ----------
      Where the last measured effort sits against the goal, and nothing else.
-     VIOLET is the measured range -- the same accent the confidence gauge above
-     already uses for what the athlete's own running has produced. GOLD is the
+     CHERRY LACQUER is the measured range -- the same accent the confidence
+     gauge above already uses for what the athlete's own running has produced. GOLD is the
      goal, which is gold everywhere in this product. No third colour, no
      probability, no number that is not already computed by
      measuredFitnessEstimate(). */
@@ -1654,18 +1680,24 @@
   }
   .outlook-band{
     position:absolute; top:-1px; bottom:-1px; border-radius:99px;
-    background:linear-gradient(90deg,var(--violet-dim),var(--violet));
+    background:var(--cherry);
     min-width:8px;
   }
   /* The goal is a marker, not a region: a hairline through the whole track so
      it reads against the band whether it falls inside, before or after it. */
+  /* The marker is gold, and gold on the pale light-theme track is 1.56:1 --
+     legible where it crosses the Cherry Lacquer band and faint where it does
+     not. A hairline of --bronze-2 (3.37:1 on that track, 3.87:1 on the dark
+     one) gives it an edge in both themes without introducing a colour: it is
+     the same gold family the marker is already made of. */
   .outlook-goal{
     position:absolute; top:-4px; bottom:-4px; width:2.5px; margin-left:-1.25px;
-    border-radius:2px; background:var(--gold);
+    border-radius:2px; background:var(--gold); box-shadow:0 0 0 1px var(--bronze-2);
   }
   .outlook-goal::after{
     content:''; position:absolute; left:50%; top:-4px; width:6px; height:6px;
     margin-left:-3px; border-radius:50%; background:var(--gold);
+    box-shadow:0 0 0 1px var(--bronze-2);
   }
   .outlook-scale{
     display:flex; justify-content:space-between; gap:10px; margin-top:6px;
@@ -1674,7 +1706,7 @@
   .outlook-legend{display:flex; flex-wrap:wrap; gap:14px; margin-top:8px;}
   .ol-key{display:inline-flex; align-items:center; gap:6px; font-size:10.5px; color:var(--ink-dim);}
   .ol-swatch{width:10px; height:10px; border-radius:3px; flex:none;}
-  .ol-swatch.measured{background:linear-gradient(90deg,var(--violet-dim),var(--violet));}
+  .ol-swatch.measured{background:var(--cherry);}
   .ol-swatch.goal{background:var(--gold);}
   .outlook .field-hint{margin-top:6px;}
 
@@ -1700,10 +1732,10 @@
   }
   /* The panel a Record card opens. Same modal-themed surface and the same
      circular close control as every other worked-in surface; the one addition
-     is the full-width violet BACK at the foot, which is the builder's own
-     forward-motion accent doing the one job this surface has. */
+     is the full-width Cherry Lacquer BACK at the foot, which is the builder's
+     own forward-motion accent doing the one job this surface has. */
   .rec-panel-nav{margin-top:22px;}
-  /* VIOLET MEANS "THE WAY OUT OF THIS PANEL", and only that. builder-light is
+  /* CHERRY MEANS "THE WAY OUT OF THIS PANEL", and only that. builder-light is
      borrowed for the centring and the accent, but a Plan HQ panel can host a
      real primary of its own -- a Plan evolution proposal's Accept commits days
      of training -- and a state-changing action must not wear the same colour
@@ -1711,7 +1743,7 @@
      content primary back on bronze, and light the navigation alone. */
   .hq-panel .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink);}
   .hq-panel .rec-panel-nav .btn-primary{
-    background:linear-gradient(135deg,var(--violet),var(--violet-2)); color:var(--violet-btn-ink);
+    background:var(--cherry); color:var(--cherry-btn-ink);
   }
   .modal-body .zone-paces-card{margin:0 0 4px;}
 
@@ -1742,7 +1774,7 @@
   /* ---------- SUBSCRIPTION ----------
      Status is INFORMATION, so the pill borrows the same quiet chip language
      the rest of the product uses for state and never the primary action's
-     violet. Only "Subscribe again" and "Update payment details" are primary
+     fill -- it takes the accent's TEXT tone, at a text contrast ratio. Only "Subscribe again" and "Update payment details" are primary
      actions, and they inherit .btn-primary like every other one. */
   .sub-pill{
     font-family:'Oswald',sans-serif; font-size:var(--fs-meta); letter-spacing:1px;
@@ -1750,7 +1782,7 @@
     border:1px solid var(--line); color:var(--ink-faint); white-space:nowrap;
   }
   .sub-pill.sub-active{border-color:rgba(var(--modal-active-rgb),0.5); color:var(--modal-active);}
-  .sub-pill.sub-trial{border-color:var(--violet-line); color:var(--violet);}
+  .sub-pill.sub-trial{border-color:var(--cherry-line); color:var(--cherry-text);}
   .sub-pill.sub-grace{border-color:var(--c-threshold); color:var(--danger-text);}
   .sub-pill.sub-ended{border-color:var(--line); color:var(--ink-faint);}
   .sub-line{font-size:var(--fs-data); color:var(--ink); margin:2px 0 8px;}
@@ -5869,6 +5901,22 @@ function cloudReconcile(){
     openCloudConflictModal(remote, row.updated_at);
   }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
 }
+/* THE ONE MODAL THAT STAYS ON THE FIXED DARK RAMP, and it is a decision
+   rather than an oversight.
+
+   Every other modal in the product has been classified as a surface the
+   athlete WORKS IN -- the builder, Re-calibrate, Edit Session, Settings,
+   Pacing Strategy, Tools & Import, Restore a Plan, the two backup-text
+   surfaces and Plan HQ's panels -- and every one of those follows the theme,
+   because a near-black sheet over a cream app is wrong for something you sit
+   in and operate.
+
+   This is not one of those. It has NO close control, because there is nothing
+   to close it to: two plans exist, one must be chosen, and the athlete cannot
+   proceed until they choose. It is the lit stage .modal-card was written for,
+   and its deliberate difference from the surface behind it is what marks it as
+   a thing that has to be answered. Adding .modal-themed here would make the one
+   modal that must interrupt look like the ones that do not. */
 function openCloudConflictModal(remote, remoteUpdated){
   cloudPendingReconcile = true;
   window.__cloudPendingRemote = remote;
@@ -7045,13 +7093,13 @@ function renderConfidenceGauge(){
            are the scale the reading sits against, and .gauge-pct stays
            --gold-text because it is the confidence FIGURE, not the gauge. The
            card, its PROGRAMME STATUS heading and every label are untouched. */
-        '<linearGradient id="gaugeFillGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="var(--violet-dim)"/><stop offset="100%" stop-color="var(--violet)"/></linearGradient>'+
+        '<linearGradient id="gaugeFillGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="var(--cherry-dim)"/><stop offset="100%" stop-color="var(--cherry)"/></linearGradient>'+
       '</defs>'+
       '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="var(--bg-4)" stroke-width="6" stroke-linecap="round"/>'+
       '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="url(#gaugeFillGrad)" stroke-width="6" stroke-linecap="round" '+
         'stroke-dasharray="'+fillLen.toFixed(1)+' '+(arcLen-fillLen).toFixed(1)+'"/>'+
       '<g filter="url(#gaugeGlow)">'+ticks+'</g>'+
-      '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleX.toFixed(1)+'" y2="'+needleY.toFixed(1)+'" stroke="var(--violet)" stroke-width="2.4" stroke-linecap="round" filter="url(#gaugeGlow)"/>'+
+      '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleX.toFixed(1)+'" y2="'+needleY.toFixed(1)+'" stroke="var(--cherry)" stroke-width="2.4" stroke-linecap="round" filter="url(#gaugeGlow)"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="3" fill="var(--modal-active)"/>'+
       '<text x="'+(cx-r)+'" y="'+(cy+11)+'" class="gauge-elabel">E</text>'+
       '<text x="'+(cx+r-6)+'" y="'+(cy+11)+'" class="gauge-flabel">F</text>'+
@@ -7186,7 +7234,7 @@ function renderHero(){
        athlete never sees it. */
     var parked = recoverablePlans().length;
     /* `builder-light` is the class the staged builder already carries, and it
-       is what makes a primary action violet rather than bronze. Borrowing it
+       is what makes a primary action Cherry Lacquer rather than bronze. Borrowing it
        here rather than writing a new rule is the whole point: this card and
        the builder one tap behind it now share one accent because they share
        one stylesheet rule, so they cannot drift apart later. No new colour
@@ -20110,7 +20158,7 @@ function openSettingsModal(){
     ) : '')+
     '<div class="build-tag">Build '+BUILD_ID+'</div>'+
   '</div>';
-  openModal(html);
+  openModal(html, 'modal-themed');
 }
 /* RESET IS A NEW BLOCK, NOT AMNESIA.
 //
@@ -20320,7 +20368,8 @@ function openBackupTextModal(payload){
       '<div class="field-hint" style="margin-bottom:10px;">Couldn\u2019t reach the clipboard automatically. Tap Copy below, or long-press the text and select all.</div>'+
       '<textarea id="backup-text-area" class="export-text" style="min-height:150px;" readonly>'+escapeHtml(payload)+'</textarea>'+
       '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" data-action="copy-backup-field">'+ICONS.copy+' Copy</button>'+
-    '</div>'
+    '</div>',
+    'modal-themed'
   );
 }
 function handleCopyBackupField(){
@@ -20339,7 +20388,8 @@ function openPasteBackupModal(){
       '<div class="field-hint" style="margin-bottom:10px;">Paste the backup text you copied from your other install. This replaces the plan on this device.</div>'+
       '<textarea id="paste-backup-area" class="export-text" style="min-height:150px;" placeholder="Paste your backup here"></textarea>'+
       '<button type="button" class="btn btn-primary btn-block" style="margin-top:12px;" data-action="restore-pasted">'+ICONS.upload+' Restore This Backup</button>'+
-    '</div>'
+    '</div>',
+    'modal-themed'
   );
 }
 function handleRestorePasted(){
@@ -20397,7 +20447,7 @@ function openPacingModal(){
     '<table class="pace-table"><thead><tr><th>Checkpoint</th><th>Goal A</th><th>Goal B</th><th>Goal C</th></tr></thead><tbody>'+rows+'</tbody></table>'+
     '<div class="callout" style="margin-top:16px;">'+ICONS.info+'<div>Even splits are a starting strategy, not a rule \u2014 many runners run a controlled first half and let the second half follow feel. Adjust for course profile, weather and how you feel on the day.</div></div>'+
   '</div>';
-  openModal(html);
+  openModal(html, 'modal-themed');
 }
 
 /* =========================================================
@@ -21116,7 +21166,7 @@ function openImportModal(){
     '<div class="field-hint" style="margin-top:10px;">Garmin user? Sync your Garmin Connect account to Strava, then tap \u201cSync Strava\u201d above to auto-import your watch runs automatically!</div>'+
     '<div id="import-result"></div>'+
   '</div>';
-  openModal(html);
+  openModal(html, 'modal-themed');
   var dz = document.getElementById('import-dropzone');
   var fi = document.getElementById('import-file-input');
   dz.addEventListener('click', function(){ fi.click(); });
@@ -22176,9 +22226,9 @@ function renderRecordSection(){
 /* ---------- the panels ----------
    Same interaction model as Build Your Training Block: a modal-themed surface
    over a dimmed Plan HQ, an uppercase heading and a circular close top-left/
-   right, and the builder's own violet primary at the foot. `builder-light` is
+   right, and the builder's own Cherry Lacquer primary at the foot. `builder-light` is
    borrowed exactly as renderHero() already borrows it -- it is the rule that
-   makes a primary action violet, and reusing it is what stops a second purple
+   makes a primary action Cherry Lacquer, and reusing it is what stops a second accent
    being invented here.
 
    DELIBERATELY NO 01/05 RAIL. These are detail panels, not wizard steps: there
@@ -22264,7 +22314,7 @@ function recordPanelBenchmark(){
       'it is deliberately a different number.</div>'+
     /* The existing action, reached the existing way. openRecalibrateModal()
        owns benchmark and goal editing, validation and re-tailoring; this is a
-       door to it, not a second copy of it. btn-ghost so the violet BACK stays
+       door to it, not a second copy of it. btn-ghost so the Cherry Lacquer BACK stays
        the only primary on the surface. */
     '<button type="button" class="btn btn-ghost btn-block" style="margin-top:14px;" '+
       'data-action="open-recalibrate">'+ICONS.zap+' Update benchmark &amp; re-calibrate</button>';
@@ -22435,7 +22485,7 @@ function readingPanel(key){
 /* =========================================================
    RACE OUTLOOK — where the last measurement sits against the goal
    =========================================================
-   ONE QUESTION, ANSWERED FROM ONE SOURCE. The violet band is
+   ONE QUESTION, ANSWERED FROM ONE SOURCE. The Cherry Lacquer band is
    measuredFitnessEstimate() for the block's own distance -- which reads
    measuredPerformances(), which performanceFromDay() only ever admits a
    completed race or Fitness Checkpoint to. A fast easy run cannot reach it, a
@@ -22846,7 +22896,8 @@ function openRestoreModal(){
       account+
       '<div class="field-hint" style="margin-top:14px;">Nothing is changed until you choose. '+
       'Restoring never deletes another plan \u2014 whatever is open now is kept and can be restored back.</div>'+
-    '</div>'
+    '</div>',
+    'modal-themed'
   );
 }
 function handleRestorePlan(key){
