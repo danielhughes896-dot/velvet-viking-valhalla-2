@@ -11905,7 +11905,7 @@ function applyRecoveryCeiling(days, raceDate, noIntensityDays){
      the FLOOR -- it is the deterministic post-race rule and nothing shortens it
      -- and the block's own last day now sets the rest. */
   var until = addDays(raceDate, noIntensityDays);
-
+  (days || []).forEach(function(dd){ if (dd && dd.date > until) until = dd.date; });
   (days || []).forEach(function(dd){
     if (dd.date > until) return;
     if (RECOVERY_QUALITY_TYPES.indexOf(dd.type) === -1) return;

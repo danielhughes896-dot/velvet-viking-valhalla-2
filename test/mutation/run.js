@@ -658,6 +658,26 @@ const OUT_FILE = require('os').tmpdir() + '/valhalla-mutation-out.txt';
    many tests it contains, and a mutated run that reports a different number has
    not answered the question. Lazily, because the sets repeat: fifteen or so
    baselines across a hundred and fifty cases. */
+/* RESTORING THE TREE EVEN WHEN THE RUN DOES NOT FINISH.
+   This tool rewrites source files, and it was killed mid-case twice in one
+   session -- once by a container restart. Both times it left a mutation on
+   disk, and the second time a `git add -A` swept that mutation into a commit,
+   where it silently removed a safety rule that a test in the very same run had
+   just proved was needed. The header has always warned that `git status` shows
+   what is left modified; a warning is not a guard. */
+let pending = null;                       // { path, original } while a case is live
+function restorePending(){
+  if (!pending) return;
+  try{ fs.writeFileSync(pending.path, pending.original); }catch(e){ /* nothing better to do */ }
+  pending = null;
+}
+process.on('exit', restorePending);
+['SIGINT', 'SIGTERM', 'SIGHUP'].forEach(sig => process.on(sig, () => {
+  restorePending();
+  console.log('\n[interrupted on ' + sig + ' -- source restored]');
+  process.exit(130);
+}));
+
 const baselines = new Map();
 function runSuites(files){
   try{ fs.unlinkSync(OUT_FILE); }catch(e){ /* first run */ }
@@ -709,9 +729,14 @@ for (const [idx, [name, file, from, to, suites]] of CASES.entries()){
     : SUBSET;
   // BASELINE FIRST, on clean source, then mutate.
   const expected = baselineFor(files);
+  pending = { path: p, original: orig };
   fs.writeFileSync(p, orig.replace(from, to));          // clean-source run, cached per suite set
   const r = runSuites(files);
   fs.writeFileSync(p, orig);
+  pending = null;
+  // Restored, or the next case's `orig` inherits this one's mutation.
+  if (fs.readFileSync(p, 'utf8') !== orig)
+    throw new Error('failed to restore ' + file + ' after: ' + name);
   if (TAP_DIR){
     try{ fs.copyFileSync(OUT_FILE, TAP_DIR + '/case-' + idx + '.tap'); }catch(e){ /* best effort */ }
   }
