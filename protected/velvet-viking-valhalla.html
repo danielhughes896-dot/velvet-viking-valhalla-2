@@ -84,30 +84,55 @@
        the CONTROL would have no boundary, which is WCAG 1.4.11's 3:1 for
        non-text contrast and the difference between a button and a smudge.
 
-       So the companion is #532D3A scaled x1.86 on every channel, which is the
-       SMALLEST lift that clears 3:1 against the WORST dark surface a control
-       sits on (--bg-3 #201F23, where it lands at exactly 3.01:1; 3.18:1 on
-       --bg-2 and 3.37:1 on --bg). Proportional scaling is what keeps it the
-       same colour: hue 339.43deg against the canonical 339.47deg. It is not a
-       different accent, it is Cherry Lacquer with the lights on.
+       THE FIRST ATTEMPT USED ONE VALUE FOR EVERY JOB, AND THAT WAS THE BUG.
+       A bare 3px progress bar has nothing but its own colour to be seen by, so
+       it genuinely needs 3:1 against the surface -- and on a near-black ground
+       that pins it to roughly 47% lightness. Applying that same value to the
+       large filled Continue button painted a big area in a 47%-light rose:
+       accessible, and unmistakably DUSTY PINK rather than the deep lacquer the
+       brand is. Cherry Lacquer is a DARK colour. The fix is to stop asking one
+       token to satisfy two different contrast rules.
 
-       --cherry-text is a SECOND dark companion, and only for the two places
-       the accent is small TEXT rather than a fill -- the builder's stage
-       numeral and the trial pill. Those need 4.5:1, not 3:1, so they need a
-       further lift: x2.36, hue 339.33deg, 4.5:1 on --bg-3 -- the worst surface
-       either of them can land on. Using the fill tone
-       for text would ship 3.18:1 body text, and using the text tone for fills
-       would lighten every control past what the colour should look like. */
-    --cherry:#9A546C;                   /* x1.86 of #532D3A -- see above */
-    --cherry-soft:#9A546C;              /* node fill; the accent itself here */
-    --cherry-line:rgba(154,84,108,0.45);
-    --cherry-dim:rgba(154,84,108,0.50);
-    --cherry-text:#C46A89;              /* x2.36 -- the accent AS TEXT, 4.5:1 */
-    /* Ink on --cherry-soft. Cherry Lacquer is a DARK colour in both themes'
-       terms -- deep on cream, lifted-but-still-deep on charcoal -- so unlike
-       the violet it replaced, its label does not have to flip: white clears AA
-       on both fills (11.64:1 light, 5.44:1 dark). --cherry-ink is dark only
-       where the fill is the pale light-theme tint. */
+       So the accent splits by JOB, not by theme:
+
+       --cherry       BARE INDICATORS -- the rail, the gauge arc and needle, the
+                      Race Outlook band, a switch track, a hairline. Nothing but
+                      colour identifies these, so 1.4.11's 3:1 applies and their
+                      lightness is forced. #AD4A5F clears 3.06:1 on the worst
+                      dark surface (--bg-3 #201F23) and 3.43:1 on --bg. Its hue
+                      sits at 347deg rather than the canonical 339deg -- pulled a
+                      few degrees toward red, which at this unavoidable lightness
+                      reads as claret instead of magenta-rose.
+
+       --cherry-fill  FILLED CONTROLS THAT CARRY THEIR OWN LABEL -- Continue,
+                      Back, the Plan HQ panel nav. A white label at 9.14:1
+                      identifies these, so the fill is free to be genuinely dark:
+                      #7A2E42 -- hue 344deg, 45% saturation, 33% lightness. That
+                      is burgundy. The label contrast is also nearly double what
+                      the single-token version shipped (9.14:1 against 5.44:1). A
+                      1px --cherry rim supplies the 3:1 boundary a dark fill
+                      cannot, so the control keeps an edge without its face being
+                      lightened back into rose.
+
+       In LIGHT the two are the same canonical #532D3A. Nothing there needed
+       solving, and nothing there changes.
+
+       --cherry-text is the third job -- the accent as small TEXT, in the stage
+       numeral and the trial pill. Text needs 4.5:1, lighter still: #D06A78 at
+       4.69:1 on --bg-3, pulled to 352deg for the same reason. Using the fill
+       tone for text would ship 3.18:1 body text; using the text tone for fills
+       is how the rose happened in the first place. */
+    --cherry:#AD4A5F;                   /* bare indicators -- 3.06:1 on --bg-3 */
+    --cherry-fill:#7A2E42;              /* labelled fills -- white at 9.14:1 */
+    --cherry-soft:#AD4A5F;              /* node fill; the accent itself here */
+    --cherry-line:rgba(173,74,95,0.45);
+    --cherry-dim:rgba(173,74,95,0.50);
+    --cherry-text:#D06A78;              /* the accent AS TEXT -- 4.69:1 */
+    /* Ink on --cherry-soft and on --cherry-fill. Cherry Lacquer is a DARK
+       colour in both themes' terms, so unlike the violet it replaced its label
+       does not have to flip: white clears AA on both fills (11.64:1 light,
+       9.14:1 dark). --cherry-ink is dark only where the fill is the pale
+       light-theme tint. */
     --cherry-ink:#FFFFFF;
     --cherry-btn-ink:#FFFFFF;
     /* ---------- TYPOGRAPHY SCALE (readability prototype) ----------
@@ -197,8 +222,13 @@
 
        The node fill is a pale tint of the same hue so the numeral inside can
        stay near-black -- a numeral on saturated #532D3A would be unreadable --
-       which is the one place --cherry-ink is dark rather than white. */
+       which is the one place --cherry-ink is dark rather than white.
+
+       The indicator/fill split the dark block describes exists only to solve a
+       dark-mode problem, so here both sides of it are the one canonical value
+       and the split is invisible. */
     --cherry:#532D3A;
+    --cherry-fill:#532D3A;              /* the canonical value on both jobs */
     --cherry-soft:#EFE4E8;              /* 88% toward white; hue 338.2deg */
     --cherry-line:rgba(83,45,58,0.32);
     --cherry-dim:rgba(83,45,58,0.42);
@@ -949,7 +979,10 @@
      SOLID, not a gradient. The gradient was the violet's; Cherry Lacquer was
      chosen as a flat fill, and a flat fill is also what makes the button read
      as one deliberate colour rather than a surface with a sheen. */
-  .builder-light .btn-primary{background:var(--cherry); color:var(--cherry-btn-ink);}
+  .builder-light .btn-primary{
+    background:var(--cherry-fill); color:var(--cherry-btn-ink);
+    box-shadow:inset 0 0 0 1px var(--cherry);
+  }
   .btn-ghost{background:none; border:1px solid var(--line);}
   /* --danger-text, not --c-threshold. The workout-type hues are deliberately
      identical in both themes, and that one lands at 4.37:1 on cream -- close
@@ -1126,26 +1159,32 @@
 
   /* ---------- WHAT IS THIS BLOCK FOR ----------
      Cards, not toggles: four objectives that are not variations of one
-     setting, each needing a name and a reason to pick it. One column, so the
-     four read as a list to choose from rather than a 2x2 grid where the eye
-     has to work out which pairs go together.
+     setting, each needing a name and a reason to pick it.
+
+     TWO COLUMNS. This rule used to argue for a single column, on the grounds
+     that a 2x2 makes the eye work out which pairs go together. That reasoning
+     does not survive contact with the screen: the four objectives are not two
+     pairs, so there is no pairing to infer, and stacking them pushed the
+     fourth card and Continue below the fold on a phone. Four large boxes read
+     as four choices, and all four are in view at once.
 
      Deliberately NOT a new visual language -- the selected state is the same
      three-cue treatment .opt-grid button.active already uses, inherited by
      reusing those exact declarations rather than inventing a fifth accent.
      Left-aligned and taller because these carry a sentence; that is the only
      thing that differs from a distance chip. */
-  .bld-purpose{display:grid; gap:8px; grid-template-columns:1fr;}
+  .bld-purpose{display:grid; gap:10px; grid-template-columns:1fr 1fr;}
   .bld-purpose button{
-    display:block; width:100%; text-align:left; padding:13px 14px; min-height:52px;
+    display:block; width:100%; text-align:left; padding:14px 13px; min-height:118px;
     border:1px solid var(--ctl-border); border-radius:12px;
     background:var(--ctl-bg); color:var(--ink-faint);
     transition:box-shadow .18s, background .18s, color .18s;
   }
   .bld-purpose button:active{transform:scale(.995);}
   .bpc-name{display:block; font-size:var(--fs-data); letter-spacing:.4px; font-weight:700;}
+  .bpc-name{line-height:1.2;}
   .bpc-why{display:block; font-family:'Inter',sans-serif; font-size:var(--fs-support);
-    line-height:var(--lh-support); color:var(--ink-faint); margin-top:3px; letter-spacing:0;}
+    line-height:var(--lh-support); color:var(--ink-faint); margin-top:6px; letter-spacing:0;}
   .bld-purpose button.active{
     color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14);
     border-color:rgba(var(--modal-active-rgb),0.5);
@@ -1184,6 +1223,44 @@
      generator reads. Hidden from sight, never from the code. */
   .bld-mirror{position:absolute; left:0; top:0; width:1px; height:1px; padding:0;
     margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0;}
+
+  /* ---------- 3 + 2, NOT 3 + 1 + 1 ----------
+     Five distances across two rows, laid on a six-column track: the first
+     three tiles span two columns each and the last two span three each. Both
+     rows therefore divide the SAME width exactly, so the fifth option shares
+     the bottom row with the fourth instead of being stranded on a line of its
+     own -- which is what plain auto-flow does with an odd count. */
+  .opt-grid.opt-grid-32{grid-template-columns:repeat(6,1fr);}
+  .opt-grid-32 > button:nth-child(-n+3){grid-column:span 2;}
+  .opt-grid-32 > button:nth-child(n+4){grid-column:span 3;}
+
+  /* The screen's secondary decision, set back below a rule rather than given
+     the same weight as the question the screen is actually asking. */
+  .bld-secondary{margin-top:20px; padding-top:16px; border-top:1px solid var(--line-soft);}
+  .bld-secondary .opt-grid button{min-height:44px;}
+
+  /* A follow-up that appeared BECAUSE of the answer above it, rather than a
+     second independent question. */
+  .bld-reveal{margin-top:16px;}
+
+  /* The no-HR path. Set apart from the two inputs it clears, with the
+     reassurance directly under it so the offer and the promise read together. */
+  .bld-skip{margin-top:12px;}
+  .bld-reassure{text-align:center; margin-top:8px;}
+
+  /* THE CONSENT QUESTION IS A SENTENCE, NOT A FIELD LABEL.
+     .field label styles every label as a 10.5px uppercase caption at 65%
+     opacity, which is right for "LTHR (BPM)" and wrong for the one control
+     whose wording the athlete actually has to read -- it rendered the consent
+     question as small caps and pushed the tick onto its own line. This is a
+     pre-existing rendering bug, not a new control: the markup, the id, the
+     copy and the stored decision are untouched. */
+  .field.bld-consent{margin:20px 0 4px; padding-top:16px; border-top:1px solid var(--line-soft);}
+  .field.bld-consent > label{
+    display:flex; align-items:flex-start; gap:8px;
+    text-transform:none; letter-spacing:0; opacity:1;
+    font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink);
+  }
 
   .bld-actions{display:flex; gap:10px; margin-top:22px;}
   .bld-actions .btn{flex:1 1 0;}
@@ -1743,7 +1820,8 @@
      content primary back on bronze, and light the navigation alone. */
   .hq-panel .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink);}
   .hq-panel .rec-panel-nav .btn-primary{
-    background:var(--cherry); color:var(--cherry-btn-ink);
+    background:var(--cherry-fill); color:var(--cherry-btn-ink);
+    box-shadow:inset 0 0 0 1px var(--cherry);
   }
   .modal-body .zone-paces-card{margin:0 0 4px;}
 
@@ -6534,7 +6612,7 @@ function renderHealthConsentStep(){
   if (healthConsentAnswered()) return '';
   // The Edit Session modal's checkbox pattern, unchanged, so this introduces
   // no new control and no new CSS. Note the absence of `checked`.
-  return '<div class="field" style="margin-bottom:14px;">'+
+  return '<div class="field bld-consent">'+
     '<label style="display:flex; align-items:flex-start;">'+
       '<input type="checkbox" id="su-health-consent" style="width:auto; margin:3px 7px 0 0;">'+
       '<span>'+escapeHtml(HEALTH_CONSENT_COPY.title)+'</span>'+
@@ -18985,13 +19063,26 @@ function openSetupModal(){
     return '<option value="'+iso+'" '+(schedule.longRunDay===iso?'selected':'')+'>'+ISO_WEEKDAY_NAMES[iso]+'</option>';
   }).join('');
 
-  /* ---------- THE FIVE STAGES ----------
-     Same fifteen inputs, same element ids, same handlers -- only the
-     presentation is staged. Every panel stays MOUNTED and is shown or hidden,
-     never destroyed: handleGeneratePlan() reads these ids straight out of the
-     DOM, handleSuggestGoals() reads stage 02's benchmark to fill stage 04's
-     goals, and the units handler converts stage 02's volume from stage 01. All
-     three would break the moment a panel was unmounted.
+  /* ---------- THE NINE STAGES ----------
+     ONE COHERENT QUESTION PER SCREEN. The same inputs, the same element ids and
+     the same handlers as the five-stage version -- only which panel a field
+     sits in has changed. Nothing here stores, computes or validates anything
+     the generator did not already.
+
+     Five stages grouped unrelated judgements: the old stage 01 asked for units,
+     purpose, distance, whether there was an event AND a date or a block length,
+     and overflowed a 412x915 phone by 335px. Splitting it does not add a
+     question; it stops asking five at once.
+
+     EVERY PANEL STAYS MOUNTED and is shown or hidden, never destroyed. Three
+     cross-stage dependencies rely on that and would break silently the moment a
+     panel was unmounted:
+       handleGeneratePlan()  reads every id straight out of the DOM
+       handleSuggestGoals()  reads stage 02's distance and stage 05's benchmark
+                             to fill stage 08's goals
+       the units handler     converts stage 04's volume when stage 02 changes
+       bldApplyPurpose()     rewrites stage 02's labels and stage 03's visibility
+                             from stage 01's selection
 
      The three <select>s the athlete used to operate are still here and still
      hold the value the generator reads. They are visually hidden and mirrored
@@ -18999,9 +19090,13 @@ function openSetupModal(){
      moving an inch. */
   var stageMeta = [
     ['Goal','Your goal','What are we building towards? You do not need an event booked.'],
-    ['You','You','Where your training is right now. This is what the coach reasons from.'],
+    ['Distance','Goal distance','The distance this block prepares you for.'],
+    ['Event','Your event','Do you have a target event? Either answer builds a full block.'],
+    ['You','You','Where your running is right now — not where you want it to be.'],
+    ['Benchmark','Benchmark','A recent honest-effort 5K or 10K. Your training paces are built from it.'],
     ['Week','Your week','Pick 3–6 days you can run. Workouts land only on these; everything else is rest.'],
-    ['Training','Training','Two optional refinements, and the finish times you are chasing.'],
+    ['Training data','Training data','Optional heart-rate numbers, if you have them.'],
+    ['Targets','Your targets','The finish times you are chasing.'],
     ['Review','What Valhalla understands','Check this reads like your training. Step back to change anything.']
   ];
   var railHtml = stageMeta.map(function(_, i){
@@ -19061,34 +19156,65 @@ function openSetupModal(){
   '<div class="modal-head"><h2 class="font-head">Build Your Training Block</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
     '<div class="bld-progress" id="bld-rail">'+railHtml+'</div>'+
-    '<div class="bld-progress-meta"><span class="bld-stage-no" id="bld-no">01 / 05</span>'+
+    '<div class="bld-progress-meta"><span class="bld-stage-no" id="bld-no">01 / 09</span>'+
       '<span class="bld-stage-name" id="bld-name">Goal</span></div>'+
 
-    /* ---------- 01 GOAL ---------- */
+    /* ---------- 01 GOAL ----------
+       Four objectives as a 2x2 grid of large cards. They are not variations of
+       one setting and they are not a pair of pairs -- each needs a name and a
+       reason to pick it, and at half width both still fit. The selected state
+       is the GOLD language every finite choice in the builder already uses;
+       Cherry Lacquer stays on the rail and on Continue, because those are
+       actions and this is a choice. */
     '<section class="bld-panel" data-stage="0">'+
       stageHead(0)+
-      '<div class="field"><label>Units</label>'+
+      '<div class="field" id="f-purpose">'+
+        '<div class="bld-purpose bld-purpose-2up" data-mirror="su-purpose" role="group" aria-label="Block purpose">'+purposeCards+'</div>'+
+        '<select id="su-purpose" class="bld-mirror" tabindex="-1" aria-hidden="true">'+purposeOptions+'</select>'+
+      '</div>'+
+      navBtns(0)+
+    '</section>'+
+
+    /* ---------- 02 DISTANCE ----------
+       Three across, then two sharing the last row, so the fifth option is not
+       stranded on a line of its own. Units are the screen's SECONDARY
+       decision and are set back below a rule rather than given equal weight.
+       The units control still lives in the same #su-units element the
+       generator and the volume converter already read. */
+    /* The heading IS the distance question, so it carries the ids
+       bldApplyPurpose() already rewrites -- "Goal distance" for a race becomes
+       "Fitness to protect" for maintenance. Repointing those two ids onto the
+       heading and lede is what stops the screen saying the same sentence twice,
+       and bldApplyPurpose() needs no change: it looks both up by id and is
+       null-safe either way. */
+    '<section class="bld-panel" data-stage="1" hidden>'+
+      '<h3 class="bld-stage-h" id="su-distance-label">'+escapeHtml(purposeMeta.distanceLabel)+'</h3>'+
+      '<p class="bld-lede" id="su-distance-hint">'+escapeHtml(purposeMeta.distanceHint)+'</p>'+
+      '<div class="field" id="f-distance">'+
+        '<div class="opt-grid opt-grid-32" data-mirror="su-distance" role="group" aria-label="Goal distance">'+distGrid+'</div>'+
+        '<select id="su-distance" class="bld-mirror" tabindex="-1" aria-hidden="true">'+distOptions+'</select>'+
+      '</div>'+
+      '<div class="field bld-secondary"><label>Units</label>'+
         '<div class="opt-grid" role="group" aria-label="Distance units" id="su-units">'+
           '<button type="button" data-units="km" class="'+(state.units!=='mi'?'active':'')+'">KM</button>'+
           '<button type="button" data-units="mi" class="'+(state.units==='mi'?'active':'')+'">MI</button>'+
         '</div>'+
         '<div class="field-hint">Applies everywhere once you generate — to switch units on an existing plan without regenerating, use the toggle in the header instead.</div>'+
       '</div>'+
-      '<div class="field" id="f-purpose"><label>What is this block for?</label>'+
-        '<div class="bld-purpose" data-mirror="su-purpose" role="group" aria-label="Block purpose">'+purposeCards+'</div>'+
-        '<select id="su-purpose" class="bld-mirror" tabindex="-1" aria-hidden="true">'+purposeOptions+'</select>'+
-      '</div>'+
-      '<div class="field" id="f-distance"><label id="su-distance-label">'+escapeHtml(purposeMeta.distanceLabel)+'</label>'+
-        '<div class="opt-grid" data-mirror="su-distance" role="group" aria-label="Goal distance">'+distGrid+'</div>'+
-        '<select id="su-distance" class="bld-mirror" tabindex="-1" aria-hidden="true">'+distOptions+'</select>'+
-        '<div class="field-hint" id="su-distance-hint">'+escapeHtml(purposeMeta.distanceHint)+'</div>'+
-      '</div>'+
-      /* RACE-ONLY, AND HIDDEN RATHER THAN ANSWERED ON THE ATHLETE'S BEHALF.
-         A maintenance or base block has no event to taper to, so asking
-         "do you have a target event?" invites an answer the block cannot
-         honour. bldApplyPurpose() pins the event box to 'none' for every
-         non-race purpose -- which is the same switch that already makes the
-         generator write "Goal Effort" instead of "Race Day". */
+      navBtns(1)+
+    '</section>'+
+
+    /* ---------- 03 EVENT / BLOCK LENGTH ----------
+       RACE-ONLY, AND HIDDEN RATHER THAN ANSWERED ON THE ATHLETE'S BEHALF.
+       A maintenance or base block has no event to taper to, so asking "do you
+       have a target event?" invites an answer the block cannot honour.
+       bldApplyPurpose() pins the event box to 'none' for every non-race
+       purpose -- the same switch that already makes the generator write "Goal
+       Effort" instead of "Race Day" -- and the stage then asks the question it
+       can honour, which is how long the block runs. The stage is NOT skipped:
+       a non-race block still needs a length, so there is nothing to skip. */
+    '<section class="bld-panel" data-stage="2" hidden>'+
+      stageHead(2)+
       '<div class="field bld-race-only" id="f-event-toggle"><label>Do you have a target event?</label>'+
         '<div class="opt-grid" role="group" aria-label="Target event" id="su-event-toggle">'+
           '<button type="button" data-action="set-event-mode" data-event-mode="event" class="'+(eventMode==='event'?'active':'')+'">YES</button>'+
@@ -19096,24 +19222,24 @@ function openSetupModal(){
         '</div>'+
       '</div>'+
       '<div id="su-event-box" data-mode="'+eventMode+'">'+
-        '<div class="field when-event bld-date bld-race-only" id="f-racedate"><label>Event date</label><input type="date" id="su-racedate" value="'+raceDate+'">'+
+        '<div class="field when-event bld-date bld-race-only bld-reveal" id="f-racedate"><label>Event date</label><input type="date" id="su-racedate" value="'+raceDate+'">'+
           '<div class="field-hint">Progression and taper anchor to this day.</div>'+
         '</div>'+
-        '<div class="field when-none" id="f-weeks"><label>Training block length (weeks)</label>'+
+        '<div class="field when-none bld-reveal" id="f-weeks"><label>Training block length (weeks)</label>'+
           '<input type="number" min="4" max="24" step="1" inputmode="numeric" id="su-weeks" value="'+blockWeeks+'">'+
           '<div class="field-hint" id="su-weeks-hint">'+escapeHtml(purposeMeta.weeksHint)+'</div>'+
         '</div>'+
       '</div>'+
-      navBtns(0)+
+      navBtns(2)+
     '</section>'+
 
-    /* ---------- 02 YOU ---------- */
-    '<section class="bld-panel" data-stage="1" hidden>'+
-      stageHead(1)+
-      '<div class="field" id="f-volume"><label id="su-volume-label">Current Weekly Volume ('+(state.units==='mi'?'mi':'km')+')</label>'+
-        '<input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'">'+
-        '<div class="field-hint">Your honest recent average, not your best week.</div>'+
-      '</div>'+
+    /* ---------- 04 YOU ----------
+       Experience and current volume: both answers describe who the athlete is
+       today rather than what they are training for. Experience leads because
+       it is the comparison the athlete has to make; volume follows because its
+       label depends on the units chosen on stage 02. */
+    '<section class="bld-panel" data-stage="3" hidden>'+
+      stageHead(3)+
       '<div class="field"><label>Athlete experience</label>'+
         '<div class="opt-grid cols-3" role="group" aria-label="Athlete experience" id="su-experience">'+
           EXPERIENCE_LEVELS.map(function(k){
@@ -19124,8 +19250,20 @@ function openSetupModal(){
         '</div>'+
         '<div class="field-hint" id="su-experience-hint">'+escapeHtml(EXPERIENCE_META[experience].hint)+'</div>'+
       '</div>'+
-      '<div class="setup-section-title">Recent benchmark</div>'+
-      '<p class="bld-lede">A recent honest-effort 5K or 10K — your paces are built from this.</p>'+
+      '<div class="field" id="f-volume"><label id="su-volume-label">Current Weekly Volume ('+(state.units==='mi'?'mi':'km')+')</label>'+
+        '<input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'">'+
+        '<div class="field-hint">Your honest recent average, not your best week.</div>'+
+      '</div>'+
+      navBtns(3)+
+    '</section>'+
+
+    /* ---------- 05 BENCHMARK ----------
+       Its own screen, and its own sentence about what it is FOR. The closing
+       hint keeps the builder honest with Plan HQ, which deliberately separates
+       a benchmark the athlete supplies from fitness Valhalla has measured. No
+       methodology moves: same two ids, same values, same recalibration path. */
+    '<section class="bld-panel" data-stage="4" hidden>'+
+      stageHead(4)+
       '<div class="field"><label>Benchmark distance</label>'+
         '<div class="opt-grid" data-mirror="su-bench-dist" role="group" aria-label="Benchmark distance">'+
           '<button type="button" data-v="5k" class="'+(benchDist==='5k'?'active':'')+'">5K</button>'+
@@ -19137,12 +19275,13 @@ function openSetupModal(){
       '</div>'+
       '<div class="field"><label>Benchmark time</label>'+
         '<input type="text" id="su-bench-time" placeholder="mm:ss" value="'+benchTime+'"></div>'+
-      navBtns(1)+
+      '<div class="field-hint">This is a reference you give Valhalla, not a measurement of your current fitness — Plan HQ measures that separately, from races and Fitness Checkpoints you actually run. You can update it any time from Re-calibrate.</div>'+
+      navBtns(4)+
     '</section>'+
 
-    /* ---------- 03 WEEK ---------- */
-    '<section class="bld-panel" data-stage="2" hidden>'+
-      stageHead(2)+
+    /* ---------- 06 WEEK ---------- */
+    '<section class="bld-panel" data-stage="5" hidden>'+
+      stageHead(5)+
       '<div class="field" id="f-weekdays"><label>Training days</label>'+
         '<div class="weekday-grid" id="su-weekdays">'+wdCheckboxes+'</div>'+
       '</div>'+
@@ -19151,29 +19290,55 @@ function openSetupModal(){
         '<select id="su-longday" class="bld-mirror" tabindex="-1" aria-hidden="true">'+longDayOptions+'</select>'+
         '<div class="field-hint">Only the days you picked above can hold the long run.</div>'+
       '</div>'+
-      navBtns(2)+
+      navBtns(5)+
     '</section>'+
 
-    /* ---------- 04 TRAINING ---------- */
-    '<section class="bld-panel" data-stage="3" hidden>'+
-      stageHead(3)+
-      renderHealthConsentStep()+
-      '<div class="setup-section-title">Lactate Threshold HR (LTHR) / Max HR</div>'+
-      '<p class="bld-lede">Optional — adds target HR ranges to your zone paces and unlocks HR-based execution scoring on logged workouts. Leave blank to skip; pace and distance tracking work fine without it.</p>'+
+    /* ---------- 07 TRAINING DATA ----------
+       WHAT VALHALLA KNOWS ABOUT THE ATHLETE'S PHYSIOLOGY, and nothing about
+       what they are chasing -- that is stage 08. Splitting the two is what
+       stopped this screen being the one long form left in the builder.
+
+       The acronym is explained rather than assumed. "Skip -- I don't know
+       these" is NOT a new path: it clears the two inputs, which is exactly the
+       blank state the generator already treats as no HR data. It fabricates
+       nothing, infers nothing, and blocks nothing.
+
+       Consent stays here, immediately under the two fields it governs, because
+       handleGeneratePlan() reads this box before it reads them and stores
+       neither number without it. */
+    '<section class="bld-panel" data-stage="6" hidden>'+
+      stageHead(6)+
+      '<p class="bld-lede">Lactate Threshold Heart Rate (LTHR) is roughly the highest heart rate you can hold for a hard, controlled effort of about an hour. Give it and Valhalla adds target heart-rate ranges alongside your paces.</p>'+
       '<div class="benchmark-row">'+
         '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-lthr" placeholder="172" value="'+(su.lthr!=null?su.lthr:'')+'"></div>'+
         '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-maxhr" placeholder="188" value="'+(su.maxHR!=null?su.maxHR:'')+'"></div>'+
       '</div>'+
-      '<div class="setup-section-title" style="margin-top:22px;">Goal A / B / C — for the distance you picked</div>'+
-      '<p class="bld-lede">Toggle the Active Goal any time afterwards — every workout pace updates instantly.</p>'+
-      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:12px;" data-action="suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
-      '<div class="field" id="f-goals" style="margin-bottom:0;">'+goalRows+'</div>'+
-      navBtns(3)+
+      '<button type="button" class="btn btn-ghost btn-block bld-skip" data-action="bld-skip-hr">Skip — I don’t know these</button>'+
+      '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine — Valhalla works without it.</div>'+
+      renderHealthConsentStep()+
+      navBtns(6)+
     '</section>'+
 
-    /* ---------- 05 REVIEW ---------- */
-    '<section class="bld-panel" data-stage="4" hidden>'+
-      stageHead(4)+
+    /* ---------- 08 TARGETS ----------
+       WHAT THE ATHLETE IS TRAINING TOWARDS. Goal A/B/C is NOT race-only and is
+       deliberately asked for every purpose: handleGeneratePlan() requires a
+       goal time whatever the block is for, and getActiveVDOT() derives every
+       training pace from whichever goal is active. A maintain or base block
+       with no goal would have no pace source at all. The heading is the
+       purpose-neutral "Your targets" for that reason; the methodology behind
+       it is untouched. */
+    '<section class="bld-panel" data-stage="7" hidden>'+
+      stageHead(7)+
+      '<div class="setup-section-title">Goal A / B / C — for the distance you picked</div>'+
+      '<p class="bld-lede">Every training pace is built from whichever goal is active. Toggle the Active Goal any time afterwards and every workout pace updates instantly.</p>'+
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:12px;" data-action="suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
+      '<div class="field" id="f-goals" style="margin-bottom:0;">'+goalRows+'</div>'+
+      navBtns(7)+
+    '</section>'+
+
+    /* ---------- 09 REVIEW ---------- */
+    '<section class="bld-panel" data-stage="8" hidden>'+
+      stageHead(8)+
       '<div id="bld-review"></div>'+
       '<div class="bld-actions">'+
         '<button type="button" class="btn btn-ghost btn-back" data-action="bld-back">← Back</button>'+
@@ -19261,7 +19426,12 @@ function openSetupModal(){
    handleGeneratePlan() already reads; nothing here computes,
    stores or validates anything the generator did not already.
    ========================================================= */
-var BLD_STAGE_NAMES = ['Goal','You','Week','Training','Review'];
+var BLD_STAGE_NAMES = ['Goal','Distance','Event','You','Benchmark','Week','Training data','Targets','Review'];
+/* Which screen each validation rule belongs to, by name rather than by a
+   number -- reordering the stages then cannot silently point a rule at the
+   wrong panel, which is the one way this restructuring could have changed
+   behaviour without anybody noticing. */
+var BLD_STAGE = { GOAL:0, DISTANCE:1, EVENT:2, YOU:3, BENCHMARK:4, WEEK:5, TRAINING:6, TARGETS:7, REVIEW:8 };
 var bldCurrentStage = 0;
 
 /* Redraw the long-run grid from #su-longday, which is the value that counts. */
@@ -19388,10 +19558,17 @@ function bldFail(fieldId, message){
 
 /* THE SAME REQUIREMENTS handleGeneratePlan() already enforces, shown at the
    stage they belong to instead of all at once at the end. No rule is added,
-   removed or loosened here, and the generator still checks all of them. */
+   removed or loosened here, and the generator still checks all of them.
+
+   Going from five stages to nine moved WHERE each rule is shown and nothing
+   else: the stage indices below are the only thing that changed, and stages
+   with no rule (Goal, Distance, Training data, Review) fall through to the
+   closing `return true` exactly as Week's neighbours always did. Benchmark
+   has no rule here because it never had one -- handleGeneratePlan() falls back
+   to the stored benchmark when the field is blank. */
 function bldValidateStage(i){
   bldClearErrors();
-  if (i === 0){
+  if (i === BLD_STAGE.EVENT){
     var box = document.getElementById('su-event-box');
     var hasEvent = !box || box.getAttribute('data-mode') !== 'none';
     if (hasEvent){
@@ -19405,13 +19582,13 @@ function bldValidateStage(i){
     }
     return true;
   }
-  if (i === 1){
+  if (i === BLD_STAGE.YOU){
     var volume = parseDistInput(document.getElementById('su-volume').value);
     if (!volume || volume <= 0){
       bldFail('f-volume', 'Enter your current weekly volume.'); return false; }
     return true;
   }
-  if (i === 2){
+  if (i === BLD_STAGE.WEEK){
     var checked = document.querySelectorAll('#su-weekdays input[type=checkbox]:checked').length;
     if (checked < 3 || checked > 6){
       bldFail('f-weekdays', 'Pick between 3 and 6 running days.'); return false; }
@@ -19419,7 +19596,7 @@ function bldValidateStage(i){
       bldFail('f-longday', 'Choose a long run day.'); return false; }
     return true;
   }
-  if (i === 3){
+  if (i === BLD_STAGE.TARGETS){
     var any = GOAL_KEYS.some(function(k){
       var el = document.getElementById('su-goal-' + k);
       return el && clockToSec(el.value.trim());
@@ -19488,7 +19665,7 @@ function bldStage(n){
   var no = document.getElementById('bld-no'), nm = document.getElementById('bld-name');
   if (no) no.textContent = '0' + (bldCurrentStage + 1) + ' / 0' + BLD_STAGE_NAMES.length;
   if (nm) nm.textContent = BLD_STAGE_NAMES[bldCurrentStage];
-  if (bldCurrentStage === 4) bldRenderReview();
+  if (bldCurrentStage === BLD_STAGE_NAMES.length - 1) bldRenderReview();
   var card = document.querySelector('.modal-card');
   if (card) card.scrollTop = 0;
 }
@@ -19498,6 +19675,25 @@ function handleBldNext(){
   bldStage(bldCurrentStage + 1);
 }
 function handleBldBack(){ bldClearErrors(); bldStage(bldCurrentStage - 1); }
+
+/* THE NO-HR PATH, MADE VISIBLE -- not a new one.
+
+   Leaving LTHR and Max HR blank has always been the supported way to build
+   without heart-rate data: handleGeneratePlan() reads both with parseInt, and
+   a blank field is NaN, which it already stores as null. This clears the two
+   inputs and moves on, so it lands the athlete in exactly that existing state.
+
+   It fabricates nothing and infers nothing. There is no second generation
+   path, no default LTHR, and no estimate from age or anything else -- Valhalla
+   has no approved methodology for inventing a threshold heart rate, so it does
+   not invent one. */
+function handleBldSkipHR(){
+  ['su-lthr','su-maxhr'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  handleBldNext();
+}
 
 /* =========================================================
    RE-CALIBRATE ZONES MODAL \u2014 updates benchmark/goal paces
@@ -23286,6 +23482,7 @@ document.addEventListener('click', function(e){
     case 'open-pacing': openPacingModal(); break;
     case 'bld-next': handleBldNext(); break;
     case 'bld-back': handleBldBack(); break;
+    case 'bld-skip-hr': handleBldSkipHR(); break;
     case 'suggest-goals': handleSuggestGoals(); break;
     case 'generate-plan': handleGeneratePlan(); break;
     case 'export-json': handleExportJson(); break;
