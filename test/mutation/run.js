@@ -1,6 +1,7 @@
 'use strict';
 //
-//   node test/mutation/run.js
+//   node test/mutation/run.js              every case
+//   node test/mutation/run.js record       only the cases whose name starts "record"
 //
 // MUTATION PASS. Each entry breaks one guarantee in the source and checks that
 // at least one test notices. A green suite proves the tests pass; this proves
@@ -22,14 +23,22 @@ const ROOT = require('path').join(__dirname, '..', '..');
    is three, which is the difference between a mutation pass that gets run and
    one that gets skipped. Every case below is covered by one of these files; a
    mutation that survives here is re-checked against the whole suite. */
-const SUBSET = ['stripeLifecycle','monthlyPause','commercialCore','securityPosture',
+const files = ns => ns.map(n => 'test/' + n + '.test.js').join(' ');
+const SUBSET = files(['stripeLifecycle','monthlyPause','commercialCore','securityPosture',
   'mondayOperational','accountActivity','providerTrial','productionReadiness',
   'betaClosure','entitlementMigration','releaseReadiness','observability','accessGate',
   'billingWebhook','stripeFoundation','commercialEntry','legacyBetaRetirement',
   'commercialSchemaCollision','adjustedSessionStructure',
   'prescriptionAwareLogging','healthDataConsent',
   'medicalBoundary','healthErasure','commercialJourney',
-  'productionReadiness'].map(n => 'test/' + n + '.test.js').join(' ');
+  'productionReadiness']);
+/* Plan HQ's Record cases are checked against the four suites that guard them
+   rather than against the commercial subset above, which knows nothing about
+   them: twenty-odd runtime cases against twenty-five API suites is minutes of
+   work to reach the same verdict. A case names its own subset as a fifth
+   element, and anything that does not name one gets SUBSET. */
+const RECORD_SUBSET = files(['planHqRecord','modalThemeConsistency','phase4AppUx',
+  'yearRoundLifecycle','coachSurfaceDistinctness']);
 
 const CASES = [
   // ---- ACCESS ----
@@ -376,19 +385,84 @@ const CASES = [
    "    const facts = { ok: true, account: null, subscriptions: [], grants: [] };"],
   ['monday: a mirror failure fails the webhook', 'api/billing-webhook.js',
    "    if (!mirrored.ok && mirrored.code !== 'operational_sync_disabled'){",
-   "    if (!mirrored.ok){ return S.json(res, 503, { error: 'unavailable' }); }\n    if (false){"]
+   "    if (!mirrored.ok){ return S.json(res, 503, { error: 'unavailable' }); }\n    if (false){"],
+
+  // ---- PLAN HQ: THE RECORD ----
+  ['record: a Record value is a fact, and stops being one', 'protected/velvet-viking-valhalla.html',
+   "  .rec-val{font-size:11.5px; color:var(--ink-dim);",
+   "  .rec-val{font-size:11.5px; color:var(--c-tempo);", RECORD_SUBSET],
+  ['record: the four cards become one combined list again', 'protected/velvet-viking-valhalla.html',
+   "  return '<div class=\"setup-section-title\">The Record</div>'+",
+   "  return '<div class=\"setup-section-title\">The Record</div><table>'+", RECORD_SUBSET],
+  ['record: a card stops reading live state and states a fixed value', 'protected/velvet-viking-valhalla.html',
+   "    ? recordValue(DISTANCE_PROFILES[b.distanceKey].label+' · '+secToClock(b.timeSec), 'font-mono')",
+   "    ? recordValue('Half Marathon · 1:37:00', 'font-mono')", RECORD_SUBSET],
+  ['record: the zone panel rebuilds the editor instead of hosting it', 'protected/velvet-viking-valhalla.html',
+   '  var body = renderZonePacesCard(true)+', "  var body = '<div class=\"field-hint\">Paces</div>'+", RECORD_SUBSET],
+  ['record: the progress panel loses the mount patchDerivedStats() patches', 'protected/velvet-viking-valhalla.html',
+   "  var body = '<div id=\"planhq-stats-mount\">'+renderPlanOverviewStats()+'</div>'+",
+   "  var body = '<div>'+renderPlanOverviewStats()+'</div>'+", RECORD_SUBSET],
+  ['record: the benchmark panel grows its own benchmark form', 'protected/velvet-viking-valhalla.html',
+   "      'data-action=\"open-recalibrate\">'+ICONS.zap+' Update benchmark &amp; re-calibrate</button>'",
+   "      'data-action=\"open-recalibrate\">'+ICONS.zap+' Update benchmark &amp; re-calibrate</button>'+'<input id=\"rc-bench-time\">'", RECORD_SUBSET],
+  ['record: a detail panel becomes a wizard step', 'protected/velvet-viking-valhalla.html',
+   "    '<div class=\"modal-body\">'+body+",
+   "    '<div class=\"modal-body\"><div class=\"bld-progress\"></div><span class=\"bld-stage-no\">01 / 05</span>'+body+", RECORD_SUBSET],
+  ['record: BACK stops being the violet full-width navigation', 'protected/velvet-viking-valhalla.html',
+   "        '<button type=\"button\" class=\"btn btn-primary btn-block\" data-action=\"close-record-panel\">← BACK</button>'+",
+   "        '<button type=\"button\" class=\"btn btn-ghost\" data-action=\"close-record-panel\">← BACK</button>'+", RECORD_SUBSET],
+  ['record: X and BACK stop agreeing', 'protected/velvet-viking-valhalla.html',
+   "'<button type=\"button\" class=\"icon-btn\" data-action=\"close-record-panel\" aria-label=\"Close\">'",
+   "'<button type=\"button\" class=\"icon-btn\" data-action=\"close-modal\" aria-label=\"Close\">'", RECORD_SUBSET],
+  ['record: closing a panel drops the athlete back at the top of Plan HQ',
+   'protected/velvet-viking-valhalla.html',
+   "  try { window.scrollTo(0, planhqReturnScrollY); } catch(err) { }",
+   "  try { window.scrollTo(0, 0); } catch(err) { }", RECORD_SUBSET],
+  ['record: a pace edit scrolls Plan HQ away underneath the panel',
+   'protected/velvet-viking-valhalla.html',
+   "  renderApp();\n  restorePlanHQScroll();\n  refreshOpenRecordPanel();\n  showToast('Zone paces reset to calculated values');",
+   "  renderApp();\n  showToast('Zone paces reset to calculated values');", RECORD_SUBSET],
+  ['record: a benchmark is called a measurement of current fitness',
+   'protected/velvet-viking-valhalla.html',
+   "    '<div class=\"setup-section-title\">Not a measurement of current fitness</div>'+",
+   "    '<div class=\"setup-section-title\">Your current fitness</div>'+", RECORD_SUBSET],
+  ['record: the paces are said to come from the benchmark', 'protected/velvet-viking-valhalla.html',
+   "        ? 'Calculated from your active goal — Goal '+escapeHtml(state.setup.activeGoal)+', '+",
+   "        ? 'Derived from your benchmark — Goal '+escapeHtml(state.setup.activeGoal)+', '+", RECORD_SUBSET],
+  ['record: a completed checkpoint is counted before it is measured',
+   'protected/velvet-viking-valhalla.html',
+   "    var counted = chk.completed && measuredPerformances().some(function(p){\n      return p.date === chk.date;\n    });",
+   "    var counted = chk.completed;", RECORD_SUBSET],
+  ['record: Plan HQ keeps the confidence gauge but loses the line beneath it',
+   'protected/velvet-viking-valhalla.html',
+   "    (state.setup ? '<div class=\"field-hint\">Confidence reflects how closely your logged sessions have matched '+",
+   "    (false ? '<div class=\"field-hint\">Confidence reflects how closely your logged sessions have matched '+", RECORD_SUBSET],
+  ['record: the zone editor loses its head everywhere, not just in the panel',
+   'protected/velvet-viking-valhalla.html',
+   "    (inPanel ? '' : '<div class=\"zpc-head\"><span class=\"font-head\">Training Zone Paces</span></div>')+",
+   "    ''+", RECORD_SUBSET]
 
 ];
 
+/* An optional name prefix narrows the run, so a change to one area can be
+   mutation-checked in seconds without waiting for every unrelated case. */
+const only = process.argv[2] || '';
+const SELECTED = only ? CASES.filter(c => c[0].startsWith(only)) : CASES;
+if (only && !SELECTED.length){
+  console.error('no case name starts with "' + only + '"');
+  process.exit(1);
+}
+if (only) console.log('running ' + SELECTED.length + ' of ' + CASES.length + ' cases matching "' + only + '"\n');
+
 let survived = [], killed = 0;
-for (const [name, file, from, to] of CASES){
+for (const [name, file, from, to, subset] of SELECTED){
   const p = ROOT + '/' + file;
   const orig = fs.readFileSync(p, 'utf8');
   if (orig.indexOf(from) === -1){ survived.push(name + '   [ANCHOR NOT FOUND]'); continue; }
   fs.writeFileSync(p, orig.replace(from, to));
   let out;
   try{
-    out = cp.execSync('cd ' + ROOT + ' && node --test ' + SUBSET + ' 2>&1 | grep -c "^not ok "',
+    out = cp.execSync('cd ' + ROOT + ' && node --test ' + (subset || SUBSET) + ' 2>&1 | grep -c "^not ok "',
                       { encoding: 'utf8', timeout: 600000 });
   }catch(e){ out = (e.stdout || '0'); }
   fs.writeFileSync(p, orig);
@@ -396,5 +470,5 @@ for (const [name, file, from, to] of CASES){
   if (fails > 0){ killed++; console.log('KILLED  ' + String(fails).padStart(3) + '  ' + name); }
   else { survived.push(name); console.log('SURVIVED       ' + name); }
 }
-console.log('\n=== ' + killed + '/' + CASES.length + ' mutations detected ===');
+console.log('\n=== ' + killed + '/' + SELECTED.length + ' mutations detected ===');
 if (survived.length) console.log('SURVIVORS:\n  ' + survived.join('\n  '));

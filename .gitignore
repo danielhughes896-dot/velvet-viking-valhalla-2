@@ -16,3 +16,8 @@ android/local.properties
 .env.*
 !.env.example
 tools/content-bridge/.state.json
+
+# Screenshot output from tools/shots/*.js -- regenerated on demand, and
+# several MB of PNG per run. The scripts are the artefact worth keeping.
+tools/shots/toggles/
+tools/shots/record/

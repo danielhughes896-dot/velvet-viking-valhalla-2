@@ -1578,6 +1578,58 @@
   .plan-summary-bar .psb-sub{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); margin-top:2px;}
   .plan-summary-bar svg{width:16px; height:16px; color:var(--ink-faint); flex:none;}
 
+  /* ---------- THE RECORD ----------
+     Four cards, one per fact the plan is built on. Deliberately the SAME shell
+     as .plan-summary-bar directly above -- same surface, border, radius,
+     padding, hover and press -- because they are siblings: a thing you tap
+     that opens a surface. Two properties are added rather than a new family
+     invented.
+
+     THE RIGHT-HAND ELEMENT IS A VALUE, NOT A VERDICT. Everywhere else in Plan
+     HQ a right-hand element is a conclusion and may carry a status colour and
+     a dot. A Record card carries a fact: --ink-dim, sentence case, no dot, no
+     status hue, ever. That is the whole distinction between the two jobs the
+     one component does, so it is a rule here rather than a habit.
+
+     A <button>, because the whole card is the target and a target you can
+     reach with a keyboard is worth the two lines of font/appearance reset. */
+  .rec-card{
+    display:block; width:100%; text-align:left; font:inherit; -webkit-appearance:none; appearance:none;
+    background:var(--bg-2); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:10px 12px; margin:8px 0; cursor:pointer;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .rec-card:hover{background:var(--bg-3); border-color:var(--bronze-2);}
+  .rec-card:active{background:var(--bg-4);}
+  .rec-top{display:flex; align-items:center; gap:10px;}
+  .rec-subject{
+    font-family:'Oswald',sans-serif; font-size:12.5px; letter-spacing:.5px;
+    text-transform:uppercase; color:var(--ink); flex:1 1 auto; min-width:0;
+  }
+  .rec-right{display:flex; align-items:center; gap:8px; flex:0 1 auto; min-width:0;}
+  .rec-val{font-size:11.5px; color:var(--ink-dim); text-align:right; min-width:0; overflow-wrap:anywhere;}
+  .rec-val.font-mono{font-size:11px;}
+  /* "Nothing measured" is an absence, not a value, so it is quieted rather
+     than coloured -- a status hue here would make an empty record look like a
+     warning about something. */
+  .rec-val.rec-none{color:var(--ink-faint);}
+  .rec-card svg{width:16px; height:16px; color:var(--ink-faint); flex:none;}
+  .rec-syn{
+    font-size:11px; line-height:1.5; color:var(--ink-faint);
+    margin-top:4px; padding-right:24px;
+  }
+  /* The section's own sub-line, set at the synopsis size rather than the
+     field-hint size: it is the label doing the structural work of separating
+     these four cards from the coaching above them, and a hint-sized line reads
+     as a first card that lost its box. */
+  .rec-lede{font-size:11px; line-height:1.5; color:var(--ink-faint); margin:-4px 0 4px;}
+  /* The panel a Record card opens. Same modal-themed surface and the same
+     circular close control as every other worked-in surface; the one addition
+     is the full-width violet BACK at the foot, which is the builder's own
+     forward-motion accent doing the one job this surface has. */
+  .rec-panel-nav{margin-top:22px;}
+  .modal-body .zone-paces-card{margin:0 0 4px;}
+
   .goal-toggle-hero{margin-top:16px;}
   .goal-toggle-hero .goal-options{margin-top:8px;}
 
@@ -7116,17 +7168,11 @@ function renderCompactPaceReference(){
     rows+
   '</div>';
 }
-// Current benchmark + a shortcut into Recalibrate -- Plan HQ's stand-in for
-// full inline benchmark editing, reusing the existing recalibrate modal
-// rather than duplicating its distance/time inputs on the dashboard.
-function renderBenchmarkSummary(){
-  var b = state.setup.benchmark;
-  var title = b ? (DISTANCE_PROFILES[b.distanceKey].label+' \u2014 '+secToClock(b.timeSec)) : 'No benchmark set yet';
-  return '<div class="plan-summary-bar" data-action="open-recalibrate">'+
-    '<div class="psb-main"><div class="psb-title">Benchmark</div><div class="psb-sub">'+escapeHtml(title)+' \u00b7 tap to update and recalibrate paces</div></div>'+
-    ICONS.chevronRight+
-  '</div>';
-}
+/* The Benchmark summary bar that used to live here is gone: The Record's
+   Benchmark card is the one place the benchmark is stated on Plan HQ now, and
+   its panel is where the athlete goes to change it. The route into
+   openRecalibrateModal() is unchanged -- the same data-action, the same
+   handler, the same modal -- only the control that fires it moved. */
 
 /* =========================================================
    ZONE PACES CARD — lives on the main dashboard (not buried in
@@ -7135,7 +7181,11 @@ function renderBenchmarkSummary(){
    ========================================================= */
 var ZONE_PACE_LABELS = {E:'Easy / Recovery',M:'Tempo',T:'Threshold',I:'Interval / Track',R:'Repetition'};
 var ZONE_PACE_ORDER = ['E','M','T','I','R'];
-function renderZonePacesCard(){
+/* `inPanel` suppresses the card's own head and nothing else -- see
+   renderMeasuredFitness() for the same reason. Every input, id, data-action,
+   handler and calculation below is untouched: the editable component the Record
+   panel hosts IS this one, relocated, not a second copy of it. */
+function renderZonePacesCard(inPanel){
   if (!state.setup) return '';
   var paces = getActivePaces();
   var hrZones = getActiveHRZones();
@@ -7165,7 +7215,7 @@ function renderZonePacesCard(){
   var hrHint = (state.setup.lthr==null) ? ' Set your LTHR/Max HR (Edit Plan Settings) to also see target HR ranges here.' : '';
 
   return '<div class="zone-paces-card">'+
-    '<div class="zpc-head"><span class="font-head">Training Zone Paces</span></div>'+
+    (inPanel ? '' : '<div class="zpc-head"><span class="font-head">Training Zone Paces</span></div>')+
     '<div class="field-hint" style="margin-bottom:10px;">Edit any pace by hand to fine-tune it — edits stick until reset or re-calibrated from a new goal/benchmark.'+hrHint+'</div>'+
     rows+
     (anyOverride ? '<button type="button" class="btn btn-ghost btn-sm" style="margin-top:10px;" data-action="reset-pace-overrides">'+ICONS.zap+' Reset to Calculated Paces</button>' : '')+
@@ -7182,12 +7232,20 @@ function handlePaceOverrideChange(zone){
   else state.setup.paceOverrides[zone] = { fast:toKm(fastSec), slow:toKm(slowSec) };
   scheduleSave();
   renderApp();
+  /* This edit is made INSIDE the Training Zone Paces panel, over a Plan HQ the
+     athlete has scrolled down. renderApp() replaces #app wholesale, so without
+     these two the page behind the panel jumps to the top and the panel itself
+     goes on showing the pace as it was before the edit. */
+  restorePlanHQScroll();
+  refreshOpenRecordPanel();
 }
 function handleResetPaceOverrides(){
   if (!state.setup) return;
   state.setup.paceOverrides = {};
   scheduleSave();
   renderApp();
+  restorePlanHQScroll();
+  refreshOpenRecordPanel();
   showToast('Zone paces reset to calculated values');
 }
 
@@ -17822,11 +17880,16 @@ function blockIdentityLine(){
 
    No CTL, no ATL, no TSB, no Banister curve, no chart. Two times and the gap
    between them is what an athlete asked "am I fitter?" actually wants. */
-function renderMeasuredFitness(){
+/* `inPanel` suppresses the section heading and nothing else. The Record's
+   Measured Fitness panel is already titled by its own modal head, and printing
+   the same two words twice on one surface reads as a mistake. Called with no
+   argument this is byte-for-byte what it always rendered. */
+function renderMeasuredFitness(inPanel){
+  var heading = inPanel ? '' : '<div class="setup-section-title">Measured Fitness</div>';
   var prog = measuredProgression();
   var latest = prog.latest;
   if (!latest){
-    return '<div class="setup-section-title">Measured Fitness</div>'+
+    return heading+
       '<div class="hub-card yr-fitness"><div class="hq-empty">'+
       'Nothing measured yet. A completed race or Fitness Checkpoint is what counts here — '+
       'training paces come from your goal, so they are not a measurement.</div></div>';
@@ -17855,7 +17918,7 @@ function renderMeasuredFitness(){
           : (prog.improved ? 'Faster over the distance' : 'Not faster than last time'))+
       '</div>';
   }
-  return '<div class="setup-section-title">Measured Fitness</div>'+
+  return heading+
     '<div class="hub-card yr-fitness">'+rows+renderFitnessEstimate()+'</div>';
 }
 
@@ -18689,6 +18752,10 @@ function openModal(html, extraClass){
   document.body.appendChild(overlay);
 }
 function closeModal(){
+  // whatever the overlay held, it is not a Record panel any more -- see
+  // refreshOpenRecordPanel(), which must never redraw over a modal that
+  // replaced one (openRecalibrateModal() does exactly that).
+  openRecordPanelKey = null;
   var existing = document.getElementById('modal-overlay');
   if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
 }
@@ -19325,6 +19392,12 @@ function handleSaveRecalibrate(){
   closeModal();
   scheduleSave();
   renderApp();
+  /* Reached from the Benchmark Record panel as well as from anywhere else. If
+     it was, the athlete was part-way down Plan HQ when they started, and that
+     is where saving should leave them; if it was not, there is nothing
+     remembered and this does nothing. */
+  restorePlanHQScroll();
+  forgetPlanHQScroll();
   showToast('Zones Updated! All future upcoming sessions have been re-tailored to your new target paces.');
 }
 
@@ -21818,22 +21891,321 @@ function renderProgrammeStatus(){
     (state.setup ? '<div class="field-hint">Confidence reflects how closely your logged sessions have matched '+
       'what was prescribed — it settles as more sessions are logged, and no single session moves it far.</div>' : '');
 }
+/* =========================================================
+   THE RECORD
+   =========================================================
+   The four facts Plan HQ's coaching is built on -- what has been measured,
+   what the paces were set from, what those paces are, and how far through the
+   block the athlete is. They used to occupy 640px of the screen as four
+   full-height inline components; they are four compact cards now, and the
+   detail each of them carried opens in its own panel.
+
+   NOTHING WAS REBUILT. Every panel below hosts the component that already
+   existed:
+
+     Measured fitness   renderMeasuredFitness()   verbatim, heading suppressed
+     Benchmark          openRecalibrateModal()    via the existing data-action
+     Zone paces         renderZonePacesCard()     verbatim, head suppressed --
+                                                  same inputs, same ids, same
+                                                  handlers, same overrides
+     Progress           renderPlanOverviewStats() verbatim, mount id kept so
+                                                  patchDerivedStats() still
+                                                  finds it
+
+   There is no second source of truth for any of the four, and no methodology
+   here that was not already in the app. What IS new is the explanatory copy,
+   and it is written against the code rather than against the mock-up: training
+   paces descend from getActiveVDOT(), which reads the athlete's active GOAL --
+   so no panel claims the benchmark sets them, and none of them calls a
+   benchmark a measurement of current fitness. */
+
+/* WHERE THE ATHLETE WAS. Opening a panel remembers the Plan HQ scroll offset
+   and closing it puts them back on the card they tapped. Not decoration: the
+   Zone Paces panel edits state, every edit runs renderApp(), and renderApp()
+   replaces #app wholesale -- so without this, fine-tuning a pace would land the
+   athlete back at the top of Plan HQ with the panel still open over it. */
+var planhqReturnScrollY = null;
+function rememberPlanHQScroll(){
+  planhqReturnScrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+}
+function restorePlanHQScroll(){
+  if (planhqReturnScrollY == null) return;
+  try { window.scrollTo(0, planhqReturnScrollY); } catch(err) { }
+}
+function forgetPlanHQScroll(){ planhqReturnScrollY = null; }
+
+// The Fitness Checkpoint the generator already schedules into a block (see
+// isCheckpoint in the week builder). This is the ONLY real checkpoint
+// destination the product has -- there is no ad-hoc "schedule one now" flow,
+// so nothing below offers a control that would pretend otherwise.
+function scheduledCheckpointDay(){
+  var found = null;
+  state.days.forEach(function(dd){ if (dd.type === 'checkpoint') found = dd; });
+  return found;
+}
+
+function recordCard(key, subject, valueHtml, synopsis){
+  return '<button type="button" class="rec-card" data-action="open-record" data-record="'+key+'">'+
+      '<div class="rec-top">'+
+        '<span class="rec-subject">'+escapeHtml(subject)+'</span>'+
+        '<span class="rec-right">'+valueHtml+ICONS.chevronRight+'</span>'+
+      '</div>'+
+      (synopsis ? '<div class="rec-syn">'+escapeHtml(synopsis)+'</div>' : '')+
+    '</button>';
+}
+function recordValue(text, extraClass){
+  return '<span class="rec-val'+(extraClass?(' '+extraClass):'')+'">'+escapeHtml(text)+'</span>';
+}
+
+function recordFitnessCard(){
+  var latest = measuredProgression().latest;
+  if (!latest){
+    return recordCard('fitness', 'Measured fitness',
+      recordValue('Nothing measured', 'rec-none'),
+      'A race or a Fitness Checkpoint is what counts.');
+  }
+  var src = latest.source === 'race' ? 'Race' : 'Checkpoint';
+  return recordCard('fitness', 'Measured fitness',
+    recordValue(fmtDist(latest.km)+' · '+secToClock(latest.timeSec), 'font-mono'),
+    src+', '+dShort(latest.date)+'. Training runs do not move it.');
+}
+function recordBenchmarkCard(){
+  var b = state.setup.benchmark;
+  var value = b
+    ? recordValue(DISTANCE_PROFILES[b.distanceKey].label+' · '+secToClock(b.timeSec), 'font-mono')
+    : recordValue('Not set', 'rec-none');
+  return recordCard('benchmark', 'Benchmark', value,
+    'Your reference time. Update it here to re-calibrate.');
+}
+function recordZonesCard(){
+  var overrides = state.setup.paceOverrides || {};
+  var edited = ZONE_PACE_ORDER.filter(function(k){
+    return overrides[k] && overrides[k].slow!=null && overrides[k].fast!=null;
+  });
+  var syn;
+  if (!edited.length) syn = 'All five as calculated from your active goal.';
+  else if (edited.length >= 3) syn = edited.length+' zones edited by hand. The rest as calculated.';
+  else syn = edited.map(function(k){ return ZONE_PACE_LABELS[k]; }).join(' and ')+
+             ' edited by hand. The rest as calculated.';
+  return recordCard('zones', 'Training zone paces',
+    recordValue(ZONE_PACE_ORDER.length+' zones', 'font-mono'), syn);
+}
+function recordProgressCard(){
+  var s = computeStats();
+  var runsPct = s.totalRuns ? Math.round(100*s.completedRuns/s.totalRuns) : 0;
+  var week = currentWeekNum(), total = totalWeeksInPlan();
+  var syn = s.completedRuns+' of '+s.totalRuns+' runs'+
+    (week && total ? ' · week '+week+' of '+total : '')+'.';
+  return recordCard('progress', 'Progress', recordValue(runsPct+'%', 'font-mono'), syn);
+}
+
+function renderRecordSection(){
+  /* The sub-line is set at the synopsis size, not the field-hint size. Ten
+     cards run consecutively down this screen and the section labels are the
+     only thing structuring them, so the label has to read as a label rather
+     than as a first card that lost its box. */
+  return '<div class="setup-section-title">The Record</div>'+
+    '<div class="rec-lede">What this is based on, and what you can change.</div>'+
+    recordFitnessCard()+
+    recordBenchmarkCard()+
+    recordZonesCard()+
+    recordProgressCard();
+}
+
+/* ---------- the panels ----------
+   Same interaction model as Build Your Training Block: a modal-themed surface
+   over a dimmed Plan HQ, an uppercase heading and a circular close top-left/
+   right, and the builder's own violet primary at the foot. `builder-light` is
+   borrowed exactly as renderHero() already borrows it -- it is the rule that
+   makes a primary action violet, and reusing it is what stops a second purple
+   being invented here.
+
+   DELIBERATELY NO 01/05 RAIL. These are detail panels, not wizard steps: there
+   is nothing after them to advance to, so the only navigation is back. */
+function recordPanelShell(title, body){
+  return '<div class="modal-head"><h2 class="font-head">'+escapeHtml(title)+'</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-record-panel" aria-label="Close">'+ICONS.close+'</button>'+
+    '</div>'+
+    '<div class="modal-body">'+body+
+      '<div class="rec-panel-nav">'+
+        '<button type="button" class="btn btn-primary btn-block" data-action="close-record-panel">← BACK</button>'+
+      '</div>'+
+    '</div>';
+}
+function hqRow(label, value){
+  return '<div class="hq-row"><div class="hq-row-l">'+escapeHtml(label)+'</div>'+
+    '<div class="hq-row-v">'+escapeHtml(value)+'</div></div>';
+}
+
+function recordPanelFitness(){
+  var chk = scheduledCheckpointDay();
+  var body = renderMeasuredFitness(true)+
+    '<div class="setup-section-title">What counts as a measurement</div>'+
+    '<div class="hub-card">'+
+      hqRow('A completed race', 'any distance')+
+      hqRow('A Fitness Checkpoint', 'time trial')+
+    '</div>'+
+    '<div class="setup-section-title">What does not count</div>'+
+    '<div class="field-hint">Your benchmark, and the training paces calculated from your goal. '+
+      'Those set where you train — they are a target, not a measurement. Keeping the two apart '+
+      'is what stops Plan HQ telling you that you are fitter than it actually knows.</div>';
+  /* THE ONLY CHECKPOINT DESTINATION THAT EXISTS is the one the generator
+     already put in the block. It is stated as a fact, with its week and date,
+     and there is no "Schedule a Checkpoint" control -- because there is no
+     scheduling flow behind one, and a button that goes nowhere would be the
+     first dishonest thing on this surface. */
+  if (chk){
+    /* "Completed" and "measured" are not the same fact, and this panel is the
+       one place that must not blur them: recordMeasuredPerformance() only
+       accepts a checkpoint logged with a real distance and a real time, so a
+       checkpoint ticked off without a time is a completed session and not a
+       measurement. The copy is keyed on the performance record itself rather
+       than on the tick, and the third case says what to do about it. */
+    var counted = chk.completed && measuredPerformances().some(function(p){
+      return p.date === chk.date;
+    });
+    var note;
+    if (!chk.completed) note = 'It is already scheduled in this block. Run it and log it, and it becomes a measurement.';
+    else if (counted) note = 'Already run and logged. It is the measurement above.';
+    else note = 'Marked complete, but without a time it can be measured from. Add the time to that session and it becomes a measurement.';
+    body += '<div class="setup-section-title">'+(chk.completed ? 'Your checkpoint' : 'Your next checkpoint')+'</div>'+
+      '<div class="hub-card">'+
+        hqRow(chk.title || 'Fitness Checkpoint', 'Week '+chk.week+' · '+dShort(chk.date))+
+      '</div>'+
+      '<div class="field-hint">'+note+'</div>';
+  }
+  return recordPanelShell('Measured Fitness', body);
+}
+
+function recordPanelBenchmark(){
+  var b = state.setup.benchmark;
+  var goal = getActiveGoal();
+  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+  var body = '<div class="hub-card">'+
+      (b ? hqRow(DISTANCE_PROFILES[b.distanceKey].label, secToClock(b.timeSec))
+         : '<div class="hq-empty">No benchmark set yet.</div>')+
+    '</div>'+
+    '<div class="field-hint">A benchmark is a recent performance you have told Valhalla about. '+
+      'It is the number Suggest Goals works from, and the number to update when your fitness moves.</div>'+
+    '<div class="setup-section-title">What your paces actually come from</div>'+
+    '<div class="field-hint">'+
+      (goal && goal.timeSec
+        ? 'Your training paces are calculated from your active goal — Goal '+
+          escapeHtml(state.setup.activeGoal)+', '+secToClock(goal.timeSec)+' for the '+
+          escapeHtml(profile.label)+' — not directly from the benchmark. Re-calibrating below '+
+          'updates both, and every upcoming session is re-tailored to the result.'
+        : 'Your training paces are calculated from your active goal, not directly from the '+
+          'benchmark. Set a goal time below and every upcoming session is re-tailored to it.')+
+    '</div>'+
+    '<div class="setup-section-title">Not a measurement of current fitness</div>'+
+    '<div class="field-hint">A benchmark says where you are training. Only a completed race or a '+
+      'Fitness Checkpoint says where you are now — that is what Measured Fitness reports, and '+
+      'it is deliberately a different number.</div>'+
+    /* The existing action, reached the existing way. openRecalibrateModal()
+       owns benchmark and goal editing, validation and re-tailoring; this is a
+       door to it, not a second copy of it. btn-ghost so the violet BACK stays
+       the only primary on the surface. */
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-top:14px;" '+
+      'data-action="open-recalibrate">'+ICONS.zap+' Update benchmark &amp; re-calibrate</button>';
+  return recordPanelShell('Benchmark', body);
+}
+
+function recordPanelZones(){
+  var goal = getActiveGoal();
+  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+  var body = renderZonePacesCard(true)+
+    '<div class="setup-section-title">Where these come from</div>'+
+    '<div class="field-hint">'+
+      (goal && goal.timeSec
+        ? 'Calculated from your active goal — Goal '+escapeHtml(state.setup.activeGoal)+', '+
+          secToClock(goal.timeSec)+' for the '+escapeHtml(profile.label)+'. '
+        : 'Calculated from your active goal for the '+escapeHtml(profile.label)+'. ')+
+      'They are paces to train at, not a measurement of your current fitness. Change your goal or '+
+      'your benchmark and they are recalculated; edit one by hand and that edit stays until you '+
+      'reset it.</div>';
+  return recordPanelShell('Training Zone Paces', body);
+}
+
+function recordPanelProgress(){
+  var s = computeStats();
+  var week = currentWeekNum(), total = totalWeeksInPlan();
+  var longestDone = 0, longestToCome = 0;
+  state.days.forEach(function(dd){
+    if (dd.type === 'rest') return;
+    if (dd.completed){
+      var ran = (dd.actual && dd.actual.km!=null) ? dd.actual.km : (dd.km||0);
+      if (ran > longestDone) longestDone = ran;
+    } else if ((dd.km||0) > longestToCome) longestToCome = dd.km||0;
+  });
+  /* The rows are what the bars above do NOT already say. Runs done and
+     distance done are both in renderPlanOverviewStats(), twice over -- as
+     figures and as bars -- so repeating them here would fill the panel with
+     the thing the athlete has just read. */
+  var body = '<div id="planhq-stats-mount">'+renderPlanOverviewStats()+'</div>'+
+    '<div class="setup-section-title">Where you are in the block</div>'+
+    '<div class="hub-card">'+
+      (week && total ? hqRow('Week', week+' of '+total) : '')+
+      hqRow('Sessions still to run', (s.totalRuns - s.completedRuns)+'')+
+      (longestDone ? hqRow('Longest run so far', fmtDist(longestDone)) : '')+
+      (longestToCome ? hqRow('Longest run still ahead', fmtDist(longestToCome)) : '')+
+    '</div>'+
+    '<div class="field-hint">Runs and distance move at different rates through a block — the '+
+      'long runs that carry the distance are weighted towards the back of it. Neither figure is a '+
+      'judgement; the coaching reading of your training is above, in Programme Status.</div>';
+  return recordPanelShell('Progress', body);
+}
+
+var RECORD_PANELS = {
+  fitness: recordPanelFitness,
+  benchmark: recordPanelBenchmark,
+  zones: recordPanelZones,
+  progress: recordPanelProgress
+};
+var openRecordPanelKey = null;
+function openRecordPanel(key){
+  var build = RECORD_PANELS[key];
+  if (!build || !state.setup) return;
+  rememberPlanHQScroll();
+  openModal(build(), 'modal-themed builder-light');
+  // after openModal, which clears the key through closeModal()
+  openRecordPanelKey = key;
+}
+/* BOTH exits do the same thing, because they mean the same thing: this panel
+   is finished with. X and BACK close it and put the athlete back on the card
+   they tapped, at the scroll offset they left. */
+function closeRecordPanel(){
+  openRecordPanelKey = null;
+  closeModal();
+  restorePlanHQScroll();
+  forgetPlanHQScroll();
+}
+/* Re-render an open panel in place after an edit made inside it: the Zone
+   Paces panel gains a "custom" tag and a Reset button the moment a pace is
+   overridden, and loses them again on reset. Fires on `change`, so the input
+   that triggered it has already been left and nothing loses focus mid-typing.
+   Guarded on the overlay still being ours -- openRecalibrateModal() replaces
+   it from inside the Benchmark panel, and that surface must not be redrawn as
+   a Record panel underneath the athlete. */
+function refreshOpenRecordPanel(){
+  if (!openRecordPanelKey || !RECORD_PANELS[openRecordPanelKey]) return;
+  var overlay = document.getElementById('modal-overlay');
+  var card = overlay ? overlay.querySelector('.modal-card') : null;
+  if (!card || !card.querySelector('[data-action="close-record-panel"]')) return;
+  card.innerHTML = RECORD_PANELS[openRecordPanelKey]();
+}
+
 function renderPlanHQView(){
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
   return '<div class="view-heading font-head">Plan HQ</div>'+
     renderProgrammeStatus()+
     renderCoachPanel()+
-    '<div id="planhq-stats-mount">'+renderPlanOverviewStats()+'</div>'+
     '<div class="plan-summary-bar" data-action="open-setup">'+
       '<div class="psb-main"><div class="psb-title">Build New Block</div><div class="psb-sub">'+escapeHtml(profile.label)+' · '+fmtDist(state.setup.currentVolume)+'/wk start · '+vGoalDate()+' '+dShort(state.setup.raceDate)+'</div></div>'+
       ICONS.chevronRight+
     '</div>'+
     renderCheckpointBanner()+
-    renderMeasuredFitness()+
     renderGoalToggle()+
-    '<div class="setup-section-title">Benchmark</div>'+
-    renderBenchmarkSummary()+
-    renderZonePacesCard();
+    renderRecordSection();
 }
 // Notification permission can be revoked from outside the app (browser/OS
 // settings) at any time, so the toggle always reflects the live
@@ -22368,6 +22740,8 @@ document.addEventListener('click', function(e){
     case 'open-setup': openSetupModal(); break;
     case 'open-restore': openRestoreModal(); break;
     case 'restore-plan': handleRestorePlan(target.getAttribute('data-key')); break;
+    case 'open-record': openRecordPanel(target.getAttribute('data-record')); break;
+    case 'close-record-panel': closeRecordPanel(); break;
     case 'open-recalibrate': openRecalibrateModal(); break;
     case 'rc-suggest-goals': handleRecalibrateSuggest(); break;
     case 'save-recalibrate': handleSaveRecalibrate(); break;
