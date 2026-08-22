@@ -86,29 +86,56 @@ test('.modal-themed adds no colour of its own -- it only points at the theme', (
   assert.match(themed, /color-scheme\s*:\s*normal/);
 });
 
-test('the builder and Re-calibrate both opt in', () => {
-  assert.match(fnBody('openSetupModal'), /openModal\([^)]*['"][^'"]*\bmodal-themed\b/,
-    'the staged builder no longer opts into the theme');
-  assert.match(fnBody('openRecalibrateModal'), /openModal\([^)]*['"][^'"]*\bmodal-themed\b/,
-    'Re-calibrate Training Zones no longer opts into the theme');
+/* THE WORK SURFACES, NAMED. Counting themed modals told us how many there
+   were and nothing about WHICH -- which is how Edit Session went a whole
+   release opening as a near-black sheet over a cream app without any test
+   noticing. The set is enumerated now: each of these is a form an athlete
+   sits in and fills out, each must opt in, and the count still has to match so
+   a transient confirm cannot join them without arguing for itself here. */
+const WORK_SURFACES = [
+  ['openSetupModal', 'the staged plan builder'],
+  ['openRecalibrateModal', 'Re-calibrate Training Zones'],
+  ['openEditModal', 'Edit Session'],
+  ['openHQPanel', "Plan HQ's Record / Reading / action panels"],
+];
+
+test('every surface an athlete works in follows the theme', () => {
+  WORK_SURFACES.forEach(([fn, what]) => {
+    // not [^)]* -- openHQPanel passes openModal(html, '...'), so the class sits
+    // past a comma, and openRecordPanel's argument used to carry a paren too.
+    assert.match(fnBody(fn), /openModal\([\s\S]{0,120}?['"][^'"]*\bmodal-themed\b/,
+      what + ' opens on the fixed dark ramp whatever theme the athlete chose');
+  });
+});
+
+test('Edit Session in particular, because it is the one that regressed', () => {
+  const body = fnBody('openEditModal');
+  assert.match(body, /openModal\([\s\S]{0,120}?['"][^'"]*\bmodal-themed\b/,
+    'Edit Session is dark over a cream app again');
+  // A bottom sheet like every other short form -- NOT the centred builder.
+  assert.doesNotMatch(body, /\bbuilder-light\b/,
+    'Edit Session picked up the builder centring it was never given');
+  // And the fix moved the token ramp only. Every field, id and action stays.
+  ['ef-title', 'ef-type', 'ef-km', 'ef-mp', 'ef-desc', 'ef-swap']
+    .forEach(id => assert.match(body, new RegExp('id="' + id + '"'),
+      'Edit Session lost #' + id));
+  assert.match(body, /data-action="save-edit"/);
+  assert.match(body, /data-action="reset-day"/);
+  assert.match(body, /renderEditCompletion\(dd\)/);
+  assert.match(body, /<legend>Reschedule<\/legend>/);
 });
 
 test('a modal that does not opt in keeps the fixed dark ramp', () => {
   // Any other openModal() call must not carry the class. This is the guard that
   // stops "make it themed" from quietly becoming the default for every confirm.
-  //
-  // THREE, not two, since Plan HQ's panels. They belong in the same set for the
-  // same reason the other two do: they are surfaces an athlete sits and reads
-  // or edits in -- Training Zone Paces hosts the editable pace inputs
-  // themselves -- not transient confirms on a lit stage. openHQPanel() is ONE
-  // call serving all eleven of them (four Record, five Reading, two actions),
-  // so the set grows by one however many panels Plan HQ gains, and a fourth
-  // themed modal still has to come and argue for itself here.
+  // The number is WORK_SURFACES.length by construction, so adding a themed
+  // modal means naming it above rather than bumping a literal.
   const calls = [...CODE.matchAll(/openModal\(([\s\S]{0,400}?)\);/g)]
     .map(m => m[1])
     .filter(a => /\bmodal-themed\b/.test(a));
-  assert.equal(calls.length, 3,
-    'expected exactly three themed modals (builder, Re-calibrate, Plan HQ panels), found ' + calls.length);
+  assert.equal(calls.length, WORK_SURFACES.length,
+    'expected exactly ' + WORK_SURFACES.length + ' themed modals (' +
+    WORK_SURFACES.map(w => w[1]).join(', ') + '), found ' + calls.length);
 });
 
 test('the Plan HQ panels opt in, and carry the builder accent deliberately', () => {

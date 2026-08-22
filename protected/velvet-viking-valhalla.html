@@ -19938,7 +19938,20 @@ function openEditModal(dayId){
       '<button type="button" class="btn btn-primary" data-action="save-edit" data-day="'+dd.id+'">'+ICONS.check+' Save</button>'+
     '</div>'+
   '</div>';
-  openModal(html);
+  /* THEMED, because this is a surface an athlete works IN.
+     .modal-card pins the whole control/ink/line token family to a fixed dark
+     ramp, which is right for a transient confirm on a lit stage. Edit Session
+     is not one: it is a form with a title, a type, a distance, the session's
+     instructions, the completion log and a reschedule control, and a
+     light-mode athlete opening it got a near-black sheet dropped over a cream
+     app -- the exact bug .modal-themed was written for, on the one edit flow
+     that never opted in.
+
+     Structure, fields, validation, save/reset and the swap logic are
+     untouched; only the token ramp the same markup draws from moves. No
+     builder-light here: this is a bottom sheet like every other short form,
+     not the centred builder. */
+  openModal(html, 'modal-themed');
 }
 
 function findDay(dayId){
