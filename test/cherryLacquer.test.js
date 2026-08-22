@@ -371,3 +371,85 @@ test('the workout-type palette still says five different things', () => {
       'now look like the same thing');
   }));
 });
+
+// ===========================================================================
+// 4. THE WORKOUT-STEP CONNECTOR MUST NOT PICK UP A TINT FROM UNDERNEATH IT
+// ===========================================================================
+/* THIS EXISTS BECAUSE IT HAPPENED. The connector between step discs
+ * (.ws-step::before) carried var(--cherry-line) -- correctly a Cherry
+ * Lacquer token, and every string-based check above passed it: it named a
+ * --cherry* variable, it declared no hard-coded hex.
+ *
+ * But --cherry-line is translucent (rgba, ~0.3-0.45 alpha), and a day card's
+ * background is tinted by its session type. A translucent line composites
+ * WITH whatever it is drawn over, so on an interval/tempo/threshold card in
+ * dark mode the rendered pixel measured out at rgb(86,55,68) -- hue 335deg,
+ * one degree inside this file's own cherry/wine cutoff (334deg) and
+ * indistinguishable by eye from the violet the accent was migrated away
+ * from. On a checkpoint card's warmer tint in light mode it measured
+ * rgb(190,168,158) -- hue 19deg, amber, not cherry at all. No token check
+ * caught this because the token itself was never wrong; only what it became
+ * once alpha-blended with a real card underneath it was.
+ *
+ * The disc (.ws-n) solved exactly this problem for itself already -- "the
+ * disc carries its own opaque fill... a day card is tinted by session type,
+ * so no single mask colour existed" -- and the fix here is the same one:
+ * make the connector opaque too, so it reads as --cherry regardless of what
+ * it sits on, rather than re-deriving a translucent value that would need
+ * re-measuring against every future card tint. */
+test('the connector is opaque, so a tinted day card underneath it cannot shift its hue', () => {
+  const bodies = rulesFor('.ws-step::before');
+  assert.ok(bodies.length, 'rule not found: .ws-step::before');
+  bodies.forEach(b => {
+    assert.match(b, /background:var\(--cherry\)/,
+      '.ws-step::before must paint the connector with the solid var(--cherry) token, not a ' +
+      'translucent one -- got: ' + b);
+    assert.doesNotMatch(b, /--cherry-line|--cherry-dim|--cherry-soft/,
+      '.ws-step::before is back on a translucent cherry token, which composites with ' +
+      'whatever tinted card it is drawn over: ' + b);
+    assert.doesNotMatch(b, /rgba\(|opacity\s*:/,
+      '.ws-step::before reintroduces transparency by another route: ' + b);
+  });
+});
+
+test('the connector and the disc it connects are drawn from the identical token', () => {
+  // Not just "both cherry" -- the SAME declaration, so they can never drift
+  // apart from each other in either theme.
+  const discBody = rulesFor('.ws-n').find(b => /border:1\.5px solid var\(--cherry\)/.test(b));
+  assert.ok(discBody, '.ws-n does not carry the expected 1.5px var(--cherry) rim');
+  const lineBody = rulesFor('.ws-step::before').find(b => /background:var\(--cherry\)/.test(b));
+  assert.ok(lineBody, '.ws-step::before does not carry the expected var(--cherry) fill');
+});
+
+test('the connector cannot drift toward violet again, because it has no alpha left to blend', () => {
+  /* THE EVIDENCE. rgb(86,55,68) and rgb(190,168,158) are not derived here --
+   * they were read directly off the rendered page with a pixel probe
+   * (Playwright screenshot + raw buffer sample at the connector's on-screen
+   * position), one on a dark-mode interval card, one on a light-mode
+   * checkpoint card, both while .ws-step::before still carried the
+   * translucent var(--cherry-line). They are recorded as a fixed regression
+   * marker, not recomputed from the stylesheet, because the whole point is
+   * that no reading of the stylesheet's tokens would have told you this --
+   * every token involved was already correctly Cherry Lacquer. */
+  const hueOfRgb = ([r, g, b]) => {
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    let x; if (!d) x = 0; else if (mx === r) x = ((g - b) / d) % 6;
+    else if (mx === g) x = (b - r) / d + 2; else x = (r - g) / d + 4;
+    return ((x * 60) + 360) % 360;
+  };
+  const measuredDark = [86, 55, 68], measuredLight = [190, 168, 158];
+  assert.ok(hueOfRgb(measuredDark) < 336,
+    'the historical dark-mode regression pixel should sit right at the violet boundary; ' +
+    'if this fails the reproduction itself has drifted, not just the app');
+  assert.ok(hueOfRgb(measuredLight) < 30 && hueOfRgb(measuredLight) > 5,
+    'the historical light-mode regression pixel should sit in amber, nowhere near cherry');
+
+  // THE FIX. --cherry itself has no alpha to blend against a card underneath
+  // it, in either theme -- so this is not a narrower version of the same
+  // drift, it is architecturally not possible any more.
+  ['dark', 'light'].forEach(scope => {
+    const t = tokens(scope);
+    assert.match(t['--cherry'], /^#[0-9A-Fa-f]{6}$/,
+      scope + ' --cherry is not a solid hex — the connector could drift again');
+  });
+});
