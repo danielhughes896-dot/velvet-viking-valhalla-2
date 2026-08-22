@@ -128,8 +128,14 @@ function probeFactory(){
           edges.push(ratio(b, surface));
         // A hairline drawn as a box-shadow ring is an edge too -- the Race
         // Outlook's goal marker gets its separation that way.
+        /* INSET COUNTS TOO. This used to skip inset rings, on the assumption
+           they sit under the fill -- but an inset 1px ring is painted ON TOP of
+           the fill at the very edge, which is exactly what a boundary is. The
+           dark primary relies on one: its burgundy face is deliberately too
+           dark to clear 3:1 on its own, and the --cherry rim is what does.
+           Skipping it reported a false failure on an accessible control. */
         const ring = (cs.boxShadow || '').match(/rgba?\([^)]+\)/);
-        if (ring && !/inset/.test(cs.boxShadow)) edges.push(ratio(ring[0], surface));
+        if (ring) edges.push(ratio(ring[0], surface));
         out.edge = Math.round(Math.max.apply(null, edges) * 100)/100;
         if (o.label !== false)
           out.label = Math.round(Math.min.apply(null, fills.map(f => ratio(cs.color, f))) * 100)/100;

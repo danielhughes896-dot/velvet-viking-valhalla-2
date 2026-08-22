@@ -42,6 +42,12 @@ const hue = h => {
   else if (mx === g) x = (b - r) / d + 2; else x = (r - g) / d + 4;
   return ((x * 60) + 360) % 360;
 };
+// HSL lightness, 0..1 -- how DARK a colour is, independent of its hue. This is
+// the axis the "too pink" regression lives on: a mid-tone in this hue family is
+// rose, a low tone is burgundy.
+const light = h => { const c = hex(h); return (Math.max(...c) + Math.min(...c)) / 510; };
+// The cherry/wine family: magenta-red. Below this is purple, above it is brick.
+const IN_FAMILY = h => hue(h) >= 334 && hue(h) <= 356;
 
 /* Token values are read from the shipped :root blocks, so these tests measure
    what the app renders rather than what this file remembers. The dark block is
@@ -193,37 +199,79 @@ test('LIGHT: the accent is the canonical #532D3A, unmodified', () => {
     'the step numeral on its disc is ' + ratio(t['--cherry-soft'], t['--cherry-ink']) + ':1');
 });
 
-test('DARK: the companion is a lift of the SAME colour, and it is the smallest one that works', () => {
+test('DARK: bare indicators are lifted only as far as 3:1 actually requires', () => {
   const t = tokens('dark');
-  const fill = t['--cherry'];
+  const ind = t['--cherry'];
 
-  // Still Cherry Lacquer: a proportional lift preserves hue.
-  assert.ok(Math.abs(hue(fill) - hue('#532D3A')) < 2,
-    'the dark companion drifted to hue ' + hue(fill).toFixed(1) +
-    '° from the canonical ' + hue('#532D3A').toFixed(1) + '° — it is a different colour now');
-  assert.doesNotMatch(fill, /^#(4|5|6|7|8|9|A|B)[0-9A-F]{5}$/i.test(fill) ? /(?!)/ : /./,
-    'unreachable — the hue check above is the real guard');
+  assert.ok(IN_FAMILY(ind),
+    'the dark indicator tone drifted to hue ' + hue(ind).toFixed(1) +
+    'deg, outside the cherry/wine family -- it is a different colour now');
 
-  // A CONTROL, so 3:1 against every dark surface it can sit on.
-  surfaces('dark').forEach(bg => assert.ok(ratio(fill, bg) >= 3,
-    'a dark control on ' + bg + ' is only ' + ratio(fill, bg) + ':1 — WCAG 1.4.11 wants 3:1'));
-  // Its LABEL, so 4.5:1.
-  assert.ok(ratio(fill, t['--cherry-btn-ink']) >= 4.5,
-    'the dark button label is ' + ratio(fill, t['--cherry-btn-ink']) + ':1');
+  /* A BARE INDICATOR -- a 3px rail segment, a gauge needle, a band -- is
+     identified by nothing but its own colour, so 1.4.11's 3:1 applies against
+     every dark surface it can sit on. */
+  surfaces('dark').forEach(bg => assert.ok(ratio(ind, bg) >= 3,
+    'a bare dark indicator on ' + bg + ' is only ' + ratio(ind, bg) + ':1 -- WCAG 1.4.11 wants 3:1'));
 
   /* SMALLEST lift: one step darker must fail the boundary it was chosen for,
-     or the companion is lighter than the colour needed to be. */
-  const darker = '#' + hex(fill).map(v => Math.round(v * 0.94).toString(16).padStart(2, '0')).join('');
+     or it is lighter than the colour needed to be. This gate is what stops the
+     indicator tone creeping up towards pink over time. */
+  const darker = '#' + hex(ind).map(v => Math.round(v * 0.94).toString(16).padStart(2, '0')).join('');
   assert.ok(ratio(darker, surfaces('dark')[2]) < 3,
-    'a 6% darker companion (' + darker + ') would still clear 3:1 — the lift is bigger than it needs to be');
+    'a 6% darker indicator (' + darker + ') would still clear 3:1 -- the lift is bigger than it needs to be');
+});
+
+/* THE ANTI-ROSE GATE, and the reason the accent is two tokens rather than one.
+   The first dark companion used ONE value everywhere. Because a bare indicator
+   must clear 3:1 on near-black, that value was forced to a mid-tone -- and
+   painting a large filled button with it produced dusty pink. A filled control
+   carrying its own white label does not need that boundary to be identified,
+   so it is free to be genuinely dark, and it must be. */
+test('DARK: filled controls are burgundy, not a mid-tone rose', () => {
+  const t = tokens('dark');
+  const fill = t['--cherry-fill'];
+  assert.ok(fill, 'there is no --cherry-fill: labelled fills are back on the indicator tone');
+
+  assert.ok(IN_FAMILY(fill),
+    'the dark fill drifted to hue ' + hue(fill).toFixed(1) + 'deg, outside the cherry/wine family');
+
+  // THE REGRESSION THIS EXISTS FOR: a large filled area must stay dark.
+  assert.ok(light(fill) <= 0.38,
+    'the dark fill sits at ' + (light(fill) * 100).toFixed(1) +
+    '% lightness -- that is rose, not lacquer (ceiling 38%)');
+  assert.ok(light(fill) < light(t['--cherry']) - 0.06,
+    'the fill is no darker than the indicator tone, so the split buys nothing');
+
+  // Its LABEL is what identifies it, so that is the contrast that must hold.
+  assert.ok(ratio(fill, t['--cherry-btn-ink']) >= 4.5,
+    'the dark button label is only ' + ratio(fill, t['--cherry-btn-ink']) + ':1');
+
+  /* LIGHT NEEDED NO SOLVING, so light must not quietly acquire a second value:
+     both jobs there are the one canonical Cherry Lacquer. */
+  const L = tokens('light');
+  assert.equal(L['--cherry-fill'], '#532D3A',
+    'light mode paints filled controls ' + L['--cherry-fill'] + ' instead of the canonical #532D3A');
+  assert.equal(L['--cherry'], L['--cherry-fill'],
+    'light mode split the accent in two, but only dark mode had a reason to');
+
+  /* A dark fill cannot supply its own 3:1 boundary, so the rim does -- and the
+     rim has to be the indicator tone, which is the one that clears it. */
+  ['.builder-light .btn-primary', '.hq-panel .rec-panel-nav .btn-primary'].forEach(sel => {
+    const bodies = rulesFor(sel);
+    assert.ok(bodies.some(b => /background:var\(--cherry-fill\)/.test(b)),
+      sel + ' does not take the fill tone -- a labelled primary is back on the indicator tone');
+    assert.ok(bodies.some(b => /box-shadow:inset 0 0 0 1px var\(--cherry\)/.test(b)),
+      sel + ' lost its --cherry rim, so the dark fill has no 3:1 boundary');
+  });
 });
 
 test('DARK: the accent used as TEXT gets its own tone, because 3:1 is not enough to read', () => {
   const t = tokens('dark');
   assert.notEqual(t['--cherry-text'], t['--cherry'],
     'the dark theme reads its small accent text at the fill tone, which is under 4.5:1');
-  assert.ok(Math.abs(hue(t['--cherry-text']) - hue('#532D3A')) < 2,
-    'the text tone drifted off the Cherry Lacquer hue');
+  assert.ok(IN_FAMILY(t['--cherry-text']),
+    'the text tone drifted to hue ' + hue(t['--cherry-text']).toFixed(1) +
+    'deg, outside the cherry/wine family');
   surfaces('dark').forEach(bg => assert.ok(ratio(t['--cherry-text'], bg) >= 4.5,
     'accent text on ' + bg + ' is only ' + ratio(t['--cherry-text'], bg) + ':1'));
 
