@@ -47,8 +47,12 @@ function planHQ(opts) {
   a.state.view = 'planhq';
   return a;
 }
+// THE READING's cards share the .rec-card shell deliberately -- one component
+// doing the other job -- so a Record card is identified by the action it
+// fires, not by its class.
 function cards(html) {
-  return html.match(/<button type="button" class="rec-card"[\s\S]*?<\/button>/g) || [];
+  return (html.match(/<button type="button" class="rec-card"[\s\S]*?<\/button>/g) || [])
+    .filter(c => c.indexOf('data-action="open-record"') !== -1);
 }
 function cardFor(html, subject) {
   const found = cards(html).filter(c => c.indexOf('>' + subject + '<') !== -1);
@@ -82,10 +86,9 @@ test('RECORD: the four are separate cards, not one combined container', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
   // Four sibling elements, none nested inside another.
-  const opens = html.split('<button type="button" class="rec-card"').length - 1;
-  assert.equal(opens, 4);
+  assert.equal((html.match(/data-action="open-record"/g) || []).length, 4);
   found_not_nested: {
-    const region = html.slice(html.indexOf('rec-card'));
+    const region = html.slice(html.indexOf('data-action="open-record"'));
     assert.doesNotMatch(region.slice(0, region.indexOf('</button>')),
       /class="rec-card"/, 'a Record card is nested inside another Record card');
     break found_not_nested;
@@ -449,11 +452,12 @@ test('HQ: Programme Status is untouched — gauge, its violet arc and needle, an
     'renderProgrammeStatus() is no longer rendered verbatim into Plan HQ');
 });
 
-test('HQ: Build New Block, the checkpoint banner and Active Goal are all still there', () => {
+test('HQ: the coach panel, the checkpoint banner and Active Goal are all still there', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
+  // The plan-settings route survived the "Build New Block" summary bar being
+  // replaced by the block-transition control -- it is a trio tile now.
   assert.match(html, /data-action="open-setup"/);
-  assert.match(html, /Build New Block/);
   assert.ok(html.indexOf(a.renderCoachPanel()) !== -1, 'the coach panel left Plan HQ');
   assert.ok(html.indexOf(a.renderGoalToggle()) !== -1, 'Active Goal left Plan HQ');
   assert.match(html, /<div class="setup-section-title">The Record<\/div>/);

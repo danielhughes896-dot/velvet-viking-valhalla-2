@@ -21,3 +21,4 @@ tools/content-bridge/.state.json
 # several MB of PNG per run. The scripts are the artefact worth keeping.
 tools/shots/toggles/
 tools/shots/record/
+tools/shots/planhq/

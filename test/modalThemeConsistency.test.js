@@ -97,32 +97,36 @@ test('a modal that does not opt in keeps the fixed dark ramp', () => {
   // Any other openModal() call must not carry the class. This is the guard that
   // stops "make it themed" from quietly becoming the default for every confirm.
   //
-  // THREE, not two, since Plan HQ's Record panels. They belong in the same set
-  // for the same reason the other two do: they are surfaces an athlete sits and
-  // reads or edits in -- Training Zone Paces hosts the editable pace inputs
-  // themselves -- not transient confirms on a lit stage. openRecordPanel() is
-  // one call serving all four panels, so the set grows by one, and a fourth
+  // THREE, not two, since Plan HQ's panels. They belong in the same set for the
+  // same reason the other two do: they are surfaces an athlete sits and reads
+  // or edits in -- Training Zone Paces hosts the editable pace inputs
+  // themselves -- not transient confirms on a lit stage. openHQPanel() is ONE
+  // call serving all eleven of them (four Record, five Reading, two actions),
+  // so the set grows by one however many panels Plan HQ gains, and a fourth
   // themed modal still has to come and argue for itself here.
   const calls = [...CODE.matchAll(/openModal\(([\s\S]{0,400}?)\);/g)]
     .map(m => m[1])
     .filter(a => /\bmodal-themed\b/.test(a));
   assert.equal(calls.length, 3,
-    'expected exactly three themed modals (builder, Re-calibrate, Record panels), found ' + calls.length);
+    'expected exactly three themed modals (builder, Re-calibrate, Plan HQ panels), found ' + calls.length);
 });
 
-test('the Record panels opt in, and carry the builder accent deliberately', () => {
-  const body = fnBody('openRecordPanel');
-  // not [^)]* here: the argument is openModal(build(), '...'), so the class
-  // sits past a closing paren the other two calls do not have.
+test('the Plan HQ panels opt in, and carry the builder accent deliberately', () => {
+  const body = fnBody('openHQPanel');
+  // not [^)]* here: the argument is openModal(html, '...'), and the class sits
+  // past a comma the other two calls do not have.
   assert.match(body, /openModal\([\s\S]{0,80}?['"][^'"]*\bmodal-themed\b/,
-    'a Record panel would arrive as a dark sheet over a cream Plan HQ');
+    'a Plan HQ panel would arrive as a dark sheet over a cream Plan HQ');
   // builder-light is borrowed, exactly as renderHero() already borrows it: it
   // is the rule that makes a primary action violet, and reusing it is what
   // stops a second purple being invented for the BACK button.
   assert.match(body, /\bbuilder-light\b/,
-    'the Record panel lost the class its violet BACK button depends on');
+    'the Plan HQ panel lost the class its violet BACK button depends on');
   assert.match(CODE, /\.builder-light\s+\.btn-primary\s*\{[^}]*var\(--violet\)/,
-    'the violet primary rule the Record panels borrow no longer exists');
+    'the violet primary rule the Plan HQ panels borrow no longer exists');
+  // One opener, so one theme decision, for every panel on the screen.
+  assert.match(fnBody('openRecordPanel'), /openHQPanel\(/,
+    'the Record panels stopped going through the shared opener');
 });
 
 test('theming is separable from the builder positioning', () => {

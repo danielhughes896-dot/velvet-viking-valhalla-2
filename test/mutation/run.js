@@ -32,13 +32,14 @@ const SUBSET = files(['stripeLifecycle','monthlyPause','commercialCore','securit
   'prescriptionAwareLogging','healthDataConsent',
   'medicalBoundary','healthErasure','commercialJourney',
   'productionReadiness']);
-/* Plan HQ's Record cases are checked against the four suites that guard them
-   rather than against the commercial subset above, which knows nothing about
-   them: twenty-odd runtime cases against twenty-five API suites is minutes of
-   work to reach the same verdict. A case names its own subset as a fifth
-   element, and anything that does not name one gets SUBSET. */
-const RECORD_SUBSET = files(['planHqRecord','modalThemeConsistency','phase4AppUx',
-  'yearRoundLifecycle','coachSurfaceDistinctness']);
+/* Plan HQ's cases are checked against the suites that guard them rather than
+   against the commercial subset above, which knows nothing about them:
+   thirty-odd runtime cases against twenty-five API suites is minutes of work
+   to reach the same verdict. A case names its own subset as a fifth element,
+   and anything that does not name one gets SUBSET. */
+const RECORD_SUBSET = files(['planHqRecord','planHqReading','modalThemeConsistency',
+  'phase4AppUx','yearRoundLifecycle','coachSurfaceDistinctness']);
+const HQ_SUBSET = RECORD_SUBSET;
 
 const CASES = [
   // ---- ACCESS ----
@@ -440,7 +441,78 @@ const CASES = [
   ['record: the zone editor loses its head everywhere, not just in the panel',
    'protected/velvet-viking-valhalla.html',
    "    (inPanel ? '' : '<div class=\"zpc-head\"><span class=\"font-head\">Training Zone Paces</span></div>')+",
-   "    ''+", RECORD_SUBSET]
+   "    ''+", RECORD_SUBSET],
+
+  // ---- PLAN HQ: THE READING ----
+  ['reading: an interpretation quietly loses its card', 'protected/velvet-viking-valhalla.html',
+   "var READING_KEYS = ['readiness','recovery','evolution','patterns','adaptation'];",
+   "var READING_KEYS = ['readiness','recovery','evolution','patterns'];", HQ_SUBSET],
+  ['reading: tone is invented rather than borrowed from the engine',
+   'protected/velvet-viking-valhalla.html',
+   "      tone: { fresh:'good', watch:'watch', strained:'bad' }[rec.state],",
+   "      tone: 'good',", HQ_SUBSET],
+  ['reading: a Reading card stops carrying its conclusion', 'protected/velvet-viking-valhalla.html',
+   "  var value = '<span class=\"read-val'+tone+'\">'+",
+   "  var value = '<span class=\"rec-val\">'+", HQ_SUBSET],
+  ['reading: a panel stops hosting the evidence and paraphrases it',
+   'protected/velvet-viking-valhalla.html',
+   "  return recordPanelShell(sec.title, head+'<div class=\"hub-card\">'+sec.body+'</div>');",
+   "  return recordPanelShell(sec.title, head+'<div class=\"hub-card\">'+escapeHtml(sec.syn)+'</div>');", HQ_SUBSET],
+  ['reading: the cards go back to expanding in place', 'protected/velvet-viking-valhalla.html',
+   "  return '<button type=\"button\" class=\"rec-card\" data-action=\"open-reading\" data-reading=\"'+sec.key+'\">'+",
+   "  return '<button type=\"button\" class=\"rec-card\" aria-expanded=\"false\" data-action=\"toggle-hq-section\" data-reading=\"'+sec.key+'\">'+", HQ_SUBSET],
+  ['reading: BACK stops being the only violet in a panel', 'protected/velvet-viking-valhalla.html',
+   "  .hq-panel .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink);}",
+   "", HQ_SUBSET],
+
+  // ---- PLAN HQ: RACE OUTLOOK ----
+  ['outlook: a training run becomes measured evidence', 'protected/velvet-viking-valhalla.html',
+   "  var est = measuredFitnessEstimate(key);\n  if (!est) return { state:'none', profile:profile, goalSec:goalSec };",
+   "  var est = measuredFitnessEstimate(key);\n  if (!est) return { state:'measured', profile:profile, goalSec:goalSec, fastSec:goalSec, slowSec:goalSec+300, fromDate:todayStr(), fromSource:'race' };", HQ_SUBSET],
+  ['outlook: a withheld estimate is drawn anyway', 'protected/velvet-viking-valhalla.html',
+   "  if (est.withheld) return { state:'withheld', profile:profile, goalSec:goalSec, reason:est.reason };",
+   "  if (est.withheld) return { state:'measured', profile:profile, goalSec:goalSec, fastSec:goalSec-120, slowSec:goalSec+120, fromDate:todayStr(), fromSource:'race' };", HQ_SUBSET],
+  ['outlook: the goal marker stops coming from the active goal',
+   'protected/velvet-viking-valhalla.html',
+   "  var goalSec = (goal && goal.timeSec) ? goal.timeSec : null;",
+   "  var goalSec = state.setup.benchmark ? state.setup.benchmark.timeSec : null;", HQ_SUBSET],
+  ['outlook: the band stops being violet', 'protected/velvet-viking-valhalla.html',
+   "    background:linear-gradient(90deg,var(--violet-dim),var(--violet));\n    min-width:8px;",
+   "    background:var(--gold);\n    min-width:8px;", HQ_SUBSET],
+  ['outlook: the goal marker stops being gold', 'protected/velvet-viking-valhalla.html',
+   "    border-radius:2px; background:var(--gold);",
+   "    border-radius:2px; background:var(--violet);", HQ_SUBSET],
+  ['outlook: it stops repainting when a measurement is logged',
+   'protected/velvet-viking-valhalla.html',
+   "  var outlookEl = document.getElementById('outlook-mount');\n  if (outlookEl) outlookEl.innerHTML = renderRaceOutlook();",
+   "", HQ_SUBSET],
+  ['outlook: it is placed above the gauge it belongs beneath',
+   'protected/velvet-viking-valhalla.html',
+   "    (state.setup ? '<div id=\"outlook-mount\">'+renderRaceOutlook()+'</div>' : '');",
+   "    '';", HQ_SUBSET],
+
+  // ---- PLAN HQ: THE ACTION TRIO ----
+  ['trio: two tiles fire the same action again', 'protected/velvet-viking-valhalla.html',
+   "    actionTile('open-new-block', ICONS.layers, 'New block')+",
+   "    actionTile('open-setup', ICONS.layers, 'New block')+", HQ_SUBSET],
+  ['trio: CHECKPOINT offers a door to a session that is not there',
+   'protected/velvet-viking-valhalla.html',
+   "  var chk = scheduledCheckpointDay();\n  var body;\n  if (!chk){",
+   "  var chk = scheduledCheckpointDay();\n  var body;\n  if (false){", HQ_SUBSET],
+  ['trio: CHECKPOINT becomes generic workout scheduling', 'protected/velvet-viking-valhalla.html',
+   "      '<div class=\"setup-section-title\">What it is for</div>'+",
+   "      '<div class=\"setup-section-title\">Schedule a session</div>'+", HQ_SUBSET],
+  ['trio: NEW BLOCK loses the builder it always has to offer',
+   'protected/velvet-viking-valhalla.html',
+   "    '<button type=\"button\" class=\"btn btn-ghost btn-block\" data-action=\"open-setup\">'+\n      ICONS.target+' Build a new training block</button>'+",
+   "    ''+", HQ_SUBSET],
+  ['trio: a tile drops below a thumb-sized target', 'protected/velvet-viking-valhalla.html',
+   "    min-height:76px; padding:10px 6px; font:inherit; text-align:center; cursor:pointer;",
+   "    min-height:28px; padding:10px 6px; font:inherit; text-align:center; cursor:pointer;", HQ_SUBSET],
+  ['trio: going to the checkpoint stops opening its week',
+   'protected/velvet-viking-valhalla.html',
+   "  state.view = 'full';\n  expandedWeeks[chk.week] = true;",
+   "  state.view = 'full';", HQ_SUBSET]
 
 ];
 
