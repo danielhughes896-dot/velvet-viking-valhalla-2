@@ -92,8 +92,12 @@ test('the probe creates nothing unless it is asked to', () => {
   assert.match(creating, /the one mode that creates something/);
   assert.match(creating, /creating ONE test-mode Checkout Session/);
   /* ensureCustomer and createCheckoutSession are the only two writes, and both
-     are inside that branch. */
-  const before = src.slice(0, src.indexOf("if (flag('session'))"));
-  assert.ok(!/ensureCustomer|createCheckoutSession/.test(before),
+     are inside that branch. Comments are stripped first: the version section
+     NAMES createCheckoutSession while explaining which API version an unpinned
+     REST call renders in, and a test that cannot tell an explanation from a
+     call is a test that punishes the explanation. */
+  const stripComments = x => x.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  const before = stripComments(src.slice(0, src.indexOf("if (flag('session'))")));
+  assert.ok(!/ensureCustomer\(|createCheckoutSession\(/.test(before),
     'the probe writes to Stripe before the flag that authorises it');
 });

@@ -57,6 +57,22 @@ function info(label, detail){ say('  --    ' + label + (detail == null ? '' : ' 
    thing being checked. */
 const ref = v => v ? String(v).slice(0, 12) + '…' : '-';
 
+/* THE VERSION A REAL CALL COMES BACK IN. Stripe echoes it on every response as
+   the Stripe-Version header, so this asks by doing rather than by reading a
+   setting -- a dashboard default and what an unpinned request actually renders
+   in are two different claims, and only one of them decides what our adapter
+   parses. Uses fetch directly because P.call() deliberately returns a parsed
+   body and drops the headers. */
+async function versionOfARealCall(cfg){
+  try{
+    const r = await globalThis.fetch(P.API + '/prices?limit=1', {
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + cfg.secret() }
+    });
+    return r.headers && r.headers.get ? r.headers.get('stripe-version') : null;
+  }catch(e){ return null; }
+}
+
 async function main(){
   const cfg = P.config(process.env);
 
@@ -128,6 +144,41 @@ async function main(){
   }
 
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  head('API VERSION -- THE ONE THAT DECIDES WHAT SHAPE ARRIVES');
+  //
+  // WHY THIS IS THE FIRST THING TO CHECK, ahead of any lifecycle test.
+  //
+  // api/_stripe.js pins NO Stripe-Version header. Every REST call it makes --
+  // fetchSubscription, fetchCheckoutSession, createCheckoutSession -- therefore
+  // renders in the ACCOUNT'S DEFAULT version, while webhook payloads render in
+  // the version pinned on the WEBHOOK ENDPOINT. Those are two different
+  // settings and nothing keeps them equal.
+  //
+  // The whole Phase 2 design rests on "one translation, two routes": the pushed
+  // path (webhook) and the pulled path (reconcile, cancel, reactivate) hand the
+  // SAME subscriptionFacts() the same object and _billing-apply.js treats the
+  // results as interchangeable. If the two routes receive different shapes,
+  // that guarantee is silently false, and the symptom is a reconcile writing a
+  // different row from the webhook for one subscription.
+  //
+  // It matters concretely because Stripe MOVED current_period_start and
+  // current_period_end off the subscription and onto subscription ITEMS in its
+  // newer versions. subscriptionFacts() reads them at the top level. If the
+  // version in play does not render them there, period_end is written null and
+  // an active subscriber resolves to 'expired' -- a paying athlete locked out.
+  // -------------------------------------------------------------------------
+  let accountVersion = null;
+  const acct = await P.call(cfg, 'GET', '/account', null);
+  if (!acct.ok){
+    info('could not read the account', acct.code + ' (restricted key? not fatal)');
+  }
+  /* The version an ordinary REST call actually renders in, asked the only way
+     that cannot be wrong: make one and read the header back. */
+  const verProbe = await versionOfARealCall(cfg);
+  if (verProbe){ accountVersion = verProbe; info('version our REST calls receive', verProbe); }
+  else info('version our REST calls receive', '(header not exposed by this client)');
+
   head('WEBHOOK ENDPOINT');
   // -------------------------------------------------------------------------
   const NEEDED = ['customer.subscription.created',
@@ -153,6 +204,30 @@ async function main(){
          ignores all but three, so the extra deliveries are pure noise in the
          Stripe dashboard's retry view. */
       if (all) info('note', 'this endpoint receives every event type; only the three above are read');
+
+      /* THE VERSION THIS ENDPOINT RENDERS IN, against the version our own REST
+         calls get. Different values mean the pushed and pulled routes are being
+         handed different object shapes, which is the assumption Phase 2 is
+         built on being false. */
+      const epVersion = ep.api_version || null;
+      info('endpoint renders payloads in', epVersion || '(account default)');
+      if (epVersion && accountVersion && epVersion !== accountVersion){
+        bad('the webhook and our REST calls use DIFFERENT API versions',
+            'webhook ' + epVersion + ' vs REST ' + accountVersion +
+            ' -- one translation is being handed two shapes');
+      }
+
+      /* Events the endpoint sends that this implementation does not read. Not a
+         failure: billing-webhook.js answers 200 and ignores anything that is
+         not customer.subscription.*, which is correct and stops Stripe
+         retrying. Reported so the configuration and the code are known to
+         disagree deliberately rather than by accident. */
+      const unread = events.filter(function(e){
+        return e !== '*' && !/^customer\.subscription\./.test(e);
+      });
+      if (unread.length)
+        info('configured but not read', unread.join(', ') +
+             '  (acknowledged with 200 and ignored -- the subscription object is authoritative)');
     });
   }
 
@@ -200,6 +275,30 @@ async function main(){
 
       say('  --- what STRIPE says (the fields the paid-through question turns on) ---');
       info('status', s.status);
+
+      /* WHERE THE PERIOD ACTUALLY LIVES, asked before anything is read from it.
+         Stripe moved current_period_start/end off the subscription and onto
+         subscription ITEMS in its newer API versions. subscriptionFacts() reads
+         the top level. If this says the top level is empty and the item is not,
+         the adapter is reading the wrong place and every subscription it writes
+         carries a null period -- which the resolver reads as expired. */
+      const item0 = s.items && s.items.data && s.items.data[0];
+      const topLevelPeriod = s.current_period_end != null;
+      const itemPeriod = !!(item0 && item0.current_period_end != null);
+      info('current_period_end on the SUBSCRIPTION', topLevelPeriod ? 'present' : 'ABSENT');
+      info('current_period_end on the ITEM', itemPeriod ? 'present' : 'absent');
+      if (!topLevelPeriod && itemPeriod){
+        bad('THE PERIOD MOVED TO THE ITEM AND THE ADAPTER STILL READS THE SUBSCRIPTION',
+            'periodEndOf() and paidThroughOf() will both return null');
+        say('        STOP AND REPORT. Every subscription written from this API');
+        say('        version carries a null period end, and _entitlement.js reads');
+        say('        a null period as expired -- a paying athlete refused access.');
+        say('        This is a code change, not a configuration one. Do not');
+        say('        proceed with the lifecycle tests until it is reviewed.');
+      } else if (!topLevelPeriod && !itemPeriod){
+        bad('no current_period_end anywhere on this object', 'shape is unrecognised');
+      }
+
       info('current_period_start', iso(s.current_period_start));
       info('current_period_end', iso(s.current_period_end) + '   <- INVOICED through');
       info('trial_start / trial_end', iso(s.trial_start) + '  /  ' + iso(s.trial_end));
