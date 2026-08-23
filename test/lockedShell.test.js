@@ -4,7 +4,6 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const A = require('../api/_access.js');
-const B = require('../api/_billing.js');
 const SUB = require('../api/_subscription.js');
 const { loadApp } = require('./harness.js');
 
@@ -91,7 +90,8 @@ test('the view says what the screen needs and nothing that identifies a third pa
   assert.equal(v.access, false);
   assert.deepEqual(v.locked_capabilities.slice().sort(),
     ['account_delete', 'account_manage', 'data_export', 'legal']);
-  assert.equal(v.grace_days, B.GRACE_DAYS, 'so the shell can say how long without guessing');
+  assert.ok(!Object.prototype.hasOwnProperty.call(v, 'grace_days'),
+    'the shell is not told a grace length, because Valhalla does not invent one');
 });
 
 test('the locked set is present even when access is fine', () => {

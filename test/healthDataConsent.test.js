@@ -658,7 +658,7 @@ test('19. no covered field can reach the operational board', () => {
 });
 
 test('20. no covered field can reach the billing rails', () => {
-  ['_stripe.js', '_checkout.js', '_billing.js', 'billing-webhook.js', '_products.js',
+  ['_stripe.js', '_checkout.js', 'billing-webhook.js', '_products.js',
    '_subscription.js', '_commercial-store.js', '_entitlement.js'].forEach(f => {
     const p = path.join(__dirname, '..', 'api', f);
     if (!fs.existsSync(p)) return;

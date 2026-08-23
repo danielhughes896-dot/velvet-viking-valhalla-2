@@ -467,13 +467,30 @@ test('7. isolation is not what the migration relaxes', () => {
 // 8. WHAT AN ATHLETE KEEPS WHEN THEY STOP PAYING
 // ---------------------------------------------------------------------------
 test('8. losing access never touches the training history', () => {
-  const B = require('../api/_billing.js');
-  assert.ok(B.BILLING_COLUMNS.indexOf('state') !== -1, 'billing owns the commercial columns');
-  ['user_id', 'override', 'override_expires_at', 'override_note'].forEach(c =>
-    assert.equal(B.BILLING_COLUMNS.indexOf(c), -1, 'billing must not be able to write ' + c));
-  const patch = B.billingPatch({ state: 'expired' });
-  assert.ok(!Object.prototype.hasOwnProperty.call(patch, 'override'),
-    'a lapsed subscription cannot revoke a tester or an owner');
+  /* A LAPSED SUBSCRIPTION CANNOT REVOKE A TESTER. _billing.js used to own this
+     rule structurally -- it simply had no override column to write. The
+     resolver does own that column, because a grant is one of the sources it
+     resolves, so the rule is now asserted behaviourally, which is the stronger
+     form: expire every commercial source and the beta grant must still stand,
+     with the operator's own sentence about the human being left alone. */
+  const E = require('../api/_entitlement.js');
+  const later = new Date(Date.now() + 30 * 86400000).toISOString();
+  const patch = E.projectToEntitlementRow({
+    ok: true, active: true, reason: 'admin_beta',
+    sources: [
+      { source: 'web', commercial: true, active: false, until: null },
+      { source: 'admin_beta', commercial: false, active: true, until: later }
+    ]
+  }, { override_note: 'founder, do not remove' });
+
+  assert.equal(patch.override, 'beta', 'the tester survives the lapse');
+  assert.equal(patch.override_expires_at, later, 'and keeps the grant\'s own expiry');
+  assert.equal(patch.override_note, 'founder, do not remove',
+    'an operator\'s note about a person is never rewritten by a projection');
+  assert.equal(patch.access_until, null,
+    'while the commercial window is honestly empty');
+  assert.ok(!Object.prototype.hasOwnProperty.call(patch, 'user_id'),
+    'the projection never rewrites the identity it is keyed on');
 });
 
 test('8. no server path deletes a plan except the athlete\'s own erasure and the owner tool', () => {

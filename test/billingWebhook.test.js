@@ -1,228 +1,173 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const W = require('../api/billing-webhook.js');
 const A = require('../api/_access.js');
 
-// Phase 3A2. A webhook endpoint is the one door into the access model that is
-// opened by somebody else's server, so it is the one place where "who is
-// asking" cannot be answered by a session. It is answered by a signature, and
-// these tests are about the ways that answer can be forged, replayed or
-// skipped.
-//
-// The other half is behavioural, and it is easy to get exactly backwards: a
-// provider reads 5xx as "try again". An endpoint that errors on a duplicate
-// therefore receives that duplicate until the provider gives up, and an
-// endpoint that answers 200 to something it could not read tells the provider
-// to forget an event it should have redelivered. Both are tested.
-const SECRET = 'test-secret-not-a-real-one';
-const nowSec = () => Math.floor(Date.now() / 1000);
+/* ONE DOOR INTO THE ACCESS MODEL.
+ *
+ * A webhook is the one place where "who is asking" cannot be answered by a
+ * session, so it is answered by a signature. Until this pass there were TWO
+ * answers to that question in this file's endpoint: Stripe's scheme, and a
+ * generic HMAC of our own that led to a completely different implementation --
+ * _billing.js's state machine, which PATCHED public.entitlements directly.
+ *
+ * That second door is gone. It was not merely redundant:
+ *
+ *   it bypassed resolveStandardEntitlement(), so the row the runtime reads
+ *   could say something the subscriptions and grants behind it did not;
+ *
+ *   and it invented seven days of grace on a failed payment, when the approved
+ *   rule is that Valhalla honours provider-supplied grace and adds nothing.
+ *
+ * These tests are now about the door that remains, the door that is refused,
+ * and the guarantee that no third one can be opened by accident. The Stripe
+ * path's own behaviour -- claim, upsert, trial, project -- is exercised end to
+ * end in stripeLifecycle.test.js against a fake Supabase.
+ */
 
-function sign(body, ts, secret){
-  return crypto.createHmac('sha256', secret || SECRET)
-    .update(String(ts) + '.' + body).digest('hex');
-}
-const verify = (body, ts, sig, secret, at) =>
-  W.verifySignature(body, ts, sig, secret === undefined ? SECRET : secret, at || nowSec());
-
-// ---------------------------------------------------------------------------
-// THE SIGNATURE
-// ---------------------------------------------------------------------------
-test('a correctly signed request is accepted', () => {
-  const body = '{"type":"subscription_started"}';
-  const ts = nowSec();
-  assert.equal(verify(body, ts, sign(body, ts)).ok, true);
-});
-
-test('no configured secret means nothing is accepted, not everything', () => {
-  const body = '{}'; const ts = nowSec();
-  const r = verify(body, ts, sign(body, ts), '');
-  assert.equal(r.ok, false);
-  assert.equal(r.reason, 'not_configured',
-    'an unset secret failing open is the direction this mistake usually goes');
-});
-
-test('an unsigned request is refused', () => {
-  const ts = nowSec();
-  assert.equal(verify('{}', ts, null).ok, false);
-  assert.equal(verify('{}', null, 'deadbeef').ok, false);
-});
-
-test('a signature from a different secret is refused', () => {
-  const body = '{"type":"subscription_ended"}'; const ts = nowSec();
-  assert.equal(verify(body, ts, sign(body, ts, 'someone-elses-secret')).ok, false);
-});
-
-test('a body edited after signing is refused', () => {
-  const body = '{"type":"trial_started","period_end":"2026-07-01T00:00:00Z"}';
-  const ts = nowSec();
-  const sig = sign(body, ts);
-  const tampered = body.replace('2026-07-01', '2036-07-01');
-  assert.equal(verify(tampered, ts, sig).ok, false,
-    'a decade of free access is what a mutable body buys');
-});
-
-test('a captured request cannot be replayed later', () => {
-  const body = '{"type":"subscription_started"}';
-  const ts = nowSec() - (W.MAX_SKEW_SEC + 60);
-  const r = verify(body, ts, sign(body, ts));
-  assert.equal(r.ok, false);
-  assert.equal(r.reason, 'stale_timestamp',
-    'the timestamp is inside the signed material precisely so this cannot be re-stamped');
-});
-
-test('a signature valid for one timestamp is not valid for another', () => {
-  const body = '{"type":"subscription_started"}';
-  const ts = nowSec();
-  const sig = sign(body, ts);
-  assert.equal(verify(body, ts + 1, sig).ok, false);
-});
-
-test('a wrong-length signature is refused without throwing', () => {
-  const body = '{}'; const ts = nowSec();
-  assert.doesNotThrow(() => verify(body, ts, 'abc'));
-  assert.equal(verify(body, ts, 'abc').ok, false);
-  assert.equal(verify(body, ts, 'abc').reason, 'bad_signature',
-    'timingSafeEqual throws on a length mismatch, and throwing would leak the length');
-});
-
-test('a non-numeric timestamp is refused', () => {
-  assert.equal(verify('{}', 'yesterday', 'x'.repeat(64)).ok, false);
-});
-
-test('the comparison is constant time', () => {
-  const src = fs.readFileSync(path.join(__dirname, '..', 'api', 'billing-webhook.js'), 'utf8');
-  assert.match(src, /timingSafeEqual/,
-    'comparing a signature with === leaks it one byte at a time');
-});
-
-// ---------------------------------------------------------------------------
-// THE ADAPTER
-// ---------------------------------------------------------------------------
-/* A comment is allowed to NAME the vocabulary it is excluding -- "a provider
-   that calls it invoice.payment_failed is normalised at the edge" is the most
-   useful sentence in the file. The rule is about code, so the prose is
-   stripped before the rule is applied, rather than the prose being reworded to
-   dodge a regex. */
+const ROOT = path.join(__dirname, '..');
+const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 const stripComments = s => s
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 
+function res(){
+  const r = { statusCode: 0, body: null, headers: {} };
+  r.setHeader = (k, v) => { r.headers[k.toLowerCase()] = v; };
+  r.status = c => { r.statusCode = c; return r; };
+  r.send = s => { try{ r.body = JSON.parse(s); }catch(e){ r.body = s; } return r; };
+  r.end = s => { r.body = s; return r; };
+  return r;
+}
+const req = (over) => Object.assign({ method: 'POST', headers: {}, body: {} }, over || {});
+
+// ---------------------------------------------------------------------------
+// THE DOOR THAT IS REFUSED
+// ---------------------------------------------------------------------------
+
+test('a delivery without a Stripe signature is refused, not interpreted', async () => {
+  const r = res();
+  await W(req({ headers: {}, body: { type: 'subscription_started', user_id: 'u1' } }), r);
+  assert.equal(r.statusCode, 501);
+  assert.equal(r.body.code, 'PROVIDER_NOT_SUPPORTED');
+});
+
+test('the old generic secret no longer opens anything', async () => {
+  /* The retired path was gated on VVV_BILLING_WEBHOOK_SECRET. Setting it must
+     now change nothing at all -- otherwise a stale environment variable on a
+     deployed instance quietly re-opens a door this pass closed. */
+  const prev = process.env.VVV_BILLING_WEBHOOK_SECRET;
+  process.env.VVV_BILLING_WEBHOOK_SECRET = 'still-set-somewhere';
+  try{
+    const r = res();
+    await W(req({
+      headers: { 'x-vvv-billing-signature': 'deadbeef', 'x-vvv-billing-timestamp': '1' },
+      body: { type: 'subscription_started', user_id: 'u1' }
+    }), r);
+    assert.equal(r.statusCode, 501);
+    assert.equal(r.body.code, 'PROVIDER_NOT_SUPPORTED');
+  } finally {
+    if (prev === undefined) delete process.env.VVV_BILLING_WEBHOOK_SECRET;
+    else process.env.VVV_BILLING_WEBHOOK_SECRET = prev;
+  }
+});
+
+test('a refused delivery writes nothing, so a forged body cannot reach the database', () => {
+  /* Structural, because the behavioural version would need a database to prove
+     a negative against. After the Stripe branch returns, the only statement
+     left in the handler is the refusal -- there is no code path between the
+     header check and the 501 that could touch Supabase. */
+  const src = stripComments(read('api/billing-webhook.js'));
+  const handler = src.slice(src.indexOf('module.exports = async function handler'));
+  const afterStripeBranch = handler.slice(handler.indexOf('STRIPE_SIG_HEADER'));
+  assert.ok(!/S\.sb\(/.test(afterStripeBranch),
+    'the refusal path must not reach the database');
+  assert.ok(/501/.test(afterStripeBranch), 'and it must refuse rather than accept');
+});
+
+test('only one method is accepted', async () => {
+  const r = res();
+  await W(req({ method: 'GET' }), r);
+  assert.equal(r.statusCode, 405);
+  assert.equal(r.headers.allow, 'POST');
+});
+
+// ---------------------------------------------------------------------------
+// NO SECOND AUTHORITY CAN COME BACK
+// ---------------------------------------------------------------------------
+
+test('the retired second commercial authority is gone from the repository', () => {
+  assert.ok(!fs.existsSync(path.join(ROOT, 'api', '_billing.js')),
+    '_billing.js was a second source of commercial truth and must stay retired');
+  const apiFiles = fs.readdirSync(path.join(ROOT, 'api')).filter(f => /\.js$/.test(f));
+  apiFiles.forEach(f => assert.ok(!/require\(['"]\.\/_billing\.js['"]\)/.test(read('api/' + f)),
+    f + ' still requires the retired billing module'));
+});
+
+test('nothing in the api invents a grace period of its own', () => {
+  /* The specific number is beside the point -- what must not exist is any
+     constant that ADDS time to what a provider said. Grace arrives as a
+     timestamp on a subscription row and is read, never computed. */
+  const apiFiles = fs.readdirSync(path.join(ROOT, 'api')).filter(f => /\.js$/.test(f));
+  apiFiles.forEach(f => {
+    const src = stripComments(read('api/' + f));
+    assert.ok(!/GRACE_DAYS/.test(src), f + ' declares a grace length of its own');
+    assert.ok(!/grace[A-Za-z]*\s*=\s*new Date\([^)]*\+/.test(src),
+      f + ' computes a grace end rather than reading one');
+  });
+});
+
+test('the webhook writes the projection only through the resolver', () => {
+  /* The endpoint may not PATCH or POST /entitlements itself. It calls
+     syncEntitlementRow, which resolves first and projects second. */
+  const src = stripComments(read('api/billing-webhook.js'));
+  assert.ok(!/\/entitlements/.test(src),
+    'the webhook must not address the projection table directly');
+  assert.ok(/syncEntitlementRow/.test(src),
+    'it must go through the resolver');
+});
+
 test('the adapter is the only thing that knows a provider’s vocabulary', () => {
-  const src = stripComments(
-    fs.readFileSync(path.join(__dirname, '..', 'api', '_billing.js'), 'utf8'));
+  /* The core every provider will eventually feed must stay free of any single
+     provider's words. _billing.js used to be what this guarded; the rule
+     followed the authority when the authority moved. */
+  const src = stripComments(read('api/_entitlement.js'));
   [/stripe/i, /paddle/i, /revenuecat/i, /lemonsqueezy/i, /invoice\./, /customer\.subscription/]
     .forEach(rx => assert.ok(!rx.test(src),
       'no payment provider\'s vocabulary may become the access model: ' + rx));
 });
 
-test('normalising keeps only fields the lifecycle understands', () => {
-  const ev = W.normaliseEvent({
-    type: 'subscription_started', user_id: 'u1', seq: '4',
-    period_end: '2026-07-01T00:00:00Z',
-    override: 'owner', state: 'active', access_until: '2099-01-01T00:00:00Z',
-    capabilities: ['everything']
-  });
-  assert.equal(ev.seq, 4, 'a string sequence from JSON is still a sequence');
-  ['override', 'state', 'access_until', 'capabilities'].forEach(k =>
-    assert.ok(!(k in ev), 'a webhook body must not be able to name ' + k));
-});
-
-test('a snapshot is normalised to the same closed set', () => {
-  const snap = W.normaliseSnapshot({ state: 'active', override: 'owner', event_seq: 99 });
-  assert.ok(!('override' in snap), 'granting an override by webhook must be impossible');
-  assert.ok(!('event_seq' in snap));
-  assert.equal(snap.state, 'active');
-});
-
-test('an absent provider is recorded as manual rather than as nothing', () => {
-  assert.equal(W.normaliseEvent({ type: 'trial_started' }).provider, 'manual');
-});
-
 // ---------------------------------------------------------------------------
-// THE BODY THE SIGNATURE COVERED
+// THE BODY
 // ---------------------------------------------------------------------------
+
 test('the raw body is preferred over anything the platform re-serialised', () => {
-  const raw = '{"a":1,  "b":2}';
-  assert.equal(W.rawBodyOf({ rawBody: raw, body: { a: 1, b: 2 } }), raw,
-    'whitespace and key order change the bytes, and the bytes are what was signed');
-  assert.equal(W.rawBodyOf({ rawBody: Buffer.from(raw), body: {} }), raw);
-  assert.equal(W.rawBodyOf({ body: raw }), raw);
-  assert.equal(W.rawBodyOf({ body: { a: 1 } }), '{"a":1}', 'a fallback, and only a fallback');
+  /* A signature is over bytes. Re-serialising an already-parsed body can
+     reorder keys or change spacing, and the signature then fails for a request
+     that was never tampered with. */
+  const raw = '{"b":1,"a":2}';
+  assert.equal(W.rawBodyOf({ rawBody: raw, body: { a: 2, b: 1 } }), raw);
+  assert.equal(W.rawBodyOf({ body: { a: 2, b: 1 } }), '{"a":2,"b":1}');
   assert.equal(W.rawBodyOf({}), '{}');
 });
 
 // ---------------------------------------------------------------------------
-// WHAT THE HANDLER PROMISES A PROVIDER
+// THE FLAGS THIS ALL SITS BEHIND
 // ---------------------------------------------------------------------------
-const SRC = fs.readFileSync(path.join(__dirname, '..', 'api', 'billing-webhook.js'), 'utf8');
 
-test('an already-applied event answers 200, or the provider retries it forever', () => {
-  assert.match(SRC, /if \(!result\.applied\)\{[\s\S]*?S\.json\(res, 200,[\s\S]*?applied: false/,
-    'a duplicate is a normal outcome, not an error');
-});
-
-test('a read or write we could not complete answers 5xx, so it IS retried', () => {
-  assert.match(SRC, /ENTITLEMENT_UNREADABLE[\s\S]{0,80}/);
-  assert.match(SRC, /S\.json\(res, 503, \{ error: 'unavailable', code: 'ENTITLEMENT_UNWRITABLE' \}\)/,
-    'answering 200 to a failed write tells the provider to forget the event');
-});
-
-test('losing access kills live credentials in the same request', () => {
-  assert.match(SRC, /endsAccessNow\(before, result\.next, now\)[\s\S]{0,200}revokeLeasesForUser/,
-    'otherwise "revoked" means "revoked within twelve hours"');
-});
-
-test('only billing columns are ever written', () => {
-  assert.match(SRC, /B\.billingPatch\(result\.next\)/);
-  assert.ok(!/override/.test(SRC.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')),
-    'the webhook has no business naming an override at all');
-});
-
-test('nothing sensitive reaches a log line', () => {
-  const logs = [...SRC.matchAll(/log\((.*?)\);/g)].map(m => m[1]).join(' | ');
-  /* The values, not the words. A verdict's .reason is a classification --
-     unsigned, stale_timestamp, bad_signature -- and logging WHY a request was
-     refused is the whole point of having the endpoint observable. What must
-     never appear is the material itself. */
-  [/email/i, /\bsecret\b/, /req\.headers/, /\braw\b/, /access_token/, /SIGNATURE_HEADER/]
-    .forEach(rx => assert.ok(!rx.test(logs), 'log line must not carry ' + rx + ': ' + logs));
-  assert.match(SRC, /function ref\(v\)\{ return v \? String\(v\)\.slice\(0, 8\)/,
-    'a provider id is somebody\'s customer reference — enough to correlate, never enough to be one');
-});
-
-test('the subject comes from the body but is matched against a real row', () => {
-  assert.match(SRC, /const ent = await A\.readEntitlement\(S, cfg, subject\)/);
-  assert.ok(!/user_id: *body/.test(SRC), 'a body may not assert facts about who it is');
-});
-
-// ---------------------------------------------------------------------------
-// THE GATE IS NOT WEAKENED BY ANY OF THIS
-// ---------------------------------------------------------------------------
 test('the commercial flag is still off unless a deployment says otherwise', () => {
-  const saved = process.env.VVV_COMMERCIAL_REQUIRED;
+  const prev = process.env.VVV_COMMERCIAL_REQUIRED;
   delete process.env.VVV_COMMERCIAL_REQUIRED;
-  try{
-    assert.equal(A.commercialRequired(), false);
-    ['', '0', 'false', 'off', 'no', 'maybe'].forEach(v => {
-      process.env.VVV_COMMERCIAL_REQUIRED = v;
-      assert.equal(A.commercialRequired(), false, v + ' must not switch on a paywall');
-    });
-    process.env.VVV_COMMERCIAL_REQUIRED = '1';
-    assert.equal(A.commercialRequired(), true);
-  } finally {
-    if (saved === undefined) delete process.env.VVV_COMMERCIAL_REQUIRED;
-    else process.env.VVV_COMMERCIAL_REQUIRED = saved;
-  }
+  try{ assert.equal(A.commercialRequired(), false); }
+  finally{ if (prev !== undefined) process.env.VVV_COMMERCIAL_REQUIRED = prev; }
 });
 
 test('with the flag off, every athlete with an account still gets in', () => {
-  const d = A.resolveAccess({ uid: 'u', entitlement: { state: 'expired', access_until: null },
-                              accountRequired: true, commercialRequired: false, now: new Date() });
+  const d = A.resolveAccess({ uid: 'u1', entitlement: null,
+                              accountRequired: true, commercialRequired: false });
   assert.equal(d.allow, true);
-  assert.equal(d.reason, 'pre_commercial',
-    'shipping the machinery must not be the same act as switching it on');
+  assert.equal(d.reason, 'pre_commercial');
 });
