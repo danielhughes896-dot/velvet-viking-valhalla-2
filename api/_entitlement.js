@@ -603,17 +603,31 @@ function projectToEntitlementRow(resolution, current){
   const commercial = (r.sources || []).filter(function(s){ return s.commercial && s.active; });
   const grants = (r.sources || []).filter(function(s){ return !s.commercial && s.active; });
 
+  /* `state` describes the COMMERCIAL relationship, so it is read from the
+     commercial source that reaches furthest -- not from r.reason.
+//
+     The two are the same thing whenever an athlete has only subscriptions,
+     which is why this read r.reason for so long without anybody noticing. They
+     come apart for a BETA TESTER WHO ALSO SUBSCRIBES: the grant is open-ended,
+     open-ended reaches furthest, so r.reason is 'admin_beta' and the trial
+     underneath it was projected as state='active'. Their screen then said
+     "Active until…" during a fortnight that was a trial. Nobody lost access
+     over it, but it is the projection describing the wrong source, and the one
+     cohort it describes wrongly is the one the commercial launch must be most
+     careful with. */
   let state = 'expired';
-  if (r.active){
-    if (r.reason === 'trial') state = 'trial';
-    else if (r.reason === 'grace_period') state = 'grace';
-    else if (commercial.length) state = 'active';
-    /* An athlete whose ONLY source is an administrative grant has no
-       commercial state at all. state stays 'expired' and the override column
-       carries the access -- which is exactly how _access.js already treats a
-       tester, and why a beta grant does not have to masquerade as a
-       subscription to work. */
+  if (r.active && commercial.length){
+    const lead = commercial.reduce(function(acc, s){
+      return laterBound(acc.until, s.until) === s.until && acc.until !== s.until ? s : acc;
+    }, commercial[0]);
+    if (lead.reason === 'trial') state = 'trial';
+    else if (lead.reason === 'grace_period') state = 'grace';
+    else state = 'active';
   }
+  /* An athlete whose ONLY source is an administrative grant has no commercial
+     state at all. state stays 'expired' and the override column carries the
+     access -- which is exactly how _access.js already treats a tester, and why
+     a beta grant does not have to masquerade as a subscription to work. */
 
   const beta = grants.filter(function(g){ return g.source === 'admin_beta'; })[0];
   const comp = grants.filter(function(g){ return g.source === 'admin_comp'; })[0];

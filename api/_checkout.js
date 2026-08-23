@@ -111,9 +111,27 @@ async function handle(req, res){
 
   const uid = await S.userIdFromRequest(req, cfg);
   const body = await S.readBody(req);
+
+  /* THE PROVIDER HAS TO BE NAMED, and this line is why the endpoint could never
+     sell anything. mayStartStandardPurchase() validates the provider it is
+     asked about before it looks at a single subscription -- an unnamed one is
+     refused as 'unknown_provider', which decideCheckout turned into a 409.
+     Every checkout, for every athlete, in every configuration.
+     stripeFoundation exercised decideCheckout as a pure function with a
+     purchaseCheck handed to it, so the one call site that had to supply the
+     argument was the one thing not covered. It is now covered end to end in
+     webBilling.test.js.
+
+     The offer travels too, so the canonical rule answers the question actually
+     being asked -- "may this athlete buy THIS" -- rather than a weaker one. */
+  const offerForBody = Prod.offerForPeriod((body && body.period) || null);
+
   /* The account IS the athlete. Resolved from the bearer token, never from
      anything the browser sent. */
-  const purchaseCheck = uid ? await Store.mayStartStandardPurchase(S, cfg, uid, {}) : null;
+  const purchaseCheck = uid ? await Store.mayStartStandardPurchase(S, cfg, uid, {
+    provider: P.PROVIDER,
+    offerCode: offerForBody ? offerForBody.code : null
+  }) : null;
 
   const decision = decideCheckout({
     commerceEnabled: A.commerceEnabled(),

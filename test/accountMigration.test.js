@@ -273,8 +273,20 @@ test('the account shell is public, small, and carries no coaching engine', () =>
      under 20KB while importing the coaching engine would pass a byte count
      and fail the point. The symbol list below is what actually holds, and it
      is unchanged. The number is here to make growth a DECISION -- if a later
-     phase needs to raise it again, somebody has to write down why. */
-  assert.ok(shell.length < 26000, 'the shell must stay a shell (' + shell.length + ' bytes)');
+     phase needs to raise it again, somebody has to write down why.
+
+     RAISED TO 29KB FOR PHASE 2 WEB BILLING, and here is the why. The shell held
+     the product's only purchase control, and that control POSTed
+     {action:'resubscribe'} to an endpoint that read a URL out of the
+     environment -- no offer validation, no duplicate-subscription check, no
+     commerce flag, no provider customer. Retiring it means the shell now does
+     three things it did not: render the offers the server says are actually
+     purchasable, start the real checkout by naming a PERIOD, and hand the
+     returning session id to the server so entitlement is re-derived from the
+     provider rather than believed from a query string. That is roughly 2.8KB,
+     it is all door and none of it is product, and the symbol list below still
+     holds unchanged. */
+  assert.ok(shell.length < 29000, 'the shell must stay a shell (' + shell.length + ' bytes)');
   ['coachDecision', 'playbookAssess', 'athleteMemory', 'buildBlockWeeks', 'ARCHETYPE_GUIDANCE']
     .forEach(sym => assert.ok(shell.indexOf(sym) === -1, 'shell must not contain ' + sym));
 });
