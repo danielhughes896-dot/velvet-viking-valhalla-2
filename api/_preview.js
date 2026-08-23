@@ -31,7 +31,9 @@
 const fs = require('fs');
 const path = require('path');
 const S = require('./_strava.js');
-const A = require('./_access.js');
+const P = require('./_stripe.js');
+const Store = require('./_commercial-store.js');
+const Prod = require('./_products.js');
 /* THE CANONICAL BUILDER SPECIFICATION -- see assets/builder-spec.js. The
    distances, purposes, experience levels, benchmark distances, goal-ambition
    mapping and validation thresholds below are no longer this file's own
@@ -437,6 +439,79 @@ function buildEcho(input, startDate, raceDate, weeks){
   };
 }
 
+/* ---------- WHAT TO SAY ABOUT THE TRIAL ----------
+ *
+ * TWO QUESTIONS THAT LOOK LIKE ONE, and conflating them is how this went wrong
+ * twice in opposite directions.
+ *
+ *   "does Valhalla offer a free trial?"      a fact about the OFFER
+ *   "may THIS athlete start one?"            a fact about an ATHLETE
+ *
+ * The endpoint used to answer both with a hardcoded `available: true`, which is
+ * a claim about a specific athlete made without looking at that athlete: a
+ * returning athlete who had already spent their fortnight was told on the
+ * preview screen that one was waiting, and found out otherwise at the payment
+ * step. The commercial pass replaced it with the canonical eligibility rule --
+ * correct for a signed-in athlete, and wrong the moment the acquisition journey
+ * moved the preview IN FRONT of authentication, because an anonymous prospect
+ * has no commercial row and the fail-closed answer is "no trial for you",
+ * shown to exactly the audience the offer exists for.
+ *
+ * So the answer depends on whether there is an athlete to ask about:
+ *
+ *   NO UID   the public offer, from the catalogue. Fourteen days, available.
+ *            This is PRESENTATION. It is not a promise to this visitor, and
+ *            `resolved: false` says so in the payload rather than in a comment.
+ *   A UID    the canonical rule, the same trialEligibility() the checkout seam
+ *            and the webhook read, off the same account_commercial row. FAILS
+ *            CLOSED: if the commercial core cannot be read, no trial is
+ *            offered rather than one we may not be able to honour.
+ *
+ * NOTHING HERE GRANTS ANYTHING. This response cannot start a trial, cannot
+ * consume an allowance and cannot create a subscription. Eligibility is
+ * re-decided by mayStartStandardPurchase() when a checkout is opened, and the
+ * allowance is spent only when a provider says a trialing subscription exists.
+ * An anonymous "available: true" that turns out to be an athlete who already
+ * used theirs is refused at the door with `already_used`, exactly as it would
+ * have been without this endpoint. See test/webBilling.test.js.
+ *
+ * NO ATHLETE-SPECIFIC ANSWER IS INFERRED WITHOUT A UID -- there is no branch
+ * below that reads a commercial row for an anonymous caller, because there is
+ * no athlete for it to be a row about. */
+async function trialOffer(cfg, uid){
+  if (!uid){
+    return { available: true, days: Prod.TRIAL_DAYS, reason: 'anonymous', resolved: false };
+  }
+  const purchase = await Store.mayStartStandardPurchase(S, cfg, uid, { provider: P.PROVIDER });
+
+  /* BOTH HALVES, AND THE ALLOWANCE ALONE IS NOT ENOUGH.
+   *
+   * trialEligibility() answers one narrow question -- has this athlete's
+   * fortnight been spent -- and an athlete who is ALREADY SUBSCRIBED has
+   * usually never spent it. Reading only that half offers a free trial to a
+   * paying customer, who then presses the button and is refused at checkout
+   * with already_subscribed_here. That is the same dishonesty the hardcoded
+   * `true` produced, arriving from the other direction.
+   *
+   * So the offer is presentable only if the canonical rule says they may start
+   * a purchase AT ALL and the allowance is unspent. Both come from one call, so
+   * the two answers cannot be taken from different moments. */
+  const mayBuy = !!(purchase && purchase.allowed === true);
+  const unspent = !!(purchase && purchase.trial && purchase.trial.eligible);
+  return {
+    available: mayBuy && unspent,
+    days: Prod.TRIAL_DAYS,
+    /* WHICHEVER HALF ACTUALLY BLOCKED IT, named, so a screen can say the true
+       sentence without a second request and without guessing. "You already
+       have a subscription" and "you have already used your free trial" are
+       different sentences to different people, and one word for both is how a
+       support queue fills up. */
+    reason: !mayBuy ? ((purchase && purchase.reason) || 'unavailable')
+                    : ((purchase.trial && purchase.trial.reason) || 'unavailable'),
+    resolved: true
+  };
+}
+
 async function handle(req, res){
   if (String(req.method || '').toUpperCase() !== 'POST')
     return S.json(res, 405, { error: 'method_not_allowed' });
@@ -479,11 +554,14 @@ async function handle(req, res){
     return S.json(res, 503, { error: 'preview_unavailable' });
   }
 
-  /* GENERATING A PREVIEW MUST NOT SPEND THE TRIAL. Nothing here writes to
+  /* GENERATING A PREVIEW MUST NOT SPEND THE TRIAL. Nothing above writes to
      account_commercial, entitlement_grants or subscriptions -- the athlete can
-     rebuild as often as they like and their allowance is untouched. */
+     rebuild as often as they like and their allowance is untouched. The READ
+     in trialOffer() below is a read; ensureAccountCommercial is not called and
+     no row is created by looking at one. */
   log('GENERATED uid=' + (uid ? String(uid).slice(0, 8) : 'anon') + ' purpose=' + v.input.purpose +
       ' distance=' + v.input.buildDistance);
+  const trial = await trialOffer(cfg, uid);
   return S.json(res, 200, {
     preview: summarise(built.app, built.days, built.blockResult, v.input),
     /* The exact arguments that produced the preview above -- see buildEcho().
@@ -491,12 +569,12 @@ async function handle(req, res){
        replays the same two engine calls verbatim to build their real plan.
        Not part of the athlete-facing preview; never rendered. */
     build: buildEcho(v.input, built.startDate, built.raceDate, built.weeks),
-    trial: { available: true },
+    trial: trial,
     /* Said plainly rather than implied: this is a summary, not the product. */
     note: 'This is a preview of your programme. Valhalla itself coaches it.'
   });
 }
 
-module.exports = { handle, validate, summarise, generate, buildEcho, defaultWeeksFor,
+module.exports = { handle, validate, summarise, generate, buildEcho, trialOffer, defaultWeeksFor,
                    DISTANCES, DISTANCE_ALIASES, PURPOSES, PURPOSE_SHAPE, LIMITS,
                    GOAL_AMBITIONS, GOAL_AMBITION_MULT, BUILDER_SPEC };

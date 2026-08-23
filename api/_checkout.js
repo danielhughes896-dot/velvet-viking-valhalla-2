@@ -76,6 +76,25 @@ function decideCheckout(input){
   return { ok: true, period: o.period, offerCode: offer.code };
 }
 
+/* CAN THE CANONICAL CHECKOUT SELL ANYTHING RIGHT NOW?
+ *
+ * Asked by the account shell so a "subscribe" control is hidden rather than
+ * offered-and-broken, and defined HERE rather than in whichever screen is
+ * asking, because "may we take money" has exactly one correct answer and every
+ * surface must get the same one.
+ *
+ * Three things have to be true, and they are three deliberately separate
+ * switches: commerce is on, the provider holds a secret, and the catalogue has
+ * at least one offer whose price identifier a human has actually configured. An
+ * unset price is the commonest way a checkout button 404s at the provider after
+ * the athlete has committed. */
+function purchasableNow(env){
+  const e = env || process.env;
+  if (!A.commerceEnabled()) return false;
+  if (!P.config(e).hasSecret) return false;
+  return Prod.catalogue(P.PROVIDER, e).offers.some(function(o){ return o.available; });
+}
+
 async function handle(req, res){
   const cfg = S.config();
   const stripe = P.config();
@@ -92,9 +111,27 @@ async function handle(req, res){
 
   const uid = await S.userIdFromRequest(req, cfg);
   const body = await S.readBody(req);
+
+  /* THE PROVIDER HAS TO BE NAMED, and this line is why the endpoint could never
+     sell anything. mayStartStandardPurchase() validates the provider it is
+     asked about before it looks at a single subscription -- an unnamed one is
+     refused as 'unknown_provider', which decideCheckout turned into a 409.
+     Every checkout, for every athlete, in every configuration.
+     stripeFoundation exercised decideCheckout as a pure function with a
+     purchaseCheck handed to it, so the one call site that had to supply the
+     argument was the one thing not covered. It is now covered end to end in
+     webBilling.test.js.
+
+     The offer travels too, so the canonical rule answers the question actually
+     being asked -- "may this athlete buy THIS" -- rather than a weaker one. */
+  const offerForBody = Prod.offerForPeriod((body && body.period) || null);
+
   /* The account IS the athlete. Resolved from the bearer token, never from
      anything the browser sent. */
-  const purchaseCheck = uid ? await Store.mayStartStandardPurchase(S, cfg, uid, {}) : null;
+  const purchaseCheck = uid ? await Store.mayStartStandardPurchase(S, cfg, uid, {
+    provider: P.PROVIDER,
+    offerCode: offerForBody ? offerForBody.code : null
+  }) : null;
 
   const decision = decideCheckout({
     commerceEnabled: A.commerceEnabled(),
@@ -138,4 +175,4 @@ async function handle(req, res){
   return S.json(res, 200, { url: session.url, period: session.period, trial_days: session.trialDays });
 }
 
-module.exports = { handle, decideCheckout };
+module.exports = { handle, decideCheckout, purchasableNow };

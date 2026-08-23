@@ -352,22 +352,97 @@ test('cancelling after conversion runs to the end of the paid period', async () 
 // ===========================================================================
 // THINGS GOING WRONG
 // ===========================================================================
-test('a failed payment does not end the month that was already paid for', async () => {
+test('a failed renewal does not buy an unpaid month', async () => {
+  /* THE DEFECT THIS REPLACED.
+   *
+   * Stripe defines current_period_end as the end of the period the subscription
+   * has been INVOICED for -- not the one it has been PAID for. At renewal it
+   * raises the next invoice, ADVANCES the period, attempts the card, and moves
+   * the subscription to past_due when the attempt fails. A row mirrored
+   * verbatim then carries a period end a month in the future that nobody has
+   * paid for, and _entitlement.js's "the month you already paid for still
+   * counts" branch reads it as paid.
+   *
+   * That is Valhalla inventing grace again, arriving through the mirror instead
+   * of through a constant. The architecture recovery deleted seven invented
+   * days; this would have been thirty.
+   *
+   * _stripe.js's paidThroughOf() is the translation that stops it: a past_due
+   * subscription reports the START of the unpaid period as its end, because the
+   * last period anybody actually paid for ended when this one began. */
   await withStripe(null, async (f, post) => {
+    // A paid month, running T0 -> T0+30.
     await post(stripeEvent('evt_1', 'customer.subscription.created',
-      stripeSub({ status: 'past_due', trial_start: null, trial_end: null,
-                  current_period_end: secs(T0 + days(20)) })));
-    assert.equal(subRow(f).condition, 'past_due');
-    const inside = resolve(f, T0 + days(10));
-    assert.equal(inside.active, true);
-    assert.equal(inside.reason, 'paid', 'a card failing on day two does not end the month');
+      stripeSub({ status: 'active', trial_start: null, trial_end: null,
+                  current_period_start: secs(T0), current_period_end: secs(T0 + days(30)) })));
+    assert.equal(resolve(f, T0 + days(10)).active, true);
+    assert.equal(resolve(f, T0 + days(10)).reason, 'paid');
 
-    // Past the period, with no provider-supplied grace, there is no access.
-    const outside = resolve(f, T0 + days(25));
-    assert.equal(outside.active, false);
-    assert.equal(outside.reason, 'payment_hold');
+    // The renewal fails. Stripe has invoiced T0+30 -> T0+60 and been refused.
+    await post(stripeEvent('evt_2', 'customer.subscription.updated',
+      stripeSub({ status: 'past_due', trial_start: null, trial_end: null,
+                  current_period_start: secs(T0 + days(30)),
+                  current_period_end: secs(T0 + days(60)) }), T0 + days(30)));
+
+    assert.equal(subRow(f).condition, 'past_due');
+    assert.equal(subRow(f).current_period_end, new Date(T0 + days(30)).toISOString(),
+      'the row must record what was PAID through, not what was invoiced through');
+    assert.equal(subRow(f).grace_period_end, null,
+      'Stripe supplies no retry deadline on a subscription, so there is no grace');
+
+    const after = resolve(f, T0 + days(31));
+    assert.equal(after.active, false, 'a failed renewal must not buy a free month');
+    assert.equal(after.reason, 'payment_hold');
   });
 });
+
+test('a card that recovers picks the subscription straight back up', async () => {
+  /* The other half of the same rule. Refusing access on a failed renewal is
+     only correct if the retry that succeeds restores it immediately -- an
+     athlete whose card cleared on the second attempt must not have to do
+     anything at all. */
+  await withStripe(null, async (f, post) => {
+    await post(stripeEvent('evt_1', 'customer.subscription.updated',
+      stripeSub({ status: 'past_due', trial_start: null, trial_end: null,
+                  current_period_start: secs(T0 + days(30)),
+                  current_period_end: secs(T0 + days(60)) }), T0 + days(30)));
+    assert.equal(resolve(f, T0 + days(31)).active, false);
+
+    await post(stripeEvent('evt_2', 'customer.subscription.updated',
+      stripeSub({ status: 'active', trial_start: null, trial_end: null,
+                  current_period_start: secs(T0 + days(30)),
+                  current_period_end: secs(T0 + days(60)) }), T0 + days(32)));
+
+    const back = resolve(f, T0 + days(33));
+    assert.equal(back.active, true);
+    assert.equal(back.reason, 'paid');
+    assert.equal(subRow(f).current_period_end, new Date(T0 + days(60)).toISOString(),
+      'once it is paid, invoiced-through and paid-through are the same instant again');
+  });
+});
+
+test('a provider that DOES supply grace is honoured, and only the provider', async () => {
+  /* Stripe's subscription object carries no retry deadline, so the web rail has
+     no provider grace and the adapter says so explicitly rather than leaving
+     the column unwritten. The rule itself is provider-neutral and lives in
+     _entitlement.js, so this pins the behaviour Apple and Google will reach
+     through the same column -- and pins that nothing in the API computes one. */
+  const E = require('../api/_entitlement.js');
+  const at = new Date(T0 + days(31));
+  const base = { provider: 'web', product_code: 'VALHALLA_STANDARD', condition: 'past_due',
+                 current_period_end: new Date(T0 + days(30)).toISOString() };
+
+  const none = E.subscriptionAccess(base, at);
+  assert.equal(none.active, false);
+  assert.equal(none.reason, 'payment_hold');
+
+  const given = E.subscriptionAccess(
+    Object.assign({}, base, { grace_period_end: new Date(T0 + days(40)).toISOString() }), at);
+  assert.equal(given.active, true);
+  assert.equal(given.reason, 'grace_period');
+  assert.equal(given.until, new Date(T0 + days(40)).toISOString());
+});
+
 
 test('a dispute revokes, and revocation outranks every date on the row', async () => {
   await withStripe(null, async (f, post) => {

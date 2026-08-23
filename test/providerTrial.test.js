@@ -97,27 +97,39 @@ test('abandoning Checkout does not spend the trial', () => {
   // EXISTS. Somebody who reaches the payment screen and changes their mind has
   // not used their trial, and charging them for that decision would be
   // indefensible.
-  const hook = read('api/billing-webhook.js');
-  /* Anchored on the WRITE, not on the first time the column is mentioned. The
-     file's header describes the flow and names the column too, and slicing
-     around that found nine hundred characters of prose instead of the guard. */
-  const at = hook.indexOf("&trial_consumed_at=is.null");
-  assert.ok(at !== -1, 'the conditional write must exist');
-  const around = hook.slice(Math.max(0, at - 1200), at + 400);
-  assert.match(around, /ev\.condition === 'trialing'/,
+  //
+  // The write moved into api/_billing-apply.js, which is now the ONE place both
+  // the webhook and the reconcile action spend it from -- two implementations
+  // could not both be one allowance.
+  const apply = read('api/_billing-apply.js');
+  assert.match(apply, /facts\.condition !== 'trialing'/,
     'only a real trialing subscription may spend it');
-  assert.match(around, /never\s*\n?\s*\*?\s*when somebody opens Checkout/i);
-  // Checkout creation must not touch it at all.
-  const checkout = read('api/_checkout.js');
-  assert.equal(checkout.indexOf('trial_consumed_at'), -1);
+  assert.match(apply, /never when\s*\n?\s*\*?\s*somebody opens Checkout/i);
+  /* The conditional write itself lives in the store, which is now the single
+     implementation both the webhook and the reconcile action reach it through. */
+  const at = read('api/_commercial-store.js').indexOf("&trial_consumed_at=is.null");
+  assert.ok(at !== -1, 'the conditional write must exist');
+  assert.match(apply, /Store\.consumeTrialForAccount/,
+    'the apply path must go through the canonical consumer, not a second PATCH');
+  // Neither door that opens a Checkout may touch it.
+  assert.equal(read('api/_checkout.js').indexOf('trial_consumed_at'), -1);
+  assert.equal(read('api/_preview.js').indexOf('trial_consumed_at'), -1,
+    'seeing a preview is not using a trial');
 });
 
 test('a webhook replay cannot move the allowance forward', () => {
   // Conditional on the column being null, so a second trialing event -- a
-  // replay, or a resumed subscription -- cannot quietly reset the lifetime
-  // rule's reference point.
-  const hook = read('api/billing-webhook.js');
-  assert.match(hook, /trial_consumed_at=is\.null/);
+  // replay, a resumed subscription, or a reconcile racing the webhook -- cannot
+  // quietly reset the lifetime rule's reference point.
+  assert.match(read('api/_commercial-store.js'), /trial_consumed_at=is\.null/);
+  // And there is exactly one such write in the whole API surface. A second one
+  // would be a second allowance however carefully it was written -- which is
+  // exactly what the webhook's own hand-rolled PATCH had become.
+  const stripComments = x => x.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  const writers = fs.readdirSync(path.join(ROOT, 'api'))
+    .filter(f => /\.js$/.test(f))
+    .filter(f => /trial_consumed_at=is\.null/.test(stripComments(read('api/' + f))));
+  assert.deepEqual(writers, ['_commercial-store.js']);
 });
 
 test('the lifetime rule still lives on the account', () => {

@@ -14,11 +14,11 @@
 //     -> P.normaliseEvent            provider vocabulary leaves here
 //     -> Store.claimBillingEvent     the ONE ledger, public.billing_events,
 //                                    which is also the idempotency mechanism
-//     -> Store.upsertSubscription    provider-neutral subscription state
-//     -> trial consumption           only on a verified activation, and only
-//                                    where trial_consumed_at is still null
-//     -> Store.syncEntitlementRow    resolver -> projection, one way
-//     -> operational mirror          after the writes, never instead of them
+//     -> Apply.applySubscriptionFacts the shared core write: subscription,
+//                                    agreed price, trial allowance, entitlement
+//                                    projection, operational mirror -- the same
+//                                    implementation the reconcile action uses
+//     -> Store.markBillingEventProcessed  what the event actually did
 //
 // A SECOND PATH USED TO LIVE HERE and has been removed. It accepted a generic
 // signed payload, ran _billing.js's state machine and PATCHED public
@@ -40,14 +40,10 @@
 // VVV_COMMERCIAL_REQUIRED is switched on, and no checkout exists to create a
 // subscription until VVV_COMMERCE_ENABLED is.
 
-const crypto = require('crypto');
 const S = require('./_strava.js');     // canonical Supabase access layer
-const A = require('./_access.js');
 const P = require('./_stripe.js');
-const Prod = require('./_products.js');
 const Store = require('./_commercial-store.js');
-const E = require('./_entitlement.js');
-const Ops = require('./_monday-operational.js');
+const Apply = require('./_billing-apply.js');
 
 const STRIPE_SIG_HEADER = 'stripe-signature';
 
@@ -77,12 +73,13 @@ function rawBodyOf(req){
  *   2. CLAIM the event, so a duplicate delivery stops here
  *   3. translate to our vocabulary; an untranslatable event is recorded and
  *      dropped rather than guessed at
- *   4. apply through the existing pure reducer -- the same one the generic
- *      provider uses, which is what keeps Stripe out of the access model
+ *   4. apply the facts through _billing-apply.js -- the SAME implementation the
+ *      reconcile action uses, which is what keeps one commercial rule from
+ *      becoming two
  *   5. record what the event actually did
  *
  * Step 2 before step 4 is what makes a replay free: the second delivery never
- * reaches the reducer.
+ * reaches the core at all.
  */
 async function handleStripe(req, res, cfg){
   const stripe = P.config();
@@ -148,113 +145,47 @@ async function handleStripe(req, res, cfg){
     return S.json(res, 200, { ok: true, applied: false, reason: 'unattributable' });
   }
 
-  /* 3. The subscription row, upserted on (provider, provider_subscription_id).
-        Same constraint, same reason: one provider subscription belongs to one
-        account, enforced by the database rather than by application care. */
-  const up = await Store.upsertSubscription(S, cfg, {
-    provider: P.PROVIDER,
-    provider_subscription_id: ev.subscription_ref,
-    account_id: ev.account_id,
-    environment: stripe.environment,
-    condition: ev.condition,
-    /* THE PRODUCT CODE IS THE CATALOGUE'S, NOT A LITERAL. This read 'STANDARD'
-       -- close enough to look right in review, and rejected by the store's
-       own validation as an unknown product, so every Stripe subscription
-       failed to write and every delivery got a 503 Stripe would retry until it
-       gave up. A constant nobody can mistype is the fix, not a corrected
-       literal that can drift again. */
-    product_code: Prod.STANDARD,
-    offer_code: ev.offer_code,
-    billing_period: ev.billing_period,
-    trial_start: ev.trial_start,
-    trial_end: ev.trial_end,
-    current_period_start: ev.period_start,
-    current_period_end: ev.period_end,
-    cancelled_at: ev.cancelled_at,
-    cancel_at_period_end: !!ev.cancel_at_period_end,
-    auto_renew: !ev.cancel_at_period_end,
-    provider_customer_id: ev.customer_ref,
-    provider_updated_at: ev.occurred_at
+  /* 3. EVERYTHING THE FACTS DO TO THE CORE, in the shared implementation.
+   *
+   * Subscription upsert, agreed price locked once, trial allowance spent once,
+   * entitlement re-projected from the resolver, operational board mirrored.
+   * The reconcile action in _subscription.js calls exactly this, with facts
+   * PULLED from the provider instead of pushed by it -- one implementation, so
+   * the two routes cannot disagree about whether an athlete has a trial left. */
+  const applied = await Apply.applySubscriptionFacts(S, cfg, ev, {
+    environment: stripe.environment
   });
-  if (!up.ok){
+
+  /* A subscription the provider now attributes to somebody else. Recorded and
+     dropped with a 200: a 5xx would have Stripe redeliver it until it gave up,
+     and redelivering it cannot make it attributable. */
+  if (!applied.ok && applied.code === 'account_mismatch'){
     await Store.markBillingEventProcessed(S, cfg, {
-      provider: P.PROVIDER, provider_event_id: ev.provider_event_id, result: 'failed_' + up.reason
+      provider: P.PROVIDER, provider_event_id: ev.provider_event_id, result: 'account_mismatch'
     });
-    log('STRIPE_SUBSCRIPTION_WRITE_FAILED reason=' + up.reason);
+    log('STRIPE_ACCOUNT_MISMATCH id=' + P.ref(ev.provider_event_id));
+    return S.json(res, 200, { ok: true, applied: false, reason: 'account_mismatch' });
+  }
+
+  if (!applied.ok){
+    await Store.markBillingEventProcessed(S, cfg, {
+      provider: P.PROVIDER, provider_event_id: ev.provider_event_id,
+      result: 'failed_' + (applied.reason || applied.code)
+    });
+    log('STRIPE_SUBSCRIPTION_WRITE_FAILED code=' + applied.code +
+        ' reason=' + (applied.reason || '-'));
     /* 503 so Stripe retries: the event is claimed but explicitly marked failed,
        which is the recoverable state rather than a silent loss. */
     return S.json(res, 503, { error: 'unavailable', code: 'SUBSCRIPTION_UNWRITABLE' });
   }
 
-  /* 3b. THE AGREEMENT, LOCKED ONCE.
-   *
-   * Deliberately NOT part of the upsert above. That merges every column it is
-   * handed on every delivery, so an agreed price riding a routine renewal
-   * would be rewritten from whatever the catalogue says today -- a founding
-   * subscriber's price quietly becoming the new one, through the single event
-   * nobody inspects. The store writes it under a price_locked_at IS NULL
-   * filter instead, so the database decides whether this is the first telling.
-   *
-   * Not fatal if it fails. The athlete has access either way, and the next
-   * event locks it; refusing the whole delivery over a price record would be
-   * refusing the subscription over its footnote. */
-  const lock = await Store.lockAgreedPrice(S, cfg, {
-    provider: P.PROVIDER,
-    provider_subscription_id: ev.subscription_ref,
-    offer_code: ev.offer_code,
-    at: ev.trial_start || ev.occurred_at
-  });
-  if (!lock.ok) log('STRIPE_AGREEMENT_NOT_LOCKED reason=' + lock.reason);
-
-  /* 4. THE TRIAL ALLOWANCE IS SPENT HERE, AND ONLY HERE.
-   *
-   * Stamped when a provider tells us a trialing subscription EXISTS -- never
-   * when somebody opens Checkout. An athlete who reaches the payment screen and
-   * changes their mind has not used their trial, and a design that charged them
-   * for that decision would be indefensible.
-   *
-   * Conditional on trial_consumed_at being null, so a webhook replay or a
-   * second trialing event cannot move the timestamp forward and quietly extend
-   * the lifetime rule's reference point. */
-  if (ev.condition === 'trialing'){
-    await S.sb(cfg, '/account_commercial?account_id=eq.' +
-      encodeURIComponent(ev.account_id) + '&trial_consumed_at=is.null', {
-        method: 'PATCH',
-        prefer: 'return=minimal',
-        body: JSON.stringify({
-          trial_consumed_at: ev.trial_start || ev.occurred_at || new Date().toISOString(),
-          trial_consumed_provider: P.PROVIDER,
-          updated_at: new Date().toISOString()
-        })
-      });
-  }
-
-  /* 5. Re-derive access from the canonical facts. Never computed here. */
-  const sync = await Store.syncEntitlementRow(S, cfg, ev.account_id);
-
-  /* 6. MIRROR IT TO THE OPERATIONAL BOARD.
-   *
-   * After the ledger, not before, and after the entitlement, not instead of:
-   * the board shows what the database says once the writes have landed. It is
-   * OFF unless VVV_MONDAY_OPERATIONAL says otherwise, it never throws, and its
-   * failure is logged and ignored. A mirror being late is not a reason to fail
-   * a purchase -- and a 503 here would have Stripe redeliver an event that has
-   * already been applied. */
-  try{
-    const mirrored = await Ops.syncAccountFromStore(S, Store, E, cfg, ev.account_id);
-    if (!mirrored.ok && mirrored.code !== 'operational_sync_disabled'){
-      log('OPS_MIRROR_FAILED code=' + mirrored.code);
-    }
-  }catch(e){ log('OPS_MIRROR_THREW'); }
-
   await Store.markBillingEventProcessed(S, cfg, {
     provider: P.PROVIDER, provider_event_id: ev.provider_event_id,
     account_id: ev.account_id,
-    /* upsertSubscription returns { ok, subscription }. Reading up.id gave
-       undefined on every event, so the ledger recorded which account paid but
-       never which subscription it was for. */
-    subscription_id: (up.subscription && up.subscription.id) || null,
-    result: sync && sync.ok ? 'processed' : 'processed_entitlement_stale'
+    /* Reading up.id gave undefined on every event, so the ledger recorded which
+       account paid but never which subscription it was for. */
+    subscription_id: applied.subscriptionId,
+    result: applied.entitlementSynced ? 'processed' : 'processed_entitlement_stale'
   });
 
   log('STRIPE_APPLIED condition=' + ev.condition + ' account=' + ref(ev.account_id));

@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const A = require('../api/_access.js');
 const SUB = require('../api/_subscription.js');
+const Checkout = require('../api/_checkout.js');
 const { loadApp } = require('./harness.js');
 
 // Phase 3A2. The question this answers is not "how do we stop people who have
@@ -75,9 +76,16 @@ test('every reason for refusal keeps the same four', () => {
 // THE ENDPOINT THAT TALKS TO A LOCKED-OUT ATHLETE
 // ---------------------------------------------------------------------------
 test('subscription status answers a lapsed athlete rather than refusing them', () => {
+  /* GET and POST now share one rendering path -- the POST actions act first and
+     then fall through to the same view, so a screen never has to reconcile two
+     shapes of answer. What must not change is the status code: a lapsed athlete
+     asking about their own lapse is not an error, and 403 here would leave the
+     locked shell with nothing to say. */
   const src = read('api/_subscription.js');
-  assert.match(src, /if \(req\.method === 'GET'\)\{[\s\S]*?S\.json\(res, 200, publicView/,
+  assert.match(src, /const view = publicView\(decision[\s\S]{0,900}?S\.json\(res, 200, view\)/,
     '403 here would leave the locked shell with nothing to say');
+  assert.ok(!/S\.json\(res, 403/.test(src),
+    'the endpoint that talks to a locked-out athlete may never refuse them outright');
 });
 
 test('the view says what the screen needs and nothing that identifies a third party', () => {
@@ -104,23 +112,69 @@ test('the locked set is present even when access is fine', () => {
     'what an athlete keeps is a promise, so it is stated before they need it');
 });
 
-test('checkout is honest about not being configured', () => {
-  const saved = process.env.VVV_CHECKOUT_URL;
-  delete process.env.VVV_CHECKOUT_URL;
-  try{
-    assert.equal(SUB.checkoutUrl(), '');
-    assert.equal(SUB.publicView(denied(), {}, 'u1', null).checkout_configured, false);
-    assert.match(read('api/_subscription.js'), /CHECKOUT_NOT_CONFIGURED/,
-      'a button that opens nothing is worse than a sentence saying payments are not open');
-  } finally { if (saved === undefined) delete process.env.VVV_CHECKOUT_URL; else process.env.VVV_CHECKOUT_URL = saved; }
+test('there is one purchase door, and the second one is gone', () => {
+  /* VVV_CHECKOUT_URL used to be a whole parallel way to buy: POST
+     {action:'resubscribe'} appended the athlete's uid to a URL from the
+     environment and sent the browser there. It checked no commerce flag,
+     validated no offer, refused no live key in an uncommissioned deployment and
+     never asked mayStartStandardPurchase() -- so an athlete who already
+     subscribed through the App Store could buy a second subscription through
+     it. A second purchase path is a second commercial authority.
+
+     This is the retirement, asserted three ways: the variable is gone from the
+     whole API surface, the action refuses, and it names the endpoint that does
+     the job properly. */
+  /* Comments are stripped first: this file's header NAMES the retired variable
+     so the next person finds out why it went, and a test that cannot tell an
+     explanation from a read is a test that punishes the explanation. */
+  const stripComments = x => x.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  const apiFiles = fs.readdirSync(path.join(ROOT, 'api')).filter(f => /\.js$/.test(f));
+  apiFiles.forEach(f => assert.ok(!/VVV_CHECKOUT_URL/.test(stripComments(read('api/' + f))),
+    f + ' still reads the retired checkout URL'));
+
+  const src = read('api/_subscription.js');
+  assert.match(src, /action === 'resubscribe'[\s\S]{0,400}?S\.json\(res, 410/,
+    'the retired action must refuse rather than silently doing nothing');
+  assert.match(src, /USE_CHECKOUT_ENDPOINT/);
+  assert.match(src, /checkout_endpoint: '\/api\/checkout'/,
+    'refusing without naming the right door is how a screen ends up with no path at all');
 });
 
-test('checkout carries the athlete’s id and not their email', () => {
-  const src = read('api/_subscription.js');
-  assert.match(src, /client_reference_id=' \+ encodeURIComponent\(who\.uid\)/,
+test('checkout is honest about not being configured', () => {
+  /* Honesty now comes from the CATALOGUE rather than from a URL somebody set:
+     a configured URL was never evidence that a purchasable offer existed behind
+     it, and "£89.99/year, not open yet" is information a missing button is not. */
+  const saved = { c: process.env.VVV_COMMERCE_ENABLED, k: process.env.STRIPE_SECRET_KEY };
+  delete process.env.VVV_COMMERCE_ENABLED;
+  delete process.env.STRIPE_SECRET_KEY;
+  try{
+    assert.equal(Checkout.purchasableNow(process.env), false);
+    assert.equal(SUB.publicView(denied(), {}, 'u1', null).checkout_configured, false,
+      'a button that opens nothing is worse than a sentence saying payments are not open');
+    /* Commerce on and a key present is still not enough -- an unset price id is
+       the commonest way a checkout 404s at the provider after the athlete has
+       committed. */
+    assert.equal(Checkout.purchasableNow({ VVV_COMMERCE_ENABLED: '1', STRIPE_SECRET_KEY: 'sk_test_x' }),
+      false, 'an offer with no configured price is not purchasable');
+  } finally {
+    if (saved.c === undefined) delete process.env.VVV_COMMERCE_ENABLED; else process.env.VVV_COMMERCE_ENABLED = saved.c;
+    if (saved.k === undefined) delete process.env.STRIPE_SECRET_KEY; else process.env.STRIPE_SECRET_KEY = saved.k;
+  }
+});
+
+test('checkout carries the athlete\u2019s id and not their email', () => {
+  /* The binding moved with the door. It is now set server-side on the Checkout
+     Session from the uid on the bearer token, which is strictly stronger than
+     appending it to a URL: the browser never sees it and cannot change it. */
+  const src = read('api/_checkout.js');
+  assert.match(src, /uid: uid, accountId: uid/,
     'the provider must hand something back that lands the payment on the right row');
-  assert.ok(!/checkout[\s\S]{0,200}who\.email/.test(src),
-    'an email address has no reason to ride in a URL that ends up in browser history');
+  const stripe = read('api/_stripe.js');
+  assert.match(stripe, /client_reference_id: input\.uid/);
+  ['api/_checkout.js', 'api/_subscription.js', 'api/_stripe.js'].forEach(f => {
+    assert.ok(!/checkout[\s\S]{0,200}(who|user)\.email/.test(read(f)),
+      f + ': an email address has no reason to ride in a URL that ends up in browser history');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -330,21 +330,31 @@ test('the mirror reads the database after the write, not the writer"s intention'
   assert.match(src, /Store\.readCommercialFacts\(S, cfg, accountId\)/);
 });
 
-test('the webhook mirrors after the ledger, and a mirror failure is not a 503', async () => {
+test('the webhook mirrors after the ledger, and a mirror failure is not a 503', () => {
   // A 503 here would have Stripe redeliver an event that has already been
   // applied -- the mirror would turn a working purchase into a retry loop.
-  const hook = fs.readFileSync(path.join(ROOT, 'api', 'billing-webhook.js'), 'utf8');
-  const mirrorAt = hook.indexOf('Ops.syncAccountFromStore');
-  const ledgerAt = hook.indexOf('markBillingEventProcessed', mirrorAt);
-  assert.ok(mirrorAt > 0, 'the webhook no longer mirrors at all');
-  assert.ok(hook.indexOf('syncEntitlementRow') < mirrorAt,
+  //
+  // The writes moved into api/_billing-apply.js this pass, because the reconcile
+  // action needs exactly the same sequence and a second copy of it would be a
+  // second commercial authority. The ORDER is the invariant and it is asserted
+  // across both files: the entitlement is re-derived, then the board is told,
+  // then the ledger records what happened.
+  const apply = fs.readFileSync(path.join(ROOT, 'api', '_billing-apply.js'), 'utf8');
+  const hook  = fs.readFileSync(path.join(ROOT, 'api', 'billing-webhook.js'), 'utf8');
+
+  const mirrorAt = apply.indexOf('Ops.syncAccountFromStore');
+  assert.ok(mirrorAt > 0, 'the commercial write no longer mirrors at all');
+  assert.ok(apply.indexOf('syncEntitlementRow') < mirrorAt,
     'the entitlement must be re-derived before the board is told about it');
-  assert.ok(ledgerAt > mirrorAt);
-  const around = hook.slice(mirrorAt - 400, mirrorAt + 400);
+
+  const around = apply.slice(mirrorAt - 400, mirrorAt + 400);
   assert.match(around, /try\{/);
   assert.match(around, /catch\(e\)\{ log\('OPS_MIRROR_THREW'\); \}/);
-  assert.equal(/return S\.json\(res, 5\d\d/.test(around), false,
-    'a stale board must never answer a provider with an error');
+
+  // And the ledger is still stamped after the whole apply, in the endpoint.
+  assert.ok(hook.indexOf('Apply.applySubscriptionFacts') <
+            hook.lastIndexOf('markBillingEventProcessed'),
+    'the ledger must record what the apply actually did, not what it was asked to do');
 });
 
 test('the mirror is off unless it is switched on, even when wired in', async () => {

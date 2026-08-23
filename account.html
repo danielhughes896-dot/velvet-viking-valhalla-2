@@ -96,6 +96,11 @@
     <p id="locked-state" class="vvv-state"></p>
 
     <button type="button" id="resubscribe" class="vvv-btn">Set up my subscription</button>
+    <!-- The offers, rendered from the server's catalogue rather than written
+         here. A price typed into a screen is a price that drifts from the one
+         that will actually be charged, and an offer whose provider identifier
+         nobody has configured is not listed as buyable. -->
+    <div id="offer-choice" class="vvv-hidden"></div>
     <button type="button" id="export" class="vvv-btn vvv-btn-ghost">Export my training</button>
     <button type="button" id="signout" class="vvv-btn vvv-btn-ghost">Sign out</button>
     <div class="vvv-msg" id="msg3"></div>
@@ -256,6 +261,68 @@
        not open: a greyed-out button invites a support message asking when it
        will work, and we would rather say nothing than say "soon". */
     $('resubscribe').classList.toggle('vvv-hidden', hasAccess || !v.checkout_configured);
+    renderOffers(v);
+  }
+
+  /* WHAT IS ON OFFER, FROM THE SERVER. Two buttons at most, built from
+     v.catalogue -- the same catalogue /api/checkout validates a period against,
+     so a button can never name something checkout would refuse. Prices are
+     shown as the server states them and are display only: the provider charges,
+     and the provider's amount is the true one. */
+  function renderOffers(v){
+    var box = $('offer-choice');
+    box.innerHTML = '';
+    var cat = (v && v.catalogue) || null;
+    var offers = (cat && cat.offers || []).filter(function(o){ return o.available; });
+    if (!offers.length){ box.classList.add('vvv-hidden'); return; }
+
+    offers.forEach(function(o){
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'vvv-btn vvv-btn-ghost';
+      b.textContent = priceLabel(o) + (cat.trialDays ? ' — ' + cat.trialDays + '-day free trial' : '');
+      b.addEventListener('click', function(){ startCheckout(o.billingPeriod, b); });
+      box.appendChild(b);
+    });
+  }
+
+  function priceLabel(o){
+    var amount = (o.priceMinor / 100).toFixed(2);
+    var symbol = o.currency === 'GBP' ? '£' : '';
+    var per = o.billingPeriod === 'yearly' ? 'year' : 'month';
+    return symbol + amount + (symbol ? '' : ' ' + o.currency) + ' a ' + per;
+  }
+
+  /* THE ONE PURCHASE DOOR. /api/checkout resolves the price, the customer and
+     whether this athlete may buy at all, server-side, from the authenticated
+     token. The browser names a PERIOD and nothing else. */
+  function startCheckout(period, button){
+    if (button) button.disabled = true;
+    say('msg3', 'One moment…');
+    authed('/api/checkout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ period: period })
+    }).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(b){
+        if (button) button.disabled = false;
+        if (r.status === 200 && b.url){ location.href = b.url; return; }
+        /* Named refusals get named sentences. "You already subscribe through
+           the App Store" is a different problem from "payments are not open",
+           and one sentence for both is how a support queue fills up. */
+        if (b.error === 'already_subscribed_here')
+          return say('msg3', 'You already have a subscription on this account.', 'err');
+        if (b.error === 'already_subscribed_elsewhere')
+          return say('msg3', 'You already subscribe through ' +
+            (b.existing_provider === 'apple' ? 'the App Store' :
+             b.existing_provider === 'google' ? 'Google Play' : 'another store') +
+            '. Manage it there.', 'err');
+        say('msg3', 'Subscriptions are not open yet — nothing has changed on your account.', 'err');
+      });
+    }).catch(function(){
+      if (button) button.disabled = false;
+      say('msg3', 'We could not reach Velvet Viking. Check your connection and try again.', 'err');
+    });
   }
 
   function loadSubscription(){
@@ -263,6 +330,38 @@
       return r.json().catch(function(){ return null; }).then(function(v){
         if (r.status === 200 && v) return v;
         return null;
+      });
+    }).catch(function(){ return null; });
+  }
+
+  /* ---------- coming back from the provider ----------
+   *
+   * Stripe returns the athlete here as /account?checkout=complete&session_id=…
+   * and the tempting thing to do is read that and unlock the product. Anybody
+   * can type that URL, so nothing on this page treats it as evidence of
+   * anything. The session id is handed to the SERVER, which fetches the
+   * Checkout Session from the provider with a secret this page has never seen
+   * and re-derives the entitlement from the provider's own answer.
+   *
+   * Why it is needed at all, given the webhook: a webhook is a notification and
+   * notifications are late. This is the same facts by the other route, so an
+   * athlete who has just paid is not told they have no access while a queue
+   * drains. If it fails, nothing is lost -- the webhook still arrives, and the
+   * next load of this page shows the truth. */
+  function checkoutSessionId(){
+    var m = /[?&]session_id=(cs_[A-Za-z0-9_]+)/.exec(location.search || '');
+    return m ? m[1] : null;
+  }
+  function reconcileCheckout(){
+    var id = checkoutSessionId();
+    if (!id) return Promise.resolve(null);
+    return authed('/api/subscription', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'reconcile', session_id: id })
+    }).then(function(r){
+      return r.json().catch(function(){ return null; }).then(function(v){
+        return r.status === 200 ? v : null;
       });
     }).catch(function(){ return null; });
   }
@@ -282,7 +381,8 @@
     }catch(e){ /* private mode -- the cookie still works for this session */ }
 
     stripHash();
-    establish(hash.access_token).then(function(r){
+    reconcileCheckout().then(function(){
+    return establish(hash.access_token).then(function(r){
       if (r.status === 200) return enter();
       if (r.status === 403){
         /* Signed in, no access. This is the case the locked shell exists for:
@@ -293,7 +393,7 @@
       }
       show('signin');
       say('msg', 'We signed you in but could not open Velvet Viking. Please try again.', 'err');
-    }).catch(function(){
+    }); }).catch(function(){
       show('signin');
       say('msg', 'We signed you in but could not reach Velvet Viking. Check your connection and try again.', 'err');
     });
@@ -305,13 +405,14 @@
     try{ stored = JSON.parse(localStorage.getItem('vvv_cloud_session') || 'null'); }catch(e){}
     if (stored && stored.access_token){
       show('working');
-      establish(stored.access_token).then(function(r){
+      reconcileCheckout().then(function(){
+      return establish(stored.access_token).then(function(r){
         if (r.status === 200) return enter();
         if (r.status === 403){
           return loadSubscription().then(function(v){ showLocked(v || { access:false }); });
         }
         show('signin');
-      }).catch(function(){ show('signin'); });
+      }); }).catch(function(){ show('signin'); });
     }
   }
 
@@ -347,23 +448,18 @@
      Each one is deliberately available with no entitlement whatsoever. */
 
   // account_manage
+  /* Reveals the offers rather than going anywhere itself. There is exactly one
+     purchase path and it is /api/checkout; this button used to POST
+     {action:'resubscribe'} to /api/subscription, which read a URL out of the
+     environment and sent the browser there without asking whether this athlete
+     was allowed to buy, what they would be charged, or whether they already
+     subscribed somewhere else. That endpoint now answers 410. */
   $('resubscribe').addEventListener('click', function(){
-    $('resubscribe').disabled = true;
-    say('msg3', 'One moment…');
-    authed('/api/subscription', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ action: 'resubscribe' })
-    }).then(function(r){
-      return r.json().catch(function(){ return {}; }).then(function(b){
-        $('resubscribe').disabled = false;
-        if (r.status === 200 && b.checkout_url){ location.href = b.checkout_url; return; }
-        say('msg3', 'Subscriptions are not open yet — nothing has changed on your account.', 'err');
-      });
-    }).catch(function(){
-      $('resubscribe').disabled = false;
-      say('msg3', 'We could not reach Velvet Viking. Check your connection and try again.', 'err');
-    });
+    var box = $('offer-choice');
+    var opening = box.classList.contains('vvv-hidden');
+    box.classList.toggle('vvv-hidden');
+    if (opening && !box.childElementCount)
+      say('msg3', 'Subscriptions are not open yet — nothing has changed on your account.', 'err');
   });
 
   // data_export -- the ACCOUNT's copy, so this works from a device that never
