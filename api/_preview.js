@@ -31,7 +31,9 @@
 const fs = require('fs');
 const path = require('path');
 const S = require('./_strava.js');
-const A = require('./_access.js');
+const P = require('./_stripe.js');
+const Store = require('./_commercial-store.js');
+const Prod = require('./_products.js');
 
 function log(what){ try{ console.log('preview: ' + what); }catch(e){} }
 
@@ -324,14 +326,40 @@ async function handle(req, res){
     return S.json(res, 503, { error: 'preview_unavailable' });
   }
 
-  /* GENERATING A PREVIEW MUST NOT SPEND THE TRIAL. Nothing here writes to
+  /* GENERATING A PREVIEW MUST NOT SPEND THE TRIAL. Nothing above writes to
      account_commercial, entitlement_grants or subscriptions -- the athlete can
-     rebuild as often as they like and their allowance is untouched. */
+     rebuild as often as they like and their allowance is untouched. The READ
+     below is a read; ensureAccountCommercial is not called and no row is
+     created by looking. */
+
+  /* WHETHER A TRIAL IS AVAILABLE IS A FACT, NOT A CONSTANT.
+   *
+   * This said `trial: { available: true }` unconditionally, which is a claim
+   * about a specific athlete made without looking at that athlete. Somebody who
+   * had already used their fortnight was told on the preview screen that a free
+   * trial was waiting, and found out otherwise at the payment step -- and the
+   * one-trial-per-athlete rule is not something the product may be coy about at
+   * the exact moment it is asking for a decision.
+   *
+   * So it is now the canonical answer: the same trialEligibility() the checkout
+   * seam and the webhook read, off the same account_commercial row. FAILS
+   * CLOSED -- if the commercial core cannot be read, the preview offers no
+   * trial rather than promising one it may not be able to honour. */
+  const purchase = await Store.mayStartStandardPurchase(S, cfg, uid, { provider: P.PROVIDER });
+  const trialAvailable = !!(purchase && purchase.trial && purchase.trial.eligible);
+
   log('GENERATED uid=' + String(uid).slice(0, 8) + ' purpose=' + v.input.purpose +
-      ' distance=' + v.input.buildDistance);
+      ' distance=' + v.input.buildDistance + ' trial=' + trialAvailable);
   return S.json(res, 200, {
     preview: summarise(built.app, built.days, built.blockResult, v.input),
-    trial: { available: true },
+    trial: {
+      available: trialAvailable,
+      days: Prod.TRIAL_DAYS,
+      /* Named so a screen can say the true sentence -- "you have already used
+         your free trial" reads very differently from "trials are not open" --
+         without a second request and without guessing. */
+      reason: (purchase && purchase.trial && purchase.trial.reason) || 'unavailable'
+    },
     /* Said plainly rather than implied: this is a summary, not the product. */
     note: 'This is a preview of your programme. Valhalla itself coaches it.'
   });

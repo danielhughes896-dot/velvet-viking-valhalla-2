@@ -121,13 +121,38 @@ test('nothing in the api invents a grace period of its own', () => {
 });
 
 test('the webhook writes the projection only through the resolver', () => {
-  /* The endpoint may not PATCH or POST /entitlements itself. It calls
-     syncEntitlementRow, which resolves first and projects second. */
-  const src = stripComments(read('api/billing-webhook.js'));
-  assert.ok(!/\/entitlements/.test(src),
-    'the webhook must not address the projection table directly');
-  assert.ok(/syncEntitlementRow/.test(src),
+  /* Neither the endpoint nor the shared apply may PATCH or POST /entitlements.
+     Both go through syncEntitlementRow, which resolves first and projects
+     second -- and the apply module is where the write now lives, because the
+     reconcile action needs the identical sequence and a second copy of it would
+     be a second commercial authority. */
+  ['api/billing-webhook.js', 'api/_billing-apply.js', 'api/_subscription.js'].forEach(f => {
+    assert.ok(!/\/entitlements/.test(stripComments(read(f))),
+      f + ' must not address the projection table directly');
+  });
+  assert.ok(/syncEntitlementRow/.test(stripComments(read('api/_billing-apply.js'))),
     'it must go through the resolver');
+  assert.ok(/Apply\.applySubscriptionFacts/.test(stripComments(read('api/billing-webhook.js'))),
+    'and the endpoint must reach the core through that one implementation');
+});
+
+test('the pushed and the pulled route are the same implementation', () => {
+  /* A webhook is a notification and notifications are late. So the same facts
+     can be PULLED -- _subscription.js's reconcile action fetches the Checkout
+     Session and the subscription from the provider with the secret key. What
+     must never happen is that the two routes each grow their own idea of what
+     a subscription does to the core, because the way they would differ is that
+     one of them would spend a trial the other did not. */
+  const sub  = stripComments(read('api/_subscription.js'));
+  const hook = stripComments(read('api/billing-webhook.js'));
+  [sub, hook].forEach(src => assert.ok(/Apply\.applySubscriptionFacts/.test(src)));
+  ['upsertSubscription', 'lockAgreedPrice', 'consumeTrialForAccount', 'syncEntitlementRow']
+    .forEach(fn => {
+      assert.ok(!new RegExp('Store\\.' + fn + '\\(').test(sub),
+        'reconcile must not call Store.' + fn + ' itself -- that is the second implementation');
+      assert.ok(!new RegExp('Store\\.' + fn + '\\(').test(hook),
+        'the webhook must not call Store.' + fn + ' itself either');
+    });
 });
 
 test('the adapter is the only thing that knows a provider’s vocabulary', () => {

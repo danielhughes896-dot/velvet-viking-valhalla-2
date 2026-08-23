@@ -76,6 +76,25 @@ function decideCheckout(input){
   return { ok: true, period: o.period, offerCode: offer.code };
 }
 
+/* CAN THE CANONICAL CHECKOUT SELL ANYTHING RIGHT NOW?
+ *
+ * Asked by the account shell so a "subscribe" control is hidden rather than
+ * offered-and-broken, and defined HERE rather than in whichever screen is
+ * asking, because "may we take money" has exactly one correct answer and every
+ * surface must get the same one.
+ *
+ * Three things have to be true, and they are three deliberately separate
+ * switches: commerce is on, the provider holds a secret, and the catalogue has
+ * at least one offer whose price identifier a human has actually configured. An
+ * unset price is the commonest way a checkout button 404s at the provider after
+ * the athlete has committed. */
+function purchasableNow(env){
+  const e = env || process.env;
+  if (!A.commerceEnabled()) return false;
+  if (!P.config(e).hasSecret) return false;
+  return Prod.catalogue(P.PROVIDER, e).offers.some(function(o){ return o.available; });
+}
+
 async function handle(req, res){
   const cfg = S.config();
   const stripe = P.config();
@@ -138,4 +157,4 @@ async function handle(req, res){
   return S.json(res, 200, { url: session.url, period: session.period, trial_days: session.trialDays });
 }
 
-module.exports = { handle, decideCheckout };
+module.exports = { handle, decideCheckout, purchasableNow };

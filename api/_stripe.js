@@ -326,6 +326,71 @@ function verifySignature(rawBody, header, secret, nowSec){
   return matched ? { ok: true, reason: 'verified' } : { ok: false, reason: 'bad_signature' };
 }
 
+/* ---------- reading the provider back ----------
+ *
+ * A webhook is a NOTIFICATION, not the only way to learn a fact. It can be
+ * delayed behind a queue, dropped by a bad deployment, or simply arrive after
+ * the athlete's browser has already come back from Checkout. When that happens
+ * the athlete has paid and Valhalla does not yet know, which is the worst
+ * minute in the whole commercial journey to be wrong in.
+ *
+ * So the same facts can be PULLED. Both of these read Stripe server-side with
+ * the secret key; neither trusts anything the browser said beyond an opaque
+ * identifier that is then checked against the authenticated athlete.
+ */
+async function fetchCheckoutSession(cfg, sessionId, opts){
+  if (!sessionId) return { ok: false, code: 'no_session_id' };
+  /* Shape-checked before it is put in a URL. A Checkout Session id is
+     cs_<alnum>; anything else is a client sending us something it made up, and
+     it is refused here rather than becoming a request to Stripe. */
+  if (!/^cs_[A-Za-z0-9_]+$/.test(String(sessionId))) return { ok: false, code: 'session_id_malformed' };
+  const r = await call(cfg, 'GET', '/checkout/sessions/' + encodeURIComponent(sessionId), null, opts);
+  if (!r.ok) return r;
+  return { ok: true, session: r.data };
+}
+
+async function fetchSubscription(cfg, subscriptionId, opts){
+  if (!subscriptionId) return { ok: false, code: 'no_subscription_id' };
+  if (!/^sub_[A-Za-z0-9_]+$/.test(String(subscriptionId))) return { ok: false, code: 'subscription_id_malformed' };
+  const r = await call(cfg, 'GET', '/subscriptions/' + encodeURIComponent(subscriptionId), null, opts);
+  if (!r.ok) return r;
+  return { ok: true, subscription: r.data };
+}
+
+/* ---------- ending it, and changing your mind ----------
+ *
+ * CANCELLING IS NOT DELETING. `cancel_at_period_end` stops the renewal and
+ * leaves the month the athlete already paid for exactly where it is --
+ * _entitlement.js treats a cancelled subscription with a future period end as
+ * live access, deliberately, because confiscating a paid month is how a
+ * cancellation becomes a chargeback.
+ *
+ * Stripe's DELETE /subscriptions/:id ends it immediately and refunds nothing.
+ * It is not used here and there is no code path to it: an athlete pressing
+ * "cancel" in an account screen means "do not charge me again", never "take the
+ * rest of what I paid for away".
+ *
+ * NO TRAINING HISTORY IS TOUCHED BY EITHER CALL. Cancellation is a billing
+ * fact; plans, activities and execution history belong to the athlete and
+ * survive it. Nothing in this file can reach them.
+ */
+async function cancelAtPeriodEnd(cfg, subscriptionId, opts){
+  if (!subscriptionId) return { ok: false, code: 'no_subscription_id' };
+  return call(cfg, 'POST', '/subscriptions/' + encodeURIComponent(subscriptionId), {
+    cancel_at_period_end: 'true'
+  }, Object.assign({ idempotencyKey: 'cancel:' + subscriptionId }, opts || {}));
+}
+
+/* Undoing a cancellation before the period runs out. Stripe keeps the same
+   subscription, so this is a reversal rather than a new purchase -- no second
+   trial, no second agreed price, no second row. */
+async function clearCancelAtPeriodEnd(cfg, subscriptionId, opts){
+  if (!subscriptionId) return { ok: false, code: 'no_subscription_id' };
+  return call(cfg, 'POST', '/subscriptions/' + encodeURIComponent(subscriptionId), {
+    cancel_at_period_end: 'false'
+  }, Object.assign({ idempotencyKey: 'uncancel:' + subscriptionId }, opts || {}));
+}
+
 /* ---------- event translation ----------
    Stripe's vocabulary in, Velvet Viking's out. Every branch is explicit and an
    unrecognised type produces null rather than a guess: Stripe emits well over a
@@ -371,29 +436,76 @@ function periodOf(sub){
   return null;
 }
 
-/* ONE STRIPE EVENT -> THE FACTS THE CANONICAL MODEL NEEDS.
+/* WHAT current_period_end MEANS TO STRIPE, AND WHY IT IS NOT "PAID THROUGH".
  *
- * This returns subscription FACTS, not a state transition. The old design
- * translated each event into a verb -- trial_started, payment_failed -- and let
- * a reducer move a state machine. That put two state machines in the system:
- * Stripe's and ours, and they could disagree after a missed or reordered event.
+ * Stripe defines current_period_end as the end of the period the subscription
+ * has been INVOICED for. Those are the same instant while invoices are being
+ * paid, and they come apart the moment one is not: at renewal Stripe raises the
+ * next invoice, ADVANCES the period, attempts the card, and moves the
+ * subscription to past_due when the attempt fails. The row then carries a
+ * period end a month in the future that nobody has paid for.
+ *
+ * The canonical column is current_period_end and its neutral meaning is the
+ * instant access from this subscription runs out. For Apple that is
+ * expires_date, which really is paid-through. For Stripe it is not, and
+ * translating between a provider's words and ours is the entire job of this
+ * file.
+ *
+ * So a past_due subscription reports the START of the unpaid period as its end:
+ * the last period anybody actually paid for ended when this one began.
+ * _entitlement.js then reaches 'payment_hold' rather than handing out a free
+ * month -- the same rule the architecture recovery applied when it deleted
+ * Valhalla's seven invented days of grace. Grace is a date a PROVIDER supplies,
+ * and on a subscription object Stripe supplies none.
+ *
+ * WHY THIS IS SAFE EVEN IF STRIPE DOES NOT ADVANCE THE PERIOD. If the period
+ * had not advanced, then the invoice covering it was the one that was paid --
+ * and a subscription whose current invoice is paid is not past_due. Valhalla
+ * sells one price with no add-ons, no metering, no prorations and no plan
+ * switching, so there is no second invoice that could fail mid-period and no
+ * way to be past_due inside a period that was paid for. Both readings of
+ * Stripe's behaviour therefore reach the same answer here.
+ *
+ * IF A MID-PERIOD INVOICE IS EVER INTRODUCED -- an add-on, a proration, an
+ * upgrade -- this is the function that has to learn the difference, because
+ * from then on past_due would no longer imply the current period is unpaid.
+ *
+ * VERIFY IT ANYWAY. PHASE2-WEB-BILLING.md carries this as an owner step: fail a
+ * renewal in Stripe test mode and read the resulting subscription object. */
+function paidThroughOf(sub){
+  const s = sub || {};
+  const status = String(s.status || '');
+  if (status !== 'past_due' && status !== 'unpaid') return periodEndOf(s);
+  return s.current_period_start
+    ? new Date(Number(s.current_period_start) * 1000).toISOString()
+    : null;
+}
+
+/* ONE STRIPE SUBSCRIPTION -> THE FACTS THE CANONICAL MODEL NEEDS.
+ *
+ * FACTS, NOT A STATE TRANSITION. The old design translated each event into a
+ * verb -- trial_started, payment_failed -- and let a reducer move a state
+ * machine. That put two state machines in the system: Stripe's and ours, and
+ * they could disagree after a missed or reordered event.
  *
  * Stripe already maintains the authoritative subscription object. So every
- * relevant event is treated the same way: read the current subscription off the
- * event and write it down. An out-of-order delivery then cannot corrupt
- * anything -- it simply restates a fact, and provider_updated_at records which
- * telling was newer.
+ * relevant event is treated the same way: read the current subscription off it
+ * and write it down. An out-of-order delivery cannot corrupt anything -- it
+ * simply restates a fact, and provider_updated_at records which telling was
+ * newer.
  *
- * Returns null for the many event types that carry no subscription. */
-function normaliseEvent(stripeEvent){
-  const ev = stripeEvent || {};
-  const obj = (ev.data && ev.data.object) || {};
-  const type = String(ev.type || '');
-
-  /* Only subscription-bearing events. An invoice or a charge tells us nothing
-     the subscription object does not already say more reliably. */
-  const isSub = /^customer\.subscription\./.test(type);
-  if (!isSub) return null;
+ * Split out from normaliseEvent so the SAME translation serves a subscription
+ * that was PULLED from Stripe rather than pushed to us. A reconciliation that
+ * re-derived these facts its own way would be a second adapter, and a second
+ * adapter is a second set of rounding errors.
+ *
+ * `meta` carries what an event knows and a fetched object does not: which
+ * Stripe event type this was, its id, and when Stripe says it happened.
+ * Returns null when the object cannot be classified into our vocabulary. */
+function subscriptionFacts(sub, meta){
+  const obj = sub || {};
+  const m = meta || {};
+  const type = String(m.type || '');
 
   const account_id = accountOf(obj);
   const condition = conditionOf(obj.status);
@@ -428,11 +540,12 @@ function normaliseEvent(stripeEvent){
 
   return {
     provider: PROVIDER,
-    provider_event_id: ev.id || null,
+    provider_event_id: m.eventId || null,
     /* Stripe's own type, kept for the ledger so an operator can see what
-       arrived without needing this file to have named it. */
-    stripe_type: type,
-    occurred_at: secs(ev.created),
+       arrived without needing this file to have named it. A pulled
+       reconciliation says so rather than borrowing an event name it never saw. */
+    stripe_type: type || 'reconcile',
+    occurred_at: m.occurredAt || null,
     account_id: account_id,
     subscription_ref: obj.id || null,
     customer_ref: obj.customer || null,
@@ -449,7 +562,19 @@ function normaliseEvent(stripeEvent){
     trial_start: secs(obj.trial_start),
     trial_end: secs(obj.trial_end),
     period_start: secs(obj.current_period_start),
-    period_end: periodEndOf(obj),
+    /* Paid-through, not invoiced-through. See paidThroughOf. */
+    period_end: paidThroughOf(obj),
+    /* What Stripe has raised an invoice for. NOT a stored column -- the
+       subscriptions table holds one period end and it holds the paid one --
+       but carried on the facts so a log line or a reconciliation response can
+       show both numbers instead of leaving an operator wondering which one the
+       row is. Never used to decide access. */
+    invoiced_through: periodEndOf(obj),
+    /* GRACE IS THE PROVIDER'S TO GIVE. Stated as null rather than omitted:
+       Stripe's subscription object carries no retry deadline, so the web rail
+       has no provider grace, and the honest record of that is an explicit
+       nothing rather than a column nobody wrote. */
+    grace_period_end: null,
     /* When the provider says the relationship actually ended, as distinct from
        cancel_at_period_end, which says it is going to. */
     cancelled_at: secs(obj.canceled_at),
@@ -460,9 +585,29 @@ function normaliseEvent(stripeEvent){
   };
 }
 
+/* The webhook's entry point. Only subscription-bearing events reach the
+   translation: an invoice or a charge tells us nothing the subscription object
+   does not already say, and Stripe emits well over a hundred types that mean
+   nothing to an entitlement.
+
+   Returns null for everything else, which the endpoint answers 200 to. */
+function normaliseEvent(stripeEvent){
+  const ev = stripeEvent || {};
+  const type = String(ev.type || '');
+  if (!/^customer\.subscription\./.test(type)) return null;
+  const obj = (ev.data && ev.data.object) || {};
+  return subscriptionFacts(obj, {
+    type: type,
+    eventId: ev.id || null,
+    occurredAt: ev.created ? new Date(Number(ev.created) * 1000).toISOString() : null
+  });
+}
+
 module.exports = {
   API, PROVIDER, MAX_SKEW_SEC,
   config, encode, call, ensureCustomer, createCheckoutSession, priceFor, PROVIDER, CONDITION_OF,
   pauseCollection, resumeCollection,
-  parseSigHeader, verifySignature, normaliseEvent, periodOf, periodEndOf, accountOf, offerOf, conditionOf, ref, log
+  fetchCheckoutSession, fetchSubscription, cancelAtPeriodEnd, clearCancelAtPeriodEnd,
+  parseSigHeader, verifySignature, normaliseEvent, subscriptionFacts, paidThroughOf,
+  periodOf, periodEndOf, accountOf, offerOf, conditionOf, ref, log
 };
