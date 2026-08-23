@@ -31,6 +31,10 @@ const SUBSET = files(['stripeLifecycle','monthlyPause','commercialCore','securit
   'commercialSchemaCollision','adjustedSessionStructure','prescriptionAwareLogging',
   'historicalImmutability','historyIntegrity','reconcileRegeneratedDays',
   'healthDataConsent','medicalBoundary','healthErasure','commercialJourney',
+  /* Phase 2's verification matrix. It walks the journey through the real router
+     against a fake Stripe, so it is the suite most likely to notice a break in
+     a commercial guarantee that the part-suites step over. */
+  'webBilling',
   'productionReadiness']);
 /* Plan HQ's cases are checked against the suites that guard them rather than
    against the commercial subset above, which knows nothing about them:
@@ -65,11 +69,14 @@ const CASES = [
      The convergence invariants. Each of these reopens a route by which a
      second source of commercial truth, a second ledger, a second trial counter
      or a grace period of our own invention could come back. */
-  ['authority: the webhook writes the projection directly again',
-   'api/billing-webhook.js',
-   "  const sync = await Store.syncEntitlementRow(S, cfg, ev.account_id);",
-   "  const sync = { ok: true }; await S.sb(cfg, '/entitlements?user_id=eq.' + ev.account_id, { method: 'PATCH', body: '{}' });",
-   ['commercialAuthority','stripeLifecycle','billingWebhook']],
+  /* Moved with the write: the apply is now shared by the webhook and the
+     reconcile action, so the projection guarantee has to be guarded where it
+     actually lives rather than where it used to. */
+  ['authority: the commercial write patches the projection directly again',
+   'api/_billing-apply.js',
+   "  const sync = await Store.syncEntitlementRow(S, cfg, f.account_id);",
+   "  const sync = { ok: true }; await S.sb(cfg, '/entitlements?user_id=eq.' + f.account_id, { method: 'PATCH', body: '{}' });",
+   ['commercialAuthority','stripeLifecycle','billingWebhook','webBilling']],
   ['authority: a non-Stripe delivery is interpreted rather than refused',
    'api/billing-webhook.js',
    "  return S.json(res, 501, { error: 'not_implemented', code: 'PROVIDER_NOT_SUPPORTED' });",
@@ -87,15 +94,20 @@ const CASES = [
    ['commercialAuthority','commercialSchemaCollision']],
 
   // ---- TRIAL ----
-  ['trial: the allowance can be spent twice', 'api/billing-webhook.js',
+  ['trial: the allowance can be spent twice', 'api/_commercial-store.js',
    "'&trial_consumed_at=is.null'", "''"],
+  ['trial: the apply path spends it outside the canonical consumer',
+   'api/_billing-apply.js',
+   "  const r = await Store.consumeTrialForAccount(S, cfg, facts.account_id, {",
+   "  const r = await S.sb(cfg, '/account_commercial?account_id=eq.' + facts.account_id, { method: 'PATCH', body: JSON.stringify({ trial_consumed_at: new Date().toISOString() }) }) && await Store.consumeTrialForAccount(S, cfg, facts.account_id, {",
+   ['providerTrial','webBilling','stripeLifecycle']],
   ['trial: the trial length comes from somewhere else', 'api/_products.js',
    'const TRIAL_DAYS = 14;', 'const TRIAL_DAYS = 30;'],
   ['trial: checkout stops requiring a card', 'api/_stripe.js',
    "    payment_method_collection: 'always',", ""],
 
   // ---- SUBSCRIPTION / WEBHOOK ----
-  ['subscription: the product code drifts again', 'api/billing-webhook.js',
+  ['subscription: the product code drifts again', 'api/_billing-apply.js',
    '    product_code: Prod.STANDARD,', "    product_code: 'STANDARD',"],
   ['webhook: a replay is applied twice', 'api/billing-webhook.js',
    "  if (claim.duplicate){", "  if (false){"],
@@ -105,9 +117,60 @@ const CASES = [
   ['webhook: a rotation drops every event', 'api/_stripe.js',
    "    if (a.length === b.length && crypto.timingSafeEqual(a, b)) matched = true;",
    "    if (i === 0 && a.length === b.length && crypto.timingSafeEqual(a, b)) matched = true;"],
-  ['webhook: the S.sb prefix is doubled again', 'api/billing-webhook.js',
-   "    await S.sb(cfg, '/account_commercial?account_id=eq.' +",
-   "    await S.sb(cfg, '/rest/v1/account_commercial?account_id=eq.' +"],
+  ['webhook: the S.sb prefix is doubled again', 'api/_commercial-store.js',
+   "    '/account_commercial?account_id=eq.' + q(accountId) + '&trial_consumed_at=is.null', {",
+   "    '/rest/v1/account_commercial?account_id=eq.' + q(accountId) + '&trial_consumed_at=is.null', {"],
+
+  /* ---- PHASE 2: THE WEB RAIL ----
+     Each of these reopens something this phase closed. Every one of them was a
+     real defect in the tree before it, not a hypothetical. */
+  ['web: current_period_end goes back to invoiced-through', 'api/_stripe.js',
+   "  if (status !== 'past_due' && status !== 'unpaid') return periodEndOf(s);",
+   "  if (true) return periodEndOf(s);",
+   ['webBilling','stripeLifecycle','commercialCore']],
+  ['web: the adapter stops writing an explicit absence of grace', 'api/_billing-apply.js',
+   "    grace_period_end: f.grace_period_end == null ? null : f.grace_period_end,",
+   "    grace_period_end: f.grace_period_end == null ? new Date(Date.now() + 7*86400000).toISOString() : f.grace_period_end,",
+   ['webBilling','stripeLifecycle']],
+  ['web: checkout stops naming the provider it is asking about', 'api/_checkout.js',
+   "    provider: P.PROVIDER,\n    offerCode: offerForBody ? offerForBody.code : null",
+   "    offerCode: offerForBody ? offerForBody.code : null",
+   ['webBilling','stripeFoundation']],
+  ['web: reconcile stops checking the subscription belongs to the caller',
+   'api/_subscription.js',
+   "  if (!facts.account_id || facts.account_id !== expectedAccountId){",
+   "  if (false){",
+   ['webBilling']],
+  ['web: reconcile stops checking the session belongs to the caller',
+   'api/_subscription.js',
+   "  if (!sessionAccount || sessionAccount !== uid){",
+   "  if (false){",
+   ['webBilling']],
+  ['web: a session id is put in a URL without a shape check', 'api/_stripe.js',
+   "  if (!/^cs_[A-Za-z0-9_]+$/.test(String(sessionId))) return { ok: false, code: 'session_id_malformed' };",
+   "",
+   ['webBilling']],
+  ['web: cancelling ends the subscription instead of the renewal', 'api/_stripe.js',
+   "    cancel_at_period_end: 'true'",
+   "    cancel_at_period_end: 'false'",
+   ['webBilling']],
+  ['web: the retired purchase door reopens', 'api/_subscription.js',
+   "      return S.json(res, 410, { error: 'gone', code: 'USE_CHECKOUT_ENDPOINT',",
+   "      return S.json(res, 200, { checkout_url: process.env.VVV_CHECKOUT_URL, code: 'USE_CHECKOUT_ENDPOINT',",
+   ['lockedShell','webBilling']],
+  ['web: the preview promises a trial it has not checked', 'api/_preview.js',
+   "  const trialAvailable = !!(purchase && purchase.trial && purchase.trial.eligible);",
+   "  const trialAvailable = true;",
+   ['webBilling']],
+  ['web: a purchase can be re-pointed at another athlete', 'api/_commercial-store.js',
+   "  if (owner.accountId && owner.accountId !== n.row.account_id){",
+   "  if (false){",
+   ['webBilling','commercialCore','stripeLifecycle']],
+  ['web: the projection reads its state off the wrong source again',
+   'api/_entitlement.js',
+   "    if (lead.reason === 'trial') state = 'trial';\n    else if (lead.reason === 'grace_period') state = 'grace';",
+   "    if (r.reason === 'trial') state = 'trial';\n    else if (r.reason === 'grace_period') state = 'grace';",
+   ['webBilling','commercialCore']],
 
   // ---- CANCELLATION ----
   ['cancellation: a cancelled paid period ends immediately', 'api/_entitlement.js',

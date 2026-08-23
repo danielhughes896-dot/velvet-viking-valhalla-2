@@ -431,6 +431,68 @@ test('a reconcile racing the webhook spends one allowance between them', async (
   });
 });
 
+test('cancelling during the trial keeps the fortnight and stops the renewal', async () => {
+  /* Stripe does not move a subscription to 'cancelled' merely because
+     auto-renew was switched off, so the row stays 'trialing' and access runs to
+     trial_end. Somebody who tries Valhalla for a week and decides against it
+     keeps the week they were promised. */
+  await withWorld({}, async ({ f, stripe, api }) => {
+    await withHook(f, stripe, stripe.put(stripe.sub({ id: 'sub_t' })), 'evt_1');
+    assert.equal(resolveAt(f, T0 + days(3)).reason, 'trial');
+
+    const r = await api.call('subscription', 'POST', { action: 'cancel' });
+    assert.equal(r.status, 200);
+    assert.equal(subRow(f).condition, 'trialing');
+    assert.equal(subRow(f).cancel_at_period_end, true);
+    assert.equal(resolveAt(f, T0 + days(13)).active, true, 'the fortnight was promised');
+    assert.equal(resolveAt(f, T0 + days(15)).active, false, 'and it does not renew');
+  });
+});
+
+test('the trial converts to paid without a second decision anywhere', async () => {
+  await withWorld({}, async ({ f, stripe }) => {
+    await withHook(f, stripe, stripe.sub({ id: 'sub_c' }), 'evt_1');
+    assert.equal(entRow(f).state, 'trial');
+
+    await withHook(f, stripe, stripe.sub({ id: 'sub_c', status: 'active',
+      current_period_start: secs(T0 + days(14)), current_period_end: secs(T0 + days(44)) }),
+      'evt_2', T0 + days(14));
+
+    assert.equal(subRow(f).condition, 'active');
+    assert.equal(resolveAt(f, T0 + days(20)).reason, 'paid');
+    /* Projected at a stated instant rather than at the suite's wall clock: the
+       projection the webhook writes is resolved at real `now`, and pinning a
+       lifecycle transition to whatever day the tests happen to run is how a
+       suite starts failing in September. */
+    assert.equal(E.projectToEntitlementRow(resolveAt(f, T0 + days(20)), null).state, 'active');
+    assert.equal(f.rows('subscriptions').length, 1, 'the same relationship, not a new one');
+    assert.equal(accountRow(f).trial_consumed_at, new Date(T0).toISOString(),
+      'and the allowance is where it was');
+  });
+});
+
+test('opening checkout twice does not create two subscriptions or spend two trials', async () => {
+  await withWorld({}, async ({ f, stripe, api }) => {
+    /* Two tabs, or an impatient athlete. Both are allowed to reach Checkout --
+       nothing has been bought yet -- and what matters is that only one purchase
+       can result. The second refusal comes from the canonical rule the moment
+       the first subscription exists. */
+    const a = await api.call('checkout', 'POST', { period: 'monthly' });
+    const b = await api.call('checkout', 'POST', { period: 'yearly' });
+    assert.equal(a.status, 200);
+    assert.equal(b.status, 200);
+    assert.equal(accountRow(f).trial_consumed_at, null);
+
+    const [first] = Object.keys(stripe.state.sessions);
+    await withHook(f, stripe, stripe.pay(first), 'evt_first');
+
+    const c = await api.call('checkout', 'POST', { period: 'yearly' });
+    assert.equal(c.status, 409);
+    assert.equal(c.json.error, 'already_subscribed_here');
+    assert.equal(f.rows('subscriptions').length, 1);
+  });
+});
+
 test('nothing anywhere in the repository clears a consumed trial', () => {
   /* A trial you can reset is a trial you can farm, so the guarantee is the
      ABSENCE of a code path rather than the correctness of one. */
@@ -667,6 +729,56 @@ test('an event we cannot attribute creates nothing', async () => {
   });
 });
 
+test('an event naming a different athlete cannot move an existing purchase', async () => {
+  /* account_id is the one column on a subscription that is OURS. The DDL says
+     so and the store's column list says so -- and until this pass nothing
+     enforced it: the upsert merged every column it was handed, so a second
+     event for the same subscription carrying different metadata re-pointed
+     somebody's purchase at another athlete. One row, no error, and one
+     athlete's card paying for another athlete's access.
+//
+     It was never browser-reachable -- the metadata is ours and changing it
+     needs the provider's dashboard -- which is exactly why it survived review
+     as a comment rather than a check. */
+  await withWorld({}, async ({ f, stripe, api }) => {
+    await withHook(f, stripe, stripe.sub({ id: 'sub_m' }), 'evt_1');
+    assert.equal(subRow(f).account_id, ATHLETE);
+
+    await api.hook(evt('evt_2', 'customer.subscription.updated',
+      stripe.sub({ id: 'sub_m', status: 'active',
+        metadata: { vvv_account_id: OTHER, vvv_offer: 'STANDARD_MONTHLY', vvv_period: 'monthly' } }),
+      T0 + days(1)));
+
+    assert.equal(f.rows('subscriptions').length, 1,
+      'one provider subscription is one row');
+    assert.equal(subRow(f).account_id, ATHLETE,
+      'and the purchase does not move to whoever the newest payload names');
+    assert.equal(subRow(f).condition, 'trialing',
+      'the refused event applied nothing at all, not merely the account column');
+    assert.equal(f.rows('billing_events').filter(e => e.result === 'account_mismatch').length, 1,
+      'recorded, so an operator can see it, rather than silently dropped');
+    assert.equal(accountRow(f).trial_consumed_at, new Date(T0).toISOString(),
+      'and the allowance stays where it was spent');
+  });
+});
+
+test('the replay key carries the provider, so two rails cannot collide', async () => {
+  /* Apple and Google will feed the same ledger and their event ids are their
+     own. A ledger keyed on the id alone would silently drop an Apple event
+     because Stripe had used the same string, and the symptom would be a
+     purchase that never activated. */
+  const ddl = read('supabase-commercial-core.sql');
+  assert.match(ddl, /billing_events_provider_identity[\s\S]{0,80}\(provider, provider_event_id\)/,
+    'the unique index must be on the PAIR');
+  await withWorld({}, async ({ f, stripe, api }) => {
+    await api.hook(evt('evt_shared_id', 'customer.subscription.created', stripe.sub({ id: 'sub_p' })));
+    const row = f.rows('billing_events')[0];
+    assert.equal(row.provider, 'web', 'stripe is never a provider value');
+    assert.equal(row.provider_event_id, 'evt_shared_id');
+    assert.equal(row.result, 'processed');
+  });
+});
+
 test('an event type that means nothing to an entitlement is acknowledged and ignored', async () => {
   await withWorld({}, async ({ f, api }) => {
     const r = await api.hook(evt('evt_charge', 'charge.succeeded', { id: 'ch_1' }));
@@ -741,6 +853,24 @@ test('a beta athlete may buy, and buying does not take the grant away', async ()
   });
 });
 
+test('no commercial event touches a beta athlete’s training history', async () => {
+  /* The fake database refuses an unknown table outright, so if any commercial
+     path reached `plans` or `strava_activities` this would throw rather than
+     quietly pass. Combined with the structural check earlier, that is both
+     halves of the guarantee: the code cannot name those tables, and nothing it
+     runs addresses them. */
+  await withWorld({ seed: { entitlement_grants: [betaGrant] } }, async ({ f, stripe, api }) => {
+    await api.call('subscription', 'GET');
+    await withHook(f, stripe, stripe.put(stripe.sub({ id: 'sub_b' })), 'evt_b');
+    await api.call('subscription', 'POST', { action: 'cancel' });
+
+    const touched = f.calls.map(c => c.path.split('?')[0]);
+    assert.deepEqual(touched.filter(p => /plans|strava|health/.test(p)), [],
+      'a commercial event reached something that is not commercial');
+    assert.equal(f.rows('entitlement_grants')[0].revoked_at, null);
+  });
+});
+
 test('the operator note on a beta row survives every projection', async () => {
   const r = resolveAt({ rows: t => t === 'entitlement_grants' ? [betaGrant] : [] }, T0);
   const projected = E.projectToEntitlementRow(
@@ -799,6 +929,57 @@ test('a checkout session belonging to somebody else unlocks nothing', async () =
     assert.equal(r.status, 403);
     assert.equal(r.json.error, 'not_your_session');
     assert.equal(f.rows('subscriptions').length, 0, 'nothing was written for the wrong athlete');
+  });
+});
+
+test('a subscription whose own metadata names somebody else is refused too', async () => {
+  /* TWO CHECKS, AND THE SECOND IS NOT REDUNDANT. The session check above stops
+     an athlete reconciling somebody else's checkout. This one stops a
+     SUBSCRIPTION whose own metadata names a different account from being
+     written against the caller -- which is reachable without a session at all,
+     because cancel and reactivate go through the same refresh.
+//
+     It happens for real: a subscription created in the Stripe dashboard rather
+     than through our checkout, a metadata field edited by hand, or a purchase
+     migrated between accounts. The answer is no, not "attach it to whoever
+     asked", because attaching it is how one athlete's card ends up paying for
+     another athlete's access.
+//
+     A mutation pass found this: disabling the check killed nothing, because
+     every test that reached it had already been stopped by the session check. */
+  await withWorld({}, async ({ f, stripe, api }) => {
+    await api.call('checkout', 'POST', { period: 'monthly' });
+    const sessionId = Object.keys(stripe.state.sessions)[0];
+    const sub = stripe.pay(sessionId);
+    // The session still names our athlete; the subscription behind it does not.
+    sub.metadata = { vvv_account_id: OTHER, vvv_offer: 'STANDARD_MONTHLY', vvv_period: 'monthly' };
+
+    const r = await api.call('subscription', 'POST', { action: 'reconcile', session_id: sessionId });
+    assert.equal(r.status, 403);
+    assert.equal(r.json.error, 'not_your_subscription');
+    assert.equal(f.rows('subscriptions').length, 0);
+    assert.equal(accountRow(f).trial_consumed_at, null,
+      'and it certainly does not spend the caller’s trial');
+  });
+});
+
+test('the same refusal protects cancel, which never sees a session at all', async () => {
+  await withWorld({}, async ({ f, stripe, api }) => {
+    const live = stripe.put(stripe.sub({ id: 'sub_live', status: 'active',
+      trial_start: null, trial_end: null,
+      current_period_start: secs(T0), current_period_end: secs(T0 + days(30)) }));
+    await withHook(f, stripe, live, 'evt_live');
+    assert.equal(subRow(f).cancel_at_period_end, false);
+
+    /* The row is ours -- readCommercialFacts filters on account_id -- but the
+       provider's copy has been re-pointed. The refresh must refuse rather than
+       rewrite our row from facts that belong to another account. */
+    live.metadata = { vvv_account_id: OTHER, vvv_offer: 'STANDARD_MONTHLY', vvv_period: 'monthly' };
+
+    const r = await api.call('subscription', 'POST', { action: 'cancel' });
+    assert.equal(r.status, 200, 'the provider accepted the cancellation, so we do not claim it failed');
+    assert.equal(r.json.result, 'cancelled_mirror_stale');
+    assert.equal(subRow(f).account_id, ATHLETE, 'and the row was not re-pointed');
   });
 });
 

@@ -234,9 +234,49 @@ function normaliseSubscription(input){
   return { ok: true, row: row };
 }
 
+/* ONE PROVIDER SUBSCRIPTION BELONGS TO ONE ACCOUNT, FOR EVER.
+ *
+ * The DDL says so and SUBSCRIPTION_COLUMNS says so -- "account_id is the one
+ * column that is OURS, and it is never written from a provider payload" -- and
+ * until this pass nothing enforced it. normaliseSubscription() writes account_id
+ * on every row, the upsert merges every column it is handed, so a second event
+ * for the same provider subscription carrying different metadata re-pointed
+ * somebody's purchase at another athlete. The row merged, so there was no
+ * second row and no error: the only symptom would have been one athlete's card
+ * paying for another athlete's access.
+ *
+ * It is not browser-reachable -- the metadata is ours and changing it needs
+ * access to the provider's dashboard -- which is why it survived review. It is
+ * still the difference between a documented invariant and an enforced one.
+ *
+ * THE HONEST LIMIT. This is a read followed by a write, so two simultaneous
+ * events could both pass the check. PostgREST gives conditional writes and
+ * unique constraints, not transactions across statements, and there is no
+ * constraint that expresses "this column may be set but never changed". The
+ * window is one round trip, both writers would have to be carrying conflicting
+ * metadata for the same subscription, and the correct fix if it ever matters is
+ * a BEFORE UPDATE trigger in the schema -- named here rather than implied away.
+ */
+async function ownerOfExisting(S, cfg, provider, providerSubscriptionId){
+  const r = await S.sb(cfg, '/subscriptions?select=account_id' +
+    '&provider=eq.' + q(provider) +
+    '&provider_subscription_id=eq.' + q(providerSubscriptionId) + '&limit=1');
+  if (!r.ok) return { ok: false };
+  const row = ((await rows(r)) || [])[0];
+  return { ok: true, accountId: row ? row.account_id : null };
+}
+
 async function upsertSubscription(S, cfg, input){
   const n = normaliseSubscription(input);
   if (!n.ok) return { ok: false, reason: n.reason };
+
+  const owner = await ownerOfExisting(S, cfg, n.row.provider, n.row.provider_subscription_id);
+  if (!owner.ok) return { ok: false, reason: 'read_failed' };
+  if (owner.accountId && owner.accountId !== n.row.account_id){
+    log('SUBSCRIPTION_ACCOUNT_MISMATCH sub=' + String(n.row.provider_subscription_id).slice(0, 8));
+    return { ok: false, reason: 'account_mismatch' };
+  }
+
   const r = await S.sb(cfg, '/subscriptions?on_conflict=provider,provider_subscription_id', {
     method: 'POST',
     body: JSON.stringify(n.row),
@@ -512,7 +552,7 @@ module.exports = {
   SUBSCRIPTION_COLUMNS,
   readCommercialFacts, resolveStandardEntitlement,
   ensureAccountCommercial, consumeTrialForAccount,
-  normaliseSubscription, upsertSubscription, lockAgreedPrice,
+  normaliseSubscription, upsertSubscription, ownerOfExisting, lockAgreedPrice,
   grantEntitlement, revokeGrant,
   claimBillingEvent, markBillingEventProcessed,
   mayStartStandardPurchase, syncEntitlementRow

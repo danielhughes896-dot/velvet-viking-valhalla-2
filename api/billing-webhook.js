@@ -156,6 +156,17 @@ async function handleStripe(req, res, cfg){
     environment: stripe.environment
   });
 
+  /* A subscription the provider now attributes to somebody else. Recorded and
+     dropped with a 200: a 5xx would have Stripe redeliver it until it gave up,
+     and redelivering it cannot make it attributable. */
+  if (!applied.ok && applied.code === 'account_mismatch'){
+    await Store.markBillingEventProcessed(S, cfg, {
+      provider: P.PROVIDER, provider_event_id: ev.provider_event_id, result: 'account_mismatch'
+    });
+    log('STRIPE_ACCOUNT_MISMATCH id=' + P.ref(ev.provider_event_id));
+    return S.json(res, 200, { ok: true, applied: false, reason: 'account_mismatch' });
+  }
+
   if (!applied.ok){
     await Store.markBillingEventProcessed(S, cfg, {
       provider: P.PROVIDER, provider_event_id: ev.provider_event_id,

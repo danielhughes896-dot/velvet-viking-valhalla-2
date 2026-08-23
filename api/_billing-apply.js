@@ -143,7 +143,15 @@ async function applySubscriptionFacts(S, cfg, facts, opts){
     provider_customer_id: f.customer_ref,
     provider_updated_at: f.occurred_at
   });
-  if (!up.ok) return { ok: false, code: 'subscription_unwritable', reason: up.reason };
+  if (!up.ok){
+    /* A subscription whose provider metadata now names a DIFFERENT account is
+       not a transient failure and must not be retried into existence. It is
+       recorded and dropped, exactly like an unattributable event: the correct
+       resolution is an operator looking at why the provider's copy moved, not
+       this code choosing an owner. */
+    if (up.reason === 'account_mismatch') return { ok: false, code: 'account_mismatch' };
+    return { ok: false, code: 'subscription_unwritable', reason: up.reason };
+  }
 
   /* THE AGREEMENT, LOCKED ONCE. Deliberately not part of the upsert: that
      merges every column it is handed on every delivery, so an agreed price
