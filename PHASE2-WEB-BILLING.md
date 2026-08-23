@@ -319,11 +319,14 @@ A surface may show *"start your 14-day trial"* whenever `available` is true. On
 blocked it** — "you have already used your free trial" and "you already have a
 subscription" are different sentences to different people.
 
-`start.html` does not yet read this field: its trial card is gated on
-authentication alone, so a signed-in athlete who has already used their trial,
-or who already subscribes, is shown the button and told no only after pressing
-it. That is a WEBSITE presentation matter and this contract is what fixes it.
-Not changed here — Phase 2 does not redesign WEBSITE surfaces.
+`start.html` does not yet read this field. Through the canonical nine-stage
+builder its trial card is gated on authentication alone — `save-card` while
+signed out, `trial-card` once signed in — so a signed-in athlete who has
+already used their trial, or who already subscribes, is shown *"Start my
+14-day trial"* and told no only after pressing it. Nothing is charged and no
+allowance moves; the refusal is the canonical one, with a named reason. It is
+a WEBSITE presentation matter and this contract is what fixes it. **Not changed
+here — Phase 2 does not redesign WEBSITE surfaces.**
 
 ---
 
@@ -504,7 +507,7 @@ most of what an adapter can get wrong.
 `test/commercialCore.test.js`, `test/commercialAuthority.test.js`,
 `test/providerTrial.test.js`, `test/billingWebhook.test.js` — the parts.
 
-**2211 tests, 0 failures.**
+**2230 tests, 0 failures.**
 
 `test/mutation/run.js` — 13 web-billing cases and 29 commercial cases, all
 killed. A mutation pass is what proves the tests *would* fail: a guard nothing
