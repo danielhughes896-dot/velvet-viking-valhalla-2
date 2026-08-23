@@ -293,6 +293,203 @@ test('an athlete who has already used their fortnight is told so on the preview'
   });
 });
 
+/* ---------------------------------------------------------------------------
+ * THE PREVIEW COMES BEFORE THE ACCOUNT NOW.
+ *
+ * The value-first journey puts the personalised plan in front of a prospect who
+ * has never signed in, which means /api/preview answers two different questions
+ * depending on whether it knows who is asking. Getting that wrong is cheap to
+ * do and expensive to notice, because both failures are silent:
+ *
+ *   hardcoding `available: true`   tells a returning athlete who already spent
+ *                                  their fortnight that one is waiting, and
+ *                                  they find out at the payment step
+ *   resolving eligibility with no  tells every anonymous prospect there is no
+ *   uid to resolve it for          trial, on the acquisition surface, to
+ *                                  exactly the audience the offer exists for
+ *
+ * Both of those were live in this repository at different moments. These cases
+ * pin the seam between them.
+ * ------------------------------------------------------------------------- */
+const PREVIEW_BODY = {
+  distanceKey: 'marathon', purpose: 'race', weeks: 12, volume: 50,
+  activeDays: [1, 3, 5, 0], longRunDay: 0, benchmarkSeconds: 2700
+};
+
+test('an anonymous prospect gets a plan and is told the trial exists', async () => {
+  await withWorld({ uid: null }, async ({ f, api }) => {
+    const r = await api.call('preview', 'POST', PREVIEW_BODY);
+    assert.equal(r.status, 200, 'the acquisition journey must not require an account');
+    assert.ok(r.json.preview, 'and it must actually be their plan');
+
+    assert.equal(r.json.trial.available, true, 'the public offer is real and is stated');
+    assert.equal(r.json.trial.days, Prod.TRIAL_DAYS);
+    assert.equal(r.json.trial.reason, 'anonymous');
+    /* THE FIELD THAT KEEPS THIS HONEST. `resolved: false` says in the payload,
+       not in a comment, that nobody looked this athlete up -- because there is
+       no athlete. A client that treats it as an eligibility verdict is reading
+       a field that told it otherwise. */
+    assert.equal(r.json.trial.resolved, false);
+  });
+});
+
+test('an anonymous preview looks nothing up and changes nothing', async () => {
+  await withWorld({ uid: null }, async ({ f, api }) => {
+    const before = JSON.stringify(f.db);
+    const r = await api.call('preview', 'POST', PREVIEW_BODY);
+    assert.equal(r.status, 200);
+
+    /* NO ATHLETE-SPECIFIC ANSWER MAY BE INFERRED WITHOUT A UID, and the proof
+       is that the commercial tables were never read. A lookup keyed on null is
+       not a lookup; it is a fail-closed answer wearing an athlete's clothes,
+       and that is precisely what produced "no trial for you" on the public
+       acquisition surface. */
+    const commercial = f.calls.filter(c =>
+      /account_commercial|subscriptions|entitlement_grants|entitlements/.test(c.path));
+    assert.deepEqual(commercial, [], 'an anonymous preview asked the commercial core about somebody');
+
+    assert.equal(JSON.stringify(f.db), before, 'and it wrote nothing at all');
+  });
+});
+
+test('a signed-in athlete with an unspent allowance is told the truth', async () => {
+  await withWorld({}, async ({ api }) => {
+    const r = await api.call('preview', 'POST', PREVIEW_BODY);
+    assert.equal(r.json.trial.available, true);
+    assert.equal(r.json.trial.reason, 'eligible');
+    assert.equal(r.json.trial.resolved, true, 'this one WAS resolved against an athlete');
+  });
+});
+
+test('a signed-in athlete who already subscribes is not offered a trial', async () => {
+  /* THE HALF THAT IS EASY TO MISS. trialEligibility() answers one narrow
+     question -- has the fortnight been spent -- and a paying subscriber has
+     usually never spent it. Reading only that half offers a free trial to a
+     customer who is already paying, who presses the button and is refused at
+     checkout. Same dishonesty as the hardcoded `true`, from the other side. */
+  await withWorld({ seed: { subscriptions: [{
+    account_id: ATHLETE, provider: 'web', provider_subscription_id: 'sub_live',
+    product_code: 'VALHALLA_STANDARD', offer_code: 'STANDARD_MONTHLY',
+    condition: 'active', current_period_end: new Date(Date.now() + days(20)).toISOString()
+  }] } }, async ({ api }) => {
+    const r = await api.call('preview', 'POST', PREVIEW_BODY);
+    assert.equal(r.status, 200, 'they may still rebuild and look at plans');
+    assert.equal(r.json.trial.available, false);
+    assert.equal(r.json.trial.reason, 'already_subscribed_here',
+      'the sentence a screen says must name which half blocked it');
+    assert.equal(r.json.trial.resolved, true);
+  });
+});
+
+test('the preview fails closed when the commercial core cannot be read', async () => {
+  await withWorld({}, async ({ api }) => {
+    const realSb = S.sb;
+    S.sb = async (cfg, p, o) => /account_commercial|subscriptions|entitlement_grants/.test(p)
+      ? { ok: false, status: 503, json: async () => null }
+      : realSb(cfg, p, o);
+    try{
+      const r = await api.call('preview', 'POST', PREVIEW_BODY);
+      assert.equal(r.status, 200, 'a plan can still be shown');
+      assert.equal(r.json.trial.available, false,
+        'but no trial is promised that we may not be able to honour');
+      assert.equal(r.json.trial.resolved, true);
+    } finally { S.sb = realSb; }
+  });
+});
+
+test('an anonymous "trial available" cannot survive contact with the real athlete', async () => {
+  /* THE WHOLE POINT OF `resolved: false`. Presentation is not entitlement, and
+     the proof is that the SAME visitor, once they authenticate as an athlete
+     who has already had their fortnight, is refused -- by the canonical rule,
+     at the door, before a provider is called.
+//
+     Nothing between the anonymous claim and the refusal can be tampered with to
+     change the outcome, because the anonymous claim is not an input to
+     anything: it is a sentence on a page. */
+  await withWorld({ uid: null, seed: { account_commercial: [
+    { account_id: ATHLETE, trial_consumed_at: new Date(T0 - days(90)).toISOString(),
+      trial_consumed_provider: 'web' } ] } }, async ({ f, stripe, api }) => {
+
+    const anon = await api.call('preview', 'POST', PREVIEW_BODY);
+    assert.equal(anon.json.trial.available, true, 'the public offer said yes');
+    assert.equal(anon.json.trial.resolved, false);
+
+    // ...and now they sign in as somebody who has already used theirs.
+    api.signInAs(ATHLETE);
+
+    const named = await api.call('preview', 'POST', PREVIEW_BODY);
+    assert.equal(named.json.trial.available, false, 'the same page, now resolved, says no');
+    assert.equal(named.json.trial.reason, 'already_used');
+
+    /* And the door agrees, which is the part that actually matters: the
+       purchase is still permitted -- reactivation must not be blocked forever
+       -- but it carries no second fortnight. */
+    const may = E.mayStartStandardPurchase({
+      account: accountRow(f), subscriptions: [], provider: 'web', now: new Date() });
+    assert.equal(may.allowed, true);
+    assert.equal(may.trial.eligible, false);
+    assert.equal(may.trial.reason, 'already_used');
+
+    /* Proven all the way to the provider: the checkout Stripe is asked for
+       still carries fourteen days, because Stripe does not decide who is
+       entitled to them -- our allowance does, and it is already spent, so the
+       webhook's conditional write will match zero rows. */
+    const started = await api.call('checkout', 'POST', { period: 'monthly' });
+    assert.equal(started.status, 200);
+    const sub = stripe.pay(Object.keys(stripe.state.sessions)[0]);
+    await withHook(f, stripe, sub, 'evt_second_go');
+    assert.equal(accountRow(f).trial_consumed_at, new Date(T0 - days(90)).toISOString(),
+      'the original stamp is untouched -- no second fortnight was granted');
+  });
+});
+
+test('the value-first journey works end to end, anonymous start to entered app', async () => {
+  /* BUILDER -> PREVIEW -> SAVE MY PLAN / AUTH -> TRIAL -> ENTITLEMENT -> APP,
+     as one walk, because each leg passing in isolation is what let the preview
+     and the commercial core disagree about anonymity in the first place. */
+  await withWorld({ uid: null, commercialRequired: true }, async ({ f, stripe, api }) => {
+    // 1. A stranger builds a plan and sees it.
+    const preview = await api.call('preview', 'POST', PREVIEW_BODY);
+    assert.equal(preview.status, 200);
+    assert.ok(preview.json.preview.firstWeek, 'they see a real week, not a teaser');
+    /* The continuous-build echo main added: the arguments that produced this
+       preview, banked so the real plan is the same two engine calls. Phase 2
+       must not have dropped it in the merge. */
+    assert.ok(preview.json.build, 'the build echo must survive the commercial merge');
+    assert.equal(preview.json.build.purpose, 'race');
+    assert.equal(preview.json.build.weeks, 12);
+    assert.equal(preview.json.trial.available, true);
+
+    // 2. Save My Plan -- they authenticate. Still nothing bought, nothing spent.
+    api.signInAs(ATHLETE);
+    assert.equal(accountRow(f).trial_consumed_at, null);
+
+    // 3. They start the trial. One door, server-resolved price.
+    const started = await api.call('checkout', 'POST', { period: 'monthly' });
+    assert.equal(started.status, 200);
+    assert.match(started.json.url, /^https:\/\/checkout\.stripe\.test\//);
+
+    // 4. They pay. The provider tells us, and only then does anything change.
+    const sub = stripe.pay(Object.keys(stripe.state.sessions)[0]);
+    const applied = await withHook(f, stripe, sub, 'evt_journey');
+    assert.equal(applied.json.applied, true);
+
+    // 5. The entitlement is a projection of the facts, not of the redirect.
+    assert.equal(accountRow(f).trial_consumed_at, new Date(T0).toISOString());
+    assert.equal(subRow(f).condition, 'trialing');
+    assert.equal(entRow(f).state, 'trial');
+
+    // 6. And the gate lets them in -- with enforcement ON, which is the whole
+    //    point of the walk.
+    const decision = A.resolveAccess({
+      uid: ATHLETE, entitlement: entRow(f),
+      accountRequired: true, commercialRequired: true, now: new Date(T0 + days(3))
+    });
+    assert.equal(decision.allow, true);
+    assert.equal(decision.reason, 'subscription_trial');
+  });
+});
+
 test('checkout asks for the right price, a card, and fourteen days', async () => {
   await withWorld({}, async ({ stripe, api }) => {
     const r = await api.call('checkout', 'POST', { period: 'yearly' });

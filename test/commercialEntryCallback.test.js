@@ -276,10 +276,47 @@ test('/start owns every commercial-entry state', () => {
 });
 
 test('an athlete with access is not shown acquisition screens again', () => {
+  /* Was a whole-function textual-order check: 'access === true' had to occur
+     before "show('pane-build')" anywhere in route(). That assumption held
+     only under the old account-first order, where the ONLY way to reach
+     pane-build was through the post-auth access check. Under the approved
+     journey (builder -> preview -> "Save My Plan" -> trial -> app) an
+     anonymous visitor legitimately reaches pane-build first, through a
+     branch that never touches access at all -- so the same textual check
+     now fires on a branch ordering that was never the one it meant to
+     guard. The real invariant survives narrowed to where it actually lives:
+     inside the post-authentication branch, access === true must lead
+     straight into the app and never into any acquisition pane. */
   const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
   const fn = /function route\(\)\{[^]*?\n  \}/.exec(src)[0];
-  assert.ok(fn.indexOf('access === true') < fn.indexOf("show('pane-build')"),
-    'the build gateway is reached before the access check');
+  const seg = /if \(b\.access === true\)\{[^]*?\}/.exec(fn);
+  assert.ok(seg, 'the access check no longer exists in route()');
+  assert.match(seg[0], /enter\(\)/, 'access does not lead straight into the app');
+  assert.doesNotMatch(seg[0], /show\(/, 'the access branch still shows an acquisition pane');
+});
+
+// ===========================================================================
+// VALHALLA FIRST-TIME ONBOARDING ORDER
+// builder -> personalised preview -> "Save My Plan" / authenticate -> trial
+// or purchase -> app. See test/onboardingOrder.test.js for the full matrix;
+// these two stay here because they are about the SAME route() this suite
+// already reads apart.
+// ===========================================================================
+test('an anonymous visitor is routed to the builder, not to sign-in', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
+  const fn = /function route\(\)\{[^]*?\n  \}/.exec(src)[0];
+  const noTok = /if \(!tok\)\{[^]*?\n    \}/.exec(fn);
+  assert.ok(noTok, 'the no-session branch was not found in route()');
+  assert.match(noTok[0], /show\('pane-build'\)/,
+    'a visitor with no session is not sent to the builder first');
+  assert.doesNotMatch(noTok[0], /show\('pane-auth'\)/,
+    'a visitor with no session is still sent to sign-in before the builder');
+});
+
+test('sign-in is still one tap away for a returning athlete', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'start.html'), 'utf8');
+  assert.match(src, /id="signin-instead"/, 'the builder screen has no direct sign-in route');
+  assert.match(markup(src), /Sign in/, 'the direct route is not worded as a sign-in');
 });
 
 test('the entry path is stated once and routed once', () => {

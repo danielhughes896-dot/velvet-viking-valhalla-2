@@ -6665,6 +6665,128 @@ function adoptCloudState(remote, keepDevicePrefs){
   persistState();
   renderApp();
 }
+/* =========================================================
+   THE CONTINUOUS BUILD -- adopting a plan built before authentication.
+
+   The approved acquisition journey is Builder -> Personalised Preview ->
+   Save My Plan -> Authenticate -> Trial/Purchase -> App. /start's mini-
+   builder generates that preview through /api/preview, which runs these
+   exact same buildBlockWeeks()/buildDaysFromWeeks() functions server-side
+   (see api/_preview.js) and returns, alongside the preview, the precise
+   arguments it used -- api/_preview.js's buildEcho(). /start banks that
+   verbatim to localStorage under 'vvv_pending_build', same-origin and so
+   already readable here without any new transport.
+
+   Adopting it is not a second, looser copy of handleGeneratePlan(): it is
+   the same two engine calls, given the SAME already-shaped arguments the
+   preview was built from, so the plan an athlete wakes up with here is
+   byte-for-byte the one they already approved -- not a re-derivation that
+   could drift from it. */
+var PENDING_BUILD_KEY = 'vvv_pending_build';
+var PENDING_BUILD_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+
+/* Unverified, and deliberately not a security boundary -- the server has
+   already verified whatever token signed this athlete in. This exists only
+   to refuse adopting a build tagged (by /start, the first time it saw that
+   build authenticated) for a DIFFERENT account: an abandoned build on a
+   shared device must not become a stranger's plan. */
+function subFromCloudToken(){
+  try{
+    var tok = cloudSession && cloudSession.access_token;
+    if (!tok) return null;
+    var parts = String(tok).split('.');
+    if (parts.length < 2) return null;
+    var payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (payload.length % 4) payload += '=';
+    return JSON.parse(decodeURIComponent(escape(atob(payload)))).sub || null;
+  }catch(e){ return null; }
+}
+
+/* Returns true if a plan was constructed. Always consumes the pending
+   record -- on success AND on failure -- so nothing here can be retried
+   into a worse state, and a corrupt or stale record cannot linger forever. */
+function adoptPendingBuildIfAny(){
+  if (state.setup) return false;   // never overwrite a plan that already exists
+  var raw;
+  try{ raw = window.localStorage.getItem(PENDING_BUILD_KEY); }catch(e){ return false; }
+  if (!raw) return false;
+  var pending;
+  try{ pending = JSON.parse(raw); }catch(e){ pending = null; }
+  try{ window.localStorage.removeItem(PENDING_BUILD_KEY); }catch(e){}
+  if (!pending || !pending.build) return false;
+  if (!pending.savedAt || (Date.now() - pending.savedAt) > PENDING_BUILD_MAX_AGE_MS) return false;
+
+  var sub = subFromCloudToken();
+  if (pending.uid && sub && pending.uid !== sub) return false;
+
+  var b = pending.build;
+  /* Re-validated against the REAL builder's own rules (handleGeneratePlan()'s
+     3-6 running days, weeks 4-24, volume > 0) -- /start's mini-form is a
+     separate surface, and nothing that could not have come out of the real
+     builder should ever be silently adopted as one. */
+  if (!DISTANCE_PROFILES[b.distanceKey]) return false;
+  if (!isBlockPurpose(b.purpose) || b.purpose === 'recovery') return false;
+  if (!(b.volume > 0)) return false;
+  if (!Array.isArray(b.activeDays) || b.activeDays.length < 3 || b.activeDays.length > 6) return false;
+  if (b.activeDays.indexOf(b.longRunDay) === -1) return false;
+  if (!(b.weeks >= 4 && b.weeks <= 24)) return false;
+  if (!(b.benchmarkSeconds > 0)) return false;
+  if (!b.startDate || !b.raceDate) return false;
+
+  try{
+    var schedule = { activeDays: b.activeDays, longRunDay: b.longRunDay };
+    var blockResult = buildBlockWeeks(b.distanceKey, b.volume, b.weeks, { steady: b.purpose === 'maintain' });
+    var days = buildDaysFromWeeks(blockResult, b.raceDate, schedule, b.startDate, !!b.hasEvent);
+
+    var block = openBlock({ purpose: b.purpose, startDate: b.startDate,
+                             distanceKey: b.distanceKey, goalDate: b.raceDate, hasEvent: !!b.hasEvent });
+
+    /* Same goal-suggestion arithmetic handleSuggestGoals() offers from the
+       builder's own "Suggest" button -- and the SAME three targets it
+       offers, Dream/Solid/Safety Net. Which one is active is the athlete's
+       own choice, made on /start before a preview even existed (see
+       api/_preview.js's GOAL_AMBITION_MULT and start.html's "How ambitious
+       should this block be" control) -- not invented here. Whichever they
+       picked is exactly what the preview's own training paces were already
+       computed from, so entering the app hands them no different a target
+       than the one they already saw and approved. */
+    var benchProfile = DISTANCE_PROFILES[b.benchmarkDistanceKey || '10k'];
+    var profile = DISTANCE_PROFILES[b.distanceKey];
+    var vdotBench = vdotFromPerformance(benchProfile.raceKm * 1000, b.benchmarkSeconds);
+    var mults = { A: 1.06, B: 1.00, C: 0.94 };
+    var goals = {};
+    GOAL_KEYS.forEach(function(k){
+      var t = equivalentTimeSec(vdotBench * mults[k], profile.raceKm * 1000);
+      if (t) goals[k] = { timeSec: t };
+    });
+    var chosenAmbition = (mults[b.goalAmbition] != null) ? b.goalAmbition : 'B';
+    var activeGoal = goals[chosenAmbition] ? chosenAmbition
+      : (GOAL_KEYS.filter(function(k){ return goals[k]; })[0] || null);
+    if (!activeGoal) return false;   // an unreadable benchmark -- meet the ordinary builder instead
+
+    state.setup = {
+      distanceKey: b.distanceKey, currentVolume: b.volume, raceDate: b.raceDate, hasEvent: !!b.hasEvent,
+      startDate: b.startDate, planWeeks: blockResult.planWeeks, schedule: schedule,
+      blockId: block.id, purpose: b.purpose,
+      benchmark: { distanceKey: b.benchmarkDistanceKey || '10k', timeSec: b.benchmarkSeconds },
+      goals: goals, activeGoal: activeGoal,
+      paceOverrides: {},
+      /* Never carried across from the anonymous mini-builder, which never
+         asks for them. Left null, exactly as a first-time plan built without
+         them always has been -- renderHealthConsentCard() already asks on
+         Today the moment it finds a plan with consent unanswered. */
+      lthr: null, maxHR: null,
+      experience: athleteExperience()
+    };
+    state.days = days;
+    initExpanded();
+    scheduleSave();
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
 // Reached only with a SUCCESSFUL fetch, so a network failure can never take
 // a plan away.
 function cloudReconcile(){
@@ -6682,6 +6804,20 @@ function cloudReconcile(){
 
     if (!remoteHasPlan){
       cloudStatus='synced';
+      /* No plan anywhere for this athlete -- ownership was just settled
+         above, so this is genuinely theirs to build. If they built one
+         before authenticating, adopt it now rather than asking them to
+         answer the builder again. */
+      var justAdopted = false;
+      if (!localHasPlan){ justAdopted = adoptPendingBuildIfAny(); localHasPlan = localHasPlan || justAdopted; }
+      /* init() already painted the app once, synchronously, before this
+         async reconcile could possibly have finished -- that first paint
+         necessarily showed the builder gate, because there was still no
+         plan to show. Adopting one here changes state.setup/days but not
+         what is on screen; without repainting, the athlete would be stuck
+         looking at "Build Your Training Block" with a real plan already
+         sitting in memory one tap away from nowhere. */
+      if (justAdopted) renderApp();
       var seed = localHasPlan ? cloudPutPlan().catch(function(){ cloudStatus='error'; }) : Promise.resolve();
       return seed.then(patchCloudCard);
     }
@@ -7070,7 +7206,20 @@ function cloudInit(){
       /* Unreachable is not expired. Keep the session, say the account cannot be
          reached, and try again on the next launch or foreground -- the local
          plan is already painted and the athlete loses nothing. */
-      if (cloudRefreshUnreachable){ cloudStatus='error'; patchCloudCard(); return null; }
+      if (cloudRefreshUnreachable){
+        cloudStatus='error'; patchCloudCard();
+        /* A signed-in athlete with no local plan and no way to ask the cloud
+           whether one exists must not be stuck at the builder gate over a
+           network blip -- init()'s own fallback only fires when cloud sync
+           is not GOING to run at all, and here it tried and failed, which
+           is a case init() cannot have predicted. Still safe: this only
+           fires when state.setup is null, and if a real cloud plan turns up
+           once connectivity returns, cloudReconcile() will find both sides
+           populated and go through its existing conflict handling rather
+           than silently overwriting anything. */
+        if (!state.setup && adoptPendingBuildIfAny()) renderApp();
+        return null;
+      }
       cloudSignOut(); return null;
     }
     var who = cloudSession.user_id ? Promise.resolve() : cloudLoadUser();
@@ -24996,6 +25145,24 @@ function patchNotifyToggle(){
    ========================================================= */
 function init(){
   loadState();
+  /* THE FALLBACK PATH ONLY. The primary adoption hook lives inside
+     cloudReconcile()'s `!remoteHasPlan` branch below, because that is the
+     only point in the app that has already settled whether a plan exists
+     for this athlete ANYWHERE -- adopting here unconditionally would risk
+     constructing a plan from a stale local build moments before cloud sync
+     was about to pull down this athlete's REAL plan from a different
+     device, producing a spurious "two plans found" conflict.
+
+     So this only fires when cloud sync is never going to run at all: cloud
+     disabled, or no session stored locally for it to find. Read the same
+     storage cloudInit() itself reads rather than the cloudSession variable,
+     which is not hydrated yet at this point in startup. */
+  if (!state.setup){
+    var storedCloudSession = null;
+    try{ storedCloudSession = readStored(CLOUD_SESSION_KEY); }catch(e){}
+    var cloudWillReconcile = cloudConfigured() && !!(storedCloudSession && storedCloudSession.access_token);
+    if (!cloudWillReconcile) adoptPendingBuildIfAny();
+  }
   if (state.setup && state.days && state.days.length) initExpanded();
   renderApp();
   startCountdownTimer();

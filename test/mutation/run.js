@@ -158,9 +158,20 @@ const CASES = [
    "      return S.json(res, 410, { error: 'gone', code: 'USE_CHECKOUT_ENDPOINT',",
    "      return S.json(res, 200, { checkout_url: process.env.VVV_CHECKOUT_URL, code: 'USE_CHECKOUT_ENDPOINT',",
    ['lockedShell','webBilling']],
+  ['web: an anonymous prospect is told there is no trial', 'api/_preview.js',
+   "  if (!uid){\n    return { available: true, days: Prod.TRIAL_DAYS, reason: 'anonymous', resolved: false };\n  }",
+   "",
+   ['webBilling','commercialEntry','onboardingOrder']],
+  ['web: a paying subscriber is offered a free trial', 'api/_preview.js',
+   "    available: mayBuy && unspent,",
+   "    available: unspent,",
+   ['webBilling']],
+  /* The original hardcoded claim, restated against the shape the value-first
+     merge left behind: an authenticated athlete's answer must come from the
+     canonical rule, never from a constant. */
   ['web: the preview promises a trial it has not checked', 'api/_preview.js',
-   "  const trialAvailable = !!(purchase && purchase.trial && purchase.trial.eligible);",
-   "  const trialAvailable = true;",
+   "    available: mayBuy && unspent,",
+   "    available: true,",
    ['webBilling']],
   ['web: a purchase can be re-pointed at another athlete', 'api/_commercial-store.js',
    "  if (owner.accountId && owner.accountId !== n.row.account_id){",

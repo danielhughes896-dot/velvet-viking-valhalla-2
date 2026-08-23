@@ -71,9 +71,19 @@ test('the preview withholds the coaching product', () => {
   }
 });
 
-test('an unauthenticated caller gets no preview', () => {
+test('the preview is reachable without authentication -- that is the point of it now', () => {
+  /* Was: 'an unauthenticated caller gets no preview', asserting a 401 gate.
+     That gate was correct for the acquisition order it was built under
+     (sign in, then build). The approved journey is now builder -> preview ->
+     "Save My Plan" -> trial, so an anonymous visitor must reach this endpoint
+     BEFORE they have ever authenticated. generate() was always a pure function
+     of the validated input -- see 'generating a preview writes nothing
+     commercial' below -- so nothing about removing the gate changes what the
+     preview can do; it only changes who may ask for it. */
   const src = read('api/_preview.js');
-  assert.match(src, /if \(!uid\) return S\.json\(res, 401/);
+  assert.equal(/if \(!uid\) return S\.json\(res, 401/.test(src), false,
+    'the preview still hard-gates on a signed-in caller');
+  assert.match(src, /userIdFromRequest/, 'the caller is still identified when a token is present');
 });
 
 test('generating a preview writes nothing commercial', () => {
@@ -180,8 +190,12 @@ test('an athlete with access never sees an acquisition screen', () => {
   const html = read('start.html');
   assert.match(html, /if \(b\.access === true\)\{ enter\(\); return; \}/,
     'access short-circuits straight into the product');
-  // And "enter" means the server-gated route, not a client-side unlock.
-  assert.match(html, /var enter = function\(\)\{ location\.replace\('\/'\); \}/);
+  // And "enter" means the server-gated route, not a client-side unlock --
+  // it also clears any banked builder answers now, since the approved
+  // journey (builder -> preview -> "Save My Plan" -> trial -> app) can leave
+  // a pending build sitting in localStorage right up until this point, and
+  // it is stale the moment the athlete is actually inside the app.
+  assert.match(html, /var enter = function\(\)\{ clearPending\(\); location\.replace\('\/'\); \}/);
 });
 
 test('an expired athlete lands on the locked shell, not a dead end', () => {

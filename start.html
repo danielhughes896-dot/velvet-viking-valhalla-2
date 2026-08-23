@@ -76,9 +76,9 @@
 
   <!-- SIGNED OUT -->
   <div id="pane-auth" class="vvv-hidden">
-    <p class="step">Step one of three</p>
-    <h1 class="lead">Create your account, or sign in</h1>
-    <p class="say">One address is all we need. We send a link; opening it signs you in.
+    <p class="step vvv-hidden" id="auth-step">Step three of three</p>
+    <h1 class="lead" id="auth-heading">Sign in</h1>
+    <p class="say" id="auth-say">One address is all we need. We send a link; opening it signs you in.
        There is no password for you to create or remember.</p>
     <label for="email">Email address</label>
     <input id="email" type="email" autocomplete="email" inputmode="email"
@@ -100,10 +100,11 @@
 
   <!-- BUILD -->
   <div id="pane-build" class="vvv-hidden">
-    <p class="step">Step two of three</p>
+    <p class="step">Step one of three</p>
     <h1 class="lead">Build your plan</h1>
     <p class="say">Answer a few things and Valhalla will build a full programme around them.
        You will see it before you decide anything.</p>
+    <button type="button" class="vvv-btn vvv-btn-ghost" id="signin-instead">Trained with Valhalla before? Sign in</button>
 
     <!-- WHAT THE BLOCK IS FOR. The same four objectives the app's own builder
          offers, in the same order and under the same names. Recovery is not
@@ -157,13 +158,28 @@
       </div>
     </div>
 
+    <!-- HOW AMBITIOUS. The same three targets the app's own builder offers
+         from a benchmark -- Dream/Solid/Safety Net, here in the athlete's own
+         words -- and the athlete picks, rather than the preview silently
+         picking for them. "Match my fitness" is the pre-selected, no-stretch,
+         no-pullback default: exactly the pace the benchmark above already
+         shows, so an athlete who never touches this gets a plan that assumes
+         nothing about them either way. -->
+    <label>How ambitious should this block be</label>
+    <div class="days" id="ambition">
+      <button type="button" class="day" data-ambition="A">Push it</button>
+      <button type="button" class="day" data-ambition="B" aria-pressed="true">Match my fitness</button>
+      <button type="button" class="day" data-ambition="C">Play it safe</button>
+    </div>
+    <p class="quiet" id="ambition-say" style="margin:6px 0 0;"></p>
+
     <button class="vvv-btn" id="build" style="margin-top:18px;">Build my plan</button>
     <p class="err vvv-hidden" id="build-err"></p>
   </div>
 
   <!-- PREVIEW -->
   <div id="pane-preview" class="vvv-hidden">
-    <p class="step">Step three of three</p>
+    <p class="step">Step two of three</p>
     <h1 class="lead">Here is your programme</h1>
     <p class="say" id="pv-lead"></p>
 
@@ -193,22 +209,34 @@
        telling you what today is for, reading how it actually went, and adapting only when
        a real pattern appears.</p>
 
-    <div class="card">
-      <h3>Start your 14 days</h3>
-      <p class="say" style="margin:0 0 12px;">Choose how you would like to continue afterwards.
-         You will not be charged during the trial, and you can cancel any time before it ends.</p>
-      <div class="days" id="plan-choice">
-        <button type="button" class="day" data-period="monthly" aria-pressed="true">
-          <b>£11.99</b><br><span>per month</span></button>
-        <button type="button" class="day" data-period="yearly" aria-pressed="false">
-          <b>£89.99</b><br><span>per year</span></button>
-      </div>
-      <p class="quiet" id="choice-note">After 14 days this becomes £11.99 a month, unless you cancel.</p>
+    <!-- SAVE MY PLAN -- the authentication moment. The plan and preview above are
+         already the athlete's; this only keeps them from losing it. Shown until a
+         session exists, then replaced by the trial/purchase step it was gating. -->
+    <div class="card" id="save-card">
+      <h3>Save your plan</h3>
+      <p class="say" style="margin:0 0 12px;">One address is all we need. We will email you a
+         link — open it on this device and this exact plan is waiting. Nothing is charged
+         and nothing about it is lost.</p>
+      <button class="vvv-btn" id="save-plan">Save My Plan</button>
     </div>
 
-    <button class="vvv-btn" id="trial">Start my 14-day trial</button>
-    <p class="quiet" id="trial-note">A payment method is required to begin. Nothing is taken
-       until the trial ends.</p>
+    <div id="trial-card" class="vvv-hidden">
+      <div class="card">
+        <h3>Start your 14 days</h3>
+        <p class="say" style="margin:0 0 12px;">Choose how you would like to continue afterwards.
+           You will not be charged during the trial, and you can cancel any time before it ends.</p>
+        <div class="days" id="plan-choice">
+          <button type="button" class="day" data-period="monthly" aria-pressed="true">
+            <b>£11.99</b><br><span>per month</span></button>
+          <button type="button" class="day" data-period="yearly" aria-pressed="false">
+            <b>£89.99</b><br><span>per year</span></button>
+        </div>
+        <p class="quiet" id="choice-note">After 14 days this becomes £11.99 a month, unless you cancel.</p>
+      </div>
+      <button class="vvv-btn" id="trial">Start my 14-day trial</button>
+      <p class="quiet" id="trial-note">A payment method is required to begin. Nothing is taken
+         until the trial ends.</p>
+    </div>
     <button class="vvv-btn vvv-btn-ghost" id="rebuild" style="margin-top:10px;">Change something</button>
     <p class="err vvv-hidden" id="trial-err"></p>
   </div>
@@ -295,7 +323,61 @@
       return r.json().catch(function(){ return {}; }).then(function(b){ return { status:r.status, body:b }; });
     });
   }
-  var enter = function(){ location.replace('/'); };
+  /* Same as authed(), but a token is offered rather than required -- the
+     builder and its preview are reachable before an athlete has ever signed
+     in, so a caller here cannot demand a session the way checkout must. */
+  function apiCall(url, opts){
+    var t = storedToken();
+    opts = opts || {};
+    opts.headers = Object.assign({ 'content-type':'application/json' },
+      t ? { 'authorization':'Bearer ' + t } : {}, opts.headers || {});
+    opts.credentials = 'same-origin';
+    return fetch(url, opts).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(b){ return { status:r.status, body:b }; });
+    });
+  }
+
+  /* ---------- the banked plan ----------
+     The journey is now build -> preview -> "Save My Plan" -> trial, so an
+     anonymous visitor reaches the builder before they have ever signed in and
+     must not lose it crossing the magic-link round trip. /api/preview writes
+     nothing server-side (it is a pure function of the input, same as the real
+     engine), so there is no server record to reconcile -- keeping the answers
+     and the preview on this device, the same way the session token already
+     lives in localStorage, is the whole mechanism. */
+  var PENDING_KEY = 'vvv_pending_build';
+  /* An abandoned build must not sit forever waiting for someone else to walk
+     up to the same device and sign in. Two days is generous for a genuine
+     "let me sleep on it" and still short enough that a stale record cannot
+     silently outlive the athlete who typed it. */
+  var PENDING_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+  function savePending(obj){ try{ localStorage.setItem(PENDING_KEY, JSON.stringify(obj)); }catch(e){} }
+  function loadPending(){
+    try{
+      var p = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null');
+      if (!p) return null;
+      if (!p.savedAt || (Date.now() - p.savedAt) > PENDING_MAX_AGE_MS){ clearPending(); return null; }
+      return p;
+    }catch(e){ return null; }
+  }
+  function clearPending(){ try{ localStorage.removeItem(PENDING_KEY); }catch(e){} }
+  /* Read-only, unverified -- the server verifies every request that matters
+     on its own. This exists only so a build banked before one athlete's
+     magic link is claimed cannot be silently inherited by a different real
+     person who later signs in on the same shared device: it tags the record
+     with whichever account was first to authenticate while it existed. */
+  function subFromToken(tok){
+    try{
+      var parts = String(tok).split('.');
+      if (parts.length < 2) return null;
+      var payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (payload.length % 4) payload += '=';
+      var json = JSON.parse(decodeURIComponent(escape(atob(payload))));
+      return json.sub || null;
+    }catch(e){ return null; }
+  }
+
+  var enter = function(){ clearPending(); location.replace('/'); };
 
   /* A hung request is not an error, so .catch() never fires for it and the
      athlete would sit on "One moment." indefinitely. Every route decision is
@@ -315,7 +397,25 @@
   }
 
   /* ---------- routing ----------
-     The server is asked where this athlete stands; the page only reacts. */
+     The server is asked where this athlete stands; the page only reacts.
+
+     THE APPROVED JOURNEY: builder -> preview -> "Save My Plan" -> trial ->
+     app. An athlete with no session is not assumed to be lost -- they are
+     assumed to be new, and new means the builder, not a sign-in form. A
+     returning athlete still reaches sign-in directly, from the link on the
+     build screen or from a stale/expired token below; "Sign In" is still the
+     right word for that door, it is simply no longer the FIRST door. */
+  function setAuthContext(mode){
+    var isSave = mode === 'save';
+    $('auth-step').textContent = 'Step three of three';
+    $('auth-step').classList.toggle('vvv-hidden', !isSave);
+    $('auth-heading').textContent = isSave ? 'Save My Plan' : 'Sign in';
+    $('auth-say').textContent = isSave
+      ? 'One address is all we need. We’ll send a link — open it on this device and ' +
+        'your plan will be exactly as you left it. There is no password to create or remember.'
+      : 'One address is all we need. We send a link; opening it signs you in. ' +
+        'There is no password for you to create or remember.';
+  }
   function route(){
     /* A LINK THAT DID NOT WORK MUST SAY SO. GoTrue does not always come back
        with tokens: an expired or already-used link returns error/error_code in
@@ -325,9 +425,20 @@
        and no idea why. */
     var authErr = consumeAuthError();
     var tok = consumeAuthHash() || storedToken();
-    if (!tok){
+    var pending = loadPending();
+    if (authErr){
+      setAuthContext(pending && pending.preview ? 'save' : 'signin');
       show('pane-auth');
-      if (authErr) fail('auth-err', authErr);
+      fail('auth-err', authErr);
+      return;
+    }
+    if (!tok){
+      /* No session -- but the builder comes first now, not sign-in. An
+         athlete who already banked a preview (a refresh, a closed tab, "not
+         now") resumes straight to it instead of answering the same nine
+         questions twice. */
+      if (pending && pending.preview){ showPreview(pending.preview, pending.period); return; }
+      show('pane-build');
       return;
     }
     within(10000, establish(tok)).then(function(r){
@@ -340,22 +451,41 @@
          as the silent expired link: the one person who needed an explanation
          got a form and no reason. */
       if (r.status >= 500){
+        setAuthContext('signin');
         show('pane-auth');
         fail('auth-err', 'Valhalla is having a moment. Your account and your training are fine — ' +
                          'reload this page in a minute and you will go straight in.');
         return;
       }
-      if (!b.signed_in){ show('pane-auth'); return; }
+      if (!b.signed_in){
+        if (pending && pending.preview){ showPreview(pending.preview, pending.period); return; }
+        setAuthContext('signin');
+        show('pane-auth');
+        return;
+      }
+      /* Whoever is signed in now is claiming this pending build -- tag it with
+         them, once, the first time we see it authenticated. A record already
+         tagged for a DIFFERENT account is somebody else's abandoned build on
+         a shared device, not this athlete's: drop it rather than adopt it. */
+      if (pending){
+        var sub = subFromToken(tok);
+        if (sub && !pending.uid){ pending.uid = sub; savePending(pending); }
+        else if (sub && pending.uid && pending.uid !== sub){ clearPending(); pending = null; }
+      }
       /* Access already -- beta, trialling, paid, or inside a cancelled period.
          They do not see acquisition screens again. */
       if (b.access === true){ enter(); return; }
       /* Signed in without access. Had they been here before, they would have
          history; the locked shell is where that conversation belongs. */
       if (b.reason === 'expired' || b.state === 'expired'){ show('pane-locked'); return; }
+      /* Signed in, no access yet, and a preview is already banked from before
+         the "Save My Plan" round trip -- show it rather than the builder. */
+      if (pending && pending.preview){ showPreview(pending.preview, pending.period); return; }
       show('pane-build');
     }).catch(function(){
-      /* Unreachable, refused, or too slow to be useful. The sign-in surface is
-         the one screen that works from any of those. */
+      /* Unreachable, refused, or too slow to be useful. */
+      if (pending && pending.preview){ showPreview(pending.preview, pending.period); return; }
+      setAuthContext('signin');
       show('pane-auth');
       fail('auth-err', 'We could not reach Valhalla just then. Sign in to continue.');
     });
@@ -383,6 +513,7 @@
       .catch(function(){ $('send').disabled = false; fail('auth-err', 'We could not send that link. Try again in a moment.'); });
   });
   $('again').addEventListener('click', function(){ show('pane-auth'); });
+  $('signin-instead').addEventListener('click', function(){ setAuthContext('signin'); show('pane-auth'); });
 
   /* ---------- the objective shapes the questions ----------
      Same five inputs, asked in the language of what is being built. The
@@ -415,10 +546,43 @@
   $('purpose').addEventListener('change', applyPurpose);
   applyPurpose();
 
+  /* ---------- how ambitious ----------
+     The same three targets the app's own builder derives from a benchmark
+     (Dream/Solid/Safety Net -- see handleSuggestGoals() in the app), offered
+     here so the athlete makes this call themselves before a plan exists,
+     rather than the preview -- or worse, a plan built after they authenticate
+     -- silently assuming one on their behalf. "Match my fitness" trains at
+     exactly the pace the benchmark below already shows; the preview and the
+     real plan both read this same choice, so there is one answer, not two. */
+  var AMBITION_SAY = {
+    A: 'A faster target than your benchmark suggests — the stretch goal.',
+    B: 'Exactly the pace your benchmark already shows — no stretch, no pullback.',
+    C: 'A more conservative target, easier to hit reliably.'
+  };
+  var ambition = 'B';
+  function renderAmbitionSay(){ $('ambition-say').textContent = AMBITION_SAY[ambition]; }
+  Array.prototype.forEach.call(document.querySelectorAll('#ambition .day'), function(b){
+    b.addEventListener('click', function(){
+      ambition = b.getAttribute('data-ambition');
+      Array.prototype.forEach.call(document.querySelectorAll('#ambition .day'), function(o){
+        o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
+      });
+      renderAmbitionSay();
+    });
+  });
+  renderAmbitionSay();
+
   /* ---------- build ---------- */
+  /* THE RUNTIME'S WEEKDAY NUMBERING IS ISO -- Mon=0 ... Sun=6 -- not
+     JavaScript's getDay() (Sun=0 ... Sat=6). This used to send getDay()
+     numbers into a schedule the engine reads as ISO, so every preview and
+     every plan built from it silently ran on the wrong days: picking
+     Mon/Tue/Wed/Fri/Sat with a Saturday long run produced Tue/Wed/Thu/Fri/Sun
+     with the long run on Sunday. DAYS and DOW now agree with the engine, not
+     with the browser. */
   var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  var DOW  = [1,2,3,4,5,6,0];      // the runtime's weekday numbering
-  var picked = { 1:true, 2:true, 3:true, 5:true, 6:true };
+  var DOW  = [0,1,2,3,4,5,6];
+  var picked = { 0:true, 1:true, 2:true, 4:true, 5:true };  // Mon,Tue,Wed,Fri,Sat
   function renderDays(){
     $('days').innerHTML = '';
     DAYS.forEach(function(label, i){
@@ -444,7 +608,7 @@
       sel.appendChild(o);
     });
     if (prev && picked[Number(prev)]) sel.value = prev;
-    else if (picked[6]) sel.value = '6';
+    else if (picked[5]) sel.value = '5';   // prefer Saturday (ISO 5)
   }
   function clockToSec(v){
     var parts = String(v || '').split(':').map(Number);
@@ -457,23 +621,36 @@
   $('build').addEventListener('click', function(){
     clear('build-err');
     var active = Object.keys(picked).filter(function(d){ return picked[d]; }).map(Number);
-    if (active.length < 2){ fail('build-err', 'Pick at least two days you can run.'); return; }
+    /* Matches the real builder's own rule (3-6 running days), not a looser
+       one -- so nothing previewed here could ever fail to become the plan
+       the athlete actually gets once they authenticate. */
+    if (active.length < 3 || active.length > 6){ fail('build-err', 'Pick between 3 and 6 running days.'); return; }
     var bench = clockToSec($('bench').value);
     if (!isFinite(bench)){ fail('build-err', 'Give your 10K time as minutes and seconds, like 45:00.'); return; }
-    $('build').disabled = true;
-    authed('/api/preview', { method:'POST', body: JSON.stringify({
+    var input = {
       purpose: $('purpose').value,
       distanceKey: $('distance').value,
       weeks: Number($('weeks').value),
       volume: Number($('volume').value),
       activeDays: active,
       longRunDay: Number($('longday').value),
-      benchmarkSeconds: bench
-    })}).then(function(r){
+      benchmarkSeconds: bench,
+      goalAmbition: ambition
+    };
+    $('build').disabled = true;
+    apiCall('/api/preview', { method:'POST', body: JSON.stringify(input) }).then(function(r){
       $('build').disabled = false;
       if (r.status !== 200){ fail('build-err', 'We could not build that. Check the numbers and try again.'); return; }
-      renderPreview(r.body.preview);
-      show('pane-preview');
+      /* Banked before the preview is even shown -- a refresh one second later
+         must still find it, and it is what "Save My Plan" and the post-auth
+         resume both read back. `build` is the exact, already-shaped argument
+         set the server used to generate this preview (see api/_preview.js's
+         buildEcho()); the app replays it verbatim once the athlete
+         authenticates, so the plan they wake up with is this preview, not a
+         second guess at it from the raw form fields. */
+      savePending({ input: input, preview: r.body.preview, build: r.body.build,
+                    period: period, savedAt: Date.now() });
+      showPreview(r.body.preview, period);
       window.scrollTo(0, 0);
     }).catch(function(){ $('build').disabled = false; fail('build-err', 'We could not build that just now.'); });
   });
@@ -532,6 +709,32 @@
     $('pv-paces-card').classList.toggle('vvv-hidden', !(p.paces || []).length);
   }
 
+  /* Renders the preview and puts the pane in the right commercial state for
+     who is looking at it -- called both right after a fresh build and when
+     route() resumes an athlete straight to a banked preview. */
+  function showPreview(preview, savedPeriod){
+    renderPreview(preview);
+    if (savedPeriod){
+      period = savedPeriod;
+      Array.prototype.forEach.call(document.querySelectorAll('#plan-choice .day'), function(o){
+        o.setAttribute('aria-pressed', o.getAttribute('data-period') === period ? 'true' : 'false');
+      });
+      $('choice-note').textContent = AFTER[period];
+    }
+    updatePreviewGate();
+    show('pane-preview');
+  }
+  /* "Save My Plan" until a session exists, the trial/purchase step after --
+     the authentication moment sits between the preview and the money, exactly
+     where the approved journey puts it. Native app purchase rules are a
+     separate concern already handled below and are left alone here. */
+  function updatePreviewGate(){
+    var authenticated = !!storedToken();
+    $('save-card').classList.toggle('vvv-hidden', authenticated);
+    if (isNativeApp()) return;
+    $('trial-card').classList.toggle('vvv-hidden', !authenticated);
+  }
+
   /* ---------- the commercial decision ----------
      The athlete chooses an interval and provides a payment method. The trial
      is a real subscription from the first moment, which is why there is no
@@ -586,7 +789,18 @@
     }
     var t = $('trial'); if (t) t.classList.add('vvv-hidden');
     var tn = $('trial-note'); if (tn) tn.classList.add('vvv-hidden');
+    /* This card is informational only now, not a purchase surface, so it is
+       not gated behind "Save My Plan" the way the real trial button is. */
+    $('trial-card').classList.remove('vvv-hidden');
   }
+
+  $('save-plan').addEventListener('click', function(){
+    var pending = loadPending();
+    if (pending){ pending.period = period; savePending(pending); }
+    setAuthContext('save');
+    show('pane-auth');
+    window.scrollTo(0, 0);
+  });
 
   $('trial').addEventListener('click', function(){
     clear('trial-err');
