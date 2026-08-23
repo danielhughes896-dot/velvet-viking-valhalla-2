@@ -6042,13 +6042,14 @@ function adoptPendingBuildIfAny(){
                              distanceKey: b.distanceKey, goalDate: b.raceDate, hasEvent: !!b.hasEvent });
 
     /* Same goal-suggestion arithmetic handleSuggestGoals() offers from the
-       builder's own "Suggest" button. Goal B is deliberately the one made
-       active: its multiplier is 1.00, so it is exactly the benchmark-
-       equivalent pace the preview's own training paces were computed from
-       (api/_preview.js's summarise() derives them straight from the
-       benchmark, not from a goal). Any other choice would hand the athlete
-       different training paces the moment they entered the app than the
-       ones the preview just showed them. */
+       builder's own "Suggest" button -- and the SAME three targets it
+       offers, Dream/Solid/Safety Net. Which one is active is the athlete's
+       own choice, made on /start before a preview even existed (see
+       api/_preview.js's GOAL_AMBITION_MULT and start.html's "How ambitious
+       should this block be" control) -- not invented here. Whichever they
+       picked is exactly what the preview's own training paces were already
+       computed from, so entering the app hands them no different a target
+       than the one they already saw and approved. */
     var benchProfile = DISTANCE_PROFILES[b.benchmarkDistanceKey || '10k'];
     var profile = DISTANCE_PROFILES[b.distanceKey];
     var vdotBench = vdotFromPerformance(benchProfile.raceKm * 1000, b.benchmarkSeconds);
@@ -6058,7 +6059,9 @@ function adoptPendingBuildIfAny(){
       var t = equivalentTimeSec(vdotBench * mults[k], profile.raceKm * 1000);
       if (t) goals[k] = { timeSec: t };
     });
-    var activeGoal = goals.B ? 'B' : (GOAL_KEYS.filter(function(k){ return goals[k]; })[0] || null);
+    var chosenAmbition = (mults[b.goalAmbition] != null) ? b.goalAmbition : 'B';
+    var activeGoal = goals[chosenAmbition] ? chosenAmbition
+      : (GOAL_KEYS.filter(function(k){ return goals[k]; })[0] || null);
     if (!activeGoal) return false;   // an unreadable benchmark -- meet the ordinary builder instead
 
     state.setup = {
@@ -6105,7 +6108,16 @@ function cloudReconcile(){
          above, so this is genuinely theirs to build. If they built one
          before authenticating, adopt it now rather than asking them to
          answer the builder again. */
-      if (!localHasPlan) localHasPlan = adoptPendingBuildIfAny();
+      var justAdopted = false;
+      if (!localHasPlan){ justAdopted = adoptPendingBuildIfAny(); localHasPlan = localHasPlan || justAdopted; }
+      /* init() already painted the app once, synchronously, before this
+         async reconcile could possibly have finished -- that first paint
+         necessarily showed the builder gate, because there was still no
+         plan to show. Adopting one here changes state.setup/days but not
+         what is on screen; without repainting, the athlete would be stuck
+         looking at "Build Your Training Block" with a real plan already
+         sitting in memory one tap away from nowhere. */
+      if (justAdopted) renderApp();
       var seed = localHasPlan ? cloudPutPlan().catch(function(){ cloudStatus='error'; }) : Promise.resolve();
       return seed.then(patchCloudCard);
     }
@@ -6494,7 +6506,20 @@ function cloudInit(){
       /* Unreachable is not expired. Keep the session, say the account cannot be
          reached, and try again on the next launch or foreground -- the local
          plan is already painted and the athlete loses nothing. */
-      if (cloudRefreshUnreachable){ cloudStatus='error'; patchCloudCard(); return null; }
+      if (cloudRefreshUnreachable){
+        cloudStatus='error'; patchCloudCard();
+        /* A signed-in athlete with no local plan and no way to ask the cloud
+           whether one exists must not be stuck at the builder gate over a
+           network blip -- init()'s own fallback only fires when cloud sync
+           is not GOING to run at all, and here it tried and failed, which
+           is a case init() cannot have predicted. Still safe: this only
+           fires when state.setup is null, and if a real cloud plan turns up
+           once connectivity returns, cloudReconcile() will find both sides
+           populated and go through its existing conflict handling rather
+           than silently overwriting anything. */
+        if (!state.setup && adoptPendingBuildIfAny()) renderApp();
+        return null;
+      }
       cloudSignOut(); return null;
     }
     var who = cloudSession.user_id ? Promise.resolve() : cloudLoadUser();

@@ -158,6 +158,21 @@
       </div>
     </div>
 
+    <!-- HOW AMBITIOUS. The same three targets the app's own builder offers
+         from a benchmark -- Dream/Solid/Safety Net, here in the athlete's own
+         words -- and the athlete picks, rather than the preview silently
+         picking for them. "Match my fitness" is the pre-selected, no-stretch,
+         no-pullback default: exactly the pace the benchmark above already
+         shows, so an athlete who never touches this gets a plan that assumes
+         nothing about them either way. -->
+    <label>How ambitious should this block be</label>
+    <div class="days" id="ambition">
+      <button type="button" class="day" data-ambition="A">Push it</button>
+      <button type="button" class="day" data-ambition="B" aria-pressed="true">Match my fitness</button>
+      <button type="button" class="day" data-ambition="C">Play it safe</button>
+    </div>
+    <p class="quiet" id="ambition-say" style="margin:6px 0 0;"></p>
+
     <button class="vvv-btn" id="build" style="margin-top:18px;">Build my plan</button>
     <p class="err vvv-hidden" id="build-err"></p>
   </div>
@@ -531,6 +546,32 @@
   $('purpose').addEventListener('change', applyPurpose);
   applyPurpose();
 
+  /* ---------- how ambitious ----------
+     The same three targets the app's own builder derives from a benchmark
+     (Dream/Solid/Safety Net -- see handleSuggestGoals() in the app), offered
+     here so the athlete makes this call themselves before a plan exists,
+     rather than the preview -- or worse, a plan built after they authenticate
+     -- silently assuming one on their behalf. "Match my fitness" trains at
+     exactly the pace the benchmark below already shows; the preview and the
+     real plan both read this same choice, so there is one answer, not two. */
+  var AMBITION_SAY = {
+    A: 'A faster target than your benchmark suggests — the stretch goal.',
+    B: 'Exactly the pace your benchmark already shows — no stretch, no pullback.',
+    C: 'A more conservative target, easier to hit reliably.'
+  };
+  var ambition = 'B';
+  function renderAmbitionSay(){ $('ambition-say').textContent = AMBITION_SAY[ambition]; }
+  Array.prototype.forEach.call(document.querySelectorAll('#ambition .day'), function(b){
+    b.addEventListener('click', function(){
+      ambition = b.getAttribute('data-ambition');
+      Array.prototype.forEach.call(document.querySelectorAll('#ambition .day'), function(o){
+        o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
+      });
+      renderAmbitionSay();
+    });
+  });
+  renderAmbitionSay();
+
   /* ---------- build ---------- */
   /* THE RUNTIME'S WEEKDAY NUMBERING IS ISO -- Mon=0 ... Sun=6 -- not
      JavaScript's getDay() (Sun=0 ... Sat=6). This used to send getDay()
@@ -593,7 +634,8 @@
       volume: Number($('volume').value),
       activeDays: active,
       longRunDay: Number($('longday').value),
-      benchmarkSeconds: bench
+      benchmarkSeconds: bench,
+      goalAmbition: ambition
     };
     $('build').disabled = true;
     apiCall('/api/preview', { method:'POST', body: JSON.stringify(input) }).then(function(r){

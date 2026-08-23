@@ -118,6 +118,76 @@ test('the adopted plan trains at the SAME paces the preview showed, not a differ
   assert.ok(preview.paces && preview.paces.length > 0, 'fixture produced no comparable preview paces');
 });
 
+// ---------------------------------------------------------------------------
+// GOAL AMBITION -- the athlete's own choice, not a bridge invention.
+//
+// A/B/C represent three different race targets (Dream/Solid/Safety Net), not
+// three interchangeable internal representations -- picking one over another
+// changes every training pace in the block. The bridge must carry whichever
+// one the athlete actually chose through to the real plan, never overriding
+// it with its own default once a real choice was made.
+// ---------------------------------------------------------------------------
+['A', 'B', 'C'].forEach(ambition => {
+  test('goalAmbition=' + ambition + ' is honoured end to end, not overridden', () => {
+    const input = Object.assign({}, RAW_INPUT, { goalAmbition: ambition });
+    const { preview, build } = realPreview(input);
+    assert.equal(build.goalAmbition, ambition, 'buildEcho() dropped the chosen ambition');
+
+    const app = loadApp({ pinnedDate: PINNED });
+    bankPending(app, build);
+    app.adoptPendingBuildIfAny();
+
+    assert.equal(app.state.setup.activeGoal, ambition,
+      'the adopted plan is not training toward the ambition the athlete chose');
+
+    // And the paces the athlete is actually training at still match what
+    // the preview showed for THIS ambition (not silently pinned to B).
+    const activeGoalTime = app.state.setup.goals[app.state.setup.activeGoal].timeSec;
+    const vdotFromGoal = app.vdotFromPerformance(
+      app.DISTANCE_PROFILES[app.state.setup.distanceKey].raceKm * 1000, activeGoalTime);
+    const mult = Preview.GOAL_AMBITION_MULT[ambition];
+    const vdotFromPreview = app.vdotFromPerformance(10000, build.benchmarkSeconds) * mult;
+    assert.ok(Math.abs(vdotFromGoal - vdotFromPreview) < 0.05,
+      ambition + ': adopted-plan VDOT ' + vdotFromGoal + ' vs preview VDOT ' + vdotFromPreview);
+    assert.ok(preview.paces && preview.paces.length > 0);
+  });
+});
+
+test('the three ambitions genuinely produce different training paces, proving the choice is wired', () => {
+  const easy = ['A', 'B', 'C'].map(ambition => {
+    const { preview } = realPreview(Object.assign({}, RAW_INPUT, { goalAmbition: ambition }));
+    return preview.paces.find(p => p.zone === 'Easy').range;
+  });
+  assert.notEqual(easy[0], easy[1], 'Dream and Solid produced identical easy paces');
+  assert.notEqual(easy[1], easy[2], 'Solid and Safety Net produced identical easy paces');
+});
+
+test('an older client that omits goalAmbition still gets exactly the old behaviour (B)', () => {
+  const { preview, build } = realPreview(RAW_INPUT); // RAW_INPUT sets no goalAmbition
+  assert.equal(build.goalAmbition, 'B');
+  const app = loadApp({ pinnedDate: PINNED });
+  bankPending(app, build);
+  app.adoptPendingBuildIfAny();
+  assert.equal(app.state.setup.activeGoal, 'B');
+});
+
+test('an invalid goalAmbition is refused by the server, not silently coerced', () => {
+  const v = Preview.validate(Object.assign({}, RAW_INPUT, { goalAmbition: 'Z' }));
+  assert.equal(v.ok, false);
+  assert.equal(v.code, 'unknown_goal_ambition');
+});
+
+test('start.html asks the athlete directly, defaulting to no invented stretch or pullback', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'start.html'), 'utf8');
+  assert.match(src, /How ambitious should this block be/);
+  assert.match(src, /data-ambition="A"/);
+  assert.match(src, /data-ambition="B"[^]*?aria-pressed="true"/);
+  assert.match(src, /data-ambition="C"/);
+  assert.match(src, /goalAmbition:\s*ambition/, 'the chosen ambition is never sent to the server');
+});
+
 test('6 -- the builder gate never fires once a plan has been adopted', () => {
   const { build } = realPreview(RAW_INPUT);
   const app = loadApp({ pinnedDate: PINNED });
@@ -284,5 +354,112 @@ test('a Saturday long run picked on /start lands on a Saturday in the adopted pl
   assert.ok(longRuns.length > 0, 'no long run was scheduled at all');
   longRuns.forEach(d => {
     assert.equal(app.isoWeekday(d.date), 5, 'a long run landed on the wrong weekday: ' + d.date);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AN UNREACHABLE CLOUD MUST NOT STRAND A BANKED BUILD.
+//
+// init()'s own fallback only adopts when cloud sync is not going to run at
+// all (cloud disabled, or no session stored). It has no way to predict a
+// network failure -- cloudInit() genuinely tries to reconcile and only then
+// discovers it cannot reach the account. Without a second safety net inside
+// cloudInit() itself, a signed-in athlete with a valid banked build and
+// nothing but bad luck on the network would be stuck at the builder gate.
+// ---------------------------------------------------------------------------
+test('a signed-in athlete whose cloud is unreachable still gets their banked plan', () => {
+  const { build } = realPreview(RAW_INPUT);
+  const app = loadApp({ pinnedDate: PINNED });
+  bankPending(app, build);
+
+  // The harness's fetch always rejects (network disabled) -- exactly an
+  // unreachable cloud. A refresh_token and no future expires_at forces
+  // cloudRefreshIfNeeded() down the real network path instead of its
+  // still-valid short-circuit.
+  app.cloudSession = { access_token: 'stale', refresh_token: 'r', user_id: 'athlete-a' };
+
+  return app.cloudInit().then(() => {
+    assert.equal(app.cloudRefreshUnreachable, true, 'the fixture did not actually simulate unreachable');
+    assert.ok(app.state.setup, 'the banked build was never adopted when the cloud could not be reached');
+    assert.equal(app.state.setup.distanceKey, build.distanceKey);
+  });
+});
+
+test('cloudInit()\'s unreachable branch does not adopt when a plan already exists', () => {
+  const { build } = realPreview(RAW_INPUT);
+  const app = loadApp({ pinnedDate: PINNED });
+  const existing = { distanceKey: 'full', currentVolume: 60, raceDate: '2026-12-01',
+    startDate: '2026-08-01', planWeeks: 16, schedule: { activeDays: [0,1,2,3,4], longRunDay: 4 },
+    blockId: 'existing-block', purpose: 'race', benchmark: { distanceKey: '10k', timeSec: 2400 },
+    goals: { A: { timeSec: 12000 } }, activeGoal: 'A', paceOverrides: {}, lthr: null, maxHR: null,
+    experience: 'experienced' };
+  app.state.setup = Object.assign({}, existing);
+  bankPending(app, build);
+  app.cloudSession = { access_token: 'stale', refresh_token: 'r', user_id: 'athlete-a' };
+
+  return app.cloudInit().then(() => {
+    assert.deepEqual(app.state.setup, existing, 'an existing plan was overwritten by the unreachable-cloud fallback');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AN ADOPTED PLAN MUST ACTUALLY APPEAR ON SCREEN.
+//
+// init() paints the app once, synchronously, before either async adoption
+// path (cloudReconcile()'s hook, cloudInit()'s unreachable fallback) has a
+// chance to run -- and that first paint necessarily shows the builder gate,
+// because there was still no plan when it ran. Populating state.setup after
+// that without repainting leaves the athlete staring at "Build Your Training
+// Block" with a real plan sitting in memory one tap away from nowhere. A
+// live walkthrough against the real server caught exactly this: the plan was
+// there in state, but the screen never moved off the builder gate.
+// ---------------------------------------------------------------------------
+test('cloudInit()\'s unreachable-cloud adoption actually repaints the app', () => {
+  const { build } = realPreview(RAW_INPUT);
+  const app = loadApp({ pinnedDate: PINNED });
+  bankPending(app, build);
+  app.cloudSession = { access_token: 'stale', refresh_token: 'r', user_id: 'athlete-a' };
+
+  let renderCount = 0;
+  const originalRenderApp = app.renderApp;
+  app.renderApp = function(){ renderCount += 1; return originalRenderApp.apply(this, arguments); };
+
+  return app.cloudInit().then(() => {
+    assert.ok(app.state.setup, 'sanity: the plan was not actually adopted in this fixture');
+    assert.ok(renderCount >= 1, 'the app never repainted after adopting the banked build');
+  });
+});
+
+test('cloudReconcile()\'s primary adoption hook also repaints the app', () => {
+  const { build } = realPreview(RAW_INPUT);
+  const app = loadApp({ pinnedDate: PINNED });
+  bankPending(app, build);
+  app.cloudSession = { access_token: 'stale', refresh_token: 'r', user_id: 'athlete-a' };
+  // Bypass the network entirely: this is the exact shape cloudReconcile()
+  // sees once a signed-in athlete's account genuinely has no plan on it.
+  app.cloudGetPlan = function(){ return Promise.resolve({ data: null }); };
+
+  let renderCount = 0;
+  const originalRenderApp = app.renderApp;
+  app.renderApp = function(){ renderCount += 1; return originalRenderApp.apply(this, arguments); };
+
+  return app.cloudReconcile().then(() => {
+    assert.ok(app.state.setup, 'sanity: the plan was not actually adopted in this fixture');
+    assert.ok(renderCount >= 1, 'the app never repainted after cloudReconcile() adopted the banked build');
+  });
+});
+
+test('cloudInit()\'s unreachable-cloud fallback does not force a repaint when nothing was adopted', () => {
+  const app = loadApp({ pinnedDate: PINNED });
+  // No pending build banked -- adoptPendingBuildIfAny() has nothing to do.
+  app.cloudSession = { access_token: 'stale', refresh_token: 'r', user_id: 'athlete-a' };
+
+  let renderCount = 0;
+  const originalRenderApp = app.renderApp;
+  app.renderApp = function(){ renderCount += 1; return originalRenderApp.apply(this, arguments); };
+
+  return app.cloudInit().then(() => {
+    assert.equal(app.state.setup, null);
+    assert.equal(renderCount, 0, 'a repaint was forced even though nothing was adopted');
   });
 });

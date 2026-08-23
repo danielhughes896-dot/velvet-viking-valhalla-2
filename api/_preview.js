@@ -81,6 +81,19 @@ const PURPOSE_SHAPE = {
   speed:    { weeks: 6,  volumeFactor: 1,    forceDistance: '5k' }
 };
 const LIMITS = { weeks: [4, 24], volume: [0, 200], days: [2, 7] };
+/* THE SAME THREE TARGETS handleSuggestGoals() offers from a benchmark in the
+   canonical builder -- Dream (A), Solid (B), Safety Net (C). The preview
+   used to pick training paces straight off the raw benchmark, with no goal
+   involved at all, and the athlete never got a say in it; the continuous-
+   build bridge then had to invent an active goal on their behalf to build
+   their real plan, silently, after they had already authenticated. Neither
+   is acceptable for something that changes every training pace in the
+   block -- so the choice is asked for here, once, before a preview exists,
+   and the same choice is what the real plan is built from later. 'B' is the
+   default: it assumes nothing, matching exactly the pace the benchmark
+   already demonstrates. */
+const GOAL_AMBITIONS = ['A', 'B', 'C'];
+const GOAL_AMBITION_MULT = { A: 1.06, B: 1.00, C: 0.94 };
 
 function validate(body){
   const b = body || {};
@@ -117,6 +130,13 @@ function validate(body){
   if (!isFinite(benchSec) || benchSec < 300 || benchSec > 40000)
     return { ok: false, code: 'benchmark_out_of_range' };
 
+  /* Absent means 'B' -- an older client that predates this question is
+     asking for exactly what the preview always showed: benchmark pace,
+     no stretch, no pullback. */
+  const goalAmbition = b.goalAmbition === undefined || b.goalAmbition === null || b.goalAmbition === ''
+    ? 'B' : String(b.goalAmbition).toUpperCase();
+  if (GOAL_AMBITIONS.indexOf(goalAmbition) === -1) return { ok: false, code: 'unknown_goal_ambition' };
+
   /* THE PURPOSE SHAPES THE BLOCK, HERE, ONCE. Everything downstream reads
      these resolved values, so no later stage has to remember that a speed
      block trains at 5K or that maintenance sits below the athlete's own
@@ -135,6 +155,7 @@ function validate(body){
        generator -- the same single switch the app itself uses. */
     hasEvent: purpose === 'race' && b.hasEvent === true,
     activeDays: uniq.sort(), longRunDay: longRunDay, benchmarkSeconds: benchSec,
+    goalAmbition: goalAmbition,
     startDate: typeof b.startDate === 'string' ? b.startDate : null
   } };
 }
@@ -241,11 +262,15 @@ function summarise(app, days, blockResult, input){
     firstWeek: firstWeek,
     keySessions: keySessions.slice(0, 6),
     /* Pace guidance the engine derived for THIS athlete, from their own
-       benchmark. The most legible evidence that the programme is theirs and
-       not a template. Formatted here; the raw seconds stay on the server. */
+       benchmark AND the ambition they chose (Dream/Solid/Safety Net) --
+       the same figure the real plan trains at once adopted, so there is
+       one set of paces, not a preview set and a different real set. The
+       most legible evidence that the programme is theirs and not a
+       template. Formatted here; the raw seconds stay on the server. */
     paces: (function(){
       try{
-        const vdot = app.vdotFromPerformance(10000, input.benchmarkSeconds);
+        const mult = GOAL_AMBITION_MULT[input.goalAmbition] || 1;
+        const vdot = app.vdotFromPerformance(10000, input.benchmarkSeconds) * mult;
         if (!vdot) return null;
         const z = app.trainingPacesFromVDOT(vdot);
         if (!z) return null;
@@ -316,6 +341,7 @@ function buildEcho(input, startDate, raceDate){
     volume: input.buildVolume, weeks: input.weeks,
     activeDays: input.activeDays, longRunDay: input.longRunDay,
     benchmarkSeconds: input.benchmarkSeconds, benchmarkDistanceKey: '10k',
+    goalAmbition: input.goalAmbition,
     hasEvent: input.hasEvent, startDate: startDate, raceDate: raceDate
   };
 }
@@ -372,4 +398,5 @@ async function handle(req, res){
 }
 
 module.exports = { handle, validate, summarise, generate, buildEcho, defaultWeeksFor,
-                   DISTANCES, DISTANCE_ALIASES, PURPOSES, PURPOSE_SHAPE, LIMITS };
+                   DISTANCES, DISTANCE_ALIASES, PURPOSES, PURPOSE_SHAPE, LIMITS,
+                   GOAL_AMBITIONS, GOAL_AMBITION_MULT };
