@@ -167,14 +167,20 @@ test('every validation rule points at the screen that asks its question', () => 
 });
 
 test('no validation rule was added, removed or loosened', () => {
-  // The four rules the five-stage builder enforced, and their exact thresholds.
+  // The four rules the five-stage builder enforced. The exact thresholds now
+  // live in assets/builder-spec.js (test/builderSpecParity.test.js asserts
+  // they are 4-24 weeks, >0 volume and 3-6 days) -- this test asserts the
+  // shape of each rule still reads from that one canonical source rather than
+  // a re-declared literal, which is what would let the two silently diverge.
   const fn = SRC.slice(SRC.indexOf('function bldValidateStage'));
   const body = fn.slice(0, fn.indexOf('\n}\n'));
   assert.match(body, /Pick an event date\./);
   assert.match(body, /Event date needs to be in the future\./);
-  assert.match(body, /wks < 4 \|\| wks > 24/);
-  assert.match(body, /!volume \|\| volume <= 0/);
-  assert.match(body, /checked < 3 \|\| checked > 6/);
+  assert.match(body, /wks < wRange\[0\] \|\| wks > wRange\[1\]/);
+  assert.match(body, /BUILDER_SPEC\.validation\.weeksRange/);
+  assert.match(body, /!volume \|\| volume <= BUILDER_SPEC\.validation\.volumeMustExceed/);
+  assert.match(body, /checked < dRange\[0\] \|\| checked > dRange\[1\]/);
+  assert.match(body, /BUILDER_SPEC\.validation\.daysRange/);
   assert.match(body, /Choose a long run day\./);
   assert.match(body, /Enter at least one goal time/);
   // exactly four guarded stages, so a fifth rule cannot appear unnoticed

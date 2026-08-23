@@ -35,7 +35,13 @@ const fnBody = (name) => {
 // 1 & 2. A NEW VISITOR REACHES THE BUILDER AND THE PREVIEW BEFORE IDENTITY
 // ---------------------------------------------------------------------------
 test('the builder is step one, the preview is step two, saving the plan is step three', () => {
-  assert.match(SRC, /id="pane-build"[^]*?Step one of three/, 'the builder is no longer step one');
+  // The builder used to be a single condensed step, hence "Step one of
+  // three"; it is now nine stages, so it carries its own "0X / 09" progress
+  // indicator (bld-no) instead of that fixed label -- see bldGoToStage().
+  // Preview and auth are untouched: they were never staged.
+  assert.match(SRC, /id="pane-build"[^]*?id="bld-no"/, 'the builder no longer carries its own stage indicator');
+  assert.match(SRC, /' \/ 0' \+ BLD_STAGES\.length \+ ' — ' \+ BLD_STAGES\[bldCurrentStage\]\.name/,
+    'the builder no longer counts nine stages of its own');
   assert.match(SRC, /id="pane-preview"[^]*?Step two of three/, 'the preview is no longer step two');
   assert.match(SRC, /id="auth-step">Step three of three/, 'saving the plan is no longer step three');
 });
@@ -49,9 +55,11 @@ test('a visitor with no session goes to the builder, not to sign-in', () => {
 
 test('the build call no longer requires a session', () => {
   // authed() rejects with no_session when there is no token; apiCall() does
-  // not. The build button must use the one that works for a first-time,
-  // signed-out visitor.
-  const build = /\$\('build'\)\.addEventListener\('click'[^]*?\n  \}\);/.exec(SRC)[0];
+  // not. submitBuild() -- fired from the review stage's Continue button,
+  // now that the builder is nine stages rather than one form -- must use
+  // the one that works for a first-time, signed-out visitor.
+  const build = fnBody('submitBuild');
+  assert.ok(build, 'submitBuild() was not found');
   assert.match(build, /apiCall\('\/api\/preview'/, 'the builder still calls the auth-required helper');
   assert.doesNotMatch(build, /authed\('\/api\/preview'/);
 });
@@ -66,7 +74,8 @@ test('the preview endpoint itself has no auth gate left to trip', () => {
 // 3. BUILDER STATE AND THE PREVIEW SURVIVE THE AUTH ROUND TRIP
 // ---------------------------------------------------------------------------
 test('a successful build banks the answers and the preview before showing either', () => {
-  const build = /\$\('build'\)\.addEventListener\('click'[^]*?\n  \}\);/.exec(SRC)[0];
+  const build = fnBody('submitBuild');
+  assert.ok(build, 'submitBuild() was not found');
   const savedBeforeShown = build.indexOf('savePending(');
   const shown = build.indexOf('showPreview(');
   assert.ok(savedBeforeShown !== -1, 'nothing is banked on a successful build');
@@ -75,9 +84,14 @@ test('a successful build banks the answers and the preview before showing either
 });
 
 test('the banked build carries every field the builder actually asked for', () => {
-  const build = /\$\('build'\)\.addEventListener\('click'[^]*?\n  \}\);/.exec(SRC)[0];
+  const build = fnBody('submitBuild');
+  assert.ok(build, 'submitBuild() was not found');
   const input = /var input = \{[^]*?\};/.exec(build)[0];
-  ['purpose', 'distanceKey', 'weeks', 'volume', 'activeDays', 'longRunDay', 'benchmarkSeconds']
+  // The full nine-stage field set -- hasEvent/raceDate (stage 03), experience
+  // and benchmarkDistanceKey (stages 04/05) are new; the mini-builder never
+  // asked them, which is exactly the drift this reconciliation closed.
+  ['purpose', 'distanceKey', 'hasEvent', 'raceDate', 'weeks', 'volume', 'activeDays',
+   'longRunDay', 'benchmarkSeconds', 'benchmarkDistanceKey', 'experience', 'goalAmbition']
     .forEach(field => assert.match(input, new RegExp(field), 'the banked answers are missing ' + field));
   assert.match(build, /savePending\(\{ input: input, preview: r\.body\.preview, build: r\.body\.build,/,
     'the preview is banked without the answers that produced it');

@@ -403,11 +403,29 @@ test('/start starts no trial by accident', () => {
 });
 
 test('/start offers every objective the app builds', () => {
+  // The nine-stage wizard renders its purpose/distance pickers from
+  // window.BUILDER_SPEC at runtime (renderGoalStage()/renderDistanceStage()
+  // map over BS.purposes.order / BS.distances.order), not a static list of
+  // value="..." options -- so what proves parity is that both stages read
+  // the canonical spec's own arrays, and that those arrays are themselves
+  // the app's real BUILDER_PURPOSE_ORDER/DISTANCE_ORDER (asserted by
+  // test/builderSpecParity.test.js). A literal per-value grep would pass on
+  // dead markup; reading the actual source of each value is what cannot.
   const app = loadApp({ pinnedDate: TODAY });
-  app.BUILDER_PURPOSE_ORDER.forEach(p =>
-    assert.match(START, new RegExp('value="' + p + '"'),
-      '/start cannot build a ' + p + ' block the app offers'));
-  app.DISTANCE_ORDER.forEach(d =>
-    assert.match(START, new RegExp('value="' + d + '"'),
-      '/start cannot preview a ' + d + ' block the app builds'));
+  const goalFn = START.slice(START.indexOf('function renderGoalStage'));
+  const goalBody = goalFn.slice(0, goalFn.indexOf('\n  }\n'));
+  assert.match(goalBody, /BS\.purposes\.order\.map\(/,
+    '/start\'s purpose picker no longer reads the canonical spec\'s own purpose order');
+  const distFn = START.slice(START.indexOf('function renderDistanceStage'));
+  const distBody = distFn.slice(0, distFn.indexOf('\n  }\n'));
+  assert.match(distBody, /BS\.distances\.order\.map\(/,
+    '/start\'s distance picker no longer reads the canonical spec\'s own distance order');
+  // JSON.stringify rather than assert.deepEqual: these arrays were built
+  // inside the VM sandbox, and Node's strict assertions treat that as a
+  // different realm even when every value matches (same as elsewhere in
+  // this suite -- see continuousBuild.test.js's own comment on this).
+  assert.equal(JSON.stringify(app.BUILDER_SPEC.purposes.order), JSON.stringify(app.BUILDER_PURPOSE_ORDER),
+    'the canonical spec\'s purpose order no longer matches the app\'s own');
+  assert.equal(JSON.stringify(app.BUILDER_SPEC.distances.order), JSON.stringify(app.DISTANCE_ORDER),
+    'the canonical spec\'s distance order no longer matches the app\'s own');
 });
