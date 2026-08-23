@@ -64,13 +64,46 @@ test('NAV: the five-tab shell is otherwise unchanged', () => {
 // ===========================================================================
 test('SUBNAV: three tabs, Valhalla active by default', () => {
   const a = planHQ();
-  const html = a.renderPlanHQView();
+  const html = a.renderPlanHQSubNav();
   assert.match(html, /class="planhq-subnav"/);
   ['Valhalla', 'Coach', 'Record'].forEach(label => {
     assert.match(html, new RegExp('data-action="set-planhq-tab" data-tab="' +
       label.toLowerCase() + '">' + label + '<'));
   });
   assert.match(html, /data-tab="valhalla">Valhalla<\/button>[\s\S]{0,20}$|planhq-subnav-btn active" data-action="set-planhq-tab" data-tab="valhalla"/);
+});
+
+// ===========================================================================
+// 2b. THE SUBNAV LIVES ABOVE THE MAIN BOTTOM NAV, NOT UNDER THE HEADING
+// ===========================================================================
+test('ANCHOR: the subnav no longer renders inline under the Valhalla heading', () => {
+  const a = planHQ();
+  assert.doesNotMatch(a.renderPlanHQView(), /class="planhq-subnav"/,
+    'the subnav must move out of the scrolling content entirely');
+});
+
+test('ANCHOR: renderBottomNavStack() stacks the subnav directly above the main bottom nav, only on Valhalla', () => {
+  const a = planHQ();
+  const onValhalla = a.renderBottomNavStack();
+  assert.match(onValhalla, /^<div class="bn-stack">/);
+  const subnavAt = onValhalla.indexOf('class="planhq-subnav"');
+  const navAt = onValhalla.indexOf('<nav class="bottom-nav"');
+  assert.ok(subnavAt !== -1 && navAt !== -1 && subnavAt < navAt,
+    'the subnav must sit above the main bottom nav in document order');
+  assert.equal((onValhalla.match(/class="planhq-subnav"/g) || []).length, 1,
+    'the subnav must not be duplicated');
+
+  a.handleSetView('today');
+  const onToday = a.renderBottomNavStack();
+  assert.doesNotMatch(onToday, /class="planhq-subnav"/,
+    'the subnav must not appear on views other than Valhalla');
+  assert.match(onToday, /<nav class="bottom-nav"/);
+});
+
+test('ANCHOR: the stack is a fixed anchor, not a scrolling element, and content gets clearance for it', () => {
+  assert.match(CODE, /\.bn-stack\{[^}]*position\s*:\s*fixed[^}]*bottom\s*:\s*0/);
+  assert.match(CODE, /\.bn-stack\{[^}]*flex-direction\s*:\s*column/);
+  assert.match(CODE, /\.app-root\.has-subnav\{[^}]*padding-bottom/);
 });
 
 test('SUBNAV: switching tabs changes what renders, and the active button moves', () => {

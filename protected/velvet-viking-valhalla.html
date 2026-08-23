@@ -317,6 +317,10 @@
        cleanest of the five) and composed with the home-indicator inset, which
        the nav already respects but this padding previously did not. */
     padding-bottom:calc(117px + env(safe-area-inset-bottom, 0px));}
+  /* On Valhalla, the persistent Valhalla/Coach/Record subnav stacks above the
+     main bottom nav (see .bn-stack), so content needs extra clearance or the
+     tail of a long Coach/Record scroll ends up underneath it. */
+  .app-root.has-subnav{padding-bottom:calc(181px + env(safe-area-inset-bottom, 0px));}
 
   /* ---------- sticky top bar ---------- */
   .topbar{
@@ -1514,13 +1518,20 @@
   @keyframes toastout{to{opacity:0; transform:translateY(8px);}}
 
   /* ---------- sticky bottom nav — 5 view toggles ---------- */
-  .bottom-nav{
-    position:fixed; left:0; right:0; bottom:0; z-index:55; display:flex;
-    background:var(--ctl-surface); border-top:1px solid var(--ctl-surface-border);
-    padding:6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  /* .bn-stack is the fixed anchor; the main nav and (on Valhalla only) the
+     Valhalla/Coach/Record subnav are ordinary flow children stacked inside
+     it, subnav on top -- so "just above the main bottom nav" falls out of
+     flex-direction:column rather than a hand-measured offset. */
+  .bn-stack{
+    position:fixed; left:0; right:0; bottom:0; z-index:55; display:flex; flex-direction:column;
     max-width:var(--maxw); margin:0 auto;
   }
-  @media (min-width:640px){ .bottom-nav{ left:50%; transform:translateX(-50%); border-left:1px solid var(--ctl-surface-border); border-right:1px solid var(--ctl-surface-border); } }
+  @media (min-width:640px){ .bn-stack{ left:50%; transform:translateX(-50%); border-left:1px solid var(--ctl-surface-border); border-right:1px solid var(--ctl-surface-border); } }
+  .bottom-nav{
+    display:flex;
+    background:var(--ctl-surface); border-top:1px solid var(--ctl-surface-border);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
   .bn-item{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0;
     padding:7px 1px; color:var(--ink-faint); font-family:'Oswald',sans-serif; font-size:8.5px;
@@ -1554,7 +1565,10 @@
      rather than reinvented, exactly as .opt-grid button.active already
      borrows it for the builder. Same job (a persistent set of destinations,
      one active at a time), so it gets the same visual answer. */
-  .planhq-subnav{display:flex; gap:6px; margin:14px 16px 4px;}
+  .planhq-subnav{
+    display:flex; gap:6px; padding:8px 16px; background:var(--ctl-surface);
+    border-top:1px solid var(--ctl-surface-border);
+  }
   .planhq-subnav-btn{
     flex:1; font-family:'Oswald',sans-serif; font-size:11px; font-weight:600; letter-spacing:.06em;
     text-transform:uppercase; padding:10px 4px; border-radius:var(--radius-sm); border:1px solid var(--line);
@@ -2446,6 +2460,18 @@ function clockToSec(str){
   if (parts.length===3) return parts[0]*3600+parts[1]*60+parts[2];
   if (parts.length===2) return parts[0]*60+parts[1];
   return null;
+}
+/* BENCHMARK TIME, TYPED ON AN ANDROID NUMERIC KEYPAD.
+   The benchmark field takes clockToSec's own mm:ss (and h:mm:ss) exactly as
+   before, plus "." as an alternative separator -- Android numeric keypads
+   put a "." within reach and bury ":" behind a symbols layer. "23.25" always
+   means 23 minutes 25 seconds, the same as "23:25"; it is never read as a
+   decimal number of minutes. */
+function parseBenchmarkTime(str){
+  if (str==null) return null;
+  var s = String(str).trim();
+  if (!s) return null;
+  return clockToSec(s.replace(/\./g, ':'));
 }
 /* ELAPSED TIME AS A PHONE CAN ACTUALLY TYPE IT.
    clockToSec() requires a colon and returns null without one, which is
@@ -20674,7 +20700,8 @@ function openSetupModal(){
           '<option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select>'+
       '</div>'+
       '<div class="field"><label>Benchmark time</label>'+
-        '<input type="text" id="su-bench-time" placeholder="mm:ss" value="'+benchTime+'"></div>'+
+        '<input type="text" id="su-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
+      '<div class="field-hint">Enter your time as minutes and seconds, e.g. 23.25 or 23:25.</div>'+
       '<div class="field-hint">This is a reference you give Valhalla, not a measurement of your current fitness — Plan HQ measures that separately, from races and Fitness Checkpoints you actually run. You can update it any time from Re-calibrate.</div>'+
       navBtns(4)+
     '</section>'+
@@ -21149,8 +21176,9 @@ function openRecalibrateModal(){
     '<div class="setup-section-title">Current Benchmark</div>'+
     '<div class="benchmark-row">'+
       '<div class="field" style="margin-bottom:0;"><label>Distance</label><select id="rc-bench-dist"><option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option><option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select></div>'+
-      '<div class="field" style="margin-bottom:0;"><label>Time</label><input type="text" id="rc-bench-time" placeholder="mm:ss" value="'+benchTime+'"></div>'+
+      '<div class="field" style="margin-bottom:0;"><label>Time</label><input type="text" id="rc-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
     '</div>'+
+    '<div class="field-hint">Enter your time as minutes and seconds, e.g. 23.25 or 23:25.</div>'+
     '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="rc-suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
     '<div class="setup-section-title">Goal A / B / C \u2014 for '+escapeHtml(profile.label)+'</div>'+
     goalRows+
@@ -21165,8 +21193,8 @@ function openRecalibrateModal(){
 }
 function handleRecalibrateSuggest(){
   var benchDist = document.getElementById('rc-bench-dist').value;
-  var benchSec = clockToSec(document.getElementById('rc-bench-time').value.trim());
-  if (!benchSec){ showToast('Enter a valid benchmark time first (mm:ss)'); return; }
+  var benchSec = parseBenchmarkTime(document.getElementById('rc-bench-time').value.trim());
+  if (!benchSec){ showToast('Enter your time as minutes and seconds, e.g. 23.25 or 23:25'); return; }
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
   var benchProfile = DISTANCE_PROFILES[benchDist];
   var vdotBench = vdotFromPerformance(benchProfile.raceKm*1000, benchSec);
@@ -21180,7 +21208,7 @@ function handleRecalibrateSuggest(){
 }
 function handleSaveRecalibrate(){
   var benchDist = document.getElementById('rc-bench-dist').value;
-  var benchSec = clockToSec(document.getElementById('rc-bench-time').value.trim());
+  var benchSec = parseBenchmarkTime(document.getElementById('rc-bench-time').value.trim());
   var goals = {};
   var anyGoal = false;
   GOAL_KEYS.forEach(function(k){
@@ -21209,8 +21237,8 @@ function handleSaveRecalibrate(){
 
 function handleSuggestGoals(){
   var benchDist = document.getElementById('su-bench-dist').value;
-  var benchSec = clockToSec(document.getElementById('su-bench-time').value.trim());
-  if (!benchSec){ showToast('Enter a valid benchmark time first (mm:ss)'); return; }
+  var benchSec = parseBenchmarkTime(document.getElementById('su-bench-time').value.trim());
+  if (!benchSec){ showToast('Enter your time as minutes and seconds, e.g. 23.25 or 23:25'); return; }
   var distKey = document.getElementById('su-distance').value;
   var profile = DISTANCE_PROFILES[distKey];
   var benchProfile = DISTANCE_PROFILES[benchDist];
@@ -21460,7 +21488,7 @@ async function handleGeneratePlan(){
   if (chosenUnits==='km' || chosenUnits==='mi') state.units = chosenUnits;
   var volume = parseDistInput(document.getElementById('su-volume').value);
   var benchDist = document.getElementById('su-bench-dist').value;
-  var benchSec = clockToSec(document.getElementById('su-bench-time').value.trim());
+  var benchSec = parseBenchmarkTime(document.getElementById('su-bench-time').value.trim());
   /* THE CONSENT DECISION IS TAKEN HERE, BEFORE THE TWO FIELDS IT GOVERNS ARE
      READ. The box is on the same panel as LTHR and Max HR and it is rendered
      unticked; ticking it is the affirmative act, and NOT ticking it is
@@ -24526,8 +24554,10 @@ function renderPlanHQView(){
   } else {
     body = renderProgrammeStatus()+renderBlockTransitionCard()+renderValhallaActionsRow();
   }
+  /* The Valhalla/Coach/Record subnav itself is no longer rendered here -- it
+     lives in the persistent .bn-stack above the main bottom nav (see
+     renderBottomNavStack()), not in this scrolling content. */
   return '<div class="view-heading font-head">Valhalla</div>'+
-    renderPlanHQSubNav()+
     body;
 }
 // Notification permission can be revoked from outside the app (browser/OS
@@ -24829,6 +24859,17 @@ function renderBottomNav(){
     }).join('')+
   '</nav>';
 }
+// The persistent nav anchor: the Valhalla/Coach/Record subnav (only while
+// on Valhalla) stacked directly above the permanent bottom nav, both fixed
+// together so the subnav never scrolls away and is never duplicated at the
+// top of the view.
+function renderBottomNavStack(){
+  var view = state.view || 'today';
+  return '<div class="bn-stack">'+
+    (view==='planhq' ? renderPlanHQSubNav() : '')+
+    renderBottomNav()+
+  '</div>';
+}
 function handleSetView(view){
   if (state.view===view) return;
   state.view = view;
@@ -24980,10 +25021,12 @@ function renderApp(){
   var app = document.getElementById('app');
   if (!app) return;
   lastRenderedDate = todayStr();
+  var navAllowed = appStateAllowsNav();
+  app.classList.toggle('has-subnav', navAllowed && (state.view||'today')==='planhq');
   app.innerHTML =
     renderTopbar()+
     '<div class="wrap"><div id="view-mount" class="view-fade">'+renderMainContent()+'</div></div>'+
-    (appStateAllowsNav() ? renderBottomNav() : '');
+    (navAllowed ? renderBottomNavStack() : '');
 }
 
 /* =========================================================
