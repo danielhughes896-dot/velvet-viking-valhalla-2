@@ -98,9 +98,12 @@ test('abandoning Checkout does not spend the trial', () => {
   // not used their trial, and charging them for that decision would be
   // indefensible.
   const hook = read('api/billing-webhook.js');
-  const at = hook.indexOf('trial_consumed_at');
-  assert.ok(at !== -1);
-  const around = hook.slice(at - 900, at + 400);
+  /* Anchored on the WRITE, not on the first time the column is mentioned. The
+     file's header describes the flow and names the column too, and slicing
+     around that found nine hundred characters of prose instead of the guard. */
+  const at = hook.indexOf("&trial_consumed_at=is.null");
+  assert.ok(at !== -1, 'the conditional write must exist');
+  const around = hook.slice(Math.max(0, at - 1200), at + 400);
   assert.match(around, /ev\.condition === 'trialing'/,
     'only a real trialing subscription may spend it');
   assert.match(around, /never\s*\n?\s*\*?\s*when somebody opens Checkout/i);

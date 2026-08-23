@@ -855,21 +855,44 @@ test('PRESERVED: a race block still ramps, tapers and finishes with a race', () 
     'passing an empty options object changed a race block');
 });
 
-test('PRESERVED: base and speed still build towards a goal effort', () => {
-  const a = racingAthlete();
-  logPast(a);
-  raceHappened(a);
-  a.recordRaceOutcome('raced');
-  ['base', 'speed'].forEach(p => {
-    const b = racingAthlete();
-    logPast(b); raceHappened(b); b.recordRaceOutcome('raced');
-    assert.ok(b.startDevelopmentBlock(p), p + ' could not be built');
-    assert.ok(b.state.days.some(d => d.type === 'race'),
-      p + ' lost its culminating goal effort — only maintenance should have');
-    assert.notEqual(b.trainingPhase(1), 'Maintain', p + ' became a steady block');
-    assert.equal(b.vGoalDay(b.state.setup), 'Goal Day',
-      p + ' should still have a goal day, just not a race day');
-  });
+test('a speed block still builds towards a benchmark effort', () => {
+  const b = racingAthlete();
+  logPast(b); raceHappened(b); b.recordRaceOutcome('raced');
+  assert.ok(b.startDevelopmentBlock('speed'), 'speed could not be built');
+  assert.ok(b.state.days.some(d => d.type === 'race'),
+    'the speed block lost the benchmark it exists to build towards');
+  assert.notEqual(b.trainingPhase(1), 'Maintain', 'speed became a steady block');
+  assert.equal(b.vGoalDay(b.state.setup), 'Goal Day',
+    'a benchmark is a goal day, not a race day');
+});
+
+test('an aerobic base block deliberately ends in nothing', () => {
+  /* This test used to assert the opposite, and the assertion was wrong rather
+     than the code. A base block that culminates in a maximal goal effort --
+     and tapers for two weeks to reach it -- is a race build wearing the word
+     "base", which is exactly what the programme audit found: of ten weeks,
+     one was a Base week, one was a maximal time trial, two were taper and the
+     last was a goal effort.
+
+     A base block ends absorbed instead: the final week is a consolidation
+     week, and the next block starts from a runner who has just trained
+     through rather than one who has just emptied themselves. */
+  const b = racingAthlete();
+  logPast(b); raceHappened(b); b.recordRaceOutcome('raced');
+  assert.ok(b.startDevelopmentBlock('base'), 'base could not be built');
+  assert.equal(b.state.days.filter(d => d.type === 'race').length, 0,
+    'the aerobic base block still ends in a maximal goal effort');
+  assert.equal(b.state.days.filter(d => d.type === 'checkpoint').length, 0,
+    'the aerobic base block still contains a maximal time trial');
+  assert.notEqual(b.trainingPhase(1), 'Maintain', 'base became a steady block');
+  const total = b.totalWeeksInPlan();
+  const phases = [];
+  for (let w = 1; w <= total; w++) phases.push(b.trainingPhase(w));
+  assert.equal(phases.filter(p => p === 'Taper').length, 0,
+    'the aerobic base block still tapers for a race that does not exist');
+  assert.ok(phases.filter(p => p === 'Base').length >= Math.ceil(total * 0.6),
+    'only ' + phases.filter(p => p === 'Base').length + ' of ' + total +
+    ' weeks of an aerobic base block are base weeks: ' + phases.join(' '));
 });
 
 test('PRESERVED: recovery still has its deterministic ceiling', () => {

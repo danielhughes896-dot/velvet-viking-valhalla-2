@@ -28,9 +28,9 @@ const SUBSET = files(['stripeLifecycle','monthlyPause','commercialCore','securit
   'mondayOperational','accountActivity','providerTrial','productionReadiness',
   'betaClosure','entitlementMigration','releaseReadiness','observability','accessGate',
   'billingWebhook','stripeFoundation','commercialEntry','legacyBetaRetirement',
-  'commercialSchemaCollision','adjustedSessionStructure',
-  'prescriptionAwareLogging','healthDataConsent',
-  'medicalBoundary','healthErasure','commercialJourney',
+  'commercialSchemaCollision','adjustedSessionStructure','prescriptionAwareLogging',
+  'historicalImmutability','historyIntegrity','reconcileRegeneratedDays',
+  'healthDataConsent','medicalBoundary','healthErasure','commercialJourney',
   'productionReadiness']);
 /* Plan HQ's cases are checked against the suites that guard them rather than
    against the commercial subset above, which knows nothing about them:
@@ -60,6 +60,31 @@ const CASES = [
   ['access: an unreadable database reads as no subscription', 'api/_commercial-store.js',
    "    return { ok: false, active: false, product: null, reason: 'invalid',",
    "    return { ok: true, active: false, product: null, reason: 'none',"],
+
+  /* ---- ONE COMMERCIAL AUTHORITY ----
+     The convergence invariants. Each of these reopens a route by which a
+     second source of commercial truth, a second ledger, a second trial counter
+     or a grace period of our own invention could come back. */
+  ['authority: the webhook writes the projection directly again',
+   'api/billing-webhook.js',
+   "  const sync = await Store.syncEntitlementRow(S, cfg, ev.account_id);",
+   "  const sync = { ok: true }; await S.sb(cfg, '/entitlements?user_id=eq.' + ev.account_id, { method: 'PATCH', body: '{}' });",
+   ['commercialAuthority','stripeLifecycle','billingWebhook']],
+  ['authority: a non-Stripe delivery is interpreted rather than refused',
+   'api/billing-webhook.js',
+   "  return S.json(res, 501, { error: 'not_implemented', code: 'PROVIDER_NOT_SUPPORTED' });",
+   "  return S.json(res, 200, { received: true });",
+   ['commercialAuthority','billingWebhook']],
+  ['grace: the resolver invents a window when the provider supplied none',
+   'api/_entitlement.js',
+   "    const grace = asDate(s.grace_period_end);",
+   "    const grace = asDate(s.grace_period_end) || new Date(at.getTime() + 7*DAY_MS);",
+   ['commercialAuthority','commercialCore','accessGate']],
+  ['ledger: the replay key drops the provider, so two providers collide',
+   'supabase-commercial-core.sql',
+   "  on public.billing_events (provider, provider_event_id);",
+   "  on public.billing_events (provider_event_id);",
+   ['commercialAuthority','commercialSchemaCollision']],
 
   // ---- TRIAL ----
   ['trial: the allowance can be spent twice', 'api/billing-webhook.js',
@@ -215,6 +240,253 @@ const CASES = [
    'protected/velvet-viking-valhalla.html',
    "var MOVED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','prescription','manualEdit'];",
    "var MOVED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','manualEdit'];"],
+  /* ---- HISTORICAL IMMUTABILITY ----
+     Elapsed training is evidence. A regeneration may re-tailor today and the
+     future and must not touch the calendar behind the athlete. */
+  ['history: a rebuild may refill elapsed days again', 'protected/velvet-viking-valhalla.html',
+   "    return dd.date < today && dd.date >= startMonday;",
+   "    return false;"],
+  ['history: a rebuild freezes today as well as the past', 'protected/velvet-viking-valhalla.html',
+   "    return dd.date < today && dd.date >= startMonday;",
+   "    return dd.date <= today && dd.date >= startMonday;"],
+  ['history: a previous block\u2019s days are dragged into this one', 'protected/velvet-viking-valhalla.html',
+   "    return dd.date < today && dd.date >= startMonday;",
+   "    return dd.date < today;"],
+  ['history: a logged day outside the block stops being preserved', 'protected/velvet-viking-valhalla.html',
+   "    if (dayCarriesHistory(dd)) return true;", ""],
+
+  /* ---- VOLUME CEILING ----
+     The launch blocker. Volume compounded block on block with nothing anywhere
+     comparing it to the athlete: 60 -> 86 -> 149 -> 257 km/week over three
+     years. Every mutation here reopens one part of the loop that closes it. */
+  ['volume: the peak is no longer capped', 'protected/velvet-viking-valhalla.html',
+   "  var peakVolume = Math.min(currentVolume * volMult, ceiling);",
+   "  var peakVolume = currentVolume * volMult;", ['volumeCeiling','blockShape','blockTransitions','learningWithoutHealthData']],
+  ['volume: a block may start from whatever the last one prescribed',
+   'protected/velvet-viking-valhalla.html',
+   "  if (dem) out = Math.min(out, round1(dem * VOLUME_BLOCK_GROWTH_CAP));", "", ['volumeCeiling','blockShape','blockTransitions','learningWithoutHealthData']],
+  ['volume: the ceiling ratchets on demonstrated capacity again',
+   'protected/velvet-viking-valhalla.html',
+   "  return round1(Math.min(Math.max(dem, backstop), backstop * CEILING_MAX_OVER_BACKSTOP));",
+   "  return round1(Math.max(dem * 1.05, backstop));", ['volumeCeiling','blockShape','blockTransitions','learningWithoutHealthData']],
+  ['volume: one heroic week counts as capacity', 'protected/velvet-viking-valhalla.html',
+   "var SUSTAINED_WEEKS_REQUIRED = 3;", "var SUSTAINED_WEEKS_REQUIRED = 1;", ['volumeCeiling','blockShape','blockTransitions','learningWithoutHealthData']],
+  ['volume: capacity from years ago still counts', 'protected/velvet-viking-valhalla.html',
+   "  var cutoff = addDays(todayStr(), -7 * DEMONSTRATED_WINDOW_WEEKS);",
+   "  var cutoff = '1970-01-01';", ['volumeCeiling','blockShape','blockTransitions','learningWithoutHealthData']],
+
+  /* ---- PROGRESSION NEEDS A REASON ----
+     The ceiling above answers "how much is allowed". These answer "why more at
+     all". Each one reopens a route by which completing training, on its own,
+     becomes a reason to be given more of it. */
+  ['progression: compliance alone is a reason again', 'protected/velvet-viking-valhalla.html',
+   "  var out = (prev > 0)\n    ? (progressionJustification().earned ? prev * VOLUME_BLOCK_GROWTH_CAP : prev)\n    : base;",
+   "  var out = (prev > 0) ? prev * VOLUME_BLOCK_GROWTH_CAP : base;",
+   ['progressionJustification','volumeCeiling','blockTransitions']],
+  ['progression: the anchor goes back to what the last ramp produced',
+   'protected/velvet-viking-valhalla.html',
+   "  var prev = previousBlockAnchorVolume();", "  var prev = null;",
+   ['progressionJustification','volumeCeiling','blockTransitions']],
+  ['progression: recovering earns a step up', 'protected/velvet-viking-valhalla.html',
+   "var PROGRESSION_EARNING_PURPOSES = ['race', 'base', 'speed'];",
+   "var PROGRESSION_EARNING_PURPOSES = ['race', 'base', 'speed', 'recovery', 'maintain'];",
+   ['progressionJustification','blockTransitions']],
+  ['progression: missed sessions stop mattering', 'protected/velvet-viking-valhalla.html',
+   "  if (miss && PROGRESSION_TIERS_ALLOWED.indexOf(miss.tier) === -1){",
+   "  if (false){", ['progressionJustification','blockTransitions']],
+  ['progression: sessions that never land stop mattering', 'protected/velvet-viking-valhalla.html',
+   "  if (exec && PROGRESSION_TIERS_ALLOWED.indexOf(exec.tier) === -1){",
+   "  if (false){", ['progressionJustification','blockTransitions']],
+  ['progression: never reaching the last block is no obstacle', 'protected/velvet-viking-valhalla.html',
+   "    if (best < prevPeak * 0.95){", "    if (false){",
+   ['progressionJustification','blockTransitions']],
+  ['progression: a first block is ramped from a capacity it no longer has',
+   'protected/velvet-viking-valhalla.html',
+   "  if (!(previousBlockAnchorVolume() > 0)){\n    out.blockedBy = 'no_previous_block';",
+   "  if (false){\n    out.blockedBy = 'no_previous_block';",
+   ['progressionJustification','volumeCeiling']],
+  ['progression: the step comes back once per block instead of once per cycle',
+   'protected/velvet-viking-valhalla.html',
+   "  if (since != null && since < PROGRESSION_BLOCKS_PER_CYCLE){", "  if (false){",
+   ['progressionJustification','blockTransitions']],
+  ['progression: a cycle shrinks until the rule does nothing',
+   'protected/velvet-viking-valhalla.html',
+   "var PROGRESSION_BLOCKS_PER_CYCLE = 3;", "var PROGRESSION_BLOCKS_PER_CYCLE = 1;",
+   ['progressionJustification','blockTransitions']],
+  ['progression: recovery and maintenance count toward the cycle',
+   'protected/velvet-viking-valhalla.html',
+   "    if (PROGRESSION_EARNING_PURPOSES.indexOf(b.purpose) !== -1) count++;",
+   "    count++;", ['progressionJustification','blockTransitions']],
+  ['progression: the step is never recorded, so the cycle never starts',
+   'protected/velvet-viking-valhalla.html',
+   "    progressionStep: !!o.progressionStep,", "    progressionStep: false,",
+   ['progressionJustification','blockTransitions']],
+  ['progression: the cycle rule masks a reason the athlete has not earned a step',
+   'protected/velvet-viking-valhalla.html',
+   "  var miss = null, exec = null;",
+   "  var __s = developmentBlocksSinceLastStep();\n  if (__s != null && __s < PROGRESSION_BLOCKS_PER_CYCLE){\n    out.blockedBy = 'stepped_this_cycle';\n    out.reason = 'Your volume already stepped up this cycle. It moves once a cycle, not once a block, so this one holds the level you are training at.';\n    return out;\n  }\n  var miss = null, exec = null;",
+   ['progressionJustification','blockTransitions']],
+  ['progression: the magnitude of a step is widened', 'protected/velvet-viking-valhalla.html',
+   "var VOLUME_BLOCK_GROWTH_CAP = 1.10;", "var VOLUME_BLOCK_GROWTH_CAP = 1.20;",
+   ['progressionJustification','volumeCeiling','blockTransitions']],
+  ['progression: the peak stops being bounded by capacity', 'protected/velvet-viking-valhalla.html',
+   "  if (demForPeak) peakVolume = Math.min(peakVolume, round1(demForPeak * PEAK_OVER_DEMONSTRATED));",
+   "", ['progressionJustification','volumeCeiling','blockShape']],
+  /* progressionJustification FIRST, and it was missing. The test that kills this
+     lives there; the case named only the other two, so the case ran 65 tests
+     rather than 91 and reported a survivor for five consecutive full passes.
+     Every "isolated" re-check added the suite by hand and killed it, which is
+     how a case-definition error read for hours as a runner defect. */
+  ['progression: the peak is measured against a week never scheduled',
+   'protected/velvet-viking-valhalla.html',
+   "                          startVolume: spec.volume, peakVolume: largestScheduledWeek(days),",
+   "                          startVolume: spec.volume, peakVolume: blockResult.peakVolume,",
+   ['progressionJustification','blockTransitions','yearRoundLifecycle']],
+
+  /* ---- RECOVERY REDUCES TRAINING STRESS ---- */
+  ['recovery: the intensity ceiling stops at the date window again',
+   'protected/velvet-viking-valhalla.html',
+   "  (days || []).forEach(function(dd){ if (dd && dd.date > until) until = dd.date; });",
+   "", ['recoveryBlock','blockTransitions']],
+  ['recovery: a recovery block sizes sessions at the top of their range',
+   'protected/velvet-viking-valhalla.html',
+   "    if (purpose === 'recovery') pos = 0;", "", ['recoveryBlock','blockShape']],
+  ['recovery: the block no longer reduces volume', 'protected/velvet-viking-valhalla.html',
+   "  'half':  { weeks:2, noIntensityDays:10, volumeFactor:0.50 },",
+   "  'half':  { weeks:2, noIntensityDays:10, volumeFactor:1.00 },",
+   ['recoveryBlock','blockTransitions']],
+  ['recovery: a longer race no longer means a deeper reduction',
+   'protected/velvet-viking-valhalla.html',
+   "  'full':  { weeks:3, noIntensityDays:18, volumeFactor:0.40 },",
+   "  'full':  { weeks:3, noIntensityDays:18, volumeFactor:0.55 },",
+   ['recoveryBlock']],
+
+  /* ---- AN AEROBIC BASE BLOCK IS AEROBIC DEVELOPMENT ---- */
+  ['base: quality progresses at a race build\'s pace again',
+   'protected/velvet-viking-valhalla.html',
+   "    if (purpose === 'base') pos = pos * BASE_QUALITY_POS_MAX;", "",
+   ['aerobicBaseComposition','blockShape']],
+  ['base: the quality bound is widened until it does nothing',
+   'protected/velvet-viking-valhalla.html',
+   "var BASE_QUALITY_POS_MAX = 0.5;", "var BASE_QUALITY_POS_MAX = 0.95;",
+   ['aerobicBaseComposition','blockShape']],
+  ['base: the bound is tightened until the block stops developing',
+   'protected/velvet-viking-valhalla.html',
+   "var BASE_QUALITY_POS_MAX = 0.5;", "var BASE_QUALITY_POS_MAX = 0;",
+   ['aerobicBaseComposition','blockShape']],
+  ['base: the bound leaks into a race block', 'protected/velvet-viking-valhalla.html',
+   "    if (purpose === 'base') pos = pos * BASE_QUALITY_POS_MAX;",
+   "    pos = pos * BASE_QUALITY_POS_MAX;", ['aerobicBaseComposition','blockShape']],
+
+  /* ---- MAINTENANCE ----
+     A block called Maintain & Protect grew quality load 56-66% across eight
+     weeks, invisibly, because the weekly volume never moved. */
+  ['maintain: the block progresses again', 'protected/velvet-viking-valhalla.html',
+   "    var pos = steady ? MAINTAIN_POS_CYCLE[(w - 1) % MAINTAIN_POS_CYCLE.length]",
+   "    var pos = steady ? (w - 1) / Math.max(1, N - 1)", ['maintenanceBlock','blockShape','blockTransitions']],
+  ['maintain: the dose cycle acquires a trend', 'protected/velvet-viking-valhalla.html',
+   "var MAINTAIN_POS_CYCLE = [0.5, 0.35, 0.65];",
+   "var MAINTAIN_POS_CYCLE = [0.35, 0.5, 0.65];", ['maintenanceBlock','blockShape','blockTransitions']],
+  ['maintain: goal pace comes back to a block with no goal',
+   'protected/velvet-viking-valhalla.html',
+   "  var goalOriented = purpose === 'race';", "  var goalOriented = true;", ['maintenanceBlock','blockShape','blockTransitions']],
+  ['maintain: the coach may add quality volume in maintenance again',
+   'protected/velvet-viking-valhalla.html',
+   "  Maintain:    { progress:'none',", "  Maintain:    { progress:'volume_and_quality_volume',", ['maintenanceBlock','blockShape','blockTransitions']],
+  ['maintain: the block borrows the Build pool again', 'protected/velvet-viking-valhalla.html',
+   "    var structPhase = steady ? 'Maintain' : phase;",
+   "    var structPhase = steady ? 'Build' : phase;", ['maintenanceBlock','blockShape','blockTransitions']],
+
+  /* ---- ROTATION ----
+     Two consecutive maintenance blocks were byte-identical, 8 weeks of 8. */
+  ['rotation: the next block opens on the same session as the last',
+   'protected/velvet-viking-valhalla.html',
+   "  return candidates[(weekNum + (rotation || 0)) % candidates.length](pos, emphasis);",
+   "  return candidates[weekNum % candidates.length](pos, emphasis);", ['maintenanceBlock','coachVoice','blockTransitions']],
+  ['rotation: the live block counts itself and re-rotates on every rebuild',
+   'protected/velvet-viking-valhalla.html',
+   "    return b && b.purpose === purpose && b.status === 'closed';",
+   "    return b && b.purpose === purpose;", ['maintenanceBlock','coachVoice','blockTransitions']],
+  ['rotation: every long run in a block is the same one again',
+   'protected/velvet-viking-valhalla.html',
+   "      : LONG_RUN_SHAPE_ORDER[(w + rotation) % LONG_RUN_SHAPE_ORDER.length];",
+   "      : 'steady';", ['maintenanceBlock','coachVoice','blockTransitions']],
+
+  /* ---- BLOCK SHAPE ----
+     Aerobic Base was a ten-week block with one base week, a mid-block time
+     trial, a two-week taper and a maximal goal effort. */
+  ['shape: the base block tapers for a race that does not exist',
+   'protected/velvet-viking-valhalla.html',
+   "             baseEnd: BASE_PHASE_SPLIT, buildEnd: 1.01, volumeMult: BASE_VOLUME_MULT };",
+   "             baseEnd: PHASE_BASE_END, buildEnd: PHASE_BUILD_END, volumeMult: null };", ['blockShape','maintenanceBlock','blockTransitions','yearRoundLifecycle']],
+  ['shape: a block with no goal effort ends in one anyway',
+   'protected/velvet-viking-valhalla.html',
+   "    var isRace = !steady && arc.hasGoalEffort && (w===N);",
+   "    var isRace = !steady && (w===N);", ['blockShape','maintenanceBlock','blockTransitions','yearRoundLifecycle']],
+  ['shape: the mid-block time trial comes back everywhere',
+   'protected/velvet-viking-valhalla.html',
+   "      isCheckpoint = !steady && arc.hasCheckpoint && (w === Math.max(1,Math.round(buildWeeks*0.6)));",
+   "      isCheckpoint = !steady && (w === Math.max(1,Math.round(buildWeeks*0.6)));", ['blockShape','maintenanceBlock','blockTransitions','yearRoundLifecycle']],
+  ['shape: the speed block goes back to three development weeks',
+   'protected/velvet-viking-valhalla.html',
+   "var SPEED_CONSOLIDATION_WEEKS = 1;", "var SPEED_CONSOLIDATION_WEEKS = 2;", ['blockShape','maintenanceBlock','blockTransitions','yearRoundLifecycle']],
+  ['shape: a recovery block ramps on the race multiplier again',
+   'protected/velvet-viking-valhalla.html',
+   "             baseEnd: 1.01, buildEnd: 1.01, volumeMult: 1 };",
+   "             baseEnd: 1.01, buildEnd: 1.01, volumeMult: null };", ['blockShape','maintenanceBlock','blockTransitions','yearRoundLifecycle']],
+  ['shape: the base block ends at its own peak', 'protected/velvet-viking-valhalla.html',
+   "      if (!steady && !arc.hasGoalEffort && w===N && N>=4) isCutback = true;", "", ['blockShape','maintenanceBlock','blockTransitions','yearRoundLifecycle']],
+
+  /* ---- THE WEEK THE ATHLETE IS STANDING IN ---- */
+  ['cap: a mid-week re-tailor stacks a third hard session again',
+   'protected/velvet-viking-valhalla.html',
+   "  capCurrentWeekQuality(merged, newDays, today);", "", ['historicalImmutability','reconcileRegeneratedDays','historyIntegrity']],
+  ['cap: the cap is paid for out of the past', 'protected/velvet-viking-valhalla.html',
+   "  var changeable = quality.filter(function(dd){ return dd.date >= today && !dayCarriesHistory(dd); })",
+   "  var changeable = quality.filter(function(dd){ return true; })", ['historicalImmutability','reconcileRegeneratedDays','historyIntegrity']],
+
+  /* ---- ESCALATION ----
+     One missed session and seven produced the same sentence. */
+  ['escalation: every miss is an isolated one again', 'protected/velvet-viking-valhalla.html',
+   "  return { tier: patternTier(ran.length, win.length), missed: win.length-ran.length,",
+   "  return { tier: 'isolated', missed: win.length-ran.length,", ['escalation','learningWithoutHealthData']],
+  ['escalation: a handful of sessions is enough to call it persistent',
+   'protected/velvet-viking-valhalla.html',
+   "var PATTERN_MIN_PLANNED      = 6;", "var PATTERN_MIN_PLANNED      = 1;", ['escalation','learningWithoutHealthData']],
+  ['escalation: rest days count towards the window', 'protected/velvet-viking-valhalla.html',
+   "    return dd && dd.type!=='rest' && dd.date < today;",
+   "    return dd && dd.date < today;", ['escalation','learningWithoutHealthData']],
+  ['escalation: an accepted adjustment counts as a missed session',
+   'protected/velvet-viking-valhalla.html',
+   "  var ran = win.filter(function(dd){ return sessionRan(dd) || !!dd.coachAdjust; });",
+   "  var ran = win.filter(function(dd){ return sessionRan(dd); });", ['escalation','learningWithoutHealthData']],
+  ['escalation: an easy run logged short reads as the block being too hard',
+   'protected/velvet-viking-valhalla.html',
+   "    return sessionRan(dd) && isQualityType(dd.type);",
+   "    return sessionRan(dd);", ['escalation','learningWithoutHealthData']],
+  ['escalation: the pattern never reaches the athlete', 'protected/velvet-viking-valhalla.html',
+   "  } else if (patternSpeaks && patternSpeaks.tier !== 'isolated'){",
+   "  } else if (false){", ['escalation','learningWithoutHealthData']],
+
+  /* ---- COACHING VOICE ---- */
+  ['voice: every past card points at today again', 'protected/velvet-viking-valhalla.html',
+   "    return x.date > dd.date && x.type!=='rest';",
+   "    return x.date > dd.date && x.type!=='rest' && !x.completed;", ['coachVoice','copyRepetition','escalation']],
+  ['voice: safety-critical language is suppressed like anything else',
+   'protected/velvet-viking-valhalla.html',
+   "  if (!sentence || PHRASE_ALWAYS_SAY.test(sentence)) return false;",
+   "  if (!sentence) return false;", ['coachVoice','copyRepetition','escalation']],
+  ['voice: the same commentary lands on every card again',
+   'protected/velvet-viking-valhalla.html',
+   "var PHRASE_SUPPRESS_WINDOW = 3;", "var PHRASE_SUPPRESS_WINDOW = 0;", ['coachVoice','copyRepetition','escalation']],
+  ['voice: a heart rate the athlete never logged is claimed',
+   'protected/velvet-viking-valhalla.html',
+   "      if (hrInZone) held.push('heart rate at '+a.hr+' bpm');",
+   "      held.push('heart rate at '+a.hr+' bpm');", ['coachVoice','copyRepetition','escalation']],
+  ['voice: the internal block state reaches the athlete again',
+   'protected/velvet-viking-valhalla.html',
+   "        why:'The block reads as '+((BLOCK_META[block?block.state:'LEARNING']||BLOCK_META.LEARNING).label)+",
+   "        why:'The block reads as '+(block?block.state:'LEARNING')+", ['coachVoice','copyRepetition','escalation']],
 
   /* ---- HEALTH AND READINESS CONSENT ----
      Every case below is one way an athlete's health information could be
@@ -676,21 +948,157 @@ if (only && !SELECTED.length){
 }
 if (only) console.log('running ' + SELECTED.length + ' of ' + CASES.length + ' cases matching "' + only + '"\n');
 
-let survived = [], killed = 0;
-for (const [name, file, from, to, subset] of SELECTED){
+/* A SUITE THAT DID NOT RUN IS NOT A SUITE THAT PASSED.
+   The old loop piped node straight into `grep -c "^not ok "` and read the
+   count. A pipeline reports the exit status of its LAST command, so if the
+   test process was killed -- out of memory, reaped under load, timed out --
+   grep saw an empty stream, printed 0, and the case was recorded as a
+   SURVIVOR. One case in this file did exactly that on three consecutive full
+   runs while killing reliably every time it was run on its own, which is how
+   it was found.
+
+   Wrong in the safe direction, but wrong: it reports risk that is not there,
+   and the same blindness would let a genuine survivor hide behind noise. The
+   run now keeps the whole TAP output and requires POSITIVE EVIDENCE that the
+   suites executed -- node prints exactly one `# tests N` summary per
+   invocation -- and a case with no summary is an ERROR rather than a verdict.
+   Errors are reported separately and fail the run, because the honest answer
+   to "did this mutation survive" is that we do not know. */
+let LAST_TAP = '';        // the raw output of the most recent suite run
+
+/* HOW MANY TESTS THAT SET OF SUITES IS SUPPOSED TO RUN.
+   Requiring a `# tests N` summary was not enough. node --test runs the files
+   in parallel workers and flattens their results, so a worker killed under
+   sustained load simply removes its tests from the count -- the summary is
+   still printed, the remaining suites still pass, and the case is recorded as
+   a SURVIVOR. One case did that on four consecutive full runs while being
+   killed by five separate runs of the identical command, including a replay of
+   its exact neighbourhood with checksums proving the file was clean.
+
+   So each distinct suite set is run ONCE against unmutated source to learn how
+   many tests it contains, and a mutated run that reports a different number has
+   not answered the question. Lazily, because the sets repeat: fifteen or so
+   baselines across a hundred and fifty cases. */
+/* RESTORING THE TREE EVEN WHEN THE RUN DOES NOT FINISH.
+   This tool rewrites source files, and it was killed mid-case twice in one
+   session -- once by a container restart. Both times it left a mutation on
+   disk, and the second time a `git add -A` swept that mutation into a commit,
+   where it silently removed a safety rule that a test in the very same run had
+   just proved was needed. The header has always warned that `git status` shows
+   what is left modified; a warning is not a guard. */
+let pending = null;                       // { path, original } while a case is live
+function restorePending(){
+  if (!pending) return;
+  try{ fs.writeFileSync(pending.path, pending.original); }catch(e){ /* nothing better to do */ }
+  pending = null;
+}
+process.on('exit', restorePending);
+['SIGINT', 'SIGTERM', 'SIGHUP'].forEach(sig => process.on(sig, () => {
+  restorePending();
+  console.log('\n[interrupted on ' + sig + ' -- source restored]');
+  process.exit(130);
+}));
+
+const baselines = new Map();
+function runSuites(suiteFiles){
+  /* STDOUT DIRECTLY, not through a temp file. Redirecting the child to a file
+     and reading it back put a filesystem between the run and its verdict, and
+     the read raced the child: the runner saw fifteen bytes -- "TAP version 13"
+     -- and reported a baseline that had not come back clean, while the same
+     command run by hand produced fifty-four passing tests. Capturing the pipe
+     removes the question. maxBuffer is generous because the full TAP of the
+     twenty-eight-suite subset is a few hundred kilobytes and truncating it
+     would put the ambiguity straight back. */
+  let tap = '';
+  try{
+    // A failing suite exits non-zero, which is the ordinary kill path.
+    tap = cp.execSync('cd ' + ROOT + ' && node --test ' + suiteFiles + ' 2>&1',
+                      { encoding: 'utf8', timeout: 1800000, maxBuffer: 256 * 1024 * 1024 });
+  }catch(e){
+    // verdict comes from the output, never from the exit status
+    tap = (e.stdout != null) ? String(e.stdout) : '';
+  }
+  const m = tap.match(/^# tests (\d+)/m);
+  LAST_TAP = tap;
+  return { tests: m ? parseInt(m[1], 10) : null,
+           fails: (tap.match(/^not ok /gm) || []).length };
+}
+function baselineFor(suiteFiles){
+  /* KEYED ON THE SUITE LIST, and it was keyed on `files` -- main's helper
+     FUNCTION, whose string form is the same for every call. One cache entry
+     served every suite set, so the first baseline taken (the twenty-eight-suite
+     SUBSET, 687 tests) was returned as the expectation for four-suite sets that
+     run 54, and eight cases reported "ran 54 of 687".
+
+     Second time this file has been bitten by that name: the merge brought
+     main's `files` helper alongside my local of the same name, and both
+     mistakes were a reference the rename missed. The local is `suiteFiles`
+     everywhere now. */
+  if (!baselines.has(suiteFiles)){
+    const b = runSuites(suiteFiles);
+    if (b.tests == null || b.fails > 0)
+      throw new Error('the baseline run for ' + suiteFiles + ' did not come back clean: ' +
+                      JSON.stringify(b));
+    baselines.set(suiteFiles, b.tests);
+  }
+  return baselines.get(suiteFiles);
+}
+
+/* Narrowing a run. MUT_FROM/MUT_TO take case indices so a single case can be
+   re-checked, or a slice bisected, without a ninety-minute pass; MUT_TAP_DIR
+   saves each case's raw output there. Both exist because a case was reported as
+   surviving five full runs while being killed by every direct run of the
+   identical command, and finding out why needed the batch's own output rather
+   than another isolated reproduction. */
+const ONLY_FROM = parseInt(process.env.MUT_FROM || '0', 10);
+const ONLY_TO = parseInt(process.env.MUT_TO || String(CASES.length), 10);
+const TAP_DIR = process.env.MUT_TAP_DIR || '';
+
+let survived = [], errored = [], killed = 0;
+for (const [idx, [name, file, from, to, subset]] of SELECTED.entries()){
+  if (idx < ONLY_FROM || idx >= ONLY_TO) continue;
   const p = ROOT + '/' + file;
   const orig = fs.readFileSync(p, 'utf8');
   if (orig.indexOf(from) === -1){ survived.push(name + '   [ANCHOR NOT FOUND]'); continue; }
-  fs.writeFileSync(p, orig.replace(from, to));
-  let out;
-  try{
-    out = cp.execSync('cd ' + ROOT + ' && node --test ' + (subset || SUBSET) + ' 2>&1 | grep -c "^not ok "',
-                      { encoding: 'utf8', timeout: 600000 });
-  }catch(e){ out = (e.stdout || '0'); }
+  /* A case may name the suites that guard it. The programme suites build and
+     log whole plans and are minutes each, so running all of them for every one
+     of a hundred and fifty cases is hours -- and a mutation is only ever killed
+     by the suite written for it. A case with no subset falls back to SUBSET.
+
+     TWO SHAPES, because two branches added cases independently: an array of
+     suite names, or a string already joined by files(). Accepting both is a
+     line here and would be thirty edited case definitions otherwise. */
+  const suiteFiles = Array.isArray(subset) ? files(subset) : (subset || SUBSET);
+  // BASELINE FIRST, on clean source, then mutate.
+  const expected = baselineFor(suiteFiles);
+  pending = { path: p, original: orig };
+  fs.writeFileSync(p, orig.replace(from, to));          // clean-source run, cached per suite set
+  const r = runSuites(suiteFiles);
   fs.writeFileSync(p, orig);
-  const fails = parseInt(String(out).trim(), 10) || 0;
-  if (fails > 0){ killed++; console.log('KILLED  ' + String(fails).padStart(3) + '  ' + name); }
-  else { survived.push(name); console.log('SURVIVED       ' + name); }
+  pending = null;
+  // Restored, or the next case's `orig` inherits this one's mutation.
+  if (fs.readFileSync(p, 'utf8') !== orig)
+    throw new Error('failed to restore ' + file + ' after: ' + name);
+  if (TAP_DIR){
+    try{ fs.writeFileSync(TAP_DIR + '/case-' + idx + '.tap', LAST_TAP); }catch(e){ /* best effort */ }
+  }
+  if (r.tests == null){
+    errored.push(name);
+    console.log('ERROR          ' + name + '   [the suites did not report a result]');
+  } else if (r.tests !== expected){
+    errored.push(name + '   [ran ' + r.tests + ' tests, expected ' + expected + ']');
+    console.log('ERROR          ' + name + '   [ran ' + r.tests + ' of ' + expected + ' tests]');
+  } else if (r.fails > 0){
+    killed++; console.log('KILLED  ' + String(r.fails).padStart(3) + '  [' + idx + '] ' + name);
+  } else {
+    survived.push(name); console.log('SURVIVED       [' + idx + '] ' + name);
+  }
 }
 console.log('\n=== ' + killed + '/' + SELECTED.length + ' mutations detected ===');
+if (errored.length){
+  console.log('ERRORED (no result reported, verdict unknown):');
+  errored.forEach(n => console.log('  ' + n));
+}
 if (survived.length) console.log('SURVIVORS:\n  ' + survived.join('\n  '));
+// A run that could not answer for a case has not verified the guard it names.
+process.exitCode = (survived.length || errored.length) ? 1 : 0;

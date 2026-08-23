@@ -388,6 +388,63 @@ own parallel one.
 
 ---
 
+## What is authoritative, and what is only a picture of it
+
+The single question a future engineer needs answered, so it is answered as a
+table rather than as prose.
+
+| question | answer | authority |
+|---|---|---|
+| What is the account identity? | `auth.users.id`, carried as `account_commercial.account_id` | **authoritative** |
+| What records that the trial has been used? | `account_commercial.trial_consumed_at` — one row per athlete, one column, no second counter anywhere | **authoritative** |
+| What represents a provider subscription? | `public.subscriptions`, provider-neutral, `provider ∈ {web, apple, google}` | **authoritative** |
+| What grants beta or comped access? | `public.entitlement_grants`, source `admin_beta` / `admin_comp` — never a fake subscription | **authoritative** |
+| What provides webhook idempotency? | `public.billing_events`, unique on `(provider, provider_event_id)` | **authoritative** |
+| What computes effective Standard entitlement? | `resolveStandardEntitlement()` in `_entitlement.js`, over the three tables above | **authoritative** |
+| What does `_access.js` read to hand over the runtime? | `public.entitlements` | **projection** |
+| What are `access_leases`? | short-lived delivery credentials, revoked when access ends | **projection** |
+| Where does Stripe stop? | at `P.normaliseEvent()`. Everything after that is provider-neutral | adapter |
+| How do Apple and Google plug in later? | a new adapter, feeding the same `claimBillingEvent → upsertSubscription → syncEntitlementRow` path | — |
+
+### The legacy `entitlements` row is a projection, explicitly
+
+It predates the core and the runtime gate still reads it, so it stays. What
+changed is that it is no longer a *source*:
+
+- **who writes it** — `_commercial-store.js`, only through `syncEntitlementRow()`,
+  which resolves from the core first and projects second. A test asserts it is
+  the only module in `api/` that writes that table.
+- **who reads it** — `_access.js`, to decide whether to hand over the runtime.
+- **what feeds it** — subscriptions, grants and the account's trial state. Nothing
+  else. The resolver never reads the row it writes, so the projection can never
+  become an input to its own truth.
+- **when it can go** — when `_access.js` resolves from the core directly. That is a
+  latency and caching decision, not a correctness one; the arrow already points
+  the right way.
+
+`access_leases` are unaffected: they are the credential that actually delivers
+the runtime, and they are revoked when access ends rather than left to expire.
+
+### The second brain that was removed
+
+`api/_billing.js` and the generic path in `api/billing-webhook.js` were a
+parallel commercial authority. The generic path accepted its own signed payload,
+ran a state machine, and **PATCHed `public.entitlements` directly** — bypassing
+the resolver, so the projection could contradict the subscriptions and grants
+behind it. It also **invented seven days of grace** on a failed payment.
+
+Both are gone. The approved rule is **provider grace only**: whatever
+`grace_period_end` a provider supplies is honoured exactly, and Valhalla adds
+nothing on top. Being inside a period that was already paid for is not grace and
+is not reported as grace. `test/commercialAuthority.test.js` asserts that no
+module in `api/` declares a grace length of its own.
+
+A non-Stripe delivery to `/api/billing-webhook` now answers `501
+PROVIDER_NOT_SUPPORTED` without touching the database. Apple and Google will
+arrive as adapters into the core, not as a second endpoint shape.
+
+---
+
 ## Files
 
 | file | what |
@@ -395,9 +452,14 @@ own parallel one.
 | `api/_products.js` | catalogue: product, offers, prices, provider refs |
 | `api/_entitlement.js` | the resolver, trial eligibility, duplicate purchase, projection — all pure |
 | `api/_commercial-store.js` | Supabase IO, idempotency, race-safe trial consumption |
-| `supabase-commercial-core.sql` | schema, RLS, triggers, beta backfill |
-| `test/commercialCore.test.js` | 99 tests |
+| `api/_stripe.js` | the Stripe adapter: signature, vocabulary translation, nothing else |
+| `api/_checkout.js` | checkout session creation, behind `VVV_COMMERCE_ENABLED` |
+| `api/billing-webhook.js` | one door: verified Stripe event → core. Everything else refused |
+| `supabase-commercial-core.sql` | schema, RLS, triggers, beta backfill, production hardening |
+| `test/commercialCore.test.js` | the core's own behaviour |
+| `test/commercialAuthority.test.js` | the convergence invariants: one ledger, one authority, provider-only grace, one trial counter |
+| `test/stripeLifecycle.test.js` | the Stripe path end to end against a fake Supabase |
 | `test/fakeSupabase.js` | in-memory PostgREST that enforces the real unique constraints |
 
-All three modules are underscore-prefixed, so no Vercel serverless function was
+All shared modules are underscore-prefixed, so no Vercel serverless function was
 added and the deployment budget is unchanged.
