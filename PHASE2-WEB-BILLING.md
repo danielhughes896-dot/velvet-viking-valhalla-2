@@ -156,7 +156,7 @@ explicit approval before it is applied to production.**
 
 ## What was found and fixed
 
-Five things, in the order they would have bitten.
+Six things, in the order they would have bitten.
 
 1. **`/api/checkout` could never sell anything.** It called
    `mayStartStandardPurchase()` without naming a provider. That rule validates
@@ -187,6 +187,20 @@ Five things, in the order they would have bitten.
    screen said *"Active until…"* during a fortnight that was a trial. Nobody's
    access changed; `state` now describes the commercial source it is about.
 
+6. **A purchase could be re-pointed at another athlete.** The schema says
+   *"account_id is the one column that is OURS, and it is never written from a
+   provider payload — that is what stops a crafted webhook re-pointing somebody's
+   purchase at another athlete."* The store's column list says the same. Neither
+   was implemented: `normaliseSubscription()` writes `account_id` on every row
+   and the upsert merges every column it is handed, so a second event for the
+   same provider subscription carrying different metadata moved the purchase.
+   One row, no error, and one athlete's card paying for another athlete's
+   access. Not browser-reachable — the metadata is ours and changing it needs
+   the provider's dashboard — which is exactly why it survived review as prose.
+   `upsertSubscription()` now reads the existing owner and refuses a mismatch;
+   the event is recorded as `account_mismatch` and answered `200`, because
+   redelivering it cannot make it attributable.
+
 And one thing added because the journey needs it: **reconcile**. A webhook is a
 notification and notifications are late — queued behind an outage, dropped by a
 deployment mid-rollout, arriving after the athlete's browser already came back.
@@ -195,6 +209,78 @@ as nothing more than a lookup key, fetches the Checkout Session from Stripe
 server-side, refuses it if its metadata does not name the authenticated athlete,
 and applies the facts through the same `_billing-apply.js` the webhook uses. The
 browser never says "I paid".
+
+---
+
+## Contracts for APP and WEBSITE
+
+This phase deliberately did not redesign either surface. What it did was give
+them a stable server contract to build against. The one change made to a surface
+was the account shell's purchase control, because retiring the second purchase
+door left the product with no path to buy at all — it is functional wiring, not
+a design, and APP may redesign it freely as long as it keeps to the contract
+below.
+
+**`GET /api/checkout`** — public shape for a pricing surface.
+
+```json
+{ "catalogue": { "product": { "code": "VALHALLA_STANDARD", "name": "Valhalla Standard" },
+                 "trialDays": 14,
+                 "offers": [ { "code": "STANDARD_MONTHLY", "billingPeriod": "monthly",
+                               "priceMinor": 1199, "currency": "GBP", "trialDays": 14,
+                               "available": false } ] },
+  "commerce_enabled": false, "provider_configured": false }
+```
+
+`available` is honest about configuration. An offer with no provider identifier
+is **listed, priced and marked unavailable** rather than hidden — *"£89.99/year,
+not open yet"* is information; a missing row is a bug report. Render prices from
+this, never from a literal in a page: a price typed into a screen drifts from
+the one that will be charged.
+
+**`POST /api/checkout {period}`** → `{ url, period, trial_days }`, or a named
+refusal. The refusals a surface must be able to say a sentence for:
+`already_subscribed_here`, `already_subscribed_elsewhere` (with
+`existing_provider`), `commerce_disabled`, `provider_not_configured`,
+`unknown_billing_period`, `not_signed_in`. *"You already subscribe through the
+App Store"* is a different screen from *"payments are not open"*.
+
+**`GET /api/subscription`** — everything an account screen needs and nothing
+that identifies the athlete to a third party. No provider customer id, no
+subscription id, no event sequence. `access`, `reason`, `state`,
+`access_until`, `cancel_at_period_end`, `override`, `tier`, `capabilities`,
+`locked_capabilities`, `checkout_configured`, `catalogue`,
+`management_provider`, `manageable_here`.
+
+`manageable_here` is the one to branch on for a cancel control: false means the
+subscription belongs to a store and the athlete must be sent there.
+
+**`POST /api/subscription {action}`** — `reconcile` (with `session_id`),
+`cancel`, `reactivate`. All three return the same view shape as `GET`, plus a
+`result` field, so a surface never has to make a second request to find out what
+changed. `resubscribe` is `410 Gone`.
+
+**What a surface may never do.** Infer entitlement from a checkout redirect, a
+query string, or its own storage. The only unlock in the product is `/api/app`
+resolving the delivery cookie against the entitlement row, server-side.
+
+### The value-first journey, as the server supports it
+
+```
+WEBSITE → BUILD MY PLAN → PLAN BUILDER → POST /api/preview   (no account needed
+                                                              beyond sign-in;
+                                                              spends nothing)
+        → SAVE MY PLAN / AUTHENTICATE
+        → POST /api/checkout {period}   → provider
+        → return to /account?checkout=complete&session_id=…
+        → POST /api/subscription {action:'reconcile', session_id}
+        → GET /api/app                  → ENTER VALHALLA
+```
+
+`POST /api/preview` returns `trial: { available, days, reason }` — derived from
+the athlete's own `account_commercial` row, not a constant. A surface may show
+*"start your 14-day trial"* only when `available` is true, and
+`reason: 'already_used'` is the sentence to show when it is not.
 
 ---
 
@@ -365,7 +451,7 @@ identifier variables.
 
 ## What is proven, and by what
 
-`test/webBilling.test.js` — 44 cases, organised as the verification matrix, run
+`test/webBilling.test.js` — 52 cases, organised as the verification matrix, run
 through the real `/api/account` router against a fake Stripe that answers the
 REST shapes the adapter actually sends. A mock of our own calls would pass
 whatever we wrote; this fails on the wrong path, method or form body, which is
@@ -375,6 +461,10 @@ most of what an adapter can get wrong.
 `test/commercialCore.test.js`, `test/commercialAuthority.test.js`,
 `test/providerTrial.test.js`, `test/billingWebhook.test.js` — the parts.
 
-**2146 tests, 0 failures.**
+**2154 tests, 0 failures.**
+
+`test/mutation/run.js` — 11 web-billing cases and 21 commercial cases, all
+killed. A mutation pass is what proves the tests *would* fail: a guard nothing
+detects is a guard that is not there. It found two of the six defects above.
 
 None of them talk to Stripe.
