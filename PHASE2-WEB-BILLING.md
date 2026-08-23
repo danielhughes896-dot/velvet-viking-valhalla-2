@@ -156,7 +156,7 @@ explicit approval before it is applied to production.**
 
 ## What was found and fixed
 
-Six things, in the order they would have bitten.
+Seven things, in the order they would have bitten.
 
 1. **`/api/checkout` could never sell anything.** It called
    `mayStartStandardPurchase()` without naming a provider. That rule validates
@@ -166,13 +166,17 @@ Six things, in the order they would have bitten.
    decision as a pure function with a purchase check handed to it, so the one
    call site that had to supply the argument was the only thing uncovered.
 
-2. **Nothing called it.** The account shell's only purchase control POSTed
-   `{action:'resubscribe'}` to `/api/subscription`, which read a URL out of
-   `VVV_CHECKOUT_URL` and sent the browser there — checking no commerce flag,
-   refusing no live key in an uncommissioned deployment, validating no offer,
-   never asking whether the athlete already subscribed somewhere, and creating
-   no provider customer. A second purchase path is a second commercial authority
-   wearing a different hat. It now answers `410` and names `/api/checkout`.
+2. **Every call to it was refused.** `start.html`'s "Start my 14-day trial"
+   button already POSTed to `/api/checkout` — and always got `409`, because of
+   defect 1. The account shell meanwhile had no path to it at all: its only
+   purchase control POSTed `{action:'resubscribe'}` to `/api/subscription`,
+   which read a URL out of `VVV_CHECKOUT_URL` and sent the browser there —
+   checking no commerce flag, refusing no live key in an uncommissioned
+   deployment, validating no offer, never asking whether the athlete already
+   subscribed somewhere, and creating no provider customer. A second purchase
+   path is a second commercial authority wearing a different hat. It now
+   answers `410` and names `/api/checkout`, and the shell renders the offers
+   the server says are purchasable.
 
 3. **A failed renewal bought an unpaid month.** See *paid-through* above.
 
@@ -200,6 +204,15 @@ Six things, in the order they would have bitten.
    `upsertSubscription()` now reads the existing owner and refuses a mismatch;
    the event is recorded as `account_mismatch` and answered `200`, because
    redelivering it cannot make it attributable.
+
+7. **The preview answered an athlete's question for a stranger.** After main
+   moved the preview in front of authentication, resolving eligibility with no
+   uid fails closed — so every anonymous prospect on the acquisition surface
+   would have been told there is no free trial. And the other half: reading
+   only `trialEligibility()` offered a free trial to an athlete who already
+   subscribes, because a paying subscriber has usually never spent their
+   allowance. `trialOffer()` separates the offer from the athlete; see the
+   contract table below.
 
 And one thing added because the journey needs it: **reconcile**. A webhook is a
 notification and notifications are late — queued behind an outage, dropped by a
@@ -277,10 +290,40 @@ WEBSITE → BUILD MY PLAN → PLAN BUILDER → POST /api/preview   (no account n
         → GET /api/app                  → ENTER VALHALLA
 ```
 
-`POST /api/preview` returns `trial: { available, days, reason }` — derived from
-the athlete's own `account_commercial` row, not a constant. A surface may show
-*"start your 14-day trial"* only when `available` is true, and
-`reason: 'already_used'` is the sentence to show when it is not.
+**`POST /api/preview`** answers two different questions depending on whether it
+knows who is asking, and the payload says which:
+
+```json
+{ "preview": { … }, "build": { … },
+  "trial": { "available": true, "days": 14, "reason": "anonymous", "resolved": false } }
+```
+
+| caller | `available` | `reason` | `resolved` |
+|---|---|---|---|
+| anonymous | `true` | `anonymous` | `false` |
+| signed in, allowance unspent | `true` | `eligible` | `true` |
+| signed in, fortnight already used | `false` | `already_used` | `true` |
+| signed in, already subscribes | `false` | `already_subscribed_here` / `…_elsewhere` | `true` |
+| signed in, core unreadable | `false` | `unavailable` | `true` |
+
+**`resolved: false` means nobody was looked up** — there was no athlete to look
+up. It is the public offer from the catalogue, and it is **presentation, not
+entitlement**: no commercial table is read for an anonymous caller, and the
+answer cannot start a trial, spend an allowance or create a subscription.
+Eligibility is re-decided by `mayStartStandardPurchase()` when a checkout is
+opened, and the allowance is spent only when a provider says a trialing
+subscription exists.
+
+A surface may show *"start your 14-day trial"* whenever `available` is true. On
+`false`, `reason` is the sentence to say, and it names **whichever half
+blocked it** — "you have already used your free trial" and "you already have a
+subscription" are different sentences to different people.
+
+`start.html` does not yet read this field: its trial card is gated on
+authentication alone, so a signed-in athlete who has already used their trial,
+or who already subscribes, is shown the button and told no only after pressing
+it. That is a WEBSITE presentation matter and this contract is what fixes it.
+Not changed here — Phase 2 does not redesign WEBSITE surfaces.
 
 ---
 
@@ -451,7 +494,7 @@ identifier variables.
 
 ## What is proven, and by what
 
-`test/webBilling.test.js` — 52 cases, organised as the verification matrix, run
+`test/webBilling.test.js` — 59 cases, organised as the verification matrix, run
 through the real `/api/account` router against a fake Stripe that answers the
 REST shapes the adapter actually sends. A mock of our own calls would pass
 whatever we wrote; this fails on the wrong path, method or form body, which is
@@ -461,9 +504,9 @@ most of what an adapter can get wrong.
 `test/commercialCore.test.js`, `test/commercialAuthority.test.js`,
 `test/providerTrial.test.js`, `test/billingWebhook.test.js` — the parts.
 
-**2154 tests, 0 failures.**
+**2211 tests, 0 failures.**
 
-`test/mutation/run.js` — 11 web-billing cases and 21 commercial cases, all
+`test/mutation/run.js` — 13 web-billing cases and 29 commercial cases, all
 killed. A mutation pass is what proves the tests *would* fail: a guard nothing
 detects is a guard that is not there. It found two of the six defects above.
 
