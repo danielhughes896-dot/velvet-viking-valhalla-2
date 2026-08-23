@@ -35,6 +35,8 @@ const SUBSET = files(['stripeLifecycle','monthlyPause','commercialCore','securit
      against a fake Stripe, so it is the suite most likely to notice a break in
      a commercial guarantee that the part-suites step over. */
   'webBilling',
+  // Both shapes Stripe renders a billing period in.
+  'stripePeriodShape',
   'productionReadiness']);
 /* Plan HQ's cases are checked against the suites that guard them rather than
    against the commercial subset above, which knows nothing about them:
@@ -124,6 +126,29 @@ const CASES = [
   /* ---- PHASE 2: THE WEB RAIL ----
      Each of these reopens something this phase closed. Every one of them was a
      real defect in the tree before it, not a hypothetical. */
+  /* THE PERIOD-SHAPE BLOCKER. Each of these restores the top-level-only read
+     that would have locked every paying athlete out a fortnight after their
+     trial converted. */
+  ['web: the period end stops looking at the subscription item', 'api/_stripe.js',
+   "  const end = periodFieldOf(s, 'current_period_end');",
+   "  const end = s.current_period_end != null ? s.current_period_end : null;",
+   ['stripePeriodShape','webBilling','stripeLifecycle']],
+  ['web: paid-through stops looking at the subscription item', 'api/_stripe.js',
+   "  const start = periodFieldOf(s, 'current_period_start');",
+   "  const start = s.current_period_start != null ? s.current_period_start : null;",
+   ['stripePeriodShape','webBilling','stripeLifecycle']],
+  ['web: the facts read period_start from the top level only', 'api/_stripe.js',
+   "    period_start: secs(periodFieldOf(obj, 'current_period_start')),",
+   "    period_start: secs(obj.current_period_start),",
+   ['stripePeriodShape','webBilling']],
+  ['web: the item overrides the subscription instead of the reverse', 'api/_stripe.js',
+   "  if (s[field] != null) return s[field];\n  const item = s.items && s.items.data && s.items.data[0];\n  return (item && item[field] != null) ? item[field] : null;",
+   "  const item = s.items && s.items.data && s.items.data[0];\n  if (item && item[field] != null) return item[field];\n  return s[field] != null ? s[field] : null;",
+   ['stripePeriodShape']],
+  ['web: an unset API version is sent as an empty header', 'api/_stripe.js',
+   "  if (cfg.apiVersion) headers['Stripe-Version'] = cfg.apiVersion;",
+   "  headers['Stripe-Version'] = cfg.apiVersion;",
+   ['stripePeriodShape']],
   ['web: current_period_end goes back to invoiced-through', 'api/_stripe.js',
    "  if (status !== 'past_due' && status !== 'unpaid') return periodEndOf(s);",
    "  if (true) return periodEndOf(s);",

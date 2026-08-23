@@ -40,6 +40,7 @@ absence is a deliberate off state, not a misconfiguration.
 |---|---|---|---|---|
 | `STRIPE_SECRET_KEY` | **YES** | The API key. `sk_test_…` is sandbox, `sk_live_…` is production — and the code records which on every row it writes. | **REQUIRED** (test first) | Stripe → Developers → API keys |
 | `STRIPE_WEBHOOK_SECRET` | **YES** | Verifies deliveries. **Absent means 503, never "accept everything."** | **REQUIRED** | Stripe → Developers → Webhooks → the endpoint |
+| `STRIPE_API_VERSION` | no | Pins the API version our own REST calls render in, sent once from the shared transport. **Unset by default and safe to leave unset** — the adapter reads the billing period from both the places Stripe puts it, so correctness does not depend on this. Set it to the version pinned on the webhook endpoint so the pushed and pulled routes are provably handed the same shape. Never guess a value. | optional | Stripe → Developers → Webhooks → the endpoint's API version |
 | `VVV_PRICE_WEB_STANDARD_MONTHLY` | no | The Stripe price id for £11.99/month. An unset price **refuses** rather than resolving to "charge them something". | **REQUIRED** | Stripe → Products |
 | `VVV_PRICE_WEB_STANDARD_YEARLY` | no | The Stripe price id for £89.99/year. | **REQUIRED** | Stripe → Products |
 | `VVV_COMMERCE_ENABLED` | no | **SWITCH.** Unset = checkout refuses with `commerce_disabled`. | **OFF** | you |
