@@ -27,6 +27,17 @@
   product default. The OS preference is deliberately never consulted.
 -->
 <script data-vvv-theme-boot>/*VVV-THEME-BOOT*/(function(){try{var s=localStorage.getItem('vvv_theme');var t=s?(JSON.parse(s)||{}).theme:null;document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
+<!--
+  THE CANONICAL BUILDER SPECIFICATION, loaded before the app itself.
+
+  assets/builder-spec.js is the one place the nine-stage builder's stage
+  names, field defaults, validation thresholds and goal-ambition mapping are
+  written down. This page and /start load the identical file; the app's own
+  builder code below reads window.BUILDER_SPEC rather than redeclaring any of
+  it, so a change here changes both surfaces in the same commit. See that
+  file's own header for the full rationale.
+-->
+<script src="/assets/builder-spec.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -5525,25 +5536,20 @@ var TYPE_META = {
    the single accessor -- plan snapshot first, athlete preference second,
    'experienced' for any legacy save that has neither.
    ========================================================= */
-var EXPERIENCE_LEVELS = ['novice','experienced','advanced'];
-var EXPERIENCE_META = {
-  novice:      { label:'New to structured training', short:'New',
-                 hint:'Tell me what to do, how to do it and what it should feel like.' },
-  experienced: { label:'Experienced', short:'Experienced',
-                 hint:'Give me the session, targets and the important coaching cues.' },
-  advanced:    { label:'Advanced', short:'Advanced',
-                 hint:'Keep it concise. Give me the prescription and let me run.' }
-};
+// Coaching-depth preference, read from the canonical builder specification --
+// see BUILDER_PURPOSE_ORDER above for why.
+var EXPERIENCE_LEVELS = BUILDER_SPEC.experience.order;
+var EXPERIENCE_META = BUILDER_SPEC.experience.meta;
 function normaliseExperience(v){
   return EXPERIENCE_LEVELS.indexOf(v)!==-1 ? v : null;
 }
 // Single source of truth for coaching depth. Legacy plans and legacy saves
-// (no property at either level) resolve to 'experienced'.
+// (no property at either level) resolve to the spec's default.
 function athleteExperience(su){
   var s = su || (typeof state!=='undefined' && state ? state.setup : null);
   return normaliseExperience(s && s.experience)
       || normaliseExperience(typeof state!=='undefined' && state ? state.experience : null)
-      || 'experienced';
+      || BUILDER_SPEC.experience.default;
 }
 // Per-type coaching copy. Keyed by the same TYPE_META ids so a new workout
 // type only ever needs one entry here -- there is no second switch anywhere.
@@ -6669,8 +6675,9 @@ function adoptCloudState(remote, keepDevicePrefs){
    THE CONTINUOUS BUILD -- adopting a plan built before authentication.
 
    The approved acquisition journey is Builder -> Personalised Preview ->
-   Save My Plan -> Authenticate -> Trial/Purchase -> App. /start's mini-
-   builder generates that preview through /api/preview, which runs these
+   Save My Plan -> Authenticate -> Trial/Purchase -> App. /start's own
+   nine-stage rendering of the canonical builder generates that preview
+   through /api/preview, which runs these
    exact same buildBlockWeeks()/buildDaysFromWeeks() functions server-side
    (see api/_preview.js) and returns, alongside the preview, the precise
    arguments it used -- api/_preview.js's buildEcho(). /start banks that
@@ -6720,16 +6727,18 @@ function adoptPendingBuildIfAny(){
   if (pending.uid && sub && pending.uid !== sub) return false;
 
   var b = pending.build;
-  /* Re-validated against the REAL builder's own rules (handleGeneratePlan()'s
-     3-6 running days, weeks 4-24, volume > 0) -- /start's mini-form is a
-     separate surface, and nothing that could not have come out of the real
-     builder should ever be silently adopted as one. */
+  /* Re-validated against the canonical builder specification
+     (assets/builder-spec.js) -- the same thresholds handleGeneratePlan()
+     itself now reads. /start's staged wizard is a separate surface, and
+     nothing that could not have come out of the real builder should ever be
+     silently adopted as one. */
+  var pendDays = BUILDER_SPEC.validation.daysRange, pendWeeks = BUILDER_SPEC.validation.weeksRange;
   if (!DISTANCE_PROFILES[b.distanceKey]) return false;
   if (!isBlockPurpose(b.purpose) || b.purpose === 'recovery') return false;
-  if (!(b.volume > 0)) return false;
-  if (!Array.isArray(b.activeDays) || b.activeDays.length < 3 || b.activeDays.length > 6) return false;
+  if (!(b.volume > BUILDER_SPEC.validation.volumeMustExceed)) return false;
+  if (!Array.isArray(b.activeDays) || b.activeDays.length < pendDays[0] || b.activeDays.length > pendDays[1]) return false;
   if (b.activeDays.indexOf(b.longRunDay) === -1) return false;
-  if (!(b.weeks >= 4 && b.weeks <= 24)) return false;
+  if (!(b.weeks >= pendWeeks[0] && b.weeks <= pendWeeks[1])) return false;
   if (!(b.benchmarkSeconds > 0)) return false;
   if (!b.startDate || !b.raceDate) return false;
 
@@ -6750,10 +6759,10 @@ function adoptPendingBuildIfAny(){
        picked is exactly what the preview's own training paces were already
        computed from, so entering the app hands them no different a target
        than the one they already saw and approved. */
-    var benchProfile = DISTANCE_PROFILES[b.benchmarkDistanceKey || '10k'];
+    var benchProfile = DISTANCE_PROFILES[b.benchmarkDistanceKey || BUILDER_SPEC.benchmarkDistances.default];
     var profile = DISTANCE_PROFILES[b.distanceKey];
     var vdotBench = vdotFromPerformance(benchProfile.raceKm * 1000, b.benchmarkSeconds);
-    var mults = { A: 1.06, B: 1.00, C: 0.94 };
+    var mults = BUILDER_SPEC.goals.ambitionMult;
     var goals = {};
     GOAL_KEYS.forEach(function(k){
       var t = equivalentTimeSec(vdotBench * mults[k], profile.raceKm * 1000);
@@ -6768,15 +6777,19 @@ function adoptPendingBuildIfAny(){
       distanceKey: b.distanceKey, currentVolume: b.volume, raceDate: b.raceDate, hasEvent: !!b.hasEvent,
       startDate: b.startDate, planWeeks: blockResult.planWeeks, schedule: schedule,
       blockId: block.id, purpose: b.purpose,
-      benchmark: { distanceKey: b.benchmarkDistanceKey || '10k', timeSec: b.benchmarkSeconds },
+      benchmark: { distanceKey: b.benchmarkDistanceKey || BUILDER_SPEC.benchmarkDistances.default, timeSec: b.benchmarkSeconds },
       goals: goals, activeGoal: activeGoal,
       paceOverrides: {},
-      /* Never carried across from the anonymous mini-builder, which never
-         asks for them. Left null, exactly as a first-time plan built without
-         them always has been -- renderHealthConsentCard() already asks on
-         Today the moment it finds a plan with consent unanswered. */
+      /* Never carried across from the anonymous builder, which never asks
+         for them pre-account. Left null, exactly as a first-time plan built
+         without them always has been -- renderHealthConsentCard() already
+         asks on Today the moment it finds a plan with consent unanswered. */
       lthr: null, maxHR: null,
-      experience: athleteExperience()
+      /* The coaching-depth preference the athlete chose on /start's own
+         Training data/Targets stages, same as a signed-in athlete choosing
+         it in the builder -- falling back to the device default only for a
+         pending build banked before this question existed. */
+      experience: normaliseExperience(b.experience) || athleteExperience()
     };
     state.days = days;
     initExpanded();
@@ -11955,55 +11968,24 @@ function blockPurposeLabel(p){
    Plan HQ, and in the recommendation that offers it next. `distanceLabel` and
    the two hints are what changes when the purpose changes -- the questions
    stay the same questions, asked in the language of what is being built. */
-var BUILDER_PURPOSE_ORDER = ['race', 'maintain', 'base', 'speed'];
-var BUILDER_PURPOSE_META = {
-  race: {
-    label: 'Race Goal',
-    blurb: 'Train for a distance, with or without an event booked.',
-    distanceLabel: 'Goal distance',
-    distanceHint: 'The distance this block prepares you for. You do not need an event booked.',
-    weeksHint: 'A full distance-specific block, built and tapered to a culminating goal effort in the final week.',
-    stageTitle: 'Your goal',
-    stageLede: 'What are we building towards? You do not need an event booked.',
-    lockDistance: null
-  },
-  maintain: {
-    label: 'Maintain & Protect',
-    blurb: 'Hold the fitness you have built, at a lower cost.',
-    distanceLabel: 'Fitness to protect',
-    distanceHint: 'The shape of running to hold on to. Volume sits below what you have been absorbing; the quality stays.',
-    weeksHint: 'Eight weeks is a review point, not a limit — Valhalla asks what is next rather than simply stopping.',
-    stageTitle: 'What you are protecting',
-    stageLede: 'The fitness you have already built. This block holds it rather than chasing more.',
-    lockDistance: null
-  },
-  base: {
-    label: 'Aerobic Base',
-    blurb: 'Build sustainable running capacity.',
-    distanceLabel: 'Building towards',
-    distanceHint: 'The distance this capacity is for. Base work starts at what you already absorb, and builds from there.',
-    weeksHint: 'Long enough for the aerobic work to count. There is no weekly percentage rule — progression follows what you actually absorb.',
-    stageTitle: 'What you are building',
-    stageLede: 'Sustainable capacity, built from what you already absorb. No event needed.',
-    lockDistance: null
-  },
-  speed: {
-    label: 'Speed & Threshold',
-    blurb: 'Sharpen speed and threshold without a race to aim at.',
-    distanceLabel: 'Sharpening at',
-    distanceHint: 'Speed work uses the 5K block’s existing methodology — no new intensity system, and nothing invented for this purpose.',
-    weeksHint: 'Short and sharp. Sharpening is a phase, not a season.',
-    stageTitle: 'What you are sharpening',
-    stageLede: 'Speed and threshold work, using the 5K block’s existing sessions. No event needed.',
-    lockDistance: '5k'
-  }
-};
+/* WHAT THE ATHLETE MAY CHOOSE, read from the canonical builder specification
+   (assets/builder-spec.js) rather than declared here a second time -- the
+   same object /start's public wizard and api/_preview.js's request
+   validation read, loaded here as window.BUILDER_SPEC before this script
+   runs. See that file for the full shape and the reasoning; this is the one
+   place the app names the two fields it borrows from it. */
+var BUILDER_PURPOSE_ORDER = BUILDER_SPEC.purposes.order;
+var BUILDER_PURPOSE_META = BUILDER_SPEC.purposes.meta;
 /* The engine's own default length for a purpose, so the builder offers the
-   same number the recommendation would have built. */
+   same number the recommendation would have built. Race's number is the
+   canonical spec's echo of it; maintain/base/speed still ask the real engine,
+   because developmentBlockSpec() can (for a returning athlete) do more than
+   return its own default -- test/builderSpecParity.test.js asserts the
+   spec's static numbers still agree with what it returns here. */
 function builderDefaultWeeks(purpose){
-  if (purpose === 'race' || !isBlockPurpose(purpose)) return 14;
+  if (purpose === 'race' || !isBlockPurpose(purpose)) return BUILDER_PURPOSE_META.race.defaultWeeks;
   var spec = developmentBlockSpec(purpose, {});
-  return (spec && spec.weeks) || 8;
+  return (spec && spec.weeks) || BUILDER_PURPOSE_META[purpose].defaultWeeks;
 }
 
 function makeAthleteRecord(){
@@ -20367,7 +20349,7 @@ function openSetupModal(){
   var goals = su.goals || {};
   var schedule = su.schedule || { activeDays:[0,1,2,4,5], longRunDay:5 };
 
-  var goalLabels = {A:'Dream Target', B:'Solid Target', C:'Safety Net'};
+  var goalLabels = BUILDER_SPEC.goals.labels;
   var goalRows = GOAL_KEYS.map(function(k){
     var val = (goals[k] && goals[k].timeSec) ? secToClock(goals[k].timeSec) : '';
     return '<div class="goal-input-row">'+
@@ -20410,17 +20392,7 @@ function openSetupModal(){
      hold the value the generator reads. They are visually hidden and mirrored
      by an option grid, so the choice became visible without the data path
      moving an inch. */
-  var stageMeta = [
-    ['Goal','Your goal','What are we building towards? You do not need an event booked.'],
-    ['Distance','Goal distance','The distance this block prepares you for.'],
-    ['Event','Your event','Do you have a target event? Either answer builds a full block.'],
-    ['You','You','Where your running is right now — not where you want it to be.'],
-    ['Benchmark','Benchmark','A recent honest-effort 5K or 10K. Your training paces are built from it.'],
-    ['Week','Your week','Pick 3–6 days you can run. Workouts land only on these; everything else is rest.'],
-    ['Training data','Training data','Optional heart-rate numbers, if you have them.'],
-    ['Targets','Your targets','The finish times you are chasing.'],
-    ['Review','What Valhalla understands','Check this reads like your training. Step back to change anything.']
-  ];
+  var stageMeta = BUILDER_SPEC.stages.map(function(s){ return [s.name, s.heading, s.lede]; });
   var railHtml = stageMeta.map(function(_, i){
     return '<div class="bld-step'+(i===0?' now':'')+'"></div>';
   }).join('');
@@ -20553,7 +20525,7 @@ function openSetupModal(){
           '<div class="field-hint">Progression and taper anchor to this day.</div>'+
         '</div>'+
         '<div class="field when-none bld-reveal" id="f-weeks"><label>Training block length (weeks)</label>'+
-          '<input type="number" min="4" max="24" step="1" inputmode="numeric" id="su-weeks" value="'+blockWeeks+'">'+
+          '<input type="number" min="'+BUILDER_SPEC.validation.weeksRange[0]+'" max="'+BUILDER_SPEC.validation.weeksRange[1]+'" step="1" inputmode="numeric" id="su-weeks" value="'+blockWeeks+'">'+
           '<div class="field-hint" id="su-weeks-hint">'+escapeHtml(purposeMeta.weeksHint)+'</div>'+
         '</div>'+
       '</div>'+
@@ -20773,7 +20745,7 @@ function openSetupModal(){
    handleGeneratePlan() already reads; nothing here computes,
    stores or validates anything the generator did not already.
    ========================================================= */
-var BLD_STAGE_NAMES = ['Goal','Distance','Event','You','Benchmark','Week','Training data','Targets','Review'];
+var BLD_STAGE_NAMES = BUILDER_SPEC.stages.map(function(s){ return s.name; });
 /* Which screen each validation rule belongs to, by name rather than by a
    number -- reordering the stages then cannot silently point a rule at the
    wrong panel, which is the one way this restructuring could have changed
@@ -20923,22 +20895,24 @@ function bldValidateStage(i){
       if (!rd){ bldFail('f-racedate', 'Pick an event date.'); return false; }
       if (rd <= todayStr()){ bldFail('f-racedate', 'Event date needs to be in the future.'); return false; }
     } else {
+      var wRange = BUILDER_SPEC.validation.weeksRange;
       var wks = parseInt(document.getElementById('su-weeks').value, 10);
-      if (isNaN(wks) || wks < 4 || wks > 24){
-        bldFail('f-weeks', 'Choose a block length between 4 and 24 weeks.'); return false; }
+      if (isNaN(wks) || wks < wRange[0] || wks > wRange[1]){
+        bldFail('f-weeks', 'Choose a block length between '+wRange[0]+' and '+wRange[1]+' weeks.'); return false; }
     }
     return true;
   }
   if (i === BLD_STAGE.YOU){
     var volume = parseDistInput(document.getElementById('su-volume').value);
-    if (!volume || volume <= 0){
+    if (!volume || volume <= BUILDER_SPEC.validation.volumeMustExceed){
       bldFail('f-volume', 'Enter your current weekly volume.'); return false; }
     return true;
   }
   if (i === BLD_STAGE.WEEK){
+    var dRange = BUILDER_SPEC.validation.daysRange;
     var checked = document.querySelectorAll('#su-weekdays input[type=checkbox]:checked').length;
-    if (checked < 3 || checked > 6){
-      bldFail('f-weekdays', 'Pick between 3 and 6 running days.'); return false; }
+    if (checked < dRange[0] || checked > dRange[1]){
+      bldFail('f-weekdays', 'Pick between '+dRange[0]+' and '+dRange[1]+' running days.'); return false; }
     if (isNaN(parseInt(document.getElementById('su-longday').value, 10))){
       bldFail('f-longday', 'Choose a long run day.'); return false; }
     return true;
@@ -21057,7 +21031,7 @@ function openRecalibrateModal(){
   var profile = DISTANCE_PROFILES[su.distanceKey];
   var benchDist = (su.benchmark && su.benchmark.distanceKey) || '5k';
   var benchTime = (su.benchmark && su.benchmark.timeSec) ? secToClock(su.benchmark.timeSec) : '';
-  var goalLabels = {A:'Dream Target', B:'Solid Target', C:'Safety Net'};
+  var goalLabels = BUILDER_SPEC.goals.labels;
   var goalRows = GOAL_KEYS.map(function(k){
     var g = su.goals[k];
     var val = (g && g.timeSec) ? secToClock(g.timeSec) : '';
@@ -21095,7 +21069,7 @@ function handleRecalibrateSuggest(){
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
   var benchProfile = DISTANCE_PROFILES[benchDist];
   var vdotBench = vdotFromPerformance(benchProfile.raceKm*1000, benchSec);
-  var mults = {A:1.06, B:1.00, C:0.94};
+  var mults = BUILDER_SPEC.goals.ambitionMult;
   GOAL_KEYS.forEach(function(k){
     var t = equivalentTimeSec(vdotBench*mults[k], profile.raceKm*1000);
     var el = document.getElementById('rc-goal-'+k);
@@ -21140,7 +21114,7 @@ function handleSuggestGoals(){
   var profile = DISTANCE_PROFILES[distKey];
   var benchProfile = DISTANCE_PROFILES[benchDist];
   var vdotBench = vdotFromPerformance(benchProfile.raceKm*1000, benchSec);
-  var mults = {A:1.06, B:1.00, C:0.94}; // A=Dream(faster), B=Solid(benchmark pace), C=Safety Net(conservative)
+  var mults = BUILDER_SPEC.goals.ambitionMult; // A=Dream(faster), B=Solid(benchmark pace), C=Safety Net(conservative)
   GOAL_KEYS.forEach(function(k){
     var t = equivalentTimeSec(vdotBench*mults[k], profile.raceKm*1000);
     var el = document.getElementById('su-goal-'+k);
@@ -21411,8 +21385,10 @@ async function handleGeneratePlan(){
   wdBoxes.forEach(function(cb){ if (cb.checked) activeDays.push(parseInt(cb.getAttribute('data-wd'),10)); });
   var longRunDay = parseInt(document.getElementById('su-longday').value,10);
 
-  if (!volume || volume<=0){ showToast('Enter your current weekly volume'); return; }
-  if (activeDays.length<3 || activeDays.length>6){ showToast('Pick between 3 and 6 running days'); return; }
+  var genDaysRange = BUILDER_SPEC.validation.daysRange;
+  if (!volume || volume<=BUILDER_SPEC.validation.volumeMustExceed){ showToast('Enter your current weekly volume'); return; }
+  if (activeDays.length<genDaysRange[0] || activeDays.length>genDaysRange[1]){
+    showToast('Pick between '+genDaysRange[0]+' and '+genDaysRange[1]+' running days'); return; }
   if (isNaN(longRunDay)){ showToast('Choose a long run day'); return; }
 
   /* WHICH BLOCK IS THIS? Decided before anything is dated, because the answer
@@ -21450,8 +21426,10 @@ async function handleGeneratePlan(){
     // No event: the athlete chooses the block length and it culminates in a
     // goal effort. The anchor date still exists internally so progression,
     // taper and every date-based calculation work exactly as before.
+    var genWeeksRange = BUILDER_SPEC.validation.weeksRange;
     var wks = parseInt(document.getElementById('su-weeks').value, 10);
-    if (isNaN(wks) || wks<4 || wks>24){ showToast('Choose a block length between 4 and 24 weeks'); return; }
+    if (isNaN(wks) || wks<genWeeksRange[0] || wks>genWeeksRange[1]){
+      showToast('Choose a block length between '+genWeeksRange[0]+' and '+genWeeksRange[1]+' weeks'); return; }
     /* Measured from the block's own origin, not from today. On a rebuild "a
        twelve week block" means twelve weeks of THIS block, counting the weeks
        already trained -- measuring from today instead would silently make it

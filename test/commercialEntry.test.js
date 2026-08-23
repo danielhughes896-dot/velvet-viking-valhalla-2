@@ -44,7 +44,8 @@ test('the preview shows real structure and the athlete\'s own paces', () => {
   // nothing, so it is worth pinning what it actually renders.
   const app = require('../test/harness.js').loadApp({ pinnedDate: '2026-08-20T09:00:00Z' });
   const input = { distanceKey: 'half', weeks: 12, volume: 45,
-                  activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700 };
+                  activeDays: [1,2,3,5,6], longRunDay: 6, benchmarkSeconds: 2700,
+                  benchmarkDistanceKey: '10k', goalAmbition: 'B' };
   const start = app.todayStr();
   const race = app.addDays(app.addDays(start, -app.isoWeekday(start)), 12 * 7 - 1);
   const block = app.buildBlockWeeks('half', 45, 12);
@@ -123,7 +124,12 @@ test('the builder refuses input that would abuse the engine', () => {
     [{ weeks: 1 }, 'weeks_out_of_range'],
     [{ volume: 9999 }, 'volume_out_of_range'],
     [{ activeDays: [1] }, 'training_days_out_of_range'],
-    [{ activeDays: [1,2,3,4,5,6,0,1] , longRunDay: 6 }, null],
+    /* De-duplicated to seven distinct days -- once ABOVE the endpoint's own
+       (looser) days:[2,7], now above the canonical builder's own 3-6, which
+       assets/builder-spec.js's validation.daysRange makes this endpoint
+       enforce too. Accepting eight running days was the drift this file's
+       own header describes: a build the app itself could never generate. */
+    [{ activeDays: [1,2,3,4,5,6,0,1] , longRunDay: 6 }, 'training_days_out_of_range'],
     [{ longRunDay: 4 }, 'long_run_day_not_a_training_day'],
     [{ benchmarkSeconds: 5 }, 'benchmark_out_of_range']
   ];
@@ -137,9 +143,9 @@ test('the builder refuses input that would abuse the engine', () => {
 
 test('duplicate training days are de-duplicated, not counted twice', () => {
   const r = Preview.validate({ distanceKey: '10k', weeks: 12, volume: 40,
-    activeDays: [1,1,1,2,2], longRunDay: 2, benchmarkSeconds: 2700 });
+    activeDays: [1,1,1,2,2,3], longRunDay: 2, benchmarkSeconds: 2700 });
   assert.equal(r.ok, true);
-  assert.deepEqual(r.input.activeDays, [1, 2]);
+  assert.deepEqual(r.input.activeDays, [1, 2, 3]);
 });
 
 // ---------------------------------------------------------------------------

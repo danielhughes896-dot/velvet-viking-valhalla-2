@@ -18,6 +18,15 @@
 <link rel="icon" href="/assets/icon.png">
 <meta name="theme-color" content="#F4F1EA">
 <script data-vvv-theme-boot>/*VVV-THEME-BOOT*/(function(){try{var s=localStorage.getItem('vvv_theme');var t=s?(JSON.parse(s)||{}).theme:null;document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
+<!--
+  THE CANONICAL BUILDER SPECIFICATION -- see assets/builder-spec.js. This page
+  and the protected app both load this exact file and read window.BUILDER_SPEC
+  for the nine stages' names, headings, ledes, defaults, validation thresholds
+  and goal-ambition mapping, so this wizard cannot silently ask a different
+  question, in a different order, with a different rule, than the one inside
+  the product.
+-->
+<script src="/assets/builder-spec.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Oswald:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -57,6 +66,180 @@
   .big b{display:block; font-family:Cinzel,Georgia,serif; font-size:24px; line-height:1.1;}
   .big span{font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);}
   .err{color:var(--danger-ink); font-size:13px; margin:12px 0 0;}
+
+  /* =========================================================
+     THE NINE-STAGE BUILDER'S OWN DESIGN LANGUAGE -- ported, not reinvented.
+
+     Everything below is copied from the protected app's builder CSS
+     (protected/velvet-viking-valhalla.html, the `.bld-*`/`.opt-grid`/
+     `.weekday-grid`/`.field` rules) verbatim: same class names, same
+     declarations, same tokens. /start cannot share a stylesheet with the
+     protected runtime -- the delivery gate keeps that file server-side only
+     -- so this is a byte-faithful copy rather than a shared file, enforced
+     by test/builderVisualParity.test.js, which reads both sources and fails
+     if they diverge. This is NOT a second design system: it is the one
+     Cherry Lacquer builder language, reproduced so the public wizard and
+     the in-app one are visually the same product.
+
+     Tokens ALREADY shared with the app via vvv-shell.css (unchanged here):
+     --bg/--bg-2/--bg-3, --ink/--ink-dim/--ink-faint, --line, --bronze/--gold,
+     --ctl-*, --modal-active(-rgb), --gold-bright, --gold-shadow-*. Only the
+     tokens the builder alone needs are added below. */
+  :root{
+    --cherry:#9A546C; --cherry-fill:#7A2E42; --cherry-soft:#9A546C;
+    --cherry-line:rgba(154,84,108,0.45); --cherry-dim:rgba(154,84,108,0.50);
+    --cherry-text:#C46A89; --cherry-ink:#FFFFFF; --cherry-btn-ink:#FFFFFF;
+    --fs-meta:11px; --fs-label:11px; --fs-support:13.5px; --fs-data:15px;
+    --fs-body:16px; --fs-title:20px; --lh-body:1.5; --lh-support:1.45;
+    --line-soft:#232126; --bg-4:#26252A; --radius-lg:22px;
+    --c-threshold:#B5505A; --danger-text:var(--c-threshold);
+    /* Theme-invariant in the app too -- --gold does not change between
+       themes, only --gold-text does. */
+    --c-gold-soft:rgba(227,177,90,0.20);
+  }
+  :root[data-theme="light"]{
+    --cherry:#532D3A; --cherry-fill:#532D3A; --cherry-soft:#EFE4E8;
+    --cherry-line:rgba(83,45,58,0.32); --cherry-dim:rgba(83,45,58,0.42);
+    --cherry-text:#532D3A; --cherry-ink:#171717; --cherry-btn-ink:#FFFFFF;
+    --line-soft:#E5DECD; --bg-4:#E2DAC9;
+    --danger-text:#9A3540;
+  }
+  .font-head{font-family:'Oswald',sans-serif; text-transform:uppercase;}
+
+  /* ---------- progress ---------- */
+  .bld-progress{display:flex; align-items:center; gap:6px;}
+  .bld-step{flex:1 1 0; height:3px; border-radius:99px; background:var(--line); transition:background .2s;}
+  .bld-step.done{background:var(--cherry-dim);}
+  .bld-step.now{background:var(--cherry);}
+  .bld-progress-meta{display:flex; align-items:baseline; justify-content:space-between; margin:9px 0 2px;}
+  .bld-stage-no{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); font-weight:700; letter-spacing:1px; color:var(--cherry-text);}
+  .bld-stage-name{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.4px; font-size:var(--fs-label); color:var(--ink-faint);}
+  .bld-stage-h{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.8px; font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px;}
+  .bld-lede{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 18px;}
+
+  /* ---------- fields ---------- */
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); opacity:.65; margin-bottom:5px;}
+  .field input, .field select{
+    width:100%; background:var(--ctl-bg); border:1px solid var(--ctl-border); border-radius:9px;
+    color:var(--ctl-text); padding:10px 11px; font-size:14px; min-height:44px;
+  }
+  .field input::placeholder{color:var(--ctl-placeholder); opacity:1;}
+  .field input:focus, .field select:focus{outline:none; border-color:var(--ctl-accent); box-shadow:0 0 0 2px rgba(var(--ctl-accent-rgb),0.25);}
+  .field.invalid input, .field.invalid select{border-color:var(--c-threshold);}
+  .field.invalid .opt-grid button{border-color:var(--c-threshold);}
+  .field-hint{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:4px;}
+  .bld-error{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--danger-text); margin-top:6px;}
+  .bld-secondary{margin-top:20px; padding-top:16px; border-top:1px solid var(--line-soft);}
+  .bld-reveal{margin-top:16px;}
+  .bld-skip{margin-top:12px;}
+  .bld-reassure{text-align:center; margin-top:8px;}
+  .setup-section-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
+  .benchmark-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+
+  /* ---------- option grids -- the selected state is GOLD, everywhere, not Cherry Lacquer.
+     Cherry Lacquer is reserved for forward motion (Continue/Build) and progress. ---------- */
+  .opt-grid{display:grid; gap:8px; grid-template-columns:1fr 1fr;}
+  .opt-grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  .opt-grid.opt-grid-32{grid-template-columns:repeat(6,1fr);}
+  .opt-grid-32 > button:nth-child(-n+3){grid-column:span 2;}
+  .opt-grid-32 > button:nth-child(n+4){grid-column:span 3;}
+  .opt-grid button{
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); font-weight:700;
+    letter-spacing:.4px; min-height:52px; padding:12px 8px; text-align:center;
+    border:1px solid var(--ctl-border); border-radius:12px;
+    background:var(--ctl-bg); color:var(--ink-faint);
+    transition:box-shadow .18s, background .18s, color .18s;
+  }
+  .opt-grid button:disabled{opacity:.5;}
+  .opt-grid button:active{transform:scale(.98);}
+  .opt-grid button.active{
+    color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14);
+    border-color:rgba(var(--modal-active-rgb),0.5);
+  }
+  [data-theme="light"] .opt-grid button{color:#6B6558;}
+  [data-theme="light"] .opt-grid button.active{
+    color:#7A5C1E; background:#FFFDF7; border-color:transparent;
+    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
+  }
+  .bld-locked .opt-grid{opacity:.6;}
+  .bld-date input[type="date"]{
+    border-radius:12px; padding:14px 13px; min-height:52px;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); letter-spacing:.4px; color:var(--ctl-text);
+  }
+  .bld-date input[type="date"]::-webkit-calendar-picker-indicator{
+    opacity:.75; cursor:pointer; padding:4px; border-radius:6px;
+    filter:invert(41%) sepia(38%) saturate(720%) hue-rotate(6deg) brightness(92%);
+  }
+  [data-theme="light"] .bld-date input[type="date"]{border-color:#9B7B2E;}
+
+  /* ---------- the objective cards ---------- */
+  .bld-purpose{display:grid; gap:10px; grid-template-columns:1fr 1fr;}
+  .bld-purpose button{
+    display:block; width:100%; text-align:left; padding:14px 13px; min-height:118px;
+    border:1px solid var(--ctl-border); border-radius:12px;
+    background:var(--ctl-bg); color:var(--ink-faint);
+    transition:box-shadow .18s, background .18s, color .18s;
+  }
+  .bld-purpose button:active{transform:scale(.995);}
+  .bpc-name{display:block; font-size:var(--fs-data); letter-spacing:.4px; font-weight:700; line-height:1.2;}
+  .bpc-why{display:block; font-family:'Inter',sans-serif; font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:6px; letter-spacing:0;}
+  .bld-purpose button.active{
+    color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14);
+    border-color:rgba(var(--modal-active-rgb),0.5);
+  }
+  .bld-purpose button.active .bpc-why{color:var(--modal-active); opacity:.8;}
+  [data-theme="light"] .bld-purpose button{color:#6B6558;}
+  [data-theme="light"] .bld-purpose button.active{
+    color:#7A5C1E; background:#FFFDF7; border-color:transparent;
+    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
+  }
+  [data-theme="light"] .bld-purpose button.active .bpc-why{color:#7A5C1E; opacity:.85;}
+
+  /* ---------- the training week ---------- */
+  .weekday-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin-bottom:12px;}
+  .wd-check{
+    display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px 2px;
+    border:1.5px solid var(--line); border-radius:9px; font-family:'JetBrains Mono',monospace; font-size:10.5px;
+    color:var(--ink-faint); cursor:pointer; transition:all .15s; user-select:none;
+  }
+  .wd-check input{width:auto; margin:0; accent-color:var(--bronze);}
+  .wd-check.checked{border-color:var(--bronze); background:var(--c-gold-soft); color:var(--ink); font-weight:700;}
+
+  /* ---------- buttons -- the builder's own primary is Cherry Lacquer, and only
+     the builder's: scoped to .builder-light, exactly as the app scopes it, so
+     nothing outside the wizard (Save My Plan, Start my trial) picks it up. ---------- */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:7px;
+    border-radius:var(--radius-sm); padding:11px 18px; font-size:13.5px; font-weight:600;
+    border:1px solid var(--line); background:var(--bg-3); color:var(--ink); transition:.2s;
+    min-height:44px; cursor:pointer;
+  }
+  .btn:hover{border-color:var(--bronze);}
+  .btn-ghost{background:none; border:1px solid var(--line);}
+  .btn-block{width:100%;}
+  .builder-light .btn-primary{
+    background:var(--cherry-fill); color:var(--cherry-btn-ink);
+    box-shadow:inset 0 0 0 1px var(--cherry);
+    border:none;
+  }
+  .bld-actions{display:flex; gap:10px; margin-top:22px;}
+  /* .vvv-hidden (from vvv-shell.css) and .btn's own display:inline-flex are
+     the same specificity, and .btn is declared later in the cascade -- so
+     without this, a hidden .btn (the Back button before stage 02) shows
+     anyway. Two classes beats one regardless of source order. */
+  .btn.vvv-hidden{display:none;}
+  .bld-actions .btn{flex:1 1 0;}
+  .bld-actions .btn-back{flex:0 0 104px;}
+
+  /* ---------- review ---------- */
+  .bld-review-hero{text-align:center; padding:18px 0 6px;}
+  .bld-review-hero .d{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:2px; font-size:26px; color:var(--gold-text); line-height:1.1;}
+  .bld-review-hero .s{font-family:'JetBrains Mono',monospace; font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
+  .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--line-soft);}
+  .bld-review-row:last-child{border-bottom:none;}
+  .bld-review-k{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.2px; font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
+  .bld-review-v{font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); color:var(--ink); text-align:right; overflow-wrap:anywhere;}
 </style>
 </head>
 <body>
@@ -98,83 +281,34 @@
     <button class="vvv-btn vvv-btn-ghost" id="again" style="margin-top:14px;">Use a different address</button>
   </div>
 
-  <!-- BUILD -->
-  <div id="pane-build" class="vvv-hidden">
-    <p class="step">Step one of three</p>
-    <h1 class="lead">Build your plan</h1>
-    <p class="say">Answer a few things and Valhalla will build a full programme around them.
-       You will see it before you decide anything.</p>
-    <button type="button" class="vvv-btn vvv-btn-ghost" id="signin-instead">Trained with Valhalla before? Sign in</button>
+  <!-- BUILD -- the canonical nine-stage builder, one question at a time.
+       This container is empty markup; bldStage() below renders each of the
+       nine stages from assets/builder-spec.js and this page's own field
+       markup into #bld-stage-body, the same shape the protected app's own
+       openSetupModal() builds, so a stage renamed or reordered there is
+       renamed and reordered here in the same commit. -->
+  <!-- .builder-light is the same class openSetupModal() gives its own
+       surface in the app -- it is what scopes .btn-primary to Cherry
+       Lacquer below, and nothing outside this container picks it up. -->
+  <div id="pane-build" class="vvv-hidden builder-light">
+    <button type="button" class="vvv-btn vvv-btn-ghost" id="signin-instead" style="margin-bottom:18px;">Trained with Valhalla before? Sign in</button>
+    <div class="bld-progress" id="bld-rail"></div>
+    <div class="bld-progress-meta"><span class="bld-stage-no" id="bld-no"></span><span class="bld-stage-name" id="bld-stage-label"></span></div>
+    <h3 class="bld-stage-h" id="bld-heading"></h3>
+    <p class="bld-lede" id="bld-lede"></p>
 
-    <!-- WHAT THE BLOCK IS FOR. The same four objectives the app's own builder
-         offers, in the same order and under the same names. Recovery is not
-         here for the same reason it is not there: it is recommended after a
-         race, never chosen from a list. -->
-    <label for="purpose">What is this block for</label>
-    <select id="purpose">
-      <option value="race" selected>Race goal — train for a distance</option>
-      <option value="maintain">Maintain &amp; Protect — hold what you have</option>
-      <option value="base">Aerobic Base — build capacity</option>
-      <option value="speed">Speed &amp; Threshold — sharpen</option>
-    </select>
-    <p class="quiet" id="purpose-say" style="margin:6px 0 16px;"></p>
+    <div id="bld-stage-body"></div>
 
-    <!-- The engine's own keys. This list said "marathon", which the training
-         engine has never had a profile for -- its key is 'full' -- so every
-         marathon preview failed. The server still accepts the old value as an
-         alias; this list now sends what the engine actually understands, and
-         offers the ultra the entry copy has been promising all along. -->
-    <label for="distance" id="distance-label">What are you training for</label>
-    <select id="distance">
-      <option value="5k">5K</option>
-      <option value="10k" selected>10K</option>
-      <option value="half">Half marathon</option>
-      <option value="full">Marathon</option>
-      <option value="ultra">Ultra</option>
-    </select>
-
-    <div class="grid2">
-      <div>
-        <label for="weeks">Weeks to build over</label>
-        <input id="weeks" type="number" min="4" max="24" value="12" inputmode="numeric">
-      </div>
-      <div>
-        <label for="volume">Weekly km right now</label>
-        <input id="volume" type="number" min="0" max="200" value="40" inputmode="numeric">
-      </div>
-    </div>
-
-    <label>Which days can you run</label>
-    <div class="days" id="days"></div>
-
-    <div class="grid2">
-      <div>
-        <label for="longday">Long run day</label>
-        <select id="longday"></select>
-      </div>
-      <div>
-        <label for="bench">Recent 10K time</label>
-        <input id="bench" type="text" value="45:00" inputmode="numeric" placeholder="45:00">
-      </div>
-    </div>
-
-    <!-- HOW AMBITIOUS. The same three targets the app's own builder offers
-         from a benchmark -- Dream/Solid/Safety Net, here in the athlete's own
-         words -- and the athlete picks, rather than the preview silently
-         picking for them. "Match my fitness" is the pre-selected, no-stretch,
-         no-pullback default: exactly the pace the benchmark above already
-         shows, so an athlete who never touches this gets a plan that assumes
-         nothing about them either way. -->
-    <label>How ambitious should this block be</label>
-    <div class="days" id="ambition">
-      <button type="button" class="day" data-ambition="A">Push it</button>
-      <button type="button" class="day" data-ambition="B" aria-pressed="true">Match my fitness</button>
-      <button type="button" class="day" data-ambition="C">Play it safe</button>
-    </div>
-    <p class="quiet" id="ambition-say" style="margin:6px 0 0;"></p>
-
-    <button class="vvv-btn" id="build" style="margin-top:18px;">Build my plan</button>
+    <!-- A submit-level failure (network, server refusal) rather than a
+         per-field one -- every stage's own answers already passed
+         bldValidateStage() by the time this could fire, so it shares the
+         page's ordinary #auth-err/#trial-err error treatment rather than
+         the builder's own field-attached .bld-error. -->
     <p class="err vvv-hidden" id="build-err"></p>
+    <div class="bld-actions">
+      <button type="button" class="btn btn-ghost btn-back vvv-hidden" id="bld-back">← Back</button>
+      <button type="button" class="btn btn-primary" id="bld-next">Continue →</button>
+    </div>
   </div>
 
   <!-- PREVIEW -->
@@ -515,101 +649,41 @@
   $('again').addEventListener('click', function(){ show('pane-auth'); });
   $('signin-instead').addEventListener('click', function(){ setAuthContext('signin'); show('pane-auth'); });
 
-  /* ---------- the objective shapes the questions ----------
-     Same five inputs, asked in the language of what is being built. The
-     defaults mirror the app builder's builderDefaultWeeks() and the engine's
-     developmentBlockSpec(), so a block previewed here is the length the app
-     would have offered. Speed locks to the 5K profile for the same reason it
-     does in the app: the speed block reuses that session library and no other
-     exists for it. */
-  var PURPOSE_UI = {
-    race:     { say:'A full distance-specific block, tapering to a goal effort at the end.',
-                distanceLabel:'What are you training for', weeks:14, lock:null },
-    maintain: { say:'Holds the fitness you have at a lower weekly cost. Volume drops, the quality stays.',
-                distanceLabel:'Fitness to protect', weeks:8, lock:null },
-    base:     { say:'Builds sustainable capacity from what you already run. No weekly percentage rule.',
-                distanceLabel:'Building towards', weeks:10, lock:null },
-    speed:    { say:'Sharpens speed and threshold using the 5K session library. No race needed.',
-                distanceLabel:'Sharpening at', weeks:6, lock:'5k' }
-  };
-  var weeksTouched = false;
-  $('weeks').addEventListener('input', function(){ weeksTouched = true; });
-  function applyPurpose(){
-    var ui = PURPOSE_UI[$('purpose').value] || PURPOSE_UI.race;
-    $('purpose-say').textContent = ui.say;
-    $('distance-label').textContent = ui.distanceLabel;
-    if (!weeksTouched) $('weeks').value = String(ui.weeks);
-    var dsel = $('distance');
-    if (ui.lock){ dsel.value = ui.lock; dsel.disabled = true; }
-    else { dsel.disabled = false; }
-  }
-  $('purpose').addEventListener('change', applyPurpose);
-  applyPurpose();
+  /* =========================================================
+     THE NINE-STAGE BUILDER
 
-  /* ---------- how ambitious ----------
-     The same three targets the app's own builder derives from a benchmark
-     (Dream/Solid/Safety Net -- see handleSuggestGoals() in the app), offered
-     here so the athlete makes this call themselves before a plan exists,
-     rather than the preview -- or worse, a plan built after they authenticate
-     -- silently assuming one on their behalf. "Match my fitness" trains at
-     exactly the pace the benchmark below already shows; the preview and the
-     real plan both read this same choice, so there is one answer, not two. */
+     One question per screen, in the same order, with the same defaults and
+     the same validation as the protected app's own openSetupModal(). The
+     shape -- stage count, names, headings, ledes, thresholds, the goal-
+     ambition mapping -- comes from window.BUILDER_SPEC
+     (assets/builder-spec.js), the one file both surfaces read. Only the
+     markup below is this page's own: /app must stay behind its delivery
+     gate, so this page cannot literally share DOM with it, but nothing here
+     computes, stores or validates anything the spec did not already say.
+     ========================================================= */
+  var BS = window.BUILDER_SPEC;
+  var BLD_STAGES = BS.stages;
+  var bldCurrentStage = 0;
+
+  /* One flat object for every answer, defaults matching the app's own fresh-
+     modal defaults exactly: schedule {activeDays:[0,1,2,4,5], longRunDay:5},
+     experience/benchmark-distance/goal-ambition each the spec's own default. */
+  var Ans = {
+    purpose: 'race', distanceKey: '10k', units: 'km',
+    eventMode: 'none', raceDate: '',
+    weeks: BS.purposes.meta.race.defaultWeeks,
+    weeksTouched: false,
+    experience: BS.experience.default, volume: '',
+    benchDist: BS.benchmarkDistances.default, benchTime: '',
+    activeDays: { 0:true, 1:true, 2:true, 4:true, 5:true },
+    longRunDay: 5,
+    goalAmbition: 'B'
+  };
   var AMBITION_SAY = {
     A: 'A faster target than your benchmark suggests — the stretch goal.',
     B: 'Exactly the pace your benchmark already shows — no stretch, no pullback.',
     C: 'A more conservative target, easier to hit reliably.'
   };
-  var ambition = 'B';
-  function renderAmbitionSay(){ $('ambition-say').textContent = AMBITION_SAY[ambition]; }
-  Array.prototype.forEach.call(document.querySelectorAll('#ambition .day'), function(b){
-    b.addEventListener('click', function(){
-      ambition = b.getAttribute('data-ambition');
-      Array.prototype.forEach.call(document.querySelectorAll('#ambition .day'), function(o){
-        o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
-      });
-      renderAmbitionSay();
-    });
-  });
-  renderAmbitionSay();
-
-  /* ---------- build ---------- */
-  /* THE RUNTIME'S WEEKDAY NUMBERING IS ISO -- Mon=0 ... Sun=6 -- not
-     JavaScript's getDay() (Sun=0 ... Sat=6). This used to send getDay()
-     numbers into a schedule the engine reads as ISO, so every preview and
-     every plan built from it silently ran on the wrong days: picking
-     Mon/Tue/Wed/Fri/Sat with a Saturday long run produced Tue/Wed/Thu/Fri/Sun
-     with the long run on Sunday. DAYS and DOW now agree with the engine, not
-     with the browser. */
-  var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  var DOW  = [0,1,2,3,4,5,6];
-  var picked = { 0:true, 1:true, 2:true, 4:true, 5:true };  // Mon,Tue,Wed,Fri,Sat
-  function renderDays(){
-    $('days').innerHTML = '';
-    DAYS.forEach(function(label, i){
-      var d = DOW[i];
-      var b = document.createElement('button');
-      b.type = 'button'; b.className = 'day'; b.textContent = label;
-      b.setAttribute('aria-pressed', picked[d] ? 'true' : 'false');
-      b.addEventListener('click', function(){
-        picked[d] = !picked[d];
-        b.setAttribute('aria-pressed', picked[d] ? 'true' : 'false');
-        renderLongDay();
-      });
-      $('days').appendChild(b);
-    });
-    renderLongDay();
-  }
-  function renderLongDay(){
-    var sel = $('longday'), prev = sel.value;
-    sel.innerHTML = '';
-    DAYS.forEach(function(label, i){
-      var d = DOW[i]; if (!picked[d]) return;
-      var o = document.createElement('option'); o.value = String(d); o.textContent = label;
-      sel.appendChild(o);
-    });
-    if (prev && picked[Number(prev)]) sel.value = prev;
-    else if (picked[5]) sel.value = '5';   // prefer Saturday (ISO 5)
-  }
   function clockToSec(v){
     var parts = String(v || '').split(':').map(Number);
     if (parts.some(function(n){ return !isFinite(n); })) return NaN;
@@ -617,29 +691,403 @@
     if (parts.length === 2) return parts[0]*60 + parts[1];
     return NaN;
   }
+  function todayStrLocal(){
+    var d = new Date(); var tz = d.getTimezoneOffset();
+    return new Date(d.getTime()-tz*60000).toISOString().slice(0,10);
+  }
+  function purposeMeta(){ return BS.purposes.meta[Ans.purpose]; }
 
-  $('build').addEventListener('click', function(){
+  /* THE SAME PRESENTATION bldFail()/bldClearErrors() give the app's own
+     builder: an error is attached to the field it belongs to -- a red
+     border plus a line of text under it -- not a single line floating
+     above the nav buttons. */
+  function bldClearErrors(){
+    Array.prototype.forEach.call($('bld-stage-body').querySelectorAll('.field.invalid'), function(f){ f.classList.remove('invalid'); });
+    Array.prototype.forEach.call($('bld-stage-body').querySelectorAll('.bld-error'), function(e){ e.remove(); });
+  }
+  function bldFail(fieldId, message){
+    var f = $(fieldId);
+    if (!f) return;
+    f.classList.add('invalid');
+    var e = document.createElement('div');
+    e.className = 'bld-error';
+    e.textContent = message;
+    f.appendChild(e);
+    try { f.scrollIntoView({ block:'center', behavior:'smooth' }); } catch(err) { f.scrollIntoView(); }
+  }
+
+  /* Grid -> mirrored answer. One delegated listener per rendered grid, the
+     same pattern openSetupModal() uses for its own opt-grids. */
+  function wireOptGrid(containerId, onPick){
+    var el = $(containerId);
+    el.addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b || b.disabled) return;
+      onPick(b.getAttribute('data-v'));
+      Array.prototype.forEach.call(el.querySelectorAll('button'), function(o){
+        o.classList.toggle('active', o === b);
+      });
+    });
+  }
+  function optGrid(items, activeValue){
+    return items.map(function(it){
+      var on = it.value === activeValue;
+      return '<button type="button" data-v="'+it.value+'" class="'+(on?'active':'')+'"'+
+        (it.disabled?' disabled':'')+'>'+it.label+'</button>';
+    }).join('');
+  }
+
+  /* ---------- stage 01 GOAL ----------
+     Same markup openSetupModal() renders for its own purpose cards:
+     .bld-purpose(.bld-purpose-2up) > button.bld-purpose-card > .bpc-name/.bpc-why. */
+  function renderGoalStage(){
+    $('bld-stage-body').innerHTML =
+      '<div class="bld-purpose bld-purpose-2up" id="bld-purpose" role="group" aria-label="Block purpose">' +
+        BS.purposes.order.map(function(k){
+          var m = BS.purposes.meta[k];
+          var on = k === Ans.purpose;
+          return '<button type="button" data-v="'+k+'" class="bld-purpose-card'+(on?' active':'')+'" aria-pressed="'+(on?'true':'false')+'">'+
+            '<span class="bpc-name font-head">'+m.label+'</span><span class="bpc-why">'+m.blurb+'</span></button>';
+        }).join('') +
+      '</div>';
+    $('bld-purpose').addEventListener('click', function(e){
+      var b = e.target.closest('button'); if (!b) return;
+      Ans.purpose = b.getAttribute('data-v');
+      if (!Ans.weeksTouched) Ans.weeks = purposeMeta().defaultWeeks;
+      if (purposeMeta().lockDistance) Ans.distanceKey = purposeMeta().lockDistance;
+      if (Ans.purpose !== 'race') Ans.eventMode = 'none';
+      Array.prototype.forEach.call($('bld-purpose').querySelectorAll('button'), function(o){
+        o.classList.toggle('active', o === b);
+        o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
+      });
+      $('bld-heading').textContent = purposeMeta().stageTitle;
+      $('bld-lede').textContent = purposeMeta().stageLede;
+    });
+  }
+
+  /* ---------- stage 02 DISTANCE ----------
+     .opt-grid.opt-grid-32 (3+2, the same six-column track the app's distance
+     grid uses) plus the secondary units toggle, dimmed via .bld-locked
+     exactly as the app dims a purpose-locked distance -- no explanatory text
+     invented for it, because the app does not show any either. */
+  function renderDistanceStage(){
+    var locked = purposeMeta().lockDistance;
+    var items = BS.distances.order.map(function(k){
+      return { value:k, label:BS.distances.labels[k].toUpperCase(), disabled: !!(locked && locked !== k) };
+    });
+    $('bld-stage-body').innerHTML =
+      '<div class="field'+(locked?' bld-locked':'')+'" id="f-distance">' +
+        '<div class="opt-grid opt-grid-32" id="bld-distance" role="group" aria-label="Goal distance">' + optGrid(items, Ans.distanceKey) + '</div>' +
+      '</div>' +
+      '<div class="field bld-secondary"><label>Units</label>' +
+        '<div class="opt-grid" id="bld-units" role="group" aria-label="Distance units">' +
+          '<button type="button" data-v="km" class="'+(Ans.units==='km'?'active':'')+'">KM</button>' +
+          '<button type="button" data-v="mi" class="'+(Ans.units==='mi'?'active':'')+'">MI</button>' +
+        '</div>' +
+        '<div class="field-hint">Applies everywhere once you build your plan.</div>' +
+      '</div>';
+    wireOptGrid('bld-distance', function(v){ if (!locked || locked===v) Ans.distanceKey = v; });
+    wireOptGrid('bld-units', function(v){
+      if (v === Ans.units) return;
+      if (Ans.volume !== ''){
+        var n = parseFloat(Ans.volume);
+        if (isFinite(n)){
+          var km = Ans.units === 'mi' ? n/0.621371 : n;
+          Ans.volume = String(v === 'mi' ? Math.round(km*0.621371*100)/100 : Math.round(km*10)/10);
+        }
+      }
+      Ans.units = v;
+    });
+  }
+
+  /* ---------- stage 03 EVENT ---------- */
+  function renderEventStage(){
+    var isRace = Ans.purpose === 'race';
+    var weeksRange = BS.validation.weeksRange;
+    $('bld-stage-body').innerHTML =
+      (isRace ? '<div class="field" id="f-event-toggle"><label>Do you have a target event?</label>' +
+        '<div class="opt-grid" id="bld-event-toggle" role="group" aria-label="Target event">' +
+          '<button type="button" data-v="event" class="'+(Ans.eventMode==='event'?'active':'')+'">YES</button>' +
+          '<button type="button" data-v="none" class="'+(Ans.eventMode==='none'?'active':'')+'">NOT YET</button>' +
+        '</div></div>' : '') +
+      '<div id="bld-event-body">' +
+        (isRace && Ans.eventMode === 'event'
+          ? '<div class="field bld-date" id="f-racedate"><label>Event date</label>' +
+            '<input id="bld-racedate" type="date" value="'+Ans.raceDate+'">' +
+            '<div class="field-hint">Progression and taper anchor to this day.</div></div>'
+          : '<div class="field" id="f-weeks"><label>Training block length (weeks)</label>' +
+            '<input id="bld-weeks" type="number" min="'+weeksRange[0]+'" max="'+weeksRange[1]+'" step="1" inputmode="numeric" value="'+Ans.weeks+'">' +
+            '<div class="field-hint">'+purposeMeta().weeksHint+'</div></div>') +
+      '</div>';
+    if (isRace){
+      wireOptGrid('bld-event-toggle', function(v){ Ans.eventMode = v; renderEventStage(); });
+    }
+    var rd = $('bld-racedate');
+    if (rd) rd.addEventListener('input', function(){ Ans.raceDate = rd.value; });
+    var wk = $('bld-weeks');
+    if (wk) wk.addEventListener('input', function(){ Ans.weeksTouched = true; Ans.weeks = Number(wk.value); });
+  }
+
+  /* ---------- stage 04 YOU ---------- */
+  function renderYouStage(){
+    var items = BS.experience.order.map(function(k){ return { value:k, label:BS.experience.meta[k].short.toUpperCase() }; });
+    $('bld-stage-body').innerHTML =
+      '<div class="field"><label>Athlete experience</label>' +
+      '<div class="opt-grid cols-3" id="bld-experience" role="group" aria-label="Athlete experience">' + optGrid(items, Ans.experience) + '</div>' +
+      '<div class="field-hint" id="bld-experience-hint">'+BS.experience.meta[Ans.experience].hint+'</div></div>' +
+      '<div class="field" id="f-volume"><label>Current Weekly Volume ('+Ans.units+')</label>' +
+      '<input id="bld-volume" type="number" min="0" step="1" inputmode="numeric" value="'+Ans.volume+'">' +
+      '<div class="field-hint">Your honest recent average, not your best week.</div></div>';
+    wireOptGrid('bld-experience', function(v){
+      Ans.experience = v;
+      $('bld-experience-hint').textContent = BS.experience.meta[v].hint;
+    });
+    $('bld-volume').addEventListener('input', function(){ Ans.volume = $('bld-volume').value; });
+  }
+
+  /* ---------- stage 05 BENCHMARK ---------- */
+  function renderBenchmarkStage(){
+    var items = BS.benchmarkDistances.order.map(function(k){ return { value:k, label:k.toUpperCase() }; });
+    $('bld-stage-body').innerHTML =
+      '<div class="field"><label>Benchmark distance</label>' +
+      '<div class="opt-grid" id="bld-bench-dist" role="group" aria-label="Benchmark distance">' + optGrid(items, Ans.benchDist) + '</div></div>' +
+      '<div class="field" id="f-bench-time"><label>Benchmark time</label>' +
+      '<input id="bld-bench-time" type="text" inputmode="numeric" placeholder="mm:ss" value="'+Ans.benchTime+'"></div>' +
+      '<div class="field-hint">A recent honest-effort result Valhalla builds your training paces from. You can update it any time once you have an account.</div>';
+    wireOptGrid('bld-bench-dist', function(v){ Ans.benchDist = v; });
+    $('bld-bench-time').addEventListener('input', function(){ Ans.benchTime = $('bld-bench-time').value; });
+  }
+
+  /* ---------- stage 06 WEEK ----------
+     Real checkboxes inside .wd-check labels -- the app's own weekday
+     picker, not a button grid -- so the control itself, not just its
+     colours, matches. */
+  function renderWeekStage(){
+    $('bld-stage-body').innerHTML =
+      '<div class="field" id="f-weekdays"><label>Training days</label>' +
+      '<div class="weekday-grid" id="bld-weekdays"></div></div>' +
+      '<div class="field" id="f-longday"><label>Long run day</label>' +
+      '<div class="opt-grid cols-3" id="bld-longday" role="group" aria-label="Long run day"></div>' +
+      '<div class="field-hint">Only the days you picked above can hold the long run.</div></div>';
+    renderWeekdayGrid();
+  }
+  function renderWeekdayGrid(){
+    var el = $('bld-weekdays'); el.innerHTML = '';
+    BS.weekdays.isoNames.forEach(function(label, iso){
+      var checked = !!Ans.activeDays[iso];
+      var lab = document.createElement('label');
+      lab.className = 'wd-check' + (checked ? ' checked' : '');
+      var cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.checked = checked;
+      lab.appendChild(cb);
+      lab.appendChild(document.createTextNode(label));
+      cb.addEventListener('change', function(){
+        Ans.activeDays[iso] = cb.checked;
+        lab.classList.toggle('checked', cb.checked);
+        renderLongDayGrid();
+      });
+      el.appendChild(lab);
+    });
+    renderLongDayGrid();
+  }
+  function renderLongDayGrid(){
+    var el = $('bld-longday'); if (!el) return;
+    el.innerHTML = '';
+    var chosen = Object.keys(Ans.activeDays).map(Number).filter(function(d){ return Ans.activeDays[d]; }).sort();
+    if (!chosen.length){
+      el.innerHTML = '<button type="button" disabled>Pick at least 3 training days first</button>';
+      return;
+    }
+    if (chosen.indexOf(Ans.longRunDay) === -1) Ans.longRunDay = chosen[chosen.length-1];
+    chosen.forEach(function(iso){
+      var b = document.createElement('button');
+      b.type = 'button'; b.textContent = BS.weekdays.isoNames[iso].toUpperCase();
+      b.className = iso === Ans.longRunDay ? 'active' : '';
+      b.addEventListener('click', function(){
+        Ans.longRunDay = iso;
+        Array.prototype.forEach.call(el.querySelectorAll('button'), function(o){ o.classList.toggle('active', o===b); });
+      });
+      el.appendChild(b);
+    });
+  }
+
+  /* ---------- stage 07 TRAINING DATA ----------
+     Shown for the same structural reason it is a stage in the app -- but
+     never sent anywhere and never banked. There is no account yet to attach
+     a heart-rate number to, and continuous-build adoption already, always,
+     leaves lthr/maxHR null for a plan built before authentication -- see
+     adoptPendingBuildIfAny() in the protected app. This stage exists so the
+     nine questions are the same nine questions in the same order, not so a
+     number typed here goes anywhere. */
+  function renderTrainingStage(){
+    $('bld-stage-body').innerHTML =
+      '<p class="bld-lede" style="margin-top:0;">Optional, and not saved yet — once you have an ' +
+      'account you can enter these from Settings and every session gets a target heart-rate ' +
+      'range alongside its pace.</p>' +
+      '<div class="benchmark-row">' +
+        '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input id="bld-lthr" type="number" min="0" step="1" inputmode="numeric" placeholder="172"></div>' +
+        '<div class="field" style="margin-bottom:0;"><label>Max HR (BPM)</label><input id="bld-maxhr" type="number" min="0" step="1" inputmode="numeric" placeholder="188"></div>' +
+      '</div>' +
+      '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine — Valhalla works without it.</div>';
+  }
+
+  /* ---------- stage 08 TARGETS ----------
+     The same three targets handleSuggestGoals() offers in the app --
+     Dream/Solid/Safety Net -- asked here as the single ambition choice
+     start.html has offered since the "explicit ambition" decision: the
+     mapping (BUILDER_SPEC.goals.ambitionMult) is the same one Goal A/B/C use
+     in the app, so this is that same choice, not a fourth surface. Styled
+     with the builder's own .opt-grid language, same as every other choice
+     screen. */
+  function renderTargetsStage(){
+    $('bld-stage-body').innerHTML =
+      '<div class="field" id="f-ambition"><label>How ambitious should this block be</label>' +
+      '<div class="opt-grid cols-3" id="bld-ambition" role="group" aria-label="Ambition">' +
+        '<button type="button" data-v="A" class="'+(Ans.goalAmbition==='A'?'active':'')+'">PUSH IT</button>' +
+        '<button type="button" data-v="B" class="'+(Ans.goalAmbition==='B'?'active':'')+'">MATCH MY FITNESS</button>' +
+        '<button type="button" data-v="C" class="'+(Ans.goalAmbition==='C'?'active':'')+'">PLAY IT SAFE</button>' +
+      '</div>' +
+      '<div class="field-hint" id="bld-ambition-say">'+AMBITION_SAY[Ans.goalAmbition]+'</div></div>';
+    wireOptGrid('bld-ambition', function(v){ Ans.goalAmbition = v; $('bld-ambition-say').textContent = AMBITION_SAY[v]; });
+  }
+
+  /* ---------- stage 09 REVIEW ----------
+     The app's own bld-review-hero/bld-review-row markup: a centred hero
+     naming the block, then plain divider rows -- no enclosing card, which
+     the app's review does not have either. */
+  var NAME = { '5k':'5K', '10k':'10K', 'half':'Half Marathon', 'full':'Full Marathon', 'ultra':'Ultra (50K)' };
+  var AMBITION_SHORT = { A: 'Push it', B: 'Match my fitness', C: 'Play it safe' };
+  function reviewRow(k, v){ return '<div class="bld-review-row"><span class="bld-review-k">'+k+'</span><span class="bld-review-v">'+v+'</span></div>'; }
+  function renderReviewStage(){
+    var days = Object.keys(Ans.activeDays).filter(function(d){ return Ans.activeDays[d]; }).length;
+    var rows = '';
+    rows += Ans.purpose === 'race' && Ans.eventMode === 'event'
+      ? reviewRow('Event date', Ans.raceDate || '—')
+      : reviewRow('Block length', Ans.weeks + ' weeks');
+    rows += reviewRow('Experience', BS.experience.meta[Ans.experience].short);
+    rows += reviewRow('Long run day', BS.weekdays.isoNames[Ans.longRunDay]);
+    rows += reviewRow('Benchmark', Ans.benchDist.toUpperCase() + (Ans.benchTime ? ' · ' + Ans.benchTime : ' · —'));
+    // Short, like every other row's value -- the fuller sentence is what
+    // stage 08 already showed when the choice was made.
+    rows += reviewRow('Ambition', AMBITION_SHORT[Ans.goalAmbition]);
+    $('bld-stage-body').innerHTML =
+      '<div class="bld-review-hero"><div class="d">'+(NAME[Ans.distanceKey]||Ans.distanceKey)+'</div>' +
+        '<div class="s">'+((Ans.volume || '0') + ' ' + Ans.units + ' / week · ' + days + ' running days')+'</div></div>' +
+      '<div style="margin-top:14px;">' + rows + '</div>' +
+      '<p class="quiet">Using Valhalla in the private beta is covered by our ' +
+      '<a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and ' +
+      '<a href="/terms" target="_blank" rel="noopener noreferrer">Terms</a>. Both are always available from Settings once you have an account.</p>';
+  }
+
+  var BLD_RENDERERS = [renderGoalStage, renderDistanceStage, renderEventStage, renderYouStage,
+                        renderBenchmarkStage, renderWeekStage, renderTrainingStage, renderTargetsStage, renderReviewStage];
+
+  /* ---------- validation, one rule per guarded stage --------
+     THE SAME REQUIREMENTS handleGeneratePlan()/bldValidateStage() enforce in
+     the app, read from the same BUILDER_SPEC.validation both surfaces share.
+     No rule here is looser than the app's, because nothing built here could
+     otherwise survive adoptPendingBuildIfAny()'s own re-check once the
+     athlete authenticates. */
+  function bldValidateStage(i){
+    bldClearErrors();
+    if (i === 2){ // EVENT
+      if (Ans.purpose === 'race' && Ans.eventMode === 'event'){
+        if (!Ans.raceDate){ bldFail('f-racedate', 'Pick an event date.'); return false; }
+        if (Ans.raceDate <= todayStrLocal()){ bldFail('f-racedate', 'Event date needs to be in the future.'); return false; }
+      } else {
+        var wr = BS.validation.weeksRange;
+        if (!isFinite(Ans.weeks) || Ans.weeks < wr[0] || Ans.weeks > wr[1]){
+          bldFail('f-weeks', 'Choose a block length between '+wr[0]+' and '+wr[1]+' weeks.'); return false; }
+      }
+      return true;
+    }
+    if (i === 3){ // YOU
+      var vol = parseFloat(Ans.volume);
+      if (!isFinite(vol) || vol <= BS.validation.volumeMustExceed){
+        bldFail('f-volume', 'Enter your current weekly volume.'); return false; }
+      return true;
+    }
+    if (i === 4){ // BENCHMARK
+      var bSec = clockToSec(Ans.benchTime);
+      var br = BS.validation.benchmarkSecondsRange;
+      if (!isFinite(bSec) || bSec < br[0] || bSec > br[1]){
+        bldFail('f-bench-time', 'Give your benchmark time as minutes and seconds, like 45:00.'); return false; }
+      return true;
+    }
+    if (i === 5){ // WEEK
+      var dr = BS.validation.daysRange;
+      var chosen = Object.keys(Ans.activeDays).filter(function(d){ return Ans.activeDays[d]; }).length;
+      if (chosen < dr[0] || chosen > dr[1]){
+        bldFail('f-weekdays', 'Pick between '+dr[0]+' and '+dr[1]+' running days.'); return false; }
+      return true;
+    }
+    return true;
+  }
+
+  /* ---------- navigation ---------- */
+  function bldGoToStage(n){
+    bldCurrentStage = Math.max(0, Math.min(BLD_STAGES.length - 1, n));
+    var rail = $('bld-rail');
+    rail.innerHTML = BLD_STAGES.map(function(_, i){
+      return '<div class="bld-step'+(i < bldCurrentStage ? ' done' : i === bldCurrentStage ? ' now' : '')+'"></div>';
+    }).join('');
+    var no = bldCurrentStage + 1;
+    $('bld-no').textContent = (no < 10 ? '0'+no : no) + ' / 0' + BLD_STAGES.length;
+    $('bld-stage-label').textContent = BLD_STAGES[bldCurrentStage].name;
+    /* Stage 01's heading follows the chosen purpose, same as bldApplyPurpose()
+       in the app; stage 02's follows the purpose's distance-specific copy.
+       Every other stage uses its own fixed heading from the spec. */
+    if (bldCurrentStage === 0){
+      $('bld-heading').textContent = purposeMeta().stageTitle;
+      $('bld-lede').textContent = purposeMeta().stageLede;
+    } else if (bldCurrentStage === 1){
+      $('bld-heading').textContent = purposeMeta().distanceLabel;
+      $('bld-lede').textContent = purposeMeta().distanceHint;
+    } else {
+      $('bld-heading').textContent = BLD_STAGES[bldCurrentStage].heading;
+      $('bld-lede').textContent = BLD_STAGES[bldCurrentStage].lede;
+    }
+    $('signin-instead').classList.toggle('vvv-hidden', bldCurrentStage !== 0);
+    $('bld-back').classList.toggle('vvv-hidden', bldCurrentStage === 0);
+    $('bld-next').textContent = bldCurrentStage === BLD_STAGES.length - 1 ? 'Build my plan' : 'Continue →';
+    BLD_RENDERERS[bldCurrentStage]();
+  }
+  $('bld-back').addEventListener('click', function(){ bldGoToStage(bldCurrentStage - 1); });
+  $('bld-next').addEventListener('click', function(){
+    if (!bldValidateStage(bldCurrentStage)) return;
+    if (bldCurrentStage === BLD_STAGES.length - 1){ submitBuild(); return; }
+    bldGoToStage(bldCurrentStage + 1);
+    window.scrollTo(0, 0);
+  });
+
+  /* ---------- submit ----------
+     Everything the nine stages collected, shaped exactly as api/_preview.js's
+     validate() expects -- see that file's own doc comment for the full
+     contract. LTHR/Max HR are never included: see renderTrainingStage(). */
+  function submitBuild(){
     clear('build-err');
-    var active = Object.keys(picked).filter(function(d){ return picked[d]; }).map(Number);
-    /* Matches the real builder's own rule (3-6 running days), not a looser
-       one -- so nothing previewed here could ever fail to become the plan
-       the athlete actually gets once they authenticate. */
-    if (active.length < 3 || active.length > 6){ fail('build-err', 'Pick between 3 and 6 running days.'); return; }
-    var bench = clockToSec($('bench').value);
-    if (!isFinite(bench)){ fail('build-err', 'Give your 10K time as minutes and seconds, like 45:00.'); return; }
+    var active = Object.keys(Ans.activeDays).map(Number).filter(function(d){ return Ans.activeDays[d]; });
+    var benchSec = clockToSec(Ans.benchTime);
+    var hasEvent = Ans.purpose === 'race' && Ans.eventMode === 'event';
     var input = {
-      purpose: $('purpose').value,
-      distanceKey: $('distance').value,
-      weeks: Number($('weeks').value),
-      volume: Number($('volume').value),
+      purpose: Ans.purpose,
+      distanceKey: Ans.distanceKey,
+      hasEvent: hasEvent,
+      raceDate: hasEvent ? Ans.raceDate : undefined,
+      weeks: hasEvent ? undefined : Ans.weeks,
+      volume: (function(){
+        var n = parseFloat(Ans.volume);
+        return Ans.units === 'mi' ? Math.round((n/0.621371)*10)/10 : Math.round(n*10)/10;
+      })(),
       activeDays: active,
-      longRunDay: Number($('longday').value),
-      benchmarkSeconds: bench,
-      goalAmbition: ambition
+      longRunDay: Ans.longRunDay,
+      benchmarkSeconds: benchSec,
+      benchmarkDistanceKey: Ans.benchDist,
+      experience: Ans.experience,
+      goalAmbition: Ans.goalAmbition
     };
-    $('build').disabled = true;
+    $('bld-next').disabled = true;
     apiCall('/api/preview', { method:'POST', body: JSON.stringify(input) }).then(function(r){
-      $('build').disabled = false;
+      $('bld-next').disabled = false;
       if (r.status !== 200){ fail('build-err', 'We could not build that. Check the numbers and try again.'); return; }
       /* Banked before the preview is even shown -- a refresh one second later
          must still find it, and it is what "Save My Plan" and the post-auth
@@ -652,8 +1100,8 @@
                     period: period, savedAt: Date.now() });
       showPreview(r.body.preview, period);
       window.scrollTo(0, 0);
-    }).catch(function(){ $('build').disabled = false; fail('build-err', 'We could not build that just now.'); });
-  });
+    }).catch(function(){ $('bld-next').disabled = false; fail('build-err', 'We could not build that just now.'); });
+  }
   $('rebuild').addEventListener('click', function(){ show('pane-build'); window.scrollTo(0,0); });
 
   /* ---------- preview ---------- */
@@ -826,7 +1274,7 @@
       });
   });
 
-  renderDays();
+  bldGoToStage(0);
   route();
 })();
 </script>

@@ -143,6 +143,13 @@ function loadApp(options) {
   sandbox.Date = opts.pinnedDate ? makePinnedDate(opts.pinnedDate) : Date;
   sandbox.Math = Math;
   sandbox.JSON = JSON;
+  // A real browser loads assets/builder-spec.js as a <script src> tag before
+  // the app's own inline script (see the app's <head>); the harness only
+  // evaluates that inline script, so it has to put the same object in place
+  // itself, or the app's builder code would read an undefined BUILDER_SPEC
+  // that no real page ever sees. Same file, same shape, require()d rather
+  // than fetched -- there is no separate test copy to drift from the real one.
+  sandbox.BUILDER_SPEC = require('../assets/builder-spec.js');
 
   vm.createContext(sandbox);
   new vm.Script(src, { filename: 'velvet-viking-valhalla.html (inline script)' }).runInContext(sandbox);

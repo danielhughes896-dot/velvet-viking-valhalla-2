@@ -34,7 +34,7 @@ function realPreview(input){
   assert.equal(v.ok, true, 'fixture input failed validation: ' + JSON.stringify(v.errors || v));
   const g = Preview.generate(previewApp, v.input);
   const preview = Preview.summarise(g.app, g.days, g.blockResult, v.input);
-  const build = Preview.buildEcho(v.input, g.startDate, g.raceDate);
+  const build = Preview.buildEcho(v.input, g.startDate, g.raceDate, g.weeks);
   return { preview, build };
 }
 
@@ -182,10 +182,15 @@ test('start.html asks the athlete directly, defaulting to no invented stretch or
   const path = require('path');
   const src = fs.readFileSync(path.join(__dirname, '..', 'start.html'), 'utf8');
   assert.match(src, /How ambitious should this block be/);
-  assert.match(src, /data-ambition="A"/);
-  assert.match(src, /data-ambition="B"[^]*?aria-pressed="true"/);
-  assert.match(src, /data-ambition="C"/);
-  assert.match(src, /goalAmbition:\s*ambition/, 'the chosen ambition is never sent to the server');
+  const fn = src.slice(src.indexOf('function renderTargetsStage'));
+  const body = fn.slice(0, fn.indexOf('\n  }\n'));
+  assert.match(body, /data-v="A"/);
+  assert.match(body, /data-v="B"/);
+  assert.match(body, /data-v="C"/);
+  // The pre-selected default -- Ans.goalAmbition's own initial value -- is 'B',
+  // exactly the pace the benchmark already shows, no stretch, no pullback.
+  assert.match(src, /goalAmbition:\s*'B'/, 'the default ambition is not B');
+  assert.match(src, /goalAmbition:\s*Ans\.goalAmbition/, 'the chosen ambition is never sent to the server');
 });
 
 test('6 -- the builder gate never fires once a plan has been adopted', () => {
@@ -338,8 +343,18 @@ test('start.html sends the engine\'s own ISO weekday numbering, not getDay()', (
   const fs = require('fs');
   const path = require('path');
   const src = fs.readFileSync(path.join(__dirname, '..', 'start.html'), 'utf8');
-  assert.match(src, /var DOW\s*=\s*\[0,\s*1,\s*2,\s*3,\s*4,\s*5,\s*6\]/,
-    'start.html no longer sends ISO weekday numbers (Mon=0..Sun=6)');
+  // The regression this guards against: JS Date.getDay() (Sun=0..Sat=6)
+  // leaking into a schedule the engine reads as ISO (Mon=0..Sun=6). The
+  // staged wizard now derives day identity from BUILDER_SPEC.weekdays'
+  // array index directly -- assets/builder-spec.js's own isoNames is
+  // ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], so index i IS ISO day i --
+  // rather than a second, hand-maintained mirror of that numbering.
+  assert.doesNotMatch(src, /\.getDay\(\)/, 'start.html calls the browser\'s getDay(), not ISO weekday numbering');
+  assert.match(src, /BS\.weekdays\.isoNames\.forEach\(function\(label, iso\)/,
+    'weekday identity no longer comes from the canonical spec\'s own index-as-ISO-day array');
+  const spec = fs.readFileSync(path.join(__dirname, '..', 'assets', 'builder-spec.js'), 'utf8');
+  assert.match(spec, /isoNames:\s*\[\s*'Mon',\s*'Tue',\s*'Wed',\s*'Thu',\s*'Fri',\s*'Sat',\s*'Sun'\s*\]/,
+    'the canonical spec no longer orders weekdays Mon=0..Sun=6');
 });
 
 test('a Saturday long run picked on /start lands on a Saturday in the adopted plan', () => {

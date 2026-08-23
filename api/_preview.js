@@ -34,6 +34,14 @@ const S = require('./_strava.js');
 const P = require('./_stripe.js');
 const Store = require('./_commercial-store.js');
 const Prod = require('./_products.js');
+/* THE CANONICAL BUILDER SPECIFICATION -- see assets/builder-spec.js. The
+   distances, purposes, experience levels, benchmark distances, goal-ambition
+   mapping and validation thresholds below are no longer this file's own
+   declarations; they are read from the same object /start's wizard and the
+   protected app's builder read, so a preview request is validated against
+   exactly the rules the athlete's device is already enforcing before it ever
+   reaches here. */
+const BUILDER_SPEC = require('../assets/builder-spec.js');
 
 function log(what){ try{ console.log('preview: ' + what); }catch(e){} }
 
@@ -64,25 +72,41 @@ function loadEngine(nowIso){
    as an ALIAS that normalises to 'full' -- an older client must not start
    failing to fix a bug it did not cause. What reaches the generator is always
    a key the generator has. */
-const DISTANCES = ['5k', '10k', 'half', 'full', 'ultra'];
+const DISTANCES = BUILDER_SPEC.distances.order;
 const DISTANCE_ALIASES = { marathon: 'full' };
 /* Which objective the block serves. Same four the builder offers, and
    deliberately NOT recovery: recovery is prescribed after a race Valhalla
    watched, never chosen from a menu, so it can never arrive here. */
-const PURPOSES = ['race', 'maintain', 'base', 'speed'];
+const PURPOSES = BUILDER_SPEC.purposes.order;
 /* The engine's own shaping, restated as data because the preview has no
    athlete history to read: developmentBlockSpec() derives these from
    absorbedWeeklyVolume(), which for a first-time athlete IS the volume they
-   just typed in. Same factors, same default lengths, same forced 5K profile
-   for speed -- asserted against the runtime by the test suite so the two
-   cannot drift apart in silence. */
+   just typed in. `weeks` and `forceDistance` are the canonical spec's own
+   defaultWeeks/lockDistance for each purpose -- one declaration, not two.
+   `volumeFactor` has no equivalent in the spec: it is this endpoint's own
+   stand-in for absorbedWeeklyVolume(), which needs athlete history the
+   preview does not have, so it stays local rather than pretending to be
+   shared taxonomy. Asserted against the runtime by the test suite so the
+   two cannot drift apart in silence. */
 const PURPOSE_SHAPE = {
-  race:     { weeks: 14, volumeFactor: 1,    forceDistance: null },
-  maintain: { weeks: 8,  volumeFactor: 0.75, forceDistance: null },
-  base:     { weeks: 10, volumeFactor: 1,    forceDistance: null },
-  speed:    { weeks: 6,  volumeFactor: 1,    forceDistance: '5k' }
+  race:     { weeks: BUILDER_SPEC.purposes.meta.race.defaultWeeks,     volumeFactor: 1,    forceDistance: BUILDER_SPEC.purposes.meta.race.lockDistance },
+  maintain: { weeks: BUILDER_SPEC.purposes.meta.maintain.defaultWeeks, volumeFactor: 0.75, forceDistance: BUILDER_SPEC.purposes.meta.maintain.lockDistance },
+  base:     { weeks: BUILDER_SPEC.purposes.meta.base.defaultWeeks,     volumeFactor: 1,    forceDistance: BUILDER_SPEC.purposes.meta.base.lockDistance },
+  speed:    { weeks: BUILDER_SPEC.purposes.meta.speed.defaultWeeks,    volumeFactor: 1,    forceDistance: BUILDER_SPEC.purposes.meta.speed.lockDistance }
 };
-const LIMITS = { weeks: [4, 24], volume: [0, 200], days: [2, 7] };
+/* `weeks` and `days` are the app's own bounds, read from the spec so an
+   anonymous preview can never be looser than the authenticated builder is.
+   `volume`'s floor is the spec's too (must exceed 0); its ceiling of 200 has
+   no equivalent in the app at all -- the builder is only ever reachable by an
+   authenticated, entitled athlete, so it has never needed one. This endpoint
+   is reachable by anyone, so it adds its own upper bound as abuse protection.
+   An unbounded volume is a denial-of-service dressed as a training preference,
+   the same reasoning that already governs `weeks`. */
+const LIMITS = {
+  weeks: BUILDER_SPEC.validation.weeksRange,
+  volume: [BUILDER_SPEC.validation.volumeMustExceed, 200],
+  days: BUILDER_SPEC.validation.daysRange
+};
 /* THE SAME THREE TARGETS handleSuggestGoals() offers from a benchmark in the
    canonical builder -- Dream (A), Solid (B), Safety Net (C). The preview
    used to pick training paces straight off the raw benchmark, with no goal
@@ -94,8 +118,15 @@ const LIMITS = { weeks: [4, 24], volume: [0, 200], days: [2, 7] };
    and the same choice is what the real plan is built from later. 'B' is the
    default: it assumes nothing, matching exactly the pace the benchmark
    already demonstrates. */
-const GOAL_AMBITIONS = ['A', 'B', 'C'];
-const GOAL_AMBITION_MULT = { A: 1.06, B: 1.00, C: 0.94 };
+const GOAL_AMBITIONS = BUILDER_SPEC.goals.keys;
+const GOAL_AMBITION_MULT = BUILDER_SPEC.goals.ambitionMult;
+
+/* A plain UTC "today", for the one check that has to happen before the real
+   engine (with its own, timezone-aware todayStr()) is even loaded: whether a
+   submitted event date is in the future at all. generate() re-checks the
+   date properly, against the engine's own clock and the athlete's chosen
+   training days, once it runs. */
+function utcTodayStr(){ return new Date().toISOString().slice(0, 10); }
 
 function validate(body){
   const b = body || {};
@@ -109,12 +140,29 @@ function validate(body){
     ? 'race' : String(b.purpose).toLowerCase();
   if (PURPOSES.indexOf(purpose) === -1) return { ok: false, code: 'unknown_purpose' };
 
-  const weeks = parseInt(b.weeks, 10);
-  if (!isFinite(weeks) || weeks < LIMITS.weeks[0] || weeks > LIMITS.weeks[1])
-    return { ok: false, code: 'weeks_out_of_range' };
+  /* Only a race block can have an event to aim at. Everything else culminates
+     in a goal effort, which is what hasEvent=false means to the generator --
+     the same single switch the app itself uses. This is stage 03 (Event) of
+     the canonical builder: a race block gives either a real event date or a
+     block length, exactly as bldValidateStage(BLD_STAGE.EVENT) requires. */
+  const hasEvent = purpose === 'race' && b.hasEvent === true;
+  const wRange = LIMITS.weeks;
+  let weeks = null, raceDateInput = null;
+  if (hasEvent){
+    raceDateInput = typeof b.raceDate === 'string' ? b.raceDate : '';
+    if (!raceDateInput) return { ok: false, code: 'missing_race_date' };
+    if (raceDateInput <= utcTodayStr()) return { ok: false, code: 'race_date_not_future' };
+  } else {
+    weeks = parseInt(b.weeks, 10);
+    if (!isFinite(weeks) || weeks < wRange[0] || weeks > wRange[1])
+      return { ok: false, code: 'weeks_out_of_range' };
+  }
 
+  /* LIMITS.volume[0] is a floor to EXCEED, not to reach -- the app's own
+     rule is `!volume || volume <= 0`, and zero is a real answer an athlete
+     could submit, not a missing one. */
   const volume = Number(b.volume);
-  if (!isFinite(volume) || volume < LIMITS.volume[0] || volume > LIMITS.volume[1])
+  if (!isFinite(volume) || volume <= LIMITS.volume[0] || volume > LIMITS.volume[1])
     return { ok: false, code: 'volume_out_of_range' };
 
   const active = Array.isArray(b.activeDays) ? b.activeDays.map(Number).filter(function(d){
@@ -128,9 +176,25 @@ function validate(body){
   if (!isFinite(longRunDay) || uniq.indexOf(longRunDay) === -1)
     return { ok: false, code: 'long_run_day_not_a_training_day' };
 
+  const bRange = BUILDER_SPEC.validation.benchmarkSecondsRange;
   const benchSec = parseInt(b.benchmarkSeconds, 10);
-  if (!isFinite(benchSec) || benchSec < 300 || benchSec > 40000)
+  if (!isFinite(benchSec) || benchSec < bRange[0] || benchSec > bRange[1])
     return { ok: false, code: 'benchmark_out_of_range' };
+
+  /* Which distance the benchmark time is for -- stage 05 of the canonical
+     builder offers exactly these two. Absent means the spec's own default,
+     which is what every client that predates this question already meant. */
+  const benchmarkDistanceKey = b.benchmarkDistanceKey === undefined || b.benchmarkDistanceKey === null || b.benchmarkDistanceKey === ''
+    ? BUILDER_SPEC.benchmarkDistances.default : String(b.benchmarkDistanceKey).toLowerCase();
+  if (BUILDER_SPEC.benchmarkDistances.order.indexOf(benchmarkDistanceKey) === -1)
+    return { ok: false, code: 'unknown_benchmark_distance' };
+
+  /* Coaching-depth preference -- presentation only, never read by the
+     generator. Absent means the spec's own default, same as the app. */
+  const experience = b.experience === undefined || b.experience === null || b.experience === ''
+    ? BUILDER_SPEC.experience.default : String(b.experience).toLowerCase();
+  if (BUILDER_SPEC.experience.order.indexOf(experience) === -1)
+    return { ok: false, code: 'unknown_experience' };
 
   /* Absent means 'B' -- an older client that predates this question is
      asking for exactly what the preview always showed: benchmark pace,
@@ -152,11 +216,10 @@ function validate(body){
     purpose: purpose,
     distanceKey: distanceKey, buildDistance: buildDistance,
     weeks: weeks, volume: volume, buildVolume: buildVolume,
-    /* Only a race block can have an event to aim at. Everything else
-       culminates in a goal effort, which is what hasEvent=false means to the
-       generator -- the same single switch the app itself uses. */
-    hasEvent: purpose === 'race' && b.hasEvent === true,
-    activeDays: uniq.sort(), longRunDay: longRunDay, benchmarkSeconds: benchSec,
+    hasEvent: hasEvent, raceDate: raceDateInput,
+    activeDays: uniq.sort(), longRunDay: longRunDay,
+    benchmarkSeconds: benchSec, benchmarkDistanceKey: benchmarkDistanceKey,
+    experience: experience,
     goalAmbition: goalAmbition,
     startDate: typeof b.startDate === 'string' ? b.startDate : null
   } };
@@ -272,7 +335,8 @@ function summarise(app, days, blockResult, input){
     paces: (function(){
       try{
         const mult = GOAL_AMBITION_MULT[input.goalAmbition] || 1;
-        const vdot = app.vdotFromPerformance(10000, input.benchmarkSeconds) * mult;
+        const benchProfile = app.DISTANCE_PROFILES[input.benchmarkDistanceKey];
+        const vdot = app.vdotFromPerformance(benchProfile.raceKm * 1000, input.benchmarkSeconds) * mult;
         if (!vdot) return null;
         const z = app.trainingPacesFromVDOT(vdot);
         if (!z) return null;
@@ -303,15 +367,40 @@ function summarise(app, days, blockResult, input){
    Pure with respect to the request: it takes a loaded engine and a validated
    input, and returns what the summary needs. */
 function generate(app, input){
-  const startDate = input.startDate || app.todayStr();
+  /* THE SAME ANCHOR blockAnchor() PICKS FOR A FIRST BLOCK IN THE APP: the
+     athlete's own first available running day on or after today, not simply
+     today. A client-supplied startDate (the continuous-build replay path)
+     always wins; a fresh preview computes it exactly as handleGeneratePlan()
+     would for a first block, so the two cannot pick different origins for
+     the same answers. */
+  const startDate = input.startDate || app.firstActiveDayOnOrAfter(app.todayStr(), input.activeDays);
   const startMonday = app.addDays(startDate, -app.isoWeekday(startDate));
-  const raceDate = app.addDays(startMonday, input.weeks * 7 - 1);
+
+  /* EVENT-MODE (stage 03 "YES"): the athlete supplied a real race date, and
+     the block length is DERIVED from it -- the same arithmetic
+     handleGeneratePlan() runs, not a second formula. NO-EVENT MODE
+     ("NOT YET"): the athlete supplied the length directly, and a goal-effort
+     date is derived from it instead, exactly as the app already did. */
+  let weeks, raceDate;
+  if (input.hasEvent){
+    raceDate = input.raceDate;
+    if (raceDate < startDate){
+      const err = new Error('race_date_before_start');
+      err.code = 'race_date_before_start';
+      throw err;
+    }
+    const raceMonday = app.addDays(raceDate, -app.isoWeekday(raceDate));
+    weeks = app.daysBetween(startMonday, raceMonday) / 7 + 1;
+  } else {
+    weeks = input.weeks;
+    raceDate = app.addDays(startMonday, weeks * 7 - 1);
+  }
   const schedule = { activeDays: input.activeDays, longRunDay: input.longRunDay };
 
   /* Maintenance is generated in STEADY mode here for the same reason it is in
      the app: it has no goal effort to taper into, and a preview that showed
      one would be advertising a block the product does not build. */
-  const blockResult = app.buildBlockWeeks(input.buildDistance, input.buildVolume, input.weeks,
+  const blockResult = app.buildBlockWeeks(input.buildDistance, input.buildVolume, weeks,
                                           { steady: input.purpose === 'maintain',
                                             purpose: input.purpose });
   const days = app.buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, input.hasEvent);
@@ -321,12 +410,12 @@ function generate(app, input){
     distanceKey: input.buildDistance, currentVolume: input.buildVolume, raceDate: raceDate,
     hasEvent: input.hasEvent, purpose: input.purpose,
     startDate: startDate, planWeeks: blockResult.planWeeks, schedule: schedule,
-    benchmark: { distanceKey: '10k', timeSec: input.benchmarkSeconds },
+    benchmark: { distanceKey: input.benchmarkDistanceKey, timeSec: input.benchmarkSeconds },
     goals: { A: { timeSec: Math.round(input.benchmarkSeconds * 0.95) } }, activeGoal: 'A',
-    paceOverrides: {}, lthr: null, maxHR: null, experience: 'experienced'
+    paceOverrides: {}, lthr: null, maxHR: null, experience: input.experience
   };
   app.state.days = days;
-  return { app: app, days: days, blockResult: blockResult, startDate: startDate, raceDate: raceDate };
+  return { app: app, days: days, blockResult: blockResult, startDate: startDate, raceDate: raceDate, weeks: weeks };
 }
 
 /* ---------- what the athlete's REAL plan is built from ----------
@@ -338,12 +427,13 @@ function generate(app, input){
    them to answer the builder a second time. Nothing here is athlete-facing;
    it travels alongside the preview only so the athlete's own device can
    replay their own request. */
-function buildEcho(input, startDate, raceDate){
+function buildEcho(input, startDate, raceDate, weeks){
   return {
     purpose: input.purpose, distanceKey: input.buildDistance,
-    volume: input.buildVolume, weeks: input.weeks,
+    volume: input.buildVolume, weeks: weeks,
     activeDays: input.activeDays, longRunDay: input.longRunDay,
-    benchmarkSeconds: input.benchmarkSeconds, benchmarkDistanceKey: '10k',
+    benchmarkSeconds: input.benchmarkSeconds, benchmarkDistanceKey: input.benchmarkDistanceKey,
+    experience: input.experience,
     goalAmbition: input.goalAmbition,
     hasEvent: input.hasEvent, startDate: startDate, raceDate: raceDate
   };
@@ -449,8 +539,17 @@ async function handle(req, res){
   try{
     built = generate(loadEngine(new Date().toISOString()), v.input);
   }catch(e){
-    /* A code, never the error. A stack from the runtime would describe the
-       product's internals to somebody who has not bought it. */
+    /* THE ONE VALIDATION RULE generate() ENFORCES ITSELF, because it depends
+       on the anchor date validate() has no way to compute: an event date
+       that falls before the athlete's own first available running day, the
+       same "your first available running day falls after that date" case
+       handleGeneratePlan() refuses. That is a 400 -- the athlete can fix it
+       by picking a different date -- never a 503, which would say the engine
+       itself failed. */
+    if (e && e.code === 'race_date_before_start')
+      return S.json(res, 400, { error: 'race_date_before_start' });
+    /* Otherwise a code, never the error. A stack from the runtime would
+       describe the product's internals to somebody who has not bought it. */
     log('ENGINE_FAILED');
     return S.json(res, 503, { error: 'preview_unavailable' });
   }
@@ -469,7 +568,7 @@ async function handle(req, res){
        The client banks this and, once the athlete authenticates, the app
        replays the same two engine calls verbatim to build their real plan.
        Not part of the athlete-facing preview; never rendered. */
-    build: buildEcho(v.input, built.startDate, built.raceDate),
+    build: buildEcho(v.input, built.startDate, built.raceDate, built.weeks),
     trial: trial,
     /* Said plainly rather than implied: this is a summary, not the product. */
     note: 'This is a preview of your programme. Valhalla itself coaches it.'
@@ -478,4 +577,4 @@ async function handle(req, res){
 
 module.exports = { handle, validate, summarise, generate, buildEcho, trialOffer, defaultWeeksFor,
                    DISTANCES, DISTANCE_ALIASES, PURPOSES, PURPOSE_SHAPE, LIMITS,
-                   GOAL_AMBITIONS, GOAL_AMBITION_MULT };
+                   GOAL_AMBITIONS, GOAL_AMBITION_MULT, BUILDER_SPEC };

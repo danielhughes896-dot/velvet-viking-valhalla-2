@@ -311,9 +311,23 @@ test('an athlete who has already used their fortnight is told so on the preview'
  * Both of those were live in this repository at different moments. These cases
  * pin the seam between them.
  * ------------------------------------------------------------------------- */
+/* THE COMPLETE CANONICAL INPUT SET, as assets/builder-spec.js defines it and
+   as /start's nine stages collect it. Deliberately not the minimum this
+   endpoint will accept: a commercial test that exercised a stale, smaller
+   shape would keep passing after the builder grew a stage, and the first thing
+   anybody would learn about the mismatch is that the preview and the real plan
+   disagree. Every field here is read back off the build echo below. */
 const PREVIEW_BODY = {
-  distanceKey: 'marathon', purpose: 'race', weeks: 12, volume: 50,
-  activeDays: [1, 3, 5, 0], longRunDay: 0, benchmarkSeconds: 2700
+  purpose: 'race',                 // 01 objective
+  distanceKey: 'marathon',         // 02 distance (an alias, normalised to 'full')
+  hasEvent: false, weeks: 12,      // 03 event: "not yet" -> a block length
+  volume: 50,                      // 04 current volume
+  benchmarkDistanceKey: '10k',     // 05 benchmark distance
+  benchmarkSeconds: 2700,          // 05 benchmark time
+  goalAmbition: 'B',               // 06 ambition
+  activeDays: [1, 3, 5, 0],        // 07 training days
+  longRunDay: 0,                   // 08 long run day
+  experience: 'experienced'        // 09 coaching depth
 };
 
 test('an anonymous prospect gets a plan and is told the trial exists', async () => {
@@ -456,8 +470,22 @@ test('the value-first journey works end to end, anonymous start to entered app',
        preview, banked so the real plan is the same two engine calls. Phase 2
        must not have dropped it in the merge. */
     assert.ok(preview.json.build, 'the build echo must survive the commercial merge');
+    /* THE WHOLE CANONICAL SET COMES BACK, because the app replays these verbatim
+       to build the real plan. A commercial merge that quietly dropped one --
+       the ambition, the benchmark distance, the coaching depth -- would give the
+       athlete a different plan from the one they were shown, and the only
+       symptom would be paces that moved after they paid. */
     assert.equal(preview.json.build.purpose, 'race');
+    assert.equal(preview.json.build.distanceKey, 'full', 'the alias is normalised');
     assert.equal(preview.json.build.weeks, 12);
+    assert.equal(preview.json.build.volume, 50);
+    assert.equal(preview.json.build.benchmarkDistanceKey, '10k');
+    assert.equal(preview.json.build.benchmarkSeconds, 2700);
+    assert.equal(preview.json.build.goalAmbition, 'B');
+    assert.deepEqual(preview.json.build.activeDays, [0, 1, 3, 5]);
+    assert.equal(preview.json.build.longRunDay, 0);
+    assert.equal(preview.json.build.experience, 'experienced');
+    assert.equal(preview.json.build.hasEvent, false);
     assert.equal(preview.json.trial.available, true);
 
     // 2. Save My Plan -- they authenticate. Still nothing bought, nothing spent.
