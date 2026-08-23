@@ -86,8 +86,12 @@ test('READING: five destination cards, one per interpretation the engine produce
   assert.equal(a.readingSections(a.coachAnalyse()).map(s => s.key).join(','), keys.join(','));
 
   cards.forEach(c => {
-    assert.match(c, /class="rs-dial"/, 'a Reading card states no conclusion');
-    assert.match(c, /class="rs-head-text"/, 'a Reading card carries no explanatory text');
+    // Rectangular list rows, not dials (requirement 7) -- Coach's own
+    // read-val/hq-row grammar, the same one readingPanel() restates the
+    // verdict with when the card is opened.
+    assert.match(c, /class="read-val/, 'a Reading card states no conclusion');
+    assert.match(c, /class="hq-row-l"/, 'a Reading card carries no title');
+    assert.match(c, /class="rs-syn"/, 'a Reading card carries no explanatory text');
     assert.match(c, /<svg/, 'a Reading card has no chevron affordance');
   });
 });
@@ -116,14 +120,20 @@ test('READING: a card may carry a verdict, and a Record card may not', () => {
   const secs = a.readingSections(report);
   const recTone = secs.filter(s => s.key === 'recovery')[0].tone;
   assert.ok(['good', 'watch', 'bad'].indexOf(recTone) !== -1, 'recovery lost its tone');
-  assert.match(rec, new RegExp('stroke="' + a.toneRingColor(recTone).replace(/[()]/g, '\\$&') + '"'),
-    'recovery\'s dial does not carry its tone');
+  // The row's tone is now a class on .read-val plus its dot -- the exact
+  // grammar readingPanel()'s own header already uses -- not an SVG stroke.
+  assert.match(rec, new RegExp('class="read-val ' + recTone + '"'),
+    'recovery\'s row does not carry its tone');
+  assert.match(rec, /class="read-dot"/, 'recovery\'s row lost its tone dot');
 
   a.planhqTab = 'record';
   const recordHtml = a.renderPlanHQView();
   const recordCards = (recordHtml.match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [])
     .filter(c => c.indexOf('data-action="open-record"') !== -1);
-  assert.equal(recordCards.length, 4);
+  // Three now, not four -- Training paces moved to Settings' Training &
+  // Zones card (requirement 6); Measured Fitness, Benchmark and Progress are
+  // the genuinely historical facts left on The Record.
+  assert.equal(recordCards.length, 3);
   recordCards.forEach(c => {
     assert.doesNotMatch(c, /rs-dial|read-dot|read-val/, 'a Record card grew a verdict dial');
   });
@@ -162,7 +172,7 @@ test('READING: every value and synopsis is live, not written into the markup', (
   const readinessCard = html => readingCards(html).filter(c => c.indexOf('data-reading="readiness"') !== -1)[0];
   const before = readinessCard(a.renderPlanHQView());
 
-  const pct = s => Number((s.match(/>(\d+)%</) || [])[1]);
+  const pct = s => Number((s.match(/>(\d+)%/) || [])[1]);
   const confBefore = pct(before);
   assert.ok(confBefore > 0, 'the readiness card states no confidence at all');
 
@@ -194,12 +204,15 @@ test('PANEL: every Reading card opens the panel that belongs to it', () => {
   });
 });
 
-test('PANEL: all eleven go through one opener, one BACK, one X, no rail', () => {
+test('PANEL: all ten go through one opener, one BACK, one X, no rail', () => {
   const a = withHistory(planHQ());
+  // Ten now, not eleven -- the standalone Fitness Checkpoint popup
+  // (requirement 9) is gone; there is no twelfth panel replacing it, only a
+  // row inside Measured Fitness's own panel.
   const keys = a.READING_KEYS
     .concat(Object.keys(a.RECORD_PANELS))
     .concat(Object.keys(a.ACTION_PANELS));
-  assert.equal(keys.length, 11);
+  assert.equal(keys.length, 10);
   keys.forEach(key => {
     const panel = a.hqPanelHtml(key);
     assert.ok(panel, key + ' produced no panel');
@@ -258,14 +271,21 @@ test('PANEL: opening and closing any of them restores the Plan HQ scroll offset'
 // ===========================================================================
 // 3. THE RACE OUTLOOK
 // ===========================================================================
-test('OUTLOOK: no measurement produces an honest empty state and no band', () => {
+test('OUTLOOK: no measurement produces an honest empty state, no band, but the permanent scale and goal end still show', () => {
   const a = planHQ();                       // built, nothing logged
   const html = a.renderRaceOutlook();
   assert.match(html, /Race Outlook/);
   assert.match(html, /Nothing measured yet/);
   assert.doesNotMatch(html, /oi-band/, 'a band was drawn from no measurement');
-  assert.doesNotMatch(html, /oi-goal/, 'a goal marker was drawn with no band to place it on');
+  // The scale/line and the gold goal marker exist from the start of the
+  // block -- only the measured/current position is withheld until real
+  // evidence exists. A goal marker with nothing plotted against it is not a
+  // fabricated measurement; it is "where I am trying to get" shown alone.
+  assert.match(html, /oi-track/, 'the permanent scale did not render before measurement existed');
   assert.equal(a.raceOutlook().state, 'none');
+  if (a.raceOutlook().goalSec != null){
+    assert.match(html, /oi-goal/, 'a goal marker was withheld even though a goal time exists');
+  }
   // And Programme Status still carries it, so the empty state is visible
   // rather than the section silently disappearing.
   assert.match(a.renderProgrammeStatus(), /id="outlook-mount"/);
@@ -360,30 +380,34 @@ test('OUTLOOK: logging a race repaints it through the same patch path as the gau
 });
 
 // ===========================================================================
-// 4. THE ACTION TRIO
+// 4. THE THREE MANAGEMENT/MEASUREMENT ACTIONS -- NO LONGER ONE ROW
 // ===========================================================================
-test('TRIO: three tiles, three distinct actions, all of them handled', () => {
+test('ACTIONS: New Block and Plan Settings moved to Settings; Checkpoint has no tile or popup left at all', () => {
   const a = withHistory(planHQ());
-  // New Block/Plan Settings re-homed to Valhalla (programme-level), Checkpoint
-  // to Record (a measurement action) -- still three tiles, three real
-  // destinations, just no longer on one screen at once.
+  // New Block and Plan Settings are programme-management actions, not
+  // day-to-day coaching or athlete evidence -- requirement 5 moved both out
+  // of the daily Valhalla page and into Settings, at Settings' own
+  // restrained button weight rather than as prominent act-tiles. Checkpoint
+  // is no longer a tile anywhere -- requirement 9 removed the standalone
+  // Fitness Checkpoint popup it used to open, folding "your next checkpoint"
+  // directly into Measured Fitness instead.
   a.planhqTab = 'valhalla';
   const valhallaTiles = a.renderPlanHQView().match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
+  assert.equal(valhallaTiles.length, 0, 'a management tile is still on the daily Valhalla page');
+
   a.planhqTab = 'record';
   const recordTiles = a.renderPlanHQView().match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
-  const tiles = valhallaTiles.concat(recordTiles);
-  assert.equal(tiles.length, 3, 'expected three action tiles across Valhalla and Record, found ' + tiles.length);
+  assert.equal(recordTiles.length, 0, 'a Checkpoint tile is still on Record');
+  assert.doesNotMatch(CODE, /case 'open-checkpoint':/, 'open-checkpoint still has a handler');
+  assert.equal(a.ACTION_PANELS.checkpoint, undefined, 'the standalone Fitness Checkpoint popup is still registered');
 
-  const actions = tiles.map(t => (t.match(/data-action="([^"]+)"/) || [])[1]);
-  assert.equal(new Set(actions).size, 3, 'two tiles fire the same action: ' + actions.join(','));
-  assert.equal(actions.join(','), 'open-new-block,open-setup,open-checkpoint');
-  actions.forEach(x => assert.match(CODE, new RegExp("case '" + x + "':"), x + ' is not handled'));
-
-  const labels = tiles.map(t => (t.match(/class="act-lab">([^<]+)</) || [])[1]);
-  assert.equal(labels.join(' | '), 'New block | Plan settings | Checkpoint');
-  tiles.forEach(t => assert.match(t, /<svg/, 'an action tile has no icon'));
-  // 76px of tile, so the whole thing clears every platform's touch target.
-  assert.match(CODE, /\.act-tile\{[^}]*min-height\s*:\s*7[0-9]px/);
+  const settingsHtml = a.renderSettingsHubView();
+  assert.match(settingsHtml, /data-action="open-new-block"[^>]*>[\s\S]{0,300}?Start a New Block/,
+    'New Block is not reachable from Settings');
+  assert.match(settingsHtml, /data-action="open-setup"[^>]*>[\s\S]{0,300}?Edit Plan Settings/,
+    'Plan Settings is not reachable from Settings');
+  assert.match(CODE, /case 'open-new-block':/, 'open-new-block is not handled');
+  assert.match(CODE, /case 'open-setup':/, 'open-setup is not handled');
 });
 
 test('TRIO: NEW BLOCK reaches the engine’s own block-transition journey', () => {
@@ -404,52 +428,51 @@ test('TRIO: NEW BLOCK reaches the engine’s own block-transition journey', () =
 
 test('TRIO: PLAN SETTINGS goes to the plan editor the product already calls that', () => {
   const a = withHistory(planHQ());
-  const html = a.renderPlanHQView();
-  // the window has to clear the inline SVG between the action and the label
-  assert.match(html, /data-action="open-setup"[^>]*>[\s\S]{0,600}?Plan settings/,
-    'the PLAN SETTINGS tile does not fire open-setup');
-  // Settings has called openSetupModal() "Edit Plan Settings" all along -- the
-  // tile is a second door onto the same real surface, not a new one.
-  assert.match(CODE, /data-action="open-setup"[^>]*>'\+ICONS\.target\+' Edit Plan Settings/);
+  // Plan Settings lives only in Settings now (requirement 5) -- Settings has
+  // called openSetupModal() "Edit Plan Settings" all along, and there is no
+  // longer a second door onto it from the daily Valhalla page.
+  const html = a.renderSettingsHubView();
+  assert.match(html, /data-action="open-setup"[^>]*>[\s\S]{0,600}?Edit Plan Settings/,
+    'Edit Plan Settings does not fire open-setup');
   assert.match(CODE, /case 'open-setup': openSetupModal\(\);/);
+  assert.doesNotMatch(a.renderPlanHQView(), /data-action="open-setup"/,
+    'Plan Settings is still duplicated on the daily Valhalla page');
 });
 
-test('TRIO: CHECKPOINT is about measured evidence, and always has a real action', () => {
+test('CHECKPOINT: Measured Fitness names it and always has a real action, no separate popup', () => {
   const a = withHistory(planHQ());
-  const panel = a.ACTION_PANELS.checkpoint();
-  assert.match(panel, /<h2 class="font-head">Fitness Checkpoint<\/h2>/);
-  assert.match(panel, /maximal effort over a known distance/);
+  const panel = a.RECORD_PANELS.fitness();
+  assert.match(panel, /<h2 class="font-head">Measured Fitness<\/h2>/);
+  // "Why races/checkpoints count as measurements" is said once, here, not
+  // repeated in a second popup that no longer exists.
+  assert.match(panel, /What counts as a measurement/);
   // Never generic scheduling.
   assert.doesNotMatch(panel, /schedule a (workout|session|run)/i);
   assert.doesNotMatch(panel, /add a session/i);
 
-  // Run and measured -> the action is to use it.
-  assert.match(panel, /data-action="open-recalibrate"/);
-
-  // Not yet run -> the action is to go and find it in the plan.
-  const b = planHQ();
-  const chk = b.state.days.filter(d => d.type === 'checkpoint')[0];
+  const chk = a.state.days.filter(d => d.type === 'checkpoint')[0];
   assert.ok(chk, 'the generator scheduled no checkpoint to test against');
-  const ahead = b.ACTION_PANELS.checkpoint();
-  assert.match(ahead, /Ahead of you/);
-  assert.match(ahead, /data-action="go-checkpoint"/);
-  assert.match(ahead, new RegExp('Open week ' + chk.week));
+  assert.match(panel, /Your (next )?checkpoint/);
+  assert.ok(panel.indexOf(chk.title || 'Fitness Checkpoint') !== -1, 'the checkpoint\'s own name is missing');
+  assert.match(panel, new RegExp('Week ' + chk.week));
+  // The row/action goes directly to Full Plan -- not to another popup.
+  assert.match(panel, /data-action="go-checkpoint"/);
+  assert.match(panel, new RegExp('Open week ' + chk.week));
 });
 
-test('TRIO: CHECKPOINT navigates to the real session, and says so honestly when a block has none', () => {
+test('CHECKPOINT: navigates to the real session directly from Measured Fitness', () => {
   const a = planHQ();
   const chk = a.state.days.filter(d => d.type === 'checkpoint')[0];
   a.state.view = 'planhq';
-  a.openHQPanel('checkpoint');
+  a.openHQPanel('fitness');
   a.handleGoToCheckpoint();
   assert.equal(a.state.view, 'full', 'CHECKPOINT did not open the plan');
   assert.equal(a.expandedWeeks[chk.week], true, 'the checkpoint week was left collapsed');
 
-  // A block with no checkpoint in it says so rather than offering a dead door.
+  // A block with no checkpoint in it offers no dead door.
   const b = planHQ();
   b.state.days.forEach(d => { if (d.type === 'checkpoint') d.type = 'tempo'; });
-  const none = b.ACTION_PANELS.checkpoint();
-  assert.match(none, /no Fitness Checkpoint/);
+  const none = b.RECORD_PANELS.fitness();
   assert.doesNotMatch(none, /data-action="go-checkpoint"/, 'a door to a session that is not there');
 });
 
@@ -465,7 +488,10 @@ test('HQ: Valhalla, Coach and Record each open on the right question, in the rig
   const valhalla = a.renderPlanHQView();
   const atV = s => valhalla.indexOf(s);
   assert.ok(atV('class="v-hero"') < atV('id="outlook-mount"'), 'the outlook is above the gauge');
-  assert.ok(atV('id="outlook-mount"') < atV('class="act-trio'), 'the actions are below the hero');
+  // New Block and Plan Settings no longer render here at all (requirement 5
+  // moved both to Settings) -- the daily Valhalla page ends on the Record
+  // preview and the block-transition card, with no action-tile row below it.
+  assert.doesNotMatch(valhalla, /class="act-trio/, 'a management action tile is still on the daily Valhalla page');
 
   a.planhqTab = 'coach';
   const coach = a.renderPlanHQView();
@@ -475,7 +501,9 @@ test('HQ: Valhalla, Coach and Record each open on the right question, in the rig
   const record = a.renderPlanHQView();
   const atR = s => record.indexOf(s);
   assert.ok(atR('Active Goal') < atR('>The Record<'), 'Active Goal is above THE RECORD');
-  assert.ok(atR('>The Record<') < atR('class="act-trio'), 'the actions are below THE RECORD');
+  // No action-tile row follows it any more -- Checkpoint's own tile is gone
+  // with the popup it used to open (requirement 9).
+  assert.doesNotMatch(record, /class="act-trio/, 'an action tile is still on Record');
 });
 
 test('HQ: nothing on Valhalla/Coach/Record expands inline, and every card is a destination', () => {
@@ -485,7 +513,8 @@ test('HQ: nothing on Valhalla/Coach/Record expands inline, and every card is a d
   assert.equal(readingCardsHtml.length, 5, 'expected five Reading cards on Coach');
   a.planhqTab = 'record';
   const recordCardsHtml = a.renderPlanHQView().match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [];
-  assert.equal(recordCardsHtml.length, 4, 'expected four Record cards on Record');
+  // Three now, not four -- Training paces moved to Settings (requirement 6).
+  assert.equal(recordCardsHtml.length, 3, 'expected three Record cards on Record');
   readingCardsHtml.concat(recordCardsHtml).forEach(c => {
     assert.match(c, /data-action="open-(reading|record)"/, 'a card that goes nowhere');
     assert.doesNotMatch(c, /aria-expanded/, 'a card that expands rather than opens');

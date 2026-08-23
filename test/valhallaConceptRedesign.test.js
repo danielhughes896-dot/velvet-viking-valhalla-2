@@ -118,15 +118,16 @@ test('PREVIEW: the Reading dials on Valhalla show all five sections, non-interac
   assert.equal((preview.match(/class="b-dial-col"/g) || []).length, 5);
 });
 
-test('PREVIEW: the Record plates on Valhalla show all four facts, non-interactive', () => {
+test('PREVIEW: the Record plates on Valhalla show all three facts, non-interactive', () => {
   const a = planHQ();
   const preview = a.renderValhallaRecordPreview();
   assert.match(preview, /<div class="setup-section-title">The Record<\/div>/);
   assert.match(preview, /class="b-record"/);
-  assert.equal((preview.match(/class="b-plate"/g) || []).length, 4);
+  // Three now, not four -- Training paces moved to Settings (requirement 6).
+  assert.equal((preview.match(/class="b-plate"/g) || []).length, 3);
   assert.doesNotMatch(preview, /data-action="open-record"/,
     'the Valhalla preview plates must not duplicate Record\'s tap-through cards');
-  ['Measured fitness', 'Benchmark', 'Training paces', 'Progress'].forEach(label => {
+  ['Measured fitness', 'Benchmark', 'Progress'].forEach(label => {
     assert.match(preview, new RegExp('<div class="lbl">' + label + '</div>'));
   });
 });
@@ -149,19 +150,21 @@ test('PREVIEW: an athlete with no plan gets empty previews, not a crash', () => 
 // ===========================================================================
 // 3. THE VALHALLA TAB ASSEMBLES HERO + BOTH PREVIEWS + THE EXISTING ACTIONS
 // ===========================================================================
-test('TAB: Valhalla renders the hero, then the Reading preview, then the Record preview, then the actions', () => {
+test('TAB: Valhalla renders the hero, then the Reading preview, then the Record preview, with no action tiles beneath', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
   const at = s => html.indexOf(s);
   assert.ok(at('class="v-hero"') < at('The Reading'), 'the Reading preview is not below the hero');
   assert.ok(at('The Reading') < at('The Record'), 'the Record preview is not below the Reading preview');
-  assert.ok(at('The Record') < at('class="act-trio'), 'the actions are not below the Record preview');
+  // New Block and Plan Settings no longer render on the daily Valhalla page
+  // at all (requirement 5 relocated both to Settings).
+  assert.doesNotMatch(html, /class="act-trio/, 'a management action tile is still below the Record preview');
 });
 
 // ===========================================================================
-// 4. COACH AND RECORD CARDS SPEAK THE SAME VISUAL LANGUAGE
+// 4. COACH IS A READABLE, TAPPABLE DIAGNOSTIC LIST -- NOT VALHALLA'S DIALS
 // ===========================================================================
-test('COACH: every Reading card is a dial-fronted evidence card, still tappable into the same panel', () => {
+test('COACH: every Reading card is a rectangular list row, not a dial, still tappable into the same panel', () => {
   const a = planHQ();
   a.planhqTab = 'coach';
   const html = a.renderPlanHQView();
@@ -169,7 +172,10 @@ test('COACH: every Reading card is a dial-fronted evidence card, still tappable 
     .filter(c => c.indexOf('data-action="open-reading"') !== -1);
   assert.equal(cards.length, 5);
   cards.forEach(c => {
-    assert.match(c, /class="rs-dial"/, 'a Coach card lost its dial');
+    // Requirement 7: keep the rectangular list rows, do not change them into
+    // the circular presentation Valhalla's own Reading overview uses.
+    assert.doesNotMatch(c, /class="rs-dial"/, 'a Coach card grew Valhalla\'s circular dial');
+    assert.match(c, /class="hq-row-l"/, 'a Coach card lost its row title');
     assert.match(c, /class="rs-chev"/, 'a Coach card lost its tap affordance');
   });
 });
@@ -180,7 +186,8 @@ test('RECORD: every Record card is a headline-fact card, still tappable into the
   const html = a.renderPlanHQView();
   const cards = (html.match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [])
     .filter(c => c.indexOf('data-action="open-record"') !== -1);
-  assert.equal(cards.length, 4);
+  // Three now, not four -- Training paces moved to Settings (requirement 6).
+  assert.equal(cards.length, 3);
   cards.forEach(c => {
     assert.match(c, /class="rec-headline"/, 'a Record card lost its headline');
     assert.doesNotMatch(c, /rs-dial/, 'a Record card grew a state dial -- facts are plates, not circles');

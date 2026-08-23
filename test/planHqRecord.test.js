@@ -67,29 +67,32 @@ function cardFor(html, subject) {
 // ===========================================================================
 // 1. THE FOUR CARDS
 // ===========================================================================
-test('RECORD: Plan HQ carries exactly four Record cards, each its own tappable card', () => {
+test('RECORD: Plan HQ carries exactly three Record cards, each its own tappable card', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
   const found = cards(html);
-  assert.equal(found.length, 4, 'expected four Record cards, found ' + found.length);
+  // Three now, not four -- Training paces moved to Settings' Training &
+  // Zones card (requirement 6): it is plan configuration/reference, not a
+  // historical athlete record, so The Record keeps only the three that are.
+  assert.equal(found.length, 3, 'expected three Record cards, found ' + found.length);
 
   const subjects = found.map(c => (c.match(/<\/b><span>([^<]+)<\/span>/) || [])[1]);
   assert.equal(subjects.join(' | '),
-    'Measured fitness | Benchmark | Training paces | Progress');
+    'Measured fitness | Benchmark | Progress');
 
   found.forEach(c => {
     assert.match(c, /data-action="open-record"/, 'a Record card does not open anything');
-    assert.match(c, /data-record="(fitness|benchmark|zones|progress)"/);
+    assert.match(c, /data-record="(fitness|benchmark|progress)"/);
     assert.match(c, /class="rec-headline"/, 'a Record card states no value');
     assert.match(c, /class="rec-context"/, 'a Record card carries no synopsis');
   });
 });
 
-test('RECORD: the four are separate cards, not one combined container', () => {
+test('RECORD: the three are separate cards, not one combined container', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
-  // Four sibling elements, none nested inside another.
-  assert.equal((html.match(/data-action="open-record"/g) || []).length, 4);
+  // Three sibling elements, none nested inside another.
+  assert.equal((html.match(/data-action="open-record"/g) || []).length, 3);
   found_not_nested: {
     const region = html.slice(html.indexOf('data-action="open-record"'));
     assert.doesNotMatch(region.slice(0, region.indexOf('</button>')),
@@ -145,27 +148,34 @@ test('RECORD: every value is read from live state, not written into the markup',
   assert.match(after, /week \d+ of \d+/);
 });
 
-test('RECORD: the zone-paces card counts the zones and names the hand-edited ones', () => {
+test('RECORD: the zone-paces fact counts the zones and names the hand-edited ones, now surfaced from Settings', () => {
   const a = planHQ();
-  assert.match(cardFor(a.renderPlanHQView(), 'Training paces'), /5 zones/);
-  assert.match(cardFor(a.renderPlanHQView(), 'Training paces'),
-    /All five as calculated from your active goal/);
+  // recordZonesFact() itself is untouched by the relocation -- it is the
+  // presentation (which screen shows it) that moved, not the logic. Checked
+  // directly now that there is no more Record card to read it back through.
+  assert.match(a.recordZonesFact().synopsis, /All five as calculated from your active goal/);
+  assert.equal(a.recordZonesFact().value, '5 zones');
 
   a.state.setup.paceOverrides = { M: { fast: 250, slow: 262 } };
-  const one = cardFor(a.renderPlanHQView(), 'Training paces');
-  assert.match(one, /Tempo edited by hand/);
-  assert.match(one, /The rest as calculated/);
+  assert.match(a.recordZonesFact().synopsis, /Tempo edited by hand/);
+  assert.match(a.recordZonesFact().synopsis, /The rest as calculated/);
 
   a.state.setup.paceOverrides = {
     M: { fast: 250, slow: 262 }, T: { fast: 240, slow: 248 }, I: { fast: 220, slow: 228 },
   };
-  assert.match(cardFor(a.renderPlanHQView(), 'Training paces'), /3 zones edited by hand/);
+  assert.match(a.recordZonesFact().synopsis, /3 zones edited by hand/);
 
   // A half-set override is not an override -- the same rule getActivePaces()
-  // applies, applied here too, so the card cannot disagree with the paces.
+  // applies, applied here too, so the fact cannot disagree with the paces.
   a.state.setup.paceOverrides = { M: { fast: 250, slow: null } };
-  assert.match(cardFor(a.renderPlanHQView(), 'Training paces'),
+  assert.match(a.recordZonesFact().synopsis,
     /All five as calculated/, 'a half-edited zone was counted as edited');
+
+  // And it is genuinely reachable, at full fidelity, from Settings.
+  assert.match(a.renderSettingsHubView(),
+    /data-action="open-record" data-record="zones"[^>]*>[\s\S]{0,300}?View Training Zone Paces/,
+    'Training Zone Paces is not reachable from Settings');
+  assert.match(a.RECORD_PANELS.zones(), /Training Zone Paces/);
 });
 
 test('RECORD: measured fitness reports a measurement when there is one, and an absence when there is not', () => {
@@ -385,7 +395,9 @@ test('CLAIMS: the checkpoint is stated where one is scheduled, and no control is
   const panel = a.RECORD_PANELS.fitness();
   assert.match(panel, /Your next checkpoint/);
   assert.match(panel, new RegExp('Week ' + chk.week));
-  assert.match(panel, /already scheduled in this block/);
+  assert.match(panel, /Ahead of you/);
+  // And the row/action goes straight to Full Plan -- not to another popup.
+  assert.match(panel, /data-action="go-checkpoint"/);
 
   // There is no ad-hoc checkpoint-scheduling flow in the product, so nothing
   // may offer to open one.
@@ -462,11 +474,10 @@ test('HQ: the Valhalla hero carries the gauge verbatim — a full-circle ring, a
 
 test('HQ: the coach panel, the checkpoint banner and Active Goal are all still reachable', () => {
   const a = planHQ();
-  // Re-homed across the three tabs, not lost: New Block/Plan Settings on
-  // Valhalla, the coach panel on Coach, Active Goal and the checkpoint
-  // banner on Record alongside THE RECORD itself.
-  a.planhqTab = 'valhalla';
-  assert.match(a.renderPlanHQView(), /data-action="open-setup"/);
+  // Re-homed, not lost: New Block/Plan Settings now live in Settings, the
+  // coach panel on Coach, Active Goal and the checkpoint banner on Record
+  // alongside THE RECORD itself.
+  assert.match(a.renderSettingsHubView(), /data-action="open-setup"/);
 
   a.planhqTab = 'coach';
   assert.ok(a.renderPlanHQView().indexOf(a.renderCoachPanel()) !== -1, 'the coach panel left Valhalla');

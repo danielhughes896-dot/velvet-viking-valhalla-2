@@ -517,15 +517,30 @@
   /* Coaching depth (athlete experience) -- presentation only. */
   .coach-cue{display:flex; align-items:flex-start; gap:6px; margin-top:7px; font-size:var(--fs-body); line-height:var(--lh-body); color:var(--bronze-text);}
   .coach-cue svg{width:13px; height:13px; flex:none; margin-top:2px;}
-  .how-row{padding:6px 0; border-bottom:1px solid var(--line-soft);}
-  .how-row:last-of-type{border-bottom:none;}
-  .how-row .k{display:block; font-size:var(--fs-label); letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:2px;}
+  /* WHY / EXECUTION / FEEL / WATCH FOR read as one recessive --ink-faint
+     label at the same weight as everything else in the card, so the four
+     sections ran together rather than reading as headings. Same content,
+     same copy -- only the label now carries the weight/contrast/spacing of
+     an actual section heading: Oswald (the app's own display face, used
+     nowhere else in this disclosure so it stands apart on sight), bronze
+     rather than faint ink, wider letter-spacing, a hair more bottom margin
+     before its value starts. No new container, no banner -- the existing
+     hairline-separated row is unchanged, just the label inside it. */
+  .how-row{padding:10px 0; border-bottom:1px solid var(--line-soft);}
+  .how-row:first-of-type{padding-top:0;}
+  .how-row:last-of-type{border-bottom:none; padding-bottom:0;}
+  .how-row .k{display:block; font-family:'Oswald',sans-serif; font-size:12.5px; font-weight:600;
+              letter-spacing:1.3px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:5px;}
   /* overflow-wrap so a long pace range or an unbroken term cannot push the
      card sideways on a narrow phone; the page body must never scroll across. */
   .how-row .v{display:block; font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); overflow-wrap:anywhere;}
   /* A sub-heading inside the unified "How to run this" disclosure -- marks
-     where Execution or Fuel begins without becoming a card of its own. */
-  .how-row-heading{font-size:var(--fs-label); letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin:10px 0 4px; padding-top:8px; border-top:1px solid var(--line-soft);}
+     where Execution or Fuel begins without becoming a card of its own. Same
+     upgrade as .how-row .k above, for the same reason: it is also a section
+     heading (Execution, Fuel) that was reading as body text. */
+  .how-row-heading{font-family:'Oswald',sans-serif; font-size:12.5px; font-weight:600; letter-spacing:1.3px;
+                   text-transform:uppercase; color:var(--bronze-text); margin:14px 0 6px; padding-top:10px;
+                   border-top:1px solid var(--line-soft);}
   .how-row-heading:first-child{margin-top:0; padding-top:0; border-top:none;}
   /* Execution Strategy phases -- a staged reading of the prescription, not a
      second set of numbers. Each phase is its own compact block so a race's
@@ -628,6 +643,69 @@
      lands on the work step between them. */
   .ws-warmup .ws-name, .ws-cooldown .ws-name{color:var(--ink-faint);}
   .ws-warmup .ws-qty, .ws-cooldown .ws-qty{font-size:var(--fs-body); color:var(--ink-dim);}
+  /* THREE-STAGE WORKOUT BLUEPRINT. The vertical numbered-node timeline above
+     is Valhalla's own visual language for a workout with any other step
+     count; a warm-up/work/cool-down session (by far the most common shape)
+     reads faster as one composed structure -- three balanced columns sharing
+     a single row -- than as three rungs of a ladder. Same numbered cherry
+     disc, same cherry line language, just laid flat instead of stacked.
+
+     Reused, never redrawn: .ws-h-num below carries the exact .ws-n circle
+     properties (fill, border, ink, size, weight), and the divider between
+     columns is the same solid var(--cherry) the vertical rail uses, for the
+     same reason documented at .ws-step::before -- a translucent line
+     composites differently over every session-type tint; a solid one does
+     not. It is a thin 1px rule, not a rail, because three columns already
+     read as one row; it only needs to mark where one stage ends.
+
+     Real column width, measured against a live 390px card with actual
+     day-card chrome (checkbox + actions + chevron) already eating width:
+     ~67px per column at 390px, ~57px at 360px, ~61px/~51px of that usable
+     once this column's own 3px side padding is subtracted. Every font size
+     below was chosen against those real numbers, not an assumption -- an
+     assumed ~110px column was the original mistake that produced "WARM"/
+     "UP" and "INTER"/"VAL" mid-word breaks. overflow-wrap:anywhere is
+     deliberately never used here; it is what caused those breaks the first
+     time by letting the browser cut any word, anywhere, rather than only the
+     one name ("HILL REPEATS") that genuinely has no shorter fit. */
+  .ws-steps-h{list-style:none; margin:0; padding:0; display:flex;}
+  .ws-h-step{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center;
+             text-align:center; padding:0 3px;}
+  .ws-h-step + .ws-h-step{border-left:1px solid var(--cherry);}
+  .ws-h-num{
+    width:18px; height:18px; flex:none; display:flex; align-items:center; justify-content:center;
+    border-radius:50%; background:var(--cherry-soft); border:1.5px solid var(--cherry);
+    color:var(--cherry-ink); font-size:var(--fs-meta); line-height:1; font-weight:700;
+  }
+  .ws-h-name{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:.3px;
+             text-transform:uppercase; color:var(--ink); margin-top:5px; line-height:1.25;}
+  .ws-h-qty{font-size:11px; line-height:1.2; color:var(--ink); margin-top:3px; font-weight:600; white-space:nowrap;}
+  .ws-k-ladder .ws-h-qty{font-size:9px; line-height:1.3; white-space:normal;}
+  /* Effort words ("Easy", "Hard, by feel") have room to wrap at their own
+     space if one is ever long enough to need it -- normal white-space, no
+     nowrap -- so nothing here is forced onto one line that doesn't need to
+     be. A pace band ("4:39-4:49/km") has no space at all, but its en dash is
+     a break OPPORTUNITY under the Unicode line-breaking rules default
+     white-space honours, same as a hyphen -- so .font-mono (which marks only
+     the pace case) gets nowrap, stopping "4:39-" splitting onto its own line
+     the way a quantity must not.
+
+     Measured against the real 360px column (57px, ~51px after padding): an
+     8.5px pace band like "3:49-3:55/km" renders ~61px wide and genuinely
+     overflows the column by ~10px at that width, not just looks tight. A
+     dedicated smaller size for the mono/pace case (effort words stay at
+     8.5px -- they're short and never at risk) keeps it clear of that
+     budget at 360px with margin to spare and well inside it at 390px. */
+  .ws-h-presc{font-size:8.5px; line-height:1.3; color:var(--ink-dim); margin-top:2px;}
+  .ws-h-presc.font-mono{white-space:nowrap; font-size:6.75px;}
+  /* Everything a column did not have room for -- HR, a ramp, a recovery
+     rule, a completion clause -- in the same .ws-hr/.ws-note classes (and
+     therefore the same colours and sizes) the vertical list has always used
+     for them, directly beneath the three columns. A stage with nothing left
+     to say contributes no row here at all. */
+  .ws-h-details{list-style:none; margin:12px 0 0; padding:10px 0 0; border-top:1px solid var(--line-soft);
+                display:flex; flex-direction:column; gap:8px;}
+  .ws-h-detail-name{display:block; font-size:var(--fs-label); letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:2px;}
   /* One integration card follows another inside Sync & Export, so the second
      needs a rule to stop the two reading as one long block. Same hairline the
      rest of the card system uses; no colour of its own. */
@@ -660,6 +738,16 @@
   }
   .icon-btn:hover{color:var(--ink); border-color:var(--bronze);}
   .icon-btn svg{width:18px; height:18px;}
+  /* Coach and Record detail sheets specifically -- every panel opened via
+     openHQPanel() carries this wrapper class -- get the brand's own cherry
+     for their close control instead of the generic dark/grey .icon-btn every
+     OTHER modal in the app still uses unchanged. --cherry-text is the token
+     already documented and contrast-checked for cherry-as-text/icon use in
+     both themes; the hover state borrows the exact fill/ink pairing the
+     numbered circles use, for the same reason -- a colour already proven to
+     read correctly here rather than a new one invented for this button. */
+  .hq-panel .icon-btn{color:var(--cherry-text); border-color:var(--cherry);}
+  .hq-panel .icon-btn:hover{color:var(--cherry-ink); border-color:var(--cherry); background:var(--cherry-soft);}
 
   /* ---------- hero / progress ---------- */
   .hero{padding:32px 0 18px; text-align:center; position:relative;}
@@ -1973,11 +2061,14 @@
      tappable card matching the hero's own surface language. Cherry Lacquer
      stays the measured-effort marker (the gauge's own accent, reused for
      what the athlete's own running produced); gold stays the goal. */
+  /* A status/measurement visual, not a control -- nothing here is tappable,
+     so nothing here should look tappable. No cursor:pointer, no hover state;
+     the card reads by its content, the same way the confidence gauge above
+     it does. */
   .outlook-instrument{
     display:block; width:100%; text-align:left; background:var(--bg-3); border:1px solid var(--line);
-    border-radius:14px; padding:14px 16px 18px; margin-top:16px; cursor:pointer; font:inherit; color:inherit;
+    border-radius:14px; padding:14px 16px 18px; margin-top:16px; font:inherit; color:inherit;
   }
-  .outlook-instrument:hover{border-color:var(--bronze-2);}
   .oi-label{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
   .oi-label span{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--gold-text);}
   .oi-label svg{width:11px; height:11px; color:var(--gold-text); opacity:.7; flex:none;}
@@ -2000,18 +2091,28 @@
      circular-dial and chamfered-plate language the Coach and Record tabs use
      in full, shown here as a quiet summary. Tapping through to evidence and
      detail happens on Coach/Record, not from this preview. */
-  .b-dials{display:flex; flex-direction:column; gap:16px; margin:4px 0 4px;}
-  .b-dials-row{display:flex; justify-content:center; gap:26px;}
-  .b-dial-col{display:flex; flex-direction:column; align-items:center; gap:7px; width:64px;}
-  .b-dial{position:relative; width:56px; height:56px; flex:none;}
-  .b-dial.lead{width:64px; height:64px;}
+  /* Liked more after use, per review, and asked for a modest size increase
+     -- dial diameter, spacing and label size all up a step, structure and
+     colour law untouched. Still sized to read as a quiet summary beneath
+     Race Outlook, not a set of cards competing with it. */
+  .b-dials{display:flex; flex-direction:column; gap:18px; margin:4px 0 4px;}
+  .b-dials-row{display:flex; justify-content:center; gap:28px;}
+  .b-dial-col{display:flex; flex-direction:column; align-items:center; gap:8px; width:70px;}
+  .b-dial{position:relative; width:62px; height:62px; flex:none;}
+  .b-dial.lead{width:70px; height:70px;}
   .b-dial b{position:absolute; inset:6px; display:flex; align-items:center; justify-content:center;
-    text-align:center; line-height:1.05; font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--ink); font-weight:700;}
-  .b-dial.lead b{font-size:14.5px;}
+    text-align:center; line-height:1.05; font-family:'JetBrains Mono',monospace; font-size:13.5px; color:var(--ink); font-weight:700;}
+  .b-dial.lead b{font-size:16px;}
   .b-medal{position:absolute; inset:6px; border-radius:50%; background:var(--bg-2); border:1px solid var(--line-soft);}
-  .b-dial-col .lbl{font-family:'Oswald',sans-serif; font-size:8.7px; letter-spacing:.03em; text-transform:uppercase; color:var(--ink-faint); text-align:center; line-height:1.2;}
+  .b-dial-col .lbl{font-family:'Oswald',sans-serif; font-size:9.3px; letter-spacing:.03em; text-transform:uppercase; color:var(--ink-faint); text-align:center; line-height:1.2;}
 
   .b-record{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:6px 0 6px;}
+  /* Three facts now, not four -- Measured Fitness and Benchmark keep the
+     upper pair, and Progress (the third and last plate) is centred beneath
+     rather than left-stuck in half a row or stretched the full width just
+     because the space is there. The clipped-corner plate keeps its own
+     width; only its position changes. */
+  .b-record .b-plate:nth-child(3):last-child{grid-column:1 / -1; justify-self:center; width:calc(50% - 5px);}
   .b-plate{
     padding:15px 14px 13px; text-align:left; color:var(--ink); background:var(--bg-2); border:1px solid var(--line);
     clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,14px 100%,0 calc(100% - 14px),0 14px);
@@ -2183,7 +2284,11 @@
   }
   .yr-fit-prev{margin-top:12px; padding-top:12px; border-top:1px solid var(--line-soft);}
   .yr-fit-l{font-size:var(--fs-support); color:var(--ink-dim);}
-  .yr-fit-main .yr-fit-v{font-size:26px; letter-spacing:.02em; grid-row:1 / span 2;}
+  /* Was a bespoke 26px, off the app's own type scale -- the Measured Fitness
+     panel is the only place renderMeasuredFitness() renders, so this is a
+     pure normalisation onto --fs-title (the largest size the rest of the app
+     actually uses) rather than an invented size for this one number. */
+  .yr-fit-main .yr-fit-v{font-size:var(--fs-title); letter-spacing:.02em; grid-row:1 / span 2;}
   .yr-fit-prev .yr-fit-v{font-size:var(--fs-data); color:var(--ink-dim); grid-row:1 / span 2;}
   .yr-fit-d{font-size:var(--fs-meta); color:var(--ink-faint);}
   .yr-fit-delta{
@@ -9085,14 +9190,70 @@ function renderWorkoutStep(st, i){
     lines.join('')+extra+
   '</li>';
 }
+/* THREE-STAGE HORIZONTAL BLUEPRINT -- the same data renderWorkoutStep already
+   reads, laid out as three balanced columns instead of a vertical list. Only
+   used when a session has exactly three structural stages (warm-up / work /
+   cool-down, by far the most common shape); every other step count keeps the
+   proven vertical timeline unchanged, since a blueprint built for three
+   columns has nowhere honest to put a fourth or fifth stage. */
+// The ONE essential prescription figure for the compact column: a pace band
+// where the step has one, else the effort word, never both, never HR (HR
+// moves to the secondary detail below with everything else that didn't fit).
+function essentialPrescriptionHtml(st){
+  if (st.target && !st.wholeSession){
+    var pace = fmtStrategyPace(st.target.pace, null);
+    if (pace) return '<span class="ws-h-presc font-mono">'+escapeHtml(pace)+'</span>';
+  }
+  if (st.effort && !st.wholeSession)
+    return '<span class="ws-h-presc">'+escapeHtml(st.effort)+'</span>';
+  return '';
+}
+// Everything renderWorkoutStep would have shown that essentialPrescriptionHtml
+// did not use -- HR, a build/ramp note, a completion note, recovery, between-
+// set recovery -- in the exact same .ws-hr/.ws-note classes (and therefore
+// the same colours and wording) the vertical list has always used for them,
+// so nothing about what a figure means changes with the layout.
+function renderWorkoutStepSecondary(st){
+  var out = '';
+  if (st.target && !st.wholeSession){
+    var hr = fmtStrategyHR(st.target.hr);
+    if (hr) out += '<div class="ws-hr font-mono">'+escapeHtml(hr)+'</div>';
+  }
+  if (st.build) out += '<div class="ws-note">'+escapeHtml(st.build)+'</div>';
+  if (st.note) out += '<div class="ws-note">'+escapeHtml(st.note)+'</div>';
+  if (st.recovery) out += '<div class="ws-note">Recovery: '+escapeHtml(st.recovery)+'</div>';
+  if (st.setRecovery) out += '<div class="ws-note">Between sets: '+escapeHtml(st.setRecovery)+'</div>';
+  return out;
+}
+function renderWorkoutStepHCell(st, i){
+  var qty = renderStepQty(st);
+  return '<li class="ws-h-step ws-'+st.role+' ws-k-'+st.kind+'">'+
+    '<span class="ws-h-num font-mono">'+(i+1)+'</span>'+
+    '<span class="ws-h-name font-head">'+escapeHtml(st.label)+'</span>'+
+    (qty ? '<span class="ws-h-qty font-mono">'+escapeHtml(qty)+'</span>' : '')+
+    essentialPrescriptionHtml(st)+
+  '</li>';
+}
+function renderWorkoutStepHDetail(st){
+  var extra = renderWorkoutStepSecondary(st);
+  if (!extra) return '';
+  return '<li class="ws-h-detail"><span class="ws-h-detail-name font-head">'+escapeHtml(st.label)+'</span>'+extra+'</li>';
+}
+function renderStructuredWorkoutSteps(steps){
+  var details = steps.map(renderWorkoutStepHDetail).filter(Boolean).join('');
+  return '<ol class="ws-steps-h">'+steps.map(renderWorkoutStepHCell).join('')+'</ol>'+
+    (details ? '<ol class="ws-h-details">'+details+'</ol>' : '');
+}
 function renderStructuredWorkout(dd){
   if (!dd || dd.type === 'rest') return '';
   var steps;
   try { steps = workoutSteps(dd); } catch(e) { return ''; }
   if (!steps || !steps.length) return '';
+  var body = steps.length === 3
+    ? renderStructuredWorkoutSteps(steps)
+    : '<ol class="ws-steps">'+steps.map(renderWorkoutStep).join('')+'</ol>';
   return '<section class="ws-block" aria-label="Structured workout">'+
-    '<div class="ws-head font-head">Workout</div>'+
-    '<ol class="ws-steps">'+steps.map(renderWorkoutStep).join('')+'</ol>'+
+    '<div class="ws-head font-head">Workout</div>'+body+
   '</section>';
 }
 function renderCoachingDepth(dd){
@@ -24129,8 +24290,16 @@ function recordProgressFact(){
     (week && total ? ' · week '+week+' of '+total : '')+'.';
   return { key:'progress', subject:'Progress', value:runsPct+'%', synopsis:syn };
 }
+/* Training paces are plan configuration/reference -- what you are training
+   AT -- not a historical record of the athlete, so recordFacts() no longer
+   carries them: The Record is now Measured Fitness, Benchmark and Progress,
+   the three genuinely historical facts. recordZonesFact() and
+   recordPanelZones() are untouched and still reachable at full fidelity --
+   only from Settings' Training & Zones card now, alongside Re-calibrate and
+   Plan Settings, where the other zone/plan-configuration actions already
+   live, rather than duplicated here as well. */
 function recordFacts(){
-  return [recordFitnessFact(), recordBenchmarkFact(), recordZonesFact(), recordProgressFact()];
+  return [recordFitnessFact(), recordBenchmarkFact(), recordProgressFact()];
 }
 
 /* The interactive evidence card (Record tab): a headline fact, not a dial --
@@ -24203,7 +24372,14 @@ function recordPanelFitness(){
      already put in the block. It is stated as a fact, with its week and date,
      and there is no "Schedule a Checkpoint" control -- because there is no
      scheduling flow behind one, and a button that goes nowhere would be the
-     first dishonest thing on this surface. */
+     first dishonest thing on this surface.
+
+     YOUR NEXT CHECKPOINT navigates directly into Full Plan now -- the
+     standalone Fitness Checkpoint popup this used to hand off to is gone
+     (requirement 9): it only ever repeated what/when/why and then offered
+     this exact same door. "Why races/checkpoints count as a measurement" is
+     answered once, immediately above, in "What counts as a measurement" --
+     not said again here. */
   if (chk){
     /* "Completed" and "measured" are not the same fact, and this panel is the
        one place that must not blur them: recordMeasuredPerformance() only
@@ -24215,14 +24391,16 @@ function recordPanelFitness(){
       return p.date === chk.date;
     });
     var note;
-    if (!chk.completed) note = 'It is already scheduled in this block. Run it and log it, and it becomes a measurement.';
+    if (!chk.completed) note = 'Ahead of you. Run it and log it, and it becomes a measurement.';
     else if (counted) note = 'Already run and logged. It is the measurement above.';
     else note = 'Marked complete, but without a time it can be measured from. Add the time to that session and it becomes a measurement.';
     body += '<div class="setup-section-title">'+(chk.completed ? 'Your checkpoint' : 'Your next checkpoint')+'</div>'+
       '<div class="hub-card">'+
         hqRow(chk.title || 'Fitness Checkpoint', 'Week '+chk.week+' · '+dShort(chk.date))+
       '</div>'+
-      '<div class="field-hint">'+note+'</div>';
+      '<div class="field-hint" style="margin-bottom:8px;">'+note+'</div>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="go-checkpoint">'+
+        ICONS.calendarWeek+' Open week '+chk.week+' in your plan</button>';
   }
   return recordPanelShell('Measured Fitness', body);
 }
@@ -24386,8 +24564,8 @@ function toneRingColor(tone){
 }
 function dialFontSize(text, lead){
   var n = (text||'').length;
-  if (lead) return n<=4 ? '14.5px' : n<=7 ? '12px' : n<=10 ? '10px' : '8.5px';
-  return n<=4 ? '11.5px' : n<=7 ? '9.5px' : n<=10 ? '8.5px' : '7.5px';
+  if (lead) return n<=4 ? '16px' : n<=7 ? '13px' : n<=10 ? '11px' : '9.5px';
+  return n<=4 ? '12.5px' : n<=7 ? '10.5px' : n<=10 ? '9px' : '8px';
 }
 /* The dial's own centre text: readiness gets just its number ("50%", not
    "50% confidence" -- the fuller sentence is the card's synopsis, not the
@@ -24420,26 +24598,30 @@ function readingDialSvg(sec, size){
   '</svg>';
 }
 function readingDialHtml(sec, lead){
-  var size = lead ? 64 : 56;
+  var size = lead ? 70 : 62;
   var svg = readingDialSvg(sec, size);
   var medal = svg ? '' : '<div class="b-medal"></div>';
   var text = dialCenterText(sec);
   return '<div class="b-dial'+(lead?' lead':'')+'">'+svg+medal+
     '<b style="font-size:'+dialFontSize(text, lead)+';">'+escapeHtml(text)+'</b></div>';
 }
+/* RECTANGULAR, NOT CIRCULAR. Valhalla's own Reading preview is the visual
+   executive overview and keeps its dials; Coach is the readable, tappable
+   diagnostic list underneath it, and a list is rows, not a row of dials.
+   The row reuses .hq-row/.hq-row-l and the exact .read-val/.read-dot tone
+   grammar readingPanel()'s own header already uses to restate this same
+   verdict -- so the card and the panel it opens say the same thing the same
+   way, not two different visual languages for one fact. */
 function readingCard(sec){
-  var size = 44, svg = readingDialSvg(sec, size);
-  var medal = svg ? '' : '<div class="rs-medal"></div>';
-  var text = dialCenterText(sec);
   return '<button type="button" class="ev-card" data-action="open-reading" data-reading="'+sec.key+'">'+
-      '<div class="rs-head">'+
-        '<div class="rs-dial">'+svg+medal+
-          '<b style="font-size:'+dialFontSize(text, false)+';">'+escapeHtml(text)+'</b></div>'+
-        '<div class="rs-head-text"><h3>'+escapeHtml(sec.title)+'</h3>'+
-          (sec.syn ? '<div class="rs-syn">'+escapeHtml(sec.syn)+'</div>' : '')+
-        '</div>'+
+      '<div class="hq-row">'+
+        '<span class="hq-row-l">'+escapeHtml(sec.title)+'</span>'+
+        '<span class="read-val'+(sec.tone?' '+sec.tone:'')+'">'+
+          (sec.tone ? '<span class="read-dot"></span>' : '')+escapeHtml(sec.value)+
+        '</span>'+
         '<span class="rs-chev">'+ICONS.chevronRight+'</span>'+
       '</div>'+
+      (sec.syn ? '<div class="rs-syn">'+escapeHtml(sec.syn)+'</div>' : '')+
     '</button>';
 }
 function renderReadingSection(){
@@ -24528,6 +24710,20 @@ function raceOutlook(){
            fastSec:est.fastSec, slowSec:est.slowSec,
            fromDate:est.fromDate, fromSource:est.fromSource };
 }
+/* PERMANENT SCALE, FIXED SEMANTIC ZONES. The line/track now draws from the
+   start of the block, before any measurement exists -- it is a status
+   visual, not something that appears once enough data has accumulated.
+
+   LEFT = where the athlete is measured to be; RIGHT = where they are trying
+   to get. These are fixed zones on the track, not a literal seconds-per-km
+   axis: the goal marker always sits at GOAL_X and the measured band, when it
+   exists, always sits inside [ZONE_L, ZONE_R]. A single shared time-value
+   scale (the previous approach) would put the goal on the LEFT whenever the
+   athlete's own measured effort was already the slower of the two -- exactly
+   backwards for a visual whose job is "where I am → where I am trying to
+   get". The band's WIDTH still reflects the real fast/slow spread of the
+   measured estimate, remapped into its fixed zone; only its axis position is
+   now semantic rather than literal. */
 function renderRaceOutlook(){
   var o = raceOutlook();
   if (!o) return '';
@@ -24535,59 +24731,58 @@ function renderRaceOutlook(){
     '<span class="oi-dist">'+escapeHtml(o.profile.label)+
       (o.goalSec!=null ? ' · Goal '+escapeHtml(state.setup.activeGoal) : '')+'</span></div>';
 
-  if (o.state !== 'measured'){
-    return '<div class="outlook-instrument" id="outlook-mount-inner">'+head+
-      '<div class="oi-empty">'+escapeHtml(o.state === 'withheld'
-        ? o.reason
-        : 'Nothing measured yet, so there is nothing to place against your goal. A completed race '+
-          'or a Fitness Checkpoint is what puts a band on this line.')+'</div>'+
-    '</div>';
+  var GOAL_X = 90, ZONE_L = 8, ZONE_R = 40;
+  var goalHtml = '';
+  if (o.goalSec != null){
+    goalHtml = '<div class="oi-goal" style="left:'+GOAL_X+'%"></div>'+
+      '<span class="oi-goal-lbl" style="right:0; left:auto; text-align:right;">Goal '+
+        escapeHtml(state.setup.activeGoal)+' · '+secToClock(o.goalSec)+'</span>';
   }
 
-  /* The scale spans the measured band and the goal together, with a margin, so
-     a goal outside the band is still on the line rather than clipped off it.
-     Faster is left, which is the direction every pace in this product runs. */
-  var lo = Math.min(o.fastSec, o.goalSec!=null ? o.goalSec : o.fastSec);
-  var hi = Math.max(o.slowSec, o.goalSec!=null ? o.goalSec : o.slowSec);
-  var pad = Math.max(Math.round((hi - lo) * 0.18), Math.round(o.fastSec * 0.01), 20);
-  var min = lo - pad, max = hi + pad;
-  var span = max - min || 1;
-  var pct = function(sec){ return clamp(((sec - min) / span) * 100, 0, 100); };
-  var bandL = pct(o.fastSec), bandR = pct(o.slowSec);
-
-  // A gap of well under a minute reads as a wall-clock time ("0:41") when it is
-  // really a margin, so a margin is said in the unit a margin is said in.
-  var gap = function(sec){
-    return sec < 60 ? sec+' second'+(sec===1?'':'s') : secToClock(sec);
-  };
-  var verdict;
-  if (o.goalSec == null){
-    verdict = 'No goal time set, so there is nothing to place the band against yet.';
-  } else if (o.goalSec < o.fastSec){
-    verdict = 'Your goal is '+gap(o.fastSec - o.goalSec)+' faster than the quick end of '+
-      'what your last measured effort suggests. That is what the block is for.';
-  } else if (o.goalSec > o.slowSec){
-    verdict = 'Your last measured effort already suggests a time inside your goal.';
+  var bandHtml = '', verdict;
+  if (o.state !== 'measured'){
+    // NO EVIDENCE, NO MARKER -- the left/current zone stays neutral and empty
+    // rather than fabricating a position; the line and the goal end (when a
+    // goal exists) are the only things this state is allowed to show.
+    verdict = o.state === 'withheld'
+      ? o.reason
+      : 'Nothing measured yet, so there is nothing to place against your goal. A completed race '+
+        'or a Fitness Checkpoint is what puts a marker here.';
   } else {
-    verdict = 'Your goal sits inside the range your last measured effort suggests.';
+    // A gap of well under a minute reads as a wall-clock time ("0:41") when it is
+    // really a margin, so a margin is said in the unit a margin is said in.
+    var gap = function(sec){
+      return sec < 60 ? sec+' second'+(sec===1?'':'s') : secToClock(sec);
+    };
+    if (o.goalSec == null){
+      verdict = 'No goal time set, so there is nothing to place your measured effort against yet.';
+    } else if (o.goalSec < o.fastSec){
+      verdict = 'Your goal is '+gap(o.fastSec - o.goalSec)+' faster than the quick end of '+
+        'what your last measured effort suggests. That is what the block is for.';
+    } else if (o.goalSec > o.slowSec){
+      verdict = 'Your last measured effort already suggests a time inside your goal.';
+    } else {
+      verdict = 'Your goal sits inside the range your last measured effort suggests.';
+    }
+    var spreadSec = Math.max(o.slowSec - o.fastSec, 0);
+    var spreadFrac = clamp(spreadSec / Math.max(o.fastSec * 0.15, 30), 0, 1);
+    var bandL = ZONE_L, bandR = ZONE_L + 4 + spreadFrac * (ZONE_R - ZONE_L - 4);
+    bandHtml = '<div class="oi-band" style="left:'+bandL.toFixed(1)+'%; width:'+
+        (bandR - bandL).toFixed(1)+'%"></div>'+
+      '<span class="oi-band-lbl" style="left:'+bandL.toFixed(1)+'%;">'+secToClock(o.fastSec)+'</span>'+
+      '<span class="oi-band-lbl" style="left:'+bandR.toFixed(1)+'%; transform:translateX(-100%);">'+secToClock(o.slowSec)+'</span>';
   }
 
   return '<div class="outlook-instrument" id="outlook-mount-inner">'+head+
-    '<div class="oi-track" role="img" aria-label="Measured range '+
-      secToClock(o.fastSec)+' to '+secToClock(o.slowSec)+
+    '<div class="oi-track" role="img" aria-label="'+
+      (o.state === 'measured' ? 'Measured range '+secToClock(o.fastSec)+' to '+secToClock(o.slowSec) : 'Not yet measured')+
       (o.goalSec!=null ? ', goal '+secToClock(o.goalSec) : '')+'">'+
-      '<div class="oi-line"></div>'+
-      '<div class="oi-band" style="left:'+bandL.toFixed(1)+'%; width:'+
-        Math.max(bandR - bandL, 2).toFixed(1)+'%"></div>'+
-      (o.goalSec!=null ? '<div class="oi-goal" style="left:'+pct(o.goalSec).toFixed(1)+'%"></div>'+
-        '<span class="oi-goal-lbl" style="left:'+pct(o.goalSec).toFixed(1)+'%;">Goal '+
-          escapeHtml(state.setup.activeGoal)+' · '+secToClock(o.goalSec)+'</span>' : '')+
-      '<span class="oi-band-lbl" style="left:'+bandL.toFixed(1)+'%;">'+secToClock(o.fastSec)+'</span>'+
-      '<span class="oi-band-lbl" style="left:'+bandR.toFixed(1)+'%; transform:translateX(-100%);">'+secToClock(o.slowSec)+'</span>'+
+      '<div class="oi-line"></div>'+bandHtml+goalHtml+
     '</div>'+
-    '<div class="field-hint">'+escapeHtml(verdict)+' From your '+
-      (o.fromSource === 'race' ? 'race' : 'Fitness Checkpoint')+' on '+dShort(o.fromDate)+
-      '. Training runs do not move it.</div>'+
+    '<div class="field-hint">'+escapeHtml(verdict)+
+      (o.state === 'measured' ? ' From your '+(o.fromSource === 'race' ? 'race' : 'Fitness Checkpoint')+
+        ' on '+dShort(o.fromDate)+'. Training runs do not move it.' : '')+
+    '</div>'+
   '</div>';
 }
 
@@ -24632,12 +24827,6 @@ function renderValhallaActionsRow(){
     actionTile('open-setup', ICONS.settings, 'Plan settings')+
   '</div>';
 }
-function renderRecordActionsRow(){
-  return '<div class="act-trio act-cols-1">'+
-    actionTile('open-checkpoint', ICONS.target, 'Checkpoint')+
-  '</div>';
-}
-
 /* NEW BLOCK. The engine's own recommendation, presented with the engine's own
    buttons -- data-action="start-block" is the existing handler, and
    handleStartBlock() still asks for confirmation and still keeps history. */
@@ -24679,54 +24868,15 @@ function actionPanelNewBlock(){
   return recordPanelShell('New Block', body);
 }
 
-/* CHECKPOINT. About obtaining legitimate fitness evidence, and nothing else --
-   this never becomes a place to schedule ordinary workouts. */
-function actionPanelCheckpoint(){
-  if (!state.setup) return '';
-  var chk = scheduledCheckpointDay();
-  var body;
-  if (!chk){
-    body = '<div class="hub-card"><div class="hq-empty">This block has no Fitness Checkpoint '+
-      'scheduled in it. A steady maintenance block does not build to one — the evidence comes '+
-      'from a completed race instead.</div></div>'+
-      '<div class="setup-section-title">What a checkpoint is for</div>'+
-      '<div class="field-hint">A checkpoint is a maximal time trial over a known distance. It is '+
-      'one of only two things Valhalla will accept as a measurement of your current fitness; the '+
-      'other is a race you actually ran.</div>';
-  } else {
-    var counted = chk.completed && measuredPerformances().some(function(p){ return p.date === chk.date; });
-    /* No separate distance row: the session title already names the time-trial
-       distance, and dd.km is the whole session including its warm-up and
-       cool-down. Printing both side by side would read as a contradiction the
-       athlete has to resolve. */
-    body = '<div class="hub-card">'+
-        hqRow(chk.title || 'Fitness Checkpoint', 'Week '+chk.week+' · '+dShort(chk.date))+
-        hqRow('Status', chk.completed ? (counted ? 'Run and measured' : 'Run, not yet measurable') : 'Ahead of you')+
-      '</div>'+
-      '<div class="setup-section-title">What it is for</div>'+
-      '<div class="field-hint">A maximal effort over a known distance, so Valhalla has something '+
-      'real to measure you by. Run it hard and log the time — that is the whole job. It is one of '+
-      'only two things that count as a measurement; the other is a race.</div>';
-    if (chk.completed && counted){
-      body += '<div class="setup-section-title">Now use it</div>'+
-        '<button type="button" class="btn btn-ghost btn-block" data-action="open-recalibrate">'+
-          ICONS.zap+' Re-calibrate your goals and paces</button>'+
-        '<div class="field-hint" style="margin-top:8px;">A checkpoint is the strongest evidence '+
-        'you have for choosing a goal. Updating it here re-tailors every upcoming session.</div>';
-    } else {
-      body += '<div class="setup-section-title">Find it in your plan</div>'+
-        '<button type="button" class="btn btn-ghost btn-block" data-action="go-checkpoint">'+
-          ICONS.calendarWeek+' Open week '+chk.week+' in your plan</button>'+
-        (chk.completed && !counted
-          ? '<div class="field-hint" style="margin-top:8px;">It is ticked off, but logged without '+
-            'a time it can be measured from. Add the time to that session and it becomes a '+
-            'measurement.</div>'
-          : '');
-    }
-  }
-  return recordPanelShell('Fitness Checkpoint', body);
-}
-var ACTION_PANELS = { newblock: actionPanelNewBlock, checkpoint: actionPanelCheckpoint };
+/* The standalone Fitness Checkpoint popup (actionPanelCheckpoint()) is gone
+   -- requirement 9. It only ever repeated what/when/why a checkpoint is and
+   then handed off to Full Plan; Measured Fitness's own "Your next
+   checkpoint" row (see recordPanelFitness()) now goes straight there, and
+   "what a checkpoint is for" is stated once, in Measured Fitness's "What
+   counts as a measurement" section, not twice. Fitness Checkpoints
+   themselves -- the coaching methodology and their place in Full Plan -- are
+   completely untouched; only this redundant detail layer is removed. */
+var ACTION_PANELS = { newblock: actionPanelNewBlock };
 /* Take the athlete to the checkpoint session itself: Full Plan, its week open,
    scrolled to it. Real navigation to a real session -- no new screen. */
 function handleGoToCheckpoint(){
@@ -24777,15 +24927,22 @@ function renderPlanHQView(){
   if (planhqTab === 'coach'){
     body = renderCoachPanel()+renderReadingSection();
   } else if (planhqTab === 'record'){
-    body = renderCheckpointBanner()+renderGoalToggle()+renderRecordSection()+renderRecordActionsRow();
+    body = renderCheckpointBanner()+renderGoalToggle()+renderRecordSection();
   } else {
     /* The approved Valhalla hero, then the same two condensed previews the
        concept shows on the front screen -- circular dials for what Valhalla
        is reading, chamfered plates for what it is built on. Both are quiet
        summaries of the real Coach/Record data; the full, tappable versions
        live on their own tabs. */
+    /* New Block and Plan Settings used to sit here as a management-tile row
+       directly under The Record preview, reading as part of Record even
+       though they are programme actions, not athlete evidence. Plan Settings
+       already has a real home in Settings' Training & Zones card; New Block
+       gets one in Backup & Reset, next to Reset Plan -- the other
+       plan-lifecycle action, at the same restrained weight. Nothing here
+       lost a destination, only a duplicate one on the daily page. */
     body = renderProgrammeStatus()+renderValhallaReadingPreview()+renderValhallaRecordPreview()+
-      renderBlockTransitionCard()+renderValhallaActionsRow();
+      renderBlockTransitionCard();
   }
   /* The Valhalla/Coach/Record subnav itself is no longer rendered here -- it
      lives in the persistent .bn-stack above the main bottom nav (see
@@ -25020,6 +25177,12 @@ function renderSettingsHubView(){
     '<div class="hub-card">'+
       '<div class="setup-section-title">Training &amp; Zones</div>'+
       '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
+      /* Training paces are configuration/reference, not an athlete record --
+         moved here from The Record, using the exact same panel
+         (recordPanelZones(), reached the same way Record always opened it)
+         so nothing about what an athlete can see was reduced, only where
+         they find it. */
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="open-record" data-record="zones">'+ICONS.ruler+' View Training Zone Paces</button>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="open-setup">'+ICONS.target+' Edit Plan Settings</button>'+
       '<button type="button" class="btn btn-ghost btn-block" data-action="open-pacing">'+ICONS.ruler+' '+vGoalDay()+' Pacing Strategy</button>'+
     '</div>'+
@@ -25058,6 +25221,12 @@ function renderSettingsHubView(){
     '</div>'+
     '<div class="hub-card">'+
       '<div class="setup-section-title">Backup &amp; Reset</div>'+
+      /* NEW BLOCK. A plan-management action, not an athlete record -- it
+         belongs beside Reset Plan, the other action that starts a new phase
+         of the same schedule, at the same restrained ghost-button weight
+         rather than as a prominent tile on the daily Valhalla page. Same
+         destination as before -- openHQPanel('newblock') -- just relocated. */
+      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="open-new-block">'+ICONS.layers+' Start a New Block</button>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-json">'+ICONS.download+' Export Full Backup (JSON)</button>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="import-json" data-target="import-json-input-hub">'+ICONS.upload+' Import Backup (JSON)</button>'+
       '<input type="file" accept=".json,application/json" id="import-json-input-hub" class="file-input-offscreen">'+
@@ -25335,7 +25504,6 @@ document.addEventListener('click', function(e){
     case 'set-readiness': handleSetReadiness(target.getAttribute('data-rk'), target.getAttribute('data-rv')); break;
     case 'open-reading': openHQPanel(target.getAttribute('data-reading')); break;
     case 'open-new-block': openHQPanel('newblock'); break;
-    case 'open-checkpoint': openHQPanel('checkpoint'); break;
     case 'go-checkpoint': handleGoToCheckpoint(); break;
     case 'notes-wand': handleNotesWand(target.getAttribute('data-day')); break;
     case 'undo-notes-wand': handleUndoNotesWand(target.getAttribute('data-day')); break;
