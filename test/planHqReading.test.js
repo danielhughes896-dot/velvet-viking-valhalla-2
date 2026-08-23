@@ -75,6 +75,7 @@ function readingCards(html) {
 // ===========================================================================
 test('READING: five destination cards, one per interpretation the engine produces', () => {
   const a = withHistory(planHQ());
+  a.planhqTab = 'coach';
   const html = a.renderPlanHQView();
   const cards = readingCards(html);
   assert.equal(cards.length, 5, 'expected five Reading cards, found ' + cards.length);
@@ -103,13 +104,18 @@ test('READING: nothing expands in place any more', () => {
 
 test('READING: a card may carry a verdict, and a Record card may not', () => {
   const a = withHistory(planHQ());
-  const html = a.renderPlanHQView();
+  // The Reading now lives on the Coach tab, the Record on its own tab -- both
+  // rules still hold, just checked against the tab each one actually renders on.
+  a.planhqTab = 'coach';
+  const coachHtml = a.renderPlanHQView();
   // Recovery is the one the engine always classifies, so it always has a tone.
-  const rec = readingCards(html).filter(c => c.indexOf('data-reading="recovery"') !== -1)[0];
+  const rec = readingCards(coachHtml).filter(c => c.indexOf('data-reading="recovery"') !== -1)[0];
   assert.match(rec, /class="read-val (good|watch|bad)"/, 'recovery lost its tone');
   assert.match(rec, /class="read-dot"/, 'a toned verdict lost its dot');
-  // And the Record's values never do.
-  const recordCards = (html.match(/<button type="button" class="rec-card"[\s\S]*?<\/button>/g) || [])
+
+  a.planhqTab = 'record';
+  const recordHtml = a.renderPlanHQView();
+  const recordCards = (recordHtml.match(/<button type="button" class="rec-card"[\s\S]*?<\/button>/g) || [])
     .filter(c => c.indexOf('data-action="open-record"') !== -1);
   assert.equal(recordCards.length, 4);
   recordCards.forEach(c => {
@@ -147,6 +153,7 @@ test('READING: tone is borrowed from the engine, never invented here', () => {
 
 test('READING: every value and synopsis is live, not written into the markup', () => {
   const a = withHistory(planHQ());
+  a.planhqTab = 'coach';
   const before = readingCards(a.renderPlanHQView()).join('\n');
 
   const pct = s => Number((s.match(/(\d+)% confidence/) || [])[1]);
@@ -349,9 +356,15 @@ test('OUTLOOK: logging a race repaints it through the same patch path as the gau
 // ===========================================================================
 test('TRIO: three tiles, three distinct actions, all of them handled', () => {
   const a = withHistory(planHQ());
-  const html = a.renderPlanHQView();
-  const tiles = html.match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
-  assert.equal(tiles.length, 3, 'expected three action tiles, found ' + tiles.length);
+  // New Block/Plan Settings re-homed to Valhalla (programme-level), Checkpoint
+  // to Record (a measurement action) -- still three tiles, three real
+  // destinations, just no longer on one screen at once.
+  a.planhqTab = 'valhalla';
+  const valhallaTiles = a.renderPlanHQView().match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
+  a.planhqTab = 'record';
+  const recordTiles = a.renderPlanHQView().match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
+  const tiles = valhallaTiles.concat(recordTiles);
+  assert.equal(tiles.length, 3, 'expected three action tiles across Valhalla and Record, found ' + tiles.length);
 
   const actions = tiles.map(t => (t.match(/data-action="([^"]+)"/) || [])[1]);
   assert.equal(new Set(actions).size, 3, 'two tiles fire the same action: ' + actions.join(','));
@@ -435,23 +448,37 @@ test('TRIO: CHECKPOINT navigates to the real session, and says so honestly when 
 // ===========================================================================
 // 5. THE WHOLE SCREEN
 // ===========================================================================
-test('HQ: summary first, interpretation second, record third, actions last', () => {
+test('HQ: Valhalla, Coach and Record each open on the right question, in the right order within themselves', () => {
   const a = withHistory(planHQ());
-  const html = a.renderPlanHQView();
-  const at = s => html.indexOf(s);
-  assert.ok(at('Programme Status') < at('id="outlook-mount"'), 'the outlook is above the gauge');
-  assert.ok(at('id="outlook-mount"') < at('>The Reading<'), 'THE READING is above Programme Status');
-  assert.ok(at('>The Reading<') < at('>The Record<'), 'THE RECORD is above THE READING');
-  assert.ok(at('>The Record<') < at('class="act-trio"'), 'the actions are above THE RECORD');
-  assert.ok(at('>The Reading<') < at('Active Goal'), 'Active Goal is above THE READING');
+  // The single long scroll is gone -- VALHALLA/COACH/RECORD are three tabs
+  // now, so "summary first, interpretation second, record third, actions
+  // last" is a rule about ordering WITHIN each tab, not down one page.
+  a.planhqTab = 'valhalla';
+  const valhalla = a.renderPlanHQView();
+  const atV = s => valhalla.indexOf(s);
+  assert.ok(atV('Programme Status') < atV('id="outlook-mount"'), 'the outlook is above the gauge');
+  assert.ok(atV('id="outlook-mount"') < atV('class="act-trio'), 'the actions are below Programme Status');
+
+  a.planhqTab = 'coach';
+  const coach = a.renderPlanHQView();
+  assert.ok(coach.indexOf('>The Reading<') !== -1, 'THE READING left the Coach tab');
+
+  a.planhqTab = 'record';
+  const record = a.renderPlanHQView();
+  const atR = s => record.indexOf(s);
+  assert.ok(atR('Active Goal') < atR('>The Record<'), 'Active Goal is above THE RECORD');
+  assert.ok(atR('>The Record<') < atR('class="act-trio'), 'the actions are below THE RECORD');
 });
 
-test('HQ: nothing on Plan HQ expands inline, and every card is a destination', () => {
+test('HQ: nothing on Valhalla/Coach/Record expands inline, and every card is a destination', () => {
   const a = withHistory(planHQ());
-  const html = a.renderPlanHQView();
-  const cards = html.match(/<button type="button" class="rec-card"[\s\S]*?<\/button>/g) || [];
-  assert.equal(cards.length, 9, 'expected nine cards (five Reading, four Record)');
-  cards.forEach(c => {
+  a.planhqTab = 'coach';
+  const readingCardsHtml = a.renderPlanHQView().match(/<button type="button" class="rec-card"[\s\S]*?<\/button>/g) || [];
+  assert.equal(readingCardsHtml.length, 5, 'expected five Reading cards on Coach');
+  a.planhqTab = 'record';
+  const recordCardsHtml = a.renderPlanHQView().match(/<button type="button" class="rec-card"[\s\S]*?<\/button>/g) || [];
+  assert.equal(recordCardsHtml.length, 4, 'expected four Record cards on Record');
+  readingCardsHtml.concat(recordCardsHtml).forEach(c => {
     assert.match(c, /data-action="open-(reading|record)"/, 'a card that goes nowhere');
     assert.doesNotMatch(c, /aria-expanded/, 'a card that expands rather than opens');
   });
@@ -459,11 +486,12 @@ test('HQ: nothing on Plan HQ expands inline, and every card is a destination', (
 
 test('HQ: the coaching that has no depth behind it stays on the page', () => {
   const a = withHistory(planHQ());
+  a.planhqTab = 'coach';
   const html = a.renderPlanHQView();
   const report = a.coachAnalyse();
   // Athlete Status is the headline and is rendered verbatim.
   assert.ok(html.indexOf(a.renderAthleteStatusCard(report)) !== -1,
-    'Athlete Status left Plan HQ');
+    'Athlete Status left the Coach tab');
   // And the coach cards are still the ones the coach panel produces.
   assert.ok(html.indexOf(a.renderCoachPanel()) !== -1);
   assert.ok(a.renderCoachPanel().indexOf(a.renderBreakthroughCard(report)) !== -1,

@@ -45,6 +45,10 @@ function planHQ(opts) {
   const a = loadApp({ pinnedDate: PINNED });
   buildPlan(a, Object.assign({ distanceKey: 'half', volume: 45, weeks: 12 }, opts || {}));
   a.state.view = 'planhq';
+  // This file is about THE RECORD specifically, and Valhalla now opens on a
+  // different tab by default -- every test below wants the Record tab unless
+  // it says otherwise.
+  a.planhqTab = 'record';
   return a;
 }
 // THE READING's cards share the .rec-card shell deliberately -- one component
@@ -438,6 +442,7 @@ test('HQ: the four inline components are gone from the page and live only in the
 
 test('HQ: Programme Status is untouched — gauge, its accent arc and needle, and the line beneath it', () => {
   const a = planHQ();
+  a.planhqTab = 'valhalla';
   const html = a.renderPlanHQView();
   const gauge = a.renderConfidenceGauge();
   assert.ok(html.indexOf(gauge) !== -1, 'the confidence gauge is no longer rendered verbatim');
@@ -452,15 +457,21 @@ test('HQ: Programme Status is untouched — gauge, its accent arc and needle, an
     'renderProgrammeStatus() is no longer rendered verbatim into Plan HQ');
 });
 
-test('HQ: the coach panel, the checkpoint banner and Active Goal are all still there', () => {
+test('HQ: the coach panel, the checkpoint banner and Active Goal are all still reachable', () => {
   const a = planHQ();
-  const html = a.renderPlanHQView();
-  // The plan-settings route survived the "Build New Block" summary bar being
-  // replaced by the block-transition control -- it is a trio tile now.
-  assert.match(html, /data-action="open-setup"/);
-  assert.ok(html.indexOf(a.renderCoachPanel()) !== -1, 'the coach panel left Plan HQ');
-  assert.ok(html.indexOf(a.renderGoalToggle()) !== -1, 'Active Goal left Plan HQ');
-  assert.match(html, /<div class="setup-section-title">The Record<\/div>/);
+  // Re-homed across the three tabs, not lost: New Block/Plan Settings on
+  // Valhalla, the coach panel on Coach, Active Goal and the checkpoint
+  // banner on Record alongside THE RECORD itself.
+  a.planhqTab = 'valhalla';
+  assert.match(a.renderPlanHQView(), /data-action="open-setup"/);
+
+  a.planhqTab = 'coach';
+  assert.ok(a.renderPlanHQView().indexOf(a.renderCoachPanel()) !== -1, 'the coach panel left Valhalla');
+
+  a.planhqTab = 'record';
+  const record = a.renderPlanHQView();
+  assert.ok(record.indexOf(a.renderGoalToggle()) !== -1, 'Active Goal left the Record tab');
+  assert.match(record, /<div class="setup-section-title">The Record<\/div>/);
 });
 
 test('HQ: an athlete with no plan is never asked to render The Record', () => {

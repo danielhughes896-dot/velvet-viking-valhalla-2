@@ -397,28 +397,31 @@
   /* header instance only -- mirrors .countdown-badge's compact dimensions/
      border/radius so it reads as the same header-badge family as the race
      clock, instead of the larger touch-friendly pill the setup modal uses. */
+  /* Retokenized: this badge used to hardcode its own approximation of the
+     bronze/gold ramp (#1e1b18, #c5a059…) with a manually duplicated light
+     override, instead of the tokens that already carry both themes
+     correctly -- two sources of truth for one colour that could silently
+     drift apart. --modal-active is the same theme-invariant gold the app
+     already uses for a badge/indicator fill; --gold-text and --bronze-ink
+     are its existing "gold used as small text" and "dark text on a gold
+     fill" counterparts, so no theme-specific override is needed here at all. */
   .tb-unit-toggle{
     display:flex; width:auto; max-width:64px; gap:2px;
-    background:#1e1b18; border:1px solid rgba(197, 160, 89, 0.25); border-radius:6px;
+    background:var(--bg-3); border:1px solid rgba(var(--modal-active-rgb),0.25); border-radius:6px;
     padding:4px 6px;
   }
-  [data-theme="light"] .tb-unit-toggle{background:#EFECE6;}
   .tb-unit-toggle button{
     flex:1; font-family:'JetBrains Mono',monospace; font-size:0.7rem; font-weight:bold;
-    letter-spacing:normal; padding:2px 0; color:#8c8273; background:transparent; border-radius:3px; text-align:center; line-height:1;
+    letter-spacing:normal; padding:2px 0; color:var(--ink-faint); background:transparent; border-radius:3px; text-align:center; line-height:1;
   }
-  .tb-unit-toggle button.active{background:#c5a059; color:#1e1b18;}
+  .tb-unit-toggle button.active{background:var(--modal-active); color:var(--bronze-ink);}
   .countdown{display:flex; align-items:center; justify-content:flex-end;}
   .countdown-badge{
     display:grid; grid-template-columns:1fr 1fr; gap:2px 6px;
-    background:#1e1b18; border:1px solid #c5a05933; border-radius:6px;
+    background:var(--bg-3); border:1px solid rgba(var(--modal-active-rgb),0.3); border-radius:6px;
     padding:4px 6px;
   }
-  .cd-cell{font-weight:700; color:#c5a059; font-size:0.7rem; text-align:center; white-space:nowrap;}
-  /* light theme only -- the dark charcoal/gold badge above is untouched.
-     Colour swap only: same size, radius, padding, typography and 2x2 grid. */
-  [data-theme="light"] .countdown-badge{background:#EFECE6; border-color:rgba(197, 160, 89, 0.4);}
-  [data-theme="light"] .cd-cell{color:#2B2317;}
+  .cd-cell{font-weight:700; color:var(--gold-text); font-size:0.7rem; text-align:center; white-space:nowrap;}
   .cd-race-day{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--gold-text); font-weight:700;}
 
   /* confidence score fuel gauge — top-left of the header */
@@ -488,6 +491,13 @@
   }
   .fuel-card summary::-webkit-details-marker{display:none;}
   .fuel-card summary svg{width:13px; height:13px; flex:none;}
+  /* The native marker was hidden with nothing put in its place, so this
+     disclosure gave no visual cue that it opens. Same rotating-chevron
+     grammar as .day-chevron/.week-chevron -- CSS-only, since <details>
+     already carries its own [open] state. */
+  .fuel-chevron{margin-left:auto; display:flex; align-items:center; color:var(--ink-faint); transition:transform .25s;}
+  .fuel-chevron svg{width:16px; height:16px; display:block;}
+  .fuel-card[open] .fuel-chevron{transform:rotate(180deg);}
   .fuel-body{padding:2px 12px 10px;}
   .fuel-row{display:flex; align-items:center; justify-content:space-between; padding:4px 0; font-size:var(--fs-body); border-bottom:1px solid var(--line-soft);}
   .fuel-row:last-of-type{border-bottom:none;}
@@ -745,17 +755,49 @@
   .day.drag-over{box-shadow:0 0 0 2px var(--bronze) inset; background:var(--bg-4);}
   .day.dragging{opacity:.4;}
   .day-top{display:flex; align-items:flex-start; gap:10px;}
-  .day-check{flex:none; margin-top:2px;}
-  /* Display-only: still legible, clearly not something to press. */
-  .ef-completed input[type="checkbox"]{width:20px; height:20px; flex:none;}
+  /* THE COMPLETION RING. A <label> so the tap target is comfortably ~40px
+     even though the visible ring stays compact -- clicking anywhere in the
+     label forwards to its <input>, which is still the same native checkbox
+     canToggleCompletion()/toggle-complete has always driven. Nothing about
+     completion logic changed; only what it looks like. */
+  .day-check{
+    flex:none; display:flex; align-items:center; justify-content:center;
+    width:40px; height:40px; margin:-9px 0 -9px -10px; cursor:pointer;
+  }
+  .day-check.locked{cursor:default;}
+  .day-check input{
+    appearance:none; -webkit-appearance:none; -moz-appearance:none;
+    width:22px; height:22px; margin:0; padding:0; flex:none; position:relative;
+    border-radius:50%; border:2px solid var(--line); background:var(--bg-2);
+    cursor:pointer; transition:background .15s ease, border-color .15s ease;
+  }
+  .day-check input:checked{background:var(--cherry); border-color:var(--cherry);}
+  .day-check input:checked::after{
+    content:''; position:absolute; left:50%; top:45%; width:5px; height:9px;
+    border:solid var(--cherry-btn-ink); border-width:0 2px 2px 0;
+    transform:translate(-50%,-50%) rotate(45deg);
+  }
+  .day-check.locked input{opacity:.5; cursor:default;}
+  .day-check.locked input:checked{opacity:.8;}
+  /* Display-only: still legible, clearly not something to press. Reskinned
+     to the same ring language as the card's own completion control, so a
+     completed day reads the same way whether it's seen on the card or here. */
+  .ef-completed input[type="checkbox"]{
+    appearance:none; -webkit-appearance:none; -moz-appearance:none;
+    width:20px; height:20px; flex:none; position:relative; margin:0 9px 0 0;
+    border-radius:50%; border:2px solid var(--line); background:var(--bg-2);
+  }
+  .ef-completed input[type="checkbox"]:checked{background:var(--cherry); border-color:var(--cherry);}
+  .ef-completed input[type="checkbox"]:checked::after{
+    content:''; position:absolute; left:50%; top:44%; width:4px; height:8px;
+    border:solid var(--cherry-btn-ink); border-width:0 2px 2px 0;
+    transform:translate(-50%,-50%) rotate(45deg);
+  }
   .ef-completed label{min-height:44px; align-items:center; cursor:pointer;}
   .ef-completed input[disabled]{opacity:.45; cursor:default;}
   .ef-completed input[disabled] + *, .ef-completed input[disabled]{pointer-events:none;}
   #su-event-box[data-mode="event"] .when-none{display:none;}
   #su-event-box[data-mode="none"] .when-event{display:none;}
-  .day-check.locked input{opacity:.5; cursor:default;}
-  .day-check.locked input:checked{opacity:.75;}
-  .day-check input{width:19px; height:19px; accent-color:var(--bronze); cursor:pointer;}
   .day-main{flex:1; min-width:0;}
   .day-row1{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .day-date{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); color:var(--ink-faint);}
@@ -792,8 +834,10 @@
      so both behave identically. The header row stays put; the detail and the
      logging drawer collapse. */
   .day-top{cursor:pointer;}
+  /* Same rotating-chevron treatment as .week-chevron below -- one shared
+     "this expands in place" grammar rather than two near-identical ones. */
   .day-chevron{flex:none; display:flex; align-items:center; color:var(--ink-faint); transition:transform .25s;}
-  .day-chevron svg{width:17px; height:17px; display:block;}
+  .day-chevron svg{width:18px; height:18px; display:block;}
   .day.open .day-chevron{transform:rotate(180deg);}
   .day-detail, .day-drawer{max-height:0; overflow:hidden; transition:max-height .35s ease;}
   /* THIS NUMBER IS A CEILING, NOT A HEIGHT. max-height is how the open/shut
@@ -1506,6 +1550,24 @@
     color:#7A5C1E; background:#FFFDF7;
     box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
   }
+  /* VALHALLA / COACH / RECORD -- the selected-tab language above, reused
+     rather than reinvented, exactly as .opt-grid button.active already
+     borrows it for the builder. Same job (a persistent set of destinations,
+     one active at a time), so it gets the same visual answer. */
+  .planhq-subnav{display:flex; gap:6px; margin:14px 16px 4px;}
+  .planhq-subnav-btn{
+    flex:1; font-family:'Oswald',sans-serif; font-size:11px; font-weight:600; letter-spacing:.06em;
+    text-transform:uppercase; padding:10px 4px; border-radius:var(--radius-sm); border:1px solid var(--line);
+    background:none; color:var(--ink-faint); cursor:pointer;
+    transition:background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .planhq-subnav-btn:active{transform:scale(.97);}
+  .planhq-subnav-btn.active{color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14); border-color:transparent;}
+  [data-theme="light"] .planhq-subnav-btn{color:#6B6558;}
+  [data-theme="light"] .planhq-subnav-btn.active{
+    color:#7A5C1E; background:#FFFDF7; border-color:transparent;
+    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
+  }
   .view-heading{
     font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-faint);
     text-align:center; margin:18px 0 4px;
@@ -1523,8 +1585,12 @@
      there is no horizontal overflow at any viewport. */
   .coach-status{display:flex; align-items:flex-start; gap:10px; margin-bottom:12px;}
   .coach-dot{width:9px; height:9px; border-radius:50%; flex:none; margin-top:5px; background:var(--ink-faint);}
-  .coach-dot.good{background:#5FA86B;} .coach-dot.watch{background:var(--gold);}
-  .coach-dot.warn{background:#C4643C;} .coach-dot.neutral{background:var(--ink-faint);}
+  /* Retokenized from hardcoded #5FA86B/#C4643C -- a second, un-themed
+     green/red pair that drifted from the semantic tokens (--c-easy/
+     --c-threshold) every other positive/negative reading on this screen
+     already uses, and had no light-theme value of its own at all. */
+  .coach-dot.good{background:var(--c-easy);} .coach-dot.watch{background:var(--gold);}
+  .coach-dot.warn{background:var(--c-threshold);} .coach-dot.neutral{background:var(--ink-faint);}
   .coach-status-main{min-width:0; flex:1 1 auto;}
   .coach-status-label{font-family:'Oswald',sans-serif; font-size:15px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink); line-height:1.25;}
   .coach-status-detail{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); margin-top:3px; overflow-wrap:anywhere;}
@@ -1767,8 +1833,10 @@
     text-transform:uppercase; color:var(--ink); flex:1 1 auto; min-width:0;
   }
   .rec-right{display:flex; align-items:center; gap:8px; flex:0 1 auto; min-width:0;}
-  .rec-val{font-size:11.5px; color:var(--ink-dim); text-align:right; min-width:0; overflow-wrap:anywhere;}
-  .rec-val.font-mono{font-size:11px;}
+  /* Mono by default now -- every caller passed 'font-mono' anyway, but that
+     made the correct data typography a per-callsite convention rather than
+     something this component guarantees on its own. */
+  .rec-val{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim); text-align:right; min-width:0; overflow-wrap:anywhere;}
   /* "Nothing measured" is an absence, not a value, so it is quieted rather
      than coloured -- a status hue here would make an empty record look like a
      warning about something. */
@@ -1859,6 +1927,8 @@
      same radius family, opposite surface treatment.
      56px minimum, so the whole tile clears every platform's touch target. */
   .act-trio{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:16px 0 4px;}
+  .act-trio.act-cols-2{grid-template-columns:repeat(2,1fr);}
+  .act-trio.act-cols-1{grid-template-columns:minmax(0,220px); justify-content:center;}
   .act-tile{
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
     min-height:76px; padding:10px 6px; font:inherit; text-align:center; cursor:pointer;
@@ -7632,6 +7702,10 @@ var ICONS = {
   upload: svgWrap('<path d="M12 16V4"/><polyline points="7,9 12,4 17,9"/><path d="M5 20h14"/>'),
   download: svgWrap('<path d="M12 4v12"/><polyline points="7,11 12,16 17,11"/><path d="M5 20h14"/>'),
   pencil: svgWrap('<path d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20z"/><line x1="13.3" y1="6.7" x2="17.3" y2="10.7"/>'),
+  // Execution editing once the prescription itself is locked -- deliberately
+  // not the pencil, so "correct what I actually did" never reads as "rewrite
+  // what was asked". A short notepad, not a checklist or a chart.
+  notes: svgWrap('<rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/>'),
   ruler: svgWrap('<rect x="3" y="9" width="18" height="6" rx="1.5"/><line x1="7" y1="9" x2="7" y2="12"/><line x1="11" y1="9" x2="11" y2="12"/><line x1="15" y1="9" x2="15" y2="12"/>'),
   clock: svgWrap('<circle cx="12" cy="12" r="8.5"/><line x1="12" y1="12" x2="12" y2="7.5"/><line x1="12" y1="12" x2="15.2" y2="13.8"/>'),
   sparkles: svgWrap('<path d="M12 3l1.4 4.6L18 9l-4.6 1.4L12 15l-1.4-4.6L6 9l4.6-1.4z"/><path d="M19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7z"/>'),
@@ -8923,7 +8997,7 @@ function renderCoachingDepth(dd){
     var fuelOn;
     try { fuelOn = needsFueling(dd); } catch(e) { fuelOn = false; }
     out += '<details class="fuel-card how-card">'+
-      '<summary>'+ICONS.info+'How to run this</summary>'+
+      '<summary>'+ICONS.info+'How to run this<span class="fuel-chevron" aria-hidden="true">'+ICONS.chevronDown+'</span></summary>'+
       '<div class="fuel-body">'+
         row('Why', gd.why)+
         (stratBlock
@@ -8981,7 +9055,7 @@ function fuelSectionBody(dd){
 function renderFuelingCard(dd){
   if (!needsFueling(dd)) return '';
   return '<details class="fuel-card">'+
-    '<summary>'+ICONS.zap+'Fueling &amp; Hydration Strategy</summary>'+
+    '<summary>'+ICONS.zap+'Fueling &amp; Hydration Strategy<span class="fuel-chevron" aria-hidden="true">'+ICONS.chevronDown+'</span></summary>'+
     '<div class="fuel-body">'+fuelSectionBody(dd)+'</div>'+
   '</details>';
 }
@@ -9100,7 +9174,7 @@ function renderDayCard(dd){
           renderAdjustedDetail(dd)+
         '</div>'+
       '</div>'+
-      '<div class="day-actions"><button type="button" data-action="open-edit" data-day="'+dd.id+'" aria-label="Edit session">'+ICONS.pencil+'</button></div>'+
+      '<div class="day-actions">'+dayActionButton(dd)+'</div>'+
       '<div class="day-chevron" aria-hidden="true">'+ICONS.chevronDown+'</div>'+
     '</div>'+
     '<div class="day-drawer">'+actualHtml+'</div>'+
@@ -19972,20 +20046,47 @@ function canToggleCompletion(dd){
 function canEditCompletion(dd){
   return !!dd && dd.type!=='rest' && dd.date <= todayStr();
 }
+/* The prescription -- title, type, distance, instructions, whether it can be
+   rescheduled -- is what the coach asked for, and Execution Review, patterns
+   and adaptation all reason from the gap between that and what actually
+   happened. So the prescription itself may only move forward from where the
+   athlete stands: a day still to come, or today before it has been run. Once
+   a session is today-and-done, or is any day already past, the prescription
+   is history and stays exactly as it was asked -- canEditCompletion() above
+   is the separate, wider rule for correcting what actually happened. */
+function canEditPrescription(dd){
+  if (!dd || dd.type==='rest') return false;
+  if (dd.date > todayStr()) return true;
+  if (dd.date === todayStr()) return !sessionRan(dd);
+  return false;
+}
+/* One action button, never two, and never the wrong one. Editing the
+   prescription and correcting the execution record are different acts on
+   different data -- both currently reach the same Edit Session modal, which
+   itself now locks or reveals the right fields via canEditPrescription(), so
+   the icon here only has to tell the athlete honestly which door they are
+   about to open. A rest day offers neither. */
+function dayActionButton(dd){
+  if (canEditPrescription(dd))
+    return '<button type="button" data-action="open-edit" data-day="'+dd.id+'" aria-label="Edit session">'+ICONS.pencil+'</button>';
+  if (canEditCompletion(dd))
+    return '<button type="button" data-action="open-edit" data-day="'+dd.id+'" aria-label="Edit activity">'+ICONS.notes+'</button>';
+  return '';
+}
 function renderDayCheck(dd){
   var locked = !canToggleCompletion(dd);
   var why = dd.type==='rest' ? 'Rest day'
           : dd.date > todayStr() ? 'Sessions are ticked off on the day they are run'
           : dd.date < todayStr() ? 'Past sessions keep the record they were logged with'
           : 'Mark session complete';
-  return '<div class="day-check'+(locked?' locked':'')+'">'+
+  return '<label class="day-check'+(locked?' locked':'')+'" title="'+escapeHtml(why)+'">'+
     /* sessionRan, not dd.completed: a future day must never render ticked, and
        a past day whose Strava activity is still attached must not render blank.
        The box shows what the evidence says, and the evidence is what the coach
        reads too. */
     '<input type="checkbox" '+(sessionRan(dd)?'checked':'')+' '+(locked?'disabled':'')+
     ' data-action="toggle-complete" data-day="'+dd.id+'"'+
-    ' title="'+escapeHtml(why)+'" aria-label="'+escapeHtml(why)+'"></div>';
+    ' aria-label="'+escapeHtml(why)+'"></label>';
 }
 
 /* A single quiet word on the roadmap where a session is not simply "as
@@ -21573,6 +21674,22 @@ function handleSetGoal(key){
 function openEditModal(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
+  /* PRESCRIPTION VS EXECUTION, ENFORCED IN ONE MODAL RATHER THAN TWO SCREENS.
+     Cloning this into a second "Edit Activity" modal would be a second place
+     to keep the same fields in sync; instead the fields that describe what
+     was ASKED (title, type, distance, the Goal-Pace flag, instructions) are
+     disabled once canEditPrescription() says the prescription is history,
+     while Completed -- what actually HAPPENED -- keeps following
+     canEditCompletion() exactly as it always has.
+
+     RESCHEDULE IS DELIBERATELY NOT GATED HERE. Moving a logged session to
+     another day is not "rewriting what was asked" -- swapWorkoutFields()
+     carries the log/actual/coachAdjust/manualEdit with the workout, and
+     swapWouldPlaceCompletionInFuture()/confirmSwapIfLogged() are its own
+     historical-integrity guards (see swapIntegrity.test.js) that already
+     existed before this pass and are unrelated to it. */
+  var editable = canEditPrescription(dd);
+  var lock = editable ? '' : ' disabled';
   var typeOptions = Object.keys(TYPE_META).filter(function(t){ return t!=='race'; }).map(function(t){
     return '<option value="'+t+'" '+(dd.type===t?'selected':'')+'>'+TYPE_META[t].label+'</option>';
   }).join('');
@@ -21587,24 +21704,26 @@ function openEditModal(dayId){
     });
     swapOptions += '</optgroup>';
   });
+  var reschedule = '<fieldset><legend>Reschedule</legend>'+
+    '<div class="field" style="margin-bottom:0;"><label>Swap this session with\u2026</label><select id="ef-swap">'+swapOptions+'</select>'+
+    '<div class="field-hint">Swaps everything except the calendar date, including any logged actuals. You can also drag day cards onto each other on larger screens.</div></div>'+
+  '</fieldset>';
   var html = ''+
   '<div class="modal-head"><h2 class="font-head">Edit Session</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
     '<div class="field-hint" style="margin-bottom:14px;">'+dLong(dd.date)+' \u00b7 Week '+dd.week+'</div>'+
-    '<div class="field"><label>Session Title</label><input type="text" id="ef-title" value="'+escapeHtml(dd.title)+'"></div>'+
+    (editable ? '' : '<div class="field-hint" style="margin-bottom:14px;">This session already happened \u2014 you can still record what you actually did below.</div>')+
+    '<div class="field"><label>Session Title</label><input type="text" id="ef-title" value="'+escapeHtml(dd.title)+'"'+lock+'></div>'+
     '<div class="field-row">'+
-      '<div class="field"><label>Session Type</label><select id="ef-type">'+typeOptions+'</select></div>'+
-      '<div class="field"><label>Distance (km)</label><input type="number" step="0.1" min="0" id="ef-km" value="'+dd.km+'"></div>'+
+      '<div class="field"><label>Session Type</label><select id="ef-type"'+lock+'>'+typeOptions+'</select></div>'+
+      '<div class="field"><label>Distance (km)</label><input type="number" step="0.1" min="0" id="ef-km" value="'+dd.km+'"'+lock+'></div>'+
     '</div>'+
-    '<div class="field"><label style="display:flex; align-items:center;"><input type="checkbox" id="ef-mp" '+(dd.mpSegment?'checked':'')+' style="width:auto; margin-right:7px;">Includes a Goal-Pace segment</label></div>'+
+    '<div class="field"><label style="display:flex; align-items:center;"><input type="checkbox" id="ef-mp" '+(dd.mpSegment?'checked':'')+lock+' style="width:auto; margin-right:7px;">Includes a Goal-Pace segment</label></div>'+
     renderEditCompletion(dd)+
-    '<div class="field"><label>Workout Instructions</label><textarea id="ef-desc">'+escapeHtml(resolveDesc(dd.desc))+'</textarea></div>'+
-    '<fieldset><legend>Reschedule</legend>'+
-      '<div class="field" style="margin-bottom:0;"><label>Swap this session with\u2026</label><select id="ef-swap">'+swapOptions+'</select>'+
-      '<div class="field-hint">Swaps everything except the calendar date, including any logged actuals. You can also drag day cards onto each other on larger screens.</div></div>'+
-    '</fieldset>'+
+    '<div class="field"><label>Workout Instructions</label><textarea id="ef-desc"'+lock+'>'+escapeHtml(resolveDesc(dd.desc))+'</textarea></div>'+
+    reschedule+
     '<div class="modal-actions">'+
-      '<button type="button" class="btn btn-danger" data-action="reset-day" data-day="'+dd.id+'">'+ICONS.trash+' Reset</button>'+
+      (editable ? '<button type="button" class="btn btn-danger" data-action="reset-day" data-day="'+dd.id+'">'+ICONS.trash+' Reset</button>' : '')+
       '<button type="button" class="btn btn-primary" data-action="save-edit" data-day="'+dd.id+'">'+ICONS.check+' Save</button>'+
     '</div>'+
   '</div>';
@@ -21652,51 +21771,61 @@ function renderEditCompletion(dd){
 function handleSaveEdit(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
-  var title = document.getElementById('ef-title').value.trim() || 'Untitled Session';
-  var type = document.getElementById('ef-type').value;
-  var km = parseFloat(document.getElementById('ef-km').value);
-  var mp = document.getElementById('ef-mp').checked;
-  var desc = document.getElementById('ef-desc').value;
-  var swapId = document.getElementById('ef-swap').value;
+  /* PRESCRIPTION FIELDS ONLY -- enforced here in the mutation path, exactly
+     like canEditCompletion() already enforces Completed below, not by
+     trusting the disabled attribute, so a crafted event or a direct call
+     cannot rewrite a locked prescription either. Completion and reschedule
+     are unrelated rules (canEditCompletion / swapWouldPlaceCompletionInFuture
+     etc.) and always run below, whether or not the prescription itself was
+     open to editing. */
+  var editable = canEditPrescription(dd);
+  if (editable){
+    var title = document.getElementById('ef-title').value.trim() || 'Untitled Session';
+    var type = document.getElementById('ef-type').value;
+    var km = parseFloat(document.getElementById('ef-km').value);
+    var mp = document.getElementById('ef-mp').checked;
+    var desc = document.getElementById('ef-desc').value;
 
-  /* PROVENANCE. Manual editing is unchanged -- every field the athlete can
-     already change, they still can, and their words are stored exactly as
-     typed. What is new is that the day now remembers it was hand-edited and
-     what it was before, mirroring coachAdjust for coach-driven changes so
-     there is one pattern rather than two. */
-  var before = { title:dd.title, type:dd.type, km:dd.km, desc:dd.desc, mpSegment:!!dd.mpSegment,
-                 prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
-  var newKm = isNaN(km) ? 0 : km;
-  var changed = [];
-  if (title !== before.title) changed.push('title');
-  if (type !== before.type) changed.push('type');
-  if (newKm !== before.km) changed.push('km');
-  if (!!mp !== before.mpSegment) changed.push('mpSegment');
-  if (desc !== resolveDesc(before.desc)) changed.push('desc');
+    /* PROVENANCE. Manual editing is unchanged -- every field the athlete can
+       already change, they still can, and their words are stored exactly as
+       typed. What is new is that the day now remembers it was hand-edited and
+       what it was before, mirroring coachAdjust for coach-driven changes so
+       there is one pattern rather than two. */
+    var before = { title:dd.title, type:dd.type, km:dd.km, desc:dd.desc, mpSegment:!!dd.mpSegment,
+                   prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
+    var newKm = isNaN(km) ? 0 : km;
+    var changed = [];
+    if (title !== before.title) changed.push('title');
+    if (type !== before.type) changed.push('type');
+    if (newKm !== before.km) changed.push('km');
+    if (!!mp !== before.mpSegment) changed.push('mpSegment');
+    if (desc !== resolveDesc(before.desc)) changed.push('desc');
 
-  dd.title=title; dd.type=type; dd.km=newKm; dd.mpSegment=mp;
-  /* The modal shows resolved text, so writing it back unconditionally used to
-     strip the @@D:n@@ tokens from every session that was opened and saved --
-     even when the description was never touched -- and a de-tokenised day can
-     no longer follow a distance change or a switch to miles. Only write it
-     when it genuinely changed. */
-  if (changed.indexOf('desc')!==-1) dd.desc = desc;
+    dd.title=title; dd.type=type; dd.km=newKm; dd.mpSegment=mp;
+    /* The modal shows resolved text, so writing it back unconditionally used to
+       strip the @@D:n@@ tokens from every session that was opened and saved --
+       even when the description was never touched -- and a de-tokenised day can
+       no longer follow a distance change or a switch to miles. Only write it
+       when it genuinely changed. */
+    if (changed.indexOf('desc')!==-1) dd.desc = desc;
 
-  if (changed.length){
-    /* Which edits the structure can survive. A retitled session is the same
-       session. A shorter easy run is still an easy run. A changed type,
-       changed instructions or a changed goal-pace flag means the athlete is
-       running something else, and no structure we hold still describes it --
-       so it is dropped and the day falls back to today's behaviour. */
-    var structural = changed.some(function(f){ return f==='type' || f==='desc' || f==='mpSegment'; });
-    if (structural) delete dd.prescription;
-    else if (changed.indexOf('km')!==-1) rescaleOrDropPrescription(dd, newKm);
+    if (changed.length){
+      /* Which edits the structure can survive. A retitled session is the same
+         session. A shorter easy run is still an easy run. A changed type,
+         changed instructions or a changed goal-pace flag means the athlete is
+         running something else, and no structure we hold still describes it --
+         so it is dropped and the day falls back to today's behaviour. */
+      var structural = changed.some(function(f){ return f==='type' || f==='desc' || f==='mpSegment'; });
+      if (structural) delete dd.prescription;
+      else if (changed.indexOf('km')!==-1) rescaleOrDropPrescription(dd, newKm);
 
-    // first edit wins: editing twice must not lose what VVV originally set
-    if (!dd.manualEdit) dd.manualEdit = { at:new Date().toISOString(), fields:[], from:before };
-    dd.manualEdit.at = new Date().toISOString();
-    changed.forEach(function(f){ if (dd.manualEdit.fields.indexOf(f)===-1) dd.manualEdit.fields.push(f); });
+      // first edit wins: editing twice must not lose what VVV originally set
+      if (!dd.manualEdit) dd.manualEdit = { at:new Date().toISOString(), fields:[], from:before };
+      dd.manualEdit.at = new Date().toISOString();
+      changed.forEach(function(f){ if (dd.manualEdit.fields.indexOf(f)===-1) dd.manualEdit.fields.push(f); });
+    }
   }
+  var swapId = document.getElementById('ef-swap').value;
 
   /* Completion is applied after the field edits, so switching a session to
      Rest in the same save cannot leave it marked complete. The rule is
@@ -24234,10 +24363,22 @@ function actionTile(action, icon, label, extra){
   return '<button type="button" class="act-tile" data-action="'+action+'"'+(extra||'')+'>'+
     icon+'<span class="act-lab">'+escapeHtml(label)+'</span></button>';
 }
-function renderActionTrio(){
-  return '<div class="act-trio">'+
+/* THE ACTION TRIO, RE-HOMED, NOT REBUILT. Same three real destinations
+   (openHQPanel('newblock')/openSetupModal()/openHQPanel('checkpoint')), same
+   actionTile() helper and the same data-action values the click dispatcher
+   has always handled -- only which VALHALLA sub-tab renders which tile
+   changed. New Block and Plan Settings are programme-level decisions, so
+   they sit with Programme Status on Valhalla; Checkpoint is a measurement
+   action, so it sits with the rest of what Record already says about
+   measured fitness. */
+function renderValhallaActionsRow(){
+  return '<div class="act-trio act-cols-2">'+
     actionTile('open-new-block', ICONS.layers, 'New block')+
     actionTile('open-setup', ICONS.settings, 'Plan settings')+
+  '</div>';
+}
+function renderRecordActionsRow(){
+  return '<div class="act-trio act-cols-1">'+
     actionTile('open-checkpoint', ICONS.target, 'Checkpoint')+
   '</div>';
 }
@@ -24344,26 +24485,50 @@ function handleGoToCheckpoint(){
   if (el && el.scrollIntoView){ try { el.scrollIntoView({ block:'center' }); } catch(err){ el.scrollIntoView(); } }
 }
 
+/* VALHALLA / COACH / RECORD -- three views over Plan HQ's existing
+   functionality, not three new systems and not three permanently-mounted
+   screens. Ephemeral UI state only (like planhqReturnScrollY/landingDismissed
+   above it) -- never persisted, and reset to the overview every time the
+   athlete arrives at Valhalla from a different tab, so opening it always
+   answers "where am I" first rather than resuming wherever they left off. */
+var planhqTab = 'valhalla';
+function handleSetPlanhqTab(tab){
+  if (planhqTab === tab) return;
+  planhqTab = tab;
+  renderApp();
+}
+function renderPlanHQSubNav(){
+  var tabs = [
+    { key:'valhalla', label:'Valhalla' },
+    { key:'coach', label:'Coach' },
+    { key:'record', label:'Record' }
+  ];
+  return '<div class="planhq-subnav" role="tablist" aria-label="Valhalla sections">'+
+    tabs.map(function(t){
+      return '<button type="button" role="tab" aria-selected="'+(planhqTab===t.key?'true':'false')+'" '+
+        'class="planhq-subnav-btn'+(planhqTab===t.key?' active':'')+'" '+
+        'data-action="set-planhq-tab" data-tab="'+t.key+'">'+t.label+'</button>';
+    }).join('')+
+  '</div>';
+}
 function renderPlanHQView(){
-  /* SUMMARY FIRST, INTERPRETATION SECOND, RECORD THIRD, ACTIONS LAST.
-     Programme Status opens on the confidence gauge, its explainer and the Race
-     Outlook line. Then the coach's read, then the five interpretations, then
-     the block-transition offer and the goal, then the four facts, then three
-     deliberate actions. Nothing on this screen expands in place any more. */
-  return '<div class="view-heading font-head">Plan HQ</div>'+
-    renderProgrammeStatus()+
-    renderCoachPanel()+
-    renderReadingSection()+
-    /* The "Build New Block" summary bar that used to sit here fired the same
-       open-setup as the trio's PLAN SETTINGS tile now does, so it was the
-       duplicate the trio was accused of being. What stands in its place is the
-       thing that is genuinely a block transition: the engine's recommendation,
-       rendered only when there is one. */
-    renderBlockTransitionCard()+
-    renderCheckpointBanner()+
-    renderGoalToggle()+
-    renderRecordSection()+
-    renderActionTrio();
+  /* NOTHING BELOW IS REBUILT. Every section is the exact render function this
+     screen already called before the split -- renderProgrammeStatus(),
+     renderCoachPanel(), renderReadingSection(), renderRecordSection() and the
+     rest are untouched -- just grouped by the question each answers (where am
+     I / what does it mean / show me the evidence) instead of stacked in one
+     long scroll. */
+  var body;
+  if (planhqTab === 'coach'){
+    body = renderCoachPanel()+renderReadingSection();
+  } else if (planhqTab === 'record'){
+    body = renderCheckpointBanner()+renderGoalToggle()+renderRecordSection()+renderRecordActionsRow();
+  } else {
+    body = renderProgrammeStatus()+renderBlockTransitionCard()+renderValhallaActionsRow();
+  }
+  return '<div class="view-heading font-head">Valhalla</div>'+
+    renderPlanHQSubNav()+
+    body;
 }
 // Notification permission can be revoked from outside the app (browser/OS
 // settings) at any time, so the toggle always reflects the live
@@ -24655,7 +24820,7 @@ function renderBottomNav(){
     {key:'today', label:'Today', icon:ICONS.clock},
     {key:'week', label:'This Week', icon:ICONS.calendarWeek},
     {key:'full', label:'Full Plan', icon:ICONS.layers},
-    {key:'planhq', label:'Plan HQ', icon:ICONS.target},
+    {key:'planhq', label:'Valhalla', icon:ICONS.target},
     {key:'settings', label:'Settings', icon:ICONS.settings}
   ];
   return '<nav class="bottom-nav" id="bottom-nav">'+
@@ -24667,6 +24832,8 @@ function renderBottomNav(){
 function handleSetView(view){
   if (state.view===view) return;
   state.view = view;
+  // Valhalla always opens on its own overview -- see renderPlanHQView().
+  if (view==='planhq') planhqTab = 'valhalla';
   /* Strava availability is learned lazily, when the athlete actually navigates
      to the screen that shows it. A signed-in athlete has normally learned it
      already from the status call at open; this covers the signed-out case,
@@ -24942,6 +25109,7 @@ document.addEventListener('click', function(e){
     case 'print-plan': handlePrintPlan(); break;
     case 'reset-pace-overrides': handleResetPaceOverrides(); break;
     case 'set-view': handleSetView(target.getAttribute('data-view')); break;
+    case 'set-planhq-tab': handleSetPlanhqTab(target.getAttribute('data-tab')); break;
     case 'cloud-sign-in': handleCloudSignIn(); break;
     case 'cloud-sign-out': cloudSignOut(); break;
     case 'cloud-delete-account': handleCloudDeleteAccount(); break;
