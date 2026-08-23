@@ -317,6 +317,10 @@
        cleanest of the five) and composed with the home-indicator inset, which
        the nav already respects but this padding previously did not. */
     padding-bottom:calc(117px + env(safe-area-inset-bottom, 0px));}
+  /* On Valhalla, the persistent Valhalla/Coach/Record subnav stacks above the
+     main bottom nav (see .bn-stack), so content needs extra clearance or the
+     tail of a long Coach/Record scroll ends up underneath it. */
+  .app-root.has-subnav{padding-bottom:calc(181px + env(safe-area-inset-bottom, 0px));}
 
   /* ---------- sticky top bar ---------- */
   .topbar{
@@ -397,42 +401,51 @@
   /* header instance only -- mirrors .countdown-badge's compact dimensions/
      border/radius so it reads as the same header-badge family as the race
      clock, instead of the larger touch-friendly pill the setup modal uses. */
+  /* Retokenized: this badge used to hardcode its own approximation of the
+     bronze/gold ramp (#1e1b18, #c5a059…) with a manually duplicated light
+     override, instead of the tokens that already carry both themes
+     correctly -- two sources of truth for one colour that could silently
+     drift apart. --modal-active is the same theme-invariant gold the app
+     already uses for a badge/indicator fill; --gold-text and --bronze-ink
+     are its existing "gold used as small text" and "dark text on a gold
+     fill" counterparts, so no theme-specific override is needed here at all. */
   .tb-unit-toggle{
     display:flex; width:auto; max-width:64px; gap:2px;
-    background:#1e1b18; border:1px solid rgba(197, 160, 89, 0.25); border-radius:6px;
+    background:var(--bg-3); border:1px solid rgba(var(--modal-active-rgb),0.25); border-radius:6px;
     padding:4px 6px;
   }
-  [data-theme="light"] .tb-unit-toggle{background:#EFECE6;}
   .tb-unit-toggle button{
     flex:1; font-family:'JetBrains Mono',monospace; font-size:0.7rem; font-weight:bold;
-    letter-spacing:normal; padding:2px 0; color:#8c8273; background:transparent; border-radius:3px; text-align:center; line-height:1;
+    letter-spacing:normal; padding:2px 0; color:var(--ink-faint); background:transparent; border-radius:3px; text-align:center; line-height:1;
   }
-  .tb-unit-toggle button.active{background:#c5a059; color:#1e1b18;}
+  .tb-unit-toggle button.active{background:var(--modal-active); color:var(--bronze-ink);}
   .countdown{display:flex; align-items:center; justify-content:flex-end;}
   .countdown-badge{
     display:grid; grid-template-columns:1fr 1fr; gap:2px 6px;
-    background:#1e1b18; border:1px solid #c5a05933; border-radius:6px;
+    background:var(--bg-3); border:1px solid rgba(var(--modal-active-rgb),0.3); border-radius:6px;
     padding:4px 6px;
   }
-  .cd-cell{font-weight:700; color:#c5a059; font-size:0.7rem; text-align:center; white-space:nowrap;}
-  /* light theme only -- the dark charcoal/gold badge above is untouched.
-     Colour swap only: same size, radius, padding, typography and 2x2 grid. */
-  [data-theme="light"] .countdown-badge{background:#EFECE6; border-color:rgba(197, 160, 89, 0.4);}
-  [data-theme="light"] .cd-cell{color:#2B2317;}
+  .cd-cell{font-weight:700; color:var(--gold-text); font-size:0.7rem; text-align:center; white-space:nowrap;}
   .cd-race-day{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--gold-text); font-weight:700;}
 
-  /* confidence score fuel gauge — top-left of the header */
-  .confidence-gauge{display:flex; flex-direction:column; align-items:center; gap:2px;}
-  .gauge-tick{stroke:var(--gold); stroke-width:1.4; opacity:.8;}
-  .gauge-elabel, .gauge-flabel{
-    font-family:'JetBrains Mono',monospace; font-size:8px; font-weight:700; fill:var(--ink-dim);
-  }
-  .gauge-caption{display:flex; align-items:baseline; gap:5px;}
-  .gauge-pct{font-size:13px; font-weight:700; color:var(--gold-text);}
+  /* confidence score fuel gauge — the approved-concept full-circle hero.
+     A ring, not a semicircle: 12 tick marks framing a single progress arc,
+     the percentage and its label set inside the ring rather than below it. */
+  .gauge-tick{stroke:var(--gold); stroke-width:1.4; opacity:.45;}
+  .gauge-wrap{position:relative; width:132px; height:132px; margin:0 auto;}
+  .gauge-rim{stroke:var(--line); stroke-width:1;}
+  .gauge-track{stroke:var(--bg-4);}
+  .gauge-fill{stroke:var(--cherry);}
+  .gauge-inner-rim{stroke:var(--line-soft); stroke-width:1;}
+  .gauge-num{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+  /* Gold reads the figure, same as it always has -- the ring is the
+     mechanism and takes the accent; the number is the reading and takes
+     gold, exactly as every other reading in this product does. */
+  .gauge-num b{font-size:32px; color:var(--gold-text); line-height:1; font-weight:700;}
   /* themed (not the fixed --modal-text) since the gauge sits in the topbar,
      which itself flips with the light/dark toggle -- --modal-text is only
      ever defined for the dark palette and goes near-invisible in light mode. */
-  .gauge-label{font-size:8.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-dim);}
+  .gauge-num span{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin-top:3px;}
   .checkpoint-banner{
     display:flex; align-items:flex-start; gap:11px; background:var(--c-gold-soft);
     border:1.5px solid var(--gold); border-radius:var(--radius-sm); padding:13px 14px; margin:16px 0;
@@ -488,6 +501,13 @@
   }
   .fuel-card summary::-webkit-details-marker{display:none;}
   .fuel-card summary svg{width:13px; height:13px; flex:none;}
+  /* The native marker was hidden with nothing put in its place, so this
+     disclosure gave no visual cue that it opens. Same rotating-chevron
+     grammar as .day-chevron/.week-chevron -- CSS-only, since <details>
+     already carries its own [open] state. */
+  .fuel-chevron{margin-left:auto; display:flex; align-items:center; color:var(--ink-faint); transition:transform .25s;}
+  .fuel-chevron svg{width:16px; height:16px; display:block;}
+  .fuel-card[open] .fuel-chevron{transform:rotate(180deg);}
   .fuel-body{padding:2px 12px 10px;}
   .fuel-row{display:flex; align-items:center; justify-content:space-between; padding:4px 0; font-size:var(--fs-body); border-bottom:1px solid var(--line-soft);}
   .fuel-row:last-of-type{border-bottom:none;}
@@ -745,17 +765,49 @@
   .day.drag-over{box-shadow:0 0 0 2px var(--bronze) inset; background:var(--bg-4);}
   .day.dragging{opacity:.4;}
   .day-top{display:flex; align-items:flex-start; gap:10px;}
-  .day-check{flex:none; margin-top:2px;}
-  /* Display-only: still legible, clearly not something to press. */
-  .ef-completed input[type="checkbox"]{width:20px; height:20px; flex:none;}
+  /* THE COMPLETION RING. A <label> so the tap target is comfortably ~40px
+     even though the visible ring stays compact -- clicking anywhere in the
+     label forwards to its <input>, which is still the same native checkbox
+     canToggleCompletion()/toggle-complete has always driven. Nothing about
+     completion logic changed; only what it looks like. */
+  .day-check{
+    flex:none; display:flex; align-items:center; justify-content:center;
+    width:40px; height:40px; margin:-9px 0 -9px -10px; cursor:pointer;
+  }
+  .day-check.locked{cursor:default;}
+  .day-check input{
+    appearance:none; -webkit-appearance:none; -moz-appearance:none;
+    width:22px; height:22px; margin:0; padding:0; flex:none; position:relative;
+    border-radius:50%; border:2px solid var(--line); background:var(--bg-2);
+    cursor:pointer; transition:background .15s ease, border-color .15s ease;
+  }
+  .day-check input:checked{background:var(--cherry); border-color:var(--cherry);}
+  .day-check input:checked::after{
+    content:''; position:absolute; left:50%; top:45%; width:5px; height:9px;
+    border:solid var(--cherry-btn-ink); border-width:0 2px 2px 0;
+    transform:translate(-50%,-50%) rotate(45deg);
+  }
+  .day-check.locked input{opacity:.5; cursor:default;}
+  .day-check.locked input:checked{opacity:.8;}
+  /* Display-only: still legible, clearly not something to press. Reskinned
+     to the same ring language as the card's own completion control, so a
+     completed day reads the same way whether it's seen on the card or here. */
+  .ef-completed input[type="checkbox"]{
+    appearance:none; -webkit-appearance:none; -moz-appearance:none;
+    width:20px; height:20px; flex:none; position:relative; margin:0 9px 0 0;
+    border-radius:50%; border:2px solid var(--line); background:var(--bg-2);
+  }
+  .ef-completed input[type="checkbox"]:checked{background:var(--cherry); border-color:var(--cherry);}
+  .ef-completed input[type="checkbox"]:checked::after{
+    content:''; position:absolute; left:50%; top:44%; width:4px; height:8px;
+    border:solid var(--cherry-btn-ink); border-width:0 2px 2px 0;
+    transform:translate(-50%,-50%) rotate(45deg);
+  }
   .ef-completed label{min-height:44px; align-items:center; cursor:pointer;}
   .ef-completed input[disabled]{opacity:.45; cursor:default;}
   .ef-completed input[disabled] + *, .ef-completed input[disabled]{pointer-events:none;}
   #su-event-box[data-mode="event"] .when-none{display:none;}
   #su-event-box[data-mode="none"] .when-event{display:none;}
-  .day-check.locked input{opacity:.5; cursor:default;}
-  .day-check.locked input:checked{opacity:.75;}
-  .day-check input{width:19px; height:19px; accent-color:var(--bronze); cursor:pointer;}
   .day-main{flex:1; min-width:0;}
   .day-row1{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .day-date{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); color:var(--ink-faint);}
@@ -792,8 +844,10 @@
      so both behave identically. The header row stays put; the detail and the
      logging drawer collapse. */
   .day-top{cursor:pointer;}
+  /* Same rotating-chevron treatment as .week-chevron below -- one shared
+     "this expands in place" grammar rather than two near-identical ones. */
   .day-chevron{flex:none; display:flex; align-items:center; color:var(--ink-faint); transition:transform .25s;}
-  .day-chevron svg{width:17px; height:17px; display:block;}
+  .day-chevron svg{width:18px; height:18px; display:block;}
   .day.open .day-chevron{transform:rotate(180deg);}
   .day-detail, .day-drawer{max-height:0; overflow:hidden; transition:max-height .35s ease;}
   /* THIS NUMBER IS A CEILING, NOT A HEIGHT. max-height is how the open/shut
@@ -1470,13 +1524,20 @@
   @keyframes toastout{to{opacity:0; transform:translateY(8px);}}
 
   /* ---------- sticky bottom nav — 5 view toggles ---------- */
-  .bottom-nav{
-    position:fixed; left:0; right:0; bottom:0; z-index:55; display:flex;
-    background:var(--ctl-surface); border-top:1px solid var(--ctl-surface-border);
-    padding:6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  /* .bn-stack is the fixed anchor; the main nav and (on Valhalla only) the
+     Valhalla/Coach/Record subnav are ordinary flow children stacked inside
+     it, subnav on top -- so "just above the main bottom nav" falls out of
+     flex-direction:column rather than a hand-measured offset. */
+  .bn-stack{
+    position:fixed; left:0; right:0; bottom:0; z-index:55; display:flex; flex-direction:column;
     max-width:var(--maxw); margin:0 auto;
   }
-  @media (min-width:640px){ .bottom-nav{ left:50%; transform:translateX(-50%); border-left:1px solid var(--ctl-surface-border); border-right:1px solid var(--ctl-surface-border); } }
+  @media (min-width:640px){ .bn-stack{ left:50%; transform:translateX(-50%); border-left:1px solid var(--ctl-surface-border); border-right:1px solid var(--ctl-surface-border); } }
+  .bottom-nav{
+    display:flex;
+    background:var(--ctl-surface); border-top:1px solid var(--ctl-surface-border);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
   .bn-item{
     flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; min-width:0;
     padding:7px 1px; color:var(--ink-faint); font-family:'Oswald',sans-serif; font-size:8.5px;
@@ -1506,6 +1567,27 @@
     color:#7A5C1E; background:#FFFDF7;
     box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
   }
+  /* VALHALLA / COACH / RECORD -- the selected-tab language above, reused
+     rather than reinvented, exactly as .opt-grid button.active already
+     borrows it for the builder. Same job (a persistent set of destinations,
+     one active at a time), so it gets the same visual answer. */
+  .planhq-subnav{
+    display:flex; gap:6px; padding:8px 16px; background:var(--ctl-surface);
+    border-top:1px solid var(--ctl-surface-border);
+  }
+  .planhq-subnav-btn{
+    flex:1; font-family:'Oswald',sans-serif; font-size:11px; font-weight:600; letter-spacing:.06em;
+    text-transform:uppercase; padding:10px 4px; border-radius:var(--radius-sm); border:1px solid var(--line);
+    background:none; color:var(--ink-faint); cursor:pointer;
+    transition:background .15s ease, border-color .15s ease, color .15s ease;
+  }
+  .planhq-subnav-btn:active{transform:scale(.97);}
+  .planhq-subnav-btn.active{color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14); border-color:transparent;}
+  [data-theme="light"] .planhq-subnav-btn{color:#6B6558;}
+  [data-theme="light"] .planhq-subnav-btn.active{
+    color:#7A5C1E; background:#FFFDF7; border-color:transparent;
+    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
+  }
   .view-heading{
     font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-faint);
     text-align:center; margin:18px 0 4px;
@@ -1523,8 +1605,12 @@
      there is no horizontal overflow at any viewport. */
   .coach-status{display:flex; align-items:flex-start; gap:10px; margin-bottom:12px;}
   .coach-dot{width:9px; height:9px; border-radius:50%; flex:none; margin-top:5px; background:var(--ink-faint);}
-  .coach-dot.good{background:#5FA86B;} .coach-dot.watch{background:var(--gold);}
-  .coach-dot.warn{background:#C4643C;} .coach-dot.neutral{background:var(--ink-faint);}
+  /* Retokenized from hardcoded #5FA86B/#C4643C -- a second, un-themed
+     green/red pair that drifted from the semantic tokens (--c-easy/
+     --c-threshold) every other positive/negative reading on this screen
+     already uses, and had no light-theme value of its own at all. */
+  .coach-dot.good{background:var(--c-easy);} .coach-dot.watch{background:var(--gold);}
+  .coach-dot.warn{background:var(--c-threshold);} .coach-dot.neutral{background:var(--ink-faint);}
   .coach-status-main{min-width:0; flex:1 1 auto;}
   .coach-status-label{font-family:'Oswald',sans-serif; font-size:15px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink); line-height:1.25;}
   .coach-status-detail{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); margin-top:3px; overflow-wrap:anywhere;}
@@ -1767,8 +1853,10 @@
     text-transform:uppercase; color:var(--ink); flex:1 1 auto; min-width:0;
   }
   .rec-right{display:flex; align-items:center; gap:8px; flex:0 1 auto; min-width:0;}
-  .rec-val{font-size:11.5px; color:var(--ink-dim); text-align:right; min-width:0; overflow-wrap:anywhere;}
-  .rec-val.font-mono{font-size:11px;}
+  /* Mono by default now -- every caller passed 'font-mono' anyway, but that
+     made the correct data typography a per-callsite convention rather than
+     something this component guarantees on its own. */
+  .rec-val{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim); text-align:right; min-width:0; overflow-wrap:anywhere;}
   /* "Nothing measured" is an absence, not a value, so it is quieted rather
      than coloured -- a status hue here would make an empty record look like a
      warning about something. */
@@ -1852,6 +1940,119 @@
   .ol-swatch.goal{background:var(--gold);}
   .outlook .field-hint{margin-top:6px;}
 
+  /* ---------- THE VALHALLA HERO (approved-concept redesign) ----------
+     Centred block/week, the full-circle gauge, two quiet figures, the
+     contained Race Outlook card, and a one-line status read. Reuses the
+     same surface language (--bg-3/--bg-2 radial, --line border, 22px
+     radius) the rest of the app already uses for a raised panel. */
+  .v-hero{
+    position:relative; margin:4px 0 4px; padding:20px 18px 18px; border-radius:22px;
+    background:radial-gradient(120% 100% at 50% 0%, var(--bg-3), var(--bg-2));
+    border:1px solid var(--line); text-align:center;
+  }
+  .v-hero-unit-toggle{position:absolute; top:14px; right:14px;}
+  .v-hero-block{font-size:15px; color:var(--ink); margin:0 0 2px;}
+  .v-hero-week{font-size:11px; color:var(--ink-faint); margin:0 0 14px;}
+  .v-hero-figs{display:flex; justify-content:center; gap:26px; margin-top:14px;}
+  .v-hero-fig{text-align:center;}
+  .v-hero-fig b{display:block; font-size:16px; color:var(--ink); font-weight:700;}
+  .v-hero-fig span{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);}
+  .v-status-line{
+    display:flex; align-items:center; justify-content:center; gap:8px; margin-top:14px; padding-top:14px;
+    border-top:1px solid var(--line-soft); font-size:12px; color:var(--ink-dim);
+  }
+  .v-status-line b{color:var(--ink);}
+  .v-status-dot{width:7px; height:7px; border-radius:50%; flex:none; display:inline-block;}
+  .v-status-dot.good{background:var(--c-easy);}
+  .v-status-dot.watch{background:var(--gold);}
+  .v-status-dot.bad{background:var(--c-tempo);}
+
+  /* ---------- RACE OUTLOOK, as a contained card ----------
+     Same raceOutlook()/measuredFitnessEstimate() data as before -- only the
+     shell changed, from a bare track under a heading to a self-contained,
+     tappable card matching the hero's own surface language. Cherry Lacquer
+     stays the measured-effort marker (the gauge's own accent, reused for
+     what the athlete's own running produced); gold stays the goal. */
+  .outlook-instrument{
+    display:block; width:100%; text-align:left; background:var(--bg-3); border:1px solid var(--line);
+    border-radius:14px; padding:14px 16px 18px; margin-top:16px; cursor:pointer; font:inherit; color:inherit;
+  }
+  .outlook-instrument:hover{border-color:var(--bronze-2);}
+  .oi-label{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
+  .oi-label span{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--gold-text);}
+  .oi-label svg{width:11px; height:11px; color:var(--gold-text); opacity:.7; flex:none;}
+  .oi-dist{font-size:10px; letter-spacing:normal; text-transform:none; color:var(--ink-faint); font-family:'Inter',sans-serif;}
+  .oi-track{position:relative; height:6px; margin:22px 6px 24px;}
+  .oi-line{position:absolute; inset:0; border-radius:3px; background:var(--line);}
+  /* Cherry Lacquer is the measured band -- the athlete's own running, the same
+     accent the gauge above already uses for it. Gold is the goal, which is
+     gold everywhere else in this product; this card does not get its own
+     colour law. */
+  .oi-band{position:absolute; top:0; height:6px; border-radius:3px; background:var(--cherry);}
+  .oi-goal{position:absolute; top:50%; width:9px; height:9px; margin-top:-4.5px; margin-left:-4.5px;
+    border-radius:50%; background:var(--gold); box-shadow:0 0 0 3px var(--bg-3);}
+  .oi-goal-lbl{position:absolute; top:-20px; font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:600; color:var(--gold-text); white-space:nowrap;}
+  .oi-band-lbl{position:absolute; bottom:-19px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-faint); white-space:nowrap;}
+  .oi-empty{font-size:11.5px; line-height:1.5; color:var(--ink-faint);}
+
+  /* ---------- THE READING / THE RECORD — condensed previews on Valhalla ----------
+     Non-interactive, exactly as the approved concept specifies: the same
+     circular-dial and chamfered-plate language the Coach and Record tabs use
+     in full, shown here as a quiet summary. Tapping through to evidence and
+     detail happens on Coach/Record, not from this preview. */
+  .b-dials{display:flex; flex-direction:column; gap:16px; margin:4px 0 4px;}
+  .b-dials-row{display:flex; justify-content:center; gap:26px;}
+  .b-dial-col{display:flex; flex-direction:column; align-items:center; gap:7px; width:64px;}
+  .b-dial{position:relative; width:56px; height:56px; flex:none;}
+  .b-dial.lead{width:64px; height:64px;}
+  .b-dial b{position:absolute; inset:6px; display:flex; align-items:center; justify-content:center;
+    text-align:center; line-height:1.05; font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--ink); font-weight:700;}
+  .b-dial.lead b{font-size:14.5px;}
+  .b-medal{position:absolute; inset:6px; border-radius:50%; background:var(--bg-2); border:1px solid var(--line-soft);}
+  .b-dial-col .lbl{font-family:'Oswald',sans-serif; font-size:8.7px; letter-spacing:.03em; text-transform:uppercase; color:var(--ink-faint); text-align:center; line-height:1.2;}
+
+  .b-record{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:6px 0 6px;}
+  .b-plate{
+    padding:15px 14px 13px; text-align:left; color:var(--ink); background:var(--bg-2); border:1px solid var(--line);
+    clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,14px 100%,0 calc(100% - 14px),0 14px);
+  }
+  .b-plate .val{font-family:'JetBrains Mono',monospace; font-size:16px; font-weight:600; overflow-wrap:anywhere;}
+  .b-plate .lbl{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-faint); margin-top:5px;}
+
+  /* ---------- COACH / RECORD — evidence cards in the same dial/headline grammar ----------
+     Reuses .hub-card's surface (padding, border, radius) as a <button>, so a
+     Coach or Record card looks like the rest of Plan HQ's cards while still
+     being the same tappable destination it always was (open-reading /
+     open-record), just no longer the plain list-row shell. */
+  .ev-card{
+    display:block; width:100%; text-align:left; font:inherit; -webkit-appearance:none; appearance:none;
+    background:var(--surface-3); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:14px; margin:0 0 10px; cursor:pointer; color:inherit;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .ev-card:hover{background:var(--bg-3); border-color:var(--bronze-2);}
+  .ev-card:active{background:var(--bg-4);}
+  .rs-head{display:flex; align-items:center; gap:12px;}
+  .rs-dial{position:relative; width:44px; height:44px; flex:none;}
+  .rs-dial b{position:absolute; inset:4px; display:flex; align-items:center; justify-content:center;
+    text-align:center; line-height:1.05; font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:700; color:var(--ink);}
+  .rs-medal{position:absolute; inset:5px; border-radius:50%; background:var(--bg-2); border:1px solid var(--line-soft);}
+  .rs-head-text{flex:1 1 auto; min-width:0;}
+  .rs-head-text h3{font-family:'Oswald',sans-serif; font-weight:600; font-size:13px; color:var(--ink); margin:0;}
+  .rs-syn{font-size:11px; line-height:1.4; color:var(--ink-faint); margin-top:3px;}
+  .rs-chev{flex:none; display:flex; opacity:.6;}
+  .rs-chev svg{width:15px; height:15px; color:var(--ink-faint);}
+
+  /* Record tab: a headline fact, not a dial -- plates are for numbers, circles
+     are for state, and a benchmark or a pace count is a number. */
+  .rec-headline{display:flex; align-items:baseline; gap:9px; margin-bottom:2px;}
+  .rec-headline b{font-family:'JetBrains Mono',monospace; font-size:20px; color:var(--ink); overflow-wrap:anywhere; font-weight:600;}
+  .rec-headline span{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint);}
+  .rec-context{font-size:11px; line-height:1.4; color:var(--ink-faint); margin-top:2px;}
+  /* "Nothing measured" is an absence, not a value -- quieted rather than
+     coloured, so an empty record does not read as a warning. */
+  .rec-headline b.rec-none, .b-plate .val.rec-none{color:var(--ink-faint); font-weight:500;}
+
   /* ---------- THE ACTION TRIO ----------
      Three tiles at the foot of Plan HQ. They rhyme with the status chips
      higher up the screen and must not be mistaken for them, so the
@@ -1859,6 +2060,8 @@
      same radius family, opposite surface treatment.
      56px minimum, so the whole tile clears every platform's touch target. */
   .act-trio{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:16px 0 4px;}
+  .act-trio.act-cols-2{grid-template-columns:repeat(2,1fr);}
+  .act-trio.act-cols-1{grid-template-columns:minmax(0,220px); justify-content:center;}
   .act-tile{
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
     min-height:76px; padding:10px 6px; font:inherit; text-align:center; cursor:pointer;
@@ -2376,6 +2579,18 @@ function clockToSec(str){
   if (parts.length===3) return parts[0]*3600+parts[1]*60+parts[2];
   if (parts.length===2) return parts[0]*60+parts[1];
   return null;
+}
+/* BENCHMARK TIME, TYPED ON AN ANDROID NUMERIC KEYPAD.
+   The benchmark field takes clockToSec's own mm:ss (and h:mm:ss) exactly as
+   before, plus "." as an alternative separator -- Android numeric keypads
+   put a "." within reach and bury ":" behind a symbols layer. "23.25" always
+   means 23 minutes 25 seconds, the same as "23:25"; it is never read as a
+   decimal number of minutes. */
+function parseBenchmarkTime(str){
+  if (str==null) return null;
+  var s = String(str).trim();
+  if (!s) return null;
+  return clockToSec(s.replace(/\./g, ':'));
 }
 /* ELAPSED TIME AS A PHONE CAN ACTUALLY TYPE IT.
    clockToSec() requires a colon and returns null without one, which is
@@ -7632,6 +7847,10 @@ var ICONS = {
   upload: svgWrap('<path d="M12 16V4"/><polyline points="7,9 12,4 17,9"/><path d="M5 20h14"/>'),
   download: svgWrap('<path d="M12 4v12"/><polyline points="7,11 12,16 17,11"/><path d="M5 20h14"/>'),
   pencil: svgWrap('<path d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20z"/><line x1="13.3" y1="6.7" x2="17.3" y2="10.7"/>'),
+  // Execution editing once the prescription itself is locked -- deliberately
+  // not the pencil, so "correct what I actually did" never reads as "rewrite
+  // what was asked". A short notepad, not a checklist or a chart.
+  notes: svgWrap('<rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/>'),
   ruler: svgWrap('<rect x="3" y="9" width="18" height="6" rx="1.5"/><line x1="7" y1="9" x2="7" y2="12"/><line x1="11" y1="9" x2="11" y2="12"/><line x1="15" y1="9" x2="15" y2="12"/>'),
   clock: svgWrap('<circle cx="12" cy="12" r="8.5"/><line x1="12" y1="12" x2="12" y2="7.5"/><line x1="12" y1="12" x2="15.2" y2="13.8"/>'),
   sparkles: svgWrap('<path d="M12 3l1.4 4.6L18 9l-4.6 1.4L12 15l-1.4-4.6L6 9l4.6-1.4z"/><path d="M19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7z"/>'),
@@ -8058,47 +8277,39 @@ function computeConfidenceScore(){
 function formatConfidencePct(pct){
   return String(Math.round(pct));
 }
+/* THE READINESS HERO — a full circular dial, not the old semicircular one.
+   Approved-concept redesign: same computeConfidenceScore() feeding it, same
+   0-100 scale, only the shape and placement changed -- a large ring gauge
+   centred at the top of Valhalla rather than a small meter beside the
+   countdown. 12 tick marks (a clock face, not a measurement scale) frame a
+   single progress ring; the percentage and its label sit inside the ring
+   rather than beside it. */
 function renderConfidenceGauge(){
   if (!state.setup) return '';
   var pct = computeConfidenceScore();
   var clamped = Math.max(0, Math.min(100, pct));
-  var cx=54, cy=50, r=40;
-  var angle = Math.PI*(1-clamped/100);
-  var needleLen = r*0.82;
-  var needleX = cx + needleLen*Math.cos(angle);
-  var needleY = cy - needleLen*Math.sin(angle);
-  var arcLen = Math.PI*r;
-  var fillLen = arcLen*(clamped/100);
-  var ticks = [0,25,50,75,100].map(function(t){
-    var a = Math.PI*(1-t/100);
-    var x1 = cx+(r-2)*Math.cos(a), y1 = cy-(r-2)*Math.sin(a);
-    var x2 = cx+(r+4)*Math.cos(a), y2 = cy-(r+4)*Math.sin(a);
-    return '<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" class="gauge-tick"/>';
-  }).join('');
+  var cx=60, cy=60, r=46;
+  var circ = 2*Math.PI*r;
+  var fillLen = circ*(clamped/100);
+  var ticks = [];
+  for (var i=0;i<12;i++){
+    var a = (Math.PI*2)*(i/12) - Math.PI/2;
+    var x1 = cx+52*Math.cos(a), y1 = cy+52*Math.sin(a);
+    var x2 = cx+59*Math.cos(a), y2 = cy+59*Math.sin(a);
+    ticks.push('<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" class="gauge-tick"/>');
+  }
   var pctLabel = formatConfidencePct(clamped);
-  return '<div class="confidence-gauge" role="img" aria-label="Confidence score '+pctLabel+' percent">'+
-    '<svg viewBox="0 0 108 64" width="88" height="52">'+
-      '<defs>'+
-        '<filter id="gaugeGlow" x="-60%" y="-60%" width="220%" height="220%">'+
-          '<feGaussianBlur stdDeviation="1" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>'+
-        '</filter>'+
-        /* THE GAUGE'S PROGRESS, and only that. The filled arc and the needle
-           are what the number actually is; the ticks stay gold because they
-           are the scale the reading sits against, and .gauge-pct stays
-           --gold-text because it is the confidence FIGURE, not the gauge. The
-           card, its PROGRAMME STATUS heading and every label are untouched. */
-        '<linearGradient id="gaugeFillGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="var(--cherry-dim)"/><stop offset="100%" stop-color="var(--cherry)"/></linearGradient>'+
-      '</defs>'+
-      '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="var(--bg-4)" stroke-width="6" stroke-linecap="round"/>'+
-      '<path d="M '+(cx-r)+' '+cy+' A '+r+' '+r+' 0 0 1 '+(cx+r)+' '+cy+'" fill="none" stroke="url(#gaugeFillGrad)" stroke-width="6" stroke-linecap="round" '+
-        'stroke-dasharray="'+fillLen.toFixed(1)+' '+(arcLen-fillLen).toFixed(1)+'"/>'+
-      '<g filter="url(#gaugeGlow)">'+ticks+'</g>'+
-      '<line x1="'+cx+'" y1="'+cy+'" x2="'+needleX.toFixed(1)+'" y2="'+needleY.toFixed(1)+'" stroke="var(--cherry)" stroke-width="2.4" stroke-linecap="round" filter="url(#gaugeGlow)"/>'+
-      '<circle cx="'+cx+'" cy="'+cy+'" r="3" fill="var(--modal-active)"/>'+
-      '<text x="'+(cx-r)+'" y="'+(cy+11)+'" class="gauge-elabel">E</text>'+
-      '<text x="'+(cx+r-6)+'" y="'+(cy+11)+'" class="gauge-flabel">F</text>'+
+  return '<div class="gauge-wrap" role="img" aria-label="Confidence score '+pctLabel+' percent">'+
+    '<svg viewBox="0 0 120 120" width="132" height="132">'+
+      '<g class="gauge-ticks">'+ticks.join('')+'</g>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="52" fill="none" class="gauge-rim"/>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-track" stroke-width="9"/>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-fill" stroke-width="9" '+
+        'stroke-linecap="round" stroke-dasharray="'+fillLen.toFixed(1)+' '+(circ-fillLen).toFixed(1)+'" '+
+        'transform="rotate(-90 '+cx+' '+cy+')"/>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="38" fill="none" class="gauge-inner-rim"/>'+
     '</svg>'+
-    '<div class="gauge-caption"><span class="gauge-pct font-mono">'+pctLabel+'%</span><span class="gauge-label">Confidence</span></div>'+
+    '<div class="gauge-num"><b class="font-mono">'+pctLabel+'%</b><span>Confidence</span></div>'+
   '</div>';
 }
 
@@ -8923,7 +9134,7 @@ function renderCoachingDepth(dd){
     var fuelOn;
     try { fuelOn = needsFueling(dd); } catch(e) { fuelOn = false; }
     out += '<details class="fuel-card how-card">'+
-      '<summary>'+ICONS.info+'How to run this</summary>'+
+      '<summary>'+ICONS.info+'How to run this<span class="fuel-chevron" aria-hidden="true">'+ICONS.chevronDown+'</span></summary>'+
       '<div class="fuel-body">'+
         row('Why', gd.why)+
         (stratBlock
@@ -8981,7 +9192,7 @@ function fuelSectionBody(dd){
 function renderFuelingCard(dd){
   if (!needsFueling(dd)) return '';
   return '<details class="fuel-card">'+
-    '<summary>'+ICONS.zap+'Fueling &amp; Hydration Strategy</summary>'+
+    '<summary>'+ICONS.zap+'Fueling &amp; Hydration Strategy<span class="fuel-chevron" aria-hidden="true">'+ICONS.chevronDown+'</span></summary>'+
     '<div class="fuel-body">'+fuelSectionBody(dd)+'</div>'+
   '</details>';
 }
@@ -9100,7 +9311,7 @@ function renderDayCard(dd){
           renderAdjustedDetail(dd)+
         '</div>'+
       '</div>'+
-      '<div class="day-actions"><button type="button" data-action="open-edit" data-day="'+dd.id+'" aria-label="Edit session">'+ICONS.pencil+'</button></div>'+
+      '<div class="day-actions">'+dayActionButton(dd)+'</div>'+
       '<div class="day-chevron" aria-hidden="true">'+ICONS.chevronDown+'</div>'+
     '</div>'+
     '<div class="day-drawer">'+actualHtml+'</div>'+
@@ -19320,14 +19531,18 @@ function renderBlockTransitionCard(){
 /* ---------- WHICH BLOCK IS THIS ----------
    "Recovery · Week 2 of 3". One line, inside Programme Status, using the
    ledger's own label so the block is called the same thing everywhere. */
-function blockIdentityLine(){
-  if (!state.setup) return '';
+function blockIdentityParts(){
+  if (!state.setup) return { label:'', wk:null, total:null };
   var purpose = isBlockPurpose(state.setup.purpose) ? state.setup.purpose : 'race';
   var label = purpose === 'race' && state.setup.distanceKey && DISTANCE_PROFILES[state.setup.distanceKey]
     ? DISTANCE_PROFILES[state.setup.distanceKey].label + ' Build'
     : blockPurposeLabel(purpose);
-  var wk = currentWeekNum(), total = totalWeeksInPlan();
-  return wk && total ? label + ' · Week ' + wk + ' of ' + total : label;
+  return { label:label, wk:currentWeekNum(), total:totalWeeksInPlan() };
+}
+function blockIdentityLine(){
+  var p = blockIdentityParts();
+  if (!p.label) return '';
+  return p.wk && p.total ? p.label + ' · Week ' + p.wk + ' of ' + p.total : p.label;
 }
 
 /* ---------- MEASURED FITNESS ----------
@@ -19972,20 +20187,47 @@ function canToggleCompletion(dd){
 function canEditCompletion(dd){
   return !!dd && dd.type!=='rest' && dd.date <= todayStr();
 }
+/* The prescription -- title, type, distance, instructions, whether it can be
+   rescheduled -- is what the coach asked for, and Execution Review, patterns
+   and adaptation all reason from the gap between that and what actually
+   happened. So the prescription itself may only move forward from where the
+   athlete stands: a day still to come, or today before it has been run. Once
+   a session is today-and-done, or is any day already past, the prescription
+   is history and stays exactly as it was asked -- canEditCompletion() above
+   is the separate, wider rule for correcting what actually happened. */
+function canEditPrescription(dd){
+  if (!dd || dd.type==='rest') return false;
+  if (dd.date > todayStr()) return true;
+  if (dd.date === todayStr()) return !sessionRan(dd);
+  return false;
+}
+/* One action button, never two, and never the wrong one. Editing the
+   prescription and correcting the execution record are different acts on
+   different data -- both currently reach the same Edit Session modal, which
+   itself now locks or reveals the right fields via canEditPrescription(), so
+   the icon here only has to tell the athlete honestly which door they are
+   about to open. A rest day offers neither. */
+function dayActionButton(dd){
+  if (canEditPrescription(dd))
+    return '<button type="button" data-action="open-edit" data-day="'+dd.id+'" aria-label="Edit session">'+ICONS.pencil+'</button>';
+  if (canEditCompletion(dd))
+    return '<button type="button" data-action="open-edit" data-day="'+dd.id+'" aria-label="Edit activity">'+ICONS.notes+'</button>';
+  return '';
+}
 function renderDayCheck(dd){
   var locked = !canToggleCompletion(dd);
   var why = dd.type==='rest' ? 'Rest day'
           : dd.date > todayStr() ? 'Sessions are ticked off on the day they are run'
           : dd.date < todayStr() ? 'Past sessions keep the record they were logged with'
           : 'Mark session complete';
-  return '<div class="day-check'+(locked?' locked':'')+'">'+
+  return '<label class="day-check'+(locked?' locked':'')+'" title="'+escapeHtml(why)+'">'+
     /* sessionRan, not dd.completed: a future day must never render ticked, and
        a past day whose Strava activity is still attached must not render blank.
        The box shows what the evidence says, and the evidence is what the coach
        reads too. */
     '<input type="checkbox" '+(sessionRan(dd)?'checked':'')+' '+(locked?'disabled':'')+
     ' data-action="toggle-complete" data-day="'+dd.id+'"'+
-    ' title="'+escapeHtml(why)+'" aria-label="'+escapeHtml(why)+'"></div>';
+    ' aria-label="'+escapeHtml(why)+'"></label>';
 }
 
 /* A single quiet word on the roadmap where a session is not simply "as
@@ -20573,7 +20815,8 @@ function openSetupModal(){
           '<option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select>'+
       '</div>'+
       '<div class="field"><label>Benchmark time</label>'+
-        '<input type="text" id="su-bench-time" placeholder="mm:ss" value="'+benchTime+'"></div>'+
+        '<input type="text" id="su-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
+      '<div class="field-hint">Enter your time as minutes and seconds, e.g. 23.25 or 23:25.</div>'+
       '<div class="field-hint">This is a reference you give Valhalla, not a measurement of your current fitness — Plan HQ measures that separately, from races and Fitness Checkpoints you actually run. You can update it any time from Re-calibrate.</div>'+
       navBtns(4)+
     '</section>'+
@@ -21048,8 +21291,9 @@ function openRecalibrateModal(){
     '<div class="setup-section-title">Current Benchmark</div>'+
     '<div class="benchmark-row">'+
       '<div class="field" style="margin-bottom:0;"><label>Distance</label><select id="rc-bench-dist"><option value="5k" '+(benchDist==='5k'?'selected':'')+'>5K</option><option value="10k" '+(benchDist==='10k'?'selected':'')+'>10K</option></select></div>'+
-      '<div class="field" style="margin-bottom:0;"><label>Time</label><input type="text" id="rc-bench-time" placeholder="mm:ss" value="'+benchTime+'"></div>'+
+      '<div class="field" style="margin-bottom:0;"><label>Time</label><input type="text" id="rc-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
     '</div>'+
+    '<div class="field-hint">Enter your time as minutes and seconds, e.g. 23.25 or 23:25.</div>'+
     '<button type="button" class="btn btn-ghost btn-block" style="margin-top:10px;" data-action="rc-suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
     '<div class="setup-section-title">Goal A / B / C \u2014 for '+escapeHtml(profile.label)+'</div>'+
     goalRows+
@@ -21064,8 +21308,8 @@ function openRecalibrateModal(){
 }
 function handleRecalibrateSuggest(){
   var benchDist = document.getElementById('rc-bench-dist').value;
-  var benchSec = clockToSec(document.getElementById('rc-bench-time').value.trim());
-  if (!benchSec){ showToast('Enter a valid benchmark time first (mm:ss)'); return; }
+  var benchSec = parseBenchmarkTime(document.getElementById('rc-bench-time').value.trim());
+  if (!benchSec){ showToast('Enter your time as minutes and seconds, e.g. 23.25 or 23:25'); return; }
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
   var benchProfile = DISTANCE_PROFILES[benchDist];
   var vdotBench = vdotFromPerformance(benchProfile.raceKm*1000, benchSec);
@@ -21079,7 +21323,7 @@ function handleRecalibrateSuggest(){
 }
 function handleSaveRecalibrate(){
   var benchDist = document.getElementById('rc-bench-dist').value;
-  var benchSec = clockToSec(document.getElementById('rc-bench-time').value.trim());
+  var benchSec = parseBenchmarkTime(document.getElementById('rc-bench-time').value.trim());
   var goals = {};
   var anyGoal = false;
   GOAL_KEYS.forEach(function(k){
@@ -21108,8 +21352,8 @@ function handleSaveRecalibrate(){
 
 function handleSuggestGoals(){
   var benchDist = document.getElementById('su-bench-dist').value;
-  var benchSec = clockToSec(document.getElementById('su-bench-time').value.trim());
-  if (!benchSec){ showToast('Enter a valid benchmark time first (mm:ss)'); return; }
+  var benchSec = parseBenchmarkTime(document.getElementById('su-bench-time').value.trim());
+  if (!benchSec){ showToast('Enter your time as minutes and seconds, e.g. 23.25 or 23:25'); return; }
   var distKey = document.getElementById('su-distance').value;
   var profile = DISTANCE_PROFILES[distKey];
   var benchProfile = DISTANCE_PROFILES[benchDist];
@@ -21359,7 +21603,7 @@ async function handleGeneratePlan(){
   if (chosenUnits==='km' || chosenUnits==='mi') state.units = chosenUnits;
   var volume = parseDistInput(document.getElementById('su-volume').value);
   var benchDist = document.getElementById('su-bench-dist').value;
-  var benchSec = clockToSec(document.getElementById('su-bench-time').value.trim());
+  var benchSec = parseBenchmarkTime(document.getElementById('su-bench-time').value.trim());
   /* THE CONSENT DECISION IS TAKEN HERE, BEFORE THE TWO FIELDS IT GOVERNS ARE
      READ. The box is on the same panel as LTHR and Max HR and it is rendered
      unticked; ticking it is the affirmative act, and NOT ticking it is
@@ -21573,6 +21817,22 @@ function handleSetGoal(key){
 function openEditModal(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
+  /* PRESCRIPTION VS EXECUTION, ENFORCED IN ONE MODAL RATHER THAN TWO SCREENS.
+     Cloning this into a second "Edit Activity" modal would be a second place
+     to keep the same fields in sync; instead the fields that describe what
+     was ASKED (title, type, distance, the Goal-Pace flag, instructions) are
+     disabled once canEditPrescription() says the prescription is history,
+     while Completed -- what actually HAPPENED -- keeps following
+     canEditCompletion() exactly as it always has.
+
+     RESCHEDULE IS DELIBERATELY NOT GATED HERE. Moving a logged session to
+     another day is not "rewriting what was asked" -- swapWorkoutFields()
+     carries the log/actual/coachAdjust/manualEdit with the workout, and
+     swapWouldPlaceCompletionInFuture()/confirmSwapIfLogged() are its own
+     historical-integrity guards (see swapIntegrity.test.js) that already
+     existed before this pass and are unrelated to it. */
+  var editable = canEditPrescription(dd);
+  var lock = editable ? '' : ' disabled';
   var typeOptions = Object.keys(TYPE_META).filter(function(t){ return t!=='race'; }).map(function(t){
     return '<option value="'+t+'" '+(dd.type===t?'selected':'')+'>'+TYPE_META[t].label+'</option>';
   }).join('');
@@ -21587,24 +21847,26 @@ function openEditModal(dayId){
     });
     swapOptions += '</optgroup>';
   });
+  var reschedule = '<fieldset><legend>Reschedule</legend>'+
+    '<div class="field" style="margin-bottom:0;"><label>Swap this session with\u2026</label><select id="ef-swap">'+swapOptions+'</select>'+
+    '<div class="field-hint">Swaps everything except the calendar date, including any logged actuals. You can also drag day cards onto each other on larger screens.</div></div>'+
+  '</fieldset>';
   var html = ''+
   '<div class="modal-head"><h2 class="font-head">Edit Session</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
     '<div class="field-hint" style="margin-bottom:14px;">'+dLong(dd.date)+' \u00b7 Week '+dd.week+'</div>'+
-    '<div class="field"><label>Session Title</label><input type="text" id="ef-title" value="'+escapeHtml(dd.title)+'"></div>'+
+    (editable ? '' : '<div class="field-hint" style="margin-bottom:14px;">This session already happened \u2014 you can still record what you actually did below.</div>')+
+    '<div class="field"><label>Session Title</label><input type="text" id="ef-title" value="'+escapeHtml(dd.title)+'"'+lock+'></div>'+
     '<div class="field-row">'+
-      '<div class="field"><label>Session Type</label><select id="ef-type">'+typeOptions+'</select></div>'+
-      '<div class="field"><label>Distance (km)</label><input type="number" step="0.1" min="0" id="ef-km" value="'+dd.km+'"></div>'+
+      '<div class="field"><label>Session Type</label><select id="ef-type"'+lock+'>'+typeOptions+'</select></div>'+
+      '<div class="field"><label>Distance (km)</label><input type="number" step="0.1" min="0" id="ef-km" value="'+dd.km+'"'+lock+'></div>'+
     '</div>'+
-    '<div class="field"><label style="display:flex; align-items:center;"><input type="checkbox" id="ef-mp" '+(dd.mpSegment?'checked':'')+' style="width:auto; margin-right:7px;">Includes a Goal-Pace segment</label></div>'+
+    '<div class="field"><label style="display:flex; align-items:center;"><input type="checkbox" id="ef-mp" '+(dd.mpSegment?'checked':'')+lock+' style="width:auto; margin-right:7px;">Includes a Goal-Pace segment</label></div>'+
     renderEditCompletion(dd)+
-    '<div class="field"><label>Workout Instructions</label><textarea id="ef-desc">'+escapeHtml(resolveDesc(dd.desc))+'</textarea></div>'+
-    '<fieldset><legend>Reschedule</legend>'+
-      '<div class="field" style="margin-bottom:0;"><label>Swap this session with\u2026</label><select id="ef-swap">'+swapOptions+'</select>'+
-      '<div class="field-hint">Swaps everything except the calendar date, including any logged actuals. You can also drag day cards onto each other on larger screens.</div></div>'+
-    '</fieldset>'+
+    '<div class="field"><label>Workout Instructions</label><textarea id="ef-desc"'+lock+'>'+escapeHtml(resolveDesc(dd.desc))+'</textarea></div>'+
+    reschedule+
     '<div class="modal-actions">'+
-      '<button type="button" class="btn btn-danger" data-action="reset-day" data-day="'+dd.id+'">'+ICONS.trash+' Reset</button>'+
+      (editable ? '<button type="button" class="btn btn-danger" data-action="reset-day" data-day="'+dd.id+'">'+ICONS.trash+' Reset</button>' : '')+
       '<button type="button" class="btn btn-primary" data-action="save-edit" data-day="'+dd.id+'">'+ICONS.check+' Save</button>'+
     '</div>'+
   '</div>';
@@ -21652,51 +21914,61 @@ function renderEditCompletion(dd){
 function handleSaveEdit(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
-  var title = document.getElementById('ef-title').value.trim() || 'Untitled Session';
-  var type = document.getElementById('ef-type').value;
-  var km = parseFloat(document.getElementById('ef-km').value);
-  var mp = document.getElementById('ef-mp').checked;
-  var desc = document.getElementById('ef-desc').value;
-  var swapId = document.getElementById('ef-swap').value;
+  /* PRESCRIPTION FIELDS ONLY -- enforced here in the mutation path, exactly
+     like canEditCompletion() already enforces Completed below, not by
+     trusting the disabled attribute, so a crafted event or a direct call
+     cannot rewrite a locked prescription either. Completion and reschedule
+     are unrelated rules (canEditCompletion / swapWouldPlaceCompletionInFuture
+     etc.) and always run below, whether or not the prescription itself was
+     open to editing. */
+  var editable = canEditPrescription(dd);
+  if (editable){
+    var title = document.getElementById('ef-title').value.trim() || 'Untitled Session';
+    var type = document.getElementById('ef-type').value;
+    var km = parseFloat(document.getElementById('ef-km').value);
+    var mp = document.getElementById('ef-mp').checked;
+    var desc = document.getElementById('ef-desc').value;
 
-  /* PROVENANCE. Manual editing is unchanged -- every field the athlete can
-     already change, they still can, and their words are stored exactly as
-     typed. What is new is that the day now remembers it was hand-edited and
-     what it was before, mirroring coachAdjust for coach-driven changes so
-     there is one pattern rather than two. */
-  var before = { title:dd.title, type:dd.type, km:dd.km, desc:dd.desc, mpSegment:!!dd.mpSegment,
-                 prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
-  var newKm = isNaN(km) ? 0 : km;
-  var changed = [];
-  if (title !== before.title) changed.push('title');
-  if (type !== before.type) changed.push('type');
-  if (newKm !== before.km) changed.push('km');
-  if (!!mp !== before.mpSegment) changed.push('mpSegment');
-  if (desc !== resolveDesc(before.desc)) changed.push('desc');
+    /* PROVENANCE. Manual editing is unchanged -- every field the athlete can
+       already change, they still can, and their words are stored exactly as
+       typed. What is new is that the day now remembers it was hand-edited and
+       what it was before, mirroring coachAdjust for coach-driven changes so
+       there is one pattern rather than two. */
+    var before = { title:dd.title, type:dd.type, km:dd.km, desc:dd.desc, mpSegment:!!dd.mpSegment,
+                   prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
+    var newKm = isNaN(km) ? 0 : km;
+    var changed = [];
+    if (title !== before.title) changed.push('title');
+    if (type !== before.type) changed.push('type');
+    if (newKm !== before.km) changed.push('km');
+    if (!!mp !== before.mpSegment) changed.push('mpSegment');
+    if (desc !== resolveDesc(before.desc)) changed.push('desc');
 
-  dd.title=title; dd.type=type; dd.km=newKm; dd.mpSegment=mp;
-  /* The modal shows resolved text, so writing it back unconditionally used to
-     strip the @@D:n@@ tokens from every session that was opened and saved --
-     even when the description was never touched -- and a de-tokenised day can
-     no longer follow a distance change or a switch to miles. Only write it
-     when it genuinely changed. */
-  if (changed.indexOf('desc')!==-1) dd.desc = desc;
+    dd.title=title; dd.type=type; dd.km=newKm; dd.mpSegment=mp;
+    /* The modal shows resolved text, so writing it back unconditionally used to
+       strip the @@D:n@@ tokens from every session that was opened and saved --
+       even when the description was never touched -- and a de-tokenised day can
+       no longer follow a distance change or a switch to miles. Only write it
+       when it genuinely changed. */
+    if (changed.indexOf('desc')!==-1) dd.desc = desc;
 
-  if (changed.length){
-    /* Which edits the structure can survive. A retitled session is the same
-       session. A shorter easy run is still an easy run. A changed type,
-       changed instructions or a changed goal-pace flag means the athlete is
-       running something else, and no structure we hold still describes it --
-       so it is dropped and the day falls back to today's behaviour. */
-    var structural = changed.some(function(f){ return f==='type' || f==='desc' || f==='mpSegment'; });
-    if (structural) delete dd.prescription;
-    else if (changed.indexOf('km')!==-1) rescaleOrDropPrescription(dd, newKm);
+    if (changed.length){
+      /* Which edits the structure can survive. A retitled session is the same
+         session. A shorter easy run is still an easy run. A changed type,
+         changed instructions or a changed goal-pace flag means the athlete is
+         running something else, and no structure we hold still describes it --
+         so it is dropped and the day falls back to today's behaviour. */
+      var structural = changed.some(function(f){ return f==='type' || f==='desc' || f==='mpSegment'; });
+      if (structural) delete dd.prescription;
+      else if (changed.indexOf('km')!==-1) rescaleOrDropPrescription(dd, newKm);
 
-    // first edit wins: editing twice must not lose what VVV originally set
-    if (!dd.manualEdit) dd.manualEdit = { at:new Date().toISOString(), fields:[], from:before };
-    dd.manualEdit.at = new Date().toISOString();
-    changed.forEach(function(f){ if (dd.manualEdit.fields.indexOf(f)===-1) dd.manualEdit.fields.push(f); });
+      // first edit wins: editing twice must not lose what VVV originally set
+      if (!dd.manualEdit) dd.manualEdit = { at:new Date().toISOString(), fields:[], from:before };
+      dd.manualEdit.at = new Date().toISOString();
+      changed.forEach(function(f){ if (dd.manualEdit.fields.indexOf(f)===-1) dd.manualEdit.fields.push(f); });
+    }
   }
+  var swapId = document.getElementById('ef-swap').value;
 
   /* Completion is applied after the field edits, so switching a session to
      Rest in the same save cannot leave it marked complete. The rule is
@@ -23697,34 +23969,70 @@ function renderFullPlanView(){
 // startCountdownTimer() look for, so live-updating and log-driven patching
 // is unchanged, and handleSetUnits() already does a full renderApp(), so the
 // pill here stays in sync without any new patch logic.
+/* Days-to-goal, as a compact hero figure rather than a live-ticking d/h/m/s
+   badge. Same raceDate, same past/future branch renderCountdown() already
+   uses (including the block-outcome copy for a goal day already behind us)
+   -- only the presentation is simpler, to match the approved hero's two
+   quiet figures rather than a countdown clock. */
+function renderGoalDayFig(){
+  if (!state.setup) return '';
+  if (state.setup.raceDate < todayStr()){
+    var b = currentBlock();
+    var oc = b && b.outcome && b.outcome.race && b.outcome.race.outcome;
+    var said = GOAL_DAY_PAST_COPY[oc] || (raceOutcomePending() ? 'Pending' : 'Complete');
+    return '<div class="v-hero-fig"><b class="font-mono">'+escapeHtml(said)+'</b><span>'+escapeHtml(vGoalDay())+'</span></div>';
+  }
+  var target = new Date(state.setup.raceDate+'T00:00:00').getTime();
+  var days = Math.floor(Math.max(0, target-Date.now())/86400000);
+  return '<div class="v-hero-fig"><b class="font-mono">'+days+'d</b><span>To '+escapeHtml(vGoalDay())+'</span></div>';
+}
+/* THE VALHALLA HERO — approved-concept redesign.
+   Centred block/week, the full-circle confidence ring, two quiet figures
+   (goal day, training load), the Race Outlook as a contained card, and a
+   one-line status read. Every figure is the same real computation Plan HQ
+   already made -- computeConfidenceScore(), coachAnalyse().load, raceOutlook()
+   -- only the layout and shape changed. The KM/MI toggle is real, unrelated
+   state (display units, not coaching) and stays reachable as a small corner
+   control rather than disappearing with the redesign. */
 function renderProgrammeStatus(){
-  var unitToggle = '<div class="tb-unit-toggle" role="group" aria-label="Distance units">'+
+  var unitToggle = '<div class="tb-unit-toggle v-hero-unit-toggle" role="group" aria-label="Distance units">'+
       '<button type="button" class="'+(state.units!=='mi'?'active':'')+'" data-action="set-units" data-units="km">KM</button>'+
       '<button type="button" class="'+(state.units==='mi'?'active':'')+'" data-action="set-units" data-units="mi">MI</button>'+
     '</div>';
-  return '<div class="programme-status-head">'+
-      '<div class="setup-section-title">Programme Status</div>'+
-      unitToggle+
+  if (!state.setup) return '<div class="v-hero">'+unitToggle+'</div>';
+  var parts = blockIdentityParts();
+  var report = coachAnalyse();
+  var loadVal = (report && report.load && report.load.ratio!=null) ? report.load.ratio.toFixed(2)+'x' : '—';
+  var dec = report && report.decision;
+  var decMeta = dec ? COACH_DECISION_META[dec.state] : null;
+  var statusTone = decMeta ? (readingTone(decMeta.cls) || 'good') : null;
+  var recWord = report ? { fresh:'fresh', watch:'watching', strained:'strained' }[report.recovery.state] : null;
+  var trendWord = report && report.trend.enough
+    ? { rising:'improving', falling:'slipping', flat:'steady' }[report.trend.direction]
+    : 'still building';
+  var statusLine = decMeta
+    ? '<div class="v-status-line"><span class="v-status-dot '+statusTone+'"></span>'+
+        '<span><b>'+escapeHtml(decMeta.label)+'</b>'+
+        (recWord ? ' — recovery '+escapeHtml(recWord)+', trend '+escapeHtml(trendWord)+'.' : '.')+
+      '</span></div>'
+    : '';
+  return '<div class="v-hero">'+
+    unitToggle+
+    '<div class="v-hero-block font-display">'+escapeHtml(parts.label)+'</div>'+
+    (parts.wk && parts.total ? '<div class="v-hero-week">Week '+parts.wk+' of '+parts.total+'</div>' : '')+
+    '<div id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>'+
+    '<div class="v-hero-figs">'+
+      renderGoalDayFig()+
+      '<div class="v-hero-fig"><b class="font-mono">'+escapeHtml(loadVal)+'</b><span>Load</span></div>'+
     '</div>'+
-    /* WHICH BLOCK, AND HOW FAR IN. One line under the heading, before the
-       gauge -- the athlete's first question on this screen is "what am I
-       doing at the moment", and the confidence number only means something
-       once that is answered. */
-    (state.setup ? '<div class="block-identity font-head">'+escapeHtml(blockIdentityLine())+'</div>' : '')+
-    '<div class="stat-row">'+
-      '<div class="stat" id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>'+
-      '<div class="stat"><div class="l">'+vGoalDay()+'</div><div id="countdown-mount">'+renderCountdown()+'</div></div>'+
-    '</div>'+
-    (state.setup ? '<div class="field-hint">Confidence reflects how closely your logged sessions have matched '+
-      'what was prescribed — it settles as more sessions are logged, and no single session moves it far.</div>' : '')+
-    /* THE SECOND READING IN PROGRAMME STATUS, and a deliberately different
-       question from the first. The gauge and the sentence above it are
-       untouched: they say how faithfully the training has been executed. The
-       line below says where the last MEASURED effort sits against the goal.
-       Neither is the other, and neither is a probability. #outlook-mount is
-       patched by patchDerivedStats() for the same reason the gauge is --
-       logging a race or a checkpoint changes it. */
-    (state.setup ? '<div id="outlook-mount">'+renderRaceOutlook()+'</div>' : '');
+    /* THE SECOND READING IN THE HERO, and a deliberately different question
+       from the gauge above it: the gauge says how faithfully training has
+       been executed; this says where the last MEASURED effort sits against
+       the goal. #outlook-mount is patched by patchDerivedStats() for the
+       same reason the gauge is -- logging a race or a checkpoint changes it. */
+    '<div id="outlook-mount">'+renderRaceOutlook()+'</div>'+
+    statusLine+
+  '</div>';
 }
 /* =========================================================
    THE RECORD
@@ -23779,40 +24087,29 @@ function scheduledCheckpointDay(){
   return found;
 }
 
-function recordCard(key, subject, valueHtml, synopsis){
-  return '<button type="button" class="rec-card" data-action="open-record" data-record="'+key+'">'+
-      '<div class="rec-top">'+
-        '<span class="rec-subject">'+escapeHtml(subject)+'</span>'+
-        '<span class="rec-right">'+valueHtml+ICONS.chevronRight+'</span>'+
-      '</div>'+
-      (synopsis ? '<div class="rec-syn">'+escapeHtml(synopsis)+'</div>' : '')+
-    '</button>';
-}
-function recordValue(text, extraClass){
-  return '<span class="rec-val'+(extraClass?(' '+extraClass):'')+'">'+escapeHtml(text)+'</span>';
-}
-
-function recordFitnessCard(){
+/* THE RECORD — the four facts as data, not markup, so the exact same
+   computation can back both the interactive evidence card (Record tab) and
+   the quiet chamfered-plate preview (Valhalla tab). Nothing here recomputes
+   anything Plan HQ did not already compute. */
+function recordFitnessFact(){
   var latest = measuredProgression().latest;
   if (!latest){
-    return recordCard('fitness', 'Measured fitness',
-      recordValue('Nothing measured', 'rec-none'),
-      'A race or a Fitness Checkpoint is what counts.');
+    return { key:'fitness', subject:'Measured fitness', value:'Nothing measured', none:true,
+      synopsis:'A race or a Fitness Checkpoint is what counts.' };
   }
   var src = latest.source === 'race' ? 'Race' : 'Checkpoint';
-  return recordCard('fitness', 'Measured fitness',
-    recordValue(fmtDist(latest.km)+' · '+secToClock(latest.timeSec), 'font-mono'),
-    src+', '+dShort(latest.date)+'. Training runs do not move it.');
+  return { key:'fitness', subject:'Measured fitness',
+    value:fmtDist(latest.km)+' · '+secToClock(latest.timeSec),
+    synopsis:src+', '+dShort(latest.date)+'. Training runs do not move it.' };
 }
-function recordBenchmarkCard(){
+function recordBenchmarkFact(){
   var b = state.setup.benchmark;
-  var value = b
-    ? recordValue(DISTANCE_PROFILES[b.distanceKey].label+' · '+secToClock(b.timeSec), 'font-mono')
-    : recordValue('Not set', 'rec-none');
-  return recordCard('benchmark', 'Benchmark', value,
-    'Your reference time. Update it here to re-calibrate.');
+  return { key:'benchmark', subject:'Benchmark',
+    value: b ? DISTANCE_PROFILES[b.distanceKey].label+' · '+secToClock(b.timeSec) : 'Not set',
+    none: !b,
+    synopsis:'Your reference time. Update it here to re-calibrate.' };
 }
-function recordZonesCard(){
+function recordZonesFact(){
   var overrides = state.setup.paceOverrides || {};
   var edited = ZONE_PACE_ORDER.filter(function(k){
     return overrides[k] && overrides[k].slow!=null && overrides[k].fast!=null;
@@ -23822,29 +24119,47 @@ function recordZonesCard(){
   else if (edited.length >= 3) syn = edited.length+' zones edited by hand. The rest as calculated.';
   else syn = edited.map(function(k){ return ZONE_PACE_LABELS[k]; }).join(' and ')+
              ' edited by hand. The rest as calculated.';
-  return recordCard('zones', 'Training zone paces',
-    recordValue(ZONE_PACE_ORDER.length+' zones', 'font-mono'), syn);
+  return { key:'zones', subject:'Training paces', value:ZONE_PACE_ORDER.length+' zones', synopsis:syn };
 }
-function recordProgressCard(){
+function recordProgressFact(){
   var s = computeStats();
   var runsPct = s.totalRuns ? Math.round(100*s.completedRuns/s.totalRuns) : 0;
   var week = currentWeekNum(), total = totalWeeksInPlan();
   var syn = s.completedRuns+' of '+s.totalRuns+' runs'+
     (week && total ? ' · week '+week+' of '+total : '')+'.';
-  return recordCard('progress', 'Progress', recordValue(runsPct+'%', 'font-mono'), syn);
+  return { key:'progress', subject:'Progress', value:runsPct+'%', synopsis:syn };
+}
+function recordFacts(){
+  return [recordFitnessFact(), recordBenchmarkFact(), recordZonesFact(), recordProgressFact()];
+}
+
+/* The interactive evidence card (Record tab): a headline fact, not a dial --
+   plates and headlines are for numbers, circles are for state, and a
+   benchmark or a pace count is a number, never a state. Still the same
+   open-record destination it always was. */
+function recordCard(f){
+  return '<button type="button" class="ev-card" data-action="open-record" data-record="'+f.key+'">'+
+      '<div class="rec-headline"><b class="'+(f.none?'rec-none':'')+'">'+escapeHtml(f.value)+'</b>'+
+        '<span>'+escapeHtml(f.subject)+'</span></div>'+
+      (f.synopsis ? '<div class="rec-context">'+escapeHtml(f.synopsis)+'</div>' : '')+
+    '</button>';
+}
+/* The quiet Valhalla-tab preview: the approved concept's chamfered plate,
+   non-interactive -- the same four values, shown rather than opened. */
+function recordPlate(f){
+  return '<div class="b-plate"><div class="val'+(f.none?' rec-none':'')+'">'+escapeHtml(f.value)+'</div>'+
+    '<div class="lbl">'+escapeHtml(f.subject)+'</div></div>';
 }
 
 function renderRecordSection(){
-  /* The sub-line is set at the synopsis size, not the field-hint size. Ten
-     cards run consecutively down this screen and the section labels are the
-     only thing structuring them, so the label has to read as a label rather
-     than as a first card that lost its box. */
   return '<div class="setup-section-title">The Record</div>'+
     '<div class="rec-lede">What this is based on, and what you can change.</div>'+
-    recordFitnessCard()+
-    recordBenchmarkCard()+
-    recordZonesCard()+
-    recordProgressCard();
+    recordFacts().map(recordCard).join('');
+}
+function renderValhallaRecordPreview(){
+  if (!state.setup) return '';
+  return '<div class="setup-section-title">The Record</div>'+
+    '<div class="b-record">'+recordFacts().map(recordPlate).join('')+'</div>';
 }
 
 /* ---------- the panels ----------
@@ -24058,18 +24373,73 @@ function refreshOpenRecordPanel(){
    element is a CONCLUSION and may carry the tone the engine assigned it. The
    five were accordions that expanded inline; the bodies they expanded are
    rendered verbatim inside a panel now, so nothing on the page moves. */
+/* THE READING'S DIALS — a circle for state, never a fabricated percentage.
+   Only Readiness has a genuine 0-100 fraction (computeConfidenceScore());
+   its dial is a real progress ring. The other four sections are categorical
+   (fresh/watch/strained, on-track/worth-watching/..., a count, a block
+   state), so their dials are a solid tone-coloured ring where the coaching
+   engine assigned a tone, or a plain medallion where it assigned none --
+   state shown honestly, not a percentage that does not exist. */
+var READING_DIAL_LABEL = { readiness:'Readiness', recovery:'Recovery', evolution:'Evolution', patterns:'Patterns', adaptation:'Adaptation' };
+function toneRingColor(tone){
+  return tone==='good' ? 'var(--c-easy)' : tone==='watch' ? 'var(--gold)' : tone==='bad' ? 'var(--c-tempo)' : null;
+}
+function dialFontSize(text, lead){
+  var n = (text||'').length;
+  if (lead) return n<=4 ? '14.5px' : n<=7 ? '12px' : n<=10 ? '10px' : '8.5px';
+  return n<=4 ? '11.5px' : n<=7 ? '9.5px' : n<=10 ? '8.5px' : '7.5px';
+}
+/* The dial's own centre text: readiness gets just its number ("50%", not
+   "50% confidence" -- the fuller sentence is the card's synopsis, not the
+   ring's job); every other section's already-short status word is used as
+   it is written by its own META table. */
+function dialCenterText(sec){
+  if (sec.key === 'readiness'){
+    var m = /^(\d+)%/.exec(sec.value);
+    return m ? m[1]+'%' : sec.value;
+  }
+  return sec.value;
+}
+function readingDialSvg(sec, size){
+  var sw = size>=60?5:(size>=44?4:3.5);
+  var r = size/2 - sw/2 - 1, cx = size/2, cy = size/2;
+  if (sec.key === 'readiness'){
+    var m = /^(\d+)%/.exec(sec.value);
+    var pct = m ? Math.max(0, Math.min(100, parseInt(m[1],10))) : 0;
+    var circ = 2*Math.PI*r, fillLen = circ*(pct/100);
+    return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'">'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--cherry-soft)" stroke-width="'+sw+'"/>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--cherry)" stroke-width="'+sw+'" stroke-linecap="round" '+
+        'stroke-dasharray="'+fillLen.toFixed(1)+' '+(circ-fillLen).toFixed(1)+'" transform="rotate(-90 '+cx+' '+cy+')"/>'+
+    '</svg>';
+  }
+  var color = toneRingColor(sec.tone);
+  if (!color) return '';
+  return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'">'+
+    '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="'+sw+'"/>'+
+  '</svg>';
+}
+function readingDialHtml(sec, lead){
+  var size = lead ? 64 : 56;
+  var svg = readingDialSvg(sec, size);
+  var medal = svg ? '' : '<div class="b-medal"></div>';
+  var text = dialCenterText(sec);
+  return '<div class="b-dial'+(lead?' lead':'')+'">'+svg+medal+
+    '<b style="font-size:'+dialFontSize(text, lead)+';">'+escapeHtml(text)+'</b></div>';
+}
 function readingCard(sec){
-  var tone = sec.tone ? ' '+sec.tone : '';
-  var value = '<span class="read-val'+tone+'">'+
-      (sec.tone ? '<span class="read-dot"></span>' : '')+
-      escapeHtml(sec.value)+
-    '</span>';
-  return '<button type="button" class="rec-card" data-action="open-reading" data-reading="'+sec.key+'">'+
-      '<div class="rec-top">'+
-        '<span class="rec-subject">'+escapeHtml(sec.title)+'</span>'+
-        '<span class="rec-right">'+value+ICONS.chevronRight+'</span>'+
+  var size = 44, svg = readingDialSvg(sec, size);
+  var medal = svg ? '' : '<div class="rs-medal"></div>';
+  var text = dialCenterText(sec);
+  return '<button type="button" class="ev-card" data-action="open-reading" data-reading="'+sec.key+'">'+
+      '<div class="rs-head">'+
+        '<div class="rs-dial">'+svg+medal+
+          '<b style="font-size:'+dialFontSize(text, false)+';">'+escapeHtml(text)+'</b></div>'+
+        '<div class="rs-head-text"><h3>'+escapeHtml(sec.title)+'</h3>'+
+          (sec.syn ? '<div class="rs-syn">'+escapeHtml(sec.syn)+'</div>' : '')+
+        '</div>'+
+        '<span class="rs-chev">'+ICONS.chevronRight+'</span>'+
       '</div>'+
-      (sec.syn ? '<div class="rec-syn">'+escapeHtml(sec.syn)+'</div>' : '')+
     '</button>';
 }
 function renderReadingSection(){
@@ -24086,6 +24456,23 @@ function renderReadingSection(){
   return '<div class="programme-status-head"><div class="setup-section-title">The Reading</div>'+pill+'</div>'+
     '<div class="rec-lede">What Valhalla makes of your training. Tap any line for the evidence.</div>'+
     readingSections(report).map(readingCard).join('');
+}
+function renderValhallaReadingPreview(){
+  var report = coachAnalyse();
+  if (!report) return '';
+  var byKey = {};
+  readingSections(report).forEach(function(s){ byKey[s.key] = s; });
+  var order = ['readiness','recovery','evolution','patterns','adaptation'];
+  var cols = order.map(function(k){
+    var sec = byKey[k];
+    return '<div class="b-dial-col">'+readingDialHtml(sec, k==='readiness')+
+      '<span class="lbl">'+escapeHtml(READING_DIAL_LABEL[k])+'</span></div>';
+  });
+  return '<div class="setup-section-title">The Reading</div>'+
+    '<div class="b-dials">'+
+      '<div class="b-dials-row">'+cols.slice(0,3).join('')+'</div>'+
+      '<div class="b-dials-row">'+cols.slice(3).join('')+'</div>'+
+    '</div>';
 }
 function readingPanel(key){
   var report = coachAnalyse();
@@ -24144,13 +24531,13 @@ function raceOutlook(){
 function renderRaceOutlook(){
   var o = raceOutlook();
   if (!o) return '';
-  var head = '<div class="outlook-head"><span class="outlook-title">Race Outlook</span>'+
-    '<span class="outlook-dist">'+escapeHtml(o.profile.label)+
+  var head = '<div class="oi-label"><span>Race Outlook</span>'+
+    '<span class="oi-dist">'+escapeHtml(o.profile.label)+
       (o.goalSec!=null ? ' · Goal '+escapeHtml(state.setup.activeGoal) : '')+'</span></div>';
 
   if (o.state !== 'measured'){
-    return '<div class="outlook" id="outlook-mount-inner">'+head+
-      '<div class="field-hint">'+escapeHtml(o.state === 'withheld'
+    return '<div class="outlook-instrument" id="outlook-mount-inner">'+head+
+      '<div class="oi-empty">'+escapeHtml(o.state === 'withheld'
         ? o.reason
         : 'Nothing measured yet, so there is nothing to place against your goal. A completed race '+
           'or a Fitness Checkpoint is what puts a band on this line.')+'</div>'+
@@ -24185,21 +24572,18 @@ function renderRaceOutlook(){
     verdict = 'Your goal sits inside the range your last measured effort suggests.';
   }
 
-  return '<div class="outlook" id="outlook-mount-inner">'+head+
-    '<div class="outlook-track" role="img" aria-label="Measured range '+
+  return '<div class="outlook-instrument" id="outlook-mount-inner">'+head+
+    '<div class="oi-track" role="img" aria-label="Measured range '+
       secToClock(o.fastSec)+' to '+secToClock(o.slowSec)+
       (o.goalSec!=null ? ', goal '+secToClock(o.goalSec) : '')+'">'+
-      '<div class="outlook-band" style="left:'+bandL.toFixed(1)+'%; width:'+
+      '<div class="oi-line"></div>'+
+      '<div class="oi-band" style="left:'+bandL.toFixed(1)+'%; width:'+
         Math.max(bandR - bandL, 2).toFixed(1)+'%"></div>'+
-      (o.goalSec!=null ? '<div class="outlook-goal" style="left:'+pct(o.goalSec).toFixed(1)+'%"></div>' : '')+
-    '</div>'+
-    '<div class="outlook-scale"><span class="font-mono">'+secToClock(min)+'</span>'+
-      '<span class="font-mono">'+secToClock(max)+'</span></div>'+
-    '<div class="outlook-legend">'+
-      '<span class="ol-key"><i class="ol-swatch measured"></i>Measured '+
-        secToClock(o.fastSec)+'–'+secToClock(o.slowSec)+'</span>'+
-      (o.goalSec!=null ? '<span class="ol-key"><i class="ol-swatch goal"></i>Goal '+
-        escapeHtml(state.setup.activeGoal)+' '+secToClock(o.goalSec)+'</span>' : '')+
+      (o.goalSec!=null ? '<div class="oi-goal" style="left:'+pct(o.goalSec).toFixed(1)+'%"></div>'+
+        '<span class="oi-goal-lbl" style="left:'+pct(o.goalSec).toFixed(1)+'%;">Goal '+
+          escapeHtml(state.setup.activeGoal)+' · '+secToClock(o.goalSec)+'</span>' : '')+
+      '<span class="oi-band-lbl" style="left:'+bandL.toFixed(1)+'%;">'+secToClock(o.fastSec)+'</span>'+
+      '<span class="oi-band-lbl" style="left:'+bandR.toFixed(1)+'%; transform:translateX(-100%);">'+secToClock(o.slowSec)+'</span>'+
     '</div>'+
     '<div class="field-hint">'+escapeHtml(verdict)+' From your '+
       (o.fromSource === 'race' ? 'race' : 'Fitness Checkpoint')+' on '+dShort(o.fromDate)+
@@ -24234,10 +24618,22 @@ function actionTile(action, icon, label, extra){
   return '<button type="button" class="act-tile" data-action="'+action+'"'+(extra||'')+'>'+
     icon+'<span class="act-lab">'+escapeHtml(label)+'</span></button>';
 }
-function renderActionTrio(){
-  return '<div class="act-trio">'+
+/* THE ACTION TRIO, RE-HOMED, NOT REBUILT. Same three real destinations
+   (openHQPanel('newblock')/openSetupModal()/openHQPanel('checkpoint')), same
+   actionTile() helper and the same data-action values the click dispatcher
+   has always handled -- only which VALHALLA sub-tab renders which tile
+   changed. New Block and Plan Settings are programme-level decisions, so
+   they sit with Programme Status on Valhalla; Checkpoint is a measurement
+   action, so it sits with the rest of what Record already says about
+   measured fitness. */
+function renderValhallaActionsRow(){
+  return '<div class="act-trio act-cols-2">'+
     actionTile('open-new-block', ICONS.layers, 'New block')+
     actionTile('open-setup', ICONS.settings, 'Plan settings')+
+  '</div>';
+}
+function renderRecordActionsRow(){
+  return '<div class="act-trio act-cols-1">'+
     actionTile('open-checkpoint', ICONS.target, 'Checkpoint')+
   '</div>';
 }
@@ -24344,26 +24740,58 @@ function handleGoToCheckpoint(){
   if (el && el.scrollIntoView){ try { el.scrollIntoView({ block:'center' }); } catch(err){ el.scrollIntoView(); } }
 }
 
+/* VALHALLA / COACH / RECORD -- three views over Plan HQ's existing
+   functionality, not three new systems and not three permanently-mounted
+   screens. Ephemeral UI state only (like planhqReturnScrollY/landingDismissed
+   above it) -- never persisted, and reset to the overview every time the
+   athlete arrives at Valhalla from a different tab, so opening it always
+   answers "where am I" first rather than resuming wherever they left off. */
+var planhqTab = 'valhalla';
+function handleSetPlanhqTab(tab){
+  if (planhqTab === tab) return;
+  planhqTab = tab;
+  renderApp();
+}
+function renderPlanHQSubNav(){
+  var tabs = [
+    { key:'valhalla', label:'Valhalla' },
+    { key:'coach', label:'Coach' },
+    { key:'record', label:'Record' }
+  ];
+  return '<div class="planhq-subnav" role="tablist" aria-label="Valhalla sections">'+
+    tabs.map(function(t){
+      return '<button type="button" role="tab" aria-selected="'+(planhqTab===t.key?'true':'false')+'" '+
+        'class="planhq-subnav-btn'+(planhqTab===t.key?' active':'')+'" '+
+        'data-action="set-planhq-tab" data-tab="'+t.key+'">'+t.label+'</button>';
+    }).join('')+
+  '</div>';
+}
 function renderPlanHQView(){
-  /* SUMMARY FIRST, INTERPRETATION SECOND, RECORD THIRD, ACTIONS LAST.
-     Programme Status opens on the confidence gauge, its explainer and the Race
-     Outlook line. Then the coach's read, then the five interpretations, then
-     the block-transition offer and the goal, then the four facts, then three
-     deliberate actions. Nothing on this screen expands in place any more. */
-  return '<div class="view-heading font-head">Plan HQ</div>'+
-    renderProgrammeStatus()+
-    renderCoachPanel()+
-    renderReadingSection()+
-    /* The "Build New Block" summary bar that used to sit here fired the same
-       open-setup as the trio's PLAN SETTINGS tile now does, so it was the
-       duplicate the trio was accused of being. What stands in its place is the
-       thing that is genuinely a block transition: the engine's recommendation,
-       rendered only when there is one. */
-    renderBlockTransitionCard()+
-    renderCheckpointBanner()+
-    renderGoalToggle()+
-    renderRecordSection()+
-    renderActionTrio();
+  /* NOTHING BELOW IS REBUILT. Every section is the exact render function this
+     screen already called before the split -- renderProgrammeStatus(),
+     renderCoachPanel(), renderReadingSection(), renderRecordSection() and the
+     rest are untouched -- just grouped by the question each answers (where am
+     I / what does it mean / show me the evidence) instead of stacked in one
+     long scroll. */
+  var body;
+  if (planhqTab === 'coach'){
+    body = renderCoachPanel()+renderReadingSection();
+  } else if (planhqTab === 'record'){
+    body = renderCheckpointBanner()+renderGoalToggle()+renderRecordSection()+renderRecordActionsRow();
+  } else {
+    /* The approved Valhalla hero, then the same two condensed previews the
+       concept shows on the front screen -- circular dials for what Valhalla
+       is reading, chamfered plates for what it is built on. Both are quiet
+       summaries of the real Coach/Record data; the full, tappable versions
+       live on their own tabs. */
+    body = renderProgrammeStatus()+renderValhallaReadingPreview()+renderValhallaRecordPreview()+
+      renderBlockTransitionCard()+renderValhallaActionsRow();
+  }
+  /* The Valhalla/Coach/Record subnav itself is no longer rendered here -- it
+     lives in the persistent .bn-stack above the main bottom nav (see
+     renderBottomNavStack()), not in this scrolling content. */
+  return '<div class="view-heading font-head">Valhalla</div>'+
+    body;
 }
 // Notification permission can be revoked from outside the app (browser/OS
 // settings) at any time, so the toggle always reflects the live
@@ -24655,7 +25083,7 @@ function renderBottomNav(){
     {key:'today', label:'Today', icon:ICONS.clock},
     {key:'week', label:'This Week', icon:ICONS.calendarWeek},
     {key:'full', label:'Full Plan', icon:ICONS.layers},
-    {key:'planhq', label:'Plan HQ', icon:ICONS.target},
+    {key:'planhq', label:'Valhalla', icon:ICONS.target},
     {key:'settings', label:'Settings', icon:ICONS.settings}
   ];
   return '<nav class="bottom-nav" id="bottom-nav">'+
@@ -24664,9 +25092,22 @@ function renderBottomNav(){
     }).join('')+
   '</nav>';
 }
+// The persistent nav anchor: the Valhalla/Coach/Record subnav (only while
+// on Valhalla) stacked directly above the permanent bottom nav, both fixed
+// together so the subnav never scrolls away and is never duplicated at the
+// top of the view.
+function renderBottomNavStack(){
+  var view = state.view || 'today';
+  return '<div class="bn-stack">'+
+    (view==='planhq' ? renderPlanHQSubNav() : '')+
+    renderBottomNav()+
+  '</div>';
+}
 function handleSetView(view){
   if (state.view===view) return;
   state.view = view;
+  // Valhalla always opens on its own overview -- see renderPlanHQView().
+  if (view==='planhq') planhqTab = 'valhalla';
   /* Strava availability is learned lazily, when the athlete actually navigates
      to the screen that shows it. A signed-in athlete has normally learned it
      already from the status call at open; this covers the signed-out case,
@@ -24813,10 +25254,12 @@ function renderApp(){
   var app = document.getElementById('app');
   if (!app) return;
   lastRenderedDate = todayStr();
+  var navAllowed = appStateAllowsNav();
+  app.classList.toggle('has-subnav', navAllowed && (state.view||'today')==='planhq');
   app.innerHTML =
     renderTopbar()+
     '<div class="wrap"><div id="view-mount" class="view-fade">'+renderMainContent()+'</div></div>'+
-    (appStateAllowsNav() ? renderBottomNav() : '');
+    (navAllowed ? renderBottomNavStack() : '');
 }
 
 /* =========================================================
@@ -24942,6 +25385,7 @@ document.addEventListener('click', function(e){
     case 'print-plan': handlePrintPlan(); break;
     case 'reset-pace-overrides': handleResetPaceOverrides(); break;
     case 'set-view': handleSetView(target.getAttribute('data-view')); break;
+    case 'set-planhq-tab': handleSetPlanhqTab(target.getAttribute('data-tab')); break;
     case 'cloud-sign-in': handleCloudSignIn(); break;
     case 'cloud-sign-out': cloudSignOut(); break;
     case 'cloud-delete-account': handleCloudDeleteAccount(); break;

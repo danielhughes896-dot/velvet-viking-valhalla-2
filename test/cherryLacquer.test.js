@@ -151,10 +151,11 @@ test('every customer-facing brand control now resolves through the accent token'
       what + ' hard-codes a colour instead of using the token: ' + sel));
   });
   // The gauge is built in JS, not CSS, so it is checked where it is written.
-  assert.match(CODE, /gaugeFillGrad[\s\S]{0,220}var\(--cherry-dim\)[\s\S]{0,80}var\(--cherry\)/,
+  // Approved-concept redesign: a full-circle ring rather than a semicircle
+  // with a gradient and a needle -- the progress arc itself is still the
+  // one place this figure carries the accent.
+  assert.match(CODE, /\.gauge-fill\{stroke:var\(--cherry\);\}/,
     'the confidence gauge arc no longer takes the accent');
-  assert.match(CODE, /stroke="var\(--cherry\)" stroke-width="2\.4"/,
-    'the confidence gauge needle no longer takes the accent');
 });
 
 test('the primaries are SOLID, which is the treatment that was chosen', () => {

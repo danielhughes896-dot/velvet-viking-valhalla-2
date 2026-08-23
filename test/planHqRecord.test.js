@@ -45,13 +45,17 @@ function planHQ(opts) {
   const a = loadApp({ pinnedDate: PINNED });
   buildPlan(a, Object.assign({ distanceKey: 'half', volume: 45, weeks: 12 }, opts || {}));
   a.state.view = 'planhq';
+  // This file is about THE RECORD specifically, and Valhalla now opens on a
+  // different tab by default -- every test below wants the Record tab unless
+  // it says otherwise.
+  a.planhqTab = 'record';
   return a;
 }
-// THE READING's cards share the .rec-card shell deliberately -- one component
+// THE READING's cards share the .ev-card shell deliberately -- one component
 // doing the other job -- so a Record card is identified by the action it
 // fires, not by its class.
 function cards(html) {
-  return (html.match(/<button type="button" class="rec-card"[\s\S]*?<\/button>/g) || [])
+  return (html.match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [])
     .filter(c => c.indexOf('data-action="open-record"') !== -1);
 }
 function cardFor(html, subject) {
@@ -69,16 +73,15 @@ test('RECORD: Plan HQ carries exactly four Record cards, each its own tappable c
   const found = cards(html);
   assert.equal(found.length, 4, 'expected four Record cards, found ' + found.length);
 
-  const subjects = found.map(c => (c.match(/class="rec-subject">([^<]+)</) || [])[1]);
+  const subjects = found.map(c => (c.match(/<\/b><span>([^<]+)<\/span>/) || [])[1]);
   assert.equal(subjects.join(' | '),
-    'Measured fitness | Benchmark | Training zone paces | Progress');
+    'Measured fitness | Benchmark | Training paces | Progress');
 
   found.forEach(c => {
     assert.match(c, /data-action="open-record"/, 'a Record card does not open anything');
     assert.match(c, /data-record="(fitness|benchmark|zones|progress)"/);
-    assert.match(c, /<svg/, 'a Record card has no chevron affordance');
-    assert.match(c, /class="rec-val/, 'a Record card states no value');
-    assert.match(c, /class="rec-syn"/, 'a Record card carries no synopsis');
+    assert.match(c, /class="rec-headline"/, 'a Record card states no value');
+    assert.match(c, /class="rec-context"/, 'a Record card carries no synopsis');
   });
 });
 
@@ -90,7 +93,7 @@ test('RECORD: the four are separate cards, not one combined container', () => {
   found_not_nested: {
     const region = html.slice(html.indexOf('data-action="open-record"'));
     assert.doesNotMatch(region.slice(0, region.indexOf('</button>')),
-      /class="rec-card"/, 'a Record card is nested inside another Record card');
+      /class="ev-card"/, 'a Record card is nested inside another Record card');
     break found_not_nested;
   }
   // And no list/table container wrapping them.
@@ -101,17 +104,18 @@ test('RECORD: a card value is a fact, never a verdict', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
   cards(html).forEach(c => {
-    const right = c.slice(c.indexOf('class="rec-right"'), c.indexOf('</div>'));
-    // A conclusion elsewhere in Plan HQ carries a status hue and often a dot.
-    // A Record value carries neither -- that is the whole distinction.
-    assert.doesNotMatch(right, /\bdot\b/, 'a Record value grew a status dot');
-    assert.doesNotMatch(right, /positive|negative|warn|good|strained|c-tempo|c-easy/,
-      'a Record value was given a status colour');
-    assert.doesNotMatch(right, /text-transform/, 'a Record value was shouted');
+    const headline = c.slice(c.indexOf('class="rec-headline"'), c.indexOf('</div>'));
+    // A conclusion elsewhere in Plan HQ carries a status hue, a tone-coloured
+    // dial ring, and often a dot. A Record value carries none of that -- it
+    // is a headline number, not a verdict.
+    assert.doesNotMatch(headline, /\bdot\b/, 'a Record value grew a status dot');
+    assert.doesNotMatch(headline, /positive|negative|warn|good|strained|c-tempo|c-easy|rs-dial/,
+      'a Record value was given a status colour or a verdict dial');
+    assert.doesNotMatch(headline, /text-transform/, 'a Record value was shouted');
   });
   // The rule is in the stylesheet too, not only in this render.
-  assert.match(CODE, /\.rec-val\{[^}]*color\s*:\s*var\(--ink-dim\)/,
-    '.rec-val no longer takes the neutral ink');
+  assert.match(CODE, /\.rec-headline b\{[^}]*color\s*:\s*var\(--ink\)/,
+    '.rec-headline no longer takes the neutral ink');
 });
 
 // ===========================================================================
@@ -143,24 +147,24 @@ test('RECORD: every value is read from live state, not written into the markup',
 
 test('RECORD: the zone-paces card counts the zones and names the hand-edited ones', () => {
   const a = planHQ();
-  assert.match(cardFor(a.renderPlanHQView(), 'Training zone paces'), /5 zones/);
-  assert.match(cardFor(a.renderPlanHQView(), 'Training zone paces'),
+  assert.match(cardFor(a.renderPlanHQView(), 'Training paces'), /5 zones/);
+  assert.match(cardFor(a.renderPlanHQView(), 'Training paces'),
     /All five as calculated from your active goal/);
 
   a.state.setup.paceOverrides = { M: { fast: 250, slow: 262 } };
-  const one = cardFor(a.renderPlanHQView(), 'Training zone paces');
+  const one = cardFor(a.renderPlanHQView(), 'Training paces');
   assert.match(one, /Tempo edited by hand/);
   assert.match(one, /The rest as calculated/);
 
   a.state.setup.paceOverrides = {
     M: { fast: 250, slow: 262 }, T: { fast: 240, slow: 248 }, I: { fast: 220, slow: 228 },
   };
-  assert.match(cardFor(a.renderPlanHQView(), 'Training zone paces'), /3 zones edited by hand/);
+  assert.match(cardFor(a.renderPlanHQView(), 'Training paces'), /3 zones edited by hand/);
 
   // A half-set override is not an override -- the same rule getActivePaces()
   // applies, applied here too, so the card cannot disagree with the paces.
   a.state.setup.paceOverrides = { M: { fast: 250, slow: null } };
-  assert.match(cardFor(a.renderPlanHQView(), 'Training zone paces'),
+  assert.match(cardFor(a.renderPlanHQView(), 'Training paces'),
     /All five as calculated/, 'a half-edited zone was counted as edited');
 });
 
@@ -436,31 +440,41 @@ test('HQ: the four inline components are gone from the page and live only in the
     'the old Benchmark summary bar is still on the page');
 });
 
-test('HQ: Programme Status is untouched — gauge, its accent arc and needle, and the line beneath it', () => {
+test('HQ: the Valhalla hero carries the gauge verbatim — a full-circle ring, approved-concept redesign', () => {
   const a = planHQ();
+  a.planhqTab = 'valhalla';
   const html = a.renderPlanHQView();
   const gauge = a.renderConfidenceGauge();
   assert.ok(html.indexOf(gauge) !== -1, 'the confidence gauge is no longer rendered verbatim');
   assert.match(html, /id="confidence-gauge-mount"/, 'patchDerivedStats() lost the gauge mount');
-  assert.match(gauge, /url\(#gaugeFillGrad\)/, 'the gauge arc is gone');
-  assert.match(gauge, /stroke-width="2\.4"[\s\S]{0,40}gaugeGlow/, 'the gauge needle is gone');
-  assert.match(gauge, /stop-color="var\(--cherry\)"/);
-  assert.match(gauge, /class="gauge-pct font-mono"/);
-  // The explanatory line directly beneath the gauge row, unchanged.
-  assert.match(html, /Confidence reflects how closely your logged sessions have matched/);
+  // Approved-concept redesign: a full circle, not a semicircular gradient arc
+  // with a needle -- the ring itself still carries the accent.
+  assert.match(gauge, /class="gauge-fill"/, 'the gauge progress ring is gone');
+  assert.match(gauge, /class="gauge-num"/);
+  assert.doesNotMatch(gauge, /gaugeFillGrad|stroke-width="2\.4"/,
+    'the old semicircular gradient/needle survived the redesign');
+  // The explanatory line moved with the rest of Readiness's depth into the
+  // tap-through evidence panel rather than sitting permanently on the hero.
+  assert.match(a.readingPanel('readiness'), /Confidence reflects how closely your logged sessions have matched/);
   assert.ok(html.indexOf(a.renderProgrammeStatus()) !== -1,
     'renderProgrammeStatus() is no longer rendered verbatim into Plan HQ');
 });
 
-test('HQ: the coach panel, the checkpoint banner and Active Goal are all still there', () => {
+test('HQ: the coach panel, the checkpoint banner and Active Goal are all still reachable', () => {
   const a = planHQ();
-  const html = a.renderPlanHQView();
-  // The plan-settings route survived the "Build New Block" summary bar being
-  // replaced by the block-transition control -- it is a trio tile now.
-  assert.match(html, /data-action="open-setup"/);
-  assert.ok(html.indexOf(a.renderCoachPanel()) !== -1, 'the coach panel left Plan HQ');
-  assert.ok(html.indexOf(a.renderGoalToggle()) !== -1, 'Active Goal left Plan HQ');
-  assert.match(html, /<div class="setup-section-title">The Record<\/div>/);
+  // Re-homed across the three tabs, not lost: New Block/Plan Settings on
+  // Valhalla, the coach panel on Coach, Active Goal and the checkpoint
+  // banner on Record alongside THE RECORD itself.
+  a.planhqTab = 'valhalla';
+  assert.match(a.renderPlanHQView(), /data-action="open-setup"/);
+
+  a.planhqTab = 'coach';
+  assert.ok(a.renderPlanHQView().indexOf(a.renderCoachPanel()) !== -1, 'the coach panel left Valhalla');
+
+  a.planhqTab = 'record';
+  const record = a.renderPlanHQView();
+  assert.ok(record.indexOf(a.renderGoalToggle()) !== -1, 'Active Goal left the Record tab');
+  assert.match(record, /<div class="setup-section-title">The Record<\/div>/);
 });
 
 test('HQ: an athlete with no plan is never asked to render The Record', () => {

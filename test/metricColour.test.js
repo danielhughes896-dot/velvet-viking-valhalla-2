@@ -67,7 +67,7 @@ test('prescribed values resolve through an --ink token, so both themes work', ()
 test('gold still means what it means: headings, badges, status, the confidence figure', () => {
   /* The counterpart assertion. If a future pass "cleans up" gold by removing
      it from these, the accent system has lost its other half. */
-  [['.gauge-pct', 'the confidence figure'],
+  [['.gauge-num b', 'the confidence figure'],
    ['.exec-pill', 'the execution score pill'],
    ['.coach-cue', 'the coaching cue'],
    ['.day-status-label.key', 'the Key-session status label']].forEach(([sel, what]) => {
@@ -79,18 +79,15 @@ test('gold still means what it means: headings, badges, status, the confidence f
 });
 
 test('the gauge keeps the accent on the mechanism and gold on the reading', () => {
-  const grad = APP.match(/<linearGradient id="gaugeFillGrad"[^]*?<\/linearGradient>/);
-  assert.ok(grad, 'the gauge fill gradient is gone');
-  assert.match(grad[0], /var\(--cherry-dim\)/);
-  assert.match(grad[0], /var\(--cherry\)/);
-  // the needle is the one <line> carrying an explicit stroke
-  assert.match(APP, /<line x1="'\+cx\+'"[^]*?stroke="var\(--cherry\)"/,
-    'the gauge needle no longer carries the interactive accent');
-  // ticks are class-styled and must not have been given the accent
+  // Approved-concept redesign: a full-circle progress ring, not a
+  // semicircular gradient arc with a needle and pivot. The ring itself is
+  // still the one place this figure carries the accent; the ticks are the
+  // scale around it and must not have been given the accent too.
+  const fill = ruleBody('.gauge-fill');
+  assert.ok(fill, 'the gauge progress ring is gone');
+  assert.match(fill, /var\(--cherry\)/);
   const tick = ruleBody('.gauge-tick');
   if (tick) assert.doesNotMatch(tick, /--cherry/, 'the gauge ticks took the accent — they are the scale, not the progress');
-  assert.match(APP, /<circle cx="'\+cx\+'"[^]*?fill="var\(--modal-active\)"/,
-    'the gauge pivot is no longer the gold pivot');
 });
 
 test('Garmin readiness copy reads as two sentences, not a dash clause', () => {

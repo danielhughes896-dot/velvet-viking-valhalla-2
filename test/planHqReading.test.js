@@ -66,7 +66,7 @@ function withHistory(a) {
   return a;
 }
 function readingCards(html) {
-  return (html.match(/<button type="button" class="rec-card"[\s\S]*?<\/button>/g) || [])
+  return (html.match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [])
     .filter(c => c.indexOf('data-action="open-reading"') !== -1);
 }
 
@@ -75,6 +75,7 @@ function readingCards(html) {
 // ===========================================================================
 test('READING: five destination cards, one per interpretation the engine produces', () => {
   const a = withHistory(planHQ());
+  a.planhqTab = 'coach';
   const html = a.renderPlanHQView();
   const cards = readingCards(html);
   assert.equal(cards.length, 5, 'expected five Reading cards, found ' + cards.length);
@@ -85,8 +86,8 @@ test('READING: five destination cards, one per interpretation the engine produce
   assert.equal(a.readingSections(a.coachAnalyse()).map(s => s.key).join(','), keys.join(','));
 
   cards.forEach(c => {
-    assert.match(c, /class="read-val/, 'a Reading card states no conclusion');
-    assert.match(c, /class="rec-syn"/, 'a Reading card carries no explanatory line');
+    assert.match(c, /class="rs-dial"/, 'a Reading card states no conclusion');
+    assert.match(c, /class="rs-head-text"/, 'a Reading card carries no explanatory text');
     assert.match(c, /<svg/, 'a Reading card has no chevron affordance');
   });
 });
@@ -103,18 +104,28 @@ test('READING: nothing expands in place any more', () => {
 
 test('READING: a card may carry a verdict, and a Record card may not', () => {
   const a = withHistory(planHQ());
-  const html = a.renderPlanHQView();
+  // The Reading now lives on the Coach tab, the Record on its own tab -- both
+  // rules still hold, just checked against the tab each one actually renders
+  // on. A verdict is now carried by the dial's own tone-coloured ring rather
+  // than a separate coloured span; a fact never gets that ring at all.
+  a.planhqTab = 'coach';
+  const coachHtml = a.renderPlanHQView();
   // Recovery is the one the engine always classifies, so it always has a tone.
-  const rec = readingCards(html).filter(c => c.indexOf('data-reading="recovery"') !== -1)[0];
-  assert.match(rec, /class="read-val (good|watch|bad)"/, 'recovery lost its tone');
-  assert.match(rec, /class="read-dot"/, 'a toned verdict lost its dot');
-  // And the Record's values never do.
-  const recordCards = (html.match(/<button type="button" class="rec-card"[\s\S]*?<\/button>/g) || [])
+  const rec = readingCards(coachHtml).filter(c => c.indexOf('data-reading="recovery"') !== -1)[0];
+  const report = a.coachAnalyse();
+  const secs = a.readingSections(report);
+  const recTone = secs.filter(s => s.key === 'recovery')[0].tone;
+  assert.ok(['good', 'watch', 'bad'].indexOf(recTone) !== -1, 'recovery lost its tone');
+  assert.match(rec, new RegExp('stroke="' + a.toneRingColor(recTone).replace(/[()]/g, '\\$&') + '"'),
+    'recovery\'s dial does not carry its tone');
+
+  a.planhqTab = 'record';
+  const recordHtml = a.renderPlanHQView();
+  const recordCards = (recordHtml.match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [])
     .filter(c => c.indexOf('data-action="open-record"') !== -1);
   assert.equal(recordCards.length, 4);
   recordCards.forEach(c => {
-    assert.doesNotMatch(c, /read-dot/, 'a Record value grew a status dot');
-    assert.doesNotMatch(c, /read-val/, 'a Record value became a verdict');
+    assert.doesNotMatch(c, /rs-dial|read-dot|read-val/, 'a Record card grew a verdict dial');
   });
 });
 
@@ -147,16 +158,18 @@ test('READING: tone is borrowed from the engine, never invented here', () => {
 
 test('READING: every value and synopsis is live, not written into the markup', () => {
   const a = withHistory(planHQ());
-  const before = readingCards(a.renderPlanHQView()).join('\n');
+  a.planhqTab = 'coach';
+  const readinessCard = html => readingCards(html).filter(c => c.indexOf('data-reading="readiness"') !== -1)[0];
+  const before = readinessCard(a.renderPlanHQView());
 
-  const pct = s => Number((s.match(/(\d+)% confidence/) || [])[1]);
+  const pct = s => Number((s.match(/>(\d+)%</) || [])[1]);
   const confBefore = pct(before);
   assert.ok(confBefore > 0, 'the readiness card states no confidence at all');
 
   // Confidence is execution fidelity, so running every session a long way off
   // what was prescribed has to move it -- downwards.
   a.state.days.filter(d => d.completed).forEach(d => { d.actual.pace = '9:30'; });
-  const after = readingCards(a.renderPlanHQView()).join('\n');
+  const after = readinessCard(a.renderPlanHQView());
   assert.notEqual(after, before, 'a block of badly executed sessions changed no card');
   assert.ok(pct(after) < confBefore,
     'confidence went from ' + confBefore + '% to ' + pct(after) + '% on a ruined block');
@@ -250,8 +263,8 @@ test('OUTLOOK: no measurement produces an honest empty state and no band', () =>
   const html = a.renderRaceOutlook();
   assert.match(html, /Race Outlook/);
   assert.match(html, /Nothing measured yet/);
-  assert.doesNotMatch(html, /outlook-band/, 'a band was drawn from no measurement');
-  assert.doesNotMatch(html, /outlook-goal/, 'a goal marker was drawn with no band to place it on');
+  assert.doesNotMatch(html, /oi-band/, 'a band was drawn from no measurement');
+  assert.doesNotMatch(html, /oi-goal/, 'a goal marker was drawn with no band to place it on');
   assert.equal(a.raceOutlook().state, 'none');
   // And Programme Status still carries it, so the empty state is visible
   // rather than the section silently disappearing.
@@ -271,7 +284,7 @@ test('OUTLOOK: ordinary training runs cannot move it, however fast they are', ()
   });
   assert.equal(a.measuredPerformances().length, 0, 'a training run became a measurement');
   assert.equal(a.raceOutlook().state, 'none');
-  assert.doesNotMatch(a.renderRaceOutlook(), /outlook-band/);
+  assert.doesNotMatch(a.renderRaceOutlook(), /oi-band/);
 });
 
 test('OUTLOOK: a benchmark cannot move it either', () => {
@@ -279,7 +292,7 @@ test('OUTLOOK: a benchmark cannot move it either', () => {
   a.state.setup.benchmark = { distanceKey: '5k', timeSec: a.clockToSec('0:15:00') };
   assert.equal(a.raceOutlook().state, 'none',
     'a benchmark was accepted as measured evidence');
-  assert.doesNotMatch(a.renderRaceOutlook(), /outlook-band/);
+  assert.doesNotMatch(a.renderRaceOutlook(), /oi-band/);
 });
 
 test('OUTLOOK: a completed checkpoint draws the band, and the goal marker comes from the active goal', () => {
@@ -290,13 +303,13 @@ test('OUTLOOK: a completed checkpoint draws the band, and the goal marker comes 
   assert.equal(o.goalSec, a.getActiveGoal().timeSec, 'the marker is not the active goal');
 
   const html = a.renderRaceOutlook();
-  assert.match(html, /class="outlook-band"/);
-  assert.match(html, /class="outlook-goal"/);
+  assert.match(html, /class="oi-band"/);
+  assert.match(html, /class="oi-goal"/);
   assert.match(html, new RegExp('Goal ' + a.state.setup.activeGoal));
   // Violet is the measurement, gold is the goal, and that is a rule in the
   // stylesheet rather than a habit in this render.
-  assert.match(CODE, /\.outlook-band\{[^}]*var\(--cherry\)/);
-  assert.match(CODE, /\.outlook-goal\{[^}]*background\s*:\s*var\(--gold\)/);
+  assert.match(CODE, /\.oi-band\{[^}]*var\(--cherry\)/);
+  assert.match(CODE, /\.oi-goal\{[^}]*background\s*:\s*var\(--gold\)/);
 
   // Switching the active goal moves the marker and nothing else.
   const before = html;
@@ -318,7 +331,7 @@ test('OUTLOOK: it repeats the engine when the engine withholds, and invents noth
     assert.equal(o.reason, est.reason, 'the outlook paraphrased the engine');
     const html = a.renderRaceOutlook();
     assert.ok(html.indexOf(est.reason) !== -1, "the engine's own reason is not shown");
-    assert.doesNotMatch(html, /outlook-band/, 'a withheld estimate still drew a band');
+    assert.doesNotMatch(html, /oi-band/, 'a withheld estimate still drew a band');
   } else {
     // The fixture met the volume bar; then it must draw honestly instead.
     assert.equal(a.raceOutlook().state, 'measured');
@@ -331,10 +344,12 @@ test('OUTLOOK: it is not the confidence gauge, and does not restate it', () => {
   assert.doesNotMatch(html, /confidence/i, 'the outlook borrowed the confidence number');
   assert.doesNotMatch(html, /\bchance\b|\bprobabilit|\blikel(y|ihood)\b/i,
     'the outlook made a probability claim');
-  // The gauge and its explainer are untouched above it.
+  // The gauge is untouched above it, and its one-sentence explainer moved
+  // with the rest of Readiness's depth into the tap-through evidence panel
+  // rather than sitting permanently on the hero.
   const ps = a.renderProgrammeStatus();
   assert.ok(ps.indexOf(a.renderConfidenceGauge()) !== -1);
-  assert.match(ps, /Confidence reflects how closely your logged sessions have matched/);
+  assert.match(a.readingPanel('readiness'), /Confidence reflects how closely your logged sessions have matched/);
   assert.ok(ps.indexOf('id="confidence-gauge-mount"') < ps.indexOf('id="outlook-mount"'),
     'the outlook was placed above the gauge it sits beneath');
 });
@@ -349,9 +364,15 @@ test('OUTLOOK: logging a race repaints it through the same patch path as the gau
 // ===========================================================================
 test('TRIO: three tiles, three distinct actions, all of them handled', () => {
   const a = withHistory(planHQ());
-  const html = a.renderPlanHQView();
-  const tiles = html.match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
-  assert.equal(tiles.length, 3, 'expected three action tiles, found ' + tiles.length);
+  // New Block/Plan Settings re-homed to Valhalla (programme-level), Checkpoint
+  // to Record (a measurement action) -- still three tiles, three real
+  // destinations, just no longer on one screen at once.
+  a.planhqTab = 'valhalla';
+  const valhallaTiles = a.renderPlanHQView().match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
+  a.planhqTab = 'record';
+  const recordTiles = a.renderPlanHQView().match(/<button type="button" class="act-tile"[\s\S]*?<\/button>/g) || [];
+  const tiles = valhallaTiles.concat(recordTiles);
+  assert.equal(tiles.length, 3, 'expected three action tiles across Valhalla and Record, found ' + tiles.length);
 
   const actions = tiles.map(t => (t.match(/data-action="([^"]+)"/) || [])[1]);
   assert.equal(new Set(actions).size, 3, 'two tiles fire the same action: ' + actions.join(','));
@@ -435,23 +456,37 @@ test('TRIO: CHECKPOINT navigates to the real session, and says so honestly when 
 // ===========================================================================
 // 5. THE WHOLE SCREEN
 // ===========================================================================
-test('HQ: summary first, interpretation second, record third, actions last', () => {
+test('HQ: Valhalla, Coach and Record each open on the right question, in the right order within themselves', () => {
   const a = withHistory(planHQ());
-  const html = a.renderPlanHQView();
-  const at = s => html.indexOf(s);
-  assert.ok(at('Programme Status') < at('id="outlook-mount"'), 'the outlook is above the gauge');
-  assert.ok(at('id="outlook-mount"') < at('>The Reading<'), 'THE READING is above Programme Status');
-  assert.ok(at('>The Reading<') < at('>The Record<'), 'THE RECORD is above THE READING');
-  assert.ok(at('>The Record<') < at('class="act-trio"'), 'the actions are above THE RECORD');
-  assert.ok(at('>The Reading<') < at('Active Goal'), 'Active Goal is above THE READING');
+  // The single long scroll is gone -- VALHALLA/COACH/RECORD are three tabs
+  // now, so "summary first, interpretation second, record third, actions
+  // last" is a rule about ordering WITHIN each tab, not down one page.
+  a.planhqTab = 'valhalla';
+  const valhalla = a.renderPlanHQView();
+  const atV = s => valhalla.indexOf(s);
+  assert.ok(atV('class="v-hero"') < atV('id="outlook-mount"'), 'the outlook is above the gauge');
+  assert.ok(atV('id="outlook-mount"') < atV('class="act-trio'), 'the actions are below the hero');
+
+  a.planhqTab = 'coach';
+  const coach = a.renderPlanHQView();
+  assert.ok(coach.indexOf('>The Reading<') !== -1, 'THE READING left the Coach tab');
+
+  a.planhqTab = 'record';
+  const record = a.renderPlanHQView();
+  const atR = s => record.indexOf(s);
+  assert.ok(atR('Active Goal') < atR('>The Record<'), 'Active Goal is above THE RECORD');
+  assert.ok(atR('>The Record<') < atR('class="act-trio'), 'the actions are below THE RECORD');
 });
 
-test('HQ: nothing on Plan HQ expands inline, and every card is a destination', () => {
+test('HQ: nothing on Valhalla/Coach/Record expands inline, and every card is a destination', () => {
   const a = withHistory(planHQ());
-  const html = a.renderPlanHQView();
-  const cards = html.match(/<button type="button" class="rec-card"[\s\S]*?<\/button>/g) || [];
-  assert.equal(cards.length, 9, 'expected nine cards (five Reading, four Record)');
-  cards.forEach(c => {
+  a.planhqTab = 'coach';
+  const readingCardsHtml = a.renderPlanHQView().match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [];
+  assert.equal(readingCardsHtml.length, 5, 'expected five Reading cards on Coach');
+  a.planhqTab = 'record';
+  const recordCardsHtml = a.renderPlanHQView().match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [];
+  assert.equal(recordCardsHtml.length, 4, 'expected four Record cards on Record');
+  readingCardsHtml.concat(recordCardsHtml).forEach(c => {
     assert.match(c, /data-action="open-(reading|record)"/, 'a card that goes nowhere');
     assert.doesNotMatch(c, /aria-expanded/, 'a card that expands rather than opens');
   });
@@ -459,11 +494,12 @@ test('HQ: nothing on Plan HQ expands inline, and every card is a destination', (
 
 test('HQ: the coaching that has no depth behind it stays on the page', () => {
   const a = withHistory(planHQ());
+  a.planhqTab = 'coach';
   const html = a.renderPlanHQView();
   const report = a.coachAnalyse();
   // Athlete Status is the headline and is rendered verbatim.
   assert.ok(html.indexOf(a.renderAthleteStatusCard(report)) !== -1,
-    'Athlete Status left Plan HQ');
+    'Athlete Status left the Coach tab');
   // And the coach cards are still the ones the coach panel produces.
   assert.ok(html.indexOf(a.renderCoachPanel()) !== -1);
   assert.ok(a.renderCoachPanel().indexOf(a.renderBreakthroughCard(report)) !== -1,
