@@ -109,7 +109,7 @@ test('ANCHOR: the stack is a fixed anchor, not a scrolling element, and content 
 test('SUBNAV: switching tabs changes what renders, and the active button moves', () => {
   const a = planHQ();
   assert.equal(a.planhqTab, 'valhalla');
-  assert.match(a.renderPlanHQView(), /Programme Status/);
+  assert.match(a.renderPlanHQView(), /class="v-hero"/);
 
   a.handleSetPlanhqTab('coach');
   assert.equal(a.planhqTab, 'coach');
@@ -375,7 +375,7 @@ test('TOKENS: the race countdown and unit toggle read the canonical bronze/gold 
   // #c5a059 legitimately remains as --modal-active's own definition at
   // :root -- the point is that .tb-unit-toggle/.countdown-badge/.cd-cell no
   // longer carry their own private copy of it.
-  const widget = CODE.slice(CODE.indexOf('.tb-unit-toggle{'), CODE.indexOf('.confidence-gauge{'));
+  const widget = CODE.slice(CODE.indexOf('.tb-unit-toggle{'), CODE.indexOf('.gauge-wrap{'));
   assert.doesNotMatch(widget, /#1e1b18/i, 'the countdown widget still hardcodes its own dark fill');
   assert.doesNotMatch(widget, /#c5a059/i, 'the countdown widget still hardcodes its own gold');
   assert.doesNotMatch(widget, /#8c8273/i, 'the countdown widget still hardcodes its own faint ink');
