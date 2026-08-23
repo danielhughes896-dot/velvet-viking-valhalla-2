@@ -40,8 +40,10 @@ test('the builder is step one, the preview is step two, saving the plan is step 
   // indicator (bld-no) instead of that fixed label -- see bldGoToStage().
   // Preview and auth are untouched: they were never staged.
   assert.match(SRC, /id="pane-build"[^]*?id="bld-no"/, 'the builder no longer carries its own stage indicator');
-  assert.match(SRC, /' \/ 0' \+ BLD_STAGES\.length \+ ' — ' \+ BLD_STAGES\[bldCurrentStage\]\.name/,
+  assert.match(SRC, /' \/ 0' \+ BLD_STAGES\.length;/,
     'the builder no longer counts nine stages of its own');
+  assert.match(SRC, /bld-stage-label'\)\.textContent = BLD_STAGES\[bldCurrentStage\]\.name;/,
+    'the current stage name is no longer shown alongside the count');
   assert.match(SRC, /id="pane-preview"[^]*?Step two of three/, 'the preview is no longer step two');
   assert.match(SRC, /id="auth-step">Step three of three/, 'saving the plan is no longer step three');
 });
