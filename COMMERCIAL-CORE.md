@@ -445,6 +445,24 @@ arrive as adapters into the core, not as a second endpoint shape.
 
 ---
 
+## Web billing
+
+The Stripe rail, what it translates, what it deliberately does not, and the
+commissioning steps a human still has to take, are in
+[PHASE2-WEB-BILLING.md](PHASE2-WEB-BILLING.md). Two things from it belong here
+because they are properties of the core rather than of the adapter:
+
+- **`current_period_end` means paid-through**, in every provider's rows. Stripe
+  reports invoiced-through, which is a different instant the moment an invoice
+  is not paid, and the adapter translates it. A provider adapter that mirrors
+  its own field verbatim into this column will hand out a free period on every
+  failed renewal.
+- **There is one implementation of what a subscription does to the core**, in
+  `api/_billing-apply.js`. Provider facts reach it pushed (a verified webhook)
+  or pulled (a server-side reconciliation after checkout), and both go through
+  the same writes. A second implementation is a second commercial authority,
+  and the way two of them differ is that one spends a trial the other did not.
+
 ## Files
 
 | file | what |
@@ -453,12 +471,16 @@ arrive as adapters into the core, not as a second endpoint shape.
 | `api/_entitlement.js` | the resolver, trial eligibility, duplicate purchase, projection — all pure |
 | `api/_commercial-store.js` | Supabase IO, idempotency, race-safe trial consumption |
 | `api/_stripe.js` | the Stripe adapter: signature, vocabulary translation, nothing else |
-| `api/_checkout.js` | checkout session creation, behind `VVV_COMMERCE_ENABLED` |
+| `api/_checkout.js` | checkout session creation, behind `VVV_COMMERCE_ENABLED`. The **only** purchase door |
+| `api/_subscription.js` | the athlete's own state, and what they may do to it: reconcile, cancel, reactivate |
+| `api/_billing-apply.js` | what a set of verified provider facts does to the core. ONE implementation, shared by the pushed route (webhook) and the pulled one (reconcile) |
 | `api/billing-webhook.js` | one door: verified Stripe event → core. Everything else refused |
 | `supabase-commercial-core.sql` | schema, RLS, triggers, beta backfill, production hardening |
 | `test/commercialCore.test.js` | the core's own behaviour |
 | `test/commercialAuthority.test.js` | the convergence invariants: one ledger, one authority, provider-only grace, one trial counter |
 | `test/stripeLifecycle.test.js` | the Stripe path end to end against a fake Supabase |
+| `test/webBilling.test.js` | the Phase 2 verification matrix: the journey through the real router against a fake Stripe |
+| `supabase-web-billing-verification.sql` | read-only: is a given database ready to sell |
 | `test/fakeSupabase.js` | in-memory PostgREST that enforces the real unique constraints |
 
 All shared modules are underscore-prefixed, so no Vercel serverless function was

@@ -104,4 +104,5 @@ what was applied to production by hand, not a step in building a new one.
 | `supabase-commercial-activation.sql` | **Dismantles the private-beta gate** so the public can be charged. Applying it opens public signup. Not until HQ says so. |
 | `supabase-beta-hardening.sql` | Optional narrowing behind its own `STEP 0` authorisation switch. STEP 1 was applied via the least-privilege file; STEP 2 has not been authorised. |
 | `supabase-beta-verification.sql` | Read-only reporting. |
+| `supabase-web-billing-verification.sql` | Read-only reporting. Answers "is this database ready to sell" — which of the files above are actually applied, whether the two gates that close the product are still closed, and whether anybody's access exists only in the legacy override column. Safe to paste into production. |
 | `supabase-pre-beta-least-privilege.sql` | The record of a hand-applied production hardening. See above. |
