@@ -659,28 +659,26 @@
      read as one row; it only needs to mark where one stage ends.
 
      Real column width, measured against a live 390px card with actual
-     day-card chrome (checkbox + actions + chevron) already eating width:
-     ~67px per column at 390px, ~57px at 360px, ~61px/~51px of that usable
-     once this column's own 3px side padding is subtracted. Every font size
-     below was chosen against those real numbers, not an assumption -- an
-     assumed ~110px column was the original mistake that produced "WARM"/
-     "UP" and "INTER"/"VAL" mid-word breaks. overflow-wrap:anywhere is
-     deliberately never used here; it is what caused those breaks the first
-     time by letting the browser cut any word, anywhere, rather than only the
-     one name ("HILL REPEATS") that genuinely has no shorter fit. */
+     day-card chrome (checkbox + actions + chevron) already eating width.
+     The extra width itself comes from .day-detail's own bleed (see its
+     rule above -- .ws-block is exempted from the counter-narrowing that
+     pulls everything else back down), so .ws-block and this row just fill
+     100% of their now-widened container; no bleed of their own is needed
+     or applied here. Every font size below was re-measured against that
+     widened column, not assumed. */
   .ws-steps-h{list-style:none; margin:0; padding:0; display:flex;}
   .ws-h-step{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center;
-             text-align:center; padding:0 3px;}
+             text-align:center; padding:0 5px;}
   .ws-h-step + .ws-h-step{border-left:1px solid var(--cherry);}
   .ws-h-num{
-    width:18px; height:18px; flex:none; display:flex; align-items:center; justify-content:center;
-    border-radius:50%; background:var(--cherry-soft); border:1.5px solid var(--cherry);
-    color:var(--cherry-ink); font-size:var(--fs-meta); line-height:1; font-weight:700;
+    width:28px; height:28px; flex:none; display:flex; align-items:center; justify-content:center;
+    border-radius:50%; background:var(--cherry-soft); border:2px solid var(--cherry);
+    color:var(--cherry-ink); font-size:14px; line-height:1; font-weight:700;
   }
-  .ws-h-name{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:.3px;
-             text-transform:uppercase; color:var(--ink); margin-top:5px; line-height:1.25;}
-  .ws-h-qty{font-size:11px; line-height:1.2; color:var(--ink); margin-top:3px; font-weight:600; white-space:nowrap;}
-  .ws-k-ladder .ws-h-qty{font-size:9px; line-height:1.3; white-space:normal;}
+  .ws-h-name{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:.3px;
+             text-transform:uppercase; color:var(--ink); margin-top:7px; line-height:1.25;}
+  .ws-h-qty{font-size:16px; line-height:1.2; color:var(--ink); margin-top:4px; font-weight:600; white-space:nowrap;}
+  .ws-k-ladder .ws-h-qty{font-size:12px; line-height:1.3; white-space:normal;}
   /* Effort words ("Easy", "Hard, by feel") have room to wrap at their own
      space if one is ever long enough to need it -- normal white-space, no
      nowrap -- so nothing here is forced onto one line that doesn't need to
@@ -690,21 +688,30 @@
      the pace case) gets nowrap, stopping "4:39-" splitting onto its own line
      the way a quantity must not.
 
-     Measured against the real 360px column (57px, ~51px after padding): an
-     8.5px pace band like "3:49-3:55/km" renders ~61px wide and genuinely
-     overflows the column by ~10px at that width, not just looks tight. A
-     dedicated smaller size for the mono/pace case (effort words stay at
-     8.5px -- they're short and never at risk) keeps it clear of that
-     budget at 360px with margin to spare and well inside it at 390px. */
-  .ws-h-presc{font-size:8.5px; line-height:1.3; color:var(--ink-dim); margin-top:2px;}
-  .ws-h-presc.font-mono{white-space:nowrap; font-size:6.75px;}
+     Re-measured against the widened column (real 360px usable width 68px):
+     a 12px effort word ("Hard, by feel") clears it with only ~1px to spare,
+     but it isn't nowrap, so a marginal overflow wraps gracefully at the
+     space rather than clipping. A 12px pace band has no such fallback
+     (nowrap, so it must actually fit) and genuinely overflows at that size
+     -- 9px is the largest that clears "3:49-3:55/km" with real margin at
+     both 360px and 390px. Both sizes are still a real jump up from the
+     pre-enlargement pass (8.5px / 6.75px). */
+  .ws-h-presc{font-size:12px; line-height:1.3; color:var(--ink-dim); margin-top:3px;}
+  .ws-h-presc.font-mono{white-space:nowrap; font-size:9px;}
   /* Everything a column did not have room for -- HR, a ramp, a recovery
      rule, a completion clause -- in the same .ws-hr/.ws-note classes (and
      therefore the same colours and sizes) the vertical list has always used
      for them, directly beneath the three columns. A stage with nothing left
      to say contributes no row here at all. */
+  /* .ws-block is exempted from .day-detail's counter-narrowing so the
+     blueprint above can use its full new width -- this detail list, HR/note/
+     recovery text nested inside .ws-block, is not the blueprint and is
+     pulled back down to the original column width for the same reason
+     day-desc and "How to run this" are: it is detail text, not the visual
+     structure map. Same 62px, one level deeper (relative to .ws-block's own
+     now-wide 100%, so the two arrive at the same absolute width). */
   .ws-h-details{list-style:none; margin:12px 0 0; padding:10px 0 0; border-top:1px solid var(--line-soft);
-                display:flex; flex-direction:column; gap:8px;}
+                display:flex; flex-direction:column; gap:8px; max-width:calc(100% - 62px);}
   .ws-h-detail-name{display:block; font-size:var(--fs-label); letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:2px;}
   /* One integration card follows another inside Sync & Export, so the second
      needs a rule to stop the two reading as one long block. Same hairline the
@@ -938,6 +945,22 @@
   .day-chevron svg{width:18px; height:18px; display:block;}
   .day.open .day-chevron{transform:rotate(180deg);}
   .day-detail, .day-drawer{max-height:0; overflow:hidden; transition:max-height .35s ease;}
+  /* The workout blueprint needs real width .day-main's own flex-basis does
+     not have -- .day-check + .day-actions + .day-chevron and their gaps
+     permanently claim ~62px of the day-top row that nothing occupies below
+     the header. Bleeding at .ws-block itself would be clipped: .day-detail
+     is the one link in this chain with overflow:hidden (required for its
+     own collapse animation, untouched), so a child bleeding past ITS OWN
+     box is cut off exactly where the old screenshot showed the third
+     column vanishing. .day-main, .day-detail's own parent, carries no
+     overflow:hidden, so widening .day-detail ITSELF the same way is not
+     clipped -- and neither is .week/.week-body further up, since even the
+     widened box stays well inside their own (wider) width. Every other
+     child of .day-detail is then pulled back down to the original,
+     unwidened column via the counter-rule below, so only the blueprint
+     actually gets wider; the instruction text stays exactly where it was. */
+  .day-detail{width:calc(100% + 62px); margin-right:-62px;}
+  .day-detail > *:not(.ws-block){max-width:calc(100% - 62px);}
   /* THIS NUMBER IS A CEILING, NOT A HEIGHT. max-height is how the open/shut
      transition is animated, and overflow:hidden means anything past it is not
      merely unscrollable but invisible. At 1600px a race day at novice depth on
@@ -9199,13 +9222,33 @@ function renderWorkoutStep(st, i){
 // The ONE essential prescription figure for the compact column: a pace band
 // where the step has one, else the effort word, never both, never HR (HR
 // moves to the secondary detail below with everything else that didn't fit).
+/* A warm-up/cool-down flank carries no target pace band by design --
+   stepTarget() (untouched) returns null for those roles specifically,
+   because several archetypes prescribe an unquantified jog and a precise
+   band on one would be false precision the engine deliberately refuses.
+   Where the athlete's own Easy zone DOES have a real prescribed pace band --
+   the exact getActivePaces().E figure already shown on the day-targets
+   line, Pace Reference and Training Zone Paces, read the same way here --
+   show it beneath the effort word. Existing prescription data, not a new
+   calculation; a stage with no configured Easy zone still shows "Easy" and
+   nothing else, exactly as before. */
+function easyZonePaceHtml(){
+  var z = getActivePaces().E;
+  if (!z || z.slow == null || z.fast == null) return '';
+  var pFast = fmtPaceFromSecPerKm(z.fast), pSlow = fmtPaceFromSecPerKm(z.slow);
+  var pace = pFast.split('/')[0]+'–'+pSlow;
+  return '<span class="ws-h-presc font-mono">'+escapeHtml(pace)+'</span>';
+}
 function essentialPrescriptionHtml(st){
   if (st.target && !st.wholeSession){
     var pace = fmtStrategyPace(st.target.pace, null);
     if (pace) return '<span class="ws-h-presc font-mono">'+escapeHtml(pace)+'</span>';
   }
-  if (st.effort && !st.wholeSession)
-    return '<span class="ws-h-presc">'+escapeHtml(st.effort)+'</span>';
+  if (st.effort && !st.wholeSession){
+    var out = '<span class="ws-h-presc">'+escapeHtml(st.effort)+'</span>';
+    if (st.effort === 'Easy') out += easyZonePaceHtml();
+    return out;
+  }
   return '';
 }
 // Everything renderWorkoutStep would have shown that essentialPrescriptionHtml
@@ -9390,16 +9433,42 @@ function patchExecutionUI(dd){
   var review = document.getElementById('exec-review-'+dd.id);
   if (review) review.innerHTML = renderExecutionReview(dd);
 }
+/* PRESENTATION-ONLY display title. dd.title itself is never touched here --
+   Garmin, ICS export, swap/reschedule, notifications and Edit Session all
+   keep reading the real stored string. Several archetypes store their title
+   as "<Label>: <N>km", where N is only the quality segment (buildDaysFromWeeks
+   / tempoWorkoutText -- both untouched); the expanded card should describe
+   the whole session, and dd.km is already the existing total prescribed
+   distance for the day. Titles that don't have this exact shape (interval
+   reps, hill/fartlek reps, ladders, minute-based tempos, checkpoints) are
+   left exactly as stored -- there is no single safe reformatting for those
+   without guessing at a shape the brief never specified. */
+function displayCardTitle(dd){
+  var m = /^([^:]+):\s*\d+(?:\.\d+)?km$/.exec(dd.title || '');
+  if (!m || dd.km == null) return dd.title;
+  return m[1]+' '+fmtDist(dd.km);
+}
+/* Whether renderStructuredWorkout(dd) below will draw the three-column
+   horizontal blueprint for this day -- the same exactly-three-steps gate it
+   uses itself, read here only to decide whether the day-targets summary
+   line beneath the title would now say the same thing the blueprint says. */
+function hasWorkoutBlueprint(dd){
+  if (!dd || dd.type === 'rest') return false;
+  try { var steps = workoutSteps(dd); return !!(steps && steps.length === 3); } catch(e){ return false; }
+}
 function renderDayCard(dd){
   var tm = TYPE_META[dd.type];
   var targets = getDayTargets(dd);
   var isToday = dd.date === todayStr();
   var cls = 'day type-'+tm.cls + (isToday?' is-today':'');
+  var blueprint = hasWorkoutBlueprint(dd);
   var targetsHtml = '';
-  if (targets.pace) targetsHtml += '<span>'+targets.pace+'</span>';
-  if (dd.km) targetsHtml += '<span>'+fmtDist(dd.km)+'</span>';
-  if (targets.hr) targetsHtml += '<span class="hr">'+targets.hr+'</span>';
-  if (targets.goalPace) targetsHtml += '<span class="mp">'+targets.goalPace+'</span>';
+  if (!blueprint){
+    if (targets.pace) targetsHtml += '<span>'+targets.pace+'</span>';
+    if (dd.km) targetsHtml += '<span>'+fmtDist(dd.km)+'</span>';
+    if (targets.hr) targetsHtml += '<span class="hr">'+targets.hr+'</span>';
+    if (targets.goalPace) targetsHtml += '<span class="mp">'+targets.goalPace+'</span>';
+  }
 
   var actualHtml = '';
   if (dd.completed){
@@ -9456,7 +9525,7 @@ function renderDayCard(dd){
       renderDayCheck(dd)+
       '<div class="day-main">'+
         '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
-        '<div class="day-title">'+escapeHtml(dd.title)+'</div>'+
+        '<div class="day-title">'+escapeHtml(displayCardTitle(dd))+'</div>'+
         '<div class="day-detail">'+
           (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
           /* WHAT, then HOW and WHY. The step list is the execution

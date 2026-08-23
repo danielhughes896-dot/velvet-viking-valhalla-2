@@ -292,22 +292,33 @@ test('a shrink that would change what the session IS refuses instead', () => {
   assert.equal(dd.prescription.archetype, 'deuce', 'and must not have rewritten the day on the way');
 });
 
-test('the session is renamed to agree with the steps it now prescribes', () => {
+test('the stored title is renamed to agree with the steps it now prescribes, even though the card shows the whole session instead', () => {
   const a = fresh();
   const dd = a.findDay(archetypeSamples(a).threshold_continuous);
   const cut = coachCut(dd.km);
   dd.km = cut;
   assert.equal(a.rescaleOrDropPrescription(dd, cut), true);
 
-  const card = a.renderDayCard(dd);
-  const title = /<div class="day-title">([^<]*)<\/div>/.exec(card);
-  assert.ok(title, 'the card must carry a title');
+  // dd.title itself -- read by Garmin export, ICS, notifications and Edit
+  // Session -- still tracks the quality block exactly as before; nothing in
+  // renameToMatchPrescription()/titleFromPrescription() changed.
   const work = a.orderedSegments(a.prescriptionOf(dd))
     .filter(s => s.role === 'work' && s.intensity === 'threshold')
     .reduce((t, s) => t + (s.km || 0), 0);
   assert.ok(work > 0, 'fixture must still prescribe a threshold block');
-  assert.ok(title[1].indexOf(String(Math.round(work * 10) / 10)) !== -1,
-    'the heading must name the block the steps below it actually ask for, saw "' + title[1] + '"');
+  assert.ok(dd.title.indexOf(String(Math.round(work * 10) / 10)) !== -1,
+    'the stored title must still name the block the steps below it actually ask for, saw "' + dd.title + '"');
+
+  // The rendered card is a presentation-only rewrite of that same title,
+  // describing the whole session and its total prescribed distance instead
+  // of just the quality segment -- displayCardTitle() reads dd.km, an
+  // existing value, not a new calculation.
+  const card = a.renderDayCard(dd);
+  const title = /<div class="day-title">([^<]*)<\/div>/.exec(card);
+  assert.ok(title, 'the card must carry a title');
+  assert.equal(title[1], a.displayCardTitle(dd));
+  assert.ok(title[1].indexOf(a.fmtDist(dd.km)) !== -1,
+    'the card title must name the whole session\'s total distance, saw "' + title[1] + '"');
 });
 
 test('a session the athlete renamed keeps the athlete’s name', () => {
