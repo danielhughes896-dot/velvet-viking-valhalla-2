@@ -74,6 +74,26 @@ function config(env){
     secret: function(){ return secret; },
     hasWebhookSecret: !!String(e.STRIPE_WEBHOOK_SECRET || '').trim(),
     webhookSecret: function(){ return String(e.STRIPE_WEBHOOK_SECRET || '').trim(); },
+    /* THE API VERSION OUR OWN CALLS ASK FOR.
+     *
+     * Unset by default, and that is deliberate rather than lazy: this file will
+     * not invent a version. Which version the live account defaults to, and
+     * which one the live webhook endpoint is pinned to, are facts about a
+     * Stripe account that nobody has read yet -- and pinning the wrong one is
+     * a worse failure than pinning none, because it would silently change the
+     * shape of every object the adapter parses.
+     *
+     * WHY IT IS WORTH SETTING ANYWAY, once the value is known. Webhook payloads
+     * render in the version pinned on the ENDPOINT; our REST calls render in
+     * the ACCOUNT default. Those are two separate settings and nothing keeps
+     * them equal, so the pushed path and the pulled path can be handed
+     * different shapes for the same subscription -- and Phase 2 rests on those
+     * two routes producing identical facts. Setting this to the endpoint's
+     * version makes them provably the same.
+     *
+     * The period fallback above means correctness no longer DEPENDS on this.
+     * It is the belt to that pair of braces, not the other way round. */
+    apiVersion: String(e.STRIPE_API_VERSION || '').trim(),
     isLiveKey: /^sk_live_/.test(secret),
     /* Which billing environment a Stripe test key represents, so sandbox rows
        are never mistaken for production ones in the ledger. */
@@ -124,6 +144,12 @@ async function call(cfg, method, path, params, opts){
     'Authorization': 'Bearer ' + cfg.secret(),
     'Content-Type': 'application/x-www-form-urlencoded'
   };
+  /* ONE PLACE. Every Stripe request in this codebase goes through call(), so
+     the version is pinned here or not at all -- a header repeated at each call
+     site is a header that will eventually be missing from one of them. Sent
+     only when configured: an empty Stripe-Version is not "the default", it is a
+     malformed request. */
+  if (cfg.apiVersion) headers['Stripe-Version'] = cfg.apiVersion;
   /* Idempotency-Key makes a retried create safe. Without it a network timeout
      on checkout creation is indistinguishable from a failure, and retrying
      produces a second session -- which is how duplicate charges begin. */
@@ -395,9 +421,53 @@ async function clearCancelAtPeriodEnd(cfg, subscriptionId, opts){
    Stripe's vocabulary in, Velvet Viking's out. Every branch is explicit and an
    unrecognised type produces null rather than a guess: Stripe emits well over a
    hundred event types and the vast majority mean nothing to an entitlement. */
+/* WHERE THE BILLING PERIOD LIVES, ASKED IN BOTH PLACES STRIPE PUTS IT.
+ *
+ * Stripe used to render current_period_start / current_period_end on the
+ * SUBSCRIPTION. Newer API versions render them on each subscription ITEM
+ * instead, because a subscription can in principle carry items on different
+ * cycles. Which shape arrives depends on the API version in play, and that is
+ * two separate settings -- the account default for our REST calls, the
+ * endpoint's pin for webhook payloads -- neither of which this file controls.
+ *
+ * READING ONLY THE TOP LEVEL WAS A SILENT, DELAYED LOCKOUT. trial_end is
+ * top-level in every version, so a fourteen-day trial resolved perfectly; the
+ * period fields came back undefined, the row was written with a null
+ * current_period_end, and _entitlement.js reads a null period on an `active`
+ * subscription as EXPIRED. The athlete would have been refused the moment their
+ * trial converted -- a fortnight after paying, having passed every test anybody
+ * ran on the day.
+ *
+ * So the adapter asks both places, in the order of authority: the subscription
+ * first, because when it is present it is the whole subscription's period; then
+ * the first item, which is the same instant for the single-item subscriptions
+ * Valhalla sells. Absent from both stays null, which is the existing
+ * fail-closed behaviour and is left exactly as it was.
+ *
+ * VALHALLA SELLS ONE PRICE, so items.data[0] is the only item there is. A
+ * multi-item subscription would need a rule about WHICH item's period governs,
+ * and that rule would be a product decision rather than an adapter one -- named
+ * here so the next person meets the question rather than the assumption.
+ *
+ * THE FIX BELONGS HERE AND NOT IN THE RESOLVER. _entitlement.js is
+ * provider-neutral and must stay that way: teaching it about Stripe's object
+ * layout would put a provider's shape into the access model, which is the one
+ * thing this architecture exists to prevent. Translating a provider's wire
+ * format into our canonical facts is precisely this file's job. */
+function periodFieldOf(sub, field){
+  const s = sub || {};
+  if (s[field] != null) return s[field];
+  const item = s.items && s.items.data && s.items.data[0];
+  return (item && item[field] != null) ? item[field] : null;
+}
+
 function periodEndOf(sub){
   const s = sub || {};
-  const secs = s.current_period_end || (s.trial_end && !s.current_period_end ? s.trial_end : null);
+  const end = periodFieldOf(s, 'current_period_end');
+  /* A provider that expresses a trial as the first period rather than as a
+     separate window still resolves: absent period end falls back to trial_end.
+     Unchanged behaviour -- only where the period end is read from has moved. */
+  const secs = end != null ? end : (s.trial_end != null ? s.trial_end : null);
   return secs ? new Date(Number(secs) * 1000).toISOString() : null;
 }
 
@@ -476,8 +546,9 @@ function paidThroughOf(sub){
   const s = sub || {};
   const status = String(s.status || '');
   if (status !== 'past_due' && status !== 'unpaid') return periodEndOf(s);
-  return s.current_period_start
-    ? new Date(Number(s.current_period_start) * 1000).toISOString()
+  const start = periodFieldOf(s, 'current_period_start');
+  return start != null
+    ? new Date(Number(start) * 1000).toISOString()
     : null;
 }
 
@@ -561,7 +632,7 @@ function subscriptionFacts(sub, meta){
     catalogue_version: Prod.CATALOGUE_VERSION,
     trial_start: secs(obj.trial_start),
     trial_end: secs(obj.trial_end),
-    period_start: secs(obj.current_period_start),
+    period_start: secs(periodFieldOf(obj, 'current_period_start')),
     /* Paid-through, not invoiced-through. See paidThroughOf. */
     period_end: paidThroughOf(obj),
     /* What Stripe has raised an invoice for. NOT a stored column -- the
@@ -609,5 +680,5 @@ module.exports = {
   pauseCollection, resumeCollection,
   fetchCheckoutSession, fetchSubscription, cancelAtPeriodEnd, clearCancelAtPeriodEnd,
   parseSigHeader, verifySignature, normaliseEvent, subscriptionFacts, paidThroughOf,
-  periodOf, periodEndOf, accountOf, offerOf, conditionOf, ref, log
+  periodOf, periodEndOf, periodFieldOf, accountOf, offerOf, conditionOf, ref, log
 };
