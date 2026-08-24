@@ -384,8 +384,12 @@ test('fills that carry state or semantics were not flattened', () => {
     ['.goal-opt', '--bg-2'],
   ];
   STATEFUL.forEach(([sel, tok]) => {
+    // The optional `(?:[^;]*,\s*)?` skips over any layers stacked ahead of
+    // the base colour (e.g. .goal-opt's --tile-sheen overlay gradient from
+    // the soft-surface pass) -- the base fill is still required to be the
+    // token itself, so a real flatten-to-a-surface-token still fails this.
     const re = new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
-      '\\{[^}]*background(?:-color)?:\\s*var\\(' + tok + '\\)');
+      '\\{[^}]*background(?:-color)?:\\s*(?:[^;]*,\\s*)?var\\(' + tok + '\\)');
     assert.match(RUNTIME_CSS, re,
       sel + ' no longer paints with ' + tok + ' — a state fill was flattened');
   });

@@ -209,6 +209,21 @@
     --radius:16px; --radius-sm:10px; --radius-lg:22px;
     --shadow:0 10px 30px rgba(0,0,0,0.4);
     --shadow-sm:0 4px 12px rgba(0,0,0,0.3);
+    /* SOFT SURFACE / ROUNDED TILE -- the Level 2 depth recipe (Active Goal,
+       Athlete Status metrics, How to run this, Reading/Record evidence
+       cards): one level below the 3D medallions, one level above a flat
+       hairline card. Built entirely from tokens that already vary by theme
+       (--shadow-sm, --line-soft) plus two very faint rgba overlays -- same
+       "layer a translucent wash over the existing surface colour" technique
+       the medallions use, just far more restrained, so it needs no
+       theme-specific override of its own. Each target selector still sets
+       its OWN background surface token last in the list (CSS can't compose
+       `background` across two classes), so --tile-sheen is a layer to
+       prepend, not a full background by itself. */
+    --tile-radius:var(--radius);
+    --tile-border:var(--line-soft);
+    --tile-shadow:var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.08);
+    --tile-sheen:linear-gradient(180deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,.03) 100%);
     --maxw:720px;
     /* dedicated dark-Viking palette for modals, dropdowns & selects --
        deliberately fixed regardless of the light/dark theme toggle */
@@ -534,7 +549,23 @@
   .zone-legend{display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:10px;}
   .zleg-item{display:flex; align-items:center; gap:5px; font-size:10.5px; color:var(--ink-dim);}
   .zleg-dot{width:8px; height:8px; border-radius:50%; display:inline-block; flex:none;}
-  .fuel-card{margin-top:10px; border:1px dashed var(--line); border-radius:8px; background:var(--surface-3);}
+  /* SOFT SURFACE pass -- see --tile-* tokens. Border colour softened to
+     --tile-border and radius/shadow/sheen added, but the dashed-vs-solid
+     distinction below (the one signal separating "Fuel" from the more
+     important "How to run this") is untouched, and stays quieter than the
+     3D circular metrics by construction -- --tile-shadow is the same small
+     --shadow-sm recipe every Level 2 tile uses, nowhere near the medallions'
+     lift. */
+  /* margin-bottom (new): .fuel-card sits inside .day-detail, which needs its
+     own overflow:hidden for the day-card collapse animation and, when this
+     card is the day's last element, put its bottom edge flush against that
+     boundary -- zero room for the new box-shadow to render before being cut.
+     overflow:hidden also blocks margin-collapsing against its own bottom
+     edge (a fresh block-formatting context), so this margin reliably grows
+     .day-detail's own auto height to include it rather than being absorbed
+     away -- the shadow gets room without .fuel-card bleeding past its
+     ancestor the way .ws-block deliberately does elsewhere. */
+  .fuel-card{margin:10px 0 6px; border:1px dashed var(--tile-border); border-radius:var(--tile-radius); background:var(--tile-sheen), var(--surface-3); box-shadow:var(--tile-shadow);}
   /* HOW TO RUN THIS -- the outline, and nothing else. .how-card is the coaching
      disclosure; the Fueling card shares .fuel-card and keeps its neutral edge.
      The words, the icon and the interior are deliberately unchanged: the
@@ -1217,13 +1248,19 @@
   .checkpoint p{font-size:12.5px; color:var(--ink-dim); margin:0 0 4px; line-height:1.5;}
   .checkpoint .hint{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--bronze-text); margin-bottom:12px;}
   .goal-options{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
+  /* SOFT SURFACE pass -- see --tile-* tokens. Selected stays exactly the
+     same gold border/tint law it always had (Do NOT invent a filled gold
+     button); the sheen layer just carries that active fill the same way it
+     carries the resting one, so selecting a goal reads as the same soft
+     object switching state, not swapping to a different component. */
   .goal-opt{
-    border:1.5px solid var(--line); background:var(--bg-2); border-radius:var(--radius-sm);
+    border:1.5px solid var(--tile-border); background:var(--tile-sheen), var(--bg-2);
+    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
     padding:10px 16px; text-align:center; min-width:88px; transition:.2s;
   }
   .goal-opt .t{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:16px; color:var(--ink);}
   .goal-opt .p{font-size:10px; color:var(--ink-faint); margin-top:2px;}
-  .goal-opt.active{border-color:var(--gold); background:var(--c-gold-soft);}
+  .goal-opt.active{border-color:var(--gold); background:var(--tile-sheen), var(--c-gold-soft);}
   .goal-opt.active .t{color:var(--gold);}
   .goal-opt:hover{border-color:var(--bronze);}
 
@@ -1778,7 +1815,12 @@
   .coach-status-detail{font-size:var(--fs-body); color:var(--ink-dim); line-height:var(--lh-body); margin-top:3px; overflow-wrap:anywhere;}
   .coach-phase{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); white-space:nowrap; flex:none; padding-top:4px;}
   .coach-metrics{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-bottom:12px;}
-  .coach-metric{background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm); padding:9px 8px; min-width:0; text-align:center;}
+  /* SOFT SURFACE pass -- see --tile-* tokens. All three tiles keep their
+     identical resting look regardless of Load/Recovery/Trend's state: no
+     tone colour was applied here before this pass and none is added now
+     (Recovery must not become "a giant green block"). The parent .hub-card
+     stays plain/flat -- only these three internal tiles gain depth. */
+  .coach-metric{background:var(--tile-sheen), var(--surface-2); border:1px solid var(--tile-border); border-radius:var(--tile-radius); box-shadow:var(--tile-shadow); padding:9px 8px; min-width:0; text-align:center;}
   .coach-metric .cm-k{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); line-height:1.2;}
   .coach-metric .cm-v{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin-top:3px; line-height:1.2; overflow-wrap:anywhere;}
   .coach-metric .cm-s{font-size:10px; color:var(--ink-dim); margin-top:2px; line-height:1.3; overflow-wrap:anywhere;}
@@ -2238,9 +2280,15 @@
      Coach or Record card looks like the rest of Plan HQ's cards while still
      being the same tappable destination it always was (open-reading /
      open-record), just no longer the plain list-row shell. */
+  /* SOFT SURFACE pass -- see --tile-* tokens. The full-detail counterpart
+     to the Reading badges/Record plates above: same information, Level 2
+     tile treatment rather than their Level 3 medallion one. :hover/:active
+     keep overriding background outright (untouched) -- that is interaction
+     feedback, not the resting depth this pass adds. */
   .ev-card{
     display:block; width:100%; text-align:left; font:inherit; -webkit-appearance:none; appearance:none;
-    background:var(--surface-3); border:1px solid var(--line); border-radius:var(--radius-sm);
+    background:var(--tile-sheen), var(--surface-3); border:1px solid var(--tile-border); border-radius:var(--tile-radius);
+    box-shadow:var(--tile-shadow);
     padding:14px; margin:0 0 10px; cursor:pointer; color:inherit;
     transition:background .15s ease, border-color .15s ease;
   }
