@@ -531,9 +531,58 @@ test('the worst-case sessions stay bounded and collapsed by default', () => {
     assert.ok(plan.rows.length <= 20, arch + ' must not explode: ' + plan.rows.length);
     const closed = a.renderSplitsBlock(dd);
     assert.doesNotMatch(closed, /slog-row/, arch + ' must be closed until asked for');
-    assert.match(closed, /Log the session breakdown/);
+    // Collapsed + structured now renders the soft-raised summary card
+    // (VALHALLA -- SESSION BREAKDOWN pass) rather than the old plain toggle
+    // text -- same closed guarantee, new presentation.
+    assert.match(closed, /class="ev-card splits-summary"/);
+    assert.match(closed, /Session breakdown/i);
     a.state.days.pop();
   });
+});
+
+// ---------------------------------------------------------------------------
+// 10. THE COLLAPSED SUMMARY DESCRIBES THE REAL PLAN, NEVER A FIXED SHAPE
+// ---------------------------------------------------------------------------
+test('the summary card counts warm-up, reps, recoveries and cool-down from the actual plan', () => {
+  const a = app();
+  const dd = dayFor(a, 'track_reps');
+  const plan = a.structuredLoggingPlan(dd);
+  // 5 x 1000m: warm-up + 5 reps + 4 recoveries (between reps, not after the
+  // last one) + cool-down = 11 rows -- read from the plan, not asserted by
+  // guessing at the archetype's shape.
+  assert.equal(plan.rows.length, 11);
+  const summary = a.splitsBreakdownSummary(plan);
+  assert.equal(summary.eyebrow, 'Session breakdown · 11 laps');
+  assert.equal(summary.detail, 'Warm-up · 5 reps · 4 recoveries · cool-down');
+  const closed = a.renderSplitsBlock(dd);
+  assert.match(closed, /Session breakdown · 11 laps/);
+  assert.match(closed, /Warm-up · 5 reps · 4 recoveries · cool-down/);
+});
+
+test('a phase-sourced plan (a long run) is summarised as phases, never as invented reps', () => {
+  const a = app();
+  const dd = dayFor(a, 'long_run_goal_finish');
+  const plan = a.structuredLoggingPlan(dd);
+  assert.equal(plan.source, 'phases');
+  const summary = a.splitsBreakdownSummary(plan);
+  assert.match(summary.eyebrow, /Session breakdown · \d+ phases?/);
+  assert.doesNotMatch(summary.detail, /rep|recovery|warm-up|cool-down/i,
+    'a long run has no reps or recoveries to invent');
+});
+
+test('the summary rewrites itself when the athlete opens the detailed breakdown', () => {
+  const a = app();
+  const dd = dayFor(a, 'track_reps');
+  const closedHtml = a.renderSplitsBlock(dd);
+  assert.match(closedHtml, /class="ev-card splits-summary"/);
+  assert.doesNotMatch(closedHtml, /slog-row/);
+
+  a.handleToggleSplits(dd.id);
+  const openHtml = a.renderSplitsBlock(dd);
+  assert.doesNotMatch(openHtml, /class="ev-card splits-summary"/,
+    'the summary card must not coexist with the open detailed editor');
+  assert.match(openHtml, /slog-row/, 'opening it must still show the real per-segment rows');
+  assert.match(openHtml, /Hide session breakdown/);
 });
 
 test('a partial structured log is not reported as a discrepancy', () => {

@@ -981,6 +981,14 @@
   .day{
     border-left:4px solid var(--c-rest); background:var(--surface-3); border-radius:var(--radius-sm);
     padding:11px 12px; margin-top:8px; transition:.2s; position:relative;
+    /* SOFT ELEVATION -- the exact --shadow-sm token the rest of the raised-
+       card system already uses (Reading rows, Settings sections, Zone
+       Breakdown), not a second shadow system. It is already theme-aware
+       (warm/low-opacity in light, neutral/low-opacity in dark), so reusing
+       it verbatim is what keeps a dense list of day cards looking like a
+       stack of quiet physical cards rather than a glow. The semantic type
+       colour, radius and every other rule here are untouched. */
+    box-shadow:var(--shadow-sm);
   }
   /* The ONE ordinary container that had no full border: a day row was separated
      from the week around it by its fill alone, so collapsing that fill to the
@@ -1000,8 +1008,11 @@
   .day.type-long{border-left-color:var(--c-long);}
   .day.type-tuneup{border-left-color:var(--c-gold); background:var(--c-gold-soft);}
   .day.type-race{border-left-color:var(--c-gold); background:var(--c-gold-soft);}
-  .day.is-today{box-shadow:0 0 0 1.5px var(--gold) inset;}
-  .day.drag-over{box-shadow:0 0 0 2px var(--bronze) inset; background:var(--bg-4);}
+  /* Today/drag-over keep their own inset ring AND the base elevation --
+     the ring is a state cue layered on top of the card, not a replacement
+     for its depth. */
+  .day.is-today{box-shadow:var(--shadow-sm), 0 0 0 1.5px var(--gold) inset;}
+  .day.drag-over{box-shadow:var(--shadow-sm), 0 0 0 2px var(--bronze) inset; background:var(--bg-4);}
   .day.dragging{opacity:.4;}
   .day-top{display:flex; align-items:flex-start; gap:10px;}
   /* THE COMPLETION RING. A <label> so the tap target is comfortably ~40px
@@ -1192,6 +1203,22 @@
     color:var(--bronze-text); cursor:pointer; text-align:left; min-height:32px;
     -webkit-tap-highlight-color:transparent;
   }
+  /* SESSION BREAKDOWN -- collapsed summary card. .ev-card supplies the whole
+     shell (background/border/radius/shadow, hover/active feedback) exactly
+     as Coach/Settings' tappable rows already use it; .rs-chev is the same
+     shared chevron. Only the two-line label/detail layout below is new, and
+     it borrows .setup-section-title's eyebrow face and .rs-syn's supporting
+     line rather than inventing a fourth typographic voice. */
+  .splits-summary{padding:12px 14px; margin:2px 0 0;}
+  .splits-summary-head{display:flex; align-items:center; gap:9px;}
+  .splits-summary-icon{flex:none; display:flex; color:var(--bronze-text);}
+  .splits-summary-icon svg{width:15px; height:15px;}
+  .splits-summary-title{
+    flex:1 1 auto; min-width:0; font-family:'Oswald',sans-serif; font-size:11px;
+    letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .splits-summary-detail{font-size:11px; line-height:1.4; color:var(--ink-faint); margin-top:4px; padding-left:24px;}
   .splits-body{margin-top:2px;}
   .split-row{display:grid; grid-template-columns:16px 1fr 1fr 46px 32px; gap:5px; align-items:center; margin-bottom:6px;}
   .split-head{font-size:8.5px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:1px;}
@@ -11042,6 +11069,52 @@ function segmentLabel(s){
   if (s.grouped) return 'Rep' + (s.repIndex ? ' ' + s.repIndex : '');
   return INTENSITY_SEGMENT_LABEL[s.intensity] || 'Work';
 }
+/* THE COLLAPSED SUMMARY CARD'S TWO LINES, computed from the plan the
+   detailed editor already renders -- never a second description of the
+   workout, so this can never drift from what expanding it actually shows.
+
+   A segment-sourced plan (the common case: warm-up / reps / recoveries /
+   cool-down) partitions cleanly on role/kind -- every row is exactly one of
+   the four buckets below by construction, so the parts always sum to the
+   total. A phase-sourced plan (a long run's Settle/Hold/Commit) has none of
+   that vocabulary, so it gets its own reading: a count of phases and their
+   names, not an invented "reps" count for something that was never reps. */
+function splitsBreakdownSummary(plan){
+  if (!plan || !plan.rows || !plan.rows.length) return null;
+  var rows = plan.rows, total = rows.length;
+  if (plan.source === 'phases'){
+    return {
+      eyebrow: 'Session breakdown · ' + total + (total===1 ? ' phase' : ' phases'),
+      detail: listPhrase(rows.map(function(r){ return r.label; }))
+    };
+  }
+  var hasWarmup = rows.some(function(r){ return r.role==='warmup'; });
+  var hasCooldown = rows.some(function(r){ return r.role==='cooldown'; });
+  var recCount = rows.filter(function(r){ return r.kind==='recovery'; }).length;
+  var repCount = total - recCount - (hasWarmup?1:0) - (hasCooldown?1:0);
+  var parts = [];
+  if (hasWarmup) parts.push('Warm-up');
+  if (repCount > 0) parts.push(repCount + (repCount===1 ? ' rep' : ' reps'));
+  if (recCount > 0) parts.push(recCount + (recCount===1 ? ' recovery' : ' recoveries'));
+  if (hasCooldown) parts.push('cool-down');
+  return {
+    eyebrow: 'Session breakdown · ' + total + (total===1 ? ' lap' : ' laps'),
+    detail: parts.join(' · ')
+  };
+}
+function renderSplitsSummaryCard(dd, plan){
+  var s = splitsBreakdownSummary(plan);
+  if (!s) return null;
+  return '<button type="button" class="ev-card splits-summary" data-action="toggle-splits" '+
+      'data-day="'+dd.id+'" aria-expanded="false">'+
+    '<div class="splits-summary-head">'+
+      '<span class="splits-summary-icon">'+ICONS.layers+'</span>'+
+      '<span class="splits-summary-title">'+escapeHtml(s.eyebrow)+'</span>'+
+      '<span class="rs-chev">'+ICONS.chevronRight+'</span>'+
+    '</div>'+
+    '<div class="splits-summary-detail">'+escapeHtml(s.detail)+'</div>'+
+  '</button>';
+}
 
 // Ephemeral like dayExpandOverride -- deliberately not persisted, so a
 // closed editor stays closed on the next launch rather than the app
@@ -11252,13 +11325,21 @@ function loggingModeFor(dd){
 function renderSplitsBlock(dd){
   var open = isSplitsOpen(dd);
   var m = loggingModeFor(dd);
-  var label = m.mode === 'structured'
-    ? (open ? 'Hide session breakdown' : '+ Log the session breakdown (optional)')
-    : (open ? 'Hide laps / splits' : '+ Add laps / splits (optional)');
+  /* Collapsed + structured gets the soft-raised summary card; every other
+     state (open, or a flat legacy lap list) keeps the plain quiet toggle
+     it always had -- this pass is scoped to the one presentation the brief
+     named, not a rewrite of the flat/open states too. */
+  var summaryCard = (!open && m.mode === 'structured') ? renderSplitsSummaryCard(dd, m.plan) : null;
+  var toggle = summaryCard ? summaryCard : (function(){
+    var label = m.mode === 'structured'
+      ? (open ? 'Hide session breakdown' : '+ Log the session breakdown (optional)')
+      : (open ? 'Hide laps / splits' : '+ Add laps / splits (optional)');
+    return '<button type="button" class="splits-toggle" data-action="toggle-splits" data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
+        label+
+      '</button>';
+  })();
   return '<div class="actual-field full splits-block">'+
-    '<button type="button" class="splits-toggle" data-action="toggle-splits" data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
-      label+
-    '</button>'+
+    toggle+
     (open ? (m.mode === 'structured' ? renderStructuredBody(dd, m.plan) : renderSplitsBody(dd)) : '')+
   '</div>';
 }
