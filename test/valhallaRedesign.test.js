@@ -62,15 +62,48 @@ test('NAV: the five-tab shell is otherwise unchanged', () => {
 // ===========================================================================
 // 2. VALHALLA / COACH / RECORD
 // ===========================================================================
-test('SUBNAV: three tabs, Valhalla active by default', () => {
+/* FINAL VISUAL COMPLETION PASS -- the subnav used to carry a "Valhalla"
+   pill as its first tab, which sat directly beneath a bottom-nav tab
+   already reading VALHALLA: "Valhalla > Valhalla", not a real destination.
+   Coach and Record are the only two places the subnav actually goes now;
+   re-tapping the already-active bottom-nav VALHALLA tab is the return path
+   to the overview (see the handleSetView() tests below), the ordinary "tap
+   home again" pattern -- so no third pill stands in for it, and while on
+   the overview itself neither pill is marked active. */
+test('SUBNAV: two tabs -- Coach and Record, no redundant inner Valhalla pill', () => {
   const a = planHQ();
   const html = a.renderPlanHQSubNav();
   assert.match(html, /class="planhq-subnav"/);
-  ['Valhalla', 'Coach', 'Record'].forEach(label => {
+  ['Coach', 'Record'].forEach(label => {
     assert.match(html, new RegExp('data-action="set-planhq-tab" data-tab="' +
       label.toLowerCase() + '">' + label + '<'));
   });
-  assert.match(html, /data-tab="valhalla">Valhalla<\/button>[\s\S]{0,20}$|planhq-subnav-btn active" data-action="set-planhq-tab" data-tab="valhalla"/);
+  assert.doesNotMatch(html, /data-tab="valhalla"/,
+    'the subnav still repeats the bottom-nav VALHALLA destination as its own pill');
+  // On the overview itself, neither remaining pill claims to be active --
+  // there is no third button whose "active" state could stand in for it.
+  assert.doesNotMatch(html, /planhq-subnav-btn active/,
+    'a pill claims to be active while the overview itself is showing');
+});
+
+test('SUBNAV: re-tapping the active VALHALLA bottom-nav tab from Coach/Record returns to the overview', () => {
+  const a = planHQ();
+  a.handleSetPlanhqTab('record');
+  assert.equal(a.planhqTab, 'record');
+  assert.equal(a.state.view, 'planhq');
+  // Same view, tapped again -- the early-return path in handleSetView(),
+  // now repurposed as the subnav's missing third pill.
+  a.handleSetView('planhq');
+  assert.equal(a.planhqTab, 'valhalla', 'the retap did not return to the overview');
+  assert.equal(a.state.view, 'planhq', 'the retap left the Valhalla destination entirely');
+});
+
+test('SUBNAV: re-tapping VALHALLA while already on the overview is a harmless no-op', () => {
+  const a = planHQ();
+  assert.equal(a.planhqTab, 'valhalla');
+  a.handleSetView('planhq');
+  assert.equal(a.planhqTab, 'valhalla');
+  assert.equal(a.state.view, 'planhq');
 });
 
 // ===========================================================================

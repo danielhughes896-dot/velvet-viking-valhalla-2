@@ -139,6 +139,7 @@ test('every customer-facing brand control now resolves through the accent token'
   const CONTROLS = [
     ['.builder-light .btn-primary',                 'the builder’s Continue / Build'],
     ['.hq-panel .rec-panel-nav .btn-primary',       'the Plan HQ panels’ ← BACK'],
+    ['.btn-recal',                                  'Settings’ Re-calibrate Training Zones launcher'],
     ['.bld-step.now',                               'the current build stage'],
     ['.bld-step.done',                              'the stages already covered'],
     ['.bld-stage-no',                               'the stage numeral'],
