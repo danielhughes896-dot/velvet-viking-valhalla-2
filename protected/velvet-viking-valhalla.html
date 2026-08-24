@@ -8079,9 +8079,25 @@ function loadState(){
         if (parsed && ((parsed.setup && parsed.days) || hasAthlete)){
           if (!Array.isArray(parsed.days)) parsed.days = [];
           // 'detailed' was the old key for today's 'planhq' tab; older saves
-          // predating the bottom-nav toggle entirely have no view at all --
-          // both now land on 'today', the current default landing tab.
+          // predating the bottom-nav toggle entirely have no view at all.
           if (parsed.view==='detailed') parsed.view = 'planhq';
+          /* A FRESH LAUNCH ALWAYS OPENS ON TODAY, whatever tab was open when
+             the app was last closed. loadState() runs exactly once, from
+             init(), at real process start -- resuming a live session
+             (visibilitychange -> visible, or Android's WebView surviving a
+             background/foreground cycle) never calls it again, so this only
+             fires on a genuine cold start, never on an ordinary
+             foreground/background cycle within one open session. Ordinary
+             in-session tab switches still go through handleSetView(), which
+             still writes state.view and still persists it -- that survival
+             of "last tab" across an in-session save is what lets a
+             completed navigation resume correctly if the tab reloads mid-
+             session; only what the NEXT cold start opens on is decided
+             here. Gated on an athlete who already has something to train:
+             renderMainContent()'s own `!state.setup` branch routes a
+             no-plan athlete to onboarding regardless of this value, so it
+             is deliberately left alone for that case. */
+          if (parsed.setup && parsed.days && parsed.days.length) parsed.view = 'today';
           else if (!parsed.view) parsed.view = 'today';
           if (parsed.notifyEnabled==null) parsed.notifyEnabled = false;
           migrateThemePreference(parsed);
