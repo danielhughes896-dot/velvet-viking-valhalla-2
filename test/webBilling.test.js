@@ -212,10 +212,26 @@ async function withWorld(opts, run){
      /api/checkout refuses until both agreements are on record, which is the
      production behaviour these journeys are supposed to exercise -- so unless a
      case is specifically about the refusal, it is seeded exactly as ticking the
-     two boxes would leave it. */
+     two boxes would leave it.
+
+     THE WORLD AFTER THE WEBSITE PUBLISHES.
+     Today the commercial Terms are unpublished, so purchaseEvidence() refuses
+     every purchase before it reads anything -- correctly, and that refusal is
+     asserted for real in legalEvidence.test.js against the live constant.
+     These journeys are about the PURCHASE MACHINERY behind that gate: whether
+     one athlete can spend two trials, whether a session belonging to somebody
+     else unlocks anything, whether a reconcile racing a webhook double-grants.
+     None of that stops mattering because a document is still with the website,
+     and none of it can be exercised through a gate that refuses first.
+
+     So the gate is stood down HERE, in the harness, for the cases that are not
+     about it -- never in the module, which keeps telling the truth about
+     today. Cases that ARE about the gate pass agreements:false and get the
+     real function back. */
   const Agree = require('../api/_agreements.js');
+  const realPurchaseEvidence = Agree.purchaseEvidence;
   function agreeAll(uid){
-    [['terms', Agree.TERMS_VERSION], ['immediate_start', Agree.IMMEDIATE_START_VERSION]]
+    [['terms', Agree.TERMS_COMMERCIAL_VERSION], ['immediate_start', Agree.IMMEDIATE_START_VERSION]]
       .forEach(function(pair){
         f.db.account_agreements.push({
           id: f.db.account_agreements.length + 1, user_id: uid,
@@ -225,7 +241,33 @@ async function withWorld(opts, run){
         });
       });
   }
-  if (o.agreements !== false) agreeAll(o.uid === undefined ? ATHLETE : (o.uid || ATHLETE));
+  /* Reads the seeded rows exactly as the real one does -- same table, same
+     "newest row of this type, accepted, current version" rule -- with the
+     publication short-circuit removed and the commercial Terms version
+     treated as in force. It is the real behaviour of a published world, not
+     a blanket "yes". */
+  async function publishedWorldEvidence(cfg, sb, userId){
+    const newest = type => (f.db.account_agreements || [])
+      .filter(r => r.user_id === userId && r.agreement_type === type)
+      .sort((a, b) => String(b.decided_at).localeCompare(String(a.decided_at)))[0];
+    const current = { terms: Agree.TERMS_COMMERCIAL_VERSION,
+                      immediate_start: Agree.IMMEDIATE_START_VERSION };
+    const held = type => {
+      const r = newest(type);
+      return !!(r && r.decision === 'accepted' && r.agreement_version === current[type]);
+    };
+    const terms = held('terms'), immediateStart = held('immediate_start');
+    return { ok: terms && immediateStart, published: true,
+             terms: terms, immediateStart: immediateStart,
+             reason: terms ? (immediateStart ? 'ok' : 'immediate_start_not_acknowledged')
+                           : 'terms_not_accepted' };
+  }
+  if (o.agreements !== false){
+    Agree.purchaseEvidence = publishedWorldEvidence;
+    agreeAll(o.uid === undefined ? ATHLETE : (o.uid || ATHLETE));
+  } else {
+    Agree.purchaseEvidence = realPurchaseEvidence;
+  }
 
   const api = {
     /* Through the REAL router, so route resolution is part of what is proven. */
@@ -253,6 +295,9 @@ async function withWorld(opts, run){
   try{
     return await run({ f: f, stripe: stripe, api: api });
   } finally {
+    /* The real gate goes back, always. A harness that could leave it stood
+       down would let a later test pass against a world that does not exist. */
+    Agree.purchaseEvidence = realPurchaseEvidence;
     S.sb = saved.sb; S.config = saved.config;
     S.verifyUser = saved.verifyUser; S.userIdFromRequest = saved.uidFrom;
     globalThis.fetch = saved.fetch;
@@ -1378,4 +1423,66 @@ test('the deployment still fits the plan it deploys to', () => {
      which is exactly what the underscore convention is for. */
   ['_billing-apply.js', '_checkout.js', '_subscription.js', '_stripe.js']
     .forEach(m => assert.ok(fs.existsSync(path.join(ROOT, 'api', m)) && m.startsWith('_')));
+});
+
+// ---------------------------------------------------------------------------
+// CUSTOMER #1 CANNOT AGREE TO THE PRIVATE-BETA DOCUMENTS
+//
+// The defect these assertions close: checkout asked for acceptance of "the
+// Terms of Service" and linked to a document describing a private beta -- no
+// subscription, no trial, no cancellation, no refund. A customer could have
+// paid against evidence naming a contract that did not describe what they
+// bought.
+//
+// Run against the REAL gate rather than the harness's published-world stand-in
+// (agreements:false), so what is proven here is today's actual behaviour.
+// ---------------------------------------------------------------------------
+test('with no commercial Terms published, checkout refuses and says whose gap it is', async () => {
+  await withWorld({ agreements: false, commercialRequired: true }, async ({ f, stripe, api }) => {
+    const r = await api.call('checkout', 'POST', { period: 'monthly' });
+
+    assert.equal(r.status, 409);
+    assert.equal(r.json.error, 'commercial_terms_not_published',
+      'not "you have not accepted the Terms" -- the athlete has done nothing wrong');
+    assert.equal(r.json.agreements.commercialLegalPublished, false);
+
+    /* AND NOTHING HAPPENED AT THE PROVIDER. The refusal is in front of the
+       Checkout Session, not after it: no customer created, no session opened,
+       nothing for a webhook to arrive about later. */
+    assert.deepEqual(stripe.calls || [], [],
+      'the provider must not be touched for a purchase that cannot be evidenced');
+  });
+});
+
+test('no surface can record acceptance of the private-beta Terms', async () => {
+  /* THE STRUCTURAL GUARANTEE, through the router. Not a screen declining to
+     draw a checkbox -- a hand-made request is refused too, and writes nothing.
+     This is what makes the defect closed rather than hidden. */
+  await withWorld({ agreements: false }, async ({ f, api }) => {
+    const before = JSON.stringify(f.db.account_agreements);
+
+    const r = await api.call('subscription', 'POST',
+      { action: 'agree', agreement: 'terms', decision: 'accepted', surface: 'checkout' });
+
+    assert.equal(r.status, 409, 'well-formed request, server not in a state to honour it');
+    assert.equal(r.json.error || r.json.code, 'commercial_terms_not_published');
+    assert.equal(JSON.stringify(f.db.account_agreements), before,
+      'and no row naming the beta Terms reached the table');
+  });
+});
+
+test('the immediate-start acknowledgement still stands on its own', async () => {
+  /* The website's unpublished Terms are not a reason to tear down an approved
+     acknowledgement. It records normally, keeps its own version, and the
+     evidence an athlete has already given survives. */
+  await withWorld({ agreements: false }, async ({ f, api }) => {
+    const r = await api.call('subscription', 'POST',
+      { action: 'agree', agreement: 'immediate_start', decision: 'accepted', surface: 'checkout' });
+
+    assert.equal(r.status, 200);
+    const rows = f.db.account_agreements.filter(x => x.agreement_type === 'immediate_start');
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].agreement_version, 'immediate_start_v1');
+    assert.equal(rows[0].decision, 'accepted');
+  });
 });

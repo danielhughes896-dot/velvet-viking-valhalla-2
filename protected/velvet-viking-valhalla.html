@@ -2689,10 +2689,17 @@ var BUILD_ID = '2026-08-10.1';
    governing document "Private Beta Terms" to somebody paying GBP 11.99 a
    month is wrong twice over: it is not the document that governs a paid
    subscription, and it tells a customer they are a test subject. `betaTerms`
-   stays as an alias so nothing that still reads it breaks, and for now both
-   resolve to the same page -- the beta terms ARE the terms in force until
-   Business publishes commercial ones, and pointing at a URL that does not
-   exist yet would be the placeholder link this pass is meant to remove.
+   stays as an alias so nothing that still reads it breaks.
+
+   WHICH DOCUMENT SETTINGS OPENS IS THE SERVER'S ANSWER, NOT THIS FILE'S.
+   The shipped value is the beta Terms, because that is what governs everyone
+   using the product today; legalUrlsFromView() replaces it with whatever
+   /api/subscription says is in force the moment a view arrives. The server
+   hands out that URL alongside the Terms VERSION it records at checkout, so
+   Settings, the checkout consent and the stored evidence cannot end up naming
+   three different documents -- which is precisely the defect this pass exists
+   to close. Pointing at a commercial URL before the website publishes one
+   would just be the placeholder link in a smarter disguise.
 
    legalTermsLabel() decides which NAME an athlete sees, from the same server
    flag that decides whether anybody is being charged, so the label changes
@@ -2702,6 +2709,15 @@ var LEGAL_URLS = {
   terms:     'https://velvetviking.co.uk/beta-terms',
   support:   'support@velvetviking.co.uk'
 };
+/* THE SERVER'S CANONICAL DOCUMENTS, applied on every view. Defensive about
+   every field: an older deployment that does not send `agreements` leaves the
+   shipped values exactly as they are rather than blanking a legal link. */
+function legalUrlsFromView(v){
+  var a = v && v.agreements;
+  if (!a) return;
+  if (a.terms && a.terms.url) LEGAL_URLS.terms = a.terms.url;
+  if (a.privacy && a.privacy.url) LEGAL_URLS.privacy = a.privacy.url;
+}
 /* entitlementInfo is display-only and may be absent; absent means we do not
    know yet, and the beta wording is the safe reading while the product is
    still a private beta. */
@@ -7641,13 +7657,14 @@ function establishDeliverySession(){
       if (r.status === 200 && body){
         entitlementInfo = body;
         lastEntitlementAt = Date.now();
+        legalUrlsFromView(body);
         patchCloudCard();
         return body;
       }
       /* 403 means authenticated but not entitled. Recorded so the account card
          can say so honestly; the actual lock is the server refusing the next
          delivery, not anything decided here. */
-      if (r.status === 403 && body){ entitlementInfo = body; patchCloudCard(); }
+      if (r.status === 403 && body){ entitlementInfo = body; legalUrlsFromView(body); patchCloudCard(); }
       return null;
     });
   }).catch(function(){ return null; });   // offline: the existing lease stands
@@ -25710,7 +25727,7 @@ function renderSettingsHubView(){
     '<div class="build-tag">Build '+BUILD_ID+'</div>'+
     /* padded rather than merely coloured: an 11px line of text is a link a
        thumb misses, and these two are the only route to the legal pages. */
-    '<div class="build-tag"><a href="/privacy" style="color:inherit; display:inline-block; padding:9px 6px;">Privacy</a> &middot; <a href="/terms" style="color:inherit; display:inline-block; padding:9px 6px;">Terms</a></div>';
+    '<div class="build-tag"><a href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer" style="color:inherit; display:inline-block; padding:9px 6px;">Privacy</a> &middot; <a href="'+LEGAL_URLS.terms+'" target="_blank" rel="noopener noreferrer" style="color:inherit; display:inline-block; padding:9px 6px;">Terms</a></div>';
 }
 function renderBottomNav(){
   var view = state.view || 'today';

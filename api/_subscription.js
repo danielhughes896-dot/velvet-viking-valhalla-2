@@ -95,7 +95,12 @@ function publicView(decision, ent, uid, email, extra){
        so a purchase surface never has to guess either. */
     agreements: Agree.currentAgreements(),
     agreements_outstanding: x.evidence
-      ? { terms: !x.evidence.terms, immediate_start: !x.evidence.immediateStart }
+      ? { terms: !x.evidence.terms, immediate_start: !x.evidence.immediateStart,
+          /* WHY the Terms are outstanding, which is not the athlete's doing
+             when the answer is that no commercial Terms have been published.
+             A surface that could not tell the two apart would ask somebody to
+             tick a box for a document that does not exist. */
+          commercial_legal_published: x.evidence.published !== false }
       : null,
     /* WHERE THIS SUBSCRIPTION IS MANAGED. An athlete who bought through the App
        Store cannot cancel here and must not be shown a button that pretends
@@ -320,9 +325,15 @@ async function handle(req, res){
         offerCode: (body && body.offer_code) || null,
         decidedAt: (body && body.decided_at) || new Date().toISOString()
       });
+      /* 409, not 400, when the refusal is that nothing is published to agree
+         to: the request was well formed and the athlete did nothing wrong --
+         the server is not in a state where the agreement can exist. */
       outcome = rec.ok
         ? { code: 'agreement_recorded', status: 200 }
-        : { code: rec.reason, status: rec.reason === 'write_failed' ? 503 : 400 };
+        : { code: rec.reason,
+            status: rec.reason === 'write_failed' ? 503
+                  : rec.reason === 'commercial_terms_not_published' ? 409
+                  : rec.reason === 'no_document_in_force' ? 409 : 400 };
     }
     else if (action === 'reconcile')   outcome = await reconcile(req, res, cfg, who.uid, body);
     else if (action === 'cancel')      outcome = await mutateSubscription(req, res, cfg, who.uid, 'cancel');

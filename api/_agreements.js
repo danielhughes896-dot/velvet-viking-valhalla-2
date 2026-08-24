@@ -42,17 +42,80 @@ function log(what){ try{ console.log('agreements: ' + what); }catch(e){} }
 const TYPES = ['terms', 'immediate_start'];
 const SURFACES = ['checkout', 'account', 'signup', 'app'];
 
-/* THE TERMS VERSION CURRENTLY IN FORCE.
+/* =====================================================================
+   THE CANONICAL DOCUMENTS
+   =====================================================================
+
+   ONE COPY, ON THE WEBSITE. The website publishes the Terms, the Privacy
+   notice and the beta Terms; this app links to them and keeps no commercial
+   legal text of its own. Two copies of a contract is two contracts, and the
+   athlete would have no way of knowing which one governs them.
+
+   Absolute https URLs on purpose: the native shell has no allowNavigation
+   entry for velvetviking.co.uk, so an off-origin host opens in the system
+   browser rather than trapping somebody inside the WebView on a legal page
+   with no way back. */
+const CANONICAL_TERMS_URL   = 'https://velvetviking.co.uk/terms';
+const CANONICAL_PRIVACY_URL = 'https://velvetviking.co.uk/privacy';
+const BETA_TERMS_URL        = 'https://velvetviking.co.uk/beta-terms';
+
+/* HAVE THE COMMERCIAL DOCUMENTS ACTUALLY BEEN PUBLISHED?
  *
- * Bump this whenever the published Terms change materially. Every athlete is
+ * *** FALSE. The website has not published them. ***
+ *
+ * This is a statement about PUBLICATION, not about approval, and it is not
+ * this repository's to approve. The website owns the documents and owns
+ * LEGAL_APPROVALS; this constant records only whether the app may present
+ * them as the documents in force.
+ *
+ * WHY IT IS A CONSTANT AND NOT AN ENVIRONMENT VARIABLE. Whether a customer is
+ * shown a real contract before paying is not a dashboard setting. It requires
+ * a diff, a review and a deploy, exactly as the website's own approval flags
+ * do -- and for the same reason `payment_method_collection: 'always'` is
+ * written out in _stripe.js rather than left to a Stripe default.
+ *
+ * BEFORE FLIPPING IT, verify on the website's main branch that BOTH
+ * LEGAL_APPROVALS.terms and LEGAL_APPROVALS.privacyCommercial are true and
+ * that the two URLs above render the commercial documents. Implementation
+ * being finished is not publication.
+ *
+ * WHILE IT IS FALSE, the app refuses to record any Terms acceptance and
+ * checkout refuses with commercial_terms_not_published. That is deliberate:
+ * the only alternative is asking a paying customer to accept the private-beta
+ * Terms, which describe no subscription, no trial, no cancellation and no
+ * refund -- evidence that would say the athlete agreed to something they did
+ * not. Refusing the sale is the cheaper mistake by a wide margin. */
+const COMMERCIAL_LEGAL_PUBLISHED = false;
+
+/* THE COMMERCIAL TERMS VERSION.
+ *
+ * DELIBERATELY NOT terms_v1. That identifier belongs to the app's
+ * private-beta Terms, and reusing it for a subscription contract would make
+ * every future row ambiguous about which document it attests -- and would let
+ * a beta-era acceptance stand as evidence for a paid purchase. A new document
+ * gets a new identifier, always.
+ *
+ * Bump it whenever the published Terms change materially. Every athlete is
  * then asked again, and the previous acceptances stay in the table as the
  * record of what was agreed before. */
-const TERMS_VERSION = 'terms_v1';
+const TERMS_COMMERCIAL_VERSION = 'terms_commercial_v1';
+const TERMS_BETA_VERSION       = 'terms_v1';
 
 /* THE PRIVACY NOTICE CURRENTLY PUBLISHED. Recorded as context, never agreed
    to. Bumping it does not invalidate anything and does not ask anybody
-   anything -- it changes what future rows say was presented. */
-const PRIVACY_VERSION = 'privacy_v1';
+   anything -- it changes what future rows say was presented. The commercial
+   policy is a different document from the beta notice, so it has a different
+   identifier for the same reason the Terms do. */
+const PRIVACY_COMMERCIAL_VERSION = 'privacy_commercial_v1';
+const PRIVACY_BETA_VERSION       = 'privacy_v1';
+
+/* WHAT IS IN FORCE RIGHT NOW. Null Terms means there is no commercial Terms
+   document to accept, and every path that needs one fails closed rather than
+   falling back to the beta document. */
+const TERMS_VERSION   = COMMERCIAL_LEGAL_PUBLISHED ? TERMS_COMMERCIAL_VERSION : null;
+const PRIVACY_VERSION = COMMERCIAL_LEGAL_PUBLISHED ? PRIVACY_COMMERCIAL_VERSION
+                                                   : PRIVACY_BETA_VERSION;
+const TERMS_URL = COMMERCIAL_LEGAL_PUBLISHED ? CANONICAL_TERMS_URL : BETA_TERMS_URL;
 
 /* THE IMMEDIATE-START ACKNOWLEDGEMENT CURRENTLY IN FORCE.
  *
@@ -83,18 +146,41 @@ const IMMEDIATE_START_TEXT =
   'cancel at any time before the trial ends and you will not be charged.';
 
 function versionFor(type){
+  /* Null when there is no commercial Terms document published. Every caller
+     treats null as "cannot be agreed to", never as "use the old one". */
   if (type === 'terms') return TERMS_VERSION;
   if (type === 'immediate_start') return IMMEDIATE_START_VERSION;
   return null;
 }
 
-/* Everything a checkout surface needs to render the two agreements and record
-   the right versions against them. One call, so a screen cannot show one
-   version's wording and submit another's. */
+/* Everything a checkout surface needs to render the two agreements, link to
+   the documents behind them, and record the right versions against them. One
+   call, so a screen cannot show one version's wording, link to a second
+   document and submit a third.
+
+   THE URL AND THE VERSION COME OUT TOGETHER, and that is the point. The whole
+   defect this exists to close was a surface linking to one document while the
+   evidence named another. */
 function currentAgreements(){
   return {
-    terms: { type: 'terms', version: TERMS_VERSION },
-    privacy: { version: PRIVACY_VERSION, note: 'notice, not consent' },
+    /* Publication state, said out loud, so a surface renders the truth
+       rather than deciding for itself what silence means. */
+    commercialLegalPublished: COMMERCIAL_LEGAL_PUBLISHED,
+    terms: {
+      type: 'terms',
+      version: TERMS_VERSION,
+      url: TERMS_URL,
+      /* False means: there is nothing here an athlete may accept. */
+      agreeable: TERMS_VERSION != null
+    },
+    privacy: {
+      version: PRIVACY_VERSION,
+      url: CANONICAL_PRIVACY_URL,
+      note: 'notice, not consent',
+      /* Restated in the payload because it is the mistake this design exists
+         to prevent: no surface may render a privacy tickbox. */
+      isConsent: false
+    },
     immediateStart: {
       type: 'immediate_start',
       version: IMMEDIATE_START_VERSION,
@@ -118,6 +204,11 @@ async function hasAccepted(cfg, sb, userId, type){
   if (!cfg || typeof sb !== 'function' || !userId) return false;
   if (TYPES.indexOf(type) === -1) return false;
   const want = versionFor(type);
+  /* NOTHING IN FORCE MEANS NOTHING ACCEPTED. Short-circuited rather than left
+     to the version comparison below -- that would also return false, but it
+     would read as "their row is stale" when the truth is that no document
+     exists to be stale against. */
+  if (want == null){ log('NO_DOCUMENT_IN_FORCE type=' + type); return false; }
   try{
     const r = await sb(cfg,
       '/account_agreements?user_id=eq.' + encodeURIComponent(userId) +
@@ -161,6 +252,23 @@ async function record(cfg, sb, userId, input){
   if (i.decision !== 'accepted' && i.decision !== 'declined')
     return { ok: false, reason: 'unknown_decision' };
 
+  /* NO DOCUMENT, NO ROW. Refused here rather than allowed to reach the
+     database, where a null agreement_version would be rejected by the NOT NULL
+     constraint and surface as a generic write failure. The distinction the
+     caller needs is "there is nothing published to agree to", not "the write
+     went wrong".
+
+     THIS IS THE STRUCTURAL GUARANTEE. While the commercial Terms are
+     unpublished it is not possible -- from any surface, by any request -- to
+     store a row saying an athlete accepted the Terms, because the only Terms
+     the app could name would be the private-beta ones. */
+  const version = versionFor(i.type);
+  if (version == null){
+    log('NO_DOCUMENT_IN_FORCE type=' + i.type + ' (refusing to record)');
+    return { ok: false, reason: i.type === 'terms' ? 'commercial_terms_not_published'
+                                                   : 'no_document_in_force' };
+  }
+
   /* THE VERSION IS OURS, NOT THE CLIENT'S. A browser that could name the
      version it was agreeing to could claim agreement to wording nobody showed
      it -- or keep claiming v1 long after v2 replaced it. The row records the
@@ -168,7 +276,7 @@ async function record(cfg, sb, userId, input){
   const body = {
     user_id: userId,
     agreement_type: i.type,
-    agreement_version: versionFor(i.type),
+    agreement_version: version,
     decision: i.decision,
     surface: i.surface,
     privacy_version: i.type === 'terms' ? PRIVACY_VERSION : null,
@@ -199,10 +307,31 @@ async function record(cfg, sb, userId, input){
  * and "you have not acknowledged the immediate start" send an athlete to two
  * different places. */
 async function purchaseEvidence(cfg, sb, userId){
+  /* THE PUBLICATION CHECK COMES FIRST, and it does not touch the database.
+     "You have not accepted the Terms" and "there are no commercial Terms to
+     accept yet" are different facts with different owners -- the first is the
+     athlete's to fix, the second is the website's -- and collapsing them would
+     send somebody to tick a box that cannot exist. */
+  if (!COMMERCIAL_LEGAL_PUBLISHED){
+    log('COMMERCIAL_LEGAL_NOT_PUBLISHED (refusing purchase evidence)');
+    return {
+      ok: false,
+      published: false,
+      terms: false,
+      /* Read anyway: the acknowledgement is approved, its architecture is
+         unaffected by the Terms not being published, and an athlete who has
+         already given it keeps that evidence. Reporting it honestly is what
+         makes this a publication blocker rather than a reset. */
+      immediateStart: await hasAccepted(cfg, sb, userId, 'immediate_start'),
+      reason: 'commercial_terms_not_published'
+    };
+  }
+
   const terms = await hasAccepted(cfg, sb, userId, 'terms');
   const immediateStart = await hasAccepted(cfg, sb, userId, 'immediate_start');
   return {
     ok: terms && immediateStart,
+    published: true,
     terms: terms,
     immediateStart: immediateStart,
     reason: terms ? (immediateStart ? 'ok' : 'immediate_start_not_acknowledged')
@@ -212,6 +341,10 @@ async function purchaseEvidence(cfg, sb, userId){
 
 module.exports = {
   TYPES, SURFACES,
-  TERMS_VERSION, PRIVACY_VERSION, IMMEDIATE_START_VERSION, IMMEDIATE_START_TEXT,
+  COMMERCIAL_LEGAL_PUBLISHED,
+  TERMS_VERSION, TERMS_COMMERCIAL_VERSION, TERMS_BETA_VERSION,
+  PRIVACY_VERSION, PRIVACY_COMMERCIAL_VERSION, PRIVACY_BETA_VERSION,
+  CANONICAL_TERMS_URL, CANONICAL_PRIVACY_URL, BETA_TERMS_URL, TERMS_URL,
+  IMMEDIATE_START_VERSION, IMMEDIATE_START_TEXT,
   versionFor, currentAgreements, hasAccepted, record, purchaseEvidence
 };

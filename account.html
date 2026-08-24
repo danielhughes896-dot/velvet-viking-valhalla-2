@@ -120,7 +120,11 @@
   </div>
 
   <div class="vvv-foot">
-    <a href="/privacy">Privacy</a> &nbsp;·&nbsp; <a href="/terms">Terms</a>
+    <!-- THE CANONICAL DOCUMENTS, on the website, so this footer and the
+         checkout consent above cannot point at two different contracts. The
+         Terms href is replaced by whatever the server says is in force. -->
+    <a href="https://velvetviking.co.uk/privacy">Privacy</a> &nbsp;·&nbsp;
+    <a href="https://velvetviking.co.uk/beta-terms" id="foot-terms">Terms</a>
   </div>
 </div>
 
@@ -270,6 +274,7 @@
     $('resubscribe').classList.toggle('vvv-hidden', hasAccess || !v.checkout_configured);
     renderOffers(v);
     renderAgreements(v);
+    renderLegalFooter(v);
   }
 
   /* WHAT IS ON OFFER, FROM THE SERVER. Two buttons at most, built from
@@ -325,6 +330,17 @@
      Rendered from the server's own wording and versions, never from a string
      kept here. Outstanding items only: an athlete who accepted the current
      Terms last month is not asked again. */
+  /* THE FOOTER FOLLOWS THE SAME AUTHORITY AS THE CONSENT ROW.
+     Its href ships as the beta Terms because that is the document in force
+     today, and is replaced by whatever the server says is in force the moment
+     a view arrives. One source, so the footer and the tickbox above it can
+     never point at two different contracts. */
+  function renderLegalFooter(v){
+    var a = $('foot-terms');
+    var defs = v && v.agreements;
+    if (a && defs && defs.terms && defs.terms.url) a.href = defs.terms.url;
+  }
+
   function renderAgreements(v){
     var box = $('agreements');
     box.innerHTML = '';
@@ -336,9 +352,31 @@
     }
     box.classList.remove('vvv-hidden');
 
+    /* NO COMMERCIAL TERMS, NO TICKBOXES.
+       The one thing this screen must never do is offer a customer a box that
+       says "I accept the Terms of Service" while the only document behind the
+       link describes a private beta -- no subscription, no trial, no
+       cancellation, no refund. So when the server says the commercial
+       documents are not published, the screen says so plainly and renders no
+       agreement controls at all. The server refuses the purchase for the same
+       reason; this is the same fact told to the athlete rather than a second
+       rule that could disagree with it. */
+    if (defs.commercialLegalPublished === false){
+      var note = document.createElement('p');
+      note.className = 'vvv-quiet';
+      note.textContent = 'Subscriptions are not open yet. Our commercial ' +
+        'Terms of Service are not published, so there is nothing to agree to ' +
+        'here and nothing can be charged.';
+      box.appendChild(note);
+      return;
+    }
+
+    /* THE LINKS COME FROM THE SERVER, alongside the version being recorded.
+       Hard-coding them here is exactly how a surface ends up linking to one
+       document while the stored evidence names another. */
     if (out.terms) box.appendChild(agreementRow('terms',
-      'I accept the <a href="/terms">Terms of Service</a>. I have read the ' +
-      '<a href="/privacy">Privacy Policy</a>.', true));
+      'I accept the <a href="' + defs.terms.url + '" target="_blank" rel="noopener noreferrer">Terms of Service</a>. ' +
+      'I have read the <a href="' + defs.privacy.url + '" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.', true));
 
     /* THE IMMEDIATE-START ACKNOWLEDGEMENT. Its own decision, its own row, its
        own version -- deliberately not folded into the Terms tick, because a

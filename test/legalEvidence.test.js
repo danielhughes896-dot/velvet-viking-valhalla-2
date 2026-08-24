@@ -108,7 +108,9 @@ test('nothing else can stand in for the acknowledgement', () => {
   assert.equal(termsOnly.ok, false);
   assert.equal(termsOnly.code, 'immediate_start_not_acknowledged');
   assert.equal(termsOnly.status, 409);
-  assert.deepEqual(termsOnly.agreements, { terms: true, immediateStart: false });
+  assert.deepEqual(termsOnly.agreements,
+    { terms: true, immediateStart: false, commercialLegalPublished: true },
+    'which half is missing, and whether the documents exist at all');
 
   const neither = withEvidence({ ok: false, reason: 'terms_not_accepted',
                                  terms: false, immediateStart: false });
@@ -140,10 +142,17 @@ test('the browser cannot name the version it is agreeing to', () => {
      this server currently serves. */
   const src = read('api/_agreements.js');
   const rec = src.slice(src.indexOf('async function record'));
-  assert.match(rec.slice(0, 1600), /agreement_version:\s*versionFor\(i\.type\)/);
-  assert.ok(!/agreement_version:\s*i\./.test(rec.slice(0, 1600)),
+  const head = rec.slice(0, 2600);
+  /* The version is resolved from the type by this module and written from
+     that local. Both halves are asserted: where it comes FROM, and that it
+     never comes from the request body. */
+  assert.match(head, /const version = versionFor\(i\.type\)/,
+    'the version must be resolved here, from the type');
+  assert.match(head, /agreement_version:\s*version\b/,
+    'and written from that, not from anything the caller sent');
+  assert.ok(!/agreement_version:\s*i\./.test(head),
     'the version must never come from the caller');
-  assert.match(rec.slice(0, 1600), /user_id:\s*userId/,
+  assert.match(head, /user_id:\s*userId/,
     'and the athlete must be the token holder');
 });
 
@@ -155,15 +164,33 @@ test('an agreement to superseded wording stops counting, and nothing is lost', a
      reviewed text lands, the constant changes, this gate starts refusing, and
      every athlete is asked again -- while the v1 rows stay exactly as they
      are as the record of what was agreed before. */
-  assert.equal(await Agree.hasAccepted(CFG, sbReturning([row()]), UID, 'terms'), true);
+  /* Exercised against the immediate-start acknowledgement, because that is the
+     agreement with a version actually in force. The Terms have none while the
+     commercial documents are unpublished -- which is itself asserted below,
+     and is a stronger form of the same rule rather than an exemption from it. */
+  const iRow = over => Object.assign({
+    decision: 'accepted', agreement_version: 'immediate_start_v1',
+    decided_at: '2026-08-01T00:00:00Z'
+  }, over || {});
+
+  assert.equal(await Agree.hasAccepted(CFG, sbReturning([iRow()]), UID, 'immediate_start'), true);
 
   assert.equal(await Agree.hasAccepted(CFG,
-    sbReturning([row({ agreement_version: 'terms_v0' })]), UID, 'terms'), false,
+    sbReturning([iRow({ agreement_version: 'immediate_start_v0' })]), UID, 'immediate_start'), false,
     'superseded wording must not count');
 
   assert.equal(await Agree.hasAccepted(CFG,
-    sbReturning([row({ agreement_version: 'terms_v2' })]), UID, 'terms'), false,
+    sbReturning([iRow({ agreement_version: 'immediate_start_v2' })]), UID, 'immediate_start'), false,
     'wording this build has never served must not count either');
+
+  /* AND THE LIMIT CASE. With no document in force, no stored row of any
+     version counts -- including a row naming the beta Terms, which is exactly
+     the acceptance that must never be readable as evidence for a purchase. */
+  for (const v of ['terms_v1', 'terms_commercial_v1', 'anything']){
+    assert.equal(await Agree.hasAccepted(CFG,
+      sbReturning([row({ agreement_version: v })]), UID, 'terms'), false,
+      'no Terms row counts while nothing is published: ' + v);
+  }
 });
 
 test('the approved wording is the wording that ships, and it is labelled honestly', () => {
@@ -223,16 +250,19 @@ test('an unprovable agreement is no agreement', async () => {
 });
 
 test('a rejected write is reported rather than assumed', async () => {
+  /* immediate_start, because it is the type that actually reaches the write.
+     A Terms write is refused earlier and for a different reason, which the
+     canonical-documents section asserts separately. */
   const failing = async () => ({ ok: false, status: 503 });
   const r = await Agree.record(CFG, failing, UID,
-    { type: 'terms', decision: 'accepted', surface: 'checkout' });
+    { type: 'immediate_start', decision: 'accepted', surface: 'checkout' });
   assert.equal(r.ok, false);
   assert.equal(r.reason, 'write_failed');
 
   for (const bad of [
     { type: 'health', decision: 'accepted', surface: 'checkout' },
-    { type: 'terms', decision: 'maybe', surface: 'checkout' },
-    { type: 'terms', decision: 'accepted', surface: 'billboard' }
+    { type: 'immediate_start', decision: 'maybe', surface: 'checkout' },
+    { type: 'immediate_start', decision: 'accepted', surface: 'billboard' }
   ]){
     const out = await Agree.record(CFG, sbReturning([]), UID, bad);
     assert.equal(out.ok, false, JSON.stringify(bad));
@@ -342,4 +372,153 @@ test('one product, two offers, the approved prices, and no resurrected tier', ()
   /* And the capability map still ships exactly one tier. */
   const A = require('../api/_access.js');
   assert.deepEqual(Object.keys(A.CAPABILITIES), ['standard']);
+});
+
+// ===========================================================================
+// THE CANONICAL DOCUMENTS
+//
+// The defect this section exists to close, stated plainly: checkout asked the
+// athlete to accept "the Terms of Service" and linked to the app's own /terms,
+// which describes a PRIVATE BETA -- no subscription, no trial, no
+// cancellation, no refund -- while the commercial Terms sat unpublished on the
+// website. A customer could have agreed to evidence naming a document that
+// does not describe the thing they were paying for.
+//
+// It is closed structurally rather than by editing a link: while the
+// commercial documents are unpublished there is no Terms version in force, so
+// no Terms row can be written by any surface and checkout refuses.
+// ===========================================================================
+test('the app keeps no commercial legal text of its own', () => {
+  /* One copy, on the website. Two copies of a contract is two contracts, and
+     an athlete has no way of knowing which governs them. The app may point at
+     documents; it may not become one. */
+  for (const url of [Agree.CANONICAL_TERMS_URL, Agree.CANONICAL_PRIVACY_URL, Agree.BETA_TERMS_URL]){
+    assert.match(url, /^https:\/\/velvetviking\.co\.uk\//,
+      'the canonical documents live on the website: ' + url);
+  }
+  assert.notEqual(Agree.CANONICAL_TERMS_URL, Agree.BETA_TERMS_URL,
+    'the commercial Terms and the private-beta Terms are different documents');
+});
+
+test('the commercial Terms do not inherit the private-beta Terms identifier', () => {
+  /* THE POINT OF THE WHOLE SECTION. terms_v1 names the beta document. Reusing
+     it for a subscription contract would make every stored row ambiguous about
+     which document it attests, and would let a beta-era acceptance stand as
+     evidence for a paid purchase. A new document gets a new identifier. */
+  assert.equal(Agree.TERMS_BETA_VERSION, 'terms_v1');
+  assert.equal(Agree.TERMS_COMMERCIAL_VERSION, 'terms_commercial_v1');
+  assert.notEqual(Agree.TERMS_COMMERCIAL_VERSION, Agree.TERMS_BETA_VERSION);
+  assert.notEqual(Agree.PRIVACY_COMMERCIAL_VERSION, Agree.PRIVACY_BETA_VERSION);
+});
+
+test('while the commercial Terms are unpublished, nothing is in force to accept', () => {
+  /* Not "the athlete has not accepted yet" -- there is no document. The two
+     are different facts with different owners and different fixes. */
+  assert.equal(Agree.COMMERCIAL_LEGAL_PUBLISHED, false,
+    'the website has not published; this test changes when that does');
+  assert.equal(Agree.versionFor('terms'), null);
+  assert.equal(Agree.TERMS_VERSION, null);
+
+  const defs = Agree.currentAgreements();
+  assert.equal(defs.commercialLegalPublished, false);
+  assert.equal(defs.terms.agreeable, false, 'no surface may offer a Terms tickbox');
+  assert.equal(defs.terms.url, Agree.BETA_TERMS_URL,
+    'and the link names the document actually in force today, not a page that does not exist yet');
+});
+
+test('no Terms row can be written against the private-beta document', async () => {
+  /* THE STRUCTURAL GUARANTEE. Not a screen refusing to render a checkbox --
+     the recorder itself refuses, so a hand-made request cannot do what the
+     screen will not. */
+  let wrote = false;
+  const sb = async () => { wrote = true; return okRes([]); };
+  const r = await Agree.record(CFG, sb, UID, {
+    type: 'terms', decision: 'accepted', surface: 'checkout'
+  });
+  assert.equal(r.ok, false);
+  assert.equal(r.reason, 'commercial_terms_not_published');
+  assert.equal(wrote, false, 'it must not even reach the database');
+});
+
+test('the immediate-start acknowledgement is unaffected and still recordable', async () => {
+  /* Publication of the Terms is the website's gap, not a reason to tear down
+     an approved acknowledgement or discard evidence already given for it. */
+  let body = null;
+  const sb = async (cfg, pathname, opts) => { body = JSON.parse(opts.body); return okRes([]); };
+  const r = await Agree.record(CFG, sb, UID, {
+    type: 'immediate_start', decision: 'accepted', surface: 'checkout'
+  });
+  assert.equal(r.ok, true);
+  assert.equal(body.agreement_version, 'immediate_start_v1');
+});
+
+test('checkout refuses, and says whose gap it is', async () => {
+  /* An athlete told "please accept the Terms" when the truth is "we have not
+     published them" is being blamed for our own gap. */
+  const ev = await Agree.purchaseEvidence(CFG, sbReturning([]), UID);
+  assert.equal(ev.ok, false);
+  assert.equal(ev.published, false);
+  assert.equal(ev.reason, 'commercial_terms_not_published');
+
+  const d = Checkout.decideCheckout({
+    commerceEnabled: true, commercialRequired: true, stripeConfigured: true,
+    uid: UID, period: 'monthly', purchaseCheck: { mayBuy: true },
+    evidence: ev, now: new Date()
+  });
+  assert.equal(d.ok, false);
+  assert.equal(d.code, 'commercial_terms_not_published');
+  assert.equal(d.status, 409);
+  assert.equal(d.agreements.commercialLegalPublished, false);
+});
+
+test('every app surface links to the canonical documents, never to a local copy', () => {
+  /* The app's own /terms and /privacy are superseded working copies. A surface
+     that asks for a commercial decision while linking to one of them is the
+     original defect. Checked across every file an athlete can reach. */
+  for (const f of ['account.html', 'start.html', 'get.html',
+                   'protected/velvet-viking-valhalla.html']){
+    const src = read(f);
+    assert.ok(!/href="\/terms"/.test(src), f + ' still links to the local Terms copy');
+    assert.ok(!/href="\/privacy"/.test(src), f + ' still links to the local Privacy copy');
+  }
+});
+
+test('the checkout consent renders its links from the server, not from itself', () => {
+  /* A screen holding its own copy of the URL is how a surface ends up linking
+     to one document while the evidence names another. The URL and the version
+     leave the server together. */
+  const src = read('account.html');
+  assert.match(src, /defs\.terms\.url/);
+  assert.match(src, /defs\.privacy\.url/);
+  /* And it renders no tickbox at all when there is nothing published. */
+  assert.match(src, /commercialLegalPublished === false/);
+});
+
+test('Settings opens whatever the server says is in force', () => {
+  const shell = read('protected/velvet-viking-valhalla.html');
+  assert.match(shell, /function legalUrlsFromView/);
+  assert.match(shell, /LEGAL_URLS\.terms = a\.terms\.url/);
+  assert.match(shell, /LEGAL_URLS\.privacy = a\.privacy\.url/);
+  /* The session payload is what carries them. */
+  assert.match(read('api/session.js'), /agreements: Agree\.currentAgreements\(\)/);
+});
+
+test('privacy is still a notice, and the payload says so out loud', () => {
+  const defs = Agree.currentAgreements();
+  assert.equal(defs.privacy.isConsent, false);
+  assert.equal(defs.privacy.note, 'notice, not consent');
+  assert.equal(Agree.TYPES.indexOf('privacy'), -1, 'privacy is not an agreement type');
+  /* No surface grew a privacy tickbox while the links were being rewired. */
+  const src = read('account.html');
+  assert.ok(!/agreementRow\(\s*'privacy'/.test(src));
+});
+
+test('the app legal pages show no unresolved placeholder', () => {
+  /* A document that shows a reader an unfilled bracket next to an answer it
+     has already given is worse than one that gives the answer once. */
+  for (const f of ['terms.html', 'privacy.html']){
+    const src = read(f);
+    assert.ok(!/to be confirmed by the owner|\[GOVERNING LAW|\bTBC\b/i.test(src),
+      f + ' still shows an unresolved placeholder');
+  }
 });

@@ -26,6 +26,7 @@
 
 const S = require('./_strava.js');     // canonical Supabase access layer
 const A = require('./_access.js');
+const Agree = require('./_agreements.js');   // the canonical documents and versions
 
 function log(what){ try{ console.log('session: ' + what); }catch(e){} }
 
@@ -50,7 +51,13 @@ function uiPayload(decision, uid, email){
     // having to know anything about the lease itself
     revalidate_after_sec: A.LEASE_TTL_SEC,
     account_required: A.accountRequired(),
-    commercial_required: A.commercialRequired()
+    commercial_required: A.commercialRequired(),
+    /* THE CANONICAL LEGAL DOCUMENTS, so Settings opens the same Terms the
+       checkout consent links to and the same Terms the stored evidence names.
+       Sent from the one module that owns all three, rather than left to a
+       constant in the app shell that nobody would think to update when the
+       website publishes. */
+    agreements: Agree.currentAgreements()
   };
 }
 

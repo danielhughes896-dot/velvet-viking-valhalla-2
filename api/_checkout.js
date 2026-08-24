@@ -79,7 +79,11 @@ function decideCheckout(input){
     const why = (o.evidence && o.evidence.reason) || 'agreements_not_recorded';
     return { ok: false, code: why, status: 409, agreements: {
       terms: !!(o.evidence && o.evidence.terms),
-      immediateStart: !!(o.evidence && o.evidence.immediateStart)
+      immediateStart: !!(o.evidence && o.evidence.immediateStart),
+      /* Whether the commercial documents exist at all. A screen showing
+         "please accept the Terms" when the honest answer is "we have not
+         published them yet" would blame the athlete for our own gap. */
+      commercialLegalPublished: !(o.evidence && o.evidence.published === false)
     } };
   }
 

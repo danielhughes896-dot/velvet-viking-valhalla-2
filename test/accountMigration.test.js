@@ -293,8 +293,16 @@ test('the account shell is public, small, and carries no coaching engine', () =>
      inside the statutory cancellation period -- and the actual calendar date of
      the first charge alongside "£0 today". Both are rendered from server-owned
      wording and a server-computed instant, so the growth is markup and
-     plumbing rather than content this page decides. Still all door. */
-  assert.ok(shell.length < 33000, 'the shell must stay a shell (' + shell.length + ' bytes)');
+     plumbing rather than content this page decides. Still all door.
+
+     RAISED TO 34.5KB FOR THE CANONICAL-DOCUMENTS WIRING. Under a kilobyte,
+     and it removes content rather than adding any: the Terms and Privacy
+     links are no longer written here at all but read from the server's
+     payload, plus a short honest notice for the case where no commercial
+     Terms have been published and there is therefore nothing to tick. The
+     page now holds LESS legal text than it did, not more -- what grew is the
+     plumbing that stops this shell deciding anything for itself. */
+  assert.ok(shell.length < 34500, 'the shell must stay a shell (' + shell.length + ' bytes)');
   ['coachDecision', 'playbookAssess', 'athleteMemory', 'buildBlockWeeks', 'ARCHETYPE_GUIDANCE']
     .forEach(sym => assert.ok(shell.indexOf(sym) === -1, 'shell must not contain ' + sym));
 });

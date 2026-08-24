@@ -253,8 +253,19 @@ test('deleting the account does not delete the plan on the device', () => {
 // THE SHELL ITSELF
 // ---------------------------------------------------------------------------
 test('all four capabilities are actually reachable on the page', () => {
-  ['id="resubscribe"', 'id="export"', 'id="delete"', 'href="/privacy"']
+  ['id="resubscribe"', 'id="export"', 'id="delete"']
     .forEach(m => assert.ok(ACCOUNT.indexOf(m) !== -1, 'the locked shell is missing ' + m));
+
+  /* THE FOURTH IS THE PRIVACY NOTICE, and it now points at the website rather
+     than at this deployment -- the canonical documents live in one place, so
+     the app links to them instead of keeping copies that drift. Asserted by
+     DESTINATION rather than by exact href: what matters is that a locked-out
+     athlete can still reach the notice, and that the link goes to the real
+     document rather than a local stub. */
+  assert.match(ACCOUNT, /href="https:\/\/velvetviking\.co\.uk\/privacy"/,
+    'the locked shell must still reach the privacy notice');
+  assert.ok(!/href="\/privacy"/.test(ACCOUNT),
+    'and must not fall back to the superseded local copy');
 });
 
 test('the locked shell exposes no part of the product', () => {

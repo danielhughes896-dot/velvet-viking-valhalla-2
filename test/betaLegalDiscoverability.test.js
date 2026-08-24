@@ -105,11 +105,23 @@ test('the external links cannot be used to hijack the app tab', () => {
   // mailto is deliberately exempt — target="_blank" on a mailto leaves a blank
   // tab behind on some browsers.
   const external = html.match(/<a[^>]*href="https:\/\/velvetviking\.co\.uk[^"]*"[^>]*>/g) || [];
-  assert.equal(external.length, 2, 'both documents linked');
+  /* BOTH DOCUMENTS, AND EVERY LINK TO THEM. Settings reaches each document
+     twice now -- once from the Legal & Support cards and once from the small
+     build-tag footer, which used to point at this deployment's own superseded
+     copies. Asserting the SAFETY PROPERTY on every off-origin tag rather than
+     counting to two: a future third link to the same documents is fine, a
+     single one that drops the opener protection is not. */
+  assert.ok(external.length >= 2, 'both documents linked');
   for (const tag of external) {
     assert.match(tag, /target="_blank"/, tag);
     assert.match(tag, /rel="noopener noreferrer"/, tag);
   }
+  const hrefs = external.join(' ');
+  assert.match(hrefs, /velvetviking\.co\.uk\/privacy/, 'the privacy notice must be reachable');
+  assert.match(hrefs, /velvetviking\.co\.uk\/(beta-)?terms/, 'and the Terms in force');
+  /* And Settings no longer offers this deployment's own stale copies. */
+  assert.ok(!/href="\/(terms|privacy)"/.test(html),
+    'Settings must not link to the superseded local documents');
 });
 
 test('the Settings section reuses the existing hub architecture', () => {
