@@ -69,6 +69,12 @@
     --c-track:var(--bronze); --c-track-soft:rgba(192,146,63,0.16);
     --c-long:#5E93AC; --c-long-soft:rgba(94,147,172,0.16);
     --c-gold:var(--gold); --c-gold-soft:rgba(227,177,90,0.20);
+    /* THE READING'S BADGE FACE -- deliberately theme-invariant, like the
+       tone colours above. A medallion is a physical object; its cream face
+       does not invert when the athlete flips the app to dark mode. Both
+       values already exist elsewhere in the palette (light theme's --bg and
+       --line-soft) so this reuses in-brand cream rather than inventing one. */
+    --badge-face:#F4F1EA; --badge-face-lo:#E5DECD; --badge-ink:#171717;
 
     /* ---------- ORDINARY CONTAINER SURFACES ----------
        An alias, not a new ramp. These are the fills of containers that hold
@@ -2121,12 +2127,34 @@
   .b-dials{display:flex; flex-direction:column; gap:18px; margin:4px 0 4px;}
   .b-dials-row{display:flex; justify-content:center; gap:28px;}
   .b-dial-col{display:flex; flex-direction:column; align-items:center; gap:8px; width:70px;}
-  .b-dial{position:relative; width:62px; height:62px; flex:none;}
+  /* DIMENSIONAL MEDALLION. Rim colour is the one thing that varies per badge
+     (set inline as --rim-color by dialRimColor()); the gradients, shadows
+     and face beneath are one shared shallow-medallion treatment so all five
+     badges -- and any future reading -- render identically. Two rgba()
+     overlays (a restrained top-left highlight, a soft bottom-right shade)
+     sit over the flat --rim-color rather than a computed lighter/darker
+     hex, so the rim automatically tracks whatever that colour resolves to
+     in either theme (--cherry alone changes between them) with no JS colour
+     math and no browser-support risk. */
+  .b-dial{position:relative; width:62px; height:62px; flex:none; border-radius:50%;
+    background:
+      radial-gradient(circle at 33% 25%, rgba(255,255,255,.50) 0%, rgba(255,255,255,0) 44%),
+      radial-gradient(circle at 74% 80%, rgba(0,0,0,.30) 0%, rgba(0,0,0,0) 58%),
+      var(--rim-color);
+    box-shadow:0 3px 6px rgba(0,0,0,.24), 0 1px 0 rgba(255,255,255,.14) inset;}
   .b-dial.lead{width:70px; height:70px;}
-  .b-dial b{position:absolute; inset:6px; display:flex; align-items:center; justify-content:center;
-    text-align:center; line-height:1.05; font-family:'JetBrains Mono',monospace; font-size:13.5px; color:var(--ink); font-weight:700;}
-  .b-dial.lead b{font-size:16px;}
-  .b-medal{position:absolute; inset:6px; border-radius:50%; background:var(--bg-2); border:1px solid var(--line-soft);}
+  .b-medal{position:absolute; inset:6px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+    background:radial-gradient(circle at 36% 28%, #FFFFFF 0%, var(--badge-face) 55%, var(--badge-face-lo) 100%);
+    box-shadow:inset 0 1.5px 2.5px rgba(0,0,0,.14), inset 0 -1px 1px rgba(255,255,255,.6), 0 0 0 1px rgba(0,0,0,.10);}
+  /* overflow-wrap is the backstop for a single long word (e.g. "Responding")
+     that has no space to wrap on -- dialFontSize() already sizes the common
+     vocabulary to fit without it, so this only ever fires on an unusually
+     long future state word, and breaks it rather than silently clipping. */
+  .b-medal b{display:block; text-align:center; line-height:1.08; max-width:96%;
+    overflow-wrap:break-word; word-break:break-word;
+    font-family:'JetBrains Mono',monospace; color:var(--badge-ink); font-weight:700;}
+  .b-dial.lead .b-medal b{font-size:16px;}
   .b-dial-col .lbl{font-family:'Oswald',sans-serif; font-size:9.3px; letter-spacing:.03em; text-transform:uppercase; color:var(--ink-faint); text-align:center; line-height:1.2;}
 
   .b-record{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:6px 0 6px;}
@@ -24620,21 +24648,34 @@ function refreshOpenRecordPanel(){
    element is a CONCLUSION and may carry the tone the engine assigned it. The
    five were accordions that expanded inline; the bodies they expanded are
    rendered verbatim inside a panel now, so nothing on the page moves. */
-/* THE READING'S DIALS — a circle for state, never a fabricated percentage.
-   Only Readiness has a genuine 0-100 fraction (computeConfidenceScore());
-   its dial is a real progress ring. The other four sections are categorical
-   (fresh/watch/strained, on-track/worth-watching/..., a count, a block
-   state), so their dials are a solid tone-coloured ring where the coaching
-   engine assigned a tone, or a plain medallion where it assigned none --
-   state shown honestly, not a percentage that does not exist. */
+/* THE READING'S DIALS — a badge for state, never a fabricated percentage.
+   Readiness carries its genuine 0-100 fraction (computeConfidenceScore()) as
+   its centre number; the other four sections are categorical (fresh/watch/
+   strained, on-track/worth-watching/..., a count, a block state). All five
+   render as the same dimensional medallion, coloured by the tone the
+   coaching engine assigned -- readiness always burgundy, the categorical
+   four tone-coloured when the engine assigned one, neutral when it did not
+   -- state shown honestly, never a ring filled to a fabricated fraction. */
 var READING_DIAL_LABEL = { readiness:'Readiness', recovery:'Recovery', evolution:'Evolution', patterns:'Patterns', adaptation:'Adaptation' };
 function toneRingColor(tone){
   return tone==='good' ? 'var(--c-easy)' : tone==='watch' ? 'var(--gold)' : tone==='bad' ? 'var(--c-tempo)' : null;
 }
+/* A phrase wraps at its spaces (CSS handles that); what actually decides
+   whether it fits is its WIDEST word, since that is the one span nothing
+   can shrink by wrapping alone -- "3 established" wraps fine, but
+   "established" itself still has to fit on its own line. Sized by that
+   longest word, not the phrase's raw length, so multi-word states aren't
+   punished for a total length their wrapped lines never actually reach. */
 function dialFontSize(text, lead){
-  var n = (text||'').length;
-  if (lead) return n<=4 ? '16px' : n<=7 ? '13px' : n<=10 ? '11px' : '9.5px';
-  return n<=4 ? '12.5px' : n<=7 ? '10.5px' : n<=10 ? '9px' : '8px';
+  var words = (text||'').split(' ').filter(Boolean);
+  var longest = words.reduce(function(m,w){ return Math.max(m, w.length); }, (text||'').length);
+  if (lead) return longest<=4 ? '16px' : longest<=7 ? '13px' : longest<=8 ? '11px' : '9.5px';
+  if (longest<=4) return '12.5px';
+  if (longest<=5) return '11px';
+  if (longest<=7) return '9.5px';
+  if (longest<=8) return '8.5px';
+  if (longest<=9) return '8px';
+  return longest<=10 ? '7px' : '6.5px';
 }
 /* The dial's own centre text: readiness gets just its number ("50%", not
    "50% confidence" -- the fuller sentence is the card's synopsis, not the
@@ -24647,32 +24688,18 @@ function dialCenterText(sec){
   }
   return sec.value;
 }
-function readingDialSvg(sec, size){
-  var sw = size>=60?5:(size>=44?4:3.5);
-  var r = size/2 - sw/2 - 1, cx = size/2, cy = size/2;
-  if (sec.key === 'readiness'){
-    var m = /^(\d+)%/.exec(sec.value);
-    var pct = m ? Math.max(0, Math.min(100, parseInt(m[1],10))) : 0;
-    var circ = 2*Math.PI*r, fillLen = circ*(pct/100);
-    return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'">'+
-      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--cherry-soft)" stroke-width="'+sw+'"/>'+
-      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--cherry)" stroke-width="'+sw+'" stroke-linecap="round" '+
-        'stroke-dasharray="'+fillLen.toFixed(1)+' '+(circ-fillLen).toFixed(1)+'" transform="rotate(-90 '+cx+' '+cy+')"/>'+
-    '</svg>';
-  }
-  var color = toneRingColor(sec.tone);
-  if (!color) return '';
-  return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'">'+
-    '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="'+sw+'"/>'+
-  '</svg>';
+/* Readiness keeps its own fixed burgundy regardless of tone; the other four
+   take the engine's tone colour, or the neutral rim when it assigned none
+   (Patterns, most often -- a count has no good/watch/bad reading). */
+function dialRimColor(sec){
+  if (sec.key === 'readiness') return 'var(--cherry)';
+  return toneRingColor(sec.tone) || 'var(--line)';
 }
 function readingDialHtml(sec, lead){
-  var size = lead ? 70 : 62;
-  var svg = readingDialSvg(sec, size);
-  var medal = svg ? '' : '<div class="b-medal"></div>';
   var text = dialCenterText(sec);
-  return '<div class="b-dial'+(lead?' lead':'')+'">'+svg+medal+
-    '<b style="font-size:'+dialFontSize(text, lead)+';">'+escapeHtml(text)+'</b></div>';
+  return '<div class="b-dial'+(lead?' lead':'')+'" style="--rim-color:'+dialRimColor(sec)+';">'+
+      '<div class="b-medal"><b style="font-size:'+dialFontSize(text, lead)+';">'+escapeHtml(text)+'</b></div>'+
+    '</div>';
 }
 /* RECTANGULAR, NOT CIRCULAR. Valhalla's own Reading preview is the visual
    executive overview and keeps its dials; Coach is the readable, tappable
