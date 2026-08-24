@@ -102,12 +102,21 @@ function rulesFor(sel) {
   const out = [];
   let i = 0;
   for (;;) {
-    i = CODE.indexOf(sel + '{', i);
+    i = CODE.indexOf(sel, i);
     if (i === -1) return out;
-    // must be a rule start, not a longer selector ending in this one
+    // must be a whole selector token, not a longer one this is a substring
+    // of (.ws-n inside .ws-name), and not mid-word on either side.
     const before = CODE[i - 1];
-    if (before === undefined || /[\s{};,]/.test(before)) {
-      out.push(CODE.slice(i + sel.length + 1, CODE.indexOf('}', i)));
+    const after = CODE[i + sel.length];
+    const validBefore = before === undefined || /[\s{};,]/.test(before);
+    const validAfter = after === '{' || after === ',' || (after !== undefined && /\s/.test(after));
+    if (validBefore && validAfter) {
+      // The selector may be one of several sharing one rule body via a
+      // comma-separated list (e.g. ".ws-n, .ws-h-num{...}") -- walk forward
+      // to the brace that actually opens ITS rule, past any other selectors
+      // in the same list, and read that shared body.
+      const openBrace = CODE.indexOf('{', i + sel.length);
+      out.push(CODE.slice(openBrace + 1, CODE.indexOf('}', openBrace)));
     }
     i += sel.length;
   }
@@ -196,7 +205,7 @@ test('semantic colour is still semantic — the accent replaced none of it', () 
     [/\.read-val\.good\{color:var\(--c-easy\);?\}/,         'a positive Reading verdict'],
     [/\.read-val\.watch\{color:var\(--gold\);?\}/,          'a watch verdict'],
     [/\.read-val\.bad\{color:var\(--c-tempo\);?\}/,         'a negative verdict'],
-    [/\.coach-state\.proceed\{background:var\(--c-easy-soft\)/, 'the PROCEED chip'],
+    [/\.coach-state\.proceed\{background:(?:[^;]*,\s*)?var\(--c-easy-soft\)/, 'the PROCEED chip'],
   ].forEach(([re, what]) => assert.match(CODE, re, what + ' was swallowed by the migration'));
 
   // And no semantic rule quietly started resolving through the accent.
@@ -415,9 +424,16 @@ test('the connector is opaque, so a tinted day card underneath it cannot shift i
 
 test('the connector and the disc it connects are drawn from the identical token', () => {
   // Not just "both cherry" -- the SAME declaration, so they can never drift
-  // apart from each other in either theme.
-  const discBody = rulesFor('.ws-n').find(b => /border:1\.5px solid var\(--cherry\)/.test(b));
-  assert.ok(discBody, '.ws-n does not carry the expected 1.5px var(--cherry) rim');
+  // apart from each other in either theme. The disc's border now comes from
+  // a base rule shared with .ws-h-num (so the two discs can't drift from
+  // EACH OTHER either) plus its own sizing rule -- concatenate everything
+  // .ws-n contributes and look for the same rim there, whether it lands as
+  // one shorthand or split across the shared/specific rules.
+  const discBody = rulesFor('.ws-n').join(' ');
+  assert.match(discBody, /border-width:1\.5px|border:1\.5px solid var\(--cherry\)/,
+    '.ws-n does not carry the expected 1.5px rim width');
+  assert.match(discBody, /border-color:var\(--cherry\)|border:1\.5px solid var\(--cherry\)/,
+    '.ws-n does not carry the expected var(--cherry) rim colour');
   const lineBody = rulesFor('.ws-step::before').find(b => /background:var\(--cherry\)/.test(b));
   assert.ok(lineBody, '.ws-step::before does not carry the expected var(--cherry) fill');
 });

@@ -540,8 +540,23 @@
      and the figure would stop reading as the figure. Same relationship
      .ws-qty has to .ws-name. */
   .zone-time{color:var(--ink);}
-  .zbar{display:flex; height:9px; border-radius:99px; overflow:hidden; background:var(--bg-4);}
-  .zbar-seg{height:100%;}
+  /* Dimensional capsule -- same restrained "Level 2" depth language as the
+     Valhalla Race Outlook / Reading dials (a groove the segments sit inside,
+     not a raised object of its own): an inset shadow gives the track real
+     depth, each segment gets a top-lit sheen via ::after (layered on top so
+     the semantic zone colour below is completely untouched), and a hairline
+     highlight at each join reads as a seam rather than a flat colour swap.
+     Percentages/legend/calculations are unchanged -- presentation only. */
+  .zbar{
+    display:flex; height:10px; border-radius:99px; overflow:hidden; background:var(--bg-4);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.22), inset 0 -1px 0 rgba(255,255,255,.05);
+  }
+  .zbar-seg{height:100%; position:relative;}
+  .zbar-seg::after{
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(180deg, rgba(255,255,255,.30) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,.16) 100%);
+  }
+  .zbar-seg + .zbar-seg{box-shadow:inset 1px 0 0 rgba(255,255,255,.20);}
   .z-easy{background:var(--c-easy);}
   .z-mp{background:var(--c-long);}
   .z-threshold{background:var(--c-threshold);}
@@ -675,11 +690,20 @@
   .ws-step{position:relative; padding:0 0 12px 0;}
   .ws-step:last-child{padding-bottom:0;}
   .ws-step-label{display:flex; align-items:baseline; gap:8px;}
+  /* Shared cherry stage-number treatment -- one rule the vertical timeline
+     node (.ws-n) and the horizontal blueprint node (.ws-h-num, below) both
+     draw from, so the two can never drift onto different tokens/colours
+     across Today/This Week/Full Plan again (they already rendered from the
+     same three --cherry* tokens; this just makes that structural instead
+     of coincidental). Each keeps its own size/border-width/position. */
+  .ws-n, .ws-h-num{
+    display:flex; align-items:center; justify-content:center;
+    border-radius:50%; background:var(--cherry-soft); border-color:var(--cherry); border-style:solid;
+    color:var(--cherry-ink); line-height:1; font-weight:700;
+  }
   .ws-n{
     position:absolute; left:-27px; top:-1px; width:19px; height:19px;
-    display:flex; align-items:center; justify-content:center;
-    border-radius:50%; background:var(--cherry-soft); border:1.5px solid var(--cherry);
-    color:var(--cherry-ink); font-size:var(--fs-meta); line-height:1; font-weight:700;
+    border-width:1.5px; font-size:var(--fs-meta);
   }
   /* From just under this node to just under the step box, which is where the
      next node begins. Never drawn after the last one.
@@ -753,14 +777,16 @@
              text-align:center; padding:0 5px;}
   .ws-h-step + .ws-h-step{border-left:1px solid var(--cherry);}
   .ws-h-num{
-    width:28px; height:28px; flex:none; display:flex; align-items:center; justify-content:center;
-    border-radius:50%; background:var(--cherry-soft); border:2px solid var(--cherry);
-    color:var(--cherry-ink); font-size:14px; line-height:1; font-weight:700;
+    width:28px; height:28px; flex:none; border-width:2px; font-size:14px;
   }
-  .ws-h-name{font-family:'Oswald',sans-serif; font-size:12px; letter-spacing:.3px;
+  /* Same --fs-label/--fs-body tokens the rest of the app's row-key and
+     primary-value roles use (see .ws-h-detail-name's old value and .ws-qty
+     respectively) -- consolidated off one-off hardcoded px so the blueprint
+     stays on the shared type scale instead of its own. */
+  .ws-h-name{font-family:'Oswald',sans-serif; font-size:var(--fs-label); letter-spacing:.3px;
              text-transform:uppercase; color:var(--ink); margin-top:7px; line-height:1.25;}
-  .ws-h-qty{font-size:16px; line-height:1.2; color:var(--ink); margin-top:4px; font-weight:600; white-space:nowrap;}
-  .ws-k-ladder .ws-h-qty{font-size:12px; line-height:1.3; white-space:normal;}
+  .ws-h-qty{font-size:var(--fs-body); line-height:1.2; color:var(--ink); margin-top:4px; font-weight:600; white-space:nowrap;}
+  .ws-k-ladder .ws-h-qty{font-size:var(--fs-label); line-height:1.3; white-space:normal;}
   /* Effort words ("Easy", "Hard, by feel") have room to wrap at their own
      space if one is ever long enough to need it -- normal white-space, no
      nowrap -- so nothing here is forced onto one line that doesn't need to
@@ -778,23 +804,20 @@
      -- 9px is the largest that clears "3:49-3:55/km" with real margin at
      both 360px and 390px. Both sizes are still a real jump up from the
      pre-enlargement pass (8.5px / 6.75px). */
-  .ws-h-presc{font-size:12px; line-height:1.3; color:var(--ink-dim); margin-top:3px;}
+  .ws-h-presc{font-size:var(--fs-support); line-height:1.3; color:var(--ink-dim); margin-top:3px;}
+  /* Pace bands are nowrap (the en dash must not break mid-figure), so unlike
+     the effort word above there is no wrap fallback if this doesn't fit --
+     kept at its own separately, carefully measured size for that reason
+     (see the .ws-steps-h comment above: 9px is the largest that clears a
+     real "3:49-3:55/km" band with margin at 360px/390px). Do not raise this
+     toward --fs-support without re-measuring against a live narrow card. */
   .ws-h-presc.font-mono{white-space:nowrap; font-size:9px;}
-  /* Everything a column did not have room for -- HR, a ramp, a recovery
-     rule, a completion clause -- in the same .ws-hr/.ws-note classes (and
-     therefore the same colours and sizes) the vertical list has always used
-     for them, directly beneath the three columns. A stage with nothing left
-     to say contributes no row here at all. */
-  /* .ws-block is exempted from .day-detail's counter-narrowing so the
-     blueprint above can use its full new width -- this detail list, HR/note/
-     recovery text nested inside .ws-block, is not the blueprint and is
-     pulled back down to the original column width for the same reason
-     day-desc and "How to run this" are: it is detail text, not the visual
-     structure map. Same 62px, one level deeper (relative to .ws-block's own
-     now-wide 100%, so the two arrive at the same absolute width). */
-  .ws-h-details{list-style:none; margin:12px 0 0; padding:10px 0 0; border-top:1px solid var(--line-soft);
-                display:flex; flex-direction:column; gap:8px; max-width:calc(100% - 62px);}
-  .ws-h-detail-name{display:block; font-size:var(--fs-label); letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:2px;}
+  /* HR/build/note/recovery text now renders INLINE inside each .ws-h-step
+     (see renderWorkoutStepHCell), in the same .ws-hr/.ws-note classes the
+     vertical timeline has always used for them -- so a stage's supplementary
+     detail lives once, under that stage, instead of being restated a second
+     time underneath the whole row (the old .ws-h-details/.ws-h-detail-name
+     list, removed). */
   /* One integration card follows another inside Sync & Export, so the second
      needs a rule to stop the two reading as one long block. Same hairline the
      rest of the card system uses; no colour of its own. */
@@ -1193,11 +1216,21 @@
   .pzr-unit{color:var(--ink-faint); font-size:11px; width:20px;}
 
   /* ---------- compact read-only pace reference (Today tab) ---------- */
-  .pace-ref-card{margin:14px 0 0; padding:12px 15px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius);}
-  .pace-ref-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;}
+  /* Five separate, non-interactive reference rows -- same visual family as
+     the Reading rows (.ev-card): --tile-sheen/--tile-border/--tile-radius/
+     --tile-shadow, the identical Level 2 recipe. Unlike .ev-card these are
+     plain divs with no cursor/hover/active state and no chevron -- Pace
+     Reference is one reference system, not five separate taps. */
+  .pace-ref-card{margin:14px 0 0;}
+  .pace-ref-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; padding:0 2px;}
   .pace-ref-head span:first-child{font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
-  .pace-ref-row{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid var(--line-soft); font-size:var(--fs-data);}
-  .pace-ref-row:last-of-type{border-bottom:none;}
+  .pace-ref-list{display:flex; flex-direction:column; gap:8px;}
+  .pace-ref-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:12px 14px; font-size:var(--fs-data);
+    background:var(--tile-sheen), var(--surface-3); border:1px solid var(--tile-border);
+    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
+  }
   .pace-ref-label{color:var(--ink-dim);}
   .pace-ref-val{color:var(--ink);}
 
@@ -1857,12 +1890,24 @@
   /* ---------- decision state ----------
      Built on the same pill geometry as .day-badge and coloured from the
      existing muted workout-type tokens, so the four states read as part of
-     the plan's own language rather than as a traffic light bolted on. */
+     the plan's own language rather than as a traffic light bolted on.
+
+     Brought into the Valhalla 3D/medallion family, but scaled all the way
+     down for a pill this small: the same --tile-sheen/--tile-border tokens
+     the Level 2 soft-surface tiles use (goal-opt, coach-metric, ev-card),
+     plus a shadow an order of magnitude quieter than --tile-shadow's
+     0 4px 12px -- a 1px/2px hairline lift, not a raised object. Geometry,
+     size, font and padding are untouched, so it stays a small status pill,
+     never a button. Every state variant repeats the sheen layer (a variant
+     rule's `background` fully replaces the base rule's, same-specificity)
+     so the dimensional face survives regardless of which state is shown. */
   .coach-state{
     display:inline-flex; align-items:center; gap:5px; margin-left:auto;
     font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px;
     text-transform:uppercase; padding:2px 8px; border-radius:99px;
-    background:var(--c-rest-soft); color:var(--ink-dim);
+    background:var(--tile-sheen), var(--c-rest-soft); color:var(--ink-dim);
+    border:1px solid var(--tile-border);
+    box-shadow:0 1px 2px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10);
   }
   /* The dot carries the state colour; the word carries the meaning. The
      workout-type hues are deliberately identical in both themes (see the
@@ -1871,13 +1916,13 @@
      holds ~5:1 in both themes and means the state never depends on colour
      alone to be readable. */
   .coach-state-dot{width:5px; height:5px; border-radius:99px; background:var(--ink-faint); flex:none;}
-  .coach-state.proceed{background:var(--c-easy-soft);}
+  .coach-state.proceed{background:var(--tile-sheen), var(--c-easy-soft);}
   .coach-state.proceed .coach-state-dot{background:var(--c-easy);}
-  .coach-state.check{background:var(--c-gold-soft);}
+  .coach-state.check{background:var(--tile-sheen), var(--c-gold-soft);}
   .coach-state.check .coach-state-dot{background:var(--gold);}
-  .coach-state.modify{background:var(--c-tempo-soft);}
+  .coach-state.modify{background:var(--tile-sheen), var(--c-tempo-soft);}
   .coach-state.modify .coach-state-dot{background:var(--c-tempo);}
-  .coach-state.recover{background:var(--c-threshold-soft);}
+  .coach-state.recover{background:var(--tile-sheen), var(--c-threshold-soft);}
   .coach-state.recover .coach-state-dot{background:var(--c-threshold);}
   .coach-why-btn{
     background:none; border:none; padding:6px 0 0; margin:0; cursor:pointer;
@@ -8783,7 +8828,7 @@ function renderCompactPaceReference(){
   }).join('');
   return '<div class="pace-ref-card">'+
     '<div class="pace-ref-head"><span class="font-head">Pace Reference</span></div>'+
-    rows+
+    '<div class="pace-ref-list">'+rows+'</div>'+
   '</div>';
 }
 /* The Benchmark summary bar that used to live here is gone: The Record's
@@ -9420,6 +9465,10 @@ function renderWorkoutStepSecondary(st){
   if (st.setRecovery) out += '<div class="ws-note">Between sets: '+escapeHtml(st.setRecovery)+'</div>';
   return out;
 }
+// The stage cell owns its own supplementary detail now (HR/build/note/
+// recovery, via renderWorkoutStepSecondary) instead of that detail being
+// restated a second time in a separate list underneath the row -- the same
+// name and content no longer appear twice for one stage.
 function renderWorkoutStepHCell(st, i){
   var qty = renderStepQty(st);
   return '<li class="ws-h-step ws-'+st.role+' ws-k-'+st.kind+'">'+
@@ -9427,17 +9476,11 @@ function renderWorkoutStepHCell(st, i){
     '<span class="ws-h-name font-head">'+escapeHtml(st.label)+'</span>'+
     (qty ? '<span class="ws-h-qty font-mono">'+escapeHtml(qty)+'</span>' : '')+
     essentialPrescriptionHtml(st)+
+    renderWorkoutStepSecondary(st)+
   '</li>';
 }
-function renderWorkoutStepHDetail(st){
-  var extra = renderWorkoutStepSecondary(st);
-  if (!extra) return '';
-  return '<li class="ws-h-detail"><span class="ws-h-detail-name font-head">'+escapeHtml(st.label)+'</span>'+extra+'</li>';
-}
 function renderStructuredWorkoutSteps(steps){
-  var details = steps.map(renderWorkoutStepHDetail).filter(Boolean).join('');
-  return '<ol class="ws-steps-h">'+steps.map(renderWorkoutStepHCell).join('')+'</ol>'+
-    (details ? '<ol class="ws-h-details">'+details+'</ol>' : '');
+  return '<ol class="ws-steps-h">'+steps.map(renderWorkoutStepHCell).join('')+'</ol>';
 }
 function renderStructuredWorkout(dd){
   if (!dd || dd.type === 'rest') return '';
