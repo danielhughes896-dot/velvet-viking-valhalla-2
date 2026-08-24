@@ -61,7 +61,22 @@ const BETA_TERMS_URL        = 'https://velvetviking.co.uk/beta-terms';
 
 /* HAVE THE COMMERCIAL DOCUMENTS ACTUALLY BEEN PUBLISHED?
  *
- * *** FALSE. The website has not published them. ***
+ * *** TRUE, as of website commit e2b7e6a (24 August 2026). ***
+ *
+ * VERIFIED, NOT ASSERTED. Checked against the website repository rather than
+ * taken from a report, because the previous two passes each turned out to be
+ * describing a state that had not landed:
+ *
+ *   LEGAL_APPROVALS.terms .................... true
+ *   LEGAL_APPROVALS.privacyCommercial ........ true
+ *   CANONICAL_LEGAL.terms.version ............ commercial_terms_v1
+ *   CANONICAL_LEGAL.privacy.version .......... commercial_privacy_v1
+ *   effective date ........................... 24 August 2026
+ *   /terms renders <LegalDocument doc={termsDraft}/>, not the placeholder
+ *   both documents free of TBC / placeholder / private-beta wording
+ *   trial.live ............................... false
+ *
+ * The cookie policy is NOT part of this gate and remains unpublished.
  *
  * This is a statement about PUBLICATION, not about approval, and it is not
  * this repository's to approve. The website owns the documents and owns
@@ -84,8 +99,12 @@ const BETA_TERMS_URL        = 'https://velvetviking.co.uk/beta-terms';
  * the only alternative is asking a paying customer to accept the private-beta
  * Terms, which describe no subscription, no trial, no cancellation and no
  * refund -- evidence that would say the athlete agreed to something they did
- * not. Refusing the sale is the cheaper mistake by a wide margin. */
-const COMMERCIAL_LEGAL_PUBLISHED = false;
+ * not. Refusing the sale is the cheaper mistake by a wide margin.
+ *
+ * AND THAT REFUSING STATE IS STILL TESTED. It is reachable again the moment a
+ * document is withdrawn or superseded, so inForce(false) keeps its own
+ * assertions rather than becoming dead code the day the gate opened. */
+const COMMERCIAL_LEGAL_PUBLISHED = true;
 
 /* THE COMMERCIAL TERMS VERSION.
  *
@@ -174,10 +193,17 @@ const IMMEDIATE_START_TEXT =
   'and you accept that starting immediately affects that right. You can still ' +
   'cancel at any time before the trial ends and you will not be charged.';
 
-function versionFor(type){
+function versionFor(type, published){
   /* Null when there is no commercial Terms document published. Every caller
-     treats null as "cannot be agreed to", never as "use the old one". */
-  if (type === 'terms') return TERMS_VERSION;
+     treats null as "cannot be agreed to", never as "use the old one".
+
+     The optional second argument answers for a publication state other than
+     the real one, exactly as inForce() and currentAgreements() do. No
+     production caller passes it; it exists so the withdrawn state stays
+     provable now that the live one is published. */
+  if (type === 'terms'){
+    return published === undefined ? TERMS_VERSION : inForce(!!published).terms;
+  }
   if (type === 'immediate_start') return IMMEDIATE_START_VERSION;
   return null;
 }
@@ -342,13 +368,14 @@ async function record(cfg, sb, userId, input){
  * reason names which one is missing, because "you have not accepted the Terms"
  * and "you have not acknowledged the immediate start" send an athlete to two
  * different places. */
-async function purchaseEvidence(cfg, sb, userId){
+async function purchaseEvidence(cfg, sb, userId, published){
+  const on = published === undefined ? COMMERCIAL_LEGAL_PUBLISHED : !!published;
   /* THE PUBLICATION CHECK COMES FIRST, and it does not touch the database.
      "You have not accepted the Terms" and "there are no commercial Terms to
      accept yet" are different facts with different owners -- the first is the
      athlete's to fix, the second is the website's -- and collapsing them would
      send somebody to tick a box that cannot exist. */
-  if (!COMMERCIAL_LEGAL_PUBLISHED){
+  if (!on){
     log('COMMERCIAL_LEGAL_NOT_PUBLISHED (refusing purchase evidence)');
     return {
       ok: false,

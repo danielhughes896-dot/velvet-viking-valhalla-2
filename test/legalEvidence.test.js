@@ -183,13 +183,16 @@ test('an agreement to superseded wording stops counting, and nothing is lost', a
     sbReturning([iRow({ agreement_version: 'immediate_start_v2' })]), UID, 'immediate_start'), false,
     'wording this build has never served must not count either');
 
-  /* AND THE LIMIT CASE. With no document in force, no stored row of any
-     version counts -- including a row naming the beta Terms, which is exactly
-     the acceptance that must never be readable as evidence for a purchase. */
-  for (const v of ['terms_v1', 'commercial_terms_v1', 'anything']){
+  /* AND THE SAME RULE ON THE TERMS, now that they are published. Exactly one
+     identifier counts. The beta acceptance, an older commercial version and a
+     string this build has never served are all equally worthless -- which is
+     what makes a future revision cost no evidence and no migration. */
+  assert.equal(await Agree.hasAccepted(CFG,
+    sbReturning([row({ agreement_version: 'commercial_terms_v1' })]), UID, 'terms'), true);
+  for (const v of ['terms_v1', 'commercial_terms_v0', 'commercial_terms_v2', 'anything']){
     assert.equal(await Agree.hasAccepted(CFG,
       sbReturning([row({ agreement_version: v })]), UID, 'terms'), false,
-      'no Terms row counts while nothing is published: ' + v);
+      'only the version in force may count, not: ' + v);
   }
 });
 
@@ -417,33 +420,91 @@ test('the commercial Terms do not inherit the private-beta Terms identifier', ()
   assert.notEqual(Agree.PRIVACY_COMMERCIAL_VERSION, Agree.PRIVACY_BETA_VERSION);
 });
 
-test('while the commercial Terms are unpublished, nothing is in force to accept', () => {
-  /* Not "the athlete has not accepted yet" -- there is no document. The two
-     are different facts with different owners and different fixes. */
-  assert.equal(Agree.COMMERCIAL_LEGAL_PUBLISHED, false,
-    'the website has not published; this test changes when that does');
-  assert.equal(Agree.versionFor('terms'), null);
-  assert.equal(Agree.TERMS_VERSION, null);
+test('the commercial documents are published, and these are the ones in force', () => {
+  /* Verified against website commit e2b7e6a before this was flipped:
+     LEGAL_APPROVALS.terms and .privacyCommercial both true, CANONICAL_LEGAL
+     naming these two versions at these two URLs, effective 24 August 2026, and
+     /terms rendering the contract rather than the placeholder. */
+  assert.equal(Agree.COMMERCIAL_LEGAL_PUBLISHED, true);
+  assert.equal(Agree.versionFor('terms'), 'commercial_terms_v1');
+  assert.equal(Agree.TERMS_VERSION, 'commercial_terms_v1');
+  assert.equal(Agree.PRIVACY_VERSION, 'commercial_privacy_v1');
 
   const defs = Agree.currentAgreements();
-  assert.equal(defs.commercialLegalPublished, false);
-  assert.equal(defs.terms.agreeable, false, 'no surface may offer a Terms tickbox');
-  assert.equal(defs.terms.url, Agree.BETA_TERMS_URL,
-    'and the link names the document actually in force today, not a page that does not exist yet');
+  assert.equal(defs.commercialLegalPublished, true);
+  assert.equal(defs.terms.agreeable, true);
+  assert.equal(defs.terms.url, 'https://velvetviking.co.uk/terms');
+  assert.equal(defs.privacy.url, 'https://velvetviking.co.uk/privacy');
+  assert.equal(defs.terms.url, Agree.CANONICAL_TERMS_URL);
+  assert.notEqual(defs.terms.url, Agree.BETA_TERMS_URL,
+    'a paying customer is never sent to the five-tester document');
 });
 
-test('no Terms row can be written against the private-beta document', async () => {
-  /* THE STRUCTURAL GUARANTEE. Not a screen refusing to render a checkbox --
-     the recorder itself refuses, so a hand-made request cannot do what the
-     screen will not. */
-  let wrote = false;
-  const sb = async () => { wrote = true; return okRes([]); };
-  const r = await Agree.record(CFG, sb, UID, {
-    type: 'terms', decision: 'accepted', surface: 'checkout'
+test('withdrawing a document puts the gate straight back', () => {
+  /* THE HALF THAT STOPS HAPPENING BY ITSELF the day a gate opens, and
+     therefore the half that has to be asserted deliberately. Run through the
+     REAL functions with the publication state as an argument -- not a mirror
+     of them written in the test, which could agree with itself while the
+     module drifted. */
+  assert.equal(Agree.versionFor('terms', false), null,
+    'and never a fallback to the beta identifier');
+
+  const off = Agree.currentAgreements(false);
+  assert.equal(off.commercialLegalPublished, false);
+  assert.equal(off.terms.agreeable, false, 'no surface may offer a Terms tickbox');
+  assert.equal(off.terms.version, null);
+  assert.equal(off.terms.url, Agree.BETA_TERMS_URL,
+    'a reader still reaches whatever governs them; it is ACCEPTANCE that stops');
+});
+
+test('a withdrawn document refuses the purchase, through the real gate', async () => {
+  const ev = await Agree.purchaseEvidence(CFG, sbReturning([]), UID, false);
+  assert.equal(ev.ok, false);
+  assert.equal(ev.published, false);
+  assert.equal(ev.reason, 'commercial_terms_not_published');
+
+  const d = Checkout.decideCheckout({
+    commerceEnabled: true, commercialRequired: true, stripeConfigured: true,
+    uid: UID, period: 'monthly', purchaseCheck: { mayBuy: true },
+    evidence: ev, now: new Date()
   });
-  assert.equal(r.ok, false);
-  assert.equal(r.reason, 'commercial_terms_not_published');
-  assert.equal(wrote, false, 'it must not even reach the database');
+  assert.equal(d.ok, false);
+  assert.equal(d.code, 'commercial_terms_not_published');
+  assert.equal(d.status, 409);
+  assert.equal(d.agreements.commercialLegalPublished, false);
+});
+
+test('accepting the Terms records commercial_terms_v1, with the privacy notice as context', async () => {
+  /* THE ROW A PAYING CUSTOMER LEAVES BEHIND. The Terms identifier is the
+     commercial one, never the beta one; the privacy version rides along as
+     CONTEXT on that row -- what they were shown -- and is not a decision. */
+  let body = null;
+  const sb = async (cfg, pathname, opts) => { body = JSON.parse(opts.body); return okRes([]); };
+  const r = await Agree.record(CFG, sb, UID, {
+    type: 'terms', decision: 'accepted', surface: 'checkout', offerCode: 'STANDARD_MONTHLY'
+  });
+  assert.equal(r.ok, true);
+  assert.equal(body.agreement_type, 'terms');
+  assert.equal(body.agreement_version, 'commercial_terms_v1');
+  assert.notEqual(body.agreement_version, Agree.TERMS_BETA_VERSION);
+  assert.equal(body.privacy_version, 'commercial_privacy_v1',
+    'the notice presented alongside, recorded as context');
+  assert.equal(body.user_id, UID);
+  assert.equal(body.surface, 'checkout');
+
+  /* And there is still no privacy DECISION anywhere: no row, no type. */
+  assert.equal(Agree.TYPES.indexOf('privacy'), -1);
+});
+
+test('the recorder still refuses when no document is in force', () => {
+  /* The second line behind the checkout gate, kept provable. record() writes
+     versionFor(type), and versionFor answers null for a withdrawn document --
+     so the NOT NULL column is never reached with nothing to put in it. */
+  assert.equal(Agree.versionFor('terms', false), null);
+  const src = read('api/_agreements.js');
+  assert.match(src, /if \(version == null\)/,
+    'record must refuse a null version rather than hand it to the database');
+  assert.match(src, /commercial_terms_not_published/);
 });
 
 test('the immediate-start acknowledgement is unaffected and still recordable', async () => {
@@ -458,13 +519,18 @@ test('the immediate-start acknowledgement is unaffected and still recordable', a
   assert.equal(body.agreement_version, 'immediate_start_v1');
 });
 
-test('checkout refuses, and says whose gap it is', async () => {
-  /* An athlete told "please accept the Terms" when the truth is "we have not
-     published them" is being blamed for our own gap. */
-  const ev = await Agree.purchaseEvidence(CFG, sbReturning([]), UID);
+test('a beta acceptance still buys nothing, now that the commercial Terms are live', async () => {
+  /* THE MIGRATION HAZARD AT THE MOMENT IT MATTERS. Publication is exactly when
+     an old row could start being read as a new agreement. It does not: the
+     version comparison refuses it, and the athlete is asked again. */
+  const betaRow = { decision: 'accepted', agreement_version: Agree.TERMS_BETA_VERSION,
+                    decided_at: '2026-08-01T00:00:00Z' };
+  assert.equal(await Agree.hasAccepted(CFG, sbReturning([betaRow]), UID, 'terms'), false);
+
+  const ev = await Agree.purchaseEvidence(CFG, sbReturning([betaRow]), UID);
+  assert.equal(ev.published, true, 'the documents ARE published -- this is not that refusal');
   assert.equal(ev.ok, false);
-  assert.equal(ev.published, false);
-  assert.equal(ev.reason, 'commercial_terms_not_published');
+  assert.equal(ev.reason, 'terms_not_accepted');
 
   const d = Checkout.decideCheckout({
     commerceEnabled: true, commercialRequired: true, stripeConfigured: true,
@@ -472,9 +538,8 @@ test('checkout refuses, and says whose gap it is', async () => {
     evidence: ev, now: new Date()
   });
   assert.equal(d.ok, false);
-  assert.equal(d.code, 'commercial_terms_not_published');
+  assert.equal(d.code, 'terms_not_accepted');
   assert.equal(d.status, 409);
-  assert.equal(d.agreements.commercialLegalPublished, false);
 });
 
 test('every app surface links to the canonical documents, never to a local copy', () => {

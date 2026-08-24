@@ -214,23 +214,21 @@ async function withWorld(opts, run){
      case is specifically about the refusal, it is seeded exactly as ticking the
      two boxes would leave it.
 
-     THE WORLD AFTER THE WEBSITE PUBLISHES.
-     Today the commercial Terms are unpublished, so purchaseEvidence() refuses
-     every purchase before it reads anything -- correctly, and that refusal is
-     asserted for real in legalEvidence.test.js against the live constant.
-     These journeys are about the PURCHASE MACHINERY behind that gate: whether
-     one athlete can spend two trials, whether a session belonging to somebody
-     else unlocks anything, whether a reconcile racing a webhook double-grants.
-     None of that stops mattering because a document is still with the website,
-     and none of it can be exercised through a gate that refuses first.
+     THE REAL FUNCTIONS DO THE WORK NOW. The commercial documents are published
+     (website e2b7e6a), so purchaseEvidence() and currentAgreements() read the
+     seeded rows and answer for real -- no stand-in, and nothing here decides
+     what the gate would have said.
 
-     So the gate is stood down HERE, in the harness, for the cases that are not
-     about it -- never in the module, which keeps telling the truth about
-     today. Cases that ARE about the gate pass agreements:false and get the
-     real function back. */
+     A case that wants the WITHDRAWN world passes legalPublished:false and gets
+     the same real functions answering for that state, through the publication
+     argument they already take. That path has to keep working: it is where the
+     product lands the day a document is pulled or superseded, and it stops
+     being exercised by accident the moment the gate opens. */
   const Agree = require('../api/_agreements.js');
   const realPurchaseEvidence = Agree.purchaseEvidence;
   const realCurrentAgreements = Agree.currentAgreements;
+  const legalPublished = o.legalPublished !== false;
+
   function agreeAll(uid){
     [['terms', Agree.TERMS_COMMERCIAL_VERSION], ['immediate_start', Agree.IMMEDIATE_START_VERSION]]
       .forEach(function(pair){
@@ -242,37 +240,13 @@ async function withWorld(opts, run){
         });
       });
   }
-  /* Reads the seeded rows exactly as the real one does -- same table, same
-     "newest row of this type, accepted, current version" rule -- with the
-     publication short-circuit removed and the commercial Terms version
-     treated as in force. It is the real behaviour of a published world, not
-     a blanket "yes". */
-  async function publishedWorldEvidence(cfg, sb, userId){
-    const newest = type => (f.db.account_agreements || [])
-      .filter(r => r.user_id === userId && r.agreement_type === type)
-      .sort((a, b) => String(b.decided_at).localeCompare(String(a.decided_at)))[0];
-    const current = { terms: Agree.TERMS_COMMERCIAL_VERSION,
-                      immediate_start: Agree.IMMEDIATE_START_VERSION };
-    const held = type => {
-      const r = newest(type);
-      return !!(r && r.decision === 'accepted' && r.agreement_version === current[type]);
-    };
-    const terms = held('terms'), immediateStart = held('immediate_start');
-    return { ok: terms && immediateStart, published: true,
-             terms: terms, immediateStart: immediateStart,
-             reason: terms ? (immediateStart ? 'ok' : 'immediate_start_not_acknowledged')
-                           : 'terms_not_accepted' };
+
+  if (!legalPublished){
+    Agree.purchaseEvidence = (cfg, sb, uid) => realPurchaseEvidence(cfg, sb, uid, false);
+    Agree.currentAgreements = () => realCurrentAgreements(false);
   }
   if (o.agreements !== false){
-    Agree.purchaseEvidence = publishedWorldEvidence;
-    /* The payload a surface renders comes from the same projection, so the
-       published world is consistent end to end: the URL a screen shows and the
-       version the evidence names are still produced together. */
-    Agree.currentAgreements = () => realCurrentAgreements(true);
     agreeAll(o.uid === undefined ? ATHLETE : (o.uid || ATHLETE));
-  } else {
-    Agree.purchaseEvidence = realPurchaseEvidence;
-    Agree.currentAgreements = realCurrentAgreements;
   }
 
   const api = {
@@ -1445,7 +1419,7 @@ test('the deployment still fits the plan it deploys to', () => {
 // (agreements:false), so what is proven here is today's actual behaviour.
 // ---------------------------------------------------------------------------
 test('with no commercial Terms published, checkout refuses and says whose gap it is', async () => {
-  await withWorld({ agreements: false, commercialRequired: true }, async ({ f, stripe, api }) => {
+  await withWorld({ agreements: false, legalPublished: false, commercialRequired: true }, async ({ f, stripe, api }) => {
     const r = await api.call('checkout', 'POST', { period: 'monthly' });
 
     assert.equal(r.status, 409);
@@ -1461,20 +1435,25 @@ test('with no commercial Terms published, checkout refuses and says whose gap it
   });
 });
 
-test('no surface can record acceptance of the private-beta Terms', async () => {
-  /* THE STRUCTURAL GUARANTEE, through the router. Not a screen declining to
-     draw a checkbox -- a hand-made request is refused too, and writes nothing.
-     This is what makes the defect closed rather than hidden. */
+test('accepting the Terms through the router records the commercial identifier', async () => {
+  /* THE ROW A PAYING CUSTOMER LEAVES BEHIND, written by the real handler. The
+     browser named no version -- it sent a type and a decision -- and what
+     landed is the commercial identifier, never the beta one. That is what
+     makes it impossible to end up with evidence pointing at the five-tester
+     document, whatever a surface asks for. */
   await withWorld({ agreements: false }, async ({ f, api }) => {
-    const before = JSON.stringify(f.db.account_agreements);
-
     const r = await api.call('subscription', 'POST',
-      { action: 'agree', agreement: 'terms', decision: 'accepted', surface: 'checkout' });
+      { action: 'agree', agreement: 'terms', decision: 'accepted', surface: 'checkout',
+        agreement_version: 'terms_v1' });   // a browser trying to name it
 
-    assert.equal(r.status, 409, 'well-formed request, server not in a state to honour it');
-    assert.equal(r.json.error || r.json.code, 'commercial_terms_not_published');
-    assert.equal(JSON.stringify(f.db.account_agreements), before,
-      'and no row naming the beta Terms reached the table');
+    assert.equal(r.status, 200);
+    const rows = f.db.account_agreements.filter(x => x.agreement_type === 'terms');
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].agreement_version, 'commercial_terms_v1');
+    assert.notEqual(rows[0].agreement_version, 'terms_v1',
+      'the caller must not be able to name the version it is agreeing to');
+    assert.equal(rows[0].privacy_version, 'commercial_privacy_v1',
+      'the notice presented alongside, as context rather than consent');
   });
 });
 
@@ -1482,7 +1461,7 @@ test('the immediate-start acknowledgement still stands on its own', async () => 
   /* The website's unpublished Terms are not a reason to tear down an approved
      acknowledgement. It records normally, keeps its own version, and the
      evidence an athlete has already given survives. */
-  await withWorld({ agreements: false }, async ({ f, api }) => {
+  await withWorld({ agreements: false, legalPublished: false }, async ({ f, api }) => {
     const r = await api.call('subscription', 'POST',
       { action: 'agree', agreement: 'immediate_start', decision: 'accepted', surface: 'checkout' });
 
