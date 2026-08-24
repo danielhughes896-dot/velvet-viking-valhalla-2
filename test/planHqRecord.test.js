@@ -171,9 +171,11 @@ test('RECORD: the zone-paces fact counts the zones and names the hand-edited one
   assert.match(a.recordZonesFact().synopsis,
     /All five as calculated/, 'a half-edited zone was counted as edited');
 
-  // And it is genuinely reachable, at full fidelity, from Settings.
+  // And it is genuinely reachable, at full fidelity, from Settings. 400, not
+  // 300: this row is .ev-card.stg-nav now (VALHALLA CONSISTENCY PASS), and
+  // the inlined icon SVG between the tag and its label runs past 300 chars.
   assert.match(a.renderSettingsHubView(),
-    /data-action="open-record" data-record="zones"[^>]*>[\s\S]{0,300}?View Training Zone Paces/,
+    /data-action="open-record" data-record="zones"[^>]*>[\s\S]{0,400}?View Training Zone Paces/,
     'Training Zone Paces is not reachable from Settings');
   assert.match(a.RECORD_PANELS.zones(), /Training Zone Paces/);
 });

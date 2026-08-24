@@ -402,9 +402,13 @@ test('ACTIONS: New Block and Plan Settings moved to Settings; Checkpoint has no 
   assert.equal(a.ACTION_PANELS.checkpoint, undefined, 'the standalone Fitness Checkpoint popup is still registered');
 
   const settingsHtml = a.renderSettingsHubView();
-  assert.match(settingsHtml, /data-action="open-new-block"[^>]*>[\s\S]{0,300}?Start a New Block/,
+  // 400, not 300: these rows are .ev-card.stg-nav now (VALHALLA CONSISTENCY
+  // PASS -- icon, label, chevron, same shell Coach's Reading rows use), and
+  // an inlined icon SVG between the tag and its label can itself run past
+  // 300 characters -- see ICONS.layers, at 311.
+  assert.match(settingsHtml, /data-action="open-new-block"[^>]*>[\s\S]{0,400}?Start a New Block/,
     'New Block is not reachable from Settings');
-  assert.match(settingsHtml, /data-action="open-setup"[^>]*>[\s\S]{0,300}?Edit Plan Settings/,
+  assert.match(settingsHtml, /data-action="open-setup"[^>]*>[\s\S]{0,400}?Edit Plan Settings/,
     'Plan Settings is not reachable from Settings');
   assert.match(CODE, /case 'open-new-block':/, 'open-new-block is not handled');
   assert.match(CODE, /case 'open-setup':/, 'open-setup is not handled');

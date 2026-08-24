@@ -113,12 +113,15 @@ test('the external links cannot be used to hijack the app tab', () => {
 });
 
 test('the Settings section reuses the existing hub architecture', () => {
-  // No second settings system. The card, the heading class and the button
-  // classes are the ones every other Settings section already uses.
+  // No second settings system. The card and heading class are the ones every
+  // other Settings section already uses. The three links themselves reuse
+  // .ev-card -- the exact tappable-destination shell Coach's Reading rows use
+  // -- rather than the plain .btn-ghost box a navigational entry used to get;
+  // see the VALHALLA CONSISTENCY PASS comment on .ev-card.stg-nav.
   const at = RUNTIME.indexOf("'<div class=\"setup-section-title\">Legal &amp; Support</div>'");
   assert.ok(at !== -1, 'must use the existing setup-section-title heading');
   const card = RUNTIME.slice(RUNTIME.lastIndexOf('hub-card', at), at + 1200);
-  assert.match(card, /btn btn-ghost btn-block/, 'must use the existing button classes');
+  assert.match(card, /ev-card stg-nav/, 'must use the shared tappable-destination row class');
   // And exactly one Settings hub renderer exists.
   assert.equal((RUNTIME.match(/function renderSettingsHubView\(/g) || []).length, 1);
 });
