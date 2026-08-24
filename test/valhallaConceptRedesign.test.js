@@ -110,8 +110,11 @@ test('PREVIEW: the Reading dials on Valhalla show all five sections, non-interac
   const a = planHQ();
   const preview = a.renderValhallaReadingPreview();
   assert.match(preview, /<div class="setup-section-title">The Reading<\/div>/);
+  // The category label lives INSIDE the instrument's face now (.rd-cat), not
+  // as a separate span beneath the circle -- the labels moved so the
+  // recovered space could go to the larger dial instead.
   ['Readiness', 'Recovery', 'Evolution', 'Patterns', 'Adaptation'].forEach(label => {
-    assert.match(preview, new RegExp('<span class="lbl">' + label + '</span>'));
+    assert.match(preview, new RegExp('<div class="rd-cat">' + label + '</div>'));
   });
   assert.doesNotMatch(preview, /data-action="open-reading"/,
     'the Valhalla preview dials must not duplicate Coach\'s tap-through cards');

@@ -181,6 +181,12 @@
     --cherry:#9A546C;                   /* bare indicators -- 3.01:1 on --bg-3 */
     --cherry-fill:#7A2E42;              /* labelled fills -- white at 9.14:1 */
     --cherry-soft:#9A546C;              /* node fill; the accent itself here */
+    /* THE READING's own face tint -- distinct from --cherry-soft above,
+       which this theme deliberately keeps saturated for the gauge's node
+       fill. A translucent wash of the same hue, at the same 0.16 alpha
+       every other reading's -soft token already uses, so Readiness reads
+       as an equally restrained blush rather than the gauge's solid dot. */
+    --cherry-tint:rgba(154,84,108,0.16);
     --cherry-line:rgba(154,84,108,0.45);
     --cherry-dim:rgba(154,84,108,0.50);
     --cherry-text:#C46A89;              /* the accent AS TEXT -- 4.50:1 */
@@ -314,6 +320,10 @@
     --cherry:#532D3A;
     --cherry-fill:#532D3A;              /* the canonical value on both jobs */
     --cherry-soft:#EFE4E8;              /* 88% toward white; hue 338.2deg */
+    /* THE READING's own face tint. --cherry-soft already IS a pale blush
+       here (this theme has no saturated-dot problem to solve), so this is
+       the same colour under its own name for the reading component. */
+    --cherry-tint:#EFE4E8;
     --cherry-line:rgba(83,45,58,0.32);
     --cherry-dim:rgba(83,45,58,0.42);
     --cherry-text:#532D3A;              /* no lift needed: 10.32:1 as text */
@@ -2440,63 +2450,66 @@
   .oi-empty{font-size:11.5px; line-height:1.5; color:var(--ink-faint);}
 
   /* ---------- THE READING / THE RECORD — condensed previews on Valhalla ----------
-     Non-interactive, exactly as the approved concept specifies: the same
-     circular-dial and chamfered-plate language the Coach and Record tabs use
-     in full, shown here as a quiet summary. Tapping through to evidence and
-     detail happens on Coach/Record, not from this preview. */
-  /* Liked more after use, per review, and asked for a modest size increase
-     -- dial diameter, spacing and label size all up a step, structure and
-     colour law untouched. Still sized to read as a quiet summary beneath
-     Race Outlook, not a set of cards competing with it. */
-  .b-dials{display:flex; flex-direction:column; gap:18px; margin:4px 0 4px;}
-  .b-dials-row{display:flex; justify-content:center; gap:28px;}
-  .b-dial-col{display:flex; flex-direction:column; align-items:center; gap:8px; width:70px;}
-  /* DIMENSIONAL MEDALLION. Rim colour is the one thing that varies per badge
-     (set inline as --rim-color by dialRimColor()); the gradients, shadows
-     and face beneath are one shared shallow-medallion treatment so all five
-     badges -- and any future reading -- render identically. Two rgba()
-     overlays (a restrained top-left highlight, a soft bottom-right shade)
-     sit over the flat --rim-color rather than a computed lighter/darker
-     hex, so the rim automatically tracks whatever that colour resolves to
-     in either theme (--cherry alone changes between them) with no JS colour
-     math and no browser-support risk. */
-  .b-dial{position:relative; width:62px; height:62px; flex:none; border-radius:50%;
-    background:
-      radial-gradient(circle at 28% 20%, rgba(255,255,255,.75) 0%, rgba(255,255,255,0) 48%),
-      radial-gradient(circle at 78% 84%, rgba(0,0,0,.52) 0%, rgba(0,0,0,0) 62%),
-      var(--rim-color);
-    /* A wide soft lift shadow plus a tighter contact shadow reads as the
-       badge sitting proud of the page, without the single hard-edged
-       shadow that would look pasted-on rather than raised. The two inset
-       shadows are the rim's own highlight/shade (upper-left/lower-right) --
-       .b-medal covers the interior, so only the rim band ever shows them,
-       giving the rim its bevelled, physically-substantial feel. The rim
-       band itself is 8px now (was 6px, set via .b-medal's inset below) --
-       thick enough to read as a rim rather than a coloured line, still
-       well inside the badge's unchanged 62/70px footprint. */
-    box-shadow:0 9px 18px rgba(0,0,0,.34), 0 3px 5px rgba(0,0,0,.22),
-      -2px -2px 2.5px rgba(255,255,255,.40) inset, 2px 2px 4px rgba(0,0,0,.38) inset;}
-  .b-dial.lead{width:70px; height:70px;}
-  .b-medal{position:absolute; inset:8px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-    overflow:hidden;
-    background:radial-gradient(circle at 32% 24%, #FFFFFF 0%, var(--badge-face) 44%, var(--badge-face-lo) 100%);
-    /* Face highlight/shade diagonal (upper-left/lower-right), same light
-       direction as the rim above, for a clearer dome; the plain 1px ring
-       is now a two-tone bevel (a dark inner line where the rim's shadow
-       falls onto the face, a bright one where the rim's own highlight
-       would catch) so the face reads as seated inside the rim, not just
-       circled by it. */
-    box-shadow:-2px -2px 3px rgba(255,255,255,.75) inset, 2.5px 2.5px 4.5px rgba(0,0,0,.32) inset,
-      0 -1.5px 0 rgba(0,0,0,.26), 0 1.5px 0 rgba(255,255,255,.38), 0 0 0 1px rgba(0,0,0,.20);}
-  /* overflow-wrap is the backstop for a single long word (e.g. "Responding")
-     that has no space to wrap on -- dialFontSize() already sizes the common
-     vocabulary to fit without it, so this only ever fires on an unusually
-     long future state word, and breaks it rather than silently clipping. */
-  .b-medal b{display:block; text-align:center; line-height:1.08; max-width:96%;
+     Non-interactive: a quiet summary. Tapping through to evidence and detail
+     happens on Coach/Record, not from this preview. */
+  .b-dials{display:flex; flex-direction:column; gap:14px; margin:4px 0 4px;}
+  .b-dials-row{display:flex; justify-content:center; gap:22px;}
+  /* The per-instrument label used to sit BELOW the circle as its own
+     .lbl span; it lives inside the face now (.rd-cat), so the column is
+     just the instrument itself -- no second flex child, no label gap. */
+  .b-dial-col{display:flex; flex-direction:column; align-items:center; width:68px;}
+  /* THE READING'S INSTRUMENT -- reads a soft-raised dial, not a medal.
+     Rim colour used to vary per reading (--rim-color, dark/metallic); the
+     rim is one neutral --tile-* surface now for all five, and the colour
+     identity moved to the face tint below. Same soft-raised recipe every
+     other Valhalla/Coach surface already uses -- see --tile-sheen/-border/
+     -shadow -- rather than the medallion's own bevel-and-drop-shadow system. */
+  .b-dial{position:relative; width:68px; height:68px; flex:none; border-radius:50%;
+    background:var(--tile-sheen), var(--surface-2); border:1px solid var(--tile-border);
+    box-shadow:var(--tile-shadow);}
+  /* THE FACE -- filled with the reading's own pre-authored -soft token
+     (--rd-tint, set inline per dial by dialTint()), an extremely soft wash
+     of the semantic colour composited straight over the rim's own cream
+     surface showing through underneath -- colour-infused cream, not a
+     coloured button. Those tokens are already correct in both themes on
+     their own, no per-theme math needed here. The rim band is a plain 4px
+     inset -- thin enough to stay a rim, not the heavy 8px bevel it used to
+     carry. */
+  .b-medal{position:absolute; inset:4px; border-radius:50%; overflow:hidden;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:var(--rd-tint);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.30), inset 0 -1px 0 rgba(0,0,0,.06);}
+  .rd-cat{font-family:'Oswald',sans-serif; font-weight:600; font-size:6.4px; letter-spacing:.05em;
+    text-transform:uppercase; color:var(--ink-faint); line-height:1; text-align:center;}
+  /* Short, thin, centred, identical across all five -- and coloured by the
+     same --rd-base each face is tinted from, muted to a hairline rather
+     than the full semantic hue. color-mix() is only mixing toward
+     transparent here (never toward another colour, which is what produced
+     a muddy fill above), so it stays a safe, simple opacity reduction. */
+  .rd-sep{width:13px; height:1px; margin:3px 0; flex:none;
+    background:color-mix(in srgb, var(--rd-base) 55%, transparent);}
+  /* Fixed-height reserve for the value, sized for its worst case (two
+     lines) -- so a one-line value ("Fresh") is centred inside the SAME
+     box a two-line value ("Worth watching") fills, and the category/
+     separator above never shift depending on which one lands.
+     align-self:stretch gives this a DEFINITE width (the face's own, itself
+     definite via .b-dial's fixed size and .b-medal's inset) rather than
+     the shrink-to-fit width .b-medal's align-items:center would otherwise
+     give it -- a flex item sized against its own text can report a
+     collapsed automatic minimum once overflow-wrap:break-word is in play,
+     which is what was breaking single short words ("Watch") mid-letter. */
+  .rd-val{min-height:19px; width:100%; align-self:stretch;
+    display:flex; align-items:center; justify-content:center;}
+  /* A concrete pixel ceiling, not a percentage -- a percentage here would
+     resolve against .rd-val's own indefinite width in some engines and
+     silently stop constraining anything. 50px leaves a couple of px of
+     clearance inside the ~60px face so wrapped text never grazes the
+     circular clip. overflow-wrap is the backstop for a single long word
+     that has no space to wrap on -- dialValueFontSize() already sizes the
+     common vocabulary to fit without it. */
+  .rd-val b{display:block; text-align:center; line-height:1.08; max-width:50px;
     overflow-wrap:break-word; word-break:break-word;
-    font-family:'JetBrains Mono',monospace; color:var(--badge-ink); font-weight:700;}
-  .b-dial.lead .b-medal b{font-size:16px;}
-  .b-dial-col .lbl{font-family:'Oswald',sans-serif; font-size:9.3px; letter-spacing:.03em; text-transform:uppercase; color:var(--ink-faint); text-align:center; line-height:1.2;}
+    font-family:'JetBrains Mono',monospace; color:var(--ink); font-weight:700;}
 
   .b-record{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:6px 0 6px;}
   /* Three facts now, not four -- Measured Fitness and Benchmark keep the
@@ -2505,14 +2518,15 @@
      because the space is there. The clipped-corner plate keeps its own
      width; only its position changes. */
   .b-record .b-plate:nth-child(3):last-child{grid-column:1 / -1; justify-self:center; width:calc(50% - 5px);}
-  /* SOFTENED GEOMETRY -- was a clip-path chamfered octagon (an "approved
-     concept" plate from an earlier, more angular design language). Same
-     information, same position, same colour identity; the rigid cut corners
-     are gone in favour of the same rounded --tile-* soft-raised recipe the
-     rest of Valhalla/Coach/Record now share, so this quiet preview reads as
-     the same product as the cards around it instead of a leftover shape. */
+  /* CENTRED CONTENT -- same soft-raised geometry, dimensions and data as
+     before; only the alignment changed, so the value/label group reads as
+     one centred instrument rather than a left-stuck line. flex centres the
+     pair both horizontally and vertically, including across a grid row
+     where the sibling plate is taller (grid's default stretch already
+     equalises row height; this centres within whatever height that is). */
   .b-plate{
-    padding:15px 14px 13px; text-align:left; color:var(--ink);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:15px 14px 13px; text-align:center; color:var(--ink);
     background:var(--tile-sheen), var(--surface-2); border:1px solid var(--tile-border);
     border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
   }
@@ -25204,17 +25218,45 @@ function refreshOpenRecordPanel(){
    element is a CONCLUSION and may carry the tone the engine assigned it. The
    five were accordions that expanded inline; the bodies they expanded are
    rendered verbatim inside a panel now, so nothing on the page moves. */
-/* THE READING'S DIALS — a badge for state, never a fabricated percentage.
-   Readiness carries its genuine 0-100 fraction (computeConfidenceScore()) as
-   its centre number; the other four sections are categorical (fresh/watch/
-   strained, on-track/worth-watching/..., a count, a block state). All five
-   render as the same dimensional medallion, coloured by the tone the
-   coaching engine assigned -- readiness always burgundy, the categorical
-   four tone-coloured when the engine assigned one, neutral when it did not
-   -- state shown honestly, never a ring filled to a fabricated fraction. */
+/* THE READING'S DIALS — a soft-raised instrument for state, never a
+   fabricated percentage. Readiness carries its genuine 0-100 fraction
+   (computeConfidenceScore()) as its centre value; the other four sections
+   are categorical (fresh/watch/strained, on-track/worth-watching/..., a
+   count, a block state). All five render as the same dial -- category
+   title, thin separator, value -- and all five are the same size; what
+   varies is the face's colour identity (dialAccentBase()) and the value
+   text itself, never a ring filled to a fabricated fraction. */
 var READING_DIAL_LABEL = { readiness:'Readiness', recovery:'Recovery', evolution:'Evolution', patterns:'Patterns', adaptation:'Adaptation' };
 function toneRingColor(tone){
   return tone==='good' ? 'var(--c-easy)' : tone==='watch' ? 'var(--gold)' : tone==='bad' ? 'var(--c-tempo)' : null;
+}
+/* Each reading's identity colour -- readiness/recovery/evolution/patterns
+   keep one fixed identity colour apiece (the live state is still legible
+   from the value word itself: "Strained", "Worth watching"...); adaptation
+   alone has no single fixed identity of its own, so it keeps borrowing the
+   engine's live tone, same as it always has, neutral when the engine
+   assigned none. Used for the separator line, at full/solid strength. */
+function dialAccentBase(sec){
+  if (sec.key === 'readiness') return 'var(--cherry)';
+  if (sec.key === 'recovery') return 'var(--c-easy)';
+  if (sec.key === 'evolution') return 'var(--gold)';
+  if (sec.key === 'patterns') return 'var(--c-rest)';
+  return toneRingColor(sec.tone) || 'var(--c-rest)';
+}
+/* The face fill -- the SAME identity colour above, but the app's own
+   pre-authored -soft translucent token for it rather than a computed mix.
+   Those tokens already exist for exactly this job (a pale, colour-infused
+   wash under readable text -- see the day-badge/coach-state pills that use
+   them the same way) and are already correct in both themes, so this reuses
+   them rather than deriving a new tint. */
+function dialTint(sec){
+  if (sec.key === 'readiness') return 'var(--cherry-tint)';
+  if (sec.key === 'recovery') return 'var(--c-easy-soft)';
+  if (sec.key === 'evolution') return 'var(--c-gold-soft)';
+  if (sec.key === 'patterns') return 'var(--c-rest-soft)';
+  // adaptation: mirrors dialAccentBase()'s tone mapping, in -soft form.
+  return sec.tone==='good' ? 'var(--c-easy-soft)' : sec.tone==='watch' ? 'var(--c-gold-soft)'
+    : sec.tone==='bad' ? 'var(--c-tempo-soft)' : 'var(--c-rest-soft)';
 }
 /* A phrase wraps at its spaces (CSS handles that); what actually decides
    whether it fits is its WIDEST word, since that is the one span nothing
@@ -25222,15 +25264,15 @@ function toneRingColor(tone){
    "established" itself still has to fit on its own line. Sized by that
    longest word, not the phrase's raw length, so multi-word states aren't
    punished for a total length their wrapped lines never actually reach. */
-function dialFontSize(text, lead){
+function dialValueFontSize(text){
   var words = (text||'').split(' ').filter(Boolean);
   var longest = words.reduce(function(m,w){ return Math.max(m, w.length); }, (text||'').length);
-  if (lead) return longest<=4 ? '16px' : longest<=7 ? '13px' : longest<=8 ? '11px' : '9.5px';
-  if (longest<=4) return '12.5px';
-  if (longest<=5) return '11px';
-  if (longest<=7) return '9.5px';
-  if (longest<=8) return '8.5px';
-  if (longest<=9) return '8px';
+  if (longest<=3) return '12px';
+  if (longest<=4) return '11px';
+  if (longest<=5) return '10px';
+  if (longest<=6) return '9px';
+  if (longest<=7) return '8.5px';
+  if (longest<=8) return '8px';
   return longest<=10 ? '7px' : '6.5px';
 }
 /* The dial's own centre text: readiness gets just its number ("50%", not
@@ -25244,17 +25286,14 @@ function dialCenterText(sec){
   }
   return sec.value;
 }
-/* Readiness keeps its own fixed burgundy regardless of tone; the other four
-   take the engine's tone colour, or the neutral rim when it assigned none
-   (Patterns, most often -- a count has no good/watch/bad reading). */
-function dialRimColor(sec){
-  if (sec.key === 'readiness') return 'var(--cherry)';
-  return toneRingColor(sec.tone) || 'var(--line)';
-}
-function readingDialHtml(sec, lead){
+function readingDialHtml(sec){
   var text = dialCenterText(sec);
-  return '<div class="b-dial'+(lead?' lead':'')+'" style="--rim-color:'+dialRimColor(sec)+';">'+
-      '<div class="b-medal"><b style="font-size:'+dialFontSize(text, lead)+';">'+escapeHtml(text)+'</b></div>'+
+  return '<div class="b-dial" style="--rd-base:'+dialAccentBase(sec)+'; --rd-tint:'+dialTint(sec)+';">'+
+      '<div class="b-medal">'+
+        '<div class="rd-cat">'+escapeHtml(READING_DIAL_LABEL[sec.key])+'</div>'+
+        '<div class="rd-sep"></div>'+
+        '<div class="rd-val"><b style="font-size:'+dialValueFontSize(text)+';">'+escapeHtml(text)+'</b></div>'+
+      '</div>'+
     '</div>';
 }
 /* RECTANGULAR, NOT CIRCULAR. Valhalla's own Reading preview is the visual
@@ -25298,9 +25337,7 @@ function renderValhallaReadingPreview(){
   readingSections(report).forEach(function(s){ byKey[s.key] = s; });
   var order = ['readiness','recovery','evolution','patterns','adaptation'];
   var cols = order.map(function(k){
-    var sec = byKey[k];
-    return '<div class="b-dial-col">'+readingDialHtml(sec, k==='readiness')+
-      '<span class="lbl">'+escapeHtml(READING_DIAL_LABEL[k])+'</span></div>';
+    return '<div class="b-dial-col">'+readingDialHtml(byKey[k])+'</div>';
   });
   return '<div class="setup-section-title">The Reading</div>'+
     '<div class="b-dials">'+
