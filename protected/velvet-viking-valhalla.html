@@ -989,16 +989,18 @@
 
   /* ---------- day card ---------- */
   .day{
-    border-left:4px solid var(--c-rest); background:var(--surface-3); border-radius:var(--radius-sm);
+    border-left:4px solid var(--c-rest); background:var(--tile-sheen), var(--surface-3); border-radius:var(--radius-sm);
     padding:11px 12px; margin-top:8px; transition:.2s; position:relative;
-    /* SOFT ELEVATION -- the exact --shadow-sm token the rest of the raised-
-       card system already uses (Reading rows, Settings sections, Zone
-       Breakdown), not a second shadow system. It is already theme-aware
-       (warm/low-opacity in light, neutral/low-opacity in dark), so reusing
-       it verbatim is what keeps a dense list of day cards looking like a
-       stack of quiet physical cards rather than a glow. The semantic type
-       colour, radius and every other rule here are untouched. */
-    box-shadow:var(--shadow-sm);
+    /* SOFT ELEVATION -- the exact --tile-shadow/--tile-sheen tokens the
+       premium raised-card surfaces already use (Valhalla, Coach, Settings,
+       Zone Breakdown), not a second shadow system. --tile-shadow is itself
+       --shadow-sm plus one restrained inset highlight, so this still carries
+       the same low-opacity, theme-aware base depth a plain --shadow-sm gave
+       it, with the sheened top edge that made those other surfaces read as
+       premium and this one read flatter by comparison. The semantic type
+       colour, background colour, border and radius are all unchanged --
+       only the depth/sheen layers are. */
+    box-shadow:var(--tile-shadow);
   }
   /* The ONE ordinary container that had no full border: a day row was separated
      from the week around it by its fill alone, so collapsing that fill to the
@@ -1016,13 +1018,13 @@
   .day.type-threshold{border-left-color:var(--c-threshold);}
   .day.type-track{border-left-color:var(--c-track);}
   .day.type-long{border-left-color:var(--c-long);}
-  .day.type-tuneup{border-left-color:var(--c-gold); background:var(--c-gold-soft);}
-  .day.type-race{border-left-color:var(--c-gold); background:var(--c-gold-soft);}
+  .day.type-tuneup{border-left-color:var(--c-gold); background:var(--tile-sheen), var(--c-gold-soft);}
+  .day.type-race{border-left-color:var(--c-gold); background:var(--tile-sheen), var(--c-gold-soft);}
   /* Today/drag-over keep their own inset ring AND the base elevation --
      the ring is a state cue layered on top of the card, not a replacement
      for its depth. */
-  .day.is-today{box-shadow:var(--shadow-sm), 0 0 0 1.5px var(--gold) inset;}
-  .day.drag-over{box-shadow:var(--shadow-sm), 0 0 0 2px var(--bronze) inset; background:var(--bg-4);}
+  .day.is-today{box-shadow:var(--tile-shadow), 0 0 0 1.5px var(--gold) inset;}
+  .day.drag-over{box-shadow:var(--tile-shadow), 0 0 0 2px var(--bronze) inset; background:var(--bg-4);}
   .day.dragging{opacity:.4;}
   .day-top{display:flex; align-items:flex-start; gap:10px;}
   /* THE COMPLETION RING. A <label> so the tap target is comfortably ~40px
@@ -9921,10 +9923,17 @@ function renderFuelingCard(dd){
 // restoring a card someone happened to leave open weeks ago. An entry exists
 // only where the runner has overridden that default by tapping a header.
 var dayExpandOverride = {};
+// DEFAULT: only the current calendar day starts open, everywhere this card
+// renders (Today, This Week, an opened Full Plan week) -- every other day
+// starts collapsed, whether it is in the past, still to come, or already
+// logged. Completion is deliberately not part of this: a completed CURRENT
+// day is still the current day and still opens by default; a completed OR
+// upcoming day that is not today stays collapsed either way. The one
+// exception is an explicit tap, handled entirely above by
+// dayExpandOverride -- that always wins regardless of date or completion.
 function isDayExpanded(dd){
   if (dayExpandOverride.hasOwnProperty(dd.id)) return dayExpandOverride[dd.id];
-  if (dd.date === todayStr()) return true;   // today's session is the one you came to use
-  return !dd.completed;                      // done sessions fold away; upcoming ones stay open
+  return dd.date === todayStr();
 }
 function handleToggleDay(dayId){
   var dd = findDay(dayId);

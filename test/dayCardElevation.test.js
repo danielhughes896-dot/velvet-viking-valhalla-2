@@ -16,7 +16,14 @@ const { buildPlan } = require('./fixtures.js');
 // correct place to add "very slightly above the page" depth everywhere at
 // once, rather than restyling each view independently -- these tests hold
 // that the elevation lives on the shared rule (so it can never drift between
-// views) and reuses --shadow-sm rather than a new shadow system.
+// views).
+//
+// UPGRADED from --shadow-sm alone to --tile-shadow/--tile-sheen -- the same
+// premium soft-raised recipe Valhalla, Coach, Settings and Zone Breakdown
+// already use, and still not a new shadow system: --tile-shadow IS
+// --shadow-sm plus one restrained inset highlight, so the base depth these
+// tests originally asserted is still present, just no longer the whole
+// story.
 
 const ROOT = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
@@ -37,10 +44,12 @@ function ruleFor(sel) {
   }
 }
 
-test('the shared .day rule carries the soft elevation, reusing --shadow-sm rather than a new shadow', () => {
+test('the shared .day rule carries the same soft-raised tile depth as the rest of the app', () => {
   const rule = ruleFor('.day');
-  assert.match(rule, /box-shadow\s*:\s*var\(--shadow-sm\)/,
-    'the base card must reuse the existing shared shadow token');
+  assert.match(rule, /box-shadow\s*:\s*var\(--tile-shadow\)/,
+    'the base card must reuse the existing shared tile-elevation token');
+  assert.match(rule, /background\s*:\s*var\(--tile-sheen\)\s*,\s*var\(--surface-3\)/,
+    'the sheened top edge, layered over the SAME background colour, not a different one');
   // The semantic type colour and existing radius are untouched by this pass.
   assert.match(rule, /border-left\s*:\s*4px solid var\(--c-rest\)/);
   assert.match(rule, /border-radius\s*:\s*var\(--radius-sm\)/);
@@ -48,11 +57,19 @@ test('the shared .day rule carries the soft elevation, reusing --shadow-sm rathe
 
 test('today and drag-over states keep the base elevation alongside their own ring, never replace it', () => {
   const today = ruleFor('.day.is-today');
-  assert.match(today, /var\(--shadow-sm\)/);
+  assert.match(today, /var\(--tile-shadow\)/);
   assert.match(today, /var\(--gold\) inset/);
   const dragOver = ruleFor('.day.drag-over');
-  assert.match(dragOver, /var\(--shadow-sm\)/);
+  assert.match(dragOver, /var\(--tile-shadow\)/);
   assert.match(dragOver, /var\(--bronze\) inset/);
+});
+
+test('the tune-up/race semantic fill keeps the same sheen as every other day', () => {
+  const tuneup = ruleFor('.day.type-tuneup');
+  assert.match(tuneup, /background\s*:\s*var\(--tile-sheen\)\s*,\s*var\(--c-gold-soft\)/,
+    'a tune-up/race day must not read flatter than an ordinary one');
+  const race = ruleFor('.day.type-race');
+  assert.match(race, /background\s*:\s*var\(--tile-sheen\)\s*,\s*var\(--c-gold-soft\)/);
 });
 
 test('renderDayCard() is the single function behind Today, This Week/Full Plan and the single-card patch path', () => {
