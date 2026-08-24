@@ -55,9 +55,9 @@
 --
 -- agreement_version is the point of the design, exactly as consent_version is
 -- next door. Agreement is recorded against a NAMED VERSION of the wording, not
--- against whatever happened to be on the screen. When the wording changes --
--- and the immediate-start wording is expected to change once a solicitor has
--- read it -- the constant changes, every stored agreement to the previous
+-- against whatever happened to be on the screen. When the wording changes -- and
+-- both the Terms and the solicitor-approved immediate-start acknowledgement may
+-- yet be revised -- the constant changes, every stored agreement to the previous
 -- version stops counting, and the athlete is asked again. No migration, no
 -- backfill, and no possibility of a stored "yes" being quietly re-pointed at
 -- wording the athlete never saw.

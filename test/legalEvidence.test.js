@@ -151,7 +151,7 @@ test('the browser cannot name the version it is agreeing to', () => {
 // VERSIONING: A SOLICITOR'S REVISION MUST NOT COST THE EVIDENCE
 // ===========================================================================
 test('an agreement to superseded wording stops counting, and nothing is lost', async () => {
-  /* The whole reason the wording can ship as a business draft. When the
+  /* The whole reason the wording can be revised after approval. When the
      reviewed text lands, the constant changes, this gate starts refusing, and
      every athlete is asked again -- while the v1 rows stay exactly as they
      are as the record of what was agreed before. */
@@ -166,14 +166,40 @@ test('an agreement to superseded wording stops counting, and nothing is lost', a
     'wording this build has never served must not count either');
 });
 
-test('the immediate-start wording is marked as a business draft, not as law', () => {
-  /* It is deployed deliberately as a draft -- an athlete asked in draft wording
-     is better off than one never asked -- but nothing in the repository may
-     represent it as solicitor-approved. */
+test('the approved wording is the wording that ships, and it is labelled honestly', () => {
+  /* Review is complete and the text was approved UNCHANGED, which is why the
+     version is still v1: nothing an athlete agrees to has moved, so nobody
+     needs asking again. The repository must say that plainly -- a stale "not
+     approved" label is as untrue as a premature "approved" one.
+
+     Approval is a fact about THIS string. The version mechanism stays so the
+     next string cannot inherit it. */
   const src = read('api/_agreements.js');
-  assert.match(src, /BUSINESS DRAFT\. NOT SOLICITOR-APPROVED/);
+  assert.match(src, /SOLICITOR-REVIEWED AND APPROVED/);
   assert.match(src, /immediate_start_v2/,
-    'the upgrade path should be written down where the constant is');
+    'and the upgrade path stays written down where the constant is');
+
+  /* Case-INSENSITIVE, and across every file that describes the wording rather
+     than just the one carrying the headline label. A stale "draft" sentence
+     buried in prose misrepresents the legal position exactly as effectively as
+     a stale banner, and it is the buried one that survives a careless edit. */
+  for (const f of ['api/_agreements.js', 'api/_checkout.js',
+                   'supabase-account-agreements.sql', 'LEGAL-FACTS.md']){
+    const text = read(f);
+    assert.ok(!/not solicitor-approved|business draft/i.test(text),
+      f + ' still describes the approved wording as an unapproved draft');
+  }
+
+  /* The approved text, pinned. If somebody edits the wording without bumping
+     the version, this fails -- which is exactly the failure that would
+     otherwise let an old "yes" stand for new words. */
+  assert.equal(Agree.IMMEDIATE_START_VERSION, 'immediate_start_v1');
+  assert.equal(Agree.IMMEDIATE_START_TEXT,
+    'Your 14 days start now and you get the full product straight away. That ' +
+    'means you are asking us to begin the service during the 14-day period in ' +
+    'which you would otherwise have the right to cancel a distance contract, ' +
+    'and you accept that starting immediately affects that right. You can still ' +
+    'cancel at any time before the trial ends and you will not be charged.');
 });
 
 // ===========================================================================

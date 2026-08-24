@@ -24,9 +24,11 @@
 // of the wording. Change the wording, change the constant, and every stored
 // agreement to the old wording stops counting -- the athlete is asked again,
 // with no migration and no backfill, because the comparison fails closed on its
-// own. That is what makes the immediate-start wording safe to ship as a
-// business draft: a solicitor's revision is a constant change here and a new
-// decision from each athlete, not a data problem.
+// own. That is what makes a revision cheap rather than dangerous: new wording is
+// a constant change here and a fresh decision from each athlete, not a data
+// problem. The immediate-start wording below has been reviewed and approved as
+// it stands, so nobody is being asked again today -- the mechanism is what
+// guarantees that stays true if it ever changes.
 //
 // EVERY UNKNOWN IS A NO. Unreachable database, missing table, malformed row,
 // wrong version, declined, absent -- all the same answer. A caller that could
@@ -54,16 +56,20 @@ const PRIVACY_VERSION = 'privacy_v1';
 
 /* THE IMMEDIATE-START ACKNOWLEDGEMENT CURRENTLY IN FORCE.
  *
- * *** BUSINESS DRAFT. NOT SOLICITOR-APPROVED. ***
+ * *** SOLICITOR-REVIEWED AND APPROVED. ***
  *
- * The wording below is HQ's approved draft of the concept, and it is deployed
- * as a draft deliberately rather than held back: an athlete who starts a trial
- * without being asked this at all is worse off than one asked in wording a
- * solicitor later improves. When that review happens, the reviewed wording
- * replaces IMMEDIATE_START_TEXT and IMMEDIATE_START_VERSION becomes
- * 'immediate_start_v2'. Every athlete is then asked again at their next
- * checkout, the v1 evidence remains exactly as it was, and nothing has to be
- * migrated or reinterpreted.
+ * The wording below was reviewed and approved unchanged -- it is byte-identical
+ * to the text put in front of review, which is why the version is still v1
+ * rather than v2: nothing about what an athlete agrees to has moved, so nobody
+ * needs asking again.
+ *
+ * IT STAYS VERSIONED ANYWAY, and that is the point of the design rather than a
+ * leftover from the draft. If this text ever changes materially, the constant
+ * becomes 'immediate_start_v2', every athlete is asked again at their next
+ * checkout, and the v1 evidence remains exactly as it was -- no migration, no
+ * backfill, and no possibility of a stored "yes" being re-pointed at wording
+ * the athlete never saw. Approval is a fact about THIS string; the mechanism
+ * exists so the next string cannot inherit it.
  *
  * The text lives HERE and not in a screen, so that the wording an athlete saw
  * and the version recorded against their decision cannot come apart: a surface

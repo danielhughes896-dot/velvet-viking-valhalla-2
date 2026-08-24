@@ -123,10 +123,12 @@ agreement in it. A privacy notice is information rather than a decision, so the
 version presented alongside an accepted Terms is recorded as context on that
 row and nothing is ever "consented to". Marketing consent does not exist.
 
-The immediate-start wording is versioned (`immediate_start_v1`) for the same
-reason consent is: it is currently HQ's business draft, and a solicitor's
-revision becomes `immediate_start_v2`, at which point every athlete is asked
-again at their next checkout and the v1 evidence stays exactly as it is.
+The immediate-start wording is **solicitor-reviewed and approved**, and was
+approved unchanged — the deployed text is byte-identical to the text reviewed,
+which is why it remains `immediate_start_v1`. It stays versioned for the same
+reason consent is: a future material revision becomes `immediate_start_v2`, at
+which point every athlete is asked again at their next checkout and the v1
+evidence stays exactly as it is.
 
 **Where consent is recorded.** `public.health_data_consent` — append-only, one
 row per decision (`user_id`, `decision`, `consent_version`, `decided_at`,
