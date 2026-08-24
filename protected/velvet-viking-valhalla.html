@@ -3027,6 +3027,147 @@ function fmtHRRange(zone){
 }
 
 /* =========================================================
+   EARLY CALIBRATION -- WHO GETS ONE, AND WHAT COMES OUT
+
+   Both pure functions of an explicit context. Nothing here reads state, so
+   the generator, the preview and the tests all ask the same question and get
+   the same answer.
+   ========================================================= */
+
+/* HOW LONG A MEASURED EFFORT STAYS EVIDENCE. Six weeks: long enough that an
+   athlete who raced last month is not sent out to test again, short enough
+   that a result from another season does not stand in for current fitness. */
+var CALIBRATION_EVIDENCE_DAYS = 42;
+/* A THIRTY-MINUTE THRESHOLD EFFORT NEEDS A BASE TO STAND ON.
+   Below roughly twenty kilometres a week it is a disproportionate share of the
+   athlete's running and the wrong first impression of the programme. This is
+   the volume floor doing the job of protecting new, low-experience and
+   returning athletes -- deliberately expressed as training load rather than as
+   state.experience, which is a PRESENTATION layer by contract and must never
+   decide what a session is. */
+var CALIBRATION_MIN_WEEKLY_KM = 20;
+
+function recentQualifiedPerformance(performances, today){
+  var list = performances || [];
+  var t = today || todayStr();
+  for (var i=list.length-1; i>=0; i--){
+    var p = list[i];
+    if (!p || p.qualified === false || !p.date) continue;
+    if (daysBetween(p.date, t) <= CALIBRATION_EVIDENCE_DAYS) return p;
+  }
+  return null;
+}
+/* THE ONE PLACE THE LIVE ANSWER IS ASSEMBLED. Both generator entry points call
+   this rather than each building a context of their own, so the builder and a
+   year-round transition can never disagree about whether this athlete needs
+   calibrating. `volume` is passed because the block being built may have a
+   different starting volume from the one currently in setup. */
+/* AN ESTIMATE AND A MEASUREMENT SHOULD NOT LOOK THE SAME. One word, in the
+   place the athlete already reads the number, so "172" stops meaning both
+   "the figure you typed" and "the figure we measured you at". */
+function lthrProvenanceSuffix(){
+  var su = state.setup || {};
+  if (su.lthr == null) return '';
+  return su.lthrSource === 'calibration' ? ' (measured)' : ' (your estimate)';
+}
+function calibrationNeededNow(volume){
+  var su = state.setup || {};
+  return calibrationEligibility({
+    healthConsent: healthConsentGranted(),
+    lthr: su.lthr,
+    performances: (typeof athlete === 'function' && athlete()) ? athlete().performances : [],
+    today: todayStr(),
+    currentVolume: volume != null ? volume : su.currentVolume
+  }).needed;
+}
+function calibrationEligibility(ctx){
+  var c = ctx || {};
+  var no = function(reason){ return { needed:false, reason:reason }; };
+
+  /* ARTICLE 9 FIRST. The session exists to produce a heart rate and store it
+     as a training anchor. Without consent to process health information there
+     is nothing it could lawfully produce, no HR zones for it to improve, and
+     therefore no reason to put a hard effort in week one. */
+  if (!c.healthConsent) return no('no_health_consent');
+
+  /* ALREADY ANCHORED. A supplied LTHR is trustworthy by the existing model --
+     it is what every heart-rate figure in the product already descends from.
+     Replacing it with a field test the athlete has not asked for would be
+     exactly the "do not replace good evidence with a weaker test" failure. */
+  if (c.lthr != null) return no('lthr_known');
+
+  /* RECENTLY MEASURED. A qualified race or Fitness Checkpoint inside the
+     evidence window is both a reason the zones are already well founded and a
+     reason not to stack another hard effort on top of it. */
+  if (recentQualifiedPerformance(c.performances, c.today)) return no('recent_measured_effort');
+
+  if (!(c.currentVolume >= CALIBRATION_MIN_WEEKLY_KM)) return no('insufficient_base');
+
+  return { needed:true, reason:'eligible' };
+}
+
+/* THE DERIVATION, AND EVERY REASON IT REFUSES.
+   "No new calibration" is a good outcome; a false threshold is not. A wrong
+   LTHR does not announce itself -- it silently moves every zone, every target
+   heart rate and every execution score for the rest of the block, and the
+   athlete has no way of knowing. So this refuses on anything it cannot stand
+   behind, and says which check failed. */
+var CALIBRATION_HR_MIN = 100;         // below this is not a threshold effort
+var CALIBRATION_HR_MAX = 220;         // above this is a chest-strap artefact
+var CALIBRATION_MAX_SHIFT_BPM = 15;   // against a previous MEASURED anchor
+function deriveCalibrationLTHR(ctx){
+  var c = ctx || {};
+  var no = function(reason){ return { ok:false, lthr:null, reason:reason }; };
+
+  /* THE BOUNDARY, RESTATED WHERE THE VALUE IS ACTUALLY PRODUCED. Gating only
+     the caller would leave this function able to compute and return a
+     threshold heart rate for an athlete who has not consented to health
+     processing. */
+  if (!c.healthConsent) return no('no_health_consent');
+
+  var hr = c.measuredHR;
+  if (hr == null || hr === '') return no('no_hr');
+  hr = Number(hr);
+  if (!isFinite(hr) || hr <= 0) return no('no_hr');
+  hr = Math.round(hr);
+  if (hr < CALIBRATION_HR_MIN || hr > CALIBRATION_HR_MAX) return no('implausible_hr');
+
+  /* THE EFFORT HAS TO HAVE HAPPENED. A measured window logged as a fraction of
+     its prescription is not twenty minutes of threshold running, and the
+     average heart rate over four of them is not a threshold. */
+  if (c.measuredSec != null && c.measuredSec > 0){
+    if (c.measuredSec < CALIBRATION_PROTOCOL.measuredMin * 60 * 0.8) return no('effort_too_short');
+  }
+
+  /* AGAINST MAX HR, if the athlete gave one. A threshold at or above max is a
+     contradiction in terms, and one far below it is not a threshold either. */
+  if (c.maxHR != null && isFinite(c.maxHR) && c.maxHR > 0){
+    if (hr >= c.maxHR) return no('above_max_hr');
+    if (hr < c.maxHR * 0.70) return no('implausible_vs_max_hr');
+  }
+
+  /* AGAINST THE ATHLETE'S OWN RECENT EASY RUNNING. A threshold effort is not
+     run at easy-run heart rate; if the number says it was, the likeliest
+     explanations are a mis-logged row or a strap that dropped out. */
+  if (c.recentEasyHR != null && isFinite(c.recentEasyHR) && c.recentEasyHR > 0){
+    if (hr <= c.recentEasyHR) return no('not_above_easy_hr');
+  }
+
+  /* AGAINST A PREVIOUS MEASURED ANCHOR. Threshold heart rate is one of the
+     more stable numbers in physiology: it does not move fifteen beats inside a
+     block. A jump that large is evidence about the measurement, not about the
+     athlete, so the previous anchor stands and the athlete is told why.
+     Deliberately NOT applied to a value the athlete typed in themselves --
+     that is an estimate this session exists to improve on. */
+  if (c.previousLTHR != null && c.previousLTHRMeasured &&
+      Math.abs(hr - c.previousLTHR) > CALIBRATION_MAX_SHIFT_BPM){
+    return no('implausible_shift');
+  }
+
+  return { ok:true, lthr:hr, reason:'derived' };
+}
+
+/* =========================================================
    DATE / TIME / PACE HELPERS
    ========================================================= */
 // Pure UTC-anchored arithmetic -- deliberately never touches local time.
@@ -4094,6 +4235,12 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      ever build race blocks. A steady block that arrives without a purpose is
      maintenance -- there is no other steady purpose that reaches here. */
   var purpose = (opts && opts.purpose) || (steady ? 'maintain' : 'race');
+  /* WHETHER THIS BLOCK OPENS WITH A THRESHOLD CALIBRATION. Decided by
+     calibrationEligibility() at the call site and passed in, never worked out
+     here: this function is a pure function of its arguments and must not start
+     reading consent records or the athlete's performance history. Absent means
+     no -- a caller that has not asked the question does not get the session. */
+  var calibrate = !!(opts && opts.calibrate);
   /* A GOAL PACE NEEDS A GOAL. A race block culminates in a goal effort whether
      or not there is an entry in a real event -- the builder says so in as many
      words -- so goal-pace work belongs there. Maintenance does not culminate in
@@ -4151,6 +4298,13 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     var isRace = !steady && arc.hasGoalEffort && (w===N);
     var isTaper = !steady && (!isRace && w>buildWeeks);
     var isCheckpoint = false;
+    /* THE EARLY CALIBRATION. Week one's quality slot, and only ever week one:
+       the point is that the sessions AFTER it are prescribed against a real
+       threshold rather than an estimate, so every week it is delayed is a week
+       of zones nobody measured. Never in a race or taper week -- those weeks
+       are not the place for a new hard effort, and a block whose first week is
+       already a taper is not a block that needs calibrating. */
+    var isCalibration = calibrate && (w === 1) && !isRace && !isTaper;
     var volume, phase, isCutback=false;
 
     // phaseForWeek() is the canonical definition -- this loop no longer carries
@@ -4293,6 +4447,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
 
     weeks.push({
       week:w, phase:phase, isCutback:isCutback, isTaper:isTaper, isRace:isRace, isCheckpoint:isCheckpoint,
+      isCalibration:isCalibration,
       volume:volume, qSpec:qSpec, qKm:qKm, tSpec:tSpec, tKm:tKm,
       longTarget:round1(longTarget), b2bEligible:b2bEligible, longShape:longShape,
       hasGoalSegment:hasGoalSegment, goalSegKm:goalSegKm, raceDayKm:raceDayKm
@@ -4474,6 +4629,59 @@ function stridesText(easyKm, reps, m){
   return { title:'Sharpen: '+reps+'x'+m+'m Strides', type:'interval',
     desc: dtok(easyKm)+' @ Easy pace, then '+reps+'x'+m+'m relaxed strides w/ full recovery. Short and sharp.' };
 }
+/* =========================================================
+   EARLY THRESHOLD CALIBRATION -- THE PROTOCOL
+
+   THE PROBLEM IT SOLVES. Every heart-rate figure in this product descends
+   from state.setup.lthr, and an athlete who never typed one gets no HR zones
+   at all -- the card, the prescription, the Execution Strategy phases and the
+   scoring path all fall back to pace only. That is correct behaviour and a
+   poor outcome: Valhalla can obtain the anchor in one session rather than
+   waiting for the athlete to know a number most runners have never measured.
+
+   THE PROTOCOL is the standard 30-minute threshold field test, unchanged:
+   easy warm-up, thirty minutes at the hardest effort that can be held EVENLY
+   for the duration, easy cool-down, and threshold heart rate taken from the
+   average of the FINAL TWENTY MINUTES. The first ten minutes are excluded
+   because heart rate is still climbing towards the effort; averaging them in
+   drags the anchor low, which would push every zone down and make the whole
+   programme too easy.
+
+   WHY THE THIRTY MINUTES IS TWO SEGMENTS. The derivation needs the average
+   heart rate of a specific twenty-minute window, and the only honest way to
+   get that number out of a structured log is to ask for it -- so the window
+   is a segment of its own, with its own row in the session breakdown and its
+   own HR field. The athlete logs the number the derivation uses. Nothing is
+   inferred from a whole-session average, which would include the warm-up and
+   the cool-down and is not a threshold measurement of anything.
+
+   NOT A TIME TRIAL. Controlled and sustainable, not maximal: the segment
+   intensity is 'threshold', not 'hard_effort', and the guidance says so in as
+   many words. An athlete who sprints the first five minutes produces a
+   decaying heart rate over the measured window and a threshold anchor that is
+   too high, which is the more dangerous error of the two.
+   ========================================================= */
+var CALIBRATION_PROTOCOL = {
+  warmupMin: 12,     // "approximately 10-15 minutes easy"
+  settleMin: 10,     // heart rate climbing to the effort -- excluded
+  measuredMin: 20,   // the derivation window
+  cooldownMin: 10
+};
+function calibrationEffortMin(){
+  return CALIBRATION_PROTOCOL.settleMin + CALIBRATION_PROTOCOL.measuredMin;
+}
+function thresholdCalibrationText(){
+  var P = CALIBRATION_PROTOCOL;
+  return {
+    title: 'Threshold Calibration', type: 'calibration',
+    desc: P.warmupMin + ' min easy warm-up, then ' + calibrationEffortMin() +
+          ' min at the hardest effort you could hold evenly for the whole ' +
+          calibrationEffortMin() + ' minutes \u2014 controlled, not a sprint. ' +
+          P.cooldownMin + ' min easy cool-down. Log your average heart rate for ' +
+          'the final ' + P.measuredMin + ' minutes: that is the number Valhalla ' +
+          'sets your training zones from.'
+  };
+}
 function timeTrialText(ttKm, flankKm){
   return { title:'Fitness Checkpoint: '+ttKm+'km Time Trial', type:'checkpoint',
     desc: dtok(flankKm)+' warm-up, '+dtok(ttKm)+' at hard, honest effort, '+dtok(flankKm)+
@@ -4578,6 +4786,14 @@ var ARCHETYPES = {
   hill_repeats:          { family:'interval' },
   fartlek:               { family:'interval' },
   time_trial:            { family:'checkpoint' },
+  /* THE EARLY CALIBRATION SESSION. A threshold effort, and deliberately not a
+     checkpoint: a Fitness Checkpoint is a MAXIMAL time trial over a known
+     distance and feeds vdotFromPerformance() as a measurement of the athlete's
+     ceiling. This is a CONTROLLED, sustainable 30 minutes whose output is a
+     heart rate, not a race result. Filing it as a checkpoint would promote it
+     to a performance and move Measured Fitness on the strength of a session
+     nobody raced. See TYPE_META.calibration. */
+  threshold_calibration: { family:'threshold' },
   /* dd.type is the UI taxonomy and stays 'interval' -- this IS the race-week
      quality slot and the athlete should recognise it as one. But the SESSION is
      5km of easy running plus six 100m strides, so nothing about an interval
@@ -4698,6 +4914,7 @@ function textFor(p, ctx, totalKm){
     case 'race':                 return raceDayText(q.km, hasEvent, label);
     case 'easy_strides':         return stridesText(q.easyKm, q.reps, q.m);
     case 'time_trial':           return timeTrialText(q.ttKm, q.flankKm);
+    case 'threshold_calibration': return thresholdCalibrationText();
     case 'long_run':             return longRunText(q.km, false, 0, !!q.b2bPrimary, false, q.shape);
     case 'long_run_goal_finish': return longRunText(q.km, true, q.finishKm, false, false);
     case 'long_run_b2b':         return longRunText(q.km, false, 0, false, true);
@@ -4779,6 +4996,20 @@ function segmentsFor(p){
          wrong; the whole-DAY target stays on the T zone, which is a well
          calibrated proxy for the diluted whole-run average (see TYPE_META). */
       return [ f.wu, segWork({km:q.ttKm}, 'hard_effort', { maximal:true }), f.cd ];
+    case 'threshold_calibration':
+      /* Flanks prescribed in MINUTES, not kilometres, because the whole
+         session is prescribed in minutes -- an athlete whose threshold pace is
+         unknown (which is exactly this athlete) cannot be told how far to run
+         in a warm-up. segFlanks() only speaks kilometres, so the two ends are
+         built directly.
+
+         The two work segments are one continuous effort at one intensity. The
+         boundary is a MEASUREMENT boundary, not a change of pace, and the
+         labels say so -- the athlete does not slow down at ten minutes. */
+      return [ segWork({sec:q.warmupMin*60}, 'easy', { role:'warmup' }),
+               segWork({sec:q.settleMin*60}, 'threshold', { role:'calibration_settle' }),
+               segWork({sec:q.measuredMin*60}, 'threshold', { role:'calibration_measure' }),
+               segWork({sec:q.cooldownMin*60}, 'easy', { role:'cooldown' }) ];
     case 'threshold_continuous':
       f = segFlanks(2, 1);
       return [ f.wu, segWork({km:q.km}, 'threshold'), f.cd ];
@@ -5053,6 +5284,14 @@ function stepEffortWord(seg){
    Everything else is named by its intensity. */
 function stepWorkLabel(seg){
   if (seg.terrain === 'uphill') return 'Hill repeats';
+  /* THE TWO HALVES OF A CALIBRATION EFFORT ARE THE SAME INTENSITY and must
+     still be told apart: they are one continuous run at one effort, split at a
+     MEASUREMENT boundary. Labelled by intensity alone the card read
+     "2 THRESHOLD 10min / 3 THRESHOLD 20min", which shows an athlete two
+     identical-looking blocks and no reason for the split -- and the second one
+     is the twenty minutes whose heart rate becomes their training zones. */
+  if (seg.role === 'calibration_settle') return 'Settle in';
+  if (seg.role === 'calibration_measure') return 'Measured 20 min';
   return STEP_INTENSITY_LABEL[seg.intensity] || 'Work';
 }
 /* Targets for one step, read from the athlete's own zones through the
@@ -6164,7 +6403,8 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     var qKmThisWeek = wk.qKm, tKmThisWeek = wk.tKm;
     // With one slot the two stimuli alternate week to week rather than one of
     // them being dropped for the whole block; the checkpoint always takes it.
-    var singleSlotKind = wk.isCheckpoint ? 'tempo' : (wk.week % 2 === 0 ? 'tempo' : 'interval');
+    var singleSlotKind = (wk.isCheckpoint || wk.isCalibration) ? 'tempo'
+                       : (wk.week % 2 === 0 ? 'tempo' : 'interval');
     var qualityKm = qualityDays.length>=2 ? (qKmThisWeek + tKmThisWeek)
                   : qualityDays.length===1 ? (singleSlotKind==='interval' ? qKmThisWeek : tKmThisWeek)
                   : 0;
@@ -6183,6 +6423,23 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        single-slot week so the two can never drift apart. The day's distance is
        the session's own distance, so the card and its description agree. */
     function buildQualityDay(kind){
+      /* CALIBRATION TAKES THE SLOT, exactly as the checkpoint does, and for the
+         same reason: it IS the week's threshold session, not an extra one.
+         Adding it alongside the tempo would put two quality efforts in an
+         athlete's first week, which is the progression damage the brief asks
+         to avoid. The day's distance is the week's tempo allocation, so the
+         weekly volume distribution is untouched -- what changes is what the
+         athlete is asked to do inside it. */
+      if (kind==='tempo' && wk.isCalibration){
+        var cal = thresholdCalibrationText();
+        return { type:cal.type, title:cal.title, desc:cal.desc,
+          km: tKmThisWeek,
+          prescription: { archetype:'threshold_calibration',
+                          params:{ warmupMin:CALIBRATION_PROTOCOL.warmupMin,
+                                   settleMin:CALIBRATION_PROTOCOL.settleMin,
+                                   measuredMin:CALIBRATION_PROTOCOL.measuredMin,
+                                   cooldownMin:CALIBRATION_PROTOCOL.cooldownMin } } };
+      }
       if (kind==='tempo' && wk.isCheckpoint){
         var ttKm = Math.min(TT_DISTANCE_KM[profile.emphasis], Math.max(2, round1(tKmThisWeek-3)));
         var flank = Math.max(1, round1((tKmThisWeek-ttKm)/2));
@@ -6319,6 +6576,13 @@ var TYPE_META = {
   interval:   { label:'Interval',    zoneKey:'I',   cls:'track' },
   repetition: { label:'Repetition',  zoneKey:'R',   cls:'track' },
   checkpoint: { label:'Checkpoint',  zoneKey:'T',   cls:'tuneup' },
+  /* Its own type, sharing the checkpoint's visual language deliberately: an
+     athlete should recognise it as a testing session rather than an ordinary
+     Tuesday. It is NOT type 'checkpoint', because performanceFromDay() reads
+     that as a maximal effort over a known distance and would record a VDOT
+     from a session that was never run as a race. zoneKey T is the effort the
+     athlete is actually asked to hold. */
+  calibration:{ label:'Calibration',  zoneKey:'T',   cls:'tuneup' },
   race:       { label:'Race Day',    zoneKey:null,  cls:'race' }   // relabelled per-plan by dayTypeLabel()
 };
 
@@ -9354,6 +9618,18 @@ function needsFueling(dd){
    A day with no prescription -- legacy, or hand-edited past recognition --
    falls back to the type-keyed COACH_GUIDANCE above, unchanged. */
 var ARCHETYPE_GUIDANCE = {
+  /* THE ONE SESSION WHOSE INSTRUCTIONS ARE ALSO ITS MEASUREMENT PROTOCOL.
+     Executed badly it does not merely score poorly -- it produces a wrong
+     threshold and quietly mis-sets every zone for the rest of the block. So
+     the guidance is about pacing discipline and about the heart-rate number,
+     and 'avoid' names the specific failure that corrupts the result. */
+  threshold_calibration: {
+    cue:'Hard but controlled, and the same effort from the first minute to the last.',
+    why:'This is how Valhalla learns your real training zones instead of estimating them. Everything after it is prescribed from what today measures.',
+    how:'Ease into the effort over the first minute or two, then hold it. Aim for the hardest pace you could keep going at evenly for the whole 30 minutes — not the fastest you can start.',
+    feel:'Uncomfortable and steady. Talking is down to a few words. You should finish knowing you could not have held much more, but not emptied.',
+    avoid:'Sprinting the opening minutes. Going out too hard makes you fade, and a fading heart rate produces a threshold that is too high — which makes every session after this one too hard.'
+  },
   easy_run: {
     cue:'Conversational the whole way — if you can’t talk in full sentences, ease off.',
     why:'Builds the aerobic base and keeps you fresh enough to run the hard days properly.',
@@ -9542,6 +9818,13 @@ var TERSE_GUIDANCE = {
               how:'Slower than yesterday from the start.',
               feel:'Heavy legs, easy breathing.',
               avoid:'Trying to match yesterday.' },
+  /* Shorter, and written short rather than chopped: an experienced athlete
+     needs the protocol and the failure mode, not the explanation of why a
+     threshold test works. */
+  threshold_calibration: { why:'Measures your threshold instead of estimating it.',
+              how:'Even effort for the full 30 minutes. Log average HR for the last 20.',
+              feel:'Hard, controlled, repeatable to the last minute.',
+              avoid:'Going out too hard. A fading HR reads as a threshold that is too high.' },
   threshold_continuous: { why:'Raises the pace at which lactate starts to accumulate.',
               how:'Into the window inside the first @@U@@, then hold. No surges, no sprint finish.',
               feel:'Hard but even, and repeatable.',
@@ -11104,6 +11387,11 @@ var INTENSITY_SEGMENT_LABEL = {
 function segmentLabel(s){
   if (s.role === 'warmup') return 'Warm up';
   if (s.role === 'cooldown') return 'Cool down';
+  /* Named for what they are FOR. "Threshold" twice in a row would tell the
+     athlete nothing about why the effort is split, and the second row is the
+     one whose heart rate becomes their training zones. */
+  if (s.role === 'calibration_settle') return 'Settle in';
+  if (s.role === 'calibration_measure') return 'Measured 20 min';
   if (s.kind === 'recovery') return 'Recovery' + (s.repIndex ? ' ' + s.repIndex : '');
   if (s.grouped) return 'Rep' + (s.repIndex ? ' ' + s.repIndex : '');
   return INTENSITY_SEGMENT_LABEL[s.intensity] || 'Work';
@@ -13191,6 +13479,94 @@ function performanceFromDay(dd){
     qualified: true
   };
 }
+/* =========================================================
+   APPLYING A CALIBRATION
+
+   WHERE THE RESULT LIVES. state.setup.lthr -- the existing anchor every heart
+   rate in the product already descends from. No parallel store, no second zone
+   engine: hrZonesFromLTHR() picks the new number up on the next render and
+   every downstream prescription follows through the deterministic path it
+   always used.
+
+   WHAT IS ADDED BESIDE IT is provenance, because "172, because you typed it"
+   and "172, because you ran for thirty minutes and we measured it" are
+   different kinds of evidence and Coach, Record and Valhalla should be able to
+   tell them apart.
+
+   HISTORY IS NOT REWRITTEN. Completed sessions keep the prescription they were
+   actually given; only future days are computed against the new anchor. That
+   falls out of the architecture rather than needing enforcement -- zones are
+   derived at render time from setup, and a completed day's logged actuals and
+   stored review are its own record -- but it is asserted in the tests because
+   it is the property that matters most. */
+function calibrationMeasuredHR(dd){
+  /* THE NUMBER FROM THE MEASURED WINDOW, and only from there. A whole-session
+     average includes the warm-up and the cool-down and is not a threshold
+     measurement of anything, so dd.actual.hr is deliberately not a fallback. */
+  var p = prescriptionOf(dd);
+  if (!p || p.archetype !== 'threshold_calibration') return null;
+  var segs = orderedSegments(p) || [];
+  var target = null;
+  segs.forEach(function(sg){ if (sg.role === 'calibration_measure') target = sg; });
+  if (!target) return null;
+  var row = structuredSplitFor(dd, target.segId);
+  if (!row) return null;
+  return { hr: row.hr, sec: row.secSeeded ? null : row.sec, segId: target.segId };
+}
+/* The athlete's own recent easy-run heart rate, used only as a floor the
+   calibration has to clear. Null when there is nothing to compare against,
+   which is a reason to skip that check rather than to fail. */
+function recentEasyHRAverage(){
+  var vals = [];
+  (state.days||[]).forEach(function(dd){
+    if (!dd || !dd.completed || dd.type !== 'easy') return;
+    var hr = dd.actual && dd.actual.hr;
+    if (hr != null && isFinite(hr) && hr > 0) vals.push(Number(hr));
+  });
+  if (!vals.length) return null;
+  vals = vals.slice(-10);
+  return vals.reduce(function(a,b){ return a+b; }, 0) / vals.length;
+}
+function applyCalibrationFromDay(dd){
+  if (!dd || !dd.completed) return null;
+  var su = state.setup;
+  if (!su) return null;
+  var m = calibrationMeasuredHR(dd);
+  if (!m) return null;
+
+  var out = deriveCalibrationLTHR({
+    healthConsent: healthConsentGranted(),
+    measuredHR: m.hr,
+    measuredSec: m.sec,
+    maxHR: su.maxHR,
+    recentEasyHR: recentEasyHRAverage(),
+    previousLTHR: su.lthr,
+    previousLTHRMeasured: su.lthrSource === 'calibration'
+  });
+
+  /* THE DAY REMEMBERS WHAT HAPPENED EITHER WAY. A refusal is information the
+     athlete is entitled to -- it is why their zones did not change -- and
+     writing it on the day keeps it with the session it belongs to. */
+  dd.calibration = { outcome: out.ok ? 'applied' : 'refused', reason: out.reason,
+                     lthr: out.ok ? out.lthr : null, at: todayStr() };
+  if (!out.ok) return dd.calibration;
+
+  var previous = su.lthr;
+  su.lthr = out.lthr;
+  su.lthrSource = 'calibration';
+  su.lthrMeasuredOn = dd.date;
+  dd.calibration.previousLTHR = previous != null ? previous : null;
+  scheduleSave();
+  /* SAID OUT LOUD, at the moment it happens. An athlete whose training zones
+     have just moved is entitled to know that they moved and why -- a silent
+     recalibration is indistinguishable from the app changing its mind. */
+  try {
+    showToast(previous == null
+      ? 'Zones calibrated \u2014 threshold heart rate measured at ' + out.lthr + ' BPM'
+      : 'Zones recalibrated \u2014 threshold heart rate now ' + out.lthr + ' BPM (was ' + previous + ')');
+  } catch(e){}
+  return dd.calibration;
+}
 /* Recorded when a race or checkpoint is completed. Keyed on the date, so
    re-logging the same effort corrects the record rather than adding a second
    one -- an athlete fixing a typo must not create a second fitness point. */
@@ -13543,7 +13919,8 @@ function startDevelopmentBlock(purpose, opts){
 
   var blockResult = buildBlockWeeks(spec.distanceKey, spec.volume,
     daysBetween(startMonday, addDays(goalDate, -isoWeekday(goalDate)))/7 + 1,
-    { steady: purpose === 'maintain', purpose: purpose });
+    { steady: purpose === 'maintain', purpose: purpose,
+      calibrate: calibrationNeededNow(spec.volume) });
   var days = buildDaysFromWeeks(blockResult, goalDate, schedule, startDate, false);
   if (purpose === 'recovery' && prevRaceDate)
     days = applyRecoveryCeiling(days, prevRaceDate, spec.noIntensityDays);
@@ -13573,6 +13950,13 @@ function startDevelopmentBlock(purpose, opts){
     benchmark: state.setup.benchmark, goals: state.setup.goals, activeGoal: state.setup.activeGoal,
     paceOverrides: state.setup.paceOverrides || {},
     lthr: state.setup.lthr, maxHR: state.setup.maxHR,
+    /* CARRIED ACROSS THE BLOCK BOUNDARY. Without these two the LTHR would
+       survive a transition but its provenance would not: a measured anchor
+       would quietly demote itself to an estimate the moment the athlete
+       started their next block, which would also make that block eligible for
+       a calibration it does not need. */
+    lthrSource: state.setup.lthrSource || null,
+    lthrMeasuredOn: state.setup.lthrMeasuredOn || null,
     experience: state.setup.experience
   };
   state.days = days;
@@ -16240,6 +16624,7 @@ var SESSION_INTENT = {
   hill_repeats:         'Today builds strength that flat running cannot, and the hill sets the effort for you.',
   fartlek:              'Today is aerobic power without the precision of a track session. Judgement is the skill being trained.',
   time_trial:           'This one exists to reset your training paces. The weeks after it are built on what it returns.',
+  threshold_calibration:'This one exists to measure your threshold rather than estimate it. Every session after it is prescribed from what today returns.',
   easy_strides:         'Today keeps the legs sharp without adding anything to the week.',
   race:                 'Everything from here is execution. The training that matters is already done.'
 };
@@ -16254,6 +16639,7 @@ var SESSION_INTENT_BY_TYPE = {
   interval:   'This is the hardest aerobic work of the week. Arriving at the final rep in one piece is the whole test.',
   repetition: 'Today is about speed and mechanics, and it should cost you very little.',
   checkpoint: 'This one exists to reset your training paces. The weeks after it are built on what it returns.',
+  calibration:'This one exists to measure your threshold rather than estimate it. Every session after it is prescribed from what today returns.',
   race:       'Everything from here is execution. The training that matters is already done.'
 };
 /* Resolved on the way out, exactly as coachingEntryFor() resolves the guidance
@@ -20012,6 +20398,12 @@ function coachPersistReview(dd){
      completed race or checkpoint with a real distance and a real time, so an
      ordinary training session -- however fast -- can never become one. */
   if (dd.type === 'race' || dd.type === 'checkpoint') recordMeasuredPerformance(dd);
+  /* AND THE CALIBRATION ANCHOR, for the same reason and in the same place:
+     logging or editing a session is the only event that can produce one. A
+     calibration is NOT a measured performance and deliberately does not go
+     through recordMeasuredPerformance() -- it produces a heart rate, not a
+     race result over a known distance. */
+  if (dd.type === 'calibration') applyCalibrationFromDay(dd);
   var review = coachWorkoutReview(dd);
   if (review){ review.inputHash = reviewInputHash(dd); dd.coachReview = review; }
   else if (dd.coachReview) delete dd.coachReview;
@@ -22044,7 +22436,8 @@ function bldRenderReview(){
   rows += row('Benchmark', document.getElementById('su-bench-dist').value.toUpperCase() +
               (benchTimeVal ? ' \u00b7 ' + benchTimeVal : ' \u00b7 \u2014'));
   if (lthr || maxhr)
-    rows += row('Heart rate', (lthr ? 'LTHR ' + lthr : '') + (lthr && maxhr ? ' \u00b7 ' : '') + (maxhr ? 'Max ' + maxhr : ''));
+    rows += row('Heart rate', (lthr ? 'LTHR ' + lthr + lthrProvenanceSuffix() : '') +
+      (lthr && maxhr ? ' \u00b7 ' : '') + (maxhr ? 'Max ' + maxhr : ''));
   if (goals.length) rows += row('Goals', goals.join(' \u00b7 '));
   /* No Units row: the hero above already reads "42 km / week", so a separate
      "Units  KM" line restated it. Review answers "has Valhalla understood me",
@@ -22567,7 +22960,8 @@ async function handleGeneratePlan(){
   var profile = DISTANCE_PROFILES[distanceKey];
   var schedule = { activeDays:activeDays, longRunDay:longRunDay };
   var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks,
-    { steady: buildPurpose === 'maintain', purpose: buildPurpose });
+    { steady: buildPurpose === 'maintain', purpose: buildPurpose,
+      calibrate: calibrationNeededNow(volume) });
   var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);
 
   /* HISTORY IS RECONCILED INTO A REBUILD AND ARCHIVED OUT OF A TRANSITION.
@@ -24535,7 +24929,13 @@ function applyHealthConsentDecision(rec, was, opts){
      ends. Nothing else stored is touched: see the note on historical values in
      the consent block above -- they are excluded from every computation while
      consent is absent, and are the athlete's own record to keep. */
-  if (!granted && state.setup){ state.setup.lthr = null; state.setup.maxHR = null; }
+  if (!granted && state.setup){
+    state.setup.lthr = null; state.setup.maxHR = null;
+    /* The provenance goes with the value. Leaving lthrSource:'calibration'
+       behind would say a measured threshold exists for an athlete whose
+       threshold has just been erased. */
+    state.setup.lthrSource = null; state.setup.lthrMeasuredOn = null;
+  }
   flushSave();
   /* `quiet` is for the builder, which takes this decision in the middle of
      reading its own form: a toast would talk over the plan being built, and a
