@@ -38,12 +38,18 @@
 'use strict';
 
 var BUILDER_SPEC = {
-  /* ---------- THE NINE STAGES, IN ORDER ----------
+  /* ---------- THE TEN STAGES, IN ORDER ----------
      `key` is the name bldValidateStage()/BLD_STAGE use internally; `name` is
      the short rail label (also what BLD_STAGE_NAMES has always held); `heading`
-     and `lede` are the purpose-neutral copy stage 01 renames live (via
-     bldApplyPurpose()) and every other stage shows verbatim. */
+     and `lede` are the purpose-neutral copy stage 02 (Goal) renames live (via
+     bldApplyPurpose()) and every other stage shows verbatim.
+
+     OVERVIEW is a pure orientation screen -- no field, no validation, nothing
+     handleGeneratePlan() reads. It exists so the athlete knows what the next
+     nine questions are for before the first one arrives. */
   stages: [
+    { key: 'OVERVIEW',   name: 'Overview',       heading: 'Build Your Training Block',
+      lede: 'A plan, built around you.' },
     { key: 'GOAL',       name: 'Goal',           heading: 'Your goal',
       lede: 'What are we building towards? You do not need an event booked.' },
     { key: 'DISTANCE',   name: 'Distance',        heading: 'Goal distance',

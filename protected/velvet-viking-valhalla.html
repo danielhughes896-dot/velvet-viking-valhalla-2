@@ -513,8 +513,10 @@
   .gauge-num b{font-size:32px; color:var(--gold-badge-ink); line-height:1; font-weight:700;}
   .gauge-num span{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--badge-caption-ink); margin-top:3px;}
   .checkpoint-banner{
-    display:flex; align-items:flex-start; gap:11px; background:var(--c-gold-soft);
-    border:1.5px solid var(--gold); border-radius:var(--radius-sm); padding:13px 14px; margin:16px 0;
+    display:flex; align-items:flex-start; gap:11px;
+    background:var(--tile-sheen), var(--c-gold-soft);
+    border:1.5px solid var(--gold); border-radius:var(--tile-radius);
+    box-shadow:var(--tile-shadow); padding:13px 14px; margin:16px 0;
   }
   .cb-icon{font-size:18px; line-height:1; flex:none;}
   .cb-text{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink);}
@@ -1194,8 +1196,15 @@
   .splits-total .font-mono{color:var(--ink-dim);}
   .splits-warn{color:var(--gold-deep);}
 
-  /* ---------- zone paces card (main dashboard) ---------- */
-  .zone-paces-card{margin:14px 14px 0; padding:14px 15px; background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius);}
+  /* ---------- zone paces card ----------
+     Renders only inside the Training Zone Paces Record panel (recordPanelZones()),
+     a modal-themed builder-light hq-panel surface -- brought onto the same
+     --tile-* recipe as the rest of that "Level 2" family. */
+  .zone-paces-card{
+    margin:14px 14px 0; padding:14px 15px;
+    background:var(--tile-sheen), var(--surface-2); border:1px solid var(--tile-border);
+    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
+  }
   .zpc-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;}
   .zpc-head span:first-child{font-size:13px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
   .pzr{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line-soft);}
@@ -1209,8 +1218,8 @@
   .pzr-hr{font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
   .pzr-inputs{display:flex; align-items:center; gap:5px; flex:none;}
   .pzr-input{
-    width:52px; background:var(--bg-4); border:1px solid var(--line); border-radius:7px; color:var(--ink);
-    padding:6px 6px; font-size:12.5px; font-family:'JetBrains Mono',monospace; text-align:center;
+    width:52px; background:var(--bg-4); border:1px solid var(--line); border-radius:var(--radius-sm);
+    color:var(--ink); padding:6px 6px; font-size:12.5px; font-family:'JetBrains Mono',monospace; text-align:center;
   }
   .pzr-sep{color:var(--ink-faint); font-size:12px;}
   .pzr-unit{color:var(--ink-faint); font-size:11px; width:20px;}
@@ -1464,6 +1473,21 @@
   .bld-stage-h{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.8px; font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px;}
   .bld-lede{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 18px;}
 
+  /* ---------- OVERVIEW STAGE ----------
+     ONE coherent soft-raised information surface, not three separate cards --
+     three rows sharing one --tile-* card, the same recipe as .hub-card.tile-card
+     and .ev-card, so the very first screen in the builder already belongs to
+     the same family as the screens after it. */
+  .bld-overview{
+    margin-top:4px; padding:2px 16px;
+    background:var(--tile-sheen), var(--surface-3); border:1px solid var(--tile-border);
+    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
+  }
+  .bld-overview-row{padding:15px 0; border-bottom:1px solid var(--tile-border);}
+  .bld-overview-row:last-child{border-bottom:none;}
+  .bor-t{display:block; font-family:'Oswald',sans-serif; font-size:var(--fs-body); font-weight:600; letter-spacing:.3px; color:var(--ink); margin-bottom:3px;}
+  .bor-d{display:block; font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-dim);}
+
   /* OPTION GRID. The one new control. .unit-toggle is a single-row pill with
      overflow:hidden, so four goal distances cannot fit one row at 360px. The
      button treatment is lifted from .unit-toggle button/.active unchanged --
@@ -1476,6 +1500,9 @@
     letter-spacing:.4px; min-height:52px; padding:12px 8px; text-align:center;
     border:1px solid var(--ctl-border); border-radius:12px;
     background:var(--ctl-bg); color:var(--ink-faint);
+    /* Tactile raised surface at rest -- a restrained echo of --tile-shadow,
+       scaled down for a compact tile rather than a full card. */
+    box-shadow:0 1px 3px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.05);
     transition:box-shadow .18s, background .18s, color .18s;
   }
   .opt-grid button .sub{display:block; font-family:'Inter',sans-serif; font-weight:400;
@@ -1492,16 +1519,20 @@
   .opt-grid button.active{
     color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14);
     border-color:rgba(var(--modal-active-rgb),0.5);
+    /* A chosen tile reads as SETTLED into place, not just recoloured -- a
+       quiet inset takes over from the resting drop shadow, the tactile cue
+       for "this one is pressed/active" rather than "this one is raised". */
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.22), inset 0 0 0 1px rgba(var(--modal-active-rgb),0.25);
   }
   .opt-grid button.active .sub{color:var(--modal-active); opacity:.8;}
   /* LIGHT: the raised warm-paper tab, character for character the values
      [data-theme="light"] .bn-item.active already uses -- lifted paper, antique
      gold edge, a gold rule along the top, deep-bronze label at 6.1:1. Three
      independent cues, so the state never rests on colour alone. */
-  [data-theme="light"] .opt-grid button{color:#6B6558;}
+  [data-theme="light"] .opt-grid button{color:#6B6558; box-shadow:0 1px 3px rgba(90,70,30,.10), inset 0 1px 0 rgba(255,255,255,.6);}
   [data-theme="light"] .opt-grid button.active{
     color:#7A5C1E; background:#FFFDF7; border-color:transparent;
-    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
+    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, inset 0 1px 4px rgba(90,70,30,.16);
   }
   [data-theme="light"] .opt-grid button.active .sub{color:#7A5C1E; opacity:.85;}
 
@@ -1524,8 +1555,9 @@
   .bld-purpose{display:grid; gap:10px; grid-template-columns:1fr 1fr;}
   .bld-purpose button{
     display:block; width:100%; text-align:left; padding:14px 13px; min-height:118px;
-    border:1px solid var(--ctl-border); border-radius:12px;
+    border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
     background:var(--ctl-bg); color:var(--ink-faint);
+    box-shadow:0 1px 3px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.05);
     transition:box-shadow .18s, background .18s, color .18s;
   }
   .bld-purpose button:active{transform:scale(.995);}
@@ -1536,12 +1568,13 @@
   .bld-purpose button.active{
     color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14);
     border-color:rgba(var(--modal-active-rgb),0.5);
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.22), inset 0 0 0 1px rgba(var(--modal-active-rgb),0.25);
   }
   .bld-purpose button.active .bpc-why{color:var(--modal-active); opacity:.8;}
-  [data-theme="light"] .bld-purpose button{color:#6B6558;}
+  [data-theme="light"] .bld-purpose button{color:#6B6558; box-shadow:0 1px 3px rgba(90,70,30,.10), inset 0 1px 0 rgba(255,255,255,.6);}
   [data-theme="light"] .bld-purpose button.active{
     color:#7A5C1E; background:#FFFDF7; border-color:transparent;
-    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
+    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, inset 0 1px 4px rgba(90,70,30,.16);
   }
   [data-theme="light"] .bld-purpose button.active .bpc-why{color:#7A5C1E; opacity:.85;}
   /* A locked choice still shows what was chosen and why it cannot move -- the
@@ -1620,16 +1653,31 @@
   .field.invalid input, .field.invalid select{border-color:var(--c-threshold);}
   .field.invalid .opt-grid button{border-color:var(--c-threshold);}
 
-  .bld-review-hero{text-align:center; padding:18px 0 6px;}
+  /* Everything bldRenderReview() writes -- the hero and every row -- lands
+     inside this one host div, so giving IT the --tile-* card recipe turns the
+     whole confirmation surface into one coherent soft-raised card instead of
+     a bare stack of rows/dividers, with no change to bldRenderReview() itself. */
+  #bld-review{
+    background:var(--tile-sheen), var(--surface-3); border:1px solid var(--tile-border);
+    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
+    padding:6px 16px;
+  }
+  .bld-review-hero{text-align:center; padding:16px 0 8px; border-bottom:1px solid var(--tile-border); margin-bottom:2px;}
   .bld-review-hero .d{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:2px; font-size:26px; color:var(--gold-text); line-height:1.1;}
   .bld-review-hero .s{font-family:'JetBrains Mono',monospace; font-size:var(--fs-body); color:var(--ink-dim); margin-top:6px;}
-  .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--line-soft);}
+  .bld-review-row{display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--tile-border);}
   .bld-review-row:last-child{border-bottom:none;}
   .bld-review-k{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.2px; font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
   .bld-review-v{font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); color:var(--ink); text-align:right; overflow-wrap:anywhere;}
 
-  /* The day selector draws a NATIVE checkbox, so it was showing the browser's
-     blue system tick against Valhalla gold. One property, approved separately. */
+  /* The day selector draws a NATIVE checkbox -- kept, deliberately: it is the
+     one interaction the platform already makes obviously accessible (focus
+     ring, screen-reader state, keyboard toggling all come free), and hiding
+     it visually behind a styled label is what item 14 of the consistency
+     pass explicitly warns against losing. `accent-color` recolours the native
+     tick to Valhalla gold rather than the browser's default blue -- one
+     property, approved separately -- and the .checked label state below
+     carries the tactile "chosen" signal the checkbox alone is too small to. */
   .wd-check input{accent-color:var(--bronze);}
   @media (min-width:640px){ .modal-card{border-radius:var(--radius-lg);} }
   @keyframes slideup{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
@@ -1830,6 +1878,19 @@
      shared bottom clearance, or a view ending in a hub-card finishes with half
      as much space again as one that does not. */
   .hub-card:last-child{margin-bottom:0;}
+  /* VALHALLA CONSISTENCY PASS -- an explicit ADDITIVE modifier, never a change
+     to bare .hub-card. .hub-card is also used by Today's Next Move/Post-race
+     Recover/Race Outcome cards (renderCoachNextMoveCard/renderPostRaceRecoverCard/
+     renderRaceOutcomePrompt), which are out of scope for this pass -- so the
+     Level 2 --tile-* recipe is added ONLY where this second class is present
+     on the element (Plan HQ's Coach/Record tabs, Record-panel bodies, Settings
+     sections), never by editing .hub-card's own rule. Compound-selector
+     specificity (0,2,0) beats the bare rule (0,1,0) regardless of source
+     order, so this is safe to declare anywhere in the sheet. */
+  .hub-card.tile-card{
+    background:var(--tile-sheen), var(--surface-3); border-color:var(--tile-border);
+    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
+  }
   /* ---------- Adaptive AI Coach ----------
      Built on the existing .hub-card/.callout primitives so it inherits the
      app's responsive behaviour. Every horizontal run of content either wraps
@@ -2227,8 +2288,10 @@
      the card reads by its content, the same way the confidence gauge above
      it does. */
   .outlook-instrument{
-    display:block; width:100%; text-align:left; background:var(--bg-3); border:1px solid var(--line);
-    border-radius:14px; padding:14px 16px 18px; margin-top:16px; font:inherit; color:inherit;
+    display:block; width:100%; text-align:left;
+    background:var(--tile-sheen), var(--bg-3); border:1px solid var(--tile-border);
+    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
+    padding:14px 16px 18px; margin-top:16px; font:inherit; color:inherit;
   }
   .oi-label{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
   .oi-label span{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:var(--gold-text);}
@@ -2403,13 +2466,27 @@
   .goal-toggle-hero{margin-top:16px;}
   .goal-toggle-hero .goal-options{margin-top:8px;}
 
-  .pace-table{width:100%; border-collapse:collapse; margin-top:10px; font-size:11.5px;}
-  .pace-table th, .pace-table td{padding:7px 6px; text-align:center; border-bottom:1px solid var(--line-soft);}
+  /* Soft-raised frame around the table, same --tile-* recipe as every other
+     reference surface -- the numbers themselves are untouched, only the
+     surface they sit in. */
+  .pace-table-card{
+    margin-top:10px; padding:4px 10px;
+    background:var(--tile-sheen), var(--surface-3); border:1px solid var(--tile-border);
+    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
+    overflow-x:auto;
+  }
+  .pace-table{width:100%; border-collapse:collapse; font-size:11.5px;}
+  .pace-table th, .pace-table td{padding:9px 6px; text-align:center; border-bottom:1px solid var(--tile-border);}
   .pace-table th{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.8px; text-transform:uppercase; color:var(--ink-faint); font-weight:600;}
   .pace-table th:first-child, .pace-table td:first-child{text-align:left; font-family:'JetBrains Mono',monospace; color:var(--ink-dim);}
   .pace-table td{font-family:'JetBrains Mono',monospace; color:var(--ink);}
   .pace-table tr:last-child td{border-bottom:none; font-weight:700; color:var(--gold);}
-  .pace-table .goal-col-a{color:var(--gold);}
+  /* Gold now means exactly one thing on this table -- the destination
+     (Finish) row. The primary goal column (A) is distinguished instead by
+     weight and a quiet column tint, so the two kinds of emphasis (this is
+     the goal you're chasing / this is the finish line) read as different
+     signals rather than competing for the same colour. */
+  .pace-table .goal-col-a{font-weight:700; background:var(--tile-sheen), rgba(var(--modal-active-rgb),0.06);}
 
   .benchmark-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .goal-input-row{display:grid; grid-template-columns:34px 1fr 74px; gap:8px; align-items:center; margin-bottom:9px;}
@@ -2511,14 +2588,24 @@
     font-size:var(--fs-support); color:var(--ink-dim);}
   .yr-est-withheld{color:var(--ink-faint); font-size:var(--fs-meta); text-align:right; display:block;}
   .yr-est-v{text-align:right; min-width:0;}
-  .weekday-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin-bottom:12px;}
+  .weekday-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:12px;}
   .wd-check{
-    display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px 2px;
-    border:1.5px solid var(--line); border-radius:9px; font-family:'JetBrains Mono',monospace; font-size:10.5px;
-    color:var(--ink-faint); cursor:pointer; transition:all .15s; user-select:none;
+    display:flex; flex-direction:column; align-items:center; gap:5px; padding:10px 2px; min-height:52px;
+    border:1.5px solid var(--ctl-border); border-radius:11px; font-family:'JetBrains Mono',monospace; font-size:10.5px;
+    background:var(--ctl-bg); color:var(--ink-faint); cursor:pointer; user-select:none;
+    box-shadow:0 1px 3px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.05);
+    transition:box-shadow .15s, background .15s, border-color .15s, color .15s;
   }
   .wd-check input{width:auto; margin:0;}
-  .wd-check.checked{border-color:var(--bronze); background:var(--c-gold-soft); color:var(--ink); font-weight:700;}
+  /* Chosen reads as PRESSED, the same settled-inset language the option
+     grids use, not just a colour swap -- so a selected day is unmistakable
+     even to a glance, not only on close reading. */
+  .wd-check.checked{
+    border-color:var(--bronze); background:var(--c-gold-soft); color:var(--ink); font-weight:700;
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.18), inset 0 0 0 1px rgba(var(--modal-active-rgb),0.2);
+  }
+  [data-theme="light"] .wd-check{box-shadow:0 1px 3px rgba(90,70,30,.10), inset 0 1px 0 rgba(255,255,255,.6);}
+  [data-theme="light"] .wd-check.checked{box-shadow:inset 0 1px 4px rgba(90,70,30,.16), inset 0 0 0 1px #9B7B2E;}
 </style>
 </head>
 <body>
@@ -7605,7 +7692,7 @@ function renderSubscriptionCard(){
   /* An override is not a subscription. Saying "Active \u2014 \u00a311.99 a month" to a
      beta athlete who is not being charged would be a straightforward lie. */
   if (info.override === 'owner' || info.override === 'beta'){
-    return '<div class="hub-card" id="subscription-card">'+head+
+    return '<div class="hub-card tile-card" id="subscription-card">'+head+
       '<div class="field-hint">'+escapeHtml(sentence || 'Access granted')+
       '. Nothing is being charged for this account.</div>'+
     '</div>';
@@ -7616,7 +7703,7 @@ function renderSubscriptionCard(){
        inventing a reassuring one is exactly the claim this product does not
        make -- but silence in a card headed "Subscription" reads as broken, so
        it says what is actually true. */
-    return '<div class="hub-card" id="subscription-card">'+head+
+    return '<div class="hub-card tile-card" id="subscription-card">'+head+
       '<div class="field-hint">Valhalla is not charging for access yet. '+
       'You will be told before that changes.</div>'+
     '</div>';
@@ -7640,7 +7727,7 @@ function renderSubscriptionCard(){
 
   body += renderPlanPricing(info);
   body += renderSubscriptionActions(info);
-  return '<div class="hub-card" id="subscription-card">'+head+body+'</div>';
+  return '<div class="hub-card tile-card" id="subscription-card">'+head+body+'</div>';
 }
 
 /* What the two offers cost, shown only where an athlete could act on it.
@@ -8097,7 +8184,7 @@ function renderHealthConsentSettings(){
      has to learn, and there was nothing to improve on. The switch reads OFF
      until the athlete turns it on, and turning it back off is the same single
      tap, which is what "as easy to withdraw as to give" means in practice. */
-  return '<div class="hub-card">'+
+  return '<div class="hub-card tile-card">'+
     '<div class="setup-section-title">Health &amp; Readiness</div>'+
     '<div class="connect-row" id="health-consent-row">'+
       '<div><div class="name">'+escapeHtml(HEALTH_CONSENT_COPY.title)+'</div>'+
@@ -19665,7 +19752,7 @@ function renderAthleteStatusCard(report){
   var trSub = tr.enough && tr.delta!=null
     ? (tr.delta>0?'+':'')+tr.delta+' pts vs prior 3'
     : 'Needs 4 logged runs';
-  return '<div class="hub-card">'+
+  return '<div class="hub-card tile-card">'+
     '<div class="setup-section-title">Athlete Status</div>'+
     '<div class="coach-status">'+
       '<span class="coach-dot '+coachToneClass(st.tone)+'"></span>'+
@@ -19692,7 +19779,7 @@ function renderCoachSignalsCard(report){
   // signal (effort, HR, streak, trend) has no tile of its own, so it stays.
   var signals = report.signals.filter(function(sig){ return sig.key!=='load'; });
   if (!signals.length) return '';
-  return '<div class="hub-card">'+
+  return '<div class="hub-card tile-card">'+
     '<div class="setup-section-title">Training Signals</div>'+
     signals.map(function(sig){
       return '<div class="coach-signal">'+
@@ -19709,7 +19796,7 @@ function renderCoachSignalsCard(report){
 function renderBreakthroughCard(report){
   if (!report || !report.breakthroughs.length) return '';
   var recent = report.breakthroughs.slice(-3).reverse();
-  return '<div class="hub-card">'+
+  return '<div class="hub-card tile-card">'+
     '<div class="setup-section-title">Breakthrough Sessions</div>'+
     recent.map(function(dd){
       var ap = actualPaceSecPerKm(dd);
@@ -19725,7 +19812,7 @@ function renderBreakthroughCard(report){
 
 function renderCoachNoticedCard(report){
   if (!report || !report.noticed.length) return '';
-  return '<div class="hub-card">'+
+  return '<div class="hub-card tile-card">'+
     '<div class="setup-section-title">Coach Noticed</div>'+
     report.noticed.map(function(n){
       return '<div class="coach-signal">'+
@@ -19739,7 +19826,7 @@ function renderCoachNoticedCard(report){
 
 function renderCoachWatchCard(report){
   if (!report || !report.watch.length) return '';
-  return '<div class="hub-card">'+
+  return '<div class="hub-card tile-card">'+
     '<div class="setup-section-title">Coach Watch</div>'+
     report.watch.map(function(w){
       return '<div class="coach-signal">'+
@@ -19991,7 +20078,7 @@ function renderMeasuredFitness(inPanel){
   var latest = prog.latest;
   if (!latest){
     return heading+
-      '<div class="hub-card yr-fitness"><div class="hq-empty">'+
+      '<div class="hub-card tile-card yr-fitness"><div class="hq-empty">'+
       'Nothing measured yet. A completed race or Fitness Checkpoint is what counts here — '+
       'training paces come from your goal, so they are not a measurement.</div></div>';
   }
@@ -20020,7 +20107,7 @@ function renderMeasuredFitness(inPanel){
       '</div>';
   }
   return heading+
-    '<div class="hub-card yr-fitness">'+rows+renderFitnessEstimate()+'</div>';
+    '<div class="hub-card tile-card yr-fitness">'+rows+renderFitnessEstimate()+'</div>';
 }
 
 /* Equivalent-performance ranges, from the measurement above and nothing else.
@@ -21064,13 +21151,14 @@ function openSetupModal(){
     return '<div class="bld-step'+(i===0?' now':'')+'"></div>';
   }).join('');
   function stageHead(i){
-    /* Stage 01 introduces the objective, so its heading and lede are the two
-       lines that must change with it -- "you do not need an event booked" is
+    /* The Goal stage (index 1, after the Overview orientation screen at 0)
+       introduces the objective, so its heading and lede are the two lines
+       that must change with it -- "you do not need an event booked" is
        reassurance for somebody choosing a race and noise for somebody
        building a base. Ids so bldApplyPurpose() can rewrite them in place;
        every other stage is untouched. */
-    var idAttr = i === 0 ? ' id="bld-stage0-h"' : '';
-    var ledeId = i === 0 ? ' id="bld-stage0-lede"' : '';
+    var idAttr = i === 1 ? ' id="bld-stage0-h"' : '';
+    var ledeId = i === 1 ? ' id="bld-stage0-lede"' : '';
     return '<h3 class="bld-stage-h"'+idAttr+'>'+stageMeta[i][1]+'</h3>'+
            '<p class="bld-lede"'+ledeId+'>'+stageMeta[i][2]+'</p>';
   }
@@ -21122,26 +21210,53 @@ function openSetupModal(){
   '<div class="modal-head"><h2 class="font-head">Build Your Training Block</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
     '<div class="bld-progress" id="bld-rail">'+railHtml+'</div>'+
-    '<div class="bld-progress-meta"><span class="bld-stage-no" id="bld-no">01 / 09</span>'+
-      '<span class="bld-stage-name" id="bld-name">Goal</span></div>'+
+    '<div class="bld-progress-meta"><span class="bld-stage-no" id="bld-no">01 / 10</span>'+
+      '<span class="bld-stage-name" id="bld-name">Overview</span></div>'+
 
-    /* ---------- 01 GOAL ----------
+    /* ---------- 01 OVERVIEW ----------
+       Pure orientation, not a tenth question. One coherent soft-raised
+       information surface -- three rows inside ONE card, not three separate
+       cards -- explaining what the next nine screens are for before the
+       first one arrives. No field, no id handleGeneratePlan() reads, no
+       validation: bldValidateStage() falls through to `return true` for
+       every index with no rule, exactly as Goal/Distance/Training data/
+       Review already do. */
+    '<section class="bld-panel" data-stage="0">'+
+      stageHead(0)+
+      '<div class="bld-overview">'+
+        '<div class="bld-overview-row">'+
+          '<span class="bor-t">Answer a few questions</span>'+
+          '<span class="bor-d">We understand your running and what you’re aiming for.</span>'+
+        '</div>'+
+        '<div class="bld-overview-row">'+
+          '<span class="bor-t">Valhalla builds your plan</span>'+
+          '<span class="bor-d">Workouts, paces and progression are created for you.</span>'+
+        '</div>'+
+        '<div class="bld-overview-row">'+
+          '<span class="bor-t">We adapt as you go</span>'+
+          '<span class="bor-d">Log your runs and Valhalla gets smarter as the block progresses.</span>'+
+        '</div>'+
+      '</div>'+
+      navBtns(0)+
+    '</section>'+
+
+    /* ---------- 02 GOAL ----------
        Four objectives as a 2x2 grid of large cards. They are not variations of
        one setting and they are not a pair of pairs -- each needs a name and a
        reason to pick it, and at half width both still fit. The selected state
        is the GOLD language every finite choice in the builder already uses;
        Cherry Lacquer stays on the rail and on Continue, because those are
        actions and this is a choice. */
-    '<section class="bld-panel" data-stage="0">'+
-      stageHead(0)+
+    '<section class="bld-panel" data-stage="1" hidden>'+
+      stageHead(1)+
       '<div class="field" id="f-purpose">'+
         '<div class="bld-purpose bld-purpose-2up" data-mirror="su-purpose" role="group" aria-label="Block purpose">'+purposeCards+'</div>'+
         '<select id="su-purpose" class="bld-mirror" tabindex="-1" aria-hidden="true">'+purposeOptions+'</select>'+
       '</div>'+
-      navBtns(0)+
+      navBtns(1)+
     '</section>'+
 
-    /* ---------- 02 DISTANCE ----------
+    /* ---------- 03 DISTANCE ----------
        Three across, then two sharing the last row, so the fifth option is not
        stranded on a line of its own. Units are the screen's SECONDARY
        decision and are set back below a rule rather than given equal weight.
@@ -21153,7 +21268,7 @@ function openSetupModal(){
        heading and lede is what stops the screen saying the same sentence twice,
        and bldApplyPurpose() needs no change: it looks both up by id and is
        null-safe either way. */
-    '<section class="bld-panel" data-stage="1" hidden>'+
+    '<section class="bld-panel" data-stage="2" hidden>'+
       '<h3 class="bld-stage-h" id="su-distance-label">'+escapeHtml(purposeMeta.distanceLabel)+'</h3>'+
       '<p class="bld-lede" id="su-distance-hint">'+escapeHtml(purposeMeta.distanceHint)+'</p>'+
       '<div class="field" id="f-distance">'+
@@ -21167,10 +21282,10 @@ function openSetupModal(){
         '</div>'+
         '<div class="field-hint">Applies everywhere once you generate — to switch units on an existing plan without regenerating, use the toggle in the header instead.</div>'+
       '</div>'+
-      navBtns(1)+
+      navBtns(2)+
     '</section>'+
 
-    /* ---------- 03 EVENT / BLOCK LENGTH ----------
+    /* ---------- 04 EVENT / BLOCK LENGTH ----------
        RACE-ONLY, AND HIDDEN RATHER THAN ANSWERED ON THE ATHLETE'S BEHALF.
        A maintenance or base block has no event to taper to, so asking "do you
        have a target event?" invites an answer the block cannot honour.
@@ -21179,8 +21294,8 @@ function openSetupModal(){
        Effort" instead of "Race Day" -- and the stage then asks the question it
        can honour, which is how long the block runs. The stage is NOT skipped:
        a non-race block still needs a length, so there is nothing to skip. */
-    '<section class="bld-panel" data-stage="2" hidden>'+
-      stageHead(2)+
+    '<section class="bld-panel" data-stage="3" hidden>'+
+      stageHead(3)+
       '<div class="field bld-race-only" id="f-event-toggle"><label>Do you have a target event?</label>'+
         '<div class="opt-grid" role="group" aria-label="Target event" id="su-event-toggle">'+
           '<button type="button" data-action="set-event-mode" data-event-mode="event" class="'+(eventMode==='event'?'active':'')+'">YES</button>'+
@@ -21196,16 +21311,16 @@ function openSetupModal(){
           '<div class="field-hint" id="su-weeks-hint">'+escapeHtml(purposeMeta.weeksHint)+'</div>'+
         '</div>'+
       '</div>'+
-      navBtns(2)+
+      navBtns(3)+
     '</section>'+
 
-    /* ---------- 04 YOU ----------
+    /* ---------- 05 YOU ----------
        Experience and current volume: both answers describe who the athlete is
        today rather than what they are training for. Experience leads because
        it is the comparison the athlete has to make; volume follows because its
        label depends on the units chosen on stage 02. */
-    '<section class="bld-panel" data-stage="3" hidden>'+
-      stageHead(3)+
+    '<section class="bld-panel" data-stage="4" hidden>'+
+      stageHead(4)+
       '<div class="field"><label>Athlete experience</label>'+
         '<div class="opt-grid cols-3" role="group" aria-label="Athlete experience" id="su-experience">'+
           EXPERIENCE_LEVELS.map(function(k){
@@ -21220,16 +21335,16 @@ function openSetupModal(){
         '<input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'">'+
         '<div class="field-hint">Your honest recent average, not your best week.</div>'+
       '</div>'+
-      navBtns(3)+
+      navBtns(4)+
     '</section>'+
 
-    /* ---------- 05 BENCHMARK ----------
+    /* ---------- 06 BENCHMARK ----------
        Its own screen, and its own sentence about what it is FOR. The closing
        hint keeps the builder honest with Plan HQ, which deliberately separates
        a benchmark the athlete supplies from fitness Valhalla has measured. No
        methodology moves: same two ids, same values, same recalibration path. */
-    '<section class="bld-panel" data-stage="4" hidden>'+
-      stageHead(4)+
+    '<section class="bld-panel" data-stage="5" hidden>'+
+      stageHead(5)+
       '<div class="field"><label>Benchmark distance</label>'+
         '<div class="opt-grid" data-mirror="su-bench-dist" role="group" aria-label="Benchmark distance">'+
           '<button type="button" data-v="5k" class="'+(benchDist==='5k'?'active':'')+'">5K</button>'+
@@ -21243,12 +21358,12 @@ function openSetupModal(){
         '<input type="text" id="su-bench-time" inputmode="decimal" placeholder="23:25 or 23.25" value="'+benchTime+'"></div>'+
       '<div class="field-hint">Enter your time as minutes and seconds, e.g. 23.25 or 23:25.</div>'+
       '<div class="field-hint">This is a reference you give Valhalla, not a measurement of your current fitness — Plan HQ measures that separately, from races and Fitness Checkpoints you actually run. You can update it any time from Re-calibrate.</div>'+
-      navBtns(4)+
+      navBtns(5)+
     '</section>'+
 
-    /* ---------- 06 WEEK ---------- */
-    '<section class="bld-panel" data-stage="5" hidden>'+
-      stageHead(5)+
+    /* ---------- 07 WEEK ---------- */
+    '<section class="bld-panel" data-stage="6" hidden>'+
+      stageHead(6)+
       '<div class="field" id="f-weekdays"><label>Training days</label>'+
         '<div class="weekday-grid" id="su-weekdays">'+wdCheckboxes+'</div>'+
       '</div>'+
@@ -21257,10 +21372,10 @@ function openSetupModal(){
         '<select id="su-longday" class="bld-mirror" tabindex="-1" aria-hidden="true">'+longDayOptions+'</select>'+
         '<div class="field-hint">Only the days you picked above can hold the long run.</div>'+
       '</div>'+
-      navBtns(5)+
+      navBtns(6)+
     '</section>'+
 
-    /* ---------- 07 TRAINING DATA ----------
+    /* ---------- 08 TRAINING DATA ----------
        WHAT VALHALLA KNOWS ABOUT THE ATHLETE'S PHYSIOLOGY, and nothing about
        what they are chasing -- that is stage 08. Splitting the two is what
        stopped this screen being the one long form left in the builder.
@@ -21273,8 +21388,8 @@ function openSetupModal(){
        Consent stays here, immediately under the two fields it governs, because
        handleGeneratePlan() reads this box before it reads them and stores
        neither number without it. */
-    '<section class="bld-panel" data-stage="6" hidden>'+
-      stageHead(6)+
+    '<section class="bld-panel" data-stage="7" hidden>'+
+      stageHead(7)+
       '<p class="bld-lede">Lactate Threshold Heart Rate (LTHR) is roughly the highest heart rate you can hold for a hard, controlled effort of about an hour. Give it and Valhalla adds target heart-rate ranges alongside your paces.</p>'+
       '<div class="benchmark-row">'+
         '<div class="field" style="margin-bottom:0;"><label>LTHR (BPM)</label><input type="number" min="0" step="1" inputmode="numeric" id="su-lthr" placeholder="172" value="'+(su.lthr!=null?su.lthr:'')+'"></div>'+
@@ -21282,10 +21397,10 @@ function openSetupModal(){
       '</div>'+
       '<button type="button" class="btn btn-ghost btn-block bld-skip" data-action="bld-skip-hr">Skip — I don’t know these</button>'+
       '<div class="field-hint bld-reassure">Don’t know it? That’s completely fine — Valhalla works without it.</div>'+
-      navBtns(6)+
+      navBtns(7)+
     '</section>'+
 
-    /* ---------- 08 TARGETS ----------
+    /* ---------- 09 TARGETS ----------
        WHAT THE ATHLETE IS TRAINING TOWARDS. Goal A/B/C is NOT race-only and is
        deliberately asked for every purpose: handleGeneratePlan() requires a
        goal time whatever the block is for, and getActiveVDOT() derives every
@@ -21293,17 +21408,17 @@ function openSetupModal(){
        with no goal would have no pace source at all. The heading is the
        purpose-neutral "Your targets" for that reason; the methodology behind
        it is untouched. */
-    '<section class="bld-panel" data-stage="7" hidden>'+
-      stageHead(7)+
+    '<section class="bld-panel" data-stage="8" hidden>'+
+      stageHead(8)+
       '<div class="setup-section-title">Goal A / B / C — for the distance you picked</div>'+
       '<p class="bld-lede">Every training pace is built from whichever goal is active. Toggle the Active Goal any time afterwards and every workout pace updates instantly.</p>'+
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:12px;" data-action="suggest-goals">'+ICONS.zap+' Suggest Goals From Benchmark</button>'+
       '<div class="field" id="f-goals" style="margin-bottom:0;">'+goalRows+'</div>'+
-      navBtns(7)+
+      navBtns(8)+
     '</section>'+
 
-    /* ---------- 09 REVIEW ---------- */
-    /* ---------- 09 REVIEW ----------
+    /* ---------- 10 REVIEW ---------- */
+    /* ---------- 10 REVIEW ----------
        THE PERMISSION LIVES HERE, AND IT IS NOT THE SAME DECISION AS STAGE 07.
        LTHR and Max HR are training target data: two numbers that shape pace
        and HR ranges. Permission to read broader health and readiness
@@ -21318,8 +21433,8 @@ function openSetupModal(){
        is still read by id from a mounted panel, still rendered unticked, and
        still the only affirmative act. Reaching this screen is not consent,
        and neither is having typed a heart rate on stage 07. */
-    '<section class="bld-panel" data-stage="8" hidden>'+
-      stageHead(8)+
+    '<section class="bld-panel" data-stage="9" hidden>'+
+      stageHead(9)+
       '<div id="bld-review"></div>'+
       (consentStep
         ? '<div class="bld-permission">'+
@@ -21418,7 +21533,7 @@ var BLD_STAGE_NAMES = BUILDER_SPEC.stages.map(function(s){ return s.name; });
    number -- reordering the stages then cannot silently point a rule at the
    wrong panel, which is the one way this restructuring could have changed
    behaviour without anybody noticing. */
-var BLD_STAGE = { GOAL:0, DISTANCE:1, EVENT:2, YOU:3, BENCHMARK:4, WEEK:5, TRAINING:6, TARGETS:7, REVIEW:8 };
+var BLD_STAGE = { OVERVIEW:0, GOAL:1, DISTANCE:2, EVENT:3, YOU:4, BENCHMARK:5, WEEK:6, TRAINING:7, TARGETS:8, REVIEW:9 };
 var bldCurrentStage = 0;
 
 /* Redraw the long-run grid from #su-longday, which is the value that counts. */
@@ -21547,10 +21662,11 @@ function bldFail(fieldId, message){
    stage they belong to instead of all at once at the end. No rule is added,
    removed or loosened here, and the generator still checks all of them.
 
-   Going from five stages to nine moved WHERE each rule is shown and nothing
-   else: the stage indices below are the only thing that changed, and stages
-   with no rule (Goal, Distance, Training data, Review) fall through to the
-   closing `return true` exactly as Week's neighbours always did. Benchmark
+   All lookups below are by BLD_STAGE.<NAME>, not by literal index, so the
+   Overview orientation screen added ahead of Goal (see BUILDER_SPEC.stages)
+   needed no change here. Stages with no rule (Overview, Goal, Distance,
+   Training data, Review) fall through to the closing `return true` exactly
+   as Week's neighbours always did. Benchmark
    has no rule here because it never had one -- handleGeneratePlan() falls back
    to the stored benchmark when the field is blank. */
 function bldValidateStage(i){
@@ -21655,7 +21771,11 @@ function bldStage(n){
     seg.className = 'bld-step' + (i < bldCurrentStage ? ' done' : i === bldCurrentStage ? ' now' : '');
   });
   var no = document.getElementById('bld-no'), nm = document.getElementById('bld-name');
-  if (no) no.textContent = '0' + (bldCurrentStage + 1) + ' / 0' + BLD_STAGE_NAMES.length;
+  /* Zero-padded to 2 digits regardless of stage count -- a plain '0'+n
+     literal broke the moment the count reached double digits ('0'+10
+     rendered as "010"), so pad explicitly instead of assuming one digit. */
+  var padStage = function(n){ return (n < 10 ? '0' : '') + n; };
+  if (no) no.textContent = padStage(bldCurrentStage + 1) + ' / ' + padStage(BLD_STAGE_NAMES.length);
   if (nm) nm.textContent = BLD_STAGE_NAMES[bldCurrentStage];
   if (bldCurrentStage === BLD_STAGE_NAMES.length - 1) bldRenderReview();
   var card = document.querySelector('.modal-card');
@@ -21728,8 +21848,15 @@ function openRecalibrateModal(){
   '</div>';
   /* Follows the theme, like the builder: this is a surface the athlete works in,
      not a transient confirm. Structure, zone logic, recalibration, validation
-     and data handling are untouched -- only the token ramp it draws from. */
-  openModal(html, 'modal-themed');
+     and data handling are untouched -- only the token ramp it draws from.
+
+     CONSISTENCY PASS: also now `builder-light`, the same centred/keyboard-
+     safe positioning the builder and the Record/HQ panels already use. A
+     bottom sheet is right for a short confirm; this is a surface the athlete
+     sits and edits benchmark/goals in, the exact case builder-light exists
+     for (see its own long rationale comment near the builder). Purely
+     positional -- no change to what the modal contains or does. */
+  openModal(html, 'modal-themed builder-light');
 }
 function handleRecalibrateSuggest(){
   var benchDist = document.getElementById('rc-bench-dist').value;
@@ -22763,10 +22890,15 @@ function openPacingModal(){
   '<div class="modal-head"><h2 class="font-head">'+vGoalDay()+' Pacing Strategy</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
     '<div class="field-hint" style="margin-bottom:6px;">'+escapeHtml(profile.label)+' \u2014 even-effort cumulative splits for each goal.</div>'+
-    '<table class="pace-table"><thead><tr><th>Checkpoint</th><th>Goal A</th><th>Goal B</th><th>Goal C</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<div class="pace-table-card"><table class="pace-table"><thead><tr><th>Checkpoint</th><th>Goal A</th><th>Goal B</th><th>Goal C</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
     '<div class="callout" style="margin-top:16px;">'+ICONS.info+'<div>Even splits are a starting strategy, not a rule \u2014 many runners run a controlled first half and let the second half follow feel. Adjust for course profile, weather and how you feel on the day.</div></div>'+
   '</div>';
-  openModal(html, 'modal-themed');
+  /* CONSISTENCY PASS: builder-light -- same centred/keyboard-safe positioning
+     as Re-calibrate and the builder itself, so a reference surface an
+     athlete opens to plan their race day no longer sits low as a bottom
+     sheet while its siblings sit centred. Purely positional; the checkpoint
+     table, calculations and copy are untouched. */
+  openModal(html, 'modal-themed builder-light');
 }
 
 /* =========================================================
@@ -24624,7 +24756,7 @@ function recordPanelFitness(){
   var chk = scheduledCheckpointDay();
   var body = renderMeasuredFitness(true)+
     '<div class="setup-section-title">What counts as a measurement</div>'+
-    '<div class="hub-card">'+
+    '<div class="hub-card tile-card">'+
       hqRow('A completed race', 'any distance')+
       hqRow('A Fitness Checkpoint', 'time trial')+
     '</div>'+
@@ -24659,7 +24791,7 @@ function recordPanelFitness(){
     else if (counted) note = 'Already run and logged. It is the measurement above.';
     else note = 'Marked complete, but without a time it can be measured from. Add the time to that session and it becomes a measurement.';
     body += '<div class="setup-section-title">'+(chk.completed ? 'Your checkpoint' : 'Your next checkpoint')+'</div>'+
-      '<div class="hub-card">'+
+      '<div class="hub-card tile-card">'+
         hqRow(chk.title || 'Fitness Checkpoint', 'Week '+chk.week+' · '+dShort(chk.date))+
       '</div>'+
       '<div class="field-hint" style="margin-bottom:8px;">'+note+'</div>'+
@@ -24673,7 +24805,7 @@ function recordPanelBenchmark(){
   var b = state.setup.benchmark;
   var goal = getActiveGoal();
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
-  var body = '<div class="hub-card">'+
+  var body = '<div class="hub-card tile-card">'+
       (b ? hqRow(DISTANCE_PROFILES[b.distanceKey].label, secToClock(b.timeSec))
          : '<div class="hq-empty">No benchmark set yet.</div>')+
     '</div>'+
@@ -24735,7 +24867,7 @@ function recordPanelProgress(){
      the thing the athlete has just read. */
   var body = '<div id="planhq-stats-mount">'+renderPlanOverviewStats()+'</div>'+
     '<div class="setup-section-title">Where you are in the block</div>'+
-    '<div class="hub-card">'+
+    '<div class="hub-card tile-card">'+
       (week && total ? hqRow('Week', week+' of '+total) : '')+
       hqRow('Sessions still to run', (s.totalRuns - s.completedRuns)+'')+
       (longestDone ? hqRow('Longest run so far', fmtDist(longestDone)) : '')+
@@ -24928,14 +25060,14 @@ function readingPanel(key){
   /* The card's own conclusion, restated once at the top of the panel it opened
      -- the athlete tapped a verdict and the panel should open on it, not make
      them remember which one they pressed. Then the evidence, unchanged. */
-  var head = '<div class="hub-card">'+
+  var head = '<div class="hub-card tile-card">'+
       '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(sec.title)+'</span>'+
         '<span class="hq-row-v"><span class="read-val'+(sec.tone?' '+sec.tone:'')+'">'+
           (sec.tone ? '<span class="read-dot"></span>' : '')+escapeHtml(sec.value)+'</span></span></div>'+
       (sec.syn ? '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(sec.syn)+'</div>' : '')+
     '</div>'+
     '<div class="setup-section-title">The evidence</div>';
-  return recordPanelShell(sec.title, head+'<div class="hub-card">'+sec.body+'</div>');
+  return recordPanelShell(sec.title, head+'<div class="hub-card tile-card">'+sec.body+'</div>');
 }
 
 /* =========================================================
@@ -25100,12 +25232,12 @@ function actionPanelNewBlock(){
            : (rec && rec.options) ? rec.options : [];
   /* Where the athlete actually is, first. Without it a panel opened mid-block
      offers a new block with no acknowledgement that one is already running. */
-  var body = '<div class="hub-card">'+
+  var body = '<div class="hub-card tile-card">'+
       hqRow('Current block', blockIdentityLine())+
     '</div>';
   if (rec && rec.why){
     body += '<div class="setup-section-title">Why now</div>'+
-      '<div class="hub-card"><div class="hq-empty">'+escapeHtml(rec.why)+'</div></div>';
+      '<div class="hub-card tile-card"><div class="hq-empty">'+escapeHtml(rec.why)+'</div></div>';
   }
   if (opts.length){
     body += '<div class="setup-section-title">Recommended next</div>'+
@@ -25305,7 +25437,7 @@ function renderCloudCard(){
       '<button type="button" class="btn btn-primary btn-block" data-action="cloud-sign-in">'+ICONS.link+' Email me a sign-in link</button>';
   }
   var st = planStorageStatus();
-  return '<div class="hub-card" id="cloud-card">'+
+  return '<div class="hub-card tile-card" id="cloud-card">'+
     '<div class="setup-section-title">Account &amp; Backup</div>'+
     '<div class="field-hint" style="margin-bottom:10px;"><strong>'+escapeHtml(st.label)+'</strong>'+
       (st.hint ? '<br>'+escapeHtml(st.hint) : '')+'</div>'+
@@ -25428,7 +25560,7 @@ function renderSettingsHubView(){
        the server has said something true about this account. */
     renderSubscriptionCard()+
     renderCloudCard()+
-    '<div class="hub-card">'+
+    '<div class="hub-card tile-card">'+
       '<div class="setup-section-title">Preferences &amp; Notifications</div>'+
       renderNotifyToggleRow()+
       renderThemeToggleRow()+
@@ -25437,7 +25569,7 @@ function renderSettingsHubView(){
        is Valhalla allowed to do with what I tell it" should meet the control
        itself, not a document about it. */
     renderHealthConsentSettings()+
-    '<div class="hub-card">'+
+    '<div class="hub-card tile-card">'+
       '<div class="setup-section-title">Training &amp; Zones</div>'+
       '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
       /* Training paces are configuration/reference, not an athlete record --
@@ -25449,7 +25581,7 @@ function renderSettingsHubView(){
       '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="open-setup">'+ICONS.target+' Edit Plan Settings</button>'+
       '<button type="button" class="btn btn-ghost btn-block" data-action="open-pacing">'+ICONS.ruler+' '+vGoalDay()+' Pacing Strategy</button>'+
     '</div>'+
-    '<div class="hub-card">'+
+    '<div class="hub-card tile-card">'+
       '<div class="setup-section-title">Sync &amp; Export</div>'+
       renderStravaSection()+
       /* Garmin sits with Strava because it is the same kind of thing to an
@@ -25466,7 +25598,7 @@ function renderSettingsHubView(){
        client with the address already filled in, because "email support@..." as
        dead text makes somebody retype an address at the moment they are already
        annoyed. */
-    '<div class="hub-card">'+
+    '<div class="hub-card tile-card">'+
       '<div class="setup-section-title">Legal &amp; Support</div>'+
       '<a class="btn btn-ghost btn-block" style="margin-bottom:8px;" href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">'+ICONS.shieldmark+' Privacy Policy</a>'+
       '<a class="btn btn-ghost btn-block" style="margin-bottom:8px;" href="'+LEGAL_URLS.terms+'" target="_blank" rel="noopener noreferrer">'+ICONS.info+' '+escapeHtml(legalTermsLabel())+'</a>'+
@@ -25482,7 +25614,7 @@ function renderSettingsHubView(){
       'continues to the end of the period you have already paid for, and nothing '+
       'further is charged. Cancelling never deletes your training.</div>'+
     '</div>'+
-    '<div class="hub-card">'+
+    '<div class="hub-card tile-card">'+
       '<div class="setup-section-title">Backup &amp; Reset</div>'+
       /* NEW BLOCK. A plan-management action, not an athlete record -- it
          belongs beside Reset Plan, the other action that starts a new phase

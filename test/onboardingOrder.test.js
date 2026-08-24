@@ -36,12 +36,13 @@ const fnBody = (name) => {
 // ---------------------------------------------------------------------------
 test('the builder is step one, the preview is step two, saving the plan is step three', () => {
   // The builder used to be a single condensed step, hence "Step one of
-  // three"; it is now nine stages, so it carries its own "0X / 09" progress
-  // indicator (bld-no) instead of that fixed label -- see bldGoToStage().
-  // Preview and auth are untouched: they were never staged.
+  // three"; it is now ten stages, so it carries its own "0X / 10" progress
+  // indicator (bld-no, zero-padded via pad2()) instead of that fixed label
+  // -- see bldGoToStage(). Preview and auth are untouched: they were never
+  // staged.
   assert.match(SRC, /id="pane-build"[^]*?id="bld-no"/, 'the builder no longer carries its own stage indicator');
-  assert.match(SRC, /' \/ 0' \+ BLD_STAGES\.length;/,
-    'the builder no longer counts nine stages of its own');
+  assert.match(SRC, /pad2\(no\) \+ ' \/ ' \+ pad2\(BLD_STAGES\.length\);/,
+    'the builder no longer counts its own stages against BLD_STAGES.length');
   assert.match(SRC, /bld-stage-label'\)\.textContent = BLD_STAGES\[bldCurrentStage\]\.name;/,
     'the current stage name is no longer shown alongside the count');
   assert.match(SRC, /id="pane-preview"[^]*?Step two of three/, 'the preview is no longer step two');

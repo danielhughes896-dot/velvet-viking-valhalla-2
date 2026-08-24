@@ -5,24 +5,27 @@ const fs = require('fs');
 const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 
-/* BUILD YOUR TRAINING BLOCK — the nine-stage journey.
+/* BUILD YOUR TRAINING BLOCK — the ten-stage journey.
  * ===========================================================================
- * The builder went from five stages to nine. That is an information
- * architecture change, not a data one: the generator still reads the same
- * element ids out of the same mounted panels, and no rule was added, removed
- * or moved to a different question.
+ * The builder went from five stages to nine, and then gained a tenth: a pure
+ * orientation screen (Overview) ahead of Goal, with no field and no rule --
+ * a consistency/visual pass, not a data one. The generator still reads the
+ * same element ids out of the same mounted panels, and no existing rule was
+ * added, removed or moved to a different question; only the stage indices
+ * everything downstream keys off shifted by one to make room for Overview.
  *
  * The five-stage structure had NO test at all, which is why the restructuring
  * could have silently dropped an input, orphaned a validation rule or
  * unmounted a panel that another stage reads across. These tests hold the
  * things that would break quietly:
  *
- *   1. NINE STAGES, and the rail/numeral agree with that count.
+ *   1. TEN STAGES, and the rail/numeral agree with that count.
  *   2. EVERY GENERATOR INPUT IS STILL THERE, exactly once, on some panel.
  *   3. EVERY VALIDATION RULE STILL POINTS AT THE SCREEN THAT ASKS ITS QUESTION.
  *   4. THE CROSS-STAGE COUPLINGS SURVIVE, which requires panels to stay mounted.
  *   5. THE NO-HR PATH IS THE EXISTING BLANK PATH, not a fabricated value.
  *   6. GOALS ARE ASKED FOR EVERY PURPOSE, because every pace descends from them.
+ *   7. OVERVIEW ITSELF: pure orientation, no field, unconditionally passable.
  */
 
 const TODAY = '2026-08-22';
@@ -56,33 +59,33 @@ function panels(html) {
 }
 
 // ---------------------------------------------------------------- 1. structure
-test('the builder is nine stages, and the rail and numeral agree', () => {
+test('the builder is ten stages, and the rail and numeral agree', () => {
   const { a, html } = buildJourney();
 
-  assert.equal(a.BLD_STAGE_NAMES.length, 9,
-    'BLD_STAGE_NAMES declares ' + a.BLD_STAGE_NAMES.length + ' stages, not nine');
+  assert.equal(a.BLD_STAGE_NAMES.length, 10,
+    'BLD_STAGE_NAMES declares ' + a.BLD_STAGE_NAMES.length + ' stages, not ten');
 
   const p = panels(html);
-  assert.equal(p.length, 9, 'the journey rendered ' + p.length + ' panels');
-  assert.deepEqual(p.map(x => x.stage), [0, 1, 2, 3, 4, 5, 6, 7, 8],
-    'the panels are not a contiguous 0..8 run');
+  assert.equal(p.length, 10, 'the journey rendered ' + p.length + ' panels');
+  assert.deepEqual(p.map(x => x.stage), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    'the panels are not a contiguous 0..9 run');
 
   // one rail segment per stage -- the rail is built from the same array
   const rail = html.match(/<div class="bld-step[^"]*"><\/div>/g) || [];
-  assert.equal(rail.length, 9, 'the rail drew ' + rail.length + ' segments for nine stages');
-  assert.match(html, /id="bld-no">01 \/ 09</,
-    'the stage numeral does not open on 01 / 09');
+  assert.equal(rail.length, 10, 'the rail drew ' + rail.length + ' segments for ten stages');
+  assert.match(html, /id="bld-no">01 \/ 10</,
+    'the stage numeral does not open on 01 / 10');
 
-  // exactly one panel visible at rest, and it is the first
+  // exactly one panel visible at rest, and it is the first (Overview)
   const shown = p.filter(x => !/hidden/.test(x.attrs));
   assert.deepEqual(shown.map(x => x.stage), [0],
     'more than one panel (or the wrong one) is visible when the builder opens');
 });
 
-test('the nine stages are the approved sequence', () => {
+test('the ten stages are the approved sequence', () => {
   const { a } = buildJourney();
   assert.deepEqual([...a.BLD_STAGE_NAMES],
-    ['Goal', 'Distance', 'Event', 'You', 'Benchmark', 'Week', 'Training data', 'Targets', 'Review']);
+    ['Overview', 'Goal', 'Distance', 'Event', 'You', 'Benchmark', 'Week', 'Training data', 'Targets', 'Review']);
 });
 
 // ------------------------------------------------- 2. every generator input
@@ -112,14 +115,14 @@ test('each input sits on the stage that asks for it', () => {
     return hit ? hit.stage : -1;
   };
   const EXPECTED = {
-    'su-purpose': 0,
-    'su-distance': 1, 'su-units': 1,
-    'su-event-box': 2, 'su-racedate': 2, 'su-weeks': 2,
-    'su-experience': 3, 'su-volume': 3,
-    'su-bench-dist': 4, 'su-bench-time': 4,
-    'su-weekdays': 5, 'su-longday': 5,
-    'su-lthr': 6, 'su-maxhr': 6,
-    'su-goal-A': 7, 'su-goal-B': 7, 'su-goal-C': 7,
+    'su-purpose': 1,
+    'su-distance': 2, 'su-units': 2,
+    'su-event-box': 3, 'su-racedate': 3, 'su-weeks': 3,
+    'su-experience': 4, 'su-volume': 4,
+    'su-bench-dist': 5, 'su-bench-time': 5,
+    'su-weekdays': 6, 'su-longday': 6,
+    'su-lthr': 7, 'su-maxhr': 7,
+    'su-goal-A': 8, 'su-goal-B': 8, 'su-goal-C': 8,
   };
   Object.keys(EXPECTED).forEach(id =>
     assert.equal(where(id), EXPECTED[id],
@@ -240,7 +243,7 @@ test('skipping heart rate clears the fields rather than inventing a value', () =
 
 test('the reassurance and the explanation are on the heart-rate screen', () => {
   const { html } = buildJourney();
-  const hr = panels(html).find(p => p.stage === 6).body;
+  const hr = panels(html).find(p => p.stage === 7).body;
   assert.ok(hr.includes('Lactate Threshold Heart Rate'),
     'the acronym is still unexplained');
   assert.ok(/Don.t know it\? That.s completely fine/.test(hr),
@@ -257,8 +260,8 @@ test('the reassurance and the explanation are on the heart-rate screen', () => {
 test('the health permission is a separate decision from the heart-rate numbers', () => {
   const { html } = buildJourney();
   const p = panels(html);
-  const hr = p.find(x => x.stage === 6).body;
-  const review = p.find(x => x.stage === 8).body;
+  const hr = p.find(x => x.stage === 7).body;
+  const review = p.find(x => x.stage === 9).body;
 
   assert.doesNotMatch(hr, /su-health-consent/,
     'the permission is back on the heart-rate screen, which is two decisions on one screen');
@@ -302,7 +305,7 @@ test('goals are asked for every block purpose, because every pace descends from 
     const { html } = buildJourney(a => {
       a.state.setup = Object.assign({}, a.state.setup, { purpose: purpose });
     });
-    const targets = panels(html).find(p => p.stage === 7).body;
+    const targets = panels(html).find(p => p.stage === 8).body;
     ['A', 'B', 'C'].forEach(k =>
       assert.ok(targets.includes('id="su-goal-' + k + '"'),
         purpose + ' lost goal ' + k + ' — that block would have no pace source'));
@@ -330,7 +333,7 @@ test('the goal requirement is not conditional on the purpose', () => {
 // --------------------------------------------------------------- 7. composition
 test('the four objectives are a 2x2 of cards wearing the gold selected state', () => {
   const { html } = buildJourney();
-  const goal = panels(html).find(p => p.stage === 0).body;
+  const goal = panels(html).find(p => p.stage === 1).body;
   assert.equal((goal.match(/class="bld-purpose-card/g) || []).length, 4,
     'the goal screen does not show four objective cards');
 
@@ -346,7 +349,7 @@ test('the four objectives are a 2x2 of cards wearing the gold selected state', (
 
 test('the five distances are laid out three then two, with nothing stranded', () => {
   const { html } = buildJourney();
-  const dist = panels(html).find(p => p.stage === 1).body;
+  const dist = panels(html).find(p => p.stage === 2).body;
   assert.match(dist, /class="opt-grid opt-grid-32"/, 'the distance grid is not the 3+2 composition');
 
   const css = SRC.slice(SRC.indexOf('.opt-grid.opt-grid-32'));
@@ -360,8 +363,38 @@ test('the five distances are laid out three then two, with nothing stranded', ()
 
 test('units are on the distance screen, and set back from it', () => {
   const { html } = buildJourney();
-  const dist = panels(html).find(p => p.stage === 1).body;
+  const dist = panels(html).find(p => p.stage === 2).body;
   assert.ok(dist.includes('id="su-units"'), 'units are not on the distance screen');
   assert.match(dist, /class="field bld-secondary"/,
     'units are given the same weight as the distance question');
+});
+
+// ------------------------------------------------------------- 7. overview
+/* Pure orientation, added ahead of Goal. It must never behave like a
+   question: no input for handleGeneratePlan() to read, no validation rule
+   to block Continue, and Back must not appear on the one screen that has
+   nowhere to go back to. */
+test('Overview is stage zero, has no field and no validation rule, and Continue always passes', () => {
+  const { a, html } = buildJourney();
+  const overview = panels(html).find(p => p.stage === 0).body;
+
+  assert.match(overview, /class="bld-overview"/, 'the overview info box is missing');
+  assert.equal((overview.match(/class="bld-overview-row"/g) || []).length, 3,
+    'the overview does not show exactly three rows');
+  // no <input>/<select>/<button data-v> on this screen -- it asks nothing
+  assert.doesNotMatch(overview, /<input\b|<select\b|data-v="/,
+    'Overview contains a real field -- it is meant to be orientation only, not a tenth question');
+  // Back is suppressed on stage 0, same rule as the old first stage always had
+  assert.doesNotMatch(overview, /data-action="bld-back"/,
+    'Overview shows a Back button with nothing behind it');
+
+  assert.equal(a.bldValidateStage(0), true, 'bldValidateStage(0) blocks Continue on Overview');
+});
+
+test('Overview carries the approved heading and lede, and the rail starts on it', () => {
+  const { html } = buildJourney();
+  assert.match(html, /id="bld-name">Overview</, 'the stage-name label does not open on Overview');
+  const overview = panels(html).find(p => p.stage === 0).body;
+  assert.match(overview, /Build Your Training Block/, 'the approved heading is missing');
+  assert.match(overview, /A plan, built around you\./, 'the approved lede is missing');
 });

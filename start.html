@@ -117,6 +117,17 @@
   .bld-stage-h{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.8px; font-size:var(--fs-title); color:var(--ink); margin:14px 0 4px;}
   .bld-lede{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin:0 0 18px;}
 
+  /* ---------- overview stage ----------
+     One coherent soft card, three rows -- ported from the app's own
+     .bld-overview (protected/velvet-viking-valhalla.html). /start has no
+     --tile-* token family of its own, so this uses the surface/radius/line
+     tokens already shared with the app via vvv-shell.css instead. */
+  .bld-overview{margin-top:4px; padding:2px 16px; background:var(--bg-3); border:1px solid var(--line); border-radius:var(--radius);}
+  .bld-overview-row{padding:15px 0; border-bottom:1px solid var(--line-soft);}
+  .bld-overview-row:last-child{border-bottom:none;}
+  .bor-t{display:block; font-family:'Oswald',sans-serif; font-size:var(--fs-body); font-weight:600; letter-spacing:.3px; color:var(--ink); margin-bottom:3px;}
+  .bor-d{display:block; font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-dim);}
+
   /* ---------- fields ---------- */
   .field{margin-bottom:14px;}
   .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); opacity:.65; margin-bottom:5px;}
@@ -197,7 +208,7 @@
   [data-theme="light"] .bld-purpose button.active .bpc-why{color:#7A5C1E; opacity:.85;}
 
   /* ---------- the training week ---------- */
-  .weekday-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:5px; margin-bottom:12px;}
+  .weekday-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:12px;}
   .wd-check{
     display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px 2px;
     border:1.5px solid var(--line); border-radius:9px; font-family:'JetBrains Mono',monospace; font-size:10.5px;
@@ -736,7 +747,30 @@
     }).join('');
   }
 
-  /* ---------- stage 01 GOAL ----------
+  /* ---------- stage 01 OVERVIEW ----------
+     Same markup openSetupModal() renders for its own orientation screen:
+     .bld-overview > .bld-overview-row > .bor-t/.bor-d. Pure orientation, no
+     field -- bldValidateStage() has no rule for index 0 and falls through to
+     `return true`, same as every other unguarded stage. */
+  function renderOverviewStage(){
+    $('bld-stage-body').innerHTML =
+      '<div class="bld-overview">' +
+        '<div class="bld-overview-row">' +
+          '<span class="bor-t">Answer a few questions</span>' +
+          '<span class="bor-d">We understand your running and what you’re aiming for.</span>' +
+        '</div>' +
+        '<div class="bld-overview-row">' +
+          '<span class="bor-t">Valhalla builds your plan</span>' +
+          '<span class="bor-d">Workouts, paces and progression are created for you.</span>' +
+        '</div>' +
+        '<div class="bld-overview-row">' +
+          '<span class="bor-t">We adapt as you go</span>' +
+          '<span class="bor-d">Log your runs and Valhalla gets smarter as the block progresses.</span>' +
+        '</div>' +
+      '</div>';
+  }
+
+  /* ---------- stage 02 GOAL ----------
      Same markup openSetupModal() renders for its own purpose cards:
      .bld-purpose(.bld-purpose-2up) > button.bld-purpose-card > .bpc-name/.bpc-why. */
   function renderGoalStage(){
@@ -978,7 +1012,7 @@
       '<a href="/terms" target="_blank" rel="noopener noreferrer">Terms</a>. Both are always available from Settings once you have an account.</p>';
   }
 
-  var BLD_RENDERERS = [renderGoalStage, renderDistanceStage, renderEventStage, renderYouStage,
+  var BLD_RENDERERS = [renderOverviewStage, renderGoalStage, renderDistanceStage, renderEventStage, renderYouStage,
                         renderBenchmarkStage, renderWeekStage, renderTrainingStage, renderTargetsStage, renderReviewStage];
 
   /* ---------- validation, one rule per guarded stage --------
@@ -989,7 +1023,7 @@
      athlete authenticates. */
   function bldValidateStage(i){
     bldClearErrors();
-    if (i === 2){ // EVENT
+    if (i === 3){ // EVENT
       if (Ans.purpose === 'race' && Ans.eventMode === 'event'){
         if (!Ans.raceDate){ bldFail('f-racedate', 'Pick an event date.'); return false; }
         if (Ans.raceDate <= todayStrLocal()){ bldFail('f-racedate', 'Event date needs to be in the future.'); return false; }
@@ -1000,20 +1034,20 @@
       }
       return true;
     }
-    if (i === 3){ // YOU
+    if (i === 4){ // YOU
       var vol = parseFloat(Ans.volume);
       if (!isFinite(vol) || vol <= BS.validation.volumeMustExceed){
         bldFail('f-volume', 'Enter your current weekly volume.'); return false; }
       return true;
     }
-    if (i === 4){ // BENCHMARK
+    if (i === 5){ // BENCHMARK
       var bSec = clockToSec(Ans.benchTime);
       var br = BS.validation.benchmarkSecondsRange;
       if (!isFinite(bSec) || bSec < br[0] || bSec > br[1]){
         bldFail('f-bench-time', 'Give your benchmark time as minutes and seconds, like 45:00.'); return false; }
       return true;
     }
-    if (i === 5){ // WEEK
+    if (i === 6){ // WEEK
       var dr = BS.validation.daysRange;
       var chosen = Object.keys(Ans.activeDays).filter(function(d){ return Ans.activeDays[d]; }).length;
       if (chosen < dr[0] || chosen > dr[1]){
@@ -1031,15 +1065,17 @@
       return '<div class="bld-step'+(i < bldCurrentStage ? ' done' : i === bldCurrentStage ? ' now' : '')+'"></div>';
     }).join('');
     var no = bldCurrentStage + 1;
-    $('bld-no').textContent = (no < 10 ? '0'+no : no) + ' / 0' + BLD_STAGES.length;
+    var pad2 = function(v){ return (v < 10 ? '0'+v : ''+v); };
+    $('bld-no').textContent = pad2(no) + ' / ' + pad2(BLD_STAGES.length);
     $('bld-stage-label').textContent = BLD_STAGES[bldCurrentStage].name;
-    /* Stage 01's heading follows the chosen purpose, same as bldApplyPurpose()
-       in the app; stage 02's follows the purpose's distance-specific copy.
-       Every other stage uses its own fixed heading from the spec. */
-    if (bldCurrentStage === 0){
+    /* Stage 02's (Goal's) heading follows the chosen purpose, same as
+       bldApplyPurpose() in the app; stage 03's (Distance's) follows the
+       purpose's distance-specific copy. Stage 01 (Overview) and every other
+       stage use their own fixed heading from the spec. */
+    if (bldCurrentStage === 1){
       $('bld-heading').textContent = purposeMeta().stageTitle;
       $('bld-lede').textContent = purposeMeta().stageLede;
-    } else if (bldCurrentStage === 1){
+    } else if (bldCurrentStage === 2){
       $('bld-heading').textContent = purposeMeta().distanceLabel;
       $('bld-lede').textContent = purposeMeta().distanceHint;
     } else {

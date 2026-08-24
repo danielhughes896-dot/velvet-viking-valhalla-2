@@ -19,10 +19,13 @@ const { buildPlan } = require('./fixtures.js');
 // modal that does not opt in is untouched and keeps the fixed dark ramp.
 //
 // These tests hold three things: the opt-in mechanism actually un-pins the
-// tokens, the two work surfaces are opted in, and the theming is separable
-// from the builder's positioning so Re-calibrate does not inherit centring it
-// was never given. They also re-assert that Re-calibrate's structure and
-// recalibration logic came through the theming change unchanged.
+// tokens, the two work surfaces are opted in, and theming/positioning are two
+// independent opt-ins (.modal-themed / .builder-light) rather than one
+// implying the other -- so a themed modal that should stay a compact bottom
+// sheet (Edit Session) can, while one that benefits from the builder's
+// centred/keyboard-safe treatment (Re-calibrate, Race Day Pacing Strategy)
+// can opt into that too. They also re-assert that Re-calibrate's structure
+// and recalibration logic came through both changes unchanged.
 const ROOT = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
 
@@ -203,17 +206,39 @@ test('the Plan HQ panels opt in, and carry the builder accent deliberately', () 
     'the Record panels stopped going through the shared opener');
 });
 
-test('theming is separable from the builder positioning', () => {
-  // Re-calibrate is themed but must NOT be centred: the positioning rules key
-  // on .builder-light, which only the builder carries.
-  assert.doesNotMatch(fnBody('openRecalibrateModal'), /\bbuilder-light\b/,
-    'Re-calibrate picked up the builder centring class');
+test('theming and positioning are two separate opt-ins, both available to any surface that needs them', () => {
+  // VALHALLA CONSISTENCY PASS: Re-calibrate Training Zones and the Race Day
+  // Pacing Strategy modal were both bottom sheets, sitting low on the mobile
+  // viewport, while the builder and the Record/HQ panels already had the
+  // premium centred/keyboard-safe treatment. They now opt into that same
+  // .builder-light positioning -- nothing about .builder-light itself
+  // changed (it is still the SAME centring rule the builder and the Record
+  // panels use), and Re-calibrate's structure/recalibration logic is
+  // untouched (see the other tests in this file). What changed is that
+  // .modal-themed (theming) and .builder-light (positioning) are
+  // independent opt-ins, and Re-calibrate/Pacing now carry both.
+  assert.match(fnBody('openRecalibrateModal'), /\bbuilder-light\b/,
+    'Re-calibrate no longer carries the centred/keyboard-safe positioning');
+  assert.match(fnBody('openRecalibrateModal'), /\bmodal-themed\b/,
+    'Re-calibrate lost its theme opt-in');
+  assert.match(fnBody('openPacingModal'), /\bbuilder-light\b/,
+    'Race Day Pacing Strategy no longer carries the centred/keyboard-safe positioning');
+  assert.match(fnBody('openPacingModal'), /\bmodal-themed\b/,
+    'Race Day Pacing Strategy lost its theme opt-in');
 
   assert.match(CODE, /\.modal-overlay:has\(>\s*\.builder-light\)\s*\{[^}]*align-items\s*:\s*center/,
     'the builder centring rule no longer keys on .builder-light');
 
   assert.match(fnBody('openSetupModal'), /\bbuilder-light\b/,
     'the builder lost the class its positioning depends on');
+
+  // Edit Session is the control: it is a genuinely short, transient form and
+  // stays a bottom sheet on purpose -- proving .builder-light is still an
+  // opt-in, not something every themed modal now inherits automatically.
+  assert.doesNotMatch(fnBody('openEditModal'), /\bbuilder-light\b/,
+    'Edit Session picked up the builder centring class -- .builder-light stopped being opt-in');
+  assert.match(fnBody('openEditModal'), /\bmodal-themed\b/,
+    'Edit Session lost its theme opt-in');
 });
 
 test('goal time inputs are painted by the control tokens, not the browser', () => {

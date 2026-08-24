@@ -31,8 +31,8 @@ const TODAY = '2026-08-20T09:00:00Z';
 // ---------------------------------------------------------------------------
 // 1. EXACTLY NINE STAGES, ONE CANONICAL LIST
 // ---------------------------------------------------------------------------
-test('the canonical spec defines exactly nine stages', () => {
-  assert.equal(BUILDER_SPEC.stages.length, 9);
+test('the canonical spec defines exactly ten stages', () => {
+  assert.equal(BUILDER_SPEC.stages.length, 10);
   BUILDER_SPEC.stages.forEach((s) => {
     assert.equal(typeof s.key, 'string');
     assert.equal(typeof s.name, 'string');
@@ -41,9 +41,9 @@ test('the canonical spec defines exactly nine stages', () => {
   });
 });
 
-test('the app builder exposes exactly the canonical spec\'s nine stage names, in order', () => {
+test('the app builder exposes exactly the canonical spec\'s ten stage names, in order', () => {
   const app = loadApp({ pinnedDate: TODAY });
-  assert.equal(app.BLD_STAGE_NAMES.length, 9);
+  assert.equal(app.BLD_STAGE_NAMES.length, 10);
   assert.equal(JSON.stringify(Array.from(app.BLD_STAGE_NAMES)),
     JSON.stringify(BUILDER_SPEC.stages.map((s) => s.name)),
     'the app\'s stage names/order no longer match the canonical spec');
@@ -53,14 +53,14 @@ test('the app builder exposes exactly the canonical spec\'s nine stage names, in
     'the app redeclares its own stage-name list instead of reading the canonical spec');
 });
 
-test('/start\'s wizard reads the same nine stages from the same object, not a second list', () => {
+test('/start\'s wizard reads the same ten stages from the same object, not a second list', () => {
   assert.match(START_SRC, /var BLD_STAGES = BS\.stages;/,
     '/start no longer sources its stage list from window.BUILDER_SPEC');
-  // Nine render functions, one per stage, in the same order the spec lists.
+  // Ten render functions, one per stage, in the same order the spec lists.
   const arr = /var BLD_RENDERERS = \[([^\]]*)\];/s.exec(START_SRC);
   assert.ok(arr, 'BLD_RENDERERS was not found');
   const names = arr[1].split(',').map((s) => s.trim()).filter(Boolean);
-  assert.equal(names.length, 9, '/start does not render exactly nine stages');
+  assert.equal(names.length, 10, '/start does not render exactly ten stages');
 });
 
 test('the old condensed all-fields-on-one-page builder no longer exists', () => {
