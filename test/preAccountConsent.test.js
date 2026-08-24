@@ -19,9 +19,8 @@ const HC = require('../api/_health-consent.js');
  * THAT IS NOT WHAT THE IMPLEMENTATION DOES, and the difference matters enough
  * to be locked down rather than left as a property somebody notices.
  *
- * /start renders the two heart-rate fields so the nine questions are the same
- * nine questions in the same order as the app's own builder -- and never reads
- * them. Not "reads and discards": the values are never retrieved from the DOM
+ * /start renders the two heart-rate fields so its questions are the same
+ * questions in the same order as the app's own builder -- and never reads them. Not "reads and discards": the values are never retrieved from the DOM
  * at all. Nothing covered is submitted, nothing covered is banked, and there is
  * therefore no pre-account Article 9 decision to sequence, sync, or lose the
  * timestamp of. The hazard is avoided rather than managed.
@@ -41,11 +40,13 @@ const APP = read('protected/velvet-viking-valhalla.html');
 // NOTHING COVERED LEAVES THE DEVICE BEFORE THERE IS AN ACCOUNT
 // ===========================================================================
 test('/start renders the heart-rate fields and never reads them back', () => {
-  /* The strongest form of "no covered data pre-account" available: not a
+  /* Deliberately independent of how many stages the builder has -- it was nine
+     and is now ten, and neither number is the point. The strongest form of
+     "no covered data pre-account" available: not a
      promise to discard it, but the absence of any code that retrieves it. If
      somebody later adds a .value read here, this fails -- which is the moment
      the Article 9 sequencing question genuinely starts to exist. */
-  assert.match(START, /id="bld-lthr"/, 'stage 07 should still ask the question');
+  assert.match(START, /id="bld-lthr"/, 'the TRAINING stage should still ask the question');
   assert.match(START, /id="bld-maxhr"/);
 
   const reads = START.match(/bld-lthr|bld-maxhr/g) || [];
