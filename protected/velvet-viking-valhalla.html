@@ -75,6 +75,16 @@
        values already exist elsewhere in the palette (light theme's --bg and
        --line-soft) so this reuses in-brand cream rather than inventing one. */
     --badge-face:#F4F1EA; --badge-face-lo:#E5DECD; --badge-ink:#171717;
+    /* Text sitting on that same theme-invariant cream face needs a
+       theme-invariant colour too -- var(--gold-text)/var(--ink-faint) are
+       tuned for dark theme's dark background and go near-illegible on
+       cream (gold-on-cream measures ~1.7:1). Both values here are the
+       LIGHT theme's own --gold-text/--ink-faint, already the exact shades
+       this codebase uses for "gold reading" and "muted caption" on an
+       ivory ground (6.0:1 / comfortably AA), so this is reuse, not a new
+       colour -- and it changes nothing in light theme, where these already
+       are the live values. */
+    --gold-badge-ink:#7A5C1E; --badge-caption-ink:#5D574C;
 
     /* ---------- ORDINARY CONTAINER SURFACES ----------
        An alias, not a new ramp. These are the fills of containers that hold
@@ -438,20 +448,49 @@
      A ring, not a semicircle: 12 tick marks framing a single progress arc,
      the percentage and its label set inside the ring rather than below it. */
   .gauge-tick{stroke:var(--gold); stroke-width:1.4; opacity:.45;}
-  .gauge-wrap{position:relative; width:132px; height:132px; margin:0 auto;}
+  /* drop-shadow (not box-shadow) because the wrap holds an SVG plus a div,
+     and the SVG's own background is transparent outside the ring -- a
+     box-shadow would draw a shadow for the wrap's square bounding box,
+     not the ring's actual shape. Same two-layer lift-plus-contact shadow
+     as the Reading badges, so the flagship gauge and the five medallions
+     read as one family sitting at the same height off the page. */
+  .gauge-wrap{position:relative; width:132px; height:132px; margin:0 auto;
+    filter:drop-shadow(0 9px 16px rgba(0,0,0,.30)) drop-shadow(0 3px 5px rgba(0,0,0,.20));}
   .gauge-rim{stroke:var(--line); stroke-width:1;}
   .gauge-track{stroke:var(--bg-4);}
   .gauge-fill{stroke:var(--cherry);}
   .gauge-inner-rim{stroke:var(--line-soft); stroke-width:1;}
-  .gauge-num{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
-  /* Gold reads the figure, same as it always has -- the ring is the
-     mechanism and takes the accent; the number is the reading and takes
-     gold, exactly as every other reading in this product does. */
-  .gauge-num b{font-size:32px; color:var(--gold-text); line-height:1; font-weight:700;}
-  /* themed (not the fixed --modal-text) since the gauge sits in the topbar,
-     which itself flips with the light/dark toggle -- --modal-text is only
-     ever defined for the dark palette and goes near-invisible in light mode. */
-  .gauge-num span{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin-top:3px;}
+  /* The bevel overlay (see renderConfidenceGauge()'s #gaugeBevel <defs>)
+     paints a diagonal highlight-to-shadow sweep directly on top of
+     .gauge-fill via one shared linearGradient -- white at one edge fading
+     through transparent to black at the opposite edge -- rather than a
+     computed lighter/darker hex, so the ring keeps its exact cherry colour
+     underneath and only gains the appearance of a rounded, lit profile.
+     Fill only, not the track: the track's unfilled arc is already dark in
+     dark theme, and the same black-leaning half of this gradient over it
+     read as a harsh notch rather than depth -- restrained beats complete
+     here. One id is safe: the gauge only ever has one live instance in the
+     DOM (its own refresh replaces the same mount). */
+  .gauge-bevel{fill:none; stroke:url(#gaugeBevel);}
+  /* Sized to the inner ring (r=38 of a 120 viewBox, at 132px render size =
+     ~84px) rather than the old inset:0 covering the full 132px box, so
+     this becomes an actual cream medallion face sitting inside the ring --
+     the same face treatment as the Reading badges below it -- instead of
+     text floating on whatever the hero card's background happens to be. */
+  .gauge-num{position:absolute; left:50%; top:50%; width:84px; height:84px; transform:translate(-50%,-50%);
+    border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 34% 26%, #FFFFFF 0%, var(--badge-face) 46%, var(--badge-face-lo) 100%);
+    box-shadow:-1.5px -1.5px 2.5px rgba(255,255,255,.7) inset, 2px 2px 4px rgba(0,0,0,.24) inset,
+      0 0 0 1px rgba(0,0,0,.14);}
+  /* Gold still reads the figure -- the ring is the mechanism and takes the
+     accent, the number is the reading and takes gold, exactly as every
+     other reading in this product does. --gold-badge-ink/--badge-caption-
+     ink are that same gold/muted-caption law, just the shade already
+     proven to read on the face's now-fixed cream (see the token comment
+     above) rather than the shade tuned for the hero card's themed
+     background this text no longer sits directly on. */
+  .gauge-num b{font-size:32px; color:var(--gold-badge-ink); line-height:1; font-weight:700;}
+  .gauge-num span{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--badge-caption-ink); margin-top:3px;}
   .checkpoint-banner{
     display:flex; align-items:flex-start; gap:11px; background:var(--c-gold-soft);
     border:1.5px solid var(--gold); border-radius:var(--radius-sm); padding:13px 14px; margin:16px 0;
@@ -2138,31 +2177,32 @@
      math and no browser-support risk. */
   .b-dial{position:relative; width:62px; height:62px; flex:none; border-radius:50%;
     background:
-      radial-gradient(circle at 30% 22%, rgba(255,255,255,.62) 0%, rgba(255,255,255,0) 46%),
-      radial-gradient(circle at 76% 82%, rgba(0,0,0,.42) 0%, rgba(0,0,0,0) 60%),
+      radial-gradient(circle at 28% 20%, rgba(255,255,255,.75) 0%, rgba(255,255,255,0) 48%),
+      radial-gradient(circle at 78% 84%, rgba(0,0,0,.52) 0%, rgba(0,0,0,0) 62%),
       var(--rim-color);
     /* A wide soft lift shadow plus a tighter contact shadow reads as the
        badge sitting proud of the page, without the single hard-edged
        shadow that would look pasted-on rather than raised. The two inset
        shadows are the rim's own highlight/shade (upper-left/lower-right) --
-       .b-medal covers the interior, so only the ~6px rim band ever shows
-       them, giving the rim its bevelled, physically-thicker feel without
-       widening it. */
-    box-shadow:0 7px 15px rgba(0,0,0,.30), 0 2px 4px rgba(0,0,0,.20),
-      -1.5px -1.5px 2px rgba(255,255,255,.32) inset, 1.5px 1.5px 3px rgba(0,0,0,.30) inset;}
+       .b-medal covers the interior, so only the rim band ever shows them,
+       giving the rim its bevelled, physically-substantial feel. The rim
+       band itself is 8px now (was 6px, set via .b-medal's inset below) --
+       thick enough to read as a rim rather than a coloured line, still
+       well inside the badge's unchanged 62/70px footprint. */
+    box-shadow:0 9px 18px rgba(0,0,0,.34), 0 3px 5px rgba(0,0,0,.22),
+      -2px -2px 2.5px rgba(255,255,255,.40) inset, 2px 2px 4px rgba(0,0,0,.38) inset;}
   .b-dial.lead{width:70px; height:70px;}
-  .b-medal{position:absolute; inset:6px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  .b-medal{position:absolute; inset:8px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     overflow:hidden;
-    background:radial-gradient(circle at 32% 24%, #FFFFFF 0%, var(--badge-face) 48%, var(--badge-face-lo) 100%);
-    /* Face highlight/shade now diagonal (upper-left/lower-right) rather
-       than the old purely-vertical pair, so the dome reads from the same
-       light direction as the rim above -- and the plain 1px ring becomes a
-       two-tone bevel (a dark inner line where the rim's shadow falls onto
-       the face, a faint bright one where the rim's own highlight would
-       catch), so the face reads as seated inside the rim, not just
+    background:radial-gradient(circle at 32% 24%, #FFFFFF 0%, var(--badge-face) 44%, var(--badge-face-lo) 100%);
+    /* Face highlight/shade diagonal (upper-left/lower-right), same light
+       direction as the rim above, for a clearer dome; the plain 1px ring
+       is now a two-tone bevel (a dark inner line where the rim's shadow
+       falls onto the face, a bright one where the rim's own highlight
+       would catch) so the face reads as seated inside the rim, not just
        circled by it. */
-    box-shadow:-1.5px -1.5px 2.5px rgba(255,255,255,.65) inset, 2px 2px 3.5px rgba(0,0,0,.26) inset,
-      0 -1px 0 rgba(0,0,0,.20), 0 1px 0 rgba(255,255,255,.30), 0 0 0 1px rgba(0,0,0,.16);}
+    box-shadow:-2px -2px 3px rgba(255,255,255,.75) inset, 2.5px 2.5px 4.5px rgba(0,0,0,.32) inset,
+      0 -1.5px 0 rgba(0,0,0,.26), 0 1.5px 0 rgba(255,255,255,.38), 0 0 0 1px rgba(0,0,0,.20);}
   /* overflow-wrap is the backstop for a single long word (e.g. "Responding")
      that has no space to wrap on -- dialFontSize() already sizes the common
      vocabulary to fit without it, so this only ever fires on an unusually
@@ -8471,12 +8511,26 @@ function renderConfidenceGauge(){
     ticks.push('<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" class="gauge-tick"/>');
   }
   var pctLabel = formatConfidencePct(clamped);
+  /* #gaugeBevel: one diagonal white-to-transparent-to-black sweep, used as
+     the stroke for the overlay circle below that sits on top of the
+     cherry fill arc, so the progress ring picks up the same "rounded, lit
+     from the upper-left" profile the Reading badges use -- see
+     .gauge-bevel's comment for why one shared id is safe here. */
   return '<div class="gauge-wrap" role="img" aria-label="Confidence score '+pctLabel+' percent">'+
     '<svg viewBox="0 0 120 120" width="132" height="132">'+
+      '<defs><linearGradient id="gaugeBevel" x1="15%" y1="10%" x2="85%" y2="90%">'+
+        '<stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.5"/>'+
+        '<stop offset="42%" stop-color="#FFFFFF" stop-opacity="0"/>'+
+        '<stop offset="58%" stop-color="#000000" stop-opacity="0"/>'+
+        '<stop offset="100%" stop-color="#000000" stop-opacity="0.4"/>'+
+      '</linearGradient></defs>'+
       '<g class="gauge-ticks">'+ticks.join('')+'</g>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="52" fill="none" class="gauge-rim"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-track" stroke-width="9"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-fill" stroke-width="9" '+
+        'stroke-linecap="round" stroke-dasharray="'+fillLen.toFixed(1)+' '+(circ-fillLen).toFixed(1)+'" '+
+        'transform="rotate(-90 '+cx+' '+cy+')"/>'+
+      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-bevel" stroke-width="9" '+
         'stroke-linecap="round" stroke-dasharray="'+fillLen.toFixed(1)+' '+(circ-fillLen).toFixed(1)+'" '+
         'transform="rotate(-90 '+cx+' '+cy+')"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="38" fill="none" class="gauge-inner-rim"/>'+

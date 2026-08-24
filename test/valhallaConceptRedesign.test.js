@@ -205,7 +205,12 @@ test('COLOUR: the contained Race Outlook keeps the app\'s own law, not the mock-
 });
 
 test('COLOUR: the readiness figure stays gold, the ring stays the accent -- same law as before the redesign', () => {
-  assert.match(CODE, /\.gauge-num b\{[^}]*color\s*:\s*var\(--gold-text\)/);
+  // --gold-badge-ink, not --gold-text: the number now sits on a fixed-cream
+  // medallion face behind the ring (the 3D depth pass), so it needs the
+  // shade of gold already proven to read on cream rather than the one tuned
+  // for the hero card's themed background it no longer sits directly on --
+  // still gold, per metricColour.test.js's broader --(gold|bronze) check.
+  assert.match(CODE, /\.gauge-num b\{[^}]*color\s*:\s*var\(--gold-badge-ink\)/);
   assert.match(CODE, /\.gauge-fill\{stroke:var\(--cherry\);\}/);
 });
 
