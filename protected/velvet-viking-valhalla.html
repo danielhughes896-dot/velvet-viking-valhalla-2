@@ -8768,27 +8768,42 @@ function getGoalPaceSecPerKm(){
   return goalPaceSecPerKm(vdot, profile.raceKm*1000);
 }
 function getDayTargets(dd){
-  var tm = TYPE_META[dd.type];
   var out = { pace:null, goalPace:null, hr:null };
-  var paces = getActivePaces();
-  // Target HR for the session, from the same zone the Execution Score grades
-  // against -- resolved here rather than in renderDayCard so every view that
-  // reads a day's targets gets it from one place. Null (and so omitted) for
-  // rest/race days, which have no zone, and whenever LTHR isn't configured.
-  out.hr = fmtHRRange(getTargetHRRangeForDay(dd));
-  var displayKey = executionZoneKey(dd);
-  if (displayKey && paces[displayKey] && paces[displayKey].slow!=null){
-    var z = paces[displayKey];
-    // Ascending (fastest bound first), matching the Pace Reference card and
-    // the Plan HQ zone table -- the same range printed in two orders on one
-    // screen reads like two different targets.
-    var pSlow = fmtPaceFromSecPerKm(z.slow), pFast = fmtPaceFromSecPerKm(z.fast);
-    out.pace = pFast.split('/')[0]+'\u2013'+pSlow;
+  // The zone/HR TARGET line -- display only. executionZoneKey() itself stays
+  // untouched and keeps falling back to dd.type for every hand-edited day,
+  // exactly as documented ("keep today's type-based behaviour exactly"):
+  // that fallback feeds SCORING (computeExecutionScore et al, which call it
+  // directly and never read this function's output), and scoring an edited
+  // session against SOME zone is the existing, deliberate behaviour this
+  // pass leaves alone. What is gated here is only the athlete-facing
+  // TARGET shown on the card and in the daily notification -- printing an
+  // Easy pace band next to hand-written "10km best effort" instructions is
+  // exactly the stale "pace/effort prescription" this coherence pass exists
+  // to close, and nothing downstream reads this display value for scoring.
+  if (sessionIdentityTrusted(dd)){
+    var paces = getActivePaces();
+    // Target HR for the session, from the same zone the Execution Score grades
+    // against -- resolved here rather than in renderDayCard so every view that
+    // reads a day's targets gets it from one place. Null (and so omitted) for
+    // rest/race days, which have no zone, and whenever LTHR isn't configured.
+    out.hr = fmtHRRange(getTargetHRRangeForDay(dd));
+    var displayKey = executionZoneKey(dd);
+    if (displayKey && paces[displayKey] && paces[displayKey].slow!=null){
+      var z = paces[displayKey];
+      // Ascending (fastest bound first), matching the Pace Reference card and
+      // the Plan HQ zone table -- the same range printed in two orders on one
+      // screen reads like two different targets.
+      var pSlow = fmtPaceFromSecPerKm(z.slow), pFast = fmtPaceFromSecPerKm(z.fast);
+      out.pace = pFast.split('/')[0]+'\u2013'+pSlow;
+    }
+    if (dd.type==='race'){
+      var gp = getGoalPaceSecPerKm();
+      if (gp) out.pace = fmtPaceFromSecPerKm(gp);
+    }
   }
-  if (dd.type==='race'){
-    var gp = getGoalPaceSecPerKm();
-    if (gp) out.pace = fmtPaceFromSecPerKm(gp);
-  }
+  // The athlete's own goal race pace, not a type-zone lookup -- still shown
+  // even on an untrusted-identity day, exactly as it would be for a genuine
+  // marathon-pace segment.
   if (dd.mpSegment){
     var gp2 = getGoalPaceSecPerKm();
     if (gp2) out.goalPace = 'Goal '+fmtPaceFromSecPerKm(gp2);
@@ -9623,11 +9638,47 @@ var TERSE_GUIDANCE = {
               feel:'Comfortable early, hard late.',
               avoid:'Banking time early.' }
 };
+/* ---------- EDITED-SESSION IDENTITY COHERENCE ----------
+   THE DEFECT THIS CLOSES. Every type-keyed fallback below (COACH_GUIDANCE,
+   SESSION_INTENT_BY_TYPE, SESSION_PURPOSE, coachComparable's same-type
+   match) exists for the same reason: a hand-edited or legacy day has no
+   prescription, so there is no archetype to look guidance up by, and dd.type
+   is the only thing left to key it on. That is correct for an edit that
+   changes what the session is CALLED without changing what it IS -- a
+   retitled run, a shorter easy run, the reschedule/completion fields -- and
+   it stops being correct the moment the athlete rewrites the instructions
+   (or the goal-pace flag) without also picking a new Session Type: the type
+   badge still says "Easy" but the words underneath it now describe
+   something else, and every one of these tables would keep confidently
+   explaining how to run an easy day. The invalid state this exists to
+   prevent: TYPE Easy + INSTRUCTION "10km best effort" + WHY "Builds the
+   aerobic base...".
+
+   THE RULE. dd.type is trusted as this session's coaching identity unless a
+   manual edit changed what was ASKED (desc or the goal-pace flag) without
+   the athlete also re-picking the type themselves -- re-picking the type is
+   read as the athlete resolving the question outright, exactly as it
+   already does for coachingEntryFor()'s archetype-vs-type precedence. An
+   untouched day, or one edited only in ways that cannot change what kind of
+   session it is (title, km, reschedule, completion), stays trusted. This
+   reads dd.manualEdit.fields, written by handleSaveEdit() and persisted
+   with the day, so the answer survives a reload without being cached
+   anywhere twice. */
+function sessionIdentityTrusted(dd){
+  if (!dd || !dd.manualEdit) return true;
+  var f = dd.manualEdit.fields || [];
+  if (f.indexOf('type') !== -1) return true;
+  return f.indexOf('desc') === -1 && f.indexOf('mpSegment') === -1;
+}
 function coachingEntryFor(dd){
   var p = prescriptionOf(dd);
   // archetype first, type second: a hand-edited or legacy day still gets the
-  // guidance it has always had, it simply cannot get the specific version
-  var base = (p && ARCHETYPE_GUIDANCE[p.archetype]) || COACH_GUIDANCE[dd.type] || null;
+  // guidance it has always had, it simply cannot get the specific version --
+  // UNLESS the type itself is no longer a trustworthy read of what the
+  // athlete actually wrote (sessionIdentityTrusted() above), in which case
+  // there is no version of this guidance that is not a guess.
+  var base = (p && ARCHETYPE_GUIDANCE[p.archetype]) ||
+    (sessionIdentityTrusted(dd) && COACH_GUIDANCE[dd.type]) || null;
   /* A long run's SHAPE may override individual lines of its guidance -- see
      LONG_RUN_SHAPES. Merged rather than replaced, so a shape states only what
      it needs to and inherits everything else. */
@@ -9644,7 +9695,7 @@ function coachingEntryFor(dd){
 function coachingKeyFor(dd){
   var p = prescriptionOf(dd);
   if (p && ARCHETYPE_GUIDANCE[p.archetype]) return p.archetype;
-  return COACH_GUIDANCE[dd.type] ? dd.type : null;
+  return (sessionIdentityTrusted(dd) && COACH_GUIDANCE[dd.type]) ? dd.type : null;
 }
 /* WHY / HOW / FEEL / AVOID for this session at this athlete's depth. Same
    structure at every level -- only the length changes. */
@@ -16265,7 +16316,11 @@ function coachIntentLine(dd){
   if (!dd) return '';
   var p = prescriptionOf(dd);
   var byArchetype = p && SESSION_INTENT[p.archetype];
-  return resolveDesc(byArchetype || SESSION_INTENT_BY_TYPE[dd.type] || '');
+  // Same identity gate coachingKeyFor() uses: a session whose type is no
+  // longer a trustworthy read of the edited instructions gets no intent
+  // line rather than the wrong one (see sessionIdentityTrusted()).
+  var byType = sessionIdentityTrusted(dd) && SESSION_INTENT_BY_TYPE[dd.type];
+  return resolveDesc(byArchetype || byType || '');
 }
 
 /* coachFocusLine() lived here. It turned the archetype's `feel` and `avoid`
@@ -19112,6 +19167,13 @@ var SESSION_PURPOSE = {
 };
 function sessionPurpose(dd){
   if (!dd) return null;
+  // Same identity gate as coachingKeyFor()/coachIntentLine(): a hand-edit
+  // that changed the instructions without the athlete re-picking the type
+  // leaves nothing here trustworthy to judge the session against (see
+  // sessionIdentityTrusted()). This table has no archetype tier to fall
+  // back to in the first place, so an untrusted day simply has no purpose
+  // asserted, rather than the wrong one.
+  if (!sessionIdentityTrusted(dd)) return null;
   if (dd.mpSegment && dd.type==='long')
     return { label:'Long Run with Marathon-Pace Work',
              text:'Build endurance, then hold race-specific effort on already-tired legs.' };
@@ -19290,11 +19352,19 @@ function coachRecentContext(dd){
    and calling the difference adaptation is exactly the mistake this prevents. */
 function coachComparable(dd, limit){
   if (!dd) return [];
+  // A day whose type is no longer a trustworthy read of what was actually
+  // run (sessionIdentityTrusted()) has no meaningful "same type" match in
+  // either direction: it should not go looking for easy runs to compare
+  // itself against, and a genuine easy run should not be offered it back as
+  // one of ITS comparables either -- both would silently treat an edited
+  // "10km best effort" as an ordinary easy run.
+  if (!sessionIdentityTrusted(dd)) return [];
   var targetKm = dd.km || 0;
   return coachCompletedScored().filter(function(x){
     if (x === dd || x.id === dd.id) return false;
     if (x.date >= dd.date) return false;
     if (x.type !== dd.type) return false;
+    if (!sessionIdentityTrusted(x)) return false;
     if (!!x.mpSegment !== !!dd.mpSegment) return false;
     if (targetKm > 0 && x.km > 0){
       var ratio = x.km / targetKm;
