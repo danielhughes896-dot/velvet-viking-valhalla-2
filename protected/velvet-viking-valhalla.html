@@ -440,16 +440,26 @@
      already uses for a badge/indicator fill; --gold-text and --bronze-ink
      are its existing "gold used as small text" and "dark text on a gold
      fill" counterparts, so no theme-specific override is needed here at all. */
+  /* SOFT-RAISED PILL, not a flat rectangular utility box. Same restrained
+     Level 2 recipe .coach-state already uses for a compact status pill --
+     tile-sheen, tile-border, a hairline lift rather than a full --tile-shadow
+     raised object -- so this compact control visibly belongs to the same
+     tactile/status-pill family as PROCEED, not to its own one-off shape. */
   .tb-unit-toggle{
-    display:flex; width:auto; max-width:64px; gap:2px;
-    background:var(--bg-3); border:1px solid rgba(var(--modal-active-rgb),0.25); border-radius:6px;
-    padding:4px 6px;
+    display:flex; width:auto; max-width:68px; gap:2px;
+    background:var(--tile-sheen), var(--bg-3); border:1px solid var(--tile-border); border-radius:99px;
+    box-shadow:0 1px 2px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10);
+    padding:4px 5px;
   }
   .tb-unit-toggle button{
     flex:1; font-family:'JetBrains Mono',monospace; font-size:0.7rem; font-weight:bold;
-    letter-spacing:normal; padding:2px 0; color:var(--ink-faint); background:transparent; border-radius:3px; text-align:center; line-height:1;
+    letter-spacing:normal; padding:3px 0; color:var(--ink-faint); background:transparent; border-radius:99px; text-align:center; line-height:1;
+    transition:background .15s ease, color .15s ease;
   }
-  .tb-unit-toggle button.active{background:var(--modal-active); color:var(--bronze-ink);}
+  .tb-unit-toggle button.active{
+    background:var(--modal-active); color:var(--bronze-ink);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.18);
+  }
   .countdown{display:flex; align-items:center; justify-content:flex-end;}
   .countdown-badge{
     display:grid; grid-template-columns:1fr 1fr; gap:2px 6px;
@@ -557,15 +567,24 @@
      depth, each segment gets a top-lit sheen via ::after (layered on top so
      the semantic zone colour below is completely untouched), and a hairline
      highlight at each join reads as a seam rather than a flat colour swap.
-     Percentages/legend/calculations are unchanged -- presentation only. */
+     Percentages/legend/calculations are unchanged -- presentation only.
+
+     THICKENED from 10px to 20px and the groove deepened to match -- a 10px
+     track read as a thin flat web progress bar no matter how much depth its
+     shadow carried; a track this size is what makes the sheen and the inset
+     actually visible as physical depth on a real phone, not just a filed
+     token. Still a capsule the colour sits IN, not a raised candy-strip of
+     its own -- the added shadow is inset, and the per-segment sheen is the
+     same top-lit/bottom-shaded pair as before, just proportioned to the
+     taller track. */
   .zbar{
-    display:flex; height:10px; border-radius:99px; overflow:hidden; background:var(--bg-4);
-    box-shadow:inset 0 1px 2px rgba(0,0,0,.22), inset 0 -1px 0 rgba(255,255,255,.05);
+    display:flex; height:20px; border-radius:99px; overflow:hidden; background:var(--bg-4);
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.26), inset 0 -1px 0 rgba(255,255,255,.06);
   }
   .zbar-seg{height:100%; position:relative;}
   .zbar-seg::after{
     content:''; position:absolute; inset:0; pointer-events:none;
-    background:linear-gradient(180deg, rgba(255,255,255,.30) 0%, rgba(255,255,255,0) 45%, rgba(0,0,0,.16) 100%);
+    background:linear-gradient(180deg, rgba(255,255,255,.32) 0%, rgba(255,255,255,0) 38%, rgba(0,0,0,.18) 100%);
   }
   .zbar-seg + .zbar-seg{box-shadow:inset 1px 0 0 rgba(255,255,255,.20);}
   .z-easy{background:var(--c-easy);}
@@ -796,8 +815,17 @@
      stays on the shared type scale instead of its own. */
   .ws-h-name{font-family:'Oswald',sans-serif; font-size:var(--fs-label); letter-spacing:.3px;
              text-transform:uppercase; color:var(--ink); margin-top:7px; line-height:1.25;}
-  .ws-h-qty{font-size:var(--fs-body); line-height:1.2; color:var(--ink); margin-top:4px; font-weight:600; white-space:nowrap;}
-  .ws-k-ladder .ws-h-qty{font-size:var(--fs-label); line-height:1.3; white-space:normal;}
+  /* Wraps by default, not nowrap -- a compound quantity ("2 x 3 x 700m", a
+     ladder's rung list) is exactly as long as the reps the coach prescribed,
+     and forcing every shape onto one line is what collided into the
+     neighbouring column at narrow widths. A short quantity ("12.5km") never
+     had a reason to wrap and still won't; this is a floor for the long ones,
+     not a change to the short ones. Not scoped to .ws-k-set/.ws-k-ladder
+     specifically -- any kind can carry a long quantity, and the fix has to
+     hold for all of them, not just the one literal example that was seen to
+     overflow. */
+  .ws-h-qty{font-size:var(--fs-body); line-height:1.2; color:var(--ink); margin-top:4px; font-weight:600; white-space:normal; overflow-wrap:break-word;}
+  .ws-k-ladder .ws-h-qty{font-size:var(--fs-label); line-height:1.3;}
   /* Effort words ("Easy", "Hard, by feel") have room to wrap at their own
      space if one is ever long enough to need it -- normal white-space, no
      nowrap -- so nothing here is forced onto one line that doesn't need to
@@ -1226,9 +1254,14 @@
      pace-override inputs. */
   .pzr-hr{font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
   .pzr-inputs{display:flex; align-items:center; gap:5px; flex:none;}
+  /* Same shallow inset every other text/number field in the product now
+     carries (.field input) -- these are their own rule rather than that
+     shared one because of their compact width, but the depth cue that says
+     "editable" should be the same one everywhere. */
   .pzr-input{
     width:52px; background:var(--bg-4); border:1px solid var(--line); border-radius:var(--radius-sm);
     color:var(--ink); padding:6px 6px; font-size:12.5px; font-family:'JetBrains Mono',monospace; text-align:center;
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.14);
   }
   .pzr-sep{color:var(--ink-faint); font-size:12px;}
   .pzr-unit{color:var(--ink-faint); font-size:11px; width:20px;}
@@ -1349,6 +1382,18 @@
     background:var(--cherry-fill); color:var(--cherry-btn-ink);
     box-shadow:inset 0 0 0 1px var(--cherry);
   }
+  /* The Settings launcher for that same journey -- Save & Re-tailor already
+     renders in Cherry Lacquer because the Re-calibrate modal itself carries
+     .builder-light; the button that promises that destination should read
+     as the same one action, not the ordinary bronze section-primary. Not
+     scoped by ancestor because this button sits in Settings' own body, not
+     inside the modal -- same declarations as .builder-light .btn-primary,
+     applied directly. */
+  .btn-recal{
+    background:var(--cherry-fill); color:var(--cherry-btn-ink);
+    box-shadow:inset 0 0 0 1px var(--cherry);
+  }
+  .btn-recal:hover{filter:brightness(1.08);}
   .btn-ghost{background:none; border:1px solid var(--line);}
   /* --danger-text, not --c-threshold. The workout-type hues are deliberately
      identical in both themes, and that one lands at 4.37:1 on cream -- close
@@ -1507,7 +1552,7 @@
   .opt-grid button{
     font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); font-weight:700;
     letter-spacing:.4px; min-height:52px; padding:12px 8px; text-align:center;
-    border:1px solid var(--ctl-border); border-radius:12px;
+    border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
     background:var(--ctl-bg); color:var(--ink-faint);
     /* Tactile raised surface at rest -- the exact --shadow-sm outer shadow
        Coach's Reading rows/--tile-shadow use, not a hand-rolled fraction of
@@ -1917,13 +1962,24 @@
     background:var(--tile-sheen), var(--surface-3); border-color:var(--tile-border);
     border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
   }
-  /* Command buttons living inside a soft-raised section (Export, Import,
-     Copy/Paste Backup, Reset Plan, Garmin File Import, iCal export) borrow
-     the tile family's own quieter border instead of the generic --line, so
-     they read as tonally part of the surface that contains them without
-     becoming raised objects of their own -- the section already carries
-     the shadow; a command stays a flat, obviously-a-control shape. */
-  .hub-card.tile-card .btn-ghost{border-color:var(--tile-border);}
+  /* FINAL VISUAL COMPLETION PASS -- a command staying "a control, not a
+     destination" was read as licence to leave it flat, and a flat outlined
+     rectangle next to a soft-raised nav row reads as two different
+     generations of the app, which is exactly the split the founder rejected.
+     Every command inside a soft-raised section (Export, Import, Copy/Paste
+     Backup, Garmin File Import, iCal export, Sign out) now carries the same
+     tile-sheen/tile-border family as the section around it, with a
+     genuinely QUIETER lift than a full .ev-card -- a hairline, not a raised
+     object -- so a command is still obviously the plainer, action-shaped
+     sibling of a navigation row without belonging to an unrelated visual
+     system. Destructive actions (.btn-danger) are deliberately untouched:
+     they stay clearly destructive, not part of this family. */
+  .hub-card.tile-card .btn-ghost{
+    background:var(--tile-sheen), var(--surface-2); border-color:var(--tile-border);
+    box-shadow:0 1px 2px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .hub-card.tile-card .btn-ghost:hover{background:var(--bg-3);}
+  .hub-card.tile-card .btn-ghost:active{background:var(--bg-4); box-shadow:inset 0 1px 2px rgba(0,0,0,.14);}
   /* ---------- Adaptive AI Coach ----------
      Built on the existing .hub-card/.callout primitives so it inherits the
      app's responsive behaviour. Every horizontal run of content either wraps
@@ -2086,7 +2142,9 @@
      open in a panel rather than pushing the page down. The row/pattern styles
      below stayed -- those bodies are the same markup, rendered somewhere
      else. */
-  .hq-row{display:flex; align-items:baseline; gap:10px; padding:3px 0;}
+  /* Centre-aligned, not baseline -- .read-val became a padded pill (see
+     below) and a pill has no text baseline to align a plain label against. */
+  .hq-row{display:flex; align-items:center; gap:10px; padding:3px 0;}
   .hq-row-l{font-size:11px; color:var(--ink-faint); flex:1 1 auto; min-width:0;}
   /* Values here are not all short: "usually normal again within about 34h" and
      "Fitness Checkpoint: 5.2km Time Trial" both appear. flex:none meant they
@@ -2221,12 +2279,23 @@
      coaching engine already assigned it -- which is exactly what .rec-val is
      forbidden from doing. One shell, two grammars, and the grammar is the
      difference between a fact and a verdict. */
+  /* COMPACT SEMANTIC STATUS PILL, not loose coloured text floating on the
+     right -- same restrained Level 2 recipe .coach-state/.tb-unit-toggle
+     already use (tile-sheen, tile-border, a hairline lift, never a full
+     raised object). The background stays the one neutral "rest" tint for
+     every tone: what changes with FRESH/WORTH WATCHING/LEARNING is the text
+     and dot colour, exactly as the semantic law below already fixes it --
+     this only wraps that same text in a pill shell. Right-aligned so it
+     still reads as the row's conclusion, not a fourth stray element. */
   .read-val{
-    font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:.9px;
+    font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1px;
     text-transform:uppercase; color:var(--ink-dim); text-align:right;
     min-width:0; overflow-wrap:anywhere; display:inline-flex; align-items:center; gap:5px;
+    flex:none; white-space:nowrap; padding:3px 9px; border-radius:99px;
+    background:var(--tile-sheen), var(--c-rest-soft); border:1px solid var(--tile-border);
+    box-shadow:0 1px 2px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10);
   }
-  .read-val .read-dot{width:6px; height:6px; border-radius:50%; background:currentColor; flex:none;}
+  .read-val .read-dot{width:5px; height:5px; border-radius:50%; background:currentColor; flex:none;}
   .read-val.good{color:var(--c-easy);}
   .read-val.watch{color:var(--gold);}
   .read-val.bad{color:var(--c-tempo);}
@@ -2409,9 +2478,16 @@
      because the space is there. The clipped-corner plate keeps its own
      width; only its position changes. */
   .b-record .b-plate:nth-child(3):last-child{grid-column:1 / -1; justify-self:center; width:calc(50% - 5px);}
+  /* SOFTENED GEOMETRY -- was a clip-path chamfered octagon (an "approved
+     concept" plate from an earlier, more angular design language). Same
+     information, same position, same colour identity; the rigid cut corners
+     are gone in favour of the same rounded --tile-* soft-raised recipe the
+     rest of Valhalla/Coach/Record now share, so this quiet preview reads as
+     the same product as the cards around it instead of a leftover shape. */
   .b-plate{
-    padding:15px 14px 13px; text-align:left; color:var(--ink); background:var(--bg-2); border:1px solid var(--line);
-    clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,14px 100%,0 calc(100% - 14px),0 14px);
+    padding:15px 14px 13px; text-align:left; color:var(--ink);
+    background:var(--tile-sheen), var(--surface-2); border:1px solid var(--tile-border);
+    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
   }
   .b-plate .val{font-family:'JetBrains Mono',monospace; font-size:16px; font-weight:600; overflow-wrap:anywhere;}
   .b-plate .lbl{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-faint); margin-top:5px;}
@@ -2541,7 +2617,17 @@
 
   .benchmark-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .goal-input-row{display:grid; grid-template-columns:34px 1fr 74px; gap:8px; align-items:center; margin-bottom:9px;}
-  .goal-input-row .gl{font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--bronze-text); text-align:center;}
+  /* A soft rounded badge, not bare bold text -- the same tile-sheen chip
+     language the Active Goal capsule (.goal-opt) already uses for A/B/C
+     elsewhere, scaled down to sit beside an input rather than stand as its
+     own tappable card. This is a label, not a control, so it never gets an
+     active/selected state of its own. */
+  .goal-input-row .gl{
+    font-family:'JetBrains Mono',monospace; font-weight:700; color:var(--bronze-text); text-align:center;
+    width:30px; height:30px; display:flex; align-items:center; justify-content:center;
+    border-radius:50%; background:var(--tile-sheen), var(--bg-2); border:1px solid var(--tile-border);
+    box-shadow:0 1px 2px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.08);
+  }
   .goal-input-row .gp{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); text-align:right;}
 
   .setup-section-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
@@ -9620,12 +9706,34 @@ function renderWorkoutStepHCell(st, i){
 function renderStructuredWorkoutSteps(steps){
   return '<ol class="ws-steps-h">'+steps.map(renderWorkoutStepHCell).join('')+'</ol>';
 }
+/* ONE WORKOUT-STAGE GRAMMAR for every session with more than one stage to
+   show side by side -- not one component for exactly-three-step sessions
+   and a different one for two. 2 and 3 steps both read as balanced flex
+   columns sharing a row (two actually gets MORE room per column than
+   three ever had, so nothing here narrows). This is what brings Long Run +
+   Goal Pace into the same family as a warm-up/work/cool-down session.
+
+   A single whole-session step (an easy run, a long run, a race -- the
+   majority of days in the plan) is deliberately left on the vertical list:
+   it already renders as one clean, uncluttered stage there (no connecting
+   line, since there is nothing to connect to), and moving the most common
+   card shape in the app onto a wide centred row is a far bigger, more
+   speculative change than the one actually asked for. Four-or-more-step
+   sessions (ladders, longer rep sequences) also stay on the vertical list --
+   a readability floor, not a step-count preference: that many stages does
+   not fit as equal-width columns at mobile width.
+
+   hasWorkoutBlueprint() reads this exact same rule so the day-targets
+   summary line never restates what the blueprint already says. */
+function usesHorizontalWorkoutBlueprint(steps){
+  return !!(steps && steps.length >= 2 && steps.length <= 3);
+}
 function renderStructuredWorkout(dd){
   if (!dd || dd.type === 'rest') return '';
   var steps;
   try { steps = workoutSteps(dd); } catch(e) { return ''; }
   if (!steps || !steps.length) return '';
-  var body = steps.length === 3
+  var body = usesHorizontalWorkoutBlueprint(steps)
     ? renderStructuredWorkoutSteps(steps)
     : '<ol class="ws-steps">'+steps.map(renderWorkoutStep).join('')+'</ol>';
   return '<section class="ws-block" aria-label="Structured workout">'+
@@ -9787,7 +9895,7 @@ function displayCardTitle(dd){
    line beneath the title would now say the same thing the blueprint says. */
 function hasWorkoutBlueprint(dd){
   if (!dd || dd.type === 'rest') return false;
-  try { var steps = workoutSteps(dd); return !!(steps && steps.length === 3); } catch(e){ return false; }
+  try { return usesHorizontalWorkoutBlueprint(workoutSteps(dd)); } catch(e){ return false; }
 }
 function renderDayCard(dd){
   var tm = TYPE_META[dd.type];
@@ -25348,9 +25456,17 @@ function handleSetPlanhqTab(tab){
   planhqTab = tab;
   renderApp();
 }
+/* Two tabs, not three. The bottom nav already reads VALHALLA -- repeating it
+   as the first pill of its own subnav said "Valhalla > Valhalla", which is
+   not a real destination, it is where the athlete already is. Coach and
+   Record are the only two places this subnav actually GOES; the overview is
+   what re-tapping the already-active VALHALLA bottom-nav tab returns to
+   (see handleSetView()), the same "tap home again" pattern most bottom-nav
+   shells already use, so no third pill is needed to get back to it. Neither
+   pill is marked active while on the overview itself -- there is no third
+   button standing in for it. */
 function renderPlanHQSubNav(){
   var tabs = [
-    { key:'valhalla', label:'Valhalla' },
     { key:'coach', label:'Coach' },
     { key:'record', label:'Record' }
   ];
@@ -25622,7 +25738,12 @@ function renderSettingsHubView(){
     renderHealthConsentSettings()+
     '<div class="hub-card tile-card">'+
       '<div class="setup-section-title">Training &amp; Zones</div>'+
-      '<button type="button" class="btn btn-primary btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
+      /* .btn-recal, not the ordinary bronze .btn-primary: Re-calibrate is a
+         named journey with its own Cherry Lacquer Save & Re-tailor action
+         inside the modal it opens, and the launcher that promises that
+         journey should read as the same one action, not a generic
+         section-primary button that happens to lead to a cherry screen. */
+      '<button type="button" class="btn btn-primary btn-recal btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
       /* Training paces are configuration/reference, not an athlete record --
          moved here from The Record, using the exact same panel
          (recordPanelZones(), reached the same way Record always opened it)
@@ -25739,7 +25860,15 @@ function renderBottomNavStack(){
   '</div>';
 }
 function handleSetView(view){
-  if (state.view===view) return;
+  if (state.view===view){
+    /* Re-tapping the already-active VALHALLA bottom-nav tab from inside
+       Coach or Record returns to the overview -- the ordinary "tap home
+       again" pattern, and now the ONLY way back, since the subnav no longer
+       carries a redundant third "Valhalla" pill beside Coach/Record. Every
+       other tab keeps its previous no-op behaviour untouched. */
+    if (view==='planhq' && planhqTab!=='valhalla'){ planhqTab = 'valhalla'; renderApp(); }
+    return;
+  }
   state.view = view;
   // Valhalla always opens on its own overview -- see renderPlanHQView().
   if (view==='planhq') planhqTab = 'valhalla';
