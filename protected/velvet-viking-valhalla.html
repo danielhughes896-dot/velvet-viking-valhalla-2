@@ -451,11 +451,13 @@
   /* drop-shadow (not box-shadow) because the wrap holds an SVG plus a div,
      and the SVG's own background is transparent outside the ring -- a
      box-shadow would draw a shadow for the wrap's square bounding box,
-     not the ring's actual shape. Same two-layer lift-plus-contact shadow
-     as the Reading badges, so the flagship gauge and the five medallions
-     read as one family sitting at the same height off the page. */
+     not the ring's actual shape. Same family as the Reading badges' lift-
+     plus-contact shadow, eased back ~23% (per feedback that the gauge's
+     lower shadow read heavier than the medallions and tipped it toward
+     "physical button" rather than "elegant gauge") -- the badges
+     themselves are untouched. */
   .gauge-wrap{position:relative; width:132px; height:132px; margin:0 auto;
-    filter:drop-shadow(0 9px 16px rgba(0,0,0,.30)) drop-shadow(0 3px 5px rgba(0,0,0,.20));}
+    filter:drop-shadow(0 7px 13px rgba(0,0,0,.23)) drop-shadow(0 2px 4px rgba(0,0,0,.15));}
   .gauge-rim{stroke:var(--line); stroke-width:1;}
   .gauge-track{stroke:var(--bg-4);}
   .gauge-fill{stroke:var(--cherry);}
@@ -480,7 +482,11 @@
   .gauge-num{position:absolute; left:50%; top:50%; width:84px; height:84px; transform:translate(-50%,-50%);
     border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center;
     background:radial-gradient(circle at 34% 26%, #FFFFFF 0%, var(--badge-face) 46%, var(--badge-face-lo) 100%);
-    box-shadow:-1.5px -1.5px 2.5px rgba(255,255,255,.7) inset, 2px 2px 4px rgba(0,0,0,.24) inset,
+    /* Lower-right inset shade eased back ~21% alongside .gauge-wrap's
+       external shadow, same reasoning; the upper-left highlight and the
+       bevel seam are untouched -- only the face's own contribution to
+       "how heavy does this look" moved. */
+    box-shadow:-1.5px -1.5px 2.5px rgba(255,255,255,.7) inset, 1.5px 1.5px 3px rgba(0,0,0,.19) inset,
       0 0 0 1px rgba(0,0,0,.14);}
   /* Gold still reads the figure -- the ring is the mechanism and takes the
      accent, the number is the reading and takes gold, exactly as every
@@ -8522,7 +8528,7 @@ function renderConfidenceGauge(){
         '<stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.5"/>'+
         '<stop offset="42%" stop-color="#FFFFFF" stop-opacity="0"/>'+
         '<stop offset="58%" stop-color="#000000" stop-opacity="0"/>'+
-        '<stop offset="100%" stop-color="#000000" stop-opacity="0.4"/>'+
+        '<stop offset="100%" stop-color="#000000" stop-opacity="0.31"/>'+
       '</linearGradient></defs>'+
       '<g class="gauge-ticks">'+ticks.join('')+'</g>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="52" fill="none" class="gauge-rim"/>'+
