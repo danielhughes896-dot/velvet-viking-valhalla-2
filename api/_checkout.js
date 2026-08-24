@@ -28,6 +28,7 @@ const A = require('./_access.js');
 const Prod = require('./_products.js');
 const P = require('./_stripe.js');
 const Store = require('./_commercial-store.js');
+const Agree = require('./_agreements.js');
 
 function log(what){ try{ console.log('checkout: ' + what); }catch(e){} }
 
@@ -55,6 +56,32 @@ function decideCheckout(input){
         is a second thing to keep in step. */
   const offer = Prod.offerForPeriod(o.period);
   if (!offer) return { ok: false, code: 'unknown_billing_period', status: 400 };
+
+  /* 3b. THE LEGAL EVIDENCE, BEFORE THE MONEY.
+   *
+   * Two agreements have to be on record and current before a card is asked
+   * for: acceptance of the Terms in force, and the acknowledgement that the
+   * athlete is asking us to begin a digital service inside the statutory
+   * cancellation period for a distance contract.
+   *
+   * ENFORCED HERE RATHER THAN IN A SCREEN. A checkbox is a claim a browser
+   * makes; this is the server refusing to open a Checkout Session until the
+   * evidence exists in a table nobody can rewrite. That difference is the
+   * whole point -- an acknowledgement that can be bypassed by editing a form
+   * is not evidence of anything.
+   *
+   * VERSION-SENSITIVE BY CONSTRUCTION. hasAccepted() compares against the
+   * version currently in force, so when a solicitor's revision lands the
+   * constant changes, this gate starts refusing, and every athlete is asked
+   * again at their next checkout. Nothing has to be migrated and no stale
+   * "yes" survives its wording. */
+  if (o.evidence && o.evidence.ok !== true){
+    const why = (o.evidence && o.evidence.reason) || 'agreements_not_recorded';
+    return { ok: false, code: why, status: 409, agreements: {
+      terms: !!(o.evidence && o.evidence.terms),
+      immediateStart: !!(o.evidence && o.evidence.immediateStart)
+    } };
+  }
 
   /* 4. MAY THIS ACCOUNT START A PURCHASE AT ALL?
         Answered by the canonical rule rather than by a second opinion computed
@@ -102,7 +129,11 @@ async function handle(req, res){
 
   if (method === 'GET'){
     return S.json(res, 200, {
-      catalogue: Prod.catalogue(P.PROVIDER, process.env),
+      catalogue: Prod.catalogue(P.PROVIDER, process.env, new Date()),
+      /* The wording and versions a purchase surface must render, from the one
+         module that owns them -- so the text an athlete sees and the version
+         recorded against their decision cannot come apart. */
+      agreements: Agree.currentAgreements(),
       commerce_enabled: A.commerceEnabled(),
       provider_configured: stripe.hasSecret
     });
@@ -133,6 +164,9 @@ async function handle(req, res){
     offerCode: offerForBody ? offerForBody.code : null
   }) : null;
 
+  /* Read, never inferred. Nothing the browser sent contributes to this. */
+  const evidence = uid ? await Agree.purchaseEvidence(cfg, S.sb, uid) : null;
+
   const decision = decideCheckout({
     commerceEnabled: A.commerceEnabled(),
     commercialRequired: A.commercialRequired(),
@@ -141,6 +175,7 @@ async function handle(req, res){
     uid: uid,
     period: (body && body.period) || null,
     purchaseCheck: purchaseCheck,
+    evidence: evidence,
     now: new Date()
   });
 
@@ -148,6 +183,9 @@ async function handle(req, res){
     log('REFUSED code=' + decision.code + ' uid=' + P.ref(uid));
     const out = { error: decision.code };
     if (decision.existingProvider) out.existing_provider = decision.existingProvider;
+    /* Which half is missing, so a screen can send the athlete to the right
+       place rather than saying "something is wrong". */
+    if (decision.agreements) out.agreements = decision.agreements;
     return S.json(res, decision.status, out);
   }
 

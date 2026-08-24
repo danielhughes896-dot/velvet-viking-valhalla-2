@@ -108,6 +108,26 @@ Strava, or reaching the end of onboarding. Leaving the builder box unticked is
 recorded as a decision *not* to consent, which is why the athlete is not asked
 again.
 
+**Where the commercial agreements are recorded.** `public.account_agreements` —
+append-only, one row per decision (`user_id`, `agreement_type`,
+`agreement_version`, `decision`, `surface`, `privacy_version`, `offer_code`,
+`decided_at`, `created_at`). Two types and only two: **`terms`**, acceptance of
+the published Terms; and **`immediate_start`**, the acknowledgement that the
+athlete is asking Valhalla to begin the service inside the statutory
+cancellation period for a distance contract. RLS allows the athlete to SELECT
+and INSERT their own rows only; there is no UPDATE and no DELETE policy, so the
+history cannot be rewritten by the person it describes.
+
+This table is **not** where health consent lives, and privacy is **not** an
+agreement in it. A privacy notice is information rather than a decision, so the
+version presented alongside an accepted Terms is recorded as context on that
+row and nothing is ever "consented to". Marketing consent does not exist.
+
+The immediate-start wording is versioned (`immediate_start_v1`) for the same
+reason consent is: it is currently HQ's business draft, and a solicitor's
+revision becomes `immediate_start_v2`, at which point every athlete is asked
+again at their next checkout and the v1 evidence stays exactly as it is.
+
 **Where consent is recorded.** `public.health_data_consent` — append-only, one
 row per decision (`user_id`, `decision`, `consent_version`, `decided_at`,
 `created_at`). RLS allows the athlete to SELECT and INSERT their own rows only;
@@ -322,6 +342,7 @@ foreign keys reference `auth.users`:
 | `subscriptions` | CASCADE |
 | `entitlement_grants` | CASCADE |
 | `health_data_consent` | CASCADE |
+| `account_agreements` | CASCADE |
 | `billing_events` | **SET NULL** |
 
 **Website can safely state:**

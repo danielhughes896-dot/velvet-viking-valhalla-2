@@ -144,6 +144,38 @@ function offerForPeriod(period){
    The alternative -- a placeholder string that looks like an id -- produces a
    checkout that 404s at the provider, after the athlete has committed, which
    is the worst possible place to discover a configuration gap. */
+/* ---------- WHEN THE FIRST PAYMENT ACTUALLY HAPPENS ----------
+ *
+ * "In 14 days" is not a date, and an athlete deciding whether to hand over a
+ * card is entitled to the date. This is the ONE place it is computed.
+ *
+ * WHY IT LIVES IN THE CATALOGUE and not in a screen. TRIAL_DAYS is already the
+ * single authority for the trial length -- it is what the Checkout Session is
+ * created with, and what every provider adapter reads. A screen that added
+ * fourteen days itself would be a second calculation of the same fact, and the
+ * two would drift the first time the trial length changed for anybody. The
+ * server computes it, the catalogue carries it, and a surface renders what it
+ * is given.
+ *
+ * WHAT IT IS AND IS NOT. Before a Checkout Session exists there is no provider
+ * subscription and therefore no provider trial_end: this is a faithful forecast
+ * of what Stripe will be asked for, not a reading of what Stripe decided. The
+ * moment a subscription exists, subscriptions.trial_end is the authority and
+ * this stops being consulted -- which is why nothing downstream of checkout
+ * calls it.
+ *
+ * UTC, DELIBERATELY. The instant is computed in UTC and rendered by the
+ * athlete's own device in their own locale, so an athlete in New Zealand and
+ * one in California both see the local calendar day the charge falls on. Doing
+ * the arithmetic in a local timezone here would mean the server's timezone
+ * decided somebody else's date, and near midnight it would be the wrong one. */
+function trialEndsAt(from, trialDays){
+  const start = from instanceof Date ? from : new Date(from || Date.now());
+  if (isNaN(start.getTime())) return null;
+  const days = trialDays == null ? TRIAL_DAYS : trialDays;
+  return new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
 function providerRefEnvName(provider, offerCode){
   return 'VVV_PRICE_' + String(provider).toUpperCase() + '_' + String(offerCode).toUpperCase();
 }
@@ -162,14 +194,23 @@ function purchasable(provider, offerCode, env){
    configuration: an offer with no provider identifier is listed, priced, and
    marked unavailable, rather than hidden -- "£89.99/year, not open yet" is
    information; a missing row is a bug report. */
-function catalogue(provider, env){
+function catalogue(provider, env, now){
+  /* The forecast first charge, computed once and attached to every offer, so a
+     screen never has to know that a trial is fourteen days -- only how to
+     render a date it was handed. */
+  const firstCharge = trialEndsAt(now || new Date(), TRIAL_DAYS);
   return {
     product: product(STANDARD),
     trialDays: TRIAL_DAYS,
+    firstChargeAt: firstCharge ? firstCharge.toISOString() : null,
     offers: offersFor(STANDARD).map(function(o){
       return Object.assign({}, o, {
         available: provider ? purchasable(provider, o.code, env) : false,
-        providerRefConfigured: provider ? purchasable(provider, o.code, env) : false
+        providerRefConfigured: provider ? purchasable(provider, o.code, env) : false,
+        /* Per offer as well as per catalogue: the two offers share a trial
+           length today, and a screen that read the catalogue-level date would
+           quietly show the wrong one on the day they stop sharing it. */
+        firstChargeAt: firstCharge ? firstCharge.toISOString() : null
       });
     })
   };
@@ -180,5 +221,5 @@ module.exports = {
   CATALOGUE_VERSION,
   isProduct, isOffer, isProvider, isEnvironment,
   product, offer, offersFor, offerForPeriod,
-  providerRefEnvName, providerRef, purchasable, catalogue
+  providerRefEnvName, providerRef, purchasable, catalogue, trialEndsAt
 };

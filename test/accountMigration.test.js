@@ -285,8 +285,16 @@ test('the account shell is public, small, and carries no coaching engine', () =>
      returning session id to the server so entitlement is re-derived from the
      provider rather than believed from a query string. That is roughly 2.8KB,
      it is all door and none of it is product, and the symbol list below still
-     holds unchanged. */
-  assert.ok(shell.length < 29000, 'the shell must stay a shell (' + shell.length + ' bytes)');
+     holds unchanged.
+
+     RAISED AGAIN TO 33KB FOR COMMERCIAL COMMISSIONING. Two things a paying
+     customer has to be shown before a card is taken: the two agreements --
+     Terms, and the acknowledgement that they are asking us to begin the service
+     inside the statutory cancellation period -- and the actual calendar date of
+     the first charge alongside "£0 today". Both are rendered from server-owned
+     wording and a server-computed instant, so the growth is markup and
+     plumbing rather than content this page decides. Still all door. */
+  assert.ok(shell.length < 33000, 'the shell must stay a shell (' + shell.length + ' bytes)');
   ['coachDecision', 'playbookAssess', 'athleteMemory', 'buildBlockWeeks', 'ARCHETYPE_GUIDANCE']
     .forEach(sym => assert.ok(shell.indexOf(sym) === -1, 'shell must not contain ' + sym));
 });
@@ -315,9 +323,27 @@ test('the shell still names no price and makes no claim', () => {
     .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/^\s*\/\/.*$/gm, ' ');
-  [/£\s*\d/, /\$\s*\d/, /€\s*\d/, /\bper month\b/i, /\ba month\b/i, /\bcancel any ?time\b/i,
+  /* ZERO IS NOT A PRICE, and the distinction is the rule's own reasoning applied
+     rather than relaxed. What must not appear is a figure for what the product
+     COSTS -- that number lives in the catalogue, and a copy of it here is the
+     copy that goes stale. "£0 today" is not that number: it is the amount taken
+     during a trial, it is zero by construction of a trial rather than by a
+     commercial decision, and it cannot drift because there is nothing for it to
+     drift from. It is also required disclosure -- an athlete handing over a card
+     is entitled to be told plainly that nothing is taken today.
+
+     The actual prices on this page still come from the server: priceAmount()
+     renders o.priceMinor and o.currency straight off the catalogue, so a price
+     change reaches this screen without anybody editing it. The pattern below
+     therefore forbids a currency symbol followed by a NON-ZERO digit, which is
+     exactly the thing that could ever be wrong. */
+  [/£\s*[1-9]/, /\$\s*[1-9]/, /€\s*[1-9]/, /£\s*0\.\d*[1-9]/,
+   /\bper month\b/i, /\ba month\b/i, /\bcancel any ?time\b/i,
    /\bfree forever\b/i, /\bmoney[- ]back\b/i, /\bbest value\b/i, /\bPro\b/]
     .forEach(rx => assert.ok(!rx.test(shell), 'a price or a claim reached the shell: ' + rx));
+
+  /* And the prices that ARE shown must still be server-derived, never typed. */
+  assert.match(shell, /o\.priceMinor \/ 100/, 'the amount must come from the catalogue');
 });
 
 test('legal routes stay reachable without any entitlement', () => {

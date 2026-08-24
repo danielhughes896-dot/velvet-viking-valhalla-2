@@ -208,6 +208,25 @@ async function withWorld(opts, run){
   S.userIdFromRequest = async () => signedInAs;
   globalThis.fetch = stripe.fetchFn;
 
+  /* THE LEGAL EVIDENCE A REAL ATHLETE WOULD HAVE BY THIS POINT.
+     /api/checkout refuses until both agreements are on record, which is the
+     production behaviour these journeys are supposed to exercise -- so unless a
+     case is specifically about the refusal, it is seeded exactly as ticking the
+     two boxes would leave it. */
+  const Agree = require('../api/_agreements.js');
+  function agreeAll(uid){
+    [['terms', Agree.TERMS_VERSION], ['immediate_start', Agree.IMMEDIATE_START_VERSION]]
+      .forEach(function(pair){
+        f.db.account_agreements.push({
+          id: f.db.account_agreements.length + 1, user_id: uid,
+          agreement_type: pair[0], agreement_version: pair[1],
+          decision: 'accepted', surface: 'checkout',
+          decided_at: new Date(T0).toISOString(), created_at: new Date(T0).toISOString()
+        });
+      });
+  }
+  if (o.agreements !== false) agreeAll(o.uid === undefined ? ATHLETE : (o.uid || ATHLETE));
+
   const api = {
     /* Through the REAL router, so route resolution is part of what is proven. */
     async call(resource, method, body){
@@ -228,7 +247,7 @@ async function withWorld(opts, run){
                       rawBody: raw, body: JSON.parse(raw) }, res);
       return res.result();
     },
-    signInAs(uid){ signedInAs = uid; }
+    signInAs(uid){ signedInAs = uid; agreeAll(uid); }
   };
 
   try{

@@ -100,6 +100,13 @@
          here. A price typed into a screen is a price that drifts from the one
          that will actually be charged, and an offer whose provider identifier
          nobody has configured is not listed as buyable. -->
+    <!-- THE TWO AGREEMENTS, ABOVE THE MONEY.
+         Neither is pre-ticked, neither is inferred from anything else, and
+         neither is Article 9 health consent, which is asked separately inside
+         the app and is not a condition of purchase. The wording and the version
+         both come from the server so what is shown and what is recorded cannot
+         come apart. -->
+    <div id="agreements" class="vvv-hidden"></div>
     <div id="offer-choice" class="vvv-hidden"></div>
     <button type="button" id="export" class="vvv-btn vvv-btn-ghost">Export my training</button>
     <button type="button" id="signout" class="vvv-btn vvv-btn-ghost">Sign out</button>
@@ -262,6 +269,7 @@
        will work, and we would rather say nothing than say "soon". */
     $('resubscribe').classList.toggle('vvv-hidden', hasAccess || !v.checkout_configured);
     renderOffers(v);
+    renderAgreements(v);
   }
 
   /* WHAT IS ON OFFER, FROM THE SERVER. Two buttons at most, built from
@@ -283,14 +291,109 @@
       b.textContent = priceLabel(o) + (cat.trialDays ? ' — ' + cat.trialDays + '-day free trial' : '');
       b.addEventListener('click', function(){ startCheckout(o.billingPeriod, b); });
       box.appendChild(b);
+
+      /* THE ACTUAL DATE, NOT "IN 14 DAYS".
+         Rendered from the server's own firstChargeAt so this screen never adds
+         fourteen days itself -- a second calculation of the trial length is a
+         second thing to drift when the trial length changes. toLocaleDateString
+         puts it in the athlete's own timezone and locale, so the calendar day
+         they read is the one the charge falls on where they are. */
+      var when = whenText(o.firstChargeAt);
+      if (when){
+        var p = document.createElement('p');
+        p.className = 'vvv-quiet';
+        p.textContent = '£0 today. ' + priceAmount(o) + ' will be taken on ' + when +
+          ' unless you cancel before then. After that it renews ' +
+          (o.billingPeriod === 'yearly' ? 'annually' : 'monthly') + ' until you cancel.';
+        box.appendChild(p);
+      }
     });
   }
 
+  function priceAmount(o){
+    var symbol = o.currency === 'GBP' ? '£' : '';
+    return symbol + (o.priceMinor / 100).toFixed(2) + (symbol ? '' : ' ' + o.currency);
+  }
   function priceLabel(o){
     var amount = (o.priceMinor / 100).toFixed(2);
     var symbol = o.currency === 'GBP' ? '£' : '';
     var per = o.billingPeriod === 'yearly' ? 'year' : 'month';
     return symbol + amount + (symbol ? '' : ' ' + o.currency) + ' a ' + per;
+  }
+
+  /* WHAT THE ATHLETE HAS TO AGREE TO BEFORE THEY CAN BE CHARGED.
+     Rendered from the server's own wording and versions, never from a string
+     kept here. Outstanding items only: an athlete who accepted the current
+     Terms last month is not asked again. */
+  function renderAgreements(v){
+    var box = $('agreements');
+    box.innerHTML = '';
+    var out = v && v.agreements_outstanding;
+    var defs = v && v.agreements;
+    if (!out || !defs || (!out.terms && !out.immediate_start)){
+      box.classList.add('vvv-hidden');
+      return;
+    }
+    box.classList.remove('vvv-hidden');
+
+    if (out.terms) box.appendChild(agreementRow('terms',
+      'I accept the <a href="/terms">Terms of Service</a>. I have read the ' +
+      '<a href="/privacy">Privacy Policy</a>.', true));
+
+    /* THE IMMEDIATE-START ACKNOWLEDGEMENT. Its own decision, its own row, its
+       own version -- deliberately not folded into the Terms tick, because a
+       right that is affected needs to be acknowledged in words the athlete
+       actually read rather than inherited from a document they scrolled past. */
+    if (out.immediate_start) box.appendChild(agreementRow('immediate_start',
+      defs.immediateStart.text, false));
+  }
+
+  function agreementRow(kind, html, isHtml){
+    var wrap = document.createElement('label');
+    wrap.className = 'vvv-agree';
+    wrap.style.cssText = 'display:flex;gap:.6rem;align-items:flex-start;margin:.75rem 0;text-align:left;';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = 'agree-' + kind;
+    /* NEVER PRE-TICKED. An affirmative act is one the athlete performs. */
+    cb.checked = false;
+    cb.style.cssText = 'margin-top:.25rem;flex:0 0 auto;';
+    cb.addEventListener('change', function(){
+      if (cb.checked) recordAgreement(kind, 'accepted', cb);
+    });
+    var span = document.createElement('span');
+    span.className = 'vvv-quiet';
+    if (isHtml) span.innerHTML = html; else span.textContent = html;
+    wrap.appendChild(cb); wrap.appendChild(span);
+    return wrap;
+  }
+
+  /* The tick is a request to RECORD a decision, not the decision itself. The
+     server writes the row with its own version and the token's own athlete,
+     and until that row exists /api/checkout refuses -- so a tampered checkbox
+     buys nothing. */
+  function recordAgreement(kind, decision, cb){
+    cb.disabled = true;
+    authed('/api/subscription', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'agree', agreement: kind, decision: decision,
+                             surface: 'checkout', decided_at: new Date().toISOString() })
+    }).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(b){
+        cb.disabled = false;
+        if (r.status === 200){ refreshAndRender(); return; }
+        cb.checked = false;
+        say('msg3', 'We could not record that just now — nothing has changed. Please try again.', 'err');
+      });
+    }).catch(function(){
+      cb.disabled = false; cb.checked = false;
+      say('msg3', 'We could not reach Velvet Viking. Check your connection and try again.', 'err');
+    });
+  }
+
+  function refreshAndRender(){
+    return loadSubscription().then(function(v){ if (v) showLocked(v); });
   }
 
   /* THE ONE PURCHASE DOOR. /api/checkout resolves the price, the customer and
@@ -310,6 +413,10 @@
         /* Named refusals get named sentences. "You already subscribe through
            the App Store" is a different problem from "payments are not open",
            and one sentence for both is how a support queue fills up. */
+        if (b.error === 'terms_not_accepted' || b.error === 'immediate_start_not_acknowledged'){
+          refreshAndRender();
+          return say('msg3', 'Please confirm the boxes above before continuing.', 'err');
+        }
         if (b.error === 'already_subscribed_here')
           return say('msg3', 'You already have a subscription on this account.', 'err');
         if (b.error === 'already_subscribed_elsewhere')

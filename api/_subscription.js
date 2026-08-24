@@ -56,6 +56,7 @@ const Prod = require('./_products.js');
 const Store = require('./_commercial-store.js');
 const Apply = require('./_billing-apply.js');
 const Checkout = require('./_checkout.js');
+const Agree = require('./_agreements.js');
 const E = require('./_entitlement.js');
 
 function log(what){ try{ console.log('subscription: ' + what); }catch(e){} }
@@ -89,7 +90,13 @@ function publicView(decision, ent, uid, email, extra){
        somebody set in an environment variable -- a configured URL was never
        evidence that an offer existed behind it. */
     checkout_configured: Checkout.purchasableNow(process.env),
-    catalogue: Prod.catalogue(P.PROVIDER, process.env),
+    catalogue: Prod.catalogue(P.PROVIDER, process.env, new Date()),
+    /* The wording and versions in force, and what this athlete still owes,
+       so a purchase surface never has to guess either. */
+    agreements: Agree.currentAgreements(),
+    agreements_outstanding: x.evidence
+      ? { terms: !x.evidence.terms, immediate_start: !x.evidence.immediateStart }
+      : null,
     /* WHERE THIS SUBSCRIPTION IS MANAGED. An athlete who bought through the App
        Store cannot cancel here and must not be shown a button that pretends
        otherwise -- Apple owns that relationship and the cancellation lives in
@@ -300,7 +307,24 @@ async function handle(req, res){
       return S.json(res, 410, { error: 'gone', code: 'USE_CHECKOUT_ENDPOINT',
                                 checkout_endpoint: '/api/checkout' });
     }
-    if (action === 'reconcile')        outcome = await reconcile(req, res, cfg, who.uid, body);
+    if (action === 'agree'){
+      /* RECORDING A DECISION, NOT MAKING ONE. The athlete's answer arrives as
+         a decision and a type; the VERSION is this server's, the user is the
+         token's, and decided_at is when their device says they decided. A
+         browser cannot name the wording it is agreeing to -- see
+         _agreements.record(). */
+      const rec = await Agree.record(cfg, S.sb, who.uid, {
+        type: body && body.agreement,
+        decision: body && body.decision,
+        surface: (body && body.surface) || 'checkout',
+        offerCode: (body && body.offer_code) || null,
+        decidedAt: (body && body.decided_at) || new Date().toISOString()
+      });
+      outcome = rec.ok
+        ? { code: 'agreement_recorded', status: 200 }
+        : { code: rec.reason, status: rec.reason === 'write_failed' ? 503 : 400 };
+    }
+    else if (action === 'reconcile')   outcome = await reconcile(req, res, cfg, who.uid, body);
     else if (action === 'cancel')      outcome = await mutateSubscription(req, res, cfg, who.uid, 'cancel');
     else if (action === 'reactivate')  outcome = await mutateSubscription(req, res, cfg, who.uid, 'reactivate');
     else return S.json(res, 400, { error: 'bad_request', code: 'UNKNOWN_ACTION' });
@@ -331,9 +355,11 @@ async function handle(req, res){
   const commercial = await Store.readCommercialFacts(S, cfg, who.uid);
   const live = commercial.ok ? liveSubscriptionOf(commercial, new Date()) : null;
 
+  const evidence = await Agree.purchaseEvidence(cfg, S.sb, who.uid);
   const view = publicView(decision, ent.row, who.uid, who.email, {
     managementProvider: live ? live.provider : null,
-    manageableHere: !!(live && live.provider === P.PROVIDER)
+    manageableHere: !!(live && live.provider === P.PROVIDER),
+    evidence: evidence
   });
   if (outcome) view.result = outcome.code;
 

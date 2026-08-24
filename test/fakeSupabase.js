@@ -101,7 +101,12 @@ function matches(row, filters){
 function createFakeSupabase(seed){
   const db = {
     account_commercial: [], subscriptions: [], entitlement_grants: [],
-    billing_events: [], entitlements: []
+    billing_events: [], entitlements: [],
+    /* Append-only legal evidence, present so a commercial journey test runs
+       against the same refusals production applies: /api/checkout will not open
+       a Checkout Session until both agreements are on record. A fake missing
+       this table would make every purchase test pass for the wrong reason. */
+    account_agreements: []
   };
   Object.keys(seed || {}).forEach(function(t){
     (seed[t] || []).forEach(function(r){ db[t].push(Object.assign({}, DEFAULTS[t], r)); });
