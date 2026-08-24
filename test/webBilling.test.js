@@ -230,6 +230,7 @@ async function withWorld(opts, run){
      real function back. */
   const Agree = require('../api/_agreements.js');
   const realPurchaseEvidence = Agree.purchaseEvidence;
+  const realCurrentAgreements = Agree.currentAgreements;
   function agreeAll(uid){
     [['terms', Agree.TERMS_COMMERCIAL_VERSION], ['immediate_start', Agree.IMMEDIATE_START_VERSION]]
       .forEach(function(pair){
@@ -264,9 +265,14 @@ async function withWorld(opts, run){
   }
   if (o.agreements !== false){
     Agree.purchaseEvidence = publishedWorldEvidence;
+    /* The payload a surface renders comes from the same projection, so the
+       published world is consistent end to end: the URL a screen shows and the
+       version the evidence names are still produced together. */
+    Agree.currentAgreements = () => realCurrentAgreements(true);
     agreeAll(o.uid === undefined ? ATHLETE : (o.uid || ATHLETE));
   } else {
     Agree.purchaseEvidence = realPurchaseEvidence;
+    Agree.currentAgreements = realCurrentAgreements;
   }
 
   const api = {
@@ -298,6 +304,7 @@ async function withWorld(opts, run){
     /* The real gate goes back, always. A harness that could leave it stood
        down would let a later test pass against a world that does not exist. */
     Agree.purchaseEvidence = realPurchaseEvidence;
+    Agree.currentAgreements = realCurrentAgreements;
     S.sb = saved.sb; S.config = saved.config;
     S.verifyUser = saved.verifyUser; S.userIdFromRequest = saved.uidFrom;
     globalThis.fetch = saved.fetch;
@@ -1485,4 +1492,69 @@ test('the immediate-start acknowledgement still stands on its own', async () => 
     assert.equal(rows[0].agreement_version, 'immediate_start_v1');
     assert.equal(rows[0].decision, 'accepted');
   });
+});
+
+// ---------------------------------------------------------------------------
+// WHAT CUSTOMER #1 IS SHOWN BEFORE THEY HAND OVER A CARD
+//
+// Run against the published world, because that is the screen that will exist
+// the moment the gate opens. Every fact an athlete needs in order to consent
+// to a recurring charge, asserted from the payload the screen actually renders
+// from -- not from the markup, which could agree with a comment and disagree
+// with the server.
+// ---------------------------------------------------------------------------
+test('the pre-checkout screen carries every fact a purchase decision needs', async () => {
+  await withWorld({}, async ({ api }) => {
+    const r = await api.call('subscription', 'GET');
+    assert.equal(r.status, 200);
+    const v = r.json;
+
+    /* THE DOCUMENTS, by canonical URL and by the version that will be
+       recorded against the decision. Same payload, so they cannot diverge. */
+    const a = v.agreements;
+    assert.equal(a.terms.url, 'https://velvetviking.co.uk/terms');
+    assert.equal(a.privacy.url, 'https://velvetviking.co.uk/privacy');
+    assert.equal(a.terms.version, 'commercial_terms_v1');
+    assert.equal(a.privacy.version, 'commercial_privacy_v1');
+
+    /* PRIVACY IS STILL A NOTICE. */
+    assert.equal(a.privacy.isConsent, false);
+    assert.equal(a.privacy.note, 'notice, not consent');
+
+    /* THE IMMEDIATE-START ACKNOWLEDGEMENT, separate and unticked. */
+    assert.equal(a.immediateStart.version, 'immediate_start_v1');
+    assert.equal(a.immediateStart.preTicked, false);
+    assert.equal(a.immediateStart.mustBeAffirmative, true);
+    assert.match(a.immediateStart.text, /begin the service during the 14-day period/);
+
+    /* THE MONEY: both offers, the trial, and the exact date of the first
+       charge -- computed by the server so the date on the screen is the date
+       the charge falls on. */
+    const offers = {};
+    v.catalogue.offers.forEach(o => { offers[o.code] = o; });
+    assert.equal(offers.STANDARD_MONTHLY.priceMinor, 1199);
+    assert.equal(offers.STANDARD_YEARLY.priceMinor, 8999);
+    assert.equal(offers.STANDARD_MONTHLY.currency, 'GBP');
+    assert.equal(offers.STANDARD_MONTHLY.billingPeriod, 'monthly');
+    assert.equal(offers.STANDARD_YEARLY.billingPeriod, 'yearly');
+    for (const o of Object.values(offers)){
+      assert.equal(o.trialDays, 14);
+      assert.ok(o.firstChargeAt, 'the exact first-charge date, not "in 14 days"');
+      assert.equal(new Date(o.firstChargeAt) - new Date(v.catalogue.now || Date.now()) > 0, true);
+    }
+
+    /* Exactly one product, and no retired tier or founding price on the way
+       to the athlete. */
+    assert.deepEqual(Object.keys(offers).sort(), ['STANDARD_MONTHLY', 'STANDARD_YEARLY']);
+  });
+});
+
+test('the £0-today sentence names the amount, the date and the cadence', () => {
+  /* The screen composes it, so the screen is where it is checked -- but every
+     value in it comes from the payload above rather than from this file. */
+  const fs = require('fs');
+  const src = fs.readFileSync(require('path').join(__dirname, '..', 'account.html'), 'utf8');
+  assert.match(src, /£0 today\. ' \+ priceAmount\(o\) \+ ' will be taken on ' \+ when/);
+  assert.match(src, /unless you cancel before then/, 'cancellation, before the charge');
+  assert.match(src, /it renews ' \+\s*\(o\.billingPeriod === 'yearly' \? 'annually' : 'monthly'\) \+ ' until you cancel/);
 });

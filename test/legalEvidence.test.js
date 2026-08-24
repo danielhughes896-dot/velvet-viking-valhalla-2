@@ -186,7 +186,7 @@ test('an agreement to superseded wording stops counting, and nothing is lost', a
   /* AND THE LIMIT CASE. With no document in force, no stored row of any
      version counts -- including a row naming the beta Terms, which is exactly
      the acceptance that must never be readable as evidence for a purchase. */
-  for (const v of ['terms_v1', 'terms_commercial_v1', 'anything']){
+  for (const v of ['terms_v1', 'commercial_terms_v1', 'anything']){
     assert.equal(await Agree.hasAccepted(CFG,
       sbReturning([row({ agreement_version: v })]), UID, 'terms'), false,
       'no Terms row counts while nothing is published: ' + v);
@@ -405,8 +405,14 @@ test('the commercial Terms do not inherit the private-beta Terms identifier', ()
      it for a subscription contract would make every stored row ambiguous about
      which document it attests, and would let a beta-era acceptance stand as
      evidence for a paid purchase. A new document gets a new identifier. */
+  /* The identifiers are the WEBSITE'S, published alongside the documents
+     themselves. The app adopts the published names rather than minting its
+     own -- two vocabularies for one contract is the ambiguity the identifier
+     exists to prevent. */
   assert.equal(Agree.TERMS_BETA_VERSION, 'terms_v1');
-  assert.equal(Agree.TERMS_COMMERCIAL_VERSION, 'terms_commercial_v1');
+  assert.equal(Agree.TERMS_COMMERCIAL_VERSION, 'commercial_terms_v1');
+  assert.equal(Agree.PRIVACY_COMMERCIAL_VERSION, 'commercial_privacy_v1');
+  assert.equal(Agree.PRIVACY_BETA_VERSION, 'privacy_v1');
   assert.notEqual(Agree.TERMS_COMMERCIAL_VERSION, Agree.TERMS_BETA_VERSION);
   assert.notEqual(Agree.PRIVACY_COMMERCIAL_VERSION, Agree.PRIVACY_BETA_VERSION);
 });
@@ -521,4 +527,70 @@ test('the app legal pages show no unresolved placeholder', () => {
     assert.ok(!/to be confirmed by the owner|\[GOVERNING LAW|\bTBC\b/i.test(src),
       f + ' still shows an unresolved placeholder');
   }
+});
+
+// ===========================================================================
+// FAIL-CLOSED IS A PROPERTY OF EVERY STATE, NOT A FACT ABOUT TODAY
+//
+// The dangerous moment for a gate like this is the day it first opens: the
+// refusing half stops being exercised, and quietly stops working. inForce() is
+// a pure function of one boolean precisely so both halves stay provable after
+// the commercial documents go live -- and so a future withdrawal, replacement
+// or lapse lands back in a state that has tests.
+// ===========================================================================
+test('with the documents published, the website\'s own identifiers are what count', () => {
+  const on = Agree.inForce(true);
+  assert.equal(on.terms, 'commercial_terms_v1');
+  assert.equal(on.privacy, 'commercial_privacy_v1');
+  assert.equal(on.termsUrl, Agree.CANONICAL_TERMS_URL);
+  assert.equal(on.termsUrl, 'https://velvetviking.co.uk/terms');
+});
+
+test('with the documents unpublished, no Terms version exists at all', () => {
+  const off = Agree.inForce(false);
+  assert.equal(off.terms, null, 'and never the beta identifier as a fallback');
+  assert.notEqual(off.terms, Agree.TERMS_BETA_VERSION);
+
+  /* The notice and the link DO name what is actually in force, because a
+     reader should be able to reach the document that governs them today. It
+     is ACCEPTANCE that must not be recordable, not information. */
+  assert.equal(off.privacy, 'privacy_v1');
+  assert.equal(off.termsUrl, Agree.BETA_TERMS_URL);
+});
+
+test('a beta acceptance can never satisfy the commercial Terms', async () => {
+  /* THE MIGRATION HAZARD, closed by construction. When the commercial document
+     goes live, every athlete is asked again -- an existing terms_v1 row is
+     evidence about the beta document and stays that way. Proven against the
+     published-world version rather than against today's null, so it keeps
+     meaning something after the gate opens. */
+  const published = Agree.inForce(true).terms;
+  const betaRow = { decision: 'accepted', agreement_version: Agree.TERMS_BETA_VERSION,
+                    decided_at: '2026-08-01T00:00:00Z' };
+  assert.notEqual(betaRow.agreement_version, published,
+    'a beta acceptance must not read as a commercial one');
+
+  /* And the live reader refuses it too, today, for the stronger reason that
+     nothing is in force at all. */
+  assert.equal(await Agree.hasAccepted(CFG, sbReturning([betaRow]), UID, 'terms'), false);
+});
+
+test('a superseded commercial version stops counting when v2 lands', async () => {
+  /* Not hypothetical: it is the same comparison that protects the beta rows,
+     and the reason a solicitor's revision costs no evidence and no migration. */
+  const v1 = Agree.inForce(true).terms;
+  for (const stored of ['commercial_terms_v0', 'commercial_terms_v2', 'terms_v1']){
+    assert.notEqual(stored, v1, stored + ' must not read as the version in force');
+  }
+});
+
+test('the gate that is closed today is the one line that opens it', () => {
+  /* One constant, one place, and the test says which. If somebody opens the
+     gate, this assertion is what makes them look at the publication evidence
+     rather than at a link. */
+  const src = read('api/_agreements.js');
+  assert.match(src, /const COMMERCIAL_LEGAL_PUBLISHED = (true|false);/,
+    'exactly one constant decides it');
+  assert.match(src, /LEGAL_APPROVALS\.terms and LEGAL_APPROVALS\.privacyCommercial/,
+    'and the check to run before flipping it is written down beside it');
 });

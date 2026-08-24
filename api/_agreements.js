@@ -89,6 +89,13 @@ const COMMERCIAL_LEGAL_PUBLISHED = false;
 
 /* THE COMMERCIAL TERMS VERSION.
  *
+ * THE WEBSITE NAMES IT, NOT THIS REPOSITORY. The document and its identifier
+ * are published together, so the app adopts the published name rather than
+ * minting its own. An earlier pass here used a provisional `terms_commercial_v1`
+ * while the document was unpublished; that name is gone, because two
+ * vocabularies for one contract is exactly the ambiguity the identifier exists
+ * to prevent.
+ *
  * DELIBERATELY NOT terms_v1. That identifier belongs to the app's
  * private-beta Terms, and reusing it for a subscription contract would make
  * every future row ambiguous about which document it attests -- and would let
@@ -98,7 +105,7 @@ const COMMERCIAL_LEGAL_PUBLISHED = false;
  * Bump it whenever the published Terms change materially. Every athlete is
  * then asked again, and the previous acceptances stay in the table as the
  * record of what was agreed before. */
-const TERMS_COMMERCIAL_VERSION = 'terms_commercial_v1';
+const TERMS_COMMERCIAL_VERSION = 'commercial_terms_v1';
 const TERMS_BETA_VERSION       = 'terms_v1';
 
 /* THE PRIVACY NOTICE CURRENTLY PUBLISHED. Recorded as context, never agreed
@@ -106,16 +113,38 @@ const TERMS_BETA_VERSION       = 'terms_v1';
    anything -- it changes what future rows say was presented. The commercial
    policy is a different document from the beta notice, so it has a different
    identifier for the same reason the Terms do. */
-const PRIVACY_COMMERCIAL_VERSION = 'privacy_commercial_v1';
+const PRIVACY_COMMERCIAL_VERSION = 'commercial_privacy_v1';
 const PRIVACY_BETA_VERSION       = 'privacy_v1';
 
-/* WHAT IS IN FORCE RIGHT NOW. Null Terms means there is no commercial Terms
-   document to accept, and every path that needs one fails closed rather than
-   falling back to the beta document. */
-const TERMS_VERSION   = COMMERCIAL_LEGAL_PUBLISHED ? TERMS_COMMERCIAL_VERSION : null;
-const PRIVACY_VERSION = COMMERCIAL_LEGAL_PUBLISHED ? PRIVACY_COMMERCIAL_VERSION
-                                                   : PRIVACY_BETA_VERSION;
-const TERMS_URL = COMMERCIAL_LEGAL_PUBLISHED ? CANONICAL_TERMS_URL : BETA_TERMS_URL;
+/* WHAT IS IN FORCE, GIVEN A PUBLICATION STATE.
+ *
+ * A PURE FUNCTION OF ONE BOOLEAN, and deliberately so. The rule that matters
+ * here is not "what is true today" -- today is one call away and will change
+ * -- but "what happens in each state", including every future state where the
+ * documents are withdrawn, replaced or superseded. Written this way, both
+ * answers are provable without editing the constant, so the fail-closed half
+ * cannot quietly stop being tested the moment v1 goes live.
+ *
+ * NULL TERMS MEANS NO COMMERCIAL TERMS DOCUMENT. Every path that needs one
+ * fails closed rather than falling back to the beta document.
+ *
+ * Note what does NOT fall back: the Terms version. The privacy version and the
+ * Terms URL both name the beta document when nothing commercial is published,
+ * because a notice and a link should point at whatever is actually in force --
+ * but an ACCEPTANCE must never be recordable against a document that describes
+ * something the athlete is not buying. */
+function inForce(published){
+  return {
+    terms:   published ? TERMS_COMMERCIAL_VERSION : null,
+    privacy: published ? PRIVACY_COMMERCIAL_VERSION : PRIVACY_BETA_VERSION,
+    termsUrl: published ? CANONICAL_TERMS_URL : BETA_TERMS_URL
+  };
+}
+
+const NOW = inForce(COMMERCIAL_LEGAL_PUBLISHED);
+const TERMS_VERSION   = NOW.terms;
+const PRIVACY_VERSION = NOW.privacy;
+const TERMS_URL       = NOW.termsUrl;
 
 /* THE IMMEDIATE-START ACKNOWLEDGEMENT CURRENTLY IN FORCE.
  *
@@ -161,20 +190,27 @@ function versionFor(type){
    THE URL AND THE VERSION COME OUT TOGETHER, and that is the point. The whole
    defect this exists to close was a surface linking to one document while the
    evidence named another. */
-function currentAgreements(){
+function currentAgreements(published){
+  /* A PURE PROJECTION OF THE PUBLICATION STATE, defaulting to the real one.
+     The argument exists for the same reason inForce() takes one: the payload a
+     surface renders in each state should be provable in each state, including
+     after the gate opens and the closed half stops happening by itself. No
+     production caller passes it. */
+  const on = published === undefined ? COMMERCIAL_LEGAL_PUBLISHED : !!published;
+  const v = inForce(on);
   return {
     /* Publication state, said out loud, so a surface renders the truth
        rather than deciding for itself what silence means. */
-    commercialLegalPublished: COMMERCIAL_LEGAL_PUBLISHED,
+    commercialLegalPublished: on,
     terms: {
       type: 'terms',
-      version: TERMS_VERSION,
-      url: TERMS_URL,
+      version: v.terms,
+      url: v.termsUrl,
       /* False means: there is nothing here an athlete may accept. */
-      agreeable: TERMS_VERSION != null
+      agreeable: v.terms != null
     },
     privacy: {
-      version: PRIVACY_VERSION,
+      version: v.privacy,
       url: CANONICAL_PRIVACY_URL,
       note: 'notice, not consent',
       /* Restated in the payload because it is the mistake this design exists
@@ -346,5 +382,6 @@ module.exports = {
   PRIVACY_VERSION, PRIVACY_COMMERCIAL_VERSION, PRIVACY_BETA_VERSION,
   CANONICAL_TERMS_URL, CANONICAL_PRIVACY_URL, BETA_TERMS_URL, TERMS_URL,
   IMMEDIATE_START_VERSION, IMMEDIATE_START_TEXT,
+  inForce,
   versionFor, currentAgreements, hasAccepted, record, purchaseEvidence
 };
