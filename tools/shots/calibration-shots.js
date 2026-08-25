@@ -54,11 +54,16 @@ function athlete(opts){
     const seg = segs.filter(s => s.role === 'calibration_measure')[0];
     dd.completed = true;
     dd.actual = Object.assign(a.emptyActual(), { km: dd.km, pace: '4:38', rpe: 8, feel: 'good' });
-    /* Both halves of the measurement: the heart rate AND the distance covered
-       in the measured window, which is where the threshold pace comes from. */
-    dd.actual.splits = [{ segId: seg.segId, role: 'calibration_measure',
-                          label: 'Same effort \u2014 final 20 min', km: 4.6, sec: 1200,
-                          paceSec: null, hr: 171 }];
+    /* A ROW PER WORK SEGMENT, because the two anchors use different windows:
+       threshold PACE comes from the complete thirty minutes, so both halves
+       carry a distance, and threshold HEART RATE from the final twenty, so
+       only that row carries one. 2.3 + 4.6 = 6.9km in 30:00 = 4:21/km. */
+    const settle = segs.filter(x => x.role === 'calibration_settle')[0];
+    dd.actual.splits = [
+      { segId: settle.segId, role: 'calibration_settle',
+        label: 'Time trial \u2014 first 10 min', km: 2.3, sec: 600, paceSec: null, hr: null },
+      { segId: seg.segId, role: 'calibration_measure',
+        label: 'Same effort \u2014 final 20 min', km: 4.6, sec: 1200, paceSec: null, hr: 171 }];
     a.applyCalibrationFromDay(dd);
   }
   return a;

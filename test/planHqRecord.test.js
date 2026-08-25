@@ -153,7 +153,12 @@ test('RECORD: the zone-paces fact counts the zones and names the hand-edited one
   // recordZonesFact() itself is untouched by the relocation -- it is the
   // presentation (which screen shows it) that moved, not the logic. Checked
   // directly now that there is no more Record card to read it back through.
-  assert.match(a.recordZonesFact().synopsis, /All five as calculated from your active goal/);
+  /* The synopsis names whatever is anchoring the zones, which for this fixture
+     -- a benchmark and no measured evidence -- is the benchmark. It used to say
+     "your active goal" unconditionally, which stopped being true when training
+     paces moved onto currentFitnessAnchor(). */
+  assert.equal(a.currentFitnessAnchor().source, 'benchmark');
+  assert.match(a.recordZonesFact().synopsis, /All five as calculated from your benchmark/);
   assert.equal(a.recordZonesFact().value, '5 zones');
 
   a.state.setup.paceOverrides = { M: { fast: 250, slow: 262 } };
@@ -363,14 +368,26 @@ test('EXIT: editing a pace inside the panel does not throw the page back to the 
 // ===========================================================================
 test('CLAIMS: no panel says the benchmark sets the training paces', () => {
   const a = planHQ();
-  const all = Object.keys(a.RECORD_PANELS).map(k => a.RECORD_PANELS[k]()).join('\n');
-  // getActiveVDOT() reads the athlete's active GOAL. Anything that says the
-  // paces come from the benchmark contradicts the engine.
-  assert.doesNotMatch(all, /pace[^.]{0,60}derived from (this|the benchmark|your benchmark)/i);
-  assert.doesNotMatch(all, /benchmark[^.]{0,40}every training pace/i);
-  assert.match(a.RECORD_PANELS.zones(), /Calculated from your active goal/,
+  /* METHODOLOGY CHANGED, AND SO DID THIS TEST. Training paces used to descend
+     from the active GOAL, so any panel crediting the benchmark contradicted the
+     engine. They now descend from currentFitnessAnchor(), whose third rung IS
+     the benchmark -- so the claim to police is no longer "never say benchmark",
+     it is "say whichever one is actually anchoring them right now".
+
+     This fixture has a benchmark and no measured evidence, so the honest
+     answer for it is the benchmark. */
+  assert.equal(a.currentFitnessAnchor().source, 'benchmark');
+  assert.match(a.RECORD_PANELS.zones(), /Calculated from the benchmark time you gave at setup/,
     'the zone panel does not say where the paces actually come from');
-  assert.match(a.RECORD_PANELS.benchmark(), /calculated from your active goal/i);
+  assert.match(a.RECORD_PANELS.benchmark(), /Calculated from the benchmark time you gave at setup/i);
+
+  /* AND IT STILL TRACKS THE ANCHOR rather than being a new hard-coded claim:
+     give the same athlete a measured result and both panels change. */
+  a.athlete().performances.push({ date: a.addDays(a.todayStr(), -5), source: 'race',
+                                  vdot: 50, qualified: true });
+  assert.equal(a.currentFitnessAnchor().source, 'performance');
+  assert.match(a.RECORD_PANELS.zones(), /most recent measured result/);
+  assert.ok(!/Calculated from the benchmark time/.test(a.RECORD_PANELS.zones()));
 });
 
 test('CLAIMS: a benchmark is never called a measurement of current fitness', () => {

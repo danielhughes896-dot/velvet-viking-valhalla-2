@@ -26,10 +26,22 @@ function athlete(opts) {
   a.flushSave = () => {}; a.scheduleSave = () => {};
   buildPlan(a, { weeks: 12, startDate: a.addDays(TODAY, -56), distanceKey: 'half',
                  volume: 55, benchSec: 45 * 60, lthr: 165, maxHR: 190 });
+  /* LOGGED AT EACH DAY'S OWN TARGET, not at one hard-coded 5:00.
+     This file is about COPY VARIETY, so the athlete has to be unremarkable:
+     every session run as prescribed, leaving the coach nothing to keep saying.
+     A single fixed pace across every session type stopped being unremarkable
+     when training paces moved onto current fitness -- 5:00/km sat inside a
+     goal-derived easy window and sits outside a slower measured one, so the
+     coach correctly observed "ran quicker than the easy window" on 22 cards
+     and this test correctly caught 22 identical sentences. The observation was
+     right; the fixture was wrong. */
   a.state.days.filter(d => d.date < TODAY && d.type !== 'rest').forEach(dd => {
+    const band = a.executionPaceTarget(dd) || a.getTargetPaceRangeSecPerKm(dd);
+    const pace = (band && band.slow != null && band.fast != null)
+      ? a.secToClock(Math.round((band.slow + band.fast) / 2)) : '5:00';
     dd.completed = true;
     dd.actual = Object.assign(a.emptyActual(),
-      { km: dd.km, pace: '5:00', rpe: 6 }, o.withHR ? { hr: 150 } : {});
+      { km: dd.km, pace: pace, paceUnit: 'km', rpe: 6 }, o.withHR ? { hr: 150 } : {});
     try { a.coachPersistReview(dd); } catch (e) {}
   });
   return a;

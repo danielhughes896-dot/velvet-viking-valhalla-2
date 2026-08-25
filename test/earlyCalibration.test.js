@@ -42,18 +42,35 @@ function measuredSegId(a, dd){
   const segs = a.orderedSegments(a.prescriptionOf(dd)) || [];
   return (segs.filter(s => s.role === 'calibration_measure')[0] || {}).segId;
 }
-/* Log the session the way the athlete does: a structured row against the
-   measured window, carrying its heart rate. */
-function logCalibration(a, dd, hr, extra){
-  const segId = measuredSegId(a, dd);
+/* Log the session the way the athlete does: a structured row per work
+   segment. Both carry a distance, because threshold PACE comes from the full
+   thirty minutes; only the measured window carries the heart rate, because
+   threshold HEART RATE comes from the final twenty. */
+function segIdFor(a, dd, role){
+  const segs = a.orderedSegments(a.prescriptionOf(dd)) || [];
+  return (segs.filter(s => s.role === role)[0] || {}).segId;
+}
+function logCalibration(a, dd, hr, opts){
+  const o = opts || {};
   dd.completed = true;
   dd.actual = dd.actual || a.emptyActual();
   dd.actual.splits = dd.actual.splits || [];
-  dd.actual.splits.push(Object.assign(
-    { segId: segId, role: 'calibration_measure', label: 'Measured 20 min',
-      km: null, sec: 20 * 60, paceSec: null, hr: hr }, extra || {}));
+  const push = (role, km, sec, rowHr) => {
+    if (km === undefined) return;
+    dd.actual.splits.push({ segId: segIdFor(a, dd, role), role: role,
+      label: role, km: km, sec: sec, paceSec: null, hr: rowHr });
+  };
+  /* 2.3km + 4.6km in 10 + 20 minutes = 6.9km in 30:00 = 4:21/km. */
+  push('calibration_settle',
+       o.settleKm === undefined ? 2.3 : o.settleKm,
+       o.settleSec === undefined ? 10 * 60 : o.settleSec, null);
+  push('calibration_measure',
+       o.measuredKm === undefined ? 4.6 : o.measuredKm,
+       o.measuredSec === undefined ? 20 * 60 : o.measuredSec, hr);
   return dd;
 }
+// The pace a full-protocol log implies: 6.9km in 30:00.
+const DEFAULT_PACE = Math.round(1800 / 6.9);   // 261 s/km = 4:21
 
 // ---------------------------------------------------------------------------
 // WHO GETS ONE
@@ -208,7 +225,7 @@ test('the threshold is the measured window, and nothing else', () => {
   /* A whole-session average includes the warm-up and the cool-down, so it is
      deliberately not a fallback and must not be read even when present. */
   dd.actual.hr = 140;
-  const m = a.calibrationMeasuredHR(dd);
+  const m = a.calibrationResult(dd);
   assert.equal(m.hr, 171, 'the number came from the measured segment');
 
   a.applyCalibrationFromDay(dd);
@@ -536,7 +553,7 @@ test('maximal stays false, and that is not what classifies a Fitness Checkpoint'
 
   /* Proof that the classification is elsewhere: a fully logged calibration,
      with distance and pace, is still not a measured performance. */
-  logCalibration(a, dd, 171, { km: 7.0 });
+  logCalibration(a, dd, 171);
   dd.actual.km = 12; dd.actual.pace = '4:20';
   assert.equal(a.performanceFromDay(dd), null);
 });
@@ -544,49 +561,101 @@ test('maximal stays false, and that is not what classifies a Fitness Checkpoint'
 // ---------------------------------------------------------------------------
 // THE PACE HALF
 // ---------------------------------------------------------------------------
-test('threshold pace is measured from the same window as the heart rate', () => {
+test('the two anchors use different windows, and the physiology is why', () => {
+  /* HEART RATE lags the effort and is still climbing through the opening ten,
+     so it is averaged over the FINAL TWENTY. PACE does not lag -- the athlete
+     is running at the effort from the first stride -- so the anchor is the
+     COMPLETE THIRTY, and throwing away a third of the test would discard real
+     evidence. */
   const a = app();
-  /* 5km covered in the measured 20 minutes = 4:00/km. */
-  assert.equal(a.measuredThresholdPace(5, 20 * 60), 240);
-  assert.equal(a.measuredThresholdPace(4, 20 * 60), 300);
-  /* Absent the logged time, the prescription's own 20 minutes is the window. */
-  assert.equal(a.measuredThresholdPace(5, null), 240);
+  assert.equal(a.measuredThresholdPace(7.5, 30 * 60), 240, '7.5km in 30:00 is 4:00/km');
+  assert.equal(a.measuredThresholdPace(6, 30 * 60), 300);
+  /* Absent a logged time, the prescription's own thirty minutes is the window. */
+  assert.equal(a.measuredThresholdPace(7.5, null), 240);
   /* And it refuses the same way the heart-rate half does. */
-  assert.equal(a.measuredThresholdPace(null, 1200), null);
-  assert.equal(a.measuredThresholdPace(0, 1200), null);
-  assert.equal(a.measuredThresholdPace(20, 1200), null, '1:00/km is a mis-logged distance');
-  assert.equal(a.measuredThresholdPace(1, 1200), null, '20:00/km is not a threshold effort');
+  assert.equal(a.measuredThresholdPace(null, 1800), null);
+  assert.equal(a.measuredThresholdPace(0, 1800), null);
+  assert.equal(a.measuredThresholdPace(30, 1800), null, '1:00/km is a mis-logged distance');
+  assert.equal(a.measuredThresholdPace(1.5, 1800), null, '20:00/km is not a threshold effort');
+});
+
+test('the pace anchor reads the whole effort, not just the measured window', () => {
+  const a = calibratedPlan();
+  const dd = calDay(a);
+  logCalibration(a, dd, 171);                       // 2.3km + 4.6km = 6.9km
+  const r = a.calibrationResult(dd);
+  assert.equal(r.totalKm, 6.9);
+  assert.equal(r.totalSec, 30 * 60);
+  assert.equal(r.measuredSec, 20 * 60, 'while the HR window stays the final twenty');
+  assert.equal(a.measuredThresholdPace(r.totalKm, r.totalSec), DEFAULT_PACE);
+});
+
+test('half a log is no pace at all, never an estimated one', () => {
+  /* The thirty-minute average cannot be recovered from the final twenty alone:
+     assuming the opening ten matched is exactly the assumption a settle
+     segment exists to avoid, and an athlete who went out too fast would have
+     that error hidden rather than measured. */
+  const a = calibratedPlan();
+  const dd = calDay(a);
+  logCalibration(a, dd, 171, { settleKm: null });
+  const r = a.calibrationResult(dd);
+  assert.equal(r.totalKm, null);
+  a.applyCalibrationFromDay(dd);
+  assert.equal(a.state.setup.thresholdPaceSecPerKm, undefined);
+  assert.equal(a.state.setup.lthr, 171, 'but the heart rate half is unaffected');
 });
 
 test('a completed calibration stores the measured pace with its provenance', () => {
   const a = calibratedPlan();
   const dd = calDay(a);
-  logCalibration(a, dd, 171, { km: 5 });
+  logCalibration(a, dd, 171);
   a.applyCalibrationFromDay(dd);
 
-  assert.equal(a.state.setup.thresholdPaceSecPerKm, 240);
+  assert.equal(a.state.setup.thresholdPaceSecPerKm, DEFAULT_PACE);
   assert.equal(a.state.setup.thresholdPaceSource, 'calibration');
   assert.equal(a.state.setup.thresholdPaceMeasuredOn, dd.date);
-  assert.equal(dd.calibration.thresholdPaceSecPerKm, 240);
+  assert.equal(dd.calibration.thresholdPaceSecPerKm, DEFAULT_PACE);
 });
 
-test('the measured pace does NOT overwrite the pace zones', () => {
-  /* THE FINDING THAT DECIDED THIS. HR zones all descend from one anchor, so
-     measuring it moves the table coherently. Pace zones all descend from
-     getActiveVDOT() -- the athlete's GOAL -- so a measured T dropped into that
-     table leaves E/M/I/R derived from an aspiration and the table stops being
-     ordered. An athlete covering 6.2km in the effort measures T at 4:50/km,
-     which is SLOWER than the marathon pace their own goal prescribes. */
+test('the measured pace moves ALL five training zones, through one anchor', () => {
+  /* THE METHODOLOGY DECISION. Training zones now represent current fitness, so
+     a calibration moves them -- but through vdotFromPerformance(), the path any
+     performance over a known distance has always taken, producing a complete
+     ordered set. Writing a single zone into a table anchored elsewhere is what
+     would break the ordering, which is why paceOverrides is still not touched. */
   const a = calibratedPlan();
-  const before = JSON.stringify(a.getActivePaces());
+  const before = a.getActivePaces();
   const dd = calDay(a);
-  logCalibration(a, dd, 171, { km: 5 });
+  logCalibration(a, dd, 171);
   a.applyCalibrationFromDay(dd);
+  const after = a.getActivePaces();
 
-  assert.equal(JSON.stringify(a.getActivePaces()), before,
-    'no pace zone moved');
+  ['E','M','T','I','R'].forEach(k => {
+    assert.notEqual(after[k].fast, before[k].fast, k + ' did not move');
+  });
+  assert.equal(a.currentFitnessAnchor().source, 'calibration');
   assert.deepEqual(a.state.setup.paceOverrides, {},
     'and the athlete\'s own manual override was not written to');
+});
+
+test('the zone table stays ordered after a calibration', () => {
+  /* The property that a single overridden zone would have destroyed. It holds
+     by construction because all five descend from one number -- so this is a
+     test of the architecture, not of arithmetic. */
+  const a = calibratedPlan();
+  const dd = calDay(a);
+  logCalibration(a, dd, 171);
+  a.applyCalibrationFromDay(dd);
+
+  const z = a.getActivePaces();
+  const order = ['E','M','T','I','R'];
+  for (let i = 1; i < order.length; i++){
+    const slower = z[order[i-1]], faster = z[order[i]];
+    assert.ok(faster.fast < slower.fast,
+      order[i] + ' must be faster than ' + order[i-1] +
+      ' (' + faster.fast + ' vs ' + slower.fast + ')');
+    assert.ok(faster.slow <= slower.slow, order[i] + '/' + order[i-1] + ' bands crossed');
+  }
 });
 
 test('but it is reported against the band the goal implies', () => {
@@ -621,13 +690,13 @@ test('the pace survives a consent withdrawal, because it is not health data', ()
      of a decision about something else. */
   const a = calibratedPlan();
   const dd = calDay(a);
-  logCalibration(a, dd, 171, { km: 5 });
+  logCalibration(a, dd, 171);
   a.applyCalibrationFromDay(dd);
 
   a.applyHealthConsentDecision({ decision: 'withdrawn', version: a.HEALTH_CONSENT_VERSION },
     true, { quiet: true });
   assert.equal(a.state.setup.lthr, null, 'the heart rate goes');
-  assert.equal(a.state.setup.thresholdPaceSecPerKm, 240, 'the pace stays');
+  assert.equal(a.state.setup.thresholdPaceSecPerKm, DEFAULT_PACE, 'the pace stays');
 });
 
 test('the two halves fail independently', () => {
@@ -635,12 +704,12 @@ test('the two halves fail independently', () => {
      they actually covered. They ran the test; the pace measures it. */
   const a = calibratedPlan();
   const dd = calDay(a);
-  logCalibration(a, dd, null, { km: 5 });
+  logCalibration(a, dd, null);
   const out = a.applyCalibrationFromDay(dd);
 
   assert.equal(out.outcome, 'refused', 'no LTHR was fabricated');
   assert.equal(a.state.setup.lthr, null);
-  assert.equal(a.state.setup.thresholdPaceSecPerKm, 240,
+  assert.equal(a.state.setup.thresholdPaceSecPerKm, DEFAULT_PACE,
     'but the pace they genuinely ran is kept');
   assert.equal(a.state.setup.thresholdPaceSource, 'calibration');
 });
@@ -652,7 +721,7 @@ test('an effort that did not happen yields neither number', () => {
      week, stored as their anchor. */
   const a = calibratedPlan();
   const dd = calDay(a);
-  logCalibration(a, dd, 171, { km: 1.2, sec: 4 * 60 });
+  logCalibration(a, dd, 171, { settleKm: 0.6, settleSec: 2*60, measuredKm: 1.2, measuredSec: 4 * 60 });
   const out = a.applyCalibrationFromDay(dd);
 
   assert.equal(out.reason, 'effort_too_short');
@@ -713,16 +782,305 @@ test('a measured anchor is a fact about the athlete, not about the block', () =>
      calibration the athlete has already done. */
   const a = calibratedPlan();
   const dd = calDay(a);
-  logCalibration(a, dd, 171, { km: 5 });
+  logCalibration(a, dd, 171);
   a.applyCalibrationFromDay(dd);
 
   const prior = Object.assign({}, a.state.setup);
   const next = a.carryMeasuredAnchors({ lthr: prior.lthr }, prior);
   assert.equal(next.lthrSource, 'calibration');
   assert.equal(next.lthrMeasuredOn, dd.date);
-  assert.equal(next.thresholdPaceSecPerKm, 240);
+  assert.equal(next.thresholdPaceSecPerKm, DEFAULT_PACE);
   assert.equal(next.thresholdPaceSource, 'calibration');
 
   /* And an athlete who has never calibrated carries nothing rather than nulls. */
   assert.deepEqual(a.carryMeasuredAnchors({}, {}), {});
+});
+
+// ---------------------------------------------------------------------------
+// THE SEPARATION: CURRENT FITNESS vs THE ACTIVE GOAL
+//
+// The methodology decision in one sentence: ordinary training zones represent
+// what the athlete can currently do; the Active Goal represents what they are
+// trying to do. Before this, both were the goal -- so raising an ambition made
+// every easy run faster without the athlete getting fitter.
+// ---------------------------------------------------------------------------
+function setGoal(a, sec){
+  a.state.setup.goals = Object.assign({}, a.state.setup.goals, { A: { timeSec: sec } });
+  a.state.setup.activeGoal = 'A';
+}
+
+test('once fitness is measured, moving the goal does not move training zones', () => {
+  const a = calibratedPlan();
+  const dd = calDay(a);
+  logCalibration(a, dd, 171);
+  a.applyCalibrationFromDay(dd);
+
+  const zones = JSON.stringify(a.getActivePaces());
+  const anchor = a.currentFitnessAnchor().vdot;
+
+  /* A wildly more ambitious goal, and then a wildly less ambitious one. */
+  setGoal(a, 80 * 60);
+  assert.equal(JSON.stringify(a.getActivePaces()), zones, 'ambition is not fitness');
+  setGoal(a, 130 * 60);
+  assert.equal(JSON.stringify(a.getActivePaces()), zones, 'nor is pessimism');
+  assert.equal(a.currentFitnessAnchor().vdot, anchor);
+});
+
+test('but goal pace still follows the Active Goal exactly as it always did', () => {
+  const a = calibratedPlan();
+  const dd = calDay(a);
+  logCalibration(a, dd, 171);
+  a.applyCalibrationFromDay(dd);
+
+  const before = a.getGoalPaceSecPerKm();
+  setGoal(a, 80 * 60);
+  const after = a.getGoalPaceSecPerKm();
+  assert.notEqual(after, before, 'goal pace must track the goal');
+  assert.ok(after < before, 'a faster goal is a faster goal pace');
+
+  /* And the goal-pace SEGMENT of a session follows it too. */
+  const gp = a.state.days.filter(d => {
+    const p = a.prescriptionOf(d);
+    return p && (a.orderedSegments(p) || []).some(s => s.intensity === 'goal_pace');
+  })[0];
+  if (gp){
+    const band = a.getDayTargets(gp);
+    assert.ok(band.goalPace || band.pace, 'a goal-pace session still resolves a target');
+  }
+});
+
+test('a calibration does not touch Goal A, B or C', () => {
+  const a = calibratedPlan();
+  const goalsBefore = JSON.stringify(a.state.setup.goals);
+  const activeBefore = a.state.setup.activeGoal;
+  const dd = calDay(a);
+  logCalibration(a, dd, 171);
+  a.applyCalibrationFromDay(dd);
+
+  assert.equal(JSON.stringify(a.state.setup.goals), goalsBefore,
+    'the athlete chose those times; a field test does not get to rewrite them');
+  assert.equal(a.state.setup.activeGoal, activeBefore);
+});
+
+// ---------------------------------------------------------------------------
+// THE HIERARCHY
+// ---------------------------------------------------------------------------
+test('the anchor picks the best evidence available, in order', () => {
+  const a = calibratedPlan();
+
+  /* 3. BENCHMARK -- what a fresh athlete with a setup time has. */
+  assert.equal(a.currentFitnessAnchor().source, 'benchmark');
+
+  /* 2. CALIBRATION outranks it. */
+  const dd = calDay(a);
+  logCalibration(a, dd, 171);
+  a.applyCalibrationFromDay(dd);
+  assert.equal(a.currentFitnessAnchor().source, 'calibration');
+
+  /* 1. A QUALIFIED MEASURED PERFORMANCE outranks that. */
+  a.athlete().performances.push({ date: a.addDays(TODAY, -3), source: 'race',
+                                  vdot: 52.0, qualified: true });
+  assert.equal(a.currentFitnessAnchor().source, 'performance');
+  assert.equal(a.currentFitnessAnchor().vdot, 52.0);
+});
+
+test('the goal is the anchor only when nothing better exists', () => {
+  /* Which is the state every athlete starts in -- so this is a fallback, not
+     an error, and it is the behaviour the product had for everyone before. */
+  const a = app();
+  buildPlan(a, { weeks: 10, startDate: TODAY, distanceKey: 'half', volume: 45,
+                 schedule: { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 } });
+  a.state.setup.benchmark = null;
+  assert.equal(a.currentFitnessAnchor().source, 'goal');
+  assert.equal(a.currentFitnessAnchor().vdot, a.getActiveVDOT());
+});
+
+test('invalidating the measured evidence falls back down the hierarchy', () => {
+  const a = calibratedPlan();
+  const dd = calDay(a);
+  logCalibration(a, dd, 171);
+  a.applyCalibrationFromDay(dd);
+  a.athlete().performances.push({ date: a.addDays(TODAY, -3), source: 'race',
+                                  vdot: 52.0, qualified: true });
+  assert.equal(a.currentFitnessAnchor().source, 'performance');
+
+  /* An athlete who jogged their race says so: it stops being a measurement. */
+  a.athlete().performances[0].qualified = false;
+  assert.equal(a.currentFitnessAnchor().source, 'calibration',
+    'and the calibration underneath it takes over');
+
+  /* Remove the calibration and the benchmark is next. */
+  a.state.setup.thresholdPaceSource = null;
+  assert.equal(a.currentFitnessAnchor().source, 'benchmark');
+});
+
+// ---------------------------------------------------------------------------
+// SANITY, AND WHAT A BAD TEST CANNOT DO
+// ---------------------------------------------------------------------------
+test('a clearly bad test cannot rewrite the training zones', () => {
+  const a = calibratedPlan();
+  const dd = calDay(a);
+  const zones = JSON.stringify(a.getActivePaces());
+
+  /* A misplaced decimal point: 69km in half an hour. */
+  logCalibration(a, dd, 171, { settleKm: 23, measuredKm: 46 });
+  a.applyCalibrationFromDay(dd);
+
+  assert.equal(a.state.setup.thresholdPaceSecPerKm, undefined, 'refused');
+  assert.equal(JSON.stringify(a.getActivePaces()), zones, 'and nothing moved');
+  assert.equal(a.currentFitnessAnchor().source, 'benchmark',
+    'the previous trustworthy evidence stands');
+});
+
+test('a result too far from existing trustworthy evidence is refused', () => {
+  /* Fitness does not move ten VDOT points in one session. A result that says
+     it did is evidence about the measurement, not about the athlete. */
+  const a = app();
+  buildPlan(a, { weeks: 10, startDate: TODAY, distanceKey: 'half', volume: 45,
+                 benchSec: 45 * 60, schedule: { activeDays: [1,2,3,5,6], longRunDay: 6 } });
+  const bench = a.currentFitnessAnchor();
+  assert.equal(bench.source, 'benchmark');
+
+  const wild = a.calibrationPaceAcceptable(200);      // ~3:20/km for 30 minutes
+  assert.equal(wild.ok, false);
+  assert.match(wild.reason, /implausible_shift_vs_benchmark/);
+
+  /* A believable improvement is accepted. */
+  const fine = a.calibrationPaceAcceptable(265);
+  assert.equal(fine.ok, true);
+});
+
+test('an aspiration cannot veto a measurement', () => {
+  /* The shift guard compares against trustworthy evidence only. If the goal is
+     all the athlete has, it is not evidence and must not block the first real
+     measurement they produce. */
+  const a = app();
+  buildPlan(a, { weeks: 10, startDate: TODAY, distanceKey: 'half', volume: 45,
+                 schedule: { activeDays: [1,2,3,5,6], longRunDay: 6 } });
+  a.state.setup.benchmark = null;
+  assert.equal(a.currentFitnessAnchor().source, 'goal');
+  assert.equal(a.calibrationPaceAcceptable(300).ok, true,
+    'a slow-but-plausible first measurement is accepted against a fast goal');
+});
+
+// ---------------------------------------------------------------------------
+// THE PAST STAYS PUT, THE FUTURE MOVES
+// ---------------------------------------------------------------------------
+test('completed prescriptions are frozen; future ones follow the new anchor', () => {
+  const a = calibratedPlan();
+  const dd = calDay(a);
+
+  const past = a.state.days.filter(d => d.date < dd.date && d.type === 'easy')[0];
+  past.completed = true;
+  past.actual = Object.assign(a.emptyActual(), { km: past.km, pace: '5:30', hr: 138 });
+  const pastFrozen = JSON.stringify(past);
+
+  const future = a.state.days.filter(d => d.date > dd.date && d.type === 'easy')[0];
+  const futureBefore = a.getDayTargets(future).pace;
+
+  logCalibration(a, dd, 171);
+  a.applyCalibrationFromDay(dd);
+
+  assert.equal(JSON.stringify(past), pastFrozen,
+    'that session was run against the zones of the day and keeps them');
+  assert.notEqual(a.getDayTargets(future).pace, futureBefore,
+    'a session still to come is prescribed from what the athlete can now do');
+});
+
+test('the athlete is told, and it is not called Measured Fitness', () => {
+  /* That term is reserved for races and Fitness Checkpoints. This is a field
+     test, and calling it the same thing would blur two kinds of evidence the
+     product deliberately keeps apart. */
+  const a = calibratedPlan();
+  const said = [];
+  a.showToast = m => said.push(m);
+  const dd = calDay(a);
+  logCalibration(a, dd, 171);
+  a.applyCalibrationFromDay(dd);
+
+  assert.equal(said.length, 1);
+  assert.match(said[0], /Training zones calibrated/);
+  assert.match(said[0], /LTHR 171 BPM/);
+  assert.match(said[0], /threshold 4:21/);
+  assert.ok(!/Measured Fitness/i.test(said[0]));
+});
+
+// ---------------------------------------------------------------------------
+// THE FEEDBACK LOOP THAT MOVING TRAINING PACES ONTO MEASURED EVIDENCE CREATES
+//
+// Found by running it, not by reading it. Training paces now descend from the
+// anchor, so anything admitted to the anchor lowers the targets -- and sessions
+// run at that same diminished level then score close to perfect against them.
+// Left alone, poor execution becomes the definition of good execution and the
+// athlete is congratulated all the way down.
+// ---------------------------------------------------------------------------
+test('an abandoned race is not a measurement of a ceiling', () => {
+  /* The athlete pulled up, or jogged it in. The session stays in the log as
+     training; it simply stops being evidence of what they can do. */
+  const a = calibratedPlan();
+  const race = a.state.days.filter(d => d.type === 'long')[0];
+  race.type = 'race';
+  race.km = 21.1;
+  race.completed = true;
+
+  race.actual = Object.assign(a.emptyActual(), { km: 21.0, pace: '4:30', paceUnit: 'km' });
+  assert.ok(a.performanceFromDay(race), 'a race actually run IS a measurement');
+
+  race.actual.km = 12;      // 57% of the distance
+  assert.equal(a.performanceFromDay(race), null,
+    'an effort that stopped is not a maximal effort over a known distance');
+  assert.equal(race.completed, true, 'and it is still training that happened');
+});
+
+test('one bad result does not drag the training zones down to meet it', () => {
+  const a = calibratedPlan();
+  const dd = calDay(a);
+  logCalibration(a, dd, 171);
+  a.applyCalibrationFromDay(dd);
+  const anchored = a.currentFitnessAnchor().vdot;
+  const zones = JSON.stringify(a.getActivePaces());
+
+  /* A single race far below everything else they have done. */
+  a.athlete().performances.push({ date: a.addDays(TODAY, -4), source: 'race',
+                                  vdot: anchored - 14, qualified: true });
+
+  const after = a.currentFitnessAnchor();
+  assert.equal(after.source, 'calibration', 'the evidence underneath it stands');
+  assert.equal(after.disregarded.why, 'isolated_outlier', 'and it says what it set aside');
+  assert.equal(JSON.stringify(a.getActivePaces()), zones, 'no target moved');
+});
+
+test('but a real decline is believed once it is corroborated', () => {
+  /* A second result at the same level inside the window is a trend, not a bad
+     morning. The athlete really is slower and their training should say so. */
+  const a = calibratedPlan();
+  const dd = calDay(a);
+  logCalibration(a, dd, 171);
+  a.applyCalibrationFromDay(dd);
+  const anchored = a.currentFitnessAnchor().vdot;
+
+  a.athlete().performances.push({ date: a.addDays(TODAY, -20), source: 'race',
+                                  vdot: anchored - 14, qualified: true });
+  a.athlete().performances.push({ date: a.addDays(TODAY, -4), source: 'checkpoint',
+                                  vdot: anchored - 13, qualified: true });
+
+  const after = a.currentFitnessAnchor();
+  assert.equal(after.source, 'performance');
+  assert.ok(after.vdot < anchored, 'the anchor follows them down');
+});
+
+test('the anchor takes the best recent result, not the latest', () => {
+  /* A race can be spoiled by weather, a stitch or a bad morning, and none of
+     those is a drop in fitness. Real decline still shows: the window is six
+     weeks, so a genuinely slower athlete runs out of good results. */
+  const a = calibratedPlan();
+  a.athlete().performances.push({ date: a.addDays(TODAY, -30), source: 'race',
+                                  vdot: 50, qualified: true });
+  a.athlete().performances.push({ date: a.addDays(TODAY, -2), source: 'race',
+                                  vdot: 47, qualified: true });
+  assert.equal(a.currentFitnessAnchor().vdot, 50, 'the better of the two, not the newer');
+
+  /* Out of the window, it stops counting. */
+  a.athlete().performances[0].date = a.addDays(TODAY, -200);
+  assert.equal(a.currentFitnessAnchor().vdot, 47);
 });

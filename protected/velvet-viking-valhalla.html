@@ -3148,11 +3148,11 @@ function calibrationEligibility(ctx){
    fast should not have that error averaged into their threshold.
 
    WHAT IT IS NOT ALLOWED TO DO -- see calibrationPaceVerdict(). */
-function measuredThresholdPace(measuredKm, measuredSec){
-  if (measuredKm == null || !(measuredKm > 0)) return null;
-  var sec = (measuredSec != null && measuredSec > 0)
-    ? measuredSec : CALIBRATION_PROTOCOL.measuredMin * 60;
-  var pace = sec / measuredKm;
+function measuredThresholdPace(totalKm, totalSec){
+  if (totalKm == null || !(totalKm > 0)) return null;
+  var sec = (totalSec != null && totalSec > 0)
+    ? totalSec : calibrationEffortMin() * 60;
+  var pace = sec / totalKm;
   /* The same refusal discipline as the heart-rate half: a pace outside what a
      human runs is a mis-logged distance, not a threshold. */
   if (!isFinite(pace) || pace < 120 || pace > 900) return null;
@@ -3192,14 +3192,64 @@ function measuredThresholdPace(measuredKm, measuredSec){
  * athlete's chosen goal silently stops governing their training. That is a
  * decision for HQ, not a side effect of a calibration session.
  *
- * SO THE MEASUREMENT IS KEPT AND REPORTED, NOT APPLIED. It is stored with its
- * provenance, and compared against the band the goal implies, which is exactly
- * what a Fitness Checkpoint already does with its result: it tells the athlete
- * what they just ran, and leaves the Active Goal to them. */
+ * HOW IT WAS RESOLVED. HQ took the methodology decision the investigation was
+ * asking for: ordinary training zones now represent CURRENT FITNESS rather
+ * than the goal. So the calibration does move training paces -- through
+ * vdotFromPerformance(), the same path any performance over a known distance
+ * has always taken, producing a complete ordered set rather than one
+ * overridden zone. currentFitnessAnchor() holds the hierarchy.
+ *
+ * paceOverrides is still not written to, and that is the part of this note
+ * that stands unchanged: it belongs to the athlete, one zone at a time, and
+ * the incoherence above is exactly what writing a single zone into a table
+ * anchored elsewhere would produce.
+ *
+ * WHAT THIS VERDICT IS STILL FOR. The measured pace against the pace the GOAL
+ * implies -- which is now a genuine comparison between two different things
+ * rather than a number against itself, and is what tells an athlete whether
+ * their target and their legs currently agree. */
+/* CAN THIS RESULT BE TRUSTED TO MOVE EVERY TRAINING ZONE?
+ *
+ * The pace itself is already range-checked. This is the second gate, and it
+ * exists because the consequence changed: a measured threshold pace used to be
+ * a reported figure, and is now the anchor all five training zones descend
+ * from. A distance typed with a misplaced decimal point would no longer
+ * mis-state one number -- it would rewrite the athlete's whole prescription.
+ *
+ * TWO CHECKS, both about plausibility rather than taste:
+ *   the VDOT it implies has to be one a human runner has;
+ *   and it must not move the athlete's existing trustworthy anchor further
+ *   than a single field test could honestly move it. Fitness does not change
+ *   by ten VDOT points in one session; a result that says it did is evidence
+ *   about the measurement.
+ *
+ * A refusal PRESERVES what was there. Nothing is cleared. */
+var CALIBRATION_VDOT_MIN = 25;
+var CALIBRATION_VDOT_MAX = 85;
+var CALIBRATION_MAX_VDOT_SHIFT = 10;
+function calibrationPaceAcceptable(paceSecPerKm){
+  var no = function(reason){ return { ok:false, reason:reason, vdot:null }; };
+  if (paceSecPerKm == null) return no('no_pace');
+  var v = calibrationVdotFrom(paceSecPerKm);
+  if (v == null) return no('no_vdot');
+  if (v < CALIBRATION_VDOT_MIN || v > CALIBRATION_VDOT_MAX) return no('implausible_vdot');
+
+  /* Against whatever is currently trusted, unless that is the goal -- an
+     aspiration is not evidence and must not be able to veto a measurement. */
+  var prior = currentFitnessAnchor();
+  if (prior && prior.vdot && prior.source !== 'goal' &&
+      Math.abs(v - prior.vdot) > CALIBRATION_MAX_VDOT_SHIFT){
+    return no('implausible_shift_vs_' + prior.source);
+  }
+  return { ok:true, reason:'accepted', vdot:v };
+}
 function calibrationPaceVerdict(measuredPaceSec, goalTPace){
   if (measuredPaceSec == null) return null;
   var out = { measured: measuredPaceSec, goalBand: goalTPace || null,
               agrees: null, deltaSec: null };
+  /* Deliberately the GOAL-derived band. Comparing a measured pace against
+     training zones that now descend from that same measurement would compare
+     the number with itself and always agree. */
   if (!goalTPace || goalTPace.fast == null || goalTPace.slow == null) return out;
   var mid = (goalTPace.fast + goalTPace.slow) / 2;
   out.deltaSec = Math.round(measuredPaceSec - mid);
@@ -4804,9 +4854,10 @@ function thresholdCalibrationText(){
           'first ' + P.settleMin + ' minutes and hold it \u2014 there is no break, no ' +
           'recovery and no change of pace at ' + P.settleMin + ' minutes. The final ' +
           P.measuredMin + ' minutes are simply the part we measure. ' +
-          P.cooldownMin + ' min easy cool-down. Record your average heart rate and the ' +
-          'distance you covered for the final ' + P.measuredMin + ' minutes: those are ' +
-          'the numbers Valhalla sets your training zones from.'
+          P.cooldownMin + ' min easy cool-down. Log the distance you covered in BOTH ' +
+          'parts of the effort, and your average heart rate for the final ' + P.measuredMin +
+          ' minutes: your threshold pace comes from the full ' + calibrationEffortMin() +
+          ' minutes, and your threshold heart rate from the final ' + P.measuredMin + '.'
   };
 }
 function timeTrialText(ttKm, flankKm){
@@ -5402,12 +5453,12 @@ var STEP_INTENSITY_LABEL = {
 function stepShowsPaceBand(seg){
   /* THE CALIBRATION EFFORT CARRIES NO BAND, and the reason is circularity
      rather than taste. Every pace window in this product descends from
-     getActiveVDOT(), which reads the athlete's GOAL TIME -- an aspiration. An
-     athlete without measured evidence is exactly the athlete whose goal-derived
-     threshold band is least trustworthy, and printing it on the one session
-     that exists to REPLACE that estimate invites them to pace the test to the
-     guess. The measured heart rate would then describe the guess, and the test
-     would measure nothing.
+     currentFitnessAnchor(). An athlete who has never been measured is anchored
+     on their benchmark or, failing that, their goal -- which is exactly the
+     estimate this session exists to replace. Printing it on the one session
+     that exists to replace it invites them to pace the test to the guess; the
+     measured heart rate would then describe the guess, and the test would
+     measure nothing.
 
      Run by effort, exactly as the engine already does for a time trial and for
      any hard_effort segment, and for the reason written above those cases:
@@ -9163,12 +9214,163 @@ function getActiveVDOT(){
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
   return vdotFromPerformance(profile.raceKm*1000, g.timeSec);
 }
+
+/* =========================================================
+   CURRENT FITNESS -- THE ANCHOR ORDINARY TRAINING IS PRESCRIBED FROM
+
+   THE METHODOLOGY DECISION THIS IMPLEMENTS. Training paces used to descend
+   from the Active Goal, which is a time the athlete WANTS to run. That made
+   every easy run, tempo and interval a function of ambition: raise the goal
+   and the prescription got faster without the athlete getting fitter. HQ has
+   decided ordinary training zones should represent current fitness instead.
+
+   WHAT DID NOT CHANGE. The Active Goal remains authoritative for everything it
+   was always for -- goal pace, goal-pace segments, race pacing, and the Race
+   Outlook band that places measured fitness against a chosen target. Those
+   read getActiveVDOT() and still do. A calibration can move training paces
+   while Goal A, B and C sit untouched, which is the separation the tests
+   assert directly.
+
+   ONE ANCHOR, NOT A SECOND SYSTEM. This returns a single VDOT from the best
+   evidence available, and trainingPacesFromVDOT() derives all five zones from
+   it exactly as before. That is what keeps the table ordered: E slower than M
+   slower than T slower than I slower than R holds by construction, because
+   they share one number. Writing one zone from one source and the rest from
+   another is what would break it -- see the note on calibrationPaceVerdict().
+
+   THE HIERARCHY, best evidence first:
+
+     1. MEASURED PERFORMANCE  a qualified race or Fitness Checkpoint inside the
+                              evidence window. An actual maximal effort over a
+                              known distance is the strongest thing there is.
+     2. CALIBRATION           a successful threshold calibration. A real effort
+                              measured under controlled conditions, but a field
+                              test rather than a race.
+     3. BENCHMARK             the recent time the athlete gave at setup. Their
+                              own report of something they really ran, but
+                              unverified and possibly old.
+     4. GOAL                  the aspiration, used only when nothing better
+                              exists -- which is the state every athlete starts
+                              in, and is why this is a fallback rather than an
+                              error.
+
+   Each rung says WHERE it came from, so the athlete can be told and so a
+   caller can tell an estimate from a measurement. */
+var CURRENT_FITNESS_SOURCES = ['performance', 'calibration', 'benchmark', 'goal'];
+
+/* The 30-minute test converted through the path the product already uses for
+   any performance over a known distance. Deliberately NOT a new formula: the
+   effort IS a distance covered in a time, and vdotFromPerformance() is how
+   this product has always turned one of those into a full ordered pace set. */
+function calibrationVdotFrom(paceSecPerKm){
+  if (paceSecPerKm == null || !(paceSecPerKm > 0)) return null;
+  var sec = calibrationEffortMin() * 60;
+  var km = sec / paceSecPerKm;
+  if (!(km > 0)) return null;
+  var v = vdotFromPerformance(km * 1000, sec);
+  return (v && isFinite(v)) ? v : null;
+}
+function benchmarkVdot(){
+  var b = state.setup && state.setup.benchmark;
+  if (!b || !b.timeSec || !b.distanceKey) return null;
+  var profile = DISTANCE_PROFILES[b.distanceKey];
+  if (!profile) return null;
+  var v = vdotFromPerformance(profile.raceKm * 1000, b.timeSec);
+  return (v && isFinite(v)) ? v : null;
+}
+/* THE BEST RECENT MEASUREMENT, NOT THE LATEST ONE.
+ *
+ * THE FEEDBACK LOOP THIS EXISTS TO BREAK, found by running it. Training paces
+ * descend from this anchor. Take the MOST RECENT performance and a single bad
+ * day sets the athlete's zones: an athlete who abandoned a race at 60% of the
+ * distance, 20% off pace, records a genuine but unrepresentative VDOT, every
+ * target drops to meet it, and their next sessions -- run at the same poor
+ * level -- score close to perfect against the lowered targets. Poor execution
+ * would quietly become the definition of good execution, and the athlete would
+ * be congratulated all the way down.
+ *
+ * Best-of-window is also simply the right methodology: a VDOT is taken from an
+ * athlete's best recent race, because a race can be spoiled by weather, a
+ * stitch or a bad morning, and none of those is a drop in fitness. Real
+ * decline still shows: the window is six weeks, so a genuinely slower athlete
+ * runs out of good results and the anchor follows them down.
+ *
+ * calibrationEligibility() deliberately keeps using the LATEST rather than the
+ * best, because it asks a different question -- "has this athlete raced
+ * recently enough that a test would be redundant" -- and for that, recency is
+ * the whole point. */
+function bestRecentPerformance(){
+  var list = (typeof athlete === 'function' && athlete()) ? athlete().performances : [];
+  var today = todayStr();
+  var best = null;
+  (list || []).forEach(function(p){
+    if (!p || p.qualified === false || !p.date || !p.vdot) return;
+    if (daysBetween(p.date, today) > CALIBRATION_EVIDENCE_DAYS) return;
+    if (!best || p.vdot > best.vdot) best = p;
+  });
+  return best;
+}
+/* How many recent qualified results sit at or below this level. Two is a
+   trend; one is a day. */
+function corroboratingPerformances(vdot){
+  var list = (typeof athlete === 'function' && athlete()) ? athlete().performances : [];
+  var today = todayStr();
+  var n = 0;
+  (list || []).forEach(function(p){
+    if (!p || p.qualified === false || !p.date || !p.vdot) return;
+    if (daysBetween(p.date, today) > CALIBRATION_EVIDENCE_DAYS) return;
+    if (p.vdot <= vdot + 1) n++;
+  });
+  return n;
+}
+function currentFitnessAnchor(){
+  var su = state.setup;
+  if (!su) return { vdot: null, source: null, date: null };
+
+  /* The rungs below the top, resolved first so the top can be sanity-checked
+     against them. */
+  var calVdot = (su.thresholdPaceSource === 'calibration' && su.thresholdPaceSecPerKm)
+    ? calibrationVdotFrom(su.thresholdPaceSecPerKm) : null;
+  var benchVdot = benchmarkVdot();
+  var lower = calVdot != null ? { vdot: calVdot, source: 'calibration',
+                                  date: su.thresholdPaceMeasuredOn || null }
+            : benchVdot != null ? { vdot: benchVdot, source: 'benchmark', date: null }
+            : null;
+
+  var perf = bestRecentPerformance();
+  if (perf && perf.vdot){
+    /* ONE BAD RESULT IS A BAD DAY, NOT A COLLAPSE IN FITNESS.
+       A performance far below the athlete's other trustworthy evidence is far
+       more likely to be an abandoned race, a stitch or a bad morning than a
+       genuine loss of ten VDOT points -- and accepting it would drop every
+       training target to meet it, after which sessions run at that same poor
+       level score close to perfect. Poor execution would become the definition
+       of good execution.
+
+       CORROBORATION IS WHAT DISTINGUISHES THEM. A real decline produces more
+       than one such result, so a second one inside the window is accepted:
+       the athlete really is slower and their training should say so. A single
+       outlier is not, and the evidence underneath it stands. */
+    var farBelow = lower && (lower.vdot - perf.vdot) > CALIBRATION_MAX_VDOT_SHIFT;
+    if (farBelow && corroboratingPerformances(perf.vdot) < 2){
+      return { vdot: lower.vdot, source: lower.source, date: lower.date,
+               disregarded: { vdot: perf.vdot, date: perf.date, why: 'isolated_outlier' } };
+    }
+    return { vdot: perf.vdot, source: 'performance', date: perf.date };
+  }
+
+  if (lower) return lower;
+  return { vdot: getActiveVDOT(), source: 'goal', date: null };
+}
+function getCurrentFitnessVDOT(){ return currentFitnessAnchor().vdot; }
 // Zone paces are calculated from VDOT by default, but each zone's slow/fast
 // bound can be manually overridden (state.setup.paceOverrides) from the main
 // dashboard card -- an override only takes effect once both bounds are set,
 // so a half-edited zone never falls back to a nonsensical mixed range.
 function getActivePaces(){
-  var base = trainingPacesFromVDOT(getActiveVDOT());
+  /* TRAINING zones, and therefore CURRENT FITNESS rather than the goal. Goal
+     pace has its own accessor below and is unaffected. */
+  var base = trainingPacesFromVDOT(getCurrentFitnessVDOT());
   var overrides = (state.setup && state.setup.paceOverrides) || {};
   var out = {};
   Object.keys(base).forEach(function(k){
@@ -13647,10 +13849,17 @@ function archiveCompletedSessions(blockId){
 /* ---------- measured performances ----------
    The honest input for longitudinal fitness, and the ONLY one.
 
-   Every pace zone in this product descends from getActiveVDOT(), which reads
-   the athlete's GOAL TIME. That is an aspiration. Charting it as fitness would
-   show an athlete their own changing ambition and call it progress, which is
-   the most misleading thing this programme could possibly ship.
+   THE GOAL IS AN ASPIRATION, and charting it as fitness would show an athlete
+   their own changing ambition and call it progress -- the most misleading
+   thing this programme could ship. That is why this store exists and why
+   nothing but a real maximal effort may enter it.
+
+   NOTE ON WHAT CHANGED AROUND IT. Training paces no longer descend from the
+   goal: they come from currentFitnessAnchor(), and a qualified performance
+   here is the TOP of that hierarchy. What has not changed is this store's
+   admission rule or what Measured Fitness means -- a race or a Fitness
+   Checkpoint, and nothing else. A threshold calibration is a field test, sits
+   below this in the hierarchy, and is deliberately never written here.
 
    A race and a Fitness Checkpoint are different: both are maximal efforts over
    a known distance, actually run. vdotFromPerformance() on one of those is a
@@ -13667,6 +13876,21 @@ function performanceFromDay(dd){
   /* Below about 3km the VDOT relationship is not the tool for the job, and a
      mis-logged distance is more likely than a genuine effort that short. */
   if (km < 3) return null;
+  /* AND AN ABANDONED EFFORT IS NOT A CEILING. A race or checkpoint that covered
+     far less than it was prescribed is a session that stopped, not a maximal
+     effort over a known distance -- the athlete pulled up, or jogged it in.
+     This file already says a race jogged as a training run is not a
+     measurement of their ceiling; that has always relied on the athlete
+     answering the outcome question, and this is the same rule applied to the
+     one case the distance alone settles.
+
+     IT MATTERS MORE THAN IT USED TO. A performance is now the top rung of
+     currentFitnessAnchor(), so admitting one drags every training target down
+     to meet it -- after which sessions run at that same diminished level score
+     close to perfect, and poor execution becomes the definition of good
+     execution. The session stays in the log as training, exactly as before.
+     It simply stops being evidence of a ceiling. */
+  if (dd.km > 0 && km < dd.km * 0.85) return null;
   var vdot = vdotFromPerformance(km * 1000, timeSec);
   if (!vdot || !isFinite(vdot)) return null;
   return {
@@ -13702,19 +13926,61 @@ function performanceFromDay(dd){
    derived at render time from setup, and a completed day's logged actuals and
    stored review are its own record -- but it is asserted in the tests because
    it is the property that matters most. */
-function calibrationMeasuredHR(dd){
-  /* THE NUMBER FROM THE MEASURED WINDOW, and only from there. A whole-session
-     average includes the warm-up and the cool-down and is not a threshold
-     measurement of anything, so dd.actual.hr is deliberately not a fallback. */
+/* WHAT THE TEST RETURNS, READ FROM THE TWO WINDOWS IT ACTUALLY HAS.
+ *
+ * THE TWO ANCHORS USE DIFFERENT WINDOWS, and the physiology is why.
+ *
+ *   HEART RATE   the final twenty minutes only. Heart rate lags the effort and
+ *                is still climbing through the opening ten, so averaging them
+ *                in drags the anchor low and makes every zone too easy.
+ *   PACE         the complete, uninterrupted thirty minutes. Pace does not
+ *                lag -- the athlete is running at the effort from the first
+ *                stride -- so the whole test is the measurement, and throwing
+ *                away a third of it would discard real evidence.
+ *
+ * A whole-SESSION average is never used for either: it includes the warm-up
+ * and the cool-down and is not a measurement of anything, so dd.actual.hr and
+ * dd.actual.km are deliberately not fallbacks. */
+function calibrationResult(dd){
   var p = prescriptionOf(dd);
   if (!p || p.archetype !== 'threshold_calibration') return null;
   var segs = orderedSegments(p) || [];
-  var target = null;
-  segs.forEach(function(sg){ if (sg.role === 'calibration_measure') target = sg; });
-  if (!target) return null;
-  var row = structuredSplitFor(dd, target.segId);
-  if (!row) return null;
-  return { hr: row.hr, km: row.km, sec: row.secSeeded ? null : row.sec, segId: target.segId };
+  var settle = null, measured = null;
+  segs.forEach(function(sg){
+    if (sg.role === 'calibration_settle') settle = sg;
+    if (sg.role === 'calibration_measure') measured = sg;
+  });
+  if (!measured) return null;
+
+  var mRow = structuredSplitFor(dd, measured.segId);
+  if (!mRow) return null;
+  var sRow = settle ? structuredSplitFor(dd, settle.segId) : null;
+
+  var realSec = function(row, seg){
+    if (!row) return seg && seg.sec != null ? seg.sec : null;
+    return row.secSeeded ? (seg && seg.sec != null ? seg.sec : null) : row.sec;
+  };
+  var mSec = realSec(mRow, measured), sSec = realSec(sRow, settle);
+
+  /* BOTH HALVES OR NO PACE. The thirty-minute average cannot be recovered from
+     the final twenty alone: assuming the opening ten were run at the same pace
+     is exactly the assumption a settle segment exists to avoid, and an athlete
+     who went out too fast would have that error hidden rather than measured.
+     Missing distance is a reason to have no pace, not to estimate one. */
+  var haveBoth = sRow && sRow.km != null && sRow.km > 0 && mRow.km != null && mRow.km > 0;
+  /* Rounded at source: distances are logged to two decimals, and letting
+     2.3 + 4.6 = 6.899999999 through would put a floating-point artefact into
+     the pace and from there into every training zone. */
+  var totalKm = haveBoth ? Math.round((sRow.km + mRow.km) * 1000) / 1000 : null;
+  var totalSec = haveBoth ? ((sSec || 0) + (mSec || 0)) : null;
+
+  return {
+    hr: mRow.hr,
+    measuredSec: mSec,
+    totalKm: totalKm,
+    totalSec: (totalSec && totalSec > 0) ? totalSec : (haveBoth ? calibrationEffortMin() * 60 : null),
+    segId: measured.segId
+  };
 }
 /* The athlete's own recent easy-run heart rate, used only as a floor the
    calibration has to clear. Null when there is nothing to compare against,
@@ -13734,13 +14000,13 @@ function applyCalibrationFromDay(dd){
   if (!dd || !dd.completed) return null;
   var su = state.setup;
   if (!su) return null;
-  var m = calibrationMeasuredHR(dd);
+  var m = calibrationResult(dd);
   if (!m) return null;
 
   var out = deriveCalibrationLTHR({
     healthConsent: healthConsentGranted(),
     measuredHR: m.hr,
-    measuredSec: m.sec,
+    measuredSec: m.measuredSec,
     maxHR: su.maxHR,
     recentEasyHR: recentEasyHRAverage(),
     previousLTHR: su.lthr,
@@ -13767,18 +14033,40 @@ function applyCalibrationFromDay(dd){
      data, exactly as splits and completion already are. Only the heart rate is
      special-category, and it is gated at its own derivation. */
   var pace = (out.reason === 'effort_too_short') ? null
-           : measuredThresholdPace(m.km, m.sec);
-  if (pace != null){
+           : measuredThresholdPace(m.totalKm, m.totalSec);
+  /* THE SANITY GATE ON THE PACE ANCHOR, and it is stricter than the pace check
+     alone because this number now moves every training zone the athlete has.
+     A mis-logged distance used to cost them one reported figure; it would now
+     rewrite Easy, Tempo, Threshold, Interval and Repetition together. */
+  var paceCheck = calibrationPaceAcceptable(pace);
+  if (pace != null && paceCheck.ok){
+    var priorAnchor = currentFitnessAnchor();
     su.thresholdPaceSecPerKm = pace;
     su.thresholdPaceSource = 'calibration';
     su.thresholdPaceMeasuredOn = dd.date;
     dd.calibration.thresholdPaceSecPerKm = pace;
+    dd.calibration.vdot = paceCheck.vdot;
+    dd.calibration.previousAnchor = priorAnchor.source;
     var goalBand = null;
-    try { goalBand = getActivePaces().T; } catch(e) { goalBand = null; }
+    try { goalBand = trainingPacesFromVDOT(getActiveVDOT()).T; } catch(e) { goalBand = null; }
     dd.calibration.paceVerdict = calibrationPaceVerdict(pace, goalBand);
     scheduleSave();
+  } else if (pace != null){
+    /* PREVIOUS TRUSTWORTHY EVIDENCE STANDS. A failed quality check is not a
+       reason to discard what the athlete had; it is a reason to keep it. */
+    dd.calibration.paceRefused = paceCheck.reason;
   }
-  if (!out.ok) return dd.calibration;
+  /* THE PACE HALF CAN SUCCEED ALONE, so the athlete is told about it before
+     the heart-rate gate returns. A dead strap still leaves them with newly
+     calibrated training zones, and saying nothing would be the app changing
+     every pace target in silence. */
+  if (!out.ok){
+    if (pace != null && paceCheck.ok){
+      try { showToast('Training zones calibrated \u2014 threshold ' +
+                      fmtPaceFromSecPerKm(pace)); } catch(e){}
+    }
+    return dd.calibration;
+  }
 
   var previous = su.lthr;
   su.lthr = out.lthr;
@@ -13790,12 +14078,14 @@ function applyCalibrationFromDay(dd){
   /* SAID OUT LOUD, at the moment it happens. An athlete whose training zones
      have just moved is entitled to know that they moved and why -- a silent
      recalibration is indistinguishable from the app changing its mind. */
+  /* SAID OUT LOUD, briefly, at the moment it happens. Deliberately NOT called
+     Measured Fitness: that term is reserved for races and Fitness Checkpoints,
+     and this is a field test. */
   try {
-    var paceBit = pace != null ? ', threshold pace ' + fmtPaceFromSecPerKm(pace) : '';
-    showToast(previous == null
-      ? 'Zones calibrated \u2014 threshold heart rate measured at ' + out.lthr + ' BPM' + paceBit
-      : 'Zones recalibrated \u2014 threshold heart rate now ' + out.lthr + ' BPM (was ' +
-        previous + ')' + paceBit);
+    var bits = [];
+    if (out.ok) bits.push('LTHR ' + out.lthr + ' BPM');
+    if (pace != null && paceCheck.ok) bits.push('threshold ' + fmtPaceFromSecPerKm(pace));
+    if (bits.length) showToast('Training zones calibrated \u2014 ' + bits.join(', '));
   } catch(e){}
   return dd.calibration;
 }
@@ -25629,7 +25919,7 @@ function recordZonesFact(){
     return overrides[k] && overrides[k].slow!=null && overrides[k].fast!=null;
   });
   var syn;
-  if (!edited.length) syn = 'All five as calculated from your active goal.';
+  if (!edited.length) syn = 'All five as calculated from ' + currentFitnessSourceLabel() + '.';
   else if (edited.length >= 3) syn = edited.length+' zones edited by hand. The rest as calculated.';
   else syn = edited.map(function(k){ return ZONE_PACE_LABELS[k]; }).join(' and ')+
              ' edited by hand. The rest as calculated.';
@@ -25768,15 +26058,14 @@ function recordPanelBenchmark(){
     '</div>'+
     '<div class="field-hint">A benchmark is a recent performance you have told Valhalla about. '+
       'It is the number Suggest Goals works from, and the number to update when your fitness moves.</div>'+
+    /* WHAT ACTUALLY SETS THEM, from the same accessor the paces use. Until
+       the current-fitness change this paragraph said "from your active goal,
+       not directly from the benchmark", which was true then and is not now:
+       the benchmark is rung three of currentFitnessAnchor(). */
     '<div class="setup-section-title">What your paces actually come from</div>'+
     '<div class="field-hint">'+
-      (goal && goal.timeSec
-        ? 'Your training paces are calculated from your active goal — Goal '+
-          escapeHtml(state.setup.activeGoal)+', '+secToClock(goal.timeSec)+' for the '+
-          escapeHtml(profile.label)+' — not directly from the benchmark. Re-calibrating below '+
-          'updates both, and every upcoming session is re-tailored to the result.'
-        : 'Your training paces are calculated from your active goal, not directly from the '+
-          'benchmark. Set a goal time below and every upcoming session is re-tailored to it.')+
+      escapeHtml(zonePaceSourceSentence(goal, profile))+
+      ' Every upcoming session is re-tailored when it changes.'+
     '</div>'+
     '<div class="setup-section-title">Not a measurement of current fitness</div>'+
     '<div class="field-hint">A benchmark says where you are training. Only a completed race or a '+
@@ -25796,15 +26085,49 @@ function recordPanelZones(){
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
   var body = renderZonePacesCard(true)+
     '<div class="setup-section-title">Where these come from</div>'+
+    /* SAYS WHERE THEY ACTUALLY CAME FROM. This paragraph used to read
+       "calculated from your active goal" for everybody, which was true while
+       training paces descended from the goal and became false the day they
+       started descending from current fitness. It now reads the same accessor
+       the paces do, so the explanation cannot drift from the calculation. */
     '<div class="field-hint">'+
-      (goal && goal.timeSec
-        ? 'Calculated from your active goal — Goal '+escapeHtml(state.setup.activeGoal)+', '+
-          secToClock(goal.timeSec)+' for the '+escapeHtml(profile.label)+'. '
-        : 'Calculated from your active goal for the '+escapeHtml(profile.label)+'. ')+
-      'They are paces to train at, not a measurement of your current fitness. Change your goal or '+
-      'your benchmark and they are recalculated; edit one by hand and that edit stays until you '+
+      escapeHtml(zonePaceSourceSentence(goal, profile))+' '+
+      'These are paces to train at. Edit one by hand and that edit stays until you '+
       'reset it.</div>';
   return recordPanelShell('Training Zone Paces', body);
+}
+
+/* One sentence, from the same hierarchy getActivePaces() reads. Named rather
+   than inlined so Plan HQ and any future surface tell the athlete the same
+   thing, and so the sentence changes when the anchor does. */
+/* Two or three words for the compact Record card, from the same hierarchy. */
+function currentFitnessSourceLabel(){
+  var src = currentFitnessAnchor().source;
+  if (src === 'performance') return 'your last measured result';
+  if (src === 'calibration') return 'your Threshold Calibration';
+  if (src === 'benchmark') return 'your benchmark';
+  return 'your active goal';
+}
+function zonePaceSourceSentence(goal, profile){
+  var anchor = currentFitnessAnchor();
+  var label = profile ? profile.label : 'your distance';
+  if (anchor.source === 'performance')
+    return 'Calculated from your most recent measured result — the last race or '+
+           'Fitness Checkpoint you actually ran.';
+  if (anchor.source === 'calibration')
+    return 'Calculated from your Threshold Calibration'+
+           (anchor.date ? ' on '+dShort(anchor.date) : '')+
+           ' — the threshold pace Valhalla measured you at.';
+  if (anchor.source === 'benchmark')
+    return 'Calculated from the benchmark time you gave at setup. Run a Threshold '+
+           'Calibration, a race or a Fitness Checkpoint and these are recalculated '+
+           'from what you actually ran.';
+  return (goal && goal.timeSec
+    ? 'Estimated from your active goal — Goal '+state.setup.activeGoal+', '+
+      secToClock(goal.timeSec)+' for the '+label+' — because nothing has been '
+    : 'Estimated from your active goal for the '+label+', because nothing has been ')+
+    'measured yet. Run a Threshold Calibration, a race or a Fitness Checkpoint and they '+
+    'are recalculated from what you actually ran.';
 }
 
 function recordPanelProgress(){
