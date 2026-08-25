@@ -54,8 +54,11 @@ function athlete(opts){
     const seg = segs.filter(s => s.role === 'calibration_measure')[0];
     dd.completed = true;
     dd.actual = Object.assign(a.emptyActual(), { km: dd.km, pace: '4:38', rpe: 8, feel: 'good' });
+    /* Both halves of the measurement: the heart rate AND the distance covered
+       in the measured window, which is where the threshold pace comes from. */
     dd.actual.splits = [{ segId: seg.segId, role: 'calibration_measure',
-                          label: 'Measured 20 min', km: null, sec: 1200, paceSec: null, hr: 171 }];
+                          label: 'Same effort \u2014 final 20 min', km: 4.6, sec: 1200,
+                          paceSec: null, hr: 171 }];
     a.applyCalibrationFromDay(dd);
   }
   return a;
@@ -100,7 +103,8 @@ function seed(p){
     states[k] = { key: a.STORAGE_KEY, state: JSON.parse(JSON.stringify(a.state)) };
     const cal = a.state.days.filter(d => d.type === 'calibration');
     console.log(k.padEnd(10) + ' calibrationSessions=' + cal.length +
-                ' lthr=' + a.state.setup.lthr + ' source=' + (a.state.setup.lthrSource || '-'));
+                ' lthr=' + a.state.setup.lthr + ' source=' + (a.state.setup.lthrSource || '-') +
+                ' tPaceSec=' + (a.state.setup.thresholdPaceSecPerKm || '-'));
   });
 
   const { server, url } = await serve();
