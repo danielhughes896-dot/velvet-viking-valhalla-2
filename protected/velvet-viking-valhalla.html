@@ -13846,6 +13846,31 @@ function archiveCompletedSessions(blockId){
   return added;
 }
 
+/* HOW MUCH OF A PRESCRIBED EFFORT HAS TO HAPPEN FOR IT TO BE A MEASUREMENT.
+ *
+ * ONE RULE, NAMED ONCE. A race or Fitness Checkpoint that covered far less
+ * than it was prescribed is a session that stopped, not a maximal effort over
+ * a known distance -- the athlete pulled up, or jogged it in. The threshold is
+ * a methodology constant rather than a number inlined at the point of use, so
+ * that it can be found, cited and changed in one place.
+ *
+ * WHY 85%. Far enough below 100% to absorb the ordinary difference between a
+ * prescribed distance and a measured one -- GPS drift, a course that ran long,
+ * a watch started late -- and far enough above half that nothing which stopped
+ * early can pass. An effort inside this band is the effort that was asked for;
+ * one below it is a different, shorter session that happens to share its date.
+ *
+ * WHAT IT DOES NOT DO. It does not delete or discount the session: that day
+ * stays in the log as training, with its own execution score, exactly as
+ * before. It only decides whether the day is admissible as evidence of a
+ * CEILING -- which is what Measured Fitness reports and what
+ * currentFitnessAnchor() prescribes from. */
+var MEASURED_EFFORT_COMPLETION_MIN = 0.85;
+function effortWasCompleted(actualKm, prescribedKm){
+  if (!(prescribedKm > 0)) return true;   // nothing prescribed, nothing to fall short of
+  return actualKm >= prescribedKm * MEASURED_EFFORT_COMPLETION_MIN;
+}
+
 /* ---------- measured performances ----------
    The honest input for longitudinal fitness, and the ONLY one.
 
@@ -13890,7 +13915,7 @@ function performanceFromDay(dd){
      close to perfect, and poor execution becomes the definition of good
      execution. The session stays in the log as training, exactly as before.
      It simply stops being evidence of a ceiling. */
-  if (dd.km > 0 && km < dd.km * 0.85) return null;
+  if (!effortWasCompleted(km, dd.km)) return null;
   var vdot = vdotFromPerformance(km * 1000, timeSec);
   if (!vdot || !isFinite(vdot)) return null;
   return {
@@ -14000,6 +14025,20 @@ function applyCalibrationFromDay(dd){
   if (!dd || !dd.completed) return null;
   var su = state.setup;
   if (!su) return null;
+  /* A REWRITTEN SESSION IS NOT THE PROTOCOL. sessionIdentityTrusted() is false
+     once the athlete has edited a session's INSTRUCTIONS without re-picking its
+     type -- at which point the card is no longer a trustworthy statement of
+     what they were asked to do, and the rest of the coaching layer already
+     stops reading its type for exactly that reason.
+     A physiological anchor is the last thing that should be derived from a
+     session whose instructions somebody else has since rewritten: it would be
+     a false threshold taken from an unknown effort, which is the one outcome
+     this whole design refuses. The day still counts as training. */
+  if (!sessionIdentityTrusted(dd)){
+    dd.calibration = { outcome: 'refused', reason: 'session_edited', lthr: null,
+                       at: todayStr() };
+    return dd.calibration;
+  }
   var m = calibrationResult(dd);
   if (!m) return null;
 

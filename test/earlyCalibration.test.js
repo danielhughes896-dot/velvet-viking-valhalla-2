@@ -1084,3 +1084,75 @@ test('the anchor takes the best recent result, not the latest', () => {
   a.athlete().performances[0].date = a.addDays(TODAY, -200);
   assert.equal(a.currentFitnessAnchor().vdot, 47);
 });
+
+// ---------------------------------------------------------------------------
+// RECONCILED WITH EDIT SESSION COHERENCE
+//
+// Edit Session stops a stale coaching identity surviving an edit that changed
+// what a session IS. A physiological anchor is the last thing that should
+// outlive such an edit: a threshold taken from an unknown effort is a false
+// threshold, which is the outcome this whole design refuses.
+// ---------------------------------------------------------------------------
+test('a session whose instructions were rewritten yields no threshold', () => {
+  const a = calibratedPlan();
+  const dd = calDay(a);
+  dd.manualEdit = { fields: ['desc'] };          // the instructions, not the type
+  assert.equal(a.sessionIdentityTrusted(dd), false);
+
+  logCalibration(a, dd, 171);
+  const out = a.applyCalibrationFromDay(dd);
+
+  assert.equal(out.outcome, 'refused');
+  assert.equal(out.reason, 'session_edited');
+  assert.equal(a.state.setup.lthr, null, 'no threshold from an unknown effort');
+  assert.equal(a.state.setup.thresholdPaceSecPerKm, undefined);
+  assert.equal(a.currentFitnessAnchor().source, 'benchmark', 'and the anchor is untouched');
+  assert.equal(dd.completed, true, 'the day still counts as training');
+});
+
+test('but an ordinary correction does not throw the measurement away', () => {
+  /* sessionIdentityTrusted() is deliberately narrow: it is the INSTRUCTIONS
+     that make a card an untrustworthy statement of what was asked for. An
+     athlete who fixed a title or a distance still ran the protocol. */
+  const a = calibratedPlan();
+  const dd = calDay(a);
+  dd.manualEdit = { fields: ['title', 'km'] };
+  assert.equal(a.sessionIdentityTrusted(dd), true);
+
+  logCalibration(a, dd, 171);
+  a.applyCalibrationFromDay(dd);
+  assert.equal(a.state.setup.lthr, 171);
+  assert.equal(a.currentFitnessAnchor().source, 'calibration');
+
+  /* And re-picking the type restores trust even after an instruction edit --
+     the athlete has said what the session now is. */
+  const b = calibratedPlan();
+  const bd = calDay(b);
+  bd.manualEdit = { fields: ['desc', 'type'] };
+  assert.equal(b.sessionIdentityTrusted(bd), true);
+});
+
+test('the completion threshold is one named rule, not a scattered number', () => {
+  const a = calibratedPlan();
+  assert.equal(a.MEASURED_EFFORT_COMPLETION_MIN, 0.85);
+
+  /* The rule itself, at its edges. */
+  assert.equal(a.effortWasCompleted(8.5, 10), true, '85% is completed');
+  assert.equal(a.effortWasCompleted(8.4, 10), false);
+  assert.equal(a.effortWasCompleted(10.4, 10), true, 'running long is not falling short');
+  assert.equal(a.effortWasCompleted(5, 0), true, 'nothing prescribed, nothing to fall short of');
+
+  /* AND THE ADMISSION RULE GOES THROUGH IT. performanceFromDay() decides what
+     may become Measured Fitness, and it must ask the named rule rather than
+     carry a ratio of its own -- which is what it did when the threshold was
+     introduced. Asserted on the function, not on the file: two unrelated 0.85s
+     live elsewhere in the runtime (a partial-session scoring ratio and a
+     workout-variety weight) and folding independent rules together because
+     they share a number would be worse than the duplication it removed. */
+  const src = require('fs').readFileSync(
+    require('path').join(__dirname, '..', 'protected/velvet-viking-valhalla.html'), 'utf8');
+  const fn = /function performanceFromDay\([^]*?\n\}/.exec(src)[0];
+  assert.match(fn, /effortWasCompleted\(/, 'the admission rule bypasses the named threshold');
+  assert.ok(!/0\.\d\d/.test(fn.replace(/\/\*[^]*?\*\//g, ' ')),
+    'performanceFromDay carries a ratio literal of its own');
+});
