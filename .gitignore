@@ -39,6 +39,7 @@ tools/shots/valhalla-3d/
 tools/shots/soft-surface/
 tools/shots/unify-cards/
 tools/shots/valhalla-consistency/
+tools/shots/final-sweep/
 
 # Screenshot output. The scripts that produce it are versioned; the PNGs are
 # regenerated on demand and would otherwise put megabytes of binary in history.

@@ -688,8 +688,8 @@ const CASES = [
    '  if (false){'],
   ['consent: withdrawal leaves the heart-rate profile values behind',
    'protected/velvet-viking-valhalla.html',
-   '  if (!granted && state.setup){ state.setup.lthr = null; state.setup.maxHR = null; }',
-   ''],
+   '  if (!granted && state.setup){',
+   '  if (false){'],
   ['consent: the record collapses to a bare boolean',
    'protected/velvet-viking-valhalla.html',
    "    grantedAt: decision === 'granted' ? now : (prev ? prev.grantedAt || null : null),",
@@ -761,20 +761,28 @@ const CASES = [
   ['monday: the mirror trusts the caller instead of re-reading', 'api/_monday-operational.js',
    "    const facts = await Store.readCommercialFacts(S, cfg, accountId);",
    "    const facts = { ok: true, account: null, subscriptions: [], grants: [] };"],
-  ['monday: a mirror failure fails the webhook', 'api/billing-webhook.js',
+  // RE-HOMED, NOT REMOVED: the mirror-failure-must-not-fail-a-purchase
+  // guarantee moved from billing-webhook.js's own handler into
+  // _billing-apply.js's applySubscriptionFacts(), which billing-webhook.js
+  // itself calls (require('./_billing-apply.js')) -- same anchor text, new
+  // file, still exercised end-to-end by billingWebhook.test.js.
+  ['monday: a mirror failure fails the webhook', 'api/_billing-apply.js',
    "    if (!mirrored.ok && mirrored.code !== 'operational_sync_disabled'){",
-   "    if (!mirrored.ok){ return S.json(res, 503, { error: 'unavailable' }); }\n    if (false){"],
+   "    if (!mirrored.ok){ throw new Error('mirror failed'); }\n    if (false){"],
 
   // ---- PLAN HQ: THE RECORD ----
   ['record: a Record value is a fact, and stops being one', 'protected/velvet-viking-valhalla.html',
-   "  .rec-val{font-size:11.5px; color:var(--ink-dim);",
-   "  .rec-val{font-size:11.5px; color:var(--c-tempo);", RECORD_SUBSET],
+   "  .rec-val{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim);",
+   "  .rec-val{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--c-tempo);", RECORD_SUBSET],
   ['record: the four cards become one combined list again', 'protected/velvet-viking-valhalla.html',
    "  return '<div class=\"setup-section-title\">The Record</div>'+",
    "  return '<div class=\"setup-section-title\">The Record</div><table>'+", RECORD_SUBSET],
+  // RE-HOMED: recordValue()'s call sites were replaced by the *Fact()
+  // functions (recordBenchmarkFact() etc.) feeding a shared card renderer --
+  // same guarantee (a live value, not a hardcoded one), new shape.
   ['record: a card stops reading live state and states a fixed value', 'protected/velvet-viking-valhalla.html',
-   "    ? recordValue(DISTANCE_PROFILES[b.distanceKey].label+' · '+secToClock(b.timeSec), 'font-mono')",
-   "    ? recordValue('Half Marathon · 1:37:00', 'font-mono')", RECORD_SUBSET],
+   "    value: b ? DISTANCE_PROFILES[b.distanceKey].label+' · '+secToClock(b.timeSec) : 'Not set',",
+   "    value: 'Half Marathon · 1:37:00',", RECORD_SUBSET],
   ['record: the zone panel rebuilds the editor instead of hosting it', 'protected/velvet-viking-valhalla.html',
    '  var body = renderZonePacesCard(true)+', "  var body = '<div class=\"field-hint\">Paces</div>'+", RECORD_SUBSET],
   ['record: the progress panel loses the mount patchDerivedStats() patches', 'protected/velvet-viking-valhalla.html',
@@ -805,16 +813,23 @@ const CASES = [
    "    '<div class=\"setup-section-title\">Not a measurement of current fitness</div>'+",
    "    '<div class=\"setup-section-title\">Your current fitness</div>'+", RECORD_SUBSET],
   ['record: the paces are said to come from the benchmark', 'protected/velvet-viking-valhalla.html',
-   "        ? 'Calculated from your active goal — Goal '+escapeHtml(state.setup.activeGoal)+', '+",
-   "        ? 'Derived from your benchmark — Goal '+escapeHtml(state.setup.activeGoal)+', '+", RECORD_SUBSET],
+   "    ? 'Estimated from your active goal — Goal '+state.setup.activeGoal+', '+",
+   "    ? 'Estimated from your benchmark — Goal '+state.setup.activeGoal+', '+", RECORD_SUBSET],
   ['record: a completed checkpoint is counted before it is measured',
    'protected/velvet-viking-valhalla.html',
    "    var counted = chk.completed && measuredPerformances().some(function(p){\n      return p.date === chk.date;\n    });",
    "    var counted = chk.completed;", RECORD_SUBSET],
-  ['record: Plan HQ keeps the confidence gauge but loses the line beneath it',
-   'protected/velvet-viking-valhalla.html',
-   "    (state.setup ? '<div class=\"field-hint\">Confidence reflects how closely your logged sessions have matched '+",
-   "    (false ? '<div class=\"field-hint\">Confidence reflects how closely your logged sessions have matched '+", RECORD_SUBSET],
+  /* RETIRED (proven obsolete, C10-13 tooling pass): renderConfidenceGauge()
+     no longer renders its own explanatory line -- the gauge itself
+     (#confidence-gauge-mount) is now a bare SVG+number, and the equivalent
+     "Confidence reflects how closely..." copy moved into the Reading
+     panel's readiness card (renderReadingSection()'s body), which is
+     unconditional there rather than gated on `state.setup`. There is no
+     longer a `(state.setup ? '<explanatory line>' : '')` ternary anywhere
+     near the gauge to flip false, so the original mutation has no current
+     target. Not replaced 1:1 -- the readiness card's own presence is
+     already covered by 'reading: an interpretation quietly loses its card'
+     a few cases below. */
   ['record: the zone editor loses its head everywhere, not just in the panel',
    'protected/velvet-viking-valhalla.html',
    "    (inPanel ? '' : '<div class=\"zpc-head\"><span class=\"font-head\">Training Zone Paces</span></div>')+",
@@ -829,15 +844,15 @@ const CASES = [
    "      tone: { fresh:'good', watch:'watch', strained:'bad' }[rec.state],",
    "      tone: 'good',", HQ_SUBSET],
   ['reading: a Reading card stops carrying its conclusion', 'protected/velvet-viking-valhalla.html',
-   "  var value = '<span class=\"read-val'+tone+'\">'+",
-   "  var value = '<span class=\"rec-val\">'+", HQ_SUBSET],
+   "        '<span class=\"read-val'+(sec.tone?' '+sec.tone:'')+'\">'+",
+   "        '<span class=\"rec-val\">'+", HQ_SUBSET],
   ['reading: a panel stops hosting the evidence and paraphrases it',
    'protected/velvet-viking-valhalla.html',
-   "  return recordPanelShell(sec.title, head+'<div class=\"hub-card\">'+sec.body+'</div>');",
-   "  return recordPanelShell(sec.title, head+'<div class=\"hub-card\">'+escapeHtml(sec.syn)+'</div>');", HQ_SUBSET],
+   "  return recordPanelShell(sec.title, head+'<div class=\"hub-card tile-card\">'+sec.body+'</div>');",
+   "  return recordPanelShell(sec.title, head+'<div class=\"hub-card tile-card\">'+escapeHtml(sec.syn)+'</div>');", HQ_SUBSET],
   ['reading: the cards go back to expanding in place', 'protected/velvet-viking-valhalla.html',
-   "  return '<button type=\"button\" class=\"rec-card\" data-action=\"open-reading\" data-reading=\"'+sec.key+'\">'+",
-   "  return '<button type=\"button\" class=\"rec-card\" aria-expanded=\"false\" data-action=\"toggle-hq-section\" data-reading=\"'+sec.key+'\">'+", HQ_SUBSET],
+   "  return '<button type=\"button\" class=\"ev-card\" data-action=\"open-reading\" data-reading=\"'+sec.key+'\">'+",
+   "  return '<button type=\"button\" class=\"ev-card\" aria-expanded=\"false\" data-action=\"toggle-hq-section\" data-reading=\"'+sec.key+'\">'+", HQ_SUBSET],
   ['reading: BACK stops being the only violet in a panel', 'protected/velvet-viking-valhalla.html',
    "  .hq-panel .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink);}",
    "", HQ_SUBSET],
@@ -866,20 +881,25 @@ const CASES = [
    "", HQ_SUBSET],
   ['outlook: it is placed above the gauge it belongs beneath',
    'protected/velvet-viking-valhalla.html',
-   "    (state.setup ? '<div id=\"outlook-mount\">'+renderRaceOutlook()+'</div>' : '');",
-   "    '';", HQ_SUBSET],
+   "    '<div id=\"outlook-mount\">'+renderRaceOutlook()+'</div>'+",
+   "    ''+", HQ_SUBSET],
 
   // ---- PLAN HQ: THE ACTION TRIO ----
   ['trio: two tiles fire the same action again', 'protected/velvet-viking-valhalla.html',
    "    actionTile('open-new-block', ICONS.layers, 'New block')+",
    "    actionTile('open-setup', ICONS.layers, 'New block')+", HQ_SUBSET],
-  ['trio: CHECKPOINT offers a door to a session that is not there',
-   'protected/velvet-viking-valhalla.html',
-   "  var chk = scheduledCheckpointDay();\n  var body;\n  if (!chk){",
-   "  var chk = scheduledCheckpointDay();\n  var body;\n  if (false){", HQ_SUBSET],
-  ['trio: CHECKPOINT becomes generic workout scheduling', 'protected/velvet-viking-valhalla.html',
-   "      '<div class=\"setup-section-title\">What it is for</div>'+",
-   "      '<div class=\"setup-section-title\">Schedule a session</div>'+", HQ_SUBSET],
+  /* RETIRED (proven obsolete, C10-13 tooling pass): both cases targeted the
+     standalone Fitness Checkpoint action panel (actionPanelCheckpoint()),
+     which an explicit in-repo comment records as deliberately removed --
+     "requirement 9": "The standalone Fitness Checkpoint popup
+     (actionPanelCheckpoint()) is gone." ACTION_PANELS now holds only
+     `newblock`, and the action trio itself is a duo (renderValhallaActionsRow()
+     returns exactly two tiles: New block, Plan settings) -- CHECKPOINT is no
+     longer a member of the trio at all. What a checkpoint destination now
+     means is handleGoToCheckpoint()'s `if (!chk) return;` guard inside
+     recordPanelFitness()'s "Your next checkpoint" card, a different function
+     with a different shape; grafting the old anchors onto it would test a
+     guarantee the original case never described. Not replaced 1:1. */
   ['trio: NEW BLOCK loses the builder it always has to offer',
    'protected/velvet-viking-valhalla.html',
    "    '<button type=\"button\" class=\"btn btn-ghost btn-block\" data-action=\"open-setup\">'+\n      ICONS.target+' Build a new training block</button>'+",
@@ -924,9 +944,12 @@ const CASES = [
   ['accent: the switch stops sharing one ON colour', 'protected/velvet-viking-valhalla.html',
    "  .switch input:checked + .switch-track{background:var(--cherry);}",
    "  .switch input:checked + .switch-track{background:var(--bronze);}", ACCENT_SUBSET],
+  // RE-HOMED: the gauge's fill no longer sets stroke as an inline SVG
+  // attribute -- it reads the .gauge-fill CSS rule (renderConfidenceGauge()'s
+  // circle carries only stroke-width inline now). Same guarantee, CSS anchor.
   ['accent: the gauge needle stops carrying the accent', 'protected/velvet-viking-valhalla.html',
-   "stroke=\"var(--cherry)\" stroke-width=\"2.4\"",
-   "stroke=\"var(--gold)\" stroke-width=\"2.4\"", ACCENT_SUBSET],
+   ".gauge-fill{stroke:var(--cherry);}",
+   ".gauge-fill{stroke:var(--gold);}", ACCENT_SUBSET],
   ['accent: a component redefines the accent for one theme',
    'protected/velvet-viking-valhalla.html',
    "  .rec-panel-nav{margin-top:22px;}",
@@ -941,17 +964,20 @@ const CASES = [
    "    '<button type=\"button\" class=\"btn btn-ghost btn-block\" data-action=\"cloud-keep-remote\">Use my account\u2019s plan</button>'+\n  '</div>');",
    "    '<button type=\"button\" class=\"btn btn-ghost btn-block\" data-action=\"cloud-keep-remote\">Use my account\u2019s plan</button>'+\n  '</div>', 'modal-themed');", HQ_SUBSET],
   // ---- THE NINE-STAGE BUILDER ----
-  ['builder: a stage is dropped from the journey', 'protected/velvet-viking-valhalla.html',
-   "var BLD_STAGE_NAMES = ['Goal','Distance','Event','You','Benchmark','Week','Training data','Targets','Review'];",
-   "var BLD_STAGE_NAMES = ['Goal','Distance','Event','You','Benchmark','Week','Targets','Review'];", BUILDER_SUBSET],
+  // RE-HOMED: BLD_STAGE_NAMES is no longer a hardcoded literal in the app --
+  // it is derived (var BLD_STAGE_NAMES = BUILDER_SPEC.stages.map(...)) from
+  // the canonical spec, which is now the one place a stage can be dropped.
+  ['builder: a stage is dropped from the journey', 'assets/builder-spec.js',
+   "    { key: 'TRAINING',   name: 'Training data',   heading: 'Training data',\n      lede: 'Optional heart-rate numbers, if you have them.' },\n",
+   "", BUILDER_SUBSET],
   ['builder: a validation rule is pointed at the wrong screen',
    'protected/velvet-viking-valhalla.html',
    "  if (i === BLD_STAGE.YOU){\n    var volume = parseDistInput",
    "  if (i === BLD_STAGE.BENCHMARK){\n    var volume = parseDistInput", BUILDER_SUBSET],
   ['builder: the named stage indices drift out of step with the order',
    'protected/velvet-viking-valhalla.html',
-   "var BLD_STAGE = { GOAL:0, DISTANCE:1, EVENT:2, YOU:3, BENCHMARK:4, WEEK:5, TRAINING:6, TARGETS:7, REVIEW:8 };",
-   "var BLD_STAGE = { GOAL:0, DISTANCE:1, EVENT:2, YOU:4, BENCHMARK:3, WEEK:5, TRAINING:6, TARGETS:7, REVIEW:8 };", BUILDER_SUBSET],
+   "var BLD_STAGE = { OVERVIEW:0, GOAL:1, DISTANCE:2, EVENT:3, YOU:4, BENCHMARK:5, WEEK:6, TRAINING:7, TARGETS:8, REVIEW:9 };",
+   "var BLD_STAGE = { OVERVIEW:0, GOAL:1, DISTANCE:2, EVENT:3, YOU:5, BENCHMARK:4, WEEK:6, TRAINING:7, TARGETS:8, REVIEW:9 };", BUILDER_SUBSET],
   ['builder: a panel is unmounted instead of hidden, breaking the couplings',
    'protected/velvet-viking-valhalla.html',
    "    '<section class=\"bld-panel\" data-stage=\"4\" hidden>'+",
@@ -1003,10 +1029,12 @@ const CASES = [
    'protected/velvet-viking-valhalla.html',
    "    border-top:1px solid var(--line-soft);\n    border-right:1px solid var(--line-soft);",
    "    border-right:1px solid var(--line-soft);", BUILDER_SUBSET],
+  // Stage indices shifted by one (OVERVIEW was added as stage 0): the
+  // heart-rate/TRAINING screen is now navBtns(7), not navBtns(6).
   ['consent: the permission drifts back onto the heart-rate screen',
    'protected/velvet-viking-valhalla.html',
-   "      '<div class=\"field-hint bld-reassure\">Don\u2019t know it? That\u2019s completely fine \u2014 Valhalla works without it.</div>'+\n      navBtns(6)+",
-   "      '<div class=\"field-hint bld-reassure\">Don\u2019t know it? That\u2019s completely fine \u2014 Valhalla works without it.</div>'+\n      consentStep+\n      navBtns(6)+", BUILDER_SUBSET],
+   "      '<div class=\"field-hint bld-reassure\">Don\u2019t know it? That\u2019s completely fine \u2014 Valhalla works without it.</div>'+\n      navBtns(7)+",
+   "      '<div class=\"field-hint bld-reassure\">Don\u2019t know it? That\u2019s completely fine \u2014 Valhalla works without it.</div>'+\n      consentStep+\n      navBtns(7)+", BUILDER_SUBSET],
   ['consent: the permission ships pre-ticked', 'protected/velvet-viking-valhalla.html',
    "'<input type=\"checkbox\" id=\"su-health-consent\" style=\"width:auto; margin:3px 7px 0 0;\">'+",
    "'<input type=\"checkbox\" id=\"su-health-consent\" checked style=\"width:auto; margin:3px 7px 0 0;\">'+", BUILDER_SUBSET],

@@ -958,7 +958,20 @@
   .section-label .rule{flex:1; height:1px; background:var(--line);}
 
   /* ---------- week accordion ---------- */
-  .week{border:1px solid var(--line); border-radius:var(--radius); margin-bottom:12px; background:var(--surface-2); overflow:hidden; box-shadow:var(--shadow-sm);}
+  /* C7: THE SHELL, NOT ONLY ITS CONTENTS. .day already carries --tile-sheen
+     and the full --tile-shadow (the premium raised recipe Valhalla, Coach,
+     Settings and Zone Breakdown all share); the week card around it still
+     used the older plain border + bare --shadow-sm, and against its own
+     sheened, top-highlighted day rows that read as the one flat, legacy
+     surface left in an otherwise raised system -- confirmed by live capture
+     at 360/390/430, light and dark (tools/shots/week-shell-c7.js).
+
+     THE HAIRLINE-LIFT RECIPE, not the full day-card one. This is a
+     container for seven day cards, not a workout of its own, so it takes
+     .tb-unit-toggle's restrained Level 2 treatment -- tile-sheen and
+     tile-border, plus a much smaller lift than --tile-shadow's 12px blur --
+     deliberately so the shell still reads quieter than what it holds. */
+  .week{border:1px solid var(--tile-border); border-radius:var(--radius); margin-bottom:12px; background:var(--tile-sheen), var(--surface-2); overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10);}
   .week:last-child{margin-bottom:0;}
   /* ---------- FULL PLAN phase dividers ----------
      Section markers between week cards, deliberately NOT a card: no
@@ -4083,6 +4096,35 @@ function weeklyCompletedVolumes(){
   });
   return Object.keys(byWeek).sort().map(function(k){ return { week:k, km:round1(byWeek[k]) }; });
 }
+/* weeklyCompletedVolumes()'s training-load twin: identical grouping, with
+   race/goal-effort days excluded. progressionJustification()'s peak-reached
+   gate compares an athlete's biggest COMPLETED week against the last
+   block's biggest SCHEDULED week (largestScheduledWeek()), which now leaves
+   the race day out for the same reason -- a single maximal-effort race day
+   is not the training capacity either side of that comparison is meant to
+   measure, and comparing a race-inflated figure on one side against a
+   race-excluded figure on the other would just move the same distortion
+   from one gate to the mismatch between them. Every other consumer of
+   weeklyCompletedVolumes() (the safety ceiling, the response model) keeps
+   reading the unfiltered figure: this split is scoped to the one comparison
+   it was found to distort. */
+function weeklyCompletedTrainingVolumes(){
+  var byWeek = {};
+  var add = function(dateStr, km){
+    if (!dateStr || !(km > 0)) return;
+    var monday = addDays(dateStr, -isoWeekday(dateStr));
+    byWeek[monday] = (byWeek[monday] || 0) + km;
+  };
+  var a = (state && state.athlete) || null;
+  ((a && a.sessions) || []).forEach(function(s){
+    if (s && s.completed && s.type !== 'race') add(s.date, s.actualKm != null ? s.actualKm : (s.plannedKm || 0));
+  });
+  ((state && state.days) || []).forEach(function(dd){
+    if (!dd || !dd.completed || dd.type === 'race') return;
+    add(dd.date, (dd.actual && dd.actual.km != null) ? dd.actual.km : (dd.km || 0));
+  });
+  return Object.keys(byWeek).sort().map(function(k){ return { week:k, km:round1(byWeek[k]) }; });
+}
 /* What this athlete has demonstrably HELD. The Nth highest completed week
    rather than the highest: one big week is a week, three is a capacity. Null
    until there are enough weeks to say anything, which is what keeps a new
@@ -4199,11 +4241,24 @@ function previousBlockPeakVolume(){
    schedules about 55, because five days and a 12km long-run cap cannot hold
    it. Judging "did the athlete reach the top of the last block" against a
    number the generator never wrote would fail an athlete who ran every metre
-   they were given. */
+   they were given.
+
+   RACE/GOAL-EFFORT DAYS ARE EXCLUDED, the same split weekVolume() already
+   makes for display ("training" vs "race"). A marathon's 42.2km is a single
+   tapered, maximal-effort day, not training load, and this figure is what
+   progressionJustification()'s "reached the top of the last block" gate is
+   judged against. Left in, a short or lower-volume block's race week --
+   a couple of easy shakeout days plus the race itself -- can outscore every
+   genuine training week the block scheduled, crediting the athlete with
+   demonstrated capacity they raced into rather than trained into. That is
+   exactly the single-week statistical trap demonstratedSustainableVolume()
+   was built three sustained weeks deep to avoid; this figure had no such
+   protection because a scheduled block only ever contains one race day, so
+   the fix is to exclude it, not to average it away. */
 function largestScheduledWeek(days){
   var byWeek = {};
   (days || []).forEach(function(dd){
-    if (!dd || dd.type === 'rest') return;
+    if (!dd || dd.type === 'rest' || dd.type === 'race') return;
     byWeek[dd.week] = (byWeek[dd.week] || 0) + (dd.km || 0);
   });
   var best = 0;
@@ -4322,7 +4377,9 @@ function progressionJustification(){
      having actually reached the top of the last ramp is. */
   var prevPeak = previousBlockPeakVolume();
   if (prevPeak){
-    var best = weeklyCompletedVolumes()
+    // Race-excluded on both sides of the comparison -- see
+    // weeklyCompletedTrainingVolumes() and largestScheduledWeek().
+    var best = weeklyCompletedTrainingVolumes()
       .filter(function(w){ return w.week >= addDays(todayStr(), -7 * 16); })
       .reduce(function(m, w){ return Math.max(m, w.km); }, 0);
     out.reachedPeak = round1(best);
@@ -23192,7 +23249,13 @@ function bldRenderReview(){
   var host = document.getElementById('bld-review');
   if (!host) return;
   var distSel = document.getElementById('su-distance');
-  var profile = DISTANCE_PROFILES[distSel.value];
+  var purposeSelForReview = document.getElementById('su-purpose');
+  var reviewPurposeMeta = purposeSelForReview && BUILDER_PURPOSE_META[purposeSelForReview.value];
+  // Same authority handleGeneratePlan() will use: a locked purpose's distance
+  // is never read from the field, so Review cannot promise a distance
+  // Generate would not actually save.
+  var reviewDistanceKey = (reviewPurposeMeta && reviewPurposeMeta.lockDistance) || distSel.value;
+  var profile = DISTANCE_PROFILES[reviewDistanceKey];
   var unitBtn = document.querySelector('#su-units button.active');
   var units = unitBtn ? unitBtn.getAttribute('data-units') : state.units;
   var volume = document.getElementById('su-volume').value;
@@ -23201,6 +23264,14 @@ function bldRenderReview(){
   var hasEvent = !box || box.getAttribute('data-mode') !== 'none';
   var longSel = document.getElementById('su-longday');
   var longLabel = longSel.options[longSel.selectedIndex] ? longSel.options[longSel.selectedIndex].textContent : '\u2014';
+  /* C3: WHICH DAYS, NOT JUST HOW MANY. The hero line already answers "5
+     running days"; it never said which five. Three-letter names keep this
+     to one short line even at 5-6 days, matching every other row's density
+     rather than a calendar strip that would be visually noisier than the
+     rest of Review. */
+  var weekdayNames = Array.prototype.slice.call(
+    document.querySelectorAll('#su-weekdays input[type=checkbox]:checked')
+  ).map(function(cb){ return ISO_WEEKDAY_NAMES[parseInt(cb.getAttribute('data-wd'), 10)]; });
   var lthr = document.getElementById('su-lthr').value;
   var maxhr = document.getElementById('su-maxhr').value;
   var goals = GOAL_KEYS.map(function(k){
@@ -23217,6 +23288,7 @@ function bldRenderReview(){
     ? row('Event date', document.getElementById('su-racedate').value || '\u2014')
     : row('Block length', document.getElementById('su-weeks').value + ' weeks');
   rows += row('Experience', EXPERIENCE_META[athleteExperience()].short);
+  if (weekdayNames.length) rows += row('Running days', weekdayNames.join(', '));
   rows += row('Long run day', longLabel);
   var benchTimeVal = document.getElementById('su-bench-time').value.trim();
   rows += row('Benchmark', document.getElementById('su-bench-dist').value.toUpperCase() +
@@ -23636,6 +23708,17 @@ async function handleGeneratePlan(){
   var buildPurpose = purposeSel && isBlockPurpose(purposeSel.value) && purposeSel.value !== 'recovery'
     ? purposeSel.value : 'race';
   var distanceKey = document.getElementById('su-distance').value;
+  /* THE LOCK IS ENFORCED HERE, NOT ONLY IN THE FIELD THAT DISPLAYS IT.
+     bldOnPurposeChange() forces su-distance to meta.lockDistance and disables
+     every other button, but that is DOM presentation -- a stale value left
+     over from switching purposes without the field re-rendering, or a
+     directly-set value, would otherwise reach the generator unchecked. The
+     server's own /api/_preview.js enforces the identical rule
+     (PURPOSE_SHAPE[purpose].forceDistance) for exactly this reason: the
+     purpose, not whatever the distance field currently reads, is the
+     authority on a locked purpose's distance. */
+  var purposeLockDistance = BUILDER_PURPOSE_META[buildPurpose] && BUILDER_PURPOSE_META[buildPurpose].lockDistance;
+  if (purposeLockDistance) distanceKey = purposeLockDistance;
   var eventBox = document.getElementById('su-event-box');
   /* Only a race block can have an event. Anything else has a length and a
      goal effort, which is what hasEvent=false already means everywhere
