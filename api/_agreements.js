@@ -133,7 +133,14 @@ const TERMS_BETA_VERSION       = 'terms_v1';
    policy is a different document from the beta notice, so it has a different
    identifier for the same reason the Terms do. */
 const PRIVACY_COMMERCIAL_VERSION = 'commercial_privacy_v1';
-const PRIVACY_BETA_VERSION       = 'privacy_v1';
+/* THE WEBSITE'S NAME FOR THE SUPERSEDED NOTICE, adopted rather than invented.
+   CANONICAL_LEGAL calls it beta_privacy_v1, and an app calling the same
+   document privacy_v1 would be the second vocabulary the canonical-identifier
+   rule exists to prevent: two systems disagreeing about what one stored row
+   means. Safe to align because no row has ever carried the old name --
+   account_agreements held zero rows when this was checked, and every row
+   written from today names commercial_privacy_v1. */
+const PRIVACY_BETA_VERSION       = 'beta_privacy_v1';
 
 /* WHAT IS IN FORCE, GIVEN A PUBLICATION STATE.
  *

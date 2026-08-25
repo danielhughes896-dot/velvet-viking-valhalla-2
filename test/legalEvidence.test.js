@@ -415,7 +415,11 @@ test('the commercial Terms do not inherit the private-beta Terms identifier', ()
   assert.equal(Agree.TERMS_BETA_VERSION, 'terms_v1');
   assert.equal(Agree.TERMS_COMMERCIAL_VERSION, 'commercial_terms_v1');
   assert.equal(Agree.PRIVACY_COMMERCIAL_VERSION, 'commercial_privacy_v1');
-  assert.equal(Agree.PRIVACY_BETA_VERSION, 'privacy_v1');
+  /* The website's name for the superseded notice, adopted rather than
+     invented -- CANONICAL_LEGAL calls it beta_privacy_v1, and two systems
+     naming one document differently is the second vocabulary the
+     canonical-identifier rule exists to prevent. */
+  assert.equal(Agree.PRIVACY_BETA_VERSION, 'beta_privacy_v1');
   assert.notEqual(Agree.TERMS_COMMERCIAL_VERSION, Agree.TERMS_BETA_VERSION);
   assert.notEqual(Agree.PRIVACY_COMMERCIAL_VERSION, Agree.PRIVACY_BETA_VERSION);
 });
@@ -619,7 +623,7 @@ test('with the documents unpublished, no Terms version exists at all', () => {
   /* The notice and the link DO name what is actually in force, because a
      reader should be able to reach the document that governs them today. It
      is ACCEPTANCE that must not be recordable, not information. */
-  assert.equal(off.privacy, 'privacy_v1');
+  assert.equal(off.privacy, 'beta_privacy_v1');
   assert.equal(off.termsUrl, Agree.BETA_TERMS_URL);
 });
 
