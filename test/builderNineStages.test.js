@@ -299,6 +299,28 @@ test('the permission is never pre-granted, and nothing but the tick grants it', 
     'heart rate is stored without checking the permission');
 });
 
+// AUDIT REPRO (Final Full Product Audit, Part 14, finding A -- release
+// blocker). bldRenderReview() read su-lthr/su-maxhr straight off the DOM and
+// unconditionally rendered "Heart rate: LTHR ... Max ..." whenever the
+// fields were non-blank, with no check against the same
+// healthConsentGranted() predicate handleGeneratePlan() actually gates
+// storage on. An athlete who typed LTHR/MaxHR and left the (ordinary,
+// fully-supported) consent box unticked saw Review confirm numbers that
+// Generate then silently discarded -- no toast, no error, and for an
+// athlete who had already declined consent in an earlier session, the
+// checkbox does not even render (healthConsentAnswered() guard), so there
+// was no explanation surface in that dialog at all.
+test('Review describes what Generate will actually save, not just what was typed', () => {
+  const at = SRC.indexOf('function bldRenderReview');
+  const body = SRC.slice(at, SRC.indexOf('\n}\n', at));
+  assert.match(body, /getElementById\('su-health-consent'\)/,
+    'Review must consult the same consent box the generator reads');
+  assert.match(body, /healthConsentGranted\(\)/,
+    'Review must fall back to the stored decision when the box is not on screen (an athlete who already answered)');
+  assert.match(body, /not saved/,
+    'when consent will not be granted, the Heart rate row must say so rather than presenting the numbers as saved');
+});
+
 // ------------------------------------------------------- 6. goals, every purpose
 test('goals are asked for every block purpose, because every pace descends from them', () => {
   ['race', 'maintain', 'base', 'speed'].forEach(purpose => {

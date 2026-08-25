@@ -45,7 +45,12 @@ function buildPlan(app, opts) {
        the app's own equivalence table, sharpened by 3%. */
     goals: { A: { timeSec: goalTimeFor(app, distanceKey, benchSec) } }, activeGoal: 'A',
     paceOverrides: {}, lthr: opts.lthr || null, maxHR: opts.maxHR || null,
-    experience: 'experienced',
+    // Consistent with every other opts-driven field above: a caller MAY
+    // pass opts.experience (novice/experienced/advanced) and have it
+    // actually take effect, rather than needing the two-step
+    // buildPlan()-then-mutate-state.setup.experience pattern several other
+    // test files already use around this exact gap.
+    experience: opts.experience || 'experienced',
   };
   app.state.days = days;
   /* HEALTH AND READINESS CONSENT — WHY THE FIXTURE GRANTS IT.

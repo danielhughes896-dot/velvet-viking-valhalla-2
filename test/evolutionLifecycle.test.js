@@ -393,3 +393,35 @@ test('the athlete is told why nothing happened rather than left guessing', () =>
   assert.ok(!/failed|error|wrong/i.test(toasts.join(' ')),
     'nothing went wrong — the question simply moved');
 });
+
+// AUDIT REPRO (Final Full Product Audit, Part 9, finding C1).
+// handleAcceptEvolution()'s if/else-if chain (reduce/downgrade/reschedule/
+// move) had no guard for an unrecognised change.kind -- a kind belonging to
+// a different proposal source (e.g. the Playbook's own progress/regress,
+// which is meant to route through handleAcceptPlaybook() instead) fell
+// through the whole chain doing nothing to the day, yet still wrote
+// dd.coachAdjust and counted toward the "Plan evolved" toast: a false audit
+// record for a change that never happened. Not reachable through the
+// shipped UI (the dispatcher above always routes by data-source correctly),
+// but a real footgun for any future/alternate call site.
+test('an unrecognised change.kind mutates nothing and claims nothing', () => {
+  const a = proposingPlan(app());
+  const toasts = toastsOf(a);
+  const real = a.planEvolution();
+  const targetId = real.changes[0].dayId;
+  const before = JSON.stringify(a.findDay(targetId));
+
+  a.planEvolution = () => Object.assign({}, real, {
+    changes: [{ kind: 'progress', dayId: targetId }],
+  });
+  a.handleAcceptEvolution(real.proposalId);
+
+  assert.equal(JSON.stringify(a.findDay(targetId)), before,
+    'an unrecognised kind must not mutate the day at all');
+  assert.equal(a.findDay(targetId).coachAdjust, undefined,
+    'and must not write a coachAdjust record for a mutation that never happened');
+  assert.equal((a.state.evolutionHistory || []).length, 0,
+    'nor a history entry claiming a change was applied');
+  assert.doesNotMatch(toasts.join(' '), /Plan evolved/i,
+    'the athlete must not be told the plan changed when nothing did');
+});

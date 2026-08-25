@@ -20,12 +20,16 @@ const { buildPlan } = require('./fixtures.js');
 // (COACH_GUIDANCE, SESSION_INTENT_BY_TYPE, SESSION_PURPOSE) and
 // coachComparable()'s same-type matching all fall back to dd.type once the
 // prescription/archetype is gone, with no check for whether dd.type itself
-// is still a trustworthy description of what was actually written. A type
-// EXPLICITLY changed by the athlete is trusted outright (test 1); an
-// untouched or cosmetically-edited day (title/km only) is unaffected (test
-// 2); a day whose desc/mpSegment changed without a matching type change is
-// no longer trusted for any of these lookups (test 3) -- see
-// sessionIdentityTrusted() in the runtime.
+// is still a trustworthy description of what was actually written. TYPE and
+// WORDS (desc/mpSegment) are now trusted only as a pair: both changed in the
+// same edit is read as the athlete explicitly authoring a coherent new
+// pairing and stays trusted (test 1); neither changed (title/km only) never
+// put the pairing in doubt (test 2); desc/mpSegment changed without a
+// matching type change is the original reported defect (test 3); and TYPE
+// changed alone, with the words underneath left exactly as they were, is the
+// same defect inverted -- the badge says the new type, the instructions
+// still describe the old one (test 1b) -- see sessionIdentityTrusted() in
+// the runtime.
 //
 // DELIBERATELY UNCHANGED, and why: the Session Type LABEL and its semantic
 // colour stay exactly what the athlete picked (TYPE is the one field the
@@ -83,6 +87,36 @@ test('1. Easy -> another existing type (Tempo): dependent coaching guidance upda
   assert.equal((a.sessionPurpose(after) || {}).label, a.SESSION_PURPOSE.tempo.label);
   assert.doesNotMatch(a.coachingEntryFor(after).why, /aerobic base/,
     'the stale Easy WHY must not survive a type change');
+});
+
+test('1b. type changed ALONE via the dropdown, words left exactly as they were: the same defect, inverted', () => {
+  // AUDIT REPRO (Final Full Product Audit, Part 5, finding A). The single
+  // most ordinary edit action there is -- picking a different Session Type
+  // and leaving everything else untouched -- used to be trusted outright.
+  // The badge changed; the desc underneath, still describing the OLD type,
+  // did not; and every guidance table confidently narrated the NEW type
+  // over the OLD type's words.
+  const a = plannedApp();
+  const dd = findEasyDay(a);
+  const unchangedDesc = a.resolveDesc(dd.desc);
+  mockEditModalDom(a, dd, {
+    'ef-type': { value: 'tempo' }, 'ef-desc': { value: unchangedDesc },
+  });
+  a.handleSaveEdit(dd.id);
+  const after = a.findDay(dd.id);
+  assert.equal(after.type, 'tempo', 'the badge follows the athlete\'s explicit choice');
+  assert.equal(after.manualEdit.fields.join(','), 'type', 'only type registered as changed');
+  // Nothing may now confidently describe this as a Tempo session -- the
+  // words underneath still describe whatever the day was before, and
+  // nothing rewrote them to match the new badge.
+  assert.equal(a.coachingEntryFor(after), null);
+  assert.equal(a.coachingKeyFor(after), null);
+  assert.equal(a.coachIntentLine(after), '');
+  assert.equal(a.sessionPurpose(after), null);
+  assert.equal(a.renderCoachingDepth(after), '');
+  const targets = a.getDayTargets(after);
+  assert.equal(targets.pace, null, 'no Tempo-zone pace target printed over stale Easy words');
+  assert.equal(targets.hr, null);
 });
 
 test('2. title/distance edited only, still genuinely Easy: Easy guidance remains', () => {
@@ -220,7 +254,33 @@ test('5. reload/persistence retains the corrected identity and guidance', () => 
   assert.equal(b.sessionPurpose(reloaded), null);
 });
 
-test('6. Reset restores a coherent (Rest) identity -- no leftover Easy guidance of any kind', () => {
+test('6. Reset restores a coherent (Rest) identity -- no leftover Easy guidance, and no leftover edit provenance', () => {
+  const a = plannedApp();
+  const dd = findEasyDay(a);
+  mockEditModalDom(a, dd, {
+    'ef-title': { value: 'Lavidia race race' }, 'ef-km': { value: '10' },
+    'ef-mp': { checked: true }, 'ef-desc': { value: '10km best effort' },
+  });
+  a.handleSaveEdit(dd.id);
+  assert.ok(a.findDay(dd.id).manualEdit, 'sanity: the edit really did leave provenance behind');
+  a.handleResetDay(dd.id);
+  const after = a.findDay(dd.id);
+  assert.equal(after.type, 'rest');
+  assert.equal(after.title, 'Rest Day');
+  assert.equal(a.renderCoachingDepth(after), '');
+  assert.equal(a.coachIntentLine(after), '');
+  assert.doesNotMatch(a.renderDayCard(after), /aerobic base|best effort|Lavidia/i);
+  // Reset produces a genuinely clean Rest day, not one still quarantined by
+  // the athlete's earlier edit: it gets the SAME ordinary Rest guidance any
+  // untouched generated Rest day gets, not suppressed guidance.
+  assert.equal(JSON.stringify(a.sessionPurpose(after)),
+    JSON.stringify({ label: 'Rest', text: 'Absorb the training already done.' }));
+  assert.equal(after.manualEdit, undefined, 'no leftover "Edited" provenance after a reset');
+  assert.doesNotMatch(a.dayStatusLabel(after), /Edited/,
+    'a freshly reset Rest day must not still read as "Edited"');
+});
+
+test('6b. Reset re-admits the day to the Playbook engine (manualEdit no longer blocks it)', () => {
   const a = plannedApp();
   const dd = findEasyDay(a);
   mockEditModalDom(a, dd, {
@@ -230,12 +290,37 @@ test('6. Reset restores a coherent (Rest) identity -- no leftover Easy guidance 
   a.handleSaveEdit(dd.id);
   a.handleResetDay(dd.id);
   const after = a.findDay(dd.id);
-  assert.equal(after.type, 'rest');
-  assert.equal(after.title, 'Rest Day');
-  assert.equal(a.renderCoachingDepth(after), '');
-  assert.equal(a.coachIntentLine(after), '');
-  assert.equal(a.sessionPurpose(after), null);
-  assert.doesNotMatch(a.renderDayCard(after), /aerobic base|best effort|Lavidia/i);
+  assert.equal(after.coachAdjust, undefined);
+  assert.equal(after.coachKeptAt, undefined);
+  assert.equal(after.prescription, undefined);
+});
+
+test('execution review verdict: an untrusted-identity day is not narrated as "completed at easy intent"', () => {
+  // AUDIT REPRO (Final Full Product Audit, Part 5, finding A). The
+  // Execution Review's own headline sentence -- coachVerdict(), reached via
+  // coachWorkoutReview().executionVerdict -- read dd.type live and was never
+  // gated by sessionIdentityTrusted(), so the exact original reported
+  // scenario (Easy edited to "10km best effort", type left Easy, logged as
+  // a genuine hard effort) still produced "10km completed at easy intent...
+  // the discipline to hold back is what makes the hard days work" as the
+  // card's own headline -- describing a maximal effort as a botched easy
+  // run.
+  const a = plannedApp();
+  const dd = findEasyDay(a);
+  mockEditModalDom(a, dd, {
+    'ef-title': { value: 'Lavidia race race' }, 'ef-km': { value: '10' },
+    'ef-mp': { checked: true }, 'ef-desc': { value: '10km best effort' },
+  });
+  a.handleSaveEdit(dd.id);
+  const after = a.findDay(dd.id);
+  after.completed = true;
+  after.actual = { km: 10, pace: '3:35', hr: 178, rpe: 9, feel: 'good', notes: '' };
+  const review = a.coachWorkoutReview(after);
+  assert.ok(review, 'sanity: a completed, edited day must still produce a review');
+  assert.doesNotMatch(review.executionVerdict, /easy intent/i,
+    'an untrusted-identity day must not be narrated as having been run "at easy intent"');
+  assert.doesNotMatch(review.executionVerdict, /discipline to hold back/i,
+    'the easy-day-specific "held back" framing must not survive an untrusted identity');
 });
 
 test('execution review / comparison: an untrusted-identity day neither seeks nor is offered as an Easy comparable', () => {

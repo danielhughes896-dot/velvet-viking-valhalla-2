@@ -378,6 +378,7 @@
         </div>
         <p class="quiet" id="choice-note">After 14 days this becomes £11.99 a month, unless you cancel.</p>
       </div>
+      <div id="checkout-agreements"></div>
       <button class="vvv-btn" id="trial">Start my 14-day trial</button>
       <p class="quiet" id="trial-note">A payment method is required to begin. Nothing is taken
          until the trial ends.</p>
@@ -1217,6 +1218,90 @@
     $('save-card').classList.toggle('vvv-hidden', authenticated);
     if (isNativeApp()) return;
     $('trial-card').classList.toggle('vvv-hidden', !authenticated);
+    if (authenticated) loadCheckoutAgreements();
+  }
+
+  /* ---------- Terms / immediate-start acceptance ----------
+     Ported from account.html's resubscribe screen, which was the only
+     surface that ever rendered these two checkboxes -- this one, the actual
+     new-subscriber path (Builder -> Preview -> Save -> Authenticate ->
+     Trial), rendered none. /api/checkout refuses to open a Checkout Session
+     without both on record (decideCheckout(), _agreements.js), so a trial
+     tap here used to dead-end at a generic "could not open the payment
+     page" error with no way for the athlete to resolve it.
+
+     SAME AUTHORITY, SAME WORDING, ONE SOURCE. The checkbox text, the
+     document links and the versions recorded against them all come from
+     GET /api/subscription's own `agreements`/`agreements_outstanding`
+     fields -- the exact payload account.html already renders from -- so
+     this page cannot show one version of the Terms while a different one
+     gets recorded, and cannot show a tickbox when there is nothing
+     published to agree to. */
+  function loadCheckoutAgreements(){
+    authed('/api/subscription').then(function(r){
+      if (r.status === 200 && r.body) renderCheckoutAgreements(r.body);
+    }).catch(function(){ /* the trial button's own error handling covers a failed checkout attempt */ });
+  }
+  function renderCheckoutAgreements(v){
+    var box = $('checkout-agreements');
+    box.innerHTML = '';
+    var out = v && v.agreements_outstanding;
+    var defs = v && v.agreements;
+    if (!out || !defs || (!out.terms && !out.immediate_start)) return;
+
+    /* NO COMMERCIAL TERMS, NO TICKBOXES -- same rule account.html enforces.
+       A private-beta document behind an "I accept the Terms of Service"
+       tickbox would be worse than no tickbox at all. */
+    if (defs.commercialLegalPublished === false){
+      var note = document.createElement('p');
+      note.className = 'quiet';
+      note.textContent = 'Subscriptions are not open yet. Our commercial Terms of Service are not ' +
+        'published, so there is nothing to agree to here and nothing can be charged.';
+      box.appendChild(note);
+      return;
+    }
+
+    if (out.terms) box.appendChild(agreementRow('terms',
+      'I accept the <a href="' + defs.terms.url + '" target="_blank" rel="noopener noreferrer">Terms of Service</a>. ' +
+      'I have read the <a href="' + defs.privacy.url + '" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.', true));
+    if (out.immediate_start) box.appendChild(agreementRow('immediate_start', defs.immediateStart.text, false));
+  }
+  function agreementRow(kind, html, isHtml){
+    var wrap = document.createElement('label');
+    wrap.style.cssText = 'display:flex;gap:.6rem;align-items:flex-start;margin:.75rem 0;text-align:left;';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.id = 'agree-' + kind;
+    /* NEVER PRE-TICKED. An affirmative act is one the athlete performs. */
+    cb.checked = false;
+    cb.style.cssText = 'margin-top:.25rem;flex:0 0 auto;';
+    cb.addEventListener('change', function(){
+      if (cb.checked) recordCheckoutAgreement(kind, cb);
+    });
+    var span = document.createElement('span');
+    span.className = 'quiet';
+    if (isHtml) span.innerHTML = html; else span.textContent = html;
+    wrap.appendChild(cb); wrap.appendChild(span);
+    return wrap;
+  }
+  /* The tick requests a record; the server writes it with its own version and
+     the token's own athlete, and /api/checkout refuses to sell anything
+     until that row exists -- so a tampered checkbox buys nothing. */
+  function recordCheckoutAgreement(kind, cb){
+    cb.disabled = true;
+    authed('/api/subscription', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'agree', agreement: kind, decision: 'accepted',
+                             surface: 'checkout', decided_at: new Date().toISOString() })
+    }).then(function(r){
+      cb.disabled = false;
+      if (r.status === 200){ loadCheckoutAgreements(); return; }
+      cb.checked = false;
+      fail('trial-err', 'We could not record that just now — nothing has changed. Please try again.');
+    }).catch(function(){
+      cb.disabled = false; cb.checked = false;
+      fail('trial-err', 'We could not reach Velvet Viking. Check your connection and try again.');
+    });
   }
 
   /* ---------- the commercial decision ----------
@@ -1300,6 +1385,20 @@
         }
         if (code === 'already_subscribed_here' || code === 'already_subscribed_elsewhere'){
           fail('trial-err', 'You already have a subscription on this account.');
+          return;
+        }
+        /* The two refusals decideCheckout() (_checkout.js) returns when the
+           legal evidence is missing -- reproduces the exact checkboxes so
+           there is a way to resolve this rather than a dead end, instead of
+           falling through to the generic sentence below. */
+        if (code === 'terms_not_accepted' || code === 'immediate_start_not_acknowledged'){
+          loadCheckoutAgreements();
+          fail('trial-err', 'Please confirm the boxes above before continuing.');
+          return;
+        }
+        if (code === 'commercial_terms_not_published'){
+          loadCheckoutAgreements();
+          fail('trial-err', 'Subscriptions are not open yet. Nothing has been charged.');
           return;
         }
         fail('trial-err', 'We could not open the payment page. Nothing has been charged.');

@@ -894,7 +894,10 @@
   }
   .icon-btn{
     display:inline-flex; align-items:center; justify-content:center;
-    width:38px; height:38px; border-radius:999px; border:1px solid var(--line);
+    /* 40px, the app's own stated touch-target minimum (used everywhere else
+       -- day-action buttons, coach controls) -- was 38px here, the one
+       control under it. */
+    width:40px; height:40px; border-radius:999px; border:1px solid var(--line);
     background:var(--bg-2); color:var(--ink-dim); transition:.2s;
   }
   .icon-btn:hover{color:var(--ink); border-color:var(--bronze);}
@@ -1202,7 +1205,6 @@
     border-radius:6px; cursor:pointer; transition:background .12s, color .12s, border-color .12s;
   }
   .feel-btn.on{background:var(--modal-active); color:var(--bronze-ink); border-color:var(--modal-active);}
-  .cr-purpose{opacity:.85;}
   .cr-compare{display:flex; flex-wrap:wrap; gap:6px;}
   .cr-cmp{font-size:10px; padding:2px 7px; border:1px solid var(--line); border-radius:99px; color:var(--ink-faint);}
   .actual-clear{grid-column:1/-1; text-align:right;}
@@ -7470,6 +7472,31 @@ function handleAuthDeepLink(url){
   return true;
 }
 
+/* THE HARDWARE BACK BUTTON, PROPORTIONATELY. This is not a navigation
+   history stack -- the app has none, and inventing one for a single-page
+   web view would be a bigger and riskier change than the gap it closes.
+   The one thing worth fixing: with no listener registered at all, a modal
+   open when back is pressed is not the ordinary mobile expectation (back
+   closes the modal, not the app/screen underneath it). Registered once,
+   defensively, same shape as cloudInitDeepLinks(): a modal open is closed
+   and the event is consumed. Otherwise this calls minimizeApp() -- the
+   standard Capacitor answer for "back at the root of a single-page app",
+   sending the app to the background exactly like the system's own default
+   root-level back behaviour, never exitApp()/killing the process outright,
+   which would be a harsher outcome than an app with no custom handler ever
+   has on Android. */
+function initHardwareBackButton(){
+  var App = nativeAppPlugin();
+  if (!App || !App.addListener) return;
+  if (window.__vvvBackButtonBound) return;
+  window.__vvvBackButtonBound = true;
+  try{
+    App.addListener('backButton', function(){
+      if (document.getElementById('modal-overlay')){ closeModal(); return; }
+      if (App.minimizeApp) App.minimizeApp();
+    });
+  }catch(e){}
+}
 function cloudInitDeepLinks(){
   var App = nativeAppPlugin();
   if (!App || !App.addListener) return;
@@ -10291,21 +10318,32 @@ var TERSE_GUIDANCE = {
    prevent: TYPE Easy + INSTRUCTION "10km best effort" + WHY "Builds the
    aerobic base...".
 
-   THE RULE. dd.type is trusted as this session's coaching identity unless a
-   manual edit changed what was ASKED (desc or the goal-pace flag) without
-   the athlete also re-picking the type themselves -- re-picking the type is
-   read as the athlete resolving the question outright, exactly as it
-   already does for coachingEntryFor()'s archetype-vs-type precedence. An
-   untouched day, or one edited only in ways that cannot change what kind of
-   session it is (title, km, reschedule, completion), stays trusted. This
-   reads dd.manualEdit.fields, written by handleSaveEdit() and persisted
-   with the day, so the answer survives a reload without being cached
-   anywhere twice. */
+   THE RULE, made symmetric. dd.type and the words underneath it (desc /
+   mpSegment) are trusted together or not at all: trust survives only when
+   BOTH moved in the same edit (the athlete rewrote what was asked AND
+   re-picked what it is -- an explicitly authored, coherent pairing) or
+   NEITHER did (an untouched day, or one edited only in ways that cannot
+   change what kind of session it is -- title, km, reschedule, completion).
+   The moment exactly one of the two moves without the other, the pairing is
+   no longer something the athlete actually asserted:
+     - desc/mpSegment rewritten, type left alone -- the original defect this
+       gate exists for (TYPE Easy + INSTRUCTION "10km best effort").
+     - type alone changed via the dropdown, desc left exactly as it was --
+       the same defect inverted: the badge now says the NEW type, but the
+       instructions underneath are still whatever the OLD type generated
+       (or a previous edit wrote), and nothing here rewrote them to match.
+   Re-picking the type is only read as "the athlete resolving the question"
+   when they resolved it in words too, in the same edit -- a bare dropdown
+   change is not assumed to make its own desc box correct by implication.
+   This reads dd.manualEdit.fields, written by handleSaveEdit() and
+   persisted with the day, so the answer survives a reload without being
+   cached anywhere twice. */
 function sessionIdentityTrusted(dd){
   if (!dd || !dd.manualEdit) return true;
   var f = dd.manualEdit.fields || [];
-  if (f.indexOf('type') !== -1) return true;
-  return f.indexOf('desc') === -1 && f.indexOf('mpSegment') === -1;
+  var typeChanged = f.indexOf('type') !== -1;
+  var wordsChanged = f.indexOf('desc') !== -1 || f.indexOf('mpSegment') !== -1;
+  return typeChanged === wordsChanged;
 }
 function coachingEntryFor(dd){
   var p = prescriptionOf(dd);
@@ -10731,9 +10769,17 @@ function renderDayCard(dd){
   // Completed sessions default shut (the prescription has served its purpose,
   // the EXEC pill is the summary), today's session always opens, and anything
   // still to run stays open. A manual toggle overrides all of that.
-  var openCls = isDayExpanded(dd) ? ' open' : '';
+  var isOpen = isDayExpanded(dd);
+  var openCls = isOpen ? ' open' : '';
   return '<div class="'+cls+openCls+'" id="day-'+dd.id+'" data-day="'+dd.id+'" draggable="true">'+
-    '<div class="day-top" data-action="toggle-day" data-day="'+dd.id+'">'+
+    /* role="button" + tabindex + Enter/Space activation (delegated,
+       document-level keydown below) -- .day-top is the single most-used
+       interactive control in the app, every card, and was a bare
+       non-semantic div: undiscoverable and unactivatable for a
+       screen-reader or keyboard-only athlete, unlike .dropzone elsewhere in
+       this file, which already does this correctly. aria-expanded mirrors
+       the accordion state this control actually owns. */
+    '<div class="day-top" data-action="toggle-day" data-day="'+dd.id+'" role="button" tabindex="0" aria-expanded="'+(isOpen?'true':'false')+'">'+
       renderDayCheck(dd)+
       '<div class="day-main">'+
         '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
@@ -12315,16 +12361,39 @@ function coachCompletedScored(){
    still carries weight, so nothing leaves a window and nothing flips. */
 function coachTrend(){
   var scored = coachCompletedScored();
-  if (scored.length < 4) return { direction:'flat', delta:null, enough:false };
+  if (scored.length < 4) return { direction:'flat', delta:null, enough:false, singleOutlier:false };
   var scores = scored.map(function(dd){ return computeExecutionScore(dd); });
-  var ewma = function(alpha){
-    return scores.reduce(function(acc, v, i){ return i ? acc + alpha*(v-acc) : v; }, 0);
+  var ewma = function(vals, alpha){
+    return vals.reduce(function(acc, v, i){ return i ? acc + alpha*(v-acc) : v; }, 0);
   };
-  var delta = ewma(0.40) - ewma(0.15);
-  return {
-    direction: delta >= 4 ? 'rising' : delta <= -4 ? 'falling' : 'flat',
-    delta: Math.round(delta), enough: true
-  };
+  var delta = ewma(scores, 0.40) - ewma(scores, 0.15);
+  var direction = delta >= 4 ? 'rising' : delta <= -4 ? 'falling' : 'flat';
+  /* A SINGLE SESSION SHOULD NOT BE ABLE TO CLAIM A TREND. The fast EWMA
+     (alpha=0.4) is reactive by design -- that is what lets a genuine change
+     register quickly instead of waiting out a slow window -- but reactive
+     enough that one outlier in an otherwise long, clean history can cross
+     the falling threshold alone. 29 sessions at 100 and one at 45 produced
+     "Execution has slipped across the last few sessions" over a tail that
+     was [100,100,100,100,100,45]: true about the one session, false about
+     "the last few". singleOutlier answers a narrow question -- does removing
+     the single worst recent score alone put the trend back above the
+     threshold? -- so the copy that reads `direction` can tell "one session
+     dipped" from an actual multi-session pattern without changing what
+     `direction`/`delta` themselves mean or touching the rising side (a
+     lucky single great session already gets its own narrower "breakthrough"
+     language elsewhere, never a claimed rising trend on its own -- see
+     coachBreakthroughs()/positive_adaptation's history>=4 gate). */
+  var singleOutlier = false;
+  if (direction === 'falling'){
+    var worstIdx = 0;
+    for (var i=1;i<scores.length;i++){ if (scores[i] < scores[worstIdx]) worstIdx = i; }
+    var without = scores.slice(0, worstIdx).concat(scores.slice(worstIdx+1));
+    if (without.length >= 4){
+      var deltaWithout = ewma(without, 0.40) - ewma(without, 0.15);
+      singleOutlier = deltaWithout > -4;
+    }
+  }
+  return { direction: direction, delta: Math.round(delta), enough: true, singleOutlier: singleOutlier };
 }
 
 /* ---------- recovery: how hard recent work has felt ----------
@@ -12766,34 +12835,67 @@ function noteSignalFlag(sigs, flag){
   return sigs.signals.some(function(s){ return s.flag===flag; });
 }
 
+/* THESE REGEXES ARE THE WAND'S (NOTE_SIGNAL_RULES), NOT A SECOND OPINION.
+   Before this, coachReadNotes() ran its own, narrower regex table alongside
+   parseRunnerNotes()'s -- two independent parsers reading the same sentence
+   and sometimes disagreeing about what it said. "Legs felt heavy today,
+   struggled to hold pace" was exactly that: the wand's heavy_legs rule
+   (word-order-flexible: legs ... heavy, not just the literal phrase "heavy
+   legs") caught it, coachReadNotes()'s literal "heavy legs" substring did
+   not -- so coachVerdict() said the notes explained nothing, then two
+   sentences later, reading the SAME note through coachExcuses()'s cousin
+   path, said "tired legs noted". One note cannot mean two things on one
+   card.
+
+   The two tables still exist because they answer different questions
+   (NOTE_SIGNAL_RULES: what does this note report, deduplicated by concept,
+   consent-filtered for a body reading; COACH_NOTE_CUES: which of those
+   reports EXCUSES a missed pace or heart-rate target, ungated, for
+   coachVerdict's explanatory sentences) -- but the WORDING each is willing
+   to recognise as "heat" or "pain" or "fatigue" must be the same wording,
+   or the two tables will keep disagreeing about facts, not just design
+   choices. So every regex below is copied from (or is a strict superset of)
+   its NOTE_SIGNAL_RULES counterpart, and every veto below is the same
+   borrowing the comment already promised. */
 var COACH_NOTE_CUES = [
-  { key:'heat',     re:/\b(heat|hot|humid|humidity|sun|sweltering)\b/i,      excuses:['pace','hr'], say:'heat' },
+  { key:'heat',     re:/\b(heat|hot|sweltering|boiling|scorching|roasting|sunny|baking|humid|humidity|muggy|sticky\s+air|swampy|clammy|sun)\b/i, excuses:['pace','hr'], say:'heat' },
   { key:'treadmill',re:/\b(treadmill|dreadmill|mill)\b/i,                     excuses:['pace'],      say:'treadmill running' },
-  { key:'wind',     re:/\b(wind|windy|gale|headwind)\b/i,                     excuses:['pace'],      say:'wind' },
-  { key:'hills',    re:/\b(hill|hills|hilly|climb|elevation|incline)\b/i,     excuses:['pace','hr'], say:'hilly terrain' },
-  { key:'cold',     re:/\b(cold|freezing|ice|icy|snow)\b/i,                   excuses:['pace'],      say:'cold conditions' },
-  { key:'terrain',  re:/\b(trail|trails|sand|mud|off-road|gravel)\b/i,        excuses:['pace'],      say:'soft ground' },
-  { key:'fatigue',  re:/\b(tired|fatigue|fatigued|exhausted|heavy legs|flat|drained|knackered)\b/i, excuses:['pace','hr'], say:'fatigue', flag:'fatigue' },
-  { key:'pain',     re:/\b(pain|sore|soreness|ache|aching|niggle|tight|tightness|injur|strain|cramp)\b/i, excuses:[], say:'soreness', flag:'pain' },
-  { key:'illness',  re:/\b(ill|illness|sick|cold coming|flu|virus|cough)\b/i, excuses:['pace','hr'], say:'illness', flag:'illness' },
-  { key:'sleep',    re:/\b(no sleep|poor sleep|slept badly|tired night|insomnia)\b/i, excuses:['pace','hr'], say:'poor sleep', flag:'fatigue' },
+  { key:'wind',     re:/\b(wind|windy|gale|gusty|gusts|headwind|blustery|crosswind)\b/i, excuses:['pace'], say:'wind' },
+  { key:'hills',    re:/\b(hill|hills|hilly|climb|climbing|elevation|incline|undulating|vert|ascent)\b/i, excuses:['pace','hr'], say:'hilly terrain' },
+  { key:'cold',     re:/\b(cold|freezing|frozen|icy|ice|sub-?zero|frost|frosty|snow|snowy|bitter)\b/i, excuses:['pace'], say:'cold conditions' },
+  { key:'terrain',  re:/\b(trail|trails|sand|mud|muddy|off-?road|gravel|grass|boggy|technical\s+ground)\b/i, excuses:['pace'], say:'soft ground' },
+  // Word-order-flexible, same as heavy_legs/tired in the wand: "legs felt
+  // heavy" and "heavy legs" are the same report. Sleep phrases are matched
+  // by the 'sleep' cue below, not repeated here -- one note mentioning poor
+  // sleep must count once, not twice under two different keys.
+  { key:'fatigue',  re:/\b(?:heavy|dead|leaden|lead)\s+legs\b|\blegs?\s+(?:\w+\s+){0,2}(?:heavy|dead|leaden|wooden)\b|\blegs?\s+like\s+lead\b|\b(tired|fatigued|fatigue|exhausted|knackered|drained|shattered|wiped|weary|sluggish|lethargic|flat)\b/i,
+    excuses:['pace','hr'], say:'fatigue', flag:'fatigue' },
+  // "my shin hurts" is a pain report the old table could not see at all --
+  // hurt/hurts/hurting were never in its pain regex, only in the wand's.
+  { key:'pain',     re:/\b(sore|soreness|aching|ache|aches|doms|tender|stiff|stiffness|tight|tightness|locked\s+up|pain|painful|injur\w+|strained|sharp\s+\w+|shooting|cramp|cramped|cramping|pulled\s+\w+|hurt|hurts|hurting|niggle|niggling|twinge|grumbl\w+)\b/i,
+    excuses:[], say:'soreness', flag:'pain' },
+  { key:'illness',  re:/\b(ill|illness|unwell|sick|poorly|flu|virus|fever|cough|chesty|head\s+cold|cold\s+coming|caught\s+a\s+cold|infection|sore\s+throat)\b/i, excuses:['pace','hr'], say:'illness', flag:'illness' },
+  { key:'sleep',    re:/\b(no\s+sleep|poor\s+sleep|bad\s+sleep|slept\s+badly|slept\s+terribly|barely\s+slept|didn['’]?t\s+sleep|insomnia|broken\s+sleep|up\s+all\s+night|restless\s+night)\b/i,
+    excuses:['pace','hr'], say:'poor sleep', flag:'fatigue' },
   { key:'strong',   re:/\b(strong|easy|comfortable|smooth|felt great|good legs|flew)\b/i, excuses:[], say:'feeling strong' }
 ];
 /* Reads the same note through the same clause/negation machinery as the wand,
    so an excuse can no longer be manufactured out of "wind down after work" or
    a pain flag out of "no pain". Each cue borrows the vetoes of the wand rule
-   that covers the same ground. */
+   that covers the same ground -- extended alongside the regexes above, so a
+   word this table newly recognises (hurt, climbing, ...) is vetoed exactly
+   where the wand already learned it needed to be. */
 var COACH_CUE_VETOES = {
-  heat:      [/\bhot\s+(shower|bath|drink|chocolate|tub|food|meal)\b/i],
+  heat:      [/\bhot\s+(shower|bath|drink|chocolate|tub|food|meal)\b/i, /\bred\s+hot\b/i],
   wind:      [/\bwind(ing)?\s+(down|up)\b/i, /\bsecond\s+wind\b/i],
   cold:      [/\bcold\s+(coming|drink|water|shower|bath)\b/i, /\b(caught|catching|got)\s+a\s+cold\b/i,
               /\bhead\s+cold\b/i, /\bice\s+(bath|cream)\b/i],
   pain:      [/\bpain\s+(cave|train|barrier)\b/i, /\bno\s+pain\s+no\s+gain\b/i, /\bpain[\s-]?free\b/i,
-              /\bstress\s+fracture\b/i],
+              /\bstress\s+fracture\b/i, /\bhurt\s*locker\b/i, /\bworld\s+of\s+hurt\b/i, /\bhurt\s+(so\s+)?good\b/i],
   fatigue:   [/\bdead\s+flat\b/i, /\bflat\s+(route|course|road|section|out|white)\b/i],
-  illness:   [/\bsick\s+of\b/i],
+  illness:   [/\bsick\s+of\b/i, /\bsick\s+pace\b/i],
   terrain:   [],
-  hills:     [],
+  hills:     [/\bclimb(ing)?\s+(into|out\s+of)\s+bed\b/i],
   treadmill: [],
   sleep:     [],
   strong:    []
@@ -13092,8 +13194,11 @@ function coachStatus(load, recovery, trend, confidence){
     return { label:'Building well', tone:'good',
       detail:'Execution is improving and the load is being absorbed. Keep doing exactly this.' };
   if (trend.direction==='falling')
-    return { label:'Holding on', tone:'watch',
-      detail:'Execution has slipped across the last few sessions. Worth checking sleep, fuelling and rest days.' };
+    return trend.singleOutlier
+      ? { label:'One to watch', tone:'watch',
+          detail:'One recent session dipped well below the rest. Worth a look if it happens again, not yet a pattern.' }
+      : { label:'Holding on', tone:'watch',
+          detail:'Execution has slipped across the last few sessions. Worth checking sleep, fuelling and rest days.' };
   return { label:'On track', tone:'good',
     detail:'Training is landing close to plan with load in a productive range.' };
 }
@@ -13119,8 +13224,11 @@ function coachSignals(load, recovery, trend){
     detail:recovery.hardStreak+' quality days in a row without an easy or rest day between them.' });
   if (trend.enough && trend.direction==='rising') out.push({ key:'trend', label:'Execution improving', tone:'good',
     detail:'Recent sessions are running '+trend.delta+' points above your established average.' });
-  if (trend.enough && trend.direction==='falling') out.push({ key:'trend', label:'Execution slipping', tone:'watch',
-    detail:'Recent sessions are running '+Math.abs(trend.delta)+' points below your established average.' });
+  if (trend.enough && trend.direction==='falling') out.push(trend.singleOutlier
+    ? { key:'trend', label:'One session dipped', tone:'watch',
+        detail:'One recent session ran '+Math.abs(trend.delta)+' points below your established average. Worth a look if it repeats.' }
+    : { key:'trend', label:'Execution slipping', tone:'watch',
+        detail:'Recent sessions are running '+Math.abs(trend.delta)+' points below your established average.' });
   return out;
 }
 
@@ -13157,6 +13265,37 @@ function coachNoticed(){
     out.push({ tone: t.direction==='negative' ? 'watch' : 'neutral', text: t.detail });
   });
   return out;
+}
+/* SHARED WITH coachDecision(). Same 27-day/completed-and-noted window,
+   same coachReadNotes() pain flag coachNoticed() above already reads for
+   its own "mentioned soreness" line -- so coachDecision()'s evidence and
+   coachNoticed()'s text can never disagree about whether a pain report
+   exists, only about how much weight the rest of the evidence gives it.
+   Before this existed, coachDecision() only ever looked at the last 4
+   COMPLETED sessions, so a pain report four sessions old had already aged
+   out of the decision that drives the pill while coachNoticed() (and so
+   coachNextMove()'s downgrade offer) was still speaking from it -- a green
+   "Proceed" pill sitting over a card that was, in the same breath, proposing
+   a soreness-driven session swap. */
+function coachPainMentionCount(){
+  var today = todayStr();
+  var noted = coachDaysInWindow(addDays(today,-27), today).filter(function(dd){
+    return dd.completed && dd.actual && dd.actual.notes;
+  });
+  var count = 0;
+  noted.forEach(function(dd){
+    // coachEnvironment() -- the SAME check coachDecision()'s own `sore`
+    // evidence already uses a few lines below this function's one caller --
+    // not coachReadNotes(). coachReadNotes()/COACH_NOTE_CUES carries no
+    // consent gate at all (by design: it also drives ungated excuse text
+    // like "heat" or "hills"), and reading it here would have fed a
+    // withholding athlete's pain note back into coachDecision() as evidence
+    // Valhalla was never allowed to read -- the exact leak
+    // healthDataConsent.test.js's adversarial pair (consenting vs
+    // withholding, same reported pain) exists to catch.
+    if (coachEnvironment(dd.actual.notes, dd.actual).pain) count++;
+  });
+  return count;
 }
 
 /* ---------- coach watch: things to keep an eye on ---------- */
@@ -13357,6 +13496,12 @@ function coachDecision(){
   var sore = recent.filter(function(dd){ return coachEnvironment((dd.actual||{}).notes, dd.actual).pain; });
   if (sore.length >= 2) add('pain', 10, 'Pain or soreness reported in '+sore.length+' recent sessions', true);
   else if (sore.length === 1) add('pain', 3, 'Soreness reported in your last session');
+  // RECONCILED WITH coachNoticed()/coachNextMove() (see coachPainMentionCount()):
+  // `recent` above is only the last 4 completed sessions, which a real pain
+  // report can already have aged out of while coachNoticed()'s wider 27-day
+  // window still has it -- the gap that let this decision say "proceed"
+  // over a card that was, one function away, proposing a pain-driven swap.
+  else if (coachPainMentionCount() >= 1) add('pain', 3, 'Soreness reported in your recent notes');
 
   /* ---- this week's acute state ----
      `strained` is reached by RPE excursions, HR excursions, or both, so it must
@@ -13389,7 +13534,9 @@ function coachDecision(){
   else if (recovery.overRPE >= 2) add(EVIDENCE_CONCEPT.effort, 2, 'Effort above band on '+recovery.overRPE+' sessions this week');
   if (recovery.overHR >= 2) add(EVIDENCE_CONCEPT.hrCost, 2, recovery.overHR+' sessions this week averaged above their heart-rate zone');
   if (recovery.hardStreak >= 3) add('streak', 1, recovery.hardStreak+' quality days in a row without an easy day');
-  if (trend.direction === 'falling') add(EVIDENCE_CONCEPT.execution, 2, 'Execution has been slipping across recent sessions');
+  if (trend.direction === 'falling') add(EVIDENCE_CONCEPT.execution,
+    trend.singleOutlier ? 1 : 2,
+    trend.singleOutlier ? 'One recent session dipped well below the rest' : 'Execution has been slipping across recent sessions');
   if (load.band === 'spike') add('load', 2, 'This week is '+load.ratio.toFixed(2)+'x your four-week average');
 
   // ---- historical patterns, from the one place that detects them ----
@@ -16613,8 +16760,14 @@ function planEvolution(){
   if (stateName==='ADAPT' || stateName==='RECOVER'){
     changes = evolutionChanges(stateName, phase, pending, recoverable);
     protectedSessions = pending.filter(function(dd){
+      // ANY change kind disqualifies "protected", not just downgrade/drop.
+      // evolutionChanges()'s last-resort ADAPT step can shorten the biggest
+      // KEY session (kind:'reduce') when nothing else is available to trim --
+      // that day was still being listed here as Protected in the same
+      // proposal that reduced it, directly contradicting the one promise
+      // "Protected" makes.
       return sessionImportance(dd)==='KEY' &&
-             !changes.some(function(c){ return c.dayId===dd.id && (c.kind==='downgrade' || c.kind==='drop'); });
+             !changes.some(function(c){ return c.dayId===dd.id; });
     }).map(function(dd){ return { dayId:dd.id, date:dd.date, title:dd.title, why:'KEY session' }; });
   }
   if (!changes.length && stateName==='ADAPT') stateName = 'MONITOR';   // nothing useful to do
@@ -16892,9 +17045,18 @@ function handleAcceptEvolution(shownId){
     return;
   }
   var applied = [];
+  var EVOLUTION_CHANGE_KINDS = ['reduce', 'downgrade', 'reschedule', 'move'];
   ev.changes.forEach(function(c){
     var dd = findDay(c.dayId);
     if (!dd || dd.completed) return;
+    /* AN UNRECOGNISED KIND MUST MUTATE NOTHING, AND CLAIM NOTHING. Every
+       kind this Accept path can actually apply is evolutionChanges()'s own
+       (reduce/downgrade/reschedule/move) -- a kind from any other producer
+       (e.g. the Playbook's progress/regress, which routes through its own
+       handleAcceptPlaybook()) falling through here used to still write
+       dd.coachAdjust and count toward the "Plan evolved" toast with zero
+       actual mutation: a false audit record on a silent no-op. */
+    if (EVOLUTION_CHANGE_KINDS.indexOf(c.kind) === -1) return;
     var pairedWith = null;
     var from = workoutSnapshot(dd);
     if (c.kind==='reduce'){
@@ -16927,6 +17089,11 @@ function handleAcceptEvolution(shownId){
     if (pairedWith) dd.coachAdjust.pairedWith = pairedWith;
     applied.push(c);
   });
+  /* A proposal that mutated nothing (every change on it had an unrecognised
+     kind) must not write a history entry, an evidence-hash record or an
+     "accepted" ledger row claiming otherwise -- that would be the same false
+     audit record one level up from the per-day guard above. */
+  if (!applied.length){ renderApp(); return; }
   recordEvolution(ev, true, applied);
   state.evolution = { declinedHash:null, lastAcceptedHash:ev.evidenceHash };
   flushSave();
@@ -20052,7 +20219,16 @@ var SESSION_PURPOSE = {
                 text:'Develop aerobic capacity at a low enough physiological cost to leave the quality sessions intact.' },
   long:       { label:'Long Run',
                 text:'Build aerobic endurance and durability. Time on feet, not a race.' },
-  tempo:      { label:'Marathon-Specific',
+  /* "Marathon-Specific" alone read as an adjective with no noun the moment
+     it reached an athlete-facing sentence -- coachVerdict()'s scored-session
+     template reads "<dist> of <label.toLowerCase()> with <...>", so this
+     rendered as "6km of marathon-specific with pace inside...". Confirmed
+     live via coachWorkoutReview(); this table's label was not, in fact,
+     internal-only. "Marathon-Specific Effort" is the smallest change that
+     reads as a real noun phrase there while keeping the distinct meaning
+     this label exists for (why a tempo run is prescribed, not what TYPE_META
+     calls the session type -- that stays "Tempo"). */
+  tempo:      { label:'Marathon-Specific Effort',
                 text:'Hold sustainable race-specific effort and build fatigue resistance at an appropriate cost.' },
   threshold:  { label:'Threshold',
                 text:'Accumulate controlled work near threshold without letting it turn into maximal work.' },
@@ -20324,7 +20500,9 @@ function coachTrainingSignal(dd, env, breakdown){
              reason: env.fatigue ? 'Subjective fatigue reported; worth watching rather than acting on yet.'
                : rpeHigh ? 'Effort ran above the band this session type expects.'
                : hrHigh ? 'Heart rate sat above the target zone.'
-               : trend.direction==='falling' ? 'Execution has slipped across the last few sessions.'
+               : trend.direction==='falling' ? (trend.singleOutlier
+                   ? 'One recent session dipped well below the rest.'
+                   : 'Execution has slipped across the last few sessions.')
                : 'Effort has been above band more than once this week.' };
   // Adaptation is a claim about a pattern, so it needs a pattern behind it.
   if (history >= 4 && trend.direction==='rising' && recovery.state==='fresh')
@@ -20382,7 +20560,14 @@ function coachVerdict(dd, b, env){
                   ap >= tr.fast + (tr.slow - tr.fast) * 0.25;
   var envPhrase = coachEnvPhrase(env);
   var stressed = env.heatBand==='significant' || env.heatBand==='severe' || env.humidBand!=='none';
-  var recovery = isRecoveryWorkoutType(dd.type);
+  // Same identity gate every other type-keyed consumer uses (see
+  // sessionIdentityTrusted()): an untrusted day's TYPE is not a reliable
+  // read of what was actually asked, so this verdict must not open with "at
+  // easy intent" for a session whose own instructions may describe
+  // something else entirely. An untrusted day falls through to the
+  // evidence-only branch below, which describes what was logged without
+  // asserting what the session was for.
+  var recovery = sessionIdentityTrusted(dd) && isRecoveryWorkoutType(dd.type);
   var byPart = {}; b.parts.forEach(function(pp){ byPart[pp.key] = pp; });
   // Materially short of the prescribed distance. A session the athlete did not
   // finish cannot be described as having done its job, however well the part
@@ -20436,7 +20621,8 @@ function coachVerdict(dd, b, env){
       var band = expectedRPEBand(dd);
       if (a.rpe!=null && band && a.rpe>=band[0] && a.rpe<=band[1])
         held.push('effort at RPE '+a.rpe);
-      var what = SESSION_PURPOSE[dd.type] ? SESSION_PURPOSE[dd.type].label.toLowerCase() : 'quality work';
+      var purposeEntry = sessionIdentityTrusted(dd) && SESSION_PURPOSE[dd.type];
+      var what = purposeEntry ? purposeEntry.label.toLowerCase() : 'quality work';
       out.push(held.length
         ? fmtDist(a.km!=null?a.km:dd.km)+' of '+what+' with '+listPhrase(held)+'.'
         : 'Quality work delivered close to the prescription.');
@@ -21126,9 +21312,23 @@ function renderCoachNextMoveCard(report){
   var dd = findDay(mv.dayId);
   var answered = dd && (dd.coachKeptAt || dd.coachAdjust);
   var dec = report.decision;
-  // Accumulated evidence earns the same offer that illness already got: a
-  // proposed reduction the athlete accepts or declines. Never applied silently.
-  var adj = (!answered && mv.adjustment) ? mv.adjustment
+  /* THE PILL AND THE BOX ARE NOW THE SAME DECISION. mv (coachNextMove) and
+     dec (coachDecision) read overlapping but independently-thresholded
+     evidence -- mv's own strained/painCue checks are a lower bar than dec's
+     multi-factor score, on purpose, because dec is what the pill above this
+     body reads. Offering mv's adjustment regardless of what dec concluded is
+     exactly how this card used to show a green "Proceed" pill with a
+     soreness-driven swap box directly underneath it: the box is now only
+     ever offered when the RECONCILED decision itself says something is
+     wrong (modify/recover), never under proceed or check -- and even then,
+     mv's more specific proposal (a downgrade to easy for pain, a reduce for
+     load) is preferred over the generic one below whenever mv actually
+     computed one, since it is the more session-specific read of the same
+     evidence. Accumulated evidence earns the same offer that illness always
+     got: a proposed reduction the athlete accepts or declines, never applied
+     silently. */
+  var decWarrantsAdjustment = !!(dec && (dec.state==='modify' || dec.state==='recover'));
+  var adj = (!answered && decWarrantsAdjustment && mv.adjustment) ? mv.adjustment
           : (!answered && dec && dec.state==='modify' && dec.quality && dd)
             ? { kind:'reduce', km:Math.max(1, Math.round(dd.km*0.75*2)/2), type:dd.type,
                 title:dd.title, reason:dec.reasons[0] }
@@ -23021,9 +23221,27 @@ function bldRenderReview(){
   var benchTimeVal = document.getElementById('su-bench-time').value.trim();
   rows += row('Benchmark', document.getElementById('su-bench-dist').value.toUpperCase() +
               (benchTimeVal ? ' \u00b7 ' + benchTimeVal : ' \u00b7 \u2014'));
-  if (lthr || maxhr)
+  /* REVIEW MUST DESCRIBE WHAT WILL ACTUALLY BE SAVED. handleGeneratePlan()
+     only stores lthr/maxHR when healthConsentGranted() -- the exact same
+     predicate checked here, not a second opinion of it -- because typed
+     numbers with the consent box unticked (an ordinary, fully-supported
+     privacy choice) used to be shown here as if they would become part of
+     the plan, then silently discarded by Generate with no toast, no error
+     and, for an athlete who had already declined consent in an earlier
+     session, no checkbox on screen to even explain why. */
+  if (lthr || maxhr){
+    // Same source handleGeneratePlan() reads, in the same order: when the
+    // consent box is on screen (a first-time answer), ITS tick is what will
+    // decide the outcome, not yet the stored value -- reading only
+    // healthConsentGranted() here would tell an athlete who has just ticked
+    // the box that their numbers will be dropped, when ticking it is exactly
+    // what saves them.
+    var consentBox = document.getElementById('su-health-consent');
+    var hrWillBeSaved = consentBox ? !!consentBox.checked : healthConsentGranted();
     rows += row('Heart rate', (lthr ? 'LTHR ' + lthr + lthrProvenanceSuffix() : '') +
-      (lthr && maxhr ? ' \u00b7 ' : '') + (maxhr ? 'Max ' + maxhr : ''));
+      (lthr && maxhr ? ' \u00b7 ' : '') + (maxhr ? 'Max ' + maxhr : '') +
+      (hrWillBeSaved ? '' : ' (not saved \u2014 health data sharing is off)'));
+  }
   if (goals.length) rows += row('Goals', goals.join(' \u00b7 '));
   /* No Units row: the hero above already reads "42 km / week", so a separate
      "Units  KM" line restated it. Review answers "has Valhalla understood me",
@@ -23832,6 +24050,25 @@ function handleResetDay(dayId){
   if (!dd) return;
   dd.type='rest'; dd.title='Rest Day'; dd.km=0; dd.desc='Full rest.'; dd.mpSegment=false;
   dd.completed=false; dd.actual={km:null,pace:null,hr:null,rpe:null,notes:''};
+  /* A FRESH REST DAY HAS NO PROVENANCE TO REMEMBER. Reset does not restore
+     the original prescription (it wipes to a canonical Rest day, same as an
+     un-generated day would be) -- but it must still leave that Rest day
+     genuinely clean, not one still carrying the athlete's earlier edit as
+     dead weight. Before this, a reset day kept dd.manualEdit, which
+     dayStatusLabel() reads as "Edited" (contradicting the athlete's own
+     reset action) and which applyPlaybookProposal()/handleRestorePlaybook()
+     both treat as "the athlete owns this day" -- permanently excluding a day
+     nobody has actually asked to keep from the adaptive Playbook engine.
+     dd.coachAdjust and dd.coachKeptAt are the same kind of leftover from the
+     coach's side and would misrender as "Adjusted"/"Kept" on a day that is
+     now, simply, Rest. delete dd.prescription for the same reason
+     handleSaveEdit() already drops it on any structural change -- nothing
+     here still describes a Rest day's structure. */
+  delete dd.manualEdit;
+  delete dd.coachAdjust;
+  delete dd.coachKeptAt;
+  delete dd.prescription;
+  delete dd.calibration;
   closeModal();
   scheduleSave();
   renderApp();
@@ -24003,11 +24240,32 @@ function applyBackupText(text){
     return false;
   });
 }
+/* A DAY THAT CANNOT BE THIS SHAPE. Every day the app itself has ever
+   produced (buildDaysFromWeeks, handleSaveEdit, the swap/reset paths) has at
+   minimum a string id, a string date and a numeric week -- totalWeeksInPlan()
+   alone reads .week off the LAST entry unconditionally, and id/date are the
+   keys findDay()/every renderer looks a day up by. This does not validate
+   the full day contract (type/km/desc/etc. are still whatever a well-formed
+   backup wrote), only the handful of fields that crash the app outright
+   if absent -- deliberately loose, so a real, older or slightly different
+   backup is never rejected for a field this function does not need. */
+function looksLikeBackupDay(d){
+  return !!d && typeof d==='object' &&
+    typeof d.id==='string' && d.id.length>0 &&
+    typeof d.date==='string' && /^\d{4}-\d{2}-\d{2}$/.test(d.date) &&
+    typeof d.week==='number' && isFinite(d.week);
+}
 function applyBackupJson(text){
   var parsed;
   try{
     parsed = JSON.parse(text);
     if (!parsed || !parsed.days || !Array.isArray(parsed.days)) throw new Error('bad shape');
+    // EVERY entry, not just the array itself -- a single malformed day used
+    // to reach totalWeeksInPlan() (via initExpanded(), right after state was
+    // already overwritten) and crash the live session with state already
+    // corrupted in memory. Reject here, before state is ever touched, so a
+    // bad paste changes nothing.
+    if (!parsed.days.every(looksLikeBackupDay)) throw new Error('bad day shape');
   }catch(err){
     var t = String(text==null ? '' : text).trim();
     // Distinguish "this is not a backup" from "this is a backup that got cut
@@ -25825,8 +26083,13 @@ function renderGoalDayFig(){
     var said = GOAL_DAY_PAST_COPY[oc] || (raceOutcomePending() ? 'Pending' : 'Complete');
     return '<div class="v-hero-fig"><b class="font-mono">'+escapeHtml(said)+'</b><span>'+escapeHtml(vGoalDay())+'</span></div>';
   }
-  var target = new Date(state.setup.raceDate+'T00:00:00').getTime();
-  var days = Math.floor(Math.max(0, target-Date.now())/86400000);
+  // daysBetween(), the app's one standard for a day count -- not a
+  // Date.now() wall-clock diff. The two used to disagree by exactly one day
+  // whenever "now" wasn't midnight: this hero figure said "11d" in the
+  // evening while the Readiness panel's goal-day row (same field, same
+  // screen, via daysBetween() below) said "12 days" for the identical race
+  // date -- a visible self-contradiction on the app's primary screen.
+  var days = Math.max(0, daysBetween(todayStr(), state.setup.raceDate));
   return '<div class="v-hero-fig"><b class="font-mono">'+days+'d</b><span>To '+escapeHtml(vGoalDay())+'</span></div>';
 }
 /* THE VALHALLA HERO — approved-concept redesign.
@@ -26278,16 +26541,25 @@ var READING_DIAL_LABEL = { readiness:'Readiness', recovery:'Recovery', evolution
 function toneRingColor(tone){
   return tone==='good' ? 'var(--c-easy)' : tone==='watch' ? 'var(--gold)' : tone==='bad' ? 'var(--c-tempo)' : null;
 }
-/* Each reading's identity colour -- readiness/recovery/evolution/patterns
-   keep one fixed identity colour apiece (the live state is still legible
-   from the value word itself: "Strained", "Worth watching"...); adaptation
-   alone has no single fixed identity of its own, so it keeps borrowing the
-   engine's live tone, same as it always has, neutral when the engine
-   assigned none. Used for the separator line, at full/solid strength. */
+/* Each reading's identity colour -- readiness/patterns keep one fixed
+   identity colour apiece (they never carry a tone, so there is nothing live
+   to defer to). recovery/evolution DO carry a live tone (coachRecovery's
+   fresh/watch/strained, EVOLUTION_META's state), and that tone -- not a
+   fixed category colour -- is what this dial must show: a "Strained"
+   Recovery reading rendering inside a calm green circle, or a RECOVER-tier
+   Evolution state rendering in gold instead of red, told the athlete the
+   opposite of what the exact same fact said one tab over on the Coach list
+   row (readingCard(), which already colours by sec.tone). adaptation has
+   never had a fixed identity of its own for the same reason -- it always
+   borrows the engine's live tone, neutral when none was assigned; recovery
+   and evolution now do the same, falling back to their historical fixed
+   colour only when no tone is present (so a merely-informational reading
+   still gets a stable identity rather than turning grey). Used for the
+   separator line, at full/solid strength. */
 function dialAccentBase(sec){
   if (sec.key === 'readiness') return 'var(--cherry)';
-  if (sec.key === 'recovery') return 'var(--c-easy)';
-  if (sec.key === 'evolution') return 'var(--gold)';
+  if (sec.key === 'recovery') return toneRingColor(sec.tone) || 'var(--c-easy)';
+  if (sec.key === 'evolution') return toneRingColor(sec.tone) || 'var(--gold)';
   if (sec.key === 'patterns') return 'var(--c-rest)';
   return toneRingColor(sec.tone) || 'var(--c-rest)';
 }
@@ -26298,13 +26570,14 @@ function dialAccentBase(sec){
    them the same way) and are already correct in both themes, so this reuses
    them rather than deriving a new tint. */
 function dialTint(sec){
+  var toneSoft = sec.tone==='good' ? 'var(--c-easy-soft)' : sec.tone==='watch' ? 'var(--c-gold-soft)'
+    : sec.tone==='bad' ? 'var(--c-tempo-soft)' : null;
   if (sec.key === 'readiness') return 'var(--cherry-tint)';
-  if (sec.key === 'recovery') return 'var(--c-easy-soft)';
-  if (sec.key === 'evolution') return 'var(--c-gold-soft)';
+  if (sec.key === 'recovery') return toneSoft || 'var(--c-easy-soft)';
+  if (sec.key === 'evolution') return toneSoft || 'var(--c-gold-soft)';
   if (sec.key === 'patterns') return 'var(--c-rest-soft)';
   // adaptation: mirrors dialAccentBase()'s tone mapping, in -soft form.
-  return sec.tone==='good' ? 'var(--c-easy-soft)' : sec.tone==='watch' ? 'var(--c-gold-soft)'
-    : sec.tone==='bad' ? 'var(--c-tempo-soft)' : 'var(--c-rest-soft)';
+  return toneSoft || 'var(--c-rest-soft)';
 }
 /* A phrase wraps at its spaces (CSS handles that); what actually decides
    whether it fits is its WIDEST word, since that is the one span nothing
@@ -27339,6 +27612,23 @@ document.addEventListener('click', function(e){
     case 'cloud-keep-remote': handleCloudKeepRemote(); break;
   }
 });
+/* KEYBOARD ACTIVATION FOR NON-NATIVE [data-action] CONTROLS. A real <button>
+   or <input> handles its own Enter/Space; this exists for the elements that
+   are not one (currently .day-top, the single most-used interactive control
+   in the app) but declare role="button" precisely so this delegate can find
+   them. Matched on e.target itself, NOT closest() -- a nested native control
+   inside .day-top (the completion checkbox, the edit button) is its own
+   focusable, keyboard-operable element with its own data-action, and is
+   never the role="button" element itself, so pressing Space on it does not
+   also re-fire .day-top's toggle. Reduced to a synthetic .click(), so this
+   reuses the click switch above rather than duplicating it. */
+document.addEventListener('keydown', function(e){
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  var target = e.target;
+  if (!target || !target.matches || !target.matches('[data-action][role="button"]')) return;
+  e.preventDefault();
+  target.click();
+});
 
 document.addEventListener('change', function(e){
   var t = e.target;
@@ -27536,6 +27826,7 @@ function init(){
   startCountdownTimer();
   registerServiceWorker();
   startNotificationScheduler();
+  initHardwareBackButton();
   // Deliberately last and un-awaited: the app is already painted from
   // localStorage by this point, so cloud sync can never delay startup and a
   // cloud failure can never prevent the app from opening.
