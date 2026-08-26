@@ -8,6 +8,14 @@ been created for this. Nothing in this document has been built.
 
 Activation is a separate, explicit instruction.
 
+**Amended 2026-08-26** with a founder clarification, incorporated below:
+Guidance Level and Experience Level are intentionally separate concepts and
+must not be substituted for one another (*Guidance Level is a missing
+prerequisite*); a consolidated server-side Voice router is preferred in
+principle, subject to the implementation audit (*platform constraints*); and
+the audio / transcription / health-statement lifecycle must be audited before
+provider selection (*Health, safety and consent*). No code changed.
+
 ---
 
 ## The product objective
@@ -105,12 +113,13 @@ Both must stay faithful to the same coaching truth shown on screen. Voice must
 not invent a second interpretation, and must not reach a conclusion the
 coaching system has not reached.
 
-**Briefing length** should follow the athlete's existing detail preference —
-concise (only the important execution information), full (purpose, execution,
-feel, watch-outs), adaptive (Valhalla decides from session and context). Do not
-create a second independent voice-detail setting without a compelling reason.
-See the correction under *Orientation* below: the setting named in the brief
-does not exist under that name.
+**Briefing length** follows **Guidance Level** — concise (only the important
+execution information), full (purpose, execution, feel, watch-outs), adaptive
+(Valhalla decides from session and current athlete context). Do not create a
+second independent voice-detail setting, and **do not substitute Experience
+Level**. Guidance Level is not present in the current runtime; it is a missing
+prerequisite, not an invitation to map onto something else. See *Guidance Level
+is a missing prerequisite* under **Orientation** below.
 
 ---
 
@@ -219,6 +228,24 @@ contrary to the athlete's consent state.
 
 **A specific privacy and data-flow review is required before implementation.**
 
+**ACCEPTED BY THE FOUNDER (2026-08-26), AND BINDING ON SEQUENCE.** Voice
+implementation must explicitly audit the **lifecycle of audio, transcription
+and health-related statements** — capture, transmission, retention, deletion
+and any onward processing — **before provider selection or implementation**.
+
+**Do not assume the existing stored-data consent boundary automatically covers
+raw voice processing.** The established Article 9 pattern strips health data at
+the point of *write* (`api/_health-consent.js` → `forIngest()`, `stripCovered()`,
+`carriesCovered()`), so an athlete who has not consented never has it stored.
+Raw audio is a surface that architecture has never had to consider: an
+utterance can carry protected health information *before* anything reaches a
+write path, and transcription creates a second copy on a third party's
+infrastructure. Neither is covered by the existing boundary by default, and
+neither may be assumed into it.
+
+This audit **precedes** provider selection, because provider choice is partly
+determined by its answer.
+
 ### High-risk questions
 
 Ask Coach is a running coach, not a doctor. For pain, injury or medical
@@ -261,8 +288,14 @@ stop/pause.
 4. Map every action that could alter the plan.
 5. Design the deterministic boundary between conversation and coaching logic.
 6. Design health and consent handling.
-7. Evaluate STT / TTS / model provider options.
-8. Report architecture, cost and privacy implications — expected STT provider,
+7. **Audit the audio / transcription / health-statement lifecycle — BEFORE
+   step 8.** Provider choice partly depends on the answer, so this cannot be
+   deferred until after a provider is picked.
+8. Evaluate STT / TTS / model provider options.
+9. Determine the smallest architecturally correct route for **Guidance Level** —
+   implemented as part of this work, or landed first as its own small
+   prerequisite. Report before changing code.
+10. Report architecture, cost and privacy implications — expected STT provider,
    model route, TTS provider, approximate per-interaction cost, likely latency,
    caching opportunities (including whether pre-session briefing audio can be
    generated and cached), privacy implications, and Android/web compatibility.
@@ -292,25 +325,51 @@ Recorded at log time so the implementation audit starts from fact rather than
 assumption. **This is not a design and commits to nothing.** Every statement
 below was checked against the code on `origin/main` at `d9687aa`.
 
-### One correction to the brief
+### Guidance Level is a missing prerequisite
 
-**There is no "Guidance Level — Adaptive / Full / Concise" setting.** Searching
-the runtime finds `guidance` only as session guidance tables
-(`resolveGuidance()`, the long-run guidance overlay). There is no
-concise/full/adaptive control anywhere, and no verbosity or detail-level
-setting.
+**The audit finding stands: there is no Guidance Level in the current runtime.**
+Searching finds `guidance` only as session guidance tables (`resolveGuidance()`,
+the long-run guidance overlay). There is no adaptive/full/concise control, and
+no verbosity or detail-level setting of any kind.
 
-The nearest existing control is **`state.setup.experience`** —
-`novice` / `experienced` / `advanced`, defined in `assets/builder-spec.js`
-(`BUILDER_SPEC.experience`) and asserted by `test/coachGuidanceDepth.test.js`,
-whose stated principle is *"Experience should decide how MUCH is written, never
-whether the aid exists."* That is the same idea the brief wants briefing length
-to follow, under a different name and with different values.
+**The founder's clarification (2026-08-26) settles what that means, and it is
+not what this document first suggested.** Guidance Level and Experience Level
+are *intentionally separate Valhalla concepts*. An earlier revision of this
+section proposed reusing Experience Level for voice verbosity. **That is
+explicitly rejected and must not be done.**
 
-So the brief's instruction — *do not create a second independent voice-detail
-setting* — most likely resolves to **reusing `experience`**, not to reusing a
-Guidance Level that does not exist. Worth confirming with the founder, since
-they may be describing something intended rather than shipped.
+| | **Experience Level** | **Guidance Level** |
+|---|---|---|
+| Values | `novice` / `experienced` / `advanced` | `Adaptive` / `Full` / `Concise` |
+| Belongs to | programme / prescription **methodology** | **presentation / detail** control |
+| May affect | what training is prescribed | how much coaching **explanation** is presented |
+| Affects prescription? | yes | **never** |
+| Lives in | the builder (`BUILDER_SPEC.experience`) | **Settings** (intended) |
+| Default | `experienced` | **`Adaptive`** (default and recommended) |
+| Is it the athlete's voice/coaching verbosity preference? | **no** | **yes** |
+
+`Adaptive` is intended to be genuinely adaptive: it may become more concise as
+demonstrated execution and understanding improve, and restore detail when
+intervention is warranted.
+
+**The rule for Voice Coach, stated three ways so it cannot be misread:**
+
+1. Do **not** map Voice Coach verbosity to Experience Level.
+2. Do **not** create a separate Voice-specific verbosity setting.
+3. Treat Guidance Level's absence as a **missing prerequisite / integration
+   surface**, never as permission to substitute another setting.
+
+Note that `test/coachGuidanceDepth.test.js` — despite its name — asserts
+**Experience**-driven depth of the written "How to run this" aid. It is *not*
+Guidance Level and must not be mistaken for it. Its stated principle
+("experience should decide how MUCH is written, never whether the aid exists")
+is worth reading as precedent for how a detail control behaves, but the setting
+it exercises is the methodology one.
+
+**Required at activation, before any code changes:** audit whether Guidance
+Level should be implemented *as part of* the Voice work, or landed *first* as
+its own small prerequisite. **Report the smallest architecturally correct route
+before changing code.** Do not assume either answer here.
 
 ### Where the authoritative coaching already lives
 
@@ -348,8 +407,13 @@ existing architecture has never had to consider.
    (`account`, `admin-user`, `app`, `beta-signin`, `billing-webhook`,
    `garmin`, `session`, `strava`). Strava's six endpoints already had to be
    consolidated behind one router (`api/strava.js`) for exactly this reason.
-   **STT, model and TTS routes must go behind a single consolidated router**,
-   following the `api/strava.js` / `api/account.js` pattern.
+
+   **ACCEPTED IN PRINCIPLE BY THE FOUNDER (2026-08-26):** prefer a
+   **consolidated server-side Voice router**, analogous to the existing Strava
+   routing architecture, rather than unnecessarily consuming separate Vercel
+   functions — **subject to the implementation audit**. This is a stated
+   preference to design toward, not a settled design: the audit confirms the
+   shape before any route is written.
 
 2. **The app is one 1.5 MB file** (`protected/velvet-viking-valhalla.html`)
    served through the `/api/app` delivery gate, with the Android build a thin
