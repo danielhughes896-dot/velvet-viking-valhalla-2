@@ -336,10 +336,54 @@ test('one British female voice is preferred, and any English voice beats silence
   assert.equal(a.voicePickVoice(null), null);
 });
 
-test('speech being unavailable removes the control rather than breaking it', () => {
+/* THIS TEST USED TO ASSERT THE BUG. It required that a device without speech
+ * synthesis be shown NO control -- which is what shipped, and what made the
+ * briefing vanish entirely on the founder's Android device: the installed app
+ * is a Capacitor WebView and Android WebView does not expose
+ * window.speechSynthesis.
+ *
+ * The suite could not catch it because the suite agreed with it. The contract
+ * it now holds is the right one: the briefing is the product and speech is only
+ * the delivery, so the control is offered whenever there is something to say,
+ * and the press produces the words either way.
+ */
+test('a device that cannot speak still gets the briefing, as text', () => {
   const a = athlete();                    // the harness has no speechSynthesis
-  assert.equal(a.voiceAvailable(), false);
+  assert.equal(a.voiceAvailable(), false, 'precondition: this device cannot speak');
   const html = a.renderVoiceCard(todayDay(a));
-  assert.ok(!/data-action="voice-listen"/.test(html),
-    'a Listen button was drawn on a device that cannot speak');
+  assert.match(html, /data-action="voice-listen"/,
+    'the briefing disappeared with the voice');
+  assert.match(html, />Read today</,
+    'the label must promise what the press will actually do on this device');
+  assert.ok(!/>Hear today</.test(html),
+    'a device that cannot speak must not offer to speak');
+});
+
+test('pressing it on such a device reveals the words and can be closed again', () => {
+  const a = athlete();
+  const dd = todayDay(a);
+  a.handleVoiceListen(dd.id);
+  const open = a.renderVoiceCard(dd);
+  assert.match(open, /voice-said/, 'the press produced nothing at all');
+  assert.match(open, /data-action="voice-stop"/, 'there is no way to close it');
+  a.voiceStop();
+  assert.ok(!/voice-said/.test(a.renderVoiceCard(dd)), 'it could not be closed');
+});
+
+test('every line that would have been spoken is in the text', () => {
+  const a = athlete();
+  const dd = todayDay(a);
+  const script = a.voiceScriptFor(dd);
+  a.handleVoiceListen(dd.id);
+  const html = a.renderVoiceCard(dd);
+  script.lines.forEach(l => assert.ok(html.indexOf(a.escapeHtml(l)) !== -1,
+    'a spoken line has no readable form: ' + l));
+});
+
+test('a device that CAN speak is offered speech, not a read-out', () => {
+  const a = athlete();
+  a.voiceAvailable = () => true;
+  const html = a.renderVoiceCard(todayDay(a));
+  assert.match(html, />Hear today</);
+  assert.ok(!/>Read today</.test(html));
 });

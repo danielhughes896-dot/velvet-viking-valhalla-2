@@ -84,7 +84,30 @@ const FRAMES = {
                               d.actual=Object.assign(emptyActual(),{km:d.km,pace:'5:18',rpe:6}); }
                             renderApp();` },
   'today-ask-disabled':{ view:'today', setup: SPEECH + `voiceSetAvailable(false); renderApp();` },
-  'settings-guidance': { view:'settings', setup: SPEECH + `renderApp();` }
+  'settings-guidance': { view:'settings', setup: SPEECH + `renderApp();` },
+
+  /* THE DEVICE THE FEATURE ACTUALLY SHIPPED TO, and the frame whose absence let
+     a missing control reach production. Every frame above STUBS speechSynthesis
+     so the Listen button appears; a fixture that manufactures the capability
+     cannot photograph its absence. These two remove it instead -- the installed
+     Capacitor app, where Android WebView exposes no synthesiser and no working
+     speech recogniser. */
+  'android-app-no-speech': { view:'today', setup: `
+      try{ delete window.speechSynthesis; }catch(e){}
+      window.Capacitor = { isNativePlatform: function(){ return true; } };
+      window.webkitSpeechRecognition = function(){};
+      voiceSetAvailable(true); renderApp();` },
+  'android-app-reading':   { view:'today', setup: `
+      try{ delete window.speechSynthesis; }catch(e){}
+      window.Capacitor = { isNativePlatform: function(){ return true; } };
+      window.webkitSpeechRecognition = function(){};
+      voiceSetAvailable(true); renderApp();
+      handleVoiceListen(findDayByDate(todayStr()).id);` },
+  'android-app-ask':       { view:'today', setup: `
+      try{ delete window.speechSynthesis; }catch(e){}
+      window.Capacitor = { isNativePlatform: function(){ return true; } };
+      window.webkitSpeechRecognition = function(){};
+      voiceSetAvailable(true); renderApp(); askSet('open',{});` }
 };
 
 const MIME = { '.png':'image/png', '.svg':'image/svg+xml', '.jpg':'image/jpeg', '.webp':'image/webp',
