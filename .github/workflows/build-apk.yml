@@ -5,7 +5,12 @@ name: Build Android APK
 # from the repo root independently of this workflow.
 on:
   push:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Exact commit SHA, tag or branch to build. Leave blank to build the current branch tip.'
+        required: false
+        default: ''
 
 jobs:
   build-apk:
@@ -13,8 +18,16 @@ jobs:
     env:
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
     steps:
+      # THE EXACT COMMIT, NOT "whatever the branch is now". A Play upload is a
+      # thing somebody has to be able to point at later: the artifact, the SHA
+      # it came from, and the tests that passed on it have to be the same
+      # moment. A manual run may name any SHA or tag; a push run pins to the
+      # commit that triggered it rather than to the branch head, which can
+      # already have moved by the time the runner starts.
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -27,6 +40,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # THE WHOLE SUITE, BEFORE ANY BUILD, and deliberately before the Android
+      # toolchain is even installed: it needs no SDK, it is the cheapest thing
+      # here, and a red suite must not produce a signed artifact that somebody
+      # could upload. `npm test` is the repository's own entry point, so this
+      # cannot drift from what a developer runs locally.
+      - name: Run the complete automated suite
+        run: npm test
 
       - name: Set up JDK
         uses: actions/setup-java@v4
@@ -131,6 +152,38 @@ jobs:
           APK=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
           "$APKSIGNER" verify --print-certs "$APK" | grep -i 'SHA-256 digest'
+
+      # WHAT WAS ACTUALLY BUILT, WRITTEN WHERE THE PERSON UPLOADING IT WILL SEE
+      # IT. A Play Console upload is irreversible in the sense that a version
+      # code can never be reused, so the identity of the artifact -- package,
+      # version, and the commit it came from -- belongs in the run summary
+      # rather than in somebody's memory of which run they clicked.
+      #
+      # Read from the gradle file rather than hardcoded, so a version bump
+      # cannot make this summary quietly wrong. No secret is read or printed.
+      - name: Report build identity
+        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          APP_ID=$(grep -oP 'applicationId "\K[^"]+' android/app/build.gradle)
+          VCODE=$(grep -oP 'versionCode \K[0-9]+' android/app/build.gradle)
+          VNAME=$(grep -oP 'versionName "\K[^"]+' android/app/build.gradle)
+          AAB=$(find android/app/build/outputs/bundle/release -name '*.aab' | head -1)
+          test -n "$AAB" || { echo "::error::no .aab was produced"; exit 1; }
+          {
+            echo "### Android release bundle"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Bundle | \`$(basename "$AAB")\` |"
+            echo "| Application ID | \`$APP_ID\` |"
+            echo "| versionCode | $VCODE |"
+            echo "| versionName | $VNAME |"
+            echo "| Source commit | \`${{ github.sha }}\` |"
+            echo "| Built ref | \`${{ github.event.inputs.ref || github.ref_name }}\` |"
+            echo "| Size | $(du -h "$AAB" | cut -f1) |"
+            echo ""
+            echo "Signed with the repository's stable upload key. **Not published to Google Play** — download the artifact and upload it by hand."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload SIGNED RELEASE BUILD artifacts
         if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
