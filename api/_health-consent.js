@@ -90,10 +90,32 @@ async function isGranted(cfg, sb, userId) {
    rather than a mutation because the caller may be holding the same object in
    a list it is also counting, and a silent in-place edit of somebody else's
    array is the kind of thing that is correct until it is not. */
+/* PER-SPLIT HEART RATE IS STILL HEART RATE.
+ *
+ * An imported activity may carry a `splits` array, one entry per kilometre,
+ * and Strava and Garmin both put an average heart rate on each of them. A
+ * shallow strip removes the summary hr and leaves twelve copies of the same
+ * covered measurement one level down -- which is not a smaller leak, it is the
+ * same leak with more rows.
+ *
+ * Handled HERE rather than by each provider, for the reason forIngest() is one
+ * function rather than two: a boundary a caller has to remember to apply twice
+ * is a boundary that will eventually be applied once. The distance, time and
+ * pace of each split are ordinary training data and stay. */
+function stripCoveredFromSplits(splits) {
+  if (!Array.isArray(splits)) return splits;
+  return splits.map(sp => {
+    if (!sp || typeof sp !== 'object') return sp;
+    const copy = Object.assign({}, sp);
+    COVERED_ACTIVITY_FIELDS.forEach(k => { delete copy[k]; });
+    return copy;
+  });
+}
 function stripCovered(activity) {
   if (!activity || typeof activity !== 'object') return activity;
   const out = Object.assign({}, activity);
   COVERED_ACTIVITY_FIELDS.forEach(k => { delete out[k]; });
+  if (Array.isArray(out.splits)) out.splits = stripCoveredFromSplits(out.splits);
   return out;
 }
 
@@ -110,7 +132,12 @@ async function forIngest(cfg, sb, userId, activity) {
    below, which refuses rather than trusting a future implementer to remember. */
 function carriesCovered(activity) {
   if (!activity || typeof activity !== 'object') return false;
-  return COVERED_ACTIVITY_FIELDS.some(k => activity[k] != null);
+  if (COVERED_ACTIVITY_FIELDS.some(k => activity[k] != null)) return true;
+  /* Looks one level into the splits for the same fields. A provider asserting
+     against its own output has to be told the truth about a nested heart rate,
+     or the assertion is worse than no assertion at all. */
+  return Array.isArray(activity.splits) && activity.splits.some(
+    sp => sp && typeof sp === 'object' && COVERED_ACTIVITY_FIELDS.some(k => sp[k] != null));
 }
 
 module.exports = {

@@ -21,14 +21,29 @@ If you have never made an app there, it asks you to create one.
 
 | Field | What to put |
 | --- | --- |
-| Application Name | Velvet Viking |
+| Application Name | Velvet Viking Valhalla |
 | Category | Training |
-| Website | `https://velvet-viking-valhalla-1.vercel.app` |
-| **Authorization Callback Domain** | `velvet-viking-valhalla-1.vercel.app` |
+| Website | `https://velvetviking.co.uk` |
+| **Authorization Callback Domain** | `app.velvetviking.co.uk` |
 
 The callback domain is **the bare domain — no `https://`, no path**. Strava
 rejects the authorization if it does not match, and this is the single most
 common thing to get wrong.
+
+**CORRECTED — this was wrong twice over.** It previously read
+`velvet-viking-valhalla-1.vercel.app`: a temporary Vercel hostname rather than
+the production domain, and the hostname of the **marketing website** project
+(`-1`) rather than the app (`-2`). The app is served at
+`app.velvetviking.co.uk`, and `redirectUri()` builds the return URL from
+`VVV_SITE_ORIGIN`, which is that host. An OAuth return sent to the website
+project would never reach `/api/strava-callback` at all.
+
+The redirect URI the server actually sends is therefore:
+
+    https://app.velvetviking.co.uk/api/strava-callback
+
+and the Authorization Callback Domain must be its host, `app.velvetviking.co.uk`.
+See `STRAVA-DATA-CONTRACT.md` for the full derivation.
 
 That page then shows you a **Client ID** and a **Client Secret**. Leave the tab
 open; you need both in Part 2.

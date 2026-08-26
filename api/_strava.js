@@ -448,6 +448,45 @@ function normaliseActivity(a){
     trainer: !!a.trainer,
     manual: !!a.manual
   };
+  /* PER-KILOMETRE SPLITS, when Strava gave us any.
+   *
+   * WHY THESE AND NOT STREAMS. coachSplitMetrics() is the only consumer, it
+   * needs four or more paced entries, and what it computes from them is how
+   * evenly the session was run: consistency, fade, and whether the second half
+   * was faster than the first. splits_metric is exactly that -- one entry per
+   * kilometre, already aggregated -- so a stream would be a much larger
+   * request for data that would have to be reduced back down to this.
+   *
+   * FREE ON THE PATH THAT MATTERS. The webhook already reads
+   * /activities/{id}, so this costs no additional request for the real-time
+   * route every imported run normally arrives by. The list endpoint the
+   * manual backfill uses does not return splits, so a backfilled run simply
+   * has none and coachSplitMetrics() returns null -- which is what it already
+   * did for every Strava run before this existed.
+   *
+   * FLAT, WITH NO segId, AND THAT IS CORRECT. These are Strava's kilometre
+   * markers, not Valhalla's prescribed segments; splitsAreLegacyFlat() already
+   * keeps such a log on the flat editor rather than rebuilding it as segments,
+   * which would be guessing which kilometre was which rep.
+   *
+   * The per-split heart rate is covered data and is removed for an athlete who
+   * has not consented -- at the boundary, in _health-consent.js, not here. */
+  const laps = Array.isArray(a.splits_metric) ? a.splits_metric : null;
+  if (laps && laps.length){
+    const rows = laps.map(function(sp){
+      if (!sp) return null;
+      const km = pos(sp.distance) != null ? Math.round(sp.distance / 10) / 100 : null;
+      const sec = pos(sp.moving_time) != null ? sp.moving_time : pos(sp.elapsed_time);
+      if (km == null || sec == null) return null;
+      return {
+        km: km,
+        sec: sec,
+        paceSec: Math.round(sec / km),
+        hr: pos(sp.average_heartrate) != null ? Math.round(sp.average_heartrate) : null
+      };
+    }).filter(Boolean);
+    if (rows.length) out.splits = rows;
+  }
   return out;
 }
 

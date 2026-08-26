@@ -1605,6 +1605,28 @@
   .bor-t{display:block; font-family:'Oswald',sans-serif; font-size:var(--fs-body); font-weight:600; letter-spacing:.3px; color:var(--ink); margin-bottom:3px;}
   .bor-d{display:block; font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-dim);}
 
+  /* THE OPTIONAL STRAVA OFFER on the Overview screen. The SAME raised tile the
+     overview rows already sit in -- same sheen, border, radius and shadow
+     tokens -- so it reads as part of the builder rather than as an integration
+     panel bolted onto it. It carries the one orange button the product already
+     has (.strava-connect-btn, Strava's own brand colour, used nowhere else)
+     and nothing more: no logo lockup, no account fields, no API vocabulary.
+     The skip line is deliberately quieter than the description, because
+     carrying on is the default and should not need arguing for. */
+  .bld-strava-offer{
+    margin-top:12px; padding:16px;
+    background:var(--tile-sheen), var(--surface-3); border:1px solid var(--tile-border);
+    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
+  }
+  .bso-t{
+    font-family:'Oswald',sans-serif; font-size:var(--fs-body); font-weight:600;
+    letter-spacing:.3px; color:var(--ink); margin-bottom:4px;
+    display:flex; align-items:center; gap:7px;
+  }
+  .bso-t svg{width:15px; height:15px; flex:none; color:var(--c-easy);}
+  .bso-d{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-dim); margin-bottom:12px;}
+  .bso-skip{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:9px; text-align:center;}
+
   /* OPTION GRID. The one new control. .unit-toggle is a single-row pill with
      overflow:hidden, so four goal distances cannot fit one row at 360px. The
      button treatment is lifted from .unit-toggle button/.active unchanged --
@@ -22987,6 +23009,7 @@ function openSetupModal(){
           '<span class="bor-d">Log your runs and Valhalla gets smarter as the block progresses.</span>'+
         '</div>'+
       '</div>'+
+      bldStravaOffer()+
       navBtns(0)+
     '</section>'+
 
@@ -23284,6 +23307,46 @@ var BLD_STAGE_NAMES = BUILDER_SPEC.stages.map(function(s){ return s.name; });
    wrong panel, which is the one way this restructuring could have changed
    behaviour without anybody noticing. */
 var BLD_STAGE = { OVERVIEW:0, GOAL:1, DISTANCE:2, EVENT:3, YOU:4, BENCHMARK:5, WEEK:6, TRAINING:7, TARGETS:8, REVIEW:9 };
+/* ---------- THE OPTIONAL STRAVA OFFER, ON THE FIRST SCREEN ----------
+ *
+ * WHY HERE AND NOT AS AN ELEVENTH STAGE. A stage is a question the builder
+ * must have an answer to: BUILDER_SPEC.stages drives the rail, the numerals,
+ * the validation map, start.html's renderer list and the server-side preview,
+ * and every one of them would have to grow a screen for something that is not
+ * a question and that the athlete may ignore entirely. Overview is already the
+ * beginning of the journey and already asks nothing, which is exactly the
+ * shape this needs.
+ *
+ * WHY ONLY IN THE APP. The pre-account builder in start.html runs BEFORE the
+ * athlete has a Valhalla account -- build, preview, "Save My Plan", then
+ * authenticate -- and a Strava authorization has nothing to attach to until
+ * that account exists: the server stores it against the athlete's own user id,
+ * and every Strava route verifies a Supabase token first. Drawing a Connect
+ * button there
+ * would be a control that cannot honour a press, which this product does not
+ * do; see the Garmin card, which draws no button for the same reason.
+ *
+ * IT ASKS FOR NOTHING. No state, no "connect later" flag, no deferred intent
+ * to reconcile after sign-in -- the athlete either connects now or carries on,
+ * and Settings offers the same connection at any point afterwards. Continue is
+ * the ordinary stage button and is unaffected. */
+function bldStravaOffer(){
+  if (!stravaAvailable) return '';
+  if (isStravaConnected()){
+    return '<div class="bld-strava-offer">'+
+      '<div class="bso-t">'+ICONS.check+' Strava connected'+
+        (stravaConn.athleteName ? ' \u00b7 '+escapeHtml(stravaConn.athleteName) : '')+'</div>'+
+      '<div class="bso-d">Your recent runs will appear against this block as you log them.</div>'+
+    '</div>';
+  }
+  return '<div class="bld-strava-offer">'+
+    '<div class="bso-t">Connect Strava</div>'+
+    '<div class="bso-d">Your runs come in on their own, so you spend less time logging them.</div>'+
+    '<button type="button" class="btn btn-block strava-connect-btn" data-action="strava-connect">'+
+      ICONS.pulse+' Connect Strava</button>'+
+    '<div class="bso-skip">Optional \u2014 you can carry on without it, or connect later in Settings.</div>'+
+  '</div>';
+}
 var bldCurrentStage = 0;
 
 /* Redraw the long-run grid from #su-longday, which is the value that counts. */
@@ -25153,6 +25216,25 @@ function stravaWriteActivity(dd, a){
   if (a.elapsedTimeSec != null) A.elapsedTimeSec = a.elapsedTimeSec;
   if (a.elevationGainM != null) A.elevationGainM = a.elevationGainM;
   if (a.activityType)           A.activityType = a.activityType;
+  /* THE KILOMETRE SPLITS, AND ONLY WHERE THE ATHLETE HAS NOT WRITTEN THEIR OWN.
+     A structured log -- rows carrying a segId, entered against the prescribed
+     segments -- is the athlete's own account of how they ran each part of the
+     session, and Strava's kilometre markers are not a better version of it.
+     They are not even the same thing: one is "rep 3", the other is "the third
+     kilometre". So imported splits fill an empty log and never replace one.
+
+     The heart rate inside them is covered data and was already removed
+     server-side for an athlete who has not consented -- see stripCovered().
+     This is a second line rather than the boundary: the rows simply arrive
+     without it. */
+  if (a.splits && a.splits.length &&
+      !(A.splits && A.splits.length)){
+    A.splits = a.splits.map(function(sp){
+      var row = { km:sp.km, sec:sp.sec, paceSec:sp.paceSec, hr:null };
+      if (healthConsentGranted() && sp.hr != null) row.hr = sp.hr;
+      return row;
+    });
+  }
   dd.stravaActivityId = a.activityId;
 
   // The review must never predate the objective data it is about. This is the
@@ -25325,13 +25407,22 @@ function renderStravaSection(){
     '</div>';
   }
   if (s === 'connected' || s === 'syncing'){
+    /* WHICH STRAVA ACCOUNT, when Strava told us. An athlete with more than one
+       Strava login -- or one who is not sure which they authorised -- cannot
+       answer that from the word "Connected" alone, and the name is already in
+       the status payload. Omitted rather than guessed when absent: a blank
+       "Connected as" is worse than the pill on its own. */
+    var who = stravaConn.athleteName
+      ? '<div class="field-hint" style="margin-top:6px;">Connected as '+
+        escapeHtml(stravaConn.athleteName)+'</div>'
+      : '';
     inner = '<div class="connect-row">'+
         '<div><div class="name">Strava</div><div class="desc"><span class="status-pill status-connected">'+ICONS.check+' Connected</span></div></div>'+
         '<div style="display:flex; gap:6px;">'+
           '<button type="button" class="btn btn-sm btn-primary" data-action="strava-sync"'+(s==='syncing'?' disabled':'')+'>'+(s==='syncing'?'Syncing…':'Sync Strava')+'</button>'+
           '<button type="button" class="btn btn-sm btn-ghost" data-action="strava-disconnect">Disconnect</button>'+
         '</div>'+
-      '</div>';
+      '</div>'+ who;
   } else {
     inner = '<div class="field-hint" style="margin-bottom:10px;">'+
         (s === 'error' && stravaConn.message
