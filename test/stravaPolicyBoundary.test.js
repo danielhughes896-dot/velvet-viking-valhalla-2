@@ -24,9 +24,24 @@ const S = require('../api/_strava.js');
  * is therefore the wrong question; "did any part of this come from Strava" is
  * the right one, and it has to stay answerable after the import.
  *
- * VALHALLA CALLS NO AI SERVICE TODAY. The fence is built before there is
- * anything on the other side of it, because that is the only order in which
- * building it is cheap.
+ * THE FIELD IS NOW OCCUPIED. This file used to assert that Valhalla called no
+ * AI service at all -- the strongest form of compliance with 5.3 being not to
+ * have the capability -- and that was the right assertion for a product with
+ * no conversational surface. The Today Voice Coach gives it one.
+ *
+ * SO THE CLAIM CHANGES SHAPE, AND GETS STRONGER RATHER THAN WEAKER. "No model
+ * exists" is replaced by "exactly one model call site exists, and Strava Data
+ * provably cannot reach it" -- which is the claim 5.3 actually turns on. The
+ * tests below hold it at four independent points: the context is built only
+ * from aiEligibleDays(), the server refuses a payload carrying a Strava marker,
+ * the Today card offers nothing for a Strava-derived day, and no second call
+ * site may appear anywhere in the runtime or the other server functions.
+ *
+ * WHAT IS NOT CLAIMED HERE. Whether operating a conversational coach at all
+ * makes Valhalla an "AI Application" for the purposes of 5.3 -- such that
+ * connecting Strava becomes a question even with this fence intact -- is a
+ * legal reading, not a property of the code, and it is reported to the founder
+ * rather than answered by a test.
  */
 
 const ROOT = path.join(__dirname, '..');
@@ -58,18 +73,95 @@ const importedDay = (a, dd) => {
 // ---------------------------------------------------------------------------
 // 5.3 — NO AI, AND NOTHING THAT FEEDS ONE
 // ---------------------------------------------------------------------------
-test('the product calls no AI service at all', () => {
-  /* The strongest form of compliance with 5.3 is not having the capability.
-     Asserted on the shipped runtime and on every server function, so a model
-     call cannot be added without this failing first. */
-  const files = [RUNTIME].concat(
-    fs.readdirSync(path.join(ROOT, 'api')).filter(f => f.endsWith('.js'))
-      .map(f => fs.readFileSync(path.join(ROOT, 'api', f), 'utf8')));
-  const BANNED = [/api\.openai\.com/i, /api\.anthropic\.com/i,
-                  /generativelanguage\.googleapis/i, /\/v1\/chat\/completions/i,
-                  /\bopenai\b/i, /\banthropic\b/i];
-  files.forEach(src => BANNED.forEach(rx =>
-    assert.ok(!rx.test(src), 'a generative-AI call appeared: ' + rx)));
+test('there is exactly ONE model call site, and it is server-side', () => {
+  /* The browser must never hold a model endpoint or a key. Everything the
+     athlete's device does with voice -- composing the briefing, composing the
+     debrief, speaking either aloud -- is local; only Ask Coach leaves, and it
+     leaves through the server, which is where the credential lives. */
+  const ENDPOINT = /api\.anthropic\.com|api\.openai\.com|generativelanguage\.googleapis|\/v1\/chat\/completions/i;
+  assert.ok(!ENDPOINT.test(RUNTIME),
+    'the shipped runtime names a model endpoint -- the browser must never call one directly');
+  assert.ok(!/ANTHROPIC_API_KEY|x-api-key/i.test(RUNTIME),
+    'a model credential appears in the file served to the browser');
+
+  const callers = fs.readdirSync(path.join(ROOT, 'api')).filter(f => f.endsWith('.js'))
+    .filter(f => ENDPOINT.test(fs.readFileSync(path.join(ROOT, 'api', f), 'utf8')));
+  assert.deepEqual(callers, ['_voice-ask.js'],
+    'a second model call site appeared: ' + callers.join(', '));
+});
+
+test('the model call site reads no database and no service-role key', () => {
+  /* It cannot write a plan because it cannot reach one. The blast radius of a
+     hallucinating or compromised model is bounded by what this file can touch,
+     and what it can touch is one outbound request. */
+  const src = fs.readFileSync(path.join(ROOT, 'api', '_voice-ask.js'), 'utf8');
+  assert.ok(!/serviceKey|service_role|rest\/v1/.test(src),
+    'the model call site can reach the database');
+});
+
+test('the Ask Coach context is built ONLY from AI-eligible days', () => {
+  /* The fence, at the point the context is assembled. Not a filter applied
+     afterwards -- aiEligibleDays() is the only source the builder reads. */
+  const a = athlete();
+  const manual = a.state.days.filter(d => d.type === 'easy' && d.date < TODAY)[0];
+  manual.completed = true;
+  manual.actual = Object.assign(a.emptyActual(), { km: manual.km, pace: '5:30', rpe: 6 });
+  const strava = a.state.days.filter(d => d.type === 'easy' && d.date < TODAY)[1];
+  importedDay(a, strava);
+
+  const ctx = a.voiceCoachContext();
+  const json = JSON.stringify(ctx);
+  assert.equal(ctx.excluded.stravaDerivedDays >= 1, true, 'the Strava day was not counted as excluded');
+  assert.ok(!/stravaActivityId/.test(json), 'a Strava marker reached the context');
+  assert.ok(!json.includes(String(strava.date)) || !ctx.recent.some(r => r.date === strava.date),
+    'the Strava-derived day itself reached the context');
+  assert.ok(ctx.recent.some(r => r.date === manual.date) || manual.date < a.addDays(TODAY, -14),
+    'the athlete\'s own manual day should remain available');
+});
+
+test('a poisoned field cannot ride into the context on a day object', () => {
+  /* THE WHITELIST PROPERTY. The builder names and copies every field it emits,
+     so something added to a day tomorrow is absent by default rather than
+     present by accident. A filter would have the opposite failure mode. */
+  const a = athlete();
+  const d = a.state.days.filter(x => x.type === 'easy' && x.date < TODAY)[0];
+  d.completed = true;
+  d.actual = Object.assign(a.emptyActual(), { km: d.km, pace: '5:30' });
+  d.secretProviderPayload = 'STRAVA-SECRET-MARKER';
+  d.actual.providerRaw = 'STRAVA-SECRET-MARKER';
+  const json = JSON.stringify(a.voiceCoachContext());
+  assert.ok(!/STRAVA-SECRET-MARKER/.test(json),
+    'an unknown field was copied into model context -- the builder is filtering, not whitelisting');
+});
+
+test('the server refuses a context carrying a Strava marker, rather than cleaning it', () => {
+  /* Defence in depth, and deliberately a refusal. If a marker arrives, the
+     browser-side fence has failed, and the compliant answer to a failed fence
+     is to send nothing -- not to strip what was noticed and forward the rest. */
+  const src = fs.readFileSync(path.join(ROOT, 'api', '_voice-ask.js'), 'utf8');
+  assert.match(src, /stravaActivityId/, 'the server does not check for a Strava marker');
+  assert.match(src, /STRAVA_DERIVED_CONTEXT/, 'there is no explicit refusal code');
+  const refuseAt = src.indexOf('STRAVA_DERIVED_CONTEXT');
+  const fetchAt = src.indexOf('await fetch(');
+  assert.ok(refuseAt > 0 && fetchAt > refuseAt,
+    'the refusal must happen BEFORE the request leaves');
+});
+
+test('a Strava-derived day is offered no voice at all', () => {
+  /* Refuses rather than redacts, at the surface too: no briefing, no debrief,
+     no Ask Coach. The written coaching on the card is untouched. */
+  const a = athlete();
+  a.state.view = 'today';
+  const today = a.findDayByDate(TODAY) ||
+                a.state.days.filter(d => d.type !== 'rest' && d.km > 0)[0];
+  today.date = TODAY;
+  importedDay(a, today);
+  a.voiceSetAvailable(true);
+  const html = a.renderVoiceCard(today);
+  assert.ok(!/data-action="voice-listen"/.test(html), 'a Strava-derived day was offered a briefing');
+  assert.ok(!/data-action="voice-ask-open"/.test(html), 'a Strava-derived day was offered Ask Coach');
+  assert.match(html, /came in from Strava/, 'the athlete is not told why the control is missing');
+  assert.equal(a.voiceTodayIsStravaDerived(), true);
 });
 
 test('nothing invites the athlete to paste their training into an AI chat', () => {

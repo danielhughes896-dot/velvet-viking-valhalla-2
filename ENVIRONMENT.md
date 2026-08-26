@@ -74,6 +74,24 @@ absence is a deliberate off state, not a misconfiguration.
 | `STRAVA_CLIENT_SECRET` | **YES** | OAuth client secret. Also keys the OAuth `state` HMAC. | for Strava | strava.com/settings/api |
 | `STRAVA_WEBHOOK_VERIFY_TOKEN` | **YES** | Echoed back during Strava's webhook handshake. | if webhooks used | you |
 
+## Voice Coach — off, and nothing has a default
+
+The Today Voice Coach speaks with the device's own speech synthesis, which needs
+no credential and sends nothing anywhere. Only **Ask Coach** — the conversational
+half — reaches a model, and only these three variables switch it on.
+
+| Name | Secret | Purpose | Launch | Source |
+|---|---|---|---|---|
+| `VVV_VOICE_ENABLED` | no | **SWITCH.** Off = Ask Coach is not offered and `/api/voice-ask` refuses. Deliberately separate from "is the key set", so *switched off on purpose* and *misconfigured* are never the same log line. Default off. | as configured | you |
+| `ANTHROPIC_API_KEY` | **YES** | Authenticates the Ask Coach model call. Server-side only — it is read in `api/_voice.js` and never reaches the browser. | for Ask Coach | console.anthropic.com → API keys |
+| `VVV_VOICE_MODEL` | no | Overrides the model id. Leave unset; the pinned default is the one the prompt and the cost estimate were written against. | unset | — |
+
+**LISTEN needs none of these.** The pre-session briefing and the post-run
+debrief are composed on the device from coaching Valhalla has already decided,
+and spoken by the browser's own voice. They keep working with no key, no
+network and no switch — which is why an outage or an unconfigured deployment
+costs the athlete the conversation, never the coaching.
+
 ## Garmin — off, and nothing has a default
 
 | Name | Secret | Purpose | Launch | Source |

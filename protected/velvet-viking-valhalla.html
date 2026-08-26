@@ -1613,6 +1613,94 @@
      and nothing more: no logo lockup, no account fields, no API vocabulary.
      The skip line is deliberately quieter than the description, because
      carrying on is the default and should not need arguing for. */
+  /* ---------- THE VOICE COACH ----------
+     Restrained on purpose. The session and its review are the primary objects
+     on this card; these are two quiet controls underneath them, built from
+     surfaces the app already has (--tile-*, --ctl-*) so nothing here reads as
+     a third-party AI widget bolted onto Valhalla. */
+  .voice-row{display:flex; gap:8px; margin-top:12px;}
+  .voice-btn{
+    flex:1; display:inline-flex; align-items:center; justify-content:center; gap:7px;
+    min-height:42px; padding:9px 10px;
+    font-family:'Oswald',sans-serif; font-size:var(--fs-support); font-weight:600;
+    letter-spacing:.4px; text-transform:uppercase;
+    border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
+    background:var(--ctl-bg); color:var(--ink-dim);
+    box-shadow:var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.05);
+    cursor:pointer;
+  }
+  .voice-btn svg{width:15px; height:15px; flex:none;}
+  .voice-btn:hover{color:var(--ink); border-color:var(--ctl-border-hi, var(--ctl-border));}
+  .voice-btn:active{transform:translateY(1px);}
+  .voice-why{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:7px;}
+  .voice-unavailable{display:block;}
+  .voice-note{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:12px;}
+  /* Everything spoken, readable. Not a transcript bolted on -- the same lines. */
+  .voice-said{
+    margin-top:10px; padding:11px 13px; border-radius:var(--tile-radius);
+    background:var(--surface-3); border:1px solid var(--tile-border);
+  }
+  .voice-said p{margin:0 0 7px; font-size:var(--fs-support); line-height:var(--lh-body); color:var(--ink-dim);}
+  .voice-said p:last-child{margin-bottom:0;}
+
+  .ask-panel{
+    margin-top:10px; padding:13px; border-radius:var(--tile-radius);
+    background:var(--tile-sheen), var(--surface-3);
+    border:1px solid var(--tile-border); box-shadow:var(--tile-shadow);
+  }
+  .ask-listening{display:flex; align-items:center; gap:9px; padding:6px 0 12px;
+    font-family:'Oswald',sans-serif; letter-spacing:.4px; color:var(--ink); font-size:var(--fs-body);}
+  .ask-pulse{
+    width:11px; height:11px; border-radius:50%; background:var(--c-easy); flex:none;
+    animation:askPulse 1.1s ease-in-out infinite;
+  }
+  @keyframes askPulse{0%,100%{opacity:.35; transform:scale(.85);} 50%{opacity:1; transform:scale(1.15);}}
+  /* A listening indicator that animates is a state, not decoration -- but a
+     reader who has asked for less motion still needs to know the mic is live,
+     so it stays visible and simply stops moving. */
+  @media (prefers-reduced-motion: reduce){ .ask-pulse{animation:none;} }
+  .ask-heard{margin-bottom:9px;}
+  .ask-k{display:block; font-size:var(--fs-support); color:var(--ink-faint); text-transform:uppercase; letter-spacing:.5px;}
+  .ask-v{display:block; font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-dim); font-style:italic;}
+  .ask-thinking{font-size:var(--fs-support); color:var(--ink-faint); padding:6px 0 10px;}
+  .ask-answer{
+    font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink);
+    padding:10px 0 12px;
+  }
+  .ask-error{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--c-hard, var(--ink-dim)); padding:6px 0 10px;}
+  .ask-form{display:flex; gap:7px; margin-bottom:8px;}
+  .ask-form input{
+    flex:1; min-width:0; min-height:38px; padding:8px 11px;
+    font-size:var(--fs-support); color:var(--ink);
+    background:var(--ctl-bg); border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
+  }
+  .ask-suggest{display:flex; flex-wrap:wrap; gap:6px; margin:9px 0 4px;}
+  .ask-chip{
+    font-size:var(--fs-support); line-height:1.2; padding:7px 10px; text-align:left;
+    color:var(--ink-faint); background:transparent;
+    border:1px solid var(--ctl-border); border-radius:99px; cursor:pointer;
+  }
+  .ask-chip:hover{color:var(--ink); }
+  .ask-proposal{
+    margin:4px 0 10px; padding:11px; border-radius:var(--tile-radius);
+    background:var(--surface-2, var(--surface-3)); border:1px solid var(--tile-border);
+  }
+  .ask-prop-head{font-family:'Oswald',sans-serif; font-size:var(--fs-support); text-transform:uppercase;
+    letter-spacing:.5px; color:var(--ink-faint); margin-bottom:4px;}
+  .ask-prop-line{font-size:var(--fs-body); color:var(--ink); margin-bottom:10px;}
+
+  /* Guidance Level, in Settings. The same segmented treatment the unit toggle
+     uses, so no new control vocabulary enters the system. */
+  .gl-row{padding-top:10px;}
+  .gl-options{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:8px 0 7px;}
+  .gl-opt{
+    min-height:38px; padding:8px 6px; text-align:center; cursor:pointer;
+    font-family:'Oswald',sans-serif; font-size:var(--fs-support); font-weight:600; letter-spacing:.3px;
+    color:var(--ink-faint); background:var(--ctl-bg);
+    border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
+  }
+  .gl-opt.active{background:var(--gold, var(--c-easy)); color:var(--page, #0d0d0d); border-color:transparent;}
+
   .bld-strava-offer{
     margin-top:12px; padding:16px;
     background:var(--tile-sheen), var(--surface-3); border:1px solid var(--tile-border);
@@ -9054,6 +9142,12 @@ function makeDefaultState(){
        them. See "THE ATHLETE" below. */
     athlete:makeAthleteRecord(),
     experience:'experienced', // athlete experience -- see ATHLETE EXPERIENCE below; presentation only
+    /* GUIDANCE LEVEL -- 'adaptive' | 'full' | 'concise'. PRESENTATION ONLY, and
+       deliberately NOT the same thing as `experience` above. Experience belongs
+       to prescription methodology and may affect what training is prescribed;
+       this controls only how much coaching EXPLANATION is presented, and can
+       never change a session. Default 'adaptive'. See GUIDANCE LEVEL below. */
+    guidanceLevel:'adaptive',
     notifyEnabled:false, // daily 08:00 workout-reminder notification toggle
     /* null is not a default of convenience: it is the only correct starting
        value. Nobody has been asked, so nobody has agreed, and an account
@@ -9071,6 +9165,11 @@ function svgWrap(inner, extra){
 }
 var ICONS = {
   close: svgWrap('<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>'),
+  /* Voice Coach. Geometric and stroke-only like every other icon here -- a
+     triangle, two bars, and a microphone outline. No third-party glyph. */
+  voicePlay: svgWrap('<polygon points="7,5 19,12 7,19"/>'),
+  voiceStop: svgWrap('<rect x="7" y="6" width="3.5" height="12"/><rect x="13.5" y="6" width="3.5" height="12"/>'),
+  voiceMic: svgWrap('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><line x1="12" y1="18" x2="12" y2="21"/>'),
   check: svgWrap('<polyline points="5,13 10,18 19,7"/>'),
   chevronDown: svgWrap('<polyline points="6,9 12,15 18,9"/>'),
   /* Start again, not throw away. Reset Plan clears a schedule and keeps every
@@ -10947,7 +11046,17 @@ function renderDayCard(dd){
       '<div class="day-actions">'+dayActionButton(dd)+'</div>'+
       '<div class="day-chevron" aria-hidden="true">'+ICONS.chevronDown+'</div>'+
     '</div>'+
-    '<div class="day-drawer">'+actualHtml+'</div>'+
+    /* VOICE SITS IN THE DRAWER, BELOW THE WRITTEN COACHING, and outside
+       .day-top on purpose -- .day-top is itself a role="button" that toggles
+       the accordion, so buttons nested inside it would be interactive controls
+       inside an interactive control.
+
+       In the drawer rather than in `actualHtml`, which is where it was first
+       put and which was wrong: actualHtml is the COMPLETED branch, so the
+       pre-session briefing -- the half an athlete meets before they run --
+       could never have been drawn at all. The card returns '' on every surface
+       except Today; see voiceMayRender(). */
+    '<div class="day-drawer">'+actualHtml+renderVoiceCard(dd)+'</div>'+
   '</div>';
 }
 
@@ -24823,6 +24932,1052 @@ function dayPickerOptions(matchId){
 }
 
 /* =========================================================
+   GUIDANCE LEVEL — how much explanation, never what is prescribed
+   ---------------------------------------------------------
+   A PRESENTATION CONTROL, AND INTENTIONALLY NOT `state.experience`.
+
+   The two are separate Valhalla concepts and collapsing them would be a
+   methodology change dressed as a preference:
+
+     experience      novice / experienced / advanced. Belongs to programme and
+                     prescription methodology. MAY affect what training is
+                     prescribed. Lives in the builder. Not a verbosity
+                     preference.
+     guidanceLevel   adaptive / full / concise. Belongs to presentation.
+                     Governs how much coaching EXPLANATION is presented and
+                     never the underlying prescription. Lives in Settings.
+                     Default and recommendation: adaptive.
+
+   NOTHING HERE MAY REACH THE ENGINE. Every function below reads the athlete's
+   record and returns a depth word. None of them is called by buildBlockWeeks(),
+   by any pace calculation, or by anything that decides what a session IS --
+   and test/voiceGuidanceLevel.test.js asserts that a plan built under each of
+   the three settings is byte-identical.
+   ========================================================= */
+var GUIDANCE_LEVELS = ['adaptive', 'full', 'concise'];
+var GUIDANCE_LEVEL_DEFAULT = 'adaptive';
+var GUIDANCE_LEVEL_META = {
+  adaptive: { label: 'Adaptive',
+              blurb: 'Valhalla decides how much to say, session by session. Recommended.' },
+  full:     { label: 'Full',
+              blurb: 'The full explanation every time — purpose, execution, feel and what to watch for.' },
+  concise:  { label: 'Concise',
+              blurb: 'Just what you need to run the session well.' }
+};
+
+function guidanceLevel(){
+  var v = state && state.guidanceLevel;
+  return GUIDANCE_LEVELS.indexOf(v) !== -1 ? v : GUIDANCE_LEVEL_DEFAULT;
+}
+function setGuidanceLevel(v){
+  if (GUIDANCE_LEVELS.indexOf(v) === -1) return false;
+  state.guidanceLevel = v;
+  scheduleSave();
+  return true;
+}
+
+/* ---------- what ADAPTIVE actually does ----------
+   "More concise as demonstrated execution and understanding improve; detail
+   restored when intervention is warranted."
+
+   Both halves are read from evidence Valhalla already holds, deterministically,
+   on this device. There is no model here and nothing leaves the browser.
+
+   IT FAILS TOWARDS DETAIL. Every uncertain case resolves to 'full': saying too
+   much to an athlete who did not need it costs them ten seconds, and saying too
+   little before a session they were about to run wrong costs them the session.
+   That asymmetry is the whole reason the default is adaptive rather than
+   concise. */
+var GUIDANCE_FAMILIAR_REPS = 3;      // times this kind of session must have been run
+var GUIDANCE_STRONG_EXEC   = 80;     // and run at least this well, on average
+var GUIDANCE_RECENT_N      = 5;      // over this many most-recent scored sessions
+
+/* Sessions of the same kind the athlete has already completed and been scored
+   on. Keyed on the coaching identity of the session rather than its title, so
+   "Threshold 4x8min" and "Threshold 5x8min" count as the same familiarity. */
+function guidanceFamiliarity(dd){
+  if (!dd || !state.days) return 0;
+  var key;
+  try { key = coachingKeyFor(dd); } catch(e){ key = dd.type; }
+  var n = 0;
+  for (var i=0; i<state.days.length; i++){
+    var d = state.days[i];
+    if (!d || d === dd || !d.completed) continue;
+    var k;
+    try { k = coachingKeyFor(d); } catch(e){ k = d.type; }
+    if (k === key && computeExecutionScore(d) != null) n++;
+  }
+  return n;
+}
+/* Recent demonstrated execution, or null when there is not enough of it. */
+function guidanceRecentExecution(){
+  if (!state.days) return null;
+  var scored = [];
+  for (var i=0; i<state.days.length; i++){
+    var d = state.days[i];
+    if (!d || !d.completed) continue;
+    var sc = computeExecutionScore(d);
+    if (sc != null) scored.push({ date:d.date, score:sc });
+  }
+  if (scored.length < GUIDANCE_RECENT_N) return null;
+  scored.sort(function(a,b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+  var take = scored.slice(0, GUIDANCE_RECENT_N);
+  var sum = take.reduce(function(t,x){ return t + x.score; }, 0);
+  return Math.round(sum / take.length);
+}
+
+/* Is this a session where a coach would say MORE, whatever the athlete's
+   track record? Each of these is an existing Valhalla state, not a new
+   judgement invented here. */
+function guidanceInterventionWarranted(dd){
+  if (!dd) return true;
+  if (dd.coachAdjust) return true;                       // the plan was changed
+  if (dd.type === 'race' || dd.type === 'checkpoint') return true;
+  var ex = guidanceRecentExecution();
+  if (ex != null && ex < GUIDANCE_STRONG_EXEC) return true;
+  return false;
+}
+
+/* THE RESOLVER. Returns 'full' or 'concise' -- never 'adaptive', which is a
+   setting rather than an outcome. */
+function resolvedGuidanceLevel(dd){
+  var set = guidanceLevel();
+  if (set === 'full' || set === 'concise') return set;
+  if (guidanceInterventionWarranted(dd)) return 'full';
+  if (guidanceFamiliarity(dd) < GUIDANCE_FAMILIAR_REPS) return 'full';
+  var ex = guidanceRecentExecution();
+  if (ex == null) return 'full';                          // not enough evidence yet
+  return ex >= GUIDANCE_STRONG_EXEC ? 'concise' : 'full';
+}
+/* Why adaptive landed where it did, in one plain sentence. Shown to the
+   athlete on request rather than leaving an invisible rule deciding how much
+   coaching they get. */
+function guidanceAdaptiveReason(dd){
+  if (guidanceLevel() !== 'adaptive') return null;
+  if (guidanceInterventionWarranted(dd)) return 'Fuller detail — this one is worth reading properly.';
+  if (guidanceFamiliarity(dd) < GUIDANCE_FAMILIAR_REPS) return 'Fuller detail — you have not run many of these yet.';
+  if (guidanceRecentExecution() == null) return 'Fuller detail until there is more to go on.';
+  return 'Kept short — you have been executing these well.';
+}
+
+/* GUIDANCE LEVEL, IN SETTINGS, WHERE IT BELONGS. Presentation preferences sit
+   with the other presentation preferences -- theme and notifications -- and
+   deliberately NOT in the builder, which is where `experience` lives because
+   `experience` is part of describing the athlete to the engine. Putting them on
+   the same screen would be the first step to treating them as the same thing. */
+function renderGuidanceLevelRow(){
+  var cur = guidanceLevel();
+  return '<div id="guidance-level-row" class="gl-row">'+
+    '<div class="connect-row" style="border-bottom:none; padding-bottom:4px;">'+
+      '<div><div class="name">Coaching detail</div>'+
+      '<div class="desc">How much your coach explains</div></div>'+
+    '</div>'+
+    '<div class="gl-options" role="group" aria-label="Coaching detail">'+
+      GUIDANCE_LEVELS.map(function(k){
+        var on = cur === k;
+        return '<button type="button" class="gl-opt'+(on?' active':'')+'" '+
+          'aria-pressed="'+(on?'true':'false')+'" data-action="set-guidance" data-level="'+k+'">'+
+          escapeHtml(GUIDANCE_LEVEL_META[k].label)+'</button>';
+      }).join('')+
+    '</div>'+
+    '<div class="field-hint">'+escapeHtml(GUIDANCE_LEVEL_META[cur].blurb)+'</div>'+
+  '</div>';
+}
+function handleSetGuidanceLevel(level){
+  if (!setGuidanceLevel(level)) return;
+  var row = document.getElementById('guidance-level-row');
+  if (row) row.outerHTML = renderGuidanceLevelRow();
+  /* The Today card's spoken depth changes with it, so it is redrawn too --
+     without this the athlete changes the setting and the "why" line beneath
+     Listen still describes the old one. */
+  patchVoiceCard();
+}
+
+/* =========================================================
+   THE VOICE COACH — NARRATION
+   ---------------------------------------------------------
+   THE BRIEFING AND THE DEBRIEF ARE NOT GENERATED. They are composed, on this
+   device, from the coaching Valhalla has already decided -- coachBrief(),
+   coachDebrief() and coachingDisclosureFor(), the same three sources the Today
+   card renders on screen.
+
+   WHY THAT IS THE ARCHITECTURE AND NOT A SHORTCUT. The brief's own rule is
+   that voice "must remain faithful to the SAME underlying coaching truth
+   displayed on screen" and "must not invent a second coaching interpretation".
+   A language model asked to paraphrase a coaching decision can restate it
+   almost-correctly, and almost-correctly is a second interpretation. Composing
+   the sentences the engine already produced makes drift impossible rather than
+   unlikely -- and it costs nothing, needs no network, survives an outage, and
+   cannot leak a single field to anybody.
+
+   NOT A WORD-FOR-WORD READ OF THE UI EITHER. The card shows labelled rows --
+   Why / Execution / Feel / Watch For. Reading those labels aloud is the thing
+   the brief explicitly rejects ("What. Fifty minutes easy. Why. Aerobic
+   development."). The rows are joined into connected speech instead, with the
+   session stated first the way a coach opens: what you have got, then how to
+   run it.
+
+   GUIDANCE LEVEL DECIDES LENGTH, and nothing else. Concise keeps the session
+   and the one instruction that makes or breaks it. Full adds purpose, feel and
+   the watch-out. Neither changes a single number.
+   ========================================================= */
+
+/* Speech is read aloud once, with no chance to re-read it. Anything the eye
+   resolves silently has to be spelled the way it is said.
+
+   "10.2 km" is read by a synthesiser as "ten point two kay em", and "5:30/km"
+   as "five thirty slash kay em". Both are wrong in the same way: the athlete
+   hears a token instead of a measurement. */
+function voiceSpokenDistance(km){
+  if (km == null) return null;
+  var v = kmToDisplay(km), unit = displayUnit();
+  var word = unit === 'mi' ? 'mile' : 'kilometre';
+  var n = Math.round(v * 10) / 10;
+  return n + ' ' + word + (n === 1 ? '' : 's');
+}
+function voiceSpokenPace(paceStr){
+  if (!paceStr) return null;
+  var m = /^(\d+):(\d{2})$/.exec(String(paceStr).trim());
+  /* Anything that is not a bare m:ss -- a range, a window, a qualified target
+     -- goes through the full normaliser rather than being returned raw, which
+     is what left pace ranges half-spoken. */
+  if (!m) return voiceSpeakable(String(paceStr));
+  var unit = displayUnit() === 'mi' ? 'mile' : 'kilometre';
+  return paceWords(m[1], m[2]) + ' per ' + unit;
+}
+/* Applied to engine prose, which is written to be READ. Ranges, slashes and
+   abbreviations are the three things that reliably come out wrong. */
+function voiceSpeakable(text){
+  if (!text) return '';
+  var s = String(text);
+
+  /* A LABELLED PARAGRAPH IS A CARD CONVENTION, NOT SPEECH. The engine writes
+     "Insufficient evidence: Not enough scored sessions yet..." because the
+     card shows the label in its own cell. Read aloud, the label lands as a
+     verdict before the sentence that explains it. Only a SHORT leading label
+     is dropped, so an ordinary sentence containing a colon is untouched. */
+  s = s.replace(/^([A-Z][A-Za-z]*(?:\s+[a-z]+){0,2}):\s+(?=[A-Z])/, '');
+
+  /* RANGES FIRST, and this order is the bug that made it necessary: running
+     the single-pace rule first rewrote only the right-hand side of
+     "4:09-4:16/km" and left "4:09 to 4 minutes 16 seconds per kilometre".
+     A range has to be recognised as one thing before either end is expanded. */
+  /* Both ends carrying the unit -- "4:51/km-5:33/km" -- is the shape the
+     Execution Review window uses, and it is not the same pattern as a range
+     with one trailing unit. Matched first, or the single-pace rule expands
+     each side separately and the dash is left stranded between two spoken
+     paces. */
+  s = s.replace(/(\d+):(\d{2})\s*\/\s*(?:km|mi)\s*[–—-]\s*(\d+):(\d{2})\s*\/\s*(km|mi)\b/gi,
+    function(_, a1, a2, b1, b2, u){
+      var unit = /mi/i.test(u) ? 'mile' : 'kilometre';
+      return paceWords(a1, a2) + ' to ' + paceWords(b1, b2) + ' per ' + unit;
+    });
+  s = s.replace(/(\d+):(\d{2})\s*[–—-]\s*(\d+):(\d{2})\s*\/\s*(km|mi)\b/gi,
+    function(_, a1, a2, b1, b2, u){
+      var unit = /mi/i.test(u) ? 'mile' : 'kilometre';
+      return paceWords(a1, a2) + ' to ' + paceWords(b1, b2) + ' per ' + unit;
+    });
+  s = s.replace(/(\d+):(\d{2})\s*\/\s*(km|mi)\b/gi, function(_, a, b, u){
+    var unit = /mi/i.test(u) ? 'mile' : 'kilometre';
+    return paceWords(a, b) + ' per ' + unit;
+  });
+
+  s = s.replace(/(\d+(?:\.\d+)?)\s*km\b/gi, function(_, n){
+    return n + ' kilometre' + (Number(n) === 1 ? '' : 's');
+  });
+  s = s.replace(/(\d+(?:\.\d+)?)\s*mi\b/gi, function(_, n){
+    return n + ' mile' + (Number(n) === 1 ? '' : 's');
+  });
+  /* "1200m" in a session title is a distance, and a synthesiser says "em". */
+  s = s.replace(/(\d+)\s*m\b/g, function(_, n){ return n + ' metres'; });
+
+  /* "152bpm" has no word boundary between the digit and the b, so a \bbpm\b
+     rule silently misses the commonest form of it. */
+  s = s.replace(/(\d)\s*bpm\b/gi, '$1 beats per minute');
+  s = s.replace(/\bbpm\b/gi, 'beats per minute');
+  s = s.replace(/\bRPE\b/gi, 'effort');
+  s = s.replace(/\bHR\b/gi, 'heart rate');
+  s = s.replace(/\bVO2\b/gi, 'V O 2');
+
+  /* An EN DASH between numbers is a range. A HYPHEN is not, and treating it as
+     one turned the session title "Ladder: 1200-1800-1200m" into "1200 to 1800
+     to 1200 metres" -- a range where the athlete was told a sequence. */
+  s = s.replace(/(\d)\s*–\s*(\d)/g, '$1 to $2');
+  s = s.replace(/\s*—\s*/g, ', ');
+  /* A spaced slash is a written shorthand for "or" in a label ("interval /
+     VO2"); spoken, it comes out as the word "slash". */
+  s = s.replace(/\s+\/\s+/g, ', ');
+  s = s.replace(/\s{2,}/g, ' ');
+  return s.trim();
+}
+/* Shared by the two pace rules above so a range and a single value can never
+   be spoken differently. */
+function paceWords(mins, secs){
+  var m = parseInt(mins, 10), sec = parseInt(secs, 10);
+  return m + (m === 1 ? ' minute' : ' minutes') +
+         (sec ? ' ' + sec + (sec === 1 ? ' second' : ' seconds') : '');
+}
+
+/* How a coach opens: the session itself, in one sentence. Built from the
+   prescription the card already shows, never from a title alone. */
+function voiceSessionLine(dd){
+  if (!dd) return null;
+  if (dd.type === 'rest') return 'Today is a rest day.';
+  var targets;
+  try { targets = getDayTargets(dd); } catch(e){ targets = {}; }
+  var dist = voiceSpokenDistance(dd.km);
+  var bits = [];
+  if (dist) bits.push(dist);
+  var title = dd.title ? String(dd.title).toLowerCase() : null;
+  var lead = 'Today you have got ' + (bits.length ? bits.join(', ') : 'a session');
+  if (title && dist) lead += ' — ' + title;
+  else if (title) lead = 'Today you have got ' + title;
+  lead += '.';
+  if (targets && targets.pace){
+    var p = voiceSpokenPace(targets.pace);
+    if (p) lead += ' Target pace is around ' + p + '.';
+  }
+  return voiceSpeakable(lead);
+}
+
+/* THE PRE-SESSION BRIEFING.
+   Returns { lines:[...], level, kind:'briefing' } or null when there is
+   nothing worth saying. Every line is already-decided coaching. */
+function voiceBriefingScript(dd){
+  if (!dd) return null;
+  var level = resolvedGuidanceLevel(dd);
+  var lines = [];
+  var session = voiceSessionLine(dd);
+  if (session) lines.push(session);
+  if (dd.type === 'rest'){
+    lines.push('Nothing to run. Rest is the part of the plan that lets the training count.');
+    return { kind:'briefing', level:level, lines:lines };
+  }
+
+  var gd = null;
+  try { gd = coachingDisclosureFor(dd, athleteExperience(state.setup)); } catch(e){ gd = null; }
+  /* CONCISE keeps exactly one thing: how to run it. That is the instruction
+     that changes what the athlete does in the next hour; purpose and
+     watch-outs are the parts they can read later if they want them. */
+  if (gd && gd.how) lines.push(voiceSpeakable(gd.how));
+  if (level === 'full'){
+    if (gd && gd.why)   lines.push(voiceSpeakable(gd.why));
+    if (gd && gd.feel)  lines.push(voiceSpeakable(gd.feel));
+    if (gd && gd.avoid) lines.push(voiceSpeakable(gd.avoid));
+  }
+
+  /* The coach's own pre-session message, when the engine produced one. It
+     already knows about adjustments, continuity and what this session is for
+     in THIS block, which no static guidance table can. */
+  var brief = null;
+  try { brief = coachBrief(dd); } catch(e){ brief = null; }
+  if (brief && brief.paragraphs && brief.paragraphs.length){
+    var take = level === 'concise' ? brief.paragraphs.slice(0, 1) : brief.paragraphs;
+    take.forEach(function(p){ lines.push(voiceSpeakable(p)); });
+  }
+  lines = voiceDedupe(lines);
+  return lines.length ? { kind:'briefing', level:level, lines:lines } : null;
+}
+
+/* THE POST-SESSION DEBRIEF.
+   coachDebrief() is the authority: verdict, what was noticed, what it means
+   for the next session. Nothing is concluded here that the engine has not
+   already concluded. */
+function voiceDebriefScript(dd){
+  if (!dd || !dd.completed) return null;
+  var msg = null;
+  try { msg = coachDebrief(dd); } catch(e){ msg = null; }
+  if (!msg || !msg.paragraphs || !msg.paragraphs.length) return null;
+  var level = resolvedGuidanceLevel(dd);
+  var lines = [];
+  var b = null;
+  try { b = computeExecutionBreakdown(dd); } catch(e){ b = null; }
+  /* The number first, when there is one -- it is what the athlete opened the
+     card for. Said as a sentence, not read off a badge. */
+  if (b) lines.push('That session scored ' + b.score + ' per cent on execution.');
+  var take = level === 'concise' ? msg.paragraphs.slice(0, 1) : msg.paragraphs;
+  take.forEach(function(p){ lines.push(voiceSpeakable(p)); });
+  /* WHAT WAS NOT MEASURED, said once and only at full depth. A debrief that
+     never mentions the missing half invites the athlete to hear more certainty
+     than the evidence carries -- which is the existing evidence philosophy,
+     spoken. */
+  if (level === 'full' && b && b.missing && b.missing.length){
+    /* p.label is a CARD label ("HR"), and lowercasing it first produced
+       "hr was not part of it". Spoken through the normaliser instead. */
+    var names = b.missing.map(function(p){ return voiceSpeakable(p.label).toLowerCase(); });
+    if (names.length) lines.push('That is based on what was logged. ' +
+      voiceListPhrase(names) + ' ' + (names.length === 1 ? 'was' : 'were') +
+      ' not part of it.');
+  }
+  return { kind:'debrief', level:level, lines:voiceDedupe(lines) };
+}
+
+function voiceListPhrase(items){
+  if (!items.length) return '';
+  if (items.length === 1) return items[0];
+  return items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1];
+}
+/* Two layers occasionally reach the same sentence; hearing it twice is worse
+   than reading it twice. */
+function voiceDedupe(lines){
+  var seen = {}, out = [];
+  (lines || []).forEach(function(l){
+    var k = String(l || '').trim().toLowerCase();
+    if (!k || seen[k]) return;
+    seen[k] = 1; out.push(l);
+  });
+  return out;
+}
+
+/* WHICH SCRIPT TODAY IS AT. The card decides nothing itself: before the
+   session it briefs, after it debriefs, and the switch is the same
+   `completed` flag Execution Review already gates on. */
+function voiceScriptFor(dd){
+  if (!dd) return null;
+  var after = voiceDebriefScript(dd);
+  if (after) return after;
+  return voiceBriefingScript(dd);
+}
+function voiceScriptText(script){
+  return script && script.lines ? script.lines.join(' ') : '';
+}
+
+/* =========================================================
+   THE VOICE ITSELF — on-device speech synthesis
+   ---------------------------------------------------------
+   WHY ON-DEVICE AND NOT A CLOUD VOICE. A cloud TTS vendor would give tighter
+   control over the exact voice, and it would also mean posting the athlete's
+   coaching -- their session, their execution score, sometimes their heart rate
+   -- to a third party on every play. That is a new processing surface, a new
+   sub-processor, a per-play cost and a network dependency, in exchange for a
+   quality difference that modern on-device en-GB voices have largely closed.
+
+   The brief's own instruction is not to hard-wire an unsuitable provider
+   merely to make the feature work. The suitable choice here is the one that
+   sends nothing anywhere: speechSynthesis is free, offline, has no credential
+   to leak and no vendor to add to a privacy notice. A cloud voice remains a
+   founder decision with a cost attached, and the selection layer below is
+   where it would attach -- voicePickVoice() is the only thing that would
+   change.
+
+   ONE VOICE, CHOSEN ONCE. The brief forbids the voice changing between
+   features, so the choice is made once per session and cached: the briefing,
+   the debrief and Ask Coach all speak through voiceSpeak() and therefore
+   through the same selected voice. */
+var VOICE_LANG = 'en-GB';
+var voiceSelected = null;
+var voiceSelectedResolved = false;
+
+/* British English, female where the platform tells us. Names are the only
+   signal most engines expose, so they are matched as a last resort rather than
+   a first one -- and every step degrades to "any en-GB voice", then to the
+   platform default, rather than to silence. */
+var VOICE_FEMALE_HINTS = ['female', 'libby', 'sonia', 'hazel', 'serena', 'kate',
+                          'stephanie', 'amy', 'emma', 'martha', 'fiona'];
+function voicePickVoice(list){
+  var voices = list || [];
+  if (!voices.length) return null;
+  var gb = voices.filter(function(v){
+    return v && typeof v.lang === 'string' && /^en[-_]GB/i.test(v.lang);
+  });
+  var pool = gb.length ? gb : voices.filter(function(v){
+    return v && typeof v.lang === 'string' && /^en/i.test(v.lang);
+  });
+  if (!pool.length) return null;
+  var named = pool.filter(function(v){
+    var n = String(v.name || '').toLowerCase();
+    return VOICE_FEMALE_HINTS.some(function(h){ return n.indexOf(h) !== -1; });
+  });
+  if (named.length) return named[0];
+  /* A local voice beats a network one: it starts instantly and keeps working
+     on a train. */
+  var local = pool.filter(function(v){ return v.localService; });
+  return (local[0] || pool[0]);
+}
+function voiceSynth(){
+  try { return (typeof window !== 'undefined' && window.speechSynthesis) || null; }
+  catch(e){ return null; }
+}
+function voiceAvailable(){ return !!voiceSynth(); }
+function voiceResolveVoice(){
+  if (voiceSelectedResolved && voiceSelected) return voiceSelected;
+  var synth = voiceSynth();
+  if (!synth || !synth.getVoices) return null;
+  var list;
+  try { list = synth.getVoices() || []; } catch(e){ list = []; }
+  /* Chrome populates the list asynchronously and returns [] on the first call.
+     Not resolving means we try again next time rather than caching "none". */
+  if (!list.length) return null;
+  voiceSelected = voicePickVoice(list);
+  voiceSelectedResolved = true;
+  return voiceSelected;
+}
+
+/* status: idle | speaking | unavailable */
+var voiceState = { status:'idle', kind:null, dayId:null };
+function voiceSetStatus(status, extra){
+  voiceState = { status:status,
+                 kind:(extra && extra.kind) || null,
+                 dayId:(extra && extra.dayId) || null };
+  patchVoiceCard();
+}
+function voiceStop(){
+  var synth = voiceSynth();
+  if (synth){ try { synth.cancel(); } catch(e){} }
+  if (voiceState.status !== 'idle') voiceSetStatus('idle');
+}
+/* NEVER CALLED ON RENDER. Every caller is a press -- see the Today card's
+   data-action handlers -- so opening the app in public cannot produce audio.
+   test/voiceTodayOnly.test.js asserts no render path reaches this. */
+function voiceSpeak(text, opts){
+  var synth = voiceSynth();
+  if (!synth || !text) return false;
+  try { synth.cancel(); } catch(e){}
+  var u;
+  try { u = new window.SpeechSynthesisUtterance(String(text)); }
+  catch(e){ return false; }
+  var v = voiceResolveVoice();
+  if (v) u.voice = v;
+  u.lang = (v && v.lang) || VOICE_LANG;
+  /* Calm and unhurried rather than brisk: this is a coach talking, not a
+     notification being read out. */
+  u.rate = 0.96; u.pitch = 1.0;
+  u.onend = function(){ voiceSetStatus('idle'); };
+  u.onerror = function(){ voiceSetStatus('idle'); };
+  voiceSetStatus('speaking', opts || {});
+  try { synth.speak(u); } catch(e){ voiceSetStatus('idle'); return false; }
+  return true;
+}
+
+/* =========================================================
+   ASK COACH — THE CONTEXT LAYER, AND THE TWO FENCES AROUND IT
+   ---------------------------------------------------------
+   This is the only code in Valhalla that produces input for a language model,
+   and it is deliberately the most constrained code in the file.
+
+   FENCE 1 — STRAVA. Strava's API Policy 5.3 prohibits Strava Data in the
+   operation of an AI Application, naming ingestion into a context window or
+   working memory; 5.4 extends that to data DERIVED from Strava Data and to
+   output generated using it. So no Strava-derived day may reach a prompt, and
+   the boundary already exists for exactly this moment: aiEligibleDays().
+
+   IT REFUSES, IT DOES NOT REDACT, and that is not a preference. A day with its
+   Strava numbers stripped is still an object shaped by a Strava import -- it
+   still says a session was completed, which is itself derived. Taint-stripping
+   invites a judgement about how much derivation is little enough; there is no
+   such judgement here. A Strava-derived day does not go.
+
+   FENCE 2 — ARTICLE 9. Authorising a coach to talk is not consent to process
+   health information. Heart rate, feel and readiness are omitted entirely
+   unless healthConsentGranted(), on the same strip-at-source principle
+   api/_health-consent.js already applies server-side: not sent and then
+   ignored, but never assembled in the first place.
+
+   THE SHAPE IS A WHITELIST, NOT A FILTER. Nothing here walks the athlete's
+   state and removes things. Every field is named, copied and typed
+   individually, so a field added to a day tomorrow is absent from this context
+   by default rather than present by accident. That is the property that makes
+   the fence hold as the app grows, and test/voiceStravaBoundary.test.js
+   asserts it by adding a poisoned field and requiring it never to appear.
+   ========================================================= */
+
+var VOICE_CONTEXT_RECENT_DAYS = 14;   // what "recently" means to a coach
+var VOICE_CONTEXT_UPCOMING    = 3;    // today plus the next few sessions
+
+/* One completed session, reduced to the facts a coach would refer to. Health
+   fields are added only under consent, by the caller. */
+function voiceDaySummary(dd, opts){
+  var withHealth = !!(opts && opts.health);
+  var a = (dd && dd.actual) || {};
+  var out = {
+    date: dd.date || null,
+    type: dd.type || null,
+    title: dd.title || null,
+    plannedKm: (typeof dd.km === 'number') ? dd.km : null,
+    completed: !!dd.completed
+  };
+  if (dd.completed){
+    out.actualKm = (typeof a.km === 'number') ? a.km : null;
+    out.actualPace = a.pace || null;
+    var sc = null;
+    try { sc = computeExecutionScore(dd); } catch(e){ sc = null; }
+    out.executionScore = sc;
+    if (a.rpe != null) out.effort = a.rpe;
+    if (withHealth){
+      if (a.hr != null) out.avgHeartRate = a.hr;
+      if (a.feel) out.feel = a.feel;
+    }
+  }
+  return out;
+}
+
+/* THE CONTEXT. Built from the athlete's own record, minus every Strava-derived
+   day, minus health information without consent.
+
+   `question` is not inspected here. What the athlete asked does not widen what
+   the coach may see -- a question about heart rate does not unlock heart rate.
+   Scope is decided by consent and provenance, never by the prompt. */
+function voiceCoachContext(){
+  var today = todayStr();
+  var ctx = {
+    today: today,
+    units: displayUnit(),
+    guidanceLevel: guidanceLevel(),
+    healthDataAvailable: healthConsentGranted(),
+    goal: null, block: null, todaySession: null, upcoming: [], recent: [],
+    excluded: { stravaDerivedDays: 0, healthWithheld: !healthConsentGranted() }
+  };
+  var su = state.setup;
+  if (su){
+    ctx.goal = {
+      distance: su.distanceKey || null,
+      raceDate: su.raceDate || null,
+      hasEvent: !!su.hasEvent,
+      weeklyVolumeKm: (typeof su.currentVolume === 'number') ? su.currentVolume : null
+    };
+    ctx.block = { weeks: su.planWeeks || null, purpose: su.purpose || null,
+                  startDate: su.startDate || null };
+  }
+  if (!state.days || !state.days.length) return ctx;
+
+  /* THE FENCE, APPLIED ONCE, AT THE SOURCE. Everything below reads `pool`, so
+     there is no second path to a day and no branch that could forget. */
+  var all = state.days;
+  var pool = aiEligibleDays(all);
+  ctx.excluded.stravaDerivedDays = all.length - pool.length;
+
+  var health = healthConsentGranted();
+  var dd = null;
+  for (var i=0; i<pool.length; i++) if (pool[i].date === today) dd = pool[i];
+  if (dd) ctx.todaySession = voiceDaySummary(dd, { health:health });
+
+  var future = pool.filter(function(d){ return d.date > today && d.type !== 'rest'; })
+                   .sort(function(x,y){ return x.date < y.date ? -1 : 1; })
+                   .slice(0, VOICE_CONTEXT_UPCOMING);
+  ctx.upcoming = future.map(function(d){
+    return { date:d.date, type:d.type, title:d.title,
+             plannedKm:(typeof d.km === 'number') ? d.km : null };
+  });
+
+  var from = addDays(today, -VOICE_CONTEXT_RECENT_DAYS);
+  ctx.recent = pool.filter(function(d){
+      return d.date < today && d.date >= from && d.type !== 'rest';
+    })
+    .sort(function(x,y){ return x.date < y.date ? 1 : -1; })
+    .map(function(d){ return voiceDaySummary(d, { health:health }); });
+  return ctx;
+}
+
+/* WHY THE COACH MIGHT HAVE TO DECLINE, answered before anything is sent.
+   Returned as a code the UI turns into a sentence, so the athlete is told what
+   is happening rather than watching a control do nothing. */
+function voiceAskRefusalReason(){
+  if (!state.setup || !state.days || !state.days.length) return 'no_plan';
+  return null;
+}
+
+/* TODAY IS THE SUBJECT, AND SOMETIMES TODAY CANNOT BE DISCUSSED. When today's
+   own session is Strava-derived, "ask about this session" has nothing it is
+   allowed to say -- the honest answer is to withdraw the offer rather than
+   answer about a session the coach cannot see. */
+function voiceTodayIsStravaDerived(){
+  var dd = findDayByDate(todayStr());
+  return !!(dd && isStravaDerived(dd));
+}
+
+/* =========================================================
+   ASK COACH — the athlete's side
+   ========================================================= */
+
+/* Availability is a deployment fact, learned once, and it defaults to OFF so a
+   blocked or slow probe leaves the controls undrawn rather than drawn and
+   broken. Same contract as stravaAvailable. */
+var voiceCoachAvailable = false;
+function voiceSetAvailable(on){
+  var was = voiceCoachAvailable;
+  voiceCoachAvailable = !!on;
+  if (was !== voiceCoachAvailable) patchVoiceCard();
+}
+function voiceCheckAvailability(){
+  return fetch('/api/voice-enabled', { headers:{ 'accept':'application/json' } })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(d){ voiceSetAvailable(d && d.enabled); return voiceCoachAvailable; })
+    .catch(function(){ voiceSetAvailable(false); return false; });
+}
+
+/* status: closed | listening | thinking | answered | error */
+var askState = { status:'closed', heard:'', answer:'', message:'', proposalDayId:null };
+function askSet(status, extra){
+  askState = {
+    status: status,
+    heard:  (extra && extra.heard  != null) ? extra.heard  : askState.heard,
+    answer: (extra && extra.answer != null) ? extra.answer : askState.answer,
+    message:(extra && extra.message)|| '',
+    proposalDayId: (extra && extra.proposalDayId !== undefined)
+      ? extra.proposalDayId : askState.proposalDayId
+  };
+  patchVoiceCard();
+}
+function askReset(){
+  askState = { status:'closed', heard:'', answer:'', message:'', proposalDayId:null };
+  voiceStop();
+  patchVoiceCard();
+}
+
+var VOICE_ERROR_COPY = {
+  voice_disabled:       'Your coach is not switched on for this account yet',
+  not_signed_in:        'Sign in to talk to your coach',
+  coach_unavailable:    'Your coach is not responding — try again shortly',
+  coach_busy:           'Your coach is busy — try again in a moment',
+  no_plan:              'Build a plan first and your coach will have something to talk about',
+  context_refused:      'Your coach cannot discuss sessions imported from Strava',
+  mic_denied:           'Microphone access is off — type your question instead',
+  mic_failed:           'Could not hear that — try again, or type it instead',
+  declined:             'Your coach cannot answer that one'
+};
+
+/* ---------- speech to text ----------
+   Available in Chrome and Safari; NOT in an Android WebView, which is exactly
+   where the packaged app runs. So this is an enhancement on top of a text box
+   that is always present, never the only way in -- the brief's rule is that
+   the athlete must never be trapped in a voice-only interaction, and on the
+   installed Android app the typed path is the ONLY path. */
+function voiceRecognitionCtor(){
+  try{
+    return (typeof window !== 'undefined' &&
+            (window.SpeechRecognition || window.webkitSpeechRecognition)) || null;
+  }catch(e){ return null; }
+}
+function voiceSttAvailable(){ return !!voiceRecognitionCtor(); }
+
+var askRecognition = null;
+function askStartListening(){
+  var Ctor = voiceRecognitionCtor();
+  if (!Ctor){ askSet('error', { message:VOICE_ERROR_COPY.mic_failed }); return; }
+  try{
+    askRecognition = new Ctor();
+    askRecognition.lang = VOICE_LANG;
+    askRecognition.interimResults = false;
+    askRecognition.maxAlternatives = 1;
+    askRecognition.onresult = function(ev){
+      var said = '';
+      try{ said = ev.results[0][0].transcript; }catch(e){ said = ''; }
+      if (!said){ askSet('error', { message:VOICE_ERROR_COPY.mic_failed }); return; }
+      /* SHOWN BEFORE IT IS SENT. The athlete sees what Valhalla understood and
+         can correct it, which matters more here than in an ordinary search box:
+         a misheard question about a sore calf is a misheard health statement. */
+      askSet('thinking', { heard:said });
+      askSend(said);
+    };
+    askRecognition.onerror = function(ev){
+      var denied = ev && (ev.error === 'not-allowed' || ev.error === 'service-not-allowed');
+      askSet('error', { message: denied ? VOICE_ERROR_COPY.mic_denied : VOICE_ERROR_COPY.mic_failed });
+    };
+    askRecognition.onend = function(){
+      if (askState.status === 'listening') askSet('closed');
+    };
+    askSet('listening', { heard:'', answer:'', message:'' });
+    askRecognition.start();
+  }catch(e){
+    askSet('error', { message:VOICE_ERROR_COPY.mic_failed });
+  }
+}
+function askStopListening(){
+  if (askRecognition){ try{ askRecognition.stop(); }catch(e){} }
+  askRecognition = null;
+  if (askState.status === 'listening') askSet('closed');
+}
+
+/* ---------- asking ---------- */
+function askSend(question){
+  var q = String(question || '').trim();
+  if (!q) return Promise.resolve(null);
+  if (!voiceCoachAvailable){ askSet('error', { message:VOICE_ERROR_COPY.voice_disabled }); return Promise.resolve(null); }
+  if (!cloudSignedIn()){ askSet('error', { message:VOICE_ERROR_COPY.not_signed_in }); return Promise.resolve(null); }
+  var refuse = voiceAskRefusalReason();
+  if (refuse){ askSet('error', { message:VOICE_ERROR_COPY[refuse] || VOICE_ERROR_COPY.coach_unavailable }); return Promise.resolve(null); }
+
+  askSet('thinking', { heard:q, answer:'', message:'' });
+  var ctx;
+  try{ ctx = voiceCoachContext(); }catch(e){ ctx = null; }
+  if (!ctx){ askSet('error', { message:VOICE_ERROR_COPY.coach_unavailable }); return Promise.resolve(null); }
+
+  return cloudRefreshIfNeeded().then(function(fresh){
+    if (!fresh) throw { code:'not_signed_in' };
+    return fetch('/api/voice-ask', {
+      method:'POST',
+      headers:{ 'content-type':'application/json',
+                'Authorization':'Bearer '+cloudSession.access_token },
+      body: JSON.stringify({ question:q, context:ctx })
+    });
+  }).then(function(resp){
+    return resp.json().catch(function(){ return {}; }).then(function(d){
+      if (!resp.ok) throw { code:(d && d.error) || 'coach_unavailable' };
+      return d;
+    });
+  }).then(function(d){
+    if (d.declined || !d.answer){
+      askSet('error', { message:VOICE_ERROR_COPY.declined });
+      return null;
+    }
+    /* THE PROPOSAL, AND WHY THE MODEL DOES NOT MAKE IT. d.needsPlanChange is
+       an opinion. It is turned into a real offer ONLY when Valhalla's own
+       engine has independently computed an adjustment for a real session --
+       coachProposedChangeDayId() below reads the same recommendation the
+       Execution Review card already renders. When the engine has not proposed
+       anything, the coach's view is spoken and nothing is offered, because
+       there is nothing authorised to offer. */
+    var propId = d.needsPlanChange ? coachProposedChangeDayId() : null;
+    askSet('answered', { answer:d.answer, proposalDayId:propId });
+    /* Spoken in the same voice as the briefing and the debrief. */
+    voiceSpeak(voiceSpeakable(d.answer), { kind:'answer' });
+    return d;
+  }).catch(function(err){
+    var code = (err && err.code) || 'coach_unavailable';
+    askSet('error', { message: VOICE_ERROR_COPY[code] || VOICE_ERROR_COPY.coach_unavailable });
+    return null;
+  });
+}
+
+/* The session Valhalla's OWN engine currently recommends adjusting, or null.
+   Deliberately a read of the existing coach review rather than a second
+   opinion: this is the same `recommendPlanAdjustment` that already draws
+   Accept Adjustment / Keep Original on the Execution Review card, and
+   accepting goes through those same handlers and the same provenance. */
+function coachProposedChangeDayId(){
+  var today = findDayByDate(todayStr());
+  if (!today || !today.completed) return null;
+  if (isStravaDerived(today)) return null;
+  var r = null;
+  try{ r = coachReviewFor(today) || coachWorkoutReview(today); }catch(e){ r = null; }
+  if (!r || !r.recommendPlanAdjustment) return null;
+  var nxt = null;
+  try{ nxt = coachSessionAfter(today); }catch(e){ nxt = null; }
+  if (!nxt || nxt.coachKeptAt || nxt.coachAdjust) return null;
+  return nxt.id;
+}
+
+/* =========================================================
+   THE VOICE CARD — TODAY, AND NOWHERE ELSE
+   ---------------------------------------------------------
+   THE HARD UI BOUNDARY, IN ONE FUNCTION. The day-card renderer draws today's
+   session on Today, but it ALSO draws it inside This Week and Full Plan, which
+   map it over every day of a week. `isToday` alone is therefore not the test --
+   today's card appears on three screens, and voice belongs on one.
+
+   voiceMayRender() is that single gate: this day is today's, AND the athlete is
+   looking at Today. Every other surface renders the identical card with no
+   voice controls at all, and test/voiceTodayOnly.test.js asserts it by
+   rendering the same day under every view.
+   ========================================================= */
+function voiceMayRender(dd){
+  if (!dd || dd.date !== todayStr()) return false;
+  if ((state.view || 'today') !== 'today') return false;
+  return true;
+}
+
+/* Availability is checked separately from eligibility so the two reasons for
+   silence stay distinguishable: a deployment without a coach draws nothing,
+   and a coach that cannot discuss THIS day says so. */
+function voiceListenAvailable(dd){
+  if (!voiceAvailable()) return false;               // no speech synthesis
+  return !!voiceScriptFor(dd);
+}
+
+function renderVoiceCard(dd){
+  if (!voiceMayRender(dd)) return '';
+  return '<div id="voice-card">' + renderVoiceCardBody(dd) + '</div>';
+}
+
+function renderVoiceCardBody(dd){
+  /* THE STRAVA FENCE, AT THE SURFACE. A day whose numbers came from Strava is
+     refused whole, so neither the briefing nor Ask Coach is offered for it --
+     and the athlete is told plainly, because a control that silently vanishes
+     reads as a bug. The written coaching on the card above is untouched and
+     complete. */
+  if (isStravaDerived(dd)){
+    return '<div class="voice-row voice-unavailable">'+
+      '<div class="voice-note">Your coach cannot talk about this session — it came in from Strava. '+
+      'The written review above is unaffected.</div></div>';
+  }
+
+  var speaking = voiceState.status === 'speaking';
+  var script = voiceScriptFor(dd);
+  var listenLabel = (script && script.kind === 'debrief') ? 'Hear how it went' : 'Hear today';
+  var bits = '';
+
+  if (voiceAvailable() && script){
+    bits += '<button type="button" class="voice-btn" data-action="'+
+      (speaking ? 'voice-stop' : 'voice-listen')+'" data-day="'+dd.id+'" '+
+      'aria-label="'+(speaking ? 'Stop speaking' : listenLabel)+'">'+
+      (speaking ? ICONS.voiceStop : ICONS.voicePlay)+
+      '<span>'+(speaking ? 'Stop' : listenLabel)+'</span></button>';
+  }
+  if (voiceCoachAvailable && !voiceTodayIsStravaDerived()){
+    bits += '<button type="button" class="voice-btn" data-action="voice-ask-open" '+
+      'aria-label="Ask your coach a question">'+ICONS.voiceMic+'<span>Ask coach</span></button>';
+  }
+  if (!bits) return '';
+
+  var html = '<div class="voice-row">'+bits+'</div>';
+  /* WHY ADAPTIVE SAID WHAT IT SAID, on the surface it affected. One quiet
+     line, so a rule that decides how much coaching an athlete hears is never
+     invisible to them. */
+  if (script && guidanceLevel() === 'adaptive'){
+    var why = guidanceAdaptiveReason(dd);
+    if (why) html += '<div class="voice-why">'+escapeHtml(why)+'</div>';
+  }
+  /* EVERY SPOKEN WORD IS ALSO READABLE. Not a transcript bolted on afterwards
+     -- the same script object the speech is produced from, rendered. An
+     athlete who cannot or will not use audio loses nothing. */
+  if (speaking && script){
+    html += '<div class="voice-said">'+script.lines.map(function(l){
+      return '<p>'+escapeHtml(l)+'</p>'; }).join('')+'</div>';
+  }
+  html += renderAskPanel(dd);
+  return html;
+}
+
+var ASK_SUGGESTIONS = [
+  'Why this session today?',
+  'What if I cannot hold the pace?',
+  'How am I progressing?'
+];
+
+function renderAskPanel(dd){
+  if (askState.status === 'closed') return '';
+  var body = '';
+
+  if (askState.status === 'listening'){
+    body = '<div class="ask-listening" role="status" aria-live="polite">'+
+        '<span class="ask-pulse" aria-hidden="true"></span>'+
+        '<span>Listening…</span>'+
+      '</div>'+
+      '<button type="button" class="btn btn-sm btn-ghost btn-block" data-action="voice-ask-cancel">Cancel</button>';
+  } else {
+    if (askState.heard){
+      body += '<div class="ask-heard"><span class="ask-k">You asked</span>'+
+              '<span class="ask-v">'+escapeHtml(askState.heard)+'</span></div>';
+    }
+    if (askState.status === 'thinking'){
+      body += '<div class="ask-thinking" role="status" aria-live="polite">Thinking…</div>';
+    }
+    if (askState.status === 'answered' && askState.answer){
+      /* The answer is TEXT first and speech second. voiceSpeak() is what reads
+         it; this is what the athlete keeps. */
+      body += '<div class="ask-answer" role="status" aria-live="polite">'+
+                escapeHtml(askState.answer)+'</div>';
+      body += renderAskProposal();
+    }
+    if (askState.status === 'error'){
+      body += '<div class="ask-error" role="alert">'+escapeHtml(askState.message ||
+              VOICE_ERROR_COPY.coach_unavailable)+'</div>';
+    }
+    if (askState.status !== 'thinking'){
+      /* A div and a click, not a <form> and a submit: this app dispatches every
+         action through one delegated click handler, and a real form here would
+         be the only submit listener in the file -- and would reload the page on
+         Enter if that listener ever regressed. */
+      body += '<div class="ask-form">'+
+          '<input type="text" id="ask-input" autocomplete="off" '+
+            'placeholder="Ask about your training…" aria-label="Ask your coach a question">'+
+          '<button type="button" class="btn btn-sm btn-primary" data-action="voice-ask-submit">Ask</button>'+
+        '</div>';
+      if (voiceSttAvailable()){
+        body += '<button type="button" class="btn btn-sm btn-ghost btn-block" '+
+          'data-action="voice-ask-speak">'+ICONS.voiceMic+' Speak instead</button>';
+      }
+      if (!askState.heard){
+        body += '<div class="ask-suggest">'+ASK_SUGGESTIONS.map(function(q){
+          return '<button type="button" class="ask-chip" data-action="voice-ask-suggest" '+
+                 'data-q="'+escapeHtml(q)+'">'+escapeHtml(q)+'</button>'; }).join('')+'</div>';
+      }
+    }
+    body += '<button type="button" class="btn btn-sm btn-ghost btn-block" '+
+            'data-action="voice-ask-close">Close</button>';
+  }
+  return '<div class="ask-panel">'+body+'</div>';
+}
+
+/* A PROPOSAL IS VALHALLA'S, NOT THE MODEL'S. This renders only when the
+   engine's own review already recommends adjusting a real session; the buttons
+   are the existing coach-accept / coach-keep handlers, so accepting writes
+   through the same path, with the same provenance, as accepting from the
+   Execution Review card. Nothing new can mutate a plan. */
+function renderAskProposal(){
+  if (!askState.proposalDayId) return '';
+  var nxt = state.days.filter(function(d){ return d.id === askState.proposalDayId; })[0];
+  if (!nxt) return '';
+  return '<div class="ask-proposal">'+
+    '<div class="ask-prop-head">Suggested change</div>'+
+    '<div class="ask-prop-line">'+escapeHtml(nxt.title)+' → run it easy instead</div>'+
+    '<div class="coach-actions">'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="coach-accept" data-day="'+nxt.id+'">Accept change</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="coach-keep" data-day="'+nxt.id+'">Keep original</button>'+
+    '</div>'+
+  '</div>';
+}
+
+function patchVoiceCard(){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  var nodes = document.querySelectorAll('#voice-card');
+  if (!nodes.length) return;
+  var dd = findDayByDate(todayStr());
+  if (!dd) return;
+  for (var i=0; i<nodes.length; i++) nodes[i].innerHTML = renderVoiceCardBody(dd);
+  voiceBindAskInput();
+}
+
+/* ---------- the presses ----------
+   Every one of these is a user action. Nothing in this file is reachable from
+   a render, which is what makes "no autoplay" structural rather than a
+   convention. */
+function handleVoiceListen(dayId){
+  var dd = state.days.filter(function(d){ return d.id === dayId; })[0] || findDayByDate(todayStr());
+  if (!dd) return;
+  if (isStravaDerived(dd)) return;
+  var script = voiceScriptFor(dd);
+  if (!script) return;
+  if (!voiceSpeak(voiceScriptText(script), { kind:script.kind, dayId:dd.id })){
+    showToast('Speech is not available on this device');
+  }
+}
+/* Enter is how anybody types a question, and it is bound to the INPUT rather
+   than to the document.
+
+   There is exactly one document-level keydown delegate in this app -- the one
+   that activates [data-action][role="button"] elements with Enter and Space --
+   and test/dayTopAccessibility.test.js asserts it is the only one, because a
+   second delegate is how a nested control ends up firing an ancestor's action
+   as well as its own. A text input is not a role="button" and has no business
+   in that delegate, so it gets its own listener, re-attached by
+   patchVoiceCard() whenever the panel is redrawn. */
+function voiceBindAskInput(){
+  if (typeof document === 'undefined' || !document.getElementById) return;
+  var el = document.getElementById('ask-input');
+  if (!el || el.getAttribute('data-keybound') === '1') return;
+  el.setAttribute('data-keybound', '1');
+  el.addEventListener('keydown', function(e){
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    handleVoiceAskSubmit();
+  });
+}
+function handleVoiceAskSubmit(){
+  var el = document.getElementById('ask-input');
+  var q = el ? String(el.value || '').trim() : '';
+  if (!q) return;
+  askSend(q);
+}
+function handleVoiceAskOpen(){
+  if (!voiceCoachAvailable){ showToast(VOICE_ERROR_COPY.voice_disabled); return; }
+  /* Speaking stops when the athlete starts asking. Two voices at once is not a
+     state a coach has. */
+  voiceStop();
+  askSet('open', { heard:'', answer:'', message:'', proposalDayId:null });
+}
+
+/* =========================================================
    STRAVA INTEGRATION — server-held OAuth + automatic ingestion.
 
    NOTHING about the Strava authorization lives in the browser any more. The
@@ -27790,6 +28945,7 @@ function renderSettingsHubView(){
       '<div class="setup-section-title">Preferences &amp; Notifications</div>'+
       renderNotifyToggleRow()+
       renderThemeToggleRow()+
+      renderGuidanceLevelRow()+
     '</div>'+
     /* High in Settings, not buried under Legal. An athlete looking for "what
        is Valhalla allowed to do with what I tell it" should meet the control
@@ -27942,6 +29098,15 @@ function handleSetView(view){
      unconfigured build has to remain an app that makes no network request at
      all. Asked once per session, and the section patches itself if the answer
      changes what is drawn. */
+  /* Voice availability is learned when the athlete first reaches Today, which
+     is the only screen that can draw a voice control. One unauthenticated
+     read, once per session, and it defaults to OFF -- so a blocked or slow
+     probe leaves the card silent rather than drawing a coach that cannot
+     answer. Nothing is spoken by this; it only decides what may be drawn. */
+  if (view==='today' && !window.__vvvVoiceProbed){
+    window.__vvvVoiceProbed = true;
+    try{ voiceCheckAvailability(); }catch(e){}
+  }
   if (view==='settings' && cloudConfigured() && !window.__vvvStravaProbed){
     window.__vvvStravaProbed = true;
     try{ stravaCheckAvailability(); }catch(e){}
@@ -28199,6 +29364,15 @@ document.addEventListener('click', function(e){
     case 'health-consent':
       handleHealthConsentDecision(target.getAttribute('data-grant')==='1'); break;
     case 'apply-activity': handleApplyActivity(); break;
+    case 'set-guidance': handleSetGuidanceLevel(target.getAttribute('data-level')); break;
+    case 'voice-listen': handleVoiceListen(target.getAttribute('data-day')); break;
+    case 'voice-stop': voiceStop(); break;
+    case 'voice-ask-open': handleVoiceAskOpen(); break;
+    case 'voice-ask-close': askReset(); break;
+    case 'voice-ask-cancel': askStopListening(); break;
+    case 'voice-ask-speak': askStartListening(); break;
+    case 'voice-ask-submit': handleVoiceAskSubmit(); break;
+    case 'voice-ask-suggest': askSend(target.getAttribute('data-q')); break;
     case 'strava-connect': handleStravaConnect(); break;
     case 'strava-sync': fetchStravaRuns(); break;
     case 'strava-disconnect': handleStravaDisconnect(); break;
