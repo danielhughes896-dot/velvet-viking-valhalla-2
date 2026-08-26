@@ -33,6 +33,7 @@
     { "src": "/api/garmin-status", "dest": "/api/garmin?route=garmin-status" },
 
     { "src": "/api/voice-ask", "dest": "/api/voice?route=voice-ask" },
+    { "src": "/api/voice-brief", "dest": "/api/voice?route=voice-brief" },
     { "src": "/api/voice-enabled", "dest": "/api/voice?route=voice-enabled" },
 
     { "src": "/start", "dest": "/start.html" },

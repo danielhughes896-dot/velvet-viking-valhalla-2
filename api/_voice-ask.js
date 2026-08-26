@@ -167,6 +167,29 @@ async function handle(req, res){
   return askUpstream(res, cfg, contextJson, question, {});
 }
 
+/* THE ONLY PLACE IN THE REPOSITORY THAT NAMES A MODEL ENDPOINT, and it stays
+   that way on purpose: test/stravaPolicyBoundary.test.js asserts that exactly
+   one file in api/ does. Anything else that needs the model -- the spoken
+   briefing paraphrase in _voice-brief.js, and whatever comes after it -- calls
+   THIS function rather than opening its own connection, so "how many places can
+   reach a model" stays answerable with grep and the Strava boundary keeps one
+   door to guard rather than several.
+
+   Deliberately thin. It sends and returns the raw response: no interpretation,
+   no res, no logging. Every caller owns its own error handling, because what a
+   failure MEANS differs between a conversation and a briefing. */
+function postModel(cfg, payload){
+  return fetch(ANTHROPIC_URL, {
+    method: 'POST',
+    headers: {
+      'x-api-key': cfg.apiKey,
+      'anthropic-version': ANTHROPIC_VERSION,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+}
+
 /* THE MODEL CALL, ON ITS OWN, so the one retry below is a real call rather than
    a copy of one. Everything it needs is passed in; it reads no request and no
    database. */
@@ -189,15 +212,7 @@ async function askUpstream(res, cfg, contextJson, question, opts){
 
   let r;
   try{
-    r = await fetch(ANTHROPIC_URL, {
-      method: 'POST',
-      headers: {
-        'x-api-key': cfg.apiKey,
-        'anthropic-version': ANTHROPIC_VERSION,
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
+    r = await postModel(cfg, payload);
   }catch(e){
     V.log('ASK unreachable');
     return V.json(res, 502, { error: 'coach_unavailable', code: 'VOICE_UNREACHABLE' });
@@ -294,4 +309,4 @@ async function askUpstream(res, cfg, contextJson, question, opts){
   });
 }
 
-module.exports = { handle, parseReply, SYSTEM };
+module.exports = { handle, parseReply, SYSTEM, postModel };

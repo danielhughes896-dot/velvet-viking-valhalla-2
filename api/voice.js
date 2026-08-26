@@ -1,6 +1,7 @@
 // Velvet Viking -- one serverless entry point for the whole Voice Coach.
 //
 //   /api/voice-ask       Ask Coach                POST
+//   /api/voice-brief     spoken briefing          POST
 //   /api/voice-enabled   availability probe       GET, HEAD
 //
 // WHY A ROUTER FOR TWO ROUTES. Vercel turns every non-underscore file in /api
@@ -19,6 +20,7 @@ const V = require('./_voice.js');
 
 const ROUTES = {
   'voice-ask':     require('./_voice-ask.js'),
+  'voice-brief':   require('./_voice-brief.js'),
   'voice-enabled': require('./_voice-enabled.js')
 };
 

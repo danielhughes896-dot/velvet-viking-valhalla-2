@@ -143,10 +143,21 @@ test('the server refuses a context carrying a Strava marker, rather than cleanin
   const src = fs.readFileSync(path.join(ROOT, 'api', '_voice-ask.js'), 'utf8');
   assert.match(src, /stravaActivityId/, 'the server does not check for a Strava marker');
   assert.match(src, /STRAVA_DERIVED_CONTEXT/, 'there is no explicit refusal code');
+  /* ANCHORED ON THE OUTBOUND CALL ITSELF, not on the word "fetch". This used to
+     look for `await fetch(`, which stopped existing the moment the request was
+     extracted into postModel() so a second caller could reuse the one model
+     call site. The invariant never changed -- only the spelling did -- so it is
+     now pinned to the thing that actually leaves the building: the fetch that
+     names the model endpoint. */
   const refuseAt = src.indexOf('STRAVA_DERIVED_CONTEXT');
-  const fetchAt = src.indexOf('await fetch(');
+  const fetchAt = src.indexOf('fetch(ANTHROPIC_URL');
   assert.ok(refuseAt > 0 && fetchAt > refuseAt,
     'the refusal must happen BEFORE the request leaves');
+  /* And the control-flow half, which position alone cannot prove: the refusal
+     returns before anything hands the context to the model. */
+  const sendAt = src.indexOf('return askUpstream(');
+  assert.ok(sendAt > refuseAt,
+    'the context reaches the model before the Strava marker is checked');
 });
 
 test('a Strava-derived day is offered no voice at all', () => {
