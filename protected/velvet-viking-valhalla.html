@@ -1338,6 +1338,7 @@
   }
   .pace-ref-label{color:var(--ink-dim);}
   .pace-ref-val{color:var(--ink);}
+  .pace-ref-prov{margin:8px 2px 0;}
 
   /* ---------- AI post-session execution review ---------- */
   .exec-review-card{margin-top:10px; padding:11px 12px; background:var(--surface-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
@@ -9846,7 +9847,19 @@ function renderCompactPaceReference(){
   return '<div class="pace-ref-card">'+
     '<div class="pace-ref-head"><span class="font-head">Pace Reference</span></div>'+
     '<div class="pace-ref-list">'+rows+'</div>'+
+    '<div class="field-hint pace-ref-prov">'+escapeHtml(paceReferenceProvenanceLine())+'</div>'+
   '</div>';
+}
+/* ONE LINE, from the same accessor the paces above it are calculated from --
+   never a copy of the sentence, a hard-coded guess at the source. "Estimated"
+   for the goal fallback (nothing measured yet) and "Calibrated" for every
+   rung that is real evidence, because those are different claims and the
+   athlete should be able to tell which one this is. */
+function paceReferenceProvenanceLine(){
+  var a = currentFitnessAnchor();
+  var verb = a.source === 'goal' ? 'Estimated from' : 'Calibrated from';
+  var label = currentFitnessSourceLabel();
+  return verb+' '+label+(a.date ? ' · '+dShort(a.date) : '')+'.';
 }
 /* The Benchmark summary bar that used to live here is gone: The Record's
    Benchmark card is the one place the benchmark is stated on Plan HQ now, and
@@ -10819,6 +10832,7 @@ function renderDayCard(dd){
       renderSplitsBlock(dd)+
       '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>'+
     '</div>'+
+    (dd.type === 'calibration' ? renderCalibrationResult(dd) : '')+
     '<div id="exec-review-'+dd.id+'">'+renderExecutionReview(dd)+'</div>';
   }
 
@@ -14332,6 +14346,66 @@ function applyCalibrationFromDay(dd){
   } catch(e){}
   return dd.calibration;
 }
+/* Human sentences for every refusal reason applyCalibrationFromDay() can
+   produce, kept beside the function that names them so they cannot drift
+   apart and describe a check that no longer exists. */
+var CALIBRATION_REASON_TEXT = {
+  no_health_consent: 'Threshold heart rate needs your consent to process health data \u2014 Settings \u2192 Health & Readiness.',
+  no_hr: 'No heart rate was logged for the measured window.',
+  implausible_hr: 'The logged heart rate is outside a plausible range and was not used.',
+  effort_too_short: 'The measured window was logged well short of its prescribed length, so neither number describes a threshold effort.',
+  above_max_hr: 'The logged heart rate is at or above your max heart rate, which a threshold effort cannot be.',
+  implausible_vs_max_hr: 'The logged heart rate is too far below your max heart rate to be a threshold effort.',
+  not_above_easy_hr: 'The logged heart rate is not above your recent easy-run heart rate.',
+  implausible_shift: 'That heart rate is more than '+CALIBRATION_MAX_SHIFT_BPM+'bpm from your last measured threshold \u2014 too large a jump to trust from one session. Your previous threshold heart rate stands.',
+  no_pace: 'No distance was logged for the measured window.',
+  no_vdot: 'The logged distance and time could not be converted to a pace.',
+  implausible_vdot: 'The pace implied by what was logged is outside a plausible range and was not used.',
+  session_edited: 'This session\u2019s instructions were edited after it was scheduled, so it can no longer stand as a trustworthy record of the protocol. It still counts as training.'
+};
+function calibrationReasonText(reason){
+  if (reason && reason.indexOf('implausible_shift_vs_') === 0)
+    return 'That pace is too far from '+reason.slice('implausible_shift_vs_'.length)+' evidence to trust from one session \u2014 your existing paces stand.';
+  return CALIBRATION_REASON_TEXT[reason] || 'That result did not pass Valhalla\u2019s checks and was not used.';
+}
+/* THE COMPLETION MOMENT (Part 5/6): dd.calibration is written once, by
+   applyCalibrationFromDay(), the instant the session is logged, and is only
+   READ here -- never re-derived -- so what the athlete sees can never
+   disagree with what actually moved their zones.
+   Pace and heart rate fail independently (see applyCalibrationFromDay), so
+   all four combinations -- both accepted, pace only, heart rate only,
+   neither -- are real states and are each said plainly rather than collapsed
+   into one pass/fail banner. Deliberately NOT called "Measured Fitness":
+   that term stays reserved for races and Fitness Checkpoints. */
+function renderCalibrationResult(dd){
+  var c = dd.calibration;
+  if (!c) return '';
+  if (c.reason === 'session_edited'){
+    return '<div class="hub-card tile-card cal-result">'+
+      '<div class="setup-section-title">Calibration not used</div>'+
+      '<div class="field-hint">'+escapeHtml(calibrationReasonText('session_edited'))+'</div>'+
+    '</div>';
+  }
+  var paceOk = c.thresholdPaceSecPerKm != null;
+  var hrOk = c.outcome === 'applied';
+  var rows = '';
+  if (paceOk) rows += hqRow('Threshold pace', fmtPaceFromSecPerKm(c.thresholdPaceSecPerKm));
+  if (hrOk) rows += hqRow('Threshold HR', c.lthr+' BPM');
+
+  var body = '<div class="hub-card tile-card cal-result">'+
+    '<div class="setup-section-title">'+(paceOk||hrOk ? 'Training zones calibrated' : 'Calibration not used')+'</div>'+
+    rows;
+  if (paceOk && hrOk){
+    body += '<div class="field-hint" style="margin-top:8px;">Your training paces now reflect your current demonstrated fitness. Your goal hasn\u2019t changed.</div>';
+  } else if (paceOk && !hrOk){
+    body += '<div class="field-hint" style="margin-top:8px;">Your training paces now reflect your current demonstrated fitness. Threshold heart rate was not updated \u2014 '+escapeHtml(calibrationReasonText(c.reason))+'</div>';
+  } else if (!paceOk && hrOk){
+    body += '<div class="field-hint" style="margin-top:8px;">Your threshold heart rate is updated. Training paces were not changed \u2014 '+escapeHtml(calibrationReasonText(c.paceRefused))+'</div>';
+  } else {
+    body += '<div class="field-hint">'+escapeHtml(calibrationReasonText(c.paceRefused || c.reason))+' Your existing training paces and threshold heart rate stand.</div>';
+  }
+  return body+'</div>';
+}
 /* Recorded when a race or checkpoint is completed. Keyed on the date, so
    re-logging the same effort corrects the record rather than adding a second
    one -- an athlete fixing a typo must not create a second fitness point. */
@@ -14644,6 +14718,40 @@ function measuredFitnessEstimate(distanceKey){
     slowSec: Math.round(mid * (1 + spread)),
     fromDate: p.date,
     fromSource: p.source
+  };
+}
+
+/* Equivalent-performance range from CURRENT FITNESS -- whichever rung
+   currentFitnessAnchor() actually returns, not measured performance alone.
+   Training paces already follow this anchor (getActivePaces()); this is the
+   same number read as a race-equivalent time instead of a pace band, so the
+   athlete's "where am I now" and "what pace should I run" answers cannot
+   disagree. Same spread and the same marathon volume caveat as
+   measuredFitnessEstimate() -- the reasoning (a short effort over-predicts an
+   untrained marathon limiter) is about absorbed volume, not about which rung
+   produced the VDOT. */
+function currentFitnessEstimate(distanceKey){
+  var anchor = currentFitnessAnchor();
+  if (anchor.vdot == null) return null;
+  var profile = DISTANCE_PROFILES[distanceKey];
+  if (!profile) return null;
+  var mid = equivalentTimeSec(anchor.vdot, profile.raceKm * 1000);
+  if (!mid || !isFinite(mid)) return null;
+
+  if (distanceKey === 'full'){
+    var absorbed = absorbedWeeklyVolume();
+    if (absorbed.source !== 'measured' || !absorbed.km || absorbed.km < 50)
+      return { distanceKey: distanceKey, withheld: true,
+               reason: 'Not enough sustained weekly volume yet to estimate a marathon honestly.' };
+  }
+  var spread = distanceKey === 'full' ? 0.05 : distanceKey === 'half' ? 0.035 : 0.025;
+  return {
+    distanceKey: distanceKey,
+    withheld: false,
+    fastSec: Math.round(mid * (1 - spread)),
+    slowSec: Math.round(mid * (1 + spread)),
+    fromDate: anchor.date,
+    fromSource: anchor.source
   };
 }
 
@@ -26468,7 +26576,8 @@ function recordPanelBenchmark(){
 function recordPanelZones(){
   var goal = getActiveGoal();
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
-  var body = renderZonePacesCard(true)+
+  var body = renderCurrentFitnessPanel()+
+    renderZonePacesCard(true)+
     '<div class="setup-section-title">Where these come from</div>'+
     /* SAYS WHERE THEY ACTUALLY CAME FROM. This paragraph used to read
        "calculated from your active goal" for everybody, which was true while
@@ -26492,6 +26601,57 @@ function currentFitnessSourceLabel(){
   if (src === 'calibration') return 'your Threshold Calibration';
   if (src === 'benchmark') return 'your benchmark';
   return 'your active goal';
+}
+// Short headline form of the same source, for a card title rather than a
+// sentence -- "Threshold Calibration · 27 Aug", not "your Threshold Calibration".
+function currentFitnessSourceHeadline(){
+  var src = currentFitnessAnchor().source;
+  if (src === 'performance') return 'Measured performance';
+  if (src === 'calibration') return 'Threshold Calibration';
+  if (src === 'benchmark') return 'Benchmark';
+  return 'Active goal';
+}
+/* CURRENT FITNESS vs GOAL -- "where am I now" against "where am I trying to
+   get to", at the SAME distance so the two numbers are directly comparable.
+   Both read from currentFitnessAnchor()/getActiveGoal(), the accessors the
+   training paces themselves use -- this cannot show a fitness the paces
+   disagree with. Deliberately reuses Measured Fitness's own grid rows
+   (.yr-fit-main/.yr-fit-prev/.yr-fit-l/.yr-fit-v/.yr-fit-d) rather than new
+   CSS: this is the same "two numbers and the gap" idea, not a new component.
+   Returns '' with nothing measured/estimated to show -- an athlete with no
+   setup yet gets no card rather than a broken one. */
+function renderCurrentFitnessPanel(){
+  if (!state.setup) return '';
+  var anchor = currentFitnessAnchor();
+  if (anchor.vdot == null) return '';
+  var goal = getActiveGoal();
+  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+
+  var nowValue = '—', nowNote = '';
+  if (profile){
+    var est = currentFitnessEstimate(state.setup.distanceKey);
+    if (est && !est.withheld) nowValue = secToClock(est.fastSec)+'–'+secToClock(est.slowSec);
+    else if (est && est.withheld) nowNote = est.reason;
+  }
+  var rows = '<div class="yr-fit-main">'+
+      '<div class="yr-fit-l">Current Fitness</div>'+
+      '<div class="yr-fit-v font-mono">'+nowValue+'</div>'+
+      '<div class="yr-fit-d">'+escapeHtml(currentFitnessSourceHeadline())+
+        (anchor.date ? ' · '+dShort(anchor.date) : '')+'</div>'+
+    '</div>';
+  if (nowNote) rows += '<div class="field-hint" style="margin-top:2px;">'+escapeHtml(nowNote)+'</div>';
+
+  if (goal && goal.timeSec && profile){
+    rows += '<div class="yr-fit-prev">'+
+        '<div class="yr-fit-l">Goal</div>'+
+        '<div class="yr-fit-v font-mono">'+secToClock(goal.timeSec)+'</div>'+
+        '<div class="yr-fit-d">'+escapeHtml(profile.label)+' · Goal '+escapeHtml(state.setup.activeGoal||'A')+'</div>'+
+      '</div>';
+  }
+
+  return '<div class="hub-card tile-card yr-fitness">'+rows+
+    '<div class="yr-foot">Train from where you are. Build toward where you want to be.</div>'+
+  '</div>';
 }
 function zonePaceSourceSentence(goal, profile){
   var anchor = currentFitnessAnchor();
