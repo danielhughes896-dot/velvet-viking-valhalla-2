@@ -23292,6 +23292,23 @@ function openSetupModal(){
 
   bldSyncLongDay();
   bldStage(0);
+
+  /* ASK ONCE, ONLY IF WE DO NOT ALREADY KNOW. The Overview screen offers
+     Strava, and whether it may is a server answer that arrives asynchronously:
+     an athlete who opens the builder before init's status round trip has
+     returned -- or who signed in during this session rather than arriving
+     already signed in -- would otherwise reach the first screen with
+     stravaAvailable still at its fail-closed default and never be offered it
+     at all.
+
+     Guarded on !stravaAvailable so this is self-limiting: once the answer is
+     yes it is never asked again, and a deployment where the answer is no costs
+     one request per builder open and no Strava call whatsoever. The reply
+     lands through stravaSetState()/stravaSetAvailable(), which patch the slot
+     that bldStravaOffer() left in the panel. */
+  try{
+    if (!stravaAvailable && cloudConfigured() && cloudSignedIn()) stravaRefreshStatus();
+  }catch(e){}
 }
 
 /* =========================================================
@@ -23330,21 +23347,56 @@ var BLD_STAGE = { OVERVIEW:0, GOAL:1, DISTANCE:2, EVENT:3, YOU:4, BENCHMARK:5, W
  * to reconcile after sign-in -- the athlete either connects now or carries on,
  * and Settings offers the same connection at any point afterwards. Continue is
  * the ordinary stage button and is unaffected. */
+/* THE SLOT IS DRAWN EVEN WHEN THE OFFER IS NOT, and that is the whole point
+ * of splitting this in two. bldStravaOffer() is evaluated ONCE, when
+ * openSetupModal() builds the panel markup; availability and connection status
+ * both arrive from the server asynchronously and can land after that. Without
+ * an empty container already in the DOM there is nothing for a later answer to
+ * patch, so three ordinary situations silently produced a builder with no
+ * offer in it at all, or a stale one:
+ *
+ *   - the athlete opens the builder before the status round trip returns
+ *     (a cold start, a slow network, or signing in during the session rather
+ *     than arriving already signed in) -- the offer never appears for the
+ *     whole of that builder session;
+ *   - on Android the athlete taps Connect, approves in the system browser and
+ *     returns to a builder that is still open -- stravaBindResume() learns the
+ *     connection succeeded, and the card carried on saying "Connect Strava";
+ *   - the connection is lost or refused while the builder is open.
+ *
+ * So the container is permanent and empty-by-default, and patchStravaSection()
+ * refreshes it in the same breath as the Settings card. One state, two
+ * surfaces, and no way for them to disagree. */
 function bldStravaOffer(){
+  return '<div id="bld-strava-offer">'+bldStravaOfferBody()+'</div>';
+}
+/* Empty string = no offer. Not a hidden control and not a disabled one: while
+   the server has not said this athlete may use Strava, there is nothing here
+   to press and nothing to explain. */
+function bldStravaOfferBody(){
   if (!stravaAvailable) return '';
   if (isStravaConnected()){
     return '<div class="bld-strava-offer">'+
       '<div class="bso-t">'+ICONS.check+' Strava connected'+
-        (stravaConn.athleteName ? ' \u00b7 '+escapeHtml(stravaConn.athleteName) : '')+'</div>'+
+        (stravaConn.athleteName ? ' · '+escapeHtml(stravaConn.athleteName) : '')+'</div>'+
       '<div class="bso-d">Your recent runs will appear against this block as you log them.</div>'+
     '</div>';
   }
+  /* Connecting is a real state here, not only in Settings. The press leaves
+     for Strava's own page, and on a slow link that redirect is not instant --
+     an unchanged button invites a second press at exactly the wrong moment. */
+  var connecting = stravaConn.status === 'connecting';
   return '<div class="bld-strava-offer">'+
     '<div class="bso-t">Connect Strava</div>'+
-    '<div class="bso-d">Your runs come in on their own, so you spend less time logging them.</div>'+
-    '<button type="button" class="btn btn-block strava-connect-btn" data-action="strava-connect">'+
-      ICONS.pulse+' Connect Strava</button>'+
-    '<div class="bso-skip">Optional \u2014 you can carry on without it, or connect later in Settings.</div>'+
+    '<div class="bso-d">'+
+      (stravaConn.status === 'error' && stravaConn.message
+        ? escapeHtml(stravaConn.message)
+        : 'Your runs come in on their own, so you spend less time logging them.')+
+    '</div>'+
+    '<button type="button" class="btn btn-block strava-connect-btn" data-action="strava-connect"'+
+      (connecting?' disabled':'')+'>'+
+      ICONS.pulse+' '+(connecting?'Connecting…':'Connect Strava')+'</button>'+
+    '<div class="bso-skip">Optional — you can carry on without it, or connect later in Settings.</div>'+
   '</div>';
 }
 var bldCurrentStage = 0;
@@ -25603,10 +25655,26 @@ function stravaBindResume(){
   });
 }
 
+/* ONE STATE, EVERY SURFACE THAT SHOWS IT. Called from stravaSetState() and
+   stravaSetAvailable(), so every transition -- connecting, connected, revoked,
+   error, and the deployment/allowlist answer arriving late -- reaches both the
+   Settings card and the builder's first screen through the same call. Adding a
+   second surface must mean adding a line here, never a second notion of when
+   Strava state changes. */
 function patchStravaSection(){
   if (typeof document === 'undefined' || !document.querySelectorAll) return;
   var nodes = document.querySelectorAll('#strava-section');
   for (var i=0; i<nodes.length; i++) nodes[i].outerHTML = renderStravaSection();
+  patchBuilderStravaOffer();
+}
+/* innerHTML rather than outerHTML, deliberately: the slot must survive being
+   patched so a second answer (connecting -> connected) still has somewhere to
+   land. Absent when the builder is closed, which is the ordinary case and not
+   a failure -- the offer is rebuilt from the same state next time it opens. */
+function patchBuilderStravaOffer(){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  var slots = document.querySelectorAll('#bld-strava-offer');
+  for (var i=0; i<slots.length; i++) slots[i].innerHTML = bldStravaOfferBody();
 }
 function openImportModal(){
   var html = ''+

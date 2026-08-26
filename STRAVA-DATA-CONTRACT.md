@@ -153,3 +153,83 @@ that: the canonical day model carries a single completed record with a source
 marker, so a future Garmin ingest resolves against the same day rather than
 creating a parallel one. What must not happen — and does not — is a
 Strava-specific field becoming mandatory in the canonical activity model.
+
+---
+
+## Using Strava during programme build — the investigation, and why nothing was changed
+
+The brief asked whether recent Strava evidence could safely reduce friction in
+the initial Build Your Programme journey: recent running frequency, distance
+and volume, typical run duration, recent pace, recent heart rate, recent long
+run. It also said that if using historic Strava data in programme construction
+would require a meaningful training-methodology change, that part must stop and
+be reported rather than silently altering programme logic.
+
+**It would. So it stopped here, and the connection alone was implemented.**
+
+### What the builder actually feeds
+
+The builder collects nine answers. Two of them are not preferences — they are
+the inputs the whole engine is derived from:
+
+| Builder answer | What it drives | Consequence of getting it wrong |
+|---|---|---|
+| `currentVolume` (Current Weekly Volume) | `buildBlockWeeks()` sets `peakVolume = currentVolume × volMult`, bounded by `volumeCeilingFor()` and `demonstratedSustainableVolume()`. Every week's target in the block ramps between the two. | Mis-scales **every week of the block**. Too high is a progressive overload the athlete never agreed to; too low reads later as a plateau. |
+| `benchmark.timeSec` (a recent honest-effort 5K or 10K) | `vdotFromPerformance()` → VDOT → **every training pace zone**, and via `equivalentTimeSec()` the Dream/Solid/Safety Net goal times. | Mis-sets every prescribed pace in the block, and the goals the athlete is training towards. |
+
+### Why Strava cannot answer either one
+
+**The benchmark is a race effort, and Strava does not know which runs were
+efforts.** `sport_type` is `Run` whether the athlete raced a parkrun or jogged
+to the shops. Inferring "this 21:40 5K was an honest maximal effort" from
+distance and pace alone is precisely the high-consequence inference from weak
+evidence the brief forbids — and it is the single number every pace in the
+programme is computed from. Strava's own `workout_type` can mark a run as a
+race, but it is athlete-set, frequently unset, and unset is not evidence of
+absence. There is no safe fallback: a benchmark that is wrong by 90 seconds
+moves every zone.
+
+**Recent weekly volume looks answerable and is not, at this moment.** Summing
+`distance` over the last four weeks gives a number, but not the number the
+engine wants. `currentVolume` means *what this athlete is currently absorbing
+and can build from* — not what they happened to cover during a taper, an
+injury lay-off, a holiday, a marathon block that just ended, or four weeks that
+included a race. Valhalla's own answer to that question is
+`absorbedWeeklyVolume()`, which reads `loadToleranceModel()` and **gates itself
+on confidence**, explicitly falling back to the athlete's stated figure when the
+evidence is insufficient. Prefilling the builder from a raw four-week sum would
+route around a confidence gate the product already has, and do it at the one
+moment there is no completed Valhalla training to check it against.
+
+### What is not lost by declining
+
+**Strava evidence already reaches volume reasoning — through the correct door.**
+Once runs import and log, `loadToleranceModel()` learns absorbed volume from
+completed sessions, with confidence, and `demonstratedSustainableVolume()`
+bounds the peak of the *next* block by it. An athlete who connects Strava at
+onboarding is not deferred forever; they are deferred until there is evidence
+worth trusting, which is the same standard every other part of this engine
+holds. The Fitness Checkpoint the generator schedules into the block is the
+existing, deliberate mechanism for measuring rather than guessing a benchmark.
+
+### The decision this leaves open
+
+Prefilling either field is a **training-methodology decision**, not an
+engineering one, and it is the founder's to take. If it is ever taken, the
+safe shape is narrow and is written down here so it is not re-derived:
+
+- **Never overwrite.** Athlete-entered answers stay authoritative. A prefill is
+  a suggestion in an empty field, withdrawn the moment the athlete types.
+- **Show the evidence, not just the number.** "From 4 weeks on Strava: 38, 41,
+  12, 40 km" lets the athlete see the holiday week and correct it. A bare `38`
+  hides exactly the thing that makes the average wrong.
+- **Volume only. Never the benchmark.** The benchmark is a measured effort or
+  it is nothing.
+- **Require enough weeks, and say when there are not.** Fewer than four
+  complete weeks is not a volume history.
+
+None of that is implemented, and none of it should be assumed. **The
+connection itself is implemented**, which is what the brief asked for
+regardless: an athlete who connects Strava during onboarding has their
+authorization stored against their Valhalla account and their runs import from
+that point on.

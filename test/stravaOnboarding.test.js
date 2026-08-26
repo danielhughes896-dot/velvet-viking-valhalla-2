@@ -45,7 +45,12 @@ test('the offer is absent until the server permits Strava', () => {
      decision the Garmin card makes while its contract is outstanding. */
   const a = app();
   assert.equal(a.stravaAvailable, false, 'availability defaults to off');
-  assert.equal(a.bldStravaOffer(), '', 'nothing is drawn');
+  /* The empty wrapper is the same pattern renderStravaSection() uses, and for
+     the same reason: the slot has to exist in the DOM so a server answer that
+     arrives after the builder opened has somewhere to land. What must not
+     exist is a control. */
+  assert.equal(a.bldStravaOffer(), '<div id="bld-strava-offer"></div>');
+  assert.equal(a.bldStravaOfferBody(), '', 'nothing is drawn');
 });
 
 test('when Strava is available the first screen offers it, optionally', () => {
@@ -100,9 +105,13 @@ test('the offer stores nothing and gates nothing', () => {
   a.bldStravaOffer();
   assert.equal(JSON.stringify(a.state), before, 'drawing the offer wrote state');
 
-  const fn = /function bldStravaOffer\([^]*?\n\}/.exec(SRC)[0];
-  assert.ok(!/state\.\w+\s*=/.test(fn), 'the offer assigns to state');
-  assert.ok(!/localStorage/.test(fn), 'the offer persists something');
+  /* Both halves: the wrapper AND the body that draws the card. Checking only
+     the wrapper would pass on an empty function and prove nothing. */
+  ['bldStravaOffer', 'bldStravaOfferBody'].forEach(name => {
+    const fn = new RegExp('function ' + name + '\\([^]*?\\n\\}').exec(SRC)[0];
+    assert.ok(!/state\.\w+\s*=/.test(fn), name + ' assigns to state');
+    assert.ok(!/localStorage/.test(fn), name + ' persists something');
+  });
 });
 
 test('no API vocabulary reaches the athlete', () => {
@@ -165,7 +174,9 @@ test('an athlete who may not use Strava is shown nothing at all', () => {
   assert.ok(!/data-action="strava-connect"/.test(html));
   assert.ok(!/Strava/.test(html.replace(/id="strava-section"/, '')),
     'the word Strava must not reach an athlete who cannot use it');
-  assert.equal(a.bldStravaOffer(), '', 'and the builder offers nothing either');
+  assert.equal(a.bldStravaOfferBody(), '', 'and the builder offers nothing either');
+  assert.ok(!/Strava/.test(a.bldStravaOffer().replace(/id="bld-strava-offer"/, '')),
+    'nor does the word reach the builder');
 });
 
 test('an unnamed Strava account does not print a dangling "Connected as"', () => {
@@ -193,4 +204,116 @@ test('start.html never draws a Strava control', () => {
   assert.match(start, /pane-build/);
   assert.match(start, /pane-preview/);
   assert.match(start, /pane-auth/);
+});
+
+// ---------------------------------------------------------------------------
+// THE OFFER MUST NOT GO STALE
+// ---------------------------------------------------------------------------
+/* WHY THIS SECTION EXISTS. bldStravaOffer() is evaluated ONCE, when
+ * openSetupModal() builds the panel markup. Availability and connection status
+ * both arrive from the server asynchronously and can land afterwards, so
+ * without a container already in the DOM there is nothing for a later answer
+ * to patch — and three ordinary situations produced a builder with no offer in
+ * it, or a stale one:
+ *
+ *   - opening the builder before the status round trip returns;
+ *   - on Android, approving in the system browser and returning to a builder
+ *     that is still open;
+ *   - the connection being refused or lost while the builder is open.
+ *
+ * The fix is the empty-wrapper pattern renderStravaSection() already uses.
+ * These tests hold it in place.
+ */
+
+/* A DOM just real enough for the patch path: the two selectors it asks for,
+   and nodes whose innerHTML can be read back. */
+function withSlots(a){
+  const slot = { id: 'bld-strava-offer', innerHTML: '' };
+  const card = { id: 'strava-section', outerHTML: '' };
+  a.document = Object.assign(Object.create(null), a.document, {
+    querySelectorAll(sel){
+      if (sel === '#bld-strava-offer') return [slot];
+      if (sel === '#strava-section') return [card];
+      return [];
+    }
+  });
+  return { slot, card };
+}
+
+test('the slot is drawn even when there is no offer, so a later answer can land', () => {
+  const a = app();                                  // availability off
+  assert.match(a.bldStravaOffer(), /id="bld-strava-offer"/,
+    'nothing can be patched into a container that was never rendered');
+});
+
+test('availability arriving after the builder opened fills the slot', () => {
+  const a = app();
+  const { slot } = withSlots(a);
+  assert.equal(slot.innerHTML, '', 'precondition: the slot starts empty');
+
+  a.stravaSetAvailable(true);                       // the server answers, late
+  assert.match(slot.innerHTML, /data-action="strava-connect"/,
+    'the athlete was never offered Strava because the answer arrived late');
+});
+
+test('connecting is visible in the builder, not only in Settings', () => {
+  /* The press leaves for Strava’s own page and on a slow link that redirect
+     is not instant. An unchanged button invites a second press. */
+  const a = app({ available: true });
+  const { slot } = withSlots(a);
+  a.stravaSetState('connecting');
+  assert.match(slot.innerHTML, /Connecting/, 'the press produced no feedback');
+  assert.match(slot.innerHTML, /disabled/, 'the button could be pressed twice');
+});
+
+test('returning connected flips the open builder, rather than asking again', () => {
+  /* The Android case: the app was never unloaded, so the builder is still on
+     screen when stravaBindResume() learns the connection succeeded. */
+  const a = app({ available: true });
+  const { slot } = withSlots(a);
+  a.stravaSetState('connected', { athleteName: 'Dan H' });
+  assert.match(slot.innerHTML, /Strava connected/);
+  assert.match(slot.innerHTML, /Dan H/);
+  assert.ok(!/data-action="strava-connect"/.test(slot.innerHTML),
+    'a connected athlete was asked to connect again');
+});
+
+test('a failed connection says so where it was attempted', () => {
+  const a = app({ available: true });
+  const { slot } = withSlots(a);
+  a.stravaSetState('error', { message: 'Strava is not responding — try again shortly' });
+  assert.match(slot.innerHTML, /not responding/, 'the failure was invisible in the builder');
+  assert.match(slot.innerHTML, /data-action="strava-connect"/, 'there is no way to retry');
+});
+
+test('losing availability empties the slot rather than leaving a dead button', () => {
+  /* Started from off so the first call is a real transition -- stravaSetAvailable()
+     patches on CHANGE, and re-asserting a value it already holds is not one. */
+  const a = app();
+  const { slot } = withSlots(a);
+  a.stravaSetAvailable(true);
+  assert.match(slot.innerHTML, /strava-connect/);
+  a.stravaSetAvailable(false);
+  assert.equal(slot.innerHTML, '', 'a control the server would refuse was left on screen');
+});
+
+test('Settings and the builder are refreshed by the same call', () => {
+  /* One state, two surfaces. A second notion of when Strava state changes is
+     how they start disagreeing. */
+  const a = app({ available: true });
+  const { slot, card } = withSlots(a);
+  a.stravaSetState('connected', { athleteName: 'Dan H' });
+  assert.match(card.outerHTML, /Connected/, 'Settings did not follow the state change');
+  assert.match(slot.innerHTML, /Strava connected/, 'the builder did not follow the state change');
+});
+
+test('the builder asks for availability only when it does not already know', () => {
+  /* Self-limiting by construction: once the answer is yes it is never asked
+     again, so opening the builder repeatedly costs nothing and reaches Strava
+     not at all. */
+  const src = /function openSetupModal\([^]*?\n\}/.exec(SRC)[0];
+  assert.match(src, /!stravaAvailable && cloudConfigured\(\) && cloudSignedIn\(\)/,
+    'the builder either never probes, or probes unconditionally');
+  assert.match(src, /stravaRefreshStatus\(\)/,
+    'the probe must reuse the one round trip that answers both questions');
 });

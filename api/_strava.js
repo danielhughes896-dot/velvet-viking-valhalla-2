@@ -404,11 +404,26 @@ async function deleteStagedActivities(cfg, uid){
    revoked authorization from displaying as "Connected" forever. */
 const EXPIRY_SKEW_SEC = 120;
 
+/* STATUS 0 MEANS "STRAVA WAS NEVER REACHED", and it is a different fact from
+   every HTTP status Strava can return. Without it a DNS failure, a refused
+   connection or a timeout escaped this module as a rejected promise and took
+   the whole request with it: /api/strava-auth and /api/strava-sync have no
+   try/catch of their own, so an athlete opening Settings during a Strava
+   outage got a platform 500 instead of "Strava is not responding".
+
+   It matters more than a tidier error, because of who reads the status next.
+   accessTokenFor() DELETES the stored authorization on 400/401 -- the refusal
+   that means a grant is gone for good. An outage must never be mistaken for
+   that: 0 is not 401, so an unreachable Strava leaves a perfectly valid
+   connection exactly where it was, and the next sync simply works. */
 async function stravaTokenRequest(cfg, payload){
-  const r = await fetch(STRAVA_TOKEN_URL, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(Object.assign({ client_id: cfg.clientId, client_secret: cfg.clientSecret }, payload))
-  });
+  let r;
+  try{
+    r = await fetch(STRAVA_TOKEN_URL, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(Object.assign({ client_id: cfg.clientId, client_secret: cfg.clientSecret }, payload))
+    });
+  }catch(e){ return { ok: false, status: 0, data: {}, unreachable: true }; }
   const data = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, data };
 }
@@ -446,10 +461,26 @@ async function accessTokenFor(cfg, conn){
   return fresh.access_token;
 }
 
+/* Same contract as stravaTokenRequest above: unreachable is status 0, and a
+   200 carrying a body that will not parse is a failure rather than an
+   exception. `await r.json()` was previously unguarded, so a truncated or
+   HTML response -- which is what a proxy or an edge error page actually looks
+   like -- threw out of the sync route rather than being refused.
+
+   Every caller already branches on `ok`, so both cases degrade the way the
+   rest of the integration expects: the sync answers strava_unavailable, and
+   the webhook logs FETCH_FAILED and stages nothing, leaving Strava's own
+   retry to deliver the activity again. Nothing is stored from a response
+   that could not be read. */
 async function stravaApi(path, token){
-  const r = await fetch(STRAVA_API + path, { headers: { 'Authorization': 'Bearer ' + token } });
+  let r;
+  try{
+    r = await fetch(STRAVA_API + path, { headers: { 'Authorization': 'Bearer ' + token } });
+  }catch(e){ return { ok: false, status: 0, data: null, unreachable: true }; }
   if (!r.ok) return { ok: false, status: r.status, data: null };
-  return { ok: true, status: r.status, data: await r.json() };
+  let data;
+  try{ data = await r.json(); }catch(e){ return { ok: false, status: r.status, data: null, malformed: true }; }
+  return { ok: true, status: r.status, data };
 }
 
 /* ---------- the Strava -> VVV objective data contract ----------

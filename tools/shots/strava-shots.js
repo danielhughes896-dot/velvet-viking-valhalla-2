@@ -3,6 +3,8 @@
  *
  *   builder-offer     Build Your Programme, first screen, Strava available
  *   builder-connected the same screen once connected
+ *   builder-connecting the press mid-flight, patched into an OPEN builder
+ *   builder-error     a failed attempt, reported where it was made
  *   settings-off      Settings, not connected
  *   settings-on       Settings, connected, named account
  *   settings-error    Settings after a failed attempt
@@ -42,6 +44,12 @@ const STATE = athlete();
 const FRAMES = {
   'builder-offer':     { view: 'settings', setup: `stravaSetAvailable(true); stravaSetState('off'); openSetupModal();` },
   'builder-connected': { view: 'settings', setup: `stravaSetAvailable(true); stravaSetState('connected',{athleteName:'Dan H'}); openSetupModal();` },
+  /* The press, mid-flight. The builder offer is patched in place by
+     stravaSetState(), so this frame also proves the slot refactor: the modal
+     is opened FIRST and the state changes afterwards, exactly as it does when
+     an athlete taps Connect. */
+  'builder-connecting': { view: 'settings', setup: `stravaSetAvailable(true); openSetupModal(); stravaSetState('connecting');` },
+  'builder-error':     { view: 'settings', setup: `stravaSetAvailable(true); openSetupModal(); stravaSetState('error',{message:'Strava is not responding \u2014 try again shortly'});` },
   'settings-off':      { view: 'settings', setup: `stravaSetAvailable(true); stravaSetState('off');` },
   'settings-on':       { view: 'settings', setup: `stravaSetAvailable(true); stravaSetState('connected',{athleteName:'Dan H'});` },
   'settings-error':    { view: 'settings', setup: `stravaSetAvailable(true); stravaSetState('error'); stravaConn.message='Strava did not respond. Try again.';` },
