@@ -29,6 +29,7 @@ mut.txt
 # Screenshot output from tools/shots/*.js -- regenerated on demand, and
 # several MB of PNG per run. The scripts are the artefact worth keeping.
 tools/shots/toggles/
+tools/shots/out-hierarchy/
 tools/shots/record/
 tools/shots/planhq/
 tools/shots/editsession/
