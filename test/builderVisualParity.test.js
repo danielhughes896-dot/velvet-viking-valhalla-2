@@ -103,11 +103,19 @@ test('the weekday picker is the same real-checkbox control, same fill, on both s
   assert.ok(appGrid && startGrid);
   assert.equal(startGrid[1].trim(), appGrid[1].trim(), '.weekday-grid diverged');
 
-  const appChecked = /\.wd-check\.checked\{([^}]*)\}/.exec(APP_SRC);
-  const startChecked = /\.wd-check\.checked\{([^}]*)\}/.exec(START_SRC);
-  assert.ok(appChecked && startChecked);
-  assert.match(appChecked[1], /var\(--c-gold-soft\)/);
-  assert.match(startChecked[1], /var\(--c-gold-soft\)/);
+  // TRAINING-DAY SELECTOR VISUAL REFINEMENT, corrected: the checkbox itself
+  // is styled as a circle (reusing the app's own day-card completion ring,
+  // .day-check input) and filled --cherry on checked -- not a gold wash
+  // behind the whole label. Both surfaces must agree on that fill, and
+  // neither may declare a background on the bare .wd-check.checked label.
+  const appCheckedInput = /\.wd-check input:checked\{([^}]*)\}|\.day-check input:checked, \.wd-check input:checked\{([^}]*)\}/.exec(APP_SRC);
+  const startCheckedInput = /\.wd-check input:checked\{([^}]*)\}/.exec(START_SRC);
+  assert.ok(appCheckedInput && startCheckedInput, '.wd-check input:checked rule missing on one surface');
+  const appCheckedBody = appCheckedInput[1] || appCheckedInput[2];
+  assert.match(appCheckedBody, /var\(--cherry\)/);
+  assert.match(startCheckedInput[1], /var\(--cherry\)/);
+  assert.doesNotMatch(APP_SRC, /\.wd-check\.checked\{[^}]*background/, 'no background/wash may sit behind the selected weekday column in the app');
+  assert.doesNotMatch(START_SRC, /\.wd-check\.checked\{[^}]*background/, 'no background/wash may sit behind the selected weekday column in /start');
 
   // /start renders real <input type="checkbox"> inside .wd-check labels --
   // the same control the app uses, not a button standing in for one.

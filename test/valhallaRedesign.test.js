@@ -218,9 +218,16 @@ test('RING: past and future sessions render locked and disabled, same as before'
 });
 
 test('RING: the ring is drawn with CSS, not a native checkbox appearance, and fills Cherry Lacquer when checked', () => {
-  assert.match(CODE, /\.day-check input\{[^}]*appearance\s*:\s*none/);
-  assert.match(CODE, /\.day-check input:checked\{[^}]*background\s*:\s*var\(--cherry\)/);
-  assert.match(CODE, /\.day-check input:checked::after\{/, 'no checkmark is drawn for the checked state');
+  // [^{]* rather than [^}]* directly after ".day-check input" -- the
+  // Builder's Training Day selector (.wd-check input) now shares this
+  // exact rule via a joined selector list (".day-check input, .wd-check
+  // input{...}"), so the opening brace may be preceded by that second
+  // selector rather than following ".day-check input" immediately. The
+  // assertion is unweakened: appearance:none still has to appear in the
+  // same rule body .day-check input resolves from.
+  assert.match(CODE, /\.day-check input[^{]*\{[^}]*appearance\s*:\s*none/);
+  assert.match(CODE, /\.day-check input:checked[^{]*\{[^}]*background\s*:\s*var\(--cherry\)/);
+  assert.match(CODE, /\.day-check input:checked::after[^{]*\{/, 'no checkmark is drawn for the checked state');
   // A ≥40px label around a visually compact ring -- generous tap target,
   // restrained visible control.
   assert.match(CODE, /\.day-check\{[^}]*width\s*:\s*40px/);
