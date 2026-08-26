@@ -21324,6 +21324,16 @@ function reviewInputHash(dd){
   var nxt = coachSessionAfter(dd);
   var parts = [
     COACH_REVIEW_VERSION,
+    // THE UNIT PREFERENCE. coachVerdict()/coachNoticedForWorkout() etc. call
+    // fmtDist()/fmtPaceFromSecPerKm() while building the strings this hash
+    // protects -- "8km of threshold with pace inside the 5:04/km-5:34/km
+    // window" is executionVerdict text, not a live-rendered number. Without
+    // the unit in the hash, switching km -> mi left that sentence exactly as
+    // written under km: correct distance and pace, wrong (or rather, stale)
+    // unit, on a card that otherwise switched. state.units is what
+    // displayUnit() itself reads, so this is the same source of truth those
+    // formatters already use, not a second opinion on it.
+    (state && state.units==='mi') ? 'mi' : 'km',
     // the prescription this session is judged against
     dd.type, nz(dd.km), dd.mpSegment?1:0, dd.completed?1:0,
     dd.prescription ? stableStringify({a:dd.prescription.archetype, p:dd.prescription.params}) : '',
@@ -24161,7 +24171,7 @@ function openEditModal(dayId){
     '<div class="field"><label>Session Title</label><input type="text" id="ef-title" value="'+escapeHtml(dd.title)+'"'+lock+'></div>'+
     '<div class="field-row">'+
       '<div class="field"><label>Session Type</label><select id="ef-type"'+lock+'>'+typeOptions+'</select></div>'+
-      '<div class="field"><label>Distance (km)</label><input type="number" step="0.1" min="0" id="ef-km" value="'+dd.km+'"'+lock+'></div>'+
+      '<div class="field"><label>Distance ('+displayUnit()+')</label><input type="number" step="0.1" min="0" id="ef-km" value="'+kmToDisplay(dd.km)+'"'+lock+'></div>'+
     '</div>'+
     '<div class="field"><label style="display:flex; align-items:center;"><input type="checkbox" id="ef-mp" '+(dd.mpSegment?'checked':'')+lock+' style="width:auto; margin-right:7px;">Includes a Goal-Pace segment</label></div>'+
     renderEditCompletion(dd)+
@@ -24227,7 +24237,7 @@ function handleSaveEdit(dayId){
   if (editable){
     var title = document.getElementById('ef-title').value.trim() || 'Untitled Session';
     var type = document.getElementById('ef-type').value;
-    var km = parseFloat(document.getElementById('ef-km').value);
+    var km = parseDistInput(document.getElementById('ef-km').value);
     var mp = document.getElementById('ef-mp').checked;
     var desc = document.getElementById('ef-desc').value;
 
@@ -24238,7 +24248,7 @@ function handleSaveEdit(dayId){
        there is one pattern rather than two. */
     var before = { title:dd.title, type:dd.type, km:dd.km, desc:dd.desc, mpSegment:!!dd.mpSegment,
                    prescription: dd.prescription ? JSON.parse(JSON.stringify(dd.prescription)) : null };
-    var newKm = isNaN(km) ? 0 : km;
+    var newKm = (km==null || isNaN(km)) ? 0 : km;
     var changed = [];
     if (title !== before.title) changed.push('title');
     if (type !== before.type) changed.push('type');
