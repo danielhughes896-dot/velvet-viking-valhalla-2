@@ -1188,7 +1188,7 @@
   }
   .notes-wand:hover, .notes-wand:focus-visible{opacity:1; border-color:var(--modal-active); transform:translateY(-1px);}
   .note-chips{grid-column:1/-1; margin-top:7px;}
-  .note-chips-head{font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px;}
+  .note-chips-head{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px;}
   .note-chip-row{display:flex; flex-wrap:wrap; gap:5px;}
   .note-chip{
     display:inline-flex; align-items:center; gap:5px; font-size:10px; line-height:1;
@@ -1301,7 +1301,7 @@
   .pzr{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0; border-bottom:1px solid var(--line-soft);}
   .pzr:last-of-type{border-bottom:none;}
   .pzr-label{font-size:12.5px; color:var(--ink-dim); flex:1; min-width:0;}
-  .pzr-tag{font-size:9px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze-text); border:1px solid var(--bronze); border-radius:99px; padding:1px 6px; margin-left:4px;}
+  .pzr-tag{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze-text); border:1px solid var(--bronze); border-radius:99px; padding:1px 6px; margin-left:4px;}
   /* target HR range, shown alongside the pace inputs on the same row --
      stacked under the zone label rather than a third flex column, so the
      row still fits on narrow phones without wrapping or crowding the
@@ -1342,7 +1342,7 @@
 
   /* ---------- AI post-session execution review ---------- */
   .exec-review-card{margin-top:10px; padding:11px 12px; background:var(--surface-4); border:1px solid var(--line); border-radius:var(--radius-sm);}
-  .exec-review-head{display:flex; align-items:center; gap:8px; font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
+  .exec-review-head{display:flex; align-items:center; gap:8px; font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:8px;}
   .exec-review-head svg{width:14px; height:14px; flex:none;}
   /* title yields first so the badge can never be pushed off or overlapped
      on a narrow phone; the badge itself never shrinks */
@@ -2224,7 +2224,7 @@
   .hub-card .setup-section-title{margin-top:0;}
 
   .empty-note{font-size:12px; color:var(--ink-faint); text-align:center; padding:10px 0;}
-  .divider-or{display:flex; align-items:center; gap:10px; margin:14px 0; color:var(--ink-faint); font-size:10px; letter-spacing:1px; text-transform:uppercase;}
+  .divider-or{display:flex; align-items:center; gap:10px; margin:14px 0; color:var(--ink-faint); font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:1px; text-transform:uppercase;}
   .divider-or .rule{flex:1; height:1px; background:var(--line);}
   /* ---------- v2: distance-agnostic generator additions ---------- */
   .setup-cta{
@@ -9841,8 +9841,8 @@ function renderPlanOverviewStats(){
   var kmPct = s.totalKm ? Math.round(100*s.completedKm/s.totalKm) : 0;
   var goal = getActiveGoal();
   return '<div class="stat-row">'+
-      '<div class="stat"><div class="v font-mono">'+(goal&&goal.timeSec?secToClock(goal.timeSec):'\u2014')+'</div><div class="l">Goal '+state.setup.activeGoal+'</div></div>'+
-      '<div class="stat"><div class="v font-mono">'+s.completedRuns+'/'+s.totalRuns+'</div><div class="l">Runs Done</div></div>'+
+      '<div class="stat"><div class="v font-mono">'+(goal&&goal.timeSec?secToClock(goal.timeSec):'\u2014')+'</div><div class="l font-head">Goal '+state.setup.activeGoal+'</div></div>'+
+      '<div class="stat"><div class="v font-mono">'+s.completedRuns+'/'+s.totalRuns+'</div><div class="l font-head">Runs Done</div></div>'+
     '</div>'+
     '<div class="progress-bars wrap">'+
       '<div class="pbar-row"><div class="pbar-label font-head">Runs</div><div class="pbar-track"><div class="pbar-fill" style="width:'+runsPct+'%"></div></div><div class="pbar-num font-mono">'+runsPct+'%</div></div>'+
@@ -22171,7 +22171,7 @@ function renderReadinessCheck(dec){
     '<div class="readiness-head">How are you today?</div>'+
     READINESS_QUESTIONS.map(function(q){
       return '<div class="readiness-row">'+
-        '<span class="readiness-label">'+q.label+'</span>'+
+        '<span class="readiness-label font-head">'+q.label+'</span>'+
         '<span class="readiness-opts">'+
           q.options.map(function(o){
             return '<button type="button" class="readiness-btn'+(r[q.key]===o[0]?' on':'')+'" '+
