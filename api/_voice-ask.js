@@ -26,22 +26,28 @@ const V = require('./_voice.js');
    module -- see the note in _voice.js. One file in api/ names a model. */
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
-/* 4096, NOT THE 1024 THIS SHIPPED WITH, and the difference is the whole of a
-   production outage.
+/* 16000, AND THE HISTORY OF THIS NUMBER IS THE HISTORY OF THE OUTAGE.
 
    This model runs adaptive thinking by DEFAULT, and thinking tokens are drawn
-   from the same max_tokens budget as the reply. A 1024 ceiling can therefore be
-   spent entirely on reasoning, leaving stop_reason "max_tokens" and NO text
-   block at all -- which this endpoint then correctly reported as an empty reply
-   and the athlete read as "your coach is not responding". Deterministically,
-   every time.
+   from the SAME max_tokens budget as the reply. A ceiling small enough to be
+   spent on reasoning alone leaves stop_reason "max_tokens" and NO text block at
+   all -- which this endpoint then correctly reports as an empty reply and the
+   athlete reads as "your coach is not responding".
 
-   1024 was chosen because the answer is meant to be two or three sentences. That
-   reasoning was right about the answer and forgot the thinking. The ceiling is
-   not a target: billing is on tokens actually produced, so raising it costs
-   nothing on a short reply and buys the headroom the model needs to get to one.
+   It shipped at 1024, chosen because the answer is meant to be two or three
+   sentences. That reasoning was right about the answer and forgot the thinking,
+   and it failed every time. It was then raised to 4096, which is enough for
+   many questions and not enough for an open one asked against a full training
+   context -- so the same failure came back intermittently, which is harder to
+   diagnose than a total one.
+
+   16000 is the documented non-streaming default for this model: large enough
+   that thinking plus a short answer fit comfortably, small enough to stay well
+   inside an HTTP request timeout. THE CEILING IS NOT A TARGET. Billing is on
+   tokens actually produced, so a two-sentence reply costs the same at 16000 as
+   it did at 1024; the number buys headroom to REACH that reply, nothing else.
    Brevity is still asked for where it belongs -- in the prompt. */
-const VOICE_MAX_TOKENS = 4096;
+const VOICE_MAX_TOKENS = 16000;
 
 /* The system prompt. Written as a boundary, not a personality: most of it is
    about what the coach may NOT do, because that is the part that has to hold
@@ -248,6 +254,14 @@ async function askUpstream(res, cfg, contextJson, question, opts){
     .filter(function(b){ return b && b.type === 'text'; })
     .map(function(b){ return b.text; }).join('\n');
 
+  /* HOW MUCH THE MODEL ACTUALLY PRODUCED, which is the one number that turns
+     this failure from a mystery into a reading. Counts only -- never the
+     question, never the answer, never the context. If a reply is ever empty
+     again, the log line says whether the budget was exhausted or the model
+     genuinely returned nothing, without anyone having to reproduce it on a
+     phone in a car park. */
+  const outTokens = Number((data && data.usage && data.usage.output_tokens) || 0);
+
   const parsed = parseReply(text);
   if (!parsed){
     /* stop_reason distinguishes "the model said nothing" from "the model ran
@@ -255,12 +269,23 @@ async function askUpstream(res, cfg, contextJson, question, opts){
        a too-small max_tokens produces on a thinking model, and the one worth
        naming in a log rather than rediscovering from a live device. */
     const why = String((data && data.stop_reason) || 'none');
-    V.log('ASK empty_reply stop=' + why + (opts.noEffort ? ' noEffort=1' : ''));
-    return V.json(res, 502, { error: 'coach_unavailable', code: 'VOICE_EMPTY' });
+    /* TRUNCATION IS ITS OWN DIAGNOSIS. stop_reason "max_tokens" with no text
+       block means thinking consumed the whole ceiling -- the exact shape of the
+       outage this endpoint has already had twice. It gets its own code so the
+       next occurrence is identified from one log line rather than re-derived,
+       and so a genuine empty reply is never filed under the same cause. */
+    const truncated = why === 'max_tokens';
+    V.log('ASK empty_reply stop=' + why + ' out=' + outTokens +
+          ' cap=' + VOICE_MAX_TOKENS + (opts.noEffort ? ' noEffort=1' : ''));
+    return V.json(res, 502, {
+      error: 'coach_unavailable',
+      code: truncated ? 'VOICE_TRUNCATED' : 'VOICE_EMPTY'
+    });
   }
 
   /* Counts only. Never the question, never the answer. */
-  V.log('ASK ok chars=' + parsed.answer.length + ' change=' + (parsed.needsPlanChange ? 1 : 0) +
+  V.log('ASK ok chars=' + parsed.answer.length + ' out=' + outTokens +
+        ' change=' + (parsed.needsPlanChange ? 1 : 0) +
         (opts.noEffort ? ' noEffort=1' : ''));
   return V.json(res, 200, {
     answer: parsed.answer,
