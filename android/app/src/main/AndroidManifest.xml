@@ -107,7 +107,35 @@
         </provider>
     </application>
 
+    <!--
+      QUERIES, and this is not optional boilerplate. From Android 11 package
+      visibility is filtered: SpeechRecognizer.isRecognitionAvailable() and
+      isOnDeviceRecognitionAvailable() resolve a RecognitionService through the
+      package manager, and without this element they simply report "no
+      recogniser" on every device — the microphone would be correctly hidden for
+      a reason that is not true.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!--
+      RECORD_AUDIO is requested at RUNTIME, by the Ask Coach microphone and by
+      nothing else — it is declared here because Android requires the
+      declaration, not because the app records anything on its own. Valhalla
+      never reads, buffers, stores or transmits the audio: Android's own
+      recogniser consumes it and hands back a transcript string.
+
+      android:required="false" on the FEATURE, deliberately: a device with no
+      microphone must still be able to install and use Valhalla. Speech is an
+      enhancement to Ask Coach, which always accepts a typed question.
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 </manifest>

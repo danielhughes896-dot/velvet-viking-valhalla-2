@@ -25404,7 +25404,41 @@ function voiceSynth(){
   try { return (typeof window !== 'undefined' && window.speechSynthesis) || null; }
   catch(e){ return null; }
 }
-function voiceAvailable(){ return !!voiceSynth(); }
+
+/* ---------- NATIVE SPEECH OUTPUT ----------
+   Android WebView has no speechSynthesis, which is why the installed app could
+   not speak at all. @capacitor-community/text-to-speech bridges Android's own
+   TextToSpeech engine, so the app speaks with the same local voices the phone
+   already uses -- no cloud vendor, no per-play cost, no audio leaving the
+   device. Chosen over a local plugin because it is at 8.0.2, published June
+   2026 against a Capacitor 8 peer, and does exactly one thing. */
+function voiceNativeTts(){
+  try { return nativePlugin('TextToSpeech'); } catch(e){ return null; }
+}
+/* Can this device speak AT ALL, by any route? Native first because it is the
+   one that works inside the installed app. */
+function voiceAvailable(){ return !!(voiceNativeTts() || voiceSynth()); }
+
+/* Android's voice list, resolved once and cached, using the same preference
+   order as the browser: en-GB, female where the platform names one, then any
+   English rather than silence. Nothing is hard-coded to one device -- the list
+   is whatever the phone reports. */
+var voiceNativeVoice = null;
+var voiceNativeResolved = false;
+function voiceResolveNativeVoice(){
+  if (voiceNativeResolved) return Promise.resolve(voiceNativeVoice);
+  var tts = voiceNativeTts();
+  if (!tts || !tts.getSupportedVoices) return Promise.resolve(null);
+  return tts.getSupportedVoices().then(function(res){
+    var list = (res && res.voices) || [];
+    var pick = voicePickVoice(list);
+    voiceNativeResolved = true;
+    /* The plugin speaks a voice by INDEX into the list it just gave us. */
+    voiceNativeVoice = pick ? list.indexOf(pick) : null;
+    if (voiceNativeVoice === -1) voiceNativeVoice = null;
+    return voiceNativeVoice;
+  }).catch(function(){ voiceNativeResolved = true; return null; });
+}
 function voiceResolveVoice(){
   if (voiceSelectedResolved && voiceSelected) return voiceSelected;
   var synth = voiceSynth();
@@ -25428,6 +25462,8 @@ function voiceSetStatus(status, extra){
   patchVoiceCard();
 }
 function voiceStop(){
+  var tts = voiceNativeTts();
+  if (tts && tts.stop){ try { tts.stop(); } catch(e){} }
   var synth = voiceSynth();
   if (synth){ try { synth.cancel(); } catch(e){} }
   /* Also collapses a briefing that was READ rather than spoken -- the same
@@ -25438,8 +25474,24 @@ function voiceStop(){
    data-action handlers -- so opening the app in public cannot produce audio.
    test/voiceTodayOnly.test.js asserts no render path reaches this. */
 function voiceSpeak(text, opts){
+  if (!text) return false;
+  /* NATIVE FIRST. Inside the installed app this is the only route that makes a
+     sound; in a browser it is absent and the Web Speech path below runs
+     unchanged. */
+  var tts = voiceNativeTts();
+  if (tts && tts.speak){
+    voiceSetStatus('speaking', opts || {});
+    voiceResolveNativeVoice().then(function(idx){
+      var req = { text:String(text), lang:VOICE_LANG, rate:0.96, pitch:1.0,
+                  volume:1.0, category:'ambient' };
+      if (idx != null) req.voice = idx;
+      return tts.speak(req);
+    }).then(function(){ voiceSetStatus('shown', opts || {}); })
+      .catch(function(){ voiceSetStatus('shown', opts || {}); });
+    return true;
+  }
   var synth = voiceSynth();
-  if (!synth || !text) return false;
+  if (!synth) return false;
   try { synth.cancel(); } catch(e){}
   var u;
   try { u = new window.SpeechSynthesisUtterance(String(text)); }
@@ -25797,6 +25849,7 @@ var VOICE_ERROR_COPY = {
   mic_denied:           'Microphone access is off — allow it in your browser settings, or type your question instead',
   mic_failed:           'Could not hear that — try again, or type it instead',
   mic_timeout:          'Didn’t catch anything — type your question instead',
+  mic_busy:             'Something else is using the microphone — try again in a moment',
   declined:             'Your coach cannot answer that one'
 };
 
@@ -25830,10 +25883,66 @@ function voiceRecognitionCtor(){
    Returning a REASON rather than a boolean is what lets the panel say something
    true instead of drawing a dead control -- which is the rule this product
    already applies to the Garmin card and to Strava. */
+/* ---------- NATIVE SPEECH INPUT ----------
+   The installed app's microphone runs through VvvSpeechPlugin (local, see
+   android/.../VvvSpeechPlugin.java) rather than webkitSpeechRecognition, which
+   exists in Android WebView and has nothing behind it.
+
+   ON-DEVICE IS A REQUIREMENT HERE, NOT A PREFERENCE, and this is the line worth
+   reading twice. Android's ordinary recogniser is a front end to whatever
+   service the phone has -- usually Google's -- and that service MAY send the
+   audio away. A spoken question to a running coach can contain health
+   information ("my calf hurts"), so routing it to a third party is a decision
+   about sub-processors and Article 9, not an implementation detail.
+
+   Valhalla therefore asks the plugin for the ON-DEVICE recogniser only. A
+   device that has none is refused and the athlete types instead. Turning the
+   networked recogniser on is a founder decision with a privacy consequence, and
+   it is reported rather than taken here. */
+var voiceNativeSttState = null;     // null = not asked yet
+function voiceNativeStt(){
+  try { return nativePlugin('VvvSpeech'); } catch(e){ return null; }
+}
+function voiceCheckNativeStt(){
+  var p = voiceNativeStt();
+  if (!p || !p.available) { voiceNativeSttState = { supported:false, onDevice:false }; return Promise.resolve(voiceNativeSttState); }
+  return p.available().then(function(r){
+    voiceNativeSttState = { supported: !!(r && r.supported), onDevice: !!(r && r.onDevice),
+                            granted: !!(r && r.granted) };
+    patchVoiceCard();
+    return voiceNativeSttState;
+  }).catch(function(){
+    voiceNativeSttState = { supported:false, onDevice:false };
+    return voiceNativeSttState;
+  });
+}
+/* Usable = the plugin is there AND the platform has an on-device recogniser.
+   Before the probe answers, the honest state is "not yet known", which draws no
+   microphone -- failing closed, as everywhere else here. */
+function voiceNativeSttUsable(){
+  return !!(voiceNativeStt() && voiceNativeSttState &&
+            voiceNativeSttState.supported && voiceNativeSttState.onDevice);
+}
+
+/* WHY A CONSTRUCTOR CHECK IS NOT ENOUGH, learned from a live Android test where
+   "Speak instead" was drawn and then did nothing.
+
+   Order matters: the native path is tried first because inside the installed
+   app it is the only one that works. The web path is kept for real browsers,
+   where it works well. Typing is always available under both. */
 function voiceSttUnsupportedReason(){
+  if (voiceNativeSttUsable()) return null;
+  try{
+    if (isNativeApp()){
+      /* In the installed app the web recogniser is a decoy -- present and
+         inert -- so the native answer is the only one that counts. */
+      if (voiceNativeSttState && voiceNativeSttState.supported && !voiceNativeSttState.onDevice)
+        return 'no_on_device';
+      return 'native_unavailable';
+    }
+  }catch(e){}
   if (!voiceRecognitionCtor()) return 'no_api';
   try{ if (typeof window !== 'undefined' && window.isSecureContext === false) return 'insecure'; }catch(e){}
-  try{ if (isNativeApp()) return 'native_shell'; }catch(e){}
   return null;
 }
 function voiceSttAvailable(){ return !voiceSttUnsupportedReason(); }
@@ -25841,9 +25950,12 @@ function voiceSttAvailable(){ return !voiceSttUnsupportedReason(); }
 /* Said in product language. No API names, no permission jargon, and each one
    points at the thing the athlete can actually do next. */
 var VOICE_STT_COPY = {
-  native_shell: 'Speaking isn’t available inside the app — type your question here, or open Valhalla in your browser to talk to your coach.',
-  insecure:     'Speaking needs a secure connection — type your question instead.',
-  no_api:       'This browser can’t listen — type your question instead.'
+  /* Said in product language. No API names, no permission jargon, no mention of
+     recognisers or providers -- each one names what the athlete can do next. */
+  no_on_device:       'This phone can only transcribe speech by sending it away, so Valhalla doesn’t use it — type your question instead.',
+  native_unavailable: 'Speaking isn’t available on this phone — type your question instead.',
+  insecure:           'Speaking needs a secure connection — type your question instead.',
+  no_api:             'This browser can’t listen — type your question instead.'
 };
 
 /* A LISTENING STATE THAT CANNOT END IS WORSE THAN NO MICROPHONE. Some platforms
@@ -25856,7 +25968,50 @@ function askClearListenTimer(){
 }
 
 var askRecognition = null;
+/* THE NATIVE LISTEN, for the installed app. One call, one answer: Android
+   handles the permission prompt, the microphone and the transcription, and
+   hands back text. Raw audio is never seen by Valhalla and never leaves the
+   phone, because the on-device recogniser is the only one this asks for. */
+function askStartListeningNative(){
+  var p = voiceNativeStt();
+  if (!p || !p.listen){ askSet('error', { message:VOICE_ERROR_COPY.mic_failed }); return; }
+  askSet('listening', { heard:'', answer:'', message:'' });
+  askClearListenTimer();
+  /* The watchdog stays, for the same reason it exists on the web path: a
+     listening state that depends on a callback is a listening state that can
+     hang. Android is well behaved, but the athlete's way out must not depend on
+     that. */
+  askListenTimer = setTimeout(function(){
+    if (askState.status !== 'listening') return;
+    try{ if (p.cancel) p.cancel(); }catch(e){}
+    askSet('error', { message:VOICE_ERROR_COPY.mic_timeout });
+  }, VOICE_STT_TIMEOUT_MS);
+
+  p.listen({ requireOnDevice:true, lang:VOICE_LANG }).then(function(r){
+    askClearListenTimer();
+    var said = (r && r.transcript) ? String(r.transcript).trim() : '';
+    if (!said){ askSet('error', { message:VOICE_ERROR_COPY.mic_failed }); return; }
+    /* Shown before it is sent, and the answer is spoken back because the
+       question was spoken -- a voice conversation should end in a voice. */
+    askSet('thinking', { heard:said });
+    askSend(said, { spoken:true });
+  }).catch(function(err){
+    askClearListenTimer();
+    var code = (err && (err.code || err.message)) || '';
+    var msg = /PERMISSION_DENIED/.test(code) ? VOICE_ERROR_COPY.mic_denied
+            : /NO_SPEECH/.test(code)         ? VOICE_ERROR_COPY.mic_timeout
+            : /CANCELLED/.test(code)         ? ''
+            : /BUSY/.test(code)              ? VOICE_ERROR_COPY.mic_busy
+            : VOICE_ERROR_COPY.mic_failed;
+    if (!msg) askSet('open', {});
+    else askSet('error', { message:msg });
+  });
+}
+
 function askStartListening(){
+  /* Rapid repeated presses must not stack recognisers. */
+  if (askState.status === 'listening') return;
+  if (voiceNativeSttUsable()) return askStartListeningNative();
   var Ctor = voiceRecognitionCtor();
   if (!Ctor){ askSet('error', { message:VOICE_ERROR_COPY.mic_failed }); return; }
   try{
@@ -25873,7 +26028,7 @@ function askStartListening(){
          can correct it, which matters more here than in an ordinary search box:
          a misheard question about a sore calf is a misheard health statement. */
       askSet('thinking', { heard:said });
-      askSend(said);
+      askSend(said, { spoken:true });
     };
     askRecognition.onerror = function(ev){
       askClearListenTimer();
@@ -25902,13 +26057,19 @@ function askStartListening(){
 }
 function askStopListening(){
   askClearListenTimer();
+  var np = voiceNativeStt();
+  if (np && np.cancel){ try{ np.cancel(); }catch(e){} }
   if (askRecognition){ try{ askRecognition.stop(); }catch(e){} }
   askRecognition = null;
   if (askState.status === 'listening') askSet('open');
 }
 
 /* ---------- asking ---------- */
-function askSend(question){
+/* `opts.spoken` records that the question ARRIVED by voice. The answer is
+   spoken either way -- Ask Coach is an explicit press, so this is never
+   autoplay -- but the flag keeps the round trip honest for the caller and for
+   the tests that assert a spoken question ends in a spoken answer. */
+function askSend(question, opts){
   var q = String(question || '').trim();
   if (!q) return Promise.resolve(null);
   if (!voiceCoachAvailable){ askSet('error', { message:VOICE_ERROR_COPY.voice_disabled }); return Promise.resolve(null); }
@@ -29355,6 +29516,11 @@ function handleSetView(view){
   if (view==='today' && !window.__vvvVoiceProbed){
     window.__vvvVoiceProbed = true;
     try{ voiceCheckAvailability(); }catch(e){}
+    /* Whether this phone can transcribe WITHOUT sending the audio away. Asked
+       once, on the only screen that can draw a microphone, and until it answers
+       no microphone is drawn -- the same fail-closed default as everything else
+       here. Costs nothing in a browser, where the plugin is absent. */
+    try{ voiceCheckNativeStt(); }catch(e){}
   }
   if (view==='settings' && cloudConfigured() && !window.__vvvStravaProbed){
     window.__vvvStravaProbed = true;

@@ -355,10 +355,22 @@ test('the Android release document matches the manifest and the gradle build', (
   assert.match(gradle, /applicationId "com\.velvetviking\.valhalla"/);
   assert.match(doc, /`allowBackup=false`|allowBackup=false/);
   assert.match(manifest, /android:allowBackup="false"/);
-  assert.match(doc, /INTERNET.*and nothing else|`INTERNET`, and nothing else/);
-  const perms = manifest.match(/uses-permission android:name="([^"]+)"/g) || [];
-  assert.deepEqual(perms, ['uses-permission android:name="android.permission.INTERNET"'],
-    'the document claims one permission; the manifest asks for more');
+  /* THE INVARIANT IS THAT THE DOCUMENT AND THE MANIFEST AGREE, not that the
+     list never grows: this doubles as the source for the Play Data Safety
+     declaration, so a permission added without a line explaining it is exactly
+     the drift worth failing on. RECORD_AUDIO joined it for the Ask Coach
+     microphone -- runtime-requested, on-device recognition only, no audio
+     retained or transmitted. */
+  const perms = (manifest.match(/uses-permission android:name="([^"]+)"/g) || [])
+    .map(x => x.replace(/.*name="|"$/g, '')).sort();
+  assert.deepEqual(perms, ['android.permission.INTERNET', 'android.permission.RECORD_AUDIO'],
+    'the manifest permissions changed -- update ANDROID-RELEASE.md and this list together');
+  assert.match(doc, /`INTERNET`, and `RECORD_AUDIO`/,
+    'the document no longer states the permissions the manifest asks for');
+  assert.match(doc, /requested \*\*at runtime\*\*/, 'the document must say the microphone is runtime-requested');
+  assert.match(doc, /on-device/, 'the document must state which recogniser is used');
+  assert.match(manifest, /android\.speech\.RecognitionService/,
+    'the recogniser query is required from Android 11');
   // The release-signing claim is the one that would ship a broken artifact.
   assert.match(doc, /no fallback/);
   assert.match(gradle, /signingConfig signingConfigs\.stable/);

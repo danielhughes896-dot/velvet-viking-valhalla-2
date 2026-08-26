@@ -111,16 +111,27 @@ test('LISTEN works for a Strava-connected founder account', () => {
 // ---------------------------------------------------------------------------
 // DEFECT 2 — THE MICROPHONE THAT COULD NOT LISTEN
 // ---------------------------------------------------------------------------
-test('REGRESSION: no microphone control inside the installed app', () => {
-  /* The constructor exists in Android WebView and nothing services it, so its
-     presence is not permission to draw a control. */
+/* SUPERSEDED BY THE NATIVE PATH, and deliberately kept rather than deleted.
+ *
+ * These two used to assert that the installed app gets NO microphone, which was
+ * the right answer while the WebView decoy was the only option and the wrong
+ * answer as a product. The rule that survives is the one underneath: a control
+ * is drawn only where it can actually work. What changed is that inside the
+ * app it now can -- through VvvSpeechPlugin -- so the assertion flips while the
+ * principle does not.
+ *
+ * The decoy is still the thing that must never be used; see
+ * test/voiceNativeAndroid.test.js. */
+test('REGRESSION: the WebView decoy is never what gets used', () => {
   const a = androidApp({ stt: function(){} });
-  assert.equal(a.voiceSttUnsupportedReason(), 'native_shell');
-  assert.equal(a.voiceSttAvailable(), false);
+  /* No native plugin registered, so there is no working path at all -- and the
+     bare presence of webkitSpeechRecognition must not draw a microphone. */
+  assert.equal(a.voiceNativeSttUsable(), false);
+  assert.equal(a.voiceSttAvailable(), false,
+    'the WebView decoy was mistaken for working speech input');
   a.askSet('open', {});
   const panel = a.renderAskPanel(today(a));
-  assert.ok(!/data-action="voice-ask-speak"/.test(panel),
-    'a microphone was offered where speech recognition cannot work');
+  assert.ok(!/data-action="voice-ask-speak"/.test(panel));
   assert.match(panel, /id="ask-input"/, 'and typing must always remain');
 });
 
@@ -128,9 +139,8 @@ test('the athlete is told why, in product language', () => {
   const a = androidApp({ stt: function(){} });
   a.askSet('open', {});
   const panel = a.renderAskPanel(today(a));
-  assert.match(panel, /Speaking isn’t available inside the app/);
   assert.match(panel, /type your question/i, 'no alternative was offered');
-  ['SpeechRecognition', 'webkit', 'permission', 'API', 'secure context', 'WebView']
+  ['SpeechRecognition', 'webkit', 'permission', 'API', 'secure context', 'WebView', 'plugin']
     .forEach(w => assert.ok(!new RegExp(w, 'i').test(panel),
       'developer vocabulary reached the athlete: ' + w));
 });
@@ -145,9 +155,10 @@ test('an ordinary mobile browser still gets the microphone', () => {
 
 test('every unsupported reason is distinguishable and explained', () => {
   const a = androidApp();
-  assert.equal(a.voiceSttUnsupportedReason(), 'no_api');
+  assert.equal(a.voiceSttUnsupportedReason(), 'native_unavailable',
+    'the installed app with no working recogniser has its own reason');
   a.window.webkitSpeechRecognition = function(){};
-  a.window.Capacitor = null;
+  a.window.Capacitor = null;                       // an ordinary browser now
   a.window.isSecureContext = false;
   assert.equal(a.voiceSttUnsupportedReason(), 'insecure');
   Object.keys(a.VOICE_STT_COPY).forEach(k => {
