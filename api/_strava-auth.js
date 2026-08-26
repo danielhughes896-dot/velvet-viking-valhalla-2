@@ -12,6 +12,19 @@
 const S = require('./_strava.js');
 
 async function handleStart(req, res, cfg, uid){
+
+  /* IS THERE A SEAT. Asked here, before an athlete is walked into a Strava
+     authorisation screen that Valhalla already knows it has no room to honour.
+     An athlete who is already connected passes this without consuming
+     anything -- see stravaMayConnect(). */
+  const may = await S.stravaMayConnect(cfg, uid);
+  if (!may.ok){
+    S.log('auth', 'START_REFUSED reason=' + may.reason);
+    return S.json(res, 403, {
+      error: may.reason === 'beta_full' ? 'strava_beta_full' : 'strava_unavailable',
+      code:  may.reason === 'beta_full' ? 'STRAVA_BETA_FULL' : 'STRAVA_UNAVAILABLE'
+    });
+  }
   /* The beta gate, checked here rather than only in the UI: `start` is the one
      action that creates a NEW authorization, so refusing it server-side is what
      makes "no Strava during the private beta" true even for someone posting at
@@ -125,10 +138,17 @@ async function handle(req, res){
 
      THE REFUSAL SAYS NOTHING. `strava_unavailable` is the same answer an
      athlete gets when the deployment switch is off, and deliberately so: an
-     ordinary athlete has no use for the words "allowlist" or "API policy", and
-     a refusal that explains its own mechanism is a refusal that describes the
-     mechanism to whoever is probing it. The log records that a request was
-     refused; it does not record who. */
+     ordinary athlete has no use for the words "API policy", and a refusal that
+     explains its own mechanism is a refusal that describes the mechanism to
+     whoever is probing it. The log records that a request was refused; it does
+     not record who.
+
+     THIS IS NOW THE DEPLOYMENT QUESTION ONLY -- is Strava commissioned here,
+     and is there a verified account asking. Whether there is ROOM is a separate
+     question with a separate answer, asked in handleStart() where an athlete is
+     actually about to be sent to Strava. Status must not consult the cap: an
+     athlete already connected has to be able to read their own connection on a
+     full deployment. */
   if (action !== 'disconnect' && !S.stravaPermitted(uid)){
     S.log('auth', 'NOT_PERMITTED action=' + (action || 'none'));
     return S.json(res, 403, { error: 'strava_unavailable', code: 'STRAVA_UNAVAILABLE' });

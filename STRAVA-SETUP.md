@@ -96,9 +96,9 @@ integration:
 | Name | Value | Where it comes from |
 | --- | --- | --- |
 | `VVV_STRAVA_ENABLED` | `1` | you. Anything other than `1` means the integration is not offered at all and no request reaches Strava. |
-| `VVV_STRAVA_ALLOWED_USER_IDS` | your Supabase user UUID — the same one you copied in Part 2b | Supabase → Authentication → Users → the **UID** column |
+| `VVV_STRAVA_MAX_ATHLETES` | `10` (or leave unset) | you. This is the private-beta capacity; unset means 10. |
 
-`VVV_STRAVA_ALLOWED_USER_IDS` accepts more than one id, separated by commas or
+`VVV_STRAVA_MAX_ATHLETES` accepts a positive whole number, or
 newlines, if a second test account is ever needed.
 
 What this does:
@@ -117,13 +117,15 @@ What this does:
   webhook is still honoured. Restricting access must never trap an existing
   authorization or block a deletion.
 
-The id is not a secret and grants nothing on its own — the server still
-requires a valid signed-in session belonging to that id — but it is an account
-identifier, so it belongs in Vercel and not in a commit, a test or a chat
-message.
+**Eligibility is no longer an allowlist.** Any athlete with a verified
+Valhalla account may connect Strava, up to the private-beta capacity. That is
+not public access: Valhalla accounts are themselves a closed beta, so the
+account is the first gate and the capacity is the second. See
+STRAVA-BETA-STATUS.md for how that decision was reached.
 
-**Do not set `VVV_STRAVA_ALLOWED_USER_IDS` to anything other than your own
-account** until the open Strava API Policy question has a written answer.
+`VVV_STRAVA_ALLOWED_USER_IDS` is **obsolete** and is read by nothing. It can be
+removed from the deployment at your convenience; leaving it set changes no
+behaviour.
 
 ### Why the name starts with `VVV_`
 

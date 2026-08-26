@@ -124,52 +124,102 @@ function stravaEnabled(){
 }
 
 /* =========================================================
-   FOUNDER-ONLY ACCESS, WHILE THE POLICY QUESTION IS OPEN
+   THE PRIVATE BETA, AND WHAT ACTUALLY LIMITS IT
 
-   WHY THIS EXISTS. Strava's API Policy (effective 1 June 2026) leaves a real
-   question open about Valhalla's intended coaching use -- see
-   STRAVA-DATA-CONTRACT.md -- and written clarification has been requested.
-   Until it arrives the integration is exercised end to end by exactly one
-   account, so the deployment can be verified for real without any other
-   athlete's Strava Data being processed at all.
+   WHAT CHANGED. This was founder-only: one hard-coded account id, supplied as
+   VVV_STRAVA_ALLOWED_USER_IDS, was the single thing permitted to touch Strava
+   while a policy question was open. Clarification was requested from Strava and
+   their intended use disclosed; Strava declined to give individual feedback and
+   referred Valhalla back to the published API Agreement and API Policy. That is
+   NEITHER approval NOR rejection, and STRAVA-BETA-STATUS.md records it as
+   exactly that. On the strength of it the founder authorised the integration
+   for the private beta already available to this application.
 
-   IDENTIFIED BY ACCOUNT ID, AND NOTHING ELSE. Not an email, not a Strava
-   athlete id, not a name, and above all not a client-side flag: the browser
-   asks for what it may see, so anything the browser can set is an answer the
-   browser can forge. The value compared is the Supabase user id on the
-   verified JWT -- the same id every other route already trusts.
+   SO ELIGIBILITY IS NO LONGER A LIST. Any athlete with a verified Valhalla
+   account may connect Strava. That is not "public": Valhalla accounts are
+   themselves a closed beta, so the account IS the first gate, and the seat
+   count below is the second.
 
-   THE ID IS NOT IN THIS REPOSITORY. It arrives as VVV_STRAVA_ALLOWED_USER_IDS,
-   comma-separated so the shape supports more than one without a code change
-   when the answer comes back. Nothing here logs it: the log lines below record
-   THAT a request was refused, never who was refused.
+   WHY A SEAT COUNT AND NOT A CLAIM ABOUT STRAVA. Valhalla cannot see how many
+   athletes Strava believes this application has, and must not pretend to.
+   What it CAN count exactly is its own roster -- the rows in
+   strava_connections, a table it owns. That is what is capped here. Strava
+   remains authoritative for its own limit, and a refusal from Strava is handled
+   on its own terms at the callback; this cap simply stops Valhalla walking an
+   athlete into an authorisation it already knows it has no room for.
 
-   IT FAILS CLOSED, in every direction. Unset, empty, whitespace, malformed,
-   no authenticated user, or a user not on the list -- all the same answer, and
-   the answer is no. There is deliberately no "allow all" value: a wildcard
-   would make an accidental `*` in a dashboard field indistinguishable from a
-   decision, and the decision this gate holds is one nobody should be able to
-   take by typo.
+   IT FAILS CLOSED, AND ONLY IN ONE DIRECTION. If the roster cannot be counted,
+   no NEW connection is allowed -- an unprovable seat is not a free one. An
+   athlete who already holds a connection is never affected by any of this:
+   they are not counted against admission, not re-checked, and not disconnected.
+   Reaching the cap must never disturb the athletes already inside it.
    ========================================================= */
-function stravaAllowedUserIds(){
-  const raw = String(env('VVV_STRAVA_ALLOWED_USER_IDS') || '');
-  return raw.split(/[,\s]+/)
-    .map(x => x.trim().toLowerCase())
-    /* A UUID or nothing. Anything else in the list is a configuration mistake
-       and is dropped rather than matched loosely -- a partial or wildcard
-       entry must never widen access. */
-    .filter(x => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(x));
+
+/* Ten, unless the deployment says otherwise. Kept configurable because the
+   number belongs to whatever capacity the application currently has, and that
+   is not a fact about this source file. A malformed or absent value takes the
+   default rather than removing the limit -- there is deliberately no value
+   meaning "unlimited", for the same reason the old allowlist had no wildcard:
+   a typo in a dashboard field must never be indistinguishable from a decision. */
+const STRAVA_BETA_SEATS_DEFAULT = 10;
+function stravaBetaSeats(){
+  const raw = String(env('VVV_STRAVA_MAX_ATHLETES') || '').trim();
+  const n = /^\d+$/.test(raw) ? parseInt(raw, 10) : NaN;
+  return (Number.isFinite(n) && n > 0) ? n : STRAVA_BETA_SEATS_DEFAULT;
 }
-function stravaAllowedForUser(uid){
-  if (!uid) return false;
-  const allowed = stravaAllowedUserIds();
-  if (!allowed.length) return false;
-  return allowed.indexOf(String(uid).trim().toLowerCase()) !== -1;
+
+/* How many athletes this deployment currently has connected. Returns null when
+   the count cannot be established, which callers must treat as "no room" --
+   never as zero. */
+async function stravaSeatsTaken(cfg){
+  try{
+    const r = await sb(cfg, '/strava_connections?select=user_id', { prefer: 'count=exact' });
+    if (!r.ok) return null;
+    /* PostgREST reports the total in content-range as "0-9/10"; the part after
+       the slash is the count, and "*" means it declined to compute one. */
+    const range = String((r.headers && r.headers.get && r.headers.get('content-range')) || '');
+    const total = range.split('/')[1];
+    if (!total || !/^\d+$/.test(total)) return null;
+    return parseInt(total, 10);
+  }catch(e){ return null; }
 }
-/* THE ONE QUESTION EVERY ATHLETE-FACING ROUTE ASKS. Both halves, in one call,
-   so a route cannot satisfy the deployment flag and forget the allowlist --
-   which is the shape of mistake that would open this to everybody. */
-function stravaPermitted(uid){ return stravaEnabled() && stravaAllowedForUser(uid); }
+
+/* MAY THIS ATHLETE HOLD A STRAVA CONNECTION. One call, so no route can satisfy
+   the deployment flag and forget the roster.
+
+   Returns { ok, reason } rather than a boolean: "no, the beta is full" and
+   "no, Strava is switched off here" are different things to say to an athlete,
+   and a caller that cannot tell them apart will say the wrong one. */
+async function stravaMayConnect(cfg, uid){
+  if (!stravaEnabled()) return { ok: false, reason: 'strava_disabled' };
+  if (!uid)             return { ok: false, reason: 'signin' };
+
+  /* AN EXISTING CONNECTION ALWAYS WINS, and is checked first so that a
+     reconnect, a token refresh or a re-authorisation can never be turned away
+     by a full roster the athlete is already part of. */
+  const existing = await getConnection(cfg, uid);
+  if (existing) return { ok: true, reason: 'existing' };
+
+  const taken = await stravaSeatsTaken(cfg);
+  if (taken === null) return { ok: false, reason: 'capacity_unknown' };
+  return taken < stravaBetaSeats()
+    ? { ok: true, reason: 'seat_available' }
+    : { ok: false, reason: 'beta_full' };
+}
+
+/* Does this athlete already hold a connection -- the question every route that
+   only READS or DELETES needs, and the one that must never consult the cap.
+   Sync, disconnect and webhook delivery for an athlete already inside the beta
+   are unaffected by how full it is. */
+async function stravaHasConnection(cfg, uid){
+  if (!stravaEnabled() || !uid) return false;
+  return !!(await getConnection(cfg, uid));
+}
+
+/* THE DEPLOYMENT-LEVEL QUESTION, unchanged in meaning: is Strava commissioned
+   on this deployment at all. It is no longer per-athlete, because eligibility
+   no longer is. */
+function stravaPermitted(uid){ return stravaEnabled() && !!uid; }
 
 function config(){
   const svc = resolveServiceKey();
@@ -588,7 +638,8 @@ function json(res, status, obj){
 }
 
 module.exports = {
-  stravaAllowedUserIds, stravaAllowedForUser, stravaPermitted,
+  stravaPermitted, stravaBetaSeats, stravaSeatsTaken,
+  stravaMayConnect, stravaHasConnection,
   STRAVA_AUTHORIZE_URL, STRAVA_TOKEN_URL, STRAVA_DEAUTH_URL, STRAVA_API, STRAVA_SCOPE,
   config, stravaEnabled, siteOrigin, redirectUri, readBody,
   signState, verifyState, userIdFromRequest, verifyUser, diagLine,
