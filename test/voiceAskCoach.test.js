@@ -142,7 +142,8 @@ test('without consent, no health information is assembled at all', () => {
   const json = JSON.stringify(a.voiceCoachContext());
   assert.ok(!/151/.test(json), 'a heart rate reached the model context without consent');
   assert.ok(!/"feel"/.test(json), 'how the session felt reached the model context without consent');
-  assert.match(json, /"healthWithheld":true/);
+  assert.match(json, /"healthInformation":true/,
+    'the context must declare that health information is withheld, not merely omit it');
   assert.match(json, /"effort":6/, 'ordinary training data should still be available');
 });
 
@@ -290,64 +291,6 @@ test('the model id is pinned in one place', () => {
   const runtimeCode = SRC.replace(/\/\*[\s\S]*?\*\//g, ' ');
   assert.ok(!/claude-|opus|sonnet/i.test(runtimeCode),
     'a model name reached the file served to the browser');
-});
-
-// ---------------------------------------------------------------------------
-// THE ACCOUNT-LEVEL SEPARATION FROM STRAVA
-// ---------------------------------------------------------------------------
-/* The per-day fence answers "did this number come from Strava". This answers a
- * blunter question that needs no interpretation: may this ACCOUNT touch Strava?
- * If it may, it does not get Ask Coach. The two sets are disjoint, which is a
- * stronger and simpler claim than "the Strava-derived parts were removed".
- *
- * It is not a legal reading. It removes the case where the reading is needed.
- */
-const FOUNDER = '11111111-2222-3333-4444-555555555555';
-const OTHER   = '99999999-8888-7777-6666-555555555555';
-
-test('an account that may use Strava is refused Ask Coach', () => {
-  withEnv({ VVV_STRAVA_ENABLED: '1', VVV_STRAVA_ALLOWED_USER_IDS: FOUNDER }, () => {
-    const S = require('../api/_strava.js');
-    assert.equal(S.stravaAllowedForUser(FOUNDER), true, 'precondition: the founder may use Strava');
-    assert.equal(S.stravaAllowedForUser(OTHER), false);
-  });
-  /* Enforced at the endpoint, before the question is even read -- the refusal
-     precedes the body parse and therefore the outbound request. */
-  const at = ASK.indexOf('STRAVA_ACCOUNT_SEPARATION');
-  const readBodyAt = ASK.indexOf('V.readBody(req)');
-  const fetchAt = ASK.indexOf('await fetch(');
-  assert.ok(at > 0, 'the separation is not enforced at the ask endpoint');
-  assert.ok(at < readBodyAt, 'the refusal must precede reading the question');
-  assert.ok(at < fetchAt, 'the refusal must precede the outbound request');
-});
-
-test('the separation reads the environment, never the database', () => {
-  /* The endpoint keeps its no-database property, which is what bounds the
-     blast radius of a compromised or hallucinating model. */
-  const code = ASK.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
-  assert.match(code, /stravaAllowedForUser\(who\.uid\)/,
-    'the separation must key on the verified JWT id');
-  assert.ok(!/serviceKey|service_role|rest\/v1|getConnection/.test(code),
-    'the separation reached the database -- it must read only the environment');
-});
-
-test('the availability probe answers per caller, so no refused control is drawn', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'api', '_voice-enabled.js'), 'utf8');
-  assert.match(src, /stravaAllowedForUser/,
-    'the probe does not know about the separation and will draw a control the server refuses');
-  assert.match(src, /verifyUser/, 'the probe cannot identify the caller');
-  assert.match(SRC, /headers\['authorization'\] = 'Bearer ' \+ cloudSession\.access_token/,
-    'the client does not send its token, so the probe cannot answer per caller');
-});
-
-test('the refusal is explained to the athlete without naming a mechanism', () => {
-  const a = athlete();
-  const copy = a.VOICE_ERROR_COPY.voice_unavailable_strava_account;
-  assert.ok(copy && copy.length > 20);
-  assert.match(copy, /Strava/);
-  assert.ok(!/allowlist|policy|5\.3|API|endpoint|403/i.test(copy),
-    'the refusal describes a mechanism: ' + copy);
-  assert.match(copy, /hear/i, 'the athlete is not told what they DO still have');
 });
 
 // ---------------------------------------------------------------------------

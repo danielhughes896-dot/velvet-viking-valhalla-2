@@ -12,12 +12,12 @@
 // rather than on. This is a UI input, never an enforcement point: /api/voice-ask
 // checks the same flags for itself, and also that a key exists.
 //
-// This answer is PER CALLER, not per deployment, because Ask Coach and Strava
-// are mutually exclusive per account -- an account that may use Strava is
-// refused Ask Coach. LISTEN is unaffected and asks this route nothing.
+// A DEPLOYMENT question, not an account one. Having Strava connected, or being
+// on the Strava allowlist, does not affect whether an athlete may talk to their
+// coach -- it affects only which EVIDENCE may reach the model, which is decided
+// per item when the context is assembled. LISTEN asks this route nothing.
 
 const V = require('./_voice.js');
-const S = require('./_strava.js');
 
 async function handle(req, res){
   if (req.method !== 'GET' && req.method !== 'HEAD'){
@@ -30,16 +30,17 @@ async function handle(req, res){
      draw an Ask Coach control that always fails. */
   if (!(cfg.enabled && cfg.apiKey)) return V.json(res, 200, { enabled: false });
 
-  /* THE ACCOUNT-LEVEL SEPARATION, ANSWERED PER CALLER so no Ask Coach control
-     is drawn for somebody /api/voice-ask would refuse. A token is optional
-     here: no token is a signed-out athlete, and false is the honest answer for
-     them, which is also what a failed verification gives. Fails closed either
-     way. See the note in _voice-ask.js for why the two capabilities are
-     disjoint. */
-  let uid = null;
-  try { uid = (await S.verifyUser(req, S.config())).uid || null; } catch(e){ uid = null; }
-  if (!uid) return V.json(res, 200, { enabled: false });
-  return V.json(res, 200, { enabled: !S.stravaAllowedForUser(uid) });
+  /* ACCOUNT ELIGIBILITY IS NOT DATA ELIGIBILITY, and an earlier pass of this
+     file confused the two: it refused Ask Coach to any account permitted to use
+     Strava. That is not the product. An athlete may have Strava, LISTEN and Ask
+     Coach at once; what Strava restricts is the DATA that may reach a model,
+     and that is enforced per item of evidence when the context is assembled --
+     not by removing the capability from the account.
+
+     So this route is back to a deployment question, and a signed-out athlete
+     gets the same answer as a signed-in one. Ask Coach still requires the
+     switch and a key, and still fails closed without either. */
+  return V.json(res, 200, { enabled: true });
 }
 
 module.exports = { handle };

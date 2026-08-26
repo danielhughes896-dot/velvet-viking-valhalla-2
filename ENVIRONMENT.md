@@ -86,25 +86,19 @@ half — reaches a model, and only these three variables switch it on.
 | `ANTHROPIC_API_KEY` | **YES** | Authenticates the Ask Coach model call. Server-side only — it is read in `api/_voice.js` and never reaches the browser. | for Ask Coach | console.anthropic.com → API keys |
 | `VVV_VOICE_MODEL` | no | Overrides the model id. Leave unset; the pinned default is `claude-opus-5`, verified 2026-08-26 against the official model list, and is what the prompt and the cost estimate were written against. | unset | — |
 
-**Ask Coach and Strava are mutually exclusive per account.** An account listed
-in `VVV_STRAVA_ALLOWED_USER_IDS` is refused `/api/voice-ask` and is shown no Ask
-Coach control. This is a deliberate separation, not a bug: Strava's API Policy
-5.3 restricts Strava Data in connection with the operation of an AI Application,
-and the cleanest answer is that the set of accounts which may touch Strava and
-the set which may reach a model do not overlap. The check reads only the
-environment — no database, no service-role key.
+**Ask Coach and Strava coexist on the same account.** Having Strava connected,
+being listed in `VVV_STRAVA_ALLOWED_USER_IDS`, or holding Strava-derived history
+does not disable LISTEN or Ask Coach. Account eligibility and data eligibility
+are different things: `VVV_STRAVA_ALLOWED_USER_IDS` controls **who may use
+Strava** and nothing else.
 
-**Operational consequence, worth knowing before testing.** The founder account
-is currently the only one on the Strava allowlist, so Ask Coach cannot be
-exercised from it. To test Ask Coach, either use a second account that is not on
-the allowlist, or remove the account from `VVV_STRAVA_ALLOWED_USER_IDS` and
-redeploy while testing. LISTEN is unaffected on every account.
-
-**LISTEN needs none of these.** The pre-session briefing and the post-run
-debrief are composed on the device from coaching Valhalla has already decided,
-and spoken by the browser's own voice. They keep working with no key, no
-network and no switch — which is why an outage or an unconfigured deployment
-costs the athlete the conversation, never the coaching.
+What the Strava restriction governs is **which evidence may reach the model**,
+and that is decided per item when the context is assembled — a Strava-derived
+day, a plan change made after Strava evidence existed, and any pace-relative
+conclusion descending from a Strava-anchored fitness reading are all withheld,
+while the athlete's own manual sessions, their own typed numbers and their whole
+planned programme remain available. One imported run never costs an athlete
+their coach.
 
 ## Garmin — off, and nothing has a default
 

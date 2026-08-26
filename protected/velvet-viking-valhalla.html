@@ -25481,13 +25481,110 @@ function voiceSpeak(text, opts){
    asserts it by adding a poisoned field and requiring it never to appear.
    ========================================================= */
 
+/* ---------- PROVENANCE OF DERIVED VALUES ----------
+   THE HARD PART, AND THE ONE A DAY-LEVEL FENCE ALONE DOES NOT COVER.
+
+   Excluding Strava-derived DAYS is necessary and not sufficient. Valhalla is a
+   coaching engine: it turns days into conclusions, and a conclusion computed
+   from a Strava-derived day is Strava-derived however independent the number
+   looks by the time it is printed. Renaming it, averaging it or calling it a
+   score does not change where it came from.
+
+   THE PATH THAT MATTERS, found by following the code rather than assumed:
+
+     a Strava-imported race or checkpoint
+       -> performanceFromDay() records { date, source, km, timeSec, vdot } and
+          DOES NOT carry the Strava marker forward
+       -> bestRecentPerformance() can make it the top rung of
+          currentFitnessAnchor()
+       -> getActivePaces() derives every training zone from that VDOT
+       -> computeExecutionScore() judges every session against those zones
+
+   So on an athlete whose fitness anchor came from a Strava-attached effort, the
+   execution score of a MANUALLY logged run is still materially derived from
+   Strava. That is exactly the "pass a deterministic conclusion and claim it is
+   now independent" case, and it is invisible unless someone follows the chain.
+
+   WHAT IS DONE ABOUT IT. Independence is established positively where it can
+   be, and where it cannot the DERIVED VALUE is withheld -- not the day, and
+   never the account. An athlete with one Strava run keeps every manual session,
+   every number they typed themselves and their whole planned programme; what
+   they lose from the conversation is the derived judgement that cannot be shown
+   to be Strava-free. */
+
+/* Does this athlete hold any Strava-derived evidence at all? The answer is no
+   for every athlete who has never connected it, and none of the caution below
+   then applies -- nothing is withheld from them for a reason that is not
+   theirs. */
+function voiceHasStravaEvidence(){
+  var days = (state && state.days) || [];
+  for (var i=0; i<days.length; i++) if (isStravaDerived(days[i])) return true;
+  return false;
+}
+
+/* Can the current training paces -- and therefore every execution score -- be
+   shown to be independent of Strava?
+
+     benchmark / goal   athlete-entered numbers. Independent.
+     performance        a race or checkpoint. Independent only if the DAY it
+                        came from is not Strava-derived.
+     calibration        a calibration session. The same test, on its own date.
+
+   FAILS CLOSED. An anchor whose originating day cannot be found is not provably
+   independent, and unknown provenance is treated as prohibited provenance
+   rather than as permission. */
+function voiceFitnessAnchorIndependent(){
+  if (!voiceHasStravaEvidence()) return true;
+  var anchor;
+  try { anchor = currentFitnessAnchor(); } catch(e){ return false; }
+  if (!anchor || anchor.vdot == null) return true;     // nothing derived from it yet
+  if (anchor.source === 'benchmark' || anchor.source === 'goal') return true;
+  if (anchor.source !== 'performance' && anchor.source !== 'calibration') return false;
+  var date = anchor.date ||
+    (anchor.source === 'calibration' && state.setup ? state.setup.thresholdPaceMeasuredOn : null);
+  if (!date) return false;                              // cannot locate it -> cannot clear it
+  var day = findDayByDate(date);
+  if (!day) return false;                               // gone from the plan -> unprovable
+  return !isStravaDerived(day);
+}
+
+/* A planned session CHANGED by the coaching engine after Strava evidence
+   existed is not automatically independent: plan evolution and the Playbook
+   read completed days and do not record which ones moved them, so the day may
+   be Strava-free and its prescription still be a consequence of a Strava run.
+
+   Only applied when the athlete actually holds Strava evidence, so an athlete
+   who has never connected it keeps every adjusted session. */
+function voiceAdjustmentIndependent(dd){
+  if (!dd || !dd.coachAdjust) return true;
+  return !voiceHasStravaEvidence();
+}
+
+/* THE ONE QUESTION EVERY DAY IS ASKED, both halves together so a caller cannot
+   satisfy one and forget the other. */
+function voiceDayEligible(dd){
+  if (!dd) return false;
+  if (isStravaDerived(dd)) return false;
+  return voiceAdjustmentIndependent(dd);
+}
+
 var VOICE_CONTEXT_RECENT_DAYS = 14;   // what "recently" means to a coach
 var VOICE_CONTEXT_UPCOMING    = 3;    // today plus the next few sessions
 
-/* One completed session, reduced to the facts a coach would refer to. Health
-   fields are added only under consent, by the caller. */
+/* One completed session, reduced to the facts a coach would refer to.
+
+   POSITIVE ASSEMBLY. Every field is named, copied and typed individually. This
+   is deliberately not "take the day and delete the bad parts": a filter fails
+   open when something new is added to a day, and a whitelist fails closed. A
+   field that appears in the athlete's record tomorrow is absent from here by
+   default, and stays absent until somebody adds a line for it.
+
+   `derived` is the caller's answer to whether pace-relative conclusions can be
+   shown to be Strava-free. When it is false the execution score is not sent at
+   all -- not zeroed, not rounded, not relabelled. Absent. */
 function voiceDaySummary(dd, opts){
   var withHealth = !!(opts && opts.health);
+  var withDerived = !!(opts && opts.derived);
   var a = (dd && dd.actual) || {};
   var out = {
     date: dd.date || null,
@@ -25497,12 +25594,18 @@ function voiceDaySummary(dd, opts){
     completed: !!dd.completed
   };
   if (dd.completed){
+    /* WHAT THE ATHLETE TYPED THEMSELVES. Distance, pace and effort on a day
+       Strava never touched are the athlete's own account of their own run --
+       independently sourced, and not made Strava-derived by sitting in the same
+       training record as a Strava import. */
     out.actualKm = (typeof a.km === 'number') ? a.km : null;
     out.actualPace = a.pace || null;
-    var sc = null;
-    try { sc = computeExecutionScore(dd); } catch(e){ sc = null; }
-    out.executionScore = sc;
     if (a.rpe != null) out.effort = a.rpe;
+    if (withDerived){
+      var sc = null;
+      try { sc = computeExecutionScore(dd); } catch(e){ sc = null; }
+      out.executionScore = sc;
+    }
     if (withHealth){
       if (a.hr != null) out.avgHeartRate = a.hr;
       if (a.feel) out.feel = a.feel;
@@ -25511,24 +25614,56 @@ function voiceDaySummary(dd, opts){
   return out;
 }
 
-/* THE CONTEXT. Built from the athlete's own record, minus every Strava-derived
-   day, minus health information without consent.
+/* THE CONTEXT. Assembled positively from evidence that is individually
+   eligible, rather than from the athlete's record with prohibited parts
+   removed.
 
-   `question` is not inspected here. What the athlete asked does not widen what
-   the coach may see -- a question about heart rate does not unlock heart rate.
-   Scope is decided by consent and provenance, never by the prompt. */
+   THREE INDEPENDENT GATES, EACH APPLIED TO THE THING IT GOVERNS:
+
+     provenance   a Strava-derived day does not go, and neither does a day
+                  whose prescription was changed by the engine after Strava
+                  evidence existed (voiceDayEligible)
+     derivation   pace-relative conclusions go only when the fitness anchor
+                  they descend from can be shown to be Strava-free
+                  (voiceFitnessAnchorIndependent)
+     consent      health information is never assembled without it
+
+   ONE STRAVA RUN MUST NOT COST AN ATHLETE THEIR COACH. Failing closed happens
+   per item of evidence, never for the account: an athlete who imported a single
+   run keeps every manual session, everything they typed themselves and their
+   whole planned programme.
+
+   `question` is not an argument. What the athlete asked does not widen what the
+   coach may see -- a question about a Strava run does not make that run
+   eligible. Scope is decided by provenance and consent, never by the prompt. */
 function voiceCoachContext(){
   var today = todayStr();
+  var health = healthConsentGranted();
+  var derived = voiceFitnessAnchorIndependent();
   var ctx = {
     today: today,
     units: displayUnit(),
     guidanceLevel: guidanceLevel(),
-    healthDataAvailable: healthConsentGranted(),
+    healthDataAvailable: health,
     goal: null, block: null, todaySession: null, upcoming: [], recent: [],
-    excluded: { stravaDerivedDays: 0, healthWithheld: !healthConsentGranted() }
+    /* WHAT IS MISSING, AND WHY, said in the context itself. Without this the
+       model reads an absence as evidence -- "no execution scores" becomes "the
+       athlete never completes anything" -- and reasons confidently from a hole
+       we made on purpose. */
+    withheld: {
+      stravaDerivedDays: 0,
+      stravaInfluencedPlanChanges: 0,
+      executionScores: !derived,
+      healthInformation: !health,
+      note: 'Anything withheld is unavailable to you for this conversation. ' +
+            'Do not infer anything from its absence, and do not estimate a ' +
+            'replacement. Say you do not have it.'
+    }
   };
   var su = state.setup;
   if (su){
+    /* Athlete-entered at build time: the goal they chose and the volume they
+       reported. Not a coaching conclusion. */
     ctx.goal = {
       distance: su.distanceKey || null,
       raceDate: su.raceDate || null,
@@ -25540,31 +25675,34 @@ function voiceCoachContext(){
   }
   if (!state.days || !state.days.length) return ctx;
 
-  /* THE FENCE, APPLIED ONCE, AT THE SOURCE. Everything below reads `pool`, so
-     there is no second path to a day and no branch that could forget. */
   var all = state.days;
-  var pool = aiEligibleDays(all);
-  ctx.excluded.stravaDerivedDays = all.length - pool.length;
+  var pool = [];
+  for (var i=0; i<all.length; i++){
+    var d = all[i];
+    if (isStravaDerived(d)){ ctx.withheld.stravaDerivedDays++; continue; }
+    if (!voiceAdjustmentIndependent(d)){ ctx.withheld.stravaInfluencedPlanChanges++; continue; }
+    pool.push(d);
+  }
 
-  var health = healthConsentGranted();
+  var opts = { health: health, derived: derived };
   var dd = null;
-  for (var i=0; i<pool.length; i++) if (pool[i].date === today) dd = pool[i];
-  if (dd) ctx.todaySession = voiceDaySummary(dd, { health:health });
+  for (var j=0; j<pool.length; j++) if (pool[j].date === today) dd = pool[j];
+  if (dd) ctx.todaySession = voiceDaySummary(dd, opts);
 
-  var future = pool.filter(function(d){ return d.date > today && d.type !== 'rest'; })
-                   .sort(function(x,y){ return x.date < y.date ? -1 : 1; })
-                   .slice(0, VOICE_CONTEXT_UPCOMING);
-  ctx.upcoming = future.map(function(d){
-    return { date:d.date, type:d.type, title:d.title,
-             plannedKm:(typeof d.km === 'number') ? d.km : null };
-  });
+  ctx.upcoming = pool.filter(function(d){ return d.date > today && d.type !== 'rest'; })
+    .sort(function(x,y){ return x.date < y.date ? -1 : 1; })
+    .slice(0, VOICE_CONTEXT_UPCOMING)
+    .map(function(d){
+      return { date:d.date, type:d.type, title:d.title,
+               plannedKm:(typeof d.km === 'number') ? d.km : null };
+    });
 
   var from = addDays(today, -VOICE_CONTEXT_RECENT_DAYS);
   ctx.recent = pool.filter(function(d){
       return d.date < today && d.date >= from && d.type !== 'rest';
     })
     .sort(function(x,y){ return x.date < y.date ? 1 : -1; })
-    .map(function(d){ return voiceDaySummary(d, { health:health }); });
+    .map(function(d){ return voiceDaySummary(d, opts); });
   return ctx;
 }
 
@@ -25599,24 +25737,19 @@ function voiceSetAvailable(on){
   if (was !== voiceCoachAvailable) patchVoiceCard();
 }
 function voiceCheckAvailability(){
-  /* THE ANSWER IS PER ATHLETE, so the athlete's token goes with the ask. Ask
-     Coach and Strava are mutually exclusive per account -- an account that may
-     use Strava is refused Ask Coach -- so "this deployment has a coach" and
-     "you may talk to it" are different questions, and drawing a control the
-     server would refuse is the thing to avoid. Signed out, no token goes and
-     the honest answer is false, which is also what a blocked request leaves
-     behind.
+  /* A DEPLOYMENT question: is there a coach on this server at all.
+
+     ACCOUNT ELIGIBILITY IS NOT DATA ELIGIBILITY, and an earlier pass confused
+     them -- it sent the athlete's token so the server could refuse Ask Coach to
+     anyone permitted to use Strava. That is not the product. An athlete may
+     have Strava, LISTEN and Ask Coach at once. What Strava restricts is which
+     EVIDENCE may reach a model, and that is decided per item of evidence when
+     the context is assembled, never by removing the capability.
 
      LISTEN DOES NOT ASK THIS ROUTE ANYTHING. The briefing and the debrief are
      composed and spoken on the device, so they stay available whatever this
-     returns -- including for an athlete whose account is on the Strava side of
-     the separation. */
-  var headers = { 'accept':'application/json' };
-  try {
-    if (cloudSignedIn() && cloudSession && cloudSession.access_token)
-      headers['authorization'] = 'Bearer ' + cloudSession.access_token;
-  } catch(e){}
-  return fetch('/api/voice-enabled', { headers: headers })
+     returns, including when it fails. */
+  return fetch('/api/voice-enabled', { headers:{ 'accept':'application/json' } })
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){ voiceSetAvailable(d && d.enabled); return voiceCoachAvailable; })
     .catch(function(){ voiceSetAvailable(false); return false; });
@@ -25648,8 +25781,6 @@ var VOICE_ERROR_COPY = {
   coach_busy:           'Your coach is busy — try again in a moment',
   no_plan:              'Build a plan first and your coach will have something to talk about',
   context_refused:      'Your coach cannot discuss sessions imported from Strava',
-  voice_unavailable_strava_account:
-                       'Ask coach is not available on an account connected to Strava. You can still hear today’s briefing.',
   mic_denied:           'Microphone access is off — type your question instead',
   mic_failed:           'Could not hear that — try again, or type it instead',
   declined:             'Your coach cannot answer that one'

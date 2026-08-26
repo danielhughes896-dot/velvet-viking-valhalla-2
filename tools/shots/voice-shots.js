@@ -69,6 +69,21 @@ const FRAMES = {
                               message:'Your coach is not responding — try again shortly'});` },
   'today-strava-day':  { view:'today', setup: SPEECH + `voiceSetAvailable(true);
                             var d=findDayByDate(todayStr()); if(d){d.stravaActivityId='555';} renderApp();` },
+  /* THE CORRECTION, PHOTOGRAPHED. A Strava-connected athlete -- history
+     imported on other days -- must still be offered both controls on a Today
+     that Strava never touched. */
+  'today-strava-coexist': { view:'today', setup: SPEECH + `voiceSetAvailable(true);
+                            var ds=state.days.filter(function(x){return x.date<todayStr()&&x.type!=='rest';});
+                            if(ds[0]){ applyCompletion(ds[0],true);
+                              ds[0].actual=Object.assign(emptyActual(),{km:ds[0].km,pace:'5:10'});
+                              ds[0].stravaActivityId='999'; }
+                            renderApp();` },
+  'today-completed':   { view:'today', setup: SPEECH + `voiceSetAvailable(true);
+                            var d=findDayByDate(todayStr());
+                            if(d){ applyCompletion(d,true);
+                              d.actual=Object.assign(emptyActual(),{km:d.km,pace:'5:18',rpe:6}); }
+                            renderApp();` },
+  'today-ask-disabled':{ view:'today', setup: SPEECH + `voiceSetAvailable(false); renderApp();` },
   'settings-guidance': { view:'settings', setup: SPEECH + `renderApp();` }
 };
 

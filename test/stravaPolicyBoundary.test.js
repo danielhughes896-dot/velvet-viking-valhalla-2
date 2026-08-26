@@ -111,7 +111,9 @@ test('the Ask Coach context is built ONLY from AI-eligible days', () => {
 
   const ctx = a.voiceCoachContext();
   const json = JSON.stringify(ctx);
-  assert.equal(ctx.excluded.stravaDerivedDays >= 1, true, 'the Strava day was not counted as excluded');
+  /* `excluded` became `withheld` when the context started declaring WHY things
+     are absent, not merely that they are -- see test/voiceStravaProvenance.js. */
+  assert.equal(ctx.withheld.stravaDerivedDays >= 1, true, 'the Strava day was not counted as withheld');
   assert.ok(!/stravaActivityId/.test(json), 'a Strava marker reached the context');
   assert.ok(!json.includes(String(strava.date)) || !ctx.recent.some(r => r.date === strava.date),
     'the Strava-derived day itself reached the context');
