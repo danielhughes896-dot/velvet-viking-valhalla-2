@@ -212,15 +212,44 @@
   }
   [data-theme="light"] .bld-purpose button.active .bpc-why{color:#7A5C1E; opacity:.85;}
 
-  /* ---------- the training week ---------- */
+  /* ---------- the training week ----------
+     Seven small raised discs, mirroring the app's own TRAINING-DAY SELECTOR
+     VISUAL REFINEMENT (protected/velvet-viking-valhalla.html's .wd-check/
+     .wd-circle rules) -- same structure, same real <input type=checkbox>
+     visually hidden over the label's full footprint, same checked-state
+     language. Two of the app's tokens (--shadow-sm, --modal-active-rgb)
+     are not part of this page's shared token set, so their resolved LITERAL
+     values are used here instead of the var() -- the two sides still render
+     identically, which is what test/builderVisualParity.test.js checks. */
   .weekday-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:12px;}
   .wd-check{
-    display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px 2px;
-    border:1.5px solid var(--line); border-radius:9px; font-family:'JetBrains Mono',monospace; font-size:10.5px;
-    color:var(--ink-faint); cursor:pointer; transition:all .15s; user-select:none;
+    display:flex; flex-direction:column; align-items:center; gap:6px; padding:2px 0; min-height:52px;
+    position:relative; cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
   }
-  .wd-check input{width:auto; margin:0; accent-color:var(--bronze);}
-  .wd-check.checked{border-color:var(--bronze); background:var(--c-gold-soft); color:var(--ink); font-weight:700;}
+  .wd-check input{position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer;}
+  .wd-circle{
+    width:100%; max-width:38px; aspect-ratio:1/1; border-radius:50%;
+    border:1.5px solid var(--ctl-border); background:var(--ctl-bg);
+    box-shadow:0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,.06);
+    display:flex; align-items:center; justify-content:center;
+    transition:box-shadow .15s, background .15s, border-color .15s, transform .1s;
+  }
+  .wd-check:active .wd-circle{transform:scale(.92);}
+  .wd-circle svg{width:15px; height:15px; color:var(--bronze); opacity:0; transform:scale(.55);
+    transition:opacity .15s, transform .15s;}
+  .wd-name{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint); transition:color .15s;}
+  .wd-check.checked{background:var(--c-gold-soft); border-radius:10px; transition:background .15s;}
+  .wd-check.checked .wd-circle{
+    border-color:var(--bronze); background:var(--c-gold-soft);
+    box-shadow:0 3px 7px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.10), inset 0 0 0 1px rgba(197,160,89,0.2);
+  }
+  .wd-check.checked .wd-circle svg{opacity:1; transform:scale(1);}
+  .wd-check.checked .wd-name{color:var(--ink); font-weight:700;}
+  [data-theme="light"] .wd-circle{box-shadow:0 4px 12px rgba(90,70,30,0.10), inset 0 1px 0 rgba(255,255,255,.6);}
+  [data-theme="light"] .wd-check.checked .wd-circle{
+    border-color:#9B7B2E; background:var(--c-gold-soft);
+    box-shadow:0 3px 7px rgba(90,70,30,.18), inset 0 1px 0 rgba(255,255,255,.5), inset 0 0 0 1px #9B7B2E;
+  }
 
   /* ---------- buttons -- the builder's own primary is Cherry Lacquer, and only
      the builder's: scoped to .builder-light, exactly as the app scopes it, so
@@ -900,7 +929,12 @@
   /* ---------- stage 06 WEEK ----------
      Real checkboxes inside .wd-check labels -- the app's own weekday
      picker, not a button grid -- so the control itself, not just its
-     colours, matches. */
+     colours, matches. Each label now also carries a .wd-circle (the raised
+     disc, with the same stroke-checkmark the app's ICONS.check draws) and a
+     .wd-name span -- presentation only, mirroring the app's TRAINING-DAY
+     SELECTOR VISUAL REFINEMENT; the checkbox stays real, focusable and the
+     thing Ans.activeDays/renderLongDayGrid() actually read. */
+  var WD_FULL_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   function renderWeekStage(){
     $('bld-stage-body').innerHTML =
       '<div class="field" id="f-weekdays"><label>Training days</label>' +
@@ -918,8 +952,17 @@
       lab.className = 'wd-check' + (checked ? ' checked' : '');
       var cb = document.createElement('input');
       cb.type = 'checkbox'; cb.checked = checked;
+      cb.setAttribute('aria-label', WD_FULL_NAMES[iso] || label);
+      var circle = document.createElement('span');
+      circle.className = 'wd-circle';
+      circle.setAttribute('aria-hidden', 'true');
+      circle.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="5,13 10,18 19,7"/></svg>';
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'wd-name';
+      nameSpan.textContent = label;
       lab.appendChild(cb);
-      lab.appendChild(document.createTextNode(label));
+      lab.appendChild(circle);
+      lab.appendChild(nameSpan);
       cb.addEventListener('change', function(){
         Ans.activeDays[iso] = cb.checked;
         lab.classList.toggle('checked', cb.checked);

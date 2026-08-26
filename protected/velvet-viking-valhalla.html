@@ -1784,15 +1784,20 @@
   .bld-review-k{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1.2px; font-size:var(--fs-label); color:var(--ink-faint); flex:none;}
   .bld-review-v{font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); color:var(--ink); text-align:right; overflow-wrap:anywhere;}
 
-  /* The day selector draws a NATIVE checkbox -- kept, deliberately: it is the
-     one interaction the platform already makes obviously accessible (focus
-     ring, screen-reader state, keyboard toggling all come free), and hiding
-     it visually behind a styled label is what item 14 of the consistency
-     pass explicitly warns against losing. `accent-color` recolours the native
-     tick to Valhalla gold rather than the browser's default blue -- one
-     property, approved separately -- and the .checked label state below
-     carries the tactile "chosen" signal the checkbox alone is too small to. */
-  .wd-check input{accent-color:var(--bronze);}
+  /* TRAINING-DAY SELECTOR VISUAL REFINEMENT superseded the note that used to
+     live here: the day selector's native checkbox square used to be drawn
+     on-screen (just recoloured via accent-color) because hiding it behind a
+     styled label reads, at a glance, like giving up the accessibility that
+     comes free with a real <input type=checkbox> -- focus ring, screen-
+     reader checked state, keyboard Space-toggle. It does not give any of
+     that up: .wd-check input (see .weekday-grid below) is still a real,
+     focusable, non-disabled checkbox occupying the control's full footprint,
+     exactly the position:absolute; opacity:0 technique .switch input already
+     uses elsewhere in this file for the same reason. Only the native square
+     glyph itself is no longer painted; the circle and tick that replace it
+     are driven by the same .checked class toggle this file already had.
+     accent-color is dropped as dead weight -- there is nothing left on
+     screen for it to recolour. */
   @media (min-width:640px){ .modal-card{border-radius:var(--radius-lg);} }
   @keyframes slideup{from{transform:translateY(24px); opacity:0;} to{transform:translateY(0); opacity:1;}}
   .modal-head{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--modal-border); position:sticky; top:0; background:var(--modal-surface); z-index:2;}
@@ -2812,23 +2817,60 @@
   .yr-est-withheld{color:var(--ink-faint); font-size:var(--fs-meta); text-align:right; display:block;}
   .yr-est-v{text-align:right; min-width:0;}
   .weekday-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:12px;}
+  /* SEVEN SMALL RAISED DISCS, not seven checkbox cards. The real
+     <input type=checkbox> is still here -- position:absolute; opacity:0
+     over the label's full footprint, the exact technique .switch input
+     already uses -- so focus ring (the global :focus-visible outline lands
+     on the input's own box, which covers the whole control), keyboard
+     Space-toggle and the checked state a screen reader announces are all
+     untouched. Only the native square box is no longer painted; .wd-circle
+     and its tick are presentation the input drives via the sibling .checked
+     class the existing change handler already toggles. */
   .wd-check{
-    display:flex; flex-direction:column; align-items:center; gap:5px; padding:10px 2px; min-height:52px;
-    border:1.5px solid var(--ctl-border); border-radius:11px; font-family:'JetBrains Mono',monospace; font-size:10.5px;
-    background:var(--ctl-bg); color:var(--ink-faint); cursor:pointer; user-select:none;
-    box-shadow:0 1px 3px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.05);
-    transition:box-shadow .15s, background .15s, border-color .15s, color .15s;
+    display:flex; flex-direction:column; align-items:center; gap:6px; padding:2px 0; min-height:52px;
+    position:relative; cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
   }
-  .wd-check input{width:auto; margin:0;}
-  /* Chosen reads as PRESSED, the same settled-inset language the option
-     grids use, not just a colour swap -- so a selected day is unmistakable
-     even to a glance, not only on close reading. */
-  .wd-check.checked{
-    border-color:var(--bronze); background:var(--c-gold-soft); color:var(--ink); font-weight:700;
-    box-shadow:inset 0 1px 3px rgba(0,0,0,.18), inset 0 0 0 1px rgba(var(--modal-active-rgb),0.2);
+  .wd-check input{position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer;}
+  /* Sized off the grid cell (1fr) with aspect-ratio so the disc stays a true
+     circle at 360-430px alike; max-width caps it at a small "selection disc"
+     footprint rather than growing into a chunky button on a wider phone.
+     box-shadow is the app's own Level 2 soft-raised recipe (--shadow-sm plus
+     one faint inset highlight) -- the same restrained language .opt-grid
+     button already carries at rest, not a heavier bevel invented for this. */
+  .wd-circle{
+    width:100%; max-width:38px; aspect-ratio:1/1; border-radius:50%;
+    border:1.5px solid var(--ctl-border); background:var(--ctl-bg);
+    box-shadow:var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.06);
+    display:flex; align-items:center; justify-content:center;
+    transition:box-shadow .15s, background .15s, border-color .15s, transform .1s;
   }
-  [data-theme="light"] .wd-check{box-shadow:0 1px 3px rgba(90,70,30,.10), inset 0 1px 0 rgba(255,255,255,.6);}
-  [data-theme="light"] .wd-check.checked{box-shadow:inset 0 1px 4px rgba(90,70,30,.16), inset 0 0 0 1px #9B7B2E;}
+  /* Same tactile press-feedback every other tappable control in the builder
+     already gives (.opt-grid button:active{transform:scale(.98)}) -- a small
+     disc that visibly presses in reads as a physical object, not just a
+     colour change. */
+  .wd-check:active .wd-circle{transform:scale(.92);}
+  .wd-circle svg{width:15px; height:15px; color:var(--bronze); opacity:0; transform:scale(.55);
+    transition:opacity .15s, transform .15s;}
+  .wd-name{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint); transition:color .15s;}
+  /* A faint gold wash behind the whole column, so a selected day reads even
+     at a glance before the eye resolves the disc's border or tick -- the
+     same --c-gold-soft tint every other "chosen" state in the builder uses. */
+  .wd-check.checked{background:var(--c-gold-soft); border-radius:10px; transition:background .15s;}
+  /* Chosen reads as LIFTED, not pressed: a stronger version of the same
+     raised shadow plus a gold ring, so picking a day feels like the disc
+     rising rather than sinking -- .opt-grid button's settled/inset language
+     is deliberately not reused here, this is a smaller, different control. */
+  .wd-check.checked .wd-circle{
+    border-color:var(--bronze); background:var(--c-gold-soft);
+    box-shadow:0 3px 7px rgba(0,0,0,.26), inset 0 1px 0 rgba(255,255,255,.10), inset 0 0 0 1px rgba(var(--modal-active-rgb),0.2);
+  }
+  .wd-check.checked .wd-circle svg{opacity:1; transform:scale(1);}
+  .wd-check.checked .wd-name{color:var(--ink); font-weight:700;}
+  [data-theme="light"] .wd-circle{box-shadow:0 1px 3px rgba(90,70,30,.10), inset 0 1px 0 rgba(255,255,255,.6);}
+  [data-theme="light"] .wd-check.checked .wd-circle{
+    border-color:#9B7B2E; background:var(--c-gold-soft);
+    box-shadow:0 3px 7px rgba(90,70,30,.18), inset 0 1px 0 rgba(255,255,255,.5), inset 0 0 0 1px #9B7B2E;
+  }
 </style>
 </head>
 <body>
@@ -22827,9 +22869,21 @@ function openSetupModal(){
     '</div>';
   }).join('');
 
+  /* Presentation only -- WEEKDAY_FULL_NAMES gives the checkbox an
+     unambiguous aria-label ("Monday") distinct from the three-letter text a
+     sighted athlete reads (.wd-name, "MON"). It takes precedence over the
+     label's own text content in the accessible-name computation, same as
+     any other aria-label on a labelled control; the schedule/data model
+     this reads from and writes to (ISO_WEEKDAY_NAMES, data-wd, activeDays)
+     is untouched. */
+  var WEEKDAY_FULL_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   var wdCheckboxes = ISO_WEEKDAY_NAMES.map(function(name, iso){
     var checked = schedule.activeDays.indexOf(iso)!==-1;
-    return '<label class="wd-check'+(checked?' checked':'')+'"><input type="checkbox" data-wd="'+iso+'" '+(checked?'checked':'')+'>'+name+'</label>';
+    return '<label class="wd-check'+(checked?' checked':'')+'">'+
+      '<input type="checkbox" data-wd="'+iso+'" '+(checked?'checked':'')+' aria-label="'+WEEKDAY_FULL_NAMES[iso]+'">'+
+      '<span class="wd-circle" aria-hidden="true">'+ICONS.check+'</span>'+
+      '<span class="wd-name">'+name+'</span>'+
+    '</label>';
   }).join('');
   var longDayOptions = schedule.activeDays.slice().sort(function(a,b){return a-b;}).map(function(iso){
     return '<option value="'+iso+'" '+(schedule.longRunDay===iso?'selected':'')+'>'+ISO_WEEKDAY_NAMES[iso]+'</option>';
