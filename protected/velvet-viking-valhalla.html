@@ -25187,6 +25187,70 @@ function stravaObjectiveSnapshot(dd){
           a.movingTimeSec, a.elapsedTimeSec, a.elevationGainM, a.activityType].join('|');
 }
 
+/* =========================================================
+   PROVENANCE, AND THE BOUNDARY IT EXISTS TO ENFORCE
+
+   WHY THIS IS NOT DECORATION. Strava's API Policy (effective 1 June 2026)
+   restricts what may be done with Strava Data, and section 5.3 extends that to
+   the OPERATION of an AI Application -- naming ingestion into a context window
+   or working memory as prohibited. Section 5.4 states in terms that its
+   restrictions "apply to data derived from Strava Data and to output that
+   incorporates or was generated using Strava Data".
+
+   So the question a future surface has to be able to answer is not "is this a
+   Strava activity" but "did any part of this number come from Strava". That
+   needs a marker that survives into the athlete's own training record, which
+   is what dd.stravaActivityId already is -- these functions make it
+   answerable rather than leaving each consumer to work it out.
+
+   VALHALLA CALLS NO AI SERVICE TODAY, and this file contains no model call of
+   any kind: the coaching engine is deterministic arithmetic over the athlete's
+   own logged sessions. The guard is written now anyway, because the Voice
+   Coach is a stated intention and the compliant moment to build the fence is
+   before there is anything on the other side of it. A previous pass had
+   already removed a "copy this into any AI chat assistant" block for the same
+   clause; this is that decision made structural instead of remembered.
+   ========================================================= */
+
+/* Every objective field stravaWriteActivity() is capable of writing. Kept
+   beside the writer so the two cannot drift: a field added there without being
+   added here would be Strava-derived data this boundary does not know about. */
+var STRAVA_WRITTEN_FIELDS = ['km','pace','paceUnit','hr','maxHR','cadence',
+  'movingTimeSec','elapsedTimeSec','elevationGainM','activityType','splits'];
+
+/* Did any part of this day's record come from Strava? The activity id is the
+   marker, written by stravaWriteActivity() and cleared by nothing else. */
+function isStravaDerived(dd){ return !!(dd && dd.stravaActivityId); }
+
+/* WHICH of a day's fields are Strava-derived. Empty for a day the athlete
+   logged themselves, which is the common case and the one that must stay
+   fully usable everywhere. */
+function stravaDerivedFields(dd){
+  if (!isStravaDerived(dd)) return [];
+  var a = (dd && dd.actual) || {};
+  return STRAVA_WRITTEN_FIELDS.filter(function(k){ return a[k] != null; });
+}
+
+/* THE AI BOUNDARY. One function, and it refuses rather than redacts.
+ *
+ * REFUSES, NOT REDACTS, deliberately. A redacted day would still be an object
+ * shaped by a Strava import -- which sessions were completed, which were not,
+ * what the athlete wrote about a run whose numbers came from Strava -- and
+ * 5.4 reaches "output that incorporates or was generated using Strava Data".
+ * Handing a model a partially-emptied record is a judgement about how much
+ * derivation is enough, and that is not a judgement to make on a hard
+ * boundary. A day that is Strava-derived does not go.
+ *
+ * WHAT REMAINS AVAILABLE is everything the athlete told Valhalla themselves,
+ * on days Strava never touched -- which is the whole training record for an
+ * athlete who has not connected it, and the manual days for one who has. */
+function aiEligibleDays(days){
+  return (days || []).filter(function(dd){ return !isStravaDerived(dd); });
+}
+function aiContextRefusalReason(dd){
+  return isStravaDerived(dd) ? 'strava_derived' : null;
+}
+
 /* The write half: only ever reached for an activity the resolver chose. */
 function stravaWriteActivity(dd, a){
   var before = stravaObjectiveSnapshot(dd);
