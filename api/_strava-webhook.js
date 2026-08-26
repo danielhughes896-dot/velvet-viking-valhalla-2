@@ -41,6 +41,23 @@ async function ingest(cfg, event){
     return;
   }
 
+  /* THE FOUNDER ALLOWLIST, ON THE PATH STRAVA CALLS RATHER THAN THE ATHLETE.
+     There is no request token here, so the account is the one the connection
+     row names -- resolved above by Strava athlete id, which is UNIQUE across
+     connections, so an event can only ever land on the account that authorised
+     it. That resolution is what makes this safe to gate: the id being checked
+     is the owner of the grant, not anything the caller supplied.
+
+     `delete` is exempt for the same reason it is exempt from the deployment
+     switch: it REMOVES Strava-derived data, and a deletion must be honoured
+     whether or not that account is currently permitted to ingest. A gate that
+     blocked deletions would turn an access restriction into a retention
+     problem. */
+  if (event.aspect_type !== 'delete' && !S.stravaAllowedForUser(conn.user_id)){
+    S.log('webhook', tag + ' NOT_PERMITTED');
+    return;
+  }
+
   if (event.aspect_type === 'delete'){
     /* The row is REMOVED, not flagged. Marking it deleted:true kept it out of
        the pending list but left the Strava-derived payload sitting in the

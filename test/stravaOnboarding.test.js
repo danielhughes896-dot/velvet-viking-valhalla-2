@@ -150,12 +150,22 @@ test('Settings draws every state the athlete can actually be in', () => {
   assert.match(err, /data-action="strava-connect"/, 'and a way back');
 });
 
-test('the beta gate explains itself rather than offering a dead button', () => {
+test('an athlete who may not use Strava is shown nothing at all', () => {
+  /* CHANGED WITH THE FOUNDER-ONLY GATE. This used to assert an honest "not
+     available during the private beta" note, which was right while the answer
+     was the same for everybody. It is not now: for every other athlete Strava
+     is simply not part of their product, and a card announcing a feature they
+     will never be offered advertises functionality they cannot use.
+
+     The empty wrapper stays so the section can appear the moment the server
+     says they may use it, without re-rendering Settings. */
   const a = app();                       // availability off
   const html = a.renderStravaSection();
-  assert.match(html, /Not available during the private beta/);
-  assert.ok(!/data-action="strava-connect"/.test(html),
-    'a button that the server would refuse must not be drawn');
+  assert.equal(html, '<div id="strava-section"></div>');
+  assert.ok(!/data-action="strava-connect"/.test(html));
+  assert.ok(!/Strava/.test(html.replace(/id="strava-section"/, '')),
+    'the word Strava must not reach an athlete who cannot use it');
+  assert.equal(a.bldStravaOffer(), '', 'and the builder offers nothing either');
 });
 
 test('an unnamed Strava account does not print a dangling "Connected as"', () => {

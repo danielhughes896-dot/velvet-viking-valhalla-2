@@ -24864,7 +24864,18 @@ function stravaSetAvailable(on){
    athlete too -- the status call needs a session and would otherwise leave the
    card in its beta state forever once Strava is switched back on. */
 function stravaCheckAvailability(){
-  return fetch('/api/strava-enabled', { headers:{ 'accept':'application/json' } })
+  /* THE ANSWER IS NOW PER-ATHLETE, so the athlete's token goes with the ask.
+     While the integration is founder-only, "this deployment has Strava" and
+     "you may use it" are different questions, and drawing a Connect button for
+     somebody the server will refuse is the thing to avoid. Signed out, no
+     token goes and the honest answer is false -- which is also what a failed
+     or blocked request leaves behind. */
+  var headers = { 'accept':'application/json' };
+  try {
+    if (cloudSignedIn() && cloudSession && cloudSession.access_token)
+      headers['authorization'] = 'Bearer ' + cloudSession.access_token;
+  } catch(e){}
+  return fetch('/api/strava-enabled', { headers: headers })
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){ stravaSetAvailable(d && d.enabled); return stravaAvailable; })
     .catch(function(){ stravaSetAvailable(false); return false; });
@@ -24933,6 +24944,12 @@ function stravaRefreshStatus(){
     stravaSetState('off');
     return false;
   }).catch(function(err){
+    /* NOT AVAILABLE IS NOT AN ERROR. While the integration is founder-only the
+       server refuses status for every other account, and drawing a red error
+       card at an athlete who was never offered Strava would be both wrong and
+       a description of the mechanism refusing them. It reads as unavailable,
+       which is what it is, and the card renders its ordinary quiet state. */
+    if (err.code === 'strava_unavailable'){ stravaSetAvailable(false); stravaSetState('off'); return false; }
     stravaSetState(err.code==='signin' ? 'off' : 'error', { message:stravaMessage(err) });
     return false;
   });
@@ -25458,18 +25475,17 @@ function renderStravaSection(){
   /* Beta gate. An intentional, explained state -- not a hidden control and not
      a button that fails when pressed. Nothing here is actionable, so there is
      no path from this card into an integration the server would refuse. */
-  if (!stravaAvailable){
-    return '<div id="strava-section">'+
-      '<div class="connect-row">'+
-        '<div><div class="name">Strava</div>'+
-        '<div class="desc">Not available during the private beta</div></div>'+
-      '</div>'+
-      '<div class="field-hint" style="margin-top:8px;">'+
-        'Automatic Strava sync is switched off while we confirm approval with Strava. '+
-        'You can still log runs yourself, or use Garmin File Import below.'+
-      '</div>'+
-    '</div>';
-  }
+  /* HIDDEN ENTIRELY, not explained. This used to draw an honest "not available
+     during the private beta" note, which was right when the answer was the
+     same for everybody. While the integration is founder-only it is not: for
+     every other athlete Strava is simply not part of their product, and a card
+     announcing a feature they will not be offered advertises functionality
+     they cannot use and invites a support message with no good answer.
+
+     The empty wrapper stays so patchStravaSection() keeps its mount point --
+     the section can appear the moment the server says the athlete may use it,
+     with no re-render of Settings. */
+  if (!stravaAvailable) return '<div id="strava-section"></div>';
   if (s === 'connected' || s === 'syncing'){
     /* WHICH STRAVA ACCOUNT, when Strava told us. An athlete with more than one
        Strava login -- or one who is not sure which they authorised -- cannot

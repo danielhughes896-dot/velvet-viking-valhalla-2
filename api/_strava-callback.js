@@ -53,6 +53,18 @@ async function handle(req, res){
   const uid = S.verifyState(q.state, cfg.clientSecret);
   if (!uid) return back(res, origin, 'failed');
 
+  /* THE FOUNDER ALLOWLIST, CHECKED AT THE POINT OF STORAGE.
+     /api/strava-auth already refuses to issue an authorize URL to anybody
+     else, but this is the route that would actually WRITE a token -- and an
+     athlete can arrive holding a link issued before the list changed, or one
+     assembled by hand. Refusing where the credential would be persisted is
+     what makes the gate real; refusing only where the link is issued would be
+     a UI convention. Nothing is exchanged and nothing is stored. */
+  if (!S.stravaAllowedForUser(uid)){
+    S.log('callback', 'NOT_PERMITTED');
+    return back(res, origin, 'unavailable');
+  }
+
   // Strava returns the granted scopes; without activity read access there is
   // nothing VVV can do, so treat a partial grant as a refusal rather than
   // storing a connection that can never sync.

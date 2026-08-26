@@ -68,7 +68,8 @@ absence is a deliberate off state, not a misconfiguration.
 
 | Name | Secret | Purpose | Launch | Source |
 |---|---|---|---|---|
-| `VVV_STRAVA_ENABLED` | no | **SWITCH.** Off = the Connect button says so honestly rather than pretending. | as configured | you |
+| `VVV_STRAVA_ENABLED` | no | **SWITCH.** Off = the integration is not offered at all, and no request reaches Strava. | as configured | you |
+| `VVV_STRAVA_ALLOWED_USER_IDS` | no | **ACCESS LIST.** Comma- or newline-separated Supabase user UUIDs. Only these accounts can see, connect or sync Strava; every other account is refused at every server boundary. **Fails closed** — unset, empty, malformed or unmatched all mean no access, and there is deliberately no wildcard. Not a secret, but it is an account identifier: keep it out of source, tests and logs. | private test only | Supabase → Authentication → Users, the account's `id` |
 | `STRAVA_CLIENT_ID` | no | OAuth client id. | for Strava | strava.com/settings/api |
 | `STRAVA_CLIENT_SECRET` | **YES** | OAuth client secret. Also keys the OAuth `state` HMAC. | for Strava | strava.com/settings/api |
 | `STRAVA_WEBHOOK_VERIFY_TOKEN` | **YES** | Echoed back during Strava's webhook handshake. | if webhooks used | you |
@@ -110,8 +111,11 @@ the code reports it rather than assuming it:
 
 - **Supabase is configured** — the beta has live accounts, so the URL, anon key
   and service-role key are present and working.
-- **Strava is configured or not** according to `VVV_STRAVA_ENABLED`; the app
-  states which honestly at the Connect button.
+- **Strava is configured or not** according to `VVV_STRAVA_ENABLED`, and is
+  additionally restricted to the accounts named in
+  `VVV_STRAVA_ALLOWED_USER_IDS`. Both must be set for anybody to reach it,
+  and an account that is not listed is shown no Strava integration at all
+  rather than a button it cannot use.
 - **Stripe is not live** — no live key, and liveness is not derived from a key
   being present in any case.
 - **Garmin is off** — the integration refuses at the boundary.

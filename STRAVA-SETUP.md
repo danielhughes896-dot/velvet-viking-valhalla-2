@@ -60,7 +60,7 @@ never import.
 Vercel → your **velvet-viking-valhalla** project → **Settings** →
 **Environment Variables**.
 
-Add these four. Tick **Production, Preview and Development** for all of them so
+Add these. Tick **Production, Preview and Development** for all of them so
 preview deployments work too.
 
 | Name | Value | Where it comes from |
@@ -86,6 +86,44 @@ That UUID is immutable and is not tied to your email or display name, which is
 why it is used rather than the address. It is safe to paste into Vercel; it
 grants nothing on its own (the server still requires a valid signed-in session
 belonging to that id).
+
+### Part 2c — turn Strava on, for your account only
+
+Strava is currently in **founder-only private test mode**. Two variables
+control it, and **both** are required before anybody can reach the
+integration:
+
+| Name | Value | Where it comes from |
+| --- | --- | --- |
+| `VVV_STRAVA_ENABLED` | `1` | you. Anything other than `1` means the integration is not offered at all and no request reaches Strava. |
+| `VVV_STRAVA_ALLOWED_USER_IDS` | your Supabase user UUID — the same one you copied in Part 2b | Supabase → Authentication → Users → the **UID** column |
+
+`VVV_STRAVA_ALLOWED_USER_IDS` accepts more than one id, separated by commas or
+newlines, if a second test account is ever needed.
+
+What this does:
+
+- Only an account whose id is listed can see the Strava integration, start
+  OAuth, complete the callback, sync, or have a webhook processed for it.
+- Every other signed-in account is shown **no Strava integration at all** —
+  not a disabled button, and no message about lists or policy. As far as an
+  ordinary athlete's app is concerned, the feature does not exist.
+- It **fails closed**. Unset, empty, whitespace, a typo, a name, an email
+  address, or `*` all mean *nobody gets access*, including you. There is
+  deliberately no "allow everyone" value — general release will be a code
+  change that is reviewed, not a character typed into a dashboard field.
+- **Disconnect is deliberately still available** to anyone already connected,
+  even if their id is removed from the list, and a Strava activity-deletion
+  webhook is still honoured. Restricting access must never trap an existing
+  authorization or block a deletion.
+
+The id is not a secret and grants nothing on its own — the server still
+requires a valid signed-in session belonging to that id — but it is an account
+identifier, so it belongs in Vercel and not in a commit, a test or a chat
+message.
+
+**Do not set `VVV_STRAVA_ALLOWED_USER_IDS` to anything other than your own
+account** until the open Strava API Policy question has a written answer.
 
 ### Why the name starts with `VVV_`
 

@@ -123,6 +123,54 @@ function stravaEnabled(){
   return /^(on|true|1|yes|enabled)$/i.test(String(env('VVV_STRAVA_ENABLED')).trim());
 }
 
+/* =========================================================
+   FOUNDER-ONLY ACCESS, WHILE THE POLICY QUESTION IS OPEN
+
+   WHY THIS EXISTS. Strava's API Policy (effective 1 June 2026) leaves a real
+   question open about Valhalla's intended coaching use -- see
+   STRAVA-DATA-CONTRACT.md -- and written clarification has been requested.
+   Until it arrives the integration is exercised end to end by exactly one
+   account, so the deployment can be verified for real without any other
+   athlete's Strava Data being processed at all.
+
+   IDENTIFIED BY ACCOUNT ID, AND NOTHING ELSE. Not an email, not a Strava
+   athlete id, not a name, and above all not a client-side flag: the browser
+   asks for what it may see, so anything the browser can set is an answer the
+   browser can forge. The value compared is the Supabase user id on the
+   verified JWT -- the same id every other route already trusts.
+
+   THE ID IS NOT IN THIS REPOSITORY. It arrives as VVV_STRAVA_ALLOWED_USER_IDS,
+   comma-separated so the shape supports more than one without a code change
+   when the answer comes back. Nothing here logs it: the log lines below record
+   THAT a request was refused, never who was refused.
+
+   IT FAILS CLOSED, in every direction. Unset, empty, whitespace, malformed,
+   no authenticated user, or a user not on the list -- all the same answer, and
+   the answer is no. There is deliberately no "allow all" value: a wildcard
+   would make an accidental `*` in a dashboard field indistinguishable from a
+   decision, and the decision this gate holds is one nobody should be able to
+   take by typo.
+   ========================================================= */
+function stravaAllowedUserIds(){
+  const raw = String(env('VVV_STRAVA_ALLOWED_USER_IDS') || '');
+  return raw.split(/[,\s]+/)
+    .map(x => x.trim().toLowerCase())
+    /* A UUID or nothing. Anything else in the list is a configuration mistake
+       and is dropped rather than matched loosely -- a partial or wildcard
+       entry must never widen access. */
+    .filter(x => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(x));
+}
+function stravaAllowedForUser(uid){
+  if (!uid) return false;
+  const allowed = stravaAllowedUserIds();
+  if (!allowed.length) return false;
+  return allowed.indexOf(String(uid).trim().toLowerCase()) !== -1;
+}
+/* THE ONE QUESTION EVERY ATHLETE-FACING ROUTE ASKS. Both halves, in one call,
+   so a route cannot satisfy the deployment flag and forget the allowlist --
+   which is the shape of mistake that would open this to everybody. */
+function stravaPermitted(uid){ return stravaEnabled() && stravaAllowedForUser(uid); }
+
 function config(){
   const svc = resolveServiceKey();
   return {
@@ -540,6 +588,7 @@ function json(res, status, obj){
 }
 
 module.exports = {
+  stravaAllowedUserIds, stravaAllowedForUser, stravaPermitted,
   STRAVA_AUTHORIZE_URL, STRAVA_TOKEN_URL, STRAVA_DEAUTH_URL, STRAVA_API, STRAVA_SCOPE,
   config, stravaEnabled, siteOrigin, redirectUri, readBody,
   signState, verifyState, userIdFromRequest, verifyUser, diagLine,

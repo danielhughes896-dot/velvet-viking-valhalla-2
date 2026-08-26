@@ -120,12 +120,29 @@ async function handle(req, res){
   }
   const uid = who.uid;
 
+  /* FOUNDER-ONLY, WHILE THE POLICY QUESTION IS OPEN. Enforced here rather than
+     in each action, so a new action cannot be added that forgets it.
+
+     THE REFUSAL SAYS NOTHING. `strava_unavailable` is the same answer an
+     athlete gets when the deployment switch is off, and deliberately so: an
+     ordinary athlete has no use for the words "allowlist" or "API policy", and
+     a refusal that explains its own mechanism is a refusal that describes the
+     mechanism to whoever is probing it. The log records that a request was
+     refused; it does not record who. */
+  if (action !== 'disconnect' && !S.stravaPermitted(uid)){
+    S.log('auth', 'NOT_PERMITTED action=' + (action || 'none'));
+    return S.json(res, 403, { error: 'strava_unavailable', code: 'STRAVA_UNAVAILABLE' });
+  }
+
   if (action === 'start')      return handleStart(req, res, cfg, uid);
   if (action === 'status')     return handleStatus(req, res, cfg, uid);
-  /* `disconnect` is deliberately NOT gated by the beta switch. Turning Strava
-     off must never trap an athlete who is already connected: removing the grant
-     and purging the staged rows has to stay available in every state, because
-     it only ever reduces what is held. */
+  /* `disconnect` is deliberately NOT gated by the beta switch OR by the
+     founder allowlist, for the same reason in both cases. Turning Strava off,
+     or removing an account from the allowlist, must never trap an athlete who
+     is already connected: removing the grant and purging the staged rows has
+     to stay available in every state, because it only ever reduces what is
+     held. A gate that could strand a live authorization would be a worse
+     privacy outcome than the one it was protecting. */
   if (action === 'disconnect') return handleDisconnect(req, res, cfg, uid);
   return S.json(res, 400, { error: 'Unknown action' });
 };

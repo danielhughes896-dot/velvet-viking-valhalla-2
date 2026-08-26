@@ -123,6 +123,14 @@ async function handle(req, res){
     S.log('sync', 'REFUSED action=' + (body.action || 'pull') + ' strava_disabled');
     return S.json(res, 403, { error: 'strava_disabled', code: 'STRAVA_DISABLED' });
   }
+  /* AND THE FOUNDER ALLOWLIST, closing the same whole route for the same
+     reason: `pull` hands already-staged Strava data to the app, which logs it
+     into a training plan. Gating only `sync` would leave ingestion open to any
+     account with a staged row. */
+  if (!S.stravaAllowedForUser(uid)){
+    S.log('sync', 'NOT_PERMITTED action=' + (body.action || 'pull'));
+    return S.json(res, 403, { error: 'strava_unavailable', code: 'STRAVA_UNAVAILABLE' });
+  }
 
   if (body.action === 'sync') return handleSync(req, res, cfg, uid, body);
   if (body.action === 'ack')  return handleAck(req, res, cfg, uid, body);
