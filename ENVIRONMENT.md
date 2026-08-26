@@ -84,7 +84,21 @@ half — reaches a model, and only these three variables switch it on.
 |---|---|---|---|---|
 | `VVV_VOICE_ENABLED` | no | **SWITCH.** Off = Ask Coach is not offered and `/api/voice-ask` refuses. Deliberately separate from "is the key set", so *switched off on purpose* and *misconfigured* are never the same log line. Default off. | as configured | you |
 | `ANTHROPIC_API_KEY` | **YES** | Authenticates the Ask Coach model call. Server-side only — it is read in `api/_voice.js` and never reaches the browser. | for Ask Coach | console.anthropic.com → API keys |
-| `VVV_VOICE_MODEL` | no | Overrides the model id. Leave unset; the pinned default is the one the prompt and the cost estimate were written against. | unset | — |
+| `VVV_VOICE_MODEL` | no | Overrides the model id. Leave unset; the pinned default is `claude-opus-5`, verified 2026-08-26 against the official model list, and is what the prompt and the cost estimate were written against. | unset | — |
+
+**Ask Coach and Strava are mutually exclusive per account.** An account listed
+in `VVV_STRAVA_ALLOWED_USER_IDS` is refused `/api/voice-ask` and is shown no Ask
+Coach control. This is a deliberate separation, not a bug: Strava's API Policy
+5.3 restricts Strava Data in connection with the operation of an AI Application,
+and the cleanest answer is that the set of accounts which may touch Strava and
+the set which may reach a model do not overlap. The check reads only the
+environment — no database, no service-role key.
+
+**Operational consequence, worth knowing before testing.** The founder account
+is currently the only one on the Strava allowlist, so Ask Coach cannot be
+exercised from it. To test Ask Coach, either use a second account that is not on
+the allowlist, or remove the account from `VVV_STRAVA_ALLOWED_USER_IDS` and
+redeploy while testing. LISTEN is unaffected on every account.
 
 **LISTEN needs none of these.** The pre-session briefing and the post-run
 debrief are composed on the device from coaching Valhalla has already decided,

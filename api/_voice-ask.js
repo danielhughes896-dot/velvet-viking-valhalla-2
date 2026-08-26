@@ -115,6 +115,36 @@ async function handle(req, res){
     return V.json(res, 401, { error: 'not_signed_in', code: who.code });
   }
 
+  /* ---------- THE ACCOUNT-LEVEL SEPARATION ----------
+     Strava's API Policy 5.3 prohibits Strava Data in connection with the
+     OPERATION of an AI Application, and 5.4 extends that to derived data and
+     to output generated using it. The per-day fence answers "did this number
+     come from Strava". This answers a blunter question that needs no
+     interpretation at all: may this account touch Strava?
+
+     If it may, it does not get Ask Coach. The two capabilities are disjoint at
+     the account level, so the set of accounts whose training record Strava can
+     have shaped and the set of accounts that can reach a model are provably
+     non-overlapping -- which is a stronger and much simpler claim than "the
+     Strava-derived parts were removed before sending".
+
+     READ FROM THE ENVIRONMENT, NOT FROM THE DATABASE, deliberately.
+     stravaAllowedForUser() compares the verified JWT uid against
+     VVV_STRAVA_ALLOWED_USER_IDS and touches nothing else, so this endpoint
+     still has no database access and no service-role key -- the property that
+     bounds what a compromised or hallucinating model could ever reach.
+
+     IT IS NOT A LEGAL READING. It does not decide what 5.3 means; it removes
+     the case where the question has to be asked. The remaining question --
+     whether operating a conversational coach at all makes Valhalla an "AI
+     Application" for accounts that never touch it -- is Strava's to answer in
+     writing, and is reported rather than assumed either way. */
+  if (require('./_strava.js').stravaAllowedForUser(who.uid)){
+    V.log('ASK REFUSED strava_capable_account');
+    return V.json(res, 403, { error: 'voice_unavailable_strava_account',
+                              code: 'STRAVA_ACCOUNT_SEPARATION' });
+  }
+
   const body = V.readBody(req);
   const question = clean(body.question, 500);
   if (!question) return V.json(res, 400, { error: 'no_question' });

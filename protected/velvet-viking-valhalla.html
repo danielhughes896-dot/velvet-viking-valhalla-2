@@ -25599,7 +25599,24 @@ function voiceSetAvailable(on){
   if (was !== voiceCoachAvailable) patchVoiceCard();
 }
 function voiceCheckAvailability(){
-  return fetch('/api/voice-enabled', { headers:{ 'accept':'application/json' } })
+  /* THE ANSWER IS PER ATHLETE, so the athlete's token goes with the ask. Ask
+     Coach and Strava are mutually exclusive per account -- an account that may
+     use Strava is refused Ask Coach -- so "this deployment has a coach" and
+     "you may talk to it" are different questions, and drawing a control the
+     server would refuse is the thing to avoid. Signed out, no token goes and
+     the honest answer is false, which is also what a blocked request leaves
+     behind.
+
+     LISTEN DOES NOT ASK THIS ROUTE ANYTHING. The briefing and the debrief are
+     composed and spoken on the device, so they stay available whatever this
+     returns -- including for an athlete whose account is on the Strava side of
+     the separation. */
+  var headers = { 'accept':'application/json' };
+  try {
+    if (cloudSignedIn() && cloudSession && cloudSession.access_token)
+      headers['authorization'] = 'Bearer ' + cloudSession.access_token;
+  } catch(e){}
+  return fetch('/api/voice-enabled', { headers: headers })
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){ voiceSetAvailable(d && d.enabled); return voiceCoachAvailable; })
     .catch(function(){ voiceSetAvailable(false); return false; });
@@ -25631,6 +25648,8 @@ var VOICE_ERROR_COPY = {
   coach_busy:           'Your coach is busy — try again in a moment',
   no_plan:              'Build a plan first and your coach will have something to talk about',
   context_refused:      'Your coach cannot discuss sessions imported from Strava',
+  voice_unavailable_strava_account:
+                       'Ask coach is not available on an account connected to Strava. You can still hear today’s briefing.',
   mic_denied:           'Microphone access is off — type your question instead',
   mic_failed:           'Could not hear that — try again, or type it instead',
   declined:             'Your coach cannot answer that one'
