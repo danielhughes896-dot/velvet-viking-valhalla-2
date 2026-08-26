@@ -7688,6 +7688,16 @@ function handleAuthDeepLink(url){
      bug, because it works right up until it doesn't. */
   who.then(establishDeliverySession).then(cloudReconcile).then(function(){
     renderApp();
+    /* THE SESSION EXISTS ONLY NOW, so this is the first moment the per-athlete
+       Strava question can be asked on this path -- see stravaRecheckAfterAuth().
+       Without it a native sign-in leaves Sync & Export drawing Garmin and iCal
+       but no Strava until the app is restarted, because a custom-scheme return
+       reloads nothing and init()'s launch probe already ran signed out.
+
+       Deliberately un-awaited and outside the promise chain's own result: it
+       must never delay the sign-in, and a Strava failure must never reach the
+       catch below and report a successful sign-in as an error. */
+    try{ stravaRecheckAfterAuth(); }catch(e){}
     showToast('Signed in — your plan is linked to your account');
   }).catch(function(){ cloudStatus='error'; patchCloudCard(); });
   return true;
@@ -26444,6 +26454,44 @@ function stravaCheckAvailability(){
     .then(function(r){ return r.ok ? r.json() : null; })
     .then(function(d){ stravaSetAvailable(d && d.enabled); return stravaAvailable; })
     .catch(function(){ stravaSetAvailable(false); return false; });
+}
+
+/* THE RE-CHECK WHEN AUTHENTICATION ARRIVES AFTER THE FIRST ANSWER.
+
+   Availability is a per-athlete question, so it can only be answered once
+   there is an athlete to ask about. Two ordinary situations answer it while
+   nobody is signed in yet, and both used to leave the answer stuck:
+
+     - init()'s post-cloudInit() probe runs on every launch, but a launch that
+       opens signed out reaches stravaRefreshStatus() with no session, which
+       returns early and leaves availability at its fail-closed default;
+     - the athlete opens Settings before the session has been restored, which
+       latches __vvvStravaProbed against a tokenless answer for the rest of
+       the session.
+
+   Neither is recoverable from inside the app, because nothing else asks
+   again: on Android the sign-in link returns through handleAuthDeepLink() --
+   a custom scheme handled by the shell, not a page load -- so there is no
+   reload to re-run the launch probe. The athlete signs in successfully and
+   Sync & Export draws Garmin and iCal but no Strava at all, until the app is
+   restarted.
+
+   GUARDED ON !stravaAvailable, WHICH IS WHAT MAKES IT SELF-LIMITING. Once the
+   answer is yes it is never asked again. An athlete this deployment does not
+   permit answers no, availability stays false, and nothing re-triggers this:
+   the caller is a discrete sign-in event, not a render, a timer or a poll, so
+   a refused account costs exactly one status request per sign-in and no
+   Strava call whatsoever.
+
+   IT DECIDES NOTHING ITSELF. stravaRefreshStatus() takes the server's own
+   `enabled` from the same round trip that already carries connection status,
+   and every Strava route re-checks the gate for itself regardless of what
+   this page believes. */
+function stravaRecheckAfterAuth(){
+  if (!cloudConfigured() || !cloudSignedIn()) return false;
+  if (stravaAvailable) return false;
+  try{ stravaRefreshStatus(); }catch(e){}
+  return true;
 }
 
 /* Any token blob left by an older build is deleted, not migrated. It cannot be
