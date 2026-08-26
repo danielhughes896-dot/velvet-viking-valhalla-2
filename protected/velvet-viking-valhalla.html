@@ -2467,6 +2467,33 @@
   .oi-band-lbl{position:absolute; bottom:-19px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-faint); white-space:nowrap;}
   .oi-empty{font-size:11.5px; line-height:1.5; color:var(--ink-faint);}
 
+  /* ---------- CURRENT FITNESS, the hero's primary instrument ----------
+     Same .outlook-instrument/.oi-label shell as Race Outlook below it -- one
+     card grammar, not two -- but a single value-and-goal-line body instead of
+     a second track, so the two instruments read as clearly different
+     questions rather than the same picture shown twice. Cherry for the
+     athlete's own evidence, gold for the goal: the product's one colour law,
+     unchanged from Race Outlook's own comment above. */
+  .cf-instrument{margin-top:14px;}
+  /* Race Outlook's .oi-label is a short title against a short right-aligned
+     distance ("Half Marathon · Goal A") and space-between suits it. The
+     evidence-state text here ("Using your goal — nothing measured yet") is
+     not short, and at 360px that layout wrapped CURRENT FITNESS itself mid-
+     word to make room. Stacked instead: the title always gets its own line,
+     the evidence badge wraps freely underneath. */
+  .cf-instrument .oi-label{flex-direction:column; align-items:flex-start; gap:5px;}
+  .cf-instrument .oi-dist{display:flex; align-items:center; gap:5px;}
+  .cf-value{font-family:'JetBrains Mono',monospace; font-size:var(--fs-title); font-weight:600;
+    letter-spacing:.02em; color:var(--cherry-text);}
+  .cf-value.cf-value-empty{color:var(--ink-faint); font-weight:500;}
+  .cf-value-cap{font-size:11px; color:var(--ink-faint); margin-top:4px; line-height:1.4;}
+  .cf-goal-row{display:flex; align-items:baseline; gap:7px; margin-top:14px; padding-top:12px;
+    border-top:1px solid var(--line-soft); flex-wrap:wrap;}
+  .cf-goal-dot{width:7px; height:7px; border-radius:50%; background:var(--gold); flex:none;}
+  .cf-goal-lab{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold-text);}
+  .cf-goal-val{font-size:13px; color:var(--ink); font-weight:600;}
+  .cf-goal-sub{font-size:10.5px; color:var(--ink-faint); width:100%; margin-left:14px;}
+
   /* ---------- THE READING / THE RECORD — condensed previews on Valhalla ----------
      Non-interactive: a quiet summary. Tapping through to evidence and detail
      happens on Coach/Record, not from this preview. */
@@ -14377,6 +14404,35 @@ function calibrationReasonText(reason){
    neither -- are real states and are each said plainly rather than collapsed
    into one pass/fail banner. Deliberately NOT called "Measured Fitness":
    that term stays reserved for races and Fitness Checkpoints. */
+/* SAFE BEFORE/AFTER ONLY WHERE A REAL PREVIOUS VALUE EXISTS.
+   dd.calibration.previousLTHR is a real stored number -- LTHR descends from
+   one anchor (state.setup.lthr), so "what it was before" is unambiguous and
+   safe to show. There is no equivalent for pace: dd.calibration.previousAnchor
+   is only the SOURCE that was active before (a label, e.g. 'benchmark'), not
+   the number it implied at the time, and that number cannot be reconstructed
+   without guessing (the goal or benchmark behind it may since have changed).
+   So pace gets a qualitative "what kind of evidence this replaced" statement
+   and HR gets the real number -- never a fabricated pace history. */
+function calibrationHRChangeNote(c){
+  if (c.previousLTHR == null) return 'Established for the first time.';
+  if (c.previousLTHR === c.lthr) return 'Confirms what Valhalla already had.';
+  return 'Moved from '+c.previousLTHR+' to '+c.lthr+' BPM.';
+}
+function calibrationPaceChangeNote(c){
+  if (!c.previousAnchor || c.previousAnchor === 'calibration')
+    return 'Confirms your training paces.';
+  var was = c.previousAnchor === 'performance' ? 'your last measured result'
+          : c.previousAnchor === 'benchmark' ? 'your benchmark'
+          : 'your active goal';
+  return 'Previously based on '+was+' \u2014 now based on this calibration.';
+}
+/* THE COMPLETION MOMENT, GIVEN THE WEIGHT THE BRIEF ASKS FOR. Same data,
+   same dd.calibration-only read as before -- the change is presentation:
+   CALIBRATION COMPLETE with the exec-review-head icon/weight this product
+   already reserves for its other "the coach has something to tell you"
+   moments, a one-line reason it matters, then the real numbers with a real
+   change note beside each. Still concise -- one heading line, one framing
+   line, one line per metric, one closing coaching line. Never an essay. */
 function renderCalibrationResult(dd){
   var c = dd.calibration;
   if (!c) return '';
@@ -14388,19 +14444,28 @@ function renderCalibrationResult(dd){
   }
   var paceOk = c.thresholdPaceSecPerKm != null;
   var hrOk = c.outcome === 'applied';
-  var rows = '';
-  if (paceOk) rows += hqRow('Threshold pace', fmtPaceFromSecPerKm(c.thresholdPaceSecPerKm));
-  if (hrOk) rows += hqRow('Threshold HR', c.lthr+' BPM');
+  var learned = paceOk || hrOk;
 
-  var body = '<div class="hub-card tile-card cal-result">'+
-    '<div class="setup-section-title">'+(paceOk||hrOk ? 'Training zones calibrated' : 'Calibration not used')+'</div>'+
-    rows;
+  var head = '<div class="exec-review-head">'+ICONS.sparkles+
+    '<span>'+(learned ? 'Calibration complete' : 'Calibration not used')+'</span></div>';
+  var body = '<div class="hub-card tile-card cal-result">'+head;
+  if (learned){
+    body += '<div class="field-hint" style="margin:-4px 0 12px;">Valhalla has learned from what you just demonstrated.</div>';
+  }
+  if (paceOk){
+    body += hqRow('Threshold pace', fmtPaceFromSecPerKm(c.thresholdPaceSecPerKm))+
+      '<div class="field-hint" style="margin:-6px 0 10px;">'+escapeHtml(calibrationPaceChangeNote(c))+'</div>';
+  }
+  if (hrOk){
+    body += hqRow('Threshold HR', c.lthr+' BPM')+
+      '<div class="field-hint" style="margin:-6px 0 10px;">'+escapeHtml(calibrationHRChangeNote(c))+'</div>';
+  }
   if (paceOk && hrOk){
-    body += '<div class="field-hint" style="margin-top:8px;">Your training paces now reflect your current demonstrated fitness. Your goal hasn\u2019t changed.</div>';
+    body += '<div class="field-hint">Your training paces now reflect this fitness. Your goal hasn\u2019t changed.</div>';
   } else if (paceOk && !hrOk){
-    body += '<div class="field-hint" style="margin-top:8px;">Your training paces now reflect your current demonstrated fitness. Threshold heart rate was not updated \u2014 '+escapeHtml(calibrationReasonText(c.reason))+'</div>';
+    body += '<div class="field-hint">Your training paces now reflect this fitness. Threshold heart rate was not updated \u2014 '+escapeHtml(calibrationReasonText(c.reason))+'</div>';
   } else if (!paceOk && hrOk){
-    body += '<div class="field-hint" style="margin-top:8px;">Your threshold heart rate is updated. Training paces were not changed \u2014 '+escapeHtml(calibrationReasonText(c.paceRefused))+'</div>';
+    body += '<div class="field-hint">Training paces were not changed \u2014 '+escapeHtml(calibrationReasonText(c.paceRefused))+'</div>';
   } else {
     body += '<div class="field-hint">'+escapeHtml(calibrationReasonText(c.paceRefused || c.reason))+' Your existing training paces and threshold heart rate stand.</div>';
   }
@@ -25539,6 +25604,10 @@ function patchDerivedStats(){
   if (statsEl) statsEl.innerHTML = renderPlanOverviewStats();
   var gaugeEl = document.getElementById('confidence-gauge-mount');
   if (gaugeEl) gaugeEl.innerHTML = renderConfidenceGauge();
+  // Logging a race, checkpoint or calibration that moves currentFitnessAnchor()
+  // moves this line the same way it moves Race Outlook below.
+  var cfEl = document.getElementById('current-fitness-mount');
+  if (cfEl) cfEl.innerHTML = renderCurrentFitnessInstrument();
   // Logging the race or checkpoint that IS the measurement moves this line.
   var outlookEl = document.getElementById('outlook-mount');
   if (outlookEl) outlookEl.innerHTML = renderRaceOutlook();
@@ -26327,6 +26396,7 @@ function renderProgrammeStatus(){
        been executed; this says where the last MEASURED effort sits against
        the goal. #outlook-mount is patched by patchDerivedStats() for the
        same reason the gauge is -- logging a race or a checkpoint changes it. */
+    '<div id="current-fitness-mount">'+renderCurrentFitnessInstrument()+'</div>'+
     '<div id="outlook-mount">'+renderRaceOutlook()+'</div>'+
     statusLine+
   '</div>';
@@ -26610,6 +26680,25 @@ function currentFitnessSourceHeadline(){
   if (src === 'calibration') return 'Threshold Calibration';
   if (src === 'benchmark') return 'Benchmark';
   return 'Active goal';
+}
+/* THE EVIDENCE STATE -- a truthful categorical read of currentFitnessAnchor(),
+   not a fabricated percentage or an arbitrary progress ring. The tier is
+   exactly the hierarchy currentFitnessAnchor() itself already documents
+   (measured performance is the strongest rung, the goal fallback is the
+   weakest, "the state every athlete starts in"), and "fresh" reuses
+   CALIBRATION_EVIDENCE_DAYS -- the app's own existing evidence-validity
+   window -- rather than inventing a second one for this label alone. */
+function currentFitnessEvidenceState(){
+  var a = currentFitnessAnchor();
+  var freshDays = a.date != null ? daysBetween(a.date, todayStr()) : null;
+  var fresh = freshDays != null && freshDays <= CALIBRATION_EVIDENCE_DAYS;
+  if (a.source === 'performance')
+    return { label: fresh ? 'Recently measured' : 'Measured', tone: 'good' };
+  if (a.source === 'calibration')
+    return { label: fresh ? 'Recently calibrated' : 'Calibrated', tone: 'good' };
+  if (a.source === 'benchmark')
+    return { label: 'Estimated from your benchmark', tone: 'watch' };
+  return { label: 'Using your goal — nothing measured yet', tone: 'watch' };
 }
 /* CURRENT FITNESS vs GOAL -- "where am I now" against "where am I trying to
    get to", at the SAME distance so the two numbers are directly comparable.
@@ -26977,6 +27066,60 @@ function raceOutlook(){
    get". The band's WIDTH still reflects the real fast/slow spread of the
    measured estimate, remapped into its fixed zone; only its axis position is
    now semantic rather than literal. */
+
+/* THE PRIMARY CURRENT FITNESS EXPERIENCE.
+   Race Outlook (below) deliberately shows nothing without a measured race or
+   checkpoint -- "NO EVIDENCE, NO PICTURE" is its own design, unchanged here.
+   Current Fitness is a different question and always has an answer: it is
+   whichever rung currentFitnessAnchor() is actually anchoring training paces
+   to right now, including the goal fallback every athlete starts on, so this
+   instrument always renders. The two are kept visually distinct on purpose --
+   a single value-and-goal-line here, not a second copy of Race Outlook's
+   band-on-a-track -- so an athlete with a recent race does not see the same
+   picture reported twice.
+
+   COLOUR LAW UNCHANGED: cherry is the athlete's own evidence (the same job
+   Race Outlook's band and the confidence gauge already give it), gold is the
+   goal, everywhere in this product. This card invents neither a new accent
+   nor a new evidence formula -- the value is currentFitnessEstimate(), the
+   same equivalentTimeSec() conversion measuredFitnessEstimate() already uses,
+   generalised to any rung; the goal is getActiveGoal(), unchanged. */
+function renderCurrentFitnessInstrument(){
+  if (!state.setup) return '';
+  var anchor = currentFitnessAnchor();
+  var profile = DISTANCE_PROFILES[state.setup.distanceKey];
+  var goal = getActiveGoal();
+  var evidence = currentFitnessEvidenceState();
+
+  var valueHtml, capHtml;
+  var est = profile ? currentFitnessEstimate(state.setup.distanceKey) : null;
+  if (est && !est.withheld){
+    valueHtml = '<div class="cf-value font-mono">'+secToClock(est.fastSec)+'–'+secToClock(est.slowSec)+'</div>';
+    capHtml = '<div class="cf-value-cap">'+escapeHtml(profile.label)+' equivalent · '+
+      escapeHtml(currentFitnessSourceHeadline())+(anchor.date ? ' · '+dShort(anchor.date) : '')+'</div>';
+  } else {
+    var why = est && est.withheld ? est.reason
+      : 'Set a goal distance and Valhalla will show what your current fitness suggests for it.';
+    valueHtml = '<div class="cf-value cf-value-empty">—</div>';
+    capHtml = '<div class="cf-value-cap">'+escapeHtml(why)+'</div>';
+  }
+
+  var goalHtml = '';
+  if (goal && goal.timeSec && profile){
+    goalHtml = '<div class="cf-goal-row"><span class="cf-goal-dot"></span>'+
+      '<span class="cf-goal-lab">Goal</span>'+
+      '<span class="cf-goal-val font-mono">'+secToClock(goal.timeSec)+'</span>'+
+      '<span class="cf-goal-sub">'+escapeHtml(profile.label)+' · Goal '+escapeHtml(state.setup.activeGoal||'A')+'</span>'+
+    '</div>';
+  }
+
+  return '<div class="cf-instrument outlook-instrument">'+
+    '<div class="oi-label"><span>Current Fitness</span>'+
+      '<span class="oi-dist"><span class="v-status-dot '+evidence.tone+'"></span> '+escapeHtml(evidence.label)+'</span>'+
+    '</div>'+
+    valueHtml+capHtml+goalHtml+
+  '</div>';
+}
 function renderRaceOutlook(){
   var o = raceOutlook();
   if (!o) return '';

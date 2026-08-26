@@ -177,15 +177,61 @@ test('both accepted: the result says so, with real numbers, and the goal-unchang
   a.applyCalibrationFromDay(dd);
 
   const html = a.renderCalibrationResult(dd);
-  assert.match(html, /Training zones calibrated/);
+  assert.match(html, /Calibration complete/);
+  assert.match(html, /Valhalla has learned from what you just demonstrated/);
   assert.match(html, /171 BPM/);
   assert.match(html, /goal hasn.t changed/);
   assert.equal(html.indexOf('Measured Fitness'), -1,
     'that term is reserved for races and Fitness Checkpoints');
+  assert.equal(html.indexOf('Training zones calibrated'), -1,
+    'the old heading text is fully retired, not left stacked alongside the new one');
   // fmtPaceFromSecPerKm() already appends the unit -- assert the exact
   // string once so a re-appended "/km" regresses loudly, not silently.
   assert.ok(html.indexOf(a.fmtPaceFromSecPerKm(dd.calibration.thresholdPaceSecPerKm)) !== -1);
   assert.equal(html.indexOf('/km/km'), -1, 'the unit must not be appended twice');
+});
+
+test('the first-ever calibration says so, with no fabricated "before"', () => {
+  const a = planned({ distanceKey: 'half', weeks: 10 });
+  const dd = calDayFixture(a);
+  logCalibration(a, dd, 171);
+  a.applyCalibrationFromDay(dd);
+  assert.equal(dd.calibration.previousLTHR, null, 'nothing was measured before this');
+  const html = a.renderCalibrationResult(dd);
+  assert.match(html, /Established for the first time/);
+});
+
+test('a real recalibration shows the real stored before/after, and a confirmed reading says so distinctly', () => {
+  const a = planned({ distanceKey: 'half', weeks: 10 });
+  const dd = calDayFixture(a);
+  // renderCalibrationResult() only reads dd.calibration -- exercised directly
+  // against applyCalibrationFromDay()'s own output shape rather than routing
+  // a second real calibration through the plan generator a day at a time.
+  dd.calibration = { outcome: 'applied', reason: 'derived', lthr: 178,
+    previousLTHR: 171, thresholdPaceSecPerKm: 258, previousAnchor: 'calibration', at: TODAY };
+  let html = a.renderCalibrationResult(dd);
+  assert.match(html, /Moved from 171 to 178 BPM/,
+    'the real stored previousLTHR, not a guess -- a genuine change is distinguished from a confirmation');
+
+  dd.calibration = Object.assign({}, dd.calibration, { lthr: 171, previousLTHR: 171 });
+  html = a.renderCalibrationResult(dd);
+  assert.match(html, /Confirms what Valhalla already had/);
+  assert.equal(html.indexOf('Moved from'), -1);
+});
+
+test('the pace note is qualitative (what it replaced), never a fabricated numeric pace history', () => {
+  const a = planned({ distanceKey: 'half', weeks: 10 });
+  delete a.state.setup.benchmark;
+  assert.equal(a.currentFitnessAnchor().source, 'goal');
+  const dd = calDayFixture(a);
+  logCalibration(a, dd, 171);
+  a.applyCalibrationFromDay(dd);
+  const html = a.renderCalibrationResult(dd);
+  assert.match(html, /Previously based on your active goal/);
+  assert.equal(dd.calibration.previousAnchor, 'goal');
+  // No second pace value anywhere that would imply a reconstructed "before" pace.
+  const paceMatches = html.match(/\d:\d\d\/km/g) || [];
+  assert.equal(paceMatches.length, 1, 'exactly one pace value on the card -- the new one, never a guessed prior one');
 });
 
 test('HR rejected, pace valid: the pace half is reported and the refusal is named', () => {
@@ -197,7 +243,7 @@ test('HR rejected, pace valid: the pace half is reported and the refusal is name
   assert.ok(dd.calibration.thresholdPaceSecPerKm, 'pace fails independently of HR');
 
   const html = a.renderCalibrationResult(dd);
-  assert.match(html, /Training zones calibrated/, 'the pace half still succeeded');
+  assert.match(html, /Calibration complete/, 'the pace half still succeeded');
   assert.equal(html.indexOf('Threshold HR'), -1, 'no HR row when HR was not accepted');
   assert.match(html, /Threshold pace/);
   assert.match(html, /outside a plausible range/);
@@ -214,7 +260,7 @@ test('pace rejected, HR valid: the HR half is reported and the pace refusal is n
   assert.equal(dd.calibration.paceRefused, 'implausible_vdot');
 
   const html = a.renderCalibrationResult(dd);
-  assert.match(html, /Training zones calibrated/, 'the HR half still succeeded');
+  assert.match(html, /Calibration complete/, 'the HR half still succeeded');
   assert.match(html, /Threshold HR/);
   assert.equal(html.indexOf('Threshold pace'), -1, 'no pace row when pace was not accepted');
   assert.match(html, /outside a plausible range/);
@@ -257,13 +303,77 @@ test('renderDayCard() only ever shows the calibration result on a calibration da
   logCalibration(a, dd, 171);
   a.applyCalibrationFromDay(dd);
   const calHtml = a.renderDayCard(dd);
-  assert.match(calHtml, /Training zones calibrated/);
+  assert.match(calHtml, /Calibration complete/);
 
   const other = a.state.days.filter(d => d.type === 'easy' && !d.completed)[0];
   other.completed = true;
   other.actual = a.emptyActual();
   other.actual.km = other.km; other.actual.pace = '5:30';
   const easyHtml = a.renderDayCard(other);
-  assert.equal(easyHtml.indexOf('Training zones calibrated'), -1);
+  assert.equal(easyHtml.indexOf('Calibration complete'), -1);
   assert.equal(easyHtml.indexOf('cal-result'), -1);
+});
+
+// ---------------------------------------------------------------------------
+// THE PRIMARY CURRENT FITNESS INSTRUMENT (Valhalla hero)
+// ---------------------------------------------------------------------------
+test('currentFitnessEvidenceState() is a truthful category from the real anchor, never a fabricated percentage', () => {
+  const a = planned();
+  delete a.state.setup.benchmark;
+  let ev = a.currentFitnessEvidenceState();
+  assert.equal(ev.label, 'Using your goal — nothing measured yet');
+  assert.equal(ev.tone, 'watch');
+
+  a.state.setup.benchmark = { distanceKey: '10k', timeSec: 2700 };
+  assert.equal(a.currentFitnessEvidenceState().label, 'Estimated from your benchmark');
+  assert.equal(a.currentFitnessEvidenceState().tone, 'watch');
+
+  a.state.setup.thresholdPaceSecPerKm = 258;
+  a.state.setup.thresholdPaceSource = 'calibration';
+  a.state.setup.thresholdPaceMeasuredOn = TODAY; // fresh
+  assert.equal(a.currentFitnessEvidenceState().label, 'Recently calibrated');
+  assert.equal(a.currentFitnessEvidenceState().tone, 'good');
+
+  a.state.setup.thresholdPaceMeasuredOn = '2025-01-01'; // long past CALIBRATION_EVIDENCE_DAYS
+  assert.equal(a.currentFitnessEvidenceState().label, 'Calibrated', 'still good evidence, just not "recent"');
+});
+
+test('renderCurrentFitnessInstrument() always renders, including the goal-fallback state Race Outlook deliberately leaves blank', () => {
+  const a = planned();
+  delete a.state.setup.benchmark;
+  assert.equal(a.currentFitnessAnchor().source, 'goal');
+  const html = a.renderCurrentFitnessInstrument();
+  assert.match(html, /Current Fitness/);
+  assert.match(html, /Using your goal/);
+  assert.notEqual(html, '', 'Current Fitness always has a picture, unlike Race Outlook');
+  assert.equal(html.indexOf('VDOT'), -1);
+});
+
+test('renderCurrentFitnessInstrument() shows Current Fitness (cherry) and Goal (gold) as the same instrument, not two competing cards', () => {
+  const a = planned({ distanceKey: '10k' });
+  const html = a.renderCurrentFitnessInstrument();
+  assert.match(html, /cf-value/);
+  assert.match(html, /cf-goal-row/, 'the goal is a subordinate row inside the same card');
+  assert.match(html, /Goal A/);
+  const est = a.currentFitnessEstimate('10k');
+  assert.ok(html.indexOf(a.secToClock(est.fastSec)) !== -1);
+});
+
+test('renderCurrentFitnessInstrument() follows currentFitnessAnchor(), not a duplicated calculation', () => {
+  const a = planned();
+  a.state.setup.thresholdPaceSecPerKm = 258;
+  a.state.setup.thresholdPaceSource = 'calibration';
+  a.state.setup.thresholdPaceMeasuredOn = '2026-02-27';
+  const html = a.renderCurrentFitnessInstrument();
+  assert.match(html, /Threshold Calibration/);
+  assert.match(html, /Feb 27/);
+  const est = a.currentFitnessEstimate(a.state.setup.distanceKey);
+  assert.ok(html.indexOf(a.secToClock(est.fastSec)) !== -1,
+    'the headline value is currentFitnessEstimate()\'s own number, not recomputed here');
+});
+
+test('patchDerivedStats() refreshes #current-fitness-mount the same way it already refreshes #outlook-mount', () => {
+  const a = planned();
+  assert.match(a.patchDerivedStats.toString(), /current-fitness-mount/);
+  assert.match(a.patchDerivedStats.toString(), /renderCurrentFitnessInstrument/);
 });
