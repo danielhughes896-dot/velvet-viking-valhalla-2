@@ -26,7 +26,22 @@ const V = require('./_voice.js');
    module -- see the note in _voice.js. One file in api/ names a model. */
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
-const VOICE_MAX_TOKENS = 1024;
+/* 4096, NOT THE 1024 THIS SHIPPED WITH, and the difference is the whole of a
+   production outage.
+
+   This model runs adaptive thinking by DEFAULT, and thinking tokens are drawn
+   from the same max_tokens budget as the reply. A 1024 ceiling can therefore be
+   spent entirely on reasoning, leaving stop_reason "max_tokens" and NO text
+   block at all -- which this endpoint then correctly reported as an empty reply
+   and the athlete read as "your coach is not responding". Deterministically,
+   every time.
+
+   1024 was chosen because the answer is meant to be two or three sentences. That
+   reasoning was right about the answer and forgot the thinking. The ceiling is
+   not a target: billing is on tokens actually produced, so raising it costs
+   nothing on a short reply and buys the headroom the model needs to get to one.
+   Brevity is still asked for where it belongs -- in the prompt. */
+const VOICE_MAX_TOKENS = 4096;
 
 /* The system prompt. Written as a boundary, not a personality: most of it is
    about what the coach may NOT do, because that is the part that has to hold
@@ -143,6 +158,29 @@ async function handle(req, res){
     return V.json(res, 422, { error: 'context_refused', code: 'STRAVA_DERIVED_CONTEXT' });
   }
 
+  return askUpstream(res, cfg, contextJson, question, {});
+}
+
+/* THE MODEL CALL, ON ITS OWN, so the one retry below is a real call rather than
+   a copy of one. Everything it needs is passed in; it reads no request and no
+   database. */
+async function askUpstream(res, cfg, contextJson, question, opts){
+  opts = opts || {};
+  const payload = {
+    model: cfg.model,
+    max_tokens: VOICE_MAX_TOKENS,
+    system: SYSTEM,
+    messages: [{ role: 'user',
+                 content: 'My training context:\n' + contextJson +
+                          '\n\nMy question: ' + question }]
+  };
+  /* Effort low rather than thinking disabled: a short conversational answer
+     does not need deep reasoning, and disabling thinking on this model has
+     documented failure modes -- a tool call written into visible text, and
+     leaked reasoning tags. Lowering effort keeps latency and cost down without
+     them. Dropped entirely on the retry; see the 400 branch below. */
+  if (!opts.noEffort) payload.output_config = { effort: 'low' };
+
   let r;
   try{
     r = await fetch(ANTHROPIC_URL, {
@@ -152,19 +190,7 @@ async function handle(req, res){
         'anthropic-version': ANTHROPIC_VERSION,
         'content-type': 'application/json'
       },
-      body: JSON.stringify({
-        model: cfg.model,
-        max_tokens: VOICE_MAX_TOKENS,
-        system: SYSTEM,
-        /* Effort low rather than thinking disabled. A short conversational
-           answer does not need deep reasoning, and disabling thinking on this
-           model has documented failure modes; lowering effort keeps the
-           latency and the cost down without them. */
-        output_config: { effort: 'low' },
-        messages: [{ role: 'user',
-                     content: 'My training context:\n' + contextJson +
-                              '\n\nMy question: ' + question }]
-      })
+      body: JSON.stringify(payload)
     });
   }catch(e){
     V.log('ASK unreachable');
@@ -176,7 +202,31 @@ async function handle(req, res){
     return V.json(res, 429, { error: 'coach_busy', code: 'VOICE_RATE_LIMITED' });
   }
   if (!r.ok){
-    V.log('ASK upstream status=' + r.status);
+    /* THE STATUS ALONE WAS NOT ENOUGH TO DIAGNOSE A LIVE FAILURE, which is how
+       an outage stayed unexplained: "upstream status=400" does not distinguish
+       a rejected parameter from a bad key from a wrong model id.
+
+       The error TYPE is recorded -- invalid_request_error, authentication_error,
+       not_found_error and so on. It classifies the request, never its content:
+       no question, no answer, no context, no key. */
+    let kind = '';
+    try{
+      const body = await r.json();
+      kind = String((body && body.error && body.error.type) || '');
+    }catch(e){ kind = 'unreadable'; }
+    V.log('ASK upstream status=' + r.status + ' type=' + (kind || 'none') +
+          (opts.noEffort ? ' noEffort=1' : ''));
+
+    /* ONE TARGETED RETRY, for the one parameter that is a tuning knob rather
+       than a requirement. `effort` lowers cost and latency; it does not make
+       the answer correct. If the API rejects the request as malformed, a single
+       retry without it turns a total outage into a working -- slightly costlier
+       -- answer, and the log line above still records that it happened, so the
+       cause is not hidden by the recovery. */
+    if (r.status === 400 && !opts.noEffort){
+      V.log('ASK retrying without effort');
+      return askUpstream(res, cfg, contextJson, question, { noEffort: true });
+    }
     return V.json(res, 502, { error: 'coach_unavailable', code: 'VOICE_UPSTREAM' });
   }
 
@@ -200,12 +250,18 @@ async function handle(req, res){
 
   const parsed = parseReply(text);
   if (!parsed){
-    V.log('ASK empty_reply');
+    /* stop_reason distinguishes "the model said nothing" from "the model ran
+       out of room before it got to the answer" -- the second being exactly what
+       a too-small max_tokens produces on a thinking model, and the one worth
+       naming in a log rather than rediscovering from a live device. */
+    const why = String((data && data.stop_reason) || 'none');
+    V.log('ASK empty_reply stop=' + why + (opts.noEffort ? ' noEffort=1' : ''));
     return V.json(res, 502, { error: 'coach_unavailable', code: 'VOICE_EMPTY' });
   }
 
   /* Counts only. Never the question, never the answer. */
-  V.log('ASK ok chars=' + parsed.answer.length + ' change=' + (parsed.needsPlanChange ? 1 : 0));
+  V.log('ASK ok chars=' + parsed.answer.length + ' change=' + (parsed.needsPlanChange ? 1 : 0) +
+        (opts.noEffort ? ' noEffort=1' : ''));
   return V.json(res, 200, {
     answer: parsed.answer,
     needsPlanChange: parsed.needsPlanChange,

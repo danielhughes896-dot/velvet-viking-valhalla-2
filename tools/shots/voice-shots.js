@@ -84,7 +84,61 @@ const FRAMES = {
                               d.actual=Object.assign(emptyActual(),{km:d.km,pace:'5:18',rpe:6}); }
                             renderApp();` },
   'today-ask-disabled':{ view:'today', setup: SPEECH + `voiceSetAvailable(false); renderApp();` },
-  'settings-guidance': { view:'settings', setup: SPEECH + `renderApp();` }
+  'settings-guidance': { view:'settings', setup: SPEECH + `renderApp();` },
+
+  /* THE DEVICE THE FEATURE ACTUALLY SHIPPED TO, and the frame whose absence let
+     a missing control reach production. Every frame above STUBS speechSynthesis
+     so the Listen button appears; a fixture that manufactures the capability
+     cannot photograph its absence. These two remove it instead -- the installed
+     Capacitor app, where Android WebView exposes no synthesiser and no working
+     speech recogniser. */
+  'android-app-no-speech': { view:'today', setup: `
+      try{ delete window.speechSynthesis; }catch(e){}
+      window.Capacitor = { isNativePlatform: function(){ return true; } };
+      window.webkitSpeechRecognition = function(){};
+      voiceSetAvailable(true); renderApp();` },
+  'android-app-reading':   { view:'today', setup: `
+      try{ delete window.speechSynthesis; }catch(e){}
+      window.Capacitor = { isNativePlatform: function(){ return true; } };
+      window.webkitSpeechRecognition = function(){};
+      voiceSetAvailable(true); renderApp();
+      handleVoiceListen(findDayByDate(todayStr()).id);` },
+  /* THE INSTALLED APP WITH NATIVE SPEECH -- what the founder's phone becomes
+     once the new APK is installed. speechSynthesis is still absent (WebView),
+     but the native TextToSpeech and VvvSpeech bridges are present, so the
+     control offers to HEAR and the microphone is drawn. */
+  'android-native-listen': { view:'today', setup: `
+      try{ delete window.speechSynthesis; }catch(e){}
+      window.Capacitor = { isNativePlatform:function(){return true;}, Plugins:{
+        TextToSpeech:{ speak:function(){return Promise.resolve();}, stop:function(){},
+          getSupportedVoices:function(){ return Promise.resolve({voices:[
+            {name:'English (United Kingdom) female', lang:'en-GB'}]}); } },
+        VvvSpeech:{ available:function(){return Promise.resolve({supported:true,onDevice:true});},
+          listen:function(){return new Promise(function(){});}, cancel:function(){} } } };
+      voiceSetAvailable(true); voiceCheckNativeStt(); renderApp();` },
+  'android-native-mic':    { view:'today', setup: `
+      try{ delete window.speechSynthesis; }catch(e){}
+      window.Capacitor = { isNativePlatform:function(){return true;}, Plugins:{
+        TextToSpeech:{ speak:function(){return Promise.resolve();}, stop:function(){},
+          getSupportedVoices:function(){ return Promise.resolve({voices:[]}); } },
+        VvvSpeech:{ available:function(){return Promise.resolve({supported:true,onDevice:true});},
+          listen:function(){return new Promise(function(){});}, cancel:function(){} } } };
+      voiceSetAvailable(true);
+      voiceCheckNativeStt().then(function(){ renderApp(); askSet('open',{}); });` },
+  'android-no-ondevice':   { view:'today', setup: `
+      try{ delete window.speechSynthesis; }catch(e){}
+      window.Capacitor = { isNativePlatform:function(){return true;}, Plugins:{
+        TextToSpeech:{ speak:function(){return Promise.resolve();}, stop:function(){},
+          getSupportedVoices:function(){ return Promise.resolve({voices:[]}); } },
+        VvvSpeech:{ available:function(){return Promise.resolve({supported:true,onDevice:false});},
+          listen:function(){return Promise.reject({code:'NO_ON_DEVICE'});}, cancel:function(){} } } };
+      voiceSetAvailable(true);
+      voiceCheckNativeStt().then(function(){ renderApp(); askSet('open',{}); });` },
+  'android-app-ask':       { view:'today', setup: `
+      try{ delete window.speechSynthesis; }catch(e){}
+      window.Capacitor = { isNativePlatform: function(){ return true; } };
+      window.webkitSpeechRecognition = function(){};
+      voiceSetAvailable(true); renderApp(); askSet('open',{});` }
 };
 
 const MIME = { '.png':'image/png', '.svg':'image/svg+xml', '.jpg':'image/jpeg', '.webp':'image/webp',
