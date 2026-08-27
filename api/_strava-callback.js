@@ -53,16 +53,22 @@ async function handle(req, res){
   const uid = S.verifyState(q.state, cfg.clientSecret);
   if (!uid) return back(res, origin, 'failed');
 
-  /* THE FOUNDER ALLOWLIST, CHECKED AT THE POINT OF STORAGE.
-     /api/strava-auth already refuses to issue an authorize URL to anybody
-     else, but this is the route that would actually WRITE a token -- and an
-     athlete can arrive holding a link issued before the list changed, or one
-     assembled by hand. Refusing where the credential would be persisted is
-     what makes the gate real; refusing only where the link is issued would be
-     a UI convention. Nothing is exchanged and nothing is stored. */
-  if (!S.stravaAllowedForUser(uid)){
-    S.log('callback', 'NOT_PERMITTED');
-    return back(res, origin, 'unavailable');
+  /* THE SEAT, RE-CHECKED AT THE POINT OF STORAGE.
+     /api/strava-auth already refuses to issue an authorize URL when the beta is
+     full, but this is the route that would actually WRITE a token -- and an
+     athlete can arrive holding a link issued before the last seat went, or one
+     assembled by hand. Refusing where the credential would be persisted is what
+     makes the gate real; refusing only where the link is issued would be a UI
+     convention.
+
+     IT ALSO CLOSES THE RACE. Two athletes can both be issued a URL while one
+     seat remains; only one of them can be standing here when the count is taken
+     again, because the first to arrive has already written a row. Nothing is
+     exchanged and nothing is stored for the second. */
+  const may = await S.stravaMayConnect(cfg, uid);
+  if (!may.ok){
+    S.log('callback', 'REFUSED reason=' + may.reason);
+    return back(res, origin, may.reason === 'beta_full' ? 'full' : 'unavailable');
   }
 
   // Strava returns the granted scopes; without activity read access there is

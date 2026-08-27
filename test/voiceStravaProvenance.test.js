@@ -71,16 +71,25 @@ function logStrava(a, date, over){
 // ---------------------------------------------------------------------------
 // 1. COEXISTENCE
 // ---------------------------------------------------------------------------
-test('the Strava allowlist governs Strava, and nothing about Ask Coach', () => {
-  /* The correction. VVV_STRAVA_ALLOWED_USER_IDS decides WHO MAY USE STRAVA.
-     It must not decide who may use Ask Coach. */
-  withEnv({ VVV_STRAVA_ENABLED: '1', VVV_STRAVA_ALLOWED_USER_IDS: FOUNDER }, () => {
-    assert.equal(S.stravaAllowedForUser(FOUNDER), true, 'the founder gate must still work');
-    assert.equal(S.stravaAllowedForUser(OTHER), false, 'and must still exclude everybody else');
+test('Strava eligibility governs Strava, and nothing about Ask Coach', () => {
+  /* The correction, and it outlived the mechanism that prompted it. It was
+     written when VVV_STRAVA_ALLOWED_USER_IDS decided who may use Strava; that
+     allowlist is gone and a seat count replaced it. What must stay true is the
+     same either way: whatever decides Strava access must not decide Ask Coach
+     access. ACCOUNT ELIGIBILITY IS NOT DATA ELIGIBILITY. */
+  withEnv({ VVV_STRAVA_ENABLED: '1' }, () => {
+    assert.equal(S.stravaPermitted(FOUNDER), true, 'a verified account may use Strava');
+    assert.equal(S.stravaPermitted(OTHER), true,
+      'eligibility is no longer a list -- any verified account may connect');
+    assert.equal(S.stravaPermitted(null), false, 'an unauthenticated caller may not');
+  });
+  withEnv({ VVV_STRAVA_ENABLED: '' }, () => {
+    assert.equal(S.stravaPermitted(FOUNDER), false,
+      'the deployment switch must still close the whole integration');
   });
   const voiceFiles = ['api/_voice.js', 'api/_voice-ask.js', 'api/_voice-enabled.js', 'api/voice.js']
     .map(f => fs.readFileSync(path.join(ROOT, f), 'utf8')).join('\n');
-  assert.ok(!/stravaAllowedForUser|VVV_STRAVA_ALLOWED_USER_IDS/.test(voiceFiles),
+  assert.ok(!/stravaPermitted|stravaMayConnect|stravaHasConnection|VVV_STRAVA_/.test(voiceFiles),
     'a Voice endpoint gates on Strava account eligibility');
 });
 

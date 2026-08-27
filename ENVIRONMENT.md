@@ -69,7 +69,7 @@ absence is a deliberate off state, not a misconfiguration.
 | Name | Secret | Purpose | Launch | Source |
 |---|---|---|---|---|
 | `VVV_STRAVA_ENABLED` | no | **SWITCH.** Off = the integration is not offered at all, and no request reaches Strava. | as configured | you |
-| `VVV_STRAVA_ALLOWED_USER_IDS` | no | **ACCESS LIST.** Comma- or newline-separated Supabase user UUIDs. Only these accounts can see, connect or sync Strava; every other account is refused at every server boundary. **Fails closed** — unset, empty, malformed or unmatched all mean no access, and there is deliberately no wildcard. Not a secret, but it is an account identifier: keep it out of source, tests and logs. | private test only | Supabase → Authentication → Users, the account's `id` |
+| `VVV_STRAVA_MAX_ATHLETES` | no | **PRIVATE-BETA CAPACITY.** How many athletes may hold a Strava connection at once. Unset or malformed means **10**; there is deliberately no value meaning unlimited. Counted against Valhalla's own `strava_connections` roster, which is the only number it can establish exactly — Strava remains authoritative for its own application limit. An athlete who already holds a connection is never counted against admission and is never disconnected by a full roster. | `10` | you |
 | `STRAVA_CLIENT_ID` | no | OAuth client id. | for Strava | strava.com/settings/api |
 | `STRAVA_CLIENT_SECRET` | **YES** | OAuth client secret. Also keys the OAuth `state` HMAC. | for Strava | strava.com/settings/api |
 | `STRAVA_WEBHOOK_VERIFY_TOKEN` | **YES** | Echoed back during Strava's webhook handshake. | if webhooks used | you |
@@ -87,9 +87,9 @@ half — reaches a model, and only these three variables switch it on.
 | `VVV_VOICE_MODEL` | no | Overrides the model id. Leave unset; the pinned default is `claude-opus-5`, verified 2026-08-26 against the official model list, and is what the prompt and the cost estimate were written against. | unset | — |
 
 **Ask Coach and Strava coexist on the same account.** Having Strava connected,
-being listed in `VVV_STRAVA_ALLOWED_USER_IDS`, or holding Strava-derived history
+holding a Strava connection, or holding Strava-derived history
 does not disable LISTEN or Ask Coach. Account eligibility and data eligibility
-are different things: `VVV_STRAVA_ALLOWED_USER_IDS` controls **who may use
+are different things: Strava eligibility controls **who may use
 Strava** and nothing else.
 
 What the Strava restriction governs is **which evidence may reach the model**,
@@ -139,7 +139,8 @@ the code reports it rather than assuming it:
   and service-role key are present and working.
 - **Strava is configured or not** according to `VVV_STRAVA_ENABLED`, and is
   additionally restricted to the accounts named in
-  `VVV_STRAVA_ALLOWED_USER_IDS`. Both must be set for anybody to reach it,
+  the private-beta capacity in `VVV_STRAVA_MAX_ATHLETES`. The switch must be
+  set for anybody to reach it,
   and an account that is not listed is shown no Strava integration at all
   rather than a button it cannot use.
 - **Stripe is not live** — no live key, and liveness is not derived from a key

@@ -26644,7 +26644,8 @@ var STRAVA_ERROR_COPY = {
   signin:                 'Sign in to VVV first — your Strava connection is saved to your account',
   not_connected:          'Connect Strava first',
   authorization_revoked:  'Strava access has expired — connect again',
-  strava_unavailable:     'Strava is not responding — try again shortly'
+  strava_unavailable:     'Strava is not responding — try again shortly',
+  strava_beta_full:       'Strava access is currently full for the private beta'
 };
 function stravaMessage(err){
   return STRAVA_ERROR_COPY[err && err.code] || 'Could not reach Strava — try again';
@@ -26716,6 +26717,11 @@ var STRAVA_RETURN_COPY = {
   denied:       'Strava connection cancelled',
   scope:        'VVV needs permission to read your activities — connect again and allow it',
   unavailable:  'Strava sync is switched off during the private beta',
+  /* THE ONE CONDITION WORTH ITS OWN SENTENCE. "Full" is not a failure the
+     athlete can fix by trying again, and telling them to try again would be a
+     lie. No API jargon, no policy commentary, no mention of a limit belonging
+     to anybody in particular -- just the true, useful fact. */
+  full:         'Strava access is currently full for the private beta',
   unconfigured: 'Strava is not set up on this server yet',
   failed:       'Strava connection failed — try again'
 };

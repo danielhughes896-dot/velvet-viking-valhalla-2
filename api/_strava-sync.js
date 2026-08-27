@@ -123,12 +123,16 @@ async function handle(req, res){
     S.log('sync', 'REFUSED action=' + (body.action || 'pull') + ' strava_disabled');
     return S.json(res, 403, { error: 'strava_disabled', code: 'STRAVA_DISABLED' });
   }
-  /* AND THE FOUNDER ALLOWLIST, closing the same whole route for the same
-     reason: `pull` hands already-staged Strava data to the app, which logs it
-     into a training plan. Gating only `sync` would leave ingestion open to any
-     account with a staged row. */
-  if (!S.stravaAllowedForUser(uid)){
-    S.log('sync', 'NOT_PERMITTED action=' + (body.action || 'pull'));
+  /* AND A CONNECTION THIS ATHLETE ACTUALLY HOLDS, closing the same whole route
+     for the same reason: `pull` hands already-staged Strava data to the app,
+     which logs it into a training plan. Gating only `sync` would leave ingestion
+     open to any account with a staged row.
+
+     DELIBERATELY NOT THE SEAT CAP. An athlete inside the beta keeps syncing
+     whatever the roster looks like afterwards; a full beta must never stop the
+     athletes who filled it. The connection IS the entitlement. */
+  if (!(await S.stravaHasConnection(cfg, uid))){
+    S.log('sync', 'NOT_CONNECTED action=' + (body.action || 'pull'));
     return S.json(res, 403, { error: 'strava_unavailable', code: 'STRAVA_UNAVAILABLE' });
   }
 

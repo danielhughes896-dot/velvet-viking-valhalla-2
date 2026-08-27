@@ -34,7 +34,7 @@ async function handle(req, res){
      for the same reason: this fails closed like everything else. */
   let uid = null;
   try { uid = (await S.verifyUser(req, S.config())).uid || null; } catch(e){ uid = null; }
-  return S.json(res, 200, { enabled: S.stravaAllowedForUser(uid) });
+  return S.json(res, 200, { enabled: S.stravaPermitted(uid) });
 };
 
 module.exports = { handle };
