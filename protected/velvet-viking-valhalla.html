@@ -25431,26 +25431,74 @@ function voiceBriefingScript(dd){
      that changes what the athlete does in the next hour; purpose and
      watch-outs are the parts they can read later if they want them. */
   /* `how` is already written as instructions -- imperative sentences -- so it
-     is spoken as it stands. The other three are card values and are framed
-     into sentences first; see voicePurposeLine() and friends above. */
+     is spoken as it stands. */
   if (gd && gd.how) lines.push(voiceSpeakable(gd.how));
-  if (level === 'full'){
-    if (gd && gd.why)   lines.push(voiceSpeakable(voicePurposeLine(gd.why)));
-    if (gd && gd.feel)  lines.push(voiceSpeakable(voiceFeelLine(gd.feel)));
-    if (gd && gd.avoid) lines.push(voiceSpeakable(voiceAvoidLine(gd.avoid)));
-  }
 
-  /* The coach's own pre-session message, when the engine produced one. It
-     already knows about adjustments, continuity and what this session is for
-     in THIS block, which no static guidance table can. */
+  /* THE COACH'S OWN WORDS FOR WHY, WHEN THERE ARE ANY. coachBrief()'s first
+     paragraph is the intent line -- written as speech, and about THIS session
+     in THIS block. The guidance table's `why` is a card value saying the same
+     thing in card register: "Aerobic base, and freshness for the hard days"
+     beside "Today is about banking aerobic time cheaply." Speaking BOTH is the
+     single largest reason the briefing sounded like a page being read, so only
+     one is spoken, and the coach's own sentence wins. */
   var brief = null;
   try { brief = coachBrief(dd); } catch(e){ brief = null; }
-  if (brief && brief.paragraphs && brief.paragraphs.length){
-    var take = level === 'concise' ? brief.paragraphs.slice(0, 1) : brief.paragraphs;
-    take.forEach(function(p){ lines.push(voiceSpeakable(p)); });
+  var paras = voiceBriefParagraphs(brief);
+  var purpose = paras.length ? paras[0]
+              : (gd && gd.why ? voicePurposeLine(gd.why) : '');
+
+  if (level === 'full'){
+    /* FEEL AND WATCH-FOR, SAID AS ONE THING. They are two cells of one row on
+       the card and one thought out loud: how it should sit, and the way it
+       goes wrong. Two separate sentences is the card's structure spoken; one
+       joined sentence is the coach's. */
+    var feel = gd && gd.feel ? voiceStripStop(gd.feel) : '';
+    var avoid = gd && gd.avoid ? voiceStripStop(gd.avoid) : '';
+    /* JOINED ONLY WHERE JOINING HELPS. Several feel values are themselves two
+       clauses -- "Hard but even, and repeatable" -- and hanging a second `and`
+       off those produced "hard but even, and repeatable, and watch for racing
+       it", which is worse than the two sentences it replaced. A feel that
+       already carries a comma is left as its own sentence. */
+    if (feel && avoid && feel.indexOf(',') === -1)
+      lines.push(voiceSpeakable('Keep it ' + voiceLowerFirst(feel) +
+                                ', and watch for ' + voiceLowerFirst(avoid) + '.'));
+    else if (feel && avoid)
+      lines.push(voiceSpeakable(voiceFeelLine(feel) + ' ' + voiceAvoidLine(avoid)));
+    else if (feel)  lines.push(voiceSpeakable(voiceFeelLine(feel)));
+    else if (avoid) lines.push(voiceSpeakable(voiceAvoidLine(avoid)));
   }
+
+  if (purpose) lines.push(voiceSpeakable(purpose));
+
+  /* Everything the coach said after the intent line, at full depth only.
+     Already priority-ordered by coachBrief(); card furniture is gone. */
+  if (level === 'full')
+    paras.slice(1).forEach(function(p){ lines.push(voiceSpeakable(p)); });
+
   lines = voiceDedupe(lines);
   return lines.length ? { kind:'briefing', level:level, lines:lines } : null;
+}
+
+/* WHAT THE COACH ACTUALLY SAID, WITH THE CARD FURNITURE REMOVED.
+
+   coachBrief() returns paragraphs in priority order, and some of them are
+   LABELLED -- "Insufficient evidence: Not enough scored sessions yet to judge
+   your training trend confidently." A label is a card convention: on screen it
+   sits in its own cell and tells the eye how to read what follows. Spoken, it
+   is a status line about Valhalla's own confidence, not an instruction to the
+   athlete, and reading it aloud is precisely the screen-reader behaviour this
+   layer exists to stop.
+
+   DETECTED BY SHAPE, NOT BY MESSAGE. Any paragraph carrying a short leading
+   label is card furniture, whatever it says -- so a status line added later is
+   handled without anyone remembering to add it here. An UNLABELLED paragraph
+   is coaching and is never dropped: nothing here decides which coaching
+   matters, only which of it was written for the eye. */
+function voiceBriefParagraphs(brief){
+  if (!brief || !brief.paragraphs) return [];
+  return brief.paragraphs.filter(function(p){
+    return !/^[A-Z][A-Za-z]*(?:\s+[a-z]+){0,2}:\s+[A-Z]/.test(String(p || ''));
+  });
 }
 
 /* THE POST-SESSION DEBRIEF.
