@@ -9999,7 +9999,23 @@ function renderMedallion(){
      Canonical crest: assets/velvet-viking-crest.png (see README "Brand assets"
      for the master/derivative map) -- width/height match its real 1223x1286
      portrait artwork so .medallion-img's height:auto never has to guess. */
-  return '<img class="medallion-img" src="/assets/velvet-viking-crest.png" width="1223" height="1286" alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place" loading="eager">';
+  /* THE DELIVERY ASSET, NOT THE MASTER. assets/velvet-viking-crest.png is the
+     canonical 1223x1286 artwork and stays exactly as it is; this is a 540px
+     palette encoding of it, and 540 is not arbitrary -- .medallion-img renders
+     at width:180px, so a 3x phone draws exactly 540 device pixels and every
+     pixel beyond that was being downloaded and discarded on the first screen
+     of the app, over mobile data, eagerly.
+
+     2051 KB -> 137 KB, a 93.3% reduction, measured at 42.6 dB PSNR composited
+     over both themes -- the highest quality of any lossy option tested,
+     including AVIF q90. Indistinguishable from the master at 3x zoom on the
+     lettering, and the rendered size is unchanged at 180x189 CSS px in both
+     themes, so nothing moves. See CREST-ASSET-REPORT.md for the full
+     comparison and test/crestAsset.test.js for the budget that keeps it small.
+
+     width/height describe THIS file, which is what gives the browser the
+     correct aspect ratio before it loads. */
+  return '<img class="medallion-img" src="/assets/velvet-viking-crest-540.png" width="540" height="568" alt="Velvet Viking crest — Valhalla Awaits, Earn Your Place" loading="eager">';
 }
 function renderHero(){
   // Entry/build page (no plan yet): text-led, matching the rest of the app's

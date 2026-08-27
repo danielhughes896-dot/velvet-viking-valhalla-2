@@ -1,0 +1,146 @@
+[
+ {
+  "label": "ORIGINAL (master)",
+  "file": "velvet-viking-crest.png",
+  "w": 1223,
+  "h": 1286,
+  "bytes": 2100661,
+  "format": "png",
+  "alpha": true
+ },
+ {
+  "label": "360px png",
+  "file": "crest-360-png.png",
+  "w": 360,
+  "h": 379,
+  "bytes": 206296,
+  "format": "png",
+  "alpha": true
+ },
+ {
+  "label": "360px png8",
+  "file": "crest-360-png8.png",
+  "w": 360,
+  "h": 379,
+  "bytes": 64473,
+  "format": "png",
+  "alpha": true
+ },
+ {
+  "label": "360px webp",
+  "file": "crest-360-webp.webp",
+  "w": 360,
+  "h": 379,
+  "bytes": 45310,
+  "format": "webp",
+  "alpha": true
+ },
+ {
+  "label": "360px webp-lossless",
+  "file": "crest-360-webp-lossless.webp",
+  "w": 360,
+  "h": 379,
+  "bytes": 144430,
+  "format": "webp",
+  "alpha": true
+ },
+ {
+  "label": "360px avif",
+  "file": "crest-360-avif.avif",
+  "w": 360,
+  "h": 379,
+  "bytes": 22100,
+  "format": "heif",
+  "alpha": true
+ },
+ {
+  "label": "540px png",
+  "file": "crest-540-png.png",
+  "w": 540,
+  "h": 568,
+  "bytes": 457482,
+  "format": "png",
+  "alpha": true
+ },
+ {
+  "label": "540px png8",
+  "file": "crest-540-png8.png",
+  "w": 540,
+  "h": 568,
+  "bytes": 140741,
+  "format": "png",
+  "alpha": true
+ },
+ {
+  "label": "540px webp",
+  "file": "crest-540-webp.webp",
+  "w": 540,
+  "h": 568,
+  "bytes": 85186,
+  "format": "webp",
+  "alpha": true
+ },
+ {
+  "label": "540px webp-lossless",
+  "file": "crest-540-webp-lossless.webp",
+  "w": 540,
+  "h": 568,
+  "bytes": 314748,
+  "format": "webp",
+  "alpha": true
+ },
+ {
+  "label": "540px avif",
+  "file": "crest-540-avif.avif",
+  "w": 540,
+  "h": 568,
+  "bytes": 37611,
+  "format": "heif",
+  "alpha": true
+ },
+ {
+  "label": "720px png",
+  "file": "crest-720-png.png",
+  "w": 720,
+  "h": 757,
+  "bytes": 815616,
+  "format": "png",
+  "alpha": true
+ },
+ {
+  "label": "720px png8",
+  "file": "crest-720-png8.png",
+  "w": 720,
+  "h": 757,
+  "bytes": 242187,
+  "format": "png",
+  "alpha": true
+ },
+ {
+  "label": "720px webp",
+  "file": "crest-720-webp.webp",
+  "w": 720,
+  "h": 757,
+  "bytes": 143436,
+  "format": "webp",
+  "alpha": true
+ },
+ {
+  "label": "720px webp-lossless",
+  "file": "crest-720-webp-lossless.webp",
+  "w": 720,
+  "h": 757,
+  "bytes": 547788,
+  "format": "webp",
+  "alpha": true
+ },
+ {
+  "label": "720px avif",
+  "file": "crest-720-avif.avif",
+  "w": 720,
+  "h": 757,
+  "bytes": 61591,
+  "format": "heif",
+  "alpha": true
+ }
+]
