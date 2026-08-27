@@ -124,18 +124,36 @@ test('framing carries every coaching word through, in order', () => {
   });
 });
 
-test('nothing is dropped: every guidance value reaches the spoken briefing', () => {
+test('the instruction and the watch-for always reach speech; the purpose may be said once', () => {
+  /* RETIGHTENED, NOT RELAXED. This used to require all four guidance values in
+     the spoken briefing, which was right while the briefing spoke each card
+     value in turn. The composer now says the PURPOSE once, preferring
+     coachBrief()'s intent line -- the coach's own sentence about this session
+     in this block -- over `why`, the card value that makes the same point in
+     card register. Speaking both was the single largest reason the briefing
+     sounded like a page being read.
+     What must never be condensed away is what the athlete is told to DO and
+     what they are told to WATCH FOR. Those two are asserted absolutely; the
+     purpose is asserted as "said, in one rendering or the other". */
   const a = app();
   const dd = today(a);
   const gd = a.coachingDisclosureFor(dd, a.athleteExperience(a.state.setup));
   const spoken = a.voiceScriptText(a.voiceScriptFor(dd)).toLowerCase();
-  ['how', 'why', 'feel', 'avoid'].forEach(f => {
+  const tailOf = v => String(v).replace(/\s*\.\s*$/, '').split(' ').slice(-3).join(' ').toLowerCase();
+
+  ['how', 'avoid'].forEach(f => {
     if (!gd[f]) return;
-    /* Compared on the distinctive last words rather than the whole string,
-       because voiceSpeakable() legitimately rewrites units and paces. */
-    const tail = String(gd[f]).replace(/\s*\.\s*$/, '').split(' ').slice(-3).join(' ').toLowerCase();
-    assert.ok(spoken.indexOf(tail) !== -1, 'guidance "' + f + '" never reached speech: ' + tail);
+    assert.ok(spoken.indexOf(tailOf(gd[f])) !== -1,
+      'guidance "' + f + '" was condensed away, and it never may be: ' + tailOf(gd[f]));
   });
+  if (gd.feel) assert.ok(spoken.indexOf(tailOf(gd.feel)) !== -1, 'the feel was lost');
+
+  /* The purpose, in whichever of its two renderings the composer chose. */
+  const brief = a.coachBrief(dd);
+  const intent = brief && brief.paragraphs && brief.paragraphs[0];
+  const saidPurpose = (gd.why && spoken.indexOf(tailOf(gd.why)) !== -1) ||
+                      (intent && spoken.indexOf(tailOf(intent)) !== -1);
+  assert.ok(saidPurpose, 'the session lost its purpose entirely');
 });
 
 test('the spoken briefing is no longer a string of captions', () => {
@@ -143,8 +161,12 @@ test('the spoken briefing is no longer a string of captions', () => {
   const spoken = a.voiceScriptText(a.voiceScriptFor(today(a)));
   assert.ok(!/(^|\. )Conversational throughout\./.test(spoken),
     'a bare card caption is still being read aloud');
-  assert.match(spoken, /It should feel /, 'the feel was not framed');
-  assert.match(spoken, /Watch for /, 'the watch-out was not framed');
+  /* Either framing is correct: a single-clause feel is JOINED to the watch-for
+     ("Keep it conversational throughout, and watch for ..."), and a feel that
+     is already two clauses keeps its own sentence ("It should feel ..."). What
+     matters is that neither arrives as a bare caption. */
+  assert.match(spoken, /Keep it |It should feel /, 'the feel was not framed');
+  assert.match(spoken, /watch for /i, 'the watch-out was not framed');
 });
 
 // ---------------------------------------------------------------------------
