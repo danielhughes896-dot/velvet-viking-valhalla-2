@@ -1,8 +1,7 @@
 # Race Day out of the training week's total
 
 Branch `claude/race-week-volume`, cut from `main` @ `565a1bc` (the
-race-day-hierarchy merge).
-**Not merged. Held for founder review.**
+race-day-hierarchy merge). **Merged.**
 
 ---
 
@@ -231,4 +230,5 @@ moving one card and one number.
 
 ## 9. Suite
 
-**Not merged. Awaiting your review.**
+Targeted: `raceWeekVolumeDisplay` 21/21, `adjustedSessionStructure` 23/23.
+**Complete suite: 3068 pass / 0 fail** (3047 before; 21 new).
