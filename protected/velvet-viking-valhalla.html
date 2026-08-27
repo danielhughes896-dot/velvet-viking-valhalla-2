@@ -1359,6 +1359,10 @@
      the score reads as one component wherever it appears */
   .exec-review-head .exec-pill{margin-left:auto; flex:none; text-transform:none;}
   .exec-review-summary{font-size:12.5px; color:var(--ink-dim); line-height:1.45;}
+  /* The next rung of the evidence ladder, offered rather than demanded. Quieter
+     than the assessment above it, because what the athlete already logged is
+     the point of the card and this is only what MORE would buy. */
+  .exec-review-more{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:6px;}
   /* Per-workout coach review sections. Same visual language as the rest of the
      card -- concise labelled blocks, not a dashboard. */
   /* The score badge lives in the collapsed row AND in the Execution Review
@@ -2767,6 +2771,19 @@
   /* "Nothing measured" is an absence, not a value -- quieted rather than
      coloured, so an empty record does not read as a warning. */
   .rec-headline b.rec-none, .b-plate .val.rec-none{color:var(--ink-faint); font-weight:500;}
+
+  /* ---------- THE EVIDENCE-ACQUISITION STATE ----------
+     Same card family, deliberately lighter: no data typography, no headline
+     slot, less vertical weight. It reads as a row that is waiting rather than
+     a metric that is broken. The rule is the point -- absence must never look
+     like another measured value. */
+  .ev-card-empty{padding-top:10px; padding-bottom:10px;}
+  .rec-empty{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;}
+  .rec-empty-subject{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--ink-dim);}
+  /* The interface face, NOT the monospace data face -- that difference is what
+     stops the words being read as a value. */
+  .rec-empty-state{font-size:12px; color:var(--ink-faint); font-style:italic;}
 
   /* ---------- THE ACTION TRIO ----------
      Three tiles at the foot of Plan HQ. They rhyme with the status chips
@@ -10977,9 +10994,25 @@ function renderDayCard(dd){
   var actualHtml = '';
   if (dd.completed){
     var a = dd.actual || {};
+    var detailOpen = isDetailOpen(dd);
+    /* THE TWO THE ENGINE GRADES AGAINST, always visible. Distance alone is a
+       real rung of the evidence ladder -- it earns a completion assessment on
+       its own -- and pace is what turns that into a whole-session execution
+       judgement. Neither is compulsory: a missing pace narrows what Valhalla
+       will claim, and is never treated as a failure. */
     actualHtml = '<div class="actual-panel">'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
-      '<div class="actual-field"><label>Avg Pace /'+displayUnit()+'</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
+      '<div class="actual-field"><label>Avg Pace /'+displayUnit()+' \u2014 optional</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
+      /* One control, in the same quiet voice the session breakdown already
+         uses. Open when the athlete asks, and open by default whenever this
+         day already carries any of it -- a record can never be made less
+         visible than it was. */
+      '<div class="actual-field full">'+
+        '<button type="button" class="splits-toggle" data-action="toggle-detail" data-day="'+dd.id+'" aria-expanded="'+(detailOpen?'true':'false')+'">'+
+          (detailOpen ? 'Hide detail' : '+ Add detail \u2014 heart rate, effort, feel, notes')+
+        '</button>'+
+      '</div>'+
+      (detailOpen ? (
       /* HEART RATE AND FEEL ARE THE TWO COVERED BOXES IN THIS PANEL. Without
          consent they are not shown, because inviting somebody to type a
          resting-heart-rate figure Valhalla is not allowed to read is worse
@@ -11012,7 +11045,14 @@ function renderDayCard(dd){
         '</div>'+
         '<span class="field-hint">Anything the numbers don\u2019t show \u2014 tired legs, poor sleep, heat, wind, hills, illness, pain, treadmill, HR sensor trouble.</span>'+
         renderNoteSignalChips(dd)+
-      '</div>'+
+      '</div>'
+      ) : '')+
+      /* THE THIRD RUNG, and it already lived behind its own disclosure -- a
+         quiet one-line control that opens on tap or when the day carries real
+         lap data. Left exactly as it was: warm-up, quality, recoveries and
+         cool-down are still logged segment by segment, and nothing about the
+         simplified surface above flattens what a watch or a connected service
+         supplied. */
       renderSplitsBlock(dd)+
       '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>'+
     '</div>'+
@@ -11959,9 +11999,93 @@ function computeExecutionBreakdown(dd){
     score: clamp(Math.round(raw), 0, 100),
     parts: parts,
     counted: counted,
-    missing: parts.filter(function(p){ return p.score==null; })
+    missing: parts.filter(function(p){ return p.score==null; }),
+    /* AT WHAT RESOLUTION THE PACE VERDICT WAS REACHED.
+       Not a new calculation -- a name for one that was already happening.
+       executionPaceTarget() aggregates a structured session's prescription
+       down to a single distance-weighted band, so a 2 km warm-up, 5 km
+       threshold and 1 km cool-down are judged as one 8 km average against one
+       8 km expectation. That is the CORRECT thing to do with whole-session
+       evidence: it compares like with like and, crucially, it never
+       back-derives what the threshold section must have been.
+       What was missing is that nobody told the athlete. A score presented
+       without this reads as a verdict on the threshold section, which is the
+       one thing the evidence cannot support. */
+    paceResolution: executionPaceResolution(dd, parts[1])
   };
 }
+
+/* 'whole-session' when a structured session was judged as one average, 'direct'
+   when the prescription has a single intensity and the average IS the thing
+   prescribed, and null when pace was not scored at all. */
+function executionPaceResolution(dd, pacePart){
+  if (!pacePart || pacePart.score == null) return null;
+  var mix = null;
+  try { mix = executionMix(dd); } catch(e){ mix = null; }
+  if (!mix || !mix.byIntensity) return 'direct';
+  /* More than one prescribed intensity is what makes the target a composite,
+     and the composite is what makes the verdict whole-session. */
+  var kinds = Object.keys(mix.byIntensity).filter(function(k){ return mix.byIntensity[k] > 0.05; });
+  return kinds.length > 1 ? 'whole-session' : 'direct';
+}
+/* ---------- THE BOTTOM RUNG OF THE EVIDENCE LADDER ----------
+
+   WHAT THIS IS FOR. computeExecutionBreakdown() requires distance AND pace and
+   returns null without both, so an athlete who logged "I ran 8 km" and nothing
+   else used to be told to go and log more. A distance they actually ran is real
+   evidence, and answering it with an instruction was the product declining to
+   read what it had been given.
+
+   THE LADDER, and each rung claims strictly less than the one above:
+
+     distance only          -> was the session COMPLETED, and at what length
+     distance + pace        -> how it was EXECUTED against the prescription
+     segment/lap evidence   -> how each SECTION was run  (not yet available)
+
+   WHAT THIS DELIBERATELY DOES NOT DO. It produces no execution percentage, and
+   that absence is the whole design. A distance logged alone says nothing about
+   pace adherence, intensity, effort, or how a threshold block was run, and a
+   number in the same slot as an execution score would say all four. Completion
+   is reported as completion.
+
+   AND IT DOES NOT FEED COACHING. computeExecutionBreakdown() still returns null
+   at this rung, so the training signal, the Playbook, plan evolution and the
+   spoken debrief are all untouched by a distance-only log -- exactly as before.
+   A broad claim earns a broad statement, not broad influence. */
+function computeCompletionAssessment(dd){
+  if (!dd || !dd.completed) return null;
+  var a = dd.actual || {};
+  /* Only where the higher rung is genuinely unavailable. With pace logged the
+     breakdown exists and this must stay out of its way. */
+  if (a.km == null) return null;
+  if (actualPaceSecPerKm(dd) != null) return null;
+  var target = dd.km || 0;
+  if (target <= 0) return null;
+
+  var ratio = a.km / target;
+  /* THE SAME BANDS THE DISTANCE COMPONENT ALREADY USES, so "completed" here and
+     a distance score there can never disagree about the same run. */
+  var verdict = ratio >= 0.98 ? 'full'
+              : ratio >= 0.85 ? 'most'
+              : ratio >= 0.5  ? 'part'
+              : 'short';
+  return { km: a.km, targetKm: target, ratio: ratio, verdict: verdict,
+           tier: 'completion' };
+}
+
+/* What the card says at this rung. Two sentences at most: what was completed,
+   and -- said plainly rather than as an instruction -- what this evidence
+   cannot speak to. */
+function completionSummaryLine(c){
+  if (!c) return '';
+  var dist = fmtDist(c.km);
+  var said = c.verdict === 'full'  ? 'Session completed \u2014 ' + dist + ' logged, as prescribed.'
+           : c.verdict === 'most'  ? 'Session completed \u2014 ' + dist + ' of ' + fmtDist(c.targetKm) + '.'
+           : c.verdict === 'part'  ? 'Part of the session logged \u2014 ' + dist + ' of ' + fmtDist(c.targetKm) + '.'
+           :                         'A short piece of the session logged \u2014 ' + dist + ' of ' + fmtDist(c.targetKm) + '.';
+  return said + ' Distance is all that was recorded, so this one is not judged on pace or effort.';
+}
+
 function computeExecutionScore(dd){
   var b = computeExecutionBreakdown(dd);
   return b ? b.score : null;
@@ -12418,9 +12542,16 @@ function renderExecutionReview(dd){
   if (!dd.completed) return '';
   var b = computeExecutionBreakdown(dd);
   if (!b){
+    /* THE BOTTOM RUNG, drawn before the prompt. A logged distance is evidence
+       and gets a real -- deliberately broad -- assessment; only an athlete who
+       has logged nothing usable is asked for more. */
+    var c = computeCompletionAssessment(dd);
     return '<div class="exec-review-card">'+
       '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span></div>'+
-      '<div class="exec-review-summary">Log actual '+displayUnit().toUpperCase()+' and average pace to score this session.</div>'+
+      '<div class="exec-review-summary">'+(c
+        ? escapeHtml(completionSummaryLine(c))
+        : 'Log actual '+displayUnit().toUpperCase()+' and average pace to score this session.')+'</div>'+
+      (c ? '<div class="exec-review-more">Add an average pace and this is scored against the session you were set.</div>' : '')+
     '</div>';
   }
   /* The per-component weighted calculation that used to close this card
@@ -21214,11 +21345,29 @@ function coachNoticedForWorkout(dd, b, env){
      saying so once a session is nagging rather than coaching. A component they
      usually DO record and did not this time is genuinely worth a line. */
   var worthSaying = b.missing.filter(function(p){ return athleteUsuallyLogs(dd, p.key); });
-  if (worthSaying.length) return 'Scored without '+listPhrase(worthSaying.map(function(p){ return MISSING_NOUN[p.key]||p.label.toLowerCase(); }))+'.';
-  if (b.score>=99) return isRecoveryLikeDay(dd)
+  if (worthSaying.length) return 'Scored without '+listPhrase(worthSaying.map(function(p){ return MISSING_NOUN[p.key]||p.label.toLowerCase(); }))+'.'+
+    executionResolutionClause(b);
+  if (b.score>=99) return (isRecoveryLikeDay(dd)
     ? 'Easy discipline held exactly where it was set.'
-    : 'Everything landed on the numbers it was set to hit.';
-  return 'Executed at '+b.score+'% of the prescribed session.';
+    : 'Everything landed on the numbers it was set to hit.') + executionResolutionClause(b);
+  return 'Executed at '+b.score+'% of the prescribed session.'+executionResolutionClause(b);
+}
+/* WHAT THE EVIDENCE COULD AND COULD NOT ESTABLISH, said once and only when it
+   is actually load-bearing.
+
+   A structured session logged as one total -- 8 km at 5:12 for a prescribed
+   2 km warm-up, 5 km threshold and 1 km cool-down -- can be judged honestly
+   against the whole prescription, and is. What it CANNOT establish is how that
+   run was distributed: the threshold section's own pace is unknown, and
+   unknown is not zero, not failure, and not something to estimate.
+
+   So the score stands and the clause names its resolution. Nothing is
+   withheld, nothing is invented, and an athlete who logs more gets a sharper
+   answer rather than a longer one -- which is the whole reason to log more. */
+function executionResolutionClause(b){
+  return (b && b.paceResolution === 'whole-session')
+    ? ' Pace is judged across the whole run — the sections were not logged separately.'
+    : '';
 }
 var MISSING_NOUN = { hr:'heart rate', rpe:'an effort rating', distance:'a logged distance', pace:'a logged pace' };
 /* Does this athlete normally record this component? Read from the sessions
@@ -27778,6 +27927,41 @@ function handleClearActual(dayId){
   scheduleSave();
   showToast('Log cleared');
 }
+/* ---------- "ADD DETAIL": THE SECOND RUNG, OFFERED NOT DEMANDED ----------
+
+   WHAT THIS FIXES. The whole-session panel asked six questions at once --
+   distance, pace, heart rate, RPE, feel and notes -- flat, in one block, every
+   one of them the same size. An athlete who wanted to record that they ran
+   8 km had to scroll past four fields they had no intention of filling, and a
+   form that asks six things reads as a form that wants six things.
+
+   DISTANCE AND PACE STAY, because those two are the evidence the coaching
+   engine actually grades against, and because distance alone is now a real
+   rung of the ladder in its own right. Heart rate, effort, feel and notes move
+   behind one control.
+
+   NOTHING IS REMOVED AND NOTHING IS HIDDEN FROM ITSELF. A day that already
+   carries any of those four opens showing them -- exactly the rule the session
+   breakdown already uses for real lap data. An existing record can never be
+   made less visible than it was, and no migration touches a stored value. */
+var detailEditorOpen = {};
+function dayHasDetail(dd){
+  var a = (dd && dd.actual) || {};
+  return a.hr != null || a.rpe != null || !!a.feel || !!(a.notes && String(a.notes).trim());
+}
+function isDetailOpen(dd){
+  if (!dd) return false;
+  if (Object.prototype.hasOwnProperty.call(detailEditorOpen, dd.id)) return !!detailEditorOpen[dd.id];
+  /* Default: closed, unless this day already has something to show. */
+  return dayHasDetail(dd);
+}
+function handleToggleDetail(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  detailEditorOpen[dd.id] = !isDetailOpen(dd);
+  replaceCard(dd);
+}
+
 function handleToggleSplits(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
@@ -28408,7 +28592,10 @@ function scheduledCheckpointDay(){
 function recordFitnessFact(){
   var latest = measuredProgression().latest;
   if (!latest){
+    /* `value` is kept for the Valhalla-tab plate and for anything that reads
+       the fact as data; the Record card no longer renders it as a headline. */
     return { key:'fitness', subject:'Measured fitness', value:'Nothing measured', none:true,
+      emptyState:'Not established yet',
       synopsis:'A race or a Fitness Checkpoint is what counts.' };
   }
   var src = latest.source === 'race' ? 'Race' : 'Checkpoint';
@@ -28421,6 +28608,13 @@ function recordBenchmarkFact(){
   return { key:'benchmark', subject:'Benchmark',
     value: b ? DISTANCE_PROFILES[b.distanceKey].label+' · '+secToClock(b.timeSec) : 'Not set',
     none: !b,
+    /* ITS OWN WORDS, NOT THE GENERIC ONES. An unset benchmark and an
+       unmeasured fitness are both absences and both take the acquisition
+       structure, but they are different absences: one is a value the athlete
+       has not entered, the other a measurement they have not yet earned.
+       Collapsing them into one phrase would lose exactly the distinction The
+       Record exists to draw. */
+    emptyState: 'Not set',
     synopsis:'Your reference time. Update it here to re-calibrate.' };
 }
 function recordZonesFact(){
@@ -28460,8 +28654,24 @@ function recordFacts(){
    benchmark or a pace count is a number, never a state. Still the same
    open-record destination it always was. */
 function recordCard(f){
+  /* AN ABSENCE IS NOT A VALUE, AND MUST NOT BE BUILT LIKE ONE.
+     "Nothing measured" used to occupy the same 20px monospace headline slot as
+     "10K \u00b7 45:00". Monospace at headline size IS the typography of data
+     here, so the words read as the metric's value -- and because this card sits
+     first, the eye landed on a non-value before any real evidence on the
+     screen. Quieting the colour never fixed that; the STRUCTURE was the claim.
+     So the empty state is built differently rather than dimly: label first,
+     because the subject is the only certain thing; state second, in the
+     interface face rather than the data face; and no headline slot at all. */
+  if (f.none) return '<button type="button" class="ev-card ev-card-empty" data-action="open-record" data-record="'+f.key+'">'+
+      '<div class="rec-empty">'+
+        '<span class="rec-empty-subject">'+escapeHtml(f.subject)+'</span>'+
+        '<span class="rec-empty-state">'+escapeHtml(f.emptyState || 'Not established yet')+'</span>'+
+      '</div>'+
+      (f.synopsis ? '<div class="rec-context">'+escapeHtml(f.synopsis)+'</div>' : '')+
+    '</button>';
   return '<button type="button" class="ev-card" data-action="open-record" data-record="'+f.key+'">'+
-      '<div class="rec-headline"><b class="'+(f.none?'rec-none':'')+'">'+escapeHtml(f.value)+'</b>'+
+      '<div class="rec-headline"><b>'+escapeHtml(f.value)+'</b>'+
         '<span>'+escapeHtml(f.subject)+'</span></div>'+
       (f.synopsis ? '<div class="rec-context">'+escapeHtml(f.synopsis)+'</div>' : '')+
     '</button>';
@@ -29875,6 +30085,7 @@ document.addEventListener('click', function(e){
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
     case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;
     case 'toggle-splits': handleToggleSplits(target.getAttribute('data-day')); break;
+    case 'toggle-detail': handleToggleDetail(target.getAttribute('data-day')); break;
     case 'add-split': handleAddSplit(target.getAttribute('data-day')); break;
     case 'delete-split': handleDeleteSplit(target.getAttribute('data-day'), parseInt(target.getAttribute('data-index'),10)); break;
     case 'set-event-mode': handleSetEventMode(target.getAttribute('data-event-mode')); break;
