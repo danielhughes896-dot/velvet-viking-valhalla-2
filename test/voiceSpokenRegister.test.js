@@ -40,6 +40,11 @@ function app(){
   a.state.view = 'today';
   a.voiceSetAvailable(true);
   a.window.Capacitor = { isNativePlatform: () => true };
+  /* THESE SUITES TEST THE FALLBACK FRAMING, which is what a session type with
+     no authored spoken rendering still gets -- and which must keep working,
+     because it is the safety net for any type added later. The authored
+     renderings are covered by spokenRendering.test.js. */
+  a.VOICE_SPOKEN = {};
   return a;
 }
 const today = a => a.findDayByDate(TODAY);
