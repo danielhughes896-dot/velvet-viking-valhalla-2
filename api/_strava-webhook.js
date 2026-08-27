@@ -53,7 +53,10 @@ async function ingest(cfg, event){
      whether or not that account is currently permitted to ingest. A gate that
      blocked deletions would turn an access restriction into a retention
      problem. */
-  if (event.aspect_type !== 'delete' && !S.stravaAllowedForUser(conn.user_id)){
+  /* The row was resolved from the Strava athlete id, so reaching here at all
+     means this athlete holds a connection -- which under the seat model IS the
+     entitlement. What remains to check is the deployment switch. */
+  if (event.aspect_type !== 'delete' && !S.stravaEnabled()){
     S.log('webhook', tag + ' NOT_PERMITTED');
     return;
   }

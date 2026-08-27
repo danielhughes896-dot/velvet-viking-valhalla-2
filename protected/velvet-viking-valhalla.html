@@ -25268,6 +25268,12 @@ function voiceSpeakable(text){
      VO2"); spoken, it comes out as the word "slash". */
   s = s.replace(/\s+\/\s+/g, ', ');
   s = s.replace(/\s{2,}/g, ' ');
+
+  /* LAST, so every rule above has already run against full written forms.
+     Purely phonetic -- no word added, none removed -- and applied HERE rather
+     than at the point of speech, so the displayed line and the spoken line stay
+     the same string. A deaf athlete reads exactly what the app says. */
+  s = voiceContract(s);
   return s.trim();
 }
 /* Shared by the two pace rules above so a range and a single value can never
@@ -25319,11 +25325,14 @@ function voiceBriefingScript(dd){
   /* CONCISE keeps exactly one thing: how to run it. That is the instruction
      that changes what the athlete does in the next hour; purpose and
      watch-outs are the parts they can read later if they want them. */
+  /* `how` is already written as instructions -- imperative sentences -- so it
+     is spoken as it stands. The other three are card values and are framed
+     into sentences first; see voicePurposeLine() and friends above. */
   if (gd && gd.how) lines.push(voiceSpeakable(gd.how));
   if (level === 'full'){
-    if (gd && gd.why)   lines.push(voiceSpeakable(gd.why));
-    if (gd && gd.feel)  lines.push(voiceSpeakable(gd.feel));
-    if (gd && gd.avoid) lines.push(voiceSpeakable(gd.avoid));
+    if (gd && gd.why)   lines.push(voiceSpeakable(voicePurposeLine(gd.why)));
+    if (gd && gd.feel)  lines.push(voiceSpeakable(voiceFeelLine(gd.feel)));
+    if (gd && gd.avoid) lines.push(voiceSpeakable(voiceAvoidLine(gd.avoid)));
   }
 
   /* The coach's own pre-session message, when the engine produced one. It
@@ -25399,7 +25408,108 @@ function voiceScriptFor(dd){
   return voiceBriefingScript(dd);
 }
 function voiceScriptText(script){
+  /* A PLAIN JOIN, and it must stay one. What is spoken and what is shown are
+     the same strings: the card renders these lines verbatim, so anything done
+     to the speech and not to the line would leave a deaf athlete reading
+     something the app never said. Contraction therefore happens inside
+     voiceSpeakable(), where it reaches both at once. */
   return script && script.lines ? script.lines.join(' ') : '';
+}
+
+/* ---------- SAID, RATHER THAN READ ----------
+
+   THE PROBLEM THIS SOLVES, heard rather than described. The guidance table is
+   written for a CARD, where each value sits beside its own label. Read aloud,
+   the labels are gone and the values arrive as captions:
+
+     "Aerobic base, and freshness for the hard days."
+     "Conversational throughout."
+     "Drifting up to comfortably quick."
+
+   Every word is correct coaching and not one of them is a sentence. A coach
+   standing next to the athlete says the same three things as speech.
+
+   SO THE FRAME IS ADDED, AND ONLY THE FRAME. The coaching words are carried
+   through untouched, in their original order, with nothing dropped, nothing
+   reordered and nothing summarised. What changes is the handful of words that
+   turn a caption into an utterance -- "This one's for", "It should feel",
+   "Watch for". That is a rendering decision, the same kind the card makes when
+   it draws a label; it is not a coaching decision, and it cannot become one.
+
+   WHY THIS IS DETERMINISTIC AND NOT A MODEL. An earlier version of this sent
+   the assembled lines to the model for a conversational rephrasing, guarded
+   against invented numbers. It was removed. The guard caught invention but not
+   OMISSION: a paraphrase that quietly dropped "Watch for racing it" would have
+   passed every check while changing the coaching the athlete received. Deciding
+   which coaching survives into what is spoken IS coaching, and Valhalla has one
+   engine that does that. Framing cannot omit, because it never chooses. */
+
+/* THE VERB-INITIAL PURPOSES, which need "It" rather than "This one's for".
+   A closed set, matched against the authored guidance corpus rather than
+   guessed from grammar: "Raises the pace at which lactate accumulates" is a
+   sentence missing its subject, while "Aerobic base, and freshness for the hard
+   days" is a noun phrase. Anything unrecognised takes the noun frame, which is
+   the safe direction -- it reads slightly formally rather than ungrammatically. */
+var VOICE_PURPOSE_VERBS = /^(raises|resets|builds|develops|improves|sharpens|trains|teaches|restores|adds|keeps|maintains|sustains)\b/i;
+
+function voiceLowerFirst(s){
+  s = String(s || '');
+  /* Only a plain capitalised word is lowered. An acronym or a proper noun at
+     the start of the phrase keeps its capitals. */
+  return /^[A-Z][a-z]/.test(s) ? s.charAt(0).toLowerCase() + s.slice(1) : s;
+}
+function voiceStripStop(s){ return String(s || '').replace(/\s*\.\s*$/, ''); }
+
+/* Purpose, feel and watch-out, each given the smallest frame that makes it a
+   spoken sentence. The value itself is never edited beyond its leading capital
+   and trailing full stop, both of which are card punctuation. */
+function voicePurposeLine(why){
+  var v = voiceStripStop(why);
+  if (!v) return '';
+  return VOICE_PURPOSE_VERBS.test(v)
+    ? 'It ' + voiceLowerFirst(v) + '.'
+    : "This one's for " + voiceLowerFirst(v) + '.';
+}
+function voiceFeelLine(feel){
+  var v = voiceStripStop(feel);
+  return v ? 'It should feel ' + voiceLowerFirst(v) + '.' : '';
+}
+function voiceAvoidLine(avoid){
+  var v = voiceStripStop(avoid);
+  return v ? 'Watch for ' + voiceLowerFirst(v) + '.' : '';
+}
+
+/* WRITTEN ENGLISH READ ALOUD SOUNDS WRITTEN, and the tell is uncontracted
+   auxiliaries. Purely phonetic: no word is added or removed, so this cannot
+   touch meaning, and it deliberately never rewrites anything containing a
+   digit. */
+/* ORDER MATTERS, and the first draft of this got it wrong. "You will not need
+   it" met the `you will` rule first and became "You'll not need it" -- correct
+   English that no coach says. The NEGATIONS therefore run first, so the same
+   sentence becomes "You won't need it". */
+var VOICE_CONTRACTIONS = [
+  [/\bwill not\b/gi, "won't"],          [/\bcannot\b/gi, "can't"],
+  [/\bdo not\b/gi, "don't"],            [/\bdoes not\b/gi, "doesn't"],
+  [/\bis not\b/gi, "isn't"],            [/\bare not\b/gi, "aren't"],
+  [/\byou have got\b/gi, "you've got"], [/\byou have\b/gi, "you've"],
+  [/\byou are\b/gi, "you're"],          [/\byou will\b/gi, "you'll"],
+  [/\bit is\b/gi, "it's"],              [/\bthat is\b/gi, "that's"],
+  [/\bwe are\b/gi, "we're"],            [/\bthere is\b/gi, "there's"]
+];
+/* CASE IS CARRIED, not discarded. The rules match case-insensitively so that
+   "It is" and "it is" both contract, but replacing with a bare lowercase
+   literal turned every sentence-initial match into "it's easy" -- and this text
+   is DISPLAYED on the card as well as spoken, so a lost capital is visible. The
+   replacement takes its capital from whatever it replaced. */
+function voiceContract(text){
+  var s = String(text || '');
+  VOICE_CONTRACTIONS.forEach(function(pair){
+    s = s.replace(pair[0], function(match){
+      var out = pair[1];
+      return /^[A-Z]/.test(match) ? out.charAt(0).toUpperCase() + out.slice(1) : out;
+    });
+  });
+  return s;
 }
 
 /* =========================================================
@@ -26402,7 +26512,8 @@ function handleVoiceListen(dayId){
   /* Speak where the device can, and show the words either way. A press always
      produces the briefing -- the only thing that varies is whether it also
      comes out loud. */
-  if (!voiceSpeak(voiceScriptText(script), { kind:script.kind, dayId:dd.id })){
+  var text = voiceScriptText(script);
+  if (!voiceSpeak(text, { kind:script.kind, dayId:dd.id })){
     voiceSetStatus('shown', { kind:script.kind, dayId:dd.id });
   }
 }
@@ -26577,7 +26688,8 @@ var STRAVA_ERROR_COPY = {
   signin:                 'Sign in to VVV first — your Strava connection is saved to your account',
   not_connected:          'Connect Strava first',
   authorization_revoked:  'Strava access has expired — connect again',
-  strava_unavailable:     'Strava is not responding — try again shortly'
+  strava_unavailable:     'Strava is not responding — try again shortly',
+  strava_beta_full:       'Strava access is currently full for the private beta'
 };
 function stravaMessage(err){
   return STRAVA_ERROR_COPY[err && err.code] || 'Could not reach Strava — try again';
@@ -26649,6 +26761,11 @@ var STRAVA_RETURN_COPY = {
   denied:       'Strava connection cancelled',
   scope:        'VVV needs permission to read your activities — connect again and allow it',
   unavailable:  'Strava sync is switched off during the private beta',
+  /* THE ONE CONDITION WORTH ITS OWN SENTENCE. "Full" is not a failure the
+     athlete can fix by trying again, and telling them to try again would be a
+     lie. No API jargon, no policy commentary, no mention of a limit belonging
+     to anybody in particular -- just the true, useful fact. */
+  full:         'Strava access is currently full for the private beta',
   unconfigured: 'Strava is not set up on this server yet',
   failed:       'Strava connection failed — try again'
 };
