@@ -167,3 +167,98 @@ test('the prescription is untouched by how the athlete chose to log', () => {
   assert.equal(dd.km, beforeKm, 'logging changed the prescribed distance');
   assert.equal(dd.type, beforeType, 'logging changed the session type');
 });
+
+// ---------------------------------------------------------------------------
+// THE BOTTOM RUNG — founder decision A: distance alone IS evidence
+// ---------------------------------------------------------------------------
+/* The ladder, and each rung claims strictly less than the one above:
+ *   distance only        -> was the session COMPLETED, and at what length
+ *   distance + pace      -> how it was EXECUTED against the prescription
+ *   segment/lap evidence -> how each SECTION was run  (not yet available)
+ */
+test('a logged distance alone produces a real, deliberately broad assessment', () => {
+  const a = app();
+  const dd = firstOf(a, 'threshold');
+  dd.completed = true;
+  dd.actual = { km: dd.km };
+  const c = a.computeCompletionAssessment(dd);
+  assert.ok(c, 'a logged distance still produces nothing');
+  assert.equal(c.verdict, 'full');
+  assert.equal(c.tier, 'completion');
+});
+
+test('the completion rung claims nothing about pace, intensity or sections', () => {
+  const a = app();
+  const dd = firstOf(a, 'threshold');
+  dd.completed = true;
+  dd.actual = { km: dd.km };
+  const said = a.completionSummaryLine(a.computeCompletionAssessment(dd));
+  [/pace adherence/i, /threshold/i, /on target/i, /%/, /score/i].forEach(bad =>
+    assert.ok(!bad.test(said), 'the completion line over-claims: ' + said));
+  assert.match(said, /not judged on pace or effort/,
+    'the athlete is not told what this evidence cannot speak to');
+});
+
+test('there is no execution percentage at the completion rung', () => {
+  /* A number in the execution slot would say everything the evidence cannot. */
+  const a = app();
+  const dd = firstOf(a, 'threshold');
+  dd.completed = true;
+  dd.actual = { km: dd.km };
+  const c = a.computeCompletionAssessment(dd);
+  assert.equal(c.score, undefined, 'the completion rung grew an execution score');
+});
+
+test('partial distances are described honestly, not scored', () => {
+  const a = app();
+  const dd = firstOf(a, 'threshold');
+  const cases = [[1.00, 'full'], [0.90, 'most'], [0.60, 'part'], [0.30, 'short']];
+  cases.forEach(([mult, verdict]) => {
+    dd.completed = true;
+    dd.actual = { km: dd.km * mult };
+    assert.equal(a.computeCompletionAssessment(dd).verdict, verdict,
+      'wrong verdict at ' + mult);
+  });
+});
+
+test('the completion rung steps aside the moment pace is logged', () => {
+  const a = app();
+  const dd = logWhole(firstOf(a, 'threshold'));
+  assert.equal(a.computeCompletionAssessment(dd), null,
+    'the broad rung competed with the whole-session rung');
+  assert.ok(a.computeExecutionBreakdown(dd), 'the higher rung stopped working');
+});
+
+test('a distance-only log still feeds no coaching decision', () => {
+  /* The claim is broad; the INFLUENCE must stay narrow. The breakdown is what
+     the training signal, the Playbook, plan evolution and the spoken debrief
+     read, and it must still be null here -- otherwise a session nobody
+     observed the pace of would start moving the plan. */
+  const a = app();
+  const dd = firstOf(a, 'threshold');
+  dd.completed = true;
+  dd.actual = { km: dd.km };
+  assert.equal(a.computeExecutionBreakdown(dd), null,
+    'a distance-only log now reaches the coaching engine');
+  assert.equal(a.computeExecutionScore(dd), null);
+});
+
+test('the Execution Review card shows the assessment rather than an instruction', () => {
+  const a = app();
+  const dd = firstOf(a, 'threshold');
+  dd.completed = true;
+  dd.actual = { km: dd.km };
+  const html = a.renderExecutionReview(dd);
+  assert.match(html, /Session completed/, 'the card still refuses to read what it was given');
+  assert.match(html, /Add an average pace/, 'the next rung is not offered');
+});
+
+test('an athlete who logged nothing usable is still asked for more', () => {
+  const a = app();
+  const dd = firstOf(a, 'threshold');
+  dd.completed = true;
+  dd.actual = {};
+  assert.equal(a.computeCompletionAssessment(dd), null);
+  assert.match(a.renderExecutionReview(dd), /Log actual/,
+    'an empty log stopped prompting');
+});

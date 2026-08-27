@@ -183,18 +183,46 @@ test('COACH: every Reading card is a rectangular list row, not a dial, still tap
   });
 });
 
-test('RECORD: every Record card is a headline-fact card, still tappable into the same panel', () => {
+test('RECORD: every POPULATED Record card is a headline-fact card, still tappable into the same panel', () => {
+  /* AMENDED FOR THE EVIDENCE-ACQUISITION STATE, and the amendment is the rule.
+     This used to say EVERY Record card carries a headline. That held while a
+     fact with nothing behind it still rendered "Nothing measured" into the same
+     20px monospace slot as "10K \u00b7 45:00" -- which is precisely the defect:
+     monospace at headline size is the data typography here, so an absence built
+     that way reads as a value. A card with no evidence behind it is now built
+     as an acquisition state instead, and the separate test below holds it to
+     NOT being a headline-fact card. */
   const a = planHQ();
   a.planhqTab = 'record';
   const html = a.renderPlanHQView();
   const cards = (html.match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [])
     .filter(c => c.indexOf('data-action="open-record"') !== -1);
-  // Three now, not four -- Training paces moved to Settings (requirement 6).
-  assert.equal(cards.length, 3);
+  assert.ok(cards.length >= 2, 'the populated Record cards vanished: ' + cards.length);
   cards.forEach(c => {
-    assert.match(c, /class="rec-headline"/, 'a Record card lost its headline');
+    assert.match(c, /class="rec-headline"/, 'a populated Record card lost its headline');
     assert.doesNotMatch(c, /rs-dial/, 'a Record card grew a state dial -- facts are plates, not circles');
   });
+  /* All three destinations are still present and still tappable, whichever
+     shape they took. */
+  const all = (html.match(/data-action="open-record" data-record="([a-z]+)"/g) || []);
+  assert.equal(all.length, 3, 'a Record destination was lost: ' + all.join(', '));
+});
+
+test('RECORD: an absence is NOT built as a headline-fact card', () => {
+  /* The structural half of the fix. Quieting the colour was never enough --
+     the structure was the claim. */
+  const a = planHQ();
+  a.planhqTab = 'record';
+  a.state.athlete.performances = [];
+  const html = a.renderPlanHQView();
+  const empty = /<button[^>]*class="ev-card ev-card-empty"[\s\S]*?<\/button>/.exec(html);
+  assert.ok(empty, 'the unmeasured fact is still drawn as an ordinary fact card');
+  assert.doesNotMatch(empty[0], /class="rec-headline"/,
+    'the absence still occupies a headline slot');
+  assert.doesNotMatch(empty[0], /Nothing measured/,
+    'the absence is still phrased as though it were a value');
+  assert.match(empty[0], /Not established yet/, 'the acquisition state is not stated');
+  assert.match(empty[0], /data-action="open-record"/, 'the absence stopped being tappable');
 });
 
 // ===========================================================================

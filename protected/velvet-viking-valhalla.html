@@ -1359,6 +1359,10 @@
      the score reads as one component wherever it appears */
   .exec-review-head .exec-pill{margin-left:auto; flex:none; text-transform:none;}
   .exec-review-summary{font-size:12.5px; color:var(--ink-dim); line-height:1.45;}
+  /* The next rung of the evidence ladder, offered rather than demanded. Quieter
+     than the assessment above it, because what the athlete already logged is
+     the point of the card and this is only what MORE would buy. */
+  .exec-review-more{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:6px;}
   /* Per-workout coach review sections. Same visual language as the rest of the
      card -- concise labelled blocks, not a dashboard. */
   /* The score badge lives in the collapsed row AND in the Execution Review
@@ -2767,6 +2771,19 @@
   /* "Nothing measured" is an absence, not a value -- quieted rather than
      coloured, so an empty record does not read as a warning. */
   .rec-headline b.rec-none, .b-plate .val.rec-none{color:var(--ink-faint); font-weight:500;}
+
+  /* ---------- THE EVIDENCE-ACQUISITION STATE ----------
+     Same card family, deliberately lighter: no data typography, no headline
+     slot, less vertical weight. It reads as a row that is waiting rather than
+     a metric that is broken. The rule is the point -- absence must never look
+     like another measured value. */
+  .ev-card-empty{padding-top:10px; padding-bottom:10px;}
+  .rec-empty{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;}
+  .rec-empty-subject{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--ink-dim);}
+  /* The interface face, NOT the monospace data face -- that difference is what
+     stops the words being read as a value. */
+  .rec-empty-state{font-size:12px; color:var(--ink-faint); font-style:italic;}
 
   /* ---------- THE ACTION TRIO ----------
      Three tiles at the foot of Plan HQ. They rhyme with the status chips
@@ -11988,6 +12005,64 @@ function executionPaceResolution(dd, pacePart){
   var kinds = Object.keys(mix.byIntensity).filter(function(k){ return mix.byIntensity[k] > 0.05; });
   return kinds.length > 1 ? 'whole-session' : 'direct';
 }
+/* ---------- THE BOTTOM RUNG OF THE EVIDENCE LADDER ----------
+
+   WHAT THIS IS FOR. computeExecutionBreakdown() requires distance AND pace and
+   returns null without both, so an athlete who logged "I ran 8 km" and nothing
+   else used to be told to go and log more. A distance they actually ran is real
+   evidence, and answering it with an instruction was the product declining to
+   read what it had been given.
+
+   THE LADDER, and each rung claims strictly less than the one above:
+
+     distance only          -> was the session COMPLETED, and at what length
+     distance + pace        -> how it was EXECUTED against the prescription
+     segment/lap evidence   -> how each SECTION was run  (not yet available)
+
+   WHAT THIS DELIBERATELY DOES NOT DO. It produces no execution percentage, and
+   that absence is the whole design. A distance logged alone says nothing about
+   pace adherence, intensity, effort, or how a threshold block was run, and a
+   number in the same slot as an execution score would say all four. Completion
+   is reported as completion.
+
+   AND IT DOES NOT FEED COACHING. computeExecutionBreakdown() still returns null
+   at this rung, so the training signal, the Playbook, plan evolution and the
+   spoken debrief are all untouched by a distance-only log -- exactly as before.
+   A broad claim earns a broad statement, not broad influence. */
+function computeCompletionAssessment(dd){
+  if (!dd || !dd.completed) return null;
+  var a = dd.actual || {};
+  /* Only where the higher rung is genuinely unavailable. With pace logged the
+     breakdown exists and this must stay out of its way. */
+  if (a.km == null) return null;
+  if (actualPaceSecPerKm(dd) != null) return null;
+  var target = dd.km || 0;
+  if (target <= 0) return null;
+
+  var ratio = a.km / target;
+  /* THE SAME BANDS THE DISTANCE COMPONENT ALREADY USES, so "completed" here and
+     a distance score there can never disagree about the same run. */
+  var verdict = ratio >= 0.98 ? 'full'
+              : ratio >= 0.85 ? 'most'
+              : ratio >= 0.5  ? 'part'
+              : 'short';
+  return { km: a.km, targetKm: target, ratio: ratio, verdict: verdict,
+           tier: 'completion' };
+}
+
+/* What the card says at this rung. Two sentences at most: what was completed,
+   and -- said plainly rather than as an instruction -- what this evidence
+   cannot speak to. */
+function completionSummaryLine(c){
+  if (!c) return '';
+  var dist = fmtDist(c.km);
+  var said = c.verdict === 'full'  ? 'Session completed \u2014 ' + dist + ' logged, as prescribed.'
+           : c.verdict === 'most'  ? 'Session completed \u2014 ' + dist + ' of ' + fmtDist(c.targetKm) + '.'
+           : c.verdict === 'part'  ? 'Part of the session logged \u2014 ' + dist + ' of ' + fmtDist(c.targetKm) + '.'
+           :                         'A short piece of the session logged \u2014 ' + dist + ' of ' + fmtDist(c.targetKm) + '.';
+  return said + ' Distance is all that was recorded, so this one is not judged on pace or effort.';
+}
+
 function computeExecutionScore(dd){
   var b = computeExecutionBreakdown(dd);
   return b ? b.score : null;
@@ -12444,9 +12519,16 @@ function renderExecutionReview(dd){
   if (!dd.completed) return '';
   var b = computeExecutionBreakdown(dd);
   if (!b){
+    /* THE BOTTOM RUNG, drawn before the prompt. A logged distance is evidence
+       and gets a real -- deliberately broad -- assessment; only an athlete who
+       has logged nothing usable is asked for more. */
+    var c = computeCompletionAssessment(dd);
     return '<div class="exec-review-card">'+
       '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span></div>'+
-      '<div class="exec-review-summary">Log actual '+displayUnit().toUpperCase()+' and average pace to score this session.</div>'+
+      '<div class="exec-review-summary">'+(c
+        ? escapeHtml(completionSummaryLine(c))
+        : 'Log actual '+displayUnit().toUpperCase()+' and average pace to score this session.')+'</div>'+
+      (c ? '<div class="exec-review-more">Add an average pace and this is scored against the session you were set.</div>' : '')+
     '</div>';
   }
   /* The per-component weighted calculation that used to close this card
@@ -28452,7 +28534,10 @@ function scheduledCheckpointDay(){
 function recordFitnessFact(){
   var latest = measuredProgression().latest;
   if (!latest){
+    /* `value` is kept for the Valhalla-tab plate and for anything that reads
+       the fact as data; the Record card no longer renders it as a headline. */
     return { key:'fitness', subject:'Measured fitness', value:'Nothing measured', none:true,
+      emptyState:'Not established yet',
       synopsis:'A race or a Fitness Checkpoint is what counts.' };
   }
   var src = latest.source === 'race' ? 'Race' : 'Checkpoint';
@@ -28465,6 +28550,13 @@ function recordBenchmarkFact(){
   return { key:'benchmark', subject:'Benchmark',
     value: b ? DISTANCE_PROFILES[b.distanceKey].label+' · '+secToClock(b.timeSec) : 'Not set',
     none: !b,
+    /* ITS OWN WORDS, NOT THE GENERIC ONES. An unset benchmark and an
+       unmeasured fitness are both absences and both take the acquisition
+       structure, but they are different absences: one is a value the athlete
+       has not entered, the other a measurement they have not yet earned.
+       Collapsing them into one phrase would lose exactly the distinction The
+       Record exists to draw. */
+    emptyState: 'Not set',
     synopsis:'Your reference time. Update it here to re-calibrate.' };
 }
 function recordZonesFact(){
@@ -28504,8 +28596,24 @@ function recordFacts(){
    benchmark or a pace count is a number, never a state. Still the same
    open-record destination it always was. */
 function recordCard(f){
+  /* AN ABSENCE IS NOT A VALUE, AND MUST NOT BE BUILT LIKE ONE.
+     "Nothing measured" used to occupy the same 20px monospace headline slot as
+     "10K \u00b7 45:00". Monospace at headline size IS the typography of data
+     here, so the words read as the metric's value -- and because this card sits
+     first, the eye landed on a non-value before any real evidence on the
+     screen. Quieting the colour never fixed that; the STRUCTURE was the claim.
+     So the empty state is built differently rather than dimly: label first,
+     because the subject is the only certain thing; state second, in the
+     interface face rather than the data face; and no headline slot at all. */
+  if (f.none) return '<button type="button" class="ev-card ev-card-empty" data-action="open-record" data-record="'+f.key+'">'+
+      '<div class="rec-empty">'+
+        '<span class="rec-empty-subject">'+escapeHtml(f.subject)+'</span>'+
+        '<span class="rec-empty-state">'+escapeHtml(f.emptyState || 'Not established yet')+'</span>'+
+      '</div>'+
+      (f.synopsis ? '<div class="rec-context">'+escapeHtml(f.synopsis)+'</div>' : '')+
+    '</button>';
   return '<button type="button" class="ev-card" data-action="open-record" data-record="'+f.key+'">'+
-      '<div class="rec-headline"><b class="'+(f.none?'rec-none':'')+'">'+escapeHtml(f.value)+'</b>'+
+      '<div class="rec-headline"><b>'+escapeHtml(f.value)+'</b>'+
         '<span>'+escapeHtml(f.subject)+'</span></div>'+
       (f.synopsis ? '<div class="rec-context">'+escapeHtml(f.synopsis)+'</div>' : '')+
     '</button>';

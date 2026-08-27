@@ -54,10 +54,16 @@ function planHQ(opts) {
 // THE READING's cards share the .ev-card shell deliberately -- one component
 // doing the other job -- so a Record card is identified by the action it
 // fires, not by its class.
+/* TWO SHAPES NOW, ONE FAMILY. A fact with evidence behind it is a
+   headline-fact card; a fact with none is an evidence-acquisition card
+   (class "ev-card ev-card-empty"). Both are Record cards and both open the
+   same panel, so the helper matches the family rather than the exact class --
+   which is the same reasoning that already identifies them by their action. */
 function cards(html) {
-  return (html.match(/<button type="button" class="ev-card"[\s\S]*?<\/button>/g) || [])
+  return (html.match(/<button type="button" class="ev-card[^"]*"[\s\S]*?<\/button>/g) || [])
     .filter(c => c.indexOf('data-action="open-record"') !== -1);
 }
+const isEmptyCard = c => /class="ev-card ev-card-empty"/.test(c);
 function cardFor(html, subject) {
   const found = cards(html).filter(c => c.indexOf('>' + subject + '<') !== -1);
   assert.equal(found.length, 1, 'expected exactly one "' + subject + '" card, found ' + found.length);
@@ -76,14 +82,17 @@ test('RECORD: Plan HQ carries exactly three Record cards, each its own tappable 
   // historical athlete record, so The Record keeps only the three that are.
   assert.equal(found.length, 3, 'expected three Record cards, found ' + found.length);
 
-  const subjects = found.map(c => (c.match(/<\/b><span>([^<]+)<\/span>/) || [])[1]);
+  const subjects = found.map(c =>
+    (c.match(/<\/b><span>([^<]+)<\/span>/) ||
+     c.match(/class="rec-empty-subject">([^<]+)</) || [])[1]);
   assert.equal(subjects.join(' | '),
     'Measured fitness | Benchmark | Progress');
 
   found.forEach(c => {
     assert.match(c, /data-action="open-record"/, 'a Record card does not open anything');
     assert.match(c, /data-record="(fitness|benchmark|progress)"/);
-    assert.match(c, /class="rec-headline"/, 'a Record card states no value');
+    assert.match(c, isEmptyCard(c) ? /class="rec-empty"/ : /class="rec-headline"/,
+      'a Record card states neither a value nor an acquisition state');
     assert.match(c, /class="rec-context"/, 'a Record card carries no synopsis');
   });
 });
@@ -96,7 +105,7 @@ test('RECORD: the three are separate cards, not one combined container', () => {
   found_not_nested: {
     const region = html.slice(html.indexOf('data-action="open-record"'));
     assert.doesNotMatch(region.slice(0, region.indexOf('</button>')),
-      /class="ev-card"/, 'a Record card is nested inside another Record card');
+      /class="ev-card[^"]*"/, 'a Record card is nested inside another Record card');
     break found_not_nested;
   }
   // And no list/table container wrapping them.
@@ -107,7 +116,11 @@ test('RECORD: a card value is a fact, never a verdict', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
   cards(html).forEach(c => {
-    const headline = c.slice(c.indexOf('class="rec-headline"'), c.indexOf('</div>'));
+    /* An acquisition state is not a value, so it has no headline to police --
+       but it must not be a verdict either, and the same rules apply to its
+       own row. */
+    const anchor = isEmptyCard(c) ? 'class="rec-empty"' : 'class="rec-headline"';
+    const headline = c.slice(c.indexOf(anchor), c.indexOf('</div>'));
     // A conclusion elsewhere in Plan HQ carries a status hue, a tone-coloured
     // dial ring, and often a dot. A Record value carries none of that -- it
     // is a headline number, not a verdict.
@@ -135,7 +148,16 @@ test('RECORD: every value is read from live state, not written into the markup',
   a.state.setup.benchmark = null;
   const none = cardFor(a.renderPlanHQView(), 'Benchmark');
   assert.match(none, /Not set/);
-  assert.match(none, /rec-none/, 'an absent benchmark is quieted, not coloured');
+  /* QUIETED BY STRUCTURE NOW, NOT BY A CLASS. This used to look for `rec-none`,
+     which dimmed the colour of a value still sitting in the 20px monospace
+     headline slot -- so it read as a metric whose value was the words "Not
+     set". The absence is built as an acquisition state instead, which is a
+     stronger form of the same intent: no data typography, no headline, and
+     still no status hue. */
+  assert.ok(isEmptyCard(none), 'an absent benchmark is still built as a value');
+  assert.doesNotMatch(none, /class="rec-headline"/, 'the absence kept the value slot');
+  assert.doesNotMatch(none, /positive|negative|warn|strained/,
+    'an absent benchmark was given a status colour');
 
   // PROGRESS — log sessions, the percentage moves.
   const before = cardFor(a.renderPlanHQView(), 'Progress');
@@ -188,7 +210,17 @@ test('RECORD: the zone-paces fact counts the zones and names the hand-edited one
 test('RECORD: measured fitness reports a measurement when there is one, and an absence when there is not', () => {
   const a = planHQ();
   const empty = cardFor(a.renderPlanHQView(), 'Measured fitness');
-  assert.match(empty, /Nothing measured/);
+  /* AN ABSENCE IS STATED, NOT VALUED. It used to render "Nothing measured"
+     into the same 20px monospace headline slot as "10K \u00b7 45:00", which is
+     the typography of data here -- so the words read as the metric's value.
+     It is now an acquisition state: no headline slot, label first, and the
+     phrase says what has not happened rather than naming a value. */
+  assert.ok(isEmptyCard(empty), 'the absence is still built as a headline-fact card');
+  assert.match(empty, /Not established yet/);
+  assert.doesNotMatch(empty, /class="rec-headline"/, 'the absence kept the value slot');
+  /* Each absence keeps its OWN words -- an unset benchmark is not an
+     unmeasured fitness, and The Record exists to draw that distinction. */
+  assert.doesNotMatch(empty, /Not set/, 'the fitness absence borrowed the benchmark phrase');
   assert.match(empty, /A race or a Fitness Checkpoint is what counts/);
   assert.doesNotMatch(empty, /\d\d:\d\d/, 'a time appeared with nothing measured');
 
@@ -201,7 +233,8 @@ test('RECORD: measured fitness reports a measurement when there is one, and an a
   const filled = cardFor(a.renderPlanHQView(), 'Measured fitness');
   assert.match(filled, /Checkpoint,/, 'the source of the measurement is not stated');
   assert.match(filled, /Training runs do not move it/);
-  assert.doesNotMatch(filled, /Nothing measured/);
+  assert.doesNotMatch(filled, /Not established yet/);
+  assert.ok(!isEmptyCard(filled), 'a measured fact is still drawn as an absence');
 });
 
 // ===========================================================================

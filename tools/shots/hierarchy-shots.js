@@ -22,7 +22,7 @@ const { buildPlan } = require(path.join(__dirname, '..', '..', 'test', 'fixtures
 
 const ROOT = path.join(__dirname, '..', '..');
 const RUNTIME = path.join(ROOT, 'protected', 'velvet-viking-valhalla.html');
-const OUT = process.argv[2] || path.join(__dirname, 'out-hierarchy');
+const OUT = process.argv[2] || path.join(__dirname, 'out-hierarchy-after');
 const REAL = new Date();
 const TODAY = new Date(REAL.getTime() - ((REAL.getUTCDay() + 6) % 7) * 86400000)
   .toISOString().slice(0, 10);
@@ -59,7 +59,13 @@ const FRAMES = {
       if(d){ d.date=todayStr(); d.completed=true;
              d.actual={km:d.km,pace:'5:12',paceUnit:'km',hr:158,rpe:6,feel:'good',note:'Felt strong late.'}; }` },
   'today-simple-log':          { view: 'today', setup: `
-      var d=findDayByDate(todayStr()); if(d){ d.completed=false; d.actual=null; }` }
+      var d=findDayByDate(todayStr()); if(d){ d.completed=false; d.actual=null; }` },
+  'review-distance-only':      { view: 'today', setup: `
+      var d=state.days.filter(function(x){return x.type==='threshold';})[0];
+      if(d){ d.date=todayStr(); d.completed=true; d.actual={km:d.km}; }` },
+  'review-distance-partial':   { view: 'today', setup: `
+      var d=state.days.filter(function(x){return x.type==='threshold';})[0];
+      if(d){ d.date=todayStr(); d.completed=true; d.actual={km:Math.round(d.km*0.6*10)/10}; }` }
 };
 
 const MIME = { '.png':'image/png', '.svg':'image/svg+xml', '.jpg':'image/jpeg', '.webp':'image/webp',
