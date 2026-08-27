@@ -153,6 +153,30 @@ test('adaptive context is spoken, because no authored sentence can carry it', ()
   });
 });
 
+test('race says one coaching truth twice, not one sentence twice', () => {
+  /* FOUNDER DECISION. The authored spoken race purpose was a punctuation
+     variant of the written one, so an athlete who opened the disclosure AND
+     played the briefing on race day met the same sentence twice. The spoken
+     side was rewritten; the WRITTEN purpose is deliberately unchanged. Two
+     presentations of one coaching truth -- not two coaching decisions. */
+  const a = app();
+  const dd = firstOf(a, 'race');
+  const written = a.coachIntentLine(dd);
+  const spoken = a.VOICE_SPOKEN.race.purpose;
+  assert.match(written, /Everything from here is execution/,
+    'the written race purpose was changed -- it must not be');
+  /* No sentence of one may be a sentence of the other, punctuation aside. */
+  const sentences = (x) => String(x).split(/(?<=[.!?\u2014])\s+/)
+    .map(t => t.trim().toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' '))
+    .filter(t => t.split(' ').length >= 5);
+  const w = sentences(written);
+  sentences(spoken).forEach(t => assert.ok(w.indexOf(t) === -1,
+    'race still says the same sentence on both surfaces: ' + t));
+  /* And the concept survived: the block is finished, so execute it. */
+  assert.match(spoken, /work is done|trust the training|execute/i,
+    'the race purpose lost its coaching meaning');
+});
+
 test('the briefing still says the prescription and the watch-for', () => {
   const a = app();
   eachType(a, (dd, t) => {

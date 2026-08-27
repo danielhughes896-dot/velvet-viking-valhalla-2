@@ -1,7 +1,7 @@
 # Today — Information Hierarchy + Non-Repetitive Coaching Pass
 
 Branch `claude/today-hierarchy`, cut from `main` @ `4863002`.
-**Not merged. Held for founder review.**
+**Reviewed and approved by the founder. Both decisions applied — see §10 and §12.**
 
 The brief: *keep as much useful coaching information on Today as practical, but
 put each piece of information in the correct location and stop different
@@ -161,13 +161,13 @@ invariant "every spoken line is also available as text" still holds.
 
 ## 7. Tests
 
-**Full suite: 2903 pass / 0 fail.**
+**Full suite: 2904 pass / 0 fail.**
 
-New: `test/todayHierarchy.test.js` — 13 tests covering the lead rule, the
+New: `test/todayHierarchy.test.js` — 14 tests covering the lead rule, the
 never-empty guarantee, the never-lead-with-a-label guarantee, the four
 disclosure rows staying four and staying distinct, the briefing not narrating
 Next Move, adaptive context still reaching the ear, the transcript treatment,
-and the removed note.
+the removed note, and the race purpose decision (§10).
 
 Changed:
 - `test/spokenRendering.test.js` — the test "the purpose is said once, and the
@@ -221,21 +221,40 @@ TODAY-HIERARCHY-REPORT.md                  this file
 
 ---
 
-## 10. Residual finding, reported rather than hidden
+## 10. Race purpose — resolved
 
-For **race**, the authored spoken purpose ("Everything from here is execution,
-the training that matters is already done") and the card's generic purpose
-("Everything from here is execution. The training that matters is already
-done.") are the same sentence with different punctuation. They now sit on
-different surfaces rather than both being spoken, so the automated repeat scan
-is clean — but an athlete who opens the disclosure *and* plays the briefing on
-race day will meet that sentence twice.
+**Founder decision: change the authored *spoken* race purpose only. Do not
+change the written one. Two presentations of the same coaching truth, not two
+different coaching decisions.** Applied.
 
-I did not "fix" this by suppressing the race purpose. On race day
-"everything from here is execution" is the single most important line, and
-dropping it from speech to satisfy a duplicate-detector would be optimising the
-wrong thing. **If you want it changed, the fix is editorial — reword one of the
-two — and that is a coaching decision, not mine to make.**
+| | Before | After |
+|---|---|---|
+| **Written** (`SESSION_INTENT_BY_TYPE.race`) | "Everything from here is execution. The training that matters is already done." | **unchanged** |
+| **Spoken** (`VOICE_SPOKEN.race.purpose`) | "Everything from here is execution — the training that matters is already done." | "The work is done now. Trust the training and execute the race you prepared for." |
+
+The claim is identical — the block is finished, nothing more can be gained
+today, all that remains is to run the race already prepared for. Only the
+register differs.
+
+Race day now reads and sounds like this:
+
+```
+DISCLOSURE / Why   "The day the block was built for."
+NEXT MOVE          "Everything from here is execution. The training that
+                    matters is already done."
+HEAR TODAY         "Race day, 10 kilometres, 10k goal effort. Pace is around
+                    4 minutes 22 seconds per kilometre."
+                   "Sit on goal pace early even while it feels too easy, then
+                    race the last third. Don't try to bank time at the start."
+                   "The work is done now. Trust the training and execute the
+                    race you prepared for."
+```
+
+Locked by `test/todayHierarchy.test.js` → *"race says one coaching truth twice,
+not one sentence twice"*, which asserts three things: the written purpose is
+**not** changed, no sentence of five or more words appears on both surfaces
+(punctuation normalised away), and the spoken side still carries the meaning.
+Verified to fail when the old spoken string is put back.
 
 ---
 
@@ -248,10 +267,16 @@ that fails if it is reverted.
 
 ---
 
-## 12. Decisions I need from you
+## 12. Founder decisions, as applied
 
-1. **Four disclosure rows, or three?** My recommendation is four — §3.
-2. **The race purpose duplication** — §10. Reword, or leave?
-3. Approve for merge, or send back.
-
-**Not merged. Awaiting your review.**
+1. **Four disclosure rows — KEEP.** WHY / EXECUTION / FEEL / WATCH FOR are
+   retained, not collapsed to three. FEEL is the athlete's calibration target;
+   WATCH FOR is the failure mode. The disclosure stays **closed by default**.
+   No code change was needed — this ratifies the existing behaviour, and
+   `test/todayHierarchy.test.js` asserts the four rows stay four and stay
+   distinct across all eight types.
+2. **Race purpose — spoken side rewritten, written side untouched.** §10.
+3. **Approved for merge**, conditional on all targeted tests passing, the
+   complete suite staying green, and all 34 visual states remaining free of
+   unintended repetition, overflow and errors. All three conditions met:
+   **2904 pass / 0 fail**, 34/34 frames clean.
