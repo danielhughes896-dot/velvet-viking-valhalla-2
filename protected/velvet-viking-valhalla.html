@@ -1061,18 +1061,44 @@
      checkbox, checked" in the product, not two that can drift apart. Each
      control keeps its own label layout (.day-check's 40px row hit-target
      vs .wd-check's column-with-name-below) separately, below. */
-  .day-check input, .wd-check input{
+  /* .cv-opt input joins the same three rules as the third member of this
+     component. It is a RADIO rather than a checkbox -- one coach voice, not a
+     set -- and that is a semantics difference, not a visual one, so it shares
+     the ring, the --cherry fill and the CSS-drawn tick verbatim rather than
+     opening a second definition of "circular, cherry, selected". */
+  .day-check input, .wd-check input, .cv-opt input{
     appearance:none; -webkit-appearance:none; -moz-appearance:none;
     width:22px; height:22px; margin:0; padding:0; flex:none; position:relative;
     border-radius:50%; border:2px solid var(--line); background:var(--bg-2);
     cursor:pointer; transition:background .15s ease, border-color .15s ease;
   }
-  .day-check input:checked, .wd-check input:checked{background:var(--cherry); border-color:var(--cherry);}
-  .day-check input:checked::after, .wd-check input:checked::after{
+  .day-check input:checked, .wd-check input:checked, .cv-opt input:checked{background:var(--cherry); border-color:var(--cherry);}
+  .day-check input:checked::after, .wd-check input:checked::after, .cv-opt input:checked::after{
     content:''; position:absolute; left:50%; top:45%; width:5px; height:9px;
     border:solid var(--cherry-btn-ink); border-width:0 2px 2px 0;
     transform:translate(-50%,-50%) rotate(45deg);
   }
+  /* The row the control sits in: a 44px tap target across the full width, the
+     name and its one-line description on the left, Preview on the right.
+     Borrowed layout from .connect-row so Coach Voice reads as another
+     Preferences row rather than a new kind of thing. */
+  .cv-list{display:flex; flex-direction:column; gap:2px; margin-top:6px;}
+  .cv-opt{
+    display:flex; align-items:center; gap:12px; min-height:44px;
+    padding:5px 2px; cursor:pointer;
+  }
+  .cv-label{display:flex; align-items:center; gap:12px; flex:1; min-width:0; cursor:pointer;}
+  .cv-opt .cv-text{flex:1; min-width:0;}
+  .cv-opt .cv-name{display:block; font-weight:600; font-size:var(--fs-body); color:var(--ink);}
+  .cv-opt .cv-blurb{display:block; font-size:var(--fs-meta); color:var(--ink-faint); margin-top:1px;}
+  .cv-preview{
+    flex:none; display:inline-flex; align-items:center; gap:5px;
+    min-height:32px; padding:0 10px; border-radius:999px;
+    border:1px solid var(--line); background:var(--bg-2); color:var(--ink-soft);
+    font-size:var(--fs-meta); font-weight:600; cursor:pointer;
+  }
+  .cv-preview:active{background:var(--bg-3);}
+  .cv-preview svg{width:13px; height:13px;}
   .day-check.locked input{opacity:.5; cursor:default;}
   .day-check.locked input:checked{opacity:.8;}
   /* Display-only: still legible, clearly not something to press. Reskinned
@@ -25289,6 +25315,69 @@ function renderGuidanceLevelRow(){
     '<div class="field-hint">'+escapeHtml(GUIDANCE_LEVEL_META[cur].blurb)+'</div>'+
   '</div>';
 }
+/* COACH VOICE, IN SETTINGS, BESIDE THE OTHER PRESENTATION PREFERENCES.
+   It sits with theme, notifications and Coaching detail because that is what
+   it is: how the coaching is PRESENTED. It is deliberately not in the builder,
+   where `experience` lives, because `experience` describes the athlete to the
+   engine and this describes nothing to the engine at all.
+
+   RADIOS, NOT BUTTONS. One coach voice is in force at a time, and a radio
+   group is what a screen reader needs to hear to know that -- the same
+   circular cherry control the Builder's Training Day selector uses, sharing
+   its CSS rather than copying it. */
+function renderCoachVoiceRow(){
+  var cur = coachVoice();
+  return '<div id="coach-voice-row" class="cv-row">'+
+    '<div class="connect-row" style="border-bottom:none; padding-bottom:0;">'+
+      '<div><div class="name">Coach voice</div>'+
+      '<div class="desc">Who your coach sounds like</div></div>'+
+    '</div>'+
+    '<div class="cv-list" role="radiogroup" aria-label="Coach voice">'+
+      COACH_VOICES.map(function(k){
+        var meta = COACH_VOICE_META[k];
+        var on = cur === k;
+        return '<div class="cv-opt">'+
+          /* data-action sits on the LABEL, so the whole name-and-description
+             block is the tap target rather than a 22px circle. A label click
+             also re-dispatches to its input, so this handler can fire twice
+             for one tap -- handleSetCoachVoice() is idempotent for exactly
+             that reason. */
+          '<label class="cv-label" data-action="set-coach-voice" data-voice="'+k+'">'+
+            '<input type="radio" name="coach-voice" value="'+k+'"'+(on?' checked':'')+' '+
+              'aria-label="'+escapeHtml(meta.label)+'">'+
+            '<span class="cv-text">'+
+              '<span class="cv-name">'+escapeHtml(meta.label)+'</span>'+
+              '<span class="cv-blurb">'+escapeHtml(meta.blurb)+'</span>'+
+            '</span>'+
+          '</label>'+
+          /* Nearer to the tap than the label is, so closest('[data-action]')
+             resolves Preview rather than selection when Preview is pressed. */
+          '<button type="button" class="cv-preview" data-action="preview-coach-voice" '+
+            'data-voice="'+k+'" aria-label="Preview '+escapeHtml(meta.label)+'">'+
+            ICONS.voicePlay+'<span>Preview</span></button>'+
+        '</div>';
+      }).join('')+
+    '</div>'+
+    '<div class="field-hint">Changes what your coach sounds like. It never changes '+
+      'the coaching, the session or a single word of what is said.</div>'+
+  '</div>';
+}
+/* Selection persists immediately and the row is redrawn in place -- the whole
+   Settings view is not re-rendered, so the athlete does not lose their scroll
+   position for a radio press. Hear Today reads coachVoice() at the moment of
+   the press, so the next playback uses the new voice with no restart, no new
+   programme and no sign-in.
+
+   IDEMPOTENT ON PURPOSE. One tap on a label produces two click events (the
+   label's own, and the synthetic one it dispatches to its input); returning
+   early on an unchanged value means the second one redraws nothing. */
+function handleSetCoachVoice(v){
+  if (v === coachVoice()) return;
+  if (!setCoachVoice(v)) return;
+  var row = document.getElementById('coach-voice-row');
+  if (row) row.outerHTML = renderCoachVoiceRow();
+}
+
 function handleSetGuidanceLevel(level){
   if (!setGuidanceLevel(level)) return;
   var row = document.getElementById('guidance-level-row');
@@ -25874,22 +25963,36 @@ function voiceContract(text){
 }
 
 /* =========================================================
-   THE VOICE ITSELF — on-device speech synthesis
+   THE VOICE ITSELF — speech delivery
    ---------------------------------------------------------
-   WHY ON-DEVICE AND NOT A CLOUD VOICE. A cloud TTS vendor would give tighter
-   control over the exact voice, and it would also mean posting the athlete's
-   coaching -- their session, their execution score, sometimes their heart rate
-   -- to a third party on every play. That is a new processing surface, a new
-   sub-processor, a per-play cost and a network dependency, in exchange for a
-   quality difference that modern on-device en-GB voices have largely closed.
+   EVERYTHING ABOVE THIS LINE COMPOSES WORDS AND REACHES NO NETWORK. That is a
+   tested boundary, not a convention: the briefing is assembled from the
+   engine's own arithmetic on this device, and no part of deciding WHAT the
+   coach says depends on anything being reachable. Below this line is delivery
+   -- how those already-decided words are made audible -- and that is the only
+   half a vendor may touch.
 
-   The brief's own instruction is not to hard-wire an unsuitable provider
-   merely to make the feature work. The suitable choice here is the one that
-   sends nothing anywhere: speechSynthesis is free, offline, has no credential
-   to leak and no vendor to add to a privacy notice. A cloud voice remains a
-   founder decision with a cost attached, and the selection layer below is
-   where it would attach -- voicePickVoice() is the only thing that would
-   change.
+   WHY THIS SECTION ONCE SAID "ON-DEVICE ONLY", AND WHAT CHANGED. It argued
+   that a cloud voice meant posting the athlete's coaching to a third party on
+   every play, for a quality difference on-device en-GB voices had largely
+   closed. The first half of that was a real objection and it is answered
+   below rather than waved away. The second half did not survive contact with
+   the installed app: on Android the briefing came out in the platform's
+   TextToSpeech engine and sounded like a screen reader reading a screen, which
+   is not a coach talking, and no amount of voice-list preference fixed it.
+
+   SO THE FOUNDER TOOK THE COST DECISION, and these are the terms that make it
+   safe. The vendor receives THE FINAL APPROVED SENTENCES AND NOTHING ELSE --
+   no plan, no day, no execution score, no heart rate, no readiness, no Strava
+   payload, no Ask Coach conversation, no athlete identity. It is never asked
+   what to say, only to read. The credential lives on the server and is
+   unreachable from here. And the on-device engine is not replaced: it is the
+   floor underneath every failure path, so an outage, an expired key, a flat
+   network or a signed-out session costs the athlete a nicer voice and never
+   the briefing itself.
+
+   voicePickVoice() below is unchanged and still chooses the device's own
+   voice. It is now the fallback rather than the only route.
 
    ONE VOICE, CHOSEN ONCE. The brief forbids the voice changing between
    features, so the choice is made once per session and cached: the briefing,
@@ -25942,7 +26045,14 @@ function voiceNativeTts(){
 }
 /* Can this device speak AT ALL, by any route? Native first because it is the
    one that works inside the installed app. */
-function voiceAvailable(){ return !!(voiceNativeTts() || voiceSynth()); }
+/* Can this device speak AT ALL, by any route -- now including the premium
+   voice, which needs no synthesiser on the device at all. A phone whose engine
+   is missing is no longer offered "Read today" when a neural voice can reach
+   it; if that voice then fails, the native path is tried and the words are
+   shown, so the promise the label makes is still kept. */
+function voiceAvailable(){
+  return !!(voiceNativeTts() || voiceSynth() || voiceCloudEligible());
+}
 
 /* Android's voice list, resolved once and cached, using the same preference
    order as the browser: en-GB, female where the platform names one, then any
@@ -25978,6 +26088,284 @@ function voiceResolveVoice(){
   return voiceSelected;
 }
 
+/* =========================================================
+   THE COACH VOICE -- WHO THE BRIEFING SOUNDS LIKE
+   ---------------------------------------------------------
+   A PRESENTATION PREFERENCE, AND NOTHING ELSE. Changing this changes which
+   larynx says the words. It does not touch what the words ARE: the briefing is
+   composed by voiceBriefingScript() from the engine's own prescription before
+   any of this runs, and every voice receives byte-for-byte the same text.
+   Nothing here reaches coaching decisions, prescription, Guidance Level, Ask
+   Coach's reasoning, or the athlete's state. The same Valhalla coach speaks
+   through a different voice.
+
+   THE KEYS ARE NOT THE IDS. The browser holds a key -- 'molly' -- and the
+   server maps it to an ElevenLabs voice id. Voice ids are not secrets, but a
+   closed catalogue resolved server-side means no caller can bill this account
+   for synthesis with an arbitrary voice, and it is where a voice can be
+   repointed by env without a code release. */
+var COACH_VOICES = ['molly', 'joanna', 'harry', 'andrew'];
+var COACH_VOICE_DEFAULT = 'molly';
+var COACH_VOICE_META = {
+  molly:  { label:'Molly',  blurb:'Warm and measured. The Valhalla default.' },
+  joanna: { label:'Joanna', blurb:'Bright and even.' },
+  harry:  { label:'Harry',  blurb:'Low and steady.' },
+  andrew: { label:'Andrew', blurb:'Calm and matter-of-fact.' }
+};
+/* ONE FIXED SENTENCE, THE SAME FOR EVERY VOICE. Comparing voices is only
+   meaningful on identical words, and it is written here rather than taken from
+   a day so that Preview never depends on a plan existing and never invents
+   coaching. It reaches no model of any kind -- Ask Coach is not involved in
+   listening to a voice. */
+var COACH_VOICE_PREVIEW = 'Easy today. Keep it conversational, and save the hard running for the sessions built for it.';
+
+/* A missing, unknown or corrupt stored preference is Molly. A preference is
+   not worth a silent failure, and an athlete who has never chosen has still
+   chosen the default. */
+function coachVoice(){
+  var v = state && state.coachVoice;
+  return COACH_VOICES.indexOf(v) !== -1 ? v : COACH_VOICE_DEFAULT;
+}
+function setCoachVoice(v){
+  if (COACH_VOICES.indexOf(v) === -1) return false;
+  state.coachVoice = v;
+  scheduleSave();
+  return true;
+}
+
+/* =========================================================
+   CLOUD SPEECH -- THE PREMIUM VOICE, WITH THE DEVICE BEHIND IT
+   ---------------------------------------------------------
+   Android's own TextToSpeech engine is always there and always free, and it
+   sounds like a screen reader reading a screen. This layer puts a neural voice
+   in front of it WITHOUT removing it: every failure path below ends in the
+   native engine speaking the same words, so Hear Today cannot be taken away by
+   a vendor outage, an expired key, a flat network or a signed-out session.
+
+   WHAT LEAVES THE DEVICE: the final approved briefing text and a voice key.
+   Nothing else. Not the plan, not the day, not the athlete, not health data,
+   not anything Strava touched, not the Ask Coach conversation. See
+   api/_voice-tts.js for the other half of that boundary.
+   ========================================================= */
+
+/* Latched, not retried. One 503 from an uncommissioned deployment is enough to
+   know for the rest of the session; asking again on every press would spend a
+   round-trip of silence before every briefing. */
+var ttsCloudDown = false;
+var ttsAudioEl = null;
+var ttsAbort = null;
+/* Monotonic. Every async continuation checks it, so a Stop or a second press
+   makes the first press's audio unable to start -- this is what prevents two
+   briefings talking over each other. */
+var ttsToken = 0;
+
+/* ---------- THE CLIENT CACHE ----------
+   THE ONE THAT ACTUALLY SAVES THE MONEY. A hit here never opens a request at
+   all, so pressing Hear Today five times for an unchanged briefing costs one
+   generation. In memory only: it dies with the page, and there is no
+   persistent archive of athlete coaching audio anywhere in this design.
+
+   IDENTITY IS CONTENT, NOT DATE. The key is a hash of the exact spoken text
+   and the voice key. Guidance Level, session type, the athlete's paces and
+   every adaptive decision reach this layer ONLY as words, so hashing the words
+   covers all of them -- there is no second input that can change the audio
+   without changing the text. Change the briefing, or change the voice, and the
+   key changes with it. */
+var TTS_CACHE_MAX = 8;
+var TTS_CACHE_TTL_MS = 30 * 60 * 1000;
+var ttsCacheEntries = [];   /* [{ key, url, at }] -- newest last */
+var ttsInflight = {};       /* key -> Promise<string url> */
+
+/* NOT A SECURITY PRIMITIVE, and it does not need to be: this is an in-memory
+   cache key, and its only job is that two different briefings never collide.
+   Four independent 32-bit accumulators over the same string give 128 bits of
+   key, which is ample for a cache that holds eight entries. It is a hash
+   rather than the text itself so that a key may be logged or inspected while
+   a briefing may not. */
+function ttsHash(str){
+  var s = String(str);
+  var a = 0x811c9dc5, b = 5381, c = 0x1000193, d = 52711;
+  for (var i = 0; i < s.length; i++){
+    var ch = s.charCodeAt(i);
+    a = (a ^ ch) >>> 0; a = Math.imul(a, 0x01000193) >>> 0;
+    b = (((b << 5) + b) + ch) >>> 0;
+    c = (c ^ (ch + i)) >>> 0; c = Math.imul(c, 0x85ebca6b) >>> 0;
+    d = (((d << 4) - d) + ch) >>> 0;
+  }
+  var hex = function(n){ return ('00000000' + (n >>> 0).toString(16)).slice(-8); };
+  return hex(a) + hex(b) + hex(c) + hex(d);
+}
+/* Everything that can change one sample of audio, and nothing that cannot. */
+function ttsCacheKey(text, voiceKey){
+  return ttsHash([String(text), String(voiceKey), 'v1'].join(' '));
+}
+function ttsCacheFind(key, now){
+  for (var i = ttsCacheEntries.length - 1; i >= 0; i--){
+    var e = ttsCacheEntries[i];
+    if (e.key !== key) continue;
+    if ((now - e.at) > TTS_CACHE_TTL_MS){ ttsCacheDrop(i); return null; }
+    return e.url;
+  }
+  return null;
+}
+function ttsCacheDrop(i){
+  var e = ttsCacheEntries[i];
+  if (!e) return;
+  ttsCacheEntries.splice(i, 1);
+  /* An object URL is a live reference to a blob. Dropping the entry without
+     revoking it leaks the audio for the life of the page. */
+  try { if (window.URL && window.URL.revokeObjectURL) window.URL.revokeObjectURL(e.url); } catch(err){}
+}
+function ttsCachePut(key, url, now){
+  ttsCacheEntries.push({ key:key, url:url, at:now });
+  while (ttsCacheEntries.length > TTS_CACHE_MAX) ttsCacheDrop(0);
+}
+/* Expiry is enforced on read as well as on insert, so an entry that has aged
+   out is never played even if nothing has pushed it off the end. */
+function ttsCacheSweep(now){
+  for (var i = ttsCacheEntries.length - 1; i >= 0; i--){
+    if ((now - ttsCacheEntries[i].at) > TTS_CACHE_TTL_MS) ttsCacheDrop(i);
+  }
+}
+function ttsCacheClear(){
+  while (ttsCacheEntries.length) ttsCacheDrop(0);
+  ttsInflight = {};
+}
+
+/* Can this press even try the cloud? Answered synchronously, because
+   voiceSpeak()'s caller needs to know NOW whether anything will be spoken.
+   Signed-in is part of it: synthesis is billed per character, so it is not
+   offered to an unauthenticated caller -- and a signed-out athlete still gets
+   the briefing, in the device's own voice. */
+function voiceCloudEligible(){
+  if (ttsCloudDown) return false;
+  if (typeof window === 'undefined') return false;
+  if (typeof fetch !== 'function') return false;
+  if (typeof window.Audio !== 'function') return false;
+  if (!cloudSignedIn()) return false;
+  return true;
+}
+
+/* ONE GENERATION PER KEY, however many callers ask for it. Two presses a
+   quarter-second apart join the same promise; the second never opens a second
+   billable request. The server holds the same guard for the same reason. */
+function ttsFetchAudio(key, text, voiceKey){
+  if (ttsInflight[key]) return ttsInflight[key];
+  var controller = (typeof AbortController === 'function') ? new AbortController() : null;
+  ttsAbort = controller;
+  var p = cloudRefreshIfNeeded().then(function(fresh){
+    if (!fresh) throw { code:'not_signed_in' };
+    return fetch('/api/voice-tts', {
+      method:'POST',
+      headers:{ 'content-type':'application/json',
+                'Authorization':'Bearer ' + cloudSession.access_token },
+      body: JSON.stringify({ text:text, voice:voiceKey }),
+      signal: controller ? controller.signal : undefined
+    });
+  }).then(function(resp){
+    /* An uncommissioned deployment is a permanent answer for this session; a
+       502 is a bad minute and stays retriable on the next deliberate press.
+       Neither is retried automatically -- the athlete hears the native voice
+       instead, which is faster than any retry could be. */
+    if (resp.status === 503) ttsCloudDown = true;
+    if (!resp.ok) throw { code:'tts_unavailable', status:resp.status };
+    return resp.blob();
+  }).then(function(blob){
+    if (!blob || !blob.size) throw { code:'tts_empty' };
+    var url = window.URL.createObjectURL(blob);
+    ttsCachePut(key, url, Date.now());
+    return url;
+  });
+  ttsInflight[key] = p;
+  var clear = function(){ delete ttsInflight[key]; };
+  p.then(clear, clear);
+  return p;
+}
+
+/* Stop everything this layer can be doing: a request in flight, a blob still
+   decoding, and audio already playing. Called by voiceStop(), so the Stop
+   button, opening Ask Coach and leaving Today all reach it. */
+function ttsHalt(){
+  ttsToken++;
+  if (ttsAbort){ try { ttsAbort.abort(); } catch(e){} ttsAbort = null; }
+  if (ttsAudioEl){
+    try { ttsAudioEl.pause(); } catch(e){}
+    try { ttsAudioEl.onended = null; ttsAudioEl.onerror = null; } catch(e){}
+    /* The element is released but the object URL is NOT revoked here -- it
+       belongs to the cache, and the next press should replay it for free. */
+    ttsAudioEl = null;
+  }
+}
+
+/* The premium path. Returns true if it has taken responsibility for this
+   press; every failure inside it ends at the native engine rather than at
+   silence. */
+function voiceCloudSpeak(text, opts){
+  var mine = ++ttsToken;
+  var voiceKey = coachVoice();
+  var now = Date.now();
+  ttsCacheSweep(now);
+  var key = ttsCacheKey(text, voiceKey);
+  var cached = ttsCacheFind(key, now);
+
+  var fail = function(){
+    if (ttsToken !== mine) return;            /* stopped, or superseded */
+    if (!voiceSpeakNative(text, opts)) voiceSetStatus('shown', opts || {});
+  };
+  var play = function(url){
+    if (ttsToken !== mine) return;
+    var el;
+    try { el = new window.Audio(url); } catch(e){ return fail(); }
+    ttsAudioEl = el;
+    el.onended = function(){
+      if (ttsToken !== mine) return;
+      /* Same landing state as the native path: the words stay readable once
+         the coach has finished saying them. */
+      voiceSetStatus('shown', opts || {});
+    };
+    el.onerror = function(){ fail(); };
+    var started;
+    try { started = el.play(); } catch(e){ return fail(); }
+    if (started && started.catch) started.catch(function(){ fail(); });
+  };
+
+  voiceSetStatus('speaking', opts || {});
+  if (cached){ play(cached); return true; }
+  ttsFetchAudio(key, text, voiceKey).then(play, fail);
+  return true;
+}
+
+/* Preview in Settings. The same pipeline, the same cache, the same fallback --
+   deliberately not a second speech path, because a second speech path is how
+   Preview and Hear Today end up sounding different. It carries no day and no
+   status, so it never touches the Today card's state machine. */
+function coachVoicePreview(voiceKey){
+  var key = COACH_VOICES.indexOf(voiceKey) !== -1 ? voiceKey : coachVoice();
+  ttsHalt();
+  var mine = ttsToken;
+  var text = COACH_VOICE_PREVIEW;
+  var fallback = function(){
+    if (ttsToken !== mine) return;
+    voiceSpeakNative(text, {});
+  };
+  if (!voiceCloudEligible()) return fallback();
+  var ck = ttsCacheKey(text, key);
+  var now = Date.now();
+  var cached = ttsCacheFind(ck, now);
+  var play = function(url){
+    if (ttsToken !== mine) return;
+    var el;
+    try { el = new window.Audio(url); } catch(e){ return fallback(); }
+    ttsAudioEl = el;
+    el.onerror = function(){ fallback(); };
+    var started;
+    try { started = el.play(); } catch(e){ return fallback(); }
+    if (started && started.catch) started.catch(function(){ fallback(); });
+  };
+  if (cached) return play(cached);
+  ttsFetchAudio(ck, text, key).then(play, fallback);
+}
+
 /* status: idle | speaking | unavailable */
 var voiceState = { status:'idle', kind:null, dayId:null };
 function voiceSetStatus(status, extra){
@@ -25987,6 +26375,11 @@ function voiceSetStatus(status, extra){
   patchVoiceCard();
 }
 function voiceStop(){
+  /* The premium path first: a request still in flight, and audio already
+     playing, are both things Stop must actually stop. Without this the athlete
+     presses Stop, the fetch lands a second later and the coach starts talking
+     into a card that says Hear today. */
+  ttsHalt();
   var tts = voiceNativeTts();
   if (tts && tts.stop){ try { tts.stop(); } catch(e){} }
   var synth = voiceSynth();
@@ -25998,7 +26391,20 @@ function voiceStop(){
 /* NEVER CALLED ON RENDER. Every caller is a press -- see the Today card's
    data-action handlers -- so opening the app in public cannot produce audio.
    test/voiceTodayOnly.test.js asserts no render path reaches this. */
+/* THE ONE ENTRY POINT EVERY SPOKEN THING STILL USES. The briefing, the
+   debrief and Ask Coach all call voiceSpeak(), so the coach voice is chosen in
+   exactly one place and cannot drift between surfaces.
+
+   PREMIUM FIRST, DEVICE BEHIND IT. voiceCloudSpeak() takes responsibility for
+   the press when a neural voice is reachable, and every failure inside it ends
+   at voiceSpeakNative() below -- the same function, unchanged, that has always
+   done this job. Nothing was removed to add a vendor. */
 function voiceSpeak(text, opts){
+  if (!text) return false;
+  if (voiceCloudEligible()) return voiceCloudSpeak(text, opts);
+  return voiceSpeakNative(text, opts);
+}
+function voiceSpeakNative(text, opts){
   if (!text) return false;
   /* NATIVE FIRST. Inside the installed app this is the only route that makes a
      sound; in a browser it is absent and the Web Speech path below runs
@@ -30032,6 +30438,7 @@ function renderSettingsHubView(){
       renderNotifyToggleRow()+
       renderThemeToggleRow()+
       renderGuidanceLevelRow()+
+      renderCoachVoiceRow()+
     '</div>'+
     /* High in Settings, not buried under Legal. An athlete looking for "what
        is Valhalla allowed to do with what I tell it" should meet the control
@@ -30455,6 +30862,8 @@ document.addEventListener('click', function(e){
     case 'set-guidance': handleSetGuidanceLevel(target.getAttribute('data-level')); break;
     case 'voice-listen': handleVoiceListen(target.getAttribute('data-day')); break;
     case 'voice-stop': voiceStop(); break;
+    case 'set-coach-voice': handleSetCoachVoice(target.getAttribute('data-voice')); break;
+    case 'preview-coach-voice': coachVoicePreview(target.getAttribute('data-voice')); break;
     case 'voice-ask-open': handleVoiceAskOpen(); break;
     case 'voice-ask-close': askReset(); break;
     case 'voice-ask-cancel': askStopListening(); break;

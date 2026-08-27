@@ -81,7 +81,14 @@ test('the .checked class on each label matches schedule.activeDays exactly', () 
 // 3. THE CIRCLE IS THE REUSED .day-check COMPONENT, NOT A NEW LOOKALIKE
 // ---------------------------------------------------------------------------
 test('.wd-check input shares its base circle rule with .day-check input, character for character', () => {
-  const rule = /\.day-check input, \.wd-check input\{([^}]*)\}/.exec(SRC);
+  /* THE COMPONENT GAINED A THIRD MEMBER (.cv-opt input, the Coach Voice
+     radio), which is the component working as intended: one definition of
+     "a circular, cherry, selected control", not three that drift. So the
+     shared list is matched as one that CONTAINS both of these selectors
+     rather than as one that is exactly them -- while a standalone
+     .wd-check input rule remains forbidden below, which is the actual
+     regression this test exists to catch. */
+  const rule = /\.day-check input, \.wd-check input(?:, [^{]+)?\{([^}]*)\}/.exec(SRC);
   assert.ok(rule, 'expected one shared selector list for the base circle -- .wd-check input must not have its own separate rule');
   assert.match(rule[1], /appearance:none/);
   assert.match(rule[1], /border-radius:50%/);
@@ -122,13 +129,13 @@ test('.field .wd-check overrides the column layout .field label would otherwise 
 });
 
 test('checked and the tick are also shared with .day-check, using --cherry, not a gold treatment', () => {
-  const checkedRule = /\.day-check input:checked, \.wd-check input:checked\{([^}]*)\}/.exec(SRC);
+  const checkedRule = /\.day-check input:checked, \.wd-check input:checked(?:, [^{]+)?\{([^}]*)\}/.exec(SRC);
   assert.ok(checkedRule, 'expected one shared :checked rule');
   assert.match(checkedRule[1], /background:var\(--cherry\)/);
   assert.match(checkedRule[1], /border-color:var\(--cherry\)/);
   assert.doesNotMatch(checkedRule[1], /bronze|gold/i, 'the checked circle must use Cherry Lacquer, matching the completion ring, not the gold accent');
 
-  const tickRule = /\.day-check input:checked::after, \.wd-check input:checked::after\{([^}]*)\}/.exec(SRC);
+  const tickRule = /\.day-check input:checked::after, \.wd-check input:checked::after(?:, [^{]+)?\{([^}]*)\}/.exec(SRC);
   assert.ok(tickRule, 'expected one shared :checked::after tick rule');
   assert.match(tickRule[1], /border:solid var\(--cherry-btn-ink\)/);
 });
