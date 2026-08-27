@@ -190,33 +190,45 @@ test('the briefing still says the prescription and the watch-for', () => {
 // ---------------------------------------------------------------------------
 // THE TRANSCRIPT, AND THE IMPLEMENTATION NOTE
 // ---------------------------------------------------------------------------
-test('pressing HEAR TODAY does not print the briefing into the card', () => {
+test('the briefing is on screen from the moment HEAR TODAY is pressed', () => {
+  /* FOUNDER REVERSAL, FROM LIVE DEVICE TESTING. This pass originally hid the
+     transcript while the coach was speaking and revealed it only once playback
+     ENDED -- to stop Today carrying a third copy of the same coaching. On the
+     phone that read as a defect: the words the athlete was listening to were
+     nowhere on screen until the coach had finished saying them. The card now
+     opens on the press, at the same moment speech starts.
+     The rest of this file's hierarchy work is unaffected -- see
+     test/hearTodayTiming.test.js for the timing guarantee itself. */
   const a = app();
   const dd = todayDay(a);
   a.state.view = 'today';
   a.voiceSetStatus('speaking', { kind: 'briefing', dayId: dd.id });
   const html = a.renderVoiceCard(dd);
-  assert.ok(!/class="voice-said"/.test(html),
-    'the whole briefing is still printed under the controls');
+  assert.match(html, /class="voice-said"/,
+    'the briefing is hidden while it is being spoken');
   assert.match(html, /Playing briefing/, 'there is no feedback that it is playing');
 });
 
 test('a screen reader still receives every spoken word', () => {
-  /* Off-screen, not display:none -- display:none is not announced. */
+  /* The guarantee did not change, only where it is attached: the briefing used
+     to be announced from a visually-hidden twin, and is now announced from the
+     block the athlete can also read. A second copy would make a screen reader
+     say the whole briefing twice. */
   const a = app();
   const dd = todayDay(a);
   a.state.view = 'today';
   a.voiceSetStatus('speaking', { kind: 'briefing', dayId: dd.id });
   const html = a.renderVoiceCard(dd);
-  assert.match(html, /class="voice-live" role="status" aria-live="polite"/,
+  assert.match(html, /class="voice-said" role="status" aria-live="polite"/,
     'the briefing is not exposed to assistive technology');
   const script = a.voiceScriptFor(dd);
   script.lines.forEach(l =>
     assert.ok(html.indexOf(l.replace(/&/g, '&amp;').replace(/</g, '&lt;')) !== -1 ||
-              html.indexOf(l) !== -1, 'a spoken line is missing from the live region'));
-  assert.match(SRC, /\.voice-live\{position:absolute/, 'the live region is not visually hidden off-screen');
-  assert.ok(!/\.voice-live\{[^}]*display\s*:\s*none/.test(SRC),
-    'display:none would stop it being announced');
+              html.indexOf(l) !== -1, 'a spoken line is missing from the card'));
+  assert.equal((html.match(/aria-live/g) || []).length, 1,
+    'the briefing is announced twice -- the hidden twin was left behind');
+  assert.ok(!/class="voice-live"/.test(html),
+    'the visually-hidden copy is still rendered alongside the visible one');
 });
 
 test('a device that cannot speak still shows the words', () => {
