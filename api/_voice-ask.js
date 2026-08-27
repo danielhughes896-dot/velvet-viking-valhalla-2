@@ -119,6 +119,11 @@ function parseReply(text){
 }
 
 async function handle(req, res){
+  /* THE DIAGNOSTIC CLOCK. Founder-approved instrumentation to establish where
+     a live ~4s Ask Coach actually goes. Milliseconds only -- see the timing
+     block above askUpstream() for what is measured, what is NOT measurable on
+     a non-streaming call, and why nothing here can carry content. */
+  const receivedAt = Date.now();
   const cfg = V.voiceConfig();
 
   if (req.method !== 'POST'){
@@ -173,7 +178,7 @@ async function handle(req, res){
     return V.json(res, 422, { error: 'context_refused', code: 'STRAVA_DERIVED_CONTEXT' });
   }
 
-  return askUpstream(res, cfg, contextJson, question, {});
+  return askUpstream(res, cfg, contextJson, question, { receivedAt: receivedAt });
 }
 
 /* THE ONLY PLACE IN THE REPOSITORY THAT NAMES A MODEL ENDPOINT, and it stays
@@ -255,8 +260,56 @@ function transportFault(err){
 /* THE MODEL CALL, ON ITS OWN, so the one retry below is a real call rather than
    a copy of one. Everything it needs is passed in; it reads no request and no
    database. */
+/* ---------- LATENCY DIAGNOSTIC ----------
+   WHAT THIS ANSWERS. Ask Coach takes about four seconds on the founder's phone
+   and nothing here has ever said WHERE. The split matters because the fixes are
+   opposites: if generation dominates, streaming helps; if thinking dominates,
+   streaming shows the athlete an equally long pause and the lever is `effort`
+   or a different model for this route.
+
+   WHAT IS MEASURED, all in milliseconds and all server-side:
+
+     pre    request received -> the upstream request is opened.  Our own cost:
+            the auth round trip, the Strava boundary and the context handling.
+     head   upstream opened -> response HEADERS arrive.
+     body   headers -> the body is fully read and parsed.
+     total  request received -> our response is sent.
+
+   WHAT IS **NOT** MEASURED, and cannot be. `head` IS NOT TIME-TO-FIRST-TOKEN.
+   This is a non-streaming call: there are no tokens on the wire, only a
+   complete JSON body, and `fetch` resolves when the response headers arrive --
+   which for a non-streamed generation is at or near the END of generation.
+   True first-visible-token timing is only observable by actually streaming,
+   and streaming is not being implemented here. Any number claiming to be TTFT
+   from this endpoint would be invented, so none is produced.
+
+   WHAT THE SPLIT STILL TELLS US. `head` is the whole upstream turn -- thinking
+   AND generation together. Read beside the two counts already logged:
+
+     out=   total output tokens, which INCLUDE thinking tokens
+     chars= the length of the answer actually returned
+
+   a large `out` against a small `chars` means thinking consumed the turn, and a
+   small `out` against a similar `chars` means generation did. That inference is
+   an inference and is labelled as one in the report -- it is not a measurement
+   of thinking time.
+
+   PRIVACY. Every field is a number or a fixed word. No question, no answer, no
+   context, no thinking content, no athlete identifier, no key. Same contract
+   the surrounding log lines already hold. */
+function askTimings(opts, r){
+  const now = Date.now();
+  const recv = opts.receivedAt || now;
+  const parts = ['total=' + (now - recv)];
+  if (opts.upstreamAt) parts.push('pre=' + (opts.upstreamAt - recv));
+  if (opts.upstreamAt && opts.headersAt) parts.push('head=' + (opts.headersAt - opts.upstreamAt));
+  if (opts.headersAt && r) parts.push('body=' + (now - opts.headersAt));
+  return parts.join(' ');
+}
+
 async function askUpstream(res, cfg, contextJson, question, opts){
   opts = opts || {};
+  if (!opts.receivedAt) opts.receivedAt = Date.now();
   const payload = {
     model: cfg.model,
     max_tokens: VOICE_MAX_TOKENS,
@@ -273,9 +326,13 @@ async function askUpstream(res, cfg, contextJson, question, opts){
   if (!opts.noEffort) payload.output_config = { effort: 'low' };
 
   const startedAt = Date.now();
+  opts.upstreamAt = startedAt;
   let r;
   try{
     r = await postModel(cfg, payload);
+    /* fetch resolves on HEADERS, not on the body. See the timing block above
+       for why this is not time-to-first-token. */
+    opts.headersAt = Date.now();
   }catch(e){
     /* Classified rather than collapsed -- see transportFault(). The elapsed
        time separates "refused instantly" from "timed out", which no error code
@@ -313,7 +370,10 @@ async function askUpstream(res, cfg, contextJson, question, opts){
        cause is not hidden by the recovery. */
     if (r.status === 400 && !opts.noEffort){
       V.log('ASK retrying without effort');
-      return askUpstream(res, cfg, contextJson, question, { noEffort: true });
+      /* receivedAt carries through, so `total` on the retry still measures the
+         whole thing the athlete waited for rather than only the second half. */
+      return askUpstream(res, cfg, contextJson, question,
+                         { noEffort: true, receivedAt: opts.receivedAt });
     }
     return V.json(res, 502, { error: 'coach_unavailable', code: 'VOICE_UPSTREAM' });
   }
@@ -328,7 +388,7 @@ async function askUpstream(res, cfg, contextJson, question, opts){
   /* A safety decline is a real outcome, not an error. The athlete is told the
      coach cannot answer that one, and the written coaching is untouched. */
   if (data && data.stop_reason === 'refusal'){
-    V.log('ASK declined');
+    V.log('ASK declined ' + askTimings(opts, r));
     return V.json(res, 200, { answer: null, declined: true });
   }
 
@@ -358,7 +418,8 @@ async function askUpstream(res, cfg, contextJson, question, opts){
        and so a genuine empty reply is never filed under the same cause. */
     const truncated = why === 'max_tokens';
     V.log('ASK empty_reply stop=' + why + ' out=' + outTokens +
-          ' cap=' + VOICE_MAX_TOKENS + (opts.noEffort ? ' noEffort=1' : ''));
+          ' cap=' + VOICE_MAX_TOKENS + ' ' + askTimings(opts, r) +
+          (opts.noEffort ? ' noEffort=1' : ''));
     return V.json(res, 502, {
       error: 'coach_unavailable',
       code: truncated ? 'VOICE_TRUNCATED' : 'VOICE_EMPTY'
@@ -368,6 +429,7 @@ async function askUpstream(res, cfg, contextJson, question, opts){
   /* Counts only. Never the question, never the answer. */
   V.log('ASK ok chars=' + parsed.answer.length + ' out=' + outTokens +
         ' change=' + (parsed.needsPlanChange ? 1 : 0) +
+        ' ' + askTimings(opts, r) +
         (opts.noEffort ? ' noEffort=1' : ''));
   return V.json(res, 200, {
     answer: parsed.answer,
@@ -376,4 +438,4 @@ async function askUpstream(res, cfg, contextJson, question, opts){
   });
 }
 
-module.exports = { handle, parseReply, SYSTEM, postModel, keyFault, transportFault };
+module.exports = { handle, parseReply, SYSTEM, postModel, keyFault, transportFault, askTimings };
