@@ -62,8 +62,15 @@ function makeStubDocument() {
   };
 }
 
-function makeStubLocalStorage() {
+function makeStubLocalStorage(seed) {
   const store = Object.create(null);
+  /* A COLD START HAS STORAGE BEFORE IT HAS AN APP. Seeding here rather than
+     after loadApp() returns is the whole point: the app's init() runs while the
+     inline script is being evaluated, so anything written afterwards is written
+     to an app that has already decided what to render and what to ask for. A
+     test that wants to reproduce a launch -- restored plan, restored session --
+     has to put the storage in place first. */
+  if (seed) Object.keys(seed).forEach(k => { store[k] = String(seed[k]); });
   return {
     getItem(k){ return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null; },
     setItem(k, v){ store[k] = String(v); },
@@ -114,7 +121,7 @@ function loadApp(options) {
   sandbox.removeEventListener = function(){};
   sandbox.dispatchEvent = function(){ return true; };
   sandbox.document = makeStubDocument();
-  sandbox.localStorage = makeStubLocalStorage();
+  sandbox.localStorage = makeStubLocalStorage(opts.storage);
   sandbox.navigator = { userAgent: 'node-test-harness', onLine: true, clipboard: { writeText(){ return Promise.resolve(); } } };
   sandbox.location = { href: 'http://localhost/', pathname: '/', search: '', hash: '', origin: 'http://localhost' };
   sandbox.history = { replaceState(){}, pushState(){} };
@@ -124,7 +131,12 @@ function loadApp(options) {
   // every test needing to know about it; a test that wants to simulate the
   // athlete declining can override `app.confirm = () => false`.
   sandbox.confirm = function(){ return true; };
-  sandbox.fetch = function(){ return Promise.reject(new Error('network disabled in test harness')); };
+  /* Network stays disabled unless a test supplies its own, and it must be
+     supplied HERE rather than assigned afterwards: init() makes its startup
+     requests during evaluation, which is exactly what a cold-start test needs
+     to observe. */
+  sandbox.fetch = opts.fetch ||
+    function(){ return Promise.reject(new Error('network disabled in test harness')); };
   // Real timers would keep the Node process alive for no benefit here -- the
   // suite calls the app's pure logic functions directly rather than waiting
   // on the countdown clock or notification scheduler the app starts at init.

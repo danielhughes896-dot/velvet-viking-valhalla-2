@@ -26065,6 +26065,36 @@ function voiceSetAvailable(on){
   voiceCoachAvailable = !!on;
   if (was !== voiceCoachAvailable) patchVoiceCard();
 }
+/* ---------- ASKING, ONCE, WHICHEVER WAY TODAY WAS REACHED ----------
+
+   THE DEFECT THIS CLOSES. These two probes used to be fired only from
+   handleSetView(), so they ran when the athlete NAVIGATED to Today -- and a
+   cold start never navigates. init() reaches Today by calling renderApp()
+   directly, so on the one entry path that matters most, the installed app
+   opening on Today, the probes never ran at all. Not late: never. Today drew
+   LISTEN, which is local, and no Ask Coach, which is not; and the control
+   appeared only once the athlete happened to leave Today and come back.
+
+   IT WAS NEVER A RACE. voiceSetAvailable() already patches the drawn card the
+   moment the answer changes what may be drawn, and patchVoiceCard() already
+   finds its mount. Nothing was arriving too late -- nothing was being asked.
+
+   ONE LATCH, SHARED. Both call sites route through here, so an athlete who
+   cold-starts on Today and then navigates away and back still costs exactly
+   one request, and no entry path can ever double-probe. */
+function voiceProbeOnce(){
+  if (typeof window === 'undefined') return false;
+  if (window.__vvvVoiceProbed) return false;
+  window.__vvvVoiceProbed = true;
+  try{ voiceCheckAvailability(); }catch(e){}
+  /* Whether this phone can transcribe WITHOUT sending the audio away. Asked
+     once, on the only screen that can draw a microphone, and until it answers
+     no microphone is drawn -- the same fail-closed default as everything else
+     here. Costs nothing in a browser, where the plugin is absent. */
+  try{ voiceCheckNativeStt(); }catch(e){}
+  return true;
+}
+
 function voiceCheckAvailability(){
   /* A DEPLOYMENT question: is there a coach on this server at all.
 
@@ -29860,6 +29890,14 @@ function renderBottomNavStack(){
   '</div>';
 }
 function handleSetView(view){
+  /* BEFORE THE EARLY RETURN BELOW, and that position is the fix rather than an
+     accident. Asking is latched and idempotent, so it costs nothing to do it
+     here -- but doing it after the return meant "set the view to Today when
+     Today is already the view" never asked at all. That is not a hypothetical
+     call: an athlete who finishes the builder is already on Today, so the one
+     moment a brand-new plan first appears was the one moment the probe was
+     skipped. Same defect as the cold start, different doorway. */
+  if (view==='today') voiceProbeOnce();
   if (state.view===view){
     /* Re-tapping the already-active VALHALLA bottom-nav tab from inside
        Coach or Record returns to the overview -- the ordinary "tap home
@@ -29883,20 +29921,8 @@ function handleSetView(view){
      unconfigured build has to remain an app that makes no network request at
      all. Asked once per session, and the section patches itself if the answer
      changes what is drawn. */
-  /* Voice availability is learned when the athlete first reaches Today, which
-     is the only screen that can draw a voice control. One unauthenticated
-     read, once per session, and it defaults to OFF -- so a blocked or slow
-     probe leaves the card silent rather than drawing a coach that cannot
-     answer. Nothing is spoken by this; it only decides what may be drawn. */
-  if (view==='today' && !window.__vvvVoiceProbed){
-    window.__vvvVoiceProbed = true;
-    try{ voiceCheckAvailability(); }catch(e){}
-    /* Whether this phone can transcribe WITHOUT sending the audio away. Asked
-       once, on the only screen that can draw a microphone, and until it answers
-       no microphone is drawn -- the same fail-closed default as everything else
-       here. Costs nothing in a browser, where the plugin is absent. */
-    try{ voiceCheckNativeStt(); }catch(e){}
-  }
+  /* Voice availability is asked for at the top of this function, before the
+     already-on-this-view early return -- see the note there. */
   if (view==='settings' && cloudConfigured() && !window.__vvvStravaProbed){
     window.__vvvStravaProbed = true;
     try{ stravaCheckAvailability(); }catch(e){}
@@ -30407,6 +30433,20 @@ function init(){
 
      Both of these need the Supabase session, which cloudInit() establishes
      asynchronously, so they are chained off it rather than raced with it. */
+  /* THE COLD-START ENTRY PATH. init() renders Today without going through
+     handleSetView(), so without this the voice probes never fire on the launch
+     that matters most. Guarded on the view actually shown, and latched, so an
+     app opening on any other tab still asks nothing until Today is reached.
+
+     AND ON THERE BEING A SESSION TO TALK ABOUT. A launch with no plan lands on
+     onboarding, where no voice control can be drawn at all -- asking there
+     would be a request bought for a screen that cannot spend it, and an
+     unconfigured build has to stay an app that makes no request. The athlete
+     who finishes the builder reaches Today through handleSetView(), which
+     asks then. */
+  if (state.view === 'today' && state.setup && state.days && state.days.length)
+    voiceProbeOnce();
+
   stravaPurgeLegacyTokens();
   stravaBindResume();
   try{
