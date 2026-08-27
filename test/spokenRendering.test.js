@@ -219,3 +219,57 @@ test('the rendering cannot change the prescription', () => {
     assert.equal(dd.title, before.title, t + ': speaking changed the title');
   });
 });
+
+// ---------------------------------------------------------------------------
+// A NUMERIC INSTRUCTION IS PRESCRIPTION, AND IS NEVER PARAPHRASED
+// ---------------------------------------------------------------------------
+test('every numeric instruction in the written guidance is spoken verbatim', () => {
+  /* FOUND BY REVIEW, NOT BY A TEST, which is why this test now exists. The
+     long run's `how` carries two instructions: "Easy throughout." and "Fluid
+     and carbohydrate past 90 minutes." The authored cue renders the first and
+     cannot express the second, because the authored table is forbidden a
+     number -- so on a 20km long run the fuelling instruction was simply gone
+     from the spoken briefing. An execution-critical cue, dropped silently by
+     condensation. */
+  const a = app();
+  eachType(a, (dd, t) => {
+    let gd = null;
+    try { gd = a.coachingDisclosureFor(dd, a.athleteExperience(a.state.setup)); } catch(e){}
+    const numeric = a.voiceNumericInstructions(gd);
+    if (!numeric.length) return;
+    const said = spokenFor(a, dd);
+    numeric.forEach(x =>
+      assert.ok(said.indexOf(a.voiceSpeakable(x)) !== -1,
+        t + ' dropped a numeric instruction: "' + x + '" from: ' + said));
+  });
+});
+
+test('the long run says its fuelling instruction', () => {
+  /* The specific case review caught, pinned by name so it cannot regress
+     quietly behind the general rule above. */
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {};
+  a.scheduleSave = () => {}; a.flushSave = () => {};
+  buildPlan(a, { weeks: 14, startDate: '2026-07-01', distanceKey: 'half', volume: 70,
+                 schedule: { activeDays: [0,1,2,3,4,5,6], longRunDay: 6 } });
+  const longest = a.state.days.filter(d => d.type === 'long').sort((x, y) => y.km - x.km)[0];
+  assert.ok(longest, 'the fixture scheduled no long run');
+  const gd = a.coachingDisclosureFor(longest, a.athleteExperience(a.state.setup));
+  if (!/fluid|carbohydrate/i.test(String(gd.how))) return;   // guidance changed; nothing to hold
+  assert.match(a.voiceScriptText(a.voiceBriefingScript(longest)), /[Ff]luid and carbohydrate/,
+    'the long run lost its fuelling instruction');
+});
+
+test('a numeric instruction is quoted, never re-worded', () => {
+  const a = app();
+  eachType(a, (dd, t) => {
+    let gd = null;
+    try { gd = a.coachingDisclosureFor(dd, a.athleteExperience(a.state.setup)); } catch(e){}
+    a.voiceNumericInstructions(gd).forEach(x => {
+      const nums = (a.voiceSpeakable(x).match(/\d+/g) || []);
+      const said = spokenFor(a, dd);
+      nums.forEach(n => assert.ok(said.indexOf(n) !== -1,
+        t + ' altered a prescribed figure: ' + n));
+    });
+  });
+});

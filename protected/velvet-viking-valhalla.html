@@ -25438,6 +25438,17 @@ function voiceBriefingScript(dd){
   if (spoken){
     lines.push(voiceSpeakable(voiceSpokenOpener(dd, spoken)));
     lines.push(voiceSpeakable(spoken.cue));
+    /* A NUMERIC INSTRUCTION IS PRESCRIPTION, AND PRESCRIPTION IS NEVER
+       PARAPHRASED. The card's `how` can carry more than one instruction, and
+       the long run's second one is "Fluid and carbohydrate past 90 minutes" --
+       an execution-critical cue that the authored qualitative rendering has no
+       way to express, because the authored table is forbidden a number.
+       Review caught it dropped from a 20km long run.
+       So the rule is general rather than a patch for one session type: any
+       sentence of `how` carrying a figure is the engine's, and is spoken as
+       the engine wrote it. Authored prose renders the qualitative half; the
+       numeric half is quoted. */
+    voiceNumericInstructions(gd).forEach(function(x){ lines.push(voiceSpeakable(x)); });
     /* THE PURPOSE, ONCE. The engine's own intent line knows about adjustments
        and continuity in THIS block, which a per-type rendering cannot, so it
        wins wherever it exists and the authored sentence is the fallback.
@@ -25571,6 +25582,17 @@ var VOICE_SPOKEN = {
     purpose: 'Everything from here is execution \u2014 the training that matters is already done.'
   }
 };
+/* Every sentence of the written instruction that states a figure. These are
+   prescription -- a duration, a distance, a count -- and they are carried into
+   speech verbatim rather than rendered, because a paraphrase of a number is a
+   different number waiting to happen. */
+function voiceNumericInstructions(gd){
+  if (!gd || !gd.how) return [];
+  return String(gd.how).split(/(?<=[.!?])\s+/)
+    .map(function(x){ return String(x).trim(); })
+    .filter(function(x){ return x && /\d/.test(x); });
+}
+
 function voiceSpokenFor(dd){ return (dd && VOICE_SPOKEN[dd.type]) || null; }
 
 /* THE OPENER, WITH THE PRESCRIPTION IN IT. "Nice easy one today" on its own
