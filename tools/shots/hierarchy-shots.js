@@ -22,7 +22,7 @@ const { buildPlan } = require(path.join(__dirname, '..', '..', 'test', 'fixtures
 
 const ROOT = path.join(__dirname, '..', '..');
 const RUNTIME = path.join(ROOT, 'protected', 'velvet-viking-valhalla.html');
-const OUT = process.argv[2] || path.join(__dirname, 'out-hierarchy-after');
+const OUT = process.argv[2] || path.join(__dirname, 'out-hierarchy-final');
 const REAL = new Date();
 const TODAY = new Date(REAL.getTime() - ((REAL.getUTCDay() + 6) % 7) * 86400000)
   .toISOString().slice(0, 10);
@@ -65,7 +65,22 @@ const FRAMES = {
       if(d){ d.date=todayStr(); d.completed=true; d.actual={km:d.km}; }` },
   'review-distance-partial':   { view: 'today', setup: `
       var d=state.days.filter(function(x){return x.type==='threshold';})[0];
-      if(d){ d.date=todayStr(); d.completed=true; d.actual={km:Math.round(d.km*0.6*10)/10}; }` }
+      if(d){ d.date=todayStr(); d.completed=true; d.actual={km:Math.round(d.km*0.6*10)/10}; }` },
+  /* THE THREE RUNGS OF MANUAL LOGGING, as an athlete meets them. */
+  'log-simple':                { view: 'today', setup: `
+      var d=findDayByDate(todayStr())||state.days.filter(function(x){return x.type!=='rest';})[0];
+      d.date=todayStr(); d.completed=true; d.actual={km:d.km,pace:'5:12',paceUnit:'km'};
+      expandedDays={}; expandedDays[d.id]=true;` },
+  'log-detail-open':           { view: 'today', setup: `
+      var d=findDayByDate(todayStr())||state.days.filter(function(x){return x.type!=='rest';})[0];
+      d.date=todayStr(); d.completed=true;
+      d.actual={km:d.km,pace:'5:12',paceUnit:'km',hr:152,rpe:6,feel:'good',notes:'Legs came round after the second rep.'};
+      expandedDays={}; expandedDays[d.id]=true;` },
+  'log-breakdown-open':        { view: 'today', setup: `
+      var d=state.days.filter(function(x){return x.type==='threshold';})[0];
+      d.date=todayStr(); d.completed=true; d.actual={km:d.km,pace:'5:12',paceUnit:'km'};
+      expandedDays={}; expandedDays[d.id]=true;
+      splitsEditorOpen={}; splitsEditorOpen[d.id]=true;` }
 };
 
 const MIME = { '.png':'image/png', '.svg':'image/svg+xml', '.jpg':'image/jpeg', '.webp':'image/webp',

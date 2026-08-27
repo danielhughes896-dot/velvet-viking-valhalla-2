@@ -10994,9 +10994,25 @@ function renderDayCard(dd){
   var actualHtml = '';
   if (dd.completed){
     var a = dd.actual || {};
+    var detailOpen = isDetailOpen(dd);
+    /* THE TWO THE ENGINE GRADES AGAINST, always visible. Distance alone is a
+       real rung of the evidence ladder -- it earns a completion assessment on
+       its own -- and pace is what turns that into a whole-session execution
+       judgement. Neither is compulsory: a missing pace narrows what Valhalla
+       will claim, and is never treated as a failure. */
     actualHtml = '<div class="actual-panel">'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
-      '<div class="actual-field"><label>Avg Pace /'+displayUnit()+'</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
+      '<div class="actual-field"><label>Avg Pace /'+displayUnit()+' \u2014 optional</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
+      /* One control, in the same quiet voice the session breakdown already
+         uses. Open when the athlete asks, and open by default whenever this
+         day already carries any of it -- a record can never be made less
+         visible than it was. */
+      '<div class="actual-field full">'+
+        '<button type="button" class="splits-toggle" data-action="toggle-detail" data-day="'+dd.id+'" aria-expanded="'+(detailOpen?'true':'false')+'">'+
+          (detailOpen ? 'Hide detail' : '+ Add detail \u2014 heart rate, effort, feel, notes')+
+        '</button>'+
+      '</div>'+
+      (detailOpen ? (
       /* HEART RATE AND FEEL ARE THE TWO COVERED BOXES IN THIS PANEL. Without
          consent they are not shown, because inviting somebody to type a
          resting-heart-rate figure Valhalla is not allowed to read is worse
@@ -11029,7 +11045,14 @@ function renderDayCard(dd){
         '</div>'+
         '<span class="field-hint">Anything the numbers don\u2019t show \u2014 tired legs, poor sleep, heat, wind, hills, illness, pain, treadmill, HR sensor trouble.</span>'+
         renderNoteSignalChips(dd)+
-      '</div>'+
+      '</div>'
+      ) : '')+
+      /* THE THIRD RUNG, and it already lived behind its own disclosure -- a
+         quiet one-line control that opens on tap or when the day carries real
+         lap data. Left exactly as it was: warm-up, quality, recoveries and
+         cool-down are still logged segment by segment, and nothing about the
+         simplified surface above flattens what a watch or a connected service
+         supplied. */
       renderSplitsBlock(dd)+
       '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>'+
     '</div>'+
@@ -27904,6 +27927,41 @@ function handleClearActual(dayId){
   scheduleSave();
   showToast('Log cleared');
 }
+/* ---------- "ADD DETAIL": THE SECOND RUNG, OFFERED NOT DEMANDED ----------
+
+   WHAT THIS FIXES. The whole-session panel asked six questions at once --
+   distance, pace, heart rate, RPE, feel and notes -- flat, in one block, every
+   one of them the same size. An athlete who wanted to record that they ran
+   8 km had to scroll past four fields they had no intention of filling, and a
+   form that asks six things reads as a form that wants six things.
+
+   DISTANCE AND PACE STAY, because those two are the evidence the coaching
+   engine actually grades against, and because distance alone is now a real
+   rung of the ladder in its own right. Heart rate, effort, feel and notes move
+   behind one control.
+
+   NOTHING IS REMOVED AND NOTHING IS HIDDEN FROM ITSELF. A day that already
+   carries any of those four opens showing them -- exactly the rule the session
+   breakdown already uses for real lap data. An existing record can never be
+   made less visible than it was, and no migration touches a stored value. */
+var detailEditorOpen = {};
+function dayHasDetail(dd){
+  var a = (dd && dd.actual) || {};
+  return a.hr != null || a.rpe != null || !!a.feel || !!(a.notes && String(a.notes).trim());
+}
+function isDetailOpen(dd){
+  if (!dd) return false;
+  if (Object.prototype.hasOwnProperty.call(detailEditorOpen, dd.id)) return !!detailEditorOpen[dd.id];
+  /* Default: closed, unless this day already has something to show. */
+  return dayHasDetail(dd);
+}
+function handleToggleDetail(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  detailEditorOpen[dd.id] = !isDetailOpen(dd);
+  replaceCard(dd);
+}
+
 function handleToggleSplits(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
@@ -30027,6 +30085,7 @@ document.addEventListener('click', function(e){
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
     case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;
     case 'toggle-splits': handleToggleSplits(target.getAttribute('data-day')); break;
+    case 'toggle-detail': handleToggleDetail(target.getAttribute('data-day')); break;
     case 'add-split': handleAddSplit(target.getAttribute('data-day')); break;
     case 'delete-split': handleDeleteSplit(target.getAttribute('data-day'), parseInt(target.getAttribute('data-index'),10)); break;
     case 'set-event-mode': handleSetEventMode(target.getAttribute('data-event-mode')); break;
