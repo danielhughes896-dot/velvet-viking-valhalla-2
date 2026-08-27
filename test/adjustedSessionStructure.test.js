@@ -476,13 +476,22 @@ test('no surface renders a day card by a route of its own', () => {
   const path = require('path');
   const { RUNTIME_RELATIVE } = require('./harness.js');
   const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
-  /* Today calls it directly, the in-place patch after a log re-renders it, and
-     This Week and Full Plan both reach it through renderWeekAccordion's
-     map(). One renderer; a second presentation of the same session is exactly
-     what produced the reported card and is what this guards against. */
-  const calls = src.match(/renderDayCard\(/g) || [];
-  assert.equal(calls.length, 3,
-    'expected the declaration plus two direct call sites, saw ' + calls.length);
-  assert.match(src, /wdays\.map\(renderDayCard\)/,
+  /* COMMENTS STRIPPED FIRST. renderRaceDayEvent()'s own comment names
+     renderDayCard() to say it reuses it, and counting that as a call site
+     would fail this test for the one thing it is meant to permit. Matching
+     prose as if it were code has produced false results in this suite before. */
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  /* Today calls it directly, the in-place patch after a log re-renders it,
+     renderRaceDayEvent() renders the race with it, and This Week and Full Plan
+     reach it for every other day through renderWeekAccordion's map(). One
+     renderer; a SECOND PRESENTATION of the same session is what this guards
+     against, and that is still exactly one apiece -- the accordion now filters
+     the race out precisely so the standalone event is not a duplicate. */
+  const calls = code.match(/renderDayCard\(/g) || [];
+  assert.equal(calls.length, 4,
+    'expected the declaration plus three direct call sites, saw ' + calls.length);
+  assert.match(code, /wdays\.filter\(function\(dd\)\{ return dd\.type!=='race'; \}\)\.map\(renderDayCard\)/,
     'the week accordion -- This Week and Full Plan alike -- must use the shared card');
+  assert.match(code, /function renderRaceDayEvent\(weekNum\)\{[\s\S]*?renderDayCard\(race\)/,
+    'the standalone race event must render the shared card, not a card of its own');
 });
