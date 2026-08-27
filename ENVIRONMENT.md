@@ -76,15 +76,39 @@ absence is a deliberate off state, not a misconfiguration.
 
 ## Voice Coach — off, and nothing has a default
 
-The Today Voice Coach speaks with the device's own speech synthesis, which needs
-no credential and sends nothing anywhere. Only **Ask Coach** — the conversational
-half — reaches a model, and only these three variables switch it on.
+The Today Voice Coach composes its briefing on the device, from the engine's own
+arithmetic, and that half reaches nothing. **Ask Coach** — the conversational
+half — reaches a model. **Hear Today** now reaches a speech vendor to READ the
+already-composed briefing aloud, and falls back to the device's own speech
+synthesis whenever that vendor is absent, slow or failing.
 
 | Name | Secret | Purpose | Launch | Source |
 |---|---|---|---|---|
 | `VVV_VOICE_ENABLED` | no | **SWITCH.** Off = Ask Coach is not offered and `/api/voice-ask` refuses. Deliberately separate from "is the key set", so *switched off on purpose* and *misconfigured* are never the same log line. Default off. | as configured | you |
 | `ANTHROPIC_API_KEY` | **YES** | Authenticates the Ask Coach model call. Server-side only — it is read in `api/_voice.js` and never reaches the browser. | for Ask Coach | console.anthropic.com → API keys |
 | `VVV_VOICE_MODEL` | no | Overrides the model id. Leave unset; the pinned default is `claude-opus-5`, verified 2026-08-26 against the official model list, and is what the prompt and the cost estimate were written against. | unset | — |
+
+### Hear Today — the premium coach voice (ElevenLabs)
+
+Speech synthesis only. The vendor receives the final approved briefing sentences,
+a voice id and a model id, and nothing else — no athlete identity, no plan, no
+training history, no health or readiness data, nothing Strava touched and no Ask
+Coach conversation. It is never asked what to say. Absent any of this, Hear Today
+still works: the device's own engine speaks the same words.
+
+| Name | Secret | Purpose | Launch | Source |
+|---|---|---|---|---|
+| `ELEVENLABS_API_KEY` | **YES** | Authenticates the speech call. Read only in `api/_voice-tts.js`; never reaches the browser, the Android source, the Capacitor config or any log line. Absent = Hear Today speaks with the device's own engine. | for the premium voice | elevenlabs.io → API keys |
+| `ELEVENLABS_VOICE_ID` | no | The **default** coach voice (Molly). Set so the voice can be repointed without a code release. Unset falls back to the catalogue default in `api/_voice-tts.js`. | for the premium voice | elevenlabs.io → Voices |
+| `ELEVENLABS_VOICE_ID_JOANNA` | no | Overrides the Joanna entry of the coach-voice catalogue. Unset uses the built-in id. | unset | elevenlabs.io → Voices |
+| `ELEVENLABS_VOICE_ID_HARRY` | no | Overrides the Harry entry. Unset uses the built-in id. | unset | elevenlabs.io → Voices |
+| `ELEVENLABS_VOICE_ID_ANDREW` | no | Overrides the Andrew entry. Unset uses the built-in id. | unset | elevenlabs.io → Voices |
+| `VVV_TTS_MODEL` | no | Overrides the speech model id. Leave unset; the pinned default is `eleven_multilingual_v2`, chosen for English prosody at a latency a pre-run briefing can absorb. Present so the choice can be re-tested live without a code release. | unset | — |
+
+**Voice ids are not secrets.** They name a public catalogue entry and authorise
+nothing on their own. They are nonetheless resolved server-side from a closed
+catalogue, so no caller can bill this account for synthesis with an arbitrary
+voice. The API key is the secret, and it stays in the function process.
 
 **Ask Coach and Strava coexist on the same account.** Having Strava connected,
 holding a Strava connection, or holding Strava-derived history

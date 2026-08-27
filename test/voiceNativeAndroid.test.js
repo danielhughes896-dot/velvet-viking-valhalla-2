@@ -257,13 +257,49 @@ test('stopping reaches the native engine too', () => {
   assert.equal(stopped, 1);
 });
 
-test('no cloud text-to-speech endpoint exists anywhere', () => {
-  const files = [SRC].concat(fs.readdirSync(path.join(ROOT, 'api'))
-    .filter(f => f.endsWith('.js'))
-    .map(f => fs.readFileSync(path.join(ROOT, 'api', f), 'utf8')));
-  files.forEach(src => assert.ok(
-    !/elevenlabs|texttospeech\.googleapis|polly|speech\.microsoft|tts\.[a-z]+\.com/i.test(src),
-    'a cloud TTS provider appeared'));
+test('the speech vendor is named in exactly one server file, and never in the browser', () => {
+  /* THIS TEST USED TO SAY "no cloud TTS provider appeared anywhere". The
+     founder has commissioned one, so the blanket ban is gone -- but what the
+     ban was PROTECTING is not, and is asserted here instead:
+
+       1. the runtime shipped to the browser never names a speech vendor, so
+          the phone cannot talk to one directly and no credential of one can
+          be anywhere near it;
+       2. exactly ONE file in api/ names the vendor endpoint, so "how many
+          places can spend money on speech" stays answerable by grep -- the
+          same discipline the model endpoint is held to in _voice-ask.js;
+       3. no OTHER cloud TTS vendor has appeared alongside it. */
+  /* The ban is on REACHING the vendor, not on naming it. A comment that says
+     which sub-processor speaks the briefing is documentation an athlete is
+     entitled to; an endpoint or a credential in the browser is a defect. */
+  const VENDORS = /api\.elevenlabs\.io|texttospeech\.googleapis|polly\.[a-z0-9-]*\.amazonaws|speech\.microsoft|tts\.[a-z]+\.com/i;
+  assert.ok(!VENDORS.test(SRC),
+    'the browser runtime reaches a speech vendor directly -- it must go through our own server');
+
+  const apiFiles = fs.readdirSync(path.join(ROOT, 'api')).filter(f => f.endsWith('.js'));
+  const naming = apiFiles.filter(f =>
+    /api\.elevenlabs\.io/i.test(fs.readFileSync(path.join(ROOT, 'api', f), 'utf8')));
+  assert.deepEqual(naming.length, 1,
+    'the speech vendor endpoint is named in ' + naming.length + ' files: ' + naming.join(', '));
+  assert.equal(naming[0], '_voice-tts.js', 'the vendor endpoint moved out of _voice-tts.js');
+
+  /* The commissioned vendor is bounded by the count above; this catches a
+     SECOND one being added beside it. */
+  const OTHERS = /texttospeech\.googleapis|polly\.[a-z0-9-]*\.amazonaws|speech\.microsoft|tts\.[a-z]+\.com/i;
+  apiFiles.forEach(f => assert.ok(
+    !OTHERS.test(fs.readFileSync(path.join(ROOT, 'api', f), 'utf8')),
+    'a second cloud TTS provider appeared in api/' + f));
+});
+
+test('the ElevenLabs credential is unreachable from the browser', () => {
+  /* The one that would actually cost the founder money if it were wrong. */
+  assert.ok(!/ELEVENLABS_API_KEY/.test(SRC), 'the runtime names the ElevenLabs key variable');
+  assert.ok(!/xi-api-key/i.test(SRC), 'the runtime carries the vendor auth header');
+  const raw = fs.readFileSync(path.join(ROOT, 'api', '_voice-tts.js'), 'utf8');
+  assert.ok(/process\.env/.test(raw), 'the key is not read from the environment');
+  /* And the real voice ids never appear as a literal in anything shipped. */
+  assert.ok(!/jkSXBeN4g5pNelNQ3YWw/.test(SRC),
+    'a voice id is hard-coded in the browser -- the catalogue is resolved server-side');
 });
 
 // ---------------------------------------------------------------------------

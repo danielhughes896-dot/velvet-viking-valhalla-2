@@ -228,10 +228,18 @@ test('the spoken briefing reaches no model, on the server or the client', () => 
 });
 
 test('the narration half contains no fetch and no endpoint', () => {
-  const region = SRC.slice(SRC.indexOf('THE VOICE COACH — NARRATION'),
-                           SRC.indexOf('ASK COACH — THE CONTEXT LAYER'));
-  assert.ok(!/fetch\(/.test(region), 'the on-device half makes a network call');
-  assert.ok(!/\/api\//.test(region), 'the on-device half names an endpoint');
+  /* THE BOUNDARY IS COMPOSITION, NOT THE WHOLE VOICE COACH. Deciding WHAT the
+     coach says is arithmetic on this device and must reach nothing; DELIVERING
+     those words may now reach a speech vendor, which is what "THE VOICE ITSELF"
+     begins. The line moved when the premium voice landed; the invariant this
+     test exists for -- that no network answer can change the coaching -- did
+     not, and is now asserted more precisely than before. */
+  const from = SRC.indexOf('THE VOICE COACH — NARRATION');
+  const to   = SRC.indexOf('THE VOICE ITSELF — speech delivery');
+  assert.ok(from !== -1 && to > from, 'the composition region markers moved');
+  const region = SRC.slice(from, to);
+  assert.ok(!/fetch\(/.test(region), 'composing the briefing makes a network call');
+  assert.ok(!/\/api\//.test(region), 'composing the briefing names an endpoint');
 });
 
 // ---------------------------------------------------------------------------
