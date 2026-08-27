@@ -125,17 +125,40 @@ test('the pace window is spoken wherever the engine set one', () => {
 // ---------------------------------------------------------------------------
 // SAID ONCE, AND NOT LIKE A SCREEN
 // ---------------------------------------------------------------------------
-test('the purpose is said once, and the engine\'s own line wins', () => {
+test('the purpose is said once, and the ADAPTIVE line wins where there is one', () => {
+  /* THE INVARIANT IS "ONCE", AND IT HAS ALWAYS BEEN "ONCE". What changed is
+     which of the two wins when they are not both available.
+       Originally the engine's coachBrief() lead always won. But with no
+     adaptive context that lead falls back to coachIntentLine(), the generic
+     purpose of the archetype -- and that paragraph is already on the card, in
+     Next Move, on the same screen. Measured across all eight types the spoken
+     line was byte-for-byte identical to it. So the rule is now: the engine's
+     lead wins when it KNOWS something (load, freshness, a held adjustment),
+     and otherwise the authored spoken purpose carries the concept in the
+     register the ear wants. Either way, exactly one is spoken. */
   const a = app();
   eachType(a, (dd, t) => {
-    const brief = a.coachBrief(dd);
-    const intent = a.voiceBriefParagraphs(brief)[0];
     const said = spokenFor(a, dd);
-    if (!intent) return;
-    assert.ok(said.indexOf(a.voiceSpeakable(intent)) !== -1,
-      t + ' dropped the engine\'s intent line');
-    const authored = a.VOICE_SPOKEN[t].purpose;
-    assert.ok(said.indexOf(a.voiceSpeakable(authored)) === -1,
+    const authored = a.voiceSpeakable(a.VOICE_SPOKEN[t].purpose);
+    const generic = a.coachIntentLine(dd);
+    /* No adaptive context in this fixture: the authored purpose carries it,
+       and the generic paragraph is not narrated. */
+    assert.ok(said.indexOf(authored) !== -1,
+      t + ' has no purpose at all -- that is deletion, not de-duplication');
+    if (generic) assert.ok(said.indexOf(a.voiceSpeakable(generic)) === -1,
+      t + ' narrates the generic purpose that is already in Next Move');
+  });
+});
+
+test('an adaptive lead displaces the authored purpose rather than joining it', () => {
+  const a = app();
+  const line = 'Your last two hard sessions both came in under prescription, so today can be taken at face value.';
+  a.coachReadinessLine = () => line;
+  eachType(a, (dd, t) => {
+    const said = spokenFor(a, dd);
+    assert.ok(said.indexOf(a.voiceSpeakable(line)) !== -1,
+      t + ' dropped the adaptive line the athlete most needed to hear');
+    assert.ok(said.indexOf(a.voiceSpeakable(a.VOICE_SPOKEN[t].purpose)) === -1,
       t + ' spoke BOTH purposes, which is the defect this layer removes');
   });
 });

@@ -195,15 +195,27 @@ test('the session-specific instruction is still present -- this got shorter, not
      protecting -- Next Move must carry a concrete, session-specific line and must
      not be quietly hollowed out to nothing. Only the source of that line has
      moved, from the shared cue to Next Move's own coachIntentLine(). */
+  /* THE SOURCE HAS MOVED AGAIN, AND THE GUARANTEE HAS NOT.
+     This required the INTENT line specifically. Intent is the generic purpose
+     of the session archetype -- which is also the disclosure's WHY row on the
+     same screen, so leading with it made two surfaces say one thing. Next Move
+     now leads with the adaptive line where there is one (recent load, recovery,
+     the decision and its evidence), which is the half only Next Move can say,
+     and falls back to intent when there is nothing better to lead with.
+     So the thing asserted is what it always meant: Next Move carries at least
+     one concrete, session-relevant line and is never hollowed out to nothing
+     -- and never leads with a labelled status note, which is furniture rather
+     than coaching. WHICH concrete line it is may vary by athlete. */
   const missing = [];
   CASES.forEach(([arch, type, title, km, params]) => {
     const a = sessionApp(arch, type, title, km, params, 'experienced');
     const dd = a.findDay(a.coachAnalyse().nextMove.dayId);
-    const intent = a.coachIntentLine(dd);
-    const lines = nextMoveLines(a);
-    if (lines.length < 2) { missing.push(title + ' (no instruction at all)'); return; }
-    if (!intent) { missing.push(title + ' (no intent line)'); return; }
-    if (lines.join(' ').indexOf(intent) === -1) missing.push(title + ' (intent line dropped)');
+    const brief = a.coachBrief(dd);
+    const paras = (brief && brief.paragraphs) || [];
+    if (!paras.length) { missing.push(title + ' (no instruction at all)'); return; }
+    if (a.voiceIsLabelled(paras[0])) { missing.push(title + ' (led with a status label)'); return; }
+    const concrete = paras.filter(x => !a.voiceIsLabelled(x));
+    if (!concrete.length) missing.push(title + ' (nothing but status furniture)');
   });
   assert.deepEqual(missing, [], 'one concrete instruction must survive on every card');
 });
