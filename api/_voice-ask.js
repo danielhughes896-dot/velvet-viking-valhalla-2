@@ -133,6 +133,15 @@ async function handle(req, res){
     V.log('ASK refused not_configured');
     return V.json(res, 503, { error: 'voice_not_configured', code: 'VOICE_NOT_CONFIGURED' });
   }
+  /* A KEY THAT CANNOT BE SENT IS A CONFIGURATION FAULT, NOT AN OUTAGE, and it
+     used to present as one: a stray character makes fetch() throw where a dead
+     host throws, so the athlete was told the coach was not responding and the
+     log said "unreachable". Caught here, named, and reported as what it is. */
+  const fault = keyFault(cfg.apiKey);
+  if (fault){
+    V.log('ASK refused key_' + fault);
+    return V.json(res, 503, { error: 'voice_not_configured', code: 'VOICE_KEY_MALFORMED' });
+  }
 
   /* The athlete is identified before anything is sent, for the ordinary reason
      -- this costs money per call and is not an open endpoint -- and because a
@@ -178,16 +187,69 @@ async function handle(req, res){
    Deliberately thin. It sends and returns the raw response: no interpretation,
    no res, no logging. Every caller owns its own error handling, because what a
    failure MEANS differs between a conversation and a briefing. */
+/* IS THIS KEY EVEN SENDABLE AS A HEADER.
+
+   Established by experiment against the runtime, not assumed:
+
+     embedded CR or LF   -> Headers throws "invalid header value"
+     any non-ASCII char  -> Headers throws "Cannot convert ... ByteString"
+                            (a smart quote or a zero-width space from a paste)
+     TRAILING newline    -> ACCEPTED, and sent to Anthropic as part of the key,
+                            which comes back 401 rather than throwing
+
+   The first two throw INSIDE fetch(), before a single byte leaves the process,
+   and land in the same catch as a genuine network failure -- which is why a
+   malformed key and an unreachable host were indistinguishable in production.
+   The third is why the key is trimmed: a trailing newline is invisible in a
+   dashboard field and turns a valid key into an authentication failure.
+
+   Returns a CLASS, never the value. Nothing here may be logged verbatim. */
+function keyFault(key){
+  const raw = String(key == null ? '' : key);
+  if (!raw.trim()) return 'missing';
+  if (/[\r\n]/.test(raw.trim())) return 'control_char';
+  /* eslint-disable-next-line no-control-regex */
+  if (/[^\x20-\x7E]/.test(raw.trim())) return 'non_ascii';
+  return null;
+}
+
 function postModel(cfg, payload){
+  /* TRIMMED. Whitespace around a pasted key is invisible where it is entered
+     and fatal where it is used. */
   return fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
-      'x-api-key': cfg.apiKey,
+      'x-api-key': String(cfg.apiKey || '').trim(),
       'anthropic-version': ANTHROPIC_VERSION,
       'content-type': 'application/json'
     },
     body: JSON.stringify(payload)
   });
+}
+
+/* WHY THE OUTBOUND REQUEST FAILED, IN ONE SAFE WORD.
+
+   "ASK unreachable" collapsed every thrown fetch into one message, so a
+   production log could not tell a malformed credential from a host that could
+   not be reached. Both are TypeErrors from the same line.
+
+   THE DISCRIMINATOR IS `cause`. A genuine network failure is
+   "TypeError: fetch failed" carrying cause.code -- ENOTFOUND, ECONNREFUSED,
+   UND_ERR_CONNECT_TIMEOUT, a TLS code. A header rejection has no cause at all
+   and names Headers or ByteString in its message.
+
+   NOTHING IDENTIFYING IS RETURNED. A class and, where the platform supplied
+   one, its error code. Never the key, the question, the answer or the body. */
+function transportFault(err){
+  if (!err) return 'unknown';
+  const cause = err.cause || null;
+  const code = cause && (cause.code || cause.name);
+  if (code) return 'network:' + String(code).slice(0, 40);
+  const msg = String(err.message || '');
+  if (/Headers|invalid header value/i.test(msg)) return 'header_rejected';
+  if (/ByteString/i.test(msg)) return 'header_non_ascii';
+  if (/is not a function|is not defined/i.test(msg)) return 'no_fetch';
+  return (err.name || 'Error') + ':unclassified';
 }
 
 /* THE MODEL CALL, ON ITS OWN, so the one retry below is a real call rather than
@@ -210,11 +272,16 @@ async function askUpstream(res, cfg, contextJson, question, opts){
      them. Dropped entirely on the retry; see the 400 branch below. */
   if (!opts.noEffort) payload.output_config = { effort: 'low' };
 
+  const startedAt = Date.now();
   let r;
   try{
     r = await postModel(cfg, payload);
   }catch(e){
-    V.log('ASK unreachable');
+    /* Classified rather than collapsed -- see transportFault(). The elapsed
+       time separates "refused instantly" from "timed out", which no error code
+       reports on its own. */
+    V.log('ASK unreachable fault=' + transportFault(e) +
+          ' ms=' + (Date.now() - startedAt) + ' model=' + String(cfg.model || 'none'));
     return V.json(res, 502, { error: 'coach_unavailable', code: 'VOICE_UNREACHABLE' });
   }
 
@@ -309,4 +376,4 @@ async function askUpstream(res, cfg, contextJson, question, opts){
   });
 }
 
-module.exports = { handle, parseReply, SYSTEM, postModel };
+module.exports = { handle, parseReply, SYSTEM, postModel, keyFault, transportFault };

@@ -65,14 +65,30 @@ test('the briefing says the same things the card says', () => {
   /* FIDELITY, checked against the source the card renders rather than against
      a copy: every sentence of guidance spoken must come from
      coachingDisclosureFor(), which is what "How to run this" displays. */
+  /* THE CONTRACT CHANGED DELIBERATELY, AND THIS RECORDS WHICH ONE IS IN FORCE.
+     Speech used to be required to QUOTE the card's execution instruction. That
+     is exactly what made Hear Today sound like a screen reader, and it cannot
+     coexist with the requirement that it sound like a coach: the words either
+     are the card's or they are not.
+     So fidelity is now held at the RENDERING: a session type with an authored
+     spoken cue is spoken from that cue, and the authored table is asserted
+     complete and number-free in spokenRendering.test.js. A type with NO
+     authored rendering still quotes the card, which is what this asserts. */
   const a = athlete();
   const dd = todayDay(a);
   const gd = a.coachingDisclosureFor(dd, a.athleteExperience(a.state.setup));
   if (!gd || !gd.how) return;
   a.setGuidanceLevel('full');
-  const spoken = a.voiceScriptText(a.voiceBriefingScript(dd));
-  assert.ok(spoken.includes(a.voiceSpeakable(gd.how)),
-    'the execution instruction on screen was not the one spoken');
+
+  const authored = a.VOICE_SPOKEN[dd.type];
+  if (authored){
+    assert.ok(a.voiceScriptText(a.voiceBriefingScript(dd)).includes(a.voiceSpeakable(authored.cue)),
+      'the authored spoken cue was not what got spoken');
+  }
+  /* And the fallback path still quotes the card exactly. */
+  delete a.VOICE_SPOKEN[dd.type];
+  assert.ok(a.voiceScriptText(a.voiceBriefingScript(dd)).includes(a.voiceSpeakable(gd.how)),
+    'with no authored rendering, the card instruction was not spoken');
 });
 
 test('the debrief never concludes more than the engine concluded', () => {

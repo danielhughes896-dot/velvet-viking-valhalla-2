@@ -25419,6 +25419,7 @@ function voiceBriefingScript(dd){
   var level = resolvedGuidanceLevel(dd);
   var lines = [];
   var session = voiceSessionLine(dd);
+  if (dd.type !== 'rest' && voiceSpokenFor(dd)) session = null;   // the opener replaces it
   if (session) lines.push(session);
   if (dd.type === 'rest'){
     lines.push('Nothing to run. Rest is the part of the plan that lets the training count.');
@@ -25427,30 +25428,216 @@ function voiceBriefingScript(dd){
 
   var gd = null;
   try { gd = coachingDisclosureFor(dd, athleteExperience(state.setup)); } catch(e){ gd = null; }
+
+  /* THE AUTHORED SPOKEN RENDERING, WHERE THERE IS ONE. Three sentences: what
+     today is and its numbers, how to run it, and why it is worth running. The
+     numbers are the engine's; the words around them are written for the ear.
+     Anything without an entry falls through to the framing below, so a new
+     session type is spoken plainly rather than not at all. */
+  var spoken = voiceSpokenFor(dd);
+  if (spoken){
+    lines.push(voiceSpeakable(voiceSpokenOpener(dd, spoken)));
+    lines.push(voiceSpeakable(spoken.cue));
+    /* A NUMERIC INSTRUCTION IS PRESCRIPTION, AND PRESCRIPTION IS NEVER
+       PARAPHRASED. The card's `how` can carry more than one instruction, and
+       the long run's second one is "Fluid and carbohydrate past 90 minutes" --
+       an execution-critical cue that the authored qualitative rendering has no
+       way to express, because the authored table is forbidden a number.
+       Review caught it dropped from a 20km long run.
+       So the rule is general rather than a patch for one session type: any
+       sentence of `how` carrying a figure is the engine's, and is spoken as
+       the engine wrote it. Authored prose renders the qualitative half; the
+       numeric half is quoted. */
+    voiceNumericInstructions(gd).forEach(function(x){ lines.push(voiceSpeakable(x)); });
+    /* THE PURPOSE, ONCE. The engine's own intent line knows about adjustments
+       and continuity in THIS block, which a per-type rendering cannot, so it
+       wins wherever it exists and the authored sentence is the fallback.
+       Speaking both is the defect this whole layer exists to remove -- and it
+       is not hypothetical: for several session types the two are within a word
+       of each other ("Today buys aerobic strength at a price you can afford to
+       pay again this week" beside "It buys aerobic strength at a price you can
+       afford to pay again this week"). */
+    if (level === 'full'){
+      var briefS = null;
+      try { briefS = coachBrief(dd); } catch(e){ briefS = null; }
+      var intent = voiceBriefParagraphs(briefS)[0];
+      lines.push(voiceSpeakable(intent || spoken.purpose));
+    }
+    lines = voiceDedupe(lines);
+    return lines.length ? { kind:'briefing', level:level, lines:lines } : null;
+  }
   /* CONCISE keeps exactly one thing: how to run it. That is the instruction
      that changes what the athlete does in the next hour; purpose and
      watch-outs are the parts they can read later if they want them. */
   /* `how` is already written as instructions -- imperative sentences -- so it
-     is spoken as it stands. The other three are card values and are framed
-     into sentences first; see voicePurposeLine() and friends above. */
+     is spoken as it stands. */
   if (gd && gd.how) lines.push(voiceSpeakable(gd.how));
-  if (level === 'full'){
-    if (gd && gd.why)   lines.push(voiceSpeakable(voicePurposeLine(gd.why)));
-    if (gd && gd.feel)  lines.push(voiceSpeakable(voiceFeelLine(gd.feel)));
-    if (gd && gd.avoid) lines.push(voiceSpeakable(voiceAvoidLine(gd.avoid)));
-  }
 
-  /* The coach's own pre-session message, when the engine produced one. It
-     already knows about adjustments, continuity and what this session is for
-     in THIS block, which no static guidance table can. */
+  /* THE COACH'S OWN WORDS FOR WHY, WHEN THERE ARE ANY. coachBrief()'s first
+     paragraph is the intent line -- written as speech, and about THIS session
+     in THIS block. The guidance table's `why` is a card value saying the same
+     thing in card register: "Aerobic base, and freshness for the hard days"
+     beside "Today is about banking aerobic time cheaply." Speaking BOTH is the
+     single largest reason the briefing sounded like a page being read, so only
+     one is spoken, and the coach's own sentence wins. */
   var brief = null;
   try { brief = coachBrief(dd); } catch(e){ brief = null; }
-  if (brief && brief.paragraphs && brief.paragraphs.length){
-    var take = level === 'concise' ? brief.paragraphs.slice(0, 1) : brief.paragraphs;
-    take.forEach(function(p){ lines.push(voiceSpeakable(p)); });
+  var paras = voiceBriefParagraphs(brief);
+  var purpose = paras.length ? paras[0]
+              : (gd && gd.why ? voicePurposeLine(gd.why) : '');
+
+  if (level === 'full'){
+    /* FEEL AND WATCH-FOR, SAID AS ONE THING. They are two cells of one row on
+       the card and one thought out loud: how it should sit, and the way it
+       goes wrong. Two separate sentences is the card's structure spoken; one
+       joined sentence is the coach's. */
+    var feel = gd && gd.feel ? voiceStripStop(gd.feel) : '';
+    var avoid = gd && gd.avoid ? voiceStripStop(gd.avoid) : '';
+    /* JOINED ONLY WHERE JOINING HELPS. Several feel values are themselves two
+       clauses -- "Hard but even, and repeatable" -- and hanging a second `and`
+       off those produced "hard but even, and repeatable, and watch for racing
+       it", which is worse than the two sentences it replaced. A feel that
+       already carries a comma is left as its own sentence. */
+    if (feel && avoid && feel.indexOf(',') === -1)
+      lines.push(voiceSpeakable('Keep it ' + voiceLowerFirst(feel) +
+                                ', and watch for ' + voiceLowerFirst(avoid) + '.'));
+    else if (feel && avoid)
+      lines.push(voiceSpeakable(voiceFeelLine(feel) + ' ' + voiceAvoidLine(avoid)));
+    else if (feel)  lines.push(voiceSpeakable(voiceFeelLine(feel)));
+    else if (avoid) lines.push(voiceSpeakable(voiceAvoidLine(avoid)));
   }
+
+  if (purpose) lines.push(voiceSpeakable(purpose));
+
+  /* Everything the coach said after the intent line, at full depth only.
+     Already priority-ordered by coachBrief(); card furniture is gone. */
+  if (level === 'full')
+    paras.slice(1).forEach(function(p){ lines.push(voiceSpeakable(p)); });
+
   lines = voiceDedupe(lines);
   return lines.length ? { kind:'briefing', level:level, lines:lines } : null;
+}
+
+/* ---------- THE SPOKEN RENDERING OF EACH SESSION ----------
+
+   WHY THIS TABLE EXISTS AND WHAT IT IS NOT. The guidance table is written for
+   a CARD: four labelled cells, each a fragment, read by the eye in a layout
+   that supplies the grammar. Composing those fragments into sentences got the
+   briefing to correct English and no further -- it still enumerated the
+   screen, because the WORDS were still the screen's words.
+
+   So the same coaching facts get a second rendering, authored for the ear.
+   This is a PRESENTATION layer: `cue` says out loud what `how`, `feel` and
+   `avoid` say in card register, and `purpose` says what `why` says.
+
+   IT DECIDES NOTHING, and it holds no number -- no distance, pace, duration,
+   rep count or recovery. Every one of those is injected from the prescription
+   at speech time, so this table cannot contradict the engine even if somebody
+   edits it carelessly. It cannot choose which session to run, when to
+   intervene, or what the athlete's state is. One coaching brain, two
+   renderings of what that brain decided.
+
+   A TYPE WITH NO ENTRY IS NOT SILENT: the composer falls back to the framing
+   built from the card fields, so a session type added later is spoken plainly
+   rather than dropped -- and a test holds every authored entry complete. */
+var VOICE_SPOKEN = {
+  easy: {
+    opener: 'Nice easy one today',
+    cue: 'Keep it relaxed and conversational, and don\u2019t let the pace creep up.',
+    purpose: 'The goal is just to bank some aerobic work and stay fresh for the harder sessions.'
+  },
+  long: {
+    opener: 'Long run today',
+    cue: 'Start easier than feels necessary and let it get honest late \u2014 the mistake is going out at the pace you mean to finish at.',
+    purpose: 'This is the one that builds your endurance, and the week is arranged around protecting it.'
+  },
+  tempo: {
+    opener: 'Steady session today',
+    cue: 'Settle into a rhythm you could hold well past the time given \u2014 firm rather than hard, and don\u2019t let it drift up into threshold.',
+    purpose: 'It buys aerobic strength at a price you can afford to pay again this week.'
+  },
+  threshold: {
+    opener: 'Threshold session today',
+    cue: 'Get into the window inside the first kilometre and hold it there \u2014 hard but even, no surges, no sprint finish. Don\u2019t race it.',
+    purpose: 'This is what lifts the pace you can hold before lactate starts stacking up.'
+  },
+  interval: {
+    opener: 'Hill session today',
+    cue: 'Drive from the hips, short quick steps, eyes up \u2014 it\u2019s effort you\u2019re chasing, not pace. Take the descents easy and get genuinely recovered at the bottom.',
+    purpose: 'It builds strength that flat running cannot, and the hill sets the effort for you.'
+  },
+  repetition: {
+    opener: 'Short, fast reps today',
+    cue: 'Quick but smooth \u2014 fast without straining \u2014 and jog every recovery in full. Cutting them short changes the session.',
+    purpose: 'This is about speed and mechanics, and it should cost you very little.'
+  },
+  checkpoint: {
+    opener: 'Fitness checkpoint today',
+    cue: 'Warm up properly, then run it evenly with nothing left at the end. Going out hard and fading gives a reading that isn\u2019t worth having.',
+    purpose: 'It resets your goal and every training pace in the block, so the number matters.'
+  },
+  race: {
+    opener: 'Race day',
+    cue: 'Sit on goal pace early even while it feels too easy, then race the last third. Don\u2019t try to bank time at the start.',
+    purpose: 'Everything from here is execution \u2014 the training that matters is already done.'
+  }
+};
+/* Every sentence of the written instruction that states a figure. These are
+   prescription -- a duration, a distance, a count -- and they are carried into
+   speech verbatim rather than rendered, because a paraphrase of a number is a
+   different number waiting to happen. */
+function voiceNumericInstructions(gd){
+  if (!gd || !gd.how) return [];
+  return String(gd.how).split(/(?<=[.!?])\s+/)
+    .map(function(x){ return String(x).trim(); })
+    .filter(function(x){ return x && /\d/.test(x); });
+}
+
+function voiceSpokenFor(dd){ return (dd && VOICE_SPOKEN[dd.type]) || null; }
+
+/* THE OPENER, WITH THE PRESCRIPTION IN IT. "Nice easy one today" on its own
+   tells the athlete nothing they can run, so the distance, the session's own
+   title and the pace window are taken from the engine and injected here rather
+   than authored above. */
+function voiceSpokenOpener(dd, spoken){
+  var line = spoken.opener;
+  var dist = voiceSpokenDistance(dd.km);
+  var title = dd.title ? String(dd.title).toLowerCase() : null;
+  var tail = [];
+  if (dist) tail.push(dist);
+  /* The title carries the STRUCTURE -- "threshold: 3 kilometres",
+     "repetition: 7x400 metres". Dropping it would lose reps and recoveries,
+     which is the one thing shortening must never do. */
+  if (title && title !== (dist || '')) tail.push(title);
+  if (tail.length) line += ' \u2014 ' + tail.join(', ');
+  line += '.';
+  var targets = null;
+  try { targets = getDayTargets(dd); } catch(e){ targets = null; }
+  var pace = targets && targets.pace ? voiceSpokenPace(targets.pace) : null;
+  if (pace) line += ' Pace is around ' + pace + '.';
+  return line;
+}
+
+/* WHAT THE COACH ACTUALLY SAID, WITH THE CARD FURNITURE REMOVED.
+
+   coachBrief() returns paragraphs in priority order, and some of them are
+   LABELLED -- "Insufficient evidence: Not enough scored sessions yet to judge
+   your training trend confidently." A label is a card convention: on screen it
+   sits in its own cell and tells the eye how to read what follows. Spoken, it
+   is a status line about Valhalla's own confidence, not an instruction to the
+   athlete, and reading it aloud is precisely the screen-reader behaviour this
+   layer exists to stop.
+
+   DETECTED BY SHAPE, NOT BY MESSAGE. Any paragraph carrying a short leading
+   label is card furniture, whatever it says -- so a status line added later is
+   handled without anyone remembering to add it here. An UNLABELLED paragraph
+   is coaching and is never dropped: nothing here decides which coaching
+   matters, only which of it was written for the eye. */
+function voiceBriefParagraphs(brief){
+  if (!brief || !brief.paragraphs) return [];
+  return brief.paragraphs.filter(function(p){
+    return !/^[A-Z][A-Za-z]*(?:\s+[a-z]+){0,2}:\s+[A-Z]/.test(String(p || ''));
+  });
 }
 
 /* THE POST-SESSION DEBRIEF.
