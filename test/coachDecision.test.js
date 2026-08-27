@@ -9,6 +9,30 @@ const { buildPlan } = require('./fixtures.js');
 // (VVV_PRINCIPLES: one_good_is_not_evidence / one_bad_is_not_evidence /
 // minimum_intervention) to hold up under test, not just in a code comment.
 
+/* PINNED TO ONE INSTANT, like the rest of the suite.
+   =========================================================================
+   These fixtures are built relative to todayStr(), so an unpinned clock made
+   the same code at the same commit ask a different question every calendar
+   day: the weekday moves, which session is "next" moves with it, and the
+   evidence window covers a different set of sessions.
+
+   It surfaced as a real CI failure. Every assertion here held on 26 August
+   and one failed on 27 August, with nothing committed in between -- and
+   because the release workflow gates the Android bundle on this suite, a
+   calendar-dependent test can block a release build on an arbitrary day.
+
+   WHAT THE UNPINNED CLOCK ACTUALLY EXPOSED, recorded rather than hidden:
+   swept across 28 consecutive days, `state` is `proceed` on EVERY one of
+   them -- the principle these tests exist to protect never broke. What
+   varied was `evidenceCount`, which is 1 on Thursdays and 0 on every other
+   weekday. Whether a single POSITIVE evidence line on a Thursday is correct
+   (this file's own comment says positive evidence may hold a borderline case
+   down) is a separate question about coaching behaviour, deliberately not
+   answered by a change to a test. Pinning makes the suite deterministic; it
+   does not settle that, and it is reported rather than buried. */
+const PINNED = '2026-08-24T09:00:00Z';   // a Monday, matching the rest of the suite
+const app0 = () => loadApp({ pinnedDate: PINNED });
+
 function fillNormally(app, dd) {
   const target = app.executionPaceTarget(dd);
   const band = app.expectedRPEBand(dd);
@@ -24,7 +48,7 @@ function fillNormally(app, dd) {
 }
 
 test('coachDecision: a brand-new plan with zero completed sessions never manufactures a modify/recover state', () => {
-  const app = loadApp();
+  const app = app0();
   buildPlan(app, {});
   const dec = app.coachDecision();
   assert.ok(dec, 'a freshly generated plan must still resolve a decision for the next session');
@@ -33,7 +57,7 @@ test('coachDecision: a brand-new plan with zero completed sessions never manufac
 });
 
 test('coachDecision: a single isolated pain report does not escalate straight to modify', () => {
-  const app = loadApp();
+  const app = app0();
   const { days } = buildPlan(app, {});
   const today = days.find(d => d.date === app.todayStr());
   fillNormally(app, today);
@@ -45,7 +69,7 @@ test('coachDecision: a single isolated pain report does not escalate straight to
 });
 
 test('coachDecision: repeated pain reports across recent sessions trip the safety threshold (RECOVER)', () => {
-  const app = loadApp();
+  const app = app0();
   const startDate = app.addDays(app.todayStr(), -4);
   const { days } = buildPlan(app, { startDate });
   const recent = days.filter(d => d.date <= app.todayStr() && d.type !== 'rest');
@@ -60,7 +84,7 @@ test('coachDecision: repeated pain reports across recent sessions trip the safet
 });
 
 test('coachDecision: corroborated fatigue (elevated effort + elevated HR, on a quality day) reaches modify', () => {
-  const app = loadApp();
+  const app = app0();
   const startDate = app.addDays(app.todayStr(), -10);
   const { days } = buildPlan(app, { lthr: 172, maxHR: 188, weeks: 12, startDate });
   const today = app.todayStr();
@@ -101,7 +125,7 @@ test('coachDecision: corroborated fatigue (elevated effort + elevated HR, on a q
 });
 
 test('coachDecision: only excellent sessions never manufactures escalation on their own', () => {
-  const app = loadApp();
+  const app = app0();
   // A long, steady lead-in so the 28-day chronic-load baseline reflects real
   // steady-state training rather than a data-sparse first week reading as an
   // acute:chronic "spike" purely for lack of history -- coachLoad()'s own
@@ -119,7 +143,7 @@ test('coachDecision: only excellent sessions never manufactures escalation on th
 });
 
 test('coachEnvironment: a hot, humid session is attributed to conditions, not read as pain or illness', () => {
-  const app = loadApp();
+  const app = app0();
   buildPlan(app, {});
   // Real call sites pass coachEnvironment(dd.actual.notes, dd.actual) -- the
   // same text on both sides -- since effectiveNoteSignals() reads
@@ -134,7 +158,7 @@ test('coachEnvironment: a hot, humid session is attributed to conditions, not re
 });
 
 test('coachEnvironment: a note mentioning both heat and soreness still flags the pain signal', () => {
-  const app = loadApp();
+  const app = app0();
   buildPlan(app, {});
   // Heat explains the effort; it must not suppress a real, separately-stated
   // pain report in the same note.
@@ -145,14 +169,14 @@ test('coachEnvironment: a note mentioning both heat and soreness still flags the
 });
 
 test('computeConfidenceScore: a brand-new plan reads the neutral prior, not zero or a guess', () => {
-  const app = loadApp();
+  const app = app0();
   buildPlan(app, {});
   const score = app.computeConfidenceScore();
   assert.equal(score, app.CONFIDENCE_PRIOR_SCORE, 'with no completed sessions the score is exactly the neutral prior');
 });
 
 test('computeConfidenceScore: one excellent session nudges confidence up only modestly', () => {
-  const app = loadApp();
+  const app = app0();
   const { days } = buildPlan(app, {});
   const dd = days.find(d => d.type === 'easy' && d.km > 0);
   fillNormally(app, dd);
