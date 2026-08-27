@@ -66,6 +66,11 @@ FRAMES.push({ name: 'how-open-easy',        setup: becomeToday('easy'), openHow:
 FRAMES.push({ name: 'hear-idle',            setup: becomeToday('easy') });
 FRAMES.push({ name: 'hear-playing',         setup: becomeToday('easy') + `
   var d=findDayByDate(todayStr()); voiceSetStatus('speaking',{kind:'briefing',dayId:d.id});` });
+/* The half of `speaking` where the audio has not arrived yet: the words are
+   already readable and the status says so honestly. */
+FRAMES.push({ name: 'hear-preparing',       setup: becomeToday('easy') + `
+  var d=findDayByDate(todayStr());
+  voiceSetStatus('speaking',{kind:'briefing',dayId:d.id,phase:'preparing'});` });
 FRAMES.push({ name: 'hear-read-no-speech',  setup: becomeToday('easy') + `
   var d=findDayByDate(todayStr()); voiceSetStatus('shown',{kind:'briefing',dayId:d.id});` });
 FRAMES.push({ name: 'ask-closed',           setup: becomeToday('easy') });
@@ -113,7 +118,13 @@ function repeatScan(){
   const { server, url } = await serve();
   const browser = await playwright.chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const results = [];
-  for (const f of FRAMES){
+  /* An optional name filter. 36 frames x 2 themes opens enough browser
+     contexts to exhaust a small container, so a targeted re-capture after a
+     one-state change should not have to photograph the whole app:
+       node tools/shots/today-hierarchy-shots.js <outDir> hear- */
+  const only = process.argv[3] || '';
+  const frames = only ? FRAMES.filter(f => f.name.indexOf(only) !== -1) : FRAMES;
+  for (const f of frames){
     for (const theme of ['light', 'dark']){
       const ctx = await browser.newContext({ viewport: { width: 390, height: 900 },
         deviceScaleFactor: 2, isMobile: true, hasTouch: true, colorScheme: theme });

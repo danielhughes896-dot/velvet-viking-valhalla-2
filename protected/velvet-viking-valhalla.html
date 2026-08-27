@@ -40,7 +40,25 @@
 <script src="/assets/builder-spec.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- THE FONTS ARE NOT ON THE CRITICAL PATH, AND USED TO BE.
+     MEASURED, on a phone viewport: a font stylesheet answered after 1000ms
+     pushed first paint to 1140ms AND script execution to 1123ms -- because a
+     pending stylesheet blocks not only painting but execution of every script
+     after it, which here is the whole application. So a slow font host did not
+     merely delay the typeface: it delayed init(), the Today render and the
+     voice probe with it. On mobile data that is the whole of a slow launch.
+
+     media="print" makes the browser fetch it at low priority without blocking,
+     and onload flips it to a real stylesheet the moment it lands. The faces
+     already carry display=swap, so text paints immediately in the fallback
+     stacks (-apple-system / serif / sans-serif / monospace, all declared) and
+     swaps when the webfonts arrive. Nothing about the typography changed --
+     only when the athlete is allowed to see the app.
+
+     preconnect above is kept and now does its real job: the handshake starts
+     early even though the stylesheet no longer holds the page hostage. -->
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all';this.onload=null;">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
 <style>
 
   :root{
@@ -26317,6 +26335,9 @@ function voiceCloudSpeak(text, opts){
     var el;
     try { el = new window.Audio(url); } catch(e){ return fail(); }
     ttsAudioEl = el;
+    /* The moment there is genuinely sound to hear. */
+    if (voiceState.status === 'speaking' && voiceState.phase === 'preparing')
+      voiceSetStatus('speaking', withPhase(opts, 'playing'));
     el.onended = function(){
       if (ttsToken !== mine) return;
       /* Same landing state as the native path: the words stay readable once
@@ -26329,10 +26350,17 @@ function voiceCloudSpeak(text, opts){
     if (started && started.catch) started.catch(function(){ fail(); });
   };
 
-  voiceSetStatus('speaking', opts || {});
+  /* A CACHE HIT HAS THE AUDIO ALREADY, so it never shows a preparing state --
+     the only press that waits is the one that has to generate. */
+  voiceSetStatus('speaking', withPhase(opts, cached ? 'playing' : 'preparing'));
   if (cached){ play(cached); return true; }
   ttsFetchAudio(key, text, voiceKey).then(play, fail);
   return true;
+}
+/* opts carries kind and dayId and must survive; only the phase is added. */
+function withPhase(opts, phase){
+  var o = opts || {};
+  return { kind:o.kind, dayId:o.dayId, phase:phase };
 }
 
 /* Preview in Settings. The same pipeline, the same cache, the same fallback --
@@ -26369,9 +26397,14 @@ function coachVoicePreview(voiceKey){
 /* status: idle | speaking | unavailable */
 var voiceState = { status:'idle', kind:null, dayId:null };
 function voiceSetStatus(status, extra){
+  /* `phase` distinguishes the two halves of `speaking` that the athlete
+     experiences very differently: waiting for audio that has not arrived, and
+     audio that is actually coming out of the phone. Absent means 'playing',
+     so every existing caller keeps its meaning. */
   voiceState = { status:status,
                  kind:(extra && extra.kind) || null,
-                 dayId:(extra && extra.dayId) || null };
+                 dayId:(extra && extra.dayId) || null,
+                 phase:(extra && extra.phase) || 'playing' };
   patchVoiceCard();
 }
 /* THE BUTTON DOES TWO JOBS, AND THEY ARE NOT THE SAME JOB.
@@ -27234,8 +27267,16 @@ function renderVoiceCardBody(dd){
     html += '<div class="voice-said" role="status" aria-live="polite">'+
       script.lines.map(function(l){ return '<p>'+escapeHtml(l)+'</p>'; }).join('')+
     '</div>';
+    /* SAY WHICH IT IS. "Playing briefing" while the audio is still being
+       fetched is a claim the card cannot support -- on a slow connection the
+       athlete reads "playing" for two seconds of silence and reasonably
+       concludes it is broken. The words are already on screen by now, so this
+       line is only ever a status, and a status that is wrong is worse than a
+       status that is honest about waiting. */
     if (speaking)
-      html += '<div class="voice-playing" aria-hidden="true">Playing briefing\u2026</div>';
+      html += '<div class="voice-playing" aria-hidden="true">'+
+        (voiceState.phase === 'preparing' ? 'Preparing voice\u2026' : 'Playing briefing\u2026')+
+      '</div>';
   }
   html += renderAskPanel(dd);
   return html;
