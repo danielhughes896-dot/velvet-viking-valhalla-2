@@ -1636,7 +1636,19 @@
   .voice-btn svg{width:15px; height:15px; flex:none;}
   .voice-btn:hover{color:var(--ink); border-color:var(--ctl-border-hi, var(--ctl-border));}
   .voice-btn:active{transform:translateY(1px);}
+  /* .voice-why is retired: the adaptive-reason line no longer appears on
+     Today. The rule kept only so a stale cached page cannot render unstyled. */
   .voice-why{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:7px;}
+
+  /* THE BRIEFING, READABLE WITHOUT BEING PRINTED. Off-screen rather than
+     display:none, because display:none is not announced -- the whole point is
+     that a screen reader still gets every spoken word. Same technique the
+     file-input helper already uses. */
+  .voice-live{position:absolute; width:1px; height:1px; padding:0; margin:-1px; border:0;
+    opacity:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
+  /* What a sighted athlete gets instead: one quiet line, not the script. */
+  .voice-playing{font-size:var(--fs-support); line-height:var(--lh-support);
+    color:var(--ink-faint); margin-top:7px;}
   .voice-unavailable{display:block;}
   .voice-note{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:12px;}
   /* Everything spoken, readable. Not a transcript bolted on -- the same lines. */
@@ -18029,8 +18041,18 @@ function coachBrief(dd){
   if (!dd || dd.completed || dd.type === 'rest') return null;
   var depth = coachSignificance(dd, 'before');
   var paras = [];
-  var intent = coachIntentLine(dd);
-  if (intent) paras.push(intent);
+  /* WHY THIS SESSION, TODAY -- and in that order, which is the change.
+     Next Move used to lead with coachIntentLine(): the generic purpose of the
+     session ARCHETYPE. That is a real coaching fact, but it is not a fact
+     about today, and it is already the `why` row of HOW TO RUN THIS on the
+     same screen. Three surfaces were saying one thing: Next Move, the
+     disclosure, and the spoken briefing that read Next Move aloud.
+     coachReadinessLine() is the half only Next Move can say -- recent load,
+     recovery, the decision and the evidence behind it. It leads now.
+     THE GENERIC PURPOSE IS NOT DELETED, it is relocated: it stays the `why`
+     row, and it is still spoken here when the disclosure has none to show --
+     an edited session whose identity is no longer trusted gets no disclosure,
+     and Next Move going silent for it would lose the concept altogether. */
   var ready = coachReadinessLine(dd);
   if (ready) paras.push(ready);
   /* No focus paragraph: what the session should feel like, and the mistake
@@ -18053,6 +18075,25 @@ function coachBrief(dd){
      At depth 'brief' the budget is one paragraph and PREPARE never appears. */
   var prep = fuelPrepareCue(dd);
   if (prep) paras.push(prep);
+
+  /* THE GENERIC PURPOSE, ONLY WHERE NOTHING BETTER LEADS.
+     Two things went wrong when it was simply removed, and both were worse
+     than the repetition it was removed for:
+       - an athlete with no load, recovery or decision context got an EMPTY
+         Next Move, which is not a simplification, it is a missing card;
+       - where the only other paragraph was a LABELLED status line
+         ("Insufficient evidence: ..."), that furniture was promoted to the
+         lead, which is the opposite of the goal.
+     So the rule is about what LEADS. Adaptive context leads when there is any
+     -- that is the half only Next Move can say, and it is what the athlete
+     came for. When there is none worth leading with, the generic purpose
+     leads rather than nothing at all. It never appears second, so it can
+     never sit alongside the `why` row it duplicates. */
+  var leads = paras.length && !voiceIsLabelled(paras[0]);
+  if (!leads){
+    var intent = coachIntentLine(dd);
+    if (intent) paras.unshift(intent);
+  }
   paras = paras.slice(0, COACH_DEPTH_PARAGRAPHS[depth]);
   return paras.length ? { when:'before', depth:depth, paragraphs:paras } : null;
 }
@@ -25461,7 +25502,20 @@ function voiceBriefingScript(dd){
       var briefS = null;
       try { briefS = coachBrief(dd); } catch(e){ briefS = null; }
       var intent = voiceBriefParagraphs(briefS)[0];
-      lines.push(voiceSpeakable(intent || spoken.purpose));
+      /* AND ONLY WHERE IT SAYS SOMETHING NEXT MOVE DOES NOT.
+         coachBrief()'s lead is the adaptive readiness line when the athlete's
+         recent training gives us one -- load, freshness, a held adjustment --
+         and that is knowledge no per-type sentence can carry, so it is spoken.
+         With no adaptive context the lead falls back to coachIntentLine(), the
+         generic purpose of the archetype, and speaking THAT is the briefing
+         narrating the card: measured across all eight types it was byte-for-byte
+         the paragraph already sitting in Next Move on the same screen.
+         The authored spoken purpose says the same coaching in the register the
+         ear wants, which is what this layer is for. */
+      var generic = null;
+      try { generic = coachIntentLine(dd); } catch(e){ generic = null; }
+      var adaptive = intent && intent !== generic ? intent : null;
+      lines.push(voiceSpeakable(adaptive || spoken.purpose || intent));
     }
     lines = voiceDedupe(lines);
     return lines.length ? { kind:'briefing', level:level, lines:lines } : null;
@@ -25579,7 +25633,15 @@ var VOICE_SPOKEN = {
   race: {
     opener: 'Race day',
     cue: 'Sit on goal pace early even while it feels too easy, then race the last third. Don\u2019t try to bank time at the start.',
-    purpose: 'Everything from here is execution \u2014 the training that matters is already done.'
+    /* THE SAME COACHING TRUTH, SAID A SECOND WAY -- not a second decision.
+       The written purpose in SESSION_INTENT_BY_TYPE is "Everything from here
+       is execution. The training that matters is already done." and it stays
+       exactly as it is. This was a punctuation variant of that sentence, so an
+       athlete who opened the disclosure AND played the briefing on race day
+       met one sentence twice. The claim is identical -- the block is finished,
+       nothing more can be gained today, all that remains is to run the race
+       already prepared for -- and only the register differs. */
+    purpose: 'The work is done now. Trust the training and execute the race you prepared for.'
   }
 };
 /* Every sentence of the written instruction that states a figure. These are
@@ -25618,6 +25680,15 @@ function voiceSpokenOpener(dd, spoken){
   return line;
 }
 
+/* A SHORT LEADING LABEL IS CARD FURNITURE, WHATEVER FOLLOWS IT. On screen it
+   sits in its own cell and tells the eye how to read the rest; as the opening
+   line of a coaching card, or spoken aloud, it is a status note. One detector,
+   used by Next Move and by the spoken briefing, so the two can never disagree
+   about what counts as furniture. */
+function voiceIsLabelled(p){
+  return /^[A-Z][A-Za-z]*(?:\s+[a-z]+){0,2}:\s+[A-Z]/.test(String(p == null ? '' : p));
+}
+
 /* WHAT THE COACH ACTUALLY SAID, WITH THE CARD FURNITURE REMOVED.
 
    coachBrief() returns paragraphs in priority order, and some of them are
@@ -25635,9 +25706,7 @@ function voiceSpokenOpener(dd, spoken){
    matters, only which of it was written for the eye. */
 function voiceBriefParagraphs(brief){
   if (!brief || !brief.paragraphs) return [];
-  return brief.paragraphs.filter(function(p){
-    return !/^[A-Z][A-Za-z]*(?:\s+[a-z]+){0,2}:\s+[A-Z]/.test(String(p || ''));
-  });
+  return brief.paragraphs.filter(function(p){ return !voiceIsLabelled(p); });
 }
 
 /* THE POST-SESSION DEBRIEF.
@@ -26701,23 +26770,38 @@ function renderVoiceCardBody(dd){
   if (!bits) return '';
 
   var html = '<div class="voice-row">'+bits+'</div>';
-  /* WHY ADAPTIVE SAID WHAT IT SAID, on the surface it affected. One quiet
-     line, so a rule that decides how much coaching an athlete hears is never
-     invisible to them. */
-  if (script && guidanceLevel() === 'adaptive'){
-    var why = guidanceAdaptiveReason(dd);
-    if (why) html += '<div class="voice-why">'+escapeHtml(why)+'</div>';
-  }
-  /* EVERY SPOKEN WORD IS ALSO READABLE. Not a transcript bolted on afterwards
-     -- the same script object the speech is produced from, rendered. An
-     athlete who cannot or will not use audio loses nothing. */
-  /* SHOWN WHENEVER IT IS PLAYING **OR** READ. Not a transcript bolted on: the
-     same script object the speech is produced from. On a device with no
-     synthesiser this IS the feature, and it is why the control is still worth
-     drawing there. */
-  if ((speaking || shown) && script){
-    html += '<div class="voice-said">'+script.lines.map(function(l){
-      return '<p>'+escapeHtml(l)+'</p>'; }).join('')+'</div>';
+  /* THE ADAPTIVE-REASON LINE IS GONE FROM TODAY. "Fuller detail -- you have
+     not run many of these yet" explained the MECHANISM that chose how much
+     coaching to show, on the screen the athlete came to for coaching. It is an
+     implementation note, and Today is not where implementation notes belong.
+     guidanceAdaptiveReason() itself is untouched and Guidance Level behaves
+     exactly as before -- only this surfacing of it is removed. */
+  /* EVERY SPOKEN WORD IS STILL READABLE -- but not by printing the briefing
+     into the card underneath the button that just spoke it.
+
+     WHAT CHANGED AND WHY. Pressing HEAR TODAY used to insert the whole script
+     as prose below the controls, which made Today longer every time it was
+     used and put a third copy of the same coaching on the screen. The words
+     were already above it in HOW TO RUN THIS.
+
+     ACCESSIBILITY IS NOT WHAT WAS REMOVED. The script is still rendered, into
+     an aria-live region that is visually hidden: a screen reader announces the
+     briefing exactly as before, and a sighted athlete gets a short status line
+     instead of a wall of duplicated prose. On a device with no synthesiser the
+     words are the feature, so THERE the transcript is still shown -- that is
+     the case the visible block existed for.
+
+     `shown` means "read rather than spoken", which is precisely that case. */
+  if (script && (speaking || shown)){
+    if (shown && !speaking){
+      html += '<div class="voice-said">'+script.lines.map(function(l){
+        return '<p>'+escapeHtml(l)+'</p>'; }).join('')+'</div>';
+    } else {
+      html += '<div class="voice-live" role="status" aria-live="polite">'+
+        script.lines.map(function(l){ return '<p>'+escapeHtml(l)+'</p>'; }).join('')+
+      '</div>';
+      html += '<div class="voice-playing" aria-hidden="true">Playing briefing\u2026</div>';
+    }
   }
   html += renderAskPanel(dd);
   return html;
