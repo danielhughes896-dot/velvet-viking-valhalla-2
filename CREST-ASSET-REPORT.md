@@ -188,31 +188,49 @@ master again.
 
 ---
 
-## 7. A finding, discovered while applying this
+## 7. The other five pages — found, reported, then approved and done
 
-**Five other pages still serve the 2.1 MB master**, at their own rendered sizes:
+While applying §6 I found that **five other pages still served the 2.1 MB
+master**. `start.html` and `get.html` are the pages an athlete meets *before*
+the app, so the first two megabytes they ever downloaded was on the page asking
+them to sign up. Reported rather than fixed at the time, because the approval
+was for the app's delivery reference and widening that was not mine to decide.
 
-| Page | CSS class | Rendered width | Needed at 3× | 540 px asset |
-|---|---|---:|---:|---|
-| `get.html` | `.medallion` | up to 208 px | 624 px | 84 px short |
-| `start.html` | `.vvv-crest` | up to 132 px | 396 px | ample |
-| `account.html` | `.vvv-crest` | up to 132 px | 396 px | ample |
-| `privacy.html` | `.vvv-crest.sm` | up to 86 px | 258 px | ample |
-| `terms.html` | `.vvv-crest.sm` | up to 86 px | 258 px | ample |
+Subsequently approved and applied:
 
-`start.html` and `get.html` are the pages an athlete meets **before** the app —
-so the first 2.1 MB they download is on the page that asks them to sign up.
+| Page | CSS px | Needs at 3× | Serves | Size |
+|---|---:|---:|---|---:|
+| `get.html` | 208 | 624 | `…-640.png` | **185.8 KB** |
+| `start.html` | 132 | 396 | `…-540.png` | **137.4 KB** |
+| `account.html` | 132 | 396 | `…-540.png` | **137.4 KB** |
+| `privacy.html` | 86 | 258 | `…-540.png` | **137.4 KB** |
+| `terms.html` | 86 | 258 | `…-540.png` | **137.4 KB** |
 
-**I have not touched them.** The approval said *replace only the production
-delivery reference*, and widening scope on my own would be exactly the kind of
-quiet decision I should not be making. Four of the five could take the existing
-540 px file unchanged; `get.html` renders larger and would want a 640 px variant
-(~180 KB by the same method), or would accept the 540 at 2.6× rather than 3×.
+**`get.html` draws the crest larger than anywhere else**, so it gets its own
+640 px encoding (42.7 dB, 90.9% off) rather than being quietly under-served to
+save 48 KB. The rule applied is not "use the small file" but "use a file at
+least as wide as the device pixels this page actually draws", and a test
+enforces exactly that per page.
 
-There is also `test/getPageBetaLobby.test.js:60`, which asserts `get.html` serves
-the master — so that change carries a test update with it.
+Verified in a browser at 390 px, DPR 3, both themes, all ten frames: HTTP 200,
+rendered size unchanged, intrinsic width ≥ 3× the rendered width, aspect ratio
+0.9510 preserved, transparency intact (tRNS present on both palette assets), no
+horizontal overflow, no page errors.
 
-**Say the word and I will do those five as their own small change.**
+`test/getPageBetaLobby.test.js` pinned the master deliberately — the intent was
+that this page must not carry its own copy that could drift from the app's.
+That intent is unchanged; only the shared file moved, and the test now pins the
+shared **delivery** asset with a size budget.
+
+### Total, across the product
+
+| | Before | After |
+|---|---:|---:|
+| App launch screen | 2051 KB | 137 KB |
+| Sign-up page | 2051 KB | 186 KB |
+| start / account / privacy / terms | 2051 KB each | 137 KB each |
+
+The master remains 2,100,661 bytes, unchanged, and is served to nobody.
 
 ---
 

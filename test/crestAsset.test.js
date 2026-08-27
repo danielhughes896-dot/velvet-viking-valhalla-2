@@ -24,6 +24,20 @@ const ROOT = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
 const MASTER = path.join(ROOT, 'assets', 'velvet-viking-crest.png');
 const DELIVERY = path.join(ROOT, 'assets', 'velvet-viking-crest-540.png');
+const DELIVERY_640 = path.join(ROOT, 'assets', 'velvet-viking-crest-640.png');
+
+/* EVERY PAGE THAT DRAWS THE CREST, and the delivery asset each one needs.
+   The rule is not "use the small file" -- it is "use a file at least as wide as
+   the device pixels this page actually draws". get.html renders the crest
+   larger than anywhere else, so it gets its own encoding rather than being
+   quietly under-served to save 48 KB. */
+const PAGES = [
+  { file: 'get.html',     cssPx: 208, asset: 'velvet-viking-crest-640.png' },
+  { file: 'start.html',   cssPx: 132, asset: 'velvet-viking-crest-540.png' },
+  { file: 'account.html', cssPx: 132, asset: 'velvet-viking-crest-540.png' },
+  { file: 'privacy.html', cssPx:  86, asset: 'velvet-viking-crest-540.png' },
+  { file: 'terms.html',   cssPx:  86, asset: 'velvet-viking-crest-540.png' }
+];
 
 /* Generous enough that a legitimate re-encode is not a fight, tight enough
    that the master could never satisfy it. */
@@ -94,14 +108,85 @@ test('the markup declares the delivery asset\'s own dimensions', () => {
 });
 
 test('the app runtime never serves the master', () => {
-  /* SCOPED TO THE APP DELIVERABLE, which is what was approved. The marketing
-     and legal pages (start/account/privacy/terms/get.html) still serve the
-     master and have the same defect at their own rendered sizes -- that is a
-     reported finding, not an oversight, and is listed in CREST-ASSET-REPORT.md
-     for a separate decision. This test guards the one thing that changed. */
   assert.ok(!/["'(]\/?assets\/velvet-viking-crest\.png/.test(SRC),
     'the app runtime serves the two-megabyte master again');
   /* Naming it in a comment is fine and useful; serving it is not. */
   assert.match(SRC, /Canonical crest: assets\/velvet-viking-crest\.png/,
     'the note recording where the master lives was removed');
+});
+
+// ---------------------------------------------------------------------------
+// THE OTHER FIVE PAGES -- start.html and get.html are the ones an athlete meets
+// BEFORE the app, so the first two megabytes they ever downloaded was on the
+// page asking them to sign up.
+// ---------------------------------------------------------------------------
+test('no page anywhere serves the master to a browser', () => {
+  const offenders = [];
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)){
+      if (name === '.git' || name === 'node_modules' || name === 'assets' ||
+          name === 'tools' || name === 'test') continue;
+      const p = path.join(dir, name);
+      if (fs.statSync(p).isDirectory()){ walk(p); continue; }
+      if (!/\.(html|js|json|webmanifest)$/.test(name)) continue;
+      /* The master may be NAMED in prose; what must not exist is a reference
+         that would SERVE it. */
+      if (/src=["']\/?assets\/velvet-viking-crest\.png["']/.test(fs.readFileSync(p, 'utf8')))
+        offenders.push(path.relative(ROOT, p));
+    }
+  };
+  walk(ROOT);
+  assert.deepEqual(offenders.length, 0, 'these still serve the master: ' + offenders.join(', '));
+});
+
+test('every page uses a delivery asset wide enough for a 3x screen', () => {
+  PAGES.forEach(pg => {
+    const html = fs.readFileSync(path.join(ROOT, pg.file), 'utf8');
+    const img = /<img class="(?:medallion|vvv-crest(?: sm)?)"[^>]*>/.exec(html);
+    assert.ok(img, pg.file + ': the crest img element is gone');
+    assert.match(img[0], new RegExp('src="/assets/' + pg.asset.replace(/\./g, '\\.') + '"'),
+      pg.file + ': expected ' + pg.asset);
+
+    const d = pngSize(path.join(ROOT, 'assets', pg.asset));
+    /* The whole point: at least as many pixels as the densest phone draws. */
+    assert.ok(d.w >= pg.cssPx * 3,
+      pg.file + ' renders at ' + pg.cssPx + ' CSS px (' + (pg.cssPx * 3) +
+      ' device px at 3x) but is served a ' + d.w + 'px asset');
+    /* And the declared dimensions describe the file that is served. */
+    assert.match(img[0], new RegExp('width="' + d.w + '"'),
+      pg.file + ': declared width does not match the served file');
+    assert.match(img[0], new RegExp('height="' + d.h + '"'),
+      pg.file + ': declared height does not match the served file');
+  });
+});
+
+test('the 640px asset for the sign-up page is a real, budgeted, palette PNG', () => {
+  assert.ok(fs.existsSync(DELIVERY_640), 'the 640px delivery asset is missing');
+  const d = pngSize(DELIVERY_640);
+  const m = pngSize(MASTER);
+  assert.equal(d.w, 640);
+  assert.equal(d.colourType, 3, 'the 640px asset is not a palette PNG');
+  assert.ok(d.bytes <= 300 * 1024,
+    'the 640px asset is ' + Math.round(d.bytes / 1024) + ' KB, over budget');
+  assert.ok(d.bytes < m.bytes / 5, 'the 640px asset is not meaningfully smaller than the master');
+  assert.ok(Math.abs((d.w / d.h) - (m.w / m.h)) < 0.002,
+    'the 640px asset has a different aspect ratio from the master -- the crest would distort');
+});
+
+test('the delivery assets are transparent, like the master', () => {
+  /* Colour type 3 is palette; alpha lives in a tRNS chunk, so the byte at
+     offset 25 does not report it. Read the chunk list instead. */
+  const hasTRNS = (file) => {
+    const b = fs.readFileSync(file);
+    for (let i = 8; i + 8 <= b.length; ){
+      const len = b.readUInt32BE(i);
+      const type = b.slice(i + 4, i + 8).toString('ascii');
+      if (type === 'tRNS') return true;
+      if (type === 'IDAT' || type === 'IEND') return false;
+      i += 12 + len;
+    }
+    return false;
+  };
+  [DELIVERY, DELIVERY_640].forEach(f => assert.ok(hasTRNS(f),
+    path.basename(f) + ' lost its transparency -- the crest would sit on a box'));
 });

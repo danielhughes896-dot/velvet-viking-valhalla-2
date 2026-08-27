@@ -200,7 +200,14 @@ test('the shell carries the brand marks and the app does not repeat them everywh
   ['.vvv-wordmark', '.vvv-crest', '.vvv-tagline'].forEach(c =>
     assert.ok(SHELL.includes(c), 'the shell needs ' + c));
   const account = fs.readFileSync(path.join(ROOT, 'account.html'), 'utf8');
-  assert.match(account, /velvet-viking-crest\.png/, 'the canonical crest, not a substitute');
+  /* THE INTENT IS UNCHANGED -- this page shows the real Velvet Viking crest and
+     not a substitute or a page-local copy. What moved is only which file that
+     shared crest lives in: the master is 1223px of artwork rendered here at
+     132 CSS px, so the pages serve a derived 540px encoding of it and the
+     master is served to nobody. test/crestAsset.test.js owns the per-page
+     sizing rule. */
+  assert.match(account, /velvet-viking-crest-540\.png/,
+    'the shared crest delivery asset, not a substitute and not the master');
   assert.match(account, /Earn Your Place/i);
   assert.match(account, /vvv-wordmark/);
 });
