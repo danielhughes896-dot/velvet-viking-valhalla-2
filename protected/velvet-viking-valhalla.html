@@ -1666,13 +1666,13 @@
      Today. The rule kept only so a stale cached page cannot render unstyled. */
   .voice-why{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:7px;}
 
-  /* THE BRIEFING, READABLE WITHOUT BEING PRINTED. Off-screen rather than
-     display:none, because display:none is not announced -- the whole point is
-     that a screen reader still gets every spoken word. Same technique the
-     file-input helper already uses. */
+  /* .voice-live is retired: the briefing is no longer hidden while it plays,
+     so the visually-hidden twin that kept it announceable has nothing left to
+     do -- aria-live moved onto the visible block. The rule is kept, like
+     .voice-why above, only so a stale cached page cannot render it unstyled. */
   .voice-live{position:absolute; width:1px; height:1px; padding:0; margin:-1px; border:0;
     opacity:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
-  /* What a sighted athlete gets instead: one quiet line, not the script. */
+  /* The quiet line under the briefing while the coach is actually talking. */
   .voice-playing{font-size:var(--fs-support); line-height:var(--lh-support);
     color:var(--ink-faint); margin-top:7px;}
   .voice-unavailable{display:block;}
@@ -26374,6 +26374,31 @@ function voiceSetStatus(status, extra){
                  dayId:(extra && extra.dayId) || null };
   patchVoiceCard();
 }
+/* THE BUTTON DOES TWO JOBS, AND THEY ARE NOT THE SAME JOB.
+
+   While the coach is talking it says STOP, and stopping means silence the
+   audio -- not take the words away. An athlete who stops a briefing half way
+   through is usually stopping it BECAUSE they would rather read the rest, and
+   collapsing the card would be the app answering a request they did not make.
+
+   Once stopped it says HIDE, and hiding is what collapses it. Two presses,
+   two different outcomes, one control -- which is how it already read on the
+   card, because the label already changed between the two states.
+
+   voiceStop() below is left alone as the "stop and collapse" primitive, so
+   opening Ask Coach and resetting the panel still clear the card entirely. */
+function handleVoiceStopPress(){
+  if (voiceState.status === 'speaking'){
+    ttsHalt();
+    var tts = voiceNativeTts();
+    if (tts && tts.stop){ try { tts.stop(); } catch(e){} }
+    var synth = voiceSynth();
+    if (synth){ try { synth.cancel(); } catch(e){} }
+    voiceSetStatus('shown', { kind: voiceState.kind, dayId: voiceState.dayId });
+    return;
+  }
+  voiceStop();
+}
 function voiceStop(){
   /* The premium path first: a request still in flight, and audio already
      playing, are both things Stop must actually stop. Without this the athlete
@@ -27182,32 +27207,35 @@ function renderVoiceCardBody(dd){
      implementation note, and Today is not where implementation notes belong.
      guidanceAdaptiveReason() itself is untouched and Guidance Level behaves
      exactly as before -- only this surfacing of it is removed. */
-  /* EVERY SPOKEN WORD IS STILL READABLE -- but not by printing the briefing
-     into the card underneath the button that just spoke it.
+  /* THE BRIEFING IS VISIBLE FROM THE MOMENT IT IS ASKED FOR.
 
-     WHAT CHANGED AND WHY. Pressing HEAR TODAY used to insert the whole script
-     as prose below the controls, which made Today longer every time it was
-     used and put a third copy of the same coaching on the screen. The words
-     were already above it in HOW TO RUN THIS.
+     WHAT THIS REPLACED, AND WHY. The hierarchy pass hid the transcript while
+     the coach was speaking and revealed it only once playback ENDED, on the
+     reasoning that printing the script under the button that just spoke it put
+     a third copy of the same coaching on Today. Live on the device that read
+     as a defect rather than as restraint: the athlete presses Hear today, the
+     coach starts talking, and the words they are hearing are nowhere on the
+     screen until the coach has finished saying them -- which is exactly when
+     they are least useful. Founder decision, from live testing: the card opens
+     on the press, at the same moment speech starts.
 
-     ACCESSIBILITY IS NOT WHAT WAS REMOVED. The script is still rendered, into
-     an aria-live region that is visually hidden: a screen reader announces the
-     briefing exactly as before, and a sighted athlete gets a short status line
-     instead of a wall of duplicated prose. On a device with no synthesiser the
-     words are the feature, so THERE the transcript is still shown -- that is
-     the case the visible block existed for.
+     ONE BLOCK, NOT TWO. The visually-hidden aria-live twin existed only to
+     keep the words reachable while they were hidden. Nothing is hidden now, so
+     a second copy would make a screen reader announce the briefing twice. The
+     announcement moves onto the visible element instead: it appears in
+     response to a press, so it is still announced, and it is now also
+     READABLE, which was the whole complaint.
 
-     `shown` means "read rather than spoken", which is precisely that case. */
+     `speaking` and `shown` therefore render identically except for the
+     playing indicator. They remain distinct states because the BUTTON differs
+     -- Stop while speaking, Hide once stopped -- and because Stop must silence
+     the audio without collapsing the card. */
   if (script && (speaking || shown)){
-    if (shown && !speaking){
-      html += '<div class="voice-said">'+script.lines.map(function(l){
-        return '<p>'+escapeHtml(l)+'</p>'; }).join('')+'</div>';
-    } else {
-      html += '<div class="voice-live" role="status" aria-live="polite">'+
-        script.lines.map(function(l){ return '<p>'+escapeHtml(l)+'</p>'; }).join('')+
-      '</div>';
+    html += '<div class="voice-said" role="status" aria-live="polite">'+
+      script.lines.map(function(l){ return '<p>'+escapeHtml(l)+'</p>'; }).join('')+
+    '</div>';
+    if (speaking)
       html += '<div class="voice-playing" aria-hidden="true">Playing briefing\u2026</div>';
-    }
   }
   html += renderAskPanel(dd);
   return html;
@@ -30861,7 +30889,7 @@ document.addEventListener('click', function(e){
     case 'apply-activity': handleApplyActivity(); break;
     case 'set-guidance': handleSetGuidanceLevel(target.getAttribute('data-level')); break;
     case 'voice-listen': handleVoiceListen(target.getAttribute('data-day')); break;
-    case 'voice-stop': voiceStop(); break;
+    case 'voice-stop': handleVoiceStopPress(); break;
     case 'set-coach-voice': handleSetCoachVoice(target.getAttribute('data-voice')); break;
     case 'preview-coach-voice': coachVoicePreview(target.getAttribute('data-voice')); break;
     case 'voice-ask-open': handleVoiceAskOpen(); break;

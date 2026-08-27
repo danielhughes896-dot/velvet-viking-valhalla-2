@@ -267,12 +267,20 @@ test('switching voice takes effect on the very next playback', async () => {
     'changing the voice changed the words');
 });
 
-test('a Strava-derived day still refuses to be spoken at all', () => {
+test('a Strava-derived day still refuses to be spoken at all', async () => {
+  /* THIS TEST USED TO PASS FOR TWO WRONG REASONS AT ONCE, and both are worth
+     recording because it is a privacy boundary that was asserting nothing:
+       - it set dd.source, but isStravaDerived() keys on stravaActivityId, so
+         the fixture was never a Strava day;
+       - it counted requests synchronously, and the speech request is opened a
+         microtask later, so the count was zero however the code behaved. */
   const a = app();
   const dd = todayDay(a);
-  dd.source = 'strava';
+  dd.stravaActivityId = 987654321;
+  assert.equal(a.isStravaDerived(dd), true, 'the fixture is not actually Strava-derived');
   const net = online(a);
   a.handleVoiceListen(dd.id);
+  await settle(); await settle();
   assert.equal(net.calls.length, 0,
     'a Strava-derived day reached a third-party speech vendor');
 });
