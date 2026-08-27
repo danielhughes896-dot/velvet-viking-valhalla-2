@@ -182,14 +182,31 @@ test('F. DNS: the continuity card offers maintenance, never recovery from a race
 // ===========================================================================
 // G / H. RECOVERY, ACTIVE THEN FINISHING
 // ===========================================================================
-test('G. an active recovery block, mid-way: the continuity card has nothing to say yet', () => {
+test('G. an active recovery block, mid-way: the card says where this goes, and offers nothing', () => {
+  /* THIS TEST USED TO REQUIRE SILENCE HERE, and requiring it was the defect.
+     The card was permanent through the race build and then disappeared for the
+     whole of the recovery that follows -- precisely when an athlete running
+     easy for a fortnight most wants to know where this is going. "Permanent"
+     has to mean permanent, so the card now names the directions that will be
+     offered when the block ends.
+
+     WHAT THE ORIGINAL TEST WAS PROTECTING IS UNCHANGED and is asserted below
+     rather than dropped: nothing actionable appears mid-block. A live
+     start-block button here would let an athlete replace a recovery block
+     halfway through it, which is the opposite of what recovery is for. */
   const { a, raceDate } = racingBlock({ weeks: 12, back: 70 });
   repin(a, a.addDays(raceDate, 1) + 'T09:00:00Z');
   a.recordRaceOutcome('raced');
   const block = a.startDevelopmentBlock('recovery');
   assert.ok(block);
   const card = a.renderContinuityCard();
-  assert.equal(card, '', 'a recovery block mid-way produced a card before it had anything to recommend');
+  assert.notEqual(card, '', 'Full Plan went silent for the whole of recovery');
+  assert.match(card, /When this <b>recovery<\/b> block finishes/,
+    'the card does not say what happens at the end of this block');
+  assert.ok(!/data-action="start-block"/.test(card),
+    'a recovery block mid-way offered a live block switch');
+  assert.equal(a.nextBlockRecommendation(), null,
+    'a real recommendation fired while recovery was still running');
 });
 
 test('H. recovery reaching its end: the continuity card offers all four real directions', () => {

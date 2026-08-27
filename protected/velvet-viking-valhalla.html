@@ -2979,6 +2979,13 @@
   }
   .yr-choices{display:grid; gap:8px;}
   .yr-choices .btn{margin:0;}
+  /* The preview list inside What's next. Deliberately quiet -- these are
+     directions the athlete will be offered later, not buttons to press now. */
+  .yr-preview{
+    margin:8px 0 0; padding:0 0 0 18px; list-style:disc;
+    font-size:var(--fs-support); line-height:var(--lh-body); color:var(--ink-dim);
+  }
+  .yr-preview li{margin:2px 0;}
   .yr-foot{
     font-size:var(--fs-meta); color:var(--ink-faint); line-height:var(--lh-support);
     margin-top:12px; padding-top:10px; border-top:1px solid var(--line-soft);
@@ -15307,6 +15314,14 @@ function nextBlockRecommendation(){
     var oc = b && b.outcome && b.outcome.race && b.outcome.race.outcome;
     if (oc === 'dns') return { kind:'block', purpose:'maintain',
       why:'You did not start, so there is nothing to recover from — let us keep the fitness you built.' };
+    /* DNF IS ITS OWN ANSWER, and it used to fall through to the raced copy and
+       be told "You raced." It takes the SAME recovery -- a day that ended early
+       can still cost as much as one that did not, and the sizing is the
+       engine's either way -- but it is not the same sentence. What is not
+       claimed here is how much it took: nobody knows that yet, including the
+       athlete. */
+    if (oc === 'dnf') return { kind:'block', purpose:'recovery',
+      why:'You did not finish. Recovery still comes first — we will not know what the day cost you until you have had some of it.' };
     return { kind:'block', purpose:'recovery',
       why:'You raced. The next few weeks are for recovering properly, not for training through it.' };
   }
@@ -15321,15 +15336,30 @@ function nextBlockRecommendation(){
   if (purpose === 'race') return null;
   if (!nearEnd && !goalPassed) return null;
 
-  if (purpose === 'recovery') return { kind:'choice', options:['maintain','base','speed','race'],
+  var choice = blockChoicesFor(purpose);
+  return { kind:'choice', options: choice.options, why: choice.why };
+}
+
+/* WHICH DIRECTIONS FOLLOW WHICH BLOCK -- ONE TABLE, TWO READERS.
+   nextBlockRecommendation() above makes the real, actionable offer once a
+   block is at its end. renderContinuityCard() PREVIEWS the same directions
+   while the block is still running, so Full Plan can answer "where does this
+   go next" from the beginning rather than only at the finish.
+
+   They share this function rather than each carrying a copy, because a
+   preview that promised directions the offer would not make would be the
+   worst kind of wrong: believed, and only discovered weeks later. Nothing
+   here decides anything -- it names what the athlete will be offered. */
+function blockChoicesFor(purpose){
+  if (purpose === 'recovery') return { options:['maintain','base','speed','race'],
     why:'Recovery is done. What would you like to build next?' };
-  if (purpose === 'maintain') return { kind:'choice', options:['base','speed','race','maintain'],
+  if (purpose === 'maintain') return { options:['base','speed','race','maintain'],
     why:'You have held your fitness. Ready to build something, or keep ticking over?' };
-  if (purpose === 'base') return { kind:'choice', options:['race','speed','maintain'],
+  if (purpose === 'base') return { options:['race','speed','maintain'],
     why:'You have built the capacity. A race block would use it.' };
-  if (purpose === 'speed') return { kind:'choice', options:['race','base','maintain'],
+  if (purpose === 'speed') return { options:['race','base','maintain'],
     why:'Sharpening done. A race block or some base work would both follow well.' };
-  return { kind:'choice', options:['recovery','maintain','base','speed','race'], why:null };
+  return { options:['recovery','maintain','base','speed','race'], why:null };
 }
 
 /* One evidence record per completed session -- section by section, what the
@@ -23152,6 +23182,37 @@ function renderContinuityCard(){
         '<span class="coach-next-title">What’s next</span></div>'+
       '<div class="yr-why">Finish this block first. Once <b>Race Day</b> passes, Valhalla will '+
         'guide your recovery and help you choose what comes next.</div>'+
+    '</div>';
+  }
+
+  /* A DEVELOPMENT BLOCK STILL RUNNING -- AND THE GAP THIS CLOSES.
+     The card was permanent through a race build and then disappeared for the
+     whole of the block that follows it. Recovery is exactly where an athlete
+     most wants to know where this is going: they have just raced, they are
+     running easy for a fortnight, and Full Plan said nothing at all about what
+     happens at the end of it. "Permanent" has to mean permanent.
+
+     IT NAMES THE DIRECTIONS; IT DOES NOT OFFER THEM. The real, actionable
+     offer is renderBlockTransitionCard() and it arrives when the block does
+     end -- putting live start-block buttons here would let an athlete replace
+     a recovery block halfway through it, which is the opposite of what
+     recovery is for. So this is a list, not a row of buttons, and the wording
+     says when the choice arrives.
+
+     The directions come from blockChoicesFor(), the same table the offer will
+     read, so this can never promise something the offer will not make. */
+  var preview = blockChoicesFor(purpose);
+  if (preview && preview.options && preview.options.length){
+    var label = blockPurposeLabel(purpose);
+    return '<div class="hub-card yr-next">'+
+      '<div class="coach-next-head">'+ICONS.sparkles+
+        '<span class="coach-next-title">What’s next</span></div>'+
+      '<div class="yr-why">When this <b>'+escapeHtml(String(label).toLowerCase())+'</b> block '+
+        'finishes, Valhalla will offer you these directions:</div>'+
+      '<ul class="yr-preview">'+preview.options.map(function(o){
+        return '<li>'+escapeHtml(o === 'race' ? 'Build a race block' : blockPurposeLabel(o))+'</li>';
+      }).join('')+'</ul>'+
+      '<div class="yr-foot">Nothing changes until you choose. Your training history stays either way.</div>'+
     '</div>';
   }
 
