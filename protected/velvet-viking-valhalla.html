@@ -566,6 +566,18 @@
     padding:8px 16px; background:var(--c-gold-soft); border-top:1px dashed var(--line);
   }
   .taper-note svg{width:13px; height:13px; flex:none;}
+  /* RACE DAY AS ITS OWN EVENT. Deliberately quiet furniture -- the day card
+     inside it carries the weight; this only frames it as the culmination
+     rather than as the seventh row of a week. */
+  .race-divider .l{color:var(--gold-text);}
+  .race-event{margin:0 0 6px;}
+  .race-event-head{
+    display:flex; align-items:baseline; justify-content:space-between;
+    gap:12px; padding:0 4px 8px;
+  }
+  .race-event-when{font-size:var(--fs-meta); color:var(--ink-faint); letter-spacing:.04em;}
+  .race-event-dist{font-size:var(--fs-meta); color:var(--ink-faint);}
+  .race-event-dist b{font-size:var(--fs-body); font-weight:700; color:var(--gold-text);}
   .taper-note.race-split{align-items:flex-start;}
   .taper-note.race-split svg{margin-top:2px;}
   .race-split-txt{line-height:1.45;}
@@ -22999,15 +23011,31 @@ function currentWeekNum(){
   if (totalWeeks>0 && today<weekDateRange(1).start) return 1;
   return null;
 }
+/* A WEEK'S VOLUME, WITH THE RACE KEPT OUT OF THE TRAINING FIGURE.
+   `total`/`done` still count every kilometre in the week, race included --
+   several callers legitimately want that. `training`/`doneTraining` are what
+   the week HEADER shows, because a marathon's 42.2km is one tapered maximal
+   effort and not training load, and adding it to the week's mileage made race
+   week read as the biggest training week of the block when it is the smallest.
+
+   This is not a new opinion. largestScheduledWeek() already excludes race days
+   for exactly this reason and its comment already calls it "the same split
+   weekVolume() already makes" -- the engine held the line and only the display
+   did not. */
 function weekVolume(weekNum){
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
-  var totalKm=0, doneKm=0, raceKm=0;
+  var totalKm=0, doneKm=0, raceKm=0, doneRaceKm=0;
   wdays.forEach(function(dd){
+    var actual = (dd.completed && dd.actual && dd.actual.km!=null) ? dd.actual.km : (dd.km||0);
     totalKm += dd.km||0;
-    if (dd.type==='race') raceKm += dd.km||0;
-    if (dd.completed) doneKm += (dd.actual&&dd.actual.km!=null)?dd.actual.km:(dd.km||0);
+    if (dd.type==='race'){ raceKm += dd.km||0; if (dd.completed) doneRaceKm += actual; }
+    if (dd.completed) doneKm += actual;
   });
-  return { total: round1(totalKm), done: round1(doneKm), race: round1(raceKm), training: round1(totalKm-raceKm) };
+  return { total: round1(totalKm), done: round1(doneKm),
+           race: round1(raceKm), training: round1(totalKm-raceKm),
+           /* Completed training only. Without this the header could read
+              42.2/29.5 the moment the race was logged. */
+           doneTraining: round1(doneKm-doneRaceKm) };
 }
 function weekPhaseLabel(weekNum){
   if (!weekNum) return 'Block Complete';
@@ -23025,13 +23053,19 @@ function renderWeekAccordion(weekNum, forceOpen){
   var vol = weekVolume(weekNum);
   var today = todayStr();
   var hasToday = today>=range.start && today<=range.end;
-  var daysHtml = wdays.map(renderDayCard).join('');
+  /* RACE DAY IS NOT ONE OF THE WEEK'S SESSIONS. It is the event the block was
+     built for, and it is rendered once, on its own, immediately below this
+     week -- see renderRaceDayEvent(). Leaving it in the list as the seventh
+     card made the culmination of a sixteen-week build read as Sunday. */
+  var daysHtml = wdays.filter(function(dd){ return dd.type!=='race'; }).map(renderDayCard).join('');
   var openCls = (forceOpen || expandedWeeks[weekNum]) ? ' open' : '';
   var taper = isTaperWeek(weekNum);
   var taperNote = taper ? '<div class="taper-note">'+ICONS.zap+' Taper: volume drops, but keep hitting these paces \u2014 sharpness matters more than mileage from here.</div>' : '';
-  var raceNote = vol.race>0 ? '<div class="taper-note race-split">'+ICONS.target+
-      '<span class="race-split-txt">Total includes '+vGoalDay().toLowerCase()+': <b>'+kmToDisplay(vol.training)+'</b> training + <b>'+kmToDisplay(vol.race)+'</b> '+
-      (planHasEvent()?'race':'goal effort')+' = <b>'+kmToDisplay(vol.total)+'</b> '+displayUnit()+'</span></div>' : '';
+  /* THE COMBINED-TOTAL EXPLANATION IS GONE. "Total includes race day: 29.5
+     training + 42.2 race = 71.7 km" existed only to explain a number that
+     should not have been added together in the first place. With the race out
+     of the header there is nothing left to explain. */
+  var raceNote = '';
   return '<div class="week'+openCls+(taper?' is-taper':'')+'" id="week-'+weekNum+'">'+
     '<button type="button" class="week-head" data-action="toggle-week" data-week="'+weekNum+'">'+
       '<div class="week-num font-display">'+(weekNum<10?'0':'')+weekNum+'</div>'+
@@ -23039,7 +23073,7 @@ function renderWeekAccordion(weekNum, forceOpen){
         '<div class="week-phase font-head">'+weekPhaseLabel(weekNum)+(hasToday?'<span class="week-today-flag font-head">Now</span>':'')+'</div>'+
         '<div class="week-range font-mono">'+dShort(range.start)+' \u2013 '+dShort(range.end)+'</div>'+
       '</div>'+
-      '<div class="week-vol"><div class="v font-mono">'+kmToDisplay(vol.done)+'/'+kmToDisplay(vol.total)+'</div><div class="l font-head">'+displayUnit()+'</div></div>'+
+      '<div class="week-vol"><div class="v font-mono">'+kmToDisplay(vol.doneTraining)+'/'+kmToDisplay(vol.training)+'</div><div class="l font-head">'+displayUnit()+'</div></div>'+
       '<div class="week-chevron">'+ICONS.chevronDown+'</div>'+
     '</button>'+
     taperNote+raceNote+
@@ -23059,6 +23093,14 @@ function computeWeekZoneBreakdown(weekNum){
   var structured = 0, approximated = 0;
   wdays.forEach(function(dd){
     if (dd.type==='rest' || !dd.km) return;
+    /* THE RACE IS NOT IN THIS CHART EITHER. The week body no longer lists race
+       day among its sessions, so counting its kilometres here would describe
+       training the athlete cannot see above it -- and for a marathon the race
+       alone is more goal-pace time than the entire rest of the week, so the
+       chart read as though race week were a 60% marathon-pace block. Same
+       principle as the header split: the race is the event, not the week's
+       training. renderRaceDayEvent() carries it. */
+    if (dd.type==='race') return;
     /* A structured day reports what it actually prescribes. This is where the
        chart stopped guessing: an 11km threshold day is 3km easy + 8km
        threshold, not 11km of threshold, and a goal-pace long run uses its real
@@ -23238,6 +23280,36 @@ function renderPhaseDivider(weekNum, isFirst){
     '<span class="r" aria-hidden="true"></span>'+
   '</div>';
 }
+/* ---------- RACE DAY, ON ITS OWN ----------
+   THE CULMINATION, PRESENTED AS ONE. Race Day used to sit inside the final
+   week as its seventh day card, with its distance folded into that week's
+   mileage total -- so a marathon block ended "Week 13 · 0/71.7 km" and the day
+   the whole build existed for was a row in a list.
+
+   Nothing about the session changed. This renders the SAME renderDayCard() for
+   the SAME day object, with the same prescription, the same pacing and the
+   same logging; only where it sits and how it is introduced are different, and
+   the week accordion above no longer lists it so it appears exactly once.
+
+   The label follows the plan: "Race Day" for a real event, "Goal Day" for a
+   self-set target, "Review" for a steady block -- vGoalDay() already decides
+   that everywhere else. */
+function renderRaceDayEvent(weekNum){
+  var race = state.days.filter(function(dd){ return dd.week===weekNum && dd.type==='race'; })[0];
+  if (!race) return '';
+  var dist = kmToDisplay(race.km||0);
+  return '<div class="phase-divider race-divider">'+
+      '<span class="l font-head">'+escapeHtml(vGoalDay())+'</span>'+
+      '<span class="r" aria-hidden="true"></span>'+
+    '</div>'+
+    '<div class="race-event">'+
+      '<div class="race-event-head">'+
+        '<div class="race-event-when font-mono">'+escapeHtml(dLong(race.date))+'</div>'+
+        '<div class="race-event-dist font-mono"><b>'+dist+'</b> <span>'+displayUnit()+'</span></div>'+
+      '</div>'+
+      renderDayCard(race)+
+    '</div>';
+}
 function renderWeeksList(forceOpenAll){
   var totalWeeks = totalWeeksInPlan();
   var chkWeek = null;
@@ -23251,6 +23323,7 @@ function renderWeeksList(forceOpenAll){
       lastPhase = phase;
     }
     html += renderWeekAccordion(w, forceOpenAll);
+    html += renderRaceDayEvent(w);
     if (w===chkWeek) html += renderCheckpointCard();
   }
   html += renderContinuityCard();
@@ -28564,7 +28637,10 @@ function patchDerivedStats(){
   for (var w=1; w<=totalWeeks; w++){
     var vol = weekVolume(w);
     var volEl = document.querySelector('#week-'+w+' .week-vol .v');
-    if (volEl) volEl.textContent = kmToDisplay(vol.done)+'/'+kmToDisplay(vol.total);
+    /* The same figures the header renders -- patching in the combined total
+       here would have quietly put the race back the moment anything was
+       logged. */
+    if (volEl) volEl.textContent = kmToDisplay(vol.doneTraining)+'/'+kmToDisplay(vol.training);
   }
 }
 function replaceCard(dd){
@@ -29296,7 +29372,11 @@ function renderWeekView(){
   var w = currentWeekNum();
   var html = '<div class="view-heading font-head">This Week</div>';
   if (!w) return html+'<div class="empty-note">No active week to show yet.</div>';
-  return html+renderWeekStatus(w)+renderWeekAccordion(w, true);
+  /* THE SAME SPLIT, SO THE TWO SURFACES CANNOT DISAGREE. Without this, an
+     athlete in race week would see the race listed inside the week here and
+     standalone on Full Plan, with two different weekly totals for the same
+     seven days. */
+  return html+renderWeekStatus(w)+renderWeekAccordion(w, true)+renderRaceDayEvent(w);
 }
 // Full Plan: every week as a normal collapsible accordion (respects
 // expandedWeeks, same toggle-week interaction as before).
