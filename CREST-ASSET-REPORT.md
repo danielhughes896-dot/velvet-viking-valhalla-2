@@ -1,7 +1,8 @@
 # Crest — Mobile Delivery Asset
 
 Branch `claude/crest-asset`, cut from `main` @ `83e5ba6`.
-**Not merged. The production reference is unchanged — nothing ships until you choose.**
+**APPROVED AND APPLIED** — the app now serves the 137 KB delivery asset. The
+canonical master is unchanged. §7 records a finding discovered while applying it.
 
 The canonical master `assets/velvet-viking-crest.png` is **untouched** and stays
 the master. This produced delivery variants beside it and measured them.
@@ -156,17 +157,66 @@ Suite unaffected: **3005 pass / 0 fail** on the base commit.
 
 ---
 
-## 6. If you approve
-
-One line changes in `renderMedallion()`:
+## 6. Applied
 
 ```diff
-- src="/assets/velvet-viking-crest.png" width="1223" height="1286"
-+ src="/assets/velvet-viking-crest-540.png" width="540" height="568"
+- src="/assets/velvet-viking-crest.png"      width="1223" height="1286"
++ src="/assets/velvet-viking-crest-540.png"  width="540"  height="568"
 ```
 
-plus moving the chosen file into `assets/`. I would also add a test pinning the
-delivery asset under a size budget, so a future re-export cannot quietly put two
-megabytes back on the launch screen.
+`assets/velvet-viking-crest-540.png` (137,4xx bytes) added; the master left
+exactly as it was.
 
-**Say which option and I will do it as its own small change.**
+Verified in the real app at 390 px, DPR 3, both themes:
+
+| | light | dark |
+|---|---|---|
+| src served | `…-540.png` | `…-540.png` |
+| HTTP | 200 | 200 |
+| bytes | **137.4 KB** | **137.4 KB** |
+| rendered | 180 × 189 CSS | 180 × 189 CSS |
+| intrinsic | 540 × 568 | 540 × 568 |
+| horizontal overflow | none | none |
+| page errors | 0 | 0 |
+
+`test/crestAsset.test.js` (6 tests) pins it: the master's exact byte count so it
+cannot be re-encoded, a 200 KB budget on the delivery asset so a full-size
+re-export cannot creep back, that 540 is 3× the rendered 180 px, that it is
+still a palette PNG, that the declared `width`/`height` match the file *and*
+preserve the master's aspect ratio, and that the app runtime never serves the
+master again.
+
+---
+
+## 7. A finding, discovered while applying this
+
+**Five other pages still serve the 2.1 MB master**, at their own rendered sizes:
+
+| Page | CSS class | Rendered width | Needed at 3× | 540 px asset |
+|---|---|---:|---:|---|
+| `get.html` | `.medallion` | up to 208 px | 624 px | 84 px short |
+| `start.html` | `.vvv-crest` | up to 132 px | 396 px | ample |
+| `account.html` | `.vvv-crest` | up to 132 px | 396 px | ample |
+| `privacy.html` | `.vvv-crest.sm` | up to 86 px | 258 px | ample |
+| `terms.html` | `.vvv-crest.sm` | up to 86 px | 258 px | ample |
+
+`start.html` and `get.html` are the pages an athlete meets **before** the app —
+so the first 2.1 MB they download is on the page that asks them to sign up.
+
+**I have not touched them.** The approval said *replace only the production
+delivery reference*, and widening scope on my own would be exactly the kind of
+quiet decision I should not be making. Four of the five could take the existing
+540 px file unchanged; `get.html` renders larger and would want a 640 px variant
+(~180 KB by the same method), or would accept the 540 at 2.6× rather than 3×.
+
+There is also `test/getPageBetaLobby.test.js:60`, which asserts `get.html` serves
+the master — so that change carries a test update with it.
+
+**Say the word and I will do those five as their own small change.**
+
+---
+
+## 8. Suite
+
+**Complete suite: see the merge report.** No runtime logic, no coaching path and
+no dependency changed — only an image reference and its declared dimensions.
