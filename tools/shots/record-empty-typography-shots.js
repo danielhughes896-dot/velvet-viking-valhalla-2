@@ -29,7 +29,7 @@ const TODAY = '2026-08-27';
 /* An athlete part-way through a block who has not yet raced or run a
    checkpoint -- so Benchmark and Progress carry real values and Measured
    Fitness genuinely has none. Nothing here fakes the empty state. */
-function athlete(){
+function athlete(noBenchmark){
   const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
   buildPlan(a, { distanceKey: '5k', volume: 40, weeks: 12,
@@ -41,6 +41,10 @@ function athlete(){
   a.state.days.filter(d => d.date < t && d.type === 'easy').slice(0, 6)
     .forEach(d => logAsPrescribed(a, d));
   a.state.athlete = a.state.athlete || { sessions: [], baselines: {}, performances: [], blocks: [] };
+  /* THE OTHER EMPTY VALUE IN THIS SLOT. Benchmark renders "Not set" with the
+     same rec-none class, so any rule keyed on emptiness reaches it too --
+     which is the evidence that decided the size question. */
+  if (noBenchmark) a.state.setup.benchmark = null;
   return a;
 }
 
@@ -67,17 +71,19 @@ function serve(){
 }
 function seed(p){ try { localStorage.setItem(p.key, p.state); } catch (e) {} }
 
-/* 390 is the phone this product is designed at; 320 is the narrowest device
-   still in use, and the plate is half-width there -- if a longer sentence in
-   a proportional face is going to overflow anywhere, it is here. */
-const WIDTHS = [390, 320];
+/* Every width the product actually meets. 360 and 412 are the common Android
+   viewports, 390 the iPhone this is designed at, 320 the narrowest device
+   still in use. The plate is half-width at all of them, so this is where a
+   16-character value either fits on one line or does not -- and that is the
+   whole question this sweep answers. */
+const WIDTHS = [430, 412, 390, 384, 360, 320];
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const { server, url } = await serve();
   const browser = await playwright.chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
-  const a = athlete();
   const results = [];
+  const a = athlete(process.argv[3] === 'nobench');
 
   for (const width of WIDTHS){
     for (const theme of ['light', 'dark']){
@@ -105,7 +111,9 @@ const WIDTHS = [390, 320];
       try { await page.evaluate(() => window.renderApp && window.renderApp()); } catch (e) {}
       await page.waitForTimeout(500);
 
-      /* THE FONT, READ NOT ASSUMED. */
+      /* THE FONT, READ NOT ASSUMED -- a screenshot cannot tell you which
+         typeface rendered, and the fallback stack means a missing web font
+         would look plausible either way. */
       const m = await page.evaluate(() => {
         const plates = [...document.querySelectorAll('.b-record .b-plate')].map(p => {
           const v = p.querySelector('.val'), l = p.querySelector('.lbl');
@@ -164,14 +172,29 @@ const WIDTHS = [390, 320];
     if (r.m.scrollW > r.m.clientW + 1) problems.push(r.file + ': horizontal overflow');
     r.m.plates.forEach(p => {
       if (p.overflows) problems.push(r.file + ': "' + p.value + '" overflows its plate');
-      /* The measured plates must stay on the data face -- this pass changes
-         the absence only, and a rule that leaked would be invisible here
-         without checking. */
-      if (!p.none && p.font !== 'JetBrains Mono')
+      /* EVERY plate value is on the data face, the empty one included -- that
+         is the point of this pass. A face that drifted on any of them would
+         be invisible in the image. */
+      if (p.font !== 'JetBrains Mono')
         problems.push(r.file + ': ' + p.label + ' left the data face (' + p.font + ')');
+      /* EVERY plate value is the same size, empty or not. The empty ones are
+         the value role unavailable, not a smaller role of their own -- a size
+         override keyed on emptiness also shrank "Not set", which fits. */
+      if (p.size !== '16px')
+        problems.push(r.file + ': ' + p.label + ' is ' + p.size + ', not the plate value size');
+      if (p.weight !== '600')
+        problems.push(r.file + ': ' + p.label + ' is weight ' + p.weight + ', not the value weight');
     });
     if (r.m.plates.filter(p => p.none).length !== 1)
       problems.push(r.file + ': expected exactly one empty plate');
+    /* Wrapping is not a defect here: sixteen characters do not fit in half a
+       phone at the value size, and the slot keeping its size while its contents
+       wrap is the honest outcome. What IS checked is that the pair of plates in
+       a grid row stay the same height as each other, so a wrap never leaves the
+       row looking ragged. */
+    const heights = r.m.plates.slice(0, 2).map(p => p.plateH);
+    if (heights.length === 2 && heights[0] !== heights[1])
+      problems.push(r.file + ': the two plates in a row are ' + heights.join(' and ') + 'px tall');
   });
   console.log('\n' + results.length + ' frames -> ' + OUT);
   if (problems.length) console.log('PROBLEMS:\n  ' + problems.join('\n  '));

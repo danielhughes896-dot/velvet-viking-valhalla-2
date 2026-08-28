@@ -2829,35 +2829,33 @@
   .rec-headline b{font-family:'JetBrains Mono',monospace; font-size:20px; color:var(--ink); overflow-wrap:anywhere; font-weight:600;}
   .rec-headline span{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint);}
   .rec-context{font-size:11px; line-height:1.4; color:var(--ink-faint); margin-top:2px;}
-  /* "Nothing measured" is an absence, not a value -- quieted rather than
-     coloured, so an empty record does not read as a warning.
+  /* AN EMPTY PLATE IS THE VALUE ROLE, UNAVAILABLE -- NOT A ROLE OF ITS OWN.
+     "Nothing measured" and "Not set" both occupy .b-plate .val, the slot that
+     holds "10K \u00b7 23:00" and "10%". They inherit ALL of it: the same
+     JetBrains Mono, the same 16px, the same 600 weight, the same letter
+     spacing, line height, sentence casing, centring and overflow-wrap. One
+     thing differs, and only one -- the colour, because an absence is not a
+     warning and must not read as one.
 
-     The plate is now the ONLY surface this reaches. `.rec-headline b.rec-none`
-     used to lead this selector, from when the Record tab's empty state was a
-     dimmed headline; recordCard() has since returned the ev-card-empty branch
-     for every absence -- label first, no headline slot at all -- so no
-     `.rec-headline b` can carry the class and that half matched nothing. */
-  .b-plate .val.rec-none{color:var(--ink-faint); font-weight:500;}
-  /* AND IT IS A SENTENCE, SO IT IS SET IN THE SENTENCE FACE.
-     The plate's value slot is JetBrains Mono because a plate holds a
-     measurement -- "10K \u00b7 23:00", "10%" -- and monospace at this size IS the
-     typography of data here. "Nothing measured" inherited that and so read as
-     the metric's value: a reading of nothing, rather than the absence of a
-     reading. Dimming the colour never fixed it, because the FACE was the
-     claim. The Record tab's own empty state already draws this exact line --
-     "the interface face, NOT the monospace data face -- that difference is
-     what stops the words being read as a value" (.rec-empty-state) -- and
-     this is the same rule reaching the plate that missed it.
-     What is NOT borrowed from .rec-empty-state is its demotion: that line is
-     a secondary note after its label, whereas this is still the plate's
-     primary content, so it keeps the plate's own scale and only changes
-     face. Proportional text at 16px sat wider than the mono it replaced, so
-     15px holds "Nothing measured" on one line at 390px without shrinking it
-     out of the primary slot. */
-  .b-plate .val.rec-none{
-    font-family:'Inter',-apple-system,sans-serif;
-    font-size:15px; line-height:1.3; letter-spacing:normal;
-  }
+     WHY THERE IS NO SIZE ACCOMMODATION HERE, having briefly had one. A 13px
+     override was added so that "Nothing measured" -- sixteen characters in a
+     half-width plate -- would hold a single line down to 360px. But the
+     selector keys on EMPTINESS, and emptiness is not what causes the fit
+     problem: length is. rec-none is also carried by the Benchmark plate's
+     "Not set", seven characters that fit at 16px with room to spare, and the
+     override shrank that too, leaving two empty plates at 13px and 60px tall
+     beside a populated one at 16px and 64px. An athlete with no benchmark and
+     no measured fitness saw a Record whose type size announced which facts
+     were missing.
+
+     So the long string wraps to two lines below 412px, which is the honest
+     outcome for sixteen characters in half a phone: the slot is the same size
+     it always is, and only its contents are unavailable. The Record TAB's
+     empty state is a different question with a different, correct answer --
+     see .rec-empty-state, where the words really are a secondary note after
+     their label rather than a plate value. Same words, different UI role,
+     deliberately different typography. */
+  .b-plate .val.rec-none{color:var(--ink-faint);}
 
   /* ---------- THE EVIDENCE-ACQUISITION STATE ----------
      Same card family, deliberately lighter: no data typography, no headline

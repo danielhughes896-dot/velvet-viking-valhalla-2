@@ -6,26 +6,40 @@ const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
-/* AN ABSENCE IS A SENTENCE, AND IS SET LIKE ONE
+/* THE EMPTY PLATE BELONGS TO THE VALUE SYSTEM
  * ===========================================================================
  * The Record's plates on the Valhalla tab are value-over-label:
  *
  *     Nothing measured   |   10K · 23:00        10%
  *     MEASURED FITNESS   |   BENCHMARK       PROGRESS
  *
- * The value slot is JetBrains Mono because a plate holds a measurement, and
- * monospace at that size IS the typography of data here. "Nothing measured"
- * inherited it and so read as the metric's value -- a reading of nothing,
- * rather than the absence of a reading.
+ * All three are plate VALUES and are set as one: .b-plate .val's JetBrains
+ * Mono at weight 600, sentence case, centred, with no letter-spacing or line
+ * height of their own. The empty plate declares exactly two departures and
+ * inherits the rest --
  *
- * The Record TAB's own empty state already draws this line and says why in
- * its comment: "the interface face, NOT the monospace data face -- that
- * difference is what stops the words being read as a value". The plate is the
- * surface that rule had not reached.
+ *   COLOUR   --ink-faint, because an absence is not a warning. A separate
+ *            rule from typography, and older than this pass.
+ *   SIZE     13px, because "Nothing measured" is 16 characters in a
+ *            half-width plate. Measured across production widths: it needs a
+ *            one-line width of 154px at the system's 16px, against 146px of
+ *            plate content at 390 and 131px at 360. So at 16px it wraps on
+ *            every phone narrower than 412; at 13px it holds one line from
+ *            360 up, which is every current Android and iPhone width bar the
+ *            320px floor, where nothing consistent fits.
  *
- * These tests pin BOTH directions, because both are one word wide. Deleting
- * the new rule puts the sentence back on the data face; widening its selector
- * takes the real measurements off it.
+ * These tests pin both directions. Taking the accommodation away makes it wrap
+ * on every real phone; letting the face, weight or casing drift takes it out
+ * of the value system, which is the whole point.
+ *
+ * HISTORY, so the next reader does not think this drifted by accident: this
+ * plate briefly used Inter at 15px, on the reasoning that an absence is a
+ * sentence rather than a measurement. Reviewed against the two plates beside
+ * it, that was reversed -- the tile is a value tile, and a value that opts out
+ * of the value face reads as a different KIND of thing rather than as an empty
+ * one. The Record TAB's empty state (.rec-empty-state) is still the interface
+ * face and correctly so: there it is a secondary note after its label, not a
+ * plate value. The two surfaces are allowed to differ for that reason.
  */
 
 const ROOT = path.join(__dirname, '..');
@@ -74,44 +88,60 @@ function athleteWithNoMeasurement(){
 // 1. THE FACE
 // ---------------------------------------------------------------------------
 
-test('the empty plate is set in the interface face, not the data face', () => {
-  const family = declared('.b-plate .val.rec-none', 'font-family');
-  assert.ok(family, 'the empty plate has no typography rule of its own -- it is back on the data face');
-  assert.match(family, /^'Inter'/,
-    '"Nothing measured" is set in ' + family + ', not the interface face');
-  assert.ok(!/JetBrains Mono/.test(family),
-    '"Nothing measured" is still set in the monospace data face');
+test('an empty plate inherits the value role entirely, and overrides only colour', () => {
+  /* THE DECISION THIS TEST RECORDS. A 13px override briefly lived here so that
+     "Nothing measured" -- sixteen characters in a half-width plate -- would
+     hold one line down to 360px. It keyed on EMPTINESS, and emptiness is not
+     what causes the fit problem: length is. rec-none is also carried by the
+     Benchmark plate's "Not set", seven characters that fit at 16px with room
+     to spare, and the override shrank that too -- so an athlete missing both
+     facts saw a Record whose type size announced which ones were absent.
+     The empty plate is the value role unavailable, not a smaller role. */
+  ['font-size', 'font-family', 'font-weight', 'letter-spacing', 'line-height',
+   'text-transform', 'text-align', 'font-style'].forEach(prop => {
+    assert.equal(declared('.b-plate .val.rec-none', prop), null,
+      'the empty plate overrides ' + prop + ', which the value role sets');
+  });
+  /* Which means it is whatever the populated value is. */
+  assert.equal(declared('.b-plate .val', 'font-size'), '16px');
+  assert.equal(declared('.b-plate .val', 'font-weight'), '600');
+  assert.match(declared('.b-plate .val', 'font-family'), /JetBrains Mono/);
+  /* The one thing that does differ, and the reason it differs. */
+  const colour = declared('.b-plate .val.rec-none', 'color') || '';
+  assert.match(colour, /--ink-faint/, 'the empty plate lost its quieting');
+  assert.ok(!/--c-|--gold/.test(colour),
+    'the empty plate carries a status hue -- an absence is not a warning');
 });
 
-test('the measured plates keep the data face', () => {
-  /* The whole value of the change is the CONTRAST. A rule that leaked to
-     .b-plate .val would take "10K · 23:00" and "10%" off the data face too,
-     and the empty plate would stop being distinguishable again -- from the
-     other side. */
-  const base = declared('.b-plate .val', 'font-family');
-  assert.match(base, /JetBrains Mono/,
-    'the plate value slot is no longer the data face: ' + base);
+test('both empty values in this slot are treated identically', () => {
+  /* "Nothing measured" and "Not set" are the same thing -- a plate value that
+     is unavailable -- and there is exactly one rule for both. A rule that
+     distinguished them by length would be styling a string, not a role. */
+  const a = athleteWithNoMeasurement();
+  a.state.setup.benchmark = null;
+  const facts = a.recordFacts();
+  const empties = facts.filter(f => f.none);
+  assert.equal(empties.map(f => f.value).sort().join('|'), 'Not set|Nothing measured',
+    'this slot no longer has two empty values, so this test needs revisiting');
+  empties.forEach(f => {
+    assert.match(a.recordPlate(f), /<div class="val rec-none">/,
+      f.subject + ' does not use the shared empty-value class');
+  });
+  /* And exactly one rule governs them. */
+  assert.equal(rulesFor('.b-plate .val.rec-none').length, 1,
+    'the empty value is governed by more than one rule -- they will drift');
+});
+
+test('the measured plates are untouched', () => {
+  /* Benchmark and Progress are explicitly out of scope: the size accommodation
+     is the empty value\'s alone, and a rule that reached .b-plate .val would
+     shrink real measurements to fit a phrase that is not theirs. */
   assert.equal(declared('.b-plate .val', 'font-size'), '16px',
     'the measured plates changed size');
   assert.equal(declared('.b-plate .val', 'font-weight'), '600',
     'the measured plates changed weight');
-});
-
-test('the empty plate is still the plate\'s primary value, not a demoted note', () => {
-  /* .rec-empty-state -- the Record TAB's empty line -- is deliberately small
-     and italic because it sits AFTER its label as a secondary note. The plate
-     borrows its face and not its demotion: this is still the plate's headline
-     slot. */
-  const size = parseFloat(declared('.b-plate .val.rec-none', 'font-size'));
-  const base = parseFloat(declared('.b-plate .val', 'font-size'));
-  assert.ok(size >= base - 1.5,
-    'the empty value dropped to ' + size + 'px against a ' + base + 'px plate value');
-  assert.ok(size >= 14, 'the empty value is no longer at primary scale');
-  assert.equal(declared('.b-plate .val.rec-none', 'font-style'), null,
-    'the plate borrowed the italic demotion, not just the face');
-  /* Quieted, never coloured -- the rule this pass did not touch. */
-  assert.match(declared('.b-plate .val.rec-none', 'color') || '', /--ink-faint/,
-    'the empty plate lost its quieting, or gained a status hue');
+  assert.match(declared('.b-plate .val', 'font-family'), /JetBrains Mono/,
+    'the measured plates left the data face');
 });
 
 // ---------------------------------------------------------------------------
@@ -201,7 +231,7 @@ test('the Record tab\'s own empty state is not touched by this', () => {
 // ---------------------------------------------------------------------------
 
 test('the quieting rule reaches the plate and nothing else', () => {
-  /* `.rec-headline b.rec-none` led this selector from when the Record tab's
+  /* `.rec-headline b.rec-none` led this selector from when the Record tab\'s
      empty state was a dimmed headline. recordCard() has since returned the
      ev-card-empty branch for every absence -- label first, no headline slot --
      so that half matched nothing at all.
@@ -212,9 +242,7 @@ test('the quieting rule reaches the plate and nothing else', () => {
   assert.ok(!/\.rec-headline\s+b\.rec-none/.test(css),
     'the dead .rec-headline b.rec-none selector is back');
   assert.match(declared('.b-plate .val.rec-none', 'color') || '', /--ink-faint/,
-    'removing the dead half took the plate\'s quieting with it');
-  assert.equal(declared('.b-plate .val.rec-none', 'font-weight'), '500',
-    'removing the dead half took the plate\'s weight with it');
+    'removing the dead half took the plate quieting with it');
 
   /* The reason, asserted rather than trusted: no absence renders a headline. */
   const a = athleteWithNoMeasurement();
