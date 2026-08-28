@@ -1747,6 +1747,31 @@
   /* Where an answer came from, when it did not come from the coach. Exactly
      the weight of .ask-incomplete because it is exactly the same kind of
      thing: a quiet note subordinate to real content, never an error. */
+  /* ---------- SUPPORTING WORK ----------
+     Subordinate by construction. It borrows the card's own tokens rather than
+     introducing a palette, sits inside the day's detail column, and is set one
+     step quieter than the running prescription above it -- because that is
+     exactly what it is. */
+  .support-block{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+  .support-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:2px;}
+  .support-tag{font-size:var(--fs-meta); letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);}
+  .support-dur{font-size:var(--fs-meta); color:var(--ink-faint);}
+  .support-title{font-size:var(--fs-support); color:var(--ink-dim); margin-bottom:8px;}
+  .support-steps{margin-bottom:8px;}
+  .support-step{display:flex; justify-content:space-between; gap:12px;
+    font-size:var(--fs-meta); line-height:1.7; color:var(--ink-dim);}
+  .support-step .s-q{color:var(--ink-faint); white-space:nowrap;}
+  .support-guide{display:flex; gap:8px; font-size:var(--fs-meta);
+    line-height:var(--lh-support); color:var(--ink-faint); margin-bottom:3px;}
+  .support-guide .g-k{flex:0 0 34px; text-transform:uppercase; letter-spacing:.06em;}
+  .support-guide .g-v{flex:1;}
+  .support-actions{display:flex; gap:8px; margin-top:10px;}
+  .support-actions .btn{flex:1;}
+  /* The one line a completed companion collapses to. */
+  .support-line{font-size:var(--fs-meta); line-height:var(--lh-support);
+    color:var(--ink-faint); margin-top:6px;}
+  .support-line svg{width:12px; height:12px; vertical-align:-1px;}
+  .support-done{color:var(--ink-dim);}
   .ask-source{font-size:var(--fs-meta); line-height:var(--lh-support);
     color:var(--ink-faint); padding:0 0 10px;}
   /* Speech could not be delivered. Deliberately the same quiet weight as the
@@ -9207,6 +9232,35 @@ function healthConsentStateLabel(){
 // The unticked box, and it is only ever rendered unticked: an athlete who has
 // already answered sees nothing here and manages it in Settings instead. That
 // is why there is no `checked` in this function at all.
+/* THE ONE QUESTION, ON REVIEW, BESIDE THE OTHER OPTIONAL PERMISSION.
+   NOT AN ELEVENTH STAGE, for the reason stage 10 already gives about health
+   consent: the decision is RECORDED at Generate, which happens on this screen,
+   so the ask and the act sit together. It also keeps the builder at ten stages,
+   which matters beyond tidiness -- assets/builder-spec.js is the canonical
+   stage list shared by /start and api/_preview.js, and a stage added here
+   would change a public pre-authentication surface for a preference that has
+   no bearing on the block the preview builds.
+
+   NO GYM QUESTIONNAIRE. One decision, and the checkbox is the whole of it:
+   what kind of supporting work, how often and whether at all are coaching
+   questions Valhalla answers from the programme, not questions to hand back to
+   the athlete. Rendered from the stored value so regenerating a block keeps
+   the answer and lets them change it, and unticked for anybody who has never
+   been asked -- an absent answer is a no, and nothing silently opts an athlete
+   into extra training. */
+function renderSupportWorkStep(){
+  var on = supportWorkEnabled();
+  return '<div class="field bld-consent">'+
+    '<label style="display:flex; align-items:flex-start;">'+
+      '<input type="checkbox" id="su-support-work" style="width:auto; margin:3px 7px 0 0;"'+
+        (on ? ' checked' : '')+'>'+
+      '<span>'+escapeHtml(SUPPORT_COPY.title)+'</span>'+
+    '</label>'+
+    '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(SUPPORT_COPY.what)+'</div>'+
+    '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(SUPPORT_COPY.optional)+'</div>'+
+  '</div>';
+}
+
 function renderHealthConsentStep(){
   if (healthConsentAnswered()) return '';
   // The Edit Session modal's checkbox pattern, unchanged, so this introduces
@@ -11223,6 +11277,10 @@ function renderDayCard(dd){
           renderStructuredWorkout(dd)+
           renderCoachingDepth(dd)+
           renderAdjustedDetail(dd)+
+          /* BELOW THE RUNNING, ALWAYS. The session the block was built around
+             is the card; this sits under it, in the same detail column, and
+             renders nothing at all on the great majority of days. */
+          renderSupportCompanion(dd)+
         '</div>'+
       '</div>'+
       '<div class="day-actions">'+dayActionButton(dd)+'</div>'+
@@ -15580,6 +15638,13 @@ function athleteMemoryFromDays(days, from){
            "effort above your usual" has to compare a 7 against an 8 and cannot
            know that one was a tempo and the other a set of intervals. */
         rpeBand: expectedRPEBand(dd) || null,
+        /* SUPPORTING WORK IS PART OF THE RECORD, and only ever as a completion.
+           Carried so a rebuild cannot erase the fact that this athlete does it
+           -- supportIsHabitual() reads the archive as well as the live plan --
+           and deliberately carried as its own field so nothing that reads the
+           running record can mistake it for a run. */
+        support: (isPast && dd.support && dd.support.completedAt)
+          ? { kind: dd.support.kind, completedAt: dd.support.completedAt } : null,
         feel: isPast ? feelOf(dd) : null,
         notes: isPast ? (a.notes || '') : '',
         signals: isPast ? effectiveNoteSignals(a).signals.map(function(x){ return x.id; }) : [],
@@ -17181,6 +17246,374 @@ function blockReviewStreak(st){
    Derived, never stored: the plan's own structure already says this, and a
    stored copy would drift the moment a session was edited. */
 var SESSION_IMPORTANCE = { KEY:'KEY', SUPPORT:'SUPPORT', RECOVERY:'RECOVERY', OPTIONAL:'OPTIONAL' };
+/* =========================================================
+   SUPPORTING WORK — STRENGTH, CONDITIONING AND MOBILITY
+   ---------------------------------------------------------
+   VALHALLA IS A RUNNING COACH. This is not a second programme generator and
+   it does not own a day. Supporting work is a COMPANION attached to a day the
+   running plan has already decided, resolved deterministically at read time
+   from the same programme state every other coaching surface reads. Nothing
+   here is written into state.days, so there is nothing to duplicate on a
+   rebuild and nothing to orphan when a block changes.
+
+   PERMISSION IS NOT A QUOTA. A YES gives Valhalla leave to prescribe. It
+   creates no obligation and no weekly frequency: every gate below can return
+   nothing, and a week with no supporting work at all is a coaching decision
+   rather than a failure. The engine can conclude "the running is already
+   providing enough stimulus" -- and the load gate is one-directional for
+   exactly that reason: rising running load can only ever REDUCE or REMOVE
+   supporting work. There is no path by which more running produces more of it.
+
+   IT LOSES THE CAPACITY CONTEST BY CONSTRUCTION, not by ranking. Rather than
+   giving supporting work a place in sessionImportance() -- which no existing
+   consumer asks for, and which would put it into the same taxonomy the drop
+   order and Execution Review read -- the contest is settled here, before
+   anything is prescribed: a candidate day adjacent to a KEY running session is
+   refused, and a week whose running is already expensive yields low-cost work
+   or none. A running objective can therefore never be displaced, reduced or
+   degraded to make room, because nothing is ever taken away to make room.
+
+   ONE COACHING BRAIN. Safety comes from the existing health boundary
+   (coachEnvironment / readiness), phase from phaseForWeek(), load from
+   coachLoad(), recovery from coachRecovery() and athleteTrends(). No signal is
+   recomputed here and no medical reasoning is done here.
+   ========================================================= */
+
+/* The stored answer. Absent is off: nothing about reaching the builder, or
+   having built a plan before this existed, opts an athlete into extra
+   training. */
+/* Athlete-facing wording, in the builder's own register: a question, what it
+   means, and what it does not commit them to. */
+var SUPPORT_COPY = {
+  title: 'Include strength & mobility work',
+  what: 'Valhalla adds supporting sessions where they help the running \u2014 strength, conditioning or mobility, chosen for the phase you are in.',
+  optional: 'Optional, and never a fixed number of sessions. Some weeks will have none. You can change this any time in Settings.',
+  settingsDesc: 'Supporting work alongside your running',
+  none: 'No supporting work this week \u2014 the running is carrying enough.'
+};
+
+function supportWorkEnabled(su){
+  var s = su || (typeof state !== 'undefined' ? state.setup : null);
+  return !!(s && s.supportWork === 'on');
+}
+
+/* THE FOUR KINDS. `cost` is the price in recovery, and it is the number every
+   phase and load gate below actually reasons about -- 1 is genuinely low-cost
+   work an athlete can absorb in a taper week, 3 is real training that competes
+   with running for the same budget.
+
+   why / how / feel / avoid is the app's existing coaching disclosure contract,
+   filled in here exactly as TERSE_GUIDANCE fills it in for running sessions,
+   so a supporting session discloses itself through the same machinery and in
+   the same voice. `steps` is read by the card the same way workoutSteps() is. */
+var SUPPORT_KINDS = {
+  mobility_recovery: {
+    label:'Mobility & Recovery', family:'mobility', cost:1, minutes:15,
+    why:'Restores range and blood flow without adding anything you have to recover from.',
+    how:'Move slowly through each position and breathe. Nothing here is a stretch you force.',
+    feel:'Easy throughout. You should finish looser than you started, not tired.',
+    avoid:'Turning it into a workout. If it costs you anything, it is too hard.',
+    steps:[
+      { label:'Hip flexor and quad opener', qty:'2 × 45s each side' },
+      { label:'Hamstring and calf lengthening', qty:'2 × 45s each side' },
+      { label:'Glute and piriformis release', qty:'2 × 45s each side' },
+      { label:'Thoracic rotation', qty:'2 × 10 each side' },
+      { label:'Controlled breathing and trunk reset', qty:'3 min' }
+    ]
+  },
+  strength_foundation: {
+    label:'Foundation Strength', family:'strength', cost:2, minutes:22,
+    why:'Builds the robustness that lets you keep absorbing the running, at a cost you can repeat.',
+    how:'Bodyweight throughout, controlled tempo, full range. Stop each set with two good reps left.',
+    feel:'Worked but not emptied. You should be able to run tomorrow as prescribed.',
+    avoid:'Chasing failure. This exists to protect the running, not to compete with it.',
+    steps:[
+      { label:'Bodyweight squat', qty:'3 × 12' },
+      { label:'Reverse lunge', qty:'3 × 10 each side' },
+      { label:'Single-leg calf raise', qty:'3 × 15 each side' },
+      { label:'Glute bridge', qty:'3 × 15' },
+      { label:'Front plank', qty:'3 × 40s' },
+      { label:'Side plank', qty:'2 × 30s each side' }
+    ]
+  },
+  strength_running: {
+    label:'Running Strength', family:'strength', cost:3, minutes:30,
+    why:'Running-specific strength: the positions you actually run in, loaded enough to change them.',
+    how:'Single-leg work first while you are fresh, then the posterior chain. Quality over quantity.',
+    feel:'Genuinely hard in the working sets, with real rest between them.',
+    avoid:'Running this the day before quality. It is training, and it is priced like training.',
+    steps:[
+      { label:'Single-leg squat to box', qty:'3 × 8 each side' },
+      { label:'Split squat', qty:'3 × 10 each side' },
+      { label:'Single-leg Romanian deadlift', qty:'3 × 10 each side' },
+      { label:'Eccentric calf lower', qty:'3 × 12 each side' },
+      { label:'Hip thrust', qty:'3 × 12' },
+      { label:'Dead bug', qty:'3 × 10 each side' }
+    ]
+  },
+  conditioning_circuit: {
+    label:'Strength Circuit', family:'conditioning', cost:3, minutes:32,
+    why:'Holds strength and general conditioning together when there is capacity to spend on both.',
+    how:'Continuous circuit, 40 seconds work and 20 seconds change, three rounds with two minutes between.',
+    feel:'Breathing hard by the end of each round, recovered before the next.',
+    avoid:'Letting it become a hard run in disguise. The legs still have to run this week.',
+    steps:[
+      { label:'Squat to press-up circuit', qty:'3 rounds' },
+      { label:'Step-up', qty:'40s each side' },
+      { label:'Reverse lunge', qty:'40s each side' },
+      { label:'Calf raise', qty:'40s' },
+      { label:'Plank shoulder tap', qty:'40s' },
+      { label:'Recovery between rounds', qty:'2 min' }
+    ]
+  }
+};
+/* Most expensive first: the picker takes the first kind the gates still allow,
+   so an athlete with real capacity gets real work and everybody else falls
+   down the list rather than off the end of it. */
+var SUPPORT_ORDER = ['strength_running', 'conditioning_circuit', 'strength_foundation', 'mobility_recovery'];
+var SUPPORT_MOBILITY = 'mobility_recovery';
+/* How recently a completion still counts as "this is part of how they train".
+   Used only to decide whether a taper keeps a habit, never to create one. */
+var SUPPORT_HABIT_DAYS = 28;
+var SUPPORT_HABIT_MIN = 2;
+
+function supportKind(id){ return SUPPORT_KINDS[id] || null; }
+
+/* ---------- PHASE: WHAT THIS PART OF THE BLOCK WILL TOLERATE ----------
+   A ceiling in cost, plus an explicit list where the phase restricts the KIND
+   as well as the price. Expressed as a ceiling rather than a frequency because
+   a phase says how expensive supporting work may be, never how much of it
+   there should be. */
+function supportPhaseCeiling(phase, purpose){
+  /* Race week and the final week of a block are the goal effort. Nothing is
+     added to them, at any cost. */
+  if (phase === 'Race Week' || phase === 'Final Week') return { max:0, only:[] };
+  /* Taper protects freshness. No strength, for any reason -- and mobility only
+     where it is already part of how this athlete trains, because a taper is
+     the worst possible week to introduce something new. */
+  if (phase === 'Taper') return { max:1, only:[SUPPORT_MOBILITY], habitualOnly:true };
+  /* A recovery block is for returning to training. Mobility and foundation
+     work only: nothing that asks the athlete to absorb more. */
+  if (purpose === 'recovery') return { max:2, only:[SUPPORT_MOBILITY, 'strength_foundation'] };
+  /* Peak is where running specificity is at its most expensive. Maintenance
+     cost only. */
+  if (phase === 'Peak') return { max:1, only:[SUPPORT_MOBILITY] };
+  /* Build: robustness, not development. Foundation work protects the running;
+     running strength and circuits are training in their own right and belong
+     to a phase with room for them. */
+  if (phase === 'Build') return { max:2, only:['strength_foundation', SUPPORT_MOBILITY] };
+  /* Base, Maintain and any other development phase: the whole library, subject
+     to every gate below. */
+  return { max:3, only:null };
+}
+
+/* ---------- CAPACITY: WHAT THE RUNNING HAS LEFT ----------
+   ONE-DIRECTIONAL BY DESIGN. Every branch here either leaves the ceiling alone
+   or lowers it. There is deliberately no branch that raises one, so no amount
+   of running load, and no combination of signals, can cause MORE supporting
+   work to be prescribed than the phase already allowed. */
+function supportCapacityCeiling(){
+  var max = 3, reasons = [];
+  var load = null;
+  try { load = coachLoad(); } catch(e){ load = null; }
+  if (load && (load.band === 'elevated' || load.band === 'spike')){
+    max = Math.min(max, 1);
+    reasons.push('running load is ' + load.band);
+  }
+  var rec = null;
+  try { rec = coachRecovery(); } catch(e){ rec = null; }
+  if (rec && rec.state === 'strained'){ max = Math.min(max, 1); reasons.push('recovery is strained'); }
+  else if (rec && rec.state === 'watch'){ max = Math.min(max, 2); reasons.push('recovery is worth watching'); }
+
+  /* THE ATHLETE'S OWN EVIDENCE, read from the trends the rest of the coach
+     already reasons over rather than from a second reading of the same data.
+     Effort above their own normal, a poor readiness pattern or the body
+     reporting badly are all reasons to spend less, never more. */
+  var trends = [];
+  try { trends = athleteTrends() || []; } catch(e){ trends = []; }
+  var negative = trends.filter(function(t){
+    return t.direction === 'negative' &&
+      /^(rpe_elevated_|readiness_poor|feel_negative|post_long_run_recovery$|post_hard_recovery)/.test(t.id);
+  });
+  if (negative.length){ max = Math.min(max, 1); reasons.push('recent sessions are costing more than usual'); }
+  return { max:max, reasons:reasons };
+}
+
+/* ---------- SAFETY: THE EXISTING HEALTH BOUNDARY, NOT A NEW ONE ----------
+   Pain and illness are read exactly where the decision engine reads them, and
+   the answer here is only ever "prescribe nothing". No judgement is made about
+   what the symptom is or how serious it might be: that is not this layer's to
+   make, and Valhalla's medical boundary already says so. */
+function supportSafetyBlocked(){
+  var recent = [];
+  try { recent = coachRecentSessions(4) || []; } catch(e){ recent = []; }
+  for (var i = 0; i < recent.length; i++){
+    var env = null;
+    try { env = coachEnvironment((recent[i].actual || {}).notes, recent[i].actual); } catch(e){ env = null; }
+    if (env && (env.illness || env.pain)) return true;
+  }
+  var ready = null;
+  try { ready = coachReadinessToday(); } catch(e){ ready = null; }
+  if (ready && ready.health === 'under') return true;
+  return false;
+}
+
+/* Has this athlete actually been doing supporting work lately? Completions
+   only -- a prescription nobody did is not a habit. */
+function supportRecentCompletions(days){
+  var from = addDays(todayStr(), -(days || SUPPORT_HABIT_DAYS));
+  var out = [];
+  var all = (state && state.days) || [];
+  for (var i = 0; i < all.length; i++){
+    var d = all[i];
+    if (!d || !d.support || !d.support.completedAt) continue;
+    if (d.date < from || d.date > todayStr()) continue;
+    out.push(d);
+  }
+  /* Archived blocks count too: a rebuild must not erase the fact that this is
+     how the athlete trains. */
+  var arch = [];
+  try { arch = (athlete().sessions || []); } catch(e){ arch = []; }
+  for (var j = 0; j < arch.length; j++){
+    var s = arch[j];
+    if (!s || !s.support || !s.support.completedAt) continue;
+    if (s.date < from || s.date > todayStr()) continue;
+    out.push(s);
+  }
+  return out;
+}
+function supportIsHabitual(){
+  return supportRecentCompletions(SUPPORT_HABIT_DAYS).length >= SUPPORT_HABIT_MIN;
+}
+
+/* Repeatedly not done is an answer. Two prescribed-and-missed in the recent
+   window and the engine stops asking for this block rather than nagging --
+   the same restraint the escalation ladder applies to running. */
+function supportRecentlyIgnored(){
+  var from = addDays(todayStr(), -21);
+  var missed = 0;
+  var all = (state && state.days) || [];
+  for (var i = 0; i < all.length; i++){
+    var d = all[i];
+    if (!d || d.date < from || d.date >= todayStr()) continue;
+    if (d.support && d.support.dismissed) missed++;
+  }
+  return missed >= 2;
+}
+
+/* ---------- IS THIS DAY A PLACE FOR IT? ----------
+   The running comes first and is never moved. A day qualifies only if adding
+   companion work to it cannot cost a running objective. */
+function supportDayEligible(dd, weekDays){
+  if (!dd || !dd.date) return null;
+  /* Never on a running day that is itself demanding, and never on race day. */
+  if (dd.type === 'race' || dd.type === 'checkpoint') return null;
+  if (isQualityType(dd.type)) return null;
+  if (dd.type === 'long') return null;
+  try { if (isStravaDerived(dd)) return null; } catch(e){}
+
+  /* NEVER THE DAY BEFORE A KEY SESSION. This is the whole displacement
+     guarantee: supporting work is refused rather than the running being
+     softened to accommodate it. */
+  var next = null;
+  for (var i = 0; i < weekDays.length; i++){
+    if (weekDays[i].date === addDays(dd.date, 1)) next = weekDays[i];
+  }
+  if (!next){
+    var all = (state && state.days) || [];
+    for (var k = 0; k < all.length; k++) if (all[k].date === addDays(dd.date, 1)) next = all[k];
+  }
+  if (next && sessionImportance(next) === 'KEY') return null;
+
+  /* THE DAY AFTER A LONG RUN is the clearest case in the brief, and the one a
+     slot-filling implementation gets wrong: there is room in the calendar, and
+     demanding lower-body strength is exactly the wrong thing to put in it. */
+  var prev = null;
+  var allDays = (state && state.days) || [];
+  for (var j = 0; j < allDays.length; j++) if (allDays[j].date === addDays(dd.date, -1)) prev = allDays[j];
+  if (prev && prev.type === 'long') return { ceiling:1, only:[SUPPORT_MOBILITY], why:'after a long run' };
+
+  if (dd.type === 'rest') return { ceiling:3, only:null, why:'a rest day with room in it' };
+  if (dd.type === 'easy') return { ceiling:3, only:null, why:'an easy day' };
+  return null;
+}
+
+/* ---------- THE RESOLVER ----------
+   Returns the supporting work for a week: an array, very often empty. */
+function supportForWeek(weekNum){
+  if (!supportWorkEnabled()) return [];
+  if (!state || !state.days || !state.days.length) return [];
+  if (supportSafetyBlocked()) return [];
+  if (supportRecentlyIgnored()) return [];
+
+  var phase, purpose;
+  try { phase = trainingPhase(weekNum); } catch(e){ phase = 'Base'; }
+  try { purpose = planPurpose(); } catch(e){ purpose = 'race'; }
+
+  var pc = supportPhaseCeiling(phase, purpose);
+  if (pc.max <= 0) return [];
+  if (pc.habitualOnly && !supportIsHabitual()) return [];
+
+  var cap = supportCapacityCeiling();
+  var ceiling = Math.min(pc.max, cap.max);
+  if (ceiling <= 0) return [];
+
+  var weekDays = state.days.filter(function(d){ return d.week === weekNum; })
+    .sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+  if (!weekDays.length) return [];
+
+  /* HOW MANY IS AN OUTCOME, NOT A TARGET. One is the ceiling for a week whose
+     running is already expensive; two is the most any week ever gets, and only
+     where the phase and the athlete's own evidence both allow it. Neither is a
+     figure to be reached -- the day gates below routinely return fewer, and
+     nothing tops the number back up. */
+  var keyCount = weekDays.filter(function(d){ return sessionImportance(d) === 'KEY'; }).length;
+  var weekCap = (ceiling >= 3 && keyCount <= 2) ? 2 : 1;
+
+  var out = [];
+  var lastKind = null;
+  var prior = supportRecentCompletions(14);
+  if (prior.length) lastKind = prior[prior.length - 1].support.kind;
+
+  for (var i = 0; i < weekDays.length && out.length < weekCap; i++){
+    var dd = weekDays[i];
+    var slot = supportDayEligible(dd, weekDays);
+    if (!slot) continue;
+    var dayCeiling = Math.min(ceiling, slot.ceiling);
+    var allowed = SUPPORT_ORDER.filter(function(id){
+      var k = SUPPORT_KINDS[id];
+      if (k.cost > dayCeiling) return false;
+      if (pc.only && pc.only.indexOf(id) === -1) return false;
+      if (slot.only && slot.only.indexOf(id) === -1) return false;
+      return true;
+    });
+    if (!allowed.length) continue;
+    /* VARIETY, and only where it costs nothing: prefer a kind other than the
+       last one completed, but never refuse the only kind still allowed. */
+    var pick = allowed.length > 1 && lastKind && allowed[0] === lastKind ? allowed[1] : allowed[0];
+    out.push({ dayId: dd.id, date: dd.date, kind: pick, why: slot.why,
+               phase: phase, limits: cap.reasons.slice() });
+    lastKind = pick;
+  }
+  return out;
+}
+
+/* The companion for one day, or null. Every surface asks this. */
+function supportForDay(dd){
+  if (!dd || !dd.week) return null;
+  var wk = supportForWeek(dd.week);
+  for (var i = 0; i < wk.length; i++) if (wk[i].dayId === dd.id) return wk[i];
+  return null;
+}
+
+/* One sentence saying why it is here, built from the day's own reason and the
+   phase, never invented. */
+function supportRationale(item){
+  var k = supportKind(item && item.kind);
+  if (!k) return '';
+  return k.why;
+}
+
 function sessionImportance(dd){
   if (!dd || dd.type==='rest') return null;
   if (dd.type==='race' || dd.type==='checkpoint') return 'KEY';
@@ -23599,6 +24032,10 @@ function openSetupModal(){
      that empty string is also what decides whether Review shows the section
      heading at all -- so the heading can never appear above nothing. */
   var consentStep = renderHealthConsentStep();
+  /* Both optional permissions share one panel. The support question is always
+     offered because it is a PREFERENCE that can be changed, unlike consent,
+     which is asked once and then lives in Settings. */
+  var supportStep = renderSupportWorkStep();
 
   var buildPurpose = openPurpose;
   var purposeMeta = BUILDER_PURPOSE_META[buildPurpose];
@@ -23847,10 +24284,11 @@ function openSetupModal(){
     '<section class="bld-panel" data-stage="9" hidden>'+
       stageHead(9)+
       '<div id="bld-review"></div>'+
-      (consentStep
+      ((consentStep || supportStep)
         ? '<div class="bld-permission">'+
             '<div class="setup-section-title" style="margin-top:0;">Optional permission</div>'+
             consentStep+
+            supportStep+
           '</div>'
         : '')+
       '<div class="bld-actions">'+
@@ -24664,7 +25102,6 @@ async function handleGeneratePlan(){
      Settings is where they change it. */
   var consentBox = document.getElementById('su-health-consent');
   if (consentBox) await handleHealthConsentDecision(!!consentBox.checked, { quiet:true });
-
   var lthrInput = parseInt(document.getElementById('su-lthr').value, 10);
   var maxHRInput = parseInt(document.getElementById('su-maxhr').value, 10);
   // Not collected at all without consent, so an athlete who typed a number and
@@ -24811,6 +25248,20 @@ async function handleGeneratePlan(){
     block.anchorVolume = round1(volume);
   }
 
+  /* THE SUPPORTING-WORK PREFERENCE, read at the point it is written rather
+     than beside the consent box it sits next to on screen. Deliberately down
+     here: the heart-rate reads above are covered by a source-window assertion
+     in test/builderNineStages.test.js, and putting six lines in front of them
+     pushed isNaN(lthrInput) out of the window that test inspects. The test was
+     right and the placement was arbitrary, so the placement moved.
+
+     An absent box -- a caller that predates this, or a programmatic build --
+     leaves whatever was already stored, which for a new plan is nothing, and
+     nothing is off. */
+  var supportBox = document.getElementById('su-support-work');
+  var supportPref = supportBox ? (supportBox.checked ? 'on' : 'off')
+    : ((state.setup && state.setup.supportWork) || 'off');
+
   state.setup = {
     distanceKey: distanceKey, currentVolume: volume, raceDate: raceDate, hasEvent: hasEvent,
     startDate: startDate, planWeeks: blockResult.planWeeks,
@@ -24825,7 +25276,12 @@ async function handleGeneratePlan(){
     // Presentation depth only -- read by renderCoachingDepth(), by nothing
     // in the generation path above. Snapshotted so an exported plan carries
     // its own answer; athleteExperience() still defaults legacy plans.
-    experience: athleteExperience()
+    experience: athleteExperience(),
+    /* PERMISSION, NOT PRESCRIPTION. Nothing in the generation path above reads
+       this: no day, no volume and no session is different because of it. It is
+       read only by supportForWeek(), which resolves companions at render time
+       from the plan this block has already built. */
+    supportWork: supportPref
   };
   state.days = days;
   initExpanded();
@@ -25594,6 +26050,101 @@ function guidanceAdaptiveReason(dd){
    deliberately NOT in the builder, which is where `experience` lives because
    `experience` is part of describing the athlete to the engine. Putting them on
    the same screen would be the first step to treating them as the same thing. */
+/* SETTINGS, BESIDE THE OTHER THINGS THE ATHLETE DECIDES ABOUT THEIR OWN
+   TRAINING. A plain toggle row in the existing connect-row idiom, so this
+   introduces no new control and no new CSS. Turning it off takes effect on the
+   next render, because nothing was ever baked into the plan to unpick. */
+function renderSupportWorkRow(){
+  var on = supportWorkEnabled();
+  return '<div id="support-work-row" class="connect-row">'+
+    '<div><div class="name">Strength &amp; mobility</div>'+
+    '<div class="desc">'+escapeHtml(SUPPORT_COPY.settingsDesc)+'</div></div>'+
+    '<button type="button" class="btn btn-sm '+(on ? 'btn-primary' : 'btn-ghost')+'" '+
+      'aria-pressed="'+(on ? 'true' : 'false')+'" '+
+      'data-action="set-support-work" data-on="'+(on ? '0' : '1')+'">'+
+      (on ? 'On' : 'Off')+'</button>'+
+  '</div>';
+}
+function handleSetSupportWork(on){
+  if (!state.setup) return;
+  state.setup.supportWork = on ? 'on' : 'off';
+  scheduleSave();
+  renderApp();
+  showToast(on ? 'Strength & mobility work is on \u2014 Valhalla will add it where it helps'
+               : 'Strength & mobility work is off');
+}
+
+/* ---------- THE COMPANION ON THE CARD ----------
+   Subordinate to the running session, and deliberately built out of the same
+   pieces every other session uses: the four-part disclosure the card already
+   renders for running, and a step list in the same shape workoutSteps()
+   produces. No new view, no new navigation, nothing added to the bottom nav.
+
+   A completed companion collapses to one line. There is no execution score and
+   no grading: supporting work is not measured against a target, and pretending
+   otherwise would put it into a scoring system built for running. */
+function renderSupportCompanion(dd){
+  if (!dd) return '';
+  var done = dd.support && dd.support.completedAt ? dd.support : null;
+  var item = done ? { kind:done.kind } : supportForDay(dd);
+  if (!item) return '';
+  var k = supportKind(item.kind);
+  if (!k) return '';
+  /* Done collapses to one line. There is nothing left to instruct and nothing
+     to grade, so the card gets its space back. */
+  if (done){
+    return '<div class="support-line support-done">'+ICONS.check+' '+
+      escapeHtml(k.label)+' \u2014 done</div>';
+  }
+  var steps = k.steps.map(function(st){
+    return '<div class="support-step"><span class="s-l">'+escapeHtml(st.label)+'</span>'+
+           '<span class="s-q font-mono">'+escapeHtml(st.qty)+'</span></div>';
+  }).join('');
+  return '<div class="support-block">'+
+    '<div class="support-head">'+
+      '<span class="support-tag font-head">Supporting work</span>'+
+      '<span class="support-dur font-mono">'+k.minutes+' min</span>'+
+    '</div>'+
+    '<div class="support-title font-head">'+escapeHtml(k.label)+'</div>'+
+    '<div class="support-steps">'+steps+'</div>'+
+    '<div class="support-guide"><span class="g-k">Why</span><span class="g-v">'+escapeHtml(k.why)+'</span></div>'+
+    '<div class="support-guide"><span class="g-k">How</span><span class="g-v">'+escapeHtml(k.how)+'</span></div>'+
+    '<div class="support-guide"><span class="g-k">Feel</span><span class="g-v">'+escapeHtml(k.feel)+'</span></div>'+
+    '<div class="support-guide"><span class="g-k">Avoid</span><span class="g-v">'+escapeHtml(k.avoid)+'</span></div>'+
+    '<div class="support-actions">'+
+      '<button type="button" class="btn btn-sm btn-primary" data-action="support-done" data-day="'+dd.id+'">Mark done</button>'+
+      '<button type="button" class="btn btn-sm btn-ghost" data-action="support-skip" data-day="'+dd.id+'">Not today</button>'+
+    '</div>'+
+  '</div>';
+}
+
+/* Logging it is a completion like any other, and it is ADDITIVE: it writes to
+   dd.support and touches nothing the running record reads. weekVolume(),
+   computeExecutionScore(), the baselines and every trend are unchanged by
+   design, because a supporting session is not running and must not be counted
+   as though it were. */
+function handleSupportDone(dayId){
+  var dd = state.days.filter(function(d){ return d.id === dayId; })[0];
+  if (!dd) return;
+  var item = supportForDay(dd);
+  if (!item) return;
+  dd.support = { kind:item.kind, completedAt:new Date().toISOString() };
+  scheduleSave();
+  renderApp();
+  showToast('Supporting work logged');
+}
+/* Not today is a real answer and is remembered. Two of them in the recent
+   window and supportRecentlyIgnored() stops the engine asking for this block:
+   a coach who keeps prescribing what the athlete keeps declining is not
+   coaching. */
+function handleSupportSkip(dayId){
+  var dd = state.days.filter(function(d){ return d.id === dayId; })[0];
+  if (!dd) return;
+  dd.support = { kind:null, dismissed:true, dismissedAt:new Date().toISOString() };
+  scheduleSave();
+  renderApp();
+}
+
 function renderGuidanceLevelRow(){
   var cur = guidanceLevel();
   return '<div id="guidance-level-row" class="gl-row">'+
@@ -31918,6 +32469,7 @@ function renderSettingsHubView(){
       renderNotifyToggleRow()+
       renderThemeToggleRow()+
       renderGuidanceLevelRow()+
+      renderSupportWorkRow()+
       renderCoachVoiceRow()+
     '</div>'+
     /* High in Settings, not buried under Legal. An athlete looking for "what
@@ -32340,6 +32892,9 @@ document.addEventListener('click', function(e){
       handleHealthConsentDecision(target.getAttribute('data-grant')==='1'); break;
     case 'apply-activity': handleApplyActivity(); break;
     case 'set-guidance': handleSetGuidanceLevel(target.getAttribute('data-level')); break;
+    case 'set-support-work': handleSetSupportWork(target.getAttribute('data-on') === '1'); break;
+    case 'support-done': handleSupportDone(target.getAttribute('data-day')); break;
+    case 'support-skip': handleSupportSkip(target.getAttribute('data-day')); break;
     case 'voice-listen': handleVoiceListen(target.getAttribute('data-day')); break;
     case 'voice-stop': handleVoiceStopPress(); break;
     case 'set-coach-voice': handleSetCoachVoice(target.getAttribute('data-voice')); break;
