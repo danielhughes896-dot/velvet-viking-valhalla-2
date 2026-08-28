@@ -61,7 +61,16 @@ async function withUpstream(reply, run, delayMs){
   try { return await run(calls); }
   finally { globalThis.fetch = realFetch; V.verifyUser = realVerify; }
 }
-const ANSWER = { content:[{ type:'text', text:'{"answer":"Keep it easy today.","needsPlanChange":false,"changeReason":""}' }],
+/* THE MODEL'S REPLY FORMAT CHANGED AFTER THIS SUITE WAS WRITTEN, and these
+   fixtures speak it. The diagnostic pass this file guards asked the model for
+   one JSON object; the streaming pass that followed replaced that with prose,
+   a reserved marker and a machine-readable trailer, because JSON cannot be
+   streamed to a human (api/_voice-protocol.js). What the ATHLETE receives is
+   unchanged and is still asserted below -- only what the MODEL emits moved. */
+const SENTINEL = require('../api/_voice-protocol.js').SENTINEL;
+const reply = (prose, trailer) => prose + '\n' + SENTINEL + '\n' + trailer;
+const ANSWER = { content:[{ type:'text',
+                   text: reply('Keep it easy today.', '{"needsPlanChange":false,"changeReason":""}') }],
                  usage:{ output_tokens: 812 }, stop_reason:'end_turn' };
 
 function captureLogs(){
@@ -102,11 +111,17 @@ test('a successful ask logs the four timings, all numbers', async () => {
 test('the counts that separate thinking from generation are still logged', () => {
   /* `head` is the whole upstream turn. out= (which INCLUDES thinking tokens)
      read against chars= is what lets the report infer which half dominated. */
-  const ok = /V\.log\('ASK ok chars=[\s\S]{0,260}?\);/.exec(ASK_SRC);
-  assert.ok(ok, 'the ASK ok log line changed shape');
+  const ok = /V\.log\('ASK ok chars=[\s\S]{0,600}?\);/.exec(ASK_SRC);
+  assert.ok(ok, 'the buffered ASK ok log line changed shape');
   assert.match(ok[0], /chars=/);
   assert.match(ok[0], /out=/);
   assert.match(ok[0], /askTimings/);
+  /* The streamed transport reports the same counts plus a real TTFT, which the
+     non-streamed call could not measure and said so. */
+  const streamed = /V\.log\('ASK ok stream=1 chars=[\s\S]{0,600}?\);/.exec(ASK_SRC);
+  assert.ok(streamed, 'the streamed ASK ok log line is missing');
+  assert.match(streamed[0], /chars=/);
+  assert.match(streamed[0], /streamTimings/);
 });
 
 test('a decline and an empty reply are timed too', async () => {
@@ -174,17 +189,44 @@ test('the model, effort and token ceiling are untouched', () => {
   assert.equal(V.VOICE_MODEL, 'claude-opus-5');
   assert.match(ASK_SRC, /output_config = \{ effort: 'low' \}/, 'effort changed');
   assert.match(ASK_SRC, /const VOICE_MAX_TOKENS = 16000;/, 'the token ceiling changed');
-  assert.ok(!/stream\s*:\s*true/.test(ASK_SRC), 'streaming was switched on -- this branch is diagnostic only');
+  /* STREAMING ARRIVED IN A LATER, SEPARATE PASS. This used to assert that it
+     had NOT -- correctly, because the diagnostic branch was forbidden from
+     implementing it. What survives is the part that still matters: streaming
+     is a per-request TRANSPORT choice, never an unconditional change to how
+     the model is called, so a browser that cannot read a stream is still
+     served the buffered contract. */
+  assert.match(ASK_SRC, /if \(opts\.wantStream\) payload\.stream = true;/,
+    'streaming is no longer opt-in per request');
+  assert.ok(!/^\s*stream:\s*true,/m.test(ASK_SRC),
+    'streaming was made unconditional -- a client that cannot read one would break');
 });
 
-test('the prompt is untouched', () => {
-  /* The exact output contract the model is held to. */
-  assert.match(ask.SYSTEM, /OUTPUT\. Reply with a single JSON object and nothing else:/);
-  assert.match(ask.SYSTEM, /\{"answer": "<what you would say aloud>", "needsPlanChange": <true\|false>,/);
-  assert.match(ask.SYSTEM, /"changeReason": "<one sentence, or empty>"\}/);
+test('the coaching prompt is untouched, and only its reply format moved', () => {
+  /* This asserted the exact JSON output contract, which the streaming pass
+     replaced. The COACHING half of the prompt is what the diagnostic branch was
+     protecting and it is all still here, asserted line by line; the reply
+     format is now prose + marker + trailer, which is the one part that had to
+     change and the only part that did. */
+  const p = ask.SYSTEM;
+  assert.match(p, /You are the voice of Valhalla/);
+  assert.match(p, /deterministic engine/);
+  assert.match(p, /Never invent a session, a distance, a pace/);
+  assert.match(p, /never give medical advice/);
+  assert.match(p, /not a doctor/);
+  assert.match(p, /"withheld" section/);
+  assert.match(p, /Warm, calm, direct, British/);
+  assert.match(p, /two or three sentences/);
+  /* The contract, and the absence of the one it replaced. */
+  assert.ok(p.indexOf(SENTINEL) !== -1, 'the reply marker is not stated to the model');
+  assert.match(p, /"needsPlanChange": false, "changeReason": ""/);
+  assert.ok(!/Reply with a single JSON object and nothing else/.test(p),
+    'the old JSON-only reply format is still being asked for as well');
 });
 
 test('the response contract the athlete receives is byte-identical', async () => {
+  /* STILL TRUE, AND STILL THE POINT. Two passes have now changed what the model
+     emits and how it reaches the server; neither changed one byte of what the
+     browser is handed on the buffered path. */
   const restore = setEnv(LIVE);
   let payload;
   try {
@@ -208,7 +250,7 @@ test('needsPlanChange still round-trips exactly as before', async () => {
   const restore = setEnv(LIVE);
   try {
     await withUpstream({ body: { content:[{ type:'text',
-      text:'{"answer":"Worth easing Thursday.","needsPlanChange":true,"changeReason":"Load is high."}' }],
+      text: reply('Worth easing Thursday.', '{"needsPlanChange":true,"changeReason":"Load is high."}') }],
       usage:{ output_tokens: 900 }, stop_reason:'end_turn' } }, async () => {
       const res = mkRes();
       await ask.handle(req(), res);

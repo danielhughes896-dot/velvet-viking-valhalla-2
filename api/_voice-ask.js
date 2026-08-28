@@ -21,6 +21,11 @@
 // athlete's training record.
 
 const V = require('./_voice.js');
+/* The response contract and the ONLY code that understands it. Both transports
+   below -- streamed and not -- read the model's reply through this one module,
+   which is what stops the fallback becoming a second set of rules. */
+const PROTO = require('./_voice-protocol.js');
+const SSE = require('./_voice-sse.js');
 
 /* Named here, beside the only fetch that uses them, rather than in the shared
    module -- see the note in _voice.js. One file in api/ names a model. */
@@ -85,37 +90,38 @@ const SYSTEM = [
   'no bullet points, no headings, no emoji. No generic advice that would be true for anybody',
   '("remember to hydrate") -- everything you say should be about THIS athlete\'s plan.',
   '',
-  'OUTPUT. Reply with a single JSON object and nothing else:',
-  '{"answer": "<what you would say aloud>", "needsPlanChange": <true|false>,',
-  ' "changeReason": "<one sentence, or empty>"}'
+  /* ---- THE ONLY PART OF THIS PROMPT THE STREAMING PASS TOUCHED ----
+     What the coach IS, what it may not do, the medical boundary, the withheld
+     -data rule and how it sounds are all above, unchanged. This was
+     'Reply with a single JSON object and nothing else', which cannot be
+     streamed to a human: the first bytes of a JSON object are not prose, and
+     recovering prose from a half-written JSON string needs an escape-aware
+     incremental parser. The contract now puts the prose first and the machine
+     -readable part last behind a reserved marker, and it lives beside the
+     parser that enforces it -- see api/_voice-protocol.js. */
+  PROTO.CONTRACT_INSTRUCTION
 ].join('\n');
 
 function clean(s, max){
   return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
-/* The model is asked for JSON and usually returns exactly that. "Usually" is
-   not a contract, so a reply that will not parse is not an error the athlete
-   should ever see: the text is used as the answer and no plan change is
-   inferred from it. Failing towards "just answer" is the safe direction --
-   failing towards a parsed proposal would not be. */
+/* THE COMPLETE-REPLY READER, kept under its original name because every caller
+   and several tests already know it. It no longer parses JSON itself: the
+   contract lives in _voice-protocol.js and this is the non-streamed transport
+   asking that one module to read a reply that happened to arrive all at once.
+
+   Failing towards "just answer" is still the direction. A reply whose trailer
+   is missing or malformed yields the prose and NO plan change -- never a
+   guessed one. */
 function parseReply(text){
-  var raw = String(text || '').trim();
-  var body = raw;
-  var fence = /```(?:json)?\s*([\s\S]*?)```/.exec(raw);
-  if (fence) body = fence[1].trim();
-  const start = body.indexOf('{'), end = body.lastIndexOf('}');
-  if (start !== -1 && end > start){
-    try{
-      const o = JSON.parse(body.slice(start, end + 1));
-      if (o && typeof o.answer === 'string' && o.answer.trim()){
-        return { answer: clean(o.answer, 1200),
-                 needsPlanChange: o.needsPlanChange === true,
-                 changeReason: clean(o.changeReason, 300) };
-      }
-    }catch(e){ /* fall through */ }
-  }
-  return raw ? { answer: clean(raw, 1200), needsPlanChange: false, changeReason: '' } : null;
+  const r = PROTO.readComplete(text);
+  if (!r.answer) return null;
+  return { answer: clean(r.answer, 1200),
+           needsPlanChange: r.needsPlanChange,
+           changeReason: r.changeReason,
+           structured: r.structured,
+           why: r.why };
 }
 
 async function handle(req, res){
@@ -178,7 +184,13 @@ async function handle(req, res){
     return V.json(res, 422, { error: 'context_refused', code: 'STRAVA_DERIVED_CONTEXT' });
   }
 
-  return askUpstream(res, cfg, contextJson, question, { receivedAt: receivedAt });
+  /* THE BROWSER ASKS, THE SERVER DECIDES. A client that cannot read a stream
+     never sends the header and is never sent one; a platform that cannot write
+     one degrades inside readStreamed(). Both land on the same contract. */
+  return askUpstream(res, cfg, contextJson, question, {
+    receivedAt: receivedAt,
+    wantStream: clientWantsStream(req) && typeof res.write === 'function'
+  });
 }
 
 /* THE ONLY PLACE IN THE REPOSITORY THAT NAMES A MODEL ENDPOINT, and it stays
@@ -307,6 +319,86 @@ function askTimings(opts, r){
   return parts.join(' ');
 }
 
+/* WHETHER THIS EXCHANGE CAN BE STREAMED TO THE ATHLETE.
+   Three things must hold, and any one of them failing degrades to the buffered
+   transport rather than to an error: the browser asked for it (a browser that
+   cannot read a stream must not be sent one), the platform gives us a writable
+   response, and the upstream body is readable. The third is only knowable
+   after the upstream call, which is why the emitter below is chosen late. */
+const NDJSON = 'application/x-ndjson';
+function clientWantsStream(req){
+  const a = String((req && req.headers && (req.headers.accept || req.headers.Accept)) || '');
+  return a.indexOf(NDJSON) !== -1;
+}
+
+/* THE SERVER -> CLIENT PROTOCOL, in full.
+   ---------------------------------------------------------------------------
+   Newline-delimited JSON, one object per line:
+
+     {"t":"prose","d":"..."}          athlete-facing text, in arrival order
+     {"t":"final","complete":true,
+      "needsPlanChange":false,
+      "changeReason":null}            the turn finished AND the trailer was
+                                      found, unambiguous and valid
+     {"t":"incomplete","code":"..."}  prose may have arrived; no structured
+                                      decision exists for this exchange
+     {"t":"error","code":"..."}       failed before any prose
+
+   THE BROWSER NEVER SEES THE PROVIDER'S PROTOCOL. It does not know what SSE
+   is, what a content block is, what the sentinel is, or that a trailer
+   exists. It receives prose and, at most, one already-validated decision.
+
+   `final` is the ONLY event that can carry needsPlanChange, and it is emitted
+   only after message_stop. There is deliberately no way to express "a plan
+   change, probably" on this wire. */
+function ndjson(res, obj){
+  try{ res.write(JSON.stringify(obj) + '\n'); }catch(e){ /* client went away */ }
+}
+
+/* Prose is always accumulated; it is additionally written as it arrives when
+   the transport can carry it. One protocol machine, two emitters -- which is
+   the whole reason the fallback cannot drift from the streamed path. */
+function makeEmitter(res, streaming){
+  let answer = '';
+  return {
+    streaming: streaming,
+    prose(chunk){
+      if (!chunk) return;
+      answer += chunk;
+      if (streaming) ndjson(res, { t: 'prose', d: chunk });
+    },
+    get answer(){ return answer; }
+  };
+}
+
+/* ---------- LATENCY, NOW INCLUDING A REAL TTFT ----------
+   The diagnostic that preceded this pass could not measure time-to-first-token
+   and said so: on a non-streamed call `fetch` resolves at the END of
+   generation, so `head` was the whole upstream turn. Streaming makes the real
+   number observable for the first time.
+
+     pre     request received -> upstream opened          (our own cost)
+     head    upstream opened -> response headers
+     prose   request received -> FIRST ATHLETE-FACING CHARACTER. This is TTFT.
+     done    request received -> the model's turn ended
+     total   request received -> our response closed
+
+   `prose` deliberately does not start at the SSE connection, and deliberately
+   does not count thinking blocks, empty deltas, the sentinel or the trailer --
+   only the first character a human could actually read. A number that counted
+   any of those would flatter the feature and mislead the next decision.
+
+   Numbers and fixed words only. No question, no answer, no trailer, no
+   reasoning, no context, no identifier, no key. */
+function streamTimings(t){
+  const parts = ['total=' + (Date.now() - t.receivedAt)];
+  if (t.upstreamAt) parts.push('pre=' + (t.upstreamAt - t.receivedAt));
+  if (t.upstreamAt && t.headersAt) parts.push('head=' + (t.headersAt - t.upstreamAt));
+  if (t.firstProseAt) parts.push('prose=' + (t.firstProseAt - t.receivedAt));
+  if (t.doneAt) parts.push('done=' + (t.doneAt - t.receivedAt));
+  return parts.join(' ');
+}
+
 async function askUpstream(res, cfg, contextJson, question, opts){
   opts = opts || {};
   if (!opts.receivedAt) opts.receivedAt = Date.now();
@@ -324,14 +416,14 @@ async function askUpstream(res, cfg, contextJson, question, opts){
      leaked reasoning tags. Lowering effort keeps latency and cost down without
      them. Dropped entirely on the retry; see the 400 branch below. */
   if (!opts.noEffort) payload.output_config = { effort: 'low' };
+  /* THE ONLY DIFFERENCE BETWEEN THE TWO TRANSPORTS, on the request side. */
+  if (opts.wantStream) payload.stream = true;
 
   const startedAt = Date.now();
   opts.upstreamAt = startedAt;
   let r;
   try{
     r = await postModel(cfg, payload);
-    /* fetch resolves on HEADERS, not on the body. See the timing block above
-       for why this is not time-to-first-token. */
     opts.headersAt = Date.now();
   }catch(e){
     /* Classified rather than collapsed -- see transportFault(). The elapsed
@@ -360,24 +452,39 @@ async function askUpstream(res, cfg, contextJson, question, opts){
       kind = String((body && body.error && body.error.type) || '');
     }catch(e){ kind = 'unreadable'; }
     V.log('ASK upstream status=' + r.status + ' type=' + (kind || 'none') +
-          (opts.noEffort ? ' noEffort=1' : ''));
+          (opts.noEffort ? ' noEffort=1' : '') + (opts.wantStream ? ' stream=1' : ''));
 
     /* ONE TARGETED RETRY, for the one parameter that is a tuning knob rather
        than a requirement. `effort` lowers cost and latency; it does not make
        the answer correct. If the API rejects the request as malformed, a single
        retry without it turns a total outage into a working -- slightly costlier
        -- answer, and the log line above still records that it happened, so the
-       cause is not hidden by the recovery. */
+       cause is not hidden by the recovery.
+
+       THE RETRY KEEPS THE TRANSPORT IT WAS ASKED FOR. Dropping to the buffered
+       path here would make "did the athlete get streaming" depend on whether a
+       parameter was rejected, which is exactly the kind of divergence §10
+       forbids. */
     if (r.status === 400 && !opts.noEffort){
       V.log('ASK retrying without effort');
       /* receivedAt carries through, so `total` on the retry still measures the
          whole thing the athlete waited for rather than only the second half. */
       return askUpstream(res, cfg, contextJson, question,
-                         { noEffort: true, receivedAt: opts.receivedAt });
+                         { noEffort: true, receivedAt: opts.receivedAt,
+                           wantStream: opts.wantStream });
     }
     return V.json(res, 502, { error: 'coach_unavailable', code: 'VOICE_UPSTREAM' });
   }
 
+  if (opts.wantStream) return readStreamed(res, r, opts);
+  return readBuffered(res, r, opts);
+}
+
+/* ---------- THE BUFFERED TRANSPORT ----------
+   Unchanged in every respect that matters: same statuses, same codes, same log
+   vocabulary. The only difference is that it now reads the reply through the
+   shared contract rather than parsing JSON itself. */
+async function readBuffered(res, r, opts){
   let data;
   try{ data = await r.json(); }
   catch(e){
@@ -396,26 +503,10 @@ async function askUpstream(res, cfg, contextJson, question, opts){
     .filter(function(b){ return b && b.type === 'text'; })
     .map(function(b){ return b.text; }).join('\n');
 
-  /* HOW MUCH THE MODEL ACTUALLY PRODUCED, which is the one number that turns
-     this failure from a mystery into a reading. Counts only -- never the
-     question, never the answer, never the context. If a reply is ever empty
-     again, the log line says whether the budget was exhausted or the model
-     genuinely returned nothing, without anyone having to reproduce it on a
-     phone in a car park. */
   const outTokens = Number((data && data.usage && data.usage.output_tokens) || 0);
-
   const parsed = parseReply(text);
   if (!parsed){
-    /* stop_reason distinguishes "the model said nothing" from "the model ran
-       out of room before it got to the answer" -- the second being exactly what
-       a too-small max_tokens produces on a thinking model, and the one worth
-       naming in a log rather than rediscovering from a live device. */
     const why = String((data && data.stop_reason) || 'none');
-    /* TRUNCATION IS ITS OWN DIAGNOSIS. stop_reason "max_tokens" with no text
-       block means thinking consumed the whole ceiling -- the exact shape of the
-       outage this endpoint has already had twice. It gets its own code so the
-       next occurrence is identified from one log line rather than re-derived,
-       and so a genuine empty reply is never filed under the same cause. */
     const truncated = why === 'max_tokens';
     V.log('ASK empty_reply stop=' + why + ' out=' + outTokens +
           ' cap=' + VOICE_MAX_TOKENS + ' ' + askTimings(opts, r) +
@@ -429,6 +520,8 @@ async function askUpstream(res, cfg, contextJson, question, opts){
   /* Counts only. Never the question, never the answer. */
   V.log('ASK ok chars=' + parsed.answer.length + ' out=' + outTokens +
         ' change=' + (parsed.needsPlanChange ? 1 : 0) +
+        ' struct=' + (parsed.structured ? 1 : 0) +
+        (parsed.structured ? '' : ' why=' + parsed.why) +
         ' ' + askTimings(opts, r) +
         (opts.noEffort ? ' noEffort=1' : ''));
   return V.json(res, 200, {
@@ -438,4 +531,170 @@ async function askUpstream(res, cfg, contextJson, question, opts){
   });
 }
 
-module.exports = { handle, parseReply, SYSTEM, postModel, keyFault, transportFault, askTimings };
+/* ---------- THE STREAMED TRANSPORT ----------
+   Reads provider SSE, forwards only athlete-facing prose, and emits at most one
+   validated decision after the turn has ended. */
+async function readStreamed(res, r, opts){
+  const body = r.body;
+  const reader = body && typeof body.getReader === 'function' ? body.getReader() : null;
+  if (!reader){
+    /* THE PLATFORM CANNOT GIVE US A READABLE BODY. Degrade rather than fail:
+       read it whole, drive the SAME protocol machine, and answer as the
+       buffered transport would. The athlete loses the progressive reveal and
+       nothing else. */
+    V.log('ASK stream_unavailable degraded=body');
+    return readStreamedWhole(res, r, opts);
+  }
+
+  const events = SSE.createEventReader();
+  const filter = SSE.createBlockFilter();
+  const proto = PROTO.createProseStream();
+  let headersSent = false;
+  const emit = { fn: null };
+
+  const decoder = new TextDecoder();
+  let chunks = 0;
+
+  const start = () => {
+    if (headersSent) return;
+    headersSent = true;
+    try{
+      res.writeHead(200, {
+        'Content-Type': NDJSON,
+        'Cache-Control': 'no-store',
+        /* Proxies that buffer defeat the entire feature; this is the
+           conventional opt-out and is harmless where it is not understood. */
+        'X-Accel-Buffering': 'no'
+      });
+    }catch(e){ /* already sent */ }
+  };
+
+  const out = makeEmitter(res, true);
+  let readFault = null;
+  try{
+    for(;;){
+      const step = await reader.read();
+      if (step.done) break;
+      chunks++;
+      const evs = events.feed(decoder.decode(step.value, { stream: true }));
+      for (const ev of evs){
+        const text = filter.handle(ev);
+        if (!text) continue;
+        const prose = proto.push(text);
+        if (!prose) continue;
+        if (!opts.firstProseAt){ opts.firstProseAt = Date.now(); start(); }
+        out.prose(prose);
+      }
+    }
+  }catch(e){
+    readFault = transportFault(e);
+  }
+
+  /* Anything held back for sentinel-safety that turned out to be ordinary
+     prose is owed to the athlete. */
+  const tail = proto.end();
+  if (tail){
+    if (!opts.firstProseAt){ opts.firstProseAt = Date.now(); start(); }
+    out.prose(tail);
+  }
+  opts.doneAt = Date.now();
+
+  const cleanEnd = !readFault && filter.done && filter.stopReason !== 'error';
+  const declined = filter.stopReason === 'refusal';
+  const answer = clean(out.answer, 1200);
+
+  /* NOTHING ARRIVED. No headers have been written, so the existing failure
+     contract is still available in full and the athlete sees exactly what they
+     saw before this pass. */
+  if (!headersSent){
+    if (declined){
+      V.log('ASK declined stream=1 ' + streamTimings(opts));
+      return V.json(res, 200, { answer: null, declined: true });
+    }
+    const why = readFault ? 'fault_' + readFault : ('stop_' + String(filter.stopReason || 'none'));
+    V.log('ASK empty_reply stream=1 ' + why + ' chunks=' + chunks + ' ' + streamTimings(opts) +
+          (opts.noEffort ? ' noEffort=1' : ''));
+    return V.json(res, 502, {
+      error: 'coach_unavailable',
+      code: filter.stopReason === 'max_tokens' ? 'VOICE_TRUNCATED' : 'VOICE_EMPTY'
+    });
+  }
+
+  /* PROSE REACHED THE ATHLETE. From here the answer is theirs to keep, and the
+     only question left is whether a structured decision exists. */
+  const decision = PROTO.decide(proto, { complete: cleanEnd });
+  if (!cleanEnd){
+    /* Case B: the turn did not finish. The words already on screen stay; the
+       exchange is marked incomplete; NOTHING structured is committed. */
+    V.log('ASK incomplete stream=1 chars=' + answer.length + ' chunks=' + chunks +
+          ' why=' + (readFault ? 'fault_' + readFault : 'stop_' + String(filter.stopReason || 'none')) +
+          ' ' + streamTimings(opts));
+    ndjson(res, { t: 'incomplete', code: 'VOICE_STREAM_INCOMPLETE' });
+    try{ res.end(); }catch(e){}
+    return;
+  }
+
+  /* Case D, or case C. Either way the decision below is the ONLY thing that
+     can ever carry needsPlanChange, and it is validated before it is written.
+     The raw trailer is not sent, is not logged, and does not leave this
+     function. */
+  V.log('ASK ok stream=1 chars=' + answer.length + ' chunks=' + chunks +
+        ' change=' + (decision.needsPlanChange ? 1 : 0) +
+        ' struct=' + (decision.structured ? 1 : 0) +
+        (decision.structured ? '' : ' why=' + decision.why) +
+        ' ' + streamTimings(opts) +
+        (opts.noEffort ? ' noEffort=1' : ''));
+  ndjson(res, {
+    t: 'final',
+    complete: true,
+    structured: decision.structured,
+    needsPlanChange: decision.needsPlanChange,
+    changeReason: decision.changeReason || null
+  });
+  try{ res.end(); }catch(e){}
+}
+
+/* The degrade path: an upstream stream we cannot forward incrementally. Read
+   it whole, run the identical filter and protocol machine, and answer with the
+   buffered contract. Same rules, same validation, same result -- only the
+   arrival is different, which is the point. */
+async function readStreamedWhole(res, r, opts){
+  let raw = '';
+  try{ raw = await r.text(); }
+  catch(e){
+    V.log('ASK malformed_body stream=1');
+    return V.json(res, 502, { error: 'coach_unavailable', code: 'VOICE_MALFORMED' });
+  }
+  const events = SSE.createEventReader();
+  const filter = SSE.createBlockFilter();
+  let text = '';
+  events.feed(raw).forEach(function(ev){ text += filter.handle(ev); });
+  opts.doneAt = Date.now();
+
+  if (filter.stopReason === 'refusal'){
+    V.log('ASK declined stream=degraded ' + streamTimings(opts));
+    return V.json(res, 200, { answer: null, declined: true });
+  }
+  const parsed = parseReply(text);
+  if (!parsed){
+    const why = String(filter.stopReason || 'none');
+    V.log('ASK empty_reply stream=degraded stop=' + why + ' ' + streamTimings(opts));
+    return V.json(res, 502, {
+      error: 'coach_unavailable',
+      code: why === 'max_tokens' ? 'VOICE_TRUNCATED' : 'VOICE_EMPTY'
+    });
+  }
+  V.log('ASK ok stream=degraded chars=' + parsed.answer.length +
+        ' change=' + (parsed.needsPlanChange ? 1 : 0) +
+        ' struct=' + (parsed.structured ? 1 : 0) + ' ' + streamTimings(opts));
+  return V.json(res, 200, {
+    answer: parsed.answer,
+    needsPlanChange: parsed.needsPlanChange,
+    changeReason: parsed.changeReason || null
+  });
+}
+
+
+module.exports = { handle, parseReply, SYSTEM, postModel, keyFault, transportFault,
+                   askTimings, streamTimings, clientWantsStream, makeEmitter, NDJSON,
+                   readStreamed, readBuffered, readStreamedWhole, askUpstream };

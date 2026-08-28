@@ -427,8 +427,15 @@ test('TOKENS: the race countdown and unit toggle read the canonical bronze/gold 
   assert.doesNotMatch(widget, /\[data-theme="light"\]\s*\.tb-unit-toggle/);
 });
 
-test('TOKENS: rec-val carries its data typography by default, not by caller convention', () => {
-  assert.match(CODE, /\.rec-val\{[^}]*font-family\s*:\s*'JetBrains Mono'/);
+test('TOKENS: a Record value carries its data typography by default, not by caller convention', () => {
+  /* This asserted .rec-val, the list-row shell's value slot, which nothing had
+     rendered for some time -- so it was pinning a rule that could not paint.
+     The law is unchanged and is what matters: the COMPONENT guarantees the data
+     face, rather than every call site remembering to pass 'font-mono'. The
+     surfaces that carry a Record value today are the Valhalla plate and the
+     Record tab's headline, so it is asserted on both. */
+  assert.match(CODE, /\.b-plate \.val\{[^}]*font-family\s*:\s*'JetBrains Mono'/);
+  assert.match(CODE, /\.rec-headline b\{[^}]*font-family\s*:\s*'JetBrains Mono'/);
 });
 
 // ===========================================================================

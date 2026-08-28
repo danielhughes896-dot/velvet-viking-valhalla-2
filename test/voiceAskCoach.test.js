@@ -115,10 +115,19 @@ test('a reply that will not parse becomes an answer, never a proposal', () => {
 });
 
 test('a well-formed reply is read, including from a code fence', () => {
-  const plain = askMod.parseReply('{"answer":"Ease off.","needsPlanChange":true,"changeReason":"Sore calf."}');
+  /* THE CONTRACT CHANGED SHAPE, NOT MEANING. The reply used to be one JSON
+     object; it is now prose, a reserved marker, then the machine-readable part
+     -- because JSON cannot be streamed to a human (see api/_voice-protocol.js).
+     needsPlanChange and changeReason mean exactly what they meant, and this
+     still asserts that they are read. */
+  const S = require('../api/_voice-protocol.js').SENTINEL;
+  const plain = askMod.parseReply(
+    'Ease off.\n' + S + '\n{"needsPlanChange":true,"changeReason":"Sore calf."}');
   assert.equal(plain.answer, 'Ease off.');
   assert.equal(plain.needsPlanChange, true);
-  const fenced = askMod.parseReply('```json\n{"answer":"Ease off.","needsPlanChange":false}\n```');
+  assert.equal(plain.changeReason, 'Sore calf.');
+  const fenced = askMod.parseReply(
+    'Ease off.\n' + S + '\n```json\n{"needsPlanChange":false}\n```');
   assert.equal(fenced.answer, 'Ease off.');
   assert.equal(fenced.needsPlanChange, false);
 });
