@@ -1744,6 +1744,10 @@
      real coaching and the athlete may well have what they needed. */
   .ask-incomplete{font-size:var(--fs-meta); line-height:var(--lh-support);
     color:var(--ink-faint); padding:0 0 10px;}
+  /* Speech could not be delivered. Deliberately the same quiet weight as the
+     playing indicator it replaces -- this is a status, not a failure the
+     athlete has to act on, and the coaching above it is unaffected. */
+  .voice-silent{font-size:var(--fs-meta); color:var(--ink-faint); padding:2px 0 0;}
   /* AVAILABLE TO A SCREEN READER, INVISIBLE TO EVERYONE ELSE. Used for the one
      announcement of a completed answer, because the visible answer node is
      written to a chunk at a time and must not be a live region. The clip-rect
@@ -26245,11 +26249,43 @@ function voiceAvailable(){
    is whatever the phone reports. */
 var voiceNativeVoice = null;
 var voiceNativeResolved = false;
+/* ENUMERATION IS BOUNDED; SPEECH IS NOT.
+   ---------------------------------------------------------------------------
+   Asking Android which voices it has should take milliseconds -- it is a list
+   the engine already holds. But Android's TextToSpeech engine can be wedged
+   (a mid-update voice pack, an engine killed while bound, a device resumed
+   from deep sleep), and in that state getSupportedVoices() does not fail: it
+   simply never answers.
+
+   That mattered because voiceSpeakNative() has ALREADY set the card to
+   `speaking` before awaiting this, and returns true -- claiming it has taken
+   responsibility for the press. A promise that never settles therefore left
+   the card reading "Playing briefing..." with no sound and no way out: the
+   same defect as the "Preparing voice..." one, one state further along, and
+   invisible to a watchdog that only guards `preparing`.
+
+   Two seconds, because this is a local list lookup and not network work; past
+   that the engine is not going to answer. Timing out yields NULL rather than
+   an error, which is the same answer a device with no named voices gives, and
+   the speak() call below simply uses the platform default -- so a slow
+   enumeration costs the athlete a voice preference, never the briefing.
+
+   SPEECH ITSELF IS DELIBERATELY NOT BOUNDED HERE. A briefing legitimately
+   takes thirty seconds to read aloud, and a timer long enough not to cut real
+   coaching off mid-sentence would be too long to be worth having. */
+var NATIVE_VOICE_LIST_TIMEOUT_MS = 2000;
+
 function voiceResolveNativeVoice(){
   if (voiceNativeResolved) return Promise.resolve(voiceNativeVoice);
   var tts = voiceNativeTts();
   if (!tts || !tts.getSupportedVoices) return Promise.resolve(null);
-  return tts.getSupportedVoices().then(function(res){
+  var listed = tts.getSupportedVoices();
+  if (listed && listed.then && typeof Promise !== 'undefined' && typeof setTimeout === 'function'){
+    listed = Promise.race([listed, new Promise(function(resolve){
+      setTimeout(function(){ resolve({ voices: [] }); }, NATIVE_VOICE_LIST_TIMEOUT_MS);
+    })]);
+  }
+  return listed.then(function(res){
     var list = (res && res.voices) || [];
     var pick = voicePickVoice(list);
     voiceNativeResolved = true;
@@ -26339,6 +26375,8 @@ function setCoachVoice(v){
 var ttsCloudDown = false;
 var ttsAudioEl = null;
 var ttsAbort = null;
+/* Every in-flight request's controller. See ttsFetchAudio(). */
+var ttsAborts = [];
 /* Monotonic. Every async continuation checks it, so a Stop or a second press
    makes the first press's audio unable to start -- this is what prevents two
    briefings talking over each other. */
@@ -26414,6 +26452,13 @@ function ttsCacheSweep(now){
 }
 function ttsCacheClear(){
   while (ttsCacheEntries.length) ttsCacheDrop(0);
+  /* Emptying the map while promises are still pending means the next caller
+     starts a SECOND billable generation for a key already in flight. The
+     requests are cancelled rather than forgotten. */
+  while (ttsAborts.length){
+    var c = ttsAborts.pop();
+    try { c.abort(); } catch(e){}
+  }
   ttsInflight = {};
 }
 
@@ -26434,10 +26479,45 @@ function voiceCloudEligible(){
 /* ONE GENERATION PER KEY, however many callers ask for it. Two presses a
    quarter-second apart join the same promise; the second never opens a second
    billable request. The server holds the same guard for the same reason. */
+/* HOW LONG THE BROWSER WILL WAIT FOR AUDIO, AND WHERE THE NUMBER COMES FROM.
+
+   api/_voice-tts.js gives its own upstream call TTS_TIMEOUT_MS = 8000 and
+   answers with an error once that expires. So past roughly eight seconds plus
+   transit the browser is waiting for a response the SERVER has already given
+   up on producing. Eleven seconds is that bound plus a margin for a slow
+   mobile round trip in each direction; it is derived from the system's own
+   behaviour rather than picked.
+
+   WHY THERE HAD TO BE ONE AT ALL. This request had an AbortController from the
+   day it was written, and nothing ever fired it except the Stop button. On a
+   stalled radio, fetch() in an Android WebView does not time out on its own,
+   so the promise below stayed pending -- and because voiceCloudSpeak() awaits
+   it for BOTH its success and its failure path, neither terminal handler ever
+   ran and the card read "Preparing voice..." until the athlete gave up. The
+   text answer had completed seconds earlier. */
+var TTS_CLIENT_TIMEOUT_MS = 11000;
+
 function ttsFetchAudio(key, text, voiceKey){
   if (ttsInflight[key]) return ttsInflight[key];
   var controller = (typeof AbortController === 'function') ? new AbortController() : null;
+  /* PER-REQUEST, NOT ONE GLOBAL. ttsAbort used to be overwritten by whichever
+     request started last, so with two generations in flight ttsHalt() aborted
+     only the newer one and the older kept running to completion -- and kept
+     billing. Every live controller is now held, and every one is aborted. */
+  if (controller) ttsAborts.push(controller);
   ttsAbort = controller;
+  var timer = null;
+  if (controller && typeof setTimeout === 'function'){
+    timer = setTimeout(function(){
+      try { controller.abort(); } catch(e){}
+    }, TTS_CLIENT_TIMEOUT_MS);
+  }
+  var done = function(){
+    if (timer && typeof clearTimeout === 'function') clearTimeout(timer);
+    timer = null;
+    var i = controller ? ttsAborts.indexOf(controller) : -1;
+    if (i !== -1) ttsAborts.splice(i, 1);
+  };
   var p = cloudRefreshIfNeeded().then(function(fresh){
     if (!fresh) throw { code:'not_signed_in' };
     return fetch('/api/voice-tts', {
@@ -26462,7 +26542,7 @@ function ttsFetchAudio(key, text, voiceKey){
     return url;
   });
   ttsInflight[key] = p;
-  var clear = function(){ delete ttsInflight[key]; };
+  var clear = function(){ delete ttsInflight[key]; done(); };
   p.then(clear, clear);
   return p;
 }
@@ -26472,6 +26552,12 @@ function ttsFetchAudio(key, text, voiceKey){
    button, opening Ask Coach and leaving Today all reach it. */
 function ttsHalt(){
   ttsToken++;
+  voiceClearWatchdog();
+  /* ALL of them, not just the most recent. */
+  while (ttsAborts.length){
+    var c = ttsAborts.pop();
+    try { c.abort(); } catch(e){}
+  }
   if (ttsAbort){ try { ttsAbort.abort(); } catch(e){} ttsAbort = null; }
   if (ttsAudioEl){
     try { ttsAudioEl.pause(); } catch(e){}
@@ -26487,6 +26573,7 @@ function ttsHalt(){
    silence. */
 function voiceCloudSpeak(text, opts){
   var mine = ++ttsToken;
+  voiceLastSpokenText = String(text || '');
   var voiceKey = coachVoice();
   var now = Date.now();
   ttsCacheSweep(now);
@@ -26495,7 +26582,15 @@ function voiceCloudSpeak(text, opts){
 
   var fail = function(){
     if (ttsToken !== mine) return;            /* stopped, or superseded */
-    if (!voiceSpeakNative(text, opts)) voiceSetStatus('shown', opts || {});
+    /* NOTHING COULD SPEAK, AND THE ATHLETE SHOULD BE TOLD SO.
+       This used to land on `shown`, which is the state a briefing reaches when
+       it has been READ ALOUD and finished -- so a press that produced eleven
+       seconds of waiting and then silence was presented as though the coach had
+       spoken. Live in a browser that reads as the app ignoring the button.
+       `unavailable` renders exactly the same transcript and adds one quiet line
+       saying the voice could not be delivered. The words are unaffected either
+       way; only the explanation for the silence is. */
+    if (!voiceSpeakNative(text, opts)) voiceSetStatus('unavailable', opts || {});
   };
   var play = function(url){
     if (ttsToken !== mine) return;
@@ -26561,7 +26656,50 @@ function coachVoicePreview(voiceKey){
   ttsFetchAudio(ck, text, key).then(play, fallback);
 }
 
-/* status: idle | speaking | unavailable */
+/* status: idle | speaking | shown | unavailable
+   ---------------------------------------------------------------------------
+   THE STATE MACHINE, AND THE ONE TRANSITION THAT WAS MISSING.
+
+       idle
+         |  a press
+         v
+       speaking/preparing ---> speaking/playing ---> shown   (heard it)
+         |                          |
+         |                          +-------------> shown   (stopped)
+         |
+         +--> speaking/playing (native fallback)
+         +--> shown            (nothing can speak, words stay)
+         +--> unavailable      (watchdog: speech gave up, words stay)
+
+   `speaking/preparing` is the only state that renders "Preparing voice...",
+   and it must never be terminal. It used to be able to be: every route out of
+   it hung off one promise -- ttsFetchAudio() -- and that promise had no
+   timeout, so a stalled request left BOTH the success and the failure handler
+   unreached. See TTS_CLIENT_TIMEOUT_MS.
+
+   The bound below is defence in depth for the same failure in a route that
+   does not exist yet. Any future code that sets `preparing` and forgets a
+   terminal path is caught here rather than on an athlete's phone. */
+var VOICE_PREPARING_MAX_MS = 13000;
+var voiceWatchdog = null;
+function voiceClearWatchdog(){
+  if (voiceWatchdog != null && typeof clearTimeout === 'function') clearTimeout(voiceWatchdog);
+  voiceWatchdog = null;
+}
+/* Speech gave up. The words are already on the screen and stay exactly as they
+   are -- this is a presentation layer reporting that it could not present. */
+function voicePreparingTimedOut(token, opts){
+  if (ttsToken !== token) return;                      /* superseded or stopped */
+  if (voiceState.status !== 'speaking') return;        /* already terminal */
+  if (voiceState.phase !== 'preparing') return;        /* audio started */
+  /* One last honest attempt at the device's own voice before giving up on
+     sound altogether; if that cannot speak either, say so quietly. */
+  ttsHalt();
+  if (!voiceSpeakNative(voiceLastSpokenText, opts || {}))
+    voiceSetStatus('unavailable', opts || {});
+}
+var voiceLastSpokenText = '';
+
 var voiceState = { status:'idle', kind:null, dayId:null };
 function voiceSetStatus(status, extra){
   /* `phase` distinguishes the two halves of `speaking` that the athlete
@@ -26572,6 +26710,16 @@ function voiceSetStatus(status, extra){
                  kind:(extra && extra.kind) || null,
                  dayId:(extra && extra.dayId) || null,
                  phase:(extra && extra.phase) || 'playing' };
+  /* ARMED ON ENTERING `preparing`, CLEARED ON LEAVING IT -- so every terminal
+     transition disarms it without any caller having to remember to. */
+  voiceClearWatchdog();
+  if (status === 'speaking' && voiceState.phase === 'preparing' &&
+      typeof setTimeout === 'function'){
+    var token = ttsToken;
+    var opts = { kind: voiceState.kind, dayId: voiceState.dayId };
+    voiceWatchdog = setTimeout(function(){ voicePreparingTimedOut(token, opts); },
+                               VOICE_PREPARING_MAX_MS);
+  }
   patchVoiceCard();
 }
 /* THE BUTTON DOES TWO JOBS, AND THEY ARE NOT THE SAME JOB.
@@ -27522,7 +27670,12 @@ function renderVoiceCardBody(dd){
   }
 
   var speaking = voiceState.status === 'speaking';
-  var shown    = voiceState.status === 'shown';
+  /* SPEECH FAILING DOES NOT TAKE THE COACHING AWAY. `unavailable` renders the
+     transcript exactly as `shown` does -- the words are the product and the
+     voice is only the delivery -- and adds one quiet line saying the delivery
+     did not work. */
+  var silent   = voiceState.status === 'unavailable';
+  var shown    = voiceState.status === 'shown' || silent;
   var script = voiceScriptFor(dd);
   var canSpeak = voiceAvailable();
   var debrief = script && script.kind === 'debrief';
@@ -27589,6 +27742,15 @@ function renderVoiceCardBody(dd){
     if (speaking)
       html += '<div class="voice-playing" aria-hidden="true">'+
         (voiceState.phase === 'preparing' ? 'Preparing voice\u2026' : 'Playing briefing\u2026')+
+      '</div>';
+    /* UNDERSTATED, AND NEVER TECHNICAL. The athlete does not need to know
+       whether a request timed out, a codec failed or a platform declined to
+       autoplay -- only that they are reading rather than listening. Announced
+       once, because it is a change of state they cannot see if they are not
+       looking at the screen. */
+    if (silent)
+      html += '<div class="voice-silent" role="status" aria-live="polite">'+
+        'Voice unavailable \u2014 the words are here.'+
       '</div>';
   }
   html += renderAskPanel(dd);
