@@ -1740,6 +1740,20 @@
     padding:10px 0 12px;
   }
   .ask-error{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--c-hard, var(--ink-dim)); padding:6px 0 10px;}
+  /* An answer that stopped early. Quiet, not alarming: the words above it are
+     real coaching and the athlete may well have what they needed. */
+  .ask-incomplete{font-size:var(--fs-meta); line-height:var(--lh-support);
+    color:var(--ink-faint); padding:0 0 10px;}
+  /* AVAILABLE TO A SCREEN READER, INVISIBLE TO EVERYONE ELSE. Used for the one
+     announcement of a completed answer, because the visible answer node is
+     written to a chunk at a time and must not be a live region. The clip-rect
+     recipe rather than display:none or visibility:hidden -- both of which
+     remove the element from the accessibility tree, which would silence the
+     very announcement this exists to make. */
+  .sr-only{
+    position:absolute; width:1px; height:1px; margin:-1px; padding:0;
+    overflow:hidden; clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; border:0;
+  }
   .ask-form{display:flex; gap:7px; margin-bottom:8px;}
   .ask-form input{
     flex:1; min-width:0; min-height:38px; padding:8px 11px;
@@ -27011,7 +27025,11 @@ function voiceCheckAvailability(){
 }
 
 /* status: closed | listening | thinking | answered | error */
-var askState = { status:'closed', heard:'', answer:'', message:'', proposalDayId:null };
+/* `incomplete` marks an answer whose stream stopped part-way: the words the
+   athlete already read stay on screen, but the exchange is not presented as
+   finished coaching and nothing structured came with it. */
+var askState = { status:'closed', heard:'', answer:'', message:'',
+                 proposalDayId:null, incomplete:false };
 function askSet(status, extra){
   askState = {
     status: status,
@@ -27019,14 +27037,55 @@ function askSet(status, extra){
     answer: (extra && extra.answer != null) ? extra.answer : askState.answer,
     message:(extra && extra.message)|| '',
     proposalDayId: (extra && extra.proposalDayId !== undefined)
-      ? extra.proposalDayId : askState.proposalDayId
+      ? extra.proposalDayId : askState.proposalDayId,
+    incomplete: (extra && extra.incomplete !== undefined)
+      ? !!extra.incomplete : askState.incomplete
   };
   patchVoiceCard();
 }
 function askReset(){
-  askState = { status:'closed', heard:'', answer:'', message:'', proposalDayId:null };
+  askState = { status:'closed', heard:'', answer:'', message:'',
+               proposalDayId:null, incomplete:false };
   voiceStop();
   patchVoiceCard();
+}
+
+/* ---------- THE GROWING ANSWER ----------
+   WHY THIS DOES NOT GO THROUGH askSet(). askSet() re-renders the card, and
+   re-rendering a live region on every chunk is precisely the screen-reader
+   chatter this must not cause -- quite apart from destroying the text node the
+   athlete is mid-sentence through. Streaming therefore writes DIRECTLY into
+   the answer node, which is deliberately NOT a live region while it grows.
+
+   The announcement happens once, at the end, in askAnnounceAnswer(). */
+var askStreamBuf = '';
+function askStreamBegin(){
+  askStreamBuf = '';
+  askSet('streaming', { answer:'', message:'', incomplete:false, proposalDayId:null });
+}
+function askStreamChunk(text){
+  if (!text) return;
+  askStreamBuf += text;
+  /* State is kept in step so any re-render for another reason paints the same
+     words -- but the render is not what puts them on screen. */
+  askState.answer = askStreamBuf;
+  var el = document.getElementById('ask-answer-live');
+  if (el) el.textContent = askStreamBuf;
+  else patchVoiceCard();
+}
+/* ONE ANNOUNCEMENT, AFTER THE WORDS HAVE STOPPED MOVING. The growing node is
+   inert to assistive technology; this copies the finished text into a polite
+   live region so a screen-reader user hears the answer exactly once. */
+function askAnnounceAnswer(text){
+  var el = document.getElementById('ask-answer-announce');
+  if (!el) return;
+  el.textContent = '';
+  /* A tick, so the region is observed as CHANGING rather than as having always
+     said this -- the difference between an announcement and silence. */
+  setTimeout(function(){
+    var live = document.getElementById('ask-answer-announce');
+    if (live) live.textContent = String(text || '');
+  }, 60);
 }
 
 var VOICE_ERROR_COPY = {
@@ -27279,13 +27338,23 @@ function askSend(question, opts){
 
   return cloudRefreshIfNeeded().then(function(fresh){
     if (!fresh) throw { code:'not_signed_in' };
+    /* ASKING FOR A STREAM IS A CAPABILITY CLAIM, so it is only made where the
+       capability exists. A browser without a readable response body never sends
+       this header and is answered with the buffered contract instead -- one
+       server, two transports, and the client chooses honestly. */
+    var canStream = (typeof ReadableStream !== 'undefined') && (typeof TextDecoder !== 'undefined');
     return fetch('/api/voice-ask', {
       method:'POST',
       headers:{ 'content-type':'application/json',
+                'accept': canStream ? 'application/x-ndjson, application/json' : 'application/json',
                 'Authorization':'Bearer '+cloudSession.access_token },
       body: JSON.stringify({ question:q, context:ctx })
     });
   }).then(function(resp){
+    var ct = String((resp.headers && resp.headers.get && resp.headers.get('content-type')) || '');
+    if (resp.ok && ct.indexOf('application/x-ndjson') !== -1 && resp.body && resp.body.getReader){
+      return askReadStream(resp);
+    }
     return resp.json().catch(function(){ return {}; }).then(function(d){
       if (!resp.ok) throw { code:(d && d.error) || 'coach_unavailable' };
       return d;
@@ -27302,8 +27371,16 @@ function askSend(question, opts){
        Execution Review card already renders. When the engine has not proposed
        anything, the coach's view is spoken and nothing is offered, because
        there is nothing authorised to offer. */
-    var propId = d.needsPlanChange ? coachProposedChangeDayId() : null;
-    askSet('answered', { answer:d.answer, proposalDayId:propId });
+    /* A PLAN CHANGE NEEDS A CLEAN TURN, NOT JUST A FLAG. d.complete is false
+       for any exchange whose stream stopped part-way or whose structured
+       trailer was missing, ambiguous or invalid -- and in every one of those
+       cases no offer is considered at all. The engine gate below is unchanged
+       and still has the last word. */
+    var propId = (d.needsPlanChange && d.complete !== false)
+      ? coachProposedChangeDayId() : null;
+    askSet('answered', { answer:d.answer, proposalDayId:propId,
+                         incomplete: d.incomplete === true });
+    askAnnounceAnswer(d.answer);
     /* Spoken in the same voice as the briefing and the debrief. */
     voiceSpeak(voiceSpeakable(d.answer), { kind:'answer' });
     return d;
@@ -27312,6 +27389,89 @@ function askSend(question, opts){
     askSet('error', { message: VOICE_ERROR_COPY[code] || VOICE_ERROR_COPY.coach_unavailable });
     return null;
   });
+}
+
+/* ---------- READING THE SERVER'S STREAM ----------
+   THE BROWSER KNOWS NOTHING ABOUT THE PROVIDER. It does not parse SSE, does not
+   know what a content block is, has never heard of the protocol marker and can
+   never receive the machine-readable trailer -- all of that is behind the
+   server boundary. What arrives here is newline-delimited JSON in exactly
+   three shapes:
+
+     {"t":"prose","d":"..."}                     words for the athlete
+     {"t":"final","complete":true,               the turn ended cleanly AND the
+      "needsPlanChange":..,"changeReason":..}    decision was validated
+     {"t":"incomplete","code":"..."}             the turn did not finish
+
+   A `final` event is the ONLY thing that can carry needsPlanChange. There is no
+   way to express a partial or probable plan change on this wire, which is what
+   makes "a partial answer can never propose a change" a property of the
+   protocol rather than a rule someone has to remember. */
+function askReadStream(resp){
+  var reader = resp.body.getReader();
+  var decoder = new TextDecoder();
+  var buf = '';
+  var result = { answer:'', needsPlanChange:false, changeReason:null,
+                 complete:false, incomplete:false };
+  var started = false;
+
+  function handleLine(line){
+    var t = line.trim();
+    if (!t) return;
+    var ev;
+    try{ ev = JSON.parse(t); }catch(e){ return; }
+    if (!ev || typeof ev !== 'object') return;
+    if (ev.t === 'prose'){
+      if (!started){ started = true; askStreamBegin(); }
+      askStreamChunk(String(ev.d || ''));
+      return;
+    }
+    if (ev.t === 'final'){
+      result.complete = true;
+      /* Trusted only because the server validated it before writing it, and
+         only ever read off this one event. */
+      result.needsPlanChange = ev.needsPlanChange === true;
+      result.changeReason = ev.changeReason || null;
+      return;
+    }
+    if (ev.t === 'incomplete'){ result.incomplete = true; return; }
+    if (ev.t === 'error'){ result.error = String(ev.code || 'coach_unavailable'); return; }
+  }
+
+  function pump(){
+    return reader.read().then(function(step){
+      if (step.done){
+        if (buf) handleLine(buf);
+        result.answer = askStreamBuf;
+        /* NOTHING READABLE ARRIVED. Fall into the same failure the buffered
+           transport would have produced, so case A is one behaviour and not
+           two. */
+        if (!result.answer) throw { code: result.error || 'coach_unavailable' };
+        /* A stream that simply stopped, with no final and no incomplete event,
+           is incomplete -- the safe reading, and the one that cannot commit
+           anything structured. */
+        if (!result.complete) result.incomplete = true;
+        return result;
+      }
+      buf += decoder.decode(step.value, { stream:true });
+      var nl;
+      while ((nl = buf.indexOf('\n')) !== -1){
+        var line = buf.slice(0, nl);
+        buf = buf.slice(nl + 1);
+        handleLine(line);
+      }
+      return pump();
+    }, function(){
+      /* THE CONNECTION DIED MID-ANSWER. Whatever was already read is real and
+         stays; the exchange is incomplete and proposes nothing. */
+      result.answer = askStreamBuf;
+      if (!result.answer) throw { code:'coach_unavailable' };
+      result.incomplete = true;
+      result.complete = false;
+      return result;
+    });
+  }
+  return pump();
 }
 
 /* The session Valhalla's OWN engine currently recommends adjusting, or null.
@@ -27482,18 +27642,39 @@ function renderAskPanel(dd){
     if (askState.status === 'thinking'){
       body += '<div class="ask-thinking" role="status" aria-live="polite">Thinking…</div>';
     }
-    if (askState.status === 'answered' && askState.answer){
+    if (askState.status === 'streaming' || (askState.status === 'answered' && askState.answer)){
       /* The answer is TEXT first and speech second. voiceSpeak() is what reads
-         it; this is what the athlete keeps. */
-      body += '<div class="ask-answer" role="status" aria-live="polite">'+
+         it; this is what the athlete keeps.
+
+         DELIBERATELY NOT A LIVE REGION. This node is written to directly, a
+         chunk at a time, while the answer streams in -- and a polite live
+         region updated on every chunk makes a screen reader announce a
+         half-sentence, then a slightly longer half-sentence, twenty times over.
+         The growing text is therefore inert to assistive technology, and the
+         FINISHED answer is announced exactly once through the sibling region
+         below (see askAnnounceAnswer). Sighted and screen-reader users get the
+         same answer; only the pacing differs, which is the one thing that
+         should differ. */
+      body += '<div class="ask-answer" id="ask-answer-live">'+
                 escapeHtml(askState.answer)+'</div>';
-      body += renderAskProposal();
+      /* The one announcement. Empty until the answer is complete. */
+      body += '<div class="sr-only" id="ask-answer-announce" role="status" aria-live="polite"></div>';
+      if (askState.incomplete){
+        /* Case B, made visible AND announced: the words above are real, but
+           this was not a finished answer and nothing was proposed from it. */
+        body += '<div class="ask-incomplete" role="status" aria-live="polite">'+
+                'That answer stopped early — ask again to get the whole of it.</div>';
+      }
+      if (askState.status === 'answered') body += renderAskProposal();
     }
     if (askState.status === 'error'){
       body += '<div class="ask-error" role="alert">'+escapeHtml(askState.message ||
               VOICE_ERROR_COPY.coach_unavailable)+'</div>';
     }
-    if (askState.status !== 'thinking'){
+    /* The ask box is the retry affordance, and it is a real focusable control
+       in the normal tab order -- so re-asking after an incomplete answer needs
+       no new UI and no mouse. Hidden only while the coach is actually working. */
+    if (askState.status !== 'thinking' && askState.status !== 'streaming'){
       /* A div and a click, not a <form> and a submit: this app dispatches every
          action through one delegated click handler, and a real form here would
          be the only submit listener in the file -- and would reload the page on
