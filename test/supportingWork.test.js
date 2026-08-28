@@ -743,15 +743,171 @@ test('logging is additive and declining is remembered', () => {
   assert.equal(dd2.support.dismissed, true);
 });
 
-test('the builder stays at ten stages and the question lives on Review', () => {
+/* ---------------------------------------------------------------------------
+   WHERE THE PERMISSION IS ASKED
+   ---------------------------------------------------------------------------
+   It used to be introduced on Review, which is the wrong screen to meet a
+   question for the first time: Review confirms decisions, it does not take
+   them. It now sits on stage 07 with the two other decisions about the shape
+   of a training week -- which days are run, and which one is long -- and
+   Review states the answer back read-only.
+
+   The builder's markup is inspected the way test/builderNineStages.test.js
+   already does it: openSetupModal() hands its HTML to openModal(), which is
+   intercepted. No browser, and no second idea of what a panel is.
+--------------------------------------------------------------------------- */
+function journey(mutate){
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  a.showToast = () => {}; a.scheduleSave = () => {}; a.renderApp = () => {};
+  if (mutate) mutate(a);
+  let html = null;
+  a.openModal = h => { html = h; };
+  a.openSetupModal();
+  assert.ok(html, 'openSetupModal() did not open anything');
+  return { a, html };
+}
+function panelBodies(html){
+  const out = [];
+  const re = /<section class="bld-panel" data-stage="(\d+)"([^>]*)>/g;
+  let m;
+  while ((m = re.exec(html)) !== null) out.push({ stage:+m[1], at:m.index });
+  out.forEach((p, i) => { p.body = html.slice(p.at, i+1 < out.length ? out[i+1].at : html.length); });
+  return out;
+}
+
+test('the permission is presented on stage 07, with the week it belongs to', () => {
+  const { html } = journey();
+  const p = panelBodies(html);
+  assert.equal(p.length, 10, 'the builder no longer renders ten panels');
+  const week = p.filter(x => x.stage === 6)[0];
+  assert.ok(week, 'stage 07 (Your week) was not found');
+  assert.ok(week.body.indexOf('id="su-support-work"') !== -1,
+    'the permission is not on the week stage');
+  /* And exactly once in the whole journey -- two copies would mean two ids and
+     a Generate that reads whichever the DOM hands it first. */
+  assert.equal((html.match(/id="su-support-work"/g) || []).length, 1);
+});
+
+test('it sits below the long run day and above the stage actions', () => {
+  const week = panelBodies(journey().html).filter(x => x.stage === 6)[0];
+  assert.ok(week, 'stage 07 was not found');
+  const html = week.body;
+  const longAt = html.indexOf('id="f-longday"');
+  const supportAt = html.indexOf('id="su-support-work"');
+  const navAt = html.indexOf('data-action="bld-next"');
+  assert.ok(longAt !== -1 && supportAt !== -1 && navAt !== -1,
+    'week stage is missing one of long-run day, the permission, or its actions');
+  assert.ok(longAt < supportAt, 'the permission is above the long run day');
+  assert.ok(supportAt < navAt, 'the permission is below the Back / Continue actions');
+});
+
+test('the concise copy is the week stage’s, and it still says a tick is not a quota', () => {
+  const week = panelBodies(journey().html).filter(x => x.stage === 6)[0].body;
+  assert.ok(week.indexOf('Supporting work') !== -1, 'the section is unnamed');
+  assert.ok(week.indexOf('Include strength &amp; mobility work') !== -1, 'the question changed');
+  assert.match(week, /Valhalla may add strength, conditioning or mobility where it helps your running/);
+  assert.match(week, /Some weeks may have none/,
+    'nothing on the screen prevents the tick being read as a guaranteed weekly session');
+});
+
+test('Review no longer offers the decision — it states it back', () => {
+  const { html } = journey();
+  const review = panelBodies(html).filter(x => x.stage === 9)[0].body;
+  assert.ok(review.indexOf('id="su-support-work"') === -1,
+    'Review still carries an interactive permission control');
+  assert.ok(review.indexOf('bld-review') !== -1, 'Review lost its summary container');
+});
+
+test('the Review summary reads the stage 07 tick, On or Off', () => {
+  /* bldRenderReview() reads the live DOM, which the sandbox does not have, so
+     the row builder is exercised through its own source rather than guessed
+     at: the key it uses and both values it can produce. */
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   const src = require('fs').readFileSync(
     require('path').join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  const fn = src.slice(src.indexOf('function bldRenderReview'));
+  const body = fn.slice(0, fn.indexOf('\n}\n'));
+  assert.match(body, /getElementById\('su-support-work'\)/,
+    'Review does not read the stage 07 tick, so it could disagree with what is stored');
+  assert.match(body, /SUPPORT_COPY\.reviewKey/, 'the summary row has no key');
+  assert.match(body, /\? 'On' : 'Off'/, 'the summary does not state On or Off');
+  assert.equal(a.SUPPORT_COPY.reviewKey, 'Strength & mobility');
+});
+
+test('the health permission has not moved', () => {
+  /* Explicitly pinned: this pass moved one control and must not have taken the
+     other with it. Consent still lives on Review, where it is recorded. */
+  const { html } = journey(a => { a.state.healthConsent = null; });
+  const p = panelBodies(html);
+  const review = p.filter(x => x.stage === 9)[0].body;
+  const week = p.filter(x => x.stage === 6)[0].body;
+  assert.ok(review.indexOf('id="su-health-consent"') !== -1,
+    'the health permission left the Review stage');
+  assert.ok(week.indexOf('id="su-health-consent"') === -1,
+    'the health permission followed supporting work onto the week stage');
+});
+
+test('stage 07 still validates on its own questions, not on the permission', () => {
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  const src = require('fs').readFileSync(
+    require('path').join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  const fn = src.slice(src.indexOf('function bldValidateStage'));
+  const body = fn.slice(0, fn.indexOf('\n}\n'));
+  /* The week stage's rule is about running days; adding a permission to the
+     screen must not have added a rule, and must not be able to block it. */
+  assert.match(body, /BLD_STAGE\.WEEK/, 'the week stage lost its validation');
+  assert.ok(body.indexOf('su-support-work') === -1,
+    'the permission became a validation gate — a tick can now block the builder');
+  assert.equal(a.BLD_STAGE.WEEK, 6, 'the week stage moved');
+});
+
+test('the tick still writes the same stored value, and off is still off', () => {
+  const a = app({});
+  a.state.setup.supportWork = 'off';
+  assert.equal(a.supportWorkEnabled(), false);
+  a.state.setup.supportWork = 'on';
+  assert.equal(a.supportWorkEnabled(), true);
+  /* Rendered from the stored value, so re-opening the builder shows what the
+     athlete chose rather than an unticked box. */
+  assert.ok(a.renderSupportWorkStep().indexOf('checked') !== -1);
+  a.state.setup.supportWork = 'off';
+  assert.ok(a.renderSupportWorkStep().indexOf('checked') === -1);
+});
+
+test('the generator reads the tick wherever its panel lives', () => {
+  /* Panels are hidden, never unmounted, so moving the control between stages
+     cannot change what Generate can see. Pinned because it is the one thing
+     that would break silently: the plan would build with the permission
+     always off and nothing on screen would say so. */
+  const src = require('fs').readFileSync(
+    require('path').join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  const fn = src.slice(src.indexOf('async function handleGeneratePlan'));
+  const body = fn.slice(0, fn.indexOf('\n}\n'));
+  assert.match(body, /getElementById\('su-support-work'\)/,
+    'Generate no longer reads the permission');
+  assert.match(body, /supportWork: supportPref/, 'Generate no longer stores it');
+  const { html } = journey();
+  assert.ok(html.indexOf('hidden') !== -1, 'panels are no longer hidden-but-mounted');
+});
+
+test('the plan itself is unchanged by where the question is asked', () => {
+  /* The move is placement only. Same block, same days, same prescriptions --
+     the permission changes what companions are RESOLVED, never what is built. */
+  const off = app({ support:false });
+  const on  = app({});
+  const shape = x => x.state.days.map(d => [d.date, d.type, d.km, d.title,
+    d.prescription ? d.prescription.archetype : null].join('|')).join('\n');
+  assert.equal(shape(on), shape(off), 'the generated plan differs with the permission on');
+  assert.equal(on.state.setup.supportWork, 'on');
+  assert.equal(off.state.setup.supportWork, undefined);
+});
+
+test('the builder stays at ten stages and /start is untouched', () => {
   const spec = require('../assets/builder-spec.js');
-  assert.equal(spec.stages.length, 10, 'the canonical builder gained a stage');
-  /* The control is rendered inside the Review stage's optional panel, beside
-     the health permission — not as a stage of its own. */
-  assert.ok(src.indexOf('su-support-work') !== -1);
-  const review = src.slice(src.indexOf('/* ---------- 10 REVIEW ----------'));
-  assert.ok(review.slice(0, 2000).indexOf('supportStep') !== -1,
-    'the supporting-work question is not on the Review stage');
+  assert.equal(spec.stages.length, 10, 'the canonical builder gained or lost a stage');
+  assert.equal(spec.stages[6].key, 'WEEK');
+  const start = require('fs').readFileSync(
+    require('path').join(__dirname, '..', 'start.html'), 'utf8');
+  assert.ok(start.indexOf('su-support-work') === -1,
+    '/start gained the supporting-work control');
 });

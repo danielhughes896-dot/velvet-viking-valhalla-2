@@ -67,7 +67,8 @@ function seed(p){ try { localStorage.setItem(p.key, p.state); } catch (e) {} }
     { name:'today-off',       view:'today', on:false },
     { name:'week',            view:'week',  on:true  },
     { name:'settings',        view:'settings', on:true },
-    { name:'builder',         view:'today', on:true, builder:true }
+    { name:'builder-week',    view:'today', on:true, builder:true, stopAt:6 },
+    { name:'builder-review',  view:'today', on:true, builder:true }
   ];
 
   for (const shot of SHOTS){
@@ -115,19 +116,40 @@ function seed(p){ try { localStorage.setItem(p.key, p.state); } catch (e) {} }
            stage arrives pre-filled from state and nothing has to be typed. */
         try { await page.evaluate(() => window.openSetupModal && window.openSetupModal()); } catch(e){}
         await page.waitForTimeout(600);
-        const walk = await page.evaluate(() => {
+        const walk = await page.evaluate((stopAt) => {
           const seen = [];
           for (let i = 0; i < 20; i++){
             seen.push(window.bldCurrentStage);
-            if (window.bldCurrentStage >= 9) break;
+            if (window.bldCurrentStage >= stopAt) break;
             const before = window.bldCurrentStage;
             window.handleBldNext();
             if (window.bldCurrentStage === before) break;   // validation refused
           }
-          return { path: seen, stage: window.bldCurrentStage,
-                   review: (document.getElementById('bld-review') || {}).innerHTML ?
-                     (document.getElementById('bld-review').innerHTML.length) : 0 };
-        });
+          /* THE END-TO-END PROOF, done the way an athlete does it: the tick is
+             toggled ON THE WEEK STAGE, and the walk continues to Review, whose
+             summary row is then read back. If placement had broken the link
+             between the control and what Generate stores, this is where it
+             would show. */
+          let toggled = null, summary = null;
+          const box = document.getElementById('su-support-work');
+          if (box && window.bldCurrentStage >= 6){ box.checked = true; toggled = true; }
+          if (stopAt >= 9){
+            for (let i = 0; i < 20 && window.bldCurrentStage < 9; i++){
+              const b = window.bldCurrentStage; window.handleBldNext();
+              if (window.bldCurrentStage === b) break;
+            }
+            const host = document.getElementById('bld-review');
+            const txt = host ? (host.innerText || host.textContent || '') : '';
+            /* CASE-INSENSITIVE: .bld-review-k is uppercased by CSS, so innerText
+               returns "STRENGTH & MOBILITY". The first version of this matched
+               the source casing, found nothing, and reported NOT FOUND for a
+               row that was on screen. */
+            const m = /Strength & mobility\s*(On|Off)/i.exec(txt.replace(/\s+/g, ' '));
+            summary = m ? m[1] : ('NOT FOUND in: ' + txt.replace(/\s+/g,' ').slice(0, 160));
+          }
+          return { path: seen, stage: window.bldCurrentStage, toggled, summary,
+                   review: (document.getElementById('bld-review') || { innerHTML:'' }).innerHTML.length };
+        }, shot.stopAt || 9);
         await page.waitForTimeout(500);
         builderWalk = walk;
       }
