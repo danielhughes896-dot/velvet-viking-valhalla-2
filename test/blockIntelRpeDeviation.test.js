@@ -71,8 +71,13 @@ const preemptingTrend = app => app.athleteTrends()
    comparison sees the late half sitting above the early half. It is the only
    shape that can exercise this fallback without the trend layer answering
    first. */
-const lateBlockRise  = amount => (i, n) => (i === n - 4 || i === n - 3) ? amount : 0;
-const midBlockThenBack = (i, n) => (i >= n - 6 && i <= n - 4) ? 1 : 0;
+const lateBlockRise = amount => (i, n) => (i === n - 4 || i === n - 3) ? amount : 0;
+/* The four shapes the return-to-normal distinction turns on, all of them
+   invisible to the trend layer for the reason above. Deviations as the block
+   comparison sees them are given alongside each. */
+const elevatedThenExpected     = (i, n) => (i >= n - 8 && i <= n - 5) ? 2 : 0;          // 2,2,2,2,0,0,0,0
+const elevatedThenLessElevated = (i, n) => (i >= n - 8 && i <= n - 5) ? 2 : (i >= n - 4 ? 1 : 0); // 2,2,2,2,1,1,1,1
+const expectedThenBelow        = lateBlockRise(-1);                                      // 0,0,0,0,-1,-1,0,0
 
 // ---------------------------------------------------------------------------
 // THE DEFECT: A SESSION-TYPE MIX READ AS A BLOCK GETTING HARDER
@@ -134,11 +139,101 @@ test('a one-point rise is enough, exactly as it was before normalising', () => {
     'normalising raised the bar a genuine rise has to clear');
 });
 
-test('effort coming back down inside the block is read as improvement, not silence', () => {
-  const app = block(midBlockThenBack);
+// ---------------------------------------------------------------------------
+// RETURN TO NORMAL IS NOT AN IMPROVEMENT
+//   The rule athleteTrends() already enforces on this same reading: "Lower
+//   effort than lately is only ADAPTATION if it is also lower than the effort
+//   this athlete has established. After a hard stretch, coming back to normal
+//   is not the same work feeling easier." On the deviation scale that rule
+//   gains an anchor the raw scale never had -- zero is what was prescribed --
+//   so improvement means landing BELOW what was asked, not nearer to it.
+// ---------------------------------------------------------------------------
+test('an elevated block returning to what was prescribed is normalisation, not improvement', () => {
+  /* +2 for the first half of the block, exactly on prescription for the
+     second. The slope points down and the athlete is recovering, but quality
+     work has not become cheaper than it was asked to be. */
+  const app = block(elevatedThenExpected);
+  assert.equal(preemptingTrend(app), null,
+    'the trend layer answered first, so this proves nothing about the fallback');
+  assert.notEqual(qualityRow(app).direction, 'positive',
+    'a return to prescription was reported as quality work getting cheaper');
+  assert.equal(qualityRow(app).direction, 'flat');
+});
+
+test('a block still above prescription is not improving merely because the slope points down', () => {
+  /* +2 falling to +1. Better than it was, still more expensive than it was
+     meant to be. */
+  const app = block(elevatedThenLessElevated);
   assert.equal(preemptingTrend(app), null);
-  assert.equal(qualityRow(app).direction, 'positive');
-  assert.match(qualityRow(app).detail, /lower relative cost/);
+  assert.notEqual(qualityRow(app).direction, 'positive',
+    'a still-elevated block was called an improvement on slope alone');
+  assert.equal(qualityRow(app).direction, 'flat');
+});
+
+test('quality work landing genuinely below prescription IS an improvement', () => {
+  /* The other side of the same rule -- the guard must not swallow a real one.
+     On prescription throughout, then below it in the late block. */
+  const app = block(expectedThenBelow);
+  assert.equal(preemptingTrend(app), null);
+  const row = qualityRow(app);
+  assert.equal(row.direction, 'positive',
+    'work genuinely cheaper than prescribed went unreported');
+  assert.match(row.detail, /lower relative cost/);
+});
+
+test('and it is the effort reading that says so in each case, not execution score', () => {
+  /* Attribution for all three above at once: execution score must be flat, so
+     none of those verdicts can have come from anywhere but the reading under
+     test. */
+  [['elevated -> expected', elevatedThenExpected, 'flat'],
+   ['elevated -> less elevated', elevatedThenLessElevated, 'flat'],
+   ['expected -> below expected', expectedThenBelow, 'positive']].forEach(c => {
+    const app = block(c[1]);
+    const qual = app.blockRecords().filter(r => QUALITY.includes(r.type));
+    assert.equal(app.blockDirection(qual, r => r.executionScore, false, 5), 'flat',
+      c[0] + ': execution score moved too, so the verdict cannot be attributed to effort');
+    assert.equal(app.blockDirection(qual, r => app.rpeDeviation(r), true, 0.5, true), c[2],
+      c[0] + ': the effort reading did not give the verdict under test');
+  });
+});
+
+test('deterioration is untouched by the guard, from any starting point', () => {
+  /* The rule applies to the improving path only. A block getting more
+     expensive is a block getting more expensive wherever it started. */
+  const app = block(lateBlockRise(2));
+  assert.equal(qualityRow(app).direction, 'negative');
+  /* +1 throughout, worsening to +2 in the middle of the late half and easing
+     back at the very end -- deviations 1,1,1,1,2,2,1,1 as the block sees them.
+     The tail is what keeps the trend layer out of it. */
+  const stillWorse = block((i, n) => (i >= n - 8 && i <= n - 5) ? 1
+                                   : ((i === n - 4 || i === n - 3) ? 2 : (i >= n - 2 ? 1 : 0)));
+  assert.equal(preemptingTrend(stillWorse), null,
+    'the trend layer answered first, so this proves nothing about the fallback');
+  const qual = stillWorse.blockRecords().filter(r => QUALITY.includes(r.type));
+  assert.equal(stillWorse.blockDirection(qual, r => r.executionScore, false, 5), 'flat',
+    'execution score moved too, so the verdict cannot be attributed to effort');
+  assert.equal(qualityRow(stillWorse).direction, 'negative',
+    'a block deteriorating from an already-elevated start stopped being reported');
+});
+
+test('the guard reuses minChange rather than introducing a threshold of its own', () => {
+  /* athleteTrends() clears the SAME 1-point bar twice -- once against the
+     recent baseline, once against trendEstablished(). This clears minChange
+     twice for the same reason, so sensitivity stays one number. */
+  const app = loadApp({ pinnedDate: '2026-09-03T09:00:00Z' });
+  const at = (d, v) => ({ date: '2026-08-' + String(d).padStart(2, '0'), v: v });
+  const pick = r => r.v;
+  const to = v => [at(1,0), at(2,0), at(3,0), at(4,0), at(5,v), at(6,v), at(7,v), at(8,v)];
+  assert.equal(app.blockDirection(to(-0.5), pick, true, 0.5, true), 'positive',
+    'exactly minChange below prescription should read as improvement');
+  assert.equal(app.blockDirection(to(-0.25), pick, true, 0.5, true), 'flat',
+    'less than minChange below prescription is not yet improvement');
+  /* And the established-level clause, which is the half ported verbatim: an
+     athlete who had established -3 and is now at -2 is below prescription but
+     ABOVE their own established level, so this is not improvement either. */
+  const wasBetter = [at(1,-3), at(2,-3), at(3,0), at(4,0), at(5,-2), at(6,-2), at(7,-2), at(8,-2)];
+  assert.equal(app.blockDirection(wasBetter, pick, true, 0.5, true), 'flat',
+    'a fall short of what this athlete had established was called an improvement');
 });
 
 // ---------------------------------------------------------------------------
@@ -201,6 +296,28 @@ test('every other caller of blockDirection keeps the guard it was written with',
 // ---------------------------------------------------------------------------
 // SCALE
 // ---------------------------------------------------------------------------
+test('the return-to-normal guard cannot reach a caller reading a raw scale', () => {
+  /* WRITTEN BECAUSE A MUTATION SURVIVED. Dropping `&& deviationScale` -- so the
+     guard applies to heart-rate cost, execution score and long-run raw RPE too
+     -- passed every other test here, because they all check the call sites'
+     ARGUMENTS rather than the guard's REACH. It is not a harmless leak: the
+     below-prescription clause asks whether the late median is at least
+     minChange below ZERO, and a raw RPE of 6 or a heart-rate cost of 40 never
+     is, so every improving raw reading in the app would silently flatten. */
+  const app = loadApp({ pinnedDate: '2026-09-03T09:00:00Z' });
+  const at = (d, v) => ({ date: '2026-08-' + String(d).padStart(2, '0'), v: v });
+  const pick = r => r.v;
+  const rawImproving = [at(1,8), at(2,8), at(3,8), at(4,8), at(5,6), at(6,6), at(7,6), at(8,6)];
+  assert.equal(app.blockDirection(rawImproving, pick, true, 0.5), 'positive',
+    'a raw-scale improvement was suppressed by a guard written for deviations');
+  const costImproving = [at(1,42), at(2,42), at(3,42), at(4,42), at(5,38), at(6,38), at(7,38), at(8,38)];
+  assert.equal(app.blockDirection(costImproving, pick, true, 1.5), 'positive',
+    'an easy-cost improvement was suppressed by a guard written for deviations');
+  const scoreImproving = [at(1,60), at(2,60), at(3,60), at(4,60), at(5,80), at(6,80), at(7,80), at(8,80)];
+  assert.equal(app.blockDirection(scoreImproving, pick, false, 5), 'positive',
+    'an execution-score improvement was suppressed by a guard written for deviations');
+});
+
 test('the 0.5 threshold still means half an RPE point', () => {
   /* A deviation is measured in RPE points, so the existing threshold needed no
      retuning -- and a movement below it must still read flat. */
