@@ -1744,6 +1744,11 @@
      real coaching and the athlete may well have what they needed. */
   .ask-incomplete{font-size:var(--fs-meta); line-height:var(--lh-support);
     color:var(--ink-faint); padding:0 0 10px;}
+  /* Where an answer came from, when it did not come from the coach. Exactly
+     the weight of .ask-incomplete because it is exactly the same kind of
+     thing: a quiet note subordinate to real content, never an error. */
+  .ask-source{font-size:var(--fs-meta); line-height:var(--lh-support);
+    color:var(--ink-faint); padding:0 0 10px;}
   /* Speech could not be delivered. Deliberately the same quiet weight as the
      playing indicator it replaces -- this is a status, not a failure the
      athlete has to act on, and the coaching above it is unaffected. */
@@ -26881,7 +26886,12 @@ function voiceStop(){
    done this job. Nothing was removed to add a vendor. */
 function voiceSpeak(text, opts){
   if (!text) return false;
-  if (voiceCloudEligible()) return voiceCloudSpeak(text, opts);
+  /* localOnly: THE CALLER ALREADY KNOWS THERE IS NO NETWORK. Offline guidance
+     asks for this, because the premium path would open a request to
+     /api/voice-tts and spend TTS_CLIENT_TIMEOUT_MS of silence discovering what
+     the caller established before it spoke. The device engine is the whole
+     point offline, and it is the same one every other failure path ends at. */
+  if (!(opts && opts.localOnly) && voiceCloudEligible()) return voiceCloudSpeak(text, opts);
   return voiceSpeakNative(text, opts);
 }
 function voiceSpeakNative(text, opts){
@@ -27261,7 +27271,8 @@ function voiceCheckAvailability(){
    athlete already read stay on screen, but the exchange is not presented as
    finished coaching and nothing structured came with it. */
 var askState = { status:'closed', heard:'', answer:'', message:'',
-                 proposalDayId:null, incomplete:false };
+                 proposalDayId:null, incomplete:false,
+                 source:'cloud', limited:false };
 function askSet(status, extra){
   askState = {
     status: status,
@@ -27271,13 +27282,21 @@ function askSet(status, extra){
     proposalDayId: (extra && extra.proposalDayId !== undefined)
       ? extra.proposalDayId : askState.proposalDayId,
     incomplete: (extra && extra.incomplete !== undefined)
-      ? !!extra.incomplete : askState.incomplete
+      ? !!extra.incomplete : askState.incomplete,
+    /* WHERE THIS ANSWER CAME FROM, carried so the card can say so. Reset to
+       the cloud default on every status that is not an answer, so a stale
+       "Offline guidance" note can never outlive the answer it described. */
+    source: (extra && extra.source !== undefined) ? extra.source
+          : (status === 'answered' ? askState.source : ASK_SOURCE_CLOUD),
+    limited: (extra && extra.limited !== undefined) ? !!extra.limited
+          : (status === 'answered' ? askState.limited : false)
   };
   patchVoiceCard();
 }
 function askReset(){
   askState = { status:'closed', heard:'', answer:'', message:'',
-               proposalDayId:null, incomplete:false };
+               proposalDayId:null, incomplete:false,
+               source:ASK_SOURCE_CLOUD, limited:false };
   voiceStop();
   patchVoiceCard();
 }
@@ -27565,13 +27584,510 @@ function askStopListening(){
    spoken either way -- Ask Coach is an explicit press, so this is never
    autoplay -- but the flag keeps the round trip honest for the caller and for
    the tests that assert a spoken question ends in a spoken answer. */
+/* =========================================================
+   OFFLINE GUIDANCE — THE PART OF THE COACH THAT NEEDS NO NETWORK
+   ---------------------------------------------------------
+   WHAT THIS IS, AND WHAT IT IS NOT. Ask Coach is Claude, and nothing here
+   pretends otherwise. This is a deterministic READER of information Valhalla
+   already holds on the device: today's prescription, its steps, its pace and
+   effort targets, the authored purpose copy the card and the spoken briefing
+   already use, the training phase, the next session. It recognises a small set
+   of questions and answers them from that, and it writes no coaching of its
+   own — every sentence it produces is either fixed connective text or a value
+   read straight out of the plan. There is no second methodology here, and
+   there is no local model.
+
+   WHY IT EXISTS. With no signal the athlete used to get "Your coach is not
+   responding". They are standing at the start of a session whose pace they
+   cannot see, holding a device that already knows it.
+
+   THE BOUNDARY IT MUST NOT CROSS. It never proposes a plan change, never
+   reaches coachProposedChangeDayId(), never interprets a symptom, and never
+   implies it has spoken to Strava. Those are all cloud-coach territory and
+   are refused here by construction rather than by prompt.
+   ========================================================= */
+
+var ASK_SOURCE_CLOUD = 'cloud';
+var ASK_SOURCE_LOCAL = 'offline-local';
+
+/* THE ONE SHAPE THE ASK SURFACE RENDERS. Both transports and the local reader
+   end here, so the card, the speech path and the proposal gate each have one
+   implementation rather than two that can drift apart.
+
+   needsPlanChange and changeReason are FORCED for a local answer rather than
+   merely left unset. A local result that could carry a truthy needsPlanChange
+   is one refactor away from reaching the plan-change pipeline, and this is the
+   line where that becomes impossible. */
+function askResult(f){
+  var src = (f && f.source) || ASK_SOURCE_CLOUD;
+  var local = src === ASK_SOURCE_LOCAL;
+  return {
+    answer: (f && f.answer) || '',
+    source: src,
+    complete: !f || f.complete !== false,
+    incomplete: !!(f && f.incomplete === true),
+    declined: !!(f && f.declined),
+    needsPlanChange: local ? false : !!(f && f.needsPlanChange),
+    changeReason: local ? null : ((f && f.changeReason) || null),
+    /* True where the answer is real but narrower than the athlete asked for --
+       the card says so, and the coach is not claimed to have been consulted. */
+    limited: !!(f && f.limited)
+  };
+}
+
+/* ---------- CONNECTIVITY ----------
+   navigator.onLine is used ONLY as an early yes-it-is-definitely-off signal.
+   It is famously optimistic — a captive portal, a wifi network with no route
+   out and a dead DNS server all report true — so it is never trusted in the
+   other direction. `false` is worth acting on because no browser reports false
+   while a request could succeed, and acting on it is what stops airplane mode
+   costing the athlete a doomed timeout before the answer they could have had
+   immediately. */
+function askDeviceOffline(){
+  try {
+    return typeof navigator !== 'undefined' && navigator && navigator.onLine === false;
+  } catch(e){ return false; }
+}
+
+/* DID THE REQUEST REACH A SERVER AT ALL? This is the whole distinction the
+   fallback rests on, and it is deliberately narrow.
+
+   A rejected fetch never got an HTTP response: no route, no DNS, refused
+   connection, TLS failure, airplane mode switched on mid-request. That is a
+   connectivity fault and the local reader can help.
+
+   Everything with a code or a status DID reach a server, and stays exactly
+   what it was. A 503 VOICE_NOT_CONFIGURED is a deployment that was never
+   finished; a 401 is a session problem; a 502 VOICE_UPSTREAM is the model
+   having a bad minute; a 429 is rate limiting. None of those is offline, none
+   of them is improved by pretending otherwise, and quietly relabelling a
+   missing API key as "no signal" would send whoever is diagnosing it to the
+   wrong continent. */
+function askTransportUnreachable(err){
+  if (!err) return false;
+  if (err.code || err.status) return false;
+  /* A TypeError is what every browser throws for a fetch that never connected.
+     Anything else unrecognised is treated as a real error, not as offline. */
+  return (err instanceof TypeError) || err.name === 'TypeError';
+}
+
+/* ---------- READING THE QUESTION ----------
+   Deterministic phrase matching over a normalised string. No classifier, no
+   remote call, no fuzzy scoring: a question either contains one of a small set
+   of phrases or it does not, and if it does not the athlete is told so. */
+function askLocalNormalise(q){
+  return String(q == null ? '' : q)
+    .toLowerCase()
+    .replace(/[‘’]/g, "'")
+    .replace(/[^a-z0-9' ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function askLocalMatches(n, phrases){
+  for (var i = 0; i < phrases.length; i++){
+    if (n.indexOf(phrases[i]) !== -1) return true;
+  }
+  return false;
+}
+
+/* Anything asking for a judgement about a body rather than a plan. Broad on
+   purpose and checked FIRST, so a symptom never reaches a session-reading
+   intent and gets answered with a pace band. */
+var ASK_LOCAL_MEDICAL = /\b(pain|painful|hurt|hurts|sore|soreness|injur|injury|injured|ill|illness|unwell|sick|fever|chest|breath|breathing|dizzy|dizziness|faint|blood|medical|doctor|physio|physiotherapist|tendon|strain|sprain|niggle)\b/;
+/* Anything asking about data that lives on somebody else's server. */
+var ASK_LOCAL_REMOTE = /\b(strava|garmin|sync|synced|syncing|upload|uploaded|import|imported|leaderboard|segment|kudos)\b/;
+
+/* Terms the app already has authored explanatory copy for, mapped onto the
+   session type that copy is keyed by. VOICE_SPOKEN is the spoken briefing's
+   own table — the same words the athlete hears on Hear Today — so explaining a
+   term offline cannot disagree with explaining it any other way. */
+var ASK_LOCAL_TERMS = {
+  easy:'easy', recovery:'easy', aerobic:'easy',
+  long:'long', 'long run':'long',
+  tempo:'tempo',
+  threshold:'threshold', lactate:'threshold',
+  interval:'interval', intervals:'interval',
+  repetition:'repetition', reps:'repetition', repetitions:'repetition',
+  checkpoint:'checkpoint', 'time trial':'checkpoint',
+  race:'race'
+};
+
+/* ---------- LOCAL DATA ----------
+   Every getter below returns null rather than a guess when the plan does not
+   carry the value. A null becomes "I do not have that on the device", never a
+   sentence with a hole in it. */
+
+/* A day Valhalla itself prescribed. A Strava-derived day is refused for the
+   same reason the cloud coach refuses it — the existing provenance boundary,
+   read here rather than re-decided. */
+function askLocalDayAt(dateStr){
+  var dd = null;
+  try { dd = findDayByDate(dateStr); } catch(e){ dd = null; }
+  if (!dd) return null;
+  try { if (isStravaDerived(dd)) return null; } catch(e){}
+  return dd;
+}
+function askLocalToday(){ return askLocalDayAt(todayStr()); }
+
+/* The next prescribed session with running in it. Rest days are skipped
+   because "what is next" asks about training; a rest day tomorrow is answered
+   by the rest-day intent instead. */
+function askLocalNextSession(){
+  var today = todayStr(), best = null;
+  var days = (state && state.days) || [];
+  for (var i = 0; i < days.length; i++){
+    var d = days[i];
+    if (!d || !d.date || d.date <= today) continue;
+    if (d.type === 'rest') continue;
+    try { if (isStravaDerived(d)) continue; } catch(e){}
+    if (!best || d.date < best.date) best = d;
+  }
+  return best;
+}
+
+/* This week's long run, from the same Monday-anchored week the plan is built
+   on rather than a window invented here. */
+function askLocalLongRunThisWeek(){
+  var today = todayStr(), monday, sunday;
+  try {
+    monday = addDays(today, -isoWeekday(today));
+    sunday = addDays(monday, 6);
+  } catch(e){ return null; }
+  var days = (state && state.days) || [];
+  for (var i = 0; i < days.length; i++){
+    var d = days[i];
+    if (!d || d.type !== 'long') continue;
+    if (d.date < monday || d.date > sunday) continue;
+    try { if (isStravaDerived(d)) continue; } catch(e){}
+    return d;
+  }
+  return null;
+}
+
+function askLocalDistance(dd){
+  if (!dd || typeof dd.km !== 'number' || !(dd.km > 0)) return null;
+  try { return fmtDist(dd.km); } catch(e){ return null; }
+}
+function askLocalPace(dd){
+  var t = null;
+  try { t = getDayTargets(dd); } catch(e){ t = null; }
+  return (t && t.pace) || null;
+}
+function askLocalHr(dd){
+  var t = null;
+  try { t = getDayTargets(dd); } catch(e){ t = null; }
+  return (t && t.hr) || null;
+}
+function askLocalSteps(dd){
+  var st = null;
+  try { st = workoutSteps(dd); } catch(e){ st = null; }
+  if (!st || !st.length) return null;
+  var parts = [];
+  for (var i = 0; i < st.length; i++){
+    var s = st[i], qty = null;
+    try { qty = renderStepQty(s); } catch(e){ qty = null; }
+    var label = s.label || '';
+    var line = qty ? (qty + (label ? ' ' + String(label).toLowerCase() : '')) : label;
+    line = String(line || '').trim();
+    if (line) parts.push(line);
+  }
+  return parts.length ? parts : null;
+}
+/* The authored purpose, preferring the engine's own intent line for today --
+   the same precedence the spoken briefing uses, so the two cannot disagree. */
+function askLocalPurpose(dd){
+  var intent = null;
+  try { intent = coachIntentLine(dd); } catch(e){ intent = null; }
+  if (intent) return String(intent);
+  var spoken = null;
+  try { spoken = voiceSpokenFor(dd); } catch(e){ spoken = null; }
+  if (spoken && spoken.purpose) return String(spoken.purpose);
+  var gd = null;
+  try { gd = coachingDisclosureFor(dd, athleteExperience(state.setup)); } catch(e){ gd = null; }
+  return (gd && gd.why) ? String(gd.why) : null;
+}
+function askLocalHow(dd){
+  var spoken = null;
+  try { spoken = voiceSpokenFor(dd); } catch(e){ spoken = null; }
+  if (spoken && spoken.cue) return String(spoken.cue);
+  var gd = null;
+  try { gd = coachingDisclosureFor(dd, athleteExperience(state.setup)); } catch(e){ gd = null; }
+  return (gd && gd.how) ? String(gd.how) : null;
+}
+function askLocalPhase(){
+  try {
+    var wk = currentWeekNum();
+    if (wk == null) return null;
+    var ph = trainingPhase(wk);
+    return ph ? { phase: ph, week: wk } : null;
+  } catch(e){ return null; }
+}
+
+/* The name a day is known by on the card. Falls back to the type label so a
+   day with no title is still describable. */
+function askLocalName(dd){
+  if (!dd) return null;
+  if (dd.title) return String(dd.title);
+  try { return dayTypeLabel(dd); } catch(e){ return null; }
+}
+/* "Tomorrow" only when it really is. Anything further out is named by its own
+   weekday, because calling Friday "tomorrow" on a Tuesday is the kind of small
+   confident wrongness this layer exists to avoid. */
+function askLocalWhen(dateStr){
+  var today = todayStr();
+  try {
+    if (dateStr === addDays(today, 1)) return 'Tomorrow';
+    /* The same construction dow() uses, asking for the long form: a spoken
+       answer wants "Saturday", not "Sat". */
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday:'long' });
+  } catch(e){ return dateStr; }
+}
+
+function askLocalJoin(parts){
+  return parts.filter(function(p){ return p; }).join(' ');
+}
+
+/* ---------- THE INTENTS ----------
+   First match wins, so order is meaning: the narrow questions are asked before
+   the broad ones. Each builder returns a sentence or null, and a null is an
+   honest "the plan does not carry that" rather than a reason to improvise. */
+var ASK_LOCAL_INTENTS = [
+  { id:'term',
+    phrases:['what does', 'what is a', 'what is an', 'what do you mean by', 'meaning of', 'what means'],
+    build:function(n){
+      var keys = Object.keys(ASK_LOCAL_TERMS);
+      /* Longest term first, so "long run" is not read as "long". */
+      keys.sort(function(a,b){ return b.length - a.length; });
+      for (var i = 0; i < keys.length; i++){
+        if (n.indexOf(keys[i]) === -1) continue;
+        var type = ASK_LOCAL_TERMS[keys[i]];
+        var sp = VOICE_SPOKEN[type];
+        if (!sp) return null;
+        return askLocalJoin([sp.purpose || null, sp.cue || null]);
+      }
+      return null;
+    } },
+
+  { id:'rest_day',
+    phrases:['recovery day', 'rest day', 'is today a rest', 'am i resting', 'do i run today', 'am i running today'],
+    build:function(){
+      var dd = askLocalToday();
+      if (!dd) return null;
+      if (dd.type === 'rest')
+        return 'Today is a rest day. Nothing to run — rest is the part of the plan that lets the training count.';
+      var name = askLocalName(dd);
+      return askLocalJoin(['Today is not a rest day.', name ? 'You have ' + name + '.' : null]);
+    } },
+
+  { id:'long_run',
+    phrases:['long run this week', 'my long run', 'the long run', 'long run'],
+    build:function(){
+      var dd = askLocalLongRunThisWeek();
+      if (!dd) return null;
+      var dist = askLocalDistance(dd);
+      return askLocalJoin([
+        'Your long run this week is on ' + askLocalWhen(dd.date) + (dist ? ', ' + dist : '') + '.',
+        askLocalHow(dd)
+      ]);
+    } },
+
+  { id:'next_session',
+    phrases:['tomorrow', 'next session', 'next workout', 'next run', 'what is next', "what's next", 'coming up'],
+    build:function(){
+      var dd = askLocalNextSession();
+      if (!dd) return null;
+      var name = askLocalName(dd), dist = askLocalDistance(dd), pace = askLocalPace(dd);
+      return askLocalJoin([
+        askLocalWhen(dd.date) + ' is ' + (name || 'a session') + (dist ? ', ' + dist : '') + '.',
+        pace ? 'Target pace ' + pace + '.' : null
+      ]);
+    } },
+
+  { id:'phase',
+    phrases:['what phase', 'which phase', 'phase am i', 'what block', 'which week', 'what week'],
+    build:function(){
+      var p = askLocalPhase();
+      if (!p) return null;
+      return 'You are in ' + p.phase + ', week ' + p.week + ' of your block.';
+    } },
+
+  { id:'steps',
+    phrases:['intervals', 'the reps', 'how many reps', 'steps', 'structure', 'what are the', 'session look like', 'breakdown'],
+    build:function(){
+      var dd = askLocalToday();
+      if (!dd) return null;
+      var steps = askLocalSteps(dd);
+      if (!steps) return null;
+      return askLocalJoin([
+        (askLocalName(dd) || 'Today') + ':',
+        steps.join(', ') + '.'
+      ]);
+    } },
+
+  { id:'pace',
+    phrases:['what pace', 'which pace', 'how fast', 'target pace', 'pace should', 'pace am i', 'my pace'],
+    build:function(){
+      var dd = askLocalToday();
+      if (!dd) return null;
+      var pace = askLocalPace(dd);
+      if (!pace) return null;
+      return askLocalJoin([
+        'Your prescribed range for ' + (askLocalName(dd) || 'today') + ' is ' + pace + '.',
+        askLocalHow(dd)
+      ]);
+    } },
+
+  { id:'zone',
+    phrases:['what zone', 'which zone', 'heart rate', 'what hr', 'how hard', 'what effort', 'effort should'],
+    build:function(){
+      var dd = askLocalToday();
+      if (!dd) return null;
+      var hr = askLocalHr(dd);
+      var band = null;
+      try { band = expectedRPEBand(dd); } catch(e){ band = null; }
+      if (!hr && !band) return null;
+      return askLocalJoin([
+        hr ? 'Target heart rate today is ' + hr + '.' : null,
+        (band && band.length === 2) ? 'Expected effort is ' + band[0] + ' to ' + band[1] + ' out of 10.' : null,
+        askLocalHow(dd)
+      ]);
+    } },
+
+  { id:'duration',
+    phrases:['how long is', 'how far', 'how many km', 'how many kilometres', 'how many miles', 'distance today', 'how much running'],
+    build:function(){
+      var dd = askLocalToday();
+      if (!dd) return null;
+      if (dd.type === 'rest') return 'Nothing today — it is a rest day.';
+      var dist = askLocalDistance(dd);
+      if (!dist) return null;
+      return (askLocalName(dd) || 'Today') + ' is ' + dist + '.';
+    } },
+
+  { id:'purpose',
+    phrases:['why am i', 'why is', 'why this', 'why today', 'the purpose', 'purpose of', 'the point of', 'what is this for', 'why do i'],
+    build:function(){
+      var dd = askLocalToday();
+      if (!dd) return null;
+      var purpose = askLocalPurpose(dd);
+      if (!purpose) return null;
+      var steps = askLocalSteps(dd);
+      return askLocalJoin([
+        purpose,
+        steps ? 'Today is ' + steps.join(', ') + '.' : null
+      ]);
+    } },
+
+  { id:'today_session',
+    phrases:['today', 'my workout', 'my session', 'what am i doing', 'what have i got', 'on the plan'],
+    build:function(){
+      var dd = askLocalToday();
+      if (!dd) return null;
+      if (dd.type === 'rest')
+        return 'Today is a rest day. Nothing to run — rest is the part of the plan that lets the training count.';
+      var name = askLocalName(dd), dist = askLocalDistance(dd), pace = askLocalPace(dd);
+      return askLocalJoin([
+        'Today is ' + (name || 'a session') + (dist ? ', ' + dist : '') + '.',
+        pace ? 'Target pace ' + pace + '.' : null,
+        askLocalHow(dd)
+      ]);
+    } }
+];
+
+/* What the athlete is told when the local reader cannot answer. It says what
+   it CAN do, names nothing technical, and does not suggest the athlete asked
+   a bad question. */
+var ASK_LOCAL_COPY = {
+  unsupported: 'I can’t give you a full coaching answer while you’re offline. ' +
+    'I can still tell you today’s session, its pacing and structure, what’s next, and where you are in the block.',
+  no_data: 'I don’t have that on the device. ' +
+    'I can still tell you today’s session, its pacing and structure, what’s next, and where you are in the block.',
+  medical: 'I’m a running coach, not a doctor, and I can’t judge symptoms — offline or online. ' +
+    'If something hurts, be conservative with today’s session and get it looked at properly if it persists.',
+  remote: 'I can’t reach Strava or check for new activity while you’re offline, ' +
+    'so I can only go on what’s already on this device. ' +
+    'I can still tell you today’s session, its pacing and structure, and what’s next.',
+  stale: 'This is the plan as it was last saved on this device, which may not include very recent changes.'
+};
+
+/* Does the app already know its local plan may be behind the server? Read from
+   whatever the sync layer already records rather than computed here — this is
+   deliberately NOT a sync engine, it is a caveat attached to an answer. */
+function askLocalPlanMayBeStale(){
+  try {
+    if (state && state.cloudDirty) return true;
+    if (state && state.pendingSync) return true;
+  } catch(e){}
+  return false;
+}
+
+/* THE LOCAL READER. Always returns a normalised result — never throws, never
+   returns null — because its whole job is to be the thing that still works. */
+function askLocalResolve(question){
+  var n = askLocalNormalise(question);
+  var mk = function(answer, limited){
+    return askResult({ answer:answer, source:ASK_SOURCE_LOCAL, limited:!!limited });
+  };
+  if (!n) return mk(ASK_LOCAL_COPY.unsupported, true);
+
+  /* Boundaries before intents, so a symptom is never answered with a pace. */
+  if (ASK_LOCAL_MEDICAL.test(n)) return mk(ASK_LOCAL_COPY.medical, true);
+  if (ASK_LOCAL_REMOTE.test(n))  return mk(ASK_LOCAL_COPY.remote, true);
+
+  if (!state || !state.days || !state.days.length) return mk(ASK_LOCAL_COPY.no_data, true);
+
+  var stale = askLocalPlanMayBeStale() ? ASK_LOCAL_COPY.stale : null;
+  for (var i = 0; i < ASK_LOCAL_INTENTS.length; i++){
+    var intent = ASK_LOCAL_INTENTS[i];
+    if (!askLocalMatches(n, intent.phrases)) continue;
+    var built = null;
+    try { built = intent.build(n); } catch(e){ built = null; }
+    /* A matched intent with no data is answered as missing data, not as an
+       unrecognised question: the athlete asked something this layer supports
+       and deserves to know the difference. */
+    if (!built) return mk(ASK_LOCAL_COPY.no_data, true);
+    return mk(askLocalJoin([built, stale]), false);
+  }
+  return mk(ASK_LOCAL_COPY.unsupported, true);
+}
+
+/* Speak a local answer through whatever the DEVICE can do, and never through
+   the cloud voice: an offline answer that opened a network request for its
+   audio would be waiting on exactly the thing that is not there. voiceSpeak()
+   already falls back to the native engine on every failure path, so this only
+   has to make sure the failure is not attempted in the first place. */
+function askSpeakLocal(text){
+  var speakable = '';
+  try { speakable = voiceSpeakable(text); } catch(e){ speakable = String(text || ''); }
+  if (!speakable) return;
+  try { voiceSpeak(speakable, { kind:'answer', localOnly:true }); } catch(e){}
+}
+
 function askSend(question, opts){
   var q = String(question || '').trim();
   if (!q) return Promise.resolve(null);
+  /* A DEPLOYMENT WITHOUT A COACH IS STILL A DEPLOYMENT WITHOUT A COACH. This
+     is configuration, not connectivity, and offline guidance does not paper
+     over it -- the athlete would be told there is no signal when the truth is
+     that the feature was never switched on for them. */
   if (!voiceCoachAvailable){ askSet('error', { message:VOICE_ERROR_COPY.voice_disabled }); return Promise.resolve(null); }
-  if (!cloudSignedIn()){ askSet('error', { message:VOICE_ERROR_COPY.not_signed_in }); return Promise.resolve(null); }
+  /* Nothing on the device to read either, so offline changes nothing here. */
   var refuse = voiceAskRefusalReason();
   if (refuse){ askSet('error', { message:VOICE_ERROR_COPY[refuse] || VOICE_ERROR_COPY.coach_unavailable }); return Promise.resolve(null); }
+
+  /* KNOWN OFFLINE BEFORE THE REQUEST EXISTS. Answered from the device
+     immediately: making the athlete watch "Thinking..." for a timeout that
+     cannot succeed is the experience this whole pass exists to remove.
+
+     THIS IS CHECKED BEFORE THE SIGNED-IN GATE ON PURPOSE. Being offline is not
+     being signed out. The app shell already opened under its own entitlement
+     window, the plan being read is the athlete's own and is already on this
+     device, and a token that could not be refreshed for lack of a network is
+     not evidence about who the athlete is. Online, the gate below is unchanged
+     and still has the last word. */
+  if (askDeviceOffline()) return askDeliverLocal(q);
+
+  if (!cloudSignedIn()){ askSet('error', { message:VOICE_ERROR_COPY.not_signed_in }); return Promise.resolve(null); }
 
   askSet('thinking', { heard:q, answer:'', message:'' });
   var ctx;
@@ -27618,9 +28134,16 @@ function askSend(question, opts){
        trailer was missing, ambiguous or invalid -- and in every one of those
        cases no offer is considered at all. The engine gate below is unchanged
        and still has the last word. */
-    var propId = (d.needsPlanChange && d.complete !== false)
+    /* AND NEVER FROM A LOCAL ANSWER. Offline guidance forces needsPlanChange
+       false in askResult(), so this could not fire anyway -- the source test
+       is here as well because "could not fire anyway" is a property of another
+       function, and this is the line that must survive that function changing.
+       coachProposedChangeDayId() is cloud-coach territory and is not reached
+       by any offline path. */
+    var propId = (d.source !== ASK_SOURCE_LOCAL && d.needsPlanChange && d.complete !== false)
       ? coachProposedChangeDayId() : null;
     askSet('answered', { answer:d.answer, proposalDayId:propId,
+                         source: d.source || ASK_SOURCE_CLOUD,
                          incomplete: d.incomplete === true });
     askAnnounceAnswer(d.answer);
     if (askSpeech){
@@ -27646,10 +28169,33 @@ function askSend(question, opts){
     }
     return d;
   }).catch(function(err){
+    /* THE REQUEST NEVER REACHED A SERVER. Connectivity went while the athlete
+       was typing, or navigator.onLine was optimistic about a network with no
+       route out. Either way the device can still answer, and one failed
+       attempt is the whole cost -- there is no retry loop here, because a
+       second doomed request only delays the answer that was always available.
+
+       Every OTHER failure keeps the message it had. A 503 from an
+       unconfigured deployment, a 401, a 429, a 502 from the model: all of
+       those reached a server, none of them is offline, and dressing them as
+       offline would hide a real fault behind a reassuring sentence. */
+    if (askTransportUnreachable(err)) return askDeliverLocal(q);
     var code = (err && err.code) || 'coach_unavailable';
     askSet('error', { message: VOICE_ERROR_COPY[code] || VOICE_ERROR_COPY.coach_unavailable });
     return null;
   });
+}
+
+/* Put a local answer on the same surface the cloud answer uses. No proposal is
+   passed and none can be computed: the card's Suggested change block is drawn
+   from proposalDayId, which is null here and stays null. */
+function askDeliverLocal(question){
+  var r = askLocalResolve(question);
+  askSet('answered', { heard:question, answer:r.answer, proposalDayId:null,
+                       source:r.source, limited:r.limited, incomplete:false });
+  askAnnounceAnswer(r.answer);
+  askSpeakLocal(r.answer);
+  return Promise.resolve(r);
 }
 
 /* ---------- EARLY SPEECH: SAYING SENTENCE ONE WHILE SENTENCE THREE IS STILL BEING WRITTEN ----------
@@ -28153,6 +28699,18 @@ function renderAskPanel(dd){
            this was not a finished answer and nothing was proposed from it. */
         body += '<div class="ask-incomplete" role="status" aria-live="polite">'+
                 'That answer stopped early — ask again to get the whole of it.</div>';
+      }
+      /* WHERE THIS CAME FROM, SAID QUIETLY. Subordinate to the answer, not a
+         banner above it, and not an error state: there is useful guidance on
+         the screen and the card should not look broken while showing it.
+
+         NOT a live region. The answer itself is announced through
+         ask-answer-announce, and a second polite region firing beside it makes
+         a screen reader read the provenance note over the coaching. It is
+         plain text in the reading order instead, immediately after the answer,
+         so it is reached in sequence exactly where a sighted reader sees it. */
+      if (askState.status === 'answered' && askState.source === ASK_SOURCE_LOCAL){
+        body += '<div class="ask-source">Offline guidance</div>';
       }
       if (askState.status === 'answered') body += renderAskProposal();
     }
