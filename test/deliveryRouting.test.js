@@ -75,7 +75,7 @@ test('no route uses continue:true, which is what let a header rule sit in front 
   const cont = PRE.filter(r => r.continue);
   assert.deepEqual(cont, [],
     'a continue route ahead of the guards matched /protected/…html and is not worth ' +
-    'the cache header it existed for; /api/app sets its own no-store');
+    'the cache header it existed for; /api/app sets its own cache headers');
 });
 
 // ---------------------------------------------------------------------------
