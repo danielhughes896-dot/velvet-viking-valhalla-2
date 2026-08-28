@@ -379,7 +379,11 @@ test('fills that carry state or semantics were not flattened', () => {
     ['.zbar', '--bg-4'],
     ['.outlook-track', '--bg-3'],
     ['.switch-track::before', '--bg-2'],
-    ['.rec-card:hover', '--bg-3'],
+    /* .rec-card:hover until the Record's list-row shell was removed. It had
+       not existed in the markup for some time, so this row was guarding a
+       rule nothing could paint. .ev-card is the shell Record and Reading
+       cards actually use, and it is the same law. */
+    ['.ev-card:hover', '--bg-3'],
     ['.plan-summary-bar:hover', '--bg-3'],
     ['.goal-opt', '--bg-2'],
   ];
