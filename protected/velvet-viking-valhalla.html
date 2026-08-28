@@ -2859,7 +2859,21 @@
      see .rec-empty-state, where the words really are a secondary note after
      their label rather than a plate value. Same words, different UI role,
      deliberately different typography. */
-  .b-plate .val.rec-none{color:var(--ink-faint);}
+  /* AND IT IS SET IN THE INTERFACE FACE, because it is language.
+     Physical Android verification showed this still rendering in JetBrains
+     Mono, identical to the "10K \u00b7 23:00" beside it, and the reason was
+     inheritance: this rule set colour ONLY, so the family came from
+     .b-plate .val above and the empty state read as a measurement of nothing
+     rather than the absence of a measurement.
+
+     The family is the whole distinction and is therefore the whole change.
+     Size, weight, letter spacing, line height, casing, alignment and
+     overflow-wrap still inherit from the value slot, and the colour is the
+     same --ink-faint it has always been, so nothing about the plate's
+     geometry or palette moves. The two measured plates are untouched and stay
+     on the data face; a test reads the COMPUTED family of all three, because
+     a rule that exists is not the same thing as a rule that wins. */
+  .b-plate .val.rec-none{color:var(--ink-faint); font-family:'Inter',-apple-system,sans-serif;}
 
   /* ---------- THE EVIDENCE-ACQUISITION STATE ----------
      Same card family, deliberately lighter: no data typography, no headline

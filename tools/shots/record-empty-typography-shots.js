@@ -172,14 +172,23 @@ const WIDTHS = [430, 412, 390, 384, 360, 320];
     if (r.m.scrollW > r.m.clientW + 1) problems.push(r.file + ': horizontal overflow');
     r.m.plates.forEach(p => {
       if (p.overflows) problems.push(r.file + ': "' + p.value + '" overflows its plate');
-      /* EVERY plate value is on the data face, the empty one included -- that
-         is the point of this pass. A face that drifted on any of them would
-         be invisible in the image. */
-      if (p.font !== 'JetBrains Mono')
+      /* THE DISTINCTION, READ FROM THE COMPUTED STYLE. A measurement is on the
+         data face; an absence is language and is on the interface face. This
+         sweep is the second line of defence and the one that would have caught
+         the defect physical Android verification found: the CSS rule for the
+         empty value existed and looked right, but declared colour only, so it
+         inherited JetBrains Mono and rendered identically to the measurement
+         beside it. Only the computed family shows that. */
+      if (p.none){
+        if (/JetBrains Mono/.test(p.font))
+          problems.push(r.file + ': "' + p.value + '" renders in the data face (' + p.font + ')');
+        if (!/Inter/.test(p.font))
+          problems.push(r.file + ': "' + p.value + '" is not in the interface face (' + p.font + ')');
+      } else if (!/JetBrains Mono/.test(p.font)){
         problems.push(r.file + ': ' + p.label + ' left the data face (' + p.font + ')');
-      /* EVERY plate value is the same size, empty or not. The empty ones are
-         the value role unavailable, not a smaller role of their own -- a size
-         override keyed on emptiness also shrank "Not set", which fits. */
+      }
+      /* EVERYTHING ELSE IS SHARED. Only the typeface differs, so no card
+         dimension, spacing or alignment moves. */
       if (p.size !== '16px')
         problems.push(r.file + ': ' + p.label + ' is ' + p.size + ', not the plate value size');
       if (p.weight !== '600')

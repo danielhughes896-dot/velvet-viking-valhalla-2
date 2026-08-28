@@ -75,6 +75,59 @@ function declared(selector, prop){
   return val;
 }
 
+/* THE EFFECTIVE STYLE, NOT MERELY A RULE THAT EXISTS.
+   ---------------------------------------------------------------------------
+   This is the lesson of the defect these tests failed to catch. The previous
+   version asserted that `.b-plate .val.rec-none` declared no font-family --
+   which was true, and which was exactly the bug: with nothing declared, the
+   family came from `.b-plate .val` and the empty state rendered in the data
+   face. A rule that exists is not a rule that wins, and only the winner is
+   what an athlete sees.
+
+   So this resolves the cascade the way a browser does: every rule whose
+   selector matches the element is collected, ordered by specificity and then
+   by source order, and the last declaration of the property wins. Not a full
+   CSS engine -- it handles the class-and-descendant selectors this stylesheet
+   uses for these elements, which is what is being asserted. */
+function effectiveStyle(classes, prop, ancestors){
+  const own = classes.slice().sort().join('.');
+  const anc = (ancestors || []).slice();
+  const css = SRC.replace(/\/\*[\s\S]*?\*\//g, '');
+  const re = /([^{}]+)\{([^{}]*)\}/g;
+  const wins = [];
+  let m, order = 0;
+  while ((m = re.exec(css))){
+    const body = m[2];
+    m[1].split(',').forEach(sel => {
+      order++;
+      const parts = sel.trim().split(/\s+/);
+      if (!parts.length) return;
+      /* The final compound must be a subset of this element's classes. */
+      const last = parts[parts.length - 1];
+      if (!/^\.[\w-]+(\.[\w-]+)*$/.test(last)) return;
+      const need = last.slice(1).split('.');
+      if (!need.every(c => classes.indexOf(c) !== -1)) return;
+      /* Every earlier part must name an ancestor we have. */
+      const rest = parts.slice(0, -1);
+      if (!rest.every(pt => /^\.[\w-]+$/.test(pt) && anc.indexOf(pt.slice(1)) !== -1)) return;
+      /* Specificity: class count across the whole selector. */
+      const spec = (sel.match(/\.[\w-]+/g) || []).length;
+      body.split(';').forEach(d => {
+        const i = d.indexOf(':');
+        if (i === -1) return;
+        if (d.slice(0, i).trim() !== prop) return;
+        wins.push({ spec, order, value: d.slice(i + 1).trim() });
+      });
+    });
+  }
+  if (!wins.length) return null;
+  wins.sort((a, b) => (a.spec - b.spec) || (a.order - b.order));
+  return wins[wins.length - 1].value;
+}
+/* The three values as the app actually emits them -- see recordPlate(). */
+const EMPTY_VALUE    = { classes:['val','rec-none'], ancestors:['b-plate','b-record'] };
+const MEASURED_VALUE = { classes:['val'],            ancestors:['b-plate','b-record'] };
+
 function athleteWithNoMeasurement(){
   const a = loadApp({ pinnedDate: '2026-08-27T09:00:00Z' });
   a.showToast = () => {};
@@ -88,29 +141,43 @@ function athleteWithNoMeasurement(){
 // 1. THE FACE
 // ---------------------------------------------------------------------------
 
-test('an empty plate inherits the value role entirely, and overrides only colour', () => {
-  /* THE DECISION THIS TEST RECORDS. A 13px override briefly lived here so that
-     "Nothing measured" -- sixteen characters in a half-width plate -- would
-     hold one line down to 360px. It keyed on EMPTINESS, and emptiness is not
-     what causes the fit problem: length is. rec-none is also carried by the
-     Benchmark plate's "Not set", seven characters that fit at 16px with room
-     to spare, and the override shrank that too -- so an athlete missing both
-     facts saw a Record whose type size announced which ones were absent.
-     The empty plate is the value role unavailable, not a smaller role. */
-  ['font-size', 'font-family', 'font-weight', 'letter-spacing', 'line-height',
-   'text-transform', 'text-align', 'font-style'].forEach(prop => {
-    assert.equal(declared('.b-plate .val.rec-none', prop), null,
-      'the empty plate overrides ' + prop + ', which the value role sets');
+test('the empty value renders in the interface face, and the measured ones do not', () => {
+  /* ASSERTED ON THE EFFECTIVE STYLE. The previous version of this test checked
+     that the empty value DECLARED no font-family, on the reasoning that full
+     inheritance was the cleanest expression of "same value role". It passed
+     while the athlete saw "Nothing measured" in JetBrains Mono, identical to
+     the measurement beside it, because inheriting from .b-plate .val is
+     precisely how it got the data face. Physical Android verification is what
+     caught it. A rule that exists is not a rule that wins. */
+  const empty = effectiveStyle(EMPTY_VALUE.classes, 'font-family', EMPTY_VALUE.ancestors);
+  const measured = effectiveStyle(MEASURED_VALUE.classes, 'font-family', MEASURED_VALUE.ancestors);
+  assert.ok(empty, 'no font-family resolves for the empty value at all');
+  assert.match(empty, /^'Inter'/,
+    '"Nothing measured" effectively renders in ' + empty + ', not the interface face');
+  assert.ok(!/JetBrains Mono/.test(empty),
+    '"Nothing measured" still resolves to the monospace data face');
+  assert.match(measured, /JetBrains Mono/,
+    'the measured values left the data face: ' + measured);
+  /* The distinction is the point: they must not resolve to the same face. */
+  assert.notEqual(empty, measured,
+    'the empty value and the measurements resolve to the same typeface');
+});
+
+test('nothing but the face differs between the empty and measured values', () => {
+  /* The correction is deliberately one property. Size, weight, letter spacing,
+     line height, casing and alignment still come from the value slot, so no
+     card dimension, spacing or alignment moves. */
+  ['font-size', 'font-weight', 'letter-spacing', 'line-height', 'text-transform',
+   'text-align'].forEach(prop => {
+    const e = effectiveStyle(EMPTY_VALUE.classes, prop, EMPTY_VALUE.ancestors);
+    const m = effectiveStyle(MEASURED_VALUE.classes, prop, MEASURED_VALUE.ancestors);
+    assert.equal(e, m,
+      prop + ' differs between the empty and measured values (' + e + ' vs ' + m + ') -- ' +
+      'only the typeface was meant to change');
   });
-  /* Which means it is whatever the populated value is. */
-  assert.equal(declared('.b-plate .val', 'font-size'), '16px');
-  assert.equal(declared('.b-plate .val', 'font-weight'), '600');
-  assert.match(declared('.b-plate .val', 'font-family'), /JetBrains Mono/);
-  /* The one thing that does differ, and the reason it differs. */
-  const colour = declared('.b-plate .val.rec-none', 'color') || '';
-  assert.match(colour, /--ink-faint/, 'the empty plate lost its quieting');
-  assert.ok(!/--c-|--gold/.test(colour),
-    'the empty plate carries a status hue -- an absence is not a warning');
+  /* Colour is the one older difference, and it stays. */
+  assert.match(effectiveStyle(EMPTY_VALUE.classes, 'color', EMPTY_VALUE.ancestors) || '',
+    /--ink-faint/, 'the empty value lost its quieting');
 });
 
 test('both empty values in this slot are treated identically', () => {
