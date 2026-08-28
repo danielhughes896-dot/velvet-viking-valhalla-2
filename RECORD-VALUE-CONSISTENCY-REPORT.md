@@ -62,33 +62,53 @@ rather than their value.
 
 ---
 
-## 3. Why 13px, measured rather than guessed
+## 3. 13px, 14px — or neither. The evidence said neither.
 
-Monospace "Nothing measured" is 16 characters. One-line width against the
-plate's content width, measured in a browser at each production viewport:
+The open question was 13 vs 14. Auditing the value system on current `main`
+answered a different question instead.
 
-| Viewport | Plate | Content | 16px (154px) | 14px (135px) | **13px (125px)** |
-|---|---:|---:|:--:|:--:|:--:|
-| 430 | 194 | 166 | 1 line | 1 line | **1 line** |
-| 412 *(Android)* | 185 | 157 | 1 line | 1 line | **1 line** |
-| 390 *(iPhone)* | 174 | 146 | **wraps** | 1 line | **1 line** |
-| 384 | 171 | 143 | **wraps** | 1 line | **1 line** |
-| 360 *(Android)* | 159 | 131 | **wraps** | **wraps** | **1 line** |
-| 320 *(floor)* | 139 | 111 | **wraps** | **wraps** | wraps |
+**`.rec-none` is carried by two values, not one.** `recordBenchmarkFact()` sets
+`none: !b`, so an athlete with no benchmark gets **"Not set"** in the same slot
+with the same class. Measured at 390 px with the 13px override in place:
 
-At the system's own 16px it wraps on **every phone narrower than 412**. 14px
-still wraps at 360, which is one of the two most common Android widths. 13px
-holds one line from 360 up; at 320 nothing consistent fits and it wraps
-cleanly, which is the "genuinely required" case.
+| Plate | Value | Size | Plate box |
+|---|---|---|---:|
+| Measured fitness | "Nothing measured" | **13px** | 174 × **60** |
+| Benchmark | "Not set" | **13px** | 174 × **60** |
+| Progress | "10%" | 16px | 174 × **64** |
 
-13px is an accommodation, not a demotion: it is still 44% larger than the 9px
-label beneath it, and 3px is the smallest step that reaches 360.
+Seven characters that fit at 16px with room to spare were shrunk anyway, and an
+athlete missing *both* facts saw a Record whose **type size announced which ones
+were absent**. The override keyed on **emptiness**; emptiness is not what causes
+the fit problem. **Length is.**
 
-**If you would rather have +1px and accept a wrap at 360, say so and it is
-14px** — one character of the brief, and the table above is the whole argument
-either way.
+### What the value system actually supports
 
----
+Neither 13px nor 14px has any support. Every monospace value rule in the product
+was enumerated: sizes cluster per component — `.stat .v` 19px, `.rec-headline b`
+20px, `.b-plate .val` 16px, `.week-vol .v` 15px, `.coach-metric .cm-v` 14px,
+`.hq-row-v` 11px. There is no 13px value role and no 14px one either. The only
+*comparable* element is the slot itself, and it is **16px** — which is what
+"Not set" already uses today.
+
+The brief's own governing rule decides it: *"'Nothing measured' inherits the
+established value role; it does not establish its own role."* A bespoke 13px —
+or 14px — **is** establishing its own role.
+
+### The rule
+
+```css
+.b-plate .val.rec-none{color:var(--ink-faint);}
+```
+
+Family, size, weight, letter spacing, line height, casing, alignment and
+overflow-wrap all inherit. **One property differs**, and only one: the colour,
+because an absence is not a warning.
+
+"Nothing measured" wraps to two lines below 412px. That is the honest outcome
+for sixteen characters in half a phone — the slot stays the size it always is
+and only its contents are unavailable — and the two plates in the row stay
+exactly the same height as each other, which the sweep now checks.
 
 ## 4. Verified in a browser
 

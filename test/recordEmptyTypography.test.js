@@ -88,32 +88,48 @@ function athleteWithNoMeasurement(){
 // 1. THE FACE
 // ---------------------------------------------------------------------------
 
-test('the empty plate is on the value system\'s face and weight', () => {
-  /* Asserted as INHERITANCE, not as a matching declaration. The rule must not
-     restate the family or the weight, because a copy is what drifts: change
-     .b-plate .val and a copy silently stops matching it. */
-  assert.equal(declared('.b-plate .val.rec-none', 'font-family'), null,
-    'the empty plate declares its own family again -- it should inherit the ' +
-    'value face from .b-plate .val so the two cannot drift apart');
-  assert.equal(declared('.b-plate .val.rec-none', 'font-weight'), null,
-    'the empty plate declares its own weight again instead of inheriting 600');
-  /* Which means the face it actually gets is the neighbour\'s. */
-  assert.match(declared('.b-plate .val', 'font-family'), /JetBrains Mono/,
-    'the plate value slot is no longer the data face');
+test('an empty plate inherits the value role entirely, and overrides only colour', () => {
+  /* THE DECISION THIS TEST RECORDS. A 13px override briefly lived here so that
+     "Nothing measured" -- sixteen characters in a half-width plate -- would
+     hold one line down to 360px. It keyed on EMPTINESS, and emptiness is not
+     what causes the fit problem: length is. rec-none is also carried by the
+     Benchmark plate's "Not set", seven characters that fit at 16px with room
+     to spare, and the override shrank that too -- so an athlete missing both
+     facts saw a Record whose type size announced which ones were absent.
+     The empty plate is the value role unavailable, not a smaller role. */
+  ['font-size', 'font-family', 'font-weight', 'letter-spacing', 'line-height',
+   'text-transform', 'text-align', 'font-style'].forEach(prop => {
+    assert.equal(declared('.b-plate .val.rec-none', prop), null,
+      'the empty plate overrides ' + prop + ', which the value role sets');
+  });
+  /* Which means it is whatever the populated value is. */
+  assert.equal(declared('.b-plate .val', 'font-size'), '16px');
   assert.equal(declared('.b-plate .val', 'font-weight'), '600');
+  assert.match(declared('.b-plate .val', 'font-family'), /JetBrains Mono/);
+  /* The one thing that does differ, and the reason it differs. */
+  const colour = declared('.b-plate .val.rec-none', 'color') || '';
+  assert.match(colour, /--ink-faint/, 'the empty plate lost its quieting');
+  assert.ok(!/--c-|--gold/.test(colour),
+    'the empty plate carries a status hue -- an absence is not a warning');
 });
 
-test('and it takes nothing else out of the system either', () => {
-  /* Casing, alignment, letter-spacing and line height all come from
-     .b-plate / .b-plate .val. A rule that starts overriding them is a rule
-     drifting back out of the value system one property at a time. */
-  ['letter-spacing', 'line-height', 'text-transform', 'text-align', 'font-style']
-    .forEach(prop => {
-      assert.equal(declared('.b-plate .val.rec-none', prop), null,
-        'the empty plate overrides ' + prop + ', which the value system sets');
-    });
-  assert.match(rulesFor('.b-plate').join(' '), /text-align:center/,
-    'the plate stopped centring its value');
+test('both empty values in this slot are treated identically', () => {
+  /* "Nothing measured" and "Not set" are the same thing -- a plate value that
+     is unavailable -- and there is exactly one rule for both. A rule that
+     distinguished them by length would be styling a string, not a role. */
+  const a = athleteWithNoMeasurement();
+  a.state.setup.benchmark = null;
+  const facts = a.recordFacts();
+  const empties = facts.filter(f => f.none);
+  assert.equal(empties.map(f => f.value).sort().join('|'), 'Not set|Nothing measured',
+    'this slot no longer has two empty values, so this test needs revisiting');
+  empties.forEach(f => {
+    assert.match(a.recordPlate(f), /<div class="val rec-none">/,
+      f.subject + ' does not use the shared empty-value class');
+  });
+  /* And exactly one rule governs them. */
+  assert.equal(rulesFor('.b-plate .val.rec-none').length, 1,
+    'the empty value is governed by more than one rule -- they will drift');
 });
 
 test('the measured plates are untouched', () => {
@@ -126,29 +142,6 @@ test('the measured plates are untouched', () => {
     'the measured plates changed weight');
   assert.match(declared('.b-plate .val', 'font-family'), /JetBrains Mono/,
     'the measured plates left the data face');
-});
-
-test('the size accommodation is an accommodation, not a demotion', () => {
-  /* It exists for one reason -- 16 characters in a half-width plate -- and it
-     has to stay bounded at both ends. Too large and it wraps on every phone;
-     too small and it stops reading as the plate\'s primary content, which is
-     the label\'s job at 9px. */
-  const size = parseFloat(declared('.b-plate .val.rec-none', 'font-size'));
-  const base = parseFloat(declared('.b-plate .val', 'font-size'));
-  const label = parseFloat(declared('.b-plate .lbl', 'font-size'));
-  assert.ok(size <= 13,
-    'at ' + size + 'px "Nothing measured" wraps at 390px -- it needs 13px or less');
-  assert.ok(size > label + 2,
-    'the empty value is ' + size + 'px against a ' + label + 'px label -- ' +
-    'it has stopped being the plate primary content');
-  assert.ok(base - size <= 3,
-    'the empty value is ' + (base - size) + 'px below the plate value; that is ' +
-    'no longer the same value system');
-  /* Quieted, never coloured -- a rule older than this pass and not part of it. */
-  const colour = declared('.b-plate .val.rec-none', 'color') || '';
-  assert.match(colour, /--ink-faint/, 'the empty plate lost its quieting');
-  assert.ok(!/--c-|--gold/.test(colour),
-    'the empty plate carries a status hue -- an absence is not a warning');
 });
 
 // ---------------------------------------------------------------------------
