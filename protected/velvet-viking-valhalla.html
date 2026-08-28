@@ -2836,35 +2836,34 @@
   .rec-headline b{font-family:'JetBrains Mono',monospace; font-size:20px; color:var(--ink); overflow-wrap:anywhere; font-weight:600;}
   .rec-headline span{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint);}
   .rec-context{font-size:11px; line-height:1.4; color:var(--ink-faint); margin-top:2px;}
-  /* "Nothing measured" is an absence, not a value -- quieted rather than
-     coloured, so an empty record does not read as a warning.
+  /* "Nothing measured" IS THE PLATE'S VALUE, AND IS SET LIKE ONE.
+     It belongs to the same value system as "10K \u00b7 23:00" beside it, so it
+     declares as little as possible and inherits the rest from .b-plate .val
+     directly above: the same JetBrains Mono, the same 600 weight, the same
+     letter-spacing, line height, sentence casing, centring and overflow-wrap.
+     Two things differ, and only two.
 
-     The plate is now the ONLY surface this reaches. `.rec-headline b.rec-none`
+     COLOUR, because an absence is not a warning -- quieted to --ink-faint
+     rather than given a status hue, which is a separate rule from typography
+     and the one thing here that is not about matching the neighbour.
+
+     SIZE, because the phrase is 16 characters and the plate is half the
+     screen. Measured across production widths, monospace "Nothing measured"
+     needs a one-line width of 154px at 16px, 135px at 14px and 125px at 13px,
+     against a plate content width of 111px at 320, 131px at 360, 146px at 390
+     and 157px at 412. At the system's own 16px it therefore wraps on every
+     phone narrower than 412; at 13px it holds one line from 360 up, which is
+     every current Android and iPhone width bar the 320px floor, where nothing
+     consistent fits. 13px is an accommodation to make the value fit cleanly,
+     not a demotion -- it is still four-tenths larger than the 9px label
+     beneath it and reads as the plate's primary content.
+
+     The plate is the ONLY surface this reaches. `.rec-headline b.rec-none`
      used to lead this selector, from when the Record tab's empty state was a
      dimmed headline; recordCard() has since returned the ev-card-empty branch
      for every absence -- label first, no headline slot at all -- so no
      `.rec-headline b` can carry the class and that half matched nothing. */
-  .b-plate .val.rec-none{color:var(--ink-faint); font-weight:500;}
-  /* AND IT IS A SENTENCE, SO IT IS SET IN THE SENTENCE FACE.
-     The plate's value slot is JetBrains Mono because a plate holds a
-     measurement -- "10K \u00b7 23:00", "10%" -- and monospace at this size IS the
-     typography of data here. "Nothing measured" inherited that and so read as
-     the metric's value: a reading of nothing, rather than the absence of a
-     reading. Dimming the colour never fixed it, because the FACE was the
-     claim. The Record tab's own empty state already draws this exact line --
-     "the interface face, NOT the monospace data face -- that difference is
-     what stops the words being read as a value" (.rec-empty-state) -- and
-     this is the same rule reaching the plate that missed it.
-     What is NOT borrowed from .rec-empty-state is its demotion: that line is
-     a secondary note after its label, whereas this is still the plate's
-     primary content, so it keeps the plate's own scale and only changes
-     face. Proportional text at 16px sat wider than the mono it replaced, so
-     15px holds "Nothing measured" on one line at 390px without shrinking it
-     out of the primary slot. */
-  .b-plate .val.rec-none{
-    font-family:'Inter',-apple-system,sans-serif;
-    font-size:15px; line-height:1.3; letter-spacing:normal;
-  }
+  .b-plate .val.rec-none{color:var(--ink-faint); font-size:13px;}
 
   /* ---------- THE EVIDENCE-ACQUISITION STATE ----------
      Same card family, deliberately lighter: no data typography, no headline

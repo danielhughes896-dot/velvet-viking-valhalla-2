@@ -67,10 +67,12 @@ function serve(){
 }
 function seed(p){ try { localStorage.setItem(p.key, p.state); } catch (e) {} }
 
-/* 390 is the phone this product is designed at; 320 is the narrowest device
-   still in use, and the plate is half-width there -- if a longer sentence in
-   a proportional face is going to overflow anywhere, it is here. */
-const WIDTHS = [390, 320];
+/* Every width the product actually meets. 360 and 412 are the common Android
+   viewports, 390 the iPhone this is designed at, 320 the narrowest device
+   still in use. The plate is half-width at all of them, so this is where a
+   16-character value either fits on one line or does not -- and that is the
+   whole question this sweep answers. */
+const WIDTHS = [430, 412, 390, 384, 360, 320];
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
@@ -105,7 +107,9 @@ const WIDTHS = [390, 320];
       try { await page.evaluate(() => window.renderApp && window.renderApp()); } catch (e) {}
       await page.waitForTimeout(500);
 
-      /* THE FONT, READ NOT ASSUMED. */
+      /* THE FONT, READ NOT ASSUMED -- a screenshot cannot tell you which
+         typeface rendered, and the fallback stack means a missing web font
+         would look plausible either way. */
       const m = await page.evaluate(() => {
         const plates = [...document.querySelectorAll('.b-record .b-plate')].map(p => {
           const v = p.querySelector('.val'), l = p.querySelector('.lbl');
@@ -164,14 +168,23 @@ const WIDTHS = [390, 320];
     if (r.m.scrollW > r.m.clientW + 1) problems.push(r.file + ': horizontal overflow');
     r.m.plates.forEach(p => {
       if (p.overflows) problems.push(r.file + ': "' + p.value + '" overflows its plate');
-      /* The measured plates must stay on the data face -- this pass changes
-         the absence only, and a rule that leaked would be invisible here
-         without checking. */
-      if (!p.none && p.font !== 'JetBrains Mono')
+      /* EVERY plate value is on the data face, the empty one included -- that
+         is the point of this pass. A face that drifted on any of them would
+         be invisible in the image. */
+      if (p.font !== 'JetBrains Mono')
         problems.push(r.file + ': ' + p.label + ' left the data face (' + p.font + ')');
+      /* And the empty value is the only one allowed a size accommodation. */
+      if (!p.none && p.size !== '16px')
+        problems.push(r.file + ': ' + p.label + ' changed size (' + p.size + ')');
     });
     if (r.m.plates.filter(p => p.none).length !== 1)
       problems.push(r.file + ': expected exactly one empty plate');
+    /* One line everywhere the product realistically runs. 320 is the floor
+       where no consistent size fits, and a wrap there is expected. */
+    const w = parseInt(r.file.split('-')[1], 10);
+    const none = r.m.plates.filter(p => p.none)[0];
+    if (w >= 360 && none && none.lines !== 1)
+      problems.push(r.file + ': the empty value wraps to ' + none.lines + ' lines at ' + w + 'px');
   });
   console.log('\n' + results.length + ' frames -> ' + OUT);
   if (problems.length) console.log('PROBLEMS:\n  ' + problems.join('\n  '));
