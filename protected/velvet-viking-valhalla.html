@@ -16776,7 +16776,7 @@ function blockTrend(trends, ids){
    number, answers only "did this move across the window", and reads the same
    records through the same exclusions the rest of the app uses. Phase 5 owns
    what is normal for the athlete; this owns whether that normal has shifted. */
-function blockDirection(records, pick, lowerIsBetter, minChange){
+function blockDirection(records, pick, lowerIsBetter, minChange, zeroBaselineReal){
   var usable = records.filter(function(r){ return pick(r)!=null; })
                       .sort(function(a,b){ return a.date < b.date ? -1 : 1; });
   /* Two observations either side is the floor. A 28-day window holds only
@@ -16789,7 +16789,17 @@ function blockDirection(records, pick, lowerIsBetter, minChange){
   var early = usable.slice(0, half).map(pick);
   var late  = usable.slice(usable.length-half).map(pick);
   var a = median(early), b = median(late);
-  if (a==null || b==null || !a) return null;
+  /* A ZERO BASELINE IS NOT ALWAYS AN ABSENT ONE. `!a` rejects a median of
+     zero, and for every reading this function was written for -- heart-rate
+     cost, raw RPE, execution score -- zero means no measurement rather than a
+     measurement of nothing, so rejecting it is right. It is exactly wrong for
+     a DEVIATION: zero is what a session logged on its own prescription reads,
+     so the athlete who does precisely what was asked has a baseline of zero,
+     and rejecting it makes this blind to the rise that follows. Verified: an
+     unambiguous 0 -> +2 rise returned null, while the identical rise from a
+     baseline of +1 returned 'negative'. Callers say which kind of reading
+     they are passing; every existing one keeps the original guard untouched. */
+  if (a==null || b==null || (!a && !zeroBaselineReal)) return null;
   var delta = b - a;
   if (Math.abs(delta) < minChange) return 'flat';
   var better = lowerIsBetter ? delta < 0 : delta > 0;
@@ -16885,7 +16895,19 @@ function blockDimensions(model, trends, excludeDate){
     if (down) return add('quality','Quality session response','negative', down.detail, n, down.concept);
     if (up)   return add('quality','Quality session response','positive', up.detail, n, up.concept);
     var qual = blockRecords(excludeDate).filter(function(r){ return fams.indexOf(r.type)!==-1; });
-    var byRpe = blockDirection(qual, function(r){ return r.rpe; }, true, 0.5);
+    /* WITHIN TYPE, NOT ACROSS THE POOL -- the same law athleteTrends() and
+       coachVerdict() already apply, reaching the one live consumer that was
+       still pooling raw RPE. `fams` mixes bands that do not agree: tempo and
+       threshold are prescribed at 6-8, intervals and repetitions at 7-9, and
+       easy_strides -- an 'interval' by type -- at 2-5. Comparing the raw
+       numbers measured which sessions the block happened to contain, so a
+       perfectly-executed block reported 'Quality work is costing more' on 8
+       of 28 consecutive days purely from its own session mix.
+       The 0.5 threshold is unchanged and needs no retuning: a deviation is
+       still measured in RPE points, so half a point still means half a point.
+       zeroBaselineReal is passed because on this scale zero is the reading of
+       an athlete who did exactly what was asked -- see blockDirection(). */
+    var byRpe = blockDirection(qual, function(r){ return rpeDeviation(r); }, true, 0.5, true);
     var byExec = blockDirection(qual, function(r){ return r.executionScore; }, false, 5);
     if (byRpe==='positive' || byExec==='positive')
       return add('quality','Quality session response','positive',
