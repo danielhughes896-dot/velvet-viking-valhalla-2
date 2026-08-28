@@ -16776,7 +16776,7 @@ function blockTrend(trends, ids){
    number, answers only "did this move across the window", and reads the same
    records through the same exclusions the rest of the app uses. Phase 5 owns
    what is normal for the athlete; this owns whether that normal has shifted. */
-function blockDirection(records, pick, lowerIsBetter, minChange){
+function blockDirection(records, pick, lowerIsBetter, minChange, deviationScale){
   var usable = records.filter(function(r){ return pick(r)!=null; })
                       .sort(function(a,b){ return a.date < b.date ? -1 : 1; });
   /* Two observations either side is the floor. A 28-day window holds only
@@ -16789,10 +16789,47 @@ function blockDirection(records, pick, lowerIsBetter, minChange){
   var early = usable.slice(0, half).map(pick);
   var late  = usable.slice(usable.length-half).map(pick);
   var a = median(early), b = median(late);
-  if (a==null || b==null || !a) return null;
+  /* A ZERO BASELINE IS NOT ALWAYS AN ABSENT ONE. `!a` rejects a median of
+     zero, and for every reading this function was written for -- heart-rate
+     cost, raw RPE, execution score -- zero means no measurement rather than a
+     measurement of nothing, so rejecting it is right. It is exactly wrong on
+     the DEVIATION scale: zero is what a session logged on its own prescription
+     reads, so the athlete who does precisely what was asked has a baseline of
+     zero, and rejecting it makes this blind to the rise that follows.
+     Verified: an unambiguous 0 -> +2 rise returned null, while the identical
+     rise from a baseline of +1 returned 'negative'. Callers say which kind of
+     reading they are passing; every existing one is untouched. */
+  if (a==null || b==null || (!a && !deviationScale)) return null;
   var delta = b - a;
   if (Math.abs(delta) < minChange) return 'flat';
   var better = lowerIsBetter ? delta < 0 : delta > 0;
+  /* COMING BACK TO NORMAL IS NOT AN IMPROVEMENT, which is the rule
+     athleteTrends() already enforces on the same reading: "Lower effort than
+     lately is only ADAPTATION if it is also lower than the effort this athlete
+     has established. After a hard stretch, coming back to normal is not the
+     same work feeling easier."
+
+     That rule clears the SAME bar twice -- once against the recent baseline,
+     once against trendEstablished() -- and no new threshold is introduced
+     here either: both clauses below reuse minChange, exactly as the trend
+     layer reuses its own 1-point bar for both of its clauses.
+
+     On the deviation scale the rule needs a second clause the raw scale could
+     not express. There, "established" was the only available anchor. Here zero
+     is a real one: it is what the prescription asked for. So an athlete who
+     was costing +2 and is now at 0 has NORMALISED -- their slope points down,
+     and calling that "completed at a lower relative cost" would be the very
+     mistake estabRpe exists to prevent. Quality work is only cheaper when it
+     lands BELOW what was asked, not merely nearer to it.
+
+     Deterioration is untouched: a block getting more expensive is a block
+     getting more expensive from wherever it started. */
+  if (better && deviationScale){
+    var estab = trendEstablished(early, lowerIsBetter);
+    var betterThanEstablished = estab==null || estab - b >= minChange;
+    var belowExpected = -b >= minChange;
+    if (!(betterThanEstablished && belowExpected)) return 'flat';
+  }
   /* A block verdict may never rest on one session. Over a short window two
      observations make a median, and a single disastrous or flattering run can
      drag it on its own -- so the direction has to be confirmed by MOST of the
@@ -16885,7 +16922,21 @@ function blockDimensions(model, trends, excludeDate){
     if (down) return add('quality','Quality session response','negative', down.detail, n, down.concept);
     if (up)   return add('quality','Quality session response','positive', up.detail, n, up.concept);
     var qual = blockRecords(excludeDate).filter(function(r){ return fams.indexOf(r.type)!==-1; });
-    var byRpe = blockDirection(qual, function(r){ return r.rpe; }, true, 0.5);
+    /* WITHIN TYPE, NOT ACROSS THE POOL -- the same law athleteTrends() and
+       coachVerdict() already apply, reaching the one live consumer that was
+       still pooling raw RPE. `fams` mixes bands that do not agree: tempo and
+       threshold are prescribed at 6-8, intervals and repetitions at 7-9, and
+       easy_strides -- an 'interval' by type -- at 2-5. Comparing the raw
+       numbers measured which sessions the block happened to contain, so a
+       perfectly-executed block reported 'Quality work is costing more' on 8
+       of 28 consecutive days purely from its own session mix.
+       The 0.5 threshold is unchanged and needs no retuning: a deviation is
+       still measured in RPE points, so half a point still means half a point.
+       deviationScale is passed because on this scale zero is not an absent
+       reading but the prescribed one: it is what an athlete who did exactly
+       what was asked reads, which makes it both a real baseline and the point
+       improvement has to get past. See blockDirection(). */
+    var byRpe = blockDirection(qual, function(r){ return rpeDeviation(r); }, true, 0.5, true);
     var byExec = blockDirection(qual, function(r){ return r.executionScore; }, false, 5);
     if (byRpe==='positive' || byExec==='positive')
       return add('quality','Quality session response','positive',
