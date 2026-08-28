@@ -9314,14 +9314,14 @@ function healthConsentStateLabel(){
    into extra training. */
 function renderSupportWorkStep(){
   var on = supportWorkEnabled();
-  return '<div class="field bld-consent">'+
-    '<label style="display:flex; align-items:flex-start;">'+
-      '<input type="checkbox" id="su-support-work"'+(on ? ' checked' : '')+'>'+
-      '<span>'+escapeHtml(SUPPORT_COPY.title)+'</span>'+
-    '</label>'+
-    '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(SUPPORT_COPY.what)+'</div>'+
-    '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(SUPPORT_COPY.optional)+'</div>'+
-  '</div>';
+  return '<div class="setup-section-title">Supporting work</div>'+
+    '<div class="field bld-consent">'+
+      '<label style="display:flex; align-items:flex-start;">'+
+        '<input type="checkbox" id="su-support-work"'+(on ? ' checked' : '')+'>'+
+        '<span>'+escapeHtml(SUPPORT_COPY.title)+'</span>'+
+      '</label>'+
+      '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(SUPPORT_COPY.weekHint)+'</div>'+
+    '</div>';
 }
 
 function renderHealthConsentStep(){
@@ -17351,6 +17351,15 @@ var SUPPORT_COPY = {
   title: 'Include strength & mobility work',
   what: 'Valhalla adds supporting sessions where they help the running \u2014 strength, conditioning or mobility, chosen for the phase you are in.',
   optional: 'Optional, and never a fixed number of sessions. Some weeks will have none. You can change this any time in Settings.',
+  /* THE WEEK STAGE'S OWN LINE. Shorter than the Review copy it replaces,
+     because it now sits beside the training-day and long-run choices rather
+     than alone on a screen -- and it still has to say the two things that stop
+     a tick being read as a quota: Valhalla decides where it helps, and some
+     weeks get none. */
+  weekHint: 'Valhalla may add strength, conditioning or mobility where it helps your running. Some weeks may have none.',
+  /* What Review states back. A confirmation of a decision already made, not
+     the place the decision is offered. */
+  reviewKey: 'Strength & mobility',
   settingsDesc: 'Supporting work alongside your running',
   none: 'No supporting work this week \u2014 the running is carrying enough.'
 };
@@ -24146,10 +24155,6 @@ function openSetupModal(){
      that empty string is also what decides whether Review shows the section
      heading at all -- so the heading can never appear above nothing. */
   var consentStep = renderHealthConsentStep();
-  /* Both optional permissions share one panel. The support question is always
-     offered because it is a PREFERENCE that can be changed, unlike consent,
-     which is asked once and then lives in Settings. */
-  var supportStep = renderSupportWorkStep();
 
   var buildPurpose = openPurpose;
   var purposeMeta = BUILDER_PURPOSE_META[buildPurpose];
@@ -24334,6 +24339,18 @@ function openSetupModal(){
         '<select id="su-longday" class="bld-mirror" tabindex="-1" aria-hidden="true">'+longDayOptions+'</select>'+
         '<div class="field-hint">Only the days you picked above can hold the long run.</div>'+
       '</div>'+
+      /* THE SUPPORTING-WORK PERMISSION BELONGS WITH THE WEEK, not with Review.
+         It is a decision about the shape of a training week, and it now sits
+         with the two other decisions about the shape of a training week --
+         which days are run and which one is long. Review used to INTRODUCE it,
+         and a final confirmation screen is the wrong place to meet a question
+         for the first time.
+
+         Nothing about the control moved with it: same id, same value, same
+         circular cherry component, same stored meaning. The stage count is
+         unchanged and the health permission stays exactly where it was, on the
+         screen with the two heart-rate numbers it governs. */
+      renderSupportWorkStep()+
       navBtns(6)+
     '</section>'+
 
@@ -24398,11 +24415,10 @@ function openSetupModal(){
     '<section class="bld-panel" data-stage="9" hidden>'+
       stageHead(9)+
       '<div id="bld-review"></div>'+
-      ((consentStep || supportStep)
+      (consentStep
         ? '<div class="bld-permission">'+
             '<div class="setup-section-title" style="margin-top:0;">Optional permission</div>'+
             consentStep+
-            supportStep+
           '</div>'
         : '')+
       '<div class="bld-actions">'+
@@ -24787,6 +24803,13 @@ function bldRenderReview(){
       (hrWillBeSaved ? '' : ' (not saved \u2014 health data sharing is off)'));
   }
   if (goals.length) rows += row('Goals', goals.join(' \u00b7 '));
+  /* SUPPORTING WORK, CONFIRMED RATHER THAN ASKED. Read from the stage 07 tick
+     that is still in the DOM -- the same element Generate itself reads -- so
+     what this row says and what gets stored cannot disagree. Falls back to the
+     stored preference for a caller that has no builder on screen. */
+  var supportBoxForReview = document.getElementById('su-support-work');
+  var supportOnForReview = supportBoxForReview ? !!supportBoxForReview.checked : supportWorkEnabled();
+  rows += row(SUPPORT_COPY.reviewKey, supportOnForReview ? 'On' : 'Off');
   /* No Units row: the hero above already reads "42 km / week", so a separate
      "Units  KM" line restated it. Review answers "has Valhalla understood me",
      and saying the same thing twice is what makes a check sheet feel like a
