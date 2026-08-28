@@ -2411,7 +2411,7 @@
   .day-status-label.recovery{color:var(--c-tempo); border-color:var(--c-tempo);}
   .day-status-label.recovery .day-status-dot{background:var(--c-tempo);}
   /* Plan HQ's five expandable sections are gone: they are THE READING's
-     destination cards now (.read-val above, .rec-card shell), and their bodies
+     destination cards now (.read-val above, .ev-card shell), and their bodies
      open in a panel rather than pushing the page down. The row/pattern styles
      below stayed -- those bodies are the same markup, rendered somewhere
      else. */
@@ -2499,59 +2499,38 @@
   .plan-summary-bar svg{width:16px; height:16px; color:var(--ink-faint); flex:none;}
 
   /* ---------- THE RECORD ----------
-     Four cards, one per fact the plan is built on. Deliberately the SAME shell
-     as .plan-summary-bar directly above -- same surface, border, radius,
-     padding, hover and press -- because they are siblings: a thing you tap
-     that opens a surface. Two properties are added rather than a new family
-     invented.
-
      THE RIGHT-HAND ELEMENT IS A VALUE, NOT A VERDICT. Everywhere else in Plan
      HQ a right-hand element is a conclusion and may carry a status colour and
-     a dot. A Record card carries a fact: --ink-dim, sentence case, no dot, no
-     status hue, ever. That is the whole distinction between the two jobs the
-     one component does, so it is a rule here rather than a habit.
+     a dot. A Record card carries a FACT: quiet ink, no dot, no status hue,
+     ever. That is the whole distinction between the two jobs one card shell
+     does, so it is written here rather than left as a habit -- and it is the
+     one thing in this section that must outlive any particular markup. It is
+     enforced today on .rec-headline / .rec-empty-state (the Record tab) and
+     .b-plate .val (the Valhalla plates); .read-val, below, is the surface
+     allowed to carry tone, and that contrast is the rule.
 
-     A <button>, because the whole card is the target and a target you can
-     reach with a keyboard is worth the two lines of font/appearance reset. */
-  .rec-card{
-    display:block; width:100%; text-align:left; font:inherit; -webkit-appearance:none; appearance:none;
-    background:var(--surface-2); border:1px solid var(--line); border-radius:var(--radius-sm);
-    padding:10px 12px; margin:8px 0; cursor:pointer;
-    transition:background .15s ease, border-color .15s ease;
-  }
-  .rec-card:hover{background:var(--bg-3); border-color:var(--bronze-2);}
-  .rec-card:active{background:var(--bg-4);}
-  .rec-top{display:flex; align-items:center; gap:10px;}
-  .rec-subject{
-    font-family:'Oswald',sans-serif; font-size:12.5px; letter-spacing:.5px;
-    text-transform:uppercase; color:var(--ink); flex:1 1 auto; min-width:0;
-  }
-  .rec-right{display:flex; align-items:center; gap:8px; flex:0 1 auto; min-width:0;}
-  /* Mono by default now -- every caller passed 'font-mono' anyway, but that
-     made the correct data typography a per-callsite convention rather than
-     something this component guarantees on its own. */
-  .rec-val{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim); text-align:right; min-width:0; overflow-wrap:anywhere;}
-  /* "Nothing measured" is an absence, not a value, so it is quieted rather
-     than coloured -- a status hue here would make an empty record look like a
-     warning about something. */
-  .rec-val.rec-none{color:var(--ink-faint);}
-  .rec-card svg{width:16px; height:16px; color:var(--ink-faint); flex:none;}
-  .rec-syn{
-    font-size:11px; line-height:1.5; color:var(--ink-faint);
-    margin-top:4px; padding-right:24px;
-  }
+     THE LIST-ROW SHELL THAT USED TO LIVE HERE IS GONE. .rec-card and its
+     parts (.rec-top, .rec-subject, .rec-right, .rec-val, .rec-val.rec-none,
+     .rec-card svg, .rec-syn) styled a row of subject-on-the-left,
+     value-on-the-right cards built from .plan-summary-bar's shell. Record
+     cards became .ev-card buttons -- headline value, then subject, then a
+     synopsis in .rs-syn -- and nothing has emitted any of those classes
+     since. They sat here anyway, describing a component the product no longer
+     has, which is worse than nothing: the next person to change how a Record
+     card looks would have edited them. Removed, with the law above kept. */
   /* The section's own sub-line, set at the synopsis size rather than the
      field-hint size: it is the label doing the structural work of separating
-     these four cards from the coaching above them, and a hint-sized line reads
+     these cards from the coaching above them, and a hint-sized line reads
      as a first card that lost its box. */
   .rec-lede{font-size:11px; line-height:1.5; color:var(--ink-faint); margin:-4px 0 4px;}
 
   /* ---------- THE READING ----------
      The same card, doing the other job. A Reading card is an interpretation,
      so its right-hand element is a CONCLUSION and may carry the tone the
-     coaching engine already assigned it -- which is exactly what .rec-val is
-     forbidden from doing. One shell, two grammars, and the grammar is the
-     difference between a fact and a verdict. */
+     coaching engine already assigned it -- which is exactly what a Record
+     value is forbidden from doing (see THE RECORD above). One shell, two
+     grammars, and the grammar is the difference between a fact and a
+     verdict. */
   /* COMPACT SEMANTIC STATUS PILL, not loose coloured text floating on the
      right -- same restrained Level 2 recipe .coach-state/.tb-unit-toggle
      already use (tile-sheen, tile-border, a hairline lift, never a full

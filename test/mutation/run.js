@@ -44,7 +44,9 @@ const SUBSET = files(['stripeLifecycle','monthlyPause','commercialCore','securit
    to reach the same verdict. A case names its own subset as a fifth element,
    and anything that does not name one gets SUBSET. */
 const RECORD_SUBSET = files(['planHqRecord','planHqReading','modalThemeConsistency',
-  'phase4AppUx','yearRoundLifecycle','coachSurfaceDistinctness']);
+  'phase4AppUx','yearRoundLifecycle','coachSurfaceDistinctness',
+  /* Holds the fact-not-verdict law on the surfaces that carry it today. */
+  'recordShellDead','recordEmptyTypography']);
 // The accent migration's own guards, plus the two suites that already held
 // the switch component and the gauge's colour semantics.
 const ACCENT_SUBSET = files(['cherryLacquer','themeSystem','metricColour',
@@ -771,9 +773,14 @@ const CASES = [
    "    if (!mirrored.ok){ throw new Error('mirror failed'); }\n    if (false){"],
 
   // ---- PLAN HQ: THE RECORD ----
+  // RE-HOMED: this mutated .rec-val, the list-row shell's value slot, which
+  // nothing had rendered for some time -- so the anchor went when the dead
+  // shell did. The guarantee is unchanged: a Record value states a fact and
+  // never carries a status hue. .b-plate .val is where a Record value lives
+  // now, so that is what gets the tempo colour.
   ['record: a Record value is a fact, and stops being one', 'protected/velvet-viking-valhalla.html',
-   "  .rec-val{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-dim);",
-   "  .rec-val{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--c-tempo);", RECORD_SUBSET],
+   "  .b-plate .val{font-family:'JetBrains Mono',monospace; font-size:16px; font-weight:600;",
+   "  .b-plate .val{font-family:'JetBrains Mono',monospace; font-size:16px; font-weight:600; color:var(--c-tempo);", RECORD_SUBSET],
   ['record: the four cards become one combined list again', 'protected/velvet-viking-valhalla.html',
    "  return '<div class=\"setup-section-title\">The Record</div>'+",
    "  return '<div class=\"setup-section-title\">The Record</div><table>'+", RECORD_SUBSET],
@@ -843,9 +850,12 @@ const CASES = [
    'protected/velvet-viking-valhalla.html',
    "      tone: { fresh:'good', watch:'watch', strained:'bad' }[rec.state],",
    "      tone: 'good',", HQ_SUBSET],
+  // The replacement was class="rec-val", from the deleted list-row shell. Any
+  // live class that carries no tone makes the same mutation; .hq-row-l is the
+  // row's own plain label class.
   ['reading: a Reading card stops carrying its conclusion', 'protected/velvet-viking-valhalla.html',
    "        '<span class=\"read-val'+(sec.tone?' '+sec.tone:'')+'\">'+",
-   "        '<span class=\"rec-val\">'+", HQ_SUBSET],
+   "        '<span class=\"hq-row-l\">'+", HQ_SUBSET],
   ['reading: a panel stops hosting the evidence and paraphrases it',
    'protected/velvet-viking-valhalla.html',
    "  return recordPanelShell(sec.title, head+'<div class=\"hub-card tile-card\">'+sec.body+'</div>');",
