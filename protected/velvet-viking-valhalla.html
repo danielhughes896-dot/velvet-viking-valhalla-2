@@ -2837,8 +2837,14 @@
   .rec-headline span{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint);}
   .rec-context{font-size:11px; line-height:1.4; color:var(--ink-faint); margin-top:2px;}
   /* "Nothing measured" is an absence, not a value -- quieted rather than
-     coloured, so an empty record does not read as a warning. */
-  .rec-headline b.rec-none, .b-plate .val.rec-none{color:var(--ink-faint); font-weight:500;}
+     coloured, so an empty record does not read as a warning.
+
+     The plate is now the ONLY surface this reaches. `.rec-headline b.rec-none`
+     used to lead this selector, from when the Record tab's empty state was a
+     dimmed headline; recordCard() has since returned the ev-card-empty branch
+     for every absence -- label first, no headline slot at all -- so no
+     `.rec-headline b` can carry the class and that half matched nothing. */
+  .b-plate .val.rec-none{color:var(--ink-faint); font-weight:500;}
   /* AND IT IS A SENTENCE, SO IT IS SET IN THE SENTENCE FACE.
      The plate's value slot is JetBrains Mono because a plate holds a
      measurement -- "10K \u00b7 23:00", "10%" -- and monospace at this size IS the

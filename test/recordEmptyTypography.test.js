@@ -195,3 +195,48 @@ test('the Record tab\'s own empty state is not touched by this', () => {
   assert.match(es, /font-size:12px/, '.rec-empty-state changed size');
   assert.match(es, /font-style:italic/, '.rec-empty-state lost its italic');
 });
+
+// ---------------------------------------------------------------------------
+// 4. THE SELECTOR THAT MATCHED NOTHING
+// ---------------------------------------------------------------------------
+
+test('the quieting rule reaches the plate and nothing else', () => {
+  /* `.rec-headline b.rec-none` led this selector from when the Record tab's
+     empty state was a dimmed headline. recordCard() has since returned the
+     ev-card-empty branch for every absence -- label first, no headline slot --
+     so that half matched nothing at all.
+     This test is not really about the deletion. It is about the REASON: if the
+     headline branch ever comes back for an absence, the selector must come
+     back with it rather than the words silently rendering unquieted. */
+  const css = SRC.replace(/\/\*[\s\S]*?\*\//g, '');
+  assert.ok(!/\.rec-headline\s+b\.rec-none/.test(css),
+    'the dead .rec-headline b.rec-none selector is back');
+  assert.match(declared('.b-plate .val.rec-none', 'color') || '', /--ink-faint/,
+    'removing the dead half took the plate\'s quieting with it');
+  assert.equal(declared('.b-plate .val.rec-none', 'font-weight'), '500',
+    'removing the dead half took the plate\'s weight with it');
+
+  /* The reason, asserted rather than trusted: no absence renders a headline. */
+  const a = athleteWithNoMeasurement();
+  const facts = a.recordFacts().filter(f => f.none);
+  assert.ok(facts.length > 0, 'the fixture has no absence, so this proves nothing');
+  facts.forEach(f => {
+    assert.ok(!/rec-headline/.test(a.recordCard(f)),
+      f.subject + ': an absence renders a headline again, and it is no longer quieted');
+  });
+});
+
+test('every rec-none the app can emit is styled', () => {
+  /* The other direction. There is exactly one place the class is produced --
+     the plate -- and one rule set that catches it. A second producer added
+     without a matching rule would render a bare, unquieted absence in the
+     data face, which is the defect this whole pass removed. */
+  const code = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const emitted = code.split("' rec-none'").length - 1;
+  assert.equal(emitted, 1,
+    'rec-none is emitted from ' + emitted + ' places; each needs a rule, and ' +
+    'only the plate has one');
+  /* And that one producer is the plate. */
+  assert.match(code, /class="b-plate"><div class="val'\+\(f\.none\?' rec-none':''\)/,
+    'the one rec-none producer is no longer the Record plate');
+});
