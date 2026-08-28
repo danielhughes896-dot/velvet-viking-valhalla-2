@@ -1095,19 +1095,40 @@
      component. It is a RADIO rather than a checkbox -- one coach voice, not a
      set -- and that is a semantics difference, not a visual one, so it shares
      the ring, the --cherry fill and the CSS-drawn tick verbatim rather than
-     opening a second definition of "circular, cherry, selected". */
-  .day-check input, .wd-check input, .cv-opt input{
+     opening a second definition of "circular, cherry, selected".
+
+     .bld-consent input is the fourth member: the builder's two optional
+     permissions -- health and readiness, and strength and mobility. They were
+     the only interactive ticks in the product still painted by the browser,
+     which meant a native blue check sitting on a Review stage where every
+     other control is a cherry circle. They join the same three rules for the
+     same reason the other three did, so there is still exactly ONE definition
+     of a circular checkbox in this file. */
+  .day-check input, .wd-check input, .cv-opt input, .bld-consent input{
     appearance:none; -webkit-appearance:none; -moz-appearance:none;
     width:22px; height:22px; margin:0; padding:0; flex:none; position:relative;
     border-radius:50%; border:2px solid var(--line); background:var(--bg-2);
     cursor:pointer; transition:background .15s ease, border-color .15s ease;
   }
-  .day-check input:checked, .wd-check input:checked, .cv-opt input:checked{background:var(--cherry); border-color:var(--cherry);}
-  .day-check input:checked::after, .wd-check input:checked::after, .cv-opt input:checked::after{
+  .day-check input:checked, .wd-check input:checked, .cv-opt input:checked,
+  .bld-consent input:checked{background:var(--cherry); border-color:var(--cherry);}
+  .day-check input:checked::after, .wd-check input:checked::after, .cv-opt input:checked::after,
+  .bld-consent input:checked::after{
     content:''; position:absolute; left:50%; top:45%; width:5px; height:9px;
     border:solid var(--cherry-btn-ink); border-width:0 2px 2px 0;
     transform:translate(-50%,-50%) rotate(45deg);
   }
+  /* INERT AND STILL LEGIBLE, on the same terms .ef-completed's tick already
+     uses. Neither permission is disabled anywhere today; this exists so that
+     if one ever is, it does not fall back to a browser default and reopen the
+     gap this rule closed.
+
+     SCOPED TO THE PERMISSIONS, deliberately. .day-check input IS disabled on a
+     locked day and already has its own treatment (.day-check.locked input,
+     below) -- which wins on source order, so a broader selector here changed
+     nothing visually. It would still have been a rule reaching a control this
+     pass was told not to touch, so it does not reach it. */
+  .bld-consent input:disabled{ opacity:.45; cursor:default; }
   /* The row the control sits in: a 44px tap target across the full width, the
      name and its one-line description on the left, Preview on the right.
      Borrowed layout from .connect-row so Coach Voice reads as another
@@ -2081,6 +2102,38 @@
     border:2px solid var(--line); background:var(--bg-2); box-shadow:none;
   }
   .field .wd-check input:checked{background:var(--cherry); border-color:var(--cherry);}
+  /* The permission ticks were repainted by the rule above, exactly as the
+     Training Day selector was -- which is what produced a 13x44 control: the
+     markup's inline width:auto fought `width` and nothing fought
+     `min-height:44px`, so the ring was squeezed to a tall thin rectangle.
+
+     COMPOUND, NOT DESCENDANT, and the difference is the whole fix. .wd-check
+     sits INSIDE a separate .field, so `.field .wd-check input` matches. The
+     permission is `class="field bld-consent"` -- it IS the field -- so the
+     descendant form matches nothing, and the base `.bld-consent input` rule up
+     with the shared component loses to `.field input` on equal specificity by
+     being earlier in the file. Measured in a browser, not reasoned about: the
+     first attempt used the descendant form and the control was still 332x44
+     with a 9px radius and the text-input inset shadow. */
+  .field.bld-consent input{
+    width:22px; height:22px; min-height:0; padding:0; border-radius:50%;
+    border:2px solid var(--line); background:var(--bg-2); box-shadow:none;
+    /* Aligned to the first line of the question rather than its middle: the
+       label wraps to three lines and a centred tick would float beside the
+       second one. Replaces the identical inline margin the markup carried. */
+    margin:3px 0 0 0;
+  }
+  .field.bld-consent input:checked{background:var(--cherry); border-color:var(--cherry);}
+  /* AND THE FOCUS RING BACK. `.field input:focus{outline:none}` below is
+     written for text inputs, where the accent border and glow ARE the focus
+     signal. On a 22px circle it removed the only signal there was, so a
+     keyboard user had nothing. This restores the global gold :focus-visible
+     outline every other control in the app uses -- the same treatment, not a
+     new one -- and is scoped to these two controls so no other field moves. */
+  .field.bld-consent input:focus-visible{
+    outline:2px solid var(--gold); outline-offset:2px;
+  }
+  .field.bld-consent input:focus:not(:focus-visible){ outline:none; }
   .field input::placeholder, .field textarea::placeholder,
   .goal-input-row input::placeholder{ color:var(--ctl-placeholder); opacity:1; }
   .field input:focus, .field select:focus, .field textarea:focus,
@@ -9263,8 +9316,7 @@ function renderSupportWorkStep(){
   var on = supportWorkEnabled();
   return '<div class="field bld-consent">'+
     '<label style="display:flex; align-items:flex-start;">'+
-      '<input type="checkbox" id="su-support-work" style="width:auto; margin:3px 7px 0 0;"'+
-        (on ? ' checked' : '')+'>'+
+      '<input type="checkbox" id="su-support-work"'+(on ? ' checked' : '')+'>'+
       '<span>'+escapeHtml(SUPPORT_COPY.title)+'</span>'+
     '</label>'+
     '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(SUPPORT_COPY.what)+'</div>'+
@@ -9278,7 +9330,7 @@ function renderHealthConsentStep(){
   // no new control and no new CSS. Note the absence of `checked`.
   return '<div class="field bld-consent">'+
     '<label style="display:flex; align-items:flex-start;">'+
-      '<input type="checkbox" id="su-health-consent" style="width:auto; margin:3px 7px 0 0;">'+
+      '<input type="checkbox" id="su-health-consent">'+
       '<span>'+escapeHtml(HEALTH_CONSENT_COPY.title)+'</span>'+
     '</label>'+
     '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(HEALTH_CONSENT_COPY.what)+'</div>'+
