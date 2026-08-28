@@ -12642,6 +12642,30 @@ function renderSplitsBlock(dd){
   '</div>';
 }
 
+/* HOW HARD THIS FELT RELATIVE TO WHAT IT WAS SUPPOSED TO FEEL LIKE.
+   Zero means the session landed exactly where its own prescription expected;
+   positive means it cost more than that session type should.
+
+   WHY THIS EXISTS. "Quality" pools tempo, threshold, interval and repetition,
+   and their prescribed RPE bands are NOT the same -- tempo and threshold sit
+   at 6-8, intervals and repetitions at 7-9. Comparing raw RPE across that pool
+   measures the session-type MIX, not the athlete: a block that shifts towards
+   intervals reads as "effort above your usual" when nothing about the athlete
+   has changed. Normalising each session against its own band removes the mix
+   and leaves the athlete, which is the only thing the trend is about.
+
+   Falls back to the type's band for an archived record written before the
+   band was stored, so history stays comparable rather than being dropped. */
+function rpeBandMid(band){
+  return (band && band.length === 2 && band[0] != null && band[1] != null)
+    ? (band[0] + band[1]) / 2 : null;
+}
+function rpeDeviation(r){
+  if (!r || r.rpe == null) return null;
+  var mid = rpeBandMid(r.rpeBand || expectedRPEBand({ type: r.type }));
+  return mid == null ? null : r.rpe - mid;
+}
+
 function expectedRPEBand(dd){
   var ex = executionProfileOf(dd);
   if (ex && ex.rpe) return ex.rpe.slice();
@@ -15544,6 +15568,13 @@ function athleteMemoryFromDays(days, from){
            crossing blocks is the health-indicating half of it. */
         hr: (isPast && healthConsentGranted() && a.hr!=null) ? a.hr : null,
         rpe: (isPast && a.rpe!=null) ? a.rpe : null,
+        /* WHAT THIS SESSION WAS EXPECTED TO COST, carried alongside what it
+           actually cost. Recorded here because this is the only place the real
+           day object is in hand -- expectedRPEBand() reads the execution
+           profile, which a flattened memory record no longer has. Without it,
+           "effort above your usual" has to compare a 7 against an 8 and cannot
+           know that one was a tempo and the other a set of intervals. */
+        rpeBand: expectedRPEBand(dd) || null,
         feel: isPast ? feelOf(dd) : null,
         notes: isPast ? (a.notes || '') : '',
         signals: isPast ? effectiveNoteSignals(a).signals.map(function(x){ return x.id; }) : [],
@@ -15997,17 +16028,24 @@ function athleteTrends(){
   (function(){
     [['easy',easy,'Easy effort'],['quality',quality,'Quality effort'],['long',long,'Long-run effort']]
     .forEach(function(fam){
-      var recs = fam[1].filter(function(r){ return r.rpe!=null; });
+      /* WITHIN TYPE, NOT ACROSS THE POOL. Each session is measured against its
+         OWN prescribed band before anything is compared -- see rpeDeviation().
+         A tempo logged at 7 and an interval logged at 8 are both exactly on
+         prescription and both deviate by zero, so a block that shifts towards
+         intervals no longer reads as rising effort. A genuine rise -- a tempo
+         logged at 9 against a 6-8 band -- still deviates and still fires. */
+      var recs = fam[1].filter(function(r){ return rpeDeviation(r) != null; });
+      var dev = function(r){ return rpeDeviation(r); };
       var sp = trendSplit(recs);
-      var base = trendMedian(sp.base, function(r){ return r.rpe; });
+      var base = trendMedian(sp.base, dev);
       if (base==null || sp.recent.length < 2) return;
       /* Lower effort than lately is only ADAPTATION if it is also lower than
          the effort this athlete has established. After a hard stretch, coming
          back to normal is not "the same work feeling easier". */
-      var estabRpe = trendEstablished(sp.base.map(function(r){ return r.rpe; }), true);
-      var high = sp.recent.filter(function(r){ return r.rpe - base >= 1; });
+      var estabRpe = trendEstablished(sp.base.map(dev), true);
+      var high = sp.recent.filter(function(r){ return dev(r) - base >= 1; });
       var low  = sp.recent.filter(function(r){
-        return base - r.rpe >= 1 && (estabRpe==null || estabRpe - r.rpe >= 1); });
+        return base - dev(r) >= 1 && (estabRpe==null || estabRpe - dev(r) >= 1); });
       if (high.length >= 2)
         push({ id:'rpe_elevated_'+fam[0], area:fam[2], direction:'negative',
                confidence: trendConfidence(high.length, sp.recent.length, recs.length),
