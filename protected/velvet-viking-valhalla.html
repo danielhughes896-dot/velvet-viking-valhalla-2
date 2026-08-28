@@ -26553,6 +26553,10 @@ function ttsFetchAudio(key, text, voiceKey){
 function ttsHalt(){
   ttsToken++;
   voiceClearWatchdog();
+  /* THE QUEUE IS SPEECH, so Stop owns it. Bumping the token above already
+     makes every in-flight unit unplayable -- askSpeechLive() checks it -- and
+     this silences what is audible right now and drops what was waiting. */
+  try { askSpeechStop(); } catch(e){}
   /* ALL of them, not just the most recent. */
   while (ttsAborts.length){
     var c = ttsAborts.pop();
@@ -27187,10 +27191,20 @@ var askStreamBuf = '';
 function askStreamBegin(){
   askStreamBuf = '';
   askSet('streaming', { answer:'', message:'', incomplete:false, proposalDayId:null });
+  /* SPEECH STARTS ITS CLOCK HERE, not when the answer finishes. The first
+     complete sentence is generated while the model is still writing the third,
+     which is the whole point of this pass. Only on the streamed transport:
+     the buffered fallback has no partial prose to work with and keeps the
+     whole-answer behaviour it always had. */
+  if (voiceCloudEligible()){
+    askSpeechStart();
+    voiceSetStatus('speaking', { kind:'answer', phase:'preparing' });
+  }
 }
 function askStreamChunk(text){
   if (!text) return;
   askStreamBuf += text;
+  askSpeechFeed(text, false);
   /* State is kept in step so any re-render for another reason paints the same
      words -- but the render is not what puts them on screen. */
   askState.answer = askStreamBuf;
@@ -27506,8 +27520,27 @@ function askSend(question, opts){
     askSet('answered', { answer:d.answer, proposalDayId:propId,
                          incomplete: d.incomplete === true });
     askAnnounceAnswer(d.answer);
-    /* Spoken in the same voice as the briefing and the debrief. */
-    voiceSpeak(voiceSpeakable(d.answer), { kind:'answer' });
+    if (askSpeech){
+      /* THE STREAMED PATH IS ALREADY SPEAKING. All that is left is the last
+         sentence, and only if the turn actually finished.
+
+         A TRUNCATED TURN FLUSHES NOTHING. Whatever is still in the buffer is by
+         definition a sentence the model never finished, and speaking half a
+         thought is worse than stopping after the ones it did finish. The
+         sentences already spoken were complete and stay valid; the athlete has
+         the text either way and the card says it stopped early. */
+      askSpeechFeed('', d.incomplete !== true);
+      /* Nothing was ever speakable -- a one-word answer that never terminated,
+         or speech that could not start. Fall back to the whole-answer path so
+         the athlete is not left in silence. */
+      if (!askSpeech.queue.length && !askSpeech.playing && !askSpeech.spoke){
+        askSpeechStop();
+        voiceSpeak(voiceSpeakable(d.answer), { kind:'answer' });
+      }
+    } else {
+      /* The buffered transport, unchanged: one answer, one generation. */
+      voiceSpeak(voiceSpeakable(d.answer), { kind:'answer' });
+    }
     return d;
   }).catch(function(err){
     var code = (err && err.code) || 'coach_unavailable';
@@ -27515,6 +27548,220 @@ function askSend(question, opts){
     return null;
   });
 }
+
+/* ---------- EARLY SPEECH: SAYING SENTENCE ONE WHILE SENTENCE THREE IS STILL BEING WRITTEN ----------
+   THE PROBLEM THIS SOLVES. Ask Coach used to call voiceSpeak() from inside the
+   handler that runs when the WHOLE answer has arrived, and the server buffers
+   the entire ElevenLabs audio before returning a byte. Two whole-answer waits,
+   one after the other: the athlete saw the first words at about three seconds,
+   finished reading at about seven, and heard the coach start speaking at about
+   ten -- by which time speech is not delivery, it is repetition.
+
+   WHY SEGMENTING HERE IS SAFE, and this is the whole security argument.
+   The browser never receives the protocol at all. api/_voice-ask.js forwards
+   only deltas from a block OPENED as type "text", splits that prose on the
+   reserved marker, and sends prose events containing nothing else -- the
+   marker, the structured trailer and every reasoning block stay on the server
+   and are not on this wire in any form. So the text this segmenter reads is
+   already, by construction, athlete-facing prose. It is not a filter and must
+   never become one: if something protocol-shaped ever reached here, the defect
+   would be upstream and adding a second filter here would hide it.
+
+   WHAT IS DELIBERATELY NOT DONE. No token-by-token speech, no sentence
+   fragments, no guessing at a boundary that has not arrived. A unit is spoken
+   only once its end is PROVEN by what follows it. */
+
+/* Abbreviations whose full stop is not the end of a sentence. Deliberately
+   tiny and coaching-specific rather than a general English list -- a longer
+   list is more chances to be wrong, and the cost of missing one is a slightly
+   late boundary, not a malformed one. */
+var ASK_ABBREV = ['approx', 'e.g', 'i.e', 'etc', 'vs', 'Dr', 'St', 'min', 'sec',
+                  'km', 'mi', 'hr', 'no', 'avg', 'max', 'min'];
+
+/* SHORTEST THING WORTH ITS OWN REQUEST. Each unit is a billable generation and
+   a round trip, so "Yes." on its own buys a robotic pause and costs the same
+   as a sentence. Below this a completed sentence waits for the next one and
+   they are spoken together -- unless the stream has ended, in which case there
+   is nothing left to wait for and it is spoken alone. Ask answers are two or
+   three sentences by prompt, so this batches the opener and almost nothing
+   else. */
+var ASK_SPEECH_MIN_CHARS = 45;
+
+/* Is the full stop at `i` the end of a sentence, or part of something else?
+   Conservative in one direction on purpose: when unsure, NOT a boundary, and
+   the unit waits. A late boundary is a slightly delayed sentence; a wrong one
+   is the coach saying "nine point" and stopping. */
+function askIsBoundary(text, i){
+  var ch = text.charAt(i);
+  if (ch !== '.' && ch !== '?' && ch !== '!') return false;
+  /* ? and ! are unambiguous. Only the full stop has other jobs. */
+  if (ch === '.'){
+    /* A decimal point: 9.5 km. REDUNDANT, AND KEPT DELIBERATELY: the
+       whitespace requirement below already excludes every decimal, because no
+       number is written "9. 5". This states the intent at the point a reader
+       looks for it, and costs one comparison. Removing it changes no
+       behaviour -- which is exactly why it must not be mistaken for the guard
+       that does the work. */
+    if (/\d/.test(text.charAt(i - 1)) && /\d/.test(text.charAt(i + 1))) return false;
+    /* An abbreviation. */
+    var before = /([A-Za-z.]+)$/.exec(text.slice(0, i));
+    if (before){
+      var w = before[1].toLowerCase();
+      for (var a = 0; a < ASK_ABBREV.length; a++){
+        if (w === ASK_ABBREV[a].toLowerCase()) return false;
+      }
+    }
+  }
+  /* Trailing quotes and brackets belong to the sentence that is ending. */
+  var j = i + 1;
+  while (j < text.length && /["')’”]/.test(text.charAt(j))) j++;
+  /* THE END MUST BE PROVEN BY WHAT FOLLOWS, and whitespace is the proof.
+     Nothing after the terminator at all means the stream may be mid-token --
+     "9" could still become "9.5" -- so that is not a boundary yet. But a SPACE
+     after it rules a decimal out entirely: no number is written "9. 5". */
+  if (j >= text.length) return false;
+  if (!/\s/.test(text.charAt(j))) return false;
+  /* If the next sentence has started, it must look like one. A lowercase
+     letter after a full stop is far more likely to be an abbreviation this
+     list does not know than a real boundary.
+
+     IF IT HAS NOT STARTED YET, THIS IS STILL A BOUNDARY. Waiting for the first
+     character of the next sentence costs a whole provider chunk of delay on
+     the unit that matters most -- the first one -- and buys nothing the space
+     above has not already established. The abbreviation list is what guards
+     the remaining case, and a missed abbreviation costs a slightly early
+     boundary, not a malformed one. */
+  var k = j;
+  while (k < text.length && /\s/.test(text.charAt(k))) k++;
+  if (k >= text.length) return true;
+  var next = text.charAt(k);
+  return /[A-Z0-9“"']/.test(next);
+}
+
+/* Pull every complete sentence out of `buf`, leaving the rest. When `ended` is
+   true whatever remains is the last sentence and comes out too. */
+function askSpeechSplit(buf, ended){
+  var units = [], start = 0;
+  for (var i = 0; i < buf.length; i++){
+    if (!askIsBoundary(buf, i)) continue;
+    var end = i + 1;
+    while (end < buf.length && /["')’”]/.test(buf.charAt(end))) end++;
+    var unit = buf.slice(start, end).trim();
+    if (unit) units.push(unit);
+    start = end;
+  }
+  var rest = buf.slice(start);
+  if (ended){
+    var tail = rest.trim();
+    if (tail){ units.push(tail); rest = ''; }
+  }
+  return { units: units, rest: rest };
+}
+
+/* ---------- THE ORDERED SPEECH QUEUE ----------
+   Units are generated as they become speakable and PLAYED STRICTLY IN ORDER,
+   however the requests finish. Unit 2's audio is fetched while unit 1 is still
+   being heard, which is what removes the pause between sentences; it is never
+   allowed to be heard first.
+
+   One pipeline exists at a time. A new question, or Stop, invalidates the old
+   one through the same ttsToken every other speech path already uses, so a
+   request that lands after the athlete has moved on cannot make a sound. */
+function askSpeechStart(){
+  askSpeechStop();
+  askSpeech = {
+    token: ttsToken,          /* bumped by ttsHalt(); see askSpeechLive() */
+    buf: '',
+    queue: [],                /* { text, url|null, failed } in speaking order */
+    playing: false,
+    ended: false,
+    el: null,
+    spoke: false
+  };
+  return askSpeech;
+}
+function askSpeechLive(p){ return !!p && askSpeech === p && ttsToken === p.token; }
+function askSpeechStop(){
+  var p = askSpeech;
+  askSpeech = null;
+  if (!p) return;
+  if (p.el){
+    try { p.el.pause(); } catch(e){}
+    try { p.el.onended = null; p.el.onerror = null; } catch(e){}
+    p.el = null;
+  }
+  p.queue.length = 0;
+  p.playing = false;
+}
+/* New prose arrived. Cut whatever complete sentences it completes and start
+   generating them; hold a short trailing sentence back for company. */
+function askSpeechFeed(text, ended){
+  var p = askSpeech;
+  if (!askSpeechLive(p)) return;
+  p.buf += String(text || '');
+  if (ended) p.ended = true;
+  var cut = askSpeechSplit(p.buf, p.ended);
+  p.buf = cut.rest;
+  var pending = '';
+  cut.units.forEach(function(u){
+    pending = pending ? (pending + ' ' + u) : u;
+    /* Batch a short sentence with the next one rather than paying a request
+       and a pause for "Yes." */
+    if (pending.length >= ASK_SPEECH_MIN_CHARS){ askSpeechEnqueue(p, pending); pending = ''; }
+  });
+  if (pending){
+    if (p.ended) askSpeechEnqueue(p, pending);
+    else p.buf = pending + (p.buf ? ' ' + p.buf : '');   /* wait for company */
+  }
+}
+function askSpeechEnqueue(p, text){
+  if (!askSpeechLive(p)) return;
+  var item = { text: text, url: null, failed: false };
+  p.queue.push(item);
+  /* GENERATED NOW, PLAYED IN TURN. The fetch starts immediately -- that is the
+     overlap that makes this worth doing -- and the result waits its turn. */
+  var voiceKey = coachVoice();
+  var key = ttsCacheKey(text, voiceKey);
+  var cached = ttsCacheFind(key, Date.now());
+  if (cached){ item.url = cached; askSpeechPump(p); return; }
+  ttsFetchAudio(key, text, voiceKey).then(function(url){
+    item.url = url; askSpeechPump(p);
+  }, function(){
+    item.failed = true; askSpeechPump(p);
+  });
+  askSpeechPump(p);
+}
+/* Play the head of the queue when its audio is ready. Never reorders: a later
+   unit that finished first simply waits. */
+function askSpeechPump(p){
+  if (!askSpeechLive(p) || p.playing) return;
+  var head = p.queue[0];
+  if (!head) return;
+  if (head.failed){ p.queue.shift(); return askSpeechPump(p); }
+  if (!head.url) return;                       /* not ready -- hold the order */
+  p.queue.shift();
+  p.playing = true;
+  var el;
+  try { el = new window.Audio(head.url); } catch(e){ p.playing = false; return askSpeechPump(p); }
+  p.el = el;
+  var done = function(){
+    if (!askSpeechLive(p)) return;
+    p.playing = false; p.el = null;
+    askSpeechPump(p);
+  };
+  el.onended = done;
+  el.onerror = done;
+  var started;
+  try { started = el.play(); } catch(e){ return done(); }
+  if (started && started.catch) started.catch(function(){ done(); });
+  if (!p.spoke){
+    p.spoke = true;
+    /* The card stops saying it is preparing the moment there is sound. */
+    if (voiceState.status === 'speaking' && voiceState.phase === 'preparing')
+      voiceSetStatus('speaking', { kind:'answer', phase:'playing' });
+  }
+}
+var askSpeech = null;
 
 /* ---------- READING THE SERVER'S STREAM ----------
    THE BROWSER KNOWS NOTHING ABOUT THE PROVIDER. It does not parse SSE, does not
