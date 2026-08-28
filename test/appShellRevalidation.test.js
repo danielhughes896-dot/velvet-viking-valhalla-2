@@ -172,20 +172,46 @@ test('the shell is identical for every athlete, which is what makes this safe', 
   assert.ok(!/replace|template|inject|uid|user|lease|token|entitle/i.test(fn),
     'the runtime is being personalised before it is sent: ' + fn);
   const serve = /function serveRuntime\(req, res\)\{[\s\S]*?\n\}/.exec(CODE)[0];
-  assert.ok(!/lease|uid|user_id|entitle|token/i.test(serve),
-    'athlete-specific data reached the served document');
+  /* PER-ATHLETE identifiers, specifically. An earlier version of this banned
+     the substring "entitle" and so failed on `x-vvv-entitled-at`, a SERVER
+     TIMESTAMP that is identical for every athlete served in the same
+     millisecond and is a response header rather than document content. The
+     invariant is that nothing identifying a person reaches the document, not
+     that a word never appears. */
+  assert.ok(!/\blease\b|\buid\b|\buser_id\b|\bemail\b|\btoken\b|\bdecision\b/i.test(serve),
+    'athlete-specific data reached the served document: ' + serve);
+  /* And whatever headers it does set carry no body content. */
+  assert.ok(!/setHeader\([^)]*\b(lease|uid|user|email|token)\b/i.test(serve),
+    'an athlete-identifying header was added to the shell');
   /* And the shipped file carries no server-injected state. */
   const html = fs.readFileSync(app.RUNTIME_FILE, 'utf8');
   assert.ok(!/__VVV_(USER|LEASE|TOKEN|ENTITLEMENT)__|\{\{\s*\w+\s*\}\}/.test(html),
     'the shell contains a server-injection placeholder');
 });
 
-test('the service worker does not intercept the document', () => {
-  /* Not rewritten in this track -- only confirmed harmless to revalidation. It
-     registers no fetch handler at all, so every navigation reaches the network
-     and the gate, exactly as before. */
-  const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
-  assert.ok(!/addEventListener\(\s*['"]fetch['"]/.test(sw),
-    'the service worker now intercepts fetches and could serve the shell without the gate');
-  assert.ok(!/caches\.(open|match)/.test(sw), 'the service worker gained a cache');
+test('the service worker never short-circuits the gate while online', () => {
+  /* THIS TEST CHANGED SHAPE, AND THE REASON MATTERS. When revalidation shipped,
+     the service worker had no fetch handler at all, and asserting its absence
+     was the cheapest way to know the gate could not be bypassed. Offline
+     startup then gave it one deliberately -- a cached shell is the only way to
+     open with no network, and no network means no gate can run.
+
+     The invariant did not change: an ONLINE navigation must still reach the
+     gate. What enforces it is now NETWORK-FIRST ordering rather than the
+     absence of a handler, so that is what is asserted. The bounded offline
+     fallback and its window are covered in test/offlineStartup.test.js. */
+  const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+  const handler = /self\.addEventListener\('fetch'[\s\S]*?\n\}\);/.exec(sw);
+  assert.ok(handler, 'the fetch handler is gone; offline startup depends on it');
+  const nav = handler[0].slice(handler[0].indexOf("req.mode !== 'navigate'"));
+  const network = nav.indexOf('fetch(req)');
+  const cache = nav.indexOf('c.match(SHELL_KEY)');
+  assert.ok(network > -1, 'navigation no longer reaches the network');
+  assert.ok(cache === -1 || network < cache,
+    'the cached shell is consulted before the network -- an online launch could ' +
+    'open without the gate running');
+  /* And the cached shell is reached only from the network-failure path. */
+  assert.match(nav, /\}\)\.catch\(function\(\)\{[\s\S]*?c\.match\(SHELL_KEY\)/,
+    'the cached shell is reachable other than as a fallback for a failed network');
 });

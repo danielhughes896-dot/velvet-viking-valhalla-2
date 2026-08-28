@@ -135,11 +135,27 @@ function stamp(res, state){
    answer "you already have it" in a few hundred bytes instead of resending the
    application. Revocation is unaffected -- a denied athlete never reaches this
    function and so never receives a 304. */
+/* THE OFFLINE ENTITLEMENT STAMP.
+   ---------------------------------------------------------------------------
+   Sent on every SUCCESSFUL gated delivery -- 200 and 304 alike, because a 304
+   means the gate ran and said yes just as much as a 200 does. The service
+   worker records it and may reuse the cached shell without a live gate for a
+   bounded window afterwards.
+
+   IT IS SERVER TIME, and that is the point. A device clock is the athlete's to
+   set; this is not. The client cannot extend its own offline window by writing
+   a later value here, because it does not write this value at all -- it can
+   only ever have received one from a gate that granted it.
+
+   A DENIAL NEVER SENDS IT. toShell() is a different response with no stamp, so
+   a revoked athlete's window stops being refreshed the moment they are
+   refused, and expires on its own. */
 function serveRuntime(req, res){
   const tag = runtimeEtag();
   res.setHeader('content-type', 'text/html; charset=utf-8');
   res.setHeader('cache-control', 'private, max-age=0, must-revalidate');
   res.setHeader('etag', tag);
+  res.setHeader('x-vvv-entitled-at', String(Date.now()));
   /* The gate cookie is what distinguishes one athlete's authorisation from
      another's, so a cache that ignored it could reuse a stored copy across
      sessions. Unchanged, and more important now that there is a stored copy. */

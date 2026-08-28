@@ -31894,8 +31894,39 @@ function patchNotifyToggle(){
 /* =========================================================
    INIT
    ========================================================= */
+/* OWNERSHIP IS SETTLED BEFORE ANYTHING IS DRAWN.
+   ---------------------------------------------------------------------------
+   resolvePlanOwnership() has always existed and has always been right: a plan
+   carries the uid it belongs to, a foreign owner's plan is ARCHIVED rather than
+   destroyed, and the incoming athlete's own plan is restored if this device
+   kept one. What was wrong was WHEN it ran -- inside cloudReconcile(), which
+   needs the network.
+
+   That was survivable while startup waited for the cloud anyway. It is not
+   survivable now that the app renders local state first and may render it with
+   no network at all: the previous athlete's plan would be on screen, and would
+   stay there until a reconcile that might never come.
+
+   So it runs here, against the uid in the STORED session, before renderApp().
+   Same function, same archive, same restore -- moved, not duplicated.
+
+   SIGNED OUT IS NOT A FOREIGN OWNER. With no session there is no uid,
+   resolvePlanOwnership() returns 'no-session' and does nothing, and the plan
+   stays exactly where the athlete was promised it would stay: on the device.
+   That contract is unchanged and deliberately so. */
+function resolveOwnershipBeforeRender(){
+  var stored = null;
+  try{ stored = readStored(CLOUD_SESSION_KEY); }catch(e){ stored = null; }
+  var uid = stored && stored.user_id;
+  if (!uid) return 'no-session';
+  try{ return resolvePlanOwnership(uid); }
+  catch(e){ return 'error'; }
+}
+
 function init(){
   loadState();
+  /* Before the first paint, and before any cloud call. */
+  resolveOwnershipBeforeRender();
   /* THE FALLBACK PATH ONLY. The primary adoption hook lives inside
      cloudReconcile()'s `!remoteHasPlan` branch below, because that is the
      only point in the app that has already settled whether a plan exists
