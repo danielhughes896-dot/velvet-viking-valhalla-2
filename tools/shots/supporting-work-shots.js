@@ -62,11 +62,12 @@ function seed(p){ try { localStorage.setItem(p.key, p.state); } catch (e) {} }
   const notes = [];
 
   const SHOTS = [
-    { name:'today',    view:'today',    on:true  },
-    { name:'today-off',view:'today',    on:false },
-    { name:'week',     view:'week',     on:true  },
-    { name:'settings', view:'settings', on:true  },
-    { name:'builder',  view:'today',    on:true, builder:true }
+    { name:'today-collapsed', view:'today', on:true  },
+    { name:'today-expanded',  view:'today', on:true, expand:true },
+    { name:'today-off',       view:'today', on:false },
+    { name:'week',            view:'week',  on:true  },
+    { name:'settings',        view:'settings', on:true },
+    { name:'builder',         view:'today', on:true, builder:true }
   ];
 
   for (const shot of SHOTS){
@@ -78,6 +79,7 @@ function seed(p){ try { localStorage.setItem(p.key, p.state); } catch (e) {} }
       await page.route('https://fonts.googleapis.com/**', r =>
         r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
       const errors = [];
+      let builderWalk = null;
       page.on('pageerror', e => errors.push(String(e && e.message || e)));
       const blob = Object.assign({}, JSON.parse(JSON.stringify(a.state)),
         { view: shot.view, theme, themeExplicit: true });
@@ -102,28 +104,71 @@ function seed(p){ try { localStorage.setItem(p.key, p.state); } catch (e) {} }
         await page.waitForTimeout(500);
       }
       if (shot.builder){
-        /* Open the builder and jump to Review -- the stage the question ships
-           on, photographed there rather than rendered in isolation. */
+        /* WALKED, NOT UNHIDDEN. The first version of this jumped to Review by
+           setting `hidden` on the other panels, which photographed a Review
+           stage whose #bld-review container had never been populated -- an
+           empty grey pill sitting above the question, present only because of
+           how the screenshot was taken. Acceptance evidence has to be the
+           screen an athlete actually reaches, so this presses Next through
+           every stage and lets the builder's own validation and its own
+           bldRenderReview() run. The athlete already has a plan, so every
+           stage arrives pre-filled from state and nothing has to be typed. */
         try { await page.evaluate(() => window.openSetupModal && window.openSetupModal()); } catch(e){}
         await page.waitForTimeout(600);
+        const walk = await page.evaluate(() => {
+          const seen = [];
+          for (let i = 0; i < 20; i++){
+            seen.push(window.bldCurrentStage);
+            if (window.bldCurrentStage >= 9) break;
+            const before = window.bldCurrentStage;
+            window.handleBldNext();
+            if (window.bldCurrentStage === before) break;   // validation refused
+          }
+          return { path: seen, stage: window.bldCurrentStage,
+                   review: (document.getElementById('bld-review') || {}).innerHTML ?
+                     (document.getElementById('bld-review').innerHTML.length) : 0 };
+        });
+        await page.waitForTimeout(500);
+        builderWalk = walk;
+      }
+      /* The expanded state is the athlete's own tap on the disclosure, not a
+         different render -- so it is produced by opening the same <details>
+         they would open, rather than by a second code path. */
+      if (shot.expand){
         try { await page.evaluate(() => {
-          var panels = document.querySelectorAll('.bld-panel');
-          for (var i = 0; i < panels.length; i++) panels[i].hidden = i !== panels.length - 1;
-          var last = panels[panels.length - 1];
-          if (last) last.scrollIntoView();
+          var d = document.querySelector('details.support-detail');
+          if (d) { d.open = true; d.scrollIntoView({ block:'center' }); }
         }); } catch(e){}
         await page.waitForTimeout(400);
       }
       /* What actually got photographed, stated rather than assumed. */
       const found = await page.evaluate(() => ({
+        reviewChars: (document.getElementById('bld-review') || { innerHTML:'' }).innerHTML.length,
         block: document.querySelectorAll('.support-block').length,
         line: document.querySelectorAll('.support-line').length,
         settings: document.querySelectorAll('#support-work-row').length,
-        builder: document.querySelectorAll('#su-support-work').length
+        builder: document.querySelectorAll('#su-support-work').length,
+        detailOpen: document.querySelectorAll('details.support-detail[open]').length,
+        kind: (document.querySelector('.support-title') || {}).textContent || null
       }));
+      /* VIEWPORT, SCROLLED TO THE SUBJECT -- not fullPage. The bottom nav is
+         fixed, and a full-page capture paints it across the middle of the
+         document, which in the first run landed squarely over the companion's
+         own heading. The evidence has to show the thing being accepted. */
       const file = path.join(OUT, shot.name + '-' + theme + '.png');
-      await page.screenshot({ path: file, fullPage: true });
-      notes.push({ shot: shot.name, theme, found, errors: errors.length ? errors : null });
+      const subject = shot.builder ? '.bld-panel:not([hidden])'
+                    : shot.view === 'settings' ? '#support-work-row'
+                    : shot.name === 'today-off' ? '.day.is-today, .day'
+                    : '.support-block';
+      let shotEl = null;
+      try { shotEl = await page.$(subject); } catch(e){}
+      if (shotEl){
+        try { await shotEl.scrollIntoViewIfNeeded(); } catch(e){}
+        await page.waitForTimeout(250);
+      }
+      await page.screenshot({ path: file, fullPage: false });
+      notes.push({ shot: shot.name, theme, found, walk: builderWalk,
+                   errors: errors.length ? errors : null });
       await ctx.close();
     }
   }

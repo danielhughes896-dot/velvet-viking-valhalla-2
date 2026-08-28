@@ -1756,7 +1756,13 @@
   .support-head{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:2px;}
   .support-tag{font-size:var(--fs-meta); letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint);}
   .support-dur{font-size:var(--fs-meta); color:var(--ink-faint);}
-  .support-title{font-size:var(--fs-support); color:var(--ink-dim); margin-bottom:8px;}
+  .support-title{font-size:var(--fs-support); color:var(--ink-dim); margin-bottom:2px;}
+  /* The one sentence that earns its place in the collapsed state. */
+  .support-why{font-size:var(--fs-meta); line-height:var(--lh-support);
+    color:var(--ink-faint); margin-bottom:8px;}
+  /* The disclosure is the app's own how-card; only its scale is reduced, so it
+     reads as subordinate to the running session's identical control above it. */
+  .support-detail summary{font-size:var(--fs-meta);}
   .support-steps{margin-bottom:8px;}
   .support-step{display:flex; justify-content:space-between; gap:12px;
     font-size:var(--fs-meta); line-height:1.7; color:var(--ink-dim);}
@@ -1765,8 +1771,13 @@
     line-height:var(--lh-support); color:var(--ink-faint); margin-bottom:3px;}
   .support-guide .g-k{flex:0 0 34px; text-transform:uppercase; letter-spacing:.06em;}
   .support-guide .g-v{flex:1;}
-  .support-actions{display:flex; gap:8px; margin-top:10px;}
-  .support-actions .btn{flex:1;}
+  /* One action with weight, one without: logging it is a real act, declining
+     is a quiet aside rather than a second equal choice. */
+  .support-actions{display:flex; align-items:center; gap:12px; margin-top:10px;}
+  .support-actions .btn{flex:0 0 auto;}
+  .support-skip{background:none; border:0; padding:0; cursor:pointer;
+    font-family:inherit; font-size:var(--fs-meta); color:var(--ink-faint);
+    text-decoration:underline; text-underline-offset:3px;}
   /* The one line a completed companion collapses to. */
   .support-line{font-size:var(--fs-meta); line-height:var(--lh-support);
     color:var(--ink-faint); margin-top:6px;}
@@ -17495,7 +17506,10 @@ function supportRecentlyIgnored(){
   var all = (state && state.days) || [];
   for (var i = 0; i < all.length; i++){
     var d = all[i];
-    if (!d || d.date < from || d.date >= todayStr()) continue;
+    /* TODAY'S DECLINE COUNTS TODAY. Excluding it meant declining twice had no
+       effect until the following morning, which is not what "not today" reads
+       as to the person who pressed it. */
+    if (!d || d.date < from || d.date > todayStr()) continue;
     if (d.support && d.support.dismissed) missed++;
   }
   return missed >= 2;
@@ -17512,29 +17526,52 @@ function supportDayEligible(dd, weekDays){
   if (dd.type === 'long') return null;
   try { if (isStravaDerived(dd)) return null; } catch(e){}
 
-  /* NEVER THE DAY BEFORE A KEY SESSION. This is the whole displacement
-     guarantee: supporting work is refused rather than the running being
-     softened to accommodate it. */
+  /* THE TWO CONTEXTS COMPOSE RATHER THAN RACE, and the first version of this
+     got that wrong in a way only a fixture caught. Both rules were early
+     returns with the KEY rule first, so on the commonest schedule in the app
+     -- long run Sunday, rest Monday, intervals Tuesday -- every post-long-run
+     day was ALSO the day before a key session, the blanket refusal fired
+     first, and the deliberate post-long-run mobility rule was unreachable for
+     the athletes it was written for. The test that was supposed to prove it
+     had to neutralise the following day to see the rule at all, which is the
+     tell.
+
+     So each context now lowers a ceiling instead of refusing outright, and the
+     resulting law is:
+
+       ON a KEY, quality, long or race day        never, at any cost
+       the day BEFORE a KEY session               low-cost mobility only
+       the day AFTER a long run                   low-cost mobility only
+       any other easy or rest day                 whatever the phase allows
+
+     which is the invariant stated exactly: DEMANDING work can never compromise
+     an upcoming key session, nothing appears merely because a key session
+     happened, and genuinely low-cost recovery work after a long run stays
+     available where the capacity and recovery gates still permit it. */
+  var ceiling = 3, only = null, why = null;
+
+  var allDays = (state && state.days) || [];
+  var prev = null;
+  for (var j = 0; j < allDays.length; j++) if (allDays[j].date === addDays(dd.date, -1)) prev = allDays[j];
+  if (prev && prev.type === 'long'){
+    ceiling = 1; only = [SUPPORT_MOBILITY]; why = 'after a long run';
+  }
+
   var next = null;
   for (var i = 0; i < weekDays.length; i++){
     if (weekDays[i].date === addDays(dd.date, 1)) next = weekDays[i];
   }
   if (!next){
-    var all = (state && state.days) || [];
-    for (var k = 0; k < all.length; k++) if (all[k].date === addDays(dd.date, 1)) next = all[k];
+    for (var k = 0; k < allDays.length; k++) if (allDays[k].date === addDays(dd.date, 1)) next = allDays[k];
   }
-  if (next && sessionImportance(next) === 'KEY') return null;
+  if (next && sessionImportance(next) === 'KEY'){
+    ceiling = Math.min(ceiling, 1);
+    if (!only) only = [SUPPORT_MOBILITY];
+    if (!why) why = 'the day before a key session';
+  }
 
-  /* THE DAY AFTER A LONG RUN is the clearest case in the brief, and the one a
-     slot-filling implementation gets wrong: there is room in the calendar, and
-     demanding lower-body strength is exactly the wrong thing to put in it. */
-  var prev = null;
-  var allDays = (state && state.days) || [];
-  for (var j = 0; j < allDays.length; j++) if (allDays[j].date === addDays(dd.date, -1)) prev = allDays[j];
-  if (prev && prev.type === 'long') return { ceiling:1, only:[SUPPORT_MOBILITY], why:'after a long run' };
-
-  if (dd.type === 'rest') return { ceiling:3, only:null, why:'a rest day with room in it' };
-  if (dd.type === 'easy') return { ceiling:3, only:null, why:'an easy day' };
+  if (dd.type === 'rest') return { ceiling:ceiling, only:only, why:why || 'a rest day with room in it' };
+  if (dd.type === 'easy') return { ceiling:ceiling, only:only, why:why || 'an easy day' };
   return null;
 }
 
@@ -17575,26 +17612,51 @@ function supportForWeek(weekNum){
   var prior = supportRecentCompletions(14);
   if (prior.length) lastKind = prior[prior.length - 1].support.kind;
 
-  for (var i = 0; i < weekDays.length && out.length < weekCap; i++){
-    var dd = weekDays[i];
-    var slot = supportDayEligible(dd, weekDays);
-    if (!slot) continue;
-    var dayCeiling = Math.min(ceiling, slot.ceiling);
+  /* THE MOST USEFUL DAY, NOT THE EARLIEST ONE. Taking candidates in date order
+     looked harmless and was not: on the app's commonest schedule the first
+     eligible day of every week is the Monday after the Sunday long run, which
+     is deliberately capped to low-cost mobility. It therefore consumed the
+     week's only slot every single week, and a Base or Build block could never
+     prescribe the strength development its phase explicitly allows. Found by
+     trying to photograph a strength session and discovering the engine had
+     stopped producing any.
+
+     Candidates are therefore ordered by how much the day can actually carry,
+     and only then by date. The constrained days are still eligible and still
+     get chosen when nothing better is free -- which is what keeps post-long-run
+     mobility reachable -- but they no longer outrank a day with real capacity
+     purely for being earlier in the week. */
+  var slots = [];
+  for (var i = 0; i < weekDays.length; i++){
+    var slot = supportDayEligible(weekDays[i], weekDays);
+    if (slot) slots.push({ dd: weekDays[i], slot: slot });
+  }
+  slots.sort(function(x, y){
+    if (x.slot.ceiling !== y.slot.ceiling) return y.slot.ceiling - x.slot.ceiling;
+    return x.dd.date < y.dd.date ? -1 : 1;
+  });
+
+  for (var n = 0; n < slots.length && out.length < weekCap; n++){
+    var dd = slots[n].dd, sl = slots[n].slot;
+    var dayCeiling = Math.min(ceiling, sl.ceiling);
     var allowed = SUPPORT_ORDER.filter(function(id){
       var k = SUPPORT_KINDS[id];
       if (k.cost > dayCeiling) return false;
       if (pc.only && pc.only.indexOf(id) === -1) return false;
-      if (slot.only && slot.only.indexOf(id) === -1) return false;
+      if (sl.only && sl.only.indexOf(id) === -1) return false;
       return true;
     });
     if (!allowed.length) continue;
     /* VARIETY, and only where it costs nothing: prefer a kind other than the
        last one completed, but never refuse the only kind still allowed. */
     var pick = allowed.length > 1 && lastKind && allowed[0] === lastKind ? allowed[1] : allowed[0];
-    out.push({ dayId: dd.id, date: dd.date, kind: pick, why: slot.why,
+    out.push({ dayId: dd.id, date: dd.date, kind: pick, why: sl.why,
                phase: phase, limits: cap.reasons.slice() });
     lastKind = pick;
   }
+  /* Chronological for every consumer -- the ordering above is a preference,
+     not the shape of a week. */
+  out.sort(function(x, y){ return x.date < y.date ? -1 : 1; });
   return out;
 }
 
@@ -26085,6 +26147,10 @@ function handleSetSupportWork(on){
    otherwise would put it into a scoring system built for running. */
 function renderSupportCompanion(dd){
   if (!dd) return '';
+  /* DECLINED IS AN ANSWER, and the card honours it immediately. Without this
+     "Not today" wrote its state and then re-rendered the whole prescription
+     underneath the athlete, which reads as the button having done nothing. */
+  if (dd.support && dd.support.dismissed) return '';
   var done = dd.support && dd.support.completedAt ? dd.support : null;
   var item = done ? { kind:done.kind } : supportForDay(dd);
   if (!item) return '';
@@ -26096,24 +26162,49 @@ function renderSupportCompanion(dd){
     return '<div class="support-line support-done">'+ICONS.check+' '+
       escapeHtml(k.label)+' \u2014 done</div>';
   }
+
+  /* CLOSED BY DEFAULT, AND SUBORDINATE. The running session is the primary
+     object on Today and this is a companion to it, so the open state used to
+     be wrong twice over: a movement list plus four coaching rows made the
+     companion as tall as the run it exists to support, on every card, whether
+     or not the athlete wanted it.
+
+     What stays visible is what an athlete needs to know without opening
+     anything: that supporting work is prescribed, what kind, roughly how long,
+     and why it is there. Everything else -- the movements, and How, Feel and
+     Avoid -- is one tap away behind the SAME <details> disclosure the running
+     session's own "How to run this" uses. Nothing was removed; the hierarchy
+     changed.
+
+     WHY IS NOT REPEATED INSIDE. It is the one line that earns its place in the
+     collapsed state, so the disclosure carries the other three rather than
+     saying it twice. */
   var steps = k.steps.map(function(st){
     return '<div class="support-step"><span class="s-l">'+escapeHtml(st.label)+'</span>'+
            '<span class="s-q font-mono">'+escapeHtml(st.qty)+'</span></div>';
   }).join('');
+  var row = function(key, v){
+    return v ? '<div class="how-row"><span class="k">'+key+'</span><span class="v">'+escapeHtml(v)+'</span></div>' : '';
+  };
   return '<div class="support-block">'+
     '<div class="support-head">'+
       '<span class="support-tag font-head">Supporting work</span>'+
       '<span class="support-dur font-mono">'+k.minutes+' min</span>'+
     '</div>'+
     '<div class="support-title font-head">'+escapeHtml(k.label)+'</div>'+
-    '<div class="support-steps">'+steps+'</div>'+
-    '<div class="support-guide"><span class="g-k">Why</span><span class="g-v">'+escapeHtml(k.why)+'</span></div>'+
-    '<div class="support-guide"><span class="g-k">How</span><span class="g-v">'+escapeHtml(k.how)+'</span></div>'+
-    '<div class="support-guide"><span class="g-k">Feel</span><span class="g-v">'+escapeHtml(k.feel)+'</span></div>'+
-    '<div class="support-guide"><span class="g-k">Avoid</span><span class="g-v">'+escapeHtml(k.avoid)+'</span></div>'+
+    '<div class="support-why">'+escapeHtml(k.why)+'</div>'+
+    '<details class="fuel-card how-card support-detail">'+
+      '<summary>'+ICONS.info+'The session<span class="fuel-chevron" aria-hidden="true">'+ICONS.chevronDown+'</span></summary>'+
+      '<div class="fuel-body">'+
+        '<div class="support-steps">'+steps+'</div>'+
+        row('How', k.how)+
+        row('Feel', k.feel)+
+        row('Avoid', k.avoid)+
+      '</div>'+
+    '</details>'+
     '<div class="support-actions">'+
-      '<button type="button" class="btn btn-sm btn-primary" data-action="support-done" data-day="'+dd.id+'">Mark done</button>'+
-      '<button type="button" class="btn btn-sm btn-ghost" data-action="support-skip" data-day="'+dd.id+'">Not today</button>'+
+      '<button type="button" class="btn btn-sm btn-ghost" data-action="support-done" data-day="'+dd.id+'">Mark done</button>'+
+      '<button type="button" class="support-skip" data-action="support-skip" data-day="'+dd.id+'">Not today</button>'+
     '</div>'+
   '</div>';
 }

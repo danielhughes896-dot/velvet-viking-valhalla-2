@@ -204,9 +204,17 @@ test('supporting work never displaces or degrades a key running objective', () =
     const dd = on.state.days.filter(d => d.id === item.dayId)[0];
     assert.notEqual(on.sessionImportance(dd), 'KEY',
       'supporting work landed on a KEY session on ' + item.date);
+    /* THE DAY BEFORE A KEY SESSION IS NOT BLANKET-REFUSED, and must not be:
+       a blanket refusal is what made the deliberate post-long-run mobility
+       rule unreachable on the commonest schedule in the app. What must hold is
+       the invariant itself -- nothing DEMANDING may compromise an upcoming key
+       session -- so the assertion is on cost, which is the thing that could
+       actually do the compromising. */
     const nxt = on.state.days.filter(d => d.date === on.addDays(item.date, 1))[0];
-    if (nxt) assert.notEqual(on.sessionImportance(nxt), 'KEY',
-      'supporting work landed the day before a KEY session on ' + item.date);
+    if (nxt && on.sessionImportance(nxt) === 'KEY'){
+      assert.equal(on.SUPPORT_KINDS[item.kind].cost, 1,
+        'demanding supporting work (' + item.kind + ') landed the day before a KEY session on ' + item.date);
+    }
   });
 });
 
@@ -507,10 +515,132 @@ test('the card renders the companion below the running, and nothing when there i
   const html = a.renderSupportCompanion(dd);
   assert.ok(html.indexOf('Supporting work') !== -1);
   assert.ok(html.indexOf(a.SUPPORT_KINDS[items[0].kind].label) !== -1);
-  assert.ok(html.indexOf('Why') !== -1 && html.indexOf('Avoid') !== -1);
+  assert.ok(html.indexOf('Avoid') !== -1, 'the coaching detail is not present at all');
   /* A day with no companion renders nothing at all — no empty container. */
   const key = a.state.days.filter(d => a.sessionImportance(d) === 'KEY')[0];
   assert.equal(a.renderSupportCompanion(key), '');
+});
+
+test('the companion is closed by default and the running stays the primary object', () => {
+  /* THE HIERARCHY, ASSERTED RATHER THAN EYEBALLED. What must be visible
+     without opening anything is exactly: that supporting work exists, what
+     kind, roughly how long, and why. Everything else sits behind one
+     disclosure — the same <details> the running session's own "How to run
+     this" uses, not a new control. */
+  const a = app({});
+  const items = week(a, 1);
+  assert.ok(items.length, 'week 1 prescribed nothing, so this proves nothing');
+  const dd = a.state.days.filter(d => d.id === items[0].dayId)[0];
+  const html = a.renderSupportCompanion(dd);
+  const k = a.SUPPORT_KINDS[items[0].kind];
+
+  /* Closed: <details> with no `open` attribute. */
+  assert.ok(/<details class="[^"]*support-detail"/.test(html), 'no disclosure was used');
+  assert.ok(!/<details[^>]*\sopen[\s>]/.test(html), 'the companion opens expanded by default');
+
+  const collapsed = html.slice(0, html.indexOf('<details'));
+  assert.ok(collapsed.indexOf('Supporting work') !== -1, 'the athlete is not told it exists');
+  assert.ok(collapsed.indexOf(k.label) !== -1, 'the kind is hidden behind the disclosure');
+  assert.ok(collapsed.indexOf(k.minutes + ' min') !== -1, 'the duration is hidden');
+  assert.ok(collapsed.indexOf(a.escapeHtml(k.why)) !== -1, 'no purpose is given without opening it');
+
+  /* And the movements and remaining coaching really are inside it. */
+  const inside = html.slice(html.indexOf('<details'));
+  assert.ok(inside.indexOf(k.steps[0].label) !== -1, 'the movement list is not behind the disclosure');
+  ['How', 'Feel', 'Avoid'].forEach(key =>
+    assert.ok(inside.indexOf('>' + key + '<') !== -1, key + ' is not behind the disclosure'));
+  /* Nothing was lost in the move: every movement is still there. */
+  k.steps.forEach(st => assert.ok(html.indexOf(st.label) !== -1, 'lost a movement: ' + st.label));
+  /* And Why is said once, not twice. */
+  assert.equal(html.split(a.escapeHtml(k.why)).length - 1, 1, 'the purpose is stated twice');
+});
+
+test('the companion is materially shorter than the running prescription it supports', () => {
+  /* A proxy for vertical dominance that does not depend on pixels: the
+     collapsed companion must not carry more content than the session it hangs
+     off. Before this pass it carried six movements and four coaching rows on
+     every card, whether or not the athlete wanted them. */
+  const a = app({});
+  const items = week(a, 1);
+  const dd = a.state.days.filter(d => d.id === items[0].dayId)[0];
+  const html = a.renderSupportCompanion(dd);
+  const collapsed = html.slice(0, html.indexOf('<details'));
+  const text = collapsed.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  assert.ok(text.length < 220,
+    'the collapsed companion is still a wall of text (' + text.length + ' chars): ' + text);
+});
+
+test('the day before a KEY session allows low-cost work only, and is not refused outright', () => {
+  /* THE DEFECT THIS REPLACED. Both context rules were early returns with the
+     KEY rule first, so on the app's commonest schedule — long run Sunday, rest
+     Monday, intervals Tuesday — every post-long-run day was also the day
+     before a key session, and the deliberate post-long-run mobility rule could
+     never fire for the athletes it was written for. */
+  const a = app({});
+  let sawBoth = 0, sawKeyOnly = 0;
+  a.state.days.forEach(dd => {
+    if (['easy', 'rest'].indexOf(dd.type) === -1) return;
+    const prev = a.state.days.filter(x => x.date === a.addDays(dd.date, -1))[0];
+    const next = a.state.days.filter(x => x.date === a.addDays(dd.date, 1))[0];
+    const beforeKey = next && a.sessionImportance(next) === 'KEY';
+    const afterLong = prev && prev.type === 'long';
+    if (!beforeKey && !afterLong) return;
+    const slot = a.supportDayEligible(dd, a.state.days.filter(x => x.week === dd.week));
+    assert.ok(slot, 'a day was refused outright on ' + dd.date +
+      ' (beforeKey=' + !!beforeKey + ' afterLong=' + !!afterLong + ')');
+    assert.equal(slot.ceiling, 1, 'not held to low cost on ' + dd.date);
+    assert.equal(slot.only.join(''), 'mobility_recovery', 'not mobility-only on ' + dd.date);
+    if (beforeKey && afterLong) sawBoth++; else if (beforeKey) sawKeyOnly++;
+  });
+  assert.ok(sawBoth > 0,
+    'the fixture never produced a day that is BOTH after a long run and before a key session, ' +
+    'which is the exact case the old ordering got wrong');
+});
+
+test('a constrained day does not outrank a capable one merely by being earlier', () => {
+  /* THE DEFECT THIS REPLACED, and it was invisible until someone tried to
+     photograph a strength session. Candidates were taken in date order, and on
+     the app's commonest schedule the first eligible day of every week is the
+     Monday after the Sunday long run -- deliberately capped to low-cost
+     mobility. It consumed the week's only slot every week, so a Base or Build
+     block could never prescribe the strength development its phase explicitly
+     allows. The engine had quietly become mobility-only for those athletes. */
+  const a = app({});
+  const rows = sweep(a).filter(r => ['Base', 'Build'].indexOf(r.phase) !== -1);
+  assert.ok(rows.length >= 3, 'the fixture has too few development weeks');
+  assert.ok(rows.some(r => r.kinds.some(k => STRENGTH.indexOf(k) !== -1)),
+    'no development week prescribed any strength at all: ' +
+    rows.map(r => r.w + ':' + (r.kinds.join('+') || 'none')).join(' '));
+
+  /* And specifically: where a week contains BOTH a post-long-run day and an
+     unconstrained one, the unconstrained day is the one that gets used. */
+  let checked = 0;
+  rows.forEach(r => {
+    const days = a.state.days.filter(d => d.week === r.w);
+    const slots = days.map(d => ({ d, s: a.supportDayEligible(d, days) })).filter(x => x.s);
+    const constrained = slots.filter(x => x.s.ceiling === 1);
+    const capable = slots.filter(x => x.s.ceiling > 1);
+    if (!constrained.length || !capable.length) return;
+    checked++;
+    const picked = week(a, r.w);
+    if (!picked.length) return;
+    assert.ok(capable.some(x => x.d.id === picked[0].dayId),
+      'week ' + r.w + ' spent its slot on a constrained day while a capable one was free');
+  });
+  assert.ok(checked > 0,
+    'no week contained both a constrained and a capable day, so the ordering was never exercised');
+});
+
+test('supporting work does not appear merely because a KEY session occurred', () => {
+  /* Nothing in the resolver triggers on a key session; a key session only ever
+     restricts. Asserted by removing every key session from a week and checking
+     supporting work does not vanish with them. */
+  const a = app({});
+  const withKey = kinds(a, 2).length;
+  a.state.days.filter(d => d.week === 2 && a.sessionImportance(d) === 'KEY')
+    .forEach(d => { d.type = 'easy'; d.km = 6; });
+  assert.ok(kinds(a, 2).length >= withKey,
+    'removing the key sessions removed the supporting work, so it was triggered BY them');
 });
 
 test('with the preference off the card renders nothing', () => {
@@ -526,6 +656,67 @@ test('a completed companion collapses to one line and offers no scoring', () => 
   assert.ok(html.indexOf('done') !== -1);
   assert.ok(html.indexOf('support-actions') === -1, 'a completed companion still offered its buttons');
   assert.ok(!/exec|score/i.test(html), 'supporting work was given an execution score');
+});
+
+test('declining is remembered, is not a completion, and one decline is not two', () => {
+  /* WHAT "NOT TODAY" MEANS, established rather than assumed. It writes a
+     dismissal, which is real evidence: two inside the recent window and
+     supportRecentlyIgnored() stops the engine asking for the rest of the
+     block. That is a genuine adaptation distinction from simply never logging
+     it — an unlogged day is silent and changes nothing — so the action stays,
+     subordinate to Mark done rather than beside it as an equal choice. */
+  const a = app({});
+  const t = a.todayStr();
+  const past = a.state.days.filter(d => d.date <= t && d.date >= a.addDays(t, -14));
+  assert.ok(past.length >= 2, 'fixture has too few recent days');
+
+  /* One decline is not enough to stop anything. */
+  past[0].support = { kind:null, dismissed:true, dismissedAt: past[0].date };
+  assert.equal(a.supportRecentlyIgnored(), false, 'a single decline silenced the engine');
+
+  /* Two is. */
+  past[1].support = { kind:null, dismissed:true, dismissedAt: past[1].date };
+  assert.equal(a.supportRecentlyIgnored(), true, 'two declines did not register');
+
+  /* A decline is never mistaken for having done it. */
+  assert.equal(a.supportRecentCompletions(28).length, 0,
+    'a decline was counted as a completed session');
+  assert.equal(a.supportIsHabitual(), false, 'declining twice made it look habitual');
+});
+
+test('declining takes effect immediately on the card that was declined', () => {
+  const a = app({});
+  const items = week(a, a.currentWeekNum());
+  if (!items.length) return;
+  const dd = a.state.days.filter(d => d.id === items[0].dayId)[0];
+  assert.ok(a.renderSupportCompanion(dd).length > 0);
+  a.handleSupportSkip(dd.id);
+  assert.equal(a.renderSupportCompanion(dd), '',
+    'the prescription was re-rendered underneath an athlete who had just declined it');
+});
+
+test('declining today counts today, not tomorrow', () => {
+  const a = app({});
+  const t = a.todayStr();
+  const todayDay = a.state.days.filter(d => d.date === t)[0];
+  const yesterday = a.state.days.filter(d => d.date === a.addDays(t, -1))[0];
+  yesterday.support = { kind:null, dismissed:true, dismissedAt: yesterday.date };
+  todayDay.support = { kind:null, dismissed:true, dismissedAt: t };
+  assert.equal(a.supportRecentlyIgnored(), true,
+    'declining twice, the second time today, had no effect until tomorrow');
+});
+
+test('the decline action is subordinate to logging it', () => {
+  const a = app({});
+  const items = week(a, 1);
+  const dd = a.state.days.filter(d => d.id === items[0].dayId)[0];
+  const html = a.renderSupportCompanion(dd);
+  assert.ok(/data-action="support-done"[^>]*>Mark done/.test(html.replace(/\n/g, '')),
+    'there is no way to log it');
+  assert.ok(html.indexOf('class="support-skip"') !== -1,
+    'the decline is still styled as an equal button rather than a quiet aside');
+  assert.ok(html.indexOf('btn-primary') === -1,
+    'the companion carries a primary button, competing with the running session');
 });
 
 test('the Settings control reflects and toggles the stored preference', () => {
