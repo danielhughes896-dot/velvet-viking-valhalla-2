@@ -520,6 +520,74 @@ test('being on the allowlist is not, by itself, access after cutover', () => {
   assert.ok(!/beta_allowlist/.test(code(read('api/_entitlement.js'))));
 });
 
+test('a grant only grants anything once it reaches the row the gate reads', () => {
+  /* THE DEFECT THIS PINS, found by auditing production rather than by any test.
+     The cutover wrote every grandfathered athlete an admin_comp grant and
+     verified the GRANTS existed. They did. But entitlement_grants is the source
+     of truth and public.entitlements is a PROJECTION of it, and
+     api/app.js -> resolveAccess() reads the projection and nothing else.
+
+     The projection is written by exactly one function, syncEntitlementRow(),
+     called from exactly one place: _billing-apply.js, on a Stripe webhook. A
+     complimentary athlete has no Stripe activity, so no webhook ever fires for
+     them and their projection is never written. All four were therefore denied
+     the product while holding a valid grant.
+
+     What this test holds is the invariant the cutover assumed without checking:
+     the row projected from a comp-only athlete must be one the gate admits. */
+  const grant = { id: 'g', account_id: UID, source: 'admin_comp',
+    product_code: Prod.STANDARD, expires_at: null, revoked_at: null };
+  const g = E.grantAccess(grant, NOW);
+  assert.equal(g.active, true, 'the grant itself must be live for this test to mean anything');
+
+  const projected = E.projectToEntitlementRow(
+    { active: true, reason: 'admin_comp', sources: [Object.assign({ source: 'admin_comp' }, g)] },
+    null);
+  /* The projected row, handed to the real gate, must open the product. */
+  assert.equal(decide(projected).allow, true,
+    'a complimentary grant projects onto a row the gate refuses');
+  assert.equal(decide(projected).reason, 'override_promo');
+  /* And the override it writes must be one _access.js honours -- the two files
+     agreeing about this is the whole mechanism. */
+  assert.ok(A.ACCESS_OVERRIDES.indexOf(projected.override) !== -1,
+    'the projection writes an override the gate does not honour: ' + projected.override);
+
+  /* THE STATES THAT ACTUALLY EXISTED IN PRODUCTION AFTER THE CUTOVER, both of
+     which deny -- which is why the projection has to be written explicitly. */
+  assert.equal(decide(null).allow, false, 'no entitlements row admitted somebody');
+  assert.equal(decide(row({ override: 'beta', state: 'expired' })).allow, false);
+});
+
+test('the projection fix writes exactly what the projector would have written', () => {
+  /* The migration hard-codes a row rather than calling the projector, so the
+     two must be pinned together or they will drift. */
+  const sql = read('supabase-grandfather-projection.sql');
+  const grant = { id: 'g', account_id: UID, source: 'admin_comp',
+    product_code: Prod.STANDARD, expires_at: null, revoked_at: null };
+  const g = E.grantAccess(grant, NOW);
+  const projected = E.projectToEntitlementRow(
+    { active: true, reason: 'admin_comp', sources: [Object.assign({ source: 'admin_comp' }, g)] },
+    null);
+  assert.equal(projected.state, 'expired');
+  assert.equal(projected.tier, 'standard');
+  assert.equal(projected.access_until, null);
+  assert.equal(projected.override, 'promo');
+  assert.equal(projected.override_expires_at, null);
+  /* Each of those five appears in the migration's insert. */
+  assert.match(sql, /'expired', 'standard', null, false,\s*\n?\s*'promo', null/);
+  /* It must never touch the owner. */
+  assert.match(sql, /e\.override = 'owner'/);
+  assert.match(sql, /override is distinct from 'owner'/);
+  /* And it must verify admission rather than existence -- the mistake the
+     cutover made. */
+  /* EXACTLY 'promo'. Accepting ('owner','promo') would prove the cohort was
+     admitted without proving they were admitted as complimentary, which is the
+     entitlement the migration exists to give them. */
+  assert.match(sql, /e\.override = 'promo'/);
+  assert.ok(!/override in \('owner','promo'\)/.test(sql));
+  assert.match(sql, /projection incomplete/);
+});
+
 test('there is exactly one cutover migration to run', () => {
   /* Two migrations that must be applied in a particular order is a production
      incident waiting for somebody to be in a hurry. The signup-only file was
