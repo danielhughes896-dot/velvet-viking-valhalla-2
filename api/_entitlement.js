@@ -91,6 +91,24 @@ const CONDITIONS = ['trialing', 'active', 'cancelled', 'past_due', 'expired', 'r
  * this model has spent three phases removing. */
 const GRANT_SOURCES = ['admin_beta', 'admin_comp'];
 
+/* RETIRED AT COMMERCIAL LAUNCH, AND KEPT RATHER THAN DELETED.
+ *
+ * The private beta is over. A beta grant is no longer a way into the product,
+ * and there is no longer any beta route into it at all -- an account either
+ * holds a commercial entitlement or it does not.
+ *
+ * WHY THE SOURCE STAYS IN GRANT_SOURCES. The rows are history: who was given
+ * what, by whom, and when. Deleting the vocabulary would make those rows
+ * unreadable and turn an audit record into a column of orphaned strings. So
+ * the source remains VALID and stops being ACTIVE, which is a different
+ * statement and the one that is true.
+ *
+ * WHY IT IS DONE HERE. grantAccess() is the one place a grant becomes access.
+ * Retiring it at the resolver means the delivery gate, the projection onto the
+ * entitlements row, the subscription screen and the checkout eligibility rules
+ * all stop honouring it in the same instant, because all four read this. */
+const RETIRED_GRANT_SOURCES = ['admin_beta'];
+
 /* Why access is granted or refused. Product-facing, stable, and deliberately
    NOT one-per-provider-lifecycle-state -- there are more provider states than
    there are reasons an athlete needs to be given. */
@@ -302,6 +320,10 @@ function grantAccess(grant, now){
   };
 
   if (GRANT_SOURCES.indexOf(g.source) === -1) return out(false, 'invalid', null);
+  /* NOT 'invalid', AND NOT 'revoked'. The grant was real and nobody withdrew
+     it; the programme it belonged to ended. Saying so keeps the row honest and
+     keeps a support conversation accurate. */
+  if (RETIRED_GRANT_SOURCES.indexOf(g.source) !== -1) return out(false, 'retired', null);
   if (g.product_code !== P.STANDARD) return out(false, 'invalid', null);
   if (g.revoked_at != null) return out(false, 'revoked', null);
 
@@ -672,7 +694,7 @@ function publicEntitlement(resolution){
 }
 
 module.exports = {
-  CONDITIONS, GRANT_SOURCES, REASONS, COMMERCIAL_STATES, DAY_MS,
+  CONDITIONS, GRANT_SOURCES, RETIRED_GRANT_SOURCES, REASONS, COMMERCIAL_STATES, DAY_MS,
   asDate, iso, laterBound, boundary,
   subscriptionAccess, isBlockingCommercial, grantAccess,
   resolveStandardEntitlement, managementProviderFor, derivedCommercialState,

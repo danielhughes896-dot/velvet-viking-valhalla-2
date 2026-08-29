@@ -74,8 +74,13 @@ const account = require('../api/account.js');
 test('every consolidated resource resolves, and nothing else does', () => {
   // Phase 3 added preview and trial. Both mount here rather than as new
   // functions -- the plan allows twelve and the router is what it is for.
+  //
+  // COMMERCIAL LAUNCH ADDS `portal`, and it mounts here for exactly the same
+  // reason: a subscription with no self-service cancellation is not a finished
+  // product, and giving it a file of its own would have spent one of the twelve
+  // on a route entry.
   assert.deepEqual(account.ROUTES.slice().sort(),
-    ['account-data', 'account-delete', 'checkout', 'preview', 'subscription']);
+    ['account-data', 'account-delete', 'checkout', 'portal', 'preview', 'subscription']);
   account.ROUTES.forEach(r => {
     assert.equal(account.resolveResource({ query: { resource: r } }), r);
     assert.equal(account.resolveResource({ url: '/api/account?resource=' + r }), r);

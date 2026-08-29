@@ -151,6 +151,24 @@
   /* Why the athlete is looking at this page. /api/app appends it so the shell
      can be specific instead of showing the same sentence to someone who has
      never signed in and someone whose tester access was withdrawn. */
+  /* THE PERIOD THE ATHLETE ALREADY CHOSE, if the journey carried one.
+     The marketing site's pricing card links here with ?period=monthly|yearly,
+     so somebody who picked annual on velvetviking.co.uk is not asked the same
+     question twice.
+
+     A PRESELECTION AND NOTHING MORE. It highlights a button; it does not skip
+     the choice, it does not start a checkout, and it names no price. The two
+     values below are the only ones accepted and anything else is ignored
+     rather than passed on -- and even a valid one is only a hint, because the
+     price that is charged is resolved by /api/checkout from the offer code
+     against the catalogue, never from a query string. An athlete who changes
+     their mind here simply presses the other button. */
+  var preferredPeriod = (function(){
+    try{
+      var p = new URLSearchParams(location.search).get('period') || '';
+      return (p === 'monthly' || p === 'yearly') ? p : '';
+    }catch(e){ return ''; }
+  })();
   var why = (function(){
     try{ return new URLSearchParams(location.search).get('why') || ''; }catch(e){ return ''; }
   })();
@@ -292,7 +310,12 @@
     offers.forEach(function(o){
       var b = document.createElement('button');
       b.type = 'button';
-      b.className = 'vvv-btn vvv-btn-ghost';
+      /* The period carried from the website is shown as the chosen one. Both
+         buttons stay pressable: this is the athlete's earlier answer restated,
+         not a decision taken away from them. */
+      var chosen = preferredPeriod && o.billingPeriod === preferredPeriod;
+      b.className = 'vvv-btn' + (chosen ? '' : ' vvv-btn-ghost');
+      if (chosen) b.setAttribute('aria-current', 'true');
       b.textContent = priceLabel(o) + (cat.trialDays ? ' — ' + cat.trialDays + '-day free trial' : '');
       b.addEventListener('click', function(){ startCheckout(o.billingPeriod, b); });
       box.appendChild(b);

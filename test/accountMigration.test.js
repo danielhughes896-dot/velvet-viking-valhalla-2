@@ -301,8 +301,19 @@ test('the account shell is public, small, and carries no coaching engine', () =>
      payload, plus a short honest notice for the case where no commercial
      Terms have been published and there is therefore nothing to tick. The
      page now holds LESS legal text than it did, not more -- what grew is the
-     plumbing that stops this shell deciding anything for itself. */
-  assert.ok(shell.length < 34500, 'the shell must stay a shell (' + shell.length + ' bytes)');
+     plumbing that stops this shell deciding anything for itself.
+
+     RAISED TO 36KB AT COMMERCIAL LAUNCH, for the billing period the athlete
+     already chose. The marketing site's pricing card links here with
+     ?period=monthly|yearly so somebody who picked annual on velvetviking.co.uk
+     is not asked the same question twice. What was added is a reader that
+     accepts exactly two values and a class on one button -- a PRESELECTION and
+     nothing more. It skips no choice, starts no checkout and names no price:
+     both buttons stay pressable and the price charged is still resolved by
+     /api/checkout from the offer code. Under 1.5KB, and most of it is the
+     comment explaining why a query parameter is allowed nowhere near a
+     purchase decision. Still all door. */
+  assert.ok(shell.length < 36000, 'the shell must stay a shell (' + shell.length + ' bytes)');
   ['coachDecision', 'playbookAssess', 'athleteMemory', 'buildBlockWeeks', 'ARCHETYPE_GUIDANCE']
     .forEach(sym => assert.ok(shell.indexOf(sym) === -1, 'shell must not contain ' + sym));
 });

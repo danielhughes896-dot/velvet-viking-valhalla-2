@@ -225,17 +225,24 @@ test('a half-written pause fails towards the athlete keeping access', () => {
 });
 
 test('an admin grant still works while a subscription is paused', () => {
-  // The grant is a separate source and a pause is about a purchase. A beta
-  // tester who pauses their own subscription does not lose their grant.
+  // The grant is a separate source and a pause is about a purchase. Somebody
+  // with complimentary access who pauses their own subscription does not lose
+  // the grant. Written on admin_comp since beta was retired: the claim is
+  // about a grant surviving a pause, and only a live grant can show it.
   const paused = monthly({ paused_at: at(-5), pause_resumes_at: at(25) });
+  const grant = (source) => ({ id: 'g1', account_id: 'acc-1', source: source,
+    product_code: 'VALHALLA_STANDARD', revoked_at: null, expires_at: null });
   const r = E.resolveStandardEntitlement({
-    subscriptions: [paused],
-    grants: [{ id: 'g1', account_id: 'acc-1', source: 'admin_beta',
-               product_code: 'VALHALLA_STANDARD', revoked_at: null, expires_at: null }],
-    now: T0
+    subscriptions: [paused], grants: [grant('admin_comp')], now: T0
   });
   assert.equal(r.active, true);
-  assert.equal(r.reason, 'admin_beta');
+  assert.equal(r.reason, 'admin_comp');
+
+  // And a retired grant rescues nobody from a pause either.
+  const beta = E.resolveStandardEntitlement({
+    subscriptions: [paused], grants: [grant('admin_beta')], now: T0
+  });
+  assert.equal(beta.active, false, 'a beta grant covered a paused subscription');
 });
 
 test('pausing is not leaving: a paused athlete cannot buy a second subscription', () => {
