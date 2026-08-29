@@ -111,15 +111,34 @@ test('the availability probe is a deployment question, not an account one', () =
     'the client sends a token to a route that no longer needs one');
 });
 
-test('only TODAY being Strava-derived withdraws the offer, and it says so', () => {
-  /* The one case where the day itself cannot be discussed. Everything else
-     about the athlete stays available -- and the written coaching is intact. */
+test('TODAY being Strava-derived withdraws the DAY, and it says so', () => {
+  /* The one case where the day itself cannot be discussed -- and it is the DAY
+     that cannot be discussed, not the athlete's whole plan.
+
+     WHAT THIS TEST USED TO ASSERT. That Ask Coach was gone entirely. Measured
+     on a device, that took the athlete's own future prescription with it:
+     Valhalla wrote Sunday's intervals, their pace and their purpose before the
+     import existed, and none of it is Strava-derived. So the assertion moves
+     from "no control is drawn" to "the imported day is the subject of nothing",
+     which is what the boundary actually requires and is strictly harder to
+     satisfy by accident.
+
+     The exclusion this file exists for -- the day, its fields, its heart rate,
+     its splits, and every conclusion laundered through them -- is unchanged
+     and is asserted by every other test around this one. */
   const a = athlete();
   const dd = a.findDayByDate(TODAY);
   dd.stravaActivityId = 'X';
   const html = a.renderVoiceCard(dd);
-  assert.match(html, /came in from Strava/);
-  assert.ok(!/data-action="voice-ask-open"/.test(html));
+
+  assert.match(html, /came in from Strava|came from Strava/,
+    'the athlete is not told why the run is off limits');
+  assert.ok(html.indexOf('data-day="' + dd.id + '"') === -1,
+    'the imported day is the subject of a voice control');
+  /* The day is still out of the context entirely, which is the half that
+     carries the policy claim. */
+  assert.equal(a.voiceCoachContext().todaySession, null);
+  assert.equal(a.aiContextRefusalReason(dd), 'strava_derived');
 });
 
 // ---------------------------------------------------------------------------
