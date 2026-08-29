@@ -122,6 +122,24 @@ function checkCase(c){
       add(HARD, 'taper_week_increases_volume', { week: w.week, delta: w.volumeDelta, actual: w.actualVolume });
   });
 
+  /* THE VOLUME ACCOUNTING (S0 onward). Every kilometre of the difference
+     between what a week was asked for and what it was given must be
+     attributable to a named cause. An unattributed difference is a generation
+     failure -- not a tolerated one, and not one with a threshold. */
+  c.weeks.forEach(w => {
+    const acc = w.accounting;
+    if (!acc){ add(HARD, 'week_has_no_volume_accounting', { week: w.week }); return; }
+    if (!acc.reconciled)
+      add(HARD, 'volume_unattributed', { week: w.week, residual: acc.roundingResidual,
+        bound: acc.roundingBound, target: acc.revisedTarget, prescribed: acc.prescribedTotal });
+    if (acc.allocatorRevision > 0 && !(acc.causes || []).some(x => x.indexOf('allocator') === 0))
+      add(HARD, 'allocator_revision_undeclared', { week: w.week, km: acc.allocatorRevision });
+    if (acc.deliberateReduction > 0 && !acc.reductionCause)
+      add(HARD, 'deliberate_reduction_unnamed', { week: w.week, km: acc.deliberateReduction });
+    if (acc.floorExcess > 0 && !(acc.floorCauses || []).length)
+      add(HARD, 'floor_excess_unnamed', { week: w.week, km: acc.floorExcess });
+  });
+
   /* THE ATHLETE'S OWN STARTING POINT. The first week of a first block is the
      one week whose size the athlete stated themselves. */
   const w1 = c.weeks[0];

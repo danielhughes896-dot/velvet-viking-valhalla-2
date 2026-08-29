@@ -84,6 +84,7 @@ function auditCase(opts){
 
   const profile = a.DISTANCE_PROFILES[distanceKey];
   const notes = (a.planBuildNotes || []).slice();
+  const accounting = (a.planVolumeAccounting || []).slice();
 
   /* Every day, with its structure resolved the same way a card resolves it:
      segmentsFor() from the stored prescription, which is what the athlete
@@ -128,6 +129,7 @@ function auditCase(opts){
       longTarget: wk.longTarget, goalSegKm: wk.goalSegKm,
       hasGoalSegment: !!wk.hasGoalSegment,
       qKm: wk.qKm, tKm: wk.tKm,
+      accounting: accounting.filter(x => x.week === wk.week)[0] || null,
       sessions: [], actualVolume: 0,
       easyKm: 0, longKm: 0, qualityKm: 0, raceKm: 0, restDays: 0, runDays: 0
     };
@@ -170,7 +172,8 @@ function auditCase(opts){
     planWeeks: blockResult.planWeeks,
     weeks: weekList,
     sessions: sessions,
-    buildNotes: notes
+    buildNotes: notes,
+    accounting: accounting
   };
 }
 

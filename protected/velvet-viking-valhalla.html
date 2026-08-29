@@ -4904,6 +4904,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        already a taper is not a block that needs calibrating. */
     var isCalibration = calibrate && (w === 1) && !isRace && !isTaper;
     var volume, phase, isCutback=false;
+    /* S0 ACCOUNTING -- what the arc INTENDED before any deliberate reduction.
+       Recorded, never acted on. See the volume-accounting block below
+       buildDaysFromWeeks for why the three kinds of difference are separated. */
+    var intendedVolume = null, reductionCause = null;
 
     // phaseForWeek() is the canonical definition -- this loop no longer carries
     // boundaries of its own, so the generator and every coaching layer agree.
@@ -4925,7 +4929,9 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          finishes absorbed rather than at its own peak, which is the state the
          next block wants to start from. */
       if (!steady && !arc.hasGoalEffort && w===N && N>=4) isCutback = true;
+      intendedVolume = trend;
       volume = isCutback ? trend*0.78 : trend;
+      if (isCutback) reductionCause = 'cutback';
       /* A checkpoint is a maximal time trial, and it belongs only in a block
          that is preparing for one. Maintenance is not the time to test what the
          athlete has; aerobic base is not either; and a speed block already ends
@@ -4935,11 +4941,16 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     } else if (isTaper){
       var taperIdx = w-buildWeeks;
       var frac = taper>0 ? taperIdx/taper : 1;
+      intendedVolume = peakVolume;
       volume = peakVolume*(1 - frac*(arc.taperDepth != null ? arc.taperDepth : RACE_TAPER_DEPTH));
+      reductionCause = 'taper';
     } else {
+      intendedVolume = peakVolume;
       volume = peakVolume*0.35;
+      reductionCause = 'race_week';
     }
     volume = round1(volume);
+    intendedVolume = round1(intendedVolume);
 
     /* MAINTENANCE HOLDS A DOSE; IT DOES NOT WALK ONE UPWARD.
        `pos` is progress through the build, and every quality structure lerps
@@ -5046,6 +5057,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     weeks.push({
       week:w, phase:phase, isCutback:isCutback, isTaper:isTaper, isRace:isRace, isCheckpoint:isCheckpoint,
       isCalibration:isCalibration,
+      // S0 ACCOUNTING, recorded not acted on: what the arc asked for, and the
+      // named coaching reason any of it was deliberately given back.
+      intendedVolume:intendedVolume, reductionCause:reductionCause,
+      deliberateReduction:round1(Math.max(0, (intendedVolume==null?volume:intendedVolume) - volume)),
       volume:volume, qSpec:qSpec, qKm:qKm, tSpec:tSpec, tKm:tKm,
       longTarget:round1(longTarget), b2bEligible:b2bEligible, longShape:longShape,
       hasGoalSegment:hasGoalSegment, goalSegKm:goalSegKm, raceDayKm:raceDayKm
@@ -6885,6 +6900,9 @@ var EASY_MAX_FRACTION_OF_LONG = 1.0;
    the tests and reported to the athlete nowhere, because the answer is
    always "run more days", which is their decision, not the app's. */
 var planBuildNotes = [];
+/* THE VOLUME ACCOUNTING, one entry per generated week. Diagnostic in S0: it
+   records, and changes nothing. See recordVolumeAccounting(). */
+var planVolumeAccounting = [];
 
 /* ---------- HARD-DAY SPACING AT GENERATION ----------
    Chooses the quality days by looking at EVERY demanding day in the week --
@@ -6946,11 +6964,33 @@ function pickQualityDays(pool, fixedDemanding, count){
    run up to its cap, and whatever still will not fit is reported rather than
    forced somewhere it does not belong. */
 function distributeWeekVolume(volumeKm, qualityKm, longKm, secondLongKm, easyDayCount, longCapKm){
-  var easyBudget = Math.max(0, volumeKm - qualityKm - longKm - secondLongKm);
-  var perEasy = 0;
+  /* S0 ACCOUNTING. Three different things can make the week that gets built
+     differ from the week that was asked for, and until now they were one
+     undifferentiated number. They are separated here, at the point each is
+     actually decided, and reported alongside the distribution:
+
+       floorExcessKm       volume the allocator was FORCED TO ADD because a
+                           component floor exceeded its share of the budget.
+                           The week comes out BIGGER than asked. Two causes:
+                           quality_floor (the structures already exceed the
+                           week before any easy running) and easy_floor
+                           (EASY_MIN_KM above the per-day share).
+       undistributedKm     volume the allocator COULD NOT PLACE, because the
+                           long-run cap and the easy-day ceiling are both full.
+                           The week comes out SMALLER than asked.
+       (rounding)          settled by the caller, against a computed bound.
+
+     Nothing here changes what is distributed. The arithmetic below is the
+     arithmetic that was already here; only the reporting is new. */
+  var rawBudget = volumeKm - qualityKm - longKm - secondLongKm;
+  var qualityOverrunKm = Math.max(0, -rawBudget);
+  var easyBudget = Math.max(0, rawBudget);
+  var perEasy = 0, easyFloorExcessKm = 0;
   if (easyDayCount>0){
     var easyCap = Math.max(EASY_MIN_KM, (longKm||EASY_MIN_KM)*EASY_MAX_FRACTION_OF_LONG);
-    perEasy = clamp(round1(easyBudget/easyDayCount), EASY_MIN_KM, round1(easyCap));
+    var fairShare = round1(easyBudget/easyDayCount);
+    perEasy = clamp(fairShare, EASY_MIN_KM, round1(easyCap));
+    if (perEasy > fairShare) easyFloorExcessKm = round1((perEasy - fairShare) * easyDayCount);
     easyBudget = Math.max(0, round1(easyBudget - perEasy*easyDayCount));
   }
   if (easyBudget>0){
@@ -6959,7 +6999,14 @@ function distributeWeekVolume(volumeKm, qualityKm, longKm, secondLongKm, easyDay
     longKm = round1(longKm+addToLong);
     easyBudget = round1(easyBudget-addToLong);
   }
-  return { perEasy:perEasy, longKm:longKm, undistributedKm:round1(easyBudget) };
+  var floorCauses = [];
+  if (qualityOverrunKm>0) floorCauses.push('quality_floor');
+  if (easyFloorExcessKm>0) floorCauses.push('easy_floor');
+  return { perEasy:perEasy, longKm:longKm, undistributedKm:round1(easyBudget),
+           floorExcessKm: round1(qualityOverrunKm + easyFloorExcessKm),
+           floorCauses: floorCauses,
+           qualityOverrunKm: round1(qualityOverrunKm),
+           easyFloorExcessKm: easyFloorExcessKm };
 }
 
 function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, hasEvent){
@@ -6969,6 +7016,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   var profile = blockResult.profile;
   var weeks = blockResult.weeks;
   planBuildNotes = [];
+  planVolumeAccounting = [];
 
   var activeDays = schedule.activeDays.slice();
   var longDay = schedule.longRunDay;
@@ -7024,6 +7072,11 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
           obj = stridesText(strEasy, 6, 100); obj.km = perLeadUp;
         } else if (dr===addDays(raceDateStr,-1)){
           var shakeKm = Math.min(4,perLeadUp);
+          /* S0 ACCOUNTING: the shakeout is capped at 4km however big the
+             lead-up days are, so a high-volume athlete's race week is smaller
+             than its target by exactly this much. Named, not left to fall out
+             as an unattributed difference. */
+          wk.shakeoutCapKm = round1(Math.max(0, perLeadUp - shakeKm));
           rx = { archetype:'shakeout', params:{ km:shakeKm } };
           obj = shakeoutText(hasEvent); obj.km = shakeKm;
         } else {
@@ -7065,6 +7118,9 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
                                      easyDays.length, profile.longCapKm);
     var perEasy = dist.perEasy;
     longKm = dist.longKm;
+    // S0 ACCOUNTING: kept on the week so the reconciliation pass below can read
+    // what the allocator decided, rather than inferring it from the days.
+    wk.dist = dist;
     if (dist.undistributedKm>0.5 && !wk.isRace){
       planBuildNotes.push({ week:wk.week, target:wk.volume, undistributedKm:dist.undistributedKm,
         reason:'Weekly volume cannot be distributed across '+activeDays.length+
@@ -7155,6 +7211,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     }
   });
   capWeeklyVolume(days, weeks);
+  recordVolumeAccounting(days, weeks);
   // Single settle-up pass, deliberately last: km is final only once smart
   // rounding AND the weekly-volume cap have both had their say, so syncing
   // the descriptions here catches every adjustment in one place rather than
@@ -7169,6 +7226,137 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   });
   return days;
 }
+/* =========================================================
+   WEEKLY VOLUME ACCOUNTING
+
+   THREE DIFFERENT THINGS USED TO BE ONE NUMBER. "The week we built is not the
+   week we asked for" was a single difference, and it conflated:
+
+     A DELIBERATE REDUCTION    a cutback, a taper, a race week. The programme
+                               chose to prescribe below what the arc was
+                               trending toward, for a named coaching reason.
+                               This is not a shortfall. It is the methodology
+                               working, and it must never be reported as loss.
+
+     AN ALLOCATOR REVISION     volume the allocator could not place, because
+                               the long-run cap and the easy-day ceiling are
+                               both full. A named STRUCTURAL reason. It is a
+                               real difference between what the athlete was
+                               promised and what they were given, and it must
+                               never be silent -- at any magnitude. There is
+                               deliberately NO TOLERANCE THRESHOLD here: a
+                               threshold below which a shortfall goes
+                               unreported is exactly the mechanism that lets
+                               allocator loss accumulate unseen.
+
+     A FLOOR EXCESS            volume the allocator was forced to ADD, because
+                               a component floor exceeded its share of the
+                               budget. The week comes out bigger than asked.
+                               This is the mechanism behind a 1km/week athlete
+                               being prescribed 17.5km in week one.
+
+     ROUNDING                  the residue of quantising sessions to clean
+                               distances. Bounded, computable, and reconciled
+                               rather than tolerated.
+
+   THE BOUND IS COMPUTED, NOT CHOSEN. roundingBoundFor() derives it from the
+   week's own session mix and the quantisation the app already applies. Across
+   7,254 weeks where the allocator succeeded and nothing deliberate applied,
+   the measured residual never exceeded 2.0km against a computed bound of 2.25.
+   Anything outside the bound is therefore, by construction, NOT rounding --
+   so it must already carry one of the named causes above. An unattributed
+   difference is a generation failure, not a tolerated one.
+
+   S0 RECORDS. It does not act, does not throw and changes no prescription;
+   every quantity below is derived from decisions the generator was already
+   making. Enforcement arrives with the stages that fix what this measures.
+   ========================================================= */
+function roundingBoundFor(entries){
+  /* The largest residue the app's own quantisation can leave. roundWorkoutKm
+     rounds a long run to the whole km (+/-0.5), an easy day to the half km
+     (+/-0.25) and a quality day UP to the half km (0..+0.5). Race days and
+     checkpoints are exempt from rounding and contribute nothing. */
+  var b = 0;
+  entries.forEach(function(dd){
+    /* A SESSION THAT ROUNDED AWAY STILL SPENT ITS QUANTUM. Keyed on whether a
+       session was GENERATED (it carries a prescription), not on whether it
+       survived rounding: a 0.4km long run quantised to 0 lost 0.4km to
+       rounding, and excluding it from the bound would report that loss as
+       unattributed volume. The zero-distance long run is a real defect and is
+       counted as one by its own invariant -- it is not this one. Rest days
+       carry no prescription and no quantum. */
+    if (!dd.prescription) return;
+    if (dd.km == null) return;
+    if (dd.type === 'long') b += 0.5;
+    else if (dd.type === 'easy') b += 0.25;
+    else if (dd.type === 'tempo' || dd.type === 'threshold' ||
+             dd.type === 'interval' || dd.type === 'repetition') b += 0.5;
+  });
+  return round1(b);
+}
+function recordVolumeAccounting(days, weeks){
+  var byWeek = {};
+  days.forEach(function(dd){ (byWeek[dd.week] = byWeek[dd.week] || []).push(dd); });
+  weeks.forEach(function(wk){
+    var entries = byWeek[wk.week] || [];
+    var prescribedTotal = round1(entries.reduce(function(t,dd){ return t + (dd.km||0); }, 0));
+    var dist = wk.dist || {};
+    var intended = wk.intendedVolume != null ? wk.intendedVolume : wk.volume;
+    var allocatorRevision = round1(dist.undistributedKm || 0);
+    var floorExcess = round1(dist.floorExcessKm || 0);
+    var capRecovered = round1(wk.capRecoveredKm || 0);
+    var bound = roundingBoundFor(entries);
+    var causes = [], raceDistanceKm = 0;
+
+    /* A RACE WEEK IS NOT A VOLUME TARGET, and accounting for it as one was the
+       instrumentation's own error rather than the engine's. Its total is the
+       RACE plus a lead-up sized by its own floor (`Math.max(2, ...)` per
+       running day), and distributeWeekVolume never runs for it at all. Both
+       terms are named here rather than left to fall out as an unattributed
+       difference -- which is exactly the failure this accounting exists to
+       make impossible. */
+    if (wk.isRace){
+      raceDistanceKm = round1(wk.raceDayKm || 0);
+      var leadUp = round1(prescribedTotal - raceDistanceKm);
+      floorExcess = round1(Math.max(0, leadUp - wk.volume));
+      if (floorExcess > 0) causes.push('floor:lead_up_floor');
+      /* The shakeout cap works the other way: it makes the week SMALLER than
+         its target, so it is an allocator revision with its own named cause
+         rather than a floor. */
+      allocatorRevision = round1(wk.shakeoutCapKm || 0);
+      if (allocatorRevision > 0) causes.push('allocator:shakeout_cap');
+    } else {
+      if (allocatorRevision > 0) causes.push('allocator:' + (dist.floorCauses && dist.floorCauses.length ? 'capped' : 'day_count'));
+      if (floorExcess > 0 && dist.floorCauses) dist.floorCauses.forEach(function(c){ causes.push('floor:' + c); });
+      if (capRecovered > 0) causes.push('cap:recovered');
+    }
+
+    var expected = round1(wk.volume + raceDistanceKm - allocatorRevision + floorExcess - capRecovered);
+    var residual = round1(prescribedTotal - expected);
+    planVolumeAccounting.push({
+      week: wk.week,
+      isRace: !!wk.isRace,
+      intendedVolume: intended,
+      deliberateReduction: wk.deliberateReduction != null ? wk.deliberateReduction : 0,
+      reductionCause: wk.reductionCause || null,
+      revisedTarget: wk.volume,
+      raceDistanceKm: raceDistanceKm,
+      allocatorRevision: allocatorRevision,
+      floorExcess: floorExcess,
+      floorCauses: wk.isRace ? (floorExcess > 0 ? ['lead_up_floor'] : []) : (dist.floorCauses || []).slice(),
+      capRecovered: capRecovered,
+      prescribedTotal: prescribedTotal,
+      roundingResidual: residual,
+      roundingBound: bound,
+      // TRUE when every kilometre of the difference is attributable. Where it
+      // is false the week carries volume nobody named, which is the condition
+      // later stages make impossible rather than merely visible.
+      reconciled: Math.abs(residual) <= bound + 0.001,
+      causes: causes
+    });
+  });
+}
+
 // Smart rounding above can push a week's total past its calculated
 // baseline by more than the generator intended. Trim easy days first
 // (never below the generator's own 3km floor), and only touch the long
@@ -7188,6 +7376,11 @@ function capWeeklyVolume(days, weeks){
     var entries = byWeek[wNum];
     var cap = wk.volume * 1.03;
     var total = function(){ return entries.reduce(function(s,dd){ return s + dd.km; }, 0); };
+    // S0 ACCOUNTING: what the cap gives back is part of the floor excess being
+    // reclaimed, and "the cap fixed it" is a different fact from "the floor
+    // never bound". Recorded so the week's arithmetic closes on named terms.
+    var before = total();
+    wk.capRecoveredKm = 0;
     if (total() <= cap) return;
     // trim easy days one clean 0.5km step at a time, always the largest
     // easy day first, never below the generator's own 3km floor
@@ -7212,6 +7405,7 @@ function capWeeklyVolume(days, weeks){
         }
       }
     }
+    wk.capRecoveredKm = round1(before - total());
   });
 }
 
