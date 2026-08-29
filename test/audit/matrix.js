@@ -22,21 +22,32 @@ const VOLUMES = (function(){
 const WEEKS = [4, 8, 12, 16, 24];      // min, common, max supported
 const SCHEDULES = ['d3', 'd5'];        // fewest and a typical week
 
+/* POPULATION ACCOUNTING. From S3 the race generator no longer owns every case
+   in the matrix, and a count that falls because cases LEFT the population is a
+   different fact from a count that falls because the defect was fixed.
+   Everything is therefore tallied three ways over the same, unchanged input
+   list: the whole population, the cases that remain race programmes, and the
+   cases routed elsewhere. `tally` stays the whole population so the ratchet
+   compares like with like across every stage. */
 function runMatrix(){
-  const tally = {};        // code -> count
-  const cases = [];        // ids only, so this stays small
-  let plans = 0, weeks = 0, sessions = 0;
+  const tally = {}, tallyRace = {}, tallyRouted = {};
+  let plans = 0, weeks = 0, sessions = 0, racePlans = 0, routedPlans = 0;
   for (const distanceKey of DISTANCES)
     for (const volume of VOLUMES)
       for (const w of WEEKS)
         for (const scheduleKey of SCHEDULES){
           const c = auditCase({ distanceKey, volume, weeks: w, scheduleKey });
           plans++;
+          if (c.routed) routedPlans++; else racePlans++;
           if (!c.error){ weeks += c.weeks.length; sessions += c.sessions.length; }
-          cases.push(c.id);
-          checkCase(c).forEach(f => { tally[f.code] = (tally[f.code] || 0) + 1; });
+          const into = c.routed ? tallyRouted : tallyRace;
+          checkCase(c).forEach(f => {
+            tally[f.code] = (tally[f.code] || 0) + 1;
+            into[f.code] = (into[f.code] || 0) + 1;
+          });
         }
-  return { tally, plans, weeks, sessions, caseCount: cases.length };
+  return { tally, tallyRace, tallyRouted, plans, weeks, sessions,
+           racePlans, routedPlans, caseCount: plans };
 }
 
 module.exports = { runMatrix, VOLUMES, WEEKS, SCHEDULES, DISTANCES };

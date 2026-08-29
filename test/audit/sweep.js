@@ -40,7 +40,9 @@ const stats = {
   meta: { generatedAt: new Date().toISOString(), quick: QUICK,
           volumes: [VOLUMES[0], VOLUMES[VOLUMES.length - 1]], weeks: WEEKS,
           schedules: SCHEDULES, distances: DISTANCES },
-  counts: { cases: 0, plans: 0, weeks: 0, sessions: 0, runSessions: 0, restSessions: 0, errors: 0 },
+  counts: { cases: 0, plans: 0, weeks: 0, sessions: 0, runSessions: 0, restSessions: 0, errors: 0,
+            racePlans: 0, routedPlans: 0 },
+  findingsRace: {}, findingsRouted: {},
   extremes: {
     minEasyKm: Infinity, minLongKm: Infinity, maxLongKm: -Infinity,
     minWeekKm: Infinity, maxWeekKm: -Infinity,
@@ -77,6 +79,7 @@ function volBand(v){
 
 function record(c, findings){
   stats.counts.cases++;
+  if (c.routed) stats.counts.routedPlans++; else stats.counts.racePlans++;
   if (c.error){ stats.counts.errors++; }
   else {
     stats.counts.plans++;
@@ -122,6 +125,8 @@ function record(c, findings){
     e.byWeeks[c.inputs.weeks] = (e.byWeeks[c.inputs.weeks] || 0) + 1;
     if (f.phase) e.byPhase[f.phase] = (e.byPhase[f.phase] || 0) + 1;
     if (e.samples.length < SAMPLE_CAP) e.samples.push(f);
+    const pop = c.routed ? stats.findingsRouted : stats.findingsRace;
+    pop[f.code] = (pop[f.code] || 0) + 1;
     if (f.tier === 'hard'){ stats.byDistance[d].hard++; stats.byVolume[v].hard++; }
     else { stats.byDistance[d].suspect++; stats.byVolume[v].suspect++; }
   });
@@ -151,6 +156,8 @@ if (require.main === module){
   const s = run();
   const c = s.counts;
   console.log('\n=== SWEEP COMPLETE in ' + (s.meta.runtimeMs / 1000).toFixed(1) + 's ===');
+  console.log('race programmes ' + c.racePlans + '   routed ' + c.routedPlans +
+              '   (' + ((c.routedPlans / c.cases) * 100).toFixed(1) + '% routed)');
   console.log('cases ' + c.cases + '  plans ' + c.plans + '  weeks ' + c.weeks +
               '  sessions ' + c.sessions + '  (' + c.runSessions + ' active, ' + c.restSessions + ' rest)' +
               '  errors ' + c.errors);
@@ -162,7 +169,8 @@ if (require.main === module){
     .forEach(k => {
       const f = s.findings[k];
       console.log(('[' + f.tier.toUpperCase() + ']').padEnd(10) + k.padEnd(42) + String(f.count).padStart(9) +
-        '   ' + JSON.stringify(f.byDistance));
+        '  race ' + String(s.findingsRace[k] || 0).padStart(8) +
+        '  routed ' + String(s.findingsRouted[k] || 0).padStart(8));
     });
   console.log('\n-- EXTREMES --');
   Object.keys(s.extremes).forEach(k => console.log('  ' + k.padEnd(26), s.extremes[k]));

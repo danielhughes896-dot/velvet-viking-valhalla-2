@@ -83,6 +83,11 @@ function auditCase(opts){
   }
 
   const profile = a.DISTANCE_PROFILES[distanceKey];
+  /* S3. Which architecture SHOULD have built this athlete's plan. The race
+     generator still built it -- the alternative architectures do not exist yet
+     -- so this is a routing decision recorded against the case, never a claim
+     that the case was fixed. */
+  const viability = a.raceProgrammeViability(distanceKey, volume, blockResult.planWeeks);
   const notes = (a.planBuildNotes || []).slice();
   const accounting = (a.planVolumeAccounting || []).slice();
   const invariantFailures = (a.planInvariantFailures || []).slice();
@@ -165,6 +170,8 @@ function auditCase(opts){
     inputs: { distanceKey, volume, weeks, scheduleKey: opts.scheduleKey || 'd5',
               purpose, benchmarkKind: opts.benchmarkKind || 'none',
               experience: opts.experience || 'experienced' },
+    viability: viability,
+    routed: !viability.viable,
     profile: { raceKm: profile.raceKm, longCapKm: profile.longCapKm,
                volMult: profile.volMult, emphasis: profile.emphasis },
     peakVolume: blockResult.peakVolume,

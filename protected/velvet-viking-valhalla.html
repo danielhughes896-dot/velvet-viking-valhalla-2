@@ -3951,6 +3951,78 @@ var LONG_FRACTION = { speed:0.24, threshold:0.28, endurance:0.32, timeonfeet:0.3
    GOAL_FINISH_MIN_LONG_KM is kept as its own name even though it holds the
    same number, so that a future change to one cannot silently move the other. */
 var MIN_LONG_RUN_KM = 6;
+/* =========================================================
+   THE VIABLE RACE-PROGRAMME BOUNDARY
+
+   THE SMALLEST LONG RUN A RACE BLOCK MUST REACH AT ITS PEAK for that race to
+   have been prepared for. A floor on the peak -- not a target, and not a cap:
+   profile.longCapKm remains the ceiling and is untouched. Approved values.
+
+   Defined on longTarget, the weekly long-run ALLOCATION, not on any single
+   session. That distinction matters for ultra alone, where longTarget is split
+   0.62/0.38 across a back-to-back weekend: 30km here is an 18.6km run followed
+   by an 11.4km one, which is the correct reading of an ultra long weekend.
+
+   Two different justifications, and pretending otherwise would be the error.
+   At 5K and 10K the long run is AEROBIC SUPPORT -- the race is too short to
+   rehearse -- so the floor sits at the bottom of its band. At half, marathon
+   and ultra it is RACE-SPECIFIC ENDURANCE, so the floor sits where the athlete
+   is genuinely prepared rather than where the most athletes are admitted.
+   Admission is the on-ramp's job, not the floor's. */
+var MIN_PEAK_LONG_KM = { '5k':8, '10k':12, 'half':18, 'full':30, 'ultra':30 };
+
+/* HOW MUCH DEVELOPMENT A BLOCK CAN EARN, as a multiple of where it starts.
+
+   TODAY THIS IS profile.volMult AND NOTHING ELSE, which is block-length
+   independent: a six-week block and a twenty-four-week block both reach the
+   same multiple of their start, so the six-week one ramps four times as fast.
+   That is D-7, it is a separate approved-in-principle methodology decision,
+   and it is deliberately NOT implemented here.
+
+   planWeeks IS ALREADY A PARAMETER. It is unused today and passed by every
+   caller, so when D-7 lands -- time-limiting the multiplier to what a safe
+   per-week rate can reach -- it changes this one function and no call site.
+   That is the whole reason the argument exists. */
+function developmentMultiplierFor(distKey, planWeeks){
+  var p = DISTANCE_PROFILES[distKey];
+  return p ? p.volMult : 1;
+}
+/* The stated weekly volume a race block must start from, so that its long run
+   reaches MIN_PEAK_LONG_KM by the peak. Derived from three existing quantities
+   and one approved one -- no free parameter. */
+function minViableStartKm(distKey, planWeeks){
+  var p = DISTANCE_PROFILES[distKey];
+  if (!p || MIN_PEAK_LONG_KM[distKey] == null) return null;
+  var f = LONG_FRACTION[p.emphasis];
+  return round1(MIN_PEAK_LONG_KM[distKey] / (developmentMultiplierFor(distKey, planWeeks) * f));
+}
+/* IS A RACE BLOCK THE RIGHT THING TO BUILD FOR THIS ATHLETE?
+
+   Answers the question and nothing else. It does NOT build an alternative,
+   because the alternative does not exist yet: the foundation and on-ramp
+   architectures are later stages, and inventing a shape for them here would be
+   the fabrication this boundary exists to prevent. What it returns is the
+   decision, the gap and what the athlete would have to reach -- everything a
+   caller needs to tell the truth, and nothing that pretends. */
+function raceProgrammeViability(distKey, currentVolume, planWeeks){
+  var minStart = minViableStartKm(distKey, planWeeks);
+  var stated = (typeof currentVolume === 'number' && currentVolume > 0) ? currentVolume : 0;
+  if (minStart == null) return { known:false, viable:true, classification:'race_programme' };
+  var viable = stated >= minStart;
+  return {
+    known: true,
+    viable: viable,
+    // Two states only. Splitting "below viable" into foundation and on-ramp
+    // needs the threshold of continuous running, which belongs to the stage
+    // that builds foundation -- naming it here would be inventing it early.
+    classification: viable ? 'race_programme' : 'below_viable',
+    statedKm: stated,
+    minStartKm: minStart,
+    shortfallKm: viable ? 0 : round1(minStart - stated),
+    peakLongKm: MIN_PEAK_LONG_KM[distKey],
+    raceKm: DISTANCE_PROFILES[distKey].raceKm
+  };
+}
 var GOAL_FINISH_MIN_LONG_KM = 6;
 var TT_DISTANCE_KM = { speed:3, threshold:5, endurance:6, timeonfeet:8 };
 
@@ -7217,8 +7289,15 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         var ttKm = Math.min(TT_DISTANCE_KM[profile.emphasis], Math.max(2, round1(tKmThisWeek-3)));
         var flank = Math.max(1, round1((tKmThisWeek-ttKm)/2));
         var tt = timeTrialText(ttKm, flank);
+        /* A FLOOR, AND THEREFORE A NAMED TERM. The checkpoint day is sized to
+           hold the time trial plus its flanks even where that exceeds the
+           week's tempo allocation, so the week comes out bigger than it was
+           asked for by exactly the difference. Two weeks in the full sweep
+           carried it as unattributed volume before it was named. */
+        var ttDayKm = Math.max(tKmThisWeek, round1(ttKm+flank*2));
+        if (ttDayKm > tKmThisWeek) wk.qualityDayFloorKm = round1((wk.qualityDayFloorKm||0) + (ttDayKm - tKmThisWeek));
         return { type:tt.type, title:tt.title, desc:tt.desc,
-          km: Math.max(tKmThisWeek, round1(ttKm+flank*2)),
+          km: ttDayKm,
           prescription: { archetype:'time_trial', params:{ ttKm:ttKm, flankKm:flank } } };
       }
       // INVARIANT, enforced rather than assumed: the day is never shorter than
@@ -7229,12 +7308,14 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
            before it is used so the text can be told what total it is writing
            to. Nothing about the number changes. */
         var qDayKm = qKmThisWeek + qualityDayShortfallKm(qKmThisWeek, wk.qSpec, 'interval');
+        if (qDayKm > qKmThisWeek) wk.qualityDayFloorKm = round1((wk.qualityDayFloorKm||0) + (qDayKm - qKmThisWeek));
         var q = intervalWorkoutText(wk.qSpec, qDayKm);
         return { type:q.type, title:q.title, desc:q.desc, mpSegment:!!q.mpSegment,
                  km: qDayKm,
                  prescription: prescriptionFromSpec(wk.qSpec, 'interval') };
       }
       var tDayKm = tKmThisWeek + qualityDayShortfallKm(tKmThisWeek, wk.tSpec, 'tempo');
+      if (tDayKm > tKmThisWeek) wk.qualityDayFloorKm = round1((wk.qualityDayFloorKm||0) + (tDayKm - tKmThisWeek));
       var t3 = tempoWorkoutText(wk.tSpec, tDayKm);
       return { type:t3.type, title:t3.title, desc:t3.desc, mpSegment:!!t3.mpSegment,
                km: tDayKm,
@@ -7460,7 +7541,9 @@ function recordVolumeAccounting(days, weeks){
       if (allocatorRevision > 0) causes.push('allocator:shakeout_cap');
     } else {
       if (allocatorRevision > 0) causes.push('allocator:' + (dist.floorCauses && dist.floorCauses.length ? 'capped' : 'day_count'));
-      if (floorExcess > 0 && dist.floorCauses) dist.floorCauses.forEach(function(c){ causes.push('floor:' + c); });
+      if (wk.qualityDayFloorKm > 0) floorExcess = round1(floorExcess + wk.qualityDayFloorKm);
+      if (dist.floorCauses) dist.floorCauses.forEach(function(c){ causes.push('floor:' + c); });
+      if (wk.qualityDayFloorKm > 0) causes.push('floor:quality_day_floor');
       if (capRecovered > 0) causes.push('cap:recovered');
     }
 
@@ -7476,7 +7559,8 @@ function recordVolumeAccounting(days, weeks){
       raceDistanceKm: raceDistanceKm,
       allocatorRevision: allocatorRevision,
       floorExcess: floorExcess,
-      floorCauses: wk.isRace ? (floorExcess > 0 ? ['lead_up_floor'] : []) : (dist.floorCauses || []).slice(),
+      floorCauses: wk.isRace ? (floorExcess > 0 ? ['lead_up_floor'] : [])
+                 : (dist.floorCauses || []).concat(wk.qualityDayFloorKm > 0 ? ['quality_day_floor'] : []),
       capRecovered: capRecovered,
       prescribedTotal: prescribedTotal,
       roundingResidual: residual,

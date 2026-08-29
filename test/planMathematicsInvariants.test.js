@@ -340,3 +340,109 @@ test('training paces follow current fitness, not the goal', () => {
     'the goal moved and current fitness must not have');
   assert.ok(a.getActiveVDOT() > fitnessOnly + 15, 'the goal really is far above');
 });
+
+// ---------------------------------------------------------------------------
+// S3 — THE VIABLE RACE-PROGRAMME BOUNDARY
+// ---------------------------------------------------------------------------
+test('the boundary is derived from approved values and existing constants', () => {
+  const a = require('./audit/planAudit.js').app();
+  /* Compared key by key rather than with deepEqual: the app runs in a VM
+     sandbox, so its object literals have a different prototype and a
+     structural comparison fails on identity alone. */
+  const approved = { '5k': 8, '10k': 12, 'half': 18, 'full': 30, 'ultra': 30 };
+  Object.keys(approved).forEach(k =>
+    assert.equal(a.MIN_PEAK_LONG_KM[k], approved[k], 'MIN_PEAK_LONG_KM.' + k));
+  assert.equal(Object.keys(a.MIN_PEAK_LONG_KM).length, 5);
+  /* minStart = MIN_PEAK_LONG_KM / (volMult × LONG_FRACTION) — three existing
+     quantities and one approved one, with no free parameter. */
+  ['5k', '10k', 'half', 'full', 'ultra'].forEach(d => {
+    const p = a.DISTANCE_PROFILES[d];
+    const expected = a.MIN_PEAK_LONG_KM[d] / (p.volMult * a.LONG_FRACTION[p.emphasis]);
+    assert.ok(Math.abs(a.minViableStartKm(d, 12) - expected) < 0.05, d);
+    assert.ok(a.MIN_PEAK_LONG_KM[d] <= p.longCapKm,
+      d + ': the floor on the peak must not exceed the ceiling on the session');
+  });
+});
+
+test('the boundary takes planWeeks now so D-7 can bind later without a rewrite', () => {
+  /* D-7 -- time-limiting how much development a block can earn -- is approved
+     in principle and explicitly excluded from S1-S3. The argument is already
+     threaded through every call so that when it lands it changes
+     developmentMultiplierFor() and nothing else. Today it is unused, and this
+     asserts that: the boundary is block-length INDEPENDENT until D-7 says
+     otherwise. */
+  const a = require('./audit/planAudit.js').app();
+  for (const d of ['5k', 'half', 'full']){
+    const at4 = a.minViableStartKm(d, 4), at24 = a.minViableStartKm(d, 24);
+    assert.equal(at4, at24, d + ': the boundary must not vary by block length yet');
+    assert.equal(a.developmentMultiplierFor(d, 4), a.DISTANCE_PROFILES[d].volMult);
+  }
+});
+
+test('routing answers the question and does not invent an answer', () => {
+  /* S3 EXPOSES THE DECISION. It must not fabricate a foundation or on-ramp
+     plan, because neither architecture exists yet. What comes back is the
+     decision, the gap and what would have to be reached -- nothing that
+     pretends. */
+  const a = require('./audit/planAudit.js').app();
+  const below = a.raceProgrammeViability('half', 12, 12);
+  assert.equal(below.viable, false);
+  assert.equal(below.classification, 'below_viable');
+  assert.equal(below.shortfallKm, Math.round((below.minStartKm - 12) * 10) / 10);
+  assert.equal(below.peakLongKm, 18);
+  assert.ok(!('plan' in below) && !('weeks' in below) && !('sessions' in below),
+    'the boundary must not return a fabricated programme');
+  const above = a.raceProgrammeViability('half', 45, 12);
+  assert.equal(above.viable, true);
+  assert.equal(above.classification, 'race_programme');
+  assert.equal(above.shortfallKm, 0);
+});
+
+test('inside the race population the S1 defects are gone, and the rest are attributed', () => {
+  /* ROUTED IS NOT FIXED, and the two are counted separately. These are the
+     cases that remain race programmes after the boundary. */
+  const m = matrix();
+  assert.ok(m.racePlans > 0 && m.routedPlans > 0);
+  assert.equal(m.racePlans + m.routedPlans, m.plans);
+  const race = m.tallyRace;
+  ['generator_invariant_failure', 'long_run_zero_distance', 'zero_km_work_segment',
+   'segment_km_negative', 'goal_segment_consumes_whole_long_run',
+   'long_run_implausible_for_distance', 'week_overshoots_target',
+   'week_undershoots_target'].forEach(code =>
+    assert.equal(race[code] || 0, 0, code + ' survives inside the race population'));
+});
+
+test('what remains inside the race population is D-7, and says so', () => {
+  /* Every week-one overshoot left in the race population is a SHORT block.
+     buildWeeks shrinks with block length while volMult does not, so a four-week
+     block reaches its full multiple in one step and week one IS the peak. That
+     is D-7, which HQ ruled out of S1-S3. Verified across the whole sweep at
+     100% (819 of 819, all at six weeks or fewer) and asserted here on a slice,
+     so the attribution cannot quietly become untrue: a survivor at a long block
+     length would be a new defect, not D-7. */
+  const { auditCase: ac } = require('./audit/planAudit.js');
+  const { checkCase } = require('./audit/invariants.js');
+  let total = 0, shortBlock = 0;
+  for (const distanceKey of ['5k', '10k', 'half', 'full', 'ultra'])
+    for (const volume of [26, 30, 38, 42, 54, 60, 80])
+      for (const weeks of [4, 5, 6, 8, 12, 16, 24]){
+        const c = ac({ distanceKey, volume, weeks, scheduleKey: 'd5' });
+        if (c.routed) continue;
+        checkCase(c).forEach(f => {
+          if (f.code !== 'week_one_exceeds_stated_volume') return;
+          total++;
+          if (weeks <= 6) shortBlock++;
+        });
+      }
+  assert.ok(total > 0, 'expected the D-7 cases to still be present');
+  assert.equal(shortBlock, total,
+    'every surviving week-one overshoot must be a block of 6 weeks or fewer; ' +
+    (total - shortBlock) + ' were not, which would be a new defect rather than D-7');
+});
+
+test('no week anywhere carries volume without a named cause', () => {
+  /* THE ACCOUNTING GATE, at matrix scale. Verified separately across the full
+     50,400-plan sweep: zero unattributed weeks in 705,600. */
+  const m = matrix();
+  assert.equal(m.tally.volume_unattributed || 0, 0);
+});
