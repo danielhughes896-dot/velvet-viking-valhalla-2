@@ -3985,7 +3985,37 @@ var MIN_PEAK_LONG_KM = { '5k':8, '10k':12, 'half':18, 'full':30, 'ultra':30 };
    That is the whole reason the argument exists. */
 function developmentMultiplierFor(distKey, planWeeks){
   var p = DISTANCE_PROFILES[distKey];
-  return p ? p.volMult : 1;
+  if (!p) return 1;
+  /* D-7. volMult IS AN END-STATE CAPACITY CEILING, NOT A TARGET EVERY BLOCK
+     MUST REACH.
+
+     THE DEFECT. peakVolume was start x volMult and the ramp is linear, so the
+     absolute weekly increment is (volMult - 1) x start / buildWeeks. volMult is
+     a constant and buildWeeks shrinks with block length, so the same total
+     development was compressed into however many weeks the athlete happened to
+     have. A four-week block has ONE developing week, which made week one the
+     peak: an ultra athlete stating 60km/week was prescribed a 120km week one.
+     Nothing about the athlete changed -- only how long they had.
+
+     THE CORRECTION. A block earns the proportion of the available development
+     that its developing weeks represent, measured against the block the
+     product itself calls normal. BUILDER_PURPOSE_META.race.defaultWeeks is 14,
+     which is eleven developing weeks, and volMult was designed for a block of
+     that shape.
+
+     NO NEW NUMBER, AND NO GROWTH RATE. Every value in the expression already
+     exists: profile.volMult, the engine's own default block length, and the
+     arc's own buildWeeks. There is no percentage per week here, generic or
+     otherwise -- half the weeks earn half the development, which is a sentence
+     rather than a constant.
+
+     AT OR ABOVE THE DEFAULT LENGTH THIS RETURNS volMult EXACTLY, so a
+     full-length block is byte-identical to what it was. The ceiling can only
+     ever be approached, never exceeded: capacity stays permission. */
+  var ref = blockArcFor('race', BUILDER_PURPOSE_META.race.defaultWeeks).buildWeeks;
+  var bw  = blockArcFor('race', planWeeks).buildWeeks;
+  if (!(ref > 0) || !(bw > 0)) return p.volMult;
+  return 1 + (p.volMult - 1) * Math.min(1, bw / ref);
 }
 /* The stated weekly volume a race block must start from, so that its long run
    reaches MIN_PEAK_LONG_KM by the peak. Derived from three existing quantities
@@ -5172,7 +5202,15 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      answers "what does peak week look like for a marathon build". A base block
      has no race and a recovery block is going nowhere, so both state their own
      (see blockArcFor); a race block keeps the profile's. */
-  var volMult = steady ? 1 : (arc.volumeMult != null ? arc.volumeMult : profile.volMult);
+  /* D-7 APPLIES TO RACE-PROGRAMME DEVELOPMENT, and only there. A steady block
+     has no ramp; base and recovery state their own multiplier; on-ramp and
+     foundation ramp to an explicit destination and never read this at all.
+     `speed` also reaches profile.volMult and carries the same exposure -- it is
+     reported rather than changed, because it is outside what was authorised. */
+  var volMult = steady ? 1
+              : (arc.volumeMult != null ? arc.volumeMult
+                 : (purpose === 'race' ? developmentMultiplierFor(distKey, N)
+                                       : profile.volMult));
   /* AN EXPLICIT DESTINATION BEATS A MULTIPLIER, where one is known. The
      on-ramp is the only caller that has one: it is ramping to a specific
      figure -- the viable race-programme start -- rather than to a multiple of

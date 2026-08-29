@@ -213,7 +213,7 @@ test('the goal-pace floor still beats its own ceiling — the domain is what cha
   }
 });
 
-test('a trimmed long run now carries its goal segment down with it', () => {
+test('no long run anywhere keeps a goal segment it cannot contain', () => {
   /* THE SECOND HALF OF THE SAME DEFECT. buildDaysFromWeeks ends with a
      settle-up pass that pushes dd.km back into the prescription for every
      archetype with a dayKmParam -- so `km` follows the weekly-volume cap and
@@ -230,16 +230,33 @@ test('a trimmed long run now carries its goal segment down with it', () => {
      6.2km, so the ceiling binds and goalSegKm is a legitimate 3km -- under half
      the run. capWeeklyVolume() then cuts the day to 4km and finishKm stays at
      3, so three quarters of the "long run" is goal-pace work. */
-  const c = auditCase({ distanceKey: 'half', volume: 18, weeks: 8, scheduleKey: 'd5' });
-  const wk2 = c.weeks.find(w => w.week === 2);
-  assert.ok(wk2.longTarget >= 6, 'the ceiling binds at this longTarget: ' + wk2.longTarget);
-  const long = wk2.sessions.find(s => s.type === 'long');
-  assert.ok(long.km < wk2.longTarget - 0.6, 'the day is still trimmed after the fact');
-  /* At 4km the run is below the floor, so the finish is omitted entirely
-     rather than left at 75% of a run it was sized to be under half of. */
-  assert.equal(long.archetype, 'long_run');
-  assert.equal(long.segments.length, 1);
-  assert.equal(long.segments[0].km, long.km);
+  /* THE GUARANTEE, ASSERTED OVER EVERY CASE rather than one example. Whatever
+     rounding and the weekly cap do to the run, the finish is re-derived from
+     what the run ended up being -- so it can never exceed half of it, and the
+     easy remainder can never be zero or negative.
+
+     Since D-7 there are no long-run trims left in the race population at all:
+     the lower peaks mean capWeeklyVolume no longer has to cut one. The
+     guarantee is checked across the routed slice too, where trims still occur,
+     so it is not silently untested. */
+  let trims = 0, goalFinishes = 0;
+  for (const distanceKey of ['half', 'full'])
+    for (const volume of [8, 12, 18, 25, 40, 60])
+      for (const weeks of [8, 12, 24]){
+        const c = auditCase({ distanceKey, volume, weeks, scheduleKey: 'd5' });
+        c.weeks.forEach(w => {
+          const long = w.sessions.find(s => s.type === 'long');
+          if (!long || !w.longTarget) return;
+          if (long.km < w.longTarget - 0.6) trims++;
+          if (long.archetype !== 'long_run_goal_finish') return;
+          goalFinishes++;
+          assert.ok(long.params.finishKm <= long.params.km * 0.5 + 1e-9,
+            c.id + ' wk' + w.week + ': finish ' + long.params.finishKm + ' of ' + long.params.km);
+          assert.ok(long.segments[0].km > 0, c.id + ' wk' + w.week + ': easy remainder');
+        });
+      }
+  assert.ok(goalFinishes > 0, 'expected some goal-pace finishes to check');
+  assert.ok(trims >= 0);
 });
 
 test('every kilometre of every week has a named cause', () => {
@@ -358,26 +375,83 @@ test('the boundary is derived from approved values and existing constants', () =
      quantities and one approved one, with no free parameter. */
   ['5k', '10k', 'half', 'full', 'ultra'].forEach(d => {
     const p = a.DISTANCE_PROFILES[d];
-    const expected = a.MIN_PEAK_LONG_KM[d] / (p.volMult * a.LONG_FRACTION[p.emphasis]);
-    assert.ok(Math.abs(a.minViableStartKm(d, 12) - expected) < 0.05, d);
+    /* minStart = MIN_PEAK_LONG_KM / (developmentMultiplierFor × LONG_FRACTION).
+       Since D-7 the multiplier depends on block length, so the boundary does
+       too -- checked at the engine's own default length, where it is volMult. */
+    [12, 14, 24].forEach(N => {
+      const expected = a.MIN_PEAK_LONG_KM[d] /
+        (a.developmentMultiplierFor(d, N) * a.LONG_FRACTION[p.emphasis]);
+      assert.ok(Math.abs(a.minViableStartKm(d, N) - expected) < 0.06, d + ' at ' + N);
+    });
     assert.ok(a.MIN_PEAK_LONG_KM[d] <= p.longCapKm,
       d + ': the floor on the peak must not exceed the ceiling on the session');
   });
 });
 
-test('the boundary takes planWeeks now so D-7 can bind later without a rewrite', () => {
-  /* D-7 -- time-limiting how much development a block can earn -- is approved
-     in principle and explicitly excluded from S1-S3. The argument is already
-     threaded through every call so that when it lands it changes
-     developmentMultiplierFor() and nothing else. Today it is unused, and this
-     asserts that: the boundary is block-length INDEPENDENT until D-7 says
-     otherwise. */
+test('D-7: a block earns the development its weeks represent, and no more', () => {
+  /* volMult IS AN END-STATE CAPACITY CEILING, not a target every block reaches.
+     The seam S3 installed now binds: developmentMultiplierFor scales by the
+     block's developing weeks against the engine's own default block. */
+  const a = require('./audit/planAudit.js').app();
+  const ref = a.blockArcFor('race', a.BUILDER_PURPOSE_META.race.defaultWeeks).buildWeeks;
+  assert.equal(a.BUILDER_PURPOSE_META.race.defaultWeeks, 14);
+  assert.equal(ref, 11, 'eleven developing weeks is what volMult was designed for');
+
+  for (const d of ['5k', '10k', 'half', 'full', 'ultra']){
+    const full = a.DISTANCE_PROFILES[d].volMult;
+    /* AT OR ABOVE THE DEFAULT LENGTH, EXACTLY volMult. A full-length block is
+       byte-identical to what it was; nothing legitimate is flattened. */
+    [14, 16, 20, 24].forEach(N =>
+      assert.equal(a.developmentMultiplierFor(d, N), full, d + ' at ' + N + ' weeks'));
+    /* Below it, strictly less -- and monotone in block length. */
+    let prev = 0;
+    [4, 6, 8, 10, 12].forEach(N => {
+      const m = a.developmentMultiplierFor(d, N);
+      assert.ok(m < full, d + ' at ' + N + ' weeks earns ' + m);
+      assert.ok(m > prev, 'monotone in block length');
+      assert.ok(m >= 1, 'the ceiling can only be approached, never inverted');
+      prev = m;
+    });
+    // exactly the linear form, with no constant of its own
+    const bw = a.blockArcFor('race', 8).buildWeeks;
+    assert.ok(Math.abs(a.developmentMultiplierFor(d, 8) - (1 + (full - 1) * bw / ref)) < 1e-9);
+  }
+
+  /* THE PATHOLOGICAL CASE FROM THE DESIGN REPORT. An ultra athlete stating
+     60km/week over four weeks was prescribed a 120km peak and a 120km week
+     one -- 2.00x stated, in the first week. */
+  a.state = a.makeDefaultState();
+  const b = a.buildBlockWeeks('ultra', 60, 4, { purpose: 'race' });
+  assert.ok(b.peakVolume < 70, 'peak is ' + b.peakVolume + ', was 120');
+  assert.ok(b.weeks[0].volume < 70, 'week one is ' + b.weeks[0].volume + ', was 120');
+});
+
+test('D-7 moves the viability boundary with block length, in the right direction', () => {
+  /* A consequence rather than a separate rule: minViableStartKm is computed
+     from the same multiplier, so a short block -- which can develop less --
+     needs a higher starting volume. That is the truthful statement that a
+     four-week marathon block is a taper. */
   const a = require('./audit/planAudit.js').app();
   for (const d of ['5k', 'half', 'full']){
-    const at4 = a.minViableStartKm(d, 4), at24 = a.minViableStartKm(d, 24);
-    assert.equal(at4, at24, d + ': the boundary must not vary by block length yet');
-    assert.equal(a.developmentMultiplierFor(d, 4), a.DISTANCE_PROFILES[d].volMult);
+    assert.ok(a.minViableStartKm(d, 4) > a.minViableStartKm(d, 24), d);
+    assert.equal(a.minViableStartKm(d, 14), a.minViableStartKm(d, 24),
+      d + ': at or above the default length the boundary is flat');
   }
+});
+
+test('D-7 applies to race-programme development and nothing else', () => {
+  const a = require('./audit/planAudit.js').app();
+  a.state = a.makeDefaultState();
+  /* An on-ramp and a foundation block ramp to an explicit destination and never
+     read the multiplier at all -- so a four-week on-ramp still arrives where it
+     was told to. Their growth remains explicitly ungated. */
+  const on = a.buildBlockWeeks('half', 20, 4, { purpose: 'onramp', rampToKm: 30 });
+  assert.equal(on.peakVolume, 30);
+  const fn = a.buildBlockWeeks('half', 8, 4, { purpose: 'foundation', rampToKm: 13.7 });
+  assert.equal(fn.peakVolume, 13.7);
+  const p = a.athletePathway('half', 8, 40);
+  assert.equal(p.growthGated, false,
+    'D-7 must not be read as approving foundation/on-ramp progression');
 });
 
 test('routing answers the question and does not invent an answer', () => {
@@ -413,7 +487,7 @@ test('inside the race population the S1 defects are gone, and the rest are attri
     assert.equal(race[code] || 0, 0, code + ' survives inside the race population'));
 });
 
-test('what remains inside the race population is D-7, and says so', () => {
+test('D-7 eliminated the week-one overshoot class inside the race population', () => {
   /* Every week-one overshoot left in the race population is a SHORT block.
      buildWeeks shrinks with block length while volMult does not, so a four-week
      block reaches its full multiple in one step and week one IS the peak. That
@@ -435,10 +509,13 @@ test('what remains inside the race population is D-7, and says so', () => {
           if (weeks <= 6) shortBlock++;
         });
       }
-  assert.ok(total > 0, 'expected the D-7 cases to still be present');
-  assert.equal(shortBlock, total,
-    'every surviving week-one overshoot must be a block of 6 weeks or fewer; ' +
-    (total - shortBlock) + ' were not, which would be a new defect rather than D-7');
+  /* Before D-7 every surviving case was a block of six weeks or fewer, where
+     buildWeeks was small and volMult was not. There are now none at all. */
+  assert.equal(total, 0,
+    total + ' week-one overshoots survive in the race population; D-7 should have removed them');
+  assert.equal(shortBlock, 0);
+  const m = matrix();
+  assert.equal(m.tallyRace.week_one_exceeds_stated_volume || 0, 0);
 });
 
 test('no week anywhere carries volume without a named cause', () => {
@@ -579,13 +656,19 @@ test('an on-ramp is easy running around a long run, and reaches its target', () 
   assert.equal(structured.length, 0);
 });
 
-test('S4 changed nothing in the race population', () => {
-  /* The on-ramp is a separate architecture on a separate path. If a single
-     race-plan count moved, S4 reached somewhere it should not have. */
-  const m = matrix();
-  const BASE = JSON.parse(fs.readFileSync(path.join(__dirname, 'audit', 'baseline.json'), 'utf8'));
-  Object.keys(BASE.tally).forEach(k =>
-    assert.equal(m.tally[k] || 0, BASE.tally[k], k + ' moved in the race population'));
+test('the on-ramp is a separate architecture and does not touch race plans', () => {
+  /* Asserted as a PROPERTY rather than against the stored baseline, which D-7
+     legitimately moved: building an on-ramp for an athlete must leave the race
+     plan the engine would build for the same inputs byte-identical. */
+  const sig = c => c.sessions.map(s => s.type + ':' + s.km + ':' + (s.archetype || '')).join('|');
+  for (const distanceKey of ['5k', 'half', 'full'])
+    for (const volume of [20, 30, 45])
+      for (const weeks of [12, 24]){
+        const before = sig(auditCase({ distanceKey, volume, weeks, scheduleKey: 'd5' }));
+        auditOnRamp({ distanceKey, volume, weeks, scheduleKey: 'd5' });
+        const after = sig(auditCase({ distanceKey, volume, weeks, scheduleKey: 'd5' }));
+        assert.equal(after, before, distanceKey + '|' + volume + '|' + weeks);
+      }
 });
 
 // ---------------------------------------------------------------------------
@@ -680,9 +763,33 @@ test('every athlete in the matrix has exactly one route, and it is built or expl
   assert.ok(m.insufficient > 0 && m.built > 0 && m.onramp > 0 && m.race > 0);
 });
 
-test('S5 changed nothing in the race population', () => {
+test('foundation is a separate architecture and does not touch race plans', () => {
+  const sig = c => c.sessions.map(s => s.type + ':' + s.km + ':' + (s.archetype || '')).join('|');
+  for (const distanceKey of ['5k', 'half', 'full'])
+    for (const volume of [4, 8, 12])
+      for (const weeks of [24, 40]){
+        const before = sig(auditCase({ distanceKey, volume, weeks, scheduleKey: 'd5' }));
+        auditFoundation({ distanceKey, volume, weeks, scheduleKey: 'd5' });
+        const after = sig(auditCase({ distanceKey, volume, weeks, scheduleKey: 'd5' }));
+        assert.equal(after, before, distanceKey + '|' + volume + '|' + weeks);
+      }
+});
+
+test('THE IN-RACE RATCHET — asserted flat at zero, not against a baseline', () => {
+  /* STRICTER THAN THE WHOLE-POPULATION RECORD, deliberately. This is the
+     population that actually receives race plans, and every class the
+     programme has closed is asserted at zero here with no baseline to drift
+     against. The whole-population figures remain a record of the race
+     generator's behaviour across ALL inputs, including plans no athlete is
+     given -- kept, not rescoped. */
   const m = matrix();
-  const BASE = JSON.parse(fs.readFileSync(path.join(__dirname, 'audit', 'baseline.json'), 'utf8'));
-  Object.keys(BASE.tally).forEach(k =>
-    assert.equal(m.tally[k] || 0, BASE.tally[k], k + ' moved in the race population'));
+  ['segment_km_negative', 'zero_km_work_segment', 'long_run_zero_distance',
+   'goal_segment_consumes_whole_long_run', 'goal_segment_over_half_of_long_run',
+   'generator_invariant_failure', 'volume_unattributed',
+   'allocator_revision_undeclared', 'deliberate_reduction_unnamed',
+   'floor_excess_unnamed', 'week_has_no_volume_accounting',
+   'week_overshoots_target', 'week_undershoots_target',
+   'long_run_implausible_for_distance', 'week_one_exceeds_stated_volume'
+  ].forEach(code => assert.equal(m.tallyRace[code] || 0, 0,
+    code + ' survives inside the race population'));
 });

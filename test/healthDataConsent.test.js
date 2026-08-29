@@ -449,14 +449,21 @@ test('15g. comparable sessions do not put the heart rate back on the card', () =
     dd.completed = true;
     dd.actual = Object.assign(a.emptyActual(), { km: dd.km, pace: '5:00', rpe: 6, hr: 150 });
   });
-  const dd = a.state.days.filter(d => d.date < TODAY && d.completed).slice(-1)[0];
+  /* An EASY day, deliberately. coachComparable() matches like for like -- same
+     type, same goal-pace-segment status, within 25% of the distance -- and the
+     weekly easy runs are the one session an athlete always has a genuine
+     sibling for. Reaching for whatever happened to be logged last picked up a
+     cutback-week long run whose only same-type neighbour sat 28% away, so the
+     comparable list came back empty and the consent assertion below had
+     nothing to assert against. */
+  const dd = a.state.days.filter(d => d.date < TODAY && d.completed && d.type === 'easy').slice(-1)[0];
   const review = a.coachWorkoutReview(dd);
-  if (review && review.comparable){
-    review.comparable.forEach(c => assert.equal(c.hr, null,
-      'a past session shown beside this one must not carry its heart rate'));
-    assert.ok(review.comparable.some(c => c.paceSecPerKm != null || c.km != null),
-      'while the comparison itself still works on ordinary training data');
-  }
+  assert.ok(review && review.comparable && review.comparable.length,
+    'the fixture produced no comparable session, so this test proves nothing');
+  review.comparable.forEach(c => assert.equal(c.hr, null,
+    'a past session shown beside this one must not carry its heart rate'));
+  assert.ok(review.comparable.some(c => c.paceSecPerKm != null || c.km != null),
+    'while the comparison itself still works on ordinary training data');
   assert.doesNotThrow(() => a.renderExecutionReview(dd), 'and the card still renders');
 });
 

@@ -317,9 +317,15 @@ test('a half athlete demonstrating 50 is no longer given a 77.5km peak', () => {
 });
 
 test('with no demonstrated capacity the peak is unchanged, so a first block is untouched', () => {
+  /* Stated against the block's own undamped development peak rather than a
+     literal, because the number this cap declines to touch is set by the block
+     length, not by this file: a first-time athlete gets whatever the arc says,
+     and the point here is that nothing is clipped off it. The test above is the
+     contrast -- the same athlete WITH a record is held to 65.1. */
   const a = app();
   const br = a.buildBlockWeeks('half', 50, 12, { purpose: 'race' });
-  assert.equal(br.peakVolume, 77.5);
+  assert.equal(br.peakVolume, a.round1(50 * a.developmentMultiplierFor('half', 12)));
+  assert.ok(br.peakVolume > 65.1, 'the uncapped peak no longer differs from the capped one');
 });
 
 test('the backstop is a limit and not a target: growth stops long before it', () => {

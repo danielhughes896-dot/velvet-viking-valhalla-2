@@ -1,12 +1,8 @@
 {
-  "note": "DEFECT RECORD, NOT AN APPROVAL. Every non-zero entry is a known fault. week_*_declared entries are NOT defects — they are differences the generator names and reports, kept so a fix cannot quietly convert a declared revision back into a silent one. From S3 the counts span the WHOLE population: routed cases are still built by the race generator until S4/S5 exist, so a routed defect is moved, not fixed.",
-  "generatedFrom": "test/audit/matrix.js — S3 (viability boundary and routing), on main 84409ef",
-  "plans": 2350,
-  "weeks": 30080,
-  "sessions": 210560,
-  "racePlans": 520,
-  "routedPlans": 1830,
-  "tally": {
+  "note": "DEFECT RECORD, NOT AN APPROVAL. Whole-population counts for the RACE GENERATOR across every input, including inputs whose athletes are now routed to foundation or the on-ramp and never receive a race plan. Kept at full scope deliberately. The stricter guarantee \u2014 flat zero for every closed class inside the population that actually receives race plans \u2014 is asserted separately in test/planMathematicsInvariants.test.js and has no baseline to drift against.",
+  "generatedFrom": "test/audit/matrix.js \u2014 D-7 (block-length-limited development)",
+  "d7Note": "D-7 lowers the peak of short blocks, so longTarget = volume x LONG_FRACTION is smaller all block and more weeks produce a sub-kilometre long run that rounds to zero. At THIS matrix's scope every code that rose above rose only in the ROUTED slice: in-race, each of them is either unchanged at zero (zero_km_work_segment, long_run_zero_distance, generator_invariant_failure, week_overshoots_target_declared, long_run_implausible_for_distance) or lower than before (long_run_shorter_than_easy_run 6->5, long_run_shorter_than_quality 261->245, quality_dominates_week 585->563, taper_week_increases_volume 48->41). Predicted in D7-DESIGN.md before implementation. SCOPE WARNING, MEASURED AND NOT RESOLVED: the matrix samples only block lengths 4/8/12/16/24 at d3 and d5. The full 50,400-plan sweep (every length 4-24, d3-d6) DOES show four in-race increases -- week_overshoots_target_declared 70->74, quality_dominates_week 5729->5801, long_run_shorter_than_quality 3258->3333, long_run_shorter_than_easy_run 149->169 -- entirely at block lengths 4-13 and overwhelmingly in the 5k profile. None occur at 14 weeks or longer. The mechanism is not new quality: the quality kilometres are identical before and after, and the easy and long kilometres around them shrank. It is the S6 structure-floor class becoming visible in-race, and it is reported to HQ rather than damped here.",
+  "previousTally": {
     "zero_km_work_segment": 528,
     "long_run_zero_distance": 528,
     "long_run_shorter_than_easy_run": 5796,
@@ -20,27 +16,45 @@
     "week_undershoots_target_declared": 2333,
     "long_run_implausible_for_distance": 4735
   },
+  "plans": 2350,
+  "weeks": 30080,
+  "sessions": 210560,
+  "racePlans": 442,
+  "routedPlans": 1908,
+  "tally": {
+    "zero_km_work_segment": 576,
+    "long_run_zero_distance": 576,
+    "long_run_shorter_than_easy_run": 6127,
+    "long_run_shorter_than_quality": 12275,
+    "week_overshoots_target_declared": 6289,
+    "quality_dominates_week": 14239,
+    "week_over_week_growth_over_10pct": 1719,
+    "taper_week_increases_volume": 500,
+    "generator_invariant_failure": 576,
+    "week_one_exceeds_stated_volume": 609,
+    "week_undershoots_target_declared": 2175,
+    "long_run_implausible_for_distance": 5080
+  },
   "tallyRace": {
-    "long_run_shorter_than_quality": 261,
-    "quality_dominates_week": 585,
-    "week_one_exceeds_stated_volume": 26,
-    "week_undershoots_target_declared": 2313,
-    "week_over_week_growth_over_10pct": 241,
-    "long_run_shorter_than_easy_run": 6,
-    "taper_week_increases_volume": 48
+    "long_run_shorter_than_quality": 245,
+    "quality_dominates_week": 563,
+    "week_over_week_growth_over_10pct": 211,
+    "week_undershoots_target_declared": 2158,
+    "long_run_shorter_than_easy_run": 5,
+    "taper_week_increases_volume": 41
   },
   "tallyRouted": {
-    "zero_km_work_segment": 528,
-    "long_run_zero_distance": 528,
-    "long_run_shorter_than_easy_run": 5790,
-    "long_run_shorter_than_quality": 11425,
-    "week_overshoots_target_declared": 5934,
-    "quality_dominates_week": 13079,
-    "week_over_week_growth_over_10pct": 1679,
-    "taper_week_increases_volume": 391,
-    "generator_invariant_failure": 528,
-    "week_one_exceeds_stated_volume": 828,
-    "week_undershoots_target_declared": 20,
-    "long_run_implausible_for_distance": 4735
+    "zero_km_work_segment": 576,
+    "long_run_zero_distance": 576,
+    "long_run_shorter_than_easy_run": 6122,
+    "long_run_shorter_than_quality": 12030,
+    "week_overshoots_target_declared": 6289,
+    "quality_dominates_week": 13676,
+    "week_over_week_growth_over_10pct": 1508,
+    "taper_week_increases_volume": 459,
+    "generator_invariant_failure": 576,
+    "week_one_exceeds_stated_volume": 609,
+    "week_undershoots_target_declared": 17,
+    "long_run_implausible_for_distance": 5080
   }
 }

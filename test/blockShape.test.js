@@ -105,7 +105,14 @@ test('the down week consolidates rather than tapers', () => {
   // and the race block's own taper is untouched
   const race = build(a, 'half', 45, 12, 'race');
   const t = race.weeks.filter(w => w.isTaper);
-  assert.equal(t[t.length - 1].volume, a.round1(race.peakVolume * 0.5));
+  /* Half of the peak -- but read against the REPORTED peak, which is itself
+     already rounded, so the comparison carries one rounding step of slack.
+     Taking round1(round1(peak) * 0.5) as the expected value only ever agreed
+     with the engine by luck: it happens to agree when the raw peak lands on a
+     tenth (45 x 1.55 = 69.75) and disagree by 0.1 when it does not
+     (45 x 1.45 = 65.25 -> peak 65.3, taper 32.6, round1(65.3/2) = 32.7). */
+  assert.ok(Math.abs(t[t.length - 1].volume - race.peakVolume * 0.5) <= 0.1,
+    'the final taper week is ' + t[t.length - 1].volume + ' against a peak of ' + race.peakVolume);
 });
 
 test('a speed block does not also carry a mid-block time trial', () => {
@@ -149,8 +156,27 @@ test('a race block keeps every part of the arc it always had', () => {
   assert.equal(b.taperWeeks, 2);
   assert.equal(b.weeks.filter(w => w.isRace).length, 1);
   assert.equal(b.weeks.filter(w => w.isCheckpoint).length, 1);
-  assert.equal(b.peakVolume, a.round1(45 * a.DISTANCE_PROFILES.half.volMult));
+  /* The peak is the profile multiplier EARNED OVER THE WEEKS AVAILABLE. A
+     twelve-week block has nine developing weeks against the fourteen-week
+     block's eleven, so it reaches nine elevenths of the way from 1.0 to the
+     profile's 1.55 rather than all of it. The full-length block below is the
+     one that still lands exactly on volMult. */
+  assert.equal(b.peakVolume, a.round1(45 * a.developmentMultiplierFor('half', 12)));
   assert.ok(count(b, 'Base') > 0 && count(b, 'Build') > 0 && count(b, 'Peak') > 0);
+});
+
+test('a full-length race block still peaks at exactly the profile multiplier', () => {
+  /* The other half of the statement above, and the property that must not move:
+     at the builder's own default length the profile multiplier is reached in
+     full, so the distance profiles still mean what they say. */
+  const a = app();
+  const N = a.BUILDER_PURPOSE_META.race.defaultWeeks;
+  assert.equal(a.developmentMultiplierFor('half', N), a.DISTANCE_PROFILES.half.volMult);
+  const b = build(a, 'half', 45, N, 'race');
+  assert.equal(b.peakVolume, a.round1(45 * a.DISTANCE_PROFILES.half.volMult));
+  // and longer than the default cannot exceed it either -- volMult is a ceiling
+  const long = build(a, 'half', 45, 20, 'race');
+  assert.equal(long.peakVolume, a.round1(45 * a.DISTANCE_PROFILES.half.volMult));
 });
 
 test('a block built with no purpose at all is still the race block, byte for byte', () => {

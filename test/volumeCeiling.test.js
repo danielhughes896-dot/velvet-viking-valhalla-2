@@ -176,15 +176,35 @@ function simulate(distKey, startVol, years, capacity){
 
 const CASES = [['5k', 40, 110], ['10k', 45, 120], ['half', 50, 140], ['full', 60, 170]];
 
+/* TWELVE years, not five. The question this file exists to answer is whether
+   the loop terminates, and a five-year window answered it only for as long as
+   every distance happened to arrive inside five years. It no longer does: a
+   block now earns the profile multiplier in proportion to its developing weeks,
+   so the year-round cycle -- 12, 2, 8, 10, 6 -- climbs more slowly than it did
+   when every block reached volMult regardless of length. 5k now settles in year
+   8 and 10k in year 7 where both used to settle in year 5.
+
+   The property is unchanged and is asserted more strictly than before: the
+   programme rises, arrives, and then STAYS there for the rest of the horizon
+   rather than merely repeating one year. */
+const CONVERGENCE_YEARS = 12;
+
 CASES.forEach(([dist, start, backstop]) => {
-  test('five years of ' + dist + ' training from ' + start + 'km/week converges', () => {
-    const r = simulate(dist, start, 5, Infinity);           // perfectly compliant
+  test(CONVERGENCE_YEARS + ' years of ' + dist + ' training from ' + start + 'km/week converges', () => {
+    const r = simulate(dist, start, CONVERGENCE_YEARS, Infinity);   // perfectly compliant
+    const trace = dist + ': ' + r.yearPeak.join(' -> ');
     assert.ok(r.peak <= backstop,
       dist + ' peaked at ' + r.peak + ' against a backstop of ' + backstop);
-    const [y1, , , y4, y5] = r.yearPeak;
-    assert.ok(y5 >= y1, 'the programme went backwards over five years');
-    assert.equal(y5, y4,
-      dist + ' was still climbing in year five: ' + r.yearPeak.join(' -> '));
+    assert.ok(r.yearPeak[r.yearPeak.length - 1] >= r.yearPeak[0],
+      'the programme went backwards: ' + trace);
+    // it arrives...
+    const settled = r.yearPeak.findIndex((v, i) => i > 0 && v === r.yearPeak[i - 1]);
+    assert.ok(settled > 0, dist + ' was still climbing at the end of the horizon: ' + trace);
+    // ...and every year after that is the same number, not just the next one
+    r.yearPeak.slice(settled).forEach(v => assert.equal(v, r.yearPeak[settled],
+      dist + ' moved again after settling: ' + trace));
+    // and it never climbs past its own backstop on the way
+    r.yearPeak.forEach(v => assert.ok(v <= backstop, trace));
   });
 });
 

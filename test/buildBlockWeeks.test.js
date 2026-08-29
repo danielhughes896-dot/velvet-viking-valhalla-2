@@ -17,11 +17,30 @@ test('buildBlockWeeks: final week is always the race week', () => {
 });
 
 test('buildBlockWeeks: peak volume matches the distance profile\'s multiplier', () => {
+  /* At the builder's own default block length the profile multiplier is
+     reached in full. This is the statement the distance profiles make, and it
+     is the one that must not move. */
   const app = loadApp();
   const currentVolume = 40;
-  const b = app.buildBlockWeeks('10k', currentVolume, 12);
+  const N = app.BUILDER_PURPOSE_META.race.defaultWeeks;
   const profile = app.DISTANCE_PROFILES['10k'];
+  const b = app.buildBlockWeeks('10k', currentVolume, N);
   assert.equal(b.peakVolume, app.round1(currentVolume * profile.volMult));
+});
+
+test('buildBlockWeeks: a short block earns only the development its weeks allow', () => {
+  /* volMult is an end-state capacity ceiling, not a target every block reaches
+     regardless of how long it is. A twelve-week block has nine developing weeks
+     against the default's eleven, so it earns nine elevenths of the climb from
+     1.0 to 1.35 and peaks below -- never above -- the full-length figure. */
+  const app = loadApp();
+  const profile = app.DISTANCE_PROFILES['10k'];
+  const short = app.buildBlockWeeks('10k', 40, 12);
+  const full  = app.buildBlockWeeks('10k', 40, app.BUILDER_PURPOSE_META.race.defaultWeeks);
+  assert.equal(short.peakVolume, app.round1(40 * app.developmentMultiplierFor('10k', 12)));
+  assert.ok(short.peakVolume < full.peakVolume,
+    'a twelve-week block peaked at ' + short.peakVolume + ' against a full-length ' + full.peakVolume);
+  assert.ok(short.peakVolume <= app.round1(40 * profile.volMult));
 });
 
 test('buildBlockWeeks: two different goal distances from the same volume produce different plans', () => {
