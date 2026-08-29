@@ -11,8 +11,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { auditCase, DISTANCES } = require('./planAudit.js');
-const { checkCase } = require('./invariants.js');
+const { auditCase, auditOnRamp, DISTANCES } = require('./planAudit.js');
+const { checkCase, checkOnRamp } = require('./invariants.js');
 
 const args = process.argv.slice(2);
 const QUICK = args.indexOf('--quick') !== -1;
@@ -41,7 +41,9 @@ const stats = {
           volumes: [VOLUMES[0], VOLUMES[VOLUMES.length - 1]], weeks: WEEKS,
           schedules: SCHEDULES, distances: DISTANCES },
   counts: { cases: 0, plans: 0, weeks: 0, sessions: 0, runSessions: 0, restSessions: 0, errors: 0,
-            racePlans: 0, routedPlans: 0 },
+            racePlans: 0, routedPlans: 0,
+            onRampsBuilt: 0, foundationRequired: 0, insufficientTime: 0 },
+  onRampFindings: {},
   findingsRace: {}, findingsRouted: {},
   extremes: {
     minEasyKm: Infinity, minLongKm: Infinity, maxLongKm: -Infinity,
@@ -142,6 +144,20 @@ function run(){
           for (const purpose of PURPOSES){
             const c = auditCase({ distanceKey, volume, weeks, scheduleKey, purpose });
             record(c, checkCase(c));
+            /* S4. Routed athletes now have a real plan, so audit the plan they
+               would actually be given rather than only recording that they were
+               routed out of the wrong one. */
+            if (c.routed){
+              const o = auditOnRamp({ distanceKey, volume, weeks, scheduleKey });
+              if (o.skipped){
+                if (o.pathway.route === 'foundation_required') stats.counts.foundationRequired++;
+                else if (o.pathway.route === 'insufficient_time') stats.counts.insufficientTime++;
+              } else {
+                stats.counts.onRampsBuilt++;
+                checkOnRamp(o).forEach(f => {
+                  stats.onRampFindings[f.code] = (stats.onRampFindings[f.code] || 0) + 1; });
+              }
+            }
             if (++n % 20000 === 0)
               process.stderr.write('  ' + n + ' cases, ' + ((Date.now() - t0) / 1000).toFixed(0) + 's\n');
           }
@@ -172,6 +188,13 @@ if (require.main === module){
         '  race ' + String(s.findingsRace[k] || 0).padStart(8) +
         '  routed ' + String(s.findingsRouted[k] || 0).padStart(8));
     });
+  console.log('\n-- THE ROUTED POPULATION, AS S4 NOW SERVES IT --');
+  console.log('  on-ramps built      ' + c.onRampsBuilt);
+  console.log('  foundation required ' + c.foundationRequired + '   (S5 — not built, and says so)');
+  console.log('  insufficient time   ' + c.insufficientTime);
+  const of = s.onRampFindings, ok = Object.keys(of);
+  console.log('  on-ramp findings    ' + (ok.length ? '' : 'NONE'));
+  ok.sort((a,b)=>of[b]-of[a]).forEach(k => console.log('    ' + k.padEnd(40) + String(of[k]).padStart(9)));
   console.log('\n-- EXTREMES --');
   Object.keys(s.extremes).forEach(k => console.log('  ' + k.padEnd(26), s.extremes[k]));
   console.log('\nwritten to ' + OUT);

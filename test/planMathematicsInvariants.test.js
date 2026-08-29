@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { runMatrix, VOLUMES, WEEKS, SCHEDULES, DISTANCES } = require('./audit/matrix.js');
-const { auditCase } = require('./audit/planAudit.js');
+const { auditCase, auditOnRamp } = require('./audit/planAudit.js');
+const { checkOnRamp } = require('./audit/invariants.js');
 
 /* PLAN MATHEMATICS — PROPERTY TESTS OVER THE WHOLE INPUT SPACE
  * ===========================================================================
@@ -445,4 +446,140 @@ test('no week anywhere carries volume without a named cause', () => {
      50,400-plan sweep: zero unattributed weeks in 705,600. */
   const m = matrix();
   assert.equal(m.tally.volume_unattributed || 0, 0);
+});
+
+// ---------------------------------------------------------------------------
+// S4 — THE ON-RAMP
+// ---------------------------------------------------------------------------
+let ONRAMP = null;
+function onRamps(){
+  if (ONRAMP) return ONRAMP;
+  const tally = {}; let built = 0, foundation = 0, insufficient = 0, race = 0;
+  for (const distanceKey of DISTANCES)
+    for (const volume of VOLUMES)
+      for (const weeks of WEEKS)
+        for (const scheduleKey of SCHEDULES){
+          const c = auditOnRamp({ distanceKey, volume, weeks, scheduleKey });
+          if (c.skipped){
+            const r = c.pathway.route;
+            if (r === 'foundation_required') foundation++;
+            else if (r === 'insufficient_time') insufficient++;
+            else race++;
+            continue;
+          }
+          built++;
+          checkOnRamp(c).forEach(f => { tally[f.code] = (tally[f.code] || 0) + 1; });
+        }
+  return (ONRAMP = { tally, built, foundation, insufficient, race });
+}
+
+test('the on-ramp needs no growth rate, because it has both endpoints', () => {
+  /* THE DECISION S4 DOES NOT TAKE. Every other block says "peak is start times
+     a multiplier" and lets the destination fall out. An on-ramp's destination
+     is the thing that is known -- the viable race-programme start -- and its
+     duration is the time the athlete actually has. The rate is therefore a
+     CONSEQUENCE, computed and reported, and nothing in S4 rules on whether it
+     is safe. */
+  const a = require('./audit/planAudit.js').app();
+  const arc = a.blockArcFor('onramp', 12);
+  assert.equal(arc.volumeMult, null, 'an on-ramp has no multiplier');
+  assert.equal(arc.noQuality, true);
+  assert.equal(arc.hasGoalEffort, false);
+  assert.equal(arc.taper, 0);
+
+  const p = a.athletePathway('half', 20, 30);
+  assert.equal(p.route, 'on_ramp_then_race');
+  assert.ok(p.impliedWeeklyGrowth > 1, 'the rate is reported');
+  assert.equal(p.growthGated, false, 'and explicitly not ruled on');
+  assert.equal(p.growthGateBlockedOn, 'onramp_progression_rate_not_approved');
+
+  /* The visible consequence of not having a rate: an on-ramp with almost no
+     time implies an absurd growth, and S4 reports the absurdity rather than
+     silently accepting or silently refusing it. */
+  const squeezed = a.athletePathway('half', 20, 16);
+  assert.ok(squeezed.impliedWeeklyGrowth > 2,
+    'a two-week on-ramp to 41.5km implies ' + squeezed.impliedWeeklyGrowth);
+  assert.equal(squeezed.growthGated, false);
+});
+
+test('the on-ramp floor is derived from two existing constants', () => {
+  const a = require('./audit/planAudit.js').app();
+  assert.equal(a.EASY_MIN_KM, 3);
+  assert.equal(a.CUTBACK_FACTOR, 0.78);
+  ['5k','10k','half','full','ultra'].forEach(d => {
+    const p = a.DISTANCE_PROFILES[d];
+    const expected = a.EASY_MIN_KM / (a.LONG_FRACTION[p.emphasis] * a.CUTBACK_FACTOR);
+    assert.ok(Math.abs(a.minViableOnRampKm(d) - expected) < 0.06, d);
+  });
+  /* Measured at the SMALLEST week, not the largest: every fourth week is a
+     cutback, and it is the cutback week that decides whether a long run can be
+     expressed at all. */
+  assert.ok(a.minViableOnRampKm('5k') > a.EASY_MIN_KM / a.LONG_FRACTION.speed);
+});
+
+test('below the on-ramp floor the answer is foundation, and it says so', () => {
+  /* S5 IS NOT BUILT, AND S4 DOES NOT PRETEND IT IS. */
+  const a = require('./audit/planAudit.js').app();
+  const p = a.athletePathway('half', 8, 40);
+  assert.equal(p.route, 'foundation_required');
+  assert.equal(p.blockedOn, 'foundation_architecture_not_built');
+  assert.equal(p.onRampWeeks, 0);
+  assert.ok(!('plan' in p) && !('sessions' in p), 'and it fabricates nothing');
+});
+
+test('with no room for an on-ramp the refusal is structural, not a guess', () => {
+  const a = require('./audit/planAudit.js').app();
+  const p = a.athletePathway('full', 20, 4);
+  assert.equal(p.route, 'insufficient_time');
+  assert.equal(p.impliedWeeklyGrowth, null,
+    'no rate is needed to know there is no time for an on-ramp at all');
+});
+
+test('every on-ramp the engine builds is sound', () => {
+  /* A NEW ARCHITECTURE INHERITS NO DEFECT RECORD. Asserted flat at zero from
+     its first commit — there is no baseline to ratchet down from. */
+  const m = onRamps();
+  assert.ok(m.built > 500, 'on-ramps built: ' + m.built);
+  ['onramp_generator_threw', 'onramp_invariant_failure', 'onramp_km_not_finite',
+   'onramp_km_negative', 'onramp_carries_structured_quality',
+   'onramp_segment_negative', 'onramp_zero_km_work_segment',
+   'onramp_week_has_no_long_run', 'onramp_long_run_not_longest',
+   'onramp_week_has_no_accounting', 'onramp_volume_unattributed',
+   'onramp_does_not_reach_its_target'
+  ].forEach(code => assert.equal(m.tally[code] || 0, 0, code));
+});
+
+test('an on-ramp that cannot arrive says so rather than failing quietly', () => {
+  /* The same rule S2 established for the allocator: no SILENT failure. A
+     shortfall the accounting names is declared and reported; one nothing
+     accounts for is a defect, and there are none of those. */
+  const m = onRamps();
+  assert.ok((m.tally.onramp_declared_shortfall || 0) > 0,
+    'expected some on-ramps to be honest about not arriving');
+  assert.equal(m.tally.onramp_does_not_reach_its_target || 0, 0);
+});
+
+test('an on-ramp is easy running around a long run, and reaches its target', () => {
+  const c = auditOnRamp({ distanceKey: 'half', volume: 20, weeks: 30, scheduleKey: 'd5' });
+  assert.equal(c.pathway.route, 'on_ramp_then_race');
+  assert.equal(c.noQuality, true);
+  assert.equal(c.invariantFailures.length, 0);
+  const peak = Math.max(...c.weeks.map(w => w.actualVolume));
+  assert.ok(peak >= c.pathway.onRampToKm * 0.95,
+    'peaks at ' + peak + ' against a target of ' + c.pathway.onRampToKm);
+  // strides carry the neuromuscular work; nothing structured is prescribed
+  const stride = c.sessions.filter(s => s.archetype === 'easy_strides');
+  assert.ok(stride.length >= c.weeks.length - 1, 'one strides day per week');
+  const structured = c.sessions.filter(s => s.km > 0 && s.archetype !== 'easy_strides' &&
+    ['tempo','threshold','interval','repetition','checkpoint'].indexOf(s.type) !== -1);
+  assert.equal(structured.length, 0);
+});
+
+test('S4 changed nothing in the race population', () => {
+  /* The on-ramp is a separate architecture on a separate path. If a single
+     race-plan count moved, S4 reached somewhere it should not have. */
+  const m = matrix();
+  const BASE = JSON.parse(fs.readFileSync(path.join(__dirname, 'audit', 'baseline.json'), 'utf8'));
+  Object.keys(BASE.tally).forEach(k =>
+    assert.equal(m.tally[k] || 0, BASE.tally[k], k + ' moved in the race population'));
 });

@@ -74,7 +74,19 @@ function checkCase(c){
     const longS = w.sessions.filter(s => s.type === 'long');
     const easyS = w.sessions.filter(s => s.type === 'easy' && s.km > 0);
     const maxEasy = easyS.length ? Math.max(...easyS.map(s => s.km)) : 0;
-    const qual = w.sessions.filter(s => s.km > 0 && ['tempo','threshold','interval','repetition','checkpoint'].indexOf(s.type) !== -1);
+    /* MEASUREMENT CORRECTION (S4), reported rather than made silently.
+       `easy_strides` carries dd.type 'interval' -- deliberately, because in race
+       week it IS the quality slot and the athlete should recognise it as one.
+       It is not a structured quality session: it is an easy run with six 100m
+       strides inside it, and counting it as quality would report an on-ramp
+       week as 20% quality when it contains none. Keyed on the ARCHETYPE, which
+       is what actually distinguishes them.
+
+       This moves no existing count. Every place it could have applied before
+       S4 is a race week, and every check below is already inside `if
+       (!w.isRace)`. Verified against the committed baseline. */
+    const qual = w.sessions.filter(s => s.km > 0 && s.archetype !== 'easy_strides' &&
+      ['tempo','threshold','interval','repetition','checkpoint'].indexOf(s.type) !== -1);
     const maxQual = qual.length ? Math.max(...qual.map(s => s.km)) : 0;
     const longKm = longS.length ? Math.max(...longS.map(s => s.km)) : 0;
 
@@ -184,3 +196,69 @@ function checkCase(c){
 }
 
 module.exports = { checkCase, HARD, SUSPECT };
+
+/* ---------------------------------------------------------------------------
+   THE ON-RAMP (S4) — its own invariants, at zero from its first commit.
+
+   A NEW ARCHITECTURE INHERITS NO DEFECT RECORD. There is no baseline to
+   ratchet down from, because none of this has ever shipped; every count below
+   is asserted flat at zero.
+   --------------------------------------------------------------------------- */
+function checkOnRamp(c){
+  const out = [];
+  const add = (tier, code, detail) => out.push({ tier, code, case: c.id, ...detail });
+  if (c.skipped) return out;
+  if (c.error){ add(HARD, 'onramp_generator_threw', { message: c.error }); return out; }
+
+  (c.invariantFailures || []).forEach(f =>
+    add(HARD, 'onramp_invariant_failure', { week: f.week, archetype: f.archetype }));
+
+  c.sessions.forEach(s => {
+    if (s.km != null && !num(s.km)) add(HARD, 'onramp_km_not_finite', { week: s.week, km: s.km });
+    if (num(s.km) && s.km < 0)      add(HARD, 'onramp_km_negative',   { week: s.week, km: s.km });
+    /* NO STRUCTURED QUALITY. The structured pools cannot be built below 4.3km,
+       which at on-ramp volumes is a third of the week. Strides are not that. */
+    if (s.km > 0 && s.archetype !== 'easy_strides' &&
+        ['tempo','threshold','interval','repetition','checkpoint'].indexOf(s.type) !== -1)
+      add(HARD, 'onramp_carries_structured_quality', { week: s.week, type: s.type, archetype: s.archetype, km: s.km });
+    if (s.segments) s.segments.forEach((g, i) => {
+      if (g.km != null && g.km < 0) add(HARD, 'onramp_segment_negative', { week: s.week, index: i, km: g.km });
+      if (g.kind === 'work' && g.km === 0) add(HARD, 'onramp_zero_km_work_segment', { week: s.week, index: i });
+    });
+  });
+
+  c.weeks.forEach(w => {
+    const longS = w.sessions.filter(s => s.type === 'long' && s.km > 0);
+    const others = w.sessions.filter(s => s.type !== 'long' && s.km > 0);
+    const maxOther = others.length ? Math.max(...others.map(s => s.km)) : 0;
+    if (!longS.length) add(HARD, 'onramp_week_has_no_long_run', { week: w.week });
+    else if (Math.max(...longS.map(s => s.km)) < maxOther)
+      add(HARD, 'onramp_long_run_not_longest', { week: w.week,
+        longKm: Math.max(...longS.map(s => s.km)), maxOtherKm: maxOther });
+    const acc = w.accounting;
+    if (!acc) add(HARD, 'onramp_week_has_no_accounting', { week: w.week });
+    else if (!acc.reconciled)
+      add(HARD, 'onramp_volume_unattributed', { week: w.week, residual: acc.roundingResidual, bound: acc.roundingBound });
+  });
+
+  /* IT MUST ARRIVE, OR SAY THAT IT DOES NOT.
+     An on-ramp exists to reach the viable race-programme start. Where it
+     cannot -- the athlete has one week, or their day count cannot distribute
+     the destination -- that is a real and reportable fact about their
+     situation, not a broken block. The rule is the same one S2 established for
+     the allocator: no SILENT failure to arrive. A shortfall the accounting
+     already names is declared; one nothing accounts for is a defect. */
+  const peak = c.weeks.length ? Math.max(...c.weeks.map(w => w.actualVolume)) : 0;
+  const target = c.pathway.onRampToKm;
+  if (target > 0 && peak < target * 0.95){
+    const declared = (c.accounting || []).some(e => e.allocatorRevision > 0)
+      || c.pathway.onRampWeeks < 4;   // too few weeks to ramp is stated by the pathway itself
+    add(declared ? SUSPECT : HARD,
+        declared ? 'onramp_declared_shortfall' : 'onramp_does_not_reach_its_target',
+        { peak, target, onRampWeeks: c.pathway.onRampWeeks });
+  }
+
+  return out;
+}
+module.exports.checkOnRamp = checkOnRamp;
+

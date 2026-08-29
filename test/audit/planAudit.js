@@ -88,6 +88,10 @@ function auditCase(opts){
      -- so this is a routing decision recorded against the case, never a claim
      that the case was fixed. */
   const viability = a.raceProgrammeViability(distanceKey, volume, blockResult.planWeeks);
+  /* S4. What the athlete SHOULD be given. For a routed case this is a real
+     on-ramp built by the real generator, so the plan they now receive can be
+     audited rather than merely classified. */
+  const pathway = a.athletePathway(distanceKey, volume, blockResult.planWeeks);
   const notes = (a.planBuildNotes || []).slice();
   const accounting = (a.planVolumeAccounting || []).slice();
   const invariantFailures = (a.planInvariantFailures || []).slice();
@@ -171,6 +175,7 @@ function auditCase(opts){
               purpose, benchmarkKind: opts.benchmarkKind || 'none',
               experience: opts.experience || 'experienced' },
     viability: viability,
+    pathway: pathway,
     routed: !viability.viable,
     profile: { raceKm: profile.raceKm, longCapKm: profile.longCapKm,
                volMult: profile.volMult, emphasis: profile.emphasis },
@@ -196,3 +201,54 @@ function round2(n){ return Math.round(n * 100) / 100; }
 
 module.exports = { auditCase, DISTANCES, SCHEDULES, AUDIT_DATE, app, resetState,
                    benchmarkFor, round1, round2 };
+
+/* THE ON-RAMP, BUILT AND MEASURED (S4).
+   Separate from auditCase() because it is a different architecture answering a
+   different question, and folding it into the race-plan audit would mix two
+   populations that must stay countable apart. */
+function auditOnRamp(opts){
+  const a = resetState();
+  const { distanceKey, volume, weeks, scheduleKey } = opts;
+  const schedule = SCHEDULES[scheduleKey] || SCHEDULES.d5;
+  const path = a.athletePathway(distanceKey, volume, weeks);
+  if (path.route !== 'on_ramp_then_race') return { id: caseId(opts), inputs: opts, pathway: path, skipped: true };
+
+  const startDate = a.todayStr();
+  const startMonday = a.addDays(startDate, -a.isoWeekday(startDate));
+  const endDate = a.addDays(startMonday, path.onRampWeeks * 7 - 1);
+  let block, days;
+  try {
+    block = a.buildBlockWeeks(distanceKey, volume, path.onRampWeeks,
+      { purpose: 'onramp', rampToKm: path.onRampToKm });
+    days = a.buildDaysFromWeeks(block, endDate, schedule, startDate, false);
+  } catch (e){
+    return { id: caseId(opts), inputs: opts, pathway: path, error: String(e && e.message || e) };
+  }
+  const accounting = (a.planVolumeAccounting || []).slice();
+  const invariantFailures = (a.planInvariantFailures || []).slice();
+  const sessions = days.map(dd => {
+    const p = dd.prescription || null;
+    let segs = null;
+    if (p){ try { segs = a.segmentsFor(p) || null; } catch(e){ segs = null; } }
+    return { date: dd.date, week: dd.week, type: dd.type, title: dd.title, km: dd.km,
+             archetype: p ? p.archetype : null, params: p ? p.params : null,
+             segments: segs ? segs.map(g => ({ kind:g.kind, intensity:g.intensity,
+               km: g.km != null ? g.km : null, m: g.m != null ? g.m : null,
+               sec: g.sec != null ? g.sec : null })) : null,
+             desc: dd.desc };
+  });
+  const byWeek = {};
+  block.weeks.forEach(wk => { byWeek[wk.week] = {
+    week: wk.week, targetVolume: wk.volume, isCutback: !!wk.isCutback,
+    accounting: accounting.filter(x => x.week === wk.week)[0] || null,
+    sessions: [], actualVolume: 0 }; });
+  sessions.forEach(s => { const w = byWeek[s.week]; if (!w) return;
+    w.sessions.push(s); w.actualVolume = round1(w.actualVolume + (s.km || 0)); });
+  const weekList = Object.keys(byWeek).map(k => byWeek[k]).sort((x,y) => x.week - y.week);
+  return { id: caseId(opts), inputs: opts, pathway: path,
+           peakVolume: block.peakVolume, impliedWeeklyGrowth: block.impliedWeeklyGrowth,
+           noQuality: block.noQuality, weeks: weekList, sessions,
+           accounting, invariantFailures };
+}
+module.exports.auditOnRamp = auditOnRamp;
+

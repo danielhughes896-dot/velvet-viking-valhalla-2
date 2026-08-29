@@ -4004,6 +4004,108 @@ function minViableStartKm(distKey, planWeeks){
    the fabrication this boundary exists to prevent. What it returns is the
    decision, the gap and what the athlete would have to reach -- everything a
    caller needs to tell the truth, and nothing that pretends. */
+/* =========================================================
+   THE PATHWAY
+
+   S3 answered "is a race block the right thing to build". This answers "then
+   what IS the right thing", and it is the whole of what an athlete below the
+   boundary gets: an on-ramp of the time they actually have, ramping from where
+   they are to the volume their race block needs, followed by that race block.
+
+   THE DURATION IS NOT CHOSEN, IT IS MEASURED. The athlete's event date fixes
+   how many weeks exist; the race block takes the engine's own default where
+   there is room for it; the on-ramp gets the rest. Nothing here picks a
+   progression rate, because nothing here needs one -- the endpoints and the
+   duration are all known, so the rate is a CONSEQUENCE and is reported as one.
+
+   WHAT THIS DELIBERATELY DOES NOT DO. It does not say whether the resulting
+   growth is SAFE. That is a judgement about a per-week rate, it has not been
+   approved, and inventing one here would be exactly the silent methodology
+   this gate exists to prevent. `impliedWeeklyGrowth` is returned with
+   `growthGated:false` so a caller can see the number and see that nothing has
+   ruled on it. The only refusal made here is structural: where no weeks remain
+   for an on-ramp at all, no rate is needed to know the answer is no. */
+/* THE ON-RAMP HAS ITS OWN FLOOR, and it is derived rather than chosen.
+
+   An on-ramp is volume-led easy running around one long run, and the long run
+   has to be the longest run of the week or it is not one. The easy days sit on
+   EASY_MIN_KM; the long run is volume x LONG_FRACTION. So the smallest week an
+   on-ramp can express is the one where those two cross:
+
+       volume x LONG_FRACTION > EASY_MIN_KM      =>   volume > 3 / LONG_FRACTION
+
+   Both constants already exist and neither is touched. It lands between 8 and
+   13 km/week depending on distance -- which is the threshold of continuous
+   running the foundation architecture was described around, arrived at from
+   the arithmetic rather than assumed.
+
+   BELOW IT THE ANSWER IS FOUNDATION, AND FOUNDATION IS NOT BUILT YET. So the
+   pathway says so and stops, rather than building an on-ramp whose long run is
+   shorter than its easy days. */
+function minViableOnRampKm(distKey){
+  var p = DISTANCE_PROFILES[distKey];
+  if (!p) return null;
+  /* MEASURED AT THE SMALLEST WEEK, NOT THE LARGEST. Every fourth week is a
+     cutback at CUTBACK_FACTOR of trend, and it is the cutback week that decides
+     whether the block can be expressed: an on-ramp whose week 4 has a 2km long
+     run and 3km easy days has not got a long run. */
+  return round1(EASY_MIN_KM / (LONG_FRACTION[p.emphasis] * CUTBACK_FACTOR));
+}
+function athletePathway(distKey, currentVolume, weeksAvailable, opts){
+  var W = Math.max(1, Math.round(weeksAvailable || 0));
+  var v = raceProgrammeViability(distKey, currentVolume, W);
+  if (!v.known || v.viable){
+    return { route:'race_programme', viability:v,
+             raceBlockWeeks:W, onRampWeeks:0,
+             impliedWeeklyGrowth:null, growthGated:false };
+  }
+  /* The race block takes the engine's own default length where the time allows
+     it, and shrinks no further than the builder's own minimum. Both are
+     existing figures; neither is chosen here. */
+  var preferred = BUILDER_PURPOSE_META.race.defaultWeeks;
+  var minBlock  = BUILDER_SPEC.validation.weeksRange[0];
+  var raceWeeks = Math.min(preferred, W - 1);
+  if (raceWeeks < minBlock){
+    /* STRUCTURAL, AND IT NEEDS NO RATE. There is not enough time for both a
+       race block and any on-ramp at all, so no growth assumption could rescue
+       it. */
+    return { route:'insufficient_time', viability:v,
+             raceBlockWeeks:null, onRampWeeks:0,
+             weeksAvailable:W, minimumWeeks:minBlock + 1,
+             impliedWeeklyGrowth:null, growthGated:false,
+             reason:'not_enough_time_for_an_on_ramp' };
+  }
+  var onRampWeeks = W - raceWeeks;
+  /* BELOW THE ON-RAMP'S OWN FLOOR the honest answer is foundation, and
+     foundation does not exist yet. Saying so is the whole point of the
+     boundary: an on-ramp built here would have a long run shorter than its easy
+     days, which is the shape of failure this programme exists to remove. */
+  var onRampFloor = minViableOnRampKm(distKey);
+  if (onRampFloor != null && currentVolume < onRampFloor){
+    return { route:'foundation_required', viability:v,
+             onRampWeeks:0, raceBlockWeeks:raceWeeks, weeksAvailable:W,
+             statedKm:currentVolume, onRampFloorKm:onRampFloor,
+             onRampToKm:v.minStartKm,
+             impliedWeeklyGrowth:null, growthGated:false,
+             reason:'below_continuous_running_threshold',
+             blockedOn:'foundation_architecture_not_built' };
+  }
+  var arc = blockArcFor('onramp', onRampWeeks);
+  var growth = (currentVolume > 0 && arc.buildWeeks > 1)
+    ? Math.round(Math.pow(v.minStartKm / currentVolume, 1 / (arc.buildWeeks - 1)) * 10000) / 10000
+    : null;
+  return {
+    route:'on_ramp_then_race', viability:v,
+    onRampWeeks:onRampWeeks, raceBlockWeeks:raceWeeks, weeksAvailable:W,
+    onRampFromKm:currentVolume, onRampToKm:v.minStartKm,
+    impliedWeeklyGrowth:growth,
+    /* FALSE, AND SAYING SO IS THE POINT. Nothing has ruled on whether this
+       growth is safe; the figure is reported so the question is visible rather
+       than answered by default. */
+    growthGated:false,
+    growthGateBlockedOn:'onramp_progression_rate_not_approved'
+  };
+}
 function raceProgrammeViability(distKey, currentVolume, planWeeks){
   var minStart = minViableStartKm(distKey, planWeeks);
   var stated = (typeof currentVolume === 'number' && currentVolume > 0) ? currentVolume : 0;
@@ -4368,6 +4470,11 @@ var BASE_PHASE_SPLIT = 0.70;   // fraction of an aerobic base block spent in Bas
    for a marathon build"; it is the wrong question for a block with no race in
    it, and on the half profile it ramped a ten-week base block by 55%. */
 var BASE_VOLUME_MULT = 1.25;
+/* The cutback week's share of trend. Named rather than inlined because the
+   on-ramp's own viability floor has to survive one: a block whose smallest week
+   cannot express a long run is not viable at its largest either. Same value,
+   same behaviour -- see buildBlockWeeks and minViableOnRampKm. */
+var CUTBACK_FACTOR = 0.78;
 /* How far up each quality structure's own dimension range an aerobic base block
    is allowed to travel. See the note at the `pos` assignment in
    buildBlockWeeks: this is what keeps a base block's quality growing at the
@@ -4389,6 +4496,37 @@ function blockPurposeOf(purposeOrSteady){
 }
 function blockArcFor(purpose, N){
   var weeks = Math.max(1, N || 1);
+  /* THE ON-RAMP. An athlete below the viable race-programme boundary is not
+     given a smaller race block -- they are given the thing that gets them TO
+     one. It has no goal effort, no checkpoint, no taper and no phases: every
+     week is the same kind of week, because the block is going somewhere rather
+     than culminating in anything.
+
+     NO MULTIPLIER. Every other purpose says "peak is start x volMult" and
+     lets the destination fall out. An on-ramp's destination is the thing that
+     is KNOWN -- minViableStartKm for the athlete's race -- and its duration is
+     the time they actually have. So the ramp is stated by its endpoints and
+     the rate is an OUTPUT, reported rather than chosen. That is why this
+     purpose needs no growth constant of any kind.
+
+     noQuality is not a simplification. The structured pools cannot be built
+     below 4.3km (measured), which at on-ramp volumes is a third of the week;
+     an on-ramp that included them would be the chopped-down advanced workout
+     the audit named. Strides carry the neuromuscular work instead. */
+  if (purpose === 'onramp'){
+    return { buildWeeks: weeks, taper: 0, hasGoalEffort: false, hasCheckpoint: false,
+             baseEnd: 1.01, buildEnd: 1.01, volumeMult: null, noQuality: true,
+             /* AN ON-RAMP HANDS OFF. The terminal consolidation week exists
+                because "a block that ends in nothing still ends somewhere" --
+                it finishes absorbed rather than at its own peak, which is the
+                state the NEXT block wants to start from. An on-ramp is not
+                that block: it exists to deliver the athlete to a specific
+                volume, and consolidating its last week means it arrives 22%
+                short of the destination it was built to reach. Measured: 62
+                on-ramps peaked at 93% of their target for exactly this
+                reason. */
+             handsOff: true };
+  }
   if (purpose === 'base'){
     return { buildWeeks: weeks, taper: 0, hasGoalEffort: false, hasCheckpoint: false,
              baseEnd: BASE_PHASE_SPLIT, buildEnd: 1.01, volumeMult: BASE_VOLUME_MULT };
@@ -4968,7 +5106,13 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      has no race and a recovery block is going nowhere, so both state their own
      (see blockArcFor); a race block keeps the profile's. */
   var volMult = steady ? 1 : (arc.volumeMult != null ? arc.volumeMult : profile.volMult);
-  var peakVolume = Math.min(currentVolume * volMult, ceiling);
+  /* AN EXPLICIT DESTINATION BEATS A MULTIPLIER, where one is known. The
+     on-ramp is the only caller that has one: it is ramping to a specific
+     figure -- the viable race-programme start -- rather than to a multiple of
+     where the athlete happens to be. The ceiling still binds. */
+  var rampTo = (opts && opts.rampToKm != null) ? Number(opts.rampToKm) : null;
+  var peakVolume = rampTo != null ? Math.min(rampTo, ceiling)
+                                  : Math.min(currentVolume * volMult, ceiling);
   /* AND THE PEAK IS BOUNDED BY CAPACITY TOO, which it was not. The start cap
      alone left the multiplier free: an athlete whose demonstrated capacity was
      60km/week opened a marathon block at 60 and was prescribed a peak of 105 --
@@ -5025,9 +5169,9 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          to taper into, the last week is a consolidation week: the block
          finishes absorbed rather than at its own peak, which is the state the
          next block wants to start from. */
-      if (!steady && !arc.hasGoalEffort && w===N && N>=4) isCutback = true;
+      if (!steady && !arc.hasGoalEffort && !arc.handsOff && w===N && N>=4) isCutback = true;
       intendedVolume = trend;
-      volume = isCutback ? trend*0.78 : trend;
+      volume = isCutback ? trend*CUTBACK_FACTOR : trend;
       if (isCutback) reductionCause = 'cutback';
       /* A checkpoint is a maximal time trial, and it belongs only in a block
          that is preparing for one. Maintenance is not the time to test what the
@@ -5149,6 +5293,8 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     var qKm = intervalSessionKm(qSpec);
     var tKm = tempoSessionKm(tSpec);
     if (isRace){ qKm=0; tKm=0; }
+    // An on-ramp carries no structured quality at all -- see blockArcFor.
+    if (arc.noQuality){ qKm=0; tKm=0; }
     // carried to the next week so a taper can be bounded by what preceded it
     prevQKm = qKm; prevTKm = tKm;
 
@@ -5200,7 +5346,15 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     });
   }
   return { profile:profile, weeks:weeks, peakVolume:round1(peakVolume),
-           buildWeeks:buildWeeks, taperWeeks:taper, planWeeks:N, steady:steady };
+           buildWeeks:buildWeeks, taperWeeks:taper, planWeeks:N, steady:steady,
+           purpose:purpose, noQuality:!!arc.noQuality,
+           /* THE RATE, AS AN OUTPUT. What the ramp actually implies per
+              developing week, so it can be reported, audited and later gated --
+              rather than a rate chosen up front and the destination derived
+              from it. */
+           impliedWeeklyGrowth: (rampTo != null && currentVolume > 0 && buildWeeks > 1)
+             ? Math.round(Math.pow(peakVolume / currentVolume, 1 / (buildWeeks - 1)) * 10000) / 10000
+             : null };
 }
 
 /* =========================================================
@@ -7169,7 +7323,8 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
 
   // How many quality days this athlete's frequency supports, then WHERE they
   // go given every other demanding day in the week.
-  var qualitySlots = Math.min(qualitySlotsForDayCount(activeDays.length), qtyPool.length);
+  var qualitySlots = blockResult.noQuality ? 0
+                   : Math.min(qualitySlotsForDayCount(activeDays.length), qtyPool.length);
   // never spend the last non-long day on quality: a week must keep a real easy run
   if (qualitySlots >= nonLongActive.length && nonLongActive.length > 0) qualitySlots = nonLongActive.length - 1;
   var fixedDemanding = b2bAvailable ? [longDay, b2bDay] : [longDay];
@@ -7178,6 +7333,22 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   var qty2Day = qualityDays.length>1 ? qualityDays[1] : null;   // tempo / checkpoint slot
   var singleSlot = qualityDays.length===1;
   var easyDaysBase = nonLongActive.filter(function(d){ return d!==qty1Day && d!==qty2Day; });
+  /* ONE STRIDES DAY IN A BLOCK THAT CARRIES NO STRUCTURED QUALITY.
+     Ten weeks of nothing but steady running is not a neutral prescription: an
+     athlete arrives at their race block having done no fast running at all.
+     Strides are the answer the product already has -- six by 100m inside an
+     easy run, the same archetype race week uses -- and they cost almost nothing
+     in volume, which is what makes them the right tool at on-ramp volumes where
+     a structured session cannot be built at all.
+
+     Deliberately the day FURTHEST from the long run, so the one piece of fast
+     running in the week is not sitting next to the one long piece. */
+  var stridesDay = null;
+  if (blockResult.noQuality && nonLongActive.length){
+    stridesDay = nonLongActive.reduce(function(best, d){
+      return (best === null || isoGap(d, longDay) > isoGap(best, longDay)) ? d : best;
+    }, null);
+  }
 
   var raceIso = isoWeekday(raceDateStr);
   // Anchor forward from the real start date's calendar week instead of counting
@@ -7342,6 +7513,13 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         dayObj = buildQualityDay(singleSlot ? singleSlotKind : 'interval');
       } else if (activeSet[iso] && iso===qty2Day){
         dayObj = buildQualityDay('tempo');
+      } else if (activeSet[iso] && iso===stridesDay && perEasy > 1){
+        /* The strides sit INSIDE the easy run, so the day's distance is the
+           easy day's distance and the week's volume is untouched. */
+        var strEasyKm = round1(perEasy - 1);
+        var st = stridesText(strEasyKm, 6, 100);
+        dayObj = { type:st.type, title:st.title, km:perEasy, desc:st.desc,
+                   prescription:{ archetype:'easy_strides', params:{ easyKm:strEasyKm, reps:6, m:100 } } };
       } else if (activeSet[iso]){
         var er = easyRunText(perEasy);
         dayObj = { type:er.type, title:er.title, km:perEasy, desc:er.desc,
