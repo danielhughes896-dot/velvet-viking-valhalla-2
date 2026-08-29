@@ -155,8 +155,33 @@ function hasLiveAccess(ent, now){
   return ['trial', 'active', 'grace'].indexOf(ent.state) !== -1;
 }
 
+/* WHICH OVERRIDES STILL OPEN THE DOOR.
+ *
+ * An override outranks every commercial rule, so the set of overrides that do
+ * that is the most security-relevant list in this file, and it is stated here
+ * rather than implied by "the column is not empty".
+ *
+ *   owner   the operator's own account. Kept: locking the operator out of the
+ *           product to enforce a commercial rule they wrote helps nobody.
+ *   promo   a complimentary grant, decided per account and deliberately.
+ *
+ * BETA IS NOT ON THIS LIST, and that is the commercial launch. The private
+ * beta is over and there is no beta route into the product any more: previous
+ * beta status, an address on the allowlist, an old plan on the device and the
+ * mere existence of an account are all, now, exactly nothing.
+ *
+ * WHY THE COLUMN IS CHECKED HERE AS WELL AS AT THE RESOLVER. _entitlement.js
+ * has already retired admin_beta, so no NEW projection can write 'beta' into
+ * this column. Rows written BEFORE that change still carry it, and they are
+ * re-projected only when something happens to that account. A gate that
+ * trusted the column would keep honouring every one of those rows until an
+ * event that may never come. This is the line that makes the retirement true
+ * on the deployment rather than true in principle. */
+var ACCESS_OVERRIDES = ['owner', 'promo'];
+
 function overrideOf(ent, now){
   if (!ent || !ent.override) return null;
+  if (ACCESS_OVERRIDES.indexOf(ent.override) === -1) return null;
   if (ent.override_expires_at && !(new Date(ent.override_expires_at) > now)) return null;
   return ent.override;
 }
@@ -297,7 +322,7 @@ module.exports = {
   GATE_COOKIE, LEASE_TTL_SEC, CAPABILITIES,
   flagOn, accountRequired, commercialRequired,
   LOCKED_CAPABILITIES, lockedCapabilities,
-  capabilitiesFor, resolveAccess, overrideOf,
+  capabilitiesFor, resolveAccess, overrideOf, ACCESS_OVERRIDES,
   parseCookies, buildSetCookie, clearCookie, readGateCookie, newLeaseId,
   readEntitlement, createLease, resolveLease, revokeLease, revokeLeasesForUser
 };

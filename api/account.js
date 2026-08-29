@@ -48,6 +48,11 @@ const ROUTES = {
      what the router is for. The concern keeps its own module and its own
      tests, exactly like the three above. */
   checkout:         require('./_checkout.js'),
+  /* WHERE A SUBSCRIPTION IS ENDED. Mounted on this router rather than given a
+     file of its own: Vercel's Hobby plan caps serverless functions, and the
+     consolidated routers exist precisely so a new commercial surface costs a
+     route entry instead of one of them. */
+  portal:           require('./_portal.js'),
   /* Phase 3 commercial entry. Both mount here rather than as new functions --
      the plan allows twelve and the router is what it is for. */
   preview:          require('./_preview.js')

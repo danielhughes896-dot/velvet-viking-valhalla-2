@@ -70,10 +70,48 @@ test('an owner is admitted', () => {
   assert.equal(d.reason, 'override_owner');
 });
 
-test('an approved beta tester is admitted', () => {
-  const d = A.resolveAccess(Object.assign({ now: NOW, uid: UID, entitlement: ent({ override: 'beta' }) }, gateOn));
-  assert.equal(d.allow, true);
-  assert.equal(d.reason, 'override_beta');
+/* THE COMMERCIAL GATE, as distinct from `gateOn` above -- which switches on the
+   ACCOUNT requirement and deliberately leaves commerce off, because that was
+   the 3A1 migration posture. Launch is both flags on. */
+const commerceLive = { accountRequired: true, commercialRequired: true };
+
+test('a beta override no longer admits anybody', () => {
+  /* COMMERCIAL LAUNCH. The private beta is over and beta is not an
+     access-bearing override any more. This test asserted the opposite for the
+     whole of the beta, and it is inverted rather than deleted because the
+     inversion IS the launch: the row can still say 'beta' -- the column
+     outlives the programme, and rows written before the change are re-projected
+     only when something happens to that account -- and the gate must refuse it
+     anyway. That is why _access.js checks the column itself instead of trusting
+     the resolver to have stopped writing it. */
+  const d = A.resolveAccess(Object.assign({ now: NOW, uid: UID, entitlement: ent({ override: 'beta' }) }, commerceLive));
+  assert.equal(d.allow, false, 'a retired beta override still opened the product');
+  assert.notEqual(d.reason, 'override_beta');
+});
+
+test('the overrides that DO still admit somebody are a stated list', () => {
+  /* An override outranks every commercial rule, so which ones exist is the
+     most security-relevant list in the file and is asserted rather than
+     assumed. A new value appearing here should fail this test and make
+     somebody argue for it. */
+  assert.deepEqual(A.ACCESS_OVERRIDES.slice().sort(), ['owner', 'promo']);
+  ['owner', 'promo'].forEach(o => {
+    const d = A.resolveAccess(Object.assign({ now: NOW, uid: UID, entitlement: ent({ override: o }) }, commerceLive));
+    assert.equal(d.allow, true, o + ' stopped granting access');
+    assert.equal(d.reason, 'override_' + o);
+  });
+  ['beta', 'tester', '', 'BETA', 'admin'].forEach(o => {
+    const d = A.resolveAccess(Object.assign({ now: NOW, uid: UID, entitlement: ent({ override: o }) }, commerceLive));
+    assert.equal(d.allow, false, JSON.stringify(o) + ' opened the product');
+  });
+});
+
+test('an ordinary new account cannot reach the product', () => {
+  /* The whole commercial claim, in one assertion: authenticated, no grant, no
+     subscription, no override -- and no way in. */
+  const d = A.resolveAccess(Object.assign({ now: NOW, uid: UID, entitlement: null }, commerceLive));
+  assert.equal(d.allow, false);
+  assert.equal(d.reason, 'no_entitlement');
 });
 
 test('a revoked beta tester is refused once commerce is live', () => {
@@ -87,7 +125,7 @@ test('a revoked beta tester is refused once commerce is live', () => {
 });
 
 test('an expired override stops granting access', () => {
-  const row = ent({ override: 'beta', override_expires_at: '2026-03-01T00:00:00Z' });
+  const row = ent({ override: 'promo', override_expires_at: '2026-03-01T00:00:00Z' });
   const d = A.resolveAccess({ now: NOW, uid: UID, entitlement: row, accountRequired: true, commercialRequired: true });
   assert.equal(d.allow, false, 'a time-limited tester is time-limited');
 });

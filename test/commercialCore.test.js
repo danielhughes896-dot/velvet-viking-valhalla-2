@@ -52,9 +52,17 @@ function sub(over){
     grace_period_end: null, environment: 'production'
   }, over || {});
 }
+/* THE DEFAULT GRANT IS admin_comp, and it used to be admin_beta.
+   Beta is retired at commercial launch and no longer bears access, so a
+   fixture built on it would have turned every test about GRANT MECHANICS --
+   composition with subscriptions, open-ended reach, revocation, idempotent
+   writes -- into a test that passes because grants do nothing. Complimentary
+   access is the surviving administrative grant and exercises exactly the same
+   machinery, so those tests keep testing what they were written to test. The
+   retirement itself is asserted separately, below. */
 function grant(over){
   return Object.assign({
-    id: 'g-1', account_id: ACC, source: 'admin_beta',
+    id: 'g-1', account_id: ACC, source: 'admin_comp',
     product_code: P.STANDARD, expires_at: null, revoked_at: null
   }, over || {});
 }
@@ -251,13 +259,38 @@ test('REVOKED beats every date on the row', () => {
   assert.equal(r.reason, 'revoked');
 });
 
-test('an admin beta grant is active, and is not a subscription', () => {
+test('an admin beta grant is retired, and grants nothing', () => {
+  /* THE COMMERCIAL LAUNCH, AS ONE ASSERTION. This test asserted the opposite
+     for the whole of the private beta. It is inverted rather than deleted,
+     because what it now pins is the thing that must not quietly come back.
+
+     RETIRED IS NOT REVOKED AND NOT INVALID. Nobody withdrew these grants and
+     they were never malformed -- the programme they belonged to ended. The
+     rows stay readable as history and stop being access. */
   const r = resolve([], [grant({ source: 'admin_beta' })]);
-  assert.equal(r.active, true);
-  assert.equal(r.reason, 'admin_beta');
-  assert.equal(r.validUntil, null, 'an indefinite grant has no end');
-  assert.equal(r.commercialState, 'none', 'a tester has bought nothing');
-  assert.equal(r.managementProvider, null, 'there is no provider portal to send them to');
+  assert.equal(r.active, false, 'a beta grant still opened the product');
+  assert.notEqual(r.reason, 'admin_beta');
+  assert.equal(r.commercialState, 'none', 'a retired tester has still bought nothing');
+
+  /* Open-ended, dated, and freshly written are all equally retired: there is no
+     shape of beta grant that still works. */
+  assert.equal(resolve([], [grant({ source: 'admin_beta', expires_at: at(24 * 365) })]).active, false);
+  assert.equal(resolve([], [grant({ source: 'admin_beta', expires_at: null })]).active, false);
+
+  /* And the vocabulary survives, so the rows remain auditable rather than
+     becoming a column of orphaned strings. */
+  assert.ok(E.GRANT_SOURCES.indexOf('admin_beta') !== -1,
+    'the source was deleted, which makes the history unreadable');
+  assert.deepEqual(E.RETIRED_GRANT_SOURCES, ['admin_beta']);
+});
+
+test('a beta grant does not rescue an account whose subscription ended', () => {
+  /* The cohort this launch is hardest on, stated on purpose: a beta tester who
+     later subscribed and then lapsed has two dead sources, not one live one. */
+  const r = resolve([sub({ condition: 'expired', current_period_end: at(-100) })],
+                    [grant({ source: 'admin_beta' })]);
+  assert.equal(r.active, false);
+  assert.equal(r.commercialState, 'expired');
 });
 
 test('an admin comp grant is active, and an expired one is not', () => {
@@ -286,13 +319,13 @@ test('removing one valid source does not revoke access while another remains', (
 test('an expired subscription alongside a live grant still leaves access intact', () => {
   const r = resolve([sub({ condition: 'expired', current_period_end: at(-100) })], [grant()]);
   assert.equal(r.active, true);
-  assert.equal(r.reason, 'admin_beta');
+  assert.equal(r.reason, 'admin_comp');
   assert.equal(r.commercialState, 'expired', 'the commercial story and the access story differ');
 });
 
 test('a revoked subscription does not poison a valid grant', () => {
   const r = resolve([sub({ condition: 'revoked' })], [grant()]);
-  assert.equal(r.active, true, 'a refund on a purchase removed a beta tester’s access');
+  assert.equal(r.active, true, 'a refund on a purchase removed a complimentary athlete’s access');
 });
 
 test('validUntil is the furthest-reaching source, and open-ended wins', () => {
@@ -811,18 +844,33 @@ test('the migration is rerunnable: every create is guarded', () => {
   creates.forEach(c => assert.match(c, /if not exists/i, 'not rerun-safe: ' + c));
 });
 
-test('a migrated beta athlete keeps their identity and their history', async () => {
+test('a granted athlete keeps their identity and their history', async () => {
   /* Nothing about the grant path touches a plan, a session or an identifier:
-     the grant is a new row that references the SAME auth uuid. */
+     the grant is a new row that references the SAME auth uuid. Written with a
+     complimentary grant now that beta is retired -- the claim is about
+     identity surviving a grant, and only a live grant can demonstrate it. */
   const f = createFakeSupabase({ account_commercial: [{ account_id: ACC }] });
-  await C.grantEntitlement(f.S, f.cfg, { account_id: ACC, source: 'admin_beta',
-                                         note: 'beta cohort migration' });
+  await C.grantEntitlement(f.S, f.cfg, { account_id: ACC, source: 'admin_comp',
+                                         note: 'complimentary access' });
   assert.equal(f.rows('entitlement_grants')[0].account_id, ACC);
   assert.equal(f.rows('subscriptions').length, 0, 'a fake subscription was created');
   const r = await C.resolveStandardEntitlement(f.S, f.cfg, ACC, T0);
   assert.equal(r.active, true);
-  assert.equal(r.reason, 'admin_beta');
+  assert.equal(r.reason, 'admin_comp');
   assert.equal(r.commercialState, 'none');
+});
+
+test('a retired beta row is still WRITABLE and readable, and still grants nothing', async () => {
+  /* The audit half of the retirement, end to end through the store: the row
+     goes in, it is attributable to the account, and it opens nothing. History
+     is preserved without being honoured. */
+  const f = createFakeSupabase({ account_commercial: [{ account_id: ACC }] });
+  const g = await C.grantEntitlement(f.S, f.cfg, { account_id: ACC, source: 'admin_beta',
+                                                   note: 'beta cohort, closed at launch' });
+  assert.equal(g.ok, true, 'the historical vocabulary stopped being writable');
+  assert.equal(f.rows('entitlement_grants')[0].source, 'admin_beta');
+  const r = await C.resolveStandardEntitlement(f.S, f.cfg, ACC, T0);
+  assert.equal(r.active, false, 'a beta grant written today still opened the product');
 });
 
 test('founder access does not become dependent on a subscription', () => {
@@ -980,9 +1028,21 @@ test('the projection keeps the deployed gate agreeing with the resolver', () => 
 
 test('an administrative grant projects as an override, never as a fake subscription', () => {
   const row = E.projectToEntitlementRow(resolve([], [grant()]), null);
-  assert.equal(row.override, 'beta');
-  assert.equal(row.state, 'expired', 'a tester was given a commercial state they never bought');
+  assert.equal(row.override, 'promo');
+  assert.equal(row.state, 'expired', 'a grant was given a commercial state nobody bought');
   assert.equal(row.access_until, null, 'a grant leaked into the commercial access window');
+});
+
+test('a retired beta grant projects no override at all', () => {
+  /* The projection is what keeps the deployed gate in step with the resolver,
+     so the retirement has to reach it: a beta grant must stop writing 'beta'
+     into the column the gate reads. Rows written BEFORE this change still
+     carry it, which is why _access.js refuses the value independently -- see
+     test/accessGate.test.js. */
+  const row = E.projectToEntitlementRow(resolve([], [grant({ source: 'admin_beta' })]), null);
+  assert.equal(row.override, null, 'the projection still writes a beta override');
+  assert.equal(row.state, 'expired');
+  assert.equal(row.access_until, null);
 });
 
 test('the projection never invents a commercial window from a grant', () => {

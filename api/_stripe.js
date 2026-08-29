@@ -250,6 +250,30 @@ async function createCheckoutSession(cfg, input, opts){
   };
 }
 
+/* ---------- the billing portal ----------
+ *
+ * ONE CALL, AND NOTHING DECIDED HERE. _portal.js has already established who
+ * is asking and which of their own subscriptions it belongs to; this turns
+ * that into the session. The customer id arrives from a row read with the
+ * service key, never from a request body -- there is no code path in this file
+ * that could accept one from a browser.
+ *
+ * NO CONFIGURATION KEY IS SENT. Stripe applies the account's default portal
+ * configuration, which is where cancellation, payment-method updates and plan
+ * changes are switched on or off. That is an operator decision made in the
+ * dashboard, and naming a configuration here would silently override it. */
+async function createPortalSession(cfg, input, opts){
+  const customerId = input && input.customerId;
+  const returnUrl = input && input.returnUrl;
+  if (!customerId) return { ok: false, code: 'no_customer' };
+  if (!returnUrl)  return { ok: false, code: 'no_return_url' };
+  const r = await call(cfg, 'POST', '/billing_portal/sessions',
+                       { customer: customerId, return_url: returnUrl }, opts);
+  if (!r.ok) return r;
+  if (!r.data || !r.data.url) return { ok: false, code: 'portal_no_url' };
+  return { ok: true, url: r.data.url };
+}
+
 /* ---------- pause ----------
  *
  * THE POLICY IS NOT HERE. _pause.js decides whether an athlete may pause, for
@@ -677,7 +701,7 @@ function normaliseEvent(stripeEvent){
 module.exports = {
   API, PROVIDER, MAX_SKEW_SEC,
   config, encode, call, ensureCustomer, createCheckoutSession, priceFor, PROVIDER, CONDITION_OF,
-  pauseCollection, resumeCollection,
+  pauseCollection, resumeCollection, createPortalSession,
   fetchCheckoutSession, fetchSubscription, cancelAtPeriodEnd, clearCancelAtPeriodEnd,
   parseSigHeader, verifySignature, normaliseEvent, subscriptionFacts, paidThroughOf,
   periodOf, periodEndOf, periodFieldOf, accountOf, offerOf, conditionOf, ref, log

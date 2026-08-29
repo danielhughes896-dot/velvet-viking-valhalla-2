@@ -1070,25 +1070,69 @@ test('a delivery that is not Stripe is refused, not interpreted', async () => {
 // ===========================================================================
 // 6. THE BETA COHORT
 // ===========================================================================
+/* THE SURVIVING ADMINISTRATIVE GRANT. Was admin_beta for the whole of the
+   private beta; beta is retired at commercial launch and bears no access, so
+   the tests below -- which are about how a GRANT composes with a purchase, not
+   about the beta programme -- are written on the grant that still works.
+   The retirement itself is asserted immediately after this line. */
+const compGrant = { account_id: ATHLETE, source: 'admin_comp',
+                    product_code: 'VALHALLA_STANDARD', expires_at: null, revoked_at: null };
 const betaGrant = { account_id: ATHLETE, source: 'admin_beta',
                     product_code: 'VALHALLA_STANDARD', expires_at: null, revoked_at: null };
 
-test('a beta athlete keeps access when the commercial flag is switched on', async () => {
-  /* The two live testers hold admin_beta grants and nothing else -- no
-     subscription, no trial. Enforcement must not touch them. */
+test('a beta athlete is gated once the commercial flag is switched on', async () => {
+  /* THE COMMERCIAL LAUNCH, END TO END. This asserted the opposite for the
+     whole of the private beta -- it is inverted, not deleted, because the
+     inversion is the change, and because an accidental restoration of beta
+     access is precisely what this file should refuse to let through.
+
+     Traced the whole way down rather than at one layer: the resolver refuses
+     the grant, the projection therefore writes no override, and the delivery
+     gate refuses the row it is handed. */
   await withWorld({ commercialRequired: true,
                     seed: { entitlement_grants: [betaGrant] } }, async ({ f }) => {
     const r = resolveAt(f, T0);
-    assert.equal(r.active, true);
-    assert.equal(r.reason, 'admin_beta');
+    assert.equal(r.active, false, 'a beta grant still opened the product');
+    assert.notEqual(r.reason, 'admin_beta');
     const projected = E.projectToEntitlementRow(r, null);
-    assert.equal(projected.override, 'beta');
+    assert.equal(projected.override, null, 'the projection still wrote a beta override');
+    assert.equal(projected.state, 'expired');
+    const decision = A.resolveAccess({ uid: ATHLETE, entitlement: projected,
+      accountRequired: true, commercialRequired: true, now: new Date(T0) });
+    assert.equal(decision.allow, false);
+    /* 'expired', not 'no_entitlement': a row exists and it grants nothing,
+       which is a different sentence from having no row at all. Both deny. */
+    assert.equal(decision.reason, 'expired');
+  });
+});
+
+test('a stored beta override from before the launch is refused by the gate', async () => {
+  /* The rows that already exist. A row written while beta was live still says
+     override 'beta', and it is re-projected only when something happens to
+     that account -- which may be never. The gate therefore refuses the value
+     itself rather than trusting the projection to have stopped writing it. */
+  const legacyRow = { state: 'expired', tier: 'standard', access_until: null,
+                      override: 'beta', override_expires_at: null };
+  const decision = A.resolveAccess({ uid: ATHLETE, entitlement: legacyRow,
+    accountRequired: true, commercialRequired: true, now: new Date(T0) });
+  assert.equal(decision.allow, false, 'a pre-launch beta row still opened the product');
+});
+
+test('a complimentary athlete keeps access when the commercial flag is switched on', async () => {
+  /* The grant mechanism itself is unchanged and still has a live user. */
+  await withWorld({ commercialRequired: true,
+                    seed: { entitlement_grants: [compGrant] } }, async ({ f }) => {
+    const r = resolveAt(f, T0);
+    assert.equal(r.active, true);
+    assert.equal(r.reason, 'admin_comp');
+    const projected = E.projectToEntitlementRow(r, null);
+    assert.equal(projected.override, 'promo');
     assert.equal(projected.state, 'expired',
       'a grant is not a commercial state, and must not masquerade as one');
     const decision = A.resolveAccess({ uid: ATHLETE, entitlement: projected,
       accountRequired: true, commercialRequired: true, now: new Date(T0) });
     assert.equal(decision.allow, true);
-    assert.equal(decision.reason, 'override_beta');
+    assert.equal(decision.reason, 'override_promo');
   });
 });
 
@@ -1103,10 +1147,10 @@ test('no beta athlete is silently given a trial or a subscription', async () => 
   });
 });
 
-test('a beta athlete may buy, and buying does not take the grant away', async () => {
-  /* A tester becoming a customer is the whole point of the beta. Both sources
+test('a granted athlete may buy, and buying does not take the grant away', async () => {
+  /* Somebody with complimentary access choosing to subscribe. Both sources
      resolve together and the fold means removing either one later is safe. */
-  await withWorld({ seed: { entitlement_grants: [betaGrant] } }, async ({ f, stripe, api }) => {
+  await withWorld({ seed: { entitlement_grants: [compGrant] } }, async ({ f, stripe, api }) => {
     const started = await api.call('checkout', 'POST', { period: 'monthly' });
     assert.equal(started.status, 200, 'an administrative grant must not block a purchase');
 
@@ -1118,7 +1162,7 @@ test('a beta athlete may buy, and buying does not take the grant away', async ()
     const r = resolveAt(f, T0 + days(2));
     assert.equal(r.active, true);
     const projected = E.projectToEntitlementRow(r, null);
-    assert.equal(projected.override, 'beta', 'they are still a tester');
+    assert.equal(projected.override, 'promo', 'the grant was taken away by a purchase');
     assert.equal(projected.state, 'trial', 'and now also a subscriber');
   });
 });
