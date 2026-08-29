@@ -1,21 +1,21 @@
 {
-  "note": "DEFECT RECORD, NOT AN APPROVAL. Every non-zero entry is a known fault. See AUDIT-PLAN-MATHEMATICS.md and IMPLEMENTATION-PROGRAMME.md.",
-  "generatedFrom": "test/audit/matrix.js — S1 (invariant + long-run correction), rebased on main 84409ef",
+  "note": "DEFECT RECORD, NOT AN APPROVAL. Every non-zero entry is a known fault. week_*_declared entries are NOT defects — they are differences the generator names and reports, kept so a fix cannot quietly convert a declared revision back into a silent one.",
+  "generatedFrom": "test/audit/matrix.js — S2 (allocator + taper monotonicity), on main 84409ef",
   "plans": 2350,
   "weeks": 30080,
   "sessions": 210560,
   "tally": {
     "zero_km_work_segment": 528,
     "long_run_zero_distance": 528,
-    "long_run_shorter_than_easy_run": 5792,
+    "long_run_shorter_than_easy_run": 5796,
     "long_run_shorter_than_quality": 11686,
-    "week_overshoots_target": 5934,
-    "quality_dominates_week": 13668,
-    "week_over_week_growth_over_10pct": 1940,
-    "taper_week_increases_volume": 455,
+    "week_overshoots_target_declared": 5934,
+    "quality_dominates_week": 13664,
+    "week_over_week_growth_over_10pct": 1920,
+    "taper_week_increases_volume": 439,
     "generator_invariant_failure": 528,
     "week_one_exceeds_stated_volume": 854,
-    "week_undershoots_target": 2329,
+    "week_undershoots_target_declared": 2333,
     "long_run_implausible_for_distance": 4735
   }
 }

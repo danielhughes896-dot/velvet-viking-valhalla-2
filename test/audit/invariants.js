@@ -105,11 +105,27 @@ function checkCase(c){
         }
       });
 
-      // ---- the week against the target it was built to ----
+      /* ---- the week against the target it was built to ----
+         SILENT AND DECLARED ARE DIFFERENT DEFECTS, and only one of them is a
+         defect. The rule is no SILENT loss, not no loss: a week that could not
+         be distributed and says so, with a named structural cause, is the
+         allocator being honest about a real limit. A week that differs from
+         its target with nothing accounting for the difference is the failure.
+         Counted separately so a fix cannot be credited for turning one into
+         the other without saying so. */
       if (w.targetVolume > 0){
+        const acc = w.accounting;
         const ratio = w.actualVolume / w.targetVolume;
-        if (ratio > 1.35) add(HARD, 'week_overshoots_target', { week: w.week, phase: w.phase, target: w.targetVolume, actual: w.actualVolume, ratio: Math.round(ratio * 100) / 100 });
-        else if (ratio < 0.75) add(HARD, 'week_undershoots_target', { week: w.week, phase: w.phase, target: w.targetVolume, actual: w.actualVolume, ratio: Math.round(ratio * 100) / 100 });
+        const declaredShort = acc && acc.allocatorRevision > 0;
+        const declaredOver = acc && acc.floorExcess > 0;
+        const detail = { week: w.week, phase: w.phase, target: w.targetVolume,
+                         actual: w.actualVolume, ratio: Math.round(ratio * 100) / 100,
+                         allocatorRevision: acc ? acc.allocatorRevision : null,
+                         floorExcess: acc ? acc.floorExcess : null };
+        if (ratio > 1.35)
+          add(HARD, declaredOver ? 'week_overshoots_target_declared' : 'week_overshoots_target', detail);
+        else if (ratio < 0.75)
+          add(HARD, declaredShort ? 'week_undershoots_target_declared' : 'week_undershoots_target', detail);
       }
 
       if (w.qualityFraction != null && w.qualityFraction > 0.40)

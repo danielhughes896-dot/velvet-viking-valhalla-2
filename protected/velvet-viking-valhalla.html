@@ -4913,6 +4913,9 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      and read as a taper the athlete never asked for. */
   if (currentVolume > peakVolume) currentVolume = peakVolume;
   var weeks = [];
+  // The previous week's quality sizes, so a taper week can be held at or below
+  // them. Null until the first week has been built.
+  var prevQKm = null, prevTKm = null;
 
   for (var w=1; w<=N; w++){
     var isRace = !steady && arc.hasGoalEffort && (w===N);
@@ -5047,17 +5050,35 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        recovery distance. The floors in the shrink functions stop this from
        mutilating a session -- a structure that cannot fit stays at its floor
        and the week's own volume note reports the mismatch, as it already did. */
+    /* A TAPER NEVER ASKS FOR MORE THAN THE WEEK BEFORE IT.
+       The taper shrinks each week's structure relative to ITSELF -- 60% of
+       whatever that week's rotation happens to select. The structures rotate,
+       so a taper week could draw a naturally larger session whose 60% still
+       exceeded the previous week's full one, and the week grew. Every one of
+       the 455 non-monotone taper weeks in the audit was this, and in every one
+       of them it was the quality session that grew.
+
+       Bounded by the previous week's actual session rather than by a new rule
+       about how big a taper session may be: the taper's own factor still does
+       the sizing, and this only stops the rotation from undoing it. Where a
+       structure is already at its floor the floor still wins, and the week can
+       still rise -- that is the low-volume case, and it is answered at the
+       viability boundary rather than here. */
+    var taperCeilQ = (isTaper && prevQKm != null) ? prevQKm : Infinity;
+    var taperCeilT = (isTaper && prevTKm != null) ? prevTKm : Infinity;
     var fitTarget = isRace ? Infinity
-                   : Math.min(isTaper ? intervalSessionKm(qSpec)*TAPER_QUALITY_FACTOR : Infinity,
+                   : Math.min(isTaper ? Math.min(intervalSessionKm(qSpec)*TAPER_QUALITY_FACTOR, taperCeilQ) : Infinity,
                               Math.min(profile.longCapKm, volume*LONG_FRACTION[profile.emphasis]));
     qSpec = shrinkIntervalSpec(qSpec, fitTarget);
     var tFit = isRace ? Infinity
-              : Math.min(isTaper ? tempoSessionKm(tSpec)*TAPER_QUALITY_FACTOR : Infinity,
+              : Math.min(isTaper ? Math.min(tempoSessionKm(tSpec)*TAPER_QUALITY_FACTOR, taperCeilT) : Infinity,
                          Math.min(profile.longCapKm, volume*LONG_FRACTION[profile.emphasis]));
     tSpec = shrinkTempoSpec(tSpec, tFit);
     var qKm = intervalSessionKm(qSpec);
     var tKm = tempoSessionKm(tSpec);
     if (isRace){ qKm=0; tKm=0; }
+    // carried to the next week so a taper can be bounded by what preceded it
+    prevQKm = qKm; prevTKm = tKm;
 
     var longFrac = LONG_FRACTION[profile.emphasis];
     var longTarget = isRace ? 0 : Math.min(profile.longCapKm, volume*longFrac);
@@ -7383,6 +7404,28 @@ function roundingBoundFor(entries){
              dd.type === 'interval' || dd.type === 'repetition') b += 0.5;
   });
   return round1(b);
+}
+/* THE BLOCK-WIDE VOLUME REVISION, as a fact the plan carries rather than a
+   diagnostic nobody reads. Zero when the allocator placed everything it was
+   asked to; otherwise the total it could not place, with the structural
+   reasons and the weeks involved. There is deliberately no threshold: this
+   reports the revision at whatever size it is, and what to DO about it -- warn
+   at build time, state it on the plan -- is a decision about whose attention
+   is needed, taken against a number that is already declared.
+
+   Pure: it reads the accounting the generator recorded and computes nothing
+   the generator did not already decide. */
+function planVolumeRevision(acct){
+  var entries = acct || planVolumeAccounting;
+  var totalKm = 0, weeksAffected = [], causes = {};
+  entries.forEach(function(e){
+    if (!(e.allocatorRevision > 0)) return;
+    totalKm += e.allocatorRevision;
+    weeksAffected.push(e.week);
+    (e.causes||[]).forEach(function(c){ if (c.indexOf('allocator:')===0) causes[c.slice(10)] = true; });
+  });
+  return { totalKm: round1(totalKm), weeks: weeksAffected,
+           causes: Object.keys(causes), declared: totalKm > 0 };
 }
 function recordVolumeAccounting(days, weeks){
   var byWeek = {};
