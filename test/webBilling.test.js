@@ -251,10 +251,23 @@ async function withWorld(opts, run){
 
   const api = {
     /* Through the REAL router, so route resolution is part of what is proven. */
-    async call(resource, method, body){
+    /* THE COUNTRY HEADER IS PART OF A REAL REQUEST, and these journeys are all
+       UK purchases. The commercial launch is United Kingdom only and
+       /api/checkout fails CLOSED on an absent country, so a fixture sending no
+       headers at all was modelling a request no browser makes -- and every one
+       of these tests refused with country_unavailable the moment the gate
+       landed. Supplying it is correcting the fixture, not relaxing the gate:
+       test/ukOnlyCheckout.test.js asserts the refusals, and `country` below
+       lets a case send something else on purpose. */
+    async call(resource, method, body, opts){
       const res = fakeRes();
+      const o = opts || {};
+      const headers = {};
+      const country = o.country === undefined ? 'GB' : o.country;
+      if (country !== null) headers['x-vercel-ip-country'] = country;
       await account({ method: method, url: '/api/account?resource=' + resource,
-                      query: { resource: resource }, headers: {}, body: body || {} }, res);
+                      query: { resource: resource }, headers: headers,
+                      body: body || {} }, res);
       return res.result();
     },
     async hook(evt, sigOpts){
@@ -1197,6 +1210,42 @@ test('the operator note on a beta row survives every projection', async () => {
 // ===========================================================================
 // 7. SECURITY
 // ===========================================================================
+test('a non-UK athlete is refused through the real router, and nothing is created', async () => {
+  /* THE GATE END TO END, not as a pure function. The commercial launch is
+     United Kingdom only; this drives the real account router with a non-UK
+     edge country and proves the refusal reaches the caller AND that nothing
+     was left behind -- no Stripe session, no customer, no subscription, no
+     trial spent. A gate that refused after creating a session would leave a
+     payable link in the wild. */
+  await withWorld({}, async ({ f, stripe, api }) => {
+    const r = await api.call('checkout', 'POST', { period: 'monthly' }, { country: 'US' });
+    assert.equal(r.status, 403);
+    assert.equal(r.json.error, 'country_not_supported');
+    assert.equal(Object.keys(stripe.state.sessions).length, 0, 'a Checkout Session was created');
+    assert.equal(f.rows('subscriptions').length, 0);
+    assert.equal(accountRow(f).trial_consumed_at, null, 'a refused purchase spent the trial');
+  });
+});
+
+test('an absent edge country refuses rather than selling to everybody', async () => {
+  /* Fails CLOSED. A deployment that stops supplying the header must not
+     quietly become worldwide, and the code says which fault it is. */
+  await withWorld({}, async ({ f, stripe, api }) => {
+    const r = await api.call('checkout', 'POST', { period: 'monthly' }, { country: null });
+    assert.equal(r.status, 503);
+    assert.equal(r.json.error, 'country_unavailable');
+    assert.equal(Object.keys(stripe.state.sessions).length, 0);
+  });
+});
+
+test('a UK athlete still completes the purchase through the same router', async () => {
+  await withWorld({}, async ({ stripe, api }) => {
+    const r = await api.call('checkout', 'POST', { period: 'monthly' }, { country: 'GB' });
+    assert.equal(r.status, 200, 'a UK purchase was refused: ' + JSON.stringify(r.body));
+    assert.equal(Object.keys(stripe.state.sessions).length, 1);
+  });
+});
+
 test('a browser may name a period and nothing else', async () => {
   await withWorld({}, async ({ stripe, api }) => {
     const r = await api.call('checkout', 'POST', {

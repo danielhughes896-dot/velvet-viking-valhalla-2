@@ -99,7 +99,11 @@ test('nothing else can stand in for the acknowledgement', () => {
      Trial and answering the health question are five different acts. None of
      them is this one, and the gate proves it by refusing when only the others
      are present. */
-  const base = { commerceEnabled: true, isLiveKey: false, stripeConfigured: true,
+  /* country: 'GB' — the commercial launch is United Kingdom only and
+     decideCheckout() fails closed on an absent country. These fixtures test
+     other refusals, so they state a permitted country to isolate the one under
+     test. The country refusals themselves live in test/ukOnlyCheckout.test.js. */
+  const base = { commerceEnabled: true, isLiveKey: false, stripeConfigured: true, country: 'GB',
                  uid: 'u1', period: 'monthly', purchaseCheck: { allowed: true } };
   const withEvidence = e => Checkout.decideCheckout(Object.assign({}, base, { evidence: e }));
 
@@ -468,7 +472,7 @@ test('a withdrawn document refuses the purchase, through the real gate', async (
   assert.equal(ev.reason, 'commercial_terms_not_published');
 
   const d = Checkout.decideCheckout({
-    commerceEnabled: true, commercialRequired: true, stripeConfigured: true,
+    commerceEnabled: true, commercialRequired: true, stripeConfigured: true, country: 'GB',
     uid: UID, period: 'monthly', purchaseCheck: { mayBuy: true },
     evidence: ev, now: new Date()
   });
@@ -537,7 +541,7 @@ test('a beta acceptance still buys nothing, now that the commercial Terms are li
   assert.equal(ev.reason, 'terms_not_accepted');
 
   const d = Checkout.decideCheckout({
-    commerceEnabled: true, commercialRequired: true, stripeConfigured: true,
+    commerceEnabled: true, commercialRequired: true, stripeConfigured: true, country: 'GB',
     uid: UID, period: 'monthly', purchaseCheck: { mayBuy: true },
     evidence: ev, now: new Date()
   });
