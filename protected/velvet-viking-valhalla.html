@@ -8769,6 +8769,14 @@ function establishDeliverySession(){
 function subscriptionSentence(info){
   if (!info || !info.signed_in) return '';
   if (info.override === 'owner') return 'Owner access';
+  /* COMPLIMENTARY, AND THAT IS THE WHOLE SENTENCE. At commercial cutover the
+     private-beta cohort was converted to explicit complimentary grants, so
+     this is what a grandfathered athlete reads. It says what is true -- their
+     access is active and nothing is being charged -- and it does not say
+     "beta", because the programme is over and their access no longer depends
+     on it. Nor does it say "subscription": they are not paying for one, and
+     describing them as a subscriber would be the screen inventing a
+     commercial relationship that does not exist. */
   if (info.override === 'promo') return 'Complimentary access';
   /* NO BETA SENTENCE. The private beta is over and beta is no longer an
      access-bearing override -- the server stopped honouring it, so a screen
@@ -8873,6 +8881,7 @@ function renderSubscriptionCard(){
      actually has rather than a programme that has ended. */
   if (info.override === 'owner' || info.override === 'promo'){
     return '<div class="hub-card tile-card" id="subscription-card">'+head+
+      '<div class="sub-line">Your Valhalla access is active.</div>'+
       '<div class="field-hint">'+escapeHtml(sentence || 'Access granted')+
       '. Nothing is being charged for this account.</div>'+
     '</div>';

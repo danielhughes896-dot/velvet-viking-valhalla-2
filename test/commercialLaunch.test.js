@@ -334,18 +334,197 @@ test('the runtime carries a period only when the athlete has one recorded', () =
 });
 
 // ---------------------------------------------------------------------------
-// 7. THE MIGRATION THAT OPENS THE DOOR
+// 7. GRANDFATHERING — THE BETA COHORT KEEPS ITS ACCESS
 // ---------------------------------------------------------------------------
 
-test('the signup migration removes the refusal and keeps the history', () => {
-  const sql = read('supabase-open-public-signup.sql');
+/* WHAT GRANDFATHERING IS, IN THIS ARCHITECTURE. Not a rule that keeps honouring
+   beta for the people who had it -- that rule would have to keep deciding,
+   forever, who had it, from a list that can be added to. The cohort is
+   converted ONCE into explicit per-account admin_comp grants, which is the
+   existing complimentary mechanism: it resolves through the same fold, projects
+   as override 'promo', and is honoured by resolveAccess(). Nothing parallel is
+   invented, and after the conversion the allowlist grants nobody anything. */
+
+const compGrant = (o) => Object.assign({ id: 'g', account_id: UID, source: 'admin_comp',
+  product_code: Prod.STANDARD, expires_at: null, revoked_at: null,
+  note: 'grandfathered-beta: complimentary access preserved at commercial cutover' }, o || {});
+
+test('a grandfathered beta athlete keeps access, through the complimentary source', () => {
+  const g = E.grantAccess(compGrant(), NOW);
+  assert.equal(g.active, true);
+  assert.equal(g.reason, 'admin_comp');
+  assert.equal(g.until, null, 'a grandfathered grant is open-ended');
+  /* And all the way down: the projection writes the override the gate reads. */
+  const projected = E.projectToEntitlementRow(
+    { active: true, reason: 'admin_comp',
+      sources: [Object.assign({ source: 'admin_comp', commercial: false, active: true, until: null }, g)] },
+    null);
+  assert.equal(projected.override, 'promo');
+  assert.equal(projected.state, 'expired', 'a grant must not masquerade as a subscription');
+  assert.equal(projected.access_until, null, 'a grant leaked into the commercial window');
+  assert.equal(decide(row({ override: 'promo' })).allow, true);
+});
+
+test('a grandfathered athlete is never sent to checkout and is offered nothing to buy', () => {
+  const { html } = card({ access: true, reason: 'override_promo',
+                          state: 'expired', override: 'promo' });
+  assert.ok(!buys(html), 'a complimentary athlete was offered a purchase');
+  assert.ok(!/sub-offers/.test(html), 'a complimentary athlete was shown a price list');
+  assert.ok(!/free trial/i.test(html), 'a complimentary athlete was pushed into the trial');
+  assert.ok(!/No subscription yet/.test(html),
+    'a complimentary athlete was told they have no subscription, as though access had lapsed');
+  /* What they DO see: an accurate state, and not a claim to be paying. */
+  assert.match(html, /Your Valhalla access is active/);
+  assert.match(html, /Complimentary/);
+  assert.match(html, /Nothing is being charged/);
+  assert.ok(!/Subscription active until/.test(html),
+    'a complimentary athlete was labelled an active paid subscriber');
+});
+
+test('the owner is untouched by any of this', () => {
+  assert.equal(decide(row({ override: 'owner' })).allow, true);
+  assert.equal(decide(row({ override: 'owner' })).reason, 'override_owner');
+  const { html } = card({ access: true, reason: 'override_owner',
+                          state: 'expired', override: 'owner' });
+  assert.ok(!buys(html));
+  assert.match(html, /Owner/);
+  /* And the cutover never reads or writes an owner row. */
+  const sql = read('supabase-commercial-cutover.sql');
+  assert.match(sql, /not exists \(select 1 from public\.entitlements e[\s\S]{0,120}override = 'owner'\)/,
+    'the cohort query does not exclude the owner');
+});
+
+test('historical beta data cannot create new free access after cutover', () => {
+  /* THE RULE THE BRIEF IS MOST WORRIED ABOUT: "anyone in beta_allowlist forever
+     receives free access". It cannot happen, at three independent points. */
+  // 1. No access-deciding module reads the allowlist at all.
+  ['api/_access.js', 'api/_entitlement.js', 'api/_commercial-store.js',
+   'api/_checkout.js', 'api/_subscription.js', 'api/app.js'
+  ].forEach((f) => assert.ok(!/beta_allowlist/.test(code(read(f))), f + ' reads the allowlist'));
+  // 2. A beta grant, however fresh, resolves to nothing.
+  const beta = (o) => Object.assign({ id: 'g', account_id: UID, source: 'admin_beta',
+    product_code: Prod.STANDARD, expires_at: null, revoked_at: null }, o || {});
+  assert.equal(E.grantAccess(beta(), NOW).active, false);
+  assert.equal(E.grantAccess(beta({ granted_at: NOW.toISOString() }), NOW).active, false);
+  // 3. And the database refuses to accept a new one.
+  const sql = read('supabase-commercial-cutover.sql');
+  assert.match(sql, /create trigger no_new_beta_grants/);
+  assert.match(sql, /raise exception[\s\S]{0,160}private beta closed at commercial cutover/);
+});
+
+test('a revoked or expired historical beta entry is not grandfathered', () => {
+  /* The cohort query has to exclude withdrawn access, or the cutover would
+     hand free access to somebody whose invitation was taken away. */
+  const sql = read('supabase-commercial-cutover.sql');
+  assert.match(sql, /g\.revoked_at is null/, 'revoked grants are not excluded');
+  assert.match(sql, /g\.expires_at is null or g\.expires_at > now\(\)/, 'expired grants are not excluded');
+  assert.match(sql, /e\.override_expires_at is null or e\.override_expires_at > now\(\)/,
+    'expired beta overrides are not excluded');
+  assert.match(sql, /b\.revoked_at is null/, 'revoked allowlist entries are not excluded');
+  /* And the resolver agrees, which is what the cohort query is approximating. */
+  const g = (o) => Object.assign({ id: 'g', account_id: UID, source: 'admin_comp',
+    product_code: Prod.STANDARD, expires_at: null, revoked_at: null }, o || {});
+  assert.equal(E.grantAccess(g({ revoked_at: '2026-08-01T00:00:00Z' }), NOW).active, false);
+  assert.equal(E.grantAccess(g({ expires_at: '2026-08-01T00:00:00Z' }), NOW).active, false);
+});
+
+// ---------------------------------------------------------------------------
+// 8. THE CUTOVER MIGRATION
+// ---------------------------------------------------------------------------
+
+test('the cutover opens signup, keeps the history, and keeps the seeding trigger', () => {
+  const sql = read('supabase-commercial-cutover.sql');
   assert.match(sql, /drop trigger if exists beta_allowlist_gate on auth\.users/);
-  /* The allowlist itself is history and must survive. */
+  /* The allowlist is history and must survive -- and must stop being a gate. */
   assert.ok(!/drop table[^\n]*beta_allowlist/i.test(sql), 'the migration destroys the audit record');
-  /* And the OTHER trigger on auth.users must not be caught by it: without it a
-     new athlete has no account_commercial row and cannot be sold anything. */
+  assert.ok(!/delete from public\.beta_allowlist/i.test(sql));
+  assert.match(sql, /HISTORY, NOT ENTITLEMENT, AND NOT A SIGNUP GATE/);
+  /* The OTHER trigger on auth.users must survive: without it a new athlete has
+     no account_commercial row and can never be sold anything. */
   assert.ok(!/drop trigger[^\n]*seed_account_commercial/i.test(sql));
-  assert.match(sql, /seed_account_commercial_on_signup/, 'the migration does not check the seeding trigger survives');
-  /* It refuses to run into a schema that could not catch the traffic. */
-  assert.match(sql, /refusing to open signup/);
+  assert.match(sql, /refusing to cut over: seed_account_commercial_on_signup is missing/);
+  /* No beta history is rewritten. */
+  assert.ok(!/update public\.entitlement_grants[\s\S]{0,200}revoked_at/i.test(sql),
+    'the migration revokes historical beta grants instead of leaving them');
+});
+
+test('the cutover is one transaction and verifies itself before committing', () => {
+  const sql = read('supabase-commercial-cutover.sql');
+  assert.match(sql, /^begin;/m, 'the cutover is not transactional');
+  const beginAt = sql.indexOf('\nbegin;');
+  const commitAt = sql.indexOf('\ncommit;');
+  assert.ok(beginAt > -1 && commitAt > beginAt, 'there is no commit after the begin');
+  /* Every verification the brief asks for happens INSIDE the transaction, so a
+     failure rolls the whole cutover back rather than leaving it half done. */
+  ['grandfathering incomplete', 'the owner override is gone',
+   'the owner was swept into the grandfathered cohort',
+   'the signup gate is still attached', 'the commercial seeding trigger was removed',
+   'a new beta grant was accepted after cutover'
+  ].forEach((claim) => {
+    const at = sql.indexOf(claim);
+    assert.ok(at > -1, 'the cutover does not verify: ' + claim);
+    assert.ok(at < commitAt, 'the check for "' + claim + '" runs after the commit');
+  });
+});
+
+test('the cutover is safe to run twice', () => {
+  /* Re-running must not grant anybody a second time, and must not fail on the
+     objects it already created. */
+  const sql = read('supabase-commercial-cutover.sql');
+  assert.match(sql, /where not exists \([\s\S]{0,240}grandfathered-beta/,
+    'the grandfathering insert is not guarded against a second run');
+  assert.match(sql, /drop trigger if exists no_new_beta_grants/);
+  assert.match(sql, /drop trigger if exists beta_allowlist_gate/);
+  assert.match(sql, /create or replace function public\.refuse_new_beta_grants/);
+  assert.match(sql, /on commit drop/, 'the temporary cohort table outlives the transaction');
+});
+
+test('signing up grants nothing: a new public account starts commercially empty', () => {
+  /* THE OTHER HALF OF OPENING THE DOOR, and the one that would be easy to get
+     wrong. Once anybody may create an account, the thing that must NOT happen
+     is an account creating an entitlement.
+
+     The only trigger left on auth.users is seed_account_commercial, and what
+     it writes is an account_commercial row -- the record an athlete needs
+     before they can be SOLD anything, not a grant of anything. This asserts
+     that shape, because a single extra insert in that function would give the
+     product away to every visitor. */
+  const sql = fs.readFileSync(path.join(ROOT, 'supabase-commercial-cutover.sql'), 'utf8');
+  assert.match(sql, /seed_account_commercial_on_signup/);
+  /* Nothing in the cutover grants on signup, and no trigger writes a grant. */
+  assert.ok(!/insert into public\.entitlement_grants[\s\S]{0,200}auth\.users/i.test(sql),
+    'the cutover wires a grant to account creation');
+  /* And the resolver's answer for a brand-new account, which is the real
+     assertion: no grant, no subscription, no override, no access. */
+  assert.equal(decide(null).allow, false);
+  assert.equal(decide(row({})).allow, false, 'an empty entitlement row admitted somebody');
+  assert.equal(E.grantAccess({ account_id: UID, source: 'admin_comp',
+    product_code: Prod.STANDARD, revoked_at: null, expires_at: null,
+    note: null }, NOW).active, true,
+    'the complimentary source must still work for the cohort that was granted it');
+});
+
+test('being on the allowlist is not, by itself, access after cutover', () => {
+  /* Before cutover the allowlist decided who could exist. After it, existing
+     is free and access is bought. The two are now completely separate, and the
+     only thing that carries a beta athlete across is the explicit grant the
+     migration wrote them -- not their presence on the list. */
+  const sql = fs.readFileSync(path.join(ROOT, 'supabase-commercial-cutover.sql'), 'utf8');
+  /* The list is read ONCE, to build the cohort, and never again. */
+  const reads = (sql.match(/beta_allowlist/g) || []).length;
+  assert.ok(reads >= 1, 'the cohort is not built from the allowlist at all');
+  assert.match(sql, /from public\.beta_allowlist b[\s\S]{0,120}b\.revoked_at is null/,
+    'the cohort query does not read the allowlist with a revocation check');
+  /* Nothing in the running product reads it. */
+  assert.ok(!/beta_allowlist/.test(code(read('api/_access.js'))));
+  assert.ok(!/beta_allowlist/.test(code(read('api/_entitlement.js'))));
+});
+
+test('there is exactly one cutover migration to run', () => {
+  /* Two migrations that must be applied in a particular order is a production
+     incident waiting for somebody to be in a hurry. The signup-only file was
+     folded into this one and deleted. */
+  assert.ok(!fs.existsSync(path.join(ROOT, 'supabase-open-public-signup.sql')),
+    'the superseded signup-only migration is still present');
+  assert.ok(fs.existsSync(path.join(ROOT, 'supabase-commercial-cutover.sql')));
 });

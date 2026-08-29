@@ -27,7 +27,11 @@ const STATES = {
   'ended':          { access:false, reason:'expired', state:'expired',
                       access_until:'2026-08-01T00:00:00Z' },
   'retired-beta':   { access:false, reason:'expired', state:'expired', override:'beta' },
-  'owner':          { access:true, reason:'override_owner', state:'expired', override:'owner' }
+  'owner':          { access:true, reason:'override_owner', state:'expired', override:'owner' },
+  /* The private-beta cohort after the cutover converted them. They keep access
+     and are shown it accurately -- no purchase CTA, and not described as a
+     paying subscriber. */
+  'grandfathered':  { access:true, reason:'override_promo', state:'expired', override:'promo' }
 };
 
 /* A REAL STATIC SERVER, not "the runtime for every path". The first version
