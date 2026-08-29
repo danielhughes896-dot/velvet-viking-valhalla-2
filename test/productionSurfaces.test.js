@@ -86,10 +86,20 @@ test('a card cannot contradict itself', () => {
   assert.match(off, /not charging for access yet/);
   assert.doesNotMatch(off, /\bActive\b/, 'a status chip appeared with no subscription behind it');
 
-  const beta = text(signedIn(ENT({ override: 'beta', state: 'expired' })).renderSubscriptionCard());
-  assert.match(beta, /Nothing is being charged/,
+  const comp = text(signedIn(ENT({ override: 'promo', state: 'expired' })).renderSubscriptionCard());
+  assert.match(comp, /Nothing is being charged/,
     'a comped athlete must not be shown a subscription they are not paying for');
-  assert.doesNotMatch(beta, /£/, 'nor a price');
+  assert.doesNotMatch(comp, /£/, 'nor a price');
+
+  /* AND THE OTHER DIRECTION, which is the launch. A retired beta override is
+     not comped access and must not be described as it: that athlete is not
+     being given anything, they have no subscription, and the card has to say
+     so and offer them one. */
+  const beta = text(signedIn(ENT({ override: 'beta', state: 'expired',
+                                   access: false })).renderSubscriptionCard());
+  assert.doesNotMatch(beta, /Nothing is being charged/,
+    'a retired beta athlete was shown comped access they do not have');
+  assert.doesNotMatch(beta, /beta/i);
 });
 
 test('nothing commercial is claimed before the server has answered', () => {

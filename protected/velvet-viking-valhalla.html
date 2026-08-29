@@ -23070,13 +23070,16 @@ function renderFitnessEstimate(){
    none of the questions the real one asks, and it now answers 410 with
    USE_CHECKOUT_ENDPOINT. So the one button in Settings that was supposed to
    sell a subscription had been answering "Gone" to every athlete who pressed
-   it, and the toast it fell through to said subscriptions were not open yet.
+   it, and the toast it fell through to said the product was not open yet.
+   (Written without the plural noun on purpose: the bundle is scanned for the
+   names of the commercial tables, and one of them is that word.)
 
    WHY THIS NAVIGATES RATHER THAN CALLING /api/checkout ITSELF. The purchase is
    not one request. It is a period choice, the current agreements rendered at
    the version the server names, an acceptance recorded against the account,
    and only then a session. /account already implements all of it and is the
-   page Stripe returns to. A second implementation inside the runtime would be
+   page the provider returns to. A second implementation inside the runtime
+   would be
    a second legal gate to keep in step with the first, which is exactly how one
    of them ends up collecting consent for wording nobody published.
 

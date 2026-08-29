@@ -388,19 +388,25 @@ test('7. the flags are off, and off is what an unset variable means', () => {
   }
 });
 
-test('7. an auto-seeded beta override outranks every commercial rule', () => {
+test('7. an auto-seeded beta override no longer outranks anything', () => {
   const A = require('../api/_access.js');
-  /* Exactly the row supabase-entitlement.sql STEP 6 writes for every new
-     auth.users insert: override='beta', no expiry, state='expired'. */
+  /* THIS TEST ASSERTED THE OPPOSITE, and the inversion is the launch.
+
+     The row is exactly what supabase-entitlement.sql STEP 6 wrote for every
+     new auth.users insert: override='beta', no expiry, state='expired'. While
+     that override was honoured, every account the signup trigger created was
+     free forever whatever VVV_COMMERCIAL_REQUIRED said -- correct for a
+     private beta, and fatal for a commercial one.
+
+     Those rows still exist and are re-projected only when something happens to
+     the account they belong to, which may be never. So the gate refuses the
+     VALUE rather than waiting for the projection to stop writing it. */
   const seeded = { user_id: 'u', state: 'expired', tier: 'standard', access_until: null,
                    override: 'beta', override_expires_at: null };
   const d = A.resolveAccess({ uid: 'u', entitlement: seeded,
     accountRequired: true, commercialRequired: true, now: new Date() });
-  assert.equal(d.allow, true);
-  assert.equal(d.reason, 'override_beta',
-    'so every account the current signup trigger creates is free forever, ' +
-    'whatever VVV_COMMERCIAL_REQUIRED says — which is correct for a private ' +
-    'beta and is the first thing supabase-commercial-activation.sql changes');
+  assert.equal(d.allow, false, 'an auto-seeded beta row still opens the product');
+  assert.notEqual(d.reason, 'override_beta');
 });
 
 test('7. no signup trigger grants access unconditionally any more', () => {

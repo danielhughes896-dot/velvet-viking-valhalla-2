@@ -323,8 +323,14 @@ test('each commercial state gets its own sentence, and cancelled is not ended', 
 });
 
 test('an override outranks any commercial sentence', () => {
+  /* 'beta' is no longer on this list, and that is the commercial launch rather
+     than a narrowing of the test: it is not an access-bearing override any
+     more, so an athlete holding one is shown the commercial state they
+     actually have. The claim itself -- an override never tells somebody their
+     access ended -- is unchanged and still covers every override that grants
+     anything. */
   const a = loadApp();
-  ['owner', 'beta'].forEach(ov => {
+  ['owner', 'promo'].forEach(ov => {
     const s = a.subscriptionSentence({ signed_in: true, commercial_required: true,
       override: ov, state: 'expired', access_until: days(-30) });
     assert.ok(!/ended|expired/i.test(s), ov + ' must never be told their access ended');
