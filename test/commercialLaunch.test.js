@@ -580,7 +580,11 @@ test('the projection fix writes exactly what the projector would have written', 
   assert.match(sql, /override is distinct from 'owner'/);
   /* And it must verify admission rather than existence -- the mistake the
      cutover made. */
-  assert.match(sql, /override in \('owner','promo'\)/);
+  /* EXACTLY 'promo'. Accepting ('owner','promo') would prove the cohort was
+     admitted without proving they were admitted as complimentary, which is the
+     entitlement the migration exists to give them. */
+  assert.match(sql, /e\.override = 'promo'/);
+  assert.ok(!/override in \('owner','promo'\)/.test(sql));
   assert.match(sql, /projection incomplete/);
 });
 

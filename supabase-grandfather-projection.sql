@@ -85,8 +85,15 @@ on conflict (user_id) do update
 --
 -- This is the check the cutover should have made: not "does a grant exist" but
 -- "would resolveAccess() let them in". The condition below is that function's
--- override branch, restated in SQL -- an override present, in ACCESS_OVERRIDES,
--- and not expired.
+-- override branch, restated in SQL.
+--
+-- 'promo' EXACTLY, not "one of the overrides that happen to work". An earlier
+-- draft accepted ('owner','promo') because both are in ACCESS_OVERRIDES, and
+-- that would have passed if a cohort member somehow carried an owner override
+-- -- proving they were admitted, but not that they were admitted AS
+-- COMPLIMENTARY, which is the entitlement this migration is supposed to have
+-- given them. The owner is excluded from the cohort by STEP 1 and asserted
+-- separately below.
 -- ---------------------------------------------------------------------------
 do $$
 declare n_cohort int; n_admitted int; n_owner int;
@@ -100,7 +107,7 @@ begin
    where e.user_id in (select distinct account_id from public.entitlement_grants
                         where source='admin_comp' and revoked_at is null
                           and note like 'grandfathered-beta:%')
-     and e.override in ('owner','promo')
+     and e.override = 'promo'
      and (e.override_expires_at is null or e.override_expires_at > now());
 
   if n_admitted <> n_cohort then
