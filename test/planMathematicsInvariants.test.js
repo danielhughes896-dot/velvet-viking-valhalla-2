@@ -105,6 +105,12 @@ const RATCHETED = [
   ['zero_km_work_segment',                'a component the athlete is asked to run, sized at zero'],
   ['long_run_zero_distance',              'a day titled Long Run carrying 0km'],
   ['goal_segment_consumes_whole_long_run','the goal-pace finish is the entire long run or more'],
+  ['generator_invariant_failure',         'the generator itself recorded a session that does not reconcile'],
+  ['volume_unattributed',                 'a week carries volume with no named cause'],
+  ['allocator_revision_undeclared',       'volume the allocator could not place, undeclared'],
+  ['deliberate_reduction_unnamed',        'a reduction with no named coaching reason'],
+  ['floor_excess_unnamed',                'volume a floor forced in, with no named cause'],
+  ['week_has_no_volume_accounting',       'a generated week with no accounting at all'],
   ['week_one_exceeds_stated_volume',      'week one is more than 30% above the volume the athlete stated'],
   ['week_overshoots_target',              'a week is more than 35% above its own target'],
   ['week_undershoots_target',             'a week is more than 25% below its own target'],
@@ -143,30 +149,43 @@ test('the coaching-suspicious counts are recorded and do not grow', () => {
 // ---------------------------------------------------------------------------
 // THE OBSERVED FAILURE, PINNED TO ITS ARITHMETIC
 // ---------------------------------------------------------------------------
-test('the reported "Easy 0km / Goal Pace 3km long run" reproduces exactly', () => {
-  /* The screenshots, reproduced from inputs rather than described. A half
-     marathon athlete stating 12km/week gets a week-three long run of 3km that
-     is entirely goal-pace work, with a 0km easy component printed above it. */
+test('the reported "Easy 0km / Goal Pace 3km long run" is gone, at its own inputs', () => {
+  /* THE ORIGINAL DEFECT, PINNED TO THE INPUTS THAT PRODUCED IT. A half
+     marathon athlete stating 12km/week used to get a week-three long run of
+     3km that was entirely goal-pace work, with a 0km easy component printed
+     above it. The session is now what it actually is: a 3km easy run, titled
+     as one. It is still too short to be a long run for a half marathon, and
+     that is a question about who should be given a race block at all -- not
+     one this stage answers. */
   const c = auditCase({ distanceKey: 'half', volume: 12, weeks: 12, scheduleKey: 'd5' });
   const long = c.sessions.find(s => s.week === 3 && s.type === 'long');
-  assert.equal(long.archetype, 'long_run_goal_finish');
-  assert.equal(long.title, 'Long Run + Goal Pace');
-  assert.equal(long.km, 3);
-  assert.equal(long.params.finishKm, 3);
+  assert.equal(long.archetype, 'long_run', 'the goal-pace finish is omitted, not shrunk');
+  assert.equal(long.title, 'Long Run');
+  assert.ok(!/Goal Pace/.test(long.desc), 'and the card no longer promises goal-pace work');
+  assert.equal(long.segments.length, 1);
   assert.equal(long.segments[0].intensity, 'easy');
-  assert.equal(long.segments[0].km, 0, 'the easy component of the long run');
-  assert.equal(long.segments[1].intensity, 'goal_pace');
-  assert.equal(long.segments[1].km, 3);
+  assert.equal(long.segments[0].km, long.km, 'the whole run, reconciling exactly');
 });
 
-test('and the 1km / 3km variant is the same defect one week over', () => {
-  const c = auditCase({ distanceKey: 'half', volume: 15, weeks: 12, scheduleKey: 'd5' });
-  const hit = c.sessions.filter(s => s.type === 'long' &&
-    s.archetype === 'long_run_goal_finish' && s.segments[0].km === 1 && s.segments[1].km === 3);
-  assert.ok(hit.length > 0, 'expected a 1km easy + 3km goal-pace long run');
+test('no long run anywhere carries a goal-pace finish it cannot contain', () => {
+  /* Both halves of the original defect at once, across every input: the floor
+     that beat its own ceiling, and the finish that did not follow its run down
+     through the weekly cap. */
+  for (const distanceKey of ['half', 'full'])
+    for (const volume of [1, 5, 10, 12, 15, 18, 25, 40, 60])
+      for (const weeks of [8, 12, 24]){
+        const c = auditCase({ distanceKey, volume, weeks, scheduleKey: 'd5' });
+        c.sessions.filter(s => s.archetype === 'long_run_goal_finish').forEach(s => {
+          const label = distanceKey + '|' + volume + '|' + weeks + 'w wk' + s.week;
+          assert.ok(s.params.finishKm <= s.params.km * 0.5 + 1e-9,
+            label + ': finish ' + s.params.finishKm + ' of a ' + s.params.km + 'km run');
+          assert.ok(s.params.km >= 6, label + ': a goal-pace finish on a ' + s.params.km + 'km run');
+          assert.ok(s.segments[0].km > 0, label + ': the easy component is ' + s.segments[0].km);
+        });
+      }
 });
 
-test('the goal-pace floor beats its own ceiling below a 6km long run', () => {
+test('the goal-pace floor still beats its own ceiling — the domain is what changed', () => {
   /* THE ARITHMETIC, stated directly rather than inferred from a plan.
      goalSegKm = clamp(longTarget*(0.2+0.18*pos), 3, longTarget*0.5), and
      clamp() is Math.max(lo, Math.min(hi, n)) -- so where the ceiling falls
@@ -174,6 +193,12 @@ test('the goal-pace floor beats its own ceiling below a 6km long run', () => {
      given. Every long run under 6km is affected. */
   const a = require('./audit/planAudit.js').app();
   assert.equal(a.clamp(0.98, 3, 2.0), 3, 'lo beats hi in clamp()');
+  /* clamp() is unchanged and still resolves a crossed pair in favour of lo.
+     What changed is that the generator no longer asks it a question with a
+     crossed pair: hasGoalSegment now requires longTarget >= the floor, so
+     longTarget*0.5 >= 3 wherever the clamp is reached. */
+  assert.equal(a.GOAL_FINISH_MIN_LONG_KM, 6);
+  assert.equal(a.MIN_LONG_RUN_KM, 6);
   for (const longTarget of [1, 2, 3, 4, 5, 5.9]){
     const ceiling = longTarget * 0.5;
     assert.ok(a.clamp(longTarget * 0.2, 3, ceiling) > ceiling,
@@ -187,7 +212,7 @@ test('the goal-pace floor beats its own ceiling below a 6km long run', () => {
   }
 });
 
-test('a trimmed long run does not carry its goal segment down with it', () => {
+test('a trimmed long run now carries its goal segment down with it', () => {
   /* THE SECOND HALF OF THE SAME DEFECT. buildDaysFromWeeks ends with a
      settle-up pass that pushes dd.km back into the prescription for every
      archetype with a dayKmParam -- so `km` follows the weekly-volume cap and
@@ -207,13 +232,33 @@ test('a trimmed long run does not carry its goal segment down with it', () => {
   const c = auditCase({ distanceKey: 'half', volume: 18, weeks: 8, scheduleKey: 'd5' });
   const wk2 = c.weeks.find(w => w.week === 2);
   assert.ok(wk2.longTarget >= 6, 'the ceiling binds at this longTarget: ' + wk2.longTarget);
-  assert.ok(wk2.goalSegKm <= wk2.longTarget * 0.5 + 1e-9, 'so goalSegKm is legitimate');
-  const long = wk2.sessions.find(s => s.archetype === 'long_run_goal_finish');
-  assert.ok(long.km < wk2.longTarget - 0.6, 'the day was trimmed after the fact');
-  assert.equal(long.params.finishKm, wk2.goalSegKm, 'and finishKm did not follow it down');
-  assert.ok(long.params.finishKm > long.km * 0.5,
-    'leaving the goal segment at ' + Math.round(long.params.finishKm / long.km * 100) +
-    '% of a run it was sized to be under half of');
+  const long = wk2.sessions.find(s => s.type === 'long');
+  assert.ok(long.km < wk2.longTarget - 0.6, 'the day is still trimmed after the fact');
+  /* At 4km the run is below the floor, so the finish is omitted entirely
+     rather than left at 75% of a run it was sized to be under half of. */
+  assert.equal(long.archetype, 'long_run');
+  assert.equal(long.segments.length, 1);
+  assert.equal(long.segments[0].km, long.km);
+});
+
+test('every kilometre of every week has a named cause', () => {
+  /* THE ACCOUNTING IDENTITY. A deliberate reduction, an allocator revision and
+     a rounding residual are three different things, and the residual is
+     checked against a bound computed from the week's own session mix rather
+     than a tolerance anybody chose. There is no threshold below which a
+     difference is accepted unnamed. */
+  const m = matrix();
+  assert.equal(m.tally.volume_unattributed || 0, 0);
+  assert.equal(m.tally.allocator_revision_undeclared || 0, 0);
+  assert.equal(m.tally.deliberate_reduction_unnamed || 0, 0);
+  assert.equal(m.tally.floor_excess_unnamed || 0, 0);
+  assert.equal(m.tally.week_has_no_volume_accounting || 0, 0);
+
+  const c = auditCase({ distanceKey: 'half', volume: 12, weeks: 12, scheduleKey: 'd5' });
+  const w1 = c.weeks[0].accounting;
+  assert.ok(w1.floorExcess > 0, 'a 12km/week athlete is over-prescribed by the floors');
+  assert.ok(w1.floorCauses.length > 0, 'and the floors that did it are named');
+  assert.ok(Math.abs(w1.roundingResidual) <= w1.roundingBound + 1e-9);
 });
 
 // ---------------------------------------------------------------------------

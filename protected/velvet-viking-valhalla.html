@@ -3755,6 +3755,15 @@ function round2(n){ return Math.round(n*100)/100; }
 // mid-block fitness checkpoint are exempt -- rounding a race distance
 // (e.g. 42.2km) or a calibration time-trial would corrupt them.
 function roundWorkoutKm(type, km){
+  /* A LONG RUN CAN STILL ROUND TO ZERO HERE, AND THAT IS DELIBERATE.
+     Flooring it at one quantum was tried and reverted: it adds up to 0.6km
+     nobody asked for, and at the volumes where it fires every other component
+     is already at its own floor, so the week cannot give the kilometre back --
+     which tipped seventeen taper weeks above the week before them. Trading a
+     zero-distance long run for a non-monotone taper is not a fix.
+     A long run this small is a real problem, and it is a problem about who
+     should be given a race block at all. It is answered where that is decided
+     -- at the viability boundary -- and not by rounding. */
   if (type==='long') return roundTo(km, 1);
   // Quality days round UP to the half km. Nearest-rounding could shave 0.25km
   // off a session and leave the day fractionally shorter than the workout
@@ -3930,6 +3939,19 @@ function parseElapsedInput(str){
      Peak  -> Goal-Pace reps & blocks (race-specific rhythm)
    ========================================================= */
 var LONG_FRACTION = { speed:0.24, threshold:0.28, endurance:0.32, timeonfeet:0.36 };
+/* THE SMALLEST RUN THAT IS STILL A LONG RUN.
+   DERIVED, NOT CHOSEN. The goal-pace finish has always been written with two
+   bounds: at least 3km, and never more than half the run. Those two statements
+   are consistent only where the run is at least 6km -- below that the floor
+   exceeds the ceiling, and clamp(n, lo, hi) resolves the contradiction in
+   favour of lo, producing a "finish" longer than the session containing it.
+   6 is the exact value at which the product's own existing intent becomes
+   achievable; it introduces no new coaching position.
+
+   GOAL_FINISH_MIN_LONG_KM is kept as its own name even though it holds the
+   same number, so that a future change to one cannot silently move the other. */
+var MIN_LONG_RUN_KM = 6;
+var GOAL_FINISH_MIN_LONG_KM = 6;
 var TT_DISTANCE_KM = { speed:3, threshold:5, endurance:6, timeonfeet:8 };
 
 var EMPHASIS_INTERVAL_RANGE = {
@@ -5041,8 +5063,26 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     var longTarget = isRace ? 0 : Math.min(profile.longCapKm, volume*longFrac);
     var b2bEligible = !!profile.backToBack && !isTaper && !isRace && phase!=='Base';
 
-    var hasGoalSegment = goalOriented && !isRace && !isTaper && (profile.emphasis==='threshold'||profile.emphasis==='endurance') && phase!=='Base';
+    /* OMITTED, NOT SHRUNK, BELOW THE FLOOR.
+       A goal-pace finish exists to rehearse race rhythm on tired legs. Three
+       kilometres at the end of a three-kilometre run rehearses nothing -- there
+       are no tired legs -- and it asks an athlete far below their goal to run
+       the whole of their long run faster than their own threshold. Shrinking
+       the segment to fit would produce a stride, not a stimulus; the coaching
+       answer is that the session is not this session yet.
+
+       WITH THE DOMAIN RESTRICTED, THE CLAMP IS WELL FORMED. longTarget >= 6
+       makes longTarget*0.5 >= 3, so the floor no longer exceeds the ceiling and
+       clamp() returns something inside both bounds -- which is what it was
+       always written to do. */
+    var hasGoalSegment = goalOriented && !isRace && !isTaper && (profile.emphasis==='threshold'||profile.emphasis==='endurance') && phase!=='Base'
+                         && longTarget >= GOAL_FINISH_MIN_LONG_KM;
     var goalSegKm = hasGoalSegment ? round1(clamp(longTarget*(0.2+0.18*pos),3,longTarget*0.5)) : 0;
+    /* THE FRACTION, CARRIED. The day's distance is not final here: smart
+       rounding and the weekly cap both still get a say. Keeping the PROPORTION
+       lets the settle-up re-derive the segment from whatever the run ends up
+       being, instead of a value computed against a run that no longer exists. */
+    var goalSegFrac = hasGoalSegment && longTarget>0 ? goalSegKm/longTarget : 0;
 
     var raceDayKm = isRace ? profile.raceKm : 0;
 
@@ -5063,7 +5103,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       deliberateReduction:round1(Math.max(0, (intendedVolume==null?volume:intendedVolume) - volume)),
       volume:volume, qSpec:qSpec, qKm:qKm, tSpec:tSpec, tKm:tKm,
       longTarget:round1(longTarget), b2bEligible:b2bEligible, longShape:longShape,
-      hasGoalSegment:hasGoalSegment, goalSegKm:goalSegKm, raceDayKm:raceDayKm
+      hasGoalSegment:hasGoalSegment, goalSegKm:goalSegKm, goalSegFrac:goalSegFrac, raceDayKm:raceDayKm
     });
   }
   return { profile:profile, weeks:weeks, peakVolume:round1(peakVolume),
@@ -6903,6 +6943,9 @@ var planBuildNotes = [];
 /* THE VOLUME ACCOUNTING, one entry per generated week. Diagnostic in S0: it
    records, and changes nothing. See recordVolumeAccounting(). */
 var planVolumeAccounting = [];
+/* SESSIONS WHOSE COMPONENTS DO NOT RECONCILE WITH THE SESSION. Must always be
+   empty; the suite asserts it. See the settle-up pass in buildDaysFromWeeks. */
+var planInvariantFailures = [];
 
 /* ---------- HARD-DAY SPACING AT GENERATION ----------
    Chooses the quality days by looking at EVERY demanding day in the week --
@@ -7017,6 +7060,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   var weeks = blockResult.weeks;
   planBuildNotes = [];
   planVolumeAccounting = [];
+  planInvariantFailures = [];
 
   var activeDays = schedule.activeDays.slice();
   var longDay = schedule.longRunDay;
@@ -7212,17 +7256,63 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   });
   capWeeklyVolume(days, weeks);
   recordVolumeAccounting(days, weeks);
+  var weekIndex2 = {};
+  weeks.forEach(function(wk){ weekIndex2[wk.week] = wk; });
   // Single settle-up pass, deliberately last: km is final only once smart
   // rounding AND the weekly-volume cap have both had their say, so syncing
   // the descriptions here catches every adjustment in one place rather than
   // needing a fix-up at each individual site that touches km.
   days.forEach(function(dd){
-    dd.desc = syncDescDistance(dd.type, dd.desc, dd.km);
     // Same settle-up for the structure: where a param IS the whole-day
     // distance, it has to follow dd.km through smart rounding and the weekly
     // cap, or the prescription and the card would disagree about the same run.
     var p = dd.prescription, meta = p && ARCHETYPES[p.archetype];
     if (meta && meta.dayKmParam) p.params[meta.dayKmParam] = round1(dd.km);
+    /* AND EVERY PARAM DERIVED FROM THAT ONE, which is the half that was
+       missing. `km` followed the day through rounding and the weekly cap;
+       `finishKm` was computed from a pre-cap long run and stayed there. At
+       18km/week the ceiling bound correctly and produced a legitimate 3km
+       finish on a 6.2km run, the cap then cut the day to 4km, and three
+       quarters of the "long run" was goal-pace work.
+
+       DERIVED FROM THE FRACTION, NOT BY SUBTRACTION. The segment is a
+       proportion of the run and is recomputed as one, so it cannot exceed the
+       run however far the run moved. Below the floor the session is not a
+       long-run-with-goal-pace at all any more, and it is rewritten as the
+       session it actually is rather than kept as a mutilated version of the
+       session it was going to be. */
+    if (p && p.archetype === 'long_run_goal_finish'){
+      var wkRef = weekIndex2[dd.week];
+      var frac = (wkRef && wkRef.goalSegFrac) || 0;
+      var finish = round1(Math.min(dd.km * Math.min(frac, 0.5), dd.km * 0.5));
+      if (dd.km < GOAL_FINISH_MIN_LONG_KM || finish < 3 || finish <= 0){
+        p.archetype = 'long_run';
+        p.params = { km: round1(dd.km), shape: (wkRef && wkRef.longShape) || 'steady' };
+        var re = longRunText(dd.km, false, 0, false, false, p.params.shape);
+        dd.title = re.title; dd.desc = re.desc; dd.mpSegment = false;
+      } else {
+        p.params.finishKm = finish;
+        var rg = longRunText(dd.km, true, finish, false, false, null);
+        dd.title = rg.title; dd.desc = rg.desc; dd.mpSegment = true;
+      }
+    }
+    dd.desc = syncDescDistance(dd.type, dd.desc, dd.km);
+    /* THE INVARIANT, CHECKED WHERE IT IS FINALLY TRUE. Every fully quantified
+       session must reconcile with its own components. Recorded rather than
+       thrown: a generator that throws in a browser gives the athlete a blank
+       screen, and a recorded failure is one the suite fails on. */
+    if (p){
+      var segs = null;
+      try { segs = segmentsFor(p); } catch(e){ segs = null; }
+      if (segs && segs.length && segs.every(function(g){ return g.km != null; })){
+        var tot = round1(segs.reduce(function(t,g){ return t + g.km; }, 0));
+        var neg = segs.some(function(g){ return g.km < 0; });
+        var zeroWork = segs.some(function(g){ return g.kind==='work' && g.km === 0; });
+        if (neg || zeroWork || Math.abs(tot - dd.km) > 0.15)
+          planInvariantFailures.push({ date: dd.id, week: dd.week, archetype: p.archetype,
+            sessionKm: dd.km, segmentTotal: tot, negative: neg, zeroWork: zeroWork });
+      }
+    }
   });
   return days;
 }

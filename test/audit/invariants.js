@@ -79,12 +79,19 @@ function checkCase(c){
     const longKm = longS.length ? Math.max(...longS.map(s => s.km)) : 0;
 
     if (!w.isRace){
-      // ---- the long run against the week it sits in ----
-      if (longS.length && longKm > 0 && longKm < maxEasy)
+      /* ---- the long run against the week it sits in ----
+         THE `longKm > 0` GUARDS WERE AN UNDERCOUNT, corrected here. A long run
+         of zero distance is trivially shorter than every easy run and every
+         quality session in its week; excluding it hid the very weeks that were
+         worst. The audit's original numbers for these three codes were
+         therefore too low by exactly the count of zero-distance long runs, and
+         the baseline is re-measured with the correction rather than left to
+         appear as a rise when the zero-distance defect is fixed. */
+      if (longS.length && longKm < maxEasy)
         add(SUSPECT, 'long_run_shorter_than_easy_run', { week: w.week, phase: w.phase, longKm, maxEasyKm: maxEasy });
-      if (longS.length && longKm > 0 && longKm < maxQual)
+      if (longS.length && longKm < maxQual)
         add(SUSPECT, 'long_run_shorter_than_quality', { week: w.week, phase: w.phase, longKm, maxQualityKm: maxQual });
-      if (longS.length && longKm > 0 && longKm < 5 && ['half','full','ultra'].indexOf(inputs.distanceKey) !== -1)
+      if (longS.length && longKm < 5 && ['half','full','ultra'].indexOf(inputs.distanceKey) !== -1)
         add(SUSPECT, 'long_run_implausible_for_distance', { week: w.week, phase: w.phase, longKm, raceKm: c.profile.raceKm });
 
       // ---- the goal-pace finish against the run it finishes ----
@@ -126,6 +133,15 @@ function checkCase(c){
      between what a week was asked for and what it was given must be
      attributable to a named cause. An unattributed difference is a generation
      failure -- not a tolerated one, and not one with a threshold. */
+  /* THE GENERATOR'S OWN INVARIANT CHECK (S1 onward). buildDaysFromWeeks
+     verifies that every fully quantified session reconciles with its own
+     components and records anything that does not. This surfaces what it
+     recorded, so a generator-side failure cannot pass unnoticed here. */
+  (c.invariantFailures || []).forEach(f =>
+    add(HARD, 'generator_invariant_failure', { week: f.week, date: f.date,
+      archetype: f.archetype, sessionKm: f.sessionKm, segmentTotal: f.segmentTotal,
+      negative: f.negative, zeroWork: f.zeroWork }));
+
   c.weeks.forEach(w => {
     const acc = w.accounting;
     if (!acc){ add(HARD, 'week_has_no_volume_accounting', { week: w.week }); return; }

@@ -85,6 +85,7 @@ function auditCase(opts){
   const profile = a.DISTANCE_PROFILES[distanceKey];
   const notes = (a.planBuildNotes || []).slice();
   const accounting = (a.planVolumeAccounting || []).slice();
+  const invariantFailures = (a.planInvariantFailures || []).slice();
 
   /* Every day, with its structure resolved the same way a card resolves it:
      segmentsFor() from the stored prescription, which is what the athlete
@@ -173,7 +174,8 @@ function auditCase(opts){
     weeks: weekList,
     sessions: sessions,
     buildNotes: notes,
-    accounting: accounting
+    accounting: accounting,
+    invariantFailures: invariantFailures
   };
 }
 

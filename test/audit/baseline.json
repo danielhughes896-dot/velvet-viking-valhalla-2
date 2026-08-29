@@ -1,23 +1,21 @@
 {
-  "note": "DEFECT RECORD, NOT AN APPROVAL. Every non-zero entry is a known fault. See AUDIT-PLAN-MATHEMATICS.md.",
-  "generatedFrom": "test/audit/matrix.js at base SHA 7f3dfb5",
+  "note": "DEFECT RECORD, NOT AN APPROVAL. Every non-zero entry is a known fault. See AUDIT-PLAN-MATHEMATICS.md and IMPLEMENTATION-PROGRAMME.md.",
+  "generatedFrom": "test/audit/matrix.js — S1 (invariant + long-run correction), rebased on main 84409ef",
   "plans": 2350,
   "weeks": 30080,
   "sessions": 210560,
   "tally": {
-    "zero_km_work_segment": 695,
+    "zero_km_work_segment": 528,
     "long_run_zero_distance": 528,
+    "long_run_shorter_than_easy_run": 5792,
+    "long_run_shorter_than_quality": 11686,
     "week_overshoots_target": 5934,
     "quality_dominates_week": 13668,
     "week_over_week_growth_over_10pct": 1940,
     "taper_week_increases_volume": 455,
+    "generator_invariant_failure": 528,
     "week_one_exceeds_stated_volume": 854,
-    "long_run_shorter_than_easy_run": 5264,
-    "long_run_shorter_than_quality": 11158,
     "week_undershoots_target": 2329,
-    "segment_km_negative": 1230,
-    "goal_segment_consumes_whole_long_run": 1515,
-    "long_run_implausible_for_distance": 4483,
-    "goal_segment_over_half_of_long_run": 801
+    "long_run_implausible_for_distance": 4735
   }
 }
