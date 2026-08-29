@@ -160,9 +160,24 @@ test('the server refuses a context carrying a Strava marker, rather than cleanin
     'the context reaches the model before the Strava marker is checked');
 });
 
-test('a Strava-derived day is offered no voice at all', () => {
-  /* Refuses rather than redacts, at the surface too: no briefing, no debrief,
-     no Ask Coach. The written coaching on the card is untouched. */
+test('a Strava-derived day is never the subject of anything the coach says', () => {
+  /* REFUSES RATHER THAN REDACTS, AT THE SURFACE TOO -- and the refusal is
+     about the DAY, not about the athlete's whole afternoon.
+
+     WHAT THIS TEST USED TO ASSERT, AND WHY IT CHANGED. It required that no
+     control at all was drawn once an activity had been imported, which is
+     stronger than the policy needs and was measured on a real device as a
+     defect: Ask Coach disappeared, and with it the athlete's own future
+     prescription -- Sunday's intervals, their pace, their purpose -- none of
+     which came from Strava. 5.4 reaches output generated USING Strava Data. It
+     does not reach a session Valhalla wrote before the import existed.
+
+     SO THE CLAIM IS NARROWED WHERE IT WAS TOO WIDE AND TIGHTENED WHERE IT
+     MATTERS. The imported day is still refused whole -- it is never the
+     subject of a briefing and never enters a context -- and that is now
+     asserted positively, by checking WHICH day the control points at, rather
+     than negatively by the control's absence. test/askCoachStravaScope.test.js
+     holds the rest of the boundary this rests on. */
   const a = athlete();
   a.state.view = 'today';
   const today = a.findDayByDate(TODAY) ||
@@ -171,10 +186,31 @@ test('a Strava-derived day is offered no voice at all', () => {
   importedDay(a, today);
   a.voiceSetAvailable(true);
   const html = a.renderVoiceCard(today);
-  assert.ok(!/data-action="voice-listen"/.test(html), 'a Strava-derived day was offered a briefing');
-  assert.ok(!/data-action="voice-ask-open"/.test(html), 'a Strava-derived day was offered Ask Coach');
-  assert.match(html, /came in from Strava/, 'the athlete is not told why the control is missing');
+
+  /* No briefing, no debrief, nothing spoken ABOUT the imported day. */
+  assert.ok(html.indexOf('data-day="' + today.id + '"') === -1,
+    'the imported day is the subject of a voice control');
+  const m = /data-action="voice-listen" data-day="([^"]+)"/.exec(html);
+  if (m){
+    const subject = a.state.days.filter(d => d.id === m[1])[0];
+    assert.ok(subject && !a.isStravaDerived(subject),
+      'the briefing was pointed at another Strava-derived day');
+    assert.ok(subject.date > TODAY, 'the briefing was pointed at a completed session');
+  }
+  /* Pressing the briefing for the imported day is refused by the handler too,
+     so the surface is not the only thing holding this. */
+  const boom = (what) => () => { throw new Error('the imported day was ' + what); };
+  a.voiceSetStatus = boom('given a briefing status');
+  a.voiceSpeak = boom('spoken aloud');
+  a.handleVoiceListen(today.id);
+
+  assert.match(html, /came from Strava|came in from Strava/,
+    'the athlete is not told why the run is off limits');
   assert.equal(a.voiceTodayIsStravaDerived(), true);
+  /* And the boundary that actually carries the policy claim is untouched. */
+  assert.equal(a.aiContextRefusalReason(today), 'strava_derived');
+  assert.equal(a.aiEligibleDays([today]).length, 0);
+  assert.equal(a.voiceCoachContext().todaySession, null);
 });
 
 test('nothing invites the athlete to paste their training into an AI chat', () => {

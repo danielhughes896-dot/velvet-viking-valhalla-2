@@ -6820,6 +6820,11 @@ function segmentTotals(segs){
    long run is actually one of the runner's available days.
    ========================================================= */
 var ISO_WEEKDAY_NAMES = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+/* The same seven days written out, for the places a reader or a listener gets
+   them rather than a column heading: the builder's accessible labels and the
+   spoken briefing. One table, so an abbreviation and its full form can never
+   disagree about which day is which. */
+var ISO_WEEKDAY_FULL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 function isoWeekday(dateStr){ var d = new Date(dateStr+'T00:00:00').getDay(); return d===0?6:d-1; }
 // The user's very first available running day on/after dateStr -- this is
 // always the real start of a generated block, never a backward-computed offset.
@@ -24075,7 +24080,7 @@ function openSetupModal(){
      any other aria-label on a labelled control; the schedule/data model
      this reads from and writes to (ISO_WEEKDAY_NAMES, data-wd, activeDays)
      is untouched. */
-  var WEEKDAY_FULL_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  var WEEKDAY_FULL_NAMES = ISO_WEEKDAY_FULL;
   var wdCheckboxes = ISO_WEEKDAY_NAMES.map(function(name, iso){
     var checked = schedule.activeDays.indexOf(iso)!==-1;
     return '<label class="wd-check'+(checked?' checked':'')+'">'+
@@ -26533,20 +26538,46 @@ function paceWords(mins, secs){
          (sec ? ' ' + sec + (sec === 1 ? ' second' : ' seconds') : '');
 }
 
+/* WHICH DAY THE BRIEFING IS ABOUT, when it is not today's.
+
+   The briefing was written for today and says so in every line -- "Today you
+   have got", "Long run today", "Today is a rest day". Read out about Sunday's
+   session those are not shortcuts, they are wrong.
+
+   SO THE FRAME MOVES AND THE COACHING DOES NOT. This returns a word, and the
+   only thing that word does is replace "today" in the sentences that carry it.
+   Which coaching is spoken, in what order, with which numbers, is decided by
+   exactly the same functions it always was -- this is the same rendering
+   decision the card makes when it draws a date above a session, and it cannot
+   become a coaching decision because it never chooses anything.
+
+   Null for today, which is every existing caller. */
+function voiceWhenPhrase(dateStr){
+  var today = todayStr();
+  if (!dateStr || dateStr === today) return null;
+  try { if (dateStr === addDays(today, 1)) return 'Tomorrow'; } catch(e){}
+  var wd = null;
+  try { wd = ISO_WEEKDAY_FULL[isoWeekday(dateStr)]; } catch(e){ wd = null; }
+  /* A date the calendar helpers could not read still gets an honest frame
+     rather than a wrong one: 'soon' is true of any future session. */
+  return wd || 'soon';
+}
+
 /* How a coach opens: the session itself, in one sentence. Built from the
    prescription the card already shows, never from a title alone. */
-function voiceSessionLine(dd){
+function voiceSessionLine(dd, when){
   if (!dd) return null;
-  if (dd.type === 'rest') return 'Today is a rest day.';
+  var W = when || 'Today';
+  if (dd.type === 'rest') return W + ' is a rest day.';
   var targets;
   try { targets = getDayTargets(dd); } catch(e){ targets = {}; }
   var dist = voiceSpokenDistance(dd.km);
   var bits = [];
   if (dist) bits.push(dist);
   var title = dd.title ? String(dd.title).toLowerCase() : null;
-  var lead = 'Today you have got ' + (bits.length ? bits.join(', ') : 'a session');
+  var lead = W + ' you have got ' + (bits.length ? bits.join(', ') : 'a session');
   if (title && dist) lead += ' — ' + title;
-  else if (title) lead = 'Today you have got ' + title;
+  else if (title) lead = W + ' you have got ' + title;
   lead += '.';
   if (targets && targets.pace){
     var p = voiceSpokenPace(targets.pace);
@@ -26561,8 +26592,9 @@ function voiceSessionLine(dd){
 function voiceBriefingScript(dd){
   if (!dd) return null;
   var level = resolvedGuidanceLevel(dd);
+  var when = voiceWhenPhrase(dd.date);
   var lines = [];
-  var session = voiceSessionLine(dd);
+  var session = voiceSessionLine(dd, when);
   if (dd.type !== 'rest' && voiceSpokenFor(dd)) session = null;   // the opener replaces it
   if (session) lines.push(session);
   if (dd.type === 'rest'){
@@ -26580,7 +26612,7 @@ function voiceBriefingScript(dd){
      session type is spoken plainly rather than not at all. */
   var spoken = voiceSpokenFor(dd);
   if (spoken){
-    lines.push(voiceSpeakable(voiceSpokenOpener(dd, spoken)));
+    lines.push(voiceSpeakable(voiceSpokenOpener(dd, spoken, when)));
     lines.push(voiceSpeakable(spoken.cue));
     /* A NUMERIC INSTRUCTION IS PRESCRIPTION, AND PRESCRIPTION IS NEVER
        PARAPHRASED. The card's `how` can carry more than one instruction, and
@@ -26764,8 +26796,22 @@ function voiceSpokenFor(dd){ return (dd && VOICE_SPOKEN[dd.type]) || null; }
    tells the athlete nothing they can run, so the distance, the session's own
    title and the pace window are taken from the engine and injected here rather
    than authored above. */
-function voiceSpokenOpener(dd, spoken){
+function voiceSpokenOpener(dd, spoken, when){
+  /* THE AUTHORED OPENERS ALL END IN "today" -- "Long run today", "Threshold
+     session today". Briefing a different day, that word is substituted, and
+     nothing else about the sentence is touched. An opener carrying no "today"
+     ("Race day") is left exactly as written and the day is named by the lead
+     line the script adds instead. */
   var line = spoken.opener;
+  if (when){
+    /* Weekday names keep their capital mid-sentence; 'Tomorrow' does not. */
+    var mid = /day$/.test(when) ? when : when.toLowerCase();
+    var swapped = line.replace(/\btoday\b/i, mid);
+    /* An opener with no "today" in it -- 'Race day' -- has nothing to swap, so
+       the day is added rather than lost. */
+    line = (swapped !== line) ? swapped
+         : line + (/day$/.test(when) ? ' on ' + mid : ' ' + mid);
+  }
   var dist = voiceSpokenDistance(dd.km);
   var title = dd.title ? String(dd.title).toLowerCase() : null;
   var tail = [];
@@ -27851,11 +27897,20 @@ function voiceCoachContext(){
     withheld: {
       stravaDerivedDays: 0,
       stravaInfluencedPlanChanges: 0,
+      /* WHETHER THE HOLE IS TODAY'S OWN SESSION.
+         Without this the model sees todaySession: null and reasonably reads it
+         as "nothing was scheduled today" -- and then answers a question about
+         today's run by saying there was not one, which is worse than saying it
+         cannot go through it. A boolean about an absence, not a fact about the
+         session: nothing derived from the withheld day is in it. */
+      todaySessionWithheld: false,
       executionScores: !derived,
       healthInformation: !health,
       note: 'Anything withheld is unavailable to you for this conversation. ' +
             'Do not infer anything from its absence, and do not estimate a ' +
-            'replacement. Say you do not have it.'
+            'replacement. Say you do not have it. If todaySessionWithheld is ' +
+            'true the athlete did train today and you cannot go through that ' +
+            'session at all -- say so plainly and offer what is coming up.'
     }
   };
   var su = state.setup;
@@ -27877,7 +27932,11 @@ function voiceCoachContext(){
   var pool = [];
   for (var i=0; i<all.length; i++){
     var d = all[i];
-    if (isStravaDerived(d)){ ctx.withheld.stravaDerivedDays++; continue; }
+    if (isStravaDerived(d)){
+      ctx.withheld.stravaDerivedDays++;
+      if (d.date === today) ctx.withheld.todaySessionWithheld = true;
+      continue;
+    }
     if (!voiceAdjustmentIndependent(d)){ ctx.withheld.stravaInfluencedPlanChanges++; continue; }
     pool.push(d);
   }
@@ -27989,7 +28048,7 @@ function voiceCheckAvailability(){
    finished coaching and nothing structured came with it. */
 var askState = { status:'closed', heard:'', answer:'', message:'',
                  proposalDayId:null, incomplete:false,
-                 source:'cloud', limited:false };
+                 source:'cloud', limited:false, why:null };
 function askSet(status, extra){
   askState = {
     status: status,
@@ -28006,14 +28065,22 @@ function askSet(status, extra){
     source: (extra && extra.source !== undefined) ? extra.source
           : (status === 'answered' ? askState.source : ASK_SOURCE_CLOUD),
     limited: (extra && extra.limited !== undefined) ? !!extra.limited
-          : (status === 'answered' ? askState.limited : false)
+          : (status === 'answered' ? askState.limited : false),
+    /* WHY a local answer is local, and ONLY so the card can label it honestly.
+       PRESENTATION ONLY, and that is a rule rather than a description: nothing
+       downstream reads it, `source` is still what askResult() forces the plan
+       fields on, and adding a reason must never become a way to make a local
+       answer behave like a cloud one. Cleared with source, so a stale label
+       cannot outlive the answer it described. */
+    why: (extra && extra.why !== undefined) ? extra.why
+       : (status === 'answered' ? askState.why : null)
   };
   patchVoiceCard();
 }
 function askReset(){
   askState = { status:'closed', heard:'', answer:'', message:'',
                proposalDayId:null, incomplete:false,
-               source:ASK_SOURCE_CLOUD, limited:false };
+               source:ASK_SOURCE_CLOUD, limited:false, why:null };
   voiceStop();
   patchVoiceCard();
 }
@@ -28348,7 +28415,13 @@ function askResult(f){
     changeReason: local ? null : ((f && f.changeReason) || null),
     /* True where the answer is real but narrower than the athlete asked for --
        the card says so, and the coach is not claimed to have been consulted. */
-    limited: !!(f && f.limited)
+    limited: !!(f && f.limited),
+    /* A LABEL, NOT A ROUTE. Which of the local reasons produced this answer,
+       so the card can say "answered on your device" rather than "offline
+       guidance" to somebody who has full signal and simply asked about a run
+       the coach may not discuss. It is read by exactly one line of rendering
+       and by nothing else. */
+    why: (f && f.why) || null
   };
 }
 
@@ -28413,6 +28486,71 @@ function askLocalMatches(n, phrases){
 var ASK_LOCAL_MEDICAL = /\b(pain|painful|hurt|hurts|sore|soreness|injur|injury|injured|ill|illness|unwell|sick|fever|chest|breath|breathing|dizzy|dizziness|faint|blood|medical|doctor|physio|physiotherapist|tendon|strain|sprain|niggle)\b/;
 /* Anything asking about data that lives on somebody else's server. */
 var ASK_LOCAL_REMOTE = /\b(strava|garmin|sync|synced|syncing|upload|uploaded|import|imported|leaderboard|segment|kudos)\b/;
+
+/* ---------- WHICH QUESTIONS NEED A SESSION THE COACH MAY NOT SEE ----------
+
+   WHAT THIS IS FOR, AND WHAT IT IS NOT FOR. It is NOT the privacy boundary.
+   The boundary is voiceCoachContext(), which removes every Strava-derived day
+   before a context object exists, and the server, which refuses a payload
+   carrying a Strava marker at all. Both of those are unchanged, and neither
+   consults this.
+
+   THIS IS ABOUT THE ANSWER THE ATHLETE GETS. A retrospective question would
+   otherwise travel to a model holding nothing that could answer it, and come
+   back as a polite apology three seconds later. Answered here it is immediate,
+   honest and says what CAN be discussed instead.
+
+   AND THAT IS WHY IT IS NARROW. Because the fallback is already safe, a
+   question this misses costs one slow refusal, while a question it wrongly
+   catches costs the athlete coaching they were entitled to -- which is the
+   whole defect this pass exists to remove. So it is deliberately conservative
+   in the direction the medical gate is deliberately broad in, and there is no
+   forward-looking veto: a veto could only ever let a retrospective question
+   through, and nothing here needs that.
+
+   Deterministic phrase matching over the same normalised string every other
+   intent reads. No classifier, no scoring. */
+var ASK_RETRO_PHRASES = [
+  'how did', 'how was', 'how were', 'how have', 'how has',
+  'did i', 'was i', 'were my', 'was my', 'why did', 'why was', 'why were',
+  'go today', 'went today', 'my splits', 'the splits', 'my heart rate',
+  /* Straight apostrophes only: askLocalNormalise() has already folded the
+     curly ones, so a curly entry here could never match. */
+  'my hr', 'that run', 'this run', "today's run",
+  'my run', 'last run', 'the run i',
+  'too hard', 'too fast', 'too high', 'too slow', 'too easy',
+  'because of that', 'based on that', 'after that run'
+];
+
+/* Is there a completed session in the window the coach reads that came in from
+   Strava? Scoped to that window rather than to the whole record, so one import
+   last spring does not follow the athlete around for the rest of the block.
+
+   isStravaDerived() is the provenance test, here as everywhere else. There is
+   no second rule about what counts as Strava-derived and there must not be. */
+function askStravaWithheldRecently(){
+  var today = todayStr(), from;
+  try { from = addDays(today, -VOICE_CONTEXT_RECENT_DAYS); } catch(e){ from = null; }
+  var days = (state && state.days) || [];
+  for (var i = 0; i < days.length; i++){
+    var d = days[i];
+    if (!d || !d.date || d.date > today) continue;
+    if (from && d.date < from) continue;
+    if (isStravaDerived(d)) return true;
+  }
+  return false;
+}
+
+/* Would answering this require the session the coach may not see? Both halves
+   together: a retrospective question is perfectly answerable for an athlete
+   with nothing withheld, and a forward-looking one is answerable whatever was
+   imported. */
+function askRequiresStravaSession(question){
+  if (!askStravaWithheldRecently()) return false;
+  var n = askLocalNormalise(question);
+  if (!n) return false;
+  return askLocalMatches(n, ASK_RETRO_PHRASES);
+}
 
 /* Terms the app already has authored explanatory copy for, mapped onto the
    session type that copy is keyed by. VOICE_SPOKEN is the spoken briefing's
@@ -28724,7 +28862,15 @@ var ASK_LOCAL_COPY = {
   remote: 'I can’t reach Strava or check for new activity while you’re offline, ' +
     'so I can only go on what’s already on this device. ' +
     'I can still tell you today’s session, its pacing and structure, and what’s next.',
-  stale: 'This is the plan as it was last saved on this device, which may not include very recent changes.'
+  stale: 'This is the plan as it was last saved on this device, which may not include very recent changes.',
+  /* The same boundary the card states, said as an answer. Specific about what
+     is refused -- the run and every number in it -- and specific about what is
+     not, so the athlete knows where to go next rather than only that they were
+     turned away. Says nothing about policies, providers or data rules. */
+  strava_session: 'That run came in from Strava, so I can\u2019t go through it here \u2014 ' +
+    'not the pace, the heart rate, the splits, or how it went. ' +
+    'I can still help with what\u2019s coming: your next session, how to run it, ' +
+    'and where you are in the block.'
 };
 
 /* Does the app already know its local plan may be behind the server? Read from
@@ -28742,13 +28888,22 @@ function askLocalPlanMayBeStale(){
    returns null — because its whole job is to be the thing that still works. */
 function askLocalResolve(question){
   var n = askLocalNormalise(question);
-  var mk = function(answer, limited){
-    return askResult({ answer:answer, source:ASK_SOURCE_LOCAL, limited:!!limited });
+  var mk = function(answer, limited, why){
+    return askResult({ answer:answer, source:ASK_SOURCE_LOCAL,
+                       limited:!!limited, why:why || null });
   };
   if (!n) return mk(ASK_LOCAL_COPY.unsupported, true);
 
   /* Boundaries before intents, so a symptom is never answered with a pace. */
   if (ASK_LOCAL_MEDICAL.test(n)) return mk(ASK_LOCAL_COPY.medical, true);
+  /* AND BEFORE THE REMOTE ONE, which is written for being offline -- "I can't
+     reach Strava right now" is the wrong sentence for a question the coach may
+     not answer whatever the signal is. This is also the whole of the offline
+     half of this pass: askLocalDayAt() already refuses an imported day and
+     would have answered "I don't have that on the device", which is true of
+     the device and false about the reason. */
+  if (askRequiresStravaSession(question))
+    return mk(ASK_LOCAL_COPY.strava_session, true, 'strava_session');
   if (ASK_LOCAL_REMOTE.test(n))  return mk(ASK_LOCAL_COPY.remote, true);
 
   if (!state || !state.days || !state.days.length) return mk(ASK_LOCAL_COPY.no_data, true);
@@ -28802,6 +28957,17 @@ function askSend(question, opts){
      device, and a token that could not be refreshed for lack of a network is
      not evidence about who the athlete is. Online, the gate below is unchanged
      and still has the last word. */
+  /* THE QUESTION IS OUT OF SCOPE WHATEVER THE SIGNAL IS. Answered from the
+     device on both paths, through the same resolver and the same sentence, so
+     online and offline cannot drift apart about what the boundary says.
+
+     PLAN-CHANGE SAFETY IS STRUCTURAL HERE. askDeliverLocal() passes
+     proposalDayId: null and askResult() forces needsPlanChange false and
+     changeReason null for a local source -- so "should I change the plan
+     because of that run" cannot reach coachProposedChangeDayId(), and does not
+     reach the model either. */
+  if (askRequiresStravaSession(q)) return askDeliverLocal(q);
+
   if (askDeviceOffline()) return askDeliverLocal(q);
 
   if (!cloudSignedIn()){ askSet('error', { message:VOICE_ERROR_COPY.not_signed_in }); return Promise.resolve(null); }
@@ -28909,7 +29075,8 @@ function askSend(question, opts){
 function askDeliverLocal(question){
   var r = askLocalResolve(question);
   askSet('answered', { heard:question, answer:r.answer, proposalDayId:null,
-                       source:r.source, limited:r.limited, incomplete:false });
+                       source:r.source, limited:r.limited, why:r.why,
+                       incomplete:false });
   askAnnounceAnswer(r.answer);
   askSpeakLocal(r.answer);
   return Promise.resolve(r);
@@ -29271,16 +29438,27 @@ function renderVoiceCard(dd){
 }
 
 function renderVoiceCardBody(dd){
-  /* THE STRAVA FENCE, AT THE SURFACE. A day whose numbers came from Strava is
-     refused whole, so neither the briefing nor Ask Coach is offered for it --
-     and the athlete is told plainly, because a control that silently vanishes
-     reads as a bug. The written coaching on the card above is untouched and
-     complete. */
-  if (isStravaDerived(dd)){
-    return '<div class="voice-row voice-unavailable">'+
-      '<div class="voice-note">Your coach cannot talk about this session — it came in from Strava. '+
-      'The written review above is unaffected.</div></div>';
-  }
+  /* THE STRAVA FENCE, AT THE SURFACE -- AND WHAT IT IS A FENCE AROUND.
+     A day whose numbers came from Strava is still refused WHOLE: no debrief,
+     no pace, no heart rate, no splits, nothing about how it went. That has not
+     moved and must not.
+
+     WHAT USED TO GO WITH IT, AND SHOULD NOT HAVE. This returned here, so the
+     entire voice surface vanished on any day an activity was imported --
+     including Ask Coach, which had never been about the completed session in
+     the first place. Valhalla's own future prescription is Valhalla's: Strava
+     never touched Sunday's intervals, and refusing to discuss them because
+     this morning's run arrived from somewhere else withholds the athlete's own
+     coaching from them for a reason that is not theirs.
+
+     SO THE SCOPE IS THE QUESTION, NOT THE DAY. The briefing changes SUBJECT to
+     the next session Valhalla itself prescribed, and Ask Coach stays -- reading
+     a context that never contained the imported day to begin with. */
+  var imported = isStravaDerived(dd);
+  /* The next session we own, from askLocalNextSession() -- the same forward
+     reader the offline coach uses, so "the next session Valhalla prescribed"
+     has exactly one definition in this file and one provenance test behind it. */
+  var subject = imported ? askLocalNextSession() : dd;
 
   var speaking = voiceState.status === 'speaking';
   /* SPEECH FAILING DOES NOT TAKE THE COACHING AWAY. `unavailable` renders the
@@ -29289,30 +29467,53 @@ function renderVoiceCardBody(dd){
      did not work. */
   var silent   = voiceState.status === 'unavailable';
   var shown    = voiceState.status === 'shown' || silent;
-  var script = voiceScriptFor(dd);
+  var script = subject ? voiceScriptFor(subject) : null;
   var canSpeak = voiceAvailable();
   var debrief = script && script.kind === 'debrief';
   /* The verb is honest about what the press will do on THIS device. "Hear" on
-     a device that cannot speak is a promise the control cannot keep. */
-  var listenLabel = canSpeak ? (debrief ? 'Hear how it went' : 'Hear today')
-                             : (debrief ? 'Read how it went' : 'Read today');
+     a device that cannot speak is a promise the control cannot keep. And about
+     WHAT it will do: on an imported day the briefing is about the next session,
+     and a control labelled "Hear today" would be offering the one thing this
+     card is not allowed to say. */
+  var listenLabel = imported
+    ? (canSpeak ? 'Hear what\u2019s next' : 'Read what\u2019s next')
+    : (canSpeak ? (debrief ? 'Hear how it went' : 'Hear today')
+                : (debrief ? 'Read how it went' : 'Read today'));
   var bits = '';
 
   if (script){
     var live = speaking || shown;
     bits += '<button type="button" class="voice-btn" data-action="'+
-      (live ? 'voice-stop' : 'voice-listen')+'" data-day="'+dd.id+'" '+
+      (live ? 'voice-stop' : 'voice-listen')+'" data-day="'+subject.id+'" '+
       'aria-label="'+(live ? (speaking ? 'Stop speaking' : 'Hide the briefing') : listenLabel)+'">'+
       (live ? ICONS.voiceStop : ICONS.voicePlay)+
       '<span>'+(live ? (speaking ? 'Stop' : 'Hide') : listenLabel)+'</span></button>';
   }
-  if (voiceCoachAvailable && !voiceTodayIsStravaDerived()){
+  /* NO LONGER GATED ON WHETHER TODAY WAS IMPORTED. What the coach may see is
+     decided by voiceCoachContext(), which removed the imported day before
+     assembling anything, and by askRequiresStravaSession(), which refuses the
+     questions that would need it. Withdrawing the whole control was a third
+     answer to a question already answered twice, and it took the athlete's own
+     future coaching with it. */
+  if (voiceCoachAvailable){
     bits += '<button type="button" class="voice-btn" data-action="voice-ask-open" '+
       'aria-label="Ask your coach a question">'+ICONS.voiceMic+'<span>Ask coach</span></button>';
   }
-  if (!bits) return '';
+  if (!bits && !imported) return '';
 
-  var html = '<div class="voice-row">'+bits+'</div>';
+  var html = bits ? '<div class="voice-row">'+bits+'</div>' : '';
+  /* ONE LINE, AND ONLY WHERE IT EXPLAINS SOMETHING. With controls on the card
+     it says what they will and will not cover; with nothing left to offer it
+     keeps the sentence it always had. Not a panel, and not a repeat of the
+     written review above, which is untouched and complete either way. */
+  if (imported){
+    html += '<div class="voice-row voice-unavailable"><div class="voice-note">'+
+      (bits ? 'Ask coach can still help with what\u2019s next. It can\u2019t discuss '+
+              'this completed run because it came from Strava.'
+            : 'Your coach cannot talk about this session — it came in from Strava. '+
+              'The written review above is unaffected.')+
+      '</div></div>';
+  }
   /* THE ADAPTIVE-REASON LINE IS GONE FROM TODAY. "Fuller detail -- you have
      not run many of these yet" explained the MECHANISM that chose how much
      coaching to show, on the screen the athlete came to for coaching. It is an
@@ -29375,6 +29576,16 @@ var ASK_SUGGESTIONS = [
   'What if I cannot hold the pace?',
   'How am I progressing?'
 ];
+/* THE SAME CHIPS WOULD BE THREE DEAD ENDS ON AN IMPORTED DAY. "Why this
+   session today?" and "How am I progressing?" both need the completed session
+   the coach may not see, so offering them would be inviting the athlete into
+   the refusal. These ask the same kinds of question about the part of the plan
+   Valhalla owns. */
+var ASK_SUGGESTIONS_NEXT = [
+  'What am I doing next?',
+  'What pace should my next session be?',
+  'What is the purpose of my next session?'
+];
 
 function renderAskPanel(dd){
   if (askState.status === 'closed') return '';
@@ -29427,7 +29638,15 @@ function renderAskPanel(dd){
          plain text in the reading order instead, immediately after the answer,
          so it is reached in sequence exactly where a sighted reader sees it. */
       if (askState.status === 'answered' && askState.source === ASK_SOURCE_LOCAL){
-        body += '<div class="ask-source">Offline guidance</div>';
+        /* SAY WHICH LOCAL ANSWER THIS IS. Live on the device, a question about
+           an imported run was answered instantly and correctly and then
+           captioned "Offline guidance" to an athlete with full signal -- which
+           is not true, and sends them to check their connection over something
+           that has nothing to do with it. The caption still refuses to claim
+           the coach was consulted; it just stops naming the wrong reason. */
+        body += '<div class="ask-source">'+
+          (askState.why === 'strava_session' ? 'Answered on your device'
+                                             : 'Offline guidance')+'</div>';
       }
       if (askState.status === 'answered') body += renderAskProposal();
     }
@@ -29461,7 +29680,8 @@ function renderAskPanel(dd){
                 VOICE_STT_COPY.no_api)+'</div>';
       }
       if (!askState.heard){
-        body += '<div class="ask-suggest">'+ASK_SUGGESTIONS.map(function(q){
+        var chips = voiceTodayIsStravaDerived() ? ASK_SUGGESTIONS_NEXT : ASK_SUGGESTIONS;
+        body += '<div class="ask-suggest">'+chips.map(function(q){
           return '<button type="button" class="ask-chip" data-action="voice-ask-suggest" '+
                  'data-q="'+escapeHtml(q)+'">'+escapeHtml(q)+'</button>'; }).join('')+'</div>';
       }
