@@ -252,3 +252,53 @@ function auditOnRamp(opts){
 }
 module.exports.auditOnRamp = auditOnRamp;
 
+
+
+/* FOUNDATION, BUILT AND MEASURED (S5).
+   Same shape as auditOnRamp: a separate architecture answering a separate
+   question, counted apart so routed, on-ramped and foundation athletes never
+   blur into one number. */
+function auditFoundation(opts){
+  const a = resetState();
+  const { distanceKey, volume, weeks, scheduleKey } = opts;
+  const schedule = SCHEDULES[scheduleKey] || SCHEDULES.d5;
+  const path = a.athletePathway(distanceKey, volume, weeks);
+  if (path.route !== 'foundation_then_on_ramp_then_race')
+    return { id: caseId(opts), inputs: opts, pathway: path, skipped: true };
+
+  const startDate = a.todayStr();
+  const startMonday = a.addDays(startDate, -a.isoWeekday(startDate));
+  const endDate = a.addDays(startMonday, path.foundationWeeks * 7 - 1);
+  let block, days;
+  try {
+    block = a.buildBlockWeeks(distanceKey, volume, path.foundationWeeks,
+      { purpose: 'foundation', rampToKm: path.foundationToKm });
+    days = a.buildDaysFromWeeks(block, endDate, schedule, startDate, false);
+  } catch (e){
+    return { id: caseId(opts), inputs: opts, pathway: path, error: String(e && e.message || e) };
+  }
+  const accounting = (a.planVolumeAccounting || []).slice();
+  const invariantFailures = (a.planInvariantFailures || []).slice();
+  const sessions = days.map(dd => {
+    const p = dd.prescription || null;
+    let segs = null;
+    if (p){ try { segs = a.segmentsFor(p) || null; } catch(e){ segs = null; } }
+    return { date: dd.date, week: dd.week, type: dd.type, title: dd.title, km: dd.km,
+             archetype: p ? p.archetype : null, params: p ? p.params : null,
+             segments: segs ? segs.map(g => ({ kind:g.kind, intensity:g.intensity,
+               km: g.km != null ? g.km : null })) : null };
+  });
+  const byWeek = {};
+  block.weeks.forEach(wk => { byWeek[wk.week] = {
+    week: wk.week, targetVolume: wk.volume, isCutback: !!wk.isCutback,
+    accounting: accounting.filter(x => x.week === wk.week)[0] || null,
+    sessions: [], actualVolume: 0 }; });
+  sessions.forEach(s => { const w = byWeek[s.week]; if (!w) return;
+    w.sessions.push(s); w.actualVolume = round1(w.actualVolume + (s.km || 0)); });
+  const weekList = Object.keys(byWeek).map(k => byWeek[k]).sort((x,y) => x.week - y.week);
+  return { id: caseId(opts), inputs: opts, pathway: path,
+           peakVolume: block.peakVolume, noQuality: block.noQuality,
+           noLongRun: block.noLongRun, weeks: weekList, sessions,
+           accounting, invariantFailures };
+}
+module.exports.auditFoundation = auditFoundation;

@@ -4064,16 +4064,28 @@ function athletePathway(distKey, currentVolume, weeksAvailable, opts){
      existing figures; neither is chosen here. */
   var preferred = BUILDER_PURPOSE_META.race.defaultWeeks;
   var minBlock  = BUILDER_SPEC.validation.weeksRange[0];
-  var raceWeeks = Math.min(preferred, W - 1);
+  /* THE RACE BLOCK SHRINKS FIRST, because it is the stage the athlete cannot
+     use until the others have done their work. Taking the preferred length
+     greedily and leaving the remainder to foundation and the on-ramp gets the
+     dependency backwards: it produced a 14-week race block in front of a
+     one-week on-ramp, and then reported the whole path impossible. The stages
+     that must come first reserve their minimum -- two weeks each to be a ramp
+     at all -- and the race block takes what it can of its preferred length
+     from what is left. */
+  var below = minViableOnRampKm(distKey);
+  var stagesBefore = (below != null && currentVolume < below) ? 2 : 1;   // foundation+on-ramp, or on-ramp alone
+  var reserved = stagesBefore * 2;
+  var raceWeeks = Math.min(preferred, W - reserved);
   if (raceWeeks < minBlock){
     /* STRUCTURAL, AND IT NEEDS NO RATE. There is not enough time for both a
        race block and any on-ramp at all, so no growth assumption could rescue
        it. */
     return { route:'insufficient_time', viability:v,
              raceBlockWeeks:null, onRampWeeks:0,
-             weeksAvailable:W, minimumWeeks:minBlock + 1,
+             weeksAvailable:W, minimumWeeks:minBlock + reserved,
              impliedWeeklyGrowth:null, growthGated:false,
-             reason:'not_enough_time_for_an_on_ramp' };
+             reason: stagesBefore > 1 ? 'not_enough_time_for_foundation_and_an_on_ramp'
+                                      : 'not_enough_time_for_an_on_ramp' };
   }
   var onRampWeeks = W - raceWeeks;
   /* BELOW THE ON-RAMP'S OWN FLOOR the honest answer is foundation, and
@@ -4082,13 +4094,45 @@ function athletePathway(distKey, currentVolume, weeksAvailable, opts){
      days, which is the shape of failure this programme exists to remove. */
   var onRampFloor = minViableOnRampKm(distKey);
   if (onRampFloor != null && currentVolume < onRampFloor){
-    return { route:'foundation_required', viability:v,
-             onRampWeeks:0, raceBlockWeeks:raceWeeks, weeksAvailable:W,
-             statedKm:currentVolume, onRampFloorKm:onRampFloor,
-             onRampToKm:v.minStartKm,
-             impliedWeeklyGrowth:null, growthGated:false,
-             reason:'below_continuous_running_threshold',
-             blockedOn:'foundation_architecture_not_built' };
+    /* THREE STAGES, AND THE TIME IS SPLIT BY THE GROUND EACH HAS TO COVER.
+       Foundation carries the athlete from where they are to the volume at which
+       an on-ramp can be expressed; the on-ramp carries them from there to the
+       volume a race block needs. Dividing the available weeks in proportion to
+       the kilometres each stage adds is linear, transparent and needs no growth
+       rate -- the same reason the endpoints were enough in S4. */
+    var toFloor = Math.max(0, onRampFloor - currentVolume);
+    var toStart = Math.max(0, v.minStartKm - onRampFloor);
+    /* A STAGE THAT MUST COVER GROUND NEEDS AT LEAST TWO WEEKS TO BE A RAMP.
+       With one week there is no progression at all -- week one IS the
+       destination, so a 1km/week athlete would open at 16km. Structural rather
+       than physiological: no growth rate could rescue it, and none is needed to
+       see it. The reservation above guarantees this; the check stays as the
+       assertion of it. */
+    var nonRace = W - raceWeeks;
+    var fWeeks = (toFloor + toStart) > 0
+      ? Math.round(nonRace * toFloor / (toFloor + toStart))
+      : Math.floor(nonRace / 2);
+    fWeeks = Math.max(2, Math.min(fWeeks, nonRace - 2));
+    var oWeeks = nonRace - fWeeks;
+    var fArc = blockArcFor('foundation', fWeeks);
+    var fGrowth = (currentVolume > 0 && fArc.buildWeeks > 1)
+      ? Math.round(Math.pow(onRampFloor / currentVolume, 1 / (fArc.buildWeeks - 1)) * 10000) / 10000
+      : null;
+    var oArc2 = blockArcFor('onramp', oWeeks);
+    var oGrowth = (oWeeks > 0 && oArc2.buildWeeks > 1)
+      ? Math.round(Math.pow(v.minStartKm / onRampFloor, 1 / (oArc2.buildWeeks - 1)) * 10000) / 10000
+      : null;
+    return { route:'foundation_then_on_ramp_then_race', viability:v,
+             foundationWeeks:fWeeks, onRampWeeks:oWeeks, raceBlockWeeks:raceWeeks,
+             weeksAvailable:W,
+             foundationFromKm:currentVolume, foundationToKm:onRampFloor,
+             onRampFromKm:onRampFloor, onRampToKm:v.minStartKm,
+             onRampFloorKm:onRampFloor,
+             foundationImpliedWeeklyGrowth:fGrowth, impliedWeeklyGrowth:oGrowth,
+             /* SAME GATE, SAME REASON. Both stages are constructed from their
+                endpoints; neither claims the resulting growth is safe. */
+             growthGated:false,
+             growthGateBlockedOn:'progression_rate_not_approved' };
   }
   var arc = blockArcFor('onramp', onRampWeeks);
   var growth = (currentVolume > 0 && arc.buildWeeks > 1)
@@ -4513,6 +4557,29 @@ function blockArcFor(purpose, N){
      below 4.3km (measured), which at on-ramp volumes is a third of the week;
      an on-ramp that included them would be the chopped-down advanced workout
      the audit named. Strides carry the neuromuscular work instead. */
+  /* FOUNDATION. Below the volume at which an on-ramp can be EXPRESSED -- not
+     below some judgement about the athlete -- and its job is to build the
+     capacity that makes one expressible.
+
+     WHY THE ON-RAMP CANNOT GO HERE, precisely. An on-ramp is easy running
+     around a long run, and the long run has to be the longest run of the week.
+     Below minViableOnRampKm the long run computes smaller than the easy days
+     and the structure stops existing. Foundation removes the constraint rather
+     than working around it: there is no long run, so there is nothing for the
+     easy days to be shorter than. Every session is the same easy run.
+
+     THIS IS NOT A MINIATURE RACE BLOCK. No long run, no quality, no goal-pace,
+     no taper, no phases, no checkpoint. What it has is running, on the days the
+     athlete has, growing toward the point where the next architecture starts.
+
+     AND IT DOES NOT FABRICATE VOLUME. The week is what the athlete said they
+     run, distributed -- never a floor imposed on top of it. That is the whole
+     difference between this and what the audit found. */
+  if (purpose === 'foundation'){
+    return { buildWeeks: weeks, taper: 0, hasGoalEffort: false, hasCheckpoint: false,
+             baseEnd: 1.01, buildEnd: 1.01, volumeMult: null,
+             noQuality: true, noLongRun: true, handsOff: true };
+  }
   if (purpose === 'onramp'){
     return { buildWeeks: weeks, taper: 0, hasGoalEffort: false, hasCheckpoint: false,
              baseEnd: 1.01, buildEnd: 1.01, volumeMult: null, noQuality: true,
@@ -5161,7 +5228,19 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     var structPhase = steady ? 'Maintain' : phase;
 
     if (!isTaper && !isRace){
-      var progress = w/buildWeeks;
+      /* A BLOCK THAT HANDS OFF OPENS WHERE THE ATHLETE IS.
+         A race block's week one is deliberately one step above the start: the
+         block is going somewhere and begins moving immediately. An on-ramp or
+         foundation block is DELIVERING the athlete from a known point to a
+         known point, so its first week is that known point and its last is the
+         destination -- which is also the product's existing position that a
+         block never opens above what the athlete is currently doing
+         (cappedBlockStartVolume). At race volumes the difference is a few
+         percent; at foundation volumes it is the difference between opening at
+         1km and opening at 2.3km for an athlete who runs 1. */
+      var progress = arc.handsOff
+        ? (buildWeeks > 1 ? (w-1)/(buildWeeks-1) : 1)
+        : w/buildWeeks;
       var trend = steady ? currentVolume
                          : currentVolume + (peakVolume-currentVolume)*progress;
       isCutback = (w%4===0) && (steady ? w!==N : w!==buildWeeks) && buildWeeks>=4;
@@ -5293,13 +5372,17 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     var qKm = intervalSessionKm(qSpec);
     var tKm = tempoSessionKm(tSpec);
     if (isRace){ qKm=0; tKm=0; }
-    // An on-ramp carries no structured quality at all -- see blockArcFor.
+    // An on-ramp or foundation block carries no structured quality at all.
     if (arc.noQuality){ qKm=0; tKm=0; }
     // carried to the next week so a taper can be bounded by what preceded it
     prevQKm = qKm; prevTKm = tKm;
 
     var longFrac = LONG_FRACTION[profile.emphasis];
-    var longTarget = isRace ? 0 : Math.min(profile.longCapKm, volume*longFrac);
+    /* A FOUNDATION BLOCK HAS NO LONG RUN, and that is the point rather than an
+       omission: the long run is precisely the session this athlete's volume
+       cannot express, and shrinking one until it fits would produce the
+       three-kilometre "long run" the audit was opened over. */
+    var longTarget = (isRace || arc.noLongRun) ? 0 : Math.min(profile.longCapKm, volume*longFrac);
     var b2bEligible = !!profile.backToBack && !isTaper && !isRace && phase!=='Base';
 
     /* OMITTED, NOT SHRUNK, BELOW THE FLOOR.
@@ -5347,7 +5430,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   }
   return { profile:profile, weeks:weeks, peakVolume:round1(peakVolume),
            buildWeeks:buildWeeks, taperWeeks:taper, planWeeks:N, steady:steady,
-           purpose:purpose, noQuality:!!arc.noQuality,
+           purpose:purpose, noQuality:!!arc.noQuality, noLongRun:!!arc.noLongRun,
            /* THE RATE, AS AN OUTPUT. What the ramp actually implies per
               developing week, so it can be reported, audited and later gated --
               rather than a rate chosen up front and the destination derived
@@ -7178,6 +7261,11 @@ function qualitySlotsForDayCount(dayCount){
   return 2;
 }
 var EASY_MIN_KM = 3;
+/* The quantum an easy day is presented in -- roundWorkoutKm rounds easy days to
+   the half kilometre -- and therefore the smallest easy session that can be
+   rendered at all. Foundation floors its sessions here rather than at
+   EASY_MIN_KM, which is a statement about what a RACE week needs. */
+var EASY_QUANTUM_KM = 0.5;
 // An easy day is never longer than the long run. Without this the whole
 // residue of a low-frequency week lands on the single easy day and produces
 // an "easy" run longer than the long run.
@@ -7253,7 +7341,7 @@ function pickQualityDays(pool, fixedDemanding, count){
    consume volume; what is left goes to easy running first, then to the long
    run up to its cap, and whatever still will not fit is reported rather than
    forced somewhere it does not belong. */
-function distributeWeekVolume(volumeKm, qualityKm, longKm, secondLongKm, easyDayCount, longCapKm){
+function distributeWeekVolume(volumeKm, qualityKm, longKm, secondLongKm, easyDayCount, longCapKm, easyFloorKm, roundSafeEasyCap){
   /* S0 ACCOUNTING. Three different things can make the week that gets built
      differ from the week that was asked for, and until now they were one
      undifferentiated number. They are separated here, at the point each is
@@ -7277,9 +7365,36 @@ function distributeWeekVolume(volumeKm, qualityKm, longKm, secondLongKm, easyDay
   var easyBudget = Math.max(0, rawBudget);
   var perEasy = 0, easyFloorExcessKm = 0;
   if (easyDayCount>0){
-    var easyCap = Math.max(EASY_MIN_KM, (longKm||EASY_MIN_KM)*EASY_MAX_FRACTION_OF_LONG);
+    /* THE FLOOR IS A PARAMETER because foundation's is different, and that is
+       the whole of why foundation exists. EASY_MIN_KM is the smallest easy day
+       a RACE week may contain; below it a race week is not expressible. A
+       foundation week is expressible at any size the athlete actually runs, so
+       imposing 3km there would manufacture exactly the volume the audit found.
+       Defaults to EASY_MIN_KM, so every existing caller is unchanged. */
+    var floorKm = (easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM;
+    /* THE EASY CAP EXISTS SO AN "EASY" RUN IS NEVER LONGER THAN THE LONG RUN.
+       Where there is no long run there is nothing for it to be measured
+       against, and applying it anyway pinned every foundation session at the
+       floor. */
+    /* THE CAP HAS TO SURVIVE ROUNDING, and by default it does not. A long run
+       is presented to the whole kilometre and an easy day to the half, so at
+       close sizes the two quanta invert the order they were computed in: a
+       3.4km long run renders as 3 and a 3.4km easy day as 3.5, and the "easy"
+       run comes out longer than the long run it was capped by.
+
+       roundSafeEasyCap holds the easy day a full quantum below what the long
+       run will actually be presented as, so the ordering survives. Passed only
+       by the blocks that ask for it -- every existing caller keeps the previous
+       behaviour exactly, because changing it for race blocks would move a
+       population this stage is not authorised to touch. The same asymmetry
+       exists there and is reported rather than altered here. */
+    var easyCap = (longKm > 0)
+      ? (roundSafeEasyCap
+          ? Math.max(floorKm, roundTo(longKm, 1) - EASY_QUANTUM_KM)
+          : Math.max(floorKm, longKm * EASY_MAX_FRACTION_OF_LONG))
+      : Infinity;
     var fairShare = round1(easyBudget/easyDayCount);
-    perEasy = clamp(fairShare, EASY_MIN_KM, round1(easyCap));
+    perEasy = clamp(fairShare, floorKm, easyCap === Infinity ? Infinity : round1(easyCap));
     if (perEasy > fairShare) easyFloorExcessKm = round1((perEasy - fairShare) * easyDayCount);
     easyBudget = Math.max(0, round1(easyBudget - perEasy*easyDayCount));
   }
@@ -7316,7 +7431,18 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   var b2bDay = (longDay+1)%7;
   var b2bAvailable = !!profile.backToBack && activeSet[b2bDay] && b2bDay!==longDay;
 
-  var nonLongActive = activeDays.filter(function(d){ return d!==longDay; }).sort(function(a,b){return a-b;});
+  /* FOUNDATION HAS NO LONG DAY, so every active day is an easy day and the
+     long-run slot simply does not exist. */
+  var noLongRun = !!blockResult.noLongRun;
+  /* AND ITS SESSIONS ARE FLOORED AT THE QUANTUM THEY ARE PRESENTED IN, not at
+     the race week's 3km. Half a kilometre is the smallest easy distance the app
+     can render (roundWorkoutKm rounds easy days to 0.5km), so it is the
+     smallest session that can exist at all -- derived from the existing
+     quantum rather than chosen. Rounding still never decides whether a session
+     exists: see the day push below. */
+  var easyFloorKm = noLongRun ? EASY_QUANTUM_KM : null;
+  var nonLongActive = noLongRun ? activeDays.slice()
+                    : activeDays.filter(function(d){ return d!==longDay; }).sort(function(a,b){return a-b;});
   // reserve the back-to-back day out of the quality-session pool when this distance uses it, so a hard
   // session never lands on the same day back-to-back training needs -- unless that leaves too few days
   var qtyPool = (b2bAvailable && nonLongActive.length>2) ? nonLongActive.filter(function(d){return d!==b2bDay;}) : nonLongActive;
@@ -7406,6 +7532,21 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     // this week's real easy-day pool: drop the b2b day from it on weeks where b2b actually fires,
     // since that day's volume comes from secondLongKm instead, not the generic easy budget
     var easyDays = b2bActive ? easyDaysBase.filter(function(d){return d!==b2bDay;}) : easyDaysBase;
+    /* YOU ADD DISTANCE BEFORE YOU ADD DAYS.
+       A foundation week is the athlete's own volume divided across their days,
+       and below a certain volume that division stops being expressible: one
+       kilometre a week over five days is 200m per run, which rounds to the
+       0.5km quantum and comes back out as 2.5km -- two and a half times what
+       they said they run. Manufacturing volume to fill a day is exactly the
+       failure this architecture replaces.
+
+       So the DAYS give way, not the volume. The week uses as many days as it
+       can fill at the quantum and rests the others, and as the block ramps the
+       days come back. Derived from the quantum, so no number is chosen here. */
+    if (noLongRun && easyDays.length){
+      var fillable = Math.max(1, Math.floor(wk.volume / EASY_QUANTUM_KM));
+      if (fillable < easyDays.length) easyDays = easyDays.slice(0, fillable);
+    }
 
     /* ---- aerobic / quality balance ----
        Quality distance is exactly what its structure prescribes and is never
@@ -7423,7 +7564,8 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
                   : 0;
 
     var dist = distributeWeekVolume(wk.volume, qualityKm, longKm, secondLongKm,
-                                     easyDays.length, profile.longCapKm);
+                                     easyDays.length, profile.longCapKm, easyFloorKm,
+                                     !!blockResult.noQuality);
     var perEasy = dist.perEasy;
     longKm = dist.longKm;
     // S0 ACCOUNTING: kept on the week so the reconciliation pass below can read
@@ -7497,7 +7639,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       var date = addDays(weekMonday, iso);
       if (date<startDateStr) continue;
       var dayObj;
-      if (iso===longDay && activeSet[iso]){
+      if (iso===longDay && activeSet[iso] && !noLongRun){
         var tl = longRunText(longKm, wk.hasGoalSegment, wk.goalSegKm, b2bActive, false, wk.longShape);
         dayObj = { type:tl.type, title:tl.title, km:longKm, desc:tl.desc, mpSegment:!!tl.mpSegment,
           prescription: (wk.hasGoalSegment && wk.goalSegKm>0)
@@ -7509,16 +7651,32 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         var t2 = longRunText(secondLongKm, false, 0, false, true);
         dayObj = { type:t2.type, title:t2.title, km:secondLongKm, desc:t2.desc,
           prescription: { archetype:'long_run_b2b', params:{ km:secondLongKm } } };
+      } else if (noLongRun && activeSet[iso] && easyDays.indexOf(iso)===-1){
+        // a day the week's own volume cannot fill at the quantum -- see above
+        var rdF = restDayText(false);
+        dayObj = { type:rdF.type, title:rdF.title, km:0, desc:rdF.desc };
       } else if (activeSet[iso] && iso===qty1Day){
         dayObj = buildQualityDay(singleSlot ? singleSlotKind : 'interval');
       } else if (activeSet[iso] && iso===qty2Day){
         dayObj = buildQualityDay('tempo');
-      } else if (activeSet[iso] && iso===stridesDay && perEasy > 1){
+      /* STRIDES NEED A RUN TO SIT INSIDE. Six by 100m is 600m of the session,
+         so below a full easy day they stop being a detail inside a run and
+         become most of it. EASY_MIN_KM is the existing statement of what a full
+         easy day is; below it the day is simply an easy run. */
+      } else if (activeSet[iso] && iso===stridesDay && perEasy >= EASY_MIN_KM){
         /* The strides sit INSIDE the easy run, so the day's distance is the
            easy day's distance and the week's volume is untouched. */
         var strEasyKm = round1(perEasy - 1);
         var st = stridesText(strEasyKm, 6, 100);
-        dayObj = { type:st.type, title:st.title, km:perEasy, desc:st.desc,
+        /* TYPED AS THE EASY DAY IT IS. stridesText returns type 'interval'
+           because in race week this IS the quality slot. Here it is not: it is
+           an easy run with six strides in it, and the type has a behavioural
+           consequence -- roundWorkoutKm rounds quality days UP to the half km
+           and easy days to the NEAREST half. Left as 'interval' the strides day
+           rounded up while its identical siblings rounded down, and a 3.2km
+           easy run became the longest run of the week at 3.5km, ahead of the
+           long run. Same session, same distance, two different quanta. */
+        dayObj = { type:'easy', title:st.title, km:perEasy, desc:st.desc,
                    prescription:{ archetype:'easy_strides', params:{ easyKm:strEasyKm, reps:6, m:100 } } };
       } else if (activeSet[iso]){
         var er = easyRunText(perEasy);

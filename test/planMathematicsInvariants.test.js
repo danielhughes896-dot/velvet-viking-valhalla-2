@@ -4,8 +4,8 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
 const { runMatrix, VOLUMES, WEEKS, SCHEDULES, DISTANCES } = require('./audit/matrix.js');
-const { auditCase, auditOnRamp } = require('./audit/planAudit.js');
-const { checkOnRamp } = require('./audit/invariants.js');
+const { auditCase, auditOnRamp, auditFoundation } = require('./audit/planAudit.js');
+const { checkOnRamp, checkFoundation } = require('./audit/invariants.js');
 
 /* PLAN MATHEMATICS — PROPERTY TESTS OVER THE WHOLE INPUT SPACE
  * ===========================================================================
@@ -517,14 +517,18 @@ test('the on-ramp floor is derived from two existing constants', () => {
   assert.ok(a.minViableOnRampKm('5k') > a.EASY_MIN_KM / a.LONG_FRACTION.speed);
 });
 
-test('below the on-ramp floor the answer is foundation, and it says so', () => {
-  /* S5 IS NOT BUILT, AND S4 DOES NOT PRETEND IT IS. */
+test('below the on-ramp floor the route runs through foundation', () => {
+  /* S4 RETURNED `foundation_required` AND STOPPED, because foundation did not
+     exist. S5 built it, so the same athlete now gets the whole route. The
+     boundary itself is unchanged -- what changed is that there is something on
+     the other side of it. */
   const a = require('./audit/planAudit.js').app();
   const p = a.athletePathway('half', 8, 40);
-  assert.equal(p.route, 'foundation_required');
-  assert.equal(p.blockedOn, 'foundation_architecture_not_built');
-  assert.equal(p.onRampWeeks, 0);
-  assert.ok(!('plan' in p) && !('sessions' in p), 'and it fabricates nothing');
+  assert.equal(p.route, 'foundation_then_on_ramp_then_race');
+  assert.ok(p.foundationWeeks >= 2, 'and foundation is a real stage, not a label');
+  assert.equal(p.onRampFloorKm, a.minViableOnRampKm('half'));
+  assert.ok(!('plan' in p) && !('sessions' in p),
+    'the pathway still returns a route, never a fabricated programme');
 });
 
 test('with no room for an on-ramp the refusal is structural, not a guess', () => {
@@ -578,6 +582,105 @@ test('an on-ramp is easy running around a long run, and reaches its target', () 
 test('S4 changed nothing in the race population', () => {
   /* The on-ramp is a separate architecture on a separate path. If a single
      race-plan count moved, S4 reached somewhere it should not have. */
+  const m = matrix();
+  const BASE = JSON.parse(fs.readFileSync(path.join(__dirname, 'audit', 'baseline.json'), 'utf8'));
+  Object.keys(BASE.tally).forEach(k =>
+    assert.equal(m.tally[k] || 0, BASE.tally[k], k + ' moved in the race population'));
+});
+
+// ---------------------------------------------------------------------------
+// S5 — FOUNDATION
+// ---------------------------------------------------------------------------
+let FOUNDATION = null;
+function foundations(){
+  if (FOUNDATION) return FOUNDATION;
+  const a = require('./audit/planAudit.js').app();
+  const tally = {}; let built = 0, race = 0, onramp = 0, insufficient = 0;
+  for (const distanceKey of DISTANCES)
+    for (const volume of VOLUMES)
+      for (const weeks of WEEKS)
+        for (const scheduleKey of SCHEDULES){
+          const p = a.athletePathway(distanceKey, volume, weeks);
+          if (p.route === 'race_programme'){ race++; continue; }
+          if (p.route === 'insufficient_time'){ insufficient++; continue; }
+          if (p.route === 'on_ramp_then_race'){ onramp++; continue; }
+          const c = auditFoundation({ distanceKey, volume, weeks, scheduleKey });
+          if (c.skipped) continue;
+          built++;
+          checkFoundation(c).forEach(f => { tally[f.code] = (tally[f.code] || 0) + 1; });
+        }
+  return (FOUNDATION = { tally, built, race, onramp, insufficient });
+}
+
+test('foundation is not a miniature race block', () => {
+  const a = require('./audit/planAudit.js').app();
+  const arc = a.blockArcFor('foundation', 10);
+  assert.equal(arc.noLongRun, true, 'no long run — it is the session this volume cannot express');
+  assert.equal(arc.noQuality, true);
+  assert.equal(arc.hasGoalEffort, false);
+  assert.equal(arc.hasCheckpoint, false);
+  assert.equal(arc.taper, 0);
+  assert.equal(arc.volumeMult, null, 'no multiplier — endpoints, like the on-ramp');
+});
+
+test('foundation opens where the athlete is', () => {
+  /* The failure this architecture replaces was a 1km/week athlete prescribed
+     17.5km in week one. Its first week is now their own stated volume,
+     distributed — and where their volume cannot fill their chosen days at the
+     quantum, the DAYS give way rather than the volume being manufactured. */
+  const c = auditFoundation({ distanceKey: 'half', volume: 1, weeks: 52, scheduleKey: 'd5' });
+  assert.equal(c.pathway.route, 'foundation_then_on_ramp_then_race');
+  const w1 = c.weeks[0];
+  assert.ok(w1.actualVolume <= 1.5, 'week one is ' + w1.actualVolume + 'km against a stated 1km');
+  const running = w1.sessions.filter(s => s.km > 0);
+  assert.ok(running.length < 5, 'and uses ' + running.length + ' of the five chosen days');
+  running.forEach(s => assert.ok(s.km >= 0.5, 'no session below the quantum'));
+});
+
+test('foundation carries the athlete to the on-ramp floor, and the goal comes too', () => {
+  const a = require('./audit/planAudit.js').app();
+  const p = a.athletePathway('half', 8, 40);
+  assert.equal(p.route, 'foundation_then_on_ramp_then_race');
+  assert.equal(p.foundationFromKm, 8);
+  assert.equal(p.foundationToKm, a.minViableOnRampKm('half'));
+  assert.equal(p.onRampFromKm, a.minViableOnRampKm('half'));
+  assert.equal(p.onRampToKm, a.minViableStartKm('half', 40));
+  assert.equal(p.viability.raceKm, a.DISTANCE_PROFILES.half.raceKm,
+    'the race the athlete chose is still what all of this is for');
+  assert.equal(p.foundationWeeks + p.onRampWeeks + p.raceBlockWeeks, 40);
+  assert.ok(p.foundationWeeks >= 2 && p.onRampWeeks >= 2,
+    'a stage that must cover ground needs at least two weeks to be a ramp');
+});
+
+test('neither stage claims its progression is approved', () => {
+  const a = require('./audit/planAudit.js').app();
+  const p = a.athletePathway('half', 8, 40);
+  assert.ok(p.foundationImpliedWeeklyGrowth > 1);
+  assert.ok(p.impliedWeeklyGrowth > 1);
+  assert.equal(p.growthGated, false);
+  assert.equal(p.growthGateBlockedOn, 'progression_rate_not_approved');
+});
+
+test('every foundation block the engine builds is sound', () => {
+  const m = foundations();
+  assert.ok(m.built > 400, 'foundation blocks built: ' + m.built);
+  ['foundation_generator_threw', 'foundation_invariant_failure',
+   'foundation_km_not_finite', 'foundation_km_negative',
+   'foundation_carries_structured_quality', 'foundation_carries_a_long_run',
+   'foundation_session_below_quantum', 'foundation_segment_negative',
+   'foundation_zero_km_work_segment', 'foundation_week_has_no_accounting',
+   'foundation_volume_unattributed', 'foundation_week_one_exceeds_stated_volume',
+   'foundation_does_not_reach_its_target'
+  ].forEach(code => assert.equal(m.tally[code] || 0, 0, code));
+});
+
+test('every athlete in the matrix has exactly one route, and it is built or explained', () => {
+  const m = foundations();
+  assert.equal(m.race + m.onramp + m.built + m.insufficient, 2350);
+  assert.ok(m.insufficient > 0 && m.built > 0 && m.onramp > 0 && m.race > 0);
+});
+
+test('S5 changed nothing in the race population', () => {
   const m = matrix();
   const BASE = JSON.parse(fs.readFileSync(path.join(__dirname, 'audit', 'baseline.json'), 'utf8'));
   Object.keys(BASE.tally).forEach(k =>

@@ -262,3 +262,75 @@ function checkOnRamp(c){
 }
 module.exports.checkOnRamp = checkOnRamp;
 
+
+
+/* ---------------------------------------------------------------------------
+   FOUNDATION (S5) — its own invariants, at zero from its first commit.
+   --------------------------------------------------------------------------- */
+function checkFoundation(c){
+  const out = [];
+  const add = (tier, code, detail) => out.push({ tier, code, case: c.id, ...detail });
+  if (c.skipped) return out;
+  if (c.error){ add(HARD, 'foundation_generator_threw', { message: c.error }); return out; }
+
+  (c.invariantFailures || []).forEach(f =>
+    add(HARD, 'foundation_invariant_failure', { week: f.week, archetype: f.archetype }));
+
+  c.sessions.forEach(s => {
+    if (s.km != null && !num(s.km)) add(HARD, 'foundation_km_not_finite', { week: s.week, km: s.km });
+    if (num(s.km) && s.km < 0)      add(HARD, 'foundation_km_negative',   { week: s.week, km: s.km });
+    /* NOT A MINIATURE RACE BLOCK. No structured quality and no long run: those
+       are the two things this athlete's volume cannot express, and shrinking
+       either until it fits is the defect the whole programme exists to remove. */
+    if (s.km > 0 && s.archetype !== 'easy_strides' &&
+        ['tempo','threshold','interval','repetition','checkpoint'].indexOf(s.type) !== -1)
+      add(HARD, 'foundation_carries_structured_quality', { week: s.week, type: s.type, km: s.km });
+    if (s.type === 'long')
+      add(HARD, 'foundation_carries_a_long_run', { week: s.week, km: s.km });
+    /* NO TINY ARTIFICIAL WORK. A session either exists at the quantum it is
+       presented in, or it does not exist. */
+    if (s.km != null && s.km > 0 && s.km < 0.5)
+      add(HARD, 'foundation_session_below_quantum', { week: s.week, km: s.km });
+    if (s.segments) s.segments.forEach((g, i) => {
+      if (g.km != null && g.km < 0) add(HARD, 'foundation_segment_negative', { week: s.week, index: i, km: g.km });
+      if (g.kind === 'work' && g.km === 0) add(HARD, 'foundation_zero_km_work_segment', { week: s.week, index: i });
+    });
+  });
+
+  c.weeks.forEach((w, i) => {
+    const acc = w.accounting;
+    if (!acc) add(HARD, 'foundation_week_has_no_accounting', { week: w.week });
+    else if (!acc.reconciled)
+      add(HARD, 'foundation_volume_unattributed', { week: w.week, residual: acc.roundingResidual, bound: acc.roundingBound });
+    /* IT OPENS WHERE THE ATHLETE IS. A foundation block that starts above the
+       volume the athlete stated has manufactured training, which is the whole
+       failure this architecture replaces. */
+    if (i === 0){
+      const stated = c.inputs.volume;
+      if (stated > 0 && w.actualVolume > stated * 1.30 + 0.5)
+        add(HARD, 'foundation_week_one_exceeds_stated_volume',
+          { stated, weekOne: w.actualVolume, ratio: Math.round(w.actualVolume / stated * 100) / 100 });
+    }
+  });
+
+  /* IT MUST ARRIVE, OR SAY THAT IT DOES NOT -- the S2 rule again. */
+  const peak = c.weeks.length ? Math.max(...c.weeks.map(w => w.actualVolume)) : 0;
+  const target = c.pathway.foundationToKm;
+  if (target > 0 && peak < target * 0.95){
+    /* ROUNDING COUNTS AS DECLARED, because the accounting already names it and
+       bounds it. A destination of 13.7km over five days is 2.74 per session,
+       which is presented as 2.5 -- the block lands at 12.5 and every kilometre
+       of the difference is attributed. That is the quantum, not a failure to
+       arrive. */
+    const peakWeek = c.weeks.reduce((m, w) => w.actualVolume > m.actualVolume ? w : m, c.weeks[0]);
+    const bound = (peakWeek && peakWeek.accounting) ? peakWeek.accounting.roundingBound : 0;
+    const declared = (c.accounting || []).some(e => e.allocatorRevision > 0)
+      || c.pathway.foundationWeeks < 4
+      || (target - peak) <= bound + 0.001;
+    add(declared ? SUSPECT : HARD,
+        declared ? 'foundation_declared_shortfall' : 'foundation_does_not_reach_its_target',
+        { peak, target, foundationWeeks: c.pathway.foundationWeeks });
+  }
+  return out;
+}
+module.exports.checkFoundation = checkFoundation;

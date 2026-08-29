@@ -11,8 +11,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { auditCase, auditOnRamp, DISTANCES } = require('./planAudit.js');
-const { checkCase, checkOnRamp } = require('./invariants.js');
+const { auditCase, auditOnRamp, auditFoundation, DISTANCES } = require('./planAudit.js');
+const { checkCase, checkOnRamp, checkFoundation } = require('./invariants.js');
 
 const args = process.argv.slice(2);
 const QUICK = args.indexOf('--quick') !== -1;
@@ -42,8 +42,8 @@ const stats = {
           schedules: SCHEDULES, distances: DISTANCES },
   counts: { cases: 0, plans: 0, weeks: 0, sessions: 0, runSessions: 0, restSessions: 0, errors: 0,
             racePlans: 0, routedPlans: 0,
-            onRampsBuilt: 0, foundationRequired: 0, insufficientTime: 0 },
-  onRampFindings: {},
+            onRampsBuilt: 0, foundationsBuilt: 0, insufficientTime: 0 },
+  onRampFindings: {}, foundationFindings: {},
   findingsRace: {}, findingsRouted: {},
   extremes: {
     minEasyKm: Infinity, minLongKm: Infinity, maxLongKm: -Infinity,
@@ -150,12 +150,17 @@ function run(){
             if (c.routed){
               const o = auditOnRamp({ distanceKey, volume, weeks, scheduleKey });
               if (o.skipped){
-                if (o.pathway.route === 'foundation_required') stats.counts.foundationRequired++;
-                else if (o.pathway.route === 'insufficient_time') stats.counts.insufficientTime++;
+                if (o.pathway.route === 'insufficient_time') stats.counts.insufficientTime++;
               } else {
                 stats.counts.onRampsBuilt++;
                 checkOnRamp(o).forEach(f => {
                   stats.onRampFindings[f.code] = (stats.onRampFindings[f.code] || 0) + 1; });
+              }
+              const fnd = auditFoundation({ distanceKey, volume, weeks, scheduleKey });
+              if (!fnd.skipped){
+                stats.counts.foundationsBuilt++;
+                checkFoundation(fnd).forEach(f => {
+                  stats.foundationFindings[f.code] = (stats.foundationFindings[f.code] || 0) + 1; });
               }
             }
             if (++n % 20000 === 0)
@@ -190,11 +195,14 @@ if (require.main === module){
     });
   console.log('\n-- THE ROUTED POPULATION, AS S4 NOW SERVES IT --');
   console.log('  on-ramps built      ' + c.onRampsBuilt);
-  console.log('  foundation required ' + c.foundationRequired + '   (S5 — not built, and says so)');
+  console.log('  foundations built   ' + c.foundationsBuilt);
   console.log('  insufficient time   ' + c.insufficientTime);
   const of = s.onRampFindings, ok = Object.keys(of);
   console.log('  on-ramp findings    ' + (ok.length ? '' : 'NONE'));
   ok.sort((a,b)=>of[b]-of[a]).forEach(k => console.log('    ' + k.padEnd(40) + String(of[k]).padStart(9)));
+  const ff = s.foundationFindings, fk = Object.keys(ff);
+  console.log('  foundation findings ' + (fk.length ? '' : 'NONE'));
+  fk.sort((a,b)=>ff[b]-ff[a]).forEach(k => console.log('    ' + k.padEnd(40) + String(ff[k]).padStart(9)));
   console.log('\n-- EXTREMES --');
   Object.keys(s.extremes).forEach(k => console.log('  ' + k.padEnd(26), s.extremes[k]));
   console.log('\nwritten to ' + OUT);
