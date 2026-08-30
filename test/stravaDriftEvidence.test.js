@@ -32,8 +32,13 @@ const app = () => loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
    the app does not itself write. */
 function drifted(a, opts) {
   buildPlan(a, { weeks: 10, startDate: a.addDays(TODAY, -28) });
+  /* THE LAST WEEK, not the last four days. A week is the period a quality
+     exposure is prescribed in, so it is the window that reliably contains one;
+     four days only did while every five-day schedule carried two hard sessions
+     by day count. The day this returns is still the most recent quality
+     session, which is all the drift path needs. */
   const dd = a.state.days.filter(d =>
-    d.date < TODAY && d.date >= a.addDays(TODAY, -4) &&
+    d.date < TODAY && d.date >= a.addDays(TODAY, -7) &&
     d.type !== 'rest' && a.isQualityType(d.type)).pop();
   assert.ok(dd, 'the fixture needs a recent quality day');
   dd.completed = false;

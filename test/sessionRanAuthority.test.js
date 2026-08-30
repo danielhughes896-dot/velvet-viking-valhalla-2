@@ -45,8 +45,11 @@ const app = () => loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
    does not itself write. */
 function planWithStravaOnlyQualityDay(a, opts) {
   buildPlan(a, { weeks: 10, startDate: a.addDays(TODAY, -28), distanceKey: '10k' });
+  /* THE LAST WEEK, not the last four days -- a week is the period a quality
+     exposure is prescribed in, and four days only contained one reliably while
+     five available days granted two hard sessions by day count. */
   const past = a.state.days.filter(d =>
-    d.date < TODAY && d.date >= a.addDays(TODAY, -4) &&
+    d.date < TODAY && d.date >= a.addDays(TODAY, -7) &&
     d.type !== 'rest' && a.isQualityType(d.type));
   assert.ok(past.length, 'the fixture needs a recent quality day to work with');
   const dd = past[past.length - 1];
@@ -96,12 +99,23 @@ test('Plan Evolution does not move or recreate a session that already happened',
 });
 
 test('a genuinely missed KEY session is still recovered — the fix narrows, it does not disable', () => {
-  const a = app();
-  buildPlan(a, { weeks: 10, startDate: a.addDays(TODAY, -28), distanceKey: '10k' });
+  /* PINNED THREE DAYS LATER THAN THE REST OF THE FILE, and only here.
+     missedStimulus() looks back a few days, not a full week, so the session it
+     is offered has to have been prescribed inside that window. A week now
+     carries one earned quality exposure rather than two granted by day count,
+     and on this schedule the surviving one falls just outside the look-back
+     from the file's own TODAY -- so the fixture stopped producing the case at
+     all. Moving this ONE fixture's clock puts an ordinary KEY interval back
+     inside the window. The look-back is unchanged, the assertion is unchanged,
+     and no other test in the file is affected. */
+  const LATER = '2026-05-23';
+  const a = loadApp({ pinnedDate: LATER + 'T09:00:00Z' });
+  a.showToast = () => {};
+  buildPlan(a, { weeks: 10, startDate: a.addDays(LATER, -28), distanceKey: '10k' });
   const past = a.state.days.filter(d =>
-    d.date < TODAY && d.date >= a.addDays(TODAY, -4) &&
+    d.date < LATER && d.date >= a.addDays(LATER, -4) &&
     d.type !== 'rest' && a.isQualityType(d.type));
-  assert.ok(past.length);
+  assert.ok(past.length, 'the fixture needs a recent KEY quality session to miss');
   const dd = past[past.length - 1];
   dd.completed = false;
   delete dd.stravaActivityId;                 // nothing says this happened

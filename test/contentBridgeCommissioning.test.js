@@ -80,9 +80,18 @@ function syntheticApp() {
   a.state.setup.benchmark = { distanceKey: 'full', timeSec: 3 * 3600 + 15 * 60 };
   a.state.setup.lthr = 172; a.state.setup.maxHR = 197;
 
+  /* ANY quality session the block actually contains, not one named archetype.
+     Pinning threshold_continuous was incidental to what this fixture is for --
+     it needs one past hard session with a pace target and a heart-rate band so
+     it can be run at the fast edge and read as a breakthrough. It stopped
+     resolving when a week began carrying one earned quality exposure rather
+     than two granted by day count, which halves how quickly the structure pool
+     is sampled and left this four-week window without that particular
+     archetype. The scenario is unchanged; only the selector is. */
+  const QUALITY = ['tempo', 'threshold', 'interval', 'repetition'];
   const dd = a.state.days.filter(d => {
-    const p = a.prescriptionOf(d);
-    return d.date < a.todayStr() && p && p.archetype === 'threshold_continuous';
+    if (d.date >= a.todayStr() || QUALITY.indexOf(d.type) === -1) return false;
+    return !!a.prescriptionOf(d) && !!a.executionPaceTarget(d) && !!a.executionHRTarget(d);
   })[0];
   assert.ok(dd, 'the synthetic block must contain a quality session');
   const tr = a.executionPaceTarget(dd), z = a.executionHRTarget(dd);

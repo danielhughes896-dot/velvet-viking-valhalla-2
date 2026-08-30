@@ -46,7 +46,14 @@ function app() {
   return a;
 }
 function planned(a) {
-  buildPlan(a, { weeks: 12, startDate: a.addDays(a.todayStr(), -28),
+  /* TWENTY WEEKS, NOT TWELVE. This file's whole point is to test the real
+     vocabulary the generator emits rather than a hand-written list, and a week
+     now carries one earned quality exposure rather than two granted by day
+     count -- so a structure pool is sampled at half the old rate and twelve
+     weeks no longer walks all of it. The block is longer for that reason
+     alone; the vocabulary it covers is the same one, and the assertions below
+     are unchanged. */
+  buildPlan(a, { weeks: 20, startDate: a.addDays(a.todayStr(), -28),
                  distanceKey: 'half', volume: 55, benchSec: 45 * 60 });
   a.state.setup.lthr = 165;
   a.state.setup.maxHR = 190;
@@ -58,11 +65,21 @@ function fresh() { return planned(app()); }
 // matrix below is the real plan's vocabulary rather than a hand-written list
 // that could drift from it.
 function archetypeSamples(a) {
-  const out = {};
+  /* THE REPRESENTATIVE instance of each archetype -- the largest -- rather than
+     whichever the scan met first. With one quality exposure a week a pool is
+     sampled at half the old rate, so an archetype can now appear exactly once
+     in a block and that single instance can be a taper session sized near its
+     floor. Shrinking THAT by a coach cut legitimately drops the prescription,
+     which is correct behaviour and not what these tests are about. Taking the
+     biggest instance puts each archetype back on an ordinary build-week day.
+     Nothing is exempted and no assertion is relaxed. */
+  const out = {}, biggest = {};
   a.state.days.forEach(dd => {
     const arch = dd.prescription && dd.prescription.archetype;
-    if (!arch || out[arch]) return;
-    out[arch] = dd.id;
+    if (!arch) return;
+    const km = dd.km || 0;
+    if (out[arch] !== undefined && km <= biggest[arch]) return;
+    out[arch] = dd.id; biggest[arch] = km;
   });
   return out;
 }
