@@ -236,16 +236,14 @@ test('a completed companion survives a reload', () => {
   /* It travels because cloudPutPlan() pushes `data: state` -- the whole state
      object -- so dd.support goes with it like any other field on the day.
 
-     RECORDED, NOT ASSERTED AS DESIRABLE: planContentSignature() does NOT
-     include dd.support, so a change to supporting-work completion alone does
-     not move the content signature that divergence detection compares. That
-     is pre-existing and untouched by this branch, which was scoped to
-     completion eligibility; it is reported rather than quietly changed,
-     because widening the signature changes cross-device conflict behaviour. */
+     The signature gap this assertion used to document is CLOSED: dd.support is
+     now signed, so a supporting-work change is observable to divergence
+     detection and cloudReconcile()'s identical-content branch no longer reads
+     two different plans as one. See test/supportSyncSignature.test.js. */
   assert.ok(JSON.stringify(reloaded.state).indexOf('"completedAt"') !== -1,
     'the completion is in the state object that cloudPutPlan pushes');
-  assert.doesNotMatch(String(reloaded.planContentSignature(reloaded.state)), /"support"/,
-    'documenting the known signature gap so a future change to it is deliberate');
+  assert.match(String(reloaded.planContentSignature(reloaded.state)), /"support"/,
+    'and it is signed, so the other device can tell that it happened');
 });
 
 test('run completion and companion completion stay independent', () => {

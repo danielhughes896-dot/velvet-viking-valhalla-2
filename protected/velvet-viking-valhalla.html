@@ -8312,6 +8312,12 @@ function stableStringify(v){
   }).join(',')+'}';
 }
 function nz(v){ return v===undefined ? null : v; }
+/* The stored facts a supporting companion can carry, named the way
+   ACTUAL_SYNCED_FIELDS names the log's: a completion (kind + completedAt), or
+   a decline (dismissed + dismissedAt). Anything a future writer adds to
+   dd.support has to be added here too, or the same session will read as
+   identical on two devices that disagree about it. */
+var SUPPORT_SYNCED_FIELDS = ['kind', 'completedAt', 'dismissed', 'dismissedAt'];
 function planContentSignature(st){
   if (!st || !st.setup || !st.days) return 'empty';
   return stableStringify({
@@ -8338,6 +8344,41 @@ function planContentSignature(st){
         // the morning answers and the state they produced are training
         // evidence, so they travel with the plan like everything else
         readiness: d.readiness || null,
+        /* SUPPORTING WORK IS TRAINING THE ATHLETE DID, so it signs like the
+           training the athlete did. It was missing, and the consequence was
+           not merely that a change went undetected: the identical-content
+           branch of cloudReconcile() RETURNS WITHOUT ADOPTING, so a phone that
+           logged supporting work uploaded it, the laptop then read the two
+           plans as the same plan, kept its own copy, and overwrote the
+           account on its next push. The completion was gone.
+
+           A CANONICAL SUBSET, not the object. Every other field here is
+           enumerated for the same reason -- prescription signs {a,v,p} and
+           actual signs ACTUAL_SYNCED_FIELDS -- so that what counts as "the
+           same plan" is a stated list rather than whatever a future writer
+           happens to hang on the object. These four are exhaustively what the
+           three writers of dd.support produce: a completion {kind,completedAt},
+           a decline {kind:null,dismissed,dismissedAt}, or null.
+
+           THE PRESCRIPTION ITSELF IS NOT SIGNED, and must not be. Which
+           companion a day carries is DERIVED by supportForDay() from the days
+           and the setup, both of which are already signed above; signing the
+           derived answer as well would be the second competing source the
+           prescription comment warns about. A change to what is prescribed
+           therefore still moves this signature, transitively and once.
+
+           ON DECLINES, because this file takes a position on them a few
+           hundred lines below: evolution and playbook declines are
+           deliberately NOT signed, since they are answers about a proposal
+           rather than training, and they have adoptDecisionLedgers() to carry
+           them across instead. "Not today" has neither property. It lives in
+           the day record, it changes what supportForWeek() prescribes through
+           supportRecentlyIgnored(), and no ledger carries it -- so left
+           unsigned it is lost by the same overwrite as a completion, and the
+           athlete is asked again on the other device. */
+        support: d.support ? SUPPORT_SYNCED_FIELDS.reduce(function(o,k){
+          o[k] = nz(d.support[k]); return o;
+        }, {}) : null,
         athleteState: d.athleteState ? { state:nz(d.athleteState.state), score:nz(d.athleteState.score) } : null,
         // ACTUAL_SYNCED_FIELDS keeps this in step with the log shape: anything
         // an athlete or an import can put on a workout has to be part of the
