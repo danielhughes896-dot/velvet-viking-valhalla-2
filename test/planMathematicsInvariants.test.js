@@ -288,13 +288,26 @@ test('the engine cannot build a week smaller than its own component floors', () 
      refuses to trim an easy day below 3 or a long run below 70%, and it never
      trims a quality day, so the smallest week the engine can emit is set by
      the number of running days rather than by the athlete. */
+  /* NARROWED BY S6-A, AND WORTH SAYING WHICH HALF WENT. The quality floors used
+     to be part of this: a 1km/week athlete's week one was 15km, of which the
+     two structures at their floors were a third. Since the quality prescription
+     yields to the envelope, the same week is four easy days at EASY_MIN_KM and
+     nothing else -- 12km, which is still twelve times what the athlete stated.
+     What remains is purely the easy-day floor times the day count, which is the
+     separate class this test now records on its own. */
   const a = require('./audit/planAudit.js').app();
   assert.equal(a.EASY_MIN_KM, 3, 'the easy-day floor');
   const c = auditCase({ distanceKey: '5k', volume: 1, weeks: 12, scheduleKey: 'd5' });
   const w1 = c.weeks[0];
-  assert.ok(w1.actualVolume >= 15,
+  assert.ok(w1.actualVolume >= 12,
     'a 1km/week athlete is prescribed ' + w1.actualVolume + 'km in week one');
   assert.ok(w1.actualVolume / 1 > 10, 'that is more than ten times what they stated');
+  assert.equal(w1.sessions.filter(s => s.km > 0 && s.type !== 'easy' && s.type !== 'long').length, 0,
+    'a structured session survives in a week that cannot pay for one');
+  assert.ok(w1.sessions.filter(s => s.km > 0).every(s => s.km === a.EASY_MIN_KM),
+    'every remaining session should be sitting exactly on the easy floor');
+  /* AND THE ATHLETE IS ROUTED, so this plan is measured rather than given. */
+  assert.equal(c.routed, true);
 });
 
 test('experience level cannot change a single prescribed number', () => {
@@ -789,7 +802,216 @@ test('THE IN-RACE RATCHET — asserted flat at zero, not against a baseline', ()
    'allocator_revision_undeclared', 'deliberate_reduction_unnamed',
    'floor_excess_unnamed', 'week_has_no_volume_accounting',
    'week_overshoots_target', 'week_undershoots_target',
-   'long_run_implausible_for_distance', 'week_one_exceeds_stated_volume'
+   'long_run_implausible_for_distance', 'week_one_exceeds_stated_volume',
+   /* S2-A and S6-A close two more, and they join the flat-zero list rather
+      than the drifting record. */
+   'taper_week_increases_volume', 'week_overshoots_target_declared'
   ].forEach(code => assert.equal(m.tallyRace[code] || 0, 0,
     code + ' survives inside the race population'));
+});
+
+// ---------------------------------------------------------------------------
+// S2-A — A TAPER MAY NOT ALTERNATE UPWARD
+// ---------------------------------------------------------------------------
+
+test('S2-A: no taper week anywhere asks for more than the week before it', () => {
+  /* Whole population, not just the race slice: the mechanism is in the block
+     generator and the routed slice runs the same code. 500 -> 0. */
+  const m = matrix();
+  assert.equal(m.tally.taper_week_increases_volume || 0, 0);
+});
+
+test('S2-A: the delivered quality sequence falls through every taper', () => {
+  /* THE MECHANISM, STATED DIRECTLY. Each family was already bounded against its
+     own previous instance, and that was not enough twice over:
+
+       a structure the rotation lands on can have a FLOOR above last week's
+       shrunken session, so "60% of itself" is still bigger; and
+
+       with ONE slot the families alternate, so the delivered sequence compares
+       this week's intervals against last week's tempo -- two sessions of two
+       different natural sizes. 6km of tempo was followed, inside the taper, by
+       8.5km of intervals, and both had fallen against their own previous
+       instance.
+
+     What the athlete is actually asked to run is what has to fall. */
+  let checked = 0;
+  for (const distanceKey of ['5k', '10k', 'half', 'full', 'ultra'])
+    for (const volume of [20, 29, 40, 55, 70, 80, 100])
+      for (const weeks of [8, 12, 16, 24])
+        for (const scheduleKey of ['d3', 'd5']){
+          const c = auditCase({ distanceKey, volume, weeks, scheduleKey });
+          if (c.routed || c.error) continue;
+          const qOf = w => w.sessions.filter(s => s.km > 0 && s.type !== 'easy' &&
+                             s.type !== 'long' && s.type !== 'race')
+                            .reduce((t, s) => t + s.km, 0);
+          c.weeks.forEach((w, i) => {
+            const p = c.weeks[i - 1];
+            if (!w.isTaper || !p || w.isRace) return;
+            checked++;
+            assert.ok(qOf(w) <= qOf(p) + 1e-9,
+              c.id + ' wk' + w.week + ': taper quality rose ' + qOf(p) + ' -> ' + qOf(w) +
+              '  [' + p.sessions.filter(s => s.km > 0).map(s => s.type + ':' + s.km).join(' ') +
+              '] -> [' + w.sessions.filter(s => s.km > 0).map(s => s.type + ':' + s.km).join(' ') + ']');
+          });
+        }
+  assert.ok(checked > 100, 'expected a real population of taper weeks, got ' + checked);
+});
+
+test('S2-A: what remains is the back-to-back day, and it is not a taper fault', () => {
+  /* THE MATRIX CANNOT SEE THIS CLASS -- it samples five block lengths at three
+     and five running days, and every case here is ULTRA at SIX days. Pinned
+     directly so it cannot grow unobserved between sweeps.
+
+     The mechanism is not the quality slot. An ultra block's back-to-back long
+     run stops at the taper (b2bEligible is false there), so its day returns to
+     the easy pool as a full easy day, which can be larger than the second long
+     run it replaces. It only reads as an increase because the week BEFORE it
+     could not deliver its own target: across all 616 cases in the full sweep
+     the taper delivers at most 100.7% of its own target while its predecessor
+     delivers under 95% of its. That is the declared-undershoot class showing
+     through, and it belongs to whatever answers that. */
+  const c = auditCase({ distanceKey: 'ultra', volume: 79, weeks: 14, scheduleKey: 'd6' });
+  assert.equal(c.routed, false);
+  const weeks = c.weeks;
+  const t = weeks.findIndex(w => w.isTaper);
+  const taper = weeks[t], prev = weeks[t - 1];
+  assert.ok(taper.actualVolume > prev.actualVolume, 'the class has gone; re-measure and re-record');
+  // the taper is honest against its own target...
+  assert.ok(taper.actualVolume <= taper.targetVolume * 1.05,
+    'the taper is ' + taper.actualVolume + ' against its own target of ' + taper.targetVolume);
+  // ...and the week before it is not
+  assert.ok(prev.actualVolume < prev.targetVolume * 0.95,
+    'the week before delivered ' + prev.actualVolume + ' of ' + prev.targetVolume);
+  // the quality and the long run both FELL; only the freed back-to-back day rose
+  const q = w => w.sessions.filter(s => s.km > 0 && s.type !== 'easy' && s.type !== 'long').reduce((a, b) => a + b.km, 0);
+  assert.ok(q(taper) < q(prev), 'taper quality ' + q(prev) + ' -> ' + q(taper));
+  assert.ok(taper.longKm < prev.longKm, 'long running ' + prev.longKm + ' -> ' + taper.longKm);
+  assert.ok(taper.easyKm > prev.easyKm, 'so the rise is the easy pool: ' + prev.easyKm + ' -> ' + taper.easyKm);
+  assert.equal(prev.sessions.filter(s => s.type === 'long' && s.km > 0).length, 2,
+    'the week before should be the back-to-back week');
+});
+
+test('S2-A did not flatten the taper or ban a session family', () => {
+  /* The correction chooses BETWEEN sessions the week was already going to
+     offer. If it had worked by deleting a family or pinning every taper to one
+     distance the counts below would say so. */
+  const types = {}, distinct = {};
+  for (const distanceKey of ['5k', '10k', 'half', 'full', 'ultra'])
+    for (const volume of [30, 45, 60, 80])
+      for (const weeks of [12, 16, 24])
+        for (const scheduleKey of ['d3', 'd5']){
+          const c = auditCase({ distanceKey, volume, weeks, scheduleKey });
+          if (c.routed || c.error) continue;
+          const seen = new Set();
+          c.weeks.filter(w => w.isTaper).forEach(w =>
+            w.sessions.filter(s => s.km > 0 && s.type !== 'easy' && s.type !== 'long')
+              .forEach(s => { types[s.type] = (types[s.type] || 0) + 1; seen.add(s.type); }));
+          distinct[seen.size] = (distinct[seen.size] || 0) + 1;
+        }
+  assert.ok(Object.keys(types).length >= 3,
+    'the taper now offers only ' + Object.keys(types).join(', '));
+  Object.keys(types).forEach(t => assert.ok(types[t] > 0));
+  assert.ok((distinct[2] || 0) + (distinct[3] || 0) > 0,
+    'no plan varies its quality across its own taper any more');
+});
+
+// ---------------------------------------------------------------------------
+// S6-A — THE ENVELOPE IS NOT PERMISSION FOR FIXED FLOORS
+// ---------------------------------------------------------------------------
+
+test('S6-A: no race week is built bigger than the week it was asked for', () => {
+  const m = matrix();
+  assert.equal(m.tallyRace.week_overshoots_target_declared || 0, 0);
+  assert.equal(m.tallyRace.week_overshoots_target || 0, 0);
+});
+
+test('S6-A: the named case — a quality prescription the week cannot contain', () => {
+  /* THE EVIDENCE, AS REPORTED. A 26km/week 5K athlete, fourteen weeks, six
+     running days. The final taper week is asked for 16.9km and used to be
+     built at 23.5km: two quality sessions sitting at their structure floors
+     (6.5km + 5km) either side of a 3km "long run", with EASY_MIN_KM on each of
+     the three remaining days. Nothing had overshot its own rule. The week was
+     39% over the volume the athlete was told they would run. */
+  const c = auditCase({ distanceKey: '5k', volume: 26, weeks: 14, scheduleKey: 'd6' });
+  assert.equal(c.routed, false, 'this athlete does receive a race programme');
+  const last = c.weeks.filter(w => w.isTaper).slice(-1)[0];
+  assert.ok(last.actualVolume < last.targetVolume * 1.1,
+    'the final taper week is ' + last.actualVolume + ' against a target of ' + last.targetVolume);
+  const structured = last.sessions.filter(s => s.km > 0 &&
+    s.type !== 'easy' && s.type !== 'long' && s.type !== 'rest');
+  assert.equal(structured.length, 0,
+    'a week that cannot afford a structure still carries ' +
+    structured.map(s => s.type + ':' + s.km).join(' '));
+  /* SUBSTITUTED, NOT SIMPLY DELETED: the day carries the strides the generator
+     already prescribes wherever a structure cannot be built. */
+  assert.ok(last.sessions.some(s => /Strides/.test(s.title || '')),
+    'the fast running was dropped rather than substituted');
+  // and the week before it deferred to ONE session rather than none
+  const first = c.weeks.filter(w => w.isTaper)[0];
+  assert.equal(first.sessions.filter(s => s.km > 0 && s.type !== 'easy' &&
+    s.type !== 'long').length, 1, 'the first taper week should still carry one session');
+});
+
+test('S6-A: the ladder is ordered, and only fires where the week cannot pay', () => {
+  /* A week whose floors fit is untouched -- the correction is not a general
+     reduction in quality. Checked by counting how many weeks lost a session
+     against how many exist. */
+  let weeks = 0, yielded = 0, fullQuality = 0;
+  for (const distanceKey of ['5k', '10k', 'half', 'full', 'ultra'])
+    for (const volume of [26, 35, 50, 70, 100])
+      for (const weeks_ of [8, 12, 16, 24])
+        for (const scheduleKey of ['d3', 'd5', 'd6']){
+          const c = auditCase({ distanceKey, volume, weeks: weeks_, scheduleKey });
+          if (c.routed || c.error) continue;
+          c.weeks.forEach(w => {
+            if (w.isRace) return;
+            weeks++;
+            const q = w.sessions.filter(s => s.km > 0 && s.type !== 'easy' && s.type !== 'long').length;
+            if (q === 0) yielded++; else fullQuality++;
+            /* WHEREVER A STRUCTURE SURVIVES, THE WEEK COULD AFFORD IT: no week
+               keeps a session whose floors put it over its own target. */
+            assert.ok(w.actualVolume <= w.targetVolume * 1.35,
+              c.id + ' wk' + w.week + ': ' + w.actualVolume + ' against ' + w.targetVolume);
+          });
+        }
+  assert.ok(fullQuality > yielded * 5,
+    'the ladder fired on ' + yielded + ' of ' + weeks + ' weeks, which is not a narrow correction');
+  assert.ok(yielded > 0, 'the ladder never fired, so this proves nothing');
+});
+
+test('S6-A: a checkpoint or calibration week never yields its slot', () => {
+  /* That slot IS the measurement; deferring it would delete the test rather
+     than taper it. */
+  let seen = 0;
+  for (const distanceKey of ['5k', '10k', 'half', 'full'])
+    for (const volume of [26, 30, 40, 60])
+      for (const weeks of [8, 12, 16, 24])
+        for (const scheduleKey of ['d3', 'd5', 'd6']){
+          const c = auditCase({ distanceKey, volume, weeks, scheduleKey });
+          if (c.routed || c.error) continue;
+          c.weeks.forEach(w => {
+            if (!w.sessions.some(s => s.type === 'checkpoint' && s.km > 0)) return;
+            seen++;
+          });
+        }
+  assert.ok(seen > 0, 'no checkpoint survived anywhere, which is the failure this guards');
+});
+
+test('the allocator no longer lets a rounding residue decide a long run', () => {
+  /* CONTINUITY, AND WHY THIS CHANGED. The easy days' fair share was rounded to
+     a tenth before the leftover was handed to the long run -- and the long run
+     is presented to the WHOLE kilometre, so a tenth of leftover was not a
+     tenth: it was a coin toss over a kilometre. 10k, twelve weeks, six days: at
+     93km/week the share rounded to 11.3 and left 0.1 over, taking the taper
+     long run 14.4 -> 14.5 -> 15; at 94km/week it divided exactly, left nothing,
+     and the same long run came out 14. More stated volume, a smaller plan.
+
+     The intermediate rounding had no presentation purpose -- roundWorkoutKm
+     still renders easy days to the half kilometre where it always did. */
+  const a = require('./audit/planAudit.js').app();
+  const total = c => Math.round(c.weeks.reduce((s, w) => s + w.actualVolume, 0) * 10) / 10;
+  const at = v => total(auditCase({ distanceKey: '10k', volume: v, weeks: 12, scheduleKey: 'd6' }));
+  assert.ok(at(94) >= at(93), '93 -> ' + at(93) + ', 94 -> ' + at(94));
+  assert.ok(a.round1(1) === 1);
 });

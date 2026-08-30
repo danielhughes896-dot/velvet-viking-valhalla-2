@@ -1,27 +1,7 @@
 {
   "note": "DEFECT RECORD, NOT AN APPROVAL. Whole-population counts for the RACE GENERATOR across every input, including inputs whose athletes are now routed to foundation or the on-ramp and never receive a race plan. Kept at full scope deliberately. The stricter guarantee \u2014 flat zero for every closed class inside the population that actually receives race plans \u2014 is asserted separately in test/planMathematicsInvariants.test.js and has no baseline to drift against.",
-  "generatedFrom": "test/audit/matrix.js \u2014 D-7 (block-length-limited development)",
-  "d7Note": "D-7 lowers the peak of short blocks, so longTarget = volume x LONG_FRACTION is smaller all block and more weeks produce a sub-kilometre long run that rounds to zero. At THIS matrix's scope every code that rose above rose only in the ROUTED slice: in-race, each of them is either unchanged at zero (zero_km_work_segment, long_run_zero_distance, generator_invariant_failure, week_overshoots_target_declared, long_run_implausible_for_distance) or lower than before (long_run_shorter_than_easy_run 6->5, long_run_shorter_than_quality 261->245, quality_dominates_week 585->563, taper_week_increases_volume 48->41). Predicted in D7-DESIGN.md before implementation. SCOPE WARNING, MEASURED AND NOT RESOLVED: the matrix samples only block lengths 4/8/12/16/24 at d3 and d5. The full 50,400-plan sweep (every length 4-24, d3-d6) DOES show four in-race increases -- week_overshoots_target_declared 70->74, quality_dominates_week 5729->5801, long_run_shorter_than_quality 3258->3333, long_run_shorter_than_easy_run 149->169 -- entirely at block lengths 4-13 and overwhelmingly in the 5k profile. None occur at 14 weeks or longer. The mechanism is not new quality: the quality kilometres are identical before and after, and the easy and long kilometres around them shrank. It is the S6 structure-floor class becoming visible in-race, and it is reported to HQ rather than damped here.",
+  "generatedFrom": "test/audit/matrix.js \u2014 D-7 + S2-A (taper sequencing) + S6-A (quality yields to the envelope)",
   "previousTally": {
-    "zero_km_work_segment": 528,
-    "long_run_zero_distance": 528,
-    "long_run_shorter_than_easy_run": 5796,
-    "long_run_shorter_than_quality": 11686,
-    "week_overshoots_target_declared": 5934,
-    "quality_dominates_week": 13664,
-    "week_over_week_growth_over_10pct": 1920,
-    "taper_week_increases_volume": 439,
-    "generator_invariant_failure": 528,
-    "week_one_exceeds_stated_volume": 854,
-    "week_undershoots_target_declared": 2333,
-    "long_run_implausible_for_distance": 4735
-  },
-  "plans": 2350,
-  "weeks": 30080,
-  "sessions": 210560,
-  "racePlans": 442,
-  "routedPlans": 1908,
-  "tally": {
     "zero_km_work_segment": 576,
     "long_run_zero_distance": 576,
     "long_run_shorter_than_easy_run": 6127,
@@ -35,26 +15,44 @@
     "week_undershoots_target_declared": 2175,
     "long_run_implausible_for_distance": 5080
   },
+  "previousNote": "The D-7 figures this record replaces. Every code is lower or unchanged except week_undershoots_target_declared, which rose by 12 here and by 1,250 across the full 50,400-plan sweep (183,169 -> 184,419 in-race). Every one of the 1,250 is a TAPER week -- build and cutback weeks are identical to the kilometre -- and every one is allocator:day_count on a schedule whose day count already cannot reach its target (1,162 of 1,250 are three- or four-day weeks). The smaller taper session drops the week further below a target it was never able to reach; the shortfall is declared and reconciled, and no silent week_undershoots_target exists anywhere in the race population. D-7's recorded scope warning is discharged: the four in-race increases the sweep showed at that stage -- week_overshoots_target_declared 70->74, quality_dominates_week 5,729->5,801, long_run_shorter_than_quality 3,258->3,333, long_run_shorter_than_easy_run 149->169 -- now read 0, 3,926, 1,342 and 163.",
+  "correctionNote": "S2-A corrected the taper at the SELECTION layer: a taper may not rotate to a structure it cannot shrink under the week before, and a single quality slot may not alternate upward. taper_week_increases_volume goes 500 -> 0 across this matrix. S6-A made the quality prescription yield to the weekly envelope: where the session floors plus the long run plus EASY_MIN_KM on each remaining day already cost more than the week was asked for, two slots become one and then the last becomes an easy run with strides. week_overshoots_target_declared is 0 in-race across the full 50,400-plan sweep. What remains in the routed slice is the separate easy-floor class: EASY_MIN_KM on every running day exceeding a very small week, which no quality decision reaches.",
+  "plans": 2350,
+  "weeks": 30080,
+  "sessions": 210560,
+  "racePlans": 442,
+  "routedPlans": 1908,
+  "tally": {
+    "zero_km_work_segment": 576,
+    "long_run_zero_distance": 576,
+    "long_run_shorter_than_easy_run": 5522,
+    "long_run_shorter_than_quality": 2712,
+    "week_overshoots_target_declared": 3983,
+    "quality_dominates_week": 3445,
+    "generator_invariant_failure": 576,
+    "week_one_exceeds_stated_volume": 404,
+    "week_over_week_growth_over_10pct": 610,
+    "week_undershoots_target_declared": 2187,
+    "long_run_implausible_for_distance": 4326
+  },
   "tallyRace": {
-    "long_run_shorter_than_quality": 245,
-    "quality_dominates_week": 563,
+    "long_run_shorter_than_quality": 162,
+    "quality_dominates_week": 467,
     "week_over_week_growth_over_10pct": 211,
-    "week_undershoots_target_declared": 2158,
-    "long_run_shorter_than_easy_run": 5,
-    "taper_week_increases_volume": 41
+    "week_undershoots_target_declared": 2170,
+    "long_run_shorter_than_easy_run": 3
   },
   "tallyRouted": {
     "zero_km_work_segment": 576,
     "long_run_zero_distance": 576,
-    "long_run_shorter_than_easy_run": 6122,
-    "long_run_shorter_than_quality": 12030,
-    "week_overshoots_target_declared": 6289,
-    "quality_dominates_week": 13676,
-    "week_over_week_growth_over_10pct": 1508,
-    "taper_week_increases_volume": 459,
+    "long_run_shorter_than_easy_run": 5519,
+    "long_run_shorter_than_quality": 2550,
+    "week_overshoots_target_declared": 3983,
+    "quality_dominates_week": 2978,
     "generator_invariant_failure": 576,
-    "week_one_exceeds_stated_volume": 609,
+    "week_one_exceeds_stated_volume": 404,
+    "week_over_week_growth_over_10pct": 399,
     "week_undershoots_target_declared": 17,
-    "long_run_implausible_for_distance": 5080
+    "long_run_implausible_for_distance": 4326
   }
 }

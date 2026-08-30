@@ -4468,6 +4468,54 @@ function shrinkTempoSpec(spec, target){
   return s;
 }
 
+/* ---------- A TAPER SELECTS A SESSION IT CAN HONESTLY SHRINK ----------
+   S2-A. The taper already sizes each family against its own previous instance
+   (taperCeilQ / taperCeilT below). That is a SIZING bound, and a sizing bound
+   fails silently when the structure the rotation lands on cannot be shrunk far
+   enough: every shrink function stops at a floor -- TAPER_MIN_REPS,
+   TAPER_MIN_SET_REPS, TAPER_MIN_LADDER, TAPER_MIN_WORK_KM, TAPER_MIN_WORK_MIN
+   -- and a structure whose floor is bigger than last week's shrunken session
+   raises the week even though every rule was obeyed.
+
+   Measured: an 80km/week 5K athlete over twelve weeks. Taper week one drew a
+   structure that shrank to 6.4km; taper week two drew a different one from the
+   same pool whose floor is 8.1km. Both were "60% of themselves". The delivered
+   sequence rose 12.5km -> 13.5km inside a taper.
+
+   THE CORRECTION IS SELECTION, NOT ARITHMETIC. The week keeps looking through
+   its own pool, in its own rotation order, for a structure it can size at or
+   under the ceiling. Nothing is banned, nothing is flattened, no new constant
+   exists, and the ordinary (non-taper) rotation is untouched -- it is only that
+   a taper may not choose a session it cannot taper.
+
+   IF NOTHING IN THE POOL FITS, REPEAT THE WEEK BEFORE, SMALLER. That is what a
+   taper does anyway: the same session, less of it. And where the previous
+   structure is itself already at its floor, the floor is the honest answer and
+   is left visible rather than dressed up -- that case is the fixed-structure
+   floor problem, answered where it lives and not here. */
+function fitTaperQualityStructure(pool, kind, phase, weekNum, pos, emphasis, rotation, hardCeil, prevSpec){
+  var candidates = pool[phase] || pool.Peak;
+  var shrink = kind === 'interval' ? shrinkIntervalSpec : shrinkTempoSpec;
+  var size   = kind === 'interval' ? intervalSessionKm  : tempoSessionKm;
+  var best = null;
+  for (var i = 0; i < candidates.length; i++){
+    var raw = candidates[(weekNum + (rotation || 0) + i) % candidates.length](pos, emphasis);
+    // the taper's own factor still does the sizing; the ceiling only bounds it
+    var s = shrink(raw, Math.min(size(raw) * TAPER_QUALITY_FACTOR, hardCeil));
+    if (size(s) <= hardCeil + 1e-9) return s;
+    if (best === null || size(s) < size(best)) best = s;
+  }
+  // defensive: the pools are literal arrays and are never empty, so this only
+  // matters if a future pool is built dynamically
+  if (!best) return prevSpec ? copySpec(prevSpec)
+            : pickQualityStructure(pool, phase, weekNum, pos, emphasis, rotation);
+  if (prevSpec){
+    var rep = shrink(copySpec(prevSpec), Math.min(size(prevSpec) * TAPER_QUALITY_FACTOR, hardCeil));
+    if (size(rep) <= size(best)) return rep;
+  }
+  return best;
+}
+
 /* ---------- THE INVARIANT ----------
    A quality day's allocated distance must always contain the session it
    prescribes. Returns the shortfall in km, 0 when the day is big enough.
@@ -5236,7 +5284,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   var weeks = [];
   // The previous week's quality sizes, so a taper week can be held at or below
   // them. Null until the first week has been built.
-  var prevQKm = null, prevTKm = null;
+  var prevQKm = null, prevTKm = null, prevQSpec = null, prevTSpec = null;
 
   for (var w=1; w<=N; w++){
     var isRace = !steady && arc.hasGoalEffort && (w===N);
@@ -5399,21 +5447,32 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        viability boundary rather than here. */
     var taperCeilQ = (isTaper && prevQKm != null) ? prevQKm : Infinity;
     var taperCeilT = (isTaper && prevTKm != null) ? prevTKm : Infinity;
-    var fitTarget = isRace ? Infinity
-                   : Math.min(isTaper ? Math.min(intervalSessionKm(qSpec)*TAPER_QUALITY_FACTOR, taperCeilQ) : Infinity,
-                              Math.min(profile.longCapKm, volume*LONG_FRACTION[profile.emphasis]));
-    qSpec = shrinkIntervalSpec(qSpec, fitTarget);
-    var tFit = isRace ? Infinity
-              : Math.min(isTaper ? Math.min(tempoSessionKm(tSpec)*TAPER_QUALITY_FACTOR, taperCeilT) : Infinity,
-                         Math.min(profile.longCapKm, volume*LONG_FRACTION[profile.emphasis]));
-    tSpec = shrinkTempoSpec(tSpec, tFit);
+    var weekFitCeil = Math.min(profile.longCapKm, volume*LONG_FRACTION[profile.emphasis]);
+    /* S2-A. In a taper the ceiling decides WHICH structure as well as how big
+       it is -- see fitTaperQualityStructure. Everywhere else the rotation's own
+       choice is sized exactly as it always was. */
+    if (isTaper && !isRace){
+      qSpec = fitTaperQualityStructure(INTERVAL_STRUCTURE_POOL, 'interval', structPhase, w, pos,
+                                       profile.emphasis, rotation,
+                                       Math.min(taperCeilQ, weekFitCeil), prevQSpec);
+      tSpec = fitTaperQualityStructure(TEMPO_STRUCTURE_POOL, 'tempo', structPhase, w, pos,
+                                       profile.emphasis, rotation,
+                                       Math.min(taperCeilT, weekFitCeil), prevTSpec);
+    } else {
+      var fitTarget = isRace ? Infinity : weekFitCeil;
+      qSpec = shrinkIntervalSpec(qSpec, fitTarget);
+      tSpec = shrinkTempoSpec(tSpec, fitTarget);
+    }
     var qKm = intervalSessionKm(qSpec);
     var tKm = tempoSessionKm(tSpec);
     if (isRace){ qKm=0; tKm=0; }
     // An on-ramp or foundation block carries no structured quality at all.
     if (arc.noQuality){ qKm=0; tKm=0; }
-    // carried to the next week so a taper can be bounded by what preceded it
+    // carried to the next week so a taper can be bounded by what preceded it --
+    // the sizes for the ceiling, the structures so a taper that finds nothing
+    // it can shrink can repeat the week before rather than grow.
     prevQKm = qKm; prevTKm = tKm;
+    if (!isRace && !arc.noQuality){ prevQSpec = qSpec; prevTSpec = tSpec; }
 
     var longFrac = LONG_FRACTION[profile.emphasis];
     /* A FOUNDATION BLOCK HAS NO LONG RUN, and that is the point rather than an
@@ -7431,7 +7490,7 @@ function distributeWeekVolume(volumeKm, qualityKm, longKm, secondLongKm, easyDay
           ? Math.max(floorKm, roundTo(longKm, 1) - EASY_QUANTUM_KM)
           : Math.max(floorKm, longKm * EASY_MAX_FRACTION_OF_LONG))
       : Infinity;
-    var fairShare = round1(easyBudget/easyDayCount);
+    var fairShare = easyBudget/easyDayCount;
     perEasy = clamp(fairShare, floorKm, easyCap === Infinity ? Infinity : round1(easyCap));
     if (perEasy > fairShare) easyFloorExcessKm = round1((perEasy - fairShare) * easyDayCount);
     easyBudget = Math.max(0, round1(easyBudget - perEasy*easyDayCount));
@@ -7472,6 +7531,10 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   /* FOUNDATION HAS NO LONG DAY, so every active day is an easy day and the
      long-run slot simply does not exist. */
   var noLongRun = !!blockResult.noLongRun;
+  /* S2-A. What the previous week actually ASKED THE ATHLETE TO RUN in its
+     quality slots, so a taper can be held against the load it delivered rather
+     than against a per-family bookkeeping figure the athlete never sees. */
+  var prevDeliveredQualityKm = null;
   /* AND ITS SESSIONS ARE FLOORED AT THE QUANTUM THEY ARE PRESENTED IN, not at
      the race week's 3km. Half a kilometre is the smallest easy distance the app
      can render (roundWorkoutKm rounds easy days to 0.5km), so it is the
@@ -7593,13 +7656,128 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        as three hard days. Spare distance goes to easy running first, then to
        the long run up to its cap, and never to a quality session. */
     var qKmThisWeek = wk.qKm, tKmThisWeek = wk.tKm;
+    // What a slot will actually put on the card: the session plus whatever its
+    // own floor adds to the day. The same expression buildQualityDay() uses.
+    function slotDeliveredKm(kind){
+      return kind==='interval'
+        ? qKmThisWeek + qualityDayShortfallKm(qKmThisWeek, wk.qSpec, 'interval')
+        : tKmThisWeek + qualityDayShortfallKm(tKmThisWeek, wk.tSpec, 'tempo');
+    }
     // With one slot the two stimuli alternate week to week rather than one of
     // them being dropped for the whole block; the checkpoint always takes it.
     var singleSlotKind = (wk.isCheckpoint || wk.isCalibration) ? 'tempo'
                        : (wk.week % 2 === 0 ? 'tempo' : 'interval');
-    var qualityKm = qualityDays.length>=2 ? (qKmThisWeek + tKmThisWeek)
-                  : qualityDays.length===1 ? (singleSlotKind==='interval' ? qKmThisWeek : tKmThisWeek)
+    /* S2-A. THE OTHER HALF OF THE TAPER DEFECT, AND IT IS A SEQUENCING FAULT.
+       Each family is bounded against its own previous instance, but with a
+       single slot the two families ALTERNATE, so the delivered sequence
+       compares this week's interval against last week's tempo -- two different
+       sessions of two different natural sizes. Every remaining in-race taper
+       increase after D-7 was this: 6km of tempo followed, inside the taper, by
+       8.5km of intervals. Both had fallen against their own previous instance.
+       Neither rule was broken. The athlete still ran more.
+
+       A taper may keep alternating; it may not alternate UPWARD. Where the
+       rotation's turn would deliver more than the week before and the other
+       family would deliver less, the slot takes the other family. That is a
+       choice between two sessions the week was already going to offer -- no
+       family is banned, no distance is invented, and where neither fits the
+       smaller of the two is taken and the shortfall stays visible as the
+       fixed-structure floor problem it is.
+
+       A checkpoint or calibration week is exempt: that slot IS the session, and
+       swapping it away would delete the test rather than taper it. */
+    if (wk.isTaper && qualityDays.length===1 && !wk.isCheckpoint && !wk.isCalibration &&
+        prevDeliveredQualityKm != null){
+      var other = singleSlotKind==='interval' ? 'tempo' : 'interval';
+      if (slotDeliveredKm(singleSlotKind) > prevDeliveredQualityKm + 1e-9 &&
+          slotDeliveredKm(other) < slotDeliveredKm(singleSlotKind)) singleSlotKind = other;
+    }
+    /* ---- S6-A. THE WEEKLY ENVELOPE IS NOT PERMISSION FOR FIXED FLOORS ----
+       CAPACITY IS PERMISSION, NOT OBLIGATION. A quality structure shrinks only
+       as far as its own floor -- TAPER_MIN_REPS, TAPER_MIN_WORK_KM and the
+       rest -- and below that it stops. The week then has to pay for it. Where
+       the floors of the sessions plus the long run plus EASY_MIN_KM on each
+       remaining day already cost more than the week was asked for, the week is
+       built bigger than its own target and the overshoot is charged to the
+       athlete: a 26km/week 5K athlete's final taper week was asked for 16.9km
+       and prescribed 23.5km, of which 11.5km was two quality sessions sitting
+       at their floors either side of a 3km "long run".
+
+       Nothing about that is arithmetic to be smoothed away. The week cannot
+       honestly contain the prescription, so the PRESCRIPTION gives way, by
+       explicit rule and in a fixed order:
+
+         DEFER   two quality slots become one. Which one survives is the
+                 existing single-slot alternation -- the same rule a three-day
+                 week has always used -- so variety across the block is kept and
+                 nothing new decides it. A checkpoint or calibration week is
+                 exempt: that slot IS the measurement.
+         SUBSTITUTE  the last structured session becomes an easy run with
+                 strides, using the strides day this generator already builds
+                 for blocks that carry no structured quality. Six by 100m is
+                 the smallest fast running the library contains, it costs the
+                 week nothing, and it is what the product already prescribes
+                 when a structure cannot be built.
+
+       The order is the hierarchy the principles give. Safety and training need
+       come before the session menu: at these volumes the aerobic week IS the
+       training, and the structure is what capacity has not yet earned.
+
+       NO NEW NUMBER. The test is the week's own volume against floors that all
+       already exist. What remains after both rungs -- EASY_MIN_KM on each day
+       plus the long run still exceeding a very small week -- is the separate,
+       pre-existing easy-floor class, left declared and visible rather than
+       folded into this one. */
+    var qualitySlotsThisWeek = qualityDays.length;
+    if (qualitySlotsThisWeek > 0 && !blockResult.noQuality){
+      var pinned = (wk.isCheckpoint || wk.isCalibration) ? 1 : 0;
+      var baseEasyN = easyDays.length;
+      var floorPerEasy = (easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM;
+      var floorCostFor = function(slots, kind){
+        var q = slots>=2 ? (slotDeliveredKm('interval') + slotDeliveredKm('tempo'))
+              : slots===1 ? slotDeliveredKm(kind) : 0;
+        return q + longKm + secondLongKm +
+               (baseEasyN + (qualityDays.length - slots)) * floorPerEasy;
+      };
+      var affordable = function(slots, kind){
+        return floorCostFor(slots, kind) <= wk.volume + 1e-9;
+      };
+      while (qualitySlotsThisWeek > pinned &&
+             !affordable(qualitySlotsThisWeek, singleSlotKind)){
+        /* DEFERRING TO ONE SLOT ALSO CHOOSES WHICH ONE. The rotation's turn goes
+           first, so variety is decided the way it always was; only where that
+           session is the reason the week cannot pay does the other family take
+           the slot. Keeping a session the week can afford is strictly better
+           than dropping to strides because the wrong one was tried. */
+        if (qualitySlotsThisWeek === 2 && pinned === 0){
+          var alt = singleSlotKind==='interval' ? 'tempo' : 'interval';
+          if (!affordable(1, singleSlotKind) && affordable(1, alt)) singleSlotKind = alt;
+        }
+        qualitySlotsThisWeek--;
+      }
+      if (qualitySlotsThisWeek < qualityDays.length){
+        wk.qualityYieldedSlots = qualityDays.length - qualitySlotsThisWeek;
+        // the days the sessions came off become ordinary easy days
+        easyDays = easyDays.concat(qualityDays.slice(qualitySlotsThisWeek)).sort(function(a,b){return a-b;});
+      }
+    }
+    var wkQty1Day = qualitySlotsThisWeek >= 1 ? qty1Day : null;
+    var wkQty2Day = qualitySlotsThisWeek >= 2 ? qty2Day : null;
+    /* The strides day for a week that gave a session up: the day it came off,
+       furthest from the long run. Falls back to the block-level strides day, so
+       blocks that never carried structured quality are unchanged. */
+    var wkStridesDay = stridesDay;
+    if (qualitySlotsThisWeek < qualityDays.length)
+      wkStridesDay = qualityDays.slice(qualitySlotsThisWeek).reduce(function(best, d){
+        return (best === null || isoGap(d, longDay) > isoGap(best, longDay)) ? d : best;
+      }, null);
+
+    var qualityKm = qualitySlotsThisWeek>=2 ? (qKmThisWeek + tKmThisWeek)
+                  : qualitySlotsThisWeek===1 ? (singleSlotKind==='interval' ? qKmThisWeek : tKmThisWeek)
                   : 0;
+    prevDeliveredQualityKm = qualitySlotsThisWeek>=2
+      ? round1(slotDeliveredKm('interval') + slotDeliveredKm('tempo'))
+      : qualitySlotsThisWeek===1 ? slotDeliveredKm(singleSlotKind) : 0;
 
     var dist = distributeWeekVolume(wk.volume, qualityKm, longKm, secondLongKm,
                                      easyDays.length, profile.longCapKm, easyFloorKm,
@@ -7693,15 +7871,15 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         // a day the week's own volume cannot fill at the quantum -- see above
         var rdF = restDayText(false);
         dayObj = { type:rdF.type, title:rdF.title, km:0, desc:rdF.desc };
-      } else if (activeSet[iso] && iso===qty1Day){
-        dayObj = buildQualityDay(singleSlot ? singleSlotKind : 'interval');
-      } else if (activeSet[iso] && iso===qty2Day){
+      } else if (activeSet[iso] && iso===wkQty1Day){
+        dayObj = buildQualityDay(qualitySlotsThisWeek===1 ? singleSlotKind : 'interval');
+      } else if (activeSet[iso] && iso===wkQty2Day){
         dayObj = buildQualityDay('tempo');
       /* STRIDES NEED A RUN TO SIT INSIDE. Six by 100m is 600m of the session,
          so below a full easy day they stop being a detail inside a run and
          become most of it. EASY_MIN_KM is the existing statement of what a full
          easy day is; below it the day is simply an easy run. */
-      } else if (activeSet[iso] && iso===stridesDay && perEasy >= EASY_MIN_KM){
+      } else if (activeSet[iso] && iso===wkStridesDay && perEasy >= EASY_MIN_KM){
         /* The strides sit INSIDE the easy run, so the day's distance is the
            easy day's distance and the week's volume is untouched. */
         var strEasyKm = round1(perEasy - 1);
