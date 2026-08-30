@@ -1,21 +1,33 @@
-// Private-beta sign-in. The app posts an email address here instead of calling
-// GoTrue directly, so an unauthorised address gets one clear sentence rather
-// than a database error it cannot interpret.
+// Sign-in. The app posts an email address here instead of calling GoTrue
+// directly, so a failure gets one clear sentence rather than a provider error
+// the browser cannot interpret.
 //
 //   POST { email, redirect } -> 200 { sent:true }
-//                            -> 403 { error:'not_in_beta' }
 //
-// THIS ENDPOINT IS NOT THE SECURITY BOUNDARY, and must not be mistaken for it.
-// The publishable key ships in the client, so anyone can POST /auth/v1/otp at
-// Supabase directly and skip this route entirely. What actually refuses is the
-// BEFORE INSERT trigger on auth.users installed by supabase-beta-gate.sql, and
-// what refuses a revoked tester is the is_beta_approved() predicate on the RLS
-// policies. This route exists for the message, not the enforcement -- so if it
-// were removed tomorrow the gate would still hold.
+// PUBLIC AT COMMERCIAL LAUNCH. This route used to read public.beta_allowlist
+// and answer 403 not_in_beta to any address that was not on it. That check is
+// retired, and the retirement is the launch: authentication is now public and
+// PRODUCT ACCESS is what is controlled.
 //
-// The allowlist is read with the service-role key held in this process. It is
-// never sent to the browser, and no part of the list is echoed in a response
-// or a log line.
+// THE TWO ARE DIFFERENT QUESTIONS AND THE SEPARATION IS THE WHOLE MODEL.
+// Anyone may prove they own an email address; nobody reaches Valhalla without a
+// commercial entitlement. resolveAccess() in _access.js decides the second one
+// against the entitlements row, and it refuses an authenticated account with no
+// subscription, no trial and no override whether or not that account exists.
+// Being able to sign in is worth exactly nothing on its own.
+//
+// SO THE ALLOWLIST IS NOT CONSULTED ANYWHERE IN THIS FILE ANY MORE. It survives
+// in the database as the record of who was invited to the private beta, and the
+// athletes who held beta access were converted at cutover into explicit
+// complimentary grants. Adding a row to it today grants nobody anything, and
+// this route must never become the place that changes.
+//
+// THIS ENDPOINT IS STILL NOT A SECURITY BOUNDARY, and must not be mistaken for
+// one. The publishable key ships in the client, so anyone can POST /auth/v1/otp
+// at Supabase directly and skip this route entirely -- which was true while the
+// allowlist check lived here too. What it does provide is a validated redirect
+// target, a single place to classify provider failures honestly, and a server
+// that holds the service key rather than a browser that does not.
 
 const S = require('./_strava.js');   // the canonical Supabase access layer:
                                      // project pinning, service-key attribution
@@ -86,17 +98,6 @@ function safeRedirect(requested, origins){
   return (list[0] || '') + ENTRY_PATH;
 }
 
-/* A single allowlist row, by exact lowercased address. `select=email` keeps the
-   response to the one field needed to answer yes/no. */
-async function isApproved(cfg, email){
-  const r = await S.sb(cfg, '/beta_allowlist?select=email' +
-    '&email=eq.' + encodeURIComponent(email) +
-    '&revoked_at=is.null&limit=1');
-  if (!r.ok) return { ok: false };
-  const rows = await r.json().catch(() => null);
-  return { ok: true, approved: !!(rows && rows.length) };
-}
-
 module.exports = async function handler(req, res){
   const cfg = S.config();
 
@@ -117,18 +118,10 @@ module.exports = async function handler(req, res){
     return S.json(res, 400, { error: 'bad_email' });
   }
 
-  const check = await isApproved(cfg, email);
-  if (!check.ok){
-    // Fail CLOSED. If the allowlist cannot be read we do not know whether this
-    // address is authorised, and guessing "yes" would be the whole gate.
-    log('ALLOWLIST_UNREADABLE');
-    return S.json(res, 503, { error: 'unavailable', code: 'ALLOWLIST_UNREADABLE' });
-  }
-  if (!check.approved){
-    // No address in the log line, and the same body for every refusal.
-    log('REFUSED not_in_beta');
-    return S.json(res, 403, { error: 'not_in_beta' });
-  }
+  /* NO ELIGIBILITY CHECK HERE ANY MORE. A new address is a new athlete, and
+     the commercial gate is what decides whether they see the product. The
+     service-key check above stays: it is not about who may sign in, it is
+     about whether this deployment can function at all. */
 
   const origins  = webOrigins(req);
   const redirect = safeRedirect(body.redirect, origins);

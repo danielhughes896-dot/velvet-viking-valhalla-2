@@ -128,7 +128,12 @@ async function call(resource, method){
   let status = null, allow = null;
   const res = { setHeader(k, v){ if (String(k).toLowerCase() === 'allow') allow = v; },
                 status(s){ status = s; return this; }, send(){} };
-  await account({ url: '/api/account?resource=' + resource, method, headers: {} }, res);
+  /* A UK request, because the commercial launch is UK-only and checkout fails
+     closed without a country. This helper only checks that a resource ROUTES,
+     but it routes through the real handler, so it has to look like a request
+     that could exist. */
+  await account({ url: '/api/account?resource=' + resource, method,
+                  headers: { 'x-vercel-ip-country': 'GB' } }, res);
   return { status, allow };
 }
 

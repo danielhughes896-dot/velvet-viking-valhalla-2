@@ -94,7 +94,12 @@ test('a live key without the commercial flag is refused', () => {
 });
 
 test('only the two approved periods are accepted', () => {
-  const base = { commerceEnabled: true, stripeConfigured: true, uid: 'u1', purchaseCheck: allow };
+  /* country: 'GB' — the commercial launch is United Kingdom only and
+     decideCheckout() fails closed on an absent country. These fixtures test
+     other refusals, so they state a permitted country to isolate the one under
+     test. The country refusals themselves live in test/ukOnlyCheckout.test.js. */
+  const base = { commerceEnabled: true, stripeConfigured: true, uid: 'u1',
+                 country: 'GB', purchaseCheck: allow };
   assert.equal(Checkout.decideCheckout(Object.assign({ period: 'monthly' }, base)).offerCode, 'STANDARD_MONTHLY');
   assert.equal(Checkout.decideCheckout(Object.assign({ period: 'yearly' }, base)).offerCode, 'STANDARD_YEARLY');
   for (const bad of ['weekly', 'MONTHLY', '', null, 'monthly ', 1, {}]) {
@@ -111,7 +116,8 @@ test('an unauthenticated caller cannot start a checkout', () => {
 });
 
 test('the canonical purchase rule decides, not a second opinion here', () => {
-  const base = { commerceEnabled: true, stripeConfigured: true, uid: 'u1', period: 'monthly' };
+  const base = { commerceEnabled: true, stripeConfigured: true, uid: 'u1',
+                 country: 'GB', period: 'monthly' };
   for (const [check, code] of [
     [{ allowed: false, reason: 'already_subscribed', existingProvider: 'apple' }, 'already_subscribed'],
     [{ allowed: false, reason: 'admin_grant_active' }, 'admin_grant_active'],

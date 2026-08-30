@@ -32,6 +32,52 @@ const Agree = require('./_agreements.js');
 
 function log(what){ try{ console.log('checkout: ' + what); }catch(e){} }
 
+/* ---------- WHERE THE ATHLETE IS BUYING FROM ----------
+ *
+ * THE COMMERCIAL LAUNCH IS UNITED KINGDOM ONLY, and this is the line that
+ * makes that true rather than aspirational.
+ *
+ * WHAT STRIPE CANNOT DO, ESTABLISHED BEFORE WRITING THIS. A Checkout Session
+ * has no billing-country restriction. `allowed_countries` exists only under
+ * shipping_address_collection, and this is a digital subscription with nothing
+ * to ship -- collecting a "shipping" address purely to borrow its country
+ * dropdown would put a fictional address on every customer record to enforce
+ * something it does not actually mean. billing_address_collection takes
+ * 'auto' or 'required' and no list. So the gate cannot live in the session
+ * parameters, and anything claiming otherwise would be decoration.
+ *
+ * SO IT LIVES HERE, BEFORE A SESSION EXISTS. The country comes from
+ * x-vercel-ip-country, which the platform derives from the connecting IP at
+ * the edge. It is not a header the caller can set: Vercel overwrites the
+ * forwarded-for chain precisely to stop that, so no query parameter, body
+ * field or client-supplied header reaches this decision. A refusal here means
+ * no Checkout Session is created at all -- there is nothing to tamper with
+ * afterwards because nothing was made.
+ *
+ * WHAT THIS HONESTLY DOES NOT COVER, said plainly rather than left for
+ * somebody to discover: it is a LOCATION gate, not a payment-instrument gate.
+ * A VPN presents a UK exit address, and a UK-located athlete may hold a
+ * foreign card. Closing that requires a Stripe Radar rule on the card's
+ * issuing country, which is dashboard configuration and is reported to the
+ * operator rather than done here.
+ *
+ * FAILS CLOSED. An absent country is refused, with its own code so a
+ * deployment that is not supplying the header is diagnosable and never
+ * silently becomes "sell to everybody". */
+const SUPPORTED_COUNTRIES = ['GB'];
+
+/* Read only from the platform header. Deliberately no fallback to anything a
+   caller can influence -- a body field or a query parameter named `country`
+   would be exactly the bypass this exists to prevent. */
+function countryOf(req){
+  const h = (req && req.headers) || {};
+  const raw = h['x-vercel-ip-country'] || h['X-Vercel-IP-Country'] || '';
+  return String(raw).trim().toUpperCase() || null;
+}
+function countrySupported(code){
+  return SUPPORTED_COUNTRIES.indexOf(String(code || '').toUpperCase()) !== -1;
+}
+
 /* ---------- the decision, as a pure function ----------
    Separated from the IO so the suite can exercise every refusal without a
    Supabase, a Stripe or a network. */
@@ -50,6 +96,25 @@ function decideCheckout(input){
 
   if (!o.stripeConfigured) return { ok: false, code: 'provider_not_configured', status: 503 };
   if (!o.uid) return { ok: false, code: 'not_signed_in', status: 401 };
+
+  /* 2b. UNITED KINGDOM ONLY, for this launch.
+   *
+   * Checked before the period, the eligibility rules and the legal evidence,
+   * because none of those questions is worth asking somebody we cannot sell
+   * to -- and because recording an agreement acceptance for a purchase that
+   * was never going to be permitted would put a misleading row in a table
+   * whose whole value is that it is accurate.
+   *
+   * An absent country refuses separately from an unsupported one: the first is
+   * a deployment fault and the second is a customer in the wrong country, and
+   * a single code for both would send whoever is diagnosing it to the wrong
+   * place. */
+  /* Normalised HERE as well as in countryOf(), so the pure function is
+     robust whoever calls it: a header of "   " is an absent country, not an
+     unsupported one, and the two have different causes and different codes. */
+  const country = String(o.country == null ? '' : o.country).trim().toUpperCase();
+  if (!country) return { ok: false, code: 'country_unavailable', status: 503 };
+  if (!countrySupported(country)) return { ok: false, code: 'country_not_supported', status: 403 };
 
   /* 3. The period, validated against the canonical catalogue rather than a
         list this file keeps of its own -- a second definition of the offering
@@ -177,6 +242,9 @@ async function handle(req, res){
     stripeConfigured: stripe.hasSecret,
     isLiveKey: stripe.isLiveKey,
     uid: uid,
+    /* From the platform header only. Never from `body`, which is why it is
+       read here rather than alongside the period below. */
+    country: countryOf(req),
     period: (body && body.period) || null,
     purchaseCheck: purchaseCheck,
     evidence: evidence,
@@ -217,4 +285,5 @@ async function handle(req, res){
   return S.json(res, 200, { url: session.url, period: session.period, trial_days: session.trialDays });
 }
 
-module.exports = { handle, decideCheckout, purchasableNow };
+module.exports = { handle, decideCheckout, purchasableNow,
+                   SUPPORTED_COUNTRIES, countryOf, countrySupported };
