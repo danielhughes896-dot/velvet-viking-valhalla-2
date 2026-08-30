@@ -578,6 +578,70 @@
   .race-event-when{font-size:var(--fs-meta); color:var(--ink-faint); letter-spacing:.04em;}
   .race-event-dist{font-size:var(--fs-meta); color:var(--ink-faint);}
   .race-event-dist b{font-size:var(--fs-body); font-weight:700; color:var(--gold-text);}
+  /* ---------- RACE STRATEGY ----------
+     Sits between the event head and the race card, in the same 4px gutter, and
+     is deliberately QUIET: Race Day's gold belongs to the event -- the date,
+     the distance, the card itself -- and a row of gold buttons here would make
+     a preference compete with the day it is about. So the chips carry the
+     ordinary Valhalla selection language instead: Cherry Lacquer for the one
+     the athlete has chosen, exactly as the readiness chips do, from the same
+     single circular/filled accent tokens. Gold appears once, on the planned
+     finish, because that number IS the goal. */
+  .race-strategy{
+    margin:0 4px 10px; padding:11px 12px;
+    background:var(--surface-2); border:1px solid var(--line-soft);
+    border-radius:var(--radius-sm);
+  }
+  .rs-head{
+    display:flex; align-items:center; gap:8px;
+    font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase;
+    color:var(--bronze-text); margin-bottom:8px;
+  }
+  .rs-locked{
+    font-family:inherit; font-size:8.5px; letter-spacing:.08em;
+    color:var(--ink-faint); border:1px solid var(--line); border-radius:99px;
+    padding:1px 6px;
+  }
+  .rs-chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .rs-chip{
+    display:inline-flex; align-items:center; gap:6px;
+    min-height:36px; padding:6px 11px; font-family:inherit; font-size:11.5px;
+    line-height:1.15; border-radius:99px; cursor:pointer; text-align:left;
+    background:var(--bg-3); color:var(--ink-dim); border:1px solid var(--line);
+    transition:background .12s, color .12s, border-color .12s;
+  }
+  .rs-chip.on{background:var(--cherry-fill); color:var(--cherry-btn-ink); border-color:var(--cherry);}
+  .rs-chip:disabled{opacity:.5; cursor:default;}
+  /* The recommendation, said once and quietly. It is a label on a choice, not
+     a second selected state, so it never takes the accent. */
+  .rs-rec{
+    font-family:'Oswald',sans-serif; font-size:8px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--ink-faint);
+    border:1px solid var(--line); border-radius:99px; padding:1px 5px;
+  }
+  .rs-chip.on .rs-rec{color:var(--cherry-btn-ink); border-color:rgba(255,255,255,.45);}
+  /* Custom: one number, two buttons. Progressive disclosure -- it exists only
+     while Custom is the selection, so the card does not carry a configuration
+     panel it almost never needs. */
+  .rs-custom{display:flex; align-items:center; gap:10px; margin-top:9px;}
+  .rs-step{
+    flex:none; width:38px; height:38px; border-radius:50%; cursor:pointer;
+    font-family:inherit; font-size:17px; line-height:1;
+    background:var(--bg-3); color:var(--ink-dim); border:1px solid var(--line);
+  }
+  .rs-custom-v{display:flex; flex-direction:column; gap:1px;}
+  .rs-custom-v span:first-child{font-size:14px; color:var(--ink);}
+  .rs-custom-l{font-size:var(--fs-meta); color:var(--ink-faint);}
+  .rs-foot{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:12px; margin-top:9px;
+  }
+  .rs-blurb{font-size:var(--fs-meta); line-height:var(--lh-support); color:var(--ink-faint); flex:1;}
+  .rs-finish{flex:none; text-align:right; font-size:15px; color:var(--gold-text); line-height:1.1;}
+  .rs-finish-l{
+    display:block; font-size:8px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-faint); margin-top:2px;
+  }
   .taper-note.race-split{align-items:flex-start;}
   .taper-note.race-split svg{margin-top:2px;}
   .race-split-txt{line-height:1.45;}
@@ -5394,6 +5458,25 @@ var LONG_RUN_SHAPES = {
                          how:'Run the climbs by effort and let the descents come to you. Easy pace is a guide on the flat and not a target on a hill. Take fluid and carbohydrate on anything past about 90 minutes.',
                          avoid:'Holding your flat-ground pace up a climb. That turns an easy run into a threshold session you did not plan.' } }
 };
+/* The guidance overlay for a race day, from the strategy the athlete chose.
+   Only the two lines that actually depend on how the race is executed; Why,
+   Feel and Watch For are true of any well-run race and are left alone. */
+function raceStrategyGuidance(dd){
+  if (!dd || dd.type !== 'race') return null;
+  var plan = raceExecutionPlan(dd.km || 0);
+  if (!plan) return null;
+  if (plan.differential > 0) return {
+    cue: 'Open deliberately slower than goal pace, then step the pace down block by block.',
+    how: 'Run the opening block at the number, not the feeling — it should feel far too easy. '+
+         'Each block afterwards is a little quicker, so effort climbs while pace falls. '+
+         'Fuel to the plan you rehearsed.'
+  };
+  return {
+    cue: 'Goal pace from the gun, held honestly. The opening is a ceiling, not a target.',
+    how: 'Hold goal pace early even while it feels too easy, fuel to the plan you rehearsed, '+
+         'and race the closing blocks with whatever that restraint has left you.'
+  };
+}
 /* The guidance overlay for a day, if it is a long run carrying a shape. */
 function longShapeGuidance(dd){
   var p = prescriptionOf(dd);
@@ -11041,7 +11124,14 @@ function coachingEntryFor(dd){
   /* A long run's SHAPE may override individual lines of its guidance -- see
      LONG_RUN_SHAPES. Merged rather than replaced, so a shape states only what
      it needs to and inherits everything else. */
-  var over = longShapeGuidance(dd);
+  /* A RACE'S STRATEGY OVERRIDES ITS GUIDANCE, on exactly the same terms and
+     through the same merge. ARCHETYPE_GUIDANCE.race was written when there was
+     one way to run a race, so its cue and its how both say "even effort through
+     the first two-thirds" -- which a negative split contradicts outright, and
+     which the athlete would read directly above five blocks that say otherwise.
+     Overlaid, not rewritten: the table keeps the lines a strategy has no
+     opinion about. */
+  var over = longShapeGuidance(dd) || raceStrategyGuidance(dd);
   if (base && over){
     var merged = {}; Object.keys(base).forEach(function(k){ merged[k] = base[k]; });
     Object.keys(over).forEach(function(k){ merged[k] = over[k]; });
@@ -11499,9 +11589,15 @@ function renderDayCard(dd){
              restates it -- and kept wherever it still carries an instruction
              of its own. The stored dd.desc is untouched either way: Edit
              Session and the calendar export both still read it. */
-          (workoutCoversDescription(dd)
-            ? ''
-            : '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>')+
+          (function(){
+            /* A race day says what the athlete chose; see raceSummarySentence().
+               Every other day is untouched. */
+            var raceLine = raceSummarySentence(dd);
+            if (raceLine) return '<div class="day-desc">'+escapeHtml(raceLine)+'</div>';
+            return workoutCoversDescription(dd)
+              ? ''
+              : '<div class="day-desc">'+escapeHtml(resolveDesc(dd.desc))+'</div>';
+          })()+
           renderStructuredWorkout(dd)+
           renderCoachingDepth(dd)+
           renderAdjustedDetail(dd)+
@@ -11816,6 +11912,11 @@ function strategyPhase(key, opts){
        is how a pacing plan becomes a pacing instruction to run too fast. */
     paceRole: o.paceRole || (o.pace ? 'target' : null),
     hr:   o.hr || null,
+    /* An athlete-facing span the builder computed itself, used in place of the
+       from/to kilometres when those cannot be displayed honestly. Race blocks
+       are the only user: 6 miles is 9.656km, and from/to round to a tenth of a
+       kilometre, which redisplays as "6.03mi". Nothing else sets it. */
+    spanLabel: o.spanLabel || null,
     effort: o.effort || null,
     purpose: o.purpose || meta.purpose,
     cue: o.cue || null,
@@ -12038,50 +12139,343 @@ function strategyForBenchmark(dd, p, segs){
   ];
 }
 
+
+/* =========================================================
+   RACE STRATEGY — HOW THE ATHLETE INTENDS TO EXECUTE THE RACE
+   ---------------------------------------------------------
+   WHAT THIS IS NOT. It is not a training decision and it touches none. The
+   programme, the volume, the zones and every prescribed session are built from
+   CURRENT FITNESS and stay exactly where they were: this layer only decides how
+   the ONE race day is executed against the goal the athlete already declared.
+   Nothing here is read by plan generation, by executionPaceTarget(), by the
+   scoring path or by any training zone.
+
+   WHERE THE NUMBERS COME FROM, and there is only one source. getGoalPaceSecPerKm()
+   is the pace that exactly produces the goal time over the goal distance at the
+   active VDOT. So the intended finish is, by construction,
+
+       T = goalPace x raceKm
+
+   and every strategy below is a redistribution of that same T across the race.
+   No strategy invents a finish time, and none of them is "goal pace plus X
+   seconds", which would be a number with no basis.
+
+   THE SHAPE, AND WHY IT IS EXACTLY TIME-NEUTRAL. A strategy is a pace multiplier
+   m(x) over the fraction x of the race, applied as pace = goalPace * m. Choose a
+   LINEAR ramp about the midpoint:
+
+       m(x) = 1 + k * (0.5 - x)
+
+   Take each block's multiplier at its own midpoint. For a linear function the
+   average over an interval IS the value at the midpoint, so for blocks
+   [b0..bn] over distance D:
+
+       SUM len_i * m_i = SUM len_i + k * ( D/2 - SUM len_i * mid_i )
+       SUM len_i * mid_i = SUM (b_i^2 - b_{i-1}^2) / 2D = D^2 / 2D = D/2
+
+   so the bracket is zero and SUM len_i * m_i = D EXACTLY, for ANY partition of
+   the race into blocks. The predicted finish equals the goal time identically,
+   not approximately, and it does so whether there are three blocks or five and
+   whether they are equal or not. That is the whole mathematical basis.
+
+   k IS SET FROM ONE HONEST PARAMETER: the split differential d, the fraction by
+   which the second half is run faster than the first. First-half mean is
+   1 + k/4 and second-half mean is 1 - k/4, so their difference is k/2 and
+
+       k = 2d
+
+   d = 0 is a flat, even race. d = 0.02 is a two-percent negative split, which is
+   coaching convention for a well-executed marathon rather than a measured
+   constant -- stated here the same way STRATEGY_SETTLE_FRACTION states its own.
+   ========================================================= */
+var RACE_STRATEGY_VERSION = 1;
+/* The differential for the built-in negative split. Conventional, and small on
+   purpose: a race planned to open three percent slow is a race planned around a
+   comeback that mostly does not happen. */
+var RACE_NEGATIVE_SPLIT_DIFFERENTIAL = 0.02;
+/* Custom is bounded to the same family, not opened to anything. 0 is Even
+   Effort and 0.03 is already a strong negative split; the athlete moves one
+   number and Valhalla does the rest. A POSITIVE differential -- deliberately
+   planning to fade -- is not offered, because no part of this product's
+   methodology recommends one and Custom is athlete control over an approved
+   strategy, not a blank cheque. */
+var RACE_CUSTOM_MIN = 0, RACE_CUSTOM_MAX = 0.03, RACE_CUSTOM_STEP = 0.005;
+var RACE_CUSTOM_DEFAULT = 0.01;
+
+var RACE_STRATEGIES = {
+  even: {
+    key:'even', label:'Even Effort',
+    blurb:'One pace, honestly held. The opening is a ceiling, not a target.',
+    differential: function(){ return 0; }
+  },
+  negative: {
+    key:'negative', label:'Negative Split',
+    blurb:'Open deliberately controlled and finish the stronger half.',
+    differential: function(){ return RACE_NEGATIVE_SPLIT_DIFFERENTIAL; }
+  },
+  custom: {
+    key:'custom', label:'Custom',
+    blurb:'Your own opening restraint. Valhalla keeps the finish time honest.',
+    differential: function(){ return raceCustomDifferential(); }
+  }
+};
+var RACE_STRATEGY_ORDER = ['even', 'negative', 'custom'];
+
+/* THE RECOMMENDATION, and it is deliberately not personalised.
+   coachSplitMetrics() can already tell a fade from a negative split, but only
+   from four or more logged laps carrying a pace -- optional manual entry that
+   most athletes will never have on the sessions that would matter. Turning
+   "this athlete faded in training" into "therefore plan a negative split" is
+   also a methodology decision this product has not taken. So the recommendation
+   is the existing, safest default: even effort with a restrained opening, which
+   is exactly what strategyForRace() has always prescribed.
+   The Confidence gauge is not consulted, by design. */
+function recommendedRaceStrategy(){ return 'even'; }
+function raceStrategyKey(){
+  var k = state && state.setup && state.setup.raceStrategy;
+  return RACE_STRATEGIES[k] ? k : recommendedRaceStrategy();
+}
+function raceCustomDifferential(){
+  var v = state && state.setup && state.setup.raceStrategyCustom;
+  v = (v==null || isNaN(v)) ? RACE_CUSTOM_DEFAULT : Number(v);
+  return clamp(Math.round(v/RACE_CUSTOM_STEP)*RACE_CUSTOM_STEP, RACE_CUSTOM_MIN, RACE_CUSTOM_MAX);
+}
+function raceStrategyDifferential(key){
+  var st = RACE_STRATEGIES[key || raceStrategyKey()];
+  return st ? st.differential() : 0;
+}
+
+/* ---------- execution blocks, by race and by unit ----------
+   NOT FIVE BLOCKS FOR EVERYTHING. A 5K run in three stages is a race; a 5K run
+   in five is a spreadsheet. The tables are athlete-facing round numbers in the
+   unit the athlete actually reads, which is why there are two of them: an
+   imperial athlete gets 0-6, 6-12, 12-18, 18-24, 24-26.2 MILES rather than the
+   arithmetic of a 10km boundary converted and rounded.
+   The final boundary is always the real race distance, whatever the table says. */
+var RACE_BLOCKS_KM = {
+  '5k':    [0, 2, 4],
+  '10k':   [0, 3, 7],
+  'half':  [0, 5, 10, 15],
+  'full':  [0, 10, 20, 30, 40],
+  'ultra': [0, 10, 20, 30, 40]
+};
+var RACE_BLOCKS_MI = {
+  '5k':    [0, 1, 2],
+  '10k':   [0, 2, 4],
+  'half':  [0, 3, 7, 10],
+  'full':  [0, 6, 12, 18, 24],
+  'ultra': [0, 6, 12, 18, 24]
+};
+function raceBlockBounds(km){
+  if (!km || km <= 0) return null;
+  var mi = !!(state && state.units === 'mi');
+  var key = state && state.setup && state.setup.distanceKey;
+  var table = (mi ? RACE_BLOCKS_MI : RACE_BLOCKS_KM)[key];
+  var bounds;
+  if (table){
+    bounds = table.map(function(v){ return mi ? v*1.60934 : v; });
+  } else {
+    /* A distance with no table still gets staged rather than left flat, and
+       the count follows the same "short races need fewer stages" rule. */
+    var n = km <= 8 ? 3 : km <= 25 ? 4 : 5;
+    bounds = [];
+    for (var i = 0; i < n; i++) bounds.push(km*i/n);
+  }
+  bounds = bounds.filter(function(b){ return b < km - 0.05; });
+  if (!bounds.length || bounds[0] !== 0) bounds.unshift(0);
+  bounds.push(km);
+  return bounds;
+}
+/* The athlete-facing span for a block, in whole display units where the table
+   gave whole display units. Computed here rather than from the phase's rounded
+   kilometres, because 6 miles is 9.656km and a tenth-of-a-kilometre rounding
+   turns it back into "6.03mi" on the card. */
+function fmtRaceSpan(fromKm, toKm){
+  var d = function(v){
+    var n = kmToDisplay(v);
+    /* Whole numbers where the table gave whole numbers, one decimal otherwise.
+       kmToDisplay's two decimals are right for a logged distance and wrong for
+       a race marker: 42.2km is 26.22mi, and a marathon is raced to 26.2. */
+    if (Math.abs(n - Math.round(n)) < 0.05) return String(Math.round(n));
+    return String(Math.round(n*10)/10);
+  };
+  return d(fromKm)+'–'+d(toKm)+displayUnit();
+}
+
+/* ---------- the plan ----------
+   Returns null when there is no goal pace to build from -- an athlete with no
+   VDOT gets the unstaged card they already got, never a fabricated one. */
+function raceExecutionPlan(km, strategyKey){
+  var goal = getGoalPaceSecPerKm();
+  if (!goal || !km || km <= 0) return null;
+  var bounds = raceBlockBounds(km);
+  if (!bounds || bounds.length < 3) return null;
+  var key = strategyKey || raceStrategyKey();
+  var k = 2 * raceStrategyDifferential(key);
+
+  var targetSec = goal * km;
+  var blocks = [], exactTotal = 0;
+  for (var i = 1; i < bounds.length; i++){
+    var from = bounds[i-1], to = bounds[i], len = to - from;
+    var mid = ((from + to) / 2) / km;
+    var paceExact = goal * (1 + k * (0.5 - mid));
+    blocks.push({ from:from, to:to, km:len, mid:mid, paceExact:paceExact,
+                  spanLabel: fmtRaceSpan(from, to) });
+    exactTotal += len * paceExact;
+  }
+
+  /* ROUNDING, CARRIED RATHER THAN DROPPED. Each block is shown a whole second
+     per kilometre, and rounding five blocks independently can walk the implied
+     finish twenty seconds away from the goal. So the residual is carried: each
+     block rounds in whichever direction keeps the running total closest to the
+     exact one, which keeps every displayed pace within a second of its true
+     value AND the implied finish within a few seconds of the goal. */
+  var err = 0, impliedTotal = 0;
+  /* EVEN EFFORT IS EXACTLY THE GOAL PACE, on every block, unrounded. There is
+     nothing to carry when every block already shares one pace, and nudging a
+     block to 4:45 so five rounded numbers add up better would be inventing an
+     offset from the athlete's declared goal -- the precise thing this feature
+     is not allowed to do, and the thing executionStrategy.test.js checks. */
+  if (!k){
+    blocks.forEach(function(b){ b.paceSec = goal; impliedTotal += goal * b.km; });
+    return { version:RACE_STRATEGY_VERSION, strategy:key, differential:0, km:km,
+             goalPaceSec:goal, targetSec:targetSec, exactSec:exactTotal,
+             impliedSec:impliedTotal, driftSec:impliedTotal - targetSec, blocks:blocks };
+  }
+  blocks.forEach(function(b){
+    var lo = Math.floor(b.paceExact), hi = lo + 1;
+    var errLo = err + (lo - b.paceExact) * b.km;
+    var errHi = err + (hi - b.paceExact) * b.km;
+    var pick = Math.abs(errLo) <= Math.abs(errHi) ? lo : hi;
+    err = pick === lo ? errLo : errHi;
+    b.paceSec = pick;
+    impliedTotal += pick * b.km;
+  });
+
+  return {
+    version: RACE_STRATEGY_VERSION,
+    strategy: key,
+    differential: raceStrategyDifferential(key),
+    km: km,
+    goalPaceSec: goal,
+    targetSec: targetSec,          // goal pace x distance, the intended finish
+    exactSec: exactTotal,          // identical to targetSec by construction
+    impliedSec: impliedTotal,      // what the DISPLAYED paces add up to
+    driftSec: impliedTotal - targetSec,
+    blocks: blocks
+  };
+}
+
 function strategyForRace(dd, p, segs){
   /* THE ONE PLACE THIS FEATURE COULD DO REAL HARM, so read what it does NOT do.
 
-     It does not convert the goal time into a constant pace and print it four
-     times. It does not move the athlete's declared goal. It does not claim to
-     know what the weather, the course or the day will do. What it does is stage
-     the distance and say where restraint belongs, which is the part of race
-     execution that is actually knowable in advance.
+     It does not move the athlete's declared goal, and it does not claim to know
+     what the weather, the course or the day will do. What it does is stage the
+     distance, say where restraint belongs, and -- now that the athlete may
+     choose HOW they intend to execute -- put a coherent pace on each stage.
 
-     The opening band is the goal pace's SLOWER side rather than a computed
-     offset: "no faster than goal pace, and a few seconds slower is the right
-     error" is a coaching position that can be stated honestly. A number like
-     "+3 s/km" would be false precision wearing a decimal point. */
+     WHAT CHANGED. The old staging was four phases at fractions of the distance
+     (a quarter, three quarters, nine tenths) all carrying one goal pace. Honest,
+     but blunt twice over: those boundaries are not numbers an athlete races to,
+     and one pace printed four times cannot express a plan. Blocks are now
+     athlete-facing distances in the athlete's own unit, and each block's pace
+     comes from raceExecutionPlan(), whose ramp is exactly time-neutral -- so a
+     Negative Split genuinely opens slower and finishes faster while still
+     adding up to the same declared goal.
+
+     THE FALLBACK IS THE OLD SHAPE MINUS THE NUMBERS. No goal pace means no
+     VDOT, and an athlete with no VDOT gets staging without invented paces
+     rather than a fabricated pacing plan. */
   var km = dd.km || (p.params && p.params.km) || 0;
   if (!km) return null;
-  var goal = strategyPaceBand('goal_pace');
   var hr = strategyHRBand('goal_pace');
-  var at = function(f){ return Math.round(km*f*10)/10; };
-
-  return [
-    strategyPhase('settle', {
-      from:0, to:at(0.25), intensity:'goal_pace', pace:goal, paceRole:'ceiling', hr:hr,
-      purpose:'Opening quarter. The only part of the race you can still ruin for free.',
+  var plan = raceExecutionPlan(km);
+  if (!plan) return strategyForRaceUnpaced(km, hr);
+  return plan.blocks.map(function(b, i){
+    return strategyPhase(raceBlockPhaseKey(i, plan.blocks.length),
+                         raceBlockPhaseCopy(b, i, plan, hr));
+  });
+}
+/* WHICH INSTRUCTION A BLOCK CARRIES, by position rather than by count, so one
+   rule stages a three-block 5K and a five-block marathon: the first block is
+   where a race is thrown away, the last is where whatever is left goes, the one
+   before it is where the race actually starts, and everything between is the
+   long middle that has to be held. */
+function raceBlockPhaseKey(i, n){
+  if (i === 0) return 'settle';
+  if (i === n-1) return 'commit';
+  if (i === n-2) return 'press';
+  return 'hold';
+}
+function raceBlockPhaseCopy(b, i, plan, hr){
+  var n = plan.blocks.length;
+  var neg = plan.differential > 0;
+  var pace = { fast:b.paceSec, slow:b.paceSec, exact:true };
+  var base = { from:b.from, to:b.to, spanLabel:b.spanLabel, intensity:'goal_pace',
+               pace:pace, hr:hr };
+  var merge = function(extra){
+    var o = {}; var k;
+    for (k in base) o[k] = base[k];
+    for (k in extra) o[k] = extra[k];
+    return o;
+  };
+  if (i === 0){
+    /* THE OPENING, AND THE TWO STRATEGIES GENUINELY DIFFER HERE. Even Effort
+       prints goal pace as a CEILING -- do not exceed it, and a few seconds
+       slower is the right error. A Negative Split prints a slower pace as a
+       TARGET, because that pace IS the plan; framing it as a limit the athlete
+       may drift under would quietly turn it back into an even race. */
+    return merge(neg ? {
+      paceRole:'target',
+      purpose:'The deliberate part. This pace is slower than goal pace on purpose.',
+      cue:'Run the number, not the feeling. It will feel far too easy, and that is the plan working.',
+      watch:'Everyone around you is going out too fast. Letting them go IS the strategy.'
+    } : {
+      paceRole:'ceiling',
+      purpose:'The only part of the race you can still ruin for free.',
       cue:'No faster than goal pace. A few seconds slower here is the right mistake to make.',
       watch:'Feeling easy is not a reason to go faster. It is what the opening is supposed to feel like.'
-    }),
-    strategyPhase('hold', {
-      from:at(0.25), to:at(0.75), intensity:'goal_pace', pace:goal, hr:hr,
-      purpose:'The long middle. Nothing is won here and a lot can be lost.',
-      cue:'Goal pace, unremarkable, boring. Take your fuel on schedule.',
-      watch:'Do not chase a group that has gone. Their race is not yours.'
-    }),
-    strategyPhase('hold', {
-      from:at(0.75), to:at(0.9), intensity:'goal_pace', pace:goal, hr:hr,
-      purpose:'Where the race actually starts. Hold what you have.',
-      cue:'Effort will rise for the same pace now. That is normal and not a signal to slow.'
-    }),
-    strategyPhase('commit', {
-      from:at(0.9), to:km, intensity:'goal_pace', pace:goal, paceRole:'open', hr:hr,
+    });
+  }
+  if (i === n-1){
+    return merge({
+      paceRole: neg ? 'target' : 'open',
       purpose:'The last stretch.',
-      cue:'If you are still in control, this is where you may press. If you are not, hold on and finish.',
-      watch:'Pressing from a position you cannot sustain costs more than it gains.'
-    })
-  ];
+      cue: neg ? 'This is what the controlled opening bought. Spend it.'
+               : 'If you are still in control, this is where you may press. If you are not, hold on and finish.',
+      watch: neg ? null : 'Pressing from a position you cannot sustain costs more than it gains.'
+    });
+  }
+  if (i === n-2){
+    return merge({
+      purpose:'Where the race actually starts.',
+      cue: neg ? 'The pace steps down again here. Effort rises to meet it — assess, do not panic.'
+               : 'Effort will rise for the same pace now. That is normal and not a signal to slow.'
+    });
+  }
+  return merge({
+    purpose:'The long middle. Nothing is won here and a lot can be lost.',
+    cue: neg ? 'Still inside the plan, still patient. Take your fuel on schedule.'
+             : 'Goal pace, unremarkable, boring. Take your fuel on schedule.',
+    watch: i === 1 ? 'Do not chase a group that has gone. Their race is not yours.' : null
+  });
+}
+/* No VDOT, so no goal pace and no honest number to print. The staging survives,
+   because WHERE restraint belongs does not depend on knowing a pace. */
+function strategyForRaceUnpaced(km, hr){
+  var bounds = raceBlockBounds(km);
+  if (!bounds || bounds.length < 3) return null;
+  var out = [], n = bounds.length - 1;
+  for (var i = 1; i <= n; i++){
+    var from = bounds[i-1], to = bounds[i];
+    out.push(strategyPhase(raceBlockPhaseKey(i-1, n), {
+      from:from, to:to, spanLabel:fmtRaceSpan(from, to), hr:hr,
+      effort: i === 1 ? 'Controlled — the opening is not where a race is won'
+            : i === n ? 'Whatever is left'
+            : 'Even, sustainable effort'
+    }));
+  }
+  return out;
 }
 
 /* ---------- the composer ----------
@@ -12170,13 +12564,18 @@ function executionStrategyForDisplay(dd){
     version: s.version, id: s.id, archetype: s.archetype, suppressed: false,
     level: level,
     phases: s.phases.map(function(ph){
+      /* spanLabel travels with from/to. It is not extra information -- it is
+         how from/to are allowed to be SHOWN when the raw kilometres cannot be
+         displayed honestly -- so a projection that carried one without the
+         other put "0km-10km" back on a card meant to read "0-6mi". */
       if (level==='advanced')
-        return { key:ph.key, label:ph.label, from:ph.from, to:ph.to, sec:ph.sec,
-                 reps:ph.reps, pace:ph.pace, paceRole:ph.paceRole, hr:ph.hr, effort:ph.effort };
+        return { key:ph.key, label:ph.label, from:ph.from, to:ph.to, spanLabel:ph.spanLabel,
+                 sec:ph.sec, reps:ph.reps, pace:ph.pace, paceRole:ph.paceRole,
+                 hr:ph.hr, effort:ph.effort };
       if (level==='novice') return ph;                       // everything, including watch
-      return { key:ph.key, label:ph.label, from:ph.from, to:ph.to, sec:ph.sec,
-               reps:ph.reps, pace:ph.pace, paceRole:ph.paceRole, hr:ph.hr, effort:ph.effort,
-               purpose:ph.purpose, cue:ph.cue };
+      return { key:ph.key, label:ph.label, from:ph.from, to:ph.to, spanLabel:ph.spanLabel,
+               sec:ph.sec, reps:ph.reps, pace:ph.pace, paceRole:ph.paceRole,
+               hr:ph.hr, effort:ph.effort, purpose:ph.purpose, cue:ph.cue };
     })
   };
 }
@@ -12208,6 +12607,7 @@ function fmtStrategyHR(hr){
 // -- strategyPhase() itself never sets more than one, so this is a read, not
 // a choice.
 function fmtStrategySpan(ph){
+  if (ph.spanLabel) return ph.spanLabel;
   if (ph.from!=null && ph.to!=null) return fmtDist(ph.from)+'–'+fmtDist(ph.to);
   if (ph.to!=null) return 'to '+fmtDist(ph.to);
   if (ph.from!=null) return 'from '+fmtDist(ph.from);
@@ -24298,6 +24698,126 @@ function renderPhaseDivider(weekNum, isFirst){
    The label follows the plan: "Race Day" for a real event, "Goal Day" for a
    self-set target, "Review" for a steady block -- vGoalDay() already decides
    that everywhere else. */
+
+/* ---------- the athlete's choice, and where it is made ----------
+   IN THE RACE DAY BLOCK, not on a screen of its own. The choice belongs beside
+   the event it is about, and the CONSEQUENCE of the choice -- the staged blocks
+   with their paces -- already renders inside "How to run this" on the same
+   card. So the picker is small, always visible, and the detail stays behind the
+   disclosure that already existed: choosing is one tap, and the card does not
+   grow a configuration panel it has to carry for ever.
+
+   EDITABLE UNTIL THE DAY, and then not. A race strategy is a plan for a race
+   that has not happened; once the day is past or the race is logged, the record
+   is what happened and re-planning it is meaningless. Same shape as the
+   completion rules, read from the same todayStr(). */
+function raceStrategyEditable(race){
+  return !!race && !race.completed && race.date >= todayStr();
+}
+function raceStrategyPlanDay(){
+  return state.days ? state.days.filter(function(d){ return d.type==='race'; })[0] : null;
+}
+function fmtRaceDifferential(d){
+  var pct = Math.round(d*1000)/10;
+  return pct <= 0 ? 'Even' : ('−' + (pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1)) + '%');
+}
+function renderRaceStrategyPicker(race){
+  if (!race) return '';
+  var plan = raceExecutionPlan(race.km || 0);
+  var key = raceStrategyKey();
+  var rec = recommendedRaceStrategy();
+  var editable = raceStrategyEditable(race);
+  var st = RACE_STRATEGIES[key];
+
+  var chips = RACE_STRATEGY_ORDER.map(function(k){
+    var meta = RACE_STRATEGIES[k];
+    var on = k === key;
+    return '<button type="button" class="rs-chip'+(on?' on':'')+'"'+
+      (editable ? '' : ' disabled')+
+      ' aria-pressed="'+(on?'true':'false')+'"'+
+      ' data-action="set-race-strategy" data-strategy="'+k+'">'+
+      escapeHtml(meta.label)+
+      (k === rec ? '<span class="rs-rec">Recommended</span>' : '')+
+    '</button>';
+  }).join('');
+
+  /* The one number that proves the strategy is a plan rather than a mood: what
+     these blocks actually add up to. It is the athlete's own declared goal,
+     which is the point -- every strategy finishes in the same time. */
+  var finish = plan ? '<div class="rs-finish font-mono">'+
+      escapeHtml(secToClock(Math.round(plan.impliedSec)))+
+      '<span class="rs-finish-l font-head">Planned finish</span></div>' : '';
+
+  var custom = (key === 'custom' && editable) ? '<div class="rs-custom">'+
+      '<button type="button" class="rs-step" data-action="race-custom" data-delta="-1"'+
+        ' aria-label="Less negative split">−</button>'+
+      '<div class="rs-custom-v"><span class="font-mono">'+escapeHtml(fmtRaceDifferential(raceCustomDifferential()))+'</span>'+
+        '<span class="rs-custom-l">second half</span></div>'+
+      '<button type="button" class="rs-step" data-action="race-custom" data-delta="1"'+
+        ' aria-label="More negative split">+</button>'+
+    '</div>' : '';
+
+  return '<div class="race-strategy">'+
+    '<div class="rs-head font-head">Race strategy'+
+      (editable ? '' : '<span class="rs-locked">Locked</span>')+'</div>'+
+    '<div class="rs-chips">'+chips+'</div>'+
+    custom+
+    '<div class="rs-foot">'+
+      '<div class="rs-blurb">'+escapeHtml(st.blurb)+'</div>'+
+      finish+
+    '</div>'+
+  '</div>';
+}
+/* THE SUMMARY SENTENCE, RESOLVED AT DISPLAY TIME AND NEVER STORED.
+   raceDayText() writes dd.desc when the plan is generated, and that stored
+   sentence said "Even effort through the first two-thirds... Target: Goal Pace
+   throughout" on every race regardless of anything. Once the athlete can choose
+   a strategy that is not merely generic, it is capable of being wrong.
+
+   It is overridden here rather than rewritten there on purpose: dd.desc is plan
+   CONTENT -- it is signed, synced, exported and read by Edit Session -- and a
+   stored sentence that changed whenever a preference changed would make the
+   same plan look like two plans on two devices. The strategy is a preference;
+   the prescription is not. So the record keeps what the coach asked for, and
+   the card says what the athlete chose. */
+function raceSummarySentence(dd){
+  if (!dd || dd.type !== 'race') return null;
+  var plan = raceExecutionPlan(dd.km || 0);
+  if (!plan) return null;
+  var blocks = plan.blocks.length;
+  if (plan.differential > 0){
+    return 'Negative split: open controlled and step the pace down through the race. '+
+           blocks+' execution blocks, finishing on your goal time.';
+  }
+  return 'Even effort: one pace, held honestly, with the opening as a ceiling rather '+
+         'than a target. '+blocks+' execution blocks, finishing on your goal time.';
+}
+function handleSetRaceStrategy(key){
+  if (!RACE_STRATEGIES[key]) return;
+  var race = raceStrategyPlanDay();
+  /* The same refusal the control renders, enforced at the write: a disabled
+     attribute is a rendering fact and says nothing about a direct call. */
+  if (!raceStrategyEditable(race)) return;
+  if (!state.setup) return;
+  state.setup.raceStrategy = key;
+  if (key === 'custom' && state.setup.raceStrategyCustom == null)
+    state.setup.raceStrategyCustom = RACE_CUSTOM_DEFAULT;
+  flushSave();
+  renderApp();
+}
+function handleRaceCustomStep(delta){
+  var race = raceStrategyPlanDay();
+  if (!raceStrategyEditable(race)) return;
+  if (!state.setup) return;
+  var next = raceCustomDifferential() + (Number(delta) || 0) * RACE_CUSTOM_STEP;
+  /* CLAMPED, NOT WRAPPED. The bounds are the guard against an incoherent
+     strategy: there is no way to ask for a race planned to fall apart. */
+  state.setup.raceStrategyCustom = clamp(Math.round(next/RACE_CUSTOM_STEP)*RACE_CUSTOM_STEP,
+                                         RACE_CUSTOM_MIN, RACE_CUSTOM_MAX);
+  state.setup.raceStrategy = 'custom';
+  flushSave();
+  renderApp();
+}
 function renderRaceDayEvent(weekNum){
   var race = state.days.filter(function(dd){ return dd.week===weekNum && dd.type==='race'; })[0];
   if (!race) return '';
@@ -24311,6 +24831,7 @@ function renderRaceDayEvent(weekNum){
         '<div class="race-event-when font-mono">'+escapeHtml(dLong(race.date))+'</div>'+
         '<div class="race-event-dist font-mono"><b>'+dist+'</b> <span>'+displayUnit()+'</span></div>'+
       '</div>'+
+      renderRaceStrategyPicker(race)+
       renderDayCard(race)+
     '</div>';
 }
@@ -33604,6 +34125,8 @@ document.addEventListener('click', function(e){
       break;
     }
 
+    case 'set-race-strategy': handleSetRaceStrategy(target.getAttribute('data-strategy')); break;
+    case 'race-custom': handleRaceCustomStep(target.getAttribute('data-delta')); break;
     case 'set-readiness': handleSetReadiness(target.getAttribute('data-rk'), target.getAttribute('data-rv')); break;
     case 'readiness-edit': handleReadinessEdit(); break;
     case 'open-reading': openHQPanel(target.getAttribute('data-reading')); break;

@@ -388,17 +388,41 @@ test('7. the race is not a constant pace printed four times', () => {
 });
 
 test('7. no strategy invents a pace offset from the goal', () => {
+  /* UPDATED FOR RACE STRATEGY, AND THE INVARIANT GOT STRONGER RATHER THAN
+     WEAKER. It used to read "every race phase carries exactly the goal pace",
+     which was the right guard while there was one strategy. Now the athlete may
+     choose one, and a Negative Split that did not deviate from goal pace would
+     not be a negative split at all.
+
+     So the rule this protects is stated properly instead: a strategy may
+     redistribute the goal time, and may never move it. Even Effort still
+     carries exactly the declared goal pace on every block -- unrounded, no
+     nudging -- and any strategy's blocks must still add up to the same declared
+     finish. That is what stops "goal pace + 3 s/km", because the offsets are
+     not chosen at all; they fall out of a ramp whose weighted mean is one. */
   const a = app();
   const goal = a.getGoalPaceSecPerKm();
-  const s = a.executionStrategy(dayOf(a, 'race'));
-  s.phases.forEach(ph => {
+  const race = dayOf(a, 'race');
+
+  a.state.setup.raceStrategy = 'even';
+  a.executionStrategy(race).phases.forEach(ph => {
     if (!ph.pace) return;
     assert.equal(ph.pace.fast, goal, ph.key + ' moved the athlete’s declared goal pace');
     assert.equal(ph.pace.slow, goal);
   });
-  /* The opening restraint is expressed as paceRole 'ceiling' rather than as
-     "goal pace + 3 s/km". A number nobody can defend is worse than a rule
+  /* The opening restraint is still expressed as paceRole 'ceiling' rather than
+     as "goal pace + 3 s/km". A number nobody can defend is worse than a rule
      everybody can. */
+  const settle = a.executionStrategy(race).phases[0];
+  assert.equal(settle.paceRole, 'ceiling');
+
+  // and the declared finish survives every strategy, which is the real rule
+  ['even', 'negative', 'custom'].forEach(key => {
+    const plan = a.raceExecutionPlan(race.km, key);
+    const exact = plan.blocks.reduce((t, b) => t + b.km * b.paceExact, 0);
+    assert.ok(Math.abs(exact - goal * race.km) < 1e-6,
+      key + ' moved the declared finish time, which no strategy may do');
+  });
 });
 
 test('7. a time-based session gets no kilometre marks', () => {
