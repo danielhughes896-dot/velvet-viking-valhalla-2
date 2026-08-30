@@ -401,8 +401,7 @@ function generate(app, input){
      the app: it has no goal effort to taper into, and a preview that showed
      one would be advertising a block the product does not build. */
   const blockResult = app.buildBlockWeeks(input.buildDistance, input.buildVolume, weeks,
-                                          { steady: input.purpose === 'maintain',
-                                            purpose: input.purpose });
+                                          { purpose: input.purpose });
   const days = app.buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, input.hasEvent);
 
   app.state = app.makeDefaultState();

@@ -5339,15 +5339,43 @@ function cappedBlockStartVolume(base, distKey){
   return round1(Math.min(out, volumeCeilingFor(distKey)));
 }
 
+/* ---------- WHICH PURPOSES HOLD A DOSE RATHER THAN GOING SOMEWHERE ----------
+   ONE STATEMENT OF A PAIRING FOUR CALL SITES WERE EACH MAKING SEPARATELY.
+   buildBlockWeeks() takes `steady` and `purpose` as two arguments and nothing
+   inside it made them agree, so the pairing lived in the callers -- and two of
+   the four did not carry it:
+
+     handleGeneratePlan()      steady: purpose === 'maintain', purpose: ...
+     startDevelopmentBlock()   steady: purpose === 'maintain', purpose: ...
+     plan adoption             steady: purpose === 'maintain'   -- NO PURPOSE
+     playbookBlockWeeks()      no options at all
+
+   An adopted Aerobic Base plan was therefore rebuilt with steady:false and no
+   purpose, which resolves to 'race': peak/start 1.45 instead of 1.25, with a
+   goal effort and a two-week taper the athlete's block does not have. The
+   playbook read a race block's weekly targets for every athlete whatever their
+   block was for. And in the other direction, purpose:'maintain' without
+   steady:true built a "Maintain & Protect" block that ramped 55% and finished
+   with a goal effort.
+
+   The pairing is stated once, here, and each half now derives the other when
+   it is not given. Nothing about either arc changes. */
+function purposeIsSteady(purpose){ return purpose === 'maintain'; }
 function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   var profile = DISTANCE_PROFILES[distKey];
-  var steady = !!(opts && opts.steady);
   /* WHAT THIS BLOCK IS FOR, carried explicitly rather than inferred.
      'race' is the default for the two callers that predate year-round training
      (the plan preview and the server-side builder preview), both of which only
      ever build race blocks. A steady block that arrives without a purpose is
      maintenance -- there is no other steady purpose that reaches here. */
-  var purpose = (opts && opts.purpose) || (steady ? 'maintain' : 'race');
+  var purpose = (opts && opts.purpose) ||
+                ((opts && opts.steady) ? 'maintain' : 'race');
+  /* AND THE CONVERSE, WHICH WAS MISSING. A purpose that arrives without a
+     `steady` answer gets the one its own arc requires, rather than silently
+     taking the ramping default. An explicit steady:false still wins, so a
+     caller that means it is still obeyed. */
+  var steady = (opts && opts.steady != null) ? !!opts.steady
+                                             : purposeIsSteady(purpose);
   /* WHETHER THIS BLOCK OPENS WITH A THRESHOLD CALIBRATION. Decided by
      calibrationEligibility() at the call site and passed in, never worked out
      here: this function is a pure function of its arguments and must not start
@@ -10046,7 +10074,10 @@ function adoptPendingBuildIfAny(){
 
   try{
     var schedule = { activeDays: b.activeDays, longRunDay: b.longRunDay };
-    var blockResult = buildBlockWeeks(b.distanceKey, b.volume, b.weeks, { steady: b.purpose === 'maintain' });
+    /* THE PURPOSE GOES WITH IT. Without it an adopted Aerobic Base or Speed
+       block was rebuilt as a race block -- a different arc, a different peak
+       and a taper into a goal effort the athlete's plan does not have. */
+    var blockResult = buildBlockWeeks(b.distanceKey, b.volume, b.weeks, { purpose: b.purpose });
     var days = buildDaysFromWeeks(blockResult, b.raceDate, schedule, b.startDate, !!b.hasEvent);
 
     var block = openBlock({ purpose: b.purpose, startDate: b.startDate,
@@ -17048,7 +17079,7 @@ function startDevelopmentBlock(purpose, opts){
 
   var blockResult = buildBlockWeeks(spec.distanceKey, spec.volume,
     daysBetween(startMonday, addDays(goalDate, -isoWeekday(goalDate)))/7 + 1,
-    { steady: purpose === 'maintain', purpose: purpose,
+    { purpose: purpose,
       calibrate: calibrationNeededNow(spec.volume),
       calibrateWhenViable: calibrationDeferrable(spec.volume) });
   var days = buildDaysFromWeeks(blockResult, goalDate, schedule, startDate, false);
@@ -22394,17 +22425,24 @@ function playbookBlockPos(weekNum){
 /* The week a day belongs to, rebuilt from setup so the cap and the easy/long
    distribution have the same targets the generator used. Deterministic; null
    if the plan cannot be reconstructed, which again means HOLD. */
-/* buildBlockWeeks() is a pure function of exactly three values, so the result
-   is memoised on those three and cannot go stale -- the same shape
-   blockEffectiveness() already uses. Without it a single Accept rebuilt the
-   whole block several times to read one week's target volume. */
+/* buildBlockWeeks() is a pure function of its arguments, so the result is
+   memoised on the ones this caller varies -- distance, volume, length and the
+   block's purpose -- and cannot go stale. The same shape blockEffectiveness()
+   already uses. Without it a single Accept rebuilt the whole block several
+   times to read one week's target volume. */
 var __pbWeeksMemo = null;
 function playbookBlockWeeks(){
   var su = state.setup;
   if (!su || !su.distanceKey || !su.currentVolume || !su.planWeeks) return null;
-  var key = su.distanceKey+'|'+su.currentVolume+'|'+su.planWeeks;
+  /* AND THE BLOCK'S PURPOSE IS PART OF WHAT IT IS. Read without it, every
+     athlete's weekly targets came back as a race block's -- so a Maintain &
+     Protect athlete was told about a ramp their plan does not contain. It is
+     part of the memo key for the same reason. */
+  var purpose = isBlockPurpose(su.purpose) ? su.purpose : 'race';
+  var key = su.distanceKey+'|'+su.currentVolume+'|'+su.planWeeks+'|'+purpose;
   if (__pbWeeksMemo && __pbWeeksMemo.key === key) return __pbWeeksMemo.weeks;
-  var blk = buildBlockWeeks(su.distanceKey, su.currentVolume, su.planWeeks);
+  var blk = buildBlockWeeks(su.distanceKey, su.currentVolume, su.planWeeks,
+                            { purpose: purpose });
   __pbWeeksMemo = { key:key, weeks:blk.weeks };
   return blk.weeks;
 }
@@ -26997,7 +27035,7 @@ async function handleGeneratePlan(){
   var profile = DISTANCE_PROFILES[distanceKey];
   var schedule = { activeDays:activeDays, longRunDay:longRunDay };
   var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks,
-    { steady: buildPurpose === 'maintain', purpose: buildPurpose,
+    { purpose: buildPurpose,
       calibrate: calibrationNeededNow(volume),
       calibrateWhenViable: calibrationDeferrable(volume) });
   var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);

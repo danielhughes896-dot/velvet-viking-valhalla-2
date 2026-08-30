@@ -1498,3 +1498,61 @@ test('the deferral is offered for the floor alone, never for the other refusals'
   assert.equal(reason({ lthr: 168, currentVolume: 45 }), 'lthr_known');
   assert.equal(a.calibrationEligibility(Object.assign({}, ctx, { currentVolume: 45 })).needed, true);
 });
+
+// ---------------------------------------------------------------------------
+// PURPOSE AND STEADY ARE ONE CONTRACT, NOT TWO ARGUMENTS
+// ---------------------------------------------------------------------------
+test('a purpose carries its own arc, whether or not the caller says steady', () => {
+  /* THE TRAP THIS CLOSES. buildBlockWeeks() took `steady` and `purpose` as two
+     independent arguments and made no attempt to reconcile them, so the pairing
+     lived in four call sites -- and two of them did not carry it. An adopted
+     Aerobic Base plan was rebuilt as a race block; the playbook read a race
+     block's weekly targets for every athlete. In the other direction,
+     purpose:'maintain' without steady:true built a maintenance block that
+     ramped 55% and finished with a goal effort. */
+  const a = require('./audit/planAudit.js').app();
+  a.state = a.makeDefaultState();
+  const shape = opts => {
+    const b = a.buildBlockWeeks('half', 45, 12, opts);
+    return { peak: Math.round((b.peakVolume / 45) * 1000) / 1000,
+             goalEffort: b.weeks.some(w => w.isRace), taper: b.taperWeeks };
+  };
+  for (const purpose of ['race', 'maintain', 'base', 'speed']){
+    const paired = shape({ purpose, steady: purpose === 'maintain' });
+    const alone = shape({ purpose });
+    assert.equal(alone.peak, paired.peak, purpose + ': peak/start');
+    assert.equal(alone.goalEffort, paired.goalEffort, purpose + ': goal effort');
+    assert.equal(alone.taper, paired.taper, purpose + ': taper weeks');
+  }
+  /* MAINTENANCE HOLDS ITS DOSE. Asserted at its own value so a future change
+     that quietly restores the ramp is caught here rather than by inspection. */
+  const m = shape({ purpose: 'maintain' });
+  assert.equal(m.peak, 1, 'maintenance does not ramp');
+  assert.equal(m.goalEffort, false, 'and does not culminate in one');
+  assert.equal(m.taper, 0, 'and has nothing to taper into');
+
+  /* AN EXPLICIT ANSWER STILL WINS. The derivation fills a gap; it does not
+     overrule a caller that has stated its intent. */
+  assert.equal(shape({ purpose: 'maintain', steady: false }).goalEffort, true,
+    'an explicit steady:false is still obeyed');
+});
+
+test('every production call site carries the purpose', () => {
+  /* The defect was never in the arithmetic; it was in what reached it. Read
+     off the source so a fifth call site cannot reintroduce it silently. */
+  const src = fs.readFileSync(
+    path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  const calls = src.split('buildBlockWeeks(').slice(1)
+    .map(s => s.slice(0, 400))
+    .filter(s => /^\s*[a-zA-Z_$]/.test(s));            // calls, not the definition
+  assert.ok(calls.length >= 4, 'found ' + calls.length + ' call sites');
+  calls.forEach(c => {
+    /* Either the call passes a purpose, or it passes no options at all and
+       takes the documented 'race' default. What may no longer happen is a call
+       that passes `steady` while withholding the purpose. */
+    const opts = c.slice(0, c.indexOf(');') + 1);
+    if (/\bsteady\s*:/.test(opts))
+      assert.match(opts, /\bpurpose\s*:/,
+        'a call site passes steady without purpose: ' + opts.replace(/\s+/g, ' ').slice(0, 160));
+  });
+});
