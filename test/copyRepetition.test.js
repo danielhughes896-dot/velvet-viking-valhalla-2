@@ -90,7 +90,27 @@ test('no single coaching sentence dominates a fortnight of cards', () => {
   /* Chrome is anything the card prints because it is a card: field labels,
      section headings, the fuelling table, and the static hints under form
      inputs. It repeats on every session by design and always will. */
-  const CHROME = /^(How to run this|Avg Pace|Actual|Notes|Feel|RPE|Execution Review|Compared With|Recovery Priority|Total carbs|Gels|Fluid guide|\+ Log the session|Anything the numbers|Fluid is a starting guide|Dial this in during training)/;
+  const CHROME = /^(How to run this|Avg Pace|Actual|Notes|Feel|RPE|Execution Review|Compared With|Recovery Priority|Total carbs|Gels|Fluid guide|\+ Log the session|\+ Add laps|Anything the numbers|Fluid is a starting guide|Dial this in during training)/;
+  /* AND THE PER-SESSION-TYPE GUIDANCE IS CHROME TOO, derived rather than
+     listed. COACH_GUIDANCE, ARCHETYPE_GUIDANCE and TERSE_GUIDANCE describe
+     what an easy run IS -- the same words for every easy run, by design, in
+     the same way a field label is the same on every card. What this test
+     guards is prose the coach chose to say about THIS ATHLETE'S SITUATION, and
+     counting the static tables meant the test failed the moment the plan
+     contained proportionally more of one session type. That is a change in the
+     mix, not a new blanket sentence.
+
+     Read out of the app's own tables so nothing can be excused by adding a
+     regex here: a sentence is exempt only if the product ships it as
+     session-type guidance, and any NEW situational sentence is still caught. */
+  const GUIDANCE = new Set();
+  [a.COACH_GUIDANCE, a.ARCHETYPE_GUIDANCE, a.TERSE_GUIDANCE].forEach(table => {
+    JSON.stringify(table || {}).replace(/"([^"]{10,})"/g, (_, v) => {
+      v.replace(/@@U@@/g, 'kilometre').split(/(?<=[.!?])\s+/)
+       .forEach(part => { const t = part.trim(); if (t) GUIDANCE.add(t); });
+      return '';
+    });
+  });
   const counts = {};
   a.state.days.filter(d => d.type !== 'rest').slice(0, 40).forEach(dd => {
     let html = ''; try { html = a.renderDayCard(dd); } catch (e) { return; }
@@ -98,6 +118,7 @@ test('no single coaching sentence dominates a fortnight of cards', () => {
       line.trim().split(/(?<=[.!?])\s+/).forEach(s => {
         s = s.trim();
         if (s.length < 25 || CHROME.test(s) || /^\d/.test(s)) return;
+        if (GUIDANCE.has(s)) return;
         counts[s] = (counts[s] || 0) + 1;
       });
     });

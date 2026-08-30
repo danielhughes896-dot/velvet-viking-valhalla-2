@@ -27,8 +27,16 @@ const TODAY = '2026-08-21';
 function athlete(){
   const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  /* TWO QUALITY SESSIONS A WEEK, because the escalation tiers below are read
+     against how much of the athlete's recent QUALITY work is going wrong. With
+     quality frequency earned rather than granted by the day count, a fixture
+     that says nothing about the athlete's response halves that denominator --
+     and two poor sessions out of five read as 'persistent' where two out of
+     ten read as 'emerging'. The tiers are unchanged; the fixture has to
+     describe the athlete they were calibrated on. */
   buildPlan(a, { weeks: 14, startDate: a.addDays(TODAY, -70), distanceKey: 'half',
-                 volume: 55, benchSec: 45 * 60, lthr: 165, maxHR: 190 });
+                 volume: 55, benchSec: 45 * 60, lthr: 165, maxHR: 190,
+                 earnedSecondQuality: true });
   return a;
 }
 const past = a => a.state.days.filter(d => d.date < TODAY && d.type !== 'rest')

@@ -88,10 +88,17 @@ test('the readiness line stays silent when it has nothing to report', () => {
 });
 
 test('but it speaks up when readiness genuinely differs', () => {
+  /* A REAL LOAD SPIKE, ASSERTED AS ONE. coachLoad() calls a spike above 1.5x
+     the four-week average; multiplying the last six days by 2.4 reached 1.43 --
+     'elevated' -- so the readiness difference this test is about was never
+     produced and it was asserting the behaviour of an ordinary week. */
   const a = makeNextQuality(block((app_, past) => {
     const from = app_.addDays(app_.todayStr(), -6);
-    past.forEach(d => { if (d.date >= from) d.actual.km = Math.round(d.km * 2.4 * 10) / 10; });
+    past.forEach(d => { if (d.date >= from) d.actual.km = Math.round(d.km * 3.2 * 10) / 10; });
   }));
+  assert.equal(a.coachLoad().band, 'spike',
+    'precondition: the fixture must actually produce a load spike, and it is ' +
+    a.coachLoad().band);
   const dd = a.findDay(a.coachAnalyse().nextMove.dayId);
   const line = a.coachReadinessLine(dd);
   assert.ok(line.length > 0, 'a real load spike is worth telling the athlete about');

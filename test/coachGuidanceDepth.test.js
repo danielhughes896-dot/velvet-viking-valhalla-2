@@ -16,9 +16,10 @@ const { buildPlan } = require('./fixtures.js');
 const PINNED = '2026-03-11T09:00:00Z';
 const LEVELS = ['novice', 'experienced', 'advanced'];
 
-function app(level) {
+function app(level, planOpts) {
   const a = loadApp({ pinnedDate: PINNED });
-  buildPlan(a, { weeks: 14, startDate: a.addDays(a.todayStr(), -56) });
+  buildPlan(a, Object.assign({ weeks: 14, startDate: a.addDays(a.todayStr(), -56) },
+                             planOpts || {}));
   a.state.setup.experience = level;
   return a;
 }
@@ -135,7 +136,15 @@ test('the guidance lines HQ called out are still exactly as written', () => {
 });
 
 test('the protected recommendation line survives on a real PROCEED quality day', () => {
-  const a = app('experienced');
+  /* "A REAL PROCEED DAY" IS A PRECONDITION, AND IT HAS TO BE ASSERTED. The
+     recommendation this test protects is the one an athlete gets when nothing
+     in recent training argues either way. A block carrying one quality session
+     a week logs a recent seven days lighter than its own four-week average --
+     acute:chronic 0.75, band 'low' -- and the card correctly says load has
+     dropped off instead. That is a different day, not a different sentence.
+     The fixture describes an athlete whose recent load is productive, and now
+     says so before asserting what they are told. */
+  const a = app('experienced', { earnedSecondQuality: true });
   const today = a.todayStr();
   a.state.days.filter(d => d.date < today && d.type !== 'rest').forEach(d => {
     const tr = a.executionPaceTarget(d), z = a.executionHRTarget(d), band = a.expectedRPEBand(d);
@@ -147,6 +156,9 @@ test('the protected recommendation line survives on a real PROCEED quality day',
   const nxt = a.state.days.filter(d => !d.completed && d.type !== 'rest' && d.date >= today)
                           .sort((x, y) => x.date < y.date ? -1 : 1)[0];
   nxt.type = 'threshold';
+  assert.equal(a.coachLoad().band, 'productive',
+    'precondition: a PROCEED day means recent load is productive, and it is ' +
+    a.coachLoad().band + ' at ' + a.coachLoad().ratio.toFixed(2) + 'x');
   const mv = a.coachAnalyse().nextMove;
   assert.equal(mv.recommendation, 'Run it as prescribed. Hit the target window rather than beating it.');
 });

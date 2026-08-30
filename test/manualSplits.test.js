@@ -25,11 +25,12 @@ function app(opts) {
   buildPlan(a, Object.assign({ weeks: 6, startDate: a.addDays(TODAY, -14) }, opts || {}));
   return a;
 }
-function completedDay(a, archetype) {
+function completedDay(a, archetype, optional) {
   const d = a.state.days.filter(x => {
     const p = a.prescriptionOf(x);
     return (!archetype || (p && p.archetype === archetype)) && x.type !== 'rest';
   })[0];
+  if (!d && optional) return null;
   assert.ok(d, 'fixture must contain a usable day' + (archetype ? ' of ' + archetype : ''));
   d.completed = true;
   d.actual = a.emptyActual();
@@ -53,12 +54,31 @@ function fillFourLaps(a, dd, opts) {
 // 1. THE EDITOR IS QUIET AND OPTIONAL
 // ---------------------------------------------------------------------------
 test('the splits editor is closed by default and never forces lap entry', () => {
+  /* TWO PRESENTATIONS, ONE INVARIANT. A day whose prescription has a structure
+     gets the session-breakdown summary card; a flat or legacy day gets the
+     plain "Add laps / splits" toggle. The rule being tested belongs to
+     neither: the editor is CLOSED, no rows are rendered, and the control is
+     an offer rather than a requirement. The earlier form pinned the flat
+     wording and passed only while the fixture's first day happened to be
+     unstructured. Both are now exercised, so neither can regress. */
   const a = app();
-  const dd = completedDay(a);
-  assert.equal(a.isSplitsOpen(dd), false);
-  const html = a.renderSplitsBlock(dd);
-  assert.match(html, /Add laps \/ splits/);
-  assert.doesNotMatch(html, /split-row/, 'no rows render before the control is opened');
+  const structured = completedDay(a, 'track_reps', true) || completedDay(a);
+  const flat = a.state.days.filter(x => x.type === 'easy' && !a.prescriptionOf(x))[0]
+            || (function(){ const d = completedDay(a); delete d.prescription; return d; })();
+
+  [structured, flat].forEach(dd => {
+    assert.equal(a.isSplitsOpen(dd), false, 'the editor opens closed');
+    const html = a.renderSplitsBlock(dd);
+    assert.doesNotMatch(html, /split-row/, 'no rows render before the control is opened');
+    assert.match(html, /data-action="toggle-splits"/, 'a control is offered');
+    assert.match(html, /aria-expanded="false"/, 'and it says it is closed');
+  });
+  /* And each keeps its own presentation, so this test cannot pass by the two
+     collapsing into one. */
+  assert.match(a.renderSplitsBlock(flat), /Add laps \/ splits/,
+    'a day with no structure still offers the plain lap editor');
+  assert.match(a.renderSplitsBlock(structured), /Session breakdown|Log the session breakdown/,
+    'a structured day offers its own breakdown instead');
 });
 
 test('a session with no logged laps still completes and scores normally', () => {

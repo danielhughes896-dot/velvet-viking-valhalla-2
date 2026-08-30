@@ -100,8 +100,13 @@ test('a clean, stable block is not blocked by the rebound rule', () => {
 
 test('sustained genuine improvement can still PROGRESS', () => {
   const a = block(10, (app_, d, i, n) => {
-    // steadily better than target across the back half, never degraded
-    if (i > n * 0.5 && d.type === 'easy') degrade(app_, d, { paceOff: -25, hrOff: -6 });
+    /* Steadily better than target across the back half, never degraded -- and
+       across EVERY session type, which is what sustained improvement is.
+       Improving only the easy runs described a different athlete: their easy
+       pace moved and their quality did not, so half the recent window sat
+       below the new normal and the rebound rule correctly called the window
+       mixed. The fixture was contradicting its own title. */
+    if (i > n * 0.5) degrade(app_, d, { paceOff: -25, hrOff: -6 });
   });
   const assessment = a.playbookAssess();
   assert.ok(!assessment.blockedBy.some(w => /below par/i.test(w)),
@@ -111,11 +116,24 @@ test('sustained genuine improvement can still PROGRESS', () => {
 });
 
 test('one strong session cannot PROGRESS the plan', () => {
-  const a = block(10, (app_, d, i, n) => {
-    if (i === n - 1) degrade(app_, d, { paceOff: -40, hrOff: -10 });
-  });
-  const before = block(10, null).playbookAssess().decision;
-  const after = a.playbookAssess().decision;
+  /* THE GUARD NEEDS SOMETHING TO GUARD. Against ten weeks of clean execution
+     the block already reads PROGRESS, so "one strong session did not raise it"
+     is true for a reason that has nothing to do with the rule. Three weeks is
+     a block that has not yet earned a progression, which is where a single
+     outstanding session could actually buy one.
+
+     And "strong" means inside the window and near its fast end, not forty
+     seconds a kilometre through it: execution scores deviation in BOTH
+     directions, so a session run far faster than a quality target reads as
+     off-prescription and pushed the block DOWN. The fixture was proving the
+     opposite of its title, by accident. */
+  const strong = (app_, d, i, n) => {
+    if (i === n - 1) degrade(app_, d, { paceOff: -12, hrOff: -10 });
+  };
+  const before = block(3, null).playbookAssess().decision;
+  const after = block(3, strong).playbookAssess().decision;
+  assert.notEqual(before, 'PROGRESS',
+    'precondition: the baseline block must be one that has NOT earned a progression');
   assert.equal(after, before,
     'a single outstanding session changes nothing on its own');
 });

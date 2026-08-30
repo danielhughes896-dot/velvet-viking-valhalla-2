@@ -123,7 +123,14 @@ test('the qualitative coaching meaning is unchanged across units -- only the emb
 
 test('a session logged and reviewed entirely under MI reads correctly back in KM', () => {
   const a = app('mi');
-  const dd = a.state.days.filter(d => d.type !== 'rest')[0];
+  /* A SESSION WHOSE VERDICT ACTUALLY QUOTES A DISTANCE. The verdict wording is
+     per session type: an interval session is summarised as "Quality work
+     delivered close to the prescription" and names no distance at all, so a
+     round-trip assertion about the UNITS of a number reads a sentence with no
+     number in it. The first non-rest day of this block is now an interval
+     session, which is what changed; the rule being tested has not. */
+  const dd = a.state.days.filter(d => d.type === 'tempo' || d.type === 'easy')[0]
+          || a.state.days.filter(d => d.type !== 'rest')[0];
   dd.completed = true;
   dd.actual = a.emptyActual();
   a.handleActualFieldChange(dd.id, 'km', '5'); // "5" typed while MI is selected -> ~8.05km canonical
@@ -131,6 +138,7 @@ test('a session logged and reviewed entirely under MI reads correctly back in KM
   a.handleActualFieldChange(dd.id, 'hr', '155');
   a.coachPersistReview(dd);
   const miVerdict = a.coachReviewFor(dd).executionVerdict;
+  assert.match(miVerdict, /\d/, 'precondition: the verdict must quote a number to round-trip');
   assert.match(miVerdict, /\dmi\b/);
 
   a.state.units = 'km';

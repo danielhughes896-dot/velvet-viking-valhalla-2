@@ -34,7 +34,14 @@ test('a KEY session reduced by the last-resort ADAPT step is never also listed a
   // interval) day inside the 7-day evolution horizon, strictly after today.
   const app = loadApp({ pinnedDate: '2026-06-03T09:00:00Z' });
   const startDate = app.addDays(app.todayStr(), -10);
-  const { days } = buildPlan(app, { lthr: 172, maxHR: 188, weeks: 12, startDate });
+  /* The fixture needs a KEY-typed quality day INSIDE the seven-day horizon and
+     strictly after today. A one-quality-a-week block puts at most one such day
+     in any seven days and it is as likely to be behind the athlete as ahead of
+     them, so the case stopped occurring once quality frequency became earned
+     rather than granted by the day count. An athlete who has earned their
+     second session has one either side. */
+  const { days } = buildPlan(app, { lthr: 172, maxHR: 188, weeks: 12, startDate,
+                                    earnedSecondQuality: true });
   const today = app.todayStr();
 
   days.filter((d) => d.date <= today && d.type !== 'rest').forEach((dd) => fillNormally(app, dd));

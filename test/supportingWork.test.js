@@ -576,7 +576,14 @@ test('the day before a KEY session allows low-cost work only, and is not refused
      Monday, intervals Tuesday — every post-long-run day was also the day
      before a key session, and the deliberate post-long-run mobility rule could
      never fire for the athletes it was written for. */
-  const a = app({});
+  /* THE ATHLETE THIS RULE WAS WRITTEN FOR HAS TWO QUALITY SESSIONS A WEEK.
+     The commonest schedule in the app -- long run Sunday, rest Monday,
+     intervals Tuesday -- is a two-quality week: with a single quality slot the
+     session moves away from the day after the long run and the overlapping
+     case simply stops occurring. Since quality frequency became earned rather
+     than granted by the day count, the fixture has to say so or it describes a
+     different athlete from the one whose bug this is. */
+  const a = app({ plan: { earnedSecondQuality: true } });
   let sawBoth = 0, sawKeyOnly = 0;
   a.state.days.forEach(dd => {
     if (['easy', 'rest'].indexOf(dd.type) === -1) return;
