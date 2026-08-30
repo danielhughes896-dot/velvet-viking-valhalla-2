@@ -75,17 +75,27 @@ test('it does not read as a required session, a missed one, or a warning', () =>
   const a = athlete();
   const dd = kinds(a).optional[0];
   const html = a.renderDayCard(dd);
-  /* The card's own identity is unchanged: still a rest day, still unticked,
-     still no execution pill, still no adjustment record. */
-  assert.match(html, /day-badge type-rest/);
+  /* THE DAY'S IDENTITY IS ITS OWN, and this is the assertion that changed:
+     it used to require `day-badge type-rest`, on the reasoning that an
+     optional run is a rest day with an offer on it. That reading was
+     overturned deliberately -- one day may not carry two coaching identities,
+     and a day Valhalla is not asking to rest is not a Rest Day. So the badge
+     is now the optional one, and the assertion is tightened rather than
+     relaxed: the rest identity must be ABSENT, not merely coexisting. */
+  assert.match(html, /day-badge type-optional/);
+  assert.doesNotMatch(html, /day-badge type-rest/);
+  assert.doesNotMatch(html, /Rest Day|Full rest/i);
+  /* Nothing owed, nothing missed, nothing scored. */
   assert.doesNotMatch(html, /exec-pill font-mono/);
   assert.doesNotMatch(html, /is-missed|status-missed|Missed/);
   assert.doesNotMatch(html, /class="[^"]*\bkey\b/);
   /* And the language says what it is. */
+  assert.match(html, />Optional Run</);
+  /* "today" only where it is true; see optionalRunHeadline(). The dated
+     variant is proved in optionalRunProduct.test.js. */
+  assert.match(html, /No run needed\.?/);
   const block = html.slice(html.indexOf('optional-block'));
-  assert.match(block, /Optional run/);
-  assert.match(block, /Nothing is owed/);
-  assert.match(block, /resting is a complete answer/);
+  assert.match(block, /Rest, or run if you feel like it/);
 });
 
 test('opening it is a view state and writes nothing to the plan', () => {

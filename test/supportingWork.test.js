@@ -544,13 +544,19 @@ test('the companion is closed by default and the running stays the primary objec
   assert.ok(collapsed.indexOf(k.minutes + ' min') !== -1, 'the duration is hidden');
   assert.ok(collapsed.indexOf(a.escapeHtml(k.why)) !== -1, 'no purpose is given without opening it');
 
-  /* And the movements and remaining coaching really are inside it. */
+  /* And the movements and remaining coaching really are inside it. THE
+     PRESCRIBED routine, read from the item -- a kind now has more than one
+     coherent route through the same session, so k.steps is only the first of
+     them and a card showing the second was failing an assertion about which
+     routine rather than about the hierarchy this test is named for. */
+  const steps = a.supportStepsFor(items[0]);
+  assert.ok(steps.length, 'the item must carry a routine');
   const inside = html.slice(html.indexOf('<details'));
-  assert.ok(inside.indexOf(k.steps[0].label) !== -1, 'the movement list is not behind the disclosure');
+  assert.ok(inside.indexOf(steps[0].label) !== -1, 'the movement list is not behind the disclosure');
   ['How', 'Feel', 'Avoid'].forEach(key =>
     assert.ok(inside.indexOf('>' + key + '<') !== -1, key + ' is not behind the disclosure'));
   /* Nothing was lost in the move: every movement is still there. */
-  k.steps.forEach(st => assert.ok(html.indexOf(st.label) !== -1, 'lost a movement: ' + st.label));
+  steps.forEach(st => assert.ok(html.indexOf(st.label) !== -1, 'lost a movement: ' + st.label));
   /* And Why is said once, not twice. */
   assert.equal(html.split(a.escapeHtml(k.why)).length - 1, 1, 'the purpose is stated twice');
 });

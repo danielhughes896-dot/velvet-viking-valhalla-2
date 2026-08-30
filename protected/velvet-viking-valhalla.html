@@ -1890,20 +1890,52 @@
      Deliberately quieter than supporting work by one step: no duration, no
      step list and no second action, because there is nothing prescribed to
      describe and declining is simply doing nothing. */
-  .optional-block{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
-  .optional-head{display:flex; align-items:baseline; justify-content:space-between;
-    margin-bottom:2px;}
-  .optional-tag{font-size:var(--fs-meta); letter-spacing:.08em; text-transform:uppercase;
-    color:var(--ink-faint);}
+  .optional-block{margin-top:10px;}
   .optional-why{font-size:var(--fs-meta); line-height:var(--lh-support);
-    color:var(--ink-faint); margin-bottom:8px;}
-  .optional-actions{display:flex; align-items:center; gap:12px; margin-top:10px;}
+    color:var(--ink-faint);}
+  .optional-actions{display:flex; align-items:center; gap:14px; margin-top:10px;
+    flex-wrap:wrap;}
   .optional-actions .btn{flex:0 0 auto;}
-  /* The one line that says nothing is owed. Not a warning, not an instruction. */
+  /* The quiet half of the pair, in the language .support-skip already
+     established for "the other answer": a text button, never a second button
+     of equal weight, because declining an optional run is doing nothing. */
+  .optional-skip{background:none; border:0; padding:0; cursor:pointer;
+    font-family:inherit; font-size:var(--fs-meta); color:var(--ink-faint);
+    text-decoration:underline; text-underline-offset:3px;}
+  /* One line, and never a warning or an instruction. */
   .optional-note{font-size:var(--fs-meta); line-height:var(--lh-support);
     color:var(--ink-faint); margin-top:8px;}
-  .optional-log{margin-top:10px; padding-top:10px; border-top:1px dashed var(--rule);}
+  /* What was actually run. Numerals in the mono face every other measured
+     quantity in the product uses, at the day-detail size, so it reads as a
+     record rather than as a target. */
+  .optional-line{font-size:var(--fs-meta); color:var(--ink-dim); margin-top:2px;
+    letter-spacing:.02em;}
+  .optional-log{margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;}
+  .optional-log .actual-field{flex:1 1 120px; min-width:0;}
   .optional-log .actual-field label{color:var(--ink-faint);}
+  /* The tick on a logged optional run. On the TITLE, not on the completion
+     ring: the ring means a prescribed session was ticked off, and there was no
+     prescription here. --c-rest keeps it in the recovery family rather than
+     borrowing the green a completed easy run would carry. */
+  .optional-done{display:inline-flex; vertical-align:-2px; margin-left:6px; color:var(--c-rest);}
+  .optional-done svg{width:14px; height:14px;}
+  /* ---------- THE THIRD DAY IDENTITY, ON THE CARD ITSELF ----------
+     Three states have to be told apart at a glance and never confused:
+
+       PRESCRIBED  solid type-coloured edge, filled type badge
+       OPTIONAL    DASHED neutral edge, outlined badge
+       REST        solid neutral edge, filled neutral badge
+
+     Same tokens, same geometry, same radius, same typography -- the only new
+     idea is that the edge is dashed, and it is the honest one: the plan does
+     not require this day, so its edge is not a solid commitment. The colour
+     stays --c-rest because an optional run is not prescribed training and must
+     not borrow --c-easy, which is what a prescribed easy run is drawn in.
+     The badge is outlined rather than filled for the same reason: one step
+     quieter than the rest day beside it, which Valhalla IS asking for. */
+  .day.is-optional{border-left-style:dashed; border-left-color:var(--line);}
+  .day-badge.type-optional{background:none; color:var(--c-rest);
+    box-shadow:inset 0 0 0 1px var(--line);}
   /* The one line a completed companion collapses to. */
   .support-line{font-size:var(--fs-meta); line-height:var(--lh-support);
     color:var(--ink-faint); margin-top:6px;}
@@ -10306,6 +10338,15 @@ function planContentSignature(st){
         id:nz(d.id), date:nz(d.date), week:nz(d.week), type:nz(d.type),
         title:nz(d.title), km:nz(d.km), desc:nz(d.desc), mpSegment:!!d.mpSegment,
         completed:!!d.completed,
+        /* WHAT KIND OF COMPLETION IT IS, not merely that there is one. A rest
+           day carrying a logged optional run and a rest day carrying nothing
+           already differ in `completed` and `actual` -- but the marker is what
+           says the run was the athlete's own rather than a prescription that
+           was met, and a device that lost it would adopt the same kilometres
+           as a completed session. Enumerated here for the reason the comment
+           on `support` below gives at length: what counts as "the same plan"
+           is a stated list, and a new writer of day state has to join it. */
+        optionalRun:!!d.optionalRun,
         /* The prescription is authoritative plan content now that the zone
            chart, duration and coaching all read it -- a structure-only change
            is a real change and has to reach the other device. Only archetype +
@@ -13370,9 +13411,24 @@ function patchExecutionUI(dd){
    left exactly as stored -- there is no single safe reformatting for those
    without guessing at a shape the brief never specified. */
 function displayCardTitle(dd){
+  // See dayTypeLabel(): the same one-identity rule, and the same guarantee
+  // that dd.title itself is never rewritten.
+  if (isOptionalRunDay(dd)) return 'Optional Run';
   var m = /^([^:]+):\s*\d+(?:\.\d+)?km$/.exec(dd.title || '');
   if (!m || dd.km == null) return dd.title;
   return m[1]+' '+fmtDist(dd.km);
+}
+/* The headline answer, in the athlete's own terms and never the algorithm's.
+   Date-aware only because "today" has to be true on the card that says it. */
+function optionalRunHeadline(dd){
+  return isCompletionDay(dd) ? 'No run needed today.' : 'No run needed.';
+}
+/* A logged optional run is marked on the title rather than by the completion
+   ring: the ring means a prescribed session was ticked off, and there was no
+   prescription here to tick. */
+function optionalRunTitleMark(dd){
+  return optionalRunLogged(dd)
+    ? '<span class="optional-done" aria-label="Logged">'+ICONS.check+'</span>' : '';
 }
 /* Whether renderStructuredWorkout(dd) below will draw the three-column
    horizontal blueprint for this day -- the same exactly-three-steps gate it
@@ -13386,7 +13442,11 @@ function renderDayCard(dd){
   var tm = TYPE_META[dd.type];
   var targets = getDayTargets(dd);
   var isToday = dd.date === todayStr();
-  var cls = 'day type-'+tm.cls + (isToday?' is-today':'');
+  /* 'offered' | 'logged' | null, resolved once and used for the badge, the
+     title, the description and the companion below, so those four cannot
+     disagree with each other about what kind of day this is. */
+  var optState = optionalRunDayState(dd);
+  var cls = 'day type-'+tm.cls + (optState?' is-optional':'') + (isToday?' is-today':'');
   var blueprint = hasWorkoutBlueprint(dd);
   var targetsHtml = '';
   if (!blueprint){
@@ -13397,7 +13457,19 @@ function renderDayCard(dd){
   }
 
   var actualHtml = '';
-  if (dd.completed){
+  /* THE LOGGING PANEL BELONGS TO A PRESCRIPTION. Actual/Avg Pace, the detail
+     drawer, the splits editor, Clear log and the Execution Review below them
+     all exist to compare what happened against what was ASKED. A rest day
+     asked for nothing, so there is nothing for any of them to score -- and the
+     Execution Review would have opened with "log actual km and average pace to
+     score this session" on a day with no session, reading as work still owed,
+     which is the exact opposite of what an optional run means.
+
+     Before optional runs existed no rest day could reach this branch at all:
+     applyCompletion() refuses them. So this clause changes nothing that was
+     previously reachable, and the optional-run record renders its own compact
+     line instead -- see renderOptionalRunCompanion(). */
+  if (dd.completed && dd.type !== 'rest'){
     var a = dd.actual || {};
     var detailOpen = isDetailOpen(dd);
     /* THE TWO THE ENGINE GRADES AGAINST, always visible. Distance alone is a
@@ -13482,8 +13554,8 @@ function renderDayCard(dd){
     '<div class="day-top" data-action="toggle-day" data-day="'+dd.id+'" role="button" tabindex="0" aria-expanded="'+(isOpen?'true':'false')+'">'+
       renderDayCheck(dd)+
       '<div class="day-main">'+
-        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+tm.cls+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
-        '<div class="day-title">'+escapeHtml(displayCardTitle(dd))+'</div>'+
+        '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+(optState?'optional':tm.cls)+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
+        '<div class="day-title">'+escapeHtml(displayCardTitle(dd))+optionalRunTitleMark(dd)+'</div>'+
         '<div class="day-detail">'+
           (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
           /* WHAT, then HOW and WHY. The step list is the execution
@@ -13492,6 +13564,12 @@ function renderDayCard(dd){
              of its own. The stored dd.desc is untouched either way: Edit
              Session and the calendar export both still read it. */
           (function(){
+            /* An optional day says the one thing it means, and does not also
+               say "Full rest. Legs up, hydrate, stay ahead of the block" --
+               that sentence is Valhalla ASKING for recovery, which is a
+               different instruction and a different day. dd.desc is not
+               rewritten; it is simply not what this day is. */
+            if (optState) return '<div class="day-desc">'+escapeHtml(optionalRunHeadline(dd))+'</div>';
             /* A race day says what the athlete chose; see raceSummarySentence().
                Every other day is untouched. */
             var raceLine = raceSummarySentence(dd);
@@ -13503,12 +13581,20 @@ function renderDayCard(dd){
           renderStructuredWorkout(dd)+
           renderCoachingDepth(dd)+
           renderAdjustedDetail(dd)+
-          /* BELOW THE RUNNING, ALWAYS. The session the block was built around
-             is the card; this sits under it, in the same detail column, and
-             renders nothing at all on the great majority of days. */
-          renderSupportCompanion(dd)+
-          /* AND BELOW THAT, on the days the programme left free. */
-          renderOptionalRunCompanion(dd)+
+          /* BELOW THE RUNNING, ALWAYS -- AND THE RUNNING IS WHATEVER THE DAY
+             IS ABOUT. On an ordinary day the session the block was built
+             around is the card and supporting work sits under it. On an
+             optional day there is no such session: the offer IS the day, and
+             the sentence explaining it belongs immediately under the headline
+             that raises it. Left in the fixed order, a thirty-minute strength
+             prescription came between "No run needed today." and the reason
+             for it, so the day's own identity arrived in two halves either
+             side of a different coaching system. Both companions still render
+             exactly as they always did; only which one is first changes, and
+             only on the day where the answer is different. */
+          (optState
+            ? renderOptionalRunCompanion(dd)+renderSupportCompanion(dd)
+            : renderSupportCompanion(dd)+renderOptionalRunCompanion(dd))+
         '</div>'+
       '</div>'+
       '<div class="day-actions">'+dayActionButton(dd)+'</div>'+
@@ -15313,6 +15399,14 @@ function listPhrase(items){
 // automatically whenever a logged field changes (see patchExecutionUI).
 function renderExecutionReview(dd){
   if (!dd.completed) return '';
+  /* NOTHING WAS PRESCRIBED, SO THERE IS NOTHING TO REVIEW AGAINST. Every
+     sentence this card can produce is a judgement of what happened against
+     what was asked, and a rest day asks for nothing -- an optional run the
+     athlete chose is not a session they were set. renderDayCard() already
+     withholds the whole logging panel this mounts inside; this is the same
+     rule stated where the card itself can be reached from patchExecutionUI()
+     or any future caller. */
+  if (dd.type === 'rest') return '';
   var b = computeExecutionBreakdown(dd);
   if (!b){
     /* THE BOTTOM RUNG, drawn before the prompt. A logged distance is evidence
@@ -19973,6 +20067,136 @@ var SUPPORT_KINDS = {
     ]
   }
 };
+/* ---------- THE SAME SESSION, BY ANOTHER ROUTE ----------
+   THE PROBLEM THIS SOLVES, and only this one. The gates above choose a KIND
+   from the phase, the week's cost and the day's capacity, and they are right to
+   -- but a kind held for several weeks in a row then delivered the identical
+   five movements every single time. Foundation Strength can run seven
+   consecutive weeks in a marathon build and Mobility & Recovery carries most
+   tapers; an athlete meeting the same list every week stops reading it.
+
+   VARIETY IS NOT PROGRESSION, and the two are kept apart on purpose. Every
+   variant of a kind is the SAME session: same label, same purpose, same
+   minutes, same `cost`, the same movement patterns in the same order, and the
+   same why/how/feel/avoid -- so nothing here can make a week harder, and the
+   gates that priced the day are reasoning about a number no variant changes.
+   Getting a harder session remains what it already was: the phase and the
+   athlete's own capacity permitting a more expensive KIND, which is what
+   SUPPORT_ORDER walks.
+
+   VARIETY IS COST-FREE OR IT DOES NOT HAPPEN. A variant is never chosen
+   because it is fresher than a better one -- they are equivalent by
+   construction, so there is no better one to lose. That is why this rotates
+   coherent ROUTINES rather than shuffling individual exercises: a shuffle can
+   produce a session nobody would prescribe, and would have to be checked; a
+   curated alternative was already a session.
+
+   Index 0 of each list IS the kind's own `steps`, the same array object rather
+   than a copy, so the routine the product has always prescribed is still the
+   routine and there is one definition of it. */
+var SUPPORT_VARIANTS = {
+  /* Three, because this is the one that repeats most. Each ends on the same
+     breathing reset -- the anchor that makes them one session with three
+     routes rather than three sessions. */
+  mobility_recovery: [
+    SUPPORT_KINDS.mobility_recovery.steps,
+    [
+      { label:'Ankle rock and calf lengthening', qty:'2 \u00d7 45s each side' },
+      { label:'Supported deep squat hold', qty:'3 \u00d7 40s' },
+      { label:'Long-lever hamstring float', qty:'2 \u00d7 45s each side' },
+      { label:'Adductor rock back', qty:'2 \u00d7 45s each side' },
+      { label:'Controlled breathing and trunk reset', qty:'3 min' }
+    ],
+    [
+      { label:'90/90 hip switch', qty:'2 \u00d7 8 each side' },
+      { label:'Half-kneeling hip flexor hold', qty:'2 \u00d7 45s each side' },
+      { label:'Cat-camel through the whole spine', qty:'2 \u00d7 10' },
+      { label:'Side-lying thoracic opener', qty:'2 \u00d7 45s each side' },
+      { label:'Controlled breathing and trunk reset', qty:'3 min' }
+    ]
+  ],
+  /* Two each for the rest. Same six patterns in the same order every time --
+     knee-dominant, single-leg, calf, hip-dominant, anti-extension,
+     anti-rotation -- so `how` ("bodyweight throughout, controlled tempo")
+     describes both without being rewritten. */
+  strength_foundation: [
+    SUPPORT_KINDS.strength_foundation.steps,
+    [
+      { label:'Split squat', qty:'3 \u00d7 10 each side' },
+      { label:'Step-up, controlled descent', qty:'3 \u00d7 10 each side' },
+      { label:'Calf raise, slow lower', qty:'3 \u00d7 15' },
+      { label:'Single-leg glute bridge', qty:'3 \u00d7 10 each side' },
+      { label:'Dead bug', qty:'3 \u00d7 10 each side' },
+      { label:'Bird dog', qty:'2 \u00d7 8 each side' }
+    ]
+  ],
+  /* Single-leg work first while fresh, then the posterior chain, then the
+     trunk -- the order `how` states, kept by both. */
+  strength_running: [
+    SUPPORT_KINDS.strength_running.steps,
+    [
+      { label:'Rear-foot-elevated split squat', qty:'3 \u00d7 8 each side' },
+      { label:'Lateral step-down', qty:'3 \u00d7 10 each side' },
+      { label:'Single-leg hip thrust', qty:'3 \u00d7 10 each side' },
+      { label:'Bent-knee calf raise, slow lower', qty:'3 \u00d7 12 each side' },
+      { label:'Copenhagen plank', qty:'2 \u00d7 20s each side' },
+      { label:'Pallof press', qty:'3 \u00d7 10 each side' }
+    ]
+  ],
+  /* The 40s/20s, three rounds, two minutes between structure is in `how` and
+     is the session -- so the alternative is the same circuit with different
+     movements in it, never a different circuit. Bodyweight in both, and
+     nothing added that lands harder than what it replaces. */
+  conditioning_circuit: [
+    SUPPORT_KINDS.conditioning_circuit.steps,
+    [
+      { label:'Split squat to press-up circuit', qty:'3 rounds' },
+      { label:'Lateral step-over', qty:'40s each side' },
+      { label:'Reverse lunge to knee drive', qty:'40s each side' },
+      { label:'Single-leg calf raise', qty:'40s each side' },
+      { label:'Bear crawl hold', qty:'40s' },
+      { label:'Recovery between rounds', qty:'2 min' }
+    ]
+  ]
+};
+function supportVariants(id){
+  var v = SUPPORT_VARIANTS[id];
+  if (v && v.length) return v;
+  var k = SUPPORT_KINDS[id];
+  return k ? [k.steps] : [];
+}
+/* WHICH ROUTE, and it is a property of the PLAN rather than of the athlete's
+   history -- so a regenerated plan prescribes the same routines in the same
+   order, two devices agree without syncing anything, and a completed session
+   still shows the routine it was completed as.
+
+   The week number plus the slot, which is enough because a kind is held for a
+   RUN of weeks rather than scattered: consecutive occurrences are one week
+   apart, so consecutive indices differ. Measured rather than assumed --
+   test/audit/supportRotation.js walks 500 plans across every distance, volume,
+   duration and day count and finds 0 repeats in 5,400 consecutive same-kind
+   pairs, and supportingWorkRotation.test.js holds that shut.
+
+   VARIETY OF KIND IS SEPARATE, AND STILL COMES FROM HISTORY. supportForWeek()
+   already prefers a kind other than the last one the athlete COMPLETED. That
+   is the answer to "what should they do next", it depends on what they
+   actually did, and it is untouched here. This is the narrower question of
+   which route through the same session, and it has no reason to consult
+   history at all. */
+function supportVariantIndex(id, weekNum, slot){
+  var n = supportVariants(id).length;
+  if (n < 2) return 0;
+  return ((weekNum || 0) + (slot || 0)) % n;
+}
+function supportStepsFor(item){
+  if (!item) return [];
+  var list = supportVariants(item.kind);
+  if (!list.length) return [];
+  var i = item.variant;
+  if (!(i >= 0) || i >= list.length) i = 0;
+  return list[i];
+}
+
 /* Most expensive first: the picker takes the first kind the gates still allow,
    so an athlete with real capacity gets real work and everybody else falls
    down the list rather than off the end of it. */
@@ -20207,6 +20431,75 @@ function optionalRunEligible(dd, weekDays){
      intervention that gate exists to prevent. */
   return !!(e && e.ceiling >= 3 && !e.only);
 }
+/* ---------- AND THE SAME DAY ONCE THE ATHLETE HAS ANSWERED IT ----------
+   optionalRunEligible() above is about an OFFER, and an offer stops being one
+   the moment it is taken: a logged day is completed, and a completed day is no
+   longer free. Read alone it would therefore change the day's IDENTITY under
+   the athlete at the exact moment they used it -- tap "Log a run", and the
+   card you were looking at becomes a plain Rest Day again.
+
+   dd.optionalRun is what stops that, and it carries the whole meaning of this
+   feature in one flag: the plan asked for nothing here, and what is recorded
+   is a run the athlete chose. Everything downstream that reads dd.completed as
+   "the session that was prescribed happened" has to consult it, because for
+   this one kind of day that reading is false. */
+function optionalRunLogged(dd){
+  return !!(dd && dd.optionalRun && dd.completed);
+}
+/* 'offered' | 'logged' | null -- the day's optional-run identity, or none. */
+function optionalRunDayState(dd){
+  if (!dd) return null;
+  if (optionalRunLogged(dd)) return 'logged';
+  var weekDays = (state && state.days || []).filter(function(d){ return d.week === dd.week; });
+  try { return optionalRunEligible(dd, weekDays) ? 'offered' : null; } catch(e){ return null; }
+}
+function isOptionalRunDay(dd){ return optionalRunDayState(dd) != null; }
+/* WHEN A RUN MAY BE LOGGED, and it is the ACTIVITY rule rather than the
+   prescription rule. isCompletionDay() is reused verbatim -- there is still
+   exactly one definition of "today" in this file -- but the reason it applies
+   is different: prescribed work is ticked on its own day because a past day
+   keeps the record it was logged with, and an optional run is offered on the
+   day it exists and nowhere else. The future is excluded by the same fact that
+   excludes it everywhere: a run that has not happened cannot be recorded.
+
+   Correcting one afterwards follows canEditCompletion()'s wider rule instead,
+   because that is the rule about an activity RECORD rather than about a
+   prescription, and correcting what you actually ran must always stay open. */
+function canLogOptionalRun(dd){
+  return !!dd && dd.type === 'rest' && isCompletionDay(dd) && isOptionalRunDay(dd);
+}
+function canEditOptionalRun(dd){
+  return optionalRunLogged(dd) && dd.date <= todayStr();
+}
+/* THE MUTATION, and deliberately not applyCompletion(). That function refuses
+   a rest day outright -- "rest days are never workouts" -- and that refusal is
+   correct and stays exactly as it is: it is about PRESCRIBED work, and a rest
+   day has none to complete. This is a different act. The athlete is recording
+   a run nobody asked for.
+
+   It writes the SAME record every other logging path writes -- dd.completed
+   plus the canonical dd.actual shape ACTUAL_MANUAL_FIELDS names -- so there is
+   still one activity history in this file and nothing here is a second one.
+   What it adds is the marker, and a distance requirement: a run with no
+   distance is not evidence of anything and would enter the frequency window as
+   a day that may never have happened. */
+function applyOptionalRunLog(dd, on){
+  if (!dd || dd.type !== 'rest') return false;
+  if (on){
+    if (!(canLogOptionalRun(dd) || canEditOptionalRun(dd))) return false;
+    var km = dd.actual && dd.actual.km;
+    if (!(km > 0)) return false;
+    dd.optionalRun = true;
+    dd.completed = true;
+    return true;
+  }
+  if (!dd.optionalRun) return false;
+  delete dd.optionalRun;
+  dd.completed = false;
+  dd.actual = emptyActual();
+  return true;
+}
+
 /* The optional opportunities in a week, for any surface that wants to offer
    them. Deliberately a query rather than something written into the plan: an
    optional run that were stored as a day would be a day, and days are
@@ -20293,7 +20586,11 @@ function supportForWeek(weekNum){
     /* VARIETY, and only where it costs nothing: prefer a kind other than the
        last one completed, but never refuse the only kind still allowed. */
     var pick = allowed.length > 1 && lastKind && allowed[0] === lastKind ? allowed[1] : allowed[0];
+    /* Which ROUTE through that session; see supportVariantIndex(). Chosen after
+       the kind and never before it, because the kind is the coaching decision
+       and this is not one. */
     out.push({ dayId: dd.id, date: dd.date, kind: pick, why: sl.why,
+               variant: supportVariantIndex(pick, weekNum, out.length),
                phase: phase, limits: cap.reasons.slice() });
     lastKind = pick;
   }
@@ -26263,6 +26560,18 @@ function readingSections(report){
 // The badge for the culminating session follows whether an event exists.
 function dayTypeLabel(dd){
   var tm = TYPE_META[dd.type] || {};
+  /* ONE DAY, ONE IDENTITY. A day the athlete made available and the programme
+     did not need is not a Rest Day with a note on it -- Valhalla is not asking
+     for recovery there, it is asking for nothing. Calling it Rest and then
+     inviting a run underneath gave one day two contradictory coaching
+     identities, which is the one thing these three states may never do.
+
+     PRESENTATION ONLY, and provably so: dd.type stays 'rest', dd.title and
+     dd.desc are untouched, and every engine, export and sync path still reads
+     the stored day exactly as it was built. What changes is the name the
+     athlete is shown. TYPE_META is not given a row for this, because there is
+     no such session type -- there is a rest day the plan left free. */
+  if (isOptionalRunDay(dd)) return 'Optional';
   return (dd.type==='race') ? vGoalDay() : (tm.label||dd.type);
 }
 /* THE DATE RULE FOR TICKING PRESCRIBED WORK OFF, in one place because more
@@ -26327,7 +26636,12 @@ function dayActionButton(dd){
 }
 function renderDayCheck(dd){
   var locked = !canToggleCompletion(dd);
-  var why = dd.type==='rest' ? 'Rest day'
+  /* The ring means "the prescribed session happened". An optional day has no
+     prescription, so there is nothing here to tick and the tooltip must not
+     call the day something the card does not call it. A run logged on this day
+     is shown on the title instead -- see optionalRunTitleMark(). */
+  var why = isOptionalRunDay(dd) ? 'Nothing prescribed \u2014 nothing to tick off'
+          : dd.type==='rest' ? 'Rest day'
           : dd.date > todayStr() ? 'Sessions are ticked off on the day they are run'
           : dd.date < todayStr() ? 'Past sessions keep the record they were logged with'
           : 'Mark session complete';
@@ -29163,50 +29477,113 @@ function renderSupportCheck(dd, checked, label){
    day's own content, in the companion language supporting work established --
    one step quieter, because supporting work is prescribed and this is not. */
 function renderOptionalRunCompanion(dd){
-  if (!dd) return '';
-  var weekDays = (state && state.days || []).filter(function(d){ return d.week === dd.week; });
-  var eligible = false;
-  try { eligible = optionalRunEligible(dd, weekDays); } catch(e){ eligible = false; }
-  if (!eligible) return '';
+  var st = optionalRunDayState(dd);
+  if (!st) return '';
   var open = !!optionalLogOpen[dd.id];
-  var a = dd.actual || {};
-  /* ONE CATEGORY LINE, not a category and a title saying the same word twice.
-     Supporting work's eyebrow names the category and its title names the
-     specific session; there is no specific session here, because choosing it
-     is the athlete's part. */
-  return '<div class="optional-block">'+
-    '<div class="optional-head">'+
-      '<span class="optional-tag font-head">Optional run</span>'+
-    '</div>'+
-    '<div class="optional-why">You said you could train today and the plan did not need '+
-      'another run. Nothing is owed \u2014 resting is a complete answer. Run if you want '+
-      'to, log whatever you did, and Valhalla will take it into account.</div>'+
-    (open
-      ? '<div class="optional-log">'+
-          '<div class="actual-field"><label>Distance '+displayUnit().toUpperCase()+'</label>'+
-            '<input type="number" step="0.01" min="0" inputmode="decimal" '+
-            'value="'+(a.km!=null?kmToDisplay(a.km):'')+'" '+
-            'data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
-          '<div class="actual-field"><label>Avg pace /'+displayUnit()+' — optional</label>'+
-            '<input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" '+
-            'data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
-          '<div class="optional-note">Whatever you did — there is no target to hit.</div>'+
+  var body = open ? optionalRunFormHtml(dd)
+           : st === 'logged' ? optionalRunRecordHtml(dd)
+           : optionalRunOfferHtml(dd);
+  return body ? '<div class="optional-block">'+body+'</div>' : '';
+}
+/* THE OFFER. One sentence of reason, and one quiet action -- and the action
+   only on the day the run could actually have happened. A free day still to
+   come keeps the identity and says nothing else, because there is nothing yet
+   to log and inviting an athlete to record next Thursday's run today would be
+   asking them to make something up. */
+function optionalRunOfferHtml(dd){
+  return '<div class="optional-why">Your plan has enough running this week. '+
+      'Rest, or run if you feel like it.</div>'+
+    (canLogOptionalRun(dd)
+      ? '<div class="optional-actions">'+
+          '<button type="button" class="btn btn-sm btn-ghost" data-action="optional-run-log" '+
+            'data-day="'+dd.id+'" aria-expanded="false">Log a run</button>'+
         '</div>'
-      : '')+
-    '<div class="optional-actions">'+
-      '<button type="button" class="btn btn-sm btn-ghost" data-action="optional-run-log" '+
-        'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
-        (open ? 'Done' : 'I ran today')+'</button>'+
+      : '');
+}
+/* THE FORM. Two fields and nothing else: no default distance, no suggested
+   pace, no duration, no intensity, no structure. Valhalla is not building a
+   workout here and must not appear to be -- the athlete is recording one they
+   already chose.
+
+   The inputs are the app's own data-action="actual-field" controls, so unit
+   parsing, the m:ss pace format and the paceUnit stamp are the single existing
+   implementation rather than a second one written for this card. Save is what
+   commits the record; until then the fields hold what has been typed and the
+   day is not completed, so an abandoned form is not an activity. */
+function optionalRunFormHtml(dd){
+  var a = dd.actual || {};
+  var ready = a.km > 0;
+  var logged = optionalRunLogged(dd);
+  return '<div class="optional-why">'+
+      (logged ? 'Correct whatever you need to. There was no target to hit.'
+              : 'Run whatever feels right today. There is no target to hit.')+'</div>'+
+    '<div class="optional-log">'+
+      '<div class="actual-field"><label>Distance '+displayUnit().toUpperCase()+'</label>'+
+        '<input type="number" step="0.01" min="0" inputmode="decimal" '+
+        'value="'+(a.km!=null?kmToDisplay(a.km):'')+'" '+
+        'data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
+      '<div class="actual-field"><label>Average pace /'+displayUnit()+' — optional</label>'+
+        '<input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" '+
+        'data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
     '</div>'+
-    (open ? '' : '<div class="optional-note">Or leave it. Today is a rest day either way.</div>')+
-  '</div>';
+    '<div class="optional-actions">'+
+      '<button type="button" class="btn btn-sm" data-action="optional-run-save" '+
+        'data-day="'+dd.id+'"'+(ready?'':' disabled')+'>Save run</button>'+
+      '<button type="button" class="optional-skip" data-action="optional-run-log" '+
+        'data-day="'+dd.id+'">'+(logged ? 'Cancel' : 'Not now')+'</button>'+
+    '</div>'+
+    (ready ? '' : '<div class="optional-note">Add a distance to save it.</div>');
+}
+/* THE RECORD. What was actually run, in the app's own numerals, and one line
+   saying what becomes of it. Deliberately flat: resting was equally
+   acceptable, so there is nothing here to congratulate. */
+function optionalRunRecordHtml(dd){
+  var a = dd.actual || {};
+  var paceSec = actualPaceSecPerKm(dd);
+  var parts = [fmtDist(a.km)];
+  if (paceSec) parts.push(fmtPaceFromSecPerKm(paceSec));
+  return '<div class="optional-line font-mono">'+escapeHtml(parts.join(' · '))+'</div>'+
+    '<div class="optional-note">Logged — Valhalla will take this into account.</div>'+
+    (canEditOptionalRun(dd)
+      ? '<div class="optional-actions">'+
+          '<button type="button" class="btn btn-sm btn-ghost" data-action="optional-run-log" '+
+            'data-day="'+dd.id+'" aria-expanded="false">Edit run</button>'+
+          '<button type="button" class="optional-skip" data-action="optional-run-remove" '+
+            'data-day="'+dd.id+'">Remove</button>'+
+        '</div>'
+      : '');
 }
 function handleOptionalRunLog(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
-  if (optionalLogOpen[dd.id]) delete optionalLogOpen[dd.id];
-  else optionalLogOpen[dd.id] = true;
+  if (optionalLogOpen[dd.id]){
+    delete optionalLogOpen[dd.id];
+    /* Closing without saving leaves nothing behind. A half-typed distance on a
+       day the athlete decided not to log would otherwise sit in the record as
+       an activity nobody committed to -- and dd.actual.km is what the
+       frequency window reads. A run already logged keeps its own values. */
+    if (!optionalRunLogged(dd)) dd.actual = emptyActual();
+  } else optionalLogOpen[dd.id] = true;
   replaceCard(dd);
+  scheduleSave();
+}
+function handleOptionalRunSave(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  if (!applyOptionalRunLog(dd, true)) return;
+  delete optionalLogOpen[dd.id];
+  replaceCard(dd);
+  patchDerivedStats();
+  scheduleSave();
+}
+function handleOptionalRunRemove(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  if (!applyOptionalRunLog(dd, false)) return;
+  delete optionalLogOpen[dd.id];
+  replaceCard(dd);
+  patchDerivedStats();
+  scheduleSave();
 }
 function renderSupportCompanion(dd){
   if (!dd) return '';
@@ -29247,7 +29624,7 @@ function renderSupportCompanion(dd){
      WHY IS NOT REPEATED INSIDE. It is the one line that earns its place in the
      collapsed state, so the disclosure carries the other three rather than
      saying it twice. */
-  var steps = k.steps.map(function(st){
+  var steps = supportStepsFor(item).map(function(st){
     return '<div class="support-step"><span class="s-l">'+escapeHtml(st.label)+'</span>'+
            '<span class="s-q font-mono">'+escapeHtml(st.qty)+'</span></div>';
   }).join('');
@@ -29575,6 +29952,7 @@ function voiceWhenPhrase(dateStr){
 function voiceSessionLine(dd, when){
   if (!dd) return null;
   var W = when || 'Today';
+  if (isOptionalRunDay(dd)) return voiceSpeakable(W + ' is optional.');
   if (dd.type === 'rest') return W + ' is a rest day.';
   var targets;
   try { targets = getDayTargets(dd); } catch(e){ targets = {}; }
@@ -29605,7 +29983,14 @@ function voiceBriefingScript(dd){
   if (dd.type !== 'rest' && voiceSpokenFor(dd)) session = null;   // the opener replaces it
   if (session) lines.push(session);
   if (dd.type === 'rest'){
-    lines.push('Nothing to run. Rest is the part of the plan that lets the training count.');
+    /* Two different things are said here, because two different things are
+       true. On a protected rest day Valhalla is ASKING for recovery. On an
+       optional day it is asking for nothing at all, and telling that athlete
+       that rest is what makes the training count would be prescribing a
+       recovery day they were never given. */
+    lines.push(isOptionalRunDay(dd)
+      ? 'Nothing is needed. Your plan has enough running this week, so rest or run, whichever you feel like. Both are fine.'
+      : 'Nothing to run. Rest is the part of the plan that lets the training count.');
     return { kind:'briefing', level:level, lines:lines };
   }
 
@@ -31689,6 +32074,10 @@ function askLocalPhase(){
    day with no title is still describable. */
 function askLocalName(dd){
   if (!dd) return null;
+  /* The name the CARD gives it, which for one kind of day is no longer the
+     stored title -- see displayCardTitle(). Ask reads this aloud, so a day the
+     athlete is looking at as "Optional Run" must not come back "Rest Day". */
+  try { if (isOptionalRunDay(dd)) return displayCardTitle(dd); } catch(e){}
   if (dd.title) return String(dd.title);
   try { return dayTypeLabel(dd); } catch(e){ return null; }
 }
@@ -34360,7 +34749,13 @@ function recordHealthConsentAudit(rec){
    that invariant holds structurally, not by every future caller remembering
    to ask. */
 var SWAPPED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','completed','actual',
-                               'prescription','manualEdit','stravaActivityId','coachAdjust'];
+                               'prescription','manualEdit','stravaActivityId','coachAdjust',
+                               /* optionalRun travels with completed+actual for exactly the
+                                  reason those two do: it says WHAT KIND of record this is,
+                                  and separating it from the record it qualifies would leave
+                                  a completed day whose completion had lost its explanation --
+                                  a rest day that suddenly read as a prescription that was met. */
+                               'optionalRun'];
 // Phase 4's `move` deliberately relocates only the prescription, never the log:
 // both days are incomplete by the time it runs, and swapping their actuals was
 // never part of that behaviour.
@@ -36259,6 +36654,8 @@ document.addEventListener('click', function(e){
     case 'open-record': openRecordPanel(target.getAttribute('data-record')); break;
     case 'close-record-panel': closeRecordPanel(); break;
     case 'optional-run-log': handleOptionalRunLog(el.getAttribute('data-day')); break;
+    case 'optional-run-save': handleOptionalRunSave(el.getAttribute('data-day')); break;
+    case 'optional-run-remove': handleOptionalRunRemove(el.getAttribute('data-day')); break;
     case 'open-recalibrate': openRecalibrateModal(); break;
     case 'rc-suggest-goals': handleRecalibrateSuggest(); break;
     case 'save-recalibrate': handleSaveRecalibrate(); break;
@@ -36422,6 +36819,10 @@ function registerServiceWorker(){
 function buildTodayNotificationText(){
   var title = '🛡️ Velvet Viking — Today’s Workout';
   var dd = state.setup ? findDayByDate(todayStr()) : null;
+  /* THE PUSH IS A SURFACE LIKE ANY OTHER, and it was the last place a day
+     could still arrive under a name the card had stopped using. */
+  if (dd && isOptionalRunDay(dd))
+    return { title:title, body:'Today: Optional Run. No run needed \u2014 rest, or run if you feel like it.' };
   if (!dd || dd.type==='rest') return { title:title, body:'Today: Rest Day. Full rest & recovery.' };
   var targets = getDayTargets(dd);
   var body = 'Today: '+fmtDist(dd.km)+' '+dd.title+(targets.pace?(' @ '+targets.pace):'')+'. Earn your place!';
