@@ -95,25 +95,41 @@ test('an athlete with no measured evidence gets one, in week one', () => {
   assert.equal(qualityIn(a.state.days, 1).length, qualityIn(plain, 1).length,
     'the calibration replaced a session rather than adding one');
 
-  /* ONE DAY CHANGED, AND ONLY ONE. Week one is otherwise the week the
-     generator would have built anyway: same days, same distances, same long
-     run, same interval session. The threshold slot became the calibration. */
-  const shape = days => days.filter(d => d.week === 1)
-    .map(d => d.date + '|' + d.type + '|' + d.km).join('\n');
-  const diff = (a1, b1) => {
-    const x = shape(a1).split('\n'), y = shape(b1).split('\n');
-    return x.filter((line, i) => line !== y[i]);
-  };
-  const changed = diff(a.state.days, plain);
-  assert.equal(changed.length, 1, 'exactly one day differs: ' + changed.join(' / '));
-  assert.match(changed[0], /\|calibration\|/);
-  const replaced = plain.filter(d => d.week === 1 && d.date === dd.date)[0];
-  assert.equal(replaced.type, 'threshold', 'it took the threshold slot');
-  assert.equal(replaced.km, dd.km, 'and the same distance, so weekly volume is untouched');
+  /* THE WEEK KEEPS ITS COMPOSITION; TWO DAYS TRADE PLACES.
+     The calibration is the FIRST prescribed running session of the programme,
+     so where the quality spacing would have put it on day two, the day that
+     was there and the day the calibration needs exchange roles. Nothing is
+     added and nothing is dropped: the same number of running days, the same
+     long run, the same easy distances, the same number of quality slots. The
+     earlier form of this test asserted that exactly one day differed, which
+     was true only while the calibration stayed where the spacing put it. */
+  const wk1 = ds => ds.filter(d => d.week === 1);
+  const multiset = ds => wk1(ds).map(d => d.type + '|' + d.km).sort().join('\n');
+  const plainSet = multiset(plain).split('\n');
+  const calSet = multiset(a.state.days).split('\n');
+  assert.equal(calSet.length, plainSet.length, 'the week has the same number of days');
+  assert.equal(wk1(a.state.days).filter(d => d.km > 0).length,
+               wk1(plain).filter(d => d.km > 0).length,
+               'and the same number of running days');
+  assert.equal(wk1(a.state.days).filter(d => d.type === 'long').length,
+               wk1(plain).filter(d => d.type === 'long').length,
+               'and the same long run');
 
-  /* Not day one: the athlete does not meet the product with a hard effort. */
-  const firstRun = a.state.days.filter(d => d.type !== 'rest')[0];
-  assert.notEqual(firstRun.date, dd.date, 'the block does not open on the test');
+  /* THE CALIBRATION IS THE FIRST RUNNING SESSION. HQ's ruling, asserted
+     directly: every session prescribed before it would be prescribed against
+     an estimated threshold, which is what the session exists to replace. */
+  const firstRun = a.state.days.filter(d => d.km > 0)[0];
+  assert.equal(firstRun.date, dd.date,
+    'the first prescribed running session is ' + firstRun.type + ', not the calibration');
+  assert.equal(a.state.days.filter(d => d.km > 0 && d.date < dd.date).length, 0,
+    'no session is prescribed before the threshold it is written against is measured');
+
+  /* AND IT IS STILL THE THRESHOLD SLOT IT ALWAYS WAS -- the tempo family's
+     allocation, not an extra session bolted onto the week. */
+  assert.equal(wk1(a.state.days).filter(d =>
+    QUALITY.indexOf(d.type) !== -1 && d.type !== 'calibration').length,
+    qualityIn(plain, 1).length - 1,
+    'the calibration is the week\'s quality session, not an addition to it');
 });
 
 test('and exactly one, ever', () => {
@@ -355,10 +371,24 @@ test('a successful calibration moves the zones every later session is prescribed
   assert.equal(range.lo, a.hrZonesFromLTHR(171, a.state.setup.maxHR).E.lo);
 });
 
+/* A SESSION THE ATHLETE HAS ALREADY RUN.
+   It is no longer possible for one to precede the calibration inside its own
+   block -- the calibration is the first running session of the programme, by
+   rule -- so "already run" is asserted the way it is actually defined:
+   dd.completed. That is the property every freeze in the product is keyed on,
+   and testing it directly is stronger than testing a date ordering that stood
+   in for it. */
+function completedSessionAfter(a, dd){
+  const s = a.state.days.filter(d => d.date > dd.date && d.type === 'easy')[0];
+  s.completed = true;
+  s.actual = Object.assign(a.emptyActual(), { km: s.km, pace: '5:30', hr: 138 });
+  return s;
+}
+
 test('a completed session keeps the prescription it was actually given', () => {
   const a = calibratedPlan();
   const dd = calDay(a);
-  const past = a.state.days.filter(d => d.date < dd.date && d.type === 'easy')[0];
+  const past = completedSessionAfter(a, dd);
   past.completed = true;
   past.actual = Object.assign(a.emptyActual(), { km: past.km, pace: '5:30', hr: 138 });
   const before = JSON.stringify(past);
@@ -746,15 +776,42 @@ test('keeping the full protocol does not disturb the week around it', () => {
   const wk = (days, n) => days.filter(d => d.week === n);
   const km = (days, n) => wk(days, n).reduce((t, d) => t + (d.km || 0), 0);
 
-  /* Volume, for the test week and the two that follow it. */
-  [1, 2, 3].forEach(n => assert.equal(km(a.state.days, n), km(plain, n), 'week ' + n));
+  /* VOLUME. The calibration must not make the week BIGGER -- that would be the
+     session buying load, which it is expressly not allowed to do. It may make
+     it very slightly smaller, because the calibration takes the tempo family's
+     allocation while a plain single-slot week alternates between the two
+     families and may be holding the interval's; that difference belongs to the
+     alternation, not to the calibration, and is asserted as a bound rather
+     than hidden. Weeks two and three are untouched either way. */
+  /* THE SAME BOUND APPLIES TO THE WEEKS AFTER IT, for a second reason worth
+     naming: outside the taper each family's structure pool advances on that
+     family's own DELIVERED occurrences. The calibration is a tempo occurrence
+     the plain block never had, so from week two the two blocks are one step
+     apart in the tempo rotation and their tempo sessions are different
+     structures of similar size. That is the rotation working, not the
+     calibration adding load, and it is asserted as a bound in the same
+     direction rather than as an equality that was never true. */
+  [1, 2, 3].forEach(n => {
+    assert.ok(km(a.state.days, n) <= km(plain, n) + 1e-9,
+      'week ' + n + ': ' + km(a.state.days, n) + 'km against ' + km(plain, n) + 'km');
+    assert.ok(km(plain, n) - km(a.state.days, n) <= 1,
+      'week ' + n + ' is no more than a kilometre below the plain block');
+  });
 
-  /* HARD-DAY SPACING. A test is only protected if the days around it are.
-     Same hard days, same gaps, as the week the generator would have built. */
+  /* HARD-DAY COUNT AND SPACING. A test is only protected if the days around it
+     are. The calibration moves to the front of the week by rule, so the DATES
+     differ by design; what may not differ is how many hard days the week has
+     or how close together they sit. */
   const HARD = ['tempo','threshold','interval','repetition','calibration','checkpoint','race'];
   const hard = days => wk(days, 1).filter(d => HARD.indexOf(d.type) !== -1).map(d => d.date);
-  assert.deepEqual(hard(a.state.days).join(','), hard(plain).join(','),
-    'the hard days fall on the same dates');
+  assert.equal(hard(a.state.days).length, hard(plain).length,
+    'the week has the same number of hard days');
+  const minGap = ds => { const h = hard(ds); let m = 99;
+    for (let i = 1; i < h.length; i++)
+      m = Math.min(m, Math.round((Date.parse(h[i]) - Date.parse(h[i-1])) / 86400000));
+    return h.length > 1 ? m : 99; };
+  assert.ok(minGap(a.state.days) >= minGap(plain),
+    'and no two of them are closer together than they would have been');
 
   /* AND THE DAY AFTER THE TEST IS RECOVERY. Structural, because a thirty
      minute maximal-sustainable effort followed by a quality session would be
@@ -970,12 +1027,11 @@ test('completed prescriptions are frozen; future ones follow the new anchor', ()
   const a = calibratedPlan();
   const dd = calDay(a);
 
-  const past = a.state.days.filter(d => d.date < dd.date && d.type === 'easy')[0];
-  past.completed = true;
-  past.actual = Object.assign(a.emptyActual(), { km: past.km, pace: '5:30', hr: 138 });
+  const past = completedSessionAfter(a, dd);
   const pastFrozen = JSON.stringify(past);
 
-  const future = a.state.days.filter(d => d.date > dd.date && d.type === 'easy')[0];
+  const future = a.state.days.filter(d => d.date > past.date && d.type === 'easy' &&
+                                          !d.completed)[0];
   const futureBefore = a.getDayTargets(future).pace;
 
   logCalibration(a, dd, 171);

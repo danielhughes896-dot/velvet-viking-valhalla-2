@@ -272,9 +272,22 @@ test('every kilometre of every week has a named cause', () => {
   assert.equal(m.tally.floor_excess_unnamed || 0, 0);
   assert.equal(m.tally.week_has_no_volume_accounting || 0, 0);
 
-  const c = auditCase({ distanceKey: 'half', volume: 12, weeks: 12, scheduleKey: 'd5' });
+  /* THE ACCOUNTING IDENTITY STILL HOLDS WHERE A FLOOR STILL BINDS, and the
+     case it is read from moved because the defect it used to read from is
+     gone. A 12km/week half-marathon athlete used to be over-prescribed by the
+     easy-day floor across five days; the week is now written across the days
+     it can express and comes out at 12km against a 12.6km target, floor
+     excess zero. Asserted in both directions so neither can drift. */
+  const fixed = auditCase({ distanceKey: 'half', volume: 12, weeks: 12, scheduleKey: 'd5' });
+  const f1 = fixed.weeks[0].accounting;
+  assert.equal(f1.floorExcess, 0,
+    'a 12km/week athlete is no longer over-prescribed by the floors');
+  assert.ok(fixed.weeks[0].actualVolume <= fixed.weeks[0].targetVolume,
+    'and the week they get is no bigger than the week they were asked for');
+
+  const c = auditCase({ distanceKey: '5k', volume: 1, weeks: 12, scheduleKey: 'd5' });
   const w1 = c.weeks[0].accounting;
-  assert.ok(w1.floorExcess > 0, 'a 12km/week athlete is over-prescribed by the floors');
+  assert.ok(w1.floorExcess > 0, 'a 1km/week athlete is still over-prescribed by the floors');
   assert.ok(w1.floorCauses.length > 0, 'and the floors that did it are named');
   assert.ok(Math.abs(w1.roundingResidual) <= w1.roundingBound + 1e-9);
 });
@@ -288,23 +301,37 @@ test('the engine cannot build a week smaller than its own component floors', () 
      refuses to trim an easy day below 3 or a long run below 70%, and it never
      trims a quality day, so the smallest week the engine can emit is set by
      the number of running days rather than by the athlete. */
-  /* NARROWED BY S6-A, AND WORTH SAYING WHICH HALF WENT. The quality floors used
-     to be part of this: a 1km/week athlete's week one was 15km, of which the
-     two structures at their floors were a third. Since the quality prescription
-     yields to the envelope, the same week is four easy days at EASY_MIN_KM and
-     nothing else -- 12km, which is still twelve times what the athlete stated.
-     What remains is purely the easy-day floor times the day count, which is the
-     separate class this test now records on its own. */
+  /* NARROWED TWICE, AND WORTH SAYING WHICH HALF WENT EACH TIME.
+
+     S6-A took the quality floors out of it: a 1km/week athlete's week one was
+     15km, of which the two structures at their floors were a third. Since the
+     quality prescription yields to the envelope, no structured session
+     survives a week that cannot pay for one.
+
+     THE DAY COUNT TOOK THE REST. What remained was the easy-day floor times
+     the day count -- four days at EASY_MIN_KM, 12km, twelve times what the
+     athlete stated -- and the day count was the athlete's availability, which
+     is not a divisor. A week is now written across the days it can express, so
+     the same athlete's week one is ONE day at EASY_MIN_KM.
+
+     WHAT IS LEFT IS THE FLOOR ITSELF, AND IT IS NOT ARITHMETIC TO BE SMOOTHED
+     AWAY. EASY_MIN_KM is the smallest session a race-shaped week may contain,
+     so the smallest such week the engine can emit is EASY_MIN_KM -- three
+     times what this athlete stated. That is the irreducible residue, it is
+     declared as floor excess, and the athlete is routed rather than given it. */
   const a = require('./audit/planAudit.js').app();
   assert.equal(a.EASY_MIN_KM, 3, 'the easy-day floor');
   const c = auditCase({ distanceKey: '5k', volume: 1, weeks: 12, scheduleKey: 'd5' });
   const w1 = c.weeks[0];
-  assert.ok(w1.actualVolume >= 12,
+  const runs = w1.sessions.filter(s => s.km > 0);
+  assert.equal(runs.length, 1,
+    'the week is written across the days it can express, not across availability');
+  assert.equal(w1.actualVolume, a.EASY_MIN_KM,
     'a 1km/week athlete is prescribed ' + w1.actualVolume + 'km in week one');
-  assert.ok(w1.actualVolume / 1 > 10, 'that is more than ten times what they stated');
+  assert.equal(w1.accounting.floorExcess > 0, true, 'and the floor that did it is declared');
   assert.equal(w1.sessions.filter(s => s.km > 0 && s.type !== 'easy' && s.type !== 'long').length, 0,
     'a structured session survives in a week that cannot pay for one');
-  assert.ok(w1.sessions.filter(s => s.km > 0).every(s => s.km === a.EASY_MIN_KM),
+  assert.ok(runs.every(s => s.km === a.EASY_MIN_KM),
     'every remaining session should be sitting exactly on the easy floor');
   /* AND THE ATHLETE IS ROUTED, so this plan is measured rather than given. */
   assert.equal(c.routed, true);
@@ -827,21 +854,50 @@ test('with no evidence a race week carries ONE demanding session, at any day cou
     }
 });
 
-test('running frequency is untouched: the freed day becomes easy running', () => {
+test('the quality decision never costs a running day', () => {
   /* THE MEASURED REASON THIS MATTERS. Five running days with one quality
      session beat four running days with one on every structural count -- so
      availability is not reduced to control quality density. The day the second
-     session vacated is still a running day. */
+     session vacated is still a running day.
+
+     AND THE ONE THING THAT MAY LOWER IT IS NAMED, NOT ASSUMED. Running days
+     can now come under availability, but only for a reason the engine states:
+     the week cannot be WRITTEN across that many days at EASY_MIN_KM, or the
+     athlete's own logged history says they do not sustain that many. Neither
+     is the quality decision. So the assertion is no longer "always equals
+     availability" -- which would forbid a correct reduction -- but "equals
+     availability wherever the week can express it, and where it does not, the
+     shortfall is exactly the expressibility bound and the week says so." */
+  const a = require('./audit/planAudit.js').app();
   for (const scheduleKey of ['d5', 'd6']){
     const days = scheduleKey === 'd5' ? 5 : 6;
     const c = auditCase({ distanceKey: '5k', volume: 29, weeks: 12, scheduleKey });
     assert.equal(c.routed, false);
+    /* No demonstrated history in the audit fixture, so D cannot bind here and
+       expressibility is the only thing that may come under availability. */
+    let reduced = 0;
     c.weeks.forEach(w => {
       if (w.isRace) return;
       const running = w.sessions.filter(s => s.km > 0).length;
-      assert.equal(running, days,
-        'wk' + w.week + ' runs on ' + running + ' days of ' + days + ' available');
+      const feasible = a.expressibleRunningDays('5k', w.targetVolume, a.EASY_MIN_KM, true);
+      const expect = Math.min(days, feasible);
+      assert.equal(running, expect,
+        'wk' + w.week + ' (' + w.targetVolume + 'km) runs on ' + running +
+        ' days; availability ' + days + ', expressible ' + feasible);
+      if (running < days) reduced++;
+      /* Whatever the day count, the quality slots are what the approved
+         ceiling and the earned permission say -- never more because a day was
+         available and never fewer because one was not spent. */
+      const q = w.sessions.filter(s => s.km > 0 &&
+        ['tempo','threshold','interval','repetition','checkpoint'].indexOf(s.type) !== -1);
+      assert.ok(q.length <= a.qualitySlotCeilingForDayCount(running),
+        'wk' + w.week + ' carries ' + q.length + ' quality on ' + running + ' running days');
     });
+    /* The 5K taper is where a 29km/week athlete's weeks get small enough for
+       this to bite at all, so the six-day case must actually exercise it --
+       otherwise the assertion above is vacuous. */
+    if (days === 6) assert.ok(reduced > 0,
+      'the six-day case should exercise the expressibility bound at least once');
   }
 });
 
@@ -1187,4 +1243,258 @@ test('the allocator no longer lets a rounding residue decide a long run', () => 
   const at = v => total(auditCase({ distanceKey: '10k', volume: v, weeks: 12, scheduleKey: 'd6' }));
   assert.ok(at(94) >= at(93), '93 -> ' + at(93) + ', 94 -> ' + at(94));
   assert.ok(a.round1(1) === 1);
+});
+
+// ---------------------------------------------------------------------------
+// DEMONSTRATED SUSTAINABLE RUNNING FREQUENCY
+// ---------------------------------------------------------------------------
+/* An athlete with real logged history, built the way the product builds one.
+   Written into state.athlete.sessions, which is where archived training lives
+   and what demonstratedRunningFrequency() reads. */
+function athleteWhoRuns(runsPerWeek, weeks){
+  const a = require('./audit/planAudit.js').app();
+  a.state = a.makeDefaultState();
+  const today = a.todayStr();
+  const thisMonday = a.addDays(today, -a.isoWeekday(today));
+  const n = weeks == null ? 52 : weeks;
+  const sessions = [];
+  for (let i = 0; i < n; i++){
+    const monday = a.addDays(thisMonday, -7 * (n - i));
+    const runs = typeof runsPerWeek === 'function' ? runsPerWeek(i) : runsPerWeek;
+    for (let d = 0; d < runs; d++)
+      sessions.push({ date: a.addDays(monday, d), completed: true, actualKm: 8, plannedKm: 8 });
+  }
+  a.state.athlete = { sessions: sessions };
+  return a;
+}
+
+test('a missed run does not reduce an established athlete', () => {
+  /* THE WHOLE POINT OF THE ROBUST STATISTIC, AND THE THREE THINGS IT KEEPS
+     APART. What is PRESCRIBED, what is EXECUTED in any one week and what is
+     DEMONSTRATED as sustainable are three different facts. The third-highest
+     running-day count of the last fifty-two weeks is the same statistic the
+     volume side already uses, and it is chosen precisely so that a single bad
+     week -- a cold, a work trip, a missed alarm -- cannot cost an athlete
+     capacity they have spent a year showing. */
+  const a = require('./audit/planAudit.js').app();
+  assert.equal(a.DEMONSTRATED_WINDOW_WEEKS, 52);
+  assert.equal(a.SUSTAINED_WEEKS_REQUIRED, 3);
+
+  assert.equal(athleteWhoRuns(5).demonstratedRunningFrequency(), 5,
+    'an established five-day athlete');
+  assert.equal(athleteWhoRuns(i => (i === 51 ? 4 : 5)).demonstratedRunningFrequency(), 5,
+    'one week of four runs does not make them a four-day athlete');
+  assert.equal(athleteWhoRuns(i => (i === 51 ? 0 : 5)).demonstratedRunningFrequency(), 5,
+    'nor does a week with no running at all');
+  assert.equal(athleteWhoRuns(i => (i >= 50 ? 4 : 5)).demonstratedRunningFrequency(), 5,
+    'nor two such weeks');
+  assert.equal(athleteWhoRuns(i => (i >= 49 ? 4 : 5)).demonstratedRunningFrequency(), 5,
+    'nor three');
+  assert.equal(athleteWhoRuns(i => (i >= 48 ? 0 : 5)).demonstratedRunningFrequency(), 5,
+    'nor a month off injured');
+  assert.equal(athleteWhoRuns(6).demonstratedRunningFrequency(), 6,
+    'and an established six-day athlete is not reduced either');
+});
+
+test('and the plan an established five-day athlete gets still runs five days', () => {
+  /* The statistic is only half of it: the prescription has to read it. Built
+     through the same two calls handleGeneratePlan() makes. */
+  const a = athleteWhoRuns(i => (i === 51 ? 4 : 5));
+  const schedule = { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 };
+  const start = a.todayStr();
+  const end = a.addDays(a.addDays(start, -a.isoWeekday(start)), 12 * 7 - 1);
+  const blk = a.buildBlockWeeks('10k', 45, 12, {});
+  const days = a.buildDaysFromWeeks(blk, end, schedule, start, false);
+  const byWeek = {};
+  days.forEach(d => { (byWeek[d.week] = byWeek[d.week] || []).push(d); });
+  blk.weeks.forEach(w => {
+    if (w.isRace) return;
+    const runs = (byWeek[w.week] || []).filter(d => d.km > 0).length;
+    assert.equal(runs, 5, 'wk' + w.week + ' runs on ' + runs + ' days');
+  });
+});
+
+test('demonstrated frequency is a ceiling, never a floor on top of availability', () => {
+  /* A six-day history does not buy a sixth day from an athlete who said they
+     have four. Availability is the ceiling and the three inputs only ever
+     lower it. */
+  const a = athleteWhoRuns(6);
+  const schedule = { activeDays: [1, 3, 5, 6], longRunDay: 6 };
+  const start = a.todayStr();
+  const end = a.addDays(a.addDays(start, -a.isoWeekday(start)), 12 * 7 - 1);
+  const days = a.buildDaysFromWeeks(a.buildBlockWeeks('10k', 45, 12, {}),
+    end, schedule, start, false);
+  const byWeek = {};
+  days.forEach(d => { (byWeek[d.week] = byWeek[d.week] || []).push(d); });
+  Object.keys(byWeek).forEach(w => {
+    const runs = byWeek[w].filter(d => d.km > 0).length;
+    assert.ok(runs <= 4, 'wk' + w + ' runs on ' + runs + ' of four available days');
+  });
+});
+
+test('too little history is not evidence of a low frequency', () => {
+  /* SUSTAINED_WEEKS_REQUIRED is a sufficiency rule. Below it the answer is
+     null -- "no statement" -- and the athlete keeps the availability they
+     chose, rather than being told two weeks of logging is their ceiling. */
+  for (const weeks of [0, 1, 2])
+    assert.equal(athleteWhoRuns(5, weeks).demonstratedRunningFrequency(), null,
+      weeks + ' week(s) of history should make no statement');
+  assert.equal(athleteWhoRuns(5, 3).demonstratedRunningFrequency(), 5,
+    'three weeks is the point at which it can');
+});
+
+test('running frequency does not buy quality frequency', () => {
+  /* HQ's separation, asserted in the direction that matters. An athlete whose
+     demonstrated frequency rises from three to four gains a running day and
+     nothing else: the second quality session is earned from their logged
+     response, and no day count grants it. */
+  const schedule = { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 };
+  const shape = dem => {
+    const a = athleteWhoRuns(dem);
+    const start = a.todayStr();
+    const end = a.addDays(a.addDays(start, -a.isoWeekday(start)), 12 * 7 - 1);
+    const days = a.buildDaysFromWeeks(a.buildBlockWeeks('10k', 45, 12, {}),
+      end, schedule, start, false);
+    const Q = ['tempo','threshold','interval','repetition','checkpoint','calibration'];
+    const byWeek = {};
+    days.forEach(d => { (byWeek[d.week] = byWeek[d.week] || []).push(d); });
+    return Object.keys(byWeek).map(Number).sort((x, y) => x - y).map(w => ({
+      runs: byWeek[w].filter(d => d.km > 0).length,
+      quality: byWeek[w].filter(d => d.km > 0 && Q.indexOf(d.type) !== -1).length }));
+  };
+  const three = shape(3), four = shape(4);
+  three.forEach((w, i) => {
+    assert.ok(four[i].runs >= w.runs, 'wk' + (i + 1) + ' should not lose a running day');
+    assert.equal(four[i].quality, w.quality,
+      'wk' + (i + 1) + ' quality went ' + w.quality + ' -> ' + four[i].quality +
+      ' on a running-day change alone');
+  });
+});
+
+test('the aerobic-dominance ceiling is read against the days the week runs on', () => {
+  /* The approved contract says a three-day week gets at most one hard session.
+     Once running days can fall below availability, reading the ceiling from
+     availability would give a six-day schedule's ceiling to a three-day week --
+     two hard days out of three. */
+  const a = require('./audit/planAudit.js').app();
+  const schedule = { activeDays: [0, 1, 2, 3, 5, 6], longRunDay: 6 };
+  for (const dem of [3, 4, 5, 6]){
+    const app2 = athleteWhoRuns(dem);
+    const start = app2.todayStr();
+    const end = app2.addDays(app2.addDays(start, -app2.isoWeekday(start)), 12 * 7 - 1);
+    const days = app2.buildDaysFromWeeks(app2.buildBlockWeeks('half', 60, 12, {}),
+      end, schedule, start, false);
+    const Q = ['tempo','threshold','interval','repetition','checkpoint','calibration'];
+    const byWeek = {};
+    days.forEach(d => { (byWeek[d.week] = byWeek[d.week] || []).push(d); });
+    Object.keys(byWeek).forEach(w => {
+      const ds = byWeek[w].filter(d => d.km > 0);
+      const q = ds.filter(d => Q.indexOf(d.type) !== -1).length;
+      assert.ok(q <= a.qualitySlotCeilingForDayCount(ds.length),
+        'demonstrated ' + dem + ', wk' + w + ': ' + q + ' quality on ' + ds.length + ' running days');
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// A DAY THE WEEK DOES NOT RUN ON ACTUALLY RESTS
+// ---------------------------------------------------------------------------
+test('a day the week does not run on is a rest day, in every block that has one', () => {
+  /* THE LATENT BUG THIS CLOSES. Only foundation blocks rested a dropped day;
+     every other block fell through to the generic easy branch and ran it
+     anyway. Reducing the easy-day count therefore divided the SAME volume
+     across fewer days while still prescribing all of them -- the reduction was
+     bookkeeping the athlete never saw. */
+  const a = require('./audit/planAudit.js').app();
+  const schedule = { activeDays: [0, 1, 2, 3, 5, 6], longRunDay: 6 };
+  const app2 = athleteWhoRuns(3);
+  const start = app2.todayStr();
+  const end = app2.addDays(app2.addDays(start, -app2.isoWeekday(start)), 12 * 7 - 1);
+  const days = app2.buildDaysFromWeeks(app2.buildBlockWeeks('10k', 45, 12, {}),
+    end, schedule, start, false);
+  const byWeek = {};
+  days.forEach(d => { (byWeek[d.week] = byWeek[d.week] || []).push(d); });
+  let restedAvailableDays = 0;
+  const raceWeek = Math.max(...Object.keys(byWeek).map(Number));
+  Object.keys(byWeek).forEach(w => {
+    const ds = byWeek[w];
+    const runs = ds.filter(d => d.km > 0);
+    /* THE RACE WEEK IS NOT A TRAINING WEEK and demonstrated frequency does not
+       govern it: it is the race plus its shakeouts, a fixed protocol whose
+       shape is decided by the event rather than by what the athlete sustains
+       in an ordinary week. Every other week is. */
+    if (Number(w) !== raceWeek)
+      assert.ok(runs.length <= 3, 'wk' + w + ' runs on ' + runs.length + ' days');
+    if (Number(w) === raceWeek) return;
+    ds.forEach(d => {
+      const iso = a.isoWeekday(d.date);
+      if (schedule.activeDays.indexOf(iso) === -1) return;
+      if (d.km > 0) return;
+      assert.equal(d.type, 'rest',
+        'an available day with no run is ' + d.type + ', not a rest day');
+      assert.equal(d.km, 0);
+      restedAvailableDays++;
+    });
+  });
+  assert.ok(restedAvailableDays > 0,
+    'the fixture must actually produce dropped days or this asserts nothing');
+});
+
+// ---------------------------------------------------------------------------
+// WHERE THE THRESHOLD CALIBRATION GOES
+// ---------------------------------------------------------------------------
+test('the calibration is the first prescribed running session of the block', () => {
+  const a = require('./audit/planAudit.js').app();
+  a.state = a.makeDefaultState();
+  const schedule = { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 };
+  const start = a.todayStr();
+  const end = a.addDays(a.addDays(start, -a.isoWeekday(start)), 12 * 7 - 1);
+  for (const scheduleKey of [[1, 2, 3, 5, 6], [0, 1, 2, 3, 5, 6], [1, 3, 6]]){
+    const sched = { activeDays: scheduleKey, longRunDay: 6 };
+    const days = a.buildDaysFromWeeks(a.buildBlockWeeks('half', 45, 12, { calibrate: true }),
+      end, sched, start, false);
+    const cal = days.filter(d => d.type === 'calibration');
+    assert.equal(cal.length, 1, 'exactly one calibration on ' + scheduleKey.length + ' days');
+    const firstRun = days.filter(d => d.km > 0)[0];
+    assert.equal(firstRun.date, cal[0].date,
+      'on ' + scheduleKey.length + ' days the first run is ' + firstRun.type);
+  }
+});
+
+test('the calibration waits for the safety floor rather than being abandoned', () => {
+  /* CALIBRATION_MIN_WEEKLY_KM is preserved exactly: an athlete below it is not
+     given a maximal field test. What changes is that the session is not lost
+     for the life of the block -- it is placed at the first appropriate
+     opportunity once the programme's own volume reaches the floor. */
+  const a = require('./audit/planAudit.js').app();
+  a.state = a.makeDefaultState();
+  assert.equal(a.CALIBRATION_MIN_WEEKLY_KM, 20, 'the safety floor is unchanged');
+  const blk = a.buildBlockWeeks('half', 14, 16, { calibrateWhenViable: true });
+  const cal = blk.weeks.filter(w => w.isCalibration);
+  assert.equal(cal.length, 1, 'exactly one calibration in the block');
+  assert.ok(cal[0].volume >= a.CALIBRATION_MIN_WEEKLY_KM,
+    'it is placed in a week of ' + cal[0].volume + 'km');
+  assert.equal(cal[0].isCutback, false, 'not in a cutback week');
+  assert.equal(!!cal[0].isCheckpoint, false, 'not in a week that already tests');
+  /* THE FIRST such week, not merely some such week. */
+  const first = blk.weeks.filter(w => w.volume >= a.CALIBRATION_MIN_WEEKLY_KM &&
+                                      !w.isCutback && !w.isCheckpoint &&
+                                      !w.isTaper && !w.isRace)[0];
+  assert.equal(cal[0].week, first.week,
+    'placed in week ' + cal[0].week + ', first opportunity was week ' + first.week);
+
+  /* AND WITHOUT THE DEFERRAL IT IS NOT PLACED AT ALL -- the flag is what the
+     call site passes, never something this function works out for itself. */
+  assert.equal(a.buildBlockWeeks('half', 14, 16, {}).weeks.filter(w => w.isCalibration).length, 0);
+});
+
+test('the deferral is offered for the floor alone, never for the other refusals', () => {
+  const a = require('./audit/planAudit.js').app();
+  const ctx = { healthConsent: true, lthr: null, performances: [],
+                today: a.todayStr(), currentVolume: 14 };
+  const reason = o => a.calibrationEligibility(Object.assign({}, ctx, o)).reason;
+  assert.equal(reason({}), 'insufficient_base');
+  assert.equal(reason({ healthConsent: false }), 'no_health_consent');
+  assert.equal(reason({ lthr: 168, currentVolume: 45 }), 'lthr_known');
+  assert.equal(a.calibrationEligibility(Object.assign({}, ctx, { currentVolume: 45 })).needed, true);
 });

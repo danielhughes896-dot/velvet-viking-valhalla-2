@@ -3490,7 +3490,7 @@ function carryMeasuredAnchors(next, prior){
   });
   return next;
 }
-function calibrationNeededNow(volume){
+function calibrationVerdict(volume){
   var su = state.setup || {};
   return calibrationEligibility({
     healthConsent: healthConsentGranted(),
@@ -3498,7 +3498,21 @@ function calibrationNeededNow(volume){
     performances: (typeof athlete === 'function' && athlete()) ? athlete().performances : [],
     today: todayStr(),
     currentVolume: volume != null ? volume : su.currentVolume
-  }).needed;
+  });
+}
+function calibrationNeededNow(volume){
+  return calibrationVerdict(volume).needed;
+}
+/* THE ONE REFUSAL THAT IS A "NOT YET" RATHER THAN A "NO".
+   'insufficient_base' says the athlete is below the safety floor TODAY. The
+   other three refusals are settled facts about this athlete -- no consent, an
+   LTHR already known, a recent measured effort -- and none of them is resolved
+   by the programme simply running for a few weeks. The floor is, because the
+   programme's own volume is going there. So this refusal, and only this one,
+   is handed to the block builder as a deferred placement; the floor itself is
+   untouched and is still what gates the session. */
+function calibrationDeferrable(volume){
+  return calibrationVerdict(volume).reason === 'insufficient_base';
 }
 function calibrationEligibility(ctx){
   var c = ctx || {};
@@ -4942,6 +4956,95 @@ function demonstratedSustainableVolume(){
   var desc = weeks.slice().sort(function(x, y){ return y - x; });
   return desc[SUSTAINED_WEEKS_REQUIRED - 1];
 }
+/* ---------- HOW OFTEN THIS ATHLETE ACTUALLY RUNS ----------
+   weeklyCompletedVolumes()'s twin, counting SESSIONS rather than kilometres,
+   and read with the identical statistic: the third-highest week inside the same
+   rolling year. Availability is what the athlete said they could do; this is
+   what they have done.
+
+   WHY THE THIRD-BEST, AND WHY IT MATTERS MORE HERE THAN FOR VOLUME. A missed
+   run is the ordinary texture of training -- life gets in the way, and Valhalla
+   has never treated an unlogged session as physiological failure. Reading the
+   third-highest week of fifty-two means one four-run week cannot make a
+   five-day athlete into a four-day athlete, and neither can three of them:
+   the statistic only moves when the athlete's sustained pattern moves, which
+   takes most of a year. That is deliberate. Capacity is not execution, and
+   ceasing to use a capacity for a fortnight does not remove it.
+
+   THE OTHER DIRECTION IS SOMEBODY ELSE'S JOB. Where an athlete genuinely
+   should train less right now, the existing strain and recovery machinery
+   already lowers the prescription -- coachRecovery(), blockEffectiveness()
+   STRAINED, the supporting-work capacity gate. Those are coaching
+   interventions on top of capacity, and none of them writes here. This number
+   is deliberately slow so that they can be fast.
+
+   Null until there are SUSTAINED_WEEKS_REQUIRED weeks to read, exactly as
+   demonstrated volume is null for a first block. */
+function demonstratedRunningFrequency(){
+  var cutoff = addDays(todayStr(), -7 * DEMONSTRATED_WINDOW_WEEKS);
+  var byWeek = {};
+  var add = function(dateStr){
+    if (!dateStr) return;
+    var monday = addDays(dateStr, -isoWeekday(dateStr));
+    if (monday < cutoff) return;
+    byWeek[monday] = (byWeek[monday] || 0) + 1;
+  };
+  var a = (state && state.athlete) || null;
+  ((a && a.sessions) || []).forEach(function(sn){
+    if (sn && sn.completed && (sn.actualKm > 0 || sn.plannedKm > 0)) add(sn.date);
+  });
+  ((state && state.days) || []).forEach(function(dd){
+    if (!dd || !dd.completed) return;
+    var km = (dd.actual && dd.actual.km != null) ? dd.actual.km : dd.km;
+    if (km > 0) add(dd.date);
+  });
+  var counts = Object.keys(byWeek).sort().map(function(k){ return byWeek[k]; });
+  if (counts.length < SUSTAINED_WEEKS_REQUIRED) return null;
+  var desc = counts.slice().sort(function(x, y){ return y - x; });
+  return desc[SUSTAINED_WEEKS_REQUIRED - 1];
+}
+
+/* ---------- CAN A WEEK OF THIS SIZE EVEN BE WRITTEN ACROSS N DAYS? ----------
+   FEASIBILITY, NOT COACHING. This answers one question only: is a week of N
+   running days expressible inside the session sizes the app already permits?
+   The long run takes its own share of the week and every other day must still
+   reach the smallest session that block may contain, so
+
+       volume >= volume x LONG_FRACTION + (N - 1) x floor
+
+   which solves for N. The floor keeps the meaning it has everywhere else and
+   is NOT being read here as "a run of that size is worthwhile, so prescribe
+   one". It says only that a day which cannot reach it cannot be written at
+   all. There is no minimum-USEFUL-run constant here and none is implied.
+
+   WHICH FLOOR, AND WHY IT IS A PARAMETER. EASY_MIN_KM is the smallest easy
+   session a RACE week may contain. A foundation week is expressible at any
+   size the athlete actually runs and its floor is the quantum, which is
+   exactly why foundation exists -- so the same question is asked of each block
+   against its own floor. Passing EASY_QUANTUM_KM with no long run reproduces,
+   term for term, the rule foundation already had:
+
+       fillable = floor(volume / EASY_QUANTUM_KM)
+
+   so foundation is not given a second, stricter expressibility rule; it is
+   given the same one, and the two can no longer drift apart.
+
+   This is the same question minViableOnRampKm() already asks; it simply asks
+   it for a fixed shape. Nothing new is introduced, and for a race block at
+   26km/week it already permits six days, so it never reaches an established
+   athlete. */
+function expressibleRunningDays(distKey, volumeKm, floorKm, hasLongRun){
+  var p = DISTANCE_PROFILES[distKey];
+  if (!p || !(volumeKm > 0)) return null;
+  var floor = (floorKm != null) ? floorKm : EASY_MIN_KM;
+  if (!(floor > 0)) return null;
+  var longRun = (hasLongRun !== false);
+  var frac = longRun ? LONG_FRACTION[p.emphasis] : 0;
+  if (!(frac >= 0) || !(frac < 1)) return null;
+  return Math.max(1, (longRun ? 1 : 0) +
+                     Math.floor(volumeKm * (1 - frac) / floor));
+}
+
 /* The ceiling: anchored to the athlete's own demonstrated capacity, clamped
    into [backstop, backstop x CEILING_MAX_OVER_BACKSTOP]. The lower bound is
    what stops a beginner's ceiling collapsing onto their first three weeks; the
@@ -5251,6 +5354,13 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      reading consent records or the athlete's performance history. Absent means
      no -- a caller that has not asked the question does not get the session. */
   var calibrate = !!(opts && opts.calibrate);
+  /* THE SECOND WAY THE CALIBRATION IS EARNED, and it is still decided at the
+     call site. True where calibrationEligibility() refused for one reason
+     only -- 'insufficient_base' -- so this block may place the session in the
+     first week its own volume clears CALIBRATION_MIN_WEEKLY_KM. Absent means
+     no: a caller that has not asked the question does not get the session,
+     and no consent, LTHR or evidence record is read here. */
+  var calibrateWhenViable = !!(opts && opts.calibrateWhenViable);
   /* A GOAL PACE NEEDS A GOAL. A race block culminates in a goal effort whether
      or not there is an entry in a real event -- the builder says so in as many
      words -- so goal-pace work belongs there. Maintenance does not culminate in
@@ -5325,18 +5435,20 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      once per calendar week. Taper weeks are excluded and keep the existing
      path entirely. */
   var soloOccQ = 0, soloOccT = 0;
+  /* The calibration is a single session in the life of a block, whichever of
+     the two ways it is earned, so the question is closed once it is placed. */
+  var calibrationPlaced = false;
 
   for (var w=1; w<=N; w++){
     var isRace = !steady && arc.hasGoalEffort && (w===N);
     var isTaper = !steady && (!isRace && w>buildWeeks);
     var isCheckpoint = false;
-    /* THE EARLY CALIBRATION. Week one's quality slot, and only ever week one:
-       the point is that the sessions AFTER it are prescribed against a real
-       threshold rather than an estimate, so every week it is delayed is a week
-       of zones nobody measured. Never in a race or taper week -- those weeks
-       are not the place for a new hard effort, and a block whose first week is
-       already a taper is not a block that needs calibrating. */
-    var isCalibration = calibrate && (w === 1) && !isRace && !isTaper;
+    /* THE EARLY CALIBRATION. Decided below, once this week's volume is known,
+       because one of the two ways it can be earned is a volume test. Never in
+       a race or taper week -- those weeks are not the place for a new hard
+       effort, and a block whose first week is already a taper is not a block
+       that needs calibrating. */
+    var isCalibration = false;
     var volume, phase, isCutback=false;
     /* S0 ACCOUNTING -- what the arc INTENDED before any deliberate reduction.
        Recorded, never acted on. See the volume-accounting block below
@@ -5397,6 +5509,42 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     }
     volume = round1(volume);
     intendedVolume = round1(intendedVolume);
+
+    /* WHERE THE THRESHOLD CALIBRATION GOES, AND THE TWO WAYS IT IS EARNED.
+
+       ELIGIBLE AT CREATION. Week one, and it opens the programme: the point of
+       the session is that everything prescribed AFTER it is written against a
+       measured threshold rather than an estimate, so every session that
+       precedes it is a session prescribed against a guess. It is the first
+       running session of the plan -- buildDaysFromWeeks() places it on the
+       first running day of the week, rather than on whichever day the quality
+       spacing happened to choose.
+
+       BELOW THE BASE FLOOR. CALIBRATION_MIN_WEEKLY_KM is a safety floor and it
+       is not lowered, waived or worked around: an athlete under it is not
+       given a maximal field test in week one, full stop. But nor is the
+       calibration abandoned for the life of the programme. Where the ONLY
+       thing standing between the athlete and the session is the floor -- they
+       have consented, they have no supplied LTHR, they have no recent measured
+       effort -- the session waits for the programme's own volume to reach the
+       floor and is then placed at the first appropriate opportunity: not a
+       cutback week, whose purpose is the reduction, and not a checkpoint week,
+       which already carries a maximal effort.
+
+       ONCE PER BLOCK, EITHER WAY. calibrationPlaced closes the question the
+       moment the session exists.
+
+       WHAT THIS DOES NOT DO. The calibration is evidence about INTENSITY. It
+       is not permission for volume, for another running day, for a second
+       quality session or for a faster ramp, and nothing here reads it as such
+       -- it takes the week's existing quality slot and the week's existing
+       tempo allocation, and the week is the same size either way. */
+    if (!calibrationPlaced && !isRace && !isTaper){
+      if (calibrate && w === 1) isCalibration = true;
+      else if (calibrateWhenViable && !isCutback && !isCheckpoint &&
+               volume >= CALIBRATION_MIN_WEEKLY_KM) isCalibration = true;
+      if (isCalibration) calibrationPlaced = true;
+    }
 
     /* MAINTENANCE HOLDS A DOSE; IT DOES NOT WALK ONE UPWARD.
        `pos` is progress through the build, and every quality structure lerps
@@ -5593,7 +5741,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       hasGoalSegment:hasGoalSegment, goalSegKm:goalSegKm, goalSegFrac:goalSegFrac, raceDayKm:raceDayKm
     });
   }
-  return { profile:profile, weeks:weeks, peakVolume:round1(peakVolume),
+  return { profile:profile, distKey:distKey, weeks:weeks, peakVolume:round1(peakVolume),
            buildWeeks:buildWeeks, taperWeeks:taper, planWeeks:N, steady:steady,
            purpose:purpose, noQuality:!!arc.noQuality, noLongRun:!!arc.noLongRun,
            /* THE RATE, AS AN OUTPUT. What the ramp actually implies per
@@ -7732,6 +7880,31 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   /* FOUNDATION HAS NO LONG DAY, so every active day is an easy day and the
      long-run slot simply does not exist. */
   var noLongRun = !!blockResult.noLongRun;
+  /* ---- AVAILABILITY IS A CEILING, NOT AN INSTRUCTION ----
+     The generator divided every week across every day the athlete had made
+     available, so prescribed runs equalled available days in 429,508 of
+     429,508 race weeks. A 10km week on six available days came out as six
+     one-and-a-half-kilometre runs. Availability was not a ceiling; it was the
+     divisor.
+
+     THREE INPUTS, EACH ANSWERING ITS OWN QUESTION.
+       demonstratedRunningFrequency()  what this athlete has actually sustained,
+                                       read as the third-best week of the last
+                                       fifty-two so a missed run cannot erase it
+       expressibleRunningDays()        whether a week of that size can be
+                                       WRITTEN across that many days at all
+       activeDays.length               what the athlete said they can do
+     The lowest wins, and availability can only ever lower it. With no
+     demonstrated evidence the athlete keeps their stated availability, subject
+     only to feasibility -- a first-time athlete is not told they may run less
+     often than they asked to.
+
+     WHY THIS DOES NOT MAKE FREQUENCY DRIVE VOLUME. The week's volume is
+     already decided by buildBlockWeeks() from the programme mathematics; this
+     decides only how many days it is written across. A day that is not a
+     running day is a rest day the supporting-work layer may still claim. */
+  var demonstratedFreq = null;
+  try { demonstratedFreq = demonstratedRunningFrequency(); } catch(e){ demonstratedFreq = null; }
   /* S2-A. What the previous week actually ASKED THE ATHLETE TO RUN in its
      quality slots, so a taper can be held against the load it delivered rather
      than against a per-family bookkeeping figure the athlete never sees. */
@@ -7851,7 +8024,70 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       return;
     }
 
-    var b2bActive = wk.b2bEligible && b2bAvailable;
+    /* ---- HOW MANY DAYS THIS WEEK MAY RUN ON, from three inputs and no fourth.
+
+       AVAILABILITY is the ceiling and always was: the athlete's own chosen
+       days, never exceeded.
+
+       EXPRESSIBILITY (A) is a feasibility floor under that ceiling -- see
+       expressibleRunningDays(). It answers only whether a week of this size
+       can be WRITTEN across this many days at the block's own session floor.
+       It is not an opinion about whether the resulting runs are worthwhile,
+       and there is no minimum-useful-run constant anywhere in it.
+
+       DEMONSTRATED SUSTAINABLE FREQUENCY (D) is the coaching authority, and
+       it is the athlete's own evidence read by the same robust statistic the
+       volume side already uses: the third-highest running-day count in the
+       last fifty-two weeks. Three distinct things stay distinct -- what is
+       PRESCRIBED, what is EXECUTED in any one week, and what is DEMONSTRATED
+       as sustainable -- so one missed run does not reduce anybody.
+
+       THE LOWEST OF THE THREE WINS, and with no logged history there is no
+       D at all: the athlete keeps their stated availability, subject only to
+       feasibility. A first-time athlete is never told they may run less often
+       than they asked to.
+
+       WHY THIS DOES NOT MAKE FREQUENCY DRIVE VOLUME. The week's volume was
+       already decided by buildBlockWeeks() from the programme mathematics.
+       This decides only how many days it is written across, and a day that is
+       not a running day is a rest day the supporting-work layer may claim. */
+    var runCap = activeDays.length;
+    var feasibleDays = expressibleRunningDays(blockResult.distKey, wk.volume,
+                                              (easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM,
+                                              !noLongRun);
+    if (feasibleDays != null) runCap = Math.min(runCap, feasibleDays);
+    if (demonstratedFreq != null && !wk.isRace)
+      runCap = Math.min(runCap, Math.max(2, demonstratedFreq));
+    wk.runDayCap = runCap;
+    /* ---- AND THE AEROBIC-DOMINANCE CEILING IS READ AGAINST THE SAME NUMBER --
+       The approved contract says a three-day week gets at most one hard
+       session. Until running days could fall below availability the two were
+       the same number, so the ceiling was read from activeDays and nothing
+       distinguished them. They are no longer the same number: an athlete with
+       six available days whose demonstrated frequency is three would have been
+       given a six-day week's ceiling -- two quality sessions -- and then run
+       three days, which is two hard days out of three. The contract is
+       unchanged; it is now asked about the week that is actually built.
+
+       THIS IS NOT THE CONVERSE. Running days do not GRANT quality: going from
+       three days to four still buys nothing, because the second slot is
+       earned from the athlete's logged response and not from the day count.
+       This direction only stops a slot the week no longer has room to be
+       aerobically dominant around. */
+    var weekQualitySlots = blockResult.noQuality ? 0
+      : Math.min(qualityDays.length, qualitySlotCeilingForDayCount(runCap));
+    if (weekQualitySlots < qualityDays.length)
+      wk.qualityDaysRested = qualityDays.length - weekQualitySlots;
+    /* ---- AND A BACK-TO-BACK LONG RUN COSTS A RUNNING DAY LIKE ANY OTHER ----
+       It is a second long run on the day after the first, so it spends one of
+       the days the cap allows. Where the week cannot hold the long run, the
+       quality the ceiling permits, the back-to-back AND one real easy day, the
+       back-to-back is what gives way -- it is the discretionary shape of the
+       three, and running it would buy a running day the athlete has not
+       demonstrated. With no demonstrated evidence the cap is the athlete's own
+       availability and this cannot bind, so every existing plan is unchanged. */
+    var b2bActive = wk.b2bEligible && b2bAvailable &&
+                    runCap >= (noLongRun ? 0 : 1) + 1 + weekQualitySlots + 1;
     var longKm, secondLongKm=0;
     if (b2bActive){ longKm=round1(wk.longTarget*0.62); secondLongKm=round1(wk.longTarget*0.38); }
     else { longKm = round1(wk.longTarget); }
@@ -7859,20 +8095,29 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     // this week's real easy-day pool: drop the b2b day from it on weeks where b2b actually fires,
     // since that day's volume comes from secondLongKm instead, not the generic easy budget
     var easyDays = b2bActive ? easyDaysBase.filter(function(d){return d!==b2bDay;}) : easyDaysBase;
-    /* YOU ADD DISTANCE BEFORE YOU ADD DAYS.
-       A foundation week is the athlete's own volume divided across their days,
-       and below a certain volume that division stops being expressible: one
-       kilometre a week over five days is 200m per run, which rounds to the
-       0.5km quantum and comes back out as 2.5km -- two and a half times what
-       they said they run. Manufacturing volume to fill a day is exactly the
-       failure this architecture replaces.
+    /* ---- AND THE DAYS ARE SPENT ON THE PURPOSEFUL SESSIONS FIRST ----
+       YOU ADD DISTANCE BEFORE YOU ADD DAYS. A foundation week is the athlete's
+       own volume divided across their days, and below a certain volume that
+       division stops being expressible: one kilometre a week over five days is
+       200m per run, which rounds to the 0.5km quantum and comes back out as
+       2.5km -- two and a half times what they said they run. Manufacturing
+       volume to fill a day is exactly the failure this architecture replaces.
 
-       So the DAYS give way, not the volume. The week uses as many days as it
-       can fill at the quantum and rests the others, and as the block ramps the
-       days come back. Derived from the quantum, so no number is chosen here. */
-    if (noLongRun && easyDays.length){
-      var fillable = Math.max(1, Math.floor(wk.volume / EASY_QUANTUM_KM));
-      if (fillable < easyDays.length) easyDays = easyDays.slice(0, fillable);
+       So the DAYS give way, not the volume. The long run, the back-to-back and
+       the quality slots are paid for first because they have a purpose; what
+       the cap leaves over goes to easy running and the rest of the athlete's
+       available days rest. As the block ramps, the days come back. No day is
+       created to be filled and no run is manufactured to occupy one.
+
+       ONE EASY DAY SURVIVES REGARDLESS, which is the existing rule that a week
+       must keep a real easy run rather than being nothing but its hard days. */
+    if (easyDays.length){
+      var committedDays = (noLongRun ? 0 : 1) + (b2bActive ? 1 : 0) + weekQualitySlots;
+      var easyAllowed = Math.max(1, runCap - committedDays);
+      if (easyAllowed < easyDays.length){
+        wk.easyDaysRested = easyDays.length - easyAllowed;
+        easyDays = easyDays.slice(0, easyAllowed);
+      }
     }
 
     /* ---- aerobic / quality balance ----
@@ -7971,7 +8216,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        plus the long run still exceeding a very small week -- is the separate,
        pre-existing easy-floor class, left declared and visible rather than
        folded into this one. */
-    var qualitySlotsThisWeek = qualityDays.length;
+    var qualitySlotsThisWeek = weekQualitySlots;
     if (qualitySlotsThisWeek > 0 && !blockResult.noQuality){
       var pinned = (wk.isCheckpoint || wk.isCalibration) ? 1 : 0;
       var baseEasyN = easyDays.length;
@@ -8010,25 +8255,87 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         }
         qualitySlotsThisWeek--;
       }
-      if (qualitySlotsThisWeek < qualityDays.length){
-        wk.qualityYieldedSlots = qualityDays.length - qualitySlotsThisWeek;
-        // the days the sessions came off become ordinary easy days
-        easyDays = easyDays.concat(qualityDays.slice(qualitySlotsThisWeek)).sort(function(a,b){return a-b;});
+      if (qualitySlotsThisWeek < weekQualitySlots){
+        wk.qualityYieldedSlots = weekQualitySlots - qualitySlotsThisWeek;
+        /* The days the sessions came off become ordinary easy days -- but only
+           the ones the week's running-day count was already paying for. A slot
+           the aerobic-dominance ceiling removed took its DAY with it: that day
+           is outside the cap and rests, or the reduction would have bought a
+           running day the athlete has not demonstrated. */
+        easyDays = easyDays.concat(qualityDays.slice(qualitySlotsThisWeek, weekQualitySlots))
+                           .sort(function(a,b){return a-b;});
       }
     }
     /* One slot outside the taper: take the family the solo chain advanced. */
     if (qualitySlotsThisWeek === 1 && wk.soloSpec &&
         !wk.isCheckpoint && !wk.isCalibration) singleSlotKind = wk.soloKind;
-    var wkQty1Day = qualitySlotsThisWeek >= 1 ? qty1Day : null;
-    var wkQty2Day = qualitySlotsThisWeek >= 2 ? qty2Day : null;
+    var wkQty1Day = qualitySlotsThisWeek >= 1 ? qualityDays[0] : null;
+    var wkQty2Day = qualitySlotsThisWeek >= 2 ? qualityDays[1] : null;
+    /* The long run and the back-to-back day, held per week, because the
+       calibration placement below may exchange one of them with the day the
+       calibration has to occupy. The block-level values are unchanged and
+       every other week reads them exactly as before. */
+    var wkLongDay = longDay, wkB2bDay = b2bDay;
+
+    /* ---- THE CALIBRATION IS THE FIRST RUNNING SESSION OF THE PROGRAMME ----
+       Not the first quality session, and not day two: the FIRST run. Every
+       session prescribed before it is prescribed against an estimated
+       threshold, which is the whole of what the calibration exists to
+       replace, so a session that precedes it is a session written from a
+       guess -- and an interval session that precedes it is a hard effort
+       written from a guess.
+
+       AN EXCHANGE, NOT AN INSERTION. The week keeps exactly the sessions it
+       already had: the same long run, the same easy days, the same number of
+       quality slots and the same weekly volume. Two days trade places, and
+       only in the one week that carries the calibration. Nothing is added,
+       nothing is dropped, and the week is not made larger, harder or longer
+       to accommodate the test -- the calibration is intensity evidence and it
+       buys no load.
+
+       WHERE THE CALIBRATION ALREADY IS. It is delivered by the tempo slot --
+       the two-slot week's second quality day, the one-slot week's only one --
+       so that is the day that moves. */
+    var wkStridesDay = stridesDay;
+    if (wk.isCalibration && wkQty1Day != null){
+      var calDay = (wkQty2Day != null) ? wkQty2Day : wkQty1Day;
+      var runningToday = [];
+      if (!noLongRun && activeSet[wkLongDay]) runningToday.push(wkLongDay);
+      if (b2bActive) runningToday.push(wkB2bDay);
+      if (wkQty1Day != null) runningToday.push(wkQty1Day);
+      if (wkQty2Day != null) runningToday.push(wkQty2Day);
+      easyDays.forEach(function(d){ runningToday.push(d); });
+      /* A block may start mid-week, and a day before the start date is not a
+         session at all -- so "first" is the first day the athlete is actually
+         given, not the first day of the calendar week. */
+      var firstRun = null;
+      runningToday.forEach(function(d){
+        if (addDays(weekMonday, d) < startDateStr) return;
+        if (firstRun === null || d < firstRun) firstRun = d;
+      });
+      if (firstRun !== null && firstRun !== calDay){
+        /* Whatever the first day was holding takes the calibration's old slot,
+           and the calibration takes the first day. One exchange, both ways. */
+        if (firstRun === wkLongDay)      wkLongDay = calDay;
+        else if (b2bActive && firstRun === wkB2bDay) wkB2bDay = calDay;
+        else if (firstRun === wkQty1Day) wkQty1Day = calDay;
+        else {
+          var ei = easyDays.indexOf(firstRun);
+          if (ei !== -1){ easyDays = easyDays.slice(); easyDays[ei] = calDay;
+                          easyDays.sort(function(a,b){return a-b;}); }
+        }
+        if (calDay === wkQty2Day) wkQty2Day = firstRun; else wkQty1Day = firstRun;
+        wk.calibrationMovedTo = firstRun;
+      }
+    }
     /* The strides day for a week that gave a session up: the day it came off,
        furthest from the long run. Falls back to the block-level strides day, so
        blocks that never carried structured quality are unchanged. */
-    var wkStridesDay = stridesDay;
-    if (qualitySlotsThisWeek < qualityDays.length)
-      wkStridesDay = qualityDays.slice(qualitySlotsThisWeek).reduce(function(best, d){
-        return (best === null || isoGap(d, longDay) > isoGap(best, longDay)) ? d : best;
-      }, null);
+    if (qualitySlotsThisWeek < weekQualitySlots)
+      wkStridesDay = qualityDays.slice(qualitySlotsThisWeek, weekQualitySlots)
+        .reduce(function(best, d){
+          return (best === null || isoGap(d, wkLongDay) > isoGap(best, wkLongDay)) ? d : best;
+        }, null);
 
     var qualityKm = qualitySlotsThisWeek>=2 ? (qKmThisWeek + tKmThisWeek)
                   : qualitySlotsThisWeek===1 ? slotKm(singleSlotKind, 1) : 0;
@@ -8119,7 +8426,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       var date = addDays(weekMonday, iso);
       if (date<startDateStr) continue;
       var dayObj;
-      if (iso===longDay && activeSet[iso] && !noLongRun){
+      if (iso===wkLongDay && activeSet[iso] && !noLongRun){
         var tl = longRunText(longKm, wk.hasGoalSegment, wk.goalSegKm, b2bActive, false, wk.longShape);
         dayObj = { type:tl.type, title:tl.title, km:longKm, desc:tl.desc, mpSegment:!!tl.mpSegment,
           prescription: (wk.hasGoalSegment && wk.goalSegKm>0)
@@ -8127,12 +8434,20 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
             : { archetype:'long_run', params: b2bActive
                   ? { km:longKm, b2bPrimary:true, shape:wk.longShape }
                   : { km:longKm, shape:wk.longShape } } };
-      } else if (b2bActive && iso===b2bDay){
+      } else if (b2bActive && iso===wkB2bDay){
         var t2 = longRunText(secondLongKm, false, 0, false, true);
         dayObj = { type:t2.type, title:t2.title, km:secondLongKm, desc:t2.desc,
           prescription: { archetype:'long_run_b2b', params:{ km:secondLongKm } } };
-      } else if (noLongRun && activeSet[iso] && easyDays.indexOf(iso)===-1){
-        // a day the week's own volume cannot fill at the quantum -- see above
+      } else if (activeSet[iso] && easyDays.indexOf(iso)===-1 &&
+                 !(iso===wkLongDay && !noLongRun) &&
+                 iso!==wkQty1Day && iso!==wkQty2Day &&
+                 !(b2bActive && iso===wkB2bDay)){
+        /* AN AVAILABLE DAY THIS WEEK HAS NO RUN FOR, and it must actually stay
+           that way. Only foundation blocks used to rest a dropped day; every
+           other block fell through to the generic easy branch below and ran it
+           anyway, so reducing the easy-day count divided the SAME volume across
+           fewer days while still running all of them. The day rests, and
+           supportDayEligible() may still claim it. */
         var rdF = restDayText(false);
         dayObj = { type:rdF.type, title:rdF.title, km:0, desc:rdF.desc };
       } else if (activeSet[iso] && iso===wkQty1Day){
@@ -16734,7 +17049,8 @@ function startDevelopmentBlock(purpose, opts){
   var blockResult = buildBlockWeeks(spec.distanceKey, spec.volume,
     daysBetween(startMonday, addDays(goalDate, -isoWeekday(goalDate)))/7 + 1,
     { steady: purpose === 'maintain', purpose: purpose,
-      calibrate: calibrationNeededNow(spec.volume) });
+      calibrate: calibrationNeededNow(spec.volume),
+      calibrateWhenViable: calibrationDeferrable(spec.volume) });
   var days = buildDaysFromWeeks(blockResult, goalDate, schedule, startDate, false);
   if (purpose === 'recovery' && prevRaceDate)
     days = applyRecoveryCeiling(days, prevRaceDate, spec.noIntensityDays);
@@ -26682,7 +26998,8 @@ async function handleGeneratePlan(){
   var schedule = { activeDays:activeDays, longRunDay:longRunDay };
   var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks,
     { steady: buildPurpose === 'maintain', purpose: buildPurpose,
-      calibrate: calibrationNeededNow(volume) });
+      calibrate: calibrationNeededNow(volume),
+      calibrateWhenViable: calibrationDeferrable(volume) });
   var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);
 
   /* HISTORY IS RECONCILED INTO A REBUILD AND ARCHIVED OUT OF A TRANSITION.

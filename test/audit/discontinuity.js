@@ -38,6 +38,11 @@ function summarise(c){
     maxLong: longs.length ? Math.max(...longs) : 0,
     minLong: longs.length ? Math.min(...longs) : 0,
     activeSessions: c.sessions.filter(s => s.km > 0).length,
+    /* The largest number of days any non-race week actually runs on, so a step
+       caused by the expressibility ladder admitting another day is attributed
+       to that rather than absorbed into one of the session-shape rules. */
+    maxRunDays: nonRace.length
+      ? Math.max(...nonRace.map(w => w.sessions.filter(s => s.km > 0).length)) : 0,
     qualitySessions: quality.length,
     goalFinishWeeks: c.sessions.filter(s => s.archetype === 'long_run_goal_finish').length,
     zeroLongRuns: c.sessions.filter(s => s.type === 'long' && !(s.km > 0)).length
@@ -58,6 +63,9 @@ function attribute(a, b, ctx){
   // EASY_MIN_KM = 3 stops binding once the easy budget clears the floor
   if (a.zeroLongRuns !== b.zeroLongRuns) names.push('roundWorkoutKm long-run rounding to whole km');
   if (a.qualitySessions !== b.qualitySessions) names.push('quality structure shrink floors');
+  /* expressibleRunningDays(): a week becomes writable across one more day the
+     moment its volume clears another multiple of the block's session floor. */
+  if (a.maxRunDays !== b.maxRunDays) names.push('expressibleRunningDays admits another day');
   return names;
 }
 

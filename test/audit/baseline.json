@@ -1,55 +1,54 @@
 {
-  "note": "DEFECT RECORD, NOT AN APPROVAL. Whole-population counts for the RACE GENERATOR across every input, including inputs whose athletes are now routed to foundation or the on-ramp and never receive a race plan. Kept at full scope deliberately. The stricter guarantee \u2014 flat zero for every closed class inside the population that actually receives race plans \u2014 is asserted separately in test/planMathematicsInvariants.test.js and has no baseline to drift against.",
-  "generatedFrom": "test/audit/matrix.js \u2014 D-7 + S2-A + S6-A/B + earned quality frequency",
-  "previousTally": {
-    "zero_km_work_segment": 576,
-    "long_run_zero_distance": 576,
-    "long_run_shorter_than_easy_run": 5478,
-    "long_run_shorter_than_quality": 1128,
-    "week_overshoots_target_declared": 3955,
-    "quality_dominates_week": 2758,
-    "generator_invariant_failure": 576,
-    "week_one_exceeds_stated_volume": 404,
-    "week_over_week_growth_over_10pct": 530,
-    "week_undershoots_target_declared": 1923,
-    "long_run_implausible_for_distance": 4162
-  },
-  "previousNote": "The figures at 8636114 that this record replaces. Quality frequency is no longer granted by day count: the aerobic-dominance ceiling still says a three-day week gets at most one hard session, but the SECOND session is now earned from the athlete's own logged response (established family confidence, blockEffectiveness ADAPTING, not STRAINED, and measured typicalHoursToNormal fitting the spacing the schedule can actually give). With no evidence the default is one. Every figure here is therefore the NO-EVIDENCE population, which is what the matrix builds.",
-  "correctionNote": "Across the full 50,400-plan sweep, in-race: quality_dominates_week 3,678 -> 0; week_undershoots_target_declared 177,753 -> 162,564; long_run_shorter_than_quality 560 -> 310; long_run_shorter_than_easy_run 163 -> 84. All other HARD classes stay at 0 in-race. Continuity remains 0 reversals / 0 jumps. Running frequency is untouched -- prescribed running days equal athlete availability exactly; the freed day becomes easy running, never a rest day.",
-  "plans": 2350,
-  "weeks": 30080,
-  "sessions": 210560,
-  "racePlans": 442,
-  "routedPlans": 1908,
-  "tally": {
-    "zero_km_work_segment": 576,
-    "long_run_zero_distance": 576,
-    "long_run_shorter_than_easy_run": 5474,
-    "long_run_shorter_than_quality": 1025,
-    "week_overshoots_target_declared": 3955,
-    "quality_dominates_week": 256,
-    "generator_invariant_failure": 576,
-    "week_one_exceeds_stated_volume": 404,
-    "week_over_week_growth_over_10pct": 525,
-    "week_undershoots_target_declared": 1773,
-    "long_run_implausible_for_distance": 4162
-  },
-  "tallyRace": {
-    "long_run_shorter_than_quality": 34,
-    "week_over_week_growth_over_10pct": 169,
-    "week_undershoots_target_declared": 1772
-  },
-  "tallyRouted": {
-    "zero_km_work_segment": 576,
-    "long_run_zero_distance": 576,
-    "long_run_shorter_than_easy_run": 5474,
-    "long_run_shorter_than_quality": 991,
-    "week_overshoots_target_declared": 3955,
-    "quality_dominates_week": 256,
-    "generator_invariant_failure": 576,
-    "week_one_exceeds_stated_volume": 404,
-    "week_over_week_growth_over_10pct": 356,
-    "long_run_implausible_for_distance": 4162,
-    "week_undershoots_target_declared": 1
-  }
+ "note": "DEFECT RECORD, NOT AN APPROVAL. Whole-population counts for the RACE GENERATOR across every input, including inputs whose athletes are now routed to foundation or the on-ramp and never receive a race plan. Kept at full scope deliberately. The stricter guarantee — flat zero for every closed class inside the population that actually receives race plans — is asserted separately in test/planMathematicsInvariants.test.js and has no baseline to drift against.",
+ "generatedFrom": "test/audit/matrix.js — D-7 + S2-A + S6-A/B + earned quality frequency + demonstrated running frequency (D) and expressibility (A)",
+ "previousTally": {
+  "zero_km_work_segment": 576,
+  "long_run_zero_distance": 576,
+  "long_run_shorter_than_easy_run": 5474,
+  "long_run_shorter_than_quality": 1025,
+  "week_overshoots_target_declared": 3955,
+  "quality_dominates_week": 256,
+  "generator_invariant_failure": 576,
+  "week_one_exceeds_stated_volume": 404,
+  "week_over_week_growth_over_10pct": 525,
+  "week_undershoots_target_declared": 1773,
+  "long_run_implausible_for_distance": 4162
+ },
+ "previousNote": "The figures at 8cb28f4 that this record replaces. They were built by a generator in which PRESCRIBED RUNNING DAYS ALWAYS EQUALLED AVAILABILITY: the athlete's chosen day count was the divisor the week's volume was spread across, so a 10km week on six available days came out as six one-and-a-half-kilometre runs, and a week that could not fill its days at EASY_MIN_KM was built bigger than it was asked for rather than written across fewer days.",
+ "correctionNote": "WHAT MOVED, AND WHY, MEASURED WEEK BY WEEK ACROSS THE SAME 30,080 WEEKS.\\nRunning days are now min(availability, expressibility, max(2, demonstrated sustainable frequency)); the aerobic-dominance ceiling is read against the days the week actually runs on rather than against availability; a back-to-back long run is gated on the same cap; and a day the week does not run on now actually rests in every block, not only in foundation.\\n\\nTHE RACE POPULATION IS BYTE-IDENTICAL. Every count under tallyRace is unchanged, because a race block starts at or above minViableStartKm — where expressibility never binds — and the matrix builds every case from default state, where there is no demonstrated frequency to read. D reaches an athlete only once they have logged three weeks. Foundation blocks are bit-identical too, verified session-by-session across all 512.\\n\\nEVERY CHANGE IS THEREFORE IN THE ON-RAMP POPULATION, and every recorded class falls except one: week_overshoots_target_declared 3,955 -> 1,276; long_run_shorter_than_easy_run 5,471 -> 3,201; long_run_implausible_for_distance 4,162 -> 3,352; week_one_exceeds_stated_volume 404 -> 150; long_run_shorter_than_quality 992 -> 659; quality_dominates_week 256 -> 167. Mean delivered/target across every week 1.725 -> 1.436; weeks over-prescribed by more than 35% 6,137 -> 3,458; total kilometres prescribed across the matrix 939,834 -> 912,544 against targets totalling 937,935.\\n\\nTHE ONE RISE IS week_over_week_growth_over_10pct, 466 -> 495, and it is a denominator effect that was decomposed before it was accepted. At week level: 795 newly flagged steps, 209 no longer flagged. Of the 795, 490 are weeks whose own TARGET grows more than 10% (the foundation/on-ramp ramp rate, already a separate open question and untouched here), 128 are the expressibility ladder admitting another running day as volume rises, and 177 are the 0.5km presentation quantum on weeks under 10km. 758 of the 795 are at least as close to their own target as they were before. No week grew because more training was prescribed.\\n\\nquality_dominates_week decomposes the same way: of the 79 newly flagged weeks, the quality kilometres are unchanged in 79 of 79 and the delivered week is smaller in 79 of 79. The fraction rose because the week stopped being padded, not because the session grew.\\n\\nContinuity: 0 reversals, 0 jumps, 0 unattributed structural steps across 14,280 adjacent pairs. The new attribution 'expressibleRunningDays admits another day' accounts for the steps the ladder introduces.",
+ "plans": 2350,
+ "weeks": 30080,
+ "sessions": 210560,
+ "racePlans": 442,
+ "routedPlans": 1908,
+ "tally": {
+  "zero_km_work_segment": 576,
+  "long_run_zero_distance": 576,
+  "long_run_shorter_than_easy_run": 3201,
+  "week_overshoots_target_declared": 1276,
+  "generator_invariant_failure": 576,
+  "week_one_exceeds_stated_volume": 150,
+  "week_over_week_growth_over_10pct": 495,
+  "long_run_shorter_than_quality": 659,
+  "quality_dominates_week": 167,
+  "week_undershoots_target_declared": 1823,
+  "long_run_implausible_for_distance": 3352
+ },
+ "tallyRace": {
+  "long_run_shorter_than_quality": 25,
+  "week_over_week_growth_over_10pct": 128,
+  "week_undershoots_target_declared": 1823
+ },
+ "tallyRouted": {
+  "zero_km_work_segment": 576,
+  "long_run_zero_distance": 576,
+  "long_run_shorter_than_easy_run": 3201,
+  "week_overshoots_target_declared": 1276,
+  "generator_invariant_failure": 576,
+  "week_one_exceeds_stated_volume": 150,
+  "week_over_week_growth_over_10pct": 367,
+  "long_run_shorter_than_quality": 634,
+  "quality_dominates_week": 167,
+  "long_run_implausible_for_distance": 3352
+ }
 }
