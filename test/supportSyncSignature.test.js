@@ -255,16 +255,26 @@ test('evolution and playbook ledgers are still NOT signed', () => {
   assert.equal(sig(a), before);
 });
 
-test('only dd.support was added — no other day field entered the signature', () => {
+test('the signed day fields are exactly the stated list, and nothing else', () => {
   /* Read off the REAL output rather than the source text: stableStringify
      emits valid JSON, so the signed shape can simply be parsed. An earlier
      version of this scraped the function body with a regex and silently
-     missed every field that shares a line with another. */
+     missed every field that shares a line with another.
+
+     THIS LIST IS MEANT TO BE HARD TO CHANGE, and it has changed twice on
+     purpose. dd.support joined it because supporting work is training the
+     athlete did. dd.optionalRun joined it for the sharper version of the same
+     reason: a rest day carrying a logged optional run already differs in
+     `completed` and `actual`, but the marker is what says those kilometres
+     were the athlete's own choice rather than a prescription that was met, and
+     a device that dropped it would adopt the run as a completed session.
+     Anything else appearing here is a writer that has not been thought
+     about -- which is the whole point of pinning it. */
   const a = device();
   const signedDay = JSON.parse(sig(a)).days[0];
   assert.equal(Object.keys(signedDay).sort().join(','),
     'actual,athleteState,coachAdjust,completed,date,desc,id,km,mpSegment,'
-      + 'prescription,readiness,support,title,type,week',
+      + 'optionalRun,prescription,readiness,support,title,type,week',
     'the signed day fields are a stated list; this is the list');
   assert.equal(Object.keys(JSON.parse(sig(a))).sort().join(','), 'days,setup',
     'and the top level is still setup + days, nothing else');
