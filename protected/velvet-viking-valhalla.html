@@ -4332,9 +4332,26 @@ function blockRotationFor(purpose){
 // (Taper, Race Week) fall back to the race-specific Peak pool. `rotation`
 // offsets the whole sequence so that the athlete's next block of the same
 // purpose does not open on the session their last one opened on.
-function pickQualityStructure(pool, phase, weekNum, pos, emphasis, rotation){
+/* THE INDEX IS AN OCCURRENCE COUNT, and outside the taper it is the FAMILY'S
+   own occurrence rather than the calendar week. Passing the week number coupled
+   structure eligibility to week parity: a week carrying one quality exposure
+   alternates the two families, so the interval family only ever saw odd weeks
+   and the tempo family only even ones -- and (even + rotation) % 2 is a
+   CONSTANT. Every tempo pool is two structures long and the interval pools are
+   2/3/2, so half of each became mathematically unreachable inside a phase:
+   hill_repeats and threshold_continuous in Base, split_tempo in Build,
+   goal_pace_reps and threshold_continuous in Peak.
+
+   No methodology says a structure's eligibility depends on which calendar week
+   it falls in. The taper is deliberately NOT changed: fitQualityStructure()
+   already walks the whole pool there, so its structures were always reachable,
+   and putting an occurrence chain through it collided with the taper's own
+   unloading invariant -- the family whose turn had come could have no structure
+   small enough to descend to. Where there is no reachability defect there is
+   nothing to correct. */
+function pickQualityStructure(pool, phase, occurrence, pos, emphasis, rotation){
   var candidates = pool[phase] || pool.Peak;
-  return candidates[(weekNum + (rotation || 0)) % candidates.length](pos, emphasis);
+  return candidates[(occurrence + (rotation || 0)) % candidates.length](pos, emphasis);
 }
 
 /* Warm-up + cool-down as ACTUALLY WRITTEN by the text templates below. The
@@ -5303,6 +5320,11 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   // The previous week's quality sizes, so a taper week can be held at or below
   // them. Null until the first week has been built.
   var prevQKm = null, prevTKm = null, prevQSpec = null, prevTSpec = null;
+  /* How many times each family has actually been DELIVERED under the one-
+     exposure-a-week cadence, so its pool advances once per delivery instead of
+     once per calendar week. Taper weeks are excluded and keep the existing
+     path entirely. */
+  var soloOccQ = 0, soloOccT = 0;
 
   for (var w=1; w<=N; w++){
     var isRace = !steady && arc.hasGoalEffort && (w===N);
@@ -5497,6 +5519,27 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     prevQKm = qKm; prevTKm = tKm;
     if (!isRace && !arc.noQuality){ prevQSpec = qSpec; prevTSpec = tSpec; }
 
+    /* ---- THE SINGLE-EXPOSURE CADENCE, ROTATED ON ITS OWN OCCURRENCES ----
+       A one-slot week delivers one family and discards the other, so the two
+       chains above are not the sequence the athlete receives. This is: the
+       family a single-slot week would deliver, indexed by how many times THAT
+       family has been delivered. Built for Base, Build and Peak only -- a taper
+       keeps the existing selection path, where the pool is already walked in
+       full and the descent invariant governs. */
+    var soloKind = null, soloSpec = null, soloKm = 0, soloFitsBound = true;
+    if (!isRace && !isTaper && !arc.noQuality){
+      soloKind = (isCheckpoint || isCalibration) ? 'tempo'
+               : (w % 2 === 0 ? 'tempo' : 'interval');
+      var soloOcc = soloKind === 'interval' ? soloOccQ : soloOccT;
+      soloSpec = fitQualityStructure(
+        soloKind === 'interval' ? INTERVAL_STRUCTURE_POOL : TEMPO_STRUCTURE_POOL,
+        soloKind, structPhase, soloOcc, pos, profile.emphasis, rotation,
+        weekFitCeil, null, 1);
+      soloKm = soloKind === 'interval' ? intervalSessionKm(soloSpec) : tempoSessionKm(soloSpec);
+      soloFitsBound = soloKm <= weekFitCeil + 1e-9;
+      if (soloKind === 'interval') soloOccQ++; else soloOccT++;
+    }
+
     var longFrac = LONG_FRACTION[profile.emphasis];
     /* A FOUNDATION BLOCK HAS NO LONG RUN, and that is the point rather than an
        omission: the long run is precisely the session this athlete's volume
@@ -5539,6 +5582,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     weeks.push({
       week:w, phase:phase, isCutback:isCutback, isTaper:isTaper, isRace:isRace, isCheckpoint:isCheckpoint,
       qFitsBound:qFitsBound, tFitsBound:tFitsBound, weekFitCeil:round1(weekFitCeil),
+      soloKind:soloKind, soloSpec:soloSpec, soloKm:soloKm, soloFitsBound:soloFitsBound,
       isCalibration:isCalibration,
       // S0 ACCOUNTING, recorded not acted on: what the arc asked for, and the
       // named coaching reason any of it was deliberately given back.
@@ -7840,10 +7884,27 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     var qKmThisWeek = wk.qKm, tKmThisWeek = wk.tKm;
     // What a slot will actually put on the card: the session plus whatever its
     // own floor adds to the day. The same expression buildQualityDay() uses.
-    function slotDeliveredKm(kind){
-      return kind==='interval'
-        ? qKmThisWeek + qualityDayShortfallKm(qKmThisWeek, wk.qSpec, 'interval')
-        : tKmThisWeek + qualityDayShortfallKm(tKmThisWeek, wk.tSpec, 'tempo');
+    /* WHICH CHAIN THIS WEEK READS. A one-slot week outside the taper takes
+       wk.soloSpec -- the family whose rotation actually advanced -- and only
+       for the family that chain was built for: a checkpoint forces the tempo
+       slot and the taper rule can swap the delivered family, and in both cases
+       the week falls back to that family's own chain rather than being handed
+       one family's distance wearing another's structure. Taper weeks carry no
+       solo chain at all and are unchanged. */
+    var useSolo = function(kind, slots){
+      return slots === 1 && !!wk.soloSpec && kind === wk.soloKind;
+    };
+    function slotSpec(kind, slots){
+      if (useSolo(kind, slots)) return wk.soloSpec;
+      return kind==='interval' ? wk.qSpec : wk.tSpec;
+    }
+    function slotKm(kind, slots){
+      if (useSolo(kind, slots)) return wk.soloKm;
+      return kind==='interval' ? qKmThisWeek : tKmThisWeek;
+    }
+    function slotDeliveredKm(kind, slots){
+      var km = slotKm(kind, slots);
+      return km + qualityDayShortfallKm(km, slotSpec(kind, slots), kind==='interval'?'interval':'tempo');
     }
     // With one slot the two stimuli alternate week to week rather than one of
     // them being dropped for the whole block; the checkpoint always takes it.
@@ -7871,8 +7932,8 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     if (wk.isTaper && qualityDays.length===1 && !wk.isCheckpoint && !wk.isCalibration &&
         prevDeliveredQualityKm != null){
       var other = singleSlotKind==='interval' ? 'tempo' : 'interval';
-      if (slotDeliveredKm(singleSlotKind) > prevDeliveredQualityKm + 1e-9 &&
-          slotDeliveredKm(other) < slotDeliveredKm(singleSlotKind)) singleSlotKind = other;
+      if (slotDeliveredKm(singleSlotKind, 1) > prevDeliveredQualityKm + 1e-9 &&
+          slotDeliveredKm(other, 1) < slotDeliveredKm(singleSlotKind, 1)) singleSlotKind = other;
     }
     /* ---- S6-A. THE WEEKLY ENVELOPE IS NOT PERMISSION FOR FIXED FLOORS ----
        CAPACITY IS PERMISSION, NOT OBLIGATION. A quality structure shrinks only
@@ -7916,8 +7977,8 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       var baseEasyN = easyDays.length;
       var floorPerEasy = (easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM;
       var floorCostFor = function(slots, kind){
-        var q = slots>=2 ? (slotDeliveredKm('interval') + slotDeliveredKm('tempo'))
-              : slots===1 ? slotDeliveredKm(kind) : 0;
+        var q = slots>=2 ? (slotDeliveredKm('interval', 2) + slotDeliveredKm('tempo', 2))
+              : slots===1 ? slotDeliveredKm(kind, 1) : 0;
         return q + longKm + secondLongKm +
                (baseEasyN + (qualityDays.length - slots)) * floorPerEasy;
       };
@@ -7927,12 +7988,13 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
          it found one. Where it did not, no amount of weekly volume makes the
          session legal, so the slot yields by the same ladder and for the same
          reason -- the week cannot honestly contain what was prescribed. */
-      var slotLegal = function(kind){
+      var slotLegal = function(kind, slots){
+        if (useSolo(kind, slots)) return wk.soloFitsBound !== false;
         return kind === 'interval' ? wk.qFitsBound !== false : wk.tFitsBound !== false;
       };
       var affordable = function(slots, kind){
-        if (slots >= 2 && !(slotLegal('interval') && slotLegal('tempo'))) return false;
-        if (slots === 1 && !slotLegal(kind)) return false;
+        if (slots >= 2 && !(slotLegal('interval', 2) && slotLegal('tempo', 2))) return false;
+        if (slots === 1 && !slotLegal(kind, 1)) return false;
         return floorCostFor(slots, kind) <= wk.volume + 1e-9;
       };
       while (qualitySlotsThisWeek > pinned &&
@@ -7954,6 +8016,9 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         easyDays = easyDays.concat(qualityDays.slice(qualitySlotsThisWeek)).sort(function(a,b){return a-b;});
       }
     }
+    /* One slot outside the taper: take the family the solo chain advanced. */
+    if (qualitySlotsThisWeek === 1 && wk.soloSpec &&
+        !wk.isCheckpoint && !wk.isCalibration) singleSlotKind = wk.soloKind;
     var wkQty1Day = qualitySlotsThisWeek >= 1 ? qty1Day : null;
     var wkQty2Day = qualitySlotsThisWeek >= 2 ? qty2Day : null;
     /* The strides day for a week that gave a session up: the day it came off,
@@ -7966,11 +8031,10 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       }, null);
 
     var qualityKm = qualitySlotsThisWeek>=2 ? (qKmThisWeek + tKmThisWeek)
-                  : qualitySlotsThisWeek===1 ? (singleSlotKind==='interval' ? qKmThisWeek : tKmThisWeek)
-                  : 0;
+                  : qualitySlotsThisWeek===1 ? slotKm(singleSlotKind, 1) : 0;
     prevDeliveredQualityKm = qualitySlotsThisWeek>=2
-      ? round1(slotDeliveredKm('interval') + slotDeliveredKm('tempo'))
-      : qualitySlotsThisWeek===1 ? slotDeliveredKm(singleSlotKind) : 0;
+      ? round1(slotDeliveredKm('interval', 2) + slotDeliveredKm('tempo', 2))
+      : qualitySlotsThisWeek===1 ? slotDeliveredKm(singleSlotKind, 1) : 0;
 
     var dist = distributeWeekVolume(wk.volume, qualityKm, longKm, secondLongKm,
                                      easyDays.length, profile.longCapKm, easyFloorKm,
@@ -8000,7 +8064,8 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       if (kind==='tempo' && wk.isCalibration){
         var cal = thresholdCalibrationText();
         return { type:cal.type, title:cal.title, desc:cal.desc,
-          km: tKmThisWeek,
+          // the same resolution the allocator budgeted from -- see slotKm()
+          km: slotKm('tempo', qualitySlotsThisWeek),
           prescription: { archetype:'threshold_calibration',
                           params:{ warmupMin:CALIBRATION_PROTOCOL.warmupMin,
                                    settleMin:CALIBRATION_PROTOCOL.settleMin,
@@ -8008,16 +8073,18 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
                                    cooldownMin:CALIBRATION_PROTOCOL.cooldownMin } } };
       }
       if (kind==='tempo' && wk.isCheckpoint){
-        var ttKm = Math.min(TT_DISTANCE_KM[profile.emphasis], Math.max(2, round1(tKmThisWeek-3)));
-        var flank = Math.max(1, round1((tKmThisWeek-ttKm)/2));
+        // the same resolution the allocator budgeted from -- see slotKm()
+        var ckBase = slotKm('tempo', qualitySlotsThisWeek);
+        var ttKm = Math.min(TT_DISTANCE_KM[profile.emphasis], Math.max(2, round1(ckBase-3)));
+        var flank = Math.max(1, round1((ckBase-ttKm)/2));
         var tt = timeTrialText(ttKm, flank);
         /* A FLOOR, AND THEREFORE A NAMED TERM. The checkpoint day is sized to
            hold the time trial plus its flanks even where that exceeds the
            week's tempo allocation, so the week comes out bigger than it was
            asked for by exactly the difference. Two weeks in the full sweep
            carried it as unattributed volume before it was named. */
-        var ttDayKm = Math.max(tKmThisWeek, round1(ttKm+flank*2));
-        if (ttDayKm > tKmThisWeek) wk.qualityDayFloorKm = round1((wk.qualityDayFloorKm||0) + (ttDayKm - tKmThisWeek));
+        var ttDayKm = Math.max(ckBase, round1(ttKm+flank*2));
+        if (ttDayKm > ckBase) wk.qualityDayFloorKm = round1((wk.qualityDayFloorKm||0) + (ttDayKm - ckBase));
         return { type:tt.type, title:tt.title, desc:tt.desc,
           km: ttDayKm,
           prescription: { archetype:'time_trial', params:{ ttKm:ttKm, flankKm:flank } } };
@@ -8029,19 +8096,23 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         /* The day's km is the same expression it always was, merely named
            before it is used so the text can be told what total it is writing
            to. Nothing about the number changes. */
-        var qDayKm = qKmThisWeek + qualityDayShortfallKm(qKmThisWeek, wk.qSpec, 'interval');
-        if (qDayKm > qKmThisWeek) wk.qualityDayFloorKm = round1((wk.qualityDayFloorKm||0) + (qDayKm - qKmThisWeek));
-        var q = intervalWorkoutText(wk.qSpec, qDayKm);
+        var qSpecUse = slotSpec('interval', qualitySlotsThisWeek);
+        var qBase = slotKm('interval', qualitySlotsThisWeek);
+        var qDayKm = qBase + qualityDayShortfallKm(qBase, qSpecUse, 'interval');
+        if (qDayKm > qBase) wk.qualityDayFloorKm = round1((wk.qualityDayFloorKm||0) + (qDayKm - qBase));
+        var q = intervalWorkoutText(qSpecUse, qDayKm);
         return { type:q.type, title:q.title, desc:q.desc, mpSegment:!!q.mpSegment,
                  km: qDayKm,
-                 prescription: prescriptionFromSpec(wk.qSpec, 'interval') };
+                 prescription: prescriptionFromSpec(qSpecUse, 'interval') };
       }
-      var tDayKm = tKmThisWeek + qualityDayShortfallKm(tKmThisWeek, wk.tSpec, 'tempo');
-      if (tDayKm > tKmThisWeek) wk.qualityDayFloorKm = round1((wk.qualityDayFloorKm||0) + (tDayKm - tKmThisWeek));
-      var t3 = tempoWorkoutText(wk.tSpec, tDayKm);
+      var tSpecUse = slotSpec('tempo', qualitySlotsThisWeek);
+      var tBase = slotKm('tempo', qualitySlotsThisWeek);
+      var tDayKm = tBase + qualityDayShortfallKm(tBase, tSpecUse, 'tempo');
+      if (tDayKm > tBase) wk.qualityDayFloorKm = round1((wk.qualityDayFloorKm||0) + (tDayKm - tBase));
+      var t3 = tempoWorkoutText(tSpecUse, tDayKm);
       return { type:t3.type, title:t3.title, desc:t3.desc, mpSegment:!!t3.mpSegment,
                km: tDayKm,
-               prescription: prescriptionFromSpec(wk.tSpec, 'tempo') };
+               prescription: prescriptionFromSpec(tSpecUse, 'tempo') };
     }
 
     for (var iso=0; iso<7; iso++){
