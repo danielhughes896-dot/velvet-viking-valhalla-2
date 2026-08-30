@@ -116,9 +116,40 @@ function report(){
   console.log('');
   console.log('  READ THIS AS: starting mileage does NOT trap the programme -- a 5km/week');
   console.log('  athlete and a 30km/week athlete converge on the same final peak and the');
-  console.log('  same long run once there are enough weeks. What binds is TIME. And where');
-  console.log('  there is not enough of it the pathway still builds a plan that falls');
-  console.log('  short of the product\'s own MIN_PEAK_LONG_KM rather than saying the');
-  console.log('  preparation window is insufficient.');
+  console.log('  same long run once there are enough weeks.');
+  console.log('');
+  console.log('  The shortfalls this audit first found were a MISMATCH, not a missing');
+  console.log('  rule: the on-ramp ramped to the volume a full-window race block needs and');
+  console.log('  then handed the athlete to the shorter block that actually gets built,');
+  console.log('  which earns a smaller share of the distance multiplier. The destination');
+  console.log('  is now derived from the block that will actually be built, and the');
+  console.log('  pathway states MIN_PEAK_LONG_KM as an explicit requirement rather than');
+  console.log('  arriving near it by construction.');
 }
 report();
+
+/* ---------------------------------------------------------------------------
+ * AND THE REQUIREMENT REALLY IS A GATE, not a comment.
+ * -------------------------------------------------------------------------*/
+console.log('\nWHEN THE WINDOW IS DECLARED INSUFFICIENT, AND WHY');
+console.log('  ' + 'dist'.padEnd(7) + 'start'.padStart(6) + 'weeks'.padStart(7) +
+            '  route'.padEnd(24) + 'reason');
+[['half', 20, 3], ['half', 20, 5], ['half', 20, 6], ['half', 20, 8],
+ ['full', 20, 5], ['full', 20, 8], ['5k', 20, 4], ['5k', 20, 6],
+ ['ultra', 20, 8], ['ultra', 20, 12]].forEach(([d, v, w]) => {
+  resetState();
+  const p = A.athletePathway(d, v, w);
+  console.log('  ' + d.padEnd(7) + String(v).padStart(6) + String(w).padStart(7) + '  ' +
+    String(p.route).padEnd(38) +
+    (p.reason || '') +
+    (p.reachablePeakLongKm != null
+      ? '  (reaches ' + p.reachablePeakLongKm + 'km, needs ' + p.requiredPeakLongKm + 'km)' : ''));
+});
+console.log('');
+console.log('  WHAT THE REQUIREMENT CHECK MAY NOT READ. peakVolume is also bounded by');
+console.log('  volumeCeilingFor() and by demonstrated capacity x PEAK_OVER_DEMONSTRATED,');
+console.log('  and BOTH rise as the athlete trains. Applying them to a question about the');
+console.log('  whole path told a half-marathon athlete with 25km/week and forty weeks that');
+console.log('  their window was insufficient -- current mileage imprisoning the programme.');
+console.log('  They stay in force where they belong: buildBlockWeeks() applies them to each');
+console.log('  block against the evidence that exists when that block is built.');

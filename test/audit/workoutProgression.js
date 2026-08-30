@@ -90,6 +90,20 @@ function workOf(a, dd){
            unquantified: !!mix.hasUnquantified };
 }
 
+/* WHAT THE SESSION TRAINS, from the library rather than from the UI type.
+   The single UI type 'interval' delivers FIVE different stimuli: vo2 (track
+   reps, ladder, deuce), strength (hill repeats), aerobic_power (fartlek),
+   speed (short reps) and race_specific (goal-pace reps). Measuring "the
+   interval family's dose progression" pools all five and reports the spread
+   BETWEEN stimuli as a progression fault within one -- which is what produced
+   the reported fourfold Base->Build step. A hill session is not a small track
+   session; it is a different session. */
+function stimulusOf(dd){
+  const p = dd.prescription;
+  const e = p && A.WORKOUT_LIBRARY[p.archetype];
+  return e ? e.stimulus : null;
+}
+
 function collect(distanceKey, volume, weeks, scheduleKey, purpose){
   const a = resetState();
   const schedule = SCHEDULES[scheduleKey];
@@ -103,7 +117,7 @@ function collect(distanceKey, volume, weeks, scheduleKey, purpose){
     const w = workOf(a, dd);
     if (!w) return;
     out.push(Object.assign({ week: dd.week, phase: phaseOfWeek(blk, dd.week),
-                             type: dd.type }, w));
+                             type: dd.type, stimulus: stimulusOf(dd) }, w));
   });
   return out;
 }
@@ -180,3 +194,47 @@ console.log('the hard minutes has grown the warm-up.');
   report(p, 'interval');
   report(p, 'tempo');
 });
+
+/* ---------------------------------------------------------------------------
+ * AND THE SAME QUESTION ASKED OF ONE STIMULUS AT A TIME.
+ * -------------------------------------------------------------------------*/
+function byStimulus(purpose){
+  const seq = {};
+  for (const distanceKey of DISTANCES)
+    for (const volume of [30, 45, 60, 80])
+      for (const weeks of [10, 12, 16, 20])
+        for (const scheduleKey of ['d3', 'd5']){
+          const list = collect(distanceKey, volume, weeks, scheduleKey, purpose)
+            .filter(s => s.hardSec > 0);
+          const per = {};
+          list.forEach(s => { if (s.stimulus) (per[s.stimulus] = per[s.stimulus] || []).push(s); });
+          Object.keys(per).forEach(st => {
+            const arr = per[st];
+            for (let i = 1; i < arr.length; i++)
+              (seq[st] = seq[st] || []).push(arr[i].hardSec / arr[i - 1].hardSec);
+          });
+        }
+  return seq;
+}
+const q = (xs, p) => { const s = xs.slice().sort((x, y) => x - y); return s[Math.floor(p * (s.length - 1))]; };
+console.log('\n\nCONSECUTIVE DOSE RATIO WITHIN ONE STIMULUS  (race blocks)');
+console.log('  A session is compared with the previous session OF THE SAME STIMULUS, which');
+console.log('  is the only comparison that describes a progression rather than a change of');
+console.log('  training aim.');
+console.log('  ' + 'stimulus'.padEnd(16) + 'n'.padStart(6) + 'median'.padStart(9) +
+            'p90'.padStart(8) + 'max'.padStart(8) + '   over 2x');
+const seq = byStimulus('race');
+Object.keys(seq).sort().forEach(st => {
+  const v = seq[st];
+  const over = v.filter(r => r > 2).length;
+  console.log('  ' + st.padEnd(16) + String(v.length).padStart(6) +
+    q(v, 0.5).toFixed(2).padStart(9) + q(v, 0.9).toFixed(2).padStart(8) +
+    q(v, 1).toFixed(2).padStart(8) +
+    ('   ' + over + ' (' + (100 * over / v.length).toFixed(1) + '%)'));
+});
+const all = Object.keys(seq).reduce((t, k) => t.concat(seq[k]), []);
+console.log('  ' + 'ALL'.padEnd(16) + String(all.length).padStart(6) +
+  q(all, 0.5).toFixed(2).padStart(9) + q(all, 0.9).toFixed(2).padStart(8) +
+  q(all, 1).toFixed(2).padStart(8) +
+  ('   ' + all.filter(r => r > 2).length + ' (' +
+   (100 * all.filter(r => r > 2).length / all.length).toFixed(1) + '%)'));

@@ -1799,6 +1799,30 @@
   .support-skip{background:none; border:0; padding:0; cursor:pointer;
     font-family:inherit; font-size:var(--fs-meta); color:var(--ink-faint);
     text-decoration:underline; text-underline-offset:3px;}
+  /* ---------- OPTIONAL RUN ----------
+     The athlete offered this day and the programme did not need it. That is a
+     third thing, distinct from a day they never offered and from a day
+     recovery is protecting, and it gets the SAME companion language
+     supporting work already uses -- an eyebrow, a title, one sentence, and a
+     quiet action -- because it is the same kind of object: subordinate to the
+     day, never a prescription.
+     Deliberately quieter than supporting work by one step: no duration, no
+     step list and no second action, because there is nothing prescribed to
+     describe and declining is simply doing nothing. */
+  .optional-block{margin-top:12px; padding-top:10px; border-top:1px solid var(--rule);}
+  .optional-head{display:flex; align-items:baseline; justify-content:space-between;
+    margin-bottom:2px;}
+  .optional-tag{font-size:var(--fs-meta); letter-spacing:.08em; text-transform:uppercase;
+    color:var(--ink-faint);}
+  .optional-why{font-size:var(--fs-meta); line-height:var(--lh-support);
+    color:var(--ink-faint); margin-bottom:8px;}
+  .optional-actions{display:flex; align-items:center; gap:12px; margin-top:10px;}
+  .optional-actions .btn{flex:0 0 auto;}
+  /* The one line that says nothing is owed. Not a warning, not an instruction. */
+  .optional-note{font-size:var(--fs-meta); line-height:var(--lh-support);
+    color:var(--ink-faint); margin-top:8px;}
+  .optional-log{margin-top:10px; padding-top:10px; border-top:1px dashed var(--rule);}
+  .optional-log .actual-field label{color:var(--ink-faint);}
   /* The one line a completed companion collapses to. */
   .support-line{font-size:var(--fs-meta); line-height:var(--lh-support);
     color:var(--ink-faint); margin-top:6px;}
@@ -4101,6 +4125,33 @@ function minViableOnRampKm(distKey){
      run and 3km easy days has not got a long run. */
   return round1(EASY_MIN_KM / (LONG_FRACTION[p.emphasis] * CUTBACK_FACTOR));
 }
+/* THE LONG RUN A RACE BLOCK OF THIS LENGTH, STARTED HERE, WOULD REACH.
+   Both expressions are buildBlockWeeks()' own: the peak is the start times the
+   development the block's length earns, bounded by the same ceilings the
+   builder applies, and the long run is the peak's LONG_FRACTION share bounded
+   by the profile's own cap. Stated once so the pathway and the builder cannot
+   disagree about what a block will deliver. */
+function raceBlockPeakLongKm(distKey, startKm, weeks){
+  var p = DISTANCE_PROFILES[distKey];
+  if (!p || !(startKm > 0)) return null;
+  var peak = startKm * developmentMultiplierFor(distKey, weeks);
+  /* ONLY THE BOUNDS THAT ARE STILL THERE ON RACE DAY.
+     The first version of this also applied volumeCeilingFor() and
+     demonstrated capacity x PEAK_OVER_DEMONSTRATED, and that was wrong in the
+     exact way this programme exists to correct: both of those read the
+     athlete's evidence AS IT IS TODAY, and both rise as the athlete trains.
+     Applying them here told a half-marathon athlete with 25km/week and FORTY
+     WEEKS that their preparation window was insufficient -- current mileage
+     imprisoning the programme, which is the opposite of the ruling.
+
+     They remain in force where they belong: buildBlockWeeks() applies them to
+     each block as it is built, against the evidence that exists at that
+     moment. What is asked here is a question about the SHAPE of the path, so
+     only the bounds that do not move may enter it -- the profile's own long-run
+     cap, which is a statement about the distance rather than about the
+     athlete. */
+  return round1(Math.min(peak * LONG_FRACTION[p.emphasis], p.longCapKm));
+}
 function athletePathway(distKey, currentVolume, weeksAvailable, opts){
   var W = Math.max(1, Math.round(weeksAvailable || 0));
   var v = raceProgrammeViability(distKey, currentVolume, W);
@@ -4137,6 +4188,57 @@ function athletePathway(distKey, currentVolume, weeksAvailable, opts){
              reason: stagesBefore > 1 ? 'not_enough_time_for_foundation_and_an_on_ramp'
                                       : 'not_enough_time_for_an_on_ramp' };
   }
+  /* ---- WHAT THE RACE BLOCK THAT WILL ACTUALLY BE BUILT REQUIRES ----
+     THE DEFECT THIS CLOSES, AND IT IS A MISMATCH RATHER THAN A MISSING RULE.
+     raceProgrammeViability() asks minViableStartKm() about the WHOLE window,
+     which is the right question for an athlete who receives a race block of
+     that length. A routed athlete does not: their race block is what is left
+     after the on-ramp, and a shorter block earns a proportionally smaller
+     share of the distance multiplier (developmentMultiplierFor). So the
+     on-ramp was ramping to the volume a twelve-week race block needs and then
+     handing the athlete to a ten-week one, which peaks lower and whose long
+     run therefore lands under MIN_PEAK_LONG_KM.
+
+     Measured: 32 of 175 low-volume readiness cases, every one of them at
+     twelve or sixteen weeks, none at twenty or more. A half-marathon athlete
+     reached a 17km peak long run against a stated requirement of 18km.
+
+     The destination is now derived from the block that will actually be
+     built. Nothing about the requirement changes -- it is still
+     MIN_PEAK_LONG_KM inverted through the same expression -- and no rate, no
+     percentage and no minimum week count is introduced. */
+  var raceStartKm = minViableStartKm(distKey, raceWeeks);
+  if (raceStartKm == null) raceStartKm = v.minStartKm;
+
+  /* ---- AND THE REQUIREMENT IS NOW STATED RATHER THAN IMPLIED ----
+     CURRENT CAPACITY -> SAFE DEVELOPMENT PATH -> REQUIRED RACE PREPARATION.
+     The first two steps are what the stages above construct; this is the
+     third, asked explicitly. The race block the athlete will receive peaks at
+     its start times the share of the distance multiplier its own length earns,
+     and the long run is that peak times the distance's LONG_FRACTION -- the
+     same two expressions buildBlockWeeks() uses. If that does not reach
+     MIN_PEAK_LONG_KM, the preparation window is insufficient and the pathway
+     says so instead of presenting a plan that quietly falls short.
+
+     THE SAFETY LIMITS ARE PART OF THE PATH, WHICH IS THE POINT. peakVolume is
+     bounded by volumeCeilingFor() and by demonstrated capacity x
+     PEAK_OVER_DEMONSTRATED, so an athlete whose own evidence caps them below
+     what the event requires reaches this check rather than being ramped past
+     their ceiling to satisfy it. Nothing here manufactures load to escape the
+     result: the bound is read, never raised.
+
+     No new constant. MIN_PEAK_LONG_KM, LONG_FRACTION, developmentMultiplierFor
+     and volumeCeilingFor all already exist and all already mean this. */
+  var reqLong = MIN_PEAK_LONG_KM[distKey];
+  var reachable = raceBlockPeakLongKm(distKey, raceStartKm, raceWeeks);
+  if (reqLong != null && reachable != null && reachable + 0.05 < reqLong){
+    return { route:'insufficient_time', viability:v,
+             raceBlockWeeks:raceWeeks, onRampWeeks:0, weeksAvailable:W,
+             raceBlockStartKm:raceStartKm,
+             requiredPeakLongKm:reqLong, reachablePeakLongKm:reachable,
+             impliedWeeklyGrowth:null, growthGated:false,
+             reason:'cannot_reach_required_peak_long_run' };
+  }
   var onRampWeeks = W - raceWeeks;
   /* BELOW THE ON-RAMP'S OWN FLOOR the honest answer is foundation, and
      foundation does not exist yet. Saying so is the whole point of the
@@ -4151,7 +4253,7 @@ function athletePathway(distKey, currentVolume, weeksAvailable, opts){
        the kilometres each stage adds is linear, transparent and needs no growth
        rate -- the same reason the endpoints were enough in S4. */
     var toFloor = Math.max(0, onRampFloor - currentVolume);
-    var toStart = Math.max(0, v.minStartKm - onRampFloor);
+    var toStart = Math.max(0, raceStartKm - onRampFloor);
     /* A STAGE THAT MUST COVER GROUND NEEDS AT LEAST TWO WEEKS TO BE A RAMP.
        With one week there is no progression at all -- week one IS the
        destination, so a 1km/week athlete would open at 16km. Structural rather
@@ -4170,14 +4272,16 @@ function athletePathway(distKey, currentVolume, weeksAvailable, opts){
       : null;
     var oArc2 = blockArcFor('onramp', oWeeks);
     var oGrowth = (oWeeks > 0 && oArc2.buildWeeks > 1)
-      ? Math.round(Math.pow(v.minStartKm / onRampFloor, 1 / (oArc2.buildWeeks - 1)) * 10000) / 10000
+      ? Math.round(Math.pow(raceStartKm / onRampFloor, 1 / (oArc2.buildWeeks - 1)) * 10000) / 10000
       : null;
     return { route:'foundation_then_on_ramp_then_race', viability:v,
              foundationWeeks:fWeeks, onRampWeeks:oWeeks, raceBlockWeeks:raceWeeks,
              weeksAvailable:W,
              foundationFromKm:currentVolume, foundationToKm:onRampFloor,
-             onRampFromKm:onRampFloor, onRampToKm:v.minStartKm,
+             onRampFromKm:onRampFloor, onRampToKm:raceStartKm,
              onRampFloorKm:onRampFloor,
+             raceBlockStartKm:raceStartKm,
+             requiredPeakLongKm:MIN_PEAK_LONG_KM[distKey],
              foundationImpliedWeeklyGrowth:fGrowth, impliedWeeklyGrowth:oGrowth,
              /* SAME GATE, SAME REASON. Both stages are constructed from their
                 endpoints; neither claims the resulting growth is safe. */
@@ -4186,12 +4290,14 @@ function athletePathway(distKey, currentVolume, weeksAvailable, opts){
   }
   var arc = blockArcFor('onramp', onRampWeeks);
   var growth = (currentVolume > 0 && arc.buildWeeks > 1)
-    ? Math.round(Math.pow(v.minStartKm / currentVolume, 1 / (arc.buildWeeks - 1)) * 10000) / 10000
+    ? Math.round(Math.pow(raceStartKm / currentVolume, 1 / (arc.buildWeeks - 1)) * 10000) / 10000
     : null;
   return {
     route:'on_ramp_then_race', viability:v,
     onRampWeeks:onRampWeeks, raceBlockWeeks:raceWeeks, weeksAvailable:W,
-    onRampFromKm:currentVolume, onRampToKm:v.minStartKm,
+    onRampFromKm:currentVolume, onRampToKm:raceStartKm,
+    raceBlockStartKm:raceStartKm,
+    requiredPeakLongKm:MIN_PEAK_LONG_KM[distKey],
     impliedWeeklyGrowth:growth,
     /* FALSE, AND SAYING SO IS THE POINT. Nothing has ruled on whether this
        growth is safe; the figure is reported so the question is visible rather
@@ -6250,7 +6356,6 @@ var ARCHETYPES = {
   ladder:                { family:'interval' },
   deuce:                 { family:'interval' },
   goal_pace_reps:        { family:'interval' },
-  hill_repeats:          { family:'interval' },
   fartlek:               { family:'interval' },
   time_trial:            { family:'checkpoint' },
   /* THE EARLY CALIBRATION SESSION. A threshold effort, and deliberately not a
@@ -6283,6 +6388,39 @@ var ARCHETYPES = {
                     for, and which is wrong here for this one archetype. */
   easy_strides:          { family:'interval',
                            exec:{ zoneKey:'E', rpe:[2,5], weight:1.0, recoveryLike:true, load:1.05 } },
+  /* THE SECOND ARCHETYPE WHOSE BROAD TYPE IS WRONG ABOUT ITS COST, and wrong
+     in the same direction and for the same reason as the one above.
+
+     WHAT A HILL SESSION IS. WORKOUT_LIBRARY already classifies it: stimulus
+     'strength', "Strength and aerobic power without the pounding of flat speed
+     work" -- a different thing from the 'vo2' sessions (track reps, ladder,
+     deuce) that share the interval SLOT with it. Its low dose is deliberate:
+     five to eight repetitions of thirty-five to sixty seconds uphill is a
+     neuromuscular stimulus, not a twenty-minute aerobic one, and it is not
+     inflated here to resemble one.
+
+     WHAT WAS WRONG. dd.type is 'interval', so coachDayLoad() costed the whole
+     day at COACH_LOAD_FACTOR.interval = 1.6 -- a higher figure than ANY
+     session in the library actually derives, including a 9x900m track session.
+     Measured across 120 delivered instances, a hill day is 0.69km of hard
+     uphill inside a day of about five kilometres.
+
+     WHERE 1.08 COMES FROM. It is the day's own composition, priced with the
+     factors this table already assigns: each segment's kilometres at its own
+     intensity's factor, with the unnumbered warm-up and cool-down attributed
+     to easy running exactly as structuredZoneTime() attributes them. The same
+     derivation reproduces easy_strides' declared 1.05 (it computes 1.04), and
+     test/audit/loadFactorDerivation.js recomputes both from the delivered
+     population so neither number can drift into being a figure somebody chose.
+
+     EVERYTHING ELSE STAYS. The RPE band is not overridden: effort is
+     peak-weighted and a thirty-five-second hill rep genuinely is a 7-9, which
+     is how the neuromuscular demand stays visible. The evidence weight is not
+     overridden: a hill session executed well is as much evidence as any other.
+     recoveryLike is not set: this is not a recovery session. And load is not
+     permission -- nothing that decides quality FREQUENCY reads it -- so the
+     session still consumes the week's quality slot rather than freeing one. */
+  hill_repeats:          { family:'interval', exec:{ load:1.08 } },
   race:                  { family:'race' }
 };
 function isKnownArchetype(id){ return Object.prototype.hasOwnProperty.call(ARCHETYPES, id); }
@@ -13177,6 +13315,8 @@ function renderDayCard(dd){
              is the card; this sits under it, in the same detail column, and
              renders nothing at all on the great majority of days. */
           renderSupportCompanion(dd)+
+          /* AND BELOW THAT, on the days the programme left free. */
+          renderOptionalRunCompanion(dd)+
         '</div>'+
       '</div>'+
       '<div class="day-actions">'+dayActionButton(dd)+'</div>'+
@@ -14377,6 +14517,9 @@ function renderSplitsSummaryCard(dd, plan){
 // closed editor stays closed on the next launch rather than the app
 // remembering which days someone happened to expand.
 var splitsEditorOpen = {};
+/* Per-day, in memory only: an optional run that has not been logged is not a
+   fact about the plan and nothing about it is persisted. */
+var optionalLogOpen = {};
 function isSplitsOpen(dd){
   return !!splitsEditorOpen[dd.id] || !!(dd.actual && dd.actual.splits && dd.actual.splits.length);
 }
@@ -28204,6 +28347,74 @@ function handleSetSupportWork(on){
    A completed companion collapses to one line. There is no execution score and
    no grading: supporting work is not measured against a target, and pretending
    otherwise would put it into a scoring system built for running. */
+/* ---------- THE THIRD KIND OF REST DAY ----------
+   Three different facts share the type 'rest', and until now the card showed
+   all three identically:
+
+     a day the athlete never offered      not available; nothing to say
+     a day the programme is protecting    available, but recovery says no
+     a day the programme did not need     available, and free
+
+   Only the third is offered back. optionalRunEligible() decides which is
+   which, using the same gate supporting work already uses, so a day recovery
+   is protecting is never invited to carry a run.
+
+   WHAT THIS IS NOT, and every one of these is structural rather than a
+   promise. There is no distance, no pace, no duration and no session type,
+   because the athlete is choosing. It carries no prescription, so it cannot
+   enter the week's volume, adherence, quality allocation or progression. It
+   is a rest day with an offer on it, and the offer costs nothing to decline.
+
+   SUBORDINATE BY CONSTRUCTION. It renders inside the day card, below the
+   day's own content, in the companion language supporting work established --
+   one step quieter, because supporting work is prescribed and this is not. */
+function renderOptionalRunCompanion(dd){
+  if (!dd) return '';
+  var weekDays = (state && state.days || []).filter(function(d){ return d.week === dd.week; });
+  var eligible = false;
+  try { eligible = optionalRunEligible(dd, weekDays); } catch(e){ eligible = false; }
+  if (!eligible) return '';
+  var open = !!optionalLogOpen[dd.id];
+  var a = dd.actual || {};
+  /* ONE CATEGORY LINE, not a category and a title saying the same word twice.
+     Supporting work's eyebrow names the category and its title names the
+     specific session; there is no specific session here, because choosing it
+     is the athlete's part. */
+  return '<div class="optional-block">'+
+    '<div class="optional-head">'+
+      '<span class="optional-tag font-head">Optional run</span>'+
+    '</div>'+
+    '<div class="optional-why">You said you could train today and the plan did not need '+
+      'another run. Nothing is owed \u2014 resting is a complete answer. Run if you want '+
+      'to, log whatever you did, and Valhalla will take it into account.</div>'+
+    (open
+      ? '<div class="optional-log">'+
+          '<div class="actual-field"><label>Distance '+displayUnit().toUpperCase()+'</label>'+
+            '<input type="number" step="0.01" min="0" inputmode="decimal" '+
+            'value="'+(a.km!=null?kmToDisplay(a.km):'')+'" '+
+            'data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
+          '<div class="actual-field"><label>Avg pace /'+displayUnit()+' — optional</label>'+
+            '<input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" '+
+            'data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
+          '<div class="optional-note">Whatever you did — there is no target to hit.</div>'+
+        '</div>'
+      : '')+
+    '<div class="optional-actions">'+
+      '<button type="button" class="btn btn-sm btn-ghost" data-action="optional-run-log" '+
+        'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
+        (open ? 'Done' : 'I ran today')+'</button>'+
+    '</div>'+
+    (open ? '' : '<div class="optional-note">Or leave it. Today is a rest day either way.</div>')+
+  '</div>';
+}
+function handleOptionalRunLog(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  if (optionalLogOpen[dd.id]) delete optionalLogOpen[dd.id];
+  else optionalLogOpen[dd.id] = true;
+  replaceCard(dd);
+}
+
 function renderSupportCompanion(dd){
   if (!dd) return '';
   /* DECLINED IS AN ANSWER, and the card honours it immediately. Without this
@@ -35227,6 +35438,7 @@ document.addEventListener('click', function(e){
     case 'restore-plan': handleRestorePlan(target.getAttribute('data-key')); break;
     case 'open-record': openRecordPanel(target.getAttribute('data-record')); break;
     case 'close-record-panel': closeRecordPanel(); break;
+    case 'optional-run-log': handleOptionalRunLog(el.getAttribute('data-day')); break;
     case 'open-recalibrate': openRecalibrateModal(); break;
     case 'rc-suggest-goals': handleRecalibrateSuggest(); break;
     case 'save-recalibrate': handleSaveRecalibrate(); break;
