@@ -38,7 +38,17 @@ const mid = b => Math.round((b[0] + b[1]) / 2);
    only variable. `shape(i, n)` offsets the i-th of n quality sessions. */
 function block(shape, day){
   const app = loadApp({ pinnedDate: (day || '2026-09-03') + 'T09:00:00Z' });
-  const { days } = buildPlan(app, { startDate: app.addDays(app.todayStr(), -35), weeks: 12 });
+  /* THE ATHLETE THIS FILE IS ABOUT HAS EARNED THEIR SECOND QUALITY SESSION,
+     and now has to say so. The defect under test is that blockDimensions()
+     POOLED RAW RPE ACROSS DIFFERENT PRESCRIBED BANDS, which requires a block
+     containing sessions from different bands; an athlete absorbing two quality
+     sessions a week is exactly the athlete whose block contains them. Since
+     quality frequency became earned rather than granted by the day count, a
+     fixture that says nothing about the athlete's response gets one a week --
+     three or four in the block window, against shapes that need eight, and
+     every "still fires" test below became vacuous. */
+  const { days } = buildPlan(app, { startDate: app.addDays(app.todayStr(), -35),
+                                    weeks: 12, earnedSecondQuality: true });
   const done = days.filter(d => d.date <= app.todayStr() && d.type !== 'rest');
   const n = done.filter(d => QUALITY.includes(d.type)).length;
   let i = 0;

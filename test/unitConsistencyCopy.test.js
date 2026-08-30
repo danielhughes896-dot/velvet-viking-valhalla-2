@@ -32,10 +32,10 @@ const TODAY = '2026-05-20';
 const LEVELS = ['novice', 'experienced', 'advanced'];
 const UNITS = ['km', 'mi'];
 
-function app(units, level) {
+function app(units, level, leadDays) {
   const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   a.showToast = () => {};
-  buildPlan(a, { weeks: 14, startDate: a.addDays(TODAY, -28),
+  buildPlan(a, { weeks: 14, startDate: a.addDays(TODAY, -(leadDays || 28)),
                  distanceKey: 'full', volume: 60,
                  benchSec: 3 * 3600 + 15 * 60 });
   a.state.setup.benchmark = { distanceKey: 'full', timeSec: 3 * 3600 + 15 * 60 };
@@ -227,8 +227,17 @@ test('the strategy DECISION is identical in both units', () => {
 // ---------------------------------------------------------------------------
 // 5. TREND SENTENCES
 // ---------------------------------------------------------------------------
+/* THE ATHLETE NEEDS A BASELINE TO HAVE MOVED AWAY FROM.
+   trendSplit() reads the recent window against an earlier one, and an earlier
+   window is only usable at BASELINE_MIN_SAMPLES observations -- four easy
+   runs. This fixture shifts every easy run of the last twenty days, so those
+   twenty days are all "recent" and the baseline has to come from BEFORE them.
+   Twenty-eight days of history left three, one short, and the trend correctly
+   declined to speak; the fixture was describing an athlete with no baseline
+   rather than an athlete whose efficiency had changed. Six weeks of history
+   gives the four the threshold asks for. BASELINE_MIN_SAMPLES is untouched. */
 function easyShift(units, paceDelta, hrDelta) {
-  const a = app(units);
+  const a = app(units, null, 42);
   const today = a.todayStr();
   const past = a.state.days.filter(d => d.date < today && d.type !== 'rest');
   past.forEach(d => {

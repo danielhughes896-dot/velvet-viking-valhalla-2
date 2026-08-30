@@ -3997,7 +3997,7 @@ var MIN_PEAK_LONG_KM = { '5k':8, '10k':12, 'half':18, 'full':30, 'ultra':30 };
    caller, so when D-7 lands -- time-limiting the multiplier to what a safe
    per-week rate can reach -- it changes this one function and no call site.
    That is the whole reason the argument exists. */
-function developmentMultiplierFor(distKey, planWeeks){
+function developmentMultiplierFor(distKey, planWeeks, purpose){
   var p = DISTANCE_PROFILES[distKey];
   if (!p) return 1;
   /* D-7. volMult IS AN END-STATE CAPACITY CEILING, NOT A TARGET EVERY BLOCK
@@ -4026,8 +4026,14 @@ function developmentMultiplierFor(distKey, planWeeks){
      AT OR ABOVE THE DEFAULT LENGTH THIS RETURNS volMult EXACTLY, so a
      full-length block is byte-identical to what it was. The ceiling can only
      ever be approached, never exceeded: capacity stays permission. */
+  /* THE REFERENCE IS THE SAME FOR EVERY PURPOSE and deliberately so: volMult
+     describes an end-state capacity ceiling for the DISTANCE, and the block
+     the product calls normal for reaching it is the fourteen-week race block.
+     A purpose with a different shape is measured against that same reference
+     by its OWN developing weeks, which is what makes a six-week speed block
+     earn six weeks of development rather than fourteen. */
   var ref = blockArcFor('race', BUILDER_PURPOSE_META.race.defaultWeeks).buildWeeks;
-  var bw  = blockArcFor('race', planWeeks).buildWeeks;
+  var bw  = blockArcFor(purpose || 'race', planWeeks).buildWeeks;
   if (!(ref > 0) || !(bw > 0)) return p.volMult;
   return 1 + (p.volMult - 1) * Math.min(1, bw / ref);
 }
@@ -4980,14 +4986,17 @@ function demonstratedSustainableVolume(){
 
    Null until there are SUSTAINED_WEEKS_REQUIRED weeks to read, exactly as
    demonstrated volume is null for a first block. */
-function demonstratedRunningFrequency(){
+/* Weeks the athlete actually ran on, keyed by their Monday. Archived training
+   and the live plan both count, and the live plan wins where they overlap --
+   the same longitudinal rule athleteMemory() uses. */
+function completedRunningDaysByWeek(){
   var cutoff = addDays(todayStr(), -7 * DEMONSTRATED_WINDOW_WEEKS);
-  var byWeek = {};
+  var seen = {};
   var add = function(dateStr){
     if (!dateStr) return;
     var monday = addDays(dateStr, -isoWeekday(dateStr));
     if (monday < cutoff) return;
-    byWeek[monday] = (byWeek[monday] || 0) + 1;
+    (seen[monday] = seen[monday] || {})[dateStr] = true;
   };
   var a = (state && state.athlete) || null;
   ((a && a.sessions) || []).forEach(function(sn){
@@ -4998,10 +5007,73 @@ function demonstratedRunningFrequency(){
     var km = (dd.actual && dd.actual.km != null) ? dd.actual.km : dd.km;
     if (km > 0) add(dd.date);
   });
+  var out = {};
+  Object.keys(seen).forEach(function(m){ out[m] = Object.keys(seen[m]).length; });
+  return out;
+}
+
+/* ---------- CAPACITY: WHAT THIS ATHLETE HAS SHOWN THEY CAN SUSTAIN ----------
+   The third-highest running-day count of the last DEMONSTRATED_WINDOW_WEEKS --
+   the same robust statistic the volume side uses, chosen so that a cold, a
+   work trip or a fortnight off cannot cost an athlete a year of evidence.
+
+   THIS IS A CEILING AND IT IS PERMISSION, NOT OBLIGATION. It says what the
+   athlete may be asked for. It does not say what they should be asked for
+   today, and it must never be read as a claim that they are currently
+   training that often -- see currentSustainedRunningFrequency() below, and
+   test/audit/frequencyCharacteristic.js for the measured consequence: it
+   rises in three weeks and takes about fifty to fall. */
+function demonstratedRunningFrequency(){
+  var byWeek = completedRunningDaysByWeek();
   var counts = Object.keys(byWeek).sort().map(function(k){ return byWeek[k]; });
   if (counts.length < SUSTAINED_WEEKS_REQUIRED) return null;
   var desc = counts.slice().sort(function(x, y){ return y - x; });
   return desc[SUSTAINED_WEEKS_REQUIRED - 1];
+}
+
+/* ---------- AND WHAT THEY ARE ACTUALLY DOING NOW ----------
+   TWO DIFFERENT QUESTIONS, AND THE CEILING CANNOT ANSWER BOTH. A statistic
+   built to survive a bad patch necessarily cannot notice one. Read alone it
+   would have the programme keep prescribing six days to an athlete who has
+   run three every week for a month, and call that respecting their capacity.
+
+   So capacity keeps its meaning -- permission, held for a year -- and a second
+   reading says what the athlete is currently sustaining EVERY week: the lowest
+   running-day count of the last SUSTAINED_WEEKS_REQUIRED complete weeks. Not
+   the average and not the best: the number they have managed even in their
+   worst recent week is the number the next week can be built on.
+
+   NO NEW CONSTANT. SUSTAINED_WEEKS_REQUIRED already exists and already means
+   "how many weeks make something sustained"; this is the same constant asked
+   about the present rather than the year.
+
+   THE MEDIAN, NOT THE LOWEST, AND THE DIFFERENCE IS THE WHOLE POINT. The
+   lowest of three weeks is moved by a single missed run, which would make this
+   reading fail the same test the capacity ceiling was built to pass. The
+   median is the level the athlete reached in at least two of the last three
+   weeks -- one bad week cannot move it, two agreeing weeks can. Robust to
+   noise, responsive to a real change, and stated with the constant that
+   already exists rather than a window chosen here.
+
+   THE WEEK IN PROGRESS IS EXCLUDED, because a Tuesday is not a week. Counting
+   it would read every Monday as a one-day week and reduce the athlete on the
+   strength of the calendar.
+
+   WHY THIS DOES NOT RATCHET DOWNWARD. Where it lowers the prescription the day
+   it releases does not disappear: it stays an AVAILABLE UNUSED day the athlete
+   may choose to run (see optionalRunEligible), and a run they add there is
+   recorded like any other completed session. So the athlete can always
+   demonstrate more than the programme asked for, and this reading rises again
+   within two weeks of them doing so. Capacity is untouched throughout: nothing
+   here claims the athlete has lost anything. */
+function currentSustainedRunningFrequency(){
+  var byWeek = completedRunningDaysByWeek();
+  var thisMonday = addDays(todayStr(), -isoWeekday(todayStr()));
+  var weeks = Object.keys(byWeek).filter(function(m){ return m < thisMonday; }).sort();
+  if (weeks.length < SUSTAINED_WEEKS_REQUIRED) return null;
+  var recent = weeks.slice(-SUSTAINED_WEEKS_REQUIRED).map(function(m){ return byWeek[m]; })
+                    .sort(function(x, y){ return x - y; });
+  return recent[Math.floor(recent.length / 2)];
 }
 
 /* ---------- CAN A WEEK OF THIS SIZE EVEN BE WRITTEN ACROSS N DAYS? ----------
@@ -5423,15 +5495,33 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      answers "what does peak week look like for a marathon build". A base block
      has no race and a recovery block is going nowhere, so both state their own
      (see blockArcFor); a race block keeps the profile's. */
-  /* D-7 APPLIES TO RACE-PROGRAMME DEVELOPMENT, and only there. A steady block
-     has no ramp; base and recovery state their own multiplier; on-ramp and
-     foundation ramp to an explicit destination and never read this at all.
-     `speed` also reaches profile.volMult and carries the same exposure -- it is
-     reported rather than changed, because it is outside what was authorised. */
+  /* D-7 APPLIES WHEREVER profile.volMult IS THE MULTIPLIER, which is both of
+     the purposes that reach it.
+
+     A steady block has no ramp; base and recovery state their own multiplier
+     and are untouched; on-ramp and foundation ramp to an explicit destination
+     and never read this at all. That leaves `race` and `speed`, and the two
+     were being treated differently for a reason that was never methodology:
+     D-7 was authorised for race blocks, so speed was left carrying the
+     undivided figure and the exposure was recorded here rather than fixed.
+
+     THE MEASURED CONSEQUENCE OF LEAVING IT. Speed & Threshold's own default is
+     six weeks, which after its consolidation week and its benchmark week is
+     FOUR developing weeks -- and it was climbing the full distance multiplier
+     across them. An ultra athlete choosing a six-week speed block was
+     prescribed a peak of twice their current volume, reached in four weeks, at
+     about 26% a week. That is precisely the compression D-7 exists to remove:
+     the same total development, squeezed into however many weeks the athlete
+     happened to have.
+
+     Nothing about the speed purpose changes here. It still ramps, it still
+     ends in a benchmark, its consolidation week is still one rather than two,
+     and at or above the reference length it still reaches the full multiplier.
+     What it no longer does is earn a fourteen-week block's development in
+     four. */
   var volMult = steady ? 1
               : (arc.volumeMult != null ? arc.volumeMult
-                 : (purpose === 'race' ? developmentMultiplierFor(distKey, N)
-                                       : profile.volMult));
+                                        : developmentMultiplierFor(distKey, N, purpose));
   /* AN EXPLICIT DESTINATION BEATS A MULTIPLIER, where one is known. The
      on-ramp is the only caller that has one: it is ramping to a specific
      figure -- the viable race-programme start -- rather than to a multiple of
@@ -6013,6 +6103,35 @@ var CALIBRATION_PROTOCOL = {
 };
 function calibrationEffortMin(){
   return CALIBRATION_PROTOCOL.settleMin + CALIBRATION_PROTOCOL.measuredMin;
+}
+/* WHAT THE CALIBRATION DAY ACTUALLY COSTS, IN THE UNIT THE PLAN IS BUILT IN.
+
+   THE DEFECT THIS CLOSES. The calibration day was sized at the week's TEMPO
+   allocation -- 4.9km to 5.8km, whatever the week happened to budget for a
+   tempo run -- while the card underneath it prescribed twelve minutes of
+   warm-up, a continuous thirty-minute time trial and a ten-minute cool-down.
+   Fifty-two minutes of running, presented as five kilometres. Every volume
+   reading of that week was short by about half the session, at every weekly
+   volume from 12km to 70km, and the day's own stated distance disagreed with
+   the day's own stated protocol.
+
+   buildQualityDay() states the invariant two lines below the branch that broke
+   it: the day is never shorter than the session written on it. The calibration
+   branch returned before reaching it.
+
+   PRICED THE WAY THE APP ALREADY PRICES A TIMED PRESCRIPTION. A plan is sized
+   before state.setup exists, so no VDOT and no pace zones are available -- and
+   a plan's distances must not move when a goal time is edited afterwards.
+   recoveryKm() states the rule for exactly this case and DEFAULT_PACE_SEC_PER_KM
+   is the constant it uses; segmentDistanceMix() prices the same seconds with
+   the same constant, so the card, the day distance, the zone chart and the
+   duration estimate all read one number. No new constant, and no attempt to
+   guess a threshold pace for an athlete whose threshold is the thing being
+   measured. */
+function calibrationSessionKm(){
+  var P = CALIBRATION_PROTOCOL;
+  var sec = (P.warmupMin + calibrationEffortMin() + P.cooldownMin) * 60;
+  return round1(sec / DEFAULT_PACE_SEC_PER_KM);
 }
 function thresholdCalibrationText(){
   var P = CALIBRATION_PROTOCOL;
@@ -7931,8 +8050,9 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
      already decided by buildBlockWeeks() from the programme mathematics; this
      decides only how many days it is written across. A day that is not a
      running day is a rest day the supporting-work layer may still claim. */
-  var demonstratedFreq = null;
+  var demonstratedFreq = null, currentFreq = null;
   try { demonstratedFreq = demonstratedRunningFrequency(); } catch(e){ demonstratedFreq = null; }
+  try { currentFreq = currentSustainedRunningFrequency(); } catch(e){ currentFreq = null; }
   /* S2-A. What the previous week actually ASKED THE ATHLETE TO RUN in its
      quality slots, so a taper can be held against the load it delivered rather
      than against a per-family bookkeeping figure the athlete never sees. */
@@ -8086,7 +8206,21 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     if (feasibleDays != null) runCap = Math.min(runCap, feasibleDays);
     if (demonstratedFreq != null && !wk.isRace)
       runCap = Math.min(runCap, Math.max(2, demonstratedFreq));
+    /* AND WHAT THE ATHLETE IS ACTUALLY SUSTAINING MAY COME UNDER THAT CEILING.
+       Capacity is permission and it is held for a year; it is not a statement
+       about this month. Where the athlete has been running fewer days every
+       week than their capacity allows, the next block is built on what they
+       are doing rather than on what they once did -- WITHOUT claiming they
+       have lost anything, which is exactly why the two figures are separate
+       and why only this one is allowed to move quickly.
+
+       It can only ever lower, never raise: an athlete cannot buy days beyond
+       their demonstrated capacity by having a good fortnight. */
+    if (currentFreq != null && !wk.isRace)
+      runCap = Math.min(runCap, Math.max(2, currentFreq));
     wk.runDayCap = runCap;
+    wk.frequencyEvidence = { availability: activeDays.length, expressible: feasibleDays,
+                             capacity: demonstratedFreq, current: currentFreq };
     /* ---- AND THE AEROBIC-DOMINANCE CEILING IS READ AGAINST THE SAME NUMBER --
        The approved contract says a three-day week gets at most one hard
        session. Until running days could fall below availability the two were
@@ -8398,9 +8532,19 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
          athlete is asked to do inside it. */
       if (kind==='tempo' && wk.isCalibration){
         var cal = thresholdCalibrationText();
+        /* THE DAY IS THE SESSION, and the session is fifty-two minutes. The
+           week budgeted a tempo slot for it; where the protocol costs more
+           than the budget, the week comes out bigger by exactly the difference
+           and says so through the same quality-day floor the checkpoint uses.
+           A FIXED session that does not scale is precisely why
+           CALIBRATION_MIN_WEEKLY_KM exists -- and until now the engine could
+           not see the cost the floor was protecting against. */
+        var calBudget = slotKm('tempo', qualitySlotsThisWeek);
+        var calDayKm = Math.max(calBudget, calibrationSessionKm());
+        if (calDayKm > calBudget)
+          wk.qualityDayFloorKm = round1((wk.qualityDayFloorKm||0) + (calDayKm - calBudget));
         return { type:cal.type, title:cal.title, desc:cal.desc,
-          // the same resolution the allocator budgeted from -- see slotKm()
-          km: slotKm('tempo', qualitySlotsThisWeek),
+          km: calDayKm,
           prescription: { archetype:'threshold_calibration',
                           params:{ warmupMin:CALIBRATION_PROTOCOL.warmupMin,
                                    settleMin:CALIBRATION_PROTOCOL.settleMin,
@@ -8475,9 +8619,20 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
            other block fell through to the generic easy branch below and ran it
            anyway, so reducing the easy-day count divided the SAME volume across
            fewer days while still running all of them. The day rests, and
-           supportDayEligible() may still claim it. */
+           supportDayEligible() may still claim it.
+
+           AND IT IS A DIFFERENT KIND OF REST FROM THE OTHER KIND. The athlete
+           said they could run today and the programme decided it did not need
+           them to -- which is not the same fact as a day they never offered,
+           and not the same fact as a day the programme is deliberately
+           protecting. Recorded as a fact about the day, carrying no distance
+           and no prescription, so nothing downstream can mistake it for
+           training: whether it may actually host an optional run is a recovery
+           question, answered by optionalRunEligible() against the same rules
+           supporting work already uses. */
         var rdF = restDayText(false);
-        dayObj = { type:rdF.type, title:rdF.title, km:0, desc:rdF.desc };
+        dayObj = { type:rdF.type, title:rdF.title, km:0, desc:rdF.desc,
+                   availableUnused:true };
       } else if (activeSet[iso] && iso===wkQty1Day){
         dayObj = buildQualityDay(qualitySlotsThisWeek===1 ? singleSlotKind : 'interval');
       } else if (activeSet[iso] && iso===wkQty2Day){
@@ -8511,6 +8666,9 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       }
       days.push({ id:date, date:date, week:wk.week, type:dayObj.type, title:dayObj.title, km:roundWorkoutKm(dayObj.type, dayObj.km), desc:dayObj.desc,
         mpSegment:!!dayObj.mpSegment,
+        // present only on the days it is true of, so a plan built before this
+        // existed reads identically to one built after it
+        availableUnused: dayObj.availableUnused ? true : undefined,
         prescription: dayObj.prescription ? { v:PRESCRIPTION_VERSION, archetype:dayObj.prescription.archetype, params:dayObj.prescription.params } : undefined,
         completed:false, actual:{km:null,pace:null,hr:null,rpe:null,notes:''} });
     }
@@ -8807,6 +8965,35 @@ var TYPE_META = {
   calibration:{ label:'Calibration',  zoneKey:'T',   cls:'tuneup' },
   race:       { label:'Race Day',    zoneKey:null,  cls:'race' }   // relabelled per-plan by dayTypeLabel()
 };
+
+/* ---------- MEASUREMENT SESSIONS ARE THEIR OWN CLASS ----------
+   A Fitness Checkpoint and a Threshold Calibration exist to MEASURE the
+   athlete. That purpose is not shared by any training session, and it has
+   consequences no other class has: what comes out of them is evidence about
+   the athlete rather than evidence about how the athlete responded to
+   training, and the two must never be averaged together.
+
+   THE COST IS NOT THE PURPOSE, AND WAS BEING CONFUSED WITH IT. Because a
+   calibration is "a test", it had drifted out of every load and recovery
+   reading in the product: sessionImportance() called it SUPPORT, execution
+   scored it with the weight of an easy run, horizonStimulus() counted no
+   quality exposure and put its kilometres in no bucket at all, and the
+   post-race no-intensity window did not know it was intensity. A thirty
+   minute maximal-sustainable effort was, to every load-aware surface,
+   invisible.
+
+   A test costs what it costs. Its PURPOSE is measurement; its PRICE is a hard
+   session, and the price is what load and recovery logic must read.
+
+   WHAT THIS SET IS NOT. It is not permission. Quality FREQUENCY is decided in
+   buildDaysFromWeeks() by the aerobic-dominance ceiling and the earned second
+   exposure, and a test takes the week's existing quality slot rather than
+   adding one -- so nothing here can buy an athlete another hard session. And
+   it is deliberately NOT a member of SESSION_FAMILIES: a test result must not
+   enter the family-response model as though it were an ordinary threshold
+   session the athlete's recovery can be learned from. */
+var TEST_SESSION_TYPES = ['calibration', 'checkpoint'];
+function isTestSession(type){ return TEST_SESSION_TYPES.indexOf(type) !== -1; }
 
 /* =========================================================
    ATHLETE EXPERIENCE / COACHING DEPTH
@@ -11651,7 +11838,10 @@ function renderTopbar(){
    ========================================================= */
 function executionWeightForType(type){
   if (type==='long') return 2.0;
-  if (type==='tempo' || type==='threshold' || type==='interval' || type==='repetition' || type==='checkpoint') return 2.0;
+  if (type==='tempo' || type==='threshold' || type==='interval' || type==='repetition') return 2.0;
+  // A measurement session is weighted as the hard session it is; it scored
+  // with the weight of an easy run for as long as it had no class of its own.
+  if (isTestSession(type)) return 2.0;
   return 1.0; // easy/recovery, and any other completed type that scores
 }
 // Evidence-weighted. A fresh plan starts at a neutral 50% carrying the
@@ -14441,6 +14631,15 @@ function expectedRPEBand(dd){
   if (dd.type==='easy' || dd.type==='long') return [2,5];
   if (dd.type==='tempo' || dd.type==='threshold') return [6,8];
   if (dd.type==='interval' || dd.type==='repetition') return [7,9];
+  /* THE TWO TESTS ARE NOT THE SAME EFFORT, AND THIS IS WHERE THAT MATTERS.
+     A Fitness Checkpoint is a MAXIMAL time trial and should feel like one. A
+     Threshold Calibration is a CONTROLLED thirty minutes at the hardest pace
+     the athlete can hold -- it is a threshold effort by construction, which is
+     why TYPE_META gives it zoneKey T -- so it belongs in the threshold band.
+     Filing it at [8,10] would tell an athlete who ran it correctly that they
+     went too easy. It had no band at all before, which meant the day's RPE
+     could not be read either way. */
+  if (dd.type==='calibration') return [6,8];
   if (dd.type==='checkpoint' || dd.type==='race') return [8,10];
   return null;
 }
@@ -16857,7 +17056,12 @@ function developmentBlockSpec(purpose, opts){
    Deterministic. No athlete evidence shortens this window -- one good easy
    run is not permission to do a threshold session nine days after a marathon,
    and that is precisely the intervention the product must not make. */
-var RECOVERY_QUALITY_TYPES = ['tempo','threshold','interval','repetition','checkpoint','race'];
+/* WHAT THE POST-RACE NO-INTENSITY WINDOW REFUSES. A measurement session is
+   intensity: putting a thirty-minute threshold effort nine days after a
+   marathon is the intervention this window exists to prevent, and the
+   calibration was not on the list. */
+var RECOVERY_QUALITY_TYPES = ['tempo','threshold','interval','repetition','race']
+                               .concat(TEST_SESSION_TYPES);
 function applyRecoveryCeiling(days, raceDate, noIntensityDays){
   /* THE WINDOW AND THE BLOCK ARE MEASURED IN DIFFERENT UNITS, and the gap
      between them was a hole.
@@ -19280,6 +19484,54 @@ function supportDayEligible(dd, weekDays){
   return null;
 }
 
+/* ---------- AN AVAILABLE UNUSED DAY IS NOT A REQUIRED REST DAY ----------
+   THE PRODUCT DECISION THIS EXPRESSES. Where the athlete offers five days and
+   the programme legitimately needs four, the fifth is not a day the athlete
+   was told not to run. It is a day the programme did not need -- and it may be
+   offered back to them as an OPTIONAL run.
+
+   WHAT AN OPTIONAL RUN IS NOT, and every one of these is structural rather
+   than a promise. It carries no distance, no prescription and no target, so it
+   cannot enter the week's volume, cannot be an execution or adherence
+   obligation, cannot be a quality exposure and cannot justify progression. It
+   is a rest day with a note on it. If the athlete runs, the activity is
+   recorded like any other completed session and Valhalla learns from it
+   AFTERWARDS -- which is the only order in which additional capacity may
+   count.
+
+   AND IT IS NOT AUTOMATIC. Three distinct things share the type 'rest':
+
+     a day the athlete never offered      not available; not eligible
+     a day the programme is protecting    available, but recovery says no
+     a day the programme did not need     available and free
+
+   Only the third is offered. The second is decided by the SAME rules
+   supporting work already uses -- never adjacent to a key session in a way
+   that would compromise it, never the day after a long run -- so there is no
+   second, weaker recovery model here and nothing new to keep in step. Where
+   supporting work would be held to low-cost mobility only, an optional RUN is
+   more than the day can carry and is not offered. */
+function optionalRunEligible(dd, weekDays){
+  if (!dd || !dd.availableUnused) return false;
+  if (dd.completed) return false;                 // already answered by the athlete
+  if (dd.type !== 'rest' || (dd.km || 0) > 0) return false;
+  var e = supportDayEligible(dd, weekDays || []);
+  /* The full ceiling, and nothing less. A day held to mobility only is a day
+     recovery is protecting, and adding a run to it would be exactly the
+     intervention that gate exists to prevent. */
+  return !!(e && e.ceiling >= 3 && !e.only);
+}
+/* The optional opportunities in a week, for any surface that wants to offer
+   them. Deliberately a query rather than something written into the plan: an
+   optional run that were stored as a day would be a day, and days are
+   prescription. */
+function optionalRunDays(weekNum){
+  if (!state || !Array.isArray(state.days)) return [];
+  var weekDays = state.days.filter(function(d){ return d.week === weekNum; })
+    .sort(function(a, b){ return a.date < b.date ? -1 : 1; });
+  return weekDays.filter(function(d){ return optionalRunEligible(d, weekDays); });
+}
+
 /* ---------- THE RESOLVER ----------
    Returns the supporting work for a week: an array, very often empty. */
 function supportForWeek(weekNum){
@@ -19383,7 +19635,12 @@ function supportRationale(item){
 
 function sessionImportance(dd){
   if (!dd || dd.type==='rest') return null;
-  if (dd.type==='race' || dd.type==='checkpoint') return 'KEY';
+  /* A MEASUREMENT SESSION IS A KEY SESSION. It is planned, it is hard, and
+     losing it costs the athlete the evidence the rest of the block is
+     prescribed from -- which is exactly what KEY protects. The calibration
+     used to fall through to SUPPORT, so the adapt/reduce machinery could cut
+     it ahead of an ordinary tempo run. */
+  if (dd.type==='race' || isTestSession(dd.type)) return 'KEY';
   if (['threshold','interval','repetition'].indexOf(dd.type)!==-1) return 'KEY';
   if (dd.type==='long') return (dd.mpSegment || dd.km >= 16) ? 'KEY' : 'SUPPORT';
   if (dd.type==='tempo') return 'SUPPORT';
@@ -19396,7 +19653,12 @@ function sessionImportance(dd){
   return 'SUPPORT';
 }
 function isQualityType(t){
-  return ['threshold','interval','repetition','tempo','checkpoint','race'].indexOf(t)!==-1;
+  /* WHAT THIS ANSWERS IS "did the athlete run hard", not "may they". Every
+     caller uses it to read cost -- stacked hard days, quality adherence, the
+     protected-session rules -- and a test is hard running by any of those
+     readings. It is not consulted anywhere quality frequency is DECIDED. */
+  return ['threshold','interval','repetition','tempo','race'].indexOf(t)!==-1 ||
+         isTestSession(t);
 }
 
 /* =========================================================
@@ -19524,6 +19786,7 @@ function isTaperPhase(phase){
    delivers rather than how many sessions survived. */
 function horizonStimulus(days){
   var out = { easyKm:0, longKm:0, thresholdKm:0, intervalKm:0, tempoKm:0,
+              testKm:0, testExposures:0,
               qualityExposures:0, longRuns:0, totalKm:0, sessions:0 };
   (days||[]).forEach(function(dd){
     if (!dd || dd.type==='rest') return;
@@ -19534,15 +19797,28 @@ function horizonStimulus(days){
     else if (dd.type==='threshold'){ out.thresholdKm += km; out.qualityExposures++; }
     else if (dd.type==='interval' || dd.type==='repetition'){ out.intervalKm += km; out.qualityExposures++; }
     else if (dd.type==='tempo'){ out.tempoKm += km; out.qualityExposures++; }
-    else if (dd.type==='checkpoint' || dd.type==='race'){ out.qualityExposures++; }
+    /* A TEST IS AN EXPOSURE AND ITS KILOMETRES ARE SOMEWHERE. Both were
+       counted as an exposure and neither put its distance in any bucket, so a
+       reshape that deleted a checkpoint or a calibration showed no loss of
+       stimulus distance at all. Kept in its own bucket rather than folded into
+       thresholdKm, because a reshape must be able to tell a lost TEST from a
+       lost threshold session. */
+    else if (isTestSession(dd.type)){ out.testKm += km; out.qualityExposures++;
+                                      out.testExposures++; }
+    else if (dd.type==='race'){ out.qualityExposures++; }
   });
   out.totalKm = Math.round(out.totalKm*10)/10;
+  out.testKm = Math.round(out.testKm*10)/10;
   return out;
 }
 // Did the reshape keep the training that mattered?
 function stimulusPreserved(before, after){
   return { qualityKept: after.qualityExposures >= before.qualityExposures,
            longKept: after.longRuns >= before.longRuns,
+           /* A RESHAPE MAY NOT SPEND THE MEASUREMENT. Losing the test loses
+              the evidence every later prescription is written from, which is a
+              different loss from dropping a tempo run and is reported as one. */
+           testKept: after.testExposures >= before.testExposures,
            volumeDelta: Math.round((after.totalKm - before.totalKm)*10)/10 };
 }
 
@@ -25501,6 +25777,19 @@ function computeWeekZoneBreakdown(weekNum){
     else if (dd.type==='tempo' || dd.type==='threshold'){ addTime('threshold', dd.km, tPace); }
     else if (dd.type==='interval' || dd.type==='repetition'){ addTime('interval', dd.km, iPace); }
     else if (dd.type==='checkpoint'){ addTime('easy', dd.km*0.4, easyPace); addTime('threshold', dd.km*0.6, tPace); }
+    /* A CALIBRATION SPLIT BY ITS OWN PROTOCOL, not by a share chosen here.
+       The structured path handles every calibration the generator writes; this
+       branch is only reached by a legacy or hand-edited day that has lost its
+       prescription, and before it existed such a day contributed no time to
+       any zone at all. The split is warm-up plus cool-down against the effort
+       itself, straight from CALIBRATION_PROTOCOL. */
+    else if (dd.type==='calibration'){
+      var P = CALIBRATION_PROTOCOL;
+      var effort = calibrationEffortMin();
+      var whole = P.warmupMin + effort + P.cooldownMin;
+      addTime('easy', dd.km*((P.warmupMin+P.cooldownMin)/whole), easyPace);
+      addTime('threshold', dd.km*(effort/whole), tPace);
+    }
     else if (dd.type==='race'){ if (goalPace) addTime('mp', dd.km, goalPace); else addTime('easy', dd.km, easyPace); }
   });
   var totalSec = zones.easy+zones.mp+zones.threshold+zones.interval;

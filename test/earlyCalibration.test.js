@@ -783,15 +783,44 @@ test('keeping the full protocol does not disturb the week around it', () => {
      families and may be holding the interval's; that difference belongs to the
      alternation, not to the calibration, and is asserted as a bound rather
      than hidden. Weeks two and three are untouched either way. */
-  /* THE SAME BOUND APPLIES TO THE WEEKS AFTER IT, for a second reason worth
-     naming: outside the taper each family's structure pool advances on that
-     family's own DELIVERED occurrences. The calibration is a tempo occurrence
-     the plain block never had, so from week two the two blocks are one step
-     apart in the tempo rotation and their tempo sessions are different
-     structures of similar size. That is the rotation working, not the
-     calibration adding load, and it is asserted as a bound in the same
-     direction rather than as an equality that was never true. */
-  [1, 2, 3].forEach(n => {
+  /* WHAT "DOES NOT DISTURB THE WEEK" HAS TO MEAN, now that the session's cost
+     is counted honestly.
+
+     The calibration is a FIXED fifty-two-minute protocol. It does not scale to
+     the athlete, and where it costs more than the week budgeted for its slot,
+     the week comes out bigger by exactly that difference -- declared as a
+     quality-day floor, the same way the checkpoint's time trial has always
+     been. The old form of this test asserted the weeks were identical, which
+     was only ever true because the day was presented at the tempo budget while
+     prescribing a session twice that size.
+
+     THE INVARIANT THAT ACTUALLY MATTERS IS THE ONE ABOUT PERMISSION: the
+     calibration must not make the PROGRAMME bigger. The block's own target
+     volumes are asserted identical, so nothing about the session changes what
+     the athlete is being progressed towards -- and the delivered difference is
+     bounded by, and attributed to, the declared floor.
+
+     There is a second, unrelated reason the weeks after it differ: outside the
+     taper each family's structure pool advances on that family's own DELIVERED
+     occurrences, and the calibration is a tempo occurrence the plain block
+     never had. That is the rotation working. */
+  const calBlk = a.buildBlockWeeks('half', 45, 10, { calibrate: true });
+  const plainBlk = a.buildBlockWeeks('half', 45, 10);
+  assert.equal(calBlk.weeks.map(w => w.volume).join(','),
+               plainBlk.weeks.map(w => w.volume).join(','),
+    'the calibration buys no programme volume: every weekly target is identical');
+  assert.equal(calBlk.peakVolume, plainBlk.peakVolume, 'and the block peaks in the same place');
+
+  /* The declared floor is recorded on the week while the DAYS are built, so it
+     has to be read from a block that has been through buildDaysFromWeeks(). */
+  a.buildDaysFromWeeks(calBlk, a.state.setup.raceDate, a.state.setup.schedule, TODAY, false);
+  const floorKm = (calBlk.weeks[0].qualityDayFloorKm || 0);
+  assert.ok(floorKm > 0,
+    'the fixed protocol costs more than the week budgeted, and the week says so');
+  const over = km(a.state.days, 1) - km(plain, 1);
+  assert.ok(over <= floorKm + 1e-9,
+    'week 1 is ' + over + 'km over the plain week against a declared floor of ' + floorKm);
+  [2, 3].forEach(n => {
     assert.ok(km(a.state.days, n) <= km(plain, n) + 1e-9,
       'week ' + n + ': ' + km(a.state.days, n) + 'km against ' + km(plain, n) + 'km');
     assert.ok(km(plain, n) - km(a.state.days, n) <= 1,

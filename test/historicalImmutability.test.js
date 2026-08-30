@@ -82,6 +82,7 @@ const snapshot = a => a.state.days.filter(d => d.date < TODAY).map(d => ({
 
 /* A rebuild of the same block, exactly as handleGeneratePlan performs one:
    the anchor comes from blockAnchor(), never from today. */
+let LAST_BLOCK = null;
 function rebuild(a, o) {
   o = o || {};
   const schedule = o.schedule || a.state.setup.schedule;
@@ -93,8 +94,24 @@ function rebuild(a, o) {
   const rec = a.reconcileRegeneratedDays(a.state.days, fresh, anchor);
   a.state.days = rec.days;
   a.state.setup.schedule = schedule;
+  LAST_BLOCK = br;
   return rec;
 }
+/* THE WEEK'S QUALITY CAP IS NO LONGER A CONSTANT, AND THESE TESTS MUST NOT
+   PRETEND IT IS. When they were written a five-day week was given two quality
+   sessions unconditionally, so "the cap" could be spelled 2. Quality frequency
+   is now earned from the athlete's own logged response, and with no such
+   evidence the cap is one. The invariant under test never mentioned a number:
+   the calendar week must not end up holding more quality than the architecture
+   permits, and the surplus must come out of the FUTURE half. Read from the
+   block the rebuild actually used, so it stays true at either value. */
+const capOf = () => (LAST_BLOCK && LAST_BLOCK.qualityFrequency
+  ? LAST_BLOCK.qualityFrequency.prescribed : 1);
+/* A schedule change that moves the generator's quality day INTO the future
+   half of the current week, which is the only arrangement that can produce the
+   stacking these three tests exist for. The original pairing put it on a
+   Thursday the athlete had already lived through, so the case never arose. */
+const MOVES_QUALITY_FORWARD = { activeDays: [0, 1, 3, 4, 6], longRunDay: 1 };
 const diff = (before, after) => {
   const by = {}; before.forEach(d => { by[d.date] = d; });
   const out = [];
@@ -372,18 +389,19 @@ test('a mid-week re-tailor does not stack a third quality session on the week', 
      The surplus is now taken out of the FUTURE half of the week. */
   const a = athlete();
   const elapsedBefore = snapshot(a);
-  rebuild(a, { schedule: { activeDays: [0, 1, 3, 4, 6], longRunDay: 6 } });
+  rebuild(a, { schedule: MOVES_QUALITY_FORWARD });
   const week = a.state.days.filter(d => d.date >= MONDAY && d.date <= a.addDays(MONDAY, 6));
   const q = week.filter(d => QUALITY.indexOf(d.type) !== -1).length;
-  assert.ok(q >= 2, 'the week still holds real quality work');
-  assert.equal(q, 2, 'the calendar week holds ' + q + ' quality sessions against a cap of 2');
+  assert.ok(q >= 1, 'the week still holds real quality work');
+  assert.equal(q, capOf(),
+    'the calendar week holds ' + q + ' quality sessions against a cap of ' + capOf());
   assert.deepEqual(diff(elapsedBefore, snapshot(a)), [],
     'the cap was paid for out of the past');
 });
 
 test('what gives way is a future day, and it becomes running rather than a hole', () => {
   const a = athlete();
-  rebuild(a, { schedule: { activeDays: [0, 1, 3, 4, 6], longRunDay: 6 } });
+  rebuild(a, { schedule: MOVES_QUALITY_FORWARD });
   const demoted = a.state.days.filter(d => d.weekQualityCap);
   assert.equal(demoted.length, 1);
   assert.ok(demoted[0].date >= TODAY, 'an elapsed day was demoted');
@@ -400,11 +418,13 @@ test('a week already over its cap because of days ALREADY TRAINED is left alone'
      ran. Historical preservation is not sacrificed to satisfy the cap. */
   const a = athlete();
   const elapsedBefore = snapshot(a);
-  rebuild(a, { schedule: { activeDays: [1, 3, 5], longRunDay: 5 } });
+  rebuild(a, { schedule: MOVES_QUALITY_FORWARD });
   const week = a.state.days.filter(d => d.date >= MONDAY && d.date <= a.addDays(MONDAY, 6));
   const past = week.filter(d => d.date < TODAY && QUALITY.indexOf(d.type) !== -1);
   const future = week.filter(d => d.date >= TODAY && QUALITY.indexOf(d.type) !== -1);
-  assert.ok(past.length >= 2, 'the fixture no longer produces the case it was written for');
+  assert.ok(past.length >= capOf(),
+    'the fixture no longer produces the case it was written for: the elapsed half ' +
+    'holds ' + past.length + ' of a cap of ' + capOf());
   assert.equal(future.length, 0, 'the future half still adds quality to an over-cap week');
   assert.deepEqual(diff(elapsedBefore, snapshot(a)), []);
 });

@@ -25,8 +25,39 @@ function buildPlan(app, opts) {
   const startMonday = app.addDays(startDate, -app.isoWeekday(startDate));
   const raceDate = app.addDays(startMonday, weeks * 7 - 1);
 
-  const blockResult = app.buildBlockWeeks(distanceKey, volume, weeks);
-  const days = app.buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);
+  /* AN ATHLETE WHO HAS EARNED THEIR SECOND QUALITY SESSION.
+   *
+   * Quality frequency is not granted by the day count: the aerobic-dominance
+   * ceiling says a five-day week may hold at most two demanding sessions, and
+   * the SECOND one is earned from the athlete's own logged response
+   * (established family confidence, blockEffectiveness ADAPTING, and a
+   * measured recovery time that fits the spacing the schedule can give). With
+   * no such evidence the answer is one a week, which is the correct default
+   * for a fixture that says nothing about the athlete.
+   *
+   * Several test files are ABOUT the reading of a block that contains two
+   * quality sessions a week -- pooled RPE across different prescribed bands,
+   * effort trends within type, execution mixes. Those fixtures have to
+   * describe an athlete who has earned it, or they silently become fixtures
+   * about a one-quality-a-week athlete and the shapes they log stop existing.
+   *
+   * Stubbed through the same two readings the permission itself consults, and
+   * restored the moment the plan is built, so nothing downstream is ever
+   * measured against a stub. */
+  const realModel = app.athleteResponseModel, realBlock = app.blockEffectiveness;
+  if (opts.earnedSecondQuality){
+    app.athleteResponseModel = () => ({ families: {
+      threshold: { confidence: 'established', recovery: { typicalHoursToNormal: 24 } },
+      interval:  { confidence: 'established', recovery: { typicalHoursToNormal: 24 } } } });
+    app.blockEffectiveness = () => ({ state: 'ADAPTING' });
+  }
+  let blockResult, days;
+  try {
+    blockResult = app.buildBlockWeeks(distanceKey, volume, weeks);
+    days = app.buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);
+  } finally {
+    app.athleteResponseModel = realModel; app.blockEffectiveness = realBlock;
+  }
 
   app.state = app.makeDefaultState();
   app.state.setup = {

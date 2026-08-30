@@ -38,7 +38,13 @@ const mid = b => (b ? Math.round((b[0] + b[1]) / 2) : null);
 function block(day, rpeFor){
   const app = loadApp({ pinnedDate: day + 'T09:00:00Z' });
   const startDate = app.addDays(app.todayStr(), -35);
-  const { days } = buildPlan(app, { startDate, weeks: 12 });
+  /* Two quality sessions a week, because this file is about what happens when
+     a block MIXES prescribed bands -- 6-8 against 7-9 -- and the shapes below
+     need seven or more quality sessions behind the athlete to express a rise
+     confined to the late half. Quality frequency is earned rather than granted
+     by the day count, so the fixture has to describe an athlete who has earned
+     it; see buildPlan(). */
+  const { days } = buildPlan(app, { startDate, weeks: 12, earnedSecondQuality: true });
   const done = days.filter(d => d.date <= app.todayStr() && d.type !== 'rest');
   done.forEach(dd => {
     const band = app.expectedRPEBand(dd);

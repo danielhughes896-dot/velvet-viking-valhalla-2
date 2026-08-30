@@ -48,17 +48,49 @@ function efficiencyTrend(a) {
 }
 
 /* Recent easy runs shifted against this athlete's own established base.
-   paceDelta is seconds per km (negative = faster); hrDelta is bpm. */
+   paceDelta is seconds per km (negative = faster); hrDelta is bpm.
+
+   WHICH RUNS ARE "RECENT" IS THE TREND LAYER'S ANSWER, NOT A DATE PICKED HERE.
+   The earlier form shifted every easy run of the last twenty days, which is
+   far more than trendSplit() treats as recent -- so six of the shifted runs
+   landed in the athlete's own BASELINE and the fixture moved the thing it was
+   measuring against. It survived in one direction and not the other, for a
+   reason worth recording: the base MEDIAN still came from the unshifted
+   majority, so a decline was still visible, but trendEstablished() reads the
+   BEST HALF of the baseline, which was made entirely of the contaminated runs
+   -- so an improvement had to beat the improvement, and never could.
+
+   The runs are therefore logged first, the app is asked which of them it
+   considers recent, and only those are shifted. The fixture now describes what
+   it always claimed to: a change against an established base. */
+const RECENT_EASY_RUNS = 3;
+/* A REAL ACUTE-LOAD SPIKE, ASSERTED AS ONE RATHER THAN ASSUMED.
+   coachLoad() calls a spike above 1.5x the four-week average. The fixture used
+   to multiply the last six days by 2.4, which reached 1.43 -- 'elevated', not
+   'spike' -- so the evidence these two tests are written about was never
+   produced and both were asserting the behaviour of an ordinary week. The
+   multiplier is raised until the band is what the test needs, and the band is
+   now asserted as a precondition so it can never silently stop being one. */
+function spikeLoad(a){
+  logPast(a, (app_, past) => {
+    const from = app_.addDays(app_.todayStr(), -6);
+    past.forEach(d => { if (d.date >= from) d.actual.km = Math.round(d.km * 3.2 * 10) / 10; });
+  });
+}
 function easyShift(paceDelta, hrDelta) {
   const a = app();
   buildPlan(a, { weeks: 14, startDate: a.addDays(a.todayStr(), -56) });
   logPast(a, (app_, past) => {
-    const from = app_.addDays(app_.todayStr(), -20);
-    past.filter(d => d.type === 'easy' && d.date >= from).forEach(d => {
+    /* Shifted INSIDE logPast, before the reviews are persisted, because
+       persisting them moves the athlete's measured fitness and with it the
+       pace zones -- so a target read afterwards is a different target, and
+       "40s/km faster" measured against it came out 4s/km SLOWER. */
+    const easy = past.filter(d => d.type === 'easy').sort((x, y) => x.date < y.date ? -1 : 1);
+    easy.slice(-RECENT_EASY_RUNS).forEach(d => {
       const tr = app_.executionPaceTarget(d);
       const base = tr ? Math.round((tr.fast + tr.slow) / 2) : 330;
-      d.actual.pace = app_.secToPace(base + paceDelta);
-      d.actual.hr = (d.actual.hr || 140) + hrDelta;
+      if (paceDelta) d.actual.pace = app_.secToPace(base + paceDelta);
+      if (hrDelta) d.actual.hr = (d.actual.hr || 140) + hrDelta;
     });
   });
   return efficiencyTrend(a);
@@ -125,11 +157,10 @@ test('efficiency: an HR-only change is attributed to heart-rate cost', () => {
 test('recommendation never claims nothing suggests restraint while showing evidence', () => {
   const a = app();
   buildPlan(a, { weeks: 14, startDate: a.addDays(a.todayStr(), -56) });
-  logPast(a, (app_, past) => {
-    // a real acute-load spike: this week's volume well above the 4-week norm
-    const from = app_.addDays(app_.todayStr(), -6);
-    past.forEach(d => { if (d.date >= from) d.actual.km = Math.round(d.km * 2.4 * 10) / 10; });
-  });
+  spikeLoad(a);
+  assert.equal(a.coachLoad().band, 'spike',
+    'precondition: the fixture must actually produce a load spike, and it is ' +
+    a.coachLoad().band + ' at ' + a.coachLoad().ratio.toFixed(2) + 'x');
   const dec = a.coachDecision();
   assert.ok(dec.reasons.length > 0, 'the spike should be listed as evidence');
   assert.match(dec.reasons.join(' '), /your four-week average/,
@@ -143,10 +174,8 @@ test('recommendation never claims nothing suggests restraint while showing evide
 test('restraint is preserved: evidence alone does not force a reduction', () => {
   const a = app();
   buildPlan(a, { weeks: 14, startDate: a.addDays(a.todayStr(), -56) });
-  logPast(a, (app_, past) => {
-    const from = app_.addDays(app_.todayStr(), -6);
-    past.forEach(d => { if (d.date >= from) d.actual.km = Math.round(d.km * 2.4 * 10) / 10; });
-  });
+  spikeLoad(a);
+  assert.equal(a.coachLoad().band, 'spike', 'precondition: a real load spike');
   const dec = a.coachDecision();
   assert.ok(['proceed', 'check'].includes(dec.state),
     'a load spike on its own is not grounds to rewrite the week');

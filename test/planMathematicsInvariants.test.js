@@ -1556,3 +1556,146 @@ test('every production call site carries the purpose', () => {
         'a call site passes steady without purpose: ' + opts.replace(/\s+/g, ' ').slice(0, 160));
   });
 });
+
+// ---------------------------------------------------------------------------
+// CAPACITY IS PERMISSION; WHAT THE ATHLETE IS DOING NOW IS A SEPARATE FACT
+// ---------------------------------------------------------------------------
+test('the two frequency readings answer two different questions', () => {
+  /* A statistic built to survive a bad patch necessarily cannot notice one, so
+     one reading cannot do both jobs. Capacity is held for a year and is
+     permission; the current reading says what the athlete is actually
+     sustaining, and only it is allowed to move quickly. Both are built from
+     SUSTAINED_WEEKS_REQUIRED and neither introduces a window of its own. */
+  const cap = f => athleteWhoRuns(f).demonstratedRunningFrequency();
+  const now = f => athleteWhoRuns(f).currentSustainedRunningFrequency();
+
+  const steady5 = 5;
+  assert.equal(cap(steady5), 5);
+  assert.equal(now(steady5), 5);
+
+  /* ONE BAD WEEK MOVES NEITHER. The current reading is the median of the last
+     three complete weeks -- the level reached in at least two of them -- so a
+     single missed run cannot move it either. */
+  const oneOff = i => (i === 51 ? 4 : 5);
+  assert.equal(cap(oneOff), 5, 'capacity survives one bad week');
+  assert.equal(now(oneOff), 5, 'and so does the current reading');
+
+  /* A SUSTAINED CHANGE MOVES ONLY THE CURRENT READING. Two agreeing weeks are
+     enough for "now"; capacity keeps its answer for the rest of the year. */
+  const dropped = i => (i >= 50 ? 3 : 5);
+  assert.equal(cap(dropped), 5, 'capacity is not erased by a fortnight');
+  assert.equal(now(dropped), 3, 'but the current reading has noticed');
+
+  /* AND IT COMES BACK AS FAST AS IT WENT. */
+  const recovering = i => (i >= 50 ? 5 : 3);
+  assert.equal(now(recovering), 5);
+
+  /* NEITHER SPEAKS WITHOUT ENOUGH WEEKS TO SPEAK FROM. */
+  for (const weeks of [0, 1, 2]){
+    assert.equal(athleteWhoRuns(5, weeks).demonstratedRunningFrequency(), null);
+    assert.equal(athleteWhoRuns(5, weeks).currentSustainedRunningFrequency(), null);
+  }
+});
+
+test('the current reading lowers the prescription and never raises it', () => {
+  const schedule = { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 };
+  const runsPerWeek = fn => {
+    const a = athleteWhoRuns(fn);
+    const start = a.todayStr();
+    const end = a.addDays(a.addDays(start, -a.isoWeekday(start)), 12 * 7 - 1);
+    const days = a.buildDaysFromWeeks(a.buildBlockWeeks('10k', 45, 12, {}),
+      end, schedule, start, false);
+    const byWeek = {};
+    days.forEach(d => { (byWeek[d.week] = byWeek[d.week] || []).push(d); });
+    return Object.keys(byWeek).map(Number).sort((x, y) => x - y)
+      .map(w => byWeek[w].filter(d => d.km > 0).length);
+  };
+  /* Sustaining three of their five available days: the plan is built on three. */
+  assert.ok(runsPerWeek(i => (i >= 49 ? 3 : 5)).slice(0, -1).every(n => n === 3),
+    'a sustained reduction is respected');
+  /* One missed run: still five. */
+  assert.ok(runsPerWeek(i => (i === 51 ? 4 : 5)).slice(0, -1).every(n => n === 5),
+    'one missed run is not a reduction');
+  /* And a good recent fortnight cannot buy days beyond demonstrated capacity:
+     three days for a year, five for the last two weeks -- capacity says three. */
+  assert.ok(runsPerWeek(i => (i >= 50 ? 5 : 3)).slice(0, -1).every(n => n === 3),
+    'the current reading can lower the ceiling but never lift it');
+});
+
+// ---------------------------------------------------------------------------
+// AN AVAILABLE UNUSED DAY IS NOT A REQUIRED REST DAY
+// ---------------------------------------------------------------------------
+test('a day the programme did not need is marked, and carries no training', () => {
+  const a = athleteWhoRuns(3);
+  const schedule = { activeDays: [0, 1, 2, 3, 5, 6], longRunDay: 6 };
+  const start = a.todayStr();
+  const end = a.addDays(a.addDays(start, -a.isoWeekday(start)), 12 * 7 - 1);
+  const days = a.buildDaysFromWeeks(a.buildBlockWeeks('10k', 45, 12, {}),
+    end, schedule, start, false);
+
+  const unused = days.filter(d => d.availableUnused);
+  assert.ok(unused.length > 0, 'the fixture must actually produce unused days');
+  unused.forEach(d => {
+    assert.equal(d.type, 'rest', 'an unused available day is a rest day');
+    assert.equal(d.km, 0, 'and carries no distance');
+    assert.equal(d.prescription, undefined, 'and no prescription');
+    assert.ok(schedule.activeDays.indexOf(a.isoWeekday(d.date)) !== -1,
+      'and is a day the athlete actually offered');
+  });
+  /* THE OTHER REST DAYS ARE NOT MARKED. A day the athlete never offered is a
+     different fact and must not be confused with one they did. */
+  days.filter(d => d.type === 'rest' &&
+                   schedule.activeDays.indexOf(a.isoWeekday(d.date)) === -1)
+      .forEach(d => assert.ok(!d.availableUnused,
+        'a day outside the athlete\'s availability is never marked available'));
+
+  /* AND IT CANNOT CONTAMINATE THE PRESCRIPTION MATHEMATICS. Every accounting
+     the week does reads distance, and an unused day has none. */
+  const wk = days.filter(d => d.week === unused[0].week);
+  const withUnused = wk.reduce((t, d) => t + (d.km || 0), 0);
+  const withoutUnused = wk.filter(d => !d.availableUnused)
+                          .reduce((t, d) => t + (d.km || 0), 0);
+  assert.equal(withUnused, withoutUnused, 'it adds nothing to the week');
+  const st = a.horizonStimulus(wk);
+  const st2 = a.horizonStimulus(wk.filter(d => !d.availableUnused));
+  assert.equal(st.qualityExposures, st2.qualityExposures);
+  assert.equal(st.totalKm, st2.totalKm);
+  assert.equal(st.sessions, st2.sessions, 'and is not counted as a session');
+});
+
+test('an optional run is offered only where recovery already allows the load', () => {
+  /* Three things share the type "rest": a day the athlete never offered, a day
+     the programme is protecting, and a day it simply did not need. Only the
+     third is offered, and which is which is decided by the SAME gate
+     supporting work uses rather than by a second recovery model. */
+  const a = athleteWhoRuns(3);
+  const schedule = { activeDays: [0, 1, 2, 3, 5, 6], longRunDay: 6 };
+  const start = a.todayStr();
+  const end = a.addDays(a.addDays(start, -a.isoWeekday(start)), 12 * 7 - 1);
+  a.state.days = a.buildDaysFromWeeks(a.buildBlockWeeks('10k', 45, 12, {}),
+    end, schedule, start, false);
+
+  let offered = 0, withheld = 0;
+  a.state.days.forEach(d => {
+    const weekDays = a.state.days.filter(x => x.week === d.week);
+    const eligible = a.optionalRunEligible(d, weekDays);
+    if (!d.availableUnused){
+      assert.equal(eligible, false, d.date + ' is not an available unused day');
+      return;
+    }
+    const gate = a.supportDayEligible(d, weekDays);
+    assert.equal(eligible, !!(gate && gate.ceiling >= 3 && !gate.only),
+      d.date + ': optional eligibility must follow the supporting-work gate exactly');
+    if (eligible) offered++; else withheld++;
+  });
+  assert.ok(offered > 0, 'some unused days are genuinely free');
+  assert.ok(withheld > 0,
+    'and some are protected — an available day is not automatically eligible');
+
+  /* A completed day is never re-offered. */
+  const anyOffered = a.state.days.filter(d =>
+    a.optionalRunEligible(d, a.state.days.filter(x => x.week === d.week)))[0];
+  anyOffered.completed = true;
+  assert.equal(a.optionalRunEligible(anyOffered,
+    a.state.days.filter(x => x.week === anyOffered.week)), false);
+});
