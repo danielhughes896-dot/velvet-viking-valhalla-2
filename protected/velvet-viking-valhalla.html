@@ -4493,15 +4493,29 @@ function shrinkTempoSpec(spec, target){
    structure is itself already at its floor, the floor is the honest answer and
    is left visible rather than dressed up -- that case is the fixed-structure
    floor problem, answered where it lives and not here. */
-function fitTaperQualityStructure(pool, kind, phase, weekNum, pos, emphasis, rotation, hardCeil, prevSpec){
+/* GENERALISED BEYOND THE TAPER BY S6-B. The engine states a rule for EVERY
+   week, not only a tapering one: a quality session is never the longest run of
+   the week, so it is sized against min(longCapKm, volume x LONG_FRACTION). The
+   shrink functions honour that until they reach their floors, and a structure
+   whose floor is above the bound breaks the rule silently -- 3,135 sessions
+   across 3,089 received race-programme weeks, all 5K and 10K between 21 and
+   50km/week, the worst a 9km interval session against a 6.7km bound.
+
+   Searching the pool is the substitution the product already performs; it was
+   simply only reachable from a taper. `shrinkFactor` is the taper's own 0.6
+   there and 1 everywhere else, so no week outside a taper is sized differently
+   than before -- only differently CHOSEN, and only when the rotation's own turn
+   cannot be made legal. */
+function fitQualityStructure(pool, kind, phase, weekNum, pos, emphasis, rotation, hardCeil, prevSpec, shrinkFactor){
   var candidates = pool[phase] || pool.Peak;
   var shrink = kind === 'interval' ? shrinkIntervalSpec : shrinkTempoSpec;
   var size   = kind === 'interval' ? intervalSessionKm  : tempoSessionKm;
+  var factor = shrinkFactor != null ? shrinkFactor : 1;
   var best = null;
   for (var i = 0; i < candidates.length; i++){
     var raw = candidates[(weekNum + (rotation || 0) + i) % candidates.length](pos, emphasis);
     // the taper's own factor still does the sizing; the ceiling only bounds it
-    var s = shrink(raw, Math.min(size(raw) * TAPER_QUALITY_FACTOR, hardCeil));
+    var s = shrink(raw, Math.min(size(raw) * factor, hardCeil));
     if (size(s) <= hardCeil + 1e-9) return s;
     if (best === null || size(s) < size(best)) best = s;
   }
@@ -4510,9 +4524,13 @@ function fitTaperQualityStructure(pool, kind, phase, weekNum, pos, emphasis, rot
   if (!best) return prevSpec ? copySpec(prevSpec)
             : pickQualityStructure(pool, phase, weekNum, pos, emphasis, rotation);
   if (prevSpec){
-    var rep = shrink(copySpec(prevSpec), Math.min(size(prevSpec) * TAPER_QUALITY_FACTOR, hardCeil));
+    var rep = shrink(copySpec(prevSpec), Math.min(size(prevSpec) * factor, hardCeil));
     if (size(rep) <= size(best)) return rep;
   }
+  /* Nothing in the pool is legal at this size. The smallest candidate is
+     returned and flagged, and the week decides -- defer to one slot, then
+     substitute strides -- rather than a session being quietly oversized here.
+     No structure is invented and no minimum dose is defined. */
   return best;
 }
 
@@ -5451,20 +5469,25 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     /* S2-A. In a taper the ceiling decides WHICH structure as well as how big
        it is -- see fitTaperQualityStructure. Everywhere else the rotation's own
        choice is sized exactly as it always was. */
-    if (isTaper && !isRace){
-      qSpec = fitTaperQualityStructure(INTERVAL_STRUCTURE_POOL, 'interval', structPhase, w, pos,
-                                       profile.emphasis, rotation,
-                                       Math.min(taperCeilQ, weekFitCeil), prevQSpec);
-      tSpec = fitTaperQualityStructure(TEMPO_STRUCTURE_POOL, 'tempo', structPhase, w, pos,
-                                       profile.emphasis, rotation,
-                                       Math.min(taperCeilT, weekFitCeil), prevTSpec);
+    if (isRace){
+      qSpec = shrinkIntervalSpec(qSpec, Infinity);
+      tSpec = shrinkTempoSpec(tSpec, Infinity);
     } else {
-      var fitTarget = isRace ? Infinity : weekFitCeil;
-      qSpec = shrinkIntervalSpec(qSpec, fitTarget);
-      tSpec = shrinkTempoSpec(tSpec, fitTarget);
+      qSpec = fitQualityStructure(INTERVAL_STRUCTURE_POOL, 'interval', structPhase, w, pos,
+                                  profile.emphasis, rotation,
+                                  Math.min(taperCeilQ, weekFitCeil), isTaper ? prevQSpec : null,
+                                  isTaper ? TAPER_QUALITY_FACTOR : 1);
+      tSpec = fitQualityStructure(TEMPO_STRUCTURE_POOL, 'tempo', structPhase, w, pos,
+                                  profile.emphasis, rotation,
+                                  Math.min(taperCeilT, weekFitCeil), isTaper ? prevTSpec : null,
+                                  isTaper ? TAPER_QUALITY_FACTOR : 1);
     }
     var qKm = intervalSessionKm(qSpec);
     var tKm = tempoSessionKm(tSpec);
+    /* S6-B. Whether each slot could be made legal at all, carried to the week so
+       the defer/omit ladder can act on it. The bound is the existing one. */
+    var qFitsBound = isRace || qKm <= weekFitCeil + 1e-9;
+    var tFitsBound = isRace || tKm <= weekFitCeil + 1e-9;
     if (isRace){ qKm=0; tKm=0; }
     // An on-ramp or foundation block carries no structured quality at all.
     if (arc.noQuality){ qKm=0; tKm=0; }
@@ -5515,6 +5538,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
 
     weeks.push({
       week:w, phase:phase, isCutback:isCutback, isTaper:isTaper, isRace:isRace, isCheckpoint:isCheckpoint,
+      qFitsBound:qFitsBound, tFitsBound:tFitsBound, weekFitCeil:round1(weekFitCeil),
       isCalibration:isCalibration,
       // S0 ACCOUNTING, recorded not acted on: what the arc asked for, and the
       // named coaching reason any of it was deliberately given back.
@@ -7460,7 +7484,7 @@ function distributeWeekVolume(volumeKm, qualityKm, longKm, secondLongKm, easyDay
   var rawBudget = volumeKm - qualityKm - longKm - secondLongKm;
   var qualityOverrunKm = Math.max(0, -rawBudget);
   var easyBudget = Math.max(0, rawBudget);
-  var perEasy = 0, easyFloorExcessKm = 0;
+  var perEasy = 0, easyFloorExcessKm = 0, easyCapFor = null, easyFairShare = null;
   if (easyDayCount>0){
     /* THE FLOOR IS A PARAMETER because foundation's is different, and that is
        the whole of why foundation exists. EASY_MIN_KM is the smallest easy day
@@ -7485,21 +7509,58 @@ function distributeWeekVolume(volumeKm, qualityKm, longKm, secondLongKm, easyDay
        behaviour exactly, because changing it for race blocks would move a
        population this stage is not authorised to touch. The same asymmetry
        exists there and is reported rather than altered here. */
-    var easyCap = (longKm > 0)
-      ? (roundSafeEasyCap
-          ? Math.max(floorKm, roundTo(longKm, 1) - EASY_QUANTUM_KM)
-          : Math.max(floorKm, longKm * EASY_MAX_FRACTION_OF_LONG))
-      : Infinity;
+    easyCapFor = function(L){
+      return (L > 0)
+        ? (roundSafeEasyCap
+            ? Math.max(floorKm, roundTo(L, 1) - EASY_QUANTUM_KM)
+            : Math.max(floorKm, L * EASY_MAX_FRACTION_OF_LONG))
+        : Infinity;
+    };
+    var easyCap = easyCapFor(longKm);
     var fairShare = easyBudget/easyDayCount;
     perEasy = clamp(fairShare, floorKm, easyCap === Infinity ? Infinity : round1(easyCap));
     if (perEasy > fairShare) easyFloorExcessKm = round1((perEasy - fairShare) * easyDayCount);
     easyBudget = Math.max(0, round1(easyBudget - perEasy*easyDayCount));
+    easyFairShare = fairShare;
   }
   if (easyBudget>0){
     var room = Math.max(0, longCapKm-longKm);
     var addToLong = Math.min(room, easyBudget);
     longKm = round1(longKm+addToLong);
     easyBudget = round1(easyBudget-addToLong);
+  }
+  /* THE EASY CAP IS READ AGAINST THE LONG RUN THE WEEK ACTUALLY GETS.
+     The cap above was computed against the long run as first sized, and the
+     step in between then GROWS the long run out of whatever the easy days could
+     not take. So the week ends up holding an easy cap belonging to a long run
+     that no longer exists, and declares the difference undistributed.
+
+     5k, 60km/week, eight weeks, three running days, final taper week: the long
+     run is first sized at 8.2km, so the single easy day is capped at 8.2 and
+     takes it; 12.7km is left over; the long run grows to its 12km cap. The easy
+     day may now legally be 12 -- the same rule, read against the same week --
+     but it was fixed at 8.2 four lines earlier, and 8.9km was declared
+     unplaceable when 4km of it was placeable all along. Across the 473
+     three-day cases this is a mean of 4.00km per week.
+
+     The long run never shrinks back and the easy days never exceed it, so this
+     re-read can only place volume that was already inside the week's declared
+     target under rules that already existed. Nothing is added: what is not
+     placeable after it remains declared undistributed. */
+  if (easyBudget > 0 && easyDayCount > 0 && longKm > 0 && easyCapFor){
+    var cap2 = easyCapFor(longKm);
+    if (cap2 !== Infinity){
+      var headroom = round1(cap2) - perEasy;
+      var affordable = easyBudget/easyDayCount;
+      var addToEasy = Math.min(headroom, affordable);
+      if (addToEasy > 0){
+        perEasy = round1(perEasy + addToEasy);
+        easyBudget = Math.max(0, round1(easyBudget - addToEasy*easyDayCount));
+        /* perEasy can never pass the fair share this way -- addToEasy is bounded
+           by what is left after the fair share was already taken -- so the
+           easy_floor term is untouched by construction. */
+      }
+    }
   }
   var floorCauses = [];
   if (qualityOverrunKm>0) floorCauses.push('quality_floor');
@@ -7739,7 +7800,18 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         return q + longKm + secondLongKm +
                (baseEasyN + (qualityDays.length - slots)) * floorPerEasy;
       };
+      /* S6-B. A SLOT IS ALSO UNAFFORDABLE WHEN ITS SESSION CANNOT BE MADE LEGAL.
+         buildBlockWeeks searched the whole pool for a structure that fits under
+         the week's own long-run bound (fitQualityStructure) and recorded whether
+         it found one. Where it did not, no amount of weekly volume makes the
+         session legal, so the slot yields by the same ladder and for the same
+         reason -- the week cannot honestly contain what was prescribed. */
+      var slotLegal = function(kind){
+        return kind === 'interval' ? wk.qFitsBound !== false : wk.tFitsBound !== false;
+      };
       var affordable = function(slots, kind){
+        if (slots >= 2 && !(slotLegal('interval') && slotLegal('tempo'))) return false;
+        if (slots === 1 && !slotLegal(kind)) return false;
         return floorCostFor(slots, kind) <= wk.volume + 1e-9;
       };
       while (qualitySlotsThisWeek > pinned &&

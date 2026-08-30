@@ -643,13 +643,20 @@ test('every on-ramp the engine builds is sound', () => {
   ].forEach(code => assert.equal(m.tally[code] || 0, 0, code));
 });
 
-test('an on-ramp that cannot arrive says so rather than failing quietly', () => {
-  /* The same rule S2 established for the allocator: no SILENT failure. A
-     shortfall the accounting names is declared and reported; one nothing
-     accounts for is a defect, and there are none of those. */
+test('every on-ramp now arrives, and none fails quietly', () => {
+  /* THIS TEST USED TO ASSERT THE OPPOSITE HALF. Some on-ramps could not reach
+     their ramp target and said so -- a declared shortfall, honest but a
+     shortfall. Every one of them was the easy-day cap being read against the
+     long run as first sized rather than the one the week ends up with: the
+     leftover grew the long run, the easy days stayed capped against the
+     smaller one, and the week arrived short. 841 declared shortfalls across
+     the full sweep, now none.
+
+     The rule the test was written for is unchanged and still asserted: no
+     SILENT failure. What changed is that there is no failure left to declare. */
   const m = onRamps();
-  assert.ok((m.tally.onramp_declared_shortfall || 0) > 0,
-    'expected some on-ramps to be honest about not arriving');
+  assert.equal(m.tally.onramp_declared_shortfall || 0, 0,
+    'an on-ramp fell short again; the easy-cap re-read has regressed');
   assert.equal(m.tally.onramp_does_not_reach_its_target || 0, 0);
 });
 
@@ -858,38 +865,43 @@ test('S2-A: the delivered quality sequence falls through every taper', () => {
   assert.ok(checked > 100, 'expected a real population of taper weeks, got ' + checked);
 });
 
-test('S2-A: what remains is the back-to-back day, and it is not a taper fault', () => {
-  /* THE MATRIX CANNOT SEE THIS CLASS -- it samples five block lengths at three
-     and five running days, and every case here is ULTRA at SIX days. Pinned
-     directly so it cannot grow unobserved between sweeps.
+test('S2-A: the back-to-back taper class is closed, and by the allocator', () => {
+  /* WHAT THIS TEST USED TO PIN. 616 in-race taper increases survived S2-A, all
+     of them ultra at six running days, and none of them a quality fault: the
+     back-to-back long run stops at the taper and its day returns to the easy
+     pool, which only read as an increase because the week BEFORE it could not
+     deliver its own target.
 
-     The mechanism is not the quality slot. An ultra block's back-to-back long
-     run stops at the taper (b2bEligible is false there), so its day returns to
-     the easy pool as a full easy day, which can be larger than the second long
-     run it replaces. It only reads as an increase because the week BEFORE it
-     could not deliver its own target: across all 616 cases in the full sweep
-     the taper delivers at most 100.7% of its own target while its predecessor
-     delivers under 95% of its. That is the declared-undershoot class showing
-     through, and it belongs to whatever answers that. */
+     The cause was the easy-day cap being read against the long run as first
+     sized. Once the cap is re-read against the long run the week actually gets,
+     those build weeks deliver what they were asked for and the taper is no
+     longer larger than its predecessor. 616 -> 0, with no taper touched.
+
+     Pinned at zero, and on the named case, because the matrix cannot see this
+     class at all -- it samples five block lengths at three and five running
+     days, and every case was ultra at six. */
   const c = auditCase({ distanceKey: 'ultra', volume: 79, weeks: 14, scheduleKey: 'd6' });
   assert.equal(c.routed, false);
-  const weeks = c.weeks;
-  const t = weeks.findIndex(w => w.isTaper);
-  const taper = weeks[t], prev = weeks[t - 1];
-  assert.ok(taper.actualVolume > prev.actualVolume, 'the class has gone; re-measure and re-record');
-  // the taper is honest against its own target...
-  assert.ok(taper.actualVolume <= taper.targetVolume * 1.05,
-    'the taper is ' + taper.actualVolume + ' against its own target of ' + taper.targetVolume);
-  // ...and the week before it is not
-  assert.ok(prev.actualVolume < prev.targetVolume * 0.95,
-    'the week before delivered ' + prev.actualVolume + ' of ' + prev.targetVolume);
-  // the quality and the long run both FELL; only the freed back-to-back day rose
-  const q = w => w.sessions.filter(s => s.km > 0 && s.type !== 'easy' && s.type !== 'long').reduce((a, b) => a + b.km, 0);
-  assert.ok(q(taper) < q(prev), 'taper quality ' + q(prev) + ' -> ' + q(taper));
-  assert.ok(taper.longKm < prev.longKm, 'long running ' + prev.longKm + ' -> ' + taper.longKm);
-  assert.ok(taper.easyKm > prev.easyKm, 'so the rise is the easy pool: ' + prev.easyKm + ' -> ' + taper.easyKm);
+  const t = c.weeks.findIndex(w => w.isTaper);
+  const taper = c.weeks[t], prev = c.weeks[t - 1];
+  assert.ok(taper.actualVolume <= prev.actualVolume,
+    'the taper is ' + taper.actualVolume + ' against ' + prev.actualVolume + ' the week before');
+  /* And the week before it now sits ON its structural ceiling rather than
+     4km under it: 117.5km before the correction, 144.5 after, with its easy
+     days finally capped against the 36km long run they sit beside instead of
+     the 14km one the allocator started from. What it still cannot reach (158)
+     is genuinely unreachable at six days, and is reported as such rather than
+     manufactured. */
+  const a2 = require('./audit/planAudit.js').app();
+  const easyN = prev.sessions.filter(s => s.type === 'easy' && s.km > 0).length;
+  const longest = Math.max.apply(null, prev.sessions.filter(s => s.type === 'long').map(s => s.km));
+  const ceiling = prev.longKm + easyN * longest * a2.EASY_MAX_FRACTION_OF_LONG + prev.qualityKm;
+  assert.ok(prev.actualVolume >= ceiling - 0.05,
+    'the week before delivered ' + prev.actualVolume + ' against a structural ceiling of ' + ceiling);
+  assert.ok(prev.actualVolume > 130,
+    'the week before was 117.5 before the easy-cap correction; it is ' + prev.actualVolume);
   assert.equal(prev.sessions.filter(s => s.type === 'long' && s.km > 0).length, 2,
-    'the week before should be the back-to-back week');
+    'the week before should still be the back-to-back week');
 });
 
 test('S2-A did not flatten the taper or ban a session family', () => {
