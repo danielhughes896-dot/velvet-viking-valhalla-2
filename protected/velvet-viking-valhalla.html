@@ -2476,11 +2476,45 @@
   .readiness-label{font-size:10px; letter-spacing:.8px; text-transform:uppercase; color:var(--ink-faint); width:44px; flex:none;}
   .readiness-opts{display:flex; gap:4px; flex-wrap:wrap; flex:1;}
   .readiness-btn{
-    padding:4px 9px; font-size:10px; line-height:1; border-radius:99px; cursor:pointer;
+    /* The panel is answered with the thumb on a phone, and at 4px/10px these
+       were an 18px-tall target. 32px clears WCAG 2.5.8's 24px minimum with
+       room, and still wraps inside 360px because .readiness-opts wraps. */
+    min-height:32px; padding:7px 11px; font-size:11px; line-height:1;
+    border-radius:99px; cursor:pointer;
     background:var(--bg-3); color:var(--ink-faint); border:1px solid var(--line);
     transition:background .12s, color .12s, border-color .12s;
   }
-  .readiness-btn.on{background:var(--modal-active); color:var(--bronze-ink); border-color:var(--modal-active);}
+  /* SELECTED BRAND STATE -- "a control they have turned on", which is one of
+     the three jobs Cherry Lacquer is declared for at the top of this sheet.
+     It was --modal-active, i.e. gold, which is the IDENTITY colour: a heading,
+     a card, a border. Gold saying "you chose this" put the one colour that is
+     everywhere on the only control here that means something, so a selection
+     read as decoration. --cherry-fill is the labelled-fill tone (white label
+     at 9.14:1) with the 1px --cherry rim a dark fill needs for its edge. */
+  .readiness-btn.on{
+    background:var(--cherry-fill); color:var(--cherry-btn-ink); border-color:var(--cherry);
+  }
+  /* ---------- the finished check-in ----------
+     One line that confirms, instead of a block that disappears. It is a
+     button because it reopens: the athlete can read back what they answered
+     and change it, which the vanishing panel made impossible. */
+  .readiness-done{margin-top:11px;}
+  .readiness-done-btn{
+    display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; width:100%;
+    min-height:40px; padding:9px 11px; text-align:left; cursor:pointer;
+    background:var(--surface-2); border:1px dashed var(--line);
+    border-radius:var(--radius-sm); color:inherit;
+  }
+  .readiness-done-head{
+    font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px;
+    text-transform:uppercase; color:var(--bronze-text); flex:none;
+  }
+  .readiness-done-line{font-size:11.5px; color:var(--ink-dim); line-height:1.45; overflow-wrap:anywhere;}
+  .readiness-tick{color:var(--cherry-text);}
+  .readiness-head-btn{
+    display:flex; align-items:center; gap:6px; width:100%; min-height:24px;
+    padding:0; background:none; border:0; cursor:pointer; text-align:left;
+  }
   /* ---------- week status: one line, no dashboard ---------- */
   .week-status{margin:0 0 12px; padding:11px 13px; background:var(--surface-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
   .week-status-head{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:5px;}
@@ -14204,6 +14238,23 @@ function dayReadiness(dd){
   return (dd && dd.readiness && (dd.readiness.legs || dd.readiness.sleep || dd.readiness.health))
     ? dd.readiness : null;
 }
+/* COMPLETE means all three answers are in. Anything less is a partial
+   check-in, and a partial check-in is exactly that to the coach: the
+   dimensions the athlete did answer are read as given, the ones they did not
+   stay missing, and neither is invented from the other.
+
+   COMPLETENESS GOVERNS THE PANEL AND NOTHING ELSE -- whether it is still
+   asking. It must never be used to decide what the coach may read. "Health:
+   under the weather" on its own is the heaviest safety signal this product
+   collects, and discarding it for arriving unaccompanied would be a worse
+   defect than the one this function exists to fix. */
+function readinessIsComplete(r){
+  if (!r) return false;
+  return READINESS_QUESTIONS.every(function(q){
+    var v = r[q.key];
+    return !!v && q.options.some(function(o){ return o[0]===v; });
+  });
+}
 function coachReadinessToday(){
   if (!healthConsentGranted()) return null;
   var dd = findDayByDate(todayStr());
@@ -14392,9 +14443,23 @@ function coachDecision(){
     // long-horizon context, reported so WHY? can show it; never an evidence item
     block: block ? { state:block.state, phase:block.phase } : null,
     recommendation: coachDecisionSentence(st, tier, ev, positives, nxt, quality, observedSessions),
-    // The readiness prompt is earned, not permanent: it appears only when the
-    // recent evidence already says something, and only before quality work.
-    needsReadiness: !ready && quality && st !== 'proceed' && ev.length > 0
+    /* THE PROMPT IS EARNED, NOT PERMANENT: it appears only when the recent
+       evidence already says something, and only before quality work. That
+       rule is `readinessEarned` and it is unchanged.
+
+       WHAT CHANGED IS WHEN IT STOPS ASKING. The condition used to be
+       `!ready`, and coachReadinessToday() is truthy on the FIRST of the three
+       answers -- so tapping Legs closed the panel over Sleep and Health
+       before they could be answered at all. The athlete could not report poor
+       sleep, and could not report feeling under the weather, which is the
+       weight-10 safety line a few dozen lines above this one. The interface
+       was withholding this function's single strongest input from it and
+       calling the result a completed readiness check. It now stops asking
+       when all three are actually in. */
+    readinessEarned: quality && st !== 'proceed' && ev.length > 0,
+    readinessComplete: readinessIsComplete(ready),
+    needsReadiness: quality && st !== 'proceed' && ev.length > 0
+                      && !readinessIsComplete(ready)
   };
 }
 /* One sentence, in the coaching voice: what the evidence is, and what it does
@@ -19155,6 +19220,7 @@ function handleSetReadiness(key, value){
   // consent, and not accepted either. See renderReadinessCheck.
   if (!healthConsentGranted()) return;
   var today = todayStr();
+  var wasComplete = readinessIsComplete(coachReadinessToday());
   var dd = findDayByDate(today);
   if (dd){
     dd.readiness = dd.readiness || {};
@@ -19164,7 +19230,20 @@ function handleSetReadiness(key, value){
     if (!state.readiness || state.readiness.date!==today) state.readiness = { date:today };
     state.readiness[key] = (state.readiness[key]===value) ? null : value;
   }
+  /* The answer that COMPLETES the set collapses the panel to its confirmation
+     line -- that is the moment the check-in is finished, and the only moment
+     that should feel like finishing. Amending an already-complete check-in
+     never trips this, so a reopened panel stays open under the athlete's hand
+     while they change their mind. */
+  if (!wasComplete && readinessIsComplete(coachReadinessToday())) readinessEditOpen[today] = false;
   flushSave();
+  renderApp();
+}
+/* Reopen the finished check-in, or fold it back up. The answers are already
+   saved; this moves nothing but the panel. */
+function handleReadinessEdit(){
+  var today = todayStr();
+  readinessEditOpen[today] = !readinessEditOpen[today];
   renderApp();
 }
 function handleCoachKeep(dayId){
@@ -23428,8 +23507,27 @@ var READINESS_QUESTIONS = [
   { key:'sleep',  label:'Sleep',  options:[['good','Good'],['ok','OK'],['poor','Poor']] },
   { key:'health', label:'Health', options:[['good','Good'],['under','Under weather']] }
 ];
+/* The three answers back in the athlete's own terms. Legs and Sleep would
+   both read a bare "Good", so each phrase carries the dimension it belongs to
+   rather than the option label on its own. */
+var READINESS_SUMMARY = {
+  legs:   { fresh:'Legs fresh',  normal:'Legs normal', heavy:'Heavy legs' },
+  sleep:  { good:'Slept well',   ok:'Sleep OK',        poor:'Poor sleep' },
+  health: { good:'Health good',  under:'Under the weather' }
+};
+function readinessSummary(r){
+  if (!r) return '';
+  return READINESS_QUESTIONS.map(function(q){
+    return (READINESS_SUMMARY[q.key] || {})[r[q.key]] || '';
+  }).filter(Boolean).join(' \u00b7 ');
+}
+/* Which day's finished check-in the athlete has reopened to look at or amend.
+   Keyed by date, so reopening today's says nothing about any other day, and
+   deliberately NOT persisted or synced: it is where the interface is, not
+   something that happened in training. */
+var readinessEditOpen = {};
 function renderReadinessCheck(dec){
-  if (!dec || !dec.needsReadiness) return '';
+  if (!dec || !dec.readinessEarned) return '';
   /* THE QUESTION IS NOT ASKED. The brief's first option, and the better one:
      an athlete who has not agreed to Valhalla reading how their body is today
      should not be invited to type it in and then told it will be ignored.
@@ -23438,8 +23536,32 @@ function renderReadinessCheck(dec){
      the whole mechanism exists to avoid. The offer lives in Settings. */
   if (!healthConsentGranted()) return '';
   var r = coachReadinessToday() || {};
+  var done = !!dec.readinessComplete;
+  /* Answered but not finished stays open, because there is still a question
+     on the panel the athlete has not been asked yet. Finished collapses --
+     but to a line that CONFIRMS, not to nothing. A block that vanishes under
+     the thumb reads as a mis-tap, and it left the athlete no way back to an
+     answer they had just given. */
+  var open = !done || !!readinessEditOpen[todayStr()];
+
+  if (done && !open){
+    return '<div class="readiness-done">'+
+      '<button type="button" class="readiness-done-btn" data-action="readiness-edit" '+
+        'aria-expanded="false">'+
+        '<span class="readiness-done-head font-head">Today\u2019s check-in '+
+          '<span class="readiness-tick" aria-hidden="true">\u2713</span></span>'+
+        '<span class="readiness-done-line">'+escapeHtml(readinessSummary(r))+'</span>'+
+      '</button>'+
+    '</div>';
+  }
   return '<div class="readiness">'+
-    '<div class="readiness-head">How are you today?</div>'+
+    (done
+      ? '<button type="button" class="readiness-head readiness-head-btn font-head" '+
+          'data-action="readiness-edit" aria-expanded="true">'+
+          'Today\u2019s check-in '+
+          '<span class="readiness-tick" aria-hidden="true">\u2713</span>'+
+        '</button>'
+      : '<div class="readiness-head">How are you today?</div>')+
     READINESS_QUESTIONS.map(function(q){
       return '<div class="readiness-row">'+
         '<span class="readiness-label font-head">'+q.label+'</span>'+
@@ -33342,6 +33464,7 @@ document.addEventListener('click', function(e){
     }
 
     case 'set-readiness': handleSetReadiness(target.getAttribute('data-rk'), target.getAttribute('data-rv')); break;
+    case 'readiness-edit': handleReadinessEdit(); break;
     case 'open-reading': openHQPanel(target.getAttribute('data-reading')); break;
     case 'open-new-block': openHQPanel('newblock'); break;
     case 'go-checkpoint': handleGoToCheckpoint(); break;
