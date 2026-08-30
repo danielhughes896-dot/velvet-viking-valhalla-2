@@ -20067,6 +20067,136 @@ var SUPPORT_KINDS = {
     ]
   }
 };
+/* ---------- THE SAME SESSION, BY ANOTHER ROUTE ----------
+   THE PROBLEM THIS SOLVES, and only this one. The gates above choose a KIND
+   from the phase, the week's cost and the day's capacity, and they are right to
+   -- but a kind held for several weeks in a row then delivered the identical
+   five movements every single time. Foundation Strength can run seven
+   consecutive weeks in a marathon build and Mobility & Recovery carries most
+   tapers; an athlete meeting the same list every week stops reading it.
+
+   VARIETY IS NOT PROGRESSION, and the two are kept apart on purpose. Every
+   variant of a kind is the SAME session: same label, same purpose, same
+   minutes, same `cost`, the same movement patterns in the same order, and the
+   same why/how/feel/avoid -- so nothing here can make a week harder, and the
+   gates that priced the day are reasoning about a number no variant changes.
+   Getting a harder session remains what it already was: the phase and the
+   athlete's own capacity permitting a more expensive KIND, which is what
+   SUPPORT_ORDER walks.
+
+   VARIETY IS COST-FREE OR IT DOES NOT HAPPEN. A variant is never chosen
+   because it is fresher than a better one -- they are equivalent by
+   construction, so there is no better one to lose. That is why this rotates
+   coherent ROUTINES rather than shuffling individual exercises: a shuffle can
+   produce a session nobody would prescribe, and would have to be checked; a
+   curated alternative was already a session.
+
+   Index 0 of each list IS the kind's own `steps`, the same array object rather
+   than a copy, so the routine the product has always prescribed is still the
+   routine and there is one definition of it. */
+var SUPPORT_VARIANTS = {
+  /* Three, because this is the one that repeats most. Each ends on the same
+     breathing reset -- the anchor that makes them one session with three
+     routes rather than three sessions. */
+  mobility_recovery: [
+    SUPPORT_KINDS.mobility_recovery.steps,
+    [
+      { label:'Ankle rock and calf lengthening', qty:'2 \u00d7 45s each side' },
+      { label:'Supported deep squat hold', qty:'3 \u00d7 40s' },
+      { label:'Long-lever hamstring float', qty:'2 \u00d7 45s each side' },
+      { label:'Adductor rock back', qty:'2 \u00d7 45s each side' },
+      { label:'Controlled breathing and trunk reset', qty:'3 min' }
+    ],
+    [
+      { label:'90/90 hip switch', qty:'2 \u00d7 8 each side' },
+      { label:'Half-kneeling hip flexor hold', qty:'2 \u00d7 45s each side' },
+      { label:'Cat-camel through the whole spine', qty:'2 \u00d7 10' },
+      { label:'Side-lying thoracic opener', qty:'2 \u00d7 45s each side' },
+      { label:'Controlled breathing and trunk reset', qty:'3 min' }
+    ]
+  ],
+  /* Two each for the rest. Same six patterns in the same order every time --
+     knee-dominant, single-leg, calf, hip-dominant, anti-extension,
+     anti-rotation -- so `how` ("bodyweight throughout, controlled tempo")
+     describes both without being rewritten. */
+  strength_foundation: [
+    SUPPORT_KINDS.strength_foundation.steps,
+    [
+      { label:'Split squat', qty:'3 \u00d7 10 each side' },
+      { label:'Step-up, controlled descent', qty:'3 \u00d7 10 each side' },
+      { label:'Calf raise, slow lower', qty:'3 \u00d7 15' },
+      { label:'Single-leg glute bridge', qty:'3 \u00d7 10 each side' },
+      { label:'Dead bug', qty:'3 \u00d7 10 each side' },
+      { label:'Bird dog', qty:'2 \u00d7 8 each side' }
+    ]
+  ],
+  /* Single-leg work first while fresh, then the posterior chain, then the
+     trunk -- the order `how` states, kept by both. */
+  strength_running: [
+    SUPPORT_KINDS.strength_running.steps,
+    [
+      { label:'Rear-foot-elevated split squat', qty:'3 \u00d7 8 each side' },
+      { label:'Lateral step-down', qty:'3 \u00d7 10 each side' },
+      { label:'Single-leg hip thrust', qty:'3 \u00d7 10 each side' },
+      { label:'Bent-knee calf raise, slow lower', qty:'3 \u00d7 12 each side' },
+      { label:'Copenhagen plank', qty:'2 \u00d7 20s each side' },
+      { label:'Pallof press', qty:'3 \u00d7 10 each side' }
+    ]
+  ],
+  /* The 40s/20s, three rounds, two minutes between structure is in `how` and
+     is the session -- so the alternative is the same circuit with different
+     movements in it, never a different circuit. Bodyweight in both, and
+     nothing added that lands harder than what it replaces. */
+  conditioning_circuit: [
+    SUPPORT_KINDS.conditioning_circuit.steps,
+    [
+      { label:'Split squat to press-up circuit', qty:'3 rounds' },
+      { label:'Lateral step-over', qty:'40s each side' },
+      { label:'Reverse lunge to knee drive', qty:'40s each side' },
+      { label:'Single-leg calf raise', qty:'40s each side' },
+      { label:'Bear crawl hold', qty:'40s' },
+      { label:'Recovery between rounds', qty:'2 min' }
+    ]
+  ]
+};
+function supportVariants(id){
+  var v = SUPPORT_VARIANTS[id];
+  if (v && v.length) return v;
+  var k = SUPPORT_KINDS[id];
+  return k ? [k.steps] : [];
+}
+/* WHICH ROUTE, and it is a property of the PLAN rather than of the athlete's
+   history -- so a regenerated plan prescribes the same routines in the same
+   order, two devices agree without syncing anything, and a completed session
+   still shows the routine it was completed as.
+
+   The week number plus the slot, which is enough because a kind is held for a
+   RUN of weeks rather than scattered: consecutive occurrences are one week
+   apart, so consecutive indices differ. Measured rather than assumed --
+   test/audit/supportRotation.js walks 500 plans across every distance, volume,
+   duration and day count and finds 0 repeats in 5,400 consecutive same-kind
+   pairs, and supportingWorkRotation.test.js holds that shut.
+
+   VARIETY OF KIND IS SEPARATE, AND STILL COMES FROM HISTORY. supportForWeek()
+   already prefers a kind other than the last one the athlete COMPLETED. That
+   is the answer to "what should they do next", it depends on what they
+   actually did, and it is untouched here. This is the narrower question of
+   which route through the same session, and it has no reason to consult
+   history at all. */
+function supportVariantIndex(id, weekNum, slot){
+  var n = supportVariants(id).length;
+  if (n < 2) return 0;
+  return ((weekNum || 0) + (slot || 0)) % n;
+}
+function supportStepsFor(item){
+  if (!item) return [];
+  var list = supportVariants(item.kind);
+  if (!list.length) return [];
+  var i = item.variant;
+  if (!(i >= 0) || i >= list.length) i = 0;
+  return list[i];
+}
+
 /* Most expensive first: the picker takes the first kind the gates still allow,
    so an athlete with real capacity gets real work and everybody else falls
    down the list rather than off the end of it. */
@@ -20456,7 +20586,11 @@ function supportForWeek(weekNum){
     /* VARIETY, and only where it costs nothing: prefer a kind other than the
        last one completed, but never refuse the only kind still allowed. */
     var pick = allowed.length > 1 && lastKind && allowed[0] === lastKind ? allowed[1] : allowed[0];
+    /* Which ROUTE through that session; see supportVariantIndex(). Chosen after
+       the kind and never before it, because the kind is the coaching decision
+       and this is not one. */
     out.push({ dayId: dd.id, date: dd.date, kind: pick, why: sl.why,
+               variant: supportVariantIndex(pick, weekNum, out.length),
                phase: phase, limits: cap.reasons.slice() });
     lastKind = pick;
   }
@@ -29490,7 +29624,7 @@ function renderSupportCompanion(dd){
      WHY IS NOT REPEATED INSIDE. It is the one line that earns its place in the
      collapsed state, so the disclosure carries the other three rather than
      saying it twice. */
-  var steps = k.steps.map(function(st){
+  var steps = supportStepsFor(item).map(function(st){
     return '<div class="support-step"><span class="s-l">'+escapeHtml(st.label)+'</span>'+
            '<span class="s-q font-mono">'+escapeHtml(st.qty)+'</span></div>';
   }).join('');
