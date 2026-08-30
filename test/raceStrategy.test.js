@@ -48,9 +48,11 @@ const spans = s => s.phases.map(p => p.spanLabel);
 // 1. SELECTION, DEFAULT AND PERSISTENCE
 // =====================================================================
 
-test('the default is the recommended strategy, and the recommendation is Even Effort', () => {
+test('the default is the recommended strategy, and the recommendation is Even Pace', () => {
   const { a } = athlete();
   assert.equal(a.recommendedRaceStrategy(), 'even');
+  assert.equal(a.RACE_STRATEGIES.even.label, 'Even Pace',
+    'the strategy holds one PACE; effort rises late and the coaching says so');
   assert.equal(a.raceStrategyKey(), 'even', 'an athlete who has chosen nothing gets the safe default');
   assert.equal(a.state.setup.raceStrategy, undefined, 'and nothing was written to say so');
 });
@@ -201,7 +203,7 @@ test('the blocks an athlete actually reads do not imply a different finish', () 
   });
 });
 
-test('Even Effort is exactly the declared goal pace on every block, unrounded', () => {
+test('Even Pace is exactly the declared goal pace on every block, unrounded', () => {
   const { a, race } = athlete('full');
   const goal = a.getGoalPaceSecPerKm();
   const plan = a.raceExecutionPlan(race.km, 'even');
@@ -210,7 +212,7 @@ test('Even Effort is exactly the declared goal pace on every block, unrounded', 
   assert.equal(plan.differential, 0);
 });
 
-test('Negative Split genuinely differs from Even Effort — slower open, faster finish', () => {
+test('Negative Split genuinely differs from Even Pace — slower open, faster finish', () => {
   const { a, race } = athlete('full');
   const goal = a.getGoalPaceSecPerKm();
   const even = a.raceExecutionPlan(race.km, 'even');
@@ -246,7 +248,7 @@ test('the coaching differs too, not only the numbers', () => {
   a.handleSetRaceStrategy('negative');
   const neg = a.executionStrategy(race).phases;
 
-  assert.equal(even[0].paceRole, 'ceiling', 'even effort caps the opening');
+  assert.equal(even[0].paceRole, 'ceiling', 'even pace caps the opening');
   assert.equal(neg[0].paceRole, 'target', 'a negative split PRESCRIBES the slower opening');
   assert.notEqual(even[0].cue, neg[0].cue);
   assert.notEqual(even[even.length - 1].cue, neg[neg.length - 1].cue);
@@ -337,7 +339,7 @@ test('the Race Day summary describes the chosen strategy instead of contradictin
   a.handleSetRaceStrategy('negative');
   const neg = a.raceSummarySentence(race);
   assert.notEqual(even, neg);
-  assert.match(even, /Even effort/i);
+  assert.match(even, /Even pace/i);
   assert.match(neg, /Negative split/i);
   /* The old stored sentence said "Even effort through the first two-thirds …
      Target: Goal Pace throughout" on every race, which a negative split
@@ -354,7 +356,7 @@ test('the Race Day summary describes the chosen strategy instead of contradictin
 test('the picker offers the three strategies and marks the recommendation once', () => {
   const { a, race } = athlete('full');
   const html = a.renderRaceStrategyPicker(race);
-  ['Even Effort', 'Negative Split', 'Custom'].forEach(l =>
+  ['Even Pace', 'Negative Split', 'Custom'].forEach(l =>
     assert.ok(html.indexOf('>' + l) !== -1, 'missing ' + l));
   assert.equal((html.match(/Recommended/g) || []).length, 1);
   assert.equal((html.match(/data-action="set-race-strategy"/g) || []).length, 3);
@@ -402,4 +404,132 @@ test('an athlete with no VDOT gets staging without invented paces', () => {
   const s = a.executionStrategy(race);
   assert.ok(s && s.phases.length >= 3, 'the staging survives');
   s.phases.forEach(ph => assert.equal(ph.pace, null, 'and no pace is fabricated'));
+});
+
+
+// =====================================================================
+// 7. HQ POLISH — TERMINOLOGY, CUSTOM IDENTITY, BLOCK HIERARCHY
+// =====================================================================
+
+test('no stale "Even Effort" strategy copy reaches an athlete', () => {
+  /* The rename is athlete-facing only: the internal key stays 'even', because
+     a stored preference is not worth churning for a label. What must not
+     survive is the old NAME anywhere an athlete can read it. */
+  const { a, race } = athlete('full');
+  assert.equal(a.RACE_STRATEGIES.even.key, 'even', 'the internal id is deliberately unchanged');
+  ['even', 'negative', 'custom'].forEach(k => {
+    a.handleSetRaceStrategy(k);
+    const surfaces = [
+      a.renderRaceStrategyPicker(race),
+      a.raceSummarySentence(race),
+      a.renderDayCard(race),
+      JSON.stringify(a.executionStrategy(race).phases),
+    ].join(' ');
+    assert.doesNotMatch(surfaces, /Even Effort/,
+      k + ': the strategy is called Even Pace now');
+    assert.doesNotMatch(surfaces, /Even effort:/,
+      k + ': the summary sentence still opens with the old name');
+  });
+});
+
+test('the picker labels and accessibility text both say Even Pace', () => {
+  const { a, race } = athlete('full');
+  const html = a.renderRaceStrategyPicker(race);
+  assert.ok(html.indexOf('>Even Pace') !== -1);
+  assert.doesNotMatch(html, /Even Effort/);
+  // the chip is a real button carrying its own label, so its accessible name
+  // is that text — there is no second string to drift out of step
+  assert.match(html, /<button[^>]*data-action="set-race-strategy" data-strategy="even">Even Pace/);
+});
+
+test('the long-run "even effort, not even pace" distinction is untouched', () => {
+  /* That line is a DIFFERENT and deliberate coaching point about hills, and
+     the rename must not have swept it up. */
+  const CODE = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  assert.match(CODE, /Even effort, not even pace/,
+    'the rolling long run still distinguishes effort from pace');
+});
+
+test('Negative Split is exactly the approved 2% convention', () => {
+  const { a } = athlete('full');
+  assert.equal(a.RACE_NEGATIVE_SPLIT_DIFFERENTIAL, 0.02);
+  assert.equal(a.raceStrategyDifferential('negative'), 0.02);
+});
+
+test('Custom remains 0–3% negative only, with no positive-split path', () => {
+  const { a, race } = athlete('full');
+  assert.equal(a.RACE_CUSTOM_MIN, 0);
+  assert.equal(a.RACE_CUSTOM_MAX, 0.03);
+  // no control offers a fade, and no stored value can produce one
+  a.handleSetRaceStrategy('custom');
+  const html = a.renderRaceStrategyPicker(race);
+  assert.doesNotMatch(html, /positive|fade|slower second/i);
+  [-1, -0.02, -0.001].forEach(v => {
+    a.state.setup.raceStrategyCustom = v;
+    assert.ok(a.raceCustomDifferential() >= 0);
+    const plan = a.raceExecutionPlan(race.km);
+    for (let i = 1; i < plan.blocks.length; i++)
+      assert.ok(plan.blocks[i].paceSec <= plan.blocks[i - 1].paceSec,
+        'no stored value may produce a race planned to fade');
+  });
+});
+
+test('the Custom summary names itself and states its own differential', () => {
+  const { a, race } = athlete('full');
+  a.handleSetRaceStrategy('custom');
+  [[0.01, '1%'], [0.015, '1.5%'], [0.03, '3%']].forEach(([d, shown]) => {
+    a.state.setup.raceStrategyCustom = d;
+    const line = a.raceSummarySentence(race);
+    assert.match(line, /^Custom:/, 'it must identify itself as Custom');
+    assert.ok(line.indexOf(shown) !== -1, 'it must state ' + shown + ': ' + line);
+    assert.doesNotMatch(line, /^Negative split/,
+      'a custom differential is the athlete’s own choice, not a Valhalla strategy name');
+    assert.doesNotMatch(line, /0\.0\d/, 'and it must not leak the implementation maths');
+    assert.doesNotMatch(line, /for you|based on|your history|we recommend/i,
+      'it must not imply personalised evidence that does not exist');
+  });
+  a.state.setup.raceStrategyCustom = 0;
+  const flat = a.raceSummarySentence(race);
+  assert.match(flat, /^Custom:/);
+  assert.match(flat, /even pace/i, 'a zero differential is an even pace the athlete set');
+});
+
+test('the execution guidance stays consistent with a Custom selection', () => {
+  const { a, race } = athlete('full');
+  a.handleSetRaceStrategy('custom');
+  a.state.setup.raceStrategyCustom = 0.02;
+  const g = a.raceStrategyGuidance(race);
+  assert.match(g.cue, /2%/, 'the cue names the athlete’s own figure');
+  assert.match(g.cue, /slower than goal pace/);
+  const card = a.renderDayCard(race);
+  assert.match(card, /Custom:/);
+  assert.doesNotMatch(card, /Even effort through the first two-thirds/);
+});
+
+test('a race block is one scannable line of instruction, not two of prose', () => {
+  /* The block hierarchy HQ approved: ACTION · distance · pace/HR · one
+     instruction. The standing purpose line is suppressed for race blocks so it
+     cannot say the same thing twice at body size. */
+  const { a, race } = athlete('full');
+  ['even', 'negative'].forEach(k => {
+    a.handleSetRaceStrategy(k);
+    a.executionStrategy(race).phases.forEach(ph => {
+      assert.equal(ph.purpose, null, k + '/' + ph.key + ' still carries a purpose line');
+      assert.ok(ph.cue && ph.cue.length, 'every block still tells the athlete what to do');
+      assert.ok(ph.label && ph.spanLabel && ph.pace, 'and still carries action, distance and pace');
+    });
+  });
+  const card = a.renderDayCard(race);
+  assert.doesNotMatch(card, /strat-phase-purpose/, 'no purpose line renders on a race block');
+  assert.equal((card.match(/strat-phase-cue/g) || []).length, 5, 'one instruction per block');
+});
+
+test('suppressing the purpose line is scoped to races and nothing else', () => {
+  const { a, days } = athlete('full');
+  const long = days.filter(d => d.type === 'long' && d.km >= 16)[0];
+  if (!long) return;
+  const s = a.executionStrategy(long);
+  if (!s || s.suppressed) return;
+  assert.ok(s.phases.some(ph => ph.purpose),
+    'a long run keeps the standing purpose wording it always had');
 });

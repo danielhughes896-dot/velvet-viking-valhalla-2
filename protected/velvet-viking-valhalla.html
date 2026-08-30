@@ -5466,7 +5466,8 @@ function raceStrategyGuidance(dd){
   var plan = raceExecutionPlan(dd.km || 0);
   if (!plan) return null;
   if (plan.differential > 0) return {
-    cue: 'Open deliberately slower than goal pace, then step the pace down block by block.',
+    cue: (plan.strategy === 'custom' ? 'Your ' + fmtRacePercent(plan.differential) + ' plan: open' : 'Open') +
+         ' deliberately slower than goal pace, then step the pace down block by block.',
     how: 'Run the opening block at the number, not the feeling — it should feel far too easy. '+
          'Each block afterwards is a little quicker, so effort climbs while pace falls. '+
          'Fuel to the plan you rehearsed.'
@@ -11918,7 +11919,12 @@ function strategyPhase(key, opts){
        kilometre, which redisplays as "6.03mi". Nothing else sets it. */
     spanLabel: o.spanLabel || null,
     effort: o.effort || null,
-    purpose: o.purpose || meta.purpose,
+    /* `false` SUPPRESSES the standing purpose line, rather than falling back
+       to it. Race blocks are the only caller: on a phone, mid-race, two
+       body-size prose lines per block is the difference between a plan you can
+       scan and one you have to read. Every other session is unaffected --
+       undefined still inherits STRATEGY_PHASES' own wording. */
+    purpose: o.purpose === false ? null : (o.purpose || meta.purpose),
     cue: o.cue || null,
     watch: o.watch || null
   };
@@ -12204,7 +12210,12 @@ var RACE_CUSTOM_DEFAULT = 0.01;
 
 var RACE_STRATEGIES = {
   even: {
-    key:'even', label:'Even Effort',
+    /* EVEN PACE, not "Even Effort". The strategy holds one PACE across the
+       race; effort is expected to rise late and the coaching says so, which is
+       precisely why the athlete-facing name must not claim otherwise. The
+       internal key stays 'even' -- a stored preference is not worth churning
+       for a label. */
+    key:'even', label:'Even Pace',
     blurb:'One pace, honestly held. The opening is a ceiling, not a target.',
     differential: function(){ return 0; }
   },
@@ -12227,7 +12238,7 @@ var RACE_STRATEGY_ORDER = ['even', 'negative', 'custom'];
    most athletes will never have on the sessions that would matter. Turning
    "this athlete faded in training" into "therefore plan a negative split" is
    also a methodology decision this product has not taken. So the recommendation
-   is the existing, safest default: even effort with a restrained opening, which
+   is the existing, safest default: an even pace with a restrained opening, which
    is exactly what strategyForRace() has always prescribed.
    The Confidence gauge is not consulted, by design. */
 function recommendedRaceStrategy(){ return 'even'; }
@@ -12411,8 +12422,14 @@ function raceBlockPhaseCopy(b, i, plan, hr){
   var n = plan.blocks.length;
   var neg = plan.differential > 0;
   var pace = { fast:b.paceSec, slow:b.paceSec, exact:true };
+  /* ONE BODY LINE PER BLOCK, and it is the instruction. Label, distance, pace
+     and heart rate are the scannable part; below them a race block gets a
+     single sentence telling the athlete what to DO, and a second, quieter line
+     only where there is a genuine trap to name. The standing purpose line is
+     suppressed rather than shortened, because "The long middle" printed above
+     "Goal pace, unremarkable, boring" is the same thought twice. */
   var base = { from:b.from, to:b.to, spanLabel:b.spanLabel, intensity:'goal_pace',
-               pace:pace, hr:hr };
+               pace:pace, hr:hr, purpose:false };
   var merge = function(extra){
     var o = {}; var k;
     for (k in base) o[k] = base[k];
@@ -12420,44 +12437,44 @@ function raceBlockPhaseCopy(b, i, plan, hr){
     return o;
   };
   if (i === 0){
-    /* THE OPENING, AND THE TWO STRATEGIES GENUINELY DIFFER HERE. Even Effort
+    /* THE OPENING, AND THE TWO STRATEGIES GENUINELY DIFFER HERE. Even Pace
        prints goal pace as a CEILING -- do not exceed it, and a few seconds
        slower is the right error. A Negative Split prints a slower pace as a
        TARGET, because that pace IS the plan; framing it as a limit the athlete
        may drift under would quietly turn it back into an even race. */
     return merge(neg ? {
       paceRole:'target',
-      purpose:'The deliberate part. This pace is slower than goal pace on purpose.',
-      cue:'Run the number, not the feeling. It will feel far too easy, and that is the plan working.',
+      cue:'Run the number, not the feeling. It should feel far too easy — that is the plan working.',
       watch:'Everyone around you is going out too fast. Letting them go IS the strategy.'
     } : {
       paceRole:'ceiling',
-      purpose:'The only part of the race you can still ruin for free.',
       cue:'No faster than goal pace. A few seconds slower here is the right mistake to make.',
-      watch:'Feeling easy is not a reason to go faster. It is what the opening is supposed to feel like.'
+      watch:'Feeling easy is what the opening is supposed to feel like, not a reason to go faster.'
     });
   }
   if (i === n-1){
     return merge({
       paceRole: neg ? 'target' : 'open',
-      purpose:'The last stretch.',
-      cue: neg ? 'This is what the controlled opening bought. Spend it.'
-               : 'If you are still in control, this is where you may press. If you are not, hold on and finish.',
+      /* THE CONDITIONAL PHRASING IS A SAFETY INVARIANT, not a style choice --
+         executionStrategy.test.js pins it. The closing block must PERMIT
+         stopping: "if you are still in control" is the condition, and "hold on
+         and finish" is the other branch. Tightening this line is allowed;
+         removing either half is not. */
+      cue: neg ? 'The last stretch. This is what the controlled opening bought — spend it.'
+               : 'The last stretch. If you are still in control, press. If you are not, hold on and finish.',
       watch: neg ? null : 'Pressing from a position you cannot sustain costs more than it gains.'
     });
   }
   if (i === n-2){
     return merge({
-      purpose:'Where the race actually starts.',
-      cue: neg ? 'The pace steps down again here. Effort rises to meet it — assess, do not panic.'
-               : 'Effort will rise for the same pace now. That is normal and not a signal to slow.'
+      cue: neg ? 'Where the race starts. The pace steps down again — effort rises to meet it.'
+               : 'Where the race starts. Effort rises for the same pace now; that is normal.'
     });
   }
   return merge({
-    purpose:'The long middle. Nothing is won here and a lot can be lost.',
     cue: neg ? 'Still inside the plan, still patient. Take your fuel on schedule.'
              : 'Goal pace, unremarkable, boring. Take your fuel on schedule.',
-    watch: i === 1 ? 'Do not chase a group that has gone. Their race is not yours.' : null
+    watch: i === 1 ? 'Nothing is won in the middle and a lot can be lost. Do not chase a group that has gone.' : null
   });
 }
 /* No VDOT, so no goal pace and no honest number to print. The staging survives,
@@ -24717,6 +24734,12 @@ function raceStrategyEditable(race){
 function raceStrategyPlanDay(){
   return state.days ? state.days.filter(function(d){ return d.type==='race'; })[0] : null;
 }
+/* The differential as an athlete reads it: a plain percentage, no sign and no
+   arithmetic. "1%" and "1.5%", never "0.015". */
+function fmtRacePercent(d){
+  var pct = Math.round(d*1000)/10;
+  return (pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1)) + '%';
+}
 function fmtRaceDifferential(d){
   var pct = Math.round(d*1000)/10;
   return pct <= 0 ? 'Even' : ('−' + (pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1)) + '%');
@@ -24784,13 +24807,23 @@ function raceSummarySentence(dd){
   if (!dd || dd.type !== 'race') return null;
   var plan = raceExecutionPlan(dd.km || 0);
   if (!plan) return null;
-  var blocks = plan.blocks.length;
-  if (plan.differential > 0){
-    return 'Negative split: open controlled and step the pace down through the race. '+
-           blocks+' execution blocks, finishing on your goal time.';
+  var tail = ' ' + plan.blocks.length + ' execution blocks, finishing on your goal time.';
+  /* CUSTOM SAYS SO. A custom differential above zero IS a negative split, but
+     describing it as one hid the fact that the athlete set it themselves and
+     said nothing about what they set. It names itself and states its own
+     number -- and states it as a choice, not as a reading of this athlete,
+     because no evidence about this athlete went into it. */
+  if (plan.strategy === 'custom'){
+    return plan.differential > 0
+      ? 'Custom: your own ' + fmtRacePercent(plan.differential) +
+        ' controlled opening, progressing through the second half.' + tail
+      : 'Custom: an even pace, set by you, with the opening as a ceiling.' + tail;
   }
-  return 'Even effort: one pace, held honestly, with the opening as a ceiling rather '+
-         'than a target. '+blocks+' execution blocks, finishing on your goal time.';
+  if (plan.differential > 0){
+    return 'Negative split: open controlled and step the pace down through the race.' + tail;
+  }
+  return 'Even pace: one pace, held honestly, with the opening as a ceiling rather '+
+         'than a target.' + tail;
 }
 function handleSetRaceStrategy(key){
   if (!RACE_STRATEGIES[key]) return;
