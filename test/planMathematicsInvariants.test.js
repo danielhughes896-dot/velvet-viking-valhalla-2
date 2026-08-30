@@ -795,6 +795,159 @@ test('foundation is a separate architecture and does not touch race plans', () =
       }
 });
 
+// ---------------------------------------------------------------------------
+// QUALITY FREQUENCY IS EARNED, NOT COUNTED
+// ---------------------------------------------------------------------------
+
+test('the aerobic-dominance ceiling is unchanged; it just no longer grants', () => {
+  /* The approved half of the frequency contract stays exactly as it was -- a
+     three-day week still gets at most one hard session. What changed is that
+     the five-day arm is now a CEILING rather than a grant. */
+  const a = require('./audit/planAudit.js').app();
+  assert.equal(a.qualitySlotCeilingForDayCount(2), 0);
+  assert.equal(a.qualitySlotCeilingForDayCount(3), 1);
+  assert.equal(a.qualitySlotCeilingForDayCount(4), 1);
+  assert.equal(a.qualitySlotCeilingForDayCount(5), 2);
+  assert.equal(a.qualitySlotCeilingForDayCount(6), 2);
+});
+
+test('with no evidence a race week carries ONE demanding session, at any day count', () => {
+  /* Stated availability, stated volume, the race goal and the week being
+     structurally able to hold two are none of them evidence. */
+  for (const scheduleKey of ['d3', 'd4', 'd5', 'd6'])
+    for (const volume of [29, 45, 70, 100]){
+      const c = auditCase({ distanceKey: '5k', volume, weeks: 12, scheduleKey });
+      if (c.routed || c.error) continue;
+      c.weeks.forEach(w => {
+        if (w.isRace) return;
+        const q = w.sessions.filter(s => s.km > 0 && s.type !== 'easy' && s.type !== 'long');
+        assert.ok(q.length <= 1,
+          c.id + ' wk' + w.week + ' carries ' + q.map(s => s.type + ':' + s.km).join(' '));
+      });
+    }
+});
+
+test('running frequency is untouched: the freed day becomes easy running', () => {
+  /* THE MEASURED REASON THIS MATTERS. Five running days with one quality
+     session beat four running days with one on every structural count -- so
+     availability is not reduced to control quality density. The day the second
+     session vacated is still a running day. */
+  for (const scheduleKey of ['d5', 'd6']){
+    const days = scheduleKey === 'd5' ? 5 : 6;
+    const c = auditCase({ distanceKey: '5k', volume: 29, weeks: 12, scheduleKey });
+    assert.equal(c.routed, false);
+    c.weeks.forEach(w => {
+      if (w.isRace) return;
+      const running = w.sessions.filter(s => s.km > 0).length;
+      assert.equal(running, days,
+        'wk' + w.week + ' runs on ' + running + ' days of ' + days + ' available');
+    });
+  }
+});
+
+test('the second exposure is granted only by ADAPTING, and withdrawn by STRAINED', () => {
+  /* HQ's decision, asserted directly: RESPONDING is positive evidence but is
+     not evidence that another weekly demand is absorbed. */
+  const a = require('./audit/planAudit.js').app();
+  a.state = a.makeDefaultState(); a.state.athlete = a.makeAthleteRecord();
+  const model = { families: { threshold: { confidence: 'established',
+                                           recovery: { typicalHoursToNormal: 24 } } } };
+  a.athleteResponseModel = () => model;
+  const at = state => { a.blockEffectiveness = () => ({ state: state });
+                        return a.secondQualityExposurePermission(3); };
+  assert.equal(at('ADAPTING').permitted, true);
+  assert.equal(at('RESPONDING').permitted, false);
+  assert.equal(at('PLATEAU').permitted, false);
+  assert.equal(at('LEARNING').permitted, false);
+  assert.equal(at('STRAINED').permitted, false);
+  assert.equal(at('STRAINED').reason, 'strained');
+  // no model at all -- a server-side preview, or an athlete with no history
+  a.athleteResponseModel = () => null;
+  const none = a.secondQualityExposurePermission(3);
+  assert.equal(none.permitted, false);
+  assert.equal(none.reason, 'no_evidence');
+});
+
+test('recovery must fit the gap the schedule can actually give — no hour constant', () => {
+  /* Both sides of the comparison already existed: the athlete's measured
+     typicalHoursToNormal, and the spacing pickQualityDays is already
+     enumerating. Nothing here names an hour. */
+  const a = require('./audit/planAudit.js').app();
+  a.state = a.makeDefaultState(); a.state.athlete = a.makeAthleteRecord();
+  a.blockEffectiveness = () => ({ state: 'ADAPTING' });
+  const at = (hours, gapDays) => {
+    a.athleteResponseModel = () => ({ families: { threshold: { confidence: 'established',
+      recovery: { typicalHoursToNormal: hours } } } });
+    return a.secondQualityExposurePermission(gapDays).permitted;
+  };
+  assert.equal(at(24, 1), true);          // a day is enough for a 24h responder
+  assert.equal(at(48, 1), false);         // it is not enough for a 48h one
+  assert.equal(at(48, 2), true);
+  assert.equal(at(72, 2), false);
+  assert.equal(at(72, 3), true);
+  assert.equal(at(96, 3), false);
+});
+
+test('the long run cannot stand as evidence for a second QUALITY session', () => {
+  const a = require('./audit/planAudit.js').app();
+  a.state = a.makeDefaultState(); a.state.athlete = a.makeAthleteRecord();
+  a.blockEffectiveness = () => ({ state: 'ADAPTING' });
+  a.athleteResponseModel = () => ({ families: {
+    long: { confidence: 'established', recovery: { typicalHoursToNormal: 12 } },
+    threshold: { confidence: 'insufficient' }, tempo: { confidence: 'insufficient' },
+    interval: { confidence: 'insufficient' }, repetition: { confidence: 'insufficient' } } });
+  const p = a.secondQualityExposurePermission(3);
+  assert.equal(p.permitted, false);
+  assert.equal(p.reason, 'response_not_established');
+});
+
+test('an active plan keeps its completed training when the new logic applies', () => {
+  /* THE ADOPTION MODEL, REGRESSION-TESTED. A deployed change must not rewrite
+     training an athlete has already done. reconcileRegeneratedDays() keeps
+     every history-bearing and elapsed day of the block verbatim and replaces
+     only what is still ahead, so the new quality frequency reaches the athlete
+     forward and never backward. */
+  const { loadApp } = require('./harness.js');
+  const { buildPlan } = require('./fixtures.js');
+  const TODAY = '2026-08-18';
+  const app = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  app.showToast = () => {}; app.renderApp = () => {};
+  app.flushSave = () => {}; app.scheduleSave = () => {};
+  buildPlan(app, { weeks: 14, startDate: app.addDays(TODAY, -42), distanceKey: 'half',
+                   volume: 55, benchSec: 45 * 60, lthr: 165, maxHR: 190 });
+  const past = app.state.days.filter(d => d.date < TODAY && d.type !== 'rest');
+  past.forEach(dd => { dd.completed = true;
+    dd.actual = Object.assign(app.emptyActual(),
+      { km: dd.km, pace: '5:10', hr: 150, rpe: 5, feel: 'good' }); });
+  const QUAL = ['tempo', 'threshold', 'interval', 'repetition', 'checkpoint'];
+  const sig = list => list.map(d => d.date + ':' + d.type + ':' + d.km +
+    ':' + (d.actual && d.actual.km)).join('|');
+  const before = sig(past);
+  assert.ok(past.filter(d => QUAL.indexOf(d.type) !== -1).length > 0,
+    'the elapsed half of the plan must contain quality for this to prove anything');
+
+  const br = app.buildBlockWeeks('half', 55, 14, { purpose: 'race' });
+  const fresh = app.buildDaysFromWeeks(br, app.addDays(TODAY, 56),
+    { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 }, app.addDays(TODAY, -42), true);
+  const rec = app.reconcileRegeneratedDays(app.state.days, fresh, app.addDays(TODAY, -42));
+
+  const kept = rec.days.filter(d => d.date < TODAY && d.type !== 'rest' && d.completed);
+  assert.equal(sig(kept), before, 'completed training was rewritten by a rebuild');
+  assert.ok(rec.preserved >= past.length);
+
+  // ...and the new frequency applies to what is still ahead
+  const byWeek = {};
+  rec.days.filter(d => d.date >= TODAY && QUAL.indexOf(d.type) !== -1)
+    .forEach(d => { byWeek[d.week] = (byWeek[d.week] || 0) + 1; });
+  Object.keys(byWeek).forEach(w => assert.ok(byWeek[w] <= 1,
+    'future week ' + w + ' carries ' + byWeek[w] + ' quality days with no evidence'));
+});
+
+test('quality dominance is gone from the race population entirely', () => {
+  const m = matrix();
+  assert.equal(m.tallyRace.quality_dominates_week || 0, 0);
+});
+
 test('THE IN-RACE RATCHET — asserted flat at zero, not against a baseline', () => {
   /* STRICTER THAN THE WHOLE-POPULATION RECORD, deliberately. This is the
      population that actually receives race plans, and every class the
@@ -892,12 +1045,12 @@ test('S2-A: the back-to-back taper class is closed, and by the allocator', () =>
      the 14km one the allocator started from. What it still cannot reach (158)
      is genuinely unreachable at six days, and is reported as such rather than
      manufactured. */
-  const a2 = require('./audit/planAudit.js').app();
-  const easyN = prev.sessions.filter(s => s.type === 'easy' && s.km > 0).length;
-  const longest = Math.max.apply(null, prev.sessions.filter(s => s.type === 'long').map(s => s.km));
-  const ceiling = prev.longKm + easyN * longest * a2.EASY_MAX_FRACTION_OF_LONG + prev.qualityKm;
-  assert.ok(prev.actualVolume >= ceiling - 0.05,
-    'the week before delivered ' + prev.actualVolume + ' against a structural ceiling of ' + ceiling);
+  /* And the week before it now REACHES ITS TARGET, which is the strongest form
+     of the statement: 117.5km of a 158km target before the easy-cap correction,
+     and at or above it now that the freed quality day is easy running the easy
+     cap will accept. */
+  assert.ok(prev.actualVolume >= prev.targetVolume - 0.6,
+    'the week before delivered ' + prev.actualVolume + ' of ' + prev.targetVolume);
   assert.ok(prev.actualVolume > 130,
     'the week before was 117.5 before the easy-cap correction; it is ' + prev.actualVolume);
   assert.equal(prev.sessions.filter(s => s.type === 'long' && s.km > 0).length, 2,
@@ -908,10 +1061,18 @@ test('S2-A did not flatten the taper or ban a session family', () => {
   /* The correction chooses BETWEEN sessions the week was already going to
      offer. If it had worked by deleting a family or pinning every taper to one
      distance the counts below would say so. */
+  /* ODD BLOCK LENGTHS ARE PART OF THE SAMPLE, and the omission was a real trap.
+     The single-slot rotation alternates on the week NUMBER, so which family a
+     taper opens on is decided by whether the block length is odd or even. A
+     sample of 12/16/24 only ever opens its taper on tempo, and the descent rule
+     then keeps it there -- which reads exactly like the interval family having
+     been banned, and is not. Sampled across every length, all three families
+     appear; at even lengths specifically, the taper carries no interval work,
+     which is recorded as an observation rather than asserted either way. */
   const types = {}, distinct = {};
   for (const distanceKey of ['5k', '10k', 'half', 'full', 'ultra'])
     for (const volume of [30, 45, 60, 80])
-      for (const weeks of [12, 16, 24])
+      for (const weeks of [11, 12, 13, 16, 17, 24])
         for (const scheduleKey of ['d3', 'd5']){
           const c = auditCase({ distanceKey, volume, weeks, scheduleKey });
           if (c.routed || c.error) continue;

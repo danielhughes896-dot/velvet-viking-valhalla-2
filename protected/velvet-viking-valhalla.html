@@ -7376,10 +7376,106 @@ function pickSpacedQty2(qty1, candidates){
 
    The long run is never counted as the week's easy run, even when it carries
    no quality segment: it is the week's biggest single stress. */
-function qualitySlotsForDayCount(dayCount){
+function qualitySlotCeilingForDayCount(dayCount){
   if (dayCount <= 2) return 0;   // long run plus, at most, one easy day
   if (dayCount <= 4) return 1;
   return 2;
+}
+
+/* ---------- QUALITY FREQUENCY IS EARNED, NOT COUNTED ----------
+   THE COUPLING THIS REMOVES. The contract above was written to stop quality
+   crowding out aerobic running at LOW frequency, and it argues only the three-
+   and four-day cases. Its "5-7 -> 2" arm is the unchanged residue of the
+   generator it replaced, which placed two quality days unconditionally. So an
+   athlete reached a second demanding session by saying they had a fifth day
+   available -- never by demonstrating they absorb one. Measured across the
+   whole race population, that produced 3,400 weeks at 5K and 193 at 10K where
+   quality was over 40% of the week, every one of them on a five- or six-day
+   schedule, and none at all on three or four days.
+
+   AVAILABILITY, RUNNING FREQUENCY AND QUALITY FREQUENCY ARE THREE DECISIONS.
+   The ceiling above stays exactly as it is -- it is the approved aerobic-
+   dominance rule and it still says a three-day week gets at most one hard
+   session. What it no longer does is GRANT the second one. Above the ceiling
+   sits a permission, and the permission is evidence.
+
+   WHAT COUNTS AS EVIDENCE, AND WHY EACH PIECE. Every term already exists and
+   is used here for the meaning it already has:
+
+     readable    familyResponse(f).confidence === 'established'. That constant
+                 (BASELINE_MIN_SAMPLES) means "there is enough comparable
+                 history to STATE this athlete's normal response" -- it is a
+                 statistics-sufficiency rule, not a physiological one, and it is
+                 used here only as a precondition for reading the evidence at
+                 all. It never authorises anything on its own.
+     absorbing   blockEffectiveness() === 'ADAPTING'. The engine's own strongest
+                 statement that the programme is working, and it already
+                 requires two DISTINCT concepts to agree. RESPONDING is positive
+                 but is not evidence that another weekly demand is absorbed;
+                 PLATEAU and LEARNING are not evidence of anything.
+     not strained  STRAINED withdraws permission. The state is documented in
+                 blockStateFrom as the one verdict that can cost an athlete
+                 training, and it is the regression trigger here.
+     recovered   the athlete's MEASURED typicalHoursToNormal must fit inside the
+                 gap the schedule can actually give between two hard days. Both
+                 sides of that comparison already exist -- the recovery median
+                 from familyRecoveryModel, and the spacing pickQualityDays is
+                 already enumerating -- so this introduces no hour threshold of
+                 its own. A schedule that can only offer two days demands
+                 recovery inside 48h; one offering three demands 72h.
+
+   THE LONG RUN IS EXCLUDED FROM THE EVIDENCE. It is a demanding family, but it
+   is not a quality slot, and absorbing a long run says nothing about absorbing
+   a second interval session.
+
+   NO EVIDENCE MEANS ONE. Not "first block" -- athleteMemory() is longitudinal
+   and reads archived sessions alongside the live plan, so an athlete who has
+   demonstrated this carries the demonstration through rebuilds and block
+   transitions. What is not evidence: stated availability, stated volume, the
+   race goal, or the week being structurally able to fit two sessions.
+
+   PERMISSION IS NOT PRESCRIPTION. This answers only whether the athlete has
+   earned the exposure. Whether the programme should spend it is the block's
+   own business, and no new rule about that is introduced here. */
+function secondQualityExposurePermission(minGapDays){
+  var out = { permitted:false, reason:'no_evidence', family:null, hoursToNormal:null,
+              confidence:null, blockState:null, minGapDays:(minGapDays==null?null:minGapDays) };
+  var model = null;
+  try { model = athleteResponseModel(); } catch(e){ model = null; }
+  if (!model || !model.families) return out;
+  // demanding QUALITY families only -- the long run cannot stand as evidence
+  // that a second quality session is absorbed
+  var readable = DEMANDING_FAMILIES
+    .filter(function(f){ return f !== 'long'; })
+    .map(function(f){ var r = model.families[f]; return r ? { f:f, r:r } : null; })
+    .filter(function(x){ return x && x.r.confidence === 'established'; });
+  if (!readable.length){ out.reason = 'response_not_established'; return out; }
+  out.confidence = 'established';
+
+  var blk = null;
+  try { blk = blockEffectiveness(); } catch(e){ blk = null; }
+  out.blockState = blk ? blk.state : null;
+  if (!blk){ out.reason = 'no_block_reading'; return out; }
+  if (blk.state === 'STRAINED'){ out.reason = 'strained'; return out; }
+  if (blk.state !== 'ADAPTING'){
+    out.reason = 'not_adapting_' + String(blk.state).toLowerCase();
+    return out;
+  }
+
+  /* The SLOWEST established family decides, not the fastest: the week has to
+     hold whichever session actually lands in the second slot. */
+  var worst = null;
+  readable.forEach(function(x){
+    var h = x.r.recovery && x.r.recovery.typicalHoursToNormal;
+    if (h == null) return;
+    if (worst === null || h > worst.h) worst = { h:h, f:x.f };
+  });
+  if (worst === null){ out.reason = 'recovery_not_measured'; return out; }
+  out.hoursToNormal = worst.h; out.family = worst.f;
+  if (!(minGapDays > 0)){ out.reason = 'no_spacing_available'; return out; }
+  if (worst.h > minGapDays * 24){ out.reason = 'recovery_exceeds_spacing'; return out; }
+  out.permitted = true; out.reason = 'adapting_and_recovered';
+  return out;
 }
 var EASY_MIN_KM = 3;
 /* The quantum an easy day is presented in -- roundWorkoutKm rounds easy days to
@@ -7609,13 +7705,38 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   // session never lands on the same day back-to-back training needs -- unless that leaves too few days
   var qtyPool = (b2bAvailable && nonLongActive.length>2) ? nonLongActive.filter(function(d){return d!==b2bDay;}) : nonLongActive;
 
-  // How many quality days this athlete's frequency supports, then WHERE they
-  // go given every other demanding day in the week.
-  var qualitySlots = blockResult.noQuality ? 0
-                   : Math.min(qualitySlotsForDayCount(activeDays.length), qtyPool.length);
+  var fixedDemanding = b2bAvailable ? [longDay, b2bDay] : [longDay];
+
+  /* ---- THREE DECISIONS, NOT ONE ----
+     AVAILABILITY is activeDays: what the athlete said they can do, and a
+     ceiling the generator may come under but never exceed.
+     RUNNING FREQUENCY is every one of those days -- an extra available day
+     stays a running day, and becomes easy running rather than being taken
+     away, because the measurement said a five-day week with one quality
+     session beats a four-day week with one on every structural count.
+     QUALITY CEILING is the approved aerobic-dominance contract above.
+     QUALITY FREQUENCY is earned: at most one demanding session unless the
+     athlete's own logged response says another is absorbed. */
+  var slotCeiling = blockResult.noQuality ? 0
+                  : Math.min(qualitySlotCeilingForDayCount(activeDays.length), qtyPool.length);
+  /* The spacing a two-slot week could actually be given here, asked of the same
+     enumeration that will place the days -- so the recovery test is against the
+     real gap rather than an assumed one. */
+  var twoSlotGapDays = null;
+  if (slotCeiling >= 2){
+    var probeDays = pickQualityDays(qtyPool, fixedDemanding, 2);
+    if (probeDays.length === 2) twoSlotGapDays = spacingRank(probeDays, fixedDemanding).min;
+  }
+  var qualityPermission = slotCeiling >= 2
+    ? secondQualityExposurePermission(twoSlotGapDays)
+    : { permitted:false, reason:'below_aerobic_dominance_ceiling', blockState:null,
+        hoursToNormal:null, minGapDays:twoSlotGapDays };
+  var qualitySlots = Math.min(slotCeiling, qualityPermission.permitted ? 2 : 1);
   // never spend the last non-long day on quality: a week must keep a real easy run
   if (qualitySlots >= nonLongActive.length && nonLongActive.length > 0) qualitySlots = nonLongActive.length - 1;
-  var fixedDemanding = b2bAvailable ? [longDay, b2bDay] : [longDay];
+  // recorded so the decision is inspectable rather than inferred from the days
+  blockResult.qualityFrequency = { ceiling:slotCeiling, prescribed:qualitySlots,
+                                   permission:qualityPermission };
   var qualityDays = pickQualityDays(qtyPool, fixedDemanding, qualitySlots);
   var qty1Day = qualityDays.length>0 ? qualityDays[0] : null;   // interval slot
   var qty2Day = qualityDays.length>1 ? qualityDays[1] : null;   // tempo / checkpoint slot
@@ -26248,7 +26369,8 @@ function blockAnchor(activeDays, isRebuild){
    that it happened to carry an accepted adjustment.
 
    It also produced weeks no generator could ever emit. Quality placement is
-   capped at two sessions a week by qualitySlotsForDayCount() and spaced by
+   capped by qualitySlotCeilingForDayCount() and the earned quality-frequency
+   permission above it, and spaced by
    pickQualityDays(); merging a preserved old quality day with a newly
    generated one on a different weekday puts three in a week, two of them back
    to back. The athlete is shown a week their own programme would refuse to
