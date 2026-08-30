@@ -48,7 +48,13 @@ function weeksOf(a, purpose, distKey, vol, wks){
              isRace: !!w.isRace,
              aerobic: sum(d => d.type === 'easy' || d.type === 'long'),
              quality: sum(d => QUALITY.indexOf(d.type) !== -1),
-             titles: wd.filter(d => QUALITY.indexOf(d.type) !== -1).map(d => d.title) };
+             titles: wd.filter(d => QUALITY.indexOf(d.type) !== -1).map(d => d.title),
+             /* The structure's IDENTITY and its own size. A title carries the
+                dose ("6x45s Hill Repeats"), so it never recurs and cannot be
+                used to compare a structure with itself. */
+             qualitySessions: wd.filter(d => QUALITY.indexOf(d.type) !== -1).map(d => ({
+               archetype: (d.prescription && d.prescription.archetype) || d.type,
+               km: d.km || 0 })) };
   });
 }
 /* The honest comparison. Cutback weeks are prescribed recovery and land
@@ -59,14 +65,66 @@ function fullWeeks(rows){ return rows.filter(r => !r.isCutback && !r.isTaper && 
 const growth = (a, b) => (b / a - 1);
 
 test('a base block does not progress its quality faster than its aerobic work', () => {
+  /* MEASURED WHERE THE RESTRAINT ACTUALLY OPERATES: within a structure.
+     BASE_QUALITY_POS_MAX halves the range `pos` travels, and `pos` is consumed
+     INSIDE each structure function -- structHillRepeats lerps its reps and hill
+     seconds across it, structLadder its base rung, and so on. It governs how
+     far a given structure grows; it says nothing about which structure the
+     rotation lands on.
+
+     Comparing the block's first quality session with its last stopped
+     measuring that once the structure pools rotated properly, because the two
+     are different structures with different natural sizes. Decomposed on the
+     ten-week half block this test was written from:
+
+        delivered first -> last        5km -> 9.5km   +90%
+        what pos can do, per structure hill_repeats +11%, fartlek +20%,
+                                       ladder +24%   (whole permitted range)
+        structure identity alone       4.6 / 7.9 / 7.6 at pos 0 -- +72% spread
+
+     The same structure repeated -- hill_repeats in weeks 1 and 5 -- grows 4.6
+     to 4.8, four percent, against aerobic's twelve. The restraint is intact;
+     the instrument was reading rotation as progression.
+
+     So each structure is now compared with ITSELF across the block, which is a
+     stricter test of the same methodology: it fails if any structure's dose
+     outgrows the aerobic work, and it cannot be satisfied by rotation. */
   const a = app();
   const full = fullWeeks(weeksOf(a, 'base', 'half', 55, 10));
   const first = full[0], last = full[full.length - 1];
   const aer = growth(first.aerobic, last.aerobic);
-  const qual = growth(first.quality, last.quality);
-  assert.ok(qual <= aer + 0.10,
-    'aerobic ' + first.aerobic + ' -> ' + last.aerobic + ' (' + Math.round(aer * 100) + '%) but quality ' +
-    first.quality + ' -> ' + last.quality + ' (' + Math.round(qual * 100) + '%)');
+
+  const byStructure = {};
+  full.forEach(r => r.qualitySessions.forEach(q => {
+    (byStructure[q.archetype] = byStructure[q.archetype] || []).push(q.km);
+  }));
+  const repeated = Object.keys(byStructure).filter(k => byStructure[k].length > 1);
+  assert.ok(repeated.length,
+    'no structure recurs in the block, so there is nothing to measure progression against');
+  repeated.forEach(k => {
+    const v = byStructure[k];
+    const q = growth(v[0], v[v.length - 1]);
+    assert.ok(q <= aer + 0.10,
+      k + ': aerobic ' + first.aerobic + ' -> ' + last.aerobic +
+      ' (' + Math.round(aer * 100) + '%) but this structure ' +
+      v[0] + ' -> ' + v[v.length - 1] + ' (' + Math.round(q * 100) + '%)');
+  });
+});
+
+test('BASE_QUALITY_POS_MAX still halves the range a base structure travels', () => {
+  /* The constant itself, asserted at its own layer: a structure sized at the
+     top of what a base block permits is the same structure sized at half the
+     range a race block would give it. Nothing about rotation can affect this,
+     which is exactly why it is tested separately from the block above. */
+  const a = app();
+  assert.equal(a.BASE_QUALITY_POS_MAX, 0.5);
+  const mid = a.structHillRepeats(0.5, 'threshold');
+  const top = a.structHillRepeats(1, 'threshold');
+  const bot = a.structHillRepeats(0, 'threshold');
+  assert.ok(a.intervalSessionKm(mid) < a.intervalSessionKm(top),
+    'a base block must not reach the full range');
+  assert.ok(a.intervalSessionKm(mid) > a.intervalSessionKm(bot),
+    'but it must still progress');
 });
 
 test('a base block still progresses — this is a development block, not maintenance', () => {
