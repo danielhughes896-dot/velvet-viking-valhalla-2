@@ -1796,6 +1796,23 @@
      is a quiet aside rather than a second equal choice. */
   .support-actions{display:flex; align-items:center; gap:12px; margin-top:10px;}
   .support-actions .btn{flex:0 0 auto;}
+  /* THE COMPLETION RING, BORROWED WHOLE. .day-check above supplies the 40px
+     hit target, the 22px ring, the --cherry checked fill, the CSS-drawn tick
+     and the locked treatment; this adds layout only, so there is still exactly
+     ONE definition of a circular checkbox in this file and supporting work
+     cannot drift away from the running session it sits under.
+
+     The day row centres a bare control and pulls it into the header with
+     negative margins tuned to that row. Here it sits inline beside its own
+     word, so the fixed width and those margins are released and the label
+     gains a gap. The 40px minimum stays: it is the tap target. */
+  .support-check{
+    width:auto; height:auto; min-height:40px; margin:0;
+    justify-content:flex-start; gap:9px;
+  }
+  .support-check-text{font-size:var(--fs-meta); color:var(--ink-dim);}
+  /* Dim the word with the ring, or a locked control reads as half-available. */
+  .support-check.locked .support-check-text{opacity:.5;}
   .support-skip{background:none; border:0; padding:0; cursor:pointer;
     font-family:inherit; font-size:var(--fs-meta); color:var(--ink-faint);
     text-decoration:underline; text-underline-offset:3px;}
@@ -1803,7 +1820,10 @@
   .support-line{font-size:var(--fs-meta); line-height:var(--lh-support);
     color:var(--ink-faint); margin-top:6px;}
   .support-line svg{width:12px; height:12px; vertical-align:-1px;}
-  .support-done{color:var(--ink-dim);}
+  /* The completed line is now the ring plus its word, so it lays out as a row.
+     margin-top drops to 0 because .support-check already carries the 40px
+     minimum height that spaces it. */
+  .support-done{color:var(--ink-dim); display:flex; align-items:center; margin-top:0;}
   .ask-source{font-size:var(--fs-meta); line-height:var(--lh-support);
     color:var(--ink-faint); padding:0 0 10px;}
   /* Speech could not be delivered. Deliberately the same quiet weight as the
@@ -23787,8 +23807,32 @@ function dayTypeLabel(dd){
   var tm = TYPE_META[dd.type] || {};
   return (dd.type==='race') ? vGoalDay() : (tm.label||dd.type);
 }
+/* THE DATE RULE FOR TICKING PRESCRIBED WORK OFF, in one place because more
+   than one kind of prescribed work now asks it. Work is completed on the day
+   it was prescribed for: never earlier, because it has not happened, and never
+   later, because a past day keeps the record it was logged with. Extracted,
+   not rewritten -- canToggleCompletion() below is the same predicate it always
+   was, and this is simply the half of it that is about the DATE. */
+function isCompletionDay(dd){
+  return !!dd && dd.date === todayStr();
+}
 function canToggleCompletion(dd){
-  return !!dd && dd.type!=='rest' && dd.date === todayStr();
+  return isCompletionDay(dd) && dd.type!=='rest';
+}
+/* Supporting work inherits the running session's date eligibility EXACTLY --
+   the same isCompletionDay(), so there is no second definition of today in
+   this file and a rollover moves both at once.
+
+   It does not inherit canToggleCompletion()'s rest-day clause, and that is
+   deliberate rather than an oversight. That clause is about the RUN: a rest
+   day has no running session to tick. But supportDayEligible() explicitly
+   allows supporting work on "any other easy or rest day", and a rest day's
+   companion is real prescribed work the athlete can actually do -- the
+   engine's own output puts strength on rest days. Applying the running
+   clause here would make supporting work MORE restrictive than the day it
+   belongs to, not consistent with it. */
+function canCompleteSupport(dd){
+  return isCompletionDay(dd);
 }
 /* Edit Session is the deliberate correction path: it reaches back over
    sessions already run, but never forward. A workout that has not happened
@@ -26454,6 +26498,38 @@ function handleSetSupportWork(on){
    A completed companion collapses to one line. There is no execution score and
    no grading: supporting work is not measured against a target, and pretending
    otherwise would put it into a scoring system built for running. */
+/* THE SAME COMPLETION CONTROL THE RUNNING SESSION USES, not a second one that
+   looks like it. The markup is renderDayCheck()'s -- a <label> wrapping a
+   native checkbox, carrying .day-check so the ring, the checked fill, the
+   CSS-drawn tick and the locked treatment all come from the single circular-
+   checkbox component already shared by .day-check, .wd-check, .cv-opt and
+   .bld-consent. .support-check adds layout and nothing else.
+
+   WHY THE ACTION SITS ON THE LABEL rather than on the input, which is the one
+   place this deviates from renderDayCheck(). The running session's ring lives
+   in .day-top's header row; this one lives several levels deeper, inside
+   .day-detail, and .day-top is itself data-action="toggle-day". Delegation
+   takes the nearest ancestor carrying a data-action, so with the action on the
+   input a tap that landed on the label's padding or its word would walk past
+   the control and collapse the whole card underneath the athlete. With the
+   action on the label, the label IS the nearest ancestor for every pixel of
+   the control, the accordion is never reached, and the change event still
+   resolves to it from the input inside. */
+function renderSupportCheck(dd, checked, label){
+  var locked = !canCompleteSupport(dd);
+  var why = dd.date > todayStr()
+              ? 'Supporting work is ticked off on the day it is prescribed for'
+          : dd.date < todayStr()
+              ? 'Past supporting work keeps the record it was logged with'
+          : checked ? 'Supporting work complete' : 'Mark supporting work complete';
+  return '<label class="day-check support-check'+(locked?' locked':'')+'"'+
+    ' title="'+escapeHtml(why)+'"'+
+    ' data-action="support-done" data-day="'+dd.id+'">'+
+    '<input type="checkbox" '+(checked?'checked':'')+' '+(locked?'disabled':'')+
+      ' aria-label="'+escapeHtml(why)+'">'+
+    (label ? '<span class="support-check-text">'+escapeHtml(label)+'</span>' : '')+
+  '</label>';
+}
 function renderSupportCompanion(dd){
   if (!dd) return '';
   /* DECLINED IS AN ANSWER, and the card honours it immediately. Without this
@@ -26468,8 +26544,13 @@ function renderSupportCompanion(dd){
   /* Done collapses to one line. There is nothing left to instruct and nothing
      to grade, so the card gets its space back. */
   if (done){
-    return '<div class="support-line support-done">'+ICONS.check+' '+
-      escapeHtml(k.label)+' \u2014 done</div>';
+    /* CHECKED, AND STILL THE ONE COMPACT LINE. The tick is now the card's own
+       completion ring rather than an inline glyph, so "done" reads identically
+       on both halves of the card -- and on today it is still live, which is
+       what lets a mistaken tick be taken back. */
+    return '<div class="support-line support-done">'+
+      renderSupportCheck(dd, true, k.label + ' \u2014 done')+
+    '</div>';
   }
 
   /* CLOSED BY DEFAULT, AND SUBORDINATE. The running session is the primary
@@ -26512,7 +26593,7 @@ function renderSupportCompanion(dd){
       '</div>'+
     '</details>'+
     '<div class="support-actions">'+
-      '<button type="button" class="btn btn-sm btn-ghost" data-action="support-done" data-day="'+dd.id+'">Mark done</button>'+
+      renderSupportCheck(dd, false, 'Mark done')+
       '<button type="button" class="support-skip" data-action="support-skip" data-day="'+dd.id+'">Not today</button>'+
     '</div>'+
   '</div>';
@@ -26526,6 +26607,25 @@ function renderSupportCompanion(dd){
 function handleSupportDone(dayId){
   var dd = state.days.filter(function(d){ return d.id === dayId; })[0];
   if (!dd) return;
+  /* THE DATE RULE ENFORCED AT THE WRITE, not only in the markup. The control
+     renders disabled on any day that is not today, but a disabled attribute is
+     a rendering fact: it survives neither a devtools edit nor a synthesised
+     event, and it says nothing at all about a direct call. Work that has not
+     happened yet must not be recordable as having happened, from any path, so
+     the refusal lives with the write. */
+  if (!canCompleteSupport(dd)) return;
+  if (dd.support && dd.support.completedAt){
+    /* Ticking it back off restores the prescription exactly as it stood:
+       dd.support returns to null and supportForDay() recomputes the same
+       companion from the same inputs. This is the both-ways behaviour
+       handleToggleComplete() already gives the run, and a checkbox that can
+       only be ticked one way would be telling the athlete otherwise. */
+    dd.support = null;
+    scheduleSave();
+    renderApp();
+    showToast('Supporting work cleared');
+    return;
+  }
   var item = supportForDay(dd);
   if (!item) return;
   dd.support = { kind:item.kind, completedAt:new Date().toISOString() };
@@ -33510,7 +33610,6 @@ document.addEventListener('click', function(e){
     case 'apply-activity': handleApplyActivity(); break;
     case 'set-guidance': handleSetGuidanceLevel(target.getAttribute('data-level')); break;
     case 'set-support-work': handleSetSupportWork(target.getAttribute('data-on') === '1'); break;
-    case 'support-done': handleSupportDone(target.getAttribute('data-day')); break;
     case 'support-skip': handleSupportSkip(target.getAttribute('data-day')); break;
     case 'voice-listen': handleVoiceListen(target.getAttribute('data-day')); break;
     case 'voice-stop': handleVoiceStopPress(); break;
@@ -33567,6 +33666,9 @@ document.addEventListener('change', function(e){
   if (clickOwnedByDisclosure(t, actionEl)) return;
   var action = actionEl.getAttribute('data-action');
   if (action === 'toggle-complete') handleToggleComplete(actionEl.getAttribute('data-day'));
+  /* Supporting work is a native checkbox now, so it belongs on `change` beside
+     toggle-complete rather than on `click` where its button used to live. */
+  else if (action === 'support-done') handleSupportDone(actionEl.getAttribute('data-day'));
   // Only real form fields belong on `change`. Buttons fire `click` and are
   // registered in the click dispatcher above -- registering set-feel /
   // notes-wand here is what made both controls render correctly and do

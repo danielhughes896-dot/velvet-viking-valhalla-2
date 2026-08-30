@@ -707,12 +707,20 @@ test('declining today counts today, not tomorrow', () => {
 });
 
 test('the decline action is subordinate to logging it', () => {
+  /* UPDATED FOR THE COMPLETION CONTROL, INTENT UNCHANGED. Logging used to be a
+     .btn-ghost labelled "Mark done"; it is now the same circular completion
+     ring the running session uses, so the markup this asserts on moved. What
+     it is actually protecting has not: there is a way to log it, declining is
+     still the quiet aside beside it, and neither is a primary button competing
+     with the run. See test/supportingWorkCompletion.test.js for why the button
+     went. */
   const a = app({});
   const items = week(a, 1);
   const dd = a.state.days.filter(d => d.id === items[0].dayId)[0];
   const html = a.renderSupportCompanion(dd);
-  assert.ok(/data-action="support-done"[^>]*>Mark done/.test(html.replace(/\n/g, '')),
+  assert.ok(/data-action="support-done"/.test(html.replace(/\n/g, '')),
     'there is no way to log it');
+  assert.ok(html.indexOf('>Mark done<') !== -1, 'the log action is not named');
   assert.ok(html.indexOf('class="support-skip"') !== -1,
     'the decline is still styled as an equal button rather than a quiet aside');
   assert.ok(html.indexOf('btn-primary') === -1,
@@ -733,7 +741,13 @@ test('logging is additive and declining is remembered', () => {
   const a = app({});
   const items = week(a, a.currentWeekNum());
   if (!items.length) return;
+  /* THE DAY HAS TO BE TODAY NOW. Supporting work inherits the running
+     session's date rule, so handleSupportDone() refuses a day that has not
+     arrived -- which is the point of that change, and used to be the bug. The
+     week's first companion is not necessarily today's, so the day under test
+     is moved onto today rather than the rule being worked around. */
   const dd = a.state.days.filter(d => d.id === items[0].dayId)[0];
+  dd.date = a.todayStr(); dd.id = dd.date;
   const km = dd.km, type = dd.type, completed = dd.completed;
   a.handleSupportDone(dd.id);
   assert.ok(dd.support.completedAt, 'nothing was logged');
