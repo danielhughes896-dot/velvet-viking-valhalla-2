@@ -6314,6 +6314,27 @@ function marathonQualityKindFor(phase, weekNum, buildIndex, buildWeeks){
   if (!late) return null;                       // early Build keeps its alternation
   return (weekNum % 3 === 0) ? 'interval' : 'tempo';
 }
+/* ---------- WHICH FAMILY A ONE-SLOT WEEK ACTUALLY CARRIES ----------
+   ONE AUTHORITY, BECAUSE TWO OF THEM DISAGREED AND THE WEEK PAID FOR IT.
+   buildBlockWeeks priced a single quality slot on the generic week-parity
+   alternation while buildDaysFromWeeks selected the family from the marathon's
+   own phase rule, so a week was costed for a 6.4km interval and written with a
+   7.4km tempo. The day's affordability ladder then correctly refused the
+   larger session and substituted strides -- and the week's declared volume
+   still contained the tempo. That is the whole of the remaining
+   volume_unattributed case: 23.1km declared, 21.5km prescribed, 1.6km with no
+   named cause.
+
+   A checkpoint or calibration week is pinned to the tempo slot because that
+   slot IS the test. Everything else is the phase rule where it applies and the
+   parity alternation where it does not -- exactly as the day builder reads it,
+   because it is now the same expression. */
+function marathonSlotKindFor(planWeeks, weekNum, phase, isCheckpoint, isCalibration){
+  if (isCheckpoint || isCalibration) return 'tempo';
+  var alloc = marathonPhaseAllocation(planWeeks);
+  var kind = marathonQualityKindFor(phase, weekNum, weekNum - alloc.base, alloc.build);
+  return kind || (weekNum % 2 === 0 ? 'tempo' : 'interval');
+}
 /* ---------- WHAT THE LONG RUN COSTS, IN THE UNIT THAT DIFFERS ----------
    COACH_LOAD_FACTOR prices a long run at 1.1 whatever it contains and however
    long it takes. A 30km long run costs a 3h00 marathoner about 2h13 and a
@@ -7464,8 +7485,14 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        The ramp's answer stays on the week as `intendedVolume`, reported rather
        than pursued. */
     if (mWeek){
+      /* PRICED AS THE FAMILY THE DAY BUILDER WILL ACTUALLY WRITE. See
+         marathonSlotKindFor(). A taper week may still swap to the smaller of
+         the two families after this, which can only make the delivered day
+         smaller than the priced one -- an over-price the rounding bound
+         already covers, never a kilometre without a cause. */
+      var mQKind = marathonSlotKindFor(N, w, phase, isCheckpoint, isCalibration);
       var mQKm = mWeek.qSlots >= 2 ? (qKm + tKm)
-               : mWeek.qSlots === 1 ? ((w % 2 === 0) ? tKm : qKm) : 0;
+               : mWeek.qSlots === 1 ? (mQKind === 'tempo' ? tKm : qKm) : 0;
       /* ---- QUALITY WAITS UNTIL THE WEEK CAN CARRY IT ----
          "At most one demanding session without evidence" was never "must
          prescribe one". For an athlete whose whole week is smaller than a
@@ -10407,8 +10434,25 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       if (useSolo(kind, slots)) return wk.soloKm;
       return kind==='interval' ? qKmThisWeek : tKmThisWeek;
     }
+    /* ---- A CHECKPOINT DAY IS ITS TIME TRIAL PLUS ITS FLANKS ----
+       The day is built below as max(ckBase, ttKm + 2*flank), so its real size
+       can exceed the tempo allocation it was budgeted from -- and the
+       affordability ladder was pricing the allocation. Measured: 21 marathon
+       weeks at 6-15km/week where the athlete's long run was 4km and the
+       checkpoint DAY was 5km, prescribed because the ladder thought it was
+       asking for two. One expression, used by both, so the session that is
+       priced is the session that is written. */
+    function checkpointDayKm(ckBase){
+      var ttKm = Math.min(TT_DISTANCE_KM[profile.emphasis], Math.max(2, round1(ckBase - 3)));
+      var flank = Math.max(1, round1((ckBase - ttKm) / 2));
+      return Math.max(ckBase, round1(ttKm + flank * 2));
+    }
     function slotDeliveredKm(kind, slots){
       var km = slotKm(kind, slots);
+      /* THE COMPLETE SESSION, not its core. A checkpoint week's tempo slot is
+         a time trial with a warm-up and a cool-down, and all three are running
+         the athlete has to do. */
+      if (kind === 'tempo' && (wk.isCheckpoint || wk.isCalibration)) return checkpointDayKm(km);
       return km + qualityDayShortfallKm(km, slotSpec(kind, slots), kind==='interval'?'interval':'tempo');
     }
     // With one slot the two stimuli alternate week to week rather than one of
@@ -10757,7 +10801,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
            week's tempo allocation, so the week comes out bigger than it was
            asked for by exactly the difference. Two weeks in the full sweep
            carried it as unattributed volume before it was named. */
-        var ttDayKm = Math.max(ckBase, round1(ttKm+flank*2));
+        var ttDayKm = checkpointDayKm(ckBase);
         if (ttDayKm > ckBase) wk.qualityDayFloorKm = round1((wk.qualityDayFloorKm||0) + (ttDayKm - ckBase));
         return { type:tt.type, title:tt.title, desc:tt.desc,
           km: ttDayKm,
@@ -11142,8 +11186,47 @@ function capWeeklyVolume(days, weeks){
       var longEntry = entries.filter(function(dd){ return dd.type==='long'; }).sort(function(a,b){ return b.km-a.km; })[0];
       if (longEntry){
         var floor = Math.round(longEntry.km * 0.7);
+        /* ---- AND NEVER BELOW ANOTHER RUN IN THE SAME WEEK ----
+           THIS CAP WAS THE ACTUAL CAUSE OF THE LOW-VOLUME COLLISION, and the
+           affordability ladder was never reaching it. Measured: 24 marathon
+           weeks between 10 and 20km/week where the generator's own figures were
+           correctly ordered -- long run 4.8km against a 4.6km interval session
+           -- and the ordering was inverted afterwards, by presentation.
+
+           Smart rounding takes a quality day UP to the half kilometre and a
+           long run to the nearest whole one, so a 12.4km week renders as 13.
+           The cap then has to give 0.6km back; the easy days are already at
+           EASY_MIN_KM and a quality day is never trimmed, so the long run is
+           the only variable left -- and it moves in whole kilometres. A 20%
+           cut to the session the marathon exists to build, to absorb a 2%
+           presentation artefact, leaving a 4km long run beside a 5km interval
+           day.
+
+           Under bottom-up construction there is no apportionment for this cap
+           to police: wk.volume IS the sum of the sessions, and the excess is
+           rounding by construction. So the long run stops being the
+           settle-up variable at the point where trimming it would put it below
+           another run in its own week. What the cap then cannot reclaim is a
+           rounding residual, which the accounting above already reports and
+           bounds as one.
+
+           Gated on wk.bottomUp, which exists only on a marathon race block:
+           5k, 10k, half and ultra reach this line with the floor they always
+           had. */
+        if (wk.bottomUp){
+          var otherMax = entries.reduce(function(m, dd){
+            return (dd !== longEntry && dd.km > m) ? dd.km : m;
+          }, 0);
+          floor = Math.max(floor, otherMax);
+        }
+        /* THE STEP HAS TO CLEAR THE FLOOR, NOT MERELY START ABOVE IT. The
+           trim moves in whole kilometres and the ordering floor is a half:
+           `km > floor` let a 5km long run step to 4 past a floor of 4.5, which
+           is the same inversion one kilometre lower down. Identical for every
+           other distance, where both the long run and its 70% floor are whole
+           numbers and the two conditions agree. */
         var guard2 = 0;
-        while (total() > cap && longEntry.km > floor && guard2 < 100){
+        while (total() > cap && longEntry.km - 1 >= floor && guard2 < 100){
           guard2++;
           longEntry.km = longEntry.km - 1;
         }
