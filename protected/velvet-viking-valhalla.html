@@ -8028,6 +8028,49 @@ function qualitySlotCeilingForDayCount(dayCount){
   if (dayCount <= 4) return 1;
   return 2;
 }
+/* ---------- A LONG RUN CAN BE ONE OF THE WEEK'S HARD SESSIONS ----------
+   THE DEFECT THIS NAMES. The ceiling above counts STANDALONE quality days, and
+   a goal-pace long run is not one of them -- so a capable half or marathon
+   athlete who had earned the second exposure received two standalone quality
+   sessions AND a race-specific long run. Measured at the marathon peak:
+   Interval 8x1200m, Threshold 8km, and a 32km long run with 11km at goal pace,
+   which the product's OWN sessionImportance() calls three KEY sessions, the
+   largest of them the one the budget could not see.
+
+   WHAT MAKES IT VISIBLE, AND IT IS NOT A NEW SCORE. Six existing authorities
+   were asked what they say about a long run, and they disagree:
+
+     sessionImportance()            KEY -- but also for a 24km AEROBIC long run,
+                                    so it cannot tell specific work from length
+     isQualityType()                blind: keyed on dd.type, and its own comment
+                                    says it is never consulted where quality
+                                    frequency is decided
+     horizonStimulus()              blind: counts a long run in longRuns, never
+                                    in qualityExposures
+     COACH_LOAD_FACTOR              blind: long_run_goal_finish carries no
+                                    ARCHETYPES.exec override, so the whole run
+                                    prices at .long = 1.1
+     dd.mpSegment                   EXACT -- true for exactly the long runs that
+                                    carry goal pace, false for every aerobic one
+                                    at every distance and in every phase
+     structuredZoneTime().zones.mp  EXACT, and with the dose: 0 seconds on an
+                                    aerobic long run, 1,843s in Build, 3,822s at
+                                    the marathon peak
+
+   The last two agree exactly, and mpSegment is set from this same condition one
+   loop below -- so this is not a threshold invented here, it is the flag the
+   generator already raises, named once so the budget and the prescription
+   cannot disagree about the same week.
+
+   ON DOSE, ASKED RATHER THAN ASSUMED. Every segment the engine will build is
+   already a real stimulus by its own construction: GOAL_FINISH_MIN_LONG_KM
+   refuses one below a 6km long run, and the 3km floor exists because anything
+   smaller "would produce a stride, not a stimulus". Measured across 230 half
+   and marathon weeks, the segment is 3.0-12.2km and 24-38% of the long run --
+   there is no tail of trivial segments for a boolean to mis-handle. */
+function longRunCarriesSpecificWork(wk){
+  return !!(wk && wk.hasGoalSegment && wk.goalSegKm > 0);
+}
 
 /* ---------- QUALITY FREQUENCY IS EARNED, NOT COUNTED ----------
    THE COUPLING THIS REMOVES. The contract above was written to stop quality
@@ -8544,10 +8587,34 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        earned from the athlete's logged response and not from the day count.
        This direction only stops a slot the week no longer has room to be
        aerobically dominant around. */
+    /* ---- AND A RACE-SPECIFIC LONG RUN SPENDS ONE OF THEM ----
+       See longRunCarriesSpecificWork(). This is a WEEKLY reading and not a
+       distance rule: Base and taper long runs are aerobic and cost nothing, so
+       those weeks keep their full allowance, and 5K and 10K -- whose long runs
+       never carry goal pace under the current methodology -- are untouched at
+       every phase and every frequency.
+
+       IT NEVER TAKES THE LAST SLOT. A three- or four-day week already has a
+       ceiling of one; reducing that to zero would leave an athlete with no
+       structured session at all rather than with the one their existing
+       ceiling grants them. The reduction is therefore only ever from two to
+       one, which is exactly the architecture this restores: one standalone
+       quality session plus one specific long run.
+
+       AND IT REPLACES NO GATE. The day-count ceiling, the earned exposure, the
+       response model, the measured recovery, the spacing enumeration and the
+       affordability ladder below all still run, unchanged and in the same
+       order. This only stops the week counting to two when one of the two is
+       already on the long-run day. */
+    var specificLong = !noLongRun && longRunCarriesSpecificWork(wk);
+    var weekSlotCeiling = qualitySlotCeilingForDayCount(runCap);
+    if (specificLong && weekSlotCeiling > 1) weekSlotCeiling -= 1;
     var weekQualitySlots = blockResult.noQuality ? 0
-      : Math.min(qualityDays.length, qualitySlotCeilingForDayCount(runCap));
+      : Math.min(qualityDays.length, weekSlotCeiling);
     if (weekQualitySlots < qualityDays.length)
       wk.qualityDaysRested = qualityDays.length - weekQualitySlots;
+    wk.qualityBudget = { ceiling: qualitySlotCeilingForDayCount(runCap),
+                         specificLongRun: specificLong, prescribed: weekQualitySlots };
     /* ---- AND A BACK-TO-BACK LONG RUN COSTS A RUNNING DAY LIKE ANY OTHER ----
        It is a second long run on the day after the first, so it spends one of
        the days the cap allows. Where the week cannot hold the long run, the
@@ -8565,6 +8632,18 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     // this week's real easy-day pool: drop the b2b day from it on weeks where b2b actually fires,
     // since that day's volume comes from secondLongKm instead, not the generic easy budget
     var easyDays = b2bActive ? easyDaysBase.filter(function(d){return d!==b2bDay;}) : easyDaysBase;
+    /* THE DAY THE LONG RUN BOUGHT BACK IS STILL A RUNNING DAY. A slot the
+       aerobic-dominance ceiling removes takes its day with it and that day
+       rests -- correctly, because the cap says the athlete has not demonstrated
+       it. Nothing about the athlete's frequency changed here: the week is
+       spending its quality budget differently, not running less. So the freed
+       day becomes easy running, and the run-day count is identical to what it
+       was before this rule existed. easyAllowed below is computed from
+       weekQualitySlots and rises by exactly one to admit it. */
+    if (specificLong && qualityDays.length > weekQualitySlots){
+      easyDays = easyDays.concat(qualityDays.slice(weekQualitySlots, weekQualitySlots + 1))
+                         .sort(function(a, b){ return a - b; });
+    }
     /* ---- AND THE DAYS ARE SPENT ON THE PURPOSEFUL SESSIONS FIRST ----
        YOU ADD DISTANCE BEFORE YOU ADD DAYS. A foundation week is the athlete's
        own volume divided across their days, and below a certain volume that
@@ -8909,7 +8988,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       if (iso===wkLongDay && activeSet[iso] && !noLongRun){
         var tl = longRunText(longKm, wk.hasGoalSegment, wk.goalSegKm, b2bActive, false, wk.longShape);
         dayObj = { type:tl.type, title:tl.title, km:longKm, desc:tl.desc, mpSegment:!!tl.mpSegment,
-          prescription: (wk.hasGoalSegment && wk.goalSegKm>0)
+          prescription: longRunCarriesSpecificWork(wk)
             ? { archetype:'long_run_goal_finish', params:{ km:longKm, finishKm:wk.goalSegKm } }
             : { archetype:'long_run', params: b2bActive
                   ? { km:longKm, b2bPrimary:true, shape:wk.longShape }
