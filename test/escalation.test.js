@@ -27,14 +27,24 @@ const TODAY = '2026-08-21';
 function athlete(){
   const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
-  /* TWO QUALITY SESSIONS A WEEK, because the escalation tiers below are read
-     against how much of the athlete's recent QUALITY work is going wrong. With
-     quality frequency earned rather than granted by the day count, a fixture
-     that says nothing about the athlete's response halves that denominator --
-     and two poor sessions out of five read as 'persistent' where two out of
-     ten read as 'emerging'. The tiers are unchanged; the fixture has to
-     describe the athlete they were calibrated on. */
-  buildPlan(a, { weeks: 14, startDate: a.addDays(TODAY, -70), distanceKey: 'half',
+  /* TWO STANDALONE QUALITY SESSIONS A WEEK, because the escalation tiers below
+     are read against how much of the athlete's recent QUALITY work is going
+     wrong. With quality frequency earned rather than granted by the day count,
+     a fixture that says nothing about the athlete's response halves that
+     denominator -- and two poor sessions out of five read as 'persistent'
+     where two out of ten read as 'emerging'. The tiers are unchanged; the
+     fixture has to describe the athlete they were calibrated on.
+
+     AND THE DISTANCE IS 10K FOR THE SAME REASON, having been half. A week
+     whose long run carries goal pace now spends one of its two quality slots
+     on that long run, so a half-marathon athlete in Build and Peak has ONE
+     standalone quality session a week however much they have earned -- and
+     executionPattern() reads standalone quality only, so the denominator
+     collapsed far enough that some weeks produced no pattern at all. 10K is
+     the same athlete with the same earned exposure, at a distance whose long
+     run stays aerobic, so the two-quality week these tiers were calibrated on
+     still exists. Nothing about the tiers, the window or the language moved. */
+  buildPlan(a, { weeks: 14, startDate: a.addDays(TODAY, -70), distanceKey: '10k',
                  volume: 55, benchSec: 45 * 60, lthr: 165, maxHR: 190,
                  earnedSecondQuality: true });
   return a;
