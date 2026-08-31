@@ -4908,6 +4908,15 @@ var BASE_VOLUME_MULT = 1.25;
    cannot express a long run is not viable at its largest either. Same value,
    same behaviour -- see buildBlockWeeks and minViableOnRampKm. */
 var CUTBACK_FACTOR = 0.78;
+/* How much shorter the second peak long run is than the first. Coaching
+   methodology, recorded as such: the second exposure has to be meaningfully
+   shorter to be a different session, and close enough to still be a peak
+   exposure rather than an ordinary long run. */
+var PEAK_SECOND_EXPOSURE_FRACTION = 0.85;
+/* And correspondingly more specific. The goal-pace share it would otherwise
+   have carried, raised -- bounded by the existing half-the-run ceiling, which
+   is unchanged. */
+var PEAK_SECOND_SPECIFICITY_GAIN = 1.35;
 /* How far up each quality structure's own dimension range an aerobic base block
    is allowed to travel. See the note at the `pos` assignment in
    buildBlockWeeks: this is what keeps a base block's quality growing at the
@@ -5122,6 +5131,102 @@ function marathonRunwayPlan(weeksToRace, stateVolume){
   out.reason = 'surplus_to_development_block';
   return out;
 }
+/* ---------- THE EVENT CREATES THE REQUIREMENT; THE ATHLETE SETS THE ROUTE ----
+   WHAT WAS WRONG. The marathon's volume destination was start x
+   developmentMultiplierFor(), and that multiplier saturates at fourteen weeks.
+   So the destination was a property of where the athlete happened to begin: a
+   25km/week athlete was sent to 44km and a 50km/week athlete to 88km, and the
+   first of those is not a marathon preparation by any reading. A low start
+   lowered the destination, which is precisely the inference the methodology
+   forbids.
+
+   WHAT REPLACES IT, AND WHAT DOES NOT. The event's requirement does not depend
+   on the athlete at all: a marathon asks for the weekly volume that can carry a
+   marathon-readiness long run, which the architecture already states as
+   MIN_PEAK_LONG_KM at the long run's own share of the week. That is the
+   DESTINATION, and it is the same for everyone.
+
+   The ramp is still the ramp. Starting capacity and runway decide what can
+   SAFELY be reached, and nothing here raises a prescription: an athlete is
+   never given more training because the event wants more. What changes is that
+   the shortfall is now a measured quantity with a name, instead of being hidden
+   inside a destination that quietly moved to wherever the athlete started.
+
+   THIS IS A DIAGNOSTIC AUTHORITY, NOT A GENERATOR. It does not set weekly
+   volume, it does not lengthen a long run, and it cannot make a plan bigger.
+   Readiness reads it. */
+function marathonVolumeRequirementKm(){
+  var f = LONG_FRACTION[DISTANCE_PROFILES['full'].emphasis];
+  if (!(f > 0) || MIN_PEAK_LONG_KM['full'] == null) return null;
+  return round1(MIN_PEAK_LONG_KM['full'] / f);
+}
+/* What this athlete's block will actually reach, against what the event asks
+   for. `limited` is the honest word: the plan is coherent, and it is still
+   short of what the distance requires. */
+function marathonVolumeDestination(startKm, planWeeks){
+  var need = marathonVolumeRequirementKm();
+  var reach = (startKm > 0)
+    ? round1(startKm * developmentMultiplierFor('full', planWeeks || MARATHON_DEDICATED_WEEKS, 'race'))
+    : null;
+  if (need == null || reach == null) return null;
+  return { needKm: need, reachableKm: reach,
+           shortfallKm: round1(Math.max(0, need - reach)),
+           fraction: Math.round((reach / need) * 100) / 100,
+           limited: reach < need };
+}
+/* ---------- READINESS IS NOT "THE PLAN GENERATED" ----------
+   A coherent-looking training week is not proof of marathon readiness, and the
+   architecture has to be able to say so. Five dimensions, each of which the app
+   already holds, each reported rather than collapsed into a score:
+
+     VOLUME     what the block reaches against what the event asks for
+     LONG RUN   the peak exposure against the marathon-readiness benchmark
+     SPECIFIC   whether marathon-pace work was actually prescribed
+     EXPOSURE   the unpractised fraction -- how much of race day the athlete
+                has never spent running, which stays DIAGNOSTIC and is never
+                on its own a verdict
+
+   THE VERDICT IS THE WORST DIMENSION, not an average, because averaging lets a
+   strong long run conceal a volume that cannot support it. And no single
+   dimension is a hard law: unpractised fraction in particular never decides
+   this alone -- it is reported beside the others and moves the verdict only
+   where the others already agree. */
+var MARATHON_READY_FRACTION = 0.85;      // of the event's own requirement
+var MARATHON_MARGINAL_FRACTION = 0.65;
+function marathonReadiness(opts){
+  var o = opts || {};
+  var dest = marathonVolumeDestination(o.startKm, o.planWeeks);
+  if (!dest) return null;
+  var dims = [];
+  dims.push({ key:'volume', fraction:dest.fraction,
+              detail:{ reachableKm:dest.reachableKm, needKm:dest.needKm } });
+  if (o.peakLongKm > 0 && MIN_PEAK_LONG_KM['full'] != null)
+    dims.push({ key:'long_run',
+                fraction: Math.round((o.peakLongKm / MIN_PEAK_LONG_KM['full']) * 100) / 100,
+                detail:{ peakLongKm:o.peakLongKm, benchmarkKm:MIN_PEAK_LONG_KM['full'] } });
+  if (o.specificKm != null)
+    dims.push({ key:'specific', fraction: o.specificKm > 0 ? 1 : 0,
+                detail:{ specificKm:o.specificKm } });
+  /* RUNWAY IS NOT A DIMENSION OF ITS OWN, and making it one was a mistake worth
+     recording: it produced exactly the "fewer than fifteen weeks means unready"
+     rule the methodology prohibits, and it rated a nine-week athlete holding
+     60km/week with an established long run as INSUFFICIENT on the calendar
+     alone. Runway is already inside every other dimension -- it is what limits
+     the volume the block can reach and the long run it can develop -- so
+     counting it again counts it twice. A short runway with a strong
+     demonstrated base and a short runway with no base are different athletes,
+     and the difference shows up where it actually lives. */
+  var worst = dims.reduce(function(a, b){ return (a == null || b.fraction < a.fraction) ? b : a; }, null);
+  var verdict = worst.fraction >= MARATHON_READY_FRACTION ? 'READY'
+              : worst.fraction >= MARATHON_MARGINAL_FRACTION ? 'MARGINAL'
+              : 'INSUFFICIENT';
+  return { verdict:verdict, limitedBy:worst.key, dimensions:dims,
+           /* DIAGNOSTIC ONLY, and reported beside the verdict rather than
+              inside it. */
+           unpractisedFraction: (o.raceSec > 0 && o.peakLongSec > 0)
+             ? Math.max(0, Math.round((1 - (o.peakLongSec / o.raceSec)) * 100) / 100) : null,
+           volume: dest };
+}
 /* ---------- ASKING FOR ANOTHER RUNNING DAY ----------
    THE ONLY THING THAT MAY TRIGGER THIS is that the athlete's CURRENT
    authorised availability is constraining a coherent programme -- measured,
@@ -5237,8 +5342,20 @@ function availabilityExpansionRecommendation(){
 
   var reason = worstShare > SUPPORT_SHARE_MAX ? 'LONG_RUN_LOAD_DISTRIBUTION'
              : 'AEROBIC_VOLUME_DISTRIBUTION';
+  /* WHICH DAY, and it is the one furthest from the long run -- the same rule
+     the generator already uses when it has one spare day to place. The athlete
+     can move it afterwards; what the recommendation must not do is ask for "a
+     day" in the abstract and leave them to work out which. */
+  var taken = {}; su.schedule.activeDays.forEach(function(d){ taken[d] = true; });
+  var longDayIso = su.schedule.longRunDay;
+  var pick = null;
+  for (var iso = 0; iso < 7; iso++){
+    if (taken[iso]) continue;
+    if (pick === null || isoGap(iso, longDayIso) > isoGap(pick, longDayIso)) pick = iso;
+  }
+  if (pick === null) return null;
   return {
-    recommend:true, from:from, to:from+1, reason:reason,
+    recommend:true, from:from, to:from+1, reason:reason, day:pick,
     why: EXPANSION_REASONS[reason],
     contains: 'It would be an easy aerobic run, not another hard session.',
     enables: 'It spreads the same running across one more day. If your training keeps absorbing it, that is what later lets the weekly work and the long run develop — but nothing gets bigger just because you said yes.',
@@ -6683,6 +6800,46 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        cannot express, and shrinking one until it fits would produce the
        three-kilometre "long run" the audit was opened over. */
     var longTarget = (isRace || arc.noLongRun) ? 0 : Math.min(profile.longCapKm, volume*longFrac);
+    /* ---- THE TWO PEAK EXPOSURES ARE DIFFERENT SESSIONS ----
+       The approved architecture is Peak Exposure 1 durability-dominant, then
+       absorption, then Peak Exposure 2 shorter and/or more marathon-specific,
+       then the taper. What the engine produced instead was a monotone ramp
+       through Peak with a cutback in the middle: measured on a 55km/week
+       athlete, 29km with goal pace, 23km cutback, then 31km with goal pace.
+       The second exposure was the longest run of the block AND the most
+       specific -- exactly what the methodology says it must not automatically
+       be, because it asks the athlete for both of the things that cost most,
+       in the same session, sixteen days out.
+
+       WHAT CHANGES, AND IT IS ONLY THE PEAK WEEKS. The first Peak week takes
+       the block's longest run and is left durability-dominant. The last takes
+       a SHORTER run and carries the larger share of goal-pace work. Nothing
+       about the ramp before Peak moves, no new distance is invented, and the
+       block's longest run is still the block's longest run -- it has simply
+       stopped being the last one.
+
+       PEAK_SECOND_EXPOSURE_FRACTION is coaching methodology and is recorded as
+       such: it says the second exposure is meaningfully shorter without being a
+       different kind of session. Nothing in the literature sets it. */
+    var mPeakFirst = false, mPeakLast = false;
+    if (usesMarathonArc(purpose, distKey) && phase === 'Peak' && !isRace){
+      var mA = marathonPhaseAllocation(N);
+      mPeakFirst = (w === mA.base + mA.build + 1);
+      mPeakLast  = (w === mA.base + mA.build + mA.peak);
+      /* THE FIRST EXPOSURE IS THE BLOCK'S LONGEST RUN, and it has to be told
+         so explicitly. The ramp reaches its maximum in the LAST peak week, so
+         reading each week's own volume made the final exposure the longest by
+         construction -- which is the thing the architecture says it must not
+         automatically be. Peak 1 therefore takes the long run the block's peak
+         week would have produced, and Peak 2 takes a share of it. Neither
+         figure is new: both come from peakVolume and the long run's own share,
+         the same two quantities every other week uses. */
+      if (mA.peak > 1){
+        var mPeakLong = Math.min(profile.longCapKm, peakVolume * longFrac);
+        if (mPeakFirst) longTarget = mPeakLong;
+        if (mPeakLast)  longTarget = mPeakLong * PEAK_SECOND_EXPOSURE_FRACTION;
+      }
+    }
     var b2bEligible = !!profile.backToBack && !isTaper && !isRace && phase!=='Base';
 
     /* OMITTED, NOT SHRUNK, BELOW THE FLOOR.
@@ -6699,7 +6856,17 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        always written to do. */
     var hasGoalSegment = goalOriented && !isRace && !isTaper && (profile.emphasis==='threshold'||profile.emphasis==='endurance') && phase!=='Base'
                          && longTarget >= GOAL_FINISH_MIN_LONG_KM;
+    /* DURABILITY DOMINANT MEANS WHAT IT SAYS. The first peak exposure is the
+       longest run the athlete will do, and asking for goal pace at the end of
+       it is asking for the two most expensive things at once. It keeps its
+       distance and gives up its specific work; the second exposure, which is
+       shorter, is where the marathon-specific rehearsal lives. */
+    if (mPeakFirst) hasGoalSegment = false;
     var goalSegKm = hasGoalSegment ? round1(clamp(longTarget*(0.2+0.18*pos),3,longTarget*0.5)) : 0;
+    /* And the second exposure carries MORE of it, because that is what makes it
+       the specific one rather than merely the smaller one. */
+    if (mPeakLast && hasGoalSegment)
+      goalSegKm = round1(clamp(goalSegKm * PEAK_SECOND_SPECIFICITY_GAIN, 3, longTarget * 0.5));
     /* THE FRACTION, CARRIED. The day's distance is not final here: smart
        rounding and the weekly cap both still get a say. Keeping the PROPORTION
        lets the settle-up re-derive the segment from whatever the run ends up
@@ -6897,6 +7064,35 @@ function tempoWorkoutText(spec, totalKm){
    and the generator now calls them instead. */
 function easyRunText(km){
   return { title:'Easy Aerobic', type:'easy', desc: dtok(km)+' @ Easy pace.' };
+}
+/* ---------- THE MEDIUM-LONG RUN IS A PRESCRIPTION, NOT A LEFTOVER ----------
+   IT EXISTS BECAUSE THE PROGRAMME WANTS THE STIMULUS: a second sustained
+   aerobic run in the same week as the long one, in the phase where marathon
+   support is what the block is developing. It is named, it has a role, and it
+   is written as its own session.
+
+   IT IS NOT A MILEAGE-BALANCING DEVICE, and the arithmetic settles that
+   rather than the intention. Kilometres are conserved: at a 95km target on six
+   days the supporting runs are 14.9km each, and converting to three ordinary
+   runs plus a "medium-long" needs that session to be 28km -- a second long
+   run wearing a smaller name. A medium-long run cannot make an incoherent
+   volume target coherent and this implementation never tries. Where the week
+   does not fit, the answer is the volume, the long run or the runway.
+
+   SO IT IS SIZED, NOT RESIDUAL. Its distance is a share of the athlete's own
+   long run, at the top of the band the architecture already treats as coherent
+   for a supporting run, and the remaining easy days keep ordinary easy running.
+   Where they cannot -- where naming it would push the rest under the floor --
+   it is not prescribed at all. */
+var MEDIUM_LONG_SHARE_OF_LONG = 0.65;
+/* How much longer than the week's ordinary easy runs it has to be before it is
+   a session rather than a name. Coaching methodology, stated as a ratio so it
+   scales with the athlete. */
+var MEDIUM_LONG_MIN_OVER_EASY = 1.25;
+function mediumLongRunText(km){
+  return { title:'Medium-Long Run', type:'easy',
+    desc: dtok(km)+' @ Easy pace. A second sustained aerobic run in the week — '
+        + 'time on your feet without the cost of another long run.' };
 }
 function restDayText(isRaceWeek){
   return { title:'Rest Day', type:'rest',
@@ -9713,6 +9909,52 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
                                      !!blockResult.noQuality);
     var perEasy = dist.perEasy;
     longKm = dist.longKm;
+    /* ---- IS THIS A WEEK THAT WANTS A MEDIUM-LONG RUN? ----
+       LATE BUILD ONLY, and only for an athlete whose long run has itself
+       become a marathon long run -- its cost inside the ordinary marathon
+       region rather than below it. Before that there is nothing for a second
+       sustained run to support; after it, Peak's two exposures already own the
+       durability budget and a third sustained run defeats the absorption week
+       between them.
+
+       AND IT MUST LEAVE REAL EASY RUNNING BEHIND IT. If naming one supporting
+       day pushes the others under the floor, the week did not want a
+       medium-long run -- it wanted fewer kilometres, or more days, or a
+       different destination. Not prescribed, and nothing is relabelled. */
+    var mediumLongDay = null, mediumLongKm = 0, easyDaysBaseCount = easyDays.length;
+    /* WHAT MAKES IT A MARATHON WEEK RATHER THAN A LONG WEEK: the long run is
+       already carrying marathon-specific work. hasGoalSegment is the block's
+       own statement that it has reached that point -- it is false through Base
+       and false wherever the long run is below the goal-finish floor -- so no
+       new threshold is introduced to ask the question. */
+    /* AND THE WEEK HAS TO HAVE ROOM FOR IT. Naming one of two supporting days
+       leaves a single easy run, which is not "the remaining easy runs stay
+       ordinary" -- it is a week with two sustained runs and one easy one. Three
+       supporting days is the smallest week that can give one up and still be
+       recognisable. */
+    if (useCoherentFrequency && wk.phase === 'Build' && easyDays.length >= 3 &&
+        longKm > 0 && wk.hasGoalSegment){
+      var mAllocML = marathonPhaseAllocation(blockResult.planWeeks);
+      var lateBuild = (wk.week - mAllocML.base) >= Math.ceil(mAllocML.build / 2);
+      if (lateBuild && !wk.isCutback){
+        var wantKm = longKm * MEDIUM_LONG_SHARE_OF_LONG;
+        var pool = perEasy * easyDays.length;
+        var restEach = (pool - wantKm) / (easyDays.length - 1);
+        var floorEach = (easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM;
+        /* IT HAS TO BE A DIFFERENT SESSION FROM THE ONES BESIDE IT. A named run
+           a few hundred metres longer than the easy days is a label, not a
+           stimulus, and labelling is exactly what this must not do. Stated as a
+           ratio so it scales with the athlete rather than as a distance. */
+        if (wantKm >= restEach * MEDIUM_LONG_MIN_OVER_EASY && restEach >= floorEach){
+          /* The day FURTHEST from the long run, so the week's two sustained
+             runs are not sitting next to each other. */
+          mediumLongDay = easyDays.reduce(function(best, d){
+            return (best === null || isoGap(d, longDay) > isoGap(best, longDay)) ? d : best;
+          }, null);
+          mediumLongKm = round1(wantKm);
+        }
+      }
+    }
     // S0 ACCOUNTING: kept on the week so the reconciliation pass below can read
     // what the allocator decided, rather than inferring it from the days.
     wk.dist = dist;
@@ -9859,10 +10101,22 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
            long run. Same session, same distance, two different quanta. */
         dayObj = { type:'easy', title:st.title, km:perEasy, desc:st.desc,
                    prescription:{ archetype:'easy_strides', params:{ easyKm:strEasyKm, reps:6, m:100 } } };
+      } else if (activeSet[iso] && iso===mediumLongDay){
+        var ml = mediumLongRunText(mediumLongKm);
+        dayObj = { type:ml.type, title:ml.title, km:mediumLongKm, desc:ml.desc,
+                   mediumLong:true,
+                   prescription:{ archetype:'easy_run', params:{ km:mediumLongKm } } };
       } else if (activeSet[iso]){
-        var er = easyRunText(perEasy);
-        dayObj = { type:er.type, title:er.title, km:perEasy, desc:er.desc,
-                   prescription:{ archetype:'easy_run', params:{ km:perEasy } } };
+        /* The other supporting days share what the medium-long did not take.
+           The WEEK is unchanged -- kilometres are conserved, which is the whole
+           reason a medium-long run cannot make an oversized week smaller. */
+        var eKm = mediumLongDay != null && easyDaysBaseCount > 1
+          ? round1(Math.max((easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM,
+                            (perEasy * easyDaysBaseCount - mediumLongKm) / (easyDaysBaseCount - 1)))
+          : perEasy;
+        var er = easyRunText(eKm);
+        dayObj = { type:er.type, title:er.title, km:eKm, desc:er.desc,
+                   prescription:{ archetype:'easy_run', params:{ km:eKm } } };
       } else {
         var rd = restDayText(false);
         dayObj = { type:rd.type, title:rd.title, km:0, desc:rd.desc };  // rest carries no structure
@@ -9872,6 +10126,9 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         // present only on the days it is true of, so a plan built before this
         // existed reads identically to one built after it
         availableUnused: dayObj.availableUnused ? true : undefined,
+        /* Present only on the days it is true of, so a plan built before this
+           existed reads identically to one built after it. */
+        mediumLong: dayObj.mediumLong ? true : undefined,
         prescription: dayObj.prescription ? { v:PRESCRIPTION_VERSION, archetype:dayObj.prescription.archetype, params:dayObj.prescription.params } : undefined,
         completed:false, actual:{km:null,pace:null,hr:null,rpe:null,notes:''} });
     }
@@ -19054,6 +19311,24 @@ function nextBlockRecommendation(){
      and returned the SAME "choice" recommendation -- Start Recovery included
      -- that a just-finished race gets, days before the race had happened. */
   if (purpose === 'race') return null;
+  /* ---- THE RACE GOAL WINDOW HAS ARRIVED ----
+     An athlete who set a marathon as a destination and is completing Aerobic
+     Base or Speed & Threshold in the meantime should not have to remember the
+     date or re-enter the race. When the dedicated window opens, the offer to
+     build the race programme leads.
+
+     IT IS AN OFFER. Nothing is rebuilt, nothing is replaced, and the existing
+     card already says so in its own footer: "Nothing changes until you choose.
+     Your training history stays either way." The prescription is built when the
+     athlete accepts, from the evidence they have by then -- never frozen at the
+     moment the destination was set. */
+  var dest = raceDestination();
+  if (dest && raceDestinationDue()){
+    var lbl = (DISTANCE_PROFILES[dest.distanceKey] || {}).label || 'race';
+    return { kind:'block', purpose:'race', raceDestination:dest,
+      why:'Your ' + lbl + ' preparation window is here. Finish this block and Valhalla '
+        + 'will build your race programme from what you have shown it since.' };
+  }
   if (!nearEnd && !goalPassed) return null;
 
   var choice = blockChoicesFor(purpose);
@@ -26708,7 +26983,9 @@ function renderBlockTransitionCard(){
 
   var body = rec.why ? '<div class="yr-why">'+escapeHtml(rec.why)+'</div>' : '';
   body += '<div class="yr-choices">'+opts.map(function(p, i){
-    var label = p === 'race' ? 'Build a race block' : 'Start ' + blockPurposeLabel(p);
+    var label = p === 'race'
+      ? (rec.raceDestination ? 'Build your race day plan' : 'Build a race block')
+      : 'Start ' + blockPurposeLabel(p);
     return '<button type="button" class="btn '+(i===0?'btn-primary':'btn-ghost')+' btn-block" '+
       'data-action="start-block" data-purpose="'+p+'">'+escapeHtml(label)+'</button>';
   }).join('')+'</div>';
@@ -28113,6 +28390,62 @@ function renderWeeksList(forceOpenAll){
 /* =========================================================
    MODAL INFRASTRUCTURE
    ========================================================= */
+/* ---------- TWO OFFERS, ONE PATTERN, NO NEW VISUAL LANGUAGE ----------
+   Both use the modal card, the existing button classes and the same footer
+   promise the block-transition card already makes. Nothing here introduces a
+   colour, a control or a typeface the product does not already have. */
+/* Answered once per builder session: the offer is made, the athlete chooses,
+   and Generate does not re-ask on the way back through. */
+var runwayOfferAnswered = false;
+function openRunwayOfferModal(plan, distanceKey){
+  openModal(runwayOfferHtml(plan, distanceKey), 'modal-themed');
+}
+function openAvailabilityOfferModal(rec){
+  openModal(availabilityOfferHtml(rec), 'modal-themed');
+}
+function runwayOfferHtml(plan, distanceKey){
+  var lbl = (DISTANCE_PROFILES[distanceKey] || {}).label || 'race';
+  var prep = plan.preparatory;
+  var purposeLabel = blockPurposeLabel(prep.purpose);
+  var why = prep.reason === 'aerobic_gap'
+    ? 'Your weekly running is below what a ' + lbl.toLowerCase() +
+      ' programme builds from, so aerobic development comes first.'
+    : 'Your aerobic base is there. What you have not shown Valhalla is how you absorb '
+      + 'faster work, and that is what these weeks are for.';
+  return '<div class="modal-head"><h2 class="font-head">You have ' + plan.weeksToRace + ' weeks</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body">'+
+      '<p>A ' + lbl + ' programme is ' + plan.dedicatedWeeks + ' weeks. That leaves ' +
+        prep.weeks + ' before it starts, and stretching the race programme across them '+
+        'would not build anything extra — it would just spread the same work thinner.</p>'+
+      '<p>' + escapeHtml(why) + '</p>'+
+      '<div class="yr-choices">'+
+        '<button type="button" class="btn btn-primary btn-block" data-action="runway-prep" '+
+          'data-purpose="' + prep.purpose + '">Start ' + escapeHtml(purposeLabel) +
+          ' · ' + prep.weeks + ' weeks</button>'+
+        '<button type="button" class="btn btn-ghost btn-block" data-action="runway-continue">'+
+          'Build the ' + escapeHtml(lbl) + ' programme now</button>'+
+      '</div>'+
+      '<div class="yr-foot">Either way Valhalla keeps your race date and brings you back '+
+        'to it when the ' + plan.dedicatedWeeks + '-week window opens.</div>'+
+    '</div>';
+}
+function availabilityOfferHtml(rec){
+  return '<div class="modal-head"><h2 class="font-head">Room for another day?</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body">'+
+      '<p>' + escapeHtml(rec.why) + '</p>'+
+      '<p>' + escapeHtml(rec.contains) + ' ' + escapeHtml(rec.enables) + '</p>'+
+      '<div class="yr-choices">'+
+        '<button type="button" class="btn btn-primary btn-block" data-action="expand-accept" '+
+          'data-day="' + rec.day + '">Add a ' + ISO_WEEKDAY_NAMES[rec.day] + '</button>'+
+        '<button type="button" class="btn btn-ghost btn-block" data-action="expand-decline">'+
+          'Keep my current days</button>'+
+      '</div>'+
+      '<div class="yr-foot">Saying no costs you nothing — no streak, no score, and '+
+        'Valhalla solves the programme around the days you have.</div>'+
+    '</div>';
+}
 function openModal(html, extraClass){
   closeModal();
   var overlay = document.createElement('div');
@@ -29434,6 +29767,24 @@ async function handleGeneratePlan(){
     ? state.setup.activeGoal
     : GOAL_KEYS.filter(function(k){ return goals[k]; })[0];
 
+  /* ---- MORE RUNWAY THAN THE RACE PROGRAMME WANTS ----
+     A dedicated marathon programme is fifteen weeks. An athlete twenty-four
+     weeks out does not need a twenty-four week one -- the volume destination
+     stopped moving long before then -- they need development first and the
+     race programme when its window opens.
+
+     THE OFFER IS THE ATHLETE'S TO TAKE OR LEAVE. Both buttons are real: the
+     recommended development block, or carry on and build the race programme
+     now. Nothing is decided for them, and skipping the offer (`skipRunway`)
+     is what the second button does. */
+  if (!runwayOfferAnswered && buildPurpose === 'race' && hasEvent && distanceKey === 'full'){
+    var rp = marathonRunwayPlan(planWeeks, volume);
+    if (rp && rp.preparatory){
+      setRaceDestination(distanceKey, raceDate, {}, null);
+      openRunwayOfferModal(rp, distanceKey);
+      return;
+    }
+  }
   var profile = DISTANCE_PROFILES[distanceKey];
   var schedule = { activeDays:activeDays, longRunDay:longRunDay };
   var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks,
@@ -29509,6 +29860,12 @@ async function handleGeneratePlan(){
   var supportPref = supportBox ? (supportBox.checked ? 'on' : 'off')
     : ((state.setup && state.setup.supportWork) || 'off');
 
+  /* THE DESTINATION OUTLIVES THE BLOCK. Recorded whenever a race plan is
+     built, so that if the athlete later starts an Aerobic Base or Speed &
+     Threshold block the race is still known and the transition can be offered
+     when its window opens. Only the identity is kept -- distance, date, goals
+     -- never the prescription. */
+  if (buildPurpose === 'race' && hasEvent) setRaceDestination(distanceKey, raceDate, goals, activeGoal);
   state.setup = {
     distanceKey: distanceKey, currentVolume: volume, raceDate: raceDate, hasEvent: hasEvent,
     startDate: startDate, planWeeks: blockResult.planWeeks,
@@ -37525,6 +37882,22 @@ document.addEventListener('click', function(e){
     case 'subscription-resubscribe': handleSubscribeStart(target.getAttribute('data-period')); break;
     case 'subscription-manage': handleManageSubscription(); break;
     case 'start-block': handleStartBlock(target.getAttribute('data-purpose')); break;
+    /* The surplus-runway offer. Both answers are the athlete's; neither is a
+       default the app takes on their behalf. */
+    case 'runway-prep': closeModal(); runwayOfferAnswered = true;
+      handleStartBlock(target.getAttribute('data-purpose')); break;
+    case 'runway-continue': closeModal(); runwayOfferAnswered = true; handleGeneratePlan(); break;
+    /* Availability expansion. Accept authorises the day; Keep Current Days
+       declines it, costs nothing, and is not re-asked for this block. */
+    case 'expand-accept': {
+      var xd = parseInt(target.getAttribute('data-day'), 10);
+      if (acceptAvailabilityExpansion(xd)){ showToast('Added — your programme will use it where it helps'); }
+      closeModal(); scheduleSave(); renderApp(); break;
+    }
+    case 'expand-decline':
+      declineAvailabilityExpansion();
+      showToast('Kept as it is — nothing changes for your training');
+      closeModal(); scheduleSave(); renderApp(); break;
     case 'set-experience': handleSetExperience(target.getAttribute('data-experience')); break;
     case 'coach-why': handleCoachWhy(target.getAttribute('data-day')); break;
     case 'toggle-evolution': evolutionOpen = !evolutionOpen; renderApp(); break;

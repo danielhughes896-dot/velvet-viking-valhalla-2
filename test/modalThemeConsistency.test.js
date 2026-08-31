@@ -109,6 +109,12 @@ const WORK_SURFACES = [
   ['openBackupTextModal', 'Copy Backup'],
   ['openPasteBackupModal', 'Paste Backup'],
   ['openHQPanel', "Plan HQ's Record / Reading / action panels"],
+  /* Two marathon offers. Both are work surfaces rather than interrupts: each
+     has a close control, each presents two real choices, and declining costs
+     the athlete nothing -- so both sit on the themed ramp with everything else
+     the athlete is meant to read and think about. */
+  ['openRunwayOfferModal', 'the surplus-runway development offer'],
+  ['openAvailabilityOfferModal', 'the availability-expansion offer'],
 ];
 
 /* The other side of the classification, and the reason the count is a rule
