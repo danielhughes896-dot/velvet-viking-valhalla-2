@@ -5122,6 +5122,159 @@ function marathonRunwayPlan(weeksToRace, stateVolume){
   out.reason = 'surplus_to_development_block';
   return out;
 }
+/* ---------- ASKING FOR ANOTHER RUNNING DAY ----------
+   THE ONLY THING THAT MAY TRIGGER THIS is that the athlete's CURRENT
+   authorised availability is constraining a coherent programme -- measured,
+   not assumed. coherentFrequencyRange() already answers which day counts let
+   this week's sessions be expressed; if every one of them is above what the
+   athlete has authorised, the constraint is the availability rather than the
+   training.
+
+   WHAT MAY NOT TRIGGER IT, and each of these was available and is refused:
+     - another day is arithmetically possible
+     - the programme would like somewhere to put a second quality session
+     - the athlete's volume crossed a number
+     - the athlete has been training well
+   Capacity without need does not ask. Need without capacity adapts inside
+   what the athlete has.
+
+   THE CAUSAL CHAIN, in the corrected form. An extra AUTHORISED day improves
+   distribution; better distribution reduces session-size pressure; where
+   capacity permits that increases the workload the athlete can sustainably
+   express; where capacity permits that supports long-run development; and
+   that reduces the readiness gap. Frequency does not erase a readiness gap by
+   itself and nothing here claims it does -- which is why acceptance grants
+   permission and changes no volume on its own.
+
+   SIX IS THE CEILING. Not a tuning parameter: going from six to seven removes
+   the athlete's only full non-running day, which is a different kind of
+   decision and is not one this function is permitted to reach. Where six is
+   already authorised and still constrained, the programme is re-solved --
+   volume holds or develops more slowly, the long run holds, geometry changes,
+   or the readiness limitation is stated. */
+var AVAILABILITY_EXPANSION_CEILING = 6;
+/* A declined recommendation is not re-asked next week. The athlete answered;
+   asking again on a schedule is coercion wearing a coaching hat. It may be
+   raised again when the programme itself changes -- a new block -- which is a
+   new question rather than the same one repeated. */
+var EXPANSION_REASONS = {
+  SESSION_SIZE_PRESSURE:
+    'Your easy runs are having to carry more than an easy run should, because the week has fewer days to spread across than it needs.',
+  AEROBIC_VOLUME_DISTRIBUTION:
+    'The week’s aerobic running would sit better across another day than it does concentrated into the days you have.',
+  LONG_RUN_LOAD_DISTRIBUTION:
+    'Your supporting runs are creeping up toward the size of your long run, which blurs what each of them is for.',
+  READINESS_GAP:
+    'Another day would let the programme develop the work your race day actually asks for.'
+};
+
+function expansionRecord(){
+  return (state && state.availabilityExpansion) || null;
+}
+/* Has this athlete already answered this exact question for this block? */
+function expansionAnsweredFor(blockId, from){
+  var r = expansionRecord();
+  return !!(r && r.blockId === blockId && r.from === from && r.decision);
+}
+/* THE RECOMMENDATION. Pure: it reads the plan and the athlete's evidence and
+   returns what should be offered, or null. It changes nothing. */
+function availabilityExpansionRecommendation(){
+  var su = state && state.setup;
+  if (!su || !su.schedule || !su.schedule.activeDays) return null;
+  if (!usesMarathonArc(planPurpose(su), su.distanceKey)) return null;
+  var from = su.schedule.activeDays.length;
+  if (!(from > 0) || from >= AVAILABILITY_EXPANSION_CEILING) return null;
+  if (expansionAnsweredFor(su.blockId, from)) return null;
+
+  /* IS THE CURRENT AVAILABILITY ACTUALLY THE CONSTRAINT? Read from the weeks
+     the plan is really built from, at the frequency the athlete has authorised
+     and at one more. A recommendation is only honest if the extra day changes
+     the answer. */
+  var pWeeks = null;
+  try { pWeeks = playbookBlockWeeks(); } catch(e){ pWeeks = null; }
+  if (!pWeeks || !pWeeks.length) return null;
+  /* The quality commitment the live plan actually carries, read from the days
+     rather than re-derived, so the supporting days are measured against the
+     sessions the athlete can see. */
+  var slots = 1;
+  try {
+    var wk1 = (state.days || []).filter(function(d){ return d.week === 2; });
+    var q = wk1.filter(function(d){
+      return ['tempo','threshold','interval','repetition'].indexOf(d.type) !== -1; });
+    if (q.length) slots = q.length;
+  } catch(e){ slots = 1; }
+  var constrained = 0, relieved = 0, counted = 0, worstShare = 0;
+  pWeeks.forEach(function(w){
+    if (w.isRace || w.phase === 'Taper') return;
+    var qKm = slots >= 2 ? ((w.qKm||0) + (w.tKm||0)) : slots === 1 ? (w.qKm||0) : 0;
+    var here = coherentFrequencyRange(w.volume, w.longTarget, qKm, slots, from);
+    var more = coherentFrequencyRange(w.volume, w.longTarget, qKm, slots, from + 1);
+    if (!here || !more) return;
+    counted++;
+    // no coherent frequency at the authorised ceiling, but there is at one more
+    if (here.min == null && more.min != null){ constrained++; relieved++; }
+    else if (here.min != null && more.min != null && more.min > from) constrained++;
+    var row = (here.rows || []).filter(function(r){ return r.days === from; })[0];
+    if (row && row.share > worstShare) worstShare = row.share;
+  });
+  if (!counted) return null;
+  /* MOST OF THE BLOCK, not one week. A single constrained week is a cutback
+     rebound or an unusual quality week, and neither is a reason to ask an
+     athlete to reorganise their life. */
+  if (!(relieved > 0 && constrained * 2 > counted)) return null;
+
+  /* AND THE ATHLETE HAS TO BE ABLE TO ABSORB IT. Demonstrated capacity is the
+     athlete's own evidence -- what they have actually sustained -- and the
+     block must not currently be straining. Capacity is read at or above the
+     days they already have: an athlete who is not managing the days they
+     authorised is not asked for another. */
+  var dem = null, blkState = null;
+  try { dem = demonstratedRunningFrequency(); } catch(e){ dem = null; }
+  try { var be = blockEffectiveness(); blkState = be ? be.state : null; } catch(e){ blkState = null; }
+  if (dem == null) return { recommend:false, from:from, to:from+1, reason:'no_frequency_evidence' };
+  if (dem < from) return { recommend:false, from:from, to:from+1, reason:'not_sustaining_current_days' };
+  if (blkState === 'STRAINED') return { recommend:false, from:from, to:from+1, reason:'strained' };
+
+  var reason = worstShare > SUPPORT_SHARE_MAX ? 'LONG_RUN_LOAD_DISTRIBUTION'
+             : 'AEROBIC_VOLUME_DISTRIBUTION';
+  return {
+    recommend:true, from:from, to:from+1, reason:reason,
+    why: EXPANSION_REASONS[reason],
+    contains: 'It would be an easy aerobic run, not another hard session.',
+    enables: 'It spreads the same running across one more day. If your training keeps absorbing it, that is what later lets the weekly work and the long run develop — but nothing gets bigger just because you said yes.',
+    evidence: { demonstrated:dem, blockState:blkState, weeksConstrained:constrained,
+                weeksCounted:counted, worstSupportShare:Math.round(worstShare*100)/100 }
+  };
+}
+/* ACCEPT GRANTS PERMISSION AND NOTHING ELSE. The day joins the athlete's
+   authorised availability; it does not raise the volume, it does not create a
+   quality slot, and the very next week may still leave it as an Optional Run
+   because the programme did not need a run there. Redistribution is the first
+   benefit and often the only immediate one. */
+function acceptAvailabilityExpansion(iso){
+  var su = state && state.setup;
+  if (!su || !su.schedule) return false;
+  var days = su.schedule.activeDays.slice();
+  if (days.length >= AVAILABILITY_EXPANSION_CEILING) return false;
+  if (iso == null || days.indexOf(iso) !== -1) return false;
+  state.availabilityExpansion = { blockId: su.blockId, from: days.length, to: days.length + 1,
+                                  decision:'accepted', day: iso, decidedAt: todayStr() };
+  days.push(iso); days.sort(function(a,b){ return a-b; });
+  su.schedule.activeDays = days;
+  return true;
+}
+/* DECLINE COSTS NOTHING. No adherence, confidence or execution consequence,
+   the question is not re-asked for this block, and the programme is re-solved
+   under the constraint the athlete actually stated -- which is the one thing
+   it must not do by squeezing the same mileage into fewer days. */
+function declineAvailabilityExpansion(){
+  var su = state && state.setup;
+  if (!su) return false;
+  state.availabilityExpansion = { blockId: su.blockId, from: su.schedule.activeDays.length,
+                                  to: su.schedule.activeDays.length + 1,
+                                  decision:'declined', decidedAt: todayStr() };
+  return true;
+}
 /* ---------- THE RACE IS A DESTINATION, NOT ONLY A PLAN ----------
    An athlete completing Aerobic Base because their marathon is twenty-four
    weeks out must not have to re-enter the marathon when they finish it. The
@@ -5696,22 +5849,127 @@ var SUPPORT_SHARE_MAX = 0.75;   // above this it is a second long effort
    setup exists. Shape is what this uses. The time reading lands with the rest
    of the pressure architecture, where pace is available. */
 
+/* ---------- QUALITY MIGRATES WITH THE PHASE ----------
+   THE DEFECT. The single quality slot alternated on week parity -- tempo,
+   track, tempo, track -- from the first week of Base to the last week before
+   the taper. The week number decided the session; the phase decided nothing.
+
+   WHAT ACTUALLY NEEDS TO MOVE, and it is narrower than it first looks. The
+   structure pools are already phase-aware: Base's interval pool is hill
+   repeats and fartlek, which IS the strides-and-economy work base wants, and
+   Peak's is goal-pace intervals, which IS the marathon-specific work peak
+   wants. A first attempt at this sent Base and Peak to the tempo family and
+   removed goal-pace reps from the marathon entirely -- the exact opposite of
+   "marathon-specific work becomes more important" -- and the suite caught it.
+
+   ONE PHASE IS GENUINELY WRONG. The BACK HALF OF BUILD draws track intervals,
+   ladders and deuces: general VO2 work, at the point in the block where
+   specificity is supposed to be displacing it. That is where the migration
+   applies, and only there. Threshold and tempo take the majority of those
+   weeks; the interval family still appears, because controlling a dose is not
+   the same as banning a family.
+
+   Everything else -- Base, early Build, Peak, taper -- keeps the rotation it
+   already had, because the pool it draws from is already the right one for the
+   phase. This chooses only WHICH FAMILY the slot takes; how big the session is
+   remains the existing dose machinery's answer, untouched.
+
+   THE RESTRAINT PEAK NEEDS IS A DIFFERENT ONE and is applied where it belongs:
+   secondQualityExposurePermission() refuses a SECOND conventional session in a
+   Peak week, which is what stops maximal VO2 stacking on maximal threshold
+   stacking on a maximal long run. */
+function marathonQualityKindFor(phase, weekNum, buildIndex, buildWeeks){
+  if (phase !== 'Build') return null;
+  var late = (buildWeeks > 0) && (buildIndex >= Math.ceil(buildWeeks / 2));
+  if (!late) return null;                       // early Build keeps its alternation
+  return (weekNum % 3 === 0) ? 'interval' : 'tempo';
+}
+/* ---------- WHAT THE LONG RUN COSTS, IN THE UNIT THAT DIFFERS ----------
+   COACH_LOAD_FACTOR prices a long run at 1.1 whatever it contains and however
+   long it takes. A 30km long run costs a 3h00 marathoner about 2h13 and a
+   6h00 marathoner about 4h26, and the load model charges both of them 1.1x30.
+   Time is the unit that differs between those two athletes, and it is the unit
+   the quality budget has to be told about.
+
+   THE REGIONS ARE THE SETTLED ONES, restated as a continuous reading rather
+   than as steps: under about 2h30 a marathon long run is not a duration
+   concern; 2h30 to 3h30 is ordinary marathon long-run territory; beyond that
+   the cost is real and has to be paid for somewhere. Nothing here truncates a
+   long run and nothing here forbids one -- ~3h is a coaching cost convention
+   and not a safety law, and slower athletes may legitimately exceed it where
+   the readiness benefit justifies it. This function only prices it. */
+var LONG_RUN_COST_ORDINARY_SEC = 150 * 60;   // 2h30
+var LONG_RUN_COST_HEAVY_SEC    = 210 * 60;   // 3h30
+function longRunCostPressure(seconds){
+  if (!(seconds > 0)) return 0;
+  var p = (seconds - LONG_RUN_COST_ORDINARY_SEC) /
+          (LONG_RUN_COST_HEAVY_SEC - LONG_RUN_COST_ORDINARY_SEC);
+  return Math.max(0, Math.min(1.4, Math.round(p * 100) / 100));
+}
+/* ---------- THE SECOND CAUSE: WHAT THE SESSION ACTUALLY COSTS ----------
+   SHAPE ALONE IS NOT ENOUGH, and the measurement that proved it is on the
+   record: an 80km/week athlete on five days carries an 18km supporting run at
+   62% of their long run -- a share that reads as perfectly coherent -- and
+   that run takes about 94 minutes. Two athletes with identical week shapes pay
+   completely different prices for them, because the price is time and shape
+   cannot see time.
+
+   THE 75-90 MINUTE REGION IS A REGION, NOT A LINE. Nothing happens at 90
+   minutes that does not happen at 89. Pressure rises smoothly through it and
+   keeps rising past it, so the architecture grades rather than steps: 1h29 and
+   1h31 differ by a few hundredths, which is what "no biological cliff" has to
+   look like when it is written down rather than asserted.
+
+   AND IT IS COACHING METHODOLOGY, NOT PHYSIOLOGY. These two numbers are a
+   product decision about where an ordinary supporting run stops being ordinary
+   for a marathon athlete. No literature sets them and none is cited for them. */
+var SUPPORT_COST_COMFORT_SEC = 75 * 60;
+var SUPPORT_COST_UPPER_SEC   = 90 * 60;
+function sessionCostPressure(seconds){
+  if (!(seconds > 0)) return 0;
+  var p = (seconds - SUPPORT_COST_COMFORT_SEC) / (SUPPORT_COST_UPPER_SEC - SUPPORT_COST_COMFORT_SEC);
+  return Math.max(0, Math.min(1.4, Math.round(p * 100) / 100));
+}
+/* THE TWO CAUSES STAY SEPARATE and are reported separately. Collapsing them
+   into one number would let a coherent week and an incoherent one report the
+   same score, and would hide WHICH lever relieves it: cost is relieved by
+   another day or by naming the session, shape by the long run or the volume. */
+function supportPressure(supportSec, supportKm, longKm){
+  var cost = sessionCostPressure(supportSec);
+  var shape = (longKm > 0 && supportKm > 0)
+    ? Math.max(0, Math.min(1.4, Math.round(((supportKm / longKm) - SUPPORT_SHARE_MIN) /
+                                           (SUPPORT_SHARE_MAX - SUPPORT_SHARE_MIN) * 100) / 100))
+    : 0;
+  return { cost: cost, shape: shape, score: Math.max(cost, shape) };
+}
+
 /* The coherent range of prescribed running days for one week, given what that
    week actually has to contain. Returns null where the week has no long run to
    measure against, in which case nothing here has an opinion. */
-function coherentFrequencyRange(volumeKm, longKm, qualityKm, qualitySlots, maxDays){
+function coherentFrequencyRange(volumeKm, longKm, qualityKm, qualitySlots, maxDays, easyPaceSecPerKm){
   if (!(volumeKm > 0) || !(longKm > 0)) return null;
   var qSlots = Math.max(0, qualitySlots || 0);
   var cap = Math.max(1, maxDays || 7);
+  var pace = (easyPaceSecPerKm > 0) ? easyPaceSecPerKm : null;
   var lo = null, hi = null, rows = [];
   for (var d = 2; d <= cap; d++){
     var supportDays = d - 1 - qSlots;
     if (supportDays < 1) continue;              // a week keeps a real easy run
     var rest = volumeKm - longKm - (qualityKm || 0);
     if (!(rest > 0)) continue;
-    var share = (rest / supportDays) / longKm;
-    rows.push({ days:d, supportKm: round1(rest/supportDays), share: Math.round(share*100)/100 });
-    if (share <= SUPPORT_SHARE_MAX && share >= SUPPORT_SHARE_MIN){
+    var supportKm = rest / supportDays;
+    var share = supportKm / longKm;
+    /* BOTH CAUSES, OR ONLY THE ONE THAT CAN BE READ. Where pace is unknown --
+       a preview, a caller with no athlete -- cost contributes nothing and the
+       band is the shape band exactly as it was. Where pace IS known, a day
+       count is coherent only if the week's shape AND the session's cost are
+       both acceptable, which is what stops a proportionate 94-minute
+       supporting run from certifying itself as ordinary easy running. */
+    var sec = pace ? supportKm * pace : 0;
+    var cost = pace ? sessionCostPressure(sec) : 0;
+    rows.push({ days:d, supportKm: round1(supportKm), share: Math.round(share*100)/100,
+                supportSec: pace ? Math.round(sec) : null, cost: pace ? cost : null });
+    if (share <= SUPPORT_SHARE_MAX && share >= SUPPORT_SHARE_MIN && cost < 1){
       if (lo === null) lo = d;
       hi = d;
     }
@@ -6398,6 +6656,17 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     if (!isRace && !isTaper && !arc.noQuality){
       soloKind = (isCheckpoint || isCalibration) ? 'tempo'
                : (w % 2 === 0 ? 'tempo' : 'interval');
+      /* MARATHON: THE PHASE CHOOSES THE FAMILY, not the week number. See
+         marathonQualityKindFor(). This is the chain the athlete actually
+         receives in a single-slot week, so it is the one place the migration
+         has to happen -- overriding it downstream would leave the dose
+         progression indexed against a family the week no longer delivers.
+         Every other distance and purpose keeps the parity rotation. */
+      if (usesMarathonArc(purpose, distKey) && !isCheckpoint && !isCalibration){
+        var mAlloc = marathonPhaseAllocation(N);
+        var mKind = marathonQualityKindFor(phase, w, w - mAlloc.base, mAlloc.build);
+        if (mKind) soloKind = mKind;
+      }
       var soloOcc = soloKind === 'interval' ? soloOccQ : soloOccT;
       soloSpec = fitQualityStructure(
         soloKind === 'interval' ? INTERVAL_STRUCTURE_POOL : TEMPO_STRUCTURE_POOL,
@@ -8477,9 +8746,47 @@ function longRunCarriesSpecificWork(wk){
    PERMISSION IS NOT PRESCRIPTION. This answers only whether the athlete has
    earned the exposure. Whether the programme should spend it is the block's
    own business, and no new rule about that is introduced here. */
-function secondQualityExposurePermission(minGapDays){
+function secondQualityExposurePermission(minGapDays, ctx){
   var out = { permitted:false, reason:'no_evidence', family:null, hoursToNormal:null,
-              confidence:null, blockState:null, minGapDays:(minGapDays==null?null:minGapDays) };
+              confidence:null, blockState:null, minGapDays:(minGapDays==null?null:minGapDays),
+              phase:(ctx && ctx.phase) || null, longRunCost:(ctx && ctx.longRunCost) || null };
+  /* ---- THE WEEK ITSELF CAN REFUSE A SECOND SESSION THE ATHLETE HAS EARNED ----
+     Permission and prescription are different questions and this function
+     answers the first, but two of the inputs are properties of the WEEK rather
+     than of the athlete, and without them the gate could not de-escalate for
+     the two reasons the marathon most needs.
+
+     PHASE. A Peak week already carries the two long-run exposures the whole
+     block is built around; adding a second conventional quality session to it
+     is the maximal-VO2-plus-maximal-threshold-plus-maximal-long-run stack the
+     methodology prohibits. A taper's dose is falling by design.
+
+     BASE IS NOT ONE OF THEM, deliberately. A base phase should not be FORCED
+     into two conventional sessions because six days exist, but that is a
+     statement about what the week needs rather than about what the athlete may
+     have earned -- and the settled quality-budget decision is explicit that a
+     week whose long run is genuinely aerobic keeps its full allowance. The
+     restraint base actually wants is over session TYPE, and that is where it
+     is applied: see marathonQualityKindFor(), which gives base threshold and
+     tempo rather than VO2 work.
+
+     LONG-RUN COST. The load model prices a long run at a flat factor whatever
+     it contains and however long it takes, so a 30km long run costs a 3h00
+     athlete 2h13 and a 6h00 athlete 4h26 and both are charged the same. Cost
+     is the unit that differs between those two athletes, and it is the unit
+     that decides whether a second demanding session still fits. Passed in as a
+     pressure reading rather than read from any load table here.
+
+     MARATHON ONLY: ctx is supplied by the marathon path and by nothing else,
+     so every other distance reaches the athlete-evidence gate below exactly as
+     it did. */
+  if (ctx){
+    if (ctx.phase === 'Peak'){ out.reason = 'peak_exposure_recovery'; return out; }
+    if (ctx.phase === 'Taper' || ctx.phase === 'Final'){ out.reason = 'taper_reduces_dose'; return out; }
+    if (ctx.longRunCost != null && ctx.longRunCost >= 1){
+      out.reason = 'long_run_cost_exceeds_budget'; return out;
+    }
+  }
   var model = null;
   try { model = athleteResponseModel(); } catch(e){ model = null; }
   if (!model || !model.families) return out;
@@ -8708,7 +9015,7 @@ function distributeWeekVolume(volumeKm, qualityKm, longKm, secondLongKm, easyDay
            easyFloorExcessKm: easyFloorExcessKm };
 }
 
-function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, hasEvent){
+function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, hasEvent, opts){
   // default true: every plan built before the event became optional was built
   // by entering a race date
   if (hasEvent === undefined) hasEvent = true;
@@ -8768,6 +9075,21 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   /* Does the coherent-range authority apply here at all? Marathon race blocks
      only -- see the runCap note below for why the scope is that narrow. */
   var useCoherentFrequency = usesMarathonArc(blockResult.purpose, blockResult.distKey) && !noLongRun;
+  /* ---- THE PACE THIS ATHLETE ACTUALLY RUNS EASY AT ----
+     Needed because session COST is measured in time, and time is the only
+     thing that distinguishes two athletes with identical week shapes. It is
+     passed IN by the builder, because at generation the new setup has not been
+     written yet and reading state.setup would answer with the previous plan's
+     athlete. Where nothing supplies it -- a preview, a test fixture, a caller
+     that predates this -- cost simply does not contribute and the shape band
+     behaves exactly as it did. */
+  var easyPaceSec = (opts && opts.easyPaceSecPerKm > 0) ? opts.easyPaceSecPerKm : null;
+  if (easyPaceSec == null){
+    try {
+      var z = getActivePaces();
+      if (z && z.E && z.E.slow != null && z.E.fast != null) easyPaceSec = (z.E.slow + z.E.fast) / 2;
+    } catch(e){ easyPaceSec = null; }
+  }
   var nonLongActive = noLongRun ? activeDays.slice()
                     : activeDays.filter(function(d){ return d!==longDay; }).sort(function(a,b){return a-b;});
   // reserve the back-to-back day out of the quality-session pool when this distance uses it, so a hard
@@ -8833,7 +9155,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       var r = coherentFrequencyRange(w.volume, w.longTarget,
                                      qualitySlots >= 2 ? ((w.qKm||0) + (w.tKm||0))
                                        : qualitySlots === 1 ? (w.qKm||0) : 0,
-                                     qualitySlots, activeDays.length);
+                                     qualitySlots, activeDays.length, easyPaceSec);
       if (r && r.min != null){ mins.push(r.min); maxes.push(r.max); if (!blockFreqRows) blockFreqRows = r.rows; }
     });
     if (mins.length){
@@ -9035,10 +9357,27 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     var specificLong = !noLongRun && longRunCarriesSpecificWork(wk);
     var weekSlotCeiling = qualitySlotCeilingForDayCount(runCap);
     if (specificLong && weekSlotCeiling > 1) weekSlotCeiling -= 1;
+    /* ---- AND THE WEEK MAY HAND A SECOND SESSION BACK ----
+       Two quality sessions are not permanent once earned. Phase and long-run
+       cost are properties of THIS week, so the same athlete who holds two in
+       Build correctly holds one in Peak -- where the two long-run exposures
+       already own the week -- and one in Base, and one in taper. This is the
+       2 -> 1 direction, and it re-asks every week rather than deciding once.
+
+       MARATHON ONLY: ctx is supplied here and nowhere else. */
+    var weekQualityPermission = null;
+    if (useCoherentFrequency && weekSlotCeiling > 1){
+      weekQualityPermission = secondQualityExposurePermission(twoSlotGapDays, {
+        phase: wk.phase,
+        longRunCost: easyPaceSec ? longRunCostPressure((wk.longTarget || 0) * easyPaceSec) : null
+      });
+      if (!weekQualityPermission.permitted) weekSlotCeiling = 1;
+    }
     var weekQualitySlots = blockResult.noQuality ? 0
       : Math.min(qualityDays.length, weekSlotCeiling);
     if (weekQualitySlots < qualityDays.length)
       wk.qualityDaysRested = qualityDays.length - weekQualitySlots;
+    wk.qualityPermission = weekQualityPermission;
     wk.qualityBudget = { ceiling: qualitySlotCeilingForDayCount(runCap),
                          specificLongRun: specificLong, prescribed: weekQualitySlots };
     /* ---- AND A BACK-TO-BACK LONG RUN COSTS A RUNNING DAY LIKE ANY OTHER ----
@@ -9130,6 +9469,15 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     // them being dropped for the whole block; the checkpoint always takes it.
     var singleSlotKind = (wk.isCheckpoint || wk.isCalibration) ? 'tempo'
                        : (wk.week % 2 === 0 ? 'tempo' : 'interval');
+    /* MARATHON: the phase, not the week number, chooses the family. See
+       marathonQualityKindFor(). A checkpoint or calibration week keeps its own
+       session -- that slot IS the test. */
+    if (useCoherentFrequency && !wk.isCheckpoint && !wk.isCalibration){
+      var mAlloc = marathonPhaseAllocation(blockResult.planWeeks);
+      var bIdx = wk.week - mAlloc.base;            // 1-based position inside Build
+      var mKind = marathonQualityKindFor(wk.phase, wk.week, bIdx, mAlloc.build);
+      if (mKind) singleSlotKind = mKind;
+    }
     /* S2-A. THE OTHER HALF OF THE TAPER DEFECT, AND IT IS A SEQUENCING FAULT.
        Each family is bounded against its own previous instance, but with a
        single slot the two families ALTERNATE, so the delivered sequence
@@ -9212,11 +9560,53 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         if (useSolo(kind, slots)) return wk.soloFitsBound !== false;
         return kind === 'interval' ? wk.qFitsBound !== false : wk.tFitsBound !== false;
       };
+      /* ---- AND A QUALITY SESSION MAY NOT BE LONGER THAN THE LONG RUN ----
+         THE DEFECT, measured across the population sweep: a marathon block
+         built for a 12km/week athlete prescribed a 5km long run and a 7km
+         quality session. The week's longest run was a tempo. The existing
+         legality test is against weekFitCeil -- volume x LONG_FRACTION -- and
+         the week's ACTUAL long run sits below that wherever a floor, a cutback
+         or the rounding has moved it, so a session could pass the ceiling and
+         still be bigger than the run it was supposed to support.
+
+         This is not a new rule. "The long run is the longest run of the week"
+         is the invariant the suite has always asserted; it is now an input to
+         the decision rather than only a measurement of it. When it cannot be
+         satisfied the existing ladder does the rest: defer to one slot, then
+         substitute an easy run with strides. At these volumes the aerobic week
+         IS the training and the structure is what capacity has not yet earned.
+
+         MARATHON ONLY, because it is the marathon's own low-volume geometry
+         that produces the collision -- a 5K block's long run is short by
+         design and its quality sessions are sized against a different
+         emphasis. */
+      var longRunBound = function(kind, slots){
+        if (!useCoherentFrequency || !(longKm > 0)) return true;
+        var km = slots >= 2
+          ? Math.max(slotDeliveredKm('interval', 2), slotDeliveredKm('tempo', 2))
+          : slotDeliveredKm(kind, 1);
+        /* THE COMPARISON HAS TO SURVIVE ROUNDING, and by default it does not.
+           A long run is presented to the whole kilometre and a quality day is
+           rounded UP to the half, so at close sizes the two quanta invert the
+           order they were computed in: a 5.4km long run renders as 5 and a
+           5.2km tempo renders as 5.5, and the athlete is shown a quality
+           session longer than their long run from figures that satisfied the
+           bound. The same asymmetry roundSafeEasyCap already exists for on the
+           easy side. Compared as PRESENTED, so what the athlete sees is what
+           was tested. */
+        return roundWorkoutKm('tempo', km) <= roundWorkoutKm('long', longKm) + 1e-9;
+      };
       var affordable = function(slots, kind){
         if (slots >= 2 && !(slotLegal('interval', 2) && slotLegal('tempo', 2))) return false;
         if (slots === 1 && !slotLegal(kind, 1)) return false;
+        if (!longRunBound(kind, slots)) return false;
         return floorCostFor(slots, kind) <= wk.volume + 1e-9;
       };
+      /* A CHECKPOINT IS PINNED BECAUSE THAT SLOT IS THE MEASUREMENT -- but a
+         measurement longer than the athlete's long run is not a measurement of
+         a marathon week, it is the same collision wearing a test's name. The
+         pin yields to the long-run bound and to nothing else. */
+      if (pinned && useCoherentFrequency && !longRunBound(singleSlotKind, 1)) pinned = 0;
       while (qualitySlotsThisWeek > pinned &&
              !affordable(qualitySlotsThisWeek, singleSlotKind)){
         /* DEFERRING TO ONE SLOT ALSO CHOOSES WHICH ONE. The rotation's turn goes
@@ -29050,7 +29440,20 @@ async function handleGeneratePlan(){
     { purpose: buildPurpose,
       calibrate: calibrationNeededNow(volume),
       calibrateWhenViable: calibrationDeferrable(volume) });
-  var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent);
+  /* THE ATHLETE'S OWN EASY PACE, computed here because this is the first point
+     at which the NEW benchmark and goal are both known -- state.setup still
+     holds the previous plan's until the assignment below. Session cost is
+     measured in time, so without this the generator can only see week shape. */
+  var genEasyPace = null;
+  try {
+    var gv = benchSec ? vdotFromPerformance(DISTANCE_PROFILES[benchDist].raceKm * 1000, benchSec) : null;
+    if (gv){
+      var gz = trainingPacesFromVDOT(gv);
+      if (gz && gz.E && gz.E.slow != null && gz.E.fast != null) genEasyPace = (gz.E.slow + gz.E.fast) / 2;
+    }
+  } catch(e){ genEasyPace = null; }
+  var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent,
+                                { easyPaceSecPerKm: genEasyPace });
 
   /* HISTORY IS RECONCILED INTO A REBUILD AND ARCHIVED OUT OF A TRANSITION.
 
