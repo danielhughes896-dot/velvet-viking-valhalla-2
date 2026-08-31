@@ -6861,9 +6861,15 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     var mCostKm = (opts && opts.easyPaceSecPerKm > 0)
       ? (SUPPORT_COST_COMFORT_SEC / opts.easyPaceSecPerKm) : null;
     var mNeed = mCostKm > 0 ? Math.ceil(mHave / mCostKm) - mQSlots : (mDays - 1 - mQSlots);
+    /* AND THE WEEK HAS TO BE EXPRESSIBLE AT THE ATHLETE'S OWN VOLUME. Every
+       supporting day costs at least EASY_MIN_KM whatever the arithmetic wants,
+       so a day count the stated week cannot pay for at its floors does not
+       reduce the runs -- it inflates the week. Measured, that is what pushed
+       203 first weeks more than 30% above the volume the athlete stated. */
+    var mFloorRoom = Math.floor(Math.max(0, mHave) / EASY_MIN_KM);
     var mSupportDays = Math.max(1, Math.min(mDays - 1 - mQSlots,
                                             Math.max(mNeed, 1),
-                                            Math.max(1, Math.floor(mHave / EASY_MIN_KM))));
+                                            Math.max(1, mFloorRoom)));
     /* Weeks that actually progress: the taper does not, the race week does
        not, and a cutback week steps back rather than forward. */
     var mProgressing = 0;
@@ -9525,6 +9531,22 @@ function longRunCarriesSpecificWork(wk){
    PERMISSION IS NOT PRESCRIPTION. This answers only whether the athlete has
    earned the exposure. Whether the programme should spend it is the block's
    own business, and no new rule about that is introduced here. */
+/* The two refusals that are properties of the WEEK rather than of the athlete.
+   Pure and cheap, so a generator can ask them fourteen times without paying
+   for the longitudinal model fourteen times. Returns null where the week has
+   no objection of its own. */
+function weekQualityContextRefusal(ctx){
+  if (!ctx) return null;
+  var base = { permitted:false, family:null, hoursToNormal:null, confidence:null,
+               blockState:null, minGapDays:null,
+               phase:ctx.phase || null, longRunCost:ctx.longRunCost != null ? ctx.longRunCost : null };
+  if (ctx.phase === 'Peak'){ base.reason = 'peak_exposure_recovery'; return base; }
+  if (ctx.phase === 'Taper' || ctx.phase === 'Final'){ base.reason = 'taper_reduces_dose'; return base; }
+  if (ctx.longRunCost != null && ctx.longRunCost >= 1){
+    base.reason = 'long_run_cost_exceeds_budget'; return base;
+  }
+  return null;
+}
 function secondQualityExposurePermission(minGapDays, ctx){
   var out = { permitted:false, reason:'no_evidence', family:null, hoursToNormal:null,
               confidence:null, blockState:null, minGapDays:(minGapDays==null?null:minGapDays),
@@ -9560,11 +9582,8 @@ function secondQualityExposurePermission(minGapDays, ctx){
      so every other distance reaches the athlete-evidence gate below exactly as
      it did. */
   if (ctx){
-    if (ctx.phase === 'Peak'){ out.reason = 'peak_exposure_recovery'; return out; }
-    if (ctx.phase === 'Taper' || ctx.phase === 'Final'){ out.reason = 'taper_reduces_dose'; return out; }
-    if (ctx.longRunCost != null && ctx.longRunCost >= 1){
-      out.reason = 'long_run_cost_exceeds_budget'; return out;
-    }
+    var ctxOut = weekQualityContextRefusal(ctx);
+    if (ctxOut) return ctxOut;
   }
   var model = null;
   try { model = athleteResponseModel(); } catch(e){ model = null; }
@@ -9854,6 +9873,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   /* Does the coherent-range authority apply here at all? Marathon race blocks
      only -- see the runCap note below for why the scope is that narrow. */
   var useCoherentFrequency = usesMarathonArc(blockResult.purpose, blockResult.distKey) && !noLongRun;
+  var weekEvidencePermission;
   /* ---- THE PACE THIS ATHLETE ACTUALLY RUNS EASY AT ----
      Needed because session COST is measured in time, and time is the only
      thing that distinguishes two athletes with identical week shapes. It is
@@ -10159,10 +10179,27 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        MARATHON ONLY: ctx is supplied here and nowhere else. */
     var weekQualityPermission = null;
     if (useCoherentFrequency && weekSlotCeiling > 1){
-      weekQualityPermission = secondQualityExposurePermission(twoSlotGapDays, {
-        phase: wk.phase,
-        longRunCost: easyPaceSec ? longRunCostPressure((wk.longTarget || 0) * easyPaceSec) : null
-      });
+      /* THE ATHLETE-EVIDENCE HALF OF THIS IS ASKED ONCE PER BLOCK, not once
+         per week. It reads athleteResponseModel() and blockEffectiveness(),
+         which are longitudinal and expensive, and neither of them changes
+         between week 4 and week 9 of the same generation -- asking fourteen
+         times took Full Plan past the render ceiling the suite guards. Only
+         the two inputs that ARE properties of the week are evaluated here, and
+         they are pure arithmetic. */
+      var wkCtx = { phase: wk.phase,
+        longRunCost: easyPaceSec ? longRunCostPressure((wk.longTarget || 0) * easyPaceSec) : null };
+      weekQualityPermission = weekQualityContextRefusal(wkCtx);
+      if (!weekQualityPermission){
+        /* No objection from the week itself, so the answer is the athlete's --
+           and the athlete's answer is the same in every week of one generation.
+           Asked once and reused, because it reads athleteResponseModel() and
+           blockEffectiveness(), which are longitudinal and expensive: asking
+           fourteen times took Full Plan past the render ceiling the suite
+           guards. Reused, not approximated -- it is the identical call. */
+        if (weekEvidencePermission === undefined)
+          weekEvidencePermission = secondQualityExposurePermission(twoSlotGapDays);
+        weekQualityPermission = weekEvidencePermission;
+      }
       if (!weekQualityPermission.permitted) weekSlotCeiling = 1;
     }
     var weekQualitySlots = blockResult.noQuality ? 0

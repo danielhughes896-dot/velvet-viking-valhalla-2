@@ -20,7 +20,8 @@ function build(volume, weeks, days, opts){
   const bs=o.benchSec||benchFor(volume);
   const vd=a.vdotFromPerformance(5000,bs);
   const pace=(function(){const z=a.trainingPacesFromVDOT(vd);return (z.E.slow+z.E.fast)/2;})();
-  const blk=a.buildBlockWeeks(o.distanceKey||'full',volume,weeks,{});
+  const blk=a.buildBlockWeeks(o.distanceKey||'full',volume,weeks,
+    {availableDays:days, easyPaceSecPerKm:pace});
   const end=a.addDays(a.addDays(TODAY,-a.isoWeekday(TODAY)),blk.planWeeks*7-1);
   const ds=a.buildDaysFromWeeks(blk,end,S,TODAY,true,{easyPaceSecPerKm:pace});
   let wn=1; for(;wn<=blk.planWeeks;wn++) if(ds.filter(x=>x.week===wn).length===7) break;
