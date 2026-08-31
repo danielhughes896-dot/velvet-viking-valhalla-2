@@ -5180,6 +5180,60 @@ function marathonRunwayPlan(weeksToRace, stateVolume){
    MARATHON ONLY. 5K, 10K, Half and Ultra keep the top-down distributor they
    have, byte for byte, and their outputs are hash-compared against main. */
 
+/* ---------- A SESSION MUST EARN ITS PLACE BEFORE ITS DOSE MATTERS ----------
+   THE DEFECT THIS CLOSES. Every session the app can build has a floor -- the
+   smallest easy run it will render, the smallest structure the quality pools
+   contain -- and at low workload those floors stop being a detail and become
+   the whole week. A 6km/week athlete was given a long run, a quality session
+   at its own minimum and several easy runs at theirs, and the sum was three
+   times what they had told us they run. The generator was not developing them;
+   it was reporting the sum of its own minimums.
+
+   THE WRONG CONCLUSION IS "SO THEY CANNOT HAVE A MARATHON PLAN". They can, and
+   they do. The right question is whether all of these session purposes should
+   exist YET.
+
+   SO ELIGIBILITY COMES BEFORE DOSE. A phase says what training the programme
+   wants to develop; it does not say that every purpose available to that phase
+   must appear in week one regardless of what the athlete can carry. Where a
+   purpose cannot be expressed at a legitimate minimum inside the week the
+   athlete can actually support, it is DEFERRED -- not shrunk into a token, not
+   forced in with the week inflated around it. It becomes eligible later, when
+   capacity has developed, and its arrival is itself a progression in load.
+
+   THE ORDER IS A COACHING HIERARCHY, not a lookup table. For a marathon:
+     1  the long run                 the session the event is actually about
+     2  aerobic support              what carries it
+     3  conventional quality         valuable, and the first thing to wait
+
+   WHAT THIS IS MEASURED AGAINST, and it is not a target. The athlete's own
+   demonstrated workload, developed at the ordinary rate -- the same figure
+   their sessions develop on. It is a CEILING on what may be prescribed and
+   nothing fills it: a week whose earned purposes sum below it stays exactly
+   where its sessions put it. That is the whole difference between an
+   eligibility bound and the weekly-volume target this architecture removed. */
+function marathonWeekCapacityKm(statedVolumeKm, step, ceilingKm){
+  if (!(statedVolumeKm > 0)) return null;
+  var v = statedVolumeKm * Math.pow(sessionProgressionRate(), Math.max(0, step || 0));
+  if (ceilingKm > 0) v = Math.min(v, ceilingKm);
+  return v;
+}
+/* Can a conventional quality session be expressed inside what this week can
+   carry, alongside the long run and at least one real easy run? No new
+   number: the long run is the week's own, the quality minimum is whatever the
+   pools actually built, and the easy floor is EASY_MIN_KM. */
+function marathonQualityEligible(capacityKm, longKm, qualityKm){
+  if (!(capacityKm > 0) || !(qualityKm > 0)) return false;
+  return (longKm + qualityKm + EASY_MIN_KM) <= capacityKm + 1e-9;
+}
+/* And how many supporting runs the week can pay for once the purposes above it
+   have been met. At least one -- a marathon week without any easy running is
+   not a marathon week -- and never more than the athlete made available. */
+function marathonSupportDaysFor(capacityKm, longKm, qualityKm, maxDays){
+  var room = (capacityKm > 0 ? capacityKm : 0) - longKm - (qualityKm || 0);
+  var n = Math.floor((room + 1e-9) / EASY_MIN_KM);
+  return Math.max(1, Math.min(Math.max(1, maxDays || 1), n));
+}
 /* ---- HOW FAST A RUNNING SESSION MAY DEVELOP ----
    The one rate in this architecture, and it is the best-evidenced number
    available rather than a convention. Nielsen 2014 found distance-related
@@ -6803,7 +6857,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      The loop then walks each SESSION along its own progression and the week's
      volume is what they add up to. */
   var mBottomUp = null, mPrevLongKm = null, mPrevSupportKm = null, mPeakBuiltKm = 0,
-      mPrevWeekKm = null;
+      mPrevWeekKm = null, mPrevQSlots = null, mPrevSupportDays = null;
   /* The floor a session in THIS block may not go below -- the race week's own,
      since a marathon race block is never a foundation block. */
   var easyFloorKmForBlock = EASY_MIN_KM;
@@ -7064,12 +7118,46 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       if ((isTaper || isRaceWeekNext) && mPrevSupportKm != null)
         mSupport = Math.min(mSupport, mPrevSupportKm);
       mPrevLongKm = mLong; mPrevSupportKm = Math.max(EASY_MIN_KM, mSupport);
+      /* ---- ELIGIBILITY, ASKED EVERY WEEK ----
+         Capacity develops, so what the week can carry develops with it and a
+         purpose deferred in week one may be earned by week six. That arrival
+         is itself a progression in load -- which is why it is decided here,
+         beside the doses, rather than once for the whole block. */
+      var mCap = marathonWeekCapacityKm(currentVolume, mBottomUp.stepIdx,
+                                        mBottomUp.capacityCeilingKm);
+      if (isCutback) mCap = mCap != null ? mCap * CUTBACK_FACTOR : null;
+      if (isTaper && mCap != null){
+        var mCapT = 1 - ((taper > 0 ? (w - buildWeeks) / taper : 1) *
+                         (arc.taperDepth != null ? arc.taperDepth : RACE_TAPER_DEPTH));
+        mCap = mCap * mCapT;
+      }
       mWeek = { longKm: round1(mLong), supportKm: round1(Math.max(EASY_MIN_KM, mSupport)),
+                capacityKm: mCap != null ? round1(mCap) : null,
                 supportDays: mBottomUp.supportDays, qSlots: mBottomUp.qSlots,
                 capacityCeilingKm: mBottomUp.capacityCeilingKm,
                 longDestKm: mBottomUp.longDestKm, longLimited: mBottomUp.longLimited,
                 frac: Math.round(mFrac * 100) / 100 };
-      if (!isCutback && !isTaper) mBottomUp.stepIdx++;
+      /* ---- STRUCTURE IS ITSELF A PROGRESSION ----
+         When capacity earns a purpose that was deferred, the week acquires a
+         session it did not have -- and that is a step in training load in its
+         own right, often a larger one than any dose increase would be. Growing
+         the long run and the supporting work in the SAME week as the new
+         session arrives asks for both at once.
+
+         So the week a purpose arrives is a week the doses hold. The athlete
+         progresses from a simple aerobic week to one with a long-run
+         structure to one that also carries restrained quality, and each of
+         those transitions is paid for on its own. */
+      var mStructureGrew = (mPrevQSlots != null && mWeek.qSlots > mPrevQSlots) ||
+                           (mPrevSupportDays != null && mWeek.supportDays > mPrevSupportDays);
+      if (mStructureGrew){
+        mWeek.structureIntroduced = true;
+        if (mPrevLongKm != null) mWeek.longKm = round1(Math.min(mWeek.longKm, mPrevLongKm));
+        if (mPrevSupportKm != null) mWeek.supportKm = round1(Math.min(mWeek.supportKm, mPrevSupportKm));
+        longTarget = Math.min(longTarget, mWeek.longKm);
+      }
+      mPrevQSlots = mWeek.qSlots; mPrevSupportDays = mWeek.supportDays;
+      if (!isCutback && !isTaper && !mStructureGrew) mBottomUp.stepIdx++;
     }
     volume = round1(volume);
     intendedVolume = round1(intendedVolume);
@@ -7378,6 +7466,27 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     if (mWeek){
       var mQKm = mWeek.qSlots >= 2 ? (qKm + tKm)
                : mWeek.qSlots === 1 ? ((w % 2 === 0) ? tKm : qKm) : 0;
+      /* ---- QUALITY WAITS UNTIL THE WEEK CAN CARRY IT ----
+         "At most one demanding session without evidence" was never "must
+         prescribe one". For an athlete whose whole week is smaller than a
+         quality session plus a long run plus one easy run, the correct
+         conventional quality frequency is ZERO, and it becomes one when their
+         aerobic work has grown enough to hold it. No mileage threshold decides
+         that -- the week's own arithmetic does. */
+      if (mQKm > 0 && mWeek.capacityKm != null &&
+          !marathonQualityEligible(mWeek.capacityKm, longTarget, mQKm)){
+        mQKm = 0; mWeek.qSlots = 0; mWeek.qualityNotYetEligible = true;
+      }
+      /* AND THE SUPPORTING RUNS THE WEEK CAN ACTUALLY PAY FOR. Adding another
+         at its floor because a day happens to be available is how the floors
+         became the week. Availability stays permission. */
+      if (mWeek.capacityKm != null){
+        mWeek.supportDays = marathonSupportDaysFor(mWeek.capacityKm, longTarget, mQKm,
+                                                   mWeek.supportDays);
+        mWeek.supportKm = round1(Math.max(EASY_MIN_KM,
+          Math.min(mWeek.supportKm,
+                   (mWeek.capacityKm - longTarget - mQKm) / mWeek.supportDays)));
+      }
       /* A QUALITY SESSION LONGER THAN THE LONG RUN IS NOT PRESCRIBED, and the
          week's volume must not count one that is not. The day builder already
          defers it and substitutes an easy run with strides; counting it here
