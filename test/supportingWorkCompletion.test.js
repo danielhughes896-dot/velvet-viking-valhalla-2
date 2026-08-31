@@ -441,8 +441,14 @@ test('no prescription or session-selection output changed', () => {
   }
   /* The total is reported, and pinned, so a FUTURE change to the engine is
      still visible here -- with the number that belongs to this engine. */
-  assert.equal(items, 41,
-    'the four reference plans prescribe 41 supporting sessions in total; if this moves, '
+  /* 41 -> 44, AND THE REASON. The marathon reference plan is the only one that
+     moved (16 -> 19; half, 10k and 5k are unchanged at 11, 8 and 6). The
+     dedicated marathon window spends one taper week rather than two, so a week
+     that was winding down is now a development week -- and a development week
+     carries supporting work where a taper week largely does not. Nothing about
+     supporting-work selection changed; the block it is selected over did. */
+  assert.equal(items, 44,
+    'the four reference plans prescribe 44 supporting sessions in total; if this moves, '
       + 'the engine moved, and the reason must be a stated one');
 });
 

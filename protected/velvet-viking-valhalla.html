@@ -4207,7 +4207,7 @@ function developmentMultiplierFor(distKey, planWeeks, purpose){
      by its OWN developing weeks, which is what makes a six-week speed block
      earn six weeks of development rather than fourteen. */
   var ref = blockArcFor('race', BUILDER_PURPOSE_META.race.defaultWeeks).buildWeeks;
-  var bw  = blockArcFor(purpose || 'race', planWeeks).buildWeeks;
+  var bw  = blockArcFor(purpose || 'race', planWeeks, distKey).buildWeeks;
   if (!(ref > 0) || !(bw > 0)) return p.volMult;
   return 1 + (p.volMult - 1) * Math.min(1, bw / ref);
 }
@@ -4921,14 +4921,270 @@ var SPEED_CONSOLIDATION_WEEKS = 1;
 var SPEED_CONSOLIDATION_DEPTH = 0.25;
 var RACE_TAPER_DEPTH = 0.5;
 
+/* ---------- THE MARATHON RACE GOAL WINDOW ----------
+   A marathon block is not "however many weeks the athlete happens to have,
+   divided into phases". It is a fixed piece of event preparation, and the
+   runway either contains it or does not.
+
+   WHAT THE MEASUREMENT FOUND, and why this exists. phaseForWeek() allocated
+   every phase as a FRACTION of the block: Base the first 25% of the developing
+   weeks, Peak the last 20%. So a thirty-week marathon plan received six Peak
+   weeks -- while developmentMultiplierFor() had already saturated at fourteen,
+   meaning those fifteen extra weeks bought no additional volume and no
+   additional long run at all. They were dilution wearing a phase name.
+
+   The window is FLAT. Not derived per athlete: the prescription inside it
+   adapts to everything the athlete demonstrates, but the boundary between
+   "preparing for this marathon" and "developing toward being able to" is a
+   product decision and is the same fifteen weeks for everybody.
+
+     BASE   4     the aerobic and workload platform, plus strides/economy
+     BUILD  6     marathon-supporting workload and structured quality
+     PEAK   3     two differentiated long-run exposures with absorption between
+     TAPER  2     event-anchored, race week included -- D-14, not D-20
+
+   TAPER IS TWO CALENDAR WEEKS AND THAT INCLUDES RACE WEEK, which is why the
+   arc below states taper:1 -- the engine counts race week separately, as
+   `Final`. The previous engine spent two taper weeks PLUS race week, a
+   three-week wind-down beginning at D-20, and that third week is what returns
+   to Base here. */
+var MARATHON_DEDICATED_WEEKS = 15;
+var MARATHON_FULL_SHAPE = { base:4, build:6, peak:3, taper:2 };  // taper incl. race week
+/* ---------- COMPRESSION IS A HIERARCHY, NOT A SCALE FACTOR ----------
+   When the runway is short something has to go, and WHICH thing is a coaching
+   decision rather than an arithmetic one. Event preparation is protected and
+   general development is surrendered, in this order:
+
+     Base -> Build -> the second peak exposure -> taper depth
+
+   Base first because it is the phase furthest from the event; taper last
+   because it is the only phase whose entire value is event-relative.
+
+   AT TEN WEEKS AND BELOW THERE IS NO DEDICATED BASE PHASE. One base week is
+   not a base phase, it is a label. The athlete enters Build at the level they
+   actually demonstrate -- which is what the engine already does, since
+   currentVolume is bottom-up. Removing the phase does not pretend the athlete
+   completed it, and nothing here manufactures the capacity it would have
+   built: a low-volume athlete arriving nine weeks out remains a low-volume
+   athlete, and the readiness layer says so.
+
+   ABOVE FIFTEEN WEEKS the surplus does not belong to this block at all -- see
+   marathonRunwayPlan(). The absorb-into-Base branch here is a backstop for a
+   block that reaches this function anyway (a legacy plan, a rebuild), and it
+   is deliberately the least harmful answer rather than the old one: extra
+   weeks land in Base, never in Peak. */
+function marathonPhaseAllocation(N){
+  var n = Math.max(1, Math.round(N || 1));
+  if (n === 1) return { base:0, build:0, peak:0, taper:0, final:1 };
+  // wind-down = taper weeks + race week. Two calendar weeks wherever the block
+  // is long enough to spend them.
+  var taper = n >= 5 ? 1 : 0;
+  var peak  = n >= 11 ? 3 : n >= 8 ? 2 : 1;
+  var rest  = n - taper - 1 - peak;
+  if (rest < 0){ peak = Math.max(0, peak + rest); rest = 0; }
+  var base;
+  if (n <= 10)      base = 0;                              // no dedicated Base
+  else if (n <= MARATHON_DEDICATED_WEEKS) base = Math.max(0, rest - MARATHON_FULL_SHAPE.build);
+  else              base = rest - MARATHON_FULL_SHAPE.build;   // absorb, never Peak
+  return { base:base, build:rest - base, peak:peak, taper:taper, final:1 };
+}
+/* Is this block the dedicated marathon architecture? Only a race block at the
+   marathon distance -- every other purpose and every other distance keeps the
+   arc it already had, byte for byte. */
+function usesMarathonArc(purpose, distKey){
+  return purpose === 'race' && distKey === 'full';
+}
+/* ---------- SURPLUS RUNWAY BELONGS TO A DIFFERENT PROGRAMME ----------
+   An athlete twenty-four weeks from a marathon does not need a twenty-four
+   week marathon block. They need nine weeks of development and then the
+   fifteen-week marathon block -- because the marathon block's destination
+   stopped moving at fourteen weeks, so the extra nine buy nothing inside it.
+
+   THE PREPARATORY BLOCK IS NOT MARATHON BASE. It is a real Aerobic Base or
+   Speed & Threshold block, with its own arc, its own methodology and its own
+   success criteria, and nothing here reaches into what it prescribes. The
+   marathon's only claims on it are that it may RECOMMEND which one, and that
+   it reads the evidence afterwards. */
+var MARATHON_SURPLUS_ABSORB_MAX = 3;
+/* Three weeks, and the number is a statement rather than a tuning knob: a
+   development block shorter than four weeks cannot express its own arc or its
+   own success criterion, so offering one would be the disguised Marathon Base
+   this architecture exists to prevent. Base is the phase whose length is
+   genuinely elastic, so one to three surplus weeks go there instead. */
+var MARATHON_PREP_BLOCK_MAX = 12;
+/* And the other end. A development block also has a length beyond which it
+   stops developing and starts diluting -- the same argument that rules out a
+   twenty-four-week race block rules out a twenty-four-week base block. */
+
+/* The longest single run this athlete has actually completed inside the
+   demonstrated window. SECOND-highest rather than highest, matching the
+   statistic demonstratedSustainableVolume() and demonstratedRunningFrequency()
+   already use: one long run is a run, two is a capability. Null until there
+   are two, which keeps a new athlete on stated volume rather than on a number
+   derived from a single Sunday. */
+function demonstratedLongRunKm(){
+  var cutoff = addDays(todayStr(), -7 * DEMONSTRATED_WINDOW_WEEKS);
+  var runs = [];
+  var a = (state && state.athlete) || null;
+  ((a && a.sessions) || []).forEach(function(sn){
+    if (!sn || !sn.completed || sn.date < cutoff || sn.type === 'race') return;
+    var km = sn.actualKm != null ? sn.actualKm : sn.plannedKm;
+    if (km > 0) runs.push(km);
+  });
+  ((state && state.days) || []).forEach(function(dd){
+    if (!dd || !dd.completed || dd.date < cutoff || dd.type === 'race') return;
+    var km = (dd.actual && dd.actual.km != null) ? dd.actual.km : dd.km;
+    if (km > 0) runs.push(km);
+  });
+  if (runs.length < 2) return null;
+  runs.sort(function(x,y){ return y - x; });
+  return round1(runs[1]);
+}
+/* Has this athlete demonstrated absorbing conventional quality work? The SAME
+   reading secondQualityExposurePermission() uses -- an established response in
+   a demanding quality family, with the long run excluded because absorbing a
+   long run says nothing about absorbing intervals. Deliberately no new
+   question and no new score: SYSTEM 12 requires the existing evidence
+   architecture to answer this or to say honestly that it cannot. */
+function demonstratedQualityFamilies(){
+  var model = null;
+  try { model = athleteResponseModel(); } catch(e){ model = null; }
+  if (!model || !model.families) return [];
+  return DEMANDING_FAMILIES.filter(function(f){
+    if (f === 'long') return false;
+    var r = model.families[f];
+    return !!(r && r.confidence === 'established');
+  });
+}
+/* WHICH DEVELOPMENT PROGRAMME THE SURPLUS SHOULD BE, from evidence the app
+   already holds. Volume first, because volume is prerequisite to absorbing
+   quality rather than the other way round.
+
+   `stateVolume` is the athlete's own stated current weekly volume -- the one
+   input that exists even for an athlete with no logged history at all. It is
+   used only when there is nothing demonstrated to read, and it is the athlete's
+   own answer rather than an inference. */
+function marathonPreparatoryPurpose(stateVolume){
+  var need = minViableStartKm('full', MARATHON_DEDICATED_WEEKS);
+  var dem  = demonstratedSustainableVolume();
+  var vol  = dem != null ? dem : (stateVolume > 0 ? stateVolume : null);
+  var out  = { purpose:null, reason:'no_developmental_need', volume:vol, needKm:need,
+               longRunKm:demonstratedLongRunKm(), qualityFamilies:demonstratedQualityFamilies() };
+  if (vol == null){ out.purpose = 'base'; out.reason = 'no_volume_evidence'; return out; }
+  if (need != null && vol < need){ out.purpose = 'base'; out.reason = 'aerobic_gap'; return out; }
+  /* The long run is its own authority, not a function of weekly volume: an
+     athlete can hold 60km/week in six ten-kilometre runs and still be nowhere
+     near a marathon long run. */
+  var lr = out.longRunKm;
+  if (lr != null && MIN_PEAK_LONG_KM['full'] != null && lr < MIN_PEAK_LONG_KM['full'] * 0.5){
+    out.purpose = 'base'; out.reason = 'long_run_gap'; return out;
+  }
+  if (!out.qualityFamilies.length){ out.purpose = 'speed'; out.reason = 'quality_gap'; return out; }
+  /* Volume adequate, long run adequate, quality demonstrated. There is nothing
+     a development block would develop, so the honest answer is that the athlete
+     should start the race block later rather than be given filler. */
+  return out;
+}
+/* ---------- THE WHOLE RUNWAY, ANSWERED ONCE ----------
+   Read by the builder and by the transition layer, so the two cannot disagree
+   about when the marathon window opens. Pure: it takes the runway and the
+   stated volume and reads athlete evidence, and it decides nothing about
+   whether to act. */
+function marathonRunwayPlan(weeksToRace, stateVolume){
+  var W = Math.max(1, Math.round(weeksToRace || 0));
+  var D = MARATHON_DEDICATED_WEEKS;
+  var out = { weeksToRace:W, dedicatedWeeks:D, raceWeeks:W, surplus:0, absorbWeeks:0,
+              preparatory:null, shortened:false, shape:'full', reason:'exact_window' };
+  if (W < D){
+    out.shortened = true;
+    out.shape = W <= 10 ? 'no_base' : 'compressed';
+    out.reason = W <= 10 ? 'short_runway_no_base' : 'short_runway_compressed';
+    return out;
+  }
+  if (W === D) return out;
+  var surplus = W - D;
+  out.surplus = surplus;
+  if (surplus <= MARATHON_SURPLUS_ABSORB_MAX){
+    out.absorbWeeks = surplus; out.raceWeeks = W; out.reason = 'surplus_absorbed_into_base';
+    return out;
+  }
+  var sel = marathonPreparatoryPurpose(stateVolume);
+  out.raceWeeks = D;
+  out.selection = sel;
+  if (!sel.purpose){
+    /* Nothing to develop. Say so rather than manufacturing a block: the athlete
+       simply starts the race block when the window opens. */
+    out.reason = 'surplus_no_developmental_need';
+    return out;
+  }
+  out.preparatory = { purpose: sel.purpose, weeks: Math.min(surplus, MARATHON_PREP_BLOCK_MAX),
+                      reason: sel.reason };
+  out.reason = 'surplus_to_development_block';
+  return out;
+}
+/* ---------- THE RACE IS A DESTINATION, NOT ONLY A PLAN ----------
+   An athlete completing Aerobic Base because their marathon is twenty-four
+   weeks out must not have to re-enter the marathon when they finish it. The
+   destination therefore outlives the active block.
+
+   WHAT IS RETAINED: the identity of the race and when its window opens.
+   WHAT IS NOT: the prescription. A marathon block built twenty-four weeks out
+   from evidence twenty-four weeks old would be exactly the frozen plan this
+   architecture exists to avoid -- the block is built AT the transition, from
+   whatever the athlete has demonstrated by then.
+
+   Stored top-level rather than inside setup because it deliberately survives
+   setup being replaced. planContentSignature() reads a fixed field list, so a
+   new top-level property perturbs no sync comparison -- the same reasoning
+   ownerUid already relies on. */
+function raceDestination(){
+  var d = state && state.raceDestination;
+  if (!d || !d.distanceKey || !d.raceDate) return null;
+  return d;
+}
+function setRaceDestination(distanceKey, raceDate, goals, activeGoal){
+  if (!distanceKey || !raceDate) return null;
+  var weeks = distanceKey === 'full' ? MARATHON_DEDICATED_WEEKS : null;
+  state.raceDestination = {
+    distanceKey: distanceKey, raceDate: raceDate,
+    goals: goals || null, activeGoal: activeGoal || null,
+    // when the dedicated window opens -- the Monday of the race week, minus
+    // the dedicated block, so the transition date is the block's own start
+    transitionDate: weeks ? addDays(raceDate, -((weeks - 1) * 7)) : null,
+    setAt: todayStr()
+  };
+  return state.raceDestination;
+}
+function clearRaceDestination(){ if (state) state.raceDestination = null; }
+/* Is the dedicated window open? Deliberately a QUESTION and not an action:
+   nothing here rebuilds anything. The athlete is offered the transition and
+   confirms it -- see nextBlockRecommendation(). */
+function raceDestinationDue(){
+  var d = raceDestination();
+  if (!d || !d.transitionDate) return false;
+  if (d.raceDate < todayStr()) return false;
+  return todayStr() >= d.transitionDate;
+}
 function blockPurposeOf(purposeOrSteady){
   // The old third argument was a boolean `steady`. True still means maintain.
   if (purposeOrSteady === true) return 'maintain';
   if (typeof purposeOrSteady === 'string' && purposeOrSteady) return purposeOrSteady;
   return 'race';
 }
-function blockArcFor(purpose, N){
+function blockArcFor(purpose, N, distKey){
   var weeks = Math.max(1, N || 1);
+  /* THE MARATHON RACE GOAL ARC states its phases as COUNTS rather than as
+     fractions of itself, which is the whole difference: a fraction stretches
+     with the block and a count does not. Everything else -- every other
+     purpose, every other distance -- falls through to the fraction-based arc
+     below unchanged. */
+  if (usesMarathonArc(purpose, distKey)){
+    var alloc = marathonPhaseAllocation(weeks);
+    return { buildWeeks: alloc.base + alloc.build + alloc.peak, taper: alloc.taper,
+             hasGoalEffort: true, hasCheckpoint: true,
+             baseEnd: PHASE_BASE_END, buildEnd: PHASE_BUILD_END, volumeMult: null,
+             phaseCounts: alloc };
+  }
   /* THE ON-RAMP. An athlete below the viable race-programme boundary is not
      given a smaller race block -- they are given the thing that gets them TO
      one. It has no goal effort, no checkpoint, no taper and no phases: every
@@ -5028,22 +5284,33 @@ function planPurpose(su){
   var s = su || (typeof state !== 'undefined' ? state.setup : null);
   return (s && typeof s.purpose === 'string' && s.purpose) ? s.purpose : 'race';
 }
-function phaseForWeek(weekNum, totalWeeks, purposeOrSteady){
+function phaseForWeek(weekNum, totalWeeks, purposeOrSteady, distKey){
   if (!totalWeeks || !weekNum) return 'Base';
   var purpose = blockPurposeOf(purposeOrSteady);
   if (purpose === 'maintain') return 'Maintain';
-  var arc = blockArcFor(purpose, totalWeeks);
+  var arc = blockArcFor(purpose, totalWeeks, distKey);
   // Only a block that ends in something has a week named for the end of it.
   if (arc.hasGoalEffort && weekNum >= totalWeeks) return 'Final';
   if (weekNum > arc.buildWeeks) return 'Taper';
+  /* AN ARC THAT STATES COUNTS IS READ AS COUNTS. Falling through to the
+     fraction below would silently re-derive the boundaries and put the
+     marathon block back where it started. */
+  var c = arc.phaseCounts;
+  if (c) return weekNum <= c.base ? 'Base'
+            : weekNum <= c.base + c.build ? 'Build'
+            : 'Peak';
   var progress = weekNum / arc.buildWeeks;
   return progress <= arc.baseEnd ? 'Base'
        : progress <= arc.buildEnd ? 'Build'
        : 'Peak';
 }
+function planDistanceKey(su){
+  var s = su || (typeof state !== 'undefined' ? state.setup : null);
+  return (s && s.distanceKey) ? s.distanceKey : null;
+}
 function isTaperWeek(weekNum){
   if (!state.setup) return false;
-  return phaseForWeek(weekNum, totalWeeksInPlan(), planPurpose())==='Taper';
+  return phaseForWeek(weekNum, totalWeeksInPlan(), planPurpose(), planDistanceKey())==='Taper';
 }
 /* STEADY MODE, and what it switches off.
 
@@ -5737,7 +6004,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   var N = Math.max(1, Math.round(planWeeksInput));
   // The arc this purpose actually has -- see blockArcFor. Steady mode keeps
   // its own answer because it has no arc at all.
-  var arc = blockArcFor(purpose, N);
+  var arc = blockArcFor(purpose, N, distKey);
   var taper = steady ? 0 : arc.taper;
   var buildWeeks = steady ? N : arc.buildWeeks;
   /* THE CEILING IS APPLIED TO THE PEAK, which is what closes the loop: every
@@ -5831,7 +6098,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
 
     // phaseForWeek() is the canonical definition -- this loop no longer carries
     // boundaries of its own, so the generator and every coaching layer agree.
-    phase = phaseForWeek(w, N, steady ? 'maintain' : purpose);
+    phase = phaseForWeek(w, N, steady ? 'maintain' : purpose, distKey);
     if (phase==='Final') phase = 'Final Week';
     /* The pool this phase name selects from. A steady block now has one of its
        own: it used to borrow 'Build', which is a pool written for a block that
@@ -24701,7 +24968,7 @@ function trainingPhase(weekNum){
   if (!total || !weekNum) return 'Base';
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
   if (wdays.some(function(dd){ return dd.type==='race'; })) return vGoalWeek();
-  var p = phaseForWeek(weekNum, total, planPurpose());
+  var p = phaseForWeek(weekNum, total, planPurpose(), planDistanceKey());
   return p==='Final' ? vGoalWeek() : p;
 }
 function coachSessionContext(dd){

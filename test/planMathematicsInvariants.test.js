@@ -452,8 +452,13 @@ test('D-7: a block earns the development its weeks represent, and no more', () =
       assert.ok(m >= 1, 'the ceiling can only be approached, never inverted');
       prev = m;
     });
-    // exactly the linear form, with no constant of its own
-    const bw = a.blockArcFor('race', 8).buildWeeks;
+    /* Exactly the linear form, with no constant of its own -- read against the
+       arc THIS distance actually has. The marathon race arc states its phases
+       as counts and spends one fewer taper week than the generic arc, so it
+       carries one more developing week at the same block length; asking the
+       generic arc for its buildWeeks would be comparing the identity against
+       a block shape the distance does not use. */
+    const bw = a.blockArcFor('race', 8, d).buildWeeks;
     assert.ok(Math.abs(a.developmentMultiplierFor(d, 8) - (1 + (full - 1) * bw / ref)) < 1e-9);
   }
 

@@ -98,14 +98,29 @@ test('2. a rest day is never eligible', () => {
 });
 
 test('2. every quality, long, benchmark and race session is eligible', () => {
-  const a = app();
+  /* THE SUBJECT IS THE ARCHETYPE, NOT THE FIXTURE. Every one of these must be
+     eligible wherever it is generated; requiring one plan length to contain
+     all fourteen made the assertion hostage to structure-pool rotation, and a
+     marathon block of a different length legitimately draws a different set --
+     14 weeks produces split_tempo and no ladder, 15 and 16 the reverse. So the
+     archetype is looked for across the block lengths the engine builds, and a
+     miss in every one of them is still a failure. */
+  const apps = [app(), app({ weeks: 15 }), app({ weeks: 16 })];
   ['long_run', 'long_run_goal_finish', 'threshold_continuous', 'goal_pace_block',
    'steady_tempo', 'progressive_tempo', 'split_tempo', 'track_reps', 'ladder',
    'deuce', 'goal_pace_reps', 'hill_repeats', 'time_trial', 'race']
     .forEach(arch => {
-      const d = dayOf(a, arch);
-      assert.equal(a.executionStrategyEligible(d), true, arch + ' must be eligible');
-      const s = a.executionStrategy(d);
+      let found = null, host = null;
+      for (const a of apps){
+        const d = a.state.days.filter(x => {
+          const p = a.prescriptionOf(x);
+          return p && p.archetype === arch;
+        })[0];
+        if (d){ found = d; host = a; break; }
+      }
+      assert.ok(found, 'no generated marathon block contains a ' + arch + ' session');
+      assert.equal(host.executionStrategyEligible(found), true, arch + ' must be eligible');
+      const s = host.executionStrategy(found);
       assert.ok(s && s.phases.length >= 2, arch + ' must produce a staged plan');
     });
 });
