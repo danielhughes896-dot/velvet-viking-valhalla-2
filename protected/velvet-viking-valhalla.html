@@ -10313,6 +10313,14 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     }
     var weekQualitySlots = blockResult.noQuality ? 0
       : Math.min(qualityDays.length, weekSlotCeiling);
+    /* ---- THE WEEK ALREADY DECIDED WHETHER IT CAN CARRY A QUALITY SESSION ----
+       Under bottom-up construction eligibility is settled when the week is
+       assembled: a purpose the athlete's capacity cannot yet support is
+       deferred there, and the week's volume is the sum of what remains. Letting
+       the day builder prescribe one anyway would put back the session the week
+       decided against AND make the reported volume disagree with the days --
+       which is the reconciliation this architecture exists to guarantee. */
+    if (wk.bottomUp && wk.bottomUp.qSlots === 0) weekQualitySlots = 0;
     if (weekQualitySlots < qualityDays.length)
       wk.qualityDaysRested = qualityDays.length - weekQualitySlots;
     wk.qualityPermission = weekQualityPermission;
