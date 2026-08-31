@@ -5640,6 +5640,35 @@ function expressibleRunningDays(distKey, volumeKm, floorKm, hasLongRun){
                      Math.floor(volumeKm * (1 - frac) / floor));
 }
 
+/* ---------- FREQUENCY IS PRESCRIBED FROM THE WORKLOAD THE ATHLETE HAS ----------
+   THE DEFECT THIS CLOSES. expressibleRunningDays() above is asked of each
+   week's own volume -- and by the peak that volume is 1.75x where the athlete
+   started. So an athlete stating 12km/week and six available days was
+   prescribed frequency from a 21km week they had not reached, and the only
+   thing that ever came under the ceiling was a rendering floor. Availability
+   became prescription: a 25km/week athlete and an 80km/week athlete both
+   received six runs from six available days.
+
+   THE CORRECTION, AND IT INTRODUCES NO NUMBER. The same feasibility question,
+   asked of the volume the athlete STATED rather than of the week the block is
+   building toward. Volume ramps because that is what a block does; frequency
+   should follow evidence rather than lead it, and at the start of a block the
+   only evidence about workload is the workload the athlete arrived with.
+
+   WHAT THE ATHLETE GETS INSTEAD OF THE DAYS THIS REMOVES. Not rest imposed on
+   them: the days stay available, marked availableUnused, and optionalRunEligible()
+   may offer each of them as an Optional Run. If the athlete takes them, those
+   runs are completed running days, demonstratedRunningFrequency() reads them,
+   and the NEXT block prescribes more. That is the 3 -> 4 -> 5 -> 6 pathway, and
+   it is earned rather than assumed.
+
+   THIS CANNOT RAISE ANYTHING. It is one more minimum among the four the day
+   builder already takes, so it can only ever lower prescribed frequency, and
+   it is null -- inert -- wherever the stated volume is unreadable. */
+function initialFrequencyCap(distKey, statedVolumeKm, floorKm, hasLongRun){
+  if (!(statedVolumeKm > 0)) return null;
+  return expressibleRunningDays(distKey, statedVolumeKm, floorKm, hasLongRun);
+}
 /* The ceiling: anchored to the athlete's own demonstrated capacity, clamped
    into [backstop, backstop x CEILING_MAX_OVER_BACKSTOP]. The lower bound is
    what stops a beginner's ceiling collapsing onto their first three weeks; the
@@ -6383,6 +6412,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     });
   }
   return { profile:profile, distKey:distKey, weeks:weeks, peakVolume:round1(peakVolume),
+           /* The workload the athlete actually arrives with, carried through so the
+              day builder can prescribe frequency from it rather than from a week the
+              athlete has not reached yet. See initialFrequencyCap(). */
+           startVolume: round1(currentVolume),
            buildWeeks:buildWeeks, taperWeeks:taper, planWeeks:N, steady:steady,
            purpose:purpose, noQuality:!!arc.noQuality, noLongRun:!!arc.noLongRun,
            /* THE RATE, AS AN OUTPUT. What the ramp actually implies per
@@ -8682,6 +8715,13 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
      quantum rather than chosen. Rounding still never decides whether a session
      exists: see the day push below. */
   var easyFloorKm = noLongRun ? EASY_QUANTUM_KM : null;
+  /* Computed once for the block, from the volume the athlete stated. Marathon
+     race blocks only -- see the runCap note below for why the scope is that
+     narrow. */
+  var initialCap = usesMarathonArc(blockResult.purpose, blockResult.distKey)
+    ? initialFrequencyCap(blockResult.distKey, blockResult.startVolume,
+                          (easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM, !noLongRun)
+    : null;
   var nonLongActive = noLongRun ? activeDays.slice()
                     : activeDays.filter(function(d){ return d!==longDay; }).sort(function(a,b){return a-b;});
   // reserve the back-to-back day out of the quality-session pool when this distance uses it, so a hard
@@ -8822,6 +8862,16 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
                                               (easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM,
                                               !noLongRun);
     if (feasibleDays != null) runCap = Math.min(runCap, feasibleDays);
+    /* STARTING WORKLOAD IS ITS OWN AUTHORITY, and the only one a first-time
+       athlete has. See initialFrequencyCap(): the same feasibility question
+       asked of the volume the athlete stated rather than of the week the block
+       is ramping toward.
+
+       MARATHON ONLY, deliberately. This changes prescribed frequency for a
+       population, and the marathon is the distance whose methodology HQ has
+       closed. The other race distances are audited individually and keep the
+       behaviour they have, byte for byte. */
+    if (initialCap != null && !wk.isRace) runCap = Math.min(runCap, Math.max(2, initialCap));
     if (demonstratedFreq != null && !wk.isRace)
       runCap = Math.min(runCap, Math.max(2, demonstratedFreq));
     /* AND WHAT THE ATHLETE IS ACTUALLY SUSTAINING MAY COME UNDER THAT CEILING.
@@ -8838,7 +8888,11 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       runCap = Math.min(runCap, Math.max(2, currentFreq));
     wk.runDayCap = runCap;
     wk.frequencyEvidence = { availability: activeDays.length, expressible: feasibleDays,
-                             capacity: demonstratedFreq, current: currentFreq };
+                             capacity: demonstratedFreq, current: currentFreq,
+                             /* null everywhere the marathon rule does not apply, so
+                                which authority bound this week is readable rather
+                                than inferred. */
+                             initial: initialCap };
     /* ---- AND THE AEROBIC-DOMINANCE CEILING IS READ AGAINST THE SAME NUMBER --
        The approved contract says a three-day week gets at most one hard
        session. Until running days could fall below availability the two were
