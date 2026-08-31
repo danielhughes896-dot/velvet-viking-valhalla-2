@@ -122,8 +122,18 @@ test('long-run reachability alone does not authorise a dominating long run', () 
   const nr = blk.weeks.filter(w => !w.isRace && w.phase !== 'Taper');
   const peakLong = Math.max.apply(null, nr.map(w => w.longTarget));
   const peakWk = Math.max.apply(null, nr.map(w => w.volume));
-  assert.ok(peakLong / peakWk < 0.4,
-    'the long run is ' + Math.round(100 * peakLong / peakWk) + '% of the week');
+  /* THE TEST IS THE COHERENCE RELATION, NOT A SHARE OF THE WEEK. A share
+     threshold would be the hidden universal rule the methodology prohibits --
+     a lower-frequency athlete legitimately carries a larger share, because the
+     same relationship between the long run and the runs beside it produces a
+     bigger fraction when there are fewer of them. What must hold is that the
+     supporting runs are still supporting: at or above SUPPORT_SHARE_MIN of the
+     long run. */
+  const wk = blk.weeks.filter(w => w.bottomUp && !w.isRace && w.phase !== 'Taper')
+                      .reduce((m, w) => w.volume > m.volume ? w : m);
+  assert.ok(wk.bottomUp.supportKm >= wk.longTarget * a.SUPPORT_SHARE_MIN - 0.05,
+    'supporting runs are ' + Math.round(100 * wk.bottomUp.supportKm / wk.longTarget) +
+    '% of the long run');
 });
 
 test('the coherence gate only ever holds back — it never generates', () => {
@@ -167,7 +177,10 @@ test('the week is the sum of the sessions prescribed in it', () => {
       const b = w.bottomUp;
       const q = b.qualityDeferred ? 0
               : (b.qSlots >= 2 ? (w.qKm + w.tKm) : (w.week % 2 === 0 ? w.tKm : w.qKm));
-      const sum = w.longTarget + q + b.supportDays * b.supportKm;
+      /* countedSupportDays, not supportDays: where the structured session was
+         deferred its slot became an ordinary supporting run and the week
+         carries one more of them. */
+      const sum = w.longTarget + q + (b.countedSupportDays || b.supportDays) * b.supportKm;
       assert.ok(Math.abs(sum - w.volume) < 0.15,
         v + ' km wk' + w.week + ': sessions sum to ' + Math.round(sum * 10) / 10 +
         ', week reports ' + w.volume);

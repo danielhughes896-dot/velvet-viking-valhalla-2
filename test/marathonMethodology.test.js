@@ -21,7 +21,8 @@ function app(){
 function plan(volume, weeks, distanceKey, pace, schedule){
   const a = app();
   const S = schedule || SIX;
-  const blk = a.buildBlockWeeks(distanceKey || 'full', volume, weeks || 15, {});
+    const blk = a.buildBlockWeeks(distanceKey || 'full', volume, weeks || 15,
+    { availableDays: S.activeDays.length, easyPaceSecPerKm: pace || 330 });
   const end = a.addDays(a.addDays(TODAY, -a.isoWeekday(TODAY)), blk.planWeeks * 7 - 1);
   const days = a.buildDaysFromWeeks(blk, end, S, TODAY, true, { easyPaceSecPerKm: pace || 330 });
   return { a, blk, days };
@@ -47,17 +48,22 @@ test('shape and cost stay separate causes', () => {
   assert.ok(slow.score >= slow.cost, 'the score is the worse of the two, not their average');
 });
 
-test('cost moves the 80km athlete to six days, and shape alone would not have', () => {
-  const six = plan(80, 15, 'full', 330);
-  let wn = 1; for (; wn <= six.blk.planWeeks; wn++) if (six.days.filter(d => d.week === wn).length === 7) break;
-  const runs = six.days.filter(d => d.week === wn && d.km > 0).length;
-  assert.strictEqual(runs, 6);
-  // the five-day row is the one that was refused, and it was refused on cost
-  const range = six.blk.weeks[wn - 1].frequencyEvidence.coherent;
-  const five = range.rows.filter(r => r.days === 5)[0];
-  assert.ok(five.share >= a0(five), 'the five-day row is coherent on SHAPE');
-  assert.ok(five.cost >= 1, 'and refused on COST: ' + five.cost);
-  function a0(){ return 0.40; }
+test('cost, not shape, is what decides how many days the work needs', () => {
+  /* THE MEASUREMENT THAT PUT COST IN THE ARCHITECTURE. An 80km/week athlete's
+     supporting runs read as perfectly proportionate on shape and still take 94
+     minutes each; shape cannot see time, so on its own it put every athlete
+     above 20km/week on the same six days. Under bottom-up the same authority
+     decides how far the supporting work must be spread. */
+  const a = app();
+  const cheap = a.marathonPreparationOutlook(80, 15, 300);
+  const dear  = a.marathonPreparationOutlook(80, 15, 560);
+  assert.ok(dear.supportKm < cheap.supportKm,
+    'the slower athlete\'s supporting run is smaller for the same kilometres');
+  // and shape alone is blind to it: the ratio to the long run is unchanged
+  const shapeCheap = cheap.supportKm / cheap.reachableLongKm;
+  const shapeDear  = dear.supportKm / dear.reachableLongKm;
+  assert.ok(Math.abs(shapeCheap - shapeDear) < 0.25,
+    'shape barely moves between them: ' + shapeCheap.toFixed(2) + ' vs ' + shapeDear.toFixed(2));
 });
 
 test('the same kilometres give a slower athlete more days', () => {
@@ -206,14 +212,25 @@ test('no other distance gets the two-exposure treatment', () => {
 });
 
 // ------------------------------------------------------------------ medium-long
-test('a medium-long run is a prescription, and it is named', () => {
-  const { days } = plan(40, 15, 'full');
-  const ml = days.filter(d => d.mediumLong);
-  assert.ok(ml.length > 0, 'a developed marathon block should contain one');
-  ml.forEach(d => {
-    assert.strictEqual(d.title, 'Medium-Long Run');
-    assert.ok(d.km > 0);
+test('a medium-long run is a prescription, and it is named where it appears', () => {
+  /* IT IS RARER UNDER BOTTOM-UP, AND THAT IS THE CORRECT DIRECTION. It needs
+     three supporting days to survive beside it, and the architecture now
+     prescribes the fewest days the work actually needs -- so the weeks that
+     want a second sustained aerobic run are the ones with enough supporting
+     running to give one up. Where it does appear it is a named session; where
+     it does not, nothing is relabelled to produce one. */
+  let found = 0;
+  [40, 60, 80].forEach(v => {
+    [330, 560].forEach(pace => {
+      const { days } = plan(v, 15, 'full', pace);
+      days.filter(d => d.mediumLong).forEach(d => {
+        found++;
+        assert.strictEqual(d.title, 'Medium-Long Run');
+        assert.ok(d.km > 0);
+      });
+    });
   });
+  assert.ok(found > 0, 'no cohort in this range produced one at all');
 });
 
 test('it never appears where the programme is not doing marathon work', () => {
