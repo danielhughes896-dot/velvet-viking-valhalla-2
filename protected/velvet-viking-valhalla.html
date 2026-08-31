@@ -5302,7 +5302,12 @@ function marathonSessionStart(statedVolumeKm, supportDays, qualitySlots){
   try { demLong = demonstratedLongRunKm(); } catch(e){ demLong = null; }
   var impliedLong = (statedVolumeKm > 0)
     ? Math.min(DISTANCE_PROFILES['full'].longCapKm, statedVolumeKm * f) : 0;
-  var longKm = demLong != null ? Math.max(demLong, MIN_LONG_RUN_KM * 0) : impliedLong;
+  /* AND THE ATHLETE'S OWN LONG RUN IS STILL BOUNDED BY THE PROFILE'S CAP.
+     The implied figure was capped here and the demonstrated one was not, so a
+     record whose longest logged run exceeded longCapKm entered the split
+     uncapped and every session downstream was sized against it. */
+  var longKm = demLong != null
+    ? Math.min(DISTANCE_PROFILES['full'].longCapKm, demLong) : impliedLong;
   if (!(longKm > 0)) longKm = impliedLong;
   /* THE QUALITY SESSION IS PART OF THE WEEK THE ATHLETE ALREADY RUNS, and
      leaving it out of the split made week one bigger than the volume they
@@ -5310,9 +5315,92 @@ function marathonSessionStart(statedVolumeKm, supportDays, qualitySlots){
      days, and then a quality session was added on top of it. Counted at the
      supporting run's size, the same stand-in the capacity check uses and for
      the same reason: it is not sized until the structure pools run. */
-  var rest = Math.max(0, (statedVolumeKm || 0) - longKm);
+  /* ---- AND THE SPLIT OBEYS THE SAME COHERENCE BAND AS THE DESTINATION ----
+     THE START WAS THE ONE PLACE THE BAND WAS NOT ASKED, and it showed at both
+     ends of the population.
+
+     ABOVE: a stated 200km/week divided across six days gives a 32km long run
+     (its cap) beside 33.6km supporting runs. marathonSupportDestination() holds
+     a supporting run to SUPPORT_SHARE_MAX of the long run, so the destination is
+     24km -- BELOW the start -- and the block descends across every build week,
+     150.3 -> 129.9, reading as an unrequested taper.
+
+     BELOW: a stated 7km/week gives a 2.24km long run beside a supporting run
+     the floor then lifts to 3km. The supporting run is longer than the long
+     run, the week cannot express the athlete's own mileage, and 2km of what
+     they told us they run disappears.
+
+     Both are the same omission. The relation is the architecture's own and
+     needs no new number: a supporting run is between SUPPORT_SHARE_MIN and
+     SUPPORT_SHARE_MAX of the long run. Solved directly rather than iterated --
+     L + d*s = V with s <= SUPPORT_SHARE_MAX*L gives L >= V/(1 + SUPPORT_SHARE_MAX*d)
+     -- and the long run's own cap still bounds it, so where the athlete's
+     mileage cannot be expressed in this many sessions of coherent shape the
+     supporting runs stop at their ceiling rather than growing past it. What
+     will not fit is not prescribed. */
   var days = Math.max(1, (supportDays || 1) + (qualitySlots || 0));
-  return { longKm: round1(longKm), supportKm: round1(rest / days) };
+  var V = Math.max(0, statedVolumeKm || 0);
+  if (V > 0){
+    var coherentLong = V / (1 + SUPPORT_SHARE_MAX * days);
+    if (coherentLong > longKm)
+      longKm = Math.min(DISTANCE_PROFILES['full'].longCapKm, coherentLong);
+  }
+  var rest = Math.max(0, V - longKm);
+  var supportKm = rest / days;
+  if (longKm > 0) supportKm = Math.min(supportKm, longKm * SUPPORT_SHARE_MAX);
+  /* ---- AND A SLOT THE WEEK CANNOT EXPRESS IS NOT CHARGED TO THE SPLIT ----
+     The quality slot is reserved out of the athlete's own mileage here, and the
+     week then asks marathonQualityEligible() whether it can carry a structured
+     session at all. Where the answer is no, the reservation was still taken and
+     nothing gave it back: a stated 7km/week was split into a 2.2km long run and
+     two shares of 2.4km, one of which was refused, and the athlete was
+     prescribed 5km of the 7km they told us they run. That is the allocator
+     failing to find a combination, not the athlete failing to have one.
+
+     Asked once, with the same relation the week uses and the same stand-in for
+     an unsized session, and where the slot cannot be carried the split is made
+     without it -- so the aerobic work keeps the kilometres rather than losing
+     them. Nothing is invented: the total being divided is the volume the
+     athlete stated. */
+  /* AND THE STAND-IN IS THE SESSION'S OWN FLOOR, NOT AN ORDINARY RUN.
+     A structured session is not sized until the structure pools run, but its
+     smallest possible size is not a guess: intervalFlankKm() is the warm-up and
+     cool-down every structured day in this library carries, and no session
+     exists below it. Measured across every marathon block from 1 to 60km/week,
+     the smallest interval the pools will write is 4.3km and the smallest tempo
+     4.9km, against a flank cost of 4. Standing the session in at the supporting
+     run's size under-stated it by half at the bottom, which is how a 10km/week
+     week reserved 2.3km for a session that was going to cost 5. */
+  if ((qualitySlots || 0) > 0 && V > 0 &&
+      !marathonQualityEligible(V, longKm, Math.max(supportKm, intervalFlankKm())))
+    return marathonSessionStart(statedVolumeKm, supportDays, 0);
+  return { longKm: round1(longKm), supportKm: round1(supportKm) };
+}
+
+/* ---- AND HOW MANY SUPPORTING RUNS THE SPLIT CAN ACTUALLY WRITE ----
+   THE DAY COUNT AND THE SPLIT HAVE TO AGREE, and they did not. The count was
+   chosen from the athlete's stated volume divided by EASY_MIN_KM before the
+   long run was coherent, the split was then made for that count, and the
+   week's capacity gate dropped a day afterwards -- leaving supporting runs
+   sized for a week that no longer existed. A 9km/week athlete was split across
+   two supporting runs of 2.7km, lifted to the 3km floor, found unaffordable,
+   cut to one, and prescribed 6km of the 9km they run.
+
+   Asked once, here, against the split itself: the most supporting runs whose
+   coherent split still writes each of them at or above EASY_MIN_KM. Below that
+   the week does not have fewer kilometres, it has fewer and bigger runs -- at
+   9km/week that is a 5km long run and a 4km supporting one, which is the
+   athlete's own mileage rather than two thirds of it.
+
+   No new number: the floor is EASY_MIN_KM and the shape is the coherence band
+   the destinations already use. */
+function marathonSupportDayFit(statedVolumeKm, maxSupportDays, qualitySlots){
+  var most = Math.max(1, maxSupportDays || 1);
+  for (var d = most; d > 1; d--){
+    var split = marathonSessionStart(statedVolumeKm, d, qualitySlots);
+    if (split.supportKm >= EASY_MIN_KM - 1e-9) return d;
+  }
+  return 1;
 }
 
 /* ---- THE LONG RUN'S OWN DESTINATION ----
@@ -5332,6 +5420,14 @@ function marathonLongRunDestination(startLongKm, progressingWeeks){
   var reach = reachableSessionKm(startLongKm, progressingWeeks);
   if (reach == null) return { km: Math.min(cap, want), limited:false };
   var km = Math.min(cap, want, reach);
+  /* ---- AND THE MARATHON NEVER ASKS FOR A SHORTER LONG RUN THAN THE ATHLETE
+     ALREADY HAS ---- The benchmark is where a long run is going, not a value it
+     should be reduced to. An athlete arriving with a 32km long run was given a
+     destination of 30 and every session walked DOWNWARD to it, so the whole
+     block descended -- 135.9km in week one to 128.3 at the last developing week
+     -- and read as an unrequested taper. Bounded by the profile's own cap, so
+     this can hold a start where it is but can never send one past it. */
+  km = Math.max(km, Math.min(cap, startLongKm));
   return { km: round1(km), limited: reach < want };
 }
 
@@ -6878,7 +6974,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      The loop then walks each SESSION along its own progression and the week's
      volume is what they add up to. */
   var mBottomUp = null, mPrevLongKm = null, mPrevSupportKm = null, mPeakBuiltKm = 0,
-      mPrevWeekKm = null, mPrevQSlots = null, mPrevSupportDays = null;
+      mPrevWeekKm = null, mPrevQSlots = null, mPrevSupportDays = null,
+      /* The count the previous week ACTUALLY ran on, after the capacity gate --
+         mPrevSupportDays is read before that gate, for the structure question. */
+      mPrevEffSupportDays = null;
   /* The floor a session in THIS block may not go below -- the race week's own,
      since a marathon race block is never a foundation block. */
   var easyFloorKmForBlock = EASY_MIN_KM;
@@ -6941,10 +7040,13 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        so a day count the stated week cannot pay for at its floors does not
        reduce the runs -- it inflates the week. Measured, that is what pushed
        203 first weeks more than 30% above the volume the athlete stated. */
-    var mFloorRoom = Math.floor(Math.max(0, mHave) / EASY_MIN_KM);
     var mSupportDays = Math.max(1, Math.min(mDays - 1 - mQSlots,
-                                            Math.max(mNeed, 1),
-                                            Math.max(1, mFloorRoom)));
+                                            Math.max(mNeed, 1)));
+    /* AND THE SPLIT HAS TO BE ABLE TO WRITE THEM. See marathonSupportDayFit():
+       this replaces dividing the athlete's non-long mileage by EASY_MIN_KM,
+       which asked the question before the long run was coherent and so
+       disagreed with the split it was choosing for. */
+    mSupportDays = marathonSupportDayFit(currentVolume, mSupportDays, mQSlots);
     /* Weeks that actually progress: the taper does not, the race week does
        not, and a cutback week steps back rather than forward. */
     var mProgressing = 0;
@@ -7146,6 +7248,19 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          beside the doses, rather than once for the whole block. */
       var mCap = marathonWeekCapacityKm(currentVolume, mBottomUp.stepIdx,
                                         mBottomUp.capacityCeilingKm);
+      /* ---- A CUTBACK REDUCES THE DOSE, NOT THE ATHLETE'S FREQUENCY ----
+         Capacity is what decides how many supporting runs a week writes, so
+         discounting it for a cutback removed a running day ON TOP of the 22%
+         the sessions already gave up -- and the week after put it straight
+         back. Measured at 8km/week: week 7 twelve kilometres across three runs,
+         week 8 six across two (-50%, where a cutback is -22%), week 9 fourteen
+         (+133%). That is the day count moving the whole workload again, this
+         time arriving through the capacity channel.
+
+         The dose comes off the sessions, where it belongs, and the week keeps
+         the days the athlete runs on. The taper is unchanged: it has its own
+         ladder below, which shrinks the supporting runs first and drops one
+         only when they are already at the floor. */
       if (isCutback) mCap = mCap != null ? mCap * CUTBACK_FACTOR : null;
       if (isTaper && mCap != null){
         var mCapT = 1 - ((taper > 0 ? (w - buildWeeks) / taper : 1) *
@@ -7500,16 +7615,45 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          conventional quality frequency is ZERO, and it becomes one when their
          aerobic work has grown enough to hold it. No mileage threshold decides
          that -- the week's own arithmetic does. */
+      /* AND WHERE IT IS NOT YET AFFORDABLE, ITS SHARE STAYS AEROBIC WORK.
+         The block split the athlete's own mileage across the long run, the
+         supporting runs AND this slot; refusing the structure without giving
+         the slot's share back deleted training the athlete already does. A
+         12km/week athlete was split into a 4.8km long run and two shares of
+         3.6km, one of which was reserved for a session the week then declined,
+         and 8.5km was prescribed. The slot becomes the supporting run it always
+         was -- the same rung the deferral ladder below already uses, for the
+         same reason -- and the week comes out at 12. */
+      var mQSlotsGivenBack = 0;
       if (mQKm > 0 && mWeek.capacityKm != null &&
           !marathonQualityEligible(mWeek.capacityKm, longTarget, mQKm)){
-        mQKm = 0; mWeek.qSlots = 0; mWeek.qualityNotYetEligible = true;
+        mQKm = 0; mQSlotsGivenBack = mWeek.qSlots; mWeek.qSlots = 0;
+        mWeek.qualityNotYetEligible = true;
       }
       /* AND THE SUPPORTING RUNS THE WEEK CAN ACTUALLY PAY FOR. Adding another
          at its floor because a day happens to be available is how the floors
          became the week. Availability stays permission. */
       if (mWeek.capacityKm != null){
         mWeek.supportDays = marathonSupportDaysFor(mWeek.capacityKm, longTarget, mQKm,
-                                                   mWeek.supportDays);
+                                                   mWeek.supportDays + mQSlotsGivenBack);
+        /* ---- A CUTBACK REDUCES THE DOSE, NOT THE ATHLETE'S FREQUENCY ----
+           Capacity decides how many supporting runs a week writes, and a
+           cutback discounts capacity -- so the week gave up a running day ON TOP
+           of the 22% the sessions had already given up, and the week after put
+           it straight back. Measured at 8km/week: week 7 twelve kilometres
+           across three runs, week 8 six across two (a cutback is -22%, not
+           -50%), week 9 fourteen (+133%). That is the day count moving the whole
+           workload again, arriving this time through the capacity channel.
+
+           A cutback week runs on the days the week before it ran on. The dose
+           comes off the sessions, where it belongs. Asked as the PREVIOUS
+           week's count rather than as an undiscounted capacity, because the
+           long run is discounted too and pricing one against the other simply
+           moved the oscillation a week. The taper is untouched: it has its own
+           ladder below, which shrinks the supporting runs first and drops one
+           only when they are already at the floor. */
+        if (isCutback && !isTaper && mPrevEffSupportDays != null)
+          mWeek.supportDays = mPrevEffSupportDays;
         mWeek.supportKm = round1(Math.max(EASY_MIN_KM,
           Math.min(mWeek.supportKm,
                    (mWeek.capacityKm - longTarget - mQKm) / mWeek.supportDays)));
@@ -7549,6 +7693,12 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         mWeek.qualityDeferred = true;
       }
       mWeek.countedSupportDays = mSupN;
+      /* THE QUALITY KILOMETRES THE WEEK ACTUALLY COUNTED, recorded rather than
+         re-derived. Which family a one-slot week carries, whether the slot was
+         refused for capacity, deferred under the long-run bound or given back
+         to the aerobic work are four separate decisions above, and anything
+         re-deriving the total from qKm/tKm has to reproduce all four. */
+      mWeek.qualityKm = round1(mQKm);
       volume = round1(longTarget + mQKm + mSupN * mWeek.supportKm);
       /* ---- AND THERE IS NOTHING LEFT TO RECONCILE ----
          The accounting exists to explain the difference between what a week
@@ -7605,6 +7755,11 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       intendedVolume = volume;
       reductionCause = null;
       mPrevWeekKm = volume;
+      /* countedSupportDays, not supportDays: the number of supporting runs the
+         week ACTUALLY carried, after a refused or deferred quality slot became
+         one of them. Reading the pre-ladder figure let the cutback hold below
+         undo the give-back and halve the week it was written to protect. */
+      mPrevEffSupportDays = mWeek.countedSupportDays;
       if (!isTaper && volume > mPeakBuiltKm) mPeakBuiltKm = volume;
     }
     weeks.push({
@@ -10698,9 +10853,16 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       ? round1(slotDeliveredKm('interval', 2) + slotDeliveredKm('tempo', 2))
       : qualitySlotsThisWeek===1 ? slotDeliveredKm(singleSlotKind, 1) : 0;
 
+    /* THE ROUND-SAFE EASY CAP APPLIES TO A BOTTOM-UP MARATHON WEEK TOO. A long
+       run is presented to the whole kilometre and an easy day to the half, so
+       at close sizes the two quanta invert the order they were computed in: a
+       6.4km long run renders as 6 and a 6.4km supporting run as 6.5, and the
+       "easy" run is the longest run of the week. Two cases remain in the
+       marathon population and this is both of them; every other distance
+       reaches this call with the flag it always had. */
     var dist = distributeWeekVolume(wk.volume, qualityKm, longKm, secondLongKm,
                                      easyDays.length, profile.longCapKm, easyFloorKm,
-                                     !!blockResult.noQuality);
+                                     !!blockResult.noQuality || !!wk.bottomUp);
     var perEasy = dist.perEasy;
     longKm = dist.longKm;
     /* ---- IS THIS A WEEK THAT WANTS A MEDIUM-LONG RUN? ----

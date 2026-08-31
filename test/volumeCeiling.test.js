@@ -109,9 +109,22 @@ test('a start above the ceiling ramps to the ceiling rather than downward from i
   const a = app();
   const br = a.buildBlockWeeks('full', 200, 12, {});
   const build = br.weeks.filter(w => !w.isRace && !w.isTaper).map(w => w.volume);
-  assert.ok(build[build.length - 1] >= build[0],
-    'the block descended: ' + build[0] + ' -> ' + build[build.length - 1]);
-  assert.ok(Math.max.apply(null, build) <= 170);
+  /* ASKED OF THE BLOCK'S PEAK, NOT OF ITS LAST DEVELOPING WEEK. The claim is
+     the one in the comment above -- the block ramps UP to the ceiling rather
+     than descending from a number the athlete inherited -- and reading the last
+     week for it assumed the last developing week is the biggest. A marathon
+     block's is deliberately not: Peak carries two long-run exposures with an
+     absorption week between them, and the second is the shorter, more specific
+     one. The property is asserted directly instead: the block reaches above
+     where it started, and it does so after week one.
+     For 5k, 10k, half and ultra the last developing week IS the peak, so this
+     is the same assertion it always was. */
+  const peak = Math.max.apply(null, build);
+  assert.ok(peak >= build[0],
+    'the block descended: ' + build[0] + ' -> peak ' + peak);
+  assert.ok(build.indexOf(peak) > 0,
+    'the block never rose above its first week: ' + build.join(' -> '));
+  assert.ok(peak <= 170);
 });
 
 test('a steady block is capped too, so a pre-rule number cannot enter through maintenance', () => {
@@ -162,7 +175,22 @@ function simulate(distKey, startVol, years, capacity){
       peaks.push(br.peakVolume); yp = Math.max(yp, br.peakVolume);
       br.weeks.forEach(w => {
         const km = Math.round(Math.min(w.volume, capacity) * 10) / 10;
-        a.state.athlete.sessions.push({ date: day.toISOString().slice(0, 10), completed: true, actualKm: km });
+        /* THE WEEK IS LOGGED AS THE RUNS IT CONTAINS, not as one session
+           carrying its total. The single-session shorthand was harmless while
+           nothing read the record's shape, and it is not any more: the marathon
+           generator now reads demonstrated running FREQUENCY and demonstrated
+           LONG RUN from these sessions, so a record of one 60km run a week
+           described an athlete who runs once a week and whose longest run is
+           60km -- and was answered, correctly, with a two-day week. The
+           property under test is unchanged; the fixture now represents an
+           athlete who trains. Five runs, a long run at 30% of the week, which
+           is the shape the generator itself builds. */
+        const long = Math.round(km * 0.30 * 10) / 10, per = (km - long) / 4;
+        for (let i = 0; i < 4; i++)
+          a.state.athlete.sessions.push({ date: new Date(day.getTime() + i * 86400000).toISOString().slice(0, 10),
+            completed: true, actualKm: per, plannedKm: per, type: 'easy' });
+        a.state.athlete.sessions.push({ date: new Date(day.getTime() + 5 * 86400000).toISOString().slice(0, 10),
+          completed: true, actualKm: long, plannedKm: long, type: 'long' });
         day = new Date(day.getTime() + 7 * 86400000);
         a.Date = makePinnedDate(day.toISOString());
       });
@@ -186,7 +214,18 @@ const CASES = [['5k', 40, 110], ['10k', 45, 120], ['half', 50, 140], ['full', 60
 
    The property is unchanged and is asserted more strictly than before: the
    programme rises, arrives, and then STAYS there for the rest of the horizon
-   rather than merely repeating one year. */
+   rather than merely repeating one year.
+
+   ARRIVAL IS NO LONGER A NUMBER REPEATING TO THE DECIMAL, and it cannot be.
+   The marathon block is built from its sessions and reads the SHAPE of the
+   record -- demonstrated running frequency and demonstrated long run, not only
+   a weekly scalar -- so its input each year is a whole training history rather
+   than one number, and its fixed point is a small cycle rather than a point:
+   111.2, 110.5, 110.1, 110.1, 110.1, 109.3, 109.7, 109.7. That is convergence.
+   The failure this file exists to catch is the programme RESUMING ITS CLIMB,
+   and that is now asserted directly -- nothing after arrival exceeds arrival,
+   and nothing after it falls more than a single block's growth cap below it, so
+   neither a ratchet nor a collapse can pass. */
 const CONVERGENCE_YEARS = 12;
 
 CASES.forEach(([dist, start, backstop]) => {
@@ -198,11 +237,15 @@ CASES.forEach(([dist, start, backstop]) => {
     assert.ok(r.yearPeak[r.yearPeak.length - 1] >= r.yearPeak[0],
       'the programme went backwards: ' + trace);
     // it arrives...
-    const settled = r.yearPeak.findIndex((v, i) => i > 0 && v === r.yearPeak[i - 1]);
-    assert.ok(settled > 0, dist + ' was still climbing at the end of the horizon: ' + trace);
-    // ...and every year after that is the same number, not just the next one
-    r.yearPeak.slice(settled).forEach(v => assert.equal(v, r.yearPeak[settled],
-      dist + ' moved again after settling: ' + trace));
+    const top = Math.max.apply(null, r.yearPeak);
+    const settled = r.yearPeak.indexOf(top);
+    assert.ok(settled > 0 && settled < r.yearPeak.length - 1,
+      dist + ' was still climbing at the end of the horizon: ' + trace);
+    // ...and it neither climbs again nor falls away from where it arrived
+    r.yearPeak.slice(settled).forEach(v => {
+      assert.ok(v <= top + 1e-9, dist + ' climbed again after settling: ' + trace);
+      assert.ok(v * 1.10 >= top, dist + ' fell away after settling: ' + trace);
+    });
     // and it never climbs past its own backstop on the way
     r.yearPeak.forEach(v => assert.ok(v <= backstop, trace));
   });

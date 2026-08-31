@@ -175,8 +175,14 @@ test('the week is the sum of the sessions prescribed in it', () => {
     const blk = a.buildBlockWeeks('full', v, 15, { availableDays: 6, easyPaceSecPerKm: 330 });
     blk.weeks.filter(w => w.bottomUp).forEach(w => {
       const b = w.bottomUp;
-      const q = b.qualityDeferred ? 0
-              : (b.qSlots >= 2 ? (w.qKm + w.tKm) : (w.week % 2 === 0 ? w.tKm : w.qKm));
+      /* THE WEEK'S OWN RECORD, not a re-derivation. Which family a one-slot
+         week carries, and whether the slot was refused for capacity, deferred
+         under the long-run bound or given back to the aerobic work, are four
+         separate decisions inside buildBlockWeeks -- this test reproduced one
+         of them and silently disagreed with the other three. bottomUp.qualityKm
+         is what the week counted, so the identity is asserted against the
+         generator's answer rather than against a copy of part of it. */
+      const q = b.qualityKm;
       /* countedSupportDays, not supportDays: where the structured session was
          deferred its slot became an ordinary supporting run and the week
          carries one more of them. */
