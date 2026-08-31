@@ -1,13 +1,24 @@
 'use strict';
-/* STAGE 2 -- AVAILABILITY IS A CEILING; THE WEEK CHOOSES THE FREQUENCY.
+/* AVAILABILITY IS A CEILING; THE WEEK'S PURPOSES DECIDE THE FREQUENCY.
  *
- * Availability says what Valhalla is ALLOWED to use. The week's own sessions
- * say how many days it wants. Demonstrated capacity chooses inside that range.
- * The days between the answer and the ceiling stay available as Optional Runs.
+ * Availability says what Valhalla is ALLOWED to use. It never says what to
+ * prescribe.
  *
- * TWO DEFECTS ARE UNDER TEST, NOT ONE. Too few prescribed days concentrates
- * the week and makes supporting runs accidentally oversized; too many
- * fragments it and makes them leftover mileage. Both are asserted.
+ * WHAT CHANGED WHEN THE WEEK STOPPED BEING DIVIDED. The coherent-frequency
+ * band was the generator: it read the week's volume, its long run and its
+ * quality session and chose a day count. Under bottom-up construction the week
+ * is assembled from purposeful sessions and its volume is their sum, so
+ * choosing a day count from the volume would be choosing it from a number the
+ * day count itself produced.
+ *
+ * The band is therefore a DIAGNOSTIC now -- which is the role the methodology
+ * gives long-run share too, and for the same reason. It still computes, it is
+ * still recorded on the week, and where an assembled week falls outside it,
+ * that is exactly the distortion it exists to report. What decides the day
+ * count is what the week actually contains: one long run, the quality it
+ * earned, and the supporting runs the athlete's own training justifies.
+ *
+ * These tests assert that architecture. They are not the old ones loosened.
  */
 const test = require('node:test');
 const assert = require('node:assert');
