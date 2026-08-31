@@ -6804,6 +6804,9 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      volume is what they add up to. */
   var mBottomUp = null, mPrevLongKm = null, mPrevSupportKm = null, mPeakBuiltKm = 0,
       mPrevWeekKm = null;
+  /* The floor a session in THIS block may not go below -- the race week's own,
+     since a marathon race block is never a foundation block. */
+  var easyFloorKmForBlock = EASY_MIN_KM;
   if (usesMarathonArc(purpose, distKey) && !steady && !arc.noLongRun){
     var mAvail = (opts && opts.availableDays > 0) ? opts.availableDays : 6;
     var mDemF = null, mCurF = null;
@@ -6912,7 +6915,12 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       if (Math.abs(prevL - mLongDest.km) < 0.05 &&
           prevS != null && Math.abs(prevS - mSupportDest) < 0.05) break;
     }
+    /* The supporting workload the athlete arrived with, and where it is going.
+       One quantity, developed once -- see the note at mSupTotal. */
+    var mSupTotalStart = mStart.supportKm * mSupportDays;
+    var mSupTotalDest = (mSupportDest || mStart.supportKm) * mSupportDays;
     mBottomUp = { days:mDays, qSlots:mQSlots, supportDays:mSupportDays,
+                  startSupportTotalKm: mSupTotalStart, supportTotalDestKm: mSupTotalDest,
                   startLongKm:mStart.longKm, startSupportKm:mStart.supportKm,
                   longDestKm:mLongDest.km, longLimited:mLongDest.limited,
                   supportDestKm:mSupportDest, progressing:mProgressing,
@@ -7014,10 +7022,22 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         ? Math.min(1, mBottomUp.stepIdx / mBottomUp.progressing) : 1;
       var mLong = sessionAtStep(mBottomUp.startLongKm, mBottomUp.longDestKm,
                                 mBottomUp.progressing, mBottomUp.stepIdx);
-      var mSupport = sessionAtStep(mBottomUp.startSupportKm,
-                                   mBottomUp.supportDestKm != null ? mBottomUp.supportDestKm
-                                                                   : mBottomUp.startSupportKm,
-                                   mBottomUp.progressing, mBottomUp.stepIdx);
+      /* ---- SUPPORT DEVELOPS AS A WORKLOAD; DAYS ONLY DECIDE THE SPLIT ----
+         Progressing the per-RUN figure made the day count move the whole
+         week: one more supporting day multiplied a per-run destination that
+         had barely fallen, so a single kilometre of stated volume could swing
+         the plan by 18km in either direction. Measured across every integer
+         from 1 to 60, and it is exactly the continuity property the suite
+         asserts.
+
+         The athlete's supporting workload is one quantity and it develops as
+         one. How many days it is written across is the frequency question,
+         answered separately, and changing the answer now changes the size of
+         each run rather than the amount of running. */
+      var mSupTotal = sessionAtStep(mBottomUp.startSupportTotalKm,
+                                    mBottomUp.supportTotalDestKm,
+                                    mBottomUp.progressing, mBottomUp.stepIdx);
+      var mSupport = mSupTotal / Math.max(1, mBottomUp.supportDays);
       /* A CUTBACK REDUCES THE SESSIONS, not a total that is then re-divided.
          Same factor, applied where the training actually is. */
       if (isCutback){ mLong *= CUTBACK_FACTOR; mSupport *= CUTBACK_FACTOR; }
@@ -7359,12 +7379,35 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          construction is exactly the reconciliation failure this architecture
          exists to remove. Compared as presented, because a long run rounds to
          the kilometre and a quality day rounds up to the half. */
+      var mSupN = mWeek.supportDays;
       if (mQKm > 0 && longTarget > 0 &&
           roundWorkoutKm('tempo', mQKm) > roundWorkoutKm('long', longTarget) + 1e-9){
+        /* THE LADDER SUBSTITUTES; IT DOES NOT DELETE. A week that cannot
+           afford its structured session gets an easy run with strides in that
+           slot -- the athlete still runs that day. Counting the slot as zero
+           made the week's total drop by a whole session the moment the
+           deferral flipped, and flip it does: one kilometre of stated volume
+           either side of the boundary swung the plan by 8km. The slot is
+           counted as the supporting run it becomes. */
+        /* AND THE WEEK'S AEROBIC SUPPORT DOES NOT SHRINK BECAUSE A STRUCTURE
+           COULD NOT BE BUILT. Nothing about the athlete's aerobic need changed
+           at that boundary -- only the structure library's ability to express a
+           session at that size did. The day becomes an ordinary supporting run
+           and the same supporting workload is spread across one more of them,
+           each slightly smaller. Without this the plan lost a whole session's
+           distance at the volume where the structure stopped fitting, which is
+           a cliff in the athlete's training created by a library limitation. */
+        mSupN = mWeek.supportDays + mWeek.qSlots;
+        /* Full precision through the redistribution: rounding the per-run
+           figure and then multiplying it back up loses a kilometre across a
+           week, which at these volumes is a visible step in the plan. The day
+           builder rounds once, where the athlete sees it. */
+        mWeek.supportKm = (mWeek.supportDays * mWeek.supportKm + mQKm) / mSupN;
         mQKm = 0;
         mWeek.qualityDeferred = true;
       }
-      volume = round1(longTarget + mQKm + mWeek.supportDays * mWeek.supportKm);
+      mWeek.countedSupportDays = mSupN;
+      volume = round1(longTarget + mQKm + mSupN * mWeek.supportKm);
       /* ---- AND THERE IS NOTHING LEFT TO RECONCILE ----
          The accounting exists to explain the difference between what a week
          INTENDED and what it delivered. Under bottom-up construction there is
@@ -7393,12 +7436,28 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          still exceeds the week before, the floor excess is what remains and it
          stays visible as the declared class it already is. */
       if (isTaper && mPrevWeekKm != null && volume > mPrevWeekKm){
-        var mDrop = mWeek.supportDays;
-        while (mDrop > 1 && volume > mPrevWeekKm){
-          mDrop--;
-          volume = round1(longTarget + mQKm + mDrop * mWeek.supportKm);
+        /* THE DESCENT, TAKEN OUT OF THE SESSIONS AND IN THAT ORDER. Shrink the
+           supporting runs first, which is what a taper does; drop a session
+           only when they are already at the floor and cannot shrink further.
+           Dropping first was coarse enough to be its own discontinuity -- a
+           single kilometre of stated volume moved a taper week by six -- and
+           the athlete does not stop running a day because the week before them
+           happened to be small. */
+        var mRoom = Math.max(0, mSupN * mWeek.supportKm - (volume - mPrevWeekKm));
+        var mFloor = (easyFloorKmForBlock != null ? easyFloorKmForBlock : EASY_MIN_KM) * mSupN;
+        if (mRoom >= mFloor){
+          mWeek.supportKm = round1(mRoom / mSupN);
+          volume = round1(longTarget + mQKm + mSupN * mWeek.supportKm);
+        } else {
+          var mDrop = mSupN;
+          while (mDrop > 1 && volume > mPrevWeekKm){
+            mDrop--;
+            volume = round1(longTarget + mQKm + mDrop * mWeek.supportKm);
+          }
+          mWeek.supportDays = Math.min(mWeek.supportDays, mDrop);
+          mSupN = mDrop;
         }
-        mWeek.supportDays = mDrop;
+        mWeek.countedSupportDays = mSupN;
       }
       wkRampVolume = intendedVolume;
       intendedVolume = volume;
