@@ -5131,6 +5131,123 @@ function marathonRunwayPlan(weeksToRace, stateVolume){
   out.reason = 'surplus_to_development_block';
   return out;
 }
+/* =========================================================
+   BOTTOM-UP WEEK CONSTRUCTION  (MARATHON RACE GOAL ONLY)
+   ---------------------------------------------------------
+   THE DEFECT THIS CLOSES, stated as plainly as it can be. Every week was built
+   from a weekly-volume TARGET: the ramp produced a number, the long run was
+   that number times a share, and every remaining kilometre was divided across
+   the easy days until the total came out right. So an easy run's distance was
+   whatever was left over, and the answer to "why is this run ten kilometres?"
+   was "because the week had to reach seventy".
+
+   THE ARCHITECTURE IT REPLACES IT WITH:
+
+       athlete + phase + evidence
+         -> each session's own purpose
+         -> each session's own dose
+         -> SUM
+         -> the week's volume
+
+   Weekly volume becomes the RESULT of the prescription instead of the quantity
+   the generator is obliged to fill. Nothing below reads a weekly target, and
+   there is no residue to consume -- which is exactly what makes it possible to
+   answer "why is this run ten kilometres?" with a training reason.
+
+   THE THINGS THAT WOULD MAKE THIS FAKE, and are therefore absent:
+     - easy dose = target minus everything else
+     - number of easy runs = whatever reaches the target
+     - long run = the residual that makes the total work
+     - a session enlarged because kilometres remain unallocated
+   Each component below has an independent reason and none of them can see a
+   total.
+
+   MARATHON ONLY. 5K, 10K, Half and Ultra keep the top-down distributor they
+   have, byte for byte, and their outputs are hash-compared against main. */
+
+/* ---- HOW FAST A RUNNING SESSION MAY DEVELOP ----
+   The one rate in this architecture, and it is the best-evidenced number
+   available rather than a convention. Nielsen 2014 found distance-related
+   injury rates rose where running distance increased by more than about 30%
+   across a two-week window; Buist's GRONORUN RCT found no injury benefit from
+   the 10% rule, so the 10% convention is deliberately NOT used here. A session
+   may therefore grow by up to 30% across two progressing weeks.
+
+   IT IS A CEILING ON DEVELOPMENT, NOT A PRESCRIBED RATE. The actual rate below
+   is an OUTPUT: each session is stated by its endpoints -- where the athlete
+   is, and where the phase is taking them -- and the rate falls out. That is
+   the same pattern the on-ramp already uses, and it is why nothing here
+   carries a per-week growth constant. */
+var SESSION_TWO_WEEK_GROWTH_CAP = 1.30;
+function reachableSessionKm(startKm, progressingWeeks){
+  if (!(startKm > 0)) return null;
+  var w = Math.max(0, progressingWeeks || 0);
+  return round1(startKm * Math.pow(SESSION_TWO_WEEK_GROWTH_CAP, w / 2));
+}
+
+/* ---- WHERE THIS ATHLETE'S SESSIONS START ----
+   The only honest starting evidence for an athlete with no logged history is
+   what they told the app they are doing. That is used ONCE, to say where the
+   sessions begin -- it is not a quota the week must reach, and every week after
+   the first develops from purpose rather than from it.
+
+   Where the athlete HAS logged training, their own demonstrated long run wins:
+   a stated weekly figure is a summary, and a run they actually completed is
+   the thing itself. */
+function marathonSessionStart(statedVolumeKm, supportDays){
+  var f = LONG_FRACTION[DISTANCE_PROFILES['full'].emphasis];
+  var demLong = null;
+  try { demLong = demonstratedLongRunKm(); } catch(e){ demLong = null; }
+  var impliedLong = (statedVolumeKm > 0)
+    ? Math.min(DISTANCE_PROFILES['full'].longCapKm, statedVolumeKm * f) : 0;
+  var longKm = demLong != null ? Math.max(demLong, MIN_LONG_RUN_KM * 0) : impliedLong;
+  if (!(longKm > 0)) longKm = impliedLong;
+  var rest = Math.max(0, (statedVolumeKm || 0) - longKm);
+  var days = Math.max(1, supportDays || 1);
+  return { longKm: round1(longKm), supportKm: round1(rest / days) };
+}
+
+/* ---- THE LONG RUN'S OWN DESTINATION ----
+   Not volume times a share. The marathon states what it wants -- a
+   marathon-readiness long-run exposure -- and the athlete's own capacity and
+   runway state what is reachable. The smaller of the two is where the
+   progression is going, and where reachability is what binds, that IS the
+   readiness gap rather than a reason to prescribe more.
+
+   NOTHING HERE CHASES RACE DISTANCE, and the settled ceilings still hold: the
+   distance profile's own longCapKm bounds it, ~30km is the readiness benchmark
+   rather than a floor, and above it an established athlete may reach ~32 but is
+   never sent past it because their weekly volume happens to be high. */
+function marathonLongRunDestination(startLongKm, progressingWeeks){
+  var cap = DISTANCE_PROFILES['full'].longCapKm;
+  var want = MIN_PEAK_LONG_KM['full'];
+  var reach = reachableSessionKm(startLongKm, progressingWeeks);
+  if (reach == null) return { km: Math.min(cap, want), limited:false };
+  var km = Math.min(cap, want, reach);
+  return { km: round1(km), limited: reach < want };
+}
+
+/* ---- AND THE SUPPORTING RUN'S ----
+   AEROBIC SUPPORT IS TRAINING, not padding, so it develops -- but it develops
+   as SUPPORT, and it stops when it would stop being that. Two independent
+   bounds decide where it stops, and neither of them is a weekly total:
+
+     SHAPE   past SUPPORT_SHARE_MAX of the long run it is no longer a
+             supporting run; it is a second long effort under another name.
+     COST    past the session-cost region it is no longer an ordinary easy run
+             for this athlete, however proportionate it looks.
+
+   Both bounds already exist and are already used to decide frequency. Here
+   they decide dose, which is the same question asked of one session instead of
+   the week's shape. */
+function marathonSupportDestination(startSupportKm, progressingWeeks, longKm, easyPaceSecPerKm){
+  var reach = reachableSessionKm(startSupportKm, progressingWeeks);
+  if (reach == null) return null;
+  var byShape = longKm > 0 ? longKm * SUPPORT_SHARE_MAX : Infinity;
+  var byCost = (easyPaceSecPerKm > 0) ? (SUPPORT_COST_UPPER_SEC / easyPaceSecPerKm) : Infinity;
+  return round1(Math.max(EASY_MIN_KM, Math.min(reach, byShape, byCost)));
+}
+
 /* ---------- THE EVENT CREATES THE REQUIREMENT; THE ATHLETE SETS THE ROUTE ----
    WHAT WAS WRONG. The marathon's volume destination was start x
    developmentMultiplierFor(), and that multiplier saturates at fourteen weeks.
@@ -6534,6 +6651,108 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      the two ways it is earned, so the question is closed once it is placed. */
   var calibrationPlaced = false;
 
+  /* ---- BOTTOM-UP CONSTRUCTION, MARATHON ONLY ----
+     Everything this needs is decided BEFORE the loop and none of it is a
+     weekly total: where each session starts (the athlete's own evidence),
+     where it is going (the event's requirement bounded by what is reachable),
+     and how many supporting days there are (availability and demonstrated
+     frequency, which are frequency authorities and not volume ones).
+
+     The loop then walks each SESSION along its own progression and the week's
+     volume is what they add up to. */
+  var mBottomUp = null, mPrevLongKm = null, mPrevSupportKm = null;
+  if (usesMarathonArc(purpose, distKey) && !steady && !arc.noLongRun){
+    var mAvail = (opts && opts.availableDays > 0) ? opts.availableDays : 6;
+    var mDemF = null, mCurF = null;
+    try { mDemF = demonstratedRunningFrequency(); } catch(e){ mDemF = null; }
+    try { mCurF = currentSustainedRunningFrequency(); } catch(e){ mCurF = null; }
+    var mDays = mAvail;
+    if (mDemF != null) mDays = Math.min(mDays, Math.max(2, mDemF));
+    if (mCurF != null) mDays = Math.min(mDays, Math.max(2, mCurF));
+    /* One demanding conventional session unless the athlete has earned a
+       second -- the existing gate, asked here so the week's purposes are known
+       before its sessions are sized. Never chosen to make a total work. */
+    var mQSlots = 1;
+    try { mQSlots = secondQualityExposurePermission(2).permitted ? 2 : 1; } catch(e){ mQSlots = 1; }
+    /* HOW MANY SUPPORTING RUNS THE ATHLETE'S TRAINING ACTUALLY CONTAINS.
+       Not "how many days are available" -- that is a ceiling and it is applied
+       below -- and not a divisor for a total. This asks how many supporting
+       runs of a size the app will prescribe are present in the training the
+       athlete arrived with, which is evidence about them.
+
+       It matters most at the bottom, where it is the difference between
+       honesty and filler: a 12km/week athlete's week contains two supporting
+       runs, and prescribing four of them at the minimum printable distance
+       would be four token runs invented to occupy available days. */
+    var mImpliedLong = Math.min(profile.longCapKm,
+                                (currentVolume > 0 ? currentVolume : 0) * LONG_FRACTION[profile.emphasis]);
+    var mHave = Math.max(0, (currentVolume > 0 ? currentVolume : 0) - mImpliedLong);
+    var mSupportDays = Math.max(1, Math.min(mDays - 1 - mQSlots,
+                                            Math.floor(mHave / EASY_MIN_KM)));
+    /* Weeks that actually progress: the taper does not, the race week does
+       not, and a cutback week steps back rather than forward. */
+    var mProgressing = 0;
+    for (var pw = 1; pw <= buildWeeks; pw++) if (!(pw % 4 === 0)) mProgressing++;
+    var mStart = marathonSessionStart(currentVolume, mSupportDays);
+    var mLongDest = marathonLongRunDestination(mStart.longKm, mProgressing);
+    var mPaceSec = (opts && opts.easyPaceSecPerKm > 0) ? opts.easyPaceSecPerKm : null;
+    var mSupportDest = marathonSupportDestination(mStart.supportKm, mProgressing,
+                                                  mLongDest.km, mPaceSec);
+    /* ---- CAPACITY IS A CEILING ON THE RESULT, NEVER A TARGET FOR IT ----
+       Each session's own progression is bounded, but four supporting runs and
+       a long run each growing inside their own bound can still sum to a week
+       this athlete has no evidence of absorbing: measured, a 25km/week athlete
+       reached an 85km peak week that way. So the SUM at the destinations is
+       checked against the athlete's own development ceiling -- volMult, which
+       the engine already documents as "an end-state capacity ceiling, not a
+       target every block must reach" -- and where it exceeds it the
+       DESTINATIONS come down.
+
+       THE DIRECTION MATTERS AND IS THE WHOLE POINT. Nothing clamps a total and
+       re-divides it; the sessions are made smaller and the week is still their
+       sum. And it can only ever reduce: a week that comes out under the
+       ceiling is left exactly where its sessions put it, which is why this
+       cannot become the old target wearing a new name. */
+    var mCeil = currentVolume > 0
+      ? currentVolume * developmentMultiplierFor(distKey, N, purpose) : null;
+    /* The quality session has to be counted, or the ceiling is checked against
+       a week the athlete will not receive. Its size is not known before the
+       structure pools run, so the check uses the supporting run as its stand-in
+       -- measured across the population the two come out within a kilometre or
+       two of each other, and this figure is only ever used to decide whether
+       the DESTINATIONS need to come down. */
+    var mPeakSum = mLongDest.km + (mSupportDays + mQSlots) * (mSupportDest || 0);
+    if (mCeil != null && mPeakSum > mCeil && mPeakSum > 0){
+      /* ---- WHICH SESSION GIVES WAY, AND IT IS NOT THE LONG RUN FIRST ----
+         The long run is the event-critical session: it is the one the marathon
+         actually asks for, and the readiness benchmark is stated on it. Aerobic
+         support is the flexible one. So the ceiling is paid out of support
+         until support reaches its own floor, and only what cannot be paid that
+         way comes off the long run.
+
+         Scaling both together was tried and was wrong: it pulled the peak long
+         run of an athlete admitted exactly at the viability floor down to 26km
+         against a declared floor of 30, which is the floor failing for a
+         reason that has nothing to do with the athlete's long-run capacity. */
+      var mOver = mPeakSum - mCeil;
+      var mSupN = mSupportDays + mQSlots;
+      var mSupFloor = EASY_MIN_KM * mSupN;
+      var mSupHave = (mSupportDest || 0) * mSupN;
+      var mFromSupport = Math.min(mOver, Math.max(0, mSupHave - mSupFloor));
+      mSupportDest = round1(Math.max(EASY_MIN_KM, (mSupHave - mFromSupport) / mSupN));
+      var mRemain = mOver - mFromSupport;
+      if (mRemain > 0){
+        mLongDest.km = round1(Math.max(mStart.longKm, mLongDest.km - mRemain));
+        mLongDest.limited = true;
+      }
+    }
+    mBottomUp = { days:mDays, qSlots:mQSlots, supportDays:mSupportDays,
+                  startLongKm:mStart.longKm, startSupportKm:mStart.supportKm,
+                  longDestKm:mLongDest.km, longLimited:mLongDest.limited,
+                  supportDestKm:mSupportDest, progressing:mProgressing,
+                  capacityCeilingKm: mCeil != null ? round1(mCeil) : null,
+                  paceSec:mPaceSec, stepIdx:0 };
+  }
   for (var w=1; w<=N; w++){
     var isRace = !steady && arc.hasGoalEffort && (w===N);
     var isTaper = !steady && (!isRace && w>buildWeeks);
@@ -6601,6 +6820,50 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       intendedVolume = peakVolume;
       volume = peakVolume*0.35;
       reductionCause = 'race_week';
+    }
+    /* ---- THE MARATHON WEEK IS BUILT, NOT DIVIDED ----
+       Each session walks its own progression and the week is their sum. The
+       ramp above still ran, and its answer is kept as `intendedVolume` so the
+       accounting can report the difference -- but nothing below reads it, and
+       no session is enlarged to reach it. Where the sum comes out under the
+       old target, those kilometres were never justified training. */
+    var mWeek = null;
+    var isRaceWeekNext = false;
+    if (mBottomUp && !isRace){
+      var mFrac = mBottomUp.progressing > 0
+        ? Math.min(1, mBottomUp.stepIdx / mBottomUp.progressing) : 1;
+      var mLong = mBottomUp.startLongKm +
+                  (mBottomUp.longDestKm - mBottomUp.startLongKm) * mFrac;
+      var mSupport = mBottomUp.startSupportKm +
+                     ((mBottomUp.supportDestKm != null ? mBottomUp.supportDestKm
+                                                       : mBottomUp.startSupportKm)
+                      - mBottomUp.startSupportKm) * mFrac;
+      /* A CUTBACK REDUCES THE SESSIONS, not a total that is then re-divided.
+         Same factor, applied where the training actually is. */
+      if (isCutback){ mLong *= CUTBACK_FACTOR; mSupport *= CUTBACK_FACTOR; }
+      /* AND SO DOES A TAPER. The dose comes down; the sessions stay sessions. */
+      if (isTaper){
+        var mDepth = (arc.taperDepth != null ? arc.taperDepth : RACE_TAPER_DEPTH);
+        var mT = 1 - ((taper > 0 ? (w - buildWeeks) / taper : 1) * mDepth);
+        mLong *= mT; mSupport *= mT;
+      }
+      /* A TAPER WEEK NEVER ASKS FOR MORE THAN THE WEEK BEFORE IT, and under
+         bottom-up construction that has to be held on the SESSIONS: the
+         quality structure is sized by its own pool and can rotate upward even
+         while the aerobic sessions come down, which is exactly the defect the
+         existing descent invariant was written for. Each aerobic session is
+         bounded by its own previous instance rather than by a new rule. */
+      if ((isTaper || isRaceWeekNext) && mPrevLongKm != null)
+        mLong = Math.min(mLong, mPrevLongKm);
+      if ((isTaper || isRaceWeekNext) && mPrevSupportKm != null)
+        mSupport = Math.min(mSupport, mPrevSupportKm);
+      mPrevLongKm = mLong; mPrevSupportKm = Math.max(EASY_MIN_KM, mSupport);
+      mWeek = { longKm: round1(mLong), supportKm: round1(Math.max(EASY_MIN_KM, mSupport)),
+                supportDays: mBottomUp.supportDays, qSlots: mBottomUp.qSlots,
+                capacityCeilingKm: mBottomUp.capacityCeilingKm,
+                longDestKm: mBottomUp.longDestKm, longLimited: mBottomUp.longLimited,
+                frac: Math.round(mFrac * 100) / 100 };
+      if (!isCutback && !isTaper) mBottomUp.stepIdx++;
     }
     volume = round1(volume);
     intendedVolume = round1(intendedVolume);
@@ -6800,6 +7063,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        cannot express, and shrinking one until it fits would produce the
        three-kilometre "long run" the audit was opened over. */
     var longTarget = (isRace || arc.noLongRun) ? 0 : Math.min(profile.longCapKm, volume*longFrac);
+    /* THE LONG RUN IS ITS OWN AUTHORITY. Not volume x a share -- see
+       marathonLongRunDestination(). The share is computed afterwards and used
+       to DIAGNOSE the week's shape, which is the only job it has. */
+    if (mWeek) longTarget = Math.min(profile.longCapKm, mWeek.longKm);
     /* ---- THE TWO PEAK EXPOSURES ARE DIFFERENT SESSIONS ----
        The approved architecture is Peak Exposure 1 durability-dominant, then
        absorption, then Peak Exposure 2 shorter and/or more marathon-specific,
@@ -6835,7 +7102,13 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          figure is new: both come from peakVolume and the long run's own share,
          the same two quantities every other week uses. */
       if (mA.peak > 1){
-        var mPeakLong = Math.min(profile.longCapKm, peakVolume * longFrac);
+        /* THE EXPOSURE IS THE LONG RUN'S OWN DESTINATION, not a share of a
+           weekly total. Under bottom-up construction there is no peak weekly
+           volume to take a share of, and reading one would put the long run
+           back under the authority this whole pass removed it from. */
+        var mPeakLong = mBottomUp ? mBottomUp.longDestKm
+                                  : Math.min(profile.longCapKm, peakVolume * longFrac);
+        mPeakLong = Math.min(profile.longCapKm, mPeakLong);
         if (mPeakFirst) longTarget = mPeakLong;
         if (mPeakLast)  longTarget = mPeakLong * PEAK_SECOND_EXPOSURE_FRACTION;
       }
@@ -6883,8 +7156,20 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     var longShape = (isTaper || isRace) ? 'steady'
       : LONG_RUN_SHAPE_ORDER[(w + rotation) % LONG_RUN_SHAPE_ORDER.length];
 
+    /* ---- AND HERE THE WEEK'S VOLUME BECOMES THE SUM ----
+       Long run + the quality session(s) actually prescribed + the supporting
+       runs actually prescribed. Nothing is left over, because nothing was
+       apportioned: there is no remainder to consume and no target to reach.
+       The ramp's answer stays on the week as `intendedVolume`, reported rather
+       than pursued. */
+    if (mWeek){
+      var mQKm = mWeek.qSlots >= 2 ? (qKm + tKm)
+               : mWeek.qSlots === 1 ? ((w % 2 === 0) ? tKm : qKm) : 0;
+      volume = round1(longTarget + mQKm + mWeek.supportDays * mWeek.supportKm);
+    }
     weeks.push({
       week:w, phase:phase, isCutback:isCutback, isTaper:isTaper, isRace:isRace, isCheckpoint:isCheckpoint,
+      bottomUp: mWeek || null,
       qFitsBound:qFitsBound, tFitsBound:tFitsBound, weekFitCeil:round1(weekFitCeil),
       soloKind:soloKind, soloSpec:soloSpec, soloKm:soloKm, soloFitsBound:soloFitsBound,
       isCalibration:isCalibration,
@@ -9500,7 +9785,20 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        rather than jumping the day count. Where no frequency is coherent the
        range is empty and this has no opinion -- feasibility above still binds,
        and nothing here invents a day. */
-    if (useCoherentFrequency && blockFreq != null && !wk.isRace){
+    /* ---- UNDER BOTTOM-UP CONSTRUCTION THE PURPOSES DECIDE THE DAYS ----
+       The week already knows how many sessions it contains, because it was
+       built from them: one long run, the quality it earned, and the supporting
+       runs the athlete's own training justifies. Asking the coherent-frequency
+       band to choose again would re-divide a week that was assembled, and the
+       total would stop being the sum of its sessions.
+
+       THE BAND IS NOT DISCARDED -- IT BECOMES A DIAGNOSTIC, which is the job
+       the methodology gives it. It is still computed and still recorded on the
+       week, and where the assembled week falls outside it that is exactly the
+       distortion it exists to report. */
+    if (wk.bottomUp){
+      runCap = Math.min(runCap, 1 + wk.bottomUp.qSlots + wk.bottomUp.supportDays);
+    } else if (useCoherentFrequency && blockFreq != null && !wk.isRace){
       var want = blockFreq;
       if (demonstratedFreq != null) want = Math.max(want, Math.min(demonstratedFreq, blockFreqMax));
       runCap = Math.min(runCap, Math.max(2, want));
@@ -29785,12 +30083,6 @@ async function handleGeneratePlan(){
       return;
     }
   }
-  var profile = DISTANCE_PROFILES[distanceKey];
-  var schedule = { activeDays:activeDays, longRunDay:longRunDay };
-  var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks,
-    { purpose: buildPurpose,
-      calibrate: calibrationNeededNow(volume),
-      calibrateWhenViable: calibrationDeferrable(volume) });
   /* THE ATHLETE'S OWN EASY PACE, computed here because this is the first point
      at which the NEW benchmark and goal are both known -- state.setup still
      holds the previous plan's until the assignment below. Session cost is
@@ -29803,6 +30095,17 @@ async function handleGeneratePlan(){
       if (gz && gz.E && gz.E.slow != null && gz.E.fast != null) genEasyPace = (gz.E.slow + gz.E.fast) / 2;
     }
   } catch(e){ genEasyPace = null; }
+  var profile = DISTANCE_PROFILES[distanceKey];
+  var schedule = { activeDays:activeDays, longRunDay:longRunDay };
+  var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks,
+    { purpose: buildPurpose,
+      /* Bottom-up construction needs both before the first session is sized:
+         the day ceiling it may build purposes within, and the pace that prices
+         session cost. Ignored by every other distance. */
+      availableDays: activeDays.length,
+      easyPaceSecPerKm: genEasyPace,
+      calibrate: calibrationNeededNow(volume),
+      calibrateWhenViable: calibrationDeferrable(volume) });
   var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent,
                                 { easyPaceSecPerKm: genEasyPace });
 
