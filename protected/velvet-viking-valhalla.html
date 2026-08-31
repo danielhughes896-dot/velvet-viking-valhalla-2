@@ -5640,34 +5640,84 @@ function expressibleRunningDays(distKey, volumeKm, floorKm, hasLongRun){
                      Math.floor(volumeKm * (1 - frac) / floor));
 }
 
-/* ---------- FREQUENCY IS PRESCRIBED FROM THE WORKLOAD THE ATHLETE HAS ----------
-   THE DEFECT THIS CLOSES. expressibleRunningDays() above is asked of each
-   week's own volume -- and by the peak that volume is 1.75x where the athlete
-   started. So an athlete stating 12km/week and six available days was
-   prescribed frequency from a 21km week they had not reached, and the only
-   thing that ever came under the ceiling was a rendering floor. Availability
-   became prescription: a 25km/week athlete and an 80km/week athlete both
-   received six runs from six available days.
+/* ---------- HOW MANY DAYS DOES THIS WEEK ACTUALLY WANT? ----------
+   TWO DEFECTS, NOT ONE, AND THE SECOND WAS THE FIX FOR THE FIRST.
 
-   THE CORRECTION, AND IT INTRODUCES NO NUMBER. The same feasibility question,
-   asked of the volume the athlete STATED rather than of the week the block is
-   building toward. Volume ramps because that is what a block does; frequency
-   should follow evidence rather than lead it, and at the start of a block the
-   only evidence about workload is the workload the athlete arrived with.
+   The original was availability -> prescribed days: a 25km/week athlete and an
+   80km/week athlete both received six runs from six available days. Replacing
+   it with expressibleRunningDays() asked of the stated volume was no better,
+   because that function answers a different question. Read its own comment:
+   it solves volume >= volume x LONG_FRACTION + (N-1) x floor for N, so every
+   answer it gives is the frequency at which the supporting runs land ON the
+   3km rendering floor. It is a MAXIMUM RENDERABILITY bound -- "can this week
+   be written across N days at all" -- and it says nothing about whether any of
+   those runs is worth prescribing. Used as prescription authority it made the
+   printing floor into the coaching authority, which is exactly what it says it
+   is not.
 
-   WHAT THE ATHLETE GETS INSTEAD OF THE DAYS THIS REMOVES. Not rest imposed on
-   them: the days stay available, marked availableUnused, and optionalRunEligible()
-   may offer each of them as an Optional Run. If the athlete takes them, those
-   runs are completed running days, demonstratedRunningFrequency() reads them,
-   and the NEXT block prescribes more. That is the 3 -> 4 -> 5 -> 6 pathway, and
-   it is earned rather than assumed.
+   WHAT THE COACHING QUESTION ACTUALLY IS. A supporting run earns its place
+   when it is a real fraction of the week's own centrepiece. Too small and it
+   is leftover mileage occupying an available day; too large and it has stopped
+   being a supporting run and become a second long effort. Both are programme
+   shape defects and the week has a two-sided coherent range, not a maximum.
 
-   THIS CANNOT RAISE ANYTHING. It is one more minimum among the four the day
-   builder already takes, so it can only ever lower prescribed frequency, and
-   it is null -- inert -- wherever the stated volume is unreadable. */
-function initialFrequencyCap(distKey, statedVolumeKm, floorKm, hasLongRun){
-  if (!(statedVolumeKm > 0)) return null;
-  return expressibleRunningDays(distKey, statedVolumeKm, floorKm, hasLongRun);
+   WHERE THE TWO ENDS COME FROM, and it is not a pair of chosen numbers. The
+   architecture already states the long run's share of the week: LONG_FRACTION.
+   At the endurance share of 0.32, a week whose remainder is divided evenly
+   gives supporting runs of
+
+       (1 - f) / (f x (d - 1))     of the long run
+
+       d = 3   1.06      the "easy" run has become the long run
+       d = 4   0.71
+       d = 5   0.53
+       d = 6   0.43
+
+   The band below brackets exactly the frequencies this architecture already
+   treats as normal -- four, five and six -- and excludes three. That is the
+   whole derivation: the endpoints sit just outside the natural d=4 and d=6
+   values rather than being picked. They then DISCRIMINATE BETWEEN ATHLETES
+   because a real week is not divided evenly: the quality session is a quarter
+   of a 28km week and a twelfth of a 90km one, so what is left for the
+   supporting runs differs enormously at the same frequency.
+
+   THIS IS COACHING METHODOLOGY, NOT PHYSIOLOGY, and it is recorded as such.
+   Nothing here claims a run below 40% of the long run is harmful. It claims
+   the programme did not choose its size -- it was left over.
+
+   AND IT IS NOT A MINIMUM RUN DISTANCE. There is no kilometre and no minute
+   anywhere in it. A short run is fine wherever the long run is short; the
+   ratio scales with the athlete, which an absolute floor could not do. */
+var SUPPORT_SHARE_MIN = 0.40;   // below this the run is leftover, not prescribed
+var SUPPORT_SHARE_MAX = 0.75;   // above this it is a second long effort
+/* THE COST SIDE IS NOT HERE, and deliberately. Session-size pressure has two
+   independent causes -- week shape and session COST in time -- and only shape
+   can be read at generation, because paces are not resolved until the plan's
+   setup exists. Shape is what this uses. The time reading lands with the rest
+   of the pressure architecture, where pace is available. */
+
+/* The coherent range of prescribed running days for one week, given what that
+   week actually has to contain. Returns null where the week has no long run to
+   measure against, in which case nothing here has an opinion. */
+function coherentFrequencyRange(volumeKm, longKm, qualityKm, qualitySlots, maxDays){
+  if (!(volumeKm > 0) || !(longKm > 0)) return null;
+  var qSlots = Math.max(0, qualitySlots || 0);
+  var cap = Math.max(1, maxDays || 7);
+  var lo = null, hi = null, rows = [];
+  for (var d = 2; d <= cap; d++){
+    var supportDays = d - 1 - qSlots;
+    if (supportDays < 1) continue;              // a week keeps a real easy run
+    var rest = volumeKm - longKm - (qualityKm || 0);
+    if (!(rest > 0)) continue;
+    var share = (rest / supportDays) / longKm;
+    rows.push({ days:d, supportKm: round1(rest/supportDays), share: Math.round(share*100)/100 });
+    if (share <= SUPPORT_SHARE_MAX && share >= SUPPORT_SHARE_MIN){
+      if (lo === null) lo = d;
+      hi = d;
+    }
+  }
+  if (lo === null) return { min:null, max:null, rows:rows };
+  return { min:lo, max:hi, rows:rows };
 }
 /* The ceiling: anchored to the athlete's own demonstrated capacity, clamped
    into [backstop, backstop x CEILING_MAX_OVER_BACKSTOP]. The lower bound is
@@ -6414,7 +6464,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   return { profile:profile, distKey:distKey, weeks:weeks, peakVolume:round1(peakVolume),
            /* The workload the athlete actually arrives with, carried through so the
               day builder can prescribe frequency from it rather than from a week the
-              athlete has not reached yet. See initialFrequencyCap(). */
+              athlete has not reached yet. See coherentFrequencyRange(). */
            startVolume: round1(currentVolume),
            buildWeeks:buildWeeks, taperWeeks:taper, planWeeks:N, steady:steady,
            purpose:purpose, noQuality:!!arc.noQuality, noLongRun:!!arc.noLongRun,
@@ -8715,13 +8765,9 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
      quantum rather than chosen. Rounding still never decides whether a session
      exists: see the day push below. */
   var easyFloorKm = noLongRun ? EASY_QUANTUM_KM : null;
-  /* Computed once for the block, from the volume the athlete stated. Marathon
-     race blocks only -- see the runCap note below for why the scope is that
-     narrow. */
-  var initialCap = usesMarathonArc(blockResult.purpose, blockResult.distKey)
-    ? initialFrequencyCap(blockResult.distKey, blockResult.startVolume,
-                          (easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM, !noLongRun)
-    : null;
+  /* Does the coherent-range authority apply here at all? Marathon race blocks
+     only -- see the runCap note below for why the scope is that narrow. */
+  var useCoherentFrequency = usesMarathonArc(blockResult.purpose, blockResult.distKey) && !noLongRun;
   var nonLongActive = noLongRun ? activeDays.slice()
                     : activeDays.filter(function(d){ return d!==longDay; }).sort(function(a,b){return a-b;});
   // reserve the back-to-back day out of the quality-session pool when this distance uses it, so a hard
@@ -8760,6 +8806,44 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   // recorded so the decision is inspectable rather than inferred from the days
   blockResult.qualityFrequency = { ceiling:slotCeiling, prescribed:qualitySlots,
                                    permission:qualityPermission };
+  /* ---- ONE FREQUENCY DECISION FOR THE BLOCK, NOT FOURTEEN ----
+     Asked week by week the answer oscillates, and not for a reason that has
+     anything to do with frequency: the quality session alternates between an
+     interval week and a tempo week and its size moves with it, so the same
+     athlete's supporting runs read as coherent at four days one week and five
+     the next. Taking the largest of those answers would let the noisiest week
+     decide the block -- measured on a 25km/week athlete, thirteen weeks said
+     four days and one said five, and the one won.
+
+     THE MEDIAN, which is the same robust reading the volume and frequency
+     evidence already use elsewhere: a statistic built so that one unusual week
+     cannot move it. Cutback and taper weeks are excluded because they are
+     deliberately smaller and are not a statement about how often the athlete
+     should be running.
+
+     WHY A BLOCK-LEVEL ANSWER IS THE RIGHT SHAPE. Running frequency is a
+     property of how the athlete trains, not of one week's arithmetic. It
+     develops between blocks, as demonstrated capacity develops -- which is the
+     3 -> 4 -> 5 -> 6 pathway, and it is earned rather than recomputed. */
+  var blockFreq = null, blockFreqMax = null, blockFreqRows = null;
+  if (useCoherentFrequency){
+    var mins = [], maxes = [];
+    weeks.forEach(function(w){
+      if (w.isRace || w.phase === 'Taper') return;
+      var r = coherentFrequencyRange(w.volume, w.longTarget,
+                                     qualitySlots >= 2 ? ((w.qKm||0) + (w.tKm||0))
+                                       : qualitySlots === 1 ? (w.qKm||0) : 0,
+                                     qualitySlots, activeDays.length);
+      if (r && r.min != null){ mins.push(r.min); maxes.push(r.max); if (!blockFreqRows) blockFreqRows = r.rows; }
+    });
+    if (mins.length){
+      var med = function(xs){ var a2 = xs.slice().sort(function(x,y){return x-y;});
+                              return a2[Math.floor(a2.length/2)]; };
+      blockFreq = med(mins); blockFreqMax = Math.max(blockFreq, med(maxes));
+    }
+  }
+
+
   var qualityDays = pickQualityDays(qtyPool, fixedDemanding, qualitySlots);
   var qty1Day = qualityDays.length>0 ? qualityDays[0] : null;   // interval slot
   var qty2Day = qualityDays.length>1 ? qualityDays[1] : null;   // tempo / checkpoint slot
@@ -8862,16 +8946,6 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
                                               (easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM,
                                               !noLongRun);
     if (feasibleDays != null) runCap = Math.min(runCap, feasibleDays);
-    /* STARTING WORKLOAD IS ITS OWN AUTHORITY, and the only one a first-time
-       athlete has. See initialFrequencyCap(): the same feasibility question
-       asked of the volume the athlete stated rather than of the week the block
-       is ramping toward.
-
-       MARATHON ONLY, deliberately. This changes prescribed frequency for a
-       population, and the marathon is the distance whose methodology HQ has
-       closed. The other race distances are audited individually and keep the
-       behaviour they have, byte for byte. */
-    if (initialCap != null && !wk.isRace) runCap = Math.min(runCap, Math.max(2, initialCap));
     if (demonstratedFreq != null && !wk.isRace)
       runCap = Math.min(runCap, Math.max(2, demonstratedFreq));
     /* AND WHAT THE ATHLETE IS ACTUALLY SUSTAINING MAY COME UNDER THAT CEILING.
@@ -8886,13 +8960,44 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        their demonstrated capacity by having a good fortnight. */
     if (currentFreq != null && !wk.isRace)
       runCap = Math.min(runCap, Math.max(2, currentFreq));
+    /* MARATHON ONLY, deliberately. What follows changes prescribed frequency
+       for a population, and the marathon is the distance whose methodology HQ
+       has closed. The other race distances are audited individually and keep
+       the behaviour they have. */
+    /* ---- THE COHERENT RANGE, AND WHO CHOOSES INSIDE IT ----
+       TRAINING NEED answers first, and it answers with the SMALLEST number of
+       prescribed days on which this block's own sessions are coherent. That is
+       the rule stated plainly: use the fewest days that let the workload and
+       the session purposes be expressed, not the most days the mileage can be
+       spread across.
+
+       DEMONSTRATED CAPACITY may then raise it, but only as far as the range
+       allows. An athlete who has shown they run six days is not held to four
+       because four would also work; an athlete who has shown nothing is not
+       given six because six is available. Capacity chooses inside the range;
+       it cannot leave it, and it cannot exceed availability.
+
+       AND THE RANGE IS NOT A CLIFF. Volume, long run and quality session all
+       move continuously, so a kilometre more or less moves session sizes
+       rather than jumping the day count. Where no frequency is coherent the
+       range is empty and this has no opinion -- feasibility above still binds,
+       and nothing here invents a day. */
+    if (useCoherentFrequency && blockFreq != null && !wk.isRace){
+      var want = blockFreq;
+      if (demonstratedFreq != null) want = Math.max(want, Math.min(demonstratedFreq, blockFreqMax));
+      runCap = Math.min(runCap, Math.max(2, want));
+    }
     wk.runDayCap = runCap;
     wk.frequencyEvidence = { availability: activeDays.length, expressible: feasibleDays,
                              capacity: demonstratedFreq, current: currentFreq,
-                             /* null everywhere the marathon rule does not apply, so
-                                which authority bound this week is readable rather
-                                than inferred. */
-                             initial: initialCap };
+                             /* WHICH AUTHORITY BOUND THIS WEEK, readable rather than
+                                inferred. `coherent` is null everywhere the marathon
+                                rule does not apply, and carries the range itself
+                                where it does -- so a frequency decision can be
+                                inspected without re-deriving it. */
+                             coherent: blockFreq != null
+                               ? { min: blockFreq, max: blockFreqMax, rows: blockFreqRows }
+                               : null };
     /* ---- AND THE AEROBIC-DOMINANCE CEILING IS READ AGAINST THE SAME NUMBER --
        The approved contract says a three-day week gets at most one hard
        session. Until running days could fall below availability the two were
