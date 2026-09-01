@@ -232,13 +232,28 @@ function checkCase(c){
      assumption. An athlete with a year of 60km weeks who types 20 is not
      protected by holding week one to 26.
 
-     SO IT IS ASKED OF WHATEVER THE BLOCK ACTUALLY OPENED FROM, in the order the
-     engine reads them -- demonstrated, then stated, then the pathway's entry --
-     and the block records which one answered, so this cannot be satisfied by
-     quietly preferring whichever number is largest. There is no loophole in the
-     absence of evidence either: an athlete who states nothing is held to the
-     PATHWAY's entry week, which is a figure they did not supply and cannot
-     inflate.
+     SO IT IS ASKED OF WHATEVER THE BLOCK ACTUALLY OPENED FROM, and the block
+     records which one answered, so this cannot be satisfied by quietly
+     preferring whichever number is largest. There is no loophole in the absence
+     of evidence: an athlete who states nothing is held to the PATHWAY's entry
+     week, which is a figure they did not supply and cannot inflate.
+
+     AND THE ORDER IS THE ENGINE'S, WHICH NOW HAS TWO TERMS IN IT AND NOT THREE.
+     This read demonstrated, then STATED, then the pathway. The engine stopped
+     reading the typed weekly figure as an entry authority when destination-led
+     construction removed it: raceGoalEntryState() reads demonstrated evidence
+     or, failing that, the pathway's own entry week, and the typed number's one
+     remaining job is the routing decision one layer up. Leaving it in the
+     middle of this ordering measured the block against a number the block is
+     ruled not to use, and reported 161 race programmes as opening above an
+     entry capacity that was never their entry -- an athlete who selected the
+     Experienced Half pathway and typed 20km/week being held to 20 rather than
+     to the 35km entry week the pathway states.
+
+     THE TYPED FIGURE IS STILL MEASURED, because the divergence between what an
+     athlete says they run and what their chosen pathway opens at is a real
+     thing a reader should be able to see. It is recorded as its own descriptive
+     class rather than as a hard failure of an authority it no longer is.
 
      AND A FLOOR IS NOT A PROGRESSION. At the very bottom of the population a
      week cannot be written smaller than its sessions' own minimums -- a 4km/week
@@ -253,10 +268,16 @@ function checkCase(c){
     const org = (w1.bottomUp && w1.bottomUp.origin) || {};
     const entry = org.demonstratedKm > 0
         ? { km: org.demonstratedKm, source: 'demonstrated' }
-      : inputs.volume > 0
-        ? { km: inputs.volume, source: 'stated' }
       : org.pathwayEntryVolumeKm > 0
-        ? { km: org.pathwayEntryVolumeKm, source: 'pathway' } : null;
+        ? { km: org.pathwayEntryVolumeKm, source: 'pathway' }
+      : inputs.volume > 0
+        ? { km: inputs.volume, source: 'stated' } : null;
+    /* WHAT THE ATHLETE THEMSELVES SAID, beside what the block opened at. */
+    if (inputs.volume > 0 && entry && entry.source !== 'stated' &&
+        w1.actualVolume / inputs.volume > 1.30)
+      add(DESCRIPTIVE, 'week_one_above_stated_volume',
+          { stated: inputs.volume, weekOne: w1.actualVolume, openedFrom: entry.source,
+            ratio: Math.round(w1.actualVolume / inputs.volume * 100) / 100 });
     if (entry){
       const jump = w1.actualVolume / entry.km;
       /* The smallest week these sessions could have been written as. */

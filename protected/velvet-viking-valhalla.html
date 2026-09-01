@@ -12261,7 +12261,7 @@ function pickQualityDays(pool, fixedDemanding, count){
    consume volume; what is left goes to easy running first, then to the long
    run up to its cap, and whatever still will not fit is reported rather than
    forced somewhere it does not belong. */
-function distributeWeekVolume(volumeKm, qualityKm, longKm, secondLongKm, easyDayCount, longCapKm, easyFloorKm, roundSafeEasyCap){
+function distributeWeekVolume(volumeKm, qualityKm, longKm, secondLongKm, easyDayCount, longCapKm, easyFloorKm, roundSafeEasyCap, longIsGoverned){
   /* S0 ACCOUNTING. Three different things can make the week that gets built
      differ from the week that was asked for, and until now they were one
      undifferentiated number. They are separated here, at the point each is
@@ -12322,7 +12322,27 @@ function distributeWeekVolume(volumeKm, qualityKm, longKm, secondLongKm, easyDay
     easyBudget = Math.max(0, round1(easyBudget - perEasy*easyDayCount));
     easyFairShare = fairShare;
   }
-  if (easyBudget>0){
+  /* ---- A LONG RUN WITH ITS OWN AUTHORITY DOES NOT ABSORB THE REMAINDER ----
+     Supporting volume the easy days cannot hold used to be poured onto the long
+     run, up to the profile cap. Where the long run is whatever the week can
+     spare that is a reasonable last resort. Where the long run is a SESSION ON
+     A CURVE -- which is what a bottom-up Race Goal week is, developed at the
+     block's own fixed rate from the athlete's entry to the pathway's
+     destination -- it is not a remainder bucket, and treating it as one
+     overrode the progression it exists to protect.
+
+     MEASURED, on a three-day 24-week half: the block asked for an 11.3km long
+     run in week ten and the athlete was written a 16km one, because a single
+     easy day could not hold its share and 4.7km had nowhere else to go. That is
+     a 45% single-week step in the athlete's longest run, produced entirely by
+     the distribution and invisible to the curve.
+
+     So a governed long run keeps the distance the block set, and volume that
+     cannot be placed is surrendered and reported as undistributedKm -- which is
+     what that term already exists to say. Nothing else changes: every plan whose
+     long run is sized from the week itself reaches this with the behaviour it
+     always had. */
+  if (easyBudget>0 && !longIsGoverned){
     var room = Math.max(0, longCapKm-longKm);
     var addToLong = Math.min(room, easyBudget);
     longKm = round1(longKm+addToLong);
@@ -13166,7 +13186,8 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        reaches this call with the flag it always had. */
     var dist = distributeWeekVolume(wk.volume, qualityKm, longKm, secondLongKm,
                                      easyDays.length, profile.longCapKm, easyFloorKm,
-                                     !!blockResult.noQuality || !!wk.bottomUp);
+                                     !!blockResult.noQuality || !!wk.bottomUp,
+                                     !!wk.bottomUp);
     var perEasy = dist.perEasy;
     longKm = dist.longKm;
     /* ---- IS THIS A WEEK THAT WANTS A MEDIUM-LONG RUN? ----

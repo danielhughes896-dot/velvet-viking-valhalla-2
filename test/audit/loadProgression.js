@@ -307,9 +307,21 @@ function classify(t){
   /* A REBOUND RETURNS TO TREND. Measured against the week before the cutback,
      which is what "trend" means, rather than exempted because a cutback
      happened. Growth relative to the cutback week itself is designed and is
-     not asked. */
+     not asked.
+
+     OVER THE WEEKS IT ACTUALLY SPANS. The comparison reaches back across the
+     absorption week to the week before it, so two weeks of the curve have
+     elapsed and the trend it must return to is two steps, not one. Asking a
+     two-week change to sit under a one-week ceiling made the rule fire on the
+     trend itself: once the curve began stepping THROUGH an absorption week --
+     which is what every published methodology does, and what this branch
+     corrected -- a rebound landed at 1.10 squared by construction and was
+     reported as though it had overshot. This is the span the change covers,
+     not a threshold chosen to make anything pass; a rebound that genuinely
+     outruns two weeks of trend still fires. */
   if (t.afterCutback && t.preCutbackKm > 0 &&
-      t.toKm / t.preCutbackKm > ORDINARY_STEP + 1e-9 &&
+      t.toKm / t.preCutbackKm >
+        Math.pow(ORDINARY_STEP, Math.max(1, t.preCutbackSpan || 1)) + 1e-9 &&
       weekMoved(t.toKm - t.preCutbackKm))
     R.push('REBOUND_EXCEEDS_TREND');
 
@@ -398,11 +410,19 @@ function classify(t){
 function withCutbackTrend(list){
   list.forEach((t, i) => {
     t.preCutbackKm = 0;
+    /* HOW MANY WEEKS THE COMPARISON ACTUALLY SPANS, which is what the trend
+       has to be raised to. One absorption week between the two makes it two
+       weeks of trend; two consecutive absorption weeks make it three. Without
+       this the rule asked whether a two-week change exceeded a one-week
+       ceiling, which it always does. */
+    t.preCutbackSpan = 0;
     if (!t.afterCutback) return;
     for (let j = i - 1; j >= 0; j--){
+      t.preCutbackSpan++;
       if (!list[j].isCutback){ t.preCutbackKm = list[j].toKm; break; }
-      if (j === 0) t.preCutbackKm = list[j].fromKm;
+      if (j === 0){ t.preCutbackKm = list[j].fromKm; t.preCutbackSpan++; }
     }
+    t.preCutbackSpan = Math.max(1, t.preCutbackSpan);
   });
   return list;
 }

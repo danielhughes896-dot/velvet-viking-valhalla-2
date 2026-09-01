@@ -218,12 +218,24 @@ test('the reported "Easy 0km / Goal Pace 3km long run" is gone, at its own input
      one this stage answers. */
   const c = auditCase({ distanceKey: 'half', volume: 12, weeks: 12, scheduleKey: 'd5' });
   const long = c.sessions.find(s => s.week === 3 && s.type === 'long');
-  assert.equal(long.archetype, 'long_run', 'the goal-pace finish is omitted, not shrunk');
-  assert.equal(long.title, 'Long Run');
-  assert.ok(!/Goal Pace/.test(long.desc), 'and the card no longer promises goal-pace work');
-  assert.equal(long.segments.length, 1);
-  assert.equal(long.segments[0].intensity, 'easy');
-  assert.equal(long.segments[0].km, long.km, 'the whole run, reconciling exactly');
+  /* THE DEFECT WAS THE ARITHMETIC, AND IT IS THE ARITHMETIC THAT IS ASSERTED.
+     This used to pin the repair rather than the defect -- "the archetype is
+     long_run" -- which was the right assertion while the week-three long run at
+     these inputs was 3km and could hold nothing. Destination-led construction
+     moved that athlete: a stated 12km/week no longer sizes the block, so week
+     three is a 13km long run and a goal-pace finish inside one is ordinary
+     coaching rather than the defect. What must never come back is a run whose
+     easy component is zero, or a finish the run cannot contain, and those are
+     what is asked here. */
+  assert.ok(long.km >= 8, 'a long run that is one, not a 3km run called one: ' + long.km);
+  const easyKm = long.segments.filter(x => x.intensity === 'easy')
+                              .reduce((t, x) => t + x.km, 0);
+  assert.ok(easyKm > 0, 'the easy component is never zero');
+  assert.ok(Math.abs(long.segments.reduce((t, x) => t + x.km, 0) - long.km) < 1e-6,
+    'the whole run, reconciling exactly');
+  if (long.archetype === 'long_run_goal_finish')
+    assert.ok(long.params.finishKm <= long.params.km * 0.5 + 1e-9,
+      'the finish is a minority of the run it sits in');
 });
 
 test('no long run anywhere carries a goal-pace finish it cannot contain', () => {
@@ -653,7 +665,12 @@ test('routing answers the question and does not invent an answer', () => {
   assert.equal(below.viable, false);
   assert.equal(below.classification, 'below_viable');
   assert.equal(below.shortfallKm, Math.round((below.minStartKm - 12) * 10) / 10);
-  assert.equal(below.peakLongKm, 18);
+  /* THE PATHWAY'S OWN LOCKED PEAK LONG RUN, not MIN_PEAK_LONG_KM. For the half
+     and the marathon the entry boundary is the pathway's entry week and what it
+     reports back is the pathway's destination -- 16km for the New Half, which
+     is the figure HQ locked. minViableStartKm() and MIN_PEAK_LONG_KM still own
+     this answer for 5K and 10K, which have no dedicated pathway. */
+  assert.equal(below.peakLongKm, 16);
   assert.ok(!('plan' in below) && !('weeks' in below) && !('sessions' in below),
     'the boundary must not return a fabricated programme');
   const above = a.raceProgrammeViability('half', 45, 12);
@@ -753,7 +770,11 @@ test('the on-ramp needs no growth rate, because it has both endpoints', () => {
   assert.equal(arc.hasGoalEffort, false);
   assert.equal(arc.taper, 0);
 
-  const p = a.athletePathway('half', 20, 30);
+  /* BELOW THE NEW HALF'S LOCKED ENTRY WEEK OF 15km. 20km/week used to sit under
+     minViableStartKm() and route to an on-ramp; under the pathway entry it
+     reaches the standard and gets the programme, so the on-ramp route is
+     exercised from where it now actually begins. */
+  const p = a.athletePathway('half', 14, 30);
   assert.equal(p.route, 'on_ramp_then_race');
   assert.ok(p.impliedWeeklyGrowth > 1, 'the rate is reported');
   assert.equal(p.growthGated, false, 'and explicitly not ruled on');
@@ -762,9 +783,10 @@ test('the on-ramp needs no growth rate, because it has both endpoints', () => {
   /* The visible consequence of not having a rate: an on-ramp with almost no
      time implies an absurd growth, and S4 reports the absurdity rather than
      silently accepting or silently refusing it. */
-  const squeezed = a.athletePathway('half', 20, 16);
+  const squeezed = a.athletePathway('half', 14, 16);
   assert.ok(squeezed.impliedWeeklyGrowth > 2,
-    'a two-week on-ramp to 41.5km implies ' + squeezed.impliedWeeklyGrowth);
+    'a two-week on-ramp to ' + squeezed.onRampToKm + 'km implies ' +
+    squeezed.impliedWeeklyGrowth);
   assert.equal(squeezed.growthGated, false);
 });
 
@@ -799,7 +821,9 @@ test('below the on-ramp floor the route runs through foundation', () => {
 
 test('with no room for an on-ramp the refusal is structural, not a guess', () => {
   const a = require('./audit/planAudit.js').app();
-  const p = a.athletePathway('full', 20, 4);
+  /* Below the New Marathon's locked entry week of 20km, with no room to on-ramp
+     to it -- which is the structural refusal this test is about. */
+  const p = a.athletePathway('full', 10, 4);
   assert.equal(p.route, 'insufficient_time');
   assert.equal(p.impliedWeeklyGrowth, null,
     'no rate is needed to know there is no time for an on-ramp at all');
@@ -837,7 +861,9 @@ test('every on-ramp now arrives, and none fails quietly', () => {
 });
 
 test('an on-ramp is easy running around a long run, and reaches its target', () => {
-  const c = auditOnRamp({ distanceKey: 'half', volume: 20, weeks: 30, scheduleKey: 'd5' });
+  /* Between the on-ramp floor and the New Half's locked 15km entry week --
+     which is where an on-ramp now lives. */
+  const c = auditOnRamp({ distanceKey: 'half', volume: 14, weeks: 30, scheduleKey: 'd5' });
   assert.equal(c.pathway.route, 'on_ramp_then_race');
   assert.equal(c.noQuality, true);
   assert.equal(c.invariantFailures.length, 0);
