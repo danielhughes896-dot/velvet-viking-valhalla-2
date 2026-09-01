@@ -395,22 +395,61 @@ test('the engine cannot build a week smaller than its own component floors', () 
   assert.equal(c.routed, true);
 });
 
-test('experience level cannot change a single prescribed number', () => {
-  /* Recorded because the audit asked whether the three levels differ
-     explainably. They do not differ at all: the engine never reads it. This
-     asserts the DOCUMENTED design ("presentation only"), so a future change
-     that starts varying the plan by experience has to say so here. */
-  const src = fs.readFileSync(
-    path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
-  const start = src.indexOf('function buildBlockWeeks(');
-  const end = src.indexOf('\nfunction dtok(');
-  assert.ok(start > 0 && end > start);
-  assert.ok(!/experience/i.test(src.slice(start, end)),
-    'buildBlockWeeks now reads experience; the presentation-only boundary moved');
-  const s2 = src.indexOf('function buildDaysFromWeeks(');
-  const e2 = src.indexOf('function capWeeklyVolume(');
-  assert.ok(!/experience/i.test(src.slice(s2, e2)),
-    'buildDaysFromWeeks now reads experience; the presentation-only boundary moved');
+test('experience selects the Race Goal pathway and touches nothing else', () => {
+  /* THIS ASSERTED THE OPPOSITE, AND THE DESIGN IT DOCUMENTED WAS REPLACED.
+     Experience was presentation only: the engine never read it, and the audit
+     recorded that the three levels produced identical plans. Under
+     destination-led construction experience is one of the three authorities --
+     the race requirement states the destination, EXPERIENCE SELECTS THE
+     PREPARATION PATHWAY, and demonstrated evidence sets the safe rate through
+     it -- so buildBlockWeeks reads it deliberately.
+
+     What has to be protected is the boundary of that authority, which is
+     narrower than "the engine may read it": it selects a Race Goal pathway for
+     the two dedicated architectures and it may not reach anything else. */
+  const { loadApp } = require('./harness.js');
+  const a = loadApp({ pinnedDate: '2026-03-02T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {};
+  a.flushSave = () => {}; a.scheduleSave = () => {};
+  const blk = (dist, exp, purpose) => {
+    a.state = a.makeDefaultState();
+    return JSON.stringify(a.buildBlockWeeks(dist, 45, 15,
+      { purpose: purpose, availableDays: 5, experience: exp }));
+  };
+  const LEVELS = ['novice', 'experienced', 'advanced'];
+  /* EVERY OTHER PURPOSE, BYTE FOR BYTE. A base block, a speed block and a
+     maintenance block are not preparing for an event, so there is no pathway
+     to select and experience has nothing to say. */
+  ['base', 'speed', 'maintain'].forEach(purpose => {
+    ['5k', '10k', 'half', 'full'].forEach(dist => {
+      const ref = blk(dist, LEVELS[0], purpose);
+      LEVELS.slice(1).forEach(exp => assert.equal(blk(dist, exp, purpose), ref,
+        dist + ' ' + purpose + ' changed with experience'));
+    });
+  });
+  /* AND EVERY DISTANCE WITHOUT A DEDICATED ARCHITECTURE, byte for byte, at the
+     race purpose too. The 5K and 10K arcs are closed. */
+  ['5k', '10k'].forEach(dist => {
+    const ref = blk(dist, LEVELS[0], 'race');
+    LEVELS.slice(1).forEach(exp => assert.equal(blk(dist, exp, 'race'), ref,
+      dist + ' race changed with experience'));
+  });
+  /* WHERE IT DOES REACH, IT REACHES THE PATHWAY -- and in the pathway's own
+     direction, so the authority is doing what it says rather than merely
+     having an effect. */
+  ['half', 'full'].forEach(dist => {
+    const longOf = exp => {
+      a.state = a.makeDefaultState();
+      const b = a.buildBlockWeeks(dist, 45, 15,
+        { purpose: 'race', availableDays: 6, experience: exp, easyPaceSecPerKm: 330 });
+      return Math.max.apply(null, b.weeks.filter(w => !w.isRace && !w.isTaper)
+                                         .map(w => w.longTarget));
+    };
+    const seq = LEVELS.map(longOf);
+    assert.ok(seq[2] >= seq[1] && seq[1] >= seq[0],
+      dist + ' pathways are not ordered by experience: ' + seq.join(','));
+    assert.ok(seq[2] > seq[0], dist + ' experience selected nothing');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1586,11 +1625,21 @@ test('the calibration waits for the safety floor rather than being abandoned', (
     'it is placed in a week of ' + cal[0].volume + 'km');
   assert.equal(cal[0].isCutback, false, 'not in a cutback week');
   assert.equal(!!cal[0].isCheckpoint, false, 'not in a week that already tests');
-  /* THE FIRST such week, not merely some such week. */
+  /* THE FIRST such week, and never later than one week after it.
+     WHY NOT EXACTLY THE FIRST. The placement is decided from the sessions the
+     week is known to contain -- its long run, its supporting runs on the days
+     it will run on, and its fitted tempo structure -- because the decision has
+     to be taken before the quality family is chosen, and the family is what a
+     calibration week changes. That estimate is a shade under the week's own
+     solve, so it can be one week conservative. It is never EARLY, which is the
+     safe direction for a maximal field test: the athlete is never given one
+     below the safety floor. It used to read the RAMP's volume instead, which a
+     bottom-up block does not use at all -- five weeks late on this case, and
+     every session in between prescribed against an estimated threshold. */
   const first = blk.weeks.filter(w => w.volume >= a.CALIBRATION_MIN_WEEKLY_KM &&
                                       !w.isCutback && !w.isCheckpoint &&
                                       !w.isTaper && !w.isRace)[0];
-  assert.equal(cal[0].week, first.week,
+  assert.ok(cal[0].week >= first.week && cal[0].week <= first.week + 1,
     'placed in week ' + cal[0].week + ', first opportunity was week ' + first.week);
 
   /* AND WITHOUT THE DEFERRAL IT IS NOT PLACED AT ALL -- the flag is what the

@@ -8734,12 +8734,6 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        quality session or for a faster ramp, and nothing here reads it as such
        -- it takes the week's existing quality slot and the week's existing
        tempo allocation, and the week is the same size either way. */
-    if (!calibrationPlaced && !isRace && !isTaper){
-      if (calibrate && w === 1) isCalibration = true;
-      else if (calibrateWhenViable && !isCutback && !isCheckpoint &&
-               volume >= CALIBRATION_MIN_WEEKLY_KM) isCalibration = true;
-      if (isCalibration) calibrationPlaced = true;
-    }
 
     /* MAINTENANCE HOLDS A DOSE; IT DOES NOT WALK ONE UPWARD.
        `pos` is progress through the build, and every quality structure lerps
@@ -8909,6 +8903,37 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     // it can shrink can repeat the week before rather than grow.
     prevQKm = qKm; prevTKm = tKm;
     if (!isRace && !arc.noQuality){ prevQSpec = qSpec; prevTSpec = tSpec; }
+
+    /* AND THE WEEK IT IS MEASURED AGAINST IS THE WEEK THE ATHLETE WILL GET.
+       `volume` here is still the RAMP's answer, and a bottom-up block does not
+       use the ramp -- its weeks are the sum of their sessions and come out
+       larger. Measured on a 14km/week half: the ramp reaches the safety floor
+       in week eleven and the built weeks reach it in week six, so the
+       calibration waited five weeks longer than the athlete's own programme
+       needed it to, and every session in between was prescribed against an
+       estimated threshold rather than a measured one.
+
+       ASKED OF THE SESSIONS, WHICH ARE ALL KNOWN BY HERE: the long run, the
+       supporting runs on the days this week will actually run on, and the tempo
+       structure the week has just been fitted -- the tempo rather than the
+       interval because a calibration week IS a tempo-family week, so that is
+       the week the athlete would receive. */
+    var calWeekKm = volume;
+    if (mWeek && mWeek.longKm > 0 && mBottomUp){
+      /* On the days this week will actually run on -- the count the previous
+         week carried, or the entry split's where there is no previous week. */
+      var calDays = mPrevEffSupportDays != null ? mPrevEffSupportDays
+                  : (mBottomUp.startDays > 0 ? mBottomUp.startDays : mBottomUp.supportDays);
+      calWeekKm = longTarget +
+        Math.min(calDays, mBottomUp.supportDays) * (mWeek.supportKm || 0) +
+        (mBottomUp.qSlots > 0 ? tKm : 0);
+    }
+    if (!calibrationPlaced && !isRace && !isTaper){
+      if (calibrate && w === 1) isCalibration = true;
+      else if (calibrateWhenViable && !isCutback && !isCheckpoint &&
+               calWeekKm >= CALIBRATION_MIN_WEEKLY_KM) isCalibration = true;
+      if (isCalibration) calibrationPlaced = true;
+    }
 
     /* ---- THE SINGLE-EXPOSURE CADENCE, ROTATED ON ITS OWN OCCURRENCES ----
        A one-slot week delivers one family and discards the other, so the two
@@ -11244,7 +11269,15 @@ function fitStridesToDistance(dd, p, newKm){
 var INTENSITY_ZONE_KEY = {
   easy:'E', steady:'M', tempo:'M', threshold:'T',
   interval:'I', repetition:'R',
-  hard_effort:'I'          // hills and fartlek run by feel; I is the closest cost
+  hard_effort:'I',         // hills and fartlek run by feel; I is the closest cost
+  /* GOAL PACE HAS A ZONE FOR HEART RATE EVEN THOUGH IT HAS ITS OWN PACE. The
+     PACE comes from the athlete's goal and getGoalPaceSecPerKm() owns it, so
+     every caller that wants a pace returns before reaching this table. Heart
+     rate is a different question: marathon effort is the M zone, and leaving
+     the key out meant two callers each carried their own `=== 'goal_pace' ? 'M'`
+     and any third would silently have got undefined -- no band, no guidance,
+     no error. Stated once, where the mapping lives. */
+  goal_pace:'M'
 };
 // Which bar of the Zone Distribution chart an intensity belongs to. The four
 // buckets are unchanged -- only the distances going into them get better.
@@ -17740,7 +17773,7 @@ function executionHRTarget(dd){
   var loSec = 0, hiSec = 0, sec = 0, open = mix.hasMaximal, bad = false;
   Object.keys(mix.timeByIntensity).forEach(function(i){
     var t = mix.timeByIntensity[i];
-    var z = hz[i==='goal_pace' ? 'M' : INTENSITY_ZONE_KEY[i]];
+    var z = hz[INTENSITY_ZONE_KEY[i]];
     if (!z || z.lo==null){ bad = true; return; }
     if (z.hi==null) open = true;                     // open-ended zone, no max HR set
     loSec += t*z.lo; hiSec += t*(z.hi!=null ? z.hi : z.lo); sec += t;
@@ -17872,7 +17905,7 @@ function strategyPaceBand(intensity, half){
 }
 function strategyHRBand(intensity){
   var hz = getActiveHRZones();
-  var z = hz[intensity==='goal_pace' ? 'M' : INTENSITY_ZONE_KEY[intensity]];
+  var z = hz[INTENSITY_ZONE_KEY[intensity]];
   return (z && z.lo!=null) ? { lo:z.lo, hi:z.hi!=null ? z.hi : null } : null;
 }
 
