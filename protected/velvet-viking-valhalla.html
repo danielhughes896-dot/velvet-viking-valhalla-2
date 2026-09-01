@@ -561,6 +561,14 @@
   .cb-text b{color:var(--gold-text);}
   .week.is-taper{border-color:var(--bronze);}
   .week.is-taper .week-head{background:var(--c-gold-soft);}
+  /* THE LAST WEEK OF THE TAPER, WHICH IS THE GOAL WEEK. It sits under the same
+     TAPER PHASE heading as the week above it and has to read that way -- but
+     two identical gold cards stacked is a wall, and the week is not the same
+     week: one is a taper week, the other is Race Week. So it takes the taper's
+     border and leaves the gold head to the card above, which keeps the section
+     legible as one thing with a destination at the end of it. */
+  .week.is-taper-final{border-color:var(--bronze);}
+  .week.is-taper-final .week-phase{color:var(--gold-text);}
   .taper-note{
     display:flex; align-items:center; gap:7px; font-size:11px; color:var(--bronze-text);
     padding:8px 16px; background:var(--c-gold-soft); border-top:1px dashed var(--line);
@@ -29251,7 +29259,13 @@ function renderWeekAccordion(weekNum, forceOpen){
      should not have been added together in the first place. With the race out
      of the header there is nothing left to explain. */
   var raceNote = '';
-  return '<div class="week'+openCls+(taper?' is-taper':'')+'" id="week-'+weekNum+'">'+
+  /* The goal week that closes a taper is marked as belonging to it. A separate
+     class rather than `is-taper`, because it must READ as related without
+     becoming a second identical gold card -- and because it is genuinely a
+     different week: the taper note above is not repeated on it, since Race Week
+     already says what it is. */
+  var taperFinal = goalWeekContinuesTaper(weekNum);
+  return '<div class="week'+openCls+(taper?' is-taper':'')+(taperFinal?' is-taper-final':'')+'" id="week-'+weekNum+'">'+
     '<button type="button" class="week-head" data-action="toggle-week" data-week="'+weekNum+'">'+
       '<div class="week-num font-display">'+(weekNum<10?'0':'')+weekNum+'</div>'+
       '<div class="week-meta">'+
@@ -29472,6 +29486,38 @@ function phaseDividerLabel(weekNum){
   // "Final Week") and takes no suffix.
   return (p==='Base' || p==='Build' || p==='Peak' || p==='Taper') ? p+' Phase' : p;
 }
+/* ---------- does the goal week continue the taper it follows? ----------
+   DERIVED FROM THE ARC, NEVER ASSUMED. "The last two weeks are the taper" is
+   true of the marathon today and is not a rule this file is allowed to hold:
+   the arc states its own phase boundaries, they differ by distance and by
+   purpose, and a maintenance block has no taper and no goal effort at all.
+
+   phaseForWeek() already answers this; it simply answers 'Final' first:
+
+       if (arc.hasGoalEffort && weekNum >= totalWeeks) return 'Final';
+       if (weekNum > arc.buildWeeks)                   return 'Taper';
+
+   The goal week's taper membership is therefore that second test with the mask
+   removed -- weekNum > arc.buildWeeks -- read from the same arc, for the same
+   purpose and distance. No new methodology, no second source.
+
+   AND IT MUST BE CONTINUING SOMETHING. A block whose taper is exactly one week
+   long has that week AS the goal week, so there is no Taper section above for
+   it to belong to, and printing a "Taper Phase" heading over a lone Race Week
+   would invent a phase the plan does not have. So the week before it has to be
+   a real taper week too. */
+function goalWeekContinuesTaper(weekNum){
+  if (!state || !state.setup || !weekNum || weekNum < 2) return false;
+  var total = totalWeeksInPlan();
+  if (!total || weekNum < total) return false;
+  var arc;
+  try {
+    arc = blockArcFor(blockPurposeOf(planPurpose()), total, planDistanceKey());
+  } catch(e) { return false; }
+  if (!arc || !arc.hasGoalEffort) return false;
+  if (!(weekNum > arc.buildWeeks)) return false;
+  return isTaperWeek(weekNum - 1);
+}
 function renderPhaseDivider(weekNum, isFirst){
   return '<div class="phase-divider'+(isFirst?' is-first':'')+'">'+
     '<span class="l font-head">'+escapeHtml(phaseDividerLabel(weekNum))+'</span>'+
@@ -29653,7 +29699,13 @@ function renderWeeksList(forceOpenAll){
   var lastPhase = null;
   for (var w=1; w<=totalWeeks; w++){
     var phase = trainingPhase(w);
-    if (phase !== lastPhase){
+    /* ONE HEADING OVER THE WHOLE TAPER. The goal week's phase name is its own
+       ("Race Week" / "Final Week"), so it never equals 'Taper' and used to open
+       a second section of its own -- which read as the athlete having LEFT the
+       taper for a separate phase. It has not: it is the last week of it. The
+       card keeps its Race Week identity; only the redundant divider goes, and
+       lastPhase deliberately stays on 'Taper' so the section stays open. */
+    if (phase !== lastPhase && !goalWeekContinuesTaper(w)){
       html += renderPhaseDivider(w, lastPhase===null);
       lastPhase = phase;
     }
