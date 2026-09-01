@@ -5509,7 +5509,33 @@ var RACE_GOAL_PATHWAY = {
      scheduled. That is a real difference from the half, not an omission. */
   full: {
     novice: {
-      entryVolumeKm: 20, entryLongKm: 8,  entryDays: 3,
+      /* ---- A PATHWAY'S ENTRY AND ITS DESTINATION HAVE TO BE ARITHMETICALLY
+         COMPATIBLE, AND THIS PAIR WAS NOT ----
+         Eight kilometres is the half's entry long run, and it was written here
+         as "the same athlete arriving at a different race". The two races are
+         not the same arithmetic. A fifteen-week marathon block hands out nine
+         development steps before its durability exposure, and the architecture's
+         own ceiling on a session is ten percent a step, so the furthest a long
+         run can travel is 1.10^9 -- a factor of 2.36. From eight kilometres that
+         reaches 18.9, and the pathway asks for 26. The destination was therefore
+         unreachable BY CONSTRUCTION for every athlete who entered on the
+         pathway's own assumption, and readiness reported a shortfall the
+         programme had built in.
+
+         26 / 1.10^9 = 11.0km, so the pathway's honest entry statement is about
+         twelve: an athlete beginning a fifteen-week first marathon should
+         already be running roughly twelve kilometres as their longest run. That
+         is not a new requirement invented to make a number work -- it is the
+         prerequisite the 26km destination has always implied, now stated. It
+         also matches what first-marathon programmes actually assume: Higdon's
+         Novice 1 opens on a six-mile long run.
+
+         AN ATHLETE WHO ARRIVES BELOW IT STILL GETS A PROGRAMME. Their own
+         demonstrated long run outranks this figure in both directions, the
+         block develops from where they actually are, and readiness reports the
+         gap -- which is a genuine athlete shortfall honestly measured rather
+         than an architectural one dressed up as coaching. */
+      entryVolumeKm: 20, entryLongKm: 12, entryDays: 3,
       buildVolumeKm: 40, buildLongKm: 26,
       peakVolumeKm:  null, peakLongKm: 26, openEnded: false },
     experienced: {
@@ -5769,6 +5795,62 @@ function dedicatedWeeksFor(distKey){
 /* The phase counts for whichever dedicated architecture is in force. */
 function raceGoalPhaseAllocation(distKey, N){
   return distKey === 'half' ? halfPhaseAllocation(N) : marathonPhaseAllocation(N);
+}
+/* ---------- WHERE THE PROGRESSION HAS TO ARRIVE, AND HOW MANY STEPS IT HAS
+   TO GET THERE ----------
+   THE DEFECT THIS REPLACES, MEASURED ON EVERY PATHWAY. The block walked its
+   sessions from the athlete's entry to the event's destination over a step
+   count taken from the number of developing weeks -- and then handed out steps
+   0, 1, 2 ... to those same weeks. With P developing weeks the last one stands
+   on step P-1, so the curve arrives at the destination in a week that does not
+   exist. Every one of the six pathways therefore finished its Peak at 70-90%
+   of its own requirement and left readiness to report the shortfall. A
+   programme that cannot reach its own destination for an athlete who is
+   exactly right for it has not diagnosed the athlete; it has mis-stated its
+   own arithmetic.
+
+   THE TWO CORRECTIONS ARE THE SAME CORRECTION. Week one is one step above the
+   athlete's entry -- a block that is going somewhere begins moving in its first
+   week, which is what the arc has always said in words -- so P developing weeks
+   deliver steps 1..P and step P is a week the athlete actually trains.
+
+   AND IT ARRIVES AT THE DURABILITY EXPOSURE, NOT AT THE LAST WEEK OF THE BLOCK.
+   Both dedicated architectures make the block's longest run the FIRST peak
+   exposure and give the weeks after it to specificity. So that is where the
+   curve completes, and the weeks that follow hold what it reached rather than
+   still climbing toward it. The marathon used to reach its destination by
+   JUMPING to it in that week -- the catch-up this architecture forbids
+   everywhere else -- and it no longer has to, because the progression is now
+   scaled to land there. */
+function raceGoalCutbackWeek(distKey, N, w){
+  var alloc = raceGoalPhaseAllocation(distKey, N);
+  var buildW = alloc.base + alloc.build + alloc.peak;
+  if (w > buildW) return false;
+  var cut = (w % 4 === 0);
+  /* The half moves the Peak absorption week off the fourth-week grid so the
+     specific exposures run consecutively -- see the cutback block in
+     buildBlockWeeks(). Counted here exactly as it is applied there. */
+  if (distKey === 'half'){
+    var ps = alloc.base + alloc.build;
+    if (w > ps && w <= ps + alloc.peak) cut = alloc.peak >= 3 && w === ps + 2;
+  }
+  return cut;
+}
+function raceGoalDurabilityPeakWeek(distKey, N){
+  var alloc = raceGoalPhaseAllocation(distKey, N);
+  var buildW = alloc.base + alloc.build + alloc.peak;
+  if (alloc.peak > 0) return alloc.base + alloc.build + 1;
+  return Math.max(1, buildW);
+}
+/* The steps this block actually hands out: one for every developing week from
+   week one up to and including the durability exposure. An absorption week
+   takes no step -- it is a reduction, not a progression -- and nothing later
+   walks the curve faster to make one up. */
+function raceGoalStepCount(distKey, N){
+  var end = raceGoalDurabilityPeakWeek(distKey, N);
+  var n = 0;
+  for (var w = 1; w <= end; w++) if (!raceGoalCutbackWeek(distKey, N, w)) n++;
+  return Math.max(1, n);
 }
 /* ---------- COMPRESSION IS A HIERARCHY, NOT A SCALE FACTOR ----------
    When the runway is short something has to go, and WHICH thing is a coaching
@@ -6300,7 +6382,7 @@ function marathonLongRunDestination(startLongKm, progressingWeeks, distKey, want
    the week's shape. */
 function marathonSupportDestination(startSupportKm, startLongKm, longDestKm,
                                      progressingWeeks, easyPaceSecPerKm, distKey,
-                                     weekDestKm, supportDays, qualityKm){
+                                     weekDestKm, supportDays, qualityKm, startSupportDays){
   if (!(startSupportKm > 0)) return null;
   /* ---- SUPPORT DEVELOPS WITH THE WORK IT SUPPORTS ----
      NOT to its own ceiling, which was the first attempt and was wrong: pushing
@@ -6314,8 +6396,22 @@ function marathonSupportDestination(startSupportKm, startLongKm, longDestKm,
      forward: support develops in the same proportion the long run does, so
      both grow and neither is invented. Then three bounds, all of which already
      exist, say where it must stop. */
-  var grown = (startLongKm > 0 && longDestKm > 0)
-    ? startSupportKm * (longDestKm / startLongKm) : startSupportKm;
+  /* THE SHAPE IS A WORKLOAD, NOT A RUN SIZE, AND THAT MATTERS THE MOMENT
+     FREQUENCY DEVELOPS. This grew the per-RUN figure in proportion to the long
+     run, which was right while the day count was fixed for the life of the
+     block. It no longer is: a novice going from one supporting day to three
+     while each of those runs also doubled asked for six times the supporting
+     workload they arrived with, the capacity ceiling then refused the sum, and
+     the proportional rescale took the difference out of the LONG RUN -- a
+     sixteen-kilometre destination delivered as fourteen. The athlete's shape is
+     how much supporting running sits under their long run; carried forward as
+     the total it is, and divided across the days it will be written on. */
+  var startDays = (startSupportDays > 0) ? startSupportDays : supportDays;
+  var days = (supportDays > 0) ? supportDays : 1;
+  var grownTotal = (startLongKm > 0 && longDestKm > 0)
+    ? startSupportKm * (startDays > 0 ? startDays : 1) * (longDestKm / startLongKm)
+    : startSupportKm * (startDays > 0 ? startDays : 1);
+  var grown = grownTotal / days;
   /* ---- AND SUPPORT DEVELOPS TOWARDS WHAT THE LONG RUN NEEDS ----
      CARRYING THE ATHLETE'S SHAPE FORWARD IS RIGHT UNTIL THE SHAPE ITSELF IS
      THE PROBLEM. An athlete arriving with a 20km long run inside a 30km week
@@ -7930,9 +8026,28 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     var mDemF = null, mCurF = null;
     try { mDemF = demonstratedRunningFrequency(); } catch(e){ mDemF = null; }
     try { mCurF = currentSustainedRunningFrequency(); } catch(e){ mCurF = null; }
+    /* ---- FREQUENCY IS A CAPACITY, AND CAPACITIES DEVELOP ----
+       THE DEFECT THIS REPLACES. The block's day count was clamped to the
+       athlete's demonstrated frequency and then never moved: measured, every
+       one of the six pathways ran its entire fifteen weeks on the number of
+       days the athlete arrived running. A novice with five days available and
+       three days of history was given three runs a week for the whole
+       programme, which left a thirty-eight kilometre destination week to be
+       written across one long run, one quality session and ONE easy run -- and
+       the coherence gate then held the long run down, correctly, because no
+       week of that shape can support it. The long run was short because the
+       week was too narrow, and the week was too narrow because frequency was
+       treated as a fixed property of the athlete rather than as something the
+       programme develops.
+
+       THE TWO NUMBERS ANSWER TWO QUESTIONS, and conflating them is what broke.
+       WHAT THE ATHLETE MADE AVAILABLE bounds where the block is going: it is
+       permission, and the destination may use all of it if the work needs it.
+       WHAT THE ATHLETE DEMONSTRABLY RUNS bounds where the block STARTS -- see
+       mStartDays below -- and every day between the two arrives as a
+       structural progression, on the week capacity has earned it, at the
+       athlete's already-earned supporting workload rather than on top of it. */
     var mDays = mAvail;
-    if (mDemF != null) mDays = Math.min(mDays, Math.max(2, mDemF));
-    if (mCurF != null) mDays = Math.min(mDays, Math.max(2, mCurF));
     /* One demanding conventional session unless the athlete has earned a
        second -- the existing gate, asked here so the week's purposes are known
        before its sessions are sized. Never chosen to make a total work. */
@@ -8032,16 +8147,26 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        runs on the days its own capacity can pay for, so the extra day arrives
        as a structural transition when it has been earned rather than being
        written into week one. */
-    var mStartDays = marathonSupportDayFit(mEntryKm, mSupportDays, mQSlots, distKey,
-                                           mEntry && mEntry.longKm);
+    /* AND THE START IS BOUNDED BY THE EVIDENCE, which is where the athlete's
+       demonstrated frequency belongs: week one is written across the days they
+       actually run, not across the days the destination will eventually need. */
+    var mStartDayCap = mDays;
+    if (mDemF != null) mStartDayCap = Math.min(mStartDayCap, Math.max(2, mDemF));
+    if (mCurF != null) mStartDayCap = Math.min(mStartDayCap, Math.max(2, mCurF));
+    var mStartDays = Math.min(
+      Math.max(1, mStartDayCap - 1 - mQSlots),
+      marathonSupportDayFit(mEntryKm, mSupportDays, mQSlots, distKey,
+                            mEntry && mEntry.longKm));
     /* AND THE SPLIT HAS TO BE ABLE TO WRITE THEM. See marathonSupportDayFit():
        this replaces dividing the athlete's non-long mileage by EASY_MIN_KM,
        which asked the question before the long run was coherent and so
        disagreed with the split it was choosing for. */
-    /* Weeks that actually progress: the taper does not, the race week does
-       not, and a cutback week steps back rather than forward. */
-    var mProgressing = 0;
-    for (var pw = 1; pw <= buildWeeks; pw++) if (!(pw % 4 === 0)) mProgressing++;
+    /* THE STEPS THIS BLOCK HANDS OUT. See raceGoalStepCount(): one per
+       developing week from week one to the durability exposure, which is where
+       the curve has to arrive. The taper takes none, an absorption week takes
+       none, and the specificity weeks after the durability exposure hold what
+       it reached rather than still climbing. */
+    var mProgressing = raceGoalStepCount(distKey, N);
     var mStart = marathonSessionStart(mEntryKm, mStartDays, mQSlots, distKey, mEntry && mEntry.longKm);
     var mPaceSec = (opts && opts.easyPaceSecPerKm > 0) ? opts.easyPaceSecPerKm : null;
     /* ---- THE THREE AUTHORITIES SETTLE TOGETHER ----
@@ -8101,7 +8226,8 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                                                 mLongDest.km, mProgressing, mPaceSec, distKey,
                                                 raceGoalVolumeDestinationKm(distKey, mExp, mEntry, 'peak'),
                                                 mSupportDays,
-                                                mQSlots * (mSupportDest || mStart.supportKm || 0));
+                                                mQSlots * (mSupportDest || mStart.supportKm || 0),
+                                                mStartDays);
       /* CAPACITY IS A CEILING ON THE RESULT, NEVER A TARGET FOR IT. Paid
          proportionally, so the week the athlete arrived with keeps its shape
          while everything in it comes down together. The quality session is
@@ -8172,7 +8298,12 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                      12km/week athlete held twice in a row accumulated a third
                      supporting day it had no workload for and its cutback week
                      came out larger than the week before it. */
-                  advances: 0, lastStep: null,
+                  /* WEEK ONE IS ONE STEP ABOVE THE ATHLETE'S ENTRY, which is
+                     what a block that is going somewhere means and what this
+                     arc has always claimed in words. Seeded at zero, the last
+                     developing week stood on step P-1 of P and every pathway
+                     finished its Peak below its own destination. */
+                  advances: 1, lastStep: null,
                   /* Computed ONCE, here, and reported on every week. The week
                      loop must never re-derive it: a rate re-solved over the
                      weeks that remain is exactly the catch-up this
@@ -8394,6 +8525,32 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                 supportDays: mBottomUp.supportDays, qSlots: mBottomUp.qSlots,
                 capacityCeilingKm: mBottomUp.capacityCeilingKm,
                 longDestKm: mBottomUp.longDestKm, longLimited: mBottomUp.longLimited,
+                /* ---- WHAT THE BLOCK WAS BUILT FROM, ON EVERY WEEK ----
+                   THE PATHWAY'S CONSTRUCTION ASSUMPTION AND THE ATHLETE'S
+                   DEMONSTRATED STATE, SEPARATELY. A synthetic entry figure and
+                   a figure the athlete actually ran are not the same kind of
+                   thing, and an architecture that stores only the winner cannot
+                   tell a reader -- or a readiness verdict -- which it used. Both
+                   are carried, alongside the block's own solve, so every
+                   downstream layer reads the provenance rather than inferring
+                   it from the number. */
+                origin: {
+                  pathwayEntryVolumeKm: mBottomUp.pathway ? null : null,
+                  demonstratedKm:     mBottomUp.entry ? mBottomUp.entry.demonstratedKm : null,
+                  demonstratedLongKm: mBottomUp.entry ? mBottomUp.entry.demonstratedLongKm : null,
+                  demonstratedDays:   mBottomUp.entry ? mBottomUp.entry.demonstratedDays : null,
+                  entryLongKm:        mBottomUp.entry ? mBottomUp.entry.longKm : null,
+                  entryDays:          mBottomUp.entry ? mBottomUp.entry.days : null,
+                  startDays:          mBottomUp.startDays,
+                  destDays:           mBottomUp.days,
+                  startLongKm:        mBottomUp.startLongKm,
+                  startSupportKm:     mBottomUp.startSupportKm,
+                  startSupportTotalKm:mBottomUp.startSupportTotalKm,
+                  supportDestKm:      mBottomUp.supportDestKm,
+                  supportTotalDestKm: mBottomUp.supportTotalDestKm,
+                  progressing:        mBottomUp.progressing,
+                  capacityLimited:    mBottomUp.capacityLimited,
+                  weekSupportLimited: mBottomUp.weekSupportLimited },
                 frac: Math.round(mFrac * 100) / 100,
                 /* THE STEP THIS WEEK STANDS ON, filled in below once the hold
                    is decided, and reported so the no-catch-up property is
@@ -8900,6 +9057,44 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
           r.supportKm = round1(Math.max(EASY_MIN_KM,
             Math.min(per,
                      (mWeek.capacityKm - r.longKm - r.qKm) / r.supportDays)));
+          /* ---- AND THE SUPPORTING WORK CARRIES WHAT THE WEEK'S OWN
+             DESTINATION STILL ASKS FOR ----
+             THE RESIDUE THIS CLOSES, AND WHY IT IS SYSTEMATIC. The destination
+             solve has to size the supporting work before the structure pools
+             have run, so it counts the quality slot at a supporting run's size.
+             The pools then build a slightly smaller session -- an advanced half
+             week wants 11.8km of it and gets 11.2 -- and the difference is
+             simply lost, so the destination week lands under its own
+             requirement by half a kilometre for EVERY athlete on the pathway.
+             Not an athlete shortfall, and not something readiness should be
+             reporting: an estimate used where the real figure now exists.
+
+             SO IT IS ASKED AGAIN HERE, WITH THE REAL FIGURE. The quality
+             session has been sized, the long run is known, and what remains of
+             the week the RACE asks for belongs to the aerobic work -- which is
+             the same rule the ladder above already applies when the slot is
+             refused outright rather than merely coming in small.
+
+             THIS IS NOT A WEEKLY TARGET RETURNING. It may only raise the
+             SUPPORTING runs, never the long run and never the quality
+             structure; it reads the destination at THIS WEEK'S STEP on the same
+             curve every session walks, so an early week is not inflated toward
+             a figure it has not earned; it is bounded by the week's capacity,
+             by SUPPORT_SHARE_MAX and by session cost exactly as the destination
+             solve is; and it stands down entirely on an absorption week, a
+             taper week and a structural re-solve, none of which are weeks whose
+             job is to reach anything. */
+          if (destAtStepKm > 0 && pinTo == null && !isCutback && !isTaper){
+            var needPer = (destAtStepKm - r.longKm - r.qKm) / r.supportDays;
+            if (needPer > r.supportKm){
+              var shapeCeil = r.longKm > 0 ? r.longKm * SUPPORT_SHARE_MAX : Infinity;
+              var costCeil = (mBottomUp.paceSec > 0)
+                ? (supportCostUpperSec(distKey) / mBottomUp.paceSec) : Infinity;
+              r.supportKm = round1(Math.max(r.supportKm,
+                Math.min(needPer, shapeCeil, costCeil,
+                         (mWeek.capacityKm - r.longKm - r.qKm) / r.supportDays)));
+            }
+          }
         }
         /* A QUALITY SESSION LONGER THAN THE LONG RUN IS NOT PRESCRIBED, and the
            week's volume must not count one that is not. The day builder already
@@ -8951,6 +9146,12 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          real floors, a new day redistributes work, and the long/support
          relationship has to stay coherent. That is geometry. What it may not do
          is take the ordinary progression step as well. */
+      /* The week the block is walking toward, read at THIS week's step on the
+         same curve the sessions use. Null where there is no volume destination
+         -- the marathon's Peak deliberately states none. */
+      var destAtStepKm = (mBottomUp.volumeDestKm > 0 && mBottomUp.entryKm > 0)
+        ? sessionAtStep(mBottomUp.entryKm, mBottomUp.volumeDestKm,
+                        mBottomUp.progressing, mStep) : 0;
       var mSol = mSolveWeek(longTarget, mWeek.supportKm);
       var mHeld = false;
       if (!isCutback && !isTaper && mWeek.heldLongKm != null &&
@@ -8959,14 +9160,38 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         var mNewQual = mSol.qSlots  > mBottomUp.estQSlots;
         var mNewSpec = !mBottomUp.estGoalSeg && hasGoalSegment;
         if (mNewDay || mNewQual || mNewSpec){
-          var mHeldSol = mSolveWeek(mWeek.heldLongKm, mWeek.heldSupportKm,
+          /* ---- THE HOLD BELONGS TO THE SESSION THE ARRIVAL IS IN ----
+             A new supporting day is new supporting work, and the protection it
+             needs is the one this solve already gives it: the athlete's EARNED
+             supporting total re-divided across one more run, so the week gains
+             a session without gaining a session's worth of load. The long run
+             is a different session on a different day and nothing arrived in
+             it -- holding it as well asked the athlete to give up long-run
+             development as the price of an easy run.
+
+             MEASURED, THAT INTERACTION WAS EATING THE RUNWAY. A canonical
+             marathon athlete whose entry week could express fewer days than
+             the destination needs spent one of its nine development steps on
+             each arrival, and finished its durability exposure two to three
+             kilometres under the pathway's requirement -- a shortfall caused
+             entirely by the programme's own structural growth.
+
+             RACE-SPECIFIC WORK IS THE EXCEPTION, because that arrival is IN
+             the long run: goal-pace running entering the session is a change
+             to the session itself, and the distance holds while it lands. */
+          var mHoldLongKm = mNewSpec ? mWeek.heldLongKm : longTarget;
+          var mHeldSol = mSolveWeek(mHoldLongKm, mWeek.heldSupportKm,
                                     mEarnedSupportTotalKm, mSol);
           /* The hold must not COST the athlete the structure it is protecting.
              Where solving at the earned workload would refuse the very session
              that arrived, the smaller week is not the more honest one, and the
              ordinary solve stands. */
           if (mHeldSol.runDays >= mSol.runDays && mHeldSol.qSlots >= mSol.qSlots){
-            mSol = mHeldSol; mHeld = true;
+            mSol = mHeldSol;
+            longTarget = mSol.longKm;
+            mWeek.longKm = round1(mSol.longKm);
+            /* Only a week whose LONG RUN was held takes no step. */
+            mHeld = !!mNewSpec;
           }
           mWeek.structureIntroduced = true;
           mWeek.structureArrived = [mNewDay ? 'running_day' : null,
@@ -8976,8 +9201,6 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         }
       }
       if (mHeld){
-        longTarget = mSol.longKm;
-        mWeek.longKm = round1(mSol.longKm);
         mWeek.heldAtEarnedWorkload = true;
         mWeek.step = mHoldStep;
       }
