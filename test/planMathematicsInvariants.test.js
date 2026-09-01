@@ -112,7 +112,7 @@ const RATCHETED = [
   ['deliberate_reduction_unnamed',        'a reduction with no named coaching reason'],
   ['floor_excess_unnamed',                'volume a floor forced in, with no named cause'],
   ['week_has_no_volume_accounting',       'a generated week with no accounting at all'],
-  ['week_one_exceeds_stated_volume',      'week one is more than 30% above the volume the athlete stated'],
+  ['week_one_exceeds_entry_capacity',     'week one is more than 30% above the load the block opened from'],
   ['week_overshoots_target',              'a week is more than 35% above its own target'],
   ['week_undershoots_target',             'a week is more than 25% below its own target'],
   ['taper_week_increases_volume',         'a taper week is bigger than the week before it']
@@ -693,7 +693,7 @@ test('D-7 eliminated the week-one overshoot class inside the race population', (
         const c = ac({ distanceKey, volume, weeks, scheduleKey: 'd5' });
         if (c.routed) continue;
         checkCase(c).forEach(f => {
-          if (f.code !== 'week_one_exceeds_stated_volume') return;
+          if (f.code !== 'week_one_exceeds_entry_capacity') return;
           total++;
           if (weeks <= 6) shortBlock++;
         });
@@ -704,7 +704,7 @@ test('D-7 eliminated the week-one overshoot class inside the race population', (
     total + ' week-one overshoots survive in the race population; D-7 should have removed them');
   assert.equal(shortBlock, 0);
   const m = matrix();
-  assert.equal(m.tallyRace.week_one_exceeds_stated_volume || 0, 0);
+  assert.equal(m.tallyRace.week_one_exceeds_entry_capacity || 0, 0);
 });
 
 test('no week anywhere carries volume without a named cause', () => {
@@ -1167,7 +1167,7 @@ test('THE IN-RACE RATCHET — asserted flat at zero, not against a baseline', ()
    'allocator_revision_undeclared', 'deliberate_reduction_unnamed',
    'floor_excess_unnamed', 'week_has_no_volume_accounting',
    'week_overshoots_target', 'week_undershoots_target',
-   'long_run_implausible_for_distance', 'week_one_exceeds_stated_volume',
+   'long_run_implausible_for_distance', 'week_one_exceeds_entry_capacity',
    /* S2-A and S6-A close two more, and they join the flat-zero list rather
       than the drifting record. */
    'taper_week_increases_volume', 'week_overshoots_target_declared'

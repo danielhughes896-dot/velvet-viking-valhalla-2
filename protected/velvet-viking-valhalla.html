@@ -12774,7 +12774,16 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       var date = addDays(weekMonday, iso);
       if (date<startDateStr) continue;
       var dayObj;
-      if (iso===wkLongDay && activeSet[iso] && !noLongRun){
+      /* ---- A LONG RUN BELOW THE QUANTUM IT IS PRESENTED IN IS NOT A SESSION ----
+         OMITTED, NOT SHRUNK -- the same rule the goal-pace finish already
+         follows. At the very bottom of the defensive domain a long run solves
+         to a few hundred metres and rounds to nothing, and the athlete was
+         given a day titled "Long Run" carrying 0km: a session that is printed,
+         described, and has no size. Where there is no long run to write the day
+         is simply not a long-run day. */
+      if (iso===wkLongDay && activeSet[iso] && !noLongRun && roundWorkoutKm('long', longKm) <= 0){
+        // falls through to the ordinary easy/rest handling below
+      } else if (iso===wkLongDay && activeSet[iso] && !noLongRun){
         var tl = longRunText(longKm, wk.hasGoalSegment, wk.goalSegKm, b2bActive, false, wk.longShape);
         dayObj = { type:tl.type, title:tl.title, km:longKm, desc:tl.desc, mpSegment:!!tl.mpSegment,
           prescription: longRunCarriesSpecificWork(wk)
