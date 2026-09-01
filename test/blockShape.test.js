@@ -169,27 +169,50 @@ test('a race block keeps every part of the arc it always had', () => {
   assert.equal(b.taperWeeks, 1);
   assert.equal(b.weeks.filter(w => w.isRace).length, 1);
   assert.equal(b.weeks.filter(w => w.isCheckpoint).length, 1);
-  /* The peak is the profile multiplier EARNED OVER THE WEEKS AVAILABLE. A
-     twelve-week block has nine developing weeks against the fourteen-week
-     block's eleven, so it reaches nine elevenths of the way from 1.0 to the
-     profile's 1.55 rather than all of it. The full-length block below is the
-     one that still lands exactly on volMult. */
-  assert.equal(b.peakVolume, a.round1(45 * a.developmentMultiplierFor('half', 12)));
+  /* AND THE PEAK IS THE PEAK THE BLOCK BUILT. It used to be asserted as the
+     stated volume times a development multiplier, which is the authority
+     destination-led construction removed: a race block's weeks are the sum of
+     their sessions, walking from the athlete's entry to what the EVENT asks
+     for, and the multiplier plays no part in either end of that. The reported
+     figure is now the largest developing week the block actually prescribes,
+     which is the thing every consumer outside the generator wanted. The
+     multiplier still means exactly what it says for every block that still
+     uses the legacy arc -- asserted below. */
+  const dev = b.weeks.filter(w => !w.isRace && !w.isTaper);
+  assert.equal(b.peakVolume,
+    a.round1(Math.max.apply(null, dev.map(w => w.volume))));
+  assert.ok(b.weeks.filter(w => w.isTaper).every(w => w.volume <= b.peakVolume + 1e-9),
+    'a wind-down week is not the block peak');
   assert.ok(count(b, 'Base') > 0 && count(b, 'Build') > 0 && count(b, 'Peak') > 0);
 });
 
-test('a full-length race block still peaks at exactly the profile multiplier', () => {
-  /* The other half of the statement above, and the property that must not move:
-     at the builder's own default length the profile multiplier is reached in
-     full, so the distance profiles still mean what they say. */
+test('the profile multiplier still means what it says wherever the ramp still runs', () => {
+  /* The other half of the statement above. The half and the marathon build
+     their weeks from sessions and no longer ramp to a multiple of the athlete's
+     stated volume -- that authority was removed deliberately. Every other
+     distance and every other purpose still does, and the profile multiplier
+     still has to mean exactly what it says there. */
   const a = app();
   const N = a.BUILDER_PURPOSE_META.race.defaultWeeks;
-  assert.equal(a.developmentMultiplierFor('half', N), a.DISTANCE_PROFILES.half.volMult);
-  const b = build(a, 'half', 45, N, 'race');
-  assert.equal(b.peakVolume, a.round1(45 * a.DISTANCE_PROFILES.half.volMult));
-  // and longer than the default cannot exceed it either -- volMult is a ceiling
-  const long = build(a, 'half', 45, 20, 'race');
-  assert.equal(long.peakVolume, a.round1(45 * a.DISTANCE_PROFILES.half.volMult));
+  ['5k', '10k'].forEach(d => {
+    assert.equal(a.developmentMultiplierFor(d, N), a.DISTANCE_PROFILES[d].volMult);
+    const b = build(a, d, 45, N, 'race');
+    assert.equal(b.peakVolume, a.round1(45 * a.DISTANCE_PROFILES[d].volMult),
+      d + ' no longer peaks at its profile multiplier');
+    // and longer than the default cannot exceed it either -- volMult is a ceiling
+    const long = build(a, d, 45, 20, 'race');
+    assert.equal(long.peakVolume, a.round1(45 * a.DISTANCE_PROFILES[d].volMult));
+  });
+  /* AND THE TWO DEDICATED ARCHITECTURES MUST NOT BE READING IT. Their peak is
+     what their sessions came to, and it is free to be either side of the
+     figure the multiplier would have produced -- what it may not be is that
+     figure, week after week, which is what would show the ramp still running. */
+  ['half', 'full'].forEach(d => {
+    const b = build(a, d, 45, 15, 'race');
+    const dev = b.weeks.filter(w => !w.isRace && !w.isTaper);
+    assert.equal(b.peakVolume, a.round1(Math.max.apply(null, dev.map(w => w.volume))),
+      d + ' reports a peak no week of it matches');
+  });
 });
 
 test('a block built with no purpose at all is still the race block, byte for byte', () => {

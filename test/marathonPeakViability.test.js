@@ -196,18 +196,62 @@ test('the week is the sum of the sessions prescribed in it', () => {
   });
 });
 
-test('the 30 km benchmark is reached where the athlete supports it, and not forced where they do not', () => {
+/* ---- WHAT DECIDES THE PEAK LONG RUN, AND WHAT NO LONGER DOES ----
+   This asserted that an athlete's STATED WEEKLY VOLUME decided whether the
+   30km benchmark was reached: 80km/week got there, 25km/week was held under
+   70% of it. That is the authority destination-led construction removed. The
+   event's requirement is now stated by the PATHWAY the athlete's experience
+   selects, raised by their own demonstrated long run and never by a weekly
+   figure they typed; how fast they may travel toward it is bounded by the
+   ordinary session rate from where they actually are.
+
+   So the protection is re-stated on the authorities that survive: each pathway
+   reaches its own long-run requirement, demonstrated evidence raises it, a
+   typed weekly volume does not, and the result is still monotone with nothing
+   cliffed or reversed. */
+test('the long-run destination is the pathway\'s, raised by evidence and not by a typed number', () => {
   const a = app();
-  const bench = a.MIN_PEAK_LONG_KM.full;
-  const peakLongOf = v => {
-    const blk = a.buildBlockWeeks('full', v, 15, { availableDays: 6, easyPaceSecPerKm: 330 });
+  const peakLongOf = (v, exp, pace) => {
+    a.state = a.makeDefaultState();
+    const blk = a.buildBlockWeeks('full', v, 15,
+      { purpose: 'race', availableDays: 6, easyPaceSecPerKm: pace || 330, experience: exp });
     const nr = blk.weeks.filter(w => !w.isRace && w.phase !== 'Taper');
     return Math.max.apply(null, nr.map(w => w.longTarget));
   };
-  assert.ok(peakLongOf(80) >= bench - 0.55, 'an established athlete reaches it');
-  assert.ok(peakLongOf(25) < bench * 0.7, 'a low-volume athlete is not forced to it');
-  // monotone in starting workload -- no cliff, no reversal
-  const seq = [12, 20, 25, 30, 40, 50, 60, 70, 80].map(peakLongOf);
+  /* THE PATHWAY IS THE AUTHORITY. Each one states a peak long run, and an
+     athlete entering on it at its own entry volume reaches it -- at every easy
+     pace that athlete plausibly runs. */
+  /* The easy-pace band each pathway's athlete actually runs in. It matters
+     because session COST is one of the bounds on a supporting run, and a
+     supporting run is what a long run is allowed to be 2.5 times: a 32km long
+     run needs 12.8km supporting runs, which is 90 minutes at 7:00/km. An
+     advanced marathoner does not run easy at 7:40, and a novice does not run
+     easy at 4:00. */
+  const BAND = { novice: [360, 420, 480], experienced: [300, 330, 390],
+                 advanced: [240, 300, 330] };
+  ['novice', 'experienced', 'advanced'].forEach(exp => {
+    const p = a.RACE_GOAL_PATHWAY.full[exp];
+    BAND[exp].forEach(pace => {
+      assert.ok(peakLongOf(p.entryVolumeKm, exp, pace) >= p.peakLongKm - 0.55,
+        exp + ' at ' + pace + 's/km does not reach its own pathway long run of ' +
+        p.peakLongKm);
+    });
+  });
+  /* AND WHERE THE ATHLETE GENUINELY CANNOT SUPPORT IT, IT IS NOT PRESCRIBED.
+     A nine-minute-kilometre easy pace puts the supporting runs a 32km long run
+     needs past an hour and a half apiece, so the destination comes down --
+     which is the session-cost bound doing exactly its job. That is an athlete
+     shortfall, honestly measured, and it is the one thing readiness is for. */
+  assert.ok(peakLongOf(a.RACE_GOAL_PATHWAY.full.advanced.entryVolumeKm, 'advanced', 540) <
+            a.RACE_GOAL_PATHWAY.full.advanced.peakLongKm - 1,
+    'session cost no longer bounds the long run for a slow athlete');
+  /* AND EXPERIENCE, NOT VOLUME, IS WHAT SEPARATES THEM. The same typed number
+     on three pathways gives three different destinations. */
+  const same = ['novice', 'experienced', 'advanced'].map(e => peakLongOf(50, e));
+  assert.ok(same[2] > same[1] && same[1] > same[0],
+    'experience did not separate the destinations: ' + same.join(','));
+  /* AND NOTHING CLIFFS OR REVERSES ACROSS THE STATED-VOLUME DOMAIN. */
+  const seq = [12, 20, 25, 30, 40, 50, 60, 70, 80].map(v => peakLongOf(v, 'experienced'));
   for (let i = 1; i < seq.length; i++)
     assert.ok(seq[i] >= seq[i - 1] - 0.05, 'peak long went backwards: ' + seq.join(','));
 });

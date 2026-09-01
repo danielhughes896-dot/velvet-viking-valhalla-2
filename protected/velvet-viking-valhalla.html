@@ -5535,7 +5535,20 @@ var RACE_GOAL_PATHWAY = {
          block develops from where they actually are, and readiness reports the
          gap -- which is a genuine athlete shortfall honestly measured rather
          than an architectural one dressed up as coaching. */
-      entryVolumeKm: 20, entryLongKm: 12, entryDays: 3,
+      /* AND THE ENTRY WEEK HAS TO BE ABLE TO CONTAIN THE ENTRY LONG RUN.
+         Twenty kilometres was stated beside an eight-kilometre long run and was
+         left where it was when that became twelve, which made the pathway
+         incoherent at its own entry: a twelve-kilometre run inside a twenty
+         kilometre week leaves eight for everything else, the supporting run
+         opens at four, and SUPPORT_SHARE_MIN then says a 26km long run needs
+         10.4km supporting runs -- which four cannot reach in nine steps at the
+         ordinary rate. Measured, the destination was unreachable at 20 and
+         reachable from 21 upward.
+         The pathway's own rules give the figure without measuring: entryDays 3
+         is the long run, one quality slot and one supporting run, and a
+         supporting run under a 12km long run is at least SUPPORT_SHARE_MIN of
+         it. 12 + 4.8 + 4.8 = 21.6. */
+      entryVolumeKm: 22, entryLongKm: 12, entryDays: 3,
       buildVolumeKm: 40, buildLongKm: 26,
       peakVolumeKm:  null, peakLongKm: 26, openEnded: false },
     experienced: {
@@ -5598,8 +5611,32 @@ function raceGoalEntryState(distKey, experience, statedVolumeKm){
   var volume = dem != null ? dem
              : stated != null ? stated
              : (path ? path.entryVolumeKm : null);
-  var longKm = demLong != null ? demLong
-             : (path ? path.entryLongKm : null);
+  /* ---- A PATHWAY ASSUMPTION IS NOT EVIDENCE, AND IT DESCRIBES A PARTICULAR
+     ATHLETE ---- entryLongKm says what somebody ARRIVING ON THIS PATHWAY
+     typically runs, and it is stated beside the weekly volume that same athlete
+     arrives with. Read on its own it was applied to everybody: a six
+     kilometre a week athlete asking for a marathon was given the novice
+     pathway's entry long run outright, so the split opened with a long run
+     twice the size of their entire week and the block developed from there.
+
+     WHERE THE ATHLETE'S OWN WEEK IS BELOW THE PATHWAY'S, THE ASSUMPTION COMES
+     WITH IT. Scaled by their own stated week against the pathway's -- so the
+     assumption still says what shape an entering athlete has, and says nothing
+     about a size the athlete has not claimed. Demonstrated evidence outranks
+     both and is never scaled: a run the athlete completed is the thing itself.
+
+     NO LOOPHOLE EITHER WAY. This cannot raise anything -- an athlete at or
+     above the pathway's entry week keeps the pathway's figure unchanged -- and
+     it cannot be used to claim capability, because it only ever reduces a
+     number the athlete did not supply. */
+  var pathLong = path ? path.entryLongKm : null;
+  var pathLongScaled = false;
+  if (pathLong > 0 && path && path.entryVolumeKm > 0 &&
+      stated != null && stated < path.entryVolumeKm){
+    pathLong = round1(pathLong * (stated / path.entryVolumeKm));
+    pathLongScaled = true;
+  }
+  var longKm = demLong != null ? demLong : pathLong;
   return {
     volumeKm: volume,
     longKm: longKm,
@@ -5608,7 +5645,14 @@ function raceGoalEntryState(distKey, experience, statedVolumeKm){
        say what the programme was built on rather than implying evidence that
        does not exist. */
     volumeSource: dem != null ? 'demonstrated' : stated != null ? 'stated' : 'pathway',
-    longSource:   demLong != null ? 'demonstrated' : 'pathway',
+    longSource:   demLong != null ? 'demonstrated'
+                : pathLongScaled ? 'pathway_scaled' : 'pathway',
+    /* THE PATHWAY'S OWN ASSUMPTIONS, CARRIED SEPARATELY from whatever the
+       athlete's evidence made of them, so a reader can always see which of the
+       two a number came from. */
+    pathwayEntryVolumeKm: path ? path.entryVolumeKm : null,
+    pathwayEntryLongKm:   path ? path.entryLongKm : null,
+    pathwayEntryDays:     path ? path.entryDays : null,
     demonstratedKm: dem, demonstratedLongKm: demLong, demonstratedDays: demFreq
   };
 }
@@ -6305,11 +6349,31 @@ function marathonSessionStart(statedVolumeKm, supportDays, qualitySlots, distKey
 
    No new number: the floor is EASY_MIN_KM and the shape is the coherence band
    the destinations already use. */
+/* AND THE BAND IS A BAND. This asked only whether each supporting run cleared
+   EASY_MIN_KM, which is the floor below which a run is not a run -- not the
+   floor below which a run is not SUPPORT. SUPPORT_SHARE_MIN is the
+   architecture's statement of the second, it is what the destination solve
+   uses in both directions, and the split was the one place it was asked in
+   neither. Measured on the novice marathon pathway: a 22km entry week with a
+   12km long run was written across two supporting runs of 3.3km, each of them
+   above EASY_MIN_KM and each of them 28% of the long run they were meant to be
+   supporting. A supporting run that starts there cannot reach the 10.4km a
+   26km long run needs -- 3.3 to 10.4 is 13.5% a week against an ordinary rate
+   of 10 -- so the coherence gate pulled the destination down to 19.5km and the
+   pathway missed its own requirement at every easy pace except the fastest.
+   The same week written across ONE supporting run of 5km reaches it.
+
+   FEWER, PROPERLY SIZED RUNS, THEN. Frequency still develops from here -- every
+   day between this and what the athlete made available arrives as capacity
+   earns it -- so this decides where the week STARTS, which is the only thing
+   the entry split was ever entitled to decide. */
 function marathonSupportDayFit(statedVolumeKm, maxSupportDays, qualitySlots, distKey, entryLongKm){
   var most = Math.max(1, maxSupportDays || 1);
   for (var d = most; d > 1; d--){
     var split = marathonSessionStart(statedVolumeKm, d, qualitySlots, distKey, entryLongKm);
-    if (split.supportKm >= EASY_MIN_KM - 1e-9) return d;
+    if (split.supportKm >= EASY_MIN_KM - 1e-9 &&
+        (!(split.longKm > 0) ||
+         split.supportKm >= split.longKm * SUPPORT_SHARE_MIN - 1e-9)) return d;
   }
   return 1;
 }
@@ -8477,7 +8541,11 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         mLong = Math.min(mLong, mPrevLongKm);
       if ((isTaper || isRaceWeekNext) && mPrevSupportKm != null)
         mSupport = Math.min(mSupport, mPrevSupportKm);
-      mPrevLongKm = mLong; mPrevSupportKm = Math.max(EASY_MIN_KM, mSupport);
+      /* Recorded at the end of the week, once the week is settled -- see the
+         assignment beside mPrevWeekKm. Taken here, it was the curve's value
+         BEFORE the Peak hold and the week's own solve had had their say, so a
+         half taper week bounded itself against a long run the athlete was
+         never prescribed and came out larger than the block's peak. */
       /* ---- ELIGIBILITY, ASKED EVERY WEEK ----
          Capacity develops, so what the week can carry develops with it and a
          purpose deferred in week one may be earned by week six. That arrival
@@ -8535,7 +8603,11 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                    downstream layer reads the provenance rather than inferring
                    it from the number. */
                 origin: {
-                  pathwayEntryVolumeKm: mBottomUp.pathway ? null : null,
+                  pathwayEntryVolumeKm: mBottomUp.entry ? mBottomUp.entry.pathwayEntryVolumeKm : null,
+                  pathwayEntryLongKm:   mBottomUp.entry ? mBottomUp.entry.pathwayEntryLongKm : null,
+                  pathwayEntryDays:     mBottomUp.entry ? mBottomUp.entry.pathwayEntryDays : null,
+                  volumeSource:         mBottomUp.entry ? mBottomUp.entry.volumeSource : null,
+                  longSource:           mBottomUp.entry ? mBottomUp.entry.longSource : null,
                   demonstratedKm:     mBottomUp.entry ? mBottomUp.entry.demonstratedKm : null,
                   demonstratedLongKm: mBottomUp.entry ? mBottomUp.entry.demonstratedLongKm : null,
                   demonstratedDays:   mBottomUp.entry ? mBottomUp.entry.demonstratedDays : null,
@@ -9190,7 +9262,12 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
             mSol = mHeldSol;
             longTarget = mSol.longKm;
             mWeek.longKm = round1(mSol.longKm);
-            /* Only a week whose LONG RUN was held takes no step. */
+            /* THE ARRIVAL WAS SOLVED AT THE WORKLOAD THE ATHLETE HAD EARNED --
+               true of every arrival, and what the supporting work is protected
+               by. Whether the DOSE STEP was also given up is the separate
+               question below, and only a long run that itself gained something
+               answers yes to it. */
+            mWeek.heldAtEarnedWorkload = true;
             mHeld = !!mNewSpec;
           }
           mWeek.structureIntroduced = true;
@@ -9201,7 +9278,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         }
       }
       if (mHeld){
-        mWeek.heldAtEarnedWorkload = true;
+        mWeek.doseStepHeld = true;
         mWeek.step = mHoldStep;
       }
       mWeek.qSlots = mSol.qSlots;
@@ -9286,6 +9363,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       intendedVolume = volume;
       reductionCause = null;
       mPrevWeekKm = volume;
+      /* WHAT THE ATHLETE WAS ACTUALLY PRESCRIBED, which is what a taper or a
+         race week is entitled to bound itself against. */
+      mPrevLongKm = longTarget;
+      mPrevSupportKm = Math.max(EASY_MIN_KM, mWeek.supportKm);
       /* countedSupportDays, not supportDays: the number of supporting runs the
          week ACTUALLY carried, after a refused or deferred quality slot became
          one of them. Reading the pre-ladder figure let the cutback hold below
@@ -9322,6 +9403,15 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       hasGoalSegment:hasGoalSegment, goalSegKm:goalSegKm, goalSegFrac:goalSegFrac, raceDayKm:raceDayKm
     });
   }
+  /* ---- A BOTTOM-UP BLOCK REPORTS THE PEAK IT BUILT, NOT THE ONE THE RAMP
+     WOULD HAVE ASKED FOR ---- peakVolume is the legacy arc's stated-volume
+     times a development multiplier, and under bottom-up construction nothing
+     inside the block reads it any more: the weeks are the sum of their
+     sessions. Left as the ramp's figure it was a number no week matched --
+     67.5 for a block whose largest week is 70.2 -- and every consumer outside
+     the generator was reading a fiction. The taper's own floor already takes
+     the built figure for exactly this reason. */
+  if (mPeakBuiltKm > 0) peakVolume = mPeakBuiltKm;
   return { profile:profile, distKey:distKey, weeks:weeks, peakVolume:round1(peakVolume),
            /* The workload the athlete actually arrives with, carried through so the
               day builder can prescribe frequency from it rather than from a week the
