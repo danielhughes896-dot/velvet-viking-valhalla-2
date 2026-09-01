@@ -5807,14 +5807,14 @@ function raceGoalReadiness(distKey, experience, blockResult){
    than continued training. The taper is not compressed here at all: it is
    anchored to the event date, so a short block loses development weeks and
    still arrives at D-10 with ten days in front of it. */
-function halfPhaseAllocation(N){
+function halfPhaseAllocation(N, experience){
   var n = Math.max(1, Math.round(N || 1));
   if (n === 1) return { base:0, build:0, peak:0, taper:0, final:1 };
   var taper = n >= 4 ? 1 : 0;                      // the split week; race week is `final`
   var peak  = n >= 13 ? 4 : n >= 10 ? 3 : n >= 7 ? 2 : 1;
   var rest  = n - taper - 1 - peak;
   if (rest < 0){ peak = Math.max(0, peak + rest); rest = 0; }
-  var build = Math.min(HALF_FULL_SHAPE.build, rest);
+  var build = Math.min(raceGoalBuildWeeks('half', experience), rest);
   var base  = rest - build;
   return { base:base, build:build, peak:peak, taper:taper, final:1 };
 }
@@ -5836,9 +5836,51 @@ function usesBottomUpArc(purpose, distKey){
 function dedicatedWeeksFor(distKey){
   return distKey === 'half' ? HALF_DEDICATED_WEEKS : MARATHON_DEDICATED_WEEKS;
 }
+/* ---------- HOW MANY WEEKS OF BUILD THIS ATHLETE NEEDS ----------
+   THE SAME FIFTEEN WEEKS, ALLOCATED DIFFERENTLY, and the difference is a
+   coaching statement rather than a scaling. Base and Build answer different
+   questions -- Base ESTABLISHES the week the block will be run on and gets
+   trustworthy threshold evidence, Build DEVELOPS the capability the event
+   asks for -- and how much of each an athlete needs is precisely what their
+   experience says.
+
+   ADVANCED ARRIVES WITH THE WEEK ALREADY BUILT. Two weeks of Base is
+   re-establishment after the last block and a threshold reading, not
+   construction; every week beyond that is a week of development spent proving
+   something already true. HQ named this one directly, and it is the clearest
+   case: an advanced marathoner's four-week Base is a month of the fifteen
+   they have.
+
+   A NOVICE MARATHONER'S CONSTRAINT IS THE LONG RUN, and the long run develops
+   in Build. Their Base is shortened too, but by less and for a different
+   reason: they need the establishment, they just need the development more.
+   Thirteen kilometres to twenty-six is the furthest any pathway travels.
+
+   THE HALF IS THE ONE EVENT WHERE BASE EARNS ITS PLACE FOR EVERYBODY, because
+   its Base is not only establishment -- it is where the LTH calibration is
+   taken, and everything prescribed afterwards is written against a measured
+   threshold rather than an estimate. So the half's novice and experienced
+   shapes are unchanged and only the advanced athlete, who arrives with both,
+   gives a week up.
+
+   PEAK NEVER MOVES. It is what makes the block preparation for this event
+   rather than continued training, and the compression hierarchy already says
+   so: Base first, Build second, Peak last. */
+var RACE_GOAL_BUILD_WEEKS = {
+  half: { novice: 6, experienced: 6, advanced: 7 },
+  full: { novice: 7, experienced: 6, advanced: 8 }
+};
+function raceGoalBuildWeeks(distKey, experience){
+  var d = RACE_GOAL_BUILD_WEEKS[distKey === 'half' ? 'half' : 'full'];
+  var e = experience;
+  if (e == null){ try { e = athleteExperience(); } catch(err){ e = null; } }
+  if (d[e] != null) return d[e];
+  return distKey === 'half' ? HALF_FULL_SHAPE.build : MARATHON_FULL_SHAPE.build;
+}
 /* The phase counts for whichever dedicated architecture is in force. */
-function raceGoalPhaseAllocation(distKey, N){
-  return distKey === 'half' ? halfPhaseAllocation(N) : marathonPhaseAllocation(N);
+function raceGoalPhaseAllocation(distKey, N, experience){
+  return distKey === 'half' ? halfPhaseAllocation(N, experience)
+                            : marathonPhaseAllocation(N, experience);
 }
 /* ---------- WHERE THE PROGRESSION HAS TO ARRIVE, AND HOW MANY STEPS IT HAS
    TO GET THERE ----------
@@ -5888,8 +5930,8 @@ function raceGoalPhaseAllocation(distKey, N){
    and Peak is too short to carry one, it moves one week earlier instead --
    never later, because a week that is going to be absorbed should be absorbed
    before the athlete is asked for the block's hardest session and not after. */
-function raceGoalCutbackWeek(distKey, N, w){
-  var alloc = raceGoalPhaseAllocation(distKey, N);
+function raceGoalCutbackWeek(distKey, N, w, experience){
+  var alloc = raceGoalPhaseAllocation(distKey, N, experience);
   var buildW = alloc.base + alloc.build + alloc.peak;
   if (w > buildW || w < 1) return false;
   var ps = alloc.base + alloc.build;          // the last Build week
@@ -5901,8 +5943,8 @@ function raceGoalCutbackWeek(distKey, N, w){
   if (alloc.peak > 0 && w === ps - 1 && ((w + 1) % 4 === 0) && w >= 1) return true;
   return cut;
 }
-function raceGoalDurabilityPeakWeek(distKey, N){
-  var alloc = raceGoalPhaseAllocation(distKey, N);
+function raceGoalDurabilityPeakWeek(distKey, N, experience){
+  var alloc = raceGoalPhaseAllocation(distKey, N, experience);
   var buildW = alloc.base + alloc.build + alloc.peak;
   if (alloc.peak > 0) return alloc.base + alloc.build + 1;
   return Math.max(1, buildW);
@@ -5911,10 +5953,10 @@ function raceGoalDurabilityPeakWeek(distKey, N){
    week one up to and including the durability exposure. An absorption week
    takes no step -- it is a reduction, not a progression -- and nothing later
    walks the curve faster to make one up. */
-function raceGoalStepCount(distKey, N){
-  var end = raceGoalDurabilityPeakWeek(distKey, N);
+function raceGoalStepCount(distKey, N, experience){
+  var end = raceGoalDurabilityPeakWeek(distKey, N, experience);
   var n = 0;
-  for (var w = 1; w <= end; w++) if (!raceGoalCutbackWeek(distKey, N, w)) n++;
+  for (var w = 1; w <= end; w++) if (!raceGoalCutbackWeek(distKey, N, w, experience)) n++;
   /* ---- AND THE WEEK THE BLOCK KNOWS IT WILL SPEND ----
      Race-specific work enters the long run once, at the first week the phase
      allows it, and that week holds the distance while the new stimulus lands --
@@ -5932,9 +5974,10 @@ function raceGoalStepCount(distKey, N){
      arrival does not happen at all -- an athlete whose long run never reaches
      the distance a goal-pace finish needs -- the curve completes a week early
      and holds there, which costs nothing. */
-  var alloc = raceGoalPhaseAllocation(distKey, N);
+  var alloc = raceGoalPhaseAllocation(distKey, N, experience);
   var firstBuild = alloc.base + 1;
-  if (alloc.build > 0 && firstBuild <= end && !raceGoalCutbackWeek(distKey, N, firstBuild))
+  if (alloc.build > 0 && firstBuild <= end &&
+      !raceGoalCutbackWeek(distKey, N, firstBuild, experience))
     n--;
   return Math.max(1, n);
 }
@@ -5961,7 +6004,7 @@ function raceGoalStepCount(distKey, N){
    block that reaches this function anyway (a legacy plan, a rebuild), and it
    is deliberately the least harmful answer rather than the old one: extra
    weeks land in Base, never in Peak. */
-function marathonPhaseAllocation(N){
+function marathonPhaseAllocation(N, experience){
   var n = Math.max(1, Math.round(N || 1));
   if (n === 1) return { base:0, build:0, peak:0, taper:0, final:1 };
   // wind-down = taper weeks + race week. Two calendar weeks wherever the block
@@ -5970,10 +6013,11 @@ function marathonPhaseAllocation(N){
   var peak  = n >= 11 ? 3 : n >= 8 ? 2 : 1;
   var rest  = n - taper - 1 - peak;
   if (rest < 0){ peak = Math.max(0, peak + rest); rest = 0; }
+  var buildWant = raceGoalBuildWeeks('full', experience);
   var base;
   if (n <= 10)      base = 0;                              // no dedicated Base
-  else if (n <= MARATHON_DEDICATED_WEEKS) base = Math.max(0, rest - MARATHON_FULL_SHAPE.build);
-  else              base = rest - MARATHON_FULL_SHAPE.build;   // absorb, never Peak
+  else if (n <= MARATHON_DEDICATED_WEEKS) base = Math.max(0, rest - buildWant);
+  else              base = rest - buildWant;                   // absorb, never Peak
   return { base:base, build:rest - base, peak:peak, taper:taper, final:1 };
 }
 /* Is this block the dedicated marathon architecture? Only a race block at the
@@ -6946,7 +6990,7 @@ function blockPurposeOf(purposeOrSteady){
   if (typeof purposeOrSteady === 'string' && purposeOrSteady) return purposeOrSteady;
   return 'race';
 }
-function blockArcFor(purpose, N, distKey){
+function blockArcFor(purpose, N, distKey, experience){
   var weeks = Math.max(1, N || 1);
   /* A DEDICATED RACE GOAL ARC states its phases as COUNTS rather than as
      fractions of itself, which is the whole difference: a fraction stretches
@@ -6954,7 +6998,7 @@ function blockArcFor(purpose, N, distKey){
      own counts; every other purpose and every other distance falls through to
      the fraction-based arc below unchanged. */
   if (usesBottomUpArc(purpose, distKey)){
-    var alloc = raceGoalPhaseAllocation(distKey, weeks);
+    var alloc = raceGoalPhaseAllocation(distKey, weeks, experience);
     return { buildWeeks: alloc.base + alloc.build + alloc.peak, taper: alloc.taper,
              hasGoalEffort: true, hasCheckpoint: true,
              baseEnd: PHASE_BASE_END, buildEnd: PHASE_BUILD_END, volumeMult: null,
@@ -7062,11 +7106,11 @@ function planPurpose(su){
   var s = su || (typeof state !== 'undefined' ? state.setup : null);
   return (s && typeof s.purpose === 'string' && s.purpose) ? s.purpose : 'race';
 }
-function phaseForWeek(weekNum, totalWeeks, purposeOrSteady, distKey){
+function phaseForWeek(weekNum, totalWeeks, purposeOrSteady, distKey, experience){
   if (!totalWeeks || !weekNum) return 'Base';
   var purpose = blockPurposeOf(purposeOrSteady);
   if (purpose === 'maintain') return 'Maintain';
-  var arc = blockArcFor(purpose, totalWeeks, distKey);
+  var arc = blockArcFor(purpose, totalWeeks, distKey, experience);
   // Only a block that ends in something has a week named for the end of it.
   if (arc.hasGoalEffort && weekNum >= totalWeeks) return 'Final';
   if (weekNum > arc.buildWeeks) return 'Taper';
@@ -7524,9 +7568,9 @@ function marathonQualityKindFor(phase, weekNum, buildIndex, buildWeeks){
    slot IS the test. Everything else is the phase rule where it applies and the
    parity alternation where it does not -- exactly as the day builder reads it,
    because it is now the same expression. */
-function marathonSlotKindFor(planWeeks, weekNum, phase, isCheckpoint, isCalibration){
+function marathonSlotKindFor(planWeeks, weekNum, phase, isCheckpoint, isCalibration, alloc){
   if (isCheckpoint || isCalibration) return 'tempo';
-  var alloc = marathonPhaseAllocation(planWeeks);
+  alloc = alloc || marathonPhaseAllocation(planWeeks);
   var kind = marathonQualityKindFor(phase, weekNum, weekNum - alloc.base, alloc.build);
   return kind || (weekNum % 2 === 0 ? 'tempo' : 'interval');
 }
@@ -8009,9 +8053,17 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   // start-date -> race-date gap (see handleGeneratePlan) -- no hardcoded
   // default and no clamp, so short or long blocks are represented exactly.
   var N = Math.max(1, Math.round(planWeeksInput));
+  /* WHOSE PROGRAMME THIS IS, read once and before anything is shaped by it.
+     Experience selects the preparation pathway, and the pathway states its own
+     phase geometry as well as its own destinations -- so the arc has to know it
+     before it allocates a single week. Read from the caller where one is
+     supplied, from the athlete's own setting otherwise, which is the same value
+     the solve below uses. */
+  var blockExp = (opts && opts.experience) ? opts.experience
+               : (function(){ try { return athleteExperience(); } catch(e){ return null; } })();
   // The arc this purpose actually has -- see blockArcFor. Steady mode keeps
   // its own answer because it has no arc at all.
-  var arc = blockArcFor(purpose, N, distKey);
+  var arc = blockArcFor(purpose, N, distKey, blockExp);
   /* WHICH DEDICATED ARCHITECTURE, asked once. `halfArc` gates every decision
      below that is the HALF's coaching rather than the shared one. */
   var blockArch = raceGoalArch(purpose, distKey);
@@ -8125,8 +8177,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                 the pathway's minimum.
        The typed weekly volume is a legacy hint inside `entry` and appears
        nowhere else in this solve. */
-    var mExp  = (opts && opts.experience) ? opts.experience
-              : (function(){ try { return athleteExperience(); } catch(e){ return null; } })();
+    var mExp  = blockExp;
     var mPath = raceGoalPathway(distKey, mExp);
     var mEntry = raceGoalEntryState(distKey, mExp, currentVolume);
     var mAvail = (opts && opts.availableDays > 0) ? opts.availableDays : 6;
@@ -8273,7 +8324,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        the curve has to arrive. The taper takes none, an absorption week takes
        none, and the specificity weeks after the durability exposure hold what
        it reached rather than still climbing. */
-    var mProgressing = raceGoalStepCount(distKey, N);
+    var mProgressing = raceGoalStepCount(distKey, N, blockExp);
     var mStart = marathonSessionStart(mEntryKm, mStartDays, mQSlots, distKey, mEntry && mEntry.longKm);
     var mPaceSec = (opts && opts.easyPaceSecPerKm > 0) ? opts.easyPaceSecPerKm : null;
     /* ---- THE THREE AUTHORITIES SETTLE TOGETHER ----
@@ -8451,7 +8502,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
 
     // phaseForWeek() is the canonical definition -- this loop no longer carries
     // boundaries of its own, so the generator and every coaching layer agree.
-    phase = phaseForWeek(w, N, steady ? 'maintain' : purpose, distKey);
+    phase = phaseForWeek(w, N, steady ? 'maintain' : purpose, distKey, blockExp);
     if (phase==='Final') phase = 'Final Week';
     /* The pool this phase name selects from. A steady block now has one of its
        own: it used to borrow 'Build', which is a pool written for a block that
@@ -8495,7 +8546,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          where an absorption week goes; the step count reads the same function,
          so the block's progression and its cutbacks cannot disagree. */
       if (usesBottomUpArc(purpose, distKey))
-        isCutback = raceGoalCutbackWeek(distKey, N, w);
+        isCutback = raceGoalCutbackWeek(distKey, N, w, blockExp);
       /* A BLOCK THAT ENDS IN NOTHING STILL ENDS SOMEWHERE. With no goal effort
          to taper into, the last week is a consolidation week: the block
          finishes absorbed rather than at its own peak, which is the state the
@@ -8959,7 +9010,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          progression indexed against a family the week no longer delivers.
          Every other distance and purpose keeps the parity rotation. */
       if (usesMarathonArc(purpose, distKey) && !isCheckpoint && !isCalibration){
-        var mAlloc = marathonPhaseAllocation(N);
+        var mAlloc = arc.phaseCounts || marathonPhaseAllocation(N, blockExp);
         var mKind = marathonQualityKindFor(phase, w, w - mAlloc.base, mAlloc.build);
         if (mKind) soloKind = mKind;
       }
@@ -9013,7 +9064,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        different kind of session. Nothing in the literature sets it. */
     var mPeakFirst = false, mPeakLast = false;
     if (usesMarathonArc(purpose, distKey) && phase === 'Peak' && !isRace){
-      var mA = marathonPhaseAllocation(N);
+      var mA = arc.phaseCounts || marathonPhaseAllocation(N, blockExp);
       mPeakFirst = (w === mA.base + mA.build + 1);
       mPeakLast  = (w === mA.base + mA.build + mA.peak);
       /* THE FIRST EXPOSURE IS THE BLOCK'S LONGEST RUN, and it has to be told
@@ -9137,7 +9188,8 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          the two families after this, which can only make the delivered day
          smaller than the priced one -- an over-price the rounding bound
          already covers, never a kilometre without a cause. */
-      var mQKind = marathonSlotKindFor(N, w, phase, isCheckpoint, isCalibration);
+      var mQKind = marathonSlotKindFor(N, w, phase, isCheckpoint, isCalibration,
+                                       arc.phaseCounts);
       /* PRICED AS THE DAY THAT WILL BE WRITTEN, not as the structure chain the
          week happens to hold. A one-slot week receives its own solo structure,
          a checkpoint receives its flanks, and a quality day must contain the
@@ -9553,6 +9605,18 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
               athlete has not reached yet. See coherentFrequencyRange(). */
            startVolume: round1(currentVolume),
            buildWeeks:buildWeeks, taperWeeks:taper, planWeeks:N, steady:steady,
+           /* THE PHASE COUNTS THIS BLOCK WAS ACTUALLY ALLOCATED, carried so the
+              day builder reads the block's own geometry rather than re-deriving
+              it. It cannot re-derive it any more: the allocation depends on the
+              athlete's experience, and a caller that asked again without it
+              would silently get a different shape from the one the weeks were
+              built on. */
+           phaseCounts: arc.phaseCounts || null,
+           /* Reported only where it decided something. A base, speed or
+              maintenance block has no pathway to select and no phase counts of
+              its own, and recording the athlete's level on it would make three
+              identical blocks compare unequal. */
+           experience: arc.phaseCounts ? blockExp : null,
            purpose:purpose, noQuality:!!arc.noQuality, noLongRun:!!arc.noLongRun,
            /* THE RATE, AS AN OUTPUT. What the ramp actually implies per
               developing week, so it can be reported, audited and later gated --
@@ -12416,7 +12480,8 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        marathonQualityKindFor(). A checkpoint or calibration week keeps its own
        session -- that slot IS the test. */
     if (useCoherentFrequency && !wk.isCheckpoint && !wk.isCalibration){
-      var mAlloc = marathonPhaseAllocation(blockResult.planWeeks);
+      var mAlloc = blockResult.phaseCounts ||
+                   marathonPhaseAllocation(blockResult.planWeeks, blockResult.experience);
       var bIdx = wk.week - mAlloc.base;            // 1-based position inside Build
       var mKind = marathonQualityKindFor(wk.phase, wk.week, bIdx, mAlloc.build);
       if (mKind) singleSlotKind = mKind;
@@ -12688,7 +12753,8 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        recognisable. */
     if (useCoherentFrequency && wk.phase === 'Build' && easyDays.length >= 3 &&
         longKm > 0 && wk.hasGoalSegment){
-      var mAllocML = marathonPhaseAllocation(blockResult.planWeeks);
+      var mAllocML = blockResult.phaseCounts ||
+                     marathonPhaseAllocation(blockResult.planWeeks, blockResult.experience);
       var lateBuild = (wk.week - mAllocML.base) >= Math.ceil(mAllocML.build / 2);
       if (lateBuild && !wk.isCutback){
         var wantKm = longKm * MEDIUM_LONG_SHARE_OF_LONG;
