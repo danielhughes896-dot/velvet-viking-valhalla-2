@@ -585,6 +585,67 @@ function normaliseActivity(a){
     }).filter(Boolean);
     if (rows.length) out.splits = rows;
   }
+  /* THE DEVICE'S OWN LAPS, which are NOT the kilometre markers above.
+   *
+   * WHAT THEY ARE. /activities/{id} returns a `laps` array alongside
+   * splits_metric, and it is the watch's own lap list -- for a structured
+   * workout run on a Garmin, one entry per lap the watch took, which is where
+   * the athlete's actual reps and recoveries live. A prescribed
+   * 500/1000/1500/1000/500 ladder arrives here as real 500m and 1000m entries
+   * at rep pace with slower entries between them, instead of ten identical
+   * kilometres that average the recoveries into the work.
+   *
+   * WHAT THEY ARE NOT, AND THIS IS THE WHOLE CARE OF IT. Strava's Lap object
+   * carries NO work/recovery/warm-up/cool-down classification -- no step type,
+   * no intensity, nothing that says which lap was a rep. Distance, time, heart
+   * rate and cadence are all it has. So these rows are stored as what they
+   * are, RECORDED laps, and nothing here labels one a rep or matches it to a
+   * prescribed segment: that would be reading Valhalla's prescription back
+   * onto the athlete's watch and calling it evidence. A lap boundary is not
+   * reliably a workout-step boundary either -- a single prescribed 1500m rep
+   * can arrive as a 1000m lap followed by a 500m lap -- which is exactly why
+   * the classification has to come from a source that has it, not from us.
+   *
+   * FREE, ON THE PATH THAT MATTERS, for the same reason splits_metric is: the
+   * webhook already reads the detailed activity. The list endpoint the manual
+   * backfill uses returns neither, so a backfilled run simply has no laps.
+   *
+   * KEPT SEPARATE FROM `splits` DELIBERATELY. coachSplitMetrics() reads
+   * `splits` and its consistency/fade arithmetic assumes comparable kilometre
+   * rows; handing it laps of 500m, 1000m and 400m would change what it
+   * measures. Two different observations, two different fields.
+   *
+   * Per-lap heart rate is covered data and is removed for an athlete who has
+   * not consented -- at the boundary, in _health-consent.js, not here. */
+  const devLaps = Array.isArray(a.laps) ? a.laps : null;
+  if (devLaps && devLaps.length){
+    const lapRows = devLaps.map(function(lp){
+      if (!lp) return null;
+      const km = pos(lp.distance) != null ? Math.round(lp.distance / 10) / 100 : null;
+      const sec = pos(lp.moving_time) != null ? lp.moving_time : pos(lp.elapsed_time);
+      if (km == null || sec == null) return null;
+      const row = {
+        km: km,
+        sec: sec,
+        paceSec: Math.round(sec / km),
+        hr: pos(lp.average_heartrate) != null ? Math.round(lp.average_heartrate) : null
+      };
+      // Same one-leg-to-two-legs correction the summary cadence gets.
+      const cad = pos(lp.average_cadence);
+      if (cad != null) row.cadence = Math.round(cad * 2);
+      /* Elapsed carries information moving time does not: a lap whose elapsed
+         far exceeds its moving time contains a standing recovery. Recorded,
+         never interpreted here. */
+      if (pos(lp.elapsed_time) != null && lp.elapsed_time !== sec) row.elapsedSec = lp.elapsed_time;
+      return row;
+    }).filter(Boolean);
+    if (lapRows.length){
+      out.deviceLaps = lapRows;
+      /* PROVENANCE AS A FIELD, NOT AS A SHAPE. Downstream must never have to
+         guess what it is looking at by measuring how even the rows are. */
+      out.deviceLapSource = 'strava';
+    }
+  }
   return out;
 }
 

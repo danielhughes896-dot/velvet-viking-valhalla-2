@@ -1432,6 +1432,21 @@
     font-family:'JetBrains Mono',monospace; min-height:34px;
   }
   .slog-in.slog-hr{flex:0 0 62px;}
+  /* RECORDED LAPS -- read-only, and visibly not an input. The structured
+     editor above it is where the athlete SAYS what they did; this is what the
+     watch reported, so it gets rows rather than fields and never a border that
+     looks tappable. Deliberately quieter than .slog-row: the athlete's own
+     account leads, the device's account corroborates. */
+  .dlap-rows{margin-top:2px;}
+  .dlap-row{
+    display:grid; grid-template-columns:18px 1fr 58px 62px; gap:6px; align-items:baseline;
+    padding:4px 0; border-bottom:1px solid var(--line-soft); font-size:11.5px;
+  }
+  .dlap-row:last-child{border-bottom:none;}
+  .dlap-idx{font-size:9.5px; color:var(--ink-faint); text-align:right;}
+  .dlap-dist, .dlap-time{color:var(--ink-dim);}
+  .dlap-pace{color:var(--ink); text-align:right;}
+  .dlap-note{font-size:10px; line-height:1.45; color:var(--ink-faint); margin:2px 0 7px;}
   .splits-total{font-size:10.5px; color:var(--ink-faint); margin-top:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .splits-total .font-mono{color:var(--ink-dim);}
   .splits-warn{color:var(--gold-deep);}
@@ -17263,9 +17278,32 @@ function computeExecutionBreakdown(dd){
   };
 }
 
-/* 'whole-session' when a structured session was judged as one average, 'direct'
-   when the prescription has a single intensity and the average IS the thing
-   prescribed, and null when pace was not scored at all. */
+/* 'direct' when the prescription has a single intensity and the average IS the
+   thing prescribed, null when pace was not scored at all, and otherwise one of
+   three composite readings that differ ONLY in what evidence exists.
+
+   IT USED TO ANSWER FROM THE PRESCRIPTION ALONE, AND THEREFORE SOMETIMES LIED.
+   Every composite session returned 'whole-session', whose clause says "the
+   sections were not logged separately" -- including for an athlete who had
+   just logged all twelve of them, warm-up, five reps, five recoveries and
+   cool-down, into the structured editor this app ships. The score was right;
+   the sentence about the evidence was false, and it was false about evidence
+   the app was holding at the moment it said it.
+
+   SO THE COMPOSITE CASE NOW ASKS WHAT WAS ACTUALLY RECORDED. Three answers,
+   and the distinction between the last two is the whole point:
+
+     whole-session    nothing below the total was recorded
+     sections-logged  the athlete logged the prescribed sections themselves,
+                      so each row IS a named part of the prescription
+     laps-recorded    a watch's laps came in with the import -- real recorded
+                      sections, but carrying no statement of which lap was a
+                      rep, a recovery, a warm-up or a cool-down
+
+   WHAT DELIBERATELY DID NOT CHANGE: the SCORE. All three still judge pace
+   across the whole run against the composite target, exactly as before. This
+   names the evidence honestly; it does not re-weight the verdict, which is a
+   coaching decision and not APP's to make. */
 function executionPaceResolution(dd, pacePart){
   if (!pacePart || pacePart.score == null) return null;
   var mix = null;
@@ -17274,7 +17312,26 @@ function executionPaceResolution(dd, pacePart){
   /* More than one prescribed intensity is what makes the target a composite,
      and the composite is what makes the verdict whole-session. */
   var kinds = Object.keys(mix.byIntensity).filter(function(k){ return mix.byIntensity[k] > 0.05; });
-  return kinds.length > 1 ? 'whole-session' : 'direct';
+  if (kinds.length <= 1) return 'direct';
+  if (hasLoggedSectionEvidence(dd)) return 'sections-logged';
+  if (hasRecordedLapEvidence(dd)) return 'laps-recorded';
+  return 'whole-session';
+}
+/* The athlete's own account of the prescribed sections: rows carrying a segId,
+   which only the structured editor writes and only against orderedSegments().
+   A row needs a real pace to count -- a seeded time with no distance beside it
+   is the prescription looking back at us, not something that was recorded. */
+function hasLoggedSectionEvidence(dd){
+  var splits = (dd && dd.actual && dd.actual.splits) || [];
+  return splits.some(function(s){ return splitHasStructure(s) && s.paceSec != null; });
+}
+/* Laps the device recorded, which exist independently of anything the athlete
+   typed. Provenance is read from its own field rather than guessed from how
+   even the rows are -- see ACTUAL_IMPORTED_FIELDS. */
+function hasRecordedLapEvidence(dd){
+  var a = dd && dd.actual;
+  var laps = (a && a.deviceLaps) || [];
+  return !!(a && a.deviceLapSource) && laps.some(function(l){ return l && l.paceSec != null; });
 }
 /* ---------- THE BOTTOM RUNG OF THE EVIDENCE LADDER ----------
 
@@ -17357,7 +17414,12 @@ function computeExecutionScore(dd){
    ========================================================= */
 var ACTUAL_MANUAL_FIELDS   = ['km','pace','paceUnit','hr','rpe','feel','notes','notesSignals','notesOriginal'];
 var ACTUAL_IMPORTED_FIELDS = ['maxHR','cadence','movingTimeSec','elapsedTimeSec',
-                              'elevationGainM','tempC','humidity','activityType','splits'];
+                              'elevationGainM','tempC','humidity','activityType','splits',
+                              /* THE WATCH'S OWN LAPS, and the name of where they came from.
+                                 Both are synced: laps without their provenance would arrive
+                                 on another device as rows nobody could tell apart from the
+                                 athlete's own hand-entered ones. */
+                              'deviceLaps','deviceLapSource'];
 var ACTUAL_SYNCED_FIELDS   = ACTUAL_MANUAL_FIELDS.concat(ACTUAL_IMPORTED_FIELDS);
 function emptyActual(){ return { km:null, pace:null, hr:null, rpe:null, feel:null, notes:'' }; }
 
@@ -17745,6 +17807,52 @@ function loggingModeFor(dd){
   try { plan = structuredLoggingPlan(dd); } catch(e) { plan = null; }
   return plan ? { mode:'structured', plan:plan } : { mode:'flat', plan:null };
 }
+/* =========================================================
+   RECORDED LAPS -- WHAT THE WATCH SAID, PRESENTED AS EXACTLY THAT
+   ---------------------------------------------------------
+   An imported activity may arrive with the device's own lap list. For a
+   structured session that is the difference between "ten kilometres, all
+   about the same" and the reps and recoveries the athlete actually ran, so it
+   is worth showing -- and it is worth showing HONESTLY.
+
+   NO ROW IS CALLED A REP. Strava supplies distance, time, heart rate and
+   cadence per lap and no classification whatsoever: nothing in the payload
+   says which lap was work, recovery, warm-up or cool-down. Labelling them
+   from Valhalla's own prescription would be printing what we asked for and
+   calling it what they did. A lap boundary is not even reliably a step
+   boundary -- one prescribed 1500m rep can arrive as a 1000m lap and a 500m
+   lap -- so the rows are numbered and left to speak for themselves, which for
+   a ladder they do: the athlete can read 4:16, 4:20, 4:17 straight off them.
+
+   COLLAPSED BY DEFAULT, and native <details> so no handler and no persisted
+   open/closed state is involved. An ordinary run's laps are its kilometres
+   and nobody needs them expanded; the athlete who wants their reps is one tap
+   away. */
+function deviceLapRows(dd){
+  var a = dd && dd.actual;
+  if (!a || !a.deviceLapSource) return [];
+  return (a.deviceLaps || []).filter(function(l){ return l && l.km != null && l.sec != null; });
+}
+function renderDeviceLaps(dd){
+  var laps = deviceLapRows(dd);
+  if (!laps.length) return '';
+  var rows = laps.map(function(l, i){
+    return '<div class="dlap-row">'+
+      '<span class="dlap-idx font-mono">'+(i+1)+'</span>'+
+      '<span class="dlap-dist font-mono">'+fmtDist(l.km)+'</span>'+
+      '<span class="dlap-time font-mono">'+secToClock(l.sec)+'</span>'+
+      '<span class="dlap-pace font-mono">'+secToPace(paceSecToDisplay(l.paceSec))+'/'+displayUnit()+'</span>'+
+    '</div>';
+  }).join('');
+  return '<details class="fuel-card dlap-card">'+
+    '<summary>'+ICONS.layers+'<span>Recorded laps · '+laps.length+' from your watch</span></summary>'+
+    '<div class="fuel-body">'+
+      '<div class="dlap-note">Exactly as your watch recorded them. Valhalla is not told which lap '+
+        'was a rep and which was a recovery, so it does not say.</div>'+
+      '<div class="dlap-rows">'+rows+'</div>'+
+    '</div>'+
+  '</details>';
+}
 function renderSplitsBlock(dd){
   var open = isSplitsOpen(dd);
   var m = loggingModeFor(dd);
@@ -17762,6 +17870,10 @@ function renderSplitsBlock(dd){
       '</button>';
   })();
   return '<div class="actual-field full splits-block">'+
+    /* The device's account first and closed, the athlete's own editor after it
+       and unchanged. Recorded evidence is not an alternative to the athlete
+       logging their session, and it must not look like one. */
+    renderDeviceLaps(dd)+
     toggle+
     (open ? (m.mode === 'structured' ? renderStructuredBody(dd, m.plan) : renderSplitsBody(dd)) : '')+
   '</div>';
@@ -27559,10 +27671,20 @@ function coachNoticedForWorkout(dd, b, env){
    So the score stands and the clause names its resolution. Nothing is
    withheld, nothing is invented, and an athlete who logs more gets a sharper
    answer rather than a longer one -- which is the whole reason to log more. */
+var EXECUTION_RESOLUTION_CLAUSE = {
+  /* Unchanged, and still the common case: nothing below the total exists. */
+  'whole-session': ' Pace is judged across the whole run — the sections were not logged separately.',
+  /* The athlete DID log them. The score is still the whole-run one, so the
+     clause says exactly that and no more: it credits the evidence without
+     promising a verdict on the reps that this score is not. */
+  'sections-logged': ' Pace is judged across the whole run — your section times are recorded, but are not yet scored section by section.',
+  /* Laps arrived from the watch. They are real recorded sections AND they are
+     unlabelled, and both halves matter: the athlete should know their laps are
+     held, and should not be told they prove which one was a rep. */
+  'laps-recorded': ' Pace is judged across the whole run — your watch’s laps are recorded, but nothing in them says which lap was a rep.'
+};
 function executionResolutionClause(b){
-  return (b && b.paceResolution === 'whole-session')
-    ? ' Pace is judged across the whole run — the sections were not logged separately.'
-    : '';
+  return (b && EXECUTION_RESOLUTION_CLAUSE[b.paceResolution]) || '';
 }
 var MISSING_NOUN = { hr:'heart rate', rpe:'an effort rating', distance:'a logged distance', pace:'a logged pace' };
 /* Does this athlete normally record this component? Read from the sessions
@@ -36314,7 +36436,12 @@ function stravaObjectiveSnapshot(dd){
    beside the writer so the two cannot drift: a field added there without being
    added here would be Strava-derived data this boundary does not know about. */
 var STRAVA_WRITTEN_FIELDS = ['km','pace','paceUnit','hr','maxHR','cadence',
-  'movingTimeSec','elapsedTimeSec','elevationGainM','activityType','splits'];
+  'movingTimeSec','elapsedTimeSec','elevationGainM','activityType','splits',
+  /* The watch's own laps and the name of where they came from. Both are as
+     Strava-derived as the summary distance is, and a boundary that knew about
+     the total but not about the fifteen rows underneath it would be the kind
+     of boundary that is worse than none. */
+  'deviceLaps','deviceLapSource'];
 
 /* Did any part of this day's record come from Strava? The activity id is the
    marker, written by stravaWriteActivity() and cleared by nothing else. */
@@ -36396,6 +36523,36 @@ function stravaWriteActivity(dd, a){
       if (healthConsentGranted() && sp.hr != null) row.hr = sp.hr;
       return row;
     });
+  }
+  /* THE WATCH'S OWN LAPS, WHICH ARE NOT THE KILOMETRE MARKERS ABOVE, AND ARE
+     NOT THE ATHLETE'S STRUCTURED LOG EITHER -- SO THEY DISPLACE NEITHER.
+     A structured log is the athlete saying "this is how I ran rep 3"; the
+     kilometre splits are Strava's own markers; these are what the watch
+     actually recorded as laps, which for a structured workout is where the
+     real reps and recoveries are. Three different observations of the same
+     run, and the product is better for holding all three than for picking a
+     winner between them.
+
+     WRITTEN WHOLE ON EVERY IMPORT rather than only when empty, because unlike
+     the athlete's own rows there is no human authorship here to protect: the
+     device is the only author, and a Strava `update` event carrying corrected
+     laps should correct them.
+
+     NOTHING HERE CLASSIFIES A LAP. No lap is labelled a rep, a recovery, a
+     warm-up or a cool-down, and none is matched to a prescribed segment,
+     because Strava supplies no such classification and Valhalla's own
+     prescription is not evidence of what the athlete did. */
+  if (a.deviceLaps && a.deviceLaps.length){
+    A.deviceLaps = a.deviceLaps.map(function(lp){
+      var row = { km:lp.km, sec:lp.sec, paceSec:lp.paceSec, hr:null };
+      if (lp.cadence != null) row.cadence = lp.cadence;
+      if (lp.elapsedSec != null) row.elapsedSec = lp.elapsedSec;
+      if (healthConsentGranted() && lp.hr != null) row.hr = lp.hr;
+      return row;
+    });
+    /* PROVENANCE STORED, NEVER INFERRED. Downstream asks this field what it is
+       looking at instead of guessing from how even the rows happen to be. */
+    A.deviceLapSource = a.deviceLapSource || 'import';
   }
   dd.stravaActivityId = a.activityId;
 
