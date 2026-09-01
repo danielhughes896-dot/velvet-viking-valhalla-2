@@ -4456,6 +4456,45 @@ function athletePathway(distKey, currentVolume, weeksAvailable, opts){
     growthGateBlockedOn:'onramp_progression_rate_not_approved'
   };
 }
+/* ---------- THE MINIMUM RUNNING FOUNDATION FOR A RACE GOAL ----------
+   ONE AUTHORITY, SHARED, AND IT IS AN ENTRY BOUNDARY RATHER THAN A READINESS
+   THRESHOLD. Six kilometres a week is not a claim that six is adequate
+   marathon preparation, nor a long-run proxy, nor a minimum viable peak, and
+   it never makes anybody READY. It is the point below which the athlete does
+   not yet demonstrate enough established running for Race Goal methodology to
+   express differentiated race preparation at all -- below it the generator is
+   working at the granularity of its own session floors, and what comes out is
+   EASY_MIN_KM arithmetic rather than training.
+
+   THE ANSWER IS NOT REFUSAL. The athlete has told Valhalla what they want; the
+   coaching intervention is to build the running foundation first, which is
+   what Aerobic Base exists to do. So this returns a ROUTE, and the surfaces
+   that read it route rather than reject.
+
+   The number lives in the canonical builder specification, so the app, /start
+   and api/_preview.js enforce the same one. It is six KILOMETRES: a client
+   displaying miles converts for display and submits kilometres, exactly as the
+   volume field already does. Nothing here is distance-specific -- this is
+   entry into Race Goal, not marathon arithmetic. */
+function raceGoalMinWeeklyKm(){
+  var v = BUILDER_SPEC.validation.raceGoalMinWeeklyKm;
+  return (typeof v === 'number' && v > 0) ? v : 6;
+}
+function raceGoalEntry(currentVolumeKm){
+  var min = raceGoalMinWeeklyKm();
+  var stated = (typeof currentVolumeKm === 'number' && isFinite(currentVolumeKm) && currentVolumeKm > 0)
+    ? currentVolumeKm : 0;
+  var allowed = stated + 1e-9 >= min;
+  return {
+    allowed: allowed,
+    minKm: min,
+    statedKm: round1(stated),
+    shortfallKm: allowed ? 0 : round1(min - stated),
+    /* WHAT THE ATHLETE SHOULD BE GIVEN NOW, named rather than implied. */
+    purpose: allowed ? 'race' : 'base',
+    reason: allowed ? null : 'below_race_goal_entry_volume'
+  };
+}
 function raceProgrammeViability(distKey, currentVolume, planWeeks){
   var minStart = minViableStartKm(distKey, planWeeks);
   var stated = (typeof currentVolume === 'number' && currentVolume > 0) ? currentVolume : 0;
@@ -4838,6 +4877,46 @@ function qualitySessionKm(spec, kind){
 }
 function qualityDayShortfallKm(dayKm, spec, kind){
   return Math.max(0, round1(qualitySessionKm(spec, kind) - (dayKm||0)));
+}
+
+/* ---------- A CHECKPOINT DAY IS ITS TIME TRIAL PLUS ITS FLANKS ----------
+   The day is built as max(ckBase, ttKm + 2*flank), so its real size can exceed
+   the tempo allocation it was budgeted from. One expression, module level, so
+   the week that PRICES the day and the builder that WRITES it read the same
+   one. */
+function checkpointDayKm(ckBase, emphasis){
+  var ttKm = Math.min(TT_DISTANCE_KM[emphasis], Math.max(2, round1(ckBase - 3)));
+  var flank = Math.max(1, round1((ckBase - ttKm) / 2));
+  return Math.max(ckBase, round1(ttKm + flank * 2));
+}
+
+/* ---------- THE SIZE OF THE QUALITY DAY THE WEEK WILL ACTUALLY RECEIVE ----
+   THE SESSION THAT IS PRICED MUST BE THE SESSION THAT IS WRITTEN, and three
+   separate things could make it otherwise:
+
+     THE SOLO SPEC   a one-slot week does not deliver qSpec or tSpec. It
+                     delivers its own structure, drawn from the pool at that
+                     family's own occurrence count, and it is a different size.
+     THE FLANKS      a checkpoint's warm-up and cool-down are running the
+                     athlete has to do.
+     THE SHORTFALL   a day's allocation must contain the session written on it.
+
+   buildBlockWeeks priced qKm/tKm and buildDaysFromWeeks wrote all three, so a
+   week costed for a 14.3km interval delivered a 10.3km one and the four
+   kilometres went into the easy runs -- which is what produced the two largest
+   non-artefact growth steps in the marathon population: 53.5 -> 60.5km at
+   34km/week and 81.1 -> 95km on a four-week runway. Neither was a training
+   decision. Both were this.
+
+   `sel` carries only the week's own fields, so this is pure and both callers
+   pass what they already hold. */
+function qualityDeliveredKm(sel, kind, slots){
+  var solo = slots === 1 && !!sel.soloSpec && kind === sel.soloKind;
+  var km   = solo ? sel.soloKm  : (kind === 'interval' ? sel.qKm  : sel.tKm);
+  var spec = solo ? sel.soloSpec : (kind === 'interval' ? sel.qSpec : sel.tSpec);
+  if (kind === 'tempo' && (sel.isCheckpoint || sel.isCalibration))
+    return checkpointDayKm(km, sel.emphasis);
+  return km + qualityDayShortfallKm(km, spec, kind === 'interval' ? 'interval' : 'tempo');
 }
 
 /* =========================================================
@@ -5461,11 +5540,31 @@ function marathonSupportDestination(startSupportKm, startLongKm, longDestKm,
      exist, say where it must stop. */
   var grown = (startLongKm > 0 && longDestKm > 0)
     ? startSupportKm * (longDestKm / startLongKm) : startSupportKm;
+  /* ---- AND SUPPORT DEVELOPS TOWARDS WHAT THE LONG RUN NEEDS ----
+     CARRYING THE ATHLETE'S SHAPE FORWARD IS RIGHT UNTIL THE SHAPE ITSELF IS
+     THE PROBLEM. An athlete arriving with a 20km long run inside a 30km week
+     has 10km of supporting running under it; growing support in proportion to
+     a long run that cannot grow leaves both where they are, and the block has
+     nowhere to go -- peak week 31.6km against a stated 30, measured.
+
+     SUPPORT_SHARE_MIN is already the statement of what supporting a long run
+     means, and the coherence gate already reads it in the other direction to
+     hold the long run back. Read this way it says what the supporting run has
+     to become for that long run to be supported -- a requirement rather than a
+     target, and the same one. It introduces no percentage that was not already
+     deciding this.
+
+     IT CANNOT MANUFACTURE LOAD. Every bound below still applies afterwards:
+     what the athlete can reach, what the shape allows, and what the session
+     costs them in time. Where those bind, the requirement is simply not met,
+     the coherence gate holds the long run, and readiness reports the gap. */
+  var byCoherence = longDestKm > 0 ? longDestKm * SUPPORT_SHARE_MIN : 0;
+  var wanted = Math.max(grown, byCoherence);
   var byReach = reachableSessionKm(startSupportKm, progressingWeeks);
   var byShape = longDestKm > 0 ? longDestKm * SUPPORT_SHARE_MAX : Infinity;
   var byCost = (easyPaceSecPerKm > 0) ? (SUPPORT_COST_UPPER_SEC / easyPaceSecPerKm) : Infinity;
   return round1(Math.max(EASY_MIN_KM,
-    Math.min(grown, byReach != null ? byReach : Infinity, byShape, byCost)));
+    Math.min(wanted, byReach != null ? byReach : Infinity, byShape, byCost)));
 }
 /* ---- AND THE LONG RUN CANNOT OUTRUN THE WEEK THAT HAS TO CARRY IT ----
    THE GATE THIS ADDS, and the measurement that made it necessary. Long-run
@@ -7068,6 +7167,23 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        Bounded at eight passes and monotone downward -- every rule here can
        only reduce -- so it always terminates and can never inflate anything. */
     var mLongDest = marathonLongRunDestination(mStart.longKm, mProgressing);
+    /* ---- AND NEITHER CEILING MAY SEND THE ATHLETE BACKWARDS ----
+       THE SAME PRINCIPLE marathonLongRunDestination() ALREADY HOLDS, applied
+       to the two clamps below, which were floored at MIN_LONG_RUN_KM and so
+       could land an athlete far beneath the long run they arrived with.
+
+       Measured: a 30km/week athlete with a demonstrated 20km long run. Their
+       supporting running is 10km spread across the rest of the week, so the
+       coherence gate reads the long run as dominating -- correctly -- and
+       pulled its destination to 7.5km. The block then had nowhere to go: peak
+       week 31.6km against a stated 30, and a long run that never developed at
+       all. main gives that athlete a 49.4km peak.
+
+       A long run the athlete already runs is evidence, not a candidate. What
+       the coherence gate is entitled to say is that the WEEK around it must
+       grow, and that is what it now says. */
+    var mLongFloor = Math.max(MIN_LONG_RUN_KM,
+                              Math.min(mStart.longKm || 0, profile.longCapKm));
     var mSupportDest = null;
     var mCeil = currentVolume > 0
       ? currentVolume * developmentMultiplierFor(distKey, N, purpose) : null;
@@ -7085,14 +7201,14 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       var mSum = mLongDest.km + (mSupportDays + mQSlots) * (mSupportDest || 0);
       if (mCeil != null && mSum > mCeil && mSum > 0){
         var mScale = mCeil / mSum;
-        mLongDest.km = round1(Math.max(MIN_LONG_RUN_KM, mLongDest.km * mScale));
+        mLongDest.km = round1(Math.max(mLongFloor, mLongDest.km * mScale));
         mSupportDest = round1(Math.max(EASY_MIN_KM, (mSupportDest || 0) * mScale));
         mLongDest.limited = true; mCapped = true;
       }
       /* AND THE WEEK MUST BE ABLE TO CARRY IT. */
       var mCoh = longRunCoherenceCeiling(mSupportDest);
       if (mLongDest.km > mCoh){
-        mLongDest.km = round1(Math.max(MIN_LONG_RUN_KM, mCoh));
+        mLongDest.km = round1(Math.max(mLongFloor, mCoh));
         mLongDest.limited = true; mDominated = true;
       }
       if (Math.abs(prevL - mLongDest.km) < 0.05 &&
@@ -7606,8 +7722,18 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          smaller than the priced one -- an over-price the rounding bound
          already covers, never a kilometre without a cause. */
       var mQKind = marathonSlotKindFor(N, w, phase, isCheckpoint, isCalibration);
-      var mQKm = mWeek.qSlots >= 2 ? (qKm + tKm)
-               : mWeek.qSlots === 1 ? (mQKind === 'tempo' ? tKm : qKm) : 0;
+      /* PRICED AS THE DAY THAT WILL BE WRITTEN, not as the structure chain the
+         week happens to hold. A one-slot week receives its own solo structure,
+         a checkpoint receives its flanks, and a quality day must contain the
+         session on it -- qualityDeliveredKm() is the day builder's own
+         expression, read here so the two cannot drift. */
+      var mQSel = { soloSpec:soloSpec, soloKind:soloKind, soloKm:soloKm,
+                    qSpec:qSpec, qKm:qKm, tSpec:tSpec, tKm:tKm,
+                    isCheckpoint:isCheckpoint, isCalibration:isCalibration,
+                    emphasis:profile.emphasis };
+      var mQKm = mWeek.qSlots >= 2
+        ? (qualityDeliveredKm(mQSel, 'interval', 2) + qualityDeliveredKm(mQSel, 'tempo', 2))
+        : mWeek.qSlots === 1 ? qualityDeliveredKm(mQSel, mQKind, 1) : 0;
       /* ---- QUALITY WAITS UNTIL THE WEEK CAN CARRY IT ----
          "At most one demanding session without evidence" was never "must
          prescribe one". For an athlete whose whole week is smaller than a
@@ -10589,26 +10715,18 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       if (useSolo(kind, slots)) return wk.soloKm;
       return kind==='interval' ? qKmThisWeek : tKmThisWeek;
     }
-    /* ---- A CHECKPOINT DAY IS ITS TIME TRIAL PLUS ITS FLANKS ----
-       The day is built below as max(ckBase, ttKm + 2*flank), so its real size
-       can exceed the tempo allocation it was budgeted from -- and the
-       affordability ladder was pricing the allocation. Measured: 21 marathon
-       weeks at 6-15km/week where the athlete's long run was 4km and the
-       checkpoint DAY was 5km, prescribed because the ladder thought it was
-       asking for two. One expression, used by both, so the session that is
-       priced is the session that is written. */
-    function checkpointDayKm(ckBase){
-      var ttKm = Math.min(TT_DISTANCE_KM[profile.emphasis], Math.max(2, round1(ckBase - 3)));
-      var flank = Math.max(1, round1((ckBase - ttKm) / 2));
-      return Math.max(ckBase, round1(ttKm + flank * 2));
+    /* THE COMPLETE SESSION, not its core -- the solo structure a one-slot week
+       actually receives, a checkpoint's flanks, and the day-contains-the-session
+       invariant. One module-level expression, so the week that PRICES this day
+       and this builder that WRITES it cannot disagree. See qualityDeliveredKm(). */
+    function slotSelection(){
+      return { soloSpec:wk.soloSpec, soloKind:wk.soloKind, soloKm:wk.soloKm,
+               qSpec:wk.qSpec, qKm:qKmThisWeek, tSpec:wk.tSpec, tKm:tKmThisWeek,
+               isCheckpoint:wk.isCheckpoint, isCalibration:wk.isCalibration,
+               emphasis:profile.emphasis };
     }
     function slotDeliveredKm(kind, slots){
-      var km = slotKm(kind, slots);
-      /* THE COMPLETE SESSION, not its core. A checkpoint week's tempo slot is
-         a time trial with a warm-up and a cool-down, and all three are running
-         the athlete has to do. */
-      if (kind === 'tempo' && (wk.isCheckpoint || wk.isCalibration)) return checkpointDayKm(km);
-      return km + qualityDayShortfallKm(km, slotSpec(kind, slots), kind==='interval'?'interval':'tempo');
+      return qualityDeliveredKm(slotSelection(), kind, slots);
     }
     // With one slot the two stimuli alternate week to week rather than one of
     // them being dropped for the whole block; the checkpoint always takes it.
@@ -10963,7 +11081,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
            week's tempo allocation, so the week comes out bigger than it was
            asked for by exactly the difference. Two weeks in the full sweep
            carried it as unattributed volume before it was named. */
-        var ttDayKm = checkpointDayKm(ckBase);
+        var ttDayKm = checkpointDayKm(ckBase, profile.emphasis);
         if (ttDayKm > ckBase) wk.qualityDayFloorKm = round1((wk.qualityDayFloorKm||0) + (ttDayKm - ckBase));
         return { type:tt.type, title:tt.title, desc:tt.desc,
           km: ttDayKm,
@@ -29398,6 +29516,41 @@ function openRunwayOfferModal(plan, distanceKey){
 function openAvailabilityOfferModal(rec){
   openModal(availabilityOfferHtml(rec), 'modal-themed');
 }
+/* THE RACE-GOAL ENTRY OFFER. One outcome, because there is only one: below
+   the entry volume the immediate programme is Aerobic Base. The second button
+   is not "build it anyway" -- it returns the athlete to the builder, where the
+   figure they typed is the thing to change. No shaming, and no suggestion the
+   race is out of reach: it is the same race, reached the right way round. */
+function openRaceGoalEntryModal(entry, distanceKey, hasEvent){
+  openModal(raceGoalEntryHtml(entry, distanceKey, hasEvent), 'modal-themed');
+}
+function raceGoalEntryHtml(entry, distanceKey, hasEvent){
+  var lbl = (DISTANCE_PROFILES[distanceKey] || {}).label || 'race';
+  var baseLabel = blockPurposeLabel('base');
+  var weeks = builderDefaultWeeks('base');
+  return '<div class="modal-head"><h2 class="font-head">Foundation first</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body">'+
+      '<p>You are running ' + escapeHtml(fmtDist(entry.statedKm)) + ' a week. A ' +
+        escapeHtml(lbl) + ' programme builds from ' + escapeHtml(fmtDist(entry.minKm)) +
+        ' a week upward — below that there is not yet enough running for Valhalla to '+
+        'shape race-specific work around.</p>'+
+      '<p>So the first block is ' + escapeHtml(baseLabel) + ': steady, sustainable running '+
+        'that builds the foundation the ' + escapeHtml(lbl) + ' programme starts from.</p>'+
+      '<div class="yr-choices">'+
+        '<button type="button" class="btn btn-primary btn-block" data-action="race-entry-base">'+
+          'Start ' + escapeHtml(baseLabel) + ' · ' + weeks + ' weeks</button>'+
+        '<button type="button" class="btn btn-ghost btn-block" data-action="race-entry-back">'+
+          'Change my weekly running</button>'+
+      '</div>'+
+      '<div class="yr-foot">' +
+        (hasEvent
+          ? 'Valhalla keeps your ' + escapeHtml(lbl) + ' date and brings it back to you when '+
+            'your running can carry the programme.'
+          : 'Your ' + escapeHtml(lbl) + ' goal stays on record — this is the way round to it.') +
+      '</div>'+
+    '</div>';
+}
 function runwayOfferHtml(plan, distanceKey){
   var lbl = (DISTANCE_PROFILES[distanceKey] || {}).label || 'race';
   var prep = plan.preparatory;
@@ -29724,6 +29877,11 @@ function openSetupModal(){
       '<div class="field" id="f-volume"><label id="su-volume-label">Current Weekly Volume ('+(state.units==='mi'?'mi':'km')+')</label>'+
         '<input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'">'+
         '<div class="field-hint">Your honest recent average, not your best week.</div>'+
+        /* THE ENTRY BOUNDARY, SAID BEFORE THE ATHLETE REACHES THE END OF THE
+           BUILDER. Shown only when it applies -- a Race Goal below the minimum
+           -- and it states the outcome rather than an error: the first block is
+           Aerobic Base and the race stays on record. See raceGoalEntry(). */
+        '<div class="field-hint" id="su-volume-entry-note" hidden></div>'+
       '</div>'+
       navBtns(4)+
     '</section>'+
@@ -29867,7 +30025,10 @@ function openSetupModal(){
       if (!btn) return;
       var grid = btn.closest('[data-mirror]');
       bldMirrorPick(grid, btn);
-      if (grid.getAttribute('data-mirror') === 'su-purpose') bldApplyPurpose();
+      if (grid.getAttribute('data-mirror') === 'su-purpose'){
+        bldApplyPurpose();
+        bldSyncRaceEntryNote();
+      }
     });
   }
   bldApplyPurpose();
@@ -29892,8 +30053,40 @@ function openSetupModal(){
         }
       }
       if (label) label.textContent = 'Current Weekly Volume ('+newUnits+')';
+      bldSyncRaceEntryNote();
     });
   }
+
+  /* ---- THE RACE-GOAL ENTRY NOTE, KEPT IN STEP WITH THREE FIELDS ----
+     The volume the athlete types, the units they type it in, and the purpose
+     they chose. Reads the same raceGoalEntry() the generator enforces, so the
+     builder cannot say one thing and the build do another. */
+  function bldSyncRaceEntryNote(){
+    var note = document.getElementById('su-volume-entry-note');
+    if (!note) return;
+    var pSel = document.getElementById('su-purpose');
+    var vIn = document.getElementById('su-volume');
+    if (!pSel || !vIn){ note.hidden = true; return; }
+    var uBox = document.getElementById('su-units');
+    var uBtn = uBox ? uBox.querySelector('button.active') : null;
+    var units = uBtn ? uBtn.getAttribute('data-units') : (state.units || 'km');
+    var typed = parseFloat(vIn.value);
+    var km = isNaN(typed) ? null : (units === 'mi' ? typed / 0.621371 : typed);
+    if (pSel.value !== 'race' || km == null || vIn.value === ''){ note.hidden = true; return; }
+    var entry = raceGoalEntry(km);
+    if (entry.allowed){ note.hidden = true; return; }
+    /* The MINIMUM shown in the athlete's own units. The authority is six
+       kilometres; this is that number displayed, not a second threshold. */
+    var shown = units === 'mi'
+      ? round2(entry.minKm * 0.621371) + 'mi'
+      : round1(entry.minKm) + 'km';
+    note.textContent = 'Below ' + shown + ' a week Valhalla builds your Aerobic Base first. '
+      + 'Your race goal stays on record.';
+    note.hidden = false;
+  }
+  var volBoxIn = document.getElementById('su-volume');
+  if (volBoxIn) volBoxIn.addEventListener('input', bldSyncRaceEntryNote);
+  bldSyncRaceEntryNote();
 
   var wdBox = document.getElementById('su-weekdays');
   if (wdBox){
@@ -30762,6 +30955,27 @@ async function handleGeneratePlan(){
     ? state.setup.activeGoal
     : GOAL_KEYS.filter(function(k){ return goals[k]; })[0];
 
+  /* ---- THE MINIMUM RUNNING FOUNDATION FOR A RACE GOAL ----
+     ASKED BEFORE ANYTHING IS BUILT, and it routes rather than refuses. Below
+     six kilometres a week the athlete does not yet demonstrate enough
+     established running for Race Goal methodology to express differentiated
+     preparation, so the immediate programme is Aerobic Base -- and the race
+     they told Valhalla about stays known, so the transition can be offered
+     when it is theirs to take.
+
+     THE DESTINATION IS RECORDED BEFORE THE OFFER, not after the athlete
+     accepts it: they have already given the distance, the date and the goals,
+     and routing them to foundation work is no reason to make them type it
+     again. Nothing switches them back silently -- raceDestinationDue() is a
+     question the recommendation layer asks, and the athlete answers it.
+
+     See raceGoalEntry(). Not marathon-specific: this is entry into Race Goal. */
+  var raceEntry = raceGoalEntry(volume);
+  if (buildPurpose === 'race' && !raceEntry.allowed){
+    if (hasEvent && raceDate) setRaceDestination(distanceKey, raceDate, goals, activeGoal);
+    openRaceGoalEntryModal(raceEntry, distanceKey, hasEvent);
+    return;
+  }
   /* ---- MORE RUNWAY THAN THE RACE PROGRAMME WANTS ----
      A dedicated marathon programme is fifteen weeks. An athlete twenty-four
      weeks out does not need a twenty-four week one -- the volume destination
@@ -38887,6 +39101,31 @@ document.addEventListener('click', function(e){
     case 'runway-prep': closeModal(); runwayOfferAnswered = true;
       handleStartBlock(target.getAttribute('data-purpose')); break;
     case 'runway-continue': closeModal(); runwayOfferAnswered = true; handleGeneratePlan(); break;
+    /* THE ENTRY BOUNDARY. Accept builds the Aerobic Base block through the
+       builder the athlete is already standing in -- same schedule, same
+       benchmark, same days -- rather than through startDevelopmentBlock(),
+       which needs a plan to already exist and so cannot serve a first-time
+       athlete, who is exactly who this offer is for. */
+    case 'race-entry-base': {
+      closeModal();
+      var rgPurpose = document.getElementById('su-purpose');
+      if (rgPurpose){
+        rgPurpose.value = 'base';
+        /* The one function that makes the builder's DOM a pure function of the
+           selected purpose -- event mode off, copy re-labelled, and the block
+           length set to this purpose's own default unless the athlete has
+           typed over it, in which case their number is theirs. */
+        bldApplyPurpose();
+      }
+      var rgWeeks = document.getElementById('su-weeks');
+      var rgW = rgWeeks ? parseInt(rgWeeks.value, 10) : NaN;
+      var rgRange = BUILDER_SPEC.validation.weeksRange;
+      if (rgWeeks && (isNaN(rgW) || rgW < rgRange[0] || rgW > rgRange[1]))
+        rgWeeks.value = String(builderDefaultWeeks('base'));
+      handleGeneratePlan();
+      break;
+    }
+    case 'race-entry-back': closeModal(); break;
     /* Availability expansion. Accept authorises the day; Keep Current Days
        declines it, costs nothing, and is not re-asked for this block. */
     case 'expand-accept': {

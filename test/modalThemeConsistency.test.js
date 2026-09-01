@@ -114,6 +114,7 @@ const WORK_SURFACES = [
      the athlete nothing -- so both sit on the themed ramp with everything else
      the athlete is meant to read and think about. */
   ['openRunwayOfferModal', 'the surplus-runway development offer'],
+  ['openRaceGoalEntryModal', 'the Race Goal entry boundary — Aerobic Base first'],
   ['openAvailabilityOfferModal', 'the availability-expansion offer'],
 ];
 

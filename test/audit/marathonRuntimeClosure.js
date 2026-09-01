@@ -21,6 +21,13 @@ const path = require('path');
 const { loadApp } = require(path.join(__dirname, '..', 'harness.js'));
 const { auditCase } = require(path.join(__dirname, 'planAudit.js'));
 const { checkCase } = require(path.join(__dirname, 'invariants.js'));
+/* THE PRODUCTION-VALID RACE GOAL DOMAIN. Below this the builder routes to
+   Aerobic Base, so a marathon block at 1-5km/week is a DEFENSIVE state this
+   audit can invoke directly and not one the product produces. Reported both
+   ways: the raw generator audit, and the population the methodology verdict is
+   judged on. */
+const RACE_GOAL_MIN_KM = require(path.join(__dirname, '..', '..', 'assets', 'builder-spec.js'))
+  .validation.raceGoalMinWeeklyKm;
 
 const r1 = x => Math.round(x * 10) / 10;
 const hhmm = s => { const m = Math.round(s / 60); return Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0'); };
@@ -34,6 +41,8 @@ function underPrescription(){
   console.log('=== 1. WEEK ONE AGAINST THE VOLUME THE ATHLETE STATED ===\n');
   console.log('stated  wk1     d%   week one as prescribed             peak  peak LR  mean wks1-4');
   [4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 25, 30, 40, 50].forEach(v => {
+    if (v === RACE_GOAL_MIN_KM)
+      console.log('  ' + '-'.repeat(30) + ' RACE GOAL ENTRY BOUNDARY ' + '-'.repeat(30));
     const c = auditCase({ distanceKey: 'full', volume: v, weeks: 15, scheduleKey: 'd5' });
     const tot = w => r1(w.sessions.filter(s => s.km > 0).reduce((a, b) => a + b.km, 0));
     const w1 = c.weeks[0], nonRace = c.weeks.filter(w => !w.isRace);
@@ -46,12 +55,15 @@ function underPrescription(){
       w1.sessions.filter(s => s.km > 0).map(s => s.type[0] + s.km).join(' ').padEnd(33) +
       String(peak).padStart(5) + String(lr).padStart(9) + String(m4).padStart(13));
   });
-  console.log('\n  Exact at 6, 7, 8, 9, 10, 12, 25 and 30. 4 and 5 come out at 5 and 6 because');
-  console.log('  EASY_MIN_KM is 3 and a two-run week cannot be smaller: a named, pre-existing');
-  console.log('  floor rather than an allocator that could not find a combination. 15 and 20');
-  console.log('  are short because the week can seat its long run, its quality session and two');
-  console.log('  supporting runs only by putting both supporting runs under the floor, and it');
-  console.log('  drops one rather than write a run below it.');
+  console.log('\n  Below the boundary a Race Goal is not built at all -- the athlete is routed');
+  console.log('  to Aerobic Base -- so those two rows are defensive states rather than plans');
+  console.log('  the product produces. They come out at 5 and 6 because EASY_MIN_KM is 3 and');
+  console.log('  a two-run week cannot be smaller.');
+  console.log('\n  Inside the valid domain week one is exact at 6, 7, 8, 9, 10, 12, 20 and 25,');
+  console.log('  and within a few per cent at 30, 40 and 50. 15 is short because the week can');
+  console.log('  seat its long run, its quality session and two supporting runs only by');
+  console.log('  putting both supporting runs below EASY_MIN_KM, and it drops one rather than');
+  console.log('  write a run beneath the floor.');
 }
 
 /* ---------- 2. TRAJECTORIES ---------- */
@@ -176,19 +188,24 @@ function longRunClasses(){
             : 'F  other';
     (cls[k] = cls[k] || []).push(x);
   });
-  console.log(rows.length + ' cases');
+  console.log(rows.length + ' cases in the RAW generator audit');
   Object.keys(cls).sort().forEach(k => {
     const a = cls[k];
     const vols = a.map(x => x.volume);
     console.log('  ' + k.padEnd(70) + String(a.length).padStart(5) +
       '   stated volume ' + Math.min.apply(null, vols) + '-' + Math.max.apply(null, vols) + ' km/wk');
   });
+  const valid = rows.filter(x => x.volume >= RACE_GOAL_MIN_KM);
+  console.log('\n' + valid.length + ' cases in the PRODUCTION-VALID Race Goal domain (>=' +
+    RACE_GOAL_MIN_KM + 'km/week)');
   console.log('\n  There is no class C (a frequency-support defect), no class D (a long-run');
-  console.log('  progression defect) and no class F. Every remaining case is one athlete');
-  console.log('  shape: a week small enough that its single supporting run sits at the');
-  console.log('  smallest distance a race block will print and the long run is smaller');
-  console.log('  still. That is the admission question -- who receives a marathon block --');
-  console.log('  and it is not answered by a kilometre floor.');
+  console.log('  progression defect) and no class F. Every case is one athlete shape: a week');
+  console.log('  small enough that its single supporting run sits at the smallest distance a');
+  console.log('  race block will print and the long run is smaller still.');
+  console.log('\n  That was the admission question, and it is now answered. Every one of these');
+  console.log('  cases is below the Race Goal entry minimum, so none of them is a plan the');
+  console.log('  product builds -- the athlete is routed to Aerobic Base first. Inside the');
+  console.log('  valid domain the count is zero, and no long run was enlarged to get there.');
 }
 
 if (require.main === module){ underPrescription(); trajectories(); cases(); longRunClasses(); }

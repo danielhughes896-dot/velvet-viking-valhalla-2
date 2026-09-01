@@ -20,9 +20,18 @@ const QUALITY = ['tempo', 'threshold', 'interval', 'repetition', 'checkpoint'];
 const VOLUMES = (function(){ const v = []; for (let i = 1; i <= 40; i++) v.push(i);
   [45, 50, 60, 70, 80, 100, 120].forEach(x => v.push(x)); return v; })();
 
-function collect(){
+/* THE PRODUCTION-VALID RACE GOAL DOMAIN. Below the entry minimum a Race Goal
+   programme is not built at all -- the athlete is routed to Aerobic Base -- so
+   a marathon block at 1-5km/week is a DEFENSIVE state the audit can invoke
+   directly and not a state the product produces. Both are reported: the raw
+   generator audit, and the population the merge gate is judged on. */
+const RACE_GOAL_MIN_KM = require('../../assets/builder-spec.js').validation.raceGoalMinWeeklyKm;
+
+function collect(minVolumeKm){
+  const floor = minVolumeKm || 0;
   const rows = [];
   for (const volume of VOLUMES) for (const n of [4, 8, 12, 16, 24]) for (const s of ['d3', 'd5']){
+    if (volume < floor) continue;
     const c = auditCase({ distanceKey: 'full', volume, weeks: n, scheduleKey: s });
     const flagged = new Set();
     checkCase(c).forEach(f => {
@@ -86,9 +95,8 @@ const line = r => '  vol' + String(r.volume).padStart(4) + ' ' + r.n + 'w ' + r.
   String(r.from).padStart(6) + ' -> ' + String(r.to).padStart(6) +
   String(r.pct).padStart(8) + '%' + String(r.abs).padStart(7) + 'km  ' + r.cause;
 
-if (require.main === module){
-  const rows = collect();
-  console.log('MARATHON week_over_week_growth_over_10pct: ' + rows.length + ' flagged steps');
+function report(rows, title){
+  console.log('\n' + title + ': ' + rows.length + ' flagged steps');
   table(rows, r => vBand(r.from), ['<=5', '>5-10', '>10-15', '>15-25', '>25-40', '>40'],
         'STARTING WEEK VOLUME (the denominator)');
   table(rows, r => aBand(r.abs), ['<=1', '>1-2', '>2-3', '>3-5', '>5-10', '>10'],
@@ -108,4 +116,13 @@ if (require.main === module){
   console.log('\n--- the ten largest absolute steps ---');
   rows.slice().sort((a, b) => b.abs - a.abs).slice(0, 10).forEach(r => console.log(line(r)));
 }
-module.exports = { collect };
+
+if (require.main === module){
+  const all = collect(0);
+  report(all, 'A. RAW GENERATOR AUDIT — every state, including the defensive ones below '
+    + RACE_GOAL_MIN_KM + 'km/week');
+  console.log('\n' + '='.repeat(78));
+  report(all.filter(r => r.volume >= RACE_GOAL_MIN_KM),
+    'B. PRODUCTION-VALID RACE GOAL — stated volume ' + RACE_GOAL_MIN_KM + 'km/week and above');
+}
+module.exports = { collect, RACE_GOAL_MIN_KM };
