@@ -5122,44 +5122,112 @@ function halfTaperDayFactor(daysToRace){
 function applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm){
   if (!raceDateStr || !days || !days.length) return;
   var floorKm = (easyFloorKm > 0) ? easyFloorKm : EASY_MIN_KM;
-  var touched = {};
   /* RACE WEEK IS NOT SCALED HERE. It is already the deepest part of the
      taper and it has its own architecture -- a lead-up sized from the block's
      own biggest week, its own floor, its own shakeout cap and its own entry in
      the accounting. Scaling it a second time would reduce a week that has
      already been reduced, and would leave the reduction it declares no longer
      matching the days it wrote. */
-  var raceWeeks = {};
-  weeks.forEach(function(wk){ if (wk.isRace) raceWeeks[wk.week] = true; });
+  var byWeek = {};
+  weeks.forEach(function(wk){ if (!wk.isRace) byWeek[wk.week] = { wk:wk, days:[], touched:false }; });
+  days.forEach(function(dd){ if (byWeek[dd.week]) byWeek[dd.week].days.push(dd); });
+  function weekTotalOf(list){
+    var t = 0;
+    list.forEach(function(dd){ if (dd.km > 0 && dd.type !== 'race') t += dd.km; });
+    return round1(t);
+  }
+  /* What the week before this one actually delivers, so a correction here can
+     never break the descent the taper exists to produce. Read off the days,
+     because that is what the athlete receives. */
+  var totals = {};
   days.forEach(function(dd){
-    if (!(dd.km > 0) || dd.type === 'race' || raceWeeks[dd.week]) return;
-    var out = daysBetween(dd.date, raceDateStr);
-    if (!(out >= 0) || out > HALF_TAPER_ANCHOR_DAYS) return;
-    if (dd.type !== 'easy' && dd.type !== 'long') return;
-    var f = halfTaperDayFactor(out);
-    if (f >= 1) return;
-    var next = round1(Math.max(floorKm, dd.km * f));
-    if (next >= dd.km) return;
-    dd.km = roundWorkoutKm(dd.type, next);
-    touched[dd.week] = true;
+    if (!(dd.km > 0) || dd.type === 'race') return;
+    totals[dd.week] = round1((totals[dd.week] || 0) + dd.km);
   });
-  /* AND THE WEEK NOW SAYS WHAT IT ACTUALLY CONTAINS. Left at the loading
-     figure it was built from, the week would report a target its own days no
-     longer meet and the volume accounting would read a real, deliberate,
-     event-anchored reduction as an unexplained shortfall. */
-  weeks.forEach(function(wk){
-    if (!touched[wk.week]) return;
-    var mine = days.filter(function(dd){ return dd.week === wk.week; });
-    var total = 0, longest = 0;
-    mine.forEach(function(dd){
-      /* THE RACE IS NOT PART OF THE WEEK'S TRAINING TARGET, and adding it here
-         would double-count it: the accounting already carries race distance as
-         its own named term, so a race week whose `volume` included the race
-         reconciled against itself plus another 21.1km. */
+
+  Object.keys(byWeek).map(Number).sort(function(a,b){ return a - b; }).forEach(function(k){
+    var rec = byWeek[k], wk = rec.wk;
+    var prevWeekKm = totals[k - 1] != null ? totals[k - 1] : null;
+    rec.days.forEach(function(dd){
       if (!(dd.km > 0) || dd.type === 'race') return;
-      total += dd.km;
-      if (dd.type === 'long' && dd.km > longest) longest = dd.km;
+      if (dd.type !== 'easy' && dd.type !== 'long') return;
+      var out = daysBetween(dd.date, raceDateStr);
+      if (!(out >= 0) || out > HALF_TAPER_ANCHOR_DAYS) return;
+      var f = halfTaperDayFactor(out);
+      if (f >= 1) return;
+      var next = roundWorkoutKm(dd.type, round1(Math.max(floorKm, dd.km * f)));
+      if (!(next < dd.km)) return;
+      dd.__preTaperKm = dd.km;
+      dd.km = next;
+      rec.touched = true;
     });
+    if (!rec.touched) return;
+
+    /* ---- A TAPERED LONG RUN IS STILL THE LONG RUN ----
+       IT LOSES ITS LENGTH, NOT ITS IDENTITY. Two things make it stop being the
+       longest run of the week if nothing says otherwise, and both are
+       arithmetic rather than coaching:
+
+         THE QUANTA DISAGREE  a long run is presented to the whole kilometre
+                              and an easy day to the half, so the same factor
+                              applied to both can render a 5.4km long run as 5
+                              and a 5.4km easy day as 5.5.
+         QUALITY IS NOT SCALED  deliberately -- its distance comes from a
+                              structure -- so a long run reduced past the
+                              week's threshold session leaves the week with its
+                              hardest day as its longest one, in a taper.
+
+       The long run is therefore held at least a quantum above everything else
+       in its week, and never above the figure it had before the taper touched
+       it. Where that leaves no reduction at all, the taper simply did not
+       reach this run, which is the honest answer at the volumes where every
+       session is already sitting on its floor. */
+    var longDay = null;
+    rec.days.forEach(function(dd){
+      if (!(dd.km > 0) || dd.type === 'race') return;
+      if (dd.type === 'long' && (!longDay || dd.km > longDay.km)) longDay = dd;
+    });
+    if (longDay){
+      /* THE EASY DAYS GIVE WAY FIRST, because they are the runs whose distance
+         IS their prescription and can therefore move without rewriting a
+         session. Only where the competitor is the week's QUALITY day -- whose
+         distance comes from a structure and must not be edited behind the
+         structure's back -- does the long run come back up, and then never
+         past the figure it had before the taper touched it. */
+      var cut = roundWorkoutKm('easy', round1(Math.max(floorKm, longDay.km - EASY_QUANTUM_KM)));
+      rec.days.forEach(function(dd){
+        if (!(dd.km > 0) || dd === longDay || dd.type === 'race') return;
+        if (dd.type === 'easy' && dd.km > cut) dd.km = cut;
+      });
+      var other = 0;
+      rec.days.forEach(function(dd){
+        if (!(dd.km > 0) || dd === longDay || dd.type === 'race') return;
+        if (dd.km > other) other = dd.km;
+      });
+      if (other > 0 && longDay.km <= other){
+        var ceiling = longDay.__preTaperKm != null ? longDay.__preTaperKm : longDay.km;
+        var want = Math.min(ceiling, roundWorkoutKm('long', round1(other + EASY_QUANTUM_KM)));
+        /* ---- AND RESTORING IT MAY NOT MAKE THE TAPER WEEK GROW ----
+           A taper week never asks for more than the week before it, and that
+           has to survive this correction too: at the volumes where every
+           session is already on its floor, giving the long run back a
+           kilometre to keep it the longest run can be the only kilometre in
+           the week that moved. Where it would break the descent, the run keeps
+           the reduction and the week's easy days come down to meet it -- equal
+           is honest at floor volumes; longer is not. */
+        var headroom = (prevWeekKm != null) ? round1(prevWeekKm - weekTotalOf(rec.days)) : Infinity;
+        if (want - longDay.km > headroom) want = longDay.km;
+        if (want > longDay.km) longDay.km = want;
+        if (longDay.km < other){
+          rec.days.forEach(function(dd){
+            if (!(dd.km > 0) || dd === longDay || dd.type === 'race') return;
+            if (dd.type === 'easy' && dd.km > longDay.km)
+              dd.km = roundWorkoutKm('easy', round1(Math.max(floorKm, longDay.km)));
+          });
+        }
+      }
+    }
+
     /* ---- AND THE REDUCTION IS DECLARED, NOT LEFT TO FALL OUT ----
        The week was built to a loading figure and then deliberately reduced
        because the event is ten days away. That is a NAMED reduction with a
@@ -5171,8 +5239,13 @@ function applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm){
        THE ALLOCATOR'S EARLIER WORKINGS ARE CLEARED because they are now stale
        rather than wrong: they describe a distribution of a target this week no
        longer has. With the target set to what the days actually contain there
-       is nothing left for them to explain, and leaving them in would
-       double-count the same kilometres twice over. */
+       is nothing left for them to explain. */
+    var total = 0, longest = 0;
+    rec.days.forEach(function(dd){
+      if (!(dd.km > 0) || dd.type === 'race') return;
+      total += dd.km;
+      if (dd.type === 'long' && dd.km > longest) longest = dd.km;
+    });
     if (wk.intendedVolume == null) wk.intendedVolume = wk.volume;
     var delivered = round1(total);
     var cut = round1(Math.max(0, wk.volume - delivered));
@@ -5186,6 +5259,7 @@ function applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm){
     wk.qualityDayFloorKm = 0;
     wk.capRecoveredKm = 0;
     wk.eventTaperApplied = true;
+    rec.days.forEach(function(dd){ delete dd.__preTaperKm; });
   });
 }
 /* ---------- THE HALF'S PHASE COUNTS, AND WHAT GOES FIRST ----------
@@ -7890,6 +7964,17 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        unnecessary, because volume is the sum that includes the quality session
        being bounded, so the proxy quietly grew with the thing it was bounding. */
     if (mWeek && mWeek.longKm > 0) weekFitCeil = Math.min(profile.longCapKm, mWeek.longKm);
+    /* ---- AND THE BOUND HAS TO SURVIVE THE TWO QUANTA ----
+       A long run is presented to the whole kilometre and a quality session to
+       the half, so a bound met exactly before rounding is broken by it: an
+       11.4km long run renders as 11 and an 11.4km quality session as 11.5, and
+       the week's hardest day is also its longest. The half's bound is
+       therefore held a quantum below what the long run will actually be
+       PRESENTED as. The marathon's own numbers are closed and its population
+       carries none of these, so it keeps the bound it has. */
+    if (halfArc && mWeek && mWeek.longKm > 0)
+      weekFitCeil = Math.min(weekFitCeil,
+                             Math.max(EASY_QUANTUM_KM, roundTo(mWeek.longKm, 1) - EASY_QUANTUM_KM));
     /* S2-A. In a taper the ceiling decides WHICH structure as well as how big
        it is -- see fitTaperQualityStructure. Everywhere else the rotation's own
        choice is sized exactly as it always was. */
@@ -11658,11 +11743,16 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         completed:false, actual:{km:null,pace:null,hr:null,rpe:null,notes:''} });
     }
   });
-  /* THE HALF'S EVENT-ANCHORED TAPER, applied before the weekly cap and the
-     accounting so both of them see the week the athlete is actually given. */
+  capWeeklyVolume(days, weeks);
+  /* THE HALF'S EVENT-ANCHORED TAPER, applied AFTER the weekly cap and before
+     the accounting. After, because the cap is the week's own ceiling on the
+     LOADING distribution and reads the target the week was built to -- run
+     first, the taper would be compared against a total the cap was about to
+     reduce, and a correction inside the taper could then leave a wind-down
+     week larger than the week it winds down from. Before the accounting,
+     because the reduction is deliberate coaching and has to be declared. */
   if (raceGoalArch(blockResult.purpose, blockResult.distKey) === 'half')
     applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm);
-  capWeeklyVolume(days, weeks);
   recordVolumeAccounting(days, weeks);
   var weekIndex2 = {};
   weeks.forEach(function(wk){ weekIndex2[wk.week] = wk; });
