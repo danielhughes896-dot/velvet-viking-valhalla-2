@@ -4574,12 +4574,26 @@ function raceProgrammeViability(distKey, currentVolume, planWeeks){
        contradicting the pathway they chose -- and an athlete whose real
        training is well below the entry week still is, which is the safety this
        boundary exists for. */
-    var entry = null;
-    try { entry = raceGoalEntryState(distKey, 'novice', currentVolume); }
-    catch(e){ entry = null; }
+    /* READ HERE AND NOWHERE ELSE. The athlete's own account of themselves is
+       asked DIRECTLY rather than through raceGoalEntryState(), which is the
+       programme-authority path and deliberately no longer reads it: routing on
+       the entry state would mean a six kilometre a week athlete inherited the
+       pathway's fifteen and was declared ready for it. Safety is the one job
+       the typed figure keeps, and this is the one place it does it. */
+    var demV = null;
+    try { demV = demonstratedSustainableVolume(); } catch(e){ demV = null; }
+    var statedV = (typeof currentVolume === 'number' && currentVolume > 0) ? currentVolume : null;
     var floor = raceGoalPathway(distKey, 'novice');
-    if (entry && floor && floor.entryVolumeKm > 0){
-      var have = entry.volumeKm > 0 ? entry.volumeKm : 0;
+    if (floor && floor.entryVolumeKm > 0){
+      /* Evidence first, the athlete's own statement second, and where there is
+         neither the pathway supplies its entry -- because absence of evidence
+         is not evidence of incapacity. */
+      var have = demV != null ? demV
+               : statedV != null ? statedV
+               : floor.entryVolumeKm;
+      var entry = { volumeKm: have,
+                    volumeSource: demV != null ? 'demonstrated'
+                                : statedV != null ? 'stated' : 'pathway' };
       var okE = have + 1e-9 >= floor.entryVolumeKm;
       return {
         known: true, viable: okE,
@@ -5676,35 +5690,44 @@ function raceGoalEntryState(distKey, experience, statedVolumeKm){
   try { demLong = demonstratedLongRunKm(); }        catch(e){ demLong = null; }
   try { demFreq = demonstratedRunningFrequency(); } catch(e){ demFreq = null; }
   var stated = (statedVolumeKm > 0) ? statedVolumeKm : null;
-  var volume = dem != null ? dem
-             : stated != null ? stated
-             : (path ? path.entryVolumeKm : null);
-  /* ---- A PATHWAY ASSUMPTION IS NOT EVIDENCE, AND IT DESCRIBES A PARTICULAR
-     ATHLETE ---- entryLongKm says what somebody ARRIVING ON THIS PATHWAY
-     typically runs, and it is stated beside the weekly volume that same athlete
-     arrives with. Read on its own it was applied to everybody: a six
-     kilometre a week athlete asking for a marathon was given the novice
-     pathway's entry long run outright, so the split opened with a long run
-     twice the size of their entire week and the block developed from there.
+  /* ---- THE TYPED WEEKLY NUMBER IS NOT AN AUTHORITY INSIDE A RACE BLOCK ----
+     It used to sit between demonstrated evidence and the pathway, which meant
+     the whole programme still moved with a figure the athlete typed once --
+     the authority this attack exists to remove. Two things replace it, and
+     between them they cover every case it was doing work in:
 
-     WHERE THE ATHLETE'S OWN WEEK IS BELOW THE PATHWAY'S, THE ASSUMPTION COMES
-     WITH IT. Scaled by their own stated week against the pathway's -- so the
-     assumption still says what shape an entering athlete has, and says nothing
-     about a size the athlete has not claimed. Demonstrated evidence outranks
-     both and is never scaled: a run the athlete completed is the thing itself.
+       EVIDENCE, where the athlete has any. A completed week is the thing
+       itself and always outranked the typed number anyway.
+       THE PATHWAY, where they have none. Absence of evidence is not evidence
+       of incapacity: somebody who has logged nothing is not a six kilometre a
+       week beginner, they are somebody who chose this pathway, and in the
+       absence of anything contradicting that the pathway supplies its own
+       designed entry.
 
-     NO LOOPHOLE EITHER WAY. This cannot raise anything -- an athlete at or
-     above the pathway's entry week keeps the pathway's figure unchanged -- and
-     it cannot be used to claim capability, because it only ever reduces a
-     number the athlete did not supply. */
-  var pathLong = path ? path.entryLongKm : null;
-  var pathLongScaled = false;
-  if (pathLong > 0 && path && path.entryVolumeKm > 0 &&
-      stated != null && stated < path.entryVolumeKm){
-    pathLong = round1(pathLong * (stated / path.entryVolumeKm));
-    pathLongScaled = true;
-  }
-  var longKm = demLong != null ? demLong : pathLong;
+     THE TYPED FIGURE STILL PROTECTS THEM, one layer up. raceProgrammeViability()
+     reads it to decide whether dedicated preparation is the right thing to
+     build at all, so an athlete whose own account of themselves is well below
+     the pathway's entry week is routed to a foundation block rather than
+     started on one. That is safety, and safety is the one job it keeps.
+
+     IT IS STILL RECORDED. `statedKm` below carries it so a reader can see what
+     the athlete said beside what the block used, and so the difference between
+     the two is inspectable rather than lost. */
+  var volume = dem != null ? dem : (path ? path.entryVolumeKm : null);
+  /* ---- AND THE PATHWAY'S ENTRY LONG RUN IS THE PATHWAY'S ----
+     It used to be scaled down by the athlete's typed weekly volume, which was
+     the right protection while that number was the entry authority: without it
+     a six kilometre a week athlete opened with a long run twice the size of
+     their whole week. It is not the right protection any more, because it is
+     the same typed number reaching the same programme through a side door.
+
+     THE BOUNDARY MOVED TO THE LAYER THAT OWNS IT. raceProgrammeViability()
+     now asks whether the athlete reaches the lowest pathway's entry week
+     before a race block is built at all, so an athlete far below it is routed
+     to a foundation block and never arrives here. Inside a race block the
+     pathway's assumption stands unscaled, and demonstrated evidence outranks
+     it in both directions. */
+  var longKm = demLong != null ? demLong : (path ? path.entryLongKm : null);
   return {
     volumeKm: volume,
     longKm: longKm,
@@ -5712,9 +5735,9 @@ function raceGoalEntryState(distKey, experience, statedVolumeKm){
     /* WHICH OF THE THREE ANSWERED, so the report and the readiness layer can
        say what the programme was built on rather than implying evidence that
        does not exist. */
-    volumeSource: dem != null ? 'demonstrated' : stated != null ? 'stated' : 'pathway',
-    longSource:   demLong != null ? 'demonstrated'
-                : pathLongScaled ? 'pathway_scaled' : 'pathway',
+    volumeSource: dem != null ? 'demonstrated' : 'pathway',
+    statedKm: stated,
+    longSource:   demLong != null ? 'demonstrated' : 'pathway',
     /* THE PATHWAY'S OWN ASSUMPTIONS, CARRIED SEPARATELY from whatever the
        athlete's evidence made of them, so a reader can always see which of the
        two a number came from. */
@@ -22426,6 +22449,171 @@ function measuredFitnessEstimate(distanceKey){
     fromDate: p.date,
     fromSource: p.source
   };
+}
+
+/* =========================================================
+   FITNESS CHECKPOINT -> RACE GOAL ASSESSMENT
+
+   THE QUESTION APP IS PARKED ON, AND WHY IT COULD NOT BE ANSWERED. The product
+   can already say what an athlete is capable of TODAY -- currentFitnessEstimate()
+   -- and it can already say whether a block will prepare them --
+   raceGoalReadiness(). What it could not say is the thing the Fitness
+   Checkpoint screen actually asks: "given where I am and the programme I am
+   about to run, which of my goals does Valhalla support?"
+
+   THREE RULES GOVERN THE ANSWER.
+
+   1. CURRENT FITNESS AND RACE-DAY DESTINATION ARE DIFFERENT THINGS. Comparing
+      A/B/C against today's equivalent time answers "could I run this now",
+      which is not the question and is unfair to every athlete who is about to
+      train for fifteen weeks. The assessment projects forward.
+
+   2. THE PROJECTION IS THE ATHLETE'S OWN RATE, OR THERE IS NO PROJECTION.
+      A generic "you will gain N points" is a race-day prediction invented to
+      fill a screen, and this product does not make one. The only honest rate
+      of improvement available is the one this athlete has actually
+      demonstrated, between their own measured performances -- and it is
+      bounded by itself: the projection may never add more improvement than the
+      athlete has already produced over a comparable span. Without two measured
+      performances there is no rate, and the assessment is WITHHELD rather than
+      guessed.
+
+   3. FITNESS ALONE DOES NOT SUPPORT A GOAL. A three-hour marathon is not
+      supported by a three-hour marathon's equivalent fitness if the programme
+      cannot establish the long run the event needs. Both questions are asked,
+      independently, and a goal is supported only when both answer yes.
+
+   THE MARATHON'S WITHHELD ESTIMATE IS INHERITED, NOT RE-DECIDED. An equivalence
+   from a short effort systematically over-predicts a marathon for an athlete
+   who has not done the volume, and currentFitnessEstimate() already withholds
+   on that basis. Where it withholds, so does this. */
+var RACE_GOAL_PROJECTION_MIN_POINTS = 2;   // two measurements make a rate; one makes a point
+function raceGoalProjectedVdot(daysAhead){
+  var prog = measuredProgression();
+  if (!prog || !prog.enough || !prog.points || prog.points.length < RACE_GOAL_PROJECTION_MIN_POINTS)
+    return null;
+  var last = prog.points[prog.points.length - 1];
+  var prev = prog.points[prog.points.length - 2];
+  var span = daysBetween(prev.date, last.date);
+  if (!(span > 0) || last.vdot == null || prev.vdot == null) return null;
+  var gained = last.vdot - prev.vdot;
+  /* A DECLINE IS NOT PROJECTED FORWARD EITHER. An athlete who has got slower
+     between two measurements is not promised to keep getting slower for the
+     length of a race block; the honest carry-forward of a negative trend is
+     that today's fitness is what today's fitness is. */
+  if (!(gained > 0)) return { vdot: last.vdot, gained: 0, rateSpanDays: span,
+                              fromDate: last.date, flat: true };
+  var d = Math.max(0, daysAhead || 0);
+  /* BOUNDED BY ITSELF. The rate is carried forward, and the total gain may
+     never exceed what this athlete actually produced over the span that
+     measured it -- so a fortnight of sharp improvement cannot be extrapolated
+     into a season of it. */
+  var projected = Math.min(gained * (d / span), gained);
+  return { vdot: round1(last.vdot + projected), gained: round1(projected),
+           rateSpanDays: span, fromDate: last.date, flat: false };
+}
+/* The race-day band this athlete is projected to be capable of, at their goal
+   distance. Same spread and the same marathon caveat as the current-fitness
+   estimate, because it is the same model read at a later date. */
+function raceGoalProjectedEstimate(distanceKey, daysAhead){
+  var profile = DISTANCE_PROFILES[distanceKey];
+  if (!profile) return null;
+  var now = currentFitnessEstimate(distanceKey);
+  if (!now) return null;
+  if (now.withheld) return now;                      // inherited, never re-decided
+  var proj = raceGoalProjectedVdot(daysAhead);
+  if (!proj) return null;                            // no rate -> no projection
+  var mid = equivalentTimeSec(proj.vdot, profile.raceKm * 1000);
+  if (!mid || !isFinite(mid)) return null;
+  var spread = distanceKey === 'full' ? 0.05 : distanceKey === 'half' ? 0.035 : 0.025;
+  return { distanceKey: distanceKey, withheld: false,
+           fastSec: Math.round(mid * (1 - spread)),
+           slowSec: Math.round(mid * (1 + spread)),
+           vdot: proj.vdot, gainedVdot: proj.gained, flat: proj.flat,
+           rateSpanDays: proj.rateSpanDays, fromDate: proj.fromDate };
+}
+/* ---- THE ASSESSMENT ITSELF ----
+   Pure: it reads state and returns a verdict. It decides nothing, writes
+   nothing and never changes a goal -- choosing is the athlete's. */
+function raceGoalAssessment(blockResult){
+  var su = state && state.setup;
+  if (!su || !su.distanceKey) return null;
+  var dk = su.distanceKey;
+  var out = { distanceKey: dk, activeGoal: su.activeGoal || null,
+              verdict: 'withheld', reason: null, projection: null,
+              goals: [], recommend: null, preparation: null };
+
+  var days = su.raceDate ? Math.max(0, daysBetween(todayStr(), su.raceDate)) : null;
+  out.daysToRace = days;
+
+  /* WHAT THE PROGRAMME WILL MAKE THEM READY FOR, asked of the block that will
+     actually be built. Absent where no block has been built yet, which is a
+     legitimate state -- the checkpoint can be reached before a plan exists. */
+  if (blockResult){
+    var exp = null;
+    try { exp = athleteExperience(); } catch(e){ exp = null; }
+    try { out.preparation = raceGoalReadiness(dk, exp, blockResult); } catch(e){ out.preparation = null; }
+  }
+
+  var proj = raceGoalProjectedEstimate(dk, days);
+  if (!proj){
+    out.reason = 'no_demonstrated_rate';
+    return out;
+  }
+  if (proj.withheld){
+    out.verdict = 'withheld';
+    out.reason = 'marathon_estimate_withheld';
+    out.projection = proj;
+    return out;
+  }
+  out.projection = proj;
+
+  /* ---- IS EACH GOAL SUPPORTED, AND BY WHICH AUTHORITY ----
+     A goal is inside the projection when its time is at or slower than the
+     fast end of the band: the band's fast end is the best this athlete is
+     projected to run, so a goal quicker than it is quicker than the evidence.
+     The preparation question is asked once and applies to all three -- it is a
+     statement about the programme, not about the ambition. */
+  var prepOK = !out.preparation || out.preparation.verdict === 'READY';
+  var goals = (su.goals || {});
+  ['A','B','C'].forEach(function(k){
+    var g = goals[k];
+    if (!g || !(g.timeSec > 0)) return;
+    var withinFitness = g.timeSec >= proj.fastSec;
+    out.goals.push({ key:k, timeSec:g.timeSec,
+                     supportedByFitness: withinFitness,
+                     supportedByPreparation: prepOK,
+                     supported: withinFitness && prepOK,
+                     /* How far outside, so the caller can say "forty seconds"
+                        rather than "no". */
+                     shortfallSec: withinFitness ? 0 : Math.round(proj.fastSec - g.timeSec) });
+  });
+  if (!out.goals.length){ out.reason = 'no_goals'; return out; }
+
+  var supported = out.goals.filter(function(g){ return g.supported; });
+  if (!supported.length){
+    out.verdict = prepOK ? 'no_goal_supported' : 'preparation_short';
+    out.reason  = prepOK ? 'every_goal_faster_than_projection'
+                         : (out.preparation ? out.preparation.limitedBy : 'preparation');
+    return out;
+  }
+  /* ---- THE TIE-BREAK, WHERE SEVERAL ARE LEGITIMATE ----
+     Fitness admits a range and often admits more than one goal. Preparation is
+     what separates them, and where it does not separate them the athlete's own
+     ambition decides: the QUICKEST supported goal is recommended, because a
+     supported goal is one Valhalla is prepared to stand behind and there is no
+     reason to talk an athlete down from one. */
+  var best = supported.reduce(function(a, b){ return (a == null || b.timeSec < a.timeSec) ? b : a; }, null);
+  out.recommend = best.key;
+  var active = out.goals.filter(function(g){ return g.key === out.activeGoal; })[0];
+  if (active && active.supported){
+    out.verdict = 'current_goal_supported';
+    out.reason = null;
+  } else {
+    out.verdict = 'different_goal_recommended';
+    out.reason = active ? (active.supportedByFitness ? 'preparation' : 'fitness') : 'no_active_goal';
+  }
+  return out;
 }
 
 /* Equivalent-performance range from CURRENT FITNESS -- whichever rung

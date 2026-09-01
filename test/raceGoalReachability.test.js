@@ -170,3 +170,66 @@ test('LONG RUNWAY — a half hands its surplus off rather than growing a Base', 
   assert.equal(JSON.stringify(a.marathonRunwayPlan(24, 40)),
                JSON.stringify(a.marathonRunwayPlan(24, 40, 'full')));
 });
+
+test('CURRENT WEEKLY VOLUME — a Race Goal block no longer reads the typed number', () => {
+  /* THE CONTRACT APP IS PARKED ON. The builder will remove the Current Weekly
+     Volume field, and it can only do so once nothing in Race Goal generation
+     depends on it. Asserted the only way that can be asserted: build the same
+     athlete's block at wildly different typed volumes and compare the weeks
+     the athlete actually receives.
+
+     THREE FIELDS ARE ALLOWED TO DIFFER and all three are the legacy ramp
+     talking about itself -- peakVolume and startVolume on the block, rampVolume
+     on the week. They are recorded, nothing reads them, and the accounting
+     keeps them so the difference between the old architecture and this one
+     stays inspectable. */
+  const path = require('path');
+  const { loadApp } = require(path.join(__dirname, 'harness.js'));
+  const build = (dist, exp, vol) => {
+    const a = loadApp({ pinnedDate: '2026-03-02T09:00:00Z' });
+    a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+    a.showToast = () => {}; a.state = a.makeDefaultState();
+    return a.buildBlockWeeks(dist, vol, 15,
+      { purpose:'race', availableDays:6, experience:exp, easyPaceSecPerKm:330 });
+  };
+  const strip = w => { const c = Object.assign({}, w); delete c.rampVolume; return c; };
+
+  [['half','novice'], ['half','experienced'], ['half','advanced'],
+   ['full','novice'], ['full','experienced'], ['full','advanced']].forEach(([d, e]) => {
+    const ref = build(d, e, 20);
+    [null, 5, 40, 80, 200].forEach(v => {
+      const got = build(d, e, v);
+      assert.equal(JSON.stringify(got.weeks.map(strip)),
+                   JSON.stringify(ref.weeks.map(strip)),
+        d + '/' + e + ': a typed volume of ' + v + ' changed the prescribed weeks');
+    });
+  });
+});
+
+test('CURRENT WEEKLY VOLUME — every other product still reads it, and must', () => {
+  /* PRODUCT ISOLATION. Aerobic Base, Speed & Threshold and Maintain & Protect
+     have no pathway and no destination-led construction; the athlete's stated
+     volume is still the only statement of where they are, and removing the
+     field from underneath them would break them. The contract for APP is
+     isolation, not deletion of the underlying state. */
+  const path = require('path');
+  const { loadApp } = require(path.join(__dirname, 'harness.js'));
+  const build = (dist, purpose, vol) => {
+    const a = loadApp({ pinnedDate: '2026-03-02T09:00:00Z' });
+    a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+    a.showToast = () => {}; a.state = a.makeDefaultState();
+    return JSON.stringify(a.buildBlockWeeks(dist, vol, 12, { purpose, availableDays:5 }));
+  };
+  ['base', 'speed', 'maintain'].forEach(p => {
+    ['5k', '10k', 'half', 'full'].forEach(d => {
+      assert.notEqual(build(d, p, 30), build(d, p, 60),
+        p + '/' + d + ' stopped reading the athlete\'s stated volume');
+    });
+  });
+  /* And the two distances with no dedicated architecture keep it at the race
+     purpose too. */
+  ['5k', '10k'].forEach(d => {
+    assert.notEqual(build(d, 'race', 30), build(d, 'race', 60),
+      d + ' race stopped reading the athlete\'s stated volume');
+  });
+});
