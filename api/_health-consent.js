@@ -102,6 +102,10 @@ async function isGranted(cfg, sb, userId) {
  * function rather than two: a boundary a caller has to remember to apply twice
  * is a boundary that will eventually be applied once. The distance, time and
  * pace of each split are ordinary training data and stay. */
+/* Every array of per-section rows an activity may carry. Named once so the
+   strip and the assertion can never disagree about which ones to look inside:
+   a provider adding a third kind of row adds it here, or neither sees it. */
+const NESTED_ACTIVITY_ROW_KEYS = ['splits', 'deviceLaps'];
 function stripCoveredFromSplits(splits) {
   if (!Array.isArray(splits)) return splits;
   return splits.map(sp => {
@@ -116,6 +120,12 @@ function stripCovered(activity) {
   const out = Object.assign({}, activity);
   COVERED_ACTIVITY_FIELDS.forEach(k => { delete out[k]; });
   if (Array.isArray(out.splits)) out.splits = stripCoveredFromSplits(out.splits);
+  /* AND THE DEVICE LAPS, for exactly the same reason and by exactly the same
+     rule. A watch's lap list carries an average heart rate per lap; a strip
+     that cleaned `splits` and left `deviceLaps` would be the same leak under a
+     different key. Their distance, time, pace and cadence are ordinary
+     training data and stay. */
+  if (Array.isArray(out.deviceLaps)) out.deviceLaps = stripCoveredFromSplits(out.deviceLaps);
   return out;
 }
 
@@ -136,11 +146,11 @@ function carriesCovered(activity) {
   /* Looks one level into the splits for the same fields. A provider asserting
      against its own output has to be told the truth about a nested heart rate,
      or the assertion is worse than no assertion at all. */
-  return Array.isArray(activity.splits) && activity.splits.some(
-    sp => sp && typeof sp === 'object' && COVERED_ACTIVITY_FIELDS.some(k => sp[k] != null));
+  return NESTED_ACTIVITY_ROW_KEYS.some(key => Array.isArray(activity[key]) && activity[key].some(
+    sp => sp && typeof sp === 'object' && COVERED_ACTIVITY_FIELDS.some(k => sp[k] != null)));
 }
 
 module.exports = {
-  HEALTH_CONSENT_VERSION, COVERED_ACTIVITY_FIELDS,
+  HEALTH_CONSENT_VERSION, COVERED_ACTIVITY_FIELDS, NESTED_ACTIVITY_ROW_KEYS,
   isGranted, stripCovered, forIngest, carriesCovered
 };
