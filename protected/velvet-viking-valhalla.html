@@ -5361,9 +5361,17 @@ function reachableSessionKm(startKm, progressingWeeks){
 function sessionAtStep(startKm, destKm, progressingWeeks, step){
   if (!(startKm > 0)) return destKm;
   if (!(progressingWeeks > 0) || !(destKm > 0)) return destKm;
-  var r = Math.min(sessionProgressionRate(),
-                   Math.pow(destKm / startKm, 1 / progressingWeeks));
+  var r = sessionStepRate(startKm, destKm, progressingWeeks);
   return startKm * Math.pow(r, Math.max(0, Math.min(progressingWeeks, step)));
+}
+/* THE RATE ON ITS OWN, because the block reports it and the audit reads it.
+   FIXED AT THE BLOCK'S SOLVE and never re-derived over the weeks that remain --
+   re-deriving it after a held week is exactly the catch-up this architecture
+   must not do. */
+function sessionStepRate(startKm, destKm, progressingWeeks){
+  if (!(startKm > 0) || !(destKm > 0) || !(progressingWeeks > 0)) return 1;
+  return Math.min(sessionProgressionRate(),
+                  Math.pow(destKm / startKm, 1 / progressingWeeks));
 }
 
 /* ---- WHERE THIS ATHLETE'S SESSIONS START ----
@@ -7076,7 +7084,11 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       mPrevWeekKm = null, mPrevQSlots = null, mPrevSupportDays = null,
       /* The count the previous week ACTUALLY ran on, after the capacity gate --
          mPrevSupportDays is read before that gate, for the structure question. */
-      mPrevEffSupportDays = null;
+      mPrevEffSupportDays = null,
+      /* THE SUPPORTING WORKLOAD THE LAST DEVELOPING WEEK ACTUALLY CARRIED --
+         a total, not a per-run size, because a structural week re-writes it
+         across a different number of runs. */
+      mEarnedSupportTotalKm = null;
   /* The floor a session in THIS block may not go below -- the race week's own,
      since a marathon race block is never a foundation block. */
   var easyFloorKmForBlock = EASY_MIN_KM;
@@ -7228,7 +7240,44 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                      than inferred: the athlete's development ceiling, the
                      week's ability to support it, both, or neither. */
                   capacityLimited: mCapped, weekSupportLimited: mDominated,
-                  paceSec:mPaceSec, stepIdx:0 };
+                  paceSec:mPaceSec,
+                  /* ---- STEPS THE ATHLETE HAS ACTUALLY TAKEN ----
+                     `advances`, not a week counter. The doses are still read
+                     from the block's own progression curve, at the ordinary
+                     rate, bounded by the destination -- nothing about that
+                     changes. What changes is WHICH step the week is at: a week
+                     that spends itself absorbing a new structure does not take
+                     one, so it costs exactly one step and the curve cannot
+                     later be walked faster to make it up. There is no debt to
+                     repay and no catch-up week; the athlete simply finishes one
+                     step lower, which is the honest consequence.
+
+                     CAPACITY IS READ AT THE SAME COUNT, and that is the point
+                     rather than an oversight. Within the structural week itself
+                     capacity is already one step ahead of the doses -- it was
+                     advanced at the end of the previous week, and it is what
+                     admitted the new session -- so the structure is earned and
+                     the doses still hold. What must NOT happen is capacity
+                     running on while the doses stand still: measured, a
+                     12km/week athlete held twice in a row accumulated a third
+                     supporting day it had no workload for and its cutback week
+                     came out larger than the week before it. */
+                  advances: 0, lastStep: null,
+                  /* Computed ONCE, here, and reported on every week. The week
+                     loop must never re-derive it: a rate re-solved over the
+                     weeks that remain is exactly the catch-up this
+                     architecture must not do. */
+                  stepRate: Math.round(sessionStepRate(mStart.longKm, mLongDest.km,
+                                                       mProgressing) * 1000) / 1000,
+                  /* THE STRUCTURE THIS ATHLETE HAS ALREADY BEEN PRESCRIBED, as
+                     a high-water mark rather than as last week's snapshot. A
+                     cutback that suppresses a session does not un-establish it,
+                     so the rebound is not a first arrival; and a structure that
+                     has arrived cannot arrive again. Seeded by week one, so an
+                     athlete who brings five days and a quality session with
+                     them never has to re-earn either. */
+                  estRunDays: null, estQSlots: null, estGoalSeg: false,
+                  stepIdx:0 };
   }
   for (var w=1; w<=N; w++){
     var isRace = !steady && arc.hasGoalEffort && (w===N);
@@ -7318,9 +7367,16 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     var isRaceWeekNext = false;
     if (mBottomUp && !isRace){
       var mFrac = mBottomUp.progressing > 0
-        ? Math.min(1, mBottomUp.stepIdx / mBottomUp.progressing) : 1;
+        ? Math.min(1, mBottomUp.advances / mBottomUp.progressing) : 1;
+      /* THE STEP THIS WEEK IS AT, and the step it would hold at. `lastStep` is
+         the step the previous DEVELOPING week actually used -- not a week
+         counter, and not this one minus one, because a cutback or taper in
+         between took no step at all. On week one it is null and nothing can be
+         held: week one establishes rather than arrives. */
+      var mStep = mBottomUp.advances;
+      var mHoldStep = mBottomUp.lastStep;
       var mLong = sessionAtStep(mBottomUp.startLongKm, mBottomUp.longDestKm,
-                                mBottomUp.progressing, mBottomUp.stepIdx);
+                                mBottomUp.progressing, mStep);
       /* ---- SUPPORT DEVELOPS AS A WORKLOAD; DAYS ONLY DECIDE THE SPLIT ----
          Progressing the per-RUN figure made the day count move the whole
          week: one more supporting day multiplied a per-run destination that
@@ -7335,7 +7391,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          each run rather than the amount of running. */
       var mSupTotal = sessionAtStep(mBottomUp.startSupportTotalKm,
                                     mBottomUp.supportTotalDestKm,
-                                    mBottomUp.progressing, mBottomUp.stepIdx);
+                                    mBottomUp.progressing, mStep);
       var mSupport = mSupTotal / Math.max(1, mBottomUp.supportDays);
       /* A CUTBACK REDUCES THE SESSIONS, not a total that is then re-divided.
          Same factor, applied where the training actually is. */
@@ -7362,7 +7418,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          purpose deferred in week one may be earned by week six. That arrival
          is itself a progression in load -- which is why it is decided here,
          beside the doses, rather than once for the whole block. */
-      var mCap = marathonWeekCapacityKm(currentVolume, mBottomUp.stepIdx,
+      var mCap = marathonWeekCapacityKm(currentVolume, mBottomUp.advances,
                                         mBottomUp.capacityCeilingKm);
       /* ---- A CUTBACK REDUCES THE DOSE, NOT THE ATHLETE'S FREQUENCY ----
          Capacity is what decides how many supporting runs a week writes, so
@@ -7388,28 +7444,38 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                 supportDays: mBottomUp.supportDays, qSlots: mBottomUp.qSlots,
                 capacityCeilingKm: mBottomUp.capacityCeilingKm,
                 longDestKm: mBottomUp.longDestKm, longLimited: mBottomUp.longLimited,
-                frac: Math.round(mFrac * 100) / 100 };
+                frac: Math.round(mFrac * 100) / 100,
+                /* THE STEP THIS WEEK STANDS ON, filled in below once the hold
+                   is decided, and reported so the no-catch-up property is
+                   inspectable rather than argued: consecutive developing weeks
+                   may differ by at most one step, and the rate between steps is
+                   fixed at the block's solve. */
+                step: mStep, stepRate: mBottomUp.stepRate,
+                /* THE ALREADY-EARNED WORKLOAD -- the doses the previous
+                   developing week was built from, before any cutback or taper
+                   factor. What a structural week re-solves around. */
+                heldLongKm: mHoldStep == null ? null
+                  : round1(sessionAtStep(mBottomUp.startLongKm, mBottomUp.longDestKm,
+                                         mBottomUp.progressing, mHoldStep)),
+                heldSupportKm: mHoldStep == null ? null
+                  : round1(Math.max(EASY_MIN_KM,
+                      sessionAtStep(mBottomUp.startSupportTotalKm, mBottomUp.supportTotalDestKm,
+                                    mBottomUp.progressing, mHoldStep) /
+                      Math.max(1, mBottomUp.supportDays))) };
       /* ---- STRUCTURE IS ITSELF A PROGRESSION ----
          When capacity earns a purpose that was deferred, the week acquires a
          session it did not have -- and that is a step in training load in its
-         own right, often a larger one than any dose increase would be. Growing
-         the long run and the supporting work in the SAME week as the new
-         session arrives asks for both at once.
+         own right, often a larger one than any dose increase would be.
 
-         So the week a purpose arrives is a week the doses hold. The athlete
-         progresses from a simple aerobic week to one with a long-run
-         structure to one that also carries restrained quality, and each of
-         those transitions is paid for on its own. */
-      var mStructureGrew = (mPrevQSlots != null && mWeek.qSlots > mPrevQSlots) ||
-                           (mPrevSupportDays != null && mWeek.supportDays > mPrevSupportDays);
-      if (mStructureGrew){
-        mWeek.structureIntroduced = true;
-        if (mPrevLongKm != null) mWeek.longKm = round1(Math.min(mWeek.longKm, mPrevLongKm));
-        if (mPrevSupportKm != null) mWeek.supportKm = round1(Math.min(mWeek.supportKm, mPrevSupportKm));
-        longTarget = Math.min(longTarget, mWeek.longKm);
-      }
-      mPrevQSlots = mWeek.qSlots; mPrevSupportDays = mWeek.supportDays;
-      if (!isCutback && !isTaper && !mStructureGrew) mBottomUp.stepIdx++;
+         So the week a purpose arrives is a week the doses hold. THE DECISION
+         IS TAKEN WHERE THE ANSWER EXISTS, further down, once the eligibility
+         and frequency gates have said what this week would actually be
+         prescribed. It used to be taken here, comparing mWeek.qSlots and
+         mWeek.supportDays -- which at this point are the BLOCK's constants,
+         identical every week -- against mPrevQSlots and mPrevSupportDays,
+         which were assigned from those same constants two lines later. Neither
+         comparison could ever be true, so the rule never held a dose in its
+         life. The weekly-load instrument is what found it. */
     }
     volume = round1(volume);
     intendedVolume = round1(intendedVolume);
@@ -7731,93 +7797,171 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                     qSpec:qSpec, qKm:qKm, tSpec:tSpec, tKm:tKm,
                     isCheckpoint:isCheckpoint, isCalibration:isCalibration,
                     emphasis:profile.emphasis };
-      var mQKm = mWeek.qSlots >= 2
+      var mQBase = mWeek.qSlots >= 2
         ? (qualityDeliveredKm(mQSel, 'interval', 2) + qualityDeliveredKm(mQSel, 'tempo', 2))
         : mWeek.qSlots === 1 ? qualityDeliveredKm(mQSel, mQKind, 1) : 0;
-      /* ---- QUALITY WAITS UNTIL THE WEEK CAN CARRY IT ----
-         "At most one demanding session without evidence" was never "must
-         prescribe one". For an athlete whose whole week is smaller than a
-         quality session plus a long run plus one easy run, the correct
-         conventional quality frequency is ZERO, and it becomes one when their
-         aerobic work has grown enough to hold it. No mileage threshold decides
-         that -- the week's own arithmetic does. */
-      /* AND WHERE IT IS NOT YET AFFORDABLE, ITS SHARE STAYS AEROBIC WORK.
-         The block split the athlete's own mileage across the long run, the
-         supporting runs AND this slot; refusing the structure without giving
-         the slot's share back deleted training the athlete already does. A
-         12km/week athlete was split into a 4.8km long run and two shares of
-         3.6km, one of which was reserved for a session the week then declined,
-         and 8.5km was prescribed. The slot becomes the supporting run it always
-         was -- the same rung the deferral ladder below already uses, for the
-         same reason -- and the week comes out at 12. */
-      var mQSlotsGivenBack = 0;
-      if (mQKm > 0 && mWeek.capacityKm != null &&
-          !marathonQualityEligible(mWeek.capacityKm, longTarget, mQKm)){
-        mQKm = 0; mQSlotsGivenBack = mWeek.qSlots; mWeek.qSlots = 0;
-        mWeek.qualityNotYetEligible = true;
-      }
-      /* AND THE SUPPORTING RUNS THE WEEK CAN ACTUALLY PAY FOR. Adding another
-         at its floor because a day happens to be available is how the floors
-         became the week. Availability stays permission. */
-      if (mWeek.capacityKm != null){
-        mWeek.supportDays = marathonSupportDaysFor(mWeek.capacityKm, longTarget, mQKm,
-                                                   mWeek.supportDays + mQSlotsGivenBack);
-        /* ---- A CUTBACK REDUCES THE DOSE, NOT THE ATHLETE'S FREQUENCY ----
-           Capacity decides how many supporting runs a week writes, and a
-           cutback discounts capacity -- so the week gave up a running day ON TOP
-           of the 22% the sessions had already given up, and the week after put
-           it straight back. Measured at 8km/week: week 7 twelve kilometres
-           across three runs, week 8 six across two (a cutback is -22%, not
-           -50%), week 9 fourteen (+133%). That is the day count moving the whole
-           workload again, arriving this time through the capacity channel.
 
-           A cutback week runs on the days the week before it ran on. The dose
-           comes off the sessions, where it belongs. Asked as the PREVIOUS
-           week's count rather than as an undiscounted capacity, because the
-           long run is discounted too and pricing one against the other simply
-           moved the oscillation a week. The taper is untouched: it has its own
-           ladder below, which shrinks the supporting runs first and drops one
-           only when they are already at the floor. */
-        if (isCutback && !isTaper && mPrevEffSupportDays != null)
-          mWeek.supportDays = mPrevEffSupportDays;
-        mWeek.supportKm = round1(Math.max(EASY_MIN_KM,
-          Math.min(mWeek.supportKm,
-                   (mWeek.capacityKm - longTarget - mQKm) / mWeek.supportDays)));
+      /* ---- THE WEEK, SOLVED FROM A PAIR OF DOSES ----
+         Extracted so it can be asked TWICE: once at the doses this step of the
+         progression offers, and again at the doses the athlete has already
+         earned, when the first answer turns out to introduce a new structure.
+         Pure -- it reads the week's gates and returns an answer, and nothing is
+         committed until one of the two answers is chosen. That is what makes
+         the structural hold participate in the week's solution rather than
+         chopping its total afterwards, which was tried and produced
+         unattributed volume and quality sessions longer than the long run. */
+      function mSolveWeek(longIn, supportIn, supportTotalIn, pinTo){
+        var r = { longKm: longIn, supportKm: supportIn, qKm: mQBase,
+                  qSlots: mBottomUp.qSlots, supportDays: mBottomUp.supportDays,
+                  qualityNotYetEligible: false, qualityDeferred: false };
+        /* ---- QUALITY WAITS UNTIL THE WEEK CAN CARRY IT ----
+           "At most one demanding session without evidence" was never "must
+           prescribe one". For an athlete whose whole week is smaller than a
+           quality session plus a long run plus one easy run, the correct
+           conventional quality frequency is ZERO, and it becomes one when their
+           aerobic work has grown enough to hold it. No mileage threshold decides
+           that -- the week's own arithmetic does.
+
+           AND WHERE IT IS NOT YET AFFORDABLE, ITS SHARE STAYS AEROBIC WORK. The
+           block split the athlete's own mileage across the long run, the
+           supporting runs AND this slot; refusing the structure without giving
+           the slot's share back deleted training the athlete already does. */
+        var givenBack = 0;
+        if (r.qKm > 0 && mWeek.capacityKm != null &&
+            !marathonQualityEligible(mWeek.capacityKm, r.longKm, r.qKm)){
+          r.qKm = 0; givenBack = r.qSlots; r.qSlots = 0; r.qualityNotYetEligible = true;
+        }
+        if (pinTo != null && r.qSlots > pinTo.qSlots){
+          r.qKm = 0; givenBack = r.qSlots - pinTo.qSlots; r.qSlots = pinTo.qSlots;
+        }
+        /* AND THE SUPPORTING RUNS THE WEEK CAN ACTUALLY PAY FOR. Adding another
+           at its floor because a day happens to be available is how the floors
+           became the week. Availability stays permission. */
+        if (mWeek.capacityKm != null){
+          r.supportDays = marathonSupportDaysFor(mWeek.capacityKm, r.longKm, r.qKm,
+                                                 r.supportDays + givenBack);
+          /* ---- THE RE-SOLVE KEEPS THE STRUCTURE; IT DOES NOT FIND MORE ----
+             Holding the long run frees room in the week, and without this the
+             hold discovered a further supporting day, which held again, and
+             froze the doses for two weeks running while the day count climbed.
+             The structural week is the week the FIRST solve described; the
+             second one only re-writes the athlete's earned workload around it. */
+          if (pinTo != null) r.supportDays = Math.min(r.supportDays, pinTo.supportDays);
+          /* A CUTBACK REDUCES THE DOSE, NOT THE ATHLETE'S FREQUENCY. Capacity
+             decides how many supporting runs a week writes, and a cutback
+             discounts capacity -- so the week gave up a running day ON TOP of
+             the 22% the sessions had already given up, and the week after put it
+             straight back: 12 -> 6 (-50%, where a cutback is -22%) -> 14
+             (+133%) at 8km/week. A cutback week runs on the days the week
+             before it ran on. */
+          if (isCutback && !isTaper && mPrevEffSupportDays != null)
+            r.supportDays = mPrevEffSupportDays;
+          /* ---- A WORKLOAD, SPREAD ACROSS THE DAYS IT IS WRITTEN ON ----
+             Where the caller supplies the athlete's already-earned SUPPORTING
+             TOTAL rather than a per-run size, the day count divides it. That is
+             the whole point of holding a structural week: the week gains a run,
+             and the same aerobic work is written across one more of them rather
+             than the athlete being asked for another run's worth on top.
+             EASY_MIN_KM still applies underneath, and where it binds the week
+             does grow -- that is geometry, and it is named rather than hidden. */
+          var per = (supportTotalIn != null && supportTotalIn > 0)
+            ? supportTotalIn / r.supportDays : r.supportKm;
+          r.supportKm = round1(Math.max(EASY_MIN_KM,
+            Math.min(per,
+                     (mWeek.capacityKm - r.longKm - r.qKm) / r.supportDays)));
+        }
+        /* A QUALITY SESSION LONGER THAN THE LONG RUN IS NOT PRESCRIBED, and the
+           week's volume must not count one that is not. The day builder already
+           defers it and substitutes an easy run with strides. Compared as
+           presented, because a long run rounds to the kilometre and a quality
+           day rounds up to the half.
+
+           THE LADDER SUBSTITUTES; IT DOES NOT DELETE. The slot is counted as
+           the supporting run it becomes, and the same supporting workload is
+           spread across one more of them -- without that the plan lost a whole
+           session's distance at the volume where the structure stopped fitting,
+           which is a cliff created by a library limitation. Full precision
+           through the redistribution; the day builder rounds once, where the
+           athlete sees it. */
+        var n = r.supportDays;
+        if (r.qKm > 0 && r.longKm > 0 &&
+            roundWorkoutKm('tempo', r.qKm) > roundWorkoutKm('long', r.longKm) + 1e-9){
+          n = r.supportDays + r.qSlots;
+          r.supportKm = (r.supportDays * r.supportKm + r.qKm) / n;
+          r.qKm = 0;
+          r.qualityDeferred = true;
+        }
+        r.countedSupportDays = n;
+        r.volume = round1(r.longKm + r.qKm + n * r.supportKm);
+        /* THE PRESCRIBED WEEK'S OWN SHAPE, which is what a structural arrival
+           is measured on -- days the athlete is actually asked to run, and
+           quality sessions they are actually given. Not availability, and not
+           the block's ceiling. */
+        r.runDays = n + r.qSlots + (r.longKm > 0 ? 1 : 0);
+        return r;
       }
-      /* A QUALITY SESSION LONGER THAN THE LONG RUN IS NOT PRESCRIBED, and the
-         week's volume must not count one that is not. The day builder already
-         defers it and substitutes an easy run with strides; counting it here
-         would report a week the athlete never receives, which under bottom-up
-         construction is exactly the reconciliation failure this architecture
-         exists to remove. Compared as presented, because a long run rounds to
-         the kilometre and a quality day rounds up to the half. */
-      var mSupN = mWeek.supportDays;
-      if (mQKm > 0 && longTarget > 0 &&
-          roundWorkoutKm('tempo', mQKm) > roundWorkoutKm('long', longTarget) + 1e-9){
-        /* THE LADDER SUBSTITUTES; IT DOES NOT DELETE. A week that cannot
-           afford its structured session gets an easy run with strides in that
-           slot -- the athlete still runs that day. Counting the slot as zero
-           made the week's total drop by a whole session the moment the
-           deferral flipped, and flip it does: one kilometre of stated volume
-           either side of the boundary swung the plan by 8km. The slot is
-           counted as the supporting run it becomes. */
-        /* AND THE WEEK'S AEROBIC SUPPORT DOES NOT SHRINK BECAUSE A STRUCTURE
-           COULD NOT BE BUILT. Nothing about the athlete's aerobic need changed
-           at that boundary -- only the structure library's ability to express a
-           session at that size did. The day becomes an ordinary supporting run
-           and the same supporting workload is spread across one more of them,
-           each slightly smaller. Without this the plan lost a whole session's
-           distance at the volume where the structure stopped fitting, which is
-           a cliff in the athlete's training created by a library limitation. */
-        mSupN = mWeek.supportDays + mWeek.qSlots;
-        /* Full precision through the redistribution: rounding the per-run
-           figure and then multiplying it back up loses a kilometre across a
-           week, which at these volumes is a visible step in the plan. The day
-           builder rounds once, where the athlete sees it. */
-        mWeek.supportKm = (mWeek.supportDays * mWeek.supportKm + mQKm) / mSupN;
-        mQKm = 0;
-        mWeek.qualityDeferred = true;
+
+      /* ---- STRUCTURE IS ITSELF A PROGRESSION, AND THIS IS WHERE IT IS KNOWN ----
+         Solved once at this step's doses. If that week would give the athlete a
+         structure they have never been prescribed -- another running day, a
+         first or second quality session, or marathon-specific work entering the
+         long run -- then the STRUCTURE IS THIS WEEK'S PROGRESSION and the
+         ordinary dose step is not stacked on top of it. The week is solved
+         again around the same new structure at the workload the athlete has
+         already earned, and THAT week is what they receive.
+
+         MEASURED AGAINST WHAT HAS BEEN ESTABLISHED, not against last week. A
+         cutback that suppresses a session does not un-establish it, so the
+         rebound is not a first arrival; and a structure that has arrived cannot
+         arrive again. Week one seeds the mark, so an athlete who brings five
+         days and a quality session with them never has to re-earn either.
+
+         The re-solve may still move the week's total a little: sessions have
+         real floors, a new day redistributes work, and the long/support
+         relationship has to stay coherent. That is geometry. What it may not do
+         is take the ordinary progression step as well. */
+      var mSol = mSolveWeek(longTarget, mWeek.supportKm);
+      var mHeld = false;
+      if (!isCutback && !isTaper && mWeek.heldLongKm != null &&
+          mBottomUp.estRunDays != null){
+        var mNewDay  = mSol.runDays > mBottomUp.estRunDays;
+        var mNewQual = mSol.qSlots  > mBottomUp.estQSlots;
+        var mNewSpec = !mBottomUp.estGoalSeg && hasGoalSegment;
+        if (mNewDay || mNewQual || mNewSpec){
+          var mHeldSol = mSolveWeek(mWeek.heldLongKm, mWeek.heldSupportKm,
+                                    mEarnedSupportTotalKm, mSol);
+          /* The hold must not COST the athlete the structure it is protecting.
+             Where solving at the earned workload would refuse the very session
+             that arrived, the smaller week is not the more honest one, and the
+             ordinary solve stands. */
+          if (mHeldSol.runDays >= mSol.runDays && mHeldSol.qSlots >= mSol.qSlots){
+            mSol = mHeldSol; mHeld = true;
+          }
+          mWeek.structureIntroduced = true;
+          mWeek.structureArrived = [mNewDay ? 'running_day' : null,
+                                    mNewQual ? 'quality_session' : null,
+                                    mNewSpec ? 'race_specific' : null]
+                                   .filter(function(x){ return x; }).join(',');
+        }
       }
+      if (mHeld){
+        longTarget = mSol.longKm;
+        mWeek.longKm = round1(mSol.longKm);
+        mWeek.heldAtEarnedWorkload = true;
+        mWeek.step = mHoldStep;
+      }
+      mWeek.qSlots = mSol.qSlots;
+      mWeek.supportDays = mSol.supportDays;
+      mWeek.supportKm = mSol.supportKm;
+      if (mSol.qualityNotYetEligible) mWeek.qualityNotYetEligible = true;
+      if (mSol.qualityDeferred) mWeek.qualityDeferred = true;
+      var mQKm = mSol.qKm;
+      var mSupN = mSol.countedSupportDays;
+      volume = mSol.volume;
+      /* WHAT THE ATHLETE HAS NOW BEEN PRESCRIBED, as a high-water mark. */
+      mBottomUp.estRunDays = Math.max(mBottomUp.estRunDays || 0, mSol.runDays);
+      mBottomUp.estQSlots  = Math.max(mBottomUp.estQSlots  || 0, mSol.qSlots);
+      if (hasGoalSegment) mBottomUp.estGoalSeg = true;
       mWeek.countedSupportDays = mSupN;
       /* THE QUALITY KILOMETRES THE WEEK ACTUALLY COUNTED, recorded rather than
          re-derived. Which family a one-slot week carries, whether the slot was
@@ -7825,7 +7969,6 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          to the aerobic work are four separate decisions above, and anything
          re-deriving the total from qKm/tKm has to reproduce all four. */
       mWeek.qualityKm = round1(mQKm);
-      volume = round1(longTarget + mQKm + mSupN * mWeek.supportKm);
       /* ---- AND THERE IS NOTHING LEFT TO RECONCILE ----
          The accounting exists to explain the difference between what a week
          INTENDED and what it delivered. Under bottom-up construction there is
@@ -7853,7 +7996,15 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          taper's own arithmetic cannot reach. Where even one supporting run
          still exceeds the week before, the floor excess is what remains and it
          stays visible as the declared class it already is. */
-      if (isTaper && mPrevWeekKm != null && volume > mPrevWeekKm){
+      /* ---- AND A CUTBACK IS A REDUCTION, WHICH IS WHAT THE WORD MEANS ----
+         The same ladder, for the same reason. A cutback week takes its doses
+         from the ordinary progression and discounts them, so where the week
+         BEFORE it was itself suppressed -- by a structural hold, or by a
+         deferred quality slot becoming another supporting run -- the discounted
+         week could still come out larger than the week it is supposed to be a
+         step back from. Measured: 47 such weeks before the structural hold
+         existed and 77 after it. A cutback that adds load is not a cutback. */
+      if ((isTaper || isCutback) && mPrevWeekKm != null && volume > mPrevWeekKm){
         /* THE DESCENT, TAKEN OUT OF THE SESSIONS AND IN THAT ORDER. Shrink the
            supporting runs first, which is what a taper does; drop a session
            only when they are already at the floor and cannot shrink further.
@@ -7886,6 +8037,20 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          one of them. Reading the pre-ladder figure let the cutback hold below
          undo the give-back and halve the week it was written to protect. */
       mPrevEffSupportDays = mWeek.countedSupportDays;
+      /* ---- AND THE ATHLETE MOVES FORWARD FROM THE WEEK THEY WERE ACTUALLY
+         PRESCRIBED ---- Capacity advances on every developing week, because it
+         is the athlete's own ceiling and it is what earns a structure. The
+         DOSES advance only on a developing week that did not spend itself
+         absorbing one. The rate is the block's, fixed at its solve, so a held
+         week costs exactly one step and can never be repaid at a larger one. */
+      if (!isCutback && !isTaper){
+        /* THE STEP THIS WEEK ACTUALLY USED, which is what the next structural
+           week would hold at. A held week used the step before it, so the mark
+           does not move; an ordinary week moves it to its own. */
+        mBottomUp.lastStep = mHeld ? mHoldStep : mStep;
+        mEarnedSupportTotalKm = round1(mSupN * mWeek.supportKm);
+        if (!mHeld) mBottomUp.advances++;
+      }
       if (!isTaper && volume > mPeakBuiltKm) mPeakBuiltKm = volume;
     }
     weeks.push({

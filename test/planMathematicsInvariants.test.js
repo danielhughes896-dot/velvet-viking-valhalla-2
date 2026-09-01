@@ -419,21 +419,51 @@ test('experience level cannot change a single prescribed number', () => {
 test('adjacent stated volumes produce adjacent plans', () => {
   /* CONTINUITY. One extra kilometre a week may not change the plan by more
      than one extra kilometre a week is worth, and may never make it smaller
-     by more than a rounding step. Checked at every integer from 1 to 60. */
+     by more than a rounding step. Checked at every integer from 1 to 60.
+
+     THE ONE EXCEPTION IS NAMED, NOT WIDENED. A marathon block holds its
+     ordinary dose step in the week a meaningful new structure arrives -- a
+     running day, a first or second quality session, marathon-specific work --
+     because the structure IS that week's progression. That hold costs one step
+     of the block's progression and it is never repaid, which is the
+     methodology HQ resolved. Two adjacent athletes can therefore differ by one
+     hold: at 23km/week this block holds once and at 24km/week twice, and the
+     second athlete's whole plan comes out 4.9km smaller across twelve weeks
+     even though their peak week does not.
+
+     So a reversal is allowed ONLY where the two plans differ in how many weeks
+     they held, and only in proportion to that difference. A reversal with the
+     same number of holds on both sides is still a defect and still fails, and
+     the PEAK WEEK -- the number the athlete actually trains to -- is asserted
+     with no exception at all. */
+  const holdsIn = c => c.weeks.filter(w => w.bottomUp && w.bottomUp.heldAtEarnedWorkload).length;
   for (const distanceKey of ['5k', 'half', 'full']){
-    let prev = null;
+    let prev = null, prevHolds = 0, prevPeak = null;
     for (let v = 1; v <= 60; v++){
       const c = auditCase({ distanceKey, volume: v, weeks: 12, scheduleKey: 'd5' });
       const total = c.sessions.reduce((t, s) => t + (s.km || 0), 0);
+      const holds = holdsIn(c);
+      const peak = Math.max.apply(null, c.weeks.filter(w => !w.isRace).map(w => w.actualVolume));
       if (prev != null){
-        assert.ok(total - prev > -1.0,
+        /* One step of a block's progression is worth at most
+           VOLUME_BLOCK_GROWTH_CAP - 1 of the plan, compounded over the weeks
+           that follow it. Bounded generously at a tenth of the plan per extra
+           hold, which is far more than one step can be worth and still far
+           less than any real discontinuity. */
+        const extraHolds = Math.max(0, holds - prevHolds);
+        const allowance = extraHolds > 0 ? extraHolds * prev * 0.10 : 1.0;
+        assert.ok(total - prev > -allowance,
           distanceKey + ': ' + (v - 1) + '->' + v + 'km/week made the plan ' +
-          Math.round((prev - total) * 10) / 10 + 'km smaller');
+          Math.round((prev - total) * 10) / 10 + 'km smaller with ' +
+          prevHolds + ' -> ' + holds + ' structural holds');
         assert.ok(total - prev < 12 * 4,
           distanceKey + ': ' + (v - 1) + '->' + v + 'km/week jumped the plan by ' +
           Math.round((total - prev) * 10) / 10 + 'km');
+        assert.ok(peak - prevPeak > -1.0,
+          distanceKey + ': ' + (v - 1) + '->' + v + 'km/week made the PEAK WEEK ' +
+          Math.round((prevPeak - peak) * 10) / 10 + 'km smaller');
       }
-      prev = total;
+      prev = total; prevHolds = holds; prevPeak = peak;
     }
   }
 });

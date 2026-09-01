@@ -146,6 +146,12 @@ function auditCase(opts){
       isCutback: !!wk.isCutback, isTaper: !!wk.isTaper, isRace: !!wk.isRace,
       isCheckpoint: !!wk.isCheckpoint, isCalibration: !!wk.isCalibration,
       targetVolume: wk.volume,
+      /* THE WEEK'S OWN BOTTOM-UP RECORD, carried through so the audit can see
+         what the generator decided rather than inferring it: which step of the
+         progression the week stands on, whether a structure arrived, and
+         whether the ordinary dose step was held for it. Marathon race blocks
+         only; null everywhere else, exactly as the generator leaves it. */
+      bottomUp: wk.bottomUp || null,
       longTarget: wk.longTarget, goalSegKm: wk.goalSegKm,
       hasGoalSegment: !!wk.hasGoalSegment,
       qKm: wk.qKm, tKm: wk.tKm,
