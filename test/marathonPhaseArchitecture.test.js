@@ -38,9 +38,14 @@ test('the marathon wind-down is D-14, not the D-20 it was', () => {
   const p = phases(a, 15, 'full');
   const windDownWeeks = p.Taper + p.Final;
   assert.strictEqual(windDownWeeks, 2, 'two calendar weeks of wind-down');
-  // The half marathon, untouched, still spends three.
+  /* THE HALF NOW SPENDS TWO CALENDAR WEEKS TOO, and for a different reason.
+     Its taper is anchored to the EVENT at D-10 rather than to a week boundary,
+     so the first of those two weeks is genuinely split -- the block's last
+     loading days, then the first taper days -- and the phase count cannot say
+     so on its own. What is asserted here is that neither distance spends a
+     third calendar week winding down. */
   const h = phases(a, 15, 'half');
-  assert.strictEqual(h.Taper + h.Final, 3);
+  assert.strictEqual(h.Taper + h.Final, 2);
 });
 
 test('marathon phases are counts, so a longer plan does not grow Peak', () => {
@@ -86,8 +91,12 @@ test('Build only compresses once Base is gone', () => {
 });
 
 test('no other distance and no other purpose changes', () => {
+  /* THE HALF IS NO LONGER ONE OF THEM. It states its own phase counts now --
+     3 Foundation / 6 Build / 4 Peak and an event-anchored wind-down -- and its
+     own architecture test covers them. 5K, 10K and Ultra keep the arc they
+     always had, byte for byte, until their own audits say otherwise. */
   const a = app();
-  ['5k','10k','half','ultra'].forEach(d => {
+  ['5k','10k','ultra'].forEach(d => {
     for (let N = 4; N <= 30; N++){
       const withKey = phases(a, N, d), without = phases(a, N, undefined);
       assert.strictEqual(JSON.stringify(withKey), JSON.stringify(without),

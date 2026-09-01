@@ -137,14 +137,26 @@ test('and exactly one, ever', () => {
   assert.equal(a.state.days.filter(d => d.type === 'calibration').length, 1);
 });
 
-test('an athlete who already has an LTHR is not sent out to test again', () => {
+test('an athlete who already MEASURED an LTHR is not sent out to test again', () => {
+  /* AND AN ESTIMATE IS A DIFFERENT EVIDENCE CLASS. The product already prints
+     "(measured)" beside one and "(your estimate)" beside the other; treating
+     them the same here meant a number typed in setup permanently suppressed
+     the offer of measuring it. In an event whose prescription now descends
+     from threshold, that is a guess governing the whole block. A measured
+     anchor still suppresses the test, which is the protection this was
+     written for and it is unchanged. */
   const a = app();
   buildPlan(a, { weeks: 10, volume: 45, lthr: 168, maxHR: 190, startDate: TODAY });
-  const e = a.calibrationEligibility({ healthConsent: true, lthr: a.state.setup.lthr,
+  const measured = a.calibrationEligibility({ healthConsent: true, lthr: a.state.setup.lthr,
+    lthrSource: 'calibration', performances: [], today: TODAY, currentVolume: 45 });
+  assert.equal(measured.needed, false);
+  assert.equal(measured.reason, 'lthr_known',
+    'a MEASURED LTHR is trustworthy -- every HR figure already descends from it');
+
+  const estimate = a.calibrationEligibility({ healthConsent: true, lthr: a.state.setup.lthr,
     performances: [], today: TODAY, currentVolume: 45 });
-  assert.equal(e.needed, false);
-  assert.equal(e.reason, 'lthr_known',
-    'a supplied LTHR is trustworthy by the existing model -- every HR figure already descends from it');
+  assert.equal(estimate.needed, true,
+    'an athlete who typed a number must still be offered the measurement');
 });
 
 test('a recent race or checkpoint stands in for the test', () => {
@@ -804,11 +816,27 @@ test('keeping the full protocol does not disturb the week around it', () => {
      taper each family's structure pool advances on that family's own DELIVERED
      occurrences, and the calibration is a tempo occurrence the plain block
      never had. That is the rotation working. */
+  /* UNDER BOTTOM-UP CONSTRUCTION A WEEK'S TARGET IS THE SUM OF ITS SESSIONS,
+     so a session that costs more makes its own week's target bigger -- and the
+     calibration is a fixed fifty-two-minute protocol that does not scale to
+     the athlete. The old form of this assertion held only because the half
+     divided a top-down target, which made the session's real cost invisible
+     rather than absent.
+
+     THE INVARIANT THAT ACTUALLY MATTERS IS UNCHANGED AND IS ASSERTED HERE:
+     the calibration is not permission for VOLUME. It changes exactly one
+     week, by no more than what the protocol costs above the slot it took, and
+     it moves neither the block's peak nor any other week. */
   const calBlk = a.buildBlockWeeks('half', 45, 10, { calibrate: true });
   const plainBlk = a.buildBlockWeeks('half', 45, 10);
-  assert.equal(calBlk.weeks.map(w => w.volume).join(','),
-               plainBlk.weeks.map(w => w.volume).join(','),
-    'the calibration buys no programme volume: every weekly target is identical');
+  assert.equal(calBlk.weeks.slice(1).map(w => w.volume).join(','),
+               plainBlk.weeks.slice(1).map(w => w.volume).join(','),
+    'the calibration touches one week: every other weekly target is identical');
+  const overTarget = a.round1(calBlk.weeks[0].volume - plainBlk.weeks[0].volume);
+  const protocolCost = a.round1(a.calibrationSessionKm() - plainBlk.weeks[0].soloKm);
+  assert.ok(overTarget >= 0 && overTarget <= protocolCost + 1e-9,
+    'week 1 is ' + overTarget + 'km over the plain week against a protocol that costs ' +
+    protocolCost + 'km more than the slot it took');
   assert.equal(calBlk.peakVolume, plainBlk.peakVolume, 'and the block peaks in the same place');
 
   /* The declared floor is recorded on the week while the DAYS are built, so it
@@ -817,9 +845,15 @@ test('keeping the full protocol does not disturb the week around it', () => {
   const floorKm = (calBlk.weeks[0].qualityDayFloorKm || 0);
   assert.ok(floorKm > 0,
     'the fixed protocol costs more than the week budgeted, and the week says so');
+  /* TWO DECLARED TERMS, AND THE DELIVERED WEEK MAY NOT EXCEED THEIR SUM. The
+     week's own TARGET moved by overTarget -- bottom-up construction makes a
+     week the sum of its sessions, so a different quality occurrence changes
+     it -- and the DAY then costs the declared quality-day floor above the slot
+     the week budgeted. Both are named; nothing else is permitted. */
   const over = km(a.state.days, 1) - km(plain, 1);
-  assert.ok(over <= floorKm + 1e-9,
-    'week 1 is ' + over + 'km over the plain week against a declared floor of ' + floorKm);
+  assert.ok(over <= floorKm + overTarget + 1e-9,
+    'week 1 is ' + over + 'km over the plain week against a declared floor of ' + floorKm +
+    ' and a declared target difference of ' + overTarget);
   [2, 3].forEach(n => {
     assert.ok(km(a.state.days, n) <= km(plain, n) + 1e-9,
       'week ' + n + ': ' + km(a.state.days, n) + 'km against ' + km(plain, n) + 'km');

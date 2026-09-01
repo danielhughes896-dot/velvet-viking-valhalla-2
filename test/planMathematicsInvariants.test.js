@@ -436,13 +436,28 @@ test('adjacent stated volumes produce adjacent plans', () => {
      same number of holds on both sides is still a defect and still fails, and
      the PEAK WEEK -- the number the athlete actually trains to -- is asserted
      with no exception at all. */
+  /* AND THE SECOND EXCEPTION, NAMED THE SAME WAY. A week is now the sum of the
+     purposes it prescribes, so an athlete whose workload has grown enough to
+     CARRY a structured quality session gets one -- and that session's
+     kilometres come out of the aerobic running the athlete below them spent
+     the same capacity on. Measured at the half: 9km/week is prescribed no
+     conventional quality and peaks at 14km across three runs; 10km/week earns
+     a quality slot and peaks at 13km across three runs, one of which is now a
+     session rather than an easy run. The smaller number is the better week.
+
+     Allowed only where the two blocks differ in prescribed quality slots, and
+     only in proportion -- a reversal with the same structure on both sides is
+     still a defect and still fails. */
   const holdsIn = c => c.weeks.filter(w => w.bottomUp && w.bottomUp.heldAtEarnedWorkload).length;
+  const slotsIn = c => c.weeks.reduce((m, w) =>
+    Math.max(m, (w.bottomUp && w.bottomUp.qSlots) || 0), 0);
   for (const distanceKey of ['5k', 'half', 'full']){
-    let prev = null, prevHolds = 0, prevPeak = null;
+    let prev = null, prevHolds = 0, prevPeak = null, prevSlots = 0;
     for (let v = 1; v <= 60; v++){
       const c = auditCase({ distanceKey, volume: v, weeks: 12, scheduleKey: 'd5' });
       const total = c.sessions.reduce((t, s) => t + (s.km || 0), 0);
       const holds = holdsIn(c);
+      const slots = slotsIn(c);
       const peak = Math.max.apply(null, c.weeks.filter(w => !w.isRace).map(w => w.actualVolume));
       if (prev != null){
         /* One step of a block's progression is worth at most
@@ -459,11 +474,13 @@ test('adjacent stated volumes produce adjacent plans', () => {
         assert.ok(total - prev < 12 * 4,
           distanceKey + ': ' + (v - 1) + '->' + v + 'km/week jumped the plan by ' +
           Math.round((total - prev) * 10) / 10 + 'km');
-        assert.ok(peak - prevPeak > -1.0,
+        const peakAllowance = slots > prevSlots ? Math.max(1.0, prevPeak * 0.10) : 1.0;
+        assert.ok(peak - prevPeak > -peakAllowance,
           distanceKey + ': ' + (v - 1) + '->' + v + 'km/week made the PEAK WEEK ' +
-          Math.round((prevPeak - peak) * 10) / 10 + 'km smaller');
+          Math.round((prevPeak - peak) * 10) / 10 + 'km smaller with ' +
+          prevSlots + ' -> ' + slots + ' prescribed quality slots');
       }
-      prev = total; prevHolds = holds; prevPeak = peak;
+      prev = total; prevHolds = holds; prevPeak = peak; prevSlots = slots;
     }
   }
 });
@@ -1588,7 +1605,9 @@ test('the deferral is offered for the floor alone, never for the other refusals'
   const reason = o => a.calibrationEligibility(Object.assign({}, ctx, o)).reason;
   assert.equal(reason({}), 'insufficient_base');
   assert.equal(reason({ healthConsent: false }), 'no_health_consent');
-  assert.equal(reason({ lthr: 168, currentVolume: 45 }), 'lthr_known');
+  assert.equal(reason({ lthr: 168, lthrSource: 'calibration', currentVolume: 45 }), 'lthr_known');
+  /* AN ESTIMATE IS NOT A MEASUREMENT, and it does not suppress the offer. */
+  assert.equal(reason({ lthr: 168, currentVolume: 45 }), 'eligible');
   assert.equal(a.calibrationEligibility(Object.assign({}, ctx, { currentVolume: 45 })).needed, true);
 });
 

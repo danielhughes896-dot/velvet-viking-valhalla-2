@@ -102,17 +102,22 @@ test('the down week consolidates rather than tapers', () => {
   assert.ok(down.volume > b.peakVolume * 0.6,
     'the consolidation week sheds ' + Math.round((1 - down.volume / b.peakVolume) * 100) +
     '% of peak volume, which is a marathon taper');
-  // and the race block's own taper is untouched
+  /* AND THE RACE BLOCK'S OWN WIND-DOWN IS STILL A WIND-DOWN -- but the half's
+     is no longer a whole-week fraction of the peak. It is anchored to the
+     event at D-10, which for a Sunday race falls mid-week, so the block's
+     second-to-last week is genuinely split: its opening days are the last
+     loading days and its closing days are already the taper. A block-level
+     assertion cannot see that, because the scaling is applied per day from the
+     real race date. What it can assert, and what matters, is that the arc
+     still declares an anchored wind-down and that the wind-down week is not
+     the block's peak. */
   const race = build(a, 'half', 45, 12, 'race');
   const t = race.weeks.filter(w => w.isTaper);
-  /* Half of the peak -- but read against the REPORTED peak, which is itself
-     already rounded, so the comparison carries one rounding step of slack.
-     Taking round1(round1(peak) * 0.5) as the expected value only ever agreed
-     with the engine by luck: it happens to agree when the raw peak lands on a
-     tenth (45 x 1.55 = 69.75) and disagree by 0.1 when it does not
-     (45 x 1.45 = 65.25 -> peak 65.3, taper 32.6, round1(65.3/2) = 32.7). */
-  assert.ok(Math.abs(t[t.length - 1].volume - race.peakVolume * 0.5) <= 0.1,
-    'the final taper week is ' + t[t.length - 1].volume + ' against a peak of ' + race.peakVolume);
+  assert.equal(a.blockArcFor('race', 12, 'half').taperAnchorDays, a.HALF_TAPER_ANCHOR_DAYS,
+    'the half arc states the day its taper begins');
+  assert.ok(t.length >= 1, 'the half race block still has a wind-down week');
+  assert.ok(t[t.length - 1].volume < race.peakVolume,
+    'the final wind-down week is ' + t[t.length - 1].volume + ' against a peak of ' + race.peakVolume);
 });
 
 test('a speed block does not also carry a mid-block time trial', () => {
@@ -150,10 +155,18 @@ test('a recovery block has no goal effort, no taper and no checkpoint', () => {
  * ---------------------------------------------------------------- */
 
 test('a race block keeps every part of the arc it always had', () => {
+  /* EVERY PART EXCEPT THE TWO THE HALF'S OWN ARCHITECTURE NOW STATES. It
+     states its phases as counts rather than as fractions of itself, and its
+     wind-down is anchored to the event rather than spending two whole calendar
+     weeks -- so a twelve-week block develops for ten weeks and winds down
+     through one calendar week plus race week. Everything else this test was
+     written to protect is unchanged: one goal effort, one checkpoint, a peak
+     that is the profile multiplier earned over the weeks available, and all
+     three phases present. */
   const a = app();
   const b = build(a, 'half', 45, 12, 'race');
-  assert.equal(b.buildWeeks, 9);
-  assert.equal(b.taperWeeks, 2);
+  assert.equal(b.buildWeeks, 10);
+  assert.equal(b.taperWeeks, 1);
   assert.equal(b.weeks.filter(w => w.isRace).length, 1);
   assert.equal(b.weeks.filter(w => w.isCheckpoint).length, 1);
   /* The peak is the profile multiplier EARNED OVER THE WEEKS AVAILABLE. A
@@ -197,12 +210,17 @@ test('phaseForWeek and the generator agree for every purpose', () => {
   /* The reason phaseForWeek exists: three functions once answered "what phase
      is week N" and disagreed on 5 of 14 weeks. Adding four arcs is exactly
      the change that could reopen that. */
+  /* AND THE DISTANCE IS PART OF THE QUESTION. Two arcs now state their phases
+     as counts -- the marathon's and the half's -- so "what phase is week N"
+     cannot be answered without saying which programme is being asked about.
+     Omitting it here asked the fraction-based arc about a block built from
+     counts, which is the very disagreement this test exists to catch. */
   const a = app();
-  [['race', 'half', 12], ['base', 'half', 10], ['speed', '5k', 6],
-   ['recovery', 'half', 2], ['maintain', 'half', 8]].forEach(([p, d, n]) => {
+  [['race', 'half', 12], ['race', 'full', 15], ['base', 'half', 10],
+   ['speed', '5k', 6], ['recovery', 'half', 2], ['maintain', 'half', 8]].forEach(([p, d, n]) => {
     const b = build(a, d, 45, n, p, { steady: p === 'maintain' });
     b.weeks.forEach(w => {
-      const expected = a.phaseForWeek(w.week, n, p);
+      const expected = a.phaseForWeek(w.week, n, p, d);
       assert.equal(w.phase, expected === 'Final' ? 'Final Week' : expected,
         p + ' week ' + w.week + ': generator says ' + w.phase + ', phaseForWeek says ' + expected);
     });

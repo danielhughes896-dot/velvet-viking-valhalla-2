@@ -36,8 +36,20 @@ const { buildPlan } = require('./fixtures.js');
    work when tapped, or any movement at all in what the engine prescribes. */
 
 const PINNED = '2026-08-24T09:00:00Z';          // Monday, matching the suite
-const SUPPORT_REST_DAY = '2026-08-28';          // week 1, rest, strength_running
-const SUPPORT_EASY_DAY = '2026-08-29';          // week 1, easy, conditioning_circuit
+/* THE TWO DAYS THIS FILE PINS, AND WHY THEY MOVED. Every assertion below is
+   about the COMPLETION RULE -- when the control unlocks, what writing to it
+   does, and that a rest day and a running day obey the same definition of
+   today. It needs one rest day carrying supporting work and one running day
+   carrying it, and it names them by date so the rule is tested against real
+   generated days rather than a hand-built object.
+
+   The half's Race Goal block now prescribes the smallest coherent number of
+   running days rather than filling every available one, so week one has a
+   different shape and the supporting work sits on different dates. The dates
+   are repointed at the days that now carry it. No rule, no threshold and no
+   assertion in this file is changed. */
+const SUPPORT_REST_DAY = '2026-08-28';          // week 1, rest, conditioning_circuit
+const SUPPORT_EASY_DAY = '2026-08-26';          // week 1, easy, strength_running
 const at = d => loadApp({ pinnedDate: d + 'T09:00:00Z' });
 
 /* An athlete whose plan genuinely carries supporting work. It is opt-in --
@@ -174,7 +186,7 @@ test('completion becomes available and works on the day', () => {
   rolled.handleSupportDone(SUPPORT_EASY_DAY);
   const dd = dayOf(rolled, SUPPORT_EASY_DAY);
   assert.ok(dd.support && dd.support.completedAt, 'it records a completion');
-  assert.equal(dd.support.kind, 'conditioning_circuit', 'of the kind that was prescribed');
+  assert.equal(dd.support.kind, 'strength_running', 'of the kind that was prescribed');
 });
 
 // =====================================================================
@@ -277,7 +289,7 @@ test('an existing completed companion still renders correctly, on today and in t
 
   const onDay = companion(rolled, SUPPORT_EASY_DAY);
   assert.match(onDay, /support-line support-done/, 'the compact done line is preserved');
-  assert.match(onDay, /Strength Circuit/, 'naming the kind that was prescribed');
+  assert.match(onDay, /Running Strength/, 'naming the kind that was prescribed');
   assert.match(onDay, / — done|— done/, 'and still says done');
   assert.match(onDay, /checked/, 'with the control in its checked state');
   assert.doesNotMatch(onDay, /support-check locked/, 'live on the day, so a mistake can be undone');

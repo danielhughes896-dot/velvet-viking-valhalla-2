@@ -149,12 +149,35 @@ test('quality never takes a growing share of an aerobic base week', () => {
 });
 
 test('a race block is still allowed to sharpen — the bound is base-only', () => {
-  /* The guard against over-correcting. Race Goal was declared unchanged byte
-     for byte by §5/§6 and must stay that way. */
+  /* THE GUARD AGAINST OVER-CORRECTING, restated against the thing it actually
+     protects. It was a fixed 40%, calibrated to a half block that alternated
+     families on week parity and let every structure run its full range. The
+     half now states a coaching progression instead -- threshold-centred,
+     migrating into race-specific work, with economy held at a maintenance dose
+     rather than climbing all block -- so the headline quality growth is
+     smaller and is meant to be.
+
+     WHAT MUST NOT CHANGE is that a race block sharpens and a base block does
+     not, which is the distinction the base-only bound exists to preserve. It
+     is asserted as a comparison between the two, which cannot be satisfied by
+     freezing either of them. */
   const a = app();
-  const full = fullWeeks(weeksOf(a, 'race', 'half', 55, 12));
-  const q = growth(full[0].quality, full[full.length - 1].quality);
-  assert.ok(q >= 0.4, 'a race block stopped sharpening: ' + Math.round(q * 100) + '%');
+  const race = fullWeeks(weeksOf(a, 'race', 'half', 55, 12));
+  const q = growth(race[0].quality, race[race.length - 1].quality);
+  assert.ok(q >= 0.2, 'a race block stopped sharpening: ' + Math.round(q * 100) + '%');
+  /* AND SHARPENING IS NOT ONLY A BIGGER SESSION. What actually distinguishes a
+     race block from a base block is that it develops RACE-SPECIFIC work, which
+     a base block has no race to be specific about and never receives. Asserted
+     against the blocks themselves so neither side can be satisfied by freezing
+     the other. */
+  const raceBlk = a.buildBlockWeeks('half', 55, 12, { purpose: 'race' });
+  const baseBlk = a.buildBlockWeeks('half', 55, 12, { purpose: 'base' });
+  const specific = b => b.weeks.filter(w => w.hasGoalSegment).length;
+  assert.ok(specific(raceBlk) > 0, 'a race block prescribes no race-specific work at all');
+  assert.equal(specific(baseBlk), 0, 'a base block has acquired race-specific work');
+  const segs = raceBlk.weeks.filter(w => w.hasGoalSegment).map(w => w.goalSegKm);
+  assert.ok(segs[segs.length - 1] > segs[0],
+    'the race-specific work stopped developing: ' + segs.join(','));
 });
 
 test('maintenance still holds its dose, and base is not turned into maintenance', () => {

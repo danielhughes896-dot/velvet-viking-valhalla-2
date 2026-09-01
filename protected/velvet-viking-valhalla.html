@@ -5257,7 +5257,9 @@ function applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm){
      already been reduced, and would leave the reduction it declares no longer
      matching the days it wrote. */
   var byWeek = {};
-  weeks.forEach(function(wk){ if (!wk.isRace) byWeek[wk.week] = { wk:wk, days:[], touched:false }; });
+  weeks.forEach(function(wk){
+    if (!wk.isRace) byWeek[wk.week] = { wk:wk, days:[], touched:false, inWindow:false };
+  });
   days.forEach(function(dd){ if (byWeek[dd.week]) byWeek[dd.week].days.push(dd); });
   function weekTotalOf(list){
     var t = 0;
@@ -5267,15 +5269,17 @@ function applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm){
   /* What the week before this one actually delivers, so a correction here can
      never break the descent the taper exists to produce. Read off the days,
      because that is what the athlete receives. */
-  var totals = {};
+  var totals = {}, longs = {};
   days.forEach(function(dd){
     if (!(dd.km > 0) || dd.type === 'race') return;
     totals[dd.week] = round1((totals[dd.week] || 0) + dd.km);
+    if (dd.type === 'long' && dd.km > (longs[dd.week] || 0)) longs[dd.week] = dd.km;
   });
 
   Object.keys(byWeek).map(Number).sort(function(a,b){ return a - b; }).forEach(function(k){
     var rec = byWeek[k], wk = rec.wk;
     var prevWeekKm = totals[k - 1] != null ? totals[k - 1] : null;
+    var prevLongKm = longs[k - 1] != null ? longs[k - 1] : null;
     rec.days.forEach(function(dd){
       if (!(dd.km > 0) || dd.type === 'race') return;
       if (dd.type !== 'easy' && dd.type !== 'long') return;
@@ -5283,13 +5287,20 @@ function applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm){
       if (!(out >= 0) || out > HALF_TAPER_ANCHOR_DAYS) return;
       var f = halfTaperDayFactor(out);
       if (f >= 1) return;
+      rec.inWindow = true;
       var next = roundWorkoutKm(dd.type, round1(Math.max(floorKm, dd.km * f)));
       if (!(next < dd.km)) return;
       dd.__preTaperKm = dd.km;
       dd.km = next;
       rec.touched = true;
     });
-    if (!rec.touched) return;
+    /* THE WEEK IS IN THE TAPER WHETHER OR NOT THE SCALING BIT. At volumes
+       where every session is already on its floor the factor changes nothing,
+       and the week still has to obey the one rule a wind-down week has: it
+       does not ask for more than the week before it. Left to the scaling
+       alone, eight defensive cases came through where the preceding week had
+       been cut by the weekly cap and this one had not. */
+    if (!rec.inWindow) return;
 
     /* ---- A TAPERED LONG RUN IS STILL THE LONG RUN ----
        IT LOSES ITS LENGTH, NOT ITS IDENTITY. Two things make it stop being the
@@ -5353,6 +5364,33 @@ function applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm){
               dd.km = roundWorkoutKm('easy', round1(Math.max(floorKm, longDay.km)));
           });
         }
+      }
+    }
+
+    /* ---- AND A WIND-DOWN WEEK NEVER ASKS FOR MORE THAN THE ONE BEFORE IT ----
+       Enforced on the long run, because it is the session with room to give:
+       the easy days are already at their floor by the time this runs, and the
+       quality day's distance belongs to its structure. Reduced a kilometre at
+       a time and never below the week's largest other run, so the long run
+       stays the long run. */
+    if (longDay && prevLongKm != null && longDay.km > prevLongKm)
+      /* AND NOR DOES ITS LONG RUN. Bounded by the long run the week before
+         actually DELIVERED rather than by the figure the block asked for:
+         where the weekly cap reduced one week and not the next, the two
+         diverge, and at the volumes where every session sits on its floor
+         that difference is the whole of the week's increase. */
+      longDay.km = roundWorkoutKm('long', prevLongKm);
+    if (prevWeekKm != null && longDay){
+      var biggestOther = 0;
+      rec.days.forEach(function(dd){
+        if (!(dd.km > 0) || dd === longDay || dd.type === 'race') return;
+        if (dd.km > biggestOther) biggestOther = dd.km;
+      });
+      var guard = 0;
+      while (weekTotalOf(rec.days) > prevWeekKm + 1e-9 &&
+             longDay.km - 1 >= Math.max(biggestOther, floorKm) && guard < 100){
+        guard++;
+        longDay.km = roundWorkoutKm('long', round1(longDay.km - 1));
       }
     }
 

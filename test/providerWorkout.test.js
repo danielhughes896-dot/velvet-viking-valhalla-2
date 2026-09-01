@@ -284,13 +284,27 @@ test('every pace target in every archetype has its bounds the right way round', 
   }));
 });
 
-test('a goal pace is marked exact rather than left as a one-wide window', () => {
+test('a goal pace is exact where the athlete owns it, and a band where they are reaching', () => {
+  /* WHAT THE EXACT WINDOW ACTUALLY MEANS. It was exact because goal pace was
+     prescribed literally, whatever the athlete's measured fitness said. It is
+     still exact when the goal is inside the noise of that measurement -- the
+     session genuinely is race day -- and it becomes a band from current-fitness
+     race effort to what is being asked when it is not, so the athlete can see
+     both numbers rather than only the one they cannot yet hold. */
   const a = app();
   const st = leaves(a.providerWorkout(day(a, 'goal_pace_block')).workout.steps)
     .find(s => s.intensity === 'goal_pace');
   const pace = st.targets.find(t => t.type === 'pace');
-  assert.equal(pace.exact, true);
-  assert.equal(pace.secPerKmFast, pace.secPerKmSlow);
+  const rp = a.racePacePrescription();
+  assert.ok(pace.secPerKmFast <= pace.secPerKmSlow, 'the band is never inverted');
+  if (rp.band === 'A'){
+    assert.equal(pace.exact, true);
+    assert.equal(pace.secPerKmFast, pace.secPerKmSlow);
+  } else {
+    assert.equal(pace.exact, false, 'a reaching band is not presented as an exact pace');
+    assert.ok(pace.secPerKmSlow > pace.secPerKmFast,
+      'and it spans from current-fitness race effort to what is being asked');
+  }
 });
 
 test('heart-rate targets are carried alongside pace, never instead of it', () => {
