@@ -3723,7 +3723,23 @@ function calibrationEligibility(ctx){
      reason not to stack another hard effort on top of it. */
   if (recentQualifiedPerformance(c.performances, c.today)) return no('recent_measured_effort');
 
-  if (!(c.currentVolume >= CALIBRATION_MIN_WEEKLY_KM)) return no('insufficient_base');
+  /* ---- THE SAFETY FLOOR, ASKED OF THE ATHLETE'S OWN EVIDENCE ----
+     CALIBRATION_MIN_WEEKLY_KM is unchanged and is not waived: an athlete below
+     it is not given a maximal field test. What changes is WHICH figure it is
+     asked of. Reading only the typed weekly volume is the authority
+     destination-led construction removed, and it showed: an athlete with a
+     year of demonstrated 47km weeks who typed nothing was told "insufficient
+     base", the calibration was deferred, and five of the six canonical
+     pathways took their threshold reading a week later than they needed to --
+     with every session before it prescribed against an estimate.
+
+     Demonstrated first, the typed figure second, exactly as everything else in
+     this architecture reads them. It can only ever admit an athlete whose own
+     completed training clears the floor, never one who has typed a number. */
+  var demKm = null;
+  try { demKm = demonstratedSustainableVolume(); } catch(e){ demKm = null; }
+  var baseKm = (demKm != null && demKm > 0) ? demKm : c.currentVolume;
+  if (!(baseKm >= CALIBRATION_MIN_WEEKLY_KM)) return no('insufficient_base');
 
   return { needed:true, reason:'eligible' };
 }
