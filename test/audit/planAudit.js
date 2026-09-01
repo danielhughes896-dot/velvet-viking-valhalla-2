@@ -114,6 +114,16 @@ function auditCase(opts){
     return {
       date: dd.date, week: dd.week, type: dd.type, title: dd.title,
       km: dd.km,
+      /* TWO FACTS THE ROLL-UP USED TO DROP, and the weekly-load instrument
+         needs both: a medium-long run is a second sustained effort rather than
+         an ordinary supporting run, and a marathon-pace segment is
+         race-specific work. Neither is inferable from `type` -- a medium-long
+         is typed 'easy' and a goal-pace finish sits inside a long run -- so
+         without them two whole load levers were invisible to the audit and
+         their cause classes could never fire. Additive: nothing that already
+         read a session is affected, and no generated output moves. */
+      mediumLong: !!dd.mediumLong,
+      mpSegment: !!dd.mpSegment,
       archetype: p ? p.archetype : null,
       params: p ? p.params : null,
       segments: segs ? segs.map(s => ({
