@@ -5513,42 +5513,42 @@ var RACE_GOAL_PATHWAY = {
          COMPATIBLE, AND THIS PAIR WAS NOT ----
          Eight kilometres is the half's entry long run, and it was written here
          as "the same athlete arriving at a different race". The two races are
-         not the same arithmetic. A fifteen-week marathon block hands out nine
-         development steps before its durability exposure, and the architecture's
-         own ceiling on a session is ten percent a step, so the furthest a long
-         run can travel is 1.10^9 -- a factor of 2.36. From eight kilometres that
-         reaches 18.9, and the pathway asks for 26. The destination was therefore
-         unreachable BY CONSTRUCTION for every athlete who entered on the
-         pathway's own assumption, and readiness reported a shortfall the
-         programme had built in.
+         not the same arithmetic. A fifteen-week marathon block reaches its
+         durability exposure after nine developing weeks and spends one of them
+         absorbing race-specific work into the long run, so eight steps carry
+         it; the architecture's ceiling on a session is ten percent a step, so
+         the furthest a long run can travel is 1.10^8 -- a factor of 2.14. From
+         eight kilometres that reaches 17.2, and the pathway asks for 26. The
+         destination was unreachable BY CONSTRUCTION for every athlete who
+         entered on the pathway's own assumption, and readiness reported a
+         shortfall the programme had built in.
 
-         26 / 1.10^9 = 11.0km, so the pathway's honest entry statement is about
-         twelve: an athlete beginning a fifteen-week first marathon should
-         already be running roughly twelve kilometres as their longest run. That
-         is not a new requirement invented to make a number work -- it is the
-         prerequisite the 26km destination has always implied, now stated. It
-         also matches what first-marathon programmes actually assume: Higdon's
-         Novice 1 opens on a six-mile long run.
+         26 / 1.10^8 = 12.1km, so the pathway's honest entry statement is
+         thirteen, with the margin a stated prerequisite should have: an athlete
+         beginning a fifteen-week first marathon should already be running about
+         thirteen kilometres as their longest run. That is not a requirement
+         invented to make a number work -- it is the prerequisite the 26km
+         destination has always implied, now stated, and it is close to what
+         first-marathon programmes assume (Higdon's Novice 1 opens on a six-mile
+         long run and takes eighteen weeks rather than fifteen).
 
          AN ATHLETE WHO ARRIVES BELOW IT STILL GETS A PROGRAMME. Their own
          demonstrated long run outranks this figure in both directions, the
          block develops from where they actually are, and readiness reports the
          gap -- which is a genuine athlete shortfall honestly measured rather
-         than an architectural one dressed up as coaching. */
-      /* AND THE ENTRY WEEK HAS TO BE ABLE TO CONTAIN THE ENTRY LONG RUN.
-         Twenty kilometres was stated beside an eight-kilometre long run and was
-         left where it was when that became twelve, which made the pathway
-         incoherent at its own entry: a twelve-kilometre run inside a twenty
-         kilometre week leaves eight for everything else, the supporting run
-         opens at four, and SUPPORT_SHARE_MIN then says a 26km long run needs
-         10.4km supporting runs -- which four cannot reach in nine steps at the
-         ordinary rate. Measured, the destination was unreachable at 20 and
-         reachable from 21 upward.
-         The pathway's own rules give the figure without measuring: entryDays 3
-         is the long run, one quality slot and one supporting run, and a
-         supporting run under a 12km long run is at least SUPPORT_SHARE_MIN of
-         it. 12 + 4.8 + 4.8 = 21.6. */
-      entryVolumeKm: 22, entryLongKm: 12, entryDays: 3,
+         than an architectural one dressed up as coaching.
+
+         AND THE ENTRY WEEK HAS TO BE ABLE TO CONTAIN THE ENTRY LONG RUN. Twenty
+         kilometres was stated beside an eight-kilometre long run and left there
+         when that became thirteen, which makes the pathway incoherent at its own
+         entry: a thirteen-kilometre run inside a twenty kilometre week leaves
+         seven for everything else, the supporting run opens below four, and
+         SUPPORT_SHARE_MIN then says a 26km long run needs 10.4km supporting
+         runs -- which four cannot reach in eight steps at the ordinary rate. The
+         pathway's own rules give the figure: entryDays 3 is the long run, one
+         quality slot and one supporting run, and a supporting run under a 13km
+         long run is at least SUPPORT_SHARE_MIN of it. 13 + 5.2 + 5.2 = 23.4. */
+      entryVolumeKm: 24, entryLongKm: 13, entryDays: 3,
       buildVolumeKm: 40, buildLongKm: 26,
       peakVolumeKm:  null, peakLongKm: 26, openEnded: false },
     experienced: {
@@ -5866,18 +5866,39 @@ function raceGoalPhaseAllocation(distKey, N){
    JUMPING to it in that week -- the catch-up this architecture forbids
    everywhere else -- and it no longer has to, because the progression is now
    scaled to land there. */
+/* ---- WHERE THE ABSORPTION WEEKS GO, AND THE ONE PLACE THEY MAY NOT ----
+   Every fourth week, which is the product's rhythm and is not in question.
+   Two exceptions, and both are about the block's LONGEST RUN.
+
+   NOT THE EXPOSURE ITSELF. The fourth-week grid put the first Peak week of a
+   sixteen-week marathon on week twelve, which is also its durability exposure:
+   the block's biggest long run, suppressed by 22% on the week it was supposed
+   to happen, and then delivered in full the week after. Measured, that is the
+   largest single step in the entire population -- +20.5km, 1.22x -- and it is
+   the geometry doing it rather than any athlete.
+
+   NOT THE WEEK BEFORE IT EITHER, which is the same collision one week earlier:
+   an eight-week block absorbed on week four and asked for its longest run on
+   week five, +23.5km at 1.27x. An absorption week exists so the athlete arrives
+   at the exposure rested; it does not exist to be the run-up to it.
+
+   SO THE PEAK'S OWN ABSORPTION WEEK IS THE SECOND EXPOSURE'S, where the half
+   already put it: the athlete takes the longest run, absorbs it, and then
+   rehearses. Where the grid would land on the exposure or the week before it
+   and Peak is too short to carry one, it moves one week earlier instead --
+   never later, because a week that is going to be absorbed should be absorbed
+   before the athlete is asked for the block's hardest session and not after. */
 function raceGoalCutbackWeek(distKey, N, w){
   var alloc = raceGoalPhaseAllocation(distKey, N);
   var buildW = alloc.base + alloc.build + alloc.peak;
-  if (w > buildW) return false;
+  if (w > buildW || w < 1) return false;
+  var ps = alloc.base + alloc.build;          // the last Build week
+  if (alloc.peak > 0 && w > ps && w <= ps + alloc.peak)
+    return alloc.peak >= 3 && w === ps + 2;
   var cut = (w % 4 === 0);
-  /* The half moves the Peak absorption week off the fourth-week grid so the
-     specific exposures run consecutively -- see the cutback block in
-     buildBlockWeeks(). Counted here exactly as it is applied there. */
-  if (distKey === 'half'){
-    var ps = alloc.base + alloc.build;
-    if (w > ps && w <= ps + alloc.peak) cut = alloc.peak >= 3 && w === ps + 2;
-  }
+  if (alloc.peak > 0 && w === ps && cut) return false;      // never the run-up
+  /* And the week it moves to, which is the run-up week's predecessor. */
+  if (alloc.peak > 0 && w === ps - 1 && ((w + 1) % 4 === 0) && w >= 1) return true;
   return cut;
 }
 function raceGoalDurabilityPeakWeek(distKey, N){
@@ -5894,6 +5915,27 @@ function raceGoalStepCount(distKey, N){
   var end = raceGoalDurabilityPeakWeek(distKey, N);
   var n = 0;
   for (var w = 1; w <= end; w++) if (!raceGoalCutbackWeek(distKey, N, w)) n++;
+  /* ---- AND THE WEEK THE BLOCK KNOWS IT WILL SPEND ----
+     Race-specific work enters the long run once, at the first week the phase
+     allows it, and that week holds the distance while the new stimulus lands --
+     which is right, and which costs a step. The block can see it coming: it is
+     the first week of Build. Where that week is already an absorption week the
+     arrival is free and nothing is deducted, which is exactly what happens on
+     the half, whose Base is three weeks long so its first Build week falls on
+     the fourth-week grid. The marathon's is four, so its arrival lands on a
+     developing week and every marathon pathway finished one step -- one to two
+     kilometres -- under its own requirement.
+
+     BUDGETED, NOT REPAID. The step is not handed back later at a bigger one;
+     the curve is simply scaled to the steps the block will actually take, so it
+     lands on the durability exposure rather than a week past it. Where the
+     arrival does not happen at all -- an athlete whose long run never reaches
+     the distance a goal-pace finish needs -- the curve completes a week early
+     and holds there, which costs nothing. */
+  var alloc = raceGoalPhaseAllocation(distKey, N);
+  var firstBuild = alloc.base + 1;
+  if (alloc.build > 0 && firstBuild <= end && !raceGoalCutbackWeek(distKey, N, firstBuild))
+    n--;
   return Math.max(1, n);
 }
 /* ---------- COMPRESSION IS A HIERARCHY, NOT A SCALE FACTOR ----------
@@ -7976,6 +8018,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   var halfArc = blockArch === 'half';
   /* The long run the half's first Peak exposure actually reached. Null until
      that week is built; read only by the Peak weeks after it. */
+  var rgPeakLongKm = null;
   var hPeakLongKm = null;
   var taper = steady ? 0 : arc.taper;
   var buildWeeks = steady ? N : arc.buildWeeks;
@@ -8439,11 +8482,14 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          first exposure and then rehearses twice in consecutive weeks before
          the taper. Nothing else moves: the earlier cutbacks are still every
          fourth week, and Peak still contains exactly one of them. */
-      if (halfArc && arc.phaseCounts){
-        var hcPeakStart = arc.phaseCounts.base + arc.phaseCounts.build;
-        var hcInPeak = w > hcPeakStart && w <= hcPeakStart + arc.phaseCounts.peak;
-        if (hcInPeak) isCutback = arc.phaseCounts.peak >= 3 && w === hcPeakStart + 2;
-      }
+      /* BOTH DEDICATED ARCHITECTURES, FROM ONE DEFINITION. This was the half's
+         rule alone and the marathon kept the bare fourth-week grid, which is
+         how a sixteen-week marathon came to absorb on the very week of its
+         durability exposure. raceGoalCutbackWeek() is the single statement of
+         where an absorption week goes; the step count reads the same function,
+         so the block's progression and its cutbacks cannot disagree. */
+      if (usesBottomUpArc(purpose, distKey))
+        isCutback = raceGoalCutbackWeek(distKey, N, w);
       /* A BLOCK THAT ENDS IN NOTHING STILL ENDS SOMEWHERE. With no goal effort
          to taper into, the last week is a consolidation week: the block
          finishes absorbed rather than at its own peak, which is the state the
@@ -8948,15 +8994,28 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          figure is new: both come from peakVolume and the long run's own share,
          the same two quantities every other week uses. */
       if (mA.peak > 1){
-        /* THE EXPOSURE IS THE LONG RUN'S OWN DESTINATION, not a share of a
-           weekly total. Under bottom-up construction there is no peak weekly
-           volume to take a share of, and reading one would put the long run
-           back under the authority this whole pass removed it from. */
-        var mPeakLong = mBottomUp ? mBottomUp.longDestKm
-                                  : Math.min(profile.longCapKm, peakVolume * longFrac);
-        mPeakLong = Math.min(profile.longCapKm, mPeakLong);
-        if (mPeakFirst) longTarget = mPeakLong;
-        if (mPeakLast)  longTarget = mPeakLong * PEAK_SECOND_EXPOSURE_FRACTION;
+        /* ---- AND IT IS THE LONGEST BY ARRIVING, NOT BY BEING JUMPED TO ----
+           This took the long run's DESTINATION for the first Peak week, which
+           was a catch-up: the session teleported from wherever its own
+           progression had reached to wherever it was going. It was the right
+           answer while the progression could not arrive -- the curve completed
+           in a week that did not exist, so SOMETHING had to put the exposure
+           where the event needs it. It arrives on its own now, because the
+           block's steps are scaled to land on this week, and the jump measured
+           1.21x on a 25km/week athlete's week eleven to twelve.
+
+           The half reached the same conclusion first and for the same reason;
+           this is its rule, applied to the architecture that needed it. What
+           makes the first exposure the longest is that the ones after it are
+           held at or below it -- which costs nothing and jumps nothing.
+
+           THE SECOND EXPOSURE IS A SHARE OF WHAT THE FIRST ACTUALLY WAS, not of
+           a destination the block may not have reached. A share of a number the
+           athlete was never given is not a second exposure of anything. */
+        if (mPeakFirst) rgPeakLongKm = longTarget;
+        else if (rgPeakLongKm != null)
+          longTarget = mPeakLast ? rgPeakLongKm * PEAK_SECOND_EXPOSURE_FRACTION
+                                 : Math.min(longTarget, rgPeakLongKm);
       }
     }
     /* ---- THE HALF'S PEAK ASKS TWO DIFFERENT QUESTIONS ----

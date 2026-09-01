@@ -116,11 +116,11 @@ const CANON = [
   { key:'Advanced Half', dist:'half', exp:'advanced',    days:6, weeks:15,
     ev:{ easyKm:11, longKm:18, qKm:12, easyDays:[0,2,4], tt5kMin:18 },
     needBuildKm:60, needBuildLong:21, needPeakKm:80, needPeakLong:21 },
-  /* Entering on the pathway's own stated prerequisite -- a twelve-kilometre
+  /* Entering on the pathway's own stated prerequisite -- a thirteen-kilometre
      longest run -- which is what "an athlete appropriate for this pathway"
      means. See RACE_GOAL_PATHWAY.full.novice for why eight was not. */
   { key:'New Marathon',  dist:'full', exp:'novice',      days:5, weeks:15,
-    ev:{ easyKm:6, longKm:12, easyDays:[0,2], tt5kMin:28 },
+    ev:{ easyKm:6, longKm:13, easyDays:[0,2], tt5kMin:28 },
     needBuildKm:40, needBuildLong:26, needPeakKm:null, needPeakLong:null },
   { key:'Experienced Marathon', dist:'full', exp:'experienced', days:6, weeks:15,
     ev:{ easyKm:9, longKm:18, qKm:10, easyDays:[0,2,4], tt5kMin:22 },
