@@ -8372,6 +8372,12 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                                     peakLongKm:mPath.peakLongKm,
                                     openEnded:!!mPath.openEnded } : null,
                   volumeDestKm: raceGoalVolumeDestinationKm(distKey, mExp, mEntry, 'peak'),
+                  /* THE PATHWAY'S OWN WEEKLY REQUIREMENT, unraised by anything
+                     the athlete has demonstrated -- the event's number, which
+                     is what a week may be developed toward without the athlete
+                     becoming their own target. */
+                  pathwayVolumeKm: mPath ? (mPath.peakVolumeKm != null
+                                            ? mPath.peakVolumeKm : mPath.buildVolumeKm) : null,
                   buildVolumeDestKm: raceGoalVolumeDestinationKm(distKey, mExp, mEntry, 'build'),
                   buildLongDestKm: raceGoalLongDestinationKm(distKey, mExp, mEntry, 'build'),
                   startSupportTotalKm: mSupTotalStart, supportTotalDestKm: mSupTotalDest,
@@ -9318,11 +9324,28 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          real floors, a new day redistributes work, and the long/support
          relationship has to stay coherent. That is geometry. What it may not do
          is take the ordinary progression step as well. */
-      /* The week the block is walking toward, read at THIS week's step on the
-         same curve the sessions use. Null where there is no volume destination
-         -- the marathon's Peak deliberately states none. */
-      var destAtStepKm = (mBottomUp.volumeDestKm > 0 && mBottomUp.entryKm > 0)
-        ? sessionAtStep(mBottomUp.entryKm, mBottomUp.volumeDestKm,
+      /* ---- THE WEEK THE RACE ASKS FOR, READ AT THIS WEEK'S STEP ----
+         THE PATHWAY'S FIGURE, NOT THE DESTINATION. volumeDestKm is the
+         pathway's requirement RAISED TO THE ATHLETE'S OWN DEMONSTRATED VOLUME,
+         which is the right destination -- an established athlete is not sent
+         backwards -- and exactly the wrong thing to fill a week up to. Filled
+         to it, this year's peak becomes next year's demonstrated volume becomes
+         next year's floor, and the programme ratchets: measured over a
+         twenty-two year simulation of a perfectly compliant marathoner, half a
+         kilometre a year, forever, with nothing but the profile ceiling to stop
+         it. A capacity is a bound on what may be prescribed; it is not a target,
+         and this is the one place that distinction had gone missing.
+
+         So the top-up serves the EVENT's requirement, which is a fixed number
+         that cannot move with the athlete. Where the athlete's own established
+         load is already larger, their week is carried by their own shape --
+         marathonSupportDestination()'s `grown` term -- and this term has nothing
+         to add, which is why it stands down entirely rather than reaching for
+         the higher figure. Null where the pathway states no volume destination:
+         the marathon's Peak deliberately states none. */
+      var destAtStepKm = (mBottomUp.pathwayVolumeKm > 0 && mBottomUp.entryKm > 0 &&
+                          mBottomUp.pathwayVolumeKm > mBottomUp.entryKm)
+        ? sessionAtStep(mBottomUp.entryKm, mBottomUp.pathwayVolumeKm,
                         mBottomUp.progressing, mStep) : 0;
       var mSol = mSolveWeek(longTarget, mWeek.supportKm);
       var mHeld = false;
