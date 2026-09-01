@@ -4604,6 +4604,113 @@ var TEMPO_STRUCTURE_POOL = {
              structSplitTempo, structThresholdContinuous]
 };
 
+/* =========================================================
+   THE HALF MARATHON'S OWN QUALITY PROGRESSION
+
+   ONE COACHING LINE, NOT A CATALOGUE. The half is a threshold event, so its
+   quality thread is a single progression that migrates rather than a rotation
+   through variety:
+
+     CONTROLLED THRESHOLD REPS   introduce the intensity at a cost the athlete
+                                 can absorb. Broken, so the effort is
+                                 learnable and the dose is controllable.
+     LONGER / DENSER THRESHOLD   the workhorse. The same effort, held for
+                                 longer, with less between the pieces.
+     CONTINUOUS THRESHOLD        sustained-effort tolerance, and the bridge to
+                                 race specificity.
+     HALF-SPECIFIC SUSTAINED     race rhythm at race effort -- broken first,
+                                 then continuous.
+
+   WITH TWO THREADS RUNNING UNDERNEATH IT. Progressive tempo rehearses the
+   finish of a race, which is the one thing a flat threshold session cannot
+   teach; and economy work -- fartlek off float recoveries, hills, strides --
+   is present from the first week to the last, at a dose that falls as
+   specificity rises and never at a dose that dominates.
+
+   NO NEW STRUCTURES ARE INVENTED. Every candidate below already exists and is
+   already sized from EMPHASIS_TEMPO_RANGE / EMPHASIS_INTERVAL_RANGE by the
+   half's own emphasis. What changes is WHICH of them the half draws on, in
+   which phase, and in what order -- which is the difference between a coaching
+   progression and a rotation.
+
+   WHAT LEAVES. structTrackIntervals at Peak dimensions -- 8x1000m, the largest
+   single session the half could receive -- is not in the half's Peak pool. A
+   VO2 session of that size in the phase where race specificity is the point is
+   the "maximal everything in the same week" stack the methodology prohibits,
+   and it was the half's biggest quality day in the audit. Faster work is
+   retained through the fartlek, which is cheaper in fatigue and higher in
+   aerobic yield. */
+var HALF_INTERVAL_POOL = {
+  /* THE ECONOMY THREAD. Hills first because they are the cheapest way to ask
+     for force and turnover in a foundation week; fartlek thereafter because
+     its float recoveries keep the session aerobic while it is still fast. */
+  Base:  [structHillRepeats, structFartlek],
+  Build: [structFartlek, structHillRepeats],
+  /* AND IN PEAK THE FASTER SLOT IS ALSO SPECIFIC. Goal-pace repetitions are
+     half-marathon work in broken form -- the step before the continuous
+     block -- and the fartlek is what keeps economy alive beside it. */
+  Peak:  [structGoalPaceIntervals, structFartlek],
+  Maintain: [structFartlek, structHillRepeats]
+};
+var HALF_TEMPO_POOL = {
+  /* CONTROLLED, AND BROKEN ON PURPOSE. A split tempo is threshold work the
+     athlete can meet in pieces; steady tempo is the same effort without the
+     structure, for the week that wants the simpler session. */
+  Base:  [structSplitTempo, structSteadyTempo],
+  /* THE WORKHORSE PHASE. Split tempo lengthens, continuous threshold arrives,
+     and progressive tempo rehearses a finish. */
+  Build: [structSplitTempo, structThresholdContinuous, structProgressiveTempo],
+  /* AND THE TERMINAL FORM. A continuous block at race effort, with continuous
+     threshold beside it so the thread the block came out of is still there. */
+  Peak:  [structGoalPaceBlock, structThresholdContinuous],
+  Maintain: [structSteadyTempo, structProgressiveTempo,
+             structSplitTempo, structThresholdContinuous]
+};
+/* WHICH POOL THIS BLOCK DRAWS FROM. Only a half RACE block gets the half's
+   own progression; its maintenance, base and recovery blocks keep the shared
+   pools, and every other distance is untouched. */
+function intervalPoolFor(purpose, distKey){
+  return raceGoalArch(purpose, distKey) === 'half' ? HALF_INTERVAL_POOL
+                                                   : INTERVAL_STRUCTURE_POOL;
+}
+function tempoPoolFor(purpose, distKey){
+  return raceGoalArch(purpose, distKey) === 'half' ? HALF_TEMPO_POOL
+                                                   : TEMPO_STRUCTURE_POOL;
+}
+/* ---------- WHICH FAMILY THE HALF'S ONE QUALITY SLOT DELIVERS ----------
+   A ONE-SLOT WEEK DELIVERS ONE FAMILY, so the family sequence IS the
+   progression the athlete receives -- and choosing it by whether the week
+   number is odd, which is what every distance did, gives threshold exactly
+   half the weeks in the event threshold defines.
+
+   FOUNDATION   threshold on the odd weeks, economy between. Week one is a
+                threshold slot, which is also where the calibration lands when
+                the athlete has earned it -- the same session, measured.
+   BUILD        threshold two weeks in three. Economy keeps the third.
+   PEAK         first exposure continuous at race effort, then the absorption
+                week takes the cheaper broken session, then broken, then the
+                block's final and most specific session continuous again.
+                That is the broken-to-continuous migration stated as a
+                sequence rather than as a rule about week numbers.
+   WIND-DOWN    threshold. The last full-dose session before D-10 is the one
+                the athlete has been building all block, not a new idea. */
+function halfQualityKindFor(phase, weekNum, alloc){
+  if (!alloc) return null;
+  if (phase === 'Base')  return (weekNum % 2 === 1) ? 'tempo' : 'interval';
+  if (phase === 'Build'){
+    var bi = weekNum - alloc.base;                   // 1-based index into Build
+    return (bi % 3 === 0) ? 'interval' : 'tempo';
+  }
+  if (phase === 'Peak'){
+    var pi = weekNum - alloc.base - alloc.build;     // 1-based index into Peak
+    if (pi <= 1) return 'tempo';
+    if (pi >= alloc.peak) return 'tempo';
+    return 'interval';
+  }
+  if (phase === 'Taper') return 'tempo';
+  return null;
+}
+
 /* Where a maintenance block sits inside every structure's dimension range.
    A CYCLE RATHER THAN A CONSTANT, and the distinction is the whole of what
    makes maintenance maintenance:
@@ -5087,6 +5194,13 @@ var HALF_TAPER_ANCHOR_DAYS = 10;
    inside the 41-60% band the taper meta-analyses support -- it is calibrated
    against that evidence and reported against it, rather than picked. */
 var HALF_TAPER_FINAL_FRACTION = 0.35;
+/* Where the half holds its economy work inside each structure's own range.
+   The middle, for the same reason maintenance sits there: the bottom is a
+   detraining dose and the top is a peak the athlete cannot hold while the
+   threshold thread is still climbing. No new range and no new session -- the
+   same structures, sized where they stop competing with the work the block is
+   actually for. */
+var HALF_ECONOMY_POS_MAX = 0.5;
 /* THE DOSE A SESSION CARRIES THIS MANY DAYS OUT. 1 outside the taper; falling
    linearly to HALF_TAPER_FINAL_FRACTION the day before the race. Race day
    itself is the race and is not scaled by this. */
@@ -7317,6 +7431,9 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      below that is the HALF's coaching rather than the shared one. */
   var blockArch = raceGoalArch(purpose, distKey);
   var halfArc = blockArch === 'half';
+  /* The long run the half's first Peak exposure actually reached. Null until
+     that week is built; read only by the Peak weeks after it. */
+  var hPeakLongKm = null;
   var taper = steady ? 0 : arc.taper;
   var buildWeeks = steady ? N : arc.buildWeeks;
   /* THE CEILING IS APPLIED TO THE PEAK, which is what closes the loop: every
@@ -7924,8 +8041,29 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        thought of yet, it is the smallest version of itself rather than the
        largest. Depth in a safety rule costs nothing here. */
     if (purpose === 'recovery') pos = 0;
-    var qSpec = pickQualityStructure(INTERVAL_STRUCTURE_POOL, structPhase, w, pos, profile.emphasis, rotation);
-    var tSpec = pickQualityStructure(TEMPO_STRUCTURE_POOL, structPhase, w, pos, profile.emphasis, rotation);
+    /* WHICH POOLS THIS BLOCK DRAWS FROM. The half race arc has its own
+       progression; everything else keeps the shared pools exactly. */
+    var qPool = intervalPoolFor(purpose, distKey);
+    var tPool = tempoPoolFor(purpose, distKey);
+    /* ---- ECONOMY IS RETAINED, NOT PROGRESSED ----
+       Every structure lerps its dimensions across `pos`, so a family left to
+       run its full range grows all block. In a half that is right for the
+       threshold thread and wrong for the faster one: the dose that should be
+       rising is the one the event is about, and economy work exists to keep
+       mechanics and turnover alive at a cost that does not compete with it.
+       Measured at 30km/week, an unrestrained fartlek reached 10.5km in the
+       last Build week -- a quarter of the week, and the block's largest
+       quality day, three weeks from the race.
+
+       HELD AT THE MIDDLE OF ITS OWN RANGE through Base and Build, which is the
+       same statement maintenance already makes about a dose that should not
+       trend. In PEAK the faster slot is goal-pace work rather than economy, so
+       it progresses normally -- what is held back is the family that is not
+       the point of the block, not the family that is. */
+    var qPos = (halfArc && (structPhase === 'Base' || structPhase === 'Build'))
+      ? Math.min(pos, HALF_ECONOMY_POS_MAX) : pos;
+    var qSpec = pickQualityStructure(qPool, structPhase, w, qPos, profile.emphasis, rotation);
+    var tSpec = pickQualityStructure(tPool, structPhase, w, pos, profile.emphasis, rotation);
     // Taper shrinks the STRUCTURE, then the day is sized from that structure --
     // so the number on the card and the session written on it cannot disagree.
     /* ---- a quality session is never the longest run of the week ----
@@ -7991,11 +8129,11 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          reached yet. */
       var taperShrink = (isTaper && !halfArc) ? TAPER_QUALITY_FACTOR : 1;
       var taperSeed = isTaper && !halfArc;
-      qSpec = fitQualityStructure(INTERVAL_STRUCTURE_POOL, 'interval', structPhase, w, pos,
+      qSpec = fitQualityStructure(qPool, 'interval', structPhase, w, qPos,
                                   profile.emphasis, rotation,
                                   Math.min(taperCeilQ, weekFitCeil), taperSeed ? prevQSpec : null,
                                   taperShrink);
-      tSpec = fitQualityStructure(TEMPO_STRUCTURE_POOL, 'tempo', structPhase, w, pos,
+      tSpec = fitQualityStructure(tPool, 'tempo', structPhase, w, pos,
                                   profile.emphasis, rotation,
                                   Math.min(taperCeilT, weekFitCeil), taperSeed ? prevTSpec : null,
                                   taperShrink);
@@ -8037,11 +8175,18 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         var mKind = marathonQualityKindFor(phase, w, w - mAlloc.base, mAlloc.build);
         if (mKind) soloKind = mKind;
       }
+      /* THE HALF'S SEQUENCE, for the same reason and in the same place: this
+         is the chain a one-slot week actually delivers, so it is where the
+         progression has to be stated. */
+      if (halfArc && !isCheckpoint && !isCalibration){
+        var hKind = halfQualityKindFor(phase, w, arc.phaseCounts);
+        if (hKind) soloKind = hKind;
+      }
       var soloOcc = soloKind === 'interval' ? soloOccQ : soloOccT;
       soloSpec = fitQualityStructure(
-        soloKind === 'interval' ? INTERVAL_STRUCTURE_POOL : TEMPO_STRUCTURE_POOL,
-        soloKind, structPhase, soloOcc, pos, profile.emphasis, rotation,
-        weekFitCeil, null, 1);
+        soloKind === 'interval' ? qPool : tPool,
+        soloKind, structPhase, soloOcc, soloKind === 'interval' ? qPos : pos,
+        profile.emphasis, rotation, weekFitCeil, null, 1);
       soloKm = soloKind === 'interval' ? intervalSessionKm(soloSpec) : tempoSessionKm(soloSpec);
       soloFitsBound = soloKm <= weekFitCeil + 1e-9;
       if (soloKind === 'interval') soloOccQ++; else soloOccT++;
@@ -8103,6 +8248,36 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         if (mPeakLast)  longTarget = mPeakLong * PEAK_SECOND_EXPOSURE_FRACTION;
       }
     }
+    /* ---- THE HALF'S PEAK ASKS TWO DIFFERENT QUESTIONS ----
+       AND NOT IN THE MARATHON'S GEOMETRY. The marathon separates its longest
+       run from its most specific one because asking for both at once is
+       unsurvivable at 30km. A half's exposures are cheap enough to repeat, so
+       the separation here is made for a different reason: DURABILITY AND
+       SPECIFICITY ARE TWO DIFFERENT QUESTIONS, and the specific one should be
+       asked closest to the race.
+
+       So the FIRST Peak week takes the long run's own destination -- the
+       block's longest run -- and is left purely aerobic, and the exposures
+       after it carry the race-specific work. Nothing is invented: the distance
+       is the destination the long run was already developing toward, and the
+       weeks after it progress exactly as they would have. */
+    var hPeakFirst = false;
+    if (halfArc && phase === 'Peak' && !isRace && !isTaper && arc.phaseCounts){
+      hPeakFirst = (w === arc.phaseCounts.base + arc.phaseCounts.build + 1);
+      /* ---- AND IT IS THE LONGEST BY BEING HELD, NOT BY BEING JUMPED TO ----
+         The first version of this took the long run's DESTINATION for the
+         first Peak week, which is what the marathon does. On the half it was a
+         catch-up: the run teleported from wherever its own progression had
+         reached to wherever it was going, and the load instrument caught
+         exactly that -- long-run steps above the rate rose from 131 to 361.
+
+         The session keeps its own progression. What makes the first exposure
+         the longest is that the ones after it are held at or below it, which
+         costs nothing and jumps nothing: the long run has arrived at its
+         durability exposure and the rest of Peak is about specificity. */
+      if (hPeakFirst) hPeakLongKm = longTarget;
+      else if (hPeakLongKm != null) longTarget = Math.min(longTarget, hPeakLongKm);
+    }
     var b2bEligible = !!profile.backToBack && !isTaper && !isRace && phase!=='Base';
 
     /* OMITTED, NOT SHRUNK, BELOW THE FLOOR.
@@ -8125,6 +8300,9 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        distance and gives up its specific work; the second exposure, which is
        shorter, is where the marathon-specific rehearsal lives. */
     if (mPeakFirst) hasGoalSegment = false;
+    /* DURABILITY DOMINANT MEANS THE SAME THING FOR THE HALF. The block's
+       longest run is not also the week it rehearses race pace. */
+    if (hPeakFirst) hasGoalSegment = false;
     var goalSegKm = hasGoalSegment ? round1(clamp(longTarget*(0.2+0.18*pos),3,longTarget*0.5)) : 0;
     /* And the second exposure carries MORE of it, because that is what makes it
        the specific one rather than merely the smaller one. */
