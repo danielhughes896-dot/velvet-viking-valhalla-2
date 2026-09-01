@@ -171,12 +171,30 @@ test('a week whose long run is genuinely aerobic keeps its full allowance', () =
 test('the freed day stays a running day', () => {
   /* The week is spending its quality budget differently, not running less.
      Compared against the same plan built with the long run held aerobic. */
+  /* ---- THE CONTROL IS INSIDE THE SAME BLOCK ----
+     This asserted a flat six running days, which was the same statement while
+     the block filled every available day. It no longer does: the architecture
+     prescribes the fewest days the work actually needs, so a marathon week
+     legitimately runs on five and its neighbour on six. The property is not a
+     number, it is that specificity does not COST the week a running day, and
+     the only clean control for that is the same athlete in the same block
+     before specificity arrived -- not a second plan, which differs in the
+     quality frequency it earned rather than in the long run.
+
+     Measured: the aerobic-long weeks and the specific-long weeks of the same
+     marathon block run on the same numbers of days, 5 and 6 in both, so the day
+     count is following the week's own arithmetic and not being spent on the
+     goal segment. That is what "the freed day stays a running day" means. */
   ['half','full'].forEach(d => {
     const { a, blk, days } = plan(d, 6, true);
-    weekRows(a, blk, days).filter(r => r.specificLong).forEach(r => {
-      assert.equal(r.runDays, 6,
-        d + ' week ' + r.week + ': ' + r.runDays + ' running days, not 6');
-    });
+    const rows = weekRows(a, blk, days);
+    const before = rows.filter(r => !r.specificLong && !r.isTaper && !r.isRace);
+    const after  = rows.filter(r =>  r.specificLong);
+    assert.ok(before.length && after.length, d + ' needs both kinds of week');
+    const floor = Math.min.apply(null, before.map(r => r.runDays));
+    after.forEach(r => assert.ok(r.runDays >= floor,
+      d + ' week ' + r.week + ': ' + r.runDays + ' running days, below the ' +
+      floor + ' the same block runs on before its long run became specific'));
   });
 });
 
@@ -225,9 +243,27 @@ test('the specific work itself is untouched — this moved the budget, not the s
   ['half','full'].forEach(d => {
     const before = plan(d, 6, false);   // unchanged athlete, for the segment sizes
     const after  = plan(d, 6, true);
-    const carries = p => p.blk.weeks.map(w => w.week + ':' + (w.hasGoalSegment ? 1 : 0)).join(',');
-    assert.equal(carries(after), carries(before),
-      d + ': which weeks carry race-specific work must not move');
+    /* ---- WHICH WEEKS CARRY IT IS NOW A COACHING DECISION, AND IT MOVES ----
+       This asserted the carrying weeks were identical either way. HQ's
+       experience-and-absorption ruling deliberately changed that: an experienced
+       athlete whose evidence says they are absorbing their training, with a
+       demonstrated quality family behind them, meets race-specific work in the
+       last week of Base rather than the first week of Build. The `earned`
+       fixture stubs exactly that evidence -- an ADAPTING block and established
+       families -- so its specificity beginning EARLIER is the ruling working,
+       not the budget rewriting anything.
+
+       What must hold, and is asserted instead, is the direction and the end: an
+       athlete with the evidence never meets it LATER than one without, and the
+       block stops asking for it in the same week either way. */
+    const carryWeeks = p => p.blk.weeks.filter(w => w.hasGoalSegment).map(w => w.week);
+    const wa = carryWeeks(after), wb = carryWeeks(before);
+    assert.ok(wa.length && wb.length, d + ': both athletes must meet race pace');
+    assert.ok(wa[0] <= wb[0],
+      d + ': the absorbing athlete met race-specific work in week ' + wa[0] +
+      ', later than week ' + wb[0] + ' for the athlete without the evidence');
+    assert.equal(wa[wa.length - 1], wb[wb.length - 1],
+      d + ': the block must stop asking for it in the same week either way');
     /* AND THE SHARE STAYS THE SHARE, within the one step the segment's own
        three-kilometre floor can introduce: the segment is a proportion of the
        long run bounded below by 3km, so where the long run differs the floor
@@ -235,7 +271,10 @@ test('the specific work itself is untouched — this moved the budget, not the s
        job, not the budget rewriting the session. */
     const frac = p => p.blk.weeks.map(w => Math.round(100 * (w.goalSegFrac || 0)));
     const fa = frac(after), fb = frac(before);
-    fa.forEach((v, i) => assert.ok(Math.abs(v - fb[i]) <= 2,
-      d + ' week ' + (i + 1) + ': the specific share moved from ' + fb[i] + '% to ' + v + '%'));
+    /* On the weeks BOTH athletes carry it, which is what "the same session" can
+       mean once the week it starts in is allowed to differ. */
+    fa.forEach((v, i) => { if (!(fa[i] > 0 && fb[i] > 0)) return;
+      assert.ok(Math.abs(v - fb[i]) <= 2,
+        d + ' week ' + (i + 1) + ': the specific share moved from ' + fb[i] + '% to ' + v + '%'); });
   });
 });

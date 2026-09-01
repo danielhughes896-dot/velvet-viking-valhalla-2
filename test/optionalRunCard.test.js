@@ -21,7 +21,14 @@ function athlete(){
       sessions.push({ date: a.addDays(m, d), completed: true, actualKm: 9, plannedKm: 9 });
   }
   a.state.athlete = { sessions };
-  const schedule = { activeDays: [0, 1, 2, 3, 5, 6], longRunDay: 6 };
+  /* EVERY DAY AVAILABLE, because a protected rest day needs one to spare.
+     Prescribed frequency is a capacity now and it develops: a six-day athlete
+     reaches six prescribed days within three weeks and the programme has
+     nothing left over to protect. A protected rest day is an AVAILABLE day the
+     programme did not need and then declined to offer a run on, so the athlete
+     who has one is the athlete with a day to spare. The three kinds and the
+     rule that distinguishes them are unchanged. */
+  const schedule = { activeDays: [0, 1, 2, 3, 4, 5, 6], longRunDay: 6 };
   const start = a.addDays(TODAY, -14);
   const end = a.addDays(a.addDays(start, -a.isoWeekday(start)), 14 * 7 - 1);
   a.state.days = a.buildDaysFromWeeks(a.buildBlockWeeks('half', 45, 14, {}), end, schedule, start, false);
