@@ -9897,7 +9897,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         mBottomUp.lastStep = mHeld ? mHoldStep : mStep;
         mEarnedSupportTotalKm = round1(mSupN * mWeek.supportKm);
         if (!mHeld) mBottomUp.advances++;
-        if (!isCutback && !mHeld) mBottomUp.supportAdvances++;
+        if (!mHeld) mBottomUp.supportAdvances++;
       }
       if (!isTaper && volume > mPeakBuiltKm) mPeakBuiltKm = volume;
     }

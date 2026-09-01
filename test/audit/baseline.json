@@ -25,47 +25,47 @@
   "week_overshoots_target_declared": 780,
   "week_one_at_session_floor": 90,
   "long_run_shorter_than_easy_run": 1666,
-  "week_over_week_growth_over_10pct": 1038,
+  "week_over_week_growth_over_10pct": 1132,
   "long_run_shorter_than_quality": 433,
   "quality_dominates_week": 105,
   "load_progression_rebound_exceeds_trend": 57,
-  "load_progression_structure_introduced_with_dose_step": 648,
+  "load_progression_structure_introduced_with_dose_step": 601,
   "load_progression_long_run_step_above_rate": 553,
-  "load_progression_quality_structure_step": 707,
-  "week_undershoots_target_declared": 2270,
-  "load_progression_compound_load_progression": 334,
+  "load_progression_quality_structure_step": 801,
+  "week_undershoots_target_declared": 2552,
+  "load_progression_compound_load_progression": 381,
   "week_one_above_stated_volume": 476,
-  "load_progression_broad_load_increase": 95,
+  "load_progression_broad_load_increase": 189,
   "long_run_implausible_for_distance": 923,
   "load_progression_exceeds_two_week_backstop": 2
  },
  "tallyRace": {
   "long_run_shorter_than_quality": 25,
-  "load_progression_structure_introduced_with_dose_step": 265,
-  "week_over_week_growth_over_10pct": 588,
-  "load_progression_quality_structure_step": 489,
-  "week_undershoots_target_declared": 1990,
+  "load_progression_structure_introduced_with_dose_step": 237,
+  "week_over_week_growth_over_10pct": 644,
+  "load_progression_quality_structure_step": 545,
+  "week_undershoots_target_declared": 2188,
   "week_one_above_stated_volume": 146,
   "load_progression_rebound_exceeds_trend": 33,
   "load_progression_long_run_step_above_rate": 291,
-  "load_progression_compound_load_progression": 206,
-  "load_progression_broad_load_increase": 57
+  "load_progression_compound_load_progression": 234,
+  "load_progression_broad_load_increase": 113
  },
  "tallyRouted": {
   "week_overshoots_target_declared": 780,
   "week_one_at_session_floor": 90,
   "long_run_shorter_than_easy_run": 1666,
-  "week_over_week_growth_over_10pct": 450,
+  "week_over_week_growth_over_10pct": 488,
   "long_run_shorter_than_quality": 408,
   "quality_dominates_week": 105,
   "load_progression_rebound_exceeds_trend": 24,
-  "load_progression_structure_introduced_with_dose_step": 383,
+  "load_progression_structure_introduced_with_dose_step": 364,
   "load_progression_long_run_step_above_rate": 262,
-  "load_progression_compound_load_progression": 128,
-  "load_progression_quality_structure_step": 218,
+  "load_progression_compound_load_progression": 147,
+  "load_progression_quality_structure_step": 256,
   "week_one_above_stated_volume": 330,
-  "week_undershoots_target_declared": 280,
-  "load_progression_broad_load_increase": 38,
+  "week_undershoots_target_declared": 364,
+  "load_progression_broad_load_increase": 76,
   "long_run_implausible_for_distance": 923,
   "load_progression_exceeds_two_week_backstop": 2
  },
@@ -84,7 +84,7 @@
   "long_run_implausible_for_distance": 3352
  },
  "descriptive": {
-  "week_over_week_growth_over_10pct": 1038,
+  "week_over_week_growth_over_10pct": 1132,
   "note": "SERIES: 466 -> 495 -> 515 -> 918 -> 819 -> 1114 -> 1576. The last step is destination-led Race Goal construction: both dedicated architectures now walk from where the athlete is to what the EVENT asks for and arrive, where before every pathway plateaued at 70-90% of its own requirement. A block that actually progresses steps at the ordinary rate in most of its weeks, and this measure reads every such week. It is why the measure was demoted to descriptive. In the population the product actually builds as a Race Goal block the figure is 141, against 143 before this pass.",
   "week_one_at_session_floor": 90,
   "week_one_above_stated_volume": 476
@@ -134,5 +134,6 @@
   "load_progression_broad_load_increase": 117,
   "week_one_exceeds_entry_capacity": 0
  },
- "correctionNoteEntryGeometry": "HQ'S LOCKED WEEK-1 ENTRY, THE STEP COUNT THAT HAD TO CHANGE WITH IT, AND THE\nTHREE THINGS THAT FELL OUT. Same 2,350 plans, same 30,080 weeks, same inputs.\n\nWHAT CHANGED IN THE RUNTIME. (1) The bottom-up arc was seeded at step one, so\nweek one was delivered one progression step ABOVE the athlete's entry -- 22.5km\nfor a locked 20km novice marathon start. The code said why: seeded at zero the\nlast developing week stood on step P-1 of P. That is the count being wrong, not\nthe start: P weeks contain P-1 intervals. Week one now IS the entry and the step\ncount is the count of gaps. (2) Race-specific work arriving in the week after an\nabsorption week held its dose there, giving two consecutive weeks on the same\nstep; the arrival now waits a week where it would land there. (3) A governed\nlong run no longer absorbs supporting volume the easy days cannot hold: on a\nthree-day 24-week half the block asked for an 11.3km long run in week ten and\nthe athlete was written a 16km one, a 45% single-week step invisible to the\ncurve. That volume is now surrendered and reported as undistributedKm.\n\nWHAT CHANGED IN THE INSTRUMENT, and it is one units error rather than a\nthreshold. REBOUND_EXCEEDS_TREND compared a change spanning two weeks against a\none-week ceiling. Once the curve began stepping THROUGH an absorption week --\nwhich every published methodology does, and which this branch corrected -- a\nrebound landed at 1.10 squared by construction and was reported as an overshoot.\nIt is now raised to the number of weeks the comparison actually spans. A rebound\nthat genuinely outruns two weeks of trend still fires: 57 of them do.\n\nAND ONE ORDERING. week_one_exceeds_entry_capacity read demonstrated, then the\nSTATED weekly figure, then the pathway. The engine stopped reading the typed\nnumber as an entry authority when destination-led construction removed it, so\nthe middle term measured the block against a figure it is ruled not to use and\nreported 161 race programmes as opening above an entry that was never theirs.\nThe typed figure is still measured, as the descriptive class\nweek_one_above_stated_volume -- 476 cases, 146 of them race programmes -- because\nthe gap between what an athlete says they run and what their chosen pathway\nopens at is a real thing a reader should see. It is an open question for HQ,\nnot a resolved one.\n\nMEASURED, EVERY RECORDED CLASS FALLS EXCEPT ONE:\n  week_one_exceeds_entry_capacity           0 ->   0   (hard, and flat at zero)\n  week_one_at_session_floor               170 ->  90\n  quality_dominates_week                  139 -> 105   (race population: 0)\n  structure_introduced_with_dose_step     780 -> 648\n  long_run_step_above_rate                614 -> 553\n  rebound_exceeds_trend                   741 ->  57\n  two_week_backstop                        96 ->   0   (population-wide, all distances)\n  week_over_week_growth_over_10pct       1572 -> 1038\n\nTHE ONE RISE IS load_progression_quality_structure_step, 694 -> 707, and it was\ndecomposed before it was accepted. Measured case by case against the same matrix\nimmediately before these changes, the count was 472 and every one of the 235 new\ntransitions is a HALF ON THREE DAYS: 4w wk1, 12w wk7, 16w wk10, 24w wk2 and 24w\nwk10, at 47 cases each -- one per stated volume, which is itself the evidence\nthat the typed number no longer sizes the block. None is the athlete doing more.\nThey appear because surrendering the unplaceable volume makes the earlier week\nSMALLER and therefore the following step proportionally larger, and because a\nthree-day week carries a single quality slot that rotates between families whose\nnatural sizes differ by more than one ordinary step -- a 5km interval session\nfollowed by a 7km tempo is a 1.4x 'quality dose step' that is the rotation, not a\nprogression. The week totals involved are 26-31km. Recorded rather than\nsuppressed, and the three-day quality rotation is reported to HQ as an open\nmethodology question in its own right.\n\nPOPULATION. racePlans 448 -> 950 and routedPlans 1902 -> 1400, from the entry\nboundary becoming the pathway's own entry week; this baseline is the first cut\nthat records the new split."
+ "correctionNoteEntryGeometry": "HQ'S LOCKED WEEK-1 ENTRY, THE STEP COUNT THAT HAD TO CHANGE WITH IT, AND THE\nTHREE THINGS THAT FELL OUT. Same 2,350 plans, same 30,080 weeks, same inputs.\n\nWHAT CHANGED IN THE RUNTIME. (1) The bottom-up arc was seeded at step one, so\nweek one was delivered one progression step ABOVE the athlete's entry -- 22.5km\nfor a locked 20km novice marathon start. The code said why: seeded at zero the\nlast developing week stood on step P-1 of P. That is the count being wrong, not\nthe start: P weeks contain P-1 intervals. Week one now IS the entry and the step\ncount is the count of gaps. (2) Race-specific work arriving in the week after an\nabsorption week held its dose there, giving two consecutive weeks on the same\nstep; the arrival now waits a week where it would land there. (3) A governed\nlong run no longer absorbs supporting volume the easy days cannot hold: on a\nthree-day 24-week half the block asked for an 11.3km long run in week ten and\nthe athlete was written a 16km one, a 45% single-week step invisible to the\ncurve. That volume is now surrendered and reported as undistributedKm.\n\nWHAT CHANGED IN THE INSTRUMENT, and it is one units error rather than a\nthreshold. REBOUND_EXCEEDS_TREND compared a change spanning two weeks against a\none-week ceiling. Once the curve began stepping THROUGH an absorption week --\nwhich every published methodology does, and which this branch corrected -- a\nrebound landed at 1.10 squared by construction and was reported as an overshoot.\nIt is now raised to the number of weeks the comparison actually spans. A rebound\nthat genuinely outruns two weeks of trend still fires: 57 of them do.\n\nAND ONE ORDERING. week_one_exceeds_entry_capacity read demonstrated, then the\nSTATED weekly figure, then the pathway. The engine stopped reading the typed\nnumber as an entry authority when destination-led construction removed it, so\nthe middle term measured the block against a figure it is ruled not to use and\nreported 161 race programmes as opening above an entry that was never theirs.\nThe typed figure is still measured, as the descriptive class\nweek_one_above_stated_volume -- 476 cases, 146 of them race programmes -- because\nthe gap between what an athlete says they run and what their chosen pathway\nopens at is a real thing a reader should see. It is an open question for HQ,\nnot a resolved one.\n\nMEASURED, EVERY RECORDED CLASS FALLS EXCEPT ONE:\n  week_one_exceeds_entry_capacity           0 ->   0   (hard, and flat at zero)\n  week_one_at_session_floor               170 ->  90\n  quality_dominates_week                  139 -> 105   (race population: 0)\n  structure_introduced_with_dose_step     780 -> 648\n  long_run_step_above_rate                614 -> 553\n  rebound_exceeds_trend                   741 ->  57\n  two_week_backstop                        96 ->   0   (population-wide, all distances)\n  week_over_week_growth_over_10pct       1572 -> 1038\n\nTHE ONE RISE IS load_progression_quality_structure_step, 694 -> 707, and it was\ndecomposed before it was accepted. Measured case by case against the same matrix\nimmediately before these changes, the count was 472 and every one of the 235 new\ntransitions is a HALF ON THREE DAYS: 4w wk1, 12w wk7, 16w wk10, 24w wk2 and 24w\nwk10, at 47 cases each -- one per stated volume, which is itself the evidence\nthat the typed number no longer sizes the block. None is the athlete doing more.\nThey appear because surrendering the unplaceable volume makes the earlier week\nSMALLER and therefore the following step proportionally larger, and because a\nthree-day week carries a single quality slot that rotates between families whose\nnatural sizes differ by more than one ordinary step -- a 5km interval session\nfollowed by a 7km tempo is a 1.4x 'quality dose step' that is the rotation, not a\nprogression. The week totals involved are 26-31km. Recorded rather than\nsuppressed, and the three-day quality rotation is reported to HQ as an open\nmethodology question in its own right.\n\nPOPULATION. racePlans 448 -> 950 and routedPlans 1902 -> 1400, from the entry\nboundary becoming the pathway's own entry week; this baseline is the first cut\nthat records the new split.",
+ "correctionNoteSupportLag": "THE SUPPORTING WORKLOAD NO LONGER FALLS BEHIND THE LONG RUN IT SUPPORTS.\n\nTwo counters were split earlier on this branch so that the long run stepped\nthrough an absorption week and the supporting workload did not. The reason was\nreal -- every session in the week taking two steps across a down week at once\nproduced a 32.5km single-week rise -- but the repair was in the wrong place. It\nmade the supporting curve fall one step behind the long run at EVERY cutback,\ncumulatively: three cutbacks in a fifteen-week block left the long run 1.10\ncubed ahead of the running under it. Measured on the experienced marathon, the\nPeak week arrived with supporting runs at 28% of a 29km long run against the\n40% SUPPORT_SHARE_MIN that marathonSupportDestination() reads in exactly this\ndirection. Two sessions whose destinations are defined relative to each other\ncannot be developed on curves that diverge by construction.\n\nThe 32.5km rise was a symptom of the step COUNT, which this branch has since\ncorrected: with the count right, the largest single-week rise anywhere in the\npopulation is 9.6km, so the split is no longer holding anything up. Removed, the\ntwo curves are the same curve again and the Peak supporting share rises to 36%.\nThe two-week backstop stays at zero across all five distances and every pathway\nstill reaches its destination.\n\nIT DOES NOT CLOSE THE COHERENCE GAP, and that is reported rather than papered\nover. 36% is still short of 40%, and the diagnosis is that the pathway's own\nnumbers cannot reach it: a 29km long run needs two supporting runs of 11.6km,\nwhich with a quality session is a 65km week against the 55km the experienced\nmarathon pathway states. That is a question about a locked figure and therefore\nHQ's to rule on. test/marathonPeakViability.test.js asserts 40% and is LEFT\nFAILING deliberately: weakening it would hide the finding, and the finding is\nthe point.\n\nMEASURED: structure_introduced_with_dose_step 648 -> 601. quality_structure_step\n707 -> 801, and the 94 new transitions are the 24-week marathon on five days at\nweeks 6 and 9, 47 cases each -- one per stated volume, again. They are the same\nphenomenon already decomposed for the three-day half: the week carries ONE\nquality slot which rotates between families whose natural sizes differ by more\nthan an ordinary step (a 5km interval session followed by a 7.5km tempo is a\n1.5x 'quality dose step'), and where the week itself also steps at the ordinary\nrate the rule fires. It is the pool rotating, not the athlete doing more quality.\nAcross two distances and two day counts this is now well enough evidenced to say\nthat QUALITY_STRUCTURE_STEP measures rotation rather than progression, and that\nis put to HQ as an open question about the RULE. It has deliberately not been\nretuned here: one instrument correction on this branch is a units error being\nfixed, and a second would be tuning."
 }
