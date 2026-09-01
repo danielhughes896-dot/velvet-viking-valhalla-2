@@ -3468,7 +3468,7 @@ function vShakeout(su){ return planHasEvent(su) ? 'Pre-Race Shakeout' : 'Pre-Goa
 var DISTANCE_PROFILES = {
   '5k':    { key:'5k',    label:'5K',              raceKm:5,     longCapKm:12, volMult:1.30, emphasis:'speed',     blockName:'Speed & Threshold Block' },
   '10k':   { key:'10k',   label:'10K',             raceKm:10,    longCapKm:15, volMult:1.35, emphasis:'speed',     blockName:'Speed & Threshold Block' },
-  'half':  { key:'half',  label:'Half Marathon',   raceKm:21.1,  longCapKm:20, volMult:1.55, emphasis:'threshold', blockName:'Aerobic & Tempo Block' },
+  'half':  { key:'half',  label:'Half Marathon',   raceKm:21.1,  longCapKm:26, volMult:1.55, emphasis:'threshold', blockName:'Threshold & Race-Specific Block' },
   'full':  { key:'full',  label:'Full Marathon',   raceKm:42.2,  longCapKm:32, volMult:1.75, emphasis:'endurance', blockName:'Endurance & Long Run Block' },
   'ultra': { key:'ultra', label:'Ultra (50K)',     raceKm:50,    longCapKm:36, volMult:2.00, emphasis:'timeonfeet',blockName:'Time-on-Feet & Back-to-Back Block', backToBack:true }
 };
@@ -5038,6 +5038,199 @@ var RACE_TAPER_DEPTH = 0.5;
    to Base here. */
 var MARATHON_DEDICATED_WEEKS = 15;
 var MARATHON_FULL_SHAPE = { base:4, build:6, peak:3, taper:2 };  // taper incl. race week
+/* ---------- THE HALF MARATHON IS ITS OWN PROGRAMME ----------
+   SAME CONTAINER, DIFFERENT COACHING. Fifteen weeks, because that is the
+   product's dedicated Race Goal window and it sits inside the defensible
+   12-16 week range -- not because the marathon uses fifteen. What happens
+   inside it is a different event's preparation:
+
+     FOUNDATION 3   establish the week, and get trustworthy THRESHOLD evidence
+                    -- the anchor almost everything after this is prescribed
+                    from. Restrained threshold; economy present; the long run
+                    purely aerobic.
+     BUILD      6   threshold development, which is the slowest thing a half
+                    asks for and therefore gets the most weeks. The long run
+                    develops durability beside it, on a different day.
+     PEAK       4   threshold MIGRATES into sustained half-specific running
+                    under fatigue. Four weeks because three specific exposures
+                    with one absorption between them is the smallest structure
+                    that is a rehearsal rather than a single trial.
+     TAPER      2   race week included, and NOT a whole-week phase -- see
+                    HALF_TAPER_ANCHOR_DAYS. The taper is anchored to the event.
+
+   WHY PEAK IS LONGER THAN THE MARATHON'S AND BASE IS SHORTER. A half's
+   specific exposure -- a long run carrying a sustained block at race effort --
+   is repeatable inside a week in a way a 30km marathon exposure is not, so the
+   half can spend more of its block rehearsing and needs less of it recovering.
+   And a half athlete arrives able to run: the phase furthest from the event is
+   the one they need least. */
+var HALF_DEDICATED_WEEKS = 15;
+var HALF_FULL_SHAPE = { base:3, build:6, peak:4, taper:2 };   // taper incl. race week
+/* ---------- THE HALF TAPER IS ANCHORED TO THE EVENT, NOT TO A WEEK ----------
+   TEN DAYS. The taper literature is about a fortnight of reduced volume with
+   intensity and frequency held (Bosquet; Nikolaidis 2023), and a half needs
+   less unloading than a marathon because the exposures it is recovering from
+   cost less. Ten days is the product's decision inside that evidence.
+
+   AND IT IS A DATE, NOT A WEEK NUMBER. For a Sunday race, D-10 falls on the
+   THURSDAY of the second-to-last week -- so that week is genuinely split: its
+   opening days are the block's final loading window and carry the last
+   full-dose quality session, and its closing days are already the taper. A
+   whole-week taper cannot express that, and rounding it to one would move the
+   athlete's last hard session by three or four days. The scaling is therefore
+   applied per DAY, from the real race date, in buildDaysFromWeeks(). */
+var HALF_TAPER_ANCHOR_DAYS = 10;
+/* WHERE THE TAPER ENDS UP, as a fraction of the ordinary dose on the day
+   before the race. The curve between D-10 and D-0 is linear in this fraction,
+   so no day is a cliff and the reduction is distributed rather than dropped.
+   The value is chosen so the measured volume reduction across race week lands
+   inside the 41-60% band the taper meta-analyses support -- it is calibrated
+   against that evidence and reported against it, rather than picked. */
+var HALF_TAPER_FINAL_FRACTION = 0.35;
+/* THE DOSE A SESSION CARRIES THIS MANY DAYS OUT. 1 outside the taper; falling
+   linearly to HALF_TAPER_FINAL_FRACTION the day before the race. Race day
+   itself is the race and is not scaled by this. */
+function halfTaperDayFactor(daysToRace){
+  if (!(daysToRace >= 0)) return 1;
+  if (daysToRace > HALF_TAPER_ANCHOR_DAYS) return 1;
+  var f = HALF_TAPER_FINAL_FRACTION +
+          (1 - HALF_TAPER_FINAL_FRACTION) * (daysToRace / HALF_TAPER_ANCHOR_DAYS);
+  return Math.max(HALF_TAPER_FINAL_FRACTION, Math.min(1, f));
+}
+/* ---------- APPLYING THE HALF TAPER TO THE DAYS THEMSELVES ----------
+   THE ONLY PLACE THE RACE DATE IS KNOWN, which is why the scaling lives here
+   rather than in buildBlockWeeks(): the block builder is a pure function of a
+   volume and a week count and has no calendar, so a taper it applied could
+   only ever be a whole number of weeks.
+
+   WHAT IS SCALED, AND WHAT IS NOT.
+     AEROBIC RUNS  easy, medium-long and long. Their kilometres ARE their
+                   prescription, so scaling the day scales the session and the
+                   card cannot disagree with it.
+     QUALITY       not scaled here. A quality day's distance comes from a
+                   structure, and shrinking the number without shrinking the
+                   structure would print a session the athlete is not being
+                   asked to do. The dose comes down through the pools instead
+                   -- which is where the taper's descent invariant already
+                   lives -- and the family is never changed.
+     RACE DAY      not scaled. It is the race.
+
+   FREQUENCY IS PRESERVED BY SHRINKING RUNS, NOT BY DELETING THEM, which is the
+   clearest finding in the taper literature and the thing the previous
+   whole-week taper got wrong at low volumes. A run that would fall under the
+   week's own easy floor is held AT that floor rather than removed. */
+function applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm){
+  if (!raceDateStr || !days || !days.length) return;
+  var floorKm = (easyFloorKm > 0) ? easyFloorKm : EASY_MIN_KM;
+  var touched = {};
+  /* RACE WEEK IS NOT SCALED HERE. It is already the deepest part of the
+     taper and it has its own architecture -- a lead-up sized from the block's
+     own biggest week, its own floor, its own shakeout cap and its own entry in
+     the accounting. Scaling it a second time would reduce a week that has
+     already been reduced, and would leave the reduction it declares no longer
+     matching the days it wrote. */
+  var raceWeeks = {};
+  weeks.forEach(function(wk){ if (wk.isRace) raceWeeks[wk.week] = true; });
+  days.forEach(function(dd){
+    if (!(dd.km > 0) || dd.type === 'race' || raceWeeks[dd.week]) return;
+    var out = daysBetween(dd.date, raceDateStr);
+    if (!(out >= 0) || out > HALF_TAPER_ANCHOR_DAYS) return;
+    if (dd.type !== 'easy' && dd.type !== 'long') return;
+    var f = halfTaperDayFactor(out);
+    if (f >= 1) return;
+    var next = round1(Math.max(floorKm, dd.km * f));
+    if (next >= dd.km) return;
+    dd.km = roundWorkoutKm(dd.type, next);
+    touched[dd.week] = true;
+  });
+  /* AND THE WEEK NOW SAYS WHAT IT ACTUALLY CONTAINS. Left at the loading
+     figure it was built from, the week would report a target its own days no
+     longer meet and the volume accounting would read a real, deliberate,
+     event-anchored reduction as an unexplained shortfall. */
+  weeks.forEach(function(wk){
+    if (!touched[wk.week]) return;
+    var mine = days.filter(function(dd){ return dd.week === wk.week; });
+    var total = 0, longest = 0;
+    mine.forEach(function(dd){
+      /* THE RACE IS NOT PART OF THE WEEK'S TRAINING TARGET, and adding it here
+         would double-count it: the accounting already carries race distance as
+         its own named term, so a race week whose `volume` included the race
+         reconciled against itself plus another 21.1km. */
+      if (!(dd.km > 0) || dd.type === 'race') return;
+      total += dd.km;
+      if (dd.type === 'long' && dd.km > longest) longest = dd.km;
+    });
+    /* ---- AND THE REDUCTION IS DECLARED, NOT LEFT TO FALL OUT ----
+       The week was built to a loading figure and then deliberately reduced
+       because the event is ten days away. That is a NAMED reduction with a
+       cause, exactly like a cutback or a taper, and it is recorded as one --
+       the alternative is a week whose days no longer add up to its target and
+       an accounting pass that reports honest, intended coaching as
+       unattributed volume.
+
+       THE ALLOCATOR'S EARLIER WORKINGS ARE CLEARED because they are now stale
+       rather than wrong: they describe a distribution of a target this week no
+       longer has. With the target set to what the days actually contain there
+       is nothing left for them to explain, and leaving them in would
+       double-count the same kilometres twice over. */
+    if (wk.intendedVolume == null) wk.intendedVolume = wk.volume;
+    var delivered = round1(total);
+    var cut = round1(Math.max(0, wk.volume - delivered));
+    if (cut > 0){
+      wk.deliberateReduction = round1((wk.deliberateReduction || 0) + cut);
+      wk.reductionCause = wk.reductionCause || 'event_taper';
+    }
+    wk.volume = delivered;
+    if (longest > 0) wk.longTarget = round1(longest);
+    if (wk.dist){ wk.dist.undistributedKm = 0; wk.dist.floorExcessKm = 0; wk.dist.floorCauses = []; }
+    wk.qualityDayFloorKm = 0;
+    wk.capRecoveredKm = 0;
+    wk.eventTaperApplied = true;
+  });
+}
+/* ---------- THE HALF'S PHASE COUNTS, AND WHAT GOES FIRST ----------
+   Counts rather than fractions, for the same reason the marathon states
+   counts: a fraction stretches with the block and a count does not.
+
+   COMPRESSION ORDER. Foundation first -- an athlete with demonstrated
+   structure and valid threshold evidence does not need it. Then Build. Peak
+   last of the three, because it is what makes this a half programme rather
+   than continued training. The taper is not compressed here at all: it is
+   anchored to the event date, so a short block loses development weeks and
+   still arrives at D-10 with ten days in front of it. */
+function halfPhaseAllocation(N){
+  var n = Math.max(1, Math.round(N || 1));
+  if (n === 1) return { base:0, build:0, peak:0, taper:0, final:1 };
+  var taper = n >= 4 ? 1 : 0;                      // the split week; race week is `final`
+  var peak  = n >= 13 ? 4 : n >= 10 ? 3 : n >= 7 ? 2 : 1;
+  var rest  = n - taper - 1 - peak;
+  if (rest < 0){ peak = Math.max(0, peak + rest); rest = 0; }
+  var build = Math.min(HALF_FULL_SHAPE.build, rest);
+  var base  = rest - build;
+  return { base:base, build:build, peak:peak, taper:taper, final:1 };
+}
+/* WHICH DEDICATED ARCHITECTURE THIS BLOCK USES, if any. One place, so the arc,
+   the session solver, the frequency decision and the coaching layers cannot
+   disagree about which programme the athlete is in. */
+function raceGoalArch(purpose, distKey){
+  if (purpose !== 'race') return null;
+  if (distKey === 'full') return 'marathon';
+  if (distKey === 'half') return 'half';
+  return null;
+}
+/* Does this block build its weeks from sessions rather than dividing a target?
+   Both dedicated architectures do; every other distance still uses the legacy
+   arc, byte for byte, until its own audit authorises otherwise. */
+function usesBottomUpArc(purpose, distKey){
+  return raceGoalArch(purpose, distKey) != null;
+}
+function dedicatedWeeksFor(distKey){
+  return distKey === 'half' ? HALF_DEDICATED_WEEKS : MARATHON_DEDICATED_WEEKS;
+}
+/* The phase counts for whichever dedicated architecture is in force. */
+function raceGoalPhaseAllocation(distKey, N){
+  return distKey === 'half' ? halfPhaseAllocation(N) : marathonPhaseAllocation(N);
+}
 /* ---------- COMPRESSION IS A HIERARCHY, NOT A SCALE FACTOR ----------
    When the runway is short something has to go, and WHICH thing is a coaching
    decision rather than an arithmetic one. Event preparation is protected and
@@ -5383,18 +5576,19 @@ function sessionStepRate(startKm, destKm, progressingWeeks){
    Where the athlete HAS logged training, their own demonstrated long run wins:
    a stated weekly figure is a summary, and a run they actually completed is
    the thing itself. */
-function marathonSessionStart(statedVolumeKm, supportDays, qualitySlots){
-  var f = LONG_FRACTION[DISTANCE_PROFILES['full'].emphasis];
+function marathonSessionStart(statedVolumeKm, supportDays, qualitySlots, distKey){
+  var prof = DISTANCE_PROFILES[distKey || 'full'] || DISTANCE_PROFILES['full'];
+  var f = LONG_FRACTION[prof.emphasis];
   var demLong = null;
   try { demLong = demonstratedLongRunKm(); } catch(e){ demLong = null; }
   var impliedLong = (statedVolumeKm > 0)
-    ? Math.min(DISTANCE_PROFILES['full'].longCapKm, statedVolumeKm * f) : 0;
+    ? Math.min(prof.longCapKm, statedVolumeKm * f) : 0;
   /* AND THE ATHLETE'S OWN LONG RUN IS STILL BOUNDED BY THE PROFILE'S CAP.
      The implied figure was capped here and the demonstrated one was not, so a
      record whose longest logged run exceeded longCapKm entered the split
      uncapped and every session downstream was sized against it. */
   var longKm = demLong != null
-    ? Math.min(DISTANCE_PROFILES['full'].longCapKm, demLong) : impliedLong;
+    ? Math.min(prof.longCapKm, demLong) : impliedLong;
   if (!(longKm > 0)) longKm = impliedLong;
   /* THE QUALITY SESSION IS PART OF THE WEEK THE ATHLETE ALREADY RUNS, and
      leaving it out of the split made week one bigger than the volume they
@@ -5430,7 +5624,7 @@ function marathonSessionStart(statedVolumeKm, supportDays, qualitySlots){
   if (V > 0){
     var coherentLong = V / (1 + SUPPORT_SHARE_MAX * days);
     if (coherentLong > longKm)
-      longKm = Math.min(DISTANCE_PROFILES['full'].longCapKm, coherentLong);
+      longKm = Math.min(prof.longCapKm, coherentLong);
   }
   var rest = Math.max(0, V - longKm);
   var supportKm = rest / days;
@@ -5460,7 +5654,7 @@ function marathonSessionStart(statedVolumeKm, supportDays, qualitySlots){
      week reserved 2.3km for a session that was going to cost 5. */
   if ((qualitySlots || 0) > 0 && V > 0 &&
       !marathonQualityEligible(V, longKm, Math.max(supportKm, intervalFlankKm())))
-    return marathonSessionStart(statedVolumeKm, supportDays, 0);
+    return marathonSessionStart(statedVolumeKm, supportDays, 0, distKey);
   return { longKm: round1(longKm), supportKm: round1(supportKm) };
 }
 
@@ -5481,10 +5675,10 @@ function marathonSessionStart(statedVolumeKm, supportDays, qualitySlots){
 
    No new number: the floor is EASY_MIN_KM and the shape is the coherence band
    the destinations already use. */
-function marathonSupportDayFit(statedVolumeKm, maxSupportDays, qualitySlots){
+function marathonSupportDayFit(statedVolumeKm, maxSupportDays, qualitySlots, distKey){
   var most = Math.max(1, maxSupportDays || 1);
   for (var d = most; d > 1; d--){
-    var split = marathonSessionStart(statedVolumeKm, d, qualitySlots);
+    var split = marathonSessionStart(statedVolumeKm, d, qualitySlots, distKey);
     if (split.supportKm >= EASY_MIN_KM - 1e-9) return d;
   }
   return 1;
@@ -5501,9 +5695,31 @@ function marathonSupportDayFit(statedVolumeKm, maxSupportDays, qualitySlots){
    distance profile's own longCapKm bounds it, ~30km is the readiness benchmark
    rather than a floor, and above it an established athlete may reach ~32 but is
    never sent past it because their weekly volume happens to be high. */
-function marathonLongRunDestination(startLongKm, progressingWeeks){
-  var cap = DISTANCE_PROFILES['full'].longCapKm;
-  var want = MIN_PEAK_LONG_KM['full'];
+/* ---- WHAT THE EVENT ASKS THE LONG RUN TO BECOME ----
+   TWO EVENTS, TWO ANSWERS, AND NEITHER IS A SHARE OF A WEEKLY TOTAL.
+
+   MARATHON  a marathon-readiness exposure. MIN_PEAK_LONG_KM, which is a
+             statement about the event and is far below its race distance --
+             nobody runs 42km in training.
+
+   HALF      the race distance itself, and this is a genuinely different
+             statement rather than a rescaled one. A half is short enough that
+             the durability it asks for IS the durability of the race, so the
+             long run develops TOWARD what the athlete will actually run --
+             never past it, and never required to reach it. Time cost, the
+             week's coherence, the athlete's own reach and their demonstrated
+             long run all still bind afterwards, and for a slower athlete they
+             bind well below 21.1km. A capable athlete who ALREADY runs beyond
+             race distance keeps what they have (the floor below), which is how
+             22-24km arises without ever being a target for anybody. */
+function raceGoalLongRunWantKm(distKey){
+  if (distKey === 'half') return DISTANCE_PROFILES['half'].raceKm;
+  return MIN_PEAK_LONG_KM['full'];
+}
+function marathonLongRunDestination(startLongKm, progressingWeeks, distKey){
+  var d = distKey || 'full';
+  var cap = DISTANCE_PROFILES[d].longCapKm;
+  var want = raceGoalLongRunWantKm(d);
   var reach = reachableSessionKm(startLongKm, progressingWeeks);
   if (reach == null) return { km: Math.min(cap, want), limited:false };
   var km = Math.min(cap, want, reach);
@@ -5532,7 +5748,7 @@ function marathonLongRunDestination(startLongKm, progressingWeeks){
    they decide dose, which is the same question asked of one session instead of
    the week's shape. */
 function marathonSupportDestination(startSupportKm, startLongKm, longDestKm,
-                                     progressingWeeks, easyPaceSecPerKm){
+                                     progressingWeeks, easyPaceSecPerKm, distKey){
   if (!(startSupportKm > 0)) return null;
   /* ---- SUPPORT DEVELOPS WITH THE WORK IT SUPPORTS ----
      NOT to its own ceiling, which was the first attempt and was wrong: pushing
@@ -5570,7 +5786,7 @@ function marathonSupportDestination(startSupportKm, startLongKm, longDestKm,
   var wanted = Math.max(grown, byCoherence);
   var byReach = reachableSessionKm(startSupportKm, progressingWeeks);
   var byShape = longDestKm > 0 ? longDestKm * SUPPORT_SHARE_MAX : Infinity;
-  var byCost = (easyPaceSecPerKm > 0) ? (SUPPORT_COST_UPPER_SEC / easyPaceSecPerKm) : Infinity;
+  var byCost = (easyPaceSecPerKm > 0) ? (supportCostUpperSec(distKey) / easyPaceSecPerKm) : Infinity;
   return round1(Math.max(EASY_MIN_KM,
     Math.min(wanted, byReach != null ? byReach : Infinity, byShape, byCost)));
 }
@@ -5802,7 +6018,7 @@ function expansionAnsweredFor(blockId, from){
 function availabilityExpansionRecommendation(){
   var su = state && state.setup;
   if (!su || !su.schedule || !su.schedule.activeDays) return null;
-  if (!usesMarathonArc(planPurpose(su), su.distanceKey)) return null;
+  if (!usesBottomUpArc(planPurpose(su), su.distanceKey)) return null;
   var from = su.schedule.activeDays.length;
   if (!(from > 0) || from >= AVAILABILITY_EXPANSION_CEILING) return null;
   if (expansionAnsweredFor(su.blockId, from)) return null;
@@ -5959,17 +6175,20 @@ function blockPurposeOf(purposeOrSteady){
 }
 function blockArcFor(purpose, N, distKey){
   var weeks = Math.max(1, N || 1);
-  /* THE MARATHON RACE GOAL ARC states its phases as COUNTS rather than as
+  /* A DEDICATED RACE GOAL ARC states its phases as COUNTS rather than as
      fractions of itself, which is the whole difference: a fraction stretches
-     with the block and a count does not. Everything else -- every other
-     purpose, every other distance -- falls through to the fraction-based arc
-     below unchanged. */
-  if (usesMarathonArc(purpose, distKey)){
-    var alloc = marathonPhaseAllocation(weeks);
+     with the block and a count does not. Marathon and Half each state their
+     own counts; every other purpose and every other distance falls through to
+     the fraction-based arc below unchanged. */
+  if (usesBottomUpArc(purpose, distKey)){
+    var alloc = raceGoalPhaseAllocation(distKey, weeks);
     return { buildWeeks: alloc.base + alloc.build + alloc.peak, taper: alloc.taper,
              hasGoalEffort: true, hasCheckpoint: true,
              baseEnd: PHASE_BASE_END, buildEnd: PHASE_BUILD_END, volumeMult: null,
-             phaseCounts: alloc };
+             phaseCounts: alloc,
+             /* THE HALF'S TAPER IS A DATE. Carried on the arc so the day
+                builder can find it without asking the distance again. */
+             taperAnchorDays: distKey === 'half' ? HALF_TAPER_ANCHOR_DAYS : null };
   }
   /* THE ON-RAMP. An athlete below the viable race-programme boundary is not
      given a smaller race block -- they are given the thing that gets them TO
@@ -6579,6 +6798,30 @@ function longRunCostPressure(seconds){
    for a marathon athlete. No literature sets them and none is cited for them. */
 var SUPPORT_COST_COMFORT_SEC = 75 * 60;
 var SUPPORT_COST_UPPER_SEC   = 90 * 60;
+/* ---- AN ORDINARY EASY RUN IS SHORTER IN A HALF MARATHON WEEK ----
+   AND THAT IS AN EVENT STATEMENT, NOT A TUNING KNOB. The figures above
+   describe what an ordinary supporting run costs an athlete preparing for a
+   marathon, where the whole programme is organised around accumulating time on
+   feet. A half is organised around threshold, and its supporting runs exist to
+   carry that work rather than to be small long runs: an hour is the ordinary
+   one and seventy-five minutes is already the upper end of what is still an
+   easy run rather than a second sustained effort.
+
+   WHAT THIS ACTUALLY CHANGES, and why it is the right lever. Session cost is
+   what decides how many supporting days the work needs, so a shorter ordinary
+   run spreads the same aerobic support across MORE days -- which is the
+   differentiated aerobic support a half week wants, and it lowers the long
+   run's share of the week without anyone targeting a share. Availability is
+   still the ceiling and nothing here manufactures a day the work does not
+   need. */
+var HALF_SUPPORT_COST_COMFORT_SEC = 60 * 60;
+var HALF_SUPPORT_COST_UPPER_SEC   = 75 * 60;
+function supportCostComfortSec(distKey){
+  return distKey === 'half' ? HALF_SUPPORT_COST_COMFORT_SEC : SUPPORT_COST_COMFORT_SEC;
+}
+function supportCostUpperSec(distKey){
+  return distKey === 'half' ? HALF_SUPPORT_COST_UPPER_SEC : SUPPORT_COST_UPPER_SEC;
+}
 function sessionCostPressure(seconds){
   if (!(seconds > 0)) return 0;
   var p = (seconds - SUPPORT_COST_COMFORT_SEC) / (SUPPORT_COST_UPPER_SEC - SUPPORT_COST_COMFORT_SEC);
@@ -6996,6 +7239,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   // The arc this purpose actually has -- see blockArcFor. Steady mode keeps
   // its own answer because it has no arc at all.
   var arc = blockArcFor(purpose, N, distKey);
+  /* WHICH DEDICATED ARCHITECTURE, asked once. `halfArc` gates every decision
+     below that is the HALF's coaching rather than the shared one. */
+  var blockArch = raceGoalArch(purpose, distKey);
+  var halfArc = blockArch === 'half';
   var taper = steady ? 0 : arc.taper;
   var buildWeeks = steady ? N : arc.buildWeeks;
   /* THE CEILING IS APPLIED TO THE PEAK, which is what closes the loop: every
@@ -7092,7 +7339,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   /* The floor a session in THIS block may not go below -- the race week's own,
      since a marathon race block is never a foundation block. */
   var easyFloorKmForBlock = EASY_MIN_KM;
-  if (usesMarathonArc(purpose, distKey) && !steady && !arc.noLongRun){
+  if (usesBottomUpArc(purpose, distKey) && !steady && !arc.noLongRun){
     var mAvail = (opts && opts.availableDays > 0) ? opts.availableDays : 6;
     var mDemF = null, mCurF = null;
     try { mDemF = demonstratedRunningFrequency(); } catch(e){ mDemF = null; }
@@ -7144,7 +7391,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        ceiling as a progression rate, made twice. The comfort reference sizes
        the ordinary run; the ceiling stays what it is. */
     var mCostKm = (opts && opts.easyPaceSecPerKm > 0)
-      ? (SUPPORT_COST_COMFORT_SEC / opts.easyPaceSecPerKm) : null;
+      ? (supportCostComfortSec(distKey) / opts.easyPaceSecPerKm) : null;
     var mNeed = mCostKm > 0 ? Math.ceil(mHave / mCostKm) - mQSlots : (mDays - 1 - mQSlots);
     /* AND THE WEEK HAS TO BE EXPRESSIBLE AT THE ATHLETE'S OWN VOLUME. Every
        supporting day costs at least EASY_MIN_KM whatever the arithmetic wants,
@@ -7157,12 +7404,12 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        this replaces dividing the athlete's non-long mileage by EASY_MIN_KM,
        which asked the question before the long run was coherent and so
        disagreed with the split it was choosing for. */
-    mSupportDays = marathonSupportDayFit(currentVolume, mSupportDays, mQSlots);
+    mSupportDays = marathonSupportDayFit(currentVolume, mSupportDays, mQSlots, distKey);
     /* Weeks that actually progress: the taper does not, the race week does
        not, and a cutback week steps back rather than forward. */
     var mProgressing = 0;
     for (var pw = 1; pw <= buildWeeks; pw++) if (!(pw % 4 === 0)) mProgressing++;
-    var mStart = marathonSessionStart(currentVolume, mSupportDays, mQSlots);
+    var mStart = marathonSessionStart(currentVolume, mSupportDays, mQSlots, distKey);
     var mPaceSec = (opts && opts.easyPaceSecPerKm > 0) ? opts.easyPaceSecPerKm : null;
     /* ---- THE THREE AUTHORITIES SETTLE TOGETHER ----
        The long run's own progression, the supporting workload that has to
@@ -7178,7 +7425,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
 
        Bounded at eight passes and monotone downward -- every rule here can
        only reduce -- so it always terminates and can never inflate anything. */
-    var mLongDest = marathonLongRunDestination(mStart.longKm, mProgressing);
+    var mLongDest = marathonLongRunDestination(mStart.longKm, mProgressing, distKey);
     /* ---- AND NEITHER CEILING MAY SEND THE ATHLETE BACKWARDS ----
        THE SAME PRINCIPLE marathonLongRunDestination() ALREADY HOLDS, applied
        to the two clamps below, which were floored at MIN_LONG_RUN_KM and so
@@ -7203,7 +7450,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     for (var mIt = 0; mIt < 8; mIt++){
       var prevL = mLongDest.km, prevS = mSupportDest;
       mSupportDest = marathonSupportDestination(mStart.supportKm, mStart.longKm,
-                                                mLongDest.km, mProgressing, mPaceSec);
+                                                mLongDest.km, mProgressing, mPaceSec, distKey);
       /* CAPACITY IS A CEILING ON THE RESULT, NEVER A TARGET FOR IT. Paid
          proportionally, so the week the athlete arrived with keeps its shape
          while everything in it comes down together. The quality session is
@@ -7322,6 +7569,23 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       var trend = steady ? currentVolume
                          : currentVolume + (peakVolume-currentVolume)*progress;
       isCutback = (w%4===0) && (steady ? w!==N : w!==buildWeeks) && buildWeeks>=4;
+      /* ---- WHERE THE HALF PUTS ITS LAST ABSORPTION ----
+         THE ORDINARY EVERY-FOURTH-WEEK CADENCE IS RIGHT UNTIL PEAK, and then
+         it lands in the wrong place. A half's Peak is three specific exposures
+         with one absorption between them, and the modulo puts that absorption
+         at week 12 of fifteen -- which leaves the block's final and most
+         specific exposure standing alone after a cutback, and makes the step
+         into it the largest of the whole programme.
+
+         Moved to the SECOND Peak week instead, so the athlete absorbs the
+         first exposure and then rehearses twice in consecutive weeks before
+         the taper. Nothing else moves: the earlier cutbacks are still every
+         fourth week, and Peak still contains exactly one of them. */
+      if (halfArc && arc.phaseCounts){
+        var hcPeakStart = arc.phaseCounts.base + arc.phaseCounts.build;
+        var hcInPeak = w > hcPeakStart && w <= hcPeakStart + arc.phaseCounts.peak;
+        if (hcInPeak) isCutback = arc.phaseCounts.peak >= 3 && w === hcPeakStart + 2;
+      }
       /* A BLOCK THAT ENDS IN NOTHING STILL ENDS SOMEWHERE. With no goal effort
          to taper into, the last week is a consolidation week: the block
          finishes absorbed rather than at its own peak, which is the state the
@@ -7396,8 +7660,15 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       /* A CUTBACK REDUCES THE SESSIONS, not a total that is then re-divided.
          Same factor, applied where the training actually is. */
       if (isCutback){ mLong *= CUTBACK_FACTOR; mSupport *= CUTBACK_FACTOR; }
-      /* AND SO DOES A TAPER. The dose comes down; the sessions stay sessions. */
-      if (isTaper){
+      /* AND SO DOES A TAPER. The dose comes down; the sessions stay sessions.
+
+         NOT FOR THE HALF, WHOSE TAPER IS A DATE. Its wind-down week is
+         genuinely split -- the block's last loading days followed by the first
+         taper days -- so scaling the whole week here would move the athlete's
+         final hard session three or four days earlier and call it a taper.
+         The scaling is applied per DAY instead, from the real race date, in
+         applyHalfEventTaper(). */
+      if (isTaper && !halfArc){
         var mDepth = (arc.taperDepth != null ? arc.taperDepth : RACE_TAPER_DEPTH);
         var mT = 1 - ((taper > 0 ? (w - buildWeeks) / taper : 1) * mDepth);
         mLong *= mT; mSupport *= mT;
@@ -7433,8 +7704,14 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          the days the athlete runs on. The taper is unchanged: it has its own
          ladder below, which shrinks the supporting runs first and drops one
          only when they are already at the floor. */
-      if (isCutback) mCap = mCap != null ? mCap * CUTBACK_FACTOR : null;
-      if (isTaper && mCap != null){
+      /* THE HALF TAKES THE CONCLUSION THE COMMENT ABOVE REACHED. Its
+         absorption weeks reduce the DOSE and keep the days: measured on the
+         marathon path, discounting capacity as well cost a 12km/week athlete a
+         running day in week 4 and gave it straight back in week 5, which is a
+         -48%/+100% swing where a cutback is -22%. The marathon's own numbers
+         are closed and are left exactly as they are. */
+      if (isCutback && !halfArc) mCap = mCap != null ? mCap * CUTBACK_FACTOR : null;
+      if (isTaper && !halfArc && mCap != null){
         var mCapT = 1 - ((taper > 0 ? (w - buildWeeks) / taper : 1) *
                          (arc.taperDepth != null ? arc.taperDepth : RACE_TAPER_DEPTH));
         mCap = mCap * mCapT;
@@ -7620,14 +7897,23 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       qSpec = shrinkIntervalSpec(qSpec, Infinity);
       tSpec = shrinkTempoSpec(tSpec, Infinity);
     } else {
+      /* ---- THE HALF'S WIND-DOWN WEEK STILL CARRIES A FULL SESSION ----
+         Its quality day sits BEFORE D-10 -- for a Sunday race it is around
+         D-12 -- so it is the block's last full-dose session rather than the
+         first tapered one. The ceiling that stops it growing past the week
+         before is unchanged, so this can never make the session bigger; it
+         only stops the taper factor from shrinking a session the taper has not
+         reached yet. */
+      var taperShrink = (isTaper && !halfArc) ? TAPER_QUALITY_FACTOR : 1;
+      var taperSeed = isTaper && !halfArc;
       qSpec = fitQualityStructure(INTERVAL_STRUCTURE_POOL, 'interval', structPhase, w, pos,
                                   profile.emphasis, rotation,
-                                  Math.min(taperCeilQ, weekFitCeil), isTaper ? prevQSpec : null,
-                                  isTaper ? TAPER_QUALITY_FACTOR : 1);
+                                  Math.min(taperCeilQ, weekFitCeil), taperSeed ? prevQSpec : null,
+                                  taperShrink);
       tSpec = fitQualityStructure(TEMPO_STRUCTURE_POOL, 'tempo', structPhase, w, pos,
                                   profile.emphasis, rotation,
-                                  Math.min(taperCeilT, weekFitCeil), isTaper ? prevTSpec : null,
-                                  isTaper ? TAPER_QUALITY_FACTOR : 1);
+                                  Math.min(taperCeilT, weekFitCeil), taperSeed ? prevTSpec : null,
+                                  taperShrink);
     }
     var qKm = intervalSessionKm(qSpec);
     var tKm = tempoSessionKm(tSpec);
@@ -10454,7 +10740,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   var easyFloorKm = noLongRun ? EASY_QUANTUM_KM : null;
   /* Does the coherent-range authority apply here at all? Marathon race blocks
      only -- see the runCap note below for why the scope is that narrow. */
-  var useCoherentFrequency = usesMarathonArc(blockResult.purpose, blockResult.distKey) && !noLongRun;
+  var useCoherentFrequency = usesBottomUpArc(blockResult.purpose, blockResult.distKey) && !noLongRun;
   var weekEvidencePermission;
   /* ---- THE PACE THIS ATHLETE ACTUALLY RUNS EASY AT ----
      Needed because session COST is measured in time, and time is the only
@@ -11372,6 +11658,10 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         completed:false, actual:{km:null,pace:null,hr:null,rpe:null,notes:''} });
     }
   });
+  /* THE HALF'S EVENT-ANCHORED TAPER, applied before the weekly cap and the
+     accounting so both of them see the week the athlete is actually given. */
+  if (raceGoalArch(blockResult.purpose, blockResult.distKey) === 'half')
+    applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm);
   capWeeklyVolume(days, weeks);
   recordVolumeAccounting(days, weeks);
   var weekIndex2 = {};

@@ -60,8 +60,8 @@ function build(o){
   const days = DAYSETS[o.days || 5];
   const start = a.todayStr();
   const startMonday = a.addDays(start, -a.isoWeekday(start));
-  const raceDate = a.addDays(startMonday, (o.weeks || 14) * 7 - 1);
-  const blk = a.buildBlockWeeks(o.dist || 'half', o.volume, o.weeks || 14,
+  const raceDate = a.addDays(startMonday, (o.weeks || 15) * 7 - 1);
+  const blk = a.buildBlockWeeks(o.dist || 'half', o.volume, o.weeks || 15,
     { purpose: 'race', availableDays: days, easyPaceSecPerKm: pace });
   const sched = { activeDays: days, longRunDay: 6 };
   const dd = a.buildDaysFromWeeks(blk, raceDate, sched, start, false,
@@ -87,7 +87,7 @@ function trajectory(label, o){
   const res = build(o);
   const rows = weekRows(res);
   console.log('');
-  console.log('--- ' + label + ' --- ' + (o.volume) + ' km/week, ' + (o.weeks || 14) +
+  console.log('--- ' + label + ' --- ' + (o.volume) + ' km/week, ' + (o.weeks || 15) +
               ' weeks, ' + (o.days || 5) + ' available days' +
               (o.history ? ', history=' + o.history : '') +
               (o.longKm ? ', demonstrated LR ' + o.longKm + 'km' : ''));
