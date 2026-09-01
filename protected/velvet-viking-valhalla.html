@@ -561,14 +561,6 @@
   .cb-text b{color:var(--gold-text);}
   .week.is-taper{border-color:var(--bronze);}
   .week.is-taper .week-head{background:var(--c-gold-soft);}
-  /* THE LAST WEEK OF THE TAPER, WHICH IS THE GOAL WEEK. It sits under the same
-     TAPER PHASE heading as the week above it and has to read that way -- but
-     two identical gold cards stacked is a wall, and the week is not the same
-     week: one is a taper week, the other is Race Week. So it takes the taper's
-     border and leaves the gold head to the card above, which keeps the section
-     legible as one thing with a destination at the end of it. */
-  .week.is-taper-final{border-color:var(--bronze);}
-  .week.is-taper-final .week-phase{color:var(--gold-text);}
   .taper-note{
     display:flex; align-items:center; gap:7px; font-size:11px; color:var(--bronze-text);
     padding:8px 16px; background:var(--c-gold-soft); border-top:1px dashed var(--line);
@@ -29259,13 +29251,20 @@ function renderWeekAccordion(weekNum, forceOpen){
      should not have been added together in the first place. With the race out
      of the header there is nothing left to explain. */
   var raceNote = '';
-  /* The goal week that closes a taper is marked as belonging to it. A separate
-     class rather than `is-taper`, because it must READ as related without
-     becoming a second identical gold card -- and because it is genuinely a
-     different week: the taper note above is not repeated on it, since Race Week
-     already says what it is. */
+  /* THE GOAL WEEK THAT CLOSES A TAPER LOOKS LIKE THE TAPER, because it is the
+     last week of it and the two cards sit under one TAPER PHASE heading.
+
+     It takes the SAME `is-taper` class rather than a variant of its own, which
+     is the whole point: identical treatment expressed as identical class, so
+     there is one definition and nothing to drift apart. `is-taper-final` rides
+     alongside as a MARKER -- it carries no styling; it is what the divider
+     logic and the tests read.
+
+     `taper` itself stays isTaperWeek(): the taper NOTE is still gated on it, so
+     the note is not repeated on the goal week, which already says RACE WEEK. */
   var taperFinal = goalWeekContinuesTaper(weekNum);
-  return '<div class="week'+openCls+(taper?' is-taper':'')+(taperFinal?' is-taper-final':'')+'" id="week-'+weekNum+'">'+
+  var taperLook = taper || taperFinal;
+  return '<div class="week'+openCls+(taperLook?' is-taper':'')+(taperFinal?' is-taper-final':'')+'" id="week-'+weekNum+'">'+
     '<button type="button" class="week-head" data-action="toggle-week" data-week="'+weekNum+'">'+
       '<div class="week-num font-display">'+(weekNum<10?'0':'')+weekNum+'</div>'+
       '<div class="week-meta">'+

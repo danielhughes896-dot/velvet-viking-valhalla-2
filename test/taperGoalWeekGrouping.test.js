@@ -1,7 +1,9 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { loadApp } = require('./harness.js');
+const fs = require('fs');
+const path = require('path');
+const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
 /* THE GOAL WEEK BELONGS TO THE TAPER IT CLOSES
@@ -134,14 +136,34 @@ test('the week card keeps its Race Week identity — only the divider went', () 
   assert.equal(weekLabel(html, total - 1), 'Taper Phase', 'and the week above is still the taper');
 });
 
-test('the goal week is marked as belonging without becoming a second gold card', () => {
+test('the goal week takes the SAME taper treatment as the week above it', () => {
+  /* HQ amendment: the two cards must visibly belong to one Taper section, so
+     the goal week is not given a weaker variant -- it takes the SAME is-taper
+     class. Identical treatment expressed as an identical class means there is
+     one definition and nothing to drift apart, and it leaves the existing
+     .week.is-taper rules untouched. is-taper-final rides alongside as a marker
+     carrying no styling of its own.
+
+     The two cards stay distinguishable by what they SAY -- one is labelled
+     TAPER PHASE and carries the taper note, the other is labelled RACE WEEK and
+     does not -- which is asserted separately below. */
   const a = athlete('full', 14);
   const total = a.totalWeeksInPlan();
   const html = a.renderWeeksList(false);
-  assert.match(weekClasses(html, total), /\bis-taper-final\b/, 'it is marked as related');
-  assert.doesNotMatch(weekClasses(html, total), /\bis-taper\b(?!-)/,
-    'but does not take the full taper treatment — two identical gold cards is a wall');
-  assert.match(weekClasses(html, total - 1), /\bis-taper\b/, 'the taper week keeps its own');
+  const goal = weekClasses(html, total), taper = weekClasses(html, total - 1);
+
+  assert.match(goal, /\bis-taper\b/, 'the goal week takes the taper treatment itself');
+  assert.match(goal, /\bis-taper-final\b/, 'and is marked as the one that closes it');
+  assert.match(taper, /\bis-taper\b/, 'the taper week above is unchanged');
+  assert.doesNotMatch(taper, /\bis-taper-final\b/, 'and is not the goal week');
+
+  const CODE = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  /* is-taper-final is a MARKER. If it ever acquires styling of its own, the two
+     cards can diverge again -- which is exactly what this amendment undid. */
+  assert.doesNotMatch(CODE, /\.week\.is-taper-final\s*[,{]/,
+    'is-taper-final must carry no styling; the shared look comes from is-taper');
+  assert.doesNotMatch(CODE, /is-taper-final[^{]*\{[^}]*(background|border|color)/,
+    'no visual property may be attached to the marker');
 });
 
 test('the taper note is not repeated on the goal week', () => {
