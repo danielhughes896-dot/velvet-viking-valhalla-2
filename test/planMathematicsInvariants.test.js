@@ -139,12 +139,70 @@ test('the coaching-suspicious counts are recorded and do not grow', () => {
    ['long_run_shorter_than_quality',     'the long run is shorter than a quality session'],
    ['long_run_shorter_than_easy_run',    'the long run is shorter than an easy run'],
    ['long_run_implausible_for_distance', 'a long run under 5km on a half, full or ultra plan'],
-   ['goal_segment_over_half_of_long_run','the goal-pace finish is over half the long run'],
-   ['week_over_week_growth_over_10pct',  'a week grows more than 10% on the one before']
+   ['goal_segment_over_half_of_long_run','the goal-pace finish is over half the long run']
   ].forEach(([code, what]) => {
     const now = count(code), was = baselineOf(code);
     assert.ok(now <= was, code + ' (' + what + ') rose from ' + was + ' to ' + now);
   });
+});
+
+// ---------------------------------------------------------------------------
+// WEEKLY LOAD PROGRESSION — the instrument that replaced a percentage
+// ---------------------------------------------------------------------------
+/* week_over_week_growth_over_10pct used to be in the list above. It asked one
+   question of every week -- did the total rise more than ten per cent -- and
+   answered it identically for +1km on a 6km athlete and +8km on an 80km one.
+   HQ retired it as a binary authority; it is kept, by name and by semantics, as
+   a DESCRIPTIVE series so the historical numbers stay comparable.
+
+   What holds the line now is test/audit/loadProgression.js, which asks how
+   much changed, how large that is relative to the athlete's own load, WHAT
+   changed, and whether several load levers moved together. Each of its named
+   reasons is ratcheted on its own, so a family cannot grow inside another's
+   total. test/weeklyLoadProgression.test.js holds the instrument itself --
+   that it catches deliberately bad weeks and leaves reasonable ones alone. */
+[['load_progression_structure_introduced_with_dose_step',
+  'a session arrives and a dose steps in the same week'],
+ ['load_progression_rebound_exceeds_trend',
+  'a post-cutback week overshoots the trend it returns to'],
+ ['load_progression_quality_structure_step',
+  'the quality session becomes materially bigger and moves the week'],
+ ['load_progression_long_run_step_above_rate',
+  'the long run outruns its own progression rate'],
+ ['load_progression_compound_load_progression',
+  'two or more load levers progress in a week that also steps'],
+ ['load_progression_exceeds_two_week_backstop',
+  'two-week growth above the Nielsen backstop'],
+ ['load_progression_broad_load_increase',
+  'three or more levers move together at the full ordinary step'],
+ ['load_progression_taper_load_increase',
+  'a taper week adds training load']
+].forEach(([code, what]) => {
+  test('LOAD PROGRESSION — ' + what, () => {
+    const now = count(code), was = baselineOf(code);
+    assert.ok(now <= was,
+      code + ' (' + what + ') rose from ' + was + ' to ' + now +
+      '. Every reason is ratcheted on its own so no family can grow inside another.');
+    if (now < was)
+      console.log('  ' + code + ': ' + was + ' -> ' + now +
+                  ' — improved. Update test/audit/baseline.json to lock it in.');
+  });
+});
+
+test('a taper week never adds training load, on the new measure as on the old', () => {
+  assert.equal(count('load_progression_taper_load_increase'), 0);
+  assert.equal(count('taper_week_increases_volume'), 0);
+});
+
+test('the retired percentage is still measured and still reported', () => {
+  /* IT MUST NOT QUIETLY DISAPPEAR. Demoting a measure is not deleting it: the
+     series 466 -> 495 -> 515 -> 918 is the evidence for why it was demoted,
+     and it stays visible so the next change to it can be seen. */
+  const now = count('week_over_week_growth_over_10pct');
+  assert.ok(now > 0, 'the descriptive growth series must still be produced');
+  assert.equal(now, BASELINE.descriptive.week_over_week_growth_over_10pct,
+    'the descriptive count moved; record it in baseline.json under `descriptive` ' +
+    'with what changed, rather than leaving the series unexplained');
 });
 
 // ---------------------------------------------------------------------------
@@ -361,21 +419,51 @@ test('experience level cannot change a single prescribed number', () => {
 test('adjacent stated volumes produce adjacent plans', () => {
   /* CONTINUITY. One extra kilometre a week may not change the plan by more
      than one extra kilometre a week is worth, and may never make it smaller
-     by more than a rounding step. Checked at every integer from 1 to 60. */
+     by more than a rounding step. Checked at every integer from 1 to 60.
+
+     THE ONE EXCEPTION IS NAMED, NOT WIDENED. A marathon block holds its
+     ordinary dose step in the week a meaningful new structure arrives -- a
+     running day, a first or second quality session, marathon-specific work --
+     because the structure IS that week's progression. That hold costs one step
+     of the block's progression and it is never repaid, which is the
+     methodology HQ resolved. Two adjacent athletes can therefore differ by one
+     hold: at 23km/week this block holds once and at 24km/week twice, and the
+     second athlete's whole plan comes out 4.9km smaller across twelve weeks
+     even though their peak week does not.
+
+     So a reversal is allowed ONLY where the two plans differ in how many weeks
+     they held, and only in proportion to that difference. A reversal with the
+     same number of holds on both sides is still a defect and still fails, and
+     the PEAK WEEK -- the number the athlete actually trains to -- is asserted
+     with no exception at all. */
+  const holdsIn = c => c.weeks.filter(w => w.bottomUp && w.bottomUp.heldAtEarnedWorkload).length;
   for (const distanceKey of ['5k', 'half', 'full']){
-    let prev = null;
+    let prev = null, prevHolds = 0, prevPeak = null;
     for (let v = 1; v <= 60; v++){
       const c = auditCase({ distanceKey, volume: v, weeks: 12, scheduleKey: 'd5' });
       const total = c.sessions.reduce((t, s) => t + (s.km || 0), 0);
+      const holds = holdsIn(c);
+      const peak = Math.max.apply(null, c.weeks.filter(w => !w.isRace).map(w => w.actualVolume));
       if (prev != null){
-        assert.ok(total - prev > -1.0,
+        /* One step of a block's progression is worth at most
+           VOLUME_BLOCK_GROWTH_CAP - 1 of the plan, compounded over the weeks
+           that follow it. Bounded generously at a tenth of the plan per extra
+           hold, which is far more than one step can be worth and still far
+           less than any real discontinuity. */
+        const extraHolds = Math.max(0, holds - prevHolds);
+        const allowance = extraHolds > 0 ? extraHolds * prev * 0.10 : 1.0;
+        assert.ok(total - prev > -allowance,
           distanceKey + ': ' + (v - 1) + '->' + v + 'km/week made the plan ' +
-          Math.round((prev - total) * 10) / 10 + 'km smaller');
+          Math.round((prev - total) * 10) / 10 + 'km smaller with ' +
+          prevHolds + ' -> ' + holds + ' structural holds');
         assert.ok(total - prev < 12 * 4,
           distanceKey + ': ' + (v - 1) + '->' + v + 'km/week jumped the plan by ' +
           Math.round((total - prev) * 10) / 10 + 'km');
+        assert.ok(peak - prevPeak > -1.0,
+          distanceKey + ': ' + (v - 1) + '->' + v + 'km/week made the PEAK WEEK ' +
+          Math.round((prevPeak - peak) * 10) / 10 + 'km smaller');
       }
-      prev = total;
+      prev = total; prevHolds = holds; prevPeak = peak;
     }
   }
 });
@@ -452,8 +540,13 @@ test('D-7: a block earns the development its weeks represent, and no more', () =
       assert.ok(m >= 1, 'the ceiling can only be approached, never inverted');
       prev = m;
     });
-    // exactly the linear form, with no constant of its own
-    const bw = a.blockArcFor('race', 8).buildWeeks;
+    /* Exactly the linear form, with no constant of its own -- read against the
+       arc THIS distance actually has. The marathon race arc states its phases
+       as counts and spends one fewer taper week than the generic arc, so it
+       carries one more developing week at the same block length; asking the
+       generic arc for its buildWeeks would be comparing the identity against
+       a block shape the distance does not use. */
+    const bw = a.blockArcFor('race', 8, d).buildWeeks;
     assert.ok(Math.abs(a.developmentMultiplierFor(d, 8) - (1 + (full - 1) * bw / ref)) < 1e-9);
   }
 

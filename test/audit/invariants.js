@@ -14,10 +14,41 @@
  *             asserted, because deciding what to do about them is a
  *             methodology decision that belongs to the founder.
  *
+ *   DESCRIPTIVE  measured, reported, and never an authority on anything. A
+ *             third tier exists because one measure earned its way out of
+ *             SUSPECT rather than out of the audit: see below.
+ *
  * Every check returns a list of findings; nothing here throws or fixes.
+ *
+ * ===========================================================================
+ * week_over_week_growth_over_10pct IS NOW DESCRIPTIVE, AND IT IS UNCHANGED
+ * ===========================================================================
+ * It asked one question of every week -- did the total distance rise more than
+ * ten per cent -- and answered it identically for +1km on a 6km athlete and
+ * +8km on an 80km one. Two facts retired it as a binary authority:
+ *
+ *   IT CANNOT SEE ABSOLUTE LOAD.  6 -> 7km is +16.7% and one kilometre.
+ *                                 80 -> 88km is +10% and eight. The measure
+ *                                 flags the first and not the second.
+ *   IT MOVED THE WRONG WAY.       The correction that removed the last hidden
+ *                                 accounting defect halved the largest
+ *                                 absolute jump in the marathon population,
+ *                                 emptied the >10km class -- and RAISED this
+ *                                 count, because honest weeks are noisier
+ *                                 weeks. A measure that worsens when the
+ *                                 training improves is not measuring training.
+ *
+ * It is kept, by name, with its semantics and its rounding untouched, so the
+ * historical series stays comparable. What replaces it as the AUTHORITY is
+ * test/audit/loadProgression.js, which asks how much changed, how large that
+ * is relative to the athlete's own load, WHAT changed, and whether several
+ * load levers moved together -- and names a reason for every concern it
+ * raises. Its findings enter here as ordinary SUSPECT codes, one per reason,
+ * so each family can be held and reduced on its own.
  */
 
-const HARD = 'hard', SUSPECT = 'suspect';
+const HARD = 'hard', SUSPECT = 'suspect', DESCRIPTIVE = 'descriptive';
+const { assess } = require('./loadProgression.js');
 
 function num(x){ return typeof x === 'number' && isFinite(x); }
 
@@ -144,15 +175,6 @@ function checkCase(c){
         add(SUSPECT, 'quality_dominates_week', { week: w.week, phase: w.phase, qualityFraction: w.qualityFraction, qualityKm: w.qualityKm, actual: w.actualVolume });
     }
 
-    /* ---- progression, week to week ----
-       RETURNING TO TREND AFTER A CUTBACK IS NOT A JUMP. A cutback week is
-       deliberately 78% of trend, so the week after it necessarily grows by
-       about 28% and doing so is the design, not a progression fault. Only
-       growth measured against a week that was itself on trend counts. */
-    const prevW = c.weeks[c.weeks.indexOf(w) - 1];
-    if (w.volumeGrowth != null && w.volumeGrowth > 1.10 && !w.isRace &&
-        !(prevW && prevW.isCutback))
-      add(SUSPECT, 'week_over_week_growth_over_10pct', { week: w.week, phase: w.phase, growth: w.volumeGrowth, from: Math.round((w.actualVolume / w.volumeGrowth) * 10) / 10, to: w.actualVolume });
     if (w.isTaper && w.volumeDelta != null && w.volumeDelta > 0.5)
       add(HARD, 'taper_week_increases_volume', { week: w.week, delta: w.volumeDelta, actual: w.actualVolume });
   });
@@ -184,6 +206,23 @@ function checkCase(c){
       add(HARD, 'floor_excess_unnamed', { week: w.week, km: acc.floorExcess });
   });
 
+  /* ---- WEEKLY LOAD PROGRESSION ----
+     The percentage, kept by name and demoted to what it always was; and the
+     instrument that replaced it as the authority, one SUSPECT code per named
+     reason so no family can hide inside another's total. */
+  assess(c).forEach(t => {
+    if (t.growthOver10pct)
+      add(DESCRIPTIVE, 'week_over_week_growth_over_10pct',
+          { week: t.toWeek, phase: t.toPhase, growth: t.relative,
+            from: t.fromKm, to: t.toKm });
+    t.reasons.forEach(reason => add(SUSPECT, 'load_progression_' + reason.toLowerCase(),
+      { week: t.toWeek, fromWeek: t.fromWeek, phase: t.toPhase,
+        fromPhase: t.fromPhase, from: t.fromKm, to: t.toKm,
+        absoluteKm: t.absoluteKm, relative: t.relative,
+        levers: t.leverNames, movedLevers: t.movedLevers || [],
+        shortRunway: t.shortRunway }));
+  });
+
   /* THE ATHLETE'S OWN STARTING POINT. The first week of a first block is the
      one week whose size the athlete stated themselves. */
   const w1 = c.weeks[0];
@@ -195,7 +234,7 @@ function checkCase(c){
   return out;
 }
 
-module.exports = { checkCase, HARD, SUSPECT };
+module.exports = { checkCase, HARD, SUSPECT, DESCRIPTIVE };
 
 /* ---------------------------------------------------------------------------
    THE ON-RAMP (S4) — its own invariants, at zero from its first commit.

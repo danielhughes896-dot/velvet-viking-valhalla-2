@@ -3,27 +3,30 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 
-/* THE RACE-PROGRAMME VIABILITY CONTRACT, STATED
+/* THE RACE-PROGRAMME VIABILITY CONTRACT, AND WHERE THE MARATHON LEFT IT
  * ===========================================================================
  * MIN_PEAK_LONG_KM looks like a second, independent opinion about long runs
- * sitting beside LONG_FRACTION -- two magic numbers that could drift apart,
- * and one of them (full: 30) apparently unreachable for most athletes the
- * product will happily build a marathon plan for.
+ * sitting beside LONG_FRACTION. It is not: it is the SAME equation solved for
+ * a different unknown.
  *
- * It is not a second opinion. It is the SAME equation, solved for a different
- * unknown:
+ *     the builder asked   peak long run = peak volume x LONG_FRACTION
+ *     the gate asks       what start volume makes that reach the floor?
  *
- *     the builder asks   peak long run = peak volume x LONG_FRACTION
- *     the gate asks      what start volume makes that reach the floor?
+ * minViableStartKm() is that inversion, algebraically exact. FOR 5K, 10K, HALF
+ * AND ULTRA THAT IDENTITY STILL HOLDS and these tests still pin it.
  *
- * minViableStartKm() is that inversion, algebraically exact. So the floor is
- * not a number to be reconciled with the prescription -- it IS the
- * prescription, read backwards, and the only free parameter is what counts as
- * adequate preparation for the distance.
+ * THE MARATHON NO LONGER BUILDS THAT WAY. Its weeks are assembled from
+ * purposeful sessions and summed, so "peak long run = peak volume x share" is
+ * not an equation the marathon contains any more -- and a boundary derived by
+ * inverting an equation that no longer exists cannot describe anything. HQ
+ * ruled the old marathon partition non-authoritative for exactly that reason.
  *
- * These tests pin that identity, and pin what follows from it: the gate
- * partitions the population exactly, and a plan built WITHOUT consulting the
- * gate can therefore land below the floor without any constant being wrong.
+ * So the marathon's share of this file is replaced rather than loosened. What
+ * is asserted instead is the architecture that took its place: a plan can
+ * always be built, the long run has its own progression, that progression is
+ * constrained by the week that has to carry it, and the shortfall is reported
+ * rather than engineered away. Those are strictly more assertions than the
+ * partition tests made, not fewer.
  */
 const TODAY = '2026-08-30';
 const app = () => {
@@ -82,83 +85,131 @@ test('the viability floor is the prescription methodology, inverted — not a se
   });
 });
 
-test('an athlete admitted at the floor reaches the floor, through the real builder', () => {
-  /* The identity above is algebra. This is the same claim made against the
-     generator, so a change to the arc, the cap or the allocator that broke it
-     in practice would fail here even if the arithmetic still agreed. */
+test('a marathon plan can always be built, whatever the starting volume', () => {
+  /* THE FIRST THING THE OLD BOUNDARY GOT WRONG. "Admissible" and "can be made
+     ready" are different questions, and only the second one has a threshold. */
   const a = app();
-  DISTANCES.forEach(d => {
-    WEEKS.forEach(w => {
-      const start = a.minViableStartKm(d, w);
-      const long = deliveredPeakLong(a, d, start, w);
-      assert.ok(long + 0.55 >= a.MIN_PEAK_LONG_KM[d],
-        d + '/' + w + 'wk: admitted at ' + start + ' km/wk, the peak long run is ' +
-        long + ' km against a declared floor of ' + a.MIN_PEAK_LONG_KM[d]);
+  [5, 8, 12, 20, 30, 50, 80].forEach(v => {
+    const o = a.marathonPreparationOutlook(v, 15, 330);
+    assert.equal(o.canBuild, true, v + ' km/week must still get a programme');
+    const blk = a.buildBlockWeeks('full', v, 15, { availableDays: 6, easyPaceSecPerKm: 330 });
+    assert.ok(blk.weeks.length === 15, v + ' km/week must generate fifteen weeks');
+  });
+});
+
+test('a low start produces an honest shortfall, not a refusal and not a fiction', () => {
+  const a = app();
+  const bench = a.MIN_PEAK_LONG_KM.full;
+  const low = a.marathonPreparationOutlook(12, 15, 330);
+  const high = a.marathonPreparationOutlook(80, 15, 330);
+  assert.ok(low.longShortfallKm > 0, 'a 12 km/week athlete is short of the benchmark');
+  assert.equal(high.longShortfallKm, 0, 'an 80 km/week athlete is not');
+  assert.ok(low.reachableLongKm < bench && low.reachableLongKm > 0,
+    'and what they CAN reach is stated rather than refused: ' + low.reachableLongKm);
+});
+
+test('long-run reachability alone does not authorise a dominating long run', () => {
+  /* THE MEASUREMENT THAT MADE THE COHERENCE GATE NECESSARY. Asked in
+     isolation, a 30 km/week athlete's long run can reach 30 km. The week it
+     would land in is 60, so that one run is half of everything they do. */
+  const a = app();
+  const reachAlone = a.marathonLongRunDestination(
+    a.marathonSessionStart(30, 4).longKm, 10).km;
+  const withWeek = a.marathonPreparationOutlook(30, 15, 330).reachableLongKm;
+  assert.ok(reachAlone > withWeek,
+    'reachability said ' + reachAlone + ', the whole week says ' + withWeek);
+  const blk = a.buildBlockWeeks('full', 30, 15, { availableDays: 6, easyPaceSecPerKm: 330 });
+  const nr = blk.weeks.filter(w => !w.isRace && w.phase !== 'Taper');
+  const peakLong = Math.max.apply(null, nr.map(w => w.longTarget));
+  const peakWk = Math.max.apply(null, nr.map(w => w.volume));
+  /* THE TEST IS THE COHERENCE RELATION, NOT A SHARE OF THE WEEK. A share
+     threshold would be the hidden universal rule the methodology prohibits --
+     a lower-frequency athlete legitimately carries a larger share, because the
+     same relationship between the long run and the runs beside it produces a
+     bigger fraction when there are fewer of them. What must hold is that the
+     supporting runs are still supporting: at or above SUPPORT_SHARE_MIN of the
+     long run. */
+  const wk = blk.weeks.filter(w => w.bottomUp && !w.isRace && w.phase !== 'Taper')
+                      .reduce((m, w) => w.volume > m.volume ? w : m);
+  assert.ok(wk.bottomUp.supportKm >= wk.longTarget * a.SUPPORT_SHARE_MIN - 0.05,
+    'supporting runs are ' + Math.round(100 * wk.bottomUp.supportKm / wk.longTarget) +
+    '% of the long run');
+});
+
+test('the coherence gate only ever holds back — it never generates', () => {
+  const a = app();
+  /* It is a ceiling on a candidate and nothing else: no long run, no weekly
+     volume and no share is ever solved for. */
+  assert.equal(a.longRunCoherenceCeiling(0), Infinity, 'with no support it has no opinion');
+  assert.ok(a.longRunCoherenceCeiling(10) > a.longRunCoherenceCeiling(8),
+    'more support permits more long run, and permits is the whole verb');
+  // and it is the frequency band read in the other direction, not a new number
+  assert.equal(a.longRunCoherenceCeiling(10), 10 / a.SUPPORT_SHARE_MIN);
+});
+
+test('no share equation generates the long run or the week', () => {
+  const a = app();
+  const f = a.LONG_FRACTION.endurance;
+  [20, 30, 40, 50, 60, 80].forEach(v => {
+    const blk = a.buildBlockWeeks('full', v, 15, { availableDays: 6, easyPaceSecPerKm: 330 });
+    const nr = blk.weeks.filter(w => !w.isRace && w.phase !== 'Taper');
+    /* THE CLAIM IS ABOUT THE BLOCK, NOT EVERY WEEK. Week one can coincide --
+       the athlete's own starting long run is read from the shape of the week
+       they arrived with, so at some volumes it lands on the share exactly, and
+       one coincidence proves nothing either way. What the old architecture
+       guaranteed is that the identity held EVERYWHERE, and that is what is
+       gone: the long run and the week now develop on separate authorities and
+       drift apart across the block. */
+    const onShare = nr.filter(w => Math.abs(w.longTarget - w.volume * f) <= 0.05).length;
+    assert.ok(onShare < nr.length / 2,
+      v + ' km: ' + onShare + ' of ' + nr.length + ' weeks still sit exactly on volume x share');
+    const peak = nr.reduce((m, w) => w.volume > m.volume ? w : m, nr[0]);
+    assert.ok(Math.abs(peak.longTarget - peak.volume * f) > 0.05,
+      v + ' km: the peak week is still exactly volume x share');
+  });
+});
+
+test('the week is the sum of the sessions prescribed in it', () => {
+  const a = app();
+  [12, 25, 50, 80].forEach(v => {
+    const blk = a.buildBlockWeeks('full', v, 15, { availableDays: 6, easyPaceSecPerKm: 330 });
+    blk.weeks.filter(w => w.bottomUp).forEach(w => {
+      const b = w.bottomUp;
+      /* THE WEEK'S OWN RECORD, not a re-derivation. Which family a one-slot
+         week carries, and whether the slot was refused for capacity, deferred
+         under the long-run bound or given back to the aerobic work, are four
+         separate decisions inside buildBlockWeeks -- this test reproduced one
+         of them and silently disagreed with the other three. bottomUp.qualityKm
+         is what the week counted, so the identity is asserted against the
+         generator's answer rather than against a copy of part of it. */
+      const q = b.qualityKm;
+      /* countedSupportDays, not supportDays: where the structured session was
+         deferred its slot became an ordinary supporting run and the week
+         carries one more of them. */
+      const sum = w.longTarget + q + (b.countedSupportDays || b.supportDays) * b.supportKm;
+      assert.ok(Math.abs(sum - w.volume) < 0.15,
+        v + ' km wk' + w.week + ': sessions sum to ' + Math.round(sum * 10) / 10 +
+        ', week reports ' + w.volume);
+      assert.equal(w.intendedVolume, w.volume,
+        'and there is no separate intent left to reconcile against');
     });
   });
 });
 
-test('the marathon floor is not reachable below its own admission volume, and that is the point', () => {
-  /* The fact that started this audit: a 51 km/week athlete peaks at 28 km, not
-     30. That is not a contradiction between two constants -- it is an athlete
-     BELOW the admission volume, which for a 16-week marathon block is 53.6
-     km/week. The gate's whole job is to notice that. */
+test('the 30 km benchmark is reached where the athlete supports it, and not forced where they do not', () => {
   const a = app();
-  const floor = a.minViableStartKm('full', 16);
-  assert.ok(floor > 51 && floor < 56, 'the 16-week marathon admission volume is ' + floor);
-  assert.ok(deliveredPeakLong(a, 'full', 51, 16) < a.MIN_PEAK_LONG_KM.full,
-    '51 km/wk is below the floor, so a straight race block must fall short of it');
-  assert.ok(deliveredPeakLong(a, 'full', floor, 16) + 0.55 >= a.MIN_PEAK_LONG_KM.full,
-    'and at the floor it must reach it');
-  /* Which is exactly what the pathway says about that athlete. */
-  const p = a.athletePathway('full', 51, 16);
-  assert.equal(p.route, 'on_ramp_then_race');
-  assert.ok(p.onRampToKm + 0.05 >= floor,
-    'the on-ramp targets the admission volume, not some other number');
-  assert.ok(deliveredPeakLong(a, 'full', p.onRampToKm, p.raceBlockWeeks) + 0.55 >= a.MIN_PEAK_LONG_KM.full,
-    'and the race block that follows it reaches the floor');
-});
-
-test('the gate partitions the marathon population exactly at the floor', () => {
-  /* THE DECISIVE PROPERTY. If MIN_PEAK_LONG_KM.full were wrong -- too high for
-     the methodology -- there would be athletes the gate admits straight to a
-     race block whose plan still falls short. There are none. Every athlete the
-     gate admits reaches the floor; every athlete who would fall short is
-     routed to an on-ramp instead. */
-  const a = app();
-  let admitted = 0, routed = 0;
-  for (let v = 25; v <= 90; v += 5){
-    for (const w of [12, 14, 16, 20, 24]){
-      const p = a.athletePathway('full', v, w);
-      const long = deliveredPeakLong(a, 'full', v, w);
-      if (p.route === 'race_programme'){
-        admitted++;
-        assert.ok(long + 0.55 >= a.MIN_PEAK_LONG_KM.full,
-          v + ' km/wk over ' + w + 'wk was admitted straight to a race block but peaks at ' +
-          long + ' km, below the ' + a.MIN_PEAK_LONG_KM.full + ' km floor');
-      } else if (p.route === 'on_ramp_then_race' || p.route === 'foundation_then_on_ramp_then_race'){
-        routed++;
-        assert.ok(long < a.MIN_PEAK_LONG_KM.full + 0.55,
-          v + ' km/wk over ' + w + 'wk was sent to an on-ramp although a straight race block ' +
-          'would already have reached ' + long + ' km — the gate is refusing an athlete it should admit');
-      }
-    }
-  }
-  assert.ok(admitted > 10 && routed > 10,
-    'the population must contain both sides of the line: ' + admitted + ' admitted, ' + routed + ' routed');
-});
-
-test('building without the gate can land below the floor, and nothing here prevents that', () => {
-  /* STATED SO THAT NOBODY ASSUMES OTHERWISE. buildBlockWeeks() is a builder,
-     not a gate: it develops whatever start volume it is given and never
-     consults MIN_PEAK_LONG_KM. Any caller that skips athletePathway() can
-     therefore produce a plan the viability contract would not admit. That is a
-     property of the CALLER, not a defect in either constant, and this test
-     exists so a future reader does not mistake one for the other. */
-  const a = app();
-  const below = deliveredPeakLong(a, 'full', 40, 16);
-  assert.ok(below < a.MIN_PEAK_LONG_KM.full);
-  assert.ok(below > 0, 'and it is a real plan, not a refusal — the builder does not gate');
+  const bench = a.MIN_PEAK_LONG_KM.full;
+  const peakLongOf = v => {
+    const blk = a.buildBlockWeeks('full', v, 15, { availableDays: 6, easyPaceSecPerKm: 330 });
+    const nr = blk.weeks.filter(w => !w.isRace && w.phase !== 'Taper');
+    return Math.max.apply(null, nr.map(w => w.longTarget));
+  };
+  assert.ok(peakLongOf(80) >= bench - 0.55, 'an established athlete reaches it');
+  assert.ok(peakLongOf(25) < bench * 0.7, 'a low-volume athlete is not forced to it');
+  // monotone in starting workload -- no cliff, no reversal
+  const seq = [12, 20, 25, 30, 40, 50, 60, 70, 80].map(peakLongOf);
+  for (let i = 1; i < seq.length; i++)
+    assert.ok(seq[i] >= seq[i - 1] - 0.05, 'peak long went backwards: ' + seq.join(','));
 });
 
 test('genuinely insufficient preparation is still distinguishable', () => {

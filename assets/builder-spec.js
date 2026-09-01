@@ -185,6 +185,29 @@ var BUILDER_SPEC = {
   validation: {
     weeksRange: [4, 24],
     volumeMustExceed: 0,
+    /* ---------- THE MINIMUM RUNNING FOUNDATION FOR A RACE GOAL ----------
+       SIX KILOMETRES A WEEK, AND IT IS AN ENTRY BOUNDARY RATHER THAN A
+       READINESS THRESHOLD. It does not say an athlete below it cannot run a
+       marathon; it says that below it they do not yet demonstrate enough
+       established running for Race Goal methodology to express differentiated
+       race preparation. At one to five kilometres a week the generator reaches
+       the granularity of its own legitimate session structures, and what comes
+       out is floors rather than training: a supporting run longer than the
+       long run, weeks driven by EASY_MIN_KM, and progression that means
+       nothing.
+
+       The coaching answer is to establish the foundation first, which is what
+       Aerobic Base is for -- so this routes rather than refuses.
+
+       THE AUTHORITY IS SIX KILOMETRES, not six miles and not a second number
+       per unit. A client displaying miles converts for display through its own
+       existing unit handling and submits kilometres, exactly as the volume
+       field already does.
+
+       Read by the app (raceGoalEntry()), by /start, and by api/_preview.js,
+       which routes a below-minimum race request to a base block server-side so
+       the pre-auth surface cannot produce a state the app would not build. */
+    raceGoalMinWeeklyKm: 6,
     daysRange: [3, 6],
     benchmarkSecondsRange: [300, 40000]
   }

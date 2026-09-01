@@ -46,6 +46,22 @@ function dayOf(a, archetype) {
   assert.ok(d, 'the fixture must contain a ' + archetype + ' session');
   return d;
 }
+/* THE SUBJECT IS THE ARCHETYPE, NOT THE FIXTURE. Which structures a marathon
+   block draws is a property of its length and its phase migration, so a single
+   block length cannot be relied on to contain all of them. The archetype is
+   looked for across the lengths the engine builds and a miss in every one is
+   still a failure -- strictly more coverage than pinning one fixture. */
+function anyDayOf(archetype) {
+  for (const weeks of [14, 15, 16, 18]) {
+    const a = app({ weeks });
+    const d = a.state.days.filter(x => {
+      const p = a.prescriptionOf(x);
+      return p && p.archetype === archetype;
+    })[0];
+    if (d) return { a, d };
+  }
+  assert.fail('no generated marathon block contains a ' + archetype + ' session');
+}
 const clone = o => JSON.parse(JSON.stringify(o));
 const groovyless = s => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 
@@ -98,12 +114,18 @@ test('2. a rest day is never eligible', () => {
 });
 
 test('2. every quality, long, benchmark and race session is eligible', () => {
-  const a = app();
+  /* THE SUBJECT IS THE ARCHETYPE, NOT THE FIXTURE. Every one of these must be
+     eligible wherever it is generated; requiring one plan length to contain
+     all fourteen made the assertion hostage to structure-pool rotation, and a
+     marathon block of a different length legitimately draws a different set --
+     14 weeks produces split_tempo and no ladder, 15 and 16 the reverse. So the
+     archetype is looked for across the block lengths the engine builds, and a
+     miss in every one of them is still a failure. */
   ['long_run', 'long_run_goal_finish', 'threshold_continuous', 'goal_pace_block',
    'steady_tempo', 'progressive_tempo', 'split_tempo', 'track_reps', 'ladder',
    'deuce', 'goal_pace_reps', 'hill_repeats', 'time_trial', 'race']
     .forEach(arch => {
-      const d = dayOf(a, arch);
+      const { a, d } = anyDayOf(arch);
       assert.equal(a.executionStrategyEligible(d), true, arch + ' must be eligible');
       const s = a.executionStrategy(d);
       assert.ok(s && s.phases.length >= 2, arch + ' must produce a staged plan');
@@ -426,8 +448,8 @@ test('7. no strategy invents a pace offset from the goal', () => {
 });
 
 test('7. a time-based session gets no kilometre marks', () => {
-  const a = app();
-  const s = a.executionStrategy(dayOf(a, 'progressive_tempo'));
+  const { a, d } = anyDayOf('progressive_tempo');
+  const s = a.executionStrategy(d);
   const build = s.phases.filter(p => p.key === 'build')[0];
   assert.ok(build, 'the progression must have a build phase');
   assert.ok(build.sec != null, 'and it is measured in time, because the prescription is');

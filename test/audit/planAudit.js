@@ -114,6 +114,16 @@ function auditCase(opts){
     return {
       date: dd.date, week: dd.week, type: dd.type, title: dd.title,
       km: dd.km,
+      /* TWO FACTS THE ROLL-UP USED TO DROP, and the weekly-load instrument
+         needs both: a medium-long run is a second sustained effort rather than
+         an ordinary supporting run, and a marathon-pace segment is
+         race-specific work. Neither is inferable from `type` -- a medium-long
+         is typed 'easy' and a goal-pace finish sits inside a long run -- so
+         without them two whole load levers were invisible to the audit and
+         their cause classes could never fire. Additive: nothing that already
+         read a session is affected, and no generated output moves. */
+      mediumLong: !!dd.mediumLong,
+      mpSegment: !!dd.mpSegment,
       archetype: p ? p.archetype : null,
       params: p ? p.params : null,
       segments: segs ? segs.map(s => ({
@@ -136,6 +146,12 @@ function auditCase(opts){
       isCutback: !!wk.isCutback, isTaper: !!wk.isTaper, isRace: !!wk.isRace,
       isCheckpoint: !!wk.isCheckpoint, isCalibration: !!wk.isCalibration,
       targetVolume: wk.volume,
+      /* THE WEEK'S OWN BOTTOM-UP RECORD, carried through so the audit can see
+         what the generator decided rather than inferring it: which step of the
+         progression the week stands on, whether a structure arrived, and
+         whether the ordinary dose step was held for it. Marathon race blocks
+         only; null everywhere else, exactly as the generator leaves it. */
+      bottomUp: wk.bottomUp || null,
       longTarget: wk.longTarget, goalSegKm: wk.goalSegKm,
       hasGoalSegment: !!wk.hasGoalSegment,
       qKm: wk.qKm, tKm: wk.tKm,
