@@ -6057,6 +6057,53 @@ function raceGoalPhaseAllocation(distKey, N, experience){
    and Peak is too short to carry one, it moves one week earlier instead --
    never later, because a week that is going to be absorbed should be absorbed
    before the athlete is asked for the block's hardest session and not after. */
+/* ---------- WHEN RACE-SPECIFIC WORK ENTERS THE LONG RUN ----------
+   IT WAS ARRIVING BY ACCIDENT, and the accident had the order backwards. A
+   goal-pace finish appeared in the first week the PHASE allowed one, which is
+   the first week of Build -- so it was decided entirely by how long Base
+   happened to be, and the novice marathoner got it in week four while the
+   experienced one waited until week five. The athlete least able to absorb
+   race-pace running inside a long run was being given it first.
+
+   IT IS AN EXPERIENCE DECISION AND AN ABSORPTION ONE.
+
+   A NOVICE'S LONG RUN IS THE EVENT. Their whole task is that the distance
+   exists at all, and asking for goal-pace running inside it before it does is
+   asking for the two hardest things at once. Race-specific work waits until
+   the durability exposure has happened, which is also the week the block stops
+   asking the long run to get longer -- so the two demands never overlap.
+
+   AN EXPERIENCED ATHLETE HAS THE DISTANCE ALREADY and the question is only
+   whether they are absorbing their training. Where the evidence says they are
+   -- a block effectiveness reading that is not STRAINED, and a demonstrated
+   quality family behind them -- the work starts in the last week of Base
+   rather than the first of Build. Where it does not, it waits, which is the
+   honest answer rather than a schedule.
+
+   AN ADVANCED ATHLETE STARTS IT IN BASE. Their Base is two weeks of
+   re-establishment, not construction, and marathon-pace running is ordinary
+   training for them rather than a new stressor.
+
+   NOTHING HERE INVENTS A SESSION. The goal segment, its size and its
+   progression are unchanged; this decides only the week it may first appear,
+   which used to be decided by an arithmetic nobody chose. */
+function raceGoalSpecificityFromWeek(distKey, experience, alloc){
+  if (!alloc) return 1;
+  var base = alloc.base || 0, build = alloc.build || 0;
+  /* AFTER the durability exposure, which is the first Peak week and carries no
+     goal segment of its own -- so the first specific long run is the one after
+     it. */
+  if (experience === 'novice') return base + build + 2;
+  if (experience === 'advanced') return Math.max(1, base);
+  var absorbing = false;
+  try {
+    var be = blockEffectiveness();
+    absorbing = !!(be && be.state && be.state !== 'STRAINED');
+  } catch(e){ absorbing = false; }
+  var fams = [];
+  try { fams = demonstratedQualityFamilies(); } catch(e){ fams = []; }
+  return (absorbing && fams.length) ? Math.max(1, base) : base + 1;
+}
 function raceGoalCutbackWeek(distKey, N, w, experience){
   var alloc = raceGoalPhaseAllocation(distKey, N, experience);
   var buildW = alloc.base + alloc.build + alloc.peak;
@@ -6128,9 +6175,9 @@ function raceGoalStepCount(distKey, N, experience){
      the curve is simply scaled to the steps the block will actually take, so it
      lands on the durability exposure rather than a week past it. */
   var alloc = raceGoalPhaseAllocation(distKey, N, experience);
-  var firstBuild = alloc.base + 1;
-  if (alloc.build > 0 && firstBuild <= end &&
-      !raceGoalCutbackWeek(distKey, N, firstBuild, experience))
+  var spec = raceGoalSpecificityFromWeek(distKey, experience, alloc);
+  if (alloc.build > 0 && spec <= end &&
+      !raceGoalCutbackWeek(distKey, N, spec, experience))
     n--;
   return Math.max(1, n);
 }
@@ -9335,6 +9382,17 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        always written to do. */
     var hasGoalSegment = goalOriented && !isRace && !isTaper && (profile.emphasis==='threshold'||profile.emphasis==='endurance') && phase!=='Base'
                          && longTarget >= GOAL_FINISH_MIN_LONG_KM;
+    /* ---- AND A RACE GOAL BLOCK DECIDES THE WEEK, NOT THE PHASE BOUNDARY ----
+       See raceGoalSpecificityFromWeek(). It can move the arrival either way --
+       earlier into Base for an athlete absorbing their training, later into
+       Peak for a novice whose long run is still becoming the distance -- so
+       the phase test above is replaced rather than narrowed. */
+    if (usesBottomUpArc(purpose, distKey) && arc.phaseCounts){
+      hasGoalSegment = goalOriented && !isRace && !isTaper &&
+        (profile.emphasis==='threshold'||profile.emphasis==='endurance') &&
+        longTarget >= GOAL_FINISH_MIN_LONG_KM &&
+        w >= raceGoalSpecificityFromWeek(distKey, blockExp, arc.phaseCounts);
+    }
     /* DURABILITY DOMINANT MEANS WHAT IT SAYS. The first peak exposure is the
        longest run the athlete will do, and asking for goal pace at the end of
        it is asking for the two most expensive things at once. It keeps its

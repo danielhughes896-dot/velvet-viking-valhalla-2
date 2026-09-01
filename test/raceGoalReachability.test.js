@@ -233,3 +233,67 @@ test('CURRENT WEEKLY VOLUME — every other product still reads it, and must', (
       d + ' race stopped reading the athlete\'s stated volume');
   });
 });
+
+test('EXPERIENCE — the route changes, the preparation standard does not', () => {
+  /* HQ's statement, asserted in both halves.
+
+     THE STANDARD IS THE SAME. All three pathways at a distance are held to the
+     same reachability gate above; what differs is how the athlete gets there.
+
+     THE ROUTE DIFFERS IN TWO WAYS. Base and Build are allocated by experience
+     -- an advanced athlete does not spend four of fifteen weeks proving a base
+     they arrive with -- and race-specific work enters the long run when the
+     athlete is ready for it rather than when the phase boundary happens to
+     fall. That second one used to run BACKWARDS: it appeared in the first week
+     of Build, so the novice marathoner got goal-pace running inside their long
+     run in week four and the experienced one waited until week five. */
+  const path = require('path');
+  const { loadApp } = require(path.join(__dirname, 'harness.js'));
+  const a = loadApp({ pinnedDate: '2026-03-02T09:00:00Z' });
+  a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  a.showToast = () => {}; a.state = a.makeDefaultState();
+
+  /* PHASE GEOMETRY: advanced spends the fewest weeks in Base. */
+  ['half', 'full'].forEach(d => {
+    const base = e => a.raceGoalPhaseAllocation(d, 15, e).base;
+    assert.ok(base('advanced') < base('experienced'),
+      d + ': an advanced athlete should not spend an experienced athlete\'s Base');
+    assert.ok(base('advanced') <= 2, d + ': advanced Base should be about two weeks');
+    const peak = e => a.raceGoalPhaseAllocation(d, 15, e).peak;
+    assert.equal(peak('novice'), peak('advanced'),
+      d + ': Peak is what makes this preparation for the event and must not move');
+  });
+
+  /* SPECIFICITY: the order is advanced, then experienced, then novice -- and
+     the novice's is after their durability exposure, not before it. */
+  ['half', 'full'].forEach(d => {
+    const first = e => {
+      const alloc = a.raceGoalPhaseAllocation(d, 15, e);
+      return a.raceGoalSpecificityFromWeek(d, e, alloc);
+    };
+    assert.ok(first('advanced') < first('experienced'),
+      d + ': an advanced athlete should meet race pace before an experienced one');
+    assert.ok(first('experienced') < first('novice'),
+      d + ': a novice should not meet race pace before an experienced athlete');
+    const alloc = a.raceGoalPhaseAllocation(d, 15, 'novice');
+    assert.ok(first('novice') > alloc.base + alloc.build + 1,
+      d + ': a novice meets race pace only after their durability exposure');
+  });
+
+  /* AND ABSORPTION MOVES IT, not the calendar. An experienced athlete who is
+     absorbing their training starts marathon-pace work in the last week of
+     Base; one who is straining waits for Build. */
+  const withState = (state, fams) => {
+    const b = loadApp({ pinnedDate: '2026-03-02T09:00:00Z' });
+    b.renderApp = () => {}; b.flushSave = () => {}; b.scheduleSave = () => {};
+    b.showToast = () => {}; b.state = b.makeDefaultState();
+    b.blockEffectiveness = () => ({ state });
+    b.demonstratedQualityFamilies = () => fams;
+    return b.raceGoalSpecificityFromWeek('full', 'experienced',
+      b.raceGoalPhaseAllocation('full', 15, 'experienced'));
+  };
+  assert.ok(withState('PRODUCTIVE', ['tempo']) < withState('STRAINED', ['tempo']),
+    'absorption should bring marathon-pace work forward, and did not');
+  assert.equal(withState('PRODUCTIVE', []), withState('STRAINED', ['tempo']),
+    'and an athlete with no demonstrated quality family waits, however well they absorb');
+});
