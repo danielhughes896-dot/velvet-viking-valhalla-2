@@ -132,3 +132,41 @@ test('REACHABILITY — every pathway states an entry its own destination can rea
     });
   });
 });
+
+test('LONG RUNWAY — a half hands its surplus off rather than growing a Base', () => {
+  /* THE HALF HAD THE MARATHON'S RUNWAY PROBLEM AND NOT ITS ANSWER. Its
+     dedicated window is fifteen weeks and its destination stops moving there,
+     so an athlete twenty-four weeks out was given a twenty-four week half block
+     -- which the half's own allocation shapes as a TWELVE WEEK BASE followed by
+     six of Build and four of Peak. A twelve-week Base inside a race block is a
+     development block wearing a race block's name.
+
+     One to three surplus weeks still go to Base, because a development block
+     shorter than four weeks cannot express its own arc; beyond that the surplus
+     becomes a real block with its own methodology. */
+  const path = require('path');
+  const { loadApp } = require(path.join(__dirname, 'harness.js'));
+  const a = loadApp({ pinnedDate: '2026-03-02T09:00:00Z' });
+  a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  a.showToast = () => {}; a.state = a.makeDefaultState();
+
+  assert.equal(a.marathonRunwayPlan(15, 40, 'half').reason, 'exact_window');
+  [16, 17, 18].forEach(W => assert.equal(
+    a.marathonRunwayPlan(W, 40, 'half').reason, 'surplus_absorbed_into_base',
+    W + ' surplus weeks should go to Base'));
+  [20, 24, 30].forEach(W => {
+    const rp = a.marathonRunwayPlan(W, 40, 'half');
+    assert.equal(rp.raceWeeks, a.HALF_DEDICATED_WEEKS,
+      W + ' weeks out still built a ' + rp.raceWeeks + '-week half block');
+    assert.ok(rp.preparatory && rp.preparatory.weeks >= 4,
+      W + ' weeks out did not hand its surplus to a real development block');
+  });
+  /* AND THE BLOCK IT WOULD OTHERWISE HAVE BUILT IS THE EVIDENCE. */
+  const wide = a.raceGoalPhaseAllocation('half', 24, 'experienced');
+  assert.ok(wide.base >= 4 * wide.build / 6,
+    'the 24-week allocation no longer inflates Base, so this test protects nothing');
+
+  /* THE MARATHON IS UNCHANGED, byte for byte, at its own default. */
+  assert.equal(JSON.stringify(a.marathonRunwayPlan(24, 40)),
+               JSON.stringify(a.marathonRunwayPlan(24, 40, 'full')));
+});

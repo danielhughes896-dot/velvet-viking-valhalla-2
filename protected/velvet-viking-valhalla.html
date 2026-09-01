@@ -6148,7 +6148,7 @@ function demonstratedQualityFamilies(){
    input that exists even for an athlete with no logged history at all. It is
    used only when there is nothing demonstrated to read, and it is the athlete's
    own answer rather than an inference. */
-function marathonPreparatoryPurpose(stateVolume){
+function marathonPreparatoryPurpose(stateVolume, distKey){
   /* MARATHON NO LONGER ASKS minViableStartKm(). That function is
      MIN_PEAK_LONG_KM / (developmentMultiplier x LONG_FRACTION) -- the top-down
      identity peakLong = startVolume x volMult x LONG_FRACTION solved for the
@@ -6167,7 +6167,8 @@ function marathonPreparatoryPurpose(stateVolume){
                        ? demonstratedSustainableVolume()
                        : (stateVolume > 0 ? stateVolume : null)),
                longRunKm:demonstratedLongRunKm(), qualityFamilies:demonstratedQualityFamilies() };
-  var outlook = marathonPreparationOutlook(stateVolume, MARATHON_DEDICATED_WEEKS, null);
+  var dkP = (distKey === 'half') ? 'half' : 'full';
+  var outlook = marathonPreparationOutlook(stateVolume, dedicatedWeeksFor(dkP), null, dkP);
   out.outlook = outlook;
   if (out.volume == null){ out.purpose = 'base'; out.reason = 'no_volume_evidence'; return out; }
   /* A SHORTFALL, NOT A ROUNDING DIFFERENCE. An athlete whose coherent
@@ -6189,11 +6190,22 @@ function marathonPreparatoryPurpose(stateVolume){
    about when the marathon window opens. Pure: it takes the runway and the
    stated volume and reads athlete evidence, and it decides nothing about
    whether to act. */
-function marathonRunwayPlan(weeksToRace, stateVolume){
+function marathonRunwayPlan(weeksToRace, stateVolume, distKey){
+  /* ---- AND THE HALF HAS THE SAME RUNWAY PROBLEM ----
+     Its dedicated window is fifteen weeks and its destination stops moving
+     there, so an athlete twenty-four weeks out was given a twenty-four week
+     half block -- which halfPhaseAllocation() shapes as a TWELVE WEEK BASE
+     followed by six of Build and four of Peak. A twelve-week Base inside a race
+     block is a development block wearing a race block's name, which is exactly
+     what this rule exists to prevent for the marathon. Same window arithmetic,
+     same absorb-or-hand-off decision, the half's own dedicated length. The
+     marathon's behaviour is unchanged: distKey defaults to 'full'. */
+  var dk = (distKey === 'half') ? 'half' : 'full';
   var W = Math.max(1, Math.round(weeksToRace || 0));
-  var D = MARATHON_DEDICATED_WEEKS;
-  var out = { weeksToRace:W, dedicatedWeeks:D, raceWeeks:W, surplus:0, absorbWeeks:0,
-              preparatory:null, shortened:false, shape:'full', reason:'exact_window' };
+  var D = dedicatedWeeksFor(dk);
+  var out = { distanceKey:dk, weeksToRace:W, dedicatedWeeks:D, raceWeeks:W, surplus:0,
+              absorbWeeks:0, preparatory:null, shortened:false, shape:'full',
+              reason:'exact_window' };
   if (W < D){
     out.shortened = true;
     out.shape = W <= 10 ? 'no_base' : 'compressed';
@@ -6207,7 +6219,7 @@ function marathonRunwayPlan(weeksToRace, stateVolume){
     out.absorbWeeks = surplus; out.raceWeeks = W; out.reason = 'surplus_absorbed_into_base';
     return out;
   }
-  var sel = marathonPreparatoryPurpose(stateVolume);
+  var sel = marathonPreparatoryPurpose(stateVolume, dk);
   out.raceWeeks = D;
   out.selection = sel;
   if (!sel.purpose){
@@ -6737,27 +6749,29 @@ function marathonVolumeDestination(startKm, planWeeks){
    it coherently get to inside the runway, and how far short of the marathon
    readiness benchmark does that leave them -- using the same three authorities
    that build the block, so the outlook and the prescription cannot disagree. */
-function marathonPreparationOutlook(statedVolumeKm, planWeeks, easyPaceSecPerKm){
-  var W = Math.max(1, Math.round(planWeeks || MARATHON_DEDICATED_WEEKS));
-  var arcW = blockArcFor('race', W, 'full').buildWeeks;
-  var progressing = 0;
-  for (var pw = 1; pw <= arcW; pw++) if (!(pw % 4 === 0)) progressing++;
+function marathonPreparationOutlook(statedVolumeKm, planWeeks, easyPaceSecPerKm, distKey){
+  /* BOTH DEDICATED ARCHITECTURES ASK THIS, and the marathon's answer is
+     unchanged: the default is 'full', so every existing caller reads exactly
+     what it read before. */
+  var dk = (distKey === 'half') ? 'half' : 'full';
+  var W = Math.max(1, Math.round(planWeeks || dedicatedWeeksFor(dk)));
+  var progressing = raceGoalStepCount(dk, W);
   var days = 6, qSlots = 1;
-  var f = LONG_FRACTION[DISTANCE_PROFILES['full'].emphasis];
-  var impliedLong = Math.min(DISTANCE_PROFILES['full'].longCapKm,
+  var f = LONG_FRACTION[DISTANCE_PROFILES[dk].emphasis];
+  var impliedLong = Math.min(DISTANCE_PROFILES[dk].longCapKm,
                              (statedVolumeKm > 0 ? statedVolumeKm : 0) * f);
   var have = Math.max(0, (statedVolumeKm > 0 ? statedVolumeKm : 0) - impliedLong);
   var costKm = (easyPaceSecPerKm > 0) ? (SUPPORT_COST_COMFORT_SEC / easyPaceSecPerKm) : null;
   var need = costKm > 0 ? Math.ceil(have / costKm) - qSlots : (days - 1 - qSlots);
   var supportDays = Math.max(1, Math.min(days - 1 - qSlots, Math.max(need, 1),
                                          Math.max(1, Math.floor(have / EASY_MIN_KM))));
-  var start = marathonSessionStart(statedVolumeKm, supportDays, qSlots);
-  var dest = marathonLongRunDestination(start.longKm, progressing);
+  var start = marathonSessionStart(statedVolumeKm, supportDays, qSlots, dk);
+  var dest = marathonLongRunDestination(start.longKm, progressing, dk);
   var support = null, ceil = statedVolumeKm > 0
-    ? statedVolumeKm * developmentMultiplierFor('full', W, 'race') : null;
+    ? statedVolumeKm * developmentMultiplierFor(dk, W, 'race') : null;
   for (var i = 0; i < 8; i++){
     support = marathonSupportDestination(start.supportKm, start.longKm, dest.km,
-                                         progressing, easyPaceSecPerKm);
+                                         progressing, easyPaceSecPerKm, dk);
     var sum = dest.km + (supportDays + qSlots) * (support || 0);
     if (ceil != null && sum > ceil && sum > 0){
       var sc = ceil / sum;
@@ -6767,8 +6781,15 @@ function marathonPreparationOutlook(statedVolumeKm, planWeeks, easyPaceSecPerKm)
     var coh = longRunCoherenceCeiling(support);
     if (dest.km > coh) dest.km = round1(Math.max(MIN_LONG_RUN_KM, coh));
   }
-  var bench = MIN_PEAK_LONG_KM['full'];
-  return { startLongKm: start.longKm, reachableLongKm: dest.km,
+  /* THE BENCHMARK IS THE EVENT'S. For the marathon it is the readiness
+     exposure the profile states; for the half it is what the athlete's own
+     pathway asks their long run to become, which is the figure the block is
+     actually built toward. */
+  var bench = (dk === 'half')
+    ? (function(){ var p = raceGoalPathway('half', null);
+                   return p ? p.peakLongKm : MIN_PEAK_LONG_KM['half']; })()
+    : MIN_PEAK_LONG_KM['full'];
+  return { distanceKey: dk, startLongKm: start.longKm, reachableLongKm: dest.km,
            benchmarkKm: bench, supportKm: support,
            weeklyKm: round1(dest.km + supportDays * (support || 0)),
            longShortfallKm: round1(Math.max(0, bench - dest.km)),
@@ -32932,8 +32953,9 @@ async function handleGeneratePlan(){
      recommended development block, or carry on and build the race programme
      now. Nothing is decided for them, and skipping the offer (`skipRunway`)
      is what the second button does. */
-  if (!runwayOfferAnswered && buildPurpose === 'race' && hasEvent && distanceKey === 'full'){
-    var rp = marathonRunwayPlan(planWeeks, volume);
+  if (!runwayOfferAnswered && buildPurpose === 'race' && hasEvent &&
+      (distanceKey === 'full' || distanceKey === 'half')){
+    var rp = marathonRunwayPlan(planWeeks, volume, distanceKey);
     if (rp && rp.preparatory){
       setRaceDestination(distanceKey, raceDate, {}, null);
       openRunwayOfferModal(rp, distanceKey);
