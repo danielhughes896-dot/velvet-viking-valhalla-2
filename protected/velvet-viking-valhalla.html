@@ -13213,7 +13213,18 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        ordinary" -- it is a week with two sustained runs and one easy one. Three
        supporting days is the smallest week that can give one up and still be
        recognisable. */
-    if (useCoherentFrequency && wk.phase === 'Build' && easyDays.length >= 3 &&
+    /* ---- AND IT IS THE MARATHON'S SESSION, ASKED OF THE MARATHON ----
+       hasGoalSegment was doing this job on its own, and it could while a
+       goal-pace finish inside a long run was in practice a marathon-only thing.
+       It is not any more: the half's own pathway now puts race-specific work in
+       its long run, by experience and absorption, and a 55km/week half athlete
+       was consequently being prescribed three medium-long runs. A second
+       sustained aerobic run in the week is marathon durability work -- it exists
+       because 42km asks the athlete to keep running long after the long run is
+       over -- and the half does not ask that question. Cross-purpose leakage,
+       named and closed rather than tolerated. */
+    if (useCoherentFrequency && profile.key === 'full' &&
+        wk.phase === 'Build' && easyDays.length >= 3 &&
         longKm > 0 && wk.hasGoalSegment){
       var mAllocML = blockResult.phaseCounts ||
                      marathonPhaseAllocation(blockResult.planWeeks, blockResult.experience);

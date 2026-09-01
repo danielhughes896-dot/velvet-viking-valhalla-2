@@ -18,8 +18,25 @@ function app(){
   a.renderApp=()=>{}; a.flushSave=()=>{}; a.scheduleSave=()=>{}; a.showToast=()=>{};
   a.state = a.makeDefaultState(); return a;
 }
-function plan(volume, weeks, distanceKey, pace, schedule){
+/* ---- A COHORT IS DEMONSTRATED TRAINING NOW, NOT A TYPED NUMBER ----
+   Where a test needs the block to differ BETWEEN cohorts it has to say something
+   the block still reads. The typed weekly volume no longer sizes a Race Goal
+   block, so `demonstrated` writes the athlete's own completed weeks instead and
+   the cohort means what it always meant. Tests that do not pass it are
+   unaffected and build exactly as before. */
+function history(a, weeklyKm, days){
+  const t = a.todayStr(), m = a.addDays(t, -a.isoWeekday(t)), s = [];
+  const per = weeklyKm / days;
+  for (let w = 1; w <= 20; w++)
+    for (let d = 0; d < days; d++)
+      s.push({ date: a.addDays(m, -7 * w + d), completed: true,
+               actualKm: per, plannedKm: per, type: d === days - 1 ? 'long' : 'easy',
+               actual: { km: per, rpe: 4, pace: 360, hr: 138 }, feel: 'good' });
+  return s;
+}
+function plan(volume, weeks, distanceKey, pace, schedule, demonstrated){
   const a = app();
+  if (demonstrated > 0) a.state.athlete = { sessions: history(a, demonstrated, 5) };
   const S = schedule || SIX;
     const blk = a.buildBlockWeeks(distanceKey || 'full', volume, weeks || 15,
     { availableDays: S.activeDays.length, easyPaceSecPerKm: pace || 330 });
@@ -222,7 +239,7 @@ test('a medium-long run is a prescription, and it is named where it appears', ()
   let found = 0;
   [40, 60, 80].forEach(v => {
     [330, 560].forEach(pace => {
-      const { days } = plan(v, 15, 'full', pace);
+      const { days } = plan(v, 15, 'full', pace, null, v);
       days.filter(d => d.mediumLong).forEach(d => {
         found++;
         assert.strictEqual(d.title, 'Medium-Long Run');

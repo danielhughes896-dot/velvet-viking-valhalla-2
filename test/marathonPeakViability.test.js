@@ -258,9 +258,27 @@ test('the long-run destination is the pathway\'s, raised by evidence and not by 
 
 test('genuinely insufficient preparation is still distinguishable', () => {
   const a = app();
-  const tooShort = a.athletePathway('full', 51, 4);
-  assert.equal(tooShort.route, 'insufficient_time');
-  assert.ok(typeof tooShort.reason === 'string' && tooShort.reason.length > 0);
+  /* ---- ASKED OF THE AUTHORITY THAT NOW OWNS IT ----
+     `insufficient_time` used to be routing's answer to "there is not enough
+     runway", because minViableStartKm() made a short block demand a very high
+     start. Under the pathway entry it means something narrower and more honest:
+     there is no room to ON-RAMP an athlete who has not reached the entry
+     standard. A 51km/week athlete HAS reached it, so they get the programme --
+     and their preparation is still, plainly, insufficient. That is now said by
+     readiness, in named dimensions with the kilometres attached, which is a
+     stronger statement than a route string was. */
+  const short = a.athletePathway('full', 10, 4);
+  assert.equal(short.route, 'insufficient_time');
+  assert.ok(typeof short.reason === 'string' && short.reason.length > 0);
+
+  const blk = a.buildBlockWeeks('full', 51, 4,
+    { purpose: 'race', availableDays: 6, easyPaceSecPerKm: 330 });
+  const rd = a.raceGoalReadiness('full', 'experienced', blk);
+  assert.equal(rd.verdict, 'INSUFFICIENT',
+    'four weeks of marathon preparation must not report as ready');
+  assert.ok(rd.shortfall.length > 0, 'and must name what is short');
+  assert.ok(rd.dimensions.some(d => d.key === 'durability' && !d.met),
+    'durability above all: four weeks cannot build a marathon long run');
   /* And a window that IS enough is not refused. */
   assert.notEqual(a.athletePathway('full', 51, 16).route, 'insufficient_time');
   assert.notEqual(a.athletePathway('full', 70, 12).route, 'insufficient_time');
