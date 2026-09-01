@@ -3669,6 +3669,11 @@ function calibrationVerdict(volume){
   return calibrationEligibility({
     healthConsent: healthConsentGranted(),
     lthr: su.lthr,
+    /* CARRIED, so the gate can tell a measurement from an estimate. Absent on
+       a setup written before provenance was recorded, which reads as an
+       estimate -- the safe direction, because it offers a measurement rather
+       than suppressing one. */
+    lthrSource: su.lthrSource,
     performances: (typeof athlete === 'function' && athlete()) ? athlete().performances : [],
     today: todayStr(),
     currentVolume: volume != null ? volume : su.currentVolume
@@ -3698,11 +3703,20 @@ function calibrationEligibility(ctx){
      therefore no reason to put a hard effort in week one. */
   if (!c.healthConsent) return no('no_health_consent');
 
-  /* ALREADY ANCHORED. A supplied LTHR is trustworthy by the existing model --
-     it is what every heart-rate figure in the product already descends from.
-     Replacing it with a field test the athlete has not asked for would be
-     exactly the "do not replace good evidence with a weaker test" failure. */
-  if (c.lthr != null) return no('lthr_known');
+  /* ALREADY ANCHORED -- BUT ONLY BY A MEASUREMENT.
+     A MEASURED anchor is trustworthy by the existing model and replacing it
+     with a field test the athlete has not asked for would be exactly the "do
+     not replace good evidence with a weaker test" failure.
+
+     AN ESTIMATE IS A DIFFERENT EVIDENCE CLASS, and the product already knows
+     it: lthrProvenanceSuffix() prints "(measured)" beside one and "(your
+     estimate)" beside the other. Treating them the same here meant a number
+     the athlete typed in setup permanently suppressed the offer of measuring
+     it -- and in the half, where threshold is now the principal prescription
+     authority, that is a guess governing fifteen weeks of prescription.
+     The estimate is not overwritten and its provenance is not rewritten; what
+     changes is that the athlete may now be offered the measurement. */
+  if (c.lthr != null && c.lthrSource === 'calibration') return no('lthr_known');
 
   /* RECENTLY MEASURED. A qualified race or Fitness Checkpoint inside the
      evidence window is both a reason the zones are already well founded and a
@@ -11004,6 +11018,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   /* Does the coherent-range authority apply here at all? Marathon race blocks
      only -- see the runCap note below for why the scope is that narrow. */
   var useCoherentFrequency = usesBottomUpArc(blockResult.purpose, blockResult.distKey) && !noLongRun;
+  var halfBlockArch = raceGoalArch(blockResult.purpose, blockResult.distKey) === 'half';
   var weekEvidencePermission;
   /* ---- THE PACE THIS ATHLETE ACTUALLY RUNS EASY AT ----
      Needed because session COST is measured in time, and time is the only
@@ -11130,7 +11145,34 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
 
     if (wk.isRace){
       var leadUpIsos = activeDays.filter(function(d){ return d!==raceIso; });
-      var perLeadUp = leadUpIsos.length ? Math.max(2, round1(wk.volume/leadUpIsos.length)) : 0;
+      /* ---- RACE WEEK RUNS ON THE DAYS IT CAN PAY FOR ----
+         NO JUNK MILEAGE, AND THIS IS WHERE IT WAS BEING MANUFACTURED. The
+         lead-up spreads the week's own small total across every available day
+         and floors each at 2km, so a 6km/week athlete's race week was written
+         as five two-kilometre runs -- five days occupied, nothing trained, and
+         a floor inventing four kilometres nobody prescribed. Availability was
+         being read as an obligation in the one week where it matters least.
+
+         The week now uses the days it can actually pay for at the ordinary
+         easy floor, keeping the ones CLOSEST to the race -- which is where a
+         race week's remaining running belongs -- and the rest are rest. Where
+         the week can pay for all of them nothing changes at all.
+
+         HALF ONLY. Every other distance keeps the lead-up it has until its own
+         audit says otherwise. */
+      if (halfBlockArch && leadUpIsos.length > 1){
+        var payable = Math.max(1, Math.floor((wk.volume + 1e-9) / EASY_MIN_KM));
+        if (payable < leadUpIsos.length){
+          var gapToRace = function(d){ return (raceIso - d + 7) % 7; };
+          leadUpIsos = leadUpIsos.slice()
+            .sort(function(a,b){ return gapToRace(a) - gapToRace(b); })
+            .slice(0, payable);
+        }
+      }
+      var leadUpSet = {};
+      leadUpIsos.forEach(function(d){ leadUpSet[d] = true; });
+      var perLeadUp = leadUpIsos.length
+        ? Math.max(halfBlockArch ? EASY_MIN_KM : 2, round1(wk.volume/leadUpIsos.length)) : 0;
       for (var ir=0; ir<7; ir++){
         var dr = addDays(weekMonday, ir);
         if (dr<startDateStr) continue;
@@ -11140,7 +11182,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         if (isRD){
           rx = { archetype:'race', params:{ km:wk.raceDayKm } };
           obj = raceDayText(wk.raceDayKm, hasEvent, profile.label); obj.km = wk.raceDayKm;
-        } else if (!activeSet[ir]){
+        } else if (!activeSet[ir] || !leadUpSet[ir]){
           obj = restDayText(true); obj.km = 0; rx = null;   // a rest day carries no structure
         } else if (ir===qty1Day){
           var strEasy = Math.max(0, round1(perLeadUp-1));
@@ -11929,8 +11971,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
      reduce, and a correction inside the taper could then leave a wind-down
      week larger than the week it winds down from. Before the accounting,
      because the reduction is deliberate coaching and has to be declared. */
-  if (raceGoalArch(blockResult.purpose, blockResult.distKey) === 'half')
-    applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm);
+  if (halfBlockArch) applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm);
   recordVolumeAccounting(days, weeks);
   var weekIndex2 = {};
   weeks.forEach(function(wk){ weekIndex2[wk.week] = wk; });
@@ -15073,6 +15114,85 @@ function getActivePaces(){
   });
   return out;
 }
+/* =========================================================
+   THE GOAL IS THE DESTINATION; CURRENT FITNESS IS THE PRESCRIPTION AUTHORITY
+
+   WHAT WAS WRONG, AND IT WAS WRONG AT EVERY DISTANCE THAT PRESCRIBES GOAL-PACE
+   WORK. A goal-pace segment was written at the pace the athlete's CHOSEN GOAL
+   implies, with nothing consulting whether they can hold it. An athlete whose
+   measured fitness is worth 1:50 for a half and whose goal is 1:30 was
+   prescribed 4:16/km inside their long run, from the first Build week, every
+   week. That is not a rehearsal of race rhythm -- it is a failed race,
+   repeated, ten weeks before the real one.
+
+   THE RULE. Goal pace may be PRESCRIBED where the athlete's own measured
+   fitness is close enough to it that holding it is training rather than
+   fantasy. Where it is not, the same session is prescribed at the race effort
+   their CURRENT fitness implies -- the identical structure, at a pace they can
+   actually rehearse -- and the gap is reported honestly rather than hidden
+   inside the prescription.
+
+   THE THREE BANDS, AND THEIR EDGES ARE A VALHALLA DESIGN DECISION rather than
+   a physiological constant. What is not a design decision is the direction:
+   the smaller the gap, the more the prescription may reach toward the goal.
+
+     A  REHEARSAL  the goal is inside the noise of the measurement. Literal
+                   goal pace, because the session genuinely is race day.
+     B  REACHING   a real but closeable gap. The prescription sits between the
+                   two, so the athlete reaches toward the goal inside the
+                   session without the plan assuming they arrive.
+     C  CURRENT    a gap this block will not close. The work is prescribed at
+                   current-fitness race effort and named as what it is.
+
+   AND IT MOVES WITH THE ATHLETE. Both terms are read live, so an athlete who
+   closes the gap during the block graduates from C to B to A and the same
+   session becomes literal goal-pace work. That is what "training toward a
+   goal" should mean.
+
+   RACE DAY AND RACE OUTLOOK ARE NOT TOUCHED. The goal remains the goal for
+   race pacing and for the outlook band that reports measured fitness against
+   it; this governs what is PRESCRIBED IN TRAINING and nothing else. */
+var GOAL_PACE_REHEARSAL_GAP = 1.02;
+var GOAL_PACE_REACHING_GAP  = 1.06;
+function racePacePrescription(){
+  var out = { band:null, gap:null, goalSecPerKm:null, currentSecPerKm:null,
+              prescribedSecPerKm:null, fromGoal:false };
+  var su = state && state.setup;
+  if (!su) return out;
+  var profile = DISTANCE_PROFILES[su.distanceKey];
+  if (!profile) return out;
+  var goalPace = getGoalPaceSecPerKm();
+  out.goalSecPerKm = goalPace;
+  var curVdot = null;
+  try { curVdot = getCurrentFitnessVDOT(); } catch(e){ curVdot = null; }
+  var curSec = curVdot ? equivalentTimeSec(curVdot, profile.raceKm * 1000) : null;
+  var curPace = (curSec > 0) ? curSec / profile.raceKm : null;
+  out.currentSecPerKm = curPace;
+  /* NO MEASURED FITNESS, NO GATE. Without a current-fitness anchor there is
+     nothing to compare the goal against, and inventing a refusal would be as
+     unfounded as the prescription it replaced. The existing behaviour stands
+     and the goal is used -- which is also the only state a brand-new athlete
+     can be in. */
+  if (!(goalPace > 0)) return out;
+  if (!(curPace > 0)){ out.prescribedSecPerKm = goalPace; out.fromGoal = true;
+                       out.band = 'A'; return out; }
+  var gap = curPace / goalPace;          // > 1 means the goal is faster than current fitness
+  out.gap = Math.round(gap * 1000) / 1000;
+  if (gap <= GOAL_PACE_REHEARSAL_GAP){
+    out.band = 'A'; out.prescribedSecPerKm = goalPace; out.fromGoal = true;
+  } else if (gap <= GOAL_PACE_REACHING_GAP){
+    out.band = 'B'; out.prescribedSecPerKm = (goalPace + curPace) / 2; out.fromGoal = false;
+  } else {
+    out.band = 'C'; out.prescribedSecPerKm = curPace; out.fromGoal = false;
+  }
+  return out;
+}
+/* THE PACE A GOAL-PACE SEGMENT IS ACTUALLY PRESCRIBED AT. One accessor, so
+   every surface that writes a race-specific target agrees with every other. */
+function prescribedRacePaceSecPerKm(){
+  var r = racePacePrescription();
+  return r.prescribedSecPerKm != null ? r.prescribedSecPerKm : getGoalPaceSecPerKm();
+}
 function getGoalPaceSecPerKm(){
   var vdot = getActiveVDOT();
   if (!vdot || !state.setup) return null;
@@ -16850,8 +16970,16 @@ function executionStrategyEligible(dd){
 function strategyPaceBand(intensity, half){
   var paces = getActivePaces();
   if (intensity==='goal_pace'){
-    var g = getGoalPaceSecPerKm();
-    return g!=null ? { fast:g, slow:g, exact:true } : null;
+    /* THE BAND REACHES ONLY AS FAR AS THE ATHLETE'S FITNESS SUPPORTS. In the
+       rehearsal band the two ends coincide and this is the goal, exactly as
+       before; where they differ the band spans from current-fitness race
+       effort to what is being asked, so the athlete can see both. */
+    var rp = racePacePrescription();
+    var g = rp.prescribedSecPerKm != null ? rp.prescribedSecPerKm : getGoalPaceSecPerKm();
+    if (g == null) return null;
+    var cur = rp.currentSecPerKm;
+    if (cur != null && cur > g) return { fast:g, slow:cur, exact:false };
+    return { fast:g, slow:g, exact:true };
   }
   var z = paces[INTENSITY_ZONE_KEY[intensity]];
   if (!z || z.slow==null || z.fast==null) return null;
@@ -17675,7 +17803,10 @@ function computeDistanceScore(targetKm, actualKm){
 function computePaceScore(dd, actualPaceSp){
   if (actualPaceSp==null) return null;
   var targetRange = dd.type==='race' ? null : executionPaceTarget(dd);
-  var goalPace = (dd.type==='race' || dd.mpSegment) ? getGoalPaceSecPerKm() : null;
+  /* RACE DAY IS THE GOAL; A TRAINING SEGMENT IS WHAT THE ATHLETE CAN
+     REHEARSE. See racePacePrescription(). */
+  var goalPace = dd.type==='race' ? getGoalPaceSecPerKm()
+               : dd.mpSegment ? prescribedRacePaceSecPerKm() : null;
   var recovery = isRecoveryLikeDay(dd);
 
   if (targetRange && targetRange.slow!=null){
@@ -27645,7 +27776,8 @@ function coachSessionContext(dd){
     targetPace: dd.type==='race' ? null : getTargetPaceRangeSecPerKm(dd),
     targetHR: getTargetHRRangeForDay(dd),
     targetRPE: expectedRPEBand(dd),
-    goalPace: (dd.type==='race' || dd.mpSegment) ? getGoalPaceSecPerKm() : null,
+    goalPace: dd.type==='race' ? getGoalPaceSecPerKm()
+            : dd.mpSegment ? prescribedRacePaceSecPerKm() : null,
     phase: trainingPhase(week),
     weekLabel: weekPhaseLabel(week),
     week: week,
