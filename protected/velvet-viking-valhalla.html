@@ -12770,6 +12770,18 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
                prescription: prescriptionFromSpec(tSpecUse, 'tempo') };
     }
 
+    /* ---- A LONG RUN BELOW THE QUANTUM IT IS PRESENTED IN IS NOT A SESSION ----
+       OMITTED, NOT SHRUNK -- the rule the goal-pace finish already follows. At
+       the very bottom of the defensive domain a long run solves to a few
+       hundred metres and rounds to nothing, and the athlete was given a day
+       titled "Long Run" carrying 0km: a session that is printed, described,
+       and has no size. Where there is none to write, the day is an ordinary
+       one; and because the week's target still counted it, its absence is
+       declared as an allocator revision with its own named cause rather than
+       left to fall out as an unattributed difference. */
+    var longRunWritable = roundWorkoutKm('long', longKm) > 0;
+    if (!noLongRun && !longRunWritable && wkLongDay != null && activeSet[wkLongDay])
+      wk.longRunOmittedKm = round1(longKm + (b2bActive ? (secondLongKm || 0) : 0));
     for (var iso=0; iso<7; iso++){
       var date = addDays(weekMonday, iso);
       if (date<startDateStr) continue;
@@ -12781,8 +12793,14 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
          given a day titled "Long Run" carrying 0km: a session that is printed,
          described, and has no size. Where there is no long run to write the day
          is simply not a long-run day. */
-      if (iso===wkLongDay && activeSet[iso] && !noLongRun && roundWorkoutKm('long', longKm) <= 0){
-        // falls through to the ordinary easy/rest handling below
+      if (iso===wkLongDay && activeSet[iso] && !noLongRun && !longRunWritable){
+        /* The day the long run would have been, with no long run to write.
+           It rests rather than becoming an ordinary easy day: the week's
+           supporting work was sized for the days it already has, and turning
+           this one into another of them would add running the week never
+           asked for -- which is how an omission becomes an inflation. */
+        var rdL = restDayText(false);
+        dayObj = { type:rdL.type, title:rdL.title, km:0, desc:rdL.desc };
       } else if (iso===wkLongDay && activeSet[iso] && !noLongRun){
         var tl = longRunText(longKm, wk.hasGoalSegment, wk.goalSegKm, b2bActive, false, wk.longShape);
         dayObj = { type:tl.type, title:tl.title, km:longKm, desc:tl.desc, mpSegment:!!tl.mpSegment,
@@ -13081,6 +13099,13 @@ function recordVolumeAccounting(days, weeks){
       if (allocatorRevision > 0) causes.push('allocator:shakeout_cap');
     } else {
       if (allocatorRevision > 0) causes.push('allocator:' + (dist.floorCauses && dist.floorCauses.length ? 'capped' : 'day_count'));
+      /* A long run the week counted and the day builder could not write,
+         because below its own presentation quantum there is no session to
+         write. Named here so the week is smaller for a reason. */
+      if (wk.longRunOmittedKm > 0){
+        allocatorRevision = round1(allocatorRevision + wk.longRunOmittedKm);
+        causes.push('allocator:long_run_below_quantum');
+      }
       if (wk.qualityDayFloorKm > 0) floorExcess = round1(floorExcess + wk.qualityDayFloorKm);
       if (dist.floorCauses) dist.floorCauses.forEach(function(c){ causes.push('floor:' + c); });
       if (wk.qualityDayFloorKm > 0) causes.push('floor:quality_day_floor');

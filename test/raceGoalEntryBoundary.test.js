@@ -239,7 +239,10 @@ test('the entry boundary changes nothing for a Race Goal at or above it', () => 
      it -- asserted directly rather than inferred. */
   const gen = SRC.slice(SRC.indexOf('function buildBlockWeeks'),
                         SRC.indexOf('function buildDaysFromWeeks'));
-  assert.ok(!/raceGoalEntry|raceGoalMinWeeklyKm/.test(gen),
+  /* raceGoalEntry( -- the boundary function itself -- rather than the prefix.
+     raceGoalEntryState() is the block's own reading of where the athlete may
+     begin and shares nothing with the boundary but six letters of its name. */
+  assert.ok(!/raceGoalEntry\(|raceGoalMinWeeklyKm/.test(gen),
     'the generator must not know about the entry boundary');
   assert.ok(a.raceGoalEntry(6).allowed);
 });
