@@ -46,15 +46,31 @@ test('every previously short case now reaches the required peak long run', () =>
       for (const weeks of [12, 16, 20, 28, 40, 52]){
         const p = a.athletePathway(distKey, volume, weeks);
         if (p.route === 'insufficient_time') continue;
-        const start = p.route === 'race_programme' ? volume : p.raceBlockStartKm;
-        const blockWeeks = p.route === 'race_programme' ? weeks : p.raceBlockWeeks;
-        const reach = a.raceBlockPeakLongKm(distKey, start, blockWeeks);
+        /* ---- THE ON-RAMP'S HANDOVER IS WHAT THIS ASKS ABOUT ----
+           This computed the race block's reach from the TYPED weekly volume
+           whenever the athlete got a race programme outright. Destination-led
+           construction removed that authority: a half or marathon block opens at
+           its pathway's entry week, not at what the athlete typed, so reading
+           the typed figure here measures a block nobody is given. Whether a
+           dedicated pathway reaches its own destination is asked directly, by
+           the reachability gate, which builds the real fifteen-week plan for
+           each of the six pathways and measures the capability it establishes.
+
+           What is left here is the question this file was written for, and the
+           only one it can still answer: the on-ramp must hand over at a volume
+           from which the block that follows reaches the peak long run REQUIRED
+           OF IT -- the pathway's own destination where there is one, and
+           MIN_PEAK_LONG_KM where there is not. */
+        if (p.route === 'race_programme') continue;
+        const need = (p.viability && p.viability.peakLongKm > 0)
+          ? p.viability.peakLongKm : a.MIN_PEAK_LONG_KM[distKey];
+        const reach = a.raceBlockPeakLongKm(distKey, p.raceBlockStartKm, p.raceBlockWeeks);
         checked++;
-        assert.ok(reach + 0.05 >= a.MIN_PEAK_LONG_KM[distKey],
+        assert.ok(reach + 0.05 >= need,
           distKey + ' ' + volume + 'km/' + weeks + 'w reaches ' + reach +
-          'km against a required ' + a.MIN_PEAK_LONG_KM[distKey] + 'km');
+          'km against a required ' + need + 'km');
       }
-  assert.ok(checked > 100, 'only ' + checked + ' cases were checked');
+  assert.ok(checked > 40, 'only ' + checked + ' cases were checked');
 });
 
 test('an adequate window is never rejected', () => {
@@ -88,7 +104,9 @@ test('the requirement is stated, and it is the product\'s own', () => {
 
 test('a genuinely short window is still refused, structurally', () => {
   const a = app();
-  const short = a.athletePathway('half', 20, 4);
+  /* Below the New Half's locked 15km entry week but above the on-ramp floor, so
+     an on-ramp is the whole route -- and four weeks is not enough for one. */
+  const short = a.athletePathway('half', 14, 4);
   assert.equal(short.route, 'insufficient_time');
   assert.equal(short.reason, 'not_enough_time_for_an_on_ramp');
   assert.ok(short.minimumWeeks > 4, 'and says how many weeks it would take');

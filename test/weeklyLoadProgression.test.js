@@ -77,7 +77,15 @@ test('6 -> 7km is reported and is not a coaching concern', () => {
 });
 
 test('the real generator agrees: the 6km athlete is never coaching-suspicious for it', () => {
-  const c = auditCase({ distanceKey: 'full', volume: 6, weeks: 15, scheduleKey: 'd5' });
+  /* AT A DISTANCE WHERE A 6km/WEEK ATHLETE STILL BUILDS ONE. The marathon and
+     the half now route an athlete this far below their pathway's entry week to
+     a foundation block, and the race block they would otherwise have been given
+     opens at the pathway's entry -- so there is no 6 -> 7 transition in a
+     marathon plan to ask about any more. 5K and 10K have no dedicated pathway
+     and still build from the athlete's own figure, which is where the property
+     under test -- a one-kilometre step is descriptively over 10% and is not
+     coaching-suspicious for it -- actually lives. Same numbers, same assertion. */
+  const c = auditCase({ distanceKey: '5k', volume: 6, weeks: 16, scheduleKey: 'd5' });
   const t = LP.assess(c).filter(x => x.fromKm === 6 && x.toKm === 7)[0];
   assert.ok(t, 'the 6 -> 7 transition exists in the real plan');
   assert.equal(t.growthOver10pct, true);

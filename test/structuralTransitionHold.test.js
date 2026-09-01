@@ -43,6 +43,26 @@ const devWeeks = blk => blk.weeks.filter(w => !w.isRace);
 const runDays = w => { const b = w.bottomUp || {};
   return (b.countedSupportDays || 0) + (b.qSlots || 0) + (w.longTarget > 0 ? 1 : 0); };
 
+/* ---- THE ATHLETE THE POPULATION IS NOW MADE OF ----
+   This walked the domain by typed weekly volume alone. Destination-led
+   construction removed that authority, so every one of those blocks now opens at
+   its pathway's entry week AND its pathway's entry day count -- identical
+   frequency across the whole sweep, and therefore no frequency ever arriving.
+   Structure is still earned exactly as it was; what earns it is the athlete's
+   own demonstrated training, so the population is written as demonstrated weeks
+   rather than typed numbers. Each athlete arrives running on TWO days, which is
+   what gives the block a frequency to develop and is the case these tests are
+   about. Nothing about the hold, the arrival or the earned workload changes. */
+function history(a, weeklyKm, days){
+  const t = a.todayStr(), m = a.addDays(t, -a.isoWeekday(t)), s = [];
+  const per = weeklyKm / days;
+  for (let w = 1; w <= 20; w++)
+    for (let d = 0; d < days; d++)
+      s.push({ date: a.addDays(m, -7 * w + d * 3), completed: true,
+               actualKm: per, plannedKm: per, type: d === days - 1 ? 'long' : 'easy',
+               actual: { km: per, rpe: 4, pace: 360, hr: 138 }, feel: 'good' });
+  return s;
+}
 /* Every marathon block the valid domain can produce, walked once. */
 function eachBlock(fn){
   const a = app();
@@ -50,6 +70,7 @@ function eachBlock(fn){
   [45, 50, 60, 70, 80, 100, 120].forEach(x => vols.push(x));
   vols.forEach(v => [4, 8, 12, 16, 24].forEach(n => [3, 5].forEach(d => {
     a.state = a.makeDefaultState();
+    a.state.athlete = { sessions: history(a, v, 2) };
     fn(block(a, v, n, d), v, n, d);
   })));
 }
@@ -230,6 +251,10 @@ test('a held week keeps approximately the workload the athlete had earned', () =
    long run must still hold when the arrival is IN it. */
 test('a day arrives at the earned supporting workload, not on top of it', () => {
   const a = app();
+  /* The same athlete the population above is made of -- eight kilometres a week
+     across two days, demonstrated rather than typed, which is what gives the
+     block a third running day to arrive at. */
+  a.state.athlete = { sessions: history(a, 8, 2) };
   const blk = block(a, 8, 12, 5);
   const ws = devWeeks(blk);
   const i = ws.findIndex(w => (w.bottomUp || {}).heldAtEarnedWorkload &&
