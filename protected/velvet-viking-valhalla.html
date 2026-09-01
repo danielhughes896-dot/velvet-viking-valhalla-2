@@ -5742,7 +5742,15 @@ var RACE_GOAL_MARGINAL_FRACTION = 0.70;
 function raceGoalReadiness(distKey, experience, blockResult){
   var path = raceGoalPathway(distKey, experience);
   if (!path || !blockResult || !blockResult.weeks) return null;
-  var weeks = blockResult.weeks.filter(function(w){ return !w.isRace; });
+  /* ---- WHAT THE BLOCK ESTABLISHED, WHICH IS NOT WHAT IT EVER REACHED ----
+     A taper deliberately reduces load. A capability first seen inside one was
+     never established -- the athlete was given it once, on the way down, in a
+     week whose whole purpose is that they are not building any more -- and
+     reading those weeks let a block claim a long run it developed nowhere.
+     The half's taper is a DATE rather than a week, so its split week is
+     excluded by the flag the day-level taper sets on it. */
+  var weeks = blockResult.weeks.filter(function(w){
+    return !w.isRace && !w.isTaper && !w.eventTaperApplied; });
   if (!weeks.length) return null;
   var bu = null;
   weeks.forEach(function(w){ if (!bu && w.bottomUp) bu = w.bottomUp; });
@@ -5757,20 +5765,45 @@ function raceGoalReadiness(distKey, experience, blockResult){
     if (w.hasGoalSegment) specificWeeks++;
   });
 
-  /* THE REQUIREMENT IS THE PATHWAY'S, RAISED TO THE ATHLETE'S OWN ESTABLISHED
+  /* THE REQUIREMENT IS THE PATHWAY'S, RAISED TO THE ATHLETE'S OWN DEMONSTRATED
      LEVEL -- the same authority the destination uses, so readiness cannot be
-     satisfied by a destination the programme quietly lowered. */
-  var wantKm   = raceGoalVolumeDestinationKm(distKey, experience, bu.entry, 'build');
-  var wantLong = raceGoalLongDestinationKm(distKey, experience, bu.entry, 'build');
+     satisfied by a destination the programme quietly lowered. Read from the
+     week's `origin`, which carries the athlete's demonstrated figures beside
+     the pathway's assumptions and keeps them distinguishable: a pathway
+     assumption must never be counted as if the athlete had demonstrated it,
+     and passing the wrong object here silently read every assumption as
+     evidence and every athlete as having none. */
+  var org = bu.origin || null;
+  var wantKm   = raceGoalVolumeDestinationKm(distKey, experience, org, 'build');
+  var wantLong = raceGoalLongDestinationKm(distKey, experience, org, 'build');
 
+  /* ---- AND A PERCENTAGE MUST NOT OBSCURE A KILOMETRE ----
+     A fraction is the right shape for a verdict and the wrong shape for a
+     shortfall: 93% of a 29km long run is two kilometres of durability the
+     athlete does not have, and 93% of a 16km one is a rounding error. So each
+     dimension carries its ABSOLUTE gap as well, and is MET only when that gap
+     is inside the quantum the session is actually presented in -- a kilometre
+     for a long run, half a kilometre per session for a week. Where it is not,
+     the fraction still decides how far short it fell, but it can no longer
+     call the shortfall ready. */
   var dims = [];
+  var mk = function(key, reached, required, quantum, detail){
+    var gap = round1(Math.max(0, required - reached));
+    return { key:key,
+             fraction: Math.round((reached / required) * 100) / 100,
+             shortfallKm: gap,
+             met: gap <= quantum + 1e-9,
+             detail: Object.assign({ reachedKm: round1(reached),
+                                     requiredKm: round1(required),
+                                     shortfallKm: gap }, detail || {}) };
+  };
   if (wantKm > 0)
-    dims.push({ key:'workload', fraction: Math.round((peakWeekKm / wantKm) * 100) / 100,
-                detail:{ reachedKm: round1(peakWeekKm), requiredKm: round1(wantKm) } });
+    dims.push(mk('workload', peakWeekKm, wantKm,
+                 EASY_QUANTUM_KM * Math.max(1, bu.supportDays || 1)));
   if (wantLong > 0)
-    dims.push({ key:'durability', fraction: Math.round((peakLongKm / wantLong) * 100) / 100,
-                detail:{ reachedKm: round1(peakLongKm), requiredKm: round1(wantLong) } });
+    dims.push(mk('durability', peakLongKm, wantLong, 1));
   dims.push({ key:'specificity', fraction: specificWeeks > 0 ? 1 : 0,
+              shortfallKm: 0, met: specificWeeks > 0,
               detail:{ specificWeeks: specificWeeks } });
   /* ABSORPTION, from the evidence architecture that already exists. A block
      the athlete is straining in has not prepared them however far its numbers
@@ -5778,11 +5811,13 @@ function raceGoalReadiness(distKey, experience, blockResult){
   var blk = null;
   try { blk = blockEffectiveness(); } catch(e){ blk = null; }
   if (blk && blk.state === 'STRAINED')
-    dims.push({ key:'absorption', fraction:0.5, detail:{ blockState: blk.state } });
+    dims.push({ key:'absorption', fraction:0.5, shortfallKm:0, met:false,
+                detail:{ blockState: blk.state } });
 
   var worst = dims.reduce(function(a, b){
     return (a == null || b.fraction < a.fraction) ? b : a; }, null);
-  var verdict = worst.fraction >= RACE_GOAL_READY_FRACTION ? 'READY'
+  var allMet = dims.every(function(d){ return d.met; });
+  var verdict = (allMet && worst.fraction >= RACE_GOAL_READY_FRACTION) ? 'READY'
               : worst.fraction >= RACE_GOAL_MARGINAL_FRACTION ? 'MARGINAL'
               : 'INSUFFICIENT';
   return {
@@ -5791,9 +5826,10 @@ function raceGoalReadiness(distKey, experience, blockResult){
     /* NAMED SEPARATELY FROM THE VERDICT, because they are different truths.
        An athlete can be well prepared to race and still unlikely to hit an
        unrealistic goal, and Valhalla must be able to say both. */
-    shortfall: dims.filter(function(d){ return d.fraction < RACE_GOAL_READY_FRACTION; })
+    shortfall: dims.filter(function(d){ return !d.met; })
                    .map(function(d){ return d.key; }),
-    entrySource: bu.entry ? bu.entry.volumeSource : null
+    entrySource: org ? org.volumeSource : null,
+    longSource:  org ? org.longSource : null
   };
 }
 
