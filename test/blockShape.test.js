@@ -116,8 +116,12 @@ test('the down week consolidates rather than tapers', () => {
   assert.equal(a.blockArcFor('race', 12, 'half').taperAnchorDays, a.HALF_TAPER_ANCHOR_DAYS,
     'the half arc states the day its taper begins');
   assert.ok(t.length >= 1, 'the half race block still has a wind-down week');
-  assert.ok(t[t.length - 1].volume < race.peakVolume,
-    'the final wind-down week is ' + t[t.length - 1].volume + ' against a peak of ' + race.peakVolume);
+  /* Against the peak the block BUILT. peakVolume is the legacy ramp's ceiling
+     and a bottom-up block is not derived from it, so comparing a real week to
+     it compares a week to a number no week of this block matches. */
+  assert.ok(t[t.length - 1].volume < race.builtPeakVolume,
+    'the final wind-down week is ' + t[t.length - 1].volume +
+    ' against a built peak of ' + race.builtPeakVolume);
 });
 
 test('a speed block does not also carry a mid-block time trial', () => {
@@ -179,9 +183,9 @@ test('a race block keeps every part of the arc it always had', () => {
      multiplier still means exactly what it says for every block that still
      uses the legacy arc -- asserted below. */
   const dev = b.weeks.filter(w => !w.isRace && !w.isTaper);
-  assert.equal(b.peakVolume,
+  assert.equal(b.builtPeakVolume,
     a.round1(Math.max.apply(null, dev.map(w => w.volume))));
-  assert.ok(b.weeks.filter(w => w.isTaper).every(w => w.volume <= b.peakVolume + 1e-9),
+  assert.ok(b.weeks.filter(w => w.isTaper).every(w => w.volume <= b.builtPeakVolume + 1e-9),
     'a wind-down week is not the block peak');
   assert.ok(count(b, 'Base') > 0 && count(b, 'Build') > 0 && count(b, 'Peak') > 0);
 });
@@ -210,8 +214,8 @@ test('the profile multiplier still means what it says wherever the ramp still ru
   ['half', 'full'].forEach(d => {
     const b = build(a, d, 45, 15, 'race');
     const dev = b.weeks.filter(w => !w.isRace && !w.isTaper);
-    assert.equal(b.peakVolume, a.round1(Math.max.apply(null, dev.map(w => w.volume))),
-      d + ' reports a peak no week of it matches');
+    assert.equal(b.builtPeakVolume, a.round1(Math.max.apply(null, dev.map(w => w.volume))),
+      d + ' reports a built peak no week of it matches');
   });
 });
 

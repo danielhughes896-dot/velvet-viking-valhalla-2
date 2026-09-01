@@ -9094,6 +9094,22 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         if (pinTo != null && r.qSlots > pinTo.qSlots){
           r.qKm = 0; givenBack = r.qSlots - pinTo.qSlots; r.qSlots = pinTo.qSlots;
         }
+        /* ---- A REDUCTION WEEK DOES NOT INTRODUCE A SESSION ----
+           A taper and a cutback are both weeks whose job is to be smaller than
+           the one before them, and a session arriving in either is not a
+           smaller week however carefully its dose was reduced. Measured on the
+           half at the bottom of the population: a taper week whose sessions
+           were all already at their floors acquired a 9.5km quality structure
+           the week before it had not been given, and came out 1.5km LARGER --
+           which the descent ladder below could not undo, because a structure is
+           not something it is allowed to shrink.
+
+           The share stays aerobic work, exactly as it does when the slot is
+           refused for capacity: the week keeps the kilometres and loses the
+           structure. */
+        if ((isTaper || isCutback) && mPrevQSlots != null && r.qSlots > mPrevQSlots){
+          r.qKm = 0; givenBack += r.qSlots - mPrevQSlots; r.qSlots = mPrevQSlots;
+        }
         /* AND THE SUPPORTING RUNS THE WEEK CAN ACTUALLY PAY FOR. Adding another
            at its floor because a day happens to be available is how the floors
            became the week. Availability stays permission. */
@@ -9372,6 +9388,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          one of them. Reading the pre-ladder figure let the cutback hold below
          undo the give-back and halve the week it was written to protect. */
       mPrevEffSupportDays = mWeek.countedSupportDays;
+      /* AND THE STRUCTURE IT ACTUALLY CARRIED, which is what a reduction week
+         is entitled to keep and never to exceed. */
+      mPrevQSlots = mWeek.qSlots;
+      mPrevSupportDays = mWeek.countedSupportDays;
       /* ---- AND THE ATHLETE MOVES FORWARD FROM THE WEEK THEY WERE ACTUALLY
          PRESCRIBED ---- Capacity advances on every developing week, because it
          is the athlete's own ceiling and it is what earns a structure. The
@@ -9411,8 +9431,16 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      67.5 for a block whose largest week is 70.2 -- and every consumer outside
      the generator was reading a fiction. The taper's own floor already takes
      the built figure for exactly this reason. */
-  if (mPeakBuiltKm > 0) peakVolume = mPeakBuiltKm;
   return { profile:profile, distKey:distKey, weeks:weeks, peakVolume:round1(peakVolume),
+           /* WHAT THE BLOCK ACTUALLY BUILT, beside what the ramp would have
+              asked for. peakVolume is the legacy arc's stated volume times a
+              development multiplier and it is still the ceiling every ramp is
+              measured against -- but under bottom-up construction no week of a
+              race block is derived from it, so on its own it was a figure no
+              week matched: 67.5 for a block whose largest week is 70.2. Both
+              are reported, and a reader asking "how big does this block get"
+              now has an answer that is true. */
+           builtPeakVolume: mPeakBuiltKm > 0 ? round1(mPeakBuiltKm) : null,
            /* The workload the athlete actually arrives with, carried through so the
               day builder can prescribe frequency from it rather than from a week the
               athlete has not reached yet. See coherentFrequencyRange(). */
