@@ -297,3 +297,66 @@ test('EXPERIENCE — the route changes, the preparation standard does not', () =
   assert.equal(withState('PRODUCTIVE', []), withState('STRAINED', ['tempo']),
     'and an athlete with no demonstrated quality family waits, however well they absorb');
 });
+
+test('HALF TAPER — the delivered wind-down descends, and race week is deeper than the curve', () => {
+  /* HQ REVIEWED THE GENERATED PROGRAMME AND RULED THE OUTPUT CORRECT. What was
+     wrong was the AUTHORITY: HALF_TAPER_FINAL_FRACTION read as though it
+     governed the whole D-10 window, and applyHalfEventTaper() deliberately does
+     not touch race week -- which has its own architecture, its own floor and
+     its own shakeout cap. So the factor governs D-10 to D-7 and race week
+     supplies everything below.
+
+     Asserted rather than described: the delivered days never rise through the
+     window, and race week sits at or below what the curve would have asked for.
+     The endpoint is a floor the architecture beats, not a promise it breaks. */
+  const R = require(require('path').join(__dirname, 'audit', 'raceGoalReachability.js'));
+  ['New Half', 'Experienced Half', 'Advanced Half'].forEach(key => {
+    const c = R.CANON.find(x => x.key === key);
+    const res = R.build(Object.assign(
+      { dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks }, c.ev));
+    const a = res.a, race = res.raceDate;
+    const out = d => Math.round((new Date(race) - new Date(d)) / 86400000);
+
+    const gov = a.halfTaperGovernedRange(6);
+    assert.equal(gov.fromDays, a.HALF_TAPER_ANCHOR_DAYS);
+    assert.ok(gov.toFactor < 1 && gov.toFactor > gov.endpointFraction,
+      'the governed range must stop above the curve endpoint, which race week supplies');
+
+    /* THE WINDOW DESCENDS. Compared like with like -- an easy day against the
+       easy days before it -- because a long run and an easy run are different
+       sessions and the long run is deliberately the last big one. */
+    const easies = res.dd.filter(d => d.type === 'easy' && d.km > 0 &&
+                                      out(d.date) <= a.HALF_TAPER_ANCHOR_DAYS)
+                         .sort((x, y) => out(y.date) - out(x.date));
+    for (let i = 1; i < easies.length; i++){
+      /* A FLOOR IS NOT A PROGRESSION, the same allowance this instrument makes
+         everywhere else. At the bottom of the domain an easy run is already at
+         EASY_MIN_KM and cannot shrink, so what remains is the floor -- and one
+         presentation quantum above it is the floor rounding, not the taper
+         going backwards. */
+      const atFloor = easies[i - 1].km <= a.EASY_MIN_KM + a.EASY_QUANTUM_KM + 1e-9;
+      const bound = easies[i - 1].km + (atFloor ? a.EASY_QUANTUM_KM : 0);
+      assert.ok(easies[i].km <= bound + 1e-9,
+        key + ': an easy day rose during the taper at D-' + out(easies[i].date) +
+        ' (' + easies[i].km + 'km after ' + easies[i - 1].km + 'km)');
+    }
+
+    /* AND RACE WEEK IS DEEPER THAN THE CURVE. The last day the block governs
+       sets the reference; every race-week day sits below what the curve would
+       have asked of it. */
+    const ref = easies.filter(d => out(d.date) >= gov.toDays).slice(-1)[0];
+    assert.ok(ref, key + ': expected an easy day inside the governed window');
+    const preTaper = ref.km / a.halfTaperDayFactor(out(ref.date));
+    res.dd.filter(d => d.type === 'easy' && d.km > 0 && out(d.date) < gov.toDays)
+      .forEach(d => {
+        const curve = preTaper * a.halfTaperDayFactor(out(d.date));
+        /* The curve is continuous and a day is presented to the half
+           kilometre, so it is compared within that quantum -- and a day already
+           at its own floor is the floor rather than the taper. */
+        const floorOK = d.km <= a.EASY_MIN_KM + a.EASY_QUANTUM_KM + 1e-9;
+        assert.ok(d.km <= curve + a.EASY_QUANTUM_KM + 1e-9 || floorOK,
+          key + ': D-' + out(d.date) + ' is ' + d.km + 'km, ABOVE the curve reading of ' +
+          Math.round(curve * 10) / 10 + 'km -- race week should be the deeper of the two');
+      });
+  });
+});

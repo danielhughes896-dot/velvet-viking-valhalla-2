@@ -5300,12 +5300,30 @@ var HALF_FULL_SHAPE = { base:3, build:6, peak:4, taper:2 };   // taper incl. rac
    athlete's last hard session by three or four days. The scaling is therefore
    applied per DAY, from the real race date, in buildDaysFromWeeks(). */
 var HALF_TAPER_ANCHOR_DAYS = 10;
-/* WHERE THE TAPER ENDS UP, as a fraction of the ordinary dose on the day
-   before the race. The curve between D-10 and D-0 is linear in this fraction,
-   so no day is a cliff and the reduction is distributed rather than dropped.
-   The value is chosen so the measured volume reduction across race week lands
-   inside the 41-60% band the taper meta-analyses support -- it is calibrated
-   against that evidence and reported against it, rather than picked. */
+/* WHERE THE TAPER CURVE IS HEADED, as a fraction of the ordinary dose. The
+   curve between D-10 and D-0 is linear in this fraction, so no day is a cliff
+   and the reduction is distributed rather than dropped. The value is chosen so
+   the measured volume reduction across race week lands inside the 41-60% band
+   the taper meta-analyses support -- calibrated against that evidence and
+   reported against it, rather than picked.
+
+   AND IT IS THE CURVE'S ENDPOINT RATHER THAN A DAY'S PRESCRIPTION, which is
+   worth stating because the two are not the same here and the difference was
+   invisible. applyHalfEventTaper() deliberately does not touch RACE WEEK -- it
+   has its own architecture, its own floor and its own shakeout cap, and scaling
+   it twice would reduce a week that has already been reduced. So for a Sunday
+   race this factor governs D-10 down to D-7, where it runs 1.00 to 0.81, and
+   race week supplies everything below that.
+
+   MEASURED, RACE WEEK IS DEEPER THAN THE CURVE AT EVERY POINT -- an advanced
+   half athlete's D-6 is 5.5km against a curve reading of 11.5 -- so the
+   endpoint is a floor the architecture comfortably beats rather than a promise
+   it fails to keep, and the delivered taper descends throughout. HQ reviewed
+   the generated programme and ruled the coaching output correct; what was wrong
+   was only that this constant read as though it governed the whole window. It
+   governs the part of the window the block owns. Nothing is changed by saying
+   so, which is the point: the alternative was to move a number to match a
+   description, and the description was what needed fixing. */
 var HALF_TAPER_FINAL_FRACTION = 0.35;
 /* Where the half holds its economy work inside each structure's own range.
    The middle, for the same reason maintenance sits there: the bottom is a
@@ -5315,8 +5333,23 @@ var HALF_TAPER_FINAL_FRACTION = 0.35;
    actually for. */
 var HALF_ECONOMY_POS_MAX = 0.5;
 /* THE DOSE A SESSION CARRIES THIS MANY DAYS OUT. 1 outside the taper; falling
-   linearly to HALF_TAPER_FINAL_FRACTION the day before the race. Race day
-   itself is the race and is not scaled by this. */
+   linearly toward HALF_TAPER_FINAL_FRACTION as the race approaches. Race day
+   itself is the race and is not scaled by this, and neither is any other day of
+   race week -- see the constant above for which part of the window this
+   actually governs, and halfTaperGovernedRange() for reading it back. */
+/* THE RANGE THIS FACTOR ACTUALLY GOVERNS, reported rather than assumed. The
+   block owns the days from the taper anchor down to the start of race week;
+   race week owns the rest. Pure, and used by the audit so the claim in the
+   comment above is a measurement rather than a note. */
+function halfTaperGovernedRange(raceWeekdayIso){
+  var iso = (raceWeekdayIso == null) ? 6 : raceWeekdayIso;   // 6 = Sunday race
+  var lastGoverned = iso + 1;            // the day before race week's Monday
+  return { fromDays: HALF_TAPER_ANCHOR_DAYS, toDays: lastGoverned,
+           fromFactor: halfTaperDayFactor(HALF_TAPER_ANCHOR_DAYS),
+           toFactor: halfTaperDayFactor(lastGoverned),
+           endpointFraction: HALF_TAPER_FINAL_FRACTION,
+           note: 'race week supplies the reduction below this' };
+}
 function halfTaperDayFactor(daysToRace){
   if (!(daysToRace >= 0)) return 1;
   if (daysToRace > HALF_TAPER_ANCHOR_DAYS) return 1;
