@@ -1532,13 +1532,8 @@
   .cr-adjust-why{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:4px; overflow-wrap:anywhere;}
 
   /* ---------- tune-up checkpoint card ---------- */
-  .checkpoint{
-    border:1.5px dashed var(--gold); border-radius:var(--radius); padding:18px 16px; margin:14px 0 20px;
-    background:var(--c-gold-soft); text-align:center;
-  }
-  .checkpoint h3{font-family:'Cinzel',serif; font-size:18px; margin:0 0 6px; color:var(--ink);}
-  .checkpoint p{font-size:12.5px; color:var(--ink-dim); margin:0 0 4px; line-height:1.5;}
-  .checkpoint .hint{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--bronze-text); margin-bottom:12px;}
+  /* .checkpoint{...} removed with the Full Plan panel it styled.
+     .checkpoint-banner above is a DIFFERENT control (Plan HQ) and stays. */
   .goal-options{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:10px;}
   /* SOFT SURFACE pass -- see --tile-* tokens. Selected stays exactly the
      same gold border/tint law it always had (Do NOT invent a filled gold
@@ -29371,22 +29366,24 @@ function renderZoneBreakdown(weekNum){
   '</div>';
 }
 
-function renderCheckpointCard(){
-  var chkDay = null;
-  state.days.forEach(function(dd){ if (dd.type==='checkpoint') chkDay = dd; });
-  if (!chkDay) return '';
-  var hint = '';
-  if (chkDay.completed && chkDay.actual && chkDay.actual.pace){
-    hint = '<div class="hint font-mono">Your checkpoint effort: '+actualPaceDisplayStr(chkDay)+'/'+displayUnit()+(chkDay.actual.hr?(' @ '+chkDay.actual.hr+' bpm'):'')+'</div>';
-  }
-  return '<div class="checkpoint">'+
-    '<h3 class="font-display">Fitness Checkpoint</h3>'+
-    '<p>Week '+chkDay.week+' is your data point. Reconsider your Active Goal below \u2014 every workout pace and the '+vGoalDay().toLowerCase()+' target update automatically.</p>'+
-    hint+
-    renderGoalToggle()+
-  '</div>';
-}
+/* ---------- THE STANDALONE FITNESS CHECKPOINT PANEL IS GONE ----------
+   IT WAS THE SAME DECISION, ASKED TWICE. Full Plan rendered a large panel
+   between two programme weeks -- a heading, a paragraph about the checkpoint
+   week, and the A/B/C Active Goal chooser -- while Plan HQ's Record tab
+   already renders renderGoalToggle() beside renderCheckpointBanner(). One
+   decision, two permanent surfaces, and the Full Plan copy interrupted the
+   chronology to ask a question no evidence had yet raised.
 
+   THE CHECKPOINT IS STILL FULLY REPRESENTED where it belongs, by things that
+   were already there: weekPhaseLabel() names the week "Fitness Checkpoint",
+   and the session itself renders as an ordinary key-session card inside it.
+   Full Plan shows the training; the decision surface stays in Plan HQ.
+
+   NOTHING UNDERNEATH WAS TOUCHED. renderGoalToggle(), handleSetGoal(),
+   checkpoint scheduling, the time-trial prescription, calibration and
+   recalibration are all unchanged -- this removed a duplicate VIEW, and
+   renderCheckpointCard() was its only caller and had no other.
+*/
 /* ---------- WHAT'S NEXT (Full Plan) ----------
    THE DEAD END THIS REPLACES.
    Full Plan used to end at the last week, full stop -- and the one thing it
@@ -29692,8 +29689,6 @@ function renderRaceDayEvent(weekNum){
 }
 function renderWeeksList(forceOpenAll){
   var totalWeeks = totalWeeksInPlan();
-  var chkWeek = null;
-  state.days.forEach(function(dd){ if (dd.type==='checkpoint') chkWeek = dd.week; });
   var html = '';
   var lastPhase = null;
   for (var w=1; w<=totalWeeks; w++){
@@ -29710,7 +29705,6 @@ function renderWeeksList(forceOpenAll){
     }
     html += renderWeekAccordion(w, forceOpenAll);
     html += renderRaceDayEvent(w);
-    if (w===chkWeek) html += renderCheckpointCard();
   }
   html += renderContinuityCard();
   return html;
