@@ -4525,7 +4525,75 @@ function raceGoalEntry(currentVolumeKm){
     reason: allowed ? null : 'below_race_goal_entry_volume'
   };
 }
+/* ---- CAN THIS ATHLETE ENTER THIS PATHWAY, AND WHAT DECIDES ----
+   THE OLD AUTHORITY WAS THE IDENTITY THIS ARCHITECTURE REMOVED.
+   minViableStartKm() is MIN_PEAK_LONG_KM / (developmentMultiplier x
+   LONG_FRACTION) -- the top-down statement peakLong = startVolume x volMult x
+   share, solved for the start. Destination-led construction deleted every term
+   of it: the long run has its own progression authority, the week is the sum of
+   its sessions, and no part of a race block is a share of a weekly total any
+   more. The boundary it draws therefore describes nothing the dedicated
+   architectures do, and it drew it in the wrong place: it demanded 41.5km a
+   week before a half marathon programme could be built, against a new half
+   pathway HQ has designed to START at fifteen and which the reachability gate
+   proves reaches its destination from there.
+
+   THE QUESTION THE PATHWAY ASKS INSTEAD. Experience selects the pathway;
+   demonstrated evidence says where the athlete may safely begin inside it;
+   the race states the destination; the runway says whether it is reachable.
+   So viability is that last question and nothing else -- can this athlete's own
+   preparation, developed coherently across the window they have, reach what the
+   event asks of them -- and marathonPreparationOutlook() has answered it since
+   the marathon stopped asking minViableStartKm() for its recommendation. It is
+   the same authority the block is built from, so the routing decision and the
+   prescription cannot disagree.
+
+   ABSENCE OF EVIDENCE IS NOT EVIDENCE OF INCAPACITY. An athlete who has logged
+   nothing is not a six kilometre a week beginner; they are somebody who chose
+   this pathway, and in the absence of anything contradicting that the pathway
+   supplies its own entry. Where real evidence DOES contradict it -- a
+   demonstrated workload that cannot reach the event's requirement in the time
+   available -- the athlete is routed, which is the outcome that protects them.
+
+   EVERY OTHER DISTANCE IS UNTOUCHED. 5K, 10K and Ultra have no dedicated
+   architecture, still ramp to a multiple of a weekly figure, and keep the
+   boundary they have -- which is the narrower defensive role minViableStartKm()
+   now holds. */
 function raceProgrammeViability(distKey, currentVolume, planWeeks){
+  if (usesBottomUpArc('race', distKey)){
+    /* THE ENTRY IS THE LOWEST PATHWAY'S, and that is what "new" means: the
+       lowest experience pathway for an athlete READY TO BEGIN this dedicated
+       preparation. Whether they belong on the novice route or a higher one is
+       the pathway-selection question and is asked elsewhere; this asks only
+       whether dedicated preparation is the right thing to build at all.
+
+       READ FROM THE ATHLETE'S OWN STATE, in the order everything else in this
+       architecture reads it: demonstrated evidence, then the figure they
+       stated, then the pathway's own assumption where there is neither. So an
+       athlete who has logged nothing is not routed away -- there is nothing
+       contradicting the pathway they chose -- and an athlete whose real
+       training is well below the entry week still is, which is the safety this
+       boundary exists for. */
+    var entry = null;
+    try { entry = raceGoalEntryState(distKey, 'novice', currentVolume); }
+    catch(e){ entry = null; }
+    var floor = raceGoalPathway(distKey, 'novice');
+    if (entry && floor && floor.entryVolumeKm > 0){
+      var have = entry.volumeKm > 0 ? entry.volumeKm : 0;
+      var okE = have + 1e-9 >= floor.entryVolumeKm;
+      return {
+        known: true, viable: okE,
+        classification: okE ? 'race_programme' : 'below_viable',
+        authority: 'pathway_entry',
+        entryKm: round1(have), entrySource: entry.volumeSource,
+        minStartKm: floor.entryVolumeKm,
+        statedKm: (typeof currentVolume === 'number' && currentVolume > 0) ? round1(currentVolume) : 0,
+        shortfallKm: okE ? 0 : round1(floor.entryVolumeKm - have),
+        peakLongKm: floor.peakLongKm,
+        raceKm: DISTANCE_PROFILES[distKey].raceKm
+      };
+    }
+  }
   var minStart = minViableStartKm(distKey, planWeeks);
   var stated = (typeof currentVolume === 'number' && currentVolume > 0) ? currentVolume : 0;
   if (minStart == null) return { known:false, viable:true, classification:'race_programme' };
@@ -4537,6 +4605,7 @@ function raceProgrammeViability(distKey, currentVolume, planWeeks){
     // needs the threshold of continuous running, which belongs to the stage
     // that builds foundation -- naming it here would be inventing it early.
     classification: viable ? 'race_programme' : 'below_viable',
+    authority: 'min_viable_start',
     statedKm: stated,
     minStartKm: minStart,
     shortfallKm: viable ? 0 : round1(minStart - stated),
@@ -5486,24 +5555,37 @@ function applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm){
    any individual week actually contains. Grade D throughout -- HQ methodology
    decisions inside the published coaching range, and recorded as such. */
 var RACE_GOAL_PATHWAY = {
-  /* ---- HALF MARATHON ----
+  /* ---- WHAT "NEW" MEANS, AND WHAT AN ENTRY IS ----
+     NEW IS NOT UNTRAINED. It is the lowest experience pathway for an athlete
+     who is READY TO BEGIN this dedicated preparation programme, and its entry
+     is the designed week-one workload of that pathway -- not a number the
+     athlete typed, not a claim, and not a figure solved backwards out of what
+     the progression happens to need. Where trustworthy evidence contradicts it
+     the evidence wins and safety constrains the start; where there is no
+     evidence, the pathway supplies its own assumption rather than inventing a
+     six-kilometre-a-week athlete who was never here.
+
+     THE ENTRY LONG RUN IS HALF THE ENTRY WEEK on every pathway. HQ supplied the
+     pair directly for the new marathon -- a twenty kilometre opening week with
+     approximately a ten kilometre long run -- and the same relation holds
+     coherently across all six: an athlete arriving for a race programme brings
+     their long run with them, and the week is what is rebuilt around it. Each
+     pair also satisfies the architecture's own coherence rule, that an entry
+     week must contain its long run alongside a quality slot and a supporting
+     run at SUPPORT_SHARE_MIN of it -- 1.8x the long run -- with room to spare.
+
+     ---- HALF MARATHON ----
      A threshold event. The pathway spends its Build developing threshold and
      converting it toward sustained race effort, so the weekly-volume targets
      are deliberately modest beside the marathon's and the long run is a
      supporting durability authority rather than the organising session. */
   half: {
     novice: {
-      /* THE ENTRY LONG RUN AN ATHLETE ENTERING A HALF PROGRAMME ACTUALLY
-         ARRIVES WITH. Six kilometres was the Race Goal entry floor read as a
-         long run, and it is a WEEKLY figure: somebody who signs up for a half
-         marathon fifteen weeks out is typically already running about five
-         miles as their longest run. It matters because the long run develops
-         from where it starts at the ordinary rate, and starting it a
-         kilometre and a half low costs four kilometres at the destination --
-         which is the difference between reaching the pathway's requirement and
-         reporting a shortfall against it. Same figure as the new marathon
-         athlete's, because it is the same athlete arriving at a different
-         race. */
+      /* FIFTEEN KILOMETRES, LOCKED BY HQ. It removes the ambiguity about what
+         "new" means at this distance: somebody ready to begin fifteen weeks of
+         dedicated half marathon preparation, running about eight kilometres as
+         their longest run. Not a beginner, and not somebody who has to be
+         talked out of the programme. */
       entryVolumeKm: 15, entryLongKm: 8,  entryDays: 3,
       buildVolumeKm: 30, buildLongKm: 13,
       peakVolumeKm:  38, peakLongKm:  16, openEnded: false },
@@ -5524,55 +5606,25 @@ var RACE_GOAL_PATHWAY = {
      readiness, and further mileage has to be earned from evidence rather than
      scheduled. That is a real difference from the half, not an omission. */
   full: {
+    /* ---- WEEK ONE, LOCKED BY HQ: 20 / 30 / 40 ----
+       These are the designed opening workloads of the three marathon pathways.
+       They are not builder inputs, not inferred claims, and above all not
+       reverse-solved from the progression equation: an earlier pass on this
+       branch moved the novice entry to 24km and a 13km long run because eight
+       steps at ten percent could not otherwise reach 26, and HQ has ruled that
+       reasoning out. It is a diagnostic of the geometry, not a reason to
+       redefine the athlete. The geometry was the defect and the geometry was
+       fixed -- see raceGoalStepCount(). */
     novice: {
-      /* ---- A PATHWAY'S ENTRY AND ITS DESTINATION HAVE TO BE ARITHMETICALLY
-         COMPATIBLE, AND THIS PAIR WAS NOT ----
-         Eight kilometres is the half's entry long run, and it was written here
-         as "the same athlete arriving at a different race". The two races are
-         not the same arithmetic. A fifteen-week marathon block reaches its
-         durability exposure after nine developing weeks and spends one of them
-         absorbing race-specific work into the long run, so eight steps carry
-         it; the architecture's ceiling on a session is ten percent a step, so
-         the furthest a long run can travel is 1.10^8 -- a factor of 2.14. From
-         eight kilometres that reaches 17.2, and the pathway asks for 26. The
-         destination was unreachable BY CONSTRUCTION for every athlete who
-         entered on the pathway's own assumption, and readiness reported a
-         shortfall the programme had built in.
-
-         26 / 1.10^8 = 12.1km, so the pathway's honest entry statement is
-         thirteen, with the margin a stated prerequisite should have: an athlete
-         beginning a fifteen-week first marathon should already be running about
-         thirteen kilometres as their longest run. That is not a requirement
-         invented to make a number work -- it is the prerequisite the 26km
-         destination has always implied, now stated, and it is close to what
-         first-marathon programmes assume (Higdon's Novice 1 opens on a six-mile
-         long run and takes eighteen weeks rather than fifteen).
-
-         AN ATHLETE WHO ARRIVES BELOW IT STILL GETS A PROGRAMME. Their own
-         demonstrated long run outranks this figure in both directions, the
-         block develops from where they actually are, and readiness reports the
-         gap -- which is a genuine athlete shortfall honestly measured rather
-         than an architectural one dressed up as coaching.
-
-         AND THE ENTRY WEEK HAS TO BE ABLE TO CONTAIN THE ENTRY LONG RUN. Twenty
-         kilometres was stated beside an eight-kilometre long run and left there
-         when that became thirteen, which makes the pathway incoherent at its own
-         entry: a thirteen-kilometre run inside a twenty kilometre week leaves
-         seven for everything else, the supporting run opens below four, and
-         SUPPORT_SHARE_MIN then says a 26km long run needs 10.4km supporting
-         runs -- which four cannot reach in eight steps at the ordinary rate. The
-         pathway's own rules give the figure: entryDays 3 is the long run, one
-         quality slot and one supporting run, and a supporting run under a 13km
-         long run is at least SUPPORT_SHARE_MIN of it. 13 + 5.2 + 5.2 = 23.4. */
-      entryVolumeKm: 24, entryLongKm: 13, entryDays: 3,
+      entryVolumeKm: 20, entryLongKm: 10, entryDays: 3,
       buildVolumeKm: 40, buildLongKm: 26,
       peakVolumeKm:  null, peakLongKm: 26, openEnded: false },
     experienced: {
-      entryVolumeKm: 45, entryLongKm: 18, entryDays: 5,
+      entryVolumeKm: 30, entryLongKm: 15, entryDays: 4,
       buildVolumeKm: 55, buildLongKm: 29,
       peakVolumeKm:  null, peakLongKm: 29, openEnded: false },
     advanced: {
-      entryVolumeKm: 70, entryLongKm: 24, entryDays: 6,
+      entryVolumeKm: 40, entryLongKm: 20, entryDays: 5,
       buildVolumeKm: 70, buildLongKm: 32,
       peakVolumeKm:  null, peakLongKm: 32, openEnded: true }
   }
@@ -6006,26 +6058,52 @@ function raceGoalDurabilityPeakWeek(distKey, N, experience){
    takes no step -- it is a reduction, not a progression -- and nothing later
    walks the curve faster to make one up. */
 function raceGoalStepCount(distKey, N, experience){
+  /* ---- AN ABSORPTION WEEK REDUCES THE DELIVERY; IT DOES NOT PAUSE THE
+     DEVELOPMENT ---- AND THIS WAS THE CONSTRAINT THAT MADE A LOCKED PATHWAY
+     UNREACHABLE.
+
+     This counted only the weeks that were not absorption weeks, so a cutback
+     cost the athlete a development step: two consecutive weeks stood on the
+     same step, one of them discounted. Thirteen training weeks therefore
+     handed out eight or nine steps, and eight steps at the ordinary rate carry
+     a long run 2.14x -- which is why an earlier pass on this branch reverse-
+     solved the novice marathon's entry upward until the arithmetic passed. HQ
+     ruled that out, correctly, and the geometry is what was wrong.
+
+     NO PUBLISHED METHODOLOGY PAUSES THE PROGRESSION ON A DOWN WEEK. Higdon's
+     Novice 1 -- the reference this pathway is already written against -- runs
+     its long run 6, 7, 5, 9, 10, 7, 12 miles: the week AFTER each step-back
+     resumes two miles above the week before it, not one. The step-back reduces
+     what is delivered and the curve underneath it keeps moving, which is the
+     whole point of a down week -- the athlete absorbs at a lower dose and
+     arrives further on, rather than standing still.
+
+     SO EVERY TRAINING WEEK TO THE DURABILITY EXPOSURE TAKES A STEP, and an
+     absorption week delivers its step at CUTBACK_FACTOR. Nothing else moves:
+     the rate is unchanged, the cutbacks are unchanged and still every fourth
+     week, the holds are unchanged, and no step is ever taken twice or repaid
+     at a larger one. What changes is that thirteen weeks of training now buy
+     thirteen weeks of development instead of nine.
+
+     THE REBOUND THIS PRODUCES IS SMALLER THAN THE REFERENCE'S. Week-on-week out
+     of an absorption week it is the ordinary rate over CUTBACK_FACTOR, 1.41;
+     Higdon's is 1.71 (7 to 12 miles) and 1.80 (5 to 9). Measured across the two
+     weeks the injury evidence actually spans, it is 1.10 squared -- 1.21 --
+     comfortably inside the 1.30 Nielsen ceiling this architecture already
+     holds itself to. */
   var end = raceGoalDurabilityPeakWeek(distKey, N, experience);
-  var n = 0;
-  for (var w = 1; w <= end; w++) if (!raceGoalCutbackWeek(distKey, N, w, experience)) n++;
+  var n = Math.max(1, end);
   /* ---- AND THE WEEK THE BLOCK KNOWS IT WILL SPEND ----
      Race-specific work enters the long run once, at the first week the phase
      allows it, and that week holds the distance while the new stimulus lands --
      which is right, and which costs a step. The block can see it coming: it is
      the first week of Build. Where that week is already an absorption week the
-     arrival is free and nothing is deducted, which is exactly what happens on
-     the half, whose Base is three weeks long so its first Build week falls on
-     the fourth-week grid. The marathon's is four, so its arrival lands on a
-     developing week and every marathon pathway finished one step -- one to two
-     kilometres -- under its own requirement.
+     arrival is free, because an absorption week is not asking for a bigger
+     dose in the first place.
 
      BUDGETED, NOT REPAID. The step is not handed back later at a bigger one;
      the curve is simply scaled to the steps the block will actually take, so it
-     lands on the durability exposure rather than a week past it. Where the
-     arrival does not happen at all -- an athlete whose long run never reaches
-     the distance a goal-pace finish needs -- the curve completes a week early
-     and holds there, which costs nothing. */
+     lands on the durability exposure rather than a week past it. */
   var alloc = raceGoalPhaseAllocation(distKey, N, experience);
   var firstBuild = alloc.base + 1;
   if (alloc.build > 0 && firstBuild <= end &&
@@ -8540,7 +8618,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                      arc has always claimed in words. Seeded at zero, the last
                      developing week stood on step P-1 of P and every pathway
                      finished its Peak below its own destination. */
-                  advances: 1, lastStep: null,
+                  advances: 1, supportAdvances: 1, lastStep: null,
                   /* Computed ONCE, here, and reported on every week. The week
                      loop must never re-derive it: a rate re-solved over the
                      weeks that remain is exactly the catch-up this
@@ -8687,9 +8765,24 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          one. How many days it is written across is the frequency question,
          answered separately, and changing the answer now changes the size of
          each run rather than the amount of running. */
+      /* ---- SUPPORT DOES NOT MOVE THROUGH THE ABSORPTION WEEK, AND THE LONG
+         RUN DOES ---- The evidence for stepping through a down week is about
+         the LONG RUN: Higdon's novice resumes at 9 miles after a step-back from
+         7, and at 12 after a step-back from 10. It is not about the weekly
+         total, and applying it there was measurably wrong -- an advanced
+         athlete's week went 93km, 80km absorbed, then 125.5km, a 32.5
+         kilometre single-week rise, because every session in the week took two
+         steps across the down week at once.
+
+         So the two counters are separate, which is what they always described:
+         the long run's development continues through an absorption week
+         because that is what the session evidence says, and the supporting
+         workload returns to the trend it left -- one ordinary step above the
+         week before the reduction, which is what a rebound is. */
       var mSupTotal = sessionAtStep(mBottomUp.startSupportTotalKm,
                                     mBottomUp.supportTotalDestKm,
-                                    mBottomUp.progressing, mStep);
+                                    mBottomUp.progressing,
+                                    Math.min(mStep, mBottomUp.supportAdvances));
       var mSupport = mSupTotal / Math.max(1, mBottomUp.supportDays);
       /* A CUTBACK REDUCES THE SESSIONS, not a total that is then re-divided.
          Same factor, applied where the training actually is. */
@@ -9625,18 +9718,25 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       mPrevQSlots = mWeek.qSlots;
       mPrevSupportDays = mWeek.countedSupportDays;
       /* ---- AND THE ATHLETE MOVES FORWARD FROM THE WEEK THEY WERE ACTUALLY
-         PRESCRIBED ---- Capacity advances on every developing week, because it
-         is the athlete's own ceiling and it is what earns a structure. The
-         DOSES advance only on a developing week that did not spend itself
-         absorbing one. The rate is the block's, fixed at its solve, so a held
-         week costs exactly one step and can never be repaid at a larger one. */
-      if (!isCutback && !isTaper){
+         PRESCRIBED ---- Capacity advances on every training week, because it is
+         the athlete's own ceiling and it is what earns a structure. So does the
+         curve underneath the doses: an ABSORPTION week delivers its step at
+         CUTBACK_FACTOR rather than standing still on the step before it, which
+         is what a down week is in every published methodology and what this
+         architecture had wrong. See raceGoalStepCount().
+
+         THE ONE WEEK THAT STILL TAKES NO STEP is the week that spends itself
+         absorbing race-specific work arriving IN the long run. The rate is the
+         block's, fixed at its solve, so that week costs exactly one step and
+         can never be repaid at a larger one. */
+      if (!isTaper){
         /* THE STEP THIS WEEK ACTUALLY USED, which is what the next structural
            week would hold at. A held week used the step before it, so the mark
            does not move; an ordinary week moves it to its own. */
         mBottomUp.lastStep = mHeld ? mHoldStep : mStep;
         mEarnedSupportTotalKm = round1(mSupN * mWeek.supportKm);
         if (!mHeld) mBottomUp.advances++;
+        if (!isCutback && !mHeld) mBottomUp.supportAdvances++;
       }
       if (!isTaper && volume > mPeakBuiltKm) mPeakBuiltKm = volume;
     }
@@ -11429,16 +11529,107 @@ function fitStridesToDistance(dd, p, newKm){
 var INTENSITY_ZONE_KEY = {
   easy:'E', steady:'M', tempo:'M', threshold:'T',
   interval:'I', repetition:'R',
-  hard_effort:'I',         // hills and fartlek run by feel; I is the closest cost
-  /* GOAL PACE HAS A ZONE FOR HEART RATE EVEN THOUGH IT HAS ITS OWN PACE. The
-     PACE comes from the athlete's goal and getGoalPaceSecPerKm() owns it, so
-     every caller that wants a pace returns before reaching this table. Heart
-     rate is a different question: marathon effort is the M zone, and leaving
-     the key out meant two callers each carried their own `=== 'goal_pace' ? 'M'`
-     and any third would silently have got undefined -- no band, no guidance,
-     no error. Stated once, where the mapping lives. */
-  goal_pace:'M'
+  hard_effort:'I'          // hills and fartlek run by feel; I is the closest cost
+  /* GOAL PACE IS DELIBERATELY ABSENT. See goalPaceZoneKey(): it has no fixed
+     zone, and giving it one here is how a half marathon session came to carry
+     marathon heart-rate guidance. */
 };
+/* ---- WHAT HEART RATE IS GOAL PACE, AND WHY IT IS NOT A CONSTANT ----
+   THE DEFECT THIS REPLACES. `goal_pace` was mapped to the M zone, so every
+   goal-pace session in the product was described as marathon effort. For a
+   marathon that is true by definition -- M IS marathon pace. For a half it is
+   simply wrong: a half marathon is run appreciably harder than marathon effort,
+   and for a quick athlete it is run at something close to threshold. The
+   prescription said "goal pace" and the heart-rate guidance beside it said
+   "marathon", and the two disagreed for every distance except one.
+
+   AND IT IS NOT ONE ZONE PER DISTANCE EITHER, which is the second half of the
+   same mistake. Half marathon effort is a function of how long the athlete is
+   out there: a 68-minute half is run at very nearly threshold, and a 2h20 half
+   is run at marathon effort or easier. The event does not fix the intensity;
+   the athlete's own speed at that event does.
+
+   SO IT IS ASKED OF THE ATHLETE'S OWN PHYSIOLOGY, and answered with the zone
+   their goal pace actually falls in. The pace bands are already the athlete's
+   own -- trainingPacesFromVDOT() built them from their own evidence -- so this
+   introduces no zone, no threshold and no constant: it reads which of their
+   existing zones the goal sits inside and takes that zone's heart rate. A
+   marathon goal lands in M because that is what M is; a fast half lands in T; a
+   slower half lands in M honestly rather than by assumption.
+
+   WHERE IT CANNOT BE ANSWERED IT IS NOT ANSWERED. No goal, or no zones to read,
+   means no heart-rate band -- the callers already handle that, and silence is
+   the correct output when the alternative is a number that would be wrong. */
+function goalPaceZoneKey(){
+  var g = null;
+  /* The pace the athlete is actually PRESCRIBED, which is the capacity-gated
+     figure rather than the raw ambition -- see racePacePrescription(). A band
+     read from a goal the athlete is not being asked to run would describe
+     somebody else. */
+  try { g = prescribedRacePaceSecPerKm(); } catch(e){ g = null; }
+  if (!(g > 0)){ try { g = getGoalPaceSecPerKm(); } catch(e){ g = null; } }
+  if (!(g > 0)) return null;
+  var paces = null;
+  try { paces = getActivePaces(); } catch(e){ paces = null; }
+  if (!paces) return null;
+  var order = ['R','I','T','M','E'];            // fastest zone to slowest
+  for (var zi = 0; zi < order.length; zi++){
+    var z = paces[order[zi]];
+    if (z && z.fast != null && z.slow != null &&
+        g >= z.fast - 1e-9 && g <= z.slow + 1e-9) return order[zi];
+  }
+  /* Outside every band at one end or the other -- a goal faster than the
+     athlete's repetition pace, or slower than their easy pace. Clamped to the
+     end it fell off, which is the honest reading of a goal that far out. */
+  if (paces.R && paces.R.fast != null && g < paces.R.fast) return 'R';
+  if (paces.E && paces.E.slow != null && g > paces.E.slow) return 'E';
+  return null;
+}
+/* The heart-rate band an intensity should be read at. The pace table answers
+   for everything except goal pace, which has its own question above. One
+   expression, so a third caller cannot get a different answer from the two
+   that exist.
+
+   AND A GOAL THAT FALLS BETWEEN TWO ZONES GETS BOTH. The pace bands are
+   discrete and a race goal does not have to land inside one: a 1h35 half sits
+   between this athlete's threshold and marathon paces, and it is neither. The
+   honest band spans the gap -- from the easier zone's floor to the harder
+   zone's ceiling -- rather than rounding the athlete into whichever neighbour
+   is nearer and describing an effort they are not being asked for. */
+function hrBandForIntensity(intensity, hz){
+  if (!hz) return null;
+  var one = function(k){
+    var z = k ? hz[k] : null;
+    return (z && z.lo != null) ? { lo:z.lo, hi:(z.hi != null ? z.hi : null) } : null;
+  };
+  if (intensity !== 'goal_pace') return one(INTENSITY_ZONE_KEY[intensity]);
+  var k = goalPaceZoneKey();
+  if (k) return one(k);
+  var span = goalPaceZoneSpan();
+  if (!span) return null;
+  var harder = one(span.harder), easier = one(span.easier);
+  if (!harder || !easier) return harder || easier;
+  return { lo: easier.lo, hi: harder.hi != null ? harder.hi : null };
+}
+/* The two zones a goal pace falls between, where it falls inside neither. */
+function goalPaceZoneSpan(){
+  var g = null;
+  try { g = prescribedRacePaceSecPerKm(); } catch(e){ g = null; }
+  if (!(g > 0)){ try { g = getGoalPaceSecPerKm(); } catch(e){ g = null; } }
+  if (!(g > 0)) return null;
+  var paces = null;
+  try { paces = getActivePaces(); } catch(e){ paces = null; }
+  if (!paces) return null;
+  var order = ['R','I','T','M','E'];            // fastest zone to slowest
+  var harder = null, easier = null;
+  order.forEach(function(k){
+    var z = paces[k];
+    if (!z || z.fast == null || z.slow == null) return;
+    if (z.slow < g) harder = k;                 // entirely faster than the goal
+    if (z.fast > g && !easier) easier = k;      // entirely slower than the goal
+  });
+  return (harder && easier) ? { harder:harder, easier:easier } : null;
+}
 // Which bar of the Zone Distribution chart an intensity belongs to. The four
 // buckets are unchanged -- only the distances going into them get better.
 var INTENSITY_ZONE_BUCKET = {
@@ -12301,7 +12492,23 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
                                               (easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM,
                                               !noLongRun);
     if (feasibleDays != null) runCap = Math.min(runCap, feasibleDays);
-    if (demonstratedFreq != null && !wk.isRace)
+    /* ---- EXCEPT WHERE THE BLOCK HAS ALREADY READ THIS EVIDENCE ----
+       A bottom-up race block decided its frequency from the same three
+       authorities before it built a single week: the athlete's demonstrated
+       frequency bounds where it STARTS, availability bounds where it is GOING,
+       and every day between arrives as a structural progression the moment
+       capacity earns it. Reading demonstrated frequency again here overruled
+       all of that with a single number and froze the block at the athlete's
+       entry frequency for its whole length.
+
+       Measured on the locked new marathon pathway: three days a week for
+       fifteen weeks, so a 55km peak week was written as a 26km long run, a
+       15km quality session and ONE 14km "easy" run -- the disproportionate
+       week this architecture exists to prevent, produced by the frequency
+       layer rather than by the mathematics. The block's own answer stands
+       below; nothing else about this decision changes, and every other
+       purpose and distance reads exactly what it read before. */
+    if (!wk.bottomUp && demonstratedFreq != null && !wk.isRace)
       runCap = Math.min(runCap, Math.max(2, demonstratedFreq));
     /* AND WHAT THE ATHLETE IS ACTUALLY SUSTAINING MAY COME UNDER THAT CEILING.
        Capacity is permission and it is held for a year; it is not a statement
@@ -12313,7 +12520,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
 
        It can only ever lower, never raise: an athlete cannot buy days beyond
        their demonstrated capacity by having a good fortnight. */
-    if (currentFreq != null && !wk.isRace)
+    if (!wk.bottomUp && currentFreq != null && !wk.isRace)
       runCap = Math.min(runCap, Math.max(2, currentFreq));
     /* MARATHON ONLY, deliberately. What follows changes prescribed frequency
        for a population, and the marathon is the distance whose methodology HQ
@@ -17969,7 +18176,7 @@ function executionHRTarget(dd){
   var loSec = 0, hiSec = 0, sec = 0, open = mix.hasMaximal, bad = false;
   Object.keys(mix.timeByIntensity).forEach(function(i){
     var t = mix.timeByIntensity[i];
-    var z = hz[INTENSITY_ZONE_KEY[i]];
+    var z = hrBandForIntensity(i, hz);
     if (!z || z.lo==null){ bad = true; return; }
     if (z.hi==null) open = true;                     // open-ended zone, no max HR set
     loSec += t*z.lo; hiSec += t*(z.hi!=null ? z.hi : z.lo); sec += t;
@@ -18100,9 +18307,7 @@ function strategyPaceBand(intensity, half){
   return { fast:z.fast, slow:z.slow };
 }
 function strategyHRBand(intensity){
-  var hz = getActiveHRZones();
-  var z = hz[INTENSITY_ZONE_KEY[intensity]];
-  return (z && z.lo!=null) ? { lo:z.lo, hi:z.hi!=null ? z.hi : null } : null;
+  return hrBandForIntensity(intensity, getActiveHRZones());
 }
 
 /* ---------- one phase ----------

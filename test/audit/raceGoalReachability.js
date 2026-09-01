@@ -106,27 +106,31 @@ function endOfBuild(res){
   const c = res.blk.weeks.filter(w => w.phase === 'Base' || w.phase === 'Build');
   return c.length ? c[c.length - 1].week : null;
 }
+/* ---- THE CANONICAL ATHLETE IS THE PATHWAY'S OWN LOCKED ENTRY ----
+   HQ locked week one for the three marathon pathways at 20 / 30 / 40 km and
+   the new half at 15, and the evidence below is written to produce exactly
+   those and nothing more: the demonstrated week IS the pathway's entry week and
+   the demonstrated long run IS its entry long run. Seeding a canonical athlete
+   above the pathway start would bypass the very thing the gate exists to test,
+   which is whether the DESIGNED start reaches the DESIGNED destination. */
 const CANON = [
   { key:'New Half',      dist:'half', exp:'novice',      days:5, weeks:15,
-    ev:{ easyKm:5, longKm:8, easyDays:[0,2], tt5kMin:28 },
+    ev:{ easyKm:3.5, longKm:8, easyDays:[0,2], tt5kMin:28 },
     needBuildKm:30, needBuildLong:13, needPeakKm:35, needPeakLong:16 },
   { key:'Experienced Half', dist:'half', exp:'experienced', days:6, weeks:15,
-    ev:{ easyKm:8, longKm:14, qKm:9, easyDays:[0,2,4], tt5kMin:22 },
+    ev:{ easyKm:6, longKm:12, qKm:5, easyDays:[0,2,4], tt5kMin:22 },
     needBuildKm:40, needBuildLong:19, needPeakKm:null, needPeakLong:19 },
   { key:'Advanced Half', dist:'half', exp:'advanced',    days:6, weeks:15,
-    ev:{ easyKm:11, longKm:18, qKm:12, easyDays:[0,2,4], tt5kMin:18 },
+    ev:{ easyKm:11, longKm:16, qKm:11, easyDays:[0,2,4], tt5kMin:18 },
     needBuildKm:60, needBuildLong:21, needPeakKm:80, needPeakLong:21 },
-  /* Entering on the pathway's own stated prerequisite -- a thirteen-kilometre
-     longest run -- which is what "an athlete appropriate for this pathway"
-     means. See RACE_GOAL_PATHWAY.full.novice for why eight was not. */
   { key:'New Marathon',  dist:'full', exp:'novice',      days:5, weeks:15,
-    ev:{ easyKm:6, longKm:13, easyDays:[0,2], tt5kMin:28 },
+    ev:{ easyKm:5, longKm:10, easyDays:[0,2], tt5kMin:28 },
     needBuildKm:40, needBuildLong:26, needPeakKm:null, needPeakLong:null },
   { key:'Experienced Marathon', dist:'full', exp:'experienced', days:6, weeks:15,
-    ev:{ easyKm:9, longKm:18, qKm:10, easyDays:[0,2,4], tt5kMin:22 },
+    ev:{ easyKm:4, longKm:15, qKm:3, easyDays:[0,2,4], tt5kMin:22 },
     needBuildKm:55, needBuildLong:29, needPeakKm:null, needPeakLong:null },
   { key:'Advanced Marathon', dist:'full', exp:'advanced',    days:6, weeks:15,
-    ev:{ easyKm:13, longKm:26, qKm:14, easyDays:[0,2,4], tt5kMin:18 },
+    ev:{ easyKm:5, longKm:20, qKm:5, easyDays:[0,2,4], tt5kMin:18 },
     needBuildKm:70, needBuildLong:32, needPeakKm:null, needPeakLong:null }
 ];
 const HIGH = [
