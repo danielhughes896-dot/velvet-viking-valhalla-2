@@ -9589,13 +9589,31 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          the days the athlete runs on. The taper is unchanged: it has its own
          ladder below, which shrinks the supporting runs first and drops one
          only when they are already at the floor. */
-      /* THE HALF TAKES THE CONCLUSION THE COMMENT ABOVE REACHED. Its
-         absorption weeks reduce the DOSE and keep the days: measured on the
-         marathon path, discounting capacity as well cost a 12km/week athlete a
-         running day in week 4 and gave it straight back in week 5, which is a
-         -48%/+100% swing where a cutback is -22%. The marathon's own numbers
-         are closed and are left exactly as they are. */
-      if (isCutback && !halfArc) mCap = mCap != null ? mCap * CUTBACK_FACTOR : null;
+      /* ---- AND THE MARATHON TAKES IT TOO ----
+         THIS WAS THE HALF'S FIX ONLY, and the note that used to stand here said
+         the marathon's numbers were closed and left as they were. They were not
+         closed; they were unmeasured. On the canonical New marathon pathway,
+         every runway from eleven weeks up delivered a week-four absorption week
+         of 24km -> 13km -- a 46% reduction where a cutback is 22% -- and it
+         took a running day with it, three down to two, with the third day
+         reappearing as an optional run. Week five then rebounded to 29km.
+
+         WHY DISCOUNTING CAPACITY DOES THAT. The dose already steps back by
+         CUTBACK_FACTOR on the sessions themselves. Discounting the week's
+         CAPACITY as well applies the same reduction a second time, and it
+         applies it to the wrong thing: capacity is what pays for the supporting
+         runs, so the per-run size is squeezed until the runs hit EASY_MIN_KM and
+         a day whose run falls under the floor stops being written at all. At
+         the volumes where a New marathon athlete starts, that is the difference
+         between an absorption week and a week off.
+
+         The frequency guard below already holds the DAY COUNT on a cutback. It
+         could not hold the kilometres, because they are bounded by this
+         capacity figure -- so the day survived and the run inside it did not.
+         The dose comes off the sessions, where it belongs, and the week keeps
+         both the days the athlete runs on and the work those days can carry. */
+      if (isCutback && isTaper && !halfArc)
+        mCap = mCap != null ? mCap * CUTBACK_FACTOR : null;
       if (isTaper && !halfArc && mCap != null){
         var mCapT = 1 - ((taper > 0 ? (w - buildWeeks) / taper : 1) *
                          (arc.taperDepth != null ? arc.taperDepth : RACE_TAPER_DEPTH));
@@ -10276,6 +10294,37 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       else if (mWeek && mWeek.longDestKm > 0)
         longTarget = Math.min(longTarget, mWeek.longDestKm);
     }
+    /* ---- AND A DEVELOPMENT WEEK DOES NOT ASK FOR A SHORTER LONG RUN THAN THE
+       WEEK BEFORE IT ----
+       THE DEFECT THIS CLOSES. The long run is re-derived every week from its
+       own curve and then clamped by whatever else the week has to satisfy --
+       the coherence gate, the week's capacity, the supporting split. Those
+       clamps move week to week, so the delivered long run WOBBLED instead of
+       progressing: on the canonical New half it ran 8, 9, 9, 7*, 10, 11, 10,
+       10*, 11, 14 -- week seven asking for a kilometre LESS than week six, in
+       an ordinary development week, and the shortfall repaid later as a
+       three-kilometre jump. Measured across the canonical set, every one of
+       those regressions sat on a week that had just gained a running day: the
+       new day was paid for out of the long run, which is precisely the
+       redistribution destination-led construction exists to prevent.
+
+       AN ABSORPTION WEEK STILL ABSORBS and a taper still tapers -- both are
+       excluded, because coming down is their job. What is excluded is only the
+       ORDINARY development week going backwards.
+
+       IT IS A FLOOR, NOT A TARGET. It can only hold what the athlete was
+       already prescribed last week; it never raises the long run above its own
+       curve, and it is bounded by what the week can actually carry, so a week
+       that genuinely cannot support last week's long run still writes the
+       shorter one rather than being inflated to hold a number. */
+    if (mWeek && mPrevLongKm != null && !isCutback && !isTaper && !isRace &&
+        usesBottomUpArc(purpose, distKey) && longTarget > 0){
+      var lrHoldCeil = mWeek.capacityKm != null
+        ? mWeek.capacityKm - (mWeek.supportKm || 0) * (mWeek.supportDays || 0)
+        : Infinity;
+      var lrHold = Math.min(mPrevLongKm, Math.max(longTarget, lrHoldCeil));
+      if (lrHold > longTarget) longTarget = round1(lrHold);
+    }
     var b2bEligible = !!profile.backToBack && !isTaper && !isRace && phase!=='Base';
 
     /* OMITTED, NOT SHRUNK, BELOW THE FLOOR.
@@ -10472,6 +10521,21 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
              does grow -- that is geometry, and it is named rather than hidden. */
           var per = (supportTotalIn != null && supportTotalIn > 0)
             ? supportTotalIn / r.supportDays : r.supportKm;
+          /* ---- AND AN ABSORPTION WEEK REDUCES THE SUPPORTING DOSE ----
+             The long run steps back on a cutback because its own curve does.
+             The supporting runs did not: they were held down instead by the
+             week's CAPACITY being discounted, which is the wrong lever --
+             capacity is what pays for the days, so discounting it took a
+             running day as well as the kilometres. With that removed, thirteen
+             cutback weeks came out LARGER than the week before them, because
+             the supporting work carried on climbing while only the long run
+             gave anything up.
+
+             The reduction belongs on the dose, where the rest of the cutback
+             already lives: each supporting run comes down by the same factor
+             the sessions do, and the week keeps every day the athlete runs
+             on. */
+          if (isCutback && !isTaper) per = per * CUTBACK_FACTOR;
           r.supportKm = round1(Math.max(EASY_MIN_KM,
             Math.min(per,
                      (mWeek.capacityKm - r.longKm - r.qKm) / r.supportDays)));
@@ -14657,12 +14721,33 @@ function capWeeklyVolume(days, weeks){
            Gated on wk.bottomUp, which exists only on a marathon race block:
            5k, 10k, half and ultra reach this line with the floor they always
            had. */
-        if (wk.bottomUp){
-          var otherMax = entries.reduce(function(m, dd){
-            return (dd !== longEntry && dd.km > m) ? dd.km : m;
-          }, 0);
-          floor = Math.max(floor, otherMax);
-        }
+        /* ---- AND UNDER BOTTOM-UP CONSTRUCTION IT IS NOT TRIMMED AT ALL ----
+           THE COMMENT ABOVE REACHED THIS CONCLUSION AND THE CODE STOPPED ONE
+           STEP SHORT OF IT. wk.volume IS the sum of the sessions here; there is
+           no apportionment for the cap to police, and the whole excess is the
+           presentation quanta -- a long run rounded to the kilometre, quality
+           to the half. An ordering floor kept the long run above the week's
+           other runs but still let it pay, and it pays in WHOLE KILOMETRES for
+           a residual of a few hundred metres.
+
+           Measured on the canonical New half: week seven's long run solved to
+           11.7km, rendered as 12, and the cap took it to 10 to reclaim two
+           tenths. Week nine did the same. The result was a delivered long run
+           that went 11 -> 10 in an ordinary development week and then repaid
+           the shortfall as a three-kilometre jump -- the block's own long-run
+           progression, undone by rounding.
+
+           Both weeks were the weeks the athlete GAINED A RUNNING DAY, which is
+           what pushed the rounded total over the cap. So the extra day was
+           being paid for out of the long run, which is precisely the
+           redistribution destination-led construction exists to prevent: an
+           added day is added training, not the same training spread wider.
+
+           The easy ladder above still runs and still reclaims what it can. What
+           it cannot reach is a rounding residual, and the volume accounting
+           already reports and bounds it as one. Every other distance keeps the
+           70% floor it has always had. */
+        if (wk.bottomUp) longEntry = null;
         /* THE STEP HAS TO CLEAR THE FLOOR, NOT MERELY START ABOVE IT. The
            trim moves in whole kilometres and the ordering floor is a half:
            `km > floor` let a 5km long run step to 4 past a floor of 4.5, which
@@ -14670,7 +14755,7 @@ function capWeeklyVolume(days, weeks){
            other distance, where both the long run and its 70% floor are whole
            numbers and the two conditions agree. */
         var guard2 = 0;
-        while (total() > cap && longEntry.km - 1 >= floor && guard2 < 100){
+        while (longEntry && total() > cap && longEntry.km - 1 >= floor && guard2 < 100){
           guard2++;
           longEntry.km = longEntry.km - 1;
         }
