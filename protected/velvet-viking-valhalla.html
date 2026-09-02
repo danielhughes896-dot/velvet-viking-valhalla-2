@@ -6076,7 +6076,29 @@ var RACE_GOAL_PATHWAY = {
      sake." Because the destination-solve machinery converges toward a single
      target, this is stated as DATA rather than as a new mechanism: giving
      Build and Peak the same figure is what makes the curve hold once it
-     arrives, with no extra code needed to enforce it. */
+     arrives, with no extra code needed to enforce it.
+
+     HQ'S PRE-MERGE GATE, QUESTION 1 -- WHAT `buildVolumeKm` MEANS AT EACH
+     TIER. Measured against a canonical evidence-free twelve-week build at a
+     realistic day count (up to the six BUILDER_SPEC permits, not clamped to
+     entryDays): the Advanced figure at both distances is a genuine,
+     reachable destination -- construction, unmodified, lands on it exactly.
+     Novice and Experienced do not reach theirs at any permitted day count,
+     and readiness reports the gap honestly (workload dimension, exact
+     shortfallKm, verdict capped at MARGINAL) rather than hiding it. The
+     shortfall traces to marathonSupportDestination()'s SUPPORT_SHARE_MAX
+     coherence clamp -- correctly refusing, at these two tiers, to grow a
+     single supporting run past the point where it would exceed the week's
+     own long run, which is what full reachability would require here. That
+     clamp is shared, working machinery outside this correction's mandate
+     (raising it would make a "support" run the biggest run of the week,
+     which is a long-run-methodology change in effect even without touching
+     a long-run figure). So for Novice and Experienced 5K/10K, treat
+     `buildVolumeKm` as the ceiling this tier's development safely
+     approaches, not a guaranteed week-nine delivery -- exactly the reading
+     the marathon's own "no volume destination of its own" already gives
+     Peak, extended down one tier further at these two events. No number
+     changed; nothing here alters what any pathway builds. */
   '5k': {
     /* FIFTEEN KILOMETRES -- the same entry as the marathon and half's own New
        pathway, and deliberately the same as 10K's New below: a beginner
@@ -6618,6 +6640,39 @@ var RACE_GOAL_MAX_WEEKS = 15;          // and the window it will not stretch pas
 var SHORT_DEDICATED_WEEKS = 12;
 var SHORT_RACE_GOAL_MIN_WEEKS = 8;
 var SHORT_RACE_GOAL_MAX_WEEKS = 12;
+/* ---- THE EVIDENCE-GATED FLOOR, BELOW THE STRUCTURAL EIGHT ----
+   HQ's pre-merge ruling on the calendar-alone refusal: eight weeks is the
+   window every 5K/10K pathway is DESIGNED around, but a well-prepared
+   athlete does not stop being well-prepared at week seven, and refusing them
+   on the calendar before their own preparation is even asked about is a
+   product-architecture convenience, not a coaching necessity. Measured: an
+   Advanced athlete already running at their pathway's own destination
+   projects to the identical MARGINAL verdict raceGoalAdmission() already
+   accepts at eight weeks -- reachedKm and shortfallKm do not move between
+   six, seven and eight, because the projection is priced from what they
+   already demonstrate, not manufactured by the runway. A Novice with no
+   evidence projects INSUFFICIENT at the same two runways, for the same
+   reason it would at eight, and stays refused.
+
+   SO THE FLOOR BELOW EIGHT ASKS THE SAME QUESTION admission already asks
+   AT eight and above, rather than inventing a second one: raceGoalPreparationOutlook()'s
+   INSUFFICIENT/MARGINAL boundary, read here instead of assumed unreachable.
+   SHORT_RACE_PHASE_GEOMETRY already carries coherent six- and seven-week
+   rows (Peak still holds its full two weeks; Build absorbs the compression)
+   for exactly this -- they were reachable rows nothing had ever routed to.
+
+   HALF AND MARATHON ARE UNCHANGED: this floor is only ever read where
+   raceGoalRunwayBounds() has already resolved to 5K/10K's own window: see
+   the dk-gated read at the call site below. Their ten-week floor keeps its
+   unconditional calendar refusal, exactly as HQ's boundary requires.
+
+   AND UNCONFIDENCE DOES NOT ADMIT HERE, where the ordinary rule (above eight
+   weeks, a missing pace never manufactures a refusal) would be the wrong
+   default: above the structural floor there is a full window to recover
+   from a bad guess, and below it there is not. So admission below eight
+   requires a PRICED, confident projection; without one it falls back to the
+   ordinary too_short refusal rather than guessing on a compressed window. */
+var SHORT_RACE_GOAL_EVIDENCE_FLOOR_WEEKS = 6;
 /* ---------- WHICH RUNWAY WINDOW A DISTANCE ANSWERS TO ----------
    One call site for the bound, so raceGoalPhaseAllocation() and
    raceGoalAdmission() cannot disagree about where 5K/10K's window sits versus
@@ -7311,11 +7366,45 @@ function raceGoalAdmission(distKey, weeksToRace, stateVolume, opts){
              raceGoalWeeks: W, recommend: null, startInWeeks: null,
              minWeeks: RACE_GOAL_MIN_WEEKS, maxWeeks: RACE_GOAL_MAX_WEEKS,
              reason: 'distance_has_no_dedicated_window' };
-  if (W < minW)
+  if (W < minW){
+    /* ---- BELOW THE STRUCTURAL FLOOR, BUT NOT YET REFUSED ----
+       See SHORT_RACE_GOAL_EVIDENCE_FLOOR_WEEKS above. Gated on dk rather than
+       on the bound itself so half/marathon's ten-week floor is untouched:
+       for them evidenceFloor === minW and this branch never has a runway to
+       examine. */
+    var evidenceFloor = (dk === '5k' || dk === '10k')
+      ? SHORT_RACE_GOAL_EVIDENCE_FLOOR_WEEKS : minW;
+    if (W >= evidenceFloor){
+      var preEarly = null;
+      try { preEarly = raceGoalPreparationOutlook(dk, null, W, opts); }
+      catch(e){ preEarly = null; }
+      if (preEarly && preEarly.confident && preEarly.verdict !== 'INSUFFICIENT')
+        return { distanceKey: dk, weeksToRace: W, admitted: true,
+                 decision: 'race_goal_short_runway',
+                 raceGoalWeeks: W, recommend: null, startInWeeks: 0,
+                 preparation: preEarly,
+                 minWeeks: minW, maxWeeks: maxW,
+                 reason: 'evidence_supports_short_runway_preparation' };
+      /* A priced projection that came back INSUFFICIENT is refused for the
+         same reason preparation_not_reachable refuses one at eight weeks and
+         above -- carried on the result so the athlete can see what was
+         short, rather than only that the calendar said no. An unpriced one
+         (no confident pace) does not get the benefit of that question here;
+         see the comment above for why the two floors read confidence
+         differently. */
+      return { distanceKey: dk, weeksToRace: W, admitted: false, decision: 'too_short',
+               raceGoalWeeks: null, recommend: 'aerobic_base', startInWeeks: null,
+               preparation: (preEarly && preEarly.confident) ? preEarly : null,
+               minWeeks: minW, maxWeeks: maxW,
+               reason: (preEarly && preEarly.confident)
+                 ? 'preparation_not_reachable_in_short_runway'
+                 : 'runway_below_race_goal_minimum' };
+    }
     return { distanceKey: dk, weeksToRace: W, admitted: false, decision: 'too_short',
              raceGoalWeeks: null, recommend: 'aerobic_base', startInWeeks: null,
              minWeeks: minW, maxWeeks: maxW,
              reason: 'runway_below_race_goal_minimum' };
+  }
   if (W > maxW){
     var sel = null;
     try { sel = raceGoalPreparatoryPurposeFor(dk, stateVolume); } catch(e){ sel = null; }
