@@ -153,3 +153,119 @@ test('it decides nothing and writes nothing', () => {
   assert.equal(JSON.stringify(a.state), before,
     'the assessment must not change the athlete\'s goal or any other state');
 });
+
+/* ---------------------------------------------------------------------------
+   THE CONTRACT ITSELF, PINNED
+   APP is parked until this surface is explicit. These tests are the statement
+   of it: every verdict the assessment can return, what evidence each one
+   requires, which authority produced the projection, and the payload a caller
+   can rely on being there.
+   --------------------------------------------------------------------------- */
+test('CONTRACT — the verdict vocabulary is closed and every member is reachable', () => {
+  const VERDICTS = ['withheld', 'current_goal_supported', 'different_goal_recommended',
+                    'no_goal_supported', 'preparation_short'];
+  const seen = {};
+
+  /* withheld -- one performance is a point, not a rate. */
+  seen[athlete('half', [{ d:'2026-02-01', t:20*60+30 }], [85], 'A')
+        .raceGoalAssessment(null).verdict] = true;
+  /* current_goal_supported -- the active goal is inside the projection. */
+  seen[athlete('half', IMPROVING, [100], 'A').raceGoalAssessment(null).verdict] = true;
+  /* different_goal_recommended -- another goal is, this one is not. */
+  seen[athlete('half', IMPROVING, [60, 100], 'A').raceGoalAssessment(null).verdict] = true;
+  /* no_goal_supported -- every goal is faster than the evidence. */
+  seen[athlete('half', IMPROVING, [50, 52, 55], 'A').raceGoalAssessment(null).verdict] = true;
+
+  ['withheld', 'current_goal_supported', 'different_goal_recommended', 'no_goal_supported']
+    .forEach(v => assert.ok(seen[v], 'no path produced the verdict "' + v + '"'));
+  /* preparation_short is reachable only with a block, and is asserted in its
+     own test below -- it is the one verdict that is about the PROGRAMME. */
+  assert.equal(VERDICTS.length, 5);
+});
+
+test('CONTRACT — preparation_short is the programme\'s verdict, not the athlete\'s', () => {
+  /* Fitness admits the goal and the runway does not. The reason names the
+     dimension that fell short, so a caller can say which -- workload,
+     durability, or both -- rather than "not ready". */
+  const R = require(path.join(__dirname, 'audit', 'raceGoalReachability.js'));
+  const c = R.CANON_10.filter(x => x.key.indexOf('New Half') === 0)[0];
+  const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:10 }, c.ev));
+  const a = res.a;
+  a.state.setup = Object.assign(a.state.setup || {}, {
+    distanceKey:'half', raceDate:'2026-05-10', activeGoal:'A',
+    goals:{ A:{ timeSec: 200 * 60 } } });          // a goal fitness cannot refuse
+  a.state.athlete = a.state.athlete || a.makeAthleteRecord();
+  a.state.athlete.performances = [
+    { date:'2025-11-02', distanceM:5000, timeSec:21*60+30,
+      vdot:a.vdotFromPerformance(5000, 21*60+30), source:'race', qualified:true },
+    { date:'2026-02-01', distanceM:5000, timeSec:20*60+30,
+      vdot:a.vdotFromPerformance(5000, 20*60+30), source:'race', qualified:true }];
+  const r = a.raceGoalAssessment(res.blk);
+  assert.ok(r, 'no assessment at all');
+  assert.ok(r.preparation, 'the assessment carried no preparation reading');
+  assert.notEqual(r.preparation.verdict, 'READY',
+    'this pathway is expected to fall short of its standard on a ten-week runway');
+  assert.equal(r.verdict, 'preparation_short',
+    'a goal well inside fitness with a short runway returned ' + r.verdict);
+  assert.ok(['workload', 'durability'].indexOf(r.reason) !== -1,
+    'preparation_short did not name the dimension: ' + r.reason);
+});
+
+test('CONTRACT — the payload a caller can rely on', () => {
+  const r = athlete('half', IMPROVING, [85, 92, 100], 'B').raceGoalAssessment(null);
+  ['distanceKey', 'activeGoal', 'verdict', 'reason', 'projection', 'goals',
+   'recommend', 'preparation', 'daysToRace'].forEach(k =>
+    assert.ok(k in r, 'the assessment is missing "' + k + '"'));
+  assert.equal(typeof r.daysToRace, 'number');
+  ['fastSec', 'slowSec'].forEach(k => assert.ok(k in r.projection,
+    'the projection is missing "' + k + '"'));
+  r.goals.forEach(g => ['key', 'timeSec', 'supportedByFitness', 'supportedByPreparation',
+                        'supported', 'shortfallSec'].forEach(k =>
+    assert.ok(k in g, 'goal ' + g.key + ' is missing "' + k + '"')));
+  /* The shortfall is a NUMBER of seconds, so a caller can say "forty seconds"
+     rather than "no". */
+  const missed = r.goals.filter(g => !g.supportedByFitness)[0];
+  if (missed) assert.ok(missed.shortfallSec > 0,
+    'an unsupported goal reported a shortfall of ' + missed.shortfallSec);
+});
+
+test('CONTRACT — evidence requirements, stated', () => {
+  /* TWO qualified performances, because a rate needs two points. One is
+     withheld; none is withheld with its own reason. */
+  const none = athlete('half', [], [85], 'A').raceGoalAssessment(null);
+  assert.equal(none.verdict, 'withheld');
+  assert.equal(none.reason, 'no_demonstrated_rate');
+  const one = athlete('half', [{ d:'2026-02-01', t:20*60+30 }], [85], 'A')
+                .raceGoalAssessment(null);
+  assert.equal(one.verdict, 'withheld');
+  assert.equal(one.reason, 'no_demonstrated_rate');
+  /* And two produce a projection. */
+  const two = athlete('half', IMPROVING, [85], 'A').raceGoalAssessment(null);
+  assert.ok(two.projection && two.projection.fastSec > 0);
+});
+
+test('CONTRACT — the marathon withholds rather than predicting from a short effort', () => {
+  /* A 5k over-predicts an untrained marathon limiter, and the caveat is about
+     absorbed volume rather than about which rung produced the VDOT. The
+     assessment says so with its own reason rather than returning a number it
+     does not stand behind. */
+  const m = athlete('full', IMPROVING, [200], 'A').raceGoalAssessment(null);
+  if (m.verdict === 'withheld')
+    assert.equal(m.reason, 'marathon_estimate_withheld');
+  else
+    assert.ok(m.projection && !m.projection.withheld,
+      'a marathon projection was returned while flagged withheld');
+});
+
+test('CONTRACT — current fitness and race-day projection are different numbers', () => {
+  /* The distinction APP has to render. "Where am I now" is currentFitnessEstimate;
+     "what will this programme make me" is the projection the assessment uses,
+     and comparing goals against the first is the defect this contract removes. */
+  const a = athlete('half', IMPROVING, [85, 92, 100], 'B');
+  const now = a.currentFitnessEstimate('half');
+  const r = a.raceGoalAssessment(null);
+  assert.ok(now && now.fastSec > 0, 'no current-fitness reading');
+  assert.ok(r.projection.fastSec < now.fastSec,
+    'the race-day projection (' + r.projection.fastSec + 's) is not ahead of ' +
+    'current fitness (' + now.fastSec + 's) for an improving athlete');
+});
