@@ -6079,26 +6079,28 @@ var RACE_GOAL_PATHWAY = {
      arrives, with no extra code needed to enforce it.
 
      HQ'S PRE-MERGE GATE, QUESTION 1 -- WHAT `buildVolumeKm` MEANS AT EACH
-     TIER. Measured against a canonical evidence-free twelve-week build at a
-     realistic day count (up to the six BUILDER_SPEC permits, not clamped to
-     entryDays): the Advanced figure at both distances is a genuine,
-     reachable destination -- construction, unmodified, lands on it exactly.
-     Novice and Experienced do not reach theirs at any permitted day count,
-     and readiness reports the gap honestly (workload dimension, exact
-     shortfallKm, verdict capped at MARGINAL) rather than hiding it. The
-     shortfall traces to marathonSupportDestination()'s SUPPORT_SHARE_MAX
-     coherence clamp -- correctly refusing, at these two tiers, to grow a
-     single supporting run past the point where it would exceed the week's
-     own long run, which is what full reachability would require here. That
-     clamp is shared, working machinery outside this correction's mandate
-     (raising it would make a "support" run the biggest run of the week,
-     which is a long-run-methodology change in effect even without touching
-     a long-run figure). So for Novice and Experienced 5K/10K, treat
-     `buildVolumeKm` as the ceiling this tier's development safely
-     approaches, not a guaranteed week-nine delivery -- exactly the reading
-     the marathon's own "no volume destination of its own" already gives
-     Peak, extended down one tier further at these two events. No number
-     changed; nothing here alters what any pathway builds. */
+     TIER, AND WHY THIS PARAGRAPH NO LONGER SAYS WHAT IT ORIGINALLY FOUND.
+     The first pass measured a canonical evidence-free twelve-week build at a
+     realistic day count and found Advanced reaching its destination exactly
+     while Novice and Experienced fell genuinely short at every permitted day
+     count -- traced then to marathonSupportDestination()'s SUPPORT_SHARE_MAX
+     coherence clamp for Advanced's own case, and separately to
+     raceGoalDestinationSolve()'s day-count seed refusing Novice/Experienced
+     more supporting days than a fixed comfort divisor allowed, regardless of
+     real availability.
+
+     THE SECOND HALF OF THAT DIAGNOSIS WAS ITSELF THE DEFECT the later Race
+     Goal Frequency Architecture correction repaired (see mNeed/mFloorDays
+     below): mNeed is now a floor rather than a cap, and grants an additional
+     supporting day, up to real availability, whenever doing so keeps every
+     session at or above the same coherence floor already used downstream.
+     Repairing frequency -- not touching this pathway table, and not
+     touching SUPPORT_SHARE_MAX -- is what now lets Novice and Experienced
+     reach their own `buildVolumeKm` too: more, smaller supporting days keep
+     every session comfortably clear of SUPPORT_SHARE_MAX's ceiling instead
+     of pressing against it. Measured post-repair, all six pathways at both
+     distances reach their approved destination at a realistic day count.
+     No number in this table changed either time. */
   '5k': {
     /* FIFTEEN KILOMETRES -- the same entry as the marathon and half's own New
        pathway, and deliberately the same as 10K's New below: a beginner
@@ -9526,8 +9528,61 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
      so a day count the stated week cannot pay for at its floors does not
      reduce the runs -- it inflates the week. Measured, that is what pushed
      203 first weeks more than 30% above the volume the athlete stated. */
-  var mSupportDays = Math.max(1, Math.min(mDays - 1 - mQSlots,
-                                          Math.max(mNeed, 1)));
+  var mFloorDays = Math.max(1, Math.min(mDays - 1 - mQSlots, Math.max(mNeed, 1)));
+  /* ---- mNeed IS A FLOOR, NOT A CAP ----
+     THE DEFECT THIS REPLACES. mNeed answers "the fewest days that can carry
+     the work at a COMFORTABLE size" -- deliberately sized below the ceiling,
+     per the comment above. Using it as mSupportDays outright made that
+     comfortable minimum into a hard maximum: once it settled below the
+     athlete's own availability, every day beyond it became invisible to the
+     block, regardless of whether using one would have distributed the same
+     workload more evenly. Measured on the reported case, a six-day-available
+     Advanced Marathon athlete never rose past the three days a comfort
+     divisor alone was willing to grant, and the sixth day sat unused while
+     ordinary easy runs stayed at the top of what three days could carry.
+
+     SO THE CEILING CAN RISE ABOVE mNeed, ONE DAY AT A TIME, WHILE IT
+     GENUINELY HELPS -- and "helps" is read from the same coherence floor
+     marathonSupportDestination() already enforces on the other side of this
+     same decision (byCoherence = longDestKm * SUPPORT_SHARE_MIN): a
+     supporting run below that share of the long run is not supporting it,
+     it is leftover. Offering a day whose average share would fall under that
+     floor would only have forced marathonSupportDestination() to override it
+     back up again downstream -- silently inflating the week by exactly the
+     mechanism the invariant above already refuses. So the added day is
+     accepted only while the resulting average stays at or above both that
+     floor and EASY_MIN_KM, which is the same expressibility floor mNeed's
+     own fallback already reads. SUPPORT_SHARE_MAX (the other side of the
+     same coherence band) is deliberately not consulted here: adding a day
+     only ever shrinks the per-day share, which moves away from that ceiling,
+     never toward it.
+
+     THIS DOES NOT MAKE AVAILABILITY A MANDATE. A pathway whose comfortable
+     minimum already sits at the coherence floor (most acutely, low-mileage
+     Novice weeks) gains nothing from this loop and keeps exactly the day
+     count it already had -- capacity provides permission, not obligation,
+     and an unhelpful day is left unused precisely because a real distribution
+     comparison was made, not because the seed could not see it. */
+  var mSupportDays = mFloorDays;
+  /* WHETHER AVAILABILITY, RATHER THAN THE WORK ITSELF, IS WHAT STOPPED THE
+     LOOP -- read once here so raceGoalAvailabilityLimited() (the
+     increase-availability trigger) never has to re-derive this decision
+     with a second formula that could disagree with the one above. True only
+     when the athlete's own ceiling is the reason growth stopped -- i.e. one
+     further day, had it existed, would still have kept every session at or
+     above the coherence floor -- never when the work itself stopped needing
+     more days. */
+  var mWouldUseMoreDays = false;
+  if (mHave > 0 && mDestLongKm > 0){
+    var mCoherenceFloorKm = Math.max(mDestLongKm * SUPPORT_SHARE_MIN, EASY_MIN_KM);
+    var mDaysCeiling = Math.max(1, mDays - 1 - mQSlots);
+    while (mSupportDays < mDaysCeiling &&
+           mHave / (mSupportDays + 1) + 1e-9 >= mCoherenceFloorKm){
+      mSupportDays += 1;
+    }
+    mWouldUseMoreDays = (mSupportDays === mDaysCeiling) &&
+      (mHave / (mSupportDays + 1) + 1e-9 >= mCoherenceFloorKm);
+  }
   /* ---- TWO DAY COUNTS, BECAUSE THEY ANSWER TWO QUESTIONS ----
      THE START SPLIT can only be written across the days the athlete's
      CURRENT week can pay for. Dividing a 15km week across five runs writes
@@ -9725,6 +9780,14 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
                 startLongKm:mStart.longKm, startSupportKm:mStart.supportKm,
                 longDestKm:mLongDest.km, longLimited:mLongDest.limited,
                 supportDestKm:mSupportDest, progressing:mProgressing,
+                /* WOULD A DAY BEYOND WHAT THE ATHLETE OFFERED HAVE GENUINELY
+                   HELPED -- read once, above, by the same test that decides
+                   whether to grant a day the athlete DID offer. True only
+                   when real availability is what stopped the block from
+                   distributing its workload further; false whenever the work
+                   itself stopped needing another day first. This is what
+                   raceGoalAvailabilityLimited() reads rather than re-solving. */
+                availabilityLimited: mWouldUseMoreDays,
                 capacityCeilingKm: mCeil != null ? round1(mCeil) : null,
                 /* WHICH AUTHORITY HELD THE LONG RUN BACK, readable rather
                    than inferred: the athlete's development ceiling, the
@@ -9787,6 +9850,52 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
                    them never has to re-earn either. */
                 estRunDays: null, estQSlots: null, estGoalSeg: false,
                 stepIdx:0 };
+}
+/* ---------- THE INCREASE-AVAILABILITY TRIGGER ----------
+   SYSTEM CONTRACT ONLY -- no APP surface reads this yet. HQ's ask: recognise
+   when the athlete's OWN availability, rather than the work itself, has
+   become the reason a week cannot be distributed further -- so a future
+   surface can say "your training would now be better distributed across N
+   running days" instead of the athlete never being told the ceiling is
+   theirs, not the programme's.
+
+   NEVER A RAW KILOMETRE THRESHOLD. This asks raceGoalDestinationSolve() the
+   one question it already answers deterministically: at the destination
+   week, would one more supporting day than the athlete offered still have
+   kept every session at or above the coherence floor the architecture
+   already enforces (SUPPORT_SHARE_MIN of the long run)? A block that has
+   NOT hit that ceiling -- most acutely, low-mileage Novice weeks whose
+   comfortable minimum already IS the coherence floor -- is correctly never
+   flagged: nothing here fires merely because the athlete could offer more
+   days, only when doing so would provably help distribute the same
+   destination workload the pathway table already settles. */
+function raceGoalAvailabilityLimited(distKey, blockExp, currentVolume, N, opts){
+  var s = null;
+  try { s = raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts || {}); }
+  catch(e){ s = null; }
+  if (!s || !s.availabilityLimited) return { limited:false, reasons:[] };
+  var currentSupportKm = (s.supportDays > 0 && s.supportTotalDestKm > 0)
+    ? round1(s.supportTotalDestKm / s.supportDays) : null;
+  var shareOfLong = (currentSupportKm != null && s.longDestKm > 0)
+    ? Math.round((currentSupportKm / s.longDestKm) * 100) / 100 : null;
+  var reasons = [{
+    key: 'support_run_concentration',
+    /* THE FACT, NOT A VERDICT -- the caller decides what to say to the
+       athlete; this names what was actually measured. */
+    detail: 'the intended weekly workload is currently carried by ' + s.supportDays +
+            ' supporting run(s) of about ' + currentSupportKm + 'km each'
+  }];
+  if (shareOfLong != null)
+    reasons.push({
+      key: 'long_run_share',
+      detail: 'each supporting run already carries about ' + Math.round(shareOfLong * 100) +
+              '% of the long run\'s own distance, at the coherence floor this pathway allows'
+    });
+  return {
+    limited: true, distanceKey: distKey, pathway: blockExp, weeks: N,
+    currentSupportDays: s.supportDays, currentSupportRunKm: currentSupportKm,
+    longDestKm: s.longDestKm, reasons: reasons
+  };
 }
 function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   var profile = DISTANCE_PROFILES[distKey];
