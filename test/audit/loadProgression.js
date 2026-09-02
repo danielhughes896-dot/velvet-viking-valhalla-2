@@ -396,12 +396,38 @@ function classify(t){
      the first and flagged 1,030 transitions on session variation that never
      reached the athlete's total; this is the instruction read properly rather
      than a threshold chosen to reduce a count. */
-  if (t.before.qualityCount === t.after.qualityCount && t.after.qualityCount > 0 &&
+  /* ---- AND IT HAS TO BE THE SAME SESSION, OR IT IS NOT A PROGRESSION ----
+     WHAT THIS RULE GENUINELY MEASURED, established before it was changed. It
+     fired on any rise in the week's quality kilometres, and it could not tell
+     the two causes apart:
+
+       THE SAME STRUCTURE, PRESCRIBED BIGGER. That is quality progression, and
+       it is the thing the rule was written to catch.
+       A DIFFERENT STRUCTURE, WHICH IS NATURALLY BIGGER. A week carrying one
+       quality slot rotates between families whose ordinary sizes differ by more
+       than an ordinary step -- a 5km interval session followed by a 7.5km tempo
+       is a 1.5x "quality dose step" and is neither a progression nor a defect.
+
+     Measured across three independent distance and day-count combinations --
+     the half on three days, the half on five, the marathon on five -- every
+     transition the rule newly reported was the second kind. The instrument was
+     naming rotation as progression.
+
+     weekLoad() has always recorded `qualityShapes`, the sorted list of session
+     type and archetype the week actually carried, and the rule never read it.
+     It does now, and the two causes are reported as what they are. The
+     threshold is untouched: a week whose shapes are unchanged and whose dose
+     rises above the ordinary step still fires, exactly as before. */
+  const qualityMoved = t.before.qualityCount === t.after.qualityCount &&
+      t.after.qualityCount > 0 &&
       t.after.qualityKm - t.before.qualityKm > EASY_QUANTUM + 1e-9 &&
       t.before.qualityKm > 0 &&
       t.after.qualityKm / t.before.qualityKm > ORDINARY_STEP + 1e-9 &&
-      weekStepped && !t.afterCutback)
-    R.push('QUALITY_STRUCTURE_STEP');
+      weekStepped && !t.afterCutback;
+  if (qualityMoved){
+    if (t.before.qualityShapes === t.after.qualityShapes) R.push('QUALITY_DOSE_STEP');
+    else R.push('QUALITY_SHAPE_ROTATION');
+  }
 
   return t;
 }
@@ -436,7 +462,7 @@ function assess(c){
 const REASON_CODES = ['TAPER_LOAD_INCREASE', 'EXCEEDS_TWO_WEEK_BACKSTOP',
   'REBOUND_EXCEEDS_TREND', 'STRUCTURE_INTRODUCED_WITH_DOSE_STEP',
   'COMPOUND_LOAD_PROGRESSION', 'BROAD_LOAD_INCREASE',
-  'LONG_RUN_STEP_ABOVE_RATE', 'QUALITY_STRUCTURE_STEP'];
+  'LONG_RUN_STEP_ABOVE_RATE', 'QUALITY_DOSE_STEP', 'QUALITY_SHAPE_ROTATION'];
 
 module.exports = { assess, transitions, weekLoad, lever, classify,
                    transitionBetween, synthWeek,

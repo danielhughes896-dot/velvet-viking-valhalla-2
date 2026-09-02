@@ -19,7 +19,13 @@ const VOLUMES = (function(){
   [45, 50, 60, 70, 80, 100, 120].forEach(x => v.push(x));
   return v;
 })();
-const WEEKS = [4, 8, 12, 16, 24];      // min, common, max supported
+/* HQ ADMITS RACE GOAL FROM TEN WEEKS TO FIFTEEN, so the sweep has to walk that
+   window or it measures the Half and the Marathon almost nowhere: of the five
+   runways this list used to carry, only twelve weeks sits inside it. Ten and
+   fifteen are added -- the two ends of the admitted window -- and the original
+   five are kept so every other distance, every other product and the refusal
+   and handoff paths are still measured exactly as they were. */
+const WEEKS = [4, 8, 10, 12, 15, 16, 24];
 const SCHEDULES = ['d3', 'd5'];        // fewest and a typical week
 
 /* POPULATION ACCOUNTING. From S3 the race generator no longer owns every case

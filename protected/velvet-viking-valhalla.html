@@ -9481,15 +9481,31 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          to be the marathon's alone and only supplied a fallback size; the half
          picked freely and could meet a family for the first time in its
          wind-down week. See fitQualityStructure. */
-      var taperSeed = isTaper;
+      /* ---- TWO DIFFERENT THINGS, AND THEY ARE NOT THE SAME FLAG ----
+         `taperSeed` is the fallback the marathon and the shorter distances have
+         always had: where nothing in the pool fits the ceiling, fall back to
+         last week's structure rather than the smallest thing available.
+
+         `taperHold` is the new Race Goal rule -- the taper does not introduce a
+         family the athlete has never met, so it takes last week's structure
+         outright. It is HQ's methodology and it applies only to the
+         architecture HQ ruled on. 5K, 10K and Ultra reach this exactly as
+         before: collapsing the two into one flag turned their fallback off and
+         moved seven Ultra plans, which is a change to another product this
+         attack is not authorised to make. The same defect exists on those
+         distances and is reported to HQ rather than fixed here. */
+      var taperSeed = isTaper && !halfArc;
+      var taperHold = isTaper && usesBottomUpArc(purpose, distKey);
+      var seedQ = (taperSeed || taperHold) ? prevQSpec : null;
+      var seedT = (taperSeed || taperHold) ? prevTSpec : null;
       qSpec = fitQualityStructure(qPool, 'interval', structPhase, w, qPos,
                                   profile.emphasis, rotation,
-                                  Math.min(taperCeilQ, weekFitCeil), taperSeed ? prevQSpec : null,
-                                  taperShrink, taperSeed);
+                                  Math.min(taperCeilQ, weekFitCeil), seedQ,
+                                  taperShrink, taperHold);
       tSpec = fitQualityStructure(tPool, 'tempo', structPhase, w, pos,
                                   profile.emphasis, rotation,
-                                  Math.min(taperCeilT, weekFitCeil), taperSeed ? prevTSpec : null,
-                                  taperShrink, taperSeed);
+                                  Math.min(taperCeilT, weekFitCeil), seedT,
+                                  taperShrink, taperHold);
     }
     var qKm = intervalSessionKm(qSpec);
     var tKm = tempoSessionKm(tSpec);
@@ -9557,7 +9573,8 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        rotated. The sizing path is untouched: the structure is the one the
        athlete has been running and the taper's own factor and ceiling bring the
        dose down, so the descent this phase owes is unchanged. */
-    if (!isRace && isTaper && !arc.noQuality && prevSoloKind){
+    if (!isRace && isTaper && !arc.noQuality && prevSoloKind &&
+        usesBottomUpArc(purpose, distKey)){
       soloKind = prevSoloKind;
       soloSpec = fitQualityStructure(
         soloKind === 'interval' ? qPool : tPool,
