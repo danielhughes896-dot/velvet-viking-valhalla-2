@@ -115,6 +115,12 @@ const WORK_SURFACES = [
      the athlete is meant to read and think about. */
   ['openRunwayOfferModal', 'the surplus-runway development offer'],
   ['openRaceGoalEntryModal', 'the Race Goal entry boundary — Aerobic Base first'],
+  /* The third offer, and the same shape as the other two: HQ's admission
+     ruling says Valhalla must tell an athlete BEFORE building that the runway
+     they have cannot reach what the event asks for. It has a close control,
+     it presents the recommended route and "build it anyway" as two real
+     choices, and declining costs nothing -- a work surface, not an interrupt. */
+  ['openRaceGoalPreparationModal', 'the preparation boundary — this runway cannot reach it'],
   ['openAvailabilityOfferModal', 'the availability-expansion offer'],
 ];
 

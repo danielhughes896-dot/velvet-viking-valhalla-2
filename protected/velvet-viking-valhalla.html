@@ -4589,12 +4589,23 @@ function raceGoalEntry(currentVolumeKm){
   var min = raceGoalMinWeeklyKm();
   var dem = null;
   try { dem = demonstratedSustainableVolume(); } catch(e){ dem = null; }
-  var stated = (typeof currentVolumeKm === 'number' && isFinite(currentVolumeKm) && currentVolumeKm > 0)
-    ? currentVolumeKm : 0;
+  /* ---- ABSENT AND ZERO ARE DIFFERENT ANSWERS ----
+     NOTHING SUPPLIED means the field is gone, and the pathway answers.
+     A NUMBER SUPPLIED is the athlete's own account of themselves, and zero is
+     one of those: somebody who says they are not running is telling Valhalla
+     something, and it is believed exactly as five would be.
+     ANYTHING ELSE -- a negative, a NaN, a string out of corrupted state -- is
+     a number that failed rather than a field that was never asked, and it is
+     routed, which is the safe direction and costs an athlete nothing. */
+  var absent = (currentVolumeKm == null);
+  var usable = (typeof currentVolumeKm === 'number' && isFinite(currentVolumeKm) &&
+                currentVolumeKm >= 0);
+  var stated = usable ? currentVolumeKm : 0;
   var have, source;
   if (dem != null && dem > 0){ have = dem; source = 'demonstrated'; }
-  else if (stated > 0){ have = stated; source = 'stated'; }
-  else { have = null; source = 'pathway'; }
+  else if (usable){ have = stated; source = 'stated'; }
+  else if (absent){ have = null; source = 'pathway'; }
+  else { have = 0; source = 'unreadable'; }
   /* No evidence and no figure is not a shortfall. The pathway's entry stands,
      and every pathway HQ locked is far above this floor. */
   var allowed = (have == null) ? true : (have + 1e-9 >= min);
