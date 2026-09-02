@@ -175,3 +175,94 @@ test('OPTIONAL RUNS — none in Peak, and none carrying distance anywhere', () =
     });
   }));
 });
+
+/* ---------------------------------------------------------------------------
+   HQ'S AMENDED MARATHON LONG-RUN CONTRACT
+   26 / 29 / 32 km are no longer end-of-Build requirements. They are useful
+   minimum CULMINATING standards, reached once, in Peak, inside the
+   D-21..D-14 window. What Build owes is the durability and the supporting
+   workload to complete that run safely -- not the distance itself.
+   --------------------------------------------------------------------------- */
+const MARATHON_STANDARD = { novice:26, experienced:29, advanced:32 };
+
+test('CONTRACT — the marathon standard is reached in Peak, not by the end of Build', () => {
+  PATHS.filter(p => p.dist === 'full').forEach(p => RUNWAYS.forEach(W => {
+    const wks = weeksOf(p, W);
+    if (!wks) return;
+    const peak = wks.filter(w => w.phase === 'Peak');
+    const build = wks.filter(w => w.phase === 'Build' || w.phase === 'Base');
+    if (!peak.length || !build.length) return;
+    const culm = Math.max.apply(null, peak.map(w => w.lr));
+    const endBuild = Math.max.apply(null, build.map(w => w.lr));
+    assert.ok(culm >= endBuild,
+      p.key + ' @' + W + 'w: Peak\'s longest run ' + culm +
+      ' is shorter than Build already reached (' + endBuild + ')');
+    /* On a full runway the standard itself is met, and it is met in Peak. */
+    if (W >= 14 || p.exp !== 'novice')
+      assert.ok(culm >= MARATHON_STANDARD[p.exp],
+        p.key + ' @' + W + 'w: culminating long run ' + culm + 'km against a standard of ' +
+        MARATHON_STANDARD[p.exp]);
+  }));
+});
+
+test('CONTRACT — Build leaves the athlete able to complete that run safely', () => {
+  /* The condition that replaces "the standard by end of Build": the culminating
+     run must be REACHABLE from where Build left the athlete, at the ordinary
+     progression rate, across the Peak weeks that separate them. A standard the
+     athlete could only meet by jumping is not one Build prepared them for. */
+  PATHS.filter(p => p.dist === 'full').forEach(p => RUNWAYS.forEach(W => {
+    const wks = weeksOf(p, W);
+    if (!wks) return;
+    const peak = wks.filter(w => w.phase === 'Peak');
+    const build = wks.filter(w => w.phase === 'Build' || w.phase === 'Base');
+    if (!peak.length || !build.length) return;
+    const endBuild = Math.max.apply(null, build.map(w => w.lr));
+    const culm = Math.max.apply(null, peak.map(w => w.lr));
+    const reachable = endBuild * Math.pow(1.10, peak.length);
+    assert.ok(culm <= reachable + 1.0001,
+      p.key + ' @' + W + 'w: Build ended at ' + endBuild + 'km and Peak asks for ' + culm +
+      'km, which is beyond the ' + reachable.toFixed(1) + 'km its own rate reaches');
+  }));
+});
+
+test('CONTRACT — one culminating run, never a second maximal one', () => {
+  /* HQ: do not create a second maximal long run merely to satisfy the former
+     wording. A marathon block asks for its longest run exactly once. */
+  PATHS.filter(p => p.dist === 'full').forEach(p => RUNWAYS.forEach(W => {
+    const res = R.build(Object.assign({ dist:p.dist, exp:p.exp, days:p.days, weeks:W }, p.ev));
+    const adm = res.a.raceGoalAdmission(p.dist, W, null,
+                  { availableDays:p.days, easyPaceSecPerKm:res.pace });
+    if (!adm.admitted) return;
+    const longs = res.dd.filter(d => d.type === 'long' && d.km > 0);
+    const max = Math.max.apply(null, longs.map(d => d.km));
+    const atMax = longs.filter(d => d.km === max);
+    assert.equal(atMax.length, 1,
+      p.key + ' @' + W + 'w: ' + atMax.length + ' runs at the block maximum of ' + max + 'km');
+  }));
+});
+
+test('CONTRACT — the standard is a floor, not a ceiling', () => {
+  /* An athlete whose evidence supports more is not held to 26 / 29 / 32. */
+  const strong = R.build({ dist:'full', exp:'advanced', days:6, weeks:15,
+                           easyKm:12, longKm:34, qKm:8, easyDays:[0,2,4], tt5kMin:17 });
+  const longs = strong.dd.filter(d => d.type === 'long' && d.km > 0);
+  const max = Math.max.apply(null, longs.map(d => d.km));
+  assert.ok(max >= 34,
+    'an athlete arriving with a 34km long run was pulled down to ' + max);
+});
+
+test('CONTRACT — weekly workload is still owed by the end of Build', () => {
+  /* The half of the contract HQ did NOT amend. buildVolumeKm is what the
+     athlete should be carrying when Peak begins, and on a full runway it is. */
+  const WANT = { half:{ novice:30, experienced:40, advanced:60 },
+                 full:{ novice:40, experienced:55, advanced:70 } };
+  PATHS.forEach(p => [14, 15].forEach(W => {
+    const wks = weeksOf(p, W);
+    if (!wks) return;
+    const build = wks.filter(w => w.phase === 'Build' || w.phase === 'Base');
+    const reached = Math.max.apply(null, build.map(w => w.km));
+    assert.ok(reached >= WANT[p.dist][p.exp] * 0.95,
+      p.key + ' @' + W + 'w: Build reached ' + reached + 'km/week against ' +
+      WANT[p.dist][p.exp]);
+  }));
+});

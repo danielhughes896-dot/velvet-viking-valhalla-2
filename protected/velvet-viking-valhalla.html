@@ -5761,13 +5761,36 @@ function applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm){
    architecture may never do is quietly move the destination down to wherever
    the athlete happened to arrive, and then call that preparation.
 
-   WHAT THE NUMBERS BELOW ARE, AND ARE NOT. They are preparation CAPABILITIES
-   -- what the athlete should be able to do by the end of Build, and where Peak
-   normally takes them. They are floors, not commands: no week is required to
-   equal one of them exactly, an athlete already above one is never pulled down
-   to it, and the coherence, cost and progression machinery still decides what
-   any individual week actually contains. Grade D throughout -- HQ methodology
-   decisions inside the published coaching range, and recorded as such. */
+   WHAT THE NUMBERS BELOW ARE, AND ARE NOT. They are preparation CAPABILITIES.
+   They are floors, not commands: no week is required to equal one of them
+   exactly, an athlete already above one is never pulled down to it, and the
+   coherence, cost and progression machinery still decides what any individual
+   week actually contains. Grade D throughout -- HQ methodology decisions
+   inside the published coaching range, and recorded as such.
+
+   ---- AND WHEN EACH IS DUE, WHICH IS NOT THE SAME QUESTION FOR ALL OF THEM ----
+   HQ AMENDED THIS CONTRACT after the thirty-six generated programmes were read
+   back. The earlier wording asked for every capability "by the end of Build",
+   and for the MARATHON LONG RUN that could not be satisfied alongside a rule
+   HQ had already locked: the culminating substantial long run belongs in Peak,
+   normally D-21 to D-14. If 32km is the culminating exposure and the
+   culminating exposure sits at D-14, it cannot also have been run by the last
+   day of Build -- not without moving it out of its window, or asking for two
+   maximal long runs a fortnight apart immediately before a taper.
+
+   So the two are now stated separately:
+
+     WEEKLY WORKLOAD      due by the end of Build. buildVolumeKm is what the
+                          athlete should be carrying when Peak begins.
+     MARATHON LONG RUN    a CULMINATING standard, reached once, in Peak, inside
+                          the D-21..D-14 window. What Build owes is the
+                          durability and the supporting workload to complete it
+                          safely -- not the distance itself.
+
+   26 / 29 / 32 are therefore useful minimum CULMINATING long-run standards
+   where the athlete's evidence supports them. They are not end-Build
+   requirements, and they are not ceilings: an Advanced athlete whose capacity
+   and programme need justify more is not held to 32. */
 var RACE_GOAL_PATHWAY = {
   /* ---- WHAT "NEW" MEANS, AND WHAT AN ENTRY IS ----
      NEW IS NOT UNTRAINED. It is the lowest experience pathway for an athlete
@@ -5829,7 +5852,17 @@ var RACE_GOAL_PATHWAY = {
      PEAK STATES NO VOLUME DESTINATION OF ITS OWN, deliberately -- once the
      Build capability exists, Peak's job is to convert it into race-specific
      readiness, and further mileage has to be earned from evidence rather than
-     scheduled. That is a real difference from the half, not an omission. */
+     scheduled. That is a real difference from the half, not an omission.
+
+     AND `buildLongKm` HERE IS THE CULMINATING STANDARD, NOT AN END-BUILD ONE.
+     Per HQ's amendment above: 26 / 29 / 32 are reached once, in Peak, inside
+     the D-21..D-14 window, and what Build owes is the durability and
+     supporting workload to complete that run safely. The field keeps its name
+     because it is the figure the long run is DEVELOPED TOWARD from the first
+     week -- the curve aims at it throughout -- and readiness measures the run
+     the block actually delivers against it, which is the culminating one.
+     Measured across the canonical set, Build closes to within two to four
+     kilometres of the standard and Peak delivers it. */
   full: {
     /* ---- WEEK ONE, LOCKED BY HQ: 20 / 30 / 40 ----
        These are the designed opening workloads of the three marathon pathways.
@@ -5867,7 +5900,28 @@ var RACE_GOAL_PATHWAY = {
    backstop, which is a statement about what a RACE BLOCK may develop toward
    when the athlete's own evidence supports it -- never a target, and it binds
    only after the coaching authority has had its say. */
-var RACE_GOAL_LONG_CAP_KM = { half: 26 };
+/* ---- AND THE MARATHON NEEDED ONE TOO, FOR THE SAME REASON THE HALF DID ----
+   The half's entry here exists because DISTANCE_PROFILES.half.longCapKm is 20
+   -- a sensible bound for Aerobic Base and Maintain, and too low for a half
+   RACE block whose pathway asks for 21. The marathon had no entry and so
+   inherited its profile's 32, which is NUMERICALLY THE SAME as the Advanced
+   pathway's culminating standard.
+
+   That coincidence turned the standard into a universal ceiling, which is
+   exactly what HQ's amendment says it must not be. Measured: an Advanced
+   athlete arriving with a demonstrated 34km long run had their destination
+   correctly raised to 34 by raceGoalLongDestinationKm() and was then pulled
+   back to 32 by the profile cap -- detrained to a minimum by a bound that was
+   never about them.
+
+   36km is the ultra profile's own figure and sits clear of every marathon
+   pathway standard, so no canonical programme moves: 26, 29 and 32 are all
+   below it and nothing in the six pathways touches this bound. What it stops
+   is a strong athlete being held to the Advanced minimum. The real limit on a
+   long run of that size is what it COSTS -- LONG_RUN_COST_HEAVY_SEC against
+   the athlete's own pace -- and that bound is unchanged and still underneath
+   this one. */
+var RACE_GOAL_LONG_CAP_KM = { half: 26, full: 36 };
 function raceGoalLongCapKm(distKey, purpose){
   var prof = DISTANCE_PROFILES[distKey];
   var base = prof ? prof.longCapKm : null;
@@ -5995,6 +6049,18 @@ function raceGoalVolumeDestinationKm(distKey, experience, entry, phase){
   if (entry && entry.demonstratedKm > 0) want = Math.max(want, entry.demonstratedKm);
   return want;
 }
+/* ---- AND THE LONG RUN'S DESTINATION IS A CULMINATING FIGURE ----
+   `phase` selects which requirement is being asked about, exactly as it does
+   for volume. What differs is WHEN each is due, and HQ's amendment settles it:
+   the weekly workload is owed by the end of Build, and the marathon long run is
+   owed once, in Peak, inside the D-21..D-14 window.
+
+   So a caller asking for the 'build' long-run figure is asking what the long
+   run is DEVELOPED TOWARD -- the number the curve aims at from week one -- and
+   not what any particular week is required to contain. raceGoalReadiness()
+   measures it against the largest long run the block actually delivers, which
+   is the culminating one, and that is the correct comparison under the amended
+   contract. */
 function raceGoalLongDestinationKm(distKey, experience, entry, phase){
   var p = raceGoalPathway(distKey, experience);
   if (!p) return null;
@@ -6076,6 +6142,13 @@ function raceGoalReadiness(distKey, experience, blockResult){
      and passing the wrong object here silently read every assumption as
      evidence and every athlete as having none. */
   var org = bu.origin || null;
+  /* TWO REQUIREMENTS, MEASURED AGAINST TWO DIFFERENT THINGS, and HQ's
+     amendment is what separates them. The weekly workload is owed by the end
+     of Build and is read against the largest developing week. The long run is
+     a CULMINATING standard owed once in Peak, and is read against the largest
+     long run the block delivers -- which is that culminating run. Both are
+     already what `peakWeekKm` and `peakLongKm` above hold; this is the note
+     that stops the two being conflated the next time either is touched. */
   var wantKm   = raceGoalVolumeDestinationKm(distKey, experience, org, 'build');
   var wantLong = raceGoalLongDestinationKm(distKey, experience, org, 'build');
 
