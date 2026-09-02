@@ -10196,6 +10196,29 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        last session before the taper, which is exactly what this rule exists to
        prevent. The half was already correct because its own marker moved with
        the run; the marathon's now does too. */
+    /* ---- AND THIS IS ONE SESSION, NOT A RULE ABOUT LONG RUNS ----
+       WHAT IT IS NOT. It is not "the athlete's longest run may never contain
+       event-specific work" -- that would be a universal unsupported by any
+       methodology, and it is not what the engine does. Measured across the
+       twelve canonical programmes, ten long runs AT THE BLOCK'S MAXIMUM
+       DISTANCE carry goal-pace work: the Advanced half runs its full 21km long
+       run with a marathon-pace segment four separate times, and the New half
+       does it once on a ten-week runway. A capable athlete's longest run
+       carrying controlled specificity is legitimate and the engine writes it.
+
+       WHAT IT IS. The CULMINATING durability exposure -- the one session that
+       is simultaneously the largest long run the block will ask for and the
+       last one before development stops. The authority is spacing and
+       proximity rather than distance: every other maximum-length run in the
+       block has an absorption week or a development week behind it to be
+       repaid in, and this one has a taper, whose whole purpose is that nothing
+       further is being asked. Two peak demands in the last session before that
+       boundary is the one place they cannot be separated afterwards.
+
+       So it is asked of the week's POSITION in the arc, which is what spacing
+       and proximity actually are, rather than of the athlete's capability --
+       which would make the same session safe for one athlete and unsafe for
+       another when what makes it unsafe is that nothing follows it. */
     if (mPeakLast) hasGoalSegment = false;
     if (hPeakFirst) hasGoalSegment = false;
     var goalSegKm = hasGoalSegment ? round1(clamp(longTarget*(0.2+0.18*pos),3,longTarget*0.5)) : 0;

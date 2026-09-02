@@ -233,3 +233,47 @@ test('TAPER — the identity rule cannot undo the reduction it follows', () => {
     'a long run of ' + d.km + 'km at D-' + off(d) +
     ' against ' + biggestBefore + 'km before the taper'));
 });
+
+// ---------------------------------------------------------------------------
+// §8  THE PEAK SPLIT IS ONE SESSION, NOT A PROHIBITION
+// ---------------------------------------------------------------------------
+test('SPECIFICITY — a longest run may carry goal-pace work, and across the set it does', () => {
+  /* HQ warned against the split hardening into "the athlete's longest run may
+     never contain event-specific work". It has not: across the twelve
+     canonical programmes, runs at the block's own maximum distance carry
+     goal-pace segments in six of them. */
+  let atMax = 0, specific = 0;
+  ALL.forEach(c => {
+    const res = plan(c);
+    const longs = res.dd.filter(d => d.type === 'long' && d.km > 0);
+    const max = Math.max.apply(null, longs.map(d => d.km));
+    longs.filter(d => Math.abs(d.km - max) < 1e-9).forEach(d => {
+      atMax++; if (d.mpSegment) specific++;
+    });
+  });
+  assert.ok(specific > 0,
+    'no long run at the block maximum carries specific work anywhere in the set — ' +
+    'the split has become a blanket prohibition');
+  assert.ok(specific >= 5,
+    'only ' + specific + ' of ' + atMax + ' maximum-distance long runs carry specific work');
+});
+
+test('SPECIFICITY — what is suppressed is the culminating exposure, and only that', () => {
+  /* The last long run before development stops. Every other maximum-length run
+     has an absorption or development week behind it; this one has a taper. */
+  ALL.forEach(c => {
+    const res = plan(c);
+    const dev = res.blk.weeks.filter(w => !w.isRace && !w.isTaper);
+    const last = dev[dev.length - 1];
+    assert.equal(last.hasGoalSegment, false,
+      c.key + ': the culminating long run in week ' + last.week +
+      ' carries a ' + last.goalSegKm + 'km goal-pace segment');
+    /* And the block did prescribe specificity somewhere, or the suppression is
+       hiding an absence rather than separating two demands. */
+    const anySpec = res.blk.weeks.some(w => w.hasGoalSegment);
+    const path = res.a.raceGoalPathway(c.dist, c.exp);
+    if (path && res.a.raceGoalReadiness(c.dist, c.exp, res.blk))
+      assert.ok(anySpec || c.exp === 'novice',
+        c.key + ': no event-specific work anywhere in the block');
+  });
+});
