@@ -112,12 +112,13 @@ test('and the half reads the same table as the marathon', () => {
 });
 
 test('no other distance and no other purpose changes', () => {
-  /* THE HALF IS NO LONGER ONE OF THEM. It states its own phase counts now --
-     3 Foundation / 6 Build / 4 Peak and an event-anchored wind-down -- and its
-     own architecture test covers them. 5K, 10K and Ultra keep the arc they
-     always had, byte for byte, until their own audits say otherwise. */
+  /* THE HALF IS NO LONGER ONE OF THEM, AND NEITHER ARE 5K/10K NOW -- the
+     continuation of this same correction gave them their own dedicated
+     phase geometry too (raceGoalPhaseAllocation's 'short' arch), covered by
+     their own test/raceGoal5k10kMethodology.test.js. Ultra keeps the arc it
+     always had, byte for byte, until its own audit says otherwise. */
   const a = app();
-  ['5k','10k','ultra'].forEach(d => {
+  ['ultra'].forEach(d => {
     for (let N = 4; N <= 30; N++){
       const withKey = phases(a, N, d), without = phases(a, N, undefined);
       assert.strictEqual(JSON.stringify(withKey), JSON.stringify(without),

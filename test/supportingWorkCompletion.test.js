@@ -491,21 +491,23 @@ test('no prescription or session-selection output changed', () => {
   }
   /* The total is reported, and pinned, so a FUTURE change to the engine is
      still visible here -- with the number that belongs to this engine. */
-  /* 44 -> 46, AND THE REASON. The HALF reference plan is the only one that moved
-     this time (11 -> 13; marathon, 10k and 5k are unchanged at 19, 8 and 6).
-     HQ's phase geometry gives a twelve-week half three Base weeks, five of
-     Build and two of Peak where the old experience-driven allocation gave it a
-     different split, so the weeks that carry a quality session -- and therefore
-     the rest days that sit before one -- fall differently. Nothing about
-     supporting-work selection changed; the block it is selected over did.
+  /* 46 -> 49, AND THE REASON. Half and full are unchanged at 13 and 19 --
+     untouched by this pass, confirmed byte-identical by the isolation sweep.
+     10K moved 8 -> 10 and 5K moved 6 -> 7: the continuation of this same
+     correction gave both their own dedicated bottom-up architecture (their
+     own pathway table, phase geometry and admission window), so the weeks
+     that carry a quality session -- and therefore the rest days that sit
+     before one -- fall differently for them too, exactly the reason the half
+     moved last time. Nothing about supporting-work selection changed; the
+     block it is selected over did, for two more distances now.
 
      THE MARATHON REFERENCE IS AT SIXTEEN WEEKS AND IS NO LONGER A RACE GOAL
      PROGRAMME AT ALL, which is HQ's admission window working. It is left at
      sixteen deliberately: this test is about the completion path, and keeping a
      plan that exercises the handoff route is more useful here than moving it
      inside the window and testing the same thing twice. */
-  assert.equal(items, 46,
-    'the four reference plans prescribe 46 supporting sessions in total; if this moves, '
+  assert.equal(items, 49,
+    'the four reference plans prescribe 49 supporting sessions in total; if this moves, '
       + 'the engine moved, and the reason must be a stated one');
 });
 

@@ -36,6 +36,22 @@ function completedDay(a, archetype, optional) {
   d.actual = a.emptyActual();
   return d;
 }
+/* A day whose PRESCRIPTION HAS A STRUCTURE, independent of which archetype
+   string the rotation happened to land on. The exact structure a phase draws
+   -- track_reps vs short_reps vs deuce -- is a family-selection detail (see
+   FIVEK/TENK pools) that this test does not care about and must not be
+   entangled with; what it cares about is that a structured day exists and
+   renders its own breakdown. */
+function structuredDay(a) {
+  const d = a.state.days.filter(x => {
+    const p = a.prescriptionOf(x);
+    return p && x.type !== 'rest' && x.type !== 'easy' && x.type !== 'long' && x.type !== 'race';
+  })[0];
+  assert.ok(d, 'fixture must contain a structured day');
+  d.completed = true;
+  d.actual = a.emptyActual();
+  return d;
+}
 // Fills 4 laps of 1km with a mild positive split (each lap 5s slower than
 // the last), which is enough for coachSplitMetrics()/coachHRDrift() to stop
 // returning null.
@@ -62,8 +78,11 @@ test('the splits editor is closed by default and never forces lap entry', () => 
      wording and passed only while the fixture's first day happened to be
      unstructured. Both are now exercised, so neither can regress. */
   const a = app();
-  const structured = completedDay(a, 'track_reps', true) || completedDay(a);
-  const flat = a.state.days.filter(x => x.type === 'easy' && !a.prescriptionOf(x))[0]
+  const structured = structuredDay(a);
+  /* A day distinct from `structured` -- an ordinary easy or long run, which
+     the fixture always has several of regardless of which structure the
+     quality rotation happened to land on. */
+  const flat = a.state.days.filter(x => (x.type === 'easy' || x.type === 'long') && x !== structured)[0]
             || (function(){ const d = completedDay(a); delete d.prescription; return d; })();
 
   [structured, flat].forEach(dd => {

@@ -14919,8 +14919,20 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
      be declared. One call site for half/5K/10K alike: each distance reads
      its own anchor from raceGoalTaperAnchorDaysFor(), and passing half's
      explicitly rather than relying on applyEventTaper()'s own default
-     leaves nothing for a future distance's anchor to silently inherit. */
-  var eventTaperAnchor = raceGoalTaperAnchorDaysFor(blockResult.distKey);
+     leaves nothing for a future distance's anchor to silently inherit.
+
+     GATED ON THE ARCH, NOT ON THE DISTANCE ALONE -- raceGoalTaperAnchorDaysFor()
+     only knows distKey, and an on-ramp, foundation, maintenance or base block
+     can carry distKey:'half' too. halfBlockArch already answers "is this
+     purpose's own dedicated architecture in force", which is what decided
+     this before (see its own declaration above); the 5K/10K arch answers the
+     same question for its own two distances. Un-gated, this silently taxed
+     every half on-ramp block with a taper mechanism that was never built for
+     it -- caught only because the on-ramp audit measures purpose:'onramp'
+     blocks directly, not because anything about the race population moved. */
+  var shortBlockArch = raceGoalArch(blockResult.purpose, blockResult.distKey) === 'short';
+  var eventTaperAnchor = (halfBlockArch || shortBlockArch)
+    ? raceGoalTaperAnchorDaysFor(blockResult.distKey) : null;
   if (eventTaperAnchor != null)
     applyEventTaper(days, weeks, raceDateStr, easyFloorKm, eventTaperAnchor, HALF_TAPER_FINAL_FRACTION);
   recordVolumeAccounting(days, weeks);

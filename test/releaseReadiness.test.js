@@ -27,8 +27,8 @@ const app = () => { const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' }); a.s
 const clone = o => JSON.parse(JSON.stringify(o));
 const settle = () => new Promise(r => setTimeout(r, 0));
 
-function plan(a, logged) {
-  buildPlan(a, { weeks: 12, startDate: a.addDays(TODAY, -28) });
+function plan(a, logged, startOffsetDays) {
+  buildPlan(a, { weeks: 12, startDate: a.addDays(TODAY, startOffsetDays || -28) });
   a.state.days.filter(d => d.date < TODAY && d.type !== 'rest').slice(0, logged || 0)
     .forEach(d => { d.completed = true;
                     d.actual = Object.assign(a.emptyActual(), { km: d.km, pace: '5:10' }); });
@@ -202,6 +202,13 @@ test('3. the isolation the policy provides is still relied on, not replaced', ()
    still read it through sessionRan() and still said yes, so the prescription
    could be rewritten under a real run. The next day the same day refused, which
    is the tell: the guard was right and its window was wrong. */
+/* -31 DAYS, NOT plan()'s ORDINARY -28. Purely a fixture-timing choice: which
+   day the evolution proposal lands on is a property of the block's own week
+   shape, and destination-led 10K construction (this correction's own work)
+   moved that day from three days out to today's own for the ordinary -28
+   offset -- both real, valid programmes; this case specifically needs the
+   proposal on a FUTURE day, so the offset that still gives it one is used
+   here rather than changing plan()'s default for every other caller. */
 function adjustedFutureDay(a) {
   a.state.days.filter(d => d.date < TODAY && d.type !== 'rest').slice(-3).forEach(d => {
     d.completed = true;
@@ -217,7 +224,7 @@ function adjustedFutureDay(a) {
 }
 
 test('4. a future-dated day with a Strava activity on it is not restorable', () => {
-  const a = plan(app());
+  const a = plan(app(), 0, -31);
   const dd = adjustedFutureDay(a);
   assert.equal(a.coachRestoreState(dd).ok, true, 'restorable before any run is attached');
 
@@ -233,7 +240,7 @@ test('4. a future-dated day with a Strava activity on it is not restorable', () 
 });
 
 test('4. and the handler refuses it too, not only the state function', () => {
-  const a = plan(app());
+  const a = plan(app(), 0, -31);
   const dd = adjustedFutureDay(a);
   const adjusted = dd.km, original = dd.coachAdjust.from.km;
   assert.notEqual(adjusted, original, 'the fixture must actually have changed the distance');
@@ -246,7 +253,7 @@ test('4. and the handler refuses it too, not only the state function', () => {
 });
 
 test('4. the narrowing refuses more and never allows more', () => {
-  const a = plan(app());
+  const a = plan(app(), 0, -31);
   const dd = adjustedFutureDay(a);
   // every previously-refusing case still refuses
   const cases = [
@@ -255,7 +262,7 @@ test('4. the narrowing refuses more and never allows more', () => {
     ['no snapshot', d => { delete d.coachAdjust.from; }]
   ];
   cases.forEach(([name, spoil]) => {
-    const b = plan(app());
+    const b = plan(app(), 0, -31);
     const bd = adjustedFutureDay(b);
     spoil(bd);
     assert.equal(b.coachRestoreState(bd).ok, false, name + ' must still refuse');
