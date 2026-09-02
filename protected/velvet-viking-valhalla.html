@@ -3682,9 +3682,12 @@ function carryMeasuredAnchors(next, prior){
   });
   return next;
 }
-function calibrationVerdict(volume){
+function calibrationVerdict(volume, pathwayEntryKm){
   var su = state.setup || {};
   return calibrationEligibility({
+    /* The week a Race Goal will actually open on, where the athlete has given
+       Valhalla nothing else to read. Absent for every other product. */
+    pathwayEntryKm: pathwayEntryKm,
     healthConsent: healthConsentGranted(),
     lthr: su.lthr,
     /* CARRIED, so the gate can tell a measurement from an estimate. Absent on
@@ -3697,8 +3700,19 @@ function calibrationVerdict(volume){
     currentVolume: volume != null ? volume : su.currentVolume
   });
 }
-function calibrationNeededNow(volume){
-  return calibrationVerdict(volume).needed;
+/* THE WEEK A RACE GOAL WILL OPEN ON, for the gates that need a figure and
+   would otherwise be handed nothing. Null for every purpose and distance
+   without a dedicated pathway, which is what keeps the other three products
+   reading exactly as they did. */
+function raceGoalPathwayEntryKm(purpose, distKey, experience){
+  if (!usesBottomUpArc(purpose, distKey)) return null;
+  var exp = experience || (function(){
+    try { return athleteExperience(); } catch(e){ return null; } })();
+  var p = raceGoalPathway(distKey, exp);
+  return (p && p.entryVolumeKm > 0) ? p.entryVolumeKm : null;
+}
+function calibrationNeededNow(volume, pathwayEntryKm){
+  return calibrationVerdict(volume, pathwayEntryKm).needed;
 }
 /* THE ONE REFUSAL THAT IS A "NOT YET" RATHER THAN A "NO".
    'insufficient_base' says the athlete is below the safety floor TODAY. The
@@ -3708,8 +3722,8 @@ function calibrationNeededNow(volume){
    programme's own volume is going there. So this refusal, and only this one,
    is handed to the block builder as a deferred placement; the floor itself is
    untouched and is still what gates the session. */
-function calibrationDeferrable(volume){
-  return calibrationVerdict(volume).reason === 'insufficient_base';
+function calibrationDeferrable(volume, pathwayEntryKm){
+  return calibrationVerdict(volume, pathwayEntryKm).reason === 'insufficient_base';
 }
 function calibrationEligibility(ctx){
   var c = ctx || {};
@@ -3756,7 +3770,23 @@ function calibrationEligibility(ctx){
      completed training clears the floor, never one who has typed a number. */
   var demKm = null;
   try { demKm = demonstratedSustainableVolume(); } catch(e){ demKm = null; }
-  var baseKm = (demKm != null && demKm > 0) ? demKm : c.currentVolume;
+  /* ---- AND THE PATHWAY ANSWERS WHERE THERE IS NEITHER ----
+     THE LAST PLACE A RACE GOAL STILL MOVED WITH THE TYPED FIGURE. With no
+     history and no number the floor was compared against nothing, refused, and
+     the calibration deferred a week -- so an Experienced half athlete who
+     typed 30 calibrated in week one and the identical athlete who typed
+     nothing calibrated in week two. With APP removing the field, "typed
+     nothing" becomes every first-time athlete.
+
+     Absence of evidence is not evidence of incapacity here either. The week
+     the athlete is actually being asked to run is the pathway's own entry, and
+     that is the honest figure to hold against a safety floor -- supplied by
+     the caller, because this function is shared with three products that have
+     no pathway. It can only ever ADMIT: where a pathway entry is absent the
+     gate behaves exactly as it did. */
+  var baseKm = (demKm != null && demKm > 0) ? demKm
+             : (c.currentVolume != null && c.currentVolume > 0) ? c.currentVolume
+             : (c.pathwayEntryKm > 0 ? c.pathwayEntryKm : c.currentVolume);
   if (!(baseKm >= CALIBRATION_MIN_WEEKLY_KM)) return no('insufficient_base');
 
   return { needed:true, reason:'eligible' };
@@ -4528,16 +4558,53 @@ function raceGoalMinWeeklyKm(){
   var v = BUILDER_SPEC.validation.raceGoalMinWeeklyKm;
   return (typeof v === 'number' && v > 0) ? v : 6;
 }
+/* ---- THE ENTRY FLOOR, AND WHAT ANSWERS IT ONCE THE FIELD IS GONE ----
+   THIS WAS THE LAST PLACE THE TYPED NUMBER DECIDED ANYTHING ABOUT A RACE GOAL.
+   It read setup.currentVolume, compared it to six kilometres a week and, below
+   that, routed the athlete to Aerobic Base. That was correct while the typed
+   figure was the only account of the athlete Valhalla had.
+
+   APP IS REMOVING THE FIELD FROM THE RACE GOAL BUILDER, so a gate that reads it
+   would receive nothing and refuse everybody: no number is not a small number.
+   The question the floor asks is a real one and it stays -- is there enough
+   running here for a race programme to be shaped around -- but it is now asked
+   of the same authority ladder every other Race Goal decision uses.
+
+     EVIDENCE      a demonstrated sustainable week is the athlete themselves,
+                   and it always outranked the typed figure anyway.
+     THE FIGURE    where they have no history and still typed one, it is
+                   believed. Legacy plans and the other three products keep
+                   working exactly as they did.
+     THE PATHWAY   where there is neither. Somebody who has logged nothing is
+                   not a beginner running four kilometres a week; they are
+                   somebody who chose this pathway, and its own designed entry
+                   -- fifteen kilometres at the very lowest -- clears this floor
+                   comfortably.
+
+   THE FLOOR ITSELF IS UNCHANGED and it is not the admission test. Admission
+   asks whether the athlete can REACH the event's preparation in the runway they
+   have, which is a far more searching question and answers separately. This
+   only asks whether there is a runner here yet. */
 function raceGoalEntry(currentVolumeKm){
   var min = raceGoalMinWeeklyKm();
+  var dem = null;
+  try { dem = demonstratedSustainableVolume(); } catch(e){ dem = null; }
   var stated = (typeof currentVolumeKm === 'number' && isFinite(currentVolumeKm) && currentVolumeKm > 0)
     ? currentVolumeKm : 0;
-  var allowed = stated + 1e-9 >= min;
+  var have, source;
+  if (dem != null && dem > 0){ have = dem; source = 'demonstrated'; }
+  else if (stated > 0){ have = stated; source = 'stated'; }
+  else { have = null; source = 'pathway'; }
+  /* No evidence and no figure is not a shortfall. The pathway's entry stands,
+     and every pathway HQ locked is far above this floor. */
+  var allowed = (have == null) ? true : (have + 1e-9 >= min);
   return {
     allowed: allowed,
     minKm: min,
+    haveKm: have != null ? round1(have) : null,
+    entrySource: source,
     statedKm: round1(stated),
-    shortfallKm: allowed ? 0 : round1(min - stated),
+    shortfallKm: (allowed || have == null) ? 0 : round1(min - have),
     /* WHAT THE ATHLETE SHOULD BE GIVEN NOW, named rather than implied. */
     purpose: allowed ? 'race' : 'base',
     reason: allowed ? null : 'below_race_goal_entry_volume'
@@ -10665,6 +10732,19 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      the generator was reading a fiction. The taper's own floor already takes
      the built figure for exactly this reason. */
   return { profile:profile, distKey:distKey, weeks:weeks, peakVolume:round1(peakVolume),
+           /* ---- A CALIBRATION THAT NEVER FOUND A WEEK IS DECLARED ----
+              The test is deferred until the athlete can safely and meaningfully
+              perform it, and for a low-volume athlete on a short runway there
+              may be no such week: a fixed fifty-two minute effort inside a
+              twenty-kilometre week is most of their training, which is what
+              the safety floor has always said. That is a refusal on safety
+              grounds and it is a legitimate outcome -- but it must not be a
+              SILENT one. Recorded here so a caller can say that the block runs
+              on estimated zones and why, rather than the session simply not
+              appearing. */
+           calibrationRequested: !!(calibrate || calibrateWhenViable),
+           calibrationPlaced: calibrationPlaced,
+           calibrationUnplaced: !!((calibrate || calibrateWhenViable) && !calibrationPlaced),
            /* WHAT THE BLOCK ACTUALLY BUILT, beside what the ramp would have
               asked for. peakVolume is the legacy arc's stated volume times a
               development multiplier and it is still the ceiling every ramp is
@@ -23595,11 +23675,12 @@ function startDevelopmentBlock(purpose, opts){
   archiveCompletedSessions(prevBlockId);
   if (prevBlockId) closeBlock(prevBlockId, { reason: 'transition', to: purpose });
 
+  var rgCalEntry = raceGoalPathwayEntryKm(purpose, spec.distanceKey, null);
   var blockResult = buildBlockWeeks(spec.distanceKey, spec.volume,
     daysBetween(startMonday, addDays(goalDate, -isoWeekday(goalDate)))/7 + 1,
     { purpose: purpose,
-      calibrate: calibrationNeededNow(spec.volume),
-      calibrateWhenViable: calibrationDeferrable(spec.volume) });
+      calibrate: calibrationNeededNow(spec.volume, rgCalEntry),
+      calibrateWhenViable: calibrationDeferrable(spec.volume, rgCalEntry) });
   var days = buildDaysFromWeeks(blockResult, goalDate, schedule, startDate, false);
   if (purpose === 'recovery' && prevRaceDate)
     days = applyRecoveryCeiling(days, prevRaceDate, spec.noIntensityDays);
@@ -34352,6 +34433,7 @@ async function handleGeneratePlan(){
   }
   var profile = DISTANCE_PROFILES[distanceKey];
   var schedule = { activeDays:activeDays, longRunDay:longRunDay };
+  var genCalEntry = raceGoalPathwayEntryKm(buildPurpose, distanceKey, null);
   var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks,
     { purpose: buildPurpose,
       /* Bottom-up construction needs both before the first session is sized:
@@ -34359,8 +34441,8 @@ async function handleGeneratePlan(){
          session cost. Ignored by every other distance. */
       availableDays: activeDays.length,
       easyPaceSecPerKm: genEasyPace,
-      calibrate: calibrationNeededNow(volume),
-      calibrateWhenViable: calibrationDeferrable(volume) });
+      calibrate: calibrationNeededNow(volume, genCalEntry),
+      calibrateWhenViable: calibrationDeferrable(volume, genCalEntry) });
   var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent,
                                 { easyPaceSecPerKm: genEasyPace });
 

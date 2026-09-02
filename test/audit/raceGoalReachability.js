@@ -55,8 +55,11 @@ function build(o){
   const days = DAYSETS[o.days || 6], N = o.weeks || 15;
   const start = a.todayStr(), m = a.addDays(start, -a.isoWeekday(start));
   const raceDate = a.addDays(m, N * 7 - 1);
+  /* The same fallback the app supplies: with no evidence and no typed figure,
+     the week a Race Goal opens on is the pathway's own entry. */
   const elig = a.calibrationEligibility({ healthConsent:true, lthr:null, lthrSource:null,
-    performances:[], today:start, currentVolume:o.stated != null ? o.stated : null });
+    performances:[], today:start, currentVolume:o.stated != null ? o.stated : null,
+    pathwayEntryKm: a.raceGoalPathwayEntryKm('race', o.dist, o.exp) });
   const blk = a.buildBlockWeeks(o.dist, o.stated != null ? o.stated : null, N,
     { purpose:'race', availableDays:days.length, experience:o.exp, easyPaceSecPerKm:pace,
       calibrate:elig.needed, calibrateWhenViable:elig.reason === 'insufficient_base' });
