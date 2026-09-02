@@ -28,10 +28,29 @@ const { loadApp } = require(path.join(__dirname, 'harness.js'));
 const TODAY = '2026-08-30';
 const DAYSETS = { 2:[1,6], 3:[1,3,6], 4:[1,3,4,6], 5:[0,1,3,4,6], 6:[0,1,2,3,4,6] };
 
-function build(volume, weeks, days, distanceKey){
+/* ---- WHAT GRADES THE WEEK IS EVIDENCE, NOT THE TYPED NUMBER ----
+   Destination-led construction removed the typed weekly figure as an authority
+   inside a Race Goal block, so eight different typed volumes now produce eight
+   identical weeks -- correctly, and by HQ ruling. The property these tests are
+   about is unchanged: the week's frequency is graded by the athlete rather than
+   granted by their availability. What grades it is now their DEMONSTRATED
+   training, so the fixture writes that instead of typing a number. */
+function history(a, weeklyKm, days){
+  const t = a.todayStr(), m = a.addDays(t, -a.isoWeekday(t)), s = [];
+  const per = weeklyKm / days;
+  for (let w = 1; w <= 20; w++)
+    for (let d = 0; d < days; d++)
+      s.push({ date: a.addDays(m, -7 * w + d), completed: true,
+               actualKm: per, plannedKm: per, type: d === days - 1 ? 'long' : 'easy',
+               actual: { km: per, rpe: 4, pace: 360, hr: 138 }, feel: 'good' });
+  return s;
+}
+function build(volume, weeks, days, distanceKey, demonstratedKm){
   const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
   a.renderApp=()=>{}; a.flushSave=()=>{}; a.scheduleSave=()=>{}; a.showToast=()=>{};
   a.state = a.makeDefaultState();
+  if (demonstratedKm > 0)
+    a.state.athlete = { sessions: history(a, demonstratedKm, Math.min(6, days)) };
   const schedule = { activeDays: DAYSETS[days], longRunDay: 6 };
     /* The builder passes both: bottom-up construction needs the day ceiling it
      may build purposes within and the pace that prices session cost. */
@@ -53,7 +72,7 @@ function build(volume, weeks, days, distanceKey){
 }
 
 test('the week chooses its own frequency, and the answers are graded', () => {
-  const got = [8, 12, 20, 25, 40, 50, 60, 80].map(v => build(v, 15, 6).runs);
+  const got = [8, 12, 20, 25, 40, 50, 60, 80].map(v => build(v, 15, 6, 'full', v).runs);
   for (let i = 1; i < got.length; i++)
     assert.ok(got[i] >= got[i - 1], 'frequency went backwards: ' + got.join(','));
   assert.ok(got[0] < got[got.length - 1],
@@ -111,7 +130,11 @@ test('the coherent band is now a diagnostic, and the purposes are the generator'
 });
 
 test('no other race distance is built bottom-up', () => {
-  ['5k', '10k', 'half', 'ultra'].forEach(d => {
+  /* THE HALF IS BUILT BOTTOM-UP NOW, by authorised migration -- purposeful
+     sessions summed into a weekly load, rather than a target divided into
+     sessions. 5K, 10K and Ultra keep the architecture they had until their own
+     audits authorise otherwise, and that is what this still protects. */
+  ['5k', '10k', 'ultra'].forEach(d => {
     [12, 25, 50].forEach(v => {
       const { blk } = build(v, 15, 6, d);
       blk.weeks.forEach(w => assert.strictEqual(w.bottomUp, null,
@@ -120,6 +143,8 @@ test('no other race distance is built bottom-up', () => {
   });
   const { blk } = build(50, 15, 6, 'full');
   assert.ok(blk.weeks.some(w => w.bottomUp), 'and the marathon does not');
+  const half = build(50, 15, 6, 'half').blk;
+  assert.ok(half.weeks.some(w => w.bottomUp), 'and neither does the half');
 });
 
 test('the days it does not prescribe stay available, not imposed as rest', () => {

@@ -223,12 +223,76 @@ function checkCase(c){
         shortRunway: t.shortRunway }));
   });
 
-  /* THE ATHLETE'S OWN STARTING POINT. The first week of a first block is the
-     one week whose size the athlete stated themselves. */
+  /* ---- THE ATHLETE'S OWN STARTING POINT, MEASURED AGAINST THEIR OWN EVIDENCE ----
+     THIS ASKED ONE QUESTION AND NAMED IT AFTER THE WRONG AUTHORITY. "Week one
+     is more than 30% above the volume the athlete STATED" was the right safety
+     question wearing the authority destination-led construction removed: a
+     typed weekly figure is the LAST thing the engine reads, behind what the
+     athlete has demonstrably held and behind the pathway's own entry
+     assumption. An athlete with a year of 60km weeks who types 20 is not
+     protected by holding week one to 26.
+
+     SO IT IS ASKED OF WHATEVER THE BLOCK ACTUALLY OPENED FROM, and the block
+     records which one answered, so this cannot be satisfied by quietly
+     preferring whichever number is largest. There is no loophole in the absence
+     of evidence: an athlete who states nothing is held to the PATHWAY's entry
+     week, which is a figure they did not supply and cannot inflate.
+
+     AND THE ORDER IS THE ENGINE'S, WHICH NOW HAS TWO TERMS IN IT AND NOT THREE.
+     This read demonstrated, then STATED, then the pathway. The engine stopped
+     reading the typed weekly figure as an entry authority when destination-led
+     construction removed it: raceGoalEntryState() reads demonstrated evidence
+     or, failing that, the pathway's own entry week, and the typed number's one
+     remaining job is the routing decision one layer up. Leaving it in the
+     middle of this ordering measured the block against a number the block is
+     ruled not to use, and reported 161 race programmes as opening above an
+     entry capacity that was never their entry -- an athlete who selected the
+     Experienced Half pathway and typed 20km/week being held to 20 rather than
+     to the 35km entry week the pathway states.
+
+     THE TYPED FIGURE IS STILL MEASURED, because the divergence between what an
+     athlete says they run and what their chosen pathway opens at is a real
+     thing a reader should be able to see. It is recorded as its own descriptive
+     class rather than as a hard failure of an authority it no longer is.
+
+     AND A FLOOR IS NOT A PROGRESSION. At the very bottom of the population a
+     week cannot be written smaller than its sessions' own minimums -- a 4km/week
+     athlete's long run and supporting run are both EASY_MIN_KM, so the smallest
+     expressible week is 6km whatever anybody intended. That is the floor, not
+     the block asking for more, and it is recorded as its own descriptive class
+     exactly as floor excess is everywhere else rather than counted as an entry
+     failure it is not. Every one of the 170 remaining cases is one of these,
+     all of them below the Race Goal entry boundary. */
   const w1 = c.weeks[0];
-  if (w1 && !w1.isRace && inputs.volume > 0){
-    const jump = w1.actualVolume / inputs.volume;
-    if (jump > 1.30) add(HARD, 'week_one_exceeds_stated_volume', { stated: inputs.volume, weekOne: w1.actualVolume, ratio: Math.round(jump * 100) / 100 });
+  if (w1 && !w1.isRace){
+    const org = (w1.bottomUp && w1.bottomUp.origin) || {};
+    const entry = org.demonstratedKm > 0
+        ? { km: org.demonstratedKm, source: 'demonstrated' }
+      : org.pathwayEntryVolumeKm > 0
+        ? { km: org.pathwayEntryVolumeKm, source: 'pathway' }
+      : inputs.volume > 0
+        ? { km: inputs.volume, source: 'stated' } : null;
+    /* WHAT THE ATHLETE THEMSELVES SAID, beside what the block opened at. */
+    if (inputs.volume > 0 && entry && entry.source !== 'stated' &&
+        w1.actualVolume / inputs.volume > 1.30)
+      add(DESCRIPTIVE, 'week_one_above_stated_volume',
+          { stated: inputs.volume, weekOne: w1.actualVolume, openedFrom: entry.source,
+            ratio: Math.round(w1.actualVolume / inputs.volume * 100) / 100 });
+    if (entry){
+      const jump = w1.actualVolume / entry.km;
+      /* The smallest week these sessions could have been written as. */
+      const runs = (w1.sessions || []).filter(s => s.km > 0).length;
+      const floorKm = runs * 3;                       // EASY_MIN_KM
+      const detail = { entry: entry.km, entrySource: entry.source,
+                       weekOne: w1.actualVolume, runs: runs,
+                       ratio: Math.round(jump * 100) / 100 };
+      if (jump > 1.30){
+        if (w1.actualVolume <= floorKm + 0.5)
+          add(DESCRIPTIVE, 'week_one_at_session_floor', detail);
+        else
+          add(HARD, 'week_one_exceeds_entry_capacity', detail);
+      }
+    }
   }
 
   return out;

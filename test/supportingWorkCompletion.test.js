@@ -36,8 +36,33 @@ const { buildPlan } = require('./fixtures.js');
    work when tapped, or any movement at all in what the engine prescribes. */
 
 const PINNED = '2026-08-24T09:00:00Z';          // Monday, matching the suite
-const SUPPORT_REST_DAY = '2026-08-28';          // week 1, rest, strength_running
-const SUPPORT_EASY_DAY = '2026-08-29';          // week 1, easy, conditioning_circuit
+/* THE TWO DAYS THIS FILE PINS, AND WHY THEY MOVED. Every assertion below is
+   about the COMPLETION RULE -- when the control unlocks, what writing to it
+   does, and that a rest day and a running day obey the same definition of
+   today. It needs one rest day carrying supporting work and one running day
+   carrying it, and it names them by date so the rule is tested against real
+   generated days rather than a hand-built object.
+
+   The half's Race Goal block now prescribes the smallest coherent number of
+   running days rather than filling every available one, so week one has a
+   different shape and the supporting work sits on different dates. The dates
+   are repointed at the days that now carry it. No rule, no threshold and no
+   assertion in this file is changed. */
+/* ---- THE TWO DAYS ARE FOUND, NOT SPELLED ----
+   These were two hard-coded dates, and they have now been repointed twice
+   because the Race Goal block legitimately changed the shape of week one: the
+   quality day moves, which moves which rest day is "before a key session",
+   which moves where supportForWeek() puts the work. Every repointing was
+   correct and none of them was interesting, which is the signal that the
+   spelling was the defect rather than the dates.
+
+   The file's own stated requirement is "one rest day carrying supporting work
+   and one running day carrying it, named by date so the rule is tested against
+   real generated days". Deriving them from the generated plan is strictly
+   truer to that than transcribing them, and the fixture asserts both were
+   found so a plan that stopped carrying supporting work fails loudly rather
+   than testing nothing. No rule, no threshold and no assertion about the
+   COMPLETION RULE changes. */
 const at = d => loadApp({ pinnedDate: d + 'T09:00:00Z' });
 
 /* An athlete whose plan genuinely carries supporting work. It is opt-in --
@@ -56,9 +81,30 @@ function athlete(pinned) {
   const { days } = buildPlan(a, { distanceKey: 'half', volume: 45, weeks: 12, lthr: 172,
                                   maxHR: 188, earnedSecondQuality: true });
   a.state.setup.supportWork = 'on';
-  const support = a.supportForDay(days.find(d => d.id === SUPPORT_REST_DAY));
-  assert.ok(support, 'fixture must actually carry supporting work, or every test here is vacuous');
-  return { a, days };
+  const carries = d => { const s = a.supportForDay(d); return s ? s : null; };
+  const restDay = days.filter(d => d.type === 'rest' && carries(d))[0];
+  const runDay  = days.filter(d => d.type !== 'rest' && d.km > 0 && carries(d))[0];
+  assert.ok(restDay && runDay,
+    'fixture must actually carry supporting work on a rest day AND a running day, ' +
+    'or every test here is vacuous');
+  SUPPORT_REST_DAY = restDay.id;
+  SUPPORT_EASY_DAY = runDay.id;
+  SUPPORT_EASY_KIND = carries(runDay).kind;
+  /* ---- AND THE CLOCK SITS BEFORE THE PLAN, so both days are genuinely in the
+     future. Half of this file is about work that has not happened yet, and the
+     plan is generated from the pinned date, so the day carrying rest-day
+     supporting work is the plan's own first day. Reading the same unmodified
+     state through a clock one day earlier is exactly what rollTo() already does
+     in the other direction, and it is the only way the "not yet" half of the
+     rule can be asked at all. */
+  const before = rollTo(a, addDaysISO(days[0].id, -1));
+  return { a: before, days };
+}
+let SUPPORT_REST_DAY = null, SUPPORT_EASY_DAY = null, SUPPORT_EASY_KIND = null;
+function addDaysISO(iso, n){
+  const d = new Date(iso + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 // Move an existing plan to a later clock WITHOUT regenerating it.
 function rollTo(a, date) {
@@ -174,7 +220,7 @@ test('completion becomes available and works on the day', () => {
   rolled.handleSupportDone(SUPPORT_EASY_DAY);
   const dd = dayOf(rolled, SUPPORT_EASY_DAY);
   assert.ok(dd.support && dd.support.completedAt, 'it records a completion');
-  assert.equal(dd.support.kind, 'conditioning_circuit', 'of the kind that was prescribed');
+  assert.equal(dd.support.kind, SUPPORT_EASY_KIND, 'of the kind that was prescribed');
 });
 
 // =====================================================================
@@ -277,7 +323,11 @@ test('an existing completed companion still renders correctly, on today and in t
 
   const onDay = companion(rolled, SUPPORT_EASY_DAY);
   assert.match(onDay, /support-line support-done/, 'the compact done line is preserved');
-  assert.match(onDay, /Strength Circuit/, 'naming the kind that was prescribed');
+  /* THE NAME THE PRESCRIPTION ITSELF USES, read from the runtime's own table
+     rather than transcribed, so this asserts that the done line names what was
+     prescribed rather than that a particular kind happens to land on this day. */
+  assert.match(onDay, new RegExp(a.SUPPORT_KINDS[SUPPORT_EASY_KIND].label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+    'naming the kind that was prescribed');
   assert.match(onDay, / — done|— done/, 'and still says done');
   assert.match(onDay, /checked/, 'with the control in its checked state');
   assert.doesNotMatch(onDay, /support-check locked/, 'live on the day, so a mistake can be undone');
@@ -441,14 +491,21 @@ test('no prescription or session-selection output changed', () => {
   }
   /* The total is reported, and pinned, so a FUTURE change to the engine is
      still visible here -- with the number that belongs to this engine. */
-  /* 41 -> 44, AND THE REASON. The marathon reference plan is the only one that
-     moved (16 -> 19; half, 10k and 5k are unchanged at 11, 8 and 6). The
-     dedicated marathon window spends one taper week rather than two, so a week
-     that was winding down is now a development week -- and a development week
-     carries supporting work where a taper week largely does not. Nothing about
-     supporting-work selection changed; the block it is selected over did. */
-  assert.equal(items, 44,
-    'the four reference plans prescribe 44 supporting sessions in total; if this moves, '
+  /* 44 -> 46, AND THE REASON. The HALF reference plan is the only one that moved
+     this time (11 -> 13; marathon, 10k and 5k are unchanged at 19, 8 and 6).
+     HQ's phase geometry gives a twelve-week half three Base weeks, five of
+     Build and two of Peak where the old experience-driven allocation gave it a
+     different split, so the weeks that carry a quality session -- and therefore
+     the rest days that sit before one -- fall differently. Nothing about
+     supporting-work selection changed; the block it is selected over did.
+
+     THE MARATHON REFERENCE IS AT SIXTEEN WEEKS AND IS NO LONGER A RACE GOAL
+     PROGRAMME AT ALL, which is HQ's admission window working. It is left at
+     sixteen deliberately: this test is about the completion path, and keeping a
+     plan that exercises the handoff route is more useful here than moving it
+     inside the window and testing the same thing twice. */
+  assert.equal(items, 46,
+    'the four reference plans prescribe 46 supporting sessions in total; if this moves, '
       + 'the engine moved, and the reason must be a stated one');
 });
 

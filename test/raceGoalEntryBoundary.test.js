@@ -101,12 +101,34 @@ test('the boundary is closed at six, and the last refused value is just under it
   assert.equal(a.raceGoalEntry(6).allowed, true);
 });
 
-test('a missing, zero or nonsense volume is refused rather than admitted', () => {
+test('a zero or nonsense volume is refused rather than admitted', () => {
+  /* A NUMBER SUPPLIED is the athlete's own account of themselves, and zero is
+     one of those -- somebody who says they are not running is telling Valhalla
+     something. Anything that is not a usable number is a value that FAILED
+     rather than a field that was never asked, and routing it is the safe
+     direction. */
   const a = app();
-  [null, undefined, 0, -5, NaN, Infinity, 'ten'].forEach(v => {
+  [0, -5, NaN, Infinity, 'ten'].forEach(v => {
     const e = a.raceGoalEntry(v);
     assert.equal(e.allowed, false, String(v) + ' must not enter Race Goal');
     assert.equal(e.purpose, 'base');
+  });
+});
+
+test('an ABSENT volume is not a shortfall, because the pathway answers instead', () => {
+  /* APP is removing Current Weekly Volume from the Race Goal builder. A gate
+     that compared "nothing supplied" against six kilometres a week would refuse
+     every athlete who ever uses the new builder: no number is not a small
+     number. Where there is no evidence and no field, the pathway the athlete
+     chose supplies its own entry -- fifteen kilometres at the very lowest --
+     and that clears this floor comfortably. */
+  const a = app();
+  [null, undefined].forEach(v => {
+    const e = a.raceGoalEntry(v);
+    assert.equal(e.allowed, true, String(v) + ' was treated as a shortfall');
+    assert.equal(e.entrySource, 'pathway');
+    assert.equal(e.purpose, 'race');
+    assert.equal(e.shortfallKm, 0);
   });
 });
 
@@ -239,7 +261,10 @@ test('the entry boundary changes nothing for a Race Goal at or above it', () => 
      it -- asserted directly rather than inferred. */
   const gen = SRC.slice(SRC.indexOf('function buildBlockWeeks'),
                         SRC.indexOf('function buildDaysFromWeeks'));
-  assert.ok(!/raceGoalEntry|raceGoalMinWeeklyKm/.test(gen),
+  /* raceGoalEntry( -- the boundary function itself -- rather than the prefix.
+     raceGoalEntryState() is the block's own reading of where the athlete may
+     begin and shares nothing with the boundary but six letters of its name. */
+  assert.ok(!/raceGoalEntry\(|raceGoalMinWeeklyKm/.test(gen),
     'the generator must not know about the entry boundary');
   assert.ok(a.raceGoalEntry(6).allowed);
 });

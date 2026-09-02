@@ -77,7 +77,15 @@ test('6 -> 7km is reported and is not a coaching concern', () => {
 });
 
 test('the real generator agrees: the 6km athlete is never coaching-suspicious for it', () => {
-  const c = auditCase({ distanceKey: 'full', volume: 6, weeks: 15, scheduleKey: 'd5' });
+  /* AT A DISTANCE WHERE A 6km/WEEK ATHLETE STILL BUILDS ONE. The marathon and
+     the half now route an athlete this far below their pathway's entry week to
+     a foundation block, and the race block they would otherwise have been given
+     opens at the pathway's entry -- so there is no 6 -> 7 transition in a
+     marathon plan to ask about any more. 5K and 10K have no dedicated pathway
+     and still build from the athlete's own figure, which is where the property
+     under test -- a one-kilometre step is descriptively over 10% and is not
+     coaching-suspicious for it -- actually lives. Same numbers, same assertion. */
+  const c = auditCase({ distanceKey: '5k', volume: 6, weeks: 16, scheduleKey: 'd5' });
   const t = LP.assess(c).filter(x => x.fromKm === 6 && x.toKm === 7)[0];
   assert.ok(t, 'the 6 -> 7 transition exists in the real plan');
   assert.equal(t.growthOver10pct, true);
@@ -176,16 +184,34 @@ test('a new running day, a new quality session and a longer long run at once', (
 
 /* ---------- 6. QUALITY STRUCTURE VARIATION ---------- */
 
-test('one quality session becoming a much bigger one is a load progression', () => {
+test('THE SAME session becoming a much bigger one is a load progression', () => {
   /* Quality FREQUENCY is unchanged -- the week still says "one quality day" --
-     and a session count cannot see this at all. */
+     and a session count cannot see this at all. The SHAPE is unchanged too,
+     which is what makes this a progression rather than a rotation. */
   const t = judge(
     wk({ week: 3, phase: 'Build', trainingKm: 24, longKm: 9, supportKm: 10, qualityKm: 5,
-         qualityCount: 1, runDays: 4 }),
+         qualityCount: 1, runDays: 4, qualityShapes: 'tempo:steady_tempo' }),
     wk({ week: 4, phase: 'Build', trainingKm: 29, longKm: 9, supportKm: 10, qualityKm: 10,
-         qualityCount: 1, runDays: 4 }));
+         qualityCount: 1, runDays: 4, qualityShapes: 'tempo:steady_tempo' }));
   assert.equal(t.before.qualityCount, t.after.qualityCount, 'still one quality day');
-  assert.ok(has(t, 'QUALITY_STRUCTURE_STEP'), t.reasons.join(','));
+  assert.ok(has(t, 'QUALITY_DOSE_STEP'), t.reasons.join(','));
+  assert.ok(!has(t, 'QUALITY_SHAPE_ROTATION'), 'the structure did not change');
+});
+
+test('a DIFFERENT session that is naturally bigger is the pool rotating', () => {
+  /* THE DISTINCTION THE INSTRUMENT COULD NOT MAKE. A week carrying one quality
+     slot rotates between families whose ordinary sizes differ by more than an
+     ordinary step: a 5km interval session followed by a 7.5km tempo reads as a
+     1.5x quality dose step and is neither a progression nor a defect. The
+     athlete was never prescribed a bigger version of anything. */
+  const t = judge(
+    wk({ week: 3, phase: 'Build', trainingKm: 24, longKm: 9, supportKm: 10, qualityKm: 5,
+         qualityCount: 1, runDays: 4, qualityShapes: 'interval:track_reps' }),
+    wk({ week: 4, phase: 'Build', trainingKm: 29, longKm: 9, supportKm: 10, qualityKm: 7.5,
+         qualityCount: 1, runDays: 4, qualityShapes: 'tempo:steady_tempo' }));
+  assert.ok(has(t, 'QUALITY_SHAPE_ROTATION'), t.reasons.join(','));
+  assert.ok(!has(t, 'QUALITY_DOSE_STEP'),
+    'a different session being naturally bigger is not the same session progressing');
 });
 
 test('the pool rotating inside a big week is not a load progression', () => {
@@ -194,7 +220,7 @@ test('the pool rotating inside a big week is not a load progression', () => {
          qualityCount: 1, runDays: 5 }),
     wk({ week: 4, phase: 'Build', trainingKm: 61, longKm: 22, supportKm: 33, qualityKm: 6,
          qualityCount: 1, runDays: 5 }));
-  assert.ok(!has(t, 'QUALITY_STRUCTURE_STEP'),
+  assert.ok(!has(t, 'QUALITY_DOSE_STEP') && !has(t, 'QUALITY_SHAPE_ROTATION'),
     'a kilometre on one session inside a 60km week did not move the athlete');
 });
 

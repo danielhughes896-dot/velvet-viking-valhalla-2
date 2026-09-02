@@ -41,8 +41,9 @@ function build(pinnedDate, opts){
   }
   a.state.athlete = { sessions };
   const end = a.addDays(a.addDays(START, -a.isoWeekday(START)), 14 * 7 - 1);
-  a.state.days = a.buildDaysFromWeeks(a.buildBlockWeeks('half', 45, 14, {}), end, SCHEDULE, START, false);
-  a.state.setup = { distanceKey: 'half', currentVolume: 45, planWeeks: 14, schedule: SCHEDULE,
+  const schedule = o.schedule || SCHEDULE;
+  a.state.days = a.buildDaysFromWeeks(a.buildBlockWeeks('half', 45, 14, {}), end, schedule, START, false);
+  a.state.setup = { distanceKey: 'half', currentVolume: 45, planWeeks: 14, schedule: schedule,
     benchmark: { distanceKey: '10k', timeSec: 2700 }, goals: { A: { timeSec: 5400 } },
     activeGoal: 'A', paceOverrides: {}, lthr: 165, maxHR: 190, experience: 'experienced',
     startDate: START, raceDate: end, hasEvent: false, purpose: 'race',
@@ -85,7 +86,16 @@ function logRun(a, dd, km, pace){
   a.handleOptionalRunSave(dd.id);
 }
 /* Far enough in that three plan weeks have closed behind the athlete. */
-const b_today = a => a.addDays(START, 7 * 5 + 3);
+/* ---- STOOD WHERE THE ENGINE ACTUALLY LEAVES DAYS FREE ----
+   This was five weeks into the block, which was right while the day builder
+   froze the prescribed frequency at whatever the athlete arrived running. It no
+   longer does: frequency is a capacity and it develops, so this athlete's week
+   reaches the six days they are available by week three and the engine leaves
+   nothing free after week two. currentSustainedRunningFrequency() reads the last
+   three COMPLETE weeks, so the athlete is stood at the first point where three
+   have closed AND the free days are inside that window. Same three closed weeks,
+   same free days, same assertion. */
+const b_today = a => a.addDays(START, 7 * 2 + 3);
 const plannedShape = a => a.state.days.map(d => d.date + ':' + d.type + ':' + (d.km || 0) + ':' +
   (d.title || '') + ':' + ((d.prescription || {}).archetype || '-') + ':' +
   JSON.stringify((d.prescription || {}).params || null)).join('\n');
@@ -137,8 +147,17 @@ test('2. it does NOT also present itself as a Rest Day, on any surface', () => {
   assert.equal(a.askLocalName(dd), 'Optional Run');
 });
 
+/* EVERY DAY AVAILABLE, because a protected rest day needs one that is spare.
+   The six-day athlete above no longer has any after week two: prescribed
+   frequency is a capacity now and it develops, so their week reaches the six
+   days they offered and there is nothing left over to protect. A protected rest
+   day is an AVAILABLE day the programme did not need and then declined to offer
+   a run on, so the athlete who has one is the athlete with a day to spare. The
+   rule under test -- that such a day renders Rest and invites nothing -- is
+   unchanged, and so is every assertion below it. */
+const ALL_DAYS = { activeDays: [0, 1, 2, 3, 4, 5, 6], longRunDay: 6 };
 test('3. a protected rest day still renders Rest, and offers nothing', () => {
-  const { a } = optionalToday();
+  const { a } = optionalToday({ schedule: ALL_DAYS });
   const k = kinds(a);
   assert.ok(k.protectedRest.length > 0 && k.notOffered.length > 0);
   k.protectedRest.concat(k.notOffered).forEach(d => {

@@ -65,7 +65,7 @@ test('the audit matrix covers the builder\'s whole supported input space', () =>
   assert.deepEqual(DISTANCES, ['5k', '10k', 'half', 'full', 'ultra']);
 
   const m = matrix();
-  assert.equal(m.plans, 2350);
+  assert.equal(m.plans, 3290);
   assert.ok(m.sessions > 200000, 'the matrix generated ' + m.sessions + ' sessions');
 });
 
@@ -112,7 +112,7 @@ const RATCHETED = [
   ['deliberate_reduction_unnamed',        'a reduction with no named coaching reason'],
   ['floor_excess_unnamed',                'volume a floor forced in, with no named cause'],
   ['week_has_no_volume_accounting',       'a generated week with no accounting at all'],
-  ['week_one_exceeds_stated_volume',      'week one is more than 30% above the volume the athlete stated'],
+  ['week_one_exceeds_entry_capacity',     'week one is more than 30% above the load the block opened from'],
   ['week_overshoots_target',              'a week is more than 35% above its own target'],
   ['week_undershoots_target',             'a week is more than 25% below its own target'],
   ['taper_week_increases_volume',         'a taper week is bigger than the week before it']
@@ -165,8 +165,10 @@ test('the coaching-suspicious counts are recorded and do not grow', () => {
   'a session arrives and a dose steps in the same week'],
  ['load_progression_rebound_exceeds_trend',
   'a post-cutback week overshoots the trend it returns to'],
- ['load_progression_quality_structure_step',
-  'the quality session becomes materially bigger and moves the week'],
+ ['load_progression_quality_dose_step',
+  'the SAME quality session becomes materially bigger and moves the week'],
+ ['load_progression_quality_shape_rotation',
+  'a different quality structure, naturally bigger, moved the week'],
  ['load_progression_long_run_step_above_rate',
   'the long run outruns its own progression rate'],
  ['load_progression_compound_load_progression',
@@ -218,12 +220,24 @@ test('the reported "Easy 0km / Goal Pace 3km long run" is gone, at its own input
      one this stage answers. */
   const c = auditCase({ distanceKey: 'half', volume: 12, weeks: 12, scheduleKey: 'd5' });
   const long = c.sessions.find(s => s.week === 3 && s.type === 'long');
-  assert.equal(long.archetype, 'long_run', 'the goal-pace finish is omitted, not shrunk');
-  assert.equal(long.title, 'Long Run');
-  assert.ok(!/Goal Pace/.test(long.desc), 'and the card no longer promises goal-pace work');
-  assert.equal(long.segments.length, 1);
-  assert.equal(long.segments[0].intensity, 'easy');
-  assert.equal(long.segments[0].km, long.km, 'the whole run, reconciling exactly');
+  /* THE DEFECT WAS THE ARITHMETIC, AND IT IS THE ARITHMETIC THAT IS ASSERTED.
+     This used to pin the repair rather than the defect -- "the archetype is
+     long_run" -- which was the right assertion while the week-three long run at
+     these inputs was 3km and could hold nothing. Destination-led construction
+     moved that athlete: a stated 12km/week no longer sizes the block, so week
+     three is a 13km long run and a goal-pace finish inside one is ordinary
+     coaching rather than the defect. What must never come back is a run whose
+     easy component is zero, or a finish the run cannot contain, and those are
+     what is asked here. */
+  assert.ok(long.km >= 8, 'a long run that is one, not a 3km run called one: ' + long.km);
+  const easyKm = long.segments.filter(x => x.intensity === 'easy')
+                              .reduce((t, x) => t + x.km, 0);
+  assert.ok(easyKm > 0, 'the easy component is never zero');
+  assert.ok(Math.abs(long.segments.reduce((t, x) => t + x.km, 0) - long.km) < 1e-6,
+    'the whole run, reconciling exactly');
+  if (long.archetype === 'long_run_goal_finish')
+    assert.ok(long.params.finishKm <= long.params.km * 0.5 + 1e-9,
+      'the finish is a minority of the run it sits in');
 });
 
 test('no long run anywhere carries a goal-pace finish it cannot contain', () => {
@@ -340,8 +354,19 @@ test('every kilometre of every week has a named cause', () => {
   const f1 = fixed.weeks[0].accounting;
   assert.equal(f1.floorExcess, 0,
     'a 12km/week athlete is no longer over-prescribed by the floors');
-  assert.ok(fixed.weeks[0].actualVolume <= fixed.weeks[0].targetVolume,
-    'and the week they get is no bigger than the week they were asked for');
+  /* THE SECOND HALF OF THIS COMPARED THE WEEK AGAINST THE TYPED FIGURE, and
+     destination-led construction removed that authority: a Race Goal block
+     opens at its pathway's entry week, so a 12km/week half athlete is opened at
+     the New Half's 15km and the comparison asks the week to be no bigger than a
+     number the engine is ruled not to read. What the accounting identity
+     actually claims is that the week reconciles and that nothing in it is
+     unexplained -- floorExcess is zero above, and the opening week is the
+     pathway's own entry rather than a residual. */
+  const entry = (fixed.weeks[0].bottomUp || {}).entryKm;
+  assert.ok(entry > 0, 'the opening week declares what it opened from');
+  assert.ok(Math.abs(fixed.weeks[0].actualVolume - entry) <= 1.0,
+    'and the week they get is the entry week the pathway states (' +
+    fixed.weeks[0].actualVolume + ' against ' + entry + ')');
 
   const c = auditCase({ distanceKey: '5k', volume: 1, weeks: 12, scheduleKey: 'd5' });
   const w1 = c.weeks[0].accounting;
@@ -395,22 +420,61 @@ test('the engine cannot build a week smaller than its own component floors', () 
   assert.equal(c.routed, true);
 });
 
-test('experience level cannot change a single prescribed number', () => {
-  /* Recorded because the audit asked whether the three levels differ
-     explainably. They do not differ at all: the engine never reads it. This
-     asserts the DOCUMENTED design ("presentation only"), so a future change
-     that starts varying the plan by experience has to say so here. */
-  const src = fs.readFileSync(
-    path.join(__dirname, '..', 'protected', 'velvet-viking-valhalla.html'), 'utf8');
-  const start = src.indexOf('function buildBlockWeeks(');
-  const end = src.indexOf('\nfunction dtok(');
-  assert.ok(start > 0 && end > start);
-  assert.ok(!/experience/i.test(src.slice(start, end)),
-    'buildBlockWeeks now reads experience; the presentation-only boundary moved');
-  const s2 = src.indexOf('function buildDaysFromWeeks(');
-  const e2 = src.indexOf('function capWeeklyVolume(');
-  assert.ok(!/experience/i.test(src.slice(s2, e2)),
-    'buildDaysFromWeeks now reads experience; the presentation-only boundary moved');
+test('experience selects the Race Goal pathway and touches nothing else', () => {
+  /* THIS ASSERTED THE OPPOSITE, AND THE DESIGN IT DOCUMENTED WAS REPLACED.
+     Experience was presentation only: the engine never read it, and the audit
+     recorded that the three levels produced identical plans. Under
+     destination-led construction experience is one of the three authorities --
+     the race requirement states the destination, EXPERIENCE SELECTS THE
+     PREPARATION PATHWAY, and demonstrated evidence sets the safe rate through
+     it -- so buildBlockWeeks reads it deliberately.
+
+     What has to be protected is the boundary of that authority, which is
+     narrower than "the engine may read it": it selects a Race Goal pathway for
+     the two dedicated architectures and it may not reach anything else. */
+  const { loadApp } = require('./harness.js');
+  const a = loadApp({ pinnedDate: '2026-03-02T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {};
+  a.flushSave = () => {}; a.scheduleSave = () => {};
+  const blk = (dist, exp, purpose) => {
+    a.state = a.makeDefaultState();
+    return JSON.stringify(a.buildBlockWeeks(dist, 45, 15,
+      { purpose: purpose, availableDays: 5, experience: exp }));
+  };
+  const LEVELS = ['novice', 'experienced', 'advanced'];
+  /* EVERY OTHER PURPOSE, BYTE FOR BYTE. A base block, a speed block and a
+     maintenance block are not preparing for an event, so there is no pathway
+     to select and experience has nothing to say. */
+  ['base', 'speed', 'maintain'].forEach(purpose => {
+    ['5k', '10k', 'half', 'full'].forEach(dist => {
+      const ref = blk(dist, LEVELS[0], purpose);
+      LEVELS.slice(1).forEach(exp => assert.equal(blk(dist, exp, purpose), ref,
+        dist + ' ' + purpose + ' changed with experience'));
+    });
+  });
+  /* AND EVERY DISTANCE WITHOUT A DEDICATED ARCHITECTURE, byte for byte, at the
+     race purpose too. The 5K and 10K arcs are closed. */
+  ['5k', '10k'].forEach(dist => {
+    const ref = blk(dist, LEVELS[0], 'race');
+    LEVELS.slice(1).forEach(exp => assert.equal(blk(dist, exp, 'race'), ref,
+      dist + ' race changed with experience'));
+  });
+  /* WHERE IT DOES REACH, IT REACHES THE PATHWAY -- and in the pathway's own
+     direction, so the authority is doing what it says rather than merely
+     having an effect. */
+  ['half', 'full'].forEach(dist => {
+    const longOf = exp => {
+      a.state = a.makeDefaultState();
+      const b = a.buildBlockWeeks(dist, 45, 15,
+        { purpose: 'race', availableDays: 6, experience: exp, easyPaceSecPerKm: 330 });
+      return Math.max.apply(null, b.weeks.filter(w => !w.isRace && !w.isTaper)
+                                         .map(w => w.longTarget));
+    };
+    const seq = LEVELS.map(longOf);
+    assert.ok(seq[2] >= seq[1] && seq[1] >= seq[0],
+      dist + ' pathways are not ordered by experience: ' + seq.join(','));
+    assert.ok(seq[2] > seq[0], dist + ' experience selected nothing');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -436,13 +500,28 @@ test('adjacent stated volumes produce adjacent plans', () => {
      same number of holds on both sides is still a defect and still fails, and
      the PEAK WEEK -- the number the athlete actually trains to -- is asserted
      with no exception at all. */
+  /* AND THE SECOND EXCEPTION, NAMED THE SAME WAY. A week is now the sum of the
+     purposes it prescribes, so an athlete whose workload has grown enough to
+     CARRY a structured quality session gets one -- and that session's
+     kilometres come out of the aerobic running the athlete below them spent
+     the same capacity on. Measured at the half: 9km/week is prescribed no
+     conventional quality and peaks at 14km across three runs; 10km/week earns
+     a quality slot and peaks at 13km across three runs, one of which is now a
+     session rather than an easy run. The smaller number is the better week.
+
+     Allowed only where the two blocks differ in prescribed quality slots, and
+     only in proportion -- a reversal with the same structure on both sides is
+     still a defect and still fails. */
   const holdsIn = c => c.weeks.filter(w => w.bottomUp && w.bottomUp.heldAtEarnedWorkload).length;
+  const slotsIn = c => c.weeks.reduce((m, w) =>
+    Math.max(m, (w.bottomUp && w.bottomUp.qSlots) || 0), 0);
   for (const distanceKey of ['5k', 'half', 'full']){
-    let prev = null, prevHolds = 0, prevPeak = null;
+    let prev = null, prevHolds = 0, prevPeak = null, prevSlots = 0;
     for (let v = 1; v <= 60; v++){
       const c = auditCase({ distanceKey, volume: v, weeks: 12, scheduleKey: 'd5' });
       const total = c.sessions.reduce((t, s) => t + (s.km || 0), 0);
       const holds = holdsIn(c);
+      const slots = slotsIn(c);
       const peak = Math.max.apply(null, c.weeks.filter(w => !w.isRace).map(w => w.actualVolume));
       if (prev != null){
         /* One step of a block's progression is worth at most
@@ -459,11 +538,13 @@ test('adjacent stated volumes produce adjacent plans', () => {
         assert.ok(total - prev < 12 * 4,
           distanceKey + ': ' + (v - 1) + '->' + v + 'km/week jumped the plan by ' +
           Math.round((total - prev) * 10) / 10 + 'km');
-        assert.ok(peak - prevPeak > -1.0,
+        const peakAllowance = slots > prevSlots ? Math.max(1.0, prevPeak * 0.10) : 1.0;
+        assert.ok(peak - prevPeak > -peakAllowance,
           distanceKey + ': ' + (v - 1) + '->' + v + 'km/week made the PEAK WEEK ' +
-          Math.round((prevPeak - peak) * 10) / 10 + 'km smaller');
+          Math.round((prevPeak - peak) * 10) / 10 + 'km smaller with ' +
+          prevSlots + ' -> ' + slots + ' prescribed quality slots');
       }
-      prev = total; prevHolds = holds; prevPeak = peak;
+      prev = total; prevHolds = holds; prevPeak = peak; prevSlots = slots;
     }
   }
 });
@@ -597,7 +678,12 @@ test('routing answers the question and does not invent an answer', () => {
   assert.equal(below.viable, false);
   assert.equal(below.classification, 'below_viable');
   assert.equal(below.shortfallKm, Math.round((below.minStartKm - 12) * 10) / 10);
-  assert.equal(below.peakLongKm, 18);
+  /* THE PATHWAY'S OWN LOCKED PEAK LONG RUN, not MIN_PEAK_LONG_KM. For the half
+     and the marathon the entry boundary is the pathway's entry week and what it
+     reports back is the pathway's destination -- 16km for the New Half, which
+     is the figure HQ locked. minViableStartKm() and MIN_PEAK_LONG_KM still own
+     this answer for 5K and 10K, which have no dedicated pathway. */
+  assert.equal(below.peakLongKm, 16);
   assert.ok(!('plan' in below) && !('weeks' in below) && !('sessions' in below),
     'the boundary must not return a fabricated programme');
   const above = a.raceProgrammeViability('half', 45, 12);
@@ -637,7 +723,7 @@ test('D-7 eliminated the week-one overshoot class inside the race population', (
         const c = ac({ distanceKey, volume, weeks, scheduleKey: 'd5' });
         if (c.routed) continue;
         checkCase(c).forEach(f => {
-          if (f.code !== 'week_one_exceeds_stated_volume') return;
+          if (f.code !== 'week_one_exceeds_entry_capacity') return;
           total++;
           if (weeks <= 6) shortBlock++;
         });
@@ -648,7 +734,7 @@ test('D-7 eliminated the week-one overshoot class inside the race population', (
     total + ' week-one overshoots survive in the race population; D-7 should have removed them');
   assert.equal(shortBlock, 0);
   const m = matrix();
-  assert.equal(m.tallyRace.week_one_exceeds_stated_volume || 0, 0);
+  assert.equal(m.tallyRace.week_one_exceeds_entry_capacity || 0, 0);
 });
 
 test('no week anywhere carries volume without a named cause', () => {
@@ -697,7 +783,11 @@ test('the on-ramp needs no growth rate, because it has both endpoints', () => {
   assert.equal(arc.hasGoalEffort, false);
   assert.equal(arc.taper, 0);
 
-  const p = a.athletePathway('half', 20, 30);
+  /* BELOW THE NEW HALF'S LOCKED ENTRY WEEK OF 15km. 20km/week used to sit under
+     minViableStartKm() and route to an on-ramp; under the pathway entry it
+     reaches the standard and gets the programme, so the on-ramp route is
+     exercised from where it now actually begins. */
+  const p = a.athletePathway('half', 14, 30);
   assert.equal(p.route, 'on_ramp_then_race');
   assert.ok(p.impliedWeeklyGrowth > 1, 'the rate is reported');
   assert.equal(p.growthGated, false, 'and explicitly not ruled on');
@@ -706,9 +796,10 @@ test('the on-ramp needs no growth rate, because it has both endpoints', () => {
   /* The visible consequence of not having a rate: an on-ramp with almost no
      time implies an absurd growth, and S4 reports the absurdity rather than
      silently accepting or silently refusing it. */
-  const squeezed = a.athletePathway('half', 20, 16);
+  const squeezed = a.athletePathway('half', 14, 16);
   assert.ok(squeezed.impliedWeeklyGrowth > 2,
-    'a two-week on-ramp to 41.5km implies ' + squeezed.impliedWeeklyGrowth);
+    'a two-week on-ramp to ' + squeezed.onRampToKm + 'km implies ' +
+    squeezed.impliedWeeklyGrowth);
   assert.equal(squeezed.growthGated, false);
 });
 
@@ -743,7 +834,9 @@ test('below the on-ramp floor the route runs through foundation', () => {
 
 test('with no room for an on-ramp the refusal is structural, not a guess', () => {
   const a = require('./audit/planAudit.js').app();
-  const p = a.athletePathway('full', 20, 4);
+  /* Below the New Marathon's locked entry week of 20km, with no room to on-ramp
+     to it -- which is the structural refusal this test is about. */
+  const p = a.athletePathway('full', 10, 4);
   assert.equal(p.route, 'insufficient_time');
   assert.equal(p.impliedWeeklyGrowth, null,
     'no rate is needed to know there is no time for an on-ramp at all');
@@ -781,7 +874,9 @@ test('every on-ramp now arrives, and none fails quietly', () => {
 });
 
 test('an on-ramp is easy running around a long run, and reaches its target', () => {
-  const c = auditOnRamp({ distanceKey: 'half', volume: 20, weeks: 30, scheduleKey: 'd5' });
+  /* Between the on-ramp floor and the New Half's locked 15km entry week --
+     which is where an on-ramp now lives. */
+  const c = auditOnRamp({ distanceKey: 'half', volume: 14, weeks: 30, scheduleKey: 'd5' });
   assert.equal(c.pathway.route, 'on_ramp_then_race');
   assert.equal(c.noQuality, true);
   assert.equal(c.invariantFailures.length, 0);
@@ -899,7 +994,7 @@ test('every foundation block the engine builds is sound', () => {
 
 test('every athlete in the matrix has exactly one route, and it is built or explained', () => {
   const m = foundations();
-  assert.equal(m.race + m.onramp + m.built + m.insufficient, 2350);
+  assert.equal(m.race + m.onramp + m.built + m.insufficient, 3290);
   assert.ok(m.insufficient > 0 && m.built > 0 && m.onramp > 0 && m.race > 0);
 });
 
@@ -1111,7 +1206,7 @@ test('THE IN-RACE RATCHET — asserted flat at zero, not against a baseline', ()
    'allocator_revision_undeclared', 'deliberate_reduction_unnamed',
    'floor_excess_unnamed', 'week_has_no_volume_accounting',
    'week_overshoots_target', 'week_undershoots_target',
-   'long_run_implausible_for_distance', 'week_one_exceeds_stated_volume',
+   'long_run_implausible_for_distance', 'week_one_exceeds_entry_capacity',
    /* S2-A and S6-A close two more, and they join the flat-zero list rather
       than the drifting record. */
    'taper_week_increases_volume', 'week_overshoots_target_declared'
@@ -1569,11 +1664,21 @@ test('the calibration waits for the safety floor rather than being abandoned', (
     'it is placed in a week of ' + cal[0].volume + 'km');
   assert.equal(cal[0].isCutback, false, 'not in a cutback week');
   assert.equal(!!cal[0].isCheckpoint, false, 'not in a week that already tests');
-  /* THE FIRST such week, not merely some such week. */
+  /* THE FIRST such week, and never later than one week after it.
+     WHY NOT EXACTLY THE FIRST. The placement is decided from the sessions the
+     week is known to contain -- its long run, its supporting runs on the days
+     it will run on, and its fitted tempo structure -- because the decision has
+     to be taken before the quality family is chosen, and the family is what a
+     calibration week changes. That estimate is a shade under the week's own
+     solve, so it can be one week conservative. It is never EARLY, which is the
+     safe direction for a maximal field test: the athlete is never given one
+     below the safety floor. It used to read the RAMP's volume instead, which a
+     bottom-up block does not use at all -- five weeks late on this case, and
+     every session in between prescribed against an estimated threshold. */
   const first = blk.weeks.filter(w => w.volume >= a.CALIBRATION_MIN_WEEKLY_KM &&
                                       !w.isCutback && !w.isCheckpoint &&
                                       !w.isTaper && !w.isRace)[0];
-  assert.equal(cal[0].week, first.week,
+  assert.ok(cal[0].week >= first.week && cal[0].week <= first.week + 1,
     'placed in week ' + cal[0].week + ', first opportunity was week ' + first.week);
 
   /* AND WITHOUT THE DEFERRAL IT IS NOT PLACED AT ALL -- the flag is what the
@@ -1588,7 +1693,9 @@ test('the deferral is offered for the floor alone, never for the other refusals'
   const reason = o => a.calibrationEligibility(Object.assign({}, ctx, o)).reason;
   assert.equal(reason({}), 'insufficient_base');
   assert.equal(reason({ healthConsent: false }), 'no_health_consent');
-  assert.equal(reason({ lthr: 168, currentVolume: 45 }), 'lthr_known');
+  assert.equal(reason({ lthr: 168, lthrSource: 'calibration', currentVolume: 45 }), 'lthr_known');
+  /* AN ESTIMATE IS NOT A MEASUREMENT, and it does not suppress the offer. */
+  assert.equal(reason({ lthr: 168, currentVolume: 45 }), 'eligible');
   assert.equal(a.calibrationEligibility(Object.assign({}, ctx, { currentVolume: 45 })).needed, true);
 });
 

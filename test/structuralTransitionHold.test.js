@@ -43,6 +43,26 @@ const devWeeks = blk => blk.weeks.filter(w => !w.isRace);
 const runDays = w => { const b = w.bottomUp || {};
   return (b.countedSupportDays || 0) + (b.qSlots || 0) + (w.longTarget > 0 ? 1 : 0); };
 
+/* ---- THE ATHLETE THE POPULATION IS NOW MADE OF ----
+   This walked the domain by typed weekly volume alone. Destination-led
+   construction removed that authority, so every one of those blocks now opens at
+   its pathway's entry week AND its pathway's entry day count -- identical
+   frequency across the whole sweep, and therefore no frequency ever arriving.
+   Structure is still earned exactly as it was; what earns it is the athlete's
+   own demonstrated training, so the population is written as demonstrated weeks
+   rather than typed numbers. Each athlete arrives running on TWO days, which is
+   what gives the block a frequency to develop and is the case these tests are
+   about. Nothing about the hold, the arrival or the earned workload changes. */
+function history(a, weeklyKm, days){
+  const t = a.todayStr(), m = a.addDays(t, -a.isoWeekday(t)), s = [];
+  const per = weeklyKm / days;
+  for (let w = 1; w <= 20; w++)
+    for (let d = 0; d < days; d++)
+      s.push({ date: a.addDays(m, -7 * w + d * 3), completed: true,
+               actualKm: per, plannedKm: per, type: d === days - 1 ? 'long' : 'easy',
+               actual: { km: per, rpe: 4, pace: 360, hr: 138 }, feel: 'good' });
+  return s;
+}
 /* Every marathon block the valid domain can produce, walked once. */
 function eachBlock(fn){
   const a = app();
@@ -50,6 +70,7 @@ function eachBlock(fn){
   [45, 50, 60, 70, 80, 100, 120].forEach(x => vols.push(x));
   vols.forEach(v => [4, 8, 12, 16, 24].forEach(n => [3, 5].forEach(d => {
     a.state = a.makeDefaultState();
+    a.state.athlete = { sessions: history(a, v, 2) };
     fn(block(a, v, n, d), v, n, d);
   })));
 }
@@ -184,13 +205,31 @@ test('the progression index advances by at most one step a week, ever', () => {
 
 test('a held week costs a step and the block ends lower, rather than repaying it', () => {
   const a = app();
+  /* The same athlete the population is made of -- demonstrated training on two
+     days, which is what gives the block a structure to arrive at and therefore
+     a hold to pay for. Without it the block opens at the pathway's own day
+     count and nothing ever arrives. */
+  a.state.athlete = { sessions: history(a, 15, 2) };
   const blk = block(a, 15, 12, 5);
   const ws = devWeeks(blk);
-  const holds = ws.filter(w => (w.bottomUp || {}).heldAtEarnedWorkload).length;
-  assert.ok(holds > 0, 'this case is chosen because it holds');
-  const last = ws.filter(w => w.bottomUp && w.bottomUp.step != null).pop();
-  assert.ok(last.bottomUp.step <= blk.weeks[0].bottomUp.step + ws.length - 1 - holds,
-    'the block reached step ' + last.bottomUp.step + ' after ' + holds + ' holds');
+  /* ---- WHICH HOLDS COST A STEP, AND WHICH DO NOT ----
+     A structural arrival re-solves the week at the athlete's already-earned
+     supporting workload -- heldAtEarnedWorkload -- so the week gains a session
+     without gaining a session's worth of load. That protection is free: the
+     long run keeps developing, because nothing arrived in IT.
+
+     The one arrival that costs a step is race-specific work entering the long
+     run, because that is a change to the session itself and the distance holds
+     while it lands. doseStepHeld is the block's own record of that, and it is
+     what this test is about: a step given up is never repaid. */
+  const arrivals = ws.filter(w => (w.bottomUp || {}).heldAtEarnedWorkload).length;
+  const holds = ws.filter(w => (w.bottomUp || {}).doseStepHeld).length;
+  assert.ok(arrivals > 0, 'this case is chosen because it holds');
+  const dev = ws.filter(w => !w.isTaper && w.bottomUp && w.bottomUp.step != null);
+  const last = dev[dev.length - 1];
+  assert.ok(last.bottomUp.step <= dev[0].bottomUp.step + dev.length - 1 - holds,
+    'the block reached step ' + last.bottomUp.step + ' after ' + holds +
+    ' dose holds across ' + dev.length + ' developing weeks');
 });
 
 test('the rate is fixed at the block solve and never re-derived', () => {
@@ -219,15 +258,61 @@ test('a held week keeps approximately the workload the athlete had earned', () =
     dropped + ' of ' + n + ' held weeks cut the athlete by more than a tenth');
 });
 
-test('geometry may move the total, and the long run is what holds', () => {
+/* THE HOLD BELONGS TO THE SESSION THE ARRIVAL IS IN, and this used to assert
+   the opposite: that the long run stood still in the week a RUNNING DAY
+   arrived. That protection was withdrawn deliberately -- holding the long run
+   because an easy run was added spent long-run development on frequency
+   development, and it was two to three kilometres of the marathon's durability
+   exposure across every pathway. What replaces it is stricter, not looser: the
+   supporting work must still be held at the total the athlete had earned, so
+   the week gains a session without gaining a session's worth of load, and the
+   long run must still hold when the arrival is IN it. */
+test('a day arrives at the earned supporting workload, not on top of it', () => {
   const a = app();
+  /* The same athlete the population above is made of -- eight kilometres a week
+     across two days, demonstrated rather than typed, which is what gives the
+     block a third running day to arrive at. */
+  a.state.athlete = { sessions: history(a, 8, 2) };
   const blk = block(a, 8, 12, 5);
   const ws = devWeeks(blk);
-  const i = ws.findIndex(w => (w.bottomUp || {}).heldAtEarnedWorkload);
+  const i = ws.findIndex(w => (w.bottomUp || {}).heldAtEarnedWorkload &&
+                              /running_day/.test((w.bottomUp || {}).structureArrived || ''));
   assert.ok(i > 0, 'the 8km/12-week case holds at its third running day');
-  assert.equal(ws[i].longTarget, ws[i - 1].longTarget,
-    'the long run does not step in the week the day arrives');
   assert.ok(runDays(ws[i]) > runDays(ws[i - 1]), 'and the day really did arrive');
+  const b = ws[i].bottomUp, p = ws[i - 1].bottomUp;
+  const earned = p.countedSupportDays * p.supportKm;
+  const now    = b.countedSupportDays * b.supportKm;
+  /* The same aerobic work, written across one more run. EASY_MIN_KM can lift
+     it where the extra run cannot legally be smaller, which is geometry and is
+     bounded rather than hidden. */
+  assert.ok(now <= earned + a.EASY_MIN_KM + 1e-9,
+    'the supporting workload grew by ' + Math.round((now - earned) * 10) / 10 +
+    'km in the week a day arrived');
+  /* And the long run is free to take its ordinary step -- one step, never two. */
+  assert.ok(ws[i].longTarget >= ws[i - 1].longTarget - 1e-9,
+    'the long run went backwards for a day arriving');
+  assert.ok(ws[i].longTarget <= ws[i - 1].longTarget * 1.1 + 1,
+    'the long run took more than its ordinary step');
+});
+
+test('race-specific work entering the long run still holds the long run', () => {
+  let n = 0, stepped = 0;
+  eachBlock(blk => {
+    const ws = devWeeks(blk);
+    ws.forEach((w, i) => {
+      const b = w.bottomUp || {};
+      if (i === 0 || !/race_specific/.test(b.structureArrived || '')) return;
+      if (!b.doseStepHeld) return;
+      /* Against the previous DEVELOPING week: a cutback deliberately suppresses
+         its long run, so rebounding above it is the cutback ending, not a step. */
+      if (ws[i - 1].isCutback || ws[i - 1].isTaper) return;
+      n++;
+      if (w.longTarget > ws[i - 1].longTarget + 0.05) stepped++;
+    });
+  });
+  assert.ok(n > 0, 'no race-specific arrival held anywhere in the population');
+  assert.equal(stepped, 0,
+    stepped + ' of ' + n + ' race-specific arrivals also stepped the long run');
 });
 
 /* ---------- 6. WHAT MUST NOT TRIGGER IT ---------- */

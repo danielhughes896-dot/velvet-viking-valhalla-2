@@ -54,10 +54,18 @@ function dayOf(a, archetype) {
 function anyDayOf(archetype) {
   for (const weeks of [14, 15, 16, 18]) {
     const a = app({ weeks });
-    const d = a.state.days.filter(x => {
+    /* THE BIGGEST INSTANCE, not the first one generated. The very next test
+       asserts that a SHORT long run is aerobic maintenance and deliberately
+       carries no tactical plan, so taking whichever long run the block happens
+       to write first makes these two tests contradict each other the moment the
+       block's early weeks get smaller -- which they did when week one became the
+       pathway's locked entry. The archetype is the subject; the instance that
+       proves it is eligible is a full-sized one. */
+    const all = a.state.days.filter(x => {
       const p = a.prescriptionOf(x);
       return p && p.archetype === archetype;
-    })[0];
+    });
+    const d = all.sort((x, y) => (y.km || 0) - (x.km || 0))[0];
     if (d) return { a, d };
   }
   assert.fail('no generated marathon block contains a ' + archetype + ' session');

@@ -330,7 +330,15 @@ test('SAFETY: the estimate is a range or nothing, never a prophecy', () => {
 });
 
 test('SAFETY: the marathon keeps its volume qualification', () => {
-  const a = racingAthlete({ volume: 30 });
+  /* ---- AN ATHLETE WHO GENUINELY HAS NOT DONE THE VOLUME ----
+     This asked it of a half-marathon athlete who typed 30km/week, which used to
+     produce a block whose absorbed volume sat under the marathon qualification.
+     It no longer does: the half opens at its pathway's entry week and develops
+     to its pathway's destination whatever the athlete typed, so this athlete
+     absorbs 51km/week and the qualification is correctly met. The refusal being
+     tested belongs to somebody who has not done the running -- a 10K athlete,
+     who absorbs 34 -- and the rule, the threshold and the message are unchanged. */
+  const a = racingAthlete({ volume: 30, distanceKey: '10k' });
   logPast(a);
   raceHappened(a);
   a.recordRaceOutcome('raced');

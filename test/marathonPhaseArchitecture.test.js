@@ -38,9 +38,14 @@ test('the marathon wind-down is D-14, not the D-20 it was', () => {
   const p = phases(a, 15, 'full');
   const windDownWeeks = p.Taper + p.Final;
   assert.strictEqual(windDownWeeks, 2, 'two calendar weeks of wind-down');
-  // The half marathon, untouched, still spends three.
+  /* THE HALF NOW SPENDS TWO CALENDAR WEEKS TOO, and for a different reason.
+     Its taper is anchored to the EVENT at D-10 rather than to a week boundary,
+     so the first of those two weeks is genuinely split -- the block's last
+     loading days, then the first taper days -- and the phase count cannot say
+     so on its own. What is asserted here is that neither distance spends a
+     third calendar week winding down. */
   const h = phases(a, 15, 'half');
-  assert.strictEqual(h.Taper + h.Final, 3);
+  assert.strictEqual(h.Taper + h.Final, 2);
 });
 
 test('marathon phases are counts, so a longer plan does not grow Peak', () => {
@@ -55,39 +60,64 @@ test('marathon phases are counts, so a longer plan does not grow Peak', () => {
   assert.strictEqual(phases(a, 24, 'full').Base, 13);
 });
 
-test('ten weeks and below carry no dedicated Base phase', () => {
+/* ---- HQ'S PHASE GEOMETRY, WHICH IS THE RUNWAY'S AND NOT THE ATHLETE'S ----
+   The three tests below asserted the compression hierarchy this architecture
+   used to derive its phase lengths from: Base surrendered first, Build held at
+   six until Base was gone, ten weeks and below carried no Base at all. HQ has
+   since supplied the geometry directly, as a table indexed by runway, and it
+   makes different choices -- every admitted runway carries a real Base, and
+   Build compresses before Base is exhausted. The property being asserted is the
+   same one: the phase lengths are a published, fixed function of the runway.
+   What changed is whose function it is. */
+const HQ_GEOMETRY = { 10:[2,4,2], 11:[2,5,2], 12:[3,5,2], 13:[3,5,3], 14:[3,6,3], 15:[4,6,3] };
+
+test('every admitted runway carries a real Base phase', () => {
   const a = app();
-  [4, 6, 8, 9, 10].forEach(N => {
-    assert.strictEqual(phases(a, N, 'full').Base, 0, N + ' weeks must have no Base');
+  Object.keys(HQ_GEOMETRY).forEach(N => {
+    assert.strictEqual(phases(a, +N, 'full').Base, HQ_GEOMETRY[N][0],
+      N + ' weeks must carry HQ\'s Base');
+    assert.ok(phases(a, +N, 'full').Base > 0,
+      N + ' weeks must have a Base to prepare the athlete to Build');
   });
-  // eleven is the first runway that can afford one... and still cannot.
-  assert.strictEqual(phases(a, 11, 'full').Base, 0);
-  assert.strictEqual(phases(a, 12, 'full').Base, 1);
 });
 
-test('compression surrenders Base first and protects Peak and taper', () => {
+test('the geometry is HQ\'s table, and the taper is protected throughout', () => {
   const a = app();
-  const base = [], peak = [], wind = [];
-  for (let N = 11; N <= 15; N++){
+  const base = [], build = [], peak = [], wind = [];
+  for (let N = 10; N <= 15; N++){
     const p = phases(a, N, 'full');
-    base.push(p.Base); peak.push(p.Peak); wind.push(p.Taper + p.Final);
+    base.push(p.Base); build.push(p.Build); peak.push(p.Peak); wind.push(p.Taper + p.Final);
   }
-  assert.deepStrictEqual(base.join(','), '0,1,2,3,4', 'Base absorbs the shortage');
-  assert.deepStrictEqual(peak.join(','), '3,3,3,3,3', 'Peak is protected');
-  assert.deepStrictEqual(wind.join(','), '2,2,2,2,2', 'the taper is protected');
+  assert.strictEqual(base.join(','),  '2,2,3,3,3,4', 'Base');
+  assert.strictEqual(build.join(','), '4,5,5,5,6,6', 'Build');
+  assert.strictEqual(peak.join(','),  '2,2,2,3,3,3', 'Peak');
+  assert.strictEqual(wind.join(','),  '2,2,2,2,2,2', 'the two-week taper is protected on every runway');
+  /* AND EVERY ROW SUMS TO ITS OWN RUNWAY. A geometry that loses or invents a
+     week is not a geometry. */
+  for (let N = 10; N <= 15; N++){
+    const p = phases(a, N, 'full');
+    assert.strictEqual(p.Base + p.Build + p.Peak + p.Taper + p.Final, N, N + ' weeks');
+  }
 });
 
-test('Build only compresses once Base is gone', () => {
+test('and the half reads the same table as the marathon', () => {
+  /* HQ made the geometry a property of the runway rather than of the athlete or
+     the event, so the two dedicated architectures cannot disagree about it. */
   const a = app();
-  for (let N = 11; N <= 15; N++) assert.strictEqual(phases(a, N, 'full').Build, 6);
-  assert.strictEqual(phases(a, 10, 'full').Build, 6);
-  assert.strictEqual(phases(a, 9, 'full').Build, 5);
-  assert.strictEqual(phases(a, 8, 'full').Build, 4);
+  for (let N = 10; N <= 15; N++)
+    ['novice', 'experienced', 'advanced'].forEach(e =>
+      assert.strictEqual(JSON.stringify(a.raceGoalPhaseAllocation('half', N, e)),
+                         JSON.stringify(a.raceGoalPhaseAllocation('full', N, e)),
+                         N + ' weeks, ' + e + ': the two distances must allocate alike'));
 });
 
 test('no other distance and no other purpose changes', () => {
+  /* THE HALF IS NO LONGER ONE OF THEM. It states its own phase counts now --
+     3 Foundation / 6 Build / 4 Peak and an event-anchored wind-down -- and its
+     own architecture test covers them. 5K, 10K and Ultra keep the arc they
+     always had, byte for byte, until their own audits say otherwise. */
   const a = app();
-  ['5k','10k','half','ultra'].forEach(d => {
+  ['5k','10k','ultra'].forEach(d => {
     for (let N = 4; N <= 30; N++){
       const withKey = phases(a, N, d), without = phases(a, N, undefined);
       assert.strictEqual(JSON.stringify(withKey), JSON.stringify(without),
@@ -101,13 +131,19 @@ test('no other distance and no other purpose changes', () => {
   }
 });
 
-test('surplus of three weeks or less is absorbed, not made into a block', () => {
+test('surplus of three weeks or less spawns no block, and stretches nothing either', () => {
+  /* THE SURPLUS USED TO GO INTO BASE, and HQ ruled that out: a sixteen,
+     seventeen or eighteen week Race Goal is not a Race Goal with a longer Base,
+     it is a Race Goal that has been stretched. Both halves of the old sentence
+     still hold -- a surplus shorter than a block cannot become one -- and the
+     race block now stays fifteen weeks whatever sits in front of it. */
   const a = app();
   [16, 17, 18].forEach(W => {
     const r = a.marathonRunwayPlan(W, 40);
     assert.strictEqual(r.preparatory, null, W + ' weeks must not spawn a stub block');
-    assert.strictEqual(r.absorbWeeks, W - 15);
-    assert.strictEqual(r.raceWeeks, W);
+    assert.strictEqual(r.absorbWeeks, 0, W + ' weeks must absorb nothing');
+    assert.strictEqual(r.raceWeeks, 15, W + ' weeks must still build a 15-week block');
+    assert.strictEqual(r.startInWeeks, W - 15, W + ' weeks must say when Race Goal opens');
   });
 });
 
