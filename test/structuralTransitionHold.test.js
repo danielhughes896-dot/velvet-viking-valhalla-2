@@ -205,13 +205,31 @@ test('the progression index advances by at most one step a week, ever', () => {
 
 test('a held week costs a step and the block ends lower, rather than repaying it', () => {
   const a = app();
+  /* The same athlete the population is made of -- demonstrated training on two
+     days, which is what gives the block a structure to arrive at and therefore
+     a hold to pay for. Without it the block opens at the pathway's own day
+     count and nothing ever arrives. */
+  a.state.athlete = { sessions: history(a, 15, 2) };
   const blk = block(a, 15, 12, 5);
   const ws = devWeeks(blk);
-  const holds = ws.filter(w => (w.bottomUp || {}).heldAtEarnedWorkload).length;
-  assert.ok(holds > 0, 'this case is chosen because it holds');
-  const last = ws.filter(w => w.bottomUp && w.bottomUp.step != null).pop();
-  assert.ok(last.bottomUp.step <= blk.weeks[0].bottomUp.step + ws.length - 1 - holds,
-    'the block reached step ' + last.bottomUp.step + ' after ' + holds + ' holds');
+  /* ---- WHICH HOLDS COST A STEP, AND WHICH DO NOT ----
+     A structural arrival re-solves the week at the athlete's already-earned
+     supporting workload -- heldAtEarnedWorkload -- so the week gains a session
+     without gaining a session's worth of load. That protection is free: the
+     long run keeps developing, because nothing arrived in IT.
+
+     The one arrival that costs a step is race-specific work entering the long
+     run, because that is a change to the session itself and the distance holds
+     while it lands. doseStepHeld is the block's own record of that, and it is
+     what this test is about: a step given up is never repaid. */
+  const arrivals = ws.filter(w => (w.bottomUp || {}).heldAtEarnedWorkload).length;
+  const holds = ws.filter(w => (w.bottomUp || {}).doseStepHeld).length;
+  assert.ok(arrivals > 0, 'this case is chosen because it holds');
+  const dev = ws.filter(w => !w.isTaper && w.bottomUp && w.bottomUp.step != null);
+  const last = dev[dev.length - 1];
+  assert.ok(last.bottomUp.step <= dev[0].bottomUp.step + dev.length - 1 - holds,
+    'the block reached step ' + last.bottomUp.step + ' after ' + holds +
+    ' dose holds across ' + dev.length + ' developing weeks');
 });
 
 test('the rate is fixed at the block solve and never re-derived', () => {

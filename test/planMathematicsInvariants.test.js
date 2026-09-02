@@ -65,7 +65,7 @@ test('the audit matrix covers the builder\'s whole supported input space', () =>
   assert.deepEqual(DISTANCES, ['5k', '10k', 'half', 'full', 'ultra']);
 
   const m = matrix();
-  assert.equal(m.plans, 2350);
+  assert.equal(m.plans, 3290);
   assert.ok(m.sessions > 200000, 'the matrix generated ' + m.sessions + ' sessions');
 });
 
@@ -354,8 +354,19 @@ test('every kilometre of every week has a named cause', () => {
   const f1 = fixed.weeks[0].accounting;
   assert.equal(f1.floorExcess, 0,
     'a 12km/week athlete is no longer over-prescribed by the floors');
-  assert.ok(fixed.weeks[0].actualVolume <= fixed.weeks[0].targetVolume,
-    'and the week they get is no bigger than the week they were asked for');
+  /* THE SECOND HALF OF THIS COMPARED THE WEEK AGAINST THE TYPED FIGURE, and
+     destination-led construction removed that authority: a Race Goal block
+     opens at its pathway's entry week, so a 12km/week half athlete is opened at
+     the New Half's 15km and the comparison asks the week to be no bigger than a
+     number the engine is ruled not to read. What the accounting identity
+     actually claims is that the week reconciles and that nothing in it is
+     unexplained -- floorExcess is zero above, and the opening week is the
+     pathway's own entry rather than a residual. */
+  const entry = (fixed.weeks[0].bottomUp || {}).entryKm;
+  assert.ok(entry > 0, 'the opening week declares what it opened from');
+  assert.ok(Math.abs(fixed.weeks[0].actualVolume - entry) <= 1.0,
+    'and the week they get is the entry week the pathway states (' +
+    fixed.weeks[0].actualVolume + ' against ' + entry + ')');
 
   const c = auditCase({ distanceKey: '5k', volume: 1, weeks: 12, scheduleKey: 'd5' });
   const w1 = c.weeks[0].accounting;
@@ -983,7 +994,7 @@ test('every foundation block the engine builds is sound', () => {
 
 test('every athlete in the matrix has exactly one route, and it is built or explained', () => {
   const m = foundations();
-  assert.equal(m.race + m.onramp + m.built + m.insufficient, 2350);
+  assert.equal(m.race + m.onramp + m.built + m.insufficient, 3290);
   assert.ok(m.insufficient > 0 && m.built > 0 && m.onramp > 0 && m.race > 0);
 });
 

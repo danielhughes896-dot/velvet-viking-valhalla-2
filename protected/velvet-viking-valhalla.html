@@ -9836,19 +9836,27 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         longTarget >= GOAL_FINISH_MIN_LONG_KM &&
         w >= raceGoalSpecificityFromWeek(distKey, blockExp, arc.phaseCounts);
     }
-    /* DURABILITY DOMINANT MEANS WHAT IT SAYS. The first peak exposure is the
-       longest run the athlete will do, and asking for goal pace at the end of
-       it is asking for the two most expensive things at once. It keeps its
-       distance and gives up its specific work; the second exposure, which is
-       shorter, is where the marathon-specific rehearsal lives. */
-    if (mPeakFirst) hasGoalSegment = false;
-    /* DURABILITY DOMINANT MEANS THE SAME THING FOR THE HALF. The block's
-       longest run is not also the week it rehearses race pace. */
+    /* ---- DURABILITY DOMINANT MEANS WHAT IT SAYS, AND IT FOLLOWED THE RUN ----
+       The block's longest run keeps its distance and gives up its specific
+       work: asking for goal pace at the end of the longest run an athlete will
+       do is asking for the two most expensive things at once. The exposure
+       beside it, which is shorter, is where the race-specific rehearsal lives.
+
+       THIS WAS PINNED TO THE FIRST PEAK WEEK, and HQ moved the longest run to
+       the LAST. Left where it was, the suppression protected a week that is no
+       longer the longest and the specificity landed on the one that is:
+       measured, a New marathoner's week thirteen came out as a 26km long run
+       with a 13km goal-pace segment inside it -- both demands at once, in the
+       last session before the taper, which is exactly what this rule exists to
+       prevent. The half was already correct because its own marker moved with
+       the run; the marathon's now does too. */
+    if (mPeakLast) hasGoalSegment = false;
     if (hPeakFirst) hasGoalSegment = false;
     var goalSegKm = hasGoalSegment ? round1(clamp(longTarget*(0.2+0.18*pos),3,longTarget*0.5)) : 0;
-    /* And the second exposure carries MORE of it, because that is what makes it
-       the specific one rather than merely the smaller one. */
-    if (mPeakLast && hasGoalSegment)
+    /* AND THE SPECIFIC EXPOSURE CARRIES MORE OF IT, because that is what makes
+       it the specific one rather than merely the shorter one. It is the first
+       Peak week now, for the same reason the suppression is the last. */
+    if (mPeakFirst && hasGoalSegment)
       goalSegKm = round1(clamp(goalSegKm * PEAK_SECOND_SPECIFICITY_GAIN, 3, longTarget * 0.5));
     /* THE FRACTION, CARRIED. The day's distance is not final here: smart
        rounding and the weekly cap both still get a say. Keeping the PROPORTION

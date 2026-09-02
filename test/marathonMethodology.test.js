@@ -199,23 +199,36 @@ test('the two peak exposures are different sessions', () => {
   const last  = alloc.base + alloc.build + alloc.peak;
   const longOf = w => (days.filter(d => d.week === w && d.type === 'long')[0] || { km:0 }).km;
   const segOf  = w => blk.weeks[w - 1].goalSegKm || 0;
-  assert.ok(longOf(first) > longOf(last),
-    'Peak 1 ' + longOf(first) + 'km must be longer than Peak 2 ' + longOf(last) + 'km');
-  assert.strictEqual(segOf(first), 0, 'Peak 1 is durability dominant -- no goal-pace finish');
-  assert.ok(segOf(last) > 0, 'Peak 2 is the specific one');
+  /* THE SEPARATION SURVIVES THE MOVE, AND IT IS THE POINT OF THE TEST. HQ put
+     the longest run in the final Peak week; the two demands must still not land
+     in the same session, so the roles swapped rather than merged. The last week
+     is now the durability-dominant one and the first carries the specific work.
+
+     Left unmoved, the suppression protected a week that is no longer the
+     longest: measured, a New marathoner's week thirteen came out as a 26km long
+     run with a 13km goal-pace segment inside it. */
+  assert.ok(longOf(last) > longOf(first),
+    'the last Peak week ' + longOf(last) + 'km must be the longest, against ' +
+    longOf(first) + 'km');
+  assert.strictEqual(segOf(last), 0,
+    'the longest run is durability dominant -- no goal-pace finish');
+  assert.ok(segOf(first) > 0, 'the earlier exposure is the specific one');
   assert.ok(blk.weeks[first].isCutback, 'and absorption sits between them');
-  // the final exposure is never both the longest and the most specific
+  // the longest exposure is never also the most specific
   assert.ok(!(longOf(last) >= longOf(first) && segOf(last) >= segOf(first)));
 });
 
-test('Peak 1 is the longest run of the whole block', () => {
+test('the LAST Peak week is the longest run of the whole block', () => {
+  /* HQ: the longest appropriate long run occurs within the final seven days of
+     Peak, immediately before taper begins. It used to be the FIRST Peak week,
+     two to three weeks earlier than the event asks for. */
   const { a, days } = plan(55, 15, 'full');
   const alloc = a.marathonPhaseAllocation(15);
-  const first = alloc.base + alloc.build + 1;
-  const longs = days.filter(d => d.type === 'long' && d.km > 0);
+  const last = alloc.base + alloc.build + alloc.peak;
+  const longs = days.filter(d => d.type === 'long' && d.km > 0 && d.week <= last);
   const max = Math.max.apply(null, longs.map(d => d.km));
-  const p1 = (days.filter(d => d.week === first && d.type === 'long')[0] || {}).km;
-  assert.strictEqual(p1, max);
+  const pLast = (days.filter(d => d.week === last && d.type === 'long')[0] || {}).km;
+  assert.strictEqual(pLast, max, 'the final Peak week carries the longest run');
 });
 
 test('no other distance gets the two-exposure treatment', () => {
