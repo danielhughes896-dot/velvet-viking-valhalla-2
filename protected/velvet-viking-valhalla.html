@@ -4561,6 +4561,28 @@ function raceGoalEntry(currentVolumeKm){
    now holds. */
 function raceProgrammeViability(distKey, currentVolume, planWeeks){
   if (usesBottomUpArc('race', distKey)){
+    /* ---- IS THERE A RACE GOAL PROGRAMME TO BUILD AT ALL? ----
+       Asked before anything about the athlete, because runway is not a property
+       of them. HQ admits Half and Marathon Race Goal from ten weeks; below that
+       there is no credible programme to route anybody into and the answer is
+       Aerobic Base for the time that remains. Above fifteen the programme does
+       not stretch, and the athlete belongs on whatever serves them now until
+       Race Goal opens -- raceGoalAdmission() carries both decisions and the
+       count of weeks until the window does. */
+    var adm = raceGoalAdmission(distKey, planWeeks, currentVolume);
+    if (!adm.admitted && adm.decision === 'too_short')
+      return { known:true, viable:false, classification:'runway_too_short',
+               authority:'race_goal_admission', admission:adm,
+               weeksToRace:adm.weeksToRace, minWeeks:adm.minWeeks,
+               recommend:adm.recommend, reason:adm.reason,
+               raceKm: (DISTANCE_PROFILES[distKey]||{}).raceKm || null };
+    if (!adm.admitted && adm.decision === 'too_far')
+      return { known:true, viable:false, classification:'runway_too_long',
+               authority:'race_goal_admission', admission:adm,
+               weeksToRace:adm.weeksToRace, maxWeeks:adm.maxWeeks,
+               startInWeeks:adm.startInWeeks, recommend:adm.recommend,
+               reason:adm.reason,
+               raceKm: (DISTANCE_PROFILES[distKey]||{}).raceKm || null };
     /* THE ENTRY IS THE LOWEST PATHWAY'S, and that is what "new" means: the
        lowest experience pathway for an athlete READY TO BEGIN this dedicated
        preparation. Whether they belong on the novice route or a higher one is
@@ -6370,12 +6392,21 @@ function usesMarathonArc(purpose, distKey){
    success criteria, and nothing here reaches into what it prescribes. The
    marathon's only claims on it are that it may RECOMMEND which one, and that
    it reads the evidence afterwards. */
-var MARATHON_SURPLUS_ABSORB_MAX = 3;
-/* Three weeks, and the number is a statement rather than a tuning knob: a
-   development block shorter than four weeks cannot express its own arc or its
-   own success criterion, so offering one would be the disguised Marathon Base
-   this architecture exists to prevent. Base is the phase whose length is
-   genuinely elastic, so one to three surplus weeks go there instead. */
+/* ---- THE SHORTEST THING THAT IS A BLOCK AT ALL ----
+   Four weeks, and the number is a statement rather than a tuning knob: a
+   development block shorter than that cannot express its own arc or its own
+   success criterion.
+
+   THIS USED TO BE THE ABSORB CEILING, AND HQ RETIRED THAT. One to three surplus
+   weeks went into the race block's Base, on the reasoning that Base is the
+   phase whose length is genuinely elastic. HQ's architecture makes the phase
+   geometry a property of the runway and refuses to stretch Race Goal past
+   fifteen weeks, so those weeks can no longer go there. What the number now
+   says is the other half of the same sentence: below four weeks the surplus is
+   not long enough to be a block of its own either, and the honest answer is to
+   say so and let the athlete carry on with what they are doing until Race Goal
+   opens. */
+var MIN_DEVELOPMENT_BLOCK_WEEKS = 4;
 var MARATHON_PREP_BLOCK_MAX = 12;
 /* And the other end. A development block also has a length beyond which it
    stops developing and starts diluting -- the same argument that rules out a
@@ -6471,6 +6502,63 @@ function marathonPreparatoryPurpose(stateVolume, distKey){
    about when the marathon window opens. Pure: it takes the runway and the
    stated volume and reads athlete evidence, and it decides nothing about
    whether to act. */
+/* ---------- IS THERE A RACE GOAL PROGRAMME TO BUILD AT ALL? ----------
+   HQ's admission window, asked in one place so the builder, the router, the
+   coaching layers and the tests cannot disagree about it.
+
+     nine weeks or fewer   No Half or Marathon Race Goal. There is not enough
+                           runway for a credible methodology and compressing one
+                           into it would be pretending. Valhalla recommends
+                           Aerobic Base as the useful preparation for the time
+                           that remains -- which is NOT a claim that Aerobic Base
+                           can fully prepare the athlete for an imminent race,
+                           and the race date is carried so nothing downstream
+                           has to guess at it.
+
+     ten to fifteen weeks  Race Goal, on the phase geometry for that runway.
+
+     more than fifteen     Race Goal does not stretch. The athlete should be on
+                           whichever programme serves what they need NOW, and
+                           Race Goal opens at D-15. Which programme that is is a
+                           coaching decision made from their evidence, not an
+                           assumption that it is always Aerobic Base -- Speed &
+                           Threshold and Maintain & Protect have their own
+                           purposes and this must not quietly absorb them.
+
+   THE FIVE-K, TEN-K AND ULTRA DISTANCES ARE NOT ADMITTED OR REFUSED HERE. This
+   window is the Half's and the Marathon's; every other distance keeps the
+   routing it already had. */
+function raceGoalAdmission(distKey, weeksToRace, stateVolume){
+  var dk = (distKey === 'half') ? 'half' : (distKey === 'full') ? 'full' : null;
+  var W = Math.max(0, Math.round(weeksToRace || 0));
+  if (dk == null)
+    return { distanceKey: distKey, weeksToRace: W, admitted: true, decision: 'not_gated',
+             raceGoalWeeks: W, recommend: null, startInWeeks: null,
+             minWeeks: RACE_GOAL_MIN_WEEKS, maxWeeks: RACE_GOAL_MAX_WEEKS,
+             reason: 'distance_has_no_dedicated_window' };
+  if (W < RACE_GOAL_MIN_WEEKS)
+    return { distanceKey: dk, weeksToRace: W, admitted: false, decision: 'too_short',
+             raceGoalWeeks: null, recommend: 'aerobic_base', startInWeeks: null,
+             minWeeks: RACE_GOAL_MIN_WEEKS, maxWeeks: RACE_GOAL_MAX_WEEKS,
+             reason: 'runway_below_race_goal_minimum' };
+  if (W > RACE_GOAL_MAX_WEEKS){
+    var sel = null;
+    try { sel = marathonPreparatoryPurpose(stateVolume, dk); } catch(e){ sel = null; }
+    return { distanceKey: dk, weeksToRace: W, admitted: false, decision: 'too_far',
+             raceGoalWeeks: RACE_GOAL_MAX_WEEKS,
+             recommend: (sel && sel.purpose) || null,
+             recommendReason: (sel && sel.reason) || null,
+             /* When Race Goal opens, and how many weeks the athlete has before
+                it does. The caller owns the calendar; this owns the count. */
+             startInWeeks: W - RACE_GOAL_MAX_WEEKS,
+             minWeeks: RACE_GOAL_MIN_WEEKS, maxWeeks: RACE_GOAL_MAX_WEEKS,
+             reason: 'race_goal_opens_at_fifteen_weeks' };
+  }
+  return { distanceKey: dk, weeksToRace: W, admitted: true, decision: 'race_goal',
+           raceGoalWeeks: W, recommend: null, startInWeeks: 0,
+           minWeeks: RACE_GOAL_MIN_WEEKS, maxWeeks: RACE_GOAL_MAX_WEEKS,
+           reason: 'within_race_goal_window' };
+}
 function marathonRunwayPlan(weeksToRace, stateVolume, distKey){
   /* ---- AND THE HALF HAS THE SAME RUNWAY PROBLEM ----
      Its dedicated window is fifteen weeks and its destination stops moving
@@ -6496,13 +6584,27 @@ function marathonRunwayPlan(weeksToRace, stateVolume, distKey){
   if (W === D) return out;
   var surplus = W - D;
   out.surplus = surplus;
-  if (surplus <= MARATHON_SURPLUS_ABSORB_MAX){
-    out.absorbWeeks = surplus; out.raceWeeks = W; out.reason = 'surplus_absorbed_into_base';
+  /* ---- AND THE SURPLUS IS NO LONGER ABSORBED, AT ANY SIZE ----
+     One to three surplus weeks used to go into Base, on the reasoning that a
+     development block shorter than four weeks cannot express its own arc. HQ's
+     architecture rules that out: Race Goal does not stretch beyond fifteen
+     weeks, so a sixteen, seventeen or eighteen week block is not a Race Goal
+     with a longer Base -- it is a Race Goal that has been stretched. The
+     athlete spends the surplus on the programme that serves them now and Race
+     Goal opens at D-15. Where the surplus is too short to be a block of its
+     own, that is reported as its own reason rather than papered over by
+     lengthening the race block. */
+  var adm = raceGoalAdmission(dk, W, stateVolume);
+  out.admission = adm;
+  out.raceWeeks = D;
+  if (surplus < MIN_DEVELOPMENT_BLOCK_WEEKS){
+    out.reason = 'surplus_below_development_block';
+    out.startInWeeks = surplus;
     return out;
   }
   var sel = marathonPreparatoryPurpose(stateVolume, dk);
-  out.raceWeeks = D;
   out.selection = sel;
+  out.startInWeeks = surplus;
   if (!sel.purpose){
     /* Nothing to develop. Say so rather than manufacturing a block: the athlete
        simply starts the race block when the window opens. */
