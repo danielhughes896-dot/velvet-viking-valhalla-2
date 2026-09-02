@@ -222,4 +222,10 @@ if (require.main === module){
   console.log('');
   run(CANON_10, '10 weeks — the admission floor');
 }
-module.exports = { build, established, endOfBuild, CANON, CANON_10, HIGH, run };
+/* The pathway a canonical case belongs to, so the contract tests can ask what
+   its own standards are rather than restating them. */
+function PATHWAY_OF(c){
+  const a = build({ dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks, easyKm:3, longKm:5 }).a;
+  return a.raceGoalPathway(c.dist, c.exp);
+}
+module.exports = { build, established, endOfBuild, CANON, CANON_10, HIGH, run, PATHWAY_OF };

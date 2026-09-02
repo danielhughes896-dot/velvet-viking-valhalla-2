@@ -5080,11 +5080,29 @@ function shrinkTempoSpec(spec, target){
    there and 1 everywhere else, so no week outside a taper is sized differently
    than before -- only differently CHOSEN, and only when the rotation's own turn
    cannot be made legal. */
-function fitQualityStructure(pool, kind, phase, weekNum, pos, emphasis, rotation, hardCeil, prevSpec, shrinkFactor){
+function fitQualityStructure(pool, kind, phase, weekNum, pos, emphasis, rotation, hardCeil, prevSpec, shrinkFactor, holdToPrev){
   var candidates = pool[phase] || pool.Peak;
   var shrink = kind === 'interval' ? shrinkIntervalSpec : shrinkTempoSpec;
   var size   = kind === 'interval' ? intervalSessionKm  : tempoSessionKm;
   var factor = shrinkFactor != null ? shrinkFactor : 1;
+  /* ---- A TAPER DOES NOT INTRODUCE A SESSION THE ATHLETE HAS NEVER MET ----
+     HQ: no new intensity family may leak into taper. A taper reveals and
+     protects fitness already developed; it does not manufacture new fitness,
+     and a family the athlete is meeting for the first time nine days out is new
+     development however carefully its dose was reduced.
+
+     The rotation is free to pick any structure from the phase's pool, and in a
+     taper week it did: measured, a New marathoner met their first goal-pace
+     block in week fourteen of fifteen, and a New half athlete on a ten-week
+     runway met their first fartlek in the wind-down week. Neither had been
+     prescribed the family at any point in the block.
+
+     So a taper week holds the structure the last developing week actually did,
+     and the taper's own factor sizes it. Nothing else changes: the ceiling
+     still bounds it, the half's wind-down still carries its full dose because
+     its factor is one, and every non-taper week keeps the rotation it had. */
+  if (holdToPrev && prevSpec)
+    return shrink(copySpec(prevSpec), Math.min(size(prevSpec) * factor, hardCeil));
   var best = null;
   for (var i = 0; i < candidates.length; i++){
     var raw = candidates[(weekNum + (rotation || 0) + i) % candidates.length](pos, emphasis);
@@ -8594,6 +8612,9 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   // The previous week's quality sizes, so a taper week can be held at or below
   // them. Null until the first week has been built.
   var prevQKm = null, prevTKm = null, prevQSpec = null, prevTSpec = null;
+  /* WHICH FAMILY A SINGLE-SLOT WEEK LAST ACTUALLY DELIVERED, so a taper can
+     hold it rather than falling through to whichever slot happens to be first. */
+  var prevSoloKind = null;
   /* How many times each family has actually been DELIVERED under the one-
      exposure-a-week cadence, so its pool advances once per delivery instead of
      once per calendar week. Taper weeks are excluded and keep the existing
@@ -9456,15 +9477,19 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          only stops the taper factor from shrinking a session the taper has not
          reached yet. */
       var taperShrink = (isTaper && !halfArc) ? TAPER_QUALITY_FACTOR : 1;
-      var taperSeed = isTaper && !halfArc;
+      /* THE SEED IS NOW BOTH ARCS' AND IT HOLDS RATHER THAN SUGGESTS. It used
+         to be the marathon's alone and only supplied a fallback size; the half
+         picked freely and could meet a family for the first time in its
+         wind-down week. See fitQualityStructure. */
+      var taperSeed = isTaper;
       qSpec = fitQualityStructure(qPool, 'interval', structPhase, w, qPos,
                                   profile.emphasis, rotation,
                                   Math.min(taperCeilQ, weekFitCeil), taperSeed ? prevQSpec : null,
-                                  taperShrink);
+                                  taperShrink, taperSeed);
       tSpec = fitQualityStructure(tPool, 'tempo', structPhase, w, pos,
                                   profile.emphasis, rotation,
                                   Math.min(taperCeilT, weekFitCeil), taperSeed ? prevTSpec : null,
-                                  taperShrink);
+                                  taperShrink, taperSeed);
     }
     var qKm = intervalSessionKm(qSpec);
     var tKm = tempoSessionKm(tSpec);
@@ -9520,6 +9545,30 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        keeps the existing selection path, where the pool is already walked in
        full and the descent invariant governs. */
     var soloKind = null, soloSpec = null, soloKm = 0, soloFitsBound = true;
+    /* ---- A TAPER WEEK KEEPS THE FAMILY THE BLOCK HAS BEEN DELIVERING ----
+       The single-slot path was switched off in a taper, so a one-slot taper
+       week fell through to the interval slot -- and a block that had delivered
+       nothing but tempo and threshold for eight weeks handed its athlete a set
+       of goal-pace reps in the wind-down. That is a new intensity family in the
+       taper, which HQ forbids, and it was reached by a slot default rather than
+       by any coaching decision.
+
+       In a taper the family is therefore last week's family, held rather than
+       rotated. The sizing path is untouched: the structure is the one the
+       athlete has been running and the taper's own factor and ceiling bring the
+       dose down, so the descent this phase owes is unchanged. */
+    if (!isRace && isTaper && !arc.noQuality && prevSoloKind){
+      soloKind = prevSoloKind;
+      soloSpec = fitQualityStructure(
+        soloKind === 'interval' ? qPool : tPool,
+        soloKind, structPhase, w, soloKind === 'interval' ? qPos : pos,
+        profile.emphasis, rotation, Math.min(weekFitCeil,
+          soloKind === 'interval' ? taperCeilQ : taperCeilT),
+        soloKind === 'interval' ? prevQSpec : prevTSpec,
+        halfArc ? 1 : TAPER_QUALITY_FACTOR, true);
+      soloKm = soloKind === 'interval' ? intervalSessionKm(soloSpec) : tempoSessionKm(soloSpec);
+      soloFitsBound = soloKm <= weekFitCeil + 1e-9;
+    }
     if (!isRace && !isTaper && !arc.noQuality){
       soloKind = (isCheckpoint || isCalibration) ? 'tempo'
                : (w % 2 === 0 ? 'tempo' : 'interval');
@@ -9549,6 +9598,18 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       soloKm = soloKind === 'interval' ? intervalSessionKm(soloSpec) : tempoSessionKm(soloSpec);
       soloFitsBound = soloKm <= weekFitCeil + 1e-9;
       if (soloKind === 'interval') soloOccQ++; else soloOccT++;
+      /* ---- AND WHAT THE ATHLETE ACTUALLY RAN IS WHAT THE NEXT WEEK HOLDS ----
+         prevQSpec and prevTSpec are set above from the two-slot path, which is
+         the week the block would have written if it had two slots to write. In
+         a single-slot week the athlete receives THIS session instead, and the
+         other one is never prescribed. The taper holds to the last developing
+         week's structure, so seeding it from a session that was never delivered
+         reintroduced exactly the defect the hold exists to prevent: measured, a
+         New half athlete on a ten-week runway met goal-pace reps for the first
+         time in their wind-down week, held faithfully to a spec they had never
+         run. Recorded against the family it actually belongs to. */
+      if (soloKind === 'interval') prevQSpec = soloSpec; else prevTSpec = soloSpec;
+      prevSoloKind = soloKind;
     }
 
     var longFrac = LONG_FRACTION[profile.emphasis];
