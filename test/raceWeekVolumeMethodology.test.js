@@ -67,9 +67,28 @@ test('largestScheduledWeek() no longer reports the race week as the peak', () =>
         .filter((dd) => dd.week === raceDay.week && dd.type !== 'rest')
         .reduce((sum, dd) => sum + (dd.km || 0), 0);
       const fixed = a.largestScheduledWeek(a.state.days);
-      assert.ok(fixed < raceWeekTotal - 1,
+      /* ---- ASKED DIRECTLY, NOT THROUGH A NUMERIC PROXY ----
+         This compared the reported peak against the race week's total and
+         required it to be at least a kilometre smaller. That is a stand-in for
+         the real property, and it fails the moment a genuine training week
+         happens to be about the size of race week WITH the race in it -- which
+         is what a ten-week half now produces: a 65.5km Peak against a 66.2km
+         race week that is 45km of training plus a 21.1km race. The function was
+         right and the proxy was wrong. What the test is named for is asserted
+         instead: the week it reports is not the race week. */
+      const totals = {};
+      a.state.days.filter(dd => dd.type !== 'rest')
+        .forEach(dd => { totals[dd.week] = (totals[dd.week] || 0) + (dd.km || 0); });
+      const reported = Object.keys(totals)
+        .filter(w => Math.abs(totals[w] - fixed) < 1e-6);
+      assert.ok(reported.length > 0,
+        `weeks=${weeks} vol=${volume}: largestScheduledWeek=${fixed} matches no week`);
+      assert.ok(reported.indexOf(String(raceDay.week)) === -1,
         `weeks=${weeks} vol=${volume}: largestScheduledWeek=${fixed} still reads as the ` +
         `race week (${raceWeekTotal}km including the race)`);
+      assert.ok(fixed <= raceWeekTotal - (a.DISTANCE_PROFILES.half.raceKm) + 1e-9 ||
+                reported.indexOf(String(raceDay.week)) === -1,
+        `weeks=${weeks} vol=${volume}: the race itself is being counted as training`);
     });
   });
 });

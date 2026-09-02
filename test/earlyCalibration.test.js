@@ -834,7 +834,15 @@ test('keeping the full protocol does not disturb the week around it', () => {
     'the calibration touches one week: every other weekly target is identical');
   const overTarget = a.round1(calBlk.weeks[0].volume - plainBlk.weeks[0].volume);
   const protocolCost = a.round1(a.calibrationSessionKm() - plainBlk.weeks[0].soloKm);
-  assert.ok(overTarget >= 0 && overTarget <= protocolCost + 1e-9,
+  /* BOUNDED IN BOTH DIRECTIONS, which is what the reasoning above already
+     describes and the assertion did not allow: the calibration takes the TEMPO
+     family's allocation, while a plain single-slot week alternates between the
+     two families and may be holding the interval's. Where the interval's
+     allocation is the larger of the two the calibration week comes out very
+     slightly SMALLER, and that difference belongs to the alternation rather
+     than to the calibration. It is bounded by the quantum a day is presented
+     in, so it can never hide a real reduction. */
+  assert.ok(overTarget >= -a.EASY_QUANTUM_KM - 1e-9 && overTarget <= protocolCost + 1e-9,
     'week 1 is ' + overTarget + 'km over the plain week against a protocol that costs ' +
     protocolCost + 'km more than the slot it took');
   assert.equal(calBlk.peakVolume, plainBlk.peakVolume, 'and the block peaks in the same place');
