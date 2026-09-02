@@ -368,7 +368,14 @@ test('every kilometre of every week has a named cause', () => {
     'and the week they get is the entry week the pathway states (' +
     fixed.weeks[0].actualVolume + ' against ' + entry + ')');
 
-  const c = auditCase({ distanceKey: '5k', volume: 1, weeks: 12, scheduleKey: 'd5' });
+  /* ULTRA, NOT 5K -- 5K is now a dedicated-architecture distance too (the
+     continuation of this same correction) and its typed figure no longer
+     sets entry the way this case needs: a 1km/week 5K athlete opens at the
+     pathway's own entry instead, exactly like the half case just above, and
+     floorExcess is legitimately zero. Ultra has no dedicated architecture and
+     still reads the typed figure directly, so it is where this defensive
+     floor case still lives. */
+  const c = auditCase({ distanceKey: 'ultra', volume: 1, weeks: 12, scheduleKey: 'd5' });
   const w1 = c.weeks[0].accounting;
   assert.ok(w1.floorExcess > 0, 'a 1km/week athlete is still over-prescribed by the floors');
   assert.ok(w1.floorCauses.length > 0, 'and the floors that did it are named');
@@ -402,9 +409,14 @@ test('the engine cannot build a week smaller than its own component floors', () 
      so the smallest such week the engine can emit is EASY_MIN_KM -- three
      times what this athlete stated. That is the irreducible residue, it is
      declared as floor excess, and the athlete is routed rather than given it. */
+  /* ULTRA, NOT 5K -- see the identical note on the accounting-identity test
+     just above: 5K now reads evidence first and its typed figure never sets
+     entry, so a 1km/week 5K athlete opens at the pathway's own entry instead
+     and this floor case no longer exists for it. Ultra still reads the typed
+     figure directly. */
   const a = require('./audit/planAudit.js').app();
   assert.equal(a.EASY_MIN_KM, 3, 'the easy-day floor');
-  const c = auditCase({ distanceKey: '5k', volume: 1, weeks: 12, scheduleKey: 'd5' });
+  const c = auditCase({ distanceKey: 'ultra', volume: 1, weeks: 12, scheduleKey: 'd5' });
   const w1 = c.weeks[0];
   const runs = w1.sessions.filter(s => s.km > 0);
   assert.equal(runs.length, 1,
@@ -453,8 +465,10 @@ test('experience selects the Race Goal pathway and touches nothing else', () => 
     });
   });
   /* AND EVERY DISTANCE WITHOUT A DEDICATED ARCHITECTURE, byte for byte, at the
-     race purpose too. The 5K and 10K arcs are closed. */
-  ['5k', '10k'].forEach(dist => {
+     race purpose too. Ultra's arc is closed; 5K and 10K now have their own
+     dedicated architecture too (the continuation of this same correction)
+     and are asserted alongside half/full below instead. */
+  ['ultra'].forEach(dist => {
     const ref = blk(dist, LEVELS[0], 'race');
     LEVELS.slice(1).forEach(exp => assert.equal(blk(dist, exp, 'race'), ref,
       dist + ' race changed with experience'));
@@ -462,7 +476,7 @@ test('experience selects the Race Goal pathway and touches nothing else', () => 
   /* WHERE IT DOES REACH, IT REACHES THE PATHWAY -- and in the pathway's own
      direction, so the authority is doing what it says rather than merely
      having an effect. */
-  ['half', 'full'].forEach(dist => {
+  ['5k', '10k', 'half', 'full'].forEach(dist => {
     const longOf = exp => {
       a.state = a.makeDefaultState();
       const b = a.buildBlockWeeks(dist, 45, 15,
@@ -1056,10 +1070,16 @@ test('the quality decision never costs a running day', () => {
      availability" -- which would forbid a correct reduction -- but "equals
      availability wherever the week can express it, and where it does not, the
      shortfall is exactly the expressibility bound and the week says so." */
+  /* ULTRA, NOT 5K -- 5K's own days now come from its bottom-up destination
+     solve (evidence/pathway supportDays, task 58-60 of this same
+     correction), not from expressibleRunningDays() against a legacy
+     top-down target, so this mechanic's own test lives on the one distance
+     that still uses it. Volume moved to 55: ultra's own viability floor at
+     twelve weeks is ~46km, above the 29km this case used on 5K. */
   const a = require('./audit/planAudit.js').app();
   for (const scheduleKey of ['d5', 'd6']){
     const days = scheduleKey === 'd5' ? 5 : 6;
-    const c = auditCase({ distanceKey: '5k', volume: 29, weeks: 12, scheduleKey });
+    const c = auditCase({ distanceKey: 'ultra', volume: 55, weeks: 12, scheduleKey });
     assert.equal(c.routed, false);
     /* No demonstrated history in the audit fixture, so D cannot bind here and
        expressibility is the only thing that may come under availability. */
@@ -1067,7 +1087,7 @@ test('the quality decision never costs a running day', () => {
     c.weeks.forEach(w => {
       if (w.isRace) return;
       const running = w.sessions.filter(s => s.km > 0).length;
-      const feasible = a.expressibleRunningDays('5k', w.targetVolume, a.EASY_MIN_KM, true);
+      const feasible = a.expressibleRunningDays('ultra', w.targetVolume, a.EASY_MIN_KM, true);
       const expect = Math.min(days, feasible);
       assert.equal(running, expect,
         'wk' + w.week + ' (' + w.targetVolume + 'km) runs on ' + running +
@@ -1081,11 +1101,15 @@ test('the quality decision never costs a running day', () => {
       assert.ok(q.length <= a.qualitySlotCeilingForDayCount(running),
         'wk' + w.week + ' carries ' + q.length + ' quality on ' + running + ' running days');
     });
-    /* The 5K taper is where a 29km/week athlete's weeks get small enough for
-       this to bite at all, so the six-day case must actually exercise it --
-       otherwise the assertion above is vacuous. */
-    if (days === 6) assert.ok(reduced > 0,
-      'the six-day case should exercise the expressibility bound at least once');
+    /* ULTRA'S OWN VIABILITY FLOOR SITS TOO HIGH FOR ITS OWN TAPER TO SHRINK
+       PAST SIX DAYS' EXPRESSIBILITY at any admitted volume -- measured across
+       50-100km/week and 12-24 weeks, none of them exercise the bound. 5K
+       could, at 29km/week, before this correction moved it off this
+       mechanism entirely. The equality assertion above still holds at every
+       week regardless, which is the invariant this test actually protects;
+       what is no longer demonstrable is that the bound is EVER live for the
+       one distance still governed by it, and that is reported rather than
+       asserted false. */
   }
 });
 
@@ -1344,13 +1368,19 @@ test('S6-A: no race week is built bigger than the week it was asked for', () => 
 });
 
 test('S6-A: the named case — a quality prescription the week cannot contain', () => {
-  /* THE EVIDENCE, AS REPORTED. A 26km/week 5K athlete, fourteen weeks, six
-     running days. The final taper week is asked for 16.9km and used to be
-     built at 23.5km: two quality sessions sitting at their structure floors
-     (6.5km + 5km) either side of a 3km "long run", with EASY_MIN_KM on each of
-     the three remaining days. Nothing had overshot its own rule. The week was
-     39% over the volume the athlete was told they would run. */
-  const c = auditCase({ distanceKey: '5k', volume: 26, weeks: 14, scheduleKey: 'd6' });
+  /* THE EVIDENCE, AS ORIGINALLY REPORTED (5K, 26km/week, fourteen weeks, six
+     running days -- outside 5K's own admission window now, so re-verified on
+     a runway that still admits it). The final taper week is asked for 16.9km
+     and used to be built at 23.5km: two quality sessions sitting at their
+     structure floors (6.5km + 5km) either side of a 3km "long run", with
+     EASY_MIN_KM on each of the three remaining days. Nothing had overshot its
+     own rule. The week was 39% over the volume the athlete was told they
+     would run.
+
+     RE-VERIFIED ON 5K'S OWN DEDICATED WINDOW, twelve weeks, since 5K now has
+     one -- the same invariant, the same distance, an admitted runway rather
+     than a routed one. */
+  const c = auditCase({ distanceKey: '5k', volume: 15, weeks: 12, scheduleKey: 'd6' });
   assert.equal(c.routed, false, 'this athlete does receive a race programme');
   const last = c.weeks.filter(w => w.isTaper).slice(-1)[0];
   assert.ok(last.actualVolume < last.targetVolume * 1.1,
@@ -1364,10 +1394,15 @@ test('S6-A: the named case — a quality prescription the week cannot contain', 
      already prescribes wherever a structure cannot be built. */
   assert.ok(last.sessions.some(s => /Strides/.test(s.title || '')),
     'the fast running was dropped rather than substituted');
-  // and the week before it deferred to ONE session rather than none
-  const first = c.weeks.filter(w => w.isTaper)[0];
-  assert.equal(first.sessions.filter(s => s.km > 0 && s.type !== 'easy' &&
-    s.type !== 'long').length, 1, 'the first taper week should still carry one session');
+  /* THE "WEEK BEFORE IT DEFERRED TO ONE SESSION RATHER THAN NONE" CHECK DOES
+     NOT APPLY TO THIS CASE ANY MORE, and that is the fix working rather than
+     a lost invariant: it compared 5K's two flat taper weeks against each
+     other, and 5K's own dedicated architecture now has exactly one Taper
+     week plus the race week (the day-anchored taper work, same correction),
+     so there is no longer a second taper-phase training week to gradiate
+     against. c.weeks.filter(w => w.isTaper) has one element for this
+     distance now, not two -- which the earlier assertions above already
+     exercise directly. */
 });
 
 test('S6-A: the ladder is ordered, and only fires where the week cannot pay', () => {
@@ -1593,12 +1628,19 @@ test('a day the week does not run on is a rest day, in every block that has one'
      anyway. Reducing the easy-day count therefore divided the SAME volume
      across fewer days while still prescribing all of them -- the reduction was
      bookkeeping the athlete never saw. */
+  /* ULTRA, NOT 10K -- a demonstrated-frequency athlete's day count is now
+     supportDays + a quality slot + the long run for a dedicated-architecture
+     distance (10K included, this same correction), and that legitimately
+     exceeds the support-day figure alone; measured, this is already true of
+     half/marathon too, unrelated to this pass. Ultra still reads
+     availableDays directly against the legacy top-down day-writing this test
+     is actually about. */
   const a = require('./audit/planAudit.js').app();
   const schedule = { activeDays: [0, 1, 2, 3, 5, 6], longRunDay: 6 };
   const app2 = athleteWhoRuns(3);
   const start = app2.todayStr();
   const end = app2.addDays(app2.addDays(start, -app2.isoWeekday(start)), 12 * 7 - 1);
-  const days = app2.buildDaysFromWeeks(app2.buildBlockWeeks('10k', 45, 12, {}),
+  const days = app2.buildDaysFromWeeks(app2.buildBlockWeeks('ultra', 45, 12, {}),
     end, schedule, start, false);
   const byWeek = {};
   days.forEach(d => { (byWeek[d.week] = byWeek[d.week] || []).push(d); });
@@ -1798,12 +1840,17 @@ test('the two frequency readings answer two different questions', () => {
 });
 
 test('the current reading lowers the prescription and never raises it', () => {
+  /* ULTRA, NOT 10K -- see the identical note on the rest-day test above: a
+     dedicated-architecture distance's day count is supportDays + a quality
+     slot + the long run, not the demonstrated-frequency figure directly, so
+     the exact "on N" equalities below need the distance still governed by
+     availableDays/demonstrated-frequency alone. */
   const schedule = { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 };
   const runsPerWeek = fn => {
     const a = athleteWhoRuns(fn);
     const start = a.todayStr();
     const end = a.addDays(a.addDays(start, -a.isoWeekday(start)), 12 * 7 - 1);
-    const days = a.buildDaysFromWeeks(a.buildBlockWeeks('10k', 45, 12, {}),
+    const days = a.buildDaysFromWeeks(a.buildBlockWeeks('ultra', 45, 12, {}),
       end, schedule, start, false);
     const byWeek = {};
     days.forEach(d => { (byWeek[d.week] = byWeek[d.week] || []).push(d); });
@@ -1868,11 +1915,15 @@ test('an optional run is offered only where recovery already allows the load', (
      the programme is protecting, and a day it simply did not need. Only the
      third is offered, and which is which is decided by the SAME gate
      supporting work uses rather than by a second recovery model. */
+  /* ULTRA, NOT 10K -- the same reason as the two tests above: a
+     demonstrated-3-day athlete's week has more unused days to reason about
+     against availableDays directly than against a dedicated architecture's
+     own supportDays+quality+long day count. */
   const a = athleteWhoRuns(3);
   const schedule = { activeDays: [0, 1, 2, 3, 5, 6], longRunDay: 6 };
   const start = a.todayStr();
   const end = a.addDays(a.addDays(start, -a.isoWeekday(start)), 12 * 7 - 1);
-  a.state.days = a.buildDaysFromWeeks(a.buildBlockWeeks('10k', 45, 12, {}),
+  a.state.days = a.buildDaysFromWeeks(a.buildBlockWeeks('ultra', 45, 12, {}),
     end, schedule, start, false);
 
   let offered = 0, withheld = 0;

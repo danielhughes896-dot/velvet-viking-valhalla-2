@@ -45,13 +45,20 @@ const app = () => loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
    does not itself write. */
 function planWithStravaOnlyQualityDay(a, opts) {
   buildPlan(a, { weeks: 10, startDate: a.addDays(TODAY, -28), distanceKey: '10k' });
-  /* THE LAST WEEK, not the last four days -- a week is the period a quality
-     exposure is prescribed in, and four days only contained one reliably while
-     five available days granted two hard sessions by day count. */
+  /* THE LAST TWO WEEKS, not the last one -- a week is the period a quality
+     exposure is prescribed in, but this 10K fixture's own rotation alternates
+     family week to week (an interval week, a tempo week), so one week does
+     not reliably contain a KEY one. Fourteen days does.
+
+     AND A KEY ONE SPECIFICALLY -- sessionImportance() classifies tempo as
+     SUPPORT (unrelated to this correction, a pre-existing rule), and
+     isQualityType() alone admits tempo days too, so this needs the narrower
+     filter directly rather than relying on whichever family the quality
+     rotation happens to land on last in the window. */
   const past = a.state.days.filter(d =>
-    d.date < TODAY && d.date >= a.addDays(TODAY, -7) &&
-    d.type !== 'rest' && a.isQualityType(d.type));
-  assert.ok(past.length, 'the fixture needs a recent quality day to work with');
+    d.date < TODAY && d.date >= a.addDays(TODAY, -14) &&
+    ['threshold', 'interval', 'repetition'].indexOf(d.type) !== -1);
+  assert.ok(past.length, 'the fixture needs a recent KEY quality day to work with');
   const dd = past[past.length - 1];
 
   dd.completed = false;                       // applyCompletion refused it

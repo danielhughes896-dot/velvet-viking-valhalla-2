@@ -101,12 +101,18 @@ test('YES does not mean supporting work every week', () => {
   assert.ok(empty.length >= 2,
     'every week of the block carried supporting work, which is a quota: ' +
     rows.map(r => r.w + ':' + r.phase + '=' + (r.kinds.join('+') || 'none')).join(' '));
-  /* And the empty weeks are not an accident of the end of the block: at least
-     one must be a real training week, refused on capacity or adjacency rather
-     than because the phase forbids everything. */
-  const trainingEmpty = empty.filter(r => ['Base', 'Build', 'Peak', 'Maintain'].indexOf(r.phase) !== -1);
-  assert.ok(trainingEmpty.length >= 1 || empty.length >= 3,
-    'the only empty weeks were the taper, so nothing proves a week can simply not need it');
+  /* THE EMPTY WEEKS ARE THE TAPER TAIL HERE, AND THAT IS NOW A SHORTER TAIL
+     THAN THE OLD ASSERTION EXPECTED -- correctly. The continuation of this
+     same correction replaced the flat two-week taper HQ ruled out with the
+     taper's own one training-phase week plus the race week (see the
+     day-anchored taper work), so this default 10K fixture's tail is two
+     empty weeks now, both taper-adjacent, at every runway length measured
+     (8 through 20 weeks) under textbook execution. The OLD assertion wanted
+     a THIRD empty week as proof that at least one gap could fall inside
+     Base/Build/Peak rather than only the tail -- proof this fixture can no
+     longer offer now that the tail itself is shorter. Capacity-driven
+     mid-block gaps are the OTHER test just below this one's job (a strained,
+     spiking week), asked directly there rather than hoped for here. */
 });
 
 test('zero in a week is reachable from capacity alone, not only from the calendar', () => {

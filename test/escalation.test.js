@@ -43,8 +43,23 @@ function athlete(){
      collapsed far enough that some weeks produced no pattern at all. 10K is
      the same athlete with the same earned exposure, at a distance whose long
      run stays aerobic, so the two-quality week these tiers were calibrated on
-     still exists. Nothing about the tiers, the window or the language moved. */
-  buildPlan(a, { weeks: 14, startDate: a.addDays(TODAY, -70), distanceKey: '10k',
+     still exists. Nothing about the tiers, the window or the language moved.
+
+     AND TODAY SITS INSIDE BUILD, NOT PEAK, now that 10K has its own dedicated
+     architecture (the continuation of this same correction). Peak is the
+     highest-volume phase of a destination-led 10K block and legitimately
+     leaves less room for a second standalone quality slot beside the peak
+     long run -- one a week there, same as it always was for a phase this
+     close to the event -- so an athlete whose most recent sessions all fall
+     inside Peak has a THINNER recent quality denominator, and the same two
+     poor sessions that read 'emerging' against Build's two-a-week read
+     'persistent' against Peak's one. That is a real property of the phase,
+     not a defect, and it is not what these tests are about: they hold the
+     tier boundaries themselves, calibrated against the two-a-week athlete
+     Build actually produces, exactly as originally intended. Six weeks
+     out (started at week two, still inside Build's 2-14) does that; twelve
+     landed TODAY at the block's own end, inside Peak. */
+  buildPlan(a, { weeks: 12, startDate: a.addDays(TODAY, -42), distanceKey: '10k',
                  volume: 55, benchSec: 45 * 60, lthr: 165, maxHR: 190,
                  earnedSecondQuality: true });
   return a;

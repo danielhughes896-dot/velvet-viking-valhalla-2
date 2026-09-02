@@ -130,21 +130,22 @@ test('the coherent band is now a diagnostic, and the purposes are the generator'
 });
 
 test('no other race distance is built bottom-up', () => {
-  /* THE HALF IS BUILT BOTTOM-UP NOW, by authorised migration -- purposeful
+  /* THE HALF WAS BUILT BOTTOM-UP FIRST, by authorised migration -- purposeful
      sessions summed into a weekly load, rather than a target divided into
-     sessions. 5K, 10K and Ultra keep the architecture they had until their own
-     audits authorise otherwise, and that is what this still protects. */
-  ['5k', '10k', 'ultra'].forEach(d => {
+     sessions. 5K and 10K now are too (the continuation of this same
+     correction). Ultra keeps the architecture it had until its own audit
+     authorises otherwise, and that is what this still protects. */
+  ['ultra'].forEach(d => {
     [12, 25, 50].forEach(v => {
       const { blk } = build(v, 15, 6, d);
       blk.weeks.forEach(w => assert.strictEqual(w.bottomUp, null,
         d + ' at ' + v + 'km must keep the architecture it had'));
     });
   });
-  const { blk } = build(50, 15, 6, 'full');
-  assert.ok(blk.weeks.some(w => w.bottomUp), 'and the marathon does not');
-  const half = build(50, 15, 6, 'half').blk;
-  assert.ok(half.weeks.some(w => w.bottomUp), 'and neither does the half');
+  ['5k', '10k', 'full', 'half'].forEach(d => {
+    const { blk } = build(50, 15, 6, d);
+    assert.ok(blk.weeks.some(w => w.bottomUp), d + ' must be built bottom-up');
+  });
 });
 
 test('the days it does not prescribe stay available, not imposed as rest', () => {

@@ -4920,16 +4920,111 @@ var HALF_TEMPO_POOL = {
   Maintain: [structSteadyTempo, structProgressiveTempo,
              structSplitTempo, structThresholdContinuous]
 };
-/* WHICH POOL THIS BLOCK DRAWS FROM. Only a half RACE block gets the half's
-   own progression; its maintenance, base and recovery blocks keep the shared
-   pools, and every other distance is untouched. */
+/* =========================================================
+   5K AND 10K GET THEIR OWN PROGRESSIONS TOO -- AND DIFFERENT ONES FROM EACH
+   OTHER, which is the thing sharing `emphasis:'speed'` in DISTANCE_PROFILES
+   could never express. HQ's §12/§13 ruling: the two are not permitted to
+   default to one shared authority merely because both happen to sit at the
+   fast end of the profile table, but the difference is PROGRAMME-LEVEL --
+   which of the existing structures a phase draws from -- not a new workout.
+   No new structure function is written below and no EMPHASIS_TEMPO_RANGE /
+   EMPHASIS_INTERVAL_RANGE dose number moves; every candidate here already
+   exists and is already sized by the shared range tables, exactly as
+   HALF_INTERVAL_POOL / HALF_TEMPO_POOL already established the pattern for.
+
+   THE EVENT PHYSIOLOGY THE TWO POOLS ARE READ FROM (HQ's own hypothesis,
+   carried forward from the audit rather than re-derived here):
+     5K   VO2max / critical-speed / economy / neuromuscular-power dominant,
+          threshold SUPPORTING rather than the workhorse.
+     10K  aerobic-strength / threshold / sustained-quality dominant, VO2 and
+          economy work SUPPORTING rather than the principal thread.
+
+   SO THE INTERVAL POOL CARRIES THE DIFFERENCE FOR 5K, AND THE TEMPO POOL
+   CARRIES IT FOR 10K -- each event's own pool is where its principal
+   development actually happens; the other pool is where it draws its
+   supporting work from, deliberately lighter. Base is unchanged between the
+   two: foundation economy work is not an event-specific decision. */
+var FIVEK_INTERVAL_POOL = {
+  Base:  [structHillRepeats, structFartlek],
+  /* THE PRINCIPAL THREAD. Track intervals and the ladder are the pool's own
+     VO2max/critical-speed structures; hill repeats stay in rotation beside
+     them as the neuromuscular-power element a pure interval rotation would
+     otherwise drop. structDeuce -- the more moderate set-based structure --
+     is left for 10K's supporting pool instead, where a lighter VO2 dose is
+     the point rather than the compromise. */
+  Build: [structTrackIntervals, structLadder, structHillRepeats],
+  /* AND PEAK STAYS FAST. Goal-pace repetitions carry the race-specific
+     rehearsal, same as the half's own Peak pattern, with track intervals
+     beside them rather than the half's fartlek -- a 5K's sharpening phase
+     is VO2/critical-speed work, not the economy variety a longer event's
+     Peak still wants room for. */
+  Peak:  [structGoalPaceIntervals, structTrackIntervals],
+  Maintain: [structFartlek, structTrackIntervals, structLadder,
+             structHillRepeats]
+};
+var FIVEK_TEMPO_POOL = {
+  Base:  [structSplitTempo, structSteadyTempo],
+  /* THRESHOLD SUPPORTS HERE, IT DOES NOT LEAD. Split and progressive tempo
+     stay -- broken, controllable doses that rehearse a finish -- and
+     structThresholdContinuous is deliberately absent: a sustained continuous
+     threshold block is 10K's workhorse session, not a 5K's, and carrying it
+     into this pool would make the supporting thread indistinguishable from
+     the principal one it is supporting. */
+  Build: [structSplitTempo, structProgressiveTempo],
+  /* AND THE TERMINAL FORM IS STILL RACE-SPECIFIC RATHER THAN SUSTAINED. A
+     goal-pace block with a split-tempo partner, not a continuous threshold
+     session -- the same reasoning as Build, carried to Peak. */
+  Peak:  [structGoalPaceBlock, structSplitTempo],
+  Maintain: [structSteadyTempo, structProgressiveTempo, structSplitTempo]
+};
+var TENK_INTERVAL_POOL = {
+  Base:  [structHillRepeats, structFartlek],
+  /* VO2 SUPPORTS HERE, IT DOES NOT LEAD. Track intervals stay as the
+     aerobic-speed stimulus a 10K still needs, but structLadder -- 5K's own
+     variety structure -- is left to that pool; structDeuce takes its place,
+     the more moderate set-based session that keeps this thread genuinely
+     lighter than the tempo pool's. */
+  Build: [structTrackIntervals, structDeuce],
+  /* AND PEAK STAYS SUPPORTING TOO. Goal-pace repetitions still carry the
+     race-specific rehearsal -- every event's Peak needs that -- but beside
+     them is the moderate set structure rather than a maximal track session,
+     because the sustained tempo pool below is where this event's specificity
+     actually lives. */
+  Peak:  [structGoalPaceIntervals, structDeuce],
+  Maintain: [structFartlek, structTrackIntervals, structDeuce,
+             structHillRepeats]
+};
+var TENK_TEMPO_POOL = {
+  Base:  [structSteadyTempo, structThresholdContinuous],
+  /* THE PRINCIPAL THREAD. Continuous threshold is the workhorse -- longer,
+     denser, the same effort the half's own Build carries for the same
+     reason -- with progressive tempo rehearsing a finish and split tempo the
+     controllable variant beside them. */
+  Build: [structThresholdContinuous, structProgressiveTempo, structSplitTempo],
+  /* AND THE TERMINAL FORM IS SUSTAINED, matching the event it is training
+     for: a continuous race-effort block with continuous threshold beside it,
+     the same shape the half's own Peak uses. */
+  Peak:  [structGoalPaceBlock, structThresholdContinuous],
+  Maintain: [structSteadyTempo, structProgressiveTempo,
+             structSplitTempo, structThresholdContinuous]
+};
+/* WHICH POOL THIS BLOCK DRAWS FROM. Half and 5K/10K RACE blocks get their own
+   progression; their maintenance, base and recovery blocks keep the shared
+   pools, and every other distance is untouched. raceGoalArch() cannot tell
+   5K and 10K apart on its own -- both answer 'short' -- so this is the one
+   place, exactly as raceGoalArch()'s own comment says, that asks distKey
+   directly rather than the arch value. */
 function intervalPoolFor(purpose, distKey){
-  return raceGoalArch(purpose, distKey) === 'half' ? HALF_INTERVAL_POOL
-                                                   : INTERVAL_STRUCTURE_POOL;
+  var arch = raceGoalArch(purpose, distKey);
+  if (arch === 'half') return HALF_INTERVAL_POOL;
+  if (arch === 'short') return distKey === '10k' ? TENK_INTERVAL_POOL : FIVEK_INTERVAL_POOL;
+  return INTERVAL_STRUCTURE_POOL;
 }
 function tempoPoolFor(purpose, distKey){
-  return raceGoalArch(purpose, distKey) === 'half' ? HALF_TEMPO_POOL
-                                                   : TEMPO_STRUCTURE_POOL;
+  var arch = raceGoalArch(purpose, distKey);
+  if (arch === 'half') return HALF_TEMPO_POOL;
+  if (arch === 'short') return distKey === '10k' ? TENK_TEMPO_POOL : FIVEK_TEMPO_POOL;
+  return TEMPO_STRUCTURE_POOL;
 }
 /* ---------- WHICH FAMILY THE HALF'S ONE QUALITY SLOT DELIVERS ----------
    A ONE-SLOT WEEK DELIVERS ONE FAMILY, so the family sequence IS the
@@ -5459,6 +5554,54 @@ var HALF_FULL_SHAPE = { base:3, build:6, peak:4, taper:2 };   // taper incl. rac
    athlete's last hard session by three or four days. The scaling is therefore
    applied per DAY, from the real race date, in buildDaysFromWeeks(). */
 var HALF_TAPER_ANCHOR_DAYS = 10;
+/* ---------- 5K AND 10K ARE EVENT-ANCHORED TOO, AND NOT AT THE HALF'S TEN DAYS
+   ----------
+   HQ's own §15 ruling: not a flat `taperWeeks = 2` for either distance, and
+   not the half's own ten-day anchor borrowed unread. A shorter race is
+   recovering from a cheaper block, so it needs less unloading -- the same
+   direction the half's ten days already takes from the marathon's fourteen,
+   continued one step further for each of these two.
+
+   THE AUDIT'S OWN STARTING HYPOTHESIS -- five days for the 5K, seven for the
+   10K -- CANNOT BE THE ANCHOR AS WRITTEN, and this was found only by
+   building the day-level plan and reading it, exactly the discipline §17
+   asks for everywhere else. RACE WEEK (raceDayKm, the calendar week
+   containing the event) is a fixed seven days for every distance and is
+   deliberately untouched here -- §16's own boundary -- and it is scaled by
+   its OWN separate mechanism, not by applyEventTaper(). An anchor of five or
+   seven days is therefore AT MOST race week's own span: every day the anchor
+   would touch already belongs to race week, applyEventTaper() never sees a
+   day inside its window, and the day-anchored taper this section exists to
+   build is silently inert. Measured directly: a five-day anchor on a
+   twelve-week 5K block touches zero days outside race week.
+
+   SO THE ANCHOR HAS TO CLEAR RACE WEEK'S SEVEN DAYS FOR THE MECHANISM TO
+   EXIST AT ALL -- the same way the half's ten clears its own seven by three
+   days, splitting the week before race week into a loading portion and a
+   tapering one. What HQ's five/seven-day hypothesis correctly captures is
+   the ORDERING (10K longer than 5K, both shorter than the half) and the
+   physiological reason for it -- a 10K's sustained-threshold block costs
+   more to absorb than a 5K's VO2-dominant one -- not a literal day count that
+   turns out to name a window race week already owns. Applied as the SPLIT
+   (the days of easing BEFORE race week, which is what the half's own three
+   extra days actually are), the same ordering gives 10K two split days and
+   5K one: TENK_TAPER_ANCHOR_DAYS = 9, FIVEK_TAPER_ANCHOR_DAYS = 8. Both
+   still sit inside the taper literature's own window (Bosquet: benefit from
+   four days to roughly three weeks) and both are now anchors the mechanism
+   can actually deliver, verified by reading the built days rather than
+   asserted from the constant. */
+var FIVEK_TAPER_ANCHOR_DAYS = 8;
+var TENK_TAPER_ANCHOR_DAYS = 9;
+/* One call site for which distance gets which anchor, so blockArcFor() and
+   the day builder cannot disagree about it. Full/marathon still returns
+   null: the marathon's own taper is not this mechanism and this function
+   does not change that. */
+function raceGoalTaperAnchorDaysFor(distKey){
+  if (distKey === 'half') return HALF_TAPER_ANCHOR_DAYS;
+  if (distKey === '5k') return FIVEK_TAPER_ANCHOR_DAYS;
+  if (distKey === '10k') return TENK_TAPER_ANCHOR_DAYS;
+  return null;
+}
 /* WHERE THE TAPER CURVE IS HEADED, as a fraction of the ordinary dose. The
    curve between D-10 and D-0 is linear in this fraction, so no day is a cliff
    and the reduction is distributed rather than dropped. The value is chosen so
@@ -5509,12 +5652,19 @@ function halfTaperGovernedRange(raceWeekdayIso){
            endpointFraction: HALF_TAPER_FINAL_FRACTION,
            note: 'race week supplies the reduction below this' };
 }
-function halfTaperDayFactor(daysToRace){
+/* THE CURVE ITSELF, GENERALISED. Half's own daysToRace/anchor/endpoint curve,
+   with the anchor and the endpoint taken as arguments instead of the half's
+   own constants, so 5K and 10K can each state their own event-anchored taper
+   without a second copy of the arithmetic. halfTaperDayFactor() below is the
+   half's own call of this with its own numbers -- unchanged, byte for byte. */
+function eventTaperDayFactor(daysToRace, anchorDays, finalFraction){
   if (!(daysToRace >= 0)) return 1;
-  if (daysToRace > HALF_TAPER_ANCHOR_DAYS) return 1;
-  var f = HALF_TAPER_FINAL_FRACTION +
-          (1 - HALF_TAPER_FINAL_FRACTION) * (daysToRace / HALF_TAPER_ANCHOR_DAYS);
-  return Math.max(HALF_TAPER_FINAL_FRACTION, Math.min(1, f));
+  if (daysToRace > anchorDays) return 1;
+  var f = finalFraction + (1 - finalFraction) * (daysToRace / anchorDays);
+  return Math.max(finalFraction, Math.min(1, f));
+}
+function halfTaperDayFactor(daysToRace){
+  return eventTaperDayFactor(daysToRace, HALF_TAPER_ANCHOR_DAYS, HALF_TAPER_FINAL_FRACTION);
 }
 /* ---------- APPLYING THE HALF TAPER TO THE DAYS THEMSELVES ----------
    THE ONLY PLACE THE RACE DATE IS KNOWN, which is why the scaling lives here
@@ -5538,8 +5688,17 @@ function halfTaperDayFactor(daysToRace){
    clearest finding in the taper literature and the thing the previous
    whole-week taper got wrong at low volumes. A run that would fall under the
    week's own easy floor is held AT that floor rather than removed. */
-function applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm){
+/* GENERALISED SO 5K AND 10K CAN EACH STATE THEIR OWN ANCHOR. Everything below
+   this line was written for the half and is unchanged in its reasoning; only
+   the anchor and the endpoint are now read from arguments instead of the
+   half's own constants, defaulting to the half's own numbers where a caller
+   (there is exactly one -- the half's own) does not pass them, so the
+   existing call site is untouched and the existing behaviour is byte for
+   byte the same. */
+function applyEventTaper(days, weeks, raceDateStr, easyFloorKm, anchorDays, finalFraction){
   if (!raceDateStr || !days || !days.length) return;
+  var AD = (anchorDays > 0) ? anchorDays : HALF_TAPER_ANCHOR_DAYS;
+  var FF = (finalFraction > 0) ? finalFraction : HALF_TAPER_FINAL_FRACTION;
   var floorKm = (easyFloorKm > 0) ? easyFloorKm : EASY_MIN_KM;
   /* RACE WEEK IS NOT SCALED HERE. It is already the deepest part of the
      taper and it has its own architecture -- a lead-up sized from the block's
@@ -5575,8 +5734,8 @@ function applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm){
       if (!(dd.km > 0) || dd.type === 'race') return;
       if (dd.type !== 'easy' && dd.type !== 'long') return;
       var out = daysBetween(dd.date, raceDateStr);
-      if (!(out >= 0) || out > HALF_TAPER_ANCHOR_DAYS) return;
-      var f = halfTaperDayFactor(out);
+      if (!(out >= 0) || out > AD) return;
+      var f = eventTaperDayFactor(out, AD, FF);
       if (f >= 1) return;
       rec.inWindow = true;
       var next = roundWorkoutKm(dd.type, round1(Math.max(floorKm, dd.km * f)));
@@ -5895,6 +6054,117 @@ var RACE_GOAL_PATHWAY = {
       entryVolumeKm: 60, entryLongKm: 24, entryDays: 5,
       buildVolumeKm: 70, buildLongKm: 32,
       peakVolumeKm:  null, peakLongKm: 32, openEnded: true }
+  },
+  /* ---- 5K AND 10K ----
+     HQ's own §6/§8/§9/§11 ruling. Both are speed-end events beside the
+     marathon and half, and both pathways open at the SAME entry as each
+     other -- a beginner's starting fitness does not depend on which of the
+     two they are aiming at. The distinction HQ requires belongs to
+     EXPERIENCE and EVENT FOCUS, not to entry.
+
+     PEAK STATES NO VOLUME DESTINATION OF ITS OWN, deliberately, the same
+     convention the marathon already uses: `buildVolumeKm` is the useful peak
+     HQ names, owed by the end of Build, and Peak's job is to convert that
+     capability into race-specific readiness rather than add more volume.
+     "Do not use Peak for generic mileage catch-up" is §5's own wording.
+
+     THE LONG RUN REACHES ITS DESTINATION ONCE AND HOLDS. `buildLongKm` and
+     `peakLongKm` are the SAME figure for every pathway below -- unlike the
+     marathon, where the long run is deliberately still climbing when Peak
+     begins. §11: "develop the long run until sufficient aerobic support has
+     been established, then maintain... rather than growing it for its own
+     sake." Because the destination-solve machinery converges toward a single
+     target, this is stated as DATA rather than as a new mechanism: giving
+     Build and Peak the same figure is what makes the curve hold once it
+     arrives, with no extra code needed to enforce it.
+
+     HQ'S PRE-MERGE GATE, QUESTION 1 -- WHAT `buildVolumeKm` MEANS AT EACH
+     TIER. Measured against a canonical evidence-free twelve-week build at a
+     realistic day count (up to the six BUILDER_SPEC permits, not clamped to
+     entryDays): the Advanced figure at both distances is a genuine,
+     reachable destination -- construction, unmodified, lands on it exactly.
+     Novice and Experienced do not reach theirs at any permitted day count,
+     and readiness reports the gap honestly (workload dimension, exact
+     shortfallKm, verdict capped at MARGINAL) rather than hiding it. The
+     shortfall traces to marathonSupportDestination()'s SUPPORT_SHARE_MAX
+     coherence clamp -- correctly refusing, at these two tiers, to grow a
+     single supporting run past the point where it would exceed the week's
+     own long run, which is what full reachability would require here. That
+     clamp is shared, working machinery outside this correction's mandate
+     (raising it would make a "support" run the biggest run of the week,
+     which is a long-run-methodology change in effect even without touching
+     a long-run figure). So for Novice and Experienced 5K/10K, treat
+     `buildVolumeKm` as the ceiling this tier's development safely
+     approaches, not a guaranteed week-nine delivery -- exactly the reading
+     the marathon's own "no volume destination of its own" already gives
+     Peak, extended down one tier further at these two events. No number
+     changed; nothing here alters what any pathway builds. */
+  '5k': {
+    /* FIFTEEN KILOMETRES -- the same entry as the marathon and half's own New
+       pathway, and deliberately the same as 10K's New below: a beginner
+       arriving for their first dedicated speed-event block is not a
+       different athlete depending on which of the two races they picked.
+
+       AND THE ENTRY LONG RUN SITS BELOW THE DESTINATION, on purpose. Holding
+       Build/Peak flat at one target (above) is the "then maintain" half of
+       §11; entering there too would skip the "develop... until sufficient
+       aerobic support has been established" half and open every 5K block
+       with zero long-run progression to demonstrate. The climb is shaped the
+       same way the half's own novice-climbs-most, advanced-climbs-least
+       pattern already is (8->13, 15->19, 20->21 for half's own pathways):
+       New has the furthest to travel, Advanced starts nearest its own
+       destination because an advanced athlete already runs long relative to
+       their volume. */
+    novice: {
+      entryVolumeKm: 15, entryLongKm: 5,  entryDays: 3,
+      buildVolumeKm: 30, buildLongKm: 8,
+      peakVolumeKm: null, peakLongKm: 8, openEnded: false },
+    experienced: {
+      entryVolumeKm: 25, entryLongKm: 9,  entryDays: 4,
+      buildVolumeKm: 50, buildLongKm: 12,
+      peakVolumeKm: null, peakLongKm: 12, openEnded: false },
+    advanced: {
+      entryVolumeKm: 35, entryLongKm: 13, entryDays: 5,
+      buildVolumeKm: 70, buildLongKm: 16,
+      peakVolumeKm: null, peakLongKm: 16, openEnded: true }
+  },
+  /* ---- 10K ----
+     THE SAME NEW ENTRY AS 5K, for the reason stated above. Experienced and
+     Advanced open higher than their 5K counterparts -- 30 against 25, 45
+     against 35 -- which HQ's own candidate table already encodes: 10K's
+     greater duration and aerobic demand justifies more weekly volume to
+     support it once the athlete has enough experience for the distinction to
+     matter. Peak destinations (60/75) sit modestly above 5K's (50/70) for the
+     same reason.
+
+     THE LONG RUN IS NOT THE SHARED 8/12/16 LADDER HQ ORIGINALLY PROPOSED.
+     8km for New sat BELOW the 10K's own race distance, which contradicts
+     HQ's own "the long run normally exceeds race distance" principle -- and
+     HQ's correction (§9) asked for a distinct authority rather than a fix
+     that happened to make the numbers match. 10 / 14 / 18 is that authority:
+     New's long run is exactly the race distance itself (removing the
+     inversion cleanly, without inflating it), and Experienced/Advanced sit
+     two kilometres above 5K's own ladder at each level -- absolute aerobic
+     load, not proportional, is what "at least as strong as the corresponding
+     5K requirement" is read to mean here, because a 10K asks for more
+     absolute durability than a 5K regardless of experience.
+
+     THE ENTRY LONG RUN IS SHAPED THE SAME WAY 5K's IS, for the same reason:
+     a flat entry-equals-destination table has nothing to develop and cannot
+     demonstrate the Base->Build progression §11 and §21 both require. */
+  '10k': {
+    novice: {
+      entryVolumeKm: 15, entryLongKm: 6,  entryDays: 3,
+      buildVolumeKm: 30, buildLongKm: 10,
+      peakVolumeKm: null, peakLongKm: 10, openEnded: false },
+    experienced: {
+      entryVolumeKm: 30, entryLongKm: 10, entryDays: 4,
+      buildVolumeKm: 60, buildLongKm: 14,
+      peakVolumeKm: null, peakLongKm: 14, openEnded: false },
+    advanced: {
+      entryVolumeKm: 45, entryLongKm: 14, entryDays: 5,
+      buildVolumeKm: 75, buildLongKm: 18,
+      peakVolumeKm: null, peakLongKm: 18, openEnded: true }
   }
 };
 /* ---------- THE RACE GOAL LONG-RUN BACKSTOP IS ITS OWN AUTHORITY ----------
@@ -5931,7 +6201,17 @@ var RACE_GOAL_PATHWAY = {
    long run of that size is what it COSTS -- LONG_RUN_COST_HEAVY_SEC against
    the athlete's own pace -- and that bound is unchanged and still underneath
    this one. */
-var RACE_GOAL_LONG_CAP_KM = { half: 26, full: 36 };
+/* 5K/10K NEED THE SAME BACKSTOP, FOR THE SAME REASON. Their profile caps are
+   12 and 15 -- sensible bounds for Aerobic Base and Maintain & Protect at
+   these distances -- and the Advanced pathway above asks for 16 and 18. Left
+   unentered here, raceGoalLongCapKm() falls back to the bare profile figure
+   and silently pulls every Experienced/Advanced 5K and 10K long run back down
+   to 12/15 the moment it tries to reach its own locked destination -- measured,
+   an Advanced 5K's long run never got past 12 despite a 16km pathway target.
+   18 and 22 sit clear of both pathways' culminating standards (16 and 18) so
+   no canonical programme is moved by adding the entry; what it stops is every
+   Experienced/Advanced pathway being quietly capped below its own table. */
+var RACE_GOAL_LONG_CAP_KM = { half: 26, full: 36, '5k': 18, '10k': 22 };
 function raceGoalLongCapKm(distKey, purpose){
   var prof = DISTANCE_PROFILES[distKey];
   var base = prof ? prof.longCapKm : null;
@@ -6187,9 +6467,26 @@ function raceGoalReadiness(distKey, experience, blockResult){
                  EASY_QUANTUM_KM * Math.max(1, bu.supportDays || 1)));
   if (wantLong > 0)
     dims.push(mk('durability', peakLongKm, wantLong, 1));
-  dims.push({ key:'specificity', fraction: specificWeeks > 0 ? 1 : 0,
-              shortfallKm: 0, met: specificWeeks > 0,
-              detail:{ specificWeeks: specificWeeks } });
+  /* SPECIFICITY IS SCOPED TO THE ARCHITECTURES WHERE IT IS A REAL SIGNAL.
+     specificWeeks counts hasGoalSegment weeks -- race-specific work embedded
+     IN the long run -- which is threshold/endurance-emphasis machinery by
+     construction (see the identical gate at hasGoalSegment's own computation
+     in buildBlockWeeks). 5K and 10K are emphasis:'speed' and, by HQ's own
+     §13 architecture, carry their race-specific work in the quality session
+     instead (the FIVEK/TENK goal-pace structures), never in the long run --
+     so specificWeeks is always zero for them, and counting it here would cap
+     every 5K/10K programme's readiness at INSUFFICIENT regardless of how
+     well it is built. Measured: a fully on-target twelve-week New 5K block
+     read INSUFFICIENT/specificity before this guard, with every other
+     dimension met. Excluded rather than reported unmeetable -- the same
+     principle raceGoalPreparationOutlook() already uses, whose own two
+     dimensions never included specificity at all. */
+  if (DISTANCE_PROFILES[distKey] &&
+      (DISTANCE_PROFILES[distKey].emphasis === 'threshold' ||
+       DISTANCE_PROFILES[distKey].emphasis === 'endurance'))
+    dims.push({ key:'specificity', fraction: specificWeeks > 0 ? 1 : 0,
+                shortfallKm: 0, met: specificWeeks > 0,
+                detail:{ specificWeeks: specificWeeks } });
   /* ABSORPTION, from the evidence architecture that already exists. A block
      the athlete is straining in has not prepared them however far its numbers
      reached; a block with no reading yet is not penalised for it. */
@@ -6242,6 +6539,14 @@ function raceGoalArch(purpose, distKey){
   if (purpose !== 'race') return null;
   if (distKey === 'full') return 'marathon';
   if (distKey === 'half') return 'half';
+  /* 5K AND 10K SHARE ONE ARCH VALUE, 'short'. They are two different pathway
+     tables and two different event-emphasis pools, but the same shape of
+     block -- a shorter runway, a long run that holds rather than climbs, no
+     two-exposure Peak split -- so shortArc (see buildBlockWeeks) tests this
+     one value rather than distKey again at every site that cares. Where the
+     two events genuinely differ (the pathway table, the taper anchor, the
+     emphasis pools) the site still asks distKey directly. */
+  if (distKey === '5k' || distKey === '10k') return 'short';
   return null;
 }
 /* Does this block build its weeks from sessions rather than dividing a target?
@@ -6251,6 +6556,7 @@ function usesBottomUpArc(purpose, distKey){
   return raceGoalArch(purpose, distKey) != null;
 }
 function dedicatedWeeksFor(distKey){
+  if (distKey === '5k' || distKey === '10k') return SHORT_DEDICATED_WEEKS;
   return distKey === 'half' ? HALF_DEDICATED_WEEKS : MARATHON_DEDICATED_WEEKS;
 }
 /* ---------- HOW MANY WEEKS OF BUILD THIS ATHLETE NEEDS ----------
@@ -6322,21 +6628,111 @@ var RACE_GOAL_PHASE_GEOMETRY = {
 };
 var RACE_GOAL_MIN_WEEKS = 10;          // HQ admission floor
 var RACE_GOAL_MAX_WEEKS = 15;          // and the window it will not stretch past
-/* The phase counts for whichever dedicated architecture is in force. One table
-   for both, because the geometry belongs to the runway. */
+/* ---------- 5K AND 10K GET THEIR OWN WINDOW, NOT THE HALF/MARATHON ONE ----------
+   TWELVE WEEKS IS THE FULL/OPTIMUM DEDICATED WINDOW, eight is the admission
+   floor. Both distances share one window because the window is a property of
+   how long a shorter-race preparation stays a rehearsal rather than a second
+   base-building block, not a property of 5K vs 10K -- that difference is
+   expressed in the pathway table and the taper anchor instead, exactly where
+   HQ's directive drew it. This is NOT the half/marathon's ten-to-fifteen
+   window shortened by inference; it is a separate table, reasoned from this
+   distance's own runway. */
+var SHORT_DEDICATED_WEEKS = 12;
+var SHORT_RACE_GOAL_MIN_WEEKS = 8;
+var SHORT_RACE_GOAL_MAX_WEEKS = 12;
+/* ---- THE EVIDENCE-GATED FLOOR, BELOW THE STRUCTURAL EIGHT ----
+   HQ's pre-merge ruling on the calendar-alone refusal: eight weeks is the
+   window every 5K/10K pathway is DESIGNED around, but a well-prepared
+   athlete does not stop being well-prepared at week seven, and refusing them
+   on the calendar before their own preparation is even asked about is a
+   product-architecture convenience, not a coaching necessity. Measured: an
+   Advanced athlete already running at their pathway's own destination
+   projects to the identical MARGINAL verdict raceGoalAdmission() already
+   accepts at eight weeks -- reachedKm and shortfallKm do not move between
+   six, seven and eight, because the projection is priced from what they
+   already demonstrate, not manufactured by the runway. A Novice with no
+   evidence projects INSUFFICIENT at the same two runways, for the same
+   reason it would at eight, and stays refused.
+
+   SO THE FLOOR BELOW EIGHT ASKS THE SAME QUESTION admission already asks
+   AT eight and above, rather than inventing a second one: raceGoalPreparationOutlook()'s
+   INSUFFICIENT/MARGINAL boundary, read here instead of assumed unreachable.
+   SHORT_RACE_PHASE_GEOMETRY already carries coherent six- and seven-week
+   rows (Peak still holds its full two weeks; Build absorbs the compression)
+   for exactly this -- they were reachable rows nothing had ever routed to.
+
+   HALF AND MARATHON ARE UNCHANGED: this floor is only ever read where
+   raceGoalRunwayBounds() has already resolved to 5K/10K's own window: see
+   the dk-gated read at the call site below. Their ten-week floor keeps its
+   unconditional calendar refusal, exactly as HQ's boundary requires.
+
+   AND UNCONFIDENCE DOES NOT ADMIT HERE, where the ordinary rule (above eight
+   weeks, a missing pace never manufactures a refusal) would be the wrong
+   default: above the structural floor there is a full window to recover
+   from a bad guess, and below it there is not. So admission below eight
+   requires a PRICED, confident projection; without one it falls back to the
+   ordinary too_short refusal rather than guessing on a compressed window. */
+var SHORT_RACE_GOAL_EVIDENCE_FLOOR_WEEKS = 6;
+/* ---------- WHICH RUNWAY WINDOW A DISTANCE ANSWERS TO ----------
+   One call site for the bound, so raceGoalPhaseAllocation() and
+   raceGoalAdmission() cannot disagree about where 5K/10K's window sits versus
+   half/marathon's. Half and marathon are unchanged: same numbers, same
+   variable names, nothing here moves what they already do. */
+function raceGoalRunwayBounds(distKey){
+  if (distKey === '5k' || distKey === '10k')
+    return { min: SHORT_RACE_GOAL_MIN_WEEKS, max: SHORT_RACE_GOAL_MAX_WEEKS };
+  return { min: RACE_GOAL_MIN_WEEKS, max: RACE_GOAL_MAX_WEEKS };
+}
+/* ---------- THE SHORT-ARCH PHASE GEOMETRY ----------
+   NOT THE HALF/MARATHON TABLE COMPRESSED. Peak holds flat at two weeks at
+   every runway from eight to twelve, for the same reason it never moves for
+   half/marathon: it is what makes the block preparation for this event
+   rather than continued training, and the compression hierarchy spends Base
+   first. What is genuinely different from half/marathon is that Build
+   carries almost the entire runway once eight weeks is reached, because a
+   5K/10K rehearsal is a single quality thread developing (event-specific
+   speed/threshold work), not the half's three-exposure specificity
+   rehearsal or the marathon's own long-run-dominated arc -- there is no
+   second Peak exposure to build toward (see shortArc in buildBlockWeeks),
+   so Build is where nearly all of the development happens.
+
+   EIGHT WEEKS IS ONE BASE WEEK, THREE BUILD, TWO PEAK, ONE TAPER, ONE FINAL.
+   Below eight raceGoalAdmission() refuses; the rows continue downward only
+   because the generator is still called at short runways by other purposes
+   and by the audit instruments, on the same Base-first, Build-second,
+   Peak-last compression hierarchy the half/marathon table already uses. */
+var SHORT_RACE_PHASE_GEOMETRY = {
+  12: { base:2, build:6, peak:2 },
+  11: { base:2, build:5, peak:2 },
+  10: { base:2, build:4, peak:2 },
+  9:  { base:1, build:4, peak:2 },
+  8:  { base:1, build:3, peak:2 },
+  /* ---- below the admission floor, and never routed to ---- */
+  7:  { base:1, build:2, peak:2 },
+  6:  { base:0, build:2, peak:2 },
+  5:  { base:0, build:1, peak:2 },
+  4:  { base:0, build:0, peak:2 }
+};
+/* The phase counts for whichever dedicated architecture is in force. One
+   table for half/marathon, a separate one for 5K/10K, dispatched by arch
+   rather than distKey directly so the dispatch reads the same way
+   usesBottomUpArc() does. */
 function raceGoalPhaseAllocation(distKey, N, experience){
   var n = Math.max(1, Math.round(N || 1));
   if (n === 1) return { base:0, build:0, peak:0, taper:0, final:1 };
   if (n === 2) return { base:0, build:0, peak:0, taper:1, final:1 };
   if (n === 3) return { base:0, build:1, peak:0, taper:1, final:1 };
+  var shortArch = raceGoalArch('race', distKey) === 'short';
+  var table = shortArch ? SHORT_RACE_PHASE_GEOMETRY : RACE_GOAL_PHASE_GEOMETRY;
+  var maxW  = shortArch ? SHORT_RACE_GOAL_MAX_WEEKS : RACE_GOAL_MAX_WEEKS;
   /* SURPLUS RUNWAY IS NOT A LONGER RACE GOAL. HQ does not stretch the
-     programme past fifteen weeks; athletePathway() hands the surplus to the
-     programme that should own it and starts Race Goal at D-15. A direct call
-     at a longer N still has to return something coherent, so the extra weeks
-     land in Base -- the phase furthest from the event -- rather than inflating
-     Build or Peak. */
-  var g = RACE_GOAL_PHASE_GEOMETRY[Math.min(n, RACE_GOAL_MAX_WEEKS)];
-  var extra = Math.max(0, n - RACE_GOAL_MAX_WEEKS);
+     programme past its dedicated window; athletePathway() hands the surplus
+     to the programme that should own it and starts Race Goal at D-max. A
+     direct call at a longer N still has to return something coherent, so the
+     extra weeks land in Base -- the phase furthest from the event -- rather
+     than inflating Build or Peak. */
+  var g = table[Math.min(n, maxW)];
+  var extra = Math.max(0, n - maxW);
   return { base:g.base + extra, build:g.build, peak:g.peak, taper:1, final:1 };
 }
 /* Kept for the callers that ask how long Build is; it is now a property of the
@@ -6908,31 +7304,119 @@ function raceGoalPreparationOutlook(distKey, experience, N, opts){
     capacityCeilingKm: cap != null ? round1(cap) : null
   };
 }
+/* ---------- THE SAME QUESTION, FOR THE SHORT-ARCH DISTANCES ----------
+   marathonPreparatoryPurpose() cannot answer this for 5K/10K: it hardcodes
+   the marathon's own session-start/long-run/support authorities inside
+   marathonPreparationOutlook() (dkP resolves to 'half' or else 'full'), so
+   calling it with distKey='5k' or '10k' would silently evaluate a
+   marathon-shaped outlook -- the marathon's readiness benchmark, the
+   marathon's LONG_FRACTION, the marathon's support-destination solve -- for
+   an athlete who is not training for one.
+
+   THE QUESTION IS THE SAME: does this athlete need aerobic development
+   before their dedicated window opens, or is nothing missing? So it is
+   asked from the SAME generic authority admission itself already uses for
+   5K/10K -- raceGoalPreparationOutlook(), evaluated at the distance's own
+   dedicated length rather than at whatever runway is actually on offer --
+   which is exactly the reuse HQ's directive asked for: no new evidence
+   system, the same demonstrated-volume/long-run/quality-family reads
+   marathonPreparatoryPurpose() already makes, read the same way. */
+function raceGoalPreparatoryPurpose(stateVolume, distKey){
+  var out = { purpose:null, reason:'no_developmental_need',
+              volume:(demonstratedSustainableVolume() != null
+                      ? demonstratedSustainableVolume()
+                      : (stateVolume > 0 ? stateVolume : null)),
+              longRunKm:demonstratedLongRunKm(), qualityFamilies:demonstratedQualityFamilies() };
+  var outlook = null;
+  try { outlook = raceGoalPreparationOutlook(distKey, null, dedicatedWeeksFor(distKey), null); }
+  catch(e){ outlook = null; }
+  out.outlook = outlook;
+  if (out.volume == null){ out.purpose = 'base'; out.reason = 'no_volume_evidence'; return out; }
+  /* A SHORTFALL, NOT A ROUNDING DIFFERENCE -- same threshold admission itself
+     reads off raceGoalPreparationOutlook(), rather than a new one. */
+  if (outlook && outlook.requiredLongKm > 0 &&
+      outlook.reachLongKm < outlook.requiredLongKm * RACE_GOAL_READY_FRACTION){
+    out.purpose = 'base'; out.reason = 'aerobic_gap'; return out;
+  }
+  if (!out.qualityFamilies.length){ out.purpose = 'speed'; out.reason = 'quality_gap'; return out; }
+  return out;
+}
+/* Routes the "what should this athlete do before Race Goal opens" question to
+   whichever of the two authorities above actually understands this distance.
+   Half/marathon: unchanged, byte for byte. 5K/10K: the generic one. */
+function raceGoalPreparatoryPurposeFor(distKey, stateVolume){
+  if (distKey === '5k' || distKey === '10k')
+    return raceGoalPreparatoryPurpose(stateVolume, distKey);
+  return marathonPreparatoryPurpose(stateVolume, distKey);
+}
 function raceGoalAdmission(distKey, weeksToRace, stateVolume, opts){
-  var dk = (distKey === 'half') ? 'half' : (distKey === 'full') ? 'full' : null;
+  var dk = (distKey === 'half') ? 'half' : (distKey === 'full') ? 'full'
+         : (distKey === '5k' || distKey === '10k') ? distKey : null;
   var W = Math.max(0, Math.round(weeksToRace || 0));
+  /* THE WINDOW IS THE DISTANCE'S OWN. Ten-to-fifteen for half/marathon,
+     eight-to-twelve for 5K/10K -- read once here so every branch below
+     agrees with raceGoalPhaseAllocation() about where the floor and ceiling
+     sit. For half/marathon this resolves to exactly RACE_GOAL_MIN_WEEKS/
+     RACE_GOAL_MAX_WEEKS, unchanged. */
+  var bounds = dk ? raceGoalRunwayBounds(dk) : null;
+  var minW = bounds ? bounds.min : RACE_GOAL_MIN_WEEKS;
+  var maxW = bounds ? bounds.max : RACE_GOAL_MAX_WEEKS;
   if (dk == null)
     return { distanceKey: distKey, weeksToRace: W, admitted: true, decision: 'not_gated',
              raceGoalWeeks: W, recommend: null, startInWeeks: null,
              minWeeks: RACE_GOAL_MIN_WEEKS, maxWeeks: RACE_GOAL_MAX_WEEKS,
              reason: 'distance_has_no_dedicated_window' };
-  if (W < RACE_GOAL_MIN_WEEKS)
+  if (W < minW){
+    /* ---- BELOW THE STRUCTURAL FLOOR, BUT NOT YET REFUSED ----
+       See SHORT_RACE_GOAL_EVIDENCE_FLOOR_WEEKS above. Gated on dk rather than
+       on the bound itself so half/marathon's ten-week floor is untouched:
+       for them evidenceFloor === minW and this branch never has a runway to
+       examine. */
+    var evidenceFloor = (dk === '5k' || dk === '10k')
+      ? SHORT_RACE_GOAL_EVIDENCE_FLOOR_WEEKS : minW;
+    if (W >= evidenceFloor){
+      var preEarly = null;
+      try { preEarly = raceGoalPreparationOutlook(dk, null, W, opts); }
+      catch(e){ preEarly = null; }
+      if (preEarly && preEarly.confident && preEarly.verdict !== 'INSUFFICIENT')
+        return { distanceKey: dk, weeksToRace: W, admitted: true,
+                 decision: 'race_goal_short_runway',
+                 raceGoalWeeks: W, recommend: null, startInWeeks: 0,
+                 preparation: preEarly,
+                 minWeeks: minW, maxWeeks: maxW,
+                 reason: 'evidence_supports_short_runway_preparation' };
+      /* A priced projection that came back INSUFFICIENT is refused for the
+         same reason preparation_not_reachable refuses one at eight weeks and
+         above -- carried on the result so the athlete can see what was
+         short, rather than only that the calendar said no. An unpriced one
+         (no confident pace) does not get the benefit of that question here;
+         see the comment above for why the two floors read confidence
+         differently. */
+      return { distanceKey: dk, weeksToRace: W, admitted: false, decision: 'too_short',
+               raceGoalWeeks: null, recommend: 'aerobic_base', startInWeeks: null,
+               preparation: (preEarly && preEarly.confident) ? preEarly : null,
+               minWeeks: minW, maxWeeks: maxW,
+               reason: (preEarly && preEarly.confident)
+                 ? 'preparation_not_reachable_in_short_runway'
+                 : 'runway_below_race_goal_minimum' };
+    }
     return { distanceKey: dk, weeksToRace: W, admitted: false, decision: 'too_short',
              raceGoalWeeks: null, recommend: 'aerobic_base', startInWeeks: null,
-             minWeeks: RACE_GOAL_MIN_WEEKS, maxWeeks: RACE_GOAL_MAX_WEEKS,
+             minWeeks: minW, maxWeeks: maxW,
              reason: 'runway_below_race_goal_minimum' };
-  if (W > RACE_GOAL_MAX_WEEKS){
+  }
+  if (W > maxW){
     var sel = null;
-    try { sel = marathonPreparatoryPurpose(stateVolume, dk); } catch(e){ sel = null; }
+    try { sel = raceGoalPreparatoryPurposeFor(dk, stateVolume); } catch(e){ sel = null; }
     return { distanceKey: dk, weeksToRace: W, admitted: false, decision: 'too_far',
-             raceGoalWeeks: RACE_GOAL_MAX_WEEKS,
+             raceGoalWeeks: maxW,
              recommend: (sel && sel.purpose) || null,
              recommendReason: (sel && sel.reason) || null,
              /* When Race Goal opens, and how many weeks the athlete has before
                 it does. The caller owns the calendar; this owns the count. */
-             startInWeeks: W - RACE_GOAL_MAX_WEEKS,
-             minWeeks: RACE_GOAL_MIN_WEEKS, maxWeeks: RACE_GOAL_MAX_WEEKS,
-             reason: 'race_goal_opens_at_fifteen_weeks' };
+             startInWeeks: W - maxW,
+             minWeeks: minW, maxWeeks: maxW,
+             reason: 'race_goal_opens_at_dedicated_window' };
   }
   /* ---- THE RUNWAY IS OPEN; IS THE ATHLETE READY TO USE IT? ----
      TWO DIFFERENT QUESTIONS, AND ONLY THE FIRST USED TO BE ASKED. Runway is a
@@ -6971,7 +7455,7 @@ function raceGoalAdmission(distKey, weeksToRace, stateVolume, opts){
        workload and durability are aerobic development, and that is what
        Aerobic Base is. */
     var alt = null;
-    try { alt = marathonPreparatoryPurpose(stateVolume, dk); } catch(e){ alt = null; }
+    try { alt = raceGoalPreparatoryPurposeFor(dk, stateVolume); } catch(e){ alt = null; }
     var rec = (pre.limitedBy === 'durability' || pre.limitedBy === 'workload')
               ? 'base' : ((alt && alt.purpose) || 'base');
     return { distanceKey: dk, weeksToRace: W, admitted: false,
@@ -6981,13 +7465,13 @@ function raceGoalAdmission(distKey, weeksToRace, stateVolume, opts){
              recommendReason: 'aerobic_development_before_race_goal',
              selection: alt,
              startInWeeks: null,
-             minWeeks: RACE_GOAL_MIN_WEEKS, maxWeeks: RACE_GOAL_MAX_WEEKS,
+             minWeeks: minW, maxWeeks: maxW,
              limitedBy: pre.limitedBy,
              reason: 'preparation_unreachable_in_runway' };
   }
   return { distanceKey: dk, weeksToRace: W, admitted: true, decision: 'race_goal',
            raceGoalWeeks: W, recommend: null, startInWeeks: 0, preparation: pre,
-           minWeeks: RACE_GOAL_MIN_WEEKS, maxWeeks: RACE_GOAL_MAX_WEEKS,
+           minWeeks: minW, maxWeeks: maxW,
            reason: 'within_race_goal_window' };
 }
 function marathonRunwayPlan(weeksToRace, stateVolume, distKey, opts){
@@ -6999,17 +7483,25 @@ function marathonRunwayPlan(weeksToRace, stateVolume, distKey, opts){
      block is a development block wearing a race block's name, which is exactly
      what this rule exists to prevent for the marathon. Same window arithmetic,
      same absorb-or-hand-off decision, the half's own dedicated length. The
-     marathon's behaviour is unchanged: distKey defaults to 'full'. */
-  var dk = (distKey === 'half') ? 'half' : 'full';
+     marathon's behaviour is unchanged: distKey defaults to 'full'.
+
+     5K/10K HAVE THE SAME PROBLEM AT THEIR OWN WINDOW. Twelve weeks is their
+     dedicated window, not fifteen, so the floor this function compares W
+     against below is read from raceGoalRunwayBounds() rather than the
+     literal 10 half/marathon use -- for half/marathon that resolves to
+     exactly 10, unchanged. */
+  var dk = (distKey === 'half') ? 'half'
+         : (distKey === '5k' || distKey === '10k') ? distKey : 'full';
   var W = Math.max(1, Math.round(weeksToRace || 0));
   var D = dedicatedWeeksFor(dk);
+  var minW = raceGoalRunwayBounds(dk).min;
   var out = { distanceKey:dk, weeksToRace:W, dedicatedWeeks:D, raceWeeks:W, surplus:0,
               absorbWeeks:0, preparatory:null, shortened:false, shape:'full',
               reason:'exact_window' };
   if (W < D){
     out.shortened = true;
-    out.shape = W <= 10 ? 'no_base' : 'compressed';
-    out.reason = W <= 10 ? 'short_runway_no_base' : 'short_runway_compressed';
+    out.shape = W <= minW ? 'no_base' : 'compressed';
+    out.reason = W <= minW ? 'short_runway_no_base' : 'short_runway_compressed';
     return out;
   }
   if (W === D) return out;
@@ -7033,7 +7525,7 @@ function marathonRunwayPlan(weeksToRace, stateVolume, distKey, opts){
     out.startInWeeks = surplus;
     return out;
   }
-  var sel = marathonPreparatoryPurpose(stateVolume, dk);
+  var sel = raceGoalPreparatoryPurposeFor(dk, stateVolume);
   out.selection = sel;
   out.startInWeeks = surplus;
   if (!sel.purpose){
@@ -7890,9 +8382,11 @@ function blockArcFor(purpose, N, distKey, experience){
              hasGoalEffort: true, hasCheckpoint: true,
              baseEnd: PHASE_BASE_END, buildEnd: PHASE_BUILD_END, volumeMult: null,
              phaseCounts: alloc,
-             /* THE HALF'S TAPER IS A DATE. Carried on the arc so the day
-                builder can find it without asking the distance again. */
-             taperAnchorDays: distKey === 'half' ? HALF_TAPER_ANCHOR_DAYS : null };
+             /* THE TAPER IS A DATE, for half/5K/10K alike. Carried on the arc
+                so the day builder can find it without asking the distance
+                again. Marathon still gets null: its own taper is a
+                different mechanism and this does not change it. */
+             taperAnchorDays: raceGoalTaperAnchorDaysFor(distKey) };
   }
   /* THE ON-RAMP. An athlete below the viable race-programme boundary is not
      given a smaller race block -- they are given the thing that gets them TO
@@ -14504,14 +14998,32 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     }
   });
   capWeeklyVolume(days, weeks);
-  /* THE HALF'S EVENT-ANCHORED TAPER, applied AFTER the weekly cap and before
-     the accounting. After, because the cap is the week's own ceiling on the
-     LOADING distribution and reads the target the week was built to -- run
-     first, the taper would be compared against a total the cap was about to
-     reduce, and a correction inside the taper could then leave a wind-down
-     week larger than the week it winds down from. Before the accounting,
-     because the reduction is deliberate coaching and has to be declared. */
-  if (halfBlockArch) applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm);
+  /* THE EVENT-ANCHORED TAPER -- HALF, 5K OR 10K -- applied AFTER the weekly
+     cap and before the accounting. After, because the cap is the week's own
+     ceiling on the LOADING distribution and reads the target the week was
+     built to -- run first, the taper would be compared against a total the
+     cap was about to reduce, and a correction inside the taper could then
+     leave a wind-down week larger than the week it winds down from. Before
+     the accounting, because the reduction is deliberate coaching and has to
+     be declared. One call site for half/5K/10K alike: each distance reads
+     its own anchor from raceGoalTaperAnchorDaysFor(), and passing half's
+     explicitly rather than relying on applyEventTaper()'s own default
+     leaves nothing for a future distance's anchor to silently inherit.
+
+     GATED ON THE ARCH, NOT ON THE DISTANCE ALONE -- raceGoalTaperAnchorDaysFor()
+     only knows distKey, and an on-ramp, foundation, maintenance or base block
+     can carry distKey:'half' too. halfBlockArch already answers "is this
+     purpose's own dedicated architecture in force", which is what decided
+     this before (see its own declaration above); the 5K/10K arch answers the
+     same question for its own two distances. Un-gated, this silently taxed
+     every half on-ramp block with a taper mechanism that was never built for
+     it -- caught only because the on-ramp audit measures purpose:'onramp'
+     blocks directly, not because anything about the race population moved. */
+  var shortBlockArch = raceGoalArch(blockResult.purpose, blockResult.distKey) === 'short';
+  var eventTaperAnchor = (halfBlockArch || shortBlockArch)
+    ? raceGoalTaperAnchorDaysFor(blockResult.distKey) : null;
+  if (eventTaperAnchor != null)
+    applyEventTaper(days, weeks, raceDateStr, easyFloorKm, eventTaperAnchor, HALF_TAPER_FINAL_FRACTION);
   recordVolumeAccounting(days, weeks);
   var weekIndex2 = {};
   weeks.forEach(function(wk){ weekIndex2[wk.week] = wk; });
@@ -34803,8 +35315,15 @@ async function handleGeneratePlan(){
      UNDER. Read once, so a programme cannot be admitted on one set of days and
      paces and then constructed on another. */
   var genCtx = { availableDays: activeDays.length, easyPaceSecPerKm: genEasyPace };
+  /* 5K AND 10K NOW HAVE A DEDICATED WINDOW TOO -- eight to twelve weeks, not
+     ten to fifteen -- and both marathonRunwayPlan() and raceGoalAdmission()
+     already read the right bound for them (raceGoalRunwayBounds(), task
+     58/59), so the same gate that has protected Half/Marathon since their own
+     correction now protects these two as well. Ultra is still untouched: it
+     has no dedicated architecture and usesBottomUpArc() says so. */
   if (!runwayOfferAnswered && buildPurpose === 'race' && hasEvent &&
-      (distanceKey === 'full' || distanceKey === 'half')){
+      (distanceKey === 'full' || distanceKey === 'half' ||
+       distanceKey === '5k' || distanceKey === '10k')){
     var rp = marathonRunwayPlan(planWeeks, volume, distanceKey, genCtx);
     if (rp && rp.preparatory){
       setRaceDestination(distanceKey, raceDate, {}, null);
