@@ -9353,6 +9353,9 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   /* The calibration is a single session in the life of a block, whichever of
      the two ways it is earned, so the question is closed once it is placed. */
   var calibrationPlaced = false;
+  /* The earliest week that could have carried the protocol, whether or not it
+     was early enough to be worth taking. See the placement decision. */
+  var calFirstViableWeek = null;
 
   /* ---- BOTTOM-UP CONSTRUCTION, MARATHON ONLY ----
      Everything this needs is decided BEFORE the loop and none of it is a
@@ -9992,7 +9995,47 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     var calFitsWeek = !mBottomUp ||
                       (calWeekKm > 0 &&
                        calibrationSessionKm() <= calWeekKm * CALIBRATION_MAX_WEEK_SHARE);
-    if (!calibrationPlaced && !isRace && !isTaper){
+    /* ---- AND A TEST THAT CANNOT INFORM ANYTHING IS NOT WORTH TAKING ----
+       WHAT A CALIBRATION ACTUALLY DOES, traced rather than assumed. It writes
+       two anchors -- a measured threshold PACE and a measured threshold HEART
+       RATE -- and both are read at render time by getActivePaces() and
+       getActiveHRZones(). It changes no session's structure: the kilometres
+       and the minutes were settled when the block was built. What it changes
+       is the pace and the heart rate every SUBSEQUENT session is run at.
+
+       SO ITS VALUE IS THE DEVELOPMENT THAT FOLLOWS IT. Measured across the
+       twelve canonical programmes, a placement is followed by five to twelve
+       development weeks and 74 to 99 per cent of the block's kilometres --
+       except one, where the first week that can safely hold the protocol is
+       the LAST development week, and the answer is zero. Nothing the test
+       measures can improve a single week of training, because there is none
+       left to improve: the taper holds what the block already established and
+       the race is the race.
+
+       A MAXIMAL FIELD TEST IS A COST, and paying it in the final development
+       week before a taper to inform nothing is a ceremony rather than a
+       measurement. So the test is withheld -- not forced earlier, which would
+       need the week inflated or the protocol shrunk, and not silently dropped
+       either. The block declares it, the athlete keeps the current-fitness
+       evidence they already had, and calibrationUnplaced says why.
+
+       THE RULE IS THE ARITHMETIC, NOT A NUMBER. "At least one development week
+       follows" is not a threshold anybody chose; it is the statement that the
+       result has somewhere to go. Whether ONE such week is enough to be worth
+       a maximal effort is a coaching judgement, and it is HQ's -- see the
+       report. This holds only the case where the answer is none. */
+    var calInformsDevelopment = w < buildWeeks;
+    /* WOULD THIS WEEK HAVE HELD IT, setting the usefulness question aside? Kept
+       so a withheld calibration can say WHICH of the two reasons applies: no
+       week in the block could carry the protocol at all, or a week could and it
+       came too late to inform anything. They are different facts about the
+       athlete and APP should be able to tell the athlete which one it is. */
+    var calCouldHold = !isRace && !isTaper && !isCutback && !isCheckpoint &&
+                       (!mBottomUp || w === 1 || mPrevQSlots > 0) && calFitsWeek &&
+                       (calibrate || (calibrateWhenViable &&
+                                      calWeekKm >= CALIBRATION_MIN_WEEKLY_KM));
+    if (calCouldHold && calFirstViableWeek == null) calFirstViableWeek = w;
+    if (!calibrationPlaced && !isRace && !isTaper && calInformsDevelopment){
       if (calibrate && w === 1 && calFitsWeek) isCalibration = true;
       else if ((calibrate || calibrateWhenViable) && w > 1 &&
                !isCutback && !isCheckpoint &&
@@ -10756,6 +10799,20 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
            calibrationRequested: !!(calibrate || calibrateWhenViable),
            calibrationPlaced: calibrationPlaced,
            calibrationUnplaced: !!((calibrate || calibrateWhenViable) && !calibrationPlaced),
+           /* WHICH OF THE TWO, so the athlete is told the true one.
+              'no_safe_placement'   nothing in the block could carry a fixed
+                                    fifty-two minute effort without being
+                                    reshaped by it.
+              'too_late_to_inform'  a week could, and it was the last
+                                    development week -- nothing the test
+                                    measured would have improved any training.
+              The athlete keeps the current-fitness evidence they already had
+              in both cases; nothing is invented to replace the measurement. */
+           calibrationWithheldReason:
+             (!(calibrate || calibrateWhenViable) || calibrationPlaced) ? null
+             : (calFirstViableWeek != null ? 'too_late_to_inform' : 'no_safe_placement'),
+           calibrationFirstViableWeek: calFirstViableWeek,
+           calibrationLastDevelopmentWeek: buildWeeks,
            /* WHAT THE BLOCK ACTUALLY BUILT, beside what the ramp would have
               asked for. peakVolume is the legacy arc's stated volume times a
               development multiplier and it is still the ceiling every ramp is

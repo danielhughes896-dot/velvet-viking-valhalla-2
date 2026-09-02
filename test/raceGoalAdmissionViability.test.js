@@ -269,18 +269,71 @@ test('CALIBRATION — no pathway opens more than a rounding above its locked ent
   });
 });
 
-test('CALIBRATION — every pathway is calibrated somewhere, and never twice', () => {
-  /* Deferral is not discard. Wherever it lands, the block measures the
-     athlete's threshold exactly once rather than prescribing fifteen weeks
-     against an estimate. */
+test('CALIBRATION — at most once, and a withheld one says why', () => {
+  /* Deferral is not discard, and it is not a ceremony either. A calibration is
+     taken where it can inform the training that follows it; where the first
+     week that could safely hold the protocol is the LAST development week,
+     nothing it measures can improve any week of training, and the test is
+     withheld with a declared reason rather than paid for anyway. */
   [].concat(R.CANON, R.CANON_10).forEach(c => {
     const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks }, c.ev));
     const cals = res.dd.filter(d => d.type === 'calibration');
-    assert.equal(cals.length, 1,
-      c.key + ': ' + cals.length + ' calibrations in the block');
-    assert.ok(cals[0].week < c.weeks,
-      c.key + ': calibrated in the race week');
+    assert.ok(cals.length <= 1, c.key + ': ' + cals.length + ' calibrations in the block');
+    if (cals.length){
+      assert.ok(cals[0].week < c.weeks, c.key + ': calibrated in the race week');
+      assert.equal(res.blk.calibrationPlaced, true);
+      assert.equal(res.blk.calibrationWithheldReason, null);
+    } else {
+      assert.equal(res.blk.calibrationUnplaced, true,
+        c.key + ': the calibration vanished without the block saying so');
+      assert.ok(['too_late_to_inform', 'no_safe_placement']
+                  .indexOf(res.blk.calibrationWithheldReason) !== -1,
+        c.key + ': withheld with reason ' + res.blk.calibrationWithheldReason);
+    }
   });
+});
+
+test('CALIBRATION — a placement is followed by development it can actually inform', () => {
+  /* The rule, stated as the thing it is: a calibration writes a measured
+     threshold pace and heart rate, both read at render time, so what it
+     improves is the pace every SUBSEQUENT session is run at. A placement with
+     no development week after it improves no training at all. */
+  [].concat(R.CANON, R.CANON_10).forEach(c => {
+    const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks }, c.ev));
+    const cal = res.dd.filter(d => d.type === 'calibration')[0];
+    if (!cal) return;
+    const after = res.blk.weeks.filter(w => w.week > cal.week && !w.isRace && !w.isTaper);
+    assert.ok(after.length >= 1,
+      c.key + ': calibrated in week ' + cal.week + ' with no development week after it');
+  });
+});
+
+test('CALIBRATION — the rule is general, not a case carved out for one pathway', () => {
+  /* Asserted by walking every pathway across every admitted runway. The rule
+     is "at least one development week follows", and it either holds for all of
+     them or it is a special case wearing a rule's clothes. */
+  const PATHS = [['half','novice'], ['half','experienced'], ['half','advanced'],
+                 ['full','novice'], ['full','experienced'], ['full','advanced']];
+  let placed = 0, withheld = 0;
+  PATHS.forEach(([d, e]) => {
+    const c = R.CANON.filter(x => x.dist === d && x.exp === e)[0];
+    for (let W = 10; W <= 15; W++){
+      const res = R.build(Object.assign({ dist:d, exp:e, days:c.days, weeks:W }, c.ev));
+      const cal = res.dd.filter(x => x.type === 'calibration')[0];
+      if (cal){
+        placed++;
+        const after = res.blk.weeks.filter(w => w.week > cal.week && !w.isRace && !w.isTaper);
+        assert.ok(after.length >= 1,
+          d + '/' + e + ' @' + W + 'w: calibrated in the last development week');
+      } else {
+        withheld++;
+        assert.ok(res.blk.calibrationWithheldReason,
+          d + '/' + e + ' @' + W + 'w: withheld with no reason');
+      }
+    }
+  });
+  assert.ok(placed >= 30, 'only ' + placed + ' of 36 cases calibrated at all');
+  assert.ok(withheld >= 1, 'no case exercised the withholding rule');
 });
 
 test('CALIBRATION — the protocol is never shrunk to fit the week it lands in', () => {
@@ -289,6 +342,7 @@ test('CALIBRATION — the protocol is never shrunk to fit the week it lands in',
   [].concat(R.CANON, R.CANON_10).forEach(c => {
     const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks }, c.ev));
     const cal = res.dd.filter(d => d.type === 'calibration')[0];
+    if (!cal) return;                       // withheld -- see the rule above
     assert.ok(cal.km >= res.a.calibrationSessionKm() - 1e-9,
       c.key + ': the calibration was written at ' + cal.km + 'km against a protocol of ' +
       res.a.calibrationSessionKm());
