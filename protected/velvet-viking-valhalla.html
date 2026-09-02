@@ -566,6 +566,14 @@
     padding:8px 16px; background:var(--c-gold-soft); border-top:1px dashed var(--line);
   }
   .taper-note svg{width:13px; height:13px; flex:none;}
+  /* ---- A STRUCTURAL WEEK BEYOND THE MATERIALISED HORIZON (AEROBIC BASE) ----
+     Quiet furniture, same restraint as the taper note above -- the week card
+     itself already carries the week number and real dates; this only says
+     that no session has been shaped for it yet. */
+  .week.week-unshaped .week-head{opacity:.85;}
+  .week-unshaped-note{padding:16px; text-align:center;}
+  .week-unshaped-head{font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-dim); margin-bottom:4px;}
+  .week-unshaped-sub{font-size:12px; color:var(--ink-faint);}
   /* RACE DAY AS ITS OWN EVENT. Deliberately quiet furniture -- the day card
      inside it carries the weight; this only frames it as the culmination
      rather than as the seventh row of a week. */
@@ -8497,8 +8505,14 @@ function blockArcFor(purpose, N, distKey, experience){
              handsOff: true };
   }
   if (purpose === 'base'){
+    /* NO MULTIPLIER, same statement on-ramp and foundation already make above:
+       an explicit destination beats a multiplier where one is known, and HQ's
+       methodology ruling is that Base now has one -- see
+       baseCapacityObjective(), which buildBlockWeeks() reads as this arc's
+       rampTo. BASE_VOLUME_MULT is retained only as the historical name for
+       the figure that destination has now replaced. */
     return { buildWeeks: weeks, taper: 0, hasGoalEffort: false, hasCheckpoint: false,
-             baseEnd: BASE_PHASE_SPLIT, buildEnd: 1.01, volumeMult: BASE_VOLUME_MULT };
+             baseEnd: BASE_PHASE_SPLIT, buildEnd: 1.01, volumeMult: null };
   }
   if (purpose === 'speed'){
     /* One down week before the benchmark rather than two. A 5K time trial
@@ -9246,6 +9260,91 @@ function largestScheduledWeek(days){
   Object.keys(byWeek).forEach(function(k){ if (byWeek[k] > best) best = byWeek[k]; });
   return best > 0 ? round1(best) : null;
 }
+/* ---------- THE FIGURE A NEW BLOCK RECORDS AS ITS OWN PEAK ----------
+   F-6 / THE PROGRESSION-GATE'S ROLLING-HORIZON DEPENDENCY, RESOLVED HERE.
+   largestScheduledWeek(days) answers "what did this block's materialised
+   days actually schedule" -- correct for every purpose that still
+   materialises its whole block up front at creation time, and left exactly
+   as it was for them.
+
+   AEROBIC BASE NO LONGER DOES. Under the rolling two-week prescription
+   horizon, `days` at block-creation time holds only the first materialised
+   weeks, so scanning it for "the biggest week" would read the horizon's
+   size, not the block's destination -- exactly the coupling HQ's audit
+   found: the NEXT block's progression eligibility must not depend on
+   scanning THIS block's fully materialised array, because under a rolling
+   horizon it may never fully materialise before the next block asks.
+
+   THE FIX IS NOT A NEW FIELD, because one already says the right thing.
+   buildBlockWeeks() already returns `peakVolume` -- the block's INTENDED
+   destination (for Base, baseCapacityObjective()'s evidence-derived figure;
+   for every other purpose, the same arithmetic-ramp top largestScheduledWeek
+   used to differ from and that reasoning still applies to them). Base simply
+   reads that recorded intention instead of re-deriving it from days that may
+   not exist yet -- known immediately at creation, independent of
+   materialisation, exactly what progressionJustification()'s "intended vs
+   materialised vs achieved" separation requires.
+
+   AND THE SAFETY GATE IS UNTOUCHED. This only changes what a block's
+   destination is recorded AS. progressionJustification()'s achieved-evidence
+   side (weeklyCompletedTrainingVolumes(), real completed training) is not
+   this function and is not called from here -- projected intention still
+   supplies only the THRESHOLD a future block is judged against, never the
+   evidence that the athlete reached it. See
+   test/aerobicBaseMethodology.test.js, "projected peak cannot masquerade as
+   achieved evidence".
+
+   THE REAL SCHEDULED FIGURE STILL WINS THE MOMENT IT IS KNOWABLE, and this
+   is the part a naive "base always reads the intended figure" rule would
+   have gotten wrong: largestScheduledWeek(days) is not merely the arithmetic
+   ramp's own top -- distributeWeekVolume()/capWeeklyVolume() can schedule
+   materially LESS than the ramp asked for once real day-count and long-run
+   constraints bind, and judging progression against a figure the generator
+   never actually wrote would fail an athlete who ran every metre they were
+   given (see largestScheduledWeek()'s own comment above). So this only falls
+   back to the intended figure while the materialised days genuinely do not
+   yet reach the block's last structural week -- the honest rolling-horizon
+   case. Once they do (today, always; under a rolling horizon, once the
+   block has run its course and the horizon has advanced through it), the
+   real scheduled figure is used exactly as it always was. */
+function blockPeakVolumeFor(purpose, blockResult, days, raceDateStr, schedule, startDateStr, hasEvent){
+  if (purpose !== 'base') return largestScheduledWeek(days);
+  var weeks = (blockResult && blockResult.weeks) || [];
+  var blockLength = weeks.length ? weeks[weeks.length - 1].week : 0;
+  var maxMaterialised = 0;
+  (days || []).forEach(function(dd){ if (dd && dd.week > maxMaterialised) maxMaterialised = dd.week; });
+  if (blockLength && maxMaterialised >= blockLength){
+    var scheduled = largestScheduledWeek(days);
+    if (scheduled != null) return scheduled;
+  }
+  /* THE INTENDED FIGURE ALONE CAN BE UNREALISTIC AS A PROGRESSION THRESHOLD.
+     baseCapacityObjective() states the arithmetic ramp's own top, before
+     real day-count and long-run constraints are applied to it -- exactly
+     the gap largestScheduledWeek()'s own comment warns about. Recording
+     that raw figure as a block's peak would let the NEXT block's
+     progression gate demand a week the generator could never actually
+     schedule, making a real, well-executed athlete permanently unable to
+     earn a step. So where enough is known to materialise safely, this
+     builds just the block's own peak week -- one week's worth of day-
+     writing, discarded immediately, not the whole block -- and reads the
+     real figure it actually produces instead of the raw intention. */
+  if (raceDateStr && schedule && startDateStr != null){
+    var peakWeek = null;
+    weeks.forEach(function(wk){
+      if (wk.isCutback || wk.isTaper || wk.isRace) return;
+      if (!peakWeek || wk.volume > peakWeek.volume) peakWeek = wk;
+    });
+    if (peakWeek){
+      try {
+        var peakDays = buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, !!hasEvent,
+          { horizonThroughWeek: peakWeek.week });
+        var realPeak = largestScheduledWeek(peakDays);
+        if (realPeak != null) return realPeak;
+      } catch(e){}
+    }
+  }
+  return (blockResult && blockResult.peakVolume != null) ? blockResult.peakVolume : largestScheduledWeek(days);
+}
 /* The block the justification below is judging: the most recent one that has
    ended. A block still open is the one being replaced. */
 function lastRecordedBlock(){
@@ -9418,6 +9517,116 @@ function cappedBlockStartVolume(base, distKey){
     : base;
   if (dem) out = Math.min(out, round1(dem * VOLUME_BLOCK_GROWTH_CAP));
   return round1(Math.min(out, volumeCeilingFor(distKey)));
+}
+
+/* =========================================================
+   AEROBIC BASE'S OWN EVIDENCE HIERARCHY -- HQ METHODOLOGY RULING
+   ---------------------------------------------------------
+   absorbedWeeklyVolume() keeps `stated` (the typed Current Weekly Volume)
+   ranked ABOVE demonstratedSustainableVolume(), and says exactly why in its
+   own comment: Aerobic Base, Maintain & Protect and Speed & Threshold "have
+   not had their review", so promoting demonstrated evidence above the typed
+   figure there would silently re-size three products that never asked for
+   it. This is that review, for Aerobic Base only.
+
+   THE HIERARCHY, IN THE ORDER HQ SPECIFIED:
+     1. measured load-tolerance (athleteResponseModel().loadTolerance) --
+        unchanged, already the strongest evidence anywhere in the product.
+     2. demonstratedSustainableVolume() -- what this athlete has actually
+        shown they sustain, promoted above the typed figure for Base only.
+     3. the typed Current Weekly Volume -- fallback/on-ramp evidence, read
+        only once nothing stronger exists.
+     4. NOTHING INVENTED. Where no measured model, no demonstrated history
+        and no typed figure exists, this returns null and the caller asks --
+        the same behaviour every entry point already has today for a
+        genuinely first block. A conservative NUMBER is not manufactured.
+
+   WHY A BLANK FIELD CAN NO LONGER ERASE REAL EVIDENCE. Before, a blank
+   su-volume field meant "nothing is known" on the manual-builder path even
+   when tiers 1-2 held a real answer, because that path read the field
+   directly and never asked. Routing every Base entry point through this
+   function instead means a blank field simply lets a stronger tier answer.
+
+   AND WHY A STALE OR EXTREME TYPED FIGURE CANNOT OVERRIDE STRONGER EVIDENCE.
+   Tier 3 is consulted ONLY when tiers 1-2 are both absent -- that is a
+   property of the ORDERING, not a separate sanity check bolted on afterward,
+   so there is nothing for a stale or extreme number to override. CWV is
+   still exactly as useful as it always was where evidence is genuinely
+   sparse; it is simply no longer asked first. */
+function baseWeeklyVolumeEvidence(typedVolume){
+  var model = null;
+  try { model = athleteResponseModel(); } catch(e){ model = null; }
+  var lt = model && model.loadTolerance;
+  if (lt && lt.confidence !== 'insufficient' && lt.absorbedVolume && lt.absorbedVolume.typical)
+    return { km: lt.absorbedVolume.typical, source: 'measured' };
+  var dem = null;
+  try { dem = demonstratedSustainableVolume(); } catch(e){ dem = null; }
+  if (dem && dem > 0) return { km: round1(dem), source: 'demonstrated' };
+  if (typedVolume > 0) return { km: typedVolume, source: 'typed' };
+  return { km: null, source: 'unknown' };
+}
+
+/* =========================================================
+   AEROBIC BASE'S OWN CAPACITY-DEVELOPMENT OBJECTIVE -- HQ METHODOLOGY RULING
+   ---------------------------------------------------------
+   REPLACES entry x BASE_VOLUME_MULT (1.25) AS THE DESTINATION BRAIN. The
+   question this answers is "what sustainable aerobic workload could this
+   athlete reasonably develop toward during this block", not "what is 125% of
+   their starting number" -- Aerobic Base has no race and no external
+   preparation destination to aim at, so the destination has to come from the
+   athlete's own evidence instead.
+
+   NO NEW MAGIC CONSTANT. Every bound below already exists and already has a
+   stated coaching purpose elsewhere in the file:
+     PEAK_OVER_DEMONSTRATED  the existing "how far one block's peak may exceed
+                              demonstrated capacity" bound -- already governs
+                              every purpose's peak week, reused here as Base's
+                              PRIMARY destination-setting mechanism rather than
+                              a secondary clamp on top of a multiplier.
+     progressionJustification().earned  the SAME earned-progression gate
+                              cappedBlockStartVolume() already uses to decide
+                              whether a block's START may step up. Reused here
+                              to decide whether THIS block's development
+                              target may reach for that permission ceiling at
+                              all -- "development must be earned" applied to
+                              the destination, not only the anchor.
+     VOLUME_BLOCK_GROWTH_CAP the SAME one-step-per-block rate
+                              cappedBlockStartVolume() uses for cross-block
+                              anchor growth, reused here as the block's own
+                              conservative intra-block ramp for the one case
+                              with no demonstrated ceiling to develop toward:
+                              a first block, or one with too little history to
+                              read (SUSTAINED_WEEKS_REQUIRED not yet met).
+     volumeCeilingFor(distKey)  the existing global safety backstop,
+                              unchanged.
+
+   THREE READINGS, NOT A TABLE:
+     evidence + earned    -> the demonstrated permission ceiling itself
+                              (dem x PEAK_OVER_DEMONSTRATED), the same bound
+                              every other purpose's peak week already
+                              respects.
+     evidence, not earned -> this block develops toward what is already
+                              demonstrated rather than beyond it -- the same
+                              "not earned" answer cappedBlockStartVolume()
+                              gives the block's start, given here to the
+                              block's destination too.
+     no evidence yet      -> one modest, already-justified step from the
+                              block's own opening volume. Not a ramp to
+                              nowhere: a first Base block still develops, just
+                              conservatively -- exactly as much as an athlete
+                              with a real track record earns per cycle. */
+function baseCapacityObjective(currentVolume, distKey){
+  var ceiling = volumeCeilingFor(distKey);
+  var dem = null;
+  try { dem = demonstratedSustainableVolume(); } catch(e){ dem = null; }
+  if (dem){
+    var justified = null;
+    try { justified = progressionJustification(); } catch(e){ justified = null; }
+    if (justified && justified.earned)
+      return round1(Math.min(dem * PEAK_OVER_DEMONSTRATED, ceiling));
+    return round1(Math.min(Math.max(currentVolume || 0, dem), ceiling));
+  }
+  return round1(Math.min((currentVolume || 0) * VOLUME_BLOCK_GROWTH_CAP, ceiling));
 }
 
 /* ---------- WHICH PURPOSES HOLD A DOSE RATHER THAN GOING SOMEWHERE ----------
@@ -10059,6 +10268,13 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      figure -- the viable race-programme start -- rather than to a multiple of
      where the athlete happens to be. The ceiling still binds. */
   var rampTo = (opts && opts.rampToKm != null) ? Number(opts.rampToKm) : null;
+  /* AEROBIC BASE'S DESTINATION IS EVIDENCE-DERIVED, NOT A MULTIPLE OF ITS OWN
+     START -- see baseCapacityObjective(). Computed here, in the same place
+     the on-ramp's explicit destination is read, so this is the identical
+     "explicit destination beats a multiplier" mechanism already above, not a
+     second one. */
+  if (rampTo == null && purpose === 'base' && !steady)
+    rampTo = baseCapacityObjective(currentVolume, distKey);
   var peakVolume = rampTo != null ? Math.min(rampTo, ceiling)
                                   : Math.min(currentVolume * volMult, ceiling);
   /* AND THE PEAK IS BOUNDED BY CAPACITY TOO, which it was not. The start cap
@@ -10525,6 +10741,34 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        thought of yet, it is the smallest version of itself rather than the
        largest. Depth in a safety rule costs nothing here. */
     if (purpose === 'recovery') pos = 0;
+    /* ---- BASE'S FAMILY HARDENING IS EARNED BY READINESS, NOT BY WEEK NUMBER
+       -- F-4 / HQ METHODOLOGY RULING ----
+       structPhase's Base->Build transition stays elapsed-week-based -- it is
+       a phase LABEL and every other purpose still reads it that way -- but
+       for Base specifically it must not, by itself, be sufficient to hand
+       the athlete a harder quality family. Two athletes reaching the same
+       Build week with materially different demonstrated readiness must not
+       receive the same session, so the POOL this block actually draws from
+       is gated on the same evidence progressionJustification() already
+       reads: missPattern()/executionPattern(), against the same
+       PROGRESSION_TIERS_ALLOWED tier already used to decide whether more
+       training has been earned. Where a persistent or emerging pattern
+       exists, this block stays on the gentler family regardless of calendar
+       position -- a WITHDRAWAL of hardening on real evidence of a problem.
+       Where nothing yet contradicts readiness -- including a genuinely first
+       block, which has no pattern to read at all -- the calendar-driven
+       transition applies exactly as it always has; this is not a promotion
+       that must be separately earned on top of it. */
+    var qualityStructPhase = structPhase, tempoStructPhase = structPhase;
+    if (purpose === 'base' && structPhase === 'Build'){
+      var baseMiss = null, baseExec = null;
+      try { baseMiss = missPattern(); } catch(e){ baseMiss = null; }
+      try { baseExec = executionPattern(); } catch(e){ baseExec = null; }
+      var baseNotReady =
+        (baseMiss && PROGRESSION_TIERS_ALLOWED.indexOf(baseMiss.tier) === -1) ||
+        (baseExec && PROGRESSION_TIERS_ALLOWED.indexOf(baseExec.tier) === -1);
+      if (baseNotReady){ qualityStructPhase = 'Base'; tempoStructPhase = 'Base'; }
+    }
     /* WHICH POOLS THIS BLOCK DRAWS FROM. The half race arc has its own
        progression; everything else keeps the shared pools exactly. */
     var qPool = intervalPoolFor(purpose, distKey);
@@ -10546,8 +10790,8 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        the point of the block, not the family that is. */
     var qPos = (halfArc && (structPhase === 'Base' || structPhase === 'Build'))
       ? Math.min(pos, HALF_ECONOMY_POS_MAX) : pos;
-    var qSpec = pickQualityStructure(qPool, structPhase, w, qPos, profile.emphasis, rotation);
-    var tSpec = pickQualityStructure(tPool, structPhase, w, pos, profile.emphasis, rotation);
+    var qSpec = pickQualityStructure(qPool, qualityStructPhase, w, qPos, profile.emphasis, rotation);
+    var tSpec = pickQualityStructure(tPool, tempoStructPhase, w, pos, profile.emphasis, rotation);
     // Taper shrinks the STRUCTURE, then the day is sized from that structure --
     // so the number on the card and the session written on it cannot disagree.
     /* ---- a quality session is never the longest run of the week ----
@@ -10633,11 +10877,11 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       var taperHold = isTaper && usesBottomUpArc(purpose, distKey);
       var seedQ = (taperSeed || taperHold) ? prevQSpec : null;
       var seedT = (taperSeed || taperHold) ? prevTSpec : null;
-      qSpec = fitQualityStructure(qPool, 'interval', structPhase, w, qPos,
+      qSpec = fitQualityStructure(qPool, 'interval', qualityStructPhase, w, qPos,
                                   profile.emphasis, rotation,
                                   Math.min(taperCeilQ, weekFitCeil), seedQ,
                                   taperShrink, taperHold);
-      tSpec = fitQualityStructure(tPool, 'tempo', structPhase, w, pos,
+      tSpec = fitQualityStructure(tPool, 'tempo', tempoStructPhase, w, pos,
                                   profile.emphasis, rotation,
                                   Math.min(taperCeilT, weekFitCeil), seedT,
                                   taperShrink, taperHold);
@@ -10875,9 +11119,19 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         if (hKind) soloKind = hKind;
       }
       var soloOcc = soloKind === 'interval' ? soloOccQ : soloOccT;
+      /* ---- THE SINGLE-SLOT WEEK IS BASE'S ACTUAL DELIVERY PATH ----
+         Base carries one quality slot per week (soloKind alternates
+         interval/tempo on week parity), so THIS is the family the athlete
+         receives -- the two-slot qSpec/tSpec computed above are seed/
+         bookkeeping values for a block with two slots and are not what
+         buildDaysFromWeeks() materialises for a one-slot week. The F-4
+         readiness gate has to apply here too, or a Base block's real
+         session keeps hardening on calendar position while only the unused
+         two-slot bookkeeping value reflects the gate. */
       soloSpec = fitQualityStructure(
         soloKind === 'interval' ? qPool : tPool,
-        soloKind, structPhase, soloOcc, soloKind === 'interval' ? qPos : pos,
+        soloKind, (soloKind === 'interval' ? qualityStructPhase : tempoStructPhase), soloOcc,
+        soloKind === 'interval' ? qPos : pos,
         profile.emphasis, rotation, weekFitCeil, null, 1);
       soloKm = soloKind === 'interval' ? intervalSessionKm(soloSpec) : tempoSessionKm(soloSpec);
       soloFitsBound = soloKm <= weekFitCeil + 1e-9;
@@ -10908,12 +11162,33 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       }
     }
 
-    var longFrac = LONG_FRACTION[profile.emphasis];
+    /* AEROBIC BASE'S LONG RUN IS SEVERED FROM DISTANCE_PROFILES[distKey] --
+       F-2 / HQ METHODOLOGY RULING. profile.emphasis and profile.longCapKm
+       describe an EVENT's demands (a marathon's endurance emphasis, a 5K's
+       speed emphasis), and Aerobic Base has no event to describe -- audited
+       proof: an otherwise identical Base athlete's long run swung ~50%
+       purely from which distKey happened to be configured, a leftover of the
+       shared arc machinery, never a coaching decision.
+
+       THE FRACTION IS PINNED, NOT CHOSEN PER BLOCK. 'endurance' (0.32,
+       already LONG_FRACTION's own value for exactly this kind of aerobic
+       development) applies uniformly regardless of distKey -- Base has one
+       long-run character, not five.
+
+       THE CAP IS EVIDENCE-DERIVED, THE SAME BOUND baseCapacityObjective()
+       ALREADY USES for the week's own volume: demonstrated capacity x
+       PEAK_OVER_DEMONSTRATED, or the global ceiling where nothing is
+       demonstrated yet. No new constant, no per-distance table. */
+    var longFrac = (purpose === 'base') ? LONG_FRACTION.endurance : LONG_FRACTION[profile.emphasis];
+    var baseLongCapKm = (purpose !== 'base') ? null
+      : (demForPeak ? round1(demForPeak * LONG_FRACTION.endurance * PEAK_OVER_DEMONSTRATED)
+                    : round1(ceiling * LONG_FRACTION.endurance));
     /* A FOUNDATION BLOCK HAS NO LONG RUN, and that is the point rather than an
        omission: the long run is precisely the session this athlete's volume
        cannot express, and shrinking one until it fits would produce the
        three-kilometre "long run" the audit was opened over. */
-    var longTarget = (isRace || arc.noLongRun) ? 0 : Math.min(profile.longCapKm, volume*longFrac);
+    var longTarget = (isRace || arc.noLongRun) ? 0
+      : Math.min(purpose === 'base' ? baseLongCapKm : profile.longCapKm, volume*longFrac);
     /* THE LONG RUN IS ITS OWN AUTHORITY. Not volume x a share -- see
        marathonLongRunDestination(). The share is computed afterwards and used
        to DIAGNOSE the week's shape, which is the only job it has. */
@@ -11636,11 +11911,15 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
               would silently get a different shape from the one the weeks were
               built on. */
            phaseCounts: arc.phaseCounts || null,
-           /* Reported only where it decided something. A base, speed or
-              maintenance block has no pathway to select and no phase counts of
-              its own, and recording the athlete's level on it would make three
-              identical blocks compare unequal. */
-           experience: arc.phaseCounts ? blockExp : null,
+           /* Reported where it decided something. Speed and maintenance
+              blocks have no pathway to select and no phase counts of their
+              own, and recording the athlete's level on them would make three
+              identical blocks compare unequal -- unchanged for both. Base is
+              the one exception: HQ's methodology ruling gives experience a
+              narrow, secondary role in Base's own frequency-development
+              confidence (see buildDaysFromWeeks()'s runCap), so the day
+              builder needs to read it too. */
+           experience: (arc.phaseCounts || purpose === 'base') ? blockExp : null,
            purpose:purpose, noQuality:!!arc.noQuality, noLongRun:!!arc.noLongRun,
            /* THE RATE, AS AN OUTPUT. What the ramp actually implies per
               developing week, so it can be reported, audited and later gated --
@@ -14263,7 +14542,24 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
   var startMonday = addDays(startDateStr, -isoWeekday(startDateStr));
 
   var days = [];
+  /* ---- THE ROLLING PRESCRIPTION HORIZON -- HQ AUTHORISED, BASE ONLY ----
+     opts.horizonThroughWeek, when supplied, is the last structural week
+     number this call actually MATERIALISES into concrete day objects. Every
+     other week still gets its full week-level structure computed by
+     buildBlockWeeks() above (phase, volume, long-run target, quality family
+     -- the PROGRAMME INTENTION) but is skipped here, so it never becomes a
+     committed session. This is the one seam that separates intention from
+     materialised prescription: everything above this loop already ran for
+     the whole block; only the day-writing below is now bounded.
+
+     Every existing caller that does not pass it is completely unaffected --
+     horizonThroughWeek stays null, the check below is always false, and the
+     block materialises in full exactly as it always has. Only Base's
+     horizon-advance call site (ensureBaseHorizonMaterialised(), see below)
+     ever sets it. */
+  var horizonThroughWeek = (opts && opts.horizonThroughWeek != null) ? opts.horizonThroughWeek : null;
   weeks.forEach(function(wk, wIdx){
+    if (horizonThroughWeek != null && wk.week > horizonThroughWeek) return;
     var weekMonday = addDays(startMonday, wIdx*7);
 
     if (wk.isRace){
@@ -14393,6 +14689,26 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        their demonstrated capacity by having a good fortnight. */
     if (!wk.bottomUp && currentFreq != null && !wk.isRace)
       runCap = Math.min(runCap, Math.max(2, currentFreq));
+    /* ---- EXPERIENCE, AS A SECONDARY PRIOR, ONLY WHERE EVIDENCE IS SILENT ----
+       HQ's methodology ruling: Experience may inform frequency-development
+       CONFIDENCE where evidence cannot yet resolve the athlete; it must never
+       override evidence that exists, and it must not become a fixed mileage
+       or day-count table. This is the narrowest reading of that ruling that
+       is still a real effect: it fires ONLY when both demonstratedFreq and
+       currentFreq are null (a genuinely first Base block, or one with too
+       little running history to read either) -- the instant either exists,
+       this line is dead and evidence alone decides, exactly as it already
+       does above. In that one gap, a self-identified Developing athlete opens
+       one day below their stated availability rather than at the full
+       figure -- a conservative starting posture, not a destination, and it
+       corrects itself the moment three weeks of real running exist to read
+       instead. Established and Advanced are unaffected: they keep today's
+       behaviour of opening at full availability when nothing else is known,
+       which the default experience level (Established) preserves for every
+       athlete who never answered the question. */
+    if (!wk.bottomUp && demonstratedFreq == null && currentFreq == null && !wk.isRace &&
+        blockResult.purpose === 'base' && blockResult.experience === 'novice')
+      runCap = Math.min(runCap, Math.max(2, activeDays.length - 1));
     /* MARATHON ONLY, deliberately. What follows changes prescribed frequency
        for a population, and the marathon is the distance whose methodology HQ
        has closed. The other race distances are audited individually and keep
@@ -15341,6 +15657,14 @@ function recordVolumeAccounting(days, weeks){
   days.forEach(function(dd){ (byWeek[dd.week] = byWeek[dd.week] || []).push(dd); });
   weeks.forEach(function(wk){
     var entries = byWeek[wk.week] || [];
+    /* A WEEK BEYOND THE MATERIALISED HORIZON HAS NOTHING TO ACCOUNT FOR.
+       Nothing was prescribed, so there is no residual to reconcile and no
+       accounting row to push -- distinct from a materialised week whose
+       prescribed total happens to be zero, which still gets a row. A fully
+       materialised block (every purpose but Base, and Base once its horizon
+       has caught up to the block's end) never has an empty week here, so
+       this is a no-op change everywhere except a Base block mid-horizon. */
+    if (!entries.length) return;
     var prescribedTotal = round1(entries.reduce(function(t,dd){ return t + (dd.km||0); }, 0));
     var dist = wk.dist || {};
     var intended = wk.intendedVolume != null ? wk.intendedVolume : wk.volume;
@@ -18502,9 +18826,33 @@ function computeStats(){
 }
 function weekDateRange(weekNum){
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
-  return { start: wdays[0].date, end: wdays[wdays.length-1].date };
+  if (wdays.length) return { start: wdays[0].date, end: wdays[wdays.length-1].date };
+  /* BEYOND THE MATERIALISED HORIZON, the week's dates are still knowable --
+     they are a structural fact about the block (its start date plus how many
+     weeks have elapsed), not something materialisation was ever needed for.
+     Falls back to the same start-date anchor buildDaysFromWeeks() itself
+     uses, so a not-yet-materialised week's card can still show real dates
+     instead of throwing on an empty array. */
+  var su = state.setup;
+  if (su && su.startDate){
+    var startMonday = addDays(su.startDate, -isoWeekday(su.startDate));
+    var wMonday = addDays(startMonday, (weekNum - 1) * 7);
+    return { start: wMonday, end: addDays(wMonday, 6) };
+  }
+  return { start: null, end: null };
 }
-function totalWeeksInPlan(){ return state.days.length ? state.days[state.days.length-1].week : 0; }
+/* THE BLOCK'S OWN INTENDED LENGTH, NOT THE LAST MATERIALISED DAY'S WEEK
+   NUMBER -- F-6 / rolling-horizon requirement. state.setup.planWeeks is
+   already recorded, unconditionally, by every plan-construction site
+   (buildBlockWeeks()'s own returned planWeeks, carried straight through) --
+   independent of how many weeks currently hold real day objects. Falls back
+   to the old day-scanning answer only for a state that somehow predates that
+   field. */
+function totalWeeksInPlan(){
+  var fromSetup = state.setup && state.setup.planWeeks;
+  if (fromSetup > 0) return fromSetup;
+  return state.days.length ? state.days[state.days.length-1].week : 0;
+}
 
 /* =========================================================
    TOPBAR / HERO / GOAL TOGGLE
@@ -24253,7 +24601,12 @@ function absorbedWeeklyVolume(){
    athlete's own event. */
 function developmentBlockSpec(purpose, opts){
   var o = opts || {};
-  var absorbed = absorbedWeeklyVolume();
+  /* AEROBIC BASE READS ITS OWN EVIDENCE HIERARCHY -- see
+     baseWeeklyVolumeEvidence(). Maintain & Protect and Speed & Threshold have
+     not had this review and keep absorbedWeeklyVolume() exactly as it was. */
+  var absorbed = (purpose === 'base')
+    ? baseWeeklyVolumeEvidence(state.setup && state.setup.currentVolume)
+    : absorbedWeeklyVolume();
   var lastDistance = o.distanceKey || (state.setup && state.setup.distanceKey) || 'half';
   /* THE SECOND HALF OF THE CEILING. buildBlockWeeks() caps the PEAK; this caps
      the START, so a block cannot open above what the athlete has demonstrated
@@ -24847,7 +25200,13 @@ function startDevelopmentBlock(purpose, opts){
     { purpose: purpose,
       calibrate: calibrationNeededNow(spec.volume, rgCalEntry),
       calibrateWhenViable: calibrationDeferrable(spec.volume, rgCalEntry) });
-  var days = buildDaysFromWeeks(blockResult, goalDate, schedule, startDate, false);
+  /* AEROBIC BASE OPENS INSIDE ITS OWN ROLLING HORIZON, NOT FULLY MATERIALISED.
+     A new block's current week is week 1, so HQ's "current week + next week"
+     means weeks 1-2 -- ensureBaseHorizonMaterialised() takes it from there as
+     real time and training pass. Every other purpose is unaffected: opts is
+     only added for 'base' and every other call keeps materialising in full. */
+  var daysOpts = (purpose === 'base') ? { horizonThroughWeek: Math.min(blockResult.planWeeks, 2) } : undefined;
+  var days = buildDaysFromWeeks(blockResult, goalDate, schedule, startDate, false, daysOpts);
   if (purpose === 'recovery' && prevRaceDate)
     days = applyRecoveryCeiling(days, prevRaceDate, spec.noIntensityDays);
 
@@ -24861,7 +25220,8 @@ function startDevelopmentBlock(purpose, opts){
 
   var block = openBlock({ purpose: purpose, startDate: startDate,
                           distanceKey: spec.distanceKey, goalDate: goalDate, hasEvent: false,
-                          startVolume: spec.volume, peakVolume: largestScheduledWeek(days),
+                          startVolume: spec.volume,
+                          peakVolume: blockPeakVolumeFor(purpose, blockResult, days, goalDate, schedule, startDate, false),
                           anchorVolume: spec.anchorVolume,
                           progressionStep: spec.progressionStep });
   block.fromBlockId = prevBlockId || null;
@@ -33721,6 +34081,35 @@ function weekPhaseLabel(weekNum){
 function renderWeekAccordion(weekNum, forceOpen){
   var wdays = state.days.filter(function(dd){ return dd.week===weekNum; });
   var range = weekDateRange(weekNum);
+  /* ---- A STRUCTURAL WEEK BEYOND THE MATERIALISED HORIZON ----
+     HQ's rolling two-week prescription horizon: this week is real -- its
+     dates and its place in the block are known -- but no session has been
+     committed to it yet. Full Plan still shows every week of the programme;
+     this one truthfully says it has not been shaped, rather than rendering
+     an empty rest week with a "0/0" total nobody actually decided. Every
+     other purpose still materialises its whole block up front, so wdays is
+     never empty for them inside 1..totalWeeksInPlan() and this branch never
+     fires. */
+  if (!wdays.length && weekNum >= 1 && weekNum <= totalWeeksInPlan()){
+    var openClsU = (forceOpen || expandedWeeks[weekNum]) ? ' open' : '';
+    return '<div class="week week-unshaped'+openClsU+'" id="week-'+weekNum+'">'+
+      '<button type="button" class="week-head" data-action="toggle-week" data-week="'+weekNum+'">'+
+        '<div class="week-num font-display">'+(weekNum<10?'0':'')+weekNum+'</div>'+
+        '<div class="week-meta">'+
+          '<div class="week-phase font-head">'+weekPhaseLabel(weekNum)+'</div>'+
+          '<div class="week-range font-mono">'+dShort(range.start)+' – '+dShort(range.end)+'</div>'+
+        '</div>'+
+        '<div class="week-vol"><div class="v font-mono">—</div><div class="l font-head">'+displayUnit()+'</div></div>'+
+        '<div class="week-chevron">'+ICONS.chevronDown+'</div>'+
+      '</button>'+
+      '<div class="week-body"><div class="week-body-inner">'+
+        '<div class="week-unshaped-note">'+
+          '<div class="week-unshaped-head">Adapts as you train</div>'+
+          '<div class="week-unshaped-sub">This week will be shaped by your training.</div>'+
+        '</div>'+
+      '</div></div>'+
+    '</div>';
+  }
   var vol = weekVolume(weekNum);
   var today = todayStr();
   var hasToday = today>=range.start && today<=range.end;
@@ -34382,6 +34771,14 @@ function openSetupModal(){
   var benchDist = (su.benchmark && su.benchmark.distanceKey) || '5k';
   var benchTime = (su.benchmark && su.benchmark.timeSec) ? secToClock(su.benchmark.timeSec) : '';
   var vol = su.currentVolume!=null ? kmToDisplay(su.currentVolume) : '';
+  /* AEROBIC BASE SHOWS ITS OWN EVIDENCE WHEN THE TYPED FIELD IS BLANK, rather
+     than an empty box that invites a blind guess -- see
+     baseWeeklyVolumeEvidence() and the F-1 defect it closes. Every other
+     purpose is unaffected: an empty field stays empty for them. */
+  if (!vol && su.purpose === 'base'){
+    var baseEv = baseWeeklyVolumeEvidence(null);
+    if (baseEv.km != null) vol = kmToDisplay(baseEv.km);
+  }
   var raceDate = su.raceDate || '';
   /* A non-race block has no event, so the box opens on the length question
      rather than on a date field the purpose cannot use. */
@@ -35555,6 +35952,83 @@ function reconcileRegeneratedDays(oldDays, newDays, startDateStr){
   capCurrentWeekQuality(merged, newDays, today);
   return { days:merged, preserved:history.length };
 }
+
+/* =========================================================
+   THE ROLLING TWO-WEEK PRESCRIPTION HORIZON -- SINGLE MATERIALISATION PATH
+   HQ AUTHORISATION: AEROBIC BASE ONLY
+   ---------------------------------------------------------
+   ONE AUTHORITATIVE TRIGGER, not five competing generators. Every other
+   purpose still materialises its whole block at creation and never calls
+   this; Aerobic Base is the only purpose that genuinely defers day-writing
+   (buildDaysFromWeeks()'s opts.horizonThroughWeek), so this is the one
+   function that ever needs to catch a plan's materialisation up to today.
+
+   "TWO WEEKS" MEANS THE CURRENT PROGRAMME WEEK PLUS THE NEXT ONE -- HQ's own
+   stated interpretation. currentWeekNum() is the exact accessor Full Plan
+   and Today already use, so "the horizon" and "the week the app says you
+   are in" can never silently disagree.
+
+   WHEN IT RUNS. Called once, lazily, from renderApp() -- the single place
+   every trigger HQ asked about (plan creation, app load, week transition,
+   session completion, adaptation, regeneration) already funnels through
+   before anything is drawn. It is a cheap no-op the moment the horizon is
+   already caught up, which is every render but the ones that cross into a
+   new week.
+
+   HOW IT EXTENDS. Not a second generator: the exact same buildBlockWeeks()/
+   buildDaysFromWeeks() pair the block was opened with, re-run with the same
+   parameters recovered from state.setup (never guessed) and a wider
+   opts.horizonThroughWeek. buildBlockWeeks() is a pure function of its
+   arguments read fresh each call, so this is also where §18's adaptation
+   requirement is satisfied: currentVolume (the block's own ramp origin)
+   stays fixed at what state.setup already recorded, but demonstratedFreq,
+   demonstratedSustainableVolume(), missPattern() and executionPattern() are
+   all read LIVE -- so a week newly entering the horizon reflects whatever
+   the athlete has actually done since the block opened, while a week
+   already inside it is untouched (see below). Two initially identical
+   athletes who diverge in weeks 1-6 get a genuinely different week 8 the
+   moment week 8 enters the horizon, not because this function re-decides
+   week 8 specially, but because buildBlockWeeks() was always reading live
+   evidence and week 8 is simply the first time that evidence gets to reach
+   a session.
+
+   THE MERGE PROTECTS HISTORY. reconcileRegeneratedDays() is the same
+   history-preserving contract a manual rebuild already relies on: a
+   completed, missed or edited session already inside the horizon is
+   data (dayCarriesHistory()), so the freshly-recomputed version of that
+   same week is discarded in its favour. Only genuinely NEW weeks -- ones
+   with no history yet -- take the fresh computation. This is also why
+   currentVolume must NOT be re-derived from live evidence on every call:
+   doing so would silently redraw week 1's already-lived-in shape every
+   time the horizon advanced, which reconcileRegeneratedDays() would then
+   have to fight rather than simply not need to. */
+function ensureBaseHorizonMaterialised(){
+  var su = state && state.setup;
+  if (!su || su.purpose !== 'base' || !state.days || !state.days.length) return false;
+  var total = totalWeeksInPlan();
+  if (!total) return false;
+  var week = currentWeekNum();
+  if (!week) return false;
+  var targetHorizon = Math.min(total, week + 1);
+  var maxMaterialised = 0;
+  state.days.forEach(function(dd){ if (dd.week > maxMaterialised) maxMaterialised = dd.week; });
+  if (maxMaterialised >= targetHorizon) return false;   // already caught up
+
+  var blockResult, freshDays;
+  try {
+    blockResult = buildBlockWeeks(su.distanceKey, su.currentVolume, su.planWeeks, { purpose: 'base' });
+    freshDays = buildDaysFromWeeks(blockResult, su.raceDate, su.schedule, su.startDate, false,
+      { horizonThroughWeek: targetHorizon });
+  } catch(e){ return false; }
+
+  var reconciled = reconcileRegeneratedDays(state.days, freshDays, su.startDate);
+  state.days = reconciled.days;
+  var block = su.blockId ? blockById(su.blockId) : null;
+  if (block) block.peakVolume = blockPeakVolumeFor('base', blockResult, state.days,
+    su.raceDate, su.schedule, su.startDate, false);
+  try { scheduleSave(); } catch(e){}
+  return true;
+}
 /* ---------- the week the athlete is standing in ----------
    Preserving elapsed days truthfully means the REMAINDER of the current week
    is re-tailored around a past the generator no longer controls. Where a
@@ -35640,6 +36114,9 @@ async function handleGeneratePlan(){
   var volume = builderAsksWeeklyVolume(buildPurpose)
     ? parseDistInput(document.getElementById('su-volume').value)
     : null;
+  // Base routes through baseWeeklyVolumeEvidence() -- demonstrated capacity
+  // outranks a typed figure, and blank no longer erases real evidence.
+  if (buildPurpose === 'base') volume = baseWeeklyVolumeEvidence(volume).km;
   var benchDist = document.getElementById('su-bench-dist').value;
   var benchSec = parseBenchmarkTime(document.getElementById('su-bench-time').value.trim());
   /* THE CONSENT DECISION IS TAKEN HERE, BEFORE THE TWO FIELDS IT GOVERNS ARE
@@ -35842,8 +36319,20 @@ async function handleGeneratePlan(){
       easyPaceSecPerKm: genEasyPace,
       calibrate: calibrationNeededNow(volume, genCalEntry),
       calibrateWhenViable: calibrationDeferrable(volume, genCalEntry) });
-  var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent,
-                                { easyPaceSecPerKm: genEasyPace });
+  /* AEROBIC BASE OPENS (OR RE-OPENS, ON A REBUILD) INSIDE ITS OWN ROLLING
+     HORIZON. `startDate` is the block's own origin, not necessarily today's
+     date on a rebuild (see blockAnchor() above), so the current week is
+     computed from it the same way reconcileRegeneratedDays() computes any
+     day's week -- not assumed to be week 1. Every other purpose is
+     unaffected: horizonThroughWeek is only ever added for 'base'. */
+  var daysOpts = { easyPaceSecPerKm: genEasyPace };
+  if (buildPurpose === 'base'){
+    var baseStartMonday = addDays(startDate, -isoWeekday(startDate));
+    var todayMondayForHorizon = addDays(todayStr(), -isoWeekday(todayStr()));
+    var weekNowForHorizon = Math.max(1, Math.round(daysBetween(baseStartMonday, todayMondayForHorizon) / 7) + 1);
+    daysOpts.horizonThroughWeek = Math.min(blockResult.planWeeks, weekNowForHorizon + 1);
+  }
+  var days = buildDaysFromWeeks(blockResult, raceDate, schedule, startDate, hasEvent, daysOpts);
 
   /* HISTORY IS RECONCILED INTO A REBUILD AND ARCHIVED OUT OF A TRANSITION.
 
@@ -35871,7 +36360,8 @@ async function handleGeneratePlan(){
                          : openBlock({ purpose: purpose, startDate: startDate,
                                        distanceKey: distanceKey, goalDate: raceDate,
                                        hasEvent: hasEvent,
-                                       startVolume: volume, peakVolume: largestScheduledWeek(days),
+                                       startVolume: volume,
+                                       peakVolume: blockPeakVolumeFor(purpose, blockResult, days, raceDate, schedule, startDate, hasEvent),
                                        anchorVolume: volume });
   if (purposeChanged) block.fromBlockId = priorBlock ? priorBlock.id : null;
   if (rebuilding){
@@ -35881,7 +36371,7 @@ async function handleGeneratePlan(){
     // A rebuild replaces the prescription, so the figures the NEXT block is
     // anchored to are the new ones, not the ones this block opened with.
     block.startVolume = round1(volume);
-    block.peakVolume = largestScheduledWeek(days);
+    block.peakVolume = blockPeakVolumeFor(purpose, blockResult, days, raceDate, schedule, startDate, hasEvent);
     block.anchorVolume = round1(volume);
   }
 
@@ -42794,14 +43284,27 @@ function zonePaceSourceSentence(goal, profile){
 function recordPanelProgress(){
   var s = computeStats();
   var week = currentWeekNum(), total = totalWeeksInPlan();
-  var longestDone = 0, longestToCome = 0;
+  var longestDone = 0, longestToCome = 0, maxMaterialisedWeek = 0;
   state.days.forEach(function(dd){
+    if (dd.week > maxMaterialisedWeek) maxMaterialisedWeek = dd.week;
     if (dd.type === 'rest') return;
     if (dd.completed){
       var ran = (dd.actual && dd.actual.km!=null) ? dd.actual.km : (dd.km||0);
       if (ran > longestDone) longestDone = ran;
     } else if ((dd.km||0) > longestToCome) longestToCome = dd.km||0;
   });
+  /* ---- THE ROLLING HORIZON MEANS "STILL TO RUN" CAN BE PARTIAL ----
+     Aerobic Base materialises roughly two weeks ahead; every other purpose
+     still materialises its whole block, so maxMaterialisedWeek === total for
+     them and this never fires. Where the block genuinely extends beyond what
+     has been shaped yet, these two figures are truthfully qualified rather
+     than quietly reported as the whole block's remaining total -- HQ's
+     "represent the truth, don't turn an unknown into zero." */
+  var horizonPartial = total && maxMaterialisedWeek > 0 && maxMaterialisedWeek < total;
+  var sessionsLabel = horizonPartial ? 'Sessions still to run (shaped through week '+maxMaterialisedWeek+')'
+                                      : 'Sessions still to run';
+  var longestAheadLabel = horizonPartial ? 'Longest run still ahead (shaped through week '+maxMaterialisedWeek+')'
+                                          : 'Longest run still ahead';
   /* The rows are what the bars above do NOT already say. Runs done and
      distance done are both in renderPlanOverviewStats(), twice over -- as
      figures and as bars -- so repeating them here would fill the panel with
@@ -42810,9 +43313,10 @@ function recordPanelProgress(){
     '<div class="setup-section-title">Where you are in the block</div>'+
     '<div class="hub-card tile-card">'+
       (week && total ? hqRow('Week', week+' of '+total) : '')+
-      hqRow('Sessions still to run', (s.totalRuns - s.completedRuns)+'')+
+      hqRow(sessionsLabel, (s.totalRuns - s.completedRuns)+'')+
       (longestDone ? hqRow('Longest run so far', fmtDist(longestDone)) : '')+
-      (longestToCome ? hqRow('Longest run still ahead', fmtDist(longestToCome)) : '')+
+      (longestToCome ? hqRow(longestAheadLabel, fmtDist(longestToCome)) : '')+
+      (horizonPartial ? hqRow('Rest of the block', 'shaped week by week, through week '+total) : '')+
     '</div>'+
     '<div class="field-hint">Runs and distance move at different rates through a block — the '+
       'long runs that carry the distance are weighted towards the back of it. Neither figure is a '+
@@ -43899,6 +44403,14 @@ function renderApp(){
   applyThemeToDocument();
   var app = document.getElementById('app');
   if (!app) return;
+  /* THE ONE PLACE THE ROLLING BASE HORIZON ADVANCES. See
+     ensureBaseHorizonMaterialised() -- every trigger that could plausibly
+     move the athlete into a new week (app load, a day change, a session
+     completion, a plan edit) already ends in a renderApp() call, so this is
+     the single authoritative choke point rather than a second one wired
+     into each of them separately. A no-op for every purpose but Base, and a
+     no-op for Base on every render that has not crossed into a new week. */
+  try { ensureBaseHorizonMaterialised(); } catch(e){}
   lastRenderedDate = todayStr();
   var navAllowed = appStateAllowsNav();
   app.classList.toggle('has-subnav', navAllowed && (state.view||'today')==='planhq');

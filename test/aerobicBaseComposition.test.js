@@ -33,6 +33,31 @@ function app(){
   a.state = a.makeDefaultState(); a.state.athlete = a.makeAthleteRecord();
   return a;
 }
+/* ---- A BASE ATHLETE WHOSE BLOCK HAS ACTUALLY EARNED A STEP ----
+   HQ's methodology ruling replaced entry x BASE_VOLUME_MULT (1.25) with
+   baseCapacityObjective(): a block with genuine demonstrated evidence and an
+   earned progressionJustification() now develops toward
+   demonstratedSustainableVolume() x PEAK_OVER_DEMONSTRATED, same as every
+   other purpose's peak week already respects -- not a flat quarter of the
+   starting number. Without evidence it is deliberately conservative instead
+   (VOLUME_BLOCK_GROWTH_CAP, ~10%), which is the whole point of the ruling:
+   see test/aerobicBaseMethodology.test.js for that side of it directly.
+   This seeds the evidence side so tests that need to measure real growth
+   have something to measure it against. */
+function appWithEarnedEvidence(peakKm){
+  const a = app();
+  a.state.athlete.blocks = [{ id: 'prior', purpose: 'base', status: 'closed',
+    anchorVolume: peakKm, startVolume: peakKm, peakVolume: peakKm }];
+  const sessions = [];
+  for (let w = 1; w <= 10; w++){
+    const monday = a.addDays('2026-08-17', -7 * w);
+    [0, 2, 4, 5].forEach(d => sessions.push({ date: a.addDays(monday, d), completed: true,
+      actualKm: peakKm / 4, plannedKm: peakKm / 4, type: 'easy',
+      actual: { km: peakKm / 4, rpe: 3, pace: 400, hr: 135 }, feel: 'good' }));
+  }
+  a.state.athlete.sessions = sessions;
+  return a;
+}
 const QUALITY = ['tempo', 'threshold', 'interval', 'repetition', 'checkpoint', 'race'];
 const SCHEDULE = { activeDays: [0, 1, 2, 4, 5], longRunDay: 5 };
 
@@ -88,8 +113,26 @@ test('a base block does not progress its quality faster than its aerobic work', 
 
      So each structure is now compared with ITSELF across the block, which is a
      stricter test of the same methodology: it fails if any structure's dose
-     outgrows the aerobic work, and it cannot be satisfied by rotation. */
-  const a = app();
+     outgrows the aerobic work, and it cannot be satisfied by rotation.
+
+     OLD RULE / NEW RULE / WHY -- THE FIXTURE, NOT THE INVARIANT, CHANGED.
+     This test used to run against app(), which has no demonstrated
+     evidence. Before the HQ Aerobic Base methodology ruling, that block
+     still opened at entry x BASE_VOLUME_MULT (1.25) regardless of evidence,
+     so aerobic volume always grew ~10% block-over-block and the comparison
+     below was meaningful. baseCapacityObjective() now makes that same
+     no-evidence case deliberately conservative instead (currentVolume x
+     VOLUME_BLOCK_GROWTH_CAP, ~10% of the OPENING week, not of a 25% ramp) --
+     HQ's explicit ruling against "what is 125% of their starting number" as
+     the destination brain -- and aerobic growth over a whole block can come
+     out closer to flat. The invariant under test (a structure's own dose
+     must not outgrow the aerobic work) is unchanged and still enforced; it
+     needs a fixture where aerobic growth is non-trivial to be a meaningful
+     comparison rather than dividing by noise, so this now runs against an
+     athlete with real demonstrated evidence and an earned progression step
+     -- the case baseCapacityObjective() itself gives the larger, evidence-
+     backed destination to (dem x PEAK_OVER_DEMONSTRATED). */
+  const a = appWithEarnedEvidence(55);
   const full = fullWeeks(weeksOf(a, 'base', 'half', 55, 10));
   const first = full[0], last = full[full.length - 1];
   const aer = growth(first.aerobic, last.aerobic);
@@ -128,7 +171,25 @@ test('BASE_QUALITY_POS_MAX still halves the range a base structure travels', () 
 });
 
 test('a base block still progresses — this is a development block, not maintenance', () => {
-  const a = app();
+  /* OLD RULE / NEW RULE / WHY. This test used to run against app() (no
+     demonstrated evidence) and asserted >=10% aerobic growth, which held
+     because a no-evidence block used to ramp on entry x BASE_VOLUME_MULT
+     (1.25) regardless of what the athlete had actually shown. HQ's
+     methodology ruling explicitly rejected that: "not the arbitrary 1.25
+     multiplier... any new bound must have an explicit coaching purpose."
+     baseCapacityObjective() now answers the no-evidence case with a
+     deliberately conservative step instead (VOLUME_BLOCK_GROWTH_CAP, ~10%
+     of the block's OWN opening week -- reused from the same one-step-per-
+     block rate cappedBlockStartVolume() already uses, not a new constant),
+     which a whole block's net non-cutback aerobic growth does not reliably
+     clear. "Still progresses" is still true and still asserted here -- it
+     is proven on the case the ruling gives real headroom to: real
+     demonstrated evidence plus an earned step, where the destination is
+     demonstratedSustainableVolume() x PEAK_OVER_DEMONSTRATED. The
+     no-evidence side has its own dedicated proof, in
+     test/aerobicBaseMethodology.test.js, that growth is conservative
+     rather than absent. */
+  const a = appWithEarnedEvidence(55);
   const full = fullWeeks(weeksOf(a, 'base', 'half', 55, 10));
   const first = full[0], last = full[full.length - 1];
   assert.ok(growth(first.aerobic, last.aerobic) >= 0.10,

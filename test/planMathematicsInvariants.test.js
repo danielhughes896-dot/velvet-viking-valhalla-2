@@ -454,15 +454,35 @@ test('experience selects the Race Goal pathway and touches nothing else', () => 
       { purpose: purpose, availableDays: 5, experience: exp }));
   };
   const LEVELS = ['novice', 'experienced', 'advanced'];
-  /* EVERY OTHER PURPOSE, BYTE FOR BYTE. A base block, a speed block and a
-     maintenance block are not preparing for an event, so there is no pathway
-     to select and experience has nothing to say. */
-  ['base', 'speed', 'maintain'].forEach(purpose => {
+  /* SPEED AND MAINTAIN, BYTE FOR BYTE. Neither is preparing for an event, so
+     there is no pathway to select and experience has nothing to say. Their
+     review has not happened and this attack did not touch them. */
+  ['speed', 'maintain'].forEach(purpose => {
     ['5k', '10k', 'half', 'full'].forEach(dist => {
       const ref = blk(dist, LEVELS[0], purpose);
       LEVELS.slice(1).forEach(exp => assert.equal(blk(dist, exp, purpose), ref,
         dist + ' ' + purpose + ' changed with experience'));
     });
+  });
+  /* OLD RULE / NEW RULE / WHY -- BASE, SEPARATED OUT. This test used to
+     assert Base was byte-for-byte identical across experience, same as
+     speed/maintain: "no pathway to select, experience has nothing to say."
+     HQ's Aerobic Base methodology ruling gives experience a narrow,
+     secondary role there after all (see buildDaysFromWeeks()'s
+     frequency-development prior, tested directly in
+     test/aerobicBaseMethodology.test.js) -- so buildBlockWeeks() now
+     records which experience a base block was built with, exactly as it
+     already did for the two dedicated Race Goal pathways, rather than
+     hard-nulling it. That recorded field is the ONLY thing that differs
+     here: construction itself (every week's volume, phase, long run,
+     quality family) is still identical across experience levels at this
+     layer -- proven by stripping the field before comparing, rather than
+     by weakening what is actually being checked. */
+  ['5k', '10k', 'half', 'full'].forEach(dist => {
+    const stripExperience = json => json.replace(/"experience":"[a-z]*"/, '"experience":null');
+    const ref = stripExperience(blk(dist, LEVELS[0], 'base'));
+    LEVELS.slice(1).forEach(exp => assert.equal(stripExperience(blk(dist, exp, 'base')), ref,
+      dist + ' base construction changed with experience'));
   });
   /* AND EVERY DISTANCE WITHOUT A DEDICATED ARCHITECTURE, byte for byte, at the
      race purpose too. Ultra's arc is closed; 5K and 10K now have their own
