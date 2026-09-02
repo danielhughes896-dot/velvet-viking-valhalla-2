@@ -4559,7 +4559,7 @@ function raceGoalEntry(currentVolumeKm){
    architecture, still ramp to a multiple of a weekly figure, and keep the
    boundary they have -- which is the narrower defensive role minViableStartKm()
    now holds. */
-function raceProgrammeViability(distKey, currentVolume, planWeeks){
+function raceProgrammeViability(distKey, currentVolume, planWeeks, opts){
   if (usesBottomUpArc('race', distKey)){
     /* ---- IS THERE A RACE GOAL PROGRAMME TO BUILD AT ALL? ----
        Asked before anything about the athlete, because runway is not a property
@@ -4569,7 +4569,7 @@ function raceProgrammeViability(distKey, currentVolume, planWeeks){
        not stretch, and the athlete belongs on whatever serves them now until
        Race Goal opens -- raceGoalAdmission() carries both decisions and the
        count of weeks until the window does. */
-    var adm = raceGoalAdmission(distKey, planWeeks, currentVolume);
+    var adm = raceGoalAdmission(distKey, planWeeks, currentVolume, opts);
     if (!adm.admitted && adm.decision === 'too_short')
       return { known:true, viable:false, classification:'runway_too_short',
                authority:'race_goal_admission', admission:adm,
@@ -4582,6 +4582,19 @@ function raceProgrammeViability(distKey, currentVolume, planWeeks){
                weeksToRace:adm.weeksToRace, maxWeeks:adm.maxWeeks,
                startInWeeks:adm.startInWeeks, recommend:adm.recommend,
                reason:adm.reason,
+               raceKm: (DISTANCE_PROFILES[distKey]||{}).raceKm || null };
+    /* ---- AND THE RUNWAY CAN BE OPEN WHILE THE ATHLETE IS NOT READY FOR IT ----
+       HQ's ruling: a Race Goal Valhalla has already calculated cannot reach
+       the event's preparation standard is not a Race Goal, and must be routed
+       rather than built and apologised for at the end. The projection travels
+       on the result so the caller can show the athlete what was short and by
+       how much. */
+    if (!adm.admitted && adm.decision === 'preparation_not_reachable')
+      return { known:true, viable:false, classification:'preparation_not_reachable',
+               authority:'race_goal_admission', admission:adm,
+               preparation:adm.preparation, limitedBy:adm.limitedBy,
+               weeksToRace:adm.weeksToRace, minWeeks:adm.minWeeks,
+               recommend:adm.recommend, reason:adm.reason,
                raceKm: (DISTANCE_PROFILES[distKey]||{}).raceKm || null };
     /* THE ENTRY IS THE LOWEST PATHWAY'S, and that is what "new" means: the
        lowest experience pathway for an athlete READY TO BEGIN this dedicated
@@ -6546,7 +6559,159 @@ function marathonPreparatoryPurpose(stateVolume, distKey){
    THE FIVE-K, TEN-K AND ULTRA DISTANCES ARE NOT ADMITTED OR REFUSED HERE. This
    window is the Half's and the Marathon's; every other distance keeps the
    routing it already had. */
-function raceGoalAdmission(distKey, weeksToRace, stateVolume){
+/* ---------- THE CIRCUMSTANCES THE SOLVE NEEDS, WHERE A CALLER HAS NOT
+   SUPPLIED THEM ----------
+   The destination solve prices sessions in TIME and writes them across DAYS,
+   so it needs the athlete's easy pace and how many days they made available.
+   The block builder is handed both by its caller. Admission is asked earlier
+   than that, so it reads the same two facts from the same places the builder's
+   caller reads them from, and falls back to the builder's own defaults where
+   there is nothing to read. Neither figure is a volume and neither is an
+   authority: they say how the work is priced and spread, not how much of it
+   there is. */
+function raceGoalSolveContext(opts){
+  var days = (opts && opts.availableDays > 0) ? opts.availableDays : null;
+  var pace = (opts && opts.easyPaceSecPerKm > 0) ? opts.easyPaceSecPerKm : null;
+  if (days == null){
+    try {
+      var su = state && state.setup;
+      var ad = su && su.schedule ? su.schedule.activeDays : null;
+      if (ad && ad.length) days = ad.length;
+    } catch(e){ days = null; }
+  }
+  if (pace == null){
+    try {
+      var z = getActivePaces();
+      if (z && z.E && z.E.fast != null && z.E.slow != null) pace = (z.E.fast + z.E.slow) / 2;
+    } catch(e){ pace = null; }
+  }
+  return { availableDays: days, easyPaceSecPerKm: pace };
+}
+/* =========================================================
+   CAN THIS ATHLETE REACH THE EVENT'S REQUIREMENT IN THE TIME THEY HAVE?
+
+   HQ'S RULING, AND THE DEFECT IT CORRECTS. Ten weeks is the shortest container
+   Valhalla permits; it is not a promise that every athlete is ready to enter
+   one. The engine used to build the block regardless and let raceGoalReadiness()
+   report the shortfall at the end -- which means Valhalla knew at construction
+   time that the preparation was structurally inadequate and built it anyway,
+   then told the athlete afterwards. That is the wrong order.
+
+   SO THE SAME QUESTION IS ASKED FIRST. Not a second model of it: literally the
+   same solve the builder runs, asked what the block WOULD reach, compared
+   against what the event requires, on the same thresholds raceGoalReadiness()
+   uses. A projection that disagreed with the block it precedes would be worse
+   than no projection at all.
+
+   WHAT IS PROJECTED, AND WHY EACH IS THE HONEST BOUND.
+     DURABILITY  the long run the solve converges on. This is EXACT -- the
+                 block delivers this figure, not an approximation of it, for
+                 every canonical pathway at both runways.
+     WORKLOAD    the smaller of the development envelope the athlete's own
+                 capacity allows and the destination week the block is aiming
+                 at. Where capacity binds -- which is what a short runway means
+                 -- it is exact. Where the destination binds, the block stops
+                 at a destination that already clears the requirement by
+                 construction, so an over-estimate there cannot change a
+                 verdict.
+
+   IT IS NOT AN EXPERIENCE LABEL TEST. The label chooses the pathway and
+   supplies the entry state only where the athlete has no evidence to the
+   contrary; demonstrated workload, long run and frequency outrank it in both
+   directions. So a nominally New athlete carrying real training is projected
+   from their real training, and a nominally Experienced athlete whose recent
+   evidence is thin is projected from the thin evidence. Both directions are
+   asserted in the tests, because a rule that only ever refuses is a rule that
+   is really about the label after all.
+
+   AND IT IS CONTINUOUS. Every input is a kilometre or a day rather than a
+   band, the fractions move smoothly with them, and the only discontinuity is
+   the verdict boundary itself -- which is the decision, not an artefact.
+   ========================================================= */
+function raceGoalPreparationOutlook(distKey, experience, N, opts){
+  if (!usesBottomUpArc('race', distKey)) return null;
+  var ctx = raceGoalSolveContext(opts);
+  var exp = experience || (function(){
+    try { return athleteExperience(); } catch(e){ return null; } })();
+  var s = null;
+  try {
+    s = raceGoalDestinationSolve(distKey, exp, null, N,
+          { availableDays: ctx.availableDays, easyPaceSecPerKm: ctx.easyPaceSecPerKm });
+  } catch(e){ s = null; }
+  if (!s) return null;
+
+  /* THE DEVELOPMENT ENVELOPE, from the athlete's own entry week and the steps
+     the runway contains. Null capacity means no evidence to bound it with, and
+     then the destination week is the whole of the answer. */
+  var cap = null;
+  try { cap = marathonWeekCapacityKm(s.entryKm, s.progressing, s.capacityCeilingKm); }
+  catch(e){ cap = null; }
+  var destWeekKm = s.longDestKm + (s.supportDays + s.qSlots) * (s.supportDestKm || 0);
+  var reachWeekKm = (cap != null) ? Math.min(cap, destWeekKm) : destWeekKm;
+  var reachLongKm = s.longDestKm;
+
+  var needWeekKm = s.buildVolumeDestKm;
+  var needLongKm = s.buildLongDestKm;
+
+  var dims = [];
+  var mk = function(key, reached, required, quantum){
+    var gap = round1(Math.max(0, required - reached));
+    return { key:key, fraction: Math.round((reached / required) * 100) / 100,
+             shortfallKm: gap, met: gap <= quantum + 1e-9,
+             reachedKm: round1(reached), requiredKm: round1(required) };
+  };
+  if (needWeekKm > 0)
+    dims.push(mk('workload', reachWeekKm, needWeekKm,
+                 EASY_QUANTUM_KM * Math.max(1, s.supportDays || 1)));
+  if (needLongKm > 0)
+    dims.push(mk('durability', reachLongKm, needLongKm, 1));
+  if (!dims.length) return null;
+
+  var worst = dims.reduce(function(a,b){
+    return (a == null || b.fraction < a.fraction) ? b : a; }, null);
+  var allMet = dims.every(function(d){ return d.met; });
+  var verdict = (allMet && worst.fraction >= RACE_GOAL_READY_FRACTION) ? 'READY'
+              : worst.fraction >= RACE_GOAL_MARGINAL_FRACTION ? 'MARGINAL'
+              : 'INSUFFICIENT';
+  /* ---- AND A PROJECTION MADE WITHOUT THE PRICE OF A SESSION IS NOT ONE ----
+     The solve measures session cost in TIME. With no easy pace to price it
+     with -- an athlete who has given Valhalla no benchmark at all -- the
+     long run's cost bound is infinite, frequency falls back to a day count
+     rather than to what the work needs, and the projection comes out far
+     BELOW what the same block actually builds: measured, an 8km long run
+     projected against the 9.9km the block delivers.
+
+     THAT IS NOT A REFUSAL, IT IS AN ABSENCE. The same principle that governs
+     evidence governs this: absence of information is not evidence of
+     incapacity, and a missing pace must never manufacture a refusal. So the
+     projection says whether it was made under the circumstances the block will
+     actually be built under, and admission refuses only on a confident one. */
+  var confident = ctx.easyPaceSecPerKm > 0;
+  return {
+    distanceKey: distKey, pathway: exp, weeks: N, verdict: verdict,
+    confident: confident,
+    availableDays: ctx.availableDays, pricedAtSecPerKm: ctx.easyPaceSecPerKm || null,
+    limitedBy: worst.key, dimensions: dims,
+    shortfall: dims.filter(function(d){ return !d.met; })
+                   .map(function(d){ return d.key; }),
+    /* THE ENTRY STATE THE PROJECTION WAS MADE FROM, and which authority
+       supplied each half of it, so a refusal can say what it was refused on. */
+    entryKm: s.entryKm, entryLongKm: s.startLongKm,
+    /* THE DAYS THE ATHLETE'S OWN WEEK IS WRITTEN ACROSS -- the supporting runs
+       plus the quality slots plus the long run, which is the count a reader
+       recognises as "how many times a week do they run". `supportStartDays` is
+       the supporting half of it on its own, because that is what the solve
+       reasons in. */
+    entryDays: s.startDays + s.qSlots + 1, supportStartDays: s.startDays,
+    entrySource: s.entry ? s.entry.volumeSource : null,
+    longSource:  s.entry ? s.entry.longSource : null,
+    intervals: s.progressing,
+    reachWeekKm: round1(reachWeekKm), reachLongKm: round1(reachLongKm),
+    requiredWeekKm: round1(needWeekKm), requiredLongKm: round1(needLongKm),
+    capacityCeilingKm: cap != null ? round1(cap) : null
+  };
+}
+function raceGoalAdmission(distKey, weeksToRace, stateVolume, opts){
   var dk = (distKey === 'half') ? 'half' : (distKey === 'full') ? 'full' : null;
   var W = Math.max(0, Math.round(weeksToRace || 0));
   if (dk == null)
@@ -6572,12 +6737,63 @@ function raceGoalAdmission(distKey, weeksToRace, stateVolume){
              minWeeks: RACE_GOAL_MIN_WEEKS, maxWeeks: RACE_GOAL_MAX_WEEKS,
              reason: 'race_goal_opens_at_fifteen_weeks' };
   }
+  /* ---- THE RUNWAY IS OPEN; IS THE ATHLETE READY TO USE IT? ----
+     TWO DIFFERENT QUESTIONS, AND ONLY THE FIRST USED TO BE ASKED. Runway is a
+     property of the calendar and it is settled above. Whether this athlete can
+     establish the preparation the event requires inside that runway is a
+     property of THEM, and HQ's ruling is that it must be answered before the
+     block is constructed rather than reported after it.
+
+     REFUSAL IS FOR THE STRUCTURALLY IMPOSSIBLE, NOT FOR THE MERELY HARD. A
+     projection that lands short of the standard but within reach of it is a
+     real programme that says so -- the athlete arrives having done most of
+     what the event asks, and Valhalla tells them which part is missing. A
+     projection that cannot approach the standard at all is not a programme,
+     and building one would be Valhalla knowingly preparing somebody for an
+     event it has already calculated they will not be prepared for.
+
+     SO THE BOUNDARY IS THE ONE READINESS ALREADY DRAWS. INSUFFICIENT is
+     refused and routed; MARGINAL is admitted and declared. The projection is
+     carried on the result either way, so a caller can show the athlete what
+     the programme is expected to reach before they commit to it.
+
+     AND A SHORTFALL THAT APPEARS LATER IS NOT THIS. Missed weeks, illness, a
+     block the athlete is straining in -- those are readiness questions about a
+     valid programme in progress, and raceGoalReadiness() goes on answering
+     them honestly. This is only about entry states that cannot work from the
+     first day. */
+  var pre = raceGoalPreparationOutlook(dk, null, W, opts);
+  if (pre && pre.verdict === 'INSUFFICIENT' && pre.confident){
+    /* ---- THE RECOMMENDATION COMES FROM WHAT IS MISSING ----
+       Not from marathonPreparatoryPurpose(), which asks whether the athlete
+       needs development before the DEDICATED window opens and answers over
+       fifteen weeks. Asked here it gave a runner refused for durability a
+       Speed & Threshold block, because across fifteen weeks their aerobic
+       development is fine -- and the whole reason they were refused is that
+       they do not have fifteen weeks. The shortfall names the block: both
+       workload and durability are aerobic development, and that is what
+       Aerobic Base is. */
+    var alt = null;
+    try { alt = marathonPreparatoryPurpose(stateVolume, dk); } catch(e){ alt = null; }
+    var rec = (pre.limitedBy === 'durability' || pre.limitedBy === 'workload')
+              ? 'base' : ((alt && alt.purpose) || 'base');
+    return { distanceKey: dk, weeksToRace: W, admitted: false,
+             decision: 'preparation_not_reachable',
+             raceGoalWeeks: null, preparation: pre,
+             recommend: rec,
+             recommendReason: 'aerobic_development_before_race_goal',
+             selection: alt,
+             startInWeeks: null,
+             minWeeks: RACE_GOAL_MIN_WEEKS, maxWeeks: RACE_GOAL_MAX_WEEKS,
+             limitedBy: pre.limitedBy,
+             reason: 'preparation_unreachable_in_runway' };
+  }
   return { distanceKey: dk, weeksToRace: W, admitted: true, decision: 'race_goal',
-           raceGoalWeeks: W, recommend: null, startInWeeks: 0,
+           raceGoalWeeks: W, recommend: null, startInWeeks: 0, preparation: pre,
            minWeeks: RACE_GOAL_MIN_WEEKS, maxWeeks: RACE_GOAL_MAX_WEEKS,
            reason: 'within_race_goal_window' };
 }
-function marathonRunwayPlan(weeksToRace, stateVolume, distKey){
+function marathonRunwayPlan(weeksToRace, stateVolume, distKey, opts){
   /* ---- AND THE HALF HAS THE SAME RUNWAY PROBLEM ----
      Its dedicated window is fifteen weeks and its destination stops moving
      there, so an athlete twenty-four weeks out was given a twenty-four week
@@ -6612,7 +6828,7 @@ function marathonRunwayPlan(weeksToRace, stateVolume, distKey){
      Goal opens at D-15. Where the surplus is too short to be a block of its
      own, that is reported as its own reason rather than papered over by
      lengthening the race block. */
-  var adm = raceGoalAdmission(dk, W, stateVolume);
+  var adm = raceGoalAdmission(dk, W, stateVolume, opts);
   out.admission = adm;
   out.raceWeeks = D;
   if (surplus < MIN_DEVELOPMENT_BLOCK_WEEKS){
@@ -8481,6 +8697,406 @@ function cappedBlockStartVolume(base, distKey){
    The pairing is stated once, here, and each half now derives the other when
    it is not given. Nothing about either arc changes. */
 function purposeIsSteady(purpose){ return purpose === 'maintain'; }
+/* =========================================================
+   THE RACE GOAL DESTINATION SOLVE, AS ITS OWN FUNCTION
+
+   IT WAS THREE HUNDRED LINES IN THE MIDDLE OF buildBlockWeeks(), which was
+   fine while the block builder was the only thing that needed to know where a
+   Race Goal was going. HQ's admission ruling makes that no longer true:
+   admission must decide, BEFORE construction, whether this athlete can
+   credibly reach the preparation the event requires within the runway they
+   have -- and the only honest answer to that question is the one the builder
+   itself would arrive at.
+
+   SO THERE IS ONE SOLVE AND TWO CALLERS. Admission asks it what the block
+   would reach; the builder asks it the same thing and then builds. A second
+   model of the same arithmetic would drift from the first the day either
+   changed, and the drift would show up as a programme admitted on one set of
+   numbers and built on another.
+
+   PURE. It reads the athlete's evidence through the accessors it already used
+   and returns a description; it writes nothing and it decides nothing about
+   whether the block should exist. That decision is raceGoalAdmission()'s.
+   ========================================================= */
+function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
+  var profile = DISTANCE_PROFILES[distKey];
+  if (!profile) return null;
+  var mExp  = blockExp;
+  var mPath = raceGoalPathway(distKey, mExp);
+  var mEntry = raceGoalEntryState(distKey, mExp, currentVolume);
+  var mAvail = (opts && opts.availableDays > 0) ? opts.availableDays : 6;
+  var mDemF = null, mCurF = null;
+  try { mDemF = demonstratedRunningFrequency(); } catch(e){ mDemF = null; }
+  try { mCurF = currentSustainedRunningFrequency(); } catch(e){ mCurF = null; }
+  /* ---- FREQUENCY IS A CAPACITY, AND CAPACITIES DEVELOP ----
+     THE DEFECT THIS REPLACES. The block's day count was clamped to the
+     athlete's demonstrated frequency and then never moved: measured, every
+     one of the six pathways ran its entire fifteen weeks on the number of
+     days the athlete arrived running. A novice with five days available and
+     three days of history was given three runs a week for the whole
+     programme, which left a thirty-eight kilometre destination week to be
+     written across one long run, one quality session and ONE easy run -- and
+     the coherence gate then held the long run down, correctly, because no
+     week of that shape can support it. The long run was short because the
+     week was too narrow, and the week was too narrow because frequency was
+     treated as a fixed property of the athlete rather than as something the
+     programme develops.
+
+     THE TWO NUMBERS ANSWER TWO QUESTIONS, and conflating them is what broke.
+     WHAT THE ATHLETE MADE AVAILABLE bounds where the block is going: it is
+     permission, and the destination may use all of it if the work needs it.
+     WHAT THE ATHLETE DEMONSTRABLY RUNS bounds where the block STARTS -- see
+     mStartDays below -- and every day between the two arrives as a
+     structural progression, on the week capacity has earned it, at the
+     athlete's already-earned supporting workload rather than on top of it. */
+  var mDays = mAvail;
+  /* One demanding conventional session unless the athlete has earned a
+     second -- the existing gate, asked here so the week's purposes are known
+     before its sessions are sized. Never chosen to make a total work. */
+  var mQSlots = 1;
+  try { mQSlots = secondQualityExposurePermission(2).permitted ? 2 : 1; } catch(e){ mQSlots = 1; }
+  /* HOW MANY SUPPORTING RUNS THE ATHLETE'S TRAINING ACTUALLY CONTAINS.
+     Not "how many days are available" -- that is a ceiling and it is applied
+     below -- and not a divisor for a total. This asks how many supporting
+     runs of a size the app will prescribe are present in the training the
+     athlete arrived with, which is evidence about them.
+
+     It matters most at the bottom, where it is the difference between
+     honesty and filler: a 12km/week athlete's week contains two supporting
+     runs, and prescribing four of them at the minimum printable distance
+     would be four token runs invented to occupy available days. */
+  /* THE WEEK THE ATHLETE ARRIVES WITH, from the entry state rather than from
+     the builder field. Where they have demonstrated a week, that is it;
+     where they have not, it is what an athlete on this pathway typically
+     brings. Either way it says where the sessions START and nothing else. */
+  var mEntryKm = (mEntry && mEntry.volumeKm > 0) ? mEntry.volumeKm : 0;
+  var mImpliedLong = Math.min(profile.longCapKm, mEntryKm * LONG_FRACTION[profile.emphasis]);
+  if (mEntry && mEntry.longKm > 0)
+    mImpliedLong = Math.min(profile.longCapKm, Math.max(mImpliedLong, mEntry.longKm));
+  /* ---- FREQUENCY IS SIZED FOR WHERE THE WEEK IS GOING ----
+     AND THAT IS A DIRECT CONSEQUENCE OF DESTINATION-LED CONSTRUCTION. Read
+     off the week the athlete ARRIVES with, the day count is a statement
+     about their current training rather than about the programme: a
+     15km/week half entrant needs one supporting run today and four by the
+     time they are running the week the event asks for, and a block that
+     fixes the ceiling at one can never get there.
+
+     So the CEILING is what the destination week needs, and each individual
+     week still runs on the days its own capacity can pay for -- which is the
+     machinery that already exists, and which introduces the extra day as a
+     structural transition when the athlete has earned it. Availability
+     remains the ceiling above both. */
+  var mDestWeekKm = raceGoalVolumeDestinationKm(distKey, mExp, mEntry, 'peak') || mEntryKm;
+  var mDestLongKm = raceGoalLongDestinationKm(distKey, mExp, mEntry, 'peak') || mImpliedLong;
+  /* ---- AND THE FREQUENCY QUESTION USES THE TYPICAL WEEK, NOT THE BIGGEST
+     LONG RUN IN IT ---- A pathway states two things: the weekly workload the
+     athlete should be able to hold, and the long run they should be able to
+     COMPLETE. They are not a description of the same week. Subtracting the
+     peak long-run capability from the weekly minimum reads them as one --
+     for a new marathon athlete, 40km/week minus a 26km long run leaves
+     fourteen kilometres, which is one supporting run, and the whole
+     programme is then written as a long run and an easy run.
+
+     The long run in an ORDINARY destination week is the distance's own
+     share of it. The peak capability is reached in the weeks that reach it,
+     which is what the long run's own progression is for. */
+  var mTypicalLong = Math.min(profile.longCapKm, mDestWeekKm * LONG_FRACTION[profile.emphasis]);
+  var mHave = Math.max(0, mDestWeekKm - mTypicalLong);
+  /* ---- HOW MANY SUPPORTING DAYS THE WORK ACTUALLY NEEDS ----
+     UNDER BOTTOM-UP CONSTRUCTION AN EXTRA DAY IS EXTRA TRAINING, not a
+     smaller share of the same training, and that inverts the old trade-off:
+     every supporting day added develops on its own progression, so days
+     spend the athlete's development ceiling -- and what they spend, the long
+     run does not get. Prescribing days the work does not need is therefore
+     not merely untidy; it takes kilometres from the session the marathon
+     actually asks for.
+
+     SO THE FEWEST DAYS THAT CAN CARRY THE WORK, and what decides "can carry"
+     is session COST in time. That is the authority that already distinguishes
+     these athletes: the same supporting kilometres cost a 5h30 marathoner
+     half again what they cost a 3h00 one, so the slower athlete's work needs
+     spreading further and the faster one's does not. A ratio could not see
+     that, which is why frequency read from shape alone put every athlete
+     above 20km/week on six days.
+
+     Availability remains the ceiling and the expressibility floor still
+     applies at the bottom, where a week cannot be written across more days
+     than it has kilometres for. */
+  /* SIZED AT THE COMFORTABLE END OF THE REGION, NOT AT ITS CEILING. Dividing
+     by the 90-minute figure would put every supporting run at the top of the
+     pressure region by construction -- the same error as reading the injury
+     ceiling as a progression rate, made twice. The comfort reference sizes
+     the ordinary run; the ceiling stays what it is. */
+  var mCostKm = (opts && opts.easyPaceSecPerKm > 0)
+    ? (supportCostComfortSec(distKey) / opts.easyPaceSecPerKm) : null;
+  var mNeed = mCostKm > 0 ? Math.ceil(mHave / mCostKm) - mQSlots : (mDays - 1 - mQSlots);
+  /* AND THE WEEK HAS TO BE EXPRESSIBLE AT THE ATHLETE'S OWN VOLUME. Every
+     supporting day costs at least EASY_MIN_KM whatever the arithmetic wants,
+     so a day count the stated week cannot pay for at its floors does not
+     reduce the runs -- it inflates the week. Measured, that is what pushed
+     203 first weeks more than 30% above the volume the athlete stated. */
+  var mSupportDays = Math.max(1, Math.min(mDays - 1 - mQSlots,
+                                          Math.max(mNeed, 1)));
+  /* ---- TWO DAY COUNTS, BECAUSE THEY ANSWER TWO QUESTIONS ----
+     THE START SPLIT can only be written across the days the athlete's
+     CURRENT week can pay for. Dividing a 15km week across five runs writes
+     1.8km supporting runs, and everything downstream is then sized against a
+     token: what the athlete can reach from 1.8km in ten weeks is 4.7km, and
+     a long run supported by 4.7km runs is 11.8km however far the event wants
+     it to go. That is how a destination gets quietly lost.
+
+     THE BLOCK'S CEILING is what the destination week needs. Each week still
+     runs on the days its own capacity can pay for, so the extra day arrives
+     as a structural transition when it has been earned rather than being
+     written into week one. */
+  /* AND THE START IS BOUNDED BY THE EVIDENCE, which is where the athlete's
+     demonstrated frequency belongs: week one is written across the days they
+     actually run, not across the days the destination will eventually need. */
+  var mStartDayCap = mDays;
+  if (mDemF != null) mStartDayCap = Math.min(mStartDayCap, Math.max(2, mDemF));
+  if (mCurF != null) mStartDayCap = Math.min(mStartDayCap, Math.max(2, mCurF));
+  var mStartDays = Math.min(
+    Math.max(1, mStartDayCap - 1 - mQSlots),
+    marathonSupportDayFit(mEntryKm, mSupportDays, mQSlots, distKey,
+                          mEntry && mEntry.longKm));
+  /* AND THE SPLIT HAS TO BE ABLE TO WRITE THEM. See marathonSupportDayFit():
+     this replaces dividing the athlete's non-long mileage by EASY_MIN_KM,
+     which asked the question before the long run was coherent and so
+     disagreed with the split it was choosing for. */
+  /* THE STEPS THIS BLOCK HANDS OUT. See raceGoalStepCount(): one per
+     developing week from week one to the durability exposure, which is where
+     the curve has to arrive. The taper takes none, an absorption week takes
+     none, and the specificity weeks after the durability exposure hold what
+     it reached rather than still climbing. */
+  var mProgressing = raceGoalStepCount(distKey, N, blockExp);
+  var mStart = marathonSessionStart(mEntryKm, mStartDays, mQSlots, distKey, mEntry && mEntry.longKm);
+  var mPaceSec = (opts && opts.easyPaceSecPerKm > 0) ? opts.easyPaceSecPerKm : null;
+  /* ---- THE THREE AUTHORITIES SETTLE TOGETHER ----
+     The long run's own progression, the supporting workload that has to
+     carry it, and the athlete's development ceiling are not independent: each
+     bounds the others, so they are solved to a fixed point rather than
+     applied in an order that would let whichever ran first win.
+
+     Ordering was tried and it showed. Paying the ceiling out of support first
+     protected the long run and then the coherence gate punished it for the
+     support it had just taken away -- a 30km/week athlete converged on an
+     11km long run. Paying proportionally keeps the athlete's own week shape,
+     which is the thing the evidence actually supports.
+
+     Bounded at eight passes and monotone downward -- every rule here can
+     only reduce -- so it always terminates and can never inflate anything. */
+  /* ---- WHERE THE LONG RUN IS GOING, AND WHY IT IS NOT A MULTIPLE OF WHERE
+     IT STARTED ---- The pathway states the minimum long-run capability the
+     event asks for by the end of Build; the athlete's own demonstrated long
+     run raises it where theirs is bigger. What the athlete can REACH from
+     where they are, in the weeks they have, still bounds it -- and where
+     reach is what binds, that is the readiness gap rather than a reason to
+     prescribe more. */
+  var mLongDest = marathonLongRunDestination(mStart.longKm, mProgressing, distKey,
+                   raceGoalLongDestinationKm(distKey, mExp, mEntry, 'peak'));
+  /* ---- AND NEITHER CEILING MAY SEND THE ATHLETE BACKWARDS ----
+     THE SAME PRINCIPLE marathonLongRunDestination() ALREADY HOLDS, applied
+     to the two clamps below, which were floored at MIN_LONG_RUN_KM and so
+     could land an athlete far beneath the long run they arrived with.
+
+     Measured: a 30km/week athlete with a demonstrated 20km long run. Their
+     supporting running is 10km spread across the rest of the week, so the
+     coherence gate reads the long run as dominating -- correctly -- and
+     pulled its destination to 7.5km. The block then had nowhere to go: peak
+     week 31.6km against a stated 30, and a long run that never developed at
+     all. main gives that athlete a 49.4km peak.
+
+     A long run the athlete already runs is evidence, not a candidate. What
+     the coherence gate is entitled to say is that the WEEK around it must
+     grow, and that is what it now says. */
+  var mLongFloor = Math.max(MIN_LONG_RUN_KM,
+                            Math.min(mStart.longKm || 0, raceGoalLongCapKm(distKey, 'race')));
+  var mSupportDest = null;
+  /* ---- THE SAFETY ENVELOPE, AND WHAT IT NO LONGER IS ----
+     It was the typed weekly volume times a distance multiplier, which made
+     the event's requirement a function of where the athlete happened to
+     start. It is now what their EVIDENCE supports -- what they have
+     demonstrably held, developed at the ordinary rate -- and null where
+     there is no evidence to bound it with, leaving the per-week progression
+     rate as the whole of the limit. Capacity is the envelope; it is not
+     permitted to redefine the destination. */
+  var mCeil = raceGoalCapacityCeilingKm(mEntry, mProgressing);
+  var mCapped = false, mDominated = false;
+  for (var mIt = 0; mIt < 8; mIt++){
+    var prevL = mLongDest.km, prevS = mSupportDest;
+    mSupportDest = marathonSupportDestination(mStart.supportKm, mStart.longKm,
+                                              mLongDest.km, mProgressing, mPaceSec, distKey,
+                                              raceGoalVolumeDestinationKm(distKey, mExp, mEntry, 'peak'),
+                                              mSupportDays,
+                                              mQSlots * (mSupportDest || mStart.supportKm || 0),
+                                              mStartDays);
+    /* CAPACITY IS A CEILING ON THE RESULT, NEVER A TARGET FOR IT. Paid
+       proportionally, so the week the athlete arrived with keeps its shape
+       while everything in it comes down together. The quality session is
+       counted at the supporting run's size -- it is not sized until the
+       structure pools run, and this figure only ever decides whether the
+       destinations must come down. */
+    var mSum = mLongDest.km + (mSupportDays + mQSlots) * (mSupportDest || 0);
+    if (mCeil != null && mSum > mCeil && mSum > 0){
+      var mScale = mCeil / mSum;
+      mLongDest.km = round1(Math.max(mLongFloor, mLongDest.km * mScale));
+      mSupportDest = round1(Math.max(EASY_MIN_KM, (mSupportDest || 0) * mScale));
+      mLongDest.limited = true; mCapped = true;
+    }
+    /* ---- AND THE WEEK MUST BE ABLE TO CARRY IT, BUT NOT BELOW THE STANDARD
+       THE EVENT ASKS FOR ----
+       The coherence ceiling holds a long run that is running away from the
+       week around it: a long run more than 1/SUPPORT_SHARE_MIN times the
+       week's ordinary supporting run is dominating rather than being
+       supported. That is a real defect and the gate keeps catching it.
+
+       WHAT IT MAY NOT DO IS PULL A PATHWAY BELOW ITS OWN DESTINATION. Read
+       against the per-run supporting figure, the ceiling FALLS as frequency
+       develops -- the same weekly workload written across more days makes
+       each run smaller, so an athlete running five days was held to a
+       shorter long run than the same athlete running three. Measured, that
+       held the New Half to 15km against HQ's 16, the New Marathon to 24
+       against 26 and the Experienced Marathon to 26 against 29: every
+       dedicated pathway missing the standard HQ set, on a ratio rather than
+       on anything about the athlete.
+
+       AND THE RATIO CANNOT EXPRESS THOSE STANDARDS AT ALL. HQ's own figures
+       run from a 16km long run in a 38km week to a 26km long run in a 40km
+       week -- 42% to 65% -- because that is what marathon preparation looks
+       like for a lower-volume athlete, and it is what every published novice
+       marathon plan does. No single share of the week admits the second and
+       refuses a 30km long run in a 60km week; the difference between those
+       two is not the share, it is whether a designed progression got the
+       athlete there.
+
+       SO THE PATHWAY'S OWN DESTINATION IS THE FLOOR. Destination-led
+       construction supplies what reachability alone could not when this gate
+       was written: an explicit, event-derived statement of what the long run
+       must become. The ceiling still bounds everything above it -- an
+       established athlete developing past the minimum is held by the week
+       that carries them -- and it can no longer hold a pathway short of the
+       standard. Where the athlete genuinely cannot support that standard the
+       block still will not deliver it, and readiness reports the shortfall,
+       which is what HQ asks for rather than a quietly lowered event. */
+    var mPathLong = mPath ? Math.max(mPath.buildLongKm || 0, mPath.peakLongKm || 0) : 0;
+    /* ---- AND THE FLOOR IS BOUNDED BY WHAT THE RUN ITSELF COSTS ----
+       The pathway's destination is the floor beneath the coherence ceiling,
+       but it is not unconditional: an athlete who genuinely cannot spend the
+       hours must not be prescribed the distance, and that is HQ's own rule
+       that safety may prevent a standard being reached.
+
+       WHAT BOUNDS A LONG RUN IS WHAT A LONG RUN COSTS. The old ceiling
+       bounded it by what a SUPPORTING run costs, which is the wrong session:
+       it made a 32km destination depend on whether a 12.8km easy run fitted
+       inside ninety minutes. LONG_RUN_COST_HEAVY_SEC is the architecture's
+       own statement of when a long run has become a heavy one, and applied to
+       the long run it says the thing that is actually true -- at nine minutes
+       a kilometre a 32km run is four and three quarter hours, and it is the
+       four and three quarter hours that make it wrong.
+
+       For every pace these pathways are actually run at the floor is
+       untouched: the New marathon's 26km at 7:00/km is 3h02 and the
+       Advanced's 32km at 5:00/km is 2h40, both inside the bound. */
+    var mCostLong = (mPaceSec > 0) ? LONG_RUN_COST_HEAVY_SEC / mPaceSec : Infinity;
+    var mCoh = Math.max(longRunCoherenceCeiling(mSupportDest),
+                        Math.min(mPathLong, mCostLong));
+    if (mLongDest.km > mCoh){
+      mLongDest.km = round1(Math.max(mLongFloor, mCoh));
+      mLongDest.limited = true; mDominated = true;
+    }
+    if (Math.abs(prevL - mLongDest.km) < 0.05 &&
+        prevS != null && Math.abs(prevS - mSupportDest) < 0.05) break;
+  }
+  /* The supporting workload the athlete arrived with, and where it is going.
+     One quantity, developed once -- see the note at mSupTotal. */
+  var mSupTotalStart = mStart.supportKm * mStartDays;
+  var mSupTotalDest = (mSupportDest || mStart.supportKm) * mSupportDays;
+  return { days:mDays, qSlots:mQSlots, supportDays:mSupportDays,
+                /* THE THREE AUTHORITIES, RECORDED so the audit and the
+                   readiness layer read what the block was actually built
+                   from rather than inferring it. */
+                experience:mExp, entryKm:mEntryKm, entry:mEntry, startDays:mStartDays,
+                pathway:mPath ? { buildVolumeKm:mPath.buildVolumeKm,
+                                  buildLongKm:mPath.buildLongKm,
+                                  peakVolumeKm:mPath.peakVolumeKm,
+                                  peakLongKm:mPath.peakLongKm,
+                                  openEnded:!!mPath.openEnded } : null,
+                volumeDestKm: raceGoalVolumeDestinationKm(distKey, mExp, mEntry, 'peak'),
+                /* THE PATHWAY'S OWN WEEKLY REQUIREMENT, unraised by anything
+                   the athlete has demonstrated -- the event's number, which
+                   is what a week may be developed toward without the athlete
+                   becoming their own target. */
+                pathwayVolumeKm: mPath ? (mPath.peakVolumeKm != null
+                                          ? mPath.peakVolumeKm : mPath.buildVolumeKm) : null,
+                buildVolumeDestKm: raceGoalVolumeDestinationKm(distKey, mExp, mEntry, 'build'),
+                buildLongDestKm: raceGoalLongDestinationKm(distKey, mExp, mEntry, 'build'),
+                startSupportTotalKm: mSupTotalStart, supportTotalDestKm: mSupTotalDest,
+                startLongKm:mStart.longKm, startSupportKm:mStart.supportKm,
+                longDestKm:mLongDest.km, longLimited:mLongDest.limited,
+                supportDestKm:mSupportDest, progressing:mProgressing,
+                capacityCeilingKm: mCeil != null ? round1(mCeil) : null,
+                /* WHICH AUTHORITY HELD THE LONG RUN BACK, readable rather
+                   than inferred: the athlete's development ceiling, the
+                   week's ability to support it, both, or neither. */
+                capacityLimited: mCapped, weekSupportLimited: mDominated,
+                paceSec:mPaceSec,
+                /* ---- STEPS THE ATHLETE HAS ACTUALLY TAKEN ----
+                   `advances`, not a week counter. The doses are still read
+                   from the block's own progression curve, at the ordinary
+                   rate, bounded by the destination -- nothing about that
+                   changes. What changes is WHICH step the week is at: a week
+                   that spends itself absorbing a new structure does not take
+                   one, so it costs exactly one step and the curve cannot
+                   later be walked faster to make it up. There is no debt to
+                   repay and no catch-up week; the athlete simply finishes one
+                   step lower, which is the honest consequence.
+
+                   CAPACITY IS READ AT THE SAME COUNT, and that is the point
+                   rather than an oversight. Within the structural week itself
+                   capacity is already one step ahead of the doses -- it was
+                   advanced at the end of the previous week, and it is what
+                   admitted the new session -- so the structure is earned and
+                   the doses still hold. What must NOT happen is capacity
+                   running on while the doses stand still: measured, a
+                   12km/week athlete held twice in a row accumulated a third
+                   supporting day it had no workload for and its cutback week
+                   came out larger than the week before it. */
+                /* ---- WEEK ONE IS THE ATHLETE'S ENTRY, NOT A STEP ABOVE IT ----
+                   This was seeded at one, and the reason recorded here was
+                   that seeding it at zero left the last developing week on
+                   step P-1 of P and every pathway finishing below its own
+                   destination. That is the wrong repair. It does not fix the
+                   curve; it starts the athlete 10% above the standard the
+                   pathway says they enter at, so that the curve has one more
+                   step to spend -- a 20km novice marathon entry delivered as
+                   a 22km opening week purely because the arithmetic needed
+                   the room.
+
+                   THE ERROR WAS IN THE COUNT, NOT THE START. P developing
+                   weeks contain P-1 intervals between them, the same way six
+                   fence posts carry five rails. Counting one step per week
+                   and then standing week one on step one is counting the
+                   first interval twice. So week one stands on step zero and
+                   IS the entry the pathway states, the count of steps is the
+                   count of gaps, and the last developing week still lands
+                   exactly on the destination. */
+                advances: 0, supportAdvances: 0, lastStep: null,
+                /* Computed ONCE, here, and reported on every week. The week
+                   loop must never re-derive it: a rate re-solved over the
+                   weeks that remain is exactly the catch-up this
+                   architecture must not do. */
+                stepRate: Math.round(sessionStepRate(mStart.longKm, mLongDest.km,
+                                                     mProgressing) * 1000) / 1000,
+                /* THE STRUCTURE THIS ATHLETE HAS ALREADY BEEN PRESCRIBED, as
+                   a high-water mark rather than as last week's snapshot. A
+                   cutback that suppresses a session does not un-establish it,
+                   so the rebound is not a first arrival; and a structure that
+                   has arrived cannot arrive again. Seeded by week one, so an
+                   athlete who brings five days and a quality session with
+                   them never has to re-earn either. */
+                estRunDays: null, estQSlots: null, estGoalSeg: false,
+                stepIdx:0 };
+}
 function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
   var profile = DISTANCE_PROFILES[distKey];
   /* WHAT THIS BLOCK IS FOR, carried explicitly rather than inferred.
@@ -8654,381 +9270,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                 the pathway's minimum.
        The typed weekly volume is a legacy hint inside `entry` and appears
        nowhere else in this solve. */
-    var mExp  = blockExp;
-    var mPath = raceGoalPathway(distKey, mExp);
-    var mEntry = raceGoalEntryState(distKey, mExp, currentVolume);
-    var mAvail = (opts && opts.availableDays > 0) ? opts.availableDays : 6;
-    var mDemF = null, mCurF = null;
-    try { mDemF = demonstratedRunningFrequency(); } catch(e){ mDemF = null; }
-    try { mCurF = currentSustainedRunningFrequency(); } catch(e){ mCurF = null; }
-    /* ---- FREQUENCY IS A CAPACITY, AND CAPACITIES DEVELOP ----
-       THE DEFECT THIS REPLACES. The block's day count was clamped to the
-       athlete's demonstrated frequency and then never moved: measured, every
-       one of the six pathways ran its entire fifteen weeks on the number of
-       days the athlete arrived running. A novice with five days available and
-       three days of history was given three runs a week for the whole
-       programme, which left a thirty-eight kilometre destination week to be
-       written across one long run, one quality session and ONE easy run -- and
-       the coherence gate then held the long run down, correctly, because no
-       week of that shape can support it. The long run was short because the
-       week was too narrow, and the week was too narrow because frequency was
-       treated as a fixed property of the athlete rather than as something the
-       programme develops.
-
-       THE TWO NUMBERS ANSWER TWO QUESTIONS, and conflating them is what broke.
-       WHAT THE ATHLETE MADE AVAILABLE bounds where the block is going: it is
-       permission, and the destination may use all of it if the work needs it.
-       WHAT THE ATHLETE DEMONSTRABLY RUNS bounds where the block STARTS -- see
-       mStartDays below -- and every day between the two arrives as a
-       structural progression, on the week capacity has earned it, at the
-       athlete's already-earned supporting workload rather than on top of it. */
-    var mDays = mAvail;
-    /* One demanding conventional session unless the athlete has earned a
-       second -- the existing gate, asked here so the week's purposes are known
-       before its sessions are sized. Never chosen to make a total work. */
-    var mQSlots = 1;
-    try { mQSlots = secondQualityExposurePermission(2).permitted ? 2 : 1; } catch(e){ mQSlots = 1; }
-    /* HOW MANY SUPPORTING RUNS THE ATHLETE'S TRAINING ACTUALLY CONTAINS.
-       Not "how many days are available" -- that is a ceiling and it is applied
-       below -- and not a divisor for a total. This asks how many supporting
-       runs of a size the app will prescribe are present in the training the
-       athlete arrived with, which is evidence about them.
-
-       It matters most at the bottom, where it is the difference between
-       honesty and filler: a 12km/week athlete's week contains two supporting
-       runs, and prescribing four of them at the minimum printable distance
-       would be four token runs invented to occupy available days. */
-    /* THE WEEK THE ATHLETE ARRIVES WITH, from the entry state rather than from
-       the builder field. Where they have demonstrated a week, that is it;
-       where they have not, it is what an athlete on this pathway typically
-       brings. Either way it says where the sessions START and nothing else. */
-    var mEntryKm = (mEntry && mEntry.volumeKm > 0) ? mEntry.volumeKm : 0;
-    var mImpliedLong = Math.min(profile.longCapKm, mEntryKm * LONG_FRACTION[profile.emphasis]);
-    if (mEntry && mEntry.longKm > 0)
-      mImpliedLong = Math.min(profile.longCapKm, Math.max(mImpliedLong, mEntry.longKm));
-    /* ---- FREQUENCY IS SIZED FOR WHERE THE WEEK IS GOING ----
-       AND THAT IS A DIRECT CONSEQUENCE OF DESTINATION-LED CONSTRUCTION. Read
-       off the week the athlete ARRIVES with, the day count is a statement
-       about their current training rather than about the programme: a
-       15km/week half entrant needs one supporting run today and four by the
-       time they are running the week the event asks for, and a block that
-       fixes the ceiling at one can never get there.
-
-       So the CEILING is what the destination week needs, and each individual
-       week still runs on the days its own capacity can pay for -- which is the
-       machinery that already exists, and which introduces the extra day as a
-       structural transition when the athlete has earned it. Availability
-       remains the ceiling above both. */
-    var mDestWeekKm = raceGoalVolumeDestinationKm(distKey, mExp, mEntry, 'peak') || mEntryKm;
-    var mDestLongKm = raceGoalLongDestinationKm(distKey, mExp, mEntry, 'peak') || mImpliedLong;
-    /* ---- AND THE FREQUENCY QUESTION USES THE TYPICAL WEEK, NOT THE BIGGEST
-       LONG RUN IN IT ---- A pathway states two things: the weekly workload the
-       athlete should be able to hold, and the long run they should be able to
-       COMPLETE. They are not a description of the same week. Subtracting the
-       peak long-run capability from the weekly minimum reads them as one --
-       for a new marathon athlete, 40km/week minus a 26km long run leaves
-       fourteen kilometres, which is one supporting run, and the whole
-       programme is then written as a long run and an easy run.
-
-       The long run in an ORDINARY destination week is the distance's own
-       share of it. The peak capability is reached in the weeks that reach it,
-       which is what the long run's own progression is for. */
-    var mTypicalLong = Math.min(profile.longCapKm, mDestWeekKm * LONG_FRACTION[profile.emphasis]);
-    var mHave = Math.max(0, mDestWeekKm - mTypicalLong);
-    /* ---- HOW MANY SUPPORTING DAYS THE WORK ACTUALLY NEEDS ----
-       UNDER BOTTOM-UP CONSTRUCTION AN EXTRA DAY IS EXTRA TRAINING, not a
-       smaller share of the same training, and that inverts the old trade-off:
-       every supporting day added develops on its own progression, so days
-       spend the athlete's development ceiling -- and what they spend, the long
-       run does not get. Prescribing days the work does not need is therefore
-       not merely untidy; it takes kilometres from the session the marathon
-       actually asks for.
-
-       SO THE FEWEST DAYS THAT CAN CARRY THE WORK, and what decides "can carry"
-       is session COST in time. That is the authority that already distinguishes
-       these athletes: the same supporting kilometres cost a 5h30 marathoner
-       half again what they cost a 3h00 one, so the slower athlete's work needs
-       spreading further and the faster one's does not. A ratio could not see
-       that, which is why frequency read from shape alone put every athlete
-       above 20km/week on six days.
-
-       Availability remains the ceiling and the expressibility floor still
-       applies at the bottom, where a week cannot be written across more days
-       than it has kilometres for. */
-    /* SIZED AT THE COMFORTABLE END OF THE REGION, NOT AT ITS CEILING. Dividing
-       by the 90-minute figure would put every supporting run at the top of the
-       pressure region by construction -- the same error as reading the injury
-       ceiling as a progression rate, made twice. The comfort reference sizes
-       the ordinary run; the ceiling stays what it is. */
-    var mCostKm = (opts && opts.easyPaceSecPerKm > 0)
-      ? (supportCostComfortSec(distKey) / opts.easyPaceSecPerKm) : null;
-    var mNeed = mCostKm > 0 ? Math.ceil(mHave / mCostKm) - mQSlots : (mDays - 1 - mQSlots);
-    /* AND THE WEEK HAS TO BE EXPRESSIBLE AT THE ATHLETE'S OWN VOLUME. Every
-       supporting day costs at least EASY_MIN_KM whatever the arithmetic wants,
-       so a day count the stated week cannot pay for at its floors does not
-       reduce the runs -- it inflates the week. Measured, that is what pushed
-       203 first weeks more than 30% above the volume the athlete stated. */
-    var mSupportDays = Math.max(1, Math.min(mDays - 1 - mQSlots,
-                                            Math.max(mNeed, 1)));
-    /* ---- TWO DAY COUNTS, BECAUSE THEY ANSWER TWO QUESTIONS ----
-       THE START SPLIT can only be written across the days the athlete's
-       CURRENT week can pay for. Dividing a 15km week across five runs writes
-       1.8km supporting runs, and everything downstream is then sized against a
-       token: what the athlete can reach from 1.8km in ten weeks is 4.7km, and
-       a long run supported by 4.7km runs is 11.8km however far the event wants
-       it to go. That is how a destination gets quietly lost.
-
-       THE BLOCK'S CEILING is what the destination week needs. Each week still
-       runs on the days its own capacity can pay for, so the extra day arrives
-       as a structural transition when it has been earned rather than being
-       written into week one. */
-    /* AND THE START IS BOUNDED BY THE EVIDENCE, which is where the athlete's
-       demonstrated frequency belongs: week one is written across the days they
-       actually run, not across the days the destination will eventually need. */
-    var mStartDayCap = mDays;
-    if (mDemF != null) mStartDayCap = Math.min(mStartDayCap, Math.max(2, mDemF));
-    if (mCurF != null) mStartDayCap = Math.min(mStartDayCap, Math.max(2, mCurF));
-    var mStartDays = Math.min(
-      Math.max(1, mStartDayCap - 1 - mQSlots),
-      marathonSupportDayFit(mEntryKm, mSupportDays, mQSlots, distKey,
-                            mEntry && mEntry.longKm));
-    /* AND THE SPLIT HAS TO BE ABLE TO WRITE THEM. See marathonSupportDayFit():
-       this replaces dividing the athlete's non-long mileage by EASY_MIN_KM,
-       which asked the question before the long run was coherent and so
-       disagreed with the split it was choosing for. */
-    /* THE STEPS THIS BLOCK HANDS OUT. See raceGoalStepCount(): one per
-       developing week from week one to the durability exposure, which is where
-       the curve has to arrive. The taper takes none, an absorption week takes
-       none, and the specificity weeks after the durability exposure hold what
-       it reached rather than still climbing. */
-    var mProgressing = raceGoalStepCount(distKey, N, blockExp);
-    var mStart = marathonSessionStart(mEntryKm, mStartDays, mQSlots, distKey, mEntry && mEntry.longKm);
-    var mPaceSec = (opts && opts.easyPaceSecPerKm > 0) ? opts.easyPaceSecPerKm : null;
-    /* ---- THE THREE AUTHORITIES SETTLE TOGETHER ----
-       The long run's own progression, the supporting workload that has to
-       carry it, and the athlete's development ceiling are not independent: each
-       bounds the others, so they are solved to a fixed point rather than
-       applied in an order that would let whichever ran first win.
-
-       Ordering was tried and it showed. Paying the ceiling out of support first
-       protected the long run and then the coherence gate punished it for the
-       support it had just taken away -- a 30km/week athlete converged on an
-       11km long run. Paying proportionally keeps the athlete's own week shape,
-       which is the thing the evidence actually supports.
-
-       Bounded at eight passes and monotone downward -- every rule here can
-       only reduce -- so it always terminates and can never inflate anything. */
-    /* ---- WHERE THE LONG RUN IS GOING, AND WHY IT IS NOT A MULTIPLE OF WHERE
-       IT STARTED ---- The pathway states the minimum long-run capability the
-       event asks for by the end of Build; the athlete's own demonstrated long
-       run raises it where theirs is bigger. What the athlete can REACH from
-       where they are, in the weeks they have, still bounds it -- and where
-       reach is what binds, that is the readiness gap rather than a reason to
-       prescribe more. */
-    var mLongDest = marathonLongRunDestination(mStart.longKm, mProgressing, distKey,
-                     raceGoalLongDestinationKm(distKey, mExp, mEntry, 'peak'));
-    /* ---- AND NEITHER CEILING MAY SEND THE ATHLETE BACKWARDS ----
-       THE SAME PRINCIPLE marathonLongRunDestination() ALREADY HOLDS, applied
-       to the two clamps below, which were floored at MIN_LONG_RUN_KM and so
-       could land an athlete far beneath the long run they arrived with.
-
-       Measured: a 30km/week athlete with a demonstrated 20km long run. Their
-       supporting running is 10km spread across the rest of the week, so the
-       coherence gate reads the long run as dominating -- correctly -- and
-       pulled its destination to 7.5km. The block then had nowhere to go: peak
-       week 31.6km against a stated 30, and a long run that never developed at
-       all. main gives that athlete a 49.4km peak.
-
-       A long run the athlete already runs is evidence, not a candidate. What
-       the coherence gate is entitled to say is that the WEEK around it must
-       grow, and that is what it now says. */
-    var mLongFloor = Math.max(MIN_LONG_RUN_KM,
-                              Math.min(mStart.longKm || 0, raceGoalLongCapKm(distKey, 'race')));
-    var mSupportDest = null;
-    /* ---- THE SAFETY ENVELOPE, AND WHAT IT NO LONGER IS ----
-       It was the typed weekly volume times a distance multiplier, which made
-       the event's requirement a function of where the athlete happened to
-       start. It is now what their EVIDENCE supports -- what they have
-       demonstrably held, developed at the ordinary rate -- and null where
-       there is no evidence to bound it with, leaving the per-week progression
-       rate as the whole of the limit. Capacity is the envelope; it is not
-       permitted to redefine the destination. */
-    var mCeil = raceGoalCapacityCeilingKm(mEntry, mProgressing);
-    var mCapped = false, mDominated = false;
-    for (var mIt = 0; mIt < 8; mIt++){
-      var prevL = mLongDest.km, prevS = mSupportDest;
-      mSupportDest = marathonSupportDestination(mStart.supportKm, mStart.longKm,
-                                                mLongDest.km, mProgressing, mPaceSec, distKey,
-                                                raceGoalVolumeDestinationKm(distKey, mExp, mEntry, 'peak'),
-                                                mSupportDays,
-                                                mQSlots * (mSupportDest || mStart.supportKm || 0),
-                                                mStartDays);
-      /* CAPACITY IS A CEILING ON THE RESULT, NEVER A TARGET FOR IT. Paid
-         proportionally, so the week the athlete arrived with keeps its shape
-         while everything in it comes down together. The quality session is
-         counted at the supporting run's size -- it is not sized until the
-         structure pools run, and this figure only ever decides whether the
-         destinations must come down. */
-      var mSum = mLongDest.km + (mSupportDays + mQSlots) * (mSupportDest || 0);
-      if (mCeil != null && mSum > mCeil && mSum > 0){
-        var mScale = mCeil / mSum;
-        mLongDest.km = round1(Math.max(mLongFloor, mLongDest.km * mScale));
-        mSupportDest = round1(Math.max(EASY_MIN_KM, (mSupportDest || 0) * mScale));
-        mLongDest.limited = true; mCapped = true;
-      }
-      /* ---- AND THE WEEK MUST BE ABLE TO CARRY IT, BUT NOT BELOW THE STANDARD
-         THE EVENT ASKS FOR ----
-         The coherence ceiling holds a long run that is running away from the
-         week around it: a long run more than 1/SUPPORT_SHARE_MIN times the
-         week's ordinary supporting run is dominating rather than being
-         supported. That is a real defect and the gate keeps catching it.
-
-         WHAT IT MAY NOT DO IS PULL A PATHWAY BELOW ITS OWN DESTINATION. Read
-         against the per-run supporting figure, the ceiling FALLS as frequency
-         develops -- the same weekly workload written across more days makes
-         each run smaller, so an athlete running five days was held to a
-         shorter long run than the same athlete running three. Measured, that
-         held the New Half to 15km against HQ's 16, the New Marathon to 24
-         against 26 and the Experienced Marathon to 26 against 29: every
-         dedicated pathway missing the standard HQ set, on a ratio rather than
-         on anything about the athlete.
-
-         AND THE RATIO CANNOT EXPRESS THOSE STANDARDS AT ALL. HQ's own figures
-         run from a 16km long run in a 38km week to a 26km long run in a 40km
-         week -- 42% to 65% -- because that is what marathon preparation looks
-         like for a lower-volume athlete, and it is what every published novice
-         marathon plan does. No single share of the week admits the second and
-         refuses a 30km long run in a 60km week; the difference between those
-         two is not the share, it is whether a designed progression got the
-         athlete there.
-
-         SO THE PATHWAY'S OWN DESTINATION IS THE FLOOR. Destination-led
-         construction supplies what reachability alone could not when this gate
-         was written: an explicit, event-derived statement of what the long run
-         must become. The ceiling still bounds everything above it -- an
-         established athlete developing past the minimum is held by the week
-         that carries them -- and it can no longer hold a pathway short of the
-         standard. Where the athlete genuinely cannot support that standard the
-         block still will not deliver it, and readiness reports the shortfall,
-         which is what HQ asks for rather than a quietly lowered event. */
-      var mPathLong = mPath ? Math.max(mPath.buildLongKm || 0, mPath.peakLongKm || 0) : 0;
-      /* ---- AND THE FLOOR IS BOUNDED BY WHAT THE RUN ITSELF COSTS ----
-         The pathway's destination is the floor beneath the coherence ceiling,
-         but it is not unconditional: an athlete who genuinely cannot spend the
-         hours must not be prescribed the distance, and that is HQ's own rule
-         that safety may prevent a standard being reached.
-
-         WHAT BOUNDS A LONG RUN IS WHAT A LONG RUN COSTS. The old ceiling
-         bounded it by what a SUPPORTING run costs, which is the wrong session:
-         it made a 32km destination depend on whether a 12.8km easy run fitted
-         inside ninety minutes. LONG_RUN_COST_HEAVY_SEC is the architecture's
-         own statement of when a long run has become a heavy one, and applied to
-         the long run it says the thing that is actually true -- at nine minutes
-         a kilometre a 32km run is four and three quarter hours, and it is the
-         four and three quarter hours that make it wrong.
-
-         For every pace these pathways are actually run at the floor is
-         untouched: the New marathon's 26km at 7:00/km is 3h02 and the
-         Advanced's 32km at 5:00/km is 2h40, both inside the bound. */
-      var mCostLong = (mPaceSec > 0) ? LONG_RUN_COST_HEAVY_SEC / mPaceSec : Infinity;
-      var mCoh = Math.max(longRunCoherenceCeiling(mSupportDest),
-                          Math.min(mPathLong, mCostLong));
-      if (mLongDest.km > mCoh){
-        mLongDest.km = round1(Math.max(mLongFloor, mCoh));
-        mLongDest.limited = true; mDominated = true;
-      }
-      if (Math.abs(prevL - mLongDest.km) < 0.05 &&
-          prevS != null && Math.abs(prevS - mSupportDest) < 0.05) break;
-    }
-    /* The supporting workload the athlete arrived with, and where it is going.
-       One quantity, developed once -- see the note at mSupTotal. */
-    var mSupTotalStart = mStart.supportKm * mStartDays;
-    var mSupTotalDest = (mSupportDest || mStart.supportKm) * mSupportDays;
-    mBottomUp = { days:mDays, qSlots:mQSlots, supportDays:mSupportDays,
-                  /* THE THREE AUTHORITIES, RECORDED so the audit and the
-                     readiness layer read what the block was actually built
-                     from rather than inferring it. */
-                  experience:mExp, entryKm:mEntryKm, entry:mEntry, startDays:mStartDays,
-                  pathway:mPath ? { buildVolumeKm:mPath.buildVolumeKm,
-                                    buildLongKm:mPath.buildLongKm,
-                                    peakVolumeKm:mPath.peakVolumeKm,
-                                    peakLongKm:mPath.peakLongKm,
-                                    openEnded:!!mPath.openEnded } : null,
-                  volumeDestKm: raceGoalVolumeDestinationKm(distKey, mExp, mEntry, 'peak'),
-                  /* THE PATHWAY'S OWN WEEKLY REQUIREMENT, unraised by anything
-                     the athlete has demonstrated -- the event's number, which
-                     is what a week may be developed toward without the athlete
-                     becoming their own target. */
-                  pathwayVolumeKm: mPath ? (mPath.peakVolumeKm != null
-                                            ? mPath.peakVolumeKm : mPath.buildVolumeKm) : null,
-                  buildVolumeDestKm: raceGoalVolumeDestinationKm(distKey, mExp, mEntry, 'build'),
-                  buildLongDestKm: raceGoalLongDestinationKm(distKey, mExp, mEntry, 'build'),
-                  startSupportTotalKm: mSupTotalStart, supportTotalDestKm: mSupTotalDest,
-                  startLongKm:mStart.longKm, startSupportKm:mStart.supportKm,
-                  longDestKm:mLongDest.km, longLimited:mLongDest.limited,
-                  supportDestKm:mSupportDest, progressing:mProgressing,
-                  capacityCeilingKm: mCeil != null ? round1(mCeil) : null,
-                  /* WHICH AUTHORITY HELD THE LONG RUN BACK, readable rather
-                     than inferred: the athlete's development ceiling, the
-                     week's ability to support it, both, or neither. */
-                  capacityLimited: mCapped, weekSupportLimited: mDominated,
-                  paceSec:mPaceSec,
-                  /* ---- STEPS THE ATHLETE HAS ACTUALLY TAKEN ----
-                     `advances`, not a week counter. The doses are still read
-                     from the block's own progression curve, at the ordinary
-                     rate, bounded by the destination -- nothing about that
-                     changes. What changes is WHICH step the week is at: a week
-                     that spends itself absorbing a new structure does not take
-                     one, so it costs exactly one step and the curve cannot
-                     later be walked faster to make it up. There is no debt to
-                     repay and no catch-up week; the athlete simply finishes one
-                     step lower, which is the honest consequence.
-
-                     CAPACITY IS READ AT THE SAME COUNT, and that is the point
-                     rather than an oversight. Within the structural week itself
-                     capacity is already one step ahead of the doses -- it was
-                     advanced at the end of the previous week, and it is what
-                     admitted the new session -- so the structure is earned and
-                     the doses still hold. What must NOT happen is capacity
-                     running on while the doses stand still: measured, a
-                     12km/week athlete held twice in a row accumulated a third
-                     supporting day it had no workload for and its cutback week
-                     came out larger than the week before it. */
-                  /* ---- WEEK ONE IS THE ATHLETE'S ENTRY, NOT A STEP ABOVE IT ----
-                     This was seeded at one, and the reason recorded here was
-                     that seeding it at zero left the last developing week on
-                     step P-1 of P and every pathway finishing below its own
-                     destination. That is the wrong repair. It does not fix the
-                     curve; it starts the athlete 10% above the standard the
-                     pathway says they enter at, so that the curve has one more
-                     step to spend -- a 20km novice marathon entry delivered as
-                     a 22km opening week purely because the arithmetic needed
-                     the room.
-
-                     THE ERROR WAS IN THE COUNT, NOT THE START. P developing
-                     weeks contain P-1 intervals between them, the same way six
-                     fence posts carry five rails. Counting one step per week
-                     and then standing week one on step one is counting the
-                     first interval twice. So week one stands on step zero and
-                     IS the entry the pathway states, the count of steps is the
-                     count of gaps, and the last developing week still lands
-                     exactly on the destination. */
-                  advances: 0, supportAdvances: 0, lastStep: null,
-                  /* Computed ONCE, here, and reported on every week. The week
-                     loop must never re-derive it: a rate re-solved over the
-                     weeks that remain is exactly the catch-up this
-                     architecture must not do. */
-                  stepRate: Math.round(sessionStepRate(mStart.longKm, mLongDest.km,
-                                                       mProgressing) * 1000) / 1000,
-                  /* THE STRUCTURE THIS ATHLETE HAS ALREADY BEEN PRESCRIBED, as
-                     a high-water mark rather than as last week's snapshot. A
-                     cutback that suppresses a session does not un-establish it,
-                     so the rebound is not a first arrival; and a structure that
-                     has arrived cannot arrive again. Seeded by week one, so an
-                     athlete who brings five days and a quality session with
-                     them never has to re-earn either. */
-                  estRunDays: null, estQSlots: null, estGoalSeg: false,
-                  stepIdx:0 };
+    mBottomUp = raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts);
   }
   for (var w=1; w<=N; w++){
     var isRace = !steady && arc.hasGoalEffort && (w===N);
@@ -32452,6 +32694,63 @@ function raceGoalEntryHtml(entry, distanceKey, hasEvent){
       '</div>'+
     '</div>';
 }
+/* ---- THE PREPARATION BOUNDARY, WHICH IS NOT THE RUNWAY BOUNDARY ----
+   The runway offer says "you have more time than the programme needs". This
+   one says the opposite: the window is open, and the athlete cannot establish
+   what the event asks for inside it. HQ's ruling is that Valhalla says so
+   BEFORE building rather than after, so this modal exists to carry that
+   sentence.
+
+   IT NAMES THE MISSING DIMENSION AND THE NUMBER. "Not enough" is not a
+   coaching statement; "the programme reaches an 18km long run and this event
+   asks for 26" is. The athlete can see exactly what is short and decide.
+
+   AND THE SECOND BUTTON IS REAL. The athlete may build it anyway -- it is
+   their race and their body -- and Valhalla will then report the shortfall
+   honestly all the way through rather than pretending the decision was never
+   made. What it will not do is take that decision silently on their behalf. */
+function openRaceGoalPreparationModal(adm, distanceKey){
+  openModal(raceGoalPreparationHtml(adm, distanceKey), 'modal-themed');
+}
+function raceGoalPreparationHtml(adm, distanceKey){
+  var lbl = (DISTANCE_PROFILES[distanceKey] || {}).label || 'race';
+  var pre = adm.preparation || {};
+  var purpose = adm.recommend || 'base';
+  var purposeLabel = blockPurposeLabel(purpose);
+  var weeks = builderDefaultWeeks(purpose);
+  var dim = null;
+  (pre.dimensions || []).forEach(function(d){
+    if (d.key === pre.limitedBy) dim = d; });
+  var gap = dim
+    ? (pre.limitedBy === 'durability'
+        ? 'Across ' + adm.weeksToRace + ' weeks your long run develops to about ' +
+          escapeHtml(fmtDist(dim.reachedKm)) + '. A ' + escapeHtml(lbl.toLowerCase()) +
+          ' asks for ' + escapeHtml(fmtDist(dim.requiredKm)) + ' before the taper.'
+        : 'Across ' + adm.weeksToRace + ' weeks your training week develops to about ' +
+          escapeHtml(fmtDist(dim.reachedKm)) + '. A ' + escapeHtml(lbl.toLowerCase()) +
+          ' asks for ' + escapeHtml(fmtDist(dim.requiredKm)) + '.')
+    : 'There is not enough time to build what this event asks for.';
+  return '<div class="modal-head"><h2 class="font-head">' + adm.weeksToRace +
+      ' weeks is not enough yet</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body">'+
+      '<p>' + gap + '</p>'+
+      '<p>Valhalla can build the programme, but it already knows it would leave you short '+
+        'on race day — so it is telling you now rather than in week ten.</p>'+
+      '<p>' + escapeHtml(purposeLabel) + ' builds exactly what is missing. Your ' +
+        escapeHtml(lbl.toLowerCase()) + ' stays on record, and the programme is there for '+
+        'your next one with the running behind it.</p>'+
+      '<div class="yr-choices">'+
+        '<button type="button" class="btn btn-primary btn-block" data-action="prep-route" '+
+          'data-purpose="' + escapeHtml(purpose) + '">Start ' + escapeHtml(purposeLabel) +
+          ' · ' + weeks + ' weeks</button>'+
+        '<button type="button" class="btn btn-ghost btn-block" data-action="prep-continue">'+
+          'Build the ' + escapeHtml(lbl) + ' programme anyway</button>'+
+      '</div>'+
+      '<div class="yr-foot">If you build it anyway, Valhalla will keep telling you where '+
+        'the preparation stands rather than quietly calling it ready.</div>'+
+    '</div>';
+}
 function runwayOfferHtml(plan, distanceKey){
   var lbl = (DISTANCE_PROFILES[distanceKey] || {}).label || 'race';
   var prep = plan.preparatory;
@@ -33887,15 +34186,6 @@ async function handleGeneratePlan(){
      recommended development block, or carry on and build the race programme
      now. Nothing is decided for them, and skipping the offer (`skipRunway`)
      is what the second button does. */
-  if (!runwayOfferAnswered && buildPurpose === 'race' && hasEvent &&
-      (distanceKey === 'full' || distanceKey === 'half')){
-    var rp = marathonRunwayPlan(planWeeks, volume, distanceKey);
-    if (rp && rp.preparatory){
-      setRaceDestination(distanceKey, raceDate, {}, null);
-      openRunwayOfferModal(rp, distanceKey);
-      return;
-    }
-  }
   /* THE ATHLETE'S OWN EASY PACE, computed here because this is the first point
      at which the NEW benchmark and goal are both known -- state.setup still
      holds the previous plan's until the assignment below. Session cost is
@@ -33908,6 +34198,31 @@ async function handleGeneratePlan(){
       if (gz && gz.E && gz.E.slow != null && gz.E.fast != null) genEasyPace = (gz.E.slow + gz.E.fast) / 2;
     }
   } catch(e){ genEasyPace = null; }
+  /* THE CIRCUMSTANCES BOTH THE ADMISSION QUESTION AND THE BUILDER ARE ASKED
+     UNDER. Read once, so a programme cannot be admitted on one set of days and
+     paces and then constructed on another. */
+  var genCtx = { availableDays: activeDays.length, easyPaceSecPerKm: genEasyPace };
+  if (!runwayOfferAnswered && buildPurpose === 'race' && hasEvent &&
+      (distanceKey === 'full' || distanceKey === 'half')){
+    var rp = marathonRunwayPlan(planWeeks, volume, distanceKey, genCtx);
+    if (rp && rp.preparatory){
+      setRaceDestination(distanceKey, raceDate, {}, null);
+      openRunwayOfferModal(rp, distanceKey);
+      return;
+    }
+    /* ---- AND THE RUNWAY CAN BE OPEN WHILE THE ATHLETE IS NOT READY FOR IT ----
+       HQ's ruling. Asked here, before a single week is written, because a
+       Race Goal that Valhalla has already calculated cannot reach the event's
+       preparation standard is not a programme to build and apologise for at
+       the end. The same offer shape as the runway one: the recommended
+       development route, or carry on -- nothing is decided for the athlete. */
+    var adm = raceGoalAdmission(distanceKey, planWeeks, volume, genCtx);
+    if (adm && !adm.admitted && adm.decision === 'preparation_not_reachable'){
+      setRaceDestination(distanceKey, raceDate, {}, null);
+      openRaceGoalPreparationModal(adm, distanceKey);
+      return;
+    }
+  }
   var profile = DISTANCE_PROFILES[distanceKey];
   var schedule = { activeDays:activeDays, longRunDay:longRunDay };
   var blockResult = buildBlockWeeks(distanceKey, volume, planWeeks,
@@ -42003,6 +42318,13 @@ document.addEventListener('click', function(e){
     case 'runway-prep': closeModal(); runwayOfferAnswered = true;
       handleStartBlock(target.getAttribute('data-purpose')); break;
     case 'runway-continue': closeModal(); runwayOfferAnswered = true; handleGeneratePlan(); break;
+    /* The preparation boundary. Same two-real-answers shape as the runway
+       offer, and it reuses the same "the athlete has answered" flag: both
+       questions are asked in the same place and neither should be re-asked
+       once the athlete has decided. */
+    case 'prep-route': closeModal(); runwayOfferAnswered = true;
+      handleStartBlock(target.getAttribute('data-purpose')); break;
+    case 'prep-continue': closeModal(); runwayOfferAnswered = true; handleGeneratePlan(); break;
     /* THE ENTRY BOUNDARY. Accept builds the Aerobic Base block through the
        builder the athlete is already standing in -- same schedule, same
        benchmark, same days -- rather than through startDevelopmentBlock(),
