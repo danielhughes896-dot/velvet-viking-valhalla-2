@@ -144,16 +144,37 @@ var BUILDER_SPEC = {
   /* ---------- ATHLETE EXPERIENCE ----------
      Coaching-depth preference, not a training input -- same three levels,
      same order, same hint copy the app's EXPERIENCE_META has always held. */
+  /* ---------- ATHLETE EXPERIENCE ----------
+     THE KEYS ARE THE METHODOLOGY AND THEY DO NOT MOVE. novice / experienced /
+     advanced are what every pathway table, every stored plan and every
+     generated programme is keyed on; renaming them to match a label would be
+     migrating an athlete's methodology to change a word on a button. So the
+     stable value and the athlete-facing display are two different things, and
+     only the display changed here.
+
+     WHY THESE WORDS. "New" reads as "you have never run", which is not what
+     this pathway means and not who chooses it; "Experienced" was doing two
+     jobs at once, naming both the middle rung and the top rung's own quality.
+     Developing / Established / Advanced name a training BACKGROUND without
+     claiming a weekly mileage and without ranking the athlete as a person.
+
+     AND THEY DESCRIBE BACKGROUND, NOT CURRENT FITNESS. Experience says which
+     preparation architecture an athlete needs; their demonstrated evidence
+     says what they can safely do right now, and it outranks this everywhere it
+     applies. A Developing athlete may hold strong current evidence and an
+     Advanced athlete may be returning from a layoff -- so no copy here may
+     imply that choosing Advanced means being fit enough for an advanced
+     programme today. */
   experience: {
     order: ['novice', 'experienced', 'advanced'],
     default: 'experienced',
     meta: {
-      novice: { label: 'New to structured training', short: 'New',
-        hint: 'Tell me what to do, how to do it and what it should feel like.' },
-      experienced: { label: 'Experienced', short: 'Experienced',
-        hint: 'Give me the session, targets and the important coaching cues.' },
+      novice: { label: 'Developing', short: 'Developing',
+        hint: 'Building experience with structured training — tell me what to do, how to do it and what it should feel like.' },
+      experienced: { label: 'Established', short: 'Established',
+        hint: 'Comfortable with regular structured training — give me the session, targets and the important coaching cues.' },
       advanced: { label: 'Advanced', short: 'Advanced',
-        hint: 'Keep it concise. Give me the prescription and let me run.' }
+        hint: 'Highly experienced with structured training and higher training demands — keep it concise and let me run.' }
     }
   },
 

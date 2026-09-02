@@ -1447,6 +1447,32 @@
   .dlap-dist, .dlap-time{color:var(--ink-dim);}
   .dlap-pace{color:var(--ink); text-align:right;}
   .dlap-note{font-size:10px; line-height:1.45; color:var(--ink-faint); margin:2px 0 7px;}
+  /* ---------- FITNESS CHECKPOINT INTERVENTION (Today) ----------
+     Built from the cards Today already has -- .hub-card for the shell,
+     .coach-next-head for the head, .yr-choices for the actions -- so this is
+     one more Today card rather than a new visual language. Cherry marks the
+     recommendation, which is the interactive/selected job it does everywhere
+     else in this product; gold stays the identity colour and is not used to
+     select. */
+  .cp-why{font-size:12.5px; line-height:1.5; color:var(--ink-dim); margin:2px 0 4px;}
+  .cp-prep{font-size:11.5px; line-height:1.45; color:var(--ink-faint); margin:0 0 4px;}
+  .cp-opts{display:flex; flex-direction:column; gap:6px; margin:10px 0 12px;}
+  .cp-opt{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%;
+    background:var(--bg-4); border:1px solid var(--line); border-radius:8px;
+    padding:9px 11px; min-height:44px; text-align:left; cursor:pointer; color:var(--ink);
+  }
+  .cp-opt.is-rec{border-color:var(--cherry); background:var(--cherry-fill); color:var(--cherry-btn-ink);}
+  .cp-opt.is-active:not(.is-rec){border-color:var(--line-strong);}
+  .cp-opt[disabled]{opacity:.55; cursor:default;}
+  .cp-opt-l{display:flex; align-items:center; gap:7px; flex-wrap:wrap; min-width:0;}
+  .cp-opt-g{font-size:12.5px; font-weight:600;}
+  .cp-opt-n{font-size:10px; color:inherit; opacity:.8; text-align:right; flex:none;}
+  .cp-tag{
+    font-size:8.5px; letter-spacing:.5px; text-transform:uppercase; font-weight:700;
+    border:1px solid currentColor; border-radius:99px; padding:1px 6px; opacity:.85;
+  }
+  .cp-done .cp-said{font-size:12.5px; color:var(--ink-dim); margin-top:2px;}
   .splits-total{font-size:10.5px; color:var(--ink-faint); margin-top:6px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .splits-total .font-mono{color:var(--ink-dim);}
   .splits-warn{color:var(--gold-deep);}
@@ -3720,6 +3746,32 @@ function raceGoalPathwayEntryKm(purpose, distKey, experience){
     try { return athleteExperience(); } catch(e){ return null; } })();
   var p = raceGoalPathway(distKey, exp);
   return (p && p.entryVolumeKm > 0) ? p.entryVolumeKm : null;
+}
+/* ---- DOES THIS BUILD STILL ASK THE ATHLETE FOR A WEEKLY VOLUME ----
+   RACE GOAL NO LONGER DOES, AND THE REASON IS THAT THE ANSWER STOPPED
+   MATTERING. Destination-led construction reads three authorities in order --
+   pathway, evidence, destination -- and the typed figure is a legacy hint
+   inside `entry` that can never set a destination (see raceGoalEntryState()).
+   A question whose answer changes nothing is a question that should not be
+   asked, and asking it invites the athlete to believe it steers their
+   programme.
+
+   THE OTHER THREE PRODUCTS STILL ASK, and deliberately: Aerobic Base, Maintain
+   & Protect and Speed & Threshold have not had this methodology review, their
+   volume arithmetic is still bottom-up from the figure, and removing their
+   question would change their programmes. So this is scoped to the purpose,
+   not to the field.
+
+   ONE PREDICATE, READ BY THE PANEL, THE VALIDATOR AND THE GENERATOR, so the
+   screen cannot hide a question the validator still enforces.
+
+   AND WHERE IT IS FALSE THE GENERATOR SENDS ABSENT, NEVER ZERO. raceGoalEntry()
+   reads zero as the athlete's own account of themselves -- "I am not running"
+   -- and routes them to Aerobic Base; it reads ABSENT as "the field is gone"
+   and lets the pathway answer. Passing 0 for a removed field would send every
+   Race Goal athlete into a base block. */
+function builderAsksWeeklyVolume(purpose){
+  return purpose !== 'race';
 }
 function calibrationNeededNow(volume, pathwayEntryKm){
   return calibrationVerdict(volume, pathwayEntryKm).needed;
@@ -24167,7 +24219,31 @@ function absorbedWeeklyVolume(){
   var lt = model && model.loadTolerance;
   if (lt && lt.confidence !== 'insufficient' && lt.absorbedVolume && lt.absorbedVolume.typical)
     return { km: lt.absorbedVolume.typical, source: 'measured', confidence: lt.confidence };
-  return { km: stated, source: stated ? 'stated' : 'unknown', confidence: 'insufficient' };
+  if (stated) return { km: stated, source: 'stated', confidence: 'insufficient' };
+  /* ---- THE RUNG THAT HAD NO ANSWER UNTIL THE FIELD COULD BE ABSENT ----
+     A RACE GOAL PLAN CARRIES NO TYPED FIGURE ANY MORE, and the case this
+     reaches is a real and ordinary one: the athlete finishes a race block, the
+     load-tolerance window has nothing recent in it because the block ENDED,
+     and the next-block offer asks what volume to start from. Before, the stale
+     typed number answered. With no number this returned unknown, and
+     developmentBlockSpec() then produced a null volume and
+     startDevelopmentBlock() refused -- so finishing a race would have quietly
+     removed the athlete's route into their next block.
+
+     WHAT ANSWERS INSTEAD IS THEIR OWN TRAINING. demonstratedSustainableVolume()
+     is the weekly volume this athlete has actually held, and it is better
+     evidence than the figure they typed months ago, not worse.
+
+     DELIBERATELY BELOW `stated` RATHER THAN ABOVE IT. Placed above, it would
+     re-size Aerobic Base, Maintain & Protect and Speed & Threshold blocks for
+     every athlete who has training history -- a methodology change to three
+     products that have not had their review. Those three still ask the
+     question, so `stated` is always present for them and this rung is
+     unreachable. It answers only where nothing else could. */
+  var dem = null;
+  try { dem = demonstratedSustainableVolume(); } catch(e){ dem = null; }
+  if (dem && dem > 0) return { km: round1(dem), source: 'demonstrated', confidence: 'insufficient' };
+  return { km: null, source: 'unknown', confidence: 'insufficient' };
 }
 
 /* ---------- what each purpose builds ----------
@@ -24293,6 +24369,142 @@ function applyRecoveryCeiling(days, raceDate, noIntensityDays){
 
    The question is only ever pending when the goal day has actually passed. */
 var RACE_OUTCOMES = ['raced','dns','dnf','later'];
+/* =========================================================
+   THE FITNESS CHECKPOINT, ON TODAY
+   ---------------------------------------------------------
+   THE CHECKPOINT IS EVIDENCE, AND EVIDENCE THAT NOBODY IS ASKED ABOUT IS
+   DECORATION. The athlete runs a maximal effort at the midpoint of a race
+   block; raceGoalAssessment() can now say what it means for the goal they are
+   training for; and until this card there was nowhere that answer was put in
+   front of them.
+
+   EVERY COACHING DECISION HERE IS SYSTEM'S. This file chooses no goal, invents
+   no projection and applies no tie-break. raceGoalAssessment() decides which
+   goals the evidence supports (its projection is the athlete's own
+   demonstrated rate, bounded by itself), which one is recommended (the
+   quickest supported, deterministically), and whether the programme can
+   prepare them for it. What is written here is the rendering of that verdict
+   and the two buttons that act on it.
+
+   NOTHING IS PERSISTED EXCEPT THE ATHLETE'S ANSWER. The assessment is pure and
+   is re-derived on every render, so a recommendation cannot go stale in a
+   stored card: if the evidence, the goals, the programme or the race date
+   move, the next render simply asks the question again, or stops asking. That
+   is the whole of the withdrawal rule and it needs no separate machinery.
+
+   AND THE ANSWER IS KEYED TO THE EVIDENCE THAT PROVOKED IT. Resolving the card
+   records WHICH measurement the athlete was answering about
+   (projection.fromDate). The same evidence never asks twice; genuinely new
+   qualifying evidence is a new question and is allowed to ask again. */
+function raceGoalCheckpointBlock(){
+  /* The block the athlete is actually running, rebuilt from its own inputs so
+     raceGoalReadiness() can be asked what it establishes. Deterministic and
+     about 8ms; memoised per render because renderTodayView() is not the only
+     caller and none of them should pay for it twice. */
+  var su = state && state.setup;
+  if (!su || !su.distanceKey || !su.planWeeks) return null;
+  var key = [su.blockId, su.distanceKey, su.planWeeks, nz(su.currentVolume), athleteExperience()].join('|');
+  if (raceGoalCheckpointBlock._key === key) return raceGoalCheckpointBlock._val;
+  var out = null;
+  try {
+    out = buildBlockWeeks(su.distanceKey, su.currentVolume, su.planWeeks,
+                          { purpose: 'race', experience: athleteExperience() });
+  } catch(e){ out = null; }
+  raceGoalCheckpointBlock._key = key;
+  raceGoalCheckpointBlock._val = out;
+  return out;
+}
+/* The completed checkpoint in the block the athlete is running, or null. It is
+   the EVENT that earns the question; the assessment is what answers it. */
+function completedCheckpointDay(){
+  if (!state || !state.days) return null;
+  var found = null;
+  state.days.forEach(function(dd){
+    if (dd.type === 'checkpoint' && dd.completed && dd.date <= todayStr()) found = dd;
+  });
+  return found;
+}
+/* SYSTEM's verdict, asked with the programme in hand so the preparation half
+   of it can answer too. Null where there is no race goal to assess. */
+function checkpointAssessment(){
+  var su = state && state.setup;
+  if (!su || !su.distanceKey) return null;
+  if (su.purpose && su.purpose !== 'race') return null;
+  var r = null;
+  try { r = raceGoalAssessment(raceGoalCheckpointBlock()); } catch(e){ r = null; }
+  return r;
+}
+/* WHERE THE ANSWER LIVES, AND WHY NOT ON THE BLOCK.
+   recordRaceOutcome() writes to currentBlock().outcome and that is the right
+   home for a fact about a block that has finished. This is not that: it is a
+   decision about the ACTIVE GOAL, taken mid-block, and currentBlock() can
+   legitimately be null -- a restored plan, an imported backup, a block record
+   that never opened -- in which case a block-homed answer could not be stored
+   and the card would ask the same question again every single day.
+
+   state.setup is where activeGoal itself lives, it exists whenever there is a
+   plan to ask about, and it is signed whole by planContentSignature(), so the
+   answer syncs to the athlete's other devices with the goal it is about. */
+function checkpointDecisionRecord(){
+  var su = state && state.setup;
+  return (su && su.checkpointDecision) || null;
+}
+/* WHAT THE ATHLETE SHOULD BE ASKED, IF ANYTHING.
+   Every gate is a real one:
+     the checkpoint must have been RUN            -- no evidence, no question
+     SYSTEM must have reached an actionable verdict -- withheld is not a
+                                                    recommendation, it is the
+                                                    engine declining to guess
+     the verdict must name goals                  -- nothing to choose between
+     the same evidence must not have been answered already */
+function checkpointInterventionState(){
+  var chk = completedCheckpointDay();
+  if (!chk) return null;
+  var a = checkpointAssessment();
+  if (!a) return null;
+  if (a.verdict === 'withheld' || !a.goals.length) return null;
+  if (!a.projection || a.projection.withheld) return null;
+  var evidenceKey = a.projection.fromDate || chk.date;
+  var rec = checkpointDecisionRecord();
+  var resolved = !!(rec && rec.evidenceDate === evidenceKey);
+  return { assessment: a, checkpoint: chk, evidenceDate: evidenceKey,
+           resolved: resolved, record: resolved ? rec : null };
+}
+/* Recording the answer. Same home and the same shape as the race outcome the
+   product already stores against a block, so there is no second notion of "a
+   decision this athlete took about this block". */
+function recordCheckpointDecision(action, goalKey, evidenceDate){
+  if (!state || !state.setup) return null;
+  state.setup.checkpointDecision = { action: action, goal: goalKey || null,
+                                     evidenceDate: evidenceDate || null,
+                                     at: new Date().toISOString() };
+  return state.setup.checkpointDecision;
+}
+function handleCheckpointAccept(goalKey){
+  var st = checkpointInterventionState();
+  if (!st || st.resolved) return;
+  var key = goalKey || st.assessment.recommend;
+  if (!key) return;
+  /* THE EXISTING AUTHORITY, NOT A SECOND ONE. handleSetGoal() is the only
+     writer of state.setup.activeGoal anywhere in this product; it validates,
+     saves, re-renders and reports. Accepting a recommendation is the athlete
+     making exactly that choice, so it goes through exactly that function. */
+  if (key !== state.setup.activeGoal) handleSetGoal(key);
+  recordCheckpointDecision('accepted', key, st.evidenceDate);
+  scheduleSave();
+  renderApp();
+}
+function handleCheckpointDecline(){
+  var st = checkpointInterventionState();
+  if (!st || st.resolved) return;
+  /* NOTHING ABOUT THE PROGRAMME CHANGES. Declining is the athlete keeping the
+     goal they already have -- so no goal is written, no plan is rebuilt, and
+     the only thing recorded is that they were asked and answered. */
+  recordCheckpointDecision('kept', state.setup.activeGoal || null, st.evidenceDate);
+  scheduleSave();
+  renderApp();
+  showToast('Keeping your current target');
+}
 function raceOutcomePending(){
   var su = state.setup;
   if (!su || !su.raceDate) return false;
@@ -32375,6 +32587,130 @@ var RACE_OUTCOME_CHOICES = [
   { k:'dns',    label:'Did not start' },
   { k:'later',  label:'Not yet — I will log it' }
 ];
+/* ---------- THE CARD ----------
+   ONE READING OF ONE VERDICT. The headline names what SYSTEM concluded, the
+   line under it says why in the athlete's own numbers, and the buttons are the
+   only two things they can do about it. No internal vocabulary reaches the
+   screen: no VDOT, no verdict key, no shortfall arithmetic the athlete did not
+   ask for -- a projected time band and a goal time are numbers they already
+   understand.
+
+   IT DOES NOT PRESENT A CHOICE WHERE SYSTEM HAS NOT LEFT ONE. Where every goal
+   is beyond the evidence there is nothing to accept, so the card says so and
+   offers only acknowledgement; where the goal already stands it is a
+   confirmation, not a decision dressed up as one. */
+var CHECKPOINT_HEADLINE = {
+  current_goal_supported:    'Your target still stands',
+  different_goal_recommended:'Your checkpoint changes the picture',
+  no_goal_supported:         'Your checkpoint asks for a rethink',
+  preparation_short:         'Your checkpoint asks for a rethink'
+};
+function checkpointGoalLine(g){
+  return 'Goal ' + g.key + ' \u00b7 ' + secToClock(g.timeSec);
+}
+function renderCheckpointIntervention(){
+  var st = checkpointInterventionState();
+  if (!st) return '';
+  var a = st.assessment, proj = a.projection;
+
+  /* ---- RESOLVED: the compact record of what they decided, same day and
+     after. It is not a second ask and carries no buttons. */
+  if (st.resolved){
+    var r = st.record;
+    var said = r.action === 'accepted'
+      ? ('Target set to Goal ' + r.goal + (a.goals.filter(function(g){ return g.key===r.goal; })[0]
+          ? ' \u00b7 ' + secToClock(a.goals.filter(function(g){ return g.key===r.goal; })[0].timeSec) : ''))
+      : ('Keeping Goal ' + (r.goal || a.activeGoal));
+    return '<div class="hub-card yr-outcome cp-card cp-done">'+
+      '<div class="coach-next-head">'+ICONS.check+
+        '<span class="coach-next-title">Fitness Checkpoint</span></div>'+
+      '<div class="cp-said">'+escapeHtml(said)+'</div>'+
+    '</div>';
+  }
+
+  var head = CHECKPOINT_HEADLINE[a.verdict] || 'Your Fitness Checkpoint';
+  var recommended = a.recommend
+    ? a.goals.filter(function(g){ return g.key === a.recommend; })[0] : null;
+  var profile = DISTANCE_PROFILES[a.distanceKey];
+
+  /* THE REASON, IN THE ATHLETE'S OWN NUMBERS. The projected band is what the
+     assessment actually compared their goals against, so it is the honest
+     thing to show -- and it is labelled as race day, not as today, because
+     the distinction is the whole point of the assessment. */
+  var why = 'Your checkpoint puts you on course for '+
+    secToClock(proj.fastSec)+'\u2013'+secToClock(proj.slowSec)+
+    ' at your '+escapeHtml(profile ? profile.label.toLowerCase() : 'race')+
+    (a.daysToRace != null ? ' in '+a.daysToRace+' days' : '')+'.';
+  if (proj.flat) why += ' That is where you are now, carried forward '+
+    'rather than a promise of more.';
+
+  /* PREPARATION IS A STATEMENT ABOUT THE PROGRAMME, not about the ambition,
+     so it is said separately and only when it is what is holding a goal back. */
+  var prepLine = '';
+  if (a.verdict === 'preparation_short'){
+    prepLine = '<div class="cp-prep">Your fitness is not what is in the way \u2014'+
+      ' the block has not yet built the '+escapeHtml(prepLabelFor(a.reason))+
+      ' this race asks for.</div>';
+  }
+
+  var body = '<div class="cp-why">'+escapeHtml(why).replace('&#8211;','\u2013')+'</div>'+prepLine;
+
+  /* ---- THE OPTIONS. Every goal the athlete has, marked with what SYSTEM
+     said about it -- supported or short, and by how much. A goal that is not
+     supported is still shown, because hiding an athlete's own target is worse
+     than telling them it is beyond the evidence. */
+  var opts = a.goals.map(function(g){
+    var isRec = g.key === a.recommend;
+    var isActive = g.key === a.activeGoal;
+    var tags = [];
+    if (isRec) tags.push('<span class="cp-tag cp-rec">Recommended</span>');
+    else if (isActive) tags.push('<span class="cp-tag">Your target</span>');
+    var note = g.supported ? 'Supported'
+      : (!g.supportedByFitness
+          ? Math.abs(g.shortfallSec) + 's faster than the evidence'
+          : 'Beyond what the block prepares');
+    return '<button type="button" class="cp-opt'+(isRec?' is-rec':'')+(isActive?' is-active':'')+'"'+
+      (g.supported ? '' : ' disabled')+
+      ' data-action="checkpoint-accept" data-goal="'+g.key+'">'+
+      '<span class="cp-opt-l"><span class="cp-opt-g font-mono">'+escapeHtml(checkpointGoalLine(g))+'</span>'+
+        tags.join('')+'</span>'+
+      '<span class="cp-opt-n">'+escapeHtml(note)+'</span>'+
+    '</button>';
+  }).join('');
+
+  var actions;
+  if (recommended && a.verdict !== 'current_goal_supported'){
+    actions = '<button type="button" class="btn btn-primary btn-block" '+
+        'data-action="checkpoint-accept" data-goal="'+a.recommend+'">Set Goal '+a.recommend+
+        ' \u00b7 '+secToClock(recommended.timeSec)+'</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" data-action="checkpoint-decline">'+
+        'Keep Goal '+escapeHtml(a.activeGoal || '')+'</button>';
+  } else if (recommended && a.recommend !== a.activeGoal){
+    /* The current goal stands AND a quicker one is also supported. Both are
+       true, so both are offered, and the one they already hold leads. */
+    actions = '<button type="button" class="btn btn-primary btn-block" '+
+        'data-action="checkpoint-decline">Keep Goal '+escapeHtml(a.activeGoal || '')+'</button>'+
+      '<button type="button" class="btn btn-ghost btn-block" '+
+        'data-action="checkpoint-accept" data-goal="'+a.recommend+'">Step up to Goal '+a.recommend+'</button>';
+  } else {
+    actions = '<button type="button" class="btn btn-primary btn-block" '+
+      'data-action="checkpoint-decline">Got it</button>';
+  }
+
+  return '<div class="hub-card yr-outcome cp-card">'+
+    '<div class="coach-next-head">'+ICONS.sparkles+
+      '<span class="coach-next-title">'+escapeHtml(head)+'</span></div>'+
+    body+
+    '<div class="cp-opts">'+opts+'</div>'+
+    '<div class="yr-choices">'+actions+'</div>'+
+  '</div>';
+}
+/* The dimension raceGoalReadiness() named, said as a runner would say it. */
+function prepLabelFor(reason){
+  var m = { durability:'long run', volume:'weekly volume', specificity:'race-pace work',
+            frequency:'running days' };
+  return m[reason] || 'preparation';
+}
 function renderRaceOutcomePrompt(){
   if (!raceOutcomePending()) return '';
   var su = state.setup || {};
@@ -34296,7 +34632,13 @@ function openSetupModal(){
         '</div>'+
         '<div class="field-hint" id="su-experience-hint">'+escapeHtml(EXPERIENCE_META[experience].hint)+'</div>'+
       '</div>'+
-      '<div class="field" id="f-volume"><label id="su-volume-label">Current Weekly Volume ('+(state.units==='mi'?'mi':'km')+')</label>'+
+      /* HIDDEN FOR A RACE GOAL, PRESENT FOR THE OTHER THREE PRODUCTS. The
+         input itself stays in the DOM so the units handler, the review
+         renderer and the generator keep one set of ids across all four
+         purposes -- bldApplyPurpose() decides whether it is a question.
+         Stage 05 still asks experience, so nothing here can leave an empty
+         screen. */
+      '<div class="field bld-volume-question" id="f-volume"><label id="su-volume-label">Current Weekly Volume ('+(state.units==='mi'?'mi':'km')+')</label>'+
         '<input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'">'+
         '<div class="field-hint">Your honest recent average, not your best week.</div>'+
         /* THE ENTRY BOUNDARY, SAID BEFORE THE ATHLETE REACHES THE END OF THE
@@ -34494,6 +34836,11 @@ function openSetupModal(){
     var units = uBtn ? uBtn.getAttribute('data-units') : (state.units || 'km');
     var typed = parseFloat(vIn.value);
     var km = isNaN(typed) ? null : (units === 'mi' ? typed / 0.621371 : typed);
+    /* Race Goal no longer asks, so this note can no longer be about a typed
+       figure -- and a stale value left in the hidden input must not raise it.
+       It stays for the shape of the function and for any future purpose that
+       both asks and has an entry floor. */
+    if (!builderAsksWeeklyVolume(pSel.value)){ note.hidden = true; return; }
     if (pSel.value !== 'race' || km == null || vIn.value === ''){ note.hidden = true; return; }
     var entry = raceGoalEntry(km);
     if (entry.allowed){ note.hidden = true; return; }
@@ -34655,6 +35002,11 @@ function bldApplyPurpose(){
   var isRace = purpose === 'race';
 
   document.querySelectorAll('.bld-race-only').forEach(function(el){ el.hidden = !isRace; });
+  /* THE WEEKLY-VOLUME QUESTION, WHICH RACE GOAL NO LONGER ASKS. Same predicate
+     the validator and the generator read, so the screen cannot hide a question
+     one of them still enforces. */
+  var asksVolume = builderAsksWeeklyVolume(purpose);
+  document.querySelectorAll('.bld-volume-question').forEach(function(el){ el.hidden = !asksVolume; });
   if (!isRace) handleSetEventMode('none');
 
   var label = document.getElementById('su-distance-label');
@@ -34702,6 +35054,13 @@ function bldClearErrors(){
   document.querySelectorAll('.bld-panel .field.invalid').forEach(function(f){ f.classList.remove('invalid'); });
   document.querySelectorAll('.bld-panel .bld-error').forEach(function(e){ e.remove(); });
 }
+/* The purpose the builder is CURRENTLY set to, read from the same mirror the
+   generator reads. One reader, so the panel, the validator and the generator
+   can never disagree about which product is being built. */
+function bldPurposeNow(){
+  var sel = document.getElementById('su-purpose');
+  return (sel && sel.value) || 'race';
+}
 function bldFail(fieldId, message){
   var f = document.getElementById(fieldId);
   if (!f) return;
@@ -34744,6 +35103,11 @@ function bldValidateStage(i){
     return true;
   }
   if (i === BLD_STAGE.YOU){
+    /* THE RULE FOLLOWS THE QUESTION. A Race Goal build is not asked for a
+       weekly volume, and a validator that still demanded one would make the
+       stage impossible to pass with nothing on screen to fix. The stage keeps
+       its other question -- experience -- so no screen is left empty. */
+    if (!builderAsksWeeklyVolume(bldPurposeNow())) return true;
     var volume = parseDistInput(document.getElementById('su-volume').value);
     if (!volume || volume <= BUILDER_SPEC.validation.volumeMustExceed){
       bldFail('f-volume', 'Enter your current weekly volume.'); return false; }
@@ -34781,6 +35145,7 @@ function bldRenderReview(){
   // is never read from the field, so Review cannot promise a distance
   // Generate would not actually save.
   var reviewDistanceKey = (reviewPurposeMeta && reviewPurposeMeta.lockDistance) || distSel.value;
+  var reviewPurposeSel = (purposeSelForReview && purposeSelForReview.value) || 'race';
   var profile = DISTANCE_PROFILES[reviewDistanceKey];
   var unitBtn = document.querySelector('#su-units button.active');
   var units = unitBtn ? unitBtn.getAttribute('data-units') : state.units;
@@ -34853,9 +35218,17 @@ function bldRenderReview(){
      and saying the same thing twice is what makes a check sheet feel like a
      form. `units` is still read -- the hero is what uses it. */
 
+  /* THE HERO SUBTITLE ONLY SAYS WHAT WAS ACTUALLY ASKED. A Race Goal build is
+     not asked for a weekly volume, and "0 km / week" is not a neutral way to
+     render a question that was never put -- it is Review reporting an answer
+     the athlete never gave, on the one screen whose whole job is "has Valhalla
+     understood me". The running days stand alone there. */
+  var heroSub = builderAsksWeeklyVolume(reviewPurposeSel)
+    ? (volume || '0') + ' ' + units + ' / week · ' + days + ' running days'
+    : days + ' running days';
   host.innerHTML =
     '<div class="bld-review-hero"><div class="d">'+escapeHtml(profile ? profile.label : '\u2014')+'</div>'+
-      '<div class="s">'+escapeHtml((volume || '0') + ' ' + units + ' / week \u00b7 ' + days + ' running days')+'</div></div>'+
+      '<div class="s">'+escapeHtml(heroSub)+'</div></div>'+
     '<div style="margin-top:14px;">'+rows+'</div>';
 }
 
@@ -35263,7 +35636,10 @@ async function handleGeneratePlan(){
   var chosenUnitsBtn = unitsBox ? unitsBox.querySelector('button.active') : null;
   var chosenUnits = chosenUnitsBtn ? chosenUnitsBtn.getAttribute('data-units') : state.units;
   if (chosenUnits==='km' || chosenUnits==='mi') state.units = chosenUnits;
-  var volume = parseDistInput(document.getElementById('su-volume').value);
+  // Absent, never zero -- see builderAsksWeeklyVolume().
+  var volume = builderAsksWeeklyVolume(buildPurpose)
+    ? parseDistInput(document.getElementById('su-volume').value)
+    : null;
   var benchDist = document.getElementById('su-bench-dist').value;
   var benchSec = parseBenchmarkTime(document.getElementById('su-bench-time').value.trim());
   /* THE CONSENT DECISION IS TAKEN HERE, BEFORE THE TWO FIELDS IT GOVERNS ARE
@@ -35291,7 +35667,9 @@ async function handleGeneratePlan(){
   var longRunDay = parseInt(document.getElementById('su-longday').value,10);
 
   var genDaysRange = BUILDER_SPEC.validation.daysRange;
-  if (!volume || volume<=BUILDER_SPEC.validation.volumeMustExceed){ showToast('Enter your current weekly volume'); return; }
+  if (builderAsksWeeklyVolume(buildPurpose) &&
+      (!volume || volume<=BUILDER_SPEC.validation.volumeMustExceed)){
+    showToast('Enter your current weekly volume'); return; }
   if (activeDays.length<genDaysRange[0] || activeDays.length>genDaysRange[1]){
     showToast('Pick between '+genDaysRange[0]+' and '+genDaysRange[1]+' running days'); return; }
   if (isNaN(longRunDay)){ showToast('Choose a long run day'); return; }
@@ -41875,6 +42253,11 @@ function renderTodayView(){
      may recommend) depends on the answer, so asking for it after the day's
      session would be asking at the wrong moment. */
   html += renderRaceOutcomePrompt();
+  /* THE CHECKPOINT VERDICT, above Next Move for the same reason the outcome
+     question is: it can change the goal every downstream surface reads, so it
+     is asked before anything reasons from the old one. It removes itself the
+     moment it is answered -- see checkpointInterventionState(). */
+  html += renderCheckpointIntervention();
   /* ONCE, AND ONLY FOR AN ATHLETE NOBODY HAS ASKED. Above Next Move because
      the answer changes what Next Move is allowed to reason from; below the
      race-outcome question because that one is time-critical and this is not.
@@ -43562,6 +43945,8 @@ document.addEventListener('click', function(e){
     case 'toggle-week': handleToggleWeek(parseInt(target.getAttribute('data-week'),10)); break;
     case 'toggle-day': handleToggleDay(target.getAttribute('data-day')); break;
     case 'set-goal': handleSetGoal(target.getAttribute('data-goal')); break;
+    case 'checkpoint-accept': handleCheckpointAccept(target.getAttribute('data-goal')); break;
+    case 'checkpoint-decline': handleCheckpointDecline(); break;
     case 'open-edit': openEditModal(target.getAttribute('data-day')); break;
     case 'save-edit': handleSaveEdit(target.getAttribute('data-day')); break;
     case 'reset-day': handleResetDay(target.getAttribute('data-day')); break;
