@@ -118,35 +118,46 @@ const CANON = [
     ev:{ easyKm:3.5, longKm:8, easyDays:[0,2], tt5kMin:28 },
     needBuildKm:30, needBuildLong:13, needPeakKm:35, needPeakLong:16 },
   { key:'Experienced Half', dist:'half', exp:'experienced', days:6, weeks:15,
-    ev:{ easyKm:6, longKm:12, qKm:5, easyDays:[0,2,4], tt5kMin:22 },
+    ev:{ easyKm:5, longKm:15, qKm:5, easyDays:[0,2], tt5kMin:22 },
     needBuildKm:40, needBuildLong:19, needPeakKm:null, needPeakLong:19 },
   { key:'Advanced Half', dist:'half', exp:'advanced',    days:6, weeks:15,
-    ev:{ easyKm:11, longKm:16, qKm:11, easyDays:[0,2,4], tt5kMin:18 },
+    ev:{ easyKm:6, longKm:20, qKm:7, easyDays:[0,2,4], tt5kMin:18 },
     needBuildKm:60, needBuildLong:21, needPeakKm:80, needPeakLong:21 },
   { key:'New Marathon',  dist:'full', exp:'novice',      days:5, weeks:15,
     ev:{ easyKm:5, longKm:10, easyDays:[0,2], tt5kMin:28 },
     needBuildKm:40, needBuildLong:26, needPeakKm:null, needPeakLong:null },
   { key:'Experienced Marathon', dist:'full', exp:'experienced', days:6, weeks:15,
-    ev:{ easyKm:4, longKm:15, qKm:3, easyDays:[0,2,4], tt5kMin:22 },
+    ev:{ easyKm:6, longKm:18, qKm:4, easyDays:[0,2,4], tt5kMin:22 },
     needBuildKm:55, needBuildLong:29, needPeakKm:null, needPeakLong:null },
   { key:'Advanced Marathon', dist:'full', exp:'advanced',    days:6, weeks:15,
-    ev:{ easyKm:5, longKm:20, qKm:5, easyDays:[0,2,4], tt5kMin:18 },
+    ev:{ easyKm:10, longKm:24, qKm:6, easyDays:[0,2,4], tt5kMin:18 },
     needBuildKm:70, needBuildLong:32, needPeakKm:null, needPeakLong:null }
 ];
+/* ---- AND THE SAME SIX AT THE ADMISSION FLOOR ----
+   HQ admits Race Goal from ten weeks. The ten-week programme has four fewer
+   development weeks than the fifteen and the same event to prepare for, so it
+   is the harder half of the reachability question and it is asked separately
+   rather than assumed. */
+const CANON_10 = CANON.map(function(c){
+  return Object.assign({}, c, { weeks:10, key:c.key + ' @10w' });
+});
 const HIGH = [
   { key:'Advanced Half @ ~86km',     dist:'half', exp:'advanced', days:6, weeks:15,
     ev:{ easyKm:15, longKm:24, qKm:15, easyDays:[0,1,2,3,4], tt5kMin:16 }, floorKm:80 },
   { key:'Advanced Marathon @ ~95km', dist:'full', exp:'advanced', days:6, weeks:15,
     ev:{ easyKm:16, longKm:30, qKm:16, easyDays:[0,1,2,3,4], tt5kMin:16 }, floorKm:70 }
 ];
-function run(){
-  console.log('REACHABILITY — capability established BEFORE taper, canonical pathway athlete');
+function run(set, label){
+  const CASES = set || CANON;
+  console.log('REACHABILITY — capability established BEFORE taper, canonical pathway athlete' +
+              (label ? '  [' + label + ']' : ''));
   console.log('');
   console.log(padr('pathway',22)+pad('entry',6)+pad('demLR',6)+'  '+pad('needKm',7)+pad('got',6)+pad('wk',4)+
               '  '+pad('needLR',7)+pad('got',6)+pad('wk',4)+pad('2nd',7)+pad('frac',6)+pad('optPk',6)+
               '  verdict   missing        readiness');
+  console.log(padr('',22)+'  PASS = establishes the standard.  DECLARED = falls short and readiness says so.');
   const out = [];
-  CANON.forEach(c => {
+  CASES.forEach(c => {
     const res = build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks }, c.ev));
     const p = established(res, null);
     const bu = res.blk.weeks.filter(w => w.bottomUp)[0].bottomUp;
@@ -156,19 +167,39 @@ function run(){
        requirement -- the higher of its Build and Peak figures, because a
        pathway that asks for a capability in Build has not delivered it by
        reaching it only in the taper. */
-    const needKm   = Math.max(c.needBuildKm   || 0, c.needPeakKm   || 0);
+    /* ---- WHAT IS A REQUIREMENT AND WHAT IS AN ASPIRATION, IN HQ'S OWN WORDS ----
+       HQ states the end-Build capabilities with "≥" and the Peak weekly figures
+       with "where supported" and "~". The first are standards the programme
+       must establish; the second describe what a Peak may develop into when the
+       athlete supports it, and HQ says explicitly they are "not universal Peak
+       ceilings". So the weekly requirement asked here is the end-BUILD figure,
+       and the Peak weekly figure is reported beside it rather than gating on it.
+       The long run is asked at the higher of the two, because every long-run
+       figure HQ states is a "≥". */
+    const needKm   = c.needBuildKm || 0;
+    const wantKm   = Math.max(c.needBuildKm || 0, c.needPeakKm || 0);
     const needLong = Math.max(c.needBuildLong || 0, c.needPeakLong || 0);
     const okKm     = p.peakKm   >= needKm   - 0.05;
     const okLong   = p.peakLong >= needLong - 0.05;
     const okSecond = p.secondOk;
-    const pass = okKm && okLong && okSecond && p.optInPeak === 0;
-    out.push({ key:c.key, pass:pass, rd:rd, p:p, needKm:needKm, needLong:needLong,
+    const met      = okKm && okLong && okSecond && p.optInPeak === 0;
+    /* ---- A SHORTFALL THE PROGRAMME DECLARES IS NOT THE SAME DEFECT ----
+       HQ: safety may delay or prevent an athlete reaching a preparation
+       standard, and where it does Valhalla must expose an honest readiness
+       shortfall. A pathway that misses and SAYS SO is that instruction working.
+       A pathway that misses while readiness reports READY is the failure this
+       gate exists to catch, because that is the programme calling inadequate
+       preparation adequate. */
+    const declared = !met && rd && rd.verdict !== 'READY';
+    const pass = met || declared;
+    out.push({ key:c.key, pass:pass, met:met, declared:declared, rd:rd, p:p,
+               needKm:needKm, wantKm:wantKm, needLong:needLong,
                okKm:okKm, okLong:okLong, okSecond:okSecond });
     console.log(padr(c.key,22)+pad(bu.entryKm,6)+pad((bu.origin&&bu.origin.demonstratedLongKm)||'-',6)+
       '  '+pad(needKm,7)+pad(r1(p.peakKm),6)+pad(p.peakKmWk||'-',4)+
       '  '+pad(needLong,7)+pad(r1(p.peakLong),6)+pad(p.peakLongWk||'-',4)+
       pad(r1(p.second),7)+pad(p.secondFrac,6)+pad(p.optInPeak,6)+'  '+
-      (pass?'PASS    ':'**FAIL**')+'  '+
+      (met?'PASS    ':declared?'DECLARED':'**FAIL**')+'  '+
       [okKm?null:'km',okLong?null:'long',okSecond?null:'2nd',
        p.optInPeak===0?null:'optional'].filter(x=>x).join(',').padEnd(14)+
       ' readiness '+rd.verdict);
@@ -186,5 +217,9 @@ function run(){
   });
   return out;
 }
-if (require.main === module) run();
-module.exports = { build, established, endOfBuild, CANON, HIGH, run };
+if (require.main === module){
+  run(CANON, '15 weeks');
+  console.log('');
+  run(CANON_10, '10 weeks — the admission floor');
+}
+module.exports = { build, established, endOfBuild, CANON, CANON_10, HIGH, run };

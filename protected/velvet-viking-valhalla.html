@@ -5612,14 +5612,25 @@ var RACE_GOAL_PATHWAY = {
      evidence, the pathway supplies its own assumption rather than inventing a
      six-kilometre-a-week athlete who was never here.
 
-     THE ENTRY LONG RUN IS HALF THE ENTRY WEEK on every pathway. HQ supplied the
-     pair directly for the new marathon -- a twenty kilometre opening week with
-     approximately a ten kilometre long run -- and the same relation holds
-     coherently across all six: an athlete arriving for a race programme brings
-     their long run with them, and the week is what is rebuilt around it. Each
-     pair also satisfies the architecture's own coherence rule, that an entry
-     week must contain its long run alongside a quality slot and a supporting
-     run at SUPPORT_SHARE_MIN of it -- 1.8x the long run -- with room to spare.
+     THE WEEKLY FIGURES ARE HQ'S, DIRECTLY. Half 15 / 30 / 45 and marathon
+     20 / 40 / 60 are the designed week-one workloads of the six pathways. They
+     are not builder questions, not eligibility thresholds, not derived from a
+     typed Current Weekly Volume, and not solved backwards out of what the
+     progression needs -- and they are not ceilings either: an athlete
+     demonstrating more is never reduced to them.
+
+     THE ENTRY LONG RUN IS THE WEEK'S OWN SHARE OF ITSELF. An athlete arriving
+     for a race programme brings their long run with them and the week is what
+     is rebuilt around it, so each entry long run is set at the share of the
+     entry week its distance actually asks for -- around half for the shorter
+     pathways, easing toward 40% as the week grows and the supporting running
+     under it has to grow with it. Every pair satisfies the architecture's own
+     coherence rule, that an entry week must contain its long run alongside a
+     quality slot and a supporting run at SUPPORT_SHARE_MIN of it -- 1.8x the
+     long run -- with room to spare:
+
+       half  15/8  (1.88x)   30/15 (2.00x)   45/20 (2.25x)
+       full  20/10 (2.00x)   40/18 (2.22x)   60/24 (2.50x)
 
      ---- HALF MARATHON ----
      A threshold event. The pathway spends its Build developing threshold and
@@ -5637,11 +5648,11 @@ var RACE_GOAL_PATHWAY = {
       buildVolumeKm: 30, buildLongKm: 13,
       peakVolumeKm:  38, peakLongKm:  16, openEnded: false },
     experienced: {
-      entryVolumeKm: 35, entryLongKm: 12, entryDays: 4,
+      entryVolumeKm: 30, entryLongKm: 15, entryDays: 4,
       buildVolumeKm: 40, buildLongKm: 19,
       peakVolumeKm:  70, peakLongKm:  19, openEnded: false },
     advanced: {
-      entryVolumeKm: 60, entryLongKm: 16, entryDays: 5,
+      entryVolumeKm: 45, entryLongKm: 20, entryDays: 5,
       buildVolumeKm: 60, buildLongKm: 21,
       peakVolumeKm:  80, peakLongKm:  21, openEnded: true }
   },
@@ -5667,11 +5678,11 @@ var RACE_GOAL_PATHWAY = {
       buildVolumeKm: 40, buildLongKm: 26,
       peakVolumeKm:  null, peakLongKm: 26, openEnded: false },
     experienced: {
-      entryVolumeKm: 30, entryLongKm: 15, entryDays: 4,
+      entryVolumeKm: 40, entryLongKm: 18, entryDays: 4,
       buildVolumeKm: 55, buildLongKm: 29,
       peakVolumeKm:  null, peakLongKm: 29, openEnded: false },
     advanced: {
-      entryVolumeKm: 40, entryLongKm: 20, entryDays: 5,
+      entryVolumeKm: 60, entryLongKm: 24, entryDays: 5,
       buildVolumeKm: 70, buildLongKm: 32,
       peakVolumeKm:  null, peakLongKm: 32, openEnded: true }
   }
@@ -5967,16 +5978,12 @@ function raceGoalReadiness(distKey, experience, blockResult){
    than continued training. The taper is not compressed here at all: it is
    anchored to the event date, so a short block loses development weeks and
    still arrives at D-10 with ten days in front of it. */
+/* Both dedicated architectures now read one geometry table, because HQ made
+   the phase lengths a property of the runway. These two names remain because
+   the coaching layers and the tests speak them, and they delegate rather than
+   holding a second opinion that could drift from the first. */
 function halfPhaseAllocation(N, experience){
-  var n = Math.max(1, Math.round(N || 1));
-  if (n === 1) return { base:0, build:0, peak:0, taper:0, final:1 };
-  var taper = n >= 4 ? 1 : 0;                      // the split week; race week is `final`
-  var peak  = n >= 13 ? 4 : n >= 10 ? 3 : n >= 7 ? 2 : 1;
-  var rest  = n - taper - 1 - peak;
-  if (rest < 0){ peak = Math.max(0, peak + rest); rest = 0; }
-  var build = Math.min(raceGoalBuildWeeks('half', experience), rest);
-  var base  = rest - build;
-  return { base:base, build:build, peak:peak, taper:taper, final:1 };
+  return raceGoalPhaseAllocation('half', N, experience);
 }
 /* WHICH DEDICATED ARCHITECTURE THIS BLOCK USES, if any. One place, so the arc,
    the session solver, the frequency decision and the coaching layers cannot
@@ -6026,21 +6033,67 @@ function dedicatedWeeksFor(distKey){
    PEAK NEVER MOVES. It is what makes the block preparation for this event
    rather than continued training, and the compression hierarchy already says
    so: Base first, Build second, Peak last. */
-var RACE_GOAL_BUILD_WEEKS = {
-  half: { novice: 6, experienced: 6, advanced: 7 },
-  full: { novice: 7, experienced: 6, advanced: 8 }
+/* ---------- THE PHASE GEOMETRY IS THE RUNWAY'S, NOT THE ATHLETE'S ----------
+   HQ's architecture, stated directly. The runway decides how many weeks each
+   phase gets; EXPERIENCE DECIDES WHAT MUST BE ACCOMPLISHED INSIDE THEM.
+
+   THIS REPLACES AN EXPERIENCE-DRIVEN ALLOCATION, and the difference is the
+   point. Build length used to vary by experience -- 6, 6, 7 for the half and
+   7, 6, 8 for the marathon -- which let the athlete's own selection silently
+   move a phase boundary. Two athletes fifteen weeks from the same race now get
+   the same four/six/three shape, and what differs is the standard each phase
+   has to leave them at.
+
+   THE TWO-WEEK TAPER IS `taper` PLUS `final`. The engine has always carried
+   race week separately from the wind-down week, because race week has its own
+   architecture; HQ's "Taper 2" is those two together. Every row below sums to
+   its runway.
+
+   BELOW TEN WEEKS THERE IS NO RACE GOAL PROGRAMME -- raceGoalAdmission() is the
+   authority and it refuses -- but the generator is still called at short
+   runways by other purposes and by the audit instruments, so the rows continue
+   downward on the compression hierarchy this architecture already uses: Base
+   first, then Build, then the second Peak exposure, and the taper last because
+   it is the only phase whose entire value is event-relative. */
+var RACE_GOAL_PHASE_GEOMETRY = {
+  15: { base:4, build:6, peak:3 },
+  14: { base:3, build:6, peak:3 },
+  13: { base:3, build:5, peak:3 },
+  12: { base:3, build:5, peak:2 },
+  11: { base:2, build:5, peak:2 },
+  10: { base:2, build:4, peak:2 },
+  /* ---- below the admission floor, and never routed to ---- */
+  9:  { base:2, build:3, peak:2 },
+  8:  { base:1, build:3, peak:2 },
+  7:  { base:1, build:2, peak:2 },
+  6:  { base:1, build:2, peak:1 },
+  5:  { base:0, build:2, peak:1 },
+  4:  { base:0, build:1, peak:1 }
 };
-function raceGoalBuildWeeks(distKey, experience){
-  var d = RACE_GOAL_BUILD_WEEKS[distKey === 'half' ? 'half' : 'full'];
-  var e = experience;
-  if (e == null){ try { e = athleteExperience(); } catch(err){ e = null; } }
-  if (d[e] != null) return d[e];
-  return distKey === 'half' ? HALF_FULL_SHAPE.build : MARATHON_FULL_SHAPE.build;
-}
-/* The phase counts for whichever dedicated architecture is in force. */
+var RACE_GOAL_MIN_WEEKS = 10;          // HQ admission floor
+var RACE_GOAL_MAX_WEEKS = 15;          // and the window it will not stretch past
+/* The phase counts for whichever dedicated architecture is in force. One table
+   for both, because the geometry belongs to the runway. */
 function raceGoalPhaseAllocation(distKey, N, experience){
-  return distKey === 'half' ? halfPhaseAllocation(N, experience)
-                            : marathonPhaseAllocation(N, experience);
+  var n = Math.max(1, Math.round(N || 1));
+  if (n === 1) return { base:0, build:0, peak:0, taper:0, final:1 };
+  if (n === 2) return { base:0, build:0, peak:0, taper:1, final:1 };
+  if (n === 3) return { base:0, build:1, peak:0, taper:1, final:1 };
+  /* SURPLUS RUNWAY IS NOT A LONGER RACE GOAL. HQ does not stretch the
+     programme past fifteen weeks; athletePathway() hands the surplus to the
+     programme that should own it and starts Race Goal at D-15. A direct call
+     at a longer N still has to return something coherent, so the extra weeks
+     land in Base -- the phase furthest from the event -- rather than inflating
+     Build or Peak. */
+  var g = RACE_GOAL_PHASE_GEOMETRY[Math.min(n, RACE_GOAL_MAX_WEEKS)];
+  var extra = Math.max(0, n - RACE_GOAL_MAX_WEEKS);
+  return { base:g.base + extra, build:g.build, peak:g.peak, taper:1, final:1 };
+}
+/* Kept for the callers that ask how long Build is; it is now a property of the
+   runway, and the experience argument is accepted and ignored so no caller has
+   to be rewritten to stop passing something the geometry no longer reads. */
+function raceGoalBuildWeeks(distKey, experience, N){
+  return raceGoalPhaseAllocation(distKey, N || dedicatedWeeksFor(distKey)).build;
 }
 /* ---------- WHERE THE PROGRESSION HAS TO ARRIVE, AND HOW MANY STEPS IT HAS
    TO GET THERE ----------
@@ -6126,7 +6179,13 @@ function raceGoalSpecificityFromWeek(distKey, experience, alloc){
   /* AFTER the durability exposure, which is the first Peak week and carries no
      goal segment of its own -- so the first specific long run is the one after
      it. */
-  if (experience === 'novice') return specNotAfterAbsorption(alloc, base + build + 2);
+  /* A NOVICE MEETS RACE PACE IN PEAK. Their long run is still becoming the
+     distance through Build, and asking for goal-pace running inside it while it
+     is still growing asks for the two hardest things at once. Peak is where the
+     distance is established and the week's job turns to race readiness, so that
+     is where it starts -- later than either other pathway, which is the
+     ordering HQ asks for, and still two or three exposures rather than one. */
+  if (experience === 'novice') return specNotAfterAbsorption(alloc, base + build + 1);
   if (experience === 'advanced') return specNotAfterAbsorption(alloc, Math.max(1, base));
   var absorbing = false;
   try {
@@ -6177,10 +6236,31 @@ function raceGoalCutbackWeekOf(alloc, w){
   if (alloc.peak > 0 && w === ps - 1 && ((w + 1) % 4 === 0) && w >= 1) return true;
   return cut;
 }
+/* ---------- THE LONGEST RUN BELONGS IN THE LAST WEEK OF PEAK ----------
+   HQ: the athlete's longest appropriate and substantial long run must occur
+   within the final seven days of Peak, immediately before taper begins. That
+   is the last Peak week, and for a Sunday race it puts the run on the last day
+   of Peak -- D-14 for the marathon, inside HQ's D-21..D-14 window, and D-14
+   for the half, inside its D-17..D-10 window.
+
+   THIS MOVED, AND MOVING IT IS THE POINT. The exposure used to be the FIRST
+   Peak week, with the weeks after it given to specificity while the long run
+   held. That put the block's defining session two to three weeks earlier than
+   the event asks for and left the taper further from it than any published
+   marathon methodology places it. It also cost the progression two steps: the
+   curve completed at the first Peak week and the weeks after it were spent
+   holding, where they are now spent arriving.
+
+   THE ABSORPTION WEEK STILL SITS IN FRONT OF IT. raceGoalCutbackWeekOf() puts
+   the Peak cutback at the middle Peak week wherever Peak is three weeks long,
+   so the athlete absorbs and then runs the longest run of the block, which is
+   the shape the reference methodologies use. Where Peak is two weeks there is
+   no cutback inside it at all, so the last Peak week is never a reduced week
+   on any runway. */
 function raceGoalDurabilityPeakWeek(distKey, N, experience){
   var alloc = raceGoalPhaseAllocation(distKey, N, experience);
   var buildW = alloc.base + alloc.build + alloc.peak;
-  if (alloc.peak > 0) return alloc.base + alloc.build + 1;
+  if (alloc.peak > 0) return alloc.base + alloc.build + alloc.peak;
   return Math.max(1, buildW);
 }
 /* The steps this block actually hands out: one for every developing week from
@@ -6271,20 +6351,7 @@ function raceGoalStepCount(distKey, N, experience){
    is deliberately the least harmful answer rather than the old one: extra
    weeks land in Base, never in Peak. */
 function marathonPhaseAllocation(N, experience){
-  var n = Math.max(1, Math.round(N || 1));
-  if (n === 1) return { base:0, build:0, peak:0, taper:0, final:1 };
-  // wind-down = taper weeks + race week. Two calendar weeks wherever the block
-  // is long enough to spend them.
-  var taper = n >= 5 ? 1 : 0;
-  var peak  = n >= 11 ? 3 : n >= 8 ? 2 : 1;
-  var rest  = n - taper - 1 - peak;
-  if (rest < 0){ peak = Math.max(0, peak + rest); rest = 0; }
-  var buildWant = raceGoalBuildWeeks('full', experience);
-  var base;
-  if (n <= 10)      base = 0;                              // no dedicated Base
-  else if (n <= MARATHON_DEDICATED_WEEKS) base = Math.max(0, rest - buildWant);
-  else              base = rest - buildWant;                   // absorb, never Peak
-  return { base:base, build:rest - base, peak:peak, taper:taper, final:1 };
+  return raceGoalPhaseAllocation('full', N, experience);
 }
 /* Is this block the dedicated marathon architecture? Only a race block at the
    marathon distance -- every other purpose and every other distance keeps the
@@ -8686,8 +8753,43 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         mSupportDest = round1(Math.max(EASY_MIN_KM, (mSupportDest || 0) * mScale));
         mLongDest.limited = true; mCapped = true;
       }
-      /* AND THE WEEK MUST BE ABLE TO CARRY IT. */
-      var mCoh = longRunCoherenceCeiling(mSupportDest);
+      /* ---- AND THE WEEK MUST BE ABLE TO CARRY IT, BUT NOT BELOW THE STANDARD
+         THE EVENT ASKS FOR ----
+         The coherence ceiling holds a long run that is running away from the
+         week around it: a long run more than 1/SUPPORT_SHARE_MIN times the
+         week's ordinary supporting run is dominating rather than being
+         supported. That is a real defect and the gate keeps catching it.
+
+         WHAT IT MAY NOT DO IS PULL A PATHWAY BELOW ITS OWN DESTINATION. Read
+         against the per-run supporting figure, the ceiling FALLS as frequency
+         develops -- the same weekly workload written across more days makes
+         each run smaller, so an athlete running five days was held to a
+         shorter long run than the same athlete running three. Measured, that
+         held the New Half to 15km against HQ's 16, the New Marathon to 24
+         against 26 and the Experienced Marathon to 26 against 29: every
+         dedicated pathway missing the standard HQ set, on a ratio rather than
+         on anything about the athlete.
+
+         AND THE RATIO CANNOT EXPRESS THOSE STANDARDS AT ALL. HQ's own figures
+         run from a 16km long run in a 38km week to a 26km long run in a 40km
+         week -- 42% to 65% -- because that is what marathon preparation looks
+         like for a lower-volume athlete, and it is what every published novice
+         marathon plan does. No single share of the week admits the second and
+         refuses a 30km long run in a 60km week; the difference between those
+         two is not the share, it is whether a designed progression got the
+         athlete there.
+
+         SO THE PATHWAY'S OWN DESTINATION IS THE FLOOR. Destination-led
+         construction supplies what reachability alone could not when this gate
+         was written: an explicit, event-derived statement of what the long run
+         must become. The ceiling still bounds everything above it -- an
+         established athlete developing past the minimum is held by the week
+         that carries them -- and it can no longer hold a pathway short of the
+         standard. Where the athlete genuinely cannot support that standard the
+         block still will not deliver it, and readiness reports the shortfall,
+         which is what HQ asks for rather than a quietly lowered event. */
+      var mPathLong = mPath ? Math.max(mPath.buildLongKm || 0, mPath.peakLongKm || 0) : 0;
+      var mCoh = Math.max(longRunCoherenceCeiling(mSupportDest), mPathLong);
       if (mLongDest.km > mCoh){
         mLongDest.km = round1(Math.max(mLongFloor, mCoh));
         mLongDest.limited = true; mDominated = true;
@@ -9410,10 +9512,25 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
            THE SECOND EXPOSURE IS A SHARE OF WHAT THE FIRST ACTUALLY WAS, not of
            a destination the block may not have reached. A share of a number the
            athlete was never given is not a second exposure of anything. */
-        if (mPeakFirst) rgPeakLongKm = longTarget;
+        /* ---- AND HQ MOVED IT TO THE END OF PEAK ----
+           This made the FIRST Peak week the block's longest run and held every
+           week after it at or below that figure. HQ's architecture puts the
+           longest appropriate long run in the final seven days of Peak,
+           immediately before taper begins -- D-21 to D-14 for the marathon,
+           which for a Sunday race is the last day of the last Peak week.
+
+           So the roles swap and nothing else moves. The LAST Peak week arrives
+           at the long run's destination on its own progression, which is where
+           the curve is now scaled to land; the earlier Peak weeks are held at
+           or below it, and the one before it takes the deliberate second
+           exposure at PEAK_SECOND_EXPOSURE_FRACTION -- meaningfully shorter
+           without being a different kind of session. The two demands the old
+           shape separated are still separated: the longest run is not also the
+           most specific, because specificity is carried by the Peak weeks that
+           precede it and by race week itself. */
+        if (mPeakLast) rgPeakLongKm = longTarget;
         else if (rgPeakLongKm != null)
-          longTarget = mPeakLast ? rgPeakLongKm * PEAK_SECOND_EXPOSURE_FRACTION
-                                 : Math.min(longTarget, rgPeakLongKm);
+          longTarget = Math.min(longTarget, rgPeakLongKm);
       }
     }
     /* ---- THE HALF'S PEAK ASKS TWO DIFFERENT QUESTIONS ----
@@ -9431,7 +9548,8 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        weeks after it progress exactly as they would have. */
     var hPeakFirst = false;
     if (halfArc && phase === 'Peak' && !isRace && !isTaper && arc.phaseCounts){
-      hPeakFirst = (w === arc.phaseCounts.base + arc.phaseCounts.build + 1);
+      hPeakFirst = (w === arc.phaseCounts.base + arc.phaseCounts.build +
+                         arc.phaseCounts.peak);
       /* ---- AND IT IS THE LONGEST BY BEING HELD, NOT BY BEING JUMPED TO ----
          The first version of this took the long run's DESTINATION for the
          first Peak week, which is what the marathon does. On the half it was a
@@ -9443,8 +9561,17 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          the longest is that the ones after it are held at or below it, which
          costs nothing and jumps nothing: the long run has arrived at its
          durability exposure and the rest of Peak is about specificity. */
+      /* THE SAME MOVE, FOR THE SAME REASON. `hPeakFirst` now names the LAST
+         Peak week -- the block's longest run belongs in the final seven days of
+         Peak, which for the half is D-17 to D-10. Because the weeks are walked
+         in order, holding the earlier ones "at or below it" cannot read a
+         figure that has not happened yet, so they are held against the long
+         run's own destination instead, which is the number the last week will
+         arrive at. Same result, no forward reference, and still no jump: every
+         week keeps its own progression. */
       if (hPeakFirst) hPeakLongKm = longTarget;
-      else if (hPeakLongKm != null) longTarget = Math.min(longTarget, hPeakLongKm);
+      else if (mWeek && mWeek.longDestKm > 0)
+        longTarget = Math.min(longTarget, mWeek.longDestKm);
     }
     var b2bEligible = !!profile.backToBack && !isTaper && !isRace && phase!=='Base';
 
