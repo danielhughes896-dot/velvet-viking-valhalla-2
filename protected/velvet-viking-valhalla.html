@@ -8912,7 +8912,27 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          block still will not deliver it, and readiness reports the shortfall,
          which is what HQ asks for rather than a quietly lowered event. */
       var mPathLong = mPath ? Math.max(mPath.buildLongKm || 0, mPath.peakLongKm || 0) : 0;
-      var mCoh = Math.max(longRunCoherenceCeiling(mSupportDest), mPathLong);
+      /* ---- AND THE FLOOR IS BOUNDED BY WHAT THE RUN ITSELF COSTS ----
+         The pathway's destination is the floor beneath the coherence ceiling,
+         but it is not unconditional: an athlete who genuinely cannot spend the
+         hours must not be prescribed the distance, and that is HQ's own rule
+         that safety may prevent a standard being reached.
+
+         WHAT BOUNDS A LONG RUN IS WHAT A LONG RUN COSTS. The old ceiling
+         bounded it by what a SUPPORTING run costs, which is the wrong session:
+         it made a 32km destination depend on whether a 12.8km easy run fitted
+         inside ninety minutes. LONG_RUN_COST_HEAVY_SEC is the architecture's
+         own statement of when a long run has become a heavy one, and applied to
+         the long run it says the thing that is actually true -- at nine minutes
+         a kilometre a 32km run is four and three quarter hours, and it is the
+         four and three quarter hours that make it wrong.
+
+         For every pace these pathways are actually run at the floor is
+         untouched: the New marathon's 26km at 7:00/km is 3h02 and the
+         Advanced's 32km at 5:00/km is 2h40, both inside the bound. */
+      var mCostLong = (mPaceSec > 0) ? LONG_RUN_COST_HEAVY_SEC / mPaceSec : Infinity;
+      var mCoh = Math.max(longRunCoherenceCeiling(mSupportDest),
+                          Math.min(mPathLong, mCostLong));
       if (mLongDest.km > mCoh){
         mLongDest.km = round1(Math.max(mLongFloor, mCoh));
         mLongDest.limited = true; mDominated = true;
@@ -9546,9 +9566,45 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         Math.min(calDays, mBottomUp.supportDays) * (mWeek.supportKm || 0) +
         (mBottomUp.qSlots > 0 ? tKm : 0);
     }
+    /* ---- AND THE WEEK HAS TO HAVE SOMEWHERE TO PUT IT ----
+       A calibration takes the week's THRESHOLD SLOT -- it IS that week's
+       quality session rather than an extra one, which is what stops an
+       athlete's first week carrying two demanding efforts. A week with no
+       quality slot has no slot for it to take, and marking one anyway placed a
+       calibration that the day builder then had nowhere to write.
+
+       MEASURED, THE NEW HALF NEVER CALIBRATED AT ALL. Its week two cleared the
+       weekly floor on the predicted figure, was flagged, carried no quality
+       slot, and the session vanished -- so a New half athlete's threshold was
+       never measured at any point in the block and every session in it was
+       prescribed against an estimate. Asked of the slot as well as the volume,
+       it lands in week five, which is the first week the athlete both clears
+       the safety floor and has a session for it to be. */
+    /* ---- AND A DEFERRED CALIBRATION NEEDS A WEEK THAT CARRIES QUALITY ----
+       A calibration takes the week's THRESHOLD SLOT -- it IS that week's
+       quality session rather than an extra one, which is what stops an
+       athlete's first week carrying two demanding efforts. A week that carries
+       no quality session has no slot for it to take, and marking one anyway
+       placed a calibration the day builder then had nowhere to write.
+
+       MEASURED, THE NEW HALF NEVER CALIBRATED AT ALL. Its week two cleared the
+       weekly floor on the predicted figure, was flagged, delivered no quality
+       session, and the calibration vanished -- so a New half athlete's
+       threshold was never measured at any point in the block and every session
+       in it was prescribed against an estimate rather than a reading.
+
+       THE WEEK'S OWN SLOT COUNT IS NOT KNOWN HERE -- the solve that decides it
+       runs after this, and soloKind above already depends on the answer -- so
+       what is asked is whether the athlete has BEEN receiving quality, which is
+       the previous week's delivered count. It is the honest available signal
+       and it is monotone: the first week after quality begins is the earliest
+       week a calibration can actually be written into. The week-one path is
+       untouched, because an athlete whose evidence already clears the safety
+       floor is calibrated in week one exactly as before. */
     if (!calibrationPlaced && !isRace && !isTaper){
       if (calibrate && w === 1) isCalibration = true;
       else if (calibrateWhenViable && !isCutback && !isCheckpoint &&
+               (!mBottomUp || mPrevQSlots > 0) &&
                calWeekKm >= CALIBRATION_MIN_WEEKLY_KM) isCalibration = true;
       if (isCalibration) calibrationPlaced = true;
     }
