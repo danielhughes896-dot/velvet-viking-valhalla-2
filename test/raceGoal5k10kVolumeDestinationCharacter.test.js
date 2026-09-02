@@ -1,22 +1,33 @@
 'use strict';
 /* HQ PRE-MERGE GATE, QUESTION 1 -- WHAT `buildVolumeKm` MEANS AT EACH TIER.
  * ===========================================================================
- * HQ's canonical evidence-free traces (day count matched to entryDays) landed
- * every one of the six 5K/10K pathways below its approved buildVolumeKm, and
- * asked whether that is a construction defect or the destination's real
- * character. Traced to marathonSupportDestination()'s SUPPORT_SHARE_MAX
- * coherence clamp (out of this correction's mandate -- raising it would make
- * a supporting run bigger than the week's own long run) and the day-count
- * math in raceGoalDestinationSolve() (frequency architecture, also out of
- * mandate): Advanced reaches its destination exactly once given a realistic
- * day count (up to BUILDER_SPEC's own six, not clamped to entryDays); Novice
- * and Experienced do not, at any permitted day count, and readiness reports
- * the shortfall rather than hiding it.
+ * SUPERSEDED BY THE FREQUENCY-ARCHITECTURE CORRECTION, RECORDED HERE RATHER
+ * THAN SILENTLY REWRITTEN. HQ's original pre-merge traces (day count matched
+ * to entryDays) landed every one of the six 5K/10K pathways below its
+ * approved buildVolumeKm. The first pass through this question found Advanced
+ * reachable at a realistic day count and Novice/Experienced genuinely not --
+ * traced to marathonSupportDestination()'s SUPPORT_SHARE_MAX clamp for
+ * Advanced's own headroom, and to raceGoalDestinationSolve()'s day-count seed
+ * (mNeed) refusing to grant Novice/Experienced more support days than a fixed
+ * comfort divisor computed, regardless of how many days were actually on
+ * offer, for the rest.
  *
- * This is the locked proof of that finding: it holds today (no code changed
- * for Question 1) and will fail loudly if either half of the split -- the
- * Advanced tier's reachability, or Novice/Experienced's honestly-reported
- * shortfall -- regresses in a later change.
+ * THE SECOND HALF OF THAT DIAGNOSIS WAS THE FREQUENCY DEFECT ITSELF, and HQ's
+ * later Race Goal Frequency Architecture workstream repaired it: mNeed is now
+ * a floor rather than a cap, and an additional support day is granted, up to
+ * real availability, whenever doing so keeps each session at or above the
+ * SAME coherence floor (SUPPORT_SHARE_MIN x longDestKm) the architecture
+ * already used downstream. That repair was scoped to frequency, not to this
+ * question's own methodology, but it changes this question's own answer as a
+ * direct, provable consequence: at a realistic day count, all six pathways
+ * now reach their own approved destination. SUPPORT_SHARE_MAX was not
+ * touched, and does not need to be -- for the pathways it used to bind
+ * (Novice/Experienced), more, smaller support days simply keep every session
+ * comfortably under its ceiling instead.
+ *
+ * This is the locked proof of the CORRECTED finding: it holds today and will
+ * fail loudly if the frequency repair regresses and reopens the shortfall
+ * this file used to document.
  */
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -45,7 +56,7 @@ const CASES = [
 ];
 
 CASES.forEach(({ dist, exp, days, destVol }) => {
-  test(`${dist} ${exp}: evidence-free 12-week peak volume against its own buildVolumeKm(${destVol}) at ${days} days`, () => {
+  test(`${dist} ${exp}: evidence-free 12-week peak volume reaches its own buildVolumeKm(${destVol}) at ${days} days, post frequency repair`, () => {
     const a = app();
     a.state.experience = exp;
     const blk = a.buildBlockWeeks(dist, null, 12,
@@ -57,24 +68,17 @@ CASES.forEach(({ dist, exp, days, destVol }) => {
     const workload = rd.dimensions.find(d => d.key === 'workload');
     assert.ok(workload, 'the workload dimension must be present');
 
-    if (exp === 'advanced'){
-      /* THE DESTINATION IS REACHED. Both Advanced pathways land on their
-         approved buildVolumeKm exactly (within half a printed kilometre)
-         once given a realistic day count -- confirming the pathway table's
-         figure is a genuine destination here, not a decorative ceiling. */
-      assert.ok(Math.abs(peakVol - destVol) <= 0.5,
-        `Advanced ${dist} must reach its destination: peak=${peakVol} dest=${destVol}`);
-      assert.notEqual(rd.verdict, 'INSUFFICIENT');
-    } else {
-      /* THE DESTINATION IS NOT REACHED, AND READINESS SAYS SO. Novice and
-         Experienced fall genuinely short at any permitted day count -- this
-         is the honestly-reported gap, not a hidden one, so the workload
-         dimension must be unmet with the exact shortfall attached. */
-      assert.ok(peakVol < destVol - 0.5,
-        `${exp} ${dist} is expected to still fall short at a realistic day count (this is the documented finding, not a bug)`);
-      assert.equal(workload.met, false);
-      assert.ok(workload.shortfallKm > 0);
-      assert.notEqual(rd.verdict, 'READY');
-    }
+    /* THE DESTINATION IS NOW REACHED AT EVERY TIER, at a realistic day
+       count -- the frequency repair's effect on this question, proven
+       directly rather than asserted. A day count matched to entryDays alone
+       still will not reach it (nothing about entryDays changed here); this
+       is deliberately tested at the day count BUILDER_SPEC actually permits,
+       which is the same standard the original pre-merge gate used to prove
+       Advanced's own reachability. */
+    assert.ok(peakVol + 0.5 >= destVol,
+      `${exp} ${dist} is expected to reach its destination post-repair: peak=${peakVol} dest=${destVol}`);
+    assert.equal(workload.met, true);
+    assert.equal(workload.shortfallKm, 0);
+    assert.equal(rd.verdict, 'READY');
   });
 });
