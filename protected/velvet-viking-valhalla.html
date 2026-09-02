@@ -3620,6 +3620,24 @@ var CALIBRATION_EVIDENCE_DAYS = 42;
    state.experience, which is a PRESENTATION layer by contract and must never
    decide what a session is. */
 var CALIBRATION_MIN_WEEKLY_KM = 20;
+/* ---- AND A FLOOR ALONE CANNOT SAY WHETHER A WEEK CAN CARRY THE PROTOCOL ----
+   THE CALIBRATION IS A FIXED SESSION. Fifty-two minutes, the same fifty-two
+   minutes for every athlete, because a test that scaled with the athlete would
+   measure something different for each of them. That is the whole reason
+   CALIBRATION_MIN_WEEKLY_KM exists -- and a bare weekly floor cannot express
+   what it is reaching for, because 20km a week is exactly where HQ's new
+   marathon pathway STARTS. The floor admitted that week and the fixed session
+   then made it 22.5km: a locked entry inflated thirteen per cent because a
+   test wanted to happen immediately, where the other five pathways paid two.
+
+   THE QUESTION IS A SHARE, NOT A TOTAL. A 9.5km effort inside a 20km week is
+   very nearly half the athlete's training; inside a 40km week it is a quality
+   session. So a week carries the calibration when the protocol is a session in
+   it rather than the shape of it, and the earliest week that can is where the
+   test goes -- which is HQ's rule of earliest safe and meaningful placement
+   rather than blindly week one, and which the deferral path already existed
+   to serve. */
+var CALIBRATION_MAX_WEEK_SHARE = 0.40;
 
 function recentQualifiedPerformance(performances, today){
   var list = performances || [];
@@ -9800,7 +9818,6 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     // the sizes for the ceiling, the structures so a taper that finds nothing
     // it can shrink can repeat the week before rather than grow.
     prevQKm = qKm; prevTKm = tKm;
-    if (!isRace && !arc.noQuality){ prevQSpec = qSpec; prevTSpec = tSpec; }
 
     /* AND THE WEEK IT IS MEASURED AGAINST IS THE WEEK THE ATHLETE WILL GET.
        `volume` here is still the RAMP's answer, and a bottom-up block does not
@@ -9822,7 +9839,19 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          week carried, or the entry split's where there is no previous week. */
       var calDays = mPrevEffSupportDays != null ? mPrevEffSupportDays
                   : (mBottomUp.startDays > 0 ? mBottomUp.startDays : mBottomUp.supportDays);
-      calWeekKm = longTarget +
+      /* ---- THIS WEEK'S LONG RUN, NOT LAST WEEK'S ----
+         This read `longTarget`, which is declared two hundred lines below and
+         is therefore hoisted-undefined on the first pass and STALE on every
+         one after it: week one measured NaN and week six measured week five.
+         The gate has been asking whether the PREVIOUS week could carry the
+         protocol for as long as it has existed, which is why a week-one
+         calibration could never be deferred by it at all -- NaN fails every
+         comparison silently.
+
+         The long run is taken from the same expression longTarget itself is
+         built from below, so the two cannot disagree. */
+      var calLongKm = Math.min(raceGoalLongCapKm(distKey, purpose), mWeek.longKm);
+      calWeekKm = calLongKm +
         Math.min(calDays, mBottomUp.supportDays) * (mWeek.supportKm || 0) +
         (mBottomUp.qSlots > 0 ? tKm : 0);
     }
@@ -9861,11 +9890,41 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        week a calibration can actually be written into. The week-one path is
        untouched, because an athlete whose evidence already clears the safety
        floor is calibrated in week one exactly as before. */
+    /* ---- AND A LOCKED OPENING WEEK IS NOT INFLATED TO FIT THE PROTOCOL ----
+       THE DEFECT THIS REPLACES. Week one took the calibration unconditionally,
+       and the protocol is a FIXED session -- fifty-two minutes, the same fifty-
+       two minutes for everybody. Where the week's own quality budget was
+       smaller than that, the week simply came out bigger by the difference and
+       declared it as a quality-day floor. Measured on the New marathon: HQ's
+       locked 20km entry delivered as a 22.5km opening week, thirteen per cent
+       above the pathway's own start, because a test wanted to happen
+       immediately. The other five pathways paid two per cent.
+
+       HQ'S RULE IS EARLIEST SAFE AND MEANINGFUL, NOT BLINDLY WEEK ONE. So the
+       week is asked whether it can carry the protocol inside the quality slot
+       the calibration takes over, and where it cannot the test waits for the
+       first week that can -- which is the same deferral the New half already
+       uses, applied to the same question from the other direction.
+
+       THE PROTOCOL IS NOT SHRUNK AND IT IS NOT DISCARDED. It is the same
+       fifty-two minutes whenever it lands, it still takes the week's threshold
+       slot rather than being added beside one, and calibrationPlaced still
+       closes the question exactly once per block. What changes is only which
+       week is asked to hold it. */
+    var calFitsWeek = !mBottomUp ||
+                      (calWeekKm > 0 &&
+                       calibrationSessionKm() <= calWeekKm * CALIBRATION_MAX_WEEK_SHARE);
     if (!calibrationPlaced && !isRace && !isTaper){
-      if (calibrate && w === 1) isCalibration = true;
-      else if (calibrateWhenViable && !isCutback && !isCheckpoint &&
-               (!mBottomUp || mPrevQSlots > 0) &&
-               calWeekKm >= CALIBRATION_MIN_WEEKLY_KM) isCalibration = true;
+      if (calibrate && w === 1 && calFitsWeek) isCalibration = true;
+      else if ((calibrate || calibrateWhenViable) && w > 1 &&
+               !isCutback && !isCheckpoint &&
+               (!mBottomUp || mPrevQSlots > 0) && calFitsWeek &&
+               /* The safety floor is the DEFERRED path's own gate: an athlete
+                  whose evidence already earned the calibration has cleared it
+                  and is not asked again, they are only waiting for a week that
+                  can hold the session. */
+               (calibrate || calWeekKm >= CALIBRATION_MIN_WEEKLY_KM))
+        isCalibration = true;
       if (isCalibration) calibrationPlaced = true;
     }
 
@@ -9901,6 +9960,21 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         halfArc ? 1 : TAPER_QUALITY_FACTOR, true);
       soloKm = soloKind === 'interval' ? intervalSessionKm(soloSpec) : tempoSessionKm(soloSpec);
       soloFitsBound = soloKm <= weekFitCeil + 1e-9;
+    }
+    /* ---- AND THE TWO-SLOT SEED IS RECORDED HERE, NOT WHERE IT WAS ----
+       IT USED TO SIT BESIDE THE STRUCTURES THEMSELVES, two hundred lines up --
+       which is BEFORE the calibration decision is taken. A guard placed there
+       read this week's `isCalibration` while it was still false and did
+       nothing whatever, so a calibration week went on seeding the taper with
+       the structure it had chosen and then not delivered.
+
+       IT SITS BETWEEN THE TWO THINGS THAT ORDER IT. After the taper branch
+       above, which READS the seed and must read the previous week's; before
+       the single-slot block below, which overwrites one half of it with the
+       session the athlete actually receives. That was always the sequence --
+       only the calibration decision has moved in front of it. */
+    if (!isRace && !arc.noQuality && !isCalibration && !isCheckpoint){
+      prevQSpec = qSpec; prevTSpec = tSpec;
     }
     if (!isRace && !isTaper && !arc.noQuality){
       soloKind = (isCheckpoint || isCalibration) ? 'tempo'
@@ -9941,8 +10015,20 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          New half athlete on a ten-week runway met goal-pace reps for the first
          time in their wind-down week, held faithfully to a spec they had never
          run. Recorded against the family it actually belongs to. */
-      if (soloKind === 'interval') prevQSpec = soloSpec; else prevTSpec = soloSpec;
-      prevSoloKind = soloKind;
+      /* ---- AND A TEST IS NOT A FAMILY ----
+         The SAME defect from the other direction. A calibration and a
+         checkpoint take the week's quality slot, so the structure the pools
+         chose for that week is selected and then not delivered -- the athlete
+         runs a fifty-two minute time trial instead. Recording it seeds the
+         taper with a session that was never prescribed, which is precisely
+         what the hold exists to prevent: measured on the New half at ten
+         weeks, moving the calibration into week eight handed the wind-down
+         week goal-pace reps the block had never once asked for. A test week
+         leaves the seed on the last family the athlete actually ran. */
+      if (!isCalibration && !isCheckpoint){
+        if (soloKind === 'interval') prevQSpec = soloSpec; else prevTSpec = soloSpec;
+        prevSoloKind = soloKind;
+      }
     }
 
     var longFrac = LONG_FRACTION[profile.emphasis];

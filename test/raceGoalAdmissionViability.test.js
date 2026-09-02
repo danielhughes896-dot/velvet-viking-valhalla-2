@@ -247,3 +247,77 @@ test('NO PRICE, NO REFUSAL — a missing pace cannot manufacture an unreachable 
   assert.equal(blind.verdict, 'INSUFFICIENT');
   assert.equal(res.a.raceGoalAdmission('half', 10, null, null).admitted, true);
 });
+
+// ---------------------------------------------------------------------------
+// 5. THE CALIBRATION MAY NOT INFLATE A LOCKED OPENING WEEK
+// ---------------------------------------------------------------------------
+test('CALIBRATION — no pathway opens more than a rounding above its locked entry', () => {
+  /* The protocol is a FIXED fifty-two minutes, the same session for everybody,
+     because a test that scaled with the athlete would measure something
+     different for each of them. Where the opening week was too small to hold
+     it, the week simply came out bigger by the difference: HQ's locked 20km
+     New marathon entry delivered as a 22.5km week, thirteen per cent above the
+     pathway's own start, against two per cent for the other five. */
+  [].concat(R.CANON, R.CANON_10).forEach(c => {
+    const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks }, c.ev));
+    const path = res.a.raceGoalPathway(c.dist, c.exp);
+    const wk1 = res.dd.filter(d => d.week === 1 && d.km > 0).reduce((t, d) => t + d.km, 0);
+    const over = (wk1 / path.entryVolumeKm) - 1;
+    assert.ok(over <= 0.05,
+      c.key + ': opens at ' + wk1.toFixed(1) + 'km against a locked entry of ' +
+      path.entryVolumeKm + ' (+' + (over * 100).toFixed(0) + '%)');
+  });
+});
+
+test('CALIBRATION — every pathway is calibrated somewhere, and never twice', () => {
+  /* Deferral is not discard. Wherever it lands, the block measures the
+     athlete's threshold exactly once rather than prescribing fifteen weeks
+     against an estimate. */
+  [].concat(R.CANON, R.CANON_10).forEach(c => {
+    const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks }, c.ev));
+    const cals = res.dd.filter(d => d.type === 'calibration');
+    assert.equal(cals.length, 1,
+      c.key + ': ' + cals.length + ' calibrations in the block');
+    assert.ok(cals[0].week < c.weeks,
+      c.key + ': calibrated in the race week');
+  });
+});
+
+test('CALIBRATION — the protocol is never shrunk to fit the week it lands in', () => {
+  /* The alternative to deferring is a smaller test, and a smaller test is a
+     different measurement. The session is the same distance wherever it goes. */
+  [].concat(R.CANON, R.CANON_10).forEach(c => {
+    const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks }, c.ev));
+    const cal = res.dd.filter(d => d.type === 'calibration')[0];
+    assert.ok(cal.km >= res.a.calibrationSessionKm() - 1e-9,
+      c.key + ': the calibration was written at ' + cal.km + 'km against a protocol of ' +
+      res.a.calibrationSessionKm());
+    assert.equal(cal.prescription.archetype, 'threshold_calibration',
+      c.key + ': the calibration is not the calibration protocol');
+  });
+});
+
+test('CALIBRATION — a test week does not teach the taper a family the athlete never ran', () => {
+  /* A calibration takes the week's quality slot, so the structure the pools
+     chose for that week is selected and then not delivered. Seeding the
+     taper's family hold from it hands the wind-down week a session the block
+     never once prescribed. */
+  [].concat(R.CANON, R.CANON_10).forEach(c => {
+    const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:c.weeks }, c.ev));
+    const arche = d => (d.prescription && d.prescription.archetype) || null;
+    const isQ = d => d.km > 0 && d.type !== 'easy' && d.type !== 'long' && d.type !== 'race';
+    const taperWk = res.blk.weeks.filter(w => w.isTaper && !w.isRace).map(w => w.week);
+    const seen = {};
+    res.dd.forEach(d => {
+      if (!isQ(d) || taperWk.indexOf(d.week) !== -1) return;
+      if (arche(d)) seen[arche(d)] = true;
+    });
+    res.dd.forEach(d => {
+      if (!isQ(d) || taperWk.indexOf(d.week) === -1) return;
+      if (!arche(d)) return;
+      assert.ok(seen[arche(d)],
+        c.key + ' week ' + d.week + ': the taper introduced ' + arche(d) +
+        ', which the block never prescribed');
+    });
+  });
+});
