@@ -5523,9 +5523,27 @@ function applyHalfEventTaper(days, weeks, raceDateStr, easyFloorKm){
         if (!(dd.km > 0) || dd === longDay || dd.type === 'race') return;
         if (dd.type === 'easy' && dd.km > cut) dd.km = cut;
       });
+      /* ---- AND THE RUN IT HAS TO STAY ABOVE IS AN AEROBIC ONE ----
+         THE DEFECT THIS REPLACES. This read the whole week, so a quality
+         session the taper deliberately does not scale became the figure the
+         long run had to beat -- and the long run was then raised back to clear
+         it, undoing the reduction the taper had just made. Measured on the New
+         Half at ten weeks: a 10km long run correctly tapered to 8km at D-7,
+         and restored to 10km by this rule because the week's tempo was 9.5km.
+         The week wound down by four per cent, and the one session with room to
+         give had given nothing.
+
+         A TAPER WEEK MAY HAVE A SHARPENER AS ITS LONGEST SESSION. That is what
+         a wind-down week looks like at low volumes -- a shortened long run and
+         a structured session that keeps its shape -- and it is a great deal
+         closer to the methodology than a long run inflated a quarter to
+         protect a label. So the identity is held against the runs whose length
+         is the whole of their prescription, and the quality day is allowed to
+         be the longest thing in the week it was never going to be scaled in. */
       var other = 0;
       rec.days.forEach(function(dd){
         if (!(dd.km > 0) || dd === longDay || dd.type === 'race') return;
+        if (dd.type !== 'easy' && dd.type !== 'long') return;
         if (dd.km > other) other = dd.km;
       });
       if (other > 0 && longDay.km <= other){
