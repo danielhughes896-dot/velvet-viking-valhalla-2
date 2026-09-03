@@ -138,8 +138,11 @@ test('CALIBRATION — a test the block could not place is declared, not dropped'
      ran on were estimated rather than measured. (Ten weeks was the original
      example here; the safety floor now legitimately develops that runway
      past the point where the test can't fit, so a shorter runway is what
-     still exercises the "could not place it" path.) */
-  const small = R.build({ dist:'half', exp:'novice', days:5, weeks:7, tt5kMin:24 });
+     still exercises the "could not place it" path. HQ DAY-COUNT/START-VOLUME
+     CORRECTION -- moved from seven weeks to six for the same reason: New
+     Half's own entry rose again, so the floor now develops past the fitting
+     point at seven weeks too.) */
+  const small = R.build({ dist:'half', exp:'novice', days:5, weeks:6, tt5kMin:24 });
   assert.equal(small.blk.calibrationRequested, true);
   assert.equal(small.blk.calibrationPlaced, false);
   assert.equal(small.blk.calibrationUnplaced, true,

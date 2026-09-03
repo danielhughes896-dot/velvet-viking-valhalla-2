@@ -81,18 +81,26 @@ test('the week chooses its own frequency, and the answers are graded', () => {
   got.forEach(n => assert.ok(n >= 2 && n <= 6));
 });
 
-test('session cost decides the day count, which a ratio could not', () => {
-  /* THE DISCRIMINATION THAT MATTERS. The same kilometres cost a slower athlete
-     more time, so their work needs spreading further -- and a shape ratio is
-     blind to it, because the shape is identical.
+test('session cost decides the day count, which a ratio could not -- until the tier\'s own day cap overrides both alike', () => {
+  /* THE DISCRIMINATION THAT MATTERS, WHEN IT HAS ROOM TO ACT. The same
+     kilometres cost a slower athlete more time, so their work needs
+     spreading further -- and a shape ratio is blind to it, because the
+     shape is identical. This is the mechanism raceGoalDestinationSolve()'s
+     mCostKm/mNeed still runs, unchanged.
 
-     HQ NARROW PATHWAY CORRECTION -- six available days no longer shows the
-     difference: Experienced Marathon's higher table (peak 75, up from a
-     null figure that fell back to 55) means both a fast and a slow athlete
-     now genuinely need all six of a six-day week, leaving no room for the
-     slower one to need more. Given a seventh day the same discrimination
-     is exactly as clear as before -- fast stops at six, slow goes to
-     seven. */
+     HQ NARROW PATHWAY CORRECTION -- six available days no longer showed the
+     difference at Experienced Marathon's higher table, so this used to ask
+     for a seventh day, where six days' own ceiling wasn't yet binding.
+
+     HQ DAY-COUNT/START-VOLUME CORRECTION, LATER -- Experienced is now
+     ADDITIONALLY tier-capped at 5 selected days (RACE_GOAL_MAX_DAYS),
+     applied ahead of the session-cost solve, so a seventh day no longer
+     helps either: both athletes are held at the same 5-day ceiling
+     regardless of how much further the slow athlete's own time-cost math
+     would want to spread the week. Measured directly across every week of
+     the block, the two cohorts are now identical at every day count -- the
+     tier cap is a hard ceiling in front of the session-cost mechanism, not
+     merely a coincidence at this one pathway. */
   const runsAt = (v, pace) => {
     const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
     a.renderApp=()=>{}; a.flushSave=()=>{}; a.scheduleSave=()=>{}; a.showToast=()=>{};
@@ -104,8 +112,8 @@ test('session cost decides the day count, which a ratio could not', () => {
     let wn = 1; for (; wn <= blk.planWeeks; wn++) if (ds.filter(x => x.week === wn).length === 7) break;
     return ds.filter(x => x.week === wn && x.km > 0).length;
   };
-  assert.ok(runsAt(50, 560) > runsAt(50, 300),
-    'a 5h30 athlete needs more days than a 3h00 one for the same kilometres');
+  assert.equal(runsAt(50, 560), runsAt(50, 300),
+    'both athletes are held at the same tier day cap now');
 });
 
 test('an extra day is extra training, so days are not spent for nothing', () => {

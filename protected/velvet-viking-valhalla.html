@@ -6130,20 +6130,20 @@ var RACE_GOAL_PATHWAY = {
        athlete back, which the existing floor-only curve already guarantees:
        it never lowers a destination and never snaps an athlete downward. */
     novice: {
-      entryVolumeKm: 15, entryLongKm: 8,  entryDays: 4,
-      endBaseVolumeKm: 25,
-      buildVolumeKm: 30, buildLongKm: 16,
-      peakVolumeKm:  35, peakLongKm:  16, openEnded: false },
+      entryVolumeKm: 18, entryLongKm: 8,  entryDays: 4,
+      endBaseVolumeKm: 29,
+      buildVolumeKm: 35, buildLongKm: 16,
+      peakVolumeKm:  38, peakLongKm:  16, openEnded: false },
     experienced: {
-      entryVolumeKm: 20, entryLongKm: 10, entryDays: 4,
-      endBaseVolumeKm: 35,
-      buildVolumeKm: 45, buildLongKm: 19,
-      peakVolumeKm:  50, peakLongKm:  19, openEnded: false },
+      entryVolumeKm: 33, entryLongKm: 10, entryDays: 4,
+      endBaseVolumeKm: 47,
+      buildVolumeKm: 55, buildLongKm: 19,
+      peakVolumeKm:  58, peakLongKm:  19, openEnded: false },
     advanced: {
       entryVolumeKm: 45, entryLongKm: 20, entryDays: 5,
-      endBaseVolumeKm: 60,
-      buildVolumeKm: 75, buildLongKm: 22,
-      peakVolumeKm:  85, peakLongKm:  22, openEnded: true }
+      endBaseVolumeKm: 58,
+      buildVolumeKm: 65, buildLongKm: 22,
+      peakVolumeKm:  70, peakLongKm:  22, openEnded: true }
   },
   /* ---- MARATHON ----
      A durability event, and the pathway says so: the long-run capability is
@@ -6173,20 +6173,20 @@ var RACE_GOAL_PATHWAY = {
      comment above for why. */
   full: {
     novice: {
-      entryVolumeKm: 20, entryLongKm: 10, entryDays: 4,
-      endBaseVolumeKm: 40,
+      entryVolumeKm: 21, entryLongKm: 10, entryDays: 4,
+      endBaseVolumeKm: 25,
       buildVolumeKm: 50, buildLongKm: 28,
-      peakVolumeKm:  55, peakLongKm: 28, openEnded: false },
+      peakVolumeKm:  60, peakLongKm: 28, openEnded: false },
     experienced: {
-      entryVolumeKm: 40, entryLongKm: 18, entryDays: 5,
-      endBaseVolumeKm: 55,
-      buildVolumeKm: 65, buildLongKm: 30,
-      peakVolumeKm:  75, peakLongKm: 30, openEnded: false },
+      entryVolumeKm: 52, entryLongKm: 18, entryDays: 5,
+      endBaseVolumeKm: 63,
+      buildVolumeKm: 72, buildLongKm: 30,
+      peakVolumeKm:  80, peakLongKm: 30, openEnded: false },
     advanced: {
-      entryVolumeKm: 60, entryLongKm: 24, entryDays: 5,
-      endBaseVolumeKm: 70,
-      buildVolumeKm: 80, buildLongKm: 32,
-      peakVolumeKm:  90, peakLongKm: 32, openEnded: true }
+      entryVolumeKm: 68, entryLongKm: 24, entryDays: 5,
+      endBaseVolumeKm: 76,
+      buildVolumeKm: 82, buildLongKm: 32,
+      peakVolumeKm:  93, peakLongKm: 32, openEnded: true }
   },
   /* ---- 5K AND 10K ----
      HQ's own §6/§8/§9/§11 ruling. Both are speed-end events beside the
@@ -9887,6 +9887,16 @@ function purposeIsSteady(purpose){ return purpose === 'maintain'; }
    and returns a description; it writes nothing and it decides nothing about
    whether the block should exist. That decision is raceGoalAdmission()'s.
    ========================================================= */
+/* ---- THE DAY-COUNT CEILING IS A TIER PROPERTY, HALF/MARATHON ONLY ----
+   Splitting a fixed weekly floor across more days than a tier needs was
+   producing near-EASY_MIN_KM easy runs deep into Build for Developing and
+   Established athletes even at their own full stated availability -- the
+   week's total was right, and the day count it was written across was not.
+   Availability remains the ceiling everywhere else in this architecture; here
+   it is additionally capped by the tier itself, so a Developing athlete who
+   selects six days still trains six days, but the pathway does not spread its
+   own (still smaller) week thin enough to write four of them at the floor. */
+var RACE_GOAL_MAX_DAYS = { novice: 4, experienced: 5, advanced: 5 };
 function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
   var profile = DISTANCE_PROFILES[distKey];
   if (!profile) return null;
@@ -9894,6 +9904,10 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
   var mPath = raceGoalPathway(distKey, mExp);
   var mEntry = raceGoalEntryState(distKey, mExp, currentVolume);
   var mAvail = (opts && opts.availableDays > 0) ? opts.availableDays : 6;
+  if (distKey === 'half' || distKey === 'full'){
+    var mTierDayCap = RACE_GOAL_MAX_DAYS[mExp];
+    if (mTierDayCap > 0) mAvail = Math.min(mAvail, mTierDayCap);
+  }
   var mDemF = null, mCurF = null;
   try { mDemF = demonstratedRunningFrequency(); } catch(e){ mDemF = null; }
   try { mCurF = currentSustainedRunningFrequency(); } catch(e){ mCurF = null; }

@@ -290,10 +290,14 @@ test('raceGoalReadiness excludes the long-run specificity dimension for 5K/10K, 
 
 /* ---------- 10. HALF, MARATHON AND THE OTHER PRODUCTS ARE UNTOUCHED ---------- */
 
-test('10. half marathon\'s own pathway table and admission window are unchanged', () => {
+test('10. half marathon\'s own admission window is unchanged', () => {
+  /* HQ DAY-COUNT/START-VOLUME CORRECTION -- the pathway's own weekly figures
+     moved (see RACE_GOAL_MAX_DAYS and the narrower entry/build/peak table),
+     but the window this test actually guards -- the runway 5K/10K work must
+     never see leaked into -- is the admission length, which did not. */
   const a = app();
   const p = a.raceGoalPathway('half', 'novice');
-  assert.equal(p.entryVolumeKm, 15); assert.equal(p.buildVolumeKm, 30);
+  assert.equal(p.entryVolumeKm, 18); assert.equal(p.buildVolumeKm, 35);
   assert.equal(p.peakLongKm, 16);
   assert.equal(a.dedicatedWeeksFor('half'), 15);
   assert.equal(a.dedicatedWeeksFor('full'), 15);

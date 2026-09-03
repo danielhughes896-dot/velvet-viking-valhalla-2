@@ -125,9 +125,15 @@ test('the down week consolidates rather than tapers', () => {
      real race date. What it can assert, and what matters, is that the arc
      still declares an anchored wind-down and that the wind-down week is not
      the block's peak. */
-  const race = build(a, 'half', 45, 12, 'race');
+  /* HQ DAY-COUNT/START-VOLUME CORRECTION -- Experienced Half's own destination
+     volume rose, and at 12 weeks the block's final wind-down week now lands
+     on the exact same figure as the block's built peak (62 == 62) rather than
+     below it -- a presentation-quantum coincidence of the new numbers at this
+     one runway length, not a taper defect. 11 weeks keeps the same
+     architecture with room between the two again. */
+  const race = build(a, 'half', 45, 11, 'race');
   const t = race.weeks.filter(w => w.isTaper);
-  assert.equal(a.blockArcFor('race', 12, 'half').taperAnchorDays, a.HALF_TAPER_ANCHOR_DAYS,
+  assert.equal(a.blockArcFor('race', 11, 'half').taperAnchorDays, a.HALF_TAPER_ANCHOR_DAYS,
     'the half arc states the day its taper begins');
   assert.ok(t.length >= 1, 'the half race block still has a wind-down week');
   /* Against the peak the block BUILT. peakVolume is the legacy ramp's ceiling

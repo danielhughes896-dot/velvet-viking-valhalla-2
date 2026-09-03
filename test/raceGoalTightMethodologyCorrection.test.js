@@ -89,6 +89,16 @@ function activeDaysFor(n){
   return [0, 1, 2, 3, 4, 6];
 }
 function pickMid(ws){ return ws[Math.floor(ws.length / 2)] || null; }
+/* HQ DAY-COUNT/START-VOLUME CORRECTION -- Half/Marathon selected days are now
+   additionally capped by the athlete's own tier (RACE_GOAL_MAX_DAYS,
+   applied to mAvail inside raceGoalDestinationSolve()), so the day count this
+   contract's N-1 floor actually reads is min(selected, tier cap), not the
+   raw selection. A selection above the tier's own ceiling is real permission
+   the pathway simply never needs -- the excess days are still offered as
+   Optional, never demoted to plain Rest, which is what the parametric tests
+   below check for at the effective count. */
+var TIER_DAY_CAP = { novice: 4, experienced: 5, advanced: 5 };
+function effectiveDays(exp, days){ return Math.min(days, TIER_DAY_CAP[exp]); }
 
 /* ==========================================================
    REQUIREMENT 1 -- AT LEAST N-1 PRESCRIBED, EVERY SELECTED DAY EITHER
@@ -108,8 +118,9 @@ function pickMid(ws){ return ws[Math.floor(ws.length / 2)] || null; }
         const blk = buildFor(a, dk, exp, N, days, entryVol);
         const { days: builtDays } = buildDays(a, blk, N, activeDaysFor(days), 6);
         const c = definiteRestOptional(builtDays, 1);
-        assert.ok(c.definite >= days - 1,
-          `week 1, ${days} selected: expected at least ${days - 1} prescribed, got ${c.definite}`);
+        const eff = effectiveDays(exp, days);
+        assert.ok(c.definite >= eff - 1,
+          `week 1, ${days} selected (tier cap ${eff}): expected at least ${eff - 1} prescribed, got ${c.definite}`);
         assert.equal(c.definite + c.optional, days,
           `week 1, ${days} selected: every selected day must be prescribed or Optional (got ${c.definite} + ${c.optional} of ${days})`);
         assert.equal(c.rest, 7 - days,
@@ -127,8 +138,9 @@ function pickMid(ws){ return ws[Math.floor(ws.length / 2)] || null; }
         const wk = pickMid(buildWeeks);
         assert.ok(wk, `${dk} ${exp} ${days}d must have a mid-Build week to test`);
         const c = definiteRestOptional(builtDays, wk.week);
-        assert.ok(c.definite >= days - 1,
-          `mid-Build, ${days} selected: expected at least ${days - 1} prescribed, got ${c.definite}`);
+        const eff = effectiveDays(exp, days);
+        assert.ok(c.definite >= eff - 1,
+          `mid-Build, ${days} selected (tier cap ${eff}): expected at least ${eff - 1} prescribed, got ${c.definite}`);
         assert.equal(c.definite + c.optional, days,
           `mid-Build, ${days} selected: every selected day must be prescribed or Optional (got ${c.definite} + ${c.optional} of ${days})`);
       });
@@ -182,11 +194,17 @@ test('the generic volume-feasibility bound (expressibleRunningDays) is bypassed 
   // EASY_MIN_KM, silently overriding scheduledSupportDays' own correct,
   // wider figure before buildDaysFromWeeks' bottom-up branch ever got to
   // state it. Reproduced directly against the exact scenario.
+  //
+  // HQ DAY-COUNT/START-VOLUME CORRECTION -- Developing is now additionally
+  // tier-capped at 4 selected days regardless of the 6 offered here, so the
+  // floor this proves is now N-1 of that cap (3), not of the raw 6 selected;
+  // the bypass itself -- that expressibleRunningDays never silently overrides
+  // the day-count floor -- is exactly as intact as before.
   const a = app();
   const blk = buildFor(a, 'half', 'novice', 12, 6, 15);
   const { days } = buildDays(a, blk, 12, activeDaysFor(6), 6);
   const c = definiteRestOptional(days, 1);
-  assert.ok(c.definite >= 5, 'the feasibility bound must not silently override the day-count floor');
+  assert.ok(c.definite >= 3, 'the feasibility bound must not silently override the day-count floor');
 });
 
 test('5K/10K keep the generic feasibility bound -- this bypass is Half/Marathon only', () => {
@@ -220,14 +238,14 @@ test('the day count never narrows -- widening is the only direction this correct
 /* HQ NARROW PATHWAY CORRECTION -- re-pointed at the new table. */
 const PATHWAY_FLOORS = {
   half: {
-    novice:      { peakLongKm: 16, peakVolumeKm: 35, buildVolumeKm: 30 },
-    experienced: { peakLongKm: 19, peakVolumeKm: 50, buildVolumeKm: 45 },
-    advanced:    { peakLongKm: 22, peakVolumeKm: 85, buildVolumeKm: 75 },
+    novice:      { peakLongKm: 16, peakVolumeKm: 38, buildVolumeKm: 35 },
+    experienced: { peakLongKm: 19, peakVolumeKm: 58, buildVolumeKm: 55 },
+    advanced:    { peakLongKm: 22, peakVolumeKm: 70, buildVolumeKm: 65 },
   },
   full: {
     novice:      { peakLongKm: 28, buildVolumeKm: 50 },
-    experienced: { peakLongKm: 30, buildVolumeKm: 65 },
-    advanced:    { peakLongKm: 32, buildVolumeKm: 80 },
+    experienced: { peakLongKm: 30, buildVolumeKm: 72 },
+    advanced:    { peakLongKm: 32, buildVolumeKm: 82 },
   },
 };
 

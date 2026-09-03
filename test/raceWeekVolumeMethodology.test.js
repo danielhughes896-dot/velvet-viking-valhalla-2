@@ -65,7 +65,16 @@ test('reproduction: an unprotected peak reads the race week as the block\'s peak
   // reproduces the bug shape at that runway, which is a real, expected
   // consequence of the higher floor, not a defect in the fix under test.
   // One week shorter keeps the same reach below the race week again.
-  const a = appWithFullBlock(7, 30);
+  //
+  // HQ DAY-COUNT/START-VOLUME CORRECTION, LATER -- moved from seven weeks to
+  // five. New Marathon's own entry rose again (20 -> 21km), which shifts the
+  // whole early curve up enough that a training week now overtakes the race
+  // week's naive total at both seven weeks (77.5 vs 70.2) and six (67.0 vs
+  // 66.2). Five weeks is short enough that the pathway floor's own
+  // runway-bounded reach stays under the race week again -- same reasoning,
+  // shorter runway, for the same reason as before: an even higher floor
+  // reaches further in the same number of weeks.
+  const a = appWithFullBlock(5, 30);
   const byWeekIncludingRace = {};
   a.state.days.forEach((dd) => {
     if (!dd || dd.type === 'rest') return;

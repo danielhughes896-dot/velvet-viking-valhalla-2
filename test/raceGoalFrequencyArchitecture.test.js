@@ -51,30 +51,34 @@ const WEEKS = { '5k':12, '10k':12, half:15, full:15 };
 
 /* ---------- 1/2. AVAILABILITY CAN INFLUENCE FREQUENCY, BUT IS NOT A MANDATE ---------- */
 
-test('Advanced Marathon: additional availability increases prescribed frequency exactly while it improves distribution, and stops on its own', () => {
+test('Advanced Marathon: additional availability increases prescribed frequency up to the tier day cap, and stops there', () => {
   const at4 = buildFor('full', 'advanced', 15, 4);
   const at5 = buildFor('full', 'advanced', 15, 5);
   const at6 = buildFor('full', 'advanced', 15, 6);
   const p4 = peakWeek(at4.blk), p5 = peakWeek(at5.blk), p6 = peakWeek(at6.blk);
   assert.equal(p4.bottomUp.supportDays, 2, '4 days: no longer stalls -- 2 is what 4 raw days can carry');
   assert.equal(p5.bottomUp.supportDays, 3, '5 days: a real day genuinely used');
-  /* HQ NARROW PATHWAY CORRECTION -- Advanced Marathon's peak volume rose from
-     80 to 90km, so the sixth day now genuinely clears the coherence floor
-     the mNeed loop already gates it on (see raceGoalDestinationSolve()'s
-     comment on mSupportDays): a bigger week has more to distribute, and the
-     same loop that held it at 3 under the old table now finds a fourth day
-     legitimately helps. The mechanism did not change; only the volume it is
-     being asked to distribute did. */
-  assert.equal(p6.bottomUp.supportDays, 4, '6 days: the higher peak volume now genuinely uses a fourth');
+  /* HQ DAY-COUNT/START-VOLUME CORRECTION -- Advanced is now tier-capped at 5
+     selected days for Half/Marathon (RACE_GOAL_MAX_DAYS, applied inside
+     raceGoalDestinationSolve() to mAvail before mNeed/mSupportDays ever run),
+     because splitting the same weekly floor across more days than the tier
+     needs was writing near-floor easy runs deep into Build. A 6th day offered
+     above that ceiling is therefore never reached at all: the mechanism stops
+     one day earlier than the coherence floor alone would have stopped it. */
+  assert.equal(p6.bottomUp.supportDays, 3, '6 days: capped at the tier ceiling of 5 selected days, same as 5');
 });
 
 test('5K/10K/Half Novice-Experienced: additional availability CAN raise frequency where it was previously invisible to the seed', () => {
+  /* half/novice at 6 selected days is deliberately absent from this list --
+     HQ DAY-COUNT/START-VOLUME CORRECTION tier-caps Developing Half/Marathon
+     at 4 selected days (RACE_GOAL_MAX_DAYS), so a 6th day no longer raises
+     anything for that cohort; it never reaches the seed at all. 5K/10K carry
+     no such cap and are unaffected. */
   const cases = [
     ['5k','novice',5,1,4],
     ['5k','experienced',6,2,4],
     ['10k','novice',5,1,4],
     ['10k','experienced',6,2,4],
-    ['half','novice',6,2,4],
   ];
   cases.forEach(([dist, exp, days, oldSupportDays, newSupportDays]) => {
     const { blk } = buildFor(dist, exp, WEEKS[dist], days);
@@ -324,35 +328,38 @@ test('raceGoalAvailabilityLimited: fires with named reasons on the reported case
   assert.ok(r4.reasons.some(x => x.key === 'support_run_concentration'));
 });
 
-test('raceGoalAvailabilityLimited: does not fire once the extra day has already been granted, or when granting one would break coherence', () => {
-  /* HQ NARROW PATHWAY CORRECTION -- Advanced Marathon's higher table (peak
-     90/build 80, up from 80/70) means a bigger week to distribute, so the
-     5th day no longer fully resolves the concentration seen at 4 -- it now
-     takes 6 to do that, the same shift already proven in the "additional
-     availability" test above (supportDays 3 -> 4 at 6 days). The trigger
-     still reports nothing once the extra day genuinely is granted; only
-     which day count that happens at moved with the table. */
+test('raceGoalAvailabilityLimited: does not fire once the extra day has already been granted, and never sees a day above the tier cap at all', () => {
+  /* HQ DAY-COUNT/START-VOLUME CORRECTION -- Half/Marathon is now tier-capped
+     at RACE_GOAL_MAX_DAYS selected days (5 for Advanced), applied to mAvail
+     inside raceGoalDestinationSolve() before this trigger's own solve ever
+     runs. A 6th day therefore changes nothing for these two distances: it is
+     never offered to the mechanism, so the trigger reports the identical
+     state it reports at 5 -- not because the concentration resolved, but
+     because there is no further day this pathway will ever be given. */
   const a = app();
   const r5 = a.raceGoalAvailabilityLimited('full', 'advanced', null, 15, { availableDays:5, easyPaceSecPerKm:330 });
-  assert.equal(r5.limited, true, 'the 5th day no longer fully resolves the concentration at this larger pathway volume');
   const r6 = a.raceGoalAvailabilityLimited('full', 'advanced', null, 15, { availableDays:6, easyPaceSecPerKm:330 });
-  assert.equal(r6.limited, false, 'the 6th day is where the concentration is now genuinely resolved');
+  assert.equal(r5.limited, true);
+  assert.deepEqual(r6, r5, '6 days must read identically to 5 -- the tier cap holds, not a fresh resolution');
 });
 
-test('raceGoalAvailabilityLimited: never fires from a raw kilometre threshold -- the highest-mileage pathway tested is NOT flagged while a much smaller one IS', () => {
+test('raceGoalAvailabilityLimited: never fires from a raw kilometre threshold -- a smaller weekly total can need MORE days to resolve than a larger one', () => {
+  /* HQ DAY-COUNT/START-VOLUME CORRECTION -- Half/Marathon's own day-count
+     ceiling now means neither distance ever resolves within a realistic
+     selection (see the test above), so the raw-threshold disproof has to be
+     read from 5K/10K, which carry no tier cap. Advanced 10K's own pathway
+     (75km build, 18km long) is LARGER than Advanced 5K's (70km build, 16km
+     long) on every figure, and it is 10K that resolves with the FEWER extra
+     days -- the opposite of what a reading keyed on raw weekly kilometres
+     would predict, because it is each pathway's long-run coherence share,
+     not its total, that is actually being read. */
   const a = app();
-  /* If this read a weekly-kilometre size, the 87.8km Advanced Marathon week
-     would be the first case flagged, not the last. It is provably the
-     coherence floor being read instead: Marathon Advanced's long run is
-     large enough, relative to its own week, that a further day would push
-     supporting runs below what still counts as supporting it -- so at 6
-     days it is genuinely NOT limited -- while 5K Novice's much smaller
-     30km week has a small enough long run relative to itself that a further
-     day still helps. */
-  const big = a.raceGoalAvailabilityLimited('full', 'advanced', null, 15, { availableDays:6, easyPaceSecPerKm:330 });
-  const small = a.raceGoalAvailabilityLimited('5k', 'novice', null, 12, { availableDays:6, easyPaceSecPerKm:330 });
-  assert.equal(big.limited, false, 'the largest week tested must not be flagged');
-  assert.equal(small.limited, true, 'a much smaller week must still be flagged, disproving a size-based reading');
+  const bigger = a.raceGoalAvailabilityLimited('10k', 'advanced', null, 12, { availableDays:10, easyPaceSecPerKm:330 });
+  const biggerOneLess = a.raceGoalAvailabilityLimited('10k', 'advanced', null, 12, { availableDays:9, easyPaceSecPerKm:330 });
+  const smaller = a.raceGoalAvailabilityLimited('5k', 'advanced', null, 12, { availableDays:10, easyPaceSecPerKm:330 });
+  assert.equal(bigger.limited, false, 'the larger pathway resolves by 10 days');
+  assert.equal(biggerOneLess.limited, true, 'and had not yet resolved one day earlier');
+  assert.equal(smaller.limited, true, 'the smaller pathway is still flagged at the same day count the larger one already resolved at');
 });
 
 /* ---------- 15. READINESS EXPOSES AN AVAILABILITY-LIMITED SHORTFALL HONESTLY ---------- */

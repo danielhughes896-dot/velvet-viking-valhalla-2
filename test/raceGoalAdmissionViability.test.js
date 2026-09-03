@@ -120,35 +120,32 @@ test('TEN WEEKS — the floor is the driver where the safe route can reach it, a
      NARROW CORRECTION -- "the floor needs to be the main driver", and then
      "the floor remains non-negotiable... do not silently redefine the
      lower endpoint as successful." The New marathon pathway's own locked
-     20km / 10km entry, read from this athlete's thin demonstrated evidence
+     21km / 10km entry, read from this athlete's thin demonstrated evidence
      (entrySource stays 'demonstrated' -- the ENTRY point is still honest
      about where they start); ten weeks is six development intervals and
-     10km to 26km is a 2.6x jump.
+     10km to 28km is a 2.8x jump.
 
      STARTING CAPACITY CONTROLS THE SAFE ROUTE; THE RACE CONTROLS THE
-     DESTINATION. The week volume (20km -> 40km) closes inside the Nielsen
-     two-week cap comfortably, so it reaches its floor exactly. The long
-     run (10km -> 26km) does not -- 2.6x in six steps needs faster growth
-     than sqrt(SESSION_TWO_WEEK_GROWTH_CAP) ever allows, and this
-     architecture will not close that gap with a late jump or a catch-up
-     week; that invariant is what raceGoalProgressionShape.test.js exists
-     to hold. So the safe route provably falls short of the 26km floor --
-     genuinely, by 6km against HQ's narrow pathway correction's own 28km
-     Developing marathon durability floor, not a rounding matter -- and
-     that is exactly what HQ now rules is a reachability failure: refused
-     and routed, not built short and declared MARGINAL.
+     DESTINATION. The long run (10km -> 28km) does not close inside six
+     steps under the Nielsen two-week cap -- that invariant is what
+     raceGoalProgressionShape.test.js exists to hold. So the safe route
+     provably falls short of the 28km floor and that is exactly what HQ
+     now rules is a reachability failure: refused and routed, not built
+     short and declared MARGINAL.
 
-     HQ NARROW PATHWAY CORRECTION -- reachWeekKm is now curve-limited the
-     same way reachLongKm always was (see the comment above reachWeekKm in
-     raceGoalPreparationOutlook()), rather than floored unconditionally to
-     the pathway's raw Peak figure regardless of runway. Under the OLD
-     smaller pathway numbers the 20km-entry week comfortably closed inside
-     six steps and this distinction never showed; under HQ's higher 50km
-     Build figure it does not -- 20km to 50km in six steps needs faster
-     growth than the Nielsen ceiling allows, landing at 43.9, and the real
+     HQ DAY-COUNT/START-VOLUME CORRECTION -- the New marathon entry moved
+     20 -> 21 (option c: split the difference across Base/Build/Peak so no
+     single phase misses its target range badly), which also moves the
+     week-volume figures reached from it. reachWeekKm is curve-limited the
+     same way reachLongKm always is (see the comment above reachWeekKm in
+     raceGoalPreparationOutlook()): 21km to 50km in six steps needs faster
+     growth than the Nielsen ceiling allows, landing at 46.1, and the real
      per-week build's own workload dimension is genuinely short too
-     (measured: 43.9km against the same 50km requirement). So this
-     pathway now falls short on BOTH dimensions, and both are named. */
+     (measured: 46.1km against the same 50km requirement). reachLongKm is
+     unchanged at 22, because the long-run figures (entryLongKm/
+     buildLongKm/peakLongKm) were deliberately left untouched by that
+     correction. So this pathway still falls short on BOTH dimensions, and
+     both are named. */
   const c = R.CANON_10.filter(x => x.key.indexOf('New Marathon') === 0)[0];
   const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:10 }, c.ev));
   const adm = res.a.raceGoalAdmission('full', 10, null,
@@ -157,11 +154,11 @@ test('TEN WEEKS — the floor is the driver where the safe route can reach it, a
   assert.equal(adm.decision, 'preparation_not_reachable');
   assert.equal(adm.preparation.entrySource, 'demonstrated',
     'the entry point itself must still read the athlete\'s thin evidence honestly');
-  assert.equal(adm.preparation.entryKm, 20);
+  assert.equal(adm.preparation.entryKm, 21);
   assert.equal(adm.preparation.entryLongKm, 10);
   assert.equal(adm.preparation.verdict, 'INSUFFICIENT');
-  assert.equal(adm.preparation.reachWeekKm, 43.9,
-    'the Nielsen safety rate\'s own ceiling from a 20km entry in six steps, genuinely short of the 50km Build floor');
+  assert.equal(adm.preparation.reachWeekKm, 46.1,
+    'the Nielsen safety rate\'s own ceiling from a 21km entry in six steps, genuinely short of the 50km Build floor');
   assert.equal(adm.preparation.reachLongKm, 22,
     'the long run reaches the Nielsen safety rate\'s own ceiling from a 10km entry in six steps, genuinely short of the 28km floor');
   assert.equal(adm.preparation.shortfall.length, 2);
@@ -268,8 +265,17 @@ test('EVIDENCE OVER LABEL — a thin Experienced athlete is admitted and develop
   /* HQ narrow pathway correction: Experienced marathon's Peak volume floor
      is now 75 (was null, falling back to the 55km Build figure), and its
      LR floor is 30 (was 29) -- both genuinely reached from a 22/14 entry
-     inside six Nielsen-capped steps, exactly as before the table changed. */
-  assert.equal(adm.preparation.reachWeekKm, 75, 'the Experienced marathon Peak floor');
+     inside six Nielsen-capped steps, exactly as before the table changed.
+
+     HQ DAY-COUNT/START-VOLUME CORRECTION, LATER -- Experienced marathon's
+     Peak volume floor rose again, to 80, and this fixture's own entry
+     (22/14, well below the pathway's new 52km assumed entry) closes only
+     as far as the Nielsen safety rate allows inside 10 weeks -- genuinely
+     short of the raw 80 destination, at 79.1, which is what
+     raceGoalPreparationOutlook()'s curve-limited reachWeekKm now reports
+     rather than the unconditional floor. The long run's own destination
+     (30) is unchanged and still reached exactly. */
+  assert.equal(adm.preparation.reachWeekKm, 79.1, 'the Experienced marathon Peak floor, curve-limited from this fixture\'s thin entry');
   assert.equal(adm.preparation.reachLongKm, 30, 'the Experienced marathon Peak floor');
 });
 
@@ -281,7 +287,7 @@ test('NO EVIDENCE — the pathway supplies the entry, and nothing invents a low 
   const o = res.a.raceGoalPreparationOutlook('full', 'intermediate', 10,
               { availableDays:4, easyPaceSecPerKm:res.pace });
   assert.equal(o.entrySource, 'pathway');
-  assert.equal(o.entryKm, 40, 'the Experienced marathon pathway opens at 40km');
+  assert.equal(o.entryKm, 52, 'the Experienced marathon pathway opens at 52km');
   assert.equal(o.verdict, 'READY');
 });
 
@@ -339,7 +345,7 @@ test('NO PRICE, NO REFUSAL — a missing pace cannot manufacture an unreachable 
      an unpriced projection, because there is nothing for a missing price to
      depress any more. */
   const res = R.build({ dist:'half', exp:'novice', days:5, weeks:10,
-                        easyKm:3.5, longKm:8, easyDays:[0,2], tt5kMin:28 });
+                        easyKm:5, longKm:8, easyDays:[0,2], tt5kMin:28 });
   const blind = res.a.raceGoalPreparationOutlook('half', 'novice', 10, null);
   assert.equal(blind.confident, false, 'a priceless projection claimed confidence');
   const priced = res.a.raceGoalPreparationOutlook('half', 'novice', 10,

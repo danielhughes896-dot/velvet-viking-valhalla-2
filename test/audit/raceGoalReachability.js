@@ -125,25 +125,33 @@ function endOfBuild(res){
    20/10, and this fixture is written, per the comment above, to sum to
    exactly the pathway's own entry and nothing more -- every other
    pathway's entry figures are unchanged, so their evidence is too. */
+/* HQ DAY-COUNT/START-VOLUME CORRECTION -- Half/Marathon entry/build/peak
+   volumes moved again (RACE_GOAL_PATHWAY), and selected days now additionally
+   carry a tier ceiling (RACE_GOAL_MAX_DAYS: Developing 4, Established 5,
+   Advanced 5), so `days` below is re-pointed at that ceiling -- this
+   generator's own "canonical" athlete is the pathway's designed entry AT its
+   tier's own day cap, not at an arbitrary 5/6 that the architecture no longer
+   lets the tier use in full anyway. The `ev` evidence is re-summed to each
+   pathway's new entry exactly, the same convention the comment above states. */
 const CANON = [
-  { key:'New Half',      dist:'half', exp:'novice',      days:5, weeks:15,
-    ev:{ easyKm:3.5, longKm:8, easyDays:[0,2], tt5kMin:28 },
-    needBuildKm:30, needBuildLong:16, needPeakKm:35, needPeakLong:16 },
-  { key:'Experienced Half', dist:'half', exp:'experienced', days:6, weeks:15,
-    ev:{ easyKm:2.5, longKm:10, qKm:5, easyDays:[0,2], tt5kMin:22 },
-    needBuildKm:45, needBuildLong:19, needPeakKm:50, needPeakLong:19 },
-  { key:'Advanced Half', dist:'half', exp:'advanced',    days:6, weeks:15,
+  { key:'New Half',      dist:'half', exp:'novice',      days:4, weeks:15,
+    ev:{ easyKm:5, longKm:8, easyDays:[0,2], tt5kMin:28 },
+    needBuildKm:35, needBuildLong:16, needPeakKm:38, needPeakLong:16 },
+  { key:'Experienced Half', dist:'half', exp:'experienced', days:5, weeks:15,
+    ev:{ easyKm:9, longKm:10, qKm:5, easyDays:[0,2], tt5kMin:22 },
+    needBuildKm:55, needBuildLong:19, needPeakKm:58, needPeakLong:19 },
+  { key:'Advanced Half', dist:'half', exp:'advanced',    days:5, weeks:15,
     ev:{ easyKm:6, longKm:20, qKm:7, easyDays:[0,2,4], tt5kMin:18 },
-    needBuildKm:75, needBuildLong:22, needPeakKm:85, needPeakLong:22 },
-  { key:'New Marathon',  dist:'full', exp:'novice',      days:5, weeks:15,
-    ev:{ easyKm:5, longKm:10, easyDays:[0,2], tt5kMin:28 },
-    needBuildKm:50, needBuildLong:28, needPeakKm:55, needPeakLong:28 },
-  { key:'Experienced Marathon', dist:'full', exp:'experienced', days:6, weeks:15,
-    ev:{ easyKm:6, longKm:18, qKm:4, easyDays:[0,2,4], tt5kMin:22 },
-    needBuildKm:65, needBuildLong:30, needPeakKm:75, needPeakLong:30 },
-  { key:'Advanced Marathon', dist:'full', exp:'advanced',    days:6, weeks:15,
-    ev:{ easyKm:10, longKm:24, qKm:6, easyDays:[0,2,4], tt5kMin:18 },
-    needBuildKm:80, needBuildLong:32, needPeakKm:90, needPeakLong:32 }
+    needBuildKm:65, needBuildLong:22, needPeakKm:70, needPeakLong:22 },
+  { key:'New Marathon',  dist:'full', exp:'novice',      days:4, weeks:15,
+    ev:{ easyKm:5.5, longKm:10, easyDays:[0,2], tt5kMin:28 },
+    needBuildKm:50, needBuildLong:28, needPeakKm:60, needPeakLong:28 },
+  { key:'Experienced Marathon', dist:'full', exp:'experienced', days:5, weeks:15,
+    ev:{ easyKm:10, longKm:18, qKm:4, easyDays:[0,2,4], tt5kMin:22 },
+    needBuildKm:72, needBuildLong:30, needPeakKm:80, needPeakLong:30 },
+  { key:'Advanced Marathon', dist:'full', exp:'advanced',    days:5, weeks:15,
+    ev:{ easyKm:12, longKm:24, qKm:8, easyDays:[0,2,4], tt5kMin:18 },
+    needBuildKm:82, needBuildLong:32, needPeakKm:93, needPeakLong:32 }
 ];
 /* ---- AND THE SAME SIX AT THE ADMISSION FLOOR ----
    HQ admits Race Goal from ten weeks. The ten-week programme has four fewer

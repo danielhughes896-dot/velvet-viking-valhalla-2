@@ -64,23 +64,23 @@ function definiteRestOptional(days, weekNum){
 /* ==========================================================
    HARD ACCEPTANCE RULE -- would have FAILED on pre-repair main.
    ========================================================== */
-test('HARD RULE: Marathon, 6 selected days, Novice, Build phase -- at least 5 definite runs, not 4+Optional+2Rest', () => {
+test('HARD RULE: Marathon, 6 selected days, Novice, Build phase -- at least 3 definite runs, capped at the Developing tier ceiling', () => {
+  /* HQ DAY-COUNT/START-VOLUME CORRECTION -- Developing is now tier-capped at
+     4 selected days for Half/Marathon (RACE_GOAL_MAX_DAYS), applied to
+     mAvail inside raceGoalDestinationSolve() before this contract's own N-1
+     floor is read. The 6 selected here are real permission the pathway
+     never needs: only 4 of them are ever used, so the floor this proves is
+     N-1 of 4 (3), not of the raw 6 -- and the 2 selected days beyond the
+     cap are still offered as Optional, never demoted to plain Rest. */
   const a = app();
   const blk = buildFor(a, 'full', 'novice', 16, 6, 40);
   const buildWeek = buildPhaseWeek(blk, 'Build');
   const { days } = buildDays(a, blk, 16, [0, 1, 2, 3, 4, 6], 6);
   const c = definiteRestOptional(days, buildWeek.week);
-  // 6 of the week's 7 calendar days are selected; the 7th (never offered)
-  // is always a plain Rest Day and is not part of this contract. HQ's rule
-  // is that at least 5 of the 6 SELECTED days carry a real prescription --
-  // i.e. at most 2 of the week's 7 days may be left over (rest/optional):
-  // the one never-selected day, plus at most one genuinely spare selected
-  // one. The pre-repair defect produced 4 definite + 3 left over (1
-  // Optional + 2 Rest) -- this is exactly what that would have failed.
-  assert.ok(c.definite >= 5,
-    `week ${buildWeek.week}: expected >=5 definite runs for 6 selected days, got ${c.definite} definite / ${c.optional} optional / ${c.rest} rest`);
-  assert.ok(c.optional + c.rest <= 2,
-    `at most 2 of the week's 7 days may be left over (the 1 never-selected day + at most 1 spare selected day), got ${c.optional + c.rest}`);
+  assert.ok(c.definite >= 3,
+    `week ${buildWeek.week}: expected >=3 definite runs at the Developing tier's 4-day cap, got ${c.definite} definite / ${c.optional} optional / ${c.rest} rest`);
+  assert.equal(c.definite + c.optional, 6,
+    'every selected day is still prescribed or Optional, never plain Rest, even beyond the tier cap');
 });
 
 test('HARD RULE: Marathon, 5 selected days, Novice -- at least 4 definite runs', () => {
@@ -110,26 +110,30 @@ test('HARD RULE: Half Marathon, 6 selected days, Experienced -- at least 5 defin
   assert.ok(c.definite >= 5, `expected >=5 definite for 6 selected Half days, got ${c.definite}`);
 });
 
-test('HQ RACE GOAL TIGHT METHODOLOGY CORRECTION closed this gap: Novice Half Marathon, 6 selected days, now also reaches at least 5 definite', () => {
+test('HQ RACE GOAL TIGHT METHODOLOGY CORRECTION closed this gap: Novice Half Marathon, 6 selected days, now reaches at least 3 definite -- capped at the Developing tier ceiling', () => {
   // SUPERSEDES the earlier documented gap in this file's history: Novice
   // Half's own capacity-earned supportDays never cleared the EASY_MIN_KM
   // affordability floor for a 2nd support day, so this exact scenario was
   // byte-identical to unmodified origin/main at 3 definite / 3 optional / 1
   // rest, named as a pre-existing, out-of-scope gap in Frequency Repair
-  // II's own HQ report. The Tight Methodology Correction closes it
-  // directly: the day-count floor for Half/Marathon Build/Taper is
-  // reached unconditionally -- no longer gated on the week's own earned
-  // supporting workload -- distributeWeekVolume()'s floor-excess rule
-  // pays for the extra day instead of the day being withheld, exactly the
-  // trade-off HQ named and chose. See raceGoalAdmissionViability.test.js's
-  // locked-entry guard for the measured cost of that trade-off at this
-  // exact pathway.
+  // II's own HQ report. The Tight Methodology Correction closed it: the
+  // day-count floor for Half/Marathon Build/Taper is reached
+  // unconditionally, no longer gated on the week's own earned supporting
+  // workload.
+  //
+  // HQ DAY-COUNT/START-VOLUME CORRECTION, LATER -- Developing is now ALSO
+  // tier-capped at 4 selected days regardless of the 6 offered here
+  // (RACE_GOAL_MAX_DAYS, applied to mAvail before this contract's own N-1
+  // floor is read), so the floor this now proves is N-1 of 4 (3), not of
+  // the raw 6 -- the closed gap and this later cap are two different
+  // corrections that happen to read the same number by coincidence at this
+  // exact pathway; they are not the same rule.
   const a = app();
   const blk = buildFor(a, 'half', 'novice', 12, 6, 30);
   const buildWeek = buildPhaseWeek(blk, 'Build');
   const { days } = buildDays(a, blk, 12, [0, 1, 2, 3, 4, 6], 6);
   const c = definiteRestOptional(days, buildWeek.week);
-  assert.ok(c.definite >= 5, `expected >=5 definite for 6 selected Half days, got ${c.definite}`);
+  assert.ok(c.definite >= 3, `expected >=3 definite at the Developing tier's 4-day cap, got ${c.definite}`);
 });
 
 /* ==========================================================

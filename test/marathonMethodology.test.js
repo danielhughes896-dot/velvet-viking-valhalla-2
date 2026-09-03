@@ -83,14 +83,24 @@ test('cost, not shape, is what decides how many days the work needs', () => {
     'shape barely moves between them: ' + shapeCheap.toFixed(2) + ' vs ' + shapeDear.toFixed(2));
 });
 
-test('the same kilometres give a slower athlete more days', () => {
+test('the same kilometres give a slower athlete more days, up to the tier\'s own day cap', () => {
   /* HQ NARROW PATHWAY CORRECTION -- SIX (the default schedule) no longer
-     shows the difference at Experienced Marathon's new, higher table: both
+     shows the difference at Experienced Marathon's higher table: both
      cohorts now genuinely need all six of SIX's available days, so there is
-     no room left for the slower cohort to need more. Given a seventh day
-     the distinction is exactly as before -- fast still stops at six, slow
-     still goes to seven -- so this asks for one, rather than the
-     methodology point itself having weakened. */
+     no room left for the slower cohort to need more. A seventh day used to
+     restore the distinction -- fast stops at six, slow goes to seven.
+
+     HQ DAY-COUNT/START-VOLUME CORRECTION, LATER -- Experienced is now
+     ADDITIONALLY tier-capped at 5 selected days (RACE_GOAL_MAX_DAYS,
+     applied to mAvail inside raceGoalDestinationSolve() before session-cost
+     ever runs), so a seventh day no longer restores anything either: both
+     the fast and the slow athlete are held at the same 5-day ceiling
+     regardless of how much further the slow athlete's own time-cost math
+     would otherwise want to spread the week. Measured directly: the two
+     cohorts are now identical at every day count and every week of this
+     block, not only at the tier ceiling -- the tier cap is a hard `Math.min`
+     ahead of the session-cost solve, so this discrimination is deliberately
+     suppressed for Half/Marathon at this tier, not merely obscured. */
   const SEVEN = { activeDays:[0,1,2,3,4,5,6], longRunDay:6 };
   const fast = plan(50, 15, 'full', 300, SEVEN);
   const slow = plan(50, 15, 'full', 560, SEVEN);
@@ -98,8 +108,8 @@ test('the same kilometres give a slower athlete more days', () => {
     let wn = 1; for (; wn <= r.blk.planWeeks; wn++) if (r.days.filter(d => d.week === wn).length === 7) break;
     return r.days.filter(d => d.week === wn && d.km > 0).length;
   };
-  assert.ok(runsIn(slow) > runsIn(fast),
-    'slow ' + runsIn(slow) + ' vs fast ' + runsIn(fast) + ' on identical volume');
+  assert.equal(runsIn(slow), runsIn(fast),
+    'both athletes are held at the same tier day cap now, slow ' + runsIn(slow) + ' vs fast ' + runsIn(fast));
 });
 
 // ------------------------------------------------------------ quality frequency

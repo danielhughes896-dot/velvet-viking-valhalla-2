@@ -151,8 +151,15 @@ test('OFFERS EXIST — and they are outside Peak, so the rule is doing something
 test('UNPERFORMED — leaving every offer untaken is not a missed session', () => {
   /* The athlete who runs none of them has done the programme. An offered day is
      a rest day with a note; nothing in it is prescribed, so there is nothing in
-     it to have missed. */
-  const c = R.CANON[1];                                   // Experienced Half, 15w
+     it to have missed.
+
+     HQ DAY-COUNT/START-VOLUME CORRECTION -- Experienced Half is now tier-capped
+     at 5 selected days (RACE_GOAL_MAX_DAYS), and at that ceiling the week fills
+     every selected day, leaving no optional offer left to prove this on. New
+     Half (novice, capped at 4 selected days) still has days it does not need
+     at this canonical athlete's volume, so the fixture moves there -- the same
+     property, on a pathway the new cap did not saturate. */
+  const c = R.CANON[0];                                   // New Half, 15w
   const res = plan(c);
   const opts = offered(res);
   assert.ok(opts.length > 0, 'nothing offered to leave untaken');
