@@ -55,9 +55,18 @@ test('RACE GOAL — a typed figure below the safety floor still defers the field
      pathway's assumption. It defers the TEST; it sizes nothing, admits nothing
      and moves no destination -- and once the field is gone there is no such
      figure to read, so this protects only the athletes who still supply
-     one. */
-  const low  = R.build({ dist:'half', exp:'intermediate', days:5, weeks:15, stated:5, tt5kMin:24 });
-  const none = R.build({ dist:'half', exp:'intermediate', days:5, weeks:15, tt5kMin:24 });
+     one.
+
+     HQ NARROW PATHWAY CORRECTION -- moved from Half/Experienced to
+     Half/Advanced. Experienced Half's own entry dropped 30 -> 20, close
+     enough to what week one already needs to hold the calibration protocol
+     that BOTH the deferred and the immediate case now first become viable
+     at the same week (2), collapsing the gap this test measures without
+     the deferral itself having stopped working (elig.reason still reads
+     'insufficient_base' for the low case). Advanced Half's entry (45) did
+     not move, so it still shows the same asymmetry the old fixture did. */
+  const low  = R.build({ dist:'half', exp:'advanced', days:6, weeks:15, stated:5, tt5kMin:18 });
+  const none = R.build({ dist:'half', exp:'advanced', days:6, weeks:15, tt5kMin:18 });
   assert.equal(low.elig.reason, 'insufficient_base');
   assert.equal(none.elig.reason, 'eligible');
   const calLow  = low.dd.filter(d => d.type === 'calibration')[0];

@@ -217,16 +217,17 @@ test('the day count never narrows -- widening is the only direction this correct
 /* ==========================================================
    REQUIREMENT 2 -- DESTINATIONS ARE MINIMUMS, NOT CEILINGS.
    ========================================================== */
+/* HQ NARROW PATHWAY CORRECTION -- re-pointed at the new table. */
 const PATHWAY_FLOORS = {
   half: {
-    novice:      { peakLongKm: 16, peakVolumeKm: 38, buildVolumeKm: 30 },
-    experienced: { peakLongKm: 19, peakVolumeKm: 70, buildVolumeKm: 40 },
-    advanced:    { peakLongKm: 21, peakVolumeKm: 80, buildVolumeKm: 60 },
+    novice:      { peakLongKm: 16, peakVolumeKm: 35, buildVolumeKm: 30 },
+    experienced: { peakLongKm: 19, peakVolumeKm: 50, buildVolumeKm: 45 },
+    advanced:    { peakLongKm: 22, peakVolumeKm: 85, buildVolumeKm: 75 },
   },
   full: {
-    novice:      { peakLongKm: 26, buildVolumeKm: 40 },
-    experienced: { peakLongKm: 29, buildVolumeKm: 55 },
-    advanced:    { peakLongKm: 32, buildVolumeKm: 70 },
+    novice:      { peakLongKm: 28, buildVolumeKm: 50 },
+    experienced: { peakLongKm: 30, buildVolumeKm: 65 },
+    advanced:    { peakLongKm: 32, buildVolumeKm: 80 },
   },
 };
 

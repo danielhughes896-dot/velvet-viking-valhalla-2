@@ -31,8 +31,15 @@ function calibratedPlan(){
   // day-count contract reads this figure directly, so leaving it mismatched
   // from the schedule buildDaysFromWeeks() actually uses is a fixture bug,
   // not a methodology one.
+  //
+  // HQ NARROW PATHWAY CORRECTION -- experience is now passed explicitly, as
+  // 'advanced'. Half's implicit (unnamed) experience default resolves to
+  // 'experienced', whose own entry HQ's directive dropped 30 -> 20km,
+  // which now shifts the calibration week's own session count away from
+  // this test's baseline. Advanced Half's entry (45) did not move.
+  a.state.experience = 'advanced';
   const availableDays = a.state.setup.schedule.activeDays.length;
-  const blk = a.buildBlockWeeks('half', 45, 12, { calibrate: true, availableDays });
+  const blk = a.buildBlockWeeks('half', 45, 12, { calibrate: true, experience: 'advanced', availableDays });
   a.state.days = a.buildDaysFromWeeks(blk, a.state.setup.raceDate,
     a.state.setup.schedule, TODAY, false);
   return a;
@@ -120,7 +127,7 @@ test('being a TEST buys no additional quality session', () => {
      calibration week carries no more quality than the same week without it. */
   const a = calibratedPlan();
   const plain = a.buildDaysFromWeeks(
-    a.buildBlockWeeks('half', 45, 12, { availableDays: a.state.setup.schedule.activeDays.length }),
+    a.buildBlockWeeks('half', 45, 12, { experience: 'advanced', availableDays: a.state.setup.schedule.activeDays.length }),
     a.state.setup.raceDate, a.state.setup.schedule, TODAY, false);
   const cal = dayOfType(a, 'calibration');
   const hardIn = (days, wk) => days.filter(d => d.week === wk && d.km > 0 &&

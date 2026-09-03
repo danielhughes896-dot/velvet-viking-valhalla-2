@@ -126,26 +126,25 @@ test('5K: a novice with no evidence is admitted and developed toward the floor a
     'within tolerance of the floor even though not force-raised to it exactly');
 });
 
-test('5K and 10K: the same novice is admitted at six weeks too, honestly short of the floor', () => {
-  /* Same HQ ruling, at the SHORT_RACE_GOAL_EVIDENCE_FLOOR_WEEKS boundary
-     itself -- six weeks is where a priced, confident projection is still
-     asked to admit at all (below it the ordinary too_short refusal still
-     applies unconditionally; see the five-week test below). At six weeks
-     there are only two development intervals, and the Nielsen safety rate
-     cannot close a 5km/6km entry long run to an 8km/10km floor in two
-     steps without a late jump this architecture will not make -- the same
-     boundary the marathon reachability tests hold. So the athlete is still
-     admitted (workload reaches the floor exactly; only durability is
-     short), and MARGINAL is the honest verdict for it rather than a
-     promised READY the block could not keep. */
+test('5K and 10K: the same novice is refused at six weeks, the safe route genuinely short of the floor', () => {
+  /* HQ RACE GOAL SAFETY-FLOOR NARROW CORRECTION -- "the floor remains
+     non-negotiable... treat it as an explicit reachability/admission
+     failure." At six weeks there are only two development intervals, and
+     the Nielsen safety rate cannot close a 5km/6km entry long run to an
+     8km/10km floor in two steps without a late jump this architecture will
+     not make -- the same boundary the marathon reachability tests hold.
+     Workload reaches its floor exactly; durability provably does not
+     (1.5km/2.2km short, well past the 1km presentation quantum), so the
+     safe route did not reach the required destination and admission
+     refuses rather than building a short, undeclared "MARGINAL" plan. */
   const a = app();
   a.state.experience = 'novice';
   const adm5k = a.raceGoalAdmission('5k', 6, null, { availableDays: 4, easyPaceSecPerKm: 330 });
   const adm10k = a.raceGoalAdmission('10k', 6, null, { availableDays: 4, easyPaceSecPerKm: 330 });
-  assert.equal(adm5k.admitted, true, '5k decision: ' + adm5k.decision);
-  assert.equal(adm10k.admitted, true, '10k decision: ' + adm10k.decision);
-  assert.equal(adm5k.preparation.verdict, 'MARGINAL');
-  assert.equal(adm10k.preparation.verdict, 'MARGINAL');
+  assert.equal(adm5k.admitted, false, '5k decision: ' + adm5k.decision);
+  assert.equal(adm10k.admitted, false, '10k decision: ' + adm10k.decision);
+  assert.equal(adm5k.preparation.verdict, 'INSUFFICIENT');
+  assert.equal(adm10k.preparation.verdict, 'INSUFFICIENT');
   assert.equal(adm5k.preparation.shortfall.length, 1);
   assert.equal(adm5k.preparation.shortfall[0], 'durability');
   assert.equal(adm10k.preparation.shortfall.length, 1);

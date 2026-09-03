@@ -84,8 +84,16 @@ test('cost, not shape, is what decides how many days the work needs', () => {
 });
 
 test('the same kilometres give a slower athlete more days', () => {
-  const fast = plan(50, 15, 'full', 300);
-  const slow = plan(50, 15, 'full', 560);
+  /* HQ NARROW PATHWAY CORRECTION -- SIX (the default schedule) no longer
+     shows the difference at Experienced Marathon's new, higher table: both
+     cohorts now genuinely need all six of SIX's available days, so there is
+     no room left for the slower cohort to need more. Given a seventh day
+     the distinction is exactly as before -- fast still stops at six, slow
+     still goes to seven -- so this asks for one, rather than the
+     methodology point itself having weakened. */
+  const SEVEN = { activeDays:[0,1,2,3,4,5,6], longRunDay:6 };
+  const fast = plan(50, 15, 'full', 300, SEVEN);
+  const slow = plan(50, 15, 'full', 560, SEVEN);
   const runsIn = r => {
     let wn = 1; for (; wn <= r.blk.planWeeks; wn++) if (r.days.filter(d => d.week === wn).length === 7) break;
     return r.days.filter(d => d.week === wn && d.km > 0).length;

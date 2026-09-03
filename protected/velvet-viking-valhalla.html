@@ -5561,6 +5561,13 @@ var BASE_VOLUME_MULT = 1.25;
    cannot express a long run is not viable at its largest either. Same value,
    same behaviour -- see buildBlockWeeks and minViableOnRampKm. */
 var CUTBACK_FACTOR = 0.78;
+/* HQ's Half/Marathon down-week is asymmetric: weekly volume drops 20-25%
+   (CUTBACK_FACTOR, ~22%, already inside that band -- unchanged) but the long
+   run drops further, 25-30%, because it is the session the down week exists
+   to let the athlete recover from. 0.725 sits at the midpoint of that band.
+   Scoped to half/full only -- 5K/10K keep the single CUTBACK_FACTOR their own
+   methodology was measured against. */
+var RACE_GOAL_CUTBACK_LONG_FACTOR = 0.725;
 /* How much shorter the second peak long run is than the first. Coaching
    methodology, recorded as such: the second exposure has to be meaningfully
    shorter to be a different session, and close enough to still be a peak
@@ -6042,7 +6049,7 @@ function applyEventTaper(days, weeks, raceDateStr, easyFloorKm, anchorDays, fina
    back. The earlier wording asked for every capability "by the end of Build",
    and for the MARATHON LONG RUN that could not be satisfied alongside a rule
    HQ had already locked: the culminating substantial long run belongs in Peak,
-   normally D-21 to D-14. If 32km is the culminating exposure and the
+   inside HQ's D-23 to D-14 window. If 32km is the culminating exposure and the
    culminating exposure sits at D-14, it cannot also have been run by the last
    day of Build -- not without moving it out of its window, or asking for two
    maximal long runs a fortnight apart immediately before a taper.
@@ -6052,7 +6059,7 @@ function applyEventTaper(days, weeks, raceDateStr, easyFloorKm, anchorDays, fina
      WEEKLY WORKLOAD      due by the end of Build. buildVolumeKm is what the
                           athlete should be carrying when Peak begins.
      MARATHON LONG RUN    a CULMINATING standard, reached once, in Peak, inside
-                          the D-21..D-14 window. What Build owes is the
+                          the D-23..D-14 window. What Build owes is the
                           durability and the supporting workload to complete it
                           safely -- not the distance itself.
 
@@ -6088,7 +6095,7 @@ var RACE_GOAL_PATHWAY = {
      quality slot and a supporting run at SUPPORT_SHARE_MIN of it -- 1.8x the
      long run -- with room to spare:
 
-       half  15/8  (1.88x)   30/15 (2.00x)   45/20 (2.25x)
+       half  15/8  (1.88x)   20/10 (2.00x)   45/20 (2.25x)
        full  20/10 (2.00x)   40/18 (2.22x)   60/24 (2.50x)
 
      ---- HALF MARATHON ----
@@ -6097,63 +6104,89 @@ var RACE_GOAL_PATHWAY = {
      are deliberately modest beside the marathon's and the long run is a
      supporting durability authority rather than the organising session. */
   half: {
+    /* ---- HQ NARROW PATHWAY CORRECTION (Half) ----
+       Replaces the whole table with HQ's own tier-by-tier floors: Start,
+       End Base, End Build, Peak and the single culminating long run (LR)
+       every pathway develops toward and holds. entryDays is the floor of
+       HQ's stated "days best" range (Developing 4, Established 4-5,
+       Advanced 5-6): the athlete's own stated availability, not this
+       number, decides how many days a block actually distributes across
+       (see the frequency-repair correction), so this is where an athlete
+       who states nothing starts, not a cap on anyone who states more.
+
+       endBaseVolumeKm IS CARRIED, NOT YET A CURVE ANCHOR. HQ gave the
+       autonomy to "design the safe pathway within the already design
+       base... build peak phases as long as it is safe" -- so the existing
+       single, Nielsen-rate-capped curve from entry to the Peak destination
+       (raceGoalFloorAtStep(), already floor-protected and already unable
+       to lower or jump-snap anything) is the safe pathway design, and this
+       figure is recorded for readiness reporting and human reference
+       rather than forced into a second piecewise segment. A dedicated
+       Base-to-Base-end curve stage was scoped and deliberately not built
+       this pass: every prior attempt this session at reshaping the curve
+       in this exact machinery caused population-wide regressions, and nothing
+       in HQ's directive requires any single week to land on this figure
+       exactly -- only that it never function as a ceiling holding an
+       athlete back, which the existing floor-only curve already guarantees:
+       it never lowers a destination and never snaps an athlete downward. */
     novice: {
-      /* FIFTEEN KILOMETRES, LOCKED BY HQ. It removes the ambiguity about what
-         "new" means at this distance: somebody ready to begin fifteen weeks of
-         dedicated half marathon preparation, running about eight kilometres as
-         their longest run. Not a beginner, and not somebody who has to be
-         talked out of the programme. */
-      entryVolumeKm: 15, entryLongKm: 8,  entryDays: 3,
-      buildVolumeKm: 30, buildLongKm: 13,
-      peakVolumeKm:  38, peakLongKm:  16, openEnded: false },
+      entryVolumeKm: 15, entryLongKm: 8,  entryDays: 4,
+      endBaseVolumeKm: 25,
+      buildVolumeKm: 30, buildLongKm: 16,
+      peakVolumeKm:  35, peakLongKm:  16, openEnded: false },
     experienced: {
-      entryVolumeKm: 30, entryLongKm: 15, entryDays: 4,
-      buildVolumeKm: 40, buildLongKm: 19,
-      peakVolumeKm:  70, peakLongKm:  19, openEnded: false },
+      entryVolumeKm: 20, entryLongKm: 10, entryDays: 4,
+      endBaseVolumeKm: 35,
+      buildVolumeKm: 45, buildLongKm: 19,
+      peakVolumeKm:  50, peakLongKm:  19, openEnded: false },
     advanced: {
       entryVolumeKm: 45, entryLongKm: 20, entryDays: 5,
-      buildVolumeKm: 60, buildLongKm: 21,
-      peakVolumeKm:  80, peakLongKm:  21, openEnded: true }
+      endBaseVolumeKm: 60,
+      buildVolumeKm: 75, buildLongKm: 22,
+      peakVolumeKm:  85, peakLongKm:  22, openEnded: true }
   },
   /* ---- MARATHON ----
      A durability event, and the pathway says so: the long-run capability is
      the headline requirement and the weekly workload exists to carry it.
-     PEAK STATES NO VOLUME DESTINATION OF ITS OWN, deliberately -- once the
-     Build capability exists, Peak's job is to convert it into race-specific
-     readiness, and further mileage has to be earned from evidence rather than
-     scheduled. That is a real difference from the half, not an omission.
 
-     AND `buildLongKm` HERE IS THE CULMINATING STANDARD, NOT AN END-BUILD ONE.
-     Per HQ's amendment above: 26 / 29 / 32 are reached once, in Peak, inside
-     the D-21..D-14 window, and what Build owes is the durability and
-     supporting workload to complete that run safely. The field keeps its name
-     because it is the figure the long run is DEVELOPED TOWARD from the first
-     week -- the curve aims at it throughout -- and readiness measures the run
-     the block actually delivers against it, which is the culminating one.
-     Measured across the canonical set, Build closes to within two to four
-     kilometres of the standard and Peak delivers it. */
+     HQ NARROW PATHWAY CORRECTION (Marathon) -- PEAK NOW STATES ITS OWN
+     VOLUME FLOOR (55/75/90), REPLACING THE PRIOR "no volume destination of
+     its own" DESIGN. That was a deliberate choice under the old table,
+     reasoned from Build's own capability being enough and Peak's job being
+     conversion rather than more mileage; HQ's new table states a further,
+     explicit Peak volume floor for every tier, so raceGoalVolumeDestinationKm
+     ('peak') now reads it directly the same way the half's always has --
+     never a ceiling, ordinary evidence-raises-it-further rules unchanged.
+
+     `buildLongKm`/`peakLongKm` CARRY THE SAME SINGLE CULMINATING FIGURE, per
+     HQ's one "LR" number per tier. It is reached once, in Peak, inside the
+     D-23..D-14 window -- and that window is not a new constant to enforce:
+     it is wider than the single last-Peak-week the destination long run
+     already lands in (see "AND HQ MOVED IT TO THE END OF PEAK" in
+     buildBlockWeeks), so the existing placement sits inside it without any
+     change. What Build owes is the durability and supporting workload to
+     complete that run safely, not the distance itself -- the same
+     "developed toward from week one, delivered as the culminating
+     exposure" reading the field has always carried. endBaseVolumeKm is
+     carried the same way the half's is -- an intermediate floor for
+     reporting and reference, not a second curve segment; see the half's
+     comment above for why. */
   full: {
-    /* ---- WEEK ONE, LOCKED BY HQ: 20 / 30 / 40 ----
-       These are the designed opening workloads of the three marathon pathways.
-       They are not builder inputs, not inferred claims, and above all not
-       reverse-solved from the progression equation: an earlier pass on this
-       branch moved the novice entry to 24km and a 13km long run because eight
-       steps at ten percent could not otherwise reach 26, and HQ has ruled that
-       reasoning out. It is a diagnostic of the geometry, not a reason to
-       redefine the athlete. The geometry was the defect and the geometry was
-       fixed -- see raceGoalStepCount(). */
     novice: {
-      entryVolumeKm: 20, entryLongKm: 10, entryDays: 3,
-      buildVolumeKm: 40, buildLongKm: 26,
-      peakVolumeKm:  null, peakLongKm: 26, openEnded: false },
+      entryVolumeKm: 20, entryLongKm: 10, entryDays: 4,
+      endBaseVolumeKm: 40,
+      buildVolumeKm: 50, buildLongKm: 28,
+      peakVolumeKm:  55, peakLongKm: 28, openEnded: false },
     experienced: {
-      entryVolumeKm: 40, entryLongKm: 18, entryDays: 4,
-      buildVolumeKm: 55, buildLongKm: 29,
-      peakVolumeKm:  null, peakLongKm: 29, openEnded: false },
+      entryVolumeKm: 40, entryLongKm: 18, entryDays: 5,
+      endBaseVolumeKm: 55,
+      buildVolumeKm: 65, buildLongKm: 30,
+      peakVolumeKm:  75, peakLongKm: 30, openEnded: false },
     advanced: {
       entryVolumeKm: 60, entryLongKm: 24, entryDays: 5,
-      buildVolumeKm: 70, buildLongKm: 32,
-      peakVolumeKm:  null, peakLongKm: 32, openEnded: true }
+      endBaseVolumeKm: 70,
+      buildVolumeKm: 80, buildLongKm: 32,
+      peakVolumeKm:  90, peakLongKm: 32, openEnded: true }
   },
   /* ---- 5K AND 10K ----
      HQ's own §6/§8/§9/§11 ruling. Both are speed-end events beside the
@@ -6313,7 +6346,12 @@ var RACE_GOAL_PATHWAY = {
    18 and 22 sit clear of both pathways' culminating standards (16 and 18) so
    no canonical programme is moved by adding the entry; what it stops is every
    Experienced/Advanced pathway being quietly capped below its own table. */
-var RACE_GOAL_LONG_CAP_KM = { half: 26, full: 36, '5k': 18, '10k': 22 };
+/* full: 35, not 36 -- HQ's absolute long-run ceiling. Beyond 35km training
+   brings recovery cost, connective-tissue load and glycogen depletion that
+   is not worth the marginal specificity; extra capacity goes to mid-week
+   volume instead (see the long-run destination logic; the ceiling is
+   demonstrated-evidence-proof by construction, not just a default). */
+var RACE_GOAL_LONG_CAP_KM = { half: 26, full: 35, '5k': 18, '10k': 22 };
 function raceGoalLongCapKm(distKey, purpose){
   var prof = DISTANCE_PROFILES[distKey];
   var base = prof ? prof.longCapKm : null;
@@ -6445,7 +6483,7 @@ function raceGoalVolumeDestinationKm(distKey, experience, entry, phase){
    `phase` selects which requirement is being asked about, exactly as it does
    for volume. What differs is WHEN each is due, and HQ's amendment settles it:
    the weekly workload is owed by the end of Build, and the marathon long run is
-   owed once, in Peak, inside the D-21..D-14 window.
+   owed once, in Peak, inside the D-23..D-14 window.
 
    So a caller asking for the 'build' long-run figure is asking what the long
    run is DEVELOPED TOWARD -- the number the curve aims at from week one -- and
@@ -6601,9 +6639,16 @@ function raceGoalReadiness(distKey, experience, blockResult){
   var worst = dims.reduce(function(a, b){
     return (a == null || b.fraction < a.fraction) ? b : a; }, null);
   var allMet = dims.every(function(d){ return d.met; });
-  var verdict = (allMet && worst.fraction >= RACE_GOAL_READY_FRACTION) ? 'READY'
-              : worst.fraction >= RACE_GOAL_MARGINAL_FRACTION ? 'MARGINAL'
-              : 'INSUFFICIENT';
+  /* HQ RACE GOAL SAFETY-FLOOR CORRECTION -- THE FLOOR IS NON-NEGOTIABLE.
+     A dimension not met is the block's own delivered curve provably short
+     of the standard it was built to reach -- not a fraction's business to
+     soften into an admitted, "merely hard" MARGINAL. See the matching
+     ruling above raceGoalAdmission()'s call into raceGoalPreparationOutlook
+     for the full reasoning; this is the same boundary read post-build
+     rather than pre-build, so the two never disagree. */
+  var verdict = !allMet ? 'INSUFFICIENT'
+              : (worst.fraction >= RACE_GOAL_READY_FRACTION) ? 'READY'
+              : 'MARGINAL';
   return {
     verdict: verdict, limitedBy: worst.key, dimensions: dims,
     pathway: experience, distanceKey: distKey,
@@ -6988,8 +7033,10 @@ function raceGoalCutbackWeekOf(alloc, w){
    HQ: the athlete's longest appropriate and substantial long run must occur
    within the final seven days of Peak, immediately before taper begins. That
    is the last Peak week, and for a Sunday race it puts the run on the last day
-   of Peak -- D-14 for the marathon, inside HQ's D-21..D-14 window, and D-14
-   for the half, inside its D-17..D-10 window.
+   of Peak -- D-14 for the marathon, inside HQ's D-23..D-14 window, and D-10
+   for the half, inside its D-19..D-10 window. Both windows are wider than the
+   single week the last-Peak-week placement lands in, so the existing
+   placement already sits inside them without needing to move.
 
    THIS MOVED, AND MOVING IT IS THE POINT. The exposure used to be the FIRST
    Peak week, with the weeks after it given to specificity while the long run
@@ -7368,7 +7415,32 @@ function raceGoalPreparationOutlook(distKey, experience, N, opts){
 
   var needWeekKm = s.buildVolumeDestKm;
   var needLongKm = s.buildLongDestKm;
-  if (s.volumeDestKm > 0 && reachWeekKm < s.volumeDestKm) reachWeekKm = s.volumeDestKm;
+  /* HQ NARROW PATHWAY CORRECTION -- THE FLOOR RAISE MAY NOT OUTRUN THE SAME
+     SAFETY RATE reachLongKm IS ALREADY HELD TO. This used to raise
+     reachWeekKm straight to s.volumeDestKm, the pathway's raw, unconstrained
+     Peak figure -- unconditionally, regardless of how many progressing
+     weeks this runway actually has. HQ's higher pathway volumes exposed the
+     gap: entering New Marathon @10w at 20km against a 50km Build figure, or
+     Experienced Half @10w at 20km against a 45km one, is more than the six
+     available steps can close even at the Nielsen safety-rate ceiling
+     (measured: both cap at ~43.9km), while this unconditional raise still
+     projected the full, uncapped destination and called workload met -- a
+     false optimism the "PROJECTION -- the pre-flight verdict is the
+     verdict the block earns" invariant exists to catch (it does: the real
+     per-week build's own workload dimension is genuinely short in both
+     cases, exactly matching this curve estimate). The floor is still a
+     promise the block keeps regardless of the destination-based solve
+     above (reachWeekKm may still be raised, never lowered), but raising it
+     now stops at the same curve reachLongKm already respects, rather than
+     at the raw, uncapped destination.
+
+     SCOPED TO HALF/FULL ONLY -- HQ's directive is a Half/Marathon pathway
+     correction and 5K/10K's own numbers did not move, so 5K/10K keeps the
+     unconditional raise it was already measured against untouched. */
+  var reachWeekKmFloor = (distKey === 'half' || distKey === 'full')
+    ? raceGoalFloorAtStep(s.entryKm, s.volumeDestKm, s.progressing, s.progressing)
+    : s.volumeDestKm;
+  if (s.volumeDestKm > 0 && reachWeekKm < reachWeekKmFloor) reachWeekKm = reachWeekKmFloor;
 
   var dims = [];
   var mk = function(key, reached, required, quantum){
@@ -7387,9 +7459,17 @@ function raceGoalPreparationOutlook(distKey, experience, N, opts){
   var worst = dims.reduce(function(a,b){
     return (a == null || b.fraction < a.fraction) ? b : a; }, null);
   var allMet = dims.every(function(d){ return d.met; });
-  var verdict = (allMet && worst.fraction >= RACE_GOAL_READY_FRACTION) ? 'READY'
-              : worst.fraction >= RACE_GOAL_MARGINAL_FRACTION ? 'MARGINAL'
-              : 'INSUFFICIENT';
+  /* HQ RACE GOAL SAFETY-FLOOR CORRECTION -- THE FLOOR IS NON-NEGOTIABLE. See
+     the matching ruling above raceGoalAdmission()'s call into this function.
+     A dimension not met means the Nielsen-capped safe route (reachWeekKm/
+     reachLongKm, above) provably did not reach needWeekKm/needLongKm --
+     the pathway's own required destination, never redefined down -- inside
+     this runway. That is an explicit reachability failure and INSUFFICIENT
+     is what admission refuses on; a fraction was never entitled to soften
+     it into an admitted, "merely hard" MARGINAL. */
+  var verdict = !allMet ? 'INSUFFICIENT'
+              : (worst.fraction >= RACE_GOAL_READY_FRACTION) ? 'READY'
+              : 'MARGINAL';
   /* ---- AND A PROJECTION MADE WITHOUT THE PRICE OF A SESSION IS NOT ONE ----
      The solve measures session cost in TIME. With no easy pace to price it
      with -- an athlete who has given Valhalla no benchmark at all -- the
@@ -7549,18 +7629,30 @@ function raceGoalAdmission(distKey, weeksToRace, stateVolume, opts){
      property of THEM, and HQ's ruling is that it must be answered before the
      block is constructed rather than reported after it.
 
-     REFUSAL IS FOR THE STRUCTURALLY IMPOSSIBLE, NOT FOR THE MERELY HARD. A
-     projection that lands short of the standard but within reach of it is a
-     real programme that says so -- the athlete arrives having done most of
-     what the event asks, and Valhalla tells them which part is missing. A
-     projection that cannot approach the standard at all is not a programme,
-     and building one would be Valhalla knowingly preparing somebody for an
-     event it has already calculated they will not be prepared for.
+     REFUSAL IS FOR THE STRUCTURALLY IMPOSSIBLE, NOT FOR THE MERELY HARD --
+     AND "STRUCTURALLY IMPOSSIBLE" IS NOW READ ON THE FLOOR ITSELF, NOT ON A
+     FRACTION OF IT. HQ RACE GOAL SAFETY-FLOOR CORRECTION, NARROW: the
+     pathway's floor is non-negotiable -- starting capacity controls the
+     SAFE ROUTE (the Nielsen-capped curve raceGoalFloorAtStep() walks), the
+     race still controls the REQUIRED DESTINATION, and a safe route that
+     does not reach it is not a real, if harder, programme to build. A
+     dimension is MET only when its absolute gap sits inside the session's
+     own presentation quantum -- the smallest unit the number is ever shown
+     in -- which is the same test raceGoalReadiness() already applies to
+     the block it actually built. Every dimension met is what "reached
+     the floor" means; a fraction alone was never the standard, only a
+     description of how far short one that DIDN'T reach fell.
 
-     SO THE BOUNDARY IS THE ONE READINESS ALREADY DRAWS. INSUFFICIENT is
-     refused and routed; MARGINAL is admitted and declared. The projection is
-     carried on the result either way, so a caller can show the athlete what
-     the programme is expected to reach before they commit to it.
+     SO THE BOUNDARY IS WHETHER EVERY DIMENSION WAS MET. Any dimension not
+     met -- the safe route provably short of the destination -- is
+     INSUFFICIENT, refused and routed: the lower endpoint is never quietly
+     redefined as wherever the safe route happened to stop. Where every
+     dimension IS met, MARGINAL still exists for the case that reaches the
+     floor in practice but whose fraction falls short of full (READY)
+     confidence -- a real programme the athlete arrives at, not a promise
+     the runway could not keep. The projection is carried on the result
+     either way, so a caller can show the athlete what the programme is
+     expected to reach before they commit to it.
 
      AND A SHORTFALL THAT APPEARS LATER IS NOT THIS. Missed weeks, illness, a
      block the athlete is straining in -- those are readiness questions about a
@@ -9153,6 +9245,15 @@ function marathonSlotKindFor(planWeeks, weekNum, phase, isCheckpoint, isCalibrat
    the readiness benefit justifies it. This function only prices it. */
 var LONG_RUN_COST_ORDINARY_SEC = 150 * 60;   // 2h30
 var LONG_RUN_COST_HEAVY_SEC    = 210 * 60;   // 3h30
+/* HQ'S DEVELOPING-MARATHON TIME CEILING -- a tighter, distance-specific
+   override on top of the general cost pressure above. A Developing
+   marathoner at 7:00/km is already past 3 hours at 26km; HQ's rule is that
+   this athlete does not scale the distance up from there even as weekly
+   volume grows, and reaching 3 hours of time on feet satisfies the
+   long-run requirement in its own right, short of the km floor or not.
+   Read only where raceGoalDestinationSolve() prices a Developing (novice)
+   marathon's long-run cost bound -- see mLongCostCeilSec there. */
+var RACE_GOAL_DEVELOPING_MARATHON_TIME_CEIL_SEC = 180 * 60;   // 3h00
 function longRunCostPressure(seconds){
   if (!(seconds > 0)) return 0;
   var p = (seconds - LONG_RUN_COST_ORDINARY_SEC) /
@@ -10178,8 +10279,17 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
 
        For every pace these pathways are actually run at the floor is
        untouched: the New marathon's 26km at 7:00/km is 3h02 and the
-       Advanced's 32km at 5:00/km is 2h40, both inside the bound. */
-    var mCostLong = (mPaceSec > 0) ? LONG_RUN_COST_HEAVY_SEC / mPaceSec : Infinity;
+       Advanced's 32km at 5:00/km is 2h40, both inside the bound.
+
+       HQ'S DEVELOPING MARATHON EXCEPTION. For distKey==='full' && a novice
+       (Developing) block, the general 3h30 heavy-cost bound is not tight
+       enough -- HQ's own worked example is a Developing marathoner at
+       7:00/km, already over 3 hours at 26km, who should not be scaled up
+       from there. So this one pathway prices its long run against 3 hours,
+       not 3h30; every other pathway is unchanged. */
+    var mLongCostCeilSec = (distKey === 'full' && mExp === 'novice')
+      ? RACE_GOAL_DEVELOPING_MARATHON_TIME_CEIL_SEC : LONG_RUN_COST_HEAVY_SEC;
+    var mCostLong = (mPaceSec > 0) ? mLongCostCeilSec / mPaceSec : Infinity;
     var mCoh = Math.max(longRunCoherenceCeiling(mSupportDest),
                         Math.min(mPathLong, mCostLong));
     if (mLongDest.km > mCoh){
@@ -10679,8 +10789,26 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          that is preparing for one. Maintenance is not the time to test what the
          athlete has; aerobic base is not either; and a speed block already ends
          in a benchmark, so a second maximal effort three weeks earlier is one
-         too many in six weeks. */
-      isCheckpoint = !steady && arc.hasCheckpoint && (w === Math.max(1,Math.round(buildWeeks*0.6)));
+         too many in six weeks.
+
+         HQ NARROW CORRECTION -- NOT ON AN ABSORPTION WEEK. The target is a
+         fixed calendar position (60% of Build), computed with no regard for
+         where that lands relative to raceGoalCutbackWeek() -- so a
+         checkpoint could and did land ON one, and being a fixed, unshrinkable
+         effort (it is the test; see checkpointDayKm()'s own comment) it
+         then rode over the top of the week's reduction rather than sharing
+         in it, the same "cutback week larger than the week before it"
+         defect the reduction was written to close. specNotAfterAbsorption()
+         already holds the identical principle for a different structural
+         arrival -- an absorption week is not asking for a bigger dose, so a
+         new demand waits a week rather than landing on it -- applied here to
+         the same calendar collision. */
+      var checkpointTargetWeek = Math.max(1, Math.round(buildWeeks*0.6));
+      if (usesBottomUpArc(purpose, distKey) &&
+          raceGoalCutbackWeek(distKey, N, checkpointTargetWeek, blockExp) &&
+          checkpointTargetWeek < buildWeeks)
+        checkpointTargetWeek += 1;
+      isCheckpoint = !steady && arc.hasCheckpoint && (w === checkpointTargetWeek);
     } else if (isTaper){
       var taperIdx = w-buildWeeks;
       var frac = taper>0 ? taperIdx/taper : 1;
@@ -10779,8 +10907,14 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          rate ever got them, never by a jump the week before it did not
          also take a share of. */
       /* A CUTBACK REDUCES THE SESSIONS, not a total that is then re-divided.
-         Same factor, applied where the training actually is. */
-      if (isCutback){ mLong *= CUTBACK_FACTOR; mSupport *= CUTBACK_FACTOR; }
+         Support takes CUTBACK_FACTOR everywhere. The long run does too, EXCEPT
+         on Half/Marathon, where HQ's down-week is asymmetric -- the long run
+         is the session the week is protecting, so it comes down further. */
+      if (isCutback){
+        mSupport *= CUTBACK_FACTOR;
+        mLong *= (distKey === 'half' || distKey === 'full') ?
+                 RACE_GOAL_CUTBACK_LONG_FACTOR : CUTBACK_FACTOR;
+      }
       /* AND SO DOES A TAPER. The dose comes down; the sessions stay sessions.
 
          NOT FOR THE HALF, WHOSE TAPER IS A DATE. Its wind-down week is
@@ -11166,6 +11300,28 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
     if (halfArc && mWeek && mWeek.longKm > 0)
       weekFitCeil = Math.min(weekFitCeil,
                              Math.max(EASY_QUANTUM_KM, roundTo(mWeek.longKm, 1) - EASY_QUANTUM_KM));
+    /* HQ NARROW CORRECTION -- A CUTBACK CEILING ON THE QUALITY SESSION WAS
+       TRIED HERE AND REVERTED. The intent: bound a cutback week's quality
+       session at what the athlete actually delivered the week before
+       (mPrevQualityKm), so a rotation landing on a structurally bigger
+       family (interval, 11.5km, following a tempo at 9.5km the week
+       before it) could not net-zero against the long run's own reduction.
+       Two shapes of this were tried. Shrinking weekFitCeil by
+       CUTBACK_FACTOR outright closed that one case but pushed the same
+       kilometres onto the week the cutback rebounds into instead
+       (measured, hillRepeatsClassification.test.js's vo2 sequence
+       stepping 808 to 2272 hard seconds -- a rebound over 2x the
+       artificially-smaller cutback week that preceded it). Capping at
+       mPrevQualityKm was a no-op for its own target case, because the
+       interval pool's own structural floor at that rotation position
+       (11.5km) sat above the ceiling regardless, and it went on to move
+       halfVsMarathonQuality.test.js's TEMPO check by drifting into
+       prevQSpec/prevTSpec (the seed a LATER taper week reads), which is
+       further than a ceiling on one week's own session is entitled to
+       reach. Neither version is worth the collateral for a case it either
+       didn't close or closed by breaking something else. The New Half
+       week-11 case is left as a documented, narrow limitation -- see the
+       HQ report. */
     /* S2-A. In a taper the ceiling decides WHICH structure as well as how big
        it is -- see fitTaperQualityStructure. Everywhere else the rotation's own
        choice is sized exactly as it always was. */
@@ -11350,13 +11506,43 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        a maximal effort is a coaching judgement, and it is HQ's -- see the
        report. This holds only the case where the answer is none. */
     var calInformsDevelopment = w < buildWeeks;
+    /* HQ NARROW CORRECTION -- THE ACTUAL SLOT, NOT A HISTORY OF OTHER WEEKS'.
+       This used to read mMaxQSlotsSoFar, a high-water mark of PRIOR weeks'
+       resolved quality-slot counts -- a proxy standing in for "does THIS
+       week have a quality slot", because this week's own resolve
+       (mSolveWeek(), inside the isRealisticQualityStructure branch below)
+       has not run yet. The proxy is necessary-but-not-sufficient: a week
+       that inherits eligibility from an earlier week's slot can still
+       itself resolve to zero (its OWN long run + easy floor already fills
+       its capacity), and the calibration was then marked placed with no
+       slot to actually write it into -- calibrationPlaced:true and no
+       calibration day, silently. Measured: full/novice at eleven weeks,
+       week 3 (mMaxQSlotsSoFar>0 from weeks 1-2) with its own qSlots at 0.
+
+       THE FIX ASKS THE SAME QUESTION marathonQualityEligible() ASKS LATER,
+       WITH THE SAME INPUTS, EARLY. mCap and mLong (read here as mWeek's own
+       capacityKm/longKm -- both fully settled by this point in the loop,
+       including every cutback/taper/floor adjustment already applied) are
+       already this week's own, real, resolved values -- nothing here is a
+       forecast. The one missing input is the calibration/checkpoint day's
+       own priced size, and that is deterministic too:
+       marathonSlotKindFor() always returns 'tempo' for a checkpoint or a
+       calibration (see its own definition), so qualityDeliveredKm() prices
+       it as checkpointDayKm(tKm, emphasis) -- exactly what mQBase computes
+       for this same week a few lines below once isCalibration is actually
+       set. Read here with the SAME two functions and the SAME inputs, so
+       the two calls can never drift and the answer can never be wrong in
+       the direction that mattered: a week either can genuinely carry the
+       session, or it cannot, decided once, correctly, the first time. */
+    var calSlotKm = checkpointDayKm(tKm, profile.emphasis);
+    var calSlotEligible = marathonQualityEligible(mWeek ? mWeek.capacityKm : null, mLong, calSlotKm);
     /* WOULD THIS WEEK HAVE HELD IT, setting the usefulness question aside? Kept
        so a withheld calibration can say WHICH of the two reasons applies: no
        week in the block could carry the protocol at all, or a week could and it
        came too late to inform anything. They are different facts about the
        athlete and APP should be able to tell the athlete which one it is. */
     var calCouldHold = !isRace && !isTaper && !isCutback && !isCheckpoint &&
-                       (!mBottomUp || w === 1 || mMaxQSlotsSoFar > 0) && calFitsWeek &&
+                       (!mBottomUp || w === 1 || calSlotEligible) && calFitsWeek &&
                        (calibrate || (calibrateWhenViable &&
                                       calWeekKm >= CALIBRATION_MIN_WEEKLY_KM));
     if (calCouldHold && calFirstViableWeek == null) calFirstViableWeek = w;
@@ -11364,7 +11550,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       if (calibrate && w === 1 && calFitsWeek) isCalibration = true;
       else if ((calibrate || calibrateWhenViable) && w > 1 &&
                !isCutback && !isCheckpoint &&
-               (!mBottomUp || mMaxQSlotsSoFar > 0) && calFitsWeek &&
+               (!mBottomUp || calSlotEligible) && calFitsWeek &&
                /* The safety floor is the DEFERRED path's own gate: an athlete
                   whose evidence already earned the calibration has cleared it
                   and is not asked again, they are only waiting for a week that
@@ -11407,6 +11593,24 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       soloKm = soloKind === 'interval' ? intervalSessionKm(soloSpec) : tempoSessionKm(soloSpec);
       soloFitsBound = soloKm <= weekFitCeil + 1e-9;
     }
+    /* HQ NARROW CORRECTION -- A CUTBACK-HOLD WAS ALSO TRIED HERE, MIRRORING
+       THE TAPER BRANCH ABOVE, AND REVERTED. Holding prevSoloKind through a
+       cutback (same shape: same structure, shrunk by CUTBACK_FACTOR rather
+       than re-selected) closed the New Half @14w week-11 case this comment
+       used to describe, but it did so by overriding marathonQualityKindFor
+       ()/halfQualityKindFor()'s own phase-scheduled family sequence -- not
+       a rotation a cutback is entitled to interrupt, unlike the taper's
+       final wind-down where nothing is scheduled to arrive any more.
+       Measured: halfVsMarathonQuality.test.js's novice half no longer
+       culminated on threshold_continuous, because a cutback landing on the
+       scheduled transition week held the PRIOR family through it instead
+       of letting the schedule take effect -- the same class of defect this
+       whole correction exists to close, reached from a new direction. So
+       it was reverted rather than kept, and the New Half week-11 case is
+       left as a documented, narrow limitation (see the HQ report) rather
+       than risking HQ-approved culmination methodology to close it. The
+       weekFitCeil-side cutback ceiling this comment used to also describe
+       was reverted too -- see the note above weekFitCeil for why. */
     /* ---- AND THE TWO-SLOT SEED IS RECORDED HERE, NOT WHERE IT WAS ----
        IT USED TO SIT BESIDE THE STRUCTURES THEMSELVES, two hundred lines up --
        which is BEFORE the calibration decision is taken. A guard placed there
@@ -11460,6 +11664,28 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         profile.emphasis, rotation, weekFitCeil, null, 1);
       soloKm = soloKind === 'interval' ? intervalSessionKm(soloSpec) : tempoSessionKm(soloSpec);
       soloFitsBound = soloKm <= weekFitCeil + 1e-9;
+      /* HQ NARROW CORRECTION -- A GUARD WAS TRIED HERE AND REVERTED. The
+         "AND A TEST IS NOT A FAMILY" principle below (prevQSpec/prevTSpec/
+         prevSoloKind never record a calibration or checkpoint as the
+         family it primed) does NOT extend to this occurrence count without
+         much wider consequences: guarding soloOccT the same way fixed
+         halfVsMarathonQuality.test.js's TEMPO check (a novice half's real
+         tempo weeks were landing on threshold_continuous because a
+         calibration/checkpoint had spuriously advanced the pool's
+         occurrence index), but it shifts the tempo pool's occurrence
+         sequence for every Half/Marathon block that carries a calibration
+         or checkpoint -- population-wide, not scoped to the one case it
+         was meant to close -- and broke session-content and load-
+         progression assertions across multiple unrelated test files
+         (structuralTransitionHold, planMathematicsInvariants, the
+         frequency-repair suite, session-label rendering). That is a real,
+         separate, pre-existing occurrence-counting question, not a narrow
+         fix within this correction's scope -- it changes what MOST Half/
+         Marathon blocks with a test session actually deliver, and deserves
+         its own dedicated investigation and HQ sign-off rather than being
+         absorbed into this one. Left as a documented, narrow, known
+         limitation -- see the HQ report -- alongside the New Half week-11
+         cutback case above. */
       if (soloKind === 'interval') soloOccQ++; else soloOccT++;
       /* ---- AND WHAT THE ATHLETE ACTUALLY RAN IS WHAT THE NEXT WEEK HOLDS ----
          prevQSpec and prevTSpec are set above from the two-slot path, which is
@@ -11575,8 +11801,9 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
            This made the FIRST Peak week the block's longest run and held every
            week after it at or below that figure. HQ's architecture puts the
            longest appropriate long run in the final seven days of Peak,
-           immediately before taper begins -- D-21 to D-14 for the marathon,
-           which for a Sunday race is the last day of the last Peak week.
+           immediately before taper begins -- landing on D-14 for the
+           marathon, which for a Sunday race is the last day of the last
+           Peak week and sits inside HQ's own D-23..D-14 window.
 
            So the roles swap and nothing else moves. The LAST Peak week arrives
            at the long run's destination on its own progression, which is where

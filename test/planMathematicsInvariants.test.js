@@ -1696,12 +1696,19 @@ test('a day the week does not run on is a rest day, in every block that has one'
 test('the calibration is the first prescribed running session of the block', () => {
   const a = require('./audit/planAudit.js').app();
   a.state = a.makeDefaultState();
+  /* HQ NARROW PATHWAY CORRECTION -- experience is now passed explicitly, as
+     'advanced'. Half's implicit (unnamed) experience default no longer
+     keeps the calibration in week one at every schedule under HQ's new
+     table (Experienced Half's own entry dropped 30 -> 20km); Advanced
+     Half's entry (45) did not move, so it keeps the placement this test
+     assumes. Same fix as calibratedPlan() in earlyCalibration.test.js. */
+  a.state.experience = 'advanced';
   const schedule = { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 };
   const start = a.todayStr();
   const end = a.addDays(a.addDays(start, -a.isoWeekday(start)), 12 * 7 - 1);
   for (const scheduleKey of [[1, 2, 3, 5, 6], [0, 1, 2, 3, 5, 6], [1, 3, 6]]){
     const sched = { activeDays: scheduleKey, longRunDay: 6 };
-    const days = a.buildDaysFromWeeks(a.buildBlockWeeks('half', 45, 12, { calibrate: true }),
+    const days = a.buildDaysFromWeeks(a.buildBlockWeeks('half', 45, 12, { calibrate: true, experience: 'advanced' }),
       end, sched, start, false);
     const cal = days.filter(d => d.type === 'calibration');
     assert.equal(cal.length, 1, 'exactly one calibration on ' + scheduleKey.length + ' days');
