@@ -151,8 +151,19 @@ test('and it answers the case that previously had no answer at all', () => {
 
 function raceAthlete(distKey){
   const a = app();
+  /* HQ NARROW PATHWAY CORRECTION -- experience is set explicitly, to
+     'advanced', before the plan is built. The implicit (unnamed) default
+     resolves to 'experienced', whose own entry HQ's directive dropped
+     (Half 30 -> 20km), and at this fixture's fixed 45km/14-week/-49-day
+     shape that now leaves the checkpoint's assessment with no rate-based
+     recommendation to make (a downstream evidence/capacity shift, not the
+     checkpoint-card mechanic this file exists to test). Advanced's own
+     entry did not move, so it keeps the shape every test here assumes. */
+  a.state = a.makeDefaultState();
+  a.state.experience = 'advanced';
   buildPlan(a, { distanceKey: distKey, volume: 45, weeks: 14, lthr: 172, maxHR: 188,
                  startDate: a.addDays(TODAY, -49) });
+  a.state.experience = 'advanced';
   const su = a.state.setup;
   su.purpose = 'race';
   const bp = a.DISTANCE_PROFILES[su.benchmark.distanceKey], pr = a.DISTANCE_PROFILES[distKey];

@@ -99,24 +99,56 @@ test('the short-runway verdict at seven weeks matches what the SAME athlete proj
 
 /* ---------- 3. A WEAK ATHLETE STAYS REFUSED AT THE SAME RUNWAYS ---------- */
 
-test('5K: a novice with no evidence is still refused at seven weeks, on their own priced projection rather than the calendar alone', () => {
+test('5K: a novice with no evidence is admitted and developed toward the floor at seven weeks', () => {
+  /* HQ RACE GOAL SAFETY-FLOOR OVERRIDE -- "the floor needs to be the main
+     driver." This athlete has no logged evidence, so entry stands at the
+     pathway's own designed entry (entrySource stays 'pathway', unchanged);
+     what used to refuse them was that a rate-limited projection could not
+     close the gap from that entry to the pathway's destination inside
+     seven weeks. raceGoalFloorAtStep()/raceGoalPreparationOutlook() now
+     read the same Nielsen-rate curve buildBlockWeeks() actually builds: a
+     5km entry to an 8km floor over three intervals reaches 7.4km (5 x
+     1.14^3), close enough that the durability dimension's own tolerance
+     still calls it met, so there is no shortfall left to refuse on -- but
+     it is the curve's honest reach, not a value force-raised to the floor. */
   const a = app();
   a.state.experience = 'novice';
   const adm = a.raceGoalAdmission('5k', 7, null, { availableDays: 4, easyPaceSecPerKm: 330 });
-  assert.equal(adm.admitted, false);
-  assert.equal(adm.decision, 'too_short');
-  assert.equal(adm.reason, 'preparation_not_reachable_in_short_runway');
+  assert.equal(adm.admitted, true, 'decision: ' + adm.decision);
+  assert.equal(adm.decision, 'race_goal_short_runway');
+  assert.equal(adm.preparation.entrySource, 'pathway');
   assert.ok(adm.preparation && adm.preparation.confident);
-  assert.equal(adm.preparation.verdict, 'INSUFFICIENT');
+  assert.equal(adm.preparation.verdict, 'READY');
+  assert.equal(adm.preparation.reachWeekKm, adm.preparation.requiredWeekKm);
+  assert.equal(adm.preparation.reachLongKm, 7.4,
+    'the Nielsen-rate curve\'s own reach from a 5km entry in three steps');
+  assert.ok(adm.preparation.dimensions.find(d => d.key === 'durability').met,
+    'within tolerance of the floor even though not force-raised to it exactly');
 });
 
-test('5K and 10K: the same novice is refused at six weeks too', () => {
+test('5K and 10K: the same novice is refused at six weeks, the safe route genuinely short of the floor', () => {
+  /* HQ RACE GOAL SAFETY-FLOOR NARROW CORRECTION -- "the floor remains
+     non-negotiable... treat it as an explicit reachability/admission
+     failure." At six weeks there are only two development intervals, and
+     the Nielsen safety rate cannot close a 5km/6km entry long run to an
+     8km/10km floor in two steps without a late jump this architecture will
+     not make -- the same boundary the marathon reachability tests hold.
+     Workload reaches its floor exactly; durability provably does not
+     (1.5km/2.2km short, well past the 1km presentation quantum), so the
+     safe route did not reach the required destination and admission
+     refuses rather than building a short, undeclared "MARGINAL" plan. */
   const a = app();
   a.state.experience = 'novice';
   const adm5k = a.raceGoalAdmission('5k', 6, null, { availableDays: 4, easyPaceSecPerKm: 330 });
   const adm10k = a.raceGoalAdmission('10k', 6, null, { availableDays: 4, easyPaceSecPerKm: 330 });
-  assert.equal(adm5k.admitted, false);
-  assert.equal(adm10k.admitted, false);
+  assert.equal(adm5k.admitted, false, '5k decision: ' + adm5k.decision);
+  assert.equal(adm10k.admitted, false, '10k decision: ' + adm10k.decision);
+  assert.equal(adm5k.preparation.verdict, 'INSUFFICIENT');
+  assert.equal(adm10k.preparation.verdict, 'INSUFFICIENT');
+  assert.equal(adm5k.preparation.shortfall.length, 1);
+  assert.equal(adm5k.preparation.shortfall[0], 'durability');
+  assert.equal(adm10k.preparation.shortfall.length, 1);
+  assert.equal(adm10k.preparation.shortfall[0], 'durability');
 });
 
 /* ---------- 4. FIVE WEEKS AND BELOW STAYS AN UNCONDITIONAL REFUSAL, EVEN FOR THE STRONG ATHLETE ---------- */

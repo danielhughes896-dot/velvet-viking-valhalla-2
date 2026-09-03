@@ -34,9 +34,20 @@ function app(){
 function racingAthlete(opts){
   const o = opts || {};
   const a = app();
+  /* HQ NARROW PATHWAY CORRECTION -- experience is passed explicitly where a
+     caller asks for it (opts.experience). The implicit (unnamed) default
+     resolves to 'experienced', whose own Half entry HQ's directive dropped
+     30 -> 20km; only the one test whose fixture needs the pre-correction
+     shape back (the 'builder still builds a race block' mutation check)
+     asks for 'advanced', whose own entry (45) did not move. Every other
+     caller is unaffected -- in particular the volume-qualification safety
+     test below, which specifically needs the DEFAULT, moderate-capacity
+     athlete this fixture always described. */
+  if (o.experience){ a.state = a.makeDefaultState(); a.state.experience = o.experience; }
   buildPlan(a, { weeks: o.weeks || 14, startDate: a.addDays('2026-08-21', -(o.back || 84)),
                  distanceKey: o.distanceKey || 'half', volume: o.volume || 55,
                  benchSec: 45 * 60 });
+  if (o.experience) a.state.experience = o.experience;
   a.state.setup.schedule = SCHEDULE;
   a.state.setup.benchmark = { distanceKey: '10k', timeSec: 45 * 60 };
   a.state.setup.goals = { A: { timeSec: 100 * 60 } };
@@ -584,7 +595,7 @@ test('MUTATION: the BUILDER cannot produce race language for a non-race purpose'
 });
 
 test('MUTATION: the builder still builds a race block exactly as before', () => {
-  const a = racingAthlete();
+  const a = racingAthlete({ experience: 'advanced' });
   logPast(a);
   builderDom(a, { 'su-purpose': 'race', 'su-racedate': '2027-05-01' });
   a.handleGeneratePlan();

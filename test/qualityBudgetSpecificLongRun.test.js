@@ -45,7 +45,15 @@ function plan(dist, days, earned, weeks){
   }
   let blk, ds, end;
   try {
-    blk = a.buildBlockWeeks(dist, VOL[dist], weeks || 16, {});
+    /* HQ NARROW PATHWAY CORRECTION -- experience is now passed explicitly,
+       as 'advanced'. Half/Marathon's implicit (unnamed) experience default
+       resolves to 'experienced', whose own entry HQ's directive dropped
+       (Half 30 -> 20km), and at this file's fixed 5-day/55-60km-ish fixture
+       that now loses week 6's earned second quality slot alongside a
+       specific long run -- a downstream day-count/capacity shift, not the
+       quality-budget mechanic this file exists to test. Advanced's own
+       entry did not move, so it keeps the shape every test here assumes. */
+    blk = a.buildBlockWeeks(dist, VOL[dist], weeks || 16, { experience: 'advanced' });
     end = a.addDays(a.addDays(TODAY, -a.isoWeekday(TODAY)), blk.planWeeks*7 - 1);
     ds = a.buildDaysFromWeeks(blk, end, SCHED[days], TODAY, true);
   } finally { a.athleteResponseModel = realM; a.blockEffectiveness = realB; }

@@ -26,7 +26,8 @@ const path = require('path');
 const { loadApp } = require(path.join(__dirname, 'harness.js'));
 
 const TODAY = '2026-08-30';
-const DAYSETS = { 2:[1,6], 3:[1,3,6], 4:[1,3,4,6], 5:[0,1,3,4,6], 6:[0,1,2,3,4,6] };
+const DAYSETS = { 2:[1,6], 3:[1,3,6], 4:[1,3,4,6], 5:[0,1,3,4,6], 6:[0,1,2,3,4,6],
+                   7:[0,1,2,3,4,5,6] };
 
 /* ---- WHAT GRADES THE WEEK IS EVIDENCE, NOT THE TYPED NUMBER ----
    Destination-led construction removed the typed weekly figure as an authority
@@ -83,13 +84,21 @@ test('the week chooses its own frequency, and the answers are graded', () => {
 test('session cost decides the day count, which a ratio could not', () => {
   /* THE DISCRIMINATION THAT MATTERS. The same kilometres cost a slower athlete
      more time, so their work needs spreading further -- and a shape ratio is
-     blind to it, because the shape is identical. */
+     blind to it, because the shape is identical.
+
+     HQ NARROW PATHWAY CORRECTION -- six available days no longer shows the
+     difference: Experienced Marathon's higher table (peak 75, up from a
+     null figure that fell back to 55) means both a fast and a slow athlete
+     now genuinely need all six of a six-day week, leaving no room for the
+     slower one to need more. Given a seventh day the same discrimination
+     is exactly as clear as before -- fast stops at six, slow goes to
+     seven. */
   const runsAt = (v, pace) => {
     const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
     a.renderApp=()=>{}; a.flushSave=()=>{}; a.scheduleSave=()=>{}; a.showToast=()=>{};
     a.state = a.makeDefaultState();
-    const S = { activeDays: DAYSETS[6], longRunDay: 6 };
-    const blk = a.buildBlockWeeks('full', v, 15, { availableDays: 6, easyPaceSecPerKm: pace });
+    const S = { activeDays: DAYSETS[7], longRunDay: 6 };
+    const blk = a.buildBlockWeeks('full', v, 15, { availableDays: 7, easyPaceSecPerKm: pace });
     const end = a.addDays(a.addDays(TODAY, -a.isoWeekday(TODAY)), blk.planWeeks * 7 - 1);
     const ds = a.buildDaysFromWeeks(blk, end, S, TODAY, true, { easyPaceSecPerKm: pace });
     let wn = 1; for (; wn <= blk.planWeeks; wn++) if (ds.filter(x => x.week === wn).length === 7) break;
@@ -102,10 +111,16 @@ test('session cost decides the day count, which a ratio could not', () => {
 test('an extra day is extra training, so days are not spent for nothing', () => {
   /* Under bottom-up a supporting day develops on its own progression, so days
      spend the athlete's development ceiling -- and what they spend, the long
-     run does not get. */
+     run does not get.
+
+     HQ NARROW PATHWAY CORRECTION -- moved from 6 to 7 available days for the
+     same reason as the test above: Experienced Marathon's higher table now
+     genuinely fills all six days of a six-day week at every volume tested
+     here, leaving none of them available to prove "days are not imposed
+     for nothing". A seventh day still goes unused at these volumes. */
   [25, 40, 50].forEach(v => {
-    const r = build(v, 15, 6);
-    assert.ok(r.runs < 6, v + 'km/week consumed all six available days');
+    const r = build(v, 15, 7);
+    assert.ok(r.runs < 7, v + 'km/week consumed all seven available days');
     assert.ok(r.optional > 0, 'and the rest stay available rather than imposed');
   });
 });

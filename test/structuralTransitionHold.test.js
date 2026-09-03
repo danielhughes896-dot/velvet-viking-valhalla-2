@@ -275,8 +275,20 @@ test('a day arrives at the earned supporting workload, not on top of it', () => 
   a.state.athlete = { sessions: history(a, 8, 2) };
   const blk = block(a, 8, 12, 5);
   const ws = devWeeks(blk);
-  const i = ws.findIndex(w => (w.bottomUp || {}).heldAtEarnedWorkload &&
-                              /running_day/.test((w.bottomUp || {}).structureArrived || ''));
+  /* HQ RACE GOAL SAFETY-FLOOR CORRECTION -- skip an arrival immediately
+     following a cutback week. The long run is NOT held through a cutback
+     (only scaled down by CUTBACK_FACTOR that one week; see buildBlockWeeks()'s
+     own comment on why an absorption week's reduction is not a hold), so the
+     week right after one is a rebound by design -- "one ordinary step above
+     the week before the reduction", the same documented shape support's own
+     rebound already uses. Comparing an ordinary-step assertion against the
+     cutback week itself (rather than the trend it interrupted) is not a
+     meaningful comparison; this athlete's block happens to land its first
+     running-day arrival exactly there, so the search steps past it to the
+     first arrival that is a genuine week-to-week comparison. */
+  const i = ws.findIndex((w, idx) => (w.bottomUp || {}).heldAtEarnedWorkload &&
+                              /running_day/.test((w.bottomUp || {}).structureArrived || '') &&
+                              idx > 0 && !ws[idx - 1].isCutback);
   assert.ok(i > 0, 'the 8km/12-week case holds at its third running day');
   assert.ok(runDays(ws[i]) > runDays(ws[i - 1]), 'and the day really did arrive');
   const b = ws[i].bottomUp, p = ws[i - 1].bottomUp;

@@ -55,9 +55,18 @@ test('RACE GOAL — a typed figure below the safety floor still defers the field
      pathway's assumption. It defers the TEST; it sizes nothing, admits nothing
      and moves no destination -- and once the field is gone there is no such
      figure to read, so this protects only the athletes who still supply
-     one. */
-  const low  = R.build({ dist:'half', exp:'intermediate', days:5, weeks:15, stated:5, tt5kMin:24 });
-  const none = R.build({ dist:'half', exp:'intermediate', days:5, weeks:15, tt5kMin:24 });
+     one.
+
+     HQ NARROW PATHWAY CORRECTION -- moved from Half/Experienced to
+     Half/Advanced. Experienced Half's own entry dropped 30 -> 20, close
+     enough to what week one already needs to hold the calibration protocol
+     that BOTH the deferred and the immediate case now first become viable
+     at the same week (2), collapsing the gap this test measures without
+     the deferral itself having stopped working (elig.reason still reads
+     'insufficient_base' for the low case). Advanced Half's entry (45) did
+     not move, so it still shows the same asymmetry the old fixture did. */
+  const low  = R.build({ dist:'half', exp:'advanced', days:6, weeks:15, stated:5, tt5kMin:18 });
+  const none = R.build({ dist:'half', exp:'advanced', days:6, weeks:15, tt5kMin:18 });
   assert.equal(low.elig.reason, 'insufficient_base');
   assert.equal(none.elig.reason, 'eligible');
   const calLow  = low.dd.filter(d => d.type === 'calibration')[0];
@@ -123,11 +132,14 @@ test('ADMISSION — the projection is independent of the typed figure', () => {
 });
 
 test('CALIBRATION — a test the block could not place is declared, not dropped', () => {
-  /* A fixed fifty-two minute effort inside a twenty-kilometre week is most of
-     the athlete's training, and the safety floor has always refused it. What
+  /* A fixed fifty-two minute effort inside a short-runway week is most of
+     the athlete's training, and a week that thin still refuses it. What
      changes is that the refusal is now visible: the block says the zones it
-     ran on were estimated rather than measured. */
-  const small = R.build({ dist:'half', exp:'novice', days:5, weeks:10, tt5kMin:24 });
+     ran on were estimated rather than measured. (Ten weeks was the original
+     example here; the safety floor now legitimately develops that runway
+     past the point where the test can't fit, so a shorter runway is what
+     still exercises the "could not place it" path.) */
+  const small = R.build({ dist:'half', exp:'novice', days:5, weeks:7, tt5kMin:24 });
   assert.equal(small.blk.calibrationRequested, true);
   assert.equal(small.blk.calibrationPlaced, false);
   assert.equal(small.blk.calibrationUnplaced, true,

@@ -57,8 +57,15 @@ const app = () => loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
 function device() {
   const a = app();
   a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  /* HQ NARROW PATHWAY CORRECTION -- startDate moved from -35 to -49 days.
+     Experienced Half's own entry dropped 30 -> 20km, which is exactly the
+     kind of shift the comment above already warns moves the supporting day:
+     -35 (today in week 6 of 12) no longer lands a companion on today under
+     the new table. -49 (today in week 8 of 12) does, keeping the same
+     "several weeks of history already logged, comfortably mid-block"
+     shape the original offset was chosen for. */
   buildPlan(a, { distanceKey: 'half', volume: 45, weeks: 12, lthr: 172, maxHR: 188,
-                 startDate: a.addDays(TODAY, -35), earnedSecondQuality: true });
+                 startDate: a.addDays(TODAY, -49), earnedSecondQuality: true });
   a.state.setup.supportWork = 'on';
   a.cloudSession = { access_token: 't', refresh_token: 'r', user_id: 'uid-1',
                      email: 'a@b.c', expires_at: Date.now() + 3600e3 };

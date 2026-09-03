@@ -116,25 +116,34 @@ function endOfBuild(res){
    the demonstrated long run IS its entry long run. Seeding a canonical athlete
    above the pathway start would bypass the very thing the gate exists to test,
    which is whether the DESIGNED start reaches the DESIGNED destination. */
+/* HQ NARROW PATHWAY CORRECTION -- the six pathways' own Start/Build/Peak
+   figures moved (see RACE_GOAL_PATHWAY); needBuildKm/needBuildLong/
+   needPeakKm/needPeakLong below are re-pointed at the new table so this
+   generator keeps testing "reaches its OWN pathway's floor", not a frozen
+   one. Only Experienced Half's entry evidence itself needed to change
+   (longKm 15->10, easyKm 5->2.5): its entry moved from 30/15 to HQ's new
+   20/10, and this fixture is written, per the comment above, to sum to
+   exactly the pathway's own entry and nothing more -- every other
+   pathway's entry figures are unchanged, so their evidence is too. */
 const CANON = [
   { key:'New Half',      dist:'half', exp:'novice',      days:5, weeks:15,
     ev:{ easyKm:3.5, longKm:8, easyDays:[0,2], tt5kMin:28 },
-    needBuildKm:30, needBuildLong:13, needPeakKm:35, needPeakLong:16 },
+    needBuildKm:30, needBuildLong:16, needPeakKm:35, needPeakLong:16 },
   { key:'Experienced Half', dist:'half', exp:'experienced', days:6, weeks:15,
-    ev:{ easyKm:5, longKm:15, qKm:5, easyDays:[0,2], tt5kMin:22 },
-    needBuildKm:40, needBuildLong:19, needPeakKm:null, needPeakLong:19 },
+    ev:{ easyKm:2.5, longKm:10, qKm:5, easyDays:[0,2], tt5kMin:22 },
+    needBuildKm:45, needBuildLong:19, needPeakKm:50, needPeakLong:19 },
   { key:'Advanced Half', dist:'half', exp:'advanced',    days:6, weeks:15,
     ev:{ easyKm:6, longKm:20, qKm:7, easyDays:[0,2,4], tt5kMin:18 },
-    needBuildKm:60, needBuildLong:21, needPeakKm:80, needPeakLong:21 },
+    needBuildKm:75, needBuildLong:22, needPeakKm:85, needPeakLong:22 },
   { key:'New Marathon',  dist:'full', exp:'novice',      days:5, weeks:15,
     ev:{ easyKm:5, longKm:10, easyDays:[0,2], tt5kMin:28 },
-    needBuildKm:40, needBuildLong:26, needPeakKm:null, needPeakLong:null },
+    needBuildKm:50, needBuildLong:28, needPeakKm:55, needPeakLong:28 },
   { key:'Experienced Marathon', dist:'full', exp:'experienced', days:6, weeks:15,
     ev:{ easyKm:6, longKm:18, qKm:4, easyDays:[0,2,4], tt5kMin:22 },
-    needBuildKm:55, needBuildLong:29, needPeakKm:null, needPeakLong:null },
+    needBuildKm:65, needBuildLong:30, needPeakKm:75, needPeakLong:30 },
   { key:'Advanced Marathon', dist:'full', exp:'advanced',    days:6, weeks:15,
     ev:{ easyKm:10, longKm:24, qKm:6, easyDays:[0,2,4], tt5kMin:18 },
-    needBuildKm:70, needBuildLong:32, needPeakKm:null, needPeakLong:null }
+    needBuildKm:80, needBuildLong:32, needPeakKm:90, needPeakLong:32 }
 ];
 /* ---- AND THE SAME SIX AT THE ADMISSION FLOOR ----
    HQ admits Race Goal from ten weeks. The ten-week programme has four fewer

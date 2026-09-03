@@ -58,7 +58,14 @@ test('Advanced Marathon: additional availability increases prescribed frequency 
   const p4 = peakWeek(at4.blk), p5 = peakWeek(at5.blk), p6 = peakWeek(at6.blk);
   assert.equal(p4.bottomUp.supportDays, 2, '4 days: no longer stalls -- 2 is what 4 raw days can carry');
   assert.equal(p5.bottomUp.supportDays, 3, '5 days: a real day genuinely used');
-  assert.equal(p6.bottomUp.supportDays, 3, '6 days: the sixth is a deliberate non-use, not blindness -- proven by the trigger test below');
+  /* HQ NARROW PATHWAY CORRECTION -- Advanced Marathon's peak volume rose from
+     80 to 90km, so the sixth day now genuinely clears the coherence floor
+     the mNeed loop already gates it on (see raceGoalDestinationSolve()'s
+     comment on mSupportDays): a bigger week has more to distribute, and the
+     same loop that held it at 3 under the old table now finds a fourth day
+     legitimately helps. The mechanism did not change; only the volume it is
+     being asked to distribute did. */
+  assert.equal(p6.bottomUp.supportDays, 4, '6 days: the higher peak volume now genuinely uses a fourth');
 });
 
 test('5K/10K/Half Novice-Experienced: additional availability CAN raise frequency where it was previously invisible to the seed', () => {
@@ -181,9 +188,13 @@ test('Marathon: additional prescribed support running in Peak is only introduced
 
 /* ---------- 8/9. LONG-RUN DESTINATIONS AND QUALITY TRUTH UNCHANGED ---------- */
 
-test('long-run destinations are read verbatim from the untouched pathway table, at every availableDays', () => {
+test('long-run destinations are read verbatim from the pathway table, at every availableDays', () => {
+  /* Half Advanced's own figure moved 21 -> 22 under HQ's narrow pathway
+     correction; this test's point is that the frequency repair does not
+     invent its own number regardless of what the table says, so it is
+     re-pointed at the table's current value rather than a frozen one. */
   const a = app();
-  [['5k','advanced',16], ['10k','advanced',18], ['half','advanced',21], ['full','advanced',32]].forEach(([dist, exp, expectLong]) => {
+  [['5k','advanced',16], ['10k','advanced',18], ['half','advanced',22], ['full','advanced',32]].forEach(([dist, exp, expectLong]) => {
     const pathway = a.raceGoalPathway(dist, exp);
     assert.equal(pathway.buildLongKm, expectLong, `${dist} ${exp} pathway table long-run destination must be unchanged`);
     [4,5,6].forEach(days => {
@@ -232,9 +243,15 @@ test('SUPPORT_SHARE_MAX is unchanged, and no supporting run the repair produces 
 /* ---------- 11/12/13. OPTIONAL RUN: HISTORY, SKIPPED, AND FUTURE RECONCILIATION ---------- */
 
 test('a previously completed Optional Run remains real history after a rebuild', () => {
+  /* HQ NARROW PATHWAY CORRECTION -- Advanced Marathon's higher table
+     (peak 90/build 80, up from 80/70) now genuinely uses all six available
+     days at every phase, so it no longer offers an unused day to log
+     against; this test's subject is Optional Run reconciliation, not any
+     particular pathway, so it uses New (novice) Marathon instead, which
+     still has room at 6 days for the whole block. */
   const a = app();
-  a.state.experience = 'advanced';
-  const blk = a.buildBlockWeeks('full', null, 15, { purpose:'race', availableDays:6, experience:'advanced', easyPaceSecPerKm:330 });
+  a.state.experience = 'novice';
+  const blk = a.buildBlockWeeks('full', null, 15, { purpose:'race', availableDays:6, experience:'novice', easyPaceSecPerKm:330 });
   const raceDate = a.addDays(a.addDays(a.todayStr(), -a.isoWeekday(a.todayStr())), 15 * 7 - 1);
   const schedule = { activeDays:[0,1,2,3,5,6], longRunDay:6 };
   const oldDays = a.buildDaysFromWeeks(blk, raceDate, schedule, a.todayStr(), false, { easyPaceSecPerKm:330 });
@@ -255,9 +272,10 @@ test('a previously completed Optional Run remains real history after a rebuild',
 });
 
 test('a skipped (never logged) Optional Run offer does not become a retroactive missed prescribed session', () => {
+  /* Same pathway swap as the test above, same reason. */
   const a = app();
-  a.state.experience = 'advanced';
-  const blk = a.buildBlockWeeks('full', null, 15, { purpose:'race', availableDays:6, experience:'advanced', easyPaceSecPerKm:330 });
+  a.state.experience = 'novice';
+  const blk = a.buildBlockWeeks('full', null, 15, { purpose:'race', availableDays:6, experience:'novice', easyPaceSecPerKm:330 });
   const raceDate = a.addDays(a.addDays(a.todayStr(), -a.isoWeekday(a.todayStr())), 15 * 7 - 1);
   const schedule = { activeDays:[0,1,2,3,5,6], longRunDay:6 };
   const days = a.buildDaysFromWeeks(blk, raceDate, schedule, a.todayStr(), false, { easyPaceSecPerKm:330 });
@@ -307,11 +325,18 @@ test('raceGoalAvailabilityLimited: fires with named reasons on the reported case
 });
 
 test('raceGoalAvailabilityLimited: does not fire once the extra day has already been granted, or when granting one would break coherence', () => {
+  /* HQ NARROW PATHWAY CORRECTION -- Advanced Marathon's higher table (peak
+     90/build 80, up from 80/70) means a bigger week to distribute, so the
+     5th day no longer fully resolves the concentration seen at 4 -- it now
+     takes 6 to do that, the same shift already proven in the "additional
+     availability" test above (supportDays 3 -> 4 at 6 days). The trigger
+     still reports nothing once the extra day genuinely is granted; only
+     which day count that happens at moved with the table. */
   const a = app();
   const r5 = a.raceGoalAvailabilityLimited('full', 'advanced', null, 15, { availableDays:5, easyPaceSecPerKm:330 });
-  assert.equal(r5.limited, false, 'the 5th day already resolved the concentration seen at 4');
+  assert.equal(r5.limited, true, 'the 5th day no longer fully resolves the concentration at this larger pathway volume');
   const r6 = a.raceGoalAvailabilityLimited('full', 'advanced', null, 15, { availableDays:6, easyPaceSecPerKm:330 });
-  assert.equal(r6.limited, false, 'a 7th day would fall below the coherence floor, so 6 is not reported as limited');
+  assert.equal(r6.limited, false, 'the 6th day is where the concentration is now genuinely resolved');
 });
 
 test('raceGoalAvailabilityLimited: never fires from a raw kilometre threshold -- the highest-mileage pathway tested is NOT flagged while a much smaller one IS', () => {
