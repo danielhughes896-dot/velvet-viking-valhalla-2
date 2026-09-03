@@ -271,14 +271,21 @@ test('genuinely insufficient preparation is still distinguishable', () => {
   assert.equal(short.route, 'insufficient_time');
   assert.ok(typeof short.reason === 'string' && short.reason.length > 0);
 
-  const blk = a.buildBlockWeeks('full', 51, 4,
+  /* HQ RACE GOAL SAFETY-FLOOR CORRECTION -- the floor is now the driver, so
+     a four-week block pushes a well-evidenced athlete at the Nielsen safety
+     rate rather than the old ordinary rate, closing more of the gap to the
+     pathway's destination than before. That crosses RACE_GOAL_MARGINAL_
+     FRACTION at four weeks (workload 0.83, durability 0.71) -- a genuinely
+     closer approach, not a defect -- so three weeks is what still isolates
+     "genuinely insufficient", the same distinction this test always made. */
+  const blk = a.buildBlockWeeks('full', 51, 3,
     { purpose: 'race', availableDays: 6, easyPaceSecPerKm: 330 });
   const rd = a.raceGoalReadiness('full', 'experienced', blk);
   assert.equal(rd.verdict, 'INSUFFICIENT',
-    'four weeks of marathon preparation must not report as ready');
+    'three weeks of marathon preparation must not report as ready');
   assert.ok(rd.shortfall.length > 0, 'and must name what is short');
   assert.ok(rd.dimensions.some(d => d.key === 'durability' && !d.met),
-    'durability above all: four weeks cannot build a marathon long run');
+    'durability above all: three weeks cannot build a marathon long run');
   /* And a window that IS enough is not refused. */
   assert.notEqual(a.athletePathway('full', 51, 16).route, 'insufficient_time');
   assert.notEqual(a.athletePathway('full', 70, 12).route, 'insufficient_time');

@@ -93,21 +93,43 @@ test('TEN WEEKS — every fifteen-week pathway is admitted, and admission says w
   });
 });
 
-test('TEN WEEKS — a structurally unreachable entry state is refused, not built', () => {
-  /* The New marathon pathway from its own locked 20km / 10km entry. Ten weeks
-     is six development intervals; 10km to 26km is 2.6x and needs ten. The
-     arithmetic does not close and the athlete is routed to the block that
-     builds what is missing. */
+test('TEN WEEKS — the floor is now the driver, so this entry state is admitted and developed toward it', () => {
+  /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- "the floor needs to be the
+     main driver... current approved work is making the plans produce too
+     low plans." The New marathon pathway's own locked 20km / 10km entry,
+     read from this athlete's thin demonstrated evidence (entrySource stays
+     'demonstrated' -- the ENTRY point is still honest about where they
+     start); ten weeks is six development intervals and 10km to 26km is a
+     2.6x jump, which is exactly why this case used to be refused outright.
+
+     THE FLOOR RAISES THE DESTINATION, NOT THE SAFETY RATE. The week volume
+     (20km -> 40km) closes inside the Nielsen two-week cap comfortably, so
+     it reaches its floor exactly. The long run (10km -> 26km) does not --
+     2.6x in six steps needs faster growth than
+     sqrt(SESSION_TWO_WEEK_GROWTH_CAP) ever allows, and this architecture
+     will not close that gap with a late jump or a catch-up week; that
+     invariant is what raceGoalProgressionShape.test.js exists to hold. So
+     the long run is genuinely, honestly short at the safety rate's own
+     ceiling (10 x 1.14^6 =~ 22km) -- closer than the old ordinary-rate
+     curve ever reached, but not force-snapped to the floor. That is a real
+     shortfall, correctly named as one, and MARGINAL is the honest verdict
+     for it rather than a promised READY the block cannot keep. */
   const c = R.CANON_10.filter(x => x.key.indexOf('New Marathon') === 0)[0];
   const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:10 }, c.ev));
   const adm = res.a.raceGoalAdmission('full', 10, null,
                 { availableDays:c.days, easyPaceSecPerKm:res.pace });
-  assert.equal(adm.admitted, false);
-  assert.equal(adm.decision, 'preparation_not_reachable');
-  assert.equal(adm.limitedBy, 'durability');
-  assert.equal(adm.recommend, 'base',
-    'a durability shortfall is aerobic development, not speed work');
-  assert.equal(adm.preparation.verdict, 'INSUFFICIENT');
+  assert.equal(adm.admitted, true, 'decision: ' + adm.decision);
+  assert.equal(adm.decision, 'race_goal');
+  assert.equal(adm.preparation.entrySource, 'demonstrated',
+    'the entry point itself must still read the athlete\'s thin evidence honestly');
+  assert.equal(adm.preparation.entryKm, 20);
+  assert.equal(adm.preparation.entryLongKm, 10);
+  assert.equal(adm.preparation.verdict, 'MARGINAL');
+  assert.equal(adm.preparation.reachWeekKm, 40, 'the week floor, met exactly -- the gap closes inside the safety rate');
+  assert.equal(adm.preparation.reachLongKm, 22,
+    'the long run reaches the Nielsen safety rate\'s own ceiling from a 10km entry in six steps, honestly short of the 26km floor');
+  assert.equal(adm.preparation.shortfall.length, 1);
+  assert.equal(adm.preparation.shortfall[0], 'durability');
 });
 
 test('TEN WEEKS — a pathway that reaches the standard is admitted normally', () => {
@@ -121,20 +143,34 @@ test('TEN WEEKS — a pathway that reaches the standard is admitted normally', (
   });
 });
 
-test('TEN WEEKS — a shortfall within reach is admitted and declared, not refused', () => {
-  /* MARGINAL is a real programme. The athlete arrives having done most of what
-     the event asks and Valhalla names the part that is missing. Refusing it
-     would be refusing the merely hard rather than the structurally
-     impossible. */
+test('TEN WEEKS — a shortfall within reach is admitted and now closed, not merely declared', () => {
+  /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- these two used to be
+     admitted MARGINAL, with the gap between the destination-led curve and
+     the pathway floor named as a shortfall rather than closed, because the
+     old architecture reported what was safely reachable rather than
+     guaranteeing the floor. The floor is now the driver: both are admitted
+     and both now reach their pathway's own floor exactly, so there is
+     nothing left to declare short. What this test still holds is that
+     neither is REFUSED for being merely hard -- that boundary still exists,
+     just with no MARGINAL programme sitting inside it any more. */
   ['New Half', 'Experienced Half'].forEach(name => {
     const c = R.CANON_10.filter(x => x.key.indexOf(name) === 0)[0];
     const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:10 }, c.ev));
     const adm = res.a.raceGoalAdmission('half', 10, null,
                   { availableDays:c.days, easyPaceSecPerKm:res.pace });
     assert.equal(adm.admitted, true, name + ': ' + adm.decision);
-    assert.equal(adm.preparation.verdict, 'MARGINAL');
-    assert.ok(adm.preparation.shortfall.length > 0,
-      name + ': admitted MARGINAL but named nothing as short');
+    assert.equal(adm.preparation.verdict, 'READY');
+    assert.equal(adm.preparation.shortfall.length, 0,
+      name + ': admitted READY but still named a shortfall');
+    /* reachWeekKm is floored at the pathway's PEAK figure (what the block
+       is actually built to), which for a half is stated separately from
+       and above requiredWeekKm (the Build figure the dims/verdict are
+       measured against) -- so this is >=, not ==. */
+    assert.ok(adm.preparation.reachWeekKm >= adm.preparation.requiredWeekKm,
+      name + ': the floor, met exactly rather than approached');
+    /* Same Peak-vs-Build distinction as the week figure above. */
+    assert.ok(adm.preparation.reachLongKm >= adm.preparation.requiredLongKm,
+      name + ': the floor, met exactly rather than approached');
   });
 });
 
@@ -157,20 +193,33 @@ test('EVIDENCE OVER LABEL — a strong New athlete is admitted to a ten-week mar
     'the projection ignored the evidence: entry read as ' + adm.preparation.entryKm);
 });
 
-test('EVIDENCE OVER LABEL — a thin Experienced athlete is refused a ten-week marathon', () => {
-  /* Nominally Experienced. Their recent training is 18km a week and an 8km
-     long run. The pathway would have opened them at 40km; the evidence says
-     otherwise, and it is the evidence that is believed. */
+test('EVIDENCE OVER LABEL — a thin Experienced athlete is admitted and developed to the floor', () => {
+  /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- "the floor needs to be the
+     main driver." Nominally Experienced; their recent training is 22km a
+     week and a 14km long run -- well below the pathway's own 40km/18km
+     assumed entry, so this is still a thin-evidence case, not a strong one.
+     The ENTRY point still believes the evidence over the label --
+     entrySource stays 'demonstrated' and entryKm stays the athlete's own
+     thin figure. The DESTINATION is the pathway's floor regardless of how
+     far below it the entry sits, and here the gap (14km -> 29km over six
+     intervals) closes inside the Nielsen safety rate, so the block reaches
+     it exactly rather than the athlete being routed away from Race Goal
+     for arriving honest. (A still-thinner entry, e.g. an 8km long run, is
+     a materially different case -- the safety rate genuinely cannot close
+     that gap in six steps without a late jump, and is refused rather than
+     oversold; see the marathon reachability tests for that boundary.) */
   const res = R.build({ dist:'full', exp:'intermediate', days:4, weeks:10,
-                        easyKm:4, longKm:8, easyDays:[0,2], tt5kMin:26 });
+                        easyKm:4, longKm:14, easyDays:[0,2], tt5kMin:26 });
   const adm = res.a.raceGoalAdmission('full', 10, null,
                 { availableDays:4, easyPaceSecPerKm:res.pace });
-  assert.equal(adm.admitted, false,
-    'an Experienced label carried an athlete their evidence cannot carry');
-  assert.equal(adm.decision, 'preparation_not_reachable');
+  assert.equal(adm.admitted, true, 'decision: ' + adm.decision);
+  assert.equal(adm.decision, 'race_goal');
   assert.equal(adm.preparation.entrySource, 'demonstrated');
   assert.ok(adm.preparation.entryKm < 30,
     'the pathway assumption overrode the evidence: entry read as ' + adm.preparation.entryKm);
+  assert.equal(adm.preparation.verdict, 'READY');
+  assert.equal(adm.preparation.reachWeekKm, 55, 'the Experienced marathon floor');
+  assert.equal(adm.preparation.reachLongKm, 29, 'the Experienced marathon floor');
 });
 
 test('NO EVIDENCE — the pathway supplies the entry, and nothing invents a low one', () => {
@@ -227,12 +276,17 @@ test('CONTINUITY — the typed weekly volume changes no admission decision', () 
 });
 
 test('NO PRICE, NO REFUSAL — a missing pace cannot manufacture an unreachable verdict', () => {
-  /* The solve prices sessions in time. Asked without an easy pace it has no
-     cost bound and no cost-driven frequency, and it comes out BELOW what the
-     same block actually builds -- measured, an 8km long run projected against
-     the 9.9km delivered. Absence of information is not evidence of incapacity,
-     so a projection made in that state is marked unconfident and admission
-     will not refuse on it. */
+  /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- the solve still prices
+     sessions in time, and asked without an easy pace it still has no cost
+     bound and no cost-driven frequency; what changed is that the reach
+     figure this used to depress is now floored at the pathway's own
+     destination regardless of pricing, so an unpriced projection can no
+     longer read BELOW what the same block actually builds -- it reads
+     exactly the floor, the same as a priced one. `confident` still
+     distinguishes the two honestly (a caller can still tell whether a real
+     price was used), and it is still true that admission will not refuse on
+     an unpriced projection, because there is nothing for a missing price to
+     depress any more. */
   const res = R.build({ dist:'half', exp:'novice', days:5, weeks:10,
                         easyKm:3.5, longKm:8, easyDays:[0,2], tt5kMin:28 });
   const blind = res.a.raceGoalPreparationOutlook('half', 'novice', 10, null);
@@ -240,11 +294,9 @@ test('NO PRICE, NO REFUSAL — a missing pace cannot manufacture an unreachable 
   const priced = res.a.raceGoalPreparationOutlook('half', 'novice', 10,
                    { availableDays:5, easyPaceSecPerKm:res.pace });
   assert.equal(priced.confident, true);
-  assert.ok(blind.reachLongKm < priced.reachLongKm,
-    'the unpriced projection was not the pessimistic one this guard exists for');
-  /* And the guard is load-bearing: the blind projection is INSUFFICIENT, and
-     admission still admits. */
-  assert.equal(blind.verdict, 'INSUFFICIENT');
+  assert.equal(blind.reachLongKm, priced.reachLongKm,
+    'both are floored at the same pathway destination regardless of pricing');
+  assert.equal(blind.verdict, 'READY');
   assert.equal(res.a.raceGoalAdmission('half', 10, null, null).admitted, true);
 });
 

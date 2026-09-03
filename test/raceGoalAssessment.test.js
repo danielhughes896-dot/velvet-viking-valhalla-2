@@ -186,10 +186,20 @@ test('CONTRACT — the verdict vocabulary is closed and every member is reachabl
 test('CONTRACT — preparation_short is the programme\'s verdict, not the athlete\'s', () => {
   /* Fitness admits the goal and the runway does not. The reason names the
      dimension that fell short, so a caller can say which -- workload,
-     durability, or both -- rather than "not ready". */
+     durability, or both -- rather than "not ready".
+
+     HQ RACE GOAL SAFETY-FLOOR CORRECTION -- the New Half canonical entry
+     (8km long run) used here previously now reaches its own ten-week floor
+     exactly (the gap closes inside the Nielsen safety rate) and projects
+     READY, so it no longer demonstrates a short runway at all. A thinner
+     long-run entry (5km, versus the canonical 8km) keeps every other
+     figure the same and still leaves a genuine, honestly-measured gap the
+     ten-week runway cannot close -- the case this contract test exists to
+     hold. */
   const R = require(path.join(__dirname, 'audit', 'raceGoalReachability.js'));
   const c = R.CANON_10.filter(x => x.key.indexOf('New Half') === 0)[0];
-  const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:10 }, c.ev));
+  const thinEv = Object.assign({}, c.ev, { longKm: 5 });
+  const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:10 }, thinEv));
   const a = res.a;
   a.state.setup = Object.assign(a.state.setup || {}, {
     distanceKey:'half', raceDate:'2026-05-10', activeGoal:'A',

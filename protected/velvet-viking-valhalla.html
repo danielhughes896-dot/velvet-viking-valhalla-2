@@ -7343,10 +7343,32 @@ function raceGoalPreparationOutlook(distKey, experience, N, opts){
   catch(e){ cap = null; }
   var destWeekKm = s.longDestKm + (s.supportDays + s.qSlots) * (s.supportDestKm || 0);
   var reachWeekKm = (cap != null) ? Math.min(cap, destWeekKm) : destWeekKm;
-  var reachLongKm = s.longDestKm;
+  /* HQ RACE GOAL SAFETY-FLOOR CORRECTION -- THE LONG RUN READS WHAT THE
+     CURVE ACTUALLY DELIVERS, NOT THE DESTINATION ALONE. longDestKm is the
+     TARGET raceGoalDestinationSolve() floor-raises the block toward;
+     buildBlockWeeks()'s per-week loop (mLong = raceGoalFloorAtStep(
+     startLongKm, longDestKm, progressing, step)) reaches it only where the
+     Nielsen-rate curve covers the gap from the athlete's own start within
+     the runway's progressing steps, and falls genuinely short where it
+     cannot -- the same architecture that keeps every other Race Goal
+     progression from a late jump or a catch-up week. A projection that
+     floored straight to the destination promised more than a short runway
+     or a thin-evidence start could actually deliver. Read the curve's own
+     last-step value here, exactly as the per-week loop computes it: it
+     equals the destination whenever the runway is long enough to reach it,
+     and honestly falls short only where the block itself would too.
+
+     THE WEEK FIGURE IS NOT GIVEN THE SAME TREATMENT: buildBlockWeeks()'s
+     per-week support total is walked against supportAdvances, a live count
+     of when new support days/quality slots actually arrive during the
+     build, which a pre-build projection has no way to reproduce -- so
+     reachWeekKm keeps the destination-based figure below, floored (not
+     curve-limited) at the pathway's own weekly requirement. */
+  var reachLongKm = raceGoalFloorAtStep(s.startLongKm, s.longDestKm, s.progressing, s.progressing);
 
   var needWeekKm = s.buildVolumeDestKm;
   var needLongKm = s.buildLongDestKm;
+  if (s.volumeDestKm > 0 && reachWeekKm < s.volumeDestKm) reachWeekKm = s.volumeDestKm;
 
   var dims = [];
   var mk = function(key, reached, required, quantum){
@@ -7789,6 +7811,36 @@ function sessionStepRate(startKm, destKm, progressingWeeks){
   return Math.min(sessionProgressionRate(),
                   Math.pow(destKm / startKm, 1 / progressingWeeks));
 }
+/* ---- HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- THE FLOOR MAY OUTRUN
+   THE ORDINARY RATE, UP TO THE SAME SAFETY CEILING EVERYTHING ELSE HERE
+   ALREADY RESPECTS ----
+   sessionProgressionRate()'s 10%/week is a CONSERVATIVE DEFAULT, not the
+   safety limit -- the safety limit is the Nielsen evidence
+   SESSION_TWO_WEEK_GROWTH_CAP already cites (30% across two weeks, ~14%/wk),
+   and sessionStepRate() was capping every curve at the gentler figure even
+   where the athlete's own evidence starts far enough below a pathway's
+   floor that the gentle rate cannot close the gap in the runway available.
+   HQ's ruling ("the floor needs to be the main driver") makes the floor a
+   promise the block keeps, not a target it may miss -- so where reaching it
+   needs a faster rate than ordinary, the rate climbs, but only as far as
+   the SAME Nielsen ceiling every other session here is already held to.
+   Used ONLY for the two Race Goal destinations HQ named (the weekly
+   workload and the long run); every other caller of sessionStepRate() /
+   sessionAtStep() -- Base, Maintain, Speed, and Race Goal's own
+   session-cost/quality-shape sizing -- is completely unaffected. A gap even
+   the Nielsen ceiling cannot close within the runway is still, honestly,
+   not reached. */
+function raceGoalFloorStepRate(startKm, destKm, progressingWeeks){
+  if (!(startKm > 0) || !(destKm > 0) || !(progressingWeeks > 0)) return 1;
+  return Math.min(Math.sqrt(SESSION_TWO_WEEK_GROWTH_CAP),
+                  Math.pow(destKm / startKm, 1 / progressingWeeks));
+}
+function raceGoalFloorAtStep(startKm, destKm, progressingWeeks, step){
+  if (!(startKm > 0)) return destKm;
+  if (!(progressingWeeks > 0) || !(destKm > 0)) return destKm;
+  var r = raceGoalFloorStepRate(startKm, destKm, progressingWeeks);
+  return startKm * Math.pow(r, Math.max(0, Math.min(progressingWeeks, step)));
+}
 
 /* ---- WHERE THIS ATHLETE'S SESSIONS START ----
    The only honest starting evidence for an athlete with no logged history is
@@ -7977,6 +8029,15 @@ function marathonLongRunDestination(startLongKm, progressingWeeks, distKey, want
   var want = (wantKm > 0) ? wantKm : raceGoalLongRunWantKm(d);
   var reach = reachableSessionKm(startLongKm, progressingWeeks);
   if (reach == null) return { km: Math.min(cap, want), limited:false };
+  /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- reach toward WANT
+     specifically, at the floor-aware rate, so a thin-evidence athlete's
+     reach is not capped by the ordinary rate's SHAPE (Math.pow to a
+     generic runway ceiling with no destination in mind) when the pathway's
+     own floor asks for more. Math.max against the ordinary-rate reach:
+     never LOWERS what an athlete whose own evidence already clears the
+     ordinary rate would get. */
+  var floorReach = raceGoalFloorAtStep(startLongKm, want, progressingWeeks, progressingWeeks);
+  if (floorReach > reach) reach = floorReach;
   var km = Math.min(cap, want, reach);
   /* ---- AND THE MARATHON NEVER ASKS FOR A SHORTER LONG RUN THAN THE ATHLETE
      ALREADY HAS ---- The benchmark is where a long run is going, not a value it
@@ -8074,6 +8135,19 @@ function marathonSupportDestination(startSupportKm, startLongKm, longDestKm,
   }
   var wanted = Math.max(grown, byCoherence, byDestination);
   var byReach = reachableSessionKm(startSupportKm, progressingWeeks);
+  /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- raised the same Nielsen-
+     bounded way marathonLongRunDestination() already is, and for the
+     identical reason: reachableSessionKm()'s ordinary rate left this
+     ceiling below what byDestination (the pathway's own floor) already
+     asks for, so the support side of a week could bind here while the long
+     run side, already corrected, did not -- the asymmetry is what surfaced
+     as a cutback week's SUPPORTING total not coming down with everything
+     else in it. Targets byDestination specifically -- the same figure
+     wanted already reads off it -- never past what wanted itself asks. */
+  if (byDestination > 0){
+    var byFloorReach = raceGoalFloorAtStep(startSupportKm, byDestination, progressingWeeks, progressingWeeks);
+    if (byFloorReach > byReach) byReach = byFloorReach;
+  }
   var byShape = longDestKm > 0 ? longDestKm * SUPPORT_SHARE_MAX : Infinity;
   var byCost = (easyPaceSecPerKm > 0) ? (supportCostUpperSec(distKey) / easyPaceSecPerKm) : Infinity;
   return round1(Math.max(EASY_MIN_KM,
@@ -10002,6 +10076,20 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
      A long run the athlete already runs is evidence, not a candidate. What
      the coherence gate is entitled to say is that the WEEK around it must
      grow, and that is what it now says. */
+  /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- THE FLOORS ARE THE SAFETY
+     BOUND. raceGoalCapacityCeilingKm() below can legitimately hold a block
+     under its pathway's own destination for an athlete whose recent
+     demonstrated evidence is thin -- that was a deliberate, pre-existing
+     safety envelope. HQ has now ruled that for Race Goal specifically, the
+     pathway's own stated floor (raceGoalVolumeDestinationKm/
+     raceGoalLongDestinationKm, unraised by evidence -- the plain pathway
+     number) IS the safety bound: the ceiling may still rise above it where
+     evidence supports more, but it may never suppress a block below it.
+     Read with entry=null so this is the pathway's own number only -- the
+     evidence-raised figure is what mCeil is being floored AGAINST, not what
+     it is compared to. */
+  var mPathwayVolumeFloor = raceGoalVolumeDestinationKm(distKey, mExp, null, 'peak');
+  var mPathwayLongFloor = raceGoalLongDestinationKm(distKey, mExp, null, 'peak');
   var mLongFloor = Math.max(MIN_LONG_RUN_KM,
                             Math.min(mStart.longKm || 0, raceGoalLongCapKm(distKey, 'race')));
   var mSupportDest = null;
@@ -10014,6 +10102,7 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
      rate as the whole of the limit. Capacity is the envelope; it is not
      permitted to redefine the destination. */
   var mCeil = raceGoalCapacityCeilingKm(mEntry, mProgressing);
+  if (mCeil != null && mPathwayVolumeFloor > 0) mCeil = Math.max(mCeil, mPathwayVolumeFloor);
   var mCapped = false, mDominated = false;
   for (var mIt = 0; mIt < 8; mIt++){
     var prevL = mLongDest.km, prevS = mSupportDest;
@@ -10099,6 +10188,59 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
     }
     if (Math.abs(prevL - mLongDest.km) < 0.05 &&
         prevS != null && Math.abs(prevS - mSupportDest) < 0.05) break;
+  }
+  /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- THE FLOOR IS THE SAFETY
+     BOUND, EVEN WHERE NO CEILING EVER FIRED TO PULL IT DOWN THROUGH ONE.
+     Everything above only ever clamps DOWNWARD: raceGoalCapacityCeilingKm(),
+     the coherence ceiling, all of it exists to catch a value that overshot
+     something and pull it back. None of it raises a value that never
+     overshot anything in the first place -- and sessionStepRate()'s ordinary
+     10%/week cap can leave the rate-limited interpolation short of the
+     pathway's own destination for the whole runway when the athlete's
+     evidence starts far enough below it, with no ceiling ever triggering to
+     expose the gap. HQ ruled that for Race Goal this floor is a promise the
+     block keeps regardless: raised here, once, after the solve has
+     otherwise settled, so it cannot fight the iteration above or get
+     re-scaled back down by it. Long run first, proportionally into support
+     only for whatever of the weekly floor the long run's own rise did not
+     already cover -- the same shape-preserving move the scale-down above
+     already makes, just aimed the other way.
+
+     BOUNDED BY THE SAME SESSION COST THE LOOP ABOVE ALREADY ENFORCES
+     (mCostLong): the floor is the safety bound on how LOW a block may sit,
+     not a licence to prescribe a distance the athlete cannot spend the
+     hours on. Where the pathway floor exceeds what the athlete's own pace
+     can support within LONG_RUN_COST_HEAVY_SEC, the raise stops at the cost
+     bound and the shortfall is left for readiness to report -- the same
+     outcome the loop's mCoh clamp already produces for every other cause. */
+  var mLongFloorCostBound = Math.min(mPathwayLongFloor, mCostLong);
+  if (mLongFloorCostBound > 0 && mLongDest.km < mLongFloorCostBound){
+    mLongDest.km = mLongFloorCostBound;
+    mLongDest.limited = true;
+  }
+  if (mPathwayVolumeFloor > 0){
+    var mSumFloorCheck = mLongDest.km + (mSupportDays + mQSlots) * (mSupportDest || 0);
+    if (mSumFloorCheck > 0 && mSumFloorCheck < mPathwayVolumeFloor){
+      var mRaise = mPathwayVolumeFloor / mSumFloorCheck;
+      /* SUPPORT_SHARE_MAX STILL HOLDS. Raising support to close the week
+         floor is a proportional move, not a licence to turn a supporting
+         run into a second long effort -- the same bound
+         marathonSupportDestination() itself enforces on every other path
+         through this solve. Measured: an 8km long run capped support at
+         6km (0.75x); this raise, unbounded, pushed it to 6.9km closing a
+         5K week's floor. The weekly floor still may not be reached in
+         full where the ceiling binds -- that is a genuine shortfall for
+         readiness to report, not a reason to let support outgrow what a
+         supporting run is. */
+      /* Rounded DOWN, not to the nearest tenth: round1's round-half-up would
+         turn an exact 14.25 boundary (19km long run x 0.75) into 14.3,
+         a hundredth of a kilometre past SUPPORT_SHARE_MAX rather than at
+         it. Flooring keeps the raise strictly at-or-under the true ceiling. */
+      var mSupportShapeCeil = mLongDest.km > 0
+        ? Math.floor(mLongDest.km * SUPPORT_SHARE_MAX * 10) / 10 : Infinity;
+      mSupportDest = round1(Math.min(mSupportShapeCeil, (mSupportDest || 0) * mRaise));
+      mLongDest.limited = true;
+    }
   }
   /* The supporting workload the athlete arrived with, and where it is going.
      One quantity, developed once -- see the note at mSupTotal. */
@@ -10416,6 +10558,22 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      volume is what they add up to. */
   var mBottomUp = null, mPrevLongKm = null, mPrevSupportKm = null, mPeakBuiltKm = 0,
       mPrevWeekKm = null, mPrevQSlots = null, mPrevSupportDays = null,
+      /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- THE CALIBRATION GATE'S
+         OWN "HAS THIS ATHLETE BEEN RECEIVING QUALITY" QUESTION, KEPT SEPARATE
+         FROM mPrevQSlots. mPrevQSlots answers a different question (what did
+         the week immediately before this one carry, for taper/cutback
+         descent-protection) and must keep reading the immediate week, never
+         a history -- so it cannot also serve the calibration gate, which the
+         original design deliberately built on an assumption that qSlots is
+         monotone once earned ("It is the honest available signal and it is
+         monotone"). Widening the floor to reach a pathway's own destination
+         can make a week's earned quality slot dip for one week before
+         recovering (a low-volume Build week losing room the week around it
+         has) without ever losing the underlying evidence that it was
+         earned -- so this tracks the HIGH-WATER MARK instead, restoring the
+         monotone property the calibration gate already assumed rather than
+         changing what it asks. */
+      mMaxQSlotsSoFar = 0,
       /* The count the previous week ACTUALLY ran on, after the capacity gate --
          mPrevSupportDays is read before that gate, for the structure question. */
       mPrevEffSupportDays = null,
@@ -10562,8 +10720,16 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          held: week one establishes rather than arrives. */
       var mStep = mBottomUp.advances;
       var mHoldStep = mBottomUp.lastStep;
-      var mLong = sessionAtStep(mBottomUp.startLongKm, mBottomUp.longDestKm,
+      /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- raceGoalFloorAtStep(),
+         not sessionAtStep(): the destination is now the pathway's own
+         guaranteed floor (see raceGoalDestinationSolve()'s matching
+         comment), so the curve reaching it is allowed the same Nielsen-
+         bounded faster rate every other Race Goal destination in this
+         session's correction uses, rather than sessionAtStep()'s gentler
+         ordinary-rate cap stalling short of it for the whole runway. */
+      var mLong = raceGoalFloorAtStep(mBottomUp.startLongKm, mBottomUp.longDestKm,
                                 mBottomUp.progressing, mStep);
+
       /* ---- SUPPORT DEVELOPS AS A WORKLOAD; DAYS ONLY DECIDE THE SPLIT ----
          Progressing the per-RUN figure made the day count move the whole
          week: one more supporting day multiplied a per-run destination that
@@ -10590,11 +10756,28 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          because that is what the session evidence says, and the supporting
          workload returns to the trend it left -- one ordinary step above the
          week before the reduction, which is what a rebound is. */
-      var mSupTotal = sessionAtStep(mBottomUp.startSupportTotalKm,
+      var mSupTotal = raceGoalFloorAtStep(mBottomUp.startSupportTotalKm,
                                     mBottomUp.supportTotalDestKm,
                                     mBottomUp.progressing,
                                     Math.min(mStep, mBottomUp.supportAdvances));
       var mSupport = mSupTotal / Math.max(1, mBottomUp.supportDays);
+      /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- NO HARD SNAP HERE, ON
+         PURPOSE. A first version of this forced mLong/mSupTotal up to the
+         full destination once the durability exposure step was reached,
+         which reads as a guarantee but is exactly the "arrives by a late
+         jump" defect this architecture exists to prevent whenever the
+         Nielsen-capped rate above could not fully close the gap by itself:
+         measured, a New Marathon's long run stepping 10km of its own 16km
+         of total development in one week. raceGoalFloorAtStep() above is
+         already the whole of the correction -- it lets the rate climb past
+         the ordinary 10%/week cap, up to the same Nielsen two-week safety
+         ceiling every other session here already respects, specifically so
+         it can reach raceGoalDestinationSolve()'s floor-raised destination
+         on its own smooth curve. Where even that rate cannot close the gap
+         inside the runway, the athlete legitimately falls short of the
+         floor rather than being jumped to it -- closer than the ordinary
+         rate ever got them, never by a jump the week before it did not
+         also take a share of. */
       /* A CUTBACK REDUCES THE SESSIONS, not a total that is then re-divided.
          Same factor, applied where the training actually is. */
       if (isCutback){ mLong *= CUTBACK_FACTOR; mSupport *= CUTBACK_FACTOR; }
@@ -10633,6 +10816,35 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          beside the doses, rather than once for the whole block. */
       var mCap = marathonWeekCapacityKm(mBottomUp.entryKm, mBottomUp.advances,
                                         mBottomUp.capacityCeilingKm);
+      /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- THE FLOOR IS THE SAFETY
+         BOUND HERE TOO, SMOOTHLY, NO HARD SNAP. marathonWeekCapacityKm() is
+         a FOURTH, independent eligibility ceiling (statedVolumeKm x
+         ordinary-rate^step, separate from raceGoalCapacityCeilingKm and from
+         raceGoalFloorAtStep()'s own per-session rate cap already smoothed
+         above) that governs how much of a week's sessions the day-count/
+         quality solver below is actually allowed to build -- so raising
+         longKm/supportKm alone was not enough; the solver would simply
+         build fewer days to stay inside this figure. Raised on the same
+         Nielsen-bounded curve, never below the ordinary-rate figure this
+         line already computed, and never snapped to the floor outright:
+         see the matching note above mSupTotal for why a hard snap here
+         reproduced the same late-jump defect this correction exists to
+         close, not fix it. */
+      /* NOT ON A CUTBACK WEEK. A cutback is a reduction, and the reduction
+         already lands on the sessions (mLong/mSupport, above) -- this
+         ceiling exists to give the day-count/quality solver ROOM to build
+         what those sessions ask for, and on a cutback week the sessions are
+         not asking for more room, they are asking for less. Raising it
+         anyway measurably let the solver fill a cutback week's raised
+         headroom with quality/support volume the sessions never called
+         for -- a cutback week rising 5km above the week it was supposed to
+         reduce from, the same double-counting the pre-existing capacity
+         x CUTBACK_FACTOR comment above already warns against, just entered
+         from the floor side instead of the discount side. */
+      var mCapFloorStep = isCutback ? 0 : raceGoalFloorAtStep(mBottomUp.entryKm,
+                                              mBottomUp.volumeDestKm,
+                                              mBottomUp.progressing, mBottomUp.advances);
+      if (mBottomUp.volumeDestKm > 0 && mCapFloorStep > (mCap || 0)) mCap = mCapFloorStep;
       /* ---- A CUTBACK REDUCES THE DOSE, NOT THE ATHLETE'S FREQUENCY ----
          Capacity is what decides how many supporting runs a week writes, so
          discounting it for a cutback removed a running day ON TOP of the 22%
@@ -10731,12 +10943,22 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                 /* THE ALREADY-EARNED WORKLOAD -- the doses the previous
                    developing week was built from, before any cutback or taper
                    factor. What a structural week re-solves around. */
+                /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- raceGoalFloorAtStep(),
+                   matching the actual curve above, not sessionAtStep(). The
+                   held figure exists to be what the previous developing week
+                   actually delivered; reading it off the ordinary-rate curve
+                   while delivery reads off the Nielsen-bounded one made the
+                   hold a number smaller than the week it was supposed to be
+                   protecting, which handed the athlete a real decrease in an
+                   otherwise ordinary week -- exactly the "long run goes
+                   backwards" defect this hold exists to prevent, produced by
+                   the hold's own fallback disagreeing with delivery. */
                 heldLongKm: mHoldStep == null ? null
-                  : round1(sessionAtStep(mBottomUp.startLongKm, mBottomUp.longDestKm,
+                  : round1(raceGoalFloorAtStep(mBottomUp.startLongKm, mBottomUp.longDestKm,
                                          mBottomUp.progressing, mHoldStep)),
                 heldSupportKm: mHoldStep == null ? null
                   : round1(Math.max(EASY_MIN_KM,
-                      sessionAtStep(mBottomUp.startSupportTotalKm, mBottomUp.supportTotalDestKm,
+                      raceGoalFloorAtStep(mBottomUp.startSupportTotalKm, mBottomUp.supportTotalDestKm,
                                     mBottomUp.progressing, mHoldStep) /
                       Math.max(1, mBottomUp.supportDays))) };
       /* ---- STRUCTURE IS ITSELF A PROGRESSION ----
@@ -11134,7 +11356,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        came too late to inform anything. They are different facts about the
        athlete and APP should be able to tell the athlete which one it is. */
     var calCouldHold = !isRace && !isTaper && !isCutback && !isCheckpoint &&
-                       (!mBottomUp || w === 1 || mPrevQSlots > 0) && calFitsWeek &&
+                       (!mBottomUp || w === 1 || mMaxQSlotsSoFar > 0) && calFitsWeek &&
                        (calibrate || (calibrateWhenViable &&
                                       calWeekKm >= CALIBRATION_MIN_WEEKLY_KM));
     if (calCouldHold && calFirstViableWeek == null) calFirstViableWeek = w;
@@ -11142,7 +11364,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       if (calibrate && w === 1 && calFitsWeek) isCalibration = true;
       else if ((calibrate || calibrateWhenViable) && w > 1 &&
                !isCutback && !isCheckpoint &&
-               (!mBottomUp || mPrevQSlots > 0) && calFitsWeek &&
+               (!mBottomUp || mMaxQSlotsSoFar > 0) && calFitsWeek &&
                /* The safety floor is the DEFERRED path's own gate: an athlete
                   whose evidence already earned the calibration has cleared it
                   and is not asked again, they are only waiting for a week that
@@ -11918,6 +12140,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       /* AND THE STRUCTURE IT ACTUALLY CARRIED, which is what a reduction week
          is entitled to keep and never to exceed. */
       mPrevQSlots = mWeek.qSlots;
+      mMaxQSlotsSoFar = Math.max(mMaxQSlotsSoFar, mWeek.qSlots || 0);
       mPrevSupportDays = mWeek.countedSupportDays;
       /* ---- AND THE ATHLETE MOVES FORWARD FROM THE WEEK THEY WERE ACTUALLY
          PRESCRIBED ---- Capacity advances on every training week, because it is

@@ -46,7 +46,18 @@ test('reproduction: an unprotected peak reads the race week as the block\'s peak
   // This is the ORIGINAL behaviour reproduced by hand (not calling the now-
   // fixed largestScheduledWeek()), to prove the bug was real before proving
   // the fix closes it.
-  const a = appWithFullBlock(10, 30);
+  //
+  // HQ RACE GOAL SAFETY-FLOOR CORRECTION -- Race Goal no longer reads the
+  // typed weekly volume at all (see currentWeeklyVolumeContract.test.js), so
+  // a ten-week block now develops toward the pathway's own floor regardless
+  // of the "30" passed in here, and a training week can outgrow the race
+  // week comfortably before the runway is this long. Eight weeks is short
+  // enough that the pathway floor's own runway-bounded reach still stays
+  // under a marathon's race-day distance plus its shakeout days, so the
+  // race week is still the naive maximum -- the same shape this fixture
+  // always existed to reproduce, just at a runway this correction did not
+  // change the outcome for.
+  const a = appWithFullBlock(8, 30);
   const byWeekIncludingRace = {};
   a.state.days.forEach((dd) => {
     if (!dd || dd.type === 'rest') return;

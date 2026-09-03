@@ -123,11 +123,14 @@ test('ADMISSION — the projection is independent of the typed figure', () => {
 });
 
 test('CALIBRATION — a test the block could not place is declared, not dropped', () => {
-  /* A fixed fifty-two minute effort inside a twenty-kilometre week is most of
-     the athlete's training, and the safety floor has always refused it. What
+  /* A fixed fifty-two minute effort inside a short-runway week is most of
+     the athlete's training, and a week that thin still refuses it. What
      changes is that the refusal is now visible: the block says the zones it
-     ran on were estimated rather than measured. */
-  const small = R.build({ dist:'half', exp:'novice', days:5, weeks:10, tt5kMin:24 });
+     ran on were estimated rather than measured. (Ten weeks was the original
+     example here; the safety floor now legitimately develops that runway
+     past the point where the test can't fit, so a shorter runway is what
+     still exercises the "could not place it" path.) */
+  const small = R.build({ dist:'half', exp:'novice', days:5, weeks:7, tt5kMin:24 });
   assert.equal(small.blk.calibrationRequested, true);
   assert.equal(small.blk.calibrationPlaced, false);
   assert.equal(small.blk.calibrationUnplaced, true,
