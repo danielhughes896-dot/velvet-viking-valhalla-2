@@ -67,6 +67,20 @@ test('but it still ends somewhere: the last week consolidates', () => {
 });
 
 test('a base block still builds aerobic volume -- it just does not build to a race peak', () => {
+  /* OLD RULE / NEW RULE / WHY. This test used to assert
+     `peakVolume === 45 * BASE_VOLUME_MULT` -- the exact multiplier HQ's
+     methodology ruling explicitly rejected as Base's destination brain
+     ("not the arbitrary 1.25 multiplier... any new bound must have an
+     explicit coaching purpose"). baseCapacityObjective() replaces it: with
+     no demonstrated evidence (this fixture's athlete, via
+     makeAthleteRecord(), has none), the block develops conservatively
+     instead -- currentVolume x VOLUME_BLOCK_GROWTH_CAP, the same one-step-
+     per-block rate cappedBlockStartVolume() already uses for cross-block
+     anchor growth, reused rather than a fresh multiplier invented to
+     reproduce the old number. The two assertions that mattered here --
+     "still builds" and "builds less than a race block" -- are unchanged
+     and still enforced; only the literal old-formula assertion is
+     replaced with the new one. */
   const a = app();
   const b = build(a, 'half', 45, 10, 'base');
   assert.ok(b.peakVolume > 45, 'the base block stopped building');
@@ -74,7 +88,7 @@ test('a base block still builds aerobic volume -- it just does not build to a ra
   assert.ok(b.peakVolume < race.peakVolume,
     'the base block still ramps on the race-distance multiplier (' +
     b.peakVolume + ' vs ' + race.peakVolume + ')');
-  assert.equal(b.peakVolume, a.round1(45 * a.BASE_VOLUME_MULT));
+  assert.equal(b.peakVolume, a.round1(45 * a.VOLUME_BLOCK_GROWTH_CAP));
 });
 
 /* ---------------------------------------------------------------- *

@@ -207,10 +207,26 @@ test('8. 5K and 10K draw from separate interval/tempo pools, and half is unaffec
 
 test('8. non-race purposes at 5K/10K keep the shared pools, unchanged', () => {
   const a = app();
-  ['maintain', 'base', 'speed'].forEach(p => {
+  ['maintain', 'speed'].forEach(p => {
     assert.equal(a.intervalPoolFor(p, '5k'), a.INTERVAL_STRUCTURE_POOL);
     assert.equal(a.tempoPoolFor(p, '10k'), a.TEMPO_STRUCTURE_POOL);
   });
+  /* AEROBIC BASE IS THE ONE DELIBERATE EXCEPTION -- HQ FINAL VERIFICATION
+     FINDING C, CONTAINED. Base's tempo pool no longer offers
+     structThresholdContinuous (a fixed-distance, pace-unsafe structure) at
+     ALL, for ANY distKey it might be asked at: Base is a distance-agnostic
+     purpose -- the race distance passed through as distKey never changed
+     what Base itself would prescribe -- so the containment fix applies
+     uniformly rather than being scoped to one distKey, exactly as it always
+     applied uniformly to the single shared pool before the fix existed. See
+     BASE_TEMPO_POOL and test/aerobicBaseMethodology.test.js. intervalPoolFor
+     is untouched by this containment -- only the tempo pool carried the
+     fixed-distance structure -- so Base's interval pool is still the shared
+     one. */
+  assert.equal(a.intervalPoolFor('base', '5k'), a.INTERVAL_STRUCTURE_POOL);
+  assert.notEqual(a.tempoPoolFor('base', '10k'), a.TEMPO_STRUCTURE_POOL);
+  assert.equal(a.tempoPoolFor('base', '10k'), a.BASE_TEMPO_POOL);
+  assert.ok(!a.tempoPoolFor('base', '10k').Base.includes(a.structThresholdContinuous));
 });
 
 /* ---------- 9. EVENT-ANCHORED TAPER, NOT A FLAT TWO WEEKS ---------- */
