@@ -9635,6 +9635,52 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
     mWouldUseMoreDays = (mSupportDays === mDaysCeiling) &&
       (mHave / (mSupportDays + 1) + 1e-9 >= mCoherenceFloorKm);
   }
+  /* ---- SELECTED DAYS ARE A COMMITMENT, NOT MERELY A CEILING SOLVER
+     CONVENIENCE MAY IGNORE -- HQ METHODOLOGY RULING (Race Goal Frequency
+     Repair II), HALF/MARATHON ONLY.
+     mSupportDays above is the day count SUPPORT_SHARE_MIN's coherence band
+     can justify at an EQUAL, large per-day share -- correct for what it
+     actually decides: the week's supporting relationship to the long run,
+     and the total supporting workload (mSupTotalDest below), neither of
+     which this changes. It was never a statement about how many CALENDAR
+     days that same, unchanged total may be WRITTEN across.
+
+     distributeWeekVolume() (see buildDaysFromWeeks) already redivides a
+     week's easy budget safely down to its own floor -- EASY_MIN_KM, "the
+     smallest easy day a race week may contain" -- whenever more easy-day
+     slots are offered to it. That mechanism is already "several smaller
+     aerobic runs instead of fewer oversized ones"; the day count reaching
+     it (runCap) was simply never allowed past SUPPORT_SHARE_MIN's own,
+     stricter number. Nothing about mSupportDays, mSupportDest, longDestKm,
+     qSlots or any volume total changes here -- this only tells the day
+     count how many of the SAME kilometres may be spread further.
+
+     THE CONTRACT: a selected running day is a genuine intended running
+     opportunity, so at least (selected - 1) of them normally carry a real
+     prescription -- the one slot deliberately held back is where a
+     genuinely optional exposure belongs, per HQ's own preferred contract
+     (6 selected -> at least 5 definite; 5 -> at least 4; 4 -> at least 3).
+     Reserved only while there is real supporting workload to place at all
+     (mHave > 0) and only up to what the day's own expressibility ceiling
+     already allows (mDaysCeiling) -- an athlete with nothing to distribute,
+     or fewer selected days than the coherent core itself needs, is not
+     manufactured a day count with no training purpose.
+
+     THIS BLOCK-LEVEL FIGURE IS INFORMATIONAL ONLY. buildBlockWeeks() does
+     not read it for scheduling -- see mWeek.scheduledSupportDays there,
+     computed once each week's OWN supportDays has settled through the
+     capacity-earning ramp (marathonSupportDaysFor()) and any taper/cutback/
+     give-back reduction. Applying this flat, block-level figure directly to
+     every week offered early weeks more calendar days than their own earned
+     capacity supports, which corrupted the affordability ladder into
+     dropping quality sessions entirely -- caught before commit; see
+     test/audit/baseline.json's correctionNoteFrequencyRepairII. */
+  var mScheduledSupportDays = mSupportDays;
+  if ((distKey === 'half' || distKey === 'full') && mHave > 0){
+    var mDaysCeilingForContract = Math.max(1, mDays - 1 - mQSlots);
+    var mContractSupportDays = Math.min(mDaysCeilingForContract, Math.max(0, mAvail - 2 - mQSlots));
+    mScheduledSupportDays = Math.max(mSupportDays, mContractSupportDays);
+  }
   /* ---- TWO DAY COUNTS, BECAUSE THEY ANSWER TWO QUESTIONS ----
      THE START SPLIT can only be written across the days the athlete's
      CURRENT week can pay for. Dividing a 15km week across five runs writes
@@ -9810,6 +9856,14 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
   var mSupTotalStart = mStart.supportKm * mStartDays;
   var mSupTotalDest = (mSupportDest || mStart.supportKm) * mSupportDays;
   return { days:mDays, qSlots:mQSlots, supportDays:mSupportDays,
+                /* CALENDAR days the SAME supportDays/supportTotalDestKm
+                   workload may be scheduled across -- see the note above
+                   mScheduledSupportDays. Equal to supportDays everywhere
+                   except Half/Marathon with real supporting workload and
+                   selected availability beyond the coherent core; consumed
+                   only by runCap in buildDaysFromWeeks, never by anything
+                   that sizes or totals the week. */
+                scheduledSupportDays:mScheduledSupportDays,
                 /* THE THREE AUTHORITIES, RECORDED so the audit and the
                    readiness layer read what the block was actually built
                    from rather than inferring it. */
@@ -10112,7 +10166,16 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       /* THE SUPPORTING WORKLOAD THE LAST DEVELOPING WEEK ACTUALLY CARRIED --
          a total, not a per-run size, because a structural week re-writes it
          across a different number of runs. */
-      mEarnedSupportTotalKm = null;
+      mEarnedSupportTotalKm = null,
+      /* HQ Frequency Repair II -- the widened day count the last ORDINARY
+         (non-taper) week reached. Taper reads it back rather than
+         recomputing its own widening fresh: taper's own supporting workload
+         is deliberately smaller (that is what a taper is), and testing THAT
+         smaller total against the same EASY_MIN_KM floor a real week's
+         workload has to clear would undo "taper retains established
+         frequency, only reduces load" the moment the widening exists at
+         all. See the note beside mWeek.scheduledSupportDays below. */
+      mPrevScheduledSupportDays = null;
   /* The floor a session in THIS block may not go below -- the race week's own,
      since a marathon race block is never a foundation block. */
   var easyFloorKmForBlock = EASY_MIN_KM;
@@ -11563,6 +11626,63 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         if (!mHeld) mBottomUp.supportAdvances++;
       }
       if (!isTaper && volume > mPeakBuiltKm) mPeakBuiltKm = volume;
+    }
+    /* ---- THE CONTRACT APPLIES TO THE WEEK'S OWN EARNED DAY COUNT, NOT THE
+       BLOCK'S FLAT CEILING -- HQ Frequency Repair II, HALF/MARATHON ONLY.
+       mWeek.supportDays above is already this WEEK's final, settled day
+       count -- marathonSupportDaysFor()'s structural-progression ramp
+       (capacity earns a day gradually across the block) has already run,
+       and any taper/cutback/quality-give-back reduction has already applied.
+       Widening a flat, block-level day count would have offered early weeks
+       more calendar days than their own earned capacity supports, which is
+       what corrupted the affordability ladder into dropping quality
+       sessions entirely the first time this was tried against THIS week's
+       own volume/capacity rather than the block's eventual ceiling.
+
+       So the contract widens THIS week's own settled count, by the same
+       (selected - 1)-definite-days reasoning raceGoalDestinationSolve()
+       already states, using this week's own qSlots -- never past what the
+       week has itself earned to grow beyond, and never for a week with no
+       real supporting workload to place (mWeek.supportKm/supportDays both
+       already reflect that; see mSupportWorkloadKm). */
+    if (mWeek){
+      mWeek.scheduledSupportDays = mWeek.supportDays;
+      var mSupportWorkloadKm = (mWeek.supportKm || 0) * (mWeek.supportDays || 0);
+      if ((distKey === 'half' || distKey === 'full') && mSupportWorkloadKm > 0){
+        var mWeekDaysCeiling = Math.max(1, mBottomUp.days - 1 - mWeek.qSlots);
+        /* THE WORKLOAD ITSELF MUST BE ABLE TO PAY FOR THE EXTRA DAY, or
+           distributeWeekVolume()'s own floor-excess rule inflates the week
+           to reach it -- exactly the "opening week came out bigger than
+           asked" defect test/raceGoalAdmissionViability.test.js's locked-
+           entry guard exists to catch, reproduced and caught here against a
+           New Half's 15km entry week (17km, +13%) before this line existed.
+           Capping at floor(workload / EASY_MIN_KM) is the same arithmetic
+           distributeWeekVolume() itself uses to decide a day count is
+           affordable; asking it here means this line can never offer a day
+           count distributeWeekVolume() would have to inflate the week to
+           satisfy. */
+        var mWeekWorkloadDays = Math.floor(mSupportWorkloadKm / EASY_MIN_KM);
+        var mWeekContractDays = Math.min(mWeekDaysCeiling, mWeekWorkloadDays,
+                                         Math.max(0, mBottomUp.days - 2 - mWeek.qSlots));
+        mWeek.scheduledSupportDays = Math.max(mWeek.supportDays, mWeekContractDays);
+      }
+      /* TAPER READS BACK THE BLOCK'S OWN WIDENING RATHER THAN RE-EARNING IT.
+         A taper's supporting workload is deliberately smaller -- that is
+         what a taper is -- so testing THAT smaller total against the same
+         EASY_MIN_KM floor a real developing week's workload has to clear
+         would undo "taper retains established frequency, only reduces
+         load" (HQ's own instruction) the moment the widening exists at all:
+         caught directly by the taper-retention test, mismatched 2 vs 3
+         before this line existed. mWeek.supportDays itself is already held
+         through taper by the pre-existing mPrevEffSupportDays/cutback
+         mechanism above; this is the identical statement made about its
+         widened figure. Cutback weeks are deliberately NOT covered here --
+         HQ named taper specifically, and the pre-existing architecture
+         already treats an absorption week's own reduced frequency as
+         legitimate. */
+      if (isTaper && mPrevScheduledSupportDays != null)
+        mWeek.scheduledSupportDays = Math.max(mWeek.scheduledSupportDays, mPrevScheduledSupportDays);
+      if (!isTaper) mPrevScheduledSupportDays = mWeek.scheduledSupportDays;
     }
     weeks.push({
       week:w, phase:phase, isCutback:isCutback, isTaper:isTaper, isRace:isRace, isCheckpoint:isCheckpoint,
@@ -14427,7 +14547,20 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        week, and where the assembled week falls outside it that is exactly the
        distortion it exists to report. */
     if (wk.bottomUp){
-      runCap = Math.min(runCap, 1 + wk.bottomUp.qSlots + wk.bottomUp.supportDays);
+      /* SCHEDULED, NOT THE COHERENCE-DERIVED COUNT -- HQ Frequency Repair II.
+         wk.bottomUp.supportDays is the day count SUPPORT_SHARE_MIN's
+         coherence band justifies at a large, equal per-day share; it still
+         governs everything that SIZES or TOTALS the week (mSolveWeek,
+         capacity trimming, mSupTotalDest) and none of that changes here.
+         scheduledSupportDays only tells THIS line -- how many calendar
+         easy-day slots distributeWeekVolume() below may divide the SAME,
+         unchanged easy budget across -- to reach the athlete's own selected
+         availability where HQ's contract calls for it. Equal to supportDays
+         everywhere that contract does not apply (5K/10K, or no spare
+         workload/availability), so this is a strict widening, never a
+         narrowing, of the existing day count. */
+      runCap = Math.min(runCap, 1 + wk.bottomUp.qSlots +
+        (wk.bottomUp.scheduledSupportDays != null ? wk.bottomUp.scheduledSupportDays : wk.bottomUp.supportDays));
     } else if (useCoherentFrequency && blockFreq != null && !wk.isRace){
       var want = blockFreq;
       if (demonstratedFreq != null) want = Math.max(want, Math.min(demonstratedFreq, blockFreqMax));
@@ -35555,6 +35688,65 @@ function reconcileRegeneratedDays(oldDays, newDays, startDateStr){
   capCurrentWeekQuality(merged, newDays, today);
   return { days:merged, preserved:history.length };
 }
+/* =========================================================
+   RACE GOAL FREQUENCY REPAIR II -- ONE-TIME RECONCILIATION FOR A PLAN BUILT
+   BEFORE THE FIX EXISTED. HALF/MARATHON ONLY.
+   ---------------------------------------------------------
+   A Half or Marathon Race Goal block materialises every week at generation
+   time and never re-derives itself afterward -- nothing about a normal
+   render asks whether its frequency architecture is current. So a plan
+   generated on the OLD code (mSupportDays alone gating runCap) sits exactly
+   as generated: a selected sixth day that the fix would now use for a real
+   prescribed run stays a plain Rest Day forever, until the athlete manually
+   rebuilds the plan and loses nothing only because reconcileRegeneratedDays()
+   already protects history on a rebuild -- HQ does not want that manual step
+   to be required just to receive a bug fix.
+
+   WHEN IT RUNS. Once, lazily, from renderApp() -- the single funnel every
+   trigger that could plausibly need it (app load, a day change, a session
+   completion, a plan edit) already ends in. A stored flag
+   (state.setup.freqRepairIIReconciled) makes every render after the first
+   one a no-op; this is a one-time migration of existing state, not a
+   continuous re-solve, so it does not fight the athlete's own later edits to
+   future sessions the way a per-render check would.
+
+   HOW IT RECONCILES. The exact buildBlockWeeks()/buildDaysFromWeeks() pair
+   the block was opened with, re-run with the parameters state.setup already
+   recorded (never guessed) -- so this reflects the SAME repaired code path a
+   fresh generation would use today, nothing bespoke to reconciliation.
+   reconcileRegeneratedDays() then does what it already does for a rebuild:
+   every completed, missed, or edited day, and every date already lived
+   through, is preserved verbatim; only the untouched future is replaced. */
+function ensureRaceGoalFrequencyReconciled(){
+  var su = state && state.setup;
+  if (!su || su.purpose !== 'race' || (su.distanceKey !== 'half' && su.distanceKey !== 'full')) return false;
+  if (!state.days || !state.days.length) return false;
+  if (su.freqRepairIIReconciled) return false;
+
+  var easyPaceSecPerKm = null;
+  try {
+    var paces = getActivePaces();
+    if (paces && paces.E && paces.E.slow != null && paces.E.fast != null)
+      easyPaceSecPerKm = (paces.E.slow + paces.E.fast) / 2;
+  } catch(e){ easyPaceSecPerKm = null; }
+
+  var blockResult, freshDays;
+  try {
+    blockResult = buildBlockWeeks(su.distanceKey, su.currentVolume, su.planWeeks,
+      { purpose: 'race', availableDays: (su.schedule && su.schedule.activeDays) ? su.schedule.activeDays.length : 6,
+        easyPaceSecPerKm: easyPaceSecPerKm, experience: su.experience });
+    freshDays = buildDaysFromWeeks(blockResult, su.raceDate, su.schedule, su.startDate, su.hasEvent,
+      { easyPaceSecPerKm: easyPaceSecPerKm });
+  } catch(e){ return false; }
+
+  var reconciled = reconcileRegeneratedDays(state.days, freshDays, su.startDate);
+  state.days = reconciled.days;
+  var block = su.blockId ? blockById(su.blockId) : null;
+  if (block) block.peakVolume = largestScheduledWeek(state.days);
+  su.freqRepairIIReconciled = true;
+  try { scheduleSave(); } catch(e){}
+  return true;
+}
 /* ---------- the week the athlete is standing in ----------
    Preserving elapsed days truthfully means the REMAINDER of the current week
    is re-tailored around a past the generator no longer controls. Where a
@@ -43899,6 +44091,12 @@ function renderApp(){
   applyThemeToDocument();
   var app = document.getElementById('app');
   if (!app) return;
+  /* RACE GOAL FREQUENCY REPAIR II -- lazy, one-time reconciliation for a
+     Half/Marathon plan generated before this fix existed. See
+     ensureRaceGoalFrequencyReconciled(). A no-op for every other purpose,
+     and a no-op on every render after the first for the purposes it does
+     touch. */
+  try { ensureRaceGoalFrequencyReconciled(); } catch(e){}
   lastRenderedDate = todayStr();
   var navAllowed = appStateAllowsNav();
   app.classList.toggle('has-subnav', navAllowed && (state.view||'today')==='planhq');
