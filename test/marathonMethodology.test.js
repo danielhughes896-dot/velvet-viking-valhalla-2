@@ -250,56 +250,24 @@ test('no other distance gets the two-exposure treatment', () => {
 });
 
 // ------------------------------------------------------------------ medium-long
-test('a medium-long run is a prescription, and it is named where it appears', () => {
-  /* IT IS RARER UNDER BOTTOM-UP, AND THAT IS THE CORRECT DIRECTION. It needs
-     three supporting days to survive beside it, and the architecture now
-     prescribes the fewest days the work actually needs -- so the weeks that
-     want a second sustained aerobic run are the ones with enough supporting
-     running to give one up. Where it does appear it is a named session; where
-     it does not, nothing is relabelled to produce one. */
-  let found = 0;
+test('the medium-long run has been removed from the workout family', () => {
+  /* The mechanism -- a second sustained aerobic run named and carved out of
+     an ordinary easy day in late Build -- is gone. Its kilometres are not
+     lost: they stay in the easy days they always belonged to (see
+     'kilometres are conserved' further up in this file, which still holds
+     because the week's target volume was never the medium-long's to change).
+     This asserts the removal itself, across the range that used to produce
+     one, so a future generator change cannot silently reintroduce it. */
   [40, 60, 80].forEach(v => {
     [330, 560].forEach(pace => {
       const { days } = plan(v, 15, 'full', pace, null, v);
-      days.filter(d => d.mediumLong).forEach(d => {
-        found++;
-        assert.strictEqual(d.title, 'Medium-Long Run');
-        assert.ok(d.km > 0);
-      });
+      assert.strictEqual(days.filter(d => d.mediumLong).length, 0,
+        v + 'km/wk @ ' + pace + 's/km still produced a medium-long run');
+      assert.ok(!days.some(d => d.title === 'Medium-Long Run'));
     });
   });
-  assert.ok(found > 0, 'no cohort in this range produced one at all');
-});
-
-test('it never appears where the programme is not doing marathon work', () => {
   ['half','10k','5k','ultra'].forEach(d => {
     assert.strictEqual(plan(55, 15, d).days.filter(x => x.mediumLong).length, 0, d);
-  });
-  // and never in Base, Peak or the taper
-  const { a, blk, days } = plan(40, 15, 'full');
-  days.filter(d => d.mediumLong).forEach(d => {
-    assert.strictEqual(blk.weeks[d.week - 1].phase, 'Build');
-  });
-});
-
-test('kilometres are conserved -- it cannot make an oversized week smaller', () => {
-  const { blk, days } = plan(40, 15, 'full');
-  days.filter(d => d.mediumLong).forEach(d => {
-    const week = days.filter(x => x.week === d.week);
-    const total = week.reduce((t, x) => t + x.km, 0);
-    const target = blk.weeks[d.week - 1].volume;
-    assert.ok(Math.abs(total - target) / target < 0.05,
-      'week ' + d.week + ': ' + total + ' against target ' + target);
-  });
-});
-
-test('it is meaningfully longer than the easy runs beside it, or it is not prescribed', () => {
-  const { days } = plan(40, 15, 'full');
-  days.filter(d => d.mediumLong).forEach(d => {
-    const easy = days.filter(x => x.week === d.week && x.type === 'easy' && !x.mediumLong);
-    assert.ok(easy.length >= 2, 'real easy running survives beside it');
-    const biggest = Math.max.apply(null, easy.map(x => x.km));
-    assert.ok(d.km >= biggest * 1.2, d.km + 'km against easy runs of ' + biggest + 'km');
   });
 });
 

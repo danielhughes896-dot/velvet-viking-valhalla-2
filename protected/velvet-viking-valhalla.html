@@ -5780,9 +5780,9 @@ function halfTaperDayFactor(daysToRace){
    only ever be a whole number of weeks.
 
    WHAT IS SCALED, AND WHAT IS NOT.
-     AEROBIC RUNS  easy, medium-long and long. Their kilometres ARE their
-                   prescription, so scaling the day scales the session and the
-                   card cannot disagree with it.
+     AEROBIC RUNS  easy and long. Their kilometres ARE their prescription, so
+                   scaling the day scales the session and the card cannot
+                   disagree with it.
      QUALITY       not scaled here. A quality day's distance comes from a
                    structure, and shrinking the number without shrinking the
                    structure would print a session the athlete is not being
@@ -12444,14 +12444,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
            that, exactly as it already could before this correction. Forcing
            the day count DOWN to precisely N-1 whenever a week's settled,
            capacity-earned supportDays already exceeded it was tried and
-           reverted: it silently cost the marathon medium-long-run mechanism
-           the third calendar easy-day slot its own "the week must be able
-           to give one up and still be recognisable" gate needs (see
-           MEDIUM_LONG_MIN_OVER_EASY below), consolidating four earned
-           supporting days into three larger ones for no reason this
-           correction was authorised to create. Never narrowing keeps that
-           gate, and everything else downstream of a week's OWN settled
-           shape, exactly as it already was. */
+           reverted: it consolidated four earned supporting days into three
+           larger ones for no reason this correction was authorised to
+           create. Never narrowing keeps everything downstream of a week's
+           OWN settled shape exactly as it already was. */
         mWeek.scheduledSupportDays = Math.max(mWeek.supportDays, mWeekContractDays);
       }
       /* TAPER'S OWN EXACT CONTRACT ALREADY MATCHES BUILD'S, BY CONSTRUCTION --
@@ -12712,35 +12708,6 @@ function tempoWorkoutText(spec, totalKm){
    and the generator now calls them instead. */
 function easyRunText(km){
   return { title:'Easy Aerobic', type:'easy', desc: dtok(km)+' @ Easy pace.' };
-}
-/* ---------- THE MEDIUM-LONG RUN IS A PRESCRIPTION, NOT A LEFTOVER ----------
-   IT EXISTS BECAUSE THE PROGRAMME WANTS THE STIMULUS: a second sustained
-   aerobic run in the same week as the long one, in the phase where marathon
-   support is what the block is developing. It is named, it has a role, and it
-   is written as its own session.
-
-   IT IS NOT A MILEAGE-BALANCING DEVICE, and the arithmetic settles that
-   rather than the intention. Kilometres are conserved: at a 95km target on six
-   days the supporting runs are 14.9km each, and converting to three ordinary
-   runs plus a "medium-long" needs that session to be 28km -- a second long
-   run wearing a smaller name. A medium-long run cannot make an incoherent
-   volume target coherent and this implementation never tries. Where the week
-   does not fit, the answer is the volume, the long run or the runway.
-
-   SO IT IS SIZED, NOT RESIDUAL. Its distance is a share of the athlete's own
-   long run, at the top of the band the architecture already treats as coherent
-   for a supporting run, and the remaining easy days keep ordinary easy running.
-   Where they cannot -- where naming it would push the rest under the floor --
-   it is not prescribed at all. */
-var MEDIUM_LONG_SHARE_OF_LONG = 0.65;
-/* How much longer than the week's ordinary easy runs it has to be before it is
-   a session rather than a name. Coaching methodology, stated as a ratio so it
-   scales with the athlete. */
-var MEDIUM_LONG_MIN_OVER_EASY = 1.25;
-function mediumLongRunText(km){
-  return { title:'Medium-Long Run', type:'easy',
-    desc: dtok(km)+' @ Easy pace. A second sustained aerobic run in the week — '
-        + 'time on your feet without the cost of another long run.' };
 }
 function restDayText(isRaceWeek){
   return { title:'Rest Day', type:'rest',
@@ -15855,64 +15822,6 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
                                      !!wk.bottomUp);
     var perEasy = dist.perEasy;
     longKm = dist.longKm;
-    /* ---- IS THIS A WEEK THAT WANTS A MEDIUM-LONG RUN? ----
-       LATE BUILD ONLY, and only for an athlete whose long run has itself
-       become a marathon long run -- its cost inside the ordinary marathon
-       region rather than below it. Before that there is nothing for a second
-       sustained run to support; after it, Peak's two exposures already own the
-       durability budget and a third sustained run defeats the absorption week
-       between them.
-
-       AND IT MUST LEAVE REAL EASY RUNNING BEHIND IT. If naming one supporting
-       day pushes the others under the floor, the week did not want a
-       medium-long run -- it wanted fewer kilometres, or more days, or a
-       different destination. Not prescribed, and nothing is relabelled. */
-    var mediumLongDay = null, mediumLongKm = 0, easyDaysBaseCount = easyDays.length;
-    /* WHAT MAKES IT A MARATHON WEEK RATHER THAN A LONG WEEK: the long run is
-       already carrying marathon-specific work. hasGoalSegment is the block's
-       own statement that it has reached that point -- it is false through Base
-       and false wherever the long run is below the goal-finish floor -- so no
-       new threshold is introduced to ask the question. */
-    /* AND THE WEEK HAS TO HAVE ROOM FOR IT. Naming one of two supporting days
-       leaves a single easy run, which is not "the remaining easy runs stay
-       ordinary" -- it is a week with two sustained runs and one easy one. Three
-       supporting days is the smallest week that can give one up and still be
-       recognisable. */
-    /* ---- AND IT IS THE MARATHON'S SESSION, ASKED OF THE MARATHON ----
-       hasGoalSegment was doing this job on its own, and it could while a
-       goal-pace finish inside a long run was in practice a marathon-only thing.
-       It is not any more: the half's own pathway now puts race-specific work in
-       its long run, by experience and absorption, and a 55km/week half athlete
-       was consequently being prescribed three medium-long runs. A second
-       sustained aerobic run in the week is marathon durability work -- it exists
-       because 42km asks the athlete to keep running long after the long run is
-       over -- and the half does not ask that question. Cross-purpose leakage,
-       named and closed rather than tolerated. */
-    if (useCoherentFrequency && profile.key === 'full' &&
-        wk.phase === 'Build' && easyDays.length >= 3 &&
-        longKm > 0 && wk.hasGoalSegment){
-      var mAllocML = blockResult.phaseCounts ||
-                     marathonPhaseAllocation(blockResult.planWeeks, blockResult.experience);
-      var lateBuild = (wk.week - mAllocML.base) >= Math.ceil(mAllocML.build / 2);
-      if (lateBuild && !wk.isCutback){
-        var wantKm = longKm * MEDIUM_LONG_SHARE_OF_LONG;
-        var pool = perEasy * easyDays.length;
-        var restEach = (pool - wantKm) / (easyDays.length - 1);
-        var floorEach = (easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM;
-        /* IT HAS TO BE A DIFFERENT SESSION FROM THE ONES BESIDE IT. A named run
-           a few hundred metres longer than the easy days is a label, not a
-           stimulus, and labelling is exactly what this must not do. Stated as a
-           ratio so it scales with the athlete rather than as a distance. */
-        if (wantKm >= restEach * MEDIUM_LONG_MIN_OVER_EASY && restEach >= floorEach){
-          /* The day FURTHEST from the long run, so the week's two sustained
-             runs are not sitting next to each other. */
-          mediumLongDay = easyDays.reduce(function(best, d){
-            return (best === null || isoGap(d, longDay) > isoGap(best, longDay)) ? d : best;
-          }, null);
-          mediumLongKm = round1(wantKm);
-        }
-      }
-    }
     // S0 ACCOUNTING: kept on the week so the reconciliation pass below can read
     // what the allocator decided, rather than inferring it from the days.
     wk.dist = dist;
@@ -16101,22 +16010,10 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
            long run. Same session, same distance, two different quanta. */
         dayObj = { type:'easy', title:st.title, km:perEasy, desc:st.desc,
                    prescription:{ archetype:'easy_strides', params:{ easyKm:strEasyKm, reps:6, m:100 } } };
-      } else if (activeSet[iso] && iso===mediumLongDay){
-        var ml = mediumLongRunText(mediumLongKm);
-        dayObj = { type:ml.type, title:ml.title, km:mediumLongKm, desc:ml.desc,
-                   mediumLong:true,
-                   prescription:{ archetype:'easy_run', params:{ km:mediumLongKm } } };
       } else if (activeSet[iso]){
-        /* The other supporting days share what the medium-long did not take.
-           The WEEK is unchanged -- kilometres are conserved, which is the whole
-           reason a medium-long run cannot make an oversized week smaller. */
-        var eKm = mediumLongDay != null && easyDaysBaseCount > 1
-          ? round1(Math.max((easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM,
-                            (perEasy * easyDaysBaseCount - mediumLongKm) / (easyDaysBaseCount - 1)))
-          : perEasy;
-        var er = easyRunText(eKm);
-        dayObj = { type:er.type, title:er.title, km:eKm, desc:er.desc,
-                   prescription:{ archetype:'easy_run', params:{ km:eKm } } };
+        var er = easyRunText(perEasy);
+        dayObj = { type:er.type, title:er.title, km:perEasy, desc:er.desc,
+                   prescription:{ archetype:'easy_run', params:{ km:perEasy } } };
       } else {
         var rd = restDayText(false);
         dayObj = { type:rd.type, title:rd.title, km:0, desc:rd.desc };  // rest carries no structure
@@ -16126,9 +16023,6 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         // present only on the days it is true of, so a plan built before this
         // existed reads identically to one built after it
         availableUnused: dayObj.availableUnused ? true : undefined,
-        /* Present only on the days it is true of, so a plan built before this
-           existed reads identically to one built after it. */
-        mediumLong: dayObj.mediumLong ? true : undefined,
         prescription: dayObj.prescription ? { v:PRESCRIPTION_VERSION, archetype:dayObj.prescription.archetype, params:dayObj.prescription.params } : undefined,
         completed:false, actual:{km:null,pace:null,hr:null,rpe:null,notes:''} });
     }
