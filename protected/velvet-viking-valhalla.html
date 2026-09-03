@@ -35256,9 +35256,27 @@ function renderWeeksList(forceOpenAll){
    Both use the modal card, the existing button classes and the same footer
    promise the block-transition card already makes. Nothing here introduces a
    colour, a control or a typeface the product does not already have. */
-/* Answered once per builder session: the offer is made, the athlete chooses,
-   and Generate does not re-ask on the way back through. */
-var runwayOfferAnswered = false;
+/* Answered once PER CONFIGURATION, not once per builder session: the offer
+   is made, the athlete chooses, and Generate does not re-ask on the way back
+   through FOR THAT SAME CONFIGURATION. Re-open the builder and change what
+   the admission question is actually about -- distance, event date/length,
+   selected days, benchmark/pace or experience -- and it is a different
+   question, asked again. Without this, an athlete who answered once early in
+   a session could adjust their settings into a genuinely unreachable
+   configuration and have Regenerate Plan build it silently: the flag stayed
+   true from a decision about a different, no-longer-current configuration.
+   runwayOfferAnsweredFor holds the admissionInputsSignature() of the
+   configuration that was actually answered, or null if none has been yet;
+   pendingAdmissionSig carries that signature from the moment a modal opens
+   to the moment its button is clicked, since the click handlers below run
+   outside handleGeneratePlan()'s own local scope. */
+var runwayOfferAnsweredFor = null;
+var pendingAdmissionSig = null;
+function admissionInputsSignature(distanceKey, buildPurpose, hasEvent, raceDate,
+                                   planWeeks, volume, availableDays, easyPaceSecPerKm){
+  return JSON.stringify([distanceKey, buildPurpose, hasEvent, raceDate, planWeeks,
+    volume, availableDays, easyPaceSecPerKm, athleteExperience()]);
+}
 function openRunwayOfferModal(plan, distanceKey){
   openModal(runwayOfferHtml(plan, distanceKey), 'modal-themed');
 }
@@ -37003,12 +37021,15 @@ async function handleGeneratePlan(){
      58/59), so the same gate that has protected Half/Marathon since their own
      correction now protects these two as well. Ultra is still untouched: it
      has no dedicated architecture and usesBottomUpArc() says so. */
-  if (!runwayOfferAnswered && buildPurpose === 'race' && hasEvent &&
+  var admSig = admissionInputsSignature(distanceKey, buildPurpose, hasEvent, raceDate,
+    planWeeks, volume, activeDays.length, genEasyPace);
+  if (runwayOfferAnsweredFor !== admSig && buildPurpose === 'race' && hasEvent &&
       (distanceKey === 'full' || distanceKey === 'half' ||
        distanceKey === '5k' || distanceKey === '10k')){
     var rp = marathonRunwayPlan(planWeeks, volume, distanceKey, genCtx);
     if (rp && rp.preparatory){
       setRaceDestination(distanceKey, raceDate, {}, null);
+      pendingAdmissionSig = admSig;
       openRunwayOfferModal(rp, distanceKey);
       return;
     }
@@ -37021,6 +37042,7 @@ async function handleGeneratePlan(){
     var adm = raceGoalAdmission(distanceKey, planWeeks, volume, genCtx);
     if (adm && !adm.admitted && adm.decision === 'preparation_not_reachable'){
       setRaceDestination(distanceKey, raceDate, {}, null);
+      pendingAdmissionSig = admSig;
       openRaceGoalPreparationModal(adm, distanceKey);
       return;
     }
@@ -45201,16 +45223,17 @@ document.addEventListener('click', function(e){
     case 'start-block': handleStartBlock(target.getAttribute('data-purpose')); break;
     /* The surplus-runway offer. Both answers are the athlete's; neither is a
        default the app takes on their behalf. */
-    case 'runway-prep': closeModal(); runwayOfferAnswered = true;
+    case 'runway-prep': closeModal(); runwayOfferAnsweredFor = pendingAdmissionSig;
       handleStartBlock(target.getAttribute('data-purpose')); break;
-    case 'runway-continue': closeModal(); runwayOfferAnswered = true; handleGeneratePlan(); break;
+    case 'runway-continue': closeModal(); runwayOfferAnsweredFor = pendingAdmissionSig; handleGeneratePlan(); break;
     /* The preparation boundary. Same two-real-answers shape as the runway
        offer, and it reuses the same "the athlete has answered" flag: both
        questions are asked in the same place and neither should be re-asked
-       once the athlete has decided. */
-    case 'prep-route': closeModal(); runwayOfferAnswered = true;
+       once the athlete has decided -- for THIS configuration. See
+       admissionInputsSignature() for what re-opens the question. */
+    case 'prep-route': closeModal(); runwayOfferAnsweredFor = pendingAdmissionSig;
       handleStartBlock(target.getAttribute('data-purpose')); break;
-    case 'prep-continue': closeModal(); runwayOfferAnswered = true; handleGeneratePlan(); break;
+    case 'prep-continue': closeModal(); runwayOfferAnsweredFor = pendingAdmissionSig; handleGeneratePlan(); break;
     /* THE ENTRY BOUNDARY. Accept builds the Aerobic Base block through the
        builder the athlete is already standing in -- same schedule, same
        benchmark, same days -- rather than through startDevelopmentBlock(),

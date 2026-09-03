@@ -606,6 +606,50 @@ test('MUTATION: the builder still builds a race block exactly as before', () => 
     'a real race block must still have a race day');
 });
 
+/* THE STICKY FLAG, FOUND FROM A REAL PLAN. runwayOfferAnsweredFor gates
+   whether Regenerate Plan re-asks the runway/admission question -- answered
+   once, it must not nag on the way back through the SAME configuration. But
+   "the same configuration" was being read as "this builder session", a
+   plain boolean that never reset: an athlete who answered once early on
+   could change distance, event date, days or benchmark into a genuinely
+   different -- and genuinely unreachable -- configuration and have
+   Regenerate Plan build it silently, because the flag stayed true from a
+   decision about a different question.
+
+   admissionInputsSignature() closes this: the flag now remembers WHICH
+   configuration it answered, and a materially different one is asked again.
+   raceGoalAdmission()/marathonRunwayPlan() are stubbed here because their own
+   methodology is proven elsewhere (raceGoalAdmissionViability.test.js); what
+   this test isolates is the control flow around them -- does the question
+   get asked when it must, and stay quiet when it must not. */
+test('REGRESSION: the admission question re-fires only when the configuration actually changes', () => {
+  const a = racingAthlete({ experience: 'novice' });
+  logPast(a);
+  const asks = [];
+  a.marathonRunwayPlan = () => ({ preparatory: false });
+  a.raceGoalAdmission = () => ({ admitted: false, decision: 'preparation_not_reachable' });
+  a.openRaceGoalPreparationModal = (adm, distanceKey) => { asks.push({ adm, distanceKey }); };
+
+  builderDom(a, { 'su-purpose': 'race', 'su-distance': 'full', 'su-racedate': '2027-05-01' });
+  a.handleGeneratePlan();
+  assert.equal(asks.length, 1, 'a race build within the gated distances must ask once');
+
+  // "Build the marathon programme anyway" -- exactly what prep-continue does.
+  a.runwayOfferAnsweredFor = a.pendingAdmissionSig;
+
+  // Regenerate Plan with nothing changed: must not nag the athlete again.
+  builderDom(a, { 'su-purpose': 'race', 'su-distance': 'full', 'su-racedate': '2027-05-01' });
+  a.handleGeneratePlan();
+  assert.equal(asks.length, 1, 'an unchanged configuration must not re-ask');
+
+  // The athlete changes the event date -- weeks-to-race is exactly what the
+  // admission question is about. THE BUG: this used to build silently.
+  builderDom(a, { 'su-purpose': 'race', 'su-distance': 'full', 'su-racedate': '2027-06-15' });
+  a.handleGeneratePlan();
+  assert.equal(asks.length, 2,
+    'a materially different configuration must be asked about again, not built on a stale answer');
+});
+
 test('MUTATION: a non-race block cannot emit race-only language', () => {
   const a = racingAthlete();
   logPast(a);
