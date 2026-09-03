@@ -24,7 +24,15 @@ function app(){
 function calibratedPlan(){
   const a = app();
   buildPlan(a, { weeks: 12, volume: 45, distanceKey: 'half', startDate: TODAY });
-  const blk = a.buildBlockWeeks('half', 45, 12, { calibrate: true });
+  // availableDays must match the fixture's own schedule (5 active days) --
+  // buildBlockWeeks() defaults to assuming 6 when it is omitted, which the
+  // real app's handleGeneratePlan() never does (it always passes the
+  // athlete's real selected-day count). Race Goal Half/Marathon's tight
+  // day-count contract reads this figure directly, so leaving it mismatched
+  // from the schedule buildDaysFromWeeks() actually uses is a fixture bug,
+  // not a methodology one.
+  const availableDays = a.state.setup.schedule.activeDays.length;
+  const blk = a.buildBlockWeeks('half', 45, 12, { calibrate: true, availableDays });
   a.state.days = a.buildDaysFromWeeks(blk, a.state.setup.raceDate,
     a.state.setup.schedule, TODAY, false);
   return a;
@@ -111,7 +119,8 @@ test('being a TEST buys no additional quality session', () => {
      existing slot rather than adding one. Proven on the delivered plan: the
      calibration week carries no more quality than the same week without it. */
   const a = calibratedPlan();
-  const plain = a.buildDaysFromWeeks(a.buildBlockWeeks('half', 45, 12),
+  const plain = a.buildDaysFromWeeks(
+    a.buildBlockWeeks('half', 45, 12, { availableDays: a.state.setup.schedule.activeDays.length }),
     a.state.setup.raceDate, a.state.setup.schedule, TODAY, false);
   const cal = dayOfType(a, 'calibration');
   const hardIn = (days, wk) => days.filter(d => d.week === wk && d.km > 0 &&

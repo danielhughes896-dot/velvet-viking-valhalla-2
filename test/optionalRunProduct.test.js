@@ -87,14 +87,19 @@ function logRun(a, dd, km, pace){
 }
 /* Far enough in that three plan weeks have closed behind the athlete. */
 /* ---- STOOD WHERE THE ENGINE ACTUALLY LEAVES DAYS FREE ----
-   This was five weeks into the block, which was right while the day builder
-   froze the prescribed frequency at whatever the athlete arrived running. It no
-   longer does: frequency is a capacity and it develops, so this athlete's week
-   reaches the six days they are available by week three and the engine leaves
-   nothing free after week two. currentSustainedRunningFrequency() reads the last
-   three COMPLETE weeks, so the athlete is stood at the first point where three
-   have closed AND the free days are inside that window. Same three closed weeks,
-   same free days, same assertion. */
+   This is five weeks into the block, which is right while the day builder
+   still ramps this athlete's frequency in. HQ RACE GOAL TIGHT METHODOLOGY
+   CORRECTION makes selected days training days from the FIRST week -- the
+   solver may no longer withhold a selected day merely because it can fit
+   the mileage into fewer sessions -- but the contract is a FLOOR
+   (Math.max(mWeek.supportDays, mWeekContractDays)), never a ceiling that
+   forces a day back open once demonstrated capacity earns it honestly. For
+   THIS athlete (three days a week for a year, now given six selected days
+   at a meaningfully higher volume) natural capacity still reaches all six
+   selected days by week three, same as before the correction, and the
+   engine leaves nothing free after week two. currentSustainedRunningFrequency()
+   reads the last three COMPLETE weeks, so the athlete is stood at the first
+   point where three have closed AND the free days are inside that window. */
 const b_today = a => a.addDays(START, 7 * 2 + 3);
 const plannedShape = a => a.state.days.map(d => d.date + ':' + d.type + ':' + (d.km || 0) + ':' +
   (d.title || '') + ':' + ((d.prescription || {}).archetype || '-') + ':' +
@@ -350,7 +355,13 @@ test('13. a completed optional run IS evidence for running frequency', () => {
   assert.ok(record.actual.km > 0);
   freeBefore.forEach(d => { d.optionalRun = record.optionalRun; d.completed = record.completed;
                             d.actual = JSON.parse(JSON.stringify(record.actual)); });
-  assert.ok(freeBefore.length >= 3, 'the fixture must offer enough closed weeks');
+  /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION tightened week one's own
+     utilisation (a selected day is no longer left idle there either), which
+     shrinks how much slack exists before capacity fills every selected day --
+     two free days survive here (one in week one, one in week two) rather
+     than the three a looser week one used to leave. That is the correction
+     working as intended, not a fixture regression. */
+  assert.ok(freeBefore.length >= 2, 'the fixture must offer enough closed weeks');
   assert.ok(b.currentSustainedRunningFrequency() > base,
     'training more often is visible to the model that reads how often you train');
 });
