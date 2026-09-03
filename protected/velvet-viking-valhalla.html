@@ -11962,42 +11962,63 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        already reflect that; see mSupportWorkloadKm). */
     if (mWeek){
       mWeek.scheduledSupportDays = mWeek.supportDays;
-      var mSupportWorkloadKm = (mWeek.supportKm || 0) * (mWeek.supportDays || 0);
-      if ((distKey === 'half' || distKey === 'full') && mSupportWorkloadKm > 0){
-        var mWeekDaysCeiling = Math.max(1, mBottomUp.days - 1 - mWeek.qSlots);
-        /* THE WORKLOAD ITSELF MUST BE ABLE TO PAY FOR THE EXTRA DAY, or
-           distributeWeekVolume()'s own floor-excess rule inflates the week
-           to reach it -- exactly the "opening week came out bigger than
-           asked" defect test/raceGoalAdmissionViability.test.js's locked-
-           entry guard exists to catch, reproduced and caught here against a
-           New Half's 15km entry week (17km, +13%) before this line existed.
-           Capping at floor(workload / EASY_MIN_KM) is the same arithmetic
-           distributeWeekVolume() itself uses to decide a day count is
-           affordable; asking it here means this line can never offer a day
-           count distributeWeekVolume() would have to inflate the week to
-           satisfy. */
-        var mWeekWorkloadDays = Math.floor(mSupportWorkloadKm / EASY_MIN_KM);
-        var mWeekContractDays = Math.min(mWeekDaysCeiling, mWeekWorkloadDays,
-                                         Math.max(0, mBottomUp.days - 2 - mWeek.qSlots));
+      /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- SELECTED TRAINING DAYS
+         ARE TRAINING DAYS. A selected day is either a prescribed run or the
+         one reserved Optional Run; it is never plain, unlabeled Rest merely
+         because the week's mileage could be squeezed into fewer sessions.
+         N selected -> N-1 prescribed (long + qSlots + supportDays) + 1
+         Optional, so supportDays targets N-2-qSlots exactly.
+
+         THE EARLIER WORKLOAD-AFFORDABILITY CAP IS GONE, ON HQ's OWN
+         INSTRUCTION: "do not let the solver reduce the number of training
+         days merely because it can fit the required mileage into fewer
+         sessions." That cap (floor(workload/EASY_MIN_KM)) existed to stop
+         distributeWeekVolume()'s floor-excess rule from inflating a week
+         to pay for a day count the athlete's own earned workload could not
+         afford -- exactly the New Half 15km-entry-opens-at-17km defect
+         test/raceGoalAdmissionViability.test.js's locked-entry guard
+         catches. HQ has now named that exact trade-off and chosen the
+         other side of it for the core day-count contract: a small,
+         floor-bounded inflation of an under-resourced week is preferable
+         to a selected day sitting unused. distributeWeekVolume() still
+         floors every individual easy run at EASY_MIN_KM; nothing here lets
+         a session go below that. */
+      if ((distKey === 'half' || distKey === 'full') && (mWeek.supportKm || 0) > 0){
+        var mWeekContractDays = Math.max(0, mBottomUp.days - 2 - mWeek.qSlots);
+        /* WIDEN-ONLY, NEVER NARROW -- deliberately, in every phase including
+           Peak. HQ's contract is a FLOOR ("Allow ONE selected day to be an
+           Optional Run" -- a permission, not a mandate that a capable week
+           must always leave one unused): at least N-1 of the selected days
+           carry a real prescription, and the athlete's own earned capacity
+           is free to fill every one of them where it genuinely supports
+           that, exactly as it already could before this correction. Forcing
+           the day count DOWN to precisely N-1 whenever a week's settled,
+           capacity-earned supportDays already exceeded it was tried and
+           reverted: it silently cost the marathon medium-long-run mechanism
+           the third calendar easy-day slot its own "the week must be able
+           to give one up and still be recognisable" gate needs (see
+           MEDIUM_LONG_MIN_OVER_EASY below), consolidating four earned
+           supporting days into three larger ones for no reason this
+           correction was authorised to create. Never narrowing keeps that
+           gate, and everything else downstream of a week's OWN settled
+           shape, exactly as it already was. */
         mWeek.scheduledSupportDays = Math.max(mWeek.supportDays, mWeekContractDays);
       }
-      /* TAPER READS BACK THE BLOCK'S OWN WIDENING RATHER THAN RE-EARNING IT.
-         A taper's supporting workload is deliberately smaller -- that is
-         what a taper is -- so testing THAT smaller total against the same
-         EASY_MIN_KM floor a real developing week's workload has to clear
-         would undo "taper retains established frequency, only reduces
-         load" (HQ's own instruction) the moment the widening exists at all:
-         caught directly by the taper-retention test, mismatched 2 vs 3
-         before this line existed. mWeek.supportDays itself is already held
-         through taper by the pre-existing mPrevEffSupportDays/cutback
-         mechanism above; this is the identical statement made about its
-         widened figure. Cutback weeks are deliberately NOT covered here --
-         HQ named taper specifically, and the pre-existing architecture
-         already treats an absorption week's own reduced frequency as
-         legitimate. */
+      /* TAPER'S OWN EXACT CONTRACT ALREADY MATCHES BUILD'S, BY CONSTRUCTION --
+         the day-count target (days-2-qSlots) no longer depends on workload
+         at all (see the tight-contract note above), so a taper with fewer
+         quality slots than Build simply earns the difference back as
+         support days, holding the SAME total prescribed-day frequency
+         without needing to inherit a number from elsewhere. This remains
+         only as the safety-net floor for the rare case taper's own
+         supportKm gate does not fire (e.g. a taper with no supporting
+         workload of its own): it may never fall below the last BUILD
+         week's own settled figure. Deliberately sourced from Build, never
+         Peak -- Peak's widen-only figure can legitimately exceed the N-1
+         contract (see above) and must not leak into taper's tight one. */
       if (isTaper && mPrevScheduledSupportDays != null)
         mWeek.scheduledSupportDays = Math.max(mWeek.scheduledSupportDays, mPrevScheduledSupportDays);
-      if (!isTaper) mPrevScheduledSupportDays = mWeek.scheduledSupportDays;
+      if (!isTaper && phase !== 'Peak') mPrevScheduledSupportDays = mWeek.scheduledSupportDays;
     }
     weeks.push({
       week:w, phase:phase, isCutback:isCutback, isTaper:isTaper, isRace:isRace, isCheckpoint:isCheckpoint,
@@ -14815,7 +14836,22 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        This decides only how many days it is written across, and a day that is
        not a running day is a rest day the supporting-work layer may claim. */
     var runCap = activeDays.length;
-    var feasibleDays = expressibleRunningDays(blockResult.distKey, wk.volume,
+    /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- HALF/MARATHON ONLY. This
+       feasibility bound reads the week's raw volume and asks how many
+       EASY_MIN_KM-floored days it could support -- the same "solver reduces
+       days to fit the mileage" reduction HQ's correction forbids, reached
+       through a different door than wk.bottomUp.scheduledSupportDays below.
+       At a Developing Half/Marathon athlete's own locked entry volume it
+       silently pre-empted the exact N-1-prescribed-days contract before the
+       bottom-up branch ever got to state it (measured: a Novice Half's
+       6-selected-day entry week solved scheduledSupportDays correctly, then
+       had it overridden back down to 4 here). Skipped for Half/Marathon
+       bottom-up weeks, which already state their own day-count authority
+       explicitly below; every other purpose and distance -- 5K, 10K, Base,
+       Speed, Maintain -- reads exactly what it read before. */
+    var skipFeasibilityForContract = wk.bottomUp &&
+      (blockResult.distKey === 'half' || blockResult.distKey === 'full');
+    var feasibleDays = skipFeasibilityForContract ? null : expressibleRunningDays(blockResult.distKey, wk.volume,
                                               (easyFloorKm != null) ? easyFloorKm : EASY_MIN_KM,
                                               !noLongRun);
     if (feasibleDays != null) runCap = Math.min(runCap, feasibleDays);

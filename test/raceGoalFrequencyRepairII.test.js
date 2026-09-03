@@ -102,15 +102,6 @@ test('HARD RULE: Marathon, 4 selected days, Novice -- at least 3 definite runs',
 });
 
 test('HARD RULE: Half Marathon, 6 selected days, Experienced -- at least 5 definite runs', () => {
-  // Novice/Developing Half is deliberately NOT used for this hard-rule check.
-  // marathonSupportDaysFor()'s pre-existing capacity ramp caps a Developing
-  // Half athlete's OWN earned supportKm*supportDays workload low enough
-  // (confirmed byte-identical to unmodified origin/main -- this repair does
-  // not touch that ramp, SUPPORT_SHARE_MIN, or destination mileage, all of
-  // which HQ named explicitly out of scope) that no volume/duration choice
-  // ever clears the EASY_MIN_KM affordability floor for a 2nd support day.
-  // See "Novice Half Marathon" test below for the measured, honest result
-  // of that pre-existing gap, documented as a named risk in the HQ report.
   const a = app();
   const blk = buildFor(a, 'half', 'experienced', 12, 6, 30);
   const buildWeek = buildPhaseWeek(blk, 'Build');
@@ -119,31 +110,26 @@ test('HARD RULE: Half Marathon, 6 selected days, Experienced -- at least 5 defin
   assert.ok(c.definite >= 5, `expected >=5 definite for 6 selected Half days, got ${c.definite}`);
 });
 
-test('Novice Half Marathon, 6 selected days: byte-identical to unmodified origin/main -- documented pre-existing gap this repair cannot reach without touching destination mileage (out of scope)', () => {
+test('HQ RACE GOAL TIGHT METHODOLOGY CORRECTION closed this gap: Novice Half Marathon, 6 selected days, now also reaches at least 5 definite', () => {
+  // SUPERSEDES the earlier documented gap in this file's history: Novice
+  // Half's own capacity-earned supportDays never cleared the EASY_MIN_KM
+  // affordability floor for a 2nd support day, so this exact scenario was
+  // byte-identical to unmodified origin/main at 3 definite / 3 optional / 1
+  // rest, named as a pre-existing, out-of-scope gap in Frequency Repair
+  // II's own HQ report. The Tight Methodology Correction closes it
+  // directly: the day-count floor for Half/Marathon Build/Taper is
+  // reached unconditionally -- no longer gated on the week's own earned
+  // supporting workload -- distributeWeekVolume()'s floor-excess rule
+  // pays for the extra day instead of the day being withheld, exactly the
+  // trade-off HQ named and chose. See raceGoalAdmissionViability.test.js's
+  // locked-entry guard for the measured cost of that trade-off at this
+  // exact pathway.
   const a = app();
   const blk = buildFor(a, 'half', 'novice', 12, 6, 30);
   const buildWeek = buildPhaseWeek(blk, 'Build');
   const { days } = buildDays(a, blk, 12, [0, 1, 2, 3, 4, 6], 6);
   const c = definiteRestOptional(days, buildWeek.week);
-  // Unmodified origin/main produces definite:3, optional:3, rest:1 for this
-  // exact scenario -- and this repair produces the SAME figures, because
-  // marathonSupportDaysFor()'s pre-existing capacity ramp never earns this
-  // Developing-experience athlete enough per-week supporting workload
-  // (supportKm*supportDays) to clear a 2nd support day's EASY_MIN_KM
-  // affordability floor at this volume/duration. scheduledSupportDays
-  // therefore equals supportDays here: no widening is offered, and none is
-  // safe to offer without inflating the week beyond what its own earned
-  // workload can pay for (the exact defect
-  // raceGoalAdmissionViability.test.js's locked-entry guard exists to
-  // catch). Reaching HQ's full 5-definite contract for this population
-  // would require changing Race Goal destination mileage or the capacity
-  // ramp itself, both of which HQ named explicitly out of scope for this
-  // repair. This assertion locks the honest, UNCHANGED figure in place so
-  // any future drift away from byte-identical-to-main is caught, and
-  // documents (rather than silently accepts) the gap.
-  assert.equal(c.definite, 3, `expected the documented pre-existing figure of 3 definite, got ${c.definite}`);
-  assert.equal(buildWeek.bottomUp.scheduledSupportDays, buildWeek.bottomUp.supportDays,
-    'no widening should be offered when the week has no spare earned workload to pay for it');
+  assert.ok(c.definite >= 5, `expected >=5 definite for 6 selected Half days, got ${c.definite}`);
 });
 
 /* ==========================================================

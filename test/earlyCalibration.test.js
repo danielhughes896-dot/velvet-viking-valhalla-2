@@ -31,7 +31,12 @@ function calibratedPlan(opts){
   const a = app();
   buildPlan(a, Object.assign({ weeks: 10, volume: 45, distanceKey: 'half',
                                startDate: TODAY }, o.plan || {}));
-  const blk = a.buildBlockWeeks('half', 45, 10, { calibrate: true });
+  // availableDays must match the fixture's own schedule -- buildBlockWeeks()
+  // defaults to assuming 6 when it is omitted, which the real app's
+  // handleGeneratePlan() never does. Race Goal Half/Marathon's tight
+  // day-count contract reads this figure directly.
+  const blk = a.buildBlockWeeks('half', 45, 10,
+    { calibrate: true, availableDays: a.state.setup.schedule.activeDays.length });
   a.state.days = a.buildDaysFromWeeks(blk, a.state.setup.raceDate,
     a.state.setup.schedule, TODAY, false);
   return a;
@@ -90,7 +95,7 @@ test('an athlete with no measured evidence gets one, in week one', () => {
   const qualityIn = (days, wk) =>
     days.filter(d => d.week === wk && QUALITY.indexOf(d.type) !== -1);
 
-  const plain = a.buildDaysFromWeeks(a.buildBlockWeeks('half', 45, 10),
+  const plain = a.buildDaysFromWeeks(a.buildBlockWeeks('half', 45, 10, { availableDays: a.state.setup.schedule.activeDays.length }),
     a.state.setup.raceDate, a.state.setup.schedule, TODAY, false);
   assert.equal(qualityIn(a.state.days, 1).length, qualityIn(plain, 1).length,
     'the calibration replaced a session rather than adding one');
@@ -782,7 +787,7 @@ test('an effort that did not happen yields neither number', () => {
 // ---------------------------------------------------------------------------
 test('keeping the full protocol does not disturb the week around it', () => {
   const a = calibratedPlan();
-  const plain = a.buildDaysFromWeeks(a.buildBlockWeeks('half', 45, 10),
+  const plain = a.buildDaysFromWeeks(a.buildBlockWeeks('half', 45, 10, { availableDays: a.state.setup.schedule.activeDays.length }),
     a.state.setup.raceDate, a.state.setup.schedule, TODAY, false);
   const dd = calDay(a);
   const wk = (days, n) => days.filter(d => d.week === n);
@@ -827,8 +832,8 @@ test('keeping the full protocol does not disturb the week around it', () => {
      the calibration is not permission for VOLUME. It changes exactly one
      week, by no more than what the protocol costs above the slot it took, and
      it moves neither the block's peak nor any other week. */
-  const calBlk = a.buildBlockWeeks('half', 45, 10, { calibrate: true });
-  const plainBlk = a.buildBlockWeeks('half', 45, 10);
+  const calBlk = a.buildBlockWeeks('half', 45, 10, { calibrate: true, availableDays: a.state.setup.schedule.activeDays.length });
+  const plainBlk = a.buildBlockWeeks('half', 45, 10, { availableDays: a.state.setup.schedule.activeDays.length });
   assert.equal(calBlk.weeks.slice(1).map(w => w.volume).join(','),
                plainBlk.weeks.slice(1).map(w => w.volume).join(','),
     'the calibration touches one week: every other weekly target is identical');

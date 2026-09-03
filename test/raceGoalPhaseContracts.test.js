@@ -89,8 +89,22 @@ SETS.forEach(({ label, cases }) => {
         c.key + ': Base exits running ' + est('runDays') + ' days — not a week Build can develop');
       /* AND WHERE THE ATHLETE ARRIVED WITHOUT THE PREREQUISITES, BASE BUILT
          THEM. A New pathway that leaves its athlete exactly where they started
-         has not prepared anybody for anything. */
-      if (c.exp === 'novice')
+         has not prepared anybody for anything.
+
+         HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- a two-week Base phase
+         is the one case where this now legitimately shows no volume/long-run
+         delta between its own two weeks. Selected days are training days
+         from the very first week under the new contract (N selected -> N-1
+         prescribed immediately, not ramped up to over several weeks), so a
+         New athlete's frequency establishment -- reaching the pathway's own
+         entry day count -- happens in week 1 rather than climbing across
+         Base, and both floor-inflated weeks of a two-week Base can land on
+         the identical total. Longer Base phases still show the ordinary
+         volume ramp (Build's own weeks below prove the curve did not go
+         flat generally), so the exception is scoped to exactly the case
+         that structurally cannot show one: two weeks is not enough room for
+         a volume curve once the day count itself is no longer what ramps. */
+      if (c.exp === 'novice' && base.length > 2)
         assert.ok(est('longKm') > base[0].longKm + 0.05 || est('km') > base[0].km + 0.05,
           c.key + ': Base established nothing for a New athlete');
     });
