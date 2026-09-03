@@ -4917,6 +4917,41 @@ var TEMPO_STRUCTURE_POOL = {
   Maintain: [structSteadyTempo, structProgressiveTempo,
              structSplitTempo, structThresholdContinuous]
 };
+/* AEROBIC BASE'S OWN TEMPO POOL, BASE-PHASE ENTRY DURATION-BOUNDED ONLY --
+   HQ METHODOLOGY RULING, FINAL VERIFICATION FINDING C.
+   structThresholdContinuous states its dose as a FIXED DISTANCE
+   (EMPHASIS_TEMPO_RANGE[emphasis].kmLo..kmHi), not a duration, so the same
+   "8km" label is a 26-minute effort for a fast athlete and a 56-minute one
+   for a slow athlete -- the one structure in TEMPO_STRUCTURE_POOL.Base the
+   F-4 readiness-gate downgrade (Build -> Base, see buildBlockWeeks) cannot
+   make pace-safe by choosing it, because gating WHICH pool is drawn from
+   does nothing about a structure inside that pool whose size is not governed
+   by pace at all. structSteadyTempo is the pool's other Base-phase member
+   and states its dose in minutes (20-35min at Base's endurance emphasis,
+   any pace), which is exactly what Base's own intensity-distribution rule
+   already requires.
+
+   A DEDICATED OBJECT, NOT AN EDIT TO TEMPO_STRUCTURE_POOL ITSELF, because
+   that shared object's own .Base entry is NOT exclusively Aerobic Base's:
+   tempoPoolFor() falls through to it for every purpose raceGoalArch() does
+   not dedicate a pool to, which includes Maintain & Protect, Speed &
+   Threshold, and -- caught only by the whole-population audit, not by
+   inspection -- Ultra Race Goal, since raceGoalArch() has no 'ultra' case
+   and so silently returns null for it too. Editing TEMPO_STRUCTURE_POOL.Base
+   directly shifted Ultra's own Base-phase weeks, a real Race Goal population
+   this containment was never authorised to touch (test/audit/matrix.js's
+   long_run_shorter_than_quality/load_progression_structure_introduced_with_
+   dose_step/week_over_week_growth_over_10pct counters moved by exactly the
+   Ultra-population amount). Every OTHER field is identical to
+   TEMPO_STRUCTURE_POOL, so tempoPoolFor() below returns this instead only
+   for purpose === 'base', and Maintain/Speed/Ultra keep reading the
+   original, completely unedited object. */
+var BASE_TEMPO_POOL = {
+  Base:  [structSteadyTempo],
+  Build: TEMPO_STRUCTURE_POOL.Build,
+  Peak:  TEMPO_STRUCTURE_POOL.Peak,
+  Maintain: TEMPO_STRUCTURE_POOL.Maintain
+};
 
 /* =========================================================
    THE HALF MARATHON'S OWN QUALITY PROGRESSION
@@ -5084,6 +5119,11 @@ function tempoPoolFor(purpose, distKey){
   var arch = raceGoalArch(purpose, distKey);
   if (arch === 'half') return HALF_TEMPO_POOL;
   if (arch === 'short') return distKey === '10k' ? TENK_TEMPO_POOL : FIVEK_TEMPO_POOL;
+  // Aerobic Base reads its own dedicated pool (see BASE_TEMPO_POOL) so its
+  // containment of structThresholdContinuous cannot leak into Maintain,
+  // Speed or Ultra Race Goal, which all fall through to the shared,
+  // unedited TEMPO_STRUCTURE_POOL below exactly as before.
+  if (purpose === 'base') return BASE_TEMPO_POOL;
   return TEMPO_STRUCTURE_POOL;
 }
 /* ---------- WHICH FAMILY THE HALF'S ONE QUALITY SLOT DELIVERS ----------

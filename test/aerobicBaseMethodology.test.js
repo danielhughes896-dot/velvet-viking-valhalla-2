@@ -276,13 +276,34 @@ function buildWeekSoloSpec(persistent){
   return buildWeek.soloSpec.type;
 }
 
-/* TEMPO_STRUCTURE_POOL.Base = [structSteadyTempo, structThresholdContinuous]
-   (own `.type` fields 'steady'/'threshold'); .Build = [structProgressiveTempo,
-   structSplitTempo] (own `.type` fields 'progressive'/'tempo' -- confirmed
-   directly against the structure functions, not assumed from the name).
-   pickQualityStructure() rotates between a pool's members by occurrence, so
-   the test has to check POOL MEMBERSHIP, not one specific rotation member. */
-const BASE_TEMPO_TYPES = ['steady', 'threshold'];
+/* BASE_TEMPO_POOL.Base = [structSteadyTempo] ONLY -- HQ FINAL VERIFICATION
+   FINDING C, CONTAINED. structThresholdContinuous used to sit alongside it
+   in the pool Base actually drew from (own `.type` field 'threshold') but
+   states its dose as a FIXED DISTANCE rather than a duration, so the
+   identical "8km" label was a 26-minute effort for a fast athlete and a
+   56-minute one for a slow athlete -- the one structure in the pool the F-4
+   readiness-gate downgrade could not make pace-safe by choosing it, because
+   gating WHICH POOL is drawn from does nothing about a structure inside
+   that pool whose size ignores pace entirely.
+
+   A DEDICATED POOL, NOT AN EDIT TO THE SHARED TEMPO_STRUCTURE_POOL.
+   TEMPO_STRUCTURE_POOL.Base is not exclusively Aerobic Base's: it is also
+   what tempoPoolFor() falls through to for Maintain & Protect, Speed &
+   Threshold, and Ultra Race Goal (raceGoalArch() has no 'ultra' case). The
+   first version of this containment edited that array directly and moved
+   Ultra Race Goal's own population counts in test/audit/matrix.js --
+   caught only by the whole-population audit, not by inspection. Base now
+   reads its own BASE_TEMPO_POOL, identical to TEMPO_STRUCTURE_POOL in every
+   field except .Base; TEMPO_STRUCTURE_POOL itself is untouched, see 'C:
+   non-Base pools are unchanged' below, which now also proves
+   TEMPO_STRUCTURE_POOL.Base specifically is unchanged for the purposes
+   still reading it.
+   .Build = [structProgressiveTempo, structSplitTempo] (own `.type` fields
+   'progressive'/'tempo' -- confirmed directly against the structure
+   functions, not assumed from the name). pickQualityStructure() rotates
+   between a pool's members by occurrence, so a membership test has to check
+   POOL MEMBERSHIP, not one specific rotation member. */
+const BASE_TEMPO_TYPES = ['steady'];
 const BUILD_TEMPO_TYPES = ['progressive', 'tempo'];
 
 test('F-4: two athletes at the same Build week with different readiness draw from a different family pool', () => {
@@ -331,9 +352,113 @@ test('F-4: the readiness gate is proven end-to-end against the real materialised
   const session = built.find(d => d.week === buildWeek.week &&
     (d.type === 'tempo' || d.type === 'interval' || d.type === 'threshold'));
   assert.ok(session, 'the build week must still carry a real quality session');
-  assert.ok(['steady_tempo', 'threshold_continuous'].indexOf(session.prescription.archetype) !== -1,
-    'the materialised session must reflect the gentler, readiness-gated Base tempo pool, got ' +
+  /* OLD RULE: either 'steady_tempo' or 'threshold_continuous' was acceptable
+     -- the gate only had to prove it reached Base's pool, not which member.
+     NEW RULE: 'steady_tempo' only. WHY: HQ's final verification (finding C)
+     found threshold_continuous inside that very pool undoing the gate's own
+     pace-safety intent -- a "gentler Base tempo pool" that could still hand
+     a persistent-miss athlete a 56-minute continuous threshold effort is not
+     gentler in the way F-4 was authorised to deliver. Base's pool now has one
+     member, so this assertion is exact rather than a membership check. */
+  assert.equal(session.prescription.archetype, 'steady_tempo',
+    'the materialised session must be the duration-bounded Base tempo structure, got ' +
     session.prescription.archetype);
+});
+
+/* ==========================================================
+   FINAL VERIFICATION FINDING C, CONTAINED -- Base's tempo pool can no
+   longer select the fixed-distance structThresholdContinuous structure,
+   and every other pool that legitimately still uses it is unchanged.
+   ========================================================== */
+test('C: BASE_TEMPO_POOL.Base no longer contains structThresholdContinuous, and tempoPoolFor(\'base\',...) returns it', () => {
+  const a = app();
+  const pool = a.BASE_TEMPO_POOL.Base;
+  assert.equal(pool.length, 1, 'Base tempo pool must have exactly one member now, got ' + pool.length);
+  assert.equal(pool[0], a.structSteadyTempo, 'the one remaining member must be the duration-bounded structure');
+  assert.ok(pool.indexOf(a.structThresholdContinuous) === -1,
+    'structThresholdContinuous must not be reachable from Base\'s own pool');
+  assert.equal(a.tempoPoolFor('base', 'half'), a.BASE_TEMPO_POOL,
+    'buildBlockWeeks() reaches Base\'s pool through tempoPoolFor(), which must actually return the dedicated object');
+});
+
+test('C: Base\'s tempo prescription is duration-bounded across the whole position range, any occurrence', () => {
+  // pos sweeps the structure's own dimension directly -- every candidate
+  // this pool can ever produce must carry `min` (minutes), never `km`.
+  // pickQualityStructure(pool, phase, ...) indexes pool[phase] itself, so the
+  // whole BASE_TEMPO_POOL object is passed, not its .Base array alone.
+  const a = app();
+  for (let pos = 0; pos <= 1; pos += 0.1){
+    for (let occurrence = 0; occurrence < 4; occurrence++){
+      const spec = a.pickQualityStructure(a.BASE_TEMPO_POOL, 'Base', occurrence, pos, 'endurance', 0);
+      assert.equal(spec.type, 'steady', 'Base tempo must always resolve to the steady structure, got ' + spec.type);
+      assert.ok(spec.min != null && spec.km == null,
+        'a Base tempo structure must be duration-governed (min), never distance-governed (km): ' + JSON.stringify(spec));
+      assert.ok(spec.min >= 20 && spec.min <= 35,
+        'Base endurance-emphasis steady tempo must stay within its own 20-35min range, got ' + spec.min);
+    }
+  }
+});
+
+test('C: the F-4 readiness downgrade (Build -> Base) cannot expose the fixed-distance threshold structure, swept across weeks', () => {
+  // Sweep every Build-phase week of a persistent-miss athlete's block --
+  // not just the single case the F-4 end-to-end test already covers -- and
+  // confirm the pool-rotation occurrence never lands on threshold_continuous,
+  // because it is no longer a candidate at all.
+  const a = app();
+  const t = a.todayStr();
+  const days = [];
+  for (let i = 1; i <= 12; i++){
+    const d = a.addDays(t, -i);
+    const ran = (i % 5 === 0);
+    days.push({ id: d, date: d, week: 0, type: 'easy', title: 'Easy', km: 8, completed: ran,
+      actual: ran ? { km: 8, pace: 400, hr: 135, rpe: 3, notes: '' } : { km: null, pace: null, hr: null, rpe: null, notes: '' } });
+  }
+  a.state.days = days;
+  a.state.athlete = { sessions: [], blocks: [] };
+  const blk = a.buildBlockWeeks('half', 40, 12, { purpose: 'base', availableDays: 4 });
+  const buildWeeks = blk.weeks.filter(w => w.phase === 'Build');
+  assert.ok(buildWeeks.length > 1, 'need more than one Build-phase week to sweep');
+  // No swept week's tempo-family soloSpec (what buildDaysFromWeeks() actually
+  // materialises for Base's one-slot week) may ever carry a `km` field.
+  buildWeeks.forEach(wk => {
+    if (wk.soloKind === 'tempo'){
+      assert.equal(wk.soloSpec.type, 'steady', 'week ' + wk.week + ': got ' + wk.soloSpec.type);
+      assert.equal(wk.soloSpec.km, undefined, 'week ' + wk.week + ' must not carry a distance-governed tempo spec');
+    }
+    // The two-slot bookkeeping value (tSpec) must agree -- it is what a
+    // dual-slot purpose would materialise, and it draws from the same pool.
+    assert.equal(wk.tSpec.type, 'steady', 'week ' + wk.week + ' tSpec bookkeeping: got ' + wk.tSpec.type);
+  });
+});
+
+test('C: the shared TEMPO_STRUCTURE_POOL object itself is completely untouched -- Base, Build, Peak and Maintain all exactly as before', () => {
+  const a = app();
+  assert.equal(a.TEMPO_STRUCTURE_POOL.Base.length, 2,
+    'the shared object\'s own .Base entry must still carry both structures -- it is Maintain/Speed/Ultra\'s pool too');
+  assert.equal(a.TEMPO_STRUCTURE_POOL.Base[0], a.structSteadyTempo);
+  assert.equal(a.TEMPO_STRUCTURE_POOL.Base[1], a.structThresholdContinuous);
+  assert.equal(a.TEMPO_STRUCTURE_POOL.Build.length, 2);
+  assert.equal(a.TEMPO_STRUCTURE_POOL.Build[0], a.structProgressiveTempo);
+  assert.equal(a.TEMPO_STRUCTURE_POOL.Build[1], a.structSplitTempo);
+  assert.ok(a.TEMPO_STRUCTURE_POOL.Peak.indexOf(a.structThresholdContinuous) !== -1,
+    'Peak must keep structThresholdContinuous -- this containment is Base-only');
+  assert.ok(a.TEMPO_STRUCTURE_POOL.Maintain.indexOf(a.structThresholdContinuous) !== -1,
+    'Maintain must keep structThresholdContinuous -- this containment is Base-only');
+  assert.equal(a.TEMPO_STRUCTURE_POOL.Peak.length, 2);
+  assert.equal(a.TEMPO_STRUCTURE_POOL.Maintain.length, 4);
+});
+
+test('C: Maintain & Protect, Speed & Threshold and Ultra Race Goal all still read the unedited shared pool through tempoPoolFor()', () => {
+  const a = app();
+  assert.equal(a.tempoPoolFor('maintain', 'half'), a.TEMPO_STRUCTURE_POOL);
+  assert.equal(a.tempoPoolFor('speed', 'half'), a.TEMPO_STRUCTURE_POOL);
+  // Ultra has no dedicated raceGoalArch() entry, so a Race Goal Ultra block
+  // falls through to the generic pool exactly as it always has -- this is
+  // the population this containment's first draft silently moved before
+  // BASE_TEMPO_POOL existed (test/audit/matrix.js's Ultra-driven counters).
+  assert.equal(a.raceGoalArch('race', 'ultra'), null);
+  assert.equal(a.tempoPoolFor('race', 'ultra'), a.TEMPO_STRUCTURE_POOL);
+  assert.notEqual(a.tempoPoolFor('base', 'half'), a.TEMPO_STRUCTURE_POOL);
 });
 
 /* ==========================================================
