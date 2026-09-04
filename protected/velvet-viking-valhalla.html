@@ -4970,12 +4970,33 @@ var BASE_TEMPO_POOL = {
    A DEDICATED OBJECT, NOT AN EDIT TO TEMPO_STRUCTURE_POOL ITSELF, for the
    same reason BASE_TEMPO_POOL is one: that shared object's .Base entry is
    also read by Maintain & Protect, Speed & Threshold and Ultra Race Goal,
-   none of which this correction was authorised to touch. Build, Peak and
-   Maintain below are the same, unedited TEMPO_STRUCTURE_POOL arrays --
-   nothing about Marathon's Build, Peak, Taper or Race Week quality moves. */
+   none of which this correction was authorised to touch. Peak and Maintain
+   below are the same, unedited TEMPO_STRUCTURE_POOL arrays -- nothing about
+   Marathon's Peak, Taper or Race Week quality moves.
+
+   MARATHON BUILD -- HQ AUDITED CORRECTION, RESTORING GENUINE T WORK.
+   .Build used to be TEMPO_STRUCTURE_POOL.Build BY REFERENCE (the same
+   inherited-default array Base, Maintain, Speed & Threshold and Ultra Race
+   Goal all still share), which never carried structThresholdContinuous in
+   its Build phase at all -- not a marathon-specific ruling, an
+   undocumented, unexamined gap this file carries no rationale for (see the
+   MARATHON BUILD T-WORKOUT AVAILABILITY audit). structProgressiveTempo and
+   structSplitTempo both resolve intensity:'tempo' -> the M zone
+   (INTENSITY_ZONE_KEY.tempo), so every Marathon Build Tempo/Threshold
+   session, every tier, was genuinely M-zone effort only -- no T-zone
+   threshold work was reachable in Build at all. Half's own dedicated
+   HALF_TEMPO_POOL.Build already restores structThresholdContinuous
+   alongside the same two structures; this gives Marathon's Build phase the
+   identical three-candidate array, now a literal array of its own rather
+   than the shared reference, so this edit cannot leak into Base, Maintain,
+   Speed & Threshold or Ultra -- they still read TEMPO_STRUCTURE_POOL.Build
+   directly and are completely unaffected. Nothing about the dose ranges
+   moves: structThresholdContinuous already sizes itself from the same
+   EMPHASIS_TEMPO_RANGE.endurance.kmLo/kmHi (5-8km) it always has, exactly
+   as it already does at Marathon's own Peak phase. */
 var MARATHON_BASE_TEMPO_POOL = {
   Base:  [structSteadyTempo],
-  Build: TEMPO_STRUCTURE_POOL.Build,
+  Build: [structProgressiveTempo, structSplitTempo, structThresholdContinuous],
   Peak:  TEMPO_STRUCTURE_POOL.Peak,
   Maintain: TEMPO_STRUCTURE_POOL.Maintain
 };
