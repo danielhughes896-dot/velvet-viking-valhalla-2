@@ -6959,9 +6959,31 @@ function raceGoalBuildWeeks(distKey, experience, N){
    rather than the first of Build. Where it does not, it waits, which is the
    honest answer rather than a schedule.
 
-   AN ADVANCED ATHLETE STARTS IT IN BASE. Their Base is two weeks of
-   re-establishment, not construction, and marathon-pace running is ordinary
-   training for them rather than a new stressor.
+   HQ LONG-RUN PHASE STRUCTURE CORRECTION -- BASE IS NEVER ELIGIBLE, FOR ANY
+   TIER. HQ's own words: "Base: long run is easy only. No HM/Marathon-specific
+   LR workout." An advanced athlete starting it in Base -- or an absorbing
+   experienced one, on the branch just below -- was a deliberate prior
+   ruling ("their Base is two weeks of re-establishment, not construction...
+   ordinary training for them"), and this narrows it: the phase boundary is
+   now authoritative over the tier's own case for starting earlier, so the
+   earliest any tier may be handed the week is the FIRST week of Build
+   (base + 1), never the last week of Base (base). Tier still governs HOW
+   MUCH earlier within Build a pathway arrives -- advanced/absorbing still
+   reach it before plain-experienced does, and both still reach it before
+   novice -- the ordering is unchanged; only the floor moved from Base's
+   last week to Build's first.
+
+   AND BUILD IS NEVER EMPTY FOR A NOVICE. "Specificity should develop
+   through Build rather than being absent for Developing." A novice's long
+   run is still becoming the distance through EARLY Build, so asking for
+   goal-pace running before it has caught up still asks for the two hardest
+   things at once -- but late Build is a different week than early Build,
+   and by then the distance is established enough to introduce it. This
+   reuses the exact "late Build" boundary marathonQualityKindFor() already
+   defines for the same reason (buildIndex >= ceil(buildWeeks/2)) rather
+   than inventing a second one: a novice now first meets it in the back
+   portion of Build, still later than either other pathway, and Peak
+   continues to raise it from there exactly as it always has.
 
    NOTHING HERE INVENTS A SESSION. The goal segment, its size and its
    progression are unchanged; this decides only the week it may first appear,
@@ -6972,14 +6994,14 @@ function raceGoalSpecificityFromWeek(distKey, experience, alloc){
   /* AFTER the durability exposure, which is the first Peak week and carries no
      goal segment of its own -- so the first specific long run is the one after
      it. */
-  /* A NOVICE MEETS RACE PACE IN PEAK. Their long run is still becoming the
-     distance through Build, and asking for goal-pace running inside it while it
-     is still growing asks for the two hardest things at once. Peak is where the
-     distance is established and the week's job turns to race readiness, so that
-     is where it starts -- later than either other pathway, which is the
-     ordering HQ asks for, and still two or three exposures rather than one. */
-  if (experience === 'novice') return specNotAfterAbsorption(alloc, base + build + 1);
-  if (experience === 'advanced') return specNotAfterAbsorption(alloc, Math.max(1, base));
+  /* A NOVICE MEETS RACE PACE LATE IN BUILD, NOT IN PEAK. Their long run is
+     still becoming the distance through early Build, so the week it may
+     first appear is the same "late Build" boundary the marathon's own
+     quality-family hardening already uses -- still later than either other
+     pathway, and still developing further through Peak from there. */
+  if (experience === 'novice')
+    return specNotAfterAbsorption(alloc, base + Math.max(1, Math.ceil(build / 2)));
+  if (experience === 'advanced') return specNotAfterAbsorption(alloc, Math.max(1, base + 1));
   var absorbing = false;
   try {
     var be = blockEffectiveness();
@@ -6988,7 +7010,7 @@ function raceGoalSpecificityFromWeek(distKey, experience, alloc){
   var fams = [];
   try { fams = demonstratedQualityFamilies(); } catch(e){ fams = []; }
   return specNotAfterAbsorption(alloc,
-    (absorbing && fams.length) ? Math.max(1, base) : base + 1);
+    (absorbing && fams.length) ? Math.max(1, base + 1) : base + 1);
 }
 /* ---- THE ARRIVAL DOES NOT STACK ON AN ABSORPTION WEEK ----
    The week race-specific work arrives in holds its dose while the new stimulus

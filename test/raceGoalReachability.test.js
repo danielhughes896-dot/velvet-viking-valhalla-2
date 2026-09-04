@@ -284,30 +284,46 @@ test('EXPERIENCE — the route changes, the preparation standard does not', () =
     }
   });
 
-  /* SPECIFICITY: the order is advanced, then experienced, then novice -- and
-     the novice's is after their durability exposure, not before it. */
+  /* SPECIFICITY: the order is advanced-or-experienced, then novice -- and
+     the novice's is in the back portion of Build, not deferred to Peak.
+
+     HQ LONG-RUN PHASE STRUCTURE CORRECTION -- Base is no longer eligible for
+     ANY tier ("Base: long run is easy only. No HM/Marathon-specific LR
+     workout"), which was the only room advanced (and an absorbing
+     experienced athlete) had to arrive earlier than plain experienced: the
+     floor for all three is now the same first week of Build, so advanced and
+     experienced now arrive TOGETHER rather than advanced first. Novice no
+     longer waits for Peak either ("Specificity should develop through Build
+     rather than being absent for Developing"): it now arrives in the back
+     portion of Build, the same "late Build" boundary
+     marathonQualityKindFor() already uses for its own family hardening,
+     still later than the other two tiers and still short of Peak. */
   ['half', 'full'].forEach(d => {
     const first = e => {
       const alloc = a.raceGoalPhaseAllocation(d, 15, e);
       return a.raceGoalSpecificityFromWeek(d, e, alloc);
     };
-    assert.ok(first('advanced') < first('experienced'),
-      d + ': an advanced athlete should meet race pace before an experienced one');
+    assert.ok(first('advanced') <= first('experienced'),
+      d + ': an advanced athlete should not meet race pace later than an experienced one');
     assert.ok(first('experienced') < first('novice'),
       d + ': a novice should not meet race pace before an experienced athlete');
-    /* AND A NOVICE MEETS IT IN PEAK, not while their long run is still becoming
-       the distance. HQ moved the durability exposure to the END of Peak, so
-       "after the exposure" would be after the block; what the rule protects is
-       that the two hardest demands are never asked at once, and Peak is where
-       the distance is established and the week's job turns to race readiness. */
+    /* AND NONE OF THE THREE MAY LAND IN BASE, OR OUTSIDE BUILD. */
     const alloc = a.raceGoalPhaseAllocation(d, 15, 'novice');
-    assert.ok(first('novice') >= alloc.base + alloc.build + 1,
-      d + ': a novice should not meet race pace before Peak');
+    ['novice', 'experienced', 'advanced'].forEach(e => {
+      assert.ok(first(e) > alloc.base,
+        d + '/' + e + ': race-specific long-run work must not land in Base');
+    });
+    assert.ok(first('novice') < alloc.base + alloc.build + 1,
+      d + ': a novice should meet race pace during Build, not wait for Peak');
   });
 
-  /* AND ABSORPTION MOVES IT, not the calendar. An experienced athlete who is
-     absorbing their training starts marathon-pace work in the last week of
-     Base; one who is straining waits for Build. */
+  /* AND ABSORPTION NO LONGER MOVES IT AHEAD OF AN ORDINARY EXPERIENCED
+     ATHLETE, because there is no week left between Build's first week (the
+     new floor) and itself for absorption to claim -- it used to move the
+     week from Build's first week back into Base's last one, and that room is
+     exactly what this correction removed. Both readings now land on the
+     same week; what still holds is that neither ever lands earlier than
+     that floor. */
   const withState = (state, fams) => {
     const b = loadApp({ pinnedDate: '2026-03-02T09:00:00Z' });
     b.renderApp = () => {}; b.flushSave = () => {}; b.scheduleSave = () => {};
@@ -317,8 +333,8 @@ test('EXPERIENCE — the route changes, the preparation standard does not', () =
     return b.raceGoalSpecificityFromWeek('full', 'experienced',
       b.raceGoalPhaseAllocation('full', 15, 'experienced'));
   };
-  assert.ok(withState('PRODUCTIVE', ['tempo']) < withState('STRAINED', ['tempo']),
-    'absorption should bring marathon-pace work forward, and did not');
+  assert.ok(withState('PRODUCTIVE', ['tempo']) <= withState('STRAINED', ['tempo']),
+    'absorption should never bring marathon-pace work forward of the Build floor');
   assert.equal(withState('PRODUCTIVE', []), withState('STRAINED', ['tempo']),
     'and an athlete with no demonstrated quality family waits, however well they absorb');
 });

@@ -285,8 +285,18 @@ test('SPECIFICITY — a longest run may carry goal-pace work, and across the set
      is gated on where several other pathways' own new figures no longer
      do). The population-level count moves with the table; the invariant
      this test exists to hold -- that specificity is not a blanket
-     prohibition -- is the `specific > 0` assertion above, unaffected. */
-  assert.ok(specific >= 3,
+     prohibition -- is the `specific > 0` assertion above, unaffected.
+
+     HQ LONG-RUN PHASE STRUCTURE CORRECTION, LATER -- re-measured at 2.
+     Specificity's arrival moved later within Build for advanced/experienced
+     (Base is no longer eligible for any tier) and Peak's own culminating,
+     largest long run of the block was already suppressed by the pre-existing
+     "the last long run before the taper carries no goal segment" rule (see
+     longRunCarriesSpecificWork() / the mPeakLast comment in buildBlockWeeks)
+     -- so a pathway whose own block MAXIMUM now falls on that culminating
+     week, rather than on an earlier week that still carries the segment,
+     drops out of this count. Still the same invariant, still non-zero. */
+  assert.ok(specific >= 2,
     'only ' + specific + ' of ' + atMax + ' maximum-distance long runs carry specific work');
 });
 

@@ -192,13 +192,21 @@ test('CONTRACT — preparation_short is the programme\'s verdict, not the athlet
      (8km long run) used here previously now reaches its own ten-week floor
      exactly (the gap closes inside the Nielsen safety rate) and projects
      READY, so it no longer demonstrates a short runway at all. A thinner
-     long-run entry (5km, versus the canonical 8km) keeps every other
-     figure the same and still leaves a genuine, honestly-measured gap the
-     ten-week runway cannot close -- the case this contract test exists to
-     hold. */
+     long-run entry (5km, versus the canonical 8km) kept every other figure
+     the same and still left a genuine gap -- until the next correction below
+     closed that one too.
+
+     HQ LONG-RUN PHASE STRUCTURE CORRECTION, LATER -- a novice's long run now
+     meets its first race-specific work in the back portion of Build rather
+     than waiting for Peak (raceGoalSpecificityFromWeek()), which improved
+     this same 5km-entry fixture's own reach enough that it also now projects
+     READY. Thinned again, to 4km, for the same reason and by the same
+     margin as the correction before it -- still a genuine, honestly-measured
+     gap the ten-week runway cannot close, still nothing about the contract
+     itself. */
   const R = require(path.join(__dirname, 'audit', 'raceGoalReachability.js'));
   const c = R.CANON_10.filter(x => x.key.indexOf('New Half') === 0)[0];
-  const thinEv = Object.assign({}, c.ev, { longKm: 5 });
+  const thinEv = Object.assign({}, c.ev, { longKm: 4 });
   const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:10 }, thinEv));
   const a = res.a;
   a.state.setup = Object.assign(a.state.setup || {}, {

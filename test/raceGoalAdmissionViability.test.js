@@ -136,16 +136,17 @@ test('TEN WEEKS — the floor is the driver where the safe route can reach it, a
      HQ DAY-COUNT/START-VOLUME CORRECTION -- the New marathon entry moved
      20 -> 21 (option c: split the difference across Base/Build/Peak so no
      single phase misses its target range badly), which also moves the
-     week-volume figures reached from it. reachWeekKm is curve-limited the
-     same way reachLongKm always is (see the comment above reachWeekKm in
-     raceGoalPreparationOutlook()): 21km to 50km in six steps needs faster
-     growth than the Nielsen ceiling allows, landing at 46.1, and the real
-     per-week build's own workload dimension is genuinely short too
-     (measured: 46.1km against the same 50km requirement). reachLongKm is
-     unchanged at 22, because the long-run figures (entryLongKm/
-     buildLongKm/peakLongKm) were deliberately left untouched by that
-     correction. So this pathway still falls short on BOTH dimensions, and
-     both are named. */
+     week-volume figures reached from it.
+
+     HQ LONG-RUN PHASE STRUCTURE CORRECTION, LATER -- a novice's long run
+     now meets its first race-specific work in the back portion of Build
+     rather than waiting for Peak (raceGoalSpecificityFromWeek()), which
+     moves the step count this projection walks (intervals 6 -> 7) and both
+     reach figures with it: reachWeekKm now clears the 50km Build floor
+     (52.6, met) and reachLongKm closes further too (25, up from 22) though
+     still short of the 28km durability floor. So this pathway now falls
+     short on durability ALONE -- workload is no longer named, because it is
+     no longer short. */
   const c = R.CANON_10.filter(x => x.key.indexOf('New Marathon') === 0)[0];
   const res = R.build(Object.assign({ dist:c.dist, exp:c.exp, days:c.days, weeks:10 }, c.ev));
   const adm = res.a.raceGoalAdmission('full', 10, null,
@@ -157,12 +158,11 @@ test('TEN WEEKS — the floor is the driver where the safe route can reach it, a
   assert.equal(adm.preparation.entryKm, 21);
   assert.equal(adm.preparation.entryLongKm, 10);
   assert.equal(adm.preparation.verdict, 'INSUFFICIENT');
-  assert.equal(adm.preparation.reachWeekKm, 46.1,
-    'the Nielsen safety rate\'s own ceiling from a 21km entry in six steps, genuinely short of the 50km Build floor');
-  assert.equal(adm.preparation.reachLongKm, 22,
-    'the long run reaches the Nielsen safety rate\'s own ceiling from a 10km entry in six steps, genuinely short of the 28km floor');
-  assert.equal(adm.preparation.shortfall.length, 2);
-  assert.ok(adm.preparation.shortfall.indexOf('workload') !== -1);
+  assert.equal(adm.preparation.reachWeekKm, 52.6,
+    'the Nielsen safety rate\'s own ceiling from a 21km entry, now clearing the 50km Build floor');
+  assert.equal(adm.preparation.reachLongKm, 25,
+    'the long run reaches the Nielsen safety rate\'s own ceiling from a 10km entry, still short of the 28km floor');
+  assert.equal(adm.preparation.shortfall.length, 1);
   assert.ok(adm.preparation.shortfall.indexOf('durability') !== -1);
 });
 
