@@ -92,9 +92,17 @@ function raceHappened(a, opts){
 test('LIFECYCLE: race → outcome → recovery → what next, with nothing lost', () => {
   const a = racingAthlete();
   logPast(a);
-  const trained = a.state.days.filter(d => d.completed).length;
-  assert.ok(trained > 10, 'the fixture needs a real block behind it');
+  assert.ok(a.state.days.filter(d => d.completed).length > 10,
+    'the fixture needs a real block behind it');
   raceHappened(a);
+  /* Counted AFTER raceHappened(), not before. raceHappened() moves the race
+     day into the past and marks it completed -- real training the athlete
+     did -- so it is exactly the kind of day archiveCompletedSessions() is
+     supposed to keep, and belongs in the same count as the rest of what
+     survives. Counting before it ran was comparing the archive against a
+     snapshot one day short of what the block actually contains by the time
+     archiving happens. */
+  const trained = a.state.days.filter(d => d.completed).length;
 
   // 1. the question is asked, and it is the only thing asked
   assert.equal(a.raceOutcomePending(), true, 'a passed goal day with no answer must ask');

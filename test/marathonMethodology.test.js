@@ -113,9 +113,20 @@ test('the same kilometres give a slower athlete more days, up to the tier\'s own
 });
 
 // ------------------------------------------------------------ quality frequency
-test('no usable quality evidence means one demanding session', () => {
+test('HALF/MARATHON: the tier\'s own Build rule prescribes two, evidence or not', () => {
+  /* HQ WORKOUT-STRUCTURE METHODOLOGY RULING -- this file's default athlete is
+     'experienced' (see athleteExperience()'s own default), so this used to be
+     exactly the no-evidence case the old architecture capped at one. The tier
+     rule (raceGoalWeekQualitySlots(), read into this same block-level
+     qualityFrequency.prescribed figure) no longer asks the athlete's response
+     model at all for Half/Marathon: Established and Advanced always show 2
+     here, because Build -- which is what this block-level figure now sizes
+     its candidate day pool for -- always carries two. permission still
+     correctly reports the OLD gate's own answer (unearned, refused) alongside
+     it; the tier rule simply no longer reads that answer for these two
+     distances. */
   const { blk } = plan(60, 15, 'full');
-  assert.strictEqual(blk.qualityFrequency.prescribed, 1);
+  assert.strictEqual(blk.qualityFrequency.prescribed, 2);
   assert.ok(!blk.qualityFrequency.permission.permitted);
 });
 

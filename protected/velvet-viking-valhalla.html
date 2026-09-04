@@ -9897,6 +9897,39 @@ function purposeIsSteady(purpose){ return purpose === 'maintain'; }
    selects six days still trains six days, but the pathway does not spread its
    own (still smaller) week thin enough to write four of them at the floor. */
 var RACE_GOAL_MAX_DAYS = { novice: 4, experienced: 5, advanced: 5 };
+/* ---- BUILD EARNS A SECOND STANDALONE QUALITY SESSION BY TIER, HALF/MARATHON
+   ONLY -- HQ WORKOUT-STRUCTURE METHODOLOGY RULING ----
+   Developing = 1 quality session in every phase; Established and Advanced =
+   2 in Build specifically -- one Tempo/Threshold, one Interval/VO2 & Economy,
+   alongside the marathon/HM-specific long run -- and 1 everywhere else (Base,
+   Peak, Taper, Race Week). A SESSION-COUNT rule, not a weekday template:
+   which of the athlete's own selected days carries which session is still
+   the existing placement/recovery/spacing machinery in buildDaysFromWeeks,
+   completely untouched by this.
+
+   REPLACES THE ATHLETE-EVIDENCE GATE AS THE BUILD AUTHORITY FOR THESE TWO
+   DISTANCES ONLY. secondQualityExposurePermission() -- still read exactly as
+   before by every other purpose and by 5K/10K/Ultra -- answers "has this
+   athlete earned a second session"; HQ's instruction here is a flat tier
+   rule for Half/Marathon Build specifically, not something a first block
+   must earn.
+
+   GUARDED AT THE FLOOR, NOT JUST THE CEILING. A week cannot spend two
+   standalone quality days without also keeping the long run and two real
+   supporting runs -- long + 2 quality + 2 easy is five days, the ordinary
+   Established/Advanced ceiling itself (RACE_GOAL_MAX_DAYS). An athlete who
+   has made only four days available this block -- Developing's own day
+   count, not this tier's -- keeps the same single quality session Developing
+   gets: four days is "three- and four-day athletes keep their one slot,
+   never zero" territory, not a week with no real easy running left in it. */
+var RACE_GOAL_BUILD_QUALITY_SLOTS = { novice: 1, experienced: 2, advanced: 2 };
+function raceGoalWeekQualitySlots(distKey, exp, phase, availDays, fallback){
+  if (distKey !== 'half' && distKey !== 'full') return fallback;
+  if (phase !== 'Build') return 1;
+  var want = RACE_GOAL_BUILD_QUALITY_SLOTS[exp] || 1;
+  if (want >= 2 && !(availDays >= 5)) want = 1;
+  return want;
+}
 function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
   var profile = DISTANCE_PROFILES[distKey];
   if (!profile) return null;
@@ -11048,7 +11081,8 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                 volumeDestKm: mBottomUp.volumeDestKm,
                 buildVolumeDestKm: mBottomUp.buildVolumeDestKm,
                 buildLongDestKm: mBottomUp.buildLongDestKm,
-                supportDays: mBottomUp.supportDays, qSlots: mBottomUp.qSlots,
+                supportDays: mBottomUp.supportDays,
+                qSlots: raceGoalWeekQualitySlots(distKey, blockExp, phase, mBottomUp.days, mBottomUp.qSlots),
                 capacityCeilingKm: mBottomUp.capacityCeilingKm,
                 longDestKm: mBottomUp.longDestKm, longLimited: mBottomUp.longLimited,
                 /* ---- WHAT THE BLOCK WAS BUILT FROM, ON EVERY WEEK ----
@@ -12030,7 +12064,8 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          unattributed volume and quality sessions longer than the long run. */
       function mSolveWeek(longIn, supportIn, supportTotalIn, pinTo){
         var r = { longKm: longIn, supportKm: supportIn, qKm: mQBase,
-                  qSlots: mBottomUp.qSlots, supportDays: mBottomUp.supportDays,
+                  qSlots: raceGoalWeekQualitySlots(distKey, blockExp, phase, mBottomUp.days, mBottomUp.qSlots),
+                  supportDays: mBottomUp.supportDays,
                   qualityNotYetEligible: false, qualityDeferred: false };
         /* ---- QUALITY WAITS UNTIL THE WEEK CAN CARRY IT ----
            "At most one demanding session without evidence" was never "must
@@ -15082,6 +15117,25 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     : { permitted:false, reason:'below_aerobic_dominance_ceiling', blockState:null,
         hoursToNormal:null, minGapDays:twoSlotGapDays };
   var qualitySlots = Math.min(slotCeiling, qualityPermission.permitted ? 2 : 1);
+  /* ---- HALF/MARATHON: THE CANDIDATE DAY POOL MUST HOLD ROOM FOR THE TIER'S
+     OWN BUILD RULE -- HQ WORKOUT-STRUCTURE METHODOLOGY RULING ----
+     qualityDays below is sized from THIS block-level figure once, for every
+     week alike, so an Established/Advanced athlete's Build weeks need it to
+     hold two candidate days even though this same block also carries Base
+     and Peak weeks whose own qSlots (see raceGoalWeekQualitySlots(), read
+     per week in buildBlockWeeks) stays at one. Widening the POOL here does
+     not widen any single week's PRESCRIPTION -- the per-week qSlots read
+     later (see raceGoalTierQuality below) is what actually decides how many
+     of these candidate days a given week uses, exactly as it already does
+     for the 1-slot phases. Bypasses the athlete-evidence gate for these two
+     distances only, for the same reason raceGoalWeekQualitySlots() does:
+     HQ's tier rule is what decides Half/Marathon Build now, not what a first
+     block has earned. Every other distance and purpose reads qualityPermission
+     exactly as before. */
+  if (blockResult.purpose === 'race' &&
+      (blockResult.distKey === 'half' || blockResult.distKey === 'full') &&
+      (blockResult.experience === 'experienced' || blockResult.experience === 'advanced'))
+    qualitySlots = Math.min(2, slotCeiling, qtyPool.length);
   // never spend the last non-long day on quality: a week must keep a real easy run
   if (qualitySlots >= nonLongActive.length && nonLongActive.length > 0) qualitySlots = nonLongActive.length - 1;
   // recorded so the decision is inspectable rather than inferred from the days
@@ -15437,6 +15491,23 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     var specificLong = !noLongRun && longRunCarriesSpecificWork(wk);
     var weekSlotCeiling = qualitySlotCeilingForDayCount(runCap);
     if (specificLong && weekSlotCeiling > 1) weekSlotCeiling -= 1;
+    /* ---- HALF/MARATHON: THE TIER+PHASE RULE ALREADY SETTLED THIS WEEK'S
+       COUNT, AND IS THE SOLE AUTHORITY -- HQ WORKOUT-STRUCTURE METHODOLOGY
+       RULING ----
+       wk.bottomUp.qSlots was set by raceGoalWeekQualitySlots() when the week
+       was built (see buildBlockWeeks): 1 in Base/Peak/Taper/Race Week, and by
+       tier in Build -- 1 for Developing, 2 for Established/Advanced. The
+       day-count ceiling above and the specific-long-run reduction below both
+       belong to the OLDER, athlete-earned architecture this rule replaces for
+       these two distances; reading them here too would let either silently
+       claw an Established/Advanced athlete's earned second Build session back
+       down to one -- exactly what HQ's flat session-count rule removes. Every
+       other purpose and distance (5K, 10K, Ultra, Base, Maintain, Speed) is
+       untouched: this reads only wk.bottomUp with distKey half/full, and
+       nothing below this block changes for anything else. */
+    var raceGoalTierQuality = wk.bottomUp &&
+      (blockResult.distKey === 'half' || blockResult.distKey === 'full');
+    if (raceGoalTierQuality) weekSlotCeiling = wk.bottomUp.qSlots;
     /* ---- AND THE WEEK MAY HAND A SECOND SESSION BACK ----
        Two quality sessions are not permanent once earned. Phase and long-run
        cost are properties of THIS week, so the same athlete who holds two in
@@ -15444,9 +15515,11 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        already own the week -- and one in Base, and one in taper. This is the
        2 -> 1 direction, and it re-asks every week rather than deciding once.
 
-       MARATHON ONLY: ctx is supplied here and nowhere else. */
+       MARATHON ONLY: ctx is supplied here and nowhere else. NOT ASKED AT ALL
+       for Half/Marathon under the tier rule above -- raceGoalTierQuality
+       already is this week's answer and evidence must not re-open it. */
     var weekQualityPermission = null;
-    if (useCoherentFrequency && weekSlotCeiling > 1){
+    if (useCoherentFrequency && weekSlotCeiling > 1 && !raceGoalTierQuality){
       /* THE ATHLETE-EVIDENCE HALF OF THIS IS ASKED ONCE PER BLOCK, not once
          per week. It reads athleteResponseModel() and blockEffectiveness(),
          which are longitudinal and expensive, and neither of them changes

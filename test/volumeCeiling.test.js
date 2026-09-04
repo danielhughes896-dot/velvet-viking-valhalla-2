@@ -225,8 +225,20 @@ const CASES = [['5k', 40, 110], ['10k', 45, 120], ['half', 50, 140], ['full', 60
    The failure this file exists to catch is the programme RESUMING ITS CLIMB,
    and that is now asserted directly -- nothing after arrival exceeds arrival,
    and nothing after it falls more than a single block's growth cap below it, so
-   neither a ratchet nor a collapse can pass. */
-const CONVERGENCE_YEARS = 12;
+   neither a ratchet nor a collapse can pass.
+
+   TWENTY years, later still -- HQ WORKOUT-STRUCTURE METHODOLOGY RULING.
+   Established/Advanced Half and Marathon Build weeks now carry two full
+   standalone quality sessions by tier rule (see raceGoalWeekQualitySlots()),
+   not one earned by evidence, so every block in this simulation's cycle is
+   genuinely bigger and each year's median feeds the next year a higher
+   number. Measured: half no longer settles within twelve years (still
+   climbing 118.7 -> 120 at year 11-12) but does settle by twenty (122.1 held
+   flat from year 18), well inside its own 140 backstop. 5K, 10K and Full are
+   unaffected by this correction and were already settled well before year
+   twelve, so they stay settled for the extra years exactly as the property
+   requires. */
+const CONVERGENCE_YEARS = 20;
 
 CASES.forEach(([dist, start, backstop]) => {
   test(CONVERGENCE_YEARS + ' years of ' + dist + ' training from ' + start + 'km/week converges', () => {

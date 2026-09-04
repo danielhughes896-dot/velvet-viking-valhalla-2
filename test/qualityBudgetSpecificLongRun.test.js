@@ -3,23 +3,41 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 
-/* THE WEEK'S QUALITY BUDGET INCLUDES A RACE-SPECIFIC LONG RUN
+/* THE WEEK'S QUALITY BUDGET AND THE RACE-SPECIFIC LONG RUN
  * ===========================================================================
- * The aerobic-dominance ceiling counts STANDALONE quality days. A goal-pace
- * long run is not one of them, so a capable half or marathon athlete who had
- * earned the second exposure received two standalone quality sessions AND a
- * race-specific long run -- three sessions the product's own
- * sessionImportance() calls KEY, the largest of them the one the budget could
- * not see.
+ * HQ WORKOUT-STRUCTURE METHODOLOGY RULING -- THIS FILE'S ORIGINAL RULE IS
+ * SUPERSEDED FOR HALF AND MARATHON, BY EXPLICIT INSTRUCTION.
  *
- * The long run now spends one of the week's slots when, and only when, it
- * carries goal-pace work. That condition is not invented here: it is the same
- * one that sets dd.mpSegment on the day, which the audit established is the
- * only existing signal that is true for exactly the specific long runs and
- * false for every aerobic one at every distance and phase.
+ * The file used to hold that a goal-pace long run spent one of the week's two
+ * earned quality slots, because a capable half or marathon athlete who had
+ * earned the second exposure otherwise received two standalone quality
+ * sessions AND a race-specific long run -- three sessions the product's own
+ * sessionImportance() calls KEY, the largest of them the one the old budget
+ * could not see. That reduction (see the "gates" test below) is still LIVE
+ * CODE -- weekSlotCeiling's specificLong reduction and the athlete-evidence
+ * gate are untouched -- but for Half and Marathon it is no longer reached at
+ * all: HQ's own words were "the marathon/HM-specific long run is separate
+ * from the standalone quality-session count. Therefore, for example, an
+ * Established Marathon Build week requires 2 standalone quality sessions
+ * plus the marathon-specific long run." raceGoalWeekQualitySlots() (see
+ * buildBlockWeeks) and the raceGoalTierQuality override (see
+ * buildDaysFromWeeks) are the new, tier-driven authority for these two
+ * distances: Developing = 1 quality session in every phase; Established and
+ * Advanced = 2 in Build specifically, alongside the long run whether or not
+ * it carries goal pace, and 1 everywhere else (Base, Peak, Taper, Race
+ * Week) -- deliberately including Peak, where the reduction's own original
+ * reasoning (two long-run exposures already own the week) still applies and
+ * is now expressed as the tier rule's own answer rather than as a live
+ * reduction.
  *
- * These tests hold the shape of that: what it changes, and the four things it
- * must not.
+ * 5K and 10K are untouched: their long runs never carry goal pace under the
+ * current methodology, so this file's original rule never bound them, and it
+ * still doesn't -- they still read secondQualityExposurePermission() exactly
+ * as before.
+ *
+ * These tests now hold the NEW shape: two standalone sessions AND the
+ * specific long run in Half/Marathon Build, one everywhere else in
+ * Half/Marathon, and the untouched 5K/10K behaviour beside it.
  */
 const TODAY = '2026-08-30';
 const SCHED = {
@@ -104,7 +122,16 @@ test('the signal is the one the generator already raises, not a new one', () => 
   assert.equal(a.longRunCarriesSpecificWork({ hasGoalSegment:true, goalSegKm:3 }), true);
 });
 
-test('half and marathon no longer stack two standalone sessions onto a specific long run', () => {
+test('half and marathon now stack two standalone Build sessions onto a specific long run, by tier -- and Peak still does not', () => {
+  /* HQ WORKOUT-STRUCTURE METHODOLOGY RULING. This fixture is 'advanced', so
+     RACE_GOAL_BUILD_QUALITY_SLOTS grants it two in Build regardless of the
+     long run's own specificity -- the tier rule, not the old reduction,
+     decides now. Peak is the one phase HQ's own spec still caps at a single
+     quality session even though its long run is equally specific: "Peak: 1
+     quality session... alongside race-specific long-run development." So a
+     Build week may legitimately carry three KEY sessions (two standalone
+     plus the specific long run) and a Peak week may not -- the exact
+     asymmetry the old reduction used to erase uniformly. */
   ['half','full'].forEach(d => {
     [5,6,7].forEach(nd => {
       const { a, blk, days } = plan(d, nd, true);
@@ -112,11 +139,10 @@ test('half and marathon no longer stack two standalone sessions onto a specific 
       const specific = rows.filter(r => r.specificLong);
       assert.ok(specific.length > 0, d + '/' + nd + 'd: the fixture must contain specific long runs');
       specific.forEach(r => {
-        assert.equal(r.standalone, 1,
+        const want = r.phase === 'Build' ? 2 : 1;
+        assert.equal(r.standalone, want,
           d + '/' + nd + 'd week ' + r.week + ' (' + r.phase + '): ' + r.standalone +
-          ' standalone quality sessions alongside a race-specific long run');
-        assert.ok(r.key <= 2,
-          d + '/' + nd + 'd week ' + r.week + ': ' + r.key + ' KEY sessions');
+          ' standalone quality sessions alongside a race-specific long run, wanted ' + want);
       });
     });
   });
@@ -135,13 +161,37 @@ test('5K and 10K keep two standalone quality sessions and an aerobic long run', 
   });
 });
 
-test('an athlete with no exposure evidence is completely unchanged', () => {
-  ['5k','10k','half','full'].forEach(d => {
+test('5K/10K with no exposure evidence are completely unchanged', () => {
+  ['5k','10k'].forEach(d => {
     [3,4,5,6,7].forEach(nd => {
       const { a, blk, days } = plan(d, nd, false);
       weekRows(a, blk, days).forEach(r => assert.ok(r.standalone <= 1,
         d + '/' + nd + 'd week ' + r.week + ': ' + r.standalone +
         ' standalone sessions without the earned exposure'));
+    });
+  });
+});
+
+test('half/marathon Build no longer reads exposure evidence at all -- the tier rule decides, earned or not', () => {
+  /* HQ WORKOUT-STRUCTURE METHODOLOGY RULING. secondQualityExposurePermission()
+     is bypassed entirely for these two distances (see raceGoalTierQuality in
+     buildDaysFromWeeks), so an 'advanced' athlete's Build weeks carry two
+     standalone sessions whether or not the stubbed evidence says they earned
+     it -- that is the whole point of replacing an earned gate with a tier
+     rule. Base, Peak and Taper are untouched by evidence either way: they
+     were already reading the phase, not the athlete's response model, and
+     still are. */
+  ['half','full'].forEach(d => {
+    [5,6,7].forEach(nd => {
+      const { a, blk, days } = plan(d, nd, false);
+      const rows = weekRows(a, blk, days);
+      const build = rows.filter(r => r.phase === 'Build');
+      assert.ok(build.length > 0, d + '/' + nd + 'd: needs Build weeks to test');
+      build.forEach(r => assert.equal(r.standalone, 2,
+        d + '/' + nd + 'd week ' + r.week + ': ' + r.standalone +
+        ' standalone sessions in Build with no exposure evidence -- the tier rule should not care'));
+      rows.filter(r => r.phase !== 'Build').forEach(r => assert.equal(r.standalone, 1,
+        d + '/' + nd + 'd week ' + r.week + ' (' + r.phase + '): ' + r.standalone + ' standalone sessions'));
     });
   });
 });
@@ -162,17 +212,31 @@ test('three- and four-day athletes keep their one slot, never zero', () => {
   });
 });
 
-test('a week whose long run is genuinely aerobic keeps its full allowance', () => {
-  /* Not "marathon always gets one". Base and taper long runs carry no goal
-     pace, so those weeks are budgeted for what is actually prescribed. */
+test('the aerobic long run does not change what the phase itself gives Base and Taper', () => {
+  /* HQ WORKOUT-STRUCTURE METHODOLOGY RULING -- Base and Taper are now capped
+     at ONE standalone quality session by the tier rule itself ("Base: 1
+     quality session"; "Taper: reduced volume + reduced-cost quality"), not
+     by whether the long run happens to be aerobic. The old test here asked
+     whether an aerobic long run could still afford two -- under the earned
+     evidence gate it sometimes could. The tier rule answers a different
+     question: not "can this week afford two", but "does this phase ever
+     carry two", and Base/Taper's answer is no, regardless of exposure
+     evidence, exactly as Peak's is (see the Peak test above).
+
+     NEVER TWO, BUT SOMETIMES ZERO -- and that second number is not this
+     rule's business. A week whose own capacity cannot yet afford its single
+     quality session gives it back entirely (marathonQualityEligible(), see
+     buildBlockWeeks) -- a pre-existing affordability floor this correction
+     does not touch. So the bound asserted here is the CEILING the tier rule
+     sets (never 2), not the exact count every week delivers. */
   ['half','full'].forEach(d => {
     const { a, blk, days } = plan(d, 6, true);
     const rows = weekRows(a, blk, days);
     const aerobic = rows.filter(r => !r.specificLong && ['Base','Taper'].indexOf(r.phase) !== -1);
     assert.ok(aerobic.length > 0, d + ': the block must contain aerobic long-run weeks');
-    assert.ok(aerobic.some(r => r.standalone === 2),
-      d + ': a week with an aerobic long run and the exposure earned must still be able ' +
-      'to hold two standalone quality sessions');
+    aerobic.forEach(r => assert.ok(r.standalone <= 1,
+      d + ' week ' + r.week + ' (' + r.phase + '): ' + r.standalone +
+      ' standalone quality sessions, the phase\'s own ceiling is one'));
   });
 });
 
@@ -206,16 +270,16 @@ test('the freed day stays a running day', () => {
   });
 });
 
-test('the reduction never bypasses the gates that were already there', () => {
-  /* Every existing gate still runs, in the same order, and still decides.
-     Proved by the two directions that must remain impossible. */
+test('the OLD gates still exist and still decide for everyone the tier rule does not cover', () => {
+  /* Every gate this file originally proved still runs, in the same order,
+     for the same callers -- it is simply no longer consulted for Half/
+     Marathon Build, per the HQ ruling at the top of this file. Proved
+     directly against the raw functions, which are untouched. */
   const { a } = plan('full', 6, false);
-  /* 1. No evidence -> the exposure gate still refuses, whatever the long run. */
+  /* 1. No evidence -> the exposure gate still refuses, whatever the long run.
+     Still the live authority for 5K/10K, and for Half/Marathon outside Build. */
   const p = a.secondQualityExposurePermission(3);
   assert.equal(p.permitted, false);
-  /* Its own two no-evidence rungs: no model at all, or a model in which no
-     family has reached BASELINE_MIN_SAMPLES. Named rather than accepted
-     loosely -- any OTHER reason here would mean the ladder had changed. */
   assert.ok(['no_evidence','response_not_established'].indexOf(p.reason) !== -1, p.reason);
   /* 2. The day-count ceiling is untouched: this rule reads it, never replaces it. */
   assert.equal(a.qualitySlotCeilingForDayCount(2), 0);
@@ -223,15 +287,19 @@ test('the reduction never bypasses the gates that were already there', () => {
   assert.equal(a.qualitySlotCeilingForDayCount(4), 1);
   assert.equal(a.qualitySlotCeilingForDayCount(5), 2);
   assert.equal(a.qualitySlotCeilingForDayCount(7), 2);
-  /* 3. And the week records the decision so it is inspectable rather than inferred. */
+  /* 3. And the week still records the decision, so it is inspectable rather
+     than inferred -- specificLongRun is still read and still true on exactly
+     these weeks; prescribed now follows the tier rule (2 in Build, 1 in
+     Peak) rather than the old reduction (always 1). */
   const { blk } = plan('full', 6, true);
   const specific = blk.weeks.filter(w => a.longRunCarriesSpecificWork(w));
   assert.ok(specific.length > 0);
   specific.forEach(w => {
     assert.ok(w.qualityBudget, 'week ' + w.week + ' records no budget');
     assert.equal(w.qualityBudget.specificLongRun, true);
-    assert.equal(w.qualityBudget.ceiling, 2, 'the ceiling itself is unchanged');
-    assert.equal(w.qualityBudget.prescribed, 1, 'and one of the two is the long run');
+    const want = w.phase === 'Build' ? 2 : 1;
+    assert.equal(w.qualityBudget.prescribed, want,
+      'week ' + w.week + ' (' + w.phase + '): prescribed ' + w.qualityBudget.prescribed + ', wanted ' + want);
   });
 });
 
