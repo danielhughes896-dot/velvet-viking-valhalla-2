@@ -4953,6 +4953,33 @@ var BASE_TEMPO_POOL = {
   Maintain: TEMPO_STRUCTURE_POOL.Maintain
 };
 
+/* MARATHON'S OWN BASE-PHASE ELIGIBILITY -- HQ NARROW CORRECTION.
+   Race Goal Marathon has no dedicated pool of its own (see intervalPoolFor/
+   tempoPoolFor below: arch==='marathon' has always fallen through to the
+   generic, undedicated TEMPO_STRUCTURE_POOL, unlike Half/5K/10K), so its
+   Base phase was reading TEMPO_STRUCTURE_POOL.Base = [structSteadyTempo,
+   structThresholdContinuous] -- the same pool this file's own comment two
+   entries above already names as unsafe for a Base phase: a sustained,
+   at-or-above-LTHR continuous effort, reachable by rotation for a
+   Developing marathon athlete's very first quality sessions. HQ's ruling:
+   Base keeps its one standalone quality session, but that session must not
+   be threshold_continuous. structSteadyTempo -- already Base-appropriate,
+   already used here, already the SAME structure BASE_TEMPO_POOL keeps for
+   the Aerobic Base product for this identical reason -- is what remains.
+
+   A DEDICATED OBJECT, NOT AN EDIT TO TEMPO_STRUCTURE_POOL ITSELF, for the
+   same reason BASE_TEMPO_POOL is one: that shared object's .Base entry is
+   also read by Maintain & Protect, Speed & Threshold and Ultra Race Goal,
+   none of which this correction was authorised to touch. Build, Peak and
+   Maintain below are the same, unedited TEMPO_STRUCTURE_POOL arrays --
+   nothing about Marathon's Build, Peak, Taper or Race Week quality moves. */
+var MARATHON_BASE_TEMPO_POOL = {
+  Base:  [structSteadyTempo],
+  Build: TEMPO_STRUCTURE_POOL.Build,
+  Peak:  TEMPO_STRUCTURE_POOL.Peak,
+  Maintain: TEMPO_STRUCTURE_POOL.Maintain
+};
+
 /* =========================================================
    THE HALF MARATHON'S OWN QUALITY PROGRESSION
 
@@ -5119,6 +5146,12 @@ function tempoPoolFor(purpose, distKey){
   var arch = raceGoalArch(purpose, distKey);
   if (arch === 'half') return HALF_TEMPO_POOL;
   if (arch === 'short') return distKey === '10k' ? TENK_TEMPO_POOL : FIVEK_TEMPO_POOL;
+  // Race Goal Marathon reads its own dedicated Base-phase pool (see
+  // MARATHON_BASE_TEMPO_POOL) for the same containment reason Aerobic Base
+  // does just below -- Build, Peak, Taper and Race Week are the same,
+  // unedited TEMPO_STRUCTURE_POOL arrays, so only Marathon's Base eligibility
+  // moves.
+  if (arch === 'marathon') return MARATHON_BASE_TEMPO_POOL;
   // Aerobic Base reads its own dedicated pool (see BASE_TEMPO_POOL) so its
   // containment of structThresholdContinuous cannot leak into Maintain,
   // Speed or Ultra Race Goal, which all fall through to the shared,
