@@ -5193,6 +5193,65 @@ function halfQualityKindFor(phase, weekNum, alloc){
   return null;
 }
 
+/* =========================================================
+   HQ APPROVED CORRECTION -- HALF BUILD TRACK / VO2 REPS.
+
+   THE AUDIT (see HALF_INTERVAL_POOL's own comment above, "WHAT LEAVES")
+   found the half's faster-work slot excluding track_reps entirely because
+   the only dose it had ever been given -- structTrackIntervals at Peak
+   dimensions, 8x1000m -- was the block's largest single quality day, three
+   weeks from the race. The fartlek that replaced it is cheaper but is not
+   the same stimulus, and the design review that followed (HALF MARATHON
+   BUILD TRACK/VO2 DESIGN) approved a track-rep dose small enough that it
+   never recreates the session that was removed.
+
+   HARD BOUNDS: 600-800m, 5-7 reps, 5.6km fast work maximum. The four-step
+   progression below is the whole of the approved dose table; nothing here
+   ever reaches 900m or an 8th rep.
+
+   DEVELOPING gets it once. halfQualityKindFor()'s own Build rule already
+   states which week is the tier's final Interval/VO2 occurrence (bi%3===0,
+   at its latest multiple of 3 inside Build) -- this does not change that
+   rule, it only substitutes what structure fills it, and only at that one
+   occurrence. Every earlier Build interval week keeps the pool's ordinary
+   fartlek/hill rotation untouched.
+
+   ESTABLISHED/ADVANCED progress through the full table across Build's back
+   half -- the same buildIndex >= ceil(buildWeeks/2) boundary
+   marathonQualityKindFor() already uses for its own late-Build migration --
+   so the thread reads as fartlek-then-hill early, track reps late,
+   climbing 5x600 -> 6x700 -> 6x700 -> 7x800 across however many weeks that
+   back half actually spans, landing on the full dose in Build's own final
+   week regardless of block length. Hills keep their early-Build turn
+   entirely; this replaces only the late-Build occurrences the fartlek/hill
+   alternation would otherwise have filled. */
+var HALF_BUILD_TRACK_REPS = [
+  { reps:5, m:600 },
+  { reps:6, m:700 },
+  { reps:6, m:700 },
+  { reps:7, m:800 }
+];
+function halfBuildTrackRepSpec(blockExp, weekNum, alloc){
+  if (!alloc || !alloc.build) return null;
+  var buildWeeks = alloc.build;
+  var bi = weekNum - alloc.base;                    // 1-based index into Build
+  if (bi < 1 || bi > buildWeeks) return null;
+  if (blockExp === 'novice'){
+    var finalBi = Math.floor(buildWeeks / 3) * 3;    // halfQualityKindFor's own bi%3===0 rule
+    if (finalBi < 1 || bi !== finalBi) return null;
+    var first = HALF_BUILD_TRACK_REPS[0];
+    return { reps:first.reps, m:first.m, t:'interval' };
+  }
+  var lateStart = Math.max(1, Math.ceil(buildWeeks / 2));
+  if (bi < lateStart) return null;
+  var lateLen = buildWeeks - lateStart + 1;
+  var idx = Math.round(((bi - lateStart) / Math.max(1, lateLen - 1)) *
+                        (HALF_BUILD_TRACK_REPS.length - 1));
+  idx = Math.max(0, Math.min(HALF_BUILD_TRACK_REPS.length - 1, idx));
+  var step = HALF_BUILD_TRACK_REPS[idx];
+  return { reps:step.reps, m:step.m, t:'interval' };
+}
+
 /* Where a maintenance block sits inside every structure's dimension range.
    A CYCLE RATHER THAN A CONSTANT, and the distinction is the whole of what
    makes maintenance maintenance:
@@ -11470,6 +11529,21 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                                   Math.min(taperCeilT, weekFitCeil), seedT,
                                   taperShrink, taperHold);
     }
+    /* HQ APPROVED CORRECTION -- HALF BUILD TRACK REPS substitute for
+       whatever fitQualityStructure just chose/sized on the weeks/tiers the
+       approved progression covers; see halfBuildTrackRepSpec(). Placed
+       after both branches above (never Race Week, which is isRace's own
+       branch and never reaches here with structPhase==='Build') so this
+       replaces the STRUCTURE THE WEEK ACTUALLY RECEIVES, not a preliminary
+       value a later reassignment would have discarded. Every other week,
+       tier, phase and distance keeps the pool's ordinary rotation and
+       fit-to-ceiling sizing exactly as before -- this is a substitution,
+       not a new candidate added to HALF_INTERVAL_POOL.Build's own
+       rotation. */
+    if (halfArc && !isRace && structPhase === 'Build'){
+      var hBuildTrackQ = halfBuildTrackRepSpec(blockExp, w, arc.phaseCounts);
+      if (hBuildTrackQ) qSpec = hBuildTrackQ;
+    }
     var qKm = intervalSessionKm(qSpec);
     var tKm = tempoSessionKm(tSpec);
     /* S6-B. Whether each slot could be made legal at all, carried to the week so
@@ -11765,6 +11839,19 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         soloKind, (soloKind === 'interval' ? qualityStructPhase : tempoStructPhase), soloOcc,
         soloKind === 'interval' ? qPos : pos,
         profile.emphasis, rotation, weekFitCeil, null, 1);
+      /* HQ APPROVED CORRECTION -- HALF BUILD TRACK REPS, same substitution
+         as the two-slot site above, applied here because a one-slot week
+         (Developing) receives THIS session rather than the two-slot qSpec.
+         halfBuildTrackRepSpec() is the same pure function of (tier, week,
+         phase allocation) called at both sites, so a week where both paths
+         resolve -- a two-slot tier's own bi%3===0 week -- agrees with
+         itself rather than disagreeing about what fired. Gated on
+         soloKind==='interval' so the tempo slot, Base, Peak, Taper and
+         Race Week are never reached by this substitution. */
+      if (halfArc && soloKind === 'interval' && structPhase === 'Build'){
+        var hBuildTrackSolo = halfBuildTrackRepSpec(blockExp, w, arc.phaseCounts);
+        if (hBuildTrackSolo) soloSpec = hBuildTrackSolo;
+      }
       soloKm = soloKind === 'interval' ? intervalSessionKm(soloSpec) : tempoSessionKm(soloSpec);
       soloFitsBound = soloKm <= weekFitCeil + 1e-9;
       /* HQ NARROW CORRECTION -- A GUARD WAS TRIED HERE AND REVERTED. The
