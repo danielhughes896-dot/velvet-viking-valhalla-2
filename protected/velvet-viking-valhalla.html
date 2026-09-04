@@ -13607,7 +13607,7 @@ function segWork(q, intensity, extra){
 }
 function segRecovery(q, extra){
   var s = { kind:'recovery', intensity:'easy', mode:'jog' };
-  if (q){ if (q.m!=null) s.m=q.m; if (q.sec!=null) s.sec=q.sec; }
+  if (q){ if (q.km!=null) s.km=q.km; if (q.m!=null) s.m=q.m; if (q.sec!=null) s.sec=q.sec; }
   if (extra) Object.keys(extra).forEach(function(k){ s[k]=extra[k]; });
   return s;
 }
