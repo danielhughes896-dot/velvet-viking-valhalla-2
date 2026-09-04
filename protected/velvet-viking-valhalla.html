@@ -5273,6 +5273,86 @@ function halfBuildTrackRepSpec(blockExp, weekNum, alloc){
   return { reps:step.reps, m:step.m, t:'interval' };
 }
 
+/* =========================================================
+   HQ APPROVED CORRECTION -- HALF/MARATHON BUILD OVER-UNDER.
+
+   THE STRUCTURE IS LOCKED, not lerped: continuous 1km Under LTH + 1km Over
+   LTH cycles, no recovery between segments -- see structuredsegmentsFor()'s
+   own 'over_under' case. What varies is only how many cycles, and that is a
+   pure function of tier, distance and where in Build the week sits, exactly
+   the shape halfBuildTrackRepSpec() already established for the Interval/
+   VO2 slot -- this is the same mechanism applied to the Tempo/Threshold
+   slot instead.
+
+   ELIGIBILITY IS A MEASURED THRESHOLD, NOT A MODELLED ONE. Every other
+   Tempo/Threshold structure prices Under/Over off getActivePaces()'s M/T
+   zones, which fall back to a goal-derived VDOT when nothing has been
+   measured (see currentFitnessAnchor()'s own 'goal' fallback). This
+   structure is training the athlete to run confidently either side of a
+   REAL number, so it may not fire on that fallback -- only once
+   state.setup.thresholdPaceSource === 'calibration', the field the
+   threshold_calibration session itself sets (see the calibration-result
+   handler, ~line 25114) and the one currentFitnessAnchor() itself ranks
+   above every other anchor. lthrSource is deliberately NOT part of this
+   gate: HR is a supplementary target line that already resolves off
+   whatever LTHR is available (measured or typed) the same way every other
+   'tempo'/'threshold' segment's HR target already does -- gating it here
+   too would block the workout on a strap dropout that cost the athlete
+   nothing about the PACE prescription this structure actually writes.
+
+   THE CEILING DIFFERS BY DISTANCE, ON EVIDENCE, NOT BY ASSUMPTION. The
+   Half's own existing continuous-km ceiling for this slot
+   (EMPHASIS_TEMPO_RANGE.threshold.kmHi = 6) is a LIVE ceiling --
+   structThresholdContinuous already delivers it in HALF_TEMPO_POOL.Build
+   today -- and Established/Advanced Half already carries a second full
+   quality session (the Interval/VO2 slot) the same week, so 4 cycles/8km
+   there was assessed directly against actual T-kilometres, total delivered
+   session size and weekly quality share (see the OVER-UNDER HALF CEILING
+   challenge) and found to sit inside what the pool and the pathway already
+   permit -- reversing the narrower, wrongly-anchored 6km-for-every-tier
+   draft. Marathon's larger volume dilutes the same session further and its
+   Build carries no live continuous-km precedent to bound against at all, so
+   Established/Advanced there reach the full locked ceiling. */
+var TAPER_MIN_OVER_UNDER_CYCLES = 2;
+var HALF_BUILD_OVER_UNDER_CYCLES     = { novice:[3], experienced:[3,4],   advanced:[3,4] };
+var MARATHON_BUILD_OVER_UNDER_CYCLES = { novice:[3], experienced:[3,4,5], advanced:[3,4,5] };
+function raceGoalOverUnderEligible(){
+  try {
+    return !!(typeof state !== 'undefined' && state && state.setup &&
+              state.setup.thresholdPaceSource === 'calibration');
+  } catch(e){ return false; }
+}
+function raceGoalOverUnderSpec(distKey, blockExp, weekNum, alloc){
+  if (distKey !== 'half' && distKey !== 'full') return null;
+  if (!alloc || !alloc.build) return null;
+  if (!raceGoalOverUnderEligible()) return null;
+  var buildWeeks = alloc.build;
+  var bi = weekNum - alloc.base;                    // 1-based index into Build
+  if (bi < 1 || bi > buildWeeks) return null;
+  var table = (distKey === 'half' ? HALF_BUILD_OVER_UNDER_CYCLES
+                                   : MARATHON_BUILD_OVER_UNDER_CYCLES)[blockExp];
+  if (!table) return null;
+  var cycles;
+  if (table.length === 1){
+    // Developing: once only, at the final Build week the Tempo/Threshold
+    // slot itself lands on -- halfQualityKindFor()/marathonQualityKindFor()
+    // both put Interval/VO2 on bi%3===0, so the slot's own last tempo
+    // occurrence is the highest bi<=buildWeeks that is NOT a multiple of 3.
+    var finalTempoBi = (buildWeeks % 3 === 0) ? buildWeeks - 1 : buildWeeks;
+    if (finalTempoBi < 1 || bi !== finalTempoBi) return null;
+    cycles = table[0];
+  } else {
+    var lateStart = Math.max(1, Math.ceil(buildWeeks / 2));
+    if (bi < lateStart) return null;
+    var lateLen = buildWeeks - lateStart + 1;
+    var idx = Math.round(((bi - lateStart) / Math.max(1, lateLen - 1)) *
+                          (table.length - 1));
+    idx = Math.max(0, Math.min(table.length - 1, idx));
+    cycles = table[idx];
+  }
+  return { type:'over_under', km:cycles*2, cycles:cycles };
+}
+
 /* Where a maintenance block sits inside every structure's dimension range.
    A CYCLE RATHER THAN A CONSTANT, and the distinction is the whole of what
    makes maintenance maintenance:
@@ -5351,8 +5431,12 @@ var DEUCE_SET_RECOVERY_SEC = [180,240];      // "3-4min between sets"
 var SPLIT_TEMPO_RECOVERY_SEC = [120,180];    // "2-3min easy jog between reps"
 function tempoFlankKm(spec){
   // threshold-continuous is the one structure that writes a 1km cool-down;
-  // steady/progressive write unnumbered easy flanks, so 3km stays their budget
-  if (spec.type==='threshold' || spec.type==='steady' || spec.type==='progressive') return 3;
+  // steady/progressive write unnumbered easy flanks, so 3km stays their budget.
+  // over-under is continuous like threshold-continuous (no jog break inside
+  // the effort) and shares its exact 2km/1km flank, so it joins the same
+  // bucket rather than split-tempo's real-recovery 4km one.
+  if (spec.type==='threshold' || spec.type==='steady' || spec.type==='progressive' ||
+      spec.type==='over_under') return 3;
   return 4;                                // goalpace block, split tempo
 }
 /* ---------- WHAT A RECOVERY COSTS: one rule, used everywhere ----------
@@ -5460,7 +5544,19 @@ function shrinkTempoSpec(spec, target){
   if (!(tempoSessionKm(spec) > target)) return s;
   var work = Math.max(0, target - tempoFlankKm(spec));
   work = Math.max(0, work - betweenRepRecoveryKm(spec.split||1, {sec:SPLIT_TEMPO_RECOVERY_SEC}));
-  if (s.km!=null) s.km = Math.max(TAPER_MIN_WORK_KM, roundTo(work, 0.5));
+  /* OVER-UNDER'S DOSE IS WHOLE CYCLES, NOT A FREE DISTANCE -- shrinking km
+     alone and leaving cycles untouched is exactly the "title says one
+     session, the day costs another" defect the taper-hold path exists to
+     avoid (see fitQualityStructure's own S2-A comment): a held over-under
+     spec would print "5 x (1km/1km)" while its costed distance quietly
+     shrank underneath the label. km and cycles are recomputed together so
+     the two can never disagree, floored at TAPER_MIN_OVER_UNDER_CYCLES the
+     same way every other taper floor stops a structure being mutilated. */
+  if (s.cycles!=null){
+    var cyc = Math.max(TAPER_MIN_OVER_UNDER_CYCLES, Math.floor(work / 2));
+    s.cycles = cyc; s.km = cyc * 2;
+  }
+  else if (s.km!=null) s.km = Math.max(TAPER_MIN_WORK_KM, roundTo(work, 0.5));
   else if (s.min!=null){
     var mins = work/0.185;
     // a split session's minutes stay divisible by the split (see structSplitTempo)
@@ -11565,6 +11661,20 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       var hBuildTrackQ = halfBuildTrackRepSpec(blockExp, w, arc.phaseCounts);
       if (hBuildTrackQ) qSpec = hBuildTrackQ;
     }
+    /* HQ APPROVED CORRECTION -- HALF/MARATHON BUILD OVER-UNDER, the
+       Tempo/Threshold slot's own equivalent of the track-rep substitution
+       just above. raceGoalOverUnderSpec() carries its own eligibility gate
+       (calibration-measured threshold pace, Build phase, tier/distance
+       ceiling) and returns null for every week/tier/distance it does not
+       cover, so this can only ever replace what the pool's own rotation
+       would otherwise have picked -- never add a session, never touch
+       Base, Peak, Taper, Race Week or the qSpec/Interval slot above. */
+    if ((halfArc || usesMarathonArc(purpose, distKey)) && !isRace && structPhase === 'Build'){
+      var ouAllocT = arc.phaseCounts ||
+        (usesMarathonArc(purpose, distKey) ? marathonPhaseAllocation(N, blockExp) : null);
+      var ouSpecT = raceGoalOverUnderSpec(distKey, blockExp, w, ouAllocT);
+      if (ouSpecT) tSpec = ouSpecT;
+    }
     var qKm = intervalSessionKm(qSpec);
     var tKm = tempoSessionKm(tSpec);
     /* S6-B. Whether each slot could be made legal at all, carried to the week so
@@ -11872,6 +11982,17 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       if (halfArc && soloKind === 'interval' && structPhase === 'Build'){
         var hBuildTrackSolo = halfBuildTrackRepSpec(blockExp, w, arc.phaseCounts);
         if (hBuildTrackSolo) soloSpec = hBuildTrackSolo;
+      }
+      /* HQ APPROVED CORRECTION -- HALF/MARATHON BUILD OVER-UNDER, single-
+         slot path. Developing's one weekly slot is where this tier actually
+         receives the session, exactly as for the track-rep substitution
+         above. Gated on soloKind==='tempo' so the interval slot, Base,
+         Peak, Taper and Race Week are never reached here either. */
+      if ((halfArc || usesMarathonArc(purpose, distKey)) && soloKind === 'tempo' && structPhase === 'Build'){
+        var ouAllocSolo = arc.phaseCounts ||
+          (usesMarathonArc(purpose, distKey) ? marathonPhaseAllocation(N, blockExp) : null);
+        var ouSpecSolo = raceGoalOverUnderSpec(distKey, blockExp, w, ouAllocSolo);
+        if (ouSpecSolo) soloSpec = ouSpecSolo;
       }
       soloKm = soloKind === 'interval' ? intervalSessionKm(soloSpec) : tempoSessionKm(soloSpec);
       soloFitsBound = soloKm <= weekFitCeil + 1e-9;
@@ -12911,6 +13032,8 @@ function tempoWorkoutText(spec, totalKm){
     return { title:'Tempo: '+spec.min+'min', type:'tempo',
       desc: dtok(2)+' warm-up. '+spec.min+'min continuous @ Tempo pace. '+dtok(2)+' cool-down.' };
   }
+  if (spec.type==='over_under') return { title:'Over-Under: '+spec.cycles+'x(1km/1km)', type:'over_under',
+    desc: dtok(2)+' warm-up. '+spec.cycles+' x ('+dtok(1)+' @ Tempo pace, straight into '+dtok(1)+' @ Threshold pace, no recovery between). '+dtok(1)+' cool-down.' };
   return { title:'Threshold: '+spec.km+'km', type:'threshold',
     desc: dtok(2)+' warm-up. '+dtok(spec.km)+' continuous @ Threshold pace. '+dtok(1)+' cool-down.' };
 }
@@ -13233,6 +13356,25 @@ var ARCHETYPES = {
      permission -- nothing that decides quality FREQUENCY reads it -- so the
      session still consumes the week's quality slot rather than freeing one. */
   hill_repeats:          { family:'interval', exec:{ load:1.08 } },
+  /* UNLIKE hill_repeats/easy_strides ABOVE, dd.type is NOT wrong here in the
+     same sense -- it is 'over_under', its own type (see TYPE_META), not a
+     borrowed one whose factor was derived for a different session shape. A
+     load factor still has to be given explicitly, though: COACH_LOAD_FACTOR
+     is keyed by dd.type and carries no entry for a type this new, and the
+     silent fallback for an unknown type is 1.0 (easy) -- exactly the wrong
+     direction for a session that is half genuine threshold work.
+
+     DERIVED THE SAME WAY hill_repeats' 1.08 was: each segment's kilometres
+     at its own intensity's existing factor, flanks attributed to easy
+     exactly as structuredZoneTime() already attributes them. At this
+     structure's middle dose (4 cycles, the shared step every Established/
+     Advanced tier passes through): 4km Under @ tempo's 1.35 + 4km Over @
+     threshold's 1.45 + 3km flank @ easy's 1.0, over 11km total =
+     (5.4+5.8+3.0)/11 = 1.29. The same arithmetic at 3 cycles gives 1.27 and
+     at 5 cycles gives 1.31 -- close enough across the whole approved range
+     that one fixed, computed figure is an honest middle rather than a
+     chosen one. */
+  over_under:            { family:'threshold', exec:{ load:1.29 } },
   race:                  { family:'race' }
 };
 function isKnownArchetype(id){ return Object.prototype.hasOwnProperty.call(ARCHETYPES, id); }
@@ -13293,6 +13435,7 @@ function prescriptionFromSpec(spec, kind){
   if (spec.type==='progressive') return { archetype:'progressive_tempo', params:{ min:spec.min } };
   if (spec.type==='steady')      return { archetype:'steady_tempo', params:{ min:spec.min } };
   if (spec.type==='tempo')       return { archetype:'split_tempo', params:{ min:spec.min, split:spec.split||2 } };
+  if (spec.type==='over_under')  return { archetype:'over_under', params:{ cycles:spec.cycles } };
   return { archetype:'threshold_continuous', params:{ km:spec.km } };
 }
 function prescriptionSpec(p){
@@ -13310,6 +13453,7 @@ function prescriptionSpec(p){
     case 'steady_tempo':         return { type:'steady', min:q.min };
     case 'split_tempo':          return { type:'tempo', min:q.min, split:q.split };
     case 'threshold_continuous': return { type:'threshold', km:q.km };
+    case 'over_under':           return { type:'over_under', km:q.cycles*2, cycles:q.cycles };
   }
   return null;
 }
@@ -13430,6 +13574,24 @@ function segmentsFor(p){
     case 'threshold_continuous':
       f = segFlanks(2, 1);
       return [ f.wu, segWork({km:q.km}, 'threshold'), f.cd ];
+    case 'over_under':
+      /* CONTINUOUS, NO RECOVERY BETWEEN SEGMENTS -- the locked structure.
+         segRepeat's two children are both WORK, never 'recovery', so
+         repeatChildCount() runs each of them the full `cycles` times with
+         nothing between them: q.cycles km at Under directly into q.cycles
+         km at Over, cycle after cycle, exactly as specified. Under and Over
+         reuse the SAME existing zone authorities every other Tempo/
+         Threshold structure already prices from -- intensity 'tempo' (M
+         zone) and 'threshold' (T zone) resolve through the same
+         INTENSITY_ZONE_KEY/getActivePaces()/hrZonesFromLTHR() pipeline
+         unmodified. Flanks match threshold_continuous's own 2km/1km,
+         because this is continuous like that structure is, not broken like
+         split_tempo. */
+      f = segFlanks(2, 1);
+      return [ f.wu,
+               segRepeat(q.cycles, [ segWork({km:1}, 'tempo'),
+                                      segWork({km:1}, 'threshold') ]),
+               f.cd ];
     case 'goal_pace_block':
       f = segFlanks(2, 2);
       return [ f.wu, segWork({km:q.km}, 'goal_pace'), f.cd ];
@@ -16668,6 +16830,15 @@ var TYPE_META = {
      from a session that was never run as a race. zoneKey T is the effort the
      athlete is actually asked to hold. */
   calibration:{ label:'Calibration',  zoneKey:'T',   cls:'tuneup' },
+  /* HALF/T-ZONE MIXED, NOT PURELY M OR PURELY T -- its own type rather than
+     borrowing 'tempo' or 'threshold', either of which would misdescribe
+     half the session. zoneKey T names the defining, harder half (the same
+     choice hill_repeats' own exec override makes for its harder half); the
+     Under segments still resolve M-zone targets exactly as split/progressive
+     tempo already do, because segmentsFor() gives them intensity:'tempo'
+     directly rather than reading this table. cls reuses 'threshold' so the
+     card carries the same visual language as the slot it occupies. */
+  over_under: { label:'Over-Under',  zoneKey:'T',   cls:'threshold' },
   race:       { label:'Race Day',    zoneKey:null,  cls:'race' }   // relabelled per-plan by dayTypeLabel()
 };
 
