@@ -198,6 +198,16 @@ test('every archetype the generator emits renders a structured workout to begin 
  *                         wrong share of it; ARCHETYPES says exactly that, and
  *                         re-deriving the share is the one thing the
  *                         prescription model refuses to do.
+ *   long_run_goal_insert,
+ *   long_run_goal_broken,
+ *   long_run_progressive  the HQ approved long-run library's other three
+ *                         specific-work shapes -- ARCHETYPES gives none of
+ *                         them rescalableKm either, for the identical reason:
+ *                         insertKm/segKm/gpKm are each a proportion of the
+ *                         whole run (see the settle-up pass in
+ *                         buildDaysFromWeeks), and a coach cut re-deriving
+ *                         that proportion is exactly the invented
+ *                         prescription this refusal exists to prevent.
  *   time_trial            the trial distance IS the session. A shorter one is
  *                         a different test, not a smaller version of this one.
  *   race                  the same, and a race is not the coach's to shorten.
@@ -210,7 +220,8 @@ test('every archetype the generator emits renders a structured workout to begin 
  *                         day allows.
  * Every other archetype must survive a coach-sized cut. Growing this list is a
  * regression; shrinking it means the list is stale. */
-const CANNOT_SHRINK_AT_COACH_CUT = ['ladder', 'long_run_goal_finish', 'race', 'time_trial'];
+const CANNOT_SHRINK_AT_COACH_CUT = ['ladder', 'long_run_goal_finish', 'long_run_goal_insert',
+  'long_run_goal_broken', 'long_run_progressive', 'race', 'time_trial'];
 
 // The reduction handleCoachAccept applies, to the letter.
 function coachCut(km) { return Math.max(1, Math.round(km * 0.75 * 2) / 2); }
@@ -243,9 +254,10 @@ test('a coach-sized distance cut keeps the structured workout for every archetyp
 });
 
 test('a gentle cut keeps even the archetypes with the tightest floors', () => {
-  // The three that cannot be restated at ANY distance stay refused; the ladder,
+  // The six that cannot be restated at ANY distance stay refused; the ladder,
   // whose refusal is a floor rather than a principle, comes back.
-  assert.equal(blankedAfterCut(0.9).join(','), 'long_run_goal_finish,race,time_trial');
+  assert.equal(blankedAfterCut(0.9).join(','),
+    'long_run_goal_broken,long_run_goal_finish,long_run_goal_insert,long_run_progressive,race,time_trial');
 });
 
 test('a shrunk session is still the same session, only smaller', () => {

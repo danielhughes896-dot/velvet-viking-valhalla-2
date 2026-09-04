@@ -4830,6 +4830,27 @@ function raceProgrammeViability(distKey, currentVolume, planWeeks, opts){
 }
 var GOAL_FINISH_MIN_LONG_KM = 6;
 var TT_DISTANCE_KM = { speed:3, threshold:5, endurance:6, timeonfeet:8 };
+/* HQ APPROVED HALF/MARATHON LONG-RUN LIBRARY -- the two fixed dimensions the
+   new structures use, neither scaled by tier or event. LONG_RUN_BROKEN_
+   RECOVERY_KM: long enough for HR and lactate to genuinely settle over real
+   ground after several kilometres at goal pace (unlike a track rep's 90s-3min
+   jog, this is recovering from real distance, not one rep), short enough that
+   the session still reads as one long run rather than disconnected pieces.
+   PROGRESSIVE_BUILDING_KM: the bridge that lets Progressive change gear
+   smoothly into a goal-pace segment that is otherwise left at its full,
+   locked dose (see PEAK_SECOND_SPECIFICITY_GAIN) -- its job is the gear
+   change, which takes roughly the same ground regardless of how large the
+   goal-pace segment that follows it is, so it does not scale with that
+   segment. It is never counted toward specific-work kilometres: only the
+   segment run at literal Goal Pace is. */
+var LONG_RUN_BROKEN_RECOVERY_KM = 1.5;
+var PROGRESSIVE_BUILDING_KM = 3.0;
+// Every archetype whose specific-work segment is a PROPORTION of the whole
+// day rather than a fixed number -- the settle-up pass in buildDaysFromWeeks
+// re-derives all four from the final, post-rounding/post-cap dd.km so the
+// prescription and the card can never disagree about the same run.
+var LONG_RUN_SPECIFIC_ARCHETYPES = ['long_run_goal_finish', 'long_run_goal_insert',
+                                    'long_run_goal_broken', 'long_run_progressive'];
 
 var EMPHASIS_INTERVAL_RANGE = {
   speed:      { repsLo:6, repsHi:10, mLo:300, mHi:1000 },
@@ -10928,6 +10949,15 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      once per calendar week. Taper weeks are excluded and keep the existing
      path entirely. */
   var soloOccQ = 0, soloOccT = 0;
+  /* HQ APPROVED CORRECTION -- HALF/MARATHON LONG-RUN LIBRARY. How many Build
+     weeks have already delivered specific long-run work, so the FIRST one can
+     be told to introduce it (Goal-Pace Insert) and the SECOND to build the
+     discipline of holding it more than once (Broken/Segmented) before the
+     rest of Build and Peak settle on the culminating structure (Goal-Pace
+     Finish). Counts only Build; Peak's own structure is decided from
+     mPeakFirst/mPeakLast/hPeakFirst directly, which already say everything
+     the week needs -- no separate Peak counter exists to disagree with them. */
+  var specificBuildCount = 0;
   /* The calibration is a single session in the life of a block, whichever of
      the two ways it is earned, so the question is closed once it is placed. */
   var calibrationPlaced = false;
@@ -12300,6 +12330,44 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        being, instead of a value computed against a run that no longer exists. */
     var goalSegFrac = hasGoalSegment && longTarget>0 ? goalSegKm/longTarget : 0;
 
+    /* ---- WHICH STRUCTURE CARRIES THE SPECIFIC WORK -- HQ APPROVED HALF/
+       MARATHON LONG-RUN LIBRARY ----
+       hasGoalSegment/goalSegKm/goalSegFrac above are UNCHANGED by this: this
+       only decides which of four structures delivers the same distance and
+       the same fraction, never a different one. Half and Marathon only --
+       every other distance/purpose leaves longStructure null and
+       buildDaysFromWeeks keeps reading hasGoalSegment/goalSegKm exactly as
+       it always has.
+
+       BUILD counts its own specific weeks in calendar order: the first
+       teaches the pace at low fatigue-risk (Insert), the second teaches
+       holding it more than once (Broken), and every one after that is the
+       culminating rehearsal (Finish) -- the structure this block will carry
+       through the rest of Build and into Peak.
+
+       PEAK reads the roles mPeakFirst/mPeakLast/hPeakFirst already name.
+       mPeakLast and hPeakFirst are the durability suppression -- hasGoalSegment
+       is already false there, so this block is never reached for them.
+       mPeakFirst is Marathon's boosted, most race-realistic exposure
+       (Progressive). Every other Peak week that still carries a goal segment
+       is Marathon's own second exposure (Broken); Half has no boosted-first
+       mechanic at all, so every one of its non-suppressed Peak weeks is
+       Finish, exactly as Build's own culminating structure already is. */
+    var longStructure = null;
+    var longBrokenSegments = null;
+    if (hasGoalSegment && (distKey === 'half' || distKey === 'full')){
+      if (phase === 'Build'){
+        specificBuildCount++;
+        longStructure = specificBuildCount === 1 ? 'insert'
+                       : specificBuildCount === 2 ? 'broken'
+                       : 'finish';
+      } else if (phase === 'Peak'){
+        longStructure = mPeakFirst ? 'progressive'
+                       : (usesMarathonArc(purpose, distKey) ? 'broken' : 'finish');
+      }
+      if (longStructure === 'broken') longBrokenSegments = (blockExp === 'advanced') ? 3 : 2;
+    }
+
     var raceDayKm = isRace ? profile.raceKm : 0;
 
     /* WHICH WAY THIS WEEK'S LONG RUN IS RUN. Same distance, same zone, same
@@ -12811,7 +12879,8 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       deliberateReduction:round1(Math.max(0, (intendedVolume==null?volume:intendedVolume) - volume)),
       volume:volume, qSpec:qSpec, qKm:qKm, tSpec:tSpec, tKm:tKm,
       longTarget:round1(longTarget), b2bEligible:b2bEligible, longShape:longShape,
-      hasGoalSegment:hasGoalSegment, goalSegKm:goalSegKm, goalSegFrac:goalSegFrac, raceDayKm:raceDayKm
+      hasGoalSegment:hasGoalSegment, goalSegKm:goalSegKm, goalSegFrac:goalSegFrac, raceDayKm:raceDayKm,
+      longStructure:longStructure, longBrokenSegments:longBrokenSegments
     });
   }
   /* ---- A BOTTOM-UP BLOCK REPORTS THE PEAK IT BUILT, NOT THE ONE THE RAMP
@@ -13234,12 +13303,37 @@ function longShapeGuidance(dd){
   return (s && s.guidance) || null;
 }
 var LONG_RUN_SHAPE_ORDER = ['steady', 'negative', 'rolling'];
-function longRunText(km, hasGoalSegment, goalSegKm, isB2BPrimary, isB2BSecondary, shape){
+/* structure/structParams: which of the HQ approved long-run library's
+   specific-work shapes this week uses ('insert'/'broken'/'progressive', or
+   omitted for the retained Goal-Pace Finish), and, for 'broken', the params
+   carrying segments/segKm. Every existing caller omits both and keeps
+   getting exactly the Goal-Pace Finish text it always has. */
+function longRunText(km, hasGoalSegment, goalSegKm, isB2BPrimary, isB2BSecondary, shape, structure, structParams){
   if (isB2BSecondary){
     return { title:'Back-to-Back Long Run', type:'long', desc: dtok(km)+' @ Easy pace, on tired legs from yesterday \u2014 this specificity is what makes ultra training work.' };
   }
   var note = isB2BPrimary ? ' First of a back-to-back long-run weekend \u2014 keep it controlled.' : '';
   if (hasGoalSegment && goalSegKm>0){
+    if (structure === 'insert'){
+      var insFlankT = round1(Math.max(0, km - goalSegKm) / 2);
+      return { title:'Long Run + Goal-Pace Insert', type:'long', mpSegment:true,
+        desc: dtok(insFlankT)+' @ Easy pace, '+dtok(goalSegKm)+' @ Goal Pace, '+dtok(insFlankT)+' @ Easy pace to close.'+note };
+    }
+    if (structure === 'broken'){
+      var brN = (structParams && structParams.segments) || 2;
+      var brSegKm = (structParams && structParams.segKm) || round1(goalSegKm / brN);
+      var brRecTotalT = LONG_RUN_BROKEN_RECOVERY_KM * (brN - 1);
+      var brFlankT = round1(Math.max(0, km - brSegKm * brN - brRecTotalT) / 2);
+      return { title:'Long Run + Broken Goal Pace ('+brN+'x'+brSegKm+'km)', type:'long', mpSegment:true,
+        desc: dtok(brFlankT)+' @ Easy pace, then '+brN+' x '+dtok(brSegKm)+' @ Goal Pace with '+
+              dtok(LONG_RUN_BROKEN_RECOVERY_KM)+' @ Easy pace between, '+dtok(brFlankT)+' @ Easy pace to close.'+note };
+    }
+    if (structure === 'progressive'){
+      var prEasyT = round1(Math.max(0, km - goalSegKm - PROGRESSIVE_BUILDING_KM));
+      return { title:'Long Run \u2014 Progressive to Goal Pace', type:'long', mpSegment:true,
+        desc: dtok(prEasyT)+' @ Easy pace, '+dtok(PROGRESSIVE_BUILDING_KM)+' building toward Goal Pace, then '+
+              dtok(goalSegKm)+' @ Goal Pace to the finish.'+note };
+    }
     return { title:'Long Run + Goal Pace', type:'long', mpSegment:true,
       desc: dtok(km)+' @ Easy pace, last '+dtok(goalSegKm)+' @ Goal Pace.'+note };
   }
@@ -13280,6 +13374,13 @@ var ARCHETYPES = {
   // NOT rescalable: shortening the run leaves the goal-pace finish the wrong
   // share of it, and re-deriving that share would be inventing prescription
   long_run_goal_finish:  { family:'long',      dayKmParam:'km' },
+  // HQ APPROVED LONG-RUN LIBRARY -- same reasoning as long_run_goal_finish
+  // above: each of these carries a fixed, computed specific-work split
+  // (insertKm / segments+segKm / gpKm) that a rescale would leave the wrong
+  // share of the run, so none of the three is rescalable either.
+  long_run_goal_insert: { family:'long',      dayKmParam:'km' },
+  long_run_goal_broken: { family:'long',      dayKmParam:'km' },
+  long_run_progressive: { family:'long',      dayKmParam:'km' },
   long_run_b2b:          { family:'long',      dayKmParam:'km', rescalableKm:true },
   threshold_continuous:  { family:'threshold' },
   goal_pace_block:       { family:'tempo' },
@@ -13478,6 +13579,9 @@ function textFor(p, ctx, totalKm){
     case 'threshold_calibration': return thresholdCalibrationText();
     case 'long_run':             return longRunText(q.km, false, 0, !!q.b2bPrimary, false, q.shape);
     case 'long_run_goal_finish': return longRunText(q.km, true, q.finishKm, false, false);
+    case 'long_run_goal_insert': return longRunText(q.km, true, q.insertKm, false, false, null, 'insert');
+    case 'long_run_goal_broken': return longRunText(q.km, true, q.segKm * (q.segments || 2), false, false, null, 'broken', q);
+    case 'long_run_progressive': return longRunText(q.km, true, q.gpKm, false, false, null, 'progressive');
     case 'long_run_b2b':         return longRunText(q.km, false, 0, false, true);
   }
   var spec = prescriptionSpec(p);
@@ -13547,6 +13651,38 @@ function segmentsFor(p){
     case 'long_run_goal_finish':
       return [ segWork({km:round1(q.km-q.finishKm)}, 'easy'),
                segWork({km:q.finishKm}, 'goal_pace') ];
+    case 'long_run_goal_insert':
+      /* Symmetric easy flanks around one contained Goal Pace block --
+         lowest-fatigue-risk introduction to race pace, and the only
+         specific-work shape that rehearses resuming easy running afterward
+         rather than the run simply ending. */
+      var insFlank = round1(Math.max(0, q.km - q.insertKm) / 2);
+      f = segFlanks(insFlank, insFlank);
+      return [ f.wu, segWork({km:q.insertKm}, 'goal_pace'), f.cd ];
+    case 'long_run_goal_broken':
+      /* q.segments discrete Goal Pace segments of q.segKm each, separated by
+         LONG_RUN_BROKEN_RECOVERY_KM easy jogs -- segRepeat's own "between"
+         recovery mode already gives N work reps and N-1 recoveries, exactly
+         the shape this structure needs, with no new repeat semantics. */
+      var brRecTotal = LONG_RUN_BROKEN_RECOVERY_KM * ((q.segments || 2) - 1);
+      var brFlank = round1(Math.max(0, q.km - q.segKm * (q.segments || 2) - brRecTotal) / 2);
+      f = segFlanks(brFlank, brFlank);
+      return [ f.wu,
+               segRepeat(q.segments || 2, [ segWork({km:q.segKm}, 'goal_pace'),
+                                             segRecovery({km:LONG_RUN_BROKEN_RECOVERY_KM}) ]),
+               f.cd ];
+    case 'long_run_progressive':
+      /* Easy, then a fixed PROGRESSIVE_BUILDING_KM sub-goal bridge, then
+         genuine Goal Pace continuous to the finish -- no cool-down, the same
+         convention long_run_goal_finish already uses, because the run ends
+         at the effort it built to rather than settling back down from it.
+         The building segment carries intensity 'steady' (M zone, the same
+         authority structSteadyTempo already uses), never 'goal_pace' -- it
+         is not counted as specific work. */
+      var prEasy = round1(Math.max(0, q.km - q.gpKm - PROGRESSIVE_BUILDING_KM));
+      return [ segWork({km:prEasy}, 'easy'),
+               segWork({km:PROGRESSIVE_BUILDING_KM}, 'steady'),
+               segWork({km:q.gpKm}, 'goal_pace') ];
     case 'race':
       return [ segWork({km:q.km}, 'goal_pace') ];
     case 'time_trial':
@@ -14974,6 +15110,29 @@ function qualitySlotCeilingForDayCount(dayCount){
 function longRunCarriesSpecificWork(wk){
   return !!(wk && wk.hasGoalSegment && wk.goalSegKm > 0);
 }
+/* WHICH ARCHETYPE AND PARAMS A SPECIFIC LONG-RUN WEEK ACTUALLY WRITES -- HQ
+   APPROVED HALF/MARATHON LONG-RUN LIBRARY. wk.longStructure was already
+   decided in buildBlockWeeks, beside goalSegFrac, from exactly the same
+   information (tier, phase, calendar position, mPeakFirst/mPeakLast/
+   hPeakFirst) every other week-level decision in this file already reads --
+   this only turns that decision into the {archetype,params} shape every
+   other long-run day already produces. Only reached when
+   longRunCarriesSpecificWork(wk) is true; every other distance/purpose,
+   and every Half/Marathon week this correction does not name, keeps
+   reaching Goal-Pace Finish exactly as before wk.longStructure existed. */
+function longRunPrescriptionFor(wk, longKm){
+  var gp = wk.goalSegKm;
+  if (wk.longStructure === 'insert')
+    return { archetype:'long_run_goal_insert', params:{ km:longKm, insertKm:gp } };
+  if (wk.longStructure === 'broken'){
+    var n = wk.longBrokenSegments || 2;
+    return { archetype:'long_run_goal_broken',
+             params:{ km:longKm, segments:n, segKm:round1(gp / n) } };
+  }
+  if (wk.longStructure === 'progressive')
+    return { archetype:'long_run_progressive', params:{ km:longKm, gpKm:gp } };
+  return { archetype:'long_run_goal_finish', params:{ km:longKm, finishKm:gp } };
+}
 
 /* ---------- QUALITY FREQUENCY IS EARNED, NOT COUNTED ----------
    THE COUPLING THIS REMOVES. The contract above was written to stop quality
@@ -16350,13 +16509,15 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         var rdL = restDayText(false);
         dayObj = { type:rdL.type, title:rdL.title, km:0, desc:rdL.desc };
       } else if (iso===wkLongDay && activeSet[iso] && !noLongRun){
-        var tl = longRunText(longKm, wk.hasGoalSegment, wk.goalSegKm, b2bActive, false, wk.longShape);
+        var lrSpecific = longRunCarriesSpecificWork(wk);
+        var lrp = lrSpecific ? longRunPrescriptionFor(wk, longKm)
+          : { archetype:'long_run', params: b2bActive
+                ? { km:longKm, b2bPrimary:true, shape:wk.longShape }
+                : { km:longKm, shape:wk.longShape } };
+        var tl = longRunText(longKm, wk.hasGoalSegment, wk.goalSegKm, b2bActive, false, wk.longShape,
+          lrSpecific ? wk.longStructure : null, lrp.params);
         dayObj = { type:tl.type, title:tl.title, km:longKm, desc:tl.desc, mpSegment:!!tl.mpSegment,
-          prescription: longRunCarriesSpecificWork(wk)
-            ? { archetype:'long_run_goal_finish', params:{ km:longKm, finishKm:wk.goalSegKm } }
-            : { archetype:'long_run', params: b2bActive
-                  ? { km:longKm, b2bPrimary:true, shape:wk.longShape }
-                  : { km:longKm, shape:wk.longShape } } };
+          prescription: lrp };
       } else if (b2bActive && iso===wkB2bDay){
         var t2 = longRunText(secondLongKm, false, 0, false, true);
         dayObj = { type:t2.type, title:t2.title, km:secondLongKm, desc:t2.desc,
@@ -16492,7 +16653,7 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        long-run-with-goal-pace at all any more, and it is rewritten as the
        session it actually is rather than kept as a mutilated version of the
        session it was going to be. */
-    if (p && p.archetype === 'long_run_goal_finish'){
+    if (p && LONG_RUN_SPECIFIC_ARCHETYPES.indexOf(p.archetype) !== -1){
       var wkRef = weekIndex2[dd.week];
       var frac = (wkRef && wkRef.goalSegFrac) || 0;
       var finish = round1(Math.min(dd.km * Math.min(frac, 0.5), dd.km * 0.5));
@@ -16501,13 +16662,43 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
         p.params = { km: round1(dd.km), shape: (wkRef && wkRef.longShape) || 'steady' };
         var re = longRunText(dd.km, false, 0, false, false, p.params.shape);
         dd.title = re.title; dd.desc = re.desc; dd.mpSegment = false;
+      } else if (p.archetype === 'long_run_goal_insert'){
+        p.params.insertKm = finish;
+        var ri = longRunText(dd.km, true, finish, false, false, null, 'insert');
+        dd.title = ri.title; dd.desc = ri.desc; dd.mpSegment = true;
+      } else if (p.archetype === 'long_run_goal_broken'){
+        var brN2 = p.params.segments || (wkRef && wkRef.longBrokenSegments) || 2;
+        p.params.segments = brN2;
+        p.params.segKm = round1(finish / brN2);
+        var rb = longRunText(dd.km, true, finish, false, false, null, 'broken', p.params);
+        dd.title = rb.title; dd.desc = rb.desc; dd.mpSegment = true;
+      } else if (p.archetype === 'long_run_progressive'){
+        p.params.gpKm = finish;
+        var rp = longRunText(dd.km, true, finish, false, false, null, 'progressive');
+        dd.title = rp.title; dd.desc = rp.desc; dd.mpSegment = true;
       } else {
         p.params.finishKm = finish;
         var rg = longRunText(dd.km, true, finish, false, false, null);
         dd.title = rg.title; dd.desc = rg.desc; dd.mpSegment = true;
       }
     }
-    dd.desc = syncDescDistance(dd.type, dd.desc, dd.km);
+    /* syncDescDistance's own @@D:@@ replacement assumes the FIRST distance
+       token in the description IS the whole-day figure -- true for plain
+       long_run and for long_run_goal_finish (both open with dtok(km) by
+       construction), which is why it has always been safe for them: the
+       token it finds already equals dd.km, so the replace is a no-op. It is
+       NOT true for the three structures above -- Insert and Broken open
+       with an easy FLANK, Progressive with its own easy portion -- and
+       their descriptions were already regenerated against the final dd.km
+       two lines above this comment, inside the branch that just ran. Running
+       the blind first-match replace on them would overwrite that flank
+       token with the whole-day figure instead, which is exactly the "the
+       card and the prescription disagree about the same run" defect this
+       whole settle-up pass exists to prevent. */
+    var lrSkipSync = p && (p.archetype === 'long_run_goal_insert' ||
+                           p.archetype === 'long_run_goal_broken' ||
+                           p.archetype === 'long_run_progressive');
+    if (!lrSkipSync) dd.desc = syncDescDistance(dd.type, dd.desc, dd.km);
     /* THE INVARIANT, CHECKED WHERE IT IS FINALLY TRUE. Every fully quantified
        session must reconcile with its own components. Recorded rather than
        thrown: a generator that throws in a browser gives the athlete a blank
