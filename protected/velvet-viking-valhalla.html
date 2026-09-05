@@ -36195,6 +36195,7 @@ function openSetupModal(){
       '<div id="su-event-box" data-mode="'+eventMode+'">'+
         '<div class="field when-event bld-date bld-race-only bld-reveal" id="f-racedate"><label>Event date</label><input type="date" id="su-racedate" value="'+raceDate+'">'+
           '<div class="field-hint">Progression and taper anchor to this day.</div>'+
+          '<div class="field-hint" id="su-runway-note" hidden></div>'+
         '</div>'+
         '<div class="field when-none bld-reveal" id="f-weeks"><label>Training block length (weeks)</label>'+
           '<input type="number" min="'+BUILDER_SPEC.validation.weeksRange[0]+'" max="'+BUILDER_SPEC.validation.weeksRange[1]+'" step="1" inputmode="numeric" id="su-weeks" value="'+blockWeeks+'">'+
@@ -36382,6 +36383,9 @@ function openSetupModal(){
         bldApplyPurpose();
         bldSyncRaceEntryNote();
       }
+      // Purpose, distance and benchmark all feed raceGoalAdmission()'s
+      // calculation, so any of the three re-syncs the short-runway note.
+      bldSyncRunwayNote();
     });
   }
   bldApplyPurpose();
@@ -36446,6 +36450,16 @@ function openSetupModal(){
   if (volBoxIn) volBoxIn.addEventListener('input', bldSyncRaceEntryNote);
   bldSyncRaceEntryNote();
 
+  // The short-runway note is synced from the same fields Generate reads --
+  // see bldSyncRunwayNote() below, a top-level function so handleSetEventMode()
+  // can also keep it in step when the event toggle (not just a value inside
+  // this modal's own listeners) is what changed.
+  var raceDateIn = document.getElementById('su-racedate');
+  if (raceDateIn) raceDateIn.addEventListener('input', bldSyncRunwayNote);
+  var benchTimeIn = document.getElementById('su-bench-time');
+  if (benchTimeIn) benchTimeIn.addEventListener('input', bldSyncRunwayNote);
+  bldSyncRunwayNote();
+
   var wdBox = document.getElementById('su-weekdays');
   if (wdBox){
     wdBox.addEventListener('change', function(){
@@ -36467,11 +36481,83 @@ function openSetupModal(){
          select has already fallen to its first remaining option and the grid
          simply shows what the generator will read. */
       bldSyncLongDay();
+      bldSyncRunwayNote();
     });
   }
 
   bldSyncLongDay();
   bldStage(0);
+}
+
+/* ---- THE SHORT-RUNWAY NOTE, KEPT IN STEP WITH EVERY FIELD RACEGOALADMISSION() READS ----
+   Half/Marathon only -- raceGoalAdmission() would resolve 5K/10K's own
+   window just as correctly, but this note is not the place that extends
+   the message to them. Reads the exact fields and calls the exact
+   authority handleGeneratePlan() will call (raceGoalAdmission(), off the
+   same planWeeks arithmetic as blockAnchor()/isoWeekday()/daysBetween()
+   there), so the note can never promise a window Generate does not also
+   build, and never claims one Generate would refuse. No internal
+   shortened/shape/reason code ever reaches this text -- only the plain
+   sentence, gated on raceGoalWeeks being admitted and short of maxWeeks.
+   A top-level function, like bldApplyPurpose() and bldSyncLongDay(), because
+   handleSetEventMode() -- outside the builder modal's own closure -- needs
+   to reach it too. */
+function bldSyncRunwayNote(){
+  var note = document.getElementById('su-runway-note');
+  if (!note) return;
+  note.hidden = true;
+  try {
+    var pSel = document.getElementById('su-purpose');
+    var distSel = document.getElementById('su-distance');
+    if (!pSel || pSel.value !== 'race' || !distSel) return;
+    var purposeMetaForRunway = BUILDER_PURPOSE_META[pSel.value];
+    var runwayDistKey = (purposeMetaForRunway && purposeMetaForRunway.lockDistance) || distSel.value;
+    if (runwayDistKey !== 'half' && runwayDistKey !== 'full') return;
+    var evBox = document.getElementById('su-event-box');
+    var hasEventForRunway = !evBox || evBox.getAttribute('data-mode') !== 'none';
+    if (!hasEventForRunway) return;
+    var raceDateVal = document.getElementById('su-racedate').value;
+    if (!raceDateVal || raceDateVal <= todayStr()) return;
+
+    var wdBoxes = document.querySelectorAll('#su-weekdays input[type=checkbox]');
+    var runwayActiveDays = [];
+    wdBoxes.forEach(function(cb){ if (cb.checked) runwayActiveDays.push(parseInt(cb.getAttribute('data-wd'),10)); });
+    if (!runwayActiveDays.length) return;
+
+    // Same rebuild/new-block origin handleGeneratePlan() uses -- see blockAnchor().
+    var priorBlockForRunway = state.setup && state.setup.blockId ? blockById(state.setup.blockId) : null;
+    var priorPurposeForRunway = priorBlockForRunway ? priorBlockForRunway.purpose
+      : (state.setup && isBlockPurpose(state.setup.purpose) ? state.setup.purpose : 'race');
+    var hasLivePlanForRunway = !!(state.setup && state.days && state.days.length);
+    var purposeChangedForRunway = hasLivePlanForRunway && priorPurposeForRunway !== 'race';
+    var rebuildingForRunway = !!priorBlockForRunway && hasLivePlanForRunway && !purposeChangedForRunway;
+
+    var runwayStartDate = blockAnchor(runwayActiveDays, rebuildingForRunway);
+    if (raceDateVal < runwayStartDate) return;
+    var runwayStartMonday = addDays(runwayStartDate, -isoWeekday(runwayStartDate));
+    var runwayRaceMonday = addDays(raceDateVal, -isoWeekday(raceDateVal));
+    var weeksToRaceForRunway = daysBetween(runwayStartMonday, runwayRaceMonday) / 7 + 1;
+
+    // Same benchmark-derived pace handleGeneratePlan() reads, off the same fields.
+    var runwayBenchDist = document.getElementById('su-bench-dist').value;
+    var runwayBenchSec = parseBenchmarkTime(document.getElementById('su-bench-time').value.trim());
+    var runwayEasyPace = null;
+    var runwayVdot = runwayBenchSec
+      ? vdotFromPerformance(DISTANCE_PROFILES[runwayBenchDist].raceKm * 1000, runwayBenchSec) : null;
+    if (runwayVdot){
+      var runwayZones = trainingPacesFromVDOT(runwayVdot);
+      if (runwayZones && runwayZones.E && runwayZones.E.slow != null && runwayZones.E.fast != null)
+        runwayEasyPace = (runwayZones.E.slow + runwayZones.E.fast) / 2;
+    }
+
+    var adm = raceGoalAdmission(runwayDistKey, weeksToRaceForRunway, null,
+      { availableDays: runwayActiveDays.length, easyPaceSecPerKm: runwayEasyPace });
+    if (adm && adm.admitted && adm.decision === 'race_goal' && adm.raceGoalWeeks < adm.maxWeeks){
+      note.textContent = 'We can prepare you for this race, but you have less than the ideal ' +
+        adm.maxWeeks + '-week preparation window.';
+      note.hidden = false;
+    }
+  } catch(e){ note.hidden = true; }
 }
 
 /* =========================================================
@@ -36989,6 +37075,7 @@ function handleSetEventMode(mode){
   Array.prototype.forEach.call(btns, function(b){
     b.classList.toggle('active', b.getAttribute('data-event-mode')===m);
   });
+  bldSyncRunwayNote();
 }
 // Coaching depth applies the instant it is chosen -- it is a display
 // preference, so nobody has to regenerate (and lose logged actuals) just to
