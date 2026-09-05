@@ -8862,7 +8862,16 @@ function raceDestination(){
 }
 function setRaceDestination(distanceKey, raceDate, goals, activeGoal){
   if (!distanceKey || !raceDate) return null;
-  var weeks = distanceKey === 'full' ? MARATHON_DEDICATED_WEEKS : null;
+  /* THE SAME AUTHORITY EVERY OTHER RUNWAY DECISION READS. dedicatedWeeksFor()
+     already resolves half/marathon/5K/10K to their own dedicated window
+     length; asking it here rather than hardcoding one distance keeps this in
+     step with raceGoalAdmission() and raceGoalRunwayBounds() by construction,
+     instead of drifting the day a new distance gets its own window. A
+     distance with no dedicated architecture (ultra) has no window to open,
+     so it gets no transition date, exactly as before. */
+  var hasWindow = distanceKey === 'full' || distanceKey === 'half' ||
+                  distanceKey === '5k' || distanceKey === '10k';
+  var weeks = hasWindow ? dedicatedWeeksFor(distanceKey) : null;
   state.raceDestination = {
     distanceKey: distanceKey, raceDate: raceDate,
     goals: goals || null, activeGoal: activeGoal || null,
