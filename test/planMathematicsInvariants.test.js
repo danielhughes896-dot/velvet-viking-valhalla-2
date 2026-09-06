@@ -1060,9 +1060,21 @@ test('the aerobic-dominance ceiling is unchanged; it just no longer grants', () 
   assert.equal(a.qualitySlotCeilingForDayCount(6), 2);
 });
 
-test('with no evidence a race week carries ONE demanding session, at any day count', () => {
+test('outside Build, a 5K race week still carries ONE demanding session, at any day count', () => {
   /* Stated availability, stated volume, the race goal and the week being
-     structurally able to hold two are none of them evidence. */
+     structurally able to hold two are none of them evidence -- that half of
+     the rule is unchanged.
+
+     BUILD ITSELF IS NO LONGER PART OF THAT RULE, BY DESIGN. auditCase() with
+     no explicit experience resolves to BUILDER_SPEC.experience.default
+     ('experienced' -- Established), and Established/Advanced 5K Build weeks
+     now carry two standalone sessions by TIER rule (raceGoal5kWeekQualitySlots()
+     in buildBlockWeeks, mirroring the Half/Marathon tier rule), not by
+     athlete-earned evidence -- see 'half/marathon Build no longer reads
+     exposure evidence at all' in qualityBudgetSpecificLongRun.test.js for the
+     identical, already-accepted precedent. Base, Peak, Taper and Race Week
+     still get exactly one, with or without evidence, which is what this test
+     now actually proves. */
   for (const scheduleKey of ['d3', 'd4', 'd5', 'd6'])
     for (const volume of [29, 45, 70, 100]){
       const c = auditCase({ distanceKey: '5k', volume, weeks: 12, scheduleKey });
@@ -1070,8 +1082,9 @@ test('with no evidence a race week carries ONE demanding session, at any day cou
       c.weeks.forEach(w => {
         if (w.isRace) return;
         const q = w.sessions.filter(s => s.km > 0 && s.type !== 'easy' && s.type !== 'long');
-        assert.ok(q.length <= 1,
-          c.id + ' wk' + w.week + ' carries ' + q.map(s => s.type + ':' + s.km).join(' '));
+        const cap = w.phase === 'Build' ? 2 : 1;
+        assert.ok(q.length <= cap,
+          c.id + ' wk' + w.week + ' (' + w.phase + ') carries ' + q.map(s => s.type + ':' + s.km).join(' '));
       });
     }
 });
@@ -1238,7 +1251,7 @@ test('an active plan keeps its completed training when the new logic applies', (
     'future week ' + w + ' carries ' + byWeek[w] + ' quality days'));
 });
 
-test('quality dominance is now bounded to the tier\'s own Half Build rule (and the pre-existing Ultra case), and gone everywhere else', () => {
+test('quality dominance is now bounded to the tier\'s own Half/5K Build rule (and the pre-existing Ultra case), and gone everywhere else', () => {
   /* HQ WORKOUT-STRUCTURE METHODOLOGY RULING -- this used to be a flat zero
      because nothing in the architecture could ever deliberately cross 40% of
      a week on quality alone. Established/Advanced Half and Marathon Build
@@ -1250,11 +1263,19 @@ test('quality dominance is now bounded to the tier\'s own Half Build rule (and t
      larger volume dilutes the same two sessions under the threshold at every
      case this matrix samples (verified directly below: zero 'full' hits).
 
+     5K NOW CARRIES THE SAME TIER RULE AT ITS OWN 4-DAY FLOOR (see
+     raceGoal5kWeekQualitySlots()), so its Established/Advanced Build weeks
+     are the identical structural shape as the Half's -- two standalone
+     sessions against a smaller weekly workload -- and for the same reason
+     legitimately cross the 40% threshold. It joins the population below
+     rather than getting a population of its own because the mechanism, and
+     the reason it dominates, are the same rule.
+
      STILL BOUNDED, NOT REMOVED, so this is re-asked rather than deleted: the
      matrix's raw suspects are filtered by distance, and every hit must be
-     either 'half' (the new rule) or 'ultra' (a pre-existing, unrelated case
-     this correction did not touch and does not explain). No other distance
-     may cross the threshold at all. */
+     'half', '5k' (both the new rule) or 'ultra' (a pre-existing, unrelated
+     case this correction did not touch and does not explain). No other
+     distance may cross the threshold at all. */
   const { auditCase, DISTANCES } = require('./audit/planAudit.js');
   const { checkCase } = require('./audit/invariants.js');
   const { VOLUMES, WEEKS, SCHEDULES } = require('./audit/matrix.js');
@@ -1267,14 +1288,16 @@ test('quality dominance is now bounded to the tier\'s own Half Build rule (and t
           const n = checkCase(c).filter(f => f.code === 'quality_dominates_week').length;
           if (n) byDist[distanceKey] = (byDist[distanceKey] || 0) + n;
         }
-  Object.keys(byDist).forEach(d => assert.ok(d === 'half' || d === 'ultra',
-    d + ' now shows quality dominance -- outside the tier rule\'s own Half Build ' +
+  Object.keys(byDist).forEach(d => assert.ok(d === 'half' || d === '5k' || d === 'ultra',
+    d + ' now shows quality dominance -- outside the tier rule\'s own Half/5K Build ' +
     'population and the pre-existing, unrelated Ultra case'));
   assert.equal(byDist.full || 0, 0,
     'the marathon carries the same two-session Build rule, but its own larger ' +
     'weekly volume must keep diluting them under the 40% threshold at every case this matrix samples');
   assert.ok((byDist.half || 0) > 0,
     'the tier rule should show SOME dominant Half Build weeks in a matrix this wide, or it is not being exercised');
+  assert.ok((byDist['5k'] || 0) > 0,
+    'the tier rule should show SOME dominant 5K Build weeks in a matrix this wide, or it is not being exercised');
 });
 
 test('THE IN-RACE RATCHET — asserted flat at zero, not against a baseline', () => {

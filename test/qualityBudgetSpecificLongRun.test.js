@@ -30,14 +30,27 @@ const { loadApp } = require('./harness.js');
  * is now expressed as the tier rule's own answer rather than as a live
  * reduction.
  *
- * 5K and 10K are untouched: their long runs never carry goal pace under the
- * current methodology, so this file's original rule never bound them, and it
- * still doesn't -- they still read secondQualityExposurePermission() exactly
- * as before.
+ * 10K is untouched: its long run never carries goal pace under the current
+ * methodology, so this file's original rule never bound it, and it still
+ * doesn't -- it still reads secondQualityExposurePermission() exactly as
+ * before.
+ *
+ * 5K'S OWN QUALITY-SLOT COUNT IS ALSO SUPERSEDED NOW -- HQ 5K QUALITY
+ * ARCHITECTURE CORRECTION. Its long run still never carries goal pace (that
+ * part of this file's original rule still never bound it), but its
+ * standalone-session COUNT no longer comes from secondQualityExposurePermission()
+ * either: raceGoal5kWeekQualitySlots() (see raceGoalWeekQualitySlots() in
+ * buildBlockWeeks) and the widened raceGoalTierQuality override (see
+ * buildDaysFromWeeks) give 5K the same tier-driven shape Half/Marathon
+ * already has -- Developing = 1 quality session in every phase; Established
+ * and Advanced = 2 in Build specifically, 1 everywhere else -- at 5K's own
+ * day floor (four, not five, matching its Established pathway's own entry).
  *
  * These tests now hold the NEW shape: two standalone sessions AND the
  * specific long run in Half/Marathon Build, one everywhere else in
- * Half/Marathon, and the untouched 5K/10K behaviour beside it.
+ * Half/Marathon; two standalone Build sessions and an aerobic long run in
+ * 5K, one everywhere else in 5K, earned or not; and the untouched 10K
+ * behaviour beside both.
  */
 const TODAY = '2026-08-30';
 const SCHED = {
@@ -148,8 +161,10 @@ test('half and marathon now stack two standalone Build sessions onto a specific 
   });
 });
 
-test('5K and 10K keep two standalone quality sessions and an aerobic long run', () => {
-  ['5k','10k'].forEach(d => {
+test('10K keeps its evidence-gated two standalone quality sessions and an aerobic long run', () => {
+  /* 10K was never part of the 5K quality-architecture correction -- it still
+     reads secondQualityExposurePermission() exactly as before. */
+  ['10k'].forEach(d => {
     [5,6,7].forEach(nd => {
       const { a, blk, days } = plan(d, nd, true);
       const rows = weekRows(a, blk, days);
@@ -161,13 +176,70 @@ test('5K and 10K keep two standalone quality sessions and an aerobic long run', 
   });
 });
 
-test('5K/10K with no exposure evidence are completely unchanged', () => {
-  ['5k','10k'].forEach(d => {
+test('5K now reaches two standalone Build sessions by tier at its own 4-day floor, with an aerobic long run throughout', () => {
+  /* 5K QUALITY ARCHITECTURE CORRECTION. The long run never carries goal pace
+     under the current methodology -- unchanged. What changed is Build's slot
+     count: raceGoal5kWeekQualitySlots() grants Established/Advanced two
+     standalone sessions in Build at 5K's own 4-day floor, by TIER, the same
+     mechanism as Half/Marathon's own Build rule above -- not by earned
+     evidence (the 'without evidence' test below proves this fixture is
+     genuinely unearned and still reaches two). Outside Build the phase
+     itself still caps at one, so the bound here is phase-aware, not flat. */
+  ['5k'].forEach(d => {
+    [5,6,7].forEach(nd => {
+      const { a, blk, days } = plan(d, nd, true);
+      const rows = weekRows(a, blk, days);
+      assert.equal(rows.filter(r => r.specificLong).length, 0,
+        d + ': its long run must stay aerobic under the current methodology');
+      rows.forEach(r => {
+        const cap = r.phase === 'Build' ? 2 : 1;
+        assert.ok(r.standalone <= cap,
+          d + '/' + nd + 'd week ' + r.week + ' (' + r.phase + '): ' + r.standalone +
+          ' standalone sessions, cap ' + cap);
+      });
+      const build = rows.filter(r => r.phase === 'Build');
+      assert.ok(build.length > 0 && build.filter(r => r.standalone === 2).length > build.length / 2,
+        d + '/' + nd + 'd: a capable athlete must still reach two standalone Build sessions in most Build weeks');
+    });
+  });
+});
+
+test('10K with no exposure evidence is completely unchanged', () => {
+  ['10k'].forEach(d => {
     [3,4,5,6,7].forEach(nd => {
       const { a, blk, days } = plan(d, nd, false);
       weekRows(a, blk, days).forEach(r => assert.ok(r.standalone <= 1,
         d + '/' + nd + 'd week ' + r.week + ': ' + r.standalone +
         ' standalone sessions without the earned exposure'));
+    });
+  });
+});
+
+test('5K without evidence still reaches two standalone Build sessions at its own 4-day floor -- the tier rule, not exposure, decides', () => {
+  /* Mirrors 'half/marathon Build no longer reads exposure evidence at all'
+     below: plan()'s earned=false stub still makes secondQualityExposurePermission()
+     return 'no_evidence', and raceGoal5kWeekQualitySlots() never calls it --
+     Established/Advanced Build gets two standalone sessions purely from
+     RACE_GOAL_BUILD_QUALITY_SLOTS, at 5K's own 4-day floor. A 3-day week
+     never clears that floor and stays at one regardless, which is what the
+     nd<4 branch below proves -- the floor, not the evidence stub, is what is
+     actually being read. */
+  ['5k'].forEach(d => {
+    [3,4,5,6,7].forEach(nd => {
+      const { a, blk, days } = plan(d, nd, false);
+      const rows = weekRows(a, blk, days);
+      const buildCap = nd >= 4 ? 2 : 1;
+      rows.forEach(r => {
+        const cap = r.phase === 'Build' ? buildCap : 1;
+        assert.ok(r.standalone <= cap,
+          d + '/' + nd + 'd week ' + r.week + ' (' + r.phase + '): ' + r.standalone +
+          ' standalone sessions without the earned exposure, cap ' + cap);
+      });
+      if (nd >= 4){
+        const build = rows.filter(r => r.phase === 'Build');
+        assert.ok(build.length > 0 && build.filter(r => r.standalone === 2).length > build.length / 2,
+          d + '/' + nd + 'd: the tier rule should still reach two standalone Build sessions without evidence');
+      }
     });
   });
 });

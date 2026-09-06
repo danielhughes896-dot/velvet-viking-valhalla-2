@@ -10185,10 +10185,29 @@ var RACE_GOAL_MAX_DAYS = { novice: 4, experienced: 5, advanced: 5 };
    never zero" territory, not a week with no real easy running left in it. */
 var RACE_GOAL_BUILD_QUALITY_SLOTS = { novice: 1, experienced: 2, advanced: 2 };
 function raceGoalWeekQualitySlots(distKey, exp, phase, availDays, fallback){
+  if (distKey === '5k') return raceGoal5kWeekQualitySlots(exp, phase, availDays);
   if (distKey !== 'half' && distKey !== 'full') return fallback;
   if (phase !== 'Build') return 1;
   var want = RACE_GOAL_BUILD_QUALITY_SLOTS[exp] || 1;
   if (want >= 2 && !(availDays >= 5)) want = 1;
+  return want;
+}
+/* ---- 5K'S OWN VERSION OF THE SAME TIER RULE, AT 5K'S OWN DAY FLOOR ----
+   HQ WORKOUT-STRUCTURE METHODOLOGY RULING, 5K RACE GOAL ONLY. Same shape as
+   the Half/Marathon rule above -- Developing keeps its one weekly slot in
+   every phase; Established and Advanced earn a second, Build only -- but
+   5K's own pathway table (RACE_GOAL_PATHWAY['5k']) enters Established at
+   FOUR days, not five, and a four-day week that cannot express the tier's
+   own intended structure is exactly the defect this correction exists to
+   close. So the floor here is four, not RACE_GOAL_MAX_DAYS' five: below it
+   (a three-day, Developing-shaped week) the single slot every tier already
+   gets stands, never zero. 10K and Ultra are untouched -- they still reach
+   secondQualityExposurePermission() exactly as before, via the `fallback`
+   raceGoalWeekQualitySlots() returns them unchanged. */
+function raceGoal5kWeekQualitySlots(exp, phase, availDays){
+  if (phase !== 'Build') return 1;
+  var want = RACE_GOAL_BUILD_QUALITY_SLOTS[exp] || 1;
+  if (want >= 2 && !(availDays >= 4)) want = 1;
   return want;
 }
 function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
@@ -12032,6 +12051,48 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
           (usesMarathonArc(purpose, distKey) ? marathonPhaseAllocation(N, blockExp) : null);
         var ouSpecSolo = raceGoalOverUnderSpec(distKey, blockExp, w, ouAllocSolo);
         if (ouSpecSolo) soloSpec = ouSpecSolo;
+      }
+      /* HQ APPROVED CORRECTION -- 5K PEAK RACE-SPECIFICITY GUARANTEE. Peak's
+         single slot alternates interval/tempo family on absolute week parity
+         (soloKind above), and the family's own pool is then walked by the
+         same rotation every phase uses -- both by coaching design, and
+         neither touched here. What the plain rotation left to chance is
+         WHICH STRUCTURE inside that family's Peak pool a given runway
+         landed on: FIVEK_INTERVAL_POOL.Peak and FIVEK_TEMPO_POOL.Peak each
+         list the goal-pace candidate first specifically so it is the
+         intended default, but at some runway lengths (measured: the
+         12-week canonical window, Established and Advanced) the rotation
+         index landed on the pool's non-specific alternate in BOTH Peak
+         weeks, so the block completed all of Peak without ever rehearsing
+         at Goal Pace -- Peak's own stated purpose.
+
+         THE FIX NAMES ONE WEEK, NOT EVERY WEEK. Peak's last week is already
+         the block's specificity-culminating week for the long run (see the
+         Peak-exposure comment above); this makes it that for the standalone
+         quality session too, by forcing THAT week's own already-resolved
+         family (soloKind, untouched) to draw the goal-pace candidate
+         specifically, rather than whichever the rotation would have picked.
+         Every earlier Peak week keeps the ordinary rotation exactly as
+         before, so a block with more than one Peak week still shows real
+         Interval/Tempo variety, not goal pace twice. Sized exactly as the
+         rotation would have sized it -- shrinkIntervalSpec/shrinkTempoSpec
+         against the same weekFitCeil fitQualityStructure itself bounds to.
+
+         SCOPED TO 5K, NOT EVERY DISTANCE. Half and Marathon's own Peak
+         architecture (two distinct exposures, the goal-pace/threshold pair
+         already governed by usesMarathonArc()'s own phase logic above) is
+         untouched; 10K and Ultra keep the plain rotation exactly as before. */
+      if (distKey === '5k' && structPhase === 'Peak' && !isRace &&
+          arc.phaseCounts && arc.phaseCounts.peak){
+        var fivekPeakLastWk = arc.phaseCounts.base + arc.phaseCounts.build + arc.phaseCounts.peak;
+        if (w === fivekPeakLastWk){
+          var fivekPeakRaw = soloKind === 'interval'
+            ? structGoalPaceIntervals(qPos, profile.emphasis)
+            : structGoalPaceBlock(pos, profile.emphasis);
+          soloSpec = soloKind === 'interval'
+            ? shrinkIntervalSpec(fivekPeakRaw, weekFitCeil)
+            : shrinkTempoSpec(fivekPeakRaw, weekFitCeil);
+        }
       }
       soloKm = soloKind === 'interval' ? intervalSessionKm(soloSpec) : tempoSessionKm(soloSpec);
       soloFitsBound = soloKm <= weekFitCeil + 1e-9;
@@ -15629,6 +15690,26 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       (blockResult.distKey === 'half' || blockResult.distKey === 'full') &&
       (blockResult.experience === 'experienced' || blockResult.experience === 'advanced'))
     qualitySlots = Math.min(2, slotCeiling, qtyPool.length);
+  /* ---- 5K'S OWN VERSION OF THE SAME POOL-WIDENING, AT 5K'S OWN DAY FLOOR ----
+     qualitySlotCeilingForDayCount() caps slotCeiling at 1 for any day count
+     under five -- correct for the generic, evidence-earned case, but 5K's
+     Established pathway enters at exactly four days (RACE_GOAL_PATHWAY['5k'].
+     experienced.entryDays), so reading slotCeiling here the way the half/
+     marathon branch above does would hold a four-day Established week to
+     one candidate slot regardless of what raceGoal5kWeekQualitySlots() goes
+     on to prescribe for its Build weeks -- the tier rule would exist and
+     never have a second day to write into. Bypasses BOTH the generic day
+     ceiling and the evidence gate for 5K Established/Advanced specifically,
+     the same two authorities the half/marathon branch above already
+     bypasses for its own two tiers -- still bounded by qtyPool.length, so a
+     week genuinely too narrow to hold a second candidate day (long run plus
+     required flanks already consuming it) is never forced past what
+     actually exists. 10K keeps qualitySlotCeilingForDayCount() and
+     secondQualityExposurePermission() exactly as before. */
+  if (blockResult.purpose === 'race' && blockResult.distKey === '5k' &&
+      (blockResult.experience === 'experienced' || blockResult.experience === 'advanced') &&
+      activeDays.length >= 4)
+    qualitySlots = Math.min(2, qtyPool.length);
   // never spend the last non-long day on quality: a week must keep a real easy run
   if (qualitySlots >= nonLongActive.length && nonLongActive.length > 0) qualitySlots = nonLongActive.length - 1;
   // recorded so the decision is inspectable rather than inferred from the days
@@ -15995,11 +16076,26 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        these two distances; reading them here too would let either silently
        claw an Established/Advanced athlete's earned second Build session back
        down to one -- exactly what HQ's flat session-count rule removes. Every
-       other purpose and distance (5K, 10K, Ultra, Base, Maintain, Speed) is
-       untouched: this reads only wk.bottomUp with distKey half/full, and
-       nothing below this block changes for anything else. */
+       other purpose and distance (10K, Ultra, Base, Maintain, Speed) is
+       untouched: this reads only wk.bottomUp with distKey half/full/5k, and
+       nothing below this block changes for anything else.
+
+       5K JOINS THE SAME RULE, AT ITS OWN TIER TABLE -- HQ 5K QUALITY
+       ARCHITECTURE CORRECTION. raceGoal5kWeekQualitySlots() is 5K's own
+       version of raceGoalWeekQualitySlots() (same shape, own day floor --
+       see its definition), and wk.bottomUp.qSlots already carries its
+       answer for a 5K week exactly as it carries the half/marathon tier
+       rule's answer. Reading it here too, rather than falling through to
+       the athlete-evidence gate below, is the whole of what makes
+       Established/Advanced's second Build session real rather than a
+       bottomUp.qSlots value the day builder silently reverts -- which is
+       what asking secondQualityExposurePermission() again here did before
+       this correction, regardless of what the tier rule upstream had
+       already decided. 10K and Ultra still reach that gate exactly as
+       before. */
     var raceGoalTierQuality = wk.bottomUp &&
-      (blockResult.distKey === 'half' || blockResult.distKey === 'full');
+      (blockResult.distKey === 'half' || blockResult.distKey === 'full' ||
+       blockResult.distKey === '5k');
     if (raceGoalTierQuality) weekSlotCeiling = wk.bottomUp.qSlots;
     /* ---- AND THE WEEK MAY HAND A SECOND SESSION BACK ----
        Two quality sessions are not permanent once earned. Phase and long-run
