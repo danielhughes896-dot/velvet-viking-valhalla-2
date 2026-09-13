@@ -1235,6 +1235,46 @@
   .ef-completed input[disabled] + *, .ef-completed input[disabled]{pointer-events:none;}
   #su-event-box[data-mode="event"] .when-none{display:none;}
   #su-event-box[data-mode="none"] .when-event{display:none;}
+  /* ---------- SWAP LIST (Edit Session -> Reschedule) ----------
+     The plan's own rows, at list density. .swap-day carries .day as well, so
+     the rail colour, the surface and the light-mode treatment all come from
+     the same rules the Full Plan uses -- this adds the button behaviour, the
+     scroll box and the picked state, and nothing that could drift from them. */
+  .swap-list{
+    display:flex; flex-direction:column; gap:5px;
+    max-height:310px; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    margin:6px 0 8px; padding:2px 2px 2px 0;
+    /* The scroll is the only thing that says "there is more" on a short list,
+       so the edge is drawn rather than left to chance. */
+    border-top:1px solid var(--line-soft); border-bottom:1px solid var(--line-soft);
+  }
+  .swap-week{
+    font-size:var(--fs-meta); letter-spacing:1px; text-transform:uppercase;
+    color:var(--gold-text); padding:8px 2px 2px; position:sticky; top:0;
+    background:var(--surface-1); z-index:1;
+  }
+  .swap-week:first-child{padding-top:2px;}
+  .swap-day{
+    display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+    padding:9px 11px; min-height:56px; cursor:pointer; color:var(--ink);
+    font:inherit;
+  }
+  .swap-main{flex:1; min-width:0;}
+  .swap-day .day-title{font-size:var(--fs-body); margin-top:2px;}
+  /* PICKED IS CHERRY, because selection is cherry everywhere in this product
+     and gold is the identity colour. The rail keeps its type colour -- the
+     row is still that kind of session, and losing that on selection would
+     remove the one thing the list exists to show. */
+  .swap-day .swap-tick{
+    flex:none; display:inline-flex; width:22px; height:22px; border-radius:50%;
+    align-items:center; justify-content:center;
+    border:2px solid var(--line); color:transparent; background:var(--bg-2);
+  }
+  .swap-day .swap-tick svg{width:12px; height:12px;}
+  .swap-day.is-picked{box-shadow:inset 0 0 0 1.5px var(--cherry);}
+  .swap-day.is-picked .swap-tick{
+    background:var(--cherry); border-color:var(--cherry); color:var(--cherry-btn-ink);
+  }
   .day-main{flex:1; min-width:0;}
   .day-row1{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .day-date{font-family:'JetBrains Mono',monospace; font-size:var(--fs-meta); color:var(--ink-faint);}
@@ -35951,6 +35991,21 @@ async function handleGeneratePlan(){
   }
 }
 
+/* TAPPING A ROW IS SETTING THE SELECT, and nothing more. The mirror holds the
+   answer, the rows show it, and tapping the chosen row again clears it -- which
+   is what the "choose a day" option was for and the only way back out of a
+   selection once the native picker is gone. */
+function handleEditSwapPick(id){
+  var sel = document.getElementById('ef-swap');
+  var list = document.getElementById('ef-swap-list');
+  if (!sel || !list) return;
+  sel.value = (sel.value === id) ? '' : id;
+  Array.prototype.forEach.call(list.querySelectorAll('.swap-day'), function(btn){
+    var on = btn.getAttribute('data-swap') === sel.value && sel.value !== '';
+    btn.classList.toggle('is-picked', on);
+    btn.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
 function handleSetGoal(key){
   if (!state.setup || !state.setup.goals || !state.setup.goals[key]) return;
   state.setup.activeGoal = key;
@@ -35984,20 +36039,62 @@ function openEditModal(dayId){
   var typeOptions = Object.keys(TYPE_META).filter(function(t){ return t!=='race'; }).map(function(t){
     return '<option value="'+t+'" '+(dd.type===t?'selected':'')+'>'+TYPE_META[t].label+'</option>';
   }).join('');
-  var swapOptions = '<option value="">\u2014 choose a day \u2014</option>';
+  /* ---- CHOOSING THE OTHER DAY, IN THE APP'S OWN LANGUAGE ----
+     THIS WAS A NATIVE <select>, AND ON A PHONE A NATIVE SELECT IS NOT OURS.
+     iOS and Android draw their own full-height picker: system grey, a system
+     tint radio, system type. The athlete tapped a Velvet Viking card and got
+     an OS list back -- and the one thing that list has to help them do is
+     recognise a session, which the plan does with a coloured rail, a type
+     badge and the session's own name, and the picker threw all three away.
+
+     SO THE LIST IS THE PLAN'S OWN ROWS. Same .day shell, same type rail, same
+     .day-badge, same .day-date, same week grouping -- rendered from the same
+     TYPE_META and dayTypeLabel() the Full Plan reads, so a session cannot look
+     like one thing in the plan and another here.
+
+     THE <select> STILL EXISTS AND STILL HOLDS THE ANSWER. It is the same
+     bld-mirror idiom the builder already uses for exactly this reason: the
+     visible control is ours, the value lives in a real form element, and
+     handleSaveEdit() reads document.getElementById('ef-swap').value without
+     knowing or caring that anything changed. No new state, no second source of
+     truth, and every existing swap guard is untouched. */
+  var swapOptions = '<option value="" selected>\u2014 choose a day \u2014</option>';
+  var swapRows = '';
   var byWeek = {};
   state.days.forEach(function(x){ (byWeek[x.week]=byWeek[x.week]||[]).push(x); });
-  Object.keys(byWeek).forEach(function(w){
-    swapOptions += '<optgroup label="Week '+w+'">';
-    byWeek[w].forEach(function(x){
-      if (x.id===dd.id) return;
+  /* SORTED NUMERICALLY, INDEXED BY THE ORIGINAL KEY. Object.keys() returns
+     strings, so a plain sort puts week 10 before week 2 -- but mapping them to
+     Numbers and indexing with the result loses any day that has no week at
+     all, which a hand-built day legitimately does not (byWeek[NaN] is
+     undefined and the next line throws). Sort a copy, keep the keys. */
+  Object.keys(byWeek).sort(function(a,b){ return (Number(a)||0) - (Number(b)||0); }).forEach(function(w){
+    var rows = (byWeek[w] || []).filter(function(x){ return x.id!==dd.id; });
+    if (!rows.length) return;
+    /* A day with no week number gets the list's own heading rather than
+       "Week undefined" -- it is still a real day and still swappable. */
+    swapRows += '<div class="swap-week font-head">'+
+      (Number(w) > 0 ? 'Week '+escapeHtml(w) : 'Other days')+'</div>';
+    rows.forEach(function(x){
       swapOptions += '<option value="'+x.id+'">'+dow(x.date)+' '+dShort(x.date)+' \u2014 '+escapeHtml(x.title)+'</option>';
+      var tm = TYPE_META[x.type] || {};
+      swapRows += '<button type="button" class="swap-day day type-'+(tm.cls||'rest')+'" '+
+          'role="radio" aria-checked="false" data-action="ef-swap-pick" data-swap="'+x.id+'">'+
+        '<span class="swap-main">'+
+          '<span class="day-row1">'+
+            '<span class="day-date font-mono">'+dow(x.date)+' '+dShort(x.date)+'</span>'+
+            '<span class="day-badge type-'+(tm.cls||'rest')+' font-head">'+escapeHtml(dayTypeLabel(x))+'</span>'+
+          '</span>'+
+          '<span class="day-title">'+escapeHtml(x.title)+'</span>'+
+        '</span>'+
+        '<span class="swap-tick" aria-hidden="true">'+ICONS.check+'</span>'+
+      '</button>';
     });
-    swapOptions += '</optgroup>';
   });
   var reschedule = '<fieldset><legend>Reschedule</legend>'+
-    '<div class="field" style="margin-bottom:0;"><label>Swap this session with\u2026</label><select id="ef-swap">'+swapOptions+'</select>'+
-    '<div class="field-hint">Swaps everything except the calendar date, including any logged actuals. You can also drag day cards onto each other on larger screens.</div></div>'+
+    '<div class="field" style="margin-bottom:0;"><label id="ef-swap-label">Swap this session with\u2026</label>'+
+      '<select id="ef-swap" class="bld-mirror" tabindex="-1" aria-hidden="true">'+swapOptions+'</select>'+
+      '<div class="swap-list" id="ef-swap-list" role="radiogroup" aria-labelledby="ef-swap-label">'+swapRows+'</div>'+
+      '<div class="field-hint">Swaps everything except the calendar date, including any logged actuals. You can also drag day cards onto each other on larger screens.</div></div>'+
   '</fieldset>';
   var html = ''+
   '<div class="modal-head"><h2 class="font-head">Edit Session</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
@@ -43945,6 +44042,7 @@ document.addEventListener('click', function(e){
     case 'toggle-week': handleToggleWeek(parseInt(target.getAttribute('data-week'),10)); break;
     case 'toggle-day': handleToggleDay(target.getAttribute('data-day')); break;
     case 'set-goal': handleSetGoal(target.getAttribute('data-goal')); break;
+    case 'ef-swap-pick': handleEditSwapPick(target.getAttribute('data-swap')); break;
     case 'checkpoint-accept': handleCheckpointAccept(target.getAttribute('data-goal')); break;
     case 'checkpoint-decline': handleCheckpointDecline(); break;
     case 'open-edit': openEditModal(target.getAttribute('data-day')); break;
