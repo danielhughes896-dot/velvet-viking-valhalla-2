@@ -283,8 +283,8 @@ test('the signed day fields are exactly the stated list, and nothing else', () =
     'actual,athleteState,coachAdjust,completed,date,desc,id,km,mpSegment,'
       + 'optionalRun,prescription,readiness,support,title,type,week',
     'the signed day fields are a stated list; this is the list');
-  assert.equal(Object.keys(JSON.parse(sig(a))).sort().join(','), 'days,setup',
-    'and the top level is still setup + days, nothing else');
+  assert.equal(Object.keys(JSON.parse(sig(a))).sort().join(','), 'days,library,setup',
+    'and the top level is exactly setup + days + library, nothing else');
 });
 
 // =====================================================================

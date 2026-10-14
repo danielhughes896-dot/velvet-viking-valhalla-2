@@ -91,10 +91,22 @@ test('currentFitnessEstimate() converts through the same equivalence table as ev
 
 test('currentFitnessEstimate() withholds the marathon exactly when measuredFitnessEstimate() would', () => {
   const a = planned({ distanceKey: 'full' });
-  // No absorbed-volume model in this fixture, so absorbedWeeklyVolume().source is not 'measured'.
+  /* STILL WITHHELD HERE, AND STILL IN STEP WITH measuredFitnessEstimate() --
+     this fixture logs nothing at all, so there is no evidence of any kind.
+     WHAT CHANGED IS THE CONDITION, by instruction: it used to be absorbed
+     weekly volume, which an athlete logging only distance and pace could never
+     satisfy however much they ran. It is now fourteen days of usable evidence
+     (or any measured race/checkpoint), after which volume moves confidence
+     instead of silence. The wording follows the condition. */
   const est = a.currentFitnessEstimate('full');
   assert.equal(est.withheld, true);
-  assert.match(est.reason, /volume/);
+  /* measuredFitnessEstimate() returns null outright with no measured
+     performance, so the property the two share is that NEITHER offers a
+     number -- not that both carry the same withheld flag. */
+  const m = a.measuredFitnessEstimate('full');
+  assert.ok(m == null || m.withheld === true, 'the two have diverged');
+  assert.match(est.reason, /marathon/);
+  assert.doesNotMatch(est.reason, /sustained weekly volume/, 'the superseded wording survived');
 });
 
 // ---------------------------------------------------------------------------

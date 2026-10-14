@@ -49,9 +49,23 @@ const read = f => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
 const ATHLETE = '11111111-1111-4111-8111-111111111111';
 const OTHER   = '22222222-2222-4222-8222-222222222222';
-const T0 = Date.UTC(2026, 8, 1, 12, 0, 0);
+/* RELATIVE TO NOW, NOT TO A DATE IN 2026.
+   This was Date.UTC(2026, 8, 1) -- the day the file was written. The fixtures
+   built a 14-day trial from it and the entitlement resolver reads the real
+   clock, so every trial assertion in this file passed until 15 September 2026
+   and failed every day after it. Eight tests went permanently red for a reason
+   that had nothing to do with the product.
+
+   Anchored a day ago instead, so a trial that starts at T0 is genuinely live
+   now and stays live whenever this suite is run. Everything downstream already
+   derives from T0, so nothing else in the file changes. */
 const secs = ms => Math.floor(ms / 1000);
 const days = n => n * 24 * 3600 * 1000;
+/* FLOORED TO A WHOLE SECOND. Fixtures store Stripe timestamps with secs(),
+   which floors; assertions compare the ISO string the resolver rebuilds from
+   them. A T0 carrying milliseconds survives one conversion and not the other,
+   so the two differ by a fraction of a second and the string comparison fails. */
+const T0 = Math.floor((Date.now() - days(1)) / 1000) * 1000;
 
 const KEY = 'sk_test_1';
 const SIGNING = 'whsec';

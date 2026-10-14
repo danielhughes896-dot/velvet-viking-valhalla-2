@@ -302,9 +302,26 @@ test('OUTLOOK: ordinary training runs cannot move it, however fast they are', ()
     dd.completed = true;
     dd.actual = { km: dd.km, pace: '2:55', hr: 130, rpe: 3, feel: 'good', notes: '' };
   });
+  /* THE DISTINCTION THIS TEST PROTECTS IS UNCHANGED AND IS STILL ASSERTED: a
+     training run, however fast, never becomes a MEASUREMENT.
+
+     WHAT CHANGED, BY INSTRUCTION: this athlete has logged a whole block, and
+     HQ's locked rule is that after fourteen days of usable evidence Race
+     Outlook must give Valhalla's best assessment, with race/checkpoint data
+     explicitly not mandatory. Returning 'none' to somebody who has logged
+     eight weeks was the defect -- the week-7 marathon athlete with no estimate
+     at all. So the band is drawn, and the honesty lives where it belongs: in
+     the STATE, which is 'estimated' and not 'measured', and in the copy, which
+     says a race or a checkpoint would sharpen it. */
   assert.equal(a.measuredPerformances().length, 0, 'a training run became a measurement');
-  assert.equal(a.raceOutlook().state, 'none');
-  assert.doesNotMatch(a.renderRaceOutlook(), /oi-band/);
+  assert.equal(a.raceOutlook().state, 'estimated',
+    'a fully logged block still produced no assessment at all');
+  assert.notEqual(a.raceOutlook().state, 'measured',
+    'training runs were promoted to measured evidence');
+  const html = a.renderRaceOutlook();
+  assert.match(html, /Estimated from your training so far/);
+  assert.doesNotMatch(html, /Training runs do not move it/,
+    'an estimate claimed the authority of a measurement');
 });
 
 test('OUTLOOK: a benchmark cannot move it either', () => {

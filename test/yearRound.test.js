@@ -725,11 +725,20 @@ test('MARATHON IS WITHHELD unless the athlete’s own volume supports it', () =>
   d.type = 'checkpoint'; d.km = 5; d.completed = true;
   d.actual = { km: 5, pace: '3:40', hr: 178, rpe: 10, feel: 'ok', notes: '', splits: [], paceUnit: 'km' };
   a.coachPersistReview(d);
+  /* THE SAFETY PROPERTY IS UNCHANGED; WHERE IT LIVES HAS MOVED, BY INSTRUCTION.
+     A fast 5K still must not be presented as a marathon the athlete can run.
+     It used to be withheld outright, which also silenced the week-7 marathon
+     athlete who HAD done the training -- the defect this work fixes. HQ's
+     locked rule: volume and long-run evidence move confidence, not whether an
+     estimate exists. So the answer is given and it is explicitly LOW
+     confidence, with the volume shortfall named. */
   const m = a.measuredFitnessEstimate('full');
   assert.ok(m, 'no answer at all');
-  assert.equal(m.withheld, true,
-    'a fast 5K alone was turned into a marathon prediction');
-  assert.ok(m.reason);
+  assert.equal(m.withheld, false, 'the marathon went silent again');
+  assert.equal(m.confidence, 'low',
+    'a fast 5K alone was turned into a confident marathon prediction');
+  assert.ok((m.confidenceWhy || []).some(w => /volume/i.test(w)),
+    'the volume shortfall is not stated');
 });
 
 test('an estimate does not move because of one ordinary easy run', () => {
