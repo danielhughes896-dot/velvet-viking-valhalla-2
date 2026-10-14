@@ -14041,6 +14041,16 @@ function segmentPrescribed(s){
    the prescription, and pace is derived from the pair either way. A segment
    with no prescribed quantity at all gets both fields, because nothing about
    it is known in advance. */
+/* The distance a segment prescribes, in km, however it was written. Null for a
+   segment prescribed by duration -- which is the case this must NOT guess at,
+   because a duration-prescribed segment's distance is the thing only the
+   athlete knows. */
+function segPrescribedKm(s){
+  if (!s) return null;
+  if (s.km != null && s.km > 0) return s.km;
+  if (s.m != null && s.m > 0) return s.m / 1000;
+  return null;
+}
 function segmentAsksFor(s){
   if (!s) return { dist:true, time:true };
   if (s.km != null || s.m != null) return { dist:false, time:true };
@@ -22697,7 +22707,144 @@ function computeDistanceScore(targetKm, actualKm){
 // day); quality days (tempo/threshold/interval/repetition) are penalised
 // harder for running too SLOW (failing to hit the required intensity).
 // Running faster is never rewarded above 100 either way.
+/* =========================================================
+   SECTION-AWARE PACE EXECUTION
+   ---------------------------------------------------------
+   THE DEFECT THIS EXISTS FOR, IN THE ATHLETE'S OWN WORDS. A Deuce --
+   2km easy, 6x1000m at 4:10-4:16, recoveries, 2km easy -- run with all six
+   reps inside the window, scored 79% and raised a fatigue warning, because
+   the thing being scored was the 5:32/km AVERAGE OF THE WHOLE RUN against a
+   distance-weighted composite window. That composite is the correct reading
+   of whole-session evidence and nothing here changes it. It is the WRONG
+   reading when the athlete has told us what each section was.
+
+   THE AUTHORITY IS THE PRESCRIPTION, SEGMENT BY SEGMENT. Each section is
+   judged against ITS OWN prescribed band -- the same band, from the same
+   getActivePaces() zone, that executionPaceTarget() already folds into the
+   composite, and the same scoring curve computePaceScore() already applies.
+   Nothing new is invented: the average is simply taken AFTER the comparison
+   instead of before it, which is the whole of the fix.
+
+   SO A RECOVERY IS NEVER JUDGED AGAINST THE WORK TARGET. It is judged against
+   the recovery's own easy band, which is what it was prescribed at. A warm-up
+   is judged as a warm-up. Six reps inside 4:10-4:16 score as six reps inside
+   4:10-4:16, and the jog between them cannot drag them down, because it is a
+   different question with a different answer.
+
+   WHAT COUNTS AS SECTION EVIDENCE, AND WHAT DELIBERATELY DOES NOT.
+   A section's pace is evidence only where the athlete supplied the number the
+   prescription could not: an entered time against an exact prescribed
+   distance, or an entered time against an entered distance. A pace resting on
+   a SEEDED time is the prescription talking back -- a recovery written as
+   "3-4min" has no single duration to divide by, and scoring the athlete
+   against a figure this app chose for them would be inventing evidence. Those
+   sections are skipped, never failed.
+
+   AND IT IS ALL OR NOTHING ON THE WORK. If any prescribed work segment has no
+   usable actual, the section view is incomplete and the whole-session
+   composite stands. An unlogged rep is unknown, and unknown is not zero --
+   the distance component already answers "did they run the whole session".
+   ========================================================= */
+function segmentPaceBand(seg, paces, goalPace){
+  if (!seg) return null;
+  if (seg.intensity === 'goal_pace')
+    return goalPace != null ? { fast: goalPace, slow: goalPace } : null;
+  var z = paces[INTENSITY_ZONE_KEY[seg.intensity]];
+  return (z && z.slow != null) ? { fast: z.fast, slow: z.slow } : null;
+}
+/* THE CURVE, LIFTED OUT RATHER THAN COPIED. computePaceScore() and the section
+   scorer must agree about what "outside the window" costs, so there is one
+   implementation of it and they both call it. */
+function paceScoreAgainst(actualPaceSp, band, recovery){
+  if (actualPaceSp == null || !band || band.slow == null || band.fast == null) return null;
+  var fast = band.fast, slow = band.slow;
+  /* A zero-width target -- goal pace is a single number, not a window -- gets
+     the same floor the composite target already gives it. */
+  if (slow - fast < MIN_PACE_WINDOW_SEC){
+    var mid = (fast + slow) / 2;
+    fast = mid - MIN_PACE_WINDOW_SEC / 2; slow = mid + MIN_PACE_WINDOW_SEC / 2;
+  }
+  if (actualPaceSp <= slow && actualPaceSp >= fast) return 100;
+  if (actualPaceSp < fast){
+    var overshoot = (fast - actualPaceSp) / fast;
+    return clamp(100 - overshoot * 100 * (recovery ? 5 : 2.5), 0, 100);
+  }
+  var undershoot = (actualPaceSp - slow) / slow;
+  return clamp(100 - undershoot * 100 * (recovery ? 2.5 : 5), 0, 100);
+}
+/* The distance a scored section is weighted by: what it prescribed, or -- for
+   duration-prescribed work -- the distance that duration costs at the zone's
+   mid pace. That conversion is not a new one; it is the same one
+   segmentDistanceMix() and the zone chart have always used. */
+function segmentWeightKm(seg, paces, goalPace){
+  var km = segPrescribedKm(seg);
+  if (km != null) return km;
+  if (seg && seg.sec > 0){
+    var mid = midPaceForIntensity(seg.intensity, paces, goalPace);
+    if (mid > 0) return seg.sec / mid;
+  }
+  return null;
+}
+function sectionPaceExecution(dd){
+  if (!dd || dd.type === 'race') return null;
+  var p = null, segs = null;
+  try { p = prescriptionOf(dd); segs = p ? orderedSegments(p) : null; } catch(e){ return null; }
+  if (!segs || segs.length < 2) return null;
+  var splits = (dd.actual && dd.actual.splits) || [];
+  if (!splits.length) return null;
+  var bySeg = {};
+  splits.forEach(function(x){ if (x && x.segId) bySeg[x.segId] = x; });
+
+  var paces = getActivePaces(), goalPace = getGoalPaceSecPerKm();
+  var scored = [], workTotal = 0, workScored = 0, workBand = null;
+  for (var i = 0; i < segs.length; i++){
+    var seg = segs[i], row = bySeg[seg.segId];
+    var isWork = seg.role === 'work';
+    if (isWork) workTotal++;
+    /* The pace must rest on something the athlete actually supplied. A seeded
+       time is the prescription, not a measurement. */
+    var usable = !!(row && row.paceSec != null && row.sec != null && !row.secSeeded);
+    if (!usable) continue;
+    var band = segmentPaceBand(seg, paces, goalPace);
+    if (!band) continue;
+    /* RUNNING SLOWER THAN EASY ON A WARM-UP, A COOL-DOWN OR A RECOVERY IS NOT
+       THE SAME FAILURE AS RUNNING SLOWER THAN TARGET ON A REP. The product
+       already draws that distinction at session level -- isRecoveryLikeDay()
+       swaps the two multipliers -- and it is the same distinction a segment
+       away from the work. Nothing new: the same pair of constants, applied to
+       the part of the session they describe. */
+    var sc = paceScoreAgainst(row.paceSec, band, seg.role !== 'work');
+    if (sc == null) continue;
+    var w = segmentWeightKm(seg, paces, goalPace);
+    if (!(w > 0)) continue;
+    if (isWork){ workScored++; if (!workBand) workBand = band; }
+    scored.push({ segId: seg.segId, role: seg.role, score: sc, km: w, paceSec: row.paceSec });
+  }
+  /* Incomplete work evidence falls back rather than guessing from a subset. */
+  if (!workTotal || workScored < workTotal) return null;
+  if (!scored.length) return null;
+  var km = 0, acc = 0, wKm = 0, wSec = 0;
+  scored.forEach(function(x){
+    km += x.km; acc += x.score * x.km;
+    if (x.role === 'work'){ wKm += x.km; wSec += x.paceSec * x.km; }
+  });
+  if (!(km > 0)) return null;
+  /* WHAT THE WORK ITSELF CAME OUT AT, and the band it was set against, so any
+     surface that wants to SAY something about pace can say it about the part
+     of the session the athlete was being judged on. */
+  return { score: clamp(Math.round(acc / km), 0, 100),
+           sections: scored.length, workSections: workScored,
+           workPaceSec: wKm > 0 ? Math.round(wSec / wKm) : null,
+           workBand: workBand };
+}
 function computePaceScore(dd, actualPaceSp){
+  /* THE SHARPEST EVIDENCE FIRST, and only where it is complete. Every
+     downstream consumer -- the execution trend, the fatigue warnings, Next
+     Move, plan evolution -- reads this one function, so correcting it here
+     corrects all of them without any of them learning a second rule. */
+  var sectioned = null;
+  try { sectioned = sectionPaceExecution(dd); } catch(e){ sectioned = null; }
+  if (sectioned) return sectioned.score;
   if (actualPaceSp==null) return null;
   var targetRange = dd.type==='race' ? null : executionPaceTarget(dd);
   /* RACE DAY IS THE GOAL; A TRAINING SEGMENT IS WHAT THE ATHLETE CAN
@@ -22889,6 +23036,12 @@ function executionPaceResolution(dd, pacePart){
      and the composite is what makes the verdict whole-session. */
   var kinds = Object.keys(mix.byIntensity).filter(function(k){ return mix.byIntensity[k] > 0.05; });
   if (kinds.length <= 1) return 'direct';
+  /* THE EVIDENCE WAS COMPLETE AND WAS USED. Asked of the scorer itself rather
+     than re-derived, so the sentence cannot claim a resolution the score was
+     not actually reached at. */
+  var sectioned = null;
+  try { sectioned = sectionPaceExecution(dd); } catch(e){ sectioned = null; }
+  if (sectioned) return 'sections-scored';
   if (hasLoggedSectionEvidence(dd)) return 'sections-logged';
   if (hasRecordedLapEvidence(dd)) return 'laps-recorded';
   return 'whole-session';
@@ -23098,6 +23251,16 @@ function structuredLoggingPlan(dd){
           // The prescribed duration in raw seconds, kept so a rep logged only
           // by distance can still yield a pace. See upsertStructuredSplit.
           presSec: s.sec != null ? s.sec : null,
+          /* AND THE PRESCRIBED DISTANCE, FOR THE EXACT MIRROR CASE.
+             A 1000m rep is not asked for its distance -- the athlete was told
+             to run 1000m, so the only number they can add is the time. Without
+             the distance beside it that time divided by nothing, so paceSec
+             came out null and SIX PERFECTLY RUN REPS CARRIED NO PACE AT ALL.
+             The seeded-duration rule above already makes exactly this
+             assumption in the other direction; this is the same one, and it is
+             the honest one: a prescribed distance is an exact quantity, not a
+             range, and it is the distance the athlete was asked to cover. */
+          presKm: segPrescribedKm(s),
           asks: segmentAsksFor(s)
         };
       })
@@ -33286,12 +33449,31 @@ var COACH_SIGNAL_META = {
   neutral:            { label:'Neutral / Building Baseline', dot:'⚪' }
 };
 
+/* ---- WHICH PACE A COACHING SENTENCE IS ABOUT ----
+   THE SENTENCE HAS TO DESCRIBE THE SAME EVIDENCE THE SCORE DOES, or the card
+   says "pace ran outside the 4:37-5:07 window" immediately above a hundred per
+   cent. Where the sections were complete enough to decide the score, what was
+   judged is the WORK's own pace against the WORK's own band -- so that is what
+   is compared and that is what is named. Where they were not, this is the
+   whole-run average against the composite, exactly as it always was.
+
+   ONE READER, THREE CALLERS. coachVerdict(), coachNoticedForWorkout() and
+   coachWorkoutReview() each asked this question with their own two lines; three
+   copies of "is the pace slow" is how a card comes to contradict itself. */
+function coachPaceEvidence(dd){
+  if (dd && dd.type === 'race') return { tr: null, ap: actualPaceSecPerKm(dd), sectioned: false };
+  var sec = null;
+  try { sec = sectionPaceExecution(dd); } catch(e){ sec = null; }
+  if (sec && sec.workBand && sec.workPaceSec != null)
+    return { tr: sec.workBand, ap: sec.workPaceSec, sectioned: true };
+  return { tr: executionPaceTarget(dd), ap: actualPaceSecPerKm(dd), sectioned: false };
+}
 /* ---------- the verdict ---------- */
 function coachVerdict(dd, b, env){
   var a = dd.actual || {};
   var out = [];
-  var tr = dd.type==='race' ? null : executionPaceTarget(dd);
-  var ap = actualPaceSecPerKm(dd);
+  var pev = coachPaceEvidence(dd);
+  var tr = pev.tr, ap = pev.ap;
   var z = executionHRTarget(dd);
   // When the athlete has said the heart-rate data was wrong, every heart-rate
   // claim below goes quiet rather than being asserted and then hedged. The
@@ -33548,8 +33730,8 @@ function coachNoticedForWorkout(dd, b, env){
   // Wind, hills, cold and soft ground previously produced the bare percentage
   // fallback, so an athlete who explained the session got no sign it was read.
   var ctx = coachExcuses(dd,'pace').filter(function(c){ return c.key!=='heat' && c.key!=='treadmill'; });
-  var tr = dd.type==='race' ? null : executionPaceTarget(dd);
-  var ap = actualPaceSecPerKm(dd);
+  var pev = coachPaceEvidence(dd);
+  var tr = pev.tr, ap = pev.ap;
   if (ctx.length && tr && ap!=null && ap > tr.slow){
     var phrase = listPhrase(ctx.map(function(c){ return c.say; }));
     return phrase.charAt(0).toUpperCase()+phrase.slice(1)+
@@ -33592,7 +33774,13 @@ var EXECUTION_RESOLUTION_CLAUSE = {
   /* The athlete DID log them. The score is still the whole-run one, so the
      clause says exactly that and no more: it credits the evidence without
      promising a verdict on the reps that this score is not. */
-  'sections-logged': ' Pace is judged across the whole run — your section times are recorded, but are not yet scored section by section.',
+  /* The complete case: each section was judged against its own target, so the
+     sentence says so and stops describing a whole-run average that no longer
+     decided anything. */
+  'sections-scored': ' Pace is judged section by section against what each one was set to hit.',
+  /* Still reachable, and still true: section rows exist but the work is not
+     fully covered, so the whole-run composite is what the score rests on. */
+  'sections-logged': ' Pace is judged across the whole run — not every section was logged, so the sections that were cannot stand for it.',
   /* Laps arrived from the watch. They are real recorded sections AND they are
      unlabelled, and both halves matter: the athlete should know their laps are
      held, and should not be told they prove which one was a rep. */
@@ -33789,9 +33977,8 @@ function coachWorkoutReview(dd){
                      return (z && z.hi!=null && a.hr!=null && a.hr>z.hi) || (band && a.rpe!=null && a.rpe>band[1]); })(),
       // the pace window was missed and the notes already account for it
       paceExplained: (function(){
-        var tr = dd.type==='race' ? null : executionPaceTarget(dd);
-        var ap = actualPaceSecPerKm(dd);
-        return !!(tr && ap!=null && ap > tr.slow && coachExcuses(dd,'pace').length);
+        var pev = coachPaceEvidence(dd);
+        return !!(pev.tr && pev.ap!=null && pev.ap > pev.tr.slow && coachExcuses(dd,'pace').length);
       })()
     }),
     recommendPlanAdjustment: propose,
@@ -43936,7 +44123,21 @@ function handleStructuredSplitChange(dayId, segId, field, value){
     var hr = (value!=='' && healthConsentGranted()) ? parseInt(value,10) : null;
     s.hr = (hr!=null && !isNaN(hr) && hr>0) ? hr : null;
   }
-  s.paceSec = (s.km!=null && s.km>0 && s.sec!=null) ? Math.round(s.sec/s.km) : null;
+  /* ---- THE PACE OF THIS SECTION, FROM WHATEVER HONESTLY DETERMINES IT ----
+     A distance the athlete entered is their own measurement and always wins.
+     Where they were not asked for one -- a 1000m rep, a 2km warm-up -- the
+     prescribed distance is an exact quantity they were told to cover, and it
+     is what makes the one number they DID enter mean something. Before this,
+     that case divided a real time by nothing and produced no pace, which is
+     why a flawless set of reps reached the scorer as silence.
+
+     WHICH SIDE THE NUMBER CAME FROM IS RECORDED, because a pace resting on a
+     seeded time is not the same evidence as one resting on an entered time and
+     an exact distance, and the scorer is entitled to tell them apart. */
+  var paceKm = (s.km!=null && s.km>0) ? s.km
+             : (!row.asks.dist && row.presKm > 0) ? row.presKm : null;
+  s.kmFromPrescription = (s.km==null && paceKm!=null) ? true : undefined;
+  s.paceSec = (paceKm!=null && s.sec!=null) ? Math.round(s.sec/paceKm) : null;
   /* A row the athlete emptied again leaves no trace: an all-null segment is
      not evidence, and keeping it would let coachSplitMetrics count rows that
      say nothing. A time seeded from the prescription does not count as
