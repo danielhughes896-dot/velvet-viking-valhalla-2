@@ -361,11 +361,18 @@ test('SAFETY: the marathon keeps its volume qualification', () => {
   logPast(a);
   raceHappened(a);
   a.recordRaceOutcome('raced');
+  /* THE QUALIFICATION IS KEPT, AS CONFIDENCE RATHER THAN AS SILENCE -- see
+     yearRound.test.js's own note. Equivalence still over-predicts the marathon
+     without the volume behind it, so this athlete's estimate is capped at low
+     confidence and says exactly why; what it no longer does is refuse to
+     answer, which also silenced athletes who had done the work. */
   const est = a.measuredFitnessEstimate('full');
-  assert.ok(est, 'the marathon must be answered, even if the answer is a refusal');
-  assert.equal(est.withheld, true,
+  assert.ok(est, 'the marathon must be answered');
+  assert.equal(est.withheld, false, 'the marathon went silent again');
+  assert.equal(est.confidence, 'low',
     'equivalence over-predicts the marathon without the volume behind it');
-  assert.match(est.reason, /volume/i, 'and it must say why rather than simply going blank');
+  assert.ok((est.confidenceWhy || []).some(w => /volume/i.test(w)),
+    'and it must say why rather than simply going blank');
 });
 
 // ===========================================================================

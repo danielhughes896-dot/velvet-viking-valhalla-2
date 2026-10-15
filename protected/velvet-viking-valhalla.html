@@ -13619,6 +13619,239 @@ function executionWeightForDay(dd){
 }
 // The one accessor. Returns null for legacy days, rest days, hand-edited days
 // and anything carrying an id this build does not know.
+/* =========================================================
+   WHO AUTHORED THIS SESSION
+   ---------------------------------------------------------
+   A prescription was {v, archetype, params} and nothing else, so nothing in
+   the product could tell a session Valhalla wrote from one an athlete typed
+   over. Everything downstream -- the workout steps, the execution targets,
+   the coaching voice -- spoke about both in the same voice, which for an
+   athlete-authored session is a claim Valhalla has no business making.
+
+   THREE LAYERS, AND THEY ARE NOT THE SAME QUESTION:
+
+     PRESCRIBED   what Valhalla asked for.  manualEdit.from holds the original
+                  the first time an athlete changes anything, deep-cloned, and
+                  is never overwritten afterwards.
+     MODIFIED     what the athlete changed it to.  dd.prescription, carrying
+                  source and the lineage of what it was derived from.
+     EXECUTED     what actually happened.  dd.actual, untouched by any of this.
+
+   SOURCE IS ABSENT ON EVERY EXISTING PLAN, and absent reads as 'valhalla' --
+   which is true: everything written before this WAS Valhalla's. No migration,
+   no rewrite of stored plans. */
+var PRESCRIPTION_SOURCE_VALHALLA = 'valhalla';
+var PRESCRIPTION_SOURCE_ATHLETE  = 'athlete';
+/* The archetype an athlete-authored session carries. Deliberately NOT in
+   ARCHETYPES: segmentsFor() and prescriptionOf() both refuse an unknown id and
+   degrade to the legacy type-based path, which is exactly the behaviour a
+   custom session needs -- Valhalla does not pretend to know its internal
+   structure, and nothing downstream throws. */
+var ATHLETE_ARCHETYPE = 'athlete_custom';
+function prescriptionSource(dd){
+  var p = dd && dd.prescription;
+  if (!p) return null;
+  return p.source === PRESCRIPTION_SOURCE_ATHLETE
+    ? PRESCRIPTION_SOURCE_ATHLETE : PRESCRIPTION_SOURCE_VALHALLA;
+}
+function isAthleteAuthored(dd){ return prescriptionSource(dd) === PRESCRIPTION_SOURCE_ATHLETE; }
+/* Did the athlete change what Valhalla asked for, whoever authored it? */
+function isAthleteModified(dd){ return !!(dd && dd.manualEdit); }
+/* The prescription Valhalla originally wrote, where it still exists. */
+function valhallaOriginalOf(dd){
+  var m = dd && dd.manualEdit;
+  if (m && m.from && m.from.prescription) return m.from.prescription;
+  return (dd && !isAthleteAuthored(dd)) ? (dd.prescription || null) : null;
+}
+/* ---- KEEPING THE PRESCRIPTION HONEST AFTER AN EDIT ----
+   An edit used to leave dd.prescription completely untouched, so a session
+   retitled "My 5x800" with its distance changed from 10km to 8km still carried
+   the original archetype and params -- and the workout steps, the zone mix and
+   now the section scorer all went on describing a session that no longer
+   existed. Three outcomes, by what actually changed:
+
+     COSMETIC        title or instructions only. The structure still describes
+                     the session, so it is kept exactly as it is.
+     RESCALABLE      the distance moved and the archetype says rescalableKm,
+                     so its own day-distance param moves with it and the
+                     structure stays true.
+     NO LONGER OURS  the type changed, or the distance moved on a structure
+                     that cannot be rescaled without inventing a split. The
+                     structure no longer describes what the athlete is doing,
+                     so it stops claiming to: the session becomes
+                     athlete-authored and records what it was derived from. */
+function reconcilePrescriptionAfterEdit(dd, changed){
+  var p = dd && dd.prescription;
+  if (!p || !changed || !changed.length) return;
+  var structural = changed.indexOf('type') !== -1 || changed.indexOf('km') !== -1
+                || changed.indexOf('mpSegment') !== -1;
+  if (!structural) return;
+  var meta = ARCHETYPES[p.archetype];
+  var onlyKm = changed.length === 1 && changed[0] === 'km';
+  if (onlyKm && meta && meta.rescalableKm && meta.dayKmParam && dd.km > 0){
+    p.params = Object.assign({}, p.params);
+    p.params[meta.dayKmParam] = round1(dd.km);
+    p.athleteModified = true;
+    return;
+  }
+  dd.prescription = { v: PRESCRIPTION_VERSION, archetype: ATHLETE_ARCHETYPE,
+                      source: PRESCRIPTION_SOURCE_ATHLETE,
+                      derivedFrom: p.archetype || null,
+                      athleteModified: true,
+                      params: { km: dd.km > 0 ? round1(dd.km) : null, type: dd.type } };
+}
+/* A session the athlete wrote themselves, from nothing. Never carries a
+   Valhalla archetype, so nothing downstream can mistake it for one. */
+/* =========================================================
+   THE PERSONAL WORKOUT LIBRARY, AND THE ROAD OUT OF IT
+   ---------------------------------------------------------
+   THREE TIERS, AND THE BOUNDARY BETWEEN THE FIRST TWO AND THE THIRD IS THE
+   WHOLE POINT:
+
+     PERSONAL   the athlete's own saved sessions. Theirs, on their devices,
+                reusable by them. Never seen by anybody else.
+     CANDIDATE  a structure the athlete has EXPLICITLY offered for review.
+                Still not prescribable by anyone. Opt-in, never a by-product
+                of saving a workout.
+     APPROVED   in Valhalla's shipped library. Reachable only by an owner or
+                admin decision, and in this product that decision is a
+                DEPLOYMENT -- ARCHETYPES is compiled into the runtime.
+
+   NOTHING USER-CREATED IS GLOBALLY PRESCRIBABLE, and that is enforced rather
+   than intended: libraryWorkoutIsPrescribable() answers false for everything
+   that did not arrive through ARCHETYPES, and no path in this file can set
+   'approved'. A client cannot approve its own content; a compromised or
+   edited local state cannot either.
+
+   PRIVACY IS A PROPERTY OF WHAT IS SENT, NOT A PROMISE ABOUT IT. A workout
+   carries a name and notes the athlete wrote, which are free text and can
+   contain anything -- a place, a person, an injury. libraryCandidatePayload()
+   returns STRUCTURE ONLY: never the name, never notes, never a date, never an
+   id that ties back to the athlete. If a future server path sends anything, it
+   sends that, and carriesPersonalText() exists so the seam can assert against
+   its own output rather than trusting a caller to remember.
+
+   WHAT IS DELIBERATELY NOT BUILT HERE: the server table, the transport and the
+   admin review screen. They are a backend and an operations decision, and
+   writing a plausible version of each is how a privacy boundary comes to exist
+   only in a comment. The client half is complete, the invariants are tested,
+   and nothing can cross the boundary until the other half is built on purpose. */
+var LIBRARY_TIERS = ['personal', 'candidate', 'approved'];
+function libraryWorkouts(){
+  return (state && state.library && state.library.workouts) || [];
+}
+function libraryEnsure(){
+  if (!state.library) state.library = { workouts: [] };
+  if (!state.library.workouts) state.library.workouts = [];
+  return state.library;
+}
+/* Saving a session the athlete has built or customised, so they can use it
+   again. Personal by construction -- the tier is not a parameter. */
+function librarySaveWorkout(opts){
+  var o = opts || {};
+  if (!o.name || !String(o.name).trim()) return null;
+  var lib = libraryEnsure();
+  var w = {
+    id: uid(),
+    name: String(o.name).trim().slice(0, 80),
+    tier: 'personal',
+    source: PRESCRIPTION_SOURCE_ATHLETE,
+    createdAt: new Date().toISOString(),
+    type: o.type || 'easy',
+    km: o.km > 0 ? round1(o.km) : null,
+    notes: o.notes ? String(o.notes).slice(0, 500) : null,
+    /* The structure, in the same vocabulary the rest of the product speaks, so
+       a custom session can be scored and can contribute load like any other.
+       Absent where the athlete described their session in prose -- which is
+       allowed, and simply means Valhalla reads it as a session of that type
+       and distance rather than claiming to know its internals. */
+    segments: Array.isArray(o.segments) ? o.segments : null,
+    sharedAt: null, consentedAt: null
+  };
+  lib.workouts.push(w);
+  return w;
+}
+function libraryWorkoutById(id){
+  return libraryWorkouts().filter(function(w){ return w.id === id; })[0] || null;
+}
+function libraryDeleteWorkout(id){
+  var lib = libraryEnsure();
+  var n = lib.workouts.length;
+  lib.workouts = lib.workouts.filter(function(w){ return w.id !== id; });
+  return lib.workouts.length !== n;
+}
+/* Applying one to a day. The result is an ATHLETE prescription, always --
+   reusing a saved session cannot launder it into a Valhalla one. */
+function libraryApplyToDay(dd, id){
+  var w = libraryWorkoutById(id);
+  if (!dd || !w) return false;
+  if (!canEditPrescription(dd)) return false;
+  dd.type = w.type;
+  dd.title = w.name;
+  if (w.km > 0) dd.km = w.km;
+  if (w.notes) dd.desc = w.notes;
+  dd.prescription = athletePrescription({ km: w.km, type: w.type, name: w.name });
+  dd.prescription.libraryId = w.id;
+  return true;
+}
+/* ---- THE ONE-WAY DOOR ----
+   Offering a structure for review. Explicit, consented, and reversible, and it
+   changes nothing about who may prescribe the workout. */
+function librarySubmitCandidate(id, consent){
+  var w = libraryWorkoutById(id);
+  if (!w || w.tier !== 'personal') return false;
+  if (consent !== true) return false;          // no consent, no submission
+  w.tier = 'candidate';
+  w.sharedAt = new Date().toISOString();
+  w.consentedAt = w.sharedAt;
+  return true;
+}
+function libraryWithdrawCandidate(id){
+  var w = libraryWorkoutById(id);
+  if (!w || w.tier !== 'candidate') return false;
+  w.tier = 'personal'; w.sharedAt = null; w.consentedAt = null;
+  return true;
+}
+/* STRUCTURE ONLY. Everything an athlete typed is left behind. */
+function libraryCandidatePayload(id){
+  var w = libraryWorkoutById(id);
+  if (!w || w.tier !== 'candidate') return null;
+  return { type: w.type, km: w.km, segments: w.segments || null,
+           schema: PRESCRIPTION_VERSION };
+}
+/* Exported so the seam that would send a payload can assert against its own
+   output rather than trusting whoever built it. */
+function carriesPersonalText(payload){
+  if (!payload || typeof payload !== 'object') return false;
+  var banned = ['name', 'notes', 'title', 'desc', 'id', 'createdAt', 'sharedAt',
+                'consentedAt', 'athleteId', 'userId', 'email'];
+  var found = false;
+  (function walk(o){
+    if (!o || typeof o !== 'object') return;
+    Object.keys(o).forEach(function(k){
+      if (banned.indexOf(k) !== -1 && o[k] != null) found = true;
+      if (o[k] && typeof o[k] === 'object') walk(o[k]);
+    });
+  })(payload);
+  return found;
+}
+/* MAY THIS BE PRESCRIBED TO ANYBODY, BY VALHALLA, AS METHODOLOGY?
+   Only what Valhalla itself ships. A library workout is the athlete's own tool
+   and may be applied to their own days; it is never programme methodology, and
+   no tier a client can write grants that. */
+function libraryWorkoutIsPrescribable(w){
+  if (!w) return false;
+  return w.tier === 'approved' && w.source === PRESCRIPTION_SOURCE_VALHALLA
+      && isKnownArchetype(w.archetype);
+}
+function athletePrescription(opts){
+  var o = opts || {};
+  return { v: PRESCRIPTION_VERSION, archetype: ATHLETE_ARCHETYPE,
+           source: PRESCRIPTION_SOURCE_ATHLETE, derivedFrom: null,
+           athleteModified: true,
+           params: { km: o.km > 0 ? round1(o.km) : null, type: o.type || 'easy',
+                     name: o.name || null } };
+}
 function prescriptionOf(dd){
   var p = dd && dd.prescription;
   if (!p || !p.archetype || !isKnownArchetype(p.archetype) || !p.params) return null;
@@ -18247,6 +18480,12 @@ function planContentSignature(st){
   if (!st || !st.setup || !st.days) return 'empty';
   return stableStringify({
     setup: st.setup,                       // race date, goals, zones, schedule
+    /* THE PERSONAL LIBRARY IS THE ATHLETE'S OWN WORK and is lost if it is not
+       signed: cloudReconcile()'s identical-content branch returns without
+       adopting, so a workout saved on a phone would never reach the tablet.
+       Signed whole, exactly as setup is -- the same reasoning that put
+       dd.support in here. */
+    library: st.library || null,
     days: st.days.map(function(d){
       return {
         id:nz(d.id), date:nz(d.date), week:nz(d.week), type:nz(d.type),
@@ -19499,6 +19738,10 @@ function makeDefaultState(){
     view:'today', // 'today' | 'week' | 'full' | 'planhq' | 'settings' -- which bottom-nav view is active
     setup:null, // { distanceKey, currentVolume, raceDate, benchmark:{distanceKey,timeSec}, goals:{A,B,C:{label,timeSec}}, activeGoal:'A', blockId, purpose }
     days:[],
+    /* THE ATHLETE'S OWN SAVED SESSIONS. Personal by construction; see
+       librarySaveWorkout(). Empty on every existing save, which reads
+       identically to a library nobody has put anything in. */
+    library:{ workouts:[] },
     /* THE PERSON, as distinct from the plan. Completed training, the block
        ledger and measured performances all outlive whatever plan scheduled
        them. See "THE ATHLETE" below. */
@@ -26416,14 +26659,31 @@ function measuredFitnessEstimate(distanceKey){
      not done the volume -- the limiter is not the same one. So a marathon
      estimate is only offered when this athlete's own absorbed volume supports
      it, and is withheld rather than caveated when it does not. */
-  if (distanceKey === 'full'){
-    var absorbed = absorbedWeeklyVolume();
-    if (absorbed.source !== 'measured' || !absorbed.km || absorbed.km < 50)
-      return { distanceKey: distanceKey, withheld: true,
-               reason: 'Not enough sustained weekly volume yet to estimate a marathon honestly.' };
+  /* ---- THE ONLY REASON TO WITHHOLD IS HAVING NOTHING TO SAY ----
+     This used to refuse every marathon whose absorbedWeeklyVolume() was not
+     'measured' -- a source only reachable through loadToleranceModel(), which
+     discards any week lacking two days of feel/readiness/HR. An athlete
+     logging distance and pace was therefore refused forever, with their own
+     demonstrated weekly volume sitting unread. Volume and durability now move
+     fitnessConfidence(); they do not decide whether there is an answer.
+     Fourteen calendar days of usable evidence is the one gate, and it is the
+     same gate for every distance. */
+  /* SCOPED TO THE MARATHON, which is the only distance that ever withheld.
+     The 14-day rule says when Valhalla must START answering; it is not a new
+     silence imposed on 5K, 10K and the half, which have always answered from
+     whatever rung currentFitnessAnchor() could reach and go on doing so. */
+  if (distanceKey === 'full' && !fitnessEvidenceReady()){
+    var ev = fitnessEvidence();
+    return { distanceKey: distanceKey, withheld: true,
+             spanDays: ev.spanDays, needDays: FITNESS_EVIDENCE_MIN_DAYS,
+             reason: ev.sessions
+               ? 'Valhalla needs about two weeks of logged training before it will estimate a marathon honestly.'
+               : 'Nothing logged yet, so there is nothing to estimate a marathon from.' };
   }
   var spread = distanceKey === 'full' ? 0.05 : distanceKey === 'half' ? 0.035 : 0.025;
+  var conf = fitnessConfidence(distanceKey);
   return {
+    confidence: conf.level, confidenceWhy: conf.reasons,
     distanceKey: distanceKey,
     withheld: false,
     fastSec: Math.round(mid * (1 - spread)),
@@ -26500,11 +26760,15 @@ function raceGoalProjectedVdot(daysAhead){
 function raceGoalProjectedEstimate(distanceKey, daysAhead){
   var profile = DISTANCE_PROFILES[distanceKey];
   if (!profile) return null;
+  /* THE RATE IS ASKED FIRST, because without one there is no projection to
+     make and no other reason worth reporting. Asking the estimate first meant
+     an athlete with nothing measured at all was told the MARATHON estimate was
+     withheld -- on a half. */
+  var proj = raceGoalProjectedVdot(daysAhead);
+  if (!proj) return null;                            // no rate -> no projection
   var now = currentFitnessEstimate(distanceKey);
   if (!now) return null;
   if (now.withheld) return now;                      // inherited, never re-decided
-  var proj = raceGoalProjectedVdot(daysAhead);
-  if (!proj) return null;                            // no rate -> no projection
   var mid = equivalentTimeSec(proj.vdot, profile.raceKm * 1000);
   if (!mid || !isFinite(mid)) return null;
   var spread = distanceKey === 'full' ? 0.05 : distanceKey === 'half' ? 0.035 : 0.025;
@@ -26598,6 +26862,148 @@ function raceGoalAssessment(blockResult){
   return out;
 }
 
+/* =========================================================
+   THE EVIDENCE WINDOW, AND WHAT IT IS ALLOWED TO DECIDE
+   ---------------------------------------------------------
+   THE DEFECT THIS EXISTS FOR. An athlete in week 7 of a marathon block, 32
+   days from the start line, with six weeks of logged training and a
+   demonstrated 57km a week, was told "Not enough sustained weekly volume yet
+   to estimate a marathon honestly" -- and would have been told it on race day.
+
+   IT WAS NEVER ABOUT THEIR VOLUME. The gate asked absorbedWeeklyVolume() for
+   source === 'measured', and that source is only reached through
+   loadToleranceModel(), which discards any week with fewer than two days
+   carrying FEEL, READINESS, an easy-run heart rate or note signals. An athlete
+   who logs distance and pace -- objective, complete, entirely usable evidence
+   -- had every week of it thrown away, so the figure fell back to the typed
+   one, whose source is 'stated', and the gate refused. Their own logged 57km a
+   week sat one accessor away the whole time.
+
+   THE RULE HQ HAS LOCKED, AND WHAT EACH PART OF IT MEANS:
+
+     FOURTEEN CALENDAR DAYS of usable evidence, and then Valhalla gives its
+     best assessment. Calendar days between the first usable session and
+     today -- a SPAN, not a streak, so a missed session cannot reset it and
+     cannot block it.
+
+     RACE AND CHECKPOINT DATA ARE NOT MANDATORY. They remain the strongest
+     evidence there is and they still outrank everything; their absence lowers
+     confidence rather than withholding the answer.
+
+     MISSING HR / RPE / FEEL REDUCES CONFIDENCE. It does not discard objective
+     evidence. This is the exact inversion of the defect.
+
+     FOR THE MARATHON, volume and long-run evidence move CONFIDENCE and
+     PREPAREDNESS. They no longer decide whether an estimate exists at all.
+
+   FOUR THINGS STAY SEPARATE, and this file does not blur them:
+     GOAL            what the athlete is aiming at        getActiveGoal()
+     CURRENT FITNESS what they can run now                currentFitnessEstimate()
+     RACE OUTLOOK    how that sits against the goal       raceOutlook()
+     CONFIDENCE      how strong the evidence is           fitnessConfidence()
+   Nothing here changes a goal, and nothing here is allowed to. */
+var FITNESS_EVIDENCE_MIN_DAYS = 14;
+/* What the athlete has actually given us, counted without judgement. Objective
+   evidence is a completed session carrying a distance; subjective evidence is
+   the readiness/feel/HR layer on top of it. Both are reported; only the first
+   is required. */
+function fitnessEvidence(){
+  var out = { spanDays: 0, firstDate: null, lastDate: null,
+              sessions: 0, withSubjective: 0, longestKm: 0,
+              weeklyKm: null, measuredPerformances: 0 };
+  if (!state || !state.days) return out;
+  /* COUNTED BEFORE ANYTHING CAN RETURN EARLY. A measured race or checkpoint is
+     evidence whether or not there is a training log beside it, and counting it
+     after the no-sessions return made it invisible to exactly the athlete it
+     matters most for. */
+  try { out.measuredPerformances = measuredPerformances().length; } catch(e){}
+  var today = todayStr();
+  var done = state.days.filter(function(dd){
+    return dd.completed && dd.date <= today && dd.actual && dd.actual.km > 0;
+  }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+  if (!done.length) return out;
+  out.sessions = done.length;
+  out.firstDate = done[0].date;
+  out.lastDate = done[done.length-1].date;
+  /* A SPAN, NOT A STREAK. Days between the first usable session and today, so
+     a fortnight with three sessions missed in the middle is still a fortnight
+     of evidence -- which is what HQ's rule says and what a coach would say. */
+  out.spanDays = daysBetween(out.firstDate, today);
+  done.forEach(function(dd){
+    var a = dd.actual || {};
+    if (a.hr != null || a.rpe != null || a.feel || dd.readiness) out.withSubjective++;
+    if (a.km > out.longestKm) out.longestKm = a.km;
+  });
+  /* Weekly volume from the athlete's own completed sessions over the window --
+     objective, and owing nothing to loadToleranceModel()'s subjective filter. */
+  var weeks = Math.max(1, out.spanDays / 7);
+  var km = done.reduce(function(t, dd){ return t + (dd.actual.km || 0); }, 0);
+  out.weeklyKm = Math.round((km / weeks) * 10) / 10;
+  return out;
+}
+/* Is there enough to say anything at all? One question, asked in one place, so
+   Current Fitness and Race Outlook can never disagree about it. */
+function fitnessEvidenceReady(){
+  var e = fitnessEvidence();
+  /* A MEASURED EFFORT IS ALREADY ENOUGH, AND ALWAYS WAS. HQ's rule says a race
+     or checkpoint is not MANDATORY; it does not say it is insufficient. An
+     athlete who has run one has given Valhalla the strongest evidence it
+     accepts, and making them also wait out a fortnight of logged training
+     would be the old defect pointed in a new direction -- it broke
+     raceGoalAssessment(), whose whole input is measured performances.
+     Fourteen days is the floor for an athlete who has measured NOTHING. */
+  if (e.measuredPerformances > 0) return true;
+  return e.sessions > 0 && e.spanDays >= FITNESS_EVIDENCE_MIN_DAYS;
+}
+/* HOW STRONGLY THE ANSWER IS HELD -- never whether there is one.
+   Each rung is a real property of the evidence, and the marathon's own
+   durability question is one input among them rather than a gate in front of
+   them. */
+function fitnessConfidence(distanceKey){
+  var e = fitnessEvidence();
+  /* THE SAME GATE THE ESTIMATE USES, asked of the same function. Two copies of
+     "is there enough" is how an estimate comes to exist while its own
+     confidence says there is nothing to be confident about. */
+  if (!fitnessEvidenceReady())
+    return { level:'none', score:0, evidence:e, reasons:['Not enough logged training yet.'] };
+  var score = 0, reasons = [];
+  // A measured race or checkpoint is the strongest thing there is.
+  if (e.measuredPerformances > 0) score += 2;
+  else reasons.push('No race or checkpoint measured yet.');
+  // Length of the window.
+  if (e.spanDays >= 42) score += 2; else if (e.spanDays >= 28) score += 1;
+  // How much of it carries the subjective layer.
+  var subjShare = e.sessions ? e.withSubjective / e.sessions : 0;
+  if (subjShare >= 0.5) score += 1;
+  else reasons.push('Heart rate and effort are rarely logged, so this leans on pace alone.');
+  /* THE MARATHON'S DURABILITY QUESTION, asked as confidence rather than as a
+     gate. The thresholds are the ones the estimate already used -- 50km a week
+     is not a new number, it is the number that used to withhold the answer. */
+  /* THE MARATHON'S DURABILITY TERMS ARE SIGNED, AND THE VOLUME ONE CAPS.
+     Written first as bonuses, which produced the exact incoherence the old
+     gate existed to prevent: a 10K athlete on 34km a week with one fast 5K
+     scored HIGH confidence in a marathon estimate while the reasons beside it
+     said the volume and the long run were both short. A shortfall that only
+     fails to add is not a shortfall.
+
+     THE CAP IS THE SAFETY PROPERTY THE OLD WITHHOLDING CARRIED, kept in the
+     one place it still belongs. Equivalence from a short effort over-predicts
+     a marathon for an athlete who has not done the volume -- so that athlete
+     may still have an estimate, as HQ requires, but it can never be presented
+     as anything better than low confidence. */
+  var volumeShort = false;
+  if (distanceKey === 'full'){
+    if (e.weeklyKm != null && e.weeklyKm >= 50) score += 1;
+    else { score -= 2; volumeShort = true;
+           reasons.push('Weekly volume is still below what a marathon asks for.'); }
+    if (e.longestKm >= 28) score += 1;
+    else { score -= 1;
+           reasons.push('The long run has not yet reached marathon distance territory.'); }
+  }
+  var level = score >= 5 ? 'high' : score >= 3 ? 'moderate' : 'low';
+  if (volumeShort) level = 'low';
+  return { level:level, score:score, evidence:e, reasons:reasons };
+}
 /* Equivalent-performance range from CURRENT FITNESS -- whichever rung
    currentFitnessAnchor() actually returns, not measured performance alone.
    Training paces already follow this anchor (getActivePaces()); this is the
@@ -26615,14 +27021,31 @@ function currentFitnessEstimate(distanceKey){
   var mid = equivalentTimeSec(anchor.vdot, profile.raceKm * 1000);
   if (!mid || !isFinite(mid)) return null;
 
-  if (distanceKey === 'full'){
-    var absorbed = absorbedWeeklyVolume();
-    if (absorbed.source !== 'measured' || !absorbed.km || absorbed.km < 50)
-      return { distanceKey: distanceKey, withheld: true,
-               reason: 'Not enough sustained weekly volume yet to estimate a marathon honestly.' };
+  /* ---- THE ONLY REASON TO WITHHOLD IS HAVING NOTHING TO SAY ----
+     This used to refuse every marathon whose absorbedWeeklyVolume() was not
+     'measured' -- a source only reachable through loadToleranceModel(), which
+     discards any week lacking two days of feel/readiness/HR. An athlete
+     logging distance and pace was therefore refused forever, with their own
+     demonstrated weekly volume sitting unread. Volume and durability now move
+     fitnessConfidence(); they do not decide whether there is an answer.
+     Fourteen calendar days of usable evidence is the one gate, and it is the
+     same gate for every distance. */
+  /* SCOPED TO THE MARATHON, which is the only distance that ever withheld.
+     The 14-day rule says when Valhalla must START answering; it is not a new
+     silence imposed on 5K, 10K and the half, which have always answered from
+     whatever rung currentFitnessAnchor() could reach and go on doing so. */
+  if (distanceKey === 'full' && !fitnessEvidenceReady()){
+    var ev = fitnessEvidence();
+    return { distanceKey: distanceKey, withheld: true,
+             spanDays: ev.spanDays, needDays: FITNESS_EVIDENCE_MIN_DAYS,
+             reason: ev.sessions
+               ? 'Valhalla needs about two weeks of logged training before it will estimate a marathon honestly.'
+               : 'Nothing logged yet, so there is nothing to estimate a marathon from.' };
   }
   var spread = distanceKey === 'full' ? 0.05 : distanceKey === 'half' ? 0.035 : 0.025;
+  var conf = fitnessConfidence(distanceKey);
   return {
+    confidence: conf.level, confidenceWhy: conf.reasons,
     distanceKey: distanceKey,
     withheld: false,
     fastSec: Math.round(mid * (1 - spread)),
@@ -38176,7 +38599,25 @@ function openEditModal(dayId){
   var swapOptions = '<option value="" selected>\u2014 choose a day \u2014</option>';
   var swapRows = '';
   var byWeek = {};
-  state.days.forEach(function(x){ (byWeek[x.week]=byWeek[x.week]||[]).push(x); });
+  /* ---- WHAT MAY BE SWAPPED WITH, AND WHAT MAY NOT ----
+     FROM THE CURRENT PROGRAMME WEEK ONWARDS. Weeks already behind the athlete
+     are history, and rescheduling into them is not a reschedule -- it is
+     editing the past. A week 7 athlete was being offered all six weeks behind
+     them: 40 of the 109 rows in the list. The boundary is the programme's own
+     week rather than a rolling window of days, because that is the unit the
+     athlete plans in and currentWeekNum() already defines it.
+
+     AND NEVER THE RACE OR THE FITNESS CHECKPOINT. Both were swappable, with
+     nothing to stop either. Moving the race moves the goal-day prescription
+     off the date the athlete is actually racing; moving the checkpoint moves
+     the measurement the entire fitness anchor is built on -- it is the one
+     session whose DATE is part of what it means. They stay where they are. */
+  var swapFromWeek = currentWeekNum() || 1;
+  state.days.forEach(function(x){
+    if (x.week != null && x.week < swapFromWeek) return;
+    if (swapProtectedType(x.type)) return;
+    (byWeek[x.week]=byWeek[x.week]||[]).push(x);
+  });
   /* SORTED NUMERICALLY, INDEXED BY THE ORIGINAL KEY. Object.keys() returns
      strings, so a plain sort puts week 10 before week 2 -- but mapping them to
      Numbers and indexing with the result loses any day that has no week at
@@ -38215,6 +38656,12 @@ function openEditModal(dayId){
   '<div class="modal-head"><h2 class="font-head">Edit Session</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
     '<div class="field-hint" style="margin-bottom:14px;">'+dLong(dd.date)+' \u00b7 Week '+dd.week+'</div>'+
+    /* RESCHEDULE LEADS. It was last, under the title, type, distance,
+       completion and the instructions box -- and it is the thing an athlete
+       most often opens this modal to do: life moved, the session needs another
+       day. Putting it first costs the fields below nothing; they are all still
+       there, in the same order, doing the same jobs. */
+    reschedule+
     (editable ? '' : '<div class="field-hint" style="margin-bottom:14px;">This session already happened \u2014 you can still record what you actually did below.</div>')+
     '<div class="field"><label>Session Title</label><input type="text" id="ef-title" value="'+escapeHtml(dd.title)+'"'+lock+'></div>'+
     '<div class="field-row">'+
@@ -38224,7 +38671,6 @@ function openEditModal(dayId){
     '<div class="field"><label style="display:flex; align-items:center;"><input type="checkbox" id="ef-mp" '+(dd.mpSegment?'checked':'')+lock+' style="width:auto; margin-right:7px;">Includes a Goal-Pace segment</label></div>'+
     renderEditCompletion(dd)+
     '<div class="field"><label>Workout Instructions</label><textarea id="ef-desc"'+lock+'>'+escapeHtml(resolveDesc(dd.desc))+'</textarea></div>'+
-    reschedule+
     '<div class="modal-actions">'+
       (editable ? '<button type="button" class="btn btn-danger" data-action="reset-day" data-day="'+dd.id+'">'+ICONS.trash+' Reset</button>' : '')+
       '<button type="button" class="btn btn-primary" data-action="save-edit" data-day="'+dd.id+'">'+ICONS.check+' Save</button>'+
@@ -38326,6 +38772,10 @@ function handleSaveEdit(dayId){
       if (!dd.manualEdit) dd.manualEdit = { at:new Date().toISOString(), fields:[], from:before };
       dd.manualEdit.at = new Date().toISOString();
       changed.forEach(function(f){ if (dd.manualEdit.fields.indexOf(f)===-1) dd.manualEdit.fields.push(f); });
+      /* The structure must describe the session the athlete now has, or stop
+         claiming to describe it at all. Runs after manualEdit.from has captured
+         the original, so what Valhalla asked for is already safe. */
+      reconcilePrescriptionAfterEdit(dd, changed);
     }
   }
   var swapId = document.getElementById('ef-swap').value;
@@ -38345,7 +38795,15 @@ function handleSaveEdit(dayId){
     // same rule as the drag-and-drop path), and if either side is already
     // logged and the swap is otherwise allowed, that consequence is confirmed
     // explicitly first (confirmSwapIfLogged).
-    if (other && swapWouldPlaceCompletionInFuture(dd, other)){
+    /* THE SAME RULE THE LIST APPLIES, APPLIED AGAIN WHERE IT BITES. A hidden
+       option is a UI convenience; this is the refusal. Either side being a race
+       or a checkpoint is refused, as is a target the athlete should never have
+       been offered because it is behind them. */
+    if (other && (swapProtectedType(dd.type) || swapProtectedType(other.type))){
+      showToast('Can’t swap — race day and the Fitness Checkpoint stay on their own dates.');
+    } else if (other && other.week != null && other.week < (currentWeekNum() || 1)){
+      showToast('Can’t swap — that week is already behind you.');
+    } else if (other && swapWouldPlaceCompletionInFuture(dd, other)){
       showToast('Can’t swap — a logged session can’t move onto a future date.');
     } else if (other && confirmSwapIfLogged(dd, other) && confirmSwapIfStacksQuality(dd, other)){
       swapWorkoutFields(dd, other);
@@ -44325,6 +44783,13 @@ var SWAPPED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','completed'
 // both days are incomplete by the time it runs, and swapping their actuals was
 // never part of that behaviour.
 var MOVED_WORKOUT_FIELDS = ['type','title','km','desc','mpSegment','prescription','manualEdit'];
+/* THE TWO SESSIONS WHOSE DATE IS PART OF WHAT THEY ARE. A race happens on race
+   day; a Fitness Checkpoint is a measurement taken at a point in the block, and
+   currentFitnessAnchor(), raceGoalAssessment() and every pace in the product
+   descend from when it was taken. Everything else is a session that can be run
+   on another day. Named once, read by the list and by the save path, so a
+   crafted request is refused by the same rule the UI applies. */
+function swapProtectedType(type){ return type === 'race' || type === 'checkpoint'; }
 function swapWorkoutFields(a, b, fields){
   (fields || SWAPPED_WORKOUT_FIELDS).forEach(function(k){
     var t = a[k];
@@ -45312,12 +45777,44 @@ function raceOutlook(){
   if (!profile) return null;
   var goal = getActiveGoal();
   var goalSec = (goal && goal.timeSec) ? goal.timeSec : null;
+  /* ---- A MEASURED EFFORT IS THE BEST EVIDENCE, NOT THE ONLY EVIDENCE ----
+     "NO EVIDENCE, NO PICTURE" was right when the only thing this could draw
+     was a measured race or checkpoint. It is wrong as a rule about the
+     ATHLETE: somebody seven weeks into a block with a fortnight of logged
+     training has told Valhalla a great deal, and answering them with a blank
+     track until their checkpoint comes round is the product declining to read
+     what it has been given. HQ's rule is explicit that race/checkpoint data is
+     not mandatory.
+
+     SO THERE ARE TWO RUNGS AND THEY ARE NAMED, never blurred. A measured
+     performance still produces the 'measured' state it always did, unchanged
+     and still preferred. Where there is none, current fitness answers, the
+     state says so, and confidence carries the difference -- which is exactly
+     what confidence is for. Nothing here touches the goal. */
   var est = measuredFitnessEstimate(key);
-  if (!est) return { state:'none', profile:profile, goalSec:goalSec };
-  if (est.withheld) return { state:'withheld', profile:profile, goalSec:goalSec, reason:est.reason };
-  return { state:'measured', profile:profile, goalSec:goalSec,
-           fastSec:est.fastSec, slowSec:est.slowSec,
-           fromDate:est.fromDate, fromSource:est.fromSource };
+  if (est && !est.withheld)
+    return { state:'measured', profile:profile, goalSec:goalSec,
+             fastSec:est.fastSec, slowSec:est.slowSec,
+             fromDate:est.fromDate, fromSource:est.fromSource,
+             confidence: est.confidence, confidenceWhy: est.confidenceWhy };
+  /* THE FALLBACK RUNG IS THE 14-DAY RULE, NOT MERELY "AN ESTIMATE EXISTS".
+     currentFitnessEstimate() will answer a 10K from a typed benchmark on day
+     one, and a benchmark is a self-reported time rather than training Valhalla
+     has watched. Race Outlook's long-standing position -- a fast training run
+     cannot move it and neither can a benchmark -- is unchanged by HQ's rule,
+     which is about an athlete who HAS given a fortnight of evidence. Below
+     that, this still draws nothing. */
+  var cur = fitnessEvidenceReady() ? currentFitnessEstimate(key) : null;
+  if (cur && !cur.withheld)
+    return { state:'estimated', profile:profile, goalSec:goalSec,
+             fastSec:cur.fastSec, slowSec:cur.slowSec,
+             fromDate:cur.fromDate, fromSource:cur.fromSource,
+             confidence: cur.confidence, confidenceWhy: cur.confidenceWhy };
+  /* Neither rung could answer, which now means one thing only: not yet enough
+     logged training. The reason is the estimate's own words. */
+  var why = (cur && cur.withheld) ? cur : (est && est.withheld ? est : null);
+  if (why) return { state:'withheld', profile:profile, goalSec:goalSec, reason:why.reason };
+  return { state:'none', profile:profile, goalSec:goalSec };
 }
 /* PERMANENT SCALE, FIXED SEMANTIC ZONES. The line/track now draws from the
    start of the block, before any measurement exists -- it is a status
@@ -45403,7 +45900,11 @@ function renderRaceOutlook(){
   }
 
   var bandHtml = '', verdict;
-  if (o.state !== 'measured'){
+  /* Both answering states draw a band; they differ in what the words claim
+     about where it came from, which is the only honest difference. */
+  var hasBand = (o.state === 'measured' || o.state === 'estimated');
+  var evidenceNoun = o.state === 'measured' ? 'your last measured effort' : 'your logged training';
+  if (!hasBand){
     // NO EVIDENCE, NO MARKER -- the left/current zone stays neutral and empty
     // rather than fabricating a position; the line and the goal end (when a
     // goal exists) are the only things this state is allowed to show.
@@ -45418,14 +45919,16 @@ function renderRaceOutlook(){
       return sec < 60 ? sec+' second'+(sec===1?'':'s') : secToClock(sec);
     };
     if (o.goalSec == null){
-      verdict = 'No goal time set, so there is nothing to place your measured effort against yet.';
+      verdict = 'No goal time set, so there is nothing to place '+evidenceNoun+' against yet.';
     } else if (o.goalSec < o.fastSec){
       verdict = 'Your goal is '+gap(o.fastSec - o.goalSec)+' faster than the quick end of '+
-        'what your last measured effort suggests. That is what the block is for.';
+        'what '+evidenceNoun+' suggests. That is what the block is for.';
     } else if (o.goalSec > o.slowSec){
-      verdict = 'Your last measured effort already suggests a time inside your goal.';
+      verdict = o.state === 'measured'
+        ? 'Your last measured effort already suggests a time inside your goal.'
+        : 'Your logged training already suggests a time inside your goal.';
     } else {
-      verdict = 'Your goal sits inside the range your last measured effort suggests.';
+      verdict = 'Your goal sits inside the range '+evidenceNoun+' suggests.';
     }
     var spreadSec = Math.max(o.slowSec - o.fastSec, 0);
     var spreadFrac = clamp(spreadSec / Math.max(o.fastSec * 0.15, 30), 0, 1);
@@ -45438,13 +45941,19 @@ function renderRaceOutlook(){
 
   return '<div class="outlook-instrument" id="outlook-mount-inner">'+head+
     '<div class="oi-track" role="img" aria-label="'+
-      (o.state === 'measured' ? 'Measured range '+secToClock(o.fastSec)+' to '+secToClock(o.slowSec) : 'Not yet measured')+
+      (hasBand ? (o.state === 'measured' ? 'Measured range ' : 'Estimated range ')+
+                 secToClock(o.fastSec)+' to '+secToClock(o.slowSec) : 'Not yet measured')+
       (o.goalSec!=null ? ', goal '+secToClock(o.goalSec) : '')+'">'+
       '<div class="oi-line"></div>'+bandHtml+goalHtml+
     '</div>'+
     '<div class="field-hint">'+escapeHtml(verdict)+
       (o.state === 'measured' ? ' From your '+(o.fromSource === 'race' ? 'race' : 'Fitness Checkpoint')+
         ' on '+dShort(o.fromDate)+'. Training runs do not move it.' : '')+
+      /* THE WEAKER RUNG SAYS SO, in one line, rather than presenting an
+         estimate with the authority of a measurement. */
+      (o.state === 'estimated'
+        ? ' Estimated from your training so far — a race or a Fitness Checkpoint would sharpen it.'
+        : '')+
     '</div>'+
   '</div>';
 }

@@ -91,6 +91,19 @@ async function main(){
         'refusing — pass --live-readonly to run the read-only checks against live');
     return finish();
   }
+  /* ---- REFUSED BEFORE A SINGLE REQUEST IS MADE ----
+     This refusal lived beside the --session branch, several hundred lines and
+     four live GETs further down. The write was still guarded, so no money was
+     ever at risk -- but a contradiction the argv alone settles was being
+     answered only after the probe had already talked to the live account, and
+     any network trouble killed it before it could answer at all. It is a
+     question about two flags; it is now asked where two flags are known. */
+  if (flag('session') && LIVE_READONLY){
+    head('CHECKOUT SESSION — refused');
+    bad('--session cannot be combined with --live-readonly',
+        'creating a Checkout Session against a live account is not a read');
+    return finish();
+  }
   if (cfg.isLiveKey){
     /* LIVE, AND READ-ONLY BY CONSTRUCTION rather than by intention. The flag
        does not merely promise good behaviour: --session is refused outright
@@ -252,11 +265,9 @@ async function main(){
   }
 
   // -------------------------------------------------------------------------
-  if (flag('session') && LIVE_READONLY){
-    head('CHECKOUT SESSION — refused');
-    bad('--session cannot be combined with --live-readonly',
-        'creating a Checkout Session against a live account is not a read');
-  } else if (flag('session')){
+  /* The --session + --live-readonly contradiction is refused at the top, before
+     any request is made, so by here it cannot be true. */
+  if (flag('session')){
     head('CHECKOUT SESSION — the one mode that creates something');
     const uid = flag('session');
     if (uid === true){
