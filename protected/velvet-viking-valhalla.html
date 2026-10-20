@@ -26575,7 +26575,7 @@ var RESTRICTION_META = {
           applied:'Every run in this period becomes a rest day.' },
   easy: { label:'Easy running only',
           short:'Easy only',
-          applied:'Quality work becomes easy running and distances come down.' }
+          applied:'Quality work becomes easy running. Your prescribed distances are unchanged.' }
 };
 /* The quick answers to "for how long". A date picker is offered beside them;
    these exist because an athlete who has just been told to stop running
@@ -26674,12 +26674,46 @@ function applyRestrictionToPlan(level, from, until){
   if (!state || !state.days || !from || !until) return out;
   var start = maxDateStr(from, todayStr());
   var at = new Date().toISOString();
-  /* RECOVERY_PROFILE IS THE AUTHORITY FOR HOW MUCH RUNNING A BODY THAT MUST
-     NOT TRAIN NORMALLY GETS, and it already carries a number per distance.
-     developmentBlockSpec() multiplies a recovery block's weekly volume by
-     exactly this factor; an easy-only restriction applies the same factor to
-     the days it leaves standing. No new number is introduced. */
-  var factor = recoveryProfileFor(state.setup && state.setup.distanceKey).volumeFactor;
+  /* NO DISTANCE IS SCALED HERE, AND RECOVERY_PROFILE IS NOT CONSULTED AT ALL.
+     An earlier version multiplied every surviving day by
+     RECOVERY_PROFILE.volumeFactor. The audit of that found it unsupportable
+     in three ways and HQ removed it.
+
+       WRONG OPERAND, which is the one the noIntensityDays case did not have.
+       That table's own comment insists volumeFactor is "the fraction of the
+       athlete's own recent absorbed volume the block starts from -- their
+       own training, not a table". It was being applied to the PRESCRIBED
+       kilometres of a future day in a race build instead. Measured on a
+       70km/week marathoner whose recovery block would start at 28km, the
+       restricted weeks came out between 22 and 36km -- swinging +/-25%
+       around the number they came from, decided purely by where in the
+       block each week sat. The athlete was cut hardest in a cutback week
+       and least in the peak.
+
+       WRONG AXIS. The factor is ordered by the race just run: 0.55 for 5K
+       down to 0.40 for the marathon. Same declaration, different cut, and
+       inverted here -- the athlete with the largest aerobic base is cut the
+       hardest, because a marathon RACE costs the most, which is nothing to
+       do with being ill.
+
+       AND IT WROTE PAST THE PRODUCT'S OWN ROUNDING. roundWorkoutKm() exists
+       so sessions carry clean, watch-friendly numbers; the multiply produced
+       6.2km, 3.8km, 8.8km, 4.4km. The Math.max(1, ...) floor beside it was
+       an invented constant with no relative anywhere in the product, whose
+       quantum is EASY_QUANTUM_KM = 0.5.
+
+     THE TWO HALVES OF RECOVERY_PROFILE HAVE SEPARATE JOBS and this layer
+     needs neither: volumeFactor sizes the opening week of a newly GENERATED
+     block from absorbed volume, and noIntensityDays removes intensity inside
+     that already-reduced block -- applyRecoveryCeiling() never assigns dd.km
+     at all. Easy-only now says exactly what it says: quality becomes easy
+     running, and the distance is the one Valhalla prescribed.
+
+     WHAT PROTECTS AN ATHLETE WHO CANNOT RUN THAT FAR is not a scaling factor
+     Valhalla cannot justify. It is the other level -- "no running at all" --
+     which claims nothing, and the fact that a restricted day they simply do
+     not run costs them nothing: every adherence surface already reads it as
+     medically unavailable. */
   state.days.forEach(function(dd){
     if (!dd || dd.date < start || dd.date > until) return;
     if (dd.completed || sessionRan(dd)) return;
@@ -26710,9 +26744,11 @@ function applyRestrictionToPlan(level, from, until){
       out.rested++;
       return;
     }
-    // level 'easy': no intensity, and the distance that remains is the
-    // recovery profile's own fraction of what was prescribed.
-    dd.km = Math.max(1, round1((dd.km || 0) * factor));
+    /* level 'easy': no intensity, and nothing else. The goal-pace segment
+       goes with the intensity it is -- see dd.mpSegment's own contract note,
+       which calls it EXACT for exactly the long runs carrying goal pace --
+       and that deletion is what lets the readiness term below see that this
+       day no longer delivers the race-specific work it was prescribed. */
     delete dd.mpSegment;
     downgradeToEasyRun(dd, 'Easy running only — you have told Valhalla you cannot train normally at the moment.');
     out.eased++;
@@ -26902,6 +26938,46 @@ function ensureRestrictionApplied(){
    IT CAN ONLY EVER LOWER. The fraction is clamped at 1, and null is returned
    where no declaration exists or none of it touched a developing week, so a
    block with no interruption is scored exactly as it was before. */
+/* ---------- DID THIS DAY STILL DELIVER WHAT IT WAS PRESCRIBED ----------
+   KILOMETRES ARE NOT THE WHOLE OF DELIVERY. Under an easy-only restriction
+   every distance stands, so a km-only reading credited six weeks of removed
+   quality as fully delivered race preparation and the verdict read READY --
+   the same defect the interruption dimension was added to close, arriving
+   through the other level.
+
+   TYPE IS NOT THE AUTHORITY FOR THIS, AND THE RUNTIME ALREADY SAYS SO.
+   The goal-pace budget note (see dd.mpSegment's contract, "WHAT IS A
+   GOAL-PACE WEEK") compared the candidates for exactly this question and
+   ruled: isQualityType() is "blind: keyed on dd.type"; dd.mpSegment is
+   "EXACT -- true for exactly the long runs that carry goal pace, false for
+   every aerobic one at every distance and in every phase", agreeing exactly
+   with structuredZoneTime().zones.mp. A type comparison alone therefore
+   fails twice over: it cannot see goal-pace work lost out of a long run
+   (sixteen such long runs across the four Race Goal architectures), and it
+   counts a long run converted to an easy run of the SAME DISTANCE as a loss
+   when the durability stimulus is that distance and it is still there --
+   which would be modifying durability by the back door.
+
+   SO THE TWO CANONICAL AUTHORITIES ARE ASKED, EACH FOR ITS OWN QUESTION, and
+   neither is invented here:
+     isQualityType()  did the athlete run hard -- its own stated job, already
+                      read by stacked hard days, quality adherence and the
+                      protected-session rules
+     dd.mpSegment     is this the race-specific goal-pace work -- exact, by
+                      the comparison the generator already published
+
+   A day delivers nothing when the hard session it was prescribed is no longer
+   a hard session, or when the goal-pace work it carried is gone. Otherwise it
+   delivers its distance, including a long run that is still the same long
+   distance under a different name. */
+function restrictionDayDelivered(dd, from){
+  if (!dd) return 0;
+  if (from){
+    if (isQualityType(from.type) && !isQualityType(dd.type)) return 0;
+    if (from.mpSegment && !dd.mpSegment) return 0;
+  }
+  return dd.km || 0;
+}
 function restrictionDeliveredFraction(developingWeeks){
   if (!restrictionRecord()) return null;
   if (!state || !state.days || !developingWeeks || !developingWeeks.length) return null;
@@ -26914,9 +26990,9 @@ function restrictionDeliveredFraction(developingWeeks){
        they carry no snapshot and ask for exactly what they always did. They
        contribute equally to both sides and so count as delivered, which is
        true: nothing was taken away from them. */
-    var asked = (dd.restricted && dd.restricted.from) ? dd.restricted.from.km : dd.km;
-    prescribed += asked || 0;
-    delivered  += dd.km || 0;
+    var from = (dd.restricted && dd.restricted.from) || null;
+    prescribed += (from ? from.km : dd.km) || 0;
+    delivered  += restrictionDayDelivered(dd, from);
     if (dd.restricted) days++;
   });
   if (!(prescribed > 0) || !days) return null;
@@ -35753,7 +35829,7 @@ function openRestrictionModal(){
   '<div class="modal-head"><h2 class="font-head">'+(open?'Change restriction':'Injury or illness')+'</h2>'+
     '<button type="button" class="icon-btn" data-action="restriction-cancel" aria-label="Close">'+ICONS.close+'</button></div>'+
   '<div class="modal-body">'+
-    '<div class="field-hint" style="margin-bottom:12px;">Tell Valhalla you cannot train normally and it will adapt the plan, stop counting these days against you, and ease you back in afterwards. It does not ask what the problem is and does not record one — if you are hurt or unwell, see a clinician.</div>'+
+    '<div class="field-hint" style="margin-bottom:12px;">Tell Valhalla you cannot train normally and it will adapt the plan, stop counting these days against you and make nothing up afterwards. It does not ask what the problem is and does not record one — if you are hurt or unwell, see a clinician.</div>'+
     '<div class="setup-section-title">What can you do right now?</div>'+
     '<div role="radiogroup" aria-label="What can you do right now?">'+levelBtns+'</div>'+
     '<div class="setup-section-title">For how long?</div>'+
@@ -47208,7 +47284,7 @@ function renderSettingsHubView(){
           ? 'Injury or illness — restriction open'
           : 'Injured or ill? Tell Valhalla')+'</span>'+
         '<span class="rs-chev">'+ICONS.chevronRight+'</span></button>'+
-      '<div class="field-hint" style="margin-top:8px;">Valhalla adapts the plan, stops counting those days against you, makes nothing up afterwards and eases you back in. It never asks what the problem is.</div>'+
+      '<div class="field-hint" style="margin-top:8px;">Valhalla adapts the plan, stops counting those days against you and makes nothing up afterwards. It never asks what the problem is, and it does not decide when you are ready to train normally again — you do.</div>'+
     '</div>' : '')+
     '<div class="hub-card tile-card">'+
       '<div class="setup-section-title">Training &amp; Zones</div>'+

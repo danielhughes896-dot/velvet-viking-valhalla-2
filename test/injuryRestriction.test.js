@@ -76,24 +76,55 @@ test('no running at all turns every run in the window into rest, and marks the w
                a.state.days.filter(d => d.date >= TODAY && d.date <= until).length);
 });
 
-test('easy running only removes intensity and applies the recovery profile’s own factor', () => {
+/* EASY RUNNING ONLY MEANS EXACTLY THAT. An earlier version also multiplied
+   every surviving distance by RECOVERY_PROFILE.volumeFactor. HQ removed it:
+   the factor is documented as a fraction of the athlete's own ABSORBED
+   WEEKLY VOLUME ("their own training, not a table") and was being applied to
+   the prescribed kilometres of a future day, producing weeks between 22 and
+   36km around the 28km its own recovery block would have started at --
+   decided by where in the build the week sat. It was also ordered by the
+   race just run (0.55 for 5K down to 0.40 for the marathon) and wrote past
+   roundWorkoutKm(). */
+test('easy running only removes intensity and leaves every distance alone', () => {
   const a = app();
   const until = a.addDays(TODAY, 13);
-  const quality = a.state.days.filter(d =>
-    d.date >= TODAY && d.date <= until && a.isQualityType(d.type) && d.type !== 'race');
-  assert.ok(quality.length > 0, 'the fixture has no quality work in the window');
-  const easyDay = a.state.days.filter(d => d.date >= TODAY && d.date <= until && d.type === 'easy')[0];
-  const easyBefore = easyDay.km;
+  const inWindow = a.state.days.filter(d =>
+    d.date >= TODAY && d.date <= until && d.type !== 'rest' &&
+    d.type !== 'race' && d.type !== 'checkpoint');
+  assert.ok(inWindow.filter(d => a.isQualityType(d.type)).length > 0,
+    'the fixture has no quality work in the window');
+  const before = inWindow.map(d => d.id + ':' + d.km).join('|');
   a.declareRestriction('easy', until);
-  const factor = a.recoveryProfileFor('full').volumeFactor;
   assert.equal(a.state.days.filter(d =>
     d.date >= TODAY && d.date <= until && a.isQualityType(d.type) &&
     d.type !== 'race' && d.type !== 'checkpoint').length, 0,
     'intensity survived an easy-only restriction');
-  assert.equal(easyDay.km, Math.max(1, Math.round(easyBefore * factor * 10) / 10));
+  assert.equal(inWindow.map(d => d.id + ':' + d.km).join('|'), before,
+    'a distance moved under a level that only removes intensity');
   // the downgrade authored a real easy run, it did not strip the structure
+  const easyDay = inWindow.filter(d => d.prescription)[0];
   assert.equal(easyDay.prescription.archetype, 'easy_run');
   assert.equal(easyDay.prescription.params.km, easyDay.km);
+});
+
+test('RECOVERY_PROFILE is not consulted anywhere in the restriction pathway', () => {
+  const a = app();
+  const reported = [];
+  const real = a.recoveryProfileFor;
+  a.recoveryProfileFor = function(k){ reported.push(k); return real(k); };
+  // positive control first, so an empty result below cannot be a dead spy
+  a.developmentBlockSpec('recovery', { raceDistanceKey:'full' });
+  assert.deepEqual(reported, ['full'], 'the spy does not intercept internal calls');
+  reported.length = 0;
+  a.declareRestriction('easy', a.addDays(TODAY, 20));
+  a.extendRestriction('none', a.addDays(TODAY, 30));
+  a.ensureRestrictionApplied();
+  a.endRestriction();
+  a.recoveryProfileFor = real;
+  assert.deepEqual(reported, [],
+    'post-race recovery methodology is back in the injury pathway: ' + reported.join(','));
+  assert.doesNotMatch(a.RESTRICTION_META.easy.applied, /distances come down/);
+  assert.match(a.RESTRICTION_META.easy.applied, /unchanged/);
 });
 
 test('the race and the Fitness Checkpoint are marked but never rewritten', () => {
@@ -843,4 +874,121 @@ test('the reason is said in a frame that fits it, and never blames the plan for 
   assert.match(interrupted, /injury or illness/);
   assert.doesNotMatch(interrupted, /the block has not yet built/);
   assert.doesNotMatch(a.prepShortSentence('absorption'), /the block has not yet built/);
+});
+
+// =====================================================================
+// 12. WHAT COUNTS AS DELIVERED RACE PREPARATION
+// =====================================================================
+
+/* KILOMETRES ARE NOT THE WHOLE OF DELIVERY. Once easy-only stopped scaling
+   distances, a km-only reading credited six weeks of removed quality as
+   fully delivered preparation and the verdict read READY -- the interruption
+   dimension's own defect arriving through the other level.
+
+   AND TYPE IS NOT THE AUTHORITY FOR THE FIX. The runtime had already ruled on
+   this exact question in the goal-pace budget note: isQualityType() is
+   "blind: keyed on dd.type"; dd.mpSegment is "EXACT -- true for exactly the
+   long runs that carry goal pace". These tests are the proof, run against
+   every session kind a Race Goal block actually produces. */
+
+test('type alone cannot separate preserved from converted stimulus', () => {
+  const a = raceApp('full', 70, 16);
+  a.declareRestriction('easy', a.addDays(TODAY, 60));
+  const rows = a.state.days.filter(d => d.restricted && d.restricted.from);
+  const kinds = {};
+  rows.forEach(d => {
+    const f = d.restricted.from;
+    const k = f.type + (f.mpSegment ? '+mp' : '');
+    kinds[k] = kinds[k] || { km:0, credited:0, nowType:d.type };
+    kinds[k].km += f.km || 0;
+    kinds[k].credited += a.restrictionDayDelivered(d, f);
+  });
+  /* THE CASE THAT BREAKS TYPE: a plain long run and a goal-pace long run are
+     the same type, both become 'easy' at the same distance, and they must be
+     credited differently. No comparison of dd.type could do this. */
+  assert.ok(kinds['long'] && kinds['long+mp'], 'the fixture has only one kind of long run');
+  assert.equal(kinds['long'].nowType, 'easy');
+  assert.equal(kinds['long+mp'].nowType, 'easy');
+  assert.equal(Math.round(kinds['long'].credited), Math.round(kinds['long'].km),
+    'an aerobic long run lost its durability credit -- that is modifying durability');
+  assert.equal(kinds['long+mp'].credited, 0,
+    'goal-pace work lost out of a long run was credited as delivered');
+  // and every hard session that is no longer hard delivers nothing
+  Object.keys(kinds).forEach(k => {
+    if (a.isQualityType(k.replace('+mp', ''))) assert.equal(kinds[k].credited, 0, k);
+  });
+  // while easy running, which was never converted, is credited in full
+  assert.equal(Math.round(kinds['easy'].credited), Math.round(kinds['easy'].km));
+});
+
+test('the two authorities are the product’s own, each asked its own question', () => {
+  const a = raceApp('full', 70, 16);
+  const snap = (type, mp, km) => ({ type, mpSegment: !!mp, km });
+  // a hard session that is no longer hard
+  assert.equal(a.restrictionDayDelivered({ type:'easy', km:10 }, snap('threshold', false, 10)), 0);
+  // a hard session still hard (nothing converted it)
+  assert.equal(a.restrictionDayDelivered({ type:'threshold', km:10 }, snap('threshold', false, 10)), 10);
+  // goal-pace work gone, type unchanged -- only mpSegment can see this
+  assert.equal(a.restrictionDayDelivered({ type:'long', km:22 }, snap('long', true, 22)), 0);
+  // an aerobic long run under a different name, same distance
+  assert.equal(a.restrictionDayDelivered({ type:'easy', km:22 }, snap('long', false, 22)), 22);
+  // a protected day carries no snapshot and asks for what it always did
+  assert.equal(a.restrictionDayDelivered({ type:'race', km:42.2 }, null), 42.2);
+});
+
+test('an easy-only restriction is no longer invisible to readiness', () => {
+  const bands = [];
+  [7, 21, 42].forEach(days => {
+    const a = raceApp('full', 70, 16);
+    a.declareRestriction('easy', a.addDays(TODAY, days - 1));
+    const p = prep(a);
+    const d = (p.dimensions || []).filter(x => x.key === 'interruption')[0];
+    assert.ok(d, days + ' days: no interruption dimension');
+    bands.push({ days, f:d.fraction, v:p.verdict });
+    if (d.fraction >= 0.90) assert.equal(p.verdict, 'READY');
+    else if (d.fraction >= 0.70) assert.equal(p.verdict, 'MARGINAL');
+    else assert.equal(p.verdict, 'INSUFFICIENT');
+  });
+  assert.ok(bands[2].f < 1, 'six weeks of easy-only still reads as fully delivered');
+  assert.notEqual(bands[2].v, 'READY',
+    'six weeks with every quality session removed still reads READY');
+  for (let i = 1; i < bands.length; i++)
+    assert.ok(bands[i].f <= bands[i - 1].f, JSON.stringify(bands));
+});
+
+test('the no-running level is unchanged by the delivery definition', () => {
+  // HQ preserved these numbers; they must not move with the easy-only fix
+  const expect = { 7:0.92, 21:0.78, 42:0.52 };
+  Object.keys(expect).forEach(days => {
+    const a = raceApp('full', 70, 16);
+    a.declareRestriction('none', a.addDays(TODAY, Number(days) - 1));
+    assert.equal(dimOf(a, 'interruption').fraction, expect[days], days + ' days');
+  });
+});
+
+test('durability is still not modified, and the bands and scope are unchanged', () => {
+  DISTANCES.forEach(([dk, vol, wk]) => {
+    const a = raceApp(dk, vol, wk);
+    const beforeDims = (prep(a).dimensions || []).map(d => d.key + ':' + d.fraction).join('|');
+    a.declareRestriction('easy', a.addDays(TODAY, 20));
+    const after = prep(a);
+    assert.equal((after.dimensions || []).filter(x => x.key !== 'interruption')
+                   .map(x => x.key + ':' + x.fraction).join('|'), beforeDims,
+      dk + ': an easy-only restriction moved a dimension it was told not to touch');
+    assert.ok(dimOf(a, 'interruption').fraction <= 1, dk + ': fraction above one');
+  });
+});
+
+test('no surface anywhere promises a return Valhalla does not size', () => {
+  /* Caught by a screenshot, not by a test: the ramp was removed and two
+     field hints went on saying "eases you back in". Pinned here so the next
+     reader of this copy has to mean it. */
+  const a = app();
+  a.declareRestriction('easy', a.addDays(TODAY, 14));
+  const surfaces = [a.renderSettingsHubView(), a.renderRestrictionCard(), a.renderTodayView()];
+  a.restrictionDraft = null;
+  a.openRestrictionModal();
+  surfaces.push(a.RESTRICTION_META.easy.applied, a.RESTRICTION_META.none.applied);
+  surfaces.forEach((html, i) =>
+    assert.doesNotMatch(String(html), /eases? you back in/i, 'surface ' + i));
 });
