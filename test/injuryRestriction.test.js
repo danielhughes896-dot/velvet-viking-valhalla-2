@@ -992,3 +992,88 @@ test('no surface anywhere promises a return Valhalla does not size', () => {
   surfaces.forEach((html, i) =>
     assert.doesNotMatch(String(html), /eases? you back in/i, 'surface ' + i));
 });
+
+// =====================================================================
+// 13. THE TODAY SIGNPOST
+// =====================================================================
+
+/* An athlete who has just been told to stop running opens Today, not
+   Settings, and nothing on Today said this was a thing Valhalla could be
+   told. The answer is a signpost, not a second control: Settings -> Training
+   Availability stays the only place a restriction is declared, changed or
+   ended, because two routes into the same declaration are two routes to get
+   it subtly wrong. */
+
+test('Today carries one quiet pointer, at the foot, in the product’s own register', () => {
+  const a = app();
+  const html = a.renderTodayView();
+  assert.match(html, /Injured or ill\?/);
+  // the quietest interactive control the product has -- Next Move's WHY?
+  assert.match(a.renderInjuryPointer(), /class="coach-why-btn"/);
+  // below the session and below the pace reference, not above them
+  assert.ok(html.indexOf('pace-ref-card') !== -1, 'the fixture renders no pace reference');
+  assert.ok(html.indexOf('Injured or ill?') > html.indexOf('pace-ref-card'),
+    'the signpost is competing with the session the athlete opened the app for');
+  assert.ok(html.indexOf('Injured or ill?') > html.indexOf('coach-next-title'),
+    'the signpost sits above Next Move');
+});
+
+test('it directs to Settings and does nothing else', () => {
+  const a = app();
+  assert.doesNotMatch(a.renderInjuryPointer(), /Head to Settings/,
+    'the direction is shown before it is asked for');
+  a.handleInjuryHint();
+  const open = a.renderInjuryPointer();
+  assert.match(open, /Head to Settings → Training Availability to update your training\./);
+  assert.match(open, /aria-expanded="true"/);
+  a.handleInjuryHint();
+  assert.doesNotMatch(a.renderInjuryPointer(), /Head to Settings/);
+});
+
+test('it is not a second set of restriction controls', () => {
+  const a = app();
+  a.handleInjuryHint();
+  const html = a.renderInjuryPointer();
+  ['restriction-open', 'restriction-level', 'restriction-days',
+   'restriction-confirm', 'restriction-end'].forEach(act =>
+    assert.doesNotMatch(html, new RegExp('data-action="' + act + '"'),
+      'the signpost carries the ' + act + ' control that belongs to Settings'));
+  // Settings remains the single authority, and still holds the real entry
+  assert.match(a.renderSettingsHubView(), /data-action="restriction-open"/);
+});
+
+test('pressing it declares nothing and cannot touch the plan', () => {
+  const a = app();
+  /* Today's first render legitimately writes -- recordAthleteState() journals
+     the state the coach is showing, which predates this control and is not
+     its doing. The signature is taken AFTER that, so what is measured here
+     is the signpost alone. */
+  a.renderTodayView();
+  const sig = a.planContentSignature(a.state);
+  a.renderInjuryPointer();
+  a.handleInjuryHint();
+  a.renderInjuryPointer();
+  a.handleInjuryHint();
+  assert.equal(a.planContentSignature(a.state), sig, 'the signpost moved the plan');
+  assert.equal(a.restrictionRecord(), null, 'the signpost declared a restriction');
+  assert.equal(a.state.setup.restriction, undefined);
+});
+
+test('it stands down while a declaration is open, so nothing is duplicated', () => {
+  const a = app();
+  assert.notEqual(a.renderInjuryPointer(), '');
+  a.declareRestriction('easy', a.addDays(TODAY, 14));
+  assert.equal(a.renderInjuryPointer(), '',
+    'a second route to Settings is offered under the card that already has one');
+  const today = a.renderTodayView();
+  assert.doesNotMatch(today, /Injured or ill\?/);
+  assert.match(today, /Change or extend/);   // the card's own control is the one on screen
+  // and it comes back once the athlete is training normally again
+  a.endRestriction();
+  assert.notEqual(a.renderInjuryPointer(), '');
+});
+
+test('it is absent where there is nothing to restrict', () => {
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  assert.equal(a.renderInjuryPointer(), '');
+});

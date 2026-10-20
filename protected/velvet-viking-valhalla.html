@@ -3170,6 +3170,14 @@
      chosen state here is exactly what .swap-day.is-picked already uses --
      an inset cherry rim and the accent as text -- so the two pickers in
      this product read as the same control. */
+  /* THE TODAY SIGNPOST. No new register: .coach-why-btn supplies the control
+     exactly as Next Move's WHY? draws it, and the revealed line is the same
+     quiet support text .field-hint uses everywhere else. Centred and at the
+     foot of the view so it is findable without competing with the session. */
+  .today-injury{text-align:center; padding:2px 0 4px;}
+  .today-injury .coach-why-btn{padding-top:0;}
+  .today-injury-hint{font-size:var(--fs-support); line-height:var(--lh-support);
+                     color:var(--ink-faint); margin-top:6px;}
   .rs-pick{display:flex; flex-direction:column; align-items:flex-start; gap:3px;
            width:100%; text-align:left;}
   .rs-pick-label{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.6px;
@@ -35746,6 +35754,49 @@ function restrictionViabilityLine(){
           : 'None of your current targets is supported by the evidence yet. Nothing has been changed for you.';
   return '<div class="yr-why">'+escapeHtml(head)+' '+escapeHtml(said)+'</div>';
 }
+/* ---------- "INJURED OR ILL?" ON TODAY ----------
+   A SIGNPOST, NOT A SECOND CONTROL. An athlete who has just been told to
+   stop running opens Today, not Settings, and nothing on Today said this was
+   a thing Valhalla could be told. So there is now one quiet line at the foot
+   of the screen that says where to go.
+
+   IT DECLARES NOTHING, AND THAT IS THE WHOLE DESIGN. Settings -> Training
+   Availability stays the single authority for declaring, changing and ending
+   a restriction. Two places to start the same declaration would be two places
+   to get it subtly wrong -- a level picked here and a date picked there, a
+   half-answered modal on one screen and an open one on the other -- so this
+   opens no modal, writes no state and touches no plan. It expands one
+   sentence and that sentence is a direction.
+
+   AND IT STANDS DOWN THE MOMENT IT WOULD BE A DUPLICATE. While a declaration
+   is open, Today already carries the restriction card with its own "Change or
+   extend"; offering a second route to the same place underneath it would be
+   exactly the duplication this is written to avoid.
+
+   The register is the product's own quietest interactive control --
+   .coach-why-btn, the same WHY? affordance Next Move uses -- and it sits at
+   the foot of the view, below the pace reference, where it is findable
+   without competing with the session. */
+var injuryHintOpen = false;
+function renderInjuryPointer(){
+  if (!state || !state.setup || !state.days || !state.days.length) return '';
+  if (openRestriction()) return '';
+  return '<div class="today-injury">'+
+    '<button type="button" class="coach-why-btn" data-action="injury-hint" '+
+      'aria-expanded="'+(injuryHintOpen ? 'true' : 'false')+'" '+
+      'aria-controls="injury-hint-text">Injured or ill?</button>'+
+    (injuryHintOpen
+      ? '<div class="today-injury-hint" id="injury-hint-text">Head to Settings \u2192 Training Availability to update your training.</div>'
+      : '')+
+  '</div>';
+}
+/* Presentation state only, like coachWhyOpen and expandedWeeks: nothing is
+   persisted, nothing is saved, and the plan cannot tell this was pressed. */
+function handleInjuryHint(){
+  injuryHintOpen = !injuryHintOpen;
+  renderApp();
+}
+
 function renderRestrictionCard(){
   var r = restrictionRecord();
   if (!r) return '';
@@ -45864,6 +45915,9 @@ function renderTodayView(){
   html += renderBlockTransitionCard();
   html += dd ? renderDayCard(dd) : '<div class="empty-note">No session scheduled for today — it falls outside the current plan’s dates.</div>';
   html += renderCompactPaceReference();
+  /* LAST, AND DELIBERATELY. A signpost to Settings has no business above the
+     session the athlete opened the app for -- see renderInjuryPointer(). */
+  html += renderInjuryPointer();
   return html;
 }
 // This Week: just the active week's accordion (force-expanded), its zone
@@ -47661,6 +47715,9 @@ document.addEventListener('click', function(e){
     /* INJURY / ILLNESS. Every one of these is a tap the athlete made; none
        of them is reachable from anything Valhalla decided on its own. */
     case 'restriction-open': openRestrictionModal(); break;
+    /* The Today signpost. It only ever opens its own sentence -- declaring
+       and changing a restriction lives in Settings and nowhere else. */
+    case 'injury-hint': handleInjuryHint(); break;
     case 'restriction-level': handleRestrictionLevel(target.getAttribute('data-level')); break;
     case 'restriction-days': handleRestrictionDays(target.getAttribute('data-days')); break;
     case 'restriction-cancel': handleRestrictionCancel(); break;
