@@ -275,13 +275,22 @@ test('the signed day fields are exactly the stated list, and nothing else', () =
      `completed` and `actual`, but the marker is what says those kilometres
      were the athlete's own choice rather than a prescription that was met, and
      a device that dropped it would adopt the run as a completed session.
+
+     dd.restricted joined it for the third version of the same reason, and it
+     is the sharpest one yet: an athlete declares an injury on their phone,
+     and without it the tablet reads the uploaded plan as IDENTICAL --
+     cloudReconcile()'s identical-content branch returns without adopting --
+     and then overwrites the account with a plan that still thinks they are
+     training. It is a real change to what a day prescribes and to whether a
+     surface may count it against the athlete, so it travels.
+
      Anything else appearing here is a writer that has not been thought
      about -- which is the whole point of pinning it. */
   const a = device();
   const signedDay = JSON.parse(sig(a)).days[0];
   assert.equal(Object.keys(signedDay).sort().join(','),
     'actual,athleteState,coachAdjust,completed,date,desc,id,km,mpSegment,'
-      + 'optionalRun,prescription,readiness,support,title,type,week',
+      + 'optionalRun,prescription,readiness,restricted,support,title,type,week',
     'the signed day fields are a stated list; this is the list');
   assert.equal(Object.keys(JSON.parse(sig(a))).sort().join(','), 'days,library,setup',
     'and the top level is exactly setup + days + library, nothing else');

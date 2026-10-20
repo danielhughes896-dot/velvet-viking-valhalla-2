@@ -2764,6 +2764,11 @@
   .day-status-label.key .day-status-dot{background:var(--bronze);}
   .day-status-label.missed{color:var(--c-threshold); border-color:var(--c-threshold);}
   .day-status-label.missed .day-status-dot{background:var(--c-threshold);}
+  /* RESTRICTED IS NOT A WARNING. It borrows the Recovery tone rather than
+     the missed one on purpose: nothing went wrong, the athlete told us, and
+     the label must not read as a red mark against them. */
+  .day-status-label.restricted{color:var(--c-tempo); border-color:var(--c-tempo);}
+  .day-status-label.restricted .day-status-dot{background:var(--c-tempo);}
   .day-status-label.recovery{color:var(--c-tempo); border-color:var(--c-tempo);}
   .day-status-label.recovery .day-status-dot{background:var(--c-tempo);}
   /* Plan HQ's five expandable sections are gone: they are THE READING's
@@ -3150,6 +3155,31 @@
   }
   .ev-card:hover{background:var(--bg-3); border-color:var(--bronze-2);}
   .ev-card:active{background:var(--bg-4);}
+  /* THE RESTRICTION PICKS -- the .ev-card shell, two stacked lines of
+     content, and the swap-session picker's own chosen state.
+
+     DELIBERATELY AFTER .ev-card AND NOT BEFORE IT. Written above the shell
+     first, where it lost every declaration it shared with .ev-card at equal
+     specificity: the two lines ran together into "NO RUNNING AT ALLEvery
+     run in this period becomes a rest day".
+
+     AND DELIBERATELY A RIM, NOT A FILL. --cherry-fill is the token for a
+     labelled BUTTON that supplies its own white ink; used as a tile
+     background it painted the chosen option solid dark red with the
+     existing ink still on it, which in light mode was unreadable. The
+     chosen state here is exactly what .swap-day.is-picked already uses --
+     an inset cherry rim and the accent as text -- so the two pickers in
+     this product read as the same control. */
+  .rs-pick{display:flex; flex-direction:column; align-items:flex-start; gap:3px;
+           width:100%; text-align:left;}
+  .rs-pick-label{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.6px;
+                 font-size:13px; color:var(--ink);}
+  .rs-pick-note{font-size:12px; color:var(--ink-soft); line-height:1.35;}
+  .rs-pick.is-picked{box-shadow:inset 0 0 0 1.5px var(--cherry); border-color:var(--cherry);}
+  .rs-pick.is-picked .rs-pick-label{color:var(--cherry-text);}
+  .rs-pick-row{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
+  .rs-pick-row .rs-pick-inline{flex:1 1 0; min-width:84px; margin:0;
+                               align-items:center; text-align:center; padding:12px 8px;}
   /* SETTINGS NAVIGATION ROW -- the exact .ev-card shell (background/border/
      radius/shadow untouched), content swapped for the simpler shape a pure
      "tap to see this elsewhere" row needs: icon, label, chevron, no
@@ -6905,6 +6935,34 @@ function raceGoalReadiness(distKey, experience, blockResult){
   if (blk && blk.state === 'STRAINED')
     dims.push({ key:'absorption', fraction:0.5, shortfallKm:0, met:false,
                 detail:{ blockState: blk.state } });
+  /* INTERRUPTION, AND IT IS THE ABSORPTION SENTENCE ONE STEP FURTHER. A block
+     the athlete is straining in has not prepared them however far its numbers
+     reached; neither has a block they were medically unavailable for. The
+     three dimensions above read the PRESCRIPTION, and blockResult is
+     regenerated from the setup, so without this a declared restriction cannot
+     reach this verdict at all -- and it reaches absorption even less, because
+     athleteMemory() correctly withholds a restricted day (the athlete was
+     absent, not straining), so blockEffectiveness() stays silent through
+     exactly the interruption that matters.
+
+     NO NEW NUMBER. The fraction is delivered-over-prescribed across the same
+     developing `weeks` already filtered above; the band is the product's own
+     RACE_GOAL_MARGINAL_FRACTION, declared beside RACE_GOAL_READY_FRACTION for
+     this purpose. Below 0.70 the dimension is not met and the existing
+     safety-floor rule makes the verdict INSUFFICIENT; 0.70 to 0.89 leaves it
+     MARGINAL through `worst`; at or above 0.90 it cannot hold a READY block
+     back. It can lower this verdict and never raise it.
+
+     IT DECIDES NOTHING ELSE. durability is untouched, no goal is changed, and
+     raceGoalAssessment() carries the result through the path it already has
+     for a preparation shortfall. */
+  var intr = null;
+  try { intr = restrictionDeliveredFraction(weeks); } catch(e){ intr = null; }
+  if (intr)
+    dims.push({ key:'interruption', fraction: intr.fraction, shortfallKm: 0,
+                met: intr.fraction >= RACE_GOAL_MARGINAL_FRACTION,
+                detail:{ deliveredKm: intr.deliveredKm, prescribedKm: intr.prescribedKm,
+                         restrictedDays: intr.restrictedDays } });
 
   var worst = dims.reduce(function(a, b){
     return (a == null || b.fraction < a.fraction) ? b : a; }, null);
@@ -18517,6 +18575,16 @@ function planContentSignature(st){
         // the morning answers and the state they produced are training
         // evidence, so they travel with the plan like everything else
         readiness: d.readiness || null,
+        /* A DECLARED RESTRICTION IS PLAN CONTENT AND HAS TO TRAVEL. Without
+           it, an athlete who declares an injury on their phone uploads a
+           plan the tablet reads as identical -- cloudReconcile()'s
+           identical-content branch returns without adopting -- and the
+           tablet then overwrites the account with a plan that still thinks
+           they are training. The level and the marker are what every
+           adherence surface reads; the snapshot under `from` is
+           reproducible from them plus the prescription already signed
+           above, so signing it too would be a second competing source. */
+        restricted: d.restricted ? { l:nz(d.restricted.level), at:nz(d.restricted.at) } : null,
         /* SUPPORTING WORK IS TRAINING THE ATHLETE DID, so it signs like the
            training the athlete did. It was missing, and the consequence was
            not merely that a change went undetected: the identical-content
@@ -25100,7 +25168,9 @@ function coachWatch(load, recovery, confidence){
       detail:'Next long run is '+fmtDist(nextLong.km)+' against '+fmtDist(lastLong.km)+' last time. Take it slower than feels necessary.' });
   }
   var missed = state.days.filter(function(dd){
-    return !dd.completed && dd.type!=='rest' && dd.date < today && daysBetween(dd.date, today) <= 14;
+    // a restricted day was not "unlogged" -- see plannedSessionWindow()
+    return !dd.completed && dd.type!=='rest' && !dd.restricted &&
+           dd.date < today && daysBetween(dd.date, today) <= 14;
   });
   if (missed.length >= 3) out.push({ label:'Missed sessions',
     detail:missed.length+' sessions in the last fortnight went unlogged. The plan assumes they happened.' });
@@ -25294,6 +25364,26 @@ function coachDecision(){
   };
 
   // ---- safety, which stands on its own and never comes from a trend ----
+  /* THE ATHLETE'S OWN DECLARATION OUTRANKS EVERY READING OF IT. Illness and
+     pain have only ever reached this engine through the words in a logged
+     session -- which needs a session to have been run, and an athlete who
+     cannot run logs nothing. A declared restriction is the same underlying
+     fact stated first-hand, so it is added under the SAME concept: one
+     illness, counted once, whether Valhalla inferred it or was told. Added
+     before the inferred readings so its sentence is the one that leads.
+
+     ANY OPEN DECLARATION, NOT ONLY ONE INSIDE ITS WINDOW. Asked of
+     activeRestriction() first, which goes null the day the end date passes
+     -- so an athlete who had not yet answered "are you back?" was shown
+     that question and, directly beneath it, a Next Move reading PROCEED and
+     "your recent training supports keeping this session as written". The
+     card promises nothing resumes until they answer; the coach has to keep
+     the same promise. */
+  var openRestr = openRestriction();
+  if (openRestr) add('illness', 10,
+    todayStr() <= openRestr.until
+      ? 'You have told Valhalla you cannot train normally until ' + dShort(openRestr.until)
+      : 'You have not told Valhalla you are back yet', true);
   var ill = recent.filter(function(dd){ return coachEnvironment((dd.actual||{}).notes, dd.actual).illness; });
   if (ill.length) add('illness', 10, 'Illness reported '+(ill.length>1?'in '+ill.length+' recent sessions':'in your last session'), true);
   if (ready && ready.health==='under') add('illness', 10, 'You reported feeling under the weather this morning', true);
@@ -26416,18 +26506,534 @@ function applyRecoveryCeiling(days, raceDate, noIntensityDays){
   (days || []).forEach(function(dd){
     if (dd.date > until) return;
     if (RECOVERY_QUALITY_TYPES.indexOf(dd.type) === -1) return;
-    dd.type = 'easy';
-    dd.title = 'Easy Aerobic';
-    dd.desc = 'Easy running only — you are still recovering. Conversational the whole way.';
     dd.recoveryCeiling = true;
-    /* The three lines above have just AUTHORED an easy run of this distance,
-       so the day gets that structure, exactly as the coach's downgrade does.
-       Deleting the prescription instead left a session Valhalla had written
-       showing as a title and a line of prose. Generation, not
-       reverse-engineering: nothing here is read back off the old session. */
-    dd.prescription = { v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:round1(dd.km) } };
+    /* downgradeToEasyRun() below has just AUTHORED an easy run of this
+       distance, so the day gets that structure, exactly as the coach's
+       downgrade does. Deleting the prescription instead left a session
+       Valhalla had written showing as a title and a line of prose.
+       Generation, not reverse-engineering: nothing here is read back off the
+       old session. The body lives in downgradeToEasyRun() because the
+       declared-restriction layer below needs the identical act and two
+       copies of it would drift. */
+    downgradeToEasyRun(dd, 'Easy running only — you are still recovering. Conversational the whole way.');
   });
   return days;
+}
+
+/* =========================================================
+   INJURY AND ILLNESS -- A DECLARED TRAINING RESTRICTION
+   ---------------------------------------------------------
+   WHAT THIS IS, AND WHAT IT DELIBERATELY IS NOT.
+
+   Valhalla has always been able to notice illness and pain AFTER the fact:
+   coachEnvironment() reads the words out of a logged session and the safety
+   layer acts on them. That reading is retrospective, and it needs a session
+   to have been RUN before it can see anything at all. An athlete who cannot
+   run is exactly the athlete who logs nothing -- so the one state the coach
+   most needed to know about was the one state nobody could tell it.
+
+   THIS IS THE ATHLETE SAYING IT IN ADVANCE. Two facts are asked for and
+   nothing else: what they can still do, and until when. Valhalla is not told
+   what the injury or illness is, does not ask, stores no diagnosis and makes
+   no medical judgement. That is the boundary the rest of the product already
+   keeps and this does not move it.
+
+   NO SECOND COACHING BRAIN. Everything below either reuses machinery that
+   already exists -- applyRecoveryCeiling()'s downgrade, workoutSnapshot()'s
+   restore shape, RECOVERY_PROFILE's own numbers, raceGoalAssessment()'s
+   verdict -- or TURNS OFF a reader that would otherwise read a medically
+   unavailable session as a session the athlete chose not to run. Nothing
+   here invents a pace, writes a workout Valhalla does not already write, or
+   moves a goal.
+
+   THE SEVEN PROMISES, AND WHERE EACH IS KEPT:
+     Valhalla knows what is restricted and for how long
+                                   state.setup.restriction, dd.restricted
+     The plan adapts during it     applyRestrictionToPlan()
+     It is not poor adherence      dd.restricted, read by every adherence surface
+     Nothing is ever caught up     missedStimulus() skips restricted days
+     History is protected          dd.restricted.from; no day is ever deleted
+     Return is managed             NOT YET -- see the open-authority note at
+                                   "RETURN TO TRAINING" below. Ending a
+                                   restriction restores the programme and
+                                   claims nothing about how fast to come back.
+     Viability is reassessed       restrictionViability(), and the
+                                   `interruption` dimension in
+                                   raceGoalReadiness()
+
+   ONE SOURCE OF TRUTH FOR "WAS THIS DAY RESTRICTED", AND IT IS THE DAY.
+   The record on state.setup drives the lifecycle -- what is open, until when
+   -- and nothing else. Every reader below asks the DAY, because a day keeps
+   its marker after the declaration is lifted, after the block is rebuilt and
+   after the setup object is replaced. A window computed from the record
+   would answer differently on each of those, and an adherence surface that
+   changes its mind about the past is worse than one that never knew. */
+var RESTRICTION_LEVELS = ['none', 'easy'];
+var RESTRICTION_META = {
+  none: { label:'No running at all',
+          short:'No running',
+          applied:'Every run in this period becomes a rest day.' },
+  easy: { label:'Easy running only',
+          short:'Easy only',
+          applied:'Quality work becomes easy running. Your prescribed distances are unchanged.' }
+};
+/* The quick answers to "for how long". A date picker is offered beside them;
+   these exist because an athlete who has just been told to stop running
+   should not have to do calendar arithmetic. */
+var RESTRICTION_DURATIONS = [
+  { days:7,  label:'1 week' },
+  { days:14, label:'2 weeks' },
+  { days:28, label:'4 weeks' }
+];
+
+/* The declaration as stored, or null where there is none or it is malformed.
+   A stored shape that cannot be read is treated as absent rather than
+   repaired: a half-written restriction must never restrict anything. */
+function restrictionRecord(){
+  var su = state && state.setup;
+  var r = su && su.restriction;
+  if (!r || RESTRICTION_LEVELS.indexOf(r.level) === -1) return null;
+  if (!r.from || !r.until || r.until < r.from) return null;
+  return r;
+}
+/* Open, and today is inside it. */
+function activeRestriction(){
+  var r = restrictionRecord();
+  if (!r || r.endedAt) return null;
+  return (todayStr() <= r.until) ? r : null;
+}
+/* THE WINDOW HAS RUN OUT AND THE ATHLETE HAS NOT SAID THEY ARE BACK.
+   A restriction does not expire on its own. An end date is the athlete's
+   best guess at a moment they could not possibly know, and a programme that
+   simply resumed on it would be Valhalla deciding somebody had healed. The
+   declaration stays open until they answer, and the only two answers are
+   "I am back" and "not yet". */
+function restrictionAwaitingReturn(){
+  var r = restrictionRecord();
+  if (!r || r.endedAt) return null;
+  return (todayStr() > r.until) ? r : null;
+}
+/* Any open declaration, whichever side of its end date today is. */
+function openRestriction(){ return activeRestriction() || restrictionAwaitingReturn(); }
+
+/* THE ONE QUESTION EVERY ADHERENCE SURFACE ASKS. A day the athlete was
+   medically unavailable for is not a day they skipped, and this is how each
+   of them knows the difference. */
+function dayRestricted(dd){ return !!(dd && dd.restricted); }
+/* Calendar days inside [from, to] that carry the marker. Used by the evidence
+   layer, which must treat them as neither evidence nor absence of it. */
+function restrictedDaysBetween(from, to){
+  if (!from || !to || !state || !state.days) return 0;
+  var seen = {};
+  state.days.forEach(function(dd){
+    if (dd && dd.restricted && dd.date >= from && dd.date <= to) seen[dd.date] = true;
+  });
+  return Object.keys(seen).length;
+}
+
+/* THE ONE DOWNGRADE, EXTRACTED SO THERE IS ONLY EVER ONE.
+   applyRecoveryCeiling() wrote this body and it is the product's established
+   answer to "this athlete must not run hard yet": the type, the title, the
+   sentence and a GENERATED easy run of the same distance -- never a workout
+   reverse-engineered out of the one it replaces. The declared-restriction
+   layer needs the identical act, so both callers call this rather than
+   carrying copies that could drift apart. */
+/* THE OTHER HALF OF workoutSnapshot(): putting one back. Written once so a
+   restore cannot disagree with the snapshot it is restoring, in the same
+   spirit as the snapshot itself. */
+function restoreWorkoutSnapshot(dd, snap){
+  if (!dd || !snap) return false;
+  dd.km = snap.km; dd.type = snap.type; dd.title = snap.title; dd.desc = snap.desc;
+  if (snap.mpSegment) dd.mpSegment = true; else delete dd.mpSegment;
+  if (snap.prescription) dd.prescription = JSON.parse(JSON.stringify(snap.prescription));
+  else delete dd.prescription;
+  return true;
+}
+function downgradeToEasyRun(dd, why){
+  dd.type = 'easy';
+  dd.title = 'Easy Aerobic';
+  dd.desc = why;
+  dd.prescription = { v:PRESCRIPTION_VERSION, archetype:'easy_run', params:{ km:round1(dd.km) } };
+}
+
+/* ---------- what a restriction does to the plan ----------
+   NEVER THE PAST, AND NEVER A SESSION THAT HAPPENED. The earliest day this
+   can touch is today, and a day carrying a run is left exactly as it is: a
+   run that happened is history and a declaration made afterwards cannot
+   unmake it.
+
+   THE GOAL DAY AND THE FITNESS CHECKPOINT ARE MARKED BUT NEVER REWRITTEN.
+   Rewriting the race would be Valhalla changing the athlete's goal on their
+   behalf, which it may not do under any circumstances; the checkpoint is the
+   measurement that goal is assessed against. Both still get the marker, so
+   every adherence surface knows the athlete was unavailable, and both are
+   left as prescribed for the athlete to decide about themselves. */
+function applyRestrictionToPlan(level, from, until){
+  var out = { marked:0, rested:0, eased:0, kept:0 };
+  if (RESTRICTION_LEVELS.indexOf(level) === -1) return out;
+  if (!state || !state.days || !from || !until) return out;
+  var start = maxDateStr(from, todayStr());
+  var at = new Date().toISOString();
+  /* NO DISTANCE IS SCALED HERE, AND RECOVERY_PROFILE IS NOT CONSULTED AT ALL.
+     An earlier version multiplied every surviving day by
+     RECOVERY_PROFILE.volumeFactor. The audit of that found it unsupportable
+     in three ways and HQ removed it.
+
+       WRONG OPERAND, which is the one the noIntensityDays case did not have.
+       That table's own comment insists volumeFactor is "the fraction of the
+       athlete's own recent absorbed volume the block starts from -- their
+       own training, not a table". It was being applied to the PRESCRIBED
+       kilometres of a future day in a race build instead. Measured on a
+       70km/week marathoner whose recovery block would start at 28km, the
+       restricted weeks came out between 22 and 36km -- swinging +/-25%
+       around the number they came from, decided purely by where in the
+       block each week sat. The athlete was cut hardest in a cutback week
+       and least in the peak.
+
+       WRONG AXIS. The factor is ordered by the race just run: 0.55 for 5K
+       down to 0.40 for the marathon. Same declaration, different cut, and
+       inverted here -- the athlete with the largest aerobic base is cut the
+       hardest, because a marathon RACE costs the most, which is nothing to
+       do with being ill.
+
+       AND IT WROTE PAST THE PRODUCT'S OWN ROUNDING. roundWorkoutKm() exists
+       so sessions carry clean, watch-friendly numbers; the multiply produced
+       6.2km, 3.8km, 8.8km, 4.4km. The Math.max(1, ...) floor beside it was
+       an invented constant with no relative anywhere in the product, whose
+       quantum is EASY_QUANTUM_KM = 0.5.
+
+     THE TWO HALVES OF RECOVERY_PROFILE HAVE SEPARATE JOBS and this layer
+     needs neither: volumeFactor sizes the opening week of a newly GENERATED
+     block from absorbed volume, and noIntensityDays removes intensity inside
+     that already-reduced block -- applyRecoveryCeiling() never assigns dd.km
+     at all. Easy-only now says exactly what it says: quality becomes easy
+     running, and the distance is the one Valhalla prescribed.
+
+     WHAT PROTECTS AN ATHLETE WHO CANNOT RUN THAT FAR is not a scaling factor
+     Valhalla cannot justify. It is the other level -- "no running at all" --
+     which claims nothing, and the fact that a restricted day they simply do
+     not run costs them nothing: every adherence surface already reads it as
+     medically unavailable. */
+  state.days.forEach(function(dd){
+    if (!dd || dd.date < start || dd.date > until) return;
+    if (dd.completed || sessionRan(dd)) return;
+    /* APPLIED FROM THE PRESCRIPTION, NEVER FROM THE LAST APPLICATION.
+       This function runs again every time the athlete extends, changes
+       level, or a regeneration makes the keeper re-apply -- and the naive
+       version snapshotted whatever it found. Second pass: the "original"
+       became the rest day the first pass wrote, and the real session was
+       gone for good. Worse on an easy-only restriction, where each pass
+       multiplied the distance by the recovery factor again.
+
+       So a day that already carries a snapshot is put back to it first and
+       the level applied to THAT. The snapshot is written once, survives
+       every later pass, and the result is identical whether this runs once
+       or five times. */
+    var prior = (dd.restricted && dd.restricted.from) || null;
+    if (prior) restoreWorkoutSnapshot(dd, prior);
+    dd.restricted = { at:at, level:level };
+    out.marked++;
+    if (dd.type === 'rest') return;
+    if (dd.type === 'race' || dd.type === 'checkpoint'){ out.kept++; return; }
+    dd.restricted.from = prior || workoutSnapshot(dd);
+    if (level === 'none'){
+      dd.type = 'rest'; dd.km = 0; dd.title = 'Rest';
+      dd.desc = 'Rest — you have told Valhalla you cannot run at the moment.';
+      delete dd.prescription;
+      delete dd.mpSegment;
+      out.rested++;
+      return;
+    }
+    /* level 'easy': no intensity, and nothing else. The goal-pace segment
+       goes with the intensity it is -- see dd.mpSegment's own contract note,
+       which calls it EXACT for exactly the long runs carrying goal pace --
+       and that deletion is what lets the readiness term below see that this
+       day no longer delivers the race-specific work it was prescribed. */
+    delete dd.mpSegment;
+    downgradeToEasyRun(dd, 'Easy running only — you have told Valhalla you cannot train normally at the moment.');
+    out.eased++;
+  });
+  return out;
+}
+
+/* ---------- RETURN TO TRAINING: AN OPEN AUTHORITY, DELIBERATELY UNFILLED
+   ----------
+   THERE IS NO GRADED RETURN HERE, AND THAT IS THE RULING RATHER THAN AN
+   OMISSION. An earlier version of this file sized one as "no intensity for
+   as long as you were out, capped at RECOVERY_PROFILE.noIntensityDays". The
+   audit of that rule found it unsupportable in three separate ways and HQ
+   removed it.
+
+     WRONG INDEPENDENT VARIABLE. RECOVERY_PROFILE's own comment states the
+     only property it claims support for: "the longer and harder the RACE,
+     the longer the return". Every other use of noIntensityDays starts its
+     clock at a race date. An injury layoff contains no race; its axis is
+     time out and tissue tolerance, which that table does not encode.
+
+     ROLE INVERSION. The same comment calls these "safety floors ... nothing
+     an athlete logs can shorten them", and applyRecoveryCeiling() even
+     EXTENDS the window to the end of the recovery block. Taking the minimum
+     of it turned the one quantity labelled "nothing may shorten this" into
+     the thing that shortened.
+
+     A PACKAGE SPLIT IN HALF. noIntensityDays was tuned inside {weeks,
+     noIntensityDays, volumeFactor} -- a marathon's eighteen quality-free
+     days sit inside a three-week block at 40% volume. Applying the
+     intensity half at full prescribed volume is LESS conservative than the
+     context the number came from.
+
+   Measured, the cap also did all the work in exactly the cases that mattered:
+   beyond a fortnight out the time-out term contributed nothing, and a 5K
+   athlete returning from four months away was eased in for four days.
+
+   WHAT REPLACES IT IS NOTHING, ON PURPOSE. An athlete-chosen duration would
+   dress a guess as a decision, and any number written here would be invented.
+   A return-to-training authority indexed on time out belongs in SYSTEM and
+   does not exist yet. Until it does, ending a restriction restores exactly
+   what Valhalla prescribed and the product says so plainly rather than
+   implying a management it is not performing. The restriction lifecycle is
+   unchanged: an athlete who wants longer simply has not finished, and the
+   declaration is still theirs to extend.
+
+   WHAT IS NOT LOST BY LEAVING IT EMPTY. Everything that was already true of
+   an interrupted athlete still is -- the coach reads thin and recent
+   evidence through coachDecision() exactly as it always has, Plan Evolution
+   still reduces where the evidence says to, and raceGoalReadiness() now
+   carries an `interruption` dimension so the goal is reassessed. None of
+   those is a return ramp and none of them is claimed to be one. */
+
+/* THE DECLARATION. One record, replacing any previous one, and the plan is
+   adapted in the same act -- a declaration that did not reach the plan would
+   be a promise the next screen breaks. */
+function declareRestriction(level, until){
+  if (RESTRICTION_LEVELS.indexOf(level) === -1) return null;
+  if (!state || !state.setup || !until) return null;
+  var today = todayStr();
+  if (until < today) return null;
+  var r = { level:level, from:today, until:until, declaredAt:new Date().toISOString(),
+            endedAt:null, endedOn:null };
+  state.setup.restriction = r;
+  r.applied = applyRestrictionToPlan(level, r.from, r.until);
+  scheduleSave();
+  return r;
+}
+/* Still not right. The level may change with it -- an athlete who could not
+   run at all last week may be able to jog this week -- and the extension
+   applies from today forward exactly as the original declaration did. */
+function extendRestriction(level, until){
+  var r = openRestriction();
+  if (!r) return null;
+  if (RESTRICTION_LEVELS.indexOf(level) === -1) level = r.level;
+  if (!until || until < todayStr()) return null;
+  r.level = level;
+  r.until = until;
+  r.extendedAt = new Date().toISOString();
+  r.applied = applyRestrictionToPlan(level, todayStr(), until);
+  scheduleSave();
+  return r;
+}
+/* BACK. Three things happen and none of them touches the past.
+
+   The prescription Valhalla wrote comes back on every day still ahead, out
+   of the snapshot taken when it was restricted -- so the block the athlete
+   bought is the block they return to, not a stretch of rest days.
+
+   The days already behind them keep their markers for good. They were
+   restricted; that is what happened; and every adherence surface will go on
+   reading them that way however long the athlete trains afterwards.
+
+   And nothing is added. See the open-authority note above: Valhalla does not
+   yet size a return, so it does not pretend to. */
+function endRestriction(){
+  var r = openRestriction();
+  if (!r) return null;
+  var today = todayStr();
+  var restored = 0;
+  state.days.forEach(function(dd){
+    if (!dd || dd.date < today) return;
+    if (!dd.restricted) return;
+    if (!dd.completed && !sessionRan(dd) && restoreWorkoutSnapshot(dd, dd.restricted.from))
+      restored++;
+    delete dd.restricted;
+  });
+  r.endedAt = new Date().toISOString();
+  r.endedOn = today;
+  r.outDays = Math.max(0, daysBetween(r.from, today));
+  r.restored = restored;
+  scheduleSave();
+  return r;
+}
+
+/* ---------- AND IT HAS TO SURVIVE THE PLAN BEING REBUILT ----------
+   THE DEFECT THIS EXISTS FOR, found with a screenshot harness rather than a
+   test: a restriction was declared, every session in the window became rest,
+   and the very next render put the whole programme back. renderApp() calls
+   ensureRaceGoalFrequencyReconciled(), which regenerates every future day
+   from the setup and merges the past back in -- so the markers, and the
+   adapted prescription with them, were gone. The declaration survived on
+   state.setup and the card still said "training restricted" over a plan that
+   had quietly resumed. Nothing in the test suite could see it, because the
+   suite calls the engine rather than the render loop.
+
+   REGENERATION IS LEGITIMATE AND IS NOT BEING PREVENTED. The base horizon
+   advances, a frequency repair reconciles, a cloud adoption replaces the
+   days: all of those are supposed to produce a freshly generated future.
+   What they may not do is produce one that contradicts something the
+   athlete has told Valhalla and Valhalla has agreed to. So the declaration
+   is re-applied rather than defended, and it is re-applied in the one place
+   every regeneration already ends: the render.
+
+   THE SAME CHOKE POINT, FOR THE SAME REASON, as the two ensure* calls it
+   sits beside in renderApp(). It creates no evidence, decides nothing and
+   reads nothing about the athlete -- it re-states a prescription rule the
+   athlete asked for -- and it is a no-op on every render where the plan
+   already honours it, which is all but the first after a regeneration.
+
+   IT ALSO ROLLS FORWARD. While a declaration is open but its end date has
+   passed, the athlete has not said they are back, and the card promises
+   that nothing resumes until they do. Extending the window to today is how
+   that promise is kept rather than merely printed. */
+function ensureRestrictionApplied(){
+  var r = openRestriction();
+  if (!r || !state || !state.days) return false;
+  var today = todayStr();
+  var end = maxDateStr(r.until, today);
+  var missing = state.days.some(function(dd){
+    return dd && dd.date >= today && dd.date <= end &&
+           !dd.restricted && !dd.completed && !sessionRan(dd);
+  });
+  if (!missing) return false;
+  applyRestrictionToPlan(r.level, today, end);
+  scheduleSave();
+  return true;
+}
+
+/* ---------- HOW MUCH OF THE BLOCK THE ATHLETE WAS AVAILABLE FOR ----------
+   WHAT THIS IS FOR. raceGoalReadiness() credits a block with the workload,
+   durability and race-specific work its PRESCRIPTION reaches -- and its
+   blockResult is regenerated from four setup fields by
+   raceGoalCheckpointBlock(), so neither the athlete's execution nor any
+   adaptation of state.days can reach it. Measured before this existed: a
+   marathoner who had just lost six weeks to a declared restriction, with 57%
+   of the prescribed kilometres still standing, read READY on every goal.
+
+   WHAT IT MEASURES, AND WHAT IT DOES NOT. Not a new standard -- the three
+   dimensions above are right. This is a fact check on what they are
+   crediting: how much of what Valhalla prescribed is still there to be run.
+   Both figures already exist on the plan and neither is a new measurement:
+   dd.km is what the day asks for now, and dd.restricted.from.km is what it
+   asked for before the declaration rewrote it.
+
+   SCOPED TO THE DEVELOPING WEEKS, exactly as the dimensions it corrects are.
+   The caller passes the weeks it has already filtered (no race week, no
+   taper), and the days are selected by dd.week against w.week -- the same
+   number buildDaysFromWeeks() stamps on every day it writes. A restriction
+   that falls entirely inside the taper is therefore not counted here, which
+   is the same scoping decision the other three dimensions already make.
+
+   NO RECENCY WEIGHTING. An interruption in week two counts exactly as one in
+   week twelve. Discounting it would need a decay authority that does not
+   exist, and inventing one here is the thing this layer does not do.
+
+   IT CAN ONLY EVER LOWER. The fraction is clamped at 1, and null is returned
+   where no declaration exists or none of it touched a developing week, so a
+   block with no interruption is scored exactly as it was before. */
+/* ---------- DID THIS DAY STILL DELIVER WHAT IT WAS PRESCRIBED ----------
+   KILOMETRES ARE NOT THE WHOLE OF DELIVERY. Under an easy-only restriction
+   every distance stands, so a km-only reading credited six weeks of removed
+   quality as fully delivered race preparation and the verdict read READY --
+   the same defect the interruption dimension was added to close, arriving
+   through the other level.
+
+   TYPE IS NOT THE AUTHORITY FOR THIS, AND THE RUNTIME ALREADY SAYS SO.
+   The goal-pace budget note (see dd.mpSegment's contract, "WHAT IS A
+   GOAL-PACE WEEK") compared the candidates for exactly this question and
+   ruled: isQualityType() is "blind: keyed on dd.type"; dd.mpSegment is
+   "EXACT -- true for exactly the long runs that carry goal pace, false for
+   every aerobic one at every distance and in every phase", agreeing exactly
+   with structuredZoneTime().zones.mp. A type comparison alone therefore
+   fails twice over: it cannot see goal-pace work lost out of a long run
+   (sixteen such long runs across the four Race Goal architectures), and it
+   counts a long run converted to an easy run of the SAME DISTANCE as a loss
+   when the durability stimulus is that distance and it is still there --
+   which would be modifying durability by the back door.
+
+   SO THE TWO CANONICAL AUTHORITIES ARE ASKED, EACH FOR ITS OWN QUESTION, and
+   neither is invented here:
+     isQualityType()  did the athlete run hard -- its own stated job, already
+                      read by stacked hard days, quality adherence and the
+                      protected-session rules
+     dd.mpSegment     is this the race-specific goal-pace work -- exact, by
+                      the comparison the generator already published
+
+   A day delivers nothing when the hard session it was prescribed is no longer
+   a hard session, or when the goal-pace work it carried is gone. Otherwise it
+   delivers its distance, including a long run that is still the same long
+   distance under a different name. */
+function restrictionDayDelivered(dd, from){
+  if (!dd) return 0;
+  if (from){
+    if (isQualityType(from.type) && !isQualityType(dd.type)) return 0;
+    if (from.mpSegment && !dd.mpSegment) return 0;
+  }
+  return dd.km || 0;
+}
+function restrictionDeliveredFraction(developingWeeks){
+  if (!restrictionRecord()) return null;
+  if (!state || !state.days || !developingWeeks || !developingWeeks.length) return null;
+  var want = {};
+  developingWeeks.forEach(function(w){ if (w && w.week != null) want[w.week] = true; });
+  var prescribed = 0, delivered = 0, days = 0;
+  state.days.forEach(function(dd){
+    if (!dd || !want[dd.week]) return;
+    /* The race and the Fitness Checkpoint are marked but never rewritten, so
+       they carry no snapshot and ask for exactly what they always did. They
+       contribute equally to both sides and so count as delivered, which is
+       true: nothing was taken away from them. */
+    var from = (dd.restricted && dd.restricted.from) || null;
+    prescribed += (from ? from.km : dd.km) || 0;
+    delivered  += restrictionDayDelivered(dd, from);
+    if (dd.restricted) days++;
+  });
+  if (!(prescribed > 0) || !days) return null;
+  return { fraction: Math.min(1, Math.round((delivered / prescribed) * 100) / 100),
+           deliveredKm: round1(delivered), prescribedKm: round1(prescribed),
+           restrictedDays: days };
+}
+
+/* ---------- what it means for the goal ----------
+   REPORTED, NEVER ACTED ON. The verdict is raceGoalAssessment()'s, asked of
+   the programme the athlete is actually running, exactly as the Fitness
+   Checkpoint card asks it. This file chooses no goal, computes no projection
+   and applies no tie-break -- and it does not offer to change the goal
+   either, because Valhalla never changes an athlete's race goal on their
+   behalf and an interruption is not a new authority to do so.
+
+   WHEN IT IS ASKED AT ALL: there is a race goal still ahead, and the
+   interruption actually took training away. A restriction that removed
+   nothing is not a reason to put the athlete's goal in front of them. */
+function restrictionViability(){
+  var su = state && state.setup;
+  if (!su || !su.raceDate || !su.distanceKey) return null;
+  if (su.purpose && su.purpose !== 'race') return null;
+  if (su.raceDate < todayStr()) return null;
+  var r = restrictionRecord();
+  if (!r) return null;
+  /* SCOPED TO THIS EPISODE. Markers outlive the declaration that wrote them
+     -- that is what protects the history -- so counting every marker in the
+     plan would report last winter's chest infection as part of this one. */
+  var lost = (state.days || []).filter(function(dd){
+    return dd && dd.restricted && dd.restricted.from && dd.date >= r.from;
+  });
+  if (!lost.length) return null;
+  var assessment = null;
+  try { assessment = raceGoalAssessment(raceGoalCheckpointBlock()); } catch(e){ assessment = null; }
+  return {
+    sessionsLost: lost.length,
+    qualityLost: lost.filter(function(dd){ return isQualityType(dd.restricted.from.type); }).length,
+    daysToRace: Math.max(0, daysBetween(todayStr(), su.raceDate)),
+    assessment: assessment
+  };
 }
 
 /* ---------- race outcome ----------
@@ -26675,7 +27281,9 @@ function measuredFitnessEstimate(distanceKey){
   if (distanceKey === 'full' && !fitnessEvidenceReady()){
     var ev = fitnessEvidence();
     return { distanceKey: distanceKey, withheld: true,
-             spanDays: ev.spanDays, needDays: FITNESS_EVIDENCE_MIN_DAYS,
+             // the span the gate actually read, so the number the card shows
+             // and the number that withheld it cannot disagree
+             spanDays: ev.usableSpanDays, needDays: FITNESS_EVIDENCE_MIN_DAYS,
              reason: ev.sessions
                ? 'Valhalla needs about two weeks of logged training before it will estimate a marathon honestly.'
                : 'Nothing logged yet, so there is nothing to estimate a marathon from.' };
@@ -26908,7 +27516,8 @@ var FITNESS_EVIDENCE_MIN_DAYS = 14;
    the readiness/feel/HR layer on top of it. Both are reported; only the first
    is required. */
 function fitnessEvidence(){
-  var out = { spanDays: 0, firstDate: null, lastDate: null,
+  var out = { spanDays: 0, usableSpanDays: 0, restrictedDays: 0,
+              firstDate: null, lastDate: null,
               sessions: 0, withSubjective: 0, longestKm: 0,
               weeklyKm: null, measuredPerformances: 0 };
   if (!state || !state.days) return out;
@@ -26929,6 +27538,17 @@ function fitnessEvidence(){
      a fortnight with three sessions missed in the middle is still a fortnight
      of evidence -- which is what HQ's rule says and what a coach would say. */
   out.spanDays = daysBetween(out.firstDate, today);
+  /* RESTRICTED DAYS ARE NEITHER EVIDENCE NOR THE ABSENCE OF IT, and the span
+     is where that distinction has to be made. A fortnight is the floor
+     because a fortnight of training tells Valhalla something; a fortnight
+     in which ten days were medically unavailable does not, and counting
+     those days would let an injury LENGTHEN the window that decides how
+     much the product claims to know. They are also not a gap to be held
+     against the athlete: the sessions that did happen still count in full,
+     the estimate is never withheld because of them, and nothing about them
+     reaches confidence except the calendar time they take back out. */
+  out.restrictedDays = restrictedDaysBetween(out.firstDate, today);
+  out.usableSpanDays = Math.max(0, out.spanDays - out.restrictedDays);
   done.forEach(function(dd){
     var a = dd.actual || {};
     if (a.hr != null || a.rpe != null || a.feel || dd.readiness) out.withSubjective++;
@@ -26936,7 +27556,7 @@ function fitnessEvidence(){
   });
   /* Weekly volume from the athlete's own completed sessions over the window --
      objective, and owing nothing to loadToleranceModel()'s subjective filter. */
-  var weeks = Math.max(1, out.spanDays / 7);
+  var weeks = Math.max(1, out.usableSpanDays / 7);
   var km = done.reduce(function(t, dd){ return t + (dd.actual.km || 0); }, 0);
   out.weeklyKm = Math.round((km / weeks) * 10) / 10;
   return out;
@@ -26953,7 +27573,7 @@ function fitnessEvidenceReady(){
      raceGoalAssessment(), whose whole input is measured performances.
      Fourteen days is the floor for an athlete who has measured NOTHING. */
   if (e.measuredPerformances > 0) return true;
-  return e.sessions > 0 && e.spanDays >= FITNESS_EVIDENCE_MIN_DAYS;
+  return e.sessions > 0 && e.usableSpanDays >= FITNESS_EVIDENCE_MIN_DAYS;
 }
 /* HOW STRONGLY THE ANSWER IS HELD -- never whether there is one.
    Each rung is a real property of the evidence, and the marathon's own
@@ -26970,8 +27590,13 @@ function fitnessConfidence(distanceKey){
   // A measured race or checkpoint is the strongest thing there is.
   if (e.measuredPerformances > 0) score += 2;
   else reasons.push('No race or checkpoint measured yet.');
-  // Length of the window.
-  if (e.spanDays >= 42) score += 2; else if (e.spanDays >= 28) score += 1;
+  // Length of the window -- the part of it the athlete was actually
+  // available for. See fitnessEvidence() on why a restriction may not
+  // lengthen the window that decides how much Valhalla claims to know.
+  if (e.usableSpanDays >= 42) score += 2; else if (e.usableSpanDays >= 28) score += 1;
+  if (e.restrictedDays > 0)
+    reasons.push(e.restrictedDays + ' day' + (e.restrictedDays===1?'':'s') +
+                 ' of this period were restricted by injury or illness.');
   // How much of it carries the subjective layer.
   var subjShare = e.sessions ? e.withSubjective / e.sessions : 0;
   if (subjShare >= 0.5) score += 1;
@@ -27037,7 +27662,9 @@ function currentFitnessEstimate(distanceKey){
   if (distanceKey === 'full' && !fitnessEvidenceReady()){
     var ev = fitnessEvidence();
     return { distanceKey: distanceKey, withheld: true,
-             spanDays: ev.spanDays, needDays: FITNESS_EVIDENCE_MIN_DAYS,
+             // the span the gate actually read, so the number the card shows
+             // and the number that withheld it cannot disagree
+             spanDays: ev.usableSpanDays, needDays: FITNESS_EVIDENCE_MIN_DAYS,
              reason: ev.sessions
                ? 'Valhalla needs about two weeks of logged training before it will estimate a marathon honestly.'
                : 'Nothing logged yet, so there is nothing to estimate a marathon from.' };
@@ -27144,10 +27771,23 @@ function startDevelopmentBlock(purpose, opts){
        would quietly demote itself to an estimate the moment the athlete
        started their next block, which would also make that block eligible for
        a calibration it does not need. */
-    experience: state.setup.experience
+    experience: state.setup.experience,
+    /* A DECLARED RESTRICTION OUTLIVES THE BLOCK IT WAS DECLARED IN. Dropping
+       it here would mean an injured athlete who starts their next block
+       silently loses the declaration AND gets a freshly generated plan full
+       of quality sessions they cannot run -- a safety-relevant fact deleted
+       by a transition that has nothing to do with it. Carried, and
+       re-applied to the new days below. */
+    restriction: (priorSetup && priorSetup.restriction) || null
   };
   carryMeasuredAnchors(state.setup, priorSetup);
   state.days = days;
+  /* The new days are freshly generated and carry no markers, so an open
+     declaration has to be applied to them before anything renders. Nothing
+     is re-declared: the same record, the same level, the same end date. */
+  var carriedRestriction = openRestriction();
+  if (carriedRestriction)
+    applyRestrictionToPlan(carriedRestriction.level, todayStr(), carriedRestriction.until);
   initExpanded();
   scheduleSave();
   return block;
@@ -27276,6 +27916,21 @@ function athleteMemoryFromDays(days, from){
      archived whole rather than only its recent weeks. */
   return (days || []).filter(function(dd){
     if (from && dd.date < from) return false;
+    /* MEDICALLY UNAVAILABLE IS NOT A RESULT, AND THIS IS THE ONE FUNNEL.
+       Every longitudinal reader in the product -- personal baselines,
+       completionRate, athleteTrends, the response model, block
+       effectiveness, the Playbook -- reads these records and nothing else.
+       A day inside a declared restriction was not a session this athlete
+       chose not to run, so it may not enter any of them as a completion
+       that did not happen.
+
+       A RUN THAT DID HAPPEN STILL COUNTS. An athlete restricted to easy
+       running who went out and ran easy gave Valhalla real training, and
+       sessionRan() is what separates the two cases. Only the empty day is
+       withheld, and it is withheld from the record rather than recorded as
+       a failure -- which is exactly the distinction "not poor adherence"
+       is asking for. */
+    if (dd.restricted && !sessionRan(dd)) return false;
     /* Rest days normally carry nothing worth remembering -- but the morning
        after a long run is usually a rest day, and that is exactly when an
        athlete reports heavy legs. A rest day is included only when it carries
@@ -29330,6 +29985,12 @@ function supportCapacityCeiling(){
    what the symptom is or how serious it might be: that is not this layer's to
    make, and Valhalla's medical boundary already says so. */
 function supportSafetyBlocked(){
+  /* A DECLARED RESTRICTION IS THE SAME BOUNDARY, STATED FIRST-HAND. Valhalla
+     is not qualified to prescribe rehabilitation and does not try: the
+     answer here is the same "prescribe nothing" the inferred signals get.
+     Any OPEN declaration, for the reason coachDecision() gives at length:
+     an end date that has passed is not an athlete who has come back. */
+  if (openRestriction()) return true;
   var recent = [];
   try { recent = coachRecentSessions(4) || []; } catch(e){ recent = []; }
   for (var i = 0; i < recent.length; i++){
@@ -29740,7 +30401,14 @@ var PATTERN_PERSISTENT_RATE  = 0.60;   // below this, persistent
 function plannedSessionWindow(){
   var today = todayStr();
   return (state.days||[]).filter(function(dd){
-    return dd && dd.type!=='rest' && dd.date < today;
+    /* A DECLARED RESTRICTION IS NOT A MISS PATTERN, and this was the
+       sharpest edge of the whole defect: three weeks of injury put an
+       athlete straight into the 'persistent' tier, where Valhalla told
+       them "a plan that does not fit the weeks you are having is not worth
+       carrying" -- about weeks they had already explained. The window is a
+       question about availability the athlete chose, so the days they had
+       no choice about are not in it. */
+    return dd && dd.type!=='rest' && !dd.restricted && dd.date < today;
   }).sort(function(a,b){ return a.date<b.date?-1:1; }).slice(-PATTERN_WINDOW_SESSIONS);
 }
 function patternTier(good, total){
@@ -29906,8 +30574,15 @@ function missedStimulus(){
      The date and rest-day rules below are unchanged -- sessionRan() answers
      both of them the same way -- so this strictly narrows what counts as
      missed. Nothing that was genuinely missed stops being missed. */
+  /* A RESTRICTED DAY IS NEVER MISSING STIMULUS. The athlete was medically
+     unavailable; the session was not deferred, it did not happen, and
+     offering it back is the catch-up this architecture forbids wearing a
+     sympathetic face. Excluded here rather than filtered downstream because
+     this function is the only producer of recoverable stimulus in the
+     product -- evolutionChanges()'s reschedule and the evidence hash both
+     read it -- so one exclusion covers every consumer. */
   var recent = state.days.filter(function(dd){
-    return !sessionRan(dd) && dd.type!=='rest' && !dd.coachAdjust &&
+    return !sessionRan(dd) && dd.type!=='rest' && !dd.coachAdjust && !dd.restricted &&
            dd.date < today && dd.date >= addDays(today, -4);
   }).sort(function(a,b){ return a.date < b.date ? -1 : 1; });
   return recent.map(function(dd){
@@ -34928,9 +35603,7 @@ function renderCheckpointIntervention(){
      so it is said separately and only when it is what is holding a goal back. */
   var prepLine = '';
   if (a.verdict === 'preparation_short'){
-    prepLine = '<div class="cp-prep">Your fitness is not what is in the way \u2014'+
-      ' the block has not yet built the '+escapeHtml(prepLabelFor(a.reason))+
-      ' this race asks for.</div>';
+    prepLine = '<div class="cp-prep">'+escapeHtml(prepShortSentence(a.reason))+'</div>';
   }
 
   var body = '<div class="cp-why">'+escapeHtml(why).replace('&#8211;','\u2013')+'</div>'+prepLine;
@@ -34985,11 +35658,35 @@ function renderCheckpointIntervention(){
     '<div class="yr-choices">'+actions+'</div>'+
   '</div>';
 }
-/* The dimension raceGoalReadiness() named, said as a runner would say it. */
+/* The dimension raceGoalReadiness() named, said as a runner would say it.
+
+   TWO CONFIRMED OMISSIONS, FOUND IN THIS PATHWAY AND FIXED. raceGoalReadiness()
+   emits `workload`, not `volume` -- that is the key the dimension has always
+   carried -- so the one sentence that reads this map rendered "the block has
+   not yet built the PREPARATION this race asks for" for the single most
+   common shortfall there is. `absorption` fell through the same way.
+   `volume` stays because raceGoalPreparationOutlook() emits it and is a
+   second caller; both now resolve to the same words, which is what an athlete
+   means by either. */
 function prepLabelFor(reason){
-  var m = { durability:'long run', volume:'weekly volume', specificity:'race-pace work',
-            frequency:'running days' };
+  var m = { durability:'long run', volume:'weekly volume', workload:'weekly volume',
+            specificity:'race-pace work', frequency:'running days' };
   return m[reason] || 'preparation';
+}
+/* AND THE FRAME HAS TO FIT THE REASON. "The block has not yet built the X"
+   is true of a dimension the PRESCRIPTION fell short on. It is false of the
+   two that are about the ATHLETE rather than what was written: a block
+   somebody is straining in, and a block they were medically unavailable for,
+   were not failures of the programme, and saying so would blame Valhalla's
+   plan for an athlete's injury. Each gets its own sentence; everything else
+   keeps the one it always had, word for word. */
+function prepShortSentence(reason){
+  if (reason === 'absorption')
+    return 'Your fitness is not what is in the way \u2014 you are not yet absorbing this block the way this race asks for.';
+  if (reason === 'interruption')
+    return 'Your fitness is not what is in the way \u2014 too much of this block was missed to injury or illness for it to have prepared you for this race.';
+  return 'Your fitness is not what is in the way \u2014 the block has not yet built the '+
+         prepLabelFor(reason)+' this race asks for.';
 }
 function renderRaceOutcomePrompt(){
   if (!raceOutcomePending()) return '';
@@ -35007,6 +35704,198 @@ function renderRaceOutcomePrompt(){
       }).join('')+
     '</div>'+
   '</div>';
+}
+
+
+/* =========================================================
+   INJURY / ILLNESS — THE ATHLETE-FACING SURFACE
+   ---------------------------------------------------------
+   TWO TAPS TO SAY IT AND ONE TO END IT, and nothing else is asked for.
+   Valhalla needs to know what the athlete can still do and until when; it
+   does not need, want or store anything about the injury itself.
+
+   THE CARD IS A STATE, NOT A NAG. It renders only while a declaration is
+   open, or while a return ramp is still running, and it says plainly what
+   Valhalla has done to the plan rather than leaving the athlete to find
+   out by scrolling. Where a race goal is still ahead it also reports
+   raceGoalAssessment()'s current verdict -- reported, never acted on: this
+   file chooses no goal and offers no path that changes one. */
+function restrictionDaysLeftText(untilDate){
+  var n = daysBetween(todayStr(), untilDate);
+  return n <= 0 ? 'ends today' : n === 1 ? '1 day left' : n + ' days left';
+}
+/* One sentence about the goal, from SYSTEM's own verdict. Absent entirely
+   where there is no race goal ahead or the restriction took nothing away. */
+function restrictionViabilityLine(){
+  var v = restrictionViability();
+  if (!v) return '';
+  var lost = v.sessionsLost === 1 ? 'One prescribed session'
+                                  : v.sessionsLost + ' prescribed sessions';
+  var head = lost + ' fell inside this period' +
+             (v.qualityLost ? ', ' + (v.qualityLost === 1 ? 'one of them quality' :
+                                      v.qualityLost + ' of them quality') : '') + '.';
+  var a = v.assessment;
+  var said = !a || a.verdict === 'withheld'
+    ? 'There is not yet enough evidence to say what that means for your goal.'
+    : a.verdict === 'current_goal_supported'
+      ? 'On the evidence Valhalla has, your current target still stands.'
+      : a.verdict === 'different_goal_recommended'
+        ? 'On the evidence Valhalla has, a different target is the honest one — Active Goal in Plan HQ is where you change it, and nothing changes until you do.'
+        : a.verdict === 'preparation_short'
+          ? 'The programme is short of what this event asks for. Nothing has been changed for you.'
+          : 'None of your current targets is supported by the evidence yet. Nothing has been changed for you.';
+  return '<div class="yr-why">'+escapeHtml(head)+' '+escapeHtml(said)+'</div>';
+}
+function renderRestrictionCard(){
+  var r = restrictionRecord();
+  if (!r) return '';
+  var today = todayStr();
+  var meta = RESTRICTION_META[r.level] || RESTRICTION_META.easy;
+
+  /* ---- the window has run out and nobody has said they are back ---- */
+  if (restrictionAwaitingReturn()){
+    return '<div class="hub-card yr-outcome">'+
+      '<div class="coach-next-head">'+ICONS.sparkles+
+        '<span class="coach-next-title">Are you back?</span></div>'+
+      '<div class="yr-outcome-q">You told Valhalla you could not train normally until '+
+        dShort(r.until)+'. Nothing resumes until you say so — the days since are '+
+        'restricted too, and none of them is counted against you.</div>'+
+      '<div class="yr-choices">'+
+        '<button type="button" class="btn btn-primary btn-block" data-action="restriction-end">Yes, I am back</button>'+
+        '<button type="button" class="btn btn-ghost btn-block" data-action="restriction-open">Not yet — still restricted</button>'+
+      '</div>'+
+      '<div class="yr-foot">Nothing you missed is made up. Valhalla does not yet decide how quickly you come back — if you are not ready, say so rather than resuming.</div>'+
+    '</div>';
+  }
+
+  /* ---- open, and today is inside it ---- */
+  if (activeRestriction()){
+    return '<div class="hub-card yr-outcome">'+
+      '<div class="coach-next-head">'+ICONS.sparkles+
+        '<span class="coach-next-title">Training restricted</span>'+
+        '<span class="yr-lead-pill">'+escapeHtml(meta.short)+'</span></div>'+
+      '<div class="yr-outcome-q">Until '+dShort(r.until)+' — '+
+        escapeHtml(restrictionDaysLeftText(r.until))+'. '+escapeHtml(meta.applied)+'</div>'+
+      restrictionViabilityLine()+
+      '<div class="yr-choices">'+
+        '<button type="button" class="btn btn-primary btn-block" data-action="restriction-end">I am back — resume training</button>'+
+        '<button type="button" class="btn btn-ghost btn-block" data-action="restriction-open">Change or extend</button>'+
+      '</div>'+
+      '<div class="yr-foot">These days are not counted against you, and nothing missed is made up.</div>'+
+    '</div>';
+  }
+
+  /* ---- lifted. THERE IS NO THIRD CARD, because there is nothing to say
+     that would be true. Valhalla does not size a return (see the
+     open-authority note on RETURN TO TRAINING) and a card implying it was
+     managing one would be the product claiming a coaching act it is not
+     performing. The athlete was told what happens when they tapped, and the
+     restored plan is the rest of the answer. */
+  return '';
+}
+
+/* ---------- declaring it ----------
+   The draft is module state and nothing else: it exists only between
+   opening the modal and confirming, is never persisted, and is cleared on
+   both exits. Re-rendering the modal on each tap is how the picks stay
+   honest -- what is on screen is always what would be saved. */
+var restrictionDraft = null;
+function restrictionDraftUntil(){
+  if (!restrictionDraft) return null;
+  if (restrictionDraft.until) return restrictionDraft.until;
+  return addDays(todayStr(), Math.max(1, restrictionDraft.days || 14) - 1);
+}
+function openRestrictionModal(){
+  if (!state.setup) return;
+  var open = openRestriction();
+  if (!restrictionDraft)
+    restrictionDraft = { level: open ? open.level : 'easy', days: 14, until: null };
+  var levelBtns = RESTRICTION_LEVELS.map(function(k){
+    var picked = restrictionDraft.level === k;
+    return '<button type="button" class="ev-card rs-pick'+(picked?' is-picked':'')+'" '+
+      'role="radio" aria-checked="'+(picked?'true':'false')+'" '+
+      'data-action="restriction-level" data-level="'+k+'">'+
+      '<span class="rs-pick-label">'+escapeHtml(RESTRICTION_META[k].label)+'</span>'+
+      '<span class="rs-pick-note">'+escapeHtml(RESTRICTION_META[k].applied)+'</span></button>';
+  }).join('');
+  var durBtns = RESTRICTION_DURATIONS.map(function(d){
+    var picked = !restrictionDraft.until && restrictionDraft.days === d.days;
+    return '<button type="button" class="ev-card rs-pick rs-pick-inline'+(picked?' is-picked':'')+'" '+
+      'role="radio" aria-checked="'+(picked?'true':'false')+'" '+
+      'data-action="restriction-days" data-days="'+d.days+'">'+
+      '<span class="rs-pick-label">'+escapeHtml(d.label)+'</span></button>';
+  }).join('');
+  var html = ''+
+  '<div class="modal-head"><h2 class="font-head">'+(open?'Change restriction':'Injury or illness')+'</h2>'+
+    '<button type="button" class="icon-btn" data-action="restriction-cancel" aria-label="Close">'+ICONS.close+'</button></div>'+
+  '<div class="modal-body">'+
+    '<div class="field-hint" style="margin-bottom:12px;">Tell Valhalla you cannot train normally and it will adapt the plan, stop counting these days against you and make nothing up afterwards. It does not ask what the problem is and does not record one — if you are hurt or unwell, see a clinician.</div>'+
+    '<div class="setup-section-title">What can you do right now?</div>'+
+    '<div role="radiogroup" aria-label="What can you do right now?">'+levelBtns+'</div>'+
+    '<div class="setup-section-title">For how long?</div>'+
+    '<div class="rs-pick-row" role="radiogroup" aria-label="For how long?">'+durBtns+'</div>'+
+    '<div class="field" style="margin-top:8px;"><label for="rs-until">Or pick the last restricted day</label>'+
+      '<input type="date" id="rs-until" min="'+todayStr()+'" value="'+escapeHtml(restrictionDraft.until||'')+'"></div>'+
+    '<div class="field-hint">Ends '+dShort(restrictionDraftUntil())+'. You can end it early or extend it at any time — nothing is locked in.</div>'+
+    '<div class="modal-actions">'+
+      (open ? '<button type="button" class="btn btn-ghost" data-action="restriction-end">I am back</button>' : '')+
+      '<button type="button" class="btn btn-primary" data-action="restriction-confirm">'+ICONS.check+' '+(open?'Update':'Tell Valhalla')+'</button>'+
+    '</div>'+
+  '</div>';
+  openModal(html, 'modal-themed builder-light');
+}
+/* Whatever is typed in the date field belongs to the athlete, so it is read
+   back off the DOM before the modal is redrawn under a pick. */
+function restrictionReadDateField(){
+  var el = document.getElementById('rs-until');
+  if (!el) return;
+  var v = (el.value || '').trim();
+  restrictionDraft.until = (v && v >= todayStr()) ? v : null;
+}
+function handleRestrictionLevel(level){
+  if (!restrictionDraft || RESTRICTION_LEVELS.indexOf(level) === -1) return;
+  restrictionReadDateField();
+  restrictionDraft.level = level;
+  openRestrictionModal();
+}
+function handleRestrictionDays(days){
+  if (!restrictionDraft) return;
+  var n = parseInt(days, 10);
+  if (!(n > 0)) return;
+  restrictionDraft.days = n;
+  restrictionDraft.until = null;        // a quick pick replaces a typed date
+  openRestrictionModal();
+}
+function handleRestrictionCancel(){
+  restrictionDraft = null;
+  closeModal();
+}
+function handleRestrictionConfirm(){
+  if (!restrictionDraft) return;
+  restrictionReadDateField();
+  var until = restrictionDraftUntil();
+  var level = restrictionDraft.level;
+  var open = openRestriction();
+  var r = open ? extendRestriction(level, until) : declareRestriction(level, until);
+  restrictionDraft = null;
+  closeModal();
+  if (!r){ showToast('That could not be recorded'); return; }
+  flushSave();
+  renderApp();
+  var n = (r.applied && (r.applied.rested + r.applied.eased)) || 0;
+  showToast(n ? 'Plan adapted — ' + n + ' session' + (n===1?'':'s') + ' changed'
+              : 'Noted — nothing in the plan needed changing');
+}
+function handleRestrictionEnd(){
+  restrictionDraft = null;
+  closeModal();
+  var r = endRestriction();
+  if (!r){ showToast('There was nothing to end'); return; }
+  flushSave();
+  renderApp();
+  showToast(r.restored
+    ? 'Welcome back — ' + r.restored + ' session' + (r.restored===1?'':'s') + ' restored as written'
+    : 'Welcome back — your programme resumes');
 }
 
 /* ---------- WHAT COMES NEXT ----------
@@ -35916,6 +36805,13 @@ function dayStatusLabel(dd){
   else if (dd.manualEdit){ word = 'Edited'; tone = 'edited'; }
   else if (dd.coachKeptAt){ word = 'Kept'; tone = 'kept'; }
   else if (dd.type==='checkpoint' || dd.type==='race'){ word = 'Key'; tone = 'key'; }
+  /* ABOVE 'Missed', AND THE ORDER IS THE WHOLE POINT. A day the athlete told
+     Valhalla they could not train on has its own word, and it is never the
+     one they read as a reproach. Below 'Key', deliberately: a race or a
+     Fitness Checkpoint inside a restriction is still the goal day, it is
+     the one thing a restriction never rewrites, and calling it anything
+     else on Full Plan would hide it. */
+  else if (dd.restricted){ word = 'Restricted'; tone = 'restricted'; }
   else if (!ran && dd.type!=='rest' && dd.date < todayStr()){ word = 'Missed'; tone = 'missed'; }
   else if (ran && (function(){ var r=coachReviewFor(dd); return r && r.trainingSignal==='recovery_priority'; })()){ word = 'Recovery'; tone = 'recovery'; }
   return word ? '<span class="day-status-label font-head '+tone+'"><span class="day-status-dot"></span>'+word+'</span>' : '';
@@ -44939,6 +45835,13 @@ function renderTodayView(){
   // looked like. Writes only when it changes, and never re-renders.
   recordAthleteState();
   var html = renderHero()+'<div class="view-heading font-head">Today</div>';
+  /* AVAILABILITY LEADS, because every card below it reasons from training
+     the athlete may not be able to do. A declared restriction changes what
+     the plan asks, what counts as adherence and what the goal is worth, so
+     it is established before the race-outcome question, the checkpoint
+     verdict or Next Move gets to speak. It renders nothing at all unless a
+     declaration is open or a return ramp is still running. */
+  html += renderRestrictionCard();
   /* The outcome question comes FIRST and only while it is genuinely open --
      everything downstream (recovery sizing, measured fitness, what Next Move
      may recommend) depends on the answer, so asking for it after the day's
@@ -44986,9 +45889,14 @@ function renderWeekStatus(weekNum){
   var adjusted = wdays.filter(function(dd){ return dd.coachAdjust; }).length;
   if (adjusted) notes.push(adjusted+' session'+(adjusted===1?'':'s')+' adjusted this week.');
   var missed = wdays.filter(function(dd){
-    return !dd.completed && dd.type!=='rest' && dd.date < today && !dd.coachAdjust;
+    // a restricted day was not "unlogged" -- see plannedSessionWindow()
+    return !dd.completed && dd.type!=='rest' && dd.date < today &&
+           !dd.coachAdjust && !dd.restricted;
   }).length;
   if (missed) notes.push(missed+' session'+(missed===1?'':'s')+' unlogged.');
+  var restrictedWk = wdays.filter(function(dd){ return dd.restricted; }).length;
+  if (restrictedWk) notes.push(restrictedWk+' day'+(restrictedWk===1?'':'s')+
+    ' restricted — not counted against you.');
 
   return '<div class="week-status">'+
     '<div class="week-status-head">Week Status</div>'+
@@ -46357,6 +47265,27 @@ function renderSettingsHubView(){
        is Valhalla allowed to do with what I tell it" should meet the control
        itself, not a document about it. */
     renderHealthConsentSettings()+
+    /* TRAINING AVAILABILITY, AND WHY IT IS ITS OWN CARD. An athlete who has
+       just been told to stop running should find this without reading past
+       themes, notifications and zone tables -- and it is not a preference
+       or a piece of configuration, it is something they tell their coach.
+       Today carries the state while a restriction is open; this is the
+       permanent home, the same split renderHealthConsentCard() already
+       uses. */
+    /* NOT OFFERED TO AN ATHLETE WITH NO PLAN. There is nothing to restrict,
+       openRestrictionModal() refuses for the same reason, and a row that
+       does nothing when tapped is worse than no row. */
+    (state.setup && state.days && state.days.length ?
+    '<div class="hub-card tile-card">'+
+      '<div class="setup-section-title">Training Availability</div>'+
+      '<button type="button" class="ev-card stg-nav" data-action="restriction-open">'+
+        '<span class="stg-nav-icon">'+ICONS.shieldmark+'</span>'+
+        '<span class="stg-nav-label">'+(openRestriction()
+          ? 'Injury or illness — restriction open'
+          : 'Injured or ill? Tell Valhalla')+'</span>'+
+        '<span class="rs-chev">'+ICONS.chevronRight+'</span></button>'+
+      '<div class="field-hint" style="margin-top:8px;">Valhalla adapts the plan, stops counting those days against you and makes nothing up afterwards. It never asks what the problem is, and it does not decide when you are ready to train normally again — you do.</div>'+
+    '</div>' : '')+
     '<div class="hub-card tile-card">'+
       '<div class="setup-section-title">Training &amp; Zones</div>'+
       /* .btn-recal, not the ordinary bronze .btn-primary: Re-calibrate is a
@@ -46662,6 +47591,11 @@ function renderApp(){
      and a no-op on every render after the first for the purposes it does
      touch. */
   try { ensureRaceGoalFrequencyReconciled(); } catch(e){}
+  /* A DECLARED RESTRICTION OUTLIVES BOTH OF THE ABOVE, and has to: each of
+     them regenerates future days, and a regenerated day carries none of the
+     athlete's declaration. See ensureRestrictionApplied() -- a no-op unless
+     a regeneration has actually undone it, or the day has rolled over. */
+  try { ensureRestrictionApplied(); } catch(e){}
   lastRenderedDate = todayStr();
   var navAllowed = appStateAllowsNav();
   app.classList.toggle('has-subnav', navAllowed && (state.view||'today')==='planhq');
@@ -46724,6 +47658,14 @@ document.addEventListener('click', function(e){
     case 'delete-split': handleDeleteSplit(target.getAttribute('data-day'), parseInt(target.getAttribute('data-index'),10)); break;
     case 'set-event-mode': handleSetEventMode(target.getAttribute('data-event-mode')); break;
     case 'race-outcome': handleRaceOutcome(target.getAttribute('data-outcome')); break;
+    /* INJURY / ILLNESS. Every one of these is a tap the athlete made; none
+       of them is reachable from anything Valhalla decided on its own. */
+    case 'restriction-open': openRestrictionModal(); break;
+    case 'restriction-level': handleRestrictionLevel(target.getAttribute('data-level')); break;
+    case 'restriction-days': handleRestrictionDays(target.getAttribute('data-days')); break;
+    case 'restriction-cancel': handleRestrictionCancel(); break;
+    case 'restriction-confirm': handleRestrictionConfirm(); break;
+    case 'restriction-end': handleRestrictionEnd(); break;
     case 'subscription-resubscribe': handleSubscribeStart(target.getAttribute('data-period')); break;
     case 'subscription-manage': handleManageSubscription(); break;
     case 'start-block': handleStartBlock(target.getAttribute('data-purpose')); break;
