@@ -122,6 +122,11 @@ const WORK_SURFACES = [
      choices, and declining costs nothing -- a work surface, not an interrupt. */
   ['openRaceGoalPreparationModal', 'the preparation boundary — this runway cannot reach it'],
   ['openAvailabilityOfferModal', 'the availability-expansion offer'],
+  /* Injury / illness. A work surface by every test this list applies: it has
+     a close control, the athlete reads two levels and four ways of saying
+     how long before choosing anything, and closing it costs them nothing --
+     no declaration is made and the plan is untouched. */
+  ['openRestrictionModal', 'declaring an injury or illness restriction'],
 ];
 
 /* The other side of the classification, and the reason the count is a rule
