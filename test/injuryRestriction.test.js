@@ -47,7 +47,7 @@ function logObjective(a, fromDaysAgo, toDate){
    marker, the same mutation. */
 function stageHistoricRestriction(a, from, until, level){
   a.state.setup.restriction = { level:level, from:from, until:until,
-    declaredAt:'2026-01-01T00:00:00.000Z', endedAt:null, endedOn:null, returnUntil:null };
+    declaredAt:'2026-01-01T00:00:00.000Z', endedAt:null, endedOn:null };
   a.state.days.forEach(d => {
     if (d.date < from || d.date > until) return;
     d.restricted = { at:'2026-01-01T00:00:00.000Z', level:level };
@@ -271,31 +271,44 @@ test('a restriction does not expire on its own', () => {
   assert.match(a.renderRestrictionCard(), /Are you back\?/);
 });
 
-test('the return window is the shorter of the time out and the distance’s own no-intensity window', () => {
+/* RETURN TO TRAINING IS AN OPEN AUTHORITY AND MUST STAY ONE.
+   An earlier version sized a graded return as min(days out,
+   RECOVERY_PROFILE.noIntensityDays). HQ removed it: the table's own comment
+   claims support only for "the longer and harder the RACE, the longer the
+   return", calls the number a safety floor nothing may shorten, and tunes it
+   inside a package with a 40% volume factor that the ramp did not apply. The
+   replacement is deliberately nothing, and these assertions are what stops a
+   future reader filling the hole with a number nobody authorised. */
+test('no return ramp is invented, and RECOVERY_PROFILE is not consulted for one', () => {
   const a = app();
-  const prof = a.recoveryProfileFor('full');
-  assert.equal(a.restrictionReturnDays(4), 4);
-  assert.equal(a.restrictionReturnDays(prof.noIntensityDays + 40), prof.noIntensityDays);
-  assert.equal(a.restrictionReturnDays(0), 0);
-});
-
-test('coming back is eased in, and the ramp never touches the goal day', () => {
-  const a = app();
+  assert.equal(typeof a.restrictionReturnDays, 'undefined',
+    'the unsupportable return window is back');
+  assert.equal(typeof a.applyReturnRamp, 'undefined');
   a.declareRestriction('none', a.addDays(TODAY, 20));
   a.state.setup.restriction.from = a.addDays(TODAY, -20);   // twenty days out
   const r = a.endRestriction();
-  assert.ok(r.returnUntil, 'no return ramp was applied');
-  const ramped = a.state.days.filter(d => d.returnRamp);
-  assert.ok(ramped.length > 0);
-  ramped.forEach(d => {
-    assert.equal(d.type, 'easy');
-    assert.equal(d.prescription.archetype, 'easy_run');
-    assert.ok(d.returnRamp.from, 'the ramp kept no record of what it replaced');
-    assert.ok(d.date >= TODAY && d.date <= r.returnUntil);
-  });
-  assert.equal(a.state.days.filter(d => d.returnRamp &&
-    (d.returnRamp.from.type === 'race' || d.returnRamp.from.type === 'checkpoint')).length, 0,
-    'the return ramp rewrote a protected session');
+  assert.ok(r && r.endedAt, 'the restriction did not end');
+  assert.equal(r.returnUntil, undefined, 'a return window was recorded');
+  assert.equal(a.state.days.filter(d => d.returnRamp).length, 0,
+    'something eased the athlete back in');
+  assert.equal(a.state.days.filter(d => d.restricted).length,
+               a.state.days.filter(d => d.restricted && d.date < TODAY).length,
+    'a day ahead of the athlete is still restricted after they said they were back');
+});
+
+test('the programme that comes back is the one Valhalla wrote, intensity included', () => {
+  const a = app();
+  const until = a.addDays(TODAY, 20);
+  const ahead = a.state.days.filter(d => d.date >= TODAY && d.date <= until);
+  const before = ahead.map(d => d.id + ':' + d.type + ':' + d.km).join('|');
+  const qualityBefore = ahead.filter(d => a.isQualityType(d.type)).length;
+  assert.ok(qualityBefore > 0, 'the fixture has no quality work to lose');
+  a.declareRestriction('none', until);
+  a.state.setup.restriction.from = a.addDays(TODAY, -40);   // a long way out
+  a.endRestriction();
+  assert.equal(ahead.map(d => d.id + ':' + d.type + ':' + d.km).join('|'), before);
+  assert.equal(ahead.filter(d => a.isQualityType(d.type)).length, qualityBefore,
+    'quality work was withheld on return by something nobody authorised');
 });
 
 test('nothing a restriction or a return does ever adds training', () => {
@@ -466,8 +479,19 @@ test('the card renders nothing until there is something to say', () => {
   assert.match(open, /nothing missed is made up/);
   a.state.setup.restriction.from = a.addDays(TODAY, -12);   // twelve days out
   a.endRestriction();
-  const back = a.renderRestrictionCard();
-  assert.match(back, /Easing back in/);
+  assert.equal(a.renderRestrictionCard(), '',
+    'a card is still claiming a return Valhalla does not manage');
+});
+
+test('nothing on screen promises a return Valhalla does not size', () => {
+  const a = app();
+  a.declareRestriction('easy', a.addDays(TODAY, 3));
+  a.state.setup.restriction.from = a.addDays(TODAY, -18);
+  a.state.setup.restriction.until = a.addDays(TODAY, -1);
+  const card = a.renderRestrictionCard();
+  assert.match(card, /Are you back\?/);
+  assert.doesNotMatch(card, /eased in/i);
+  assert.match(card, /does not yet decide how quickly you come back/);
 });
 
 test('Today leads with availability, and Settings is the permanent home', () => {
@@ -591,4 +615,232 @@ test('the coach does not say proceed over an unanswered "are you back?"', () => 
   assert.ok(dec.reasons.some(r => /not told Valhalla you are back/.test(r)),
     JSON.stringify(dec.reasons));
   assert.equal(a.supportSafetyBlocked(), true);
+});
+
+// =====================================================================
+// 11. THE INTERRUPTION REACHES RACE READINESS
+// =====================================================================
+
+/* THE DEFECT: raceGoalReadiness() credits workload, durability and
+   specificity off blockResult.weeks -- the PRESCRIPTION -- and
+   raceGoalCheckpointBlock() regenerates blockResult from four setup fields,
+   so neither execution nor any adaptation of state.days can reach it. Its
+   one athlete-reading dimension, absorption, goes through
+   blockEffectiveness() -> athleteMemory(), which correctly withholds a
+   restricted day (the athlete was absent, not straining) -- so after the
+   restriction feature nothing in readiness could see an interruption at all.
+
+   HQ's ruling: one more dimension, the existing 0.90/0.70 bands, scoped like
+   the others, lowering only, no recency weighting, durability untouched. */
+
+const DISTANCES = [['full', 70, 16], ['half', 55, 14], ['10k', 50, 12], ['5k', 45, 12]];
+function raceApp(dk, vol, wk){
+  const a = loadApp({ pinnedDate: TODAY + 'T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.flushSave = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { distanceKey:dk, volume:vol, weeks:wk, lthr:172, maxHR:188,
+                 startDate: a.addDays(TODAY, -42) });
+  a.state.setup.purpose = 'race';
+  return a;
+}
+function prep(a){ return a.raceGoalAssessment(a.raceGoalCheckpointBlock()).preparation; }
+function dimOf(a, key){
+  return ((prep(a) || {}).dimensions || []).filter(d => d.key === key)[0] || null;
+}
+
+/* ---- THE ALIGNMENT PROOF HQ ASKED FOR FIRST ----
+   The scoping depends on blockResult.weeks and state.days naming the same
+   weeks. They do, and NOT by array position: buildDaysFromWeeks() stamps
+   `week: wk.week` on every day it writes, so the join is on the week object's
+   own number. Proven here rather than assumed, because the whole dimension
+   is selected by it -- and proven against the REGENERATED blockResult, which
+   is the one raceGoalReadiness() is actually handed. */
+test('blockResult.weeks and state.days name the same weeks, by w.week', () => {
+  DISTANCES.forEach(([dk, vol, wk]) => {
+    const a = raceApp(dk, vol, wk);
+    const br = a.raceGoalCheckpointBlock();
+    assert.ok(br && br.weeks && br.weeks.length, dk + ': no regenerated block');
+    const weekNums = br.weeks.map(w => w.week);
+    assert.ok(weekNums.every(n => Number.isInteger(n) && n >= 1),
+      dk + ': a week carries no usable number: ' + JSON.stringify(weekNums));
+    assert.equal(weekNums.length, new Set(weekNums).size, dk + ': duplicate week numbers');
+    assert.equal(weekNums.join(','),
+      Array.from({ length: a.state.setup.planWeeks }, (_, i) => i + 1).join(','),
+      dk + ': the regenerated weeks are not 1..planWeeks');
+    const dayWeeks = [...new Set(a.state.days.map(d => d.week))].sort((x, y) => x - y);
+    assert.equal(dayWeeks.join(','), weekNums.join(','),
+      dk + ': the plan the athlete holds names different weeks from the block');
+    // and every day lands in a week the block knows about
+    assert.equal(a.state.days.filter(d => weekNums.indexOf(d.week) === -1).length, 0,
+      dk + ': a day belongs to no week of the block');
+  });
+});
+
+test('the developing weeks are the readiness dimensions’ own, race and taper excluded', () => {
+  DISTANCES.forEach(([dk, vol, wk]) => {
+    const a = raceApp(dk, vol, wk);
+    const br = a.raceGoalCheckpointBlock();
+    const developing = br.weeks.filter(w => !w.isRace && !w.isTaper && !w.eventTaperApplied);
+    assert.ok(developing.length > 0 && developing.length < br.weeks.length,
+      dk + ': the filter selected everything or nothing');
+    const last = developing[developing.length - 1].week;
+    assert.ok(br.weeks.filter(w => w.week > last).every(w => w.isRace || w.isTaper || w.eventTaperApplied),
+      dk + ': a developing week sits after the taper');
+    // and the measurement reads exactly those weeks
+    a.declareRestriction('none', a.state.setup.raceDate);
+    const f = a.restrictionDeliveredFraction(developing);
+    const inScope = a.state.days.filter(d => developing.some(w => w.week === d.week));
+    const asked = inScope.reduce((s, d) =>
+      s + ((d.restricted && d.restricted.from) ? d.restricted.from.km : d.km || 0), 0);
+    assert.ok(f, dk + ': no reading at all');
+    assert.equal(f.prescribedKm, Math.round(asked * 10) / 10,
+      dk + ': the measurement read days outside the developing weeks');
+  });
+});
+
+/* ---- THE DEFECT, AND THE BANDS ---- */
+test('six weeks lost no longer reads READY', () => {
+  const a = raceApp('full', 70, 16);
+  assert.equal(prep(a).verdict, 'READY', 'the fixture does not start from READY');
+  a.declareRestriction('none', a.addDays(TODAY, 41));            // six weeks
+  const d = dimOf(a, 'interruption');
+  assert.ok(d, 'the interruption never reached the verdict');
+  assert.ok(d.fraction < 0.70, 'fraction ' + d.fraction);
+  assert.equal(d.met, false);
+  assert.equal(prep(a).verdict, 'INSUFFICIENT');
+  assert.equal(prep(a).limitedBy, 'interruption');
+});
+
+test('the bands are the product’s own: 0.90 ready, 0.70 marginal, below that insufficient', () => {
+  const a0 = raceApp('full', 70, 16);
+  assert.equal(a0.RACE_GOAL_READY_FRACTION, 0.9);
+  assert.equal(a0.RACE_GOAL_MARGINAL_FRACTION, 0.7);
+  const seen = [];
+  [3, 7, 14, 21, 42].forEach(days => {
+    const a = raceApp('full', 70, 16);
+    a.declareRestriction('none', a.addDays(TODAY, days - 1));
+    const d = dimOf(a, 'interruption');
+    const v = prep(a).verdict;
+    seen.push({ days, f: d.fraction, v });
+    if (d.fraction >= 0.90) assert.equal(v, 'READY', days + ' days: ' + v);
+    else if (d.fraction >= 0.70) assert.equal(v, 'MARGINAL', days + ' days: ' + v);
+    else assert.equal(v, 'INSUFFICIENT', days + ' days: ' + v);
+  });
+  // and it is monotonic: more time out never reads as better preparation
+  for (let i = 1; i < seen.length; i++)
+    assert.ok(seen[i].f <= seen[i - 1].f,
+      'a longer interruption scored higher: ' + JSON.stringify(seen));
+});
+
+test('it can only ever lower the verdict, never raise it', () => {
+  DISTANCES.forEach(([dk, vol, wk]) => {
+    const a = raceApp(dk, vol, wk);
+    const before = prep(a);
+    const beforeDims = (before.dimensions || []).map(d => d.key + ':' + d.fraction).join('|');
+    a.declareRestriction('none', a.addDays(TODAY, 20));
+    const after = prep(a);
+    const d = dimOf(a, 'interruption');
+    assert.ok(d.fraction <= 1, dk + ': the fraction exceeded one');
+    // the three prescription dimensions are untouched -- durability included
+    assert.equal((after.dimensions || []).filter(x => x.key !== 'interruption')
+                   .map(x => x.key + ':' + x.fraction).join('|'), beforeDims,
+      dk + ': a restriction moved a dimension it was told not to touch');
+    const rank = { INSUFFICIENT:0, MARGINAL:1, READY:2 };
+    assert.ok(rank[after.verdict] <= rank[before.verdict],
+      dk + ': readiness went up because of an injury');
+  });
+});
+
+test('with no declaration the verdict is byte-identical to before', () => {
+  DISTANCES.forEach(([dk, vol, wk]) => {
+    const a = raceApp(dk, vol, wk);
+    const p = prep(a);
+    assert.equal((p.dimensions || []).filter(d => d.key === 'interruption').length, 0,
+      dk + ': an interruption dimension appeared without a declaration');
+    assert.equal(a.restrictionDeliveredFraction(
+      a.raceGoalCheckpointBlock().weeks.filter(w => !w.isRace && !w.isTaper)), null);
+  });
+});
+
+test('a restriction that fell entirely in the taper is not reported here', () => {
+  const a = raceApp('full', 70, 16);
+  const br = a.raceGoalCheckpointBlock();
+  const developing = br.weeks.filter(w => !w.isRace && !w.isTaper && !w.eventTaperApplied);
+  const tapered = br.weeks.filter(w => w.isRace || w.isTaper || w.eventTaperApplied)
+                          .map(w => w.week);
+  assert.ok(tapered.length > 0, 'the fixture has no taper to restrict');
+  a.state.setup.restriction = { level:'none', from:TODAY, until:a.state.setup.raceDate,
+    declaredAt:'2026-01-01T00:00:00.000Z', endedAt:null, endedOn:null };
+  a.state.days.forEach(d => {
+    if (tapered.indexOf(d.week) === -1) return;
+    d.restricted = { at:'2026-01-01T00:00:00.000Z', level:'none' };
+    if (d.type === 'rest' || d.type === 'race' || d.type === 'checkpoint') return;
+    d.restricted.from = a.workoutSnapshot(d);
+    d.type = 'rest'; d.km = 0; d.title = 'Rest'; delete d.prescription;
+  });
+  assert.ok(a.state.days.filter(d => d.restricted).length > 0, 'nothing was staged');
+  assert.equal(a.restrictionDeliveredFraction(developing), null,
+    'a taper-only interruption was scored against the developing weeks');
+  // the scoping decision, stated: this dimension is as blind to the taper as
+  // workload, durability and specificity already are.
+  assert.equal(((prep(a) || {}).dimensions || []).filter(d => d.key === 'interruption').length, 0);
+});
+
+test('no recency weighting: the same loss early and late reads the same', () => {
+  const early = raceApp('full', 70, 16);
+  const late = raceApp('full', 70, 16);
+  // stage the same fourteen-day loss in two different weeks of the same block
+  [[early, -35], [late, -7]].forEach(([a, offset]) => {
+    const from = a.addDays(TODAY, offset), until = a.addDays(from, 13);
+    stageHistoricRestriction(a, from, until, 'none');
+  });
+  const e = dimOf(early, 'interruption'), l = dimOf(late, 'interruption');
+  assert.ok(e && l);
+  /* THE PROOF THAT NO WEIGHTING TERM EXISTS AT ALL: each fraction is exactly
+     delivered over prescribed, recomputed here from the plan without any
+     reference to where the loss sat. Neither reading can carry a discount a
+     bare comparison of the two would hide, because any such term would make
+     one of these two equalities fail. */
+  [[early, e], [late, l]].forEach(([a, d]) => {
+    assert.equal(d.fraction,
+      Math.min(1, Math.round((d.detail.deliveredKm / d.detail.prescribedKm) * 100) / 100));
+  });
+  assert.ok(e.fraction < 1 && l.fraction < 1, 'neither interruption registered');
+  /* Same denominator -- the whole developing block, whichever weeks were
+     lost -- and a different numerator, because weeks 6-8 ask for more
+     running than weeks 2-4. That difference is the training, not a
+     position term. */
+  assert.equal(e.detail.prescribedKm, l.detail.prescribedKm);
+  assert.notEqual(e.detail.deliveredKm, l.detail.deliveredKm);
+});
+
+test('no goal is changed by any of it', () => {
+  const a = raceApp('full', 70, 16);
+  const goal = JSON.stringify({ g:a.state.setup.goals, active:a.state.setup.activeGoal,
+                                date:a.state.setup.raceDate, dk:a.state.setup.distanceKey });
+  a.declareRestriction('none', a.addDays(TODAY, 41));
+  prep(a); a.restrictionViability(); a.renderRestrictionCard(); a.renderCheckpointIntervention();
+  assert.equal(JSON.stringify({ g:a.state.setup.goals, active:a.state.setup.activeGoal,
+                                date:a.state.setup.raceDate, dk:a.state.setup.distanceKey }), goal);
+});
+
+/* ---- THE SENTENCE THE ATHLETE READS ---- */
+test('prepLabelFor no longer answers "preparation" for the commonest shortfall', () => {
+  const a = raceApp('full', 70, 16);
+  assert.equal(a.prepLabelFor('workload'), 'weekly volume');
+  assert.equal(a.prepLabelFor('volume'), 'weekly volume');
+  assert.equal(a.prepLabelFor('durability'), 'long run');
+  assert.equal(a.prepLabelFor('specificity'), 'race-pace work');
+  assert.equal(a.prepLabelFor('frequency'), 'running days');
+  assert.equal(a.prepLabelFor('something-new'), 'preparation');
+});
+
+test('the reason is said in a frame that fits it, and never blames the plan for an injury', () => {
+  const a = raceApp('full', 70, 16);
+  ['workload', 'durability', 'specificity'].forEach(k =>
+    assert.match(a.prepShortSentence(k), /the block has not yet built the/));
+  assert.doesNotMatch(a.prepShortSentence('workload'), /the preparation this race/);
+  const interrupted = a.prepShortSentence('interruption');
+  assert.match(interrupted, /injury or illness/);
+  assert.doesNotMatch(interrupted, /the block has not yet built/);
+  assert.doesNotMatch(a.prepShortSentence('absorption'), /the block has not yet built/);
 });

@@ -39,6 +39,21 @@ function athlete(){
   });
   return a;
 }
+/* An athlete Valhalla can actually speak about: two measured efforts (so a
+   demonstrated rate exists) and a completed Fitness Checkpoint (so the
+   intervention card is earned). Nothing here is special to the restriction
+   -- it is the ordinary precondition raceGoalAssessment() has always had. */
+function measuredAthlete(a){
+  [[-35, 250], [-5, 240]].forEach(function(pair){
+    var d = a.state.days.filter(function(x){ return x.date === a.addDays(TODAY, pair[0]); })[0];
+    if (!d) return;
+    d.type = 'checkpoint'; d.km = 5; d.completed = true;
+    d.actual = { km:5, timeSec: 5 * pair[1],
+                 pace: Math.floor(pair[1]/60) + ':' + String(pair[1]%60), paceUnit:'km' };
+    a.recordMeasuredPerformance(d);
+  });
+  return a;
+}
 const STATE = athlete();
 
 const MIME = { '.png':'image/png', '.svg':'image/svg+xml', '.json':'application/json',
@@ -71,6 +86,7 @@ function measure(){
   return {
     hasCard: !!card,
     cardTitle: txt(document.querySelector('.yr-outcome .coach-next-title')),
+    prepLine: txt(document.querySelector('.cp-prep')),
     cardText: (txt(card) || '').slice(0, 180),
     picks: picks.length,
     picked: picks.filter(p => p.classList.contains('is-picked')).length,
@@ -90,9 +106,19 @@ const SCENES = [
   { tag:'back',    view:'today',    setup: a => { a.declareRestriction('easy', a.addDays(TODAY, 3));
                                                   a.state.setup.restriction.from = a.addDays(TODAY, -18);
                                                   a.state.setup.restriction.until = a.addDays(TODAY, -1); } },
-  { tag:'easing',  view:'today',    setup: a => { a.declareRestriction('none', a.addDays(TODAY, 10));
+  /* BACK, AND THE PRODUCT CLAIMS NOTHING. There is deliberately no third
+     card: Valhalla does not size a return (see the RETURN TO TRAINING
+     open-authority note in the runtime), so a card implying it was managing
+     one would be a coaching act the product is not performing. This frame
+     exists to show the programme restored, intensity included. */
+  { tag:'resumed', view:'today',    setup: a => { a.declareRestriction('none', a.addDays(TODAY, 10));
                                                   a.state.setup.restriction.from = a.addDays(TODAY, -18);
                                                   a.endRestriction(); } },
+  /* THE SENTENCE AN INTERRUPTED ATHLETE ACTUALLY READS, which needs a
+     demonstrated rate (two measured efforts) and a completed checkpoint
+     before raceGoalAssessment() will speak at all. */
+  { tag:'checkpoint', view:'today', setup: a => { measuredAthlete(a);
+                                                  a.declareRestriction('none', a.addDays(TODAY, 41)); } },
   { tag:'plan',    view:'full',     setup: a => { a.declareRestriction('none', a.addDays(TODAY, 20)); } },
   { tag:'settings',view:'settings', setup: a => {} },
   { tag:'declare', view:'settings', setup: a => {}, modal:true },
@@ -140,8 +166,14 @@ const SCENES = [
           await page.waitForTimeout(350);
         }
         const m = await page.evaluate(measure);
-        if (scene.tag !== 'settings' && scene.tag !== 'plan' && scene.tag !== 'declare' && !m.hasCard)
+        if ((scene.tag === 'open' || scene.tag === 'back') && !m.hasCard)
           errors.push('no restriction card rendered — this frame proves nothing');
+        if (scene.tag === 'resumed' && m.hasCard)
+          errors.push('a card is claiming a return Valhalla does not manage');
+        if (scene.tag === 'resumed' && m.restrictedLabels)
+          errors.push('the programme did not come back — this frame proves nothing');
+        if (scene.tag === 'checkpoint' && !m.prepLine)
+          errors.push('no preparation sentence rendered — this frame proves nothing');
         if (scene.tag === 'declare' && !m.picks)
           errors.push('the modal rendered no picks — this frame proves nothing');
         if (scene.tag === 'plan' && !m.restrictedLabels)
@@ -156,6 +188,7 @@ const SCENES = [
           ' picks=' + m.picks + '/' + m.picked +
           ' view=' + m.view + ' cards=' + m.dayCards + ' labels=' + m.allLabels +
           ' restricted=' + m.restrictedLabels + ' missed=' + m.missedLabels +
+          (m.prepLine ? ' prep=' + JSON.stringify(m.prepLine.slice(0, 48)) : '') +
           ' xoverflow=' + (m.scrollW > m.clientW + 1 ? 'YES' : 'no') +
           (errors.length ? '  ERRORS: ' + errors.slice(0, 2).join(' | ') : ''));
         await page.close(); await ctx.close();
