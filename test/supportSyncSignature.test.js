@@ -292,8 +292,13 @@ test('the signed day fields are exactly the stated list, and nothing else', () =
     'actual,athleteState,coachAdjust,completed,date,desc,id,km,mpSegment,'
       + 'optionalRun,prescription,readiness,restricted,support,title,type,week',
     'the signed day fields are a stated list; this is the list');
-  assert.equal(Object.keys(JSON.parse(sig(a))).sort().join(','), 'days,library,setup',
-    'and the top level is exactly setup + days + library, nothing else');
+  /* THE TOP LEVEL GAINED `insights` for the same reason `library` did: it is
+     per-athlete state a second device must not contradict. An explanation
+     already shown on the phone must not be shown again on the tablet, and
+     "this athlete has stopped engaging with them" is a fact about the
+     athlete rather than about one device. */
+  assert.equal(Object.keys(JSON.parse(sig(a))).sort().join(','), 'days,insights,library,setup',
+    'and the top level is exactly setup + days + library + insights, nothing else');
 });
 
 // =====================================================================
