@@ -1107,7 +1107,15 @@
 
   /* ---------- day card ---------- */
   .day{
-    border-left:4px solid var(--c-rest); background:var(--tile-sheen), var(--surface-3); border-radius:var(--radius-sm);
+    border-left:4px solid var(--c-rest); background:var(--tile-sheen), var(--surface-3); border-radius:var(--radius);
+    /* THE TYPE RAIL IS A BORDER, SO IT EATS INTO THE LEFT AND NOTHING EATS
+       INTO THE RIGHT. Every card looked centred -- the BOX is centred, at
+       L29/R29 on a 390px screen -- while everything inside it sat 4px left
+       of centre, because the content box started after the rail. Measured on
+       the logging drawer: L45 against R41, on every day card in the app. A
+       matching transparent right border restores the content to centre
+       without touching the rail, the padding or the card's own position. */
+    border-right:4px solid transparent;
     padding:11px 12px; margin-top:8px; transition:.2s; position:relative;
     /* SOFT ELEVATION -- the exact --tile-shadow/--tile-sheen tokens the
        premium raised-card surfaces already use (Valhalla, Coach, Settings,
@@ -1216,7 +1224,7 @@
   .cv-opt .cv-blurb{display:block; font-size:var(--fs-meta); color:var(--ink-faint); margin-top:1px;}
   .cv-preview{
     flex:none; display:inline-flex; align-items:center; gap:5px;
-    min-height:32px; padding:0 10px; border-radius:999px;
+    min-height:44px; padding:0 10px; border-radius:999px;
     border:1px solid var(--line); background:var(--bg-2); color:var(--ink-soft);
     font-size:var(--fs-meta); font-weight:600; cursor:pointer;
   }
@@ -1377,6 +1385,19 @@
      field rather than another control competing with it. */
   .notes-wrap{position:relative;}
   .notes-wrap textarea{width:100%; padding-right:30px;}
+  /* THE ONE CONTROL DELIBERATELY LEFT UNDER 44px, AND WHY.
+     Everything else in the app now meets the floor. This one sits in the
+     bottom-right corner of the notes TEXTAREA, and neither way of reaching
+     44 is acceptable: growing the box covers the text the athlete is typing,
+     and extending the hit area with an invisible overlay was tried and
+     measured -- it either sits under the textarea and receives nothing
+     (elementFromPoint returned the card, not the control), or it is raised
+     above the textarea and then swallows the taps that place the cursor on
+     the last line of the note. A target that steals a more important one is
+     worse than a small target.
+     It stays 24x24, it keeps its aria-label, and it is a secondary
+     convenience with a full-size equivalent elsewhere. Moving it out of the
+     textarea corner is the real fix and is a layout change, not a token one. */
   .notes-wand{
     position:absolute; right:5px; bottom:5px; width:24px; height:24px; padding:0;
     display:flex; align-items:center; justify-content:center; font-size:12px; line-height:1;
@@ -1424,7 +1445,7 @@
      whole-session log, not a spreadsheet or a second card. */
   .splits-toggle{
     background:none; border:none; padding:6px 0; font-size:11px; font-weight:600;
-    color:var(--bronze-text); cursor:pointer; text-align:left; min-height:32px;
+    color:var(--bronze-text); cursor:pointer; text-align:left; min-height:44px;
     -webkit-tap-highlight-color:transparent;
   }
   /* SESSION BREAKDOWN -- collapsed summary card. .ev-card supplies the whole
@@ -1566,7 +1587,7 @@
      Reference is one reference system, not five separate taps. */
   .pace-ref-card{margin:14px 0 0;}
   .pace-ref-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; padding:0 2px;}
-  .pace-ref-head span:first-child{font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink);}
+  .pace-ref-head span:first-child{font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink);}
   .pace-ref-list{display:flex; flex-direction:column; gap:8px;}
   .pace-ref-row{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -1706,7 +1727,13 @@
      a privacy policy on a phone actually wants. .btn is a bare class so the
      styling already applies -- only the underline needs removing. */
   a.btn, a.ev-card{text-decoration:none;}
-  .btn-sm{padding:7px 12px; font-size:12px;}
+  .btn-sm{padding:7px 12px; font-size:12px; min-height:44px;}
+  /* THE LAST TWO TARGETS, REACHED BY WHAT THEY DO RATHER THAN BY A CLASS --
+     neither carries one. The pencil on a day header was 24x24 and "Clear log"
+     18px tall; both are now 44, which the rows they sit in already have room
+     for. The glyph inside the pencil is untouched: only its box grows. */
+  button[data-action="open-edit"]{ min-width:44px; min-height:44px; }
+  .actual-clear button{ min-height:44px; }
   .btn svg{width:15px; height:15px; flex:none;}
 
   /* ---------- modal ---------- */
@@ -1850,7 +1877,7 @@
   .voice-row{display:flex; gap:8px; margin-top:12px;}
   .voice-btn{
     flex:1; display:inline-flex; align-items:center; justify-content:center; gap:7px;
-    min-height:42px; padding:9px 10px;
+    min-height:44px; padding:9px 10px;
     font-family:'Oswald',sans-serif; font-size:var(--fs-support); font-weight:600;
     letter-spacing:.4px; text-transform:uppercase;
     border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
@@ -2071,7 +2098,7 @@
   .gl-row{padding-top:10px;}
   .gl-options{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:8px 0 7px;}
   .gl-opt{
-    min-height:38px; padding:8px 6px; text-align:center; cursor:pointer;
+    min-height:44px; padding:8px 6px; text-align:center; cursor:pointer;
     font-family:'Oswald',sans-serif; font-size:var(--fs-support); font-weight:600; letter-spacing:.3px;
     color:var(--ink-faint); background:var(--ctl-bg);
     border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
@@ -2523,7 +2550,7 @@
   }
   .planhq-subnav-btn{
     flex:1; font-family:'Oswald',sans-serif; font-size:11px; font-weight:600; letter-spacing:.06em;
-    text-transform:uppercase; padding:10px 4px; border-radius:var(--radius-sm); border:1px solid var(--line);
+    text-transform:uppercase; padding:10px 4px; min-height:44px; border-radius:var(--radius-sm); border:1px solid var(--line);
     background:none; color:var(--ink-faint); cursor:pointer;
     transition:background .15s ease, border-color .15s ease, color .15s ease;
   }
@@ -2534,12 +2561,23 @@
     color:#7A5C1E; background:#FFFDF7; border-color:transparent;
     box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
   }
+  /* ONE SECTION-HEADING VOICE. Oswald, 11px, 1.5px tracking, uppercase --
+     the spec .setup-section-title and .coach-next-title already shared. The
+     app had four near-misses of the same label: this one at 2px tracking,
+     .week-status-head at 9.5px/1.2px and .pace-ref-head's title at
+     12px/0.5px. Only the metrics are unified; each keeps its own colour and
+     alignment, which are what actually distinguish them. */
   .view-heading{
-    font-size:11px; letter-spacing:2px; text-transform:uppercase; color:var(--ink-faint);
+    font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--ink-faint);
     text-align:center; margin:18px 0 4px;
   }
   .view-fade{ animation:fadein .18s ease; }
-  .hub-card{margin:0 0 14px; padding:14px; background:var(--surface-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
+  /* ONE CARD RADIUS. --radius (16px), the same value .hub-card.tile-card and
+     .ev-card already use. The bare rule carried --radius-sm (10px), so the
+     identical class rendered two different corners depending on whether the
+     .tile-card modifier happened to be present. --radius-sm is unchanged and
+     still correct for the smaller non-card surfaces that use it. */
+  .hub-card{margin:0 0 14px; padding:14px; background:var(--surface-3); border:1px solid var(--line); border-radius:var(--radius);}
   /* The last card in a view must not add its own trailing margin on top of the
      shared bottom clearance, or a view ending in a hub-card finishes with half
      as much space again as one that does not. */
@@ -2741,7 +2779,7 @@
   }
   /* ---------- week status: one line, no dashboard ---------- */
   .week-status{margin:0 0 12px; padding:11px 13px; background:var(--surface-3); border:1px solid var(--line); border-radius:var(--radius-sm);}
-  .week-status-head{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:5px;}
+  .week-status-head{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text); margin-bottom:5px;}
   .week-status-line{font-size:12px; color:var(--ink); line-height:1.5; overflow-wrap:anywhere;}
   .week-status-note{font-size:11px; color:var(--ink-faint); line-height:1.45; margin-top:3px;}
   /* ---------- full plan status label ----------
@@ -3022,6 +3060,7 @@
   .oi-goal{position:absolute; top:50%; width:9px; height:9px; margin-top:-4.5px; margin-left:-4.5px;
     border-radius:50%; background:var(--gold); box-shadow:0 0 0 3px var(--bg-3);}
   .oi-goal-lbl{position:absolute; top:-20px; font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:600; color:var(--gold-text); white-space:nowrap;}
+  /* See the two-label fit rule in the Race Outlook renderer. */
   .oi-band-lbl{position:absolute; bottom:-19px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-faint); white-space:nowrap;}
   .oi-empty{font-size:11.5px; line-height:1.5; color:var(--ink-faint);}
 
@@ -3191,7 +3230,11 @@
      buttons (Export, Reset Plan, etc.) are deliberately left as .btn: they
      DO something on this screen, they do not go anywhere. */
   .ev-card.stg-nav{
-    display:flex; align-items:center; gap:11px; padding:13px 14px; margin:0 0 8px;
+    /* 14px all round, matching .ev-card's own padding -- this row carried
+       13px top/bottom against 14px left/right, the only card in the app
+       whose padding was not square. */
+    display:flex; align-items:center; gap:11px; padding:14px; margin:0 0 8px;
+    min-height:44px;
   }
   .ev-card.stg-nav:last-child{margin-bottom:0;}
   .stg-nav-icon{flex:none; display:flex; color:var(--bronze-text);}
@@ -5225,8 +5268,7 @@ var TENK_INTERVAL_POOL = {
      because the sustained tempo pool below is where this event's specificity
      actually lives. */
   Peak:  [structGoalPaceIntervals, structDeuce],
-  Maintain: [structFartlek, structTrackIntervals, structDeuce,
-             structHillRepeats]
+  Maintain: [structFartlek, structTrackIntervals, structDeuce, structHillRepeats]
 };
 var TENK_TEMPO_POOL = {
   Base:  [structSteadyTempo, structThresholdContinuous],
@@ -5405,6 +5447,10 @@ function halfBuildTrackRepSpec(blockExp, weekNum, alloc){
    Build carries no live continuous-km precedent to bound against at all, so
    Established/Advanced there reach the full locked ceiling. */
 var TAPER_MIN_OVER_UNDER_CYCLES = 2;
+/* Race Outlook: the band width below which two end labels cannot both be
+   drawn legibly, so they collapse to one centred range. See its own note at
+   the render site for where 30 comes from. */
+var OUTLOOK_BAND_TWO_LABEL_MIN_PCT = 30;
 var HALF_BUILD_OVER_UNDER_CYCLES     = { novice:[3], experienced:[3,4],   advanced:[3,4] };
 var MARATHON_BUILD_OVER_UNDER_CYCLES = { novice:[3], experienced:[3,4,5], advanced:[3,4,5] };
 function raceGoalOverUnderEligible(){
@@ -21136,6 +21182,14 @@ var ARCHETYPE_GUIDANCE = {
     feel:'Hard but repeatable. The second rep should feel like the first.',
     avoid:'Emptying the tank on the first rep. The session is the total, not the opener.'
   },
+  over_under: {
+    essential:'The Over is only worth running if the Under was genuinely controlled.',
+    cue:'Two paces, no recovery. The Under is the recovery.',
+    why:'Teaches you to clear the effort of running above threshold while you are still running.',
+    how:'Settle into the Under for the full @@U@@, lift to the Over without a surge, and drop straight back.',
+    feel:'The Under should feel sustainable every time you return to it. If it stops feeling that way, the session is done.',
+    avoid:'Treating the Under as a rest. Running it too easy makes the Over a set of intervals instead.'
+  },
   track_reps: {
     cue:'Even splits — the last rep should match the first.',
     why:'Develops VO₂ max and running economy at hard aerobic effort.',
@@ -21287,6 +21341,10 @@ var TERSE_GUIDANCE = {
               how:'Match the second rep to the first. Keep the recovery jogging.',
               feel:'Hard but repeatable.',
               avoid:'Emptying the tank on the opener.' },
+  over_under: { why:'Clearing the cost of running above threshold without stopping.',
+              how:'Hold the Under, lift without surging, drop straight back.',
+              feel:'The Under sustainable each time you return to it.',
+              avoid:'Running the Under as a rest.' },
   track_reps: { why:'VO₂ max and running economy.',
               how:'Every rep in the window, recoveries jogged rather than stood.',
               feel:'Hard. Recovered just enough to start the next on time.',
@@ -31315,6 +31373,7 @@ var SESSION_INTENT = {
   steady_tempo:         'Today buys aerobic strength at a price you can afford to pay again this week.',
   progressive_tempo:    'The point of today is the finish. The opening exists to make the finish possible.',
   split_tempo:          'Splitting the work buys more quality time than one unbroken effort would. The second half is what you are protecting.',
+  over_under:           'Today trains the one thing a threshold session cannot: recovering from above threshold while still running. The Under is the work, not the break.',
   track_reps:           'This is the hardest aerobic work of the week. Arriving at the final rep in one piece is the whole test.',
   short_reps:           'Today is about speed and mechanics, and it should cost you very little.',
   ladder:               'Today covers several speeds in one session, so judgement matters as much as effort.',
@@ -31335,6 +31394,7 @@ var SESSION_INTENT_BY_TYPE = {
   long:       'This is the session the week is built around. Everything else this week is arranged to protect it.',
   tempo:      'Today buys aerobic strength at a price you can afford to pay again this week.',
   threshold:  'This is the session that moves endurance fitness furthest for the time it costs. Today is about accumulating that effort.',
+  over_under: 'This is the session that moves endurance fitness furthest for the time it costs. Today is about accumulating that effort.',
   interval:   'This is the hardest aerobic work of the week. Arriving at the final rep in one piece is the whole test.',
   repetition: 'Today is about speed and mechanics, and it should cost you very little.',
   checkpoint: 'This one exists to reset your training paces. The weeks after it are built on what it returns.',
@@ -32610,6 +32670,47 @@ var WORKOUT_LIBRARY = {
     taperEligible:true, raceSpecific:false, slot:'tempo', poolSelectable:true,
     varietyGroup:'tempo_broken', weight:1.0, minRunDays:3, minWeeklyVolumeKm:30,
     preferenceEligible:true,
+    presentation:{ novice:true, experienced:true, advanced:true }
+  },
+  /* THE SESSION THAT SHIPPED WITHOUT A LIBRARY ENTRY. raceGoalOverUnderSpec()
+     has been writing Over-Unders into Half and Marathon Build since it
+     landed, but the archetype existed only in ARCHETYPES, TYPE_META, the
+     segment builder and the text writer. Having no entry here meant it was
+     invisible to every layer that reads the library: Plan Evolution could not
+     reduce it, the Playbook could not reason about it, and the athlete got no
+     why/how/feel/avoid for it. That was a gap, not a decision.
+
+     NOTHING ABOUT WHO RECEIVES ONE MOVES. poolSelectable:false is the whole
+     of that guarantee and it is load-bearing: libraryCandidates() and
+     substitutionCandidates() both skip a non-pool-selectable entry outright,
+     so this archetype still cannot be drawn from a pool, offered as a
+     substitution or requested as a preference. It is placed by
+     raceGoalOverUnderSpec() and by nothing else, under exactly the
+     eligibility it already had -- Half/Marathon, Build, and only once
+     thresholdPaceSource === 'calibration'.
+
+     THE RANGE IS READ OFF THE LIVE CONSTANTS, not chosen. The floor is
+     TAPER_MIN_OVER_UNDER_CYCLES (2), which the taper already reduces to; the
+     ceiling is the largest cycle count any tier's table carries
+     (MARATHON_BUILD_OVER_UNDER_CYCLES advanced -> 5). One cycle is one
+     kilometre under plus one over, so stepping `cycles` is the only move the
+     locked structure admits -- there is no partial cycle and the 1km/1km
+     geometry is fixed.
+
+     PHASE follows where it is actually written: Build. Taper is 'discouraged'
+     rather than disallowed because the taper does carry a reduced one, and
+     progression is refused there by playbookPhaseAllowsProgress() anyway. */
+  over_under: {
+    stimulus:'threshold', purpose:'Alternating either side of threshold, continuous and unbroken.',
+    homogeneous:false, progressable:true, regressable:true,
+    params:{ cycles:libRange(2, 5, 1) },
+    progressField:'cycles', regressField:'cycles',
+    phase:libPhases('disallowed','preferred','disallowed','discouraged','disallowed'),
+    profile:libProfiles('disallowed','preferred','preferred','disallowed'),
+    byDistance:{ '5k':'disallowed', '10k':'disallowed' },
+    taperEligible:true, raceSpecific:false, slot:'tempo', poolSelectable:false,
+    varietyGroup:'threshold_continuous', weight:1.0, minRunDays:4, minWeeklyVolumeKm:35,
+    preferenceEligible:false,
     presentation:{ novice:true, experienced:true, advanced:true }
   },
   goal_pace_block: {
@@ -46841,10 +46942,27 @@ function renderRaceOutlook(){
     var spreadSec = Math.max(o.slowSec - o.fastSec, 0);
     var spreadFrac = clamp(spreadSec / Math.max(o.fastSec * 0.15, 30), 0, 1);
     var bandL = ZONE_L, bandR = ZONE_L + 4 + spreadFrac * (ZONE_R - ZONE_L - 4);
+    /* ---- THE TWO END LABELS ONLY FIT WHEN THE BAND IS WIDE ENOUGH ----
+       Each is anchored to one end of the band -- left edge and right edge --
+       which is right while the band is wide and illegible once it is not. A
+       tight range draws a band a few per cent wide, and the two seven-
+       character times were then printed on top of each other: measured at
+       390px, "1:36:16" at x80-122 overlapping "1:43:14" at x86-128.
+
+       THE THRESHOLD IS DERIVED, NOT PICKED. JetBrains Mono at 10px advances
+       0.6em, so a h:mm:ss label is about 42px; two of them plus a readable
+       gap is ~94px, and the track inside this card at 390px is ~318px wide.
+       94/318 is just under 30%. Below that the pair collapses into a single
+       centred range, which says exactly the same thing in the space that
+       actually exists. Nothing about the band's own geometry moves. */
+    var twoLabelsFit = (bandR - bandL) >= OUTLOOK_BAND_TWO_LABEL_MIN_PCT;
     bandHtml = '<div class="oi-band" style="left:'+bandL.toFixed(1)+'%; width:'+
         (bandR - bandL).toFixed(1)+'%"></div>'+
-      '<span class="oi-band-lbl" style="left:'+bandL.toFixed(1)+'%;">'+secToClock(o.fastSec)+'</span>'+
-      '<span class="oi-band-lbl" style="left:'+bandR.toFixed(1)+'%; transform:translateX(-100%);">'+secToClock(o.slowSec)+'</span>';
+      (twoLabelsFit
+        ? '<span class="oi-band-lbl" style="left:'+bandL.toFixed(1)+'%;">'+secToClock(o.fastSec)+'</span>'+
+          '<span class="oi-band-lbl" style="left:'+bandR.toFixed(1)+'%; transform:translateX(-100%);">'+secToClock(o.slowSec)+'</span>'
+        : '<span class="oi-band-lbl" style="left:'+((bandL + bandR)/2).toFixed(1)+'%; transform:translateX(-50%);">'+
+            secToClock(o.fastSec)+'\u2013'+secToClock(o.slowSec)+'</span>');
   }
 
   return '<div class="outlook-instrument" id="outlook-mount-inner">'+head+
