@@ -50,9 +50,20 @@ test('the shared .day rule carries the same soft-raised tile depth as the rest o
     'the base card must reuse the existing shared tile-elevation token');
   assert.match(rule, /background\s*:\s*var\(--tile-sheen\)\s*,\s*var\(--surface-3\)/,
     'the sheened top edge, layered over the SAME background colour, not a different one');
-  // The semantic type colour and existing radius are untouched by this pass.
+  // The semantic type colour is untouched by this pass, and still is.
   assert.match(rule, /border-left\s*:\s*4px solid var\(--c-rest\)/);
-  assert.match(rule, /border-radius\s*:\s*var\(--radius-sm\)/);
+  /* THE RADIUS MOVED, AND BY A LATER PASS THAN THIS ONE. The line above used
+     to read --radius-sm and was written here as a "the elevation pass did not
+     touch the radius" guard, not as a ruling that a day card is 10px. The
+     card-radius standardisation (HQ visual consistency approval) is the pass
+     that moved it: .hub-card rendered 10px bare and 16px with .tile-card, and
+     .day was the third value again. All three are now --radius. The elevation
+     assertions above are the ones this file exists for and are unchanged. */
+  assert.match(rule, /border-radius\s*:\s*var\(--radius\)/);
+  /* And the type rail now has a transparent twin on the right, so the card's
+     CONTENT is centred rather than sitting 4px left of centre -- measured at
+     L45/R41 on the logging drawer of every day card before this. */
+  assert.match(rule, /border-right\s*:\s*4px solid transparent/);
 });
 
 test('today and drag-over states keep the base elevation alongside their own ring, never replace it', () => {
