@@ -16355,6 +16355,27 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
             .slice(0, payable);
         }
       }
+      /* ---- RACE DAY IS A RUNNING DAY -- HQ METHODOLOGY RULING, MARATHON ----
+         The lead-up was every available day except the race's own weekday, and
+         the race was then added on top. Where the athlete had not selected the
+         race's weekday at all -- a Sunday marathon for someone who runs
+         Mon-Thu -- NONE of their days were removed, so a 4-day Developing
+         athlete was prescribed four lead-up runs AND the marathon: five
+         running days in the one week that should carry fewest.
+
+         The race occupies one of the tier's days, so the lead-up may use at
+         most requirement-1. Days closest to the race are kept, which is where
+         a race week's remaining running belongs and is the same rule the half
+         already applies to its own lead-up. */
+      if (blockResult.distKey === 'full' && leadUpIsos.length > 0){
+        var mLeadMax = Math.max(0, marathonPrescribedDays(blockResult.experience) - 1);
+        if (leadUpIsos.length > mLeadMax){
+          var mGapToRace = function(d){ return (raceIso - d + 7) % 7; };
+          leadUpIsos = leadUpIsos.slice()
+            .sort(function(a,b){ return mGapToRace(a) - mGapToRace(b); })
+            .slice(0, mLeadMax);
+        }
+      }
       var leadUpSet = {};
       leadUpIsos.forEach(function(d){ leadUpSet[d] = true; });
       var perLeadUp = leadUpIsos.length
