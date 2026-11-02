@@ -6606,7 +6606,11 @@ var RACE_GOAL_PATHWAY = {
       buildVolumeKm: 72, buildLongKm: 30,
       peakVolumeKm:  80, peakLongKm: 30, openEnded: false },
     advanced: {
-      entryVolumeKm: 68, entryLongKm: 24, entryDays: 5,
+      /* SIX, PER HQ's PRESCRIBED-FREQUENCY RULING -- see
+         MARATHON_PRESCRIBED_DAYS. entryDays is the default for an athlete who
+         states nothing, so it must agree with the requirement rather than
+         open them one day short of it. */
+      entryVolumeKm: 68, entryLongKm: 24, entryDays: 6,
       endBaseVolumeKm: 76,
       buildVolumeKm: 82, buildLongKm: 32,
       peakVolumeKm:  93, peakLongKm: 32, openEnded: true }
@@ -10379,6 +10383,30 @@ function purposeIsSteady(purpose){ return purpose === 'maintain'; }
    selects six days still trains six days, but the pathway does not spread its
    own (still smaller) week thin enough to write four of them at the floor. */
 var RACE_GOAL_MAX_DAYS = { novice: 4, experienced: 5, advanced: 5 };
+/* ---------- THE MARATHON'S OWN PRESCRIBED-DAY REQUIREMENT ----------
+   HQ METHODOLOGY RULING. The athlete selects which days they are AVAILABLE;
+   the pathway decides how many of those carry a prescription, and Valhalla
+   places the sessions. Advanced rises from five to six.
+
+   SIX IS A CEILING THAT PROTECTS A REST DAY, not a target to exceed. An
+   athlete who makes all seven days available is still prescribed six, and the
+   seventh is not offered as an Optional Run either.
+
+   WHY THIS IS SEPARATE FROM RACE_GOAL_MAX_DAYS ABOVE rather than an edit to
+   it: that table is shared with the half, whose own methodology was closed
+   separately and is not what HQ has just ruled on. The marathon reads this;
+   the half reads the table above, unchanged.
+
+   AND WHY IT IS SEPARATE FROM pathway.entryDays: entryDays is where an
+   athlete who states nothing OPENS, and it caps nobody. This is a
+   requirement and a cap, which is a different kind of number. The two are
+   kept in agreement -- advanced entryDays is six as well -- so an athlete
+   who states nothing opens at the frequency their pathway requires rather
+   than one day short of it. */
+var MARATHON_PRESCRIBED_DAYS = { novice: 4, experienced: 5, advanced: 6 };
+function marathonPrescribedDays(experience){
+  return MARATHON_PRESCRIBED_DAYS[experience] || MARATHON_PRESCRIBED_DAYS.experienced;
+}
 /* ---- BUILD EARNS A SECOND STANDALONE QUALITY SESSION BY TIER, HALF/MARATHON
    ONLY -- HQ WORKOUT-STRUCTURE METHODOLOGY RULING ----
    Developing = 1 quality session in every phase; Established and Advanced =
@@ -10439,7 +10467,8 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
   var mEntry = raceGoalEntryState(distKey, mExp, currentVolume);
   var mAvail = (opts && opts.availableDays > 0) ? opts.availableDays : 6;
   if (distKey === 'half' || distKey === 'full'){
-    var mTierDayCap = RACE_GOAL_MAX_DAYS[mExp];
+    var mTierDayCap = (distKey === 'full') ? marathonPrescribedDays(mExp)
+                                           : RACE_GOAL_MAX_DAYS[mExp];
     if (mTierDayCap > 0) mAvail = Math.min(mAvail, mTierDayCap);
   }
   var mDemF = null, mCurF = null;
@@ -10650,7 +10679,18 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
   var mScheduledSupportDays = mSupportDays;
   if ((distKey === 'half' || distKey === 'full') && mHave > 0){
     var mDaysCeilingForContract = Math.max(1, mDays - 1 - mQSlots);
-    var mContractSupportDays = Math.min(mDaysCeilingForContract, Math.max(0, mAvail - 2 - mQSlots));
+        /* THE MARATHON DOES NOT RESERVE A DAY OUT OF ITS REQUIREMENT.
+           "selected - 2" held one of the athlete's selected days back for an
+           Optional Run. Under HQ's prescribed-frequency ruling the pathway
+           requirement IS the prescribed count, and the Optional Run comes
+           from availability ABOVE it -- so reserving one inside it left an
+           Established athlete with five selected days prescribed four, and
+           the week's kilometres divided among two easy slots at 21.5km each.
+           mAvail is already capped to the requirement above, so subtracting
+           one (the long run) lands exactly on it. The half keeps "- 2". */
+    var mReservedForOptional = (distKey === 'full') ? 1 : 2;
+    var mContractSupportDays = Math.min(mDaysCeilingForContract,
+      Math.max(0, mAvail - mReservedForOptional - mQSlots));
     mScheduledSupportDays = Math.max(mSupportDays, mContractSupportDays);
   }
   /* ---- TWO DAY COUNTS, BECAUSE THEY ANSWER TWO QUESTIONS ----
@@ -13126,7 +13166,11 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          floors every individual easy run at EASY_MIN_KM; nothing here lets
          a session go below that. */
       if ((distKey === 'half' || distKey === 'full') && (mWeek.supportKm || 0) > 0){
-        var mWeekContractDays = Math.max(0, mBottomUp.days - 2 - mWeek.qSlots);
+        /* Same rule as the block-level contract above: the marathon's
+           requirement is the prescribed count, so only the long run is
+           subtracted. See mReservedForOptional. */
+        var mWeekContractDays = Math.max(0,
+          mBottomUp.days - (distKey === 'full' ? 1 : 2) - mWeek.qSlots);
         /* WIDEN-ONLY, NEVER NARROW -- deliberately, in every phase including
            Peak. HQ's contract is a FLOOR ("Allow ONE selected day to be an
            Optional Run" -- a permission, not a mandate that a capable week
@@ -16391,6 +16435,17 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
        bottom-up weeks, which already state their own day-count authority
        explicitly below; every other purpose and distance -- 5K, 10K, Base,
        Speed, Maintain -- reads exactly what it read before. */
+    /* ---- THE MARATHON'S PRESCRIBED-DAY REQUIREMENT IS ENFORCED HERE ----
+       This is the one place a prescribed day becomes a real day on a real
+       calendar, so it is where the cap belongs. Capping mAvail inside the
+       solve is not enough on its own: runCap is also bounded by
+       activeDays.length directly, and a week whose own earned supportDays
+       exceeded the contract could still reach seven runs for an athlete who
+       made all seven days available -- measured, and exactly the outcome
+       HQ's ruling prohibits, because it leaves no full non-running day.
+       Developing 4 / Established 5 / Advanced 6, and never more. */
+    if (blockResult.distKey === 'full')
+      runCap = Math.min(runCap, marathonPrescribedDays(blockResult.experience));
     var skipFeasibilityForContract = wk.bottomUp &&
       (blockResult.distKey === 'half' || blockResult.distKey === 'full');
     var feasibleDays = skipFeasibilityForContract ? null : expressibleRunningDays(blockResult.distKey, wk.volume,

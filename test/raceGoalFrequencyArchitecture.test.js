@@ -58,14 +58,15 @@ test('Advanced Marathon: additional availability increases prescribed frequency 
   const p4 = peakWeek(at4.blk), p5 = peakWeek(at5.blk), p6 = peakWeek(at6.blk);
   assert.equal(p4.bottomUp.supportDays, 2, '4 days: no longer stalls -- 2 is what 4 raw days can carry');
   assert.equal(p5.bottomUp.supportDays, 3, '5 days: a real day genuinely used');
-  /* HQ DAY-COUNT/START-VOLUME CORRECTION -- Advanced is now tier-capped at 5
-     selected days for Half/Marathon (RACE_GOAL_MAX_DAYS, applied inside
-     raceGoalDestinationSolve() to mAvail before mNeed/mSupportDays ever run),
-     because splitting the same weekly floor across more days than the tier
-     needs was writing near-floor easy runs deep into Build. A 6th day offered
-     above that ceiling is therefore never reached at all: the mechanism stops
-     one day earlier than the coherence floor alone would have stopped it. */
-  assert.equal(p6.bottomUp.supportDays, 3, '6 days: capped at the tier ceiling of 5 selected days, same as 5');
+  /* HQ PRESCRIBED-FREQUENCY RULING SUPERSEDES THE 5-DAY ADVANCED CAP.
+     This assertion previously read 3 -- "capped at the tier ceiling of 5
+     selected days, same as 5" -- which was the RACE_GOAL_MAX_DAYS behaviour
+     for Half/Marathon. The marathon now takes its prescribed-day requirement
+     from its own pathway (MARATHON_PRESCRIBED_DAYS: Developing 4,
+     Established 5, Advanced 6), so an Advanced athlete offering a sixth day
+     genuinely receives it: long run + 2 quality + 4 supporting = six.
+     The half is unchanged and still reads the old table. */
+  assert.equal(p6.bottomUp.supportDays, 4, '6 days: the sixth day is now the pathway requirement, and is used');
 });
 
 test('5K/10K/Half Novice-Experienced: additional availability CAN raise frequency where it was previously invisible to the seed', () => {
@@ -329,18 +330,23 @@ test('raceGoalAvailabilityLimited: fires with named reasons on the reported case
 });
 
 test('raceGoalAvailabilityLimited: does not fire once the extra day has already been granted, and never sees a day above the tier cap at all', () => {
-  /* HQ DAY-COUNT/START-VOLUME CORRECTION -- Half/Marathon is now tier-capped
-     at RACE_GOAL_MAX_DAYS selected days (5 for Advanced), applied to mAvail
-     inside raceGoalDestinationSolve() before this trigger's own solve ever
-     runs. A 6th day therefore changes nothing for these two distances: it is
-     never offered to the mechanism, so the trigger reports the identical
-     state it reports at 5 -- not because the concentration resolved, but
-     because there is no further day this pathway will ever be given. */
+  /* HQ PRESCRIBED-FREQUENCY RULING. Under the old 5-day Advanced cap a sixth
+     day was never offered to the mechanism, so this asserted that 6 read
+     IDENTICALLY to 5. Advanced's marathon requirement is six now, so the
+     sixth day is real: at five the trigger correctly reports the athlete's
+     availability as the limitation, and at six that limitation genuinely
+     resolves -- three supporting runs of 15.2km each, at 48% of the long
+     run's distance, become four.
+
+     THE CAP IS STILL ASSERTED, one day further out: a seventh day must read
+     identically to the sixth, because six is where the marathon stops. */
   const a = app();
   const r5 = a.raceGoalAvailabilityLimited('full', 'advanced', null, 15, { availableDays:5, easyPaceSecPerKm:330 });
   const r6 = a.raceGoalAvailabilityLimited('full', 'advanced', null, 15, { availableDays:6, easyPaceSecPerKm:330 });
-  assert.equal(r5.limited, true);
-  assert.deepEqual(r6, r5, '6 days must read identically to 5 -- the tier cap holds, not a fresh resolution');
+  const r7 = a.raceGoalAvailabilityLimited('full', 'advanced', null, 15, { availableDays:7, easyPaceSecPerKm:330 });
+  assert.equal(r5.limited, true, 'at five days availability is the constraint and must be reported');
+  assert.equal(r6.limited, false, 'the sixth day is the pathway requirement and resolves the concentration');
+  assert.deepEqual(r7, r6, '7 days must read identically to 6 -- six is the marathon ceiling');
 });
 
 test('raceGoalAvailabilityLimited: never fires from a raw kilometre threshold -- a smaller weekly total can need MORE days to resolve than a larger one', () => {
