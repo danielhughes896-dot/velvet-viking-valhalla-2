@@ -127,6 +127,12 @@ const WORK_SURFACES = [
      how long before choosing anything, and closing it costs them nothing --
      no declaration is made and the plan is untouched. */
   ['openRestrictionModal', 'declaring an injury or illness restriction'],
+  /* Context Insight. A work surface by this list's own test: it has a close
+     control, closing it costs the athlete nothing, and it asks for no
+     decision at all -- it is the one entry here that only ever explains. It
+     is opened by maybeOpenContextInsight() rather than by an open*Modal()
+     name because the athlete does not summon it; a transition does. */
+  ['maybeOpenContextInsight', 'the Context Insight explanation'],
 ];
 
 /* The other side of the classification, and the reason the count is a rule

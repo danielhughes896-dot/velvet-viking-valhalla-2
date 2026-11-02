@@ -3217,6 +3217,13 @@
   .today-injury .coach-why-btn{padding-top:0;}
   .today-injury-hint{font-size:var(--fs-support); line-height:var(--lh-support);
                      color:var(--ink-faint); margin-top:6px;}
+  /* CONTEXT INSIGHT. The coaching voice needs room to be read, so this is
+     the one modal body set at reading measure rather than control density.
+     No new tokens: the body copy size and the modal shell are the product's
+     own. */
+  .ci-body .ci-para{font-size:var(--fs-body); line-height:1.62; color:var(--ink);
+                    margin:0 0 12px;}
+  .ci-body .ci-para:last-of-type{margin-bottom:4px;}
   .rs-pick{display:flex; flex-direction:column; align-items:flex-start; gap:3px;
            width:100%; text-align:left;}
   .rs-pick-label{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.6px;
@@ -13283,8 +13290,27 @@ function completionClause(totalKm){
 function intervalWorkoutText(spec, totalKm){
   if (spec.ladder) return { title:'Ladder: '+spec.ladder.join('-')+'m', type:'interval',
     desc: dtok(2)+' warm-up. Ladder '+spec.ladder.join('–')+'m @ Interval pace, jog recovery scaled to each rep’s length. '+dtok(2)+' cool-down.' };
-  if (spec.sets) return { title:'Deuce: '+spec.sets+'x('+spec.reps+'x'+spec.m+'m)', type:'interval',
-    desc: dtok(2)+' warm-up. '+spec.sets+' sets of '+spec.reps+' x '+spec.m+'m @ Interval pace, short jog between reps, 3–4min jog between sets. '+dtok(2)+' cool-down.' };
+  /* THE NAME SAYS WHAT THE WORK IS -- HQ decision. "Deuce" is a tennis word:
+     it is the only family in the library whose name describes nothing, and
+     the athlete had to decode "2x(4x400m)" before they knew what they were
+     being asked to do. The ARCHETYPE ID IS UNCHANGED -- `deuce` is a
+     persisted contract and nothing here touches it -- and HISTORY IS NOT
+     MIGRATED: displayCardTitle() reads the stored dd.title, so a plan built
+     before this keeps the title it was built with. Only newly generated and
+     newly re-rendered sessions carry the clearer one.
+
+     The recovery leads the description because the recovery is the session.
+     One set is written as plain intervals, because with one set that is
+     exactly what it is. */
+  if (spec.sets) return {
+    title: spec.sets === 1 ? 'Intervals: '+spec.reps+'x'+spec.m+'m'
+         : spec.sets === 2 ? 'Intervals: '+spec.reps+'x'+spec.m+'m twice'
+         : 'Intervals: '+spec.sets+' sets of '+spec.reps+'x'+spec.m+'m',
+    type:'interval',
+    desc: spec.sets === 1
+      ? dtok(2)+' warm-up. '+spec.reps+' x '+spec.m+'m @ Interval pace, short jog between reps. '+dtok(2)+' cool-down.'
+      : dtok(2)+' warm-up. '+spec.reps+' x '+spec.m+'m @ Interval pace with a short jog between. Then 3–4min properly easy, and do it again'+
+        (spec.sets > 2 ? ' — '+spec.sets+' sets in all' : '')+'. '+dtok(2)+' cool-down.' };
   if (spec.t==='goalpace') return { title:'Goal Pace: '+spec.reps+'x'+spec.m+'m', type:'interval', mpSegment:true,
     desc: dtok(2)+' warm-up. '+spec.reps+' x '+spec.m+'m @ Goal Pace w/ short float recovery — locking in race rhythm. '+dtok(2)+' cool-down.' };
   /* Hills, fartlek and the two unnumbered tempos are the sessions whose WORK is
@@ -18598,6 +18624,10 @@ function planContentSignature(st){
        Signed whole, exactly as setup is -- the same reasoning that put
        dd.support in here. */
     library: st.library || null,
+    /* THE INSIGHT LEDGER TRAVELS. An explanation shown on the phone must not
+       be shown again on the tablet, and "this athlete has stopped engaging"
+       is a fact about the athlete rather than about one device. */
+    insights: st.insights || null,
     days: st.days.map(function(d){
       return {
         id:nz(d.id), date:nz(d.date), week:nz(d.week), type:nz(d.type),
@@ -19875,6 +19905,12 @@ function makeDefaultState(){
        this controls only how much coaching EXPLANATION is presented, and can
        never change a session. Default 'adaptive'. See GUIDANCE LEVEL below. */
     guidanceLevel:'adaptive',
+    /* CONTEXT INSIGHT'S LEDGER. Which transitions this athlete has already
+       been shown, the day one was last shown, and how patient they are being
+       about it. Presentation-adjacent but genuinely per-athlete, so it is
+       state rather than a module variable -- an insight shown on the phone
+       must not be shown again on the tablet. See contextInsightDue(). */
+    insights:{ seen:{}, shownOn:null, dismissed:0, quietBlockId:null },
     notifyEnabled:false, // daily 08:00 workout-reminder notification toggle
     /* null is not a default of convenience: it is the only correct starting
        value. Nobody has been asked, so nobody has agreed, and an account
@@ -21113,14 +21149,14 @@ var ARCHETYPE_GUIDANCE = {
      and 'avoid' names the specific failure that corrupts the result. */
   threshold_calibration: {
     cue:'One continuous 30-minute time trial — no break at 10 minutes, same effort throughout.',
-    why:'This is how Valhalla learns your real training zones instead of estimating them. Everything after it is prescribed from what today measures.',
+    why:'Up to now your zones have been worked backwards from a goal, which is educated guessing. Today measures them instead, and everything after this reads off what you actually do.',
     how:'Run the 30 minutes as ONE unbroken effort. Settle into the strongest pace you could hold evenly for the full half hour, then keep it — nothing changes at the 10-minute mark, and the last 20 minutes are only the part we measure. Go by effort rather than by a pace target: finding out what your real threshold is IS the session.',
     feel:'Uncomfortable and steady. Talking is down to a few words. You should finish knowing you could not have held much more, but not emptied.',
     avoid:'Sprinting the opening minutes, and treating this as an ordinary threshold session with a rest in the middle. Going out too hard makes you fade, and a fading heart rate produces a threshold that is too high — which makes every session after this one too hard.'
   },
   easy_run: {
     cue:'Conversational the whole way — if you can’t talk in full sentences, ease off.',
-    why:'Builds the aerobic base and keeps you fresh enough to run the hard days properly.',
+    why:'This is the running that builds the engine, and it only does that if it stays easy enough to leave you fresh for the hard days.',
     how:'Start slower than feels natural and hold the easy window from the first @@U@@ to the last.',
     feel:'Comfortable and chatty. You should finish thinking you could have gone further.',
     avoid:'Drifting up to a “comfortably quick” pace. That turns a recovery day into a mediocre hard day.'
@@ -21134,7 +21170,7 @@ var ARCHETYPE_GUIDANCE = {
   },
   long_run: {
     cue:'Steady and patient — the last third should be no slower than the first.',
-    why:'Extends endurance and fatigue resistance. This is the backbone of the whole block.',
+    why:'This is where endurance gets built — the slow, unglamorous kind that holds the rest of the block up.',
     how:'Easy pace throughout. Take fluid and carbohydrate on anything past about 90 minutes.',
     feel:'Easy early, honest work late. Tired legs at the end are normal; laboured breathing is not.',
     avoid:'Starting at the pace you finish at. Almost every bad long run was decided in the first 5km.'
@@ -21142,35 +21178,35 @@ var ARCHETYPE_GUIDANCE = {
   long_run_goal_finish: {
     essential:'Run the easy section genuinely easy — the goal-pace finish is the session.',
     cue:'Hold back early. The point is goal pace on legs that are already tired.',
-    why:'Teaches you to hold race effort in the state you will actually be in late in the race.',
+    why:'Holding goal effort when you are fresh is not the hard part. This puts it on legs that have already done some work, which is the state you will be in when it counts.',
     how:'Easy pace until the final block, then change gear once and hold it to the end.',
     feel:'The change of pace should feel like work but not like racing. Controlled, rhythmic, deliberate.',
     avoid:'Racing the easy portion and then limping through the finish. That is two sessions badly done instead of one done well.'
   },
   long_run_b2b: {
     cue:'Easy on tired legs. Today is about durability, not distance.',
-    why:'Running long on an already-fatigued system is the specific adaptation ultra racing needs.',
+    why:'Ultras are not run on fresh legs, so there is only so much to be learned from practising on them. Going long again on tired legs is about as close as training gets to the real thing.',
     how:'Slower than yesterday from the start. Walk the steep climbs if that keeps the effort easy.',
     feel:'Heavy legs, easy breathing. That combination is the whole point.',
     avoid:'Trying to match yesterday. Today is deliberately the smaller run.'
   },
   threshold_continuous: {
     cue:'One continuous effort — the pace you could race for about an hour.',
-    why:'Raises the pace at which lactate starts to accumulate, which is the biggest single lever on race pace.',
+    why:'This kind of work pushes up the pace you can hold before things start to tip, which tends to be one of the bigger levers on race pace.',
     how:'Settle into the window inside the first @@U@@ and hold it. No surges, no finishing sprint.',
     feel:'Hard but controlled, and even the whole way. If you are gasping, you have gone too fast.',
     avoid:'Treating it as a time trial. Threshold work only pays if you could have held it a little longer.'
   },
   goal_pace_block: {
     cue:'Exactly race rhythm — not a second faster.',
-    why:'Rehearses the pace, the effort and the concentration you will need on the day.',
+    why:'A rehearsal, basically. The pace, the effort, and the concentration it takes to hold both — all easier to find on the day if you have been there before.',
     how:'Lock onto goal pace from the first @@U@@ and let it feel unremarkable.',
     feel:'Comfortable now, which is the point. Race day makes it hard for you.',
     avoid:'Running it quicker to prove something. Beating goal pace in training proves nothing about holding it for the full distance.'
   },
   steady_tempo: {
     cue:'A strong, steady aerobic effort — firm, not hard.',
-    why:'Builds aerobic strength at a cost you can absorb and repeat.',
+    why:'Hard enough to be worth doing, cheap enough that you can come back and do it again next week. The repeatability is most of the value.',
     how:'Warm up, settle into a rhythm you could hold well past the time given, and stay there.',
     feel:'Working, but you could still speak in short phrases.',
     avoid:'Letting it creep up to threshold. This one earns its value by staying under.'
@@ -21178,14 +21214,14 @@ var ARCHETYPE_GUIDANCE = {
   progressive_tempo: {
     essential:'Start controlled — this only works if the last third is the fastest part.',
     cue:'Build steadily, so the final third is the quickest running of the day.',
-    why:'Teaches pace judgement and finishing strength in one session.',
+    why:'Two things in one: judging the pace while you are fresh, and still having something to spend at the end.',
     how:'Begin at a strong aerobic effort and step down gradually. One change of gear per third, not a sprint at the end.',
     feel:'Comfortable, then firm, then genuinely hard — in that order.',
     avoid:'Going out at tempo pace. Then it is not a progression, it is just a tempo you fade out of.'
   },
   split_tempo: {
     cue:'Both halves at the same pace — the jog between is a reset, not a rest.',
-    why:'Accumulates more quality time at tempo than one continuous block would allow.',
+    why:'Breaking it up lets you spend more time at tempo than you could manage in one go. Same work, just more of it.',
     how:'Hit the target window in the first rep and match it in the second. Keep the recovery jogging.',
     feel:'Hard but repeatable. The second rep should feel like the first.',
     avoid:'Emptying the tank on the first rep. The session is the total, not the opener.'
@@ -21193,43 +21229,51 @@ var ARCHETYPE_GUIDANCE = {
   over_under: {
     essential:'The Over is only worth running if the Under was genuinely controlled.',
     cue:'Two paces, no recovery. The Under is the recovery.',
-    why:'Teaches you to clear the effort of running above threshold while you are still running.',
+    why:'Learning to settle while you are still running. The recovery happens underneath you rather than standing still, which is a different skill.',
     how:'Settle into the Under for the full @@U@@, lift to the Over without a surge, and drop straight back.',
     feel:'The Under should feel sustainable every time you return to it. If it stops feeling that way, the session is done.',
     avoid:'Treating the Under as a rest. Running it too easy makes the Over a set of intervals instead.'
   },
   track_reps: {
     cue:'Even splits — the last rep should match the first.',
-    why:'Develops VO₂ max and running economy at hard aerobic effort.',
+    why:'This kind of work helps raise your ceiling. Hard enough that your breathing is the limit rather than your legs, which is uncomfortable and is rather the point.',
     how:'Run every rep in the target window and jog the recoveries rather than standing still.',
     feel:'Hard. Breathing heavy by the end of each rep, recovered just enough to start the next on time.',
     avoid:'Racing the first two reps. A session that falls apart at rep four delivered less than an even one.'
   },
   short_reps: {
     cue:'Fast and relaxed — quality of movement matters more than effort.',
-    why:'Sharpens speed, mechanics and economy without digging a deep fatigue hole.',
+    why:'Short and sharp. Speed and mechanics, without the hole in the week that longer hard running tends to leave.',
     how:'Quick but smooth, and jog the full recovery distance before starting the next one.',
     feel:'Fast, never straining. If your form falls apart, the rep was too fast.',
     avoid:'Cutting the recovery short. These reps are only worth running when you are fresh enough to run them well.'
   },
   ladder: {
     cue:'Pace by rep length — the long rung is not meant to match the short ones.',
-    why:'Covers a range of speeds in one session and trains judgement between them.',
+    why:'A range of speeds in one session, which means you spend the whole thing deciding how hard is hard enough. That judgement is a good part of what you take away.',
     how:'Hold the effort constant as the reps grow and shrink. Recovery scales with the rep you just ran.',
     feel:'Each rep hard for its length. The longest rung is the honest test.',
     avoid:'Running every rung at the same pace. The short ones should be quicker.'
   },
+  /* SIMPLIFIED -- HQ decision. Six fields used to circle one idea: purpose,
+     intent, why, cue and half of essential all said "two sets, the second one
+     counts", so the athlete met the same sentence five times in one session.
+     Each field now carries one thing the others do not, the between-set
+     recovery leads because it is what makes the session work, and the old
+     "buys more quality reps than one long block would" is gone -- that was a
+     coach's justification, comparing this session to one the athlete is not
+     doing. The work itself is untouched. */
   deuce: {
-    essential:'Take the full recovery between sets — that is what makes the second set possible.',
-    cue:'Two matched sets. The second should look like the first.',
-    why:'Splitting the work into sets buys more quality reps than one long block would.',
-    how:'Short jog between reps, then the full recovery between sets before starting again.',
-    feel:'Hard within a set, genuinely recovered before the next one starts.',
-    avoid:'Shortening the between-sets recovery to “keep the rhythm”. That turns two sharp sets into one blunt one.'
+    essential:'The 3–4 minutes between the sets is what makes the second one possible. Take all of it.',
+    cue:'Second set should look like the first.',
+    why:'Two shorter sets with a real break in the middle, so the last rep is as good as the first. One long set and you would be hanging on by the end of it.',
+    how:'Short jog between the reps inside a set. Then 3–4 minutes properly easy before you start the second.',
+    feel:'Hard inside a set. Genuinely recovered before the next one starts — if you are not, the break was too short.',
+    avoid:'Trimming the break to keep the rhythm going. That is how two sharp sets become one blunt one.'
   },
   goal_pace_reps: {
     cue:'Race rhythm with a float between — not intervals.',
-    why:'Locks in the pace and cadence of race day without the cost of a full race-pace block.',
+    why:'The pace and the rhythm of race day, broken into pieces so it does not cost you the rest of the week.',
     how:'Hit goal pace exactly on each rep and keep the recovery running, not standing.',
     feel:'Familiar rather than hard. The point is that it should feel repeatable.',
     avoid:'Running the reps faster than goal pace. That is a different session with a different cost.'
@@ -21237,14 +21281,14 @@ var ARCHETYPE_GUIDANCE = {
   hill_repeats: {
     essential:'Walk or jog back down. The descent is recovery, not part of the effort.',
     cue:'Strong and upright uphill, fully recovered before the next one.',
-    why:'Builds power and running strength at a much lower impact cost than flat speed work.',
+    why:'Strength work that happens to be running. The hill does a fair bit of the hard part, and your legs usually take less of a beating than they would at the same effort on the flat.',
     how:'Drive from the hips, short quick steps, eyes up. Take as long as you need coming down.',
     feel:'Hard on the way up, genuinely recovered at the bottom. There is no pace target — run by effort.',
     avoid:'Racing the descent. That is where hill sessions cause injuries and where the next rep is lost.'
   },
   fartlek: {
     cue:'Surges by feel — strong and controlled, not flat out.',
-    why:'Aerobic power without the precision or the cost of a track session.',
+    why:'A lot of what a track session gives you, without the precision or the cost of one. Hard running, no stopwatch.',
     how:'Change gear cleanly at the start of each surge, and jog easy for the same time between.',
     feel:'Strong, controlled, and repeatable. Every surge should look the same.',
     avoid:'Treating the surges as sprints. There is no pace target here for a reason.'
@@ -21252,7 +21296,7 @@ var ARCHETYPE_GUIDANCE = {
   time_trial: {
     essential:'Run it honestly — every pace in the rest of the block is set from this result.',
     cue:'A true, even effort. This is a measurement, not a workout.',
-    why:'Recalibrates your goal and every training pace against where your fitness actually is.',
+    why:'An honest measurement. Your goal and every training pace get re-read against what you run today rather than what we assumed in week one.',
     how:'Warm up properly, start at an effort you can hold, and finish with nothing left.',
     feel:'Genuinely hard by the end. You should finish knowing it was a fair reading.',
     avoid:'Going out too hard and fading. A positive split gives you a worse number than you deserve.'
@@ -21260,7 +21304,7 @@ var ARCHETYPE_GUIDANCE = {
   easy_strides: {
     essential:'The strides are relaxed and short — this is a sharpener, not a session.',
     cue:'Easy running, then a handful of quick, relaxed strides.',
-    why:'Wakes the legs and the nervous system up without adding fatigue.',
+    why:'A few seconds of quick running to remind your legs what it feels like. None of it should cost you anything.',
     how:'Run easy, then accelerate smoothly over each stride and shut it down. Full recovery between.',
     feel:'Quick and light. You should finish feeling sharper, not tired.',
     avoid:'Turning the strides into reps. Anything hard here is borrowed from race day.'
@@ -21373,10 +21417,10 @@ var TERSE_GUIDANCE = {
               how:'Effort constant as the reps grow and shrink. Recovery scales with the rep.',
               feel:'Each rep hard for its length.',
               avoid:'One pace for every rung.' },
-  deuce:    { why:'Sets buy more quality reps than one long block.',
-              how:'Short jog between reps, full recovery between sets.',
-              feel:'Hard within a set, genuinely recovered before the next.',
-              avoid:'Trimming the between-sets recovery.' },
+  deuce:    { why:'Two shorter sets, so the last rep is as good as the first.',
+              how:'Short jog between reps. 3–4 minutes properly easy between sets.',
+              feel:'Hard inside a set, recovered before the next one starts.',
+              avoid:'Trimming the break between sets.' },
   goal_pace_reps: { why:'Race rhythm without the cost of a full race-pace block.',
               how:'Goal pace exactly, and keep the float running.',
               feel:'Familiar rather than hard.',
@@ -25283,7 +25327,7 @@ function coachNextMove(load, recovery, trend, status){
 
   if (strained && quality){
     var cutKm = Math.max(1, Math.round(dd.km * 0.75 * 2)/2);
-    move.recommendation = 'Load and effort are both running high. Taking the edge off this one protects the rest of the block.';
+    move.recommendation = 'Load and effort are both running high at the moment. Taking the edge off this one is really about protecting the rest of the block.';
     move.adjustment = {
       kind:'reduce',
       km:cutKm,
@@ -25307,15 +25351,15 @@ function coachNextMove(load, recovery, trend, status){
     move.recommendation = patternSpeaks.sentence;
     move.pattern = { kind: patternSpeaks.kind, tier: patternSpeaks.tier };
   } else if (load.band==='low'){
-    move.recommendation = 'Load has dropped off. Run this one exactly as written — consistency is what is missing, not intensity.';
+    move.recommendation = 'Load has dropped off a bit. Run this one exactly as written — what is missing is consistency rather than intensity, and you cannot fix that by going harder.';
   } else if (trend.direction==='rising' && quality){
-    move.recommendation = 'Execution is trending up. Hold the prescribed paces rather than chasing faster ones.';
+    move.recommendation = 'Execution has been trending up, which is a good place to be. Hold the prescribed paces rather than chasing faster ones — there is nothing to gain today by proving it.';
   } else if (dd.type==='long'){
-    move.recommendation = 'Steady and controlled. The long run earns its value from time on feet, not pace.';
+    move.recommendation = 'Steady and controlled. A long run earns most of its value from the time you spend on your feet rather than from how quickly you cover the ground.';
   } else if (quality){
-    move.recommendation = 'Run it as prescribed. Hit the target window rather than beating it.';
+    move.recommendation = 'Run it as prescribed. Landing inside the target window is the session — beating it is not a bonus.';
   } else {
-    move.recommendation = 'Keep this genuinely easy — it is what lets the quality sessions land.';
+    move.recommendation = 'Keep this genuinely easy. Easy days are what tend to make the hard days work, dull as that is to hear.';
   }
   return move;
 }
@@ -25636,10 +25680,10 @@ function coachDecisionSentence(st, tier, ev, positives, nxt, quality, observed){
   if (st==='recover')
     return 'The evidence says recover first. '+(quality ? what+' is not the session to push through.' : 'Keep the next few days genuinely easy.');
   if (st==='modify')
-    return 'Repeated evidence across recent sessions, not one bad day. Reducing '+what+' protects the quality of the rest of the week.';
+    return 'This has shown up across several sessions now rather than on one rough morning. Pulling '+what+' back a bit is mostly about protecting the rest of the week.';
   if (st==='check')
     return 'Worth watching rather than acting on yet. '+(quality
-      ? what+' stays on — the warm-up will tell you more than the data can.'
+      ? what+' stays on — honestly, the warm-up will tell you more than I can from here.'
       : 'Nothing here changes what the next session should be.');
 
   /* No training in the window. "Nothing unusual in the recent training" is a
@@ -25647,7 +25691,7 @@ function coachDecisionSentence(st, tier, ev, positives, nxt, quality, observed){
      back" is a conclusion drawn from no evidence at all. Say what is true --
      there was nothing to read -- without implying either reassurance or alarm. */
   if (observed === 0)
-    return 'No recent sessions logged, so there is nothing to read yet. The plan stands as written.';
+    return 'Nothing logged recently, so I have nothing to go on. The plan stands as written until you give me something to read.';
 
   /* PROCEED with evidence on the card. The evidence was not enough to change
      anything -- which is the restraint working, not a reason to pretend it was
@@ -25655,17 +25699,17 @@ function coachDecisionSentence(st, tier, ev, positives, nxt, quality, observed){
      is 1.57x your four-week average" is the contradiction this avoids; the plan
      still stands, and it is still not being reduced. */
   if (ev.length)
-    return 'Noted and not acted on: on this evidence the plan still stands as written.';
+    return 'Noted, and not acted on — it is there, but it is not enough to change anything. The plan stands as written.';
 
   /* There IS positive evidence here, so the claim can be positive: this is the
      one PROCEED branch entitled to say the training supports the decision
      rather than merely failing to argue against it. */
   if (positives.length)
-    return positives[0].detail+' Your recent training supports keeping this session as written.';
+    return positives[0].detail+' On that, I am happy to leave this session exactly as it is.';
   /* And this branch is not entitled to that. Reaching here means the evidence
      model found nothing either way -- an absence of concern, which is not the
      same as evidence of readiness and must not be dressed up as it. */
-  return 'Nothing in the recent training argues against it. Proceed as planned.';
+  return 'Nothing in the recent training argues against it, which is not quite the same as a glowing report. Proceed as planned.';
 }
 
 /* =========================================================
@@ -29645,16 +29689,16 @@ function blockEffectivenessCompute(){
    Never motivational, never a diagnosis. */
 function blockCoachRead(st, phase){
   if (st==='ADAPTING')
-    return 'The current structure is producing the intended response. Continue the progression already prescribed — no programme-level change is justified.';
+    return 'This is working. The training is landing the way it is meant to, so I am not going to start fiddling with it — we carry on with the progression that is already in there.';
   if (st==='RESPONDING')
-    return 'Training is being absorbed. There is early positive evidence, but not yet enough to call the block adapted.';
+    return 'It is going in. There is early evidence pointing the right way, though not yet enough for me to call the block properly adapted.';
   if (st==='PLATEAU')
-    return 'The exposure is there but the expected response has stalled across repeated evidence. Worth reviewing the programme rather than any single session.';
+    return 'The work is going in, but the response has flattened out, and that has now shown up more than once. That is a question about the programme rather than about any one session.';
   if (st==='STRAINED')
-    return 'This is a repeated pattern rather than one poor run. The current load warrants review.';
+    return 'This is not one bad run. It has happened enough times now to be telling us something, and the load is worth a proper look.';
   return (phase==='Taper' || phase==='Race Week' || phase==='Final Week')
-    ? 'Taper volume is doing its job; there is deliberately not enough training here to judge a block by.'
-    : 'Still gathering enough longitudinal evidence to judge the block.';
+    ? 'The taper is doing its job, which means there is deliberately not much training here to read. You would not learn much judging a block off taper weeks.'
+    : 'Not enough to go on yet. Give it a few more sessions and I will have something worth saying.';
 }
 
 /* ---------- append-only block review history ----------
@@ -31309,13 +31353,13 @@ function coachReadinessLine(dd){
     return dec.reasons[0] ? sentence(dec.reasons[0])+' Recovery comes before this session.'
                           : 'Recovery comes before this session.';
   if (rec.state === 'strained')
-    return 'Effort and heart rate have both been running above target this week. Stop if the effort climbs out of proportion to the pace.';
+    return 'Effort and heart rate have both been sitting above target this week, so the legs are carrying something. Stop if the effort climbs out of proportion to the pace.';
   if (rec.state === 'watch')
     return quality
-      ? 'You have carried a little more fatigue through the last few runs. Do not force the closing reps if the effort starts climbing.'
-      : 'A little more fatigue than usual in the last few runs.';
+      ? 'There is a bit more fatigue in the last few runs than usual. Do not force the closing reps if the effort starts climbing.'
+      : 'A bit more fatigue than usual in the last few runs — worth knowing rather than worth worrying about.';
   if (load.band === 'spike')
-    return 'This week is well above your recent average, so today is not the day to add anything to it.';
+    return 'This week is already well above your recent average. Today is not the day to add anything to it.';
   // the evidence, without repeating the decision it did not change
   if (dec && dec.state === 'check' && dec.reasons.length)
     return sentence(dec.reasons[0])+' Worth knowing before you start.';
@@ -31385,7 +31429,7 @@ var SESSION_INTENT = {
   track_reps:           'This is the hardest aerobic work of the week. Arriving at the final rep in one piece is the whole test.',
   short_reps:           'Today is about speed and mechanics, and it should cost you very little.',
   ladder:               'Today covers several speeds in one session, so judgement matters as much as effort.',
-  deuce:                'The work is split so the quality holds all the way through. The second set is the one that counts.',
+  deuce:                'The work is split in two so the quality holds to the end. The break in the middle is what makes that possible.',
   goal_pace_reps:       'Today rehearses race rhythm at a cost you can recover from inside the week.',
   hill_repeats:         'Today builds strength that flat running cannot, and the hill sets the effort for you.',
   fartlek:              'Today is aerobic power without the precision of a track session. Judgement is the skill being trained.',
@@ -32341,9 +32385,9 @@ function playbookSufficiency(archetype){
   var need = PLAYBOOK_MIN_OBSERVATIONS[certainty];
 
   if (!block || block.state==='LEARNING')
-    reasons.push('Not enough longitudinal evidence to judge the block yet.');
+    reasons.push('Not enough to judge the block on yet.');
   if (!trend.enough)
-    reasons.push('Fewer than four scored sessions, so there is no execution trend to read.');
+    reasons.push('Four scored sessions is about where a trend starts meaning anything, and we are not there yet.');
   if (relevant.length < need)
     reasons.push(relevant.length+' relevant scored session'+(relevant.length===1?'':'s')+
                  ', and '+need+' are needed at '+certainty+' certainty.');
@@ -32778,7 +32822,7 @@ var WORKOUT_LIBRARY = {
     presentation:{ novice:true, experienced:true, advanced:true }
   },
   deuce: {
-    stimulus:'vo2', purpose:'Two matched sets, so the second set is run as well as the first.',
+    stimulus:'vo2', purpose:'Two shorter sets with a full recovery between, so the second is run as well as the first.',
     homogeneous:false, progressable:true, regressable:true,
     /* The two-set structure IS the session. Progression adds reps WITHIN a set
        and never a third set. Regression may collapse to a single set only as
@@ -35896,6 +35940,699 @@ function renderInjuryPointer(){
 function handleInjuryHint(){
   injuryHintOpen = !injuryHintOpen;
   renderApp();
+}
+
+/* =========================================================
+   CONTEXT INSIGHT — EXPLAIN WHAT HAS JUST BECOME TRUE
+   ---------------------------------------------------------
+   NOT WEEKLY TIPS. The one principle this is built on, in HQ's words: an
+   insight explains something that has just become true FOR THIS ATHLETE.
+   Nothing here fires on a schedule, nothing accumulates, and nothing is
+   shown twice. If there is no transition, there is no insight, and the
+   athlete opens Today to the same screen they always do.
+
+   WHY IT EXISTS AT ALL. The guidance tables already explain every session on
+   its own card. What they cannot reach are the moments where the PROGRAMME
+   changes shape -- a phase boundary, a measured threshold replacing a
+   guessed one, a workout family the athlete has never met, coming back from
+   a restriction. Those are the moments an athlete asks "why does this look
+   different" and the product had no answer.
+
+   THE RULES, AND EVERY ONE OF THEM IS A RULE ABOUT NOT SPEAKING:
+     EARNED      a trigger is a state transition, never a date
+     ONCE        the ledger is keyed on the transition, so it cannot repeat
+     ONE A DAY   however many became true
+     NO QUEUE    if three fire at once, the first in this list wins and the
+                 others are DROPPED. A thing that was not worth saying today
+                 is not worth saying tomorrow either -- a queue is how an
+                 education feature becomes a backlog of pop-ups.
+     NOT FIRST   never inside the opening week of a plan; they are still
+                 looking around
+     NEVER OVER  restriction, checkpoint and race-outcome questions own the
+                 screen when they are up. Those are decisions. This is not.
+     GIVE UP     three dismissals without a single acknowledgement and this
+                 block stops offering them. Silence is a legitimate answer
+                 and the product should be able to take it.
+
+   THE NUMBERS ARE THE ENGINE'S AND THE CLAIMS ARE METHODOLOGY'S. Every
+   figure below is read from state at render time -- the measured threshold
+   pace, the phase names, the days out, the session counts. Nothing here
+   computes training, and nothing claims more than the engine supports: see
+   insightCopy()'s own note on grounded language.
+   ========================================================= */
+var INSIGHT_MIN_PLAN_DAYS = 7;        // "not in the opening week"
+var INSIGHT_DISMISS_LIMIT = 3;        // dismissals without an acknowledgement
+
+/* WHICH PROGRAMME AN INSIGHT BELONGS TO, AND WHY IT IS NOT THE BLOCK ID.
+   blockId is MINTED LAZILY: a plan can exist without one and
+   migrateAthleteRecord() stamps it at load, so a key built from it changes
+   underneath the ledger and every insight is offered a second time. Found
+   with a screenshot harness -- the ledger travelled correctly and the key it
+   was written under no longer matched the key being asked for.
+   startDate is set when the block is built and never moves, and one athlete
+   cannot start two blocks on the same day. */
+function insightBlockKey(){
+  var su = state && state.setup;
+  return (su && (su.startDate || su.blockId)) || 'block';
+}
+function insightLedger(){
+  if (!state.insights || typeof state.insights !== 'object')
+    state.insights = { seen:{}, shownOn:null, dismissed:0, quietBlockId:null };
+  var l = state.insights;
+  if (!l.seen || typeof l.seen !== 'object') l.seen = {};
+  if (typeof l.dismissed !== 'number') l.dismissed = 0;
+  return l;
+}
+/* Has the athlete been offered this exact transition before? */
+function insightSeen(key){ return !!insightLedger().seen[key]; }
+
+/* ---------- the triggers, in priority order ----------
+   ORDER IS THE PRIORITY, and it runs from the largest change to the
+   smallest: a new programme explains more than a phase boundary, which
+   explains more than one unfamiliar session. The first that is both true
+   and unseen wins, and nothing else is remembered. */
+function insightCandidates(){
+  var su = state && state.setup;
+  if (!su || !state.days || !state.days.length) return [];
+  var out = [];
+  var blockId = insightBlockKey();
+  var today = todayStr();
+
+  /* 0. RACE MORNING OUTRANKS EVERY EXPLANATION. Nothing educational competes
+        with the day the block was for, so this goes in front of the lot and
+        the ordinary rules bend around it in insightSuppressed(). Keyed on the
+        date rather than the block, so next year's race is its own message. */
+  var raceToday = raceDayToday();
+  if (raceToday) out.push({ kind:'race_day', key:'raceday:'+today, day:raceToday });
+
+  /* 1. A PROGRAMME HAS JUST BEEN BUILT. */
+  out.push({ kind:'programme', key:'programme:'+blockId });
+
+  /* 2. A PHASE BOUNDARY. Keyed per block and per phase, so the same athlete
+        meets Build again in their next block -- a year on, that is a
+        different conversation and worth having twice. */
+  var wk = currentWeekNum();
+  if (wk){
+    var phase = trainingPhase(wk);
+    var prevPhase = wk > 1 ? trainingPhase(wk - 1) : null;
+    /* Only when there is something written for that transition. Race Week and
+       Final Week have no phase copy and should not get any: race week already
+       has its own treatment, and an insight with nothing in it is worse than
+       no insight -- particularly in the one week an athlete can least afford
+       a confusing screen. */
+    if (phase && prevPhase && phase !== prevPhase && insightPhaseParas(prevPhase, phase))
+      out.push({ kind:'phase', key:'phase:'+blockId+':'+phase, phase:phase, from:prevPhase });
+  }
+
+  /* 3. A WORKOUT FAMILY THE ATHLETE HAS NEVER BEEN GIVEN, fired the day
+        BEFORE it lands rather than on the morning of it. Keyed on the
+        archetype alone and never on the block: a first time is a first time
+        once. */
+  var ahead = state.days.filter(function(dd){
+    return dd && dd.date > today && dd.date <= addDays(today, 1) &&
+           dd.prescription && dd.prescription.archetype;
+  });
+  for (var i = 0; i < ahead.length; i++){
+    var arch = ahead[i].prescription.archetype;
+    if (!WORKOUT_LIBRARY[arch]) continue;
+    if (insightFamiliarWith(arch)) continue;
+    out.push({ kind:'workout', key:'workout:'+arch, archetype:arch, day:ahead[i] });
+    break;
+  }
+
+  /* 4. THE THRESHOLD STOPPED BEING A GUESS. */
+  if (su.thresholdPaceSource === 'calibration' && su.thresholdPaceSecPerKm > 0)
+    out.push({ kind:'threshold', key:'threshold:'+blockId,
+               paceSec:su.thresholdPaceSecPerKm, on:su.thresholdPaceMeasuredOn || null });
+
+  /* 5. BACK FROM A DECLARED RESTRICTION. */
+  var r = (typeof restrictionRecord === 'function') ? restrictionRecord() : null;
+  if (r && r.endedAt && r.endedOn)
+    out.push({ kind:'restriction_return', key:'return:'+r.endedOn, record:r });
+
+  return out;
+}
+/* Has this athlete ever actually been given this family before? Reads the
+   plan and the archive, so a family they met in an earlier block is not
+   introduced to them a second time. */
+function insightFamiliarWith(archetype){
+  var seenIt = (state.days || []).some(function(dd){
+    return dd && dd.completed && dd.prescription && dd.prescription.archetype === archetype;
+  });
+  if (seenIt) return true;
+  try {
+    return athlete().sessions.some(function(s){ return s && s.archetype === archetype; });
+  } catch(e){ return false; }
+}
+
+/* ---------- may anything be said at all, today ---------- */
+function insightSuppressed(forRaceDay){
+  var su = state && state.setup;
+  if (!su || !state.days || !state.days.length) return 'no_plan';
+  var l = insightLedger();
+  /* THREE RULES BEND ON RACE MORNING AND THREE DO NOT.
+     Declining explanations, one a day and the opening week are all rules
+     about not nagging an athlete with education. Race day is not education,
+     it happens once a block, and an athlete who dismissed three phase cards
+     in October has not told me anything about this morning.
+     The three below it are different: each is a question the athlete owes an
+     answer to, and an open restriction on race morning is exactly the case
+     where a motivational card must not be the thing on the screen. */
+  if (!forRaceDay){
+    if (l.quietBlockId && l.quietBlockId === insightBlockKey()) return 'athlete_declined';
+    if (l.shownOn === todayStr()) return 'one_a_day';
+    if (su.startDate && daysBetween(su.startDate, todayStr()) < INSIGHT_MIN_PLAN_DAYS)
+      return 'opening_week';
+  }
+  /* THE DECISIONS OWN THE SCREEN. Each of these asks the athlete for an
+     answer the rest of the product depends on; an explanation that covered
+     one of them would be the product interrupting itself. */
+  try { if (openRestriction()) return 'restriction_open'; } catch(e){}
+  try { if (raceOutcomePending()) return 'race_outcome_pending'; } catch(e){}
+  try { var ci = checkpointInterventionState(); if (ci && ci.show) return 'checkpoint_open'; } catch(e){}
+  return null;
+}
+/* The one insight to show right now, or null. Pure: decides nothing and
+   writes nothing. */
+function contextInsightDue(){
+  var cands = insightCandidates();
+  /* Asked once per candidate rather than once up front, because the answer
+     differs for race day. */
+  for (var i = 0; i < cands.length; i++){
+    if (insightSuppressed(cands[i].kind === 'race_day')) continue;
+    if (insightSeen(cands[i].key)) continue;
+    var copy = insightCopy(cands[i]);
+    /* A candidate that produces no copy is not an insight. Dropping it here
+       rather than rendering an empty card means a future kind that forgets its
+       copy fails silently and harmlessly instead of putting a blank modal in
+       front of the athlete. It stays unseen, so it can still fire later if the
+       copy appears. */
+    if (!copy || !copy.paras || !copy.paras.length) continue;
+    return copy;
+  }
+  return null;
+}
+
+/* ---------- what it says ----------
+   THE VALHALLA COACHING VOICE, and the one rule HQ added to it by name:
+   confident where the methodology supports confidence, and never more than
+   that. "Useful practice" rather than "the most useful thing you can do".
+   Every number in these sentences is read from state above; none is
+   computed here, and no sentence makes a training claim the engine does not
+   already make somewhere else. */
+/* WHICH PROGRAMME THE ATHLETE IS ACTUALLY IN.
+   Context Insight is shared Valhalla infrastructure: the triggers are the same
+   for every programme, and the copy must not be. This is the one place that
+   answers what block this is, so no individual line has to guess -- and so a
+   Marathon assumption cannot reach a 5K athlete by being written into a
+   sentence that looked general. */
+/* ---------- RACE MORNING ----------
+   WHAT THIS IS NOT: the Race Day card. That card runs the race -- pace,
+   strategy, splits, what to do when. This is the coach speaking to the
+   athlete about the block they just spent together, and it must not repeat a
+   single number the card already carries.
+
+   IT IS NOT MEDICAL CLEARANCE EITHER. An open restriction suppresses it
+   entirely, the same as every other insight: on a morning when the athlete
+   owes an answer about their own health, a motivational card is the last
+   thing that should be on the screen.
+
+   HOW THE STATE IS CHOSEN. Not by a mood setting and not by a hand-picked
+   message: by what the athlete actually did, read back over the whole block.
+   Four dimensions, each a fraction of what was asked for, and the WORST one
+   decides -- the same shape marathonReadiness() already uses to answer
+   "could this block get there", applied after the fact to answer "did it".
+   The boundaries are the methodology's existing race-goal ones rather than
+   new numbers invented for this card. */
+var RACE_PREP_DISRUPTION_DAYS = 7;   /* a week of declared restriction */
+var RACE_PREP_GAP_DAYS = 10;         /* ten days with no running at all */
+function racePreparationRead(){
+  var su = state && state.setup;
+  if (!su || !state.days || !state.days.length) return null;
+  var today = todayStr();
+  var from = su.startDate || state.days[0].date;
+
+  var scheduled = 0, ran = 0, keyScheduled = 0, keyRan = 0, longestKm = 0;
+  var streak = 0, gap = 0;
+  state.days.slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; }).forEach(function(dd){
+    if (!dd || dd.date >= today) return;
+    /* A RESTRICTED DAY IS NOT A DAY THEY SKIPPED. dayRestricted() is the
+       product's one answer to that and it is used here rather than a second
+       opinion: those days are counted as interruption below, never as
+       absence of effort -- and they are skipped before the gap counter too,
+       or a declared restriction would be reported twice, once honestly as a
+       restriction and once again as "the training just stopped". */
+    if (dayRestricted(dd)) return;
+    /* THE GAP IS CALENDAR DAYS, rest days included: a fortnight off is a
+       fortnight off however the plan had labelled those days. */
+    if (sessionRan(dd)) streak = 0;
+    else { streak++; if (streak > gap) gap = streak; }
+    if (dd.type === 'rest') return;
+    var isKey = isQualityType(dd.type) || dd.type === 'long';
+    scheduled++; if (isKey) keyScheduled++;
+    if (sessionRan(dd)){
+      ran++; if (isKey) keyRan++;
+      var km = (dd.actual && dd.actual.km != null) ? dd.actual.km : dd.km;
+      if (km > longestKm) longestKm = km;
+    }
+  });
+  if (!scheduled) return null;
+
+  var benchmarkKm = MIN_PEAK_LONG_KM[su.distanceKey] || null;
+  var restrictedDays = restrictedDaysBetween(from, today);
+
+  var dims = [
+    { key:'consistency', fraction: ran / scheduled },
+    { key:'key_sessions', fraction: keyScheduled ? (keyRan / keyScheduled) : 1 }
+  ];
+  if (benchmarkKm)
+    dims.push({ key:'durability', fraction: Math.min(1, longestKm / benchmarkKm) });
+
+  var worst = dims.reduce(function(a, b){ return (a == null || b.fraction < a.fraction) ? b : a; }, null);
+
+  /* INTERRUPTION IS ITS OWN FINDING, not a worse fraction. An athlete who
+     trained well either side of three weeks off has good fractions and a
+     disrupted block, and telling them the preparation was excellent would be
+     the card failing at the one thing HQ asked it never to do. */
+  var interrupted = restrictedDays >= RACE_PREP_DISRUPTION_DAYS || gap >= RACE_PREP_GAP_DAYS;
+
+  var st = interrupted ? 'DISRUPTED'
+         : worst.fraction >= RACE_GOAL_READY_FRACTION ? 'EXCELLENT'
+         : worst.fraction < RACE_GOAL_MARGINAL_FRACTION ? 'DISRUPTED'
+         : 'GOOD';
+
+  return { state: st, limitedBy: worst.key, dimensions: dims,
+           interrupted: interrupted, restrictedDays: restrictedDays, gapDays: gap,
+           scheduled: scheduled, ran: ran, keyScheduled: keyScheduled, keyRan: keyRan,
+           longestKm: longestKm, benchmarkKm: benchmarkKm,
+           durable: !benchmarkKm || longestKm >= benchmarkKm,
+           weeks: totalWeeksInPlan() };
+}
+/* HOW THIS EVENT IS ACTUALLY RUN, so the coaching fits the race the athlete
+   entered. The three tones HQ approved were written about a marathon; the
+   fragments below are what stops them being read out at a 5K, where "get to
+   the next drinks station" is not advice, it is nonsense.
+
+   Opening windows are stated in TIME rather than distance. "The first 10km"
+   cannot be unit-switched -- "the first 10 miles" is a different race -- and
+   a clock reads the same to both athletes. */
+var RACE_EVENT_SHAPE = {
+  '5k':   { opening:'the opening minute',
+            hard:'It is going to hurt before halfway. That is a 5K working, not something going wrong.',
+            shrink:'Get to the next bend. Then the one after it.',
+            fuel:false },
+  '10k':  { opening:'the first few minutes',
+            hard:'There will be a stretch in the middle where it stops being fun. That is the race, not a problem to solve.',
+            shrink:'Get to the next @@U@@. Then the next one.',
+            fuel:false },
+  'half': { opening:'the first half hour',
+            hard:'There will probably be a point later where this gets properly hard. That is a half marathon, not evidence that something has gone wrong.',
+            shrink:'Do not try to solve the whole second half. Get to the next @@U@@. Then the next drinks station.',
+            fuel:true },
+  'full': { opening:'the first hour',
+            hard:'There will probably be a point later where this gets hard. Properly hard. That is a marathon, not evidence that something has gone wrong.',
+            shrink:'Do not suddenly try to solve 15 @@U@@s. Get to the next @@U@@. Then the next drinks station. Keep moving through what is actually in front of you.',
+            fuel:true }
+};
+function raceEventShape(){
+  var su = (state && state.setup) || {};
+  return RACE_EVENT_SHAPE[su.distanceKey] || RACE_EVENT_SHAPE['10k'];
+}
+function raceDayInsightParas(prep){
+  var su = (state && state.setup) || {};
+  var prof = DISTANCE_PROFILES[su.distanceKey] || {};
+  var event = prof.label || 'your race';
+  var sh = raceEventShape();
+  var fuel = sh.fuel ? 'keep fuelling, ' : '';
+
+  if (prep.state === 'EXCELLENT') return [
+    'You have done the work. Properly.',
+    /* The long runs are only claimed where the long run was the demand and
+       the athlete actually met it. */
+    (prep.durable && (su.distanceKey === 'full' || su.distanceKey === 'half')
+      ? 'The long runs are there. The quality sessions are there. '
+      : 'The sessions are there. The weeks are there. ') +
+      'You have given yourself every reasonable chance of a good day.',
+    'So do not ruin all that by trying to prove how fit you are in '+sh.opening+'.',
+    'The opening should feel almost boring. You should be slightly bothered that you '+
+      'might be holding back too much. Good. Let everyone else have the exciting start.',
+    sh.hard,
+    'When it comes, shrink it. '+sh.shrink,
+    'And look around occasionally. You have spent '+prep.weeks+' weeks earning today.',
+    'Trust the training. Trust the plan. Go and see what you have got — and try to '+
+      'bloody enjoy it.'
+  ];
+
+  if (prep.state === 'GOOD') return [
+    'Was the block perfect? No.',
+    'Was it good enough to give you a proper crack at this? Yes.',
+    'You have banked plenty of useful work. There were a few sessions we would '+
+      'probably like back, but that is training. Nobody gets to a start line with a '+
+      'completely clean spreadsheet.',
+    'Start boring. Do not spend fitness in '+sh.opening+' just because you feel good. '+
+      'If you are wondering whether you are holding back too much, you are about right.',
+    'Later on it gets harder, and that is when today actually starts asking questions. '+
+      'Stay patient, '+fuel+'and deal with the race you are actually having rather than '+
+      'the one you imagined last night.',
+    'You have done enough to belong on that start line. Now go and run it.'
+  ];
+
+  /* DISRUPTED. The one thing this must never do is reassure them that the
+     preparation was fine, so it says what was lost -- from the evidence,
+     not from a guess -- before it says anything encouraging. */
+  var lost = prep.restrictedDays >= RACE_PREP_DISRUPTION_DAYS
+    ? 'You lost '+prep.restrictedDays+' days to a restriction and we worked around it.'
+    : prep.gapDays >= RACE_PREP_GAP_DAYS
+      ? 'There was a stretch of about '+prep.gapDays+' days where the training stopped '+
+        'and we worked around it.'
+      : 'There is a decent chunk of the block that did not happen the way it was written.';
+  return [
+    'I am not going to tell you preparation was perfect, because it was not.',
+    lost+' That is real, and pretending otherwise will not help you today.',
+    'But do not make the opposite mistake either. A difficult few weeks do not delete '+
+      'everything you built before them.',
+    'So today is not about proving the missed training did not matter. Run the race that '+
+      'is actually available to you. Start boring. Be patient. '+
+      (sh.fuel ? 'Fuel properly. ' : '')+'Let the first half come to you.',
+    'If it gets dark later, do not immediately decide the whole thing is falling apart. '+
+      'A '+event+' has dark patches even when preparation has been brilliant. Shrink the '+
+      'problem. '+sh.shrink,
+    'And whatever the clock eventually says, try to enjoy some of this. Getting to a '+
+      event+' start line after a block like that is an achievement on its own.',
+    'Let us see what today gives you.'
+  ];
+}
+var RACE_DAY_INSIGHT_TITLE = { EXCELLENT:'This is it', GOOD:'Race day',
+                               DISRUPTED:'This one is different' };
+/* Today's event, and only a real one. A goal day without a start line gets
+   nothing from here: every line above assumes a race is being run. */
+function raceDayToday(){
+  var su = state && state.setup;
+  if (!su || !planHasEvent(su) || planIsSteady(su)) return null;
+  var today = todayStr();
+  return (state.days || []).filter(function(dd){
+    return dd && dd.date === today && dd.type === 'race';
+  })[0] || null;
+}
+/* A WORKOUT INSIGHT WRITTEN RATHER THAN ASSEMBLED.
+   The generic workout card is built out of the library's own why/feel lines,
+   which is fine for a session whose point is obvious. Where a family needs
+   the athlete to understand something that the prescription does not say --
+   and Over-Unders are the clearest case, because the hard part is the bit
+   that looks like recovery -- the narrative is written here instead.
+
+   WHAT THESE MAY NOT BE: a second copy of the session card. The distances,
+   reps and paces live on the workout card, where the athlete will be standing
+   when they need them. This explains why the session exists and what to
+   understand about it, and nothing else.
+
+   Keyed by archetype id, which is a persisted contract and never renamed.
+   Unit nouns go through @@U@@: no line here may hard-code a kilometre. */
+var ARCHETYPE_INSIGHT = {
+  over_under: function(name){ return [
+    'Tomorrow is your first '+name+', and this one feels a little different.',
+    'You will move just under threshold, then straight over it, before settling back '+
+      'underneath again. The interesting bit is not really the faster @@U@@ — it is '+
+      'what happens when you come back down.',
+    'You are learning to settle while you are still running. You have pushed slightly '+
+      'too hard, things are getting uncomfortable, and instead of stopping for a '+
+      'recovery you have to get yourself back under control.',
+    'Do not turn the Over into a race. If you smash that bit and cannot settle when you '+
+      'come back Under, you have basically missed the point.',
+    'The Under should feel sustainable again each time. That is the skill we are after.'
+  ]; }
+};
+function insightProgramme(){
+  var su = (state && state.setup) || {};
+  var purpose = planPurpose(su);
+  var isRace = purpose === 'race';
+  var prof = DISTANCE_PROFILES[su.distanceKey] || null;
+  return {
+    purpose: purpose,
+    isRace: isRace,
+    steady: planIsSteady(su),
+    hasEvent: isRace && planHasEvent(su),
+    /* ONLY A RACE BLOCK HAS AN EVENT LABEL. On a development block
+       distanceKey is the reference distance the engine shapes sessions
+       around, not the athlete's goal, so calling an Aerobic Base block
+       "your 10K plan" would be telling them something untrue. */
+    eventLabel: isRace ? (prof ? prof.label : 'your race') : null,
+    blockLabel: blockPurposeLabel(purpose),
+    endLabel: vGoalDate(su),
+    /* Whether the long run is the lever of this block or a supporting piece.
+       The same sentence is true of a marathon and misleading about a 5K. */
+    longRunCentral: purpose === 'base' ||
+      (isRace && (su.distanceKey === 'full' || su.distanceKey === 'half'))
+  };
+}
+function insightCopy(c){
+  var su = state.setup || {};
+  var profile = DISTANCE_PROFILES[su.distanceKey];
+  var distLabel = profile ? profile.label : 'your goal';
+  var out = { key:c.key, kind:c.kind, title:'', paras:[] };
+
+  if (c.kind === 'race_day'){
+    var prep = racePreparationRead();
+    if (!prep) return null;
+    out.title = RACE_DAY_INSIGHT_TITLE[prep.state] || 'Race day';
+    out.paras = raceDayInsightParas(prep).map(resolveDesc);
+    out.prep = prep.state;
+  } else if (c.kind === 'programme'){
+    var pg = insightProgramme();
+    out.title = 'What this block is for';
+    if (pg.isRace){
+      out.paras = [
+        'Your '+distLabel+' plan is built, and it runs to '+dShort(su.raceDate)+'.',
+        'It does not start by making you fitter. It starts by making the week hold — '+
+          'getting your running days consistent and your easy running genuinely easy, '+
+          'so that when the hard work arrives there is something underneath it.',
+        'That is deliberate, and it is the part people skip. If the first fortnight '+
+          'feels easier than you expected, it is working.'
+      ];
+    } else if (pg.purpose === 'base'){
+      out.paras = [
+        'Your Aerobic Base block is built, and it runs to '+dShort(su.raceDate)+'.',
+        'There is no race at the end of this one. The job is capacity — more weeks of '+
+          'running that you can actually absorb, so whatever you point at next has '+
+          'something underneath it.',
+        'It will feel unremarkable. That is rather the idea: blocks like this are what '+
+          'make the next hard one worth doing.'
+      ];
+    } else if (pg.purpose === 'speed'){
+      out.paras = [
+        'Your Speed & Threshold block is built, and it runs to '+dShort(su.raceDate)+'.',
+        'This one is short and it gets to the point. Less volume than a race build, more '+
+          'time spent at and just above threshold. The aim is to sharpen what you already '+
+          'have rather than grow it.',
+        'Short blocks are unforgiving of over-cooking. These sessions only count if you '+
+          'can come back and do the next one.'
+      ];
+    } else if (pg.steady){
+      out.paras = [
+        'Your Maintain & Protect block is built, and it runs to '+dShort(su.raceDate)+'.',
+        'Nothing in here is trying to make you fitter. It is trying to stop you going '+
+          'backwards — keeping the running honest while something else takes priority '+
+          'for a while.',
+        'There is no arc and nothing to peak for, so a week that needs to be smaller can '+
+          'be smaller. That is allowed here in a way it is not in a race build.'
+      ];
+    } else {
+      out.paras = [
+        'Your '+pg.blockLabel+' block is built, and it runs to '+dShort(su.raceDate)+'.',
+        'There is no race at the end of this one, so the job is the training itself '+
+          'rather than arriving sharp on a particular morning.'
+      ];
+    }
+  } else if (c.kind === 'phase'){
+    out.title = 'Why this week looks different';
+    out.paras = insightPhaseParas(c.from, c.phase);
+  } else if (c.kind === 'workout'){
+    var e = WORKOUT_LIBRARY[c.archetype] || {};
+    var g = ARCHETYPE_GUIDANCE[c.archetype] || {};
+    /* No article, deliberately: "a Over-Under" and "an Hill session" are
+       both one bad vowel away, and the session's own name carries it. */
+    var archName = insightArchetypeName(c.archetype, c.day);
+    out.title = 'Something new tomorrow';
+    var written = ARCHETYPE_INSIGHT[c.archetype];
+    out.paras = written ? written(archName).map(resolveDesc) : [
+      /* THE PRESCRIPTION IS NOT REPEATED HERE. It was, and it made the card
+         a worse version of the workout card sitting underneath it. The
+         distances and reps stay where the athlete will be standing when they
+         need them; this says why the session exists. */
+      'Tomorrow brings your first '+archName+
+        '. Thirty seconds now beats working it out in a car park.',
+      resolveDesc(g.why || e.purpose || ''),
+      g.feel ? 'How it should feel: '+resolveDesc(g.feel) : ''
+    ].filter(Boolean);
+  } else if (c.kind === 'threshold'){
+    out.title = 'Your paces just changed source';
+    out.paras = [
+      'Until now every pace in your plan was worked backwards from your goal. '+
+        'Educated guessing, basically.',
+      'Your calibration measured it. Threshold is '+fmtPaceFromSecPerKm(c.paceSec)+
+        ', and everything that reads off it has moved with it.',
+      'Your goal has not changed. Only what I think you can currently do.'
+    ];
+  } else if (c.kind === 'restriction_return'){
+    var n = c.record.restored || 0;
+    out.title = 'What I am not doing';
+    out.paras = [
+      'You are back, and your programme is back the way it was written — '+
+        (n ? n+' session'+(n===1?'':'s')+' restored.' : 'nothing had to be rebuilt.'),
+      'What I have not done is add anything back. Training that did not happen is not '+
+        'a debt you owe. Those sessions were worth something on the days they were '+
+        'scheduled, and cramming them into this week would only make this week worse.',
+      'I do not yet decide how quickly you come back, so that part is yours. '+
+        'If you are not ready, say so rather than resuming.'
+    ];
+  }
+  /* Guard the null as well as the empty: a phase with no copy written for it
+     returns null rather than [], and out.paras.length on it THROWS -- which
+     renderApp's try/catch swallows, so every later insight in the block dies
+     with it and nothing says why. Blank paragraphs go here too: a kind whose
+     library entry is missing a line should lose the line, not render an empty
+     <p> into the card. */
+  out.paras = (out.paras || []).filter(function(t){ return t && String(t).trim(); });
+  return out.paras.length ? out : null;
+}
+/* The phase conversation, which is the one that matters most: the plan
+   visibly changes shape and nothing in the product said why. Each is written
+   against what that phase actually does in this engine, and the honest
+   caution in each is the part worth keeping. */
+function insightPhaseParas(from, to){
+  var pg = insightProgramme();
+  var su = (state && state.setup) || {};
+  if (to === 'Build') return [
+    'You have just moved into Build, and you will notice it this week.',
+    /* THE THRESHOLD CLAIM IS CONDITIONAL, because it is a claim about this
+       athlete rather than about the phase. A block whose calibration has not
+       happened -- or was skipped -- must not be told its number was measured. */
+    'Base was about earning the right to train hard — getting the week to a size '+
+      'that holds' +
+      (su.thresholdPaceSource === 'calibration'
+        ? ', and getting a threshold number measured rather than guessed' : '') +
+      '. That part is done.',
+    pg.purpose === 'base'
+      ? 'Build here is a step up in capacity rather than in sharpness. A little more '+
+        'quality, but the size and the consistency of the week are still the point.'
+    : pg.purpose === 'speed'
+      ? 'Build is where it gets specific. More time at and just above threshold, and the '+
+        'sessions start asking for the pace rather than just the effort.'
+    : pg.longRunCentral
+      ? 'Build is where it gets specific. More quality across the week, and the long run '+
+        'starts going somewhere rather than just going long.'
+      : 'Build is where it gets specific. More quality across the week, and the hard '+
+        'running starts pointing at '+(pg.eventLabel || 'your event')+' rather than just '+
+        'being hard.',
+    'Honest chat: Build is where nearly everyone gets greedy. You start feeling fit, '+
+      'the numbers look sharp, and it is tempting to take every rep a bit harder. '+
+      'These sessions only work if they are repeatable — if Tuesday leaves you wrecked '+
+      'on Wednesday you have not won anything, you have borrowed from the rest of the week.',
+    'Treat that as information rather than failure. Tell me how the legs are and I will work with it.'
+  ];
+  if (to === 'Peak') return [
+    'Peak starts this week, and the shape of it changes again.',
+    pg.isRace
+      ? 'Build grew the engine. Peak makes it specific to '+(pg.eventLabel || 'your race')+
+        ' — the hard running moves closer to the pace you actually want on the day, and '+
+        'there is less of it.'
+      : 'Build grew the engine. Peak is the sharp end of this block — the hard running '+
+        'gets more pointed, and there is less of it.',
+    'Less is the point. This is the phase where the temptation is to prove something in training. '+
+      'There is nothing left to prove in training.'
+  ];
+  if (to === 'Taper') return [
+    pg.isRace ? 'You are into the taper.'
+              : 'You are into the last stretch of the block, and it steps down from here.',
+    /* NO DURATION CLAIM. This said the work "has been done for about a fortnight",
+       which is a marathon-shaped number: it is wrong for a 5K taper and wrong
+       again for a six-week Speed & Threshold block, and nothing in the
+       methodology sources it. */
+    pg.isRace
+      ? 'The training that matters is already done. Everything from here is about '+
+        'arriving fresh enough to use it on the day.'
+      : 'The training that matters is already done. What is left is about finishing this '+
+        'block fresh rather than flattened, so the next one can start properly.',
+    'You will probably feel worse before you feel better, and you will almost certainly '+
+      'feel like you are losing fitness. You are not. That feeling is so common it is '+
+      'close to a rite of passage.',
+    pg.isRace
+      ? 'Resist the urge to put a session back in. Nothing you add now will help, and '+
+        'something you add now could cost you the day.'
+      : 'Resist the urge to put a session back in. Nothing you add now will land in time '+
+        'to help, and it can cost you the start of the next block.'
+  ];
+  /* UNREACHABLE IN A LINEAR BLOCK and kept deliberately: every Valhalla arc
+     opens in Base, so nothing transitions INTO it and this has never been
+     shown to an athlete. It exists so a future arc that does return to Base
+     has copy rather than silence. */
+  if (to === 'Base') return [
+    'This block opens with Base, which is the least glamorous part and the one that '+
+      'decides how much the rest of it is worth.',
+    'The job is consistency rather than intensity: get the running days happening, '+
+      'keep the easy days genuinely easy, and let the week settle at a size it can hold.',
+    'If it feels gentle, that is not a mistake.'
+  ];
+  return null;
+}
+/* What to call the session in a sentence -- the stored title where there is
+   one, because that is the words the athlete will see on the card tomorrow. */
+function insightArchetypeName(archetype, dd){
+  if (dd && dd.title) return dd.title;
+  var m = { over_under:'Over-Under', threshold_continuous:'continuous threshold session',
+            split_tempo:'split tempo', ladder:'ladder session', deuce:'two-set interval session',
+            goal_pace_reps:'goal-pace session', hill_repeats:'hill session' };
+  return m[archetype] || archetype.replace(/_/g, ' ');
+}
+
+/* ---------- showing it, and remembering the answer ---------- */
+function renderContextInsight(ins){
+  return '<div class="modal-head"><h2 class="font-head">'+escapeHtml(ins.title)+'</h2>'+
+      '<button type="button" class="icon-btn" data-action="insight-dismiss" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body ci-body">'+
+      ins.paras.map(function(t){ return '<p class="ci-para">'+escapeHtml(t)+'</p>'; }).join('')+
+      '<div class="modal-actions">'+
+        '<button type="button" class="btn btn-primary" data-action="insight-ack">'+ICONS.check+' Got it</button>'+
+      '</div>'+
+    '</div>';
+}
+/* ACKNOWLEDGED is engagement and resets the patience counter. DISMISSED is
+   the close control, and three in a row without an acknowledgement ends them
+   for this block. Both record the key, so neither answer brings it back. */
+function insightRecord(key, engaged){
+  var l = insightLedger();
+  l.seen[key] = todayStr();
+  l.shownOn = todayStr();
+  if (engaged){ l.dismissed = 0; }
+  else {
+    l.dismissed = (l.dismissed || 0) + 1;
+    if (l.dismissed >= INSIGHT_DISMISS_LIMIT)
+      l.quietBlockId = insightBlockKey();
+  }
+  scheduleSave();
+}
+function handleInsightAck(){
+  if (openInsightKey) insightRecord(openInsightKey, true);
+  openInsightKey = null;
+  closeModal();
+}
+function handleInsightDismiss(){
+  if (openInsightKey) insightRecord(openInsightKey, false);
+  openInsightKey = null;
+  closeModal();
+}
+/* The one place it is actually opened. Called from renderApp()'s own choke
+   point, after the view is written and only where there is a DOM -- and
+   never over a modal that is already up, because the athlete is in the
+   middle of something. */
+var openInsightKey = null;
+function maybeOpenContextInsight(){
+  if (document.getElementById('modal-overlay')) return false;
+  var ins = contextInsightDue();
+  if (!ins) return false;
+  openInsightKey = ins.key;
+  openModal(renderContextInsight(ins), 'modal-themed builder-light ci-modal');
+  return true;
 }
 
 function renderRestrictionCard(){
@@ -47769,6 +48506,12 @@ function renderApp(){
      a regeneration has actually undone it, or the day has rolled over. */
   try { ensureRestrictionApplied(); } catch(e){}
   lastRenderedDate = todayStr();
+  /* CONTEXT INSIGHT, after the view is written and never over a modal that is
+     already up. It opens at most one thing, at most once a day, and only
+     where a transition has genuinely just become true -- see
+     contextInsightDue() and its suppression rules. Wrapped because an
+     explanation failing must never take the app down with it. */
+  try { maybeOpenContextInsight(); } catch(e){}
   var navAllowed = appStateAllowsNav();
   app.classList.toggle('has-subnav', navAllowed && (state.view||'today')==='planhq');
   app.innerHTML =
@@ -47832,6 +48575,10 @@ document.addEventListener('click', function(e){
     case 'race-outcome': handleRaceOutcome(target.getAttribute('data-outcome')); break;
     /* INJURY / ILLNESS. Every one of these is a tap the athlete made; none
        of them is reachable from anything Valhalla decided on its own. */
+    /* Context Insight: acknowledged, or closed. Both are answers and both
+       are remembered -- see insightRecord(). */
+    case 'insight-ack': handleInsightAck(); break;
+    case 'insight-dismiss': handleInsightDismiss(); break;
     case 'restriction-open': openRestrictionModal(); break;
     /* The Today signpost. It only ever opens its own sentence -- declaring
        and changing a restriction lives in Settings and nowhere else. */
