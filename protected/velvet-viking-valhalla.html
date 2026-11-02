@@ -3080,6 +3080,11 @@
      the evidence badge wraps freely underneath. */
   .cf-instrument .oi-label{flex-direction:column; align-items:flex-start; gap:5px;}
   .cf-instrument .oi-dist{display:flex; align-items:center; gap:5px;}
+  /* WHAT THE TWO NUMBERS ARE, immediately above them. Cherry, because the
+     range is the athlete's own evidence -- the same colour law the value
+     below it already follows, and gold stays the goal's. */
+  .cf-range-lab{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--cherry-text); margin-bottom:3px;}
   .cf-value{font-family:'JetBrains Mono',monospace; font-size:var(--fs-title); font-weight:600;
     letter-spacing:.02em; color:var(--cherry-text);}
   .cf-value.cf-value-empty{color:var(--ink-faint); font-weight:500;}
@@ -3088,6 +3093,7 @@
     border-top:1px solid var(--line-soft); flex-wrap:wrap;}
   .cf-goal-dot{width:7px; height:7px; border-radius:50%; background:var(--gold); flex:none;}
   .cf-goal-lab{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold-text);}
+  .cf-goal-sep{font-size:11px; color:var(--ink-faint);}
   .cf-goal-val{font-size:13px; color:var(--ink); font-weight:600;}
   .cf-goal-sub{font-size:10.5px; color:var(--ink-faint); width:100%; margin-left:14px;}
 
@@ -4333,6 +4339,62 @@ function secToClock(sec){
   var mm = (h>0 && m<10) ? '0'+m : String(m);
   var ss = (s<10?'0':'')+s;
   return (h>0 ? h+':' : '') + mm + ':' + ss;
+}
+/* ---------- A FITNESS RANGE IS READ AS A RANGE, NOT A STOPWATCH ----------
+   An estimated range already spans minutes either side -- the marathon's is
+   +/-5% -- so printing its ends to the second, 3:17:30-3:38:18, claims a
+   precision the estimate does not have and is harder to read for it. Rounded
+   to the nearest minute it says exactly the same thing: 3:18-3:38.
+
+   WHY THE ROUNDING STOPS BELOW AN HOUR, which is the part worth recording.
+   A time written h:mm is read as hours and minutes and loses nothing to the
+   rounding. A time written mm:ss needs its seconds: a 5K range of 21:08-22:13
+   rounded to the minute is "21-22", which is not a clearer version of the
+   same thing, it is an ambiguous one -- those digits could be minutes or
+   seconds and the reader has no way to tell. So 5K and 10K keep the seconds
+   that are the whole of their resolution, and every marathon, half and ultra
+   rounds. Nothing here is hardcoded to the marathon: the rule is the presence
+   of an hours field, and every distance is asked the same question.
+
+   DISPLAY ONLY. Every caller still holds the exact seconds, every comparison
+   is still made against them, and no calculation anywhere reads this. */
+function secToClockEstimate(sec){
+  if (sec===null||sec===undefined||isNaN(sec)||!isFinite(sec)||sec<0) return '';
+  if (sec < 3600) return secToClock(sec);
+  var mins = Math.round(sec/60);
+  return Math.floor(mins/60)+':'+(mins%60<10?'0':'')+(mins%60);
+}
+/* The pair, with the one case rounding creates: a band tight enough that both
+   ends land on the same minute must say one time rather than "3:18-3:18". */
+function fitnessRangeText(fastSec, slowSec, sep){
+  var a = secToClockEstimate(fastSec), b = secToClockEstimate(slowSec);
+  return a === b ? a : a + (sep || '–') + b;
+}
+/* WHAT THE TWO NUMBERS ARE, named from the athlete's own goal distance so a
+   5K athlete is never shown a marathon's label. */
+function fitnessRangeLabel(distanceKey){
+  var profile = DISTANCE_PROFILES[distanceKey || (state && state.setup && state.setup.distanceKey)];
+  return profile ? profile.label.toUpperCase()+' FITNESS RANGE' : 'FITNESS RANGE';
+}
+/* WHERE THE GOAL SITS IN THAT RANGE, in one line. Race Outlook answers this
+   at length; this is the short version for the card that prints the two
+   numbers, so the athlete is not left comparing three times in their head. */
+function goalAgainstFitnessText(goalSec, est){
+  if (!est || est.withheld || goalSec == null) return '';
+  if (goalSec < est.fastSec) return 'Faster than your current fitness range';
+  if (goalSec > est.slowSec) return 'Your current fitness already suggests a faster time';
+  return 'Inside your current fitness range';
+}
+/* "Based on ..." reads as a sentence, which the headline labels do not:
+   "Based on Measured performance" is the right fact in the wrong case. Same
+   four anchors as currentFitnessSourceHeadline(), worded to follow the words
+   in front of them. */
+function currentFitnessSourcePhrase(){
+  var src = currentFitnessAnchor().source;
+  if (src === 'performance') return 'a measured performance';
+  if (src === 'calibration') return 'your Threshold Calibration';
+  if (src === 'benchmark') return 'your benchmark';
+  return 'your active goal';
 }
 function clockToSec(str){
   if (!str) return null;
@@ -35746,7 +35808,7 @@ function renderCheckpointIntervention(){
      thing to show -- and it is labelled as race day, not as today, because
      the distinction is the whole point of the assessment. */
   var why = 'Your checkpoint puts you on course for '+
-    secToClock(proj.fastSec)+'\u2013'+secToClock(proj.slowSec)+
+    fitnessRangeText(proj.fastSec, proj.slowSec)+
     ' at your '+escapeHtml(profile ? profile.label.toLowerCase() : 'race')+
     (a.daysToRace != null ? ' in '+a.daysToRace+' days' : '')+'.';
   if (proj.flat) why += ' That is where you are now, carried forward '+
@@ -36910,7 +36972,7 @@ function renderFitnessEstimate(){
     var label = DISTANCE_PROFILES[k] ? DISTANCE_PROFILES[k].label : k;
     var v = est.withheld
       ? '<span class="yr-est-withheld">' + escapeHtml(est.reason) + '</span>'
-      : '<span class="font-mono">' + secToClock(est.fastSec) + ' – ' + secToClock(est.slowSec) + '</span>';
+      : '<span class="font-mono">' + fitnessRangeText(est.fastSec, est.slowSec, ' – ') + '</span>';
     return '<div class="yr-est-row"><span class="yr-est-l">'+escapeHtml(label)+'</span>'+
            '<span class="yr-est-v">'+v+'</span></div>';
   }).filter(Boolean).join('');
@@ -47237,7 +47299,7 @@ function renderCurrentFitnessPanel(){
   var nowValue = '—', nowNote = '';
   if (profile){
     var est = currentFitnessEstimate(state.setup.distanceKey);
-    if (est && !est.withheld) nowValue = secToClock(est.fastSec)+'–'+secToClock(est.slowSec);
+    if (est && !est.withheld) nowValue = fitnessRangeText(est.fastSec, est.slowSec);
     else if (est && est.withheld) nowNote = est.reason;
   }
   var rows = '<div class="yr-fit-main">'+
@@ -47658,9 +47720,13 @@ function renderCurrentFitnessInstrument(){
   var valueHtml, capHtml;
   var est = profile ? currentFitnessEstimate(state.setup.distanceKey) : null;
   if (est && !est.withheld){
-    valueHtml = '<div class="cf-value font-mono">'+secToClock(est.fastSec)+'–'+secToClock(est.slowSec)+'</div>';
-    capHtml = '<div class="cf-value-cap">'+escapeHtml(profile.label)+' equivalent · '+
-      escapeHtml(currentFitnessSourceHeadline())+(anchor.date ? ' · '+dShort(anchor.date) : '')+'</div>';
+    /* The distance used to be stated after the numbers -- "Full Marathon
+       equivalent" -- which is the explanation arriving behind the thing it
+       explains. It leads now, so the two times are never unlabelled. */
+    valueHtml = '<div class="cf-range-lab">'+escapeHtml(fitnessRangeLabel(state.setup.distanceKey))+'</div>'+
+      '<div class="cf-value font-mono">'+fitnessRangeText(est.fastSec, est.slowSec)+'</div>';
+    capHtml = '<div class="cf-value-cap">Based on '+
+      escapeHtml(currentFitnessSourcePhrase())+(anchor.date ? ' · '+dShort(anchor.date) : '')+'</div>';
   } else {
     var why = est && est.withheld ? est.reason
       : 'Set a goal distance and Valhalla will show what your current fitness suggests for it.';
@@ -47670,10 +47736,17 @@ function renderCurrentFitnessInstrument(){
 
   var goalHtml = '';
   if (goal && goal.timeSec && profile){
+    /* THE GOAL STAYS EXACT. It is a time the athlete chose, not an estimate,
+       and rounding someone's own 3:29:45 to 3:30 would be changing it.
+       The distance is gone from this row because the range label above now
+       carries it; what replaces it is the one thing the athlete was being
+       left to work out for themselves -- where the goal sits in the range. */
+    var sits = goalAgainstFitnessText(goal.timeSec, est);
     goalHtml = '<div class="cf-goal-row"><span class="cf-goal-dot"></span>'+
-      '<span class="cf-goal-lab">Goal</span>'+
+      '<span class="cf-goal-lab">Goal '+escapeHtml(state.setup.activeGoal||'A')+'</span>'+
+      '<span class="cf-goal-sep">·</span>'+
       '<span class="cf-goal-val font-mono">'+secToClock(goal.timeSec)+'</span>'+
-      '<span class="cf-goal-sub">'+escapeHtml(profile.label)+' · Goal '+escapeHtml(state.setup.activeGoal||'A')+'</span>'+
+      (sits ? '<span class="cf-goal-sub">'+escapeHtml(sits)+'</span>' : '')+
     '</div>';
   }
 
@@ -47750,16 +47823,16 @@ function renderRaceOutlook(){
     bandHtml = '<div class="oi-band" style="left:'+bandL.toFixed(1)+'%; width:'+
         (bandR - bandL).toFixed(1)+'%"></div>'+
       (twoLabelsFit
-        ? '<span class="oi-band-lbl" style="left:'+bandL.toFixed(1)+'%;">'+secToClock(o.fastSec)+'</span>'+
-          '<span class="oi-band-lbl" style="left:'+bandR.toFixed(1)+'%; transform:translateX(-100%);">'+secToClock(o.slowSec)+'</span>'
+        ? '<span class="oi-band-lbl" style="left:'+bandL.toFixed(1)+'%;">'+secToClockEstimate(o.fastSec)+'</span>'+
+          '<span class="oi-band-lbl" style="left:'+bandR.toFixed(1)+'%; transform:translateX(-100%);">'+secToClockEstimate(o.slowSec)+'</span>'
         : '<span class="oi-band-lbl" style="left:'+((bandL + bandR)/2).toFixed(1)+'%; transform:translateX(-50%);">'+
-            secToClock(o.fastSec)+'\u2013'+secToClock(o.slowSec)+'</span>');
+            fitnessRangeText(o.fastSec, o.slowSec)+'</span>');
   }
 
   return '<div class="outlook-instrument" id="outlook-mount-inner">'+head+
     '<div class="oi-track" role="img" aria-label="'+
       (hasBand ? (o.state === 'measured' ? 'Measured range ' : 'Estimated range ')+
-                 secToClock(o.fastSec)+' to '+secToClock(o.slowSec) : 'Not yet measured')+
+                 fitnessRangeText(o.fastSec, o.slowSec, ' to ') : 'Not yet measured')+
       (o.goalSec!=null ? ', goal '+secToClock(o.goalSec) : '')+'">'+
       '<div class="oi-line"></div>'+bandHtml+goalHtml+
     '</div>'+
