@@ -35968,6 +35968,13 @@ function insightCandidates(){
   var blockId = insightBlockKey();
   var today = todayStr();
 
+  /* 0. RACE MORNING OUTRANKS EVERY EXPLANATION. Nothing educational competes
+        with the day the block was for, so this goes in front of the lot and
+        the ordinary rules bend around it in insightSuppressed(). Keyed on the
+        date rather than the block, so next year's race is its own message. */
+  var raceToday = raceDayToday();
+  if (raceToday) out.push({ kind:'race_day', key:'raceday:'+today, day:raceToday });
+
   /* 1. A PROGRAMME HAS JUST BEEN BUILT. */
   out.push({ kind:'programme', key:'programme:'+blockId });
 
@@ -36029,14 +36036,24 @@ function insightFamiliarWith(archetype){
 }
 
 /* ---------- may anything be said at all, today ---------- */
-function insightSuppressed(){
+function insightSuppressed(forRaceDay){
   var su = state && state.setup;
   if (!su || !state.days || !state.days.length) return 'no_plan';
   var l = insightLedger();
-  if (l.quietBlockId && l.quietBlockId === insightBlockKey()) return 'athlete_declined';
-  if (l.shownOn === todayStr()) return 'one_a_day';
-  if (su.startDate && daysBetween(su.startDate, todayStr()) < INSIGHT_MIN_PLAN_DAYS)
-    return 'opening_week';
+  /* THREE RULES BEND ON RACE MORNING AND THREE DO NOT.
+     Declining explanations, one a day and the opening week are all rules
+     about not nagging an athlete with education. Race day is not education,
+     it happens once a block, and an athlete who dismissed three phase cards
+     in October has not told me anything about this morning.
+     The three below it are different: each is a question the athlete owes an
+     answer to, and an open restriction on race morning is exactly the case
+     where a motivational card must not be the thing on the screen. */
+  if (!forRaceDay){
+    if (l.quietBlockId && l.quietBlockId === insightBlockKey()) return 'athlete_declined';
+    if (l.shownOn === todayStr()) return 'one_a_day';
+    if (su.startDate && daysBetween(su.startDate, todayStr()) < INSIGHT_MIN_PLAN_DAYS)
+      return 'opening_week';
+  }
   /* THE DECISIONS OWN THE SCREEN. Each of these asks the athlete for an
      answer the rest of the product depends on; an explanation that covered
      one of them would be the product interrupting itself. */
@@ -36048,9 +36065,11 @@ function insightSuppressed(){
 /* The one insight to show right now, or null. Pure: decides nothing and
    writes nothing. */
 function contextInsightDue(){
-  if (insightSuppressed()) return null;
   var cands = insightCandidates();
+  /* Asked once per candidate rather than once up front, because the answer
+     differs for race day. */
   for (var i = 0; i < cands.length; i++){
+    if (insightSuppressed(cands[i].kind === 'race_day')) continue;
     if (insightSeen(cands[i].key)) continue;
     var copy = insightCopy(cands[i]);
     /* A candidate that produces no copy is not an insight. Dropping it here
@@ -36071,36 +36090,328 @@ function contextInsightDue(){
    Every number in these sentences is read from state above; none is
    computed here, and no sentence makes a training claim the engine does not
    already make somewhere else. */
+/* WHICH PROGRAMME THE ATHLETE IS ACTUALLY IN.
+   Context Insight is shared Valhalla infrastructure: the triggers are the same
+   for every programme, and the copy must not be. This is the one place that
+   answers what block this is, so no individual line has to guess -- and so a
+   Marathon assumption cannot reach a 5K athlete by being written into a
+   sentence that looked general. */
+/* ---------- RACE MORNING ----------
+   WHAT THIS IS NOT: the Race Day card. That card runs the race -- pace,
+   strategy, splits, what to do when. This is the coach speaking to the
+   athlete about the block they just spent together, and it must not repeat a
+   single number the card already carries.
+
+   IT IS NOT MEDICAL CLEARANCE EITHER. An open restriction suppresses it
+   entirely, the same as every other insight: on a morning when the athlete
+   owes an answer about their own health, a motivational card is the last
+   thing that should be on the screen.
+
+   HOW THE STATE IS CHOSEN. Not by a mood setting and not by a hand-picked
+   message: by what the athlete actually did, read back over the whole block.
+   Four dimensions, each a fraction of what was asked for, and the WORST one
+   decides -- the same shape marathonReadiness() already uses to answer
+   "could this block get there", applied after the fact to answer "did it".
+   The boundaries are the methodology's existing race-goal ones rather than
+   new numbers invented for this card. */
+var RACE_PREP_DISRUPTION_DAYS = 7;   /* a week of declared restriction */
+var RACE_PREP_GAP_DAYS = 10;         /* ten days with no running at all */
+function racePreparationRead(){
+  var su = state && state.setup;
+  if (!su || !state.days || !state.days.length) return null;
+  var today = todayStr();
+  var from = su.startDate || state.days[0].date;
+
+  var scheduled = 0, ran = 0, keyScheduled = 0, keyRan = 0, longestKm = 0;
+  var streak = 0, gap = 0;
+  state.days.slice().sort(function(a, b){ return a.date < b.date ? -1 : 1; }).forEach(function(dd){
+    if (!dd || dd.date >= today) return;
+    /* A RESTRICTED DAY IS NOT A DAY THEY SKIPPED. dayRestricted() is the
+       product's one answer to that and it is used here rather than a second
+       opinion: those days are counted as interruption below, never as
+       absence of effort -- and they are skipped before the gap counter too,
+       or a declared restriction would be reported twice, once honestly as a
+       restriction and once again as "the training just stopped". */
+    if (dayRestricted(dd)) return;
+    /* THE GAP IS CALENDAR DAYS, rest days included: a fortnight off is a
+       fortnight off however the plan had labelled those days. */
+    if (sessionRan(dd)) streak = 0;
+    else { streak++; if (streak > gap) gap = streak; }
+    if (dd.type === 'rest') return;
+    var isKey = isQualityType(dd.type) || dd.type === 'long';
+    scheduled++; if (isKey) keyScheduled++;
+    if (sessionRan(dd)){
+      ran++; if (isKey) keyRan++;
+      var km = (dd.actual && dd.actual.km != null) ? dd.actual.km : dd.km;
+      if (km > longestKm) longestKm = km;
+    }
+  });
+  if (!scheduled) return null;
+
+  var benchmarkKm = MIN_PEAK_LONG_KM[su.distanceKey] || null;
+  var restrictedDays = restrictedDaysBetween(from, today);
+
+  var dims = [
+    { key:'consistency', fraction: ran / scheduled },
+    { key:'key_sessions', fraction: keyScheduled ? (keyRan / keyScheduled) : 1 }
+  ];
+  if (benchmarkKm)
+    dims.push({ key:'durability', fraction: Math.min(1, longestKm / benchmarkKm) });
+
+  var worst = dims.reduce(function(a, b){ return (a == null || b.fraction < a.fraction) ? b : a; }, null);
+
+  /* INTERRUPTION IS ITS OWN FINDING, not a worse fraction. An athlete who
+     trained well either side of three weeks off has good fractions and a
+     disrupted block, and telling them the preparation was excellent would be
+     the card failing at the one thing HQ asked it never to do. */
+  var interrupted = restrictedDays >= RACE_PREP_DISRUPTION_DAYS || gap >= RACE_PREP_GAP_DAYS;
+
+  var st = interrupted ? 'DISRUPTED'
+         : worst.fraction >= RACE_GOAL_READY_FRACTION ? 'EXCELLENT'
+         : worst.fraction < RACE_GOAL_MARGINAL_FRACTION ? 'DISRUPTED'
+         : 'GOOD';
+
+  return { state: st, limitedBy: worst.key, dimensions: dims,
+           interrupted: interrupted, restrictedDays: restrictedDays, gapDays: gap,
+           scheduled: scheduled, ran: ran, keyScheduled: keyScheduled, keyRan: keyRan,
+           longestKm: longestKm, benchmarkKm: benchmarkKm,
+           durable: !benchmarkKm || longestKm >= benchmarkKm,
+           weeks: totalWeeksInPlan() };
+}
+/* HOW THIS EVENT IS ACTUALLY RUN, so the coaching fits the race the athlete
+   entered. The three tones HQ approved were written about a marathon; the
+   fragments below are what stops them being read out at a 5K, where "get to
+   the next drinks station" is not advice, it is nonsense.
+
+   Opening windows are stated in TIME rather than distance. "The first 10km"
+   cannot be unit-switched -- "the first 10 miles" is a different race -- and
+   a clock reads the same to both athletes. */
+var RACE_EVENT_SHAPE = {
+  '5k':   { opening:'the opening minute',
+            hard:'It is going to hurt before halfway. That is a 5K working, not something going wrong.',
+            shrink:'Get to the next bend. Then the one after it.',
+            fuel:false },
+  '10k':  { opening:'the first few minutes',
+            hard:'There will be a stretch in the middle where it stops being fun. That is the race, not a problem to solve.',
+            shrink:'Get to the next @@U@@. Then the next one.',
+            fuel:false },
+  'half': { opening:'the first half hour',
+            hard:'There will probably be a point later where this gets properly hard. That is a half marathon, not evidence that something has gone wrong.',
+            shrink:'Do not try to solve the whole second half. Get to the next @@U@@. Then the next drinks station.',
+            fuel:true },
+  'full': { opening:'the first hour',
+            hard:'There will probably be a point later where this gets hard. Properly hard. That is a marathon, not evidence that something has gone wrong.',
+            shrink:'Do not suddenly try to solve 15 @@U@@s. Get to the next @@U@@. Then the next drinks station. Keep moving through what is actually in front of you.',
+            fuel:true }
+};
+function raceEventShape(){
+  var su = (state && state.setup) || {};
+  return RACE_EVENT_SHAPE[su.distanceKey] || RACE_EVENT_SHAPE['10k'];
+}
+function raceDayInsightParas(prep){
+  var su = (state && state.setup) || {};
+  var prof = DISTANCE_PROFILES[su.distanceKey] || {};
+  var event = prof.label || 'your race';
+  var sh = raceEventShape();
+  var fuel = sh.fuel ? 'keep fuelling, ' : '';
+
+  if (prep.state === 'EXCELLENT') return [
+    'You have done the work. Properly.',
+    /* The long runs are only claimed where the long run was the demand and
+       the athlete actually met it. */
+    (prep.durable && (su.distanceKey === 'full' || su.distanceKey === 'half')
+      ? 'The long runs are there. The quality sessions are there. '
+      : 'The sessions are there. The weeks are there. ') +
+      'You have given yourself every reasonable chance of a good day.',
+    'So do not ruin all that by trying to prove how fit you are in '+sh.opening+'.',
+    'The opening should feel almost boring. You should be slightly bothered that you '+
+      'might be holding back too much. Good. Let everyone else have the exciting start.',
+    sh.hard,
+    'When it comes, shrink it. '+sh.shrink,
+    'And look around occasionally. You have spent '+prep.weeks+' weeks earning today.',
+    'Trust the training. Trust the plan. Go and see what you have got — and try to '+
+      'bloody enjoy it.'
+  ];
+
+  if (prep.state === 'GOOD') return [
+    'Was the block perfect? No.',
+    'Was it good enough to give you a proper crack at this? Yes.',
+    'You have banked plenty of useful work. There were a few sessions we would '+
+      'probably like back, but that is training. Nobody gets to a start line with a '+
+      'completely clean spreadsheet.',
+    'Start boring. Do not spend fitness in '+sh.opening+' just because you feel good. '+
+      'If you are wondering whether you are holding back too much, you are about right.',
+    'Later on it gets harder, and that is when today actually starts asking questions. '+
+      'Stay patient, '+fuel+'and deal with the race you are actually having rather than '+
+      'the one you imagined last night.',
+    'You have done enough to belong on that start line. Now go and run it.'
+  ];
+
+  /* DISRUPTED. The one thing this must never do is reassure them that the
+     preparation was fine, so it says what was lost -- from the evidence,
+     not from a guess -- before it says anything encouraging. */
+  var lost = prep.restrictedDays >= RACE_PREP_DISRUPTION_DAYS
+    ? 'You lost '+prep.restrictedDays+' days to a restriction and we worked around it.'
+    : prep.gapDays >= RACE_PREP_GAP_DAYS
+      ? 'There was a stretch of about '+prep.gapDays+' days where the training stopped '+
+        'and we worked around it.'
+      : 'There is a decent chunk of the block that did not happen the way it was written.';
+  return [
+    'I am not going to tell you preparation was perfect, because it was not.',
+    lost+' That is real, and pretending otherwise will not help you today.',
+    'But do not make the opposite mistake either. A difficult few weeks do not delete '+
+      'everything you built before them.',
+    'So today is not about proving the missed training did not matter. Run the race that '+
+      'is actually available to you. Start boring. Be patient. '+
+      (sh.fuel ? 'Fuel properly. ' : '')+'Let the first half come to you.',
+    'If it gets dark later, do not immediately decide the whole thing is falling apart. '+
+      'A '+event+' has dark patches even when preparation has been brilliant. Shrink the '+
+      'problem. '+sh.shrink,
+    'And whatever the clock eventually says, try to enjoy some of this. Getting to a '+
+      event+' start line after a block like that is an achievement on its own.',
+    'Let us see what today gives you.'
+  ];
+}
+var RACE_DAY_INSIGHT_TITLE = { EXCELLENT:'This is it', GOOD:'Race day',
+                               DISRUPTED:'This one is different' };
+/* Today's event, and only a real one. A goal day without a start line gets
+   nothing from here: every line above assumes a race is being run. */
+function raceDayToday(){
+  var su = state && state.setup;
+  if (!su || !planHasEvent(su) || planIsSteady(su)) return null;
+  var today = todayStr();
+  return (state.days || []).filter(function(dd){
+    return dd && dd.date === today && dd.type === 'race';
+  })[0] || null;
+}
+/* A WORKOUT INSIGHT WRITTEN RATHER THAN ASSEMBLED.
+   The generic workout card is built out of the library's own why/feel lines,
+   which is fine for a session whose point is obvious. Where a family needs
+   the athlete to understand something that the prescription does not say --
+   and Over-Unders are the clearest case, because the hard part is the bit
+   that looks like recovery -- the narrative is written here instead.
+
+   WHAT THESE MAY NOT BE: a second copy of the session card. The distances,
+   reps and paces live on the workout card, where the athlete will be standing
+   when they need them. This explains why the session exists and what to
+   understand about it, and nothing else.
+
+   Keyed by archetype id, which is a persisted contract and never renamed.
+   Unit nouns go through @@U@@: no line here may hard-code a kilometre. */
+var ARCHETYPE_INSIGHT = {
+  over_under: function(name){ return [
+    'Tomorrow is your first '+name+', and this one feels a little different.',
+    'You will move just under threshold, then straight over it, before settling back '+
+      'underneath again. The interesting bit is not really the faster @@U@@ — it is '+
+      'what happens when you come back down.',
+    'You are learning to settle while you are still running. You have pushed slightly '+
+      'too hard, things are getting uncomfortable, and instead of stopping for a '+
+      'recovery you have to get yourself back under control.',
+    'Do not turn the Over into a race. If you smash that bit and cannot settle when you '+
+      'come back Under, you have basically missed the point.',
+    'The Under should feel sustainable again each time. That is the skill we are after.'
+  ]; }
+};
+function insightProgramme(){
+  var su = (state && state.setup) || {};
+  var purpose = planPurpose(su);
+  var isRace = purpose === 'race';
+  var prof = DISTANCE_PROFILES[su.distanceKey] || null;
+  return {
+    purpose: purpose,
+    isRace: isRace,
+    steady: planIsSteady(su),
+    hasEvent: isRace && planHasEvent(su),
+    /* ONLY A RACE BLOCK HAS AN EVENT LABEL. On a development block
+       distanceKey is the reference distance the engine shapes sessions
+       around, not the athlete's goal, so calling an Aerobic Base block
+       "your 10K plan" would be telling them something untrue. */
+    eventLabel: isRace ? (prof ? prof.label : 'your race') : null,
+    blockLabel: blockPurposeLabel(purpose),
+    endLabel: vGoalDate(su),
+    /* Whether the long run is the lever of this block or a supporting piece.
+       The same sentence is true of a marathon and misleading about a 5K. */
+    longRunCentral: purpose === 'base' ||
+      (isRace && (su.distanceKey === 'full' || su.distanceKey === 'half'))
+  };
+}
 function insightCopy(c){
   var su = state.setup || {};
   var profile = DISTANCE_PROFILES[su.distanceKey];
   var distLabel = profile ? profile.label : 'your goal';
   var out = { key:c.key, kind:c.kind, title:'', paras:[] };
 
-  if (c.kind === 'programme'){
+  if (c.kind === 'race_day'){
+    var prep = racePreparationRead();
+    if (!prep) return null;
+    out.title = RACE_DAY_INSIGHT_TITLE[prep.state] || 'Race day';
+    out.paras = raceDayInsightParas(prep).map(resolveDesc);
+    out.prep = prep.state;
+  } else if (c.kind === 'programme'){
+    var pg = insightProgramme();
     out.title = 'What this block is for';
-    out.paras = [
-      'Your '+distLabel+' plan is built, and it runs to '+dShort(su.raceDate)+'.',
-      'It does not start by making you fitter. It starts by making the week hold — '+
-        'getting your running days consistent and your easy running genuinely easy, '+
-        'so that when the hard work arrives there is something underneath it.',
-      'That is deliberate, and it is the part people skip. If the first fortnight '+
-        'feels easier than you expected, it is working.'
-    ];
+    if (pg.isRace){
+      out.paras = [
+        'Your '+distLabel+' plan is built, and it runs to '+dShort(su.raceDate)+'.',
+        'It does not start by making you fitter. It starts by making the week hold — '+
+          'getting your running days consistent and your easy running genuinely easy, '+
+          'so that when the hard work arrives there is something underneath it.',
+        'That is deliberate, and it is the part people skip. If the first fortnight '+
+          'feels easier than you expected, it is working.'
+      ];
+    } else if (pg.purpose === 'base'){
+      out.paras = [
+        'Your Aerobic Base block is built, and it runs to '+dShort(su.raceDate)+'.',
+        'There is no race at the end of this one. The job is capacity — more weeks of '+
+          'running that you can actually absorb, so whatever you point at next has '+
+          'something underneath it.',
+        'It will feel unremarkable. That is rather the idea: blocks like this are what '+
+          'make the next hard one worth doing.'
+      ];
+    } else if (pg.purpose === 'speed'){
+      out.paras = [
+        'Your Speed & Threshold block is built, and it runs to '+dShort(su.raceDate)+'.',
+        'This one is short and it gets to the point. Less volume than a race build, more '+
+          'time spent at and just above threshold. The aim is to sharpen what you already '+
+          'have rather than grow it.',
+        'Short blocks are unforgiving of over-cooking. These sessions only count if you '+
+          'can come back and do the next one.'
+      ];
+    } else if (pg.steady){
+      out.paras = [
+        'Your Maintain & Protect block is built, and it runs to '+dShort(su.raceDate)+'.',
+        'Nothing in here is trying to make you fitter. It is trying to stop you going '+
+          'backwards — keeping the running honest while something else takes priority '+
+          'for a while.',
+        'There is no arc and nothing to peak for, so a week that needs to be smaller can '+
+          'be smaller. That is allowed here in a way it is not in a race build.'
+      ];
+    } else {
+      out.paras = [
+        'Your '+pg.blockLabel+' block is built, and it runs to '+dShort(su.raceDate)+'.',
+        'There is no race at the end of this one, so the job is the training itself '+
+          'rather than arriving sharp on a particular morning.'
+      ];
+    }
   } else if (c.kind === 'phase'){
     out.title = 'Why this week looks different';
     out.paras = insightPhaseParas(c.from, c.phase);
   } else if (c.kind === 'workout'){
     var e = WORKOUT_LIBRARY[c.archetype] || {};
     var g = ARCHETYPE_GUIDANCE[c.archetype] || {};
+    /* No article, deliberately: "a Over-Under" and "an Hill session" are
+       both one bad vowel away, and the session's own name carries it. */
+    var archName = insightArchetypeName(c.archetype, c.day);
     out.title = 'Something new tomorrow';
-    out.paras = [
-      /* No article, deliberately: "a Over-Under" and "an Hill session" are
-         both one bad vowel away, and the session's own name carries it. */
-      'Tomorrow brings your first '+insightArchetypeName(c.archetype, c.day)+
+    var written = ARCHETYPE_INSIGHT[c.archetype];
+    out.paras = written ? written(archName).map(resolveDesc) : [
+      /* THE PRESCRIPTION IS NOT REPEATED HERE. It was, and it made the card
+         a worse version of the workout card sitting underneath it. The
+         distances and reps stay where the athlete will be standing when they
+         need them; this says why the session exists. */
+      'Tomorrow brings your first '+archName+
         '. Thirty seconds now beats working it out in a car park.',
-      resolveDesc(c.day && c.day.desc ? c.day.desc : (e.purpose || '')),
-      g.why || e.purpose || '',
+      resolveDesc(g.why || e.purpose || ''),
       g.feel ? 'How it should feel: '+resolveDesc(g.feel) : ''
     ].filter(Boolean);
   } else if (c.kind === 'threshold'){
@@ -36139,13 +36450,30 @@ function insightCopy(c){
    against what that phase actually does in this engine, and the honest
    caution in each is the part worth keeping. */
 function insightPhaseParas(from, to){
+  var pg = insightProgramme();
+  var su = (state && state.setup) || {};
   if (to === 'Build') return [
     'You have just moved into Build, and you will notice it this week.',
+    /* THE THRESHOLD CLAIM IS CONDITIONAL, because it is a claim about this
+       athlete rather than about the phase. A block whose calibration has not
+       happened -- or was skipped -- must not be told its number was measured. */
     'Base was about earning the right to train hard — getting the week to a size '+
-      'that holds, and getting a threshold number measured rather than guessed. '+
-      'That part is done.',
-    'Build is where it gets specific. More quality across the week, and the long run '+
-      'starts going somewhere rather than just going long.',
+      'that holds' +
+      (su.thresholdPaceSource === 'calibration'
+        ? ', and getting a threshold number measured rather than guessed' : '') +
+      '. That part is done.',
+    pg.purpose === 'base'
+      ? 'Build here is a step up in capacity rather than in sharpness. A little more '+
+        'quality, but the size and the consistency of the week are still the point.'
+    : pg.purpose === 'speed'
+      ? 'Build is where it gets specific. More time at and just above threshold, and the '+
+        'sessions start asking for the pace rather than just the effort.'
+    : pg.longRunCentral
+      ? 'Build is where it gets specific. More quality across the week, and the long run '+
+        'starts going somewhere rather than just going long.'
+      : 'Build is where it gets specific. More quality across the week, and the hard '+
+        'running starts pointing at '+(pg.eventLabel || 'your event')+' rather than just '+
+        'being hard.',
     'Honest chat: Build is where nearly everyone gets greedy. You start feeling fit, '+
       'the numbers look sharp, and it is tempting to take every rep a bit harder. '+
       'These sessions only work if they are repeatable — if Tuesday leaves you wrecked '+
@@ -36154,21 +36482,40 @@ function insightPhaseParas(from, to){
   ];
   if (to === 'Peak') return [
     'Peak starts this week, and the shape of it changes again.',
-    'Build grew the engine. Peak makes it specific to '+((DISTANCE_PROFILES[(state.setup||{}).distanceKey]||{}).label || 'your race')+
-      ' — the hard running moves closer to the pace you actually want on the day, and there is less of it.',
+    pg.isRace
+      ? 'Build grew the engine. Peak makes it specific to '+(pg.eventLabel || 'your race')+
+        ' — the hard running moves closer to the pace you actually want on the day, and '+
+        'there is less of it.'
+      : 'Build grew the engine. Peak is the sharp end of this block — the hard running '+
+        'gets more pointed, and there is less of it.',
     'Less is the point. This is the phase where the temptation is to prove something in training. '+
       'There is nothing left to prove in training.'
   ];
   if (to === 'Taper') return [
-    'You are into the taper.',
-    'The training that matters is already done — it has been done for about a fortnight. '+
-      'Everything from here is about arriving fresh enough to use it.',
+    pg.isRace ? 'You are into the taper.'
+              : 'You are into the last stretch of the block, and it steps down from here.',
+    /* NO DURATION CLAIM. This said the work "has been done for about a fortnight",
+       which is a marathon-shaped number: it is wrong for a 5K taper and wrong
+       again for a six-week Speed & Threshold block, and nothing in the
+       methodology sources it. */
+    pg.isRace
+      ? 'The training that matters is already done. Everything from here is about '+
+        'arriving fresh enough to use it on the day.'
+      : 'The training that matters is already done. What is left is about finishing this '+
+        'block fresh rather than flattened, so the next one can start properly.',
     'You will probably feel worse before you feel better, and you will almost certainly '+
       'feel like you are losing fitness. You are not. That feeling is so common it is '+
       'close to a rite of passage.',
-    'Resist the urge to put a session back in. Nothing you add now will help, and '+
-      'something you add now could cost you the day.'
+    pg.isRace
+      ? 'Resist the urge to put a session back in. Nothing you add now will help, and '+
+        'something you add now could cost you the day.'
+      : 'Resist the urge to put a session back in. Nothing you add now will land in time '+
+        'to help, and it can cost you the start of the next block.'
   ];
+  /* UNREACHABLE IN A LINEAR BLOCK and kept deliberately: every Valhalla arc
+     opens in Base, so nothing transitions INTO it and this has never been
+     shown to an athlete. It exists so a future arc that does return to Base
+     has copy rather than silence. */
   if (to === 'Base') return [
     'This block opens with Base, which is the least glamorous part and the one that '+
       'decides how much the rest of it is worth.',

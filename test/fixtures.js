@@ -20,7 +20,12 @@ function buildPlan(app, opts) {
   const schedule = opts.schedule || { activeDays: [1, 2, 3, 5, 6], longRunDay: 6 }; // Tue/Wed/Thu/Sat/Sun
   const startDate = opts.startDate || app.todayStr();
   const benchSec = opts.benchSec != null ? opts.benchSec : app.clockToSec('0:45:00'); // 10K in 45:00
-  const hasEvent = false;
+  /* AN ACTUAL START LINE, or a goal effort with no event behind it. Both
+     shapes produce a type:'race' day; only one of them is a race the athlete
+     entered, and several surfaces (race-morning coaching among them) are
+     written for one and must not fire for the other. Defaults false, which
+     is what every fixture written before this assumed. */
+  const hasEvent = opts.hasEvent === true;
 
   const startMonday = app.addDays(startDate, -app.isoWeekday(startDate));
   const raceDate = app.addDays(startMonday, weeks * 7 - 1);

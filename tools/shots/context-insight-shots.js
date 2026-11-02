@@ -11,6 +11,27 @@ function mk(off){const a=loadApp({pinnedDate:T+'T09:00:00Z'});a.showToast=()=>{}
  a.state.days.forEach(d=>{if(d.date>=T||d.type==='rest')return;d.completed=true;
    d.actual={km:d.km,pace:'5:05',paceUnit:'km',hr:148,rpe:5,feel:'good',notes:''};});
  return a;}
+const FX=require(ROOT+'/test/fixtures.js');
+/* RACE MORNING NEEDS A SUNDAY, because that is where the generator anchors a
+   goal day -- and it needs the PAGE to believe it is that Sunday too, which
+   is what scene.date drives through Playwright's clock below. Chosen as the
+   most recent Sunday on or before today, so this keeps working next week. */
+const SUNDAY=(()=>{const d=new Date(T+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-(d.getUTCDay()===0?0:d.getUTCDay()));return d.toISOString().slice(0,10);})();
+const SUN_ADD=n=>{const d=new Date(SUNDAY+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10);};
+function raceToday(dist){
+  for(let off=-110;off<=-88;off++){
+    const a=loadApp({pinnedDate:SUNDAY+'T09:00:00Z'});
+    a.showToast=()=>{};a.renderApp=()=>{};a.flushSave=()=>{};a.scheduleSave=()=>{};
+    FX.buildPlan(a,{distanceKey:dist,volume:55,weeks:14,lthr:172,maxHR:188,hasEvent:true,
+                    startDate:a.addDays(SUNDAY,off)});
+    a.state.setup.purpose='race';a.state.setup.freqRepairIIReconciled=true;
+    a.state.healthConsent={granted:true,at:'x'};
+    if(a.raceDayToday()) return a;
+  }
+  throw new Error('no race day landed on '+SUNDAY);
+}
+const past=a=>a.state.days.filter(d=>d.date<SUNDAY&&d.type!=='rest');
+const ranAll=a=>{past(a).forEach(d=>FX.logAsPrescribed(a,d));return a;};
 const K=a=>'programme:'+a.insightBlockKey();
 /* ISOLATE ONE INSIGHT WITHOUT FAKING ONE. Every other candidate that is
    genuinely true is marked as already seen, so the one under test is the one
@@ -63,6 +84,12 @@ const SCENES=[
  {tag:'restriction-return', build:()=>{const a=mk(-35);
     a.declareRestriction('none',a.addDays(T,10));a.state.setup.restriction.from=a.addDays(T,-14);a.endRestriction();
     return only(a,'restriction_return');}},
+ ...[['excellent',a=>ranAll(a)],
+     ['good',     a=>{past(a).forEach((d,i)=>{if(i%9!==0)FX.logAsPrescribed(a,d);});return a;}],
+     ['disrupted',a=>{ranAll(a);const f=SUN_ADD(-41),u=SUN_ADD(-21);
+       a.state.days.forEach(d=>{if(d.date>=f&&d.date<=u){d.restricted=true;d.completed=false;delete d.actual;}});
+       return a;}]
+   ].map(([how,shape])=>({tag:'raceday-'+how, date:SUNDAY, build:()=>shape(raceToday('full'))})),
  {tag:'deuce-card', build:()=>{const a=mk(-35);
     a.state.insights.quietBlockId=a.insightBlockKey();   // no modal on this one
     const d=a.state.days.filter(x=>x.date===T)[0]||a.state.days.filter(x=>x.date>=T)[0];
@@ -74,7 +101,9 @@ const SCENES=[
 /* AND EACH FRAME MUST PROVE IT PHOTOGRAPHED THE INSIGHT IT CLAIMS. */
 const EXPECT_TITLE={ programme:/this block is for/i, 'phase-build':/looks different/i,
   'phase-peak':/looks different/i, 'phase-taper':/looks different/i,
-  'new-workout':/Something new/i, threshold:/changed source/i, 'restriction-return':/not doing/i };
+  'new-workout':/Something new/i, threshold:/changed source/i, 'restriction-return':/not doing/i,
+  'raceday-excellent':/This is it/i, 'raceday-good':/Race day/i,
+  'raceday-disrupted':/This one is different/i };
 const MIME={'.png':'image/png','.svg':'image/svg+xml','.js':'text/javascript','.css':'text/css','.woff2':'font/woff2','.json':'application/json'};
 const html=fs.readFileSync(ROOT+'/protected/velvet-viking-valhalla.html','utf8');
 const srv=http.createServer((q,r)=>{const u=decodeURIComponent((q.url||'/').split('?')[0]);
@@ -87,6 +116,11 @@ srv.listen(0,'127.0.0.1',async()=>{
  for(const sc of SCENES){ for(const theme of ['dark','light']){
    const a=sc.build();
    const ctx=await br.newContext({viewport:{width:390,height:900},deviceScaleFactor:2,isMobile:true,colorScheme:theme});
+   /* A scene that is ABOUT a particular date needs the page to be on it too:
+      the state is built against a pinned date in Node, and without this the
+      browser's own clock disagrees and the day the scene is about is simply
+      not today any more. */
+   if(sc.date) await ctx.clock.install({time:new Date(sc.date+'T09:00:00Z')});
    const p=await ctx.newPage(); const errs=[]; p.on('pageerror',e=>errs.push(String(e&&e.message||e)));
    await p.addInitScript(([k,s])=>localStorage.setItem(k,s),[a.STORAGE_KEY,
      JSON.stringify(Object.assign({},JSON.parse(JSON.stringify(a.state)),{view:'today',theme,themeExplicit:true}))]);
