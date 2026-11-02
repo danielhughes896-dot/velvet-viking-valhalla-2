@@ -9065,9 +9065,38 @@ function marathonLongRunDestination(startLongKm, progressingWeeks, distKey, want
    Both bounds already exist and are already used to decide frequency. Here
    they decide dose, which is the same question asked of one session instead of
    the week's shape. */
+/* ---- D1: THE SHAPE CARRIED FORWARD IS THE WHOLE NON-LONG WORKLOAD ----
+   HQ RULING: starting frequency controls the ROUTE and must never carry
+   authority over the DESTINATION.
+   WHAT LEAKED. `grown` read the athlete's shape as startSupportKm x startDays
+   -- the portion of their week that happened to be labelled SUPPORT at entry.
+   marathonSessionStart() divides (week - long run) into startDays +
+   qualitySlots EQUAL slots, so the label moves with the start day count while
+   the athlete does not. Measured, entry 40km with a demonstrated 14km long run:
+     startDays 2 + 1 quality = 3 slots -> 8.7 each -> support total 17.4
+     startDays 3 + 1 quality = 4 slots -> 6.5 each -> support total 19.5
+   Identical week, identical long run, identical non-long workload (26km both
+   times). Only the quality session's share moved -- 8.7 against 6.5 -- and
+   `grown` carried that artefact all the way to the destination, giving
+   12.4/run against 13.9/run and a delivered 79.5 against 84 for the same
+   athlete.
+   WHAT REPLACES IT. The athlete's shape is how much NON-LONG running sits
+   under their long run. That is one quantity, it is 26km either way, and it is
+   carried forward as a total and divided across the structure the DESTINATION
+   will be written on. The entry quality slot is counted at the supporting
+   run's size -- the same stand-in marathonSessionStart() itself used to size
+   it -- so (startDays + qualitySlots) x startSupportKm is exactly the non-long
+   week the athlete arrived with.
+   80 REMAINS A MINIMUM AND NOT A CEILING. This removes a frequency dependency;
+   it does not converge anybody on the pathway floor. byDestination is still
+   only one of three candidates and `grown` still wins wherever the athlete's
+   own shape asks for more -- which is how capacity-driven delivery above the
+   locked figure survives, and it does: a demF=4 athlete at 60km/week already
+   delivers 82 and at 70km/week 84, on capacity alone. */
 function marathonSupportDestination(startSupportKm, startLongKm, longDestKm,
                                      progressingWeeks, easyPaceSecPerKm, distKey,
-                                     weekDestKm, supportDays, qualityKm, startSupportDays){
+                                     weekDestKm, supportDays, qualityKm, startSupportDays,
+                                     qualitySlots, entryWeekKm, entryLongKm){
   if (!(startSupportKm > 0)) return null;
   /* ---- SUPPORT DEVELOPS WITH THE WORK IT SUPPORTS ----
      NOT to its own ceiling, which was the first attempt and was wrong: pushing
@@ -9093,10 +9122,44 @@ function marathonSupportDestination(startSupportKm, startLongKm, longDestKm,
      the total it is, and divided across the days it will be written on. */
   var startDays = (startSupportDays > 0) ? startSupportDays : supportDays;
   var days = (supportDays > 0) ? supportDays : 1;
-  var grownTotal = (startLongKm > 0 && longDestKm > 0)
-    ? startSupportKm * (startDays > 0 ? startDays : 1) * (longDestKm / startLongKm)
-    : startSupportKm * (startDays > 0 ? startDays : 1);
-  var grown = grownTotal / days;
+  /* D1: the non-long structure at each end. A caller that states no quality
+     slot count (the short-arch probe below) reads exactly as it did. */
+  var qN = Math.max(0, qualitySlots || 0);
+  var startSlots = (startDays > 0 ? startDays : 1) + qN;
+  var destSlots = days + qN;
+  /* THE NON-LONG WEEK IS READ OFF THE WEEK, NOT OFF THE SESSION COUNT.
+     startSupportKm x startSlots recovers it only while the start can express
+     the whole week in that many coherent sessions, and at low start
+     frequencies it cannot: measured, an Established athlete entering at 40km
+     with a 14km long run yields a non-long total of 26.1 at two start days
+     and 26.0 at three, but only 24 at one -- marathonSessionStart() declines
+     to prescribe what will not fit ("what will not fit is not prescribed"),
+     which is correct for the ROUTE and must not reach the destination.
+     So where the entry week is known it answers directly: the athlete's shape
+     is how much non-long running sits under their long run, which is a
+     property of their week and of nothing else. The session-count form
+     remains the fallback for callers that state no entry week. */
+  /* AND THE LONG RUN THE SHAPE IS MEASURED AGAINST IS THE ATHLETE'S, NOT THE
+     ONE THE START HAD TO INVENT TO FIT. marathonSessionStart() raises the long
+     run where a week cannot be written coherently across few sessions --
+     solving L >= V/(1 + SUPPORT_SHARE_MAX*d) -- so the SAME athlete entering a
+     40km week with a demonstrated 14km long run starts from 14 at two
+     supporting days and from 16 at one. Measured, that moved the shape ratio
+     from 30/14 to 30/16 and the non-long total from 26 to 24, and between them
+     they took the destination from 13.9 to 11.3. Both terms are frequency
+     artefacts of the ROUTE.
+     The athlete demonstrated 26km of non-long running under a 14km long run.
+     That ratio is the shape, it is a fact about them, and it is what is
+     projected onto the destination long run. Where no entry long run is
+     supplied the start's own figure stands, exactly as before. */
+  var shapeLong = (entryLongKm > 0) ? entryLongKm : startLongKm;
+  var nonLongStart = (entryWeekKm > 0 && shapeLong > 0 && entryWeekKm > shapeLong)
+    ? (entryWeekKm - shapeLong)
+    : startSupportKm * startSlots;
+  var grownTotal = (shapeLong > 0 && longDestKm > 0)
+    ? nonLongStart * (longDestKm / shapeLong)
+    : nonLongStart;
+  var grown = grownTotal / destSlots;
   /* ---- AND SUPPORT DEVELOPS TOWARDS WHAT THE LONG RUN NEEDS ----
      CARRYING THE ATHLETE'S SHAPE FORWARD IS RIGHT UNTIL THE SHAPE ITSELF IS
      THE PROBLEM. An athlete arriving with a 20km long run inside a 30km week
@@ -11233,7 +11296,8 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
                                               raceGoalVolumeDestinationKm(distKey, mExp, mEntry, 'peak'),
                                               mSupportDays,
                                               mQSlots * (mSupportDest || mStart.supportKm || 0),
-                                              mStartDays);
+                                              mStartDays, mQSlots, mEntryKm,
+                                              mEntry && mEntry.longKm);
     /* CAPACITY IS A CEILING ON THE RESULT, NEVER A TARGET FOR IT. Paid
        proportionally, so the week the athlete arrived with keeps its shape
        while everything in it comes down together. The quality session is
