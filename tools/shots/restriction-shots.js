@@ -87,6 +87,8 @@ function measure(){
     hasCard: !!card,
     cardTitle: txt(document.querySelector('.yr-outcome .coach-next-title')),
     prepLine: txt(document.querySelector('.cp-prep')),
+    signpost: !!document.querySelector('.today-injury .coach-why-btn'),
+    signpostHint: txt(document.querySelector('.today-injury-hint')),
     cardText: (txt(card) || '').slice(0, 180),
     picks: picks.length,
     picked: picks.filter(p => p.classList.contains('is-picked')).length,
@@ -102,6 +104,12 @@ function measure(){
 }
 
 const SCENES = [
+  /* THE SIGNPOST AT THE FOOT OF TODAY, closed and opened. It is the only
+     thing on Today that mentions injury when nothing has been declared, and
+     it disappears the moment something is -- which the `open` frame below
+     is also the proof of. */
+  { tag:'signpost',     view:'today', setup: a => {} },
+  { tag:'signpost-open',view:'today', setup: a => {}, hint:true },
   { tag:'open',    view:'today',    setup: a => { a.declareRestriction('none', a.addDays(TODAY, 20)); } },
   { tag:'back',    view:'today',    setup: a => { a.declareRestriction('easy', a.addDays(TODAY, 3));
                                                   a.state.setup.restriction.from = a.addDays(TODAY, -18);
@@ -160,6 +168,11 @@ const SCENES = [
           }); } catch (e) { errors.push('expand: ' + e.message); }
           await page.waitForTimeout(300);
         }
+        if (scene.hint){
+          try { await page.evaluate(() => { handleInjuryHint(); }); }
+          catch (e) { errors.push('hint: ' + e.message); }
+          await page.waitForTimeout(250);
+        }
         if (scene.modal){
           try { await page.evaluate(() => { openRestrictionModal(); }); }
           catch (e) { errors.push('modal: ' + e.message); }
@@ -174,6 +187,14 @@ const SCENES = [
           errors.push('the programme did not come back — this frame proves nothing');
         if (scene.tag === 'checkpoint' && !m.prepLine)
           errors.push('no preparation sentence rendered — this frame proves nothing');
+        if (scene.tag.indexOf('signpost') === 0 && !m.signpost)
+          errors.push('no signpost rendered — this frame proves nothing');
+        if (scene.tag === 'signpost' && m.signpostHint)
+          errors.push('the direction is showing before it was asked for');
+        if (scene.tag === 'signpost-open' && !m.signpostHint)
+          errors.push('the direction did not open — this frame proves nothing');
+        if ((scene.tag === 'open' || scene.tag === 'back') && m.signpost)
+          errors.push('the signpost is duplicating the card that is already on screen');
         if (scene.tag === 'declare' && !m.picks)
           errors.push('the modal rendered no picks — this frame proves nothing');
         if (scene.tag === 'plan' && !m.restrictedLabels)
@@ -187,6 +208,7 @@ const SCENES = [
           ' card=' + (m.hasCard ? JSON.stringify(m.cardTitle) : 'none') +
           ' picks=' + m.picks + '/' + m.picked +
           ' view=' + m.view + ' cards=' + m.dayCards + ' labels=' + m.allLabels +
+          ' signpost=' + (m.signpost ? (m.signpostHint ? 'open' : 'closed') : 'none') +
           ' restricted=' + m.restrictedLabels + ' missed=' + m.missedLabels +
           (m.prepLine ? ' prep=' + JSON.stringify(m.prepLine.slice(0, 48)) : '') +
           ' xoverflow=' + (m.scrollW > m.clientW + 1 ? 'YES' : 'no') +
