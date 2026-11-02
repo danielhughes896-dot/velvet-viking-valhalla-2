@@ -49,6 +49,34 @@ function build(o){
   a.showToast = () => {};
   a.state = a.makeDefaultState();
   a.state.experience = o.exp;
+  /* ---- THE BLOCK AND THE PROJECTION MUST BE THE SAME ATHLETE ----
+     This fixture used to build its block with calibrate flags taken from a
+     hand-built calibrationEligibility({ healthConsent:true, ... }) while the
+     app state it then handed raceGoalPreparationOutlook() carried NO consent
+     record. So the block was CALIBRATED and the projection -- which reads the
+     athlete's real state through calibrationVerdict() -> healthConsentGranted()
+     -- projected the UNCALIBRATED block the generator would actually produce.
+     Two different programmes, compared with each other: measured, 83 against
+     84.6.
+     The invariant is untouched and is the whole point of this file -- the
+     projection must agree with what the programme generated from THAT SAME
+     state delivers. What is fixed here is the state, so that there is one
+     athlete rather than two: consent is written to the record the runtime
+     actually reads, and the calibrate flags below are then derived from the
+     runtime's own authority (the same calibrationNeededNow/Deferrable pair
+     handleGeneratePlan() uses) rather than restated with inputs the state
+     does not carry.
+     IT HAS TO BE THIS DIRECTION. Deriving the flags against a NON-consenting
+     state would also have made the two agree -- on an uncalibrated block --
+     but this module's own CALIBRATION contracts exist to prove a calibration
+     is placed, withheld with a reason, and never offered twice, and they
+     need a consenting athlete to have anything to examine. The fixture was
+     already written around a consenting one (healthConsent:true was passed
+     to calibrationEligibility); the record it was missing is the one the
+     runtime reads. */
+  a.state.healthConsent = { version: a.HEALTH_CONSENT_VERSION, decision: 'granted',
+    decidedAt: '2026-01-01T09:00:00.000Z', grantedAt: '2026-01-01T09:00:00.000Z',
+    withdrawnAt: null };
   if (o.easyKm) a.state.athlete = { sessions: history(a, o) };
   const vd = a.vdotFromPerformance(5000, (o.tt5kMin || 24) * 60);
   const z = a.trainingPacesFromVDOT(vd), pace = (z.E.slow + z.E.fast) / 2;
@@ -57,12 +85,15 @@ function build(o){
   const raceDate = a.addDays(m, N * 7 - 1);
   /* The same fallback the app supplies: with no evidence and no typed figure,
      the week a Race Goal opens on is the pathway's own entry. */
-  const elig = a.calibrationEligibility({ healthConsent:true, lthr:null, lthrSource:null,
-    performances:[], today:start, currentVolume:o.stated != null ? o.stated : null,
-    pathwayEntryKm: a.raceGoalPathwayEntryKm('race', o.dist, o.exp) });
-  const blk = a.buildBlockWeeks(o.dist, o.stated != null ? o.stated : null, N,
+  /* READ FROM THE RUNTIME, against the state set above, so the block the
+     fixture builds is the block that state produces. */
+  const calEntry = a.raceGoalPathwayEntryKm('race', o.dist, o.exp);
+  const calVol = o.stated != null ? o.stated : null;
+  const elig = a.calibrationVerdict(calVol, calEntry);
+  const blk = a.buildBlockWeeks(o.dist, calVol, N,
     { purpose:'race', availableDays:days.length, experience:o.exp, easyPaceSecPerKm:pace,
-      calibrate:elig.needed, calibrateWhenViable:elig.reason === 'insufficient_base' });
+      calibrate: a.calibrationNeededNow(calVol, calEntry),
+      calibrateWhenViable: a.calibrationDeferrable(calVol, calEntry) });
   const dd = a.buildDaysFromWeeks(blk, raceDate, { activeDays:days, longRunDay:6 },
     start, true, { easyPaceSecPerKm:pace });
   return { a, blk, dd, raceDate, pace, elig };

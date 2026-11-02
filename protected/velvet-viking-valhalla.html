@@ -8151,9 +8151,43 @@ function raceGoalPreparationOutlook(distKey, experience, N, opts){
      reachWeekKm keeps the destination-based figure below, floored (not
      curve-limited) at the pathway's own weekly requirement. */
   var reachLongKm = raceGoalFloorAtStep(s.startLongKm, s.longDestKm, s.progressing, s.progressing);
+  /* WHETHER THE FIGURES BELOW CAME FROM THE BUILDER OR FROM THE CURVE, so a
+     reader can tell which authority answered. See C3 below. */
+  var dimsFromBuild = false;
 
+  /* ---- C4: JUDGED AGAINST THE LOCKED PEAK, NOT THE BUILD FIGURE ---- HQ
+     RULING, MARATHON ONLY.
+     This asked whether the safe route reached buildVolumeDestKm -- the BUILD
+     destination, 50/72/82 by experience -- while HQ's locked minimum
+     preparation destinations are the PEAK figures, 60/80/93. An eight to
+     eleven kilometre lower bar, and it showed: measured, an Established
+     entrant delivering 64.5km/week and an Advanced entrant delivering
+     80.5km/week both read READY against locked destinations of 80 and 93.
+     The long run was already judged against its locked figure
+     (buildLongDestKm is 28/30/32, the pathway's own peakLongKm), so only the
+     weekly destination moves here.
+     SCOPED TO THE MARATHON. Half and 5K/10K keep the destination they were
+     measured against -- HQ's locked figures and this correction are the
+     marathon's, and those distances' own numbers have not been audited for
+     it. */
   var needWeekKm = s.buildVolumeDestKm;
   var needLongKm = s.buildLongDestKm;
+  if (distKey === 'full'){
+    /* ---- THE LOCKED MINIMUM, AND NOT THE ATHLETE'S OWN LARGER DESTINATION ----
+       s.volumeDestKm is max(the pathway's locked peak, the athlete's own grown
+       shape), so reading it here judged a strong athlete against THEMSELVES:
+       measured, a Developing athlete demonstrating 85km/week was required to
+       reach 85 and refused at 78, while comfortably clearing the locked 60.
+       Floors are not ceilings. HQ's locked figures are minimum preparation
+       DESTINATIONS -- 60/28, 80/30, 93/32 -- so reachability asks whether the
+       delivered programme clears the minimum, never whether it matches a
+       destination the athlete's own capacity inflated. Where the pathway states
+       no peak the build figure stands. */
+    var lockedPath = null;
+    try { lockedPath = raceGoalPathway(distKey, exp); } catch(e){ lockedPath = null; }
+    if (lockedPath && lockedPath.peakVolumeKm > 0) needWeekKm = lockedPath.peakVolumeKm;
+    if (lockedPath && lockedPath.peakLongKm > 0)   needLongKm = lockedPath.peakLongKm;
+  }
   /* HQ NARROW PATHWAY CORRECTION -- THE FLOOR RAISE MAY NOT OUTRUN THE SAME
      SAFETY RATE reachLongKm IS ALREADY HELD TO. This used to raise
      reachWeekKm straight to s.volumeDestKm, the pathway's raw, unconstrained
@@ -8181,6 +8215,111 @@ function raceGoalPreparationOutlook(distKey, experience, N, opts){
     : s.volumeDestKm;
   if (s.volumeDestKm > 0 && reachWeekKm < reachWeekKmFloor) reachWeekKm = reachWeekKmFloor;
 
+  /* ---- C3: THE PROJECTION IS THE PROGRAMME, NOT A CURVE THROUGH IT ----
+     HQ RULING, MARATHON ONLY.
+     reachWeekKm above is the destination-based week floor-raised to what the
+     Nielsen-capped curve can reach, which answers "is the destination
+     reachable" rather than "what will this block deliver". The two are not the
+     same number and the difference is not small: measured against the block
+     the builder actually produces, the projection overstated the delivered
+     peak week by 0.5 to 11.7 km, and because it is raised to the destination
+     it reported EXACTLY the locked figure (60, 80) on cases that went on to
+     deliver 55, 59, 74 and 76. Across a 432-case sweep the projected and
+     delivered verdicts agreed on only 78% -- 92 of them optimistically, which
+     is the direction that matters, because an optimistic projection is the
+     "built and apologised for at the end" failure this gate exists to prevent.
+     SO IT ASKS THE BUILDER. buildBlockWeeks() is the same authority the block
+     is constructed from and takes everything as arguments -- it makes no state
+     writes at all, verified across its whole body -- so the composed peak of
+     its own developing weeks can be read here directly. Measured, that tracks
+     the delivered programme to within -0.2 to +0.9 km, inside one prescription
+     granule, where the curve was out by up to 11.7.
+     WEEKS ONLY, DELIBERATELY: the per-day pass writes planVolumeAccounting,
+     and a projection must not clobber the accounting of the plan the athlete
+     is actually on. The residual above is that day-level trimming and is
+     reported rather than hidden.
+     THE CURVE STANDS WHERE THE BUILD CANNOT BE ASKED. Any throw leaves the
+     projection exactly as it was, so a failure here can never manufacture a
+     refusal. */
+  if (distKey === 'full'){
+    try {
+      var pvVol = (state && state.setup && state.setup.currentVolume != null)
+        ? state.setup.currentVolume : null;
+      var pvEntry = raceGoalPathwayEntryKm('race', distKey, null);
+      /* THE SAME CIRCUMSTANCES THE BLOCK WILL BE BUILT UNDER, and `experience`
+         is one of them: the builder takes it as an option and does not have to
+         re-derive it, so omitting it here built a DIFFERENT block from the one
+         being judged (measured, 83 against the 84.6 the same inputs deliver).
+         The projection is only worth anything if it asks about the block the
+         athlete will actually receive. */
+      var pvBlock = buildBlockWeeks(distKey, pvVol, N, {
+        purpose: 'race',
+        availableDays: ctx.availableDays,
+        experience: exp,
+        easyPaceSecPerKm: ctx.easyPaceSecPerKm,
+        calibrate: calibrationNeededNow(pvVol, pvEntry),
+        calibrateWhenViable: calibrationDeferrable(pvVol, pvEntry) });
+      var pvDev = (pvBlock && pvBlock.weeks || []).filter(function(w){
+        return w && !w.isCutback && !w.isTaper && !w.isRace; });
+      if (pvDev.length){
+        /* ---- AND THE PER-DAY PASS IS PART OF WHAT THE ATHLETE RECEIVES ----
+           The week objects are the composition; the week the athlete is
+           actually GIVEN is that composition written to days and rounded by
+           roundWorkoutKm(), with the progression gate trimming on the way
+           through. Reading the weeks alone left the projection out by -1.3 to
+           +0.6 km, and the direction is the one that matters: a projection
+           BELOW the delivered week refuses somebody the block would have
+           prepared, which is what test/raceGoalAdmissionViability.test.js's
+           own 0.6km bound is there to prevent.
+           WHICH WEEKDAYS DOES NOT MATTER, ONLY HOW MANY -- measured across
+           four different five-day patterns on three pathways, the delivered
+           weekly peak was identical every time. So a canonical pattern of
+           ctx.availableDays answers for the athlete's own, and the projection
+           needs no schedule it does not have.
+           THE THREE BUILD GLOBALS ARE SAVED AND RESTORED. buildDaysFromWeeks()
+           resets planBuildNotes, planVolumeAccounting and planInvariantFailures
+           at its head, and a projection must not clobber the accounting or the
+           notes of the plan the athlete is actually on. */
+        var pvNotes = planBuildNotes, pvAcct = planVolumeAccounting,
+            pvFails = planInvariantFailures;
+        var pvDayPeak = 0, pvDayLong = 0;
+        try {
+          var pvN = Math.max(1, Math.min(7, ctx.availableDays || 5));
+          var pvActive = [1,2,3,5,6,0,4].slice(0, pvN);
+          var pvStart = addDays(todayStr(), -isoWeekday(todayStr()));
+          var pvDays = buildDaysFromWeeks(pvBlock, addDays(pvStart, N * 7 - 1),
+            { activeDays: pvActive, longRunDay: pvActive[pvActive.length - 1] },
+            pvStart, true, { easyPaceSecPerKm: ctx.easyPaceSecPerKm });
+          var pvPer = {}, pvLongPer = {};
+          (pvDays || []).forEach(function(dd){
+            if (!dd || dd.week == null || !(dd.km > 0) || dd.type === 'race') return;
+            pvPer[dd.week] = (pvPer[dd.week] || 0) + dd.km;
+            if (dd.type === 'long' && dd.km > (pvLongPer[dd.week] || 0))
+              pvLongPer[dd.week] = dd.km;
+          });
+          pvDev.forEach(function(w){
+            if ((pvPer[w.week] || 0) > pvDayPeak) pvDayPeak = pvPer[w.week]; });
+          (pvBlock.weeks || []).forEach(function(w){
+            if ((pvLongPer[w.week] || 0) > pvDayLong) pvDayLong = pvLongPer[w.week]; });
+        } finally {
+          planBuildNotes = pvNotes; planVolumeAccounting = pvAcct;
+          planInvariantFailures = pvFails;
+        }
+        if (pvDayPeak > 0){ reachWeekKm = pvDayPeak; dimsFromBuild = true; }
+        if (pvDayLong > 0){ reachLongKm = pvDayLong; dimsFromBuild = true; }
+        if (!dimsFromBuild){
+          var pvWeek = 0, pvLong = 0;
+          pvDev.forEach(function(w){ if ((w.volume || 0) > pvWeek) pvWeek = w.volume; });
+          (pvBlock.weeks || []).forEach(function(w){
+            if ((w.longTarget || 0) > pvLong) pvLong = w.longTarget; });
+          if (pvWeek > 0) reachWeekKm = pvWeek;
+          if (pvLong > 0) reachLongKm = pvLong;
+          dimsFromBuild = true;
+        }
+      }
+    } catch(e){ /* the curve above stands */ }
+  }
+
   var dims = [];
   var mk = function(key, reached, required, quantum){
     var gap = round1(Math.max(0, required - reached));
@@ -8188,11 +8327,42 @@ function raceGoalPreparationOutlook(distKey, experience, N, opts){
              shortfallKm: gap, met: gap <= quantum + 1e-9,
              reachedKm: round1(reached), requiredKm: round1(required) };
   };
+  /* ---- C4: COMPARED AT THE GRANULARITY THE SESSION IS PRESCRIBED IN, WITH NO
+     SEPARATE TOLERANCE ---- HQ RULING, MARATHON ONLY.
+     The quanta here were a TOLERANCE on a locked minimum: one kilometre for
+     the long run and EASY_QUANTUM_KM per supporting day for the week. They
+     passed real shortfalls -- measured, a 31.3km long run met a locked 32, and
+     a 27.1km long run met a locked 28.
+     HQ's ruling is not to replace them with a smaller tolerance but to compare
+     the locked destination and the delivered programme AT THE SAME
+     PRESCRIPTION GRANULARITY. roundWorkoutKm() is that granularity and it is
+     the builder's and the display's: a long run renders to the whole
+     kilometre, so a curve reaching 31.3 prescribes 31 and is genuinely a
+     kilometre short of 32, while one reaching 32.0 prescribes 32 and meets it.
+     The weekly figure is itself a SUM of sessions already at their own
+     granularities, so it is compared at the precision that sum carries, which
+     is the round1() the gap below already applies.
+     THE TOLERANCE IS THEN ZERO, and that is the whole point: a locked minimum
+     preparation destination is not passed by presentation rounding. */
+  /* THE WEEK IS A SUM OF SESSIONS, SO ITS GRANULE IS THEIRS. Every supporting
+     and quality session is prescribed to EASY_QUANTUM_KM by roundWorkoutKm(),
+     so the total the athlete is actually given lands on a half kilometre and
+     the week is compared there. This is a GRANULARITY, not a tolerance: both
+     sides are expressed at the precision the prescription carries and then the
+     gap must be zero. Measured, it is what closes the 92.9-against-a-locked-93
+     case -- the week-level figure understates the prescribed week by about a
+     half because the per-day pass rounds each session, and the week the athlete
+     receives there sums to 93.5. It does not rescue 79.5 against 80 or 59.5
+     against 60, which remain honestly short. */
   if (needWeekKm > 0)
-    dims.push(mk('workload', reachWeekKm, needWeekKm,
-                 EASY_QUANTUM_KM * Math.max(1, s.supportDays || 1)));
+    dims.push((distKey === 'full')
+      ? mk('workload', roundTo(reachWeekKm, EASY_QUANTUM_KM), needWeekKm, 0)
+      : mk('workload', reachWeekKm, needWeekKm,
+           EASY_QUANTUM_KM * Math.max(1, s.supportDays || 1)));
   if (needLongKm > 0)
-    dims.push(mk('durability', reachLongKm, needLongKm, 1));
+    dims.push((distKey === 'full')
+      ? mk('durability', roundWorkoutKm('long', reachLongKm), needLongKm, 0)
+      : mk('durability', reachLongKm, needLongKm, 1));
   if (!dims.length) return null;
 
   var worst = dims.reduce(function(a,b){
@@ -8242,6 +8412,7 @@ function raceGoalPreparationOutlook(distKey, experience, N, opts){
     entrySource: s.entry ? s.entry.volumeSource : null,
     longSource:  s.entry ? s.entry.longSource : null,
     intervals: s.progressing,
+    projectedFrom: dimsFromBuild ? 'built_block' : 'curve',
     reachWeekKm: round1(reachWeekKm), reachLongKm: round1(reachLongKm),
     requiredWeekKm: round1(needWeekKm), requiredLongKm: round1(needLongKm),
     capacityCeilingKm: cap != null ? round1(cap) : null

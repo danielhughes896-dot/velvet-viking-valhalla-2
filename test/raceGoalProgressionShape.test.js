@@ -79,7 +79,20 @@ test('CUTBACK — an absorption week is a reduction, and it is roughly the one t
         ' is not an absorption week, it is a week off');
     });
   });
-  assert.ok(n >= 60, 'only ' + n + ' cutbacks examined');
+  /* ---- THE COVERAGE FLOOR FOLLOWS THE ADMITTED POPULATION ---- C4.
+     weeksOf() returns null for a case admission refuses, so a refused case
+     contributes no cutbacks to examine. Judging reachability against the
+     LOCKED peak destinations (60/28, 80/30, 93/32) rather than the Build
+     figures refuses ten of these thirty-six cases -- New Marathon and
+     Experienced Marathon at every runway from ten to fourteen weeks, each
+     preparation_not_reachable -- which takes the examined cutbacks from 60 to
+     58. Measured, not inferred: 26 cases admitted, 58 cutbacks.
+     THIS IS A COVERAGE GUARD, NOT A SAFETY BOUND, and it has not been relaxed
+     as one: every cutback that IS examined is still held to both of the
+     assertions above, unchanged. The floor tracks the population the current
+     authority admits, so that this test keeps failing if the sweep ever stops
+     examining a meaningful number of absorption weeks. */
+  assert.ok(n >= 58, 'only ' + n + ' cutbacks examined');
 });
 
 test('CUTBACK — it reduces the dose and never the athlete\'s frequency', () => {
