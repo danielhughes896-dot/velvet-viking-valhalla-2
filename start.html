@@ -728,6 +728,34 @@
     if (parts.length === 2) return parts[0]*60 + parts[1];
     return NaN;
   }
+  /* BENCHMARK TIME, TYPED ON A PHONE KEYPAD.
+     THE DEFECT THIS EXISTS FOR, reported from a real iPhone mid-signup: this
+     field carried inputmode="numeric", which both iOS and Android draw as a
+     DIGITS-ONLY pad -- no ":" on it anywhere, and no "." either. The
+     placeholder asked for "mm:ss", clockToSec() refused anything without a
+     colon, and the athlete could not produce one. They typed "900", were told
+     to give it "like 45:00", and had no way to. A dead end on the one field
+     every training pace is built from, on the page new athletes arrive at.
+
+     THE APP HAS ALREADY SOLVED THIS and /start simply never got it. The
+     runtime's own parseBenchmarkTime() accepts "." as an alternative
+     separator and its two benchmark fields carry inputmode="decimal"; this
+     page kept the strict parser and the digits-only keypad. (The test named
+     "the /start Benchmark Time field" asserts it of su-bench-time, the
+     in-app setup modal, which is why nothing caught the gap.) This is the
+     same function, so the two can no longer disagree about what an athlete
+     is allowed to type.
+
+     "45.00" ALWAYS MEANS 45 MINUTES 00 SECONDS, exactly as "45:00" does. It
+     is never read as a decimal number of minutes, and a bare number with no
+     separator is still refused rather than guessed at -- "900" is 9:00 or
+     15:00 and nothing here may choose between them, because the benchmark is
+     what every pace in the programme descends from. */
+  function parseBenchmarkTime(v){
+    var str = String(v == null ? '' : v).trim();
+    if (!str) return NaN;
+    return clockToSec(str.replace(/\./g, ':'));
+  }
   function todayStrLocal(){
     var d = new Date(); var tz = d.getTimezoneOffset();
     return new Date(d.getTime()-tz*60000).toISOString().slice(0,10);
@@ -911,8 +939,11 @@
       '<div class="field"><label>Benchmark distance</label>' +
       '<div class="opt-grid" id="bld-bench-dist" role="group" aria-label="Benchmark distance">' + optGrid(items, Ans.benchDist) + '</div></div>' +
       '<div class="field" id="f-bench-time"><label>Benchmark time</label>' +
-      '<input id="bld-bench-time" type="text" inputmode="numeric" placeholder="mm:ss" value="'+Ans.benchTime+'"></div>' +
-      '<div class="field-hint">A recent honest-effort result Valhalla builds your training paces from. You can update it any time once you have an account.</div>';
+      /* inputmode="decimal", not "numeric": the decimal pad is the one that
+         carries a separator the athlete can actually reach. See
+         parseBenchmarkTime(). */
+      '<input id="bld-bench-time" type="text" inputmode="decimal" placeholder="45:00 or 45.00" value="'+Ans.benchTime+'"></div>' +
+      '<div class="field-hint">Minutes and seconds \u2014 45:00, or 45.00 if your keypad has no colon. A recent honest-effort result Valhalla builds your training paces from. You can update it any time once you have an account.</div>';
     wireOptGrid('bld-bench-dist', function(v){ Ans.benchDist = v; });
     $('bld-bench-time').addEventListener('input', function(){ Ans.benchTime = $('bld-bench-time').value; });
   }
@@ -1075,10 +1106,10 @@
       return true;
     }
     if (i === 5){ // BENCHMARK
-      var bSec = clockToSec(Ans.benchTime);
+      var bSec = parseBenchmarkTime(Ans.benchTime);
       var br = BS.validation.benchmarkSecondsRange;
       if (!isFinite(bSec) || bSec < br[0] || bSec > br[1]){
-        bldFail('f-bench-time', 'Give your benchmark time as minutes and seconds, like 45:00.'); return false; }
+        bldFail('f-bench-time', 'Give your benchmark time as minutes and seconds, like 45:00 or 45.00.'); return false; }
       return true;
     }
     if (i === 6){ // WEEK
@@ -1136,7 +1167,12 @@
   function submitBuild(){
     clear('build-err');
     var active = Object.keys(Ans.activeDays).map(Number).filter(function(d){ return Ans.activeDays[d]; });
-    var benchSec = clockToSec(Ans.benchTime);
+    /* THE SAME PARSER THE VALIDATOR USES, and that is the whole point of it
+       being one function. Left as clockToSec() here, a "45.00" that had just
+       passed validation would bank NaN, the app's adoptPendingBuildIfAny()
+       would refuse the build on !(benchmarkSeconds > 0), and the athlete
+       would meet an empty builder with no explanation. */
+    var benchSec = parseBenchmarkTime(Ans.benchTime);
     var hasEvent = Ans.purpose === 'race' && Ans.eventMode === 'event';
     var input = {
       purpose: Ans.purpose,

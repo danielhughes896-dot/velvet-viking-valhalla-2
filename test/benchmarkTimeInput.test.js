@@ -148,7 +148,15 @@ test('SAVE: Re-calibrate persists the same benchmark seconds whether the athlete
 // ===========================================================================
 // 4. THE VISIBLE COPY AND KEYBOARD HINT
 // ===========================================================================
-test('COPY: the /start Benchmark Time field shows the new format hint and an easier keyboard', () => {
+/* NAMED FOR WHAT IT ACTUALLY ASSERTS. This said "/start" and tests
+   su-bench-time -- the IN-APP setup modal -- so the standalone /start page
+   (start.html, a different file with its own copy of the field and its own
+   parser) read as covered when it was not. It kept inputmode="numeric" and
+   the strict clockToSec() for a year, and an athlete on an iPhone could not
+   type a benchmark time at all. The assertion below is unchanged; only its
+   name is, and start.html now has its own file:
+   test/startBenchmarkKeypad.test.js. */
+test('COPY: the in-app builder\'s Benchmark Time field shows the format hint and an easier keyboard', () => {
   const { html } = buildJourney();
   const inputStart = html.indexOf('id="su-bench-time"');
   assert.ok(inputStart !== -1);
