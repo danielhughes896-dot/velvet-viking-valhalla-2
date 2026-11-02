@@ -957,8 +957,30 @@ test('an easy-only restriction is no longer invisible to readiness', () => {
 });
 
 test('the no-running level is unchanged by the delivery definition', () => {
-  // HQ preserved these numbers; they must not move with the easy-only fix
-  const expect = { 7:0.92, 21:0.78, 42:0.52 };
+  /* HQ preserved these numbers; they must not move with the easy-only fix.
+     ---- 21 DAYS RE-RECORDED 0.78 -> 0.79, HQ RULING, MARATHON DAY-LOSS PASS ----
+     restrictionDeliveredFraction() is delivered km / prescribed km across the
+     developing weeks. Retaining a prescribed Marathon running day whose quality
+     session a gate removed adds running on days OUTSIDE the restriction window,
+     so it adds to BOTH sides of that ratio equally:
+         prescribed 924.9 -> 926.4 km   (+1.5)
+         delivered  725.9 -> 727.4 km   (+1.5)
+         ratio      0.784842 -> 0.785191
+     0.035 of a percentage point. It moved the asserted two-decimal value only
+     because the old ratio already sat at 78.48, a hair under the x.5 rounding
+     boundary. Measured on this same fixture the block went 71 -> 78 running
+     days at 1038.6 -> 1039.6 km -- seven weeks gained their prescribed day at
+     the same weekly volume, which is the approved behaviour, not a side effect.
+     NOTHING ELSE MOVED, and that is the point: 7 days and 42 days are
+     untouched, Half/10K/5K are untouched at every horizon (the recovery is
+     gated on distKey === 'full'), the 0.90/0.70 bands are untouched, and the
+     verdict reads MARGINAL on both sides of the change. The direction is the
+     coaching-correct one -- a block carrying more prescribed running loses a
+     smaller SHARE of it to the same 21 days.
+     The denominator was deliberately NOT adjusted to hide this: a retained day
+     is genuinely prescribed, so it belongs in `prescribed`. Excluding it would
+     contradict the ruling that produced it. */
+  const expect = { 7:0.92, 21:0.79, 42:0.52 };
   Object.keys(expect).forEach(days => {
     const a = raceApp('full', 70, 16);
     a.declareRestriction('none', a.addDays(TODAY, Number(days) - 1));

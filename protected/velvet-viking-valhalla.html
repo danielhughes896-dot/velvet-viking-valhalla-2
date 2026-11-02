@@ -16967,6 +16967,40 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
                            .sort(function(a,b){return a-b;});
       }
     }
+    /* ---- A REMOVED QUALITY SESSION KEEPS ITS RUNNING DAY -- HQ RULING ----
+       MARATHON. planned quality -> a legitimate gate removes it -> the
+       prescribed day REMAINS -> it carries appropriate easy running.
+
+       OUTSIDE THE YIELD BRANCH ABOVE, DELIBERATELY. That branch only fires
+       where a slot the week had ALREADY been granted was handed back; a slot
+       the aerobic-dominance ceiling removed never reaches it, because the
+       ceiling lowers weekQualitySlots before the day builder runs. Measured:
+       with the recovery inside that branch, Established Peak stayed on four of
+       five days with two 21.5km "easy" runs beside a 30km long run -- the very
+       case this ruling is about. Reading qualityDays.length against the slots
+       actually DELIVERED covers both routes.
+
+       THREE CLAMPS, each with its own reason:
+         dedupe     a day already recovered above must not be counted twice;
+         free days  distributeWeekVolume() divides the easy budget by
+                    easyDays.length, so an entry with no calendar day behind it
+                    shrinks every other run and the week comes out light with
+                    nothing to attribute it to -- measured at 42 weeks and a
+                    4.1km shortfall;
+         runCap     the tier's prescribed day count still binds, or this would
+                    hand an Established athlete a sixth running day. */
+    if (blockResult.distKey === 'full' && qualityDays.length > qualitySlotsThisWeek){
+      var mFreeDays = Math.max(1, activeDays.length -
+        (noLongRun ? 0 : 1) - (b2bActive ? 1 : 0) - qualitySlotsThisWeek);
+      var mDayCap = Math.max(1, runCap -
+        ((noLongRun ? 0 : 1) + (b2bActive ? 1 : 0) + qualitySlotsThisWeek));
+      var mBefore = easyDays.length, mSeen = {};
+      easyDays = easyDays.concat(qualityDays.slice(qualitySlotsThisWeek))
+        .sort(function(a, b){ return a - b; })
+        .filter(function(iso){ if (mSeen[iso]) return false; mSeen[iso] = true; return true; })
+        .slice(0, Math.min(mFreeDays, mDayCap));
+      if (easyDays.length > mBefore) wk.qualityDaysRetained = easyDays.length - mBefore;
+    }
     /* One slot outside the taper: take the family the solo chain advanced. */
     if (qualitySlotsThisWeek === 1 && wk.soloSpec &&
         !wk.isCheckpoint && !wk.isCalibration) singleSlotKind = wk.soloKind;
@@ -17057,6 +17091,12 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
                                      !!wk.bottomUp);
     var perEasy = dist.perEasy;
     longKm = dist.longKm;
+    /* THE RETAINED DAYS' OWN VOLUME, named. wk.volume was computed for a week
+       whose quality slot the ceiling then removed; the easy running that took
+       its place is real, legitimate and additional, so it is carried as a
+       floor cause rather than left to surface as an unattributed residual. */
+    if (wk.qualityDaysRetained > 0)
+      wk.qualityDayRetainedKm = round1(perEasy * wk.qualityDaysRetained);
     // S0 ACCOUNTING: kept on the week so the reconciliation pass below can read
     // what the allocator decided, rather than inferring it from the days.
     wk.dist = dist;
@@ -17523,6 +17563,7 @@ function recordVolumeAccounting(days, weeks){
       if (wk.qualityDayFloorKm > 0) floorExcess = round1(floorExcess + wk.qualityDayFloorKm);
       if (dist.floorCauses) dist.floorCauses.forEach(function(c){ causes.push('floor:' + c); });
       if (wk.qualityDayFloorKm > 0) causes.push('floor:quality_day_floor');
+      if (wk.qualityDayRetainedKm > 0) causes.push('floor:quality_day_retained');
       if (capRecovered > 0) causes.push('cap:recovered');
     }
 
@@ -17539,7 +17580,9 @@ function recordVolumeAccounting(days, weeks){
       allocatorRevision: allocatorRevision,
       floorExcess: floorExcess,
       floorCauses: wk.isRace ? (floorExcess > 0 ? ['lead_up_floor'] : [])
-                 : (dist.floorCauses || []).concat(wk.qualityDayFloorKm > 0 ? ['quality_day_floor'] : []),
+                 : (dist.floorCauses || [])
+                     .concat(wk.qualityDayFloorKm > 0 ? ['quality_day_floor'] : [])
+                     .concat(wk.qualityDayRetainedKm > 0 ? ['quality_day_retained'] : []),
       capRecovered: capRecovered,
       prescribedTotal: prescribedTotal,
       roundingResidual: residual,
