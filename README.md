@@ -56,6 +56,9 @@ of it:
 | File | Purpose | How it's derived |
 |---|---|---|
 | `velvet-viking-crest.png` | Canonical master | — |
+| `valhalla-mountains.png` (1086×1448) | **Second canonical master** — the decision-surface hero. Not crest-derived and not a derivative of it; a supplied photograph. | Supplied by HQ, stored unmodified |
+| `valhalla-mountains-820.jpg` (820×1093, ~75KB) | Hero behind the Marathon preparation decision modal (`.modal-decision`), phone @2x | `convert valhalla-mountains.png -resize 820x -strip -interlace Plane -quality 82` |
+| `valhalla-mountains-420.jpg` (420×560, ~21KB) | Same hero, phone @1x (`max-width:480px`) | `convert valhalla-mountains.png -resize 420x -strip -interlace Plane -quality 80` |
 | In-app hero (`<img class="medallion-img">` in `velvet-viking-valhalla.html`, and `get.html`'s install-page medallion) | Full crest, unmodified | Same file, referenced directly |
 | `icon.png` | Favicon (`get.html`) / notification icon / OG image | Master losslessly pillarboxed onto a square black canvas (no crop). **Current** — regenerated from the transparent master. |
 | `apple-touch-icon.png` (180×180) | Apple touch icon (both `velvet-viking-valhalla.html` and `get.html`) | Same pillarbox as `icon.png`, resized to 180×180. **Current.** Replaces a ~16KB inline base64 blob that used to sit in `velvet-viking-valhalla.html`'s `<head>` — that blob was never actually crest-derived (see note below), so this is both a freshness fix and a page-weight cleanup. |
@@ -73,6 +76,16 @@ inconsistency for another. This needs a purpose-built small-format mark, not
 a re-crop of the full crest; do not create one without an explicit go-ahead,
 and do not silently ship a re-crop that fails the same legibility test the
 current one does.
+
+**The mountain hero is a second master, deliberately.** It is a photograph,
+not a crest derivative, and the two must not be conflated: regenerating the
+crest derivatives never touches it and vice versa. The PNG is the master and
+is never referenced by the app — 1.9MB behind a modal is not acceptable page
+weight — so the two JPEGs above are what ship. They are the only place in the
+app that uses photography, and they are scoped to one modal
+(`.modal-decision`); do not reuse them as general chrome without a decision to
+do so. If the master is ever replaced, regenerate BOTH derivatives with the
+commands above rather than hand-editing either.
 
 **`velvet-viking-valhalla.html` also has a separate, pre-existing inline SVG
 favicon** (`<link rel="icon" type="image/svg+xml">`) — three overlapping gold

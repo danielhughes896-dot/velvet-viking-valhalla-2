@@ -115,12 +115,22 @@ const WORK_SURFACES = [
      the athlete is meant to read and think about. */
   ['openRunwayOfferModal', 'the surplus-runway development offer'],
   ['openRaceGoalEntryModal', 'the Race Goal entry boundary — Aerobic Base first'],
-  /* The third offer, and the same shape as the other two: HQ's admission
-     ruling says Valhalla must tell an athlete BEFORE building that the runway
-     they have cannot reach what the event asks for. It has a close control,
-     it presents the recommended route and "build it anyway" as two real
-     choices, and declining costs nothing -- a work surface, not an interrupt. */
-  ['openRaceGoalPreparationModal', 'the preparation boundary — this runway cannot reach it'],
+  /* ---- THE PREPARATION DECISION IS DELIBERATELY NOT ON THIS LIST ----
+     HQ RULING. openRaceGoalPreparationModal() was a themed work surface and
+     is now the app's one DECISION SURFACE: it opens on `modal-decision`,
+     which pins the Valhalla dark ramp and a photographic hero in BOTH themes.
+     WHY IT IS DIFFERENT FROM THE OTHER TWO OFFERS. The runway and entry
+     offers are routing conveniences -- the athlete is being pointed at a
+     better-ordered path. This one tells an athlete that the preparation
+     standard for the event they have entered is not safely reachable from
+     where they stand, and asks them to choose between developing first and
+     continuing with a programme that will fall short. HQ's ruling is that
+     this is a significant Valhalla coaching decision rather than an error
+     popup, and that it carries the brand's own register.
+     THE GUARD BELOW STILL BINDS. The themed set must still EQUAL this list,
+     so nothing else can quietly leave the theme ramp; this surface left it by
+     an explicit decision recorded here, and the decision treatment itself is
+     asserted in test/marathonAuthorityAndChoice.test.js. */
   ['openAvailabilityOfferModal', 'the availability-expansion offer'],
   /* Injury / illness. A work surface by every test this list applies: it has
      a close control, the athlete reads two levels and four ways of saying
@@ -202,14 +212,44 @@ test('a modal that does not opt in keeps the fixed dark ramp', () => {
     themed.join(', ') + '\n  declared: ' + declared.join(', '));
 });
 
+/* THE CLASSES A MODAL MAY BELONG TO. Every one is named, and a modal that
+   belongs to none of them fails the guard below rather than quietly inventing
+   a fourth. */
+const DELIBERATE_INTERRUPT = 'openCloudConflictModal';
+/* THE DECISION SURFACE -- HQ RULING. One modal, pinned to the Valhalla dark
+   ramp and a photographic hero in both themes, because it asks the athlete to
+   decide what to do about a preparation standard they cannot safely reach.
+   Named here rather than exempted by a pattern, so a second one cannot appear
+   without this line being edited. Its own treatment is asserted in
+   test/marathonAuthorityAndChoice.test.js. */
+const DECISION_SURFACES = ['openRaceGoalPreparationModal'];
+
 test('every modal in the product has been classified one way or the other', () => {
-  // Nothing may open a modal without appearing in exactly one of the two sets.
+  // Nothing may open a modal without appearing in exactly one of the sets.
   const callers = openModalCallers().map(([n]) => n);
   const declared = new Set(WORK_SURFACES.map(w => w[0]));
-  const unclassified = callers.filter(n => !declared.has(n) && n !== 'openCloudConflictModal');
+  const unclassified = callers.filter(n => !declared.has(n) &&
+    n !== DELIBERATE_INTERRUPT && DECISION_SURFACES.indexOf(n) === -1);
   assert.deepEqual(unclassified, [],
-    'these open a modal and are neither a declared work surface nor the one ' +
-    'deliberate interrupt: ' + unclassified.join(', '));
+    'these open a modal and are neither a declared work surface, the one ' +
+    'deliberate interrupt, nor a named decision surface: ' + unclassified.join(', '));
+});
+
+test('the decision surface is exactly one modal, and it opts out deliberately', () => {
+  /* The counterpart to the themed-set guard above: that one stops a modal
+     quietly JOINING the theme ramp, this one stops modals quietly LEAVING it.
+     A decision surface must actually be one -- it opens on modal-decision and
+     never on modal-themed -- and there must still be only the one. */
+  assert.equal(DECISION_SURFACES.length, 1,
+    'a second decision surface appeared; that is a brand decision, not a refactor');
+  DECISION_SURFACES.forEach(fn => {
+    const body = fnBody(fn);
+    assert.match(body, /openModal\(/, fn + ' no longer opens a modal at all');
+    assert.match(body, /['"]modal-decision\b/,
+      fn + ' is declared a decision surface but does not open on modal-decision');
+    assert.doesNotMatch(body, /\bmodal-themed\b/,
+      fn + ' opens on both ramps at once');
+  });
 });
 
 test('the Plan HQ panels opt in, and carry the builder accent deliberately', () => {
