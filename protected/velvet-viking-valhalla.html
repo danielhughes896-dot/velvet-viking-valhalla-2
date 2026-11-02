@@ -6225,6 +6225,268 @@ function halfTaperDayFactor(daysToRace){
    (there is exactly one -- the half's own) does not pass them, so the
    existing call site is untouched and the existing behaviour is byte for
    byte the same. */
+/* ---- C1 + C5: THE COMPOSED WEEK IS THE QUANTITY THE SAFE RATE MUST BOUND ----
+   HQ RULING, MARATHON PROGRESSION REPAIR.
+
+   WHAT WAS BOUNDED, AND WHAT THE ATHLETE ACTUALLY RECEIVED, WERE NOT THE SAME
+   QUANTITY. raceGoalFloorAtStep() holds the long run and the supporting TOTAL
+   to sqrt(SESSION_TWO_WEEK_GROWTH_CAP) per progressing step -- the Nielsen
+   ceiling, ~14.02%/week. But the delivered week is a COMPOSITION of at least
+   four terms that trade off against one another: the long run, the supporting
+   total, and each quality slot, with EASY_MIN_KM floors and a give-back path
+   between them. Nothing bounded the composition, so a structural change was an
+   unbounded load change.
+
+   MEASURED, Established entering at 18km/week:
+     wk4 (cutback)  long 7.7 + support 3.0 + quality 7.4 = 18.1
+     wk5            long 12.1 + support 15.0 + quality 0.0 = 27.1   +49.7%
+   The quality slot was refused, its share went across to the supporting runs,
+   the day count rose to five and EASY_MIN_KM floored every one of them -- so
+   3.0km of earned supporting workload was delivered as 15.0km. The existing
+   protection DID fire on that week and reported heldAtEarnedWorkload; the week
+   still jumped. Two-week composed growth reached +44.1% against the 30% the
+   same evidence licenses.
+
+   AND IT CANNOT BE FIXED ON ANY ONE INPUT. Bounding the arriving day count by
+   what the earned workload can pay for was tried and measured: the count fell
+   from five to two and the per-run figure rose from 3.0 to 7.1 to absorb it,
+   leaving the week where it was. The composition compensates. So the bound
+   belongs on the OUTPUT, where it is indifferent to which term grew and to any
+   term a later pass adds.
+
+   NO NEW CONSTANT AND NO NEW RATE. The ceiling is the one already in force on
+   every session here: sqrt(SESSION_TWO_WEEK_GROWTH_CAP) across one step and
+   SESSION_TWO_WEEK_GROWTH_CAP across two.
+
+   C5 -- A REDUCTION WEEK IS NEITHER GATED NOR A BASELINE. A cutback, a taper
+   and race week are weeks whose job is to be smaller, and the week after one
+   is not progressing FROM it: it is taking its next step from the last week
+   that actually took one. That is the same reading mBottomUp.lastStep already
+   encodes ("not a week counter, and not this one minus one, because a cutback
+   or taper in between took no step at all"), and getting it wrong in either
+   direction is wrong -- comparing against the cutback flags every healthy
+   rebound, and skipping the comparison entirely lets a genuine spike through.
+   So reduction weeks pass through untouched and never enter the baseline.
+
+   THE REDUCTION IS DECLARED, NOT LEFT TO FALL OUT, and the order is
+   applyEventTaper()'s: the easy days give way first, quality is not scaled
+   because its distance comes from a structure, and the long run gives way last
+   and never below the week's largest other run. Reading the delivered total off
+   the days and declaring the difference is what keeps the week's sessions and
+   its total the same number -- the alternative is a week whose days no longer
+   add up to its target and an accounting pass that reports honest, intended
+   coaching as unattributed volume. */
+function applyWeekProgressionGate(days, weeks, floorKm){
+  if (!days || !days.length || !weeks || !weeks.length) return;
+  var byWeek = {};
+  days.forEach(function(dd){
+    if (!dd || dd.week == null) return;
+    (byWeek[dd.week] = byWeek[dd.week] || []).push(dd);
+  });
+  var totalOf = function(list){
+    var t = 0;
+    (list || []).forEach(function(dd){
+      if (dd.km > 0 && dd.type !== 'race') t += dd.km; });
+    return round1(t);
+  };
+  var minKm = (floorKm != null && floorKm > 0) ? floorKm : EASY_MIN_KM;
+  var stepCap = Math.sqrt(SESSION_TWO_WEEK_GROWTH_CAP);
+  var dev = [], devLong = null;
+  /* THE DELIVERED END-OF-PEAK STATE, SESSION BY SESSION, so a wind-down can be
+     bounded by what the athlete was actually last given rather than by the
+     figure the block asked for before this gate touched it. */
+  var lastEasyMax = null, lastLongKm = null, gateHeldLastDev = false;
+  weeks.forEach(function(wk){
+    var list = byWeek[wk.week];
+    if (!list || !list.length) return;
+    /* C5: never gated, never a baseline. */
+    if (wk.isCutback || wk.isTaper || wk.isRace || wk.reductionCause){
+      /* ---- A WIND-DOWN IS DERIVED FROM THE WEEK IT WINDS DOWN FROM -- HQ
+         RULING ---- Where this gate has changed the delivered end-of-Peak
+         state, the taper's session geometry was computed from a Peak that no
+         longer exists, and it inverted: measured, a 6km easy run inside the
+         taper window against 4km at its largest in the week before it. The
+         taper is not re-solved here -- it is BOUNDED by the delivered state,
+         which is the same contract applyEventTaper() already keeps ("a
+         correction inside the taper could leave a wind-down week larger than
+         the week it winds down from").
+         ONLY WHERE THE GATE ACTUALLY HELD SOMETHING. An untouched programme's
+         taper is the one its own architecture produced and nothing here has
+         any business reshaping it. The race itself is never bounded. */
+      if (gateHeldLastDev && (wk.isTaper || wk.isRace) && !wk.isCutback){
+        var tBefore = totalOf(list), tLongest = 0;
+        list.forEach(function(dd){
+          if (!(dd.km > 0) || dd.type === 'race') return;
+          if (dd.type === 'easy' && lastEasyMax != null && dd.km > lastEasyMax)
+            dd.km = roundWorkoutKm('easy', lastEasyMax);
+          if (dd.type === 'long' && lastLongKm != null && dd.km > lastLongKm)
+            dd.km = roundWorkoutKm('long', lastLongKm);
+        });
+        var tAfter = totalOf(list);
+        list.forEach(function(dd){
+          if (dd.km > 0 && dd.type === 'long' && dd.km > tLongest) tLongest = dd.km; });
+        var tHeld = round1(Math.max(0, tBefore - tAfter));
+        if (tHeld > 0){
+          if (wk.intendedVolume == null) wk.intendedVolume = wk.volume;
+          wk.deliberateReduction = round1((wk.deliberateReduction || 0) + tHeld);
+          wk.reductionCause = wk.reductionCause || 'wind_down_from_delivered_peak';
+          wk.windDownBoundedKm = tHeld;
+          wk.volume = tAfter;
+          if (tLongest > 0) wk.longTarget = round1(tLongest);
+          if (wk.dist){ wk.dist.undistributedKm = 0; wk.dist.floorExcessKm = 0; wk.dist.floorCauses = []; }
+          wk.qualityDayFloorKm = 0;
+          wk.capRecoveredKm = 0;
+        }
+      }
+      return;
+    }
+    var km = totalOf(list);
+    if (!dev.length){                                  // week one establishes
+      dev.push({ week: wk.week, km: km });
+      var firstLong = 0, firstEasy = 0;
+      list.forEach(function(dd){
+        if (!(dd.km > 0)) return;
+        if (dd.type === 'long' && dd.km > firstLong) firstLong = dd.km;
+        if (dd.type === 'easy' && dd.km > firstEasy) firstEasy = dd.km; });
+      if (firstLong > 0) devLong = firstLong;
+      lastLongKm = firstLong > 0 ? firstLong : lastLongKm;
+      lastEasyMax = firstEasy > 0 ? firstEasy : lastEasyMax;
+      gateHeldLastDev = false;
+      return;
+    }
+    /* ---- THE ALLOWANCE SCALES WITH THE CALENDAR GAP, NOT WITH ADJACENCY IN
+       THIS LIST -- CORRECTED AFTER MEASUREMENT ----
+       The first version of this took one step's allowance between consecutive
+       entries HERE, which are developing weeks only. That starved the week of
+       the steps the calendar actually contains: a 15-week block holds three
+       cutbacks, a taper and race week, so the week total was allowed nine
+       steps while the long run legitimately takes eleven -- it develops
+       THROUGH an absorption week by deliberate design (Higdon: resume at 9
+       miles after a step-back from 7). A week may then be forbidden from
+       carrying the long run it is required to contain, and it showed on the
+       canonical entrant rather than on an edge case: New Marathon established
+       54km/week against its locked requirement of 60, Build exited at 15km
+       against a Peak long run of 24, and the suppression of the weeks before
+       the taper left a 6km easy run inside the taper window against 4km
+       before it.
+       Nielsen's evidence is a TWO-WEEK CALENDAR WINDOW -- distance increased
+       by more than about 30% across two weeks -- so the allowance is the
+       per-step rate compounded over the calendar weeks since the last week
+       that was not a reduction. stepCap is sqrt(SESSION_TWO_WEEK_GROWTH_CAP)
+       precisely so that compounding is consistent: at a gap of one this is
+       14.02%, and at a gap of two it is exactly the 30% the two-week rule
+       states. C5 is untouched -- the BASELINE is still never a suppressed
+       week -- but the SPACING is now the calendar's. */
+    var last = dev[dev.length - 1];
+    var gap = Math.max(1, (wk.week || 0) - (last.week || 0));
+    /* ---- A CUTBACK IS DELIBERATE RECOVERY AND IS NOT THE NEW BASELINE ----
+       HQ RULING: a legitimate post-cutback rebound may use the existing
+       Nielsen ceiling across the span it covers. The absorption week is
+       designed recovery, and treating it as the trend the athlete must climb
+       back from at the ordinary rate makes the recovery itself cost
+       preparation -- measured, it left the canonical New Marathon at 59km/week
+       against its locked 60 while the long run reached 28 exactly.
+       NIELSEN REMAINS A CEILING AND NEVER A TARGET, which is a property of
+       WHERE this sits rather than of the arithmetic: this is a BOUND applied
+       to a week the solve has already composed. It can only ever lower a
+       week, so no rebound is pushed up to 1.30 to reach anything -- the week
+       delivers whatever the solved progression required, and the ceiling is
+       simply the point past which it may not go.
+       stepCap is sqrt(SESSION_TWO_WEEK_GROWTH_CAP), so compounding is
+       consistent at every gap: 14.02% across one week and exactly the stated
+       30% across two. */
+    var lim = round1(last.km * Math.pow(stepCap, gap));
+    var cause = (gap >= 2) ? 'progression_rebound' : 'progression_step';
+    if (km <= lim + 1e-9){
+      dev.push({ week: wk.week, km: km });
+      var ungatedLong = 0, ungatedEasy = 0;
+      list.forEach(function(dd){
+        if (!(dd.km > 0)) return;
+        if (dd.type === 'long' && dd.km > ungatedLong) ungatedLong = dd.km;
+        if (dd.type === 'easy' && dd.km > ungatedEasy) ungatedEasy = dd.km; });
+      if (ungatedLong > 0) devLong = ungatedLong;
+      lastLongKm = ungatedLong > 0 ? ungatedLong : lastLongKm;
+      lastEasyMax = ungatedEasy > 0 ? ungatedEasy : lastEasyMax;
+      gateHeldLastDev = false;
+      return;
+    }
+    /* ---- THE EASY DAYS GIVE WAY FIRST ---- */
+    var guard = 0;
+    while (totalOf(list) > lim + 1e-9 && guard < 500){
+      guard++;
+      var pick = null;
+      list.forEach(function(dd){
+        if (!(dd.km > 0) || dd.type !== 'easy') return;
+        if (dd.km - EASY_QUANTUM_KM < minKm - 1e-9) return;
+        if (!pick || dd.km > pick.km) pick = dd;
+      });
+      if (!pick) break;
+      pick.km = roundWorkoutKm('easy', round1(pick.km - EASY_QUANTUM_KM));
+    }
+    /* ---- AND THE LONG RUN LAST, NEVER BELOW THE WEEK'S LARGEST OTHER RUN ---- */
+    var longDay = null;
+    list.forEach(function(dd){
+      if (!(dd.km > 0) || dd.type === 'race') return;
+      if (dd.type === 'long' && (!longDay || dd.km > longDay.km)) longDay = dd;
+    });
+    if (longDay){
+      var biggestOther = 0;
+      list.forEach(function(dd){
+        if (!(dd.km > 0) || dd === longDay || dd.type === 'race') return;
+        if (dd.km > biggestOther) biggestOther = dd.km;
+      });
+      /* ---- AND IT IS NOT CUT BELOW THE LONG RUN THE ATHLETE ALREADY HAD ----
+         The long run's own curve is Nielsen-bounded already, and stepping
+         through an absorption week is deliberate (Higdon: resume at 9 miles
+         after a step-back from 7). Cutting it below the last DEVELOPING week's
+         delivered long run made the session non-monotonic -- measured
+         11.0 -> 9.0 -> 14.0 -- which is a worse defect than the one being
+         corrected. Where that bound stops the gate short of its ceiling the
+         week is held as far as it can honestly be held and says so, rather
+         than buying the total with the session the block is protecting. */
+      var longFloor = Math.max(biggestOther, minKm);
+      if (devLong != null && devLong > longFloor) longFloor = devLong;
+      guard = 0;
+      while (totalOf(list) > lim + 1e-9 &&
+             longDay.km - 1 >= longFloor && guard < 300){
+        guard++;
+        longDay.km = roundWorkoutKm('long', round1(longDay.km - 1));
+      }
+    }
+    /* ---- DECLARED ---- */
+    var delivered = totalOf(list), longest = 0;
+    list.forEach(function(dd){
+      if (dd.km > 0 && dd.type === 'long' && dd.km > longest) longest = dd.km; });
+    if (wk.intendedVolume == null) wk.intendedVolume = wk.volume;
+    var held = round1(Math.max(0, wk.volume - delivered));
+    if (held > 0){
+      wk.deliberateReduction = round1((wk.deliberateReduction || 0) + held);
+      wk.reductionCause = wk.reductionCause || cause;
+      wk.progressionGateHeldKm = held;
+      wk.progressionGateCause = cause;
+      wk.progressionGateCeilingKm = lim;
+    }
+    wk.volume = delivered;
+    if (longest > 0) wk.longTarget = round1(longest);
+    if (wk.dist){ wk.dist.undistributedKm = 0; wk.dist.floorExcessKm = 0; wk.dist.floorCauses = []; }
+    wk.qualityDayFloorKm = 0;
+    wk.capRecoveredKm = 0;
+    /* WHETHER THE GATE ACTUALLY REACHED ITS CEILING, recorded rather than
+       implied. Quality is deliberately not scaled and the long run is bounded
+       above, so a week can be held as far as it is allowed to be held and
+       still sit above the bound. That is a visible, attributable shortfall of
+       the gate, not a silent pass. */
+    if (delivered > lim + 1e-9) wk.progressionGateUnreached = round1(delivered - lim);
+    dev.push({ week: wk.week, km: delivered });
+    if (longest > 0) devLong = longest;
+    var heldEasy = 0;
+    list.forEach(function(dd){
+      if (dd.km > 0 && dd.type === 'easy' && dd.km > heldEasy) heldEasy = dd.km; });
+    lastLongKm = longest > 0 ? longest : lastLongKm;
+    lastEasyMax = heldEasy > 0 ? heldEasy : lastEasyMax;
+    gateHeldLastDev = (held > 0);
+  });
+}
 function applyEventTaper(days, weeks, raceDateStr, easyFloorKm, anchorDays, finalFraction){
   if (!raceDateStr || !days || !days.length) return;
   var AD = (anchorDays > 0) ? anchorDays : HALF_TAPER_ANCHOR_DAYS;
@@ -17331,6 +17593,13 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
     ? raceGoalTaperAnchorDaysFor(blockResult.distKey) : null;
   if (eventTaperAnchor != null)
     applyEventTaper(days, weeks, raceDateStr, easyFloorKm, eventTaperAnchor, HALF_TAPER_FINAL_FRACTION);
+  /* C1 + C5 -- MARATHON ONLY, and in the same place and for the same reason the
+     event taper sits here: after the weekly cap has had its say on the loading
+     distribution, and before the accounting, because a held week is deliberate
+     coaching and has to be declared. Half/10K/5K are out of scope by HQ's
+     ruling and are not passed through it. */
+  if (usesMarathonArc(blockResult.purpose, blockResult.distKey))
+    applyWeekProgressionGate(days, weeks, EASY_MIN_KM);
   recordVolumeAccounting(days, weeks);
   var weekIndex2 = {};
   weeks.forEach(function(wk){ weekIndex2[wk.week] = wk; });

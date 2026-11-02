@@ -319,9 +319,25 @@ function classify(t){
      reported as though it had overshot. This is the span the change covers,
      not a threshold chosen to make anything pass; a rebound that genuinely
      outruns two weeks of trend still fires. */
+  /* ---- AT THE CEILING THE REBOUND IS ACTUALLY ALLOWED -- HQ RULING ----
+     This measured the rebound against the ORDINARY step compounded over the
+     span. HQ has since ruled on the methodology directly: a cutback is
+     deliberate recovery and must not become the new progression baseline, so a
+     legitimate rebound may use the Nielsen ceiling across the span it covers.
+     Measured against the ordinary rate instead, the canonical New Marathon was
+     left at 59km/week against its locked 60 -- the recovery week costing
+     preparation, which is the opposite of its purpose.
+     So the rate here is the Nielsen per-step rate, sqrt(TWO_WEEK_CAP), which
+     is the same authority the engine's own gate applies and is still read from
+     the runtime rather than restated. Where the runtime states no two-week cap
+     (comparing against a main that predates this work) the ordinary step
+     stands, exactly as before. A rebound that genuinely outruns the ceiling
+     still fires. */
+  const REBOUND_RATE = (TWO_WEEK_CAP != null)
+    ? Math.sqrt(TWO_WEEK_CAP) : ORDINARY_STEP;
   if (t.afterCutback && t.preCutbackKm > 0 &&
       t.toKm / t.preCutbackKm >
-        Math.pow(ORDINARY_STEP, Math.max(1, t.preCutbackSpan || 1)) + 1e-9 &&
+        Math.pow(REBOUND_RATE, Math.max(1, t.preCutbackSpan || 1)) + 1e-9 &&
       weekMoved(t.toKm - t.preCutbackKm))
     R.push('REBOUND_EXCEEDS_TREND');
 
