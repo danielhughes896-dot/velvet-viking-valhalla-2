@@ -220,3 +220,46 @@ test('no insight invents a training claim or an absolute', () => {
    /scientifically/i, /proven to/i].forEach(re =>
     assert.doesNotMatch(text, re, 'an exaggerated coaching claim got in'));
 });
+
+test('no insight is ever offered with nothing in it', () => {
+  /* Swept across the whole block rather than sampled, because the hole this
+     catches was at the very end of one: Taper -> Race Week has no phase copy
+     written for it, insightPhaseParas returned null, and null.length threw
+     inside insightCopy. renderApp's try/catch swallowed that, so the symptom
+     was not a blank card but SILENCE -- no insight of any kind for the rest of
+     the block, with nothing in the log to say so. */
+  const phasesSeen = {};
+  for (let off = -7; off >= -104; off -= 7){
+    const c = app(off);
+    const wk = c.currentWeekNum();
+    if (wk) phasesSeen[c.trainingPhase(wk)] = true;
+    c.insightCandidates().forEach(cand => {
+      const copy = c.insightCopy(cand);
+      assert.ok(copy && copy.paras.length,
+        'a ' + cand.kind + ' insight would open an empty card in week ' + wk);
+      copy.paras.forEach(t => assert.ok(t && t.trim(),
+        'a blank paragraph reached the ' + cand.kind + ' card in week ' + wk));
+    });
+  }
+  assert.ok(phasesSeen['Race Week'] || phasesSeen['Final Week'],
+    'the sweep never reached the end of the block, so it proves nothing about it');
+});
+
+test('the week an athlete races is not interrupted by a phase insight', () => {
+  /* Either label: the plan calls the last week Race Week when it has a real
+     event on it and Final Week when the goal is a date rather than a start
+     line. Neither has phase copy, so neither may be offered one. */
+  const last = p => p === 'Race Week' || p === 'Final Week';
+  let raceWeek = null;
+  for (let off = -70; off >= -119 && !raceWeek; off--){
+    const c = app(off);
+    const wk = c.currentWeekNum();
+    if (wk && wk > 1 && last(c.trainingPhase(wk)) && !last(c.trainingPhase(wk - 1)))
+      raceWeek = c;
+  }
+  assert.ok(raceWeek, 'the fixture never put today in the week it races');
+  assert.equal(raceWeek.insightCandidates().filter(c => c.kind === 'phase').length, 0,
+    'race week was offered a phase insight. If copy has since been written for it, ' +
+    'that is a new athlete-facing screen in the worst week to get one wrong — it ' +
+    'needs a frame and a decision, not a passing test.');
+});

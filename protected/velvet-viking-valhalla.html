@@ -35978,7 +35978,12 @@ function insightCandidates(){
   if (wk){
     var phase = trainingPhase(wk);
     var prevPhase = wk > 1 ? trainingPhase(wk - 1) : null;
-    if (phase && prevPhase && phase !== prevPhase)
+    /* Only when there is something written for that transition. Race Week and
+       Final Week have no phase copy and should not get any: race week already
+       has its own treatment, and an insight with nothing in it is worse than
+       no insight -- particularly in the one week an athlete can least afford
+       a confusing screen. */
+    if (phase && prevPhase && phase !== prevPhase && insightPhaseParas(prevPhase, phase))
       out.push({ kind:'phase', key:'phase:'+blockId+':'+phase, phase:phase, from:prevPhase });
   }
 
@@ -36046,7 +36051,15 @@ function contextInsightDue(){
   if (insightSuppressed()) return null;
   var cands = insightCandidates();
   for (var i = 0; i < cands.length; i++){
-    if (!insightSeen(cands[i].key)) return insightCopy(cands[i]);
+    if (insightSeen(cands[i].key)) continue;
+    var copy = insightCopy(cands[i]);
+    /* A candidate that produces no copy is not an insight. Dropping it here
+       rather than rendering an empty card means a future kind that forgets its
+       copy fails silently and harmlessly instead of putting a blank modal in
+       front of the athlete. It stays unseen, so it can still fire later if the
+       copy appears. */
+    if (!copy || !copy.paras || !copy.paras.length) continue;
+    return copy;
   }
   return null;
 }
@@ -36112,6 +36125,13 @@ function insightCopy(c){
         'If you are not ready, say so rather than resuming.'
     ];
   }
+  /* Guard the null as well as the empty: a phase with no copy written for it
+     returns null rather than [], and out.paras.length on it THROWS -- which
+     renderApp's try/catch swallows, so every later insight in the block dies
+     with it and nothing says why. Blank paragraphs go here too: a kind whose
+     library entry is missing a line should lose the line, not render an empty
+     <p> into the card. */
+  out.paras = (out.paras || []).filter(function(t){ return t && String(t).trim(); });
   return out.paras.length ? out : null;
 }
 /* The phase conversation, which is the one that matters most: the plan
