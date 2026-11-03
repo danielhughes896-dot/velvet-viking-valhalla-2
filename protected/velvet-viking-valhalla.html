@@ -2431,6 +2431,62 @@
   .modal-head h2{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1px; font-size:16px; margin:0; color:var(--modal-text);}
   .modal-body{padding:16px 18px 22px; color:var(--modal-text);}
   .field{margin-bottom:14px;}
+  /* ---- SHARING ----
+     The launch strip sits at the foot of the Execution Review, so the verdict
+     is read in the same breath as the score that earned it. */
+  .share-launch{margin-top:14px; padding-top:14px; border-top:1px solid var(--line);
+    display:flex; flex-direction:column; gap:10px;}
+  .share-verdict{display:flex; align-items:baseline; gap:10px;}
+  .share-verdict-k{font-size:10px; letter-spacing:1.6px; text-transform:uppercase; opacity:.6;}
+  /* --gold-text, not --gold-bright: the bright gold is the colour of the
+     EXPORT, which is always on near-black. Here the verdict sits on the day
+     card, which is cream in light mode, and #F5D061 on cream is barely
+     legible. --gold-text is the theme-aware pair the Execution Review heading
+     beside it already uses. */
+  .share-verdict-v{font-family:'Oswald',sans-serif; text-transform:uppercase;
+    letter-spacing:2.5px; font-size:17px; color:var(--gold-text); font-weight:700;}
+  .btn-share{display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    background:linear-gradient(135deg, var(--gold-deep), var(--gold)); color:#120f0b;
+    border:1px solid var(--gold-bright); font-family:'Oswald',sans-serif;
+    text-transform:uppercase; letter-spacing:1.4px;}
+  .btn-share svg{width:16px; height:16px;}
+  /* The preview canvas is the export itself, drawn at 1080px wide and scaled
+     down by CSS -- so the athlete approves the actual file, not a lookalike. */
+  .share-body{display:flex; flex-direction:column; gap:16px;}
+  /* THE PREVIEW STAGE IS DARK IN BOTH THEMES ON PURPOSE -- the card being
+     composed is gold on near-black, and framing it in cream would show the
+     athlete a contrast that the exported PNG does not have. Everything AROUND
+     the stage follows the theme like any other work surface.
+     The tokens here are --ink/--line, not --modal-*: .modal-themed un-pins the
+     first family back to the document and leaves the second on the fixed dark
+     ramp, so --modal-text on this surface is near-black ink on cream. */
+  .share-stage{position:relative; display:flex; justify-content:center;
+    background:#0b0907; border:1px solid var(--line); border-radius:14px; padding:10px;}
+  .share-canvas{width:auto; height:min(52vh,420px); max-width:100%; border-radius:8px;
+    touch-action:none; cursor:grab; display:block;}
+  .share-canvas:active{cursor:grabbing;}
+  .share-empty{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    pointer-events:none; font-size:12px; letter-spacing:1px; text-transform:uppercase;
+    color:#9a9188; text-shadow:0 1px 6px rgba(0,0,0,.8);}
+  .share-controls{display:flex; flex-direction:column; gap:12px;}
+  .share-pick{display:inline-flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;}
+  .share-pick svg{width:15px; height:15px;}
+  .share-hint{font-size:11px; opacity:.6; text-align:center;}
+  .share-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+  .share-row > span{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase; opacity:.65;}
+  .share-seg{display:inline-flex; border:1px solid var(--line); border-radius:999px; overflow:hidden;}
+  .share-seg button{background:transparent; border:0; color:var(--ink); padding:7px 13px;
+    font-size:11px; letter-spacing:.8px; text-transform:uppercase; cursor:pointer;}
+  .share-seg button + button{border-left:1px solid var(--line);}
+  .share-seg button.active{background:var(--gold); color:#120f0b;}
+  /* Withholding an imported measurement is a decision the athlete is told
+     about in words. It is never a silent omission. */
+  .share-note{display:flex; gap:10px; font-size:12px; line-height:1.5;
+    background:rgba(227,177,90,.08); border:1px solid rgba(227,177,90,.28);
+    border-radius:12px; padding:11px 12px;}
+  .share-note svg{width:16px; height:16px; flex:0 0 auto; margin-top:2px; color:var(--gold-bright);}
+  .share-actions{display:flex; flex-direction:column; gap:8px;}
+  @media (min-width:560px){ .share-actions{flex-direction:row;} .share-actions .btn{flex:1;} }
   .field label{display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--ctl-text); opacity:.65; margin-bottom:5px;}
   /* .goal-input-row is listed alongside .field because a goal time entry is a
      field like any other, and it is not always inside one -- the builder wraps
@@ -19807,6 +19863,59 @@ function saveTextFile(o){
   }catch(err){ showToast('Could not save the file — try again'); }
   return Promise.resolve();
 }
+/* ---- THE SAME JOURNEY FOR AN IMAGE ---- the text sibling above explains
+   why native cannot use a blob: download. Two differences and both matter:
+   Filesystem takes BASE64 when `encoding` is omitted (passing utf8 would
+   corrupt a PNG), and the browser tier tries navigator.share({files}) first so
+   a phone browser gets the real share sheet rather than a download. */
+function saveBinaryFile(o){
+  if (canNativeShareFiles()) return nativeSaveBinaryFile(o);
+  var file = null;
+  try { file = new File([o.blob], o.filename, { type:o.mime }); } catch(e){ file = null; }
+  if (file && navigator.canShare && navigator.canShare({ files:[file] }) && navigator.share){
+    return navigator.share({ files:[file], title:o.title || o.filename })
+      .then(function(){ showToast(o.done); })
+      .catch(function(err){
+        var m = (err && err.name) || '';
+        if (/Abort/i.test(m)) return;                 // backing out is not a fault
+        showToast('Could not share the image \u2014 try saving it instead');
+      });
+  }
+  try {
+    var url = URL.createObjectURL(o.blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = o.filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(o.done);
+  } catch(err){ showToast('Could not save the image \u2014 try again'); }
+  return Promise.resolve();
+}
+function nativeSaveBinaryFile(o){
+  var FS = nativePlugin('Filesystem'), Share = nativePlugin('Share');
+  return shareBlobToBase64(o.blob).then(function(b64){
+    // No `encoding` -- that is how the bridge is told the payload is base64.
+    return FS.writeFile({ path:o.filename, data:b64, directory:'CACHE' });
+  }).then(function(res){
+    // url + title only; adding `text` makes Android share plain text and drop
+    // the image -- the same lesson nativeSaveTextFile() records.
+    return Share.share({ title:o.title || o.filename, url:res.uri,
+                         dialogTitle:o.dialog || 'Share workout' });
+  }).then(function(){ showToast(o.done); })
+    .catch(function(err){
+      var msg = (err && (err.message || err.errorMessage)) || '';
+      if (/cancel/i.test(msg)) return;
+      showToast('Could not share the image \u2014 try again');
+    });
+}
+function shareBlobToBase64(blob){
+  return new Promise(function(res, rej){
+    var fr = new FileReader();
+    fr.onload = function(){ res(String(fr.result).split(',')[1] || ''); };
+    fr.onerror = rej;
+    fr.readAsDataURL(blob);
+  });
+}
 function nativeSaveTextFile(o){
   var FS = nativePlugin('Filesystem'), Share = nativePlugin('Share');
   // Directory.Cache / Encoding.UTF8 -- the string values the bridge expects,
@@ -21722,6 +21831,7 @@ var ICONS = {
   chevronRight: svgWrap('<polyline points="9,6 15,12 9,18"/>'),
   settings: svgWrap('<line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2.1"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2.1"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="10" cy="17" r="2.1"/>'),
   upload: svgWrap('<path d="M12 16V4"/><polyline points="7,9 12,4 17,9"/><path d="M5 20h14"/>'),
+  share: svgWrap('<path d="M12 16V4"/><polyline points="7,9 12,4 17,9"/><path d="M5 14v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/>'),
   download: svgWrap('<path d="M12 4v12"/><polyline points="7,11 12,16 17,11"/><path d="M5 20h14"/>'),
   pencil: svgWrap('<path d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20z"/><line x1="13.3" y1="6.7" x2="17.3" y2="10.7"/>'),
   // Execution editing once the prescription itself is locked -- deliberately
@@ -23707,7 +23817,7 @@ function renderDayCard(dd){
          visible than it was. */
       '<div class="actual-field full">'+
         '<button type="button" class="splits-toggle" data-action="toggle-detail" data-day="'+dd.id+'" aria-expanded="'+(detailOpen?'true':'false')+'">'+
-          (detailOpen ? 'Hide detail' : '+ Add detail \u2014 heart rate, effort, feel, notes')+
+          (detailOpen ? 'Hide detail' : '+ Add detail \u2014 heart rate, effort, elevation, feel, notes')+
         '</button>'+
       '</div>'+
       (detailOpen ? (
@@ -23722,6 +23832,12 @@ function renderDayCard(dd){
         ? '<div class="actual-field"><label>Avg HR</label><input type="number" min="0" inputmode="numeric" value="'+(a.hr!=null?a.hr:'')+'" data-action="actual-field" data-field="hr" data-day="'+dd.id+'"></div>'
         : '')+
       '<div class="actual-field"><label>RPE (1\u201310)</label><input type="number" min="1" max="10" inputmode="numeric" value="'+(a.rpe!=null?a.rpe:'')+'" data-action="actual-field" data-field="rpe" data-day="'+dd.id+'"></div>'+
+      /* ELEVATION IS OPTIONAL AND BLANK MEANS UNKNOWN. A flat run and an
+         unmeasured one are different facts, so an empty box stays null and
+         never becomes 0 -- and a genuine 0 the athlete types is kept. This is
+         ordinary training data, not health information, so it sits with RPE
+         rather than behind the consent gate. */
+      '<div class="actual-field"><label>Elevation gain (m) \u2014 optional</label><input type="number" min="0" step="1" inputmode="numeric" placeholder="unknown" value="'+(a.elevationGainM!=null?a.elevationGainM:'')+'" data-action="actual-field" data-field="elevationGainM" data-day="'+dd.id+'"></div>'+
       (healthConsentGranted()
         ? '<div class="actual-field full feel-field"><label>Feel</label>'+
             '<div class="feel-row" role="group" aria-label="How the body felt">'+
@@ -25354,7 +25470,7 @@ var ACTUAL_IMPORTED_FIELDS = ['maxHR','cadence','movingTimeSec','elapsedTimeSec'
                                  athlete's own hand-entered ones. */
                               'deviceLaps','deviceLapSource'];
 var ACTUAL_SYNCED_FIELDS   = ACTUAL_MANUAL_FIELDS.concat(ACTUAL_IMPORTED_FIELDS);
-function emptyActual(){ return { km:null, pace:null, hr:null, rpe:null, feel:null, notes:'' }; }
+function emptyActual(){ return { km:null, pace:null, hr:null, rpe:null, feel:null, notes:'', elevationGainM:null }; }
 
 /* =========================================================
    MANUAL LAPS / SPLITS
@@ -25877,6 +25993,608 @@ function listPhrase(items){
 // the pill and banner, plus the notes and a component breakdown showing
 // how it was reached. No button and no loading state -- it recomputes
 // automatically whenever a logged field changes (see patchExecutionUI).
+/* =========================================================
+   SOCIAL SHARING -- THE WORKOUT, AND WHAT IT MEANT
+   ---------------------------------------------------------
+   Strava shows the activity. Runna shows the workout. Valhalla shows what the
+   workout meant. This module turns a completed session into a branded image
+   the athlete can post, and it is PRESENTATION ONLY: it reads coachReview and
+   dd.actual and computes no coaching conclusion of its own.
+
+   THREE PURE FUNCTIONS AND A PAINTER, deliberately split. shareVerdictLabel(),
+   shareCardData() and shareCardLayout() touch no canvas and no DOM, so the
+   whole of what the graphic SAYS is testable in the ordinary suite; only the
+   painting needs a browser.
+   ========================================================= */
+
+/* The five owner-locked presentation verdicts. Each is an existing coaching
+   conclusion given a word -- there is no sixth state hiding here, and nothing
+   in this file decides whether one is true. */
+var SHARE_VERDICTS = ['BREAKTHROUGH', 'CALIBRATED', 'ABSORBED', 'DIALED', 'CONTROLLED'];
+
+/* ---- WHAT THE COACH ALREADY CONCLUDED, IN ONE WORD ----
+   Precedence, and every rung is an existing field:
+
+     CALIBRATED   a calibration session that produced a usable threshold
+                  (dd.calibration.outcome === 'applied'). The session's own
+                  purpose, so it is asked first and only of that type.
+     BREAKTHROUGH review.breakthrough -- the strongest claim the engine makes,
+                  and already its own definition of a noteworthy session.
+     ABSORBED     trainingSignal 'positive_adaptation'.
+     DIALED       the existing >=99 exactness band, whose own copy reads
+                  "Everything landed on the numbers it was set to hit".
+     CONTROLLED   review.paceEased -- inside the window, deliberately off its
+                  quickest quarter.
+
+   AND THE RULE THAT MATTERS MOST: a session the coach flagged never gets a
+   cheerful word. monitor_fatigue and recovery_priority return NOTHING and
+   stop, before any rung is tried -- an athlete who reported pain, illness or
+   heavy legs can still share the run, with no verdict on it. Silence is a
+   legitimate answer here and is the default whenever nothing is true.
+
+   RESTORED WAS CONSIDERED AND DROPPED. The evidence supported "the easy run
+   was run easily"; the word claims the athlete IS restored, which nothing in
+   coachRecovery() concludes from a single session. It was not replaced. */
+function shareVerdictLabel(dd){
+  if (!dd || !dd.completed) return null;
+  var r = dd.coachReview;
+  if (!r) return null;                                  // no review, no verdict
+  if (r.trainingSignal === 'monitor_fatigue' ||
+      r.trainingSignal === 'recovery_priority') return null;
+  if (dd.type === 'calibration')
+    return (dd.calibration && dd.calibration.outcome === 'applied') ? 'CALIBRATED' : null;
+  if (r.breakthrough) return 'BREAKTHROUGH';
+  if (r.trainingSignal === 'positive_adaptation') return 'ABSORBED';
+  var b = null;
+  try { b = computeExecutionBreakdown(dd); } catch(e){ b = null; }
+  if (b && b.score != null && b.score >= 99 && !isRecoveryLikeDay(dd)) return 'DIALED';
+  if (r.paceEased) return 'CONTROLLED';
+  return null;
+}
+
+/* ---- THE STRAVA EXPORT BOUNDARY ---- OWNER RULING.
+   Strava's API Policy section 5.4 reaches "data derived from Strava Data and
+   output that incorporates or was generated using Strava Data", and a
+   distributable image is output. Until that use is explicitly cleared, no
+   Strava-derived measurement leaves on a shareable graphic.
+
+   IT REFUSES RATHER THAN REDACTS, PER FIELD, which is the same stance
+   aiEligibleDays() already takes for the same clause. stravaDerivedFields()
+   already answers "which of this day's numbers came from Strava", so the
+   renderer asks it rather than guessing from the presence of an activity id.
+
+   THE VERDICT GOES TOO, on a Strava-derived day. It is computed from the
+   execution score, which is computed from the imported distance and pace --
+   "generated using Strava Data" in the plain sense. Keeping the word while
+   dropping the numbers would be exactly the silent relabelling the ruling
+   forbids.
+
+   WHAT SURVIVES IS GENUINELY VALHALLA'S: the session type it prescribed, and
+   the programme, phase and week it placed the session in. An imported run can
+   still be shared -- with the athlete's photo, the mark, and Valhalla's own
+   plan context -- and the UI says plainly why the numbers are absent rather
+   than quietly omitting them.
+
+   WHEN THE POLICY CHANGES, only `blocked` below changes. The layout and the
+   painter never learn what Strava is. */
+function shareBlockedFields(dd){
+  var out = {};
+  var derived = [];
+  try { derived = stravaDerivedFields(dd) || []; } catch(e){ derived = []; }
+  if (!derived.length) return out;
+  var has = function(k){ return derived.indexOf(k) !== -1; };
+  if (has('km'))                               out.distance = true;
+  if (has('pace'))                             out.pace = true;
+  if (has('movingTimeSec') || has('elapsedTimeSec')) out.duration = true;
+  if (has('elevationGainM'))                   out.elevation = true;
+  /* Derived from the measurements above, so it cannot outlive them. */
+  if (out.distance || out.pace)                out.verdict = true;
+  return out;
+}
+
+/* ---- WHAT THE GRAPHIC MAY SAY ABOUT THIS SESSION ----
+   Pure. Every metric is independently present-or-absent: a field the athlete
+   never recorded and a field the boundary withholds both come out null, and
+   the layout simply does not draw them. Nothing is estimated and nothing is
+   defaulted to zero -- 0m of elevation is a real answer from a track session
+   and must stay distinguishable from "not recorded".
+
+   NO HEALTH DATA REACHES THIS OBJECT AT ALL. Heart rate, RPE and feel are not
+   read, not filtered and not optional -- they are simply not here, so no
+   future layout can surface one by accident. */
+function shareCardData(dd){
+  if (!dd) return null;
+  var a = dd.actual || {};
+  var blocked = shareBlockedFields(dd);
+  var num = function(v){ return (typeof v === 'number' && isFinite(v)) ? v : null; };
+
+  var distanceKm = blocked.distance ? null : num(a.km);
+  var durationSec = blocked.duration ? null
+    : (num(a.movingTimeSec) != null ? num(a.movingTimeSec) : num(a.elapsedTimeSec));
+  var elevationM = blocked.elevation ? null : num(a.elevationGainM);
+  var paceStr = blocked.pace ? null : (a.pace || null);
+  var verdict = blocked.verdict ? null : shareVerdictLabel(dd);
+
+  var tm = TYPE_META[dd.type] || {};
+  var su = state.setup || {};
+  var prof = DISTANCE_PROFILES[su.distanceKey] || null;
+  var wk = dd.week || null;
+  var phase = null;
+  try { phase = wk ? trainingPhase(wk) : null; } catch(e){ phase = null; }
+
+  return {
+    verdict: verdict,
+    sessionLabel: (tm.label || 'RUN').toUpperCase(),
+    distanceKm: distanceKm,
+    durationSec: durationSec,
+    paceStr: paceStr,
+    elevationM: elevationM,
+    programme: prof ? prof.label : null,
+    phase: phase || null,
+    week: wk,
+    /* Reported so the UI can tell the athlete WHY a number is missing. The
+       layout never reads it. */
+    withheld: Object.keys(blocked)
+  };
+}
+
+/* ---- THE THREE LAYOUTS, AS DRAW INSTRUCTIONS ----
+   Pure: data in, an ordered list of {kind,...} out. No canvas, no DOM, no
+   measurement of real glyphs -- so the suite can assert what a card SAYS, in
+   what order, at what size, and that an absent metric leaves no gap behind.
+
+   FULL      verdict, distance, the metric row, the programme line
+   COMPACT   verdict, distance, pace only, the programme line
+   MINIMAL   verdict and distance, nothing else
+
+   A metric row collapses to whatever it actually has; where it has nothing,
+   the row is not emitted at all rather than drawn empty. */
+function shareCardLayout(data, layout, size){
+  if (!data) return [];
+  var W = size.w, H = size.h;
+  var pad = Math.round(W * 0.075);
+  var ops = [];
+  var y = Math.round(H * (size.square ? 0.10 : 0.085));
+
+  ops.push({ kind:'panel', x:pad, y:y, w:W - pad*2, h:0 });      // h filled below
+  var panelTop = y;
+  y += Math.round(H * (size.square ? 0.035 : 0.028));
+
+  var markH = Math.round(W * 0.105);
+  ops.push({ kind:'mark', cx:W/2, y:y, h:markH });
+  y += markH + Math.round(H * 0.014);
+  ops.push({ kind:'wordmark', cx:W/2, y:y, text:'VALHALLA', size:Math.round(W*0.052) });
+  y += Math.round(W * 0.052) + Math.round(H * 0.022);
+
+  /* EVERY TEXT OP CARRIES THE WIDTH IT MUST LIVE INSIDE. Sizing by character
+     count was a guess, and it was wrong: "LONG RUN - CONTROLLED" is 21
+     characters and still overran the panel, because character count says
+     nothing about glyph width. The painter measures the real glyphs and
+     shrinks to this budget, which is the only place the true widths exist. */
+  var inner = W - pad*2 - Math.round(W * 0.115);   // the panel's own inner gutter
+  var head = data.verdict ? (data.sessionLabel + '  \u2014  ' + data.verdict)
+                          : data.sessionLabel;
+  ops.push({ kind:'headline', cx:W/2, y:y, text:head, maxW:inner,
+             size:Math.round(W * 0.060),
+             accentFrom: data.verdict ? (data.sessionLabel.length + 5) : -1 });
+  y += Math.round(W * 0.072);
+
+  if (data.distanceKm != null){
+    ops.push({ kind:'distance', cx:W/2, y:y, value:fmtShareDistance(data.distanceKm),
+               unit:displayUnit().toUpperCase(), size:Math.round(W * 0.145), maxW:inner });
+    y += Math.round(W * 0.155);
+  }
+
+  if (layout !== 'minimal'){
+    /* THE THREE TIERS ARE A LADDER, and compact has to be a real rung of it.
+       Dropping only elevation left full and compact all but identical, so
+       compact is the pace alone -- the one number that says how the run was
+       run -- and full is the whole row. */
+    var metrics = [];
+    if (layout === 'full' && data.durationSec != null)
+      metrics.push({ icon:'clock', text:fmtShareDuration(data.durationSec) });
+    if (data.paceStr)
+      metrics.push({ icon:'gauge', text:data.paceStr + ' /' + displayUnit() });
+    if (layout === 'full' && data.elevationM != null)
+      metrics.push({ icon:'elev', text:Math.round(data.elevationM) + ' m' });
+    if (metrics.length){
+      ops.push({ kind:'metrics', cx:W/2, y:y, items:metrics,
+                 size:Math.round(W*0.040), maxW:inner });
+      y += Math.round(W * 0.062);
+    }
+    var strap = [data.programme, data.phase, data.week ? ('Week ' + data.week) : null]
+      .filter(function(x){ return !!x; }).join('  \u00b7  ');
+    if (strap){
+      ops.push({ kind:'rule', cx:W/2, y:y, w:Math.round(W*0.62) });
+      y += Math.round(H * 0.016);
+      ops.push({ kind:'strap', cx:W/2, y:y, text:strap, size:Math.round(W*0.038), maxW:inner });
+      y += Math.round(W * 0.046);
+    }
+  }
+
+  y += Math.round(H * (size.square ? 0.020 : 0.016));
+  ops[0].h = y - panelTop;
+
+  /* SIT THE BLOCK IN THE FRAME RATHER THAN AT THE TOP OF IT. Laid out from a
+     fixed top margin, the panel left most of a 9:16 story empty below it and
+     the photograph -- the thing the athlete chose -- was mostly scrim. The
+     block is measured first and then placed, slightly above centre on a story
+     so the subject underneath still reads, dead centre on a square. */
+  var dy = Math.round(H * (size.square ? 0.50 : 0.46) - (panelTop + ops[0].h/2));
+  if (dy) ops.forEach(function(op){ if (op.y != null) op.y += dy; });
+  return ops;
+}
+function fmtShareDistance(km){
+  var v = (state && state.units === 'mi') ? km * 0.621371 : km;
+  return (Math.round(v * 10) / 10).toFixed(1);
+}
+function fmtShareDuration(sec){
+  sec = Math.round(sec);
+  var h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), ss = sec % 60;
+  var p2 = function(n){ return n < 10 ? '0' + n : String(n); };
+  return h > 0 ? (h + ':' + p2(m) + ':' + p2(ss)) : (m + ':' + p2(ss));
+}
+/* ---- THE PAINTER ----
+   The only part of this feature that needs a browser. It executes the draw
+   instructions above and knows nothing about sessions, Strava or coaching --
+   hand it ops and it paints them.
+
+   COLOURS ARE THE PRODUCT'S OWN TOKENS (--gold #E3B15A, --gold-bright,
+   --gold-deep), so a shared image and the app cannot drift apart. */
+var SHARE_THEME = {
+  gold:'#E3B15A', goldBright:'#F5D061', goldDeep:'#8A6D2B',
+  ink:'#FFFFFF', panel:'rgba(10,12,16,0.62)', panelEdge:'rgba(227,177,90,0.55)',
+  head:"'Cinzel',serif", body:"'Inter',sans-serif", numeral:"'Oswald',sans-serif"
+};
+var SHARE_SIZES = {
+  story:  { w:1080, h:1920, square:false, label:'Story  9:16' },
+  square: { w:1080, h:1080, square:true,  label:'Square  1:1' }
+};
+/* The webfonts must be decoded before anything is measured or drawn, or the
+   first export silently paints in a fallback face. */
+function shareFontsReady(){
+  if (!document.fonts || !document.fonts.load) return Promise.resolve();
+  return Promise.all([
+    document.fonts.load("700 120px 'Oswald'"), document.fonts.load("700 60px 'Inter'"),
+    document.fonts.load("500 40px 'Inter'"),  document.fonts.load("600 56px 'Cinzel'")
+  ]).catch(function(){ /* a fallback face is better than no card */ });
+}
+var shareMarkImg = null;
+function shareMarkReady(){
+  if (shareMarkImg) return Promise.resolve(shareMarkImg);
+  return new Promise(function(res){
+    var im = new Image();
+    im.onload = function(){ shareMarkImg = im; res(im); };
+    im.onerror = function(){ res(null); };
+    im.src = '/assets/velvet-viking-crest-540.png';
+  });
+}
+function shareDrawIcon(ctx, kind, x, y, r, col){
+  ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = Math.max(2, r*0.16);
+  ctx.lineCap='round'; ctx.lineJoin='round'; ctx.beginPath();
+  if (kind === 'clock'){
+    ctx.arc(x, y, r, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x,y-r*0.5); ctx.lineTo(x,y); ctx.lineTo(x+r*0.45,y+r*0.2); ctx.stroke();
+  } else if (kind === 'gauge'){
+    ctx.arc(x, y, r, Math.PI*0.85, Math.PI*2.15); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+r*0.6,y-r*0.5); ctx.stroke();
+  } else {
+    ctx.moveTo(x-r, y+r*0.7); ctx.lineTo(x-r*0.25, y-r*0.55); ctx.lineTo(x+r*0.2, y+r*0.1);
+    ctx.lineTo(x+r*0.5, y-r*0.3); ctx.lineTo(x+r, y+r*0.7); ctx.stroke();
+  }
+  ctx.restore();
+}
+function shareRoundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+}
+function shareTracked(ctx, text, cx, y, track){
+  var total = 0, i;
+  for (i=0;i<text.length;i++) total += ctx.measureText(text[i]).width + track;
+  total -= track;
+  var x = cx - total/2;
+  for (i=0;i<text.length;i++){
+    ctx.fillText(text[i], x, y);
+    x += ctx.measureText(text[i]).width + track;
+  }
+}
+/* Step a font down until the string fits the budget. One place, so the
+   headline, the strap and the distance figure cannot drift apart on it. */
+function shareFitSize(ctx, text, weight, family, size, maxW){
+  if (!maxW) return size;
+  while (size > 10){
+    ctx.font = weight + ' ' + size + 'px ' + family;
+    if (ctx.measureText(text).width <= maxW) break;
+    size -= 1;
+  }
+  return size;
+}
+function shareCardPaint(ctx, ops, W){
+  var T = SHARE_THEME;
+  ops.forEach(function(op){
+    ctx.save();
+    if (op.kind === 'panel'){
+      shareRoundRect(ctx, op.x, op.y, op.w, op.h, Math.round(W*0.030));
+      ctx.fillStyle = T.panel; ctx.fill();
+      ctx.strokeStyle = T.panelEdge; ctx.lineWidth = Math.max(1.5, W*0.0022); ctx.stroke();
+    } else if (op.kind === 'mark'){
+      if (shareMarkImg){
+        var h = op.h, w = h * (shareMarkImg.width / shareMarkImg.height);
+        ctx.drawImage(shareMarkImg, op.cx - w/2, op.y, w, h);
+      }
+    } else if (op.kind === 'wordmark'){
+      ctx.fillStyle = T.ink; ctx.textBaseline = 'top';
+      ctx.font = '600 ' + op.size + "px " + T.head;
+      shareTracked(ctx, op.text, op.cx, op.y, op.size * 0.30);
+    } else if (op.kind === 'headline'){
+      ctx.textBaseline = 'top';
+      op.size = shareFitSize(ctx, op.text, '700', T.body, op.size, op.maxW);
+      ctx.font = '700 ' + op.size + 'px ' + T.body;
+      if (op.accentFrom < 0){
+        ctx.fillStyle = T.ink; ctx.textAlign = 'center'; ctx.fillText(op.text, op.cx, op.y);
+      } else {
+        /* The session in white, the verdict in gold -- the concept's own
+           emphasis, and the reason the two are measured as one line. */
+        var pre = op.text.slice(0, op.accentFrom), acc = op.text.slice(op.accentFrom);
+        var wPre = ctx.measureText(pre).width, wAcc = ctx.measureText(acc).width;
+        var x = op.cx - (wPre + wAcc)/2;
+        ctx.textAlign = 'left';
+        ctx.fillStyle = T.ink;  ctx.fillText(pre, x, op.y);
+        ctx.fillStyle = T.gold; ctx.fillText(acc, x + wPre, op.y);
+      }
+    } else if (op.kind === 'distance'){
+      ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+      ctx.font = '700 ' + op.size + 'px ' + T.numeral;
+      var uSize = Math.round(op.size * 0.40);
+      var wVal = ctx.measureText(op.value).width;
+      ctx.font = '500 ' + uSize + 'px ' + T.body;
+      var wUnit = ctx.measureText(' ' + op.unit).width;
+      var x0 = op.cx - (wVal + wUnit)/2;
+      ctx.font = '700 ' + op.size + 'px ' + T.numeral;
+      ctx.fillStyle = T.ink; ctx.fillText(op.value, x0, op.y);
+      ctx.font = '500 ' + uSize + 'px ' + T.body;
+      ctx.fillText(' ' + op.unit, x0 + wVal, op.y + (op.size - uSize) * 0.62);
+    } else if (op.kind === 'metrics'){
+      /* The row has icons and gaps as well as glyphs, so it is measured whole
+         and stepped down until the whole row fits -- three metrics on a
+         narrow card shrink together rather than the last one falling off. */
+      var measureRow = function(sz){
+        ctx.font = '500 ' + sz + 'px ' + T.body;
+        var rr = sz*0.52, gi = sz*0.52, gt = sz*1.5, tt = 0;
+        op.items.forEach(function(it,i){
+          tt += rr*2 + gi + ctx.measureText(it.text).width + (i ? gt : 0);
+        });
+        return tt;
+      };
+      while (op.maxW && op.size > 10 && measureRow(op.size) > op.maxW) op.size -= 1;
+      ctx.font = '500 ' + op.size + 'px ' + T.body; ctx.textBaseline = 'middle';
+      var r = op.size * 0.52, gapIcon = op.size * 0.52, gapItem = op.size * 1.5;
+      var total = measureRow(op.size);
+      ctx.font = '500 ' + op.size + 'px ' + T.body;
+      var x = op.cx - total/2, mid = op.y + op.size*0.6;
+      ctx.textAlign = 'left';
+      op.items.forEach(function(it,i){
+        if (i) x += gapItem;
+        shareDrawIcon(ctx, it.icon, x + r, mid, r, T.ink);
+        x += r*2 + gapIcon;
+        ctx.fillStyle = T.ink; ctx.fillText(it.text, x, mid);
+        x += ctx.measureText(it.text).width;
+      });
+    } else if (op.kind === 'rule'){
+      var g = ctx.createLinearGradient(op.cx-op.w/2, 0, op.cx+op.w/2, 0);
+      g.addColorStop(0,'rgba(227,177,90,0)'); g.addColorStop(0.5,T.goldDeep);
+      g.addColorStop(1,'rgba(227,177,90,0)');
+      ctx.strokeStyle = g; ctx.lineWidth = Math.max(1, W*0.0014);
+      ctx.beginPath(); ctx.moveTo(op.cx-op.w/2, op.y); ctx.lineTo(op.cx+op.w/2, op.y); ctx.stroke();
+    } else if (op.kind === 'strap'){
+      ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      op.size = shareFitSize(ctx, op.text, '500', T.body, op.size, op.maxW);
+      ctx.font = '500 ' + op.size + 'px ' + T.body;
+      ctx.fillText(op.text, op.cx, op.y);
+    }
+    ctx.restore();
+  });
+}
+/* ---- THE PHOTO IS THE HERO, AND IT STAYS ON THE DEVICE ----
+   Composition is local: the chosen image is decoded into a canvas in this
+   page and never uploaded anywhere. Re-encoding also strips the photo's EXIF,
+   so the GPS coordinates a camera may have written into it do not travel with
+   a shared image -- a real privacy gain of compositing over overlaying. */
+function sharePaintPhoto(ctx, img, tf, W, H){
+  ctx.save();
+  ctx.fillStyle = '#05070A'; ctx.fillRect(0,0,W,H);
+  if (img){
+    var base = Math.max(W / img.width, H / img.height);
+    var sc = base * (tf.scale || 1);
+    var dw = img.width * sc, dh = img.height * sc;
+    ctx.drawImage(img, (W-dw)/2 + (tf.x||0)*W, (H-dh)/2 + (tf.y||0)*H, dw, dh);
+  }
+  /* JUST ENOUGH DARKENING, AND NO MORE. The panel behind the type is already
+     a 62% wash, so the scrim is not what makes the words readable -- it only
+     has to stop a blown-out sky glaring at the edges. At the weight it was
+     first given, the athlete's photograph was barely visible underneath, and
+     the photograph is the point of the feature. */
+  var g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'rgba(4,6,10,0.46)'); g.addColorStop(0.45,'rgba(4,6,10,0.14)');
+  g.addColorStop(1,'rgba(4,6,10,0.50)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  ctx.restore();
+}
+function shareRenderToCanvas(data, opts){
+  var size = SHARE_SIZES[opts.format] || SHARE_SIZES.story;
+  var cv = document.createElement('canvas');
+  cv.width = size.w; cv.height = size.h;
+  var ctx = cv.getContext('2d');
+  sharePaintPhoto(ctx, opts.img, opts.transform || {}, size.w, size.h);
+  shareCardPaint(ctx, shareCardLayout(data, opts.layout, size), size.w);
+  return cv;
+}
+/* ---- THE SHARE EXPERIENCE ----
+   One modal: choose a photo, place it, pick how much to say, share or save.
+   No account, no upload, no network -- the device's own share sheet owns
+   every destination, so Valhalla never learns where a post went. */
+var shareState = null;
+function openShareModal(dd){
+  if (!dd) return;
+  var data = shareCardData(dd);
+  if (!data) return;
+  shareState = { dd:dd, data:data, img:null, layout:'full', format:'story',
+                 transform:{ scale:1, x:0, y:0 }, busy:false };
+  openModal(shareModalHtml(), 'modal-themed share-modal');
+  shareBindPhoto();
+  shareFontsReady().then(shareMarkReady).then(shareRepaint);
+}
+function shareModalHtml(){
+  var st = shareState, d = st.data;
+  /* WHY THIS SAYS "imported session" AND NOT "your elevation came from Strava".
+     The boundary works at day granularity: once a day carries a Strava
+     activity id, every objective field on it is treated as derived. That is
+     the safe direction, but it means a figure the athlete typed themselves
+     on an imported day is withheld too -- so a note claiming each named
+     field came from Strava would sometimes be telling them something
+     untrue. The note states the rule that is actually being applied. */
+  var withheldNote = d.withheld.length
+    ? '<div class="share-note">'+ICONS.sparkles+'<div><strong>Imported numbers stay off the image.</strong> '+
+      'This session was brought in from Strava, so Valhalla is leaving '+
+      escapeHtml(shareWithheldPhrase(d.withheld))+' off the graphic'+
+      (d.withheld.indexOf('verdict') !== -1
+        ? ' — and the verdict with them, because it is read off those numbers'
+        : '')+
+      '. Your programme, phase and week are Valhalla’s own and still appear.</div></div>'
+    : '';
+  var seg = function(name, val, opts){
+    return '<div class="share-seg" role="group">'+opts.map(function(o){
+      return '<button type="button" data-action="share-set" data-k="'+name+'" data-v="'+o[0]+'" '+
+        'class="'+(val===o[0]?'active':'')+'">'+escapeHtml(o[1])+'</button>';
+    }).join('')+'</div>';
+  };
+  return '<div class="modal-head"><h2 class="font-head">Share your workout</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    '<div class="modal-body share-body">'+
+      '<div class="share-stage"><canvas id="share-canvas" class="share-canvas"></canvas>'+
+        (st.img ? '' : '<div class="share-empty">Add a photo of your run</div>')+
+      '</div>'+
+      '<div class="share-controls">'+
+        '<label class="btn btn-ghost btn-block share-pick">'+ICONS.sparkles+
+          (st.img ? 'Change photo' : 'Choose photo')+
+          '<input type="file" accept="image/*" id="share-photo" hidden></label>'+
+        (st.img ? '<div class="share-hint">Drag to reposition · pinch or scroll to zoom</div>' : '')+
+        '<div class="share-row"><span>Layout</span>'+
+          seg('layout', st.layout, [['full','Full'],['compact','Compact'],['minimal','Minimal']])+'</div>'+
+        '<div class="share-row"><span>Format</span>'+
+          seg('format', st.format, [['story','Story'],['square','Square']])+'</div>'+
+        withheldNote+
+        '<div class="share-actions">'+
+          '<button type="button" class="btn btn-primary btn-block" data-action="share-export" data-mode="share">'+
+            ICONS.share+'Share</button>'+
+          '<button type="button" class="btn btn-ghost btn-block" data-action="share-export" data-mode="save">'+
+            ICONS.download+'Save to photos</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+}
+function shareWithheldPhrase(list){
+  var names = { distance:'distance', pace:'pace', duration:'time', elevation:'elevation',
+                verdict:'verdict' };
+  var out = list.filter(function(k){ return k !== 'verdict'; }).map(function(k){ return names[k]||k; });
+  return listPhrase(out.length ? out : ['measurements']);
+}
+/* Repaint at full export resolution, then let CSS scale it down -- so what the
+   athlete approves is literally the file that leaves. */
+function shareRepaint(){
+  var st = shareState; if (!st) return;
+  var cv = document.getElementById('share-canvas'); if (!cv) return;
+  var size = SHARE_SIZES[st.format];
+  cv.width = size.w; cv.height = size.h;
+  cv.classList.toggle('is-square', !!size.square);
+  var ctx = cv.getContext('2d');
+  sharePaintPhoto(ctx, st.img, st.transform, size.w, size.h);
+  shareCardPaint(ctx, shareCardLayout(st.data, st.layout, size), size.w);
+}
+/* Redraw the whole card rather than patch pieces of it: the photo button,
+   the reposition hint and the canvas all change together, and a half-updated
+   control panel is how you end up sharing a layout the athlete didn't pick. */
+function shareRerender(){
+  var card = document.querySelector('.modal-card.share-modal');
+  if (!card) return;
+  card.innerHTML = shareModalHtml();
+  shareBindPhoto(); shareRepaint();
+}
+function shareBindPhoto(){
+  var inp = document.getElementById('share-photo');
+  if (inp) inp.addEventListener('change', shareOnPhotoChosen);
+  var cv = document.getElementById('share-canvas');
+  if (cv) shareBindGestures(cv);
+}
+function shareOnPhotoChosen(e){
+  var f = e.target && e.target.files && e.target.files[0];
+  if (!f || !shareState) return;
+  var url = URL.createObjectURL(f);
+  var im = new Image();
+  im.onload = function(){
+    shareState.img = im;
+    shareState.transform = { scale:1, x:0, y:0 };
+    URL.revokeObjectURL(url);
+    shareRerender();
+  };
+  im.onerror = function(){ URL.revokeObjectURL(url); showToast('Could not read that photo'); };
+  im.src = url;
+}
+/* Pan and zoom in normalised units, so the same placement survives a switch
+   between Story and Square rather than jumping. */
+function shareBindGestures(cv){
+  var drag = null;
+  cv.addEventListener('pointerdown', function(ev){
+    if (!shareState || !shareState.img) return;
+    drag = { x:ev.clientX, y:ev.clientY, ox:shareState.transform.x, oy:shareState.transform.y };
+    cv.setPointerCapture(ev.pointerId);
+  });
+  cv.addEventListener('pointermove', function(ev){
+    if (!drag || !shareState) return;
+    var r = cv.getBoundingClientRect();
+    shareState.transform.x = drag.ox + (ev.clientX - drag.x) / r.width;
+    shareState.transform.y = drag.oy + (ev.clientY - drag.y) / r.height;
+    shareRepaint();
+  });
+  var end = function(ev){ if (drag && cv.releasePointerCapture) { try{ cv.releasePointerCapture(ev.pointerId); }catch(e){} } drag = null; };
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+  cv.addEventListener('wheel', function(ev){
+    if (!shareState || !shareState.img) return;
+    ev.preventDefault();
+    var next = shareState.transform.scale * (ev.deltaY < 0 ? 1.06 : 1/1.06);
+    shareState.transform.scale = Math.max(1, Math.min(4, next));
+    shareRepaint();
+  }, { passive:false });
+}
+function handleShareSet(k, v){
+  if (!shareState || !k) return;
+  if (shareState[k] === v) return;
+  shareState[k] = v;
+  shareRerender();
+}
+function shareExport(mode){
+  var st = shareState; if (!st || st.busy) return;
+  st.busy = true;
+  var cv = shareRenderToCanvas(st.data, { img:st.img, transform:st.transform,
+                                          layout:st.layout, format:st.format });
+  cv.toBlob(function(blob){
+    st.busy = false;
+    if (!blob){ showToast('Could not build the image — try again'); return; }
+    var stamp = (st.dd.date || todayStr()).replace(/-/g,'');
+    saveBinaryFile({
+      blob: blob, mime:'image/png',
+      filename: 'valhalla-' + stamp + '.png',
+      title: 'Valhalla',
+      dialog: mode === 'save' ? 'Save image' : 'Share workout',
+      done: mode === 'save' ? 'Image saved' : 'Image ready to share'
+    });
+  }, 'image/png');
+}
 function renderExecutionReview(dd){
   if (!dd.completed) return '';
   /* NOTHING WAS PRESCRIBED, SO THERE IS NOTHING TO REVIEW AGAINST. Every
@@ -26002,6 +26720,23 @@ function renderExecutionReview(dd){
       '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
     '</div>'+
     body+
+    renderShareLaunch(dd)+
+  '</div>';
+}
+/* ---- THE VERDICT, AND THE WAY OUT TO A POST ----
+   The word sits with the review that produced it rather than on a screen of
+   its own: one source of truth, and the athlete reads the full explanation
+   directly underneath it. Sharing is offered, never urged -- no badge, no
+   streak, no prompt that returns if ignored. A session with no legitimate
+   verdict still offers the button; it simply has no word to show. */
+function renderShareLaunch(dd){
+  var v = shareVerdictLabel(dd);
+  return '<div class="share-launch">'+
+    (v ? '<div class="share-verdict"><span class="share-verdict-k">The Verdict</span>'+
+         '<span class="share-verdict-v">'+escapeHtml(v)+'</span></div>' : '')+
+    '<button type="button" class="btn btn-share" data-action="share-workout" '+
+      'data-day="'+escapeHtml(String(dd.id!=null?dd.id:dd.date))+'">'+
+      ICONS.share+'Share to Socials</button>'+
   '</div>';
 }
 
@@ -36508,6 +37243,22 @@ function coachPaceEvidence(dd){
   return { tr: executionPaceTarget(dd), ap: actualPaceSecPerKm(dd), sectioned: false };
 }
 /* ---------- the verdict ---------- */
+/* ---- RAN INSIDE THE WINDOW, DELIBERATELY OFF ITS QUICKEST QUARTER ----
+   Extracted from coachVerdict(), which has always computed exactly this and
+   kept it to itself. It is the coaching conclusion behind CONTROLLED, and the
+   share label reads it from coachReview rather than recomputing it -- two
+   copies of this expression is how a label and the sentence beside it start
+   disagreeing about the same run.
+
+   NO NEW SCORE AND NO NEW THRESHOLD: the same quarter-of-the-window reading,
+   the same inputs, moved up one level so it can be persisted. */
+function coachPaceEased(dd){
+  var pev = coachPaceEvidence(dd);
+  var tr = pev.tr, ap = pev.ap;
+  if (!tr || ap == null) return false;
+  if (ap > tr.slow || ap < tr.fast) return false;      // outside the window entirely
+  return ap >= tr.fast + (tr.slow - tr.fast) * 0.25;
+}
 function coachVerdict(dd, b, env){
   var a = dd.actual || {};
   var out = [];
@@ -36532,8 +37283,7 @@ function coachVerdict(dd, b, env){
   // saying so -- otherwise holding back to protect heart rate reads as nothing
   // at all, which is how a genuinely well-judged hot run ends up described as
   // if the athlete had simply hit some numbers.
-  var paceEased = tr && ap!=null && !paceSlow && !paceFast &&
-                  ap >= tr.fast + (tr.slow - tr.fast) * 0.25;
+  var paceEased = coachPaceEased(dd);
   var envPhrase = coachEnvPhrase(env);
   var stressed = env.heatBand==='significant' || env.heatBand==='severe' || env.humidBand!=='none';
   // Same identity gate every other type-keyed consumer uses (see
@@ -37000,6 +37750,10 @@ function coachWorkoutReview(dd){
     at: new Date().toISOString(),
     source: 'engine',                       // never presented as something it is not
     executionVerdict: coachVerdict(dd, b, env),
+    /* The CONTROLLED conclusion, persisted so the share label and the prose
+       verdict read one answer. Owner-approved exposure of an existing
+       conclusion; nothing new is computed. */
+    paceEased: coachPaceEased(dd),
     trainingSignal: sig.signal,
     trainingSignalReason: sig.reason,
     breakthrough: bt,
@@ -47507,6 +48261,14 @@ function stravaResolveDay(dd, candidates){
    and Strava is allowed to replace it with what was actually run. */
 function stravaHasManualObjective(dd){
   var a = dd.actual || {};
+  /* ELEVATION COUNTS AS THE ATHLETE'S OWN NUMBER TOO. It is an optional manual
+     field now, and it was missing from this guard -- so an athlete who typed
+     their elevation and connected Strava afterwards had it silently
+     overwritten by the import. A hand-entered objective figure outranks an
+     import; that was already the rule, and this field was simply not in it.
+     Only a MANUAL value can be protected here, so a day whose elevation came
+     from a previous import is not treated as hand-logged. */
+  if (a.elevationGainM != null && !isStravaDerived(dd)) return true;
   if (a.pace || a.hr != null) return true;
   if (a.km == null) return false;
   return Math.abs(a.km - (dd.km || 0)) > 0.001;
@@ -48259,6 +49021,16 @@ function handleActualFieldChange(dayId, field, value){
     else if (healthConsentGranted()) dd.actual.hr = parseInt(value,10);
   }
   else if (field==='rpe') dd.actual.rpe = value===''?null:parseInt(value,10);
+  /* Blank clears back to unknown; anything else is the athlete's own figure,
+     zero included. A value that will not parse is left as unknown rather
+     than becoming NaN, which would read as "entered" everywhere downstream. */
+  else if (field==='elevationGainM'){
+    if (value.trim()==='') dd.actual.elevationGainM = null;
+    else {
+      var em = parseFloat(value);
+      dd.actual.elevationGainM = (isFinite(em) && em >= 0) ? Math.round(em) : null;
+    }
+  }
   else if (field==='pace'){
     dd.actual.pace = value.trim() || null;
     // Stamp what the athlete was looking at. Written here and nowhere else
@@ -48419,7 +49191,8 @@ function handleClearActual(dayId){
 var detailEditorOpen = {};
 function dayHasDetail(dd){
   var a = (dd && dd.actual) || {};
-  return a.hr != null || a.rpe != null || !!a.feel || !!(a.notes && String(a.notes).trim());
+  return a.hr != null || a.rpe != null || !!a.feel || a.elevationGainM != null ||
+         !!(a.notes && String(a.notes).trim());
 }
 function isDetailOpen(dd){
   if (!dd) return false;
@@ -50744,6 +51517,12 @@ document.addEventListener('click', function(e){
     case 'reset-day': handleResetDay(target.getAttribute('data-day')); break;
     case 'reset-plan': handleResetPlan(); break;
     case 'close-modal': closeModal(); break;
+    /* SHARING. 'share-workout' opens the composer; the other two only ever
+       change what the athlete is looking at, or hand the finished PNG to the
+       device. Nothing here touches the plan or the log. */
+    case 'share-workout': openShareModal(findDay(target.getAttribute('data-day'))); break;
+    case 'share-set': handleShareSet(target.getAttribute('data-k'), target.getAttribute('data-v')); break;
+    case 'share-export': shareExport(target.getAttribute('data-mode')); break;
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
     case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;
     case 'toggle-splits': handleToggleSplits(target.getAttribute('data-day')); break;

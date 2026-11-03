@@ -109,6 +109,15 @@ const WORK_SURFACES = [
   ['openBackupTextModal', 'Copy Backup'],
   ['openPasteBackupModal', 'Paste Backup'],
   ['openHQPanel', "Plan HQ's Record / Reading / action panels"],
+  /* THE SHARE COMPOSER IS A WORK SURFACE. The athlete chooses a photo, places
+     it, picks how much the card says and then approves it -- that is working
+     in a modal, not answering an interrupt, and it has a close control and
+     costs nothing to abandon. So its chrome follows the athlete's theme like
+     Settings and Edit Session do. The PREVIEW inside it is dark in both
+     themes, because the exported PNG is; that is a rule about one element,
+     not about the modal, and it is why this surface is themed rather than
+     pinned. */
+  ['openShareModal', 'the social sharing composer'],
   /* Two marathon offers. Both are work surfaces rather than interrupts: each
      has a close control, each presents two real choices, and declining costs
      the athlete nothing -- so both sit on the themed ramp with everything else
