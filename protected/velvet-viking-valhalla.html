@@ -12006,7 +12006,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
      The loop then walks each SESSION along its own progression and the week's
      volume is what they add up to. */
   var mBottomUp = null, mPrevLongKm = null, mPrevSupportKm = null, mPeakBuiltKm = 0,
-      mPrevWeekKm = null, mPrevQSlots = null, mPrevSupportDays = null,
+      mPrevWeekKm = null, mPrevQSlots = null, mPrevPhase = null, mPrevSupportDays = null,
       /* HQ RACE GOAL TIGHT METHODOLOGY CORRECTION -- THE CALIBRATION GATE'S
          OWN "HAS THIS ATHLETE BEEN RECEIVING QUALITY" QUESTION, KEPT SEPARATE
          FROM mPrevQSlots. mPrevQSlots answers a different question (what did
@@ -13596,7 +13596,34 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
            The share stays aerobic work, exactly as it does when the slot is
            refused for capacity: the week keeps the kilometres and loses the
            structure. */
-        if ((isTaper || isCutback) && mPrevQSlots != null && r.qSlots > mPrevQSlots){
+        /* ---- AND A RELOAD WEEK BELONGS TO ITS OWN PHASE ---- HQ RULING.
+           The protection above is right WITHIN a phase: a reduction week must
+           not acquire a session the week before it was not given. It was wrong
+           ACROSS a phase boundary, and the twelve-week marathon is where that
+           shows. Week four is the first Build week and the block's first
+           reload week at once, and the week before it is the last BASE week,
+           which carries one quality slot where Build's architecture requires
+           two. So Build's required ingredients were capped to Base's count
+           purely because Base preceded them -- measured, bottomUp.qSlots came
+           out 1 against a nominal 2 in all eight Established/Advanced cohorts
+           at twelve weeks, and the affordability ladder then took the last
+           slot from the thinner four.
+           THE GUARD IS NOT REMOVED, only scoped to the case it was written
+           for. Where the preceding week shares this week's phase it applies
+           exactly as before, which is every other reload week in both
+           runways and every taper. */
+        /* MARATHON BUILD RELOAD ONLY. Scoped after measurement: without the
+           distance and phase test this exemption reached the HALF, whose
+           twelve-week week-four reload gained a Progressive Tempo and a
+           Fartlek it had never been given -- a change to another distance HQ
+           placed out of scope. Everything but a marathon Build reload now
+           meets the guard exactly as before: every taper, every other reload
+           week in both runways, and the half, 10K and 5K at every week. */
+        var mReloadOwnPhase = isCutback && !isTaper && phase === 'Build' &&
+          usesMarathonArc(purpose, distKey) &&
+          mPrevPhase != null && mPrevPhase !== phase;
+        if ((isTaper || isCutback) && mPrevQSlots != null && r.qSlots > mPrevQSlots &&
+            !mReloadOwnPhase){
           r.qKm = 0; givenBack += r.qSlots - mPrevQSlots; r.qSlots = mPrevQSlots;
         }
         /* AND THE SUPPORTING RUNS THE WEEK CAN ACTUALLY PAY FOR. Adding another
@@ -13911,7 +13938,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       mPrevEffSupportDays = mWeek.countedSupportDays;
       /* AND THE STRUCTURE IT ACTUALLY CARRIED, which is what a reduction week
          is entitled to keep and never to exceed. */
-      mPrevQSlots = mWeek.qSlots;
+      mPrevQSlots = mWeek.qSlots; mPrevPhase = phase;
       mMaxQSlotsSoFar = Math.max(mMaxQSlotsSoFar, mWeek.qSlots || 0);
       mPrevSupportDays = mWeek.countedSupportDays;
       /* ---- AND THE ATHLETE MOVES FORWARD FROM THE WEEK THEY WERE ACTUALLY
@@ -17756,6 +17783,57 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
          a marathon week, it is the same collision wearing a test's name. The
          pin yields to the long-run bound and to nothing else. */
       if (pinned && useCoherentFrequency && !longRunBound(singleSlotKind, 1)) pinned = 0;
+      /* ---- A REQUIRED BUILD RELOAD INGREDIENT IS SHRUNK TO FIT, NOT REMOVED
+         ---- HQ RULING. "Affordability must evaluate the held/shrunken
+         reload-dose structure, not the full-size quality structure and then
+         remove the slot before shrink can occur."
+         The ladder below prices the session the week was GIVEN and, if the
+         week cannot pay, hands the slot back. For a Build reload that deletes
+         a required ingredient to buy a reduction the dose itself should have
+         paid for: measured at twelve weeks, a 38km/week athlete's week four
+         needed 27.1km of floors against a 26.3km week and lost its quality
+         session over 0.8km.
+         So the structures step down first, through the same
+         shrinkIntervalSpec/shrinkTempoSpec the reload hold and the taper
+         already use, until the week can pay for them. Spec and km move
+         together, so the day that gets written and the week that priced it
+         cannot disagree.
+         AND IT NEVER FORCES AN UNSAFE SESSION IN. Every shrink stops at its
+         own structural floor (TAPER_MIN_REPS, TAPER_MIN_LADDER,
+         TAPER_MIN_WORK_KM/MIN, TAPER_MIN_OVER_UNDER_CYCLES); when nothing will
+         move the loop stops and the ladder below runs exactly as before, so a
+         week that genuinely cannot contain the prescription still defers and
+         substitutes. A checkpoint or calibration slot is left alone -- that
+         slot IS the measurement.
+         MARATHON BUILD RELOAD ONLY. Peak keeps its own authority, and the
+         half, 10K and 5K never enter. */
+      var reloadBuildIngredient = wk.isCutback && !wk.isTaper && !wk.isRace &&
+        wk.phase === 'Build' && !pinned &&
+        usesMarathonArc(blockResult.purpose, blockResult.distKey);
+      if (reloadBuildIngredient && qualitySlotsThisWeek > 0){
+        var rGuard = 0, rShrunkKm = 0;
+        while (rGuard++ < 24 &&
+               !affordable(qualitySlotsThisWeek, singleSlotKind)){
+          var rKinds = qualitySlotsThisWeek >= 2 ? ['interval', 'tempo']
+                                                 : [singleSlotKind];
+          var rMoved = false;
+          rKinds.forEach(function(rk){
+            var rSp = slotSpec(rk, qualitySlotsThisWeek);
+            if (!rSp) return;
+            var rSize = (rk === 'interval') ? intervalSessionKm(rSp) : tempoSessionKm(rSp);
+            var rNew = (rk === 'interval') ? shrinkIntervalSpec(rSp, rSize * 0.9)
+                                           : shrinkTempoSpec(rSp, rSize * 0.9);
+            var rKm = (rk === 'interval') ? intervalSessionKm(rNew) : tempoSessionKm(rNew);
+            if (!(rKm < rSize - 1e-9)) return;
+            rMoved = true; rShrunkKm += (rSize - rKm);
+            if (useSolo(rk, qualitySlotsThisWeek)){ wk.soloSpec = rNew; wk.soloKm = rKm; }
+            else if (rk === 'interval'){ wk.qSpec = rNew; qKmThisWeek = rKm; }
+            else { wk.tSpec = rNew; tKmThisWeek = rKm; }
+          });
+          if (!rMoved) break;
+        }
+        if (rShrunkKm > 0) wk.reloadIngredientShrunkKm = round1(rShrunkKm);
+      }
       while (qualitySlotsThisWeek > pinned &&
              !affordable(qualitySlotsThisWeek, singleSlotKind)){
         /* DEFERRING TO ONE SLOT ALSO CHOOSES WHICH ONE. The rotation's turn goes
