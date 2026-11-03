@@ -6421,6 +6421,79 @@ function applyWeekProgressionGate(days, weeks, floorKm){
          ONLY WHERE THE GATE ACTUALLY HELD SOMETHING. An untouched programme's
          taper is the one its own architecture produced and nothing here has
          any business reshaping it. The race itself is never bounded. */
+      /* ---- A RELOAD WEEK'S EASY AND LONG RUN COME DOWN FROM WHAT THE
+         ATHLETE ACTUALLY RAN ---- HQ METHODOLOGY RULING.
+         The quality slots are already held and shrunk where they are chosen
+         (see reloadHold in buildBlockWeeks). Easy and the long run are sized
+         from the week's own position on the trend, which is NOT the week the
+         athlete just completed: the trend keeps rising while this gate holds
+         the delivered week below it, so the reduction the athlete experienced
+         was a fraction of the one the design states. Measured before this: a
+         38km/week Established athlete's week-8 absorption week delivered 51km
+         against 54.5 the week before -- a 6% reduction where 22% was intended
+         -- and an Advanced athlete's easy runs came through an absorption week
+         completely unchanged at 7/7/7.
+         So each session is bounded by ITS OWN counterpart in the last
+         DEVELOPMENT week, reduced by its own existing factor. Per session and
+         not by the weekly total, because HQ's ruling is explicit that no
+         session is distorted to force the week onto an exact percentage --
+         workout geometry may quantise the rest.
+         ONE-WAY, AND NEVER A BASELINE. It can only ever lower a reload week,
+         and the week stays out of `dev` exactly as before, so the development
+         trajectory the next week resumes from is untouched. */
+      if (wk.isCutback && !wk.isTaper && !wk.isRace){
+        var rBefore = totalOf(list), rLongest = 0;
+        /* ---- AND ONLY WHERE THE WEEK IS SHALLOWER THAN THE DESIGN ----
+           This corrects an absorption week that did not absorb; it has no
+           business deepening one that already did. Measured when it applied
+           unconditionally: an Advanced marathon's thirteen-week week four,
+           whose quality slot is deferred and whose composition was already
+           well below the factor, fell to 0.54 of the week before it -- past
+           the point where an absorption week becomes a week off. A week at or
+           below the designed depth is left exactly as the composer built it. */
+        var rPrevTot = dev.length ? dev[dev.length - 1].km : null;
+        if (rPrevTot == null || totalOf(list) <= rPrevTot * CUTBACK_FACTOR + 1e-9) return;
+        var easyCap = (lastEasyMax != null)
+          ? roundWorkoutKm('easy', lastEasyMax * CUTBACK_FACTOR) : null;
+        list.forEach(function(dd){
+          if (!(dd.km > 0) || dd.type === 'race') return;
+          if (dd.type === 'easy' && easyCap != null && dd.km > easyCap)
+            dd.km = roundWorkoutKm('easy', Math.max(easyCap, minKm));
+        });
+        /* ---- AND THE LONG RUN IS STILL NEVER SHORTER THAN ANOTHER RUN ----
+           The same rule the gate's own long-run trim keeps. Without it this
+           bound cut the long run to its own factor while the week's easy and
+           quality sessions stood above it: measured, the
+           long_run_shorter_than_easy_run count rose from 616 to 945. */
+        var rOther = 0;
+        list.forEach(function(dd){
+          if (!(dd.km > 0) || dd.type === 'long' || dd.type === 'race') return;
+          if (dd.km > rOther) rOther = dd.km; });
+        var longCap = (lastLongKm != null)
+          ? Math.max(roundWorkoutKm('long', lastLongKm * RACE_GOAL_CUTBACK_LONG_FACTOR),
+                     rOther, minKm) : null;
+        list.forEach(function(dd){
+          if (!(dd.km > 0) || dd.type === 'race') return;
+          if (dd.type === 'long' && longCap != null && dd.km > longCap)
+            dd.km = roundWorkoutKm('long', longCap);
+        });
+        var rAfter = totalOf(list);
+        list.forEach(function(dd){
+          if (dd.km > 0 && dd.type === 'long' && dd.km > rLongest) rLongest = dd.km; });
+        var rHeld = round1(Math.max(0, rBefore - rAfter));
+        if (rHeld > 0){
+          if (wk.intendedVolume == null) wk.intendedVolume = wk.volume;
+          wk.deliberateReduction = round1((wk.deliberateReduction || 0) + rHeld);
+          wk.reductionCause = wk.reductionCause || 'reload_from_delivered_week';
+          wk.reloadBoundedKm = rHeld;
+          wk.volume = rAfter;
+          if (rLongest > 0) wk.longTarget = round1(rLongest);
+          if (wk.dist){ wk.dist.undistributedKm = 0; wk.dist.floorExcessKm = 0; wk.dist.floorCauses = []; }
+          wk.qualityDayFloorKm = 0;
+          wk.capRecoveredKm = 0;
+        }
+        return;
+      }
       if (gateHeldLastDev && (wk.isTaper || wk.isRace) && !wk.isCutback){
         var tBefore = totalOf(list), tLongest = 0;
         list.forEach(function(dd){
@@ -12603,7 +12676,33 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          before is unchanged, so this can never make the session bigger; it
          only stops the taper factor from shrinking a session the taper has not
          reached yet. */
-      var taperShrink = (isTaper && !halfArc) ? TAPER_QUALITY_FACTOR : 1;
+      /* ---- A RELOAD WEEK REPEATS THE WEEK IT IS ABSORBING, SMALLER ----
+         HQ METHODOLOGY RULING. A reload (absorption) week preserves the
+         preceding development week's training STRUCTURE; what changes is the
+         dose. Repetition is intentional: the week does not rotate into a
+         different family merely because the normal rotation has advanced, and
+         the existing shrink architecture brings each session's dose down while
+         the workout keeps its identity. Workout geometry quantises the exact
+         reduction -- fewer reps, shorter tempo work -- and that is correct;
+         nothing else is distorted to force the weekly total onto the exact
+         cutback percentage.
+
+         MARATHON ONLY, which is the whole of why this is safe to do at all.
+         The same hold was tried once for every bottom-up arc and reverted,
+         because on the HALF it overrode halfQualityKindFor()'s own
+         phase-scheduled family sequence and moved novice half blocks (see the
+         note at the single-slot site below). usesMarathonArc() is the
+         marathon's own predicate, so the half, 10K and 5K reach this exactly
+         as before.
+
+         A RELOAD IS NOT A NEW BASELINE. It holds the last DEVELOPMENT week's
+         structure and never records its own shrunken one as the seed, so the
+         week after it resumes the development trajectory rather than
+         progressing from the reduced week. */
+      var reloadHold = isCutback && !isTaper && !isRace &&
+                       usesMarathonArc(purpose, distKey);
+      var taperShrink = (isTaper && !halfArc) ? TAPER_QUALITY_FACTOR
+                      : reloadHold ? CUTBACK_FACTOR : 1;
       /* THE SEED IS NOW BOTH ARCS' AND IT HOLDS RATHER THAN SUGGESTS. It used
          to be the marathon's alone and only supplied a fallback size; the half
          picked freely and could meet a family for the first time in its
@@ -12622,7 +12721,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          attack is not authorised to make. The same defect exists on those
          distances and is reported to HQ rather than fixed here. */
       var taperSeed = isTaper && !halfArc;
-      var taperHold = isTaper && usesBottomUpArc(purpose, distKey);
+      var taperHold = (isTaper && usesBottomUpArc(purpose, distKey)) || reloadHold;
       var seedQ = (taperSeed || taperHold) ? prevQSpec : null;
       var seedT = (taperSeed || taperHold) ? prevTSpec : null;
       qSpec = fitQualityStructure(qPool, 'interval', qualityStructPhase, w, qPos,
@@ -12919,7 +13018,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        the single-slot block below, which overwrites one half of it with the
        session the athlete actually receives. That was always the sequence --
        only the calibration decision has moved in front of it. */
-    if (!isRace && !arc.noQuality && !isCalibration && !isCheckpoint){
+    /* A RELOAD IS NOT A NEW BASELINE -- see reloadHold above. Recording its
+       shrunken structure here would hand the NEXT holding week (a later reload,
+       or the taper) a session the athlete only ever met at reduced dose. */
+    if (!isRace && !arc.noQuality && !isCalibration && !isCheckpoint && !reloadHold){
       prevQSpec = qSpec; prevTSpec = tSpec;
     }
     if (!isRace && !isTaper && !arc.noQuality){
@@ -13049,6 +13151,48 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          limitation -- see the HQ report -- alongside the New Half week-11
          cutback case above. */
       if (soloKind === 'interval') soloOccQ++; else soloOccT++;
+      /* ---- AND THE SINGLE-SLOT RELOAD WEEK REPEATS TOO ---- HQ RULING.
+         The two-slot path above holds both families by construction; a
+         one-slot week receives whichever family the phase scheduled, so
+         preserving it has to be said here.
+
+         DELIBERATELY AFTER THE OCCURRENCE INCREMENT ABOVE. The earlier,
+         reverted attempt at this sat where the kind is CHOSEN, so overriding
+         soloKind also advanced the other family's occurrence counter and
+         shifted the pool's sequence for every later week -- population-wide
+         collateral, and the documented reason it was pulled. Placed here the
+         scheduled kind still advances its own counter exactly as before: the
+         rotation's bookkeeping is untouched and only the session this one week
+         DELIVERS is held. Marathon only, for the same reason as above. */
+      /* ---- ONE KNOWN SLOT-COUNT CONSEQUENCE, REPORTED AND NOT SUPPRESSED ----
+         The held structure is SMALLER than the one the rotation had chosen, and
+         the one-slot week's quality is DEFERRED when the week cannot carry a
+         quality session plus a long run plus an easy run (see mSolveWeek). A
+         smaller held session can therefore clear a bar the original failed:
+         measured, a 61km/week Established athlete's twelve-week week-four
+         reload now carries the hill session its preceding week ran, where
+         before it carried none. Exactly one week in the forty measured moves.
+         LEFT AS IS, DELIBERATELY. Gating this on the pre-hold size was tried
+         and is inert, because the decision is the deferral and not
+         soloFitsBound; pricing the slot at the un-held size instead would make
+         the week's accounting and the day it writes disagree, which is the
+         defect qualityDeliveredKm() exists to prevent. The case sits between
+         two of HQ's clauses -- "do not add quality slots" and "do not remove
+         quality slots merely to achieve the volume reduction" -- and is
+         referred to HQ rather than resolved by contorting the solver. */
+      if (reloadHold && prevSoloKind && !isCalibration && !isCheckpoint){
+        soloKind = prevSoloKind;
+        soloSpec = fitQualityStructure(
+          soloKind === 'interval' ? qPool : tPool,
+          soloKind, (soloKind === 'interval' ? qualityStructPhase : tempoStructPhase),
+          w, soloKind === 'interval' ? qPos : pos,
+          profile.emphasis, rotation, weekFitCeil,
+          soloKind === 'interval' ? prevQSpec : prevTSpec,
+          CUTBACK_FACTOR, true);
+        soloKm = soloKind === 'interval' ? intervalSessionKm(soloSpec)
+                                         : tempoSessionKm(soloSpec);
+        soloFitsBound = soloKm <= weekFitCeil + 1e-9;
+      }
       /* ---- AND WHAT THE ATHLETE ACTUALLY RAN IS WHAT THE NEXT WEEK HOLDS ----
          prevQSpec and prevTSpec are set above from the two-slot path, which is
          the week the block would have written if it had two slots to write. In
@@ -13069,7 +13213,7 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          weeks, moving the calibration into week eight handed the wind-down
          week goal-pace reps the block had never once asked for. A test week
          leaves the seed on the last family the athlete actually ran. */
-      if (!isCalibration && !isCheckpoint){
+      if (!isCalibration && !isCheckpoint && !reloadHold){
         if (soloKind === 'interval') prevQSpec = soloSpec; else prevTSpec = soloSpec;
         prevSoloKind = soloKind;
       }
