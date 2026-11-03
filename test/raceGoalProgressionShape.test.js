@@ -41,11 +41,14 @@ const RUNWAYS = [10, 11, 12, 13, 14, 15];
 
 /* Every admitted programme, as weeks of days. Mandatory kilometres only --
    optional runs carry none and are asserted separately. */
-function weeksOf(p, W){
+/* ignoreAdmission models CONTINUE: the athlete was told the runway is short,
+   chose to carry on, and the SAME builder produces their programme. Existing
+   callers pass two arguments and are unaffected. */
+function weeksOf(p, W, ignoreAdmission){
   const res = R.build(Object.assign({ dist:p.dist, exp:p.exp, days:p.days, weeks:W }, p.ev));
   const adm = res.a.raceGoalAdmission(p.dist, W, null,
                 { availableDays:p.days, easyPaceSecPerKm:res.pace });
-  if (!adm.admitted) return null;
+  if (!ignoreAdmission && !adm.admitted) return null;
   return res.blk.weeks.map(wk => {
     const run = res.dd.filter(d => d.week === wk.week && d.km > 0);
     const mand = run.filter(d => d.type !== 'race' && !d.availableUnused);
@@ -87,12 +90,34 @@ test('CUTBACK — an absorption week is a reduction, and it is roughly the one t
      Experienced Marathon at every runway from ten to fourteen weeks, each
      preparation_not_reachable -- which takes the examined cutbacks from 60 to
      58. Measured, not inferred: 26 cases admitted, 58 cutbacks.
+
+     ---- 58 -> 56: THE MARATHON'S RUNWAY FLOOR ---- HQ MARATHON RUNWAY
+     RULING, APPROVED. Twelve weeks is the minimum recommended proper Marathon
+     preparation runway, so ten- and eleven-week marathons now stop at the
+     RUNWAY decision. Measured case by case, the fall is PURELY a change of
+     population and not of behaviour:
+       - exactly two cases leave the sweep -- Advanced Marathon @10w (cutback
+         w4: 57.5 <- 73.0) and @11w (w4: 56.0 <- 71.5), one examined cutback
+         each, hence 58 -> 56;
+       - four cases change only their REASON and cost nothing, having been
+         excluded already: New and Experienced Marathon @10w/@11w, from
+         preparation_not_reachable to too_short;
+       - and NOT ONE of the twenty-four surviving cases had a cutback move, by
+         value or by week.
+     Both departing cutbacks were HEALTHY (0.788 and 0.783 against
+     CUTBACK_FACTOR 0.78 and the >= 0.55 assertion above), so what left was
+     evidence of correct behaviour, never evidence of a defect.
+     AND THE SAFETY COVERAGE THEY CARRIED HAS NOT BEEN SURRENDERED: a short
+     runway is a warning, not a refusal to build, so those two programmes
+     still exist whenever the athlete chooses Continue Marathon -- and the
+     test below holds them to these same assertions by that route.
+
      THIS IS A COVERAGE GUARD, NOT A SAFETY BOUND, and it has not been relaxed
      as one: every cutback that IS examined is still held to both of the
      assertions above, unchanged. The floor tracks the population the current
      authority admits, so that this test keeps failing if the sweep ever stops
      examining a meaningful number of absorption weeks. */
-  assert.ok(n >= 58, 'only ' + n + ' cutbacks examined');
+  assert.ok(n >= 56, 'only ' + n + ' cutbacks examined');
 });
 
 test('CUTBACK — it reduces the dose and never the athlete\'s frequency', () => {
@@ -105,6 +130,60 @@ test('CUTBACK — it reduces the dose and never the athlete\'s frequency', () =>
         ' days against ' + dev[i - 1].days + ' the week before');
     });
   });
+});
+
+test('CONTINUE MARATHON — a short runway still builds, and still builds safely', () => {
+  /* HQ MARATHON RUNWAY RULING: "too_short must NOT mean the programme cannot
+     be built." Below twelve weeks the marathon athlete is told the runway is
+     short, offered the preparation route, and keeps Continue Marathon. This
+     test is the safety half of that promise, and it is deliberately the
+     SAME assertions the admitted sweep above applies -- an absorption week
+     that genuinely reduces, that never costs a running day, and a long run
+     that neither regresses nor arrives by a jump -- applied to the two
+     programmes the runway floor removed from that sweep.
+     ADVANCED AT TEN AND ELEVEN WEEKS: exactly the cases whose coverage the
+     58 -> 56 floor change gave up, recovered by the route that still
+     produces them. */
+  const adv = PATHS.filter(p => p.key === 'Advanced Marathon')[0];
+  let examined = 0;
+  [10, 11].forEach(W => {
+    const wks = weeksOf(adv, W, true);
+    const key = adv.key + ' @' + W + 'w (continue)';
+    assert.ok(wks && wks.length === W, key + ': no programme was built at all');
+    const dev = development(wks);
+    dev.forEach((w, i) => {
+      if (!w.cutback || i === 0) return;
+      examined++;
+      const prev = dev[i - 1];
+      assert.ok(w.km < prev.km,
+        key + ' week ' + w.w + ': a cutback of ' + w.km + 'km against ' + prev.km + ' before it');
+      assert.ok(w.km >= prev.km * 0.55,
+        key + ' week ' + w.w + ': a cutback to ' + w.km + 'km from ' + prev.km +
+        ' is not an absorption week, it is a week off');
+      assert.ok(w.days >= prev.days,
+        key + ' week ' + w.w + ': the absorption week runs on ' + w.days +
+        ' days against ' + prev.days + ' the week before');
+    });
+    for (let i = 1; i < dev.length; i++){
+      if (dev[i].cutback || dev[i - 1].cutback) continue;
+      assert.ok(dev[i].lr >= dev[i - 1].lr,
+        key + ' week ' + dev[i].w + ': long run ' + dev[i - 1].lr + 'km -> ' +
+        dev[i].lr + 'km in an ordinary development week');
+    }
+    const start = dev[0].lr, end = Math.max.apply(null, dev.map(w => w.lr));
+    if (end > start){
+      const total = end - start;
+      for (let i = 1; i < dev.length; i++){
+        if (dev[i].cutback || dev[i - 1].cutback) continue;
+        const step = dev[i].lr - dev[i - 1].lr;
+        assert.ok(step <= total * 0.35 + 1.0001,
+          key + ' week ' + dev[i].w + ': the long run jumped ' + step + 'km of a ' +
+          total + 'km total development');
+      }
+    }
+  });
+  /* The two absorption weeks the admitted sweep gave up, examined here. */
+  assert.ok(examined >= 2, 'only ' + examined + ' continue-path cutbacks examined');
 });
 
 test('LONG RUN — it never goes backwards in an ordinary development week', () => {

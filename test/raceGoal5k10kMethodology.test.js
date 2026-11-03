@@ -145,11 +145,21 @@ test('4. 5K/10K admission window is eight to twelve weeks, not ten to fifteen', 
   });
 });
 
-test('4. half/marathon admission window is unchanged at ten to fifteen', () => {
+test('4. the half\'s window is unchanged, and the marathon answers to its own runway', () => {
+  /* HQ MARATHON RUNWAY RULING -- twelve weeks is the minimum RECOMMENDED
+     proper Marathon preparation runway (MARATHON_MIN_WEEKS), so the marathon
+     no longer shares the half's ten-week floor. Note what this does NOT mean:
+     twelve is not an admission or refusal gate. Below it the athlete is told
+     the runway is short and Continue Marathon remains available -- see
+     marathonRunwayMinimum.test.js, which owns that behaviour.
+
+     WHAT THIS CONTRACT EXISTS FOR IS UNCHANGED: the 5K/10K window work must
+     not disturb half or marathon, and the half's own ten-to-fifteen is
+     asserted here exactly as it always was. */
   const a = app();
   const h = a.raceGoalRunwayBounds('half'), f = a.raceGoalRunwayBounds('full');
   assert.equal(h.min, 10); assert.equal(h.max, 15);
-  assert.equal(f.min, 10); assert.equal(f.max, 15);
+  assert.equal(f.min, 12); assert.equal(f.max, 15);
 });
 
 /* ---------- 5. §7's ON-RAMP DEFECT CANNOT RECUR ---------- */
