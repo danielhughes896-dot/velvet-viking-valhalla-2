@@ -7572,6 +7572,15 @@ var RACE_GOAL_PHASE_GEOMETRY = {
    way into a Base block, from the runway offer to Settings, is untouched. This
    figure is passed as an explicit override on the one route that earns it. */
 var MARATHON_PREP_BASE_WEEKS = 8;
+/* ---- THE MARATHON ASKS FOR MORE RUNWAY THAN THE HALF ---- HQ RULING.
+   Twelve weeks is the minimum RECOMMENDED proper Marathon preparation
+   runway. It is explicitly NOT an admission gate: below it the athlete is
+   told the runway is short, offered the preparation route, and may still
+   continue -- see the too_short handling in handleGeneratePlan(), which is
+   what makes that true rather than merely stated.
+   HALF AND 5K/10K ARE UNTOUCHED: half keeps RACE_GOAL_MIN_WEEKS, the short
+   distances keep SHORT_RACE_GOAL_MIN_WEEKS. */
+var MARATHON_MIN_WEEKS = 12;
 var RACE_GOAL_MIN_WEEKS = 10;          // HQ admission floor
 var RACE_GOAL_MAX_WEEKS = 15;          // and the window it will not stretch past
 /* ---------- 5K AND 10K GET THEIR OWN WINDOW, NOT THE HALF/MARATHON ONE ----------
@@ -7627,7 +7636,32 @@ var SHORT_RACE_GOAL_EVIDENCE_FLOOR_WEEKS = 6;
 function raceGoalRunwayBounds(distKey){
   if (distKey === '5k' || distKey === '10k')
     return { min: SHORT_RACE_GOAL_MIN_WEEKS, max: SHORT_RACE_GOAL_MAX_WEEKS };
+  /* The marathon's own RECOMMENDED floor -- see MARATHON_MIN_WEEKS. Half is
+     unchanged. This is the runway proper preparation asks for, which is not
+     the same quantity as the structural floor below which a block has no
+     base phase at all: see raceGoalStructuralFloor(). */
+  if (distKey === 'full')
+    return { min: MARATHON_MIN_WEEKS, max: RACE_GOAL_MAX_WEEKS };
   return { min: RACE_GOAL_MIN_WEEKS, max: RACE_GOAL_MAX_WEEKS };
+}
+/* ---------- AND THE SHAPE FLOOR IS NOT THE RECOMMENDATION ----------
+   TWO FLOORS THAT USED TO BE ONE NUMBER, AND SEPARATED HERE BECAUSE THE
+   MARATHON MOVED ONE OF THEM. raceGoalRunwayBounds().min answers "how much
+   runway does proper preparation ask for"; this answers "below how much
+   runway can the block not hold a base phase at all". While the marathon's
+   recommendation and the admission floor were both ten they were the same
+   number and one accessor served both readings.
+
+   Raising the recommendation to twelve exposed the conflation: the shape
+   boundary in marathonRunwayPlan() is `W <= floor ? 'no_base' : 'compressed'`,
+   so reading the recommendation there made a TWELVE-week marathon 'no_base' --
+   the most degraded shape available, at exactly the runway HQ's ruling calls
+   proper preparation -- and demoted eleven weeks from 'compressed' too. The
+   structural floor has not moved for any distance, so neither does any
+   programme's shape. */
+function raceGoalStructuralFloor(distKey){
+  if (distKey === '5k' || distKey === '10k') return SHORT_RACE_GOAL_MIN_WEEKS;
+  return RACE_GOAL_MIN_WEEKS;
 }
 /* ---------- THE SHORT-ARCH PHASE GEOMETRY ----------
    NOT THE HALF/MARATHON TABLE COMPRESSED. Peak holds flat at two weeks at
@@ -8702,7 +8736,10 @@ function marathonRunwayPlan(weeksToRace, stateVolume, distKey, opts){
          : (distKey === '5k' || distKey === '10k') ? distKey : 'full';
   var W = Math.max(1, Math.round(weeksToRace || 0));
   var D = dedicatedWeeksFor(dk);
-  var minW = raceGoalRunwayBounds(dk).min;
+  /* THE SHAPE FLOOR, NOT THE RECOMMENDED RUNWAY -- see
+     raceGoalStructuralFloor(). For 5K/10K and the half this is the same
+     number raceGoalRunwayBounds() returns, so nothing about them moves. */
+  var minW = raceGoalStructuralFloor(dk);
   var out = { distanceKey:dk, weeksToRace:W, dedicatedWeeks:D, raceWeeks:W, surplus:0,
               absorbWeeks:0, preparatory:null, shortened:false, shape:'full',
               reason:'exact_window' };
@@ -36656,6 +36693,21 @@ function renderPreparationLimitedCard(){
   var profile = DISTANCE_PROFILES[(state.setup || {}).distanceKey] || {};
   var lbl = profile.label || 'race';
   var short = (pl.dimensions || []).filter(function(d){ return !d.met; });
+  /* THE RUNWAY CASE, which may carry no priced dimensions at all. */
+  if (!short.length && pl.runwayShort && pl.weeksToRace != null){
+    return '<div class="hub-card prep-limited">'+
+      '<div class="coach-next-head">'+ICONS.sparkles+
+        '<span class="coach-next-title">Preparation standard</span></div>'+
+      '<div class="prep-limited-body">You have '+pl.weeksToRace+' weeks to your '+
+        escapeHtml(lbl.toLowerCase())+'. Valhalla asks for '+
+        (pl.minWeeks != null ? pl.minWeeks : MARATHON_MIN_WEEKS)+
+        ' to build its full preparation standard, so this block is working with '+
+        'less runway than that.</div>'+
+      '<div class="prep-limited-foot">This is the safest useful programme the time '+
+        'allows, and it takes you as far toward the standard as can safely be '+
+        'achieved. Valhalla will keep telling you where the preparation stands.</div>'+
+    '</div>';
+  }
   if (!short.length) return '';
   var say = short.map(function(d){
     var what = d.key === 'durability' ? 'long run' : 'weekly running';
@@ -39228,11 +39280,19 @@ function openRaceGoalPreparationModal(adm, distanceKey){
   /* Held, not written. It becomes part of the plan only if the athlete
      chooses to continue -- see the 'prep-continue' action. */
   var pre = adm.preparation || {};
+  /* A SHORT RUNWAY IS A LIMITATION EVEN WHEN NOTHING WAS PRICED. Below the
+     recommended minimum there may be no confident projection to name
+     dimensions from, and the athlete who continues is still owed the honest
+     statement -- so the reason is recorded explicitly rather than inferred
+     from an empty dimensions list. */
+  var runwayShort = (adm.decision === 'too_short');
   pendingPreparationLimited = {
     sig: pendingAdmissionSig,
     distanceKey: distanceKey,
     verdict: pre.verdict || 'INSUFFICIENT',
-    limitedBy: pre.limitedBy || null,
+    limitedBy: pre.limitedBy || (runwayShort ? 'runway' : null),
+    runwayShort: runwayShort,
+    minWeeks: adm.minWeeks != null ? adm.minWeeks : null,
     weeksToRace: adm.weeksToRace != null ? adm.weeksToRace : null,
     /* THE NUMBERS THEMSELVES, so the surface states what was short and by how
        much rather than re-deriving it against a block that has since been
@@ -41053,6 +41113,25 @@ async function handleGeneratePlan(){
        the end. The same offer shape as the runway one: the recommended
        development route, or carry on -- nothing is decided for the athlete. */
     var adm = raceGoalAdmission(distanceKey, planWeeks, volume, genCtx);
+    /* ---- AND A MARATHON BELOW ITS RECOMMENDED RUNWAY IS TOLD SO ---- HQ
+       RULING. Twelve weeks is the minimum recommended proper Marathon
+       preparation runway and explicitly NOT an admission gate, so the athlete
+       gets the same decision surface the reachability shortfall gets: the
+       runway stated plainly, the preparation route recommended, and Continue
+       Marathon still available.
+       THIS PATH PREVIOUSLY WENT NOWHERE. 'too_short' was produced by
+       raceGoalAdmission() and consumed only by raceProgrammeViability(),
+       which nothing in the app calls -- so a short-runway marathon was built
+       in silence. Raising the floor without wiring this would have made that
+       silence cover ten and eleven weeks as well.
+       MARATHON ONLY. Half and 5K/10K keep the behaviour they were measured
+       with; their floors have not moved and this is not their ruling. */
+    if (adm && !adm.admitted && adm.decision === 'too_short' && distanceKey === 'full'){
+      setRaceDestination(distanceKey, raceDate, {}, null);
+      pendingAdmissionSig = admSig;
+      openRaceGoalPreparationModal(adm, distanceKey);
+      return;
+    }
     if (adm && !adm.admitted && adm.decision === 'preparation_not_reachable'){
       setRaceDestination(distanceKey, raceDate, {}, null);
       pendingAdmissionSig = admSig;
