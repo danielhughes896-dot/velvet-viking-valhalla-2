@@ -40859,7 +40859,9 @@ function openSetupModal(){
         '<input type="number" min="0" step="1" inputmode="numeric" id="su-entry-long" value="'+entryLong+'">'+
         '<div class="field-hint">'+escapeHtml(EV_F.longestRunKm.hint)+'</div>'+
       '</div>'+
-      '<div class="field" id="f-entry-long-date"><label>'+escapeHtml(EV_F.longestRunDate.label)+'</label>'+
+      '<div class="field" id="f-entry-long-date"'+
+        (parseFloat(entryLong) > 0 ? '' : ' hidden')+'><label>'+
+        escapeHtml(EV_F.longestRunDate.label)+'</label>'+
         '<input type="date" id="su-entry-long-date" value="'+escapeHtml(entryLongDate)+'">'+
         '<div class="field-hint">'+escapeHtml(EV_F.longestRunDate.hint)+'</div>'+
         /* Said rather than refused, in the same register as the entry note
@@ -41079,6 +41081,22 @@ function openSetupModal(){
   var volBoxIn = document.getElementById('su-volume');
   if (volBoxIn) volBoxIn.addEventListener('input', bldSyncRaceEntryNote);
   bldSyncRaceEntryNote();
+
+  /* ---- "WHEN DID YOU RUN IT?" IS ONLY A QUESTION IF THERE IS A RUN ----
+     BUILDER_SPEC.entryEvidence declares `dependsOnPositive: 'longestRunKm'`
+     and nothing honoured it, so an athlete who answered 0 was still asked when
+     they ran it -- a question with no answer. The stored record was always
+     right (readBuilderEntryEvidence() drops the date unless the distance is
+     above zero); this is the screen catching up with the spec. */
+  var entryLongIn = document.getElementById('su-entry-long');
+  function bldSyncEntryLongDate(){
+    var box = document.getElementById('f-entry-long-date');
+    if (!box) return;
+    var v = entryLongIn ? parseFloat(entryLongIn.value) : NaN;
+    box.hidden = !(v > 0);
+  }
+  if (entryLongIn) entryLongIn.addEventListener('input', bldSyncEntryLongDate);
+  bldSyncEntryLongDate();
 
   // The short-runway note is synced from the same fields Generate reads --
   // see bldSyncRunwayNote() below, a top-level function so handleSetEventMode()

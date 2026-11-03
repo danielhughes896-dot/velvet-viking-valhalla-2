@@ -947,7 +947,8 @@
       '<div class="field" id="f-entry-long"><label>'+EVF.longestRunKm.label+' ('+Ans.units+')</label>' +
       '<input id="bld-entry-long" type="number" min="0" step="1" inputmode="numeric" value="'+Ans.entryLong+'">' +
       '<div class="field-hint">'+EVF.longestRunKm.hint+'</div></div>' +
-      '<div class="field" id="f-entry-long-date"><label>'+EVF.longestRunDate.label+'</label>' +
+      '<div class="field" id="f-entry-long-date"'+
+        (parseFloat(Ans.entryLong) > 0 ? '' : ' hidden')+'><label>'+EVF.longestRunDate.label+'</label>' +
       '<input id="bld-entry-long-date" type="date" value="'+(Ans.entryLongDate||'')+'">' +
       '<div class="field-hint">'+EVF.longestRunDate.hint+'</div></div>';
     wireOptGrid('bld-experience', function(v){
@@ -956,7 +957,16 @@
     });
     wireOptGrid('bld-entry-days', function(v){ Ans.entryDays = v; });
     $('bld-volume').addEventListener('input', function(){ Ans.volume = $('bld-volume').value; });
-    $('bld-entry-long').addEventListener('input', function(){ Ans.entryLong = $('bld-entry-long').value; });
+    /* dependsOnPositive, honoured here as in the app: no run, no date to ask
+       for. submitBuild() already drops the date unless the distance is above
+       zero, so this changes the screen rather than the payload. */
+    function syncEntryLongDate(){
+      var box = $('f-entry-long-date');
+      if (box) box.hidden = !(parseFloat(Ans.entryLong) > 0);
+    }
+    $('bld-entry-long').addEventListener('input', function(){
+      Ans.entryLong = $('bld-entry-long').value; syncEntryLongDate(); });
+    syncEntryLongDate();
     $('bld-entry-long-date').addEventListener('input', function(){ Ans.entryLongDate = $('bld-entry-long-date').value; });
   }
 

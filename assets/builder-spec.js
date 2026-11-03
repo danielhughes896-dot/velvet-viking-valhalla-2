@@ -237,7 +237,11 @@ var BUILDER_SPEC = {
         hint: 'How many days you have actually been running lately. You will pick the days you can train on in a moment.'
       },
       longestRunKm: {
-        label: 'Longest run in the last few weeks', unit: true, zeroAllowed: true,
+        /* "Longest recent run", not "in the last few weeks": the DATE below
+           establishes recency, and naming a window in the question both
+           imposes a rule the question does not enforce and discourages an
+           athlete from telling us about a run just outside it. */
+        label: 'Longest recent run', unit: true, zeroAllowed: true,
         range: [0, 100],
         hint: 'The furthest you have run in one go. Enter 0 if you have not done a longer run.'
       },
