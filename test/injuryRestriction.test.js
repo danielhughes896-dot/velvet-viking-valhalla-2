@@ -999,8 +999,29 @@ test('the no-running level is unchanged by the delivery definition', () => {
      because the gate is gated on usesMarathonArc(). The 0.90/0.70 bands are
      untouched and the verdict reads MARGINAL on both sides of the change. The
      dimension's own definition -- delivered km over prescribed km across the
-     developing weeks -- was never altered in either direction. */
-  const expect = { 7:0.92, 21:0.78, 42:0.52 };
+     developing weeks -- was never altered in either direction.
+
+     ---- AND 21 DAYS RETURNS TO 0.79 UNDER THE MARATHON RELOAD CORRECTION ----
+     HQ RULING. The third and last crossing of the same 78.5 edge, recorded
+     with its arithmetic like the two before it. A reload week now repeats the
+     week it absorbs at reduced dose, and a Build reload keeps Build's
+     ingredients instead of inheriting the preceding Base week's single slot,
+     so the twelve-week block prescribes less in its reload weeks:
+         before  delivered 724.4 / prescribed 923.4 = 0.784492  -> 0.78
+         after   delivered 717.9 / prescribed 912.4 = 0.786826  -> 0.79
+     Prescribed falls 11.0km and delivered 6.5km. The underlying movement is
+     0.0023 -- 0.23 of a percentage point -- and it crosses the two-decimal
+     boundary for the same reason it did twice before: the ratio sits within a
+     whisker of 78.5. A block that prescribes less in its absorption weeks
+     loses a smaller SHARE of itself to the same 21 days, which is the
+     coaching-correct direction.
+     NOTHING ELSE MOVED, a third time: 7 days 0.92 and 42 days 0.52 are
+     untouched, and Half (0.70/0.78), 10K (0.63) and 5K (0.63) are untouched at
+     every horizon, because every part of the correction is gated on
+     usesMarathonArc(). The 0.90/0.70 bands are untouched, the verdict reads
+     MARGINAL on both sides, and the dimension's definition is again unaltered.
+     NO DEFECT RATCHET AND NO METHODOLOGY WAS CHANGED TO ACCOMMODATE THIS. */
+  const expect = { 7:0.92, 21:0.79, 42:0.52 };
   Object.keys(expect).forEach(days => {
     const a = raceApp('full', 70, 16);
     a.declareRestriction('none', a.addDays(TODAY, Number(days) - 1));
