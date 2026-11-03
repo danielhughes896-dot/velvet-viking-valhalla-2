@@ -96,8 +96,19 @@ test('the banked build carries every field the builder actually asked for', () =
   ['purpose', 'distanceKey', 'hasEvent', 'raceDate', 'weeks', 'volume', 'activeDays',
    'longRunDay', 'benchmarkSeconds', 'benchmarkDistanceKey', 'experience', 'goalAmbition']
     .forEach(field => assert.match(input, new RegExp(field), 'the banked answers are missing ' + field));
-  assert.match(build, /savePending\(\{ input: input, preview: r\.body\.preview, build: r\.body\.build,/,
+  assert.match(build, /savePending\(\{ input: input, preview: r\.body\.preview,/,
     'the preview is banked without the answers that produced it');
+  /* ---- AND THE RECENT-RUNNING ANSWERS ARE BANKED WITH IT ---- HQ RULING.
+     They cannot travel inside `input`: /api/preview validates that against a
+     closed shape. They must still reach the app, which re-validates them and
+     regenerates the block, so they are merged into the banked `build`. Without
+     this an athlete could answer all four questions on /start and have every
+     one of them silently dropped at the handoff. */
+  assert.match(build, /build: Object\.assign\(\{\}, r\.body\.build, \{ entryEvidence:/,
+    'the four recent-running answers are not carried across the handoff');
+  ['weeklyKm', 'runDaysPerWeek', 'longestRunKm', 'longestRunDate']
+    .forEach(f => assert.match(build, new RegExp(f),
+      'the banked answers are missing ' + f));
   assert.match(build, /savedAt: Date\.now\(\)/,
     'the banked build carries no timestamp, so it can never be aged out as abandoned');
 });

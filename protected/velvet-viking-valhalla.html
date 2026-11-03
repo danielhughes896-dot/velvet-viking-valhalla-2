@@ -4020,9 +4020,86 @@ function raceGoalPathwayEntryKm(purpose, distKey, experience){
    -- and routes them to Aerobic Base; it reads ABSENT as "the field is gone"
    and lets the pathway answer. Passing 0 for a removed field would send every
    Race Goal athlete into a base block. */
+/* ---- EVERY PURPOSE ASKS IT NOW ---- HQ RULING. A Race Goal used to skip the
+   weekly-volume question while /start asked it on every purpose and refused
+   anything but a positive number -- so the two roads disagreed, and a genuine
+   beginner could not finish the website builder at all. The answer is now
+   starting-route evidence for every purpose, so every purpose asks it.
+   The function is kept rather than inlined: the markup, the validator and the
+   generator all read this one predicate, which is what stopped the screen and
+   the generator disagreeing before. */
 function builderAsksWeeklyVolume(purpose){
-  return purpose !== 'race';
+  return true;
 }
+/* ---- READING THE FOUR ANSWERS, WITH ZERO KEPT DISTINCT FROM BLANK ----
+   parseDistInput('') is null and parseDistInput('0') is 0, so the empty string
+   is tested for FIRST and separately. Everything downstream tests `!= null`;
+   if blank and zero ever collapsed here, a beginner's answer would silently
+   become the pathway's assumption again, which is the defect this whole
+   correction exists to remove. */
+/* The same four answers arriving from somewhere other than this builder --
+   /start's pending payload. Bounds come from BUILDER_SPEC so the two surfaces
+   cannot disagree, and anything outside them is dropped to null rather than
+   clamped: a number we cannot believe is not evidence. */
+/* ---- THE ONE CASE WHERE THE ANSWERS ARRIVE BEFORE state.setup DOES ----
+   adoptPendingBuildIfAny() regenerates the block from /start's banked
+   arguments and only writes state.setup afterwards, so statedEntryEvidence()
+   would read nothing during that build and the adopted plan would ignore the
+   four answers the athlete had just given. Set for that one call and cleared
+   after it, rather than writing a half-built state.setup that other readers
+   would see. */
+var pendingEntryEvidence = null;
+function sanitiseEntryEvidence(raw){
+  if (!raw || typeof raw !== 'object') return null;
+  var F = BUILDER_SPEC.entryEvidence.fields;
+  var inRange = function(v, f){
+    if (typeof v !== 'number' || !isFinite(v)) return null;
+    if (!f.range) return v;
+    return (v >= f.range[0] && v <= f.range[1]) ? v : null;
+  };
+  var km = inRange(raw.weeklyKm, F.weeklyKm);
+  var days = inRange(raw.runDaysPerWeek, F.runDaysPerWeek);
+  if (days != null) days = Math.round(days);
+  var longKm = inRange(raw.longestRunKm, F.longestRunKm);
+  var date = (typeof raw.longestRunDate === 'string' &&
+              /^\d{4}-\d{2}-\d{2}$/.test(raw.longestRunDate)) ? raw.longestRunDate : null;
+  if (!(longKm > 0)) date = null;
+  if (km == null && days == null && longKm == null) return null;
+  return { weeklyKm: km, runDaysPerWeek: days, longestRunKm: longKm,
+           longestRunDate: date,
+           recordedAt: (typeof raw.recordedAt === 'string' ? raw.recordedAt
+                                                           : new Date().toISOString()) };
+}
+function readBuilderEntryEvidence(){
+  var numOrNull = function(id){
+    var el = document.getElementById(id);
+    if (!el) return null;
+    var raw = String(el.value == null ? '' : el.value).trim();
+    if (raw === '') return null;                       // unanswered
+    var v = parseDistInput(raw);
+    return (v == null || !isFinite(v)) ? null : v;     // 0 reaches here as 0
+  };
+  var daysEl = document.getElementById('su-entry-days');
+  var rawDays = daysEl ? String(daysEl.value == null ? '' : daysEl.value).trim() : '';
+  var days = rawDays === '' ? null : Number(rawDays);
+  if (days != null && !isFinite(days)) days = null;
+  var longKm = numOrNull('su-entry-long');
+  var dateEl = document.getElementById('su-entry-long-date');
+  /* No distance means there is no date to keep -- and a zero long run needs
+     none, because "I have not done one" does not happen on a day. */
+  var longDate = (longKm != null && longKm > 0 && dateEl && dateEl.value)
+    ? dateEl.value : null;
+  return { weeklyKm: numOrNull('su-volume'), runDaysPerWeek: days,
+           longestRunKm: longKm, longestRunDate: longDate,
+           recordedAt: new Date().toISOString() };
+}
+var EV_FIELDS_HEADING = BUILDER_SPEC.entryEvidence.heading;
+var EV_F = BUILDER_SPEC.entryEvidence.fields;
+var EV_DAY_CHOICES = (function(){
+  var r = EV_F.runDaysPerWeek.range, out = [];
+  for (var i = r[0]; i <= r[1]; i++) out.push(i);
+  return out;
+})();
 function calibrationNeededNow(volume, pathwayEntryKm){
   return calibrationVerdict(volume, pathwayEntryKm).needed;
 }
@@ -5081,7 +5158,25 @@ function raceProgrammeViability(distKey, currentVolume, planWeeks, opts){
        the typed figure keeps, and this is the one place it does it. */
     var demV = null;
     try { demV = demonstratedSustainableVolume(); } catch(e){ demV = null; }
-    var statedV = (typeof currentVolume === 'number' && currentVolume > 0) ? currentVolume : null;
+    /* ---- AND A STATED ZERO IS EVIDENCE, NOT SILENCE ---- HQ RULING.
+       THE DEFECT, AND IT IS THE WHOLE SAFETY BOUNDARY. `> 0` collapsed "I run
+       nothing" into "I said nothing", so `have` fell through to the pathway's
+       own 21km entry, okE came out true, and an athlete who had told us they
+       are not running was classified race_programme and built a marathon
+       block. Measured: week one prescribed 21km across four running days with
+       a 10km long run and a 5km interval session, to somebody who runs
+       nothing. Read as the zero it is, the same athlete is below_viable and is
+       routed to a foundation block instead -- which is also why no artificial
+       starting floor is needed anywhere downstream: the zero-start case never
+       reaches the progression curve.
+       The Race Goal builder asks no volume question, so the stated figure now
+       arrives through the shared entry-evidence record; an explicit parameter
+       still wins where a caller passes one. */
+    var statedV = (typeof currentVolume === 'number' && currentVolume >= 0) ? currentVolume : null;
+    if (statedV == null){
+      var stE = statedEntryEvidence();
+      if (stE && stE.weeklyKm != null) statedV = stE.weeklyKm;
+    }
     var floor = raceGoalPathway(distKey, 'novice');
     if (floor && floor.entryVolumeKm > 0){
       /* Evidence first, the athlete's own statement second, and where there is
@@ -6022,6 +6117,51 @@ function qualityDeliveredKm(sel, kind, slots){
   if (kind === 'tempo' && (sel.isCheckpoint || sel.isCalibration))
     return checkpointDayKm(km, sel.emphasis);
   return km + qualityDayShortfallKm(km, spec, kind === 'interval' ? 'interval' : 'tempo');
+}
+
+/* ---- A QUALITY SESSION SHRINKS BEFORE IT IS DELETED ---- HQ RULING.
+   "Correct affordability so Quality is shrunk through existing architecture
+   before being yielded/replaced by another Easy."
+
+   Returns a copy of `sel` whose structures have been stepped down -- through
+   shrinkIntervalSpec/shrinkTempoSpec and NO other mechanism, the same two the
+   taper and the Build reload hold already use -- until the delivered day fits
+   `targetKm`, or until the structures reach their own floors and stop.
+
+   IT NEVER GROWS A SESSION, never returns a structure below
+   TAPER_MIN_REPS / TAPER_MIN_SET_REPS / TAPER_MIN_LADDER / TAPER_MIN_WORK_KM /
+   TAPER_MIN_OVER_UNDER_CYCLES, and never promises to reach the target: where
+   nothing will move it returns the smallest legal selection and the caller
+   still decides. So a week that genuinely cannot contain a quality session
+   still refuses one -- it just refuses on the smallest dose the architecture
+   can express instead of on the full-size one.
+
+   NO NEW CONSTANT. The 0.9 step is the Build reload loop's own step, lifted
+   with the loop rather than reinvented beside it. */
+function shrinkQualitySelection(sel, kind, slots, targetKm){
+  var out = { soloSpec:sel.soloSpec, soloKind:sel.soloKind, soloKm:sel.soloKm,
+              qSpec:sel.qSpec, qKm:sel.qKm, tSpec:sel.tSpec, tKm:sel.tKm,
+              isCheckpoint:sel.isCheckpoint, isCalibration:sel.isCalibration,
+              emphasis:sel.emphasis };
+  /* A checkpoint or calibration slot IS the measurement -- shrinking it would
+     change what is being measured, so it is left exactly alone, the same
+     exemption the reload hold and the taper swap already make. */
+  if (sel.isCheckpoint || sel.isCalibration) return out;
+  var guard = 0;
+  while (guard++ < 24 && qualityDeliveredKm(out, kind, slots) > targetKm + 1e-9){
+    var solo = slots === 1 && !!out.soloSpec && kind === out.soloKind;
+    var spec = solo ? out.soloSpec : (kind === 'interval' ? out.qSpec : out.tSpec);
+    if (!spec) break;
+    var size = (kind === 'interval') ? intervalSessionKm(spec) : tempoSessionKm(spec);
+    var next = (kind === 'interval') ? shrinkIntervalSpec(spec, size * 0.9)
+                                     : shrinkTempoSpec(spec, size * 0.9);
+    var nextKm = (kind === 'interval') ? intervalSessionKm(next) : tempoSessionKm(next);
+    if (!(nextKm < size - 1e-9)) break;          // at its floor; stop
+    if (solo){ out.soloSpec = next; out.soloKm = nextKm; }
+    else if (kind === 'interval'){ out.qSpec = next; out.qKm = nextKm; }
+    else { out.tSpec = next; out.tKm = nextKm; }
+  }
+  return out;
 }
 
 /* =========================================================
@@ -7248,6 +7388,58 @@ function raceGoalPathway(distKey, experience){
    pathway still says which preparation architecture they need; their evidence
    still says where they may start and how fast they may move. Those are
    different questions and this function answers only the second. */
+/* ---- WHAT THE ATHLETE TOLD US, BEFORE VALHALLA HAS WATCHED THEM RUN ----
+   HQ RULING. Experience Level remains pathway/destination authority; these
+   three answers establish the SAFE ROUTE into it and nothing else.
+
+   ZERO IS AN ANSWER, AND IT IS NOT THE SAME ANSWER AS SILENCE. Every existing
+   reader of the typed figure guards it with `> 0`, which collapses the two:
+   an athlete who tells us they are running nothing was read as an athlete who
+   told us nothing, and the pathway's own entry assumption then answered for
+   them. That is the defect HQ named -- "pathway defaults must not overwrite
+   explicit zero evidence" -- so every predicate here is `!= null`.
+
+   ONE SIGNAL NEVER SPEAKS FOR ANOTHER. Three separate fields, read
+   separately, consumed by whichever methodology wants them. A long run is not
+   a weekly volume, a weekly volume is not a day count, and none of them is
+   evidence about quality tolerance -- which stays learned, never asked.
+
+   RECENCY, FOR THE LONG RUN ONLY. CALIBRATION_EVIDENCE_DAYS is the existing
+   answer to precisely this question -- "how long a measured effort stays
+   evidence... long enough that an athlete who raced last month is not sent out
+   to test again, short enough that a result from another season does not stand
+   in for current fitness". A single past effort and how long it remains
+   current is the same question, so it takes the same answer and no new number
+   is introduced. The detraining literature supports a bound of this order
+   without supporting a cliff: Mujika & Padilla split short- from long-term
+   detraining at four weeks and say themselves it is a convention rather than a
+   physiological threshold, with recently acquired adaptations lost over the
+   weeks beyond it. Six weeks sits just past that convention.
+
+   AN EXPLICIT ZERO NEVER EXPIRES. "I have not run a long run" does not become
+   less true with time, and letting it lapse would hand the pathway default
+   back to the one athlete whose answer we most need to respect.
+
+   THE DEMONSTRATED-HISTORY WINDOW IS NOT TOUCHED. DEMONSTRATED_WINDOW_WEEKS
+   and the ">= 2 runs / second-longest" rule keep their exact meaning for
+   Valhalla-observed evidence; this reads self-report only, and sits BELOW it. */
+function statedEntryEvidence(){
+  var e = null;
+  try { e = (state && state.setup && state.setup.entryEvidence) ||
+            pendingEntryEvidence || null; }
+  catch(err){ e = null; }
+  if (!e) return null;
+  var num = function(v){ return (typeof v === 'number' && isFinite(v) && v >= 0) ? v : null; };
+  var longKm = num(e.longestRunKm);
+  if (longKm != null && longKm > 0){
+    /* A distance with no date cannot be placed in time, so it is not read. */
+    var d = e.longestRunDate || null;
+    var age = null;
+    try { age = d ? daysBetween(d, todayStr()) : null; } catch(err){ age = null; }
+    if (age == null || age < 0 || age > CALIBRATION_EVIDENCE_DAYS) longKm = null;
+  }
+  return { weeklyKm: num(e.weeklyKm), runDays: num(e.runDaysPerWeek), longKm: longKm };
+}
 function raceGoalEntryState(distKey, experience, statedVolumeKm){
   var path = raceGoalPathway(distKey, experience);
   var dem = null, demLong = null, demFreq = null;
@@ -7278,7 +7470,11 @@ function raceGoalEntryState(distKey, experience, statedVolumeKm){
      IT IS STILL RECORDED. `statedKm` below carries it so a reader can see what
      the athlete said beside what the block used, and so the difference between
      the two is inspectable rather than lost. */
-  var volume = dem != null ? dem : (path ? path.entryVolumeKm : null);
+  var st = statedEntryEvidence();
+  var stV = st ? st.weeklyKm : null, stD = st ? st.runDays : null, stL = st ? st.longKm : null;
+  var volume = dem != null ? dem
+             : stV != null ? stV
+             : (path ? path.entryVolumeKm : null);
   /* ---- AND THE PATHWAY'S ENTRY LONG RUN IS THE PATHWAY'S ----
      It used to be scaled down by the athlete's typed weekly volume, which was
      the right protection while that number was the entry authority: without it
@@ -7292,17 +7488,26 @@ function raceGoalEntryState(distKey, experience, statedVolumeKm){
      to a foundation block and never arrives here. Inside a race block the
      pathway's assumption stands unscaled, and demonstrated evidence outranks
      it in both directions. */
-  var longKm = demLong != null ? demLong : (path ? path.entryLongKm : null);
+  var longKm = demLong != null ? demLong
+             : stL != null ? stL
+             : (path ? path.entryLongKm : null);
   return {
     volumeKm: volume,
     longKm: longKm,
-    days: demFreq != null ? demFreq : (path ? path.entryDays : null),
+    days: demFreq != null ? demFreq
+        : stD != null ? stD
+        : (path ? path.entryDays : null),
     /* WHICH OF THE THREE ANSWERED, so the report and the readiness layer can
        say what the programme was built on rather than implying evidence that
        does not exist. */
-    volumeSource: dem != null ? 'demonstrated' : 'pathway',
+    volumeSource: dem != null ? 'demonstrated' : stV != null ? 'stated' : 'pathway',
+    /* THE DAY COUNT CARRIES ITS PROVENANCE TOO, which it never did -- delivery
+       now reads it (see mFreqEarnedCap), so a reader must be able to see
+       whether it came from evidence, from the athlete, or from the pathway. */
+    daysSource:   demFreq != null ? 'demonstrated' : stD != null ? 'stated' : 'pathway',
+    statedEntry:  st || null,
     statedKm: stated,
-    longSource:   demLong != null ? 'demonstrated' : 'pathway',
+    longSource:   demLong != null ? 'demonstrated' : stL != null ? 'stated' : 'pathway',
     /* THE PATHWAY'S OWN ASSUMPTIONS, CARRIED SEPARATELY from whatever the
        athlete's evidence made of them, so a reader can always see which of the
        two a number came from. */
@@ -9104,6 +9309,32 @@ function marathonSessionStart(statedVolumeKm, supportDays, qualitySlots, distKey
   var longKm = demLong != null
     ? Math.min(capKm, demLong) : impliedLong;
   if (!(longKm > 0)) longKm = impliedLong;
+  /* ---- AN EXPLICIT ZERO IS EVIDENCE, AND IT MUST NOT BECOME A JUMP TO THE
+     DESTINATION ---- HQ RULING, and this is the trap that ruling opens.
+
+     raceGoalFloorAtStep() opens `if (!(startKm > 0)) return destKm`. Until a
+     stated zero could reach here that branch was unreachable for a Race Goal,
+     because an athlete with no evidence fell through to the pathway's own entry
+     long run. Read as the zero it now is, the curve has no start to grow from
+     and the athlete was handed the DESTINATION in week one: measured, a stated
+     0km / 0 days / 0 LR Developing athlete was prescribed a 21km long run in
+     week one, 63% of a 33.5km week. A multiplicative curve cannot start at
+     zero, and returning the endpoint instead is the worst available answer.
+
+     So where the week is an explicit zero the long run seeds at the smallest
+     long run this library will write. MIN_LONG_RUN_KM is that number already
+     and is used for exactly this purpose elsewhere in the solve; nothing new is
+     introduced, and no threshold of continuous running is invented here --
+     raceProgrammeViability() is explicit that defining one "belongs to the
+     stage that builds foundation".
+
+     THIS IS A ROBUSTNESS FLOOR, NOT THE PRODUCT ANSWER. A genuine zero runner
+     should not be on a Race Goal block at all, and is not: the viability and
+     reachability boundaries refuse them and route them to a foundation block.
+     This exists so that the previews, the audit layer and Continue-path callers
+     that build a block regardless cannot produce a destination-sized session
+     for somebody who has told us they are not running. */
+  if (!(longKm > 0) && statedVolumeKm === 0) longKm = MIN_LONG_RUN_KM;
   /* THE QUALITY SESSION IS PART OF THE WEEK THE ATHLETE ALREADY RUNS, and
      leaving it out of the split made week one bigger than the volume they
      stated -- their whole week was divided across the long run and the easy
@@ -10472,14 +10703,28 @@ function marathonSlotKindFor(planWeeks, weekNum, phase, isCheckpoint, isCalibrat
    the readiness benefit justifies it. This function only prices it. */
 var LONG_RUN_COST_ORDINARY_SEC = 150 * 60;   // 2h30
 var LONG_RUN_COST_HEAVY_SEC    = 210 * 60;   // 3h30
-/* HQ'S DEVELOPING-MARATHON TIME CEILING -- a tighter, distance-specific
-   override on top of the general cost pressure above. A Developing
-   marathoner at 7:00/km is already past 3 hours at 26km; HQ's rule is that
-   this athlete does not scale the distance up from there even as weekly
-   volume grows, and reaching 3 hours of time on feet satisfies the
-   long-run requirement in its own right, short of the km floor or not.
+/* HQ'S DEVELOPING-MARATHON TIME PRESSURE POINT -- a tighter, distance-specific
+   reference on top of the general cost pressure above: a Developing marathoner
+   at 7:00/km is already past three hours at 26km, so their long run reaches
+   that region far earlier than a faster athlete's does.
+
+   IT IS NOT A DISTANCE CAP -- HQ RULING, and this comment previously said
+   otherwise. It read "this athlete does not scale the distance up from there",
+   and implementing it that way capped the Developing destination outright.
+   Measured, 28km inside three hours needs 6:26/km, which is not a Developing
+   pace: the locked 28km standard became unreachable for most of the tier, and
+   an athlete who had already run further was capped below their own
+   demonstrated capability. HQ has ruled the other way -- 28km remains the
+   destination, three hours is a soft recovery and coaching pressure point, and
+   beyond it the athlete's own response, recovery and progression evidence is
+   what constrains whether the route continues. Where 28km cannot safely be
+   reached the block stops at the safest useful point and readiness reports the
+   limitation, exactly as it does for any other shortfall.
+
    Read only where raceGoalDestinationSolve() prices a Developing (novice)
-   marathon's long-run cost bound -- see mLongCostCeilSec there. */
+   marathon's long-run cost term -- see mLongCostCeilSec there, where it sits
+   inside a Math.max beside the coherence ceiling and therefore contributes to
+   the shape of the week rather than truncating the session. */
 var RACE_GOAL_DEVELOPING_MARATHON_TIME_CEIL_SEC = 180 * 60;   // 3h00
 function longRunCostPressure(seconds){
   if (!(seconds > 0)) return 0;
@@ -11145,6 +11390,88 @@ var RACE_GOAL_MAX_DAYS = { novice: 4, experienced: 5, advanced: 5 };
    who states nothing opens at the frequency their pathway requires rather
    than one day short of it. */
 var MARATHON_PRESCRIBED_DAYS = { novice: 4, experienced: 5, advanced: 6 };
+/* ---- AND THE FLOOR THE PRESCRIPTION OPENS ON ---- HQ RULING, DEVELOPING
+   MARATHON. The table above is the DESTINATION day count. This is where the
+   prescription starts, and the two are no longer the same number: an athlete
+   who tells us they currently run 0, 1 or 2 days still opens on three, because
+   a marathon week below three running days is not a marathon week -- but they
+   do not open on four merely because four days are available.
+
+   THREE IS NOT A NEW JUDGEMENT. BUILDER_SPEC.validation.daysRange is [3, 6]:
+   the builder has always refused to let an athlete select fewer than three
+   running days, so three is already the floor of what this product can express.
+
+   WHAT THE SHAPES ARE, and they are HQ's:
+     Base,  3 days   2 Easy + LR
+     Base,  4 days   3 Easy + LR            (the fourth day enters as Easy)
+     Build, 4 days   2 Easy + Quality + LR
+     Build, 3 days   1 Easy + Quality + LR  (where day four is not yet earned)
+   All four fall out of `prescribed - 1 - qSlots` supporting runs; nothing
+   enumerates them. */
+var MARATHON_MIN_PRESCRIBED_DAYS = 3;
+/* ---- WHETHER THE FOURTH RUNNING DAY HAS BEEN EARNED ---- HQ RULING.
+   "Gate the fourth day using existing miss + execution evidence; do not
+   require HR/health data."
+
+   BOTH SIGNALS ARE THE ONES progressionJustification() ALREADY USES, and the
+   no-health-data property is the reason: missPattern() reads completion and
+   executionPattern() reads execution scores computed from distance and pace,
+   so an athlete who has declined health-data consent earns the fourth day on
+   exactly the same evidence as one who granted it. blockEffectiveness() is
+   deliberately NOT read -- its dimensions include heart rate, and gating on it
+   would quietly make this a covered-data decision.
+
+   ABSENCE OF EVIDENCE PERMITS. Both functions return null when there is not
+   yet a window to read, or when nothing went wrong. A block being built for
+   the first time therefore promotes on schedule, which is right: absence of
+   evidence is not evidence of incapacity, and this architecture says so in
+   several other places already.
+
+   PROGRESSION_TIERS_ALLOWED is the existing standard for "this athlete has
+   earned development" -- the same list progressionJustification() tests. No
+   new tier and no new threshold. */
+function developingFourthDayPermission(){
+  var out = { permitted:true, reason:null, missTier:null, executionTier:null,
+              miss:null, execution:null };
+  var miss = null, exec = null;
+  try { miss = missPattern(); } catch(e){ miss = null; }
+  try { exec = executionPattern(); } catch(e){ exec = null; }
+  out.miss = miss; out.execution = exec;
+  out.missTier = miss ? miss.tier : null;
+  out.executionTier = exec ? exec.tier : null;
+  if (miss && PROGRESSION_TIERS_ALLOWED.indexOf(miss.tier) === -1){
+    out.permitted = false; out.reason = 'missed_sessions'; return out;
+  }
+  if (exec && PROGRESSION_TIERS_ALLOWED.indexOf(exec.tier) === -1){
+    out.permitted = false; out.reason = 'execution'; return out;
+  }
+  return out;
+}
+/* ---- AND WHEN IT IS FIRST OFFERED ---- HQ RULING: "~2-3 weeks", and "stated
+   0-1 day frequency must not lower the 3-day prescription, but should make
+   promotion to day 4 more cautious than an athlete already accustomed to 3".
+
+   BOTH FIGURES ARE DERIVED, NOT CHOSEN:
+
+     ORDINARY. missPattern() cannot read until PATTERN_MIN_PLANNED (6)
+     prescribed sessions have passed. At the three-day floor that is two weeks,
+     so two weeks is the earliest a completion judgement exists at all --
+     offering the day before then would be offering it with nothing to go on.
+
+     CAUTIOUS. For an athlete whose own account is below the floor they are
+     being started on, three days a week is itself the new thing being
+     absorbed. SUSTAINED_WEEKS_REQUIRED is the architecture's existing answer
+     to how long something must hold before it counts as held rather than
+     merely reached -- "three weeks at a volume before it counts as held" -- so
+     they hold the three days for that long before the fourth is offered.
+
+   Neither is a fatigue model and neither pretends to be: they decide only when
+   the QUESTION is first asked. developingFourthDayPermission() answers it. */
+function developingFourthDayStep(entryDays){
+  var ordinary = Math.ceil(PATTERN_MIN_PLANNED / MARATHON_MIN_PRESCRIBED_DAYS);
+  if (entryDays != null && entryDays >= MARATHON_MIN_PRESCRIBED_DAYS) return ordinary;
+  return Math.max(ordinary, SUSTAINED_WEEKS_REQUIRED);
+}
 function marathonPrescribedDays(experience){
   return MARATHON_PRESCRIBED_DAYS[experience] || MARATHON_PRESCRIBED_DAYS.experienced;
 }
@@ -11174,6 +11501,29 @@ function marathonPrescribedDays(experience){
    gets: four days is "three- and four-day athletes keep their one slot,
    never zero" territory, not a week with no real easy running left in it. */
 var RACE_GOAL_BUILD_QUALITY_SLOTS = { novice: 1, experienced: 2, advanced: 2 };
+/* ---- DEVELOPING MARATHON BASE CARRIES NO CONVENTIONAL QUALITY SLOT ----
+   HQ RULING: "Base 3d = 2 Easy + LR", "Fourth day enters as Easy",
+   "Build 4d = 2 Easy + Quality + LR".
+
+   So for this one pathway the quality session is what BUILD introduces, and
+   Base is aerobic: two easy runs and the long run at the three-day floor, three
+   easy runs and the long run once the fourth day is earned. Measured before
+   this, a Developing Base week came out 1 Easy + Quality + LR at three days --
+   one easy run beside a structured session, which is neither the shape HQ
+   specified nor a sensible aerobic base.
+
+   A CHECKPOINT OR CALIBRATION WEEK KEEPS ITS SLOT, because that slot is a
+   MEASUREMENT rather than a quality dose -- the day builder pins it, readiness
+   is built on it, and removing it would delete the test rather than the
+   training. Same exemption shrinkQualitySelection() and the Developing
+   affordability gate already make.
+
+   The quality session's ARRIVAL in Build is then an ordinary structural event,
+   which mNewQual/estQSlots already detect and protect. */
+function developingBaseSuppressesQuality(distKey, exp, phase, isCheckpoint, isCalibration){
+  return distKey === 'full' && exp === 'novice' && phase === 'Base' &&
+         !isCheckpoint && !isCalibration;
+}
 function raceGoalWeekQualitySlots(distKey, exp, phase, availDays, fallback){
   if (distKey === '5k') return raceGoal5kWeekQualitySlots(exp, phase, availDays);
   if (distKey !== 'half' && distKey !== 'full') return fallback;
@@ -11617,11 +11967,42 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
        7:00/km, already over 3 hours at 26km, who should not be scaled up
        from there. So this one pathway prices its long run against 3 hours,
        not 3h30; every other pathway is unchanged. */
-    var mLongCostCeilSec = (distKey === 'full' && mExp === 'novice')
+    var mDevMarathon = (distKey === 'full' && mExp === 'novice');
+    var mLongCostCeilSec = mDevMarathon
       ? RACE_GOAL_DEVELOPING_MARATHON_TIME_CEIL_SEC : LONG_RUN_COST_HEAVY_SEC;
     var mCostLong = (mPaceSec > 0) ? mLongCostCeilSec / mPaceSec : Infinity;
     var mCoh = Math.max(longRunCoherenceCeiling(mSupportDest),
                         Math.min(mPathLong, mCostLong));
+    /* ---- AND THE THREE HOURS IS A PRESSURE POINT, NOT A DISTANCE CAP ----
+       HQ RULING, superseding an earlier reading of the same constant.
+
+       WHAT WAS TRIED AND IS NOW REVERTED. This expression was changed so that
+       RACE_GOAL_DEVELOPING_MARATHON_TIME_CEIL_SEC bound the Developing long-run
+       destination outright -- a hard Math.min, floored to the whole kilometre so
+       rounding could not carry it back over three hours. It did exactly what it
+       said, and that turned out to be the wrong thing: 28km inside three hours
+       needs 6:26/km, which is not a Developing pace, so the locked 28km standard
+       became unreachable for most of the tier and an athlete who had already
+       completed a longer run was capped below their own demonstrated capability.
+
+       THE RULING. 28km remains the preparation destination. Three hours is a
+       soft recovery and coaching pressure point, and nothing here caps below
+       demonstrated safe capability. Beyond roughly three hours it is the
+       athlete's own response, recovery and progression evidence that
+       increasingly constrains whether the route continues -- and where 28km
+       cannot safely be reached, the block stops at the safest useful point and
+       readiness reports the limitation, which is what it already does for every
+       other shortfall.
+
+       NOTHING NEW IMPLEMENTS THAT, because it already exists and said so before
+       this correction touched it. longRunCostPressure() grades the cost
+       smoothly from LONG_RUN_COST_ORDINARY_SEC to LONG_RUN_COST_HEAVY_SEC and
+       its own note is explicit: "Nothing here truncates a long run and nothing
+       here forbids one -- ~3h is a coaching cost convention and not a safety
+       law... This function only prices it." That price is then paid where the
+       methodology says it should be -- weekQualityContextRefusal() withholds a
+       SECOND demanding session once the pressure reaches its budget, rather
+       than shortening the long run the preparation is built on. */
     if (mLongDest.km > mCoh){
       mLongDest.km = round1(Math.max(mLongFloor, mCoh));
       mLongDest.limited = true; mDominated = true;
@@ -11714,7 +12095,63 @@ function raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts){
                 buildVolumeDestKm: raceGoalVolumeDestinationKm(distKey, mExp, mEntry, 'build'),
                 buildLongDestKm: raceGoalLongDestinationKm(distKey, mExp, mEntry, 'build'),
                 startSupportTotalKm: mSupTotalStart, supportTotalDestKm: mSupTotalDest,
-                startLongKm:mStart.longKm, startSupportKm:mStart.supportKm,
+                /* ---- THE OPENING LONG RUN IS BOUNDED BY THE WEEK THAT
+                   CARRIES IT, AND BOUNDED HERE ON PURPOSE ---- HQ RULING:
+                   "Recent LR informs LR progression/rate/ceiling -- it does
+                   NOT automatically become Week 1's LR"; "one signal must
+                   never manufacture another".
+
+                   THE DEFECT. mStart.longKm takes the demonstrated/stated long
+                   run whole, so a run the athlete genuinely completed became
+                   week one however small the week carrying it: an athlete at
+                   3km/week, one running day and a 20km long run opened on a
+                   29km week -- ten times their volume -- with the long run at
+                   69% of it beside three token 3km runs, and stayed there for
+                   fifteen weeks.
+
+                   WHY HERE AND NOT INSIDE marathonSessionStart(). A first
+                   version bounded it there, and mStart.longKm also sizes the
+                   SUPPORT DESTINATION (see marathonSupportDestination below).
+                   The bound divides by the week's day count, so frequency
+                   leaked into the destination and Advanced's support
+                   destination started moving with demonstrated frequency --
+                   caught by marathonAuthorityAndChoice's own guard, which
+                   says in as many words that it is protected only
+                   incidentally and that "a future change to the coherence band
+                   would otherwise expose it silently". It was right. Experience
+                   Level is destination authority and frequency may not touch
+                   it, so the destination keeps the unbounded figure and only
+                   the PROGRESSION SEED is bounded.
+
+                   NO NEW NUMBER. The band is the architecture's own: a
+                   supporting run is at least SUPPORT_SHARE_MIN of the long
+                   run, which is the identical relation
+                   longRunCoherenceCeiling() states, solved as L + d*s = V with
+                   s >= SUPPORT_SHARE_MIN*L.
+
+                   THE EVIDENCE STILL BUYS WHAT IT SHOULD. The long run reaches
+                   its evidence-raised destination through
+                   raceGoalLongDestinationKm(), and raceGoalFloorStepRate() is
+                   (dest/start)^(1/weeks) bounded by the Nielsen two-week cap --
+                   so a coherent lower seed against an unchanged destination
+                   earns a FASTER permitted progression. A recent 20km long run
+                   buys faster and higher development, and no longer buys a
+                   week the athlete has not run. */
+                startLongKm: (function(){
+                  /* HALF AND MARATHON ONLY. These are the pathways whose entry
+                     state carries a long run at all, and the ones HQ's rulings
+                     are about. Measured, the bound also moved 5K Developing by
+                     0.3km of weekly volume -- a pathway standing instructions
+                     keep untouched -- so it is gated rather than left to reach
+                     a distance nobody asked about. 10K, 5K and Ultra generate
+                     byte-identically. */
+                  if (distKey !== 'half' && distKey !== 'full') return mStart.longKm;
+                  var sV = mEntryKm, sD = Math.max(1, mStartDays + mQSlots);
+                  if (!(sV > 0)) return mStart.longKm;
+                  var sCeil = sV / (1 + SUPPORT_SHARE_MIN * sD);
+                  return (mStart.longKm > sCeil) ? round1(sCeil) : mStart.longKm;
+                })(),
+                startSupportKm:mStart.supportKm,
                 longDestKm:mLongDest.km, longLimited:mLongDest.limited,
                 supportDestKm:mSupportDest, progressing:mProgressing,
                 /* WOULD A DAY BEYOND WHAT THE ATHLETE OFFERED HAVE GENUINELY
@@ -12053,6 +12490,46 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
        nowhere else in this solve. */
     mBottomUp = raceGoalDestinationSolve(distKey, blockExp, currentVolume, N, opts);
   }
+  /* ---- THE DEVELOPING MARATHON'S PRESCRIBED DAY COUNT ---- HQ RULING.
+     Opens at MARATHON_MIN_PRESCRIBED_DAYS and develops to the pathway's
+     destination; the fourth day is offered from developingFourthDayStep() and
+     withheld by developingFourthDayPermission(). Decided ONCE per block so
+     every week of a given build agrees, and so the card and the prescription
+     read the same decision -- the same way secondQualityExposurePermission()
+     is read once for the block's quality shape.
+
+     AVAILABILITY IS STILL A CEILING: an athlete who offered three days never
+     reaches four, and mDays is already capped to the tier above. */
+  var mDevFreq = null;
+  if (mBottomUp && distKey === 'full' && blockExp === 'novice'){
+    /* `!= null` -- a stated zero is evidence, not silence. The opening count
+       is the same three either way; this keeps the meaning honest and lets the
+       card distinguish "not running yet" from "did not say". */
+    var mDevEntryDays = (mBottomUp.entry && mBottomUp.entry.days != null)
+      ? mBottomUp.entry.days : null;
+    var mDevPerm = developingFourthDayPermission();
+    var mDevDest = Math.min(mBottomUp.days || MARATHON_MIN_PRESCRIBED_DAYS,
+                            marathonPrescribedDays(blockExp));
+    /* ---- THE OPENING COUNT IS THEIR OWN, FLOORED -- NOT THE FLOOR ITSELF ----
+       The floor exists so that nobody opens below three; it is not a reason to
+       hold an athlete who already runs four down to three. So the prescription
+       opens at what they currently run, clamped into [floor, destination]:
+       0/1/2 days open on three, three opens on three, and four opens on four
+       with nothing left to promote. Availability alone still buys nothing --
+       the clamp reads their TRAINING, and mDays caps it. */
+    var mDevOpen = Math.max(MARATHON_MIN_PRESCRIBED_DAYS,
+                            Math.min(mDevDest,
+                                     mDevEntryDays != null ? mDevEntryDays
+                                                           : MARATHON_MIN_PRESCRIBED_DAYS));
+    mDevFreq = {
+      floor: mDevOpen,
+      destination: mDevDest,
+      step: developingFourthDayStep(mDevEntryDays),
+      entryDays: mDevEntryDays,
+      entryDaysSource: (mBottomUp.entry && mBottomUp.entry.daysSource) || null,
+      permission: mDevPerm
+    };
+  }
   for (var w=1; w<=N; w++){
     var isRace = !steady && arc.hasGoalEffort && (w===N);
     var isTaper = !steady && (!isRace && w>buildWeeks);
@@ -12374,7 +12851,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
                 buildVolumeDestKm: mBottomUp.buildVolumeDestKm,
                 buildLongDestKm: mBottomUp.buildLongDestKm,
                 supportDays: mBottomUp.supportDays,
-                qSlots: raceGoalWeekQualitySlots(distKey, blockExp, phase, mBottomUp.days, mBottomUp.qSlots),
+                qSlots: developingBaseSuppressesQuality(distKey, blockExp, phase,
+                                                        isCheckpoint, isCalibration)
+                  ? 0
+                  : raceGoalWeekQualitySlots(distKey, blockExp, phase, mBottomUp.days, mBottomUp.qSlots),
                 capacityCeilingKm: mBottomUp.capacityCeilingKm,
                 longDestKm: mBottomUp.longDestKm, longLimited: mBottomUp.longLimited,
                 /* ---- WHAT THE BLOCK WAS BUILT FROM, ON EVERY WEEK ----
@@ -13396,6 +13876,34 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
       var lrHold = Math.min(mPrevLongKm, Math.max(longTarget, lrHoldCeil));
       if (lrHold > longTarget) longTarget = round1(lrHold);
     }
+    /* ---- AND DELIVERY NEVER EXCEEDS THE SAFELY SOLVED DESTINATION ----
+       HQ RULING item 3, DEVELOPING MARATHON ONLY: "ensure delivered LR cannot
+       exceed the safely solved LR destination."
+
+       IT DOES NOT PROPAGATE ON ITS OWN, which is why this is here. Two routes
+       put a delivered long run above the destination the solve bounded:
+
+         1. THE FIRST PEAK WEEK IS EXEMPT FROM THE CLAMP ABOVE. Read it: on
+            hPeakFirst the week RECORDS hPeakLongKm and takes the
+            `Math.min(longTarget, mWeek.longDestKm)` branch only in the `else`.
+            So the block's longest run was the single week that never met the
+            destination the solve had settled.
+         2. THE DON'T-GO-BACKWARDS HOLD CARRIES IT FORWARD. The hold floors a
+            development week at mPrevLongKm, so once any week sits above the
+            destination every later week inherits it.
+
+       MEASURED: this is what broke the projection/block agreement contract --
+       the pre-flight projection, which does apply the bound, promised a 25km
+       long run while the block went on to build 25.3km. A projection that
+       disagrees with the block it precedes is, in that contract's own words,
+       worse than no projection at all.
+
+       AFTER the hold deliberately, so the hold cannot reintroduce the
+       overshoot it just removed. The long run is only ever LOWERED here, which
+       is the same direction every other bound in this correction moves it. */
+    if (distKey === 'full' && blockExp === 'novice' && mWeek &&
+        mWeek.longDestKm > 0 && longTarget > mWeek.longDestKm)
+      longTarget = round1(mWeek.longDestKm);
     var b2bEligible = !!profile.backToBack && !isTaper && !isRace && phase!=='Base';
 
     /* OMITTED, NOT SHRUNK, BELOW THE FLOOR.
@@ -13560,7 +14068,10 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
          unattributed volume and quality sessions longer than the long run. */
       function mSolveWeek(longIn, supportIn, supportTotalIn, pinTo){
         var r = { longKm: longIn, supportKm: supportIn, qKm: mQBase,
-                  qSlots: raceGoalWeekQualitySlots(distKey, blockExp, phase, mBottomUp.days, mBottomUp.qSlots),
+                  qSlots: developingBaseSuppressesQuality(distKey, blockExp, phase,
+                                                        isCheckpoint, isCalibration)
+                  ? 0
+                  : raceGoalWeekQualitySlots(distKey, blockExp, phase, mBottomUp.days, mBottomUp.qSlots),
                   supportDays: mBottomUp.supportDays,
                   qualityNotYetEligible: false, qualityDeferred: false };
         /* ---- QUALITY WAITS UNTIL THE WEEK CAN CARRY IT ----
@@ -13576,8 +14087,103 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
            supporting runs AND this slot; refusing the structure without giving
            the slot's share back deleted training the athlete already does. */
         var givenBack = 0;
+        /* ---- THE DOSE YIELDS BEFORE THE SESSION DOES ---- HQ RULING,
+           DEVELOPING MARATHON ONLY.
+
+           THE DEFECT, MEASURED. The gate below prices the FULL-SIZE quality
+           structure and, finding the week cannot hold it, deletes the slot --
+           so the dose never gets the chance to come down first. For an 11km/week
+           Developing athlete at fifteen weeks that removed the required Build
+           quality session from six of its first ten weeks, and the arithmetic
+           was self-fulfilling: the slot's share went back to the aerobic work,
+           which bought a THIRD easy day, which divided the same supporting
+           kilometres three ways instead of two and pinned every one of them on
+           EASY_MIN_KM. Weeks five and six came out 3 + 3 + 3 + LR 11 -- 55% of
+           the week in the long run, no quality, and nothing developing.
+
+           It is the same pattern HQ already ruled on for the Build reload:
+           affordability must evaluate the structure the week would actually be
+           given, not the full-size one it cannot have.
+
+           SO THE STRUCTURE STEPS DOWN FIRST, through shrinkQualitySelection()
+           -- the existing shrink functions, stopping at their own structural
+           floors. If a legal dose fits the room the week genuinely has, the
+           session stays and the week keeps 2 Easy + 1 Quality + 1 LR. If
+           nothing will fit even at the floor, the gate below still fires and
+           the slot is still refused: the refusal is preserved, it just happens
+           on the smallest session the architecture can express.
+
+           AND BOTH LAYERS WRITE THE SAME WEEK. The shrunken specs are carried
+           on the solution and committed to mWeek, so the day builder reads
+           them through its own slotSelection() rather than re-deriving the
+           full-size structure -- the reconciliation between reported volume
+           and the sum of the days is what this architecture exists to
+           guarantee, and a dose that moved in one layer only would break it.
+
+           MARATHON + DEVELOPING ONLY. Measured, Established and Advanced never
+           reach this gate at all -- their weeks are large enough that the
+           full-size session already fits in every week of every cohort -- and
+           the half, 10K, 5K and Ultra never enter. */
+        /* ---- AND IT IS PRICED AGAINST THE DAYS THE WEEK ACTUALLY HAS ----
+           HQ RULING item 6, the Developing floor/day arithmetic.
+
+           THE DEFECT, MEASURED: marathonQualityEligible() prices ONE
+           EASY_MIN_KM beside the long run and the session, but a Developing
+           Build week has TWO supporting days, and Established five-day weeks
+           have more still. So the gate asked a three-day week's question of a
+           four-day week. For the 11km/week athlete's week five it computed
+           9.8 + 5.4 + 3 = 18.2 against a 18.6km week and kept the slot, while
+           the day builder -- which prices every supporting day -- computed
+           9.8 + 5.4 + 2x3 = 21.2, could not pay, and handed the slot back.
+           The block reported a week containing a quality session and the
+           athlete received one without: precisely the reconciliation between
+           reported volume and the sum of the days that this architecture
+           exists to guarantee.
+
+           So the Developing gate asks the day builder's own question. Where
+           the two layers now agree, they agree in BOTH directions: a week that
+           keeps the slot keeps it in delivery too, and a week that genuinely
+           cannot hold 2 Easy + 1 Quality + 1 LR refuses it once, visibly, in
+           the layer that owns the decision.
+
+           OTHER TIERS ARE LEFT ON THE EXISTING EXPRESSION DELIBERATELY. The
+           same understatement exists for them, but measured, their weeks are
+           large enough that it never changes an answer -- and widening it here
+           would be a methodology change to Established, Advanced and the half
+           that was not asked for. */
+        /* A CHECKPOINT OR CALIBRATION WEEK IS EXEMPT, because that slot IS the
+           measurement and the day builder PINS it -- it is never offered to the
+           affordability ladder at all. Pricing it more strictly here would
+           refuse a session delivery was always going to keep, which is the same
+           two-layer disagreement this correction exists to remove, pointing the
+           other way. Measured: without this exemption the 11km/week athlete
+           lost the week-nine Fitness Checkpoint outright. */
+        var mDevQualityWeek = (distKey === 'full' && blockExp === 'novice' &&
+                               !isCheckpoint && !isCalibration);
+        var mDevFits = function(qIn){
+          return mWeek.capacityKm != null &&
+                 (r.longKm + qIn + Math.max(1, r.supportDays) * EASY_MIN_KM)
+                   <= mWeek.capacityKm + 1e-9;
+        };
+        if (mDevQualityWeek && r.qKm > 0 && r.qSlots > 0 &&
+            mWeek.capacityKm != null && !mDevFits(r.qKm)){
+          var mRoom = mWeek.capacityKm - r.longKm -
+                      Math.max(1, r.supportDays) * EASY_MIN_KM;
+          if (mRoom > 0){
+            var mFitSel = shrinkQualitySelection(mQSel, mQKind, r.qSlots, mRoom);
+            var mFitKm = r.qSlots >= 2
+              ? (qualityDeliveredKm(mFitSel, 'interval', 2) +
+                 qualityDeliveredKm(mFitSel, 'tempo', 2))
+              : qualityDeliveredKm(mFitSel, mQKind, r.qSlots);
+            if (mFitKm > 0 && mDevFits(mFitKm)){
+              r.qKm = round1(mFitKm);
+              r.qShrunkSel = mFitSel;
+            }
+          }
+        }
         if (r.qKm > 0 && mWeek.capacityKm != null &&
-            !marathonQualityEligible(mWeek.capacityKm, r.longKm, r.qKm)){
+            (mDevQualityWeek ? !mDevFits(r.qKm)
+                             : !marathonQualityEligible(mWeek.capacityKm, r.longKm, r.qKm))){
           r.qKm = 0; givenBack = r.qSlots; r.qSlots = 0; r.qualityNotYetEligible = true;
         }
         if (pinTo != null && r.qSlots > pinTo.qSlots){
@@ -13630,8 +14236,28 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
            at its floor because a day happens to be available is how the floors
            became the week. Availability stays permission. */
         if (mWeek.capacityKm != null){
+          /* ---- THE WEEK RUNS ON THE DAYS THE ATHLETE HAS BEEN PRESCRIBED ----
+             HQ RULING. Until now maxDays was the DESTINATION count and the day
+             count was whatever the week's kilometres could afford, so every
+             Developing athlete -- 0 days a week or 4 -- was given four running
+             days from week one, three of them at EASY_MIN_KM. Affordable is
+             not the same as demonstrated.
+             `prescribed - 1 - qSlots` is the supporting-run budget: it yields
+             2 Easy + LR in a three-day Base, 3 Easy + LR once the fourth day
+             arrives, 2 Easy + Quality + LR in a four-day Build and
+             1 Easy + Quality + LR where Build opens before the day is earned.
+             Capacity still has to pay for each one inside that budget. */
+          var mWeekMaxSupport = r.supportDays + givenBack;
+          if (mDevFreq){
+            var mDevDays = (mStep >= mDevFreq.step && mDevFreq.permission.permitted)
+              ? mDevFreq.destination : mDevFreq.floor;
+            r.prescribedDays = mDevDays;
+            r.freqPromoted = mDevDays > mDevFreq.floor;
+            mWeekMaxSupport = Math.min(mWeekMaxSupport,
+              Math.max(1, mDevDays - 1 - (r.qSlots || 0)));
+          }
           r.supportDays = marathonSupportDaysFor(mWeek.capacityKm, r.longKm, r.qKm,
-                                                 r.supportDays + givenBack);
+                                                 mWeekMaxSupport);
           /* ---- THE RE-SOLVE KEEPS THE STRUCTURE; IT DOES NOT FIND MORE ----
              Holding the long run frees room in the week, and without this the
              hold discovered a further supporting day, which held again, and
@@ -13846,6 +14472,26 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
         mWeek.step = mHoldStep;
       }
       mWeek.qSlots = mSol.qSlots;
+      /* Carried so the scheduling contract below, the day builder and the
+         athlete-facing card all read one decision rather than three. */
+      if (mSol.prescribedDays != null){
+        mWeek.prescribedDays = mSol.prescribedDays;
+        mWeek.freqPromoted = !!mSol.freqPromoted;
+      }
+      /* THE DOSE THE WEEK WAS SOLVED ON IS THE DOSE THE DAY BUILDER WRITES.
+         See the shrink-before-delete ruling above: committed here, with the
+         rest of the solution, so slotSelection() cannot re-derive a bigger
+         session than the volume this week reported. */
+      if (mSol.qSlots > 0 && mSol.qShrunkSel){
+        /* THE LOOP'S OWN SPEC VARIABLES, not fields on mWeek: the week record
+           pushed below is built from soloSpec/qSpec/tSpec directly, so an
+           assignment to mWeek here would be silently discarded and the day
+           builder would write the full-size session the week did not price. */
+        soloSpec = mSol.qShrunkSel.soloSpec; soloKm = mSol.qShrunkSel.soloKm;
+        qSpec    = mSol.qShrunkSel.qSpec;    qKm    = mSol.qShrunkSel.qKm;
+        tSpec    = mSol.qShrunkSel.tSpec;    tKm    = mSol.qShrunkSel.tKm;
+        mWeek.qualityDoseShrunk = true;
+      }
       mWeek.supportDays = mSol.supportDays;
       mWeek.supportKm = mSol.supportKm;
       if (mSol.qualityNotYetEligible) mWeek.qualityNotYetEligible = true;
@@ -14024,6 +14670,13 @@ function buildBlockWeeks(distKey, currentVolume, planWeeksInput, opts){
            larger ones for no reason this correction was authorised to
            create. Never narrowing keeps everything downstream of a week's
            OWN settled shape exactly as it already was. */
+        /* THE CONTRACT IS A FLOOR ON SELECTED DAYS, NOT A LICENCE TO EXCEED THE
+           PRESCRIPTION. mWeekContractDays is derived from mBottomUp.days --
+           availability -- so without this the Developing day count above was
+           widened straight back to four. See MARATHON_MIN_PRESCRIBED_DAYS. */
+        if (mWeek.prescribedDays != null)
+          mWeekContractDays = Math.min(mWeekContractDays,
+            Math.max(1, mWeek.prescribedDays - 1 - (mWeek.qSlots || 0)));
         mWeek.scheduledSupportDays = Math.max(mWeek.supportDays, mWeekContractDays);
       }
       /* TAPER'S OWN EXACT CONTRACT ALREADY MATCHES BUILD'S, BY CONSTRUCTION --
@@ -17810,7 +18463,33 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
       var reloadBuildIngredient = wk.isCutback && !wk.isTaper && !wk.isRace &&
         wk.phase === 'Build' && !pinned &&
         usesMarathonArc(blockResult.purpose, blockResult.distKey);
-      if (reloadBuildIngredient && qualitySlotsThisWeek > 0){
+      /* ---- AND THE SAME RULING APPLIES TO EVERY DEVELOPING MARATHON WEEK ----
+         HQ RULING: "Correct affordability so Quality is shrunk through existing
+         architecture before being yielded/replaced by another Easy."
+
+         The ladder below hands the slot back when the week cannot pay for the
+         session it was given. On a Developing week that is the same
+         self-fulfilling arithmetic the block-level gate had: the slot's day
+         becomes a THIRD easy day, the supporting kilometres divide three ways
+         instead of two, and all three land on EASY_MIN_KM. Measured at fifteen
+         weeks, an 11km/week athlete lost the required session in five further
+         weeks this way, short by between 0.7km and 2.9km.
+
+         So a Developing Marathon week shrinks its dose first, through exactly
+         the loop the Build reload already uses -- same step, same structural
+         floors, same stop condition. When nothing will move, the ladder below
+         runs unchanged and the week still defers: the refusal survives, it
+         just happens on the smallest session the architecture can express.
+
+         DEVELOPING MARATHON ONLY, and taper and race keep their own authority.
+         Established and Advanced are measured never to reach the ladder at all
+         -- the full-size session already fits every week of every cohort -- so
+         they are byte-identical either way; the gate is explicit so that stays
+         true by construction rather than by luck. */
+      var devMarathonIngredient = !wk.isTaper && !wk.isRace && !pinned &&
+        blockResult.distKey === 'full' && blockResult.experience === 'novice' &&
+        usesMarathonArc(blockResult.purpose, blockResult.distKey);
+      if ((reloadBuildIngredient || devMarathonIngredient) && qualitySlotsThisWeek > 0){
         var rGuard = 0, rShrunkKm = 0;
         while (rGuard++ < 24 &&
                !affordable(qualitySlotsThisWeek, singleSlotKind)){
@@ -17832,7 +18511,10 @@ function buildDaysFromWeeks(blockResult, raceDateStr, schedule, startDateStr, ha
           });
           if (!rMoved) break;
         }
-        if (rShrunkKm > 0) wk.reloadIngredientShrunkKm = round1(rShrunkKm);
+        if (rShrunkKm > 0){
+          if (reloadBuildIngredient) wk.reloadIngredientShrunkKm = round1(rShrunkKm);
+          else wk.devIngredientShrunkKm = round1(rShrunkKm);
+        }
       }
       while (qualitySlotsThisWeek > pinned &&
              !affordable(qualitySlotsThisWeek, singleSlotKind)){
@@ -19986,6 +20668,7 @@ function adoptPendingBuildIfAny(){
   if (pending.uid && sub && pending.uid !== sub) return false;
 
   var b = pending.build;
+  var bEntryEvidence = sanitiseEntryEvidence(b.entryEvidence);
   /* Re-validated against the canonical builder specification
      (assets/builder-spec.js) -- the same thresholds handleGeneratePlan()
      itself now reads. /start's staged wizard is a separate surface, and
@@ -19994,7 +20677,12 @@ function adoptPendingBuildIfAny(){
   var pendDays = BUILDER_SPEC.validation.daysRange, pendWeeks = BUILDER_SPEC.validation.weeksRange;
   if (!DISTANCE_PROFILES[b.distanceKey]) return false;
   if (!isBlockPurpose(b.purpose) || b.purpose === 'recovery') return false;
-  if (!(b.volume > BUILDER_SPEC.validation.volumeMustExceed)) return false;
+  /* ---- A ZERO IS AN ANSWER, SO THE GUARD TESTS "ANSWERED", NOT "POSITIVE" ----
+     This rejected every pending build from an athlete who told /start they are
+     not running yet, which is exactly the athlete the question exists for.
+     Still refuses a missing or nonsensical figure. */
+  if (!(typeof b.volume === 'number' && isFinite(b.volume) &&
+        b.volume >= BUILDER_SPEC.validation.volumeMustExceed)) return false;
   if (!Array.isArray(b.activeDays) || b.activeDays.length < pendDays[0] || b.activeDays.length > pendDays[1]) return false;
   if (b.activeDays.indexOf(b.longRunDay) === -1) return false;
   if (!(b.weeks >= pendWeeks[0] && b.weeks <= pendWeeks[1])) return false;
@@ -20006,8 +20694,15 @@ function adoptPendingBuildIfAny(){
     /* THE PURPOSE GOES WITH IT. Without it an adopted Aerobic Base or Speed
        block was rebuilt as a race block -- a different arc, a different peak
        and a taper into a goal effort the athlete's plan does not have. */
-    var blockResult = buildBlockWeeks(b.distanceKey, b.volume, b.weeks, { purpose: b.purpose });
-    var days = buildDaysFromWeeks(blockResult, b.raceDate, schedule, b.startDate, !!b.hasEvent);
+    /* SET FOR THESE TWO CALLS ONLY, and cleared in a finally so an early return
+       or a throw anywhere after this cannot leave one athlete's answers visible
+       to the next build in the session. */
+    var blockResult, days;
+    pendingEntryEvidence = bEntryEvidence;
+    try {
+      blockResult = buildBlockWeeks(b.distanceKey, b.volume, b.weeks, { purpose: b.purpose });
+      days = buildDaysFromWeeks(blockResult, b.raceDate, schedule, b.startDate, !!b.hasEvent);
+    } finally { pendingEntryEvidence = null; }
 
     var block = openBlock({ purpose: b.purpose, startDate: b.startDate,
                              distanceKey: b.distanceKey, goalDate: b.raceDate, hasEvent: !!b.hasEvent });
@@ -20037,6 +20732,10 @@ function adoptPendingBuildIfAny(){
 
     state.setup = {
       distanceKey: b.distanceKey, currentVolume: b.volume, raceDate: b.raceDate, hasEvent: !!b.hasEvent,
+      /* Carried across the handoff, re-validated rather than trusted: /start is
+         a separate surface and nothing that could not have come out of the real
+         builder is adopted as though it had. */
+      entryEvidence: bEntryEvidence,
       startDate: b.startDate, planWeeks: blockResult.planWeeks, schedule: schedule,
       blockId: block.id, purpose: b.purpose,
       benchmark: { distanceKey: b.benchmarkDistanceKey || BUILDER_SPEC.benchmarkDistances.default, timeSec: b.benchmarkSeconds },
@@ -28953,6 +29652,11 @@ function startDevelopmentBlock(purpose, opts){
 
   state.setup = {
     distanceKey: spec.distanceKey, currentVolume: spec.volume,
+    /* Carried into the next block rather than re-asked. By now Valhalla has
+       its own completed weeks, which outrank these answers automatically, so
+       this is provenance rather than an input -- and the athlete is not made
+       to describe themselves again every block. */
+    entryEvidence: state.setup.entryEvidence || null,
     raceDate: goalDate, hasEvent: false,
     startDate: startDate, planWeeks: blockResult.planWeeks,
     schedule: schedule,
@@ -36950,6 +37654,150 @@ function raceGoalPreparationLimited(){
    safest useful one their capacity and runway allow and no locked standard
    was forced to produce it. Informational, so it sits below the time-critical
    cards and above Next Move. */
+/* =========================================================
+   THE RUNNING-DAY DECISION, TOLD TO THE ATHLETE
+   ---------------------------------------------------------
+   HQ RULING: this decision must be explained, not hidden behind "your plan has
+   been adjusted". The athlete should be able to read what Valhalla decided,
+   why, where they are heading, when it is expected to change and what controls
+   the change.
+
+   NOTHING HERE IS HARDCODED 3->4. Every number is the athlete's own: the count
+   they opened on, the count their plan is built around, the week the question
+   is first asked and the days they are running now. The same card explains any
+   start and any destination.
+
+   AND NO INTERNAL VOCABULARY REACHES IT -- no solver, no evidence, no
+   provenance, no capacity, no support days. The strongest word is "recent".
+   ========================================================= */
+function developingFrequencyPrescribedDays(weekNum){
+  if (!weekNum) return null;
+  var n = 0, seen = false;
+  (state.days || []).forEach(function(dd){
+    if (!dd || dd.week !== weekNum) return;
+    if (dd.optionalRun || dd.type === 'rest' || dd.type === 'race') return;
+    if (!(dd.km > 0)) return;
+    seen = true; n++;
+  });
+  return seen ? n : null;
+}
+function developingFrequencyPlan(){
+  var su = state && state.setup;
+  if (!su || su.purpose !== 'race' || su.distanceKey !== 'full') return null;
+  var exp = null;
+  try { exp = athleteExperience(su); } catch(e){ exp = null; }
+  if (exp !== 'novice') return null;
+  var avail = (su.schedule && su.schedule.activeDays)
+    ? su.schedule.activeDays.length : null;
+  var dest = Math.min(avail || marathonPrescribedDays('novice'),
+                      marathonPrescribedDays('novice'));
+  var entry = null;
+  try { entry = raceGoalEntryState('full', 'novice', null); } catch(e){ entry = null; }
+  /* `!= null`, not `> 0` -- a stated zero is an answer and the card must be
+     able to say so. It changes no number here (the floor is three either way)
+     but it changes which sentence the athlete reads. */
+  var entryDays = (entry && entry.days != null) ? entry.days : null;
+  var open = Math.max(MARATHON_MIN_PRESCRIBED_DAYS,
+                      Math.min(dest, entryDays != null ? entryDays
+                                                       : MARATHON_MIN_PRESCRIBED_DAYS));
+  /* Nothing to explain where the athlete already opens on the count their plan
+     is built around -- which is every athlete who arrives running it. */
+  if (open >= dest) return null;
+  var wk = null;
+  try { wk = currentWeekNum(); } catch(e){ wk = null; }
+  var now = developingFrequencyPrescribedDays(wk);
+  var prev = (wk && wk > 1) ? developingFrequencyPrescribedDays(wk - 1) : null;
+  return {
+    open: open, destination: dest, entryDays: entryDays,
+    step: developingFourthDayStep(entryDays),
+    week: wk, now: now, previous: prev,
+    atDestination: (now != null && now >= dest),
+    justArrived: (now != null && prev != null && now > prev && now >= dest),
+    permission: developingFourthDayPermission()
+  };
+}
+/* The held reason, in the athlete's own numbers. missPatternSentence() and
+   executionPatternSentence() already say these things in the register this
+   product uses -- a count, what it means, and something to do about it -- so
+   they are read rather than restated. */
+function developingFrequencyHoldReason(p){
+  var perm = p && p.permission;
+  if (!perm || perm.permitted) return null;
+  if (perm.reason === 'missed_sessions') return missPatternSentence(perm.miss);
+  if (perm.reason === 'execution') return executionPatternSentence(perm.execution);
+  return null;
+}
+function renderDevelopingFrequencyCard(){
+  var p = developingFrequencyPlan();
+  if (!p) return '';
+  var head = function(t){
+    return '<div class="coach-next-head">' + ICONS.sparkles +
+      '<span class="coach-next-title">' + escapeHtml(t) + '</span></div>';
+  };
+  var dayWord = function(n){ return n + (n === 1 ? ' running day' : ' running days'); };
+  var ORDINAL = { 2:'second', 3:'third', 4:'fourth', 5:'fifth', 6:'sixth' };
+  var ordinal = function(n){ return ORDINAL[n] || ('day ' + n); };
+
+  /* ---- IT JUST CHANGED. Said once, in the week it happened, and it names
+     what did NOT change as well -- because the whole protection is that the
+     week gains a run rather than a run's worth of load. */
+  if (p.justArrived){
+    return '<div class="hub-card prep-limited">' +
+      head('A ' + ordinal(p.now) + ' running day this week') +
+      '<div class="prep-limited-body">You have been absorbing ' + dayWord(p.previous) +
+        ' a week well, so this week adds another. Your weekly distance has not ' +
+        'jumped \u2014 the same running is spread across one more day, so each run ' +
+        'is a little shorter.</div>' +
+      '<div class="prep-limited-foot">' + dayWord(p.destination) +
+        ' is the shape your marathon plan is built around.</div>' +
+    '</div>';
+  }
+  if (p.atDestination) return '';          // settled; nothing left to explain
+
+  /* ---- IT IS BEING HELD, and the athlete is told what Valhalla is waiting
+     to see rather than being left to guess. */
+  var held = developingFrequencyHoldReason(p);
+  if (held){
+    return '<div class="hub-card prep-limited">' +
+      head('Still on ' + dayWord(p.now != null ? p.now : p.open)) +
+      '<div class="prep-limited-body">' + escapeHtml(held) + '</div>' +
+      '<div class="prep-limited-foot">Valhalla is holding your running days where ' +
+        'they are until that settles, rather than adding another. Your plan is still ' +
+        'built around ' + dayWord(p.destination) + '.</div>' +
+    '</div>';
+  }
+
+  /* ---- THE OPENING DECISION, while it stands. */
+  var whenever = (p.week != null && p.week > p.step)
+    ? 'as soon as your training shows you are absorbing the current week'
+    : 'normally during Base, around week ' + (p.step + 1);
+  /* ---- SAID AS A COACHING DECISION, NOT AS A PRODUCT LIMIT ---- HQ RULING.
+     This read "three is the smallest week Valhalla will build a marathon on",
+     which tells the athlete about the software rather than about their
+     training. What is actually true is the coaching reason: they start on
+     three, the opening workload is kept controlled while regular running
+     becomes routine, and the week builds toward four. */
+  var opening = dayWord(p.now != null ? p.now : p.open);
+  var body = (p.entryDays != null && p.entryDays >= MARATHON_MIN_PRESCRIBED_DAYS)
+    ? 'Valhalla is starting you on ' + opening + ' a week, because that is what ' +
+      'your recent running shows you are used to. Your marathon plan is built ' +
+      'around ' + dayWord(p.destination) + '.'
+    : 'Valhalla is starting you on ' + opening + ' a week and keeping the ' +
+      'opening workload controlled while running regularly becomes routine' +
+      (p.entryDays === 0 ? ' \u2014 you told us you are not running at the moment'
+        : p.entryDays != null ? ' \u2014 you told us you are running ' +
+                                dayWord(p.entryDays) + ' a week'
+        : '') +
+      '. From there you build toward the ' + dayWord(p.destination) +
+      ' your marathon plan is designed around.';
+  return '<div class="hub-card prep-limited">' +
+    head('Your running days') +
+    '<div class="prep-limited-body">' + body + '</div>' +
+    '<div class="prep-limited-foot">The next day is added ' + whenever +
+      ' \u2014 Valhalla adds it once your runs are landing and your recovery ' +
+      'supports it, and will tell you when it does.</div>' +
+  '</div>';
+}
 function renderPreparationLimitedCard(){
   var pl = raceGoalPreparationLimited();
   if (!pl) return '';
@@ -39697,6 +40545,13 @@ function openSetupModal(){
   var benchDist = (su.benchmark && su.benchmark.distanceKey) || '5k';
   var benchTime = (su.benchmark && su.benchmark.timeSec) ? secToClock(su.benchmark.timeSec) : '';
   var vol = su.currentVolume!=null ? kmToDisplay(su.currentVolume) : '';
+  /* The recent-running answers, pre-filled from whatever the athlete said last
+     time so re-opening the builder does not lose them. Zero survives the round
+     trip: `!= null`, never a truthiness test. */
+  var ee = su.entryEvidence || {};
+  var entryDays = ee.runDaysPerWeek != null ? ee.runDaysPerWeek : '';
+  var entryLong = ee.longestRunKm != null ? kmToDisplay(ee.longestRunKm) : '';
+  var entryLongDate = ee.longestRunDate || '';
   /* AEROBIC BASE SHOWS ITS OWN EVIDENCE WHEN THE TYPED FIELD IS BLANK, rather
      than an empty box that invites a blind guess -- see
      baseWeeklyVolumeEvidence() and the F-1 defect it closes. Every other
@@ -39962,14 +40817,55 @@ function openSetupModal(){
          purposes -- bldApplyPurpose() decides whether it is a question.
          Stage 05 still asks experience, so nothing here can leave an empty
          screen. */
-      '<div class="field bld-volume-question" id="f-volume"><label id="su-volume-label">Current Weekly Volume ('+(state.units==='mi'?'mi':'km')+')</label>'+
+      /* ---------- WHAT THE ATHLETE IS ACTUALLY DOING NOW ----------
+         Four answers, one section, every label and hint read from
+         BUILDER_SPEC.entryEvidence so /start asks the identical question. They
+         establish the safe starting route; Experience Level above remains the
+         pathway and destination authority.
+         ASKED ON EVERY PURPOSE NOW, Race Goal included -- see
+         builderAsksWeeklyVolume(). The class stays so the units handler and the
+         review renderer keep one set of ids across all four purposes. */
+      '<div class="setup-section-title">'+escapeHtml(EV_FIELDS_HEADING)+'</div>'+
+      '<div class="field bld-volume-question" id="f-volume"><label id="su-volume-label">'+
+        escapeHtml(EV_F.weeklyKm.label)+' ('+(state.units==='mi'?'mi':'km')+')</label>'+
         '<input type="number" min="0" step="1" inputmode="numeric" id="su-volume" value="'+vol+'">'+
-        '<div class="field-hint">Your honest recent average, not your best week.</div>'+
+        '<div class="field-hint">'+escapeHtml(EV_F.weeklyKm.hint)+'</div>'+
         /* THE ENTRY BOUNDARY, SAID BEFORE THE ATHLETE REACHES THE END OF THE
            BUILDER. Shown only when it applies -- a Race Goal below the minimum
            -- and it states the outcome rather than an error: the first block is
            Aerobic Base and the race stays on record. See raceGoalEntry(). */
         '<div class="field-hint" id="su-volume-entry-note" hidden></div>'+
+      '</div>'+
+      /* ZERO IS A BUTTON, NOT SOMETHING TO THINK TO TYPE -- which is the whole
+         point of the grid for this one: the athlete who runs no days is the one
+         whose answer matters most. */
+      '<div class="field" id="f-entry-days"><label>'+escapeHtml(EV_F.runDaysPerWeek.label)+'</label>'+
+        '<div class="opt-grid cols-4" data-mirror="su-entry-days" role="group" '+
+          'aria-label="'+escapeHtml(EV_F.runDaysPerWeek.label)+'">'+
+          EV_DAY_CHOICES.map(function(n){
+            return '<button type="button" data-v="'+n+'" class="'+
+              (String(entryDays)===String(n)?'active':'')+'">'+n+'</button>';
+          }).join('')+
+        '</div>'+
+        '<select id="su-entry-days" class="bld-mirror" tabindex="-1" aria-hidden="true">'+
+          EV_DAY_CHOICES.map(function(n){
+            return '<option value="'+n+'" '+(String(entryDays)===String(n)?'selected':'')+'>'+n+'</option>';
+          }).join('')+
+        '</select>'+
+        '<div class="field-hint">'+escapeHtml(EV_F.runDaysPerWeek.hint)+'</div>'+
+      '</div>'+
+      '<div class="field" id="f-entry-long"><label id="su-entry-long-label">'+
+        escapeHtml(EV_F.longestRunKm.label)+' ('+(state.units==='mi'?'mi':'km')+')</label>'+
+        '<input type="number" min="0" step="1" inputmode="numeric" id="su-entry-long" value="'+entryLong+'">'+
+        '<div class="field-hint">'+escapeHtml(EV_F.longestRunKm.hint)+'</div>'+
+      '</div>'+
+      '<div class="field" id="f-entry-long-date"><label>'+escapeHtml(EV_F.longestRunDate.label)+'</label>'+
+        '<input type="date" id="su-entry-long-date" value="'+escapeHtml(entryLongDate)+'">'+
+        '<div class="field-hint">'+escapeHtml(EV_F.longestRunDate.hint)+'</div>'+
+        /* Said rather than refused, in the same register as the entry note
+           above: an answer outside the window is still recorded, and the
+           athlete is told which answer did the work. */
+        '<div class="field-hint" id="su-entry-long-stale" hidden></div>'+
       '</div>'+
       navBtns(4)+
     '</section>'+
@@ -41490,8 +42386,20 @@ async function handleGeneratePlan(){
      when its window opens. Only the identity is kept -- distance, date, goals
      -- never the prescription. */
   if (buildPurpose === 'race' && hasEvent) setRaceDestination(distanceKey, raceDate, goals, activeGoal);
+  /* The athlete's own account of where they are starting from. Read here, next
+     to the only thing that consumes it, rather than beside the volume read:
+     builderNineStages' heart-rate contract inspects the first 4000 characters
+     of this function for `isNaN(lthrInput)`, and a comment this long earlier up
+     pushed that check out of its window. The contract is right to be strict
+     about blank heart rate; it should not be loosened to make room for prose. */
+  var entryEvidence = readBuilderEntryEvidence();
   state.setup = {
     distanceKey: distanceKey, currentVolume: volume, raceDate: raceDate, hasEvent: hasEvent,
+    /* WHERE THE ATHLETE SAID THEY ARE STARTING FROM. Kept after Valhalla has
+       its own history rather than deleted: demonstrated evidence outranks it
+       automatically (see raceGoalEntryState()), and a reader can still see what
+       the athlete said beside what the programme used. */
+    entryEvidence: entryEvidence,
     startDate: startDate, planWeeks: blockResult.planWeeks,
     schedule: schedule,
     // which block this prescription belongs to, and what it is for
@@ -47982,6 +48890,7 @@ function renderTodayView(){
      above Next Move because Next Move reasons inside a programme this says is
      working to a reduced standard. */
   html += renderPreparationLimitedCard();
+  html += renderDevelopingFrequencyCard();
   /* ONCE, AND ONLY FOR AN ATHLETE NOBODY HAS ASKED. Above Next Move because
      the answer changes what Next Move is allowed to reason from; below the
      race-outcome question because that one is time-critical and this is not.

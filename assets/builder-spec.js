@@ -203,6 +203,53 @@ var BUILDER_SPEC = {
      THE SAME REQUIREMENTS bldValidateStage()/handleGeneratePlan() enforce in
      the app, and api/_preview.js enforces server-side before an athlete has
      an account. One set of numbers; both surfaces read them from here. */
+  /* ---------- STAGE 05's RECENT-RUNNING ANSWERS ----------
+     ONE DEFINITION, SO EVERY ROAD ASKS THE SAME QUESTION. The protected app,
+     /start and the preview endpoint all read this object, so the label, the
+     hint and the bounds cannot drift between the surfaces the way the weekly
+     volume question already had -- the app hid it for a Race Goal while /start
+     asked it and refused anything but a positive number.
+
+     THESE ANSWERS ESTABLISH THE SAFE STARTING ROUTE, NOT THE PATHWAY.
+     Experience Level remains the pathway and destination authority; these say
+     where the athlete is starting from today.
+
+     ZERO IS AN ANSWER AND NOT THE ABSENCE OF ONE -- hence `zeroAllowed` on the
+     three numeric fields, and hence the UI must require an answer rather than
+     requiring a positive number. An athlete running nothing is exactly the
+     athlete whose answer matters most.
+
+     ONE SIGNAL NEVER SPEAKS FOR ANOTHER: three separate answers, read
+     separately. A long run is not a weekly volume, a weekly volume is not a
+     day count, and none of them is evidence about workout tolerance -- which
+     stays learned from training rather than asked here. */
+  entryEvidence: {
+    heading: 'Your recent running',
+    fields: {
+      weeklyKm: {
+        label: 'Current Weekly Volume', unit: true, zeroAllowed: true,
+        range: [0, 200],
+        hint: 'Your honest recent average, not your best week. Enter 0 if you are not running at all right now.'
+      },
+      runDaysPerWeek: {
+        label: 'Running days in a typical recent week', zeroAllowed: true,
+        range: [0, 7], control: 'grid',
+        hint: 'How many days you have actually been running lately. You will pick the days you can train on in a moment.'
+      },
+      longestRunKm: {
+        label: 'Longest run in the last few weeks', unit: true, zeroAllowed: true,
+        range: [0, 100],
+        hint: 'The furthest you have run in one go. Enter 0 if you have not done a longer run.'
+      },
+      longestRunDate: {
+        label: 'When did you run it?', control: 'date',
+        /* Shown only when a distance above zero has been given -- there is no
+           date to ask for otherwise. */
+        dependsOnPositive: 'longestRunKm',
+        hint: 'Roughly is fine.'
+      }
+    }
+  },
   validation: {
     weeksRange: [4, 24],
     volumeMustExceed: 0,

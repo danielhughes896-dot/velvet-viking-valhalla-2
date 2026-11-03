@@ -145,14 +145,18 @@ function validate(body){
      the same single switch the app itself uses. This is stage 03 (Event) of
      the canonical builder: a race block gives either a real event date or a
      block length, exactly as bldValidateStage(BLD_STAGE.EVENT) requires. */
-  /* LIMITS.volume[0] is a floor to EXCEED, not to reach -- the app's own
-     rule is `!volume || volume <= 0`, and zero is a real answer an athlete
-     could submit, not a missing one.
+  /* ---- LIMITS.volume[0] IS A FLOOR TO REACH, NOT ONE TO EXCEED ---- HQ
+     RULING. This comment already said the right thing -- "zero is a real
+     answer an athlete could submit, not a missing one" -- and then the line
+     below rejected it anyway, so a beginner's preview came back
+     volume_out_of_range and /start could not build them a plan at all.
+     Zero is now accepted as the answer it is; a missing or non-numeric figure
+     is still refused, and the upper abuse bound is untouched.
 
      READ BEFORE THE EVENT BRANCH, because whether this request is a race block
      at all depends on it -- see the entry boundary below. */
   const volume = Number(b.volume);
-  if (!isFinite(volume) || volume <= LIMITS.volume[0] || volume > LIMITS.volume[1])
+  if (!isFinite(volume) || volume < LIMITS.volume[0] || volume > LIMITS.volume[1])
     return { ok: false, code: 'volume_out_of_range' };
 
   /* ---------- THE MINIMUM RUNNING FOUNDATION FOR A RACE GOAL ----------

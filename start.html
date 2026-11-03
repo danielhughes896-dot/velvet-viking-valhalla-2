@@ -699,6 +699,14 @@
      computes, stores or validates anything the spec did not already say.
      ========================================================= */
   var BS = window.BUILDER_SPEC;
+  /* The recent-running question definition, shared with the app -- see
+     BUILDER_SPEC.entryEvidence. */
+  var EV = BS.entryEvidence, EVF = EV.fields;
+  var EV_DAYS = (function(){
+    var r = EVF.runDaysPerWeek.range, out = [];
+    for (var i = r[0]; i <= r[1]; i++) out.push({ value: String(i), label: String(i) });
+    return out;
+  })();
   var BLD_STAGES = BS.stages;
   var bldCurrentStage = 0;
 
@@ -711,6 +719,7 @@
     weeks: BS.purposes.meta.race.defaultWeeks,
     weeksTouched: false,
     experience: BS.experience.default, volume: '',
+    entryDays: '', entryLong: '', entryLongDate: '',
     benchDist: BS.benchmarkDistances.default, benchTime: '',
     activeDays: { 0:true, 1:true, 2:true, 4:true, 5:true },
     longRunDay: 5,
@@ -922,14 +931,33 @@
       '<div class="field"><label>Athlete experience</label>' +
       '<div class="opt-grid cols-3" id="bld-experience" role="group" aria-label="Athlete experience">' + optGrid(items, Ans.experience) + '</div>' +
       '<div class="field-hint" id="bld-experience-hint">'+BS.experience.meta[Ans.experience].hint+'</div></div>' +
-      '<div class="field" id="f-volume"><label>Current Weekly Volume ('+Ans.units+')</label>' +
+      /* THE SAME FOUR ANSWERS THE APP ASKS, FROM THE SAME DEFINITION.
+         Labels, hints and bounds come from BUILDER_SPEC.entryEvidence, so this
+         screen and the app's stage 05 cannot drift -- which they already had,
+         this surface asking for weekly volume on a Race Goal while the app
+         skipped it and refusing a zero the app would have accepted. */
+      '<div class="setup-section-title">'+EV.heading+'</div>' +
+      '<div class="field" id="f-volume"><label>'+EVF.weeklyKm.label+' ('+Ans.units+')</label>' +
       '<input id="bld-volume" type="number" min="0" step="1" inputmode="numeric" value="'+Ans.volume+'">' +
-      '<div class="field-hint">Your honest recent average, not your best week.</div></div>';
+      '<div class="field-hint">'+EVF.weeklyKm.hint+'</div></div>' +
+      '<div class="field" id="f-entry-days"><label>'+EVF.runDaysPerWeek.label+'</label>' +
+      '<div class="opt-grid cols-4" id="bld-entry-days" role="group" aria-label="'+EVF.runDaysPerWeek.label+'">' +
+        optGrid(EV_DAYS, Ans.entryDays) + '</div>' +
+      '<div class="field-hint">'+EVF.runDaysPerWeek.hint+'</div></div>' +
+      '<div class="field" id="f-entry-long"><label>'+EVF.longestRunKm.label+' ('+Ans.units+')</label>' +
+      '<input id="bld-entry-long" type="number" min="0" step="1" inputmode="numeric" value="'+Ans.entryLong+'">' +
+      '<div class="field-hint">'+EVF.longestRunKm.hint+'</div></div>' +
+      '<div class="field" id="f-entry-long-date"><label>'+EVF.longestRunDate.label+'</label>' +
+      '<input id="bld-entry-long-date" type="date" value="'+(Ans.entryLongDate||'')+'">' +
+      '<div class="field-hint">'+EVF.longestRunDate.hint+'</div></div>';
     wireOptGrid('bld-experience', function(v){
       Ans.experience = v;
       $('bld-experience-hint').textContent = BS.experience.meta[v].hint;
     });
+    wireOptGrid('bld-entry-days', function(v){ Ans.entryDays = v; });
     $('bld-volume').addEventListener('input', function(){ Ans.volume = $('bld-volume').value; });
+    $('bld-entry-long').addEventListener('input', function(){ Ans.entryLong = $('bld-entry-long').value; });
+    $('bld-entry-long-date').addEventListener('input', function(){ Ans.entryLongDate = $('bld-entry-long-date').value; });
   }
 
   /* ---------- stage 05 BENCHMARK ---------- */
@@ -1100,9 +1128,20 @@
       return true;
     }
     if (i === 4){ // YOU
+      /* ---- ANSWERED, NOT POSITIVE ---- A zero is a real answer and the one
+         this question most needs: `<= volumeMustExceed` refused it outright,
+         so an athlete who is not running yet could not finish this builder at
+         all. Blank is still refused. */
       var vol = parseFloat(Ans.volume);
-      if (!isFinite(vol) || vol <= BS.validation.volumeMustExceed){
-        bldFail('f-volume', 'Enter your current weekly volume.'); return false; }
+      if (!isFinite(vol) || vol < BS.validation.volumeMustExceed){
+        bldFail('f-volume', 'Enter your current weekly running, or 0 if you are not running yet.'); return false; }
+      if (Ans.entryDays === '' || !isFinite(parseFloat(Ans.entryDays))){
+        bldFail('f-entry-days', 'Choose how many days a week you have been running.'); return false; }
+      var lr = parseFloat(Ans.entryLong);
+      if (!isFinite(lr) || lr < 0){
+        bldFail('f-entry-long', 'Enter your longest recent run, or 0 if you have not done one.'); return false; }
+      if (lr > 0 && !Ans.entryLongDate){
+        bldFail('f-entry-long-date', 'Roughly when did you run it?'); return false; }
       return true;
     }
     if (i === 5){ // BENCHMARK
@@ -1202,7 +1241,29 @@
          buildEcho()); the app replays it verbatim once the athlete
          authenticates, so the plan they wake up with is this preview, not a
          second guess at it from the raw form fields. */
-      savePending({ input: input, preview: r.body.preview, build: r.body.build,
+      /* THE RECENT-RUNNING ANSWERS TRAVEL WITH THE BUILD, not inside the
+         preview request. /api/preview validates its input against a closed
+         shape and this is not part of that contract; the app re-generates the
+         block on adoption anyway and re-validates these four answers itself
+         (see sanitiseEntryEvidence()), so merging them into the banked `build`
+         is what carries them across the handoff without touching the
+         endpoint's contract. */
+      var eeBuild = (function(){
+        var toKm = function(v){
+          var n = parseFloat(v);
+          if (!isFinite(n)) return null;
+          return Ans.units === 'mi' ? Math.round((n/0.621371)*10)/10 : Math.round(n*10)/10;
+        };
+        var lr = toKm(Ans.entryLong);
+        var d = parseFloat(Ans.entryDays);
+        return { weeklyKm: toKm(Ans.volume),
+                 runDaysPerWeek: isFinite(d) ? d : null,
+                 longestRunKm: lr,
+                 longestRunDate: (lr > 0 && Ans.entryLongDate) ? Ans.entryLongDate : null,
+                 recordedAt: new Date().toISOString() };
+      })();
+      savePending({ input: input, preview: r.body.preview,
+                    build: Object.assign({}, r.body.build, { entryEvidence: eeBuild }),
                     period: period, savedAt: Date.now() });
       showPreview(r.body.preview, period);
       window.scrollTo(0, 0);

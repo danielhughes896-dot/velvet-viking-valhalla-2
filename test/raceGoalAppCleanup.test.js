@@ -40,10 +40,20 @@ const shape = r => JSON.stringify((r.weeks || []).map(w => [w.volume, w.phase, w
 // 1. CURRENT WEEKLY VOLUME — THE QUESTION IS GONE FROM RACE GOAL ONLY
 // =====================================================================
 
-test('the builder asks the volume question for every product except Race Goal', () => {
+test('the builder asks the volume question for EVERY product, Race Goal included', () => {
+  /* ---- RE-POINTED ---- HQ RULING on entry evidence. Race Goal used to skip
+     this question because the typed figure had been removed from the
+     programme's authority -- which remains true, and the contract below still
+     proves a Race Goal programme is identical at every typed volume.
+     What changed is that the answer is now STARTING-ROUTE evidence rather than
+     programme authority: it feeds the viability boundary and the entry state
+     alongside the recent day count and long run. So every product asks it.
+     It also closes a divergence this contract was hiding: /start asked the
+     question on every purpose and refused anything but a positive number,
+     while the app skipped it for Race Goal -- so the two roads disagreed and a
+     beginner could not finish the website builder at all. */
   const a = app();
-  assert.equal(a.builderAsksWeeklyVolume('race'), false);
-  ['base', 'maintain', 'speed', 'recovery'].forEach(p =>
+  ['race', 'base', 'maintain', 'speed', 'recovery'].forEach(p =>
     assert.equal(a.builderAsksWeeklyVolume(p), true, p + ' lost its volume question'));
 });
 
