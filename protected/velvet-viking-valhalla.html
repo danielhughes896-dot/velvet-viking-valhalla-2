@@ -1017,6 +1017,42 @@
 
   /* ---------- hero / progress ---------- */
   .hero{padding:32px 0 18px; text-align:center; position:relative;}
+  /* ---- THE TODAY HERO'S MOUNTAINS ---- COSMETIC, AND ISOLATED.
+     The same photograph the preparation decision uses, in the same register:
+     dark, misty, faded out before anything functional begins. It sits BEHIND
+     the crest and is purely presentational -- aria-hidden, pointer-events
+     none, no layout contribution, nothing below it moved.
+     WHAT IT DELIBERATELY DOES NOT TOUCH: the topbar (sticky, translucent, its
+     own z-index:50 -- the image simply tints through it and the bar keeps the
+     background it already had), the crest artwork, every Today card, the
+     bottom navigation and all layout logic. Removing this one rule and the
+     one element in renderHero() returns the view exactly to what it was.
+     IT FADES, IT DOES NOT BAND. The mask carries the image to fully
+     transparent before the first card, so the page's own background closes
+     over it -- which is what makes it work in BOTH themes without pinning a
+     colour: dark fades into the Valhalla black, light fades into the cream,
+     and neither gets a hard edge. */
+  .hero-mountains{
+    position:absolute; left:50%; transform:translateX(-50%);
+    /* Up past the hero's own padding so the range sits behind the crest and
+       carries on under the translucent topbar, exactly as the mock-up shows. */
+    top:-64px; width:100vw; max-width:none; height:328px;
+    background-image:url('/assets/valhalla-mountains-820.jpg');
+    background-size:cover; background-position:50% 26%;
+    -webkit-mask-image:linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.72) 38%, rgba(0,0,0,0.28) 72%, rgba(0,0,0,0) 100%);
+    mask-image:linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.72) 38%, rgba(0,0,0,0.28) 72%, rgba(0,0,0,0) 100%);
+    pointer-events:none; z-index:0;
+  }
+  @media (max-width:480px){
+    .hero-mountains{ background-image:url('/assets/valhalla-mountains-420.jpg'); }
+  }
+  /* The crest sits on top of it, and keeps every other property it had. */
+  .hero-today .medallion-img{ position:relative; z-index:1; }
+  /* An athlete who prefers less motion/imagery is not shown a photograph
+     behind their training. */
+  @media (prefers-reduced-motion:reduce){
+    .hero-mountains{ display:none; }
+  }
   /* Entry/build page only, with no crest above it -- a bit more top air so
      the Build Your Training Block card still reads as deliberately placed,
      not just cut off short under the topbar. */
@@ -21683,7 +21719,12 @@ function renderHero(){
     '</div></div>';
   }
 
-  return '<div class="hero">'+renderMedallion()+'</div>';
+  /* THE TODAY HERO CARRIES THE MOUNTAINS. Cosmetic only: one presentational
+     element behind the crest, nothing about the crest, the topbar, the cards
+     below or any of their logic. See .hero-today in the stylesheet. */
+  return '<div class="hero hero-today">'+
+    '<div class="hero-mountains" role="presentation" aria-hidden="true"></div>'+
+    renderMedallion()+'</div>';
 }
 // Runs/volume completion + Goal stat -- lives in Plan HQ, patched in place
 // via #planhq-stats-mount whenever a session's completion state changes.
