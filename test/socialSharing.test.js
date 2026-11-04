@@ -62,10 +62,16 @@ test('every locked verdict is read off a conclusion the coach already reached', 
     coachReview: { trainingSignal: 'positive_adaptation' },
   })), 'ABSORBED');
 
-  // CONTROLLED — the existing paceEased conclusion, now persisted.
+  /* CONTROLLED is the one rung that cannot be shown on a hand-built day: it
+     now answers to an execution score as well as to paceEased, and a day with
+     no prescription behind it has no score to answer with. (This fixture also
+     could not occur in production -- coachPaceEased() returns false when
+     there is no pace target, so paceEased:true here is hand-set.) The rung
+     itself is covered against the real engine further down, in
+     'CONTROLLED answers to the execution score, not to pace alone'. */
   assert.equal(app.shareVerdictLabel(completedDay({
     coachReview: { trainingSignal: 'on_track', paceEased: true },
-  })), 'CONTROLLED');
+  })), null, 'paceEased alone, with no execution score, is not a verdict');
 
   // CALIBRATED — only when the calibration was actually APPLIED. A refused
   // calibration is a real coaching event, but it is not an achievement.
@@ -608,4 +614,119 @@ test('no social network is integrated, and nothing is uploaded', () => {
     assert.ok(!region.toLowerCase().includes(banned.toLowerCase()),
       'the share path must not reference ' + banned);
   }
+});
+
+/* CONTROLLED, AND THE SESSION IT IS A CLAIM ABOUT
+ * ===========================================================================
+ * paceEased is computed from the pace band and the pace, and from nothing
+ * else -- coachPaceEased() is handed no distance and asks for none. So on its
+ * own evidence a fraction of a session run at a comfortable pace is
+ * indistinguishable from the whole of it, and CONTROLLED was returned for a
+ * session scoring 55% directly above the coach's own sentence that it "ran
+ * well away from the session it was meant to be".
+ *
+ * These cases are the ones measured on the real engine during the audit, so
+ * the table below is evidence rather than illustration. They are built
+ * through buildPlan() for the same reason: an execution score has to come
+ * from a real prescription, and a hand-written day cannot produce one.
+ */
+const { buildPlan } = require('./fixtures.js');
+
+/* A prescribed long run, logged at a given fraction of its distance with the
+   pace held at the middle of its own window -- which is squarely inside
+   paceEased on every row, so distance is the only thing that varies. */
+function longRunLoggedAt(fraction) {
+  const { app } = buildPlan(loadApp({ pinnedDate: '2026-08-01' }),
+    { distanceKey: 'full', weeks: 14, volume: 60, startDate: '2026-05-01' });
+  const dd = app.state.days
+    .filter(d => d.type === 'long' && d.km >= 18 && d.date < '2026-08-01')[0];
+  const range = app.executionPaceTarget(dd);
+  dd.completed = true;
+  dd.actual = Object.assign(app.emptyActual(), {
+    km: Math.round(dd.km * fraction * 10) / 10,
+    pace: app.secToClock(Math.round((range.fast + range.slow) / 2)),
+    paceUnit: 'km',
+  });
+  delete dd.coachReview;
+  app.coachPersistReview(dd);
+  return { app, dd, breakdown: app.computeExecutionBreakdown(dd) };
+}
+
+test('CONTROLLED answers to the execution score, not to pace alone', () => {
+  /* The measured table. The verdict used to be constant down this whole
+     column while the score fell by 45 points. */
+  const CASES = [
+    { fraction: 1.00, score: 100, verdict: 'CONTROLLED' },
+    { fraction: 0.90, score: 95,  verdict: 'CONTROLLED' },
+    { fraction: 0.80, score: 90,  verdict: 'CONTROLLED' },  // the bar itself
+    { fraction: 0.70, score: 85,  verdict: null },
+    { fraction: 0.60, score: 75,  verdict: null },
+    { fraction: 0.50, score: 65,  verdict: null },
+    { fraction: 0.40, score: 55,  verdict: null },          // the reported case
+  ];
+  for (const c of CASES) {
+    const { app, dd, breakdown } = longRunLoggedAt(c.fraction);
+    const pct = Math.round(c.fraction * 100) + '%';
+    assert.equal(breakdown.score, c.score, pct + ': execution score moved');
+    assert.equal(dd.coachReview.paceEased, true,
+      pct + ': the fixture must stay inside paceEased, or it tests nothing');
+    assert.equal(app.shareVerdictLabel(dd), c.verdict,
+      pct + ' (score ' + c.score + ') returned the wrong verdict');
+  }
+});
+
+test('the gate is the bar the app already had, not a new number', () => {
+  const app = loadApp({ pinnedDate: '2026-08-01' });
+  assert.equal(app.PLAYBOOK_GOOD_EXECUTION, 90,
+    "the app's existing 'this went well' bar");
+  const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  const i = src.indexOf('function shareVerdictLabel');
+  const body = src.slice(i, src.indexOf('\n}\n', i));
+  assert.match(body, /PLAYBOOK_GOOD_EXECUTION/,
+    'CONTROLLED must read the shared constant rather than a literal');
+  assert.ok(!/paceEased\)\s*return 'CONTROLLED'/.test(body),
+    'the ungated branch is gone');
+});
+
+test('the coaching conclusion behind it is untouched', () => {
+  /* THE FIX IS IN THE PRESENTATION LAYER AND NOWHERE ELSE. paceEased is still
+     true on a session that fell short -- the athlete really did run the part
+     they ran inside the window -- and the coach still says so. What changed
+     is only whether that one observation is promoted to a shareable verdict
+     about the whole session. */
+  const { app, dd, breakdown } = longRunLoggedAt(0.40);
+  assert.equal(breakdown.score, 55);
+  assert.equal(dd.coachReview.paceEased, true,
+    'coachPaceEased must not have been narrowed');
+  assert.equal(app.coachPaceEased(dd), true, 'and it still reports directly');
+  assert.equal(app.shareVerdictLabel(dd), null, 'only the verdict withholds');
+
+  // The coach's own sentence about the shortfall is still produced.
+  const review = app.coachReviewFor(dd) || app.coachWorkoutReview(dd);
+  assert.ok(review.executionVerdict && review.executionVerdict.length > 0,
+    'the prose is unchanged and still explains the session');
+});
+
+test('the correction leaves the other rungs where they were', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  const i = src.indexOf('function shareVerdictLabel');
+  const body = src.slice(i, src.indexOf('\n}\n', i));
+  /* DIALED keeps its own >=99 band and its recovery-like exclusion; the
+     fatigue rule still returns before any rung is tried. Pinned because this
+     change sits two lines away from all three. */
+  assert.match(body, /b\.score >= 99 && !isRecoveryLikeDay\(dd\)\) return 'DIALED'/);
+  assert.match(body, /monitor_fatigue[\s\S]{0,80}recovery_priority'\) return null/);
+  assert.match(body, /if \(r\.breakthrough\) return 'BREAKTHROUGH'/);
+  assert.match(body, /'positive_adaptation'\) return 'ABSORBED'/);
+});
+
+test('a session with no verdict is still a session the athlete can share', () => {
+  const { app, dd } = longRunLoggedAt(0.40);
+  assert.equal(app.shareVerdictLabel(dd), null);
+  const data = app.shareCardData(dd);
+  assert.ok(data, 'the card is still composed');
+  assert.equal(data.verdict, null);
+  assert.equal(data.distanceKm, 7.2, 'and still says what was actually run');
+  const ops = app.shareCardLayout(data, 'frame', { w: 1080, h: 1920, square: false });
+  assert.ok(ops.length > 0, 'with a card to draw');
 });

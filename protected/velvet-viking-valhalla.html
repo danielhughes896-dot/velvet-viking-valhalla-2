@@ -26169,7 +26169,9 @@ var SHARE_VERDICTS = ['BREAKTHROUGH', 'CALIBRATED', 'ABSORBED', 'DIALED', 'CONTR
      DIALED       the existing >=99 exactness band, whose own copy reads
                   "Everything landed on the numbers it was set to hit".
      CONTROLLED   review.paceEased -- inside the window, deliberately off its
-                  quickest quarter.
+                  quickest quarter -- AND an execution score at the app's
+                  existing PLAYBOOK_GOOD_EXECUTION bar. Both halves are
+                  required, and the second half is the correction below.
 
    AND THE RULE THAT MATTERS MOST: a session the coach flagged never gets a
    cheerful word. monitor_fatigue and recovery_priority return NOTHING and
@@ -26193,7 +26195,29 @@ function shareVerdictLabel(dd){
   var b = null;
   try { b = computeExecutionBreakdown(dd); } catch(e){ b = null; }
   if (b && b.score != null && b.score >= 99 && !isRecoveryLikeDay(dd)) return 'DIALED';
-  if (r.paceEased) return 'CONTROLLED';
+  /* CONTROLLED IS A CLAIM ABOUT A SESSION, NOT ABOUT A PACE.
+     paceEased is a true observation on its own -- the athlete did run inside
+     the window, off its quickest quarter -- but it is computed from the pace
+     band and the pace alone. coachPaceEased() is handed no distance and asks
+     for none, so on its own evidence 7.2km of a prescribed 18km at a
+     comfortable pace is indistinguishable from the whole 18km at the same
+     pace. Promoting that to a shareable verdict said CONTROLLED about a
+     session scoring 55%, directly above the coach's own sentence that it
+     "ran well away from the session it was meant to be".
+
+     THE ASYMMETRY WAS THE DEFECT. The rung above is gated on execution
+     quality (>=99); this one was gated on nothing, so the weaker claim had
+     the laxer test. It now answers to the same breakdown DIALED already
+     consults, at PLAYBOOK_GOOD_EXECUTION -- the app's own "this went well"
+     bar, the same 90 asPlanned uses for "did it happen as written". No new
+     score and no new threshold: the number was already in the product.
+
+     NOTHING ELSE MOVES. coachPaceEased() is untouched, so the two coaching
+     sentences that read paceEased are unchanged, and so is every score.
+     A session that falls short is still shareable -- it simply carries no
+     verdict, which is already what the card does when nothing is true. */
+  if (r.paceEased && b && b.score != null && b.score >= PLAYBOOK_GOOD_EXECUTION)
+    return 'CONTROLLED';
   return null;
 }
 
