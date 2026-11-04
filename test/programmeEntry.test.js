@@ -422,3 +422,157 @@ test('27. a plan with no weeks yields no percentage rather than a wrong one', ()
   assert.equal(a.programmeProgressPct(), null);
   assert.equal(a.programmeShortLabel(), null);
 });
+
+// ---------------------------------------------------------------------------
+// THE STARTUP ORDERING -- the hole every test above went through.
+//
+// Everything above set cloudSession and THEN rendered, so it only ever proved
+// the gate's logic. A real cold launch does the opposite: init() calls
+// loadState(), paints ONCE, and only then calls cloudInit(), un-awaited, so
+// that cloud sync can never delay startup. At that single paint cloudSession
+// is still null, cloudSignedIn() is false, and resolveAppState() answers
+// 'signed-out-local-plan' for a signed-in athlete whose plan is on the device.
+// The arrival asked for 'signed-in-plan', so it never rendered -- and nothing
+// repaints on the ordinary path, so it was never shown at all.
+//
+// These reproduce that window directly: loadState() has run, the session is in
+// storage, and cloudSession is deliberately left unhydrated.
+// ---------------------------------------------------------------------------
+
+const STORED_SESSION = { access_token:'t', refresh_token:'r', user_id:'uid-1',
+                         email:'a@b.c', expires_at: Date.now() + 3600e3 };
+
+// A second device-start that restores the first one's save, exactly as a cold
+// launch does -- and stops where init()'s first paint happens.
+function coldLaunch(opts){
+  const o = opts || {};
+  const a = app();
+  a.showToast = () => {};
+  buildPlan(a, { weeks: 12, startDate: a.addDays(TODAY, -21) });
+  if (o.name) a.athlete().firstName = o.name;
+  a.persistStateLocalOnly();
+
+  const b = app();
+  b.showToast = () => {};
+  b.localStorage.setItem(b.STORAGE_KEY, a.localStorage.getItem(a.STORAGE_KEY));
+  if (o.storedSession !== false)
+    b.localStorage.setItem(b.CLOUD_SESSION_KEY, JSON.stringify(STORED_SESSION));
+  b.loadState();            // what init() does first
+  // cloudSession deliberately NOT set: this IS the unhydrated window
+  return b;
+}
+
+test('28. REGRESSION: the arrival paints on the cold-launch paint, before the cloud session hydrates', () => {
+  const b = coldLaunch({ name: 'Dan' });
+  assert.equal(b.cloudSignedIn(), false, 'precondition: the session has not hydrated yet');
+  assert.equal(b.resolveAppState(), 'signed-out-local-plan',
+    'precondition: this is exactly what the app believes at the only paint');
+  assert.equal(b.programmeEntryPending, true, 'and the launch armed the arrival');
+  assert.equal(b.shouldShowProgrammeEntry(b.resolveAppState()), true);
+  assert.match(b.renderMainContent(), /class="pe"/,
+    'the arrival was never painted at all before this');
+});
+
+test('29. an existing athlete WITH a first name is greeted on that same paint', () => {
+  const b = coldLaunch({ name: 'Dan' });
+  assert.match(b.renderMainContent(), /Hello Dan/);
+});
+
+test('30. an existing athlete with NO first name still gets the arrival, and is asked', () => {
+  const b = coldLaunch({});
+  assert.equal(b.athleteFirstName(), null, 'precondition: an account older than the field');
+  assert.equal(b.shouldShowProgrammeEntry(b.resolveAppState()), true,
+    'a missing name must never suppress the arrival');
+  const html = b.renderMainContent();
+  assert.match(html, /class="pe"/);
+  assert.match(html, /What should we call you\?/);
+});
+
+test('31. a genuinely signed-out athlete with a local plan still gets no arrival', () => {
+  const b = coldLaunch({ name: 'Dan', storedSession: false });
+  assert.equal(b.resolveAppState(), 'signed-out-local-plan');
+  assert.equal(b.storedCloudSessionPresent(), false, 'no stored session to vouch for them');
+  assert.equal(b.shouldShowProgrammeEntry(b.resolveAppState()), false);
+});
+
+test('32. resolveAppState() is not widened -- the allowance belongs to the arrival alone', () => {
+  const b = coldLaunch({ name: 'Dan' });
+  assert.equal(b.resolveAppState(), 'signed-out-local-plan',
+    'the app’s idea of who is signed in must be untouched');
+  assert.equal(b.appStateAllowsNav('signed-out-local-plan'),
+               app().appStateAllowsNav('signed-out-local-plan'),
+               'and navigation must read exactly as it did');
+});
+
+// A DEVICE WITH NOTHING TO ARM FROM. programmeEntryPending is armed in
+// loadState() from the LOCAL plan, so a new device never armed it -- the
+// programme only exists in the account. It arrives through the normal
+// hydration of this same launch, and the arrival goes with it.
+test('33. a cloud-only programme arriving during the launch shows the arrival once', async () => {
+  const seedApp = app();
+  seedApp.showToast = () => {};
+  buildPlan(seedApp, { weeks: 12, startDate: seedApp.addDays(TODAY, -21) });
+  seedApp.athlete().firstName = 'Dan';
+  const remote = JSON.parse(JSON.stringify(seedApp.state));
+
+  const b = app();                       // a brand-new device: nothing stored
+  b.showToast = () => {};
+  b.loadState();
+  assert.equal(b.programmeEntryPending, false, 'precondition: nothing local to arm from');
+  assert.equal(b.planHasContent(), false);
+
+  b.cloudSession = Object.assign({}, STORED_SESSION);
+  b.fetch = url => /\/rest\/v1\/plans\?select=/.test(String(url))
+    ? Promise.resolve({ ok:true, status:200,
+        json: () => Promise.resolve([{ data: remote, updated_at: '2026-06-01T08:00:00Z' }]) })
+    : Promise.resolve({ ok:true, status:200, json: () => Promise.resolve([{}]) });
+  await b.cloudReconcile();
+  await new Promise(res => setTimeout(res, 0));
+
+  assert.equal(b.planHasContent(), true, 'the programme arrived');
+  assert.equal(b.shouldShowProgrammeEntry(b.resolveAppState()), true);
+  assert.match(b.renderMainContent(), /Hello Dan/);
+
+  b.handleProgrammeEntryContinue();
+  assert.equal(b.shouldShowProgrammeEntry(b.resolveAppState()), false, 'and only once');
+});
+
+// AN ARRIVAL BELONGS TO THE START OF A LAUNCH OR TO NOTHING. The gate already
+// refused to paint over an unanswered two-plans decision, but refusing is not
+// forgetting: pending was only ever cleared by Continue, so the moment the
+// athlete chose, the next render would have dropped "Hello ..." on top of a
+// session already under way.
+test('34. reconciliation spends the launch’s arrival rather than deferring it', () => {
+  const b = coldLaunch({ name: 'Dan' });
+  assert.equal(b.programmeEntryPending, true, 'precondition: armed by this launch');
+
+  const remote = JSON.parse(JSON.stringify(b.state));
+  b.openCloudConflictModal(remote, '2026-06-01T08:00:00Z');
+
+  assert.equal(b.cloudPendingReconcile, true);
+  assert.equal(b.shouldShowProgrammeEntry('reconcile-required'), false,
+    'not during the decision');
+  assert.equal(b.programmeEntryPending, false, 'and the opportunity is spent, not stored');
+
+  // the decision resolves and the session carries on -- no greeting lands on it
+  b.cloudSession = Object.assign({}, STORED_SESSION);
+  b.cloudPendingReconcile = false;
+  assert.equal(b.resolveAppState(), 'signed-in-plan');
+  assert.equal(b.shouldShowProgrammeEntry(b.resolveAppState()), false,
+    'no mid-session greeting after reconciliation');
+  assert.doesNotMatch(b.renderMainContent(), /class="pe"/);
+});
+
+test('35. once per genuine launch: Continue ends it, and the next launch arms it again', () => {
+  const b = coldLaunch({ name: 'Dan' });
+  assert.equal(b.shouldShowProgrammeEntry(b.resolveAppState()), true);
+  b.handleProgrammeEntryContinue();
+  assert.equal(b.shouldShowProgrammeEntry(b.resolveAppState()), false);
+  // the hydrated session arriving later must not revive it
+  b.cloudSession = Object.assign({}, STORED_SESSION);
+  assert.equal(b.resolveAppState(), 'signed-in-plan');
+  assert.equal(b.shouldShowProgrammeEntry(b.resolveAppState()), false);
+
+  const next = coldLaunch({ name: 'Dan' });   // a new process start
+  assert.equal(next.shouldShowProgrammeEntry(next.resolveAppState()), true);
+});

@@ -1118,8 +1118,12 @@
   /* The one-time capture stands where the greeting will stand next time. */
   .pe-ask{position:relative; z-index:1; margin-top:38px; width:min(360px,92%);
     display:flex; flex-direction:column; gap:10px;}
+  /* Stands on the photograph like the greeting it replaces, so it takes the
+     same fixed ramp. It measured 1.64:1 on --gold-text in light mode -- and
+     this is the one line a pre-existing athlete sees, so it is the last place
+     that can afford to be unreadable. */
   .pe-ask-k{font-family:'Oswald',sans-serif; font-size:15px; letter-spacing:.6px;
-    color:var(--gold-text);}
+    color:var(--gold); text-shadow:0 2px 10px rgba(0,0,0,0.55);}
   .pe-ask input{width:100%; text-align:center; font-size:16px;}
   .pe-ask-go{width:100%;}
   @media (max-width:480px){
@@ -1140,6 +1144,7 @@
     .pe-hello, .pe-pct{ color:var(--gold-text); text-shadow:none; }
     .pe-prog{ color:var(--ink); text-shadow:none; }
     .pe-go{ color:var(--ink-dim); opacity:1; }
+    .pe-ask-k{ color:var(--gold-text); text-shadow:none; }
   }
   /* Entry/build page only, with no crest above it -- a bit more top air so
      the Build Your Training Block card still reads as deliberately placed,
@@ -21138,6 +21143,18 @@ function cloudReconcile(){
       return seed.then(patchCloudCard);
     }
     if (!localHasPlan){
+      /* THIS LAUNCH'S ARRIVAL, for a device that had nothing to arm it with.
+         programmeEntryPending is armed in loadState() from the LOCAL plan, so
+         a new device -- or one whose storage was cleared -- had no plan to
+         arm from and would never show the greeting, however genuine the
+         launch. The programme has just become available through the normal
+         hydration of this same launch, so the arrival is armed here and
+         painted by adoptCloudState()'s own renderApp() below: no extra
+         render, no delay, and nothing outside this one path. Scoped to the
+         new-device branch deliberately -- adoptCloudState() is also how a
+         two-plans decision is resolved, and that must not end in a greeting
+         (see openCloudConflictModal). */
+      programmeEntryPending = true;
       adoptCloudState(remote, false);               // a new device pulls the plan down
       writeSyncMark(row.updated_at, planContentSignature(state));
       cloudStatus='synced'; patchCloudCard();
@@ -21203,6 +21220,14 @@ function cloudReconcile(){
    modal that must interrupt look like the ones that do not. */
 function openCloudConflictModal(remote, remoteUpdated){
   cloudPendingReconcile = true;
+  /* AND THIS LAUNCH'S ARRIVAL IS SPENT. The gate already refuses to paint a
+     greeting over an unanswered two-plans decision, but refusing is not the
+     same as forgetting: programmeEntryPending is only ever cleared by
+     Continue, so the moment the athlete chose a plan the next render would
+     have dropped "Hello ..." on top of a session already under way. An
+     arrival belongs to the start of a launch or to nothing. The next genuine
+     cold launch arms it again in the ordinary way. */
+  programmeEntryPending = false;
   window.__cloudPendingRemote = remote;
   window.__cloudPendingRemoteUpdated = remoteUpdated || null;
   openModal(''+
@@ -52768,12 +52793,39 @@ function handleLandingContinue(){ landingDismissed = true; renderApp(); }
    the same thing in both places rather than two definitions of a session.
    ========================================================= */
 var programmeEntryPending = false;
+/* THE EVIDENCE init() ITSELF TRUSTS AT THIS POINT IN STARTUP, and the reason
+   this function has to exist.
+
+   init() paints ONCE, synchronously, and calls cloudInit() afterwards and
+   un-awaited -- deliberately, so cloud sync can never delay startup. So at
+   the only paint a cold launch gets, `cloudSession` is still null,
+   cloudSignedIn() is false and resolveAppState() answers
+   'signed-out-local-plan' for a signed-in athlete whose plan is right there
+   on the device. The arrival asked for 'signed-in-plan', so it never
+   rendered -- and nothing repaints afterwards on the ordinary path
+   (cloudInit() renders only in its network-failure branch, cloudReconcile()
+   only when it actually adopts something), so it was never shown at all.
+
+   init() has the same problem eleven lines into itself and solves it the
+   same way: it reads the STORED session rather than the variable, with the
+   comment "which is not hydrated yet at this point in startup". This reads
+   that identical evidence. resolveAppState() is deliberately NOT changed --
+   this widening belongs to the arrival alone, not to the app's idea of who
+   is signed in. A stored token that turns out to be revoked costs one
+   greeting before sign-out lands the athlete exactly where it would have. */
+function storedCloudSessionPresent(){
+  if (!cloudConfigured()) return false;
+  var s = null;
+  try{ s = readStored(CLOUD_SESSION_KEY); }catch(e){ return false; }
+  return !!(s && s.access_token);
+}
 function shouldShowProgrammeEntry(st){
   if (!programmeEntryPending) return false;
   /* A pending two-plans decision is not an arrival -- the athlete has a
      question to answer and a greeting would sit on top of it. */
   if (st === 'reconcile-required') return false;
-  if (st !== 'signed-in-plan') return false;
+  if (st !== 'signed-in-plan' &&
+      !(st === 'signed-out-local-plan' && storedCloudSessionPresent())) return false;
   return !!(state.setup && planHasContent());
 }
 function handleProgrammeEntryContinue(){
