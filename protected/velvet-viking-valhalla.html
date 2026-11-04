@@ -1043,6 +1043,359 @@
     mask-image:linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.72) 38%, rgba(0,0,0,0.28) 72%, rgba(0,0,0,0) 100%);
     pointer-events:none; z-index:0;
   }
+  /* ---- TODAY'S OWN SURFACE TOKENS ----
+     The supplied design asks for a cooler charcoal ground, translucent
+     smoky-glass cards and a geometric sans. These are defined HERE, on the
+     Today view, rather than by editing --bg/--surface-3, because the global
+     palette is shared with This Week, Full Plan, Valhalla, Settings, the
+     programme entry and light mode, and this pass is Today only. Promoting
+     them to the product's own tokens later is a one-line change; forking the
+     palette by hand everywhere would not be.
+       --t-ground  #121316            the charcoal page
+       --t-card    #1C1E24  the raised card face
+       --t-lift    the elevation: a soft drop plus the product's own inset
+                   top-edge highlight, which is what actually reads as
+                   "raised". backdrop-filter was tried here and removed:
+                   it only blurs what is BEHIND an element, and these boxes
+                   sit on a flat charcoal ground, so it rendered nothing
+                   while costing a compositing layer per box in the WebView.
+                   Translucency is kept where it earns its place -- the top
+                   bar over scrolling content, and anything over the
+                   mountain photograph.
+       --t-rim     rgba(229,169,60,.25) the gold hairline rim
+     THE TYPEFACE IS THE PRODUCT'S OWN. The design asks for a modern
+     geometric sans -- SF Pro, Inter or Geist -- and Inter is already loaded
+     and is already this app's canonical body role, so Today simply uses it
+     everywhere instead of Oswald and Cinzel. No new web font, no extra
+     request, and test/typographyConsistency's four-role rule still holds:
+     an invented stack was rejected by it, correctly. */
+  #app.today-ground{background:#121316;}
+  #app.today-ground .topbar{background:rgba(18,19,22,.86);}
+  .view-today{
+    --t-card:#1C1E24;
+    /* Lit from the upper left and falling away to the right. Kept to about
+       six points of luminance end to end: enough that the boxes read as a
+       surface catching light rather than as flat fill, little enough that it
+       never looks like a smudge. 100deg rather than 90 so it agrees with the
+       inset top-edge highlight instead of crossing it. */
+    /* FIVE STOPS, NOT THREE. Banding on a dark gradient comes from the step
+       between stops spanning more than one 8-bit level; closer stops shorten
+       each run so the edges stop reading as bands. It also finishes darker --
+       #121419 is the charcoal ground itself, so each box settles into the
+       page on its right edge instead of stopping on a tone of its own. */
+    --t-card-grad:linear-gradient(100deg,
+      #24262D 0%, #202229 24%, #1C1E25 48%, #181A21 72%, #141620 88%, #121419 100%);
+    /* THE RIM FOLLOWS THE SAME LIGHT, AND RUNS THE OTHER WAY. The fill is
+       lightest at the top left and falls away; the edge does the opposite,
+       starting quiet up there and catching brightest at the bottom right,
+       so the box reads as a solid catching a highlight along its lower
+       edge rather than as a flat outline. 135deg is that diagonal.
+       A border cannot take a gradient directly, so each box paints its
+       fill to the padding box and the rim to the border box. */
+    --t-rim-grad:linear-gradient(135deg,
+      rgba(227,177,90,.55) 0%, rgba(227,177,90,.82) 48%, rgba(245,208,97,1) 100%);
+    /* Box 2 keeps its velvet identity; only the direction is shared. */
+    --t-rim-velvet:linear-gradient(135deg,
+      rgba(154,84,108,.62) 0%, rgba(196,106,137,.88) 48%, rgba(196,106,137,1) 100%);
+    --t-tile:rgba(20,22,27,.8);
+    --t-tile-rim:rgba(255,255,255,.08);
+    --t-lift:0 6px 18px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.055);
+    --t-rim:rgba(229,169,60,.25);
+  }
+  /* TYPOGRAPHY: one geometric sans across the screen. The brand wordmark in
+     the top bar keeps its own face -- it is the logo, not body copy. */
+  .view-today, .view-today .font-head, .view-today .font-display,
+  .topbar-inner-today .tb-today, .topbar-inner-today .tb-date{
+    font-family:'Inter',-apple-system,sans-serif;}
+  .topbar-inner-today .tb-today{font-weight:600;}
+  /* Key metrics: bold, tabular, tight. */
+  .view-today .th-dist span, .view-today .th-dist em,
+  .view-today .ws-h-qty{
+    font-family:'Inter',-apple-system,sans-serif;
+    font-weight:700; font-variant-numeric:tabular-nums;}
+
+  /* ---- TODAY: THREE STANDALONE BOXES ----
+     Built to the supplied mock-up. PRESENTATION ONLY AND SCOPED: every rule
+     is under .view-today, so This Week and Full Plan keep the compact list
+     card they already had, and renderDayCard() still emits one identical
+     string for all three views (test/editSessionCoherence).
+
+     The spec's colours are MAPPED to production tokens rather than pasted in
+     as new hexes -- "preserve the existing colour system" has been a hard
+     constraint throughout, and a second palette is what it exists to stop:
+       gold #E5A93C/#F3C864 -> --gold / --gold-bright    velvet -> --cherry
+       muted white #C8CCD4  -> --ink-dim                 glass  -> --surface-3 */
+
+  .th-hero{display:none;}
+  .th-hero-title{display:none;}
+  .th-steps-note{display:none;}
+  .view-today .hero-mountains{display:none;}
+  .view-today .hero .stat-row{display:none;}
+  .view-today .hero{padding:0; min-height:0;}
+  .view-today .hero .medallion-img, .view-today .hero .medallion{display:none;}
+  /* The heading moved onto the brand row above; the in-view copy stays in
+     the markup so test/freshLaunchDefaultView still sees the Today view
+     actually render, and is simply not drawn here. */
+  .view-today .view-heading-row{display:none;}
+  .topbar-inner-today{display:grid; grid-template-columns:1fr auto 1fr;
+    align-items:center; gap:8px;}
+  .topbar-inner-today .tb-slot-left{justify-self:start;}
+  .topbar-inner-today .tb-slot-right{justify-self:end;}
+  .topbar-inner-today .tb-today{font-size:15px; letter-spacing:1.2px;
+    text-transform:uppercase; color:var(--ink);}
+  .topbar-inner-today .tb-date{font-size:13.5px; letter-spacing:.3px;
+    text-transform:none; color:var(--ink-dim); white-space:nowrap;}
+  @media (max-width:360px){
+    .topbar-inner-today .tb-today{font-size:13px;}
+    .topbar-inner-today .tb-date{font-size:12px;}
+  }
+
+  /* THE CARD ITSELF STEPS BACK. In the reference the three boxes sit
+     directly on the screen, so Today's day card gives up its border, rail,
+     fill and padding and becomes a plain container for them. Every control
+     it carries -- the completion tick, Edit, the accordion chevron -- is
+     kept and still works; they are simply placed on the top row instead of
+     framing the session. Only Today; the list views are untouched. */
+  /* Scoped to the VIEW, not to the is-today STATE. The state rule
+     (.day.is-today, further up) still carries var(--tile-shadow) beside its
+     gold ring for This Week and Full Plan, which is what
+     test/dayCardElevation protects. What changes here is that on Today the
+     day card is no longer a card at all -- it is the container the three
+     boxes sit in, and the elevation has moved to them. Today renders exactly
+     one day card, so .view-today .day names precisely that. */
+  /* #view-mount only to win on specificity: .view-today .day ties with the
+     production .day.is-today rule further down the sheet and loses on source
+     order, so the gold inset ring came back. Still scoped to the VIEW rather
+     than the is-today STATE, which is what test/dayCardElevation guards. */
+  #view-mount .view-today .day{
+    background:none; border:0; box-shadow:none; padding:0; border-radius:0;}
+  .view-today .day.is-today .day-top{position:relative; display:block; padding:0;}
+  .view-today .day.is-today .day-main{min-width:0;}
+  .view-today .day.is-today .day-check{position:absolute; top:-2px; right:62px; z-index:2;}
+  .view-today .day.is-today .day-actions{position:absolute; top:2px; right:30px;}
+  .view-today .day.is-today .day-chevron{position:absolute; top:2px; right:4px;}
+  .view-today .day.is-today .day-date{display:none;}
+  .view-today .day.is-today .day-targets{display:none;}
+  .view-today .day.is-today .day-title{display:none;}
+  .view-today .day.is-today .th-hero-solo ~ .day-detail .ws-block{display:none;}
+  /* TODAY first and in gold, then the session type, as the reference has it. */
+  .view-today .day.is-today .day-row1{padding-right:96px; margin:0 0 10px; gap:7px;}
+  .view-today .day.is-today .week-today-flag{order:-1;}
+
+  .view-today .day.is-today .day-detail{width:100%; margin-right:0;
+    display:flex; flex-direction:column;}
+  .view-today .day.is-today .day-detail > *:not(.ws-block){max-width:100%;}
+  .view-today .day.is-today .day-detail > *{order:5;}
+  .view-today .day.is-today .day-detail > .day-desc{order:1;}
+  /* THE WORKOUT GOES IN THE MIDDLE: hero, structure, then execution. The
+     athlete reads what they are running, how it is built, then how to run
+     it. (The written spec numbered these the other way round; the ruling
+     that followed it put the structure in between, which is also the order
+     the first two instructions asked for.) */
+  .view-today .day.is-today .day-detail > .ws-block{order:2;}
+  .view-today .day.is-today .day-detail > .how-card{order:3;}
+
+  /* ---- BOX 1 : two tiles inside a hairline frame ---- */
+  .view-today .day.is-today .th-hero{
+    display:flex; align-items:stretch; gap:9px; flex-wrap:nowrap;
+    padding:9px; margin:0; border-radius:24px;
+    /* FLAT, NOT WASHED. The two inner faces cover most of this box, so the
+       fill gradient was invisible here and only cost the right-hand tile
+       its edge definition against a darkening parent. */
+    border:1.5px solid transparent;
+    /* The flat fill is written as a gradient on purpose: in the shorthand a
+       background COLOUR may only occupy the final layer, so
+       "background:#1C1E24 padding-box, <gradient> border-box" is invalid and
+       the whole declaration is dropped -- which left this box with no fill
+       and no rim at all. A two-stop gradient of one colour is a valid image
+       layer and paints flat. */
+    background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
+      var(--t-rim-grad) border-box;
+    box-shadow:var(--t-lift);}
+  .view-today .day.is-today .th-hero:has(+ .th-steps-note){
+    border-bottom-left-radius:0; border-bottom-right-radius:0; border-bottom:0;}
+  .view-today .day.is-today .th-hero-main{
+    flex:1 1 56%; min-width:0; display:flex; flex-direction:column;
+    justify-content:center; gap:2px; padding:14px 14px 16px;
+    border-radius:18px; background:#15171C; border:1px solid var(--line-soft);}
+  /* TITLES SET IN CAPITALS ACROSS THIS SCREEN. Presentational only --
+     dd.title and every step label are untouched in the data, so Edit
+     Session, the calendar export, notifications and the other two views
+     still read the stored string exactly as written. */
+  .view-today .day.is-today .th-hero-title{
+    display:block; font-size:19px; font-weight:600; line-height:1.2;
+    letter-spacing:.04em; text-transform:uppercase; color:var(--ink);}
+  .view-today .day.is-today .strat-phase-label{text-transform:uppercase;
+    letter-spacing:.05em; font-size:12.5px;}
+  .view-today .day.is-today .th-ring-wrap{
+    flex:0 0 40%; display:flex; align-items:center; justify-content:center;
+    border-radius:18px; background:#15171C; padding:8px;
+    border:1px solid var(--line-soft);}
+  .view-today .day.is-today .th-steps-note{
+    display:block; margin:0; padding:0 14px 12px; font-size:11.5px;
+    color:var(--ink-faint); line-height:1.35;
+    border:1.5px solid transparent; border-top:0;
+    background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
+      var(--t-rim-grad) border-box;
+    border-radius:0 0 24px 24px;
+    box-shadow:0 6px 18px rgba(0,0,0,.42);}
+
+  /* The metric: unit nearly the weight of the number, ambient backlight. */
+  .th-dist{display:flex; align-items:baseline; gap:3px;}
+  /* Pure white, lit from behind rather than blurred: a tight 1px halo keeps
+     the glyph edges crisp, a mid bloom gives the backlight, a wide faint one
+     carries it into the card. */
+  .th-dist span{font-family:'Inter',-apple-system,sans-serif; font-weight:700; line-height:1;
+    font-size:clamp(38px, 12vw, 48px); letter-spacing:-0.02em;
+    font-variant-numeric:tabular-nums; color:#FFFFFF;
+    text-shadow:0 0 1px rgba(255,255,255,.40), 0 0 16px rgba(255,255,255,.30),
+                0 0 44px rgba(255,255,255,.14);}
+  .th-dist em{font-style:normal; font-weight:700; font-size:clamp(24px, 8vw, 32px);
+    color:#FFFFFF;
+    text-shadow:0 0 1px rgba(255,255,255,.35), 0 0 14px rgba(255,255,255,.22);}
+
+  /* The gauge: a near-complete amber ring, thin, with the gap at top-right. */
+  /* THE RING IS A FIXED SQUARE AND THE READOUT FLOATS OVER IT. Laid out in
+     the flow, the widest line (the HR band) made the box wider than it was
+     tall, and .th-arc stretched with it -- the circle came out as an ellipse
+     clipped into two fragments. Absolute centring keeps the geometry whatever
+     the text measures. */
+  .th-ring{position:relative; flex:none; width:clamp(112px, 33vw, 134px);
+    aspect-ratio:1/1; display:block;}
+  .th-arc{position:absolute; inset:0; width:100%; height:100%;
+    filter:drop-shadow(0 0 10px var(--cherry-dim));}
+  .th-ring-in{position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:0; text-align:center;
+    padding:0 9%;}
+  .th-ring-k{font-size:12.5px; font-weight:700; letter-spacing:.3px; color:var(--ink);
+    line-height:1.2;}
+  .th-row{display:flex; align-items:center; justify-content:center; gap:3px;
+    font-size:9.5px; color:var(--ink-dim); white-space:nowrap; line-height:1.35;}
+  .th-row .th-ic{display:inline-flex; width:9px; height:9px; color:var(--gold-text);}
+  .th-row .th-ic svg{width:9px; height:9px;}
+  .th-row.mp{color:var(--gold-text); font-size:9px;}
+
+  /* ---- BOX 2 : how to run this ---- */
+  .view-today .day.is-today .how-card{
+    margin:13px 0 0; padding:2px 2px 6px; border:1.5px solid transparent;
+    border-radius:20px; box-shadow:var(--t-lift);
+    background:var(--t-card-grad) padding-box, var(--t-rim-velvet) border-box;}
+  /* A heading, not a control: Box 2 is open and stays open on Today, so the
+     chevron and the pointer affordance go with the behaviour they advertised.
+     This Week and Full Plan keep the ordinary closed disclosure. */
+  .view-today .day.is-today .how-card > summary{
+    font-size:13px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--ink); padding:13px 15px 9px;
+    pointer-events:none; cursor:default; list-style:none;}
+  .view-today .day.is-today .how-card > summary::-webkit-details-marker{display:none;}
+  .view-today .day.is-today .how-card .fuel-chevron{display:none;}
+  /* The information glyph goes: the reference heads this box with words. */
+  .view-today .day.is-today .how-card > summary > svg:first-child{display:none;}
+  .view-today .day.is-today .how-card .fuel-body{padding:0 15px 11px;}
+  /* Tight stack, no rules between rows -- the reference uses spacing alone. */
+  /* The rule is a border-BOTTOM in the base sheet, which is why cancelling
+     border-top did nothing. The reference separates the rows with space. */
+  .view-today .day.is-today .how-row{display:block; padding:0 0 11px; border-bottom:0;}
+  .view-today .day.is-today .how-row .k{display:block; margin-bottom:1px;
+    font-size:11.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--gold-text);}
+  .view-today .day.is-today .how-row .v{display:block; font-size:13.5px;
+    line-height:1.35; color:var(--ink);}
+  .how-note{display:none;}
+  .view-today .day.is-today .coach-cue-inline{display:none;}
+  .view-today .day.is-today .how-note{
+    display:flex; flex-direction:column; gap:2px; width:100%; box-sizing:border-box;
+    margin-top:4px; padding:10px 12px; border-radius:12px;
+    border:1px solid var(--cherry-line); background:var(--cherry-tint);}
+  .how-note .k{display:flex; align-items:center; gap:6px; font-size:11.5px;
+    font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--gold-text);}
+  .how-note .k svg{width:13px; height:13px;}
+  .how-note .v{font-size:13px; color:var(--ink); line-height:1.4;}
+
+  /* ---- BOX 3 : the workout structure ---- */
+  .view-today .day.is-today .ws-block{
+    margin-top:13px; padding:13px;
+    border:1.5px solid transparent; border-radius:20px; box-shadow:var(--t-lift);
+    background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;}
+  .view-today .day.is-today .ws-block .ws-head{display:none;}
+  .view-today .day.is-today .ws-steps-h{gap:8px; align-items:stretch;}
+  /* ONE LINE FOR THE PRESCRIPTION. The step cell emits each fact as its own
+     element -- "Easy", "5:17-6:16/km", "157-164 BPM" -- which stacked them
+     and made every tile as tall as its longest column. Laid out as flowing
+     inline text with a middot between, they read as the reference has them:
+     "Easy . 5:17-6:16/km". The cool-down's closing sentence stays on its own
+     line, which is correct and is the only part that should wrap. */
+  .view-today .day.is-today .ws-h-step{
+    display:block; text-align:center;
+    padding:9px 7px 11px; border-radius:14px;
+    background:var(--t-tile); border:1px solid var(--t-tile-rim); box-shadow:none;}
+  .view-today .day.is-today .ws-h-step + .ws-h-step{border-left:1px solid var(--t-tile-rim);}
+  /* The key stage: the product's own cherry, as its edge and as a faint
+     inner ambient glow. Straight off the existing ramp -- --cherry for the
+     edge, --cherry-tint for the wash, --cherry-dim for the glow -- so the
+     highlight reads as the same accent the rest of the app uses. */
+  .view-today .day.is-today .ws-h-step.ws-work{
+    border:1.5px solid var(--cherry);
+    background:var(--cherry-tint), var(--t-tile);
+    box-shadow:0 0 16px var(--cherry-dim), inset 0 0 18px var(--cherry-tint);}
+  .view-today .day.is-today .ws-h-num{display:inline-flex; vertical-align:middle;
+    width:16px; height:16px; font-size:9.5px; margin-right:5px;}
+  .view-today .day.is-today .ws-h-name{display:inline; vertical-align:middle;
+    font-size:10.5px; font-weight:600; letter-spacing:.7px; text-transform:uppercase;
+    color:var(--gold-text);}
+  /* The header row always ends after the step's name. A cool-down carries no
+     quantity element, so without this its name ran straight into the first
+     prescription -- "Cool downEasy". */
+  .view-today .day.is-today .ws-h-name::after{content:''; display:block;}
+  .view-today .day.is-today .ws-h-qty{display:block; font-size:23px; font-weight:700;
+    color:#fff; margin:5px 0 3px; letter-spacing:-0.01em;}
+  /* ONE FACT PER LINE, WHICH IS WHAT THE DATA ALLOWS. The reference runs
+     "Easy . 5:17-6:16/km" inline, and that was tried: three tiles across a
+     phone leave about 105px each, so a real prescription (a pace band, or a
+     pace band AND an HR band) cannot sit on one line. Forced inline it
+     either ran out of the tile or, once a break opportunity was added,
+     turned the line at the separator and left a middot stranded at the
+     start of the next one. Stacked, each value is whole, centred and
+     legible -- the reference's tiles simply carry less text than a real
+     session prescribes. */
+  .view-today .day.is-today .ws-h-step .ws-h-presc,
+  .view-today .day.is-today .ws-h-step .ws-hr{display:block;}
+  .view-today .day.is-today .ws-h-step .ws-note{display:block; margin-top:4px;}
+  .view-today .day.is-today .ws-h-step .ws-h-pace,
+  .view-today .day.is-today .ws-h-step .ws-h-hr,
+  .view-today .day.is-today .ws-h-step .ws-h-sub,
+  .view-today .day.is-today .ws-h-step .ws-h-note{font-size:10px; line-height:1.25;
+    color:var(--ink-dim);}
+  /* Wrap BETWEEN the facts, never inside one: "5:17-6:16/km" breaking into
+     "5:17-" / "6:16/km" reads as two different numbers. Each value stays
+     whole and the line turns at the middot instead. */
+  .view-today .day.is-today .ws-h-step{overflow-wrap:normal;}
+
+
+  /* ---- THE TWO ACTIONS, below the boxes ---- */
+  .view-today .day.is-today .day-drawer{overflow:visible;}
+  .view-today .day.is-today .voice-row{display:flex; gap:12px; margin:13px 0 0;}
+  /* The same rim as the three boxes: quiet at the top left, full gold at
+     the bottom right. A border cannot hold a gradient, so the pill paints
+     its fill to the padding box and the rim to the border box -- and the
+     fill is the charcoal ground written as a gradient, because a background
+     COLOUR may only occupy the final layer of the shorthand. */
+  .view-today .day.is-today .voice-row .voice-btn{
+    flex:1 1 0; justify-content:center; height:48px; border-radius:24px;
+    border:1.5px solid transparent;
+    background:linear-gradient(#121316, #121316) padding-box,
+      var(--t-rim-grad) border-box;
+    font-size:13px; font-weight:700; color:var(--gold-text);}
+  .view-today .day.is-today .voice-row .voice-btn svg{color:var(--gold-text);}
+
+  @media (max-width:360px){
+    .view-today .day.is-today .th-hero{flex-direction:column;}
+    .view-today .day.is-today .voice-row{flex-direction:column;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .th-arc{filter:none;}
+  }
   /* ---- THE PROGRAMME ENTRY ----
      Reuses the Today hero's own mountain treatment and the canonical crest;
      no new asset, no new colour. The bar is the cherry accent the product
@@ -22112,6 +22465,8 @@ var ICONS = {
   // what was asked". A short notepad, not a checklist or a chart.
   notes: svgWrap('<rect x="5" y="3" width="14" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/>'),
   ruler: svgWrap('<rect x="3" y="9" width="18" height="6" rx="1.5"/><line x1="7" y1="9" x2="7" y2="12"/><line x1="11" y1="9" x2="11" y2="12"/><line x1="15" y1="9" x2="15" y2="12"/>'),
+  heart: svgWrap('<path d="M20.3 5.7a4.6 4.6 0 0 0-6.5 0L12 7.5l-1.8-1.8a4.6 4.6 0 1 0-6.5 6.5l8.3 8.3 8.3-8.3a4.6 4.6 0 0 0 0-6.5z"/>'),
+  gauge: svgWrap('<path d="M4 15a8 8 0 1 1 16 0"/><line x1="12" y1="15" x2="15.8" y2="10.6"/>'),
   clock: svgWrap('<circle cx="12" cy="12" r="8.5"/><line x1="12" y1="12" x2="12" y2="7.5"/><line x1="12" y1="12" x2="15.2" y2="13.8"/>'),
   sparkles: svgWrap('<path d="M12 3l1.4 4.6L18 9l-4.6 1.4L12 15l-1.4-4.6L6 9l4.6-1.4z"/><path d="M19 15l.7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7z"/>'),
   copy: svgWrap('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 15V5a2 2 0 0 1 2-2h10"/>'),
@@ -22756,6 +23111,20 @@ function renderTopbar(){
     return '<div class="topbar">'+inner+'</div>';
   }
 
+  /* TODAY PUTS ITS HEADING ON THE BRAND ROW, as the approved design has it:
+     TODAY on the left, the wordmark centred, the date on the right. It
+     reuses the three-slot layout this function already has for onboarding
+     rather than inventing a second header, and it is gated on the Today tab
+     -- This Week, Full Plan, Plan HQ and Settings keep the brand-only bar
+     they have now, unchanged. */
+  if ((state.view || 'today') === 'today'){
+    return '<div class="topbar"><div class="topbar-inner topbar-inner-today">'+
+      '<div class="tb-slot-left"><span class="tb-today font-head">Today</span></div>'+
+      '<div class="tb-slot-center">'+titleHtml+'</div>'+
+      '<div class="tb-slot-right"><span class="tb-date font-head">'+
+        escapeHtml(dow(todayStr())+', '+dShort(todayStr()))+'</span></div>'+
+    '</div></div>';
+  }
   // All five main tabs (Today/This Week/Full Plan/Plan HQ/Settings): brand
   // only, nothing else -- no gauge, countdown, unit toggle, or theme toggle.
   // Programme status lives in Plan HQ (renderProgrammeStatus()), theme
@@ -23871,11 +24240,24 @@ function renderCoachingDepth(dd){
   /* The cue line is where depth used to be decided; it still is. Advanced sees
      one only where getting it wrong ruins the session, everyone else sees the
      standing cue. */
+  /* ONE STRING, TWO PLACES IT MAY SIT, AND CSS DECIDES WHICH.
+     Today's approved design puts the Coach's Note inside "How to run this";
+     This Week and Full Plan keep the inline cue they have always had. Those
+     are different PRESENTATIONS of the same sentence, not different facts,
+     and renderDayCard() must still emit one identical string for all three
+     views -- that byte-identity is what test/editSessionCoherence proves and
+     it is not being traded away for a layout.
+     So both positions are emitted, carrying the same text from the same
+     source, and .view-today shows the disclosure one while hiding the inline
+     one; everywhere else does the opposite. display:none takes the hidden
+     copy out of the accessibility tree too, so nothing is announced twice.
+     The SENTENCE is unchanged, and so is which sentence each experience
+     level gets -- advanced still sees only the essential cue. */
+  var cueText = (level==='advanced') ? (g.essential || '') : (g.cue || '');
   var out = '';
-  if (level==='advanced'){
-    if (g.essential) out = '<div class="coach-cue">'+ICONS.info+'<span>'+escapeHtml(g.essential)+'</span></div>';
-  } else if (g.cue){
-    out = '<div class="coach-cue">'+ICONS.info+'<span>'+escapeHtml(g.cue)+'</span></div>';
+  if (cueText){
+    out += '<div class="coach-cue coach-cue-inline">'+ICONS.info+
+      '<span>'+escapeHtml(cueText)+'</span></div>';
   }
   /* "How to run this" is now offered at every level rather than to novices
      only. It was the strongest coaching in the product and there is no version
@@ -23910,6 +24292,10 @@ function renderCoachingDepth(dd){
           : row('Execution', gd.how))+
         row('Feel', gd.feel)+
         row('Watch For', gd.avoid)+
+        (cueText
+          ? '<div class="how-note"><span class="k font-head">'+ICONS.info+'Coach\u2019s Note</span>'+
+            '<span class="v">'+escapeHtml(cueText)+'</span></div>'
+          : '')+
         (fuelOn ? '<div class="how-row-heading">Fuel</div>'+fuelSectionBody(dd) : '')+
       '</div>'+
     '</details>';
@@ -24042,6 +24428,114 @@ function hasWorkoutBlueprint(dd){
   if (!dd || dd.type === 'rest') return false;
   try { return usesHorizontalWorkoutBlueprint(workoutSteps(dd)); } catch(e){ return false; }
 }
+/* ---- THE PRESCRIBED TARGET, AT THE SIZE THE SESSION DESERVES ----
+   EVERYTHING HERE IS PRESCRIPTION, NOT EXECUTION. The ring reads
+   getDayTargets(dd) -- Valhalla's own target authority, the same one the
+   card's target line and the daily notification already read. Nothing in it
+   depends on the session being completed, logged, or imported: an imported
+   day shows exactly the same prescribed targets as any other, and a session
+   not yet run shows them in full. Strava has no bearing on any of it.
+
+   HR is absent only where that authority itself has none -- a rest or race
+   day has no zone, an athlete who has never entered an LTHR has no range,
+   and getTargetHRRangeForDay() governs deriving one from their own health
+   data at all. That rule is left exactly as it is; this surface reads its
+   answer rather than second-guessing it.
+
+   AND A STRUCTURED SESSION IS NOT FLATTENED INTO ONE BAND. Where the day
+   carries steps with their own targets, the ring shows the day's primary
+   zone and says so, and the blueprint below stays authoritative for the
+   per-step prescription -- see renderStructuredWorkout(). No universal range
+   is manufactured for a session that does not have one.
+
+   EMITTED FOR EVERY VIEW, DELIBERATELY. renderDayCard() must produce one
+   identical string wherever it is used -- This Week and Full Plan embed the
+   very same output Today does, which is what test/editSessionCoherence's
+   fourth test proves. So the markup is unconditional and only Today's own
+   wrapper styles it as a hero; no second code path, no second argument, and
+   that invariant is untouched. */
+var TH_ARC = '<svg class="th-arc" viewBox="0 0 100 100" aria-hidden="true">'+
+  /* 240 degrees: endpoints at +/-120 from top on a 45 radius, so the gap
+     sits at the foot exactly as the design shows. */
+  /* A NEAR-COMPLETE RING WITH THE GAP AT THE TOP RIGHT, as the reference
+     draws it: 305 degrees, clockwise from 75 to 20. Both endpoints are
+     computed ON the r=45 circle centred in the viewBox -- the previous pair
+     were not, so the arc solved to a circle centred outside the box and
+     rendered as two clipped fragments. Stroke 7 keeps the outer edge at
+     48.5, inside the 100-unit box. */
+  '<path d="M93.5 38.4 A 45 45 0 1 1 65.4 7.7" fill="none" stroke="url(#th-grad)" stroke-width="7" stroke-linecap="round"/>'+
+  /* THE CHERRY RAMP, BRIGHTEST AT THE TOP AND GRADING OUT. Vertical rather
+     than diagonal (y1=0 -> y2=1), so the ring is lit where the gap is and
+     fades as it comes round the bottom. Straight off the product's own
+     cherry tokens -- --cherry-text is the bright end, --cherry the body,
+     and the foot falls away to a dim wash rather than a hard stop. */
+  '<defs><linearGradient id="th-grad" x1="0" y1="0" x2="0" y2="1">'+
+    '<stop offset="0%" stop-color="var(--cherry-text)"/>'+
+    '<stop offset="40%" stop-color="var(--cherry)"/>'+
+    '<stop offset="100%" stop-color="var(--cherry-dim)"/>'+
+  '</linearGradient></defs></svg>';
+function renderDayTargetRing(dd, targets){
+  var rows = '';
+  if (targets.hr)
+    rows += '<div class="th-row"><span class="th-ic">'+ICONS.heart+'</span>'+escapeHtml(targets.hr)+'</div>';
+  if (targets.pace)
+    rows += '<div class="th-row"><span class="th-ic">'+ICONS.gauge+'</span>'+escapeHtml(targets.pace)+'</div>';
+  /* ON A RACE DAY THE PRESCRIBED PACE ALREADY IS THE GOAL PACE -- see
+     getDayTargets(), which sets out.pace from getGoalPaceSecPerKm() there.
+     Printing both put the same number on the ring twice, labelled as though
+     they were two different targets. Shown only where it says something the
+     pace line does not. */
+  if (targets.goalPace && targets.goalPace.indexOf(targets.pace || '\u0000') === -1)
+    rows += '<div class="th-row mp">'+escapeHtml(targets.goalPace)+'</div>';
+  if (!rows) return '';
+  var label = dayTypeLabel(dd);
+  return '<div class="th-ring">'+TH_ARC+
+    '<div class="th-ring-in">'+
+      (label ? '<div class="th-ring-k font-head">'+escapeHtml(label)+'</div>' : '')+
+      rows+
+    '</div>'+
+  '</div>';
+}
+/* The distance as a headline rather than one item in a list of targets. The
+   number and its unit are split only so they can be sized apart; both come
+   from fmtDist(), so the units toggle governs this exactly as everywhere. */
+function renderDayHeroDistance(dd){
+  if (dd.km == null || !(dd.km > 0)) return '';
+  var txt = fmtDist(dd.km);
+  var m = /^([\d.,]+)\s*(.*)$/.exec(txt);
+  if (!m) return '<div class="th-dist"><span>'+escapeHtml(txt)+'</span></div>';
+  return '<div class="th-dist"><span>'+escapeHtml(m[1])+'</span><em>'+escapeHtml(m[2])+'</em></div>';
+}
+function renderDayHeroBlock(dd, targets){
+  var ring = renderDayTargetRing(dd, targets);
+  var dist = renderDayHeroDistance(dd);
+  if (!ring && !dist) return '';
+  /* Said once, where the ring is, and only when the day genuinely has
+     step-specific targets -- the blueprint immediately below is the
+     prescription for those steps and stays the authority on them. */
+  var multi = hasWorkoutBlueprint(dd);
+  var stepNote = (ring && multi)
+    ? '<div class="th-steps-note">Primary zone \u2014 each step below carries its own target.</div>'
+    : '';
+  /* A SINGLE-STEP SESSION SAYS ITS DISTANCE AND ZONE ONCE. The marker lets
+     Today drop the one-row WORKOUT block, which on such a day repeats the
+     ring and the headline exactly; a multi-step session keeps its blueprint,
+     which is the only place the per-step prescription is written. A class on
+     the markup rather than a second render path, so the string is unchanged
+     for This Week and Full Plan, which keep showing the block as before. */
+  /* THE TITLE IS CARRIED HERE TOO, so Today can build the reference's
+     two-tile hero -- identity and distance in the left tile, the gauge in
+     the right one. .day-title stays exactly where it is in the markup for
+     This Week and Full Plan; CSS shows one copy and hides the other, the
+     same way the Coach's Note has two positions. One string, every view. */
+  return '<div class="th-hero'+(multi?'':' th-hero-solo')+'">'+
+    '<div class="th-hero-main">'+
+      '<div class="th-hero-title">'+escapeHtml(displayCardTitle(dd))+'</div>'+
+      dist+
+    '</div>'+
+    (ring ? '<div class="th-ring-wrap">'+ring+'</div>' : '')+
+  '</div>'+stepNote;
+}
 function renderDayCard(dd){
   var tm = TYPE_META[dd.type];
   var targets = getDayTargets(dd);
@@ -24166,6 +24660,7 @@ function renderDayCard(dd){
       '<div class="day-main">'+
         '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+(optState?'optional':tm.cls)+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
         '<div class="day-title">'+escapeHtml(displayCardTitle(dd))+optionalRunTitleMark(dd)+'</div>'+
+        renderDayHeroBlock(dd, targets)+
         '<div class="day-detail">'+
           (targetsHtml ? '<div class="day-targets">'+targetsHtml+'</div>' : '')+
           /* WHAT, then HOW and WHY. The step list is the execution
@@ -51031,7 +51526,22 @@ function renderTodayView(){
   // Journal the state the coach is showing, so tomorrow can see what today
   // looked like. Writes only when it changes, and never re-renders.
   recordAthleteState();
-  var html = renderHero()+'<div class="view-heading font-head">Today</div>';
+  /* THE SESSION IS THE SCREEN. Today opens on a compact brand header and the
+     day itself, not on a full-bleed crest that pushed the session below the
+     fold -- renderHero() still draws the crest everywhere it did before, and
+     Today scopes it down through .view-today rather than dropping it.
+     The wrapper is renderTodayView()'s own markup, so the string
+     renderDayCard() produces is still embedded here verbatim. */
+  var html = '<div class="view-today">'+renderHero()+
+    /* THE HEADING ITSELF IS LEFT EXACTLY AS IT WAS -- same element, same
+       classes, same text. The date is a sibling beside it rather than a
+       span inside it, so test/freshLaunchDefaultView's assertion that Today
+       actually rendered still matches the markup it was written against. A
+       test is not an obstacle to route around by rewriting it. */
+    '<div class="view-heading-row">'+
+      '<div class="view-heading font-head">Today</div>'+
+      '<div class="view-date font-head">'+escapeHtml(dow(todayStr())+', '+dShort(todayStr()))+'</div>'+
+    '</div>';
   /* AVAILABILITY LEADS, because every card below it reasons from training
      the athlete may not be able to do. A declared restriction changes what
      the plan asks, what counts as adherence and what the goal is worth, so
@@ -51062,15 +51572,30 @@ function renderTodayView(){
      -- Settings is the permanent home. */
   html += renderHealthConsentCard();
   var report = coachAnalyse();
-  html += renderCoachNextMoveCard(report);
+  /* NEXT MOVE SITS BELOW THE SESSION, BY RULING. The cards above it stay
+     above: a declared restriction, the race-outcome question, the checkpoint
+     verdict and the consent ask each change what everything downstream is
+     allowed to claim, so they are still established before anything reasons
+     from them. Next Move reasons ABOUT the session, so it reads after it. */
+  html += dd ? renderDayCard(dd) : '<div class="empty-note">No session scheduled for today — it falls outside the current plan’s dates.</div>';
+  /* NEXT MOVE IS NOT ON TODAY, BY RULING. Today answers three questions --
+     what am I running, how do I run it, and what does Valhalla want me to
+     know -- and the coaching for THIS session belongs in How to run this and
+     the Coach's Note, which already carry it. renderCoachNextMoveCard() is
+     untouched and still rendered by every other surface that uses it; this
+     is a Today presentation decision, not a removal of the feature.
+     PACE REFERENCE HAS A DESTINATION, AND IT IS NOT HERE. It is an athlete
+     reference tool rather than part of today's prescription, so it comes off
+     this screen. renderCompactPaceReference(), its calculations and the
+     pace/HR authority beneath it are all deliberately left intact and
+     unduplicated, awaiting their home: VALHALLA -> COACH, when that screen is
+     redesigned. Nothing about it is deleted here and nothing is moved yet. */
   html += renderPostRaceRecoverCard(report);
   html += renderBlockTransitionCard();
-  html += dd ? renderDayCard(dd) : '<div class="empty-note">No session scheduled for today — it falls outside the current plan’s dates.</div>';
-  html += renderCompactPaceReference();
   /* LAST, AND DELIBERATELY. A signpost to Settings has no business above the
      session the athlete opened the app for -- see renderInjuryPointer(). */
   html += renderInjuryPointer();
-  return html;
+  return html+'</div>';
 }
 // This Week: just the active week's accordion (force-expanded), its zone
 // breakdown, and its done/total distance -- nothing else.
@@ -53005,11 +53530,40 @@ function renderApp(){
      of a screen the athlete has not finished arriving at. */
   var navAllowed = appStateAllowsNav() && !shouldShowProgrammeEntry(resolveAppState());
   app.classList.toggle('has-subnav', navAllowed && (state.view||'today')==='planhq');
+  /* The charcoal ground belongs to the Today design. Toggled per view so the
+     rest of the product keeps --bg exactly as it is -- this pass is Today
+     only, and the global palette is not being forked. */
+  app.classList.toggle('today-ground', (state.view||'today')==='today');
   app.innerHTML =
     renderTopbar()+
     '<div class="wrap"><div id="view-mount" class="view-fade">'+renderMainContent()+'</div></div>'+
     (navAllowed ? renderBottomNavStack() : '');
   programmeEntryBindName();
+  openTodayCoachingPanel();
+}
+/* HOW TO RUN THIS IS NOT A DROP-DOWN ON TODAY. The approved screen shows the
+   whole session on one page: hero, structure, execution, all open. The
+   element stays a <details> because that is the markup every other view
+   shares and renderDayCard() must keep emitting one identical string -- it
+   is simply opened here, after mount, for the Today card only. CSS then
+   takes away the chevron and the pointer affordance so it does not read as
+   something to tap. This Week and Full Plan keep the closed disclosure they
+   have always had. */
+function openTodayCoachingPanel(){
+  if (typeof document === 'undefined' || !document.querySelector) return;
+  try{
+    var d = document.querySelector('.view-today .day.is-today details.how-card');
+    if (!d) return;
+    d.open = true;
+    /* AND IT STAYS OPEN. CSS takes the pointer away from the summary, but a
+       <summary> is keyboard-focusable in its own right, so Enter would still
+       have closed the panel -- with the chevron gone, leaving no visible way
+       to open it again. Taking it out of the tab order closes that door too.
+       The heading itself is untouched and still read aloud; only its
+       disclosure behaviour is withdrawn, and only on Today. */
+    var sum = d.querySelector('summary');
+    if (sum) sum.setAttribute('tabindex', '-1');
+  }catch(e){}
 }
 
 /* =========================================================

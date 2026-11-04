@@ -1073,12 +1073,23 @@ test('Today carries one quiet pointer, at the foot, in the product’s own regis
   assert.match(html, /Injured or ill\?/);
   // the quietest interactive control the product has -- Next Move's WHY?
   assert.match(a.renderInjuryPointer(), /class="coach-why-btn"/);
-  // below the session and below the pace reference, not above them
-  assert.ok(html.indexOf('pace-ref-card') !== -1, 'the fixture renders no pace reference');
-  assert.ok(html.indexOf('Injured or ill?') > html.indexOf('pace-ref-card'),
+  /* WHAT THIS TEST IS FOR IS UNCHANGED: one quiet pointer, at the foot, not
+     competing with the session the athlete opened the app for. How it was
+     expressed referred to two things that are no longer on Today by ruling
+     -- the Pace Reference (whose destination is now Valhalla -> Coach) and
+     Next Move. Ordering assertions against absent markup do not fail, they
+     pass vacuously: indexOf returns -1 and every index beats it. So the
+     property is pinned directly instead, which is strictly stronger than
+     the ordering it replaces. */
+  assert.equal((html.match(/Injured or ill\?/g) || []).length, 1, 'exactly one pointer');
+  assert.ok(html.indexOf('Injured or ill?') > html.indexOf('class="day '),
     'the signpost is competing with the session the athlete opened the app for');
-  assert.ok(html.indexOf('Injured or ill?') > html.indexOf('coach-next-title'),
-    'the signpost sits above Next Move');
+  // and it is genuinely the last thing on the screen, not merely low down
+  assert.match(html.slice(html.indexOf('Injured or ill?')), /^Injured or ill\?(?:<\/[a-z]+>)*$/,
+    'nothing follows the signpost');
+  // the two surfaces this screen no longer carries, held so they cannot creep back
+  assert.equal(html.indexOf('pace-ref-card'), -1, 'the Pace Reference belongs to Valhalla -> Coach');
+  assert.equal(html.indexOf('coach-next-title'), -1, 'Next Move is not on Today');
 });
 
 test('it directs to Settings and does nothing else', () => {
