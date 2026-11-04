@@ -425,8 +425,11 @@ test('elevation is not health data and is not behind the consent gate', () => {
 
 test('the share surface tells the athlete when something is held back', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
-  const fn = src.match(/function shareModalHtml\(\)\{[\s\S]*?\n\}/);
-  assert.ok(fn, 'shareModalHtml exists');
+  /* The composer lives in shareComposerHtml() now -- shareModalHtml() is
+     that plus a title bar -- so the completion card can host it inline. The
+     note has to travel with the composer, not with the modal. */
+  const fn = src.match(/function shareComposerHtml\(\)\{[\s\S]*?\n\}/);
+  assert.ok(fn, 'shareComposerHtml exists');
   assert.ok(/withheldNote/.test(fn[0]) && /share-note/.test(fn[0]),
     'a withheld metric is explained in the composer, never silently omitted');
   assert.ok(/d\.withheld\.length/.test(fn[0]),
@@ -537,13 +540,18 @@ test('Share opens the editor; it does not jump to the OS share sheet', () => {
   const i = code.indexOf("case 'share-workout':");
   assert.ok(i > 0);
   const line = code.slice(i, code.indexOf('break;', i));
-  assert.ok(line.includes('openShareModal'), 'Share to Socials opens the editor');
+  /* The editor opens in place now rather than over the app; either host is
+     the editor. What this guards is unchanged and is the second assertion:
+     Share to Socials must never reach the OS share sheet or write a file on
+     its own -- the athlete approves an image first. */
+  assert.ok(/toggleShareInline|openShareModal/.test(line),
+    'Share to Socials opens the editor');
   assert.ok(!/saveBinaryFile|Share\.share/.test(line), 'and nothing else');
 });
 
 test('the editor offers overlay, picture source and format as three choices', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
-  const i = src.indexOf('function shareModalHtml()');
+  const i = src.indexOf('function shareComposerHtml()');
   const body = src.slice(i, src.indexOf('\n}\n', i));
   /* source and format go through the seg() helper, which builds the data-k
      attribute from its argument -- so the literal never appears in source and

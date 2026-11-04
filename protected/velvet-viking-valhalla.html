@@ -2929,7 +2929,23 @@
   .wc .wc-analysis .cr-adjust-why{color:var(--wc-dim);}
   .wc .wc-analysis .exec-review-summary, .wc .wc-analysis .exec-review-more{color:var(--wc-dim);}
   /* ---- SHARING ---- */
-  .share-launch{display:flex; flex-direction:column; gap:10px;}
+  .share-launch{display:flex; flex-direction:column; gap:0;}
+  /* Open, the tab joins the panel beneath it into one object rather than
+     floating above it. */
+  .share-launch:has(.share-inline.is-open) .btn-share{
+    border-bottom-left-radius:0; border-bottom-right-radius:0;}
+  .share-caret{display:inline-flex; margin-left:2px; transition:transform .18s;}
+  .share-caret svg{width:17px; height:17px;}
+  .btn-share[aria-expanded="true"] .share-caret{transform:rotate(180deg);}
+  .share-inline{display:none;}
+  .share-inline.is-open{
+    display:block; border:1px solid var(--gold-deep); border-top:0;
+    border-radius:0 0 var(--tile-radius) var(--tile-radius);
+    background:var(--t-card-grad); box-shadow:var(--t-lift);
+  }
+  /* The composer keeps the modal's own body rules; only the padding is the
+     card's rather than the modal's. */
+  .share-inline .share-body{padding:14px 13px 15px;}
   .btn-share{display:inline-flex; width:100%; align-items:center; justify-content:center; gap:8px;
     background:linear-gradient(135deg, var(--gold-deep), var(--gold-bright) 52%, var(--gold));
     color:#120f0b; border:1px solid var(--gold-bright); font-family:'Oswald',sans-serif;
@@ -28249,15 +28265,30 @@ function shareLoadBackdrop(){
     im.src = b.src;
   });
 }
+/* WHY THE NOTE SAYS "imported session" AND NOT "your elevation came from
+   Strava". The boundary works at day granularity: once a day carries a Strava
+   activity id, every objective field on it is treated as derived. That is the
+   safe direction, but it means a figure the athlete typed themselves on an
+   imported day is withheld too -- so a note claiming each named field came
+   from Strava would sometimes be telling them something untrue. The note
+   states the rule that is actually being applied.
+
+   The overlay picker draws each design as a miniature of itself rather than
+   naming it, because "Diagonal" and "Rail" mean nothing until you see them;
+   the thumbnails are painted from the same layout functions as the export,
+   and the picker's aspect ratio follows the chosen format so a square Post
+   is not previewed in a portrait box. */
 function shareModalHtml(){
+  return '<div class="modal-head"><h2 class="font-head">Share your workout</h2>'+
+      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+    shareComposerHtml();
+}
+/* THE COMPOSER, WITHOUT A HOST. Everything below used to be welded to the
+   modal's body; it is the same string, lifted out so the completion card can
+   hold it too. shareModalHtml() above is now just this plus a title bar. One
+   composer, two places to put it -- not two composers. */
+function shareComposerHtml(){
   var st = shareState, d = st.data;
-  /* WHY THIS SAYS "imported session" AND NOT "your elevation came from Strava".
-     The boundary works at day granularity: once a day carries a Strava
-     activity id, every objective field on it is treated as derived. That is
-     the safe direction, but it means a figure the athlete typed themselves
-     on an imported day is withheld too -- so a note claiming each named
-     field came from Strava would sometimes be telling them something
-     untrue. The note states the rule that is actually being applied. */
   var withheldNote = d.withheld.length
     ? '<div class="share-note">'+ICONS.sparkles+'<div><strong>Imported numbers stay off the image.</strong> '+
       'This session was brought in from Strava, so Valhalla is leaving '+
@@ -28273,13 +28304,6 @@ function shareModalHtml(){
         'class="'+(val===o[0]?'active':'')+'">'+escapeHtml(o[1])+'</button>';
     }).join('')+'</div>';
   };
-  /* The overlay picker draws each design as a miniature of itself rather than
-     naming it, because "Diagonal" and "Rail" mean nothing until you see them.
-     The thumbnails are painted from the same layout functions as the export. */
-  /* The picker's own aspect ratio follows the chosen format. Pinned to 9:16
-     in CSS, a square Post thumbnail was stretched to a portrait box and the
-     badge overlay previewed as an ellipse -- a picker that misrepresents the
-     thing it is picking. */
   var thumbAR = SHARE_SIZES[st.format].square ? '1 / 1' : '9 / 16';
   var overlays = '<div class="share-overlays" role="group" aria-label="Overlay" '+
       'style="--share-thumb-ar:'+thumbAR+'">'+
@@ -28295,9 +28319,7 @@ function shareModalHtml(){
       'data-action="share-backdrop" data-v="'+b.key+'" style="background-image:url(\''+b.src+'\')">'+
       '<span>'+escapeHtml(b.label)+'</span></button>';
   }).join('');
-  return '<div class="modal-head"><h2 class="font-head">Share your workout</h2>'+
-      '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
-    '<div class="modal-body share-body">'+
+  return '<div class="modal-body share-body">'+
       /* The empty label is always emitted and hidden by shareRepaint() once a
          picture is actually on the canvas. Deciding at build time was wrong:
          the default backdrop loads asynchronously AFTER the markup is made,
@@ -28368,10 +28390,23 @@ function sharePaintThumbs(){
 /* Redraw the whole card rather than patch pieces of it: the picture controls,
    the reposition hint and the canvas all change together, and a half-updated
    control panel is how you end up sharing a layout the athlete didn't pick. */
+/* Redraw the whole composer rather than patch pieces of it: the picture
+   controls, the reposition hint and the canvas all change together, and a
+   half-updated control panel is how you end up sharing a layout the athlete
+   didn't pick.
+
+   It now finds whichever host is live. The modal is still there for any
+   surface that wants it; the completion card holds the same composer inline
+   instead, which is why this cannot stay hard-wired to .share-modal. */
 function shareRerender(){
   var card = document.querySelector('.modal-card.share-modal');
-  if (!card) return;
-  card.innerHTML = shareModalHtml();
+  if (card){
+    card.innerHTML = shareModalHtml();
+  } else {
+    var inline = document.querySelector('.share-inline.is-open');
+    if (!inline) return;
+    inline.innerHTML = shareComposerHtml();
+  }
   shareBindPhoto(); shareRepaint();
 }
 function shareBindPhoto(){
@@ -28764,11 +28799,48 @@ function renderShareLaunch(dd){
      out and nothing else. Sharing is offered, never urged -- no badge, no
      streak, no prompt that returns if ignored. A session with no legitimate
      verdict still gets the button; its card simply has no word to show. */
+  var id = escapeHtml(String(dd.id!=null?dd.id:dd.date));
   return '<div class="share-launch">'+
     '<button type="button" class="btn btn-share" data-action="share-workout" '+
-      'data-day="'+escapeHtml(String(dd.id!=null?dd.id:dd.date))+'">'+
-      ICONS.share+'Share to Socials</button>'+
+      'data-day="'+id+'" aria-expanded="false" aria-controls="share-inline-'+id+'">'+
+      ICONS.share+'<span class="btn-share-label">Share to Socials</span>'+
+      '<span class="share-caret" aria-hidden="true">'+ICONS.chevronDown+'</span></button>'+
+    '<div class="share-inline" id="share-inline-'+id+'"></div>'+
   '</div>';
+}
+/* THE TAB OPENS WHAT IT NAMES, IN PLACE. It used to launch a modal over the
+   whole app; the composer now unfolds directly beneath the button that asked
+   for it, so the card the athlete is looking at stays on screen behind their
+   choices.
+
+   Built on open rather than rendered with the card: the composer needs
+   shareState for the day in question, loads a backdrop and paints a canvas,
+   and doing that for every completed session on the page would be a lot of
+   work for a panel nobody has asked to see. */
+function toggleShareInline(dd, btn){
+  if (!dd || !btn) return;
+  var host = document.getElementById('share-inline-' +
+    String(dd.id != null ? dd.id : dd.date));
+  if (!host) return;
+  if (host.classList.contains('is-open')){
+    host.classList.remove('is-open');
+    host.innerHTML = '';
+    btn.setAttribute('aria-expanded', 'false');
+    shareState = null;
+    return;
+  }
+  var data = shareCardData(dd);
+  if (!data) return;
+  shareState = { dd:dd, data:data, img:null, overlay:'frame', format:'story',
+                 source:'valhalla', backdrop:SHARE_BACKDROPS[0].key,
+                 transform:{ scale:1, x:0, y:0 }, busy:false };
+  host.innerHTML = shareComposerHtml();
+  host.classList.add('is-open');
+  btn.setAttribute('aria-expanded', 'true');
+  shareBindPhoto();
+  shareLoadBackdrop().then(function(){
+    return shareFontsReady();
+  }).then(shareRepaint);
 }
 
 
@@ -54058,7 +54130,7 @@ document.addEventListener('click', function(e){
     /* SHARING. 'share-workout' opens the composer; the other two only ever
        change what the athlete is looking at, or hand the finished PNG to the
        device. Nothing here touches the plan or the log. */
-    case 'share-workout': openShareModal(findDay(target.getAttribute('data-day'))); break;
+    case 'share-workout': toggleShareInline(findDay(target.getAttribute('data-day')), target); break;
     case 'view-analysis': handleViewAnalysis(target.getAttribute('data-day')); break;
     /* Continue means "I am done with this moment". In the popup that closes
        it; on the card it folds the day away, which is the same intent on a
