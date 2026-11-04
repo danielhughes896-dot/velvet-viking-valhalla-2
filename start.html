@@ -299,6 +299,9 @@
     <h1 class="lead" id="auth-heading">Sign in</h1>
     <p class="say" id="auth-say">One address is all we need. We send a link; opening it signs you in.
        There is no password for you to create or remember.</p>
+    <label for="firstname" id="firstname-label">First name</label>
+    <input id="firstname" type="text" autocomplete="given-name"
+           placeholder="Dan" maxlength="80" spellcheck="false">
     <label for="email">Email address</label>
     <input id="email" type="email" autocomplete="email" inputmode="email"
            placeholder="you@example.com" spellcheck="false">
@@ -581,6 +584,16 @@
     $('auth-step').textContent = 'Step three of three';
     $('auth-step').classList.toggle('vvv-hidden', !isSave);
     $('auth-heading').textContent = isSave ? 'Save My Plan' : 'Sign in';
+    /* ASKED WHEN AN ACCOUNT IS BEING MADE, NOT WHEN ONE IS BEING OPENED.
+       This pane is both doors: 'save' is the athlete creating their account
+       at the end of the builder, and 'signin' is a returning athlete coming
+       back through the link on the build screen. A returning athlete has
+       already given their name -- it is on their record and syncs with the
+       rest of their state -- so asking again would be friction that buys
+       nothing, and the app's own adoptPendingIdentity() would discard the
+       answer rather than overwrite what is already there. */
+    $('firstname').classList.toggle('vvv-hidden', !isSave);
+    $('firstname-label').classList.toggle('vvv-hidden', !isSave);
     $('auth-say').textContent = isSave
       ? 'One address is all we need. We’ll send a link — open it on this device and ' +
         'your plan will be exactly as you left it. There is no password to create or remember.'
@@ -665,8 +678,19 @@
   /* ---------- auth ---------- */
   $('send').addEventListener('click', function(){
     clear('auth-err');
+    var wantsName = !$('firstname').classList.contains('vvv-hidden');
+    var firstName = ($('firstname').value || '').trim().slice(0, 80);
     var email = ($('email').value || '').trim();
+    if (wantsName && !firstName){ fail('auth-err', 'Tell us what to call you.'); return; }
     if (!email || email.indexOf('@') < 1){ fail('auth-err', 'That does not look like an email address.'); return; }
+    /* WRITTEN BEFORE THE LINK IS SENT, because this page does not survive the
+       round trip: the athlete leaves for their inbox and comes back through a
+       fresh load, so a name held only in this input would be gone by the time
+       an account exists. Same-origin, same pattern as vvv_pending_build --
+       the app adopts it once on arrival and clears the key. */
+    if (firstName){
+      try{ localStorage.setItem('vvv_identity', JSON.stringify({ firstName:firstName })); }catch(e){}
+    }
     $('send').disabled = true;
     fetch('/api/beta-signin', { method:'POST', headers:{'content-type':'application/json'},
       body: JSON.stringify({ email: email, redirect: location.origin + '/start' }) })
