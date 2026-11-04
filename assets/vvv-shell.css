@@ -48,6 +48,17 @@
   --ctl-disabled-bg:#1d1a17; --ctl-disabled-text:#6f6a62; --ctl-disabled-border:#2e2921;
   --danger-ink:#E0A0A0;
   --radius:16px; --radius-sm:10px;
+  /* THE CARD LANGUAGE, so /start and the account shell build their controls
+     from the same values the app does. Declared here rather than copied into
+     each page: a pasted palette is how these drifted apart before, and
+     test/builderVisualParity exists because the builder is reached both at
+     /start and inside the app and must not be two different screens. */
+  --tile-radius:20px;
+  --t-tile:rgba(20,22,27,.8);
+  --t-tile-rim:rgba(255,255,255,.08);
+  --t-lift:0 6px 18px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.055);
+  --t-card-grad:linear-gradient(100deg,
+    #24262D 0%, #202229 24%, #1C1E25 48%, #181A21 72%, #141620 88%, #121419 100%);
   color-scheme:dark;
 }
 

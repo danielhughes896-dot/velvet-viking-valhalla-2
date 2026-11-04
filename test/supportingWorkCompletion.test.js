@@ -382,9 +382,16 @@ test('the ring is the SAME component as the running session’s, not a copy of i
   ['border-radius', 'appearance', 'background:var(--cherry'].forEach(prop =>
     assert.ok(body.indexOf(prop) === -1,
       '.support-check must not redraw the ring — that is .day-check input’s job: ' + prop));
-  // and the shared component rule must still name all its members
-  assert.match(CODE, /\.day-check input, \.wd-check input, \.cv-opt input, \.bld-consent input\{/,
-    'the single circular-checkbox rule must still exist and still be shared');
+  /* And the shared component rule must still name all its members. The Edit
+     Session pair joined it, so the list grew -- the point of the assertion is
+     that there is ONE rule naming every member, not that the membership is
+     frozen. */
+  const shared = /\.day-check input, \.wd-check input, \.cv-opt input, \.bld-consent input,?([^{]*)\{/
+    .exec(CODE);
+  assert.ok(shared, 'the single circular-checkbox rule must still exist and still be shared');
+  ['.ef-completed input[type="checkbox"]', '#ef-mp'].forEach(m =>
+    assert.ok(shared[1].indexOf(m) !== -1,
+      m + ' draws its own ring instead of joining the shared one'));
 });
 
 test('the control is an adequate tap target and is accessible', () => {

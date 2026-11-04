@@ -519,9 +519,15 @@ test('a race block is one scannable line of instruction, not two of prose', () =
       assert.ok(ph.label && ph.spanLabel && ph.pace, 'and still carries action, distance and pace');
     });
   });
+  /* Purpose and cue render as ONE paragraph now, so a block carrying only a
+     cue produces exactly one prose line -- which is what "not two of prose"
+     has always meant. The class it lands in changed; the count did not, and
+     the data assertion above still pins purpose to null at the source. */
   const card = a.renderDayCard(race);
-  assert.doesNotMatch(card, /strat-phase-purpose/, 'no purpose line renders on a race block');
-  assert.equal((card.match(/strat-phase-cue/g) || []).length, 5, 'one instruction per block');
+  assert.equal((card.match(/strat-phase-purpose/g) || []).length, 5,
+    'one instruction per block');
+  assert.doesNotMatch(card, /strat-phase-cue/,
+    'the separate italic cue line is retired, not re-emitted alongside');
 });
 
 test('suppressing the purpose line is scoped to races and nothing else', () => {

@@ -80,8 +80,15 @@ test('the selected-choice state is gold (--modal-active), not Cherry Lacquer, on
   const appRule = /\.opt-grid button\.active\{([^}]*)\}/.exec(APP_SRC);
   const startRule = /\.opt-grid button\.active\{([^}]*)\}/.exec(START_SRC);
   assert.ok(appRule && startRule, 'the .opt-grid button.active rule is missing on one surface');
-  assert.match(appRule[1], /var\(--modal-active\)/);
-  assert.match(startRule[1], /var\(--modal-active\)/);
+  /* GOLD, and which gold is the design system's business. The selection
+     language follows the bottom nav's selected tab, which moved from
+     --modal-active to the brighter --gold-bright when the nav stopped being
+     a slab; what this test exists to stop is a selection turning up in
+     Cherry Lacquer, which is the ACTION colour (Continue), and that
+     assertion is directly below and unchanged. */
+  const GOLD = /var\(--(modal-active|gold|gold-bright)\)/;
+  assert.match(appRule[1], GOLD);
+  assert.match(startRule[1], GOLD);
   assert.doesNotMatch(appRule[1], /cherry/i, 'the app now colours a selection cherry, not gold -- this test is stale');
   assert.doesNotMatch(startRule[1], /cherry/i, '/start colours a selection cherry -- selection state must stay gold');
 });

@@ -155,19 +155,24 @@
   .opt-grid button{
     font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); font-weight:700;
     letter-spacing:.4px; min-height:52px; padding:12px 8px; text-align:center;
-    border:1px solid var(--ctl-border); border-radius:12px;
-    background:var(--ctl-bg); color:var(--ink-faint);
-    transition:box-shadow .18s, background .18s, color .18s;
+    border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
+    background:var(--t-tile); color:var(--ink-dim); box-shadow:var(--t-lift);
+    transition:box-shadow .18s, background .18s, color .18s, border-color .18s;
   }
   .opt-grid button:disabled{opacity:.5;}
   .opt-grid button:active{transform:scale(.98);}
+  /* The same selected treatment the app uses -- see its note: this is the
+     bottom nav's selected tab, which is now gold with illumination rather
+     than a slab. /start and the in-app builder must not diverge. */
   .opt-grid button.active{
-    color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14);
-    border-color:rgba(var(--modal-active-rgb),0.5);
+    color:var(--gold-bright); background:var(--t-tile);
+    border-color:var(--gold); font-weight:700;
+    box-shadow:0 0 0 1px var(--gold), 0 0 16px rgba(227,177,90,.26), var(--t-lift);
   }
   .bld-locked .opt-grid{opacity:.6;}
   .bld-date input[type="date"]{
-    border-radius:12px; padding:14px 13px; min-height:52px;
+    background:var(--t-tile); border-color:var(--t-tile-rim); box-shadow:var(--t-lift);
+    border-radius:var(--tile-radius); padding:14px 13px; min-height:52px;
     font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); letter-spacing:.4px; color:var(--ctl-text);
   }
   .bld-date input[type="date"]::-webkit-calendar-picker-indicator{
@@ -179,18 +184,19 @@
   .bld-purpose{display:grid; gap:10px; grid-template-columns:1fr 1fr;}
   .bld-purpose button{
     display:block; width:100%; text-align:left; padding:14px 13px; min-height:118px;
-    border:1px solid var(--ctl-border); border-radius:12px;
-    background:var(--ctl-bg); color:var(--ink-faint);
-    transition:box-shadow .18s, background .18s, color .18s;
+    border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
+    background:var(--t-tile); color:var(--ink-dim); box-shadow:var(--t-lift);
+    transition:box-shadow .18s, background .18s, color .18s, border-color .18s;
   }
   .bld-purpose button:active{transform:scale(.995);}
   .bpc-name{display:block; font-size:var(--fs-data); letter-spacing:.4px; font-weight:700; line-height:1.2;}
   .bpc-why{display:block; font-family:'Inter',sans-serif; font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:6px; letter-spacing:0;}
   .bld-purpose button.active{
-    color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14);
-    border-color:rgba(var(--modal-active-rgb),0.5);
+    color:var(--gold-bright); background:var(--t-tile);
+    border-color:var(--gold); font-weight:700;
+    box-shadow:0 0 0 1px var(--gold), 0 0 16px rgba(227,177,90,.26), var(--t-lift);
   }
-  .bld-purpose button.active .bpc-why{color:var(--modal-active); opacity:.8;}
+  .bld-purpose button.active .bpc-why{color:var(--gold); opacity:.85;}
 
   /* ---------- the training week ----------
      THE SAME CIRCLE AS THE APP'S DAY-CARD COMPLETION RING

@@ -362,8 +362,11 @@ test('the four objectives are a 2x2 of cards wearing the gold selected state', (
   const css = SRC.slice(SRC.indexOf('.bld-purpose{'), SRC.indexOf('.bld-date input'));
   assert.match(css, /\.bld-purpose\{[^}]*grid-template-columns:1fr 1fr/,
     'the objectives are not laid out two across');
-  // selected state is GOLD (--modal-active), never the Cherry Lacquer action colour
-  assert.match(css, /\.bld-purpose button\.active\{[^}]*--modal-active/,
+  // selected state is GOLD, never the Cherry Lacquer action colour. Which
+  // gold follows the bottom nav's selected tab -- now --gold-bright, since
+  // that tab stopped being a slab. The never-cherry rule below is the one
+  // that matters and is unchanged.
+  assert.match(css, /\.bld-purpose button\.active\{[^}]*--(modal-active|gold|gold-bright)/,
     'the selected objective no longer uses the gold selection language');
   assert.doesNotMatch(css, /\.bld-purpose button\.active\{[^}]*--cherry/,
     'a selected objective is wearing the primary-action colour');

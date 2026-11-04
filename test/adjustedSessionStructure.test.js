@@ -543,8 +543,13 @@ test('no surface renders a day card by a route of its own', () => {
      are two positions for one session with only ever one of them showing,
      which the mutual-exclusion rule below is what actually enforces. */
   const calls = code.match(/renderDayCard\(/g) || [];
-  assert.equal(calls.length, 5,
-    'expected the declaration plus four direct call sites, saw ' + calls.length);
+  assert.equal(calls.length, 6,
+    'expected the declaration plus five direct call sites, saw ' + calls.length);
+  /* The fifth: Full Plan drills block -> week -> session, and the session
+     screen is the canonical card. Still one renderer; the screens that show
+     a session all reach the same one. */
+  assert.match(code, /function renderPlanSessionView\(\)\{[\s\S]*?renderDayCard\(dd\)/,
+    'Full Plan\u2019s session screen must reach the shared card');
   /* THE RULE THAT MAKES THE EXTRA CALL SITE SAFE. This Week shows a summary
      of the selected session and, behind the same button, the canonical card.
      Both are in the markup so editSessionCoherence's identical-string

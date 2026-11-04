@@ -119,8 +119,12 @@ test('expanding and collapsing the checkpoint week still works', () => {
   assert.match(collapsed, /class="week[^"]*"/);
   assert.doesNotMatch(collapsed, /class="week open/, 'collapsed by default');
   assert.match(expanded, /class="week open/, 'and opens when asked');
-  assert.match(collapsed, /data-action="toggle-week" data-week="' + chk.week + '"|data-action="toggle-week"/,
-    'the toggle control is intact');
+  /* The week row opens the week's own SCREEN now rather than expanding in
+     place -- Full Plan is block -> week -> session. The open/collapsed
+     mechanism above is unchanged and still drives forceOpenAll; what moved
+     is where the control takes you. */
+  assert.match(collapsed, /data-action="plan-open-week"/,
+    'the week control is intact');
   assert.ok(expanded.indexOf('id="day-' + chk.id + '"') !== -1,
     'and the session is inside it either way');
 });

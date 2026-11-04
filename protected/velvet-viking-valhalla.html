@@ -807,9 +807,20 @@
      'Conditional' tag beside them keeps its own colour: that is a qualifier
      on the number, not the number. See .ws-target. */
   .strat-phase-target{font-size:var(--fs-data); color:var(--ink); margin-top:2px;}
-  .strat-phase-purpose{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin-top:3px;}
-  .strat-phase-cue{font-size:var(--fs-body); line-height:var(--lh-body); color:var(--ink-dim); margin-top:2px; font-style:italic;}
-  .strat-phase-watch{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:3px;}
+  /* ONE SHADE FOR PROSE. The card was running four greys and an italic:
+     purpose at --ink-dim, its cue the same but italic, the watch-out a step
+     fainter again at a smaller size. They are all the coach talking, so they
+     are all one voice now -- .how-row .v's size and colour, which is what
+     every other sentence in this disclosure already uses.
+
+     What deliberately keeps its own treatment is anything that is NOT prose:
+     the step name and its target (--ink, they are the instruction), and the
+     mono span like "0km-2km" (--ink-faint, it is a label on the number).
+     Consistent does not mean identical -- it means the same role always
+     looks the same. .strat-phase-cue is gone entirely; nothing emits it. */
+  .strat-phase-purpose,
+  .strat-phase-watch{font-size:var(--fs-body); line-height:var(--lh-body);
+    color:var(--ink-dim); margin-top:3px;}
   /* STRUCTURED WORKOUT — what the athlete will actually run.
      A stacked rhythm rather than a stack of cards. Each step is a numbered
      row against a single hairline rail, so five steps read as one workout
@@ -1084,6 +1095,7 @@
      the top bar keeps its own face -- it is the logo, not body copy. */
   .view-today, .view-today .font-head, .view-today .font-display,
   .view-week .wk-full, .view-week .wk-full .font-head, .view-week .wk-full .font-display,
+  .view-plan-session .day, .view-plan-session .day .font-head, .view-plan-session .day .font-display,
   .topbar-inner-today .tb-today, .topbar-inner-today .tb-date{
     font-family:'Inter',-apple-system,sans-serif;}
   .topbar-inner-today .tb-today{font-weight:600;}
@@ -1148,36 +1160,37 @@
      order, so the gold inset ring came back. Still scoped to the VIEW rather
      than the is-today STATE, which is what test/dayCardElevation guards. */
   #view-mount .view-today .day,
-  #view-mount .view-week .wk-full .day{
+  #view-mount .view-week .wk-full .day,
+  #view-mount .view-plan-session .day{
     background:none; border:0; box-shadow:none; padding:0; border-radius:0;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-top{position:relative; display:block; padding:0;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-main{min-width:0;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-check{position:absolute; top:-2px; right:62px; z-index:2;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-actions{position:absolute; top:2px; right:30px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-chevron{position:absolute; top:2px; right:4px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-date{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-targets{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-title{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .th-hero-solo ~ .day-detail .ws-block{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-top{position:relative; display:block; padding:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-main{min-width:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-check{position:absolute; top:-2px; right:62px; z-index:2;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-actions{position:absolute; top:2px; right:30px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-chevron{position:absolute; top:2px; right:4px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-date{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-targets{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-title{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero-solo ~ .day-detail .ws-block{display:none;}
   /* TODAY first and in gold, then the session type, as the reference has it. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-row1{padding-right:96px; margin:0 0 10px; gap:7px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .week-today-flag{order:-1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-row1{padding-right:96px; margin:0 0 10px; gap:7px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .week-today-flag{order:-1;}
 
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-detail{width:100%; margin-right:0;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail{width:100%; margin-right:0;
     display:flex; flex-direction:column;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-detail > *:not(.ws-block){max-width:100%;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-detail > *{order:5;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-detail > .day-desc{order:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > *:not(.ws-block){max-width:100%;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > *{order:5;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > .day-desc{order:1;}
   /* THE WORKOUT GOES IN THE MIDDLE: hero, structure, then execution. The
      athlete reads what they are running, how it is built, then how to run
      it. (The written spec numbered these the other way round; the ruling
      that followed it put the structure in between, which is also the order
      the first two instructions asked for.) */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-detail > .ws-block{order:2;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-detail > .how-card{order:3;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > .ws-block{order:2;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > .how-card{order:3;}
 
   /* ---- BOX 1 : two tiles inside a hairline frame ---- */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .th-hero{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero{
     display:flex; align-items:stretch; gap:9px; flex-wrap:nowrap;
     padding:9px; margin:0; border-radius:24px;
     /* FLAT, NOT WASHED. The two inner faces cover most of this box, so the
@@ -1193,9 +1206,9 @@
     background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
       var(--t-rim-grad) border-box;
     box-shadow:var(--t-lift);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .th-hero:has(+ .th-steps-note){
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero:has(+ .th-steps-note){
     border-bottom-left-radius:0; border-bottom-right-radius:0; border-bottom:0;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .th-hero-main{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero-main{
     flex:1 1 56%; min-width:0; display:flex; flex-direction:column;
     justify-content:center; gap:2px; padding:14px 14px 16px;
     border-radius:18px; background:#15171C; border:1px solid var(--line-soft);}
@@ -1203,16 +1216,16 @@
      dd.title and every step label are untouched in the data, so Edit
      Session, the calendar export, notifications and the other two views
      still read the stored string exactly as written. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .th-hero-title{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero-title{
     display:block; font-size:19px; font-weight:600; line-height:1.2;
     letter-spacing:.04em; text-transform:uppercase; color:var(--ink);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .strat-phase-label{text-transform:uppercase;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .strat-phase-label{text-transform:uppercase;
     letter-spacing:.05em; font-size:12.5px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .th-ring-wrap{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-ring-wrap{
     flex:0 0 40%; display:flex; align-items:center; justify-content:center;
     border-radius:18px; background:#15171C; padding:8px;
     border:1px solid var(--line-soft);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .th-steps-note{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-steps-note{
     display:block; margin:0; padding:0 14px 12px; font-size:11.5px;
     color:var(--ink-faint); line-height:1.35;
     border:1.5px solid transparent; border-top:0;
@@ -1245,6 +1258,41 @@
     aspect-ratio:1/1; display:block;}
   .th-arc{position:absolute; inset:0; width:100%; height:100%;
     filter:drop-shadow(0 0 10px var(--cherry-dim));}
+  /* ---- THE RING DRAWS ITSELF ON ----
+     One rule for one component: TH_ARC is a single shared constant and
+     renderDayTargetRing() is the only thing that emits it, so Today, This
+     Week's overview and the expanded card all get this without a second
+     implementation. The class is added after render (animateSessionRing);
+     the ring's resting appearance, size, colours and the data behind it are
+     untouched -- this only withholds the stroke briefly and lays it down
+     clockwise, which is the direction the path is already drawn in.
+
+     Easing is a plain decelerate -- no overshoot, nothing springy. */
+  @keyframes th-draw{ from{ stroke-dashoffset:1; } to{ stroke-dashoffset:0; } }
+  .th-ring.is-drawing .th-arc path,
+  .th-ring.is-redrawing .th-arc path{ stroke-dasharray:1; }
+  .th-ring.is-drawing .th-arc path{
+    animation:th-draw 760ms cubic-bezier(.22,.61,.36,1) both;}
+  /* A SECOND LOOK IS NOT A FIRST ONE. Changing day re-presents a component
+     the athlete is already looking at, so it lays down quicker. */
+  .th-ring.is-redrawing .th-arc path{
+    animation:th-draw 400ms cubic-bezier(.22,.61,.36,1) both;}
+  /* ---- THE WEEK'S PROGRESS FILLS ----
+     width rather than transform:scaleX, because scaling a 99px-radius cap
+     horizontally squashes it for the length of the animation. The target is
+     carried in --wk-pct so the keyframe ends on exactly the width the inline
+     style already sets -- the figure is not recomputed for the motion. */
+  @keyframes wk-fill{ from{ width:0; } to{ width:var(--wk-pct); } }
+  .wk-bar-fill.is-filling{
+    animation:wk-fill 780ms cubic-bezier(.22,.61,.36,1) both;}
+  /* FINAL STATE, IMMEDIATELY. Reduced motion does not get a shorter version
+     of the animation -- it gets no animation, so the stroke and the bar are
+     simply already there. */
+  @media (prefers-reduced-motion: reduce){
+    .th-ring.is-drawing .th-arc path,
+    .th-ring.is-redrawing .th-arc path{ animation:none; stroke-dasharray:none; }
+    .wk-bar-fill.is-filling{ animation:none; }
+  }
   .th-ring-in{position:absolute; inset:0; display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:0; text-align:center;
     padding:0 9%;}
@@ -1257,34 +1305,34 @@
   .th-row.mp{color:var(--gold-text); font-size:9px;}
 
   /* ---- BOX 2 : how to run this ---- */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .how-card{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card{
     margin:13px 0 0; padding:2px 2px 6px; border:1.5px solid transparent;
     border-radius:20px; box-shadow:var(--t-lift);
     background:var(--t-card-grad) padding-box, var(--t-rim-velvet) border-box;}
   /* A heading, not a control: Box 2 is open and stays open on Today, so the
      chevron and the pointer affordance go with the behaviour they advertised.
      This Week and Full Plan keep the ordinary closed disclosure. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .how-card > summary{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card > summary{
     font-size:13px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
     color:var(--ink); padding:13px 15px 9px;
     pointer-events:none; cursor:default; list-style:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .how-card > summary::-webkit-details-marker{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .how-card .fuel-chevron{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card > summary::-webkit-details-marker{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card .fuel-chevron{display:none;}
   /* The information glyph goes: the reference heads this box with words. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .how-card > summary > svg:first-child{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .how-card .fuel-body{padding:0 15px 11px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card > summary > svg:first-child{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card .fuel-body{padding:0 15px 11px;}
   /* Tight stack, no rules between rows -- the reference uses spacing alone. */
   /* The rule is a border-BOTTOM in the base sheet, which is why cancelling
      border-top did nothing. The reference separates the rows with space. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .how-row{display:block; padding:0 0 11px; border-bottom:0;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .how-row .k{display:block; margin-bottom:1px;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-row{display:block; padding:0 0 11px; border-bottom:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-row .k{display:block; margin-bottom:1px;
     font-size:11.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
     color:var(--gold-text);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .how-row .v{display:block; font-size:13.5px;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-row .v{display:block; font-size:13.5px;
     line-height:1.35; color:var(--ink);}
   .how-note{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .coach-cue-inline{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .how-note{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .coach-cue-inline{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note{
     display:flex; flex-direction:column; gap:2px; width:100%; box-sizing:border-box;
     margin-top:4px; padding:10px 12px; border-radius:12px;
     border:1px solid var(--cherry-line); background:var(--cherry-tint);}
@@ -1295,41 +1343,41 @@
   .how-note .v{font-size:13px; color:var(--ink); line-height:1.4;}
 
   /* ---- BOX 3 : the workout structure ---- */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-block{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-block{
     margin-top:13px; padding:13px;
     border:1.5px solid transparent; border-radius:20px; box-shadow:var(--t-lift);
     background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-block .ws-head{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-steps-h{gap:8px; align-items:stretch;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-block .ws-head{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-steps-h{gap:8px; align-items:stretch;}
   /* ONE LINE FOR THE PRESCRIPTION. The step cell emits each fact as its own
      element -- "Easy", "5:17-6:16/km", "157-164 BPM" -- which stacked them
      and made every tile as tall as its longest column. Laid out as flowing
      inline text with a middot between, they read as the reference has them:
      "Easy . 5:17-6:16/km". The cool-down's closing sentence stays on its own
      line, which is correct and is the only part that should wrap. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-step{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step{
     display:block; text-align:center;
     padding:9px 7px 11px; border-radius:14px;
     background:var(--t-tile); border:1px solid var(--t-tile-rim); box-shadow:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-step + .ws-h-step{border-left:1px solid var(--t-tile-rim);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step + .ws-h-step{border-left:1px solid var(--t-tile-rim);}
   /* The key stage: the product's own cherry, as its edge and as a faint
      inner ambient glow. Straight off the existing ramp -- --cherry for the
      edge, --cherry-tint for the wash, --cherry-dim for the glow -- so the
      highlight reads as the same accent the rest of the app uses. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-step.ws-work{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step.ws-work{
     border:1.5px solid var(--cherry);
     background:var(--cherry-tint), var(--t-tile);
     box-shadow:0 0 16px var(--cherry-dim), inset 0 0 18px var(--cherry-tint);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-num{display:inline-flex; vertical-align:middle;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-num{display:inline-flex; vertical-align:middle;
     width:16px; height:16px; font-size:9.5px; margin-right:5px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-name{display:inline; vertical-align:middle;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-name{display:inline; vertical-align:middle;
     font-size:10.5px; font-weight:600; letter-spacing:.7px; text-transform:uppercase;
     color:var(--gold-text);}
   /* The header row always ends after the step's name. A cool-down carries no
      quantity element, so without this its name ran straight into the first
      prescription -- "Cool downEasy". */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-name::after{content:''; display:block;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-qty{display:block; font-size:23px; font-weight:700;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-name::after{content:''; display:block;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-qty{display:block; font-size:23px; font-weight:700;
     color:#fff; margin:5px 0 3px; letter-spacing:-0.01em;}
   /* ONE FACT PER LINE, WHICH IS WHAT THE DATA ALLOWS. The reference runs
      "Easy . 5:17-6:16/km" inline, and that was tried: three tiles across a
@@ -1340,18 +1388,18 @@
      start of the next one. Stacked, each value is whole, centred and
      legible -- the reference's tiles simply carry less text than a real
      session prescribes. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-step .ws-h-presc,
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-step .ws-hr{display:block;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-step .ws-note{display:block; margin-top:4px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-step .ws-h-pace,
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-step .ws-h-hr,
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-step .ws-h-sub,
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-step .ws-h-note{font-size:10px; line-height:1.25;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-h-presc,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-hr{display:block;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-note{display:block; margin-top:4px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-h-pace,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-h-hr,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-h-sub,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-h-note{font-size:10px; line-height:1.25;
     color:var(--ink-dim);}
   /* Wrap BETWEEN the facts, never inside one: "5:17-6:16/km" breaking into
      "5:17-" / "6:16/km" reads as two different numbers. Each value stays
      whole and the line turns at the middot instead. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .ws-h-step{overflow-wrap:normal;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step{overflow-wrap:normal;}
 
 
   /* ---- THE TWO ACTIONS, below the boxes ---- */
@@ -1364,25 +1412,25 @@
      of a 0px box and over everything beneath it. Tying it to .open gives the
      pills their glow exactly when they are on screen and clips the drawer
      the rest of the time. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day.open .day-drawer,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day.open .day-drawer,
   :is(.view-today .day.is-today.open, .view-week .wk-full .day.open) .day-drawer{overflow:visible;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .voice-row{display:flex; gap:12px; margin:13px 0 0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .voice-row{display:flex; gap:12px; margin:13px 0 0;}
   /* The same rim as the three boxes: quiet at the top left, full gold at
      the bottom right. A border cannot hold a gradient, so the pill paints
      its fill to the padding box and the rim to the border box -- and the
      fill is the charcoal ground written as a gradient, because a background
      COLOUR may only occupy the final layer of the shorthand. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .voice-row .voice-btn{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .voice-row .voice-btn{
     flex:1 1 0; justify-content:center; height:48px; border-radius:24px;
     border:1.5px solid transparent;
     background:linear-gradient(#121316, #121316) padding-box,
       var(--t-rim-grad) border-box;
     font-size:13px; font-weight:700; color:var(--gold-text);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .voice-row .voice-btn svg{color:var(--gold-text);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .voice-row .voice-btn svg{color:var(--gold-text);}
 
   @media (max-width:360px){
-    :is(.view-today .day.is-today, .view-week .wk-full .day) .th-hero{flex-direction:column;}
-    :is(.view-today .day.is-today, .view-week .wk-full .day) .voice-row{flex-direction:column;}
+    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero{flex-direction:column;}
+    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .voice-row{flex-direction:column;}
   }
   @media (prefers-reduced-motion:reduce){
     .th-arc{filter:none;}
@@ -1652,16 +1700,20 @@
      other control is a cherry circle. They join the same three rules for the
      same reason the other three did, so there is still exactly ONE definition
      of a circular checkbox in this file. */
-  .day-check input, .wd-check input, .cv-opt input, .bld-consent input{
+  .day-check input, .wd-check input, .cv-opt input, .bld-consent input,
+  .ef-completed input[type="checkbox"], #ef-mp{
     appearance:none; -webkit-appearance:none; -moz-appearance:none;
     width:22px; height:22px; margin:0; padding:0; flex:none; position:relative;
     border-radius:50%; border:2px solid var(--line); background:var(--bg-2);
     cursor:pointer; transition:background .15s ease, border-color .15s ease;
   }
   .day-check input:checked, .wd-check input:checked, .cv-opt input:checked,
-  .bld-consent input:checked{background:var(--cherry); border-color:var(--cherry);}
+  .bld-consent input:checked,
+  .ef-completed input[type="checkbox"]:checked, #ef-mp:checked{
+    background:var(--cherry); border-color:var(--cherry);}
   .day-check input:checked::after, .wd-check input:checked::after, .cv-opt input:checked::after,
-  .bld-consent input:checked::after{
+  .bld-consent input:checked::after,
+  .ef-completed input[type="checkbox"]:checked::after, #ef-mp:checked::after{
     content:''; position:absolute; left:50%; top:45%; width:5px; height:9px;
     border:solid var(--cherry-btn-ink); border-width:0 2px 2px 0;
     transform:translate(-50%,-50%) rotate(45deg);
@@ -1703,17 +1755,14 @@
   /* Display-only: still legible, clearly not something to press. Reskinned
      to the same ring language as the card's own completion control, so a
      completed day reads the same way whether it's seen on the card or here. */
-  .ef-completed input[type="checkbox"]{
-    appearance:none; -webkit-appearance:none; -moz-appearance:none;
-    width:20px; height:20px; flex:none; position:relative; margin:0 9px 0 0;
-    border-radius:50%; border:2px solid var(--line); background:var(--bg-2);
-  }
-  .ef-completed input[type="checkbox"]:checked{background:var(--cherry); border-color:var(--cherry);}
-  .ef-completed input[type="checkbox"]:checked::after{
-    content:''; position:absolute; left:50%; top:44%; width:4px; height:8px;
-    border:solid var(--cherry-btn-ink); border-width:0 2px 2px 0;
-    transform:translate(-50%,-50%) rotate(45deg);
-  }
+  /* THE FIFTH AND SIXTH MEMBERS OF THE SAME COMPONENT, above. This block
+     used to hold a near-miss copy of it -- a 20px circle with a 4x9 tick
+     against the component's 22px and 5x9 -- which is exactly the drift the
+     shared rule exists to prevent, and it sat two controls apart from the
+     Goal-Pace box, which had no treatment at all and fell back to the
+     browser's blue square. Both now take the one definition; only the row
+     spacing is their own. */
+  .ef-completed input[type="checkbox"], #ef-mp{margin:0 9px 0 0;}
   .ef-completed label{min-height:44px; align-items:center; cursor:pointer;}
   .ef-completed input[disabled]{opacity:.45; cursor:default;}
   .ef-completed input[disabled] + *, .ef-completed input[disabled]{pointer-events:none;}
@@ -2212,6 +2261,16 @@
   }
   @keyframes fadein{from{opacity:0;} to{opacity:1;}}
   @media (min-width:640px){ .modal-overlay{align-items:center; padding:20px;} }
+  /* THE COMPLETION MOMENT IS CENTRED, not docked. Every other modal is a
+     drawer the athlete pulls up to do something -- edit, reschedule, confirm
+     -- and the bottom edge is the right home for a thing you act on with a
+     thumb. This one is not a task: it is the app telling you the session is
+     done, and read at the bottom edge it sat half off the screen behind the
+     home indicator. Same override .builder-light already takes below, for a
+     different reason, and the radius closes on all four corners because a
+     centred card has no edge to sit flush against. */
+  .modal-overlay:has(> .wc-modal){align-items:center; padding:20px;}
+  .modal-overlay > .wc-modal{border-radius:20px; max-height:calc(100vh - 40px);}
   .modal-card{
     background:var(--modal-surface); border:1px solid var(--modal-border); width:100%; max-width:560px;
     border-radius:20px 20px 0 0; max-height:92vh; overflow-y:auto; box-shadow:var(--shadow);
@@ -2354,6 +2413,11 @@
      vh line first for anything that does not know dvh. Padding carries the
      safe-area insets on both edges, so the Continue and Build My Training
      Block buttons can never sit under a gesture bar. */
+  /* The builder's shell takes the product's card face. Scoped to
+     .builder-light so no other modal moves -- the --modal-* ramp is shared
+     and deliberately fixed, and this pass is Build a Plan only. */
+  .modal-card.builder-light{background:var(--t-card-grad); border-color:var(--t-tile-rim);}
+  .modal-card.builder-light .modal-head{background:transparent; border-bottom-color:var(--t-tile-rim);}
   .modal-overlay:has(> .builder-light){
     align-items:center;
     padding:calc(14px + env(safe-area-inset-top, 0px)) 10px
@@ -2666,18 +2730,27 @@
      when not -- so no new colour enters the system. */
   .opt-grid{display:grid; gap:8px; grid-template-columns:1fr 1fr;}
   .opt-grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  /* ---- BUILD A PLAN TAKES THE PRODUCT'S SURFACE ----
+     These were drawn from the modal ramp (--ctl-bg resolves to the warm
+     #24201c inside a modal) while every other surface in the app moved to
+     the cool charcoal card language, which is precisely why the builder
+     read as an older part of the app. They take --t-tile and --t-tile-rim
+     now, the same values the Today segment tiles and the week's day
+     selector use, and --t-lift for elevation rather than --shadow-sm.
+     Nothing about what the control IS changes: same markup, same handler,
+     same value, same validation. */
   .opt-grid button{
     font-family:'JetBrains Mono',monospace; font-size:var(--fs-data); font-weight:700;
     letter-spacing:.4px; min-height:52px; padding:12px 8px; text-align:center;
-    border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
-    background:var(--ctl-bg); color:var(--ink-faint);
+    border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
+    background:var(--t-tile); color:var(--ink-dim);
     /* Tactile raised surface at rest -- the exact --shadow-sm outer shadow
        Coach's Reading rows/--tile-shadow use, not a hand-rolled fraction of
        it. A smaller approximation read as no shadow at all next to Coach on
        an actual phone -- this is the CONSISTENCY PASS's point: reuse the
        real primitive rather than a quieter guess at it. */
-    box-shadow:var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.05);
-    transition:box-shadow .18s, background .18s, color .18s;
+    box-shadow:var(--t-lift);
+    transition:box-shadow .18s, background .18s, color .18s, border-color .18s;
   }
   .opt-grid button .sub{display:block; font-family:'Inter',sans-serif; font-weight:400;
     font-size:var(--fs-support); letter-spacing:0; color:var(--ink-faint); margin-top:3px;}
@@ -2690,15 +2763,19 @@
      than pressing a gold CTA. Continue and Build My Training Block keep the
      stronger primary treatment precisely because they are actions, not
      choices. Dark first, matching the nav's own base rule. */
+  /* AND THE SELECTED STATE FOLLOWS THE TAB IT WAS ALWAYS TIED TO. The note
+     above is not decoration: this really was .bn-item.active, copied so that
+     picking a distance reads like selecting a tab. That tab has since stopped
+     being a slab -- it is the brighter gold, heavier, with real illumination
+     and no fill -- so the builder had drifted from a relationship it was
+     built on. This restores it rather than inventing a third selected
+     treatment: same gold, same glow, same rim the week's day selector uses. */
   .opt-grid button.active{
-    color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14);
-    border-color:rgba(var(--modal-active-rgb),0.5);
-    /* A chosen tile reads as SETTLED into place, not just recoloured -- a
-       quiet inset takes over from the resting drop shadow, the tactile cue
-       for "this one is pressed/active" rather than "this one is raised". */
-    box-shadow:inset 0 1px 3px rgba(0,0,0,.22), inset 0 0 0 1px rgba(var(--modal-active-rgb),0.25);
+    color:var(--gold-bright); background:var(--t-tile);
+    border-color:var(--gold); font-weight:700;
+    box-shadow:0 0 0 1px var(--gold), 0 0 16px rgba(227,177,90,.26), var(--t-lift);
   }
-  .opt-grid button.active .sub{color:var(--modal-active); opacity:.8;}
+  .opt-grid button.active .sub{color:var(--gold); opacity:.85;}
 
   /* ---------- WHAT IS THIS BLOCK FOR ----------
      Cards, not toggles: four objectives that are not variations of one
@@ -2719,11 +2796,9 @@
   .bld-purpose{display:grid; gap:10px; grid-template-columns:1fr 1fr;}
   .bld-purpose button{
     display:block; width:100%; text-align:left; padding:14px 13px; min-height:118px;
-    border:1px solid var(--ctl-border); border-radius:var(--tile-radius);
-    background:var(--ctl-bg); color:var(--ink-faint);
-    /* Same --shadow-sm swap as .opt-grid button above -- see that rule's
-       comment. */
-    box-shadow:var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.05);
+    border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
+    background:var(--t-tile); color:var(--ink-dim);
+    box-shadow:var(--t-lift);
     transition:box-shadow .18s, background .18s, color .18s;
   }
   .bld-purpose button:active{transform:scale(.995);}
@@ -2732,11 +2807,11 @@
   .bpc-why{display:block; font-family:'Inter',sans-serif; font-size:var(--fs-support);
     line-height:var(--lh-support); color:var(--ink-faint); margin-top:6px; letter-spacing:0;}
   .bld-purpose button.active{
-    color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14);
-    border-color:rgba(var(--modal-active-rgb),0.5);
-    box-shadow:inset 0 1px 3px rgba(0,0,0,.22), inset 0 0 0 1px rgba(var(--modal-active-rgb),0.25);
+    color:var(--gold-bright); background:var(--t-tile);
+    border-color:var(--gold); font-weight:700;
+    box-shadow:0 0 0 1px var(--gold), 0 0 16px rgba(227,177,90,.26), var(--t-lift);
   }
-  .bld-purpose button.active .bpc-why{color:var(--modal-active); opacity:.8;}
+  .bld-purpose button.active .bpc-why{color:var(--gold); opacity:.85;}
   /* A locked choice still shows what was chosen and why it cannot move -- the
      grid is dimmed, not removed, so "Speed uses the 5K block" is visible
      rather than mysterious. */
@@ -2758,6 +2833,16 @@
   }
   .bld-date input[type="date"]::-webkit-calendar-picker-indicator:hover{opacity:1;}
   .bld-date input[type="date"]::-webkit-datetime-edit{padding:0;}
+  /* Placed HERE, beside the rule it overrides, rather than up with the
+     builder's shell. Up there it sat before .bld-purpose{ in source order,
+     and test/builderNineStages slices the builder's CSS between
+     '.bld-purpose{' and '.bld-date input' -- so the override silently
+     collapsed that slice to an empty string and the stylesheet it was
+     asserting on vanished. A rule's neighbours are part of its meaning. */
+  .builder-light .bld-date input[type="date"]{
+    background:var(--t-tile); border-color:var(--t-tile-rim); border-radius:var(--tile-radius);
+    box-shadow:var(--t-lift);
+  }
 
   /* The select each grid mirrors stays in the DOM, and stays the value the
      generator reads. Hidden from sight, never from the code. */
@@ -3082,6 +3167,32 @@
     outline:2px solid var(--gold); outline-offset:2px;
   }
   .field.bld-consent input:focus:not(:focus-visible){ outline:none; }
+  /* THE EDIT SESSION PAIR, AND IT IS THE SAME COLLISION A THIRD TIME. Both
+     controls sit inside a .field, so `.field input` above -- later in the
+     file than the shared component -- repainted them as text inputs. The
+     Goal-Pace box measured 22x44 and Completed 4x44: `width` was being won
+     or lost depending on the selector, and nothing at all fought
+     `min-height:44px`.
+
+     DESCENDANT HERE, not compound, because unlike .bld-consent these are
+     INSIDE a .field rather than being one. Measured in a browser, as the
+     note above insists, not reasoned about. */
+  .field #ef-mp, .field #ef-completed{
+    width:22px; height:22px; min-height:0; padding:0; border-radius:50%;
+    border:2px solid var(--line); background:var(--bg-2); box-shadow:none;
+    margin:0 9px 0 0;
+  }
+  .field #ef-mp:checked, .field #ef-completed:checked{
+    background:var(--cherry); border-color:var(--cherry);
+  }
+  /* The same focus restoration, for the same reason: `.field input:focus`
+     kills the outline because on a text input the accent border IS the
+     signal, and on a 22px circle that leaves a keyboard user nothing. */
+  .field #ef-mp:focus-visible, .field #ef-completed:focus-visible{
+    outline:2px solid var(--gold); outline-offset:2px;
+  }
+  .field #ef-mp:focus:not(:focus-visible),
+  .field #ef-completed:focus:not(:focus-visible){ outline:none; }
   .field input::placeholder, .field textarea::placeholder,
   .goal-input-row input::placeholder{ color:var(--ctl-placeholder); opacity:1; }
   .field input:focus, .field select:focus, .field textarea:focus,
@@ -3424,6 +3535,219 @@
     background:var(--t-card-grad) padding-box, var(--t-rim-velvet) border-box;
     box-shadow:var(--t-lift); margin:0;
   }
+
+  /* =======================================================
+     FULL PLAN -- the block as phases.
+     =======================================================
+     Same rhythm and same card language as This Week: an 18px gap between
+     blocks, --t-card-grad faces, the gradient rim on whatever is current,
+     a hairline rim on everything else. The week rows inside a phase are the
+     existing .week accordions, untouched -- a phase is a container around
+     them, not a replacement for them. */
+  /* DENSITY IS THE POINT OF THIS SCREEN. This Week shows one session and can
+     afford an 18px rhythm; Full Plan is the whole block at a glance, and at
+     that gap four phases and a race pushed the shape of the build off the
+     bottom of the screen. The phases sit close together as one list, and the
+     larger gap is kept only where the screen genuinely changes subject --
+     after the hero, and before Race Day. */
+  .view-plan{display:flex; flex-direction:column; gap:9px; padding-top:22px;}
+  .view-plan > .wk-hero{margin-bottom:5px;}
+  .view-plan > .pp-chips{margin-bottom:3px;}
+  .view-plan > .race-event{margin-top:9px;}
+  #view-mount .view-plan .view-heading{display:none;}
+
+  /* ---- the chips ---- */
+  /* EQUAL SHARES OF THE ROW. The phases are a sequence of equal standing --
+     one does not matter more than the next -- so they divide the width
+     rather than bunching at the left with dead space after them. flex:1 1 0
+     ignores label length, so BASE and TAPER get the same share and the row
+     stays a row rather than drifting as the words change. min-width:0 lets
+     them shrink on a narrow phone instead of forcing a scroll. */
+  .pp-chips{display:flex; gap:7px; justify-content:center; padding-bottom:2px;
+    overflow-x:auto; scrollbar-width:none;}
+  .pp-chips::-webkit-scrollbar{display:none;}
+  .pp-chip{
+    /* Grow to an equal share, but never shrink below the label and its tick.
+       At 320px with five phases the equal share is 52px and a completed chip
+       needs 52 for "BASE" plus the tick alone -- so fit-content is what
+       stops the row solving the fit by cutting words in half. It scrolls in
+       that one case instead, and divides the width in every other. */
+    flex:1 1 0; min-width:fit-content; display:inline-flex; align-items:center;
+    justify-content:center; gap:5px;
+    padding:9px 8px; border-radius:99px; min-height:40px;
+    background:var(--t-tile); border:1px solid var(--t-tile-rim);
+    color:var(--ink-dim); font-size:11.5px; letter-spacing:.08em;
+    transition:color .18s, border-color .18s, box-shadow .18s;
+  }
+  .pp-chip > span:first-child{white-space:nowrap;}
+  .pp-chip-tick{display:inline-flex; flex:none;}
+  .pp-chip-tick svg{width:13px; height:13px;}
+  .pp-chip.is-done{color:var(--ink);}
+  .pp-chip.is-done .pp-chip-tick{color:#9BC08C;}
+  /* The selected chip is the bottom nav's selected tab again -- gold, lit,
+     no fill -- which is the one selected language this product has. */
+  .pp-chip.is-open{
+    color:var(--gold-bright); border-color:var(--gold);
+    box-shadow:0 0 0 1px var(--gold), 0 0 14px rgba(227,177,90,.26);
+  }
+
+  /* ---- a phase ---- */
+  .pp-phase{
+    border:1.5px solid transparent; border-radius:var(--tile-radius);
+    background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
+      linear-gradient(var(--t-tile-rim), var(--t-tile-rim)) border-box;
+    box-shadow:var(--t-lift); overflow:hidden;
+  }
+  /* The phase the athlete is actually in takes the gold rim -- the same
+     signal the current day and the selected tab use. */
+  .pp-phase.is-now{
+    background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;}
+  .pp-head{
+    width:100%; display:flex; align-items:center; gap:11px; text-align:left;
+    padding:10px 13px; background:none; border:0; color:var(--ink);
+  }
+  .pp-mark{flex:none; width:28px; height:28px; border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center;
+    border:1px solid var(--t-tile-rim); background:var(--t-tile);}
+  .pp-mark svg{width:16px; height:16px;}
+  .pp-mark.is-done{background:rgba(122,160,110,.18); border-color:rgba(122,160,110,.6); color:#9BC08C;}
+  .pp-mark.is-now{background:rgba(227,177,90,.14); border-color:var(--gold); color:var(--gold);}
+  .pp-head-text{flex:1 1 auto; min-width:0;}
+  .pp-name{display:block; font-size:15.5px; font-weight:600; color:var(--ink); line-height:1.2;}
+  .pp-phase.is-now .pp-name{color:var(--gold-bright);}
+  .pp-meta{display:block; font-size:12px; color:var(--ink-dim); margin-top:1px;}
+  .pp-chev{flex:none; display:inline-flex; color:var(--gold); transition:transform .18s;}
+  .pp-chev svg{width:19px; height:19px;}
+  .pp-phase.is-open .pp-chev{transform:rotate(180deg);}
+  .week-pct{flex:none; font-size:13px; font-weight:700; color:var(--gold);
+    font-variant-numeric:tabular-nums; margin-left:10px;}
+  .pp-body{display:none; padding:0 9px 9px;}
+  .pp-phase.is-open .pp-body{display:block;}
+  /* Inside a phase the week accordions lose their own outer shell: a box
+     around boxes is what the flat list was replaced to avoid. */
+  .view-plan .pp-body .week{border-color:var(--t-tile-rim); background:var(--t-tile);
+    box-shadow:none; margin-bottom:6px;}
+  .view-plan .pp-body .week:last-child{margin-bottom:0;}
+  /* ---- THE WEEK ROW, COMPACT ----
+     A phase holds up to six of these, so the row carries the same facts in
+     less height: the Cinzel numeral comes down, the range tightens under the
+     label, and the volume keeps its figure while the unit shrinks. */
+  .view-plan .pp-body .week-head{padding:9px 11px; gap:10px;}
+  .view-plan .pp-body .week-num{font-size:17px; width:28px;}
+  .view-plan .pp-body .week-range{margin-top:1px;}
+  .view-plan .pp-body .week-vol .v{font-size:14px;}
+  .view-plan .pp-body .week-pct{font-size:12.5px; margin-left:8px;}
+  /* THE WEEK THE ATHLETE IS IN, inside an open phase: the gold rim and gold
+     label the current day and the selected tab already use. Without it every
+     row in the taper looked alike and "now" had to be read off a badge. */
+  .view-plan .pp-body .week.is-now,
+  .view-plan .pp-body .week:has(.week-today-flag){
+    border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), 0 0 14px rgba(227,177,90,.20);}
+  .view-plan .pp-body .week:has(.week-today-flag) .week-num,
+  .view-plan .pp-body .week:has(.week-today-flag) .week-phase{color:var(--gold-bright);}
+
+  /* ---- RACE DAY, ONE COMPACT CARD ----
+     Velvet rather than gold on the rim: the event is the culmination and the
+     strategy chips inside it already carry Cherry Lacquer, so the card is
+     framed in the colour of the decision it contains. */
+  .view-plan > .race-event{
+    border:1.5px solid transparent; border-radius:var(--tile-radius);
+    background:var(--t-card-grad) padding-box, var(--t-rim-velvet) border-box;
+    box-shadow:var(--t-lift); padding:11px 13px 13px; margin-bottom:0;
+  }
+  .view-plan > .race-event .race-divider{
+    display:flex; align-items:center; gap:9px; margin:0 0 2px; padding:0;}
+  .view-plan > .race-event .race-divider .l{
+    font-size:16px; letter-spacing:.06em; color:var(--gold-bright);}
+  .view-plan > .race-event .race-divider .r{display:none;}
+  .view-plan > .race-event .rd-flag{order:-1; flex:none; display:inline-flex; color:var(--gold);}
+  .view-plan > .race-event .rd-flag svg{width:20px; height:20px;}
+  /* ---- ONE CARD, THREE AREAS ----
+     Identity and date top left, distance top right, the strategy across the
+     foot with the finish time at its right. A grid rather than stacked rows,
+     so the two top areas sit on one line and the rule under them separates
+     "what and when" from "how you intend to run it". */
+  .view-plan > .race-event{
+    display:grid; grid-template-columns:1fr auto; align-items:start; gap:2px 12px;
+  }
+  .view-plan > .race-event .race-divider{grid-column:1; grid-row:1;}
+  .view-plan > .race-event .race-event-when{
+    grid-column:1; grid-row:2; font-size:13px; color:var(--ink-dim); letter-spacing:.02em;}
+  .view-plan > .race-event .race-event-dist{
+    grid-column:2; grid-row:1 / span 2; align-self:center; text-align:right;
+    padding-left:14px; border-left:1px solid var(--cherry-line);}
+  .view-plan > .race-event .race-event-dist b{font-size:30px; color:#FFFFFF;
+    font-variant-numeric:tabular-nums; letter-spacing:-0.01em;
+    text-shadow:0 0 1px rgba(255,255,255,.40), 0 0 14px rgba(255,255,255,.22);}
+  .view-plan > .race-event .race-event-dist span{font-size:14px; color:var(--ink-dim);}
+  .view-plan > .race-event .race-strategy{
+    grid-column:1 / -1; grid-row:3; margin-top:11px; padding-top:11px;
+    border-top:1px solid var(--cherry-line);}
+  /* Hidden on FULL PLAN only -- see renderRaceDayEvent. This Week still
+     shows the card, which is how the race is read there. */
+  .view-plan > .race-event > .day{display:none;}
+  .view-plan > .race-event .rd-open{
+    grid-column:1 / -1; grid-row:4; margin-top:11px; padding:10px 14px;
+    border:1px solid transparent; border-radius:14px;
+    background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
+      var(--t-rim-velvet) border-box;
+    color:var(--cherry-text); font-family:'Inter',-apple-system,sans-serif;
+    font-size:14px; font-weight:600;}
+
+  /* =======================================================
+     FULL PLAN -- the week and the session, each its own screen.
+     ======================================================= */
+  .view-plan-week, .view-plan-session{display:flex; flex-direction:column; gap:12px; padding-top:18px;}
+  .pv-top{display:flex; align-items:center; gap:12px;}
+  /* chevronRight turned around rather than a second arrow glyph added. */
+  .pv-back{flex:none; width:38px; height:38px; border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center;
+    background:var(--t-tile); border:1px solid var(--t-tile-rim); color:var(--gold);
+    transform:scaleX(-1);}
+  .pv-back svg{width:20px; height:20px;}
+  .pv-top-text{flex:1; min-width:0;}
+  .pv-title{font-size:21px; letter-spacing:.04em; color:var(--ink); line-height:1.15;}
+  .pv-sub{font-size:12.5px; color:var(--ink-dim); margin-top:2px;}
+
+  .pw-progress{
+    border:1.5px solid transparent; border-radius:var(--tile-radius);
+    background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;
+    box-shadow:var(--t-lift); padding:13px 15px 15px;
+  }
+  .pw-figs{display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+    margin-bottom:9px;}
+  .pw-vol b{font-size:26px; font-weight:700; color:var(--gold);
+    font-variant-numeric:tabular-nums; text-shadow:0 0 12px rgba(227,177,90,.30);}
+  .pw-vol span{font-size:16px; color:var(--ink); font-variant-numeric:tabular-nums;}
+  .pw-pct{font-size:24px; font-weight:700; color:var(--gold); font-variant-numeric:tabular-nums;}
+
+  /* ---- the seven sessions ----
+     A row is a way in, not a thing that opens, so it is the same height
+     whatever the session turns out to be. */
+  .pw-rows{display:flex; flex-direction:column; gap:7px;}
+  .pw-row{
+    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    padding:11px 13px; border-radius:var(--tile-radius);
+    background:var(--t-tile); border:1px solid var(--t-tile-rim);
+    box-shadow:var(--t-lift); color:var(--ink);
+    transition:border-color .18s, box-shadow .18s;
+  }
+  .pw-when{flex:none; width:58px; padding-right:12px; border-right:1px solid var(--t-tile-rim);}
+  .pw-dow{display:block; font-size:13px; letter-spacing:.06em; color:var(--ink);}
+  .pw-date{display:block; font-size:11px; color:var(--ink-faint); margin-top:1px;}
+  .pw-main{flex:1; min-width:0;}
+  .pw-main .day-badge{margin-bottom:4px;}
+  .pw-title{display:block; font-size:15.5px; font-weight:600; color:var(--ink);
+    line-height:1.25; overflow-wrap:anywhere;}
+  .pw-chev{flex:none; color:var(--ink-faint); display:inline-flex;}
+  .pw-chev svg{width:19px; height:19px;}
+  .pw-row.is-today{border-color:var(--gold);
+    box-shadow:0 0 0 1px var(--gold), 0 0 14px rgba(227,177,90,.22);}
+  .pw-row.is-today .pw-dow{color:var(--gold-bright);}
+  .view-plan-week .zone-card{margin:2px 0 0;
+    border:1.5px solid transparent; border-radius:var(--tile-radius);
+    background:var(--t-card-grad) padding-box, var(--t-rim-velvet) border-box;
+    box-shadow:var(--t-lift);}
 
   /* ---- THE NAVIGATION IS LIT, NOT DRAWN ----
      No surface of its own, no rule along the top: the bar is the page, and
@@ -24711,7 +25035,10 @@ var TH_ARC = '<svg class="th-arc" viewBox="0 0 100 100" aria-hidden="true">'+
      were not, so the arc solved to a circle centred outside the box and
      rendered as two clipped fragments. Stroke 7 keeps the outer edge at
      48.5, inside the 100-unit box. */
-  '<path d="M93.5 38.4 A 45 45 0 1 1 65.4 7.7" fill="none" stroke="url(#th-grad)" stroke-width="7" stroke-linecap="round"/>'+
+  /* pathLength="1" renormalises this arc to a length of 1, so the draw-on
+     dash can be written as 0..1 without anyone computing 2*pi*r*305/360 --
+     and it stays correct if the geometry is ever retuned. */
+  '<path pathLength="1" d="M93.5 38.4 A 45 45 0 1 1 65.4 7.7" fill="none" stroke="url(#th-grad)" stroke-width="7" stroke-linecap="round"/>'+
   /* THE CHERRY RAMP, BRIGHTEST AT THE TOP AND GRADING OUT. Vertical rather
      than diagonal (y1=0 -> y2=1), so the ring is lit where the gap is and
      fades as it comes round the bottom. Straight off the product's own
@@ -25998,8 +26325,17 @@ function renderStrategyPhase(ph){
     // Phase prose carries the same @@U@@ token the prescriptions do, and is
     // resolved here rather than in strategyPhase(): the STRATEGY must not vary
     // with a display preference, only the sentence the athlete reads.
-    (ph.purpose?'<div class="strat-phase-purpose">'+escapeHtml(resolveDesc(ph.purpose))+'</div>':'')+
-    (ph.cue?'<div class="strat-phase-cue">'+escapeHtml(resolveDesc(ph.cue))+'</div>':'')+
+    /* PURPOSE AND CUE ARE ONE PARAGRAPH. They were two blocks, the second
+       italic, so every step broke its own thought in half at the full stop
+       and changed face to finish it. They are consecutive sentences about
+       the same instruction and now read as consecutive sentences. Both
+       strings are unchanged, and each still resolves its own @@U@@ unit
+       token before being joined. */
+    (function(){
+      var prose = [ph.purpose, ph.cue].filter(function(t){ return t; })
+        .map(function(t){ return escapeHtml(resolveDesc(t)); }).join(' ');
+      return prose ? '<div class="strat-phase-purpose">'+prose+'</div>' : '';
+    })()+
     (ph.watch?'<div class="strat-phase-watch">'+escapeHtml(resolveDesc(ph.watch))+'</div>':'')+
   '</div>';
 }
@@ -42715,14 +43051,14 @@ function renderWeekAccordion(weekNum, forceOpen){
   if (!wdays.length && weekNum >= 1 && weekNum <= totalWeeksInPlan()){
     var openClsU = (forceOpen || expandedWeeks[weekNum]) ? ' open' : '';
     return '<div class="week week-unshaped'+openClsU+'" id="week-'+weekNum+'">'+
-      '<button type="button" class="week-head" data-action="toggle-week" data-week="'+weekNum+'">'+
+      '<button type="button" class="week-head" data-action="plan-open-week" data-week="'+weekNum+'">'+
         '<div class="week-num font-display">'+(weekNum<10?'0':'')+weekNum+'</div>'+
         '<div class="week-meta">'+
           '<div class="week-phase font-head">'+weekPhaseLabel(weekNum)+'</div>'+
           '<div class="week-range font-mono">'+dShort(range.start)+' – '+dShort(range.end)+'</div>'+
         '</div>'+
         '<div class="week-vol"><div class="v font-mono">—</div><div class="l font-head">'+displayUnit()+'</div></div>'+
-        '<div class="week-chevron">'+ICONS.chevronDown+'</div>'+
+        '<div class="week-chevron">'+ICONS.chevronRight+'</div>'+
       '</button>'+
       '<div class="week-body"><div class="week-body-inner">'+
         '<div class="week-unshaped-note">'+
@@ -42762,14 +43098,20 @@ function renderWeekAccordion(weekNum, forceOpen){
   var taperFinal = goalWeekContinuesTaper(weekNum);
   var taperLook = taper || taperFinal;
   return '<div class="week'+openCls+(taperLook?' is-taper':'')+(taperFinal?' is-taper-final':'')+'" id="week-'+weekNum+'">'+
-    '<button type="button" class="week-head" data-action="toggle-week" data-week="'+weekNum+'">'+
+    '<button type="button" class="week-head" data-action="plan-open-week" data-week="'+weekNum+'">'+
       '<div class="week-num font-display">'+(weekNum<10?'0':'')+weekNum+'</div>'+
       '<div class="week-meta">'+
         '<div class="week-phase font-head">'+weekPhaseLabel(weekNum)+(hasToday?'<span class="week-today-flag font-head">Now</span>':'')+'</div>'+
         '<div class="week-range font-mono">'+dShort(range.start)+' \u2013 '+dShort(range.end)+'</div>'+
       '</div>'+
+      /* The same pair the hero shows, plus the share of it that is done --
+         one more reading of weekVolume(), not a second calculation. */
       '<div class="week-vol"><div class="v font-mono">'+kmToDisplay(vol.doneTraining)+'/'+kmToDisplay(vol.training)+'</div><div class="l font-head">'+displayUnit()+'</div></div>'+
-      '<div class="week-chevron">'+ICONS.chevronDown+'</div>'+
+      (vol.training > 0
+        ? '<div class="week-pct font-mono">'+Math.max(0, Math.min(100,
+            Math.round(100*vol.doneTraining/vol.training)))+'%</div>'
+        : '')+
+      '<div class="week-chevron">'+ICONS.chevronRight+'</div>'+
     '</button>'+
     taperNote+raceNote+
     '<div class="week-body"><div class="week-body-inner">'+daysHtml+renderZoneBreakdown(weekNum)+'</div></div>'+
@@ -43176,38 +43518,147 @@ function renderRaceDayEvent(weekNum){
   var race = state.days.filter(function(dd){ return dd.week===weekNum && dd.type==='race'; })[0];
   if (!race) return '';
   var dist = kmToDisplay(race.km||0);
-  return '<div class="phase-divider race-divider">'+
-      '<span class="l font-head">'+escapeHtml(vGoalDay())+'</span>'+
-      '<span class="r" aria-hidden="true"></span>'+
-    '</div>'+
-    '<div class="race-event">'+
-      '<div class="race-event-head">'+
-        '<div class="race-event-when font-mono">'+escapeHtml(dLong(race.date))+'</div>'+
-        '<div class="race-event-dist font-mono"><b>'+dist+'</b> <span>'+displayUnit()+'</span></div>'+
+  /* THE HEADING MOVED INSIDE THE CARD. It was a divider above it -- a rule
+     across the page, then a separate box -- which on Full Plan read as two
+     objects for one event. Inside, it is the card's title row and the whole
+     thing is one object, as the reference draws it. The markup is otherwise
+     untouched and the label still comes first, so the section-order check in
+     test/taperGoalWeekGrouping still reads it exactly where it did.
+     The flag sits AFTER the label in source and is moved in front by CSS
+     order, because that check requires the label span to be the first thing
+     inside the divider. */
+  return '<div class="race-event">'+
+      '<div class="phase-divider race-divider">'+
+        '<span class="l font-head">'+escapeHtml(vGoalDay())+'</span>'+
+        '<span class="rd-flag" aria-hidden="true">'+ICONS.target+'</span>'+
+        '<span class="r" aria-hidden="true"></span>'+
       '</div>'+
+      '<div class="race-event-when font-mono">'+escapeHtml(dLong(race.date))+'</div>'+
+      '<div class="race-event-dist font-mono"><b>'+dist+'</b> <span>'+displayUnit()+'</span></div>'+
       renderRaceStrategyPicker(race)+
+      /* THE SESSION CARD STAYS IN THE MARKUP. On This Week the race event IS
+         the session and the card is how it is read; on Full Plan the card is
+         three areas and a way in, so the card is hidden there and the button
+         below leads to the session's own screen. Two positions, one string --
+         not a second rendering, and This Week is untouched. */
       renderDayCard(race)+
+      '<button type="button" class="rd-open" data-action="plan-open-session" '+
+        'data-day="'+escapeHtml(String(race.id))+'">View race session '+
+        '<span aria-hidden="true">\u2192</span></button>'+
     '</div>';
 }
-function renderWeeksList(forceOpenAll){
-  var totalWeeks = totalWeeksInPlan();
-  var html = '';
-  var lastPhase = null;
-  for (var w=1; w<=totalWeeks; w++){
+/* THE BLOCK IN PHASES, each one a section that opens. The grouping itself is
+   unchanged -- trainingPhase() decides which phase a week is in, exactly as it
+   did when these were flat dividers, and goalWeekContinuesTaper() still keeps
+   Race Week inside the taper it closes rather than letting it open a section
+   of its own. Only the container changed: a heading with a rule became a card
+   the athlete can collapse. */
+function planPhaseGroups(){
+  var total = totalWeeksInPlan(), groups = [], cur = null;
+  for (var w=1; w<=total; w++){
     var phase = trainingPhase(w);
-    /* ONE HEADING OVER THE WHOLE TAPER. The goal week's phase name is its own
-       ("Race Week" / "Final Week"), so it never equals 'Taper' and used to open
-       a second section of its own -- which read as the athlete having LEFT the
-       taper for a separate phase. It has not: it is the last week of it. The
-       card keeps its Race Week identity; only the redundant divider goes, and
-       lastPhase deliberately stays on 'Taper' so the section stays open. */
-    if (phase !== lastPhase && !goalWeekContinuesTaper(w)){
-      html += renderPhaseDivider(w, lastPhase===null);
-      lastPhase = phase;
-    }
-    html += renderWeekAccordion(w, forceOpenAll);
-    html += renderRaceDayEvent(w);
+    if (cur && goalWeekContinuesTaper(w)){ cur.weeks.push(w); continue; }
+    if (!cur || phase !== cur.phase){ cur = { phase:phase, weeks:[w] }; groups.push(cur); }
+    else cur.weeks.push(w);
   }
+  return groups;
+}
+/* Which phase sections are open. Module-level and deliberately not on state:
+   it is a disclosure the athlete opened a moment ago, not a training fact,
+   and it must never reach the account row -- the same reasoning expandedWeeks
+   already follows. */
+var expandedPhases = {};
+function phaseGroupState(g){
+  var cur = currentWeekNum();
+  if (!cur) return 'done';
+  if (g.weeks.indexOf(cur) !== -1) return 'now';
+  return g.weeks[g.weeks.length-1] < cur ? 'done' : 'ahead';
+}
+function phaseGroupOpen(g, forceOpenAll){
+  if (forceOpenAll) return true;
+  if (expandedPhases[g.phase] != null) return !!expandedPhases[g.phase];
+  return phaseGroupState(g) === 'now';
+}
+/* The chips. One per phase, in block order, so the shape of the whole build
+   is legible before anything is opened -- which is the thing a flat list of
+   fifteen week rows could not say. */
+function renderPhaseChips(){
+  var groups = planPhaseGroups();
+  if (groups.length < 2) return '';
+  return '<div class="pp-chips" role="group" aria-label="Training phases">'+
+    groups.map(function(g){
+      var st = phaseGroupState(g);
+      return '<button type="button" class="pp-chip is-'+st+
+          (phaseGroupOpen(g, false) ? ' is-open' : '')+'" '+
+          'data-action="toggle-phase" data-phase="'+escapeHtml(g.phase)+'">'+
+        '<span class="font-head">'+escapeHtml(phaseChipLabel(g.phase))+'</span>'+
+        (st==='done' ? '<span class="pp-chip-tick" aria-hidden="true">'+ICONS.check+'</span>' : '')+
+      '</button>';
+    }).join('')+
+  '</div>';
+}
+/* "Taper Phase" on the section, "TAPER" on the chip -- the chip is a label in
+   a row of labels and the word "Phase" five times is noise. "Week" goes for
+   the same reason and because it is what makes the row overflow: measured at
+   320px with five phases, "Race Week" was the one chip that could not fit its
+   own share. The section heading keeps the full name. */
+function phaseChipLabel(phase){
+  return String(phase).replace(/\s*Phase$/i,'').replace(/\s*Week$/i,'');
+}
+function phaseGroupMeta(g){
+  var st = phaseGroupState(g);
+  var span = g.weeks.length > 1
+    ? 'Weeks '+g.weeks[0]+' \u2013 '+g.weeks[g.weeks.length-1]
+    : 'Week '+g.weeks[0];
+  return span+' \u00b7 '+(st==='now' ? 'Now' : st==='done' ? 'Completed' : 'Ahead');
+}
+function renderPhaseSection(g, forceOpenAll){
+  var st = phaseGroupState(g), open = phaseGroupOpen(g, forceOpenAll);
+  var mark = st==='done'
+    ? '<span class="pp-mark is-done">'+ICONS.check+'</span>'
+    : st==='now'
+      ? '<span class="pp-mark is-now">'+ICONS.zap+'</span>'
+      : '<span class="pp-mark"></span>';
+  /* RACE DAY IS NOT INSIDE A PHASE. It is the thing the whole block exists
+     for, and folded into the taper section it disappeared the moment that
+     section was collapsed -- the culmination hidden behind a chevron. It is
+     emitted once, after every phase, by renderWeeksList() below. */
+  var body = g.weeks.map(function(w){
+    return renderWeekAccordion(w, forceOpenAll);
+  }).join('');
+  return '<section class="pp-phase is-'+st+(open?' is-open':'')+'">'+
+    '<button type="button" class="pp-head" data-action="toggle-phase" '+
+        'data-phase="'+escapeHtml(g.phase)+'" aria-expanded="'+(open?'true':'false')+'">'+
+      mark+
+      '<span class="pp-head-text">'+
+        /* phaseDividerLabel() is the name this section has always carried --
+           "Taper Phase", not the bare phase key -- and it is what the
+           reference draws. One naming function, not a second one here. */
+        '<span class="pp-name">'+escapeHtml(phaseDividerLabel(g.weeks[0]))+'</span>'+
+        '<span class="pp-meta">'+escapeHtml(phaseGroupMeta(g))+'</span>'+
+      '</span>'+
+      '<span class="pp-chev" aria-hidden="true">'+ICONS.chevronDown+'</span>'+
+    '</button>'+
+    '<div class="pp-body">'+body+'</div>'+
+  '</section>';
+}
+function handleTogglePhase(phase){
+  if (!phase) return;
+  var groups = planPhaseGroups(), g = null;
+  for (var i=0;i<groups.length;i++) if (groups[i].phase===phase) g = groups[i];
+  if (!g) return;
+  expandedPhases[phase] = !phaseGroupOpen(g, false);
+  renderApp();
+}
+function renderWeeksList(forceOpenAll){
+  var html = planPhaseGroups().map(function(g){
+    return renderPhaseSection(g, forceOpenAll);
+  }).join('');
+  /* Exactly once, and only from the week that actually holds it --
+     renderRaceDayEvent() returns '' for every other week, which is what
+     keeps "appears exactly once" true without this knowing which week it is. */
+  var total = totalWeeksInPlan();
+  for (var w=1; w<=total; w++) html += renderRaceDayEvent(w);
   html += renderContinuityCard();
   return html;
 }
@@ -45562,7 +46013,11 @@ function openEditModal(dayId){
       '<div class="field"><label>Session Type</label><select id="ef-type"'+lock+'>'+typeOptions+'</select></div>'+
       '<div class="field"><label>Distance ('+displayUnit()+')</label><input type="number" step="0.1" min="0" id="ef-km" value="'+kmToDisplay(dd.km)+'"'+lock+'></div>'+
     '</div>'+
-    '<div class="field"><label style="display:flex; align-items:center;"><input type="checkbox" id="ef-mp" '+(dd.mpSegment?'checked':'')+lock+' style="width:auto; margin-right:7px;">Includes a Goal-Pace segment</label></div>'+
+    /* The inline width:auto is gone deliberately: it was there to stop the
+   field-wide input rule stretching a native checkbox across the row, and it
+   would now beat the circular component's own 22px. Spacing moved to CSS
+   with it. Same input, same id, same handler, same state. */
+    '<div class="field"><label style="display:flex; align-items:center;"><input type="checkbox" id="ef-mp" '+(dd.mpSegment?'checked':'')+lock+'>Includes a Goal-Pace segment</label></div>'+
     renderEditCompletion(dd)+
     '<div class="field" style="margin-bottom:0;"><label>Workout Instructions</label><textarea id="ef-desc"'+lock+'>'+escapeHtml(resolveDesc(dd.desc))+'</textarea></div>'+
     /* RESET LIVES WITH THE FIELDS IT UNDOES. The reference ends on a single
@@ -45617,7 +46072,12 @@ function renderEditCompletion(dd){
     '<div class="field" style="margin-bottom:0;">'+
       '<label style="display:flex; align-items:center;">'+
         '<input type="checkbox" id="ef-completed" '+(dd.completed?'checked':'')+
-        (allowed?'':' disabled')+' style="width:auto; margin-right:9px;">'+
+        /* The inline width:auto is gone: it existed to stop `.field input`
+           stretching a native checkbox across the row, and it beat the
+           circular component's own 22px -- an inline style outranks every
+           stylesheet rule. Spacing moved to CSS with it. Same input, same
+           id, same disabled logic, same handler. */
+        (allowed?'':' disabled')+'>'+
         'Mark this session as completed</label>'+
       '<div class="field-hint">'+escapeHtml(why)+'</div>'+
     '</div>'+
@@ -52051,7 +52511,7 @@ function renderWeekHeroBlock(weekNum){
         '<span> / '+escapeHtml(fmtDist(planned))+'</span></div>'+
       '<div class="wk-hero-pct">'+pct+'%</div>'+
     '</div>'+
-    '<div class="wk-bar"><div class="wk-bar-fill" style="width:'+pct+'%"></div></div>'+
+    '<div class="wk-bar"><div class="wk-bar-fill" style="width:'+pct+'%; --wk-pct:'+pct+'%"></div></div>'+
     (taper ? '<div class="wk-taper">'+ICONS.zap+'<span><b>Taper:</b> volume drops, but keep '+
        'hitting these paces \u2014 sharpness matters more than mileage from here.</span></div>' : '')+
     /* Only when there is something to say. An exception is not noise -- an
@@ -52158,8 +52618,108 @@ function renderWeekView(){
 }
 // Full Plan: every week as a normal collapsible accordion (respects
 // expandedWeeks, same toggle-week interaction as before).
+/* ---- FULL PLAN IS THREE DEPTHS, NOT ONE SCROLL ----
+   The block, a week, a session. Opening a week used to expand seven day cards
+   in place and opening one of those expanded a 1,729px card inside it -- four
+   levels deep in a single column, and the athlete had lost the week they came
+   from. Each depth is now its own screen with a way back.
+
+   Module-level, like expandedWeeks and weekSelectedDate: where someone has
+   navigated to is not a training fact and must never reach the account row. */
+var planWeekOpen = null, planSessionOpen = null;
+function handlePlanOpenWeek(w){
+  var n = parseInt(w, 10);
+  if (!n) return;
+  planWeekOpen = n; planSessionOpen = null;
+  renderApp();
+  try{ window.scrollTo(0, 0); }catch(e){}
+}
+function handlePlanOpenSession(id){
+  if (!id) return;
+  planSessionOpen = id;
+  renderApp();
+  try{ window.scrollTo(0, 0); }catch(e){}
+}
+function handlePlanBack(){
+  if (planSessionOpen) planSessionOpen = null;
+  else planWeekOpen = null;
+  renderApp();
+  try{ window.scrollTo(0, 0); }catch(e){}
+}
+function planBackBar(title, sub){
+  return '<div class="pv-top">'+
+    '<button type="button" class="pv-back" data-action="plan-back" aria-label="Back">'+
+      ICONS.chevronRight+'</button>'+
+    '<div class="pv-top-text">'+
+      '<div class="pv-title font-head">'+escapeHtml(title)+'</div>'+
+      (sub ? '<div class="pv-sub">'+escapeHtml(sub)+'</div>' : '')+
+    '</div>'+
+  '</div>';
+}
+/* THE WEEK, AS SEVEN SESSIONS. One row per day: when it is, what kind of
+   session, what it is called. The row is a way IN rather than a thing that
+   opens -- the session has a screen of its own, so this one stays seven rows
+   tall however long the sessions are. */
+function renderPlanWeekView(weekNum){
+  var range = weekDateRange(weekNum), vol = weekVolume(weekNum);
+  var planned = vol.training, done = vol.doneTraining;
+  var pct = planned > 0 ? Math.max(0, Math.min(100, Math.round(100*done/planned))) : 0;
+  var days = state.days.filter(function(dd){ return dd.week===weekNum && dd.type!=='race'; });
+  var rows = days.map(function(dd){
+    var tm = TYPE_META[dd.type] || {};
+    return '<button type="button" class="pw-row'+(dd.date===todayStr()?' is-today':'')+'" '+
+        'data-action="plan-open-session" data-day="'+escapeHtml(String(dd.id))+'">'+
+      '<span class="pw-when">'+
+        '<span class="pw-dow font-head">'+escapeHtml(dow(dd.date))+'</span>'+
+        '<span class="pw-date font-mono">'+escapeHtml(dShort(dd.date))+'</span>'+
+      '</span>'+
+      '<span class="pw-main">'+
+        '<span class="day-badge type-'+(tm.cls||'rest')+' font-head">'+
+          escapeHtml(dayTypeLabel(dd))+'</span>'+
+        '<span class="pw-title">'+escapeHtml(displayCardTitle(dd))+'</span>'+
+      '</span>'+
+      '<span class="pw-chev" aria-hidden="true">'+ICONS.chevronRight+'</span>'+
+    '</button>';
+  }).join('');
+  return '<div class="view-plan-week">'+
+    planBackBar('Week '+weekNum, phaseDividerLabel(weekNum)+' \u00b7 '+
+                dShort(range.start)+' \u2013 '+dShort(range.end))+
+    '<div class="pw-progress">'+
+      '<div class="pw-figs">'+
+        '<div class="pw-vol"><b>'+escapeHtml(String(fmtDist(done)).replace(/\s*[a-z]+$/i,''))+'</b>'+
+          '<span> / '+escapeHtml(fmtDist(planned))+'</span></div>'+
+        '<div class="pw-pct">'+pct+'%</div>'+
+      '</div>'+
+      '<div class="wk-bar"><div class="wk-bar-fill" style="width:'+pct+'%; --wk-pct:'+pct+'%"></div></div>'+
+    '</div>'+
+    '<div class="pw-rows">'+rows+'</div>'+
+    renderZoneBreakdown(weekNum)+
+  '</div>';
+}
+/* THE SESSION, CANONICAL. renderDayCard() unchanged, wearing the same
+   treatment Today gives it -- this is the third member of that scope, not a
+   third rendering of a session. */
+function renderPlanSessionView(){
+  var dd = findDay(planSessionOpen);
+  if (!dd){ planSessionOpen = null; return renderFullPlanView(); }
+  return '<div class="view-plan-session">'+
+    planBackBar(dow(dd.date)+', '+dShort(dd.date), displayCardTitle(dd))+
+    renderDayCard(dd)+
+  '</div>';
+}
 function renderFullPlanView(){
-  return '<div class="view-heading font-head">Full Plan</div>'+renderWeeksList();
+  if (planSessionOpen) return renderPlanSessionView();
+  if (planWeekOpen) return renderPlanWeekView(planWeekOpen);
+  /* The same week hero This Week leads with, from the same
+     renderWeekHeroBlock() -- one block, two screens, so the two cannot print
+     different totals for the same week. */
+  var cur = currentWeekNum();
+  return '<div class="view-plan">'+
+    '<div class="view-heading font-head">Full Plan</div>'+
+    (cur ? renderWeekHeroBlock(cur) : '')+
+    renderPhaseChips()+
+    renderWeeksList()+
+  '</div>';
 }
 // Plan HQ: macro settings only -- block overview, Build New Block, Active
 // Goal, Benchmark, and the full editable VDOT zone tables. No daily
@@ -54035,6 +54595,8 @@ function renderApp(){
   programmeEntryBindName();
   openTodayCoachingPanel();
   openWeekFullSession();
+  animateSessionRing();
+  animateWeekBar();
 }
 /* HOW TO RUN THIS IS NOT A DROP-DOWN ON TODAY. The approved screen shows the
    whole session on one page: hero, structure, execution, all open. The
@@ -54055,17 +54617,79 @@ function renderApp(){
    into renderDayCard(), because its output must stay a pure function of the
    day -- test/editSessionCoherence compares the identical string across
    Today, This Week and Full Plan, and a per-view variation would break it. */
+/* ---- WHEN THE MOTION RUNS, AND WHEN IT DOES NOT ----
+   Presentation only: nothing here reads or writes training data, and if any
+   of it throws the screen is exactly what it was before.
+
+   The key is view + day, so the ring draws when a session is first put in
+   front of the athlete and stays still through every other re-render --
+   logging a field, opening a panel, ticking a box all call renderApp(), and
+   a ring that redrew on each of those would be an animation pass, not a
+   micro-interaction. A key that has changed while one was already showing is
+   a day change, which gets the shorter draw. */
+var ringLastKey = null, ringLastView = null, weekBarLastKey = null;
+function animateSessionRing(){
+  if (typeof document === 'undefined' || !document.querySelector) return;
+  try{
+    var ring = document.querySelector('.th-ring');
+    if (!ring){ ringLastKey = null; ringLastView = null; return; }
+    /* WHICH SESSION THIS RING IS FOR. On Today and in the expanded card the
+       ring sits inside the day card, which carries data-day. In This Week's
+       overview it does not -- that box is built around renderDayHeroBlock()
+       rather than renderDayCard() -- so the selected day is read from the
+       one element in that box that names it. Without this the key never
+       changed in This Week and the ring sat still through every day swap,
+       which is the one place the shorter draw was specified for. */
+    var host = ring.closest ? ring.closest('[data-day]') : null;
+    var dayKey = host ? host.getAttribute('data-day') : '';
+    if (!dayKey){
+      var named = document.querySelector('.wk-session .wk-open[data-date]');
+      if (named) dayKey = named.getAttribute('data-date');
+    }
+    var view = state.view || 'today';
+    var key = view + ':' + dayKey;
+    if (key === ringLastKey) return;
+    /* ARRIVING ON A SCREEN IS A FIRST PRESENTATION; changing day on a screen
+       already open is the second look. So the quick draw is for a day swap
+       WITHIN a view, not for crossing between them. */
+    var quick = (ringLastView === view) && ringLastKey !== null;
+    ringLastKey = key; ringLastView = view;
+    ring.classList.remove('is-drawing', 'is-redrawing');
+    void ring.offsetWidth;          // restart the animation on a live element
+    ring.classList.add(quick ? 'is-redrawing' : 'is-drawing');
+  }catch(e){}
+}
+/* The bar fills when THIS WEEK is presented -- not when a day inside it is
+   picked, which leaves the week's total exactly where it was. */
+function animateWeekBar(){
+  if (typeof document === 'undefined' || !document.querySelector) return;
+  try{
+    var fill = document.querySelector('.wk-bar-fill');
+    if (!fill){ weekBarLastKey = null; return; }
+    var key = 'week:' + currentWeekNum();
+    if (key === weekBarLastKey) return;
+    weekBarLastKey = key;
+    fill.classList.remove('is-filling');
+    void fill.offsetWidth;
+    fill.classList.add('is-filling');
+  }catch(e){}
+}
 function openWeekFullSession(){
   if (typeof document === 'undefined' || !document.querySelector) return;
   try{
-    var card = document.querySelector('.view-week .wk-full .day');
+    /* Both screens whose whole purpose is ONE session: This Week's expanded
+       card and Full Plan's session screen. A completed session defaults shut
+       (isDayExpanded) because in a LIST its prescription has served its
+       purpose -- but an athlete who navigated to this one session by name is
+       not reading a list, and a collapsed card is not an answer. */
+    var card = document.querySelector('.view-week .wk-full .day, .view-plan-session .day');
     if (card) card.classList.add('open');
   }catch(e){}
 }
 function openTodayCoachingPanel(){
   if (typeof document === 'undefined' || !document.querySelector) return;
   try{
-    var d = document.querySelector(':is(.view-today .day.is-today, .view-week .wk-full .day) details.how-card');
+    var d = document.querySelector(':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) details.how-card');
     if (!d) return;
     d.open = true;
     /* AND IT STAYS OPEN. CSS takes the pointer away from the summary, but a
@@ -54115,6 +54739,10 @@ document.addEventListener('click', function(e){
     case 'programme-entry-continue': handleProgrammeEntryContinue(); break;
     case 'programme-entry-name': handleProgrammeEntryName(); break;
     case 'toggle-week': handleToggleWeek(parseInt(target.getAttribute('data-week'),10)); break;
+    case 'toggle-phase': handleTogglePhase(target.getAttribute('data-phase')); break;
+    case 'plan-open-week': handlePlanOpenWeek(target.getAttribute('data-week')); break;
+    case 'plan-open-session': handlePlanOpenSession(target.getAttribute('data-day')); break;
+    case 'plan-back': handlePlanBack(); break;
     case 'week-pick-day': handleWeekPickDay(target.getAttribute('data-date')); break;
     case 'week-open-session': handleWeekOpenSession(target.getAttribute('data-date')); break;
     case 'toggle-day': handleToggleDay(target.getAttribute('data-day')); break;

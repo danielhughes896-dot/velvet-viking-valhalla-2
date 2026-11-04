@@ -43,8 +43,14 @@ function athlete(distanceKey, weeks, opts) {
     weeks: weeks || 12, lthr: 172, maxHR: 188 }, opts || {}));
   return a;
 }
+/* The section headings of the plan, in document order. Phases are collapsible
+   cards now rather than a heading with a rule, so their name lives in
+   .pp-name; Race Day still introduces itself with the original divider, which
+   is why both forms are read here. What the tests below assert is unchanged:
+   WHICH sections exist and in WHAT ORDER. */
 const dividerLabels = html =>
-  [...html.matchAll(/phase-divider[^>]*>\s*<span class="l font-head">([^<]+)</g)].map(m => m[1]);
+  [...html.matchAll(/(?:phase-divider[^>]*>\s*<span class="l font-head">|<span class="pp-name">)([^<]+)</g)]
+    .map(m => m[1]);
 const weekClasses = (html, w) =>
   ((html.match(new RegExp('class="week([^"]*)" id="week-' + w + '"')) || [])[1] || '').trim();
 const weekLabel = (html, w) =>

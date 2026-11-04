@@ -234,8 +234,17 @@ test('RING: the ring is drawn with CSS, not a native checkbox appearance, and fi
 });
 
 test('RING: the Edit Session display checkbox carries the same ring language', () => {
-  assert.match(CODE, /\.ef-completed input\[type="checkbox"\]\{[^}]*appearance\s*:\s*none/);
-  assert.match(CODE, /\.ef-completed input\[type="checkbox"\]:checked\{[^}]*background\s*:\s*var\(--cherry\)/);
+  /* It used to draw its own ring -- a 20px near-copy of the shared 22px
+     component two rules away. It is a member of that component now, so the
+     ring language is asserted where the ring is actually defined. */
+  assert.match(CODE, /\.ef-completed input\[type="checkbox"\], #ef-mp\{/,
+    'the Edit Session pair must sit in the shared circular-checkbox rule');
+  assert.match(CODE, /\.ef-completed input\[type="checkbox"\]:checked, #ef-mp:checked\{[\s\S]{0,80}background:var\(--cherry\)/,
+    'and take --cherry when checked, like every other member');
+  /* Inside a .field, `.field input` repaints them as text inputs -- the same
+     collision .wd-check and .bld-consent already carry an override for. */
+  assert.match(CODE, /\.field #ef-mp, \.field #ef-completed\{[^}]*min-height:0/,
+    'the .field override that keeps them circular is gone');
 });
 
 // ===========================================================================
