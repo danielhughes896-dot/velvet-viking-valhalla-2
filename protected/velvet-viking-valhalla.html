@@ -2431,24 +2431,95 @@
   .modal-head h2{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:1px; font-size:16px; margin:0; color:var(--modal-text);}
   .modal-body{padding:16px 18px 22px; color:var(--modal-text);}
   .field{margin-bottom:14px;}
-  /* ---- SHARING ----
-     The launch strip sits at the foot of the Execution Review, so the verdict
-     is read in the same breath as the score that earned it. */
-  .share-launch{margin-top:14px; padding-top:14px; border-top:1px solid var(--line);
-    display:flex; flex-direction:column; gap:10px;}
-  .share-verdict{display:flex; align-items:baseline; gap:10px;}
-  .share-verdict-k{font-size:10px; letter-spacing:1.6px; text-transform:uppercase; opacity:.6;}
-  /* --gold-text, not --gold-bright: the bright gold is the colour of the
-     EXPORT, which is always on near-black. Here the verdict sits on the day
-     card, which is cream in light mode, and #F5D061 on cream is barely
-     legible. --gold-text is the theme-aware pair the Execution Review heading
-     beside it already uses. */
-  .share-verdict-v{font-family:'Oswald',sans-serif; text-transform:uppercase;
-    letter-spacing:2.5px; font-size:17px; color:var(--gold-text); font-weight:700;}
-  .btn-share{display:inline-flex; align-items:center; justify-content:center; gap:8px;
-    background:linear-gradient(135deg, var(--gold-deep), var(--gold)); color:#120f0b;
-    border:1px solid var(--gold-bright); font-family:'Oswald',sans-serif;
-    text-transform:uppercase; letter-spacing:1.4px;}
+  /* ---- THE COMPLETION MOMENT ----
+     A black Valhalla environment in BOTH themes, like the decision surface and
+     for the same reason: this is the brand's own register, not a panel of the
+     app. A cream completion screen would be a form confirming a save; this is
+     meant to read as an arrival. Every token here is written out rather than
+     taken from the theme ramp, so a light-mode athlete sees exactly what a
+     dark-mode athlete sees -- which is also what the exported PNG looks like. */
+  .wc{--wc-ink:#F6F2EA; --wc-dim:rgba(246,242,234,0.72); --wc-faint:rgba(246,242,234,0.46);
+    --wc-edge:rgba(227,177,90,0.42);
+    margin-top:14px; border-radius:18px; padding:16px 14px 14px;
+    background:radial-gradient(120% 90% at 50% 0%, #15171D 0%, #0A0C10 62%, #06070A 100%);
+    border:1px solid rgba(227,177,90,0.22); color:var(--wc-ink);
+    display:flex; flex-direction:column; gap:14px;}
+  .wc-top{display:flex; align-items:center; justify-content:center; gap:9px;}
+  .wc-top-k{font-family:'Oswald',sans-serif; font-size:13px; letter-spacing:2.2px;
+    text-transform:uppercase; color:var(--wc-ink);}
+  .wc-top-mark{width:21px; height:21px; border-radius:50%; border:1.5px solid var(--gold);
+    color:var(--gold-bright); display:flex; align-items:center; justify-content:center;}
+  .wc-top-mark svg{width:12px; height:12px;}
+  .wc-hero{position:relative; border:1px solid var(--wc-edge); border-radius:14px;
+    overflow:hidden; background:#07080C;}
+  .wc-hero-type{position:relative; z-index:2; padding:16px 14px 14px; text-align:center;}
+  .wc-mark{display:block; width:62px; height:62px; margin:0 auto 2px;}
+  .wc-wordmark{font-family:'Cinzel',serif; font-weight:600; font-size:17px;
+    letter-spacing:7px; text-indent:7px; color:var(--wc-ink); margin-bottom:10px;}
+  .wc-headline{font-family:'Inter',sans-serif; font-weight:700; font-size:17px;
+    letter-spacing:.3px; color:var(--wc-ink);}
+  .wc-verdict-word{color:var(--gold-bright);}
+  .wc-distance{display:flex; align-items:baseline; justify-content:center; gap:7px; margin:2px 0 8px;}
+  .wc-distance span{font-family:'Oswald',sans-serif; font-weight:700; font-size:46px;
+    line-height:1.04; color:var(--wc-ink);}
+  .wc-distance em{font-style:normal; font-weight:600; font-size:19px; color:var(--wc-ink);}
+  .wc-metrics{display:flex; align-items:center; justify-content:center;
+    gap:16px; flex-wrap:wrap; color:var(--wc-ink);}
+  .wc-metric{display:inline-flex; align-items:center; gap:6px; font-size:13.5px;}
+  .wc-metric svg{width:15px; height:15px; flex:none; opacity:.92;}
+  .wc-rule{height:1px; margin:11px auto 9px; max-width:78%;
+    background:linear-gradient(90deg, rgba(227,177,90,0), var(--gold-deep), rgba(227,177,90,0));}
+  .wc-strap{font-size:13px; color:var(--wc-dim);}
+  /* The photograph closes the card the way the concept does: it is the floor
+     the type stands on, not a texture behind it. */
+  .wc-hero-photo{height:132px; background:#07080C center 38%/cover no-repeat;
+    background-image:linear-gradient(180deg, #07080C 0%, rgba(7,8,12,0) 34%),
+      url('/assets/valhalla-mountains-820.jpg');}
+  .wc-verdict{display:flex; gap:11px; align-items:flex-start;
+    border:1px solid rgba(227,177,90,0.18); border-radius:13px;
+    background:rgba(227,177,90,0.05); padding:12px 13px;}
+  .wc-verdict-mark{flex:none; width:25px; height:25px; border-radius:50%;
+    border:1.5px solid var(--gold); color:var(--gold-bright);
+    display:flex; align-items:center; justify-content:center; margin-top:1px;}
+  .wc-verdict-mark svg{width:14px; height:14px;}
+  .wc-verdict-k{font-size:10px; letter-spacing:1.6px; text-transform:uppercase; color:var(--wc-faint);}
+  .wc-verdict-v{font-family:'Oswald',sans-serif; font-size:17px; letter-spacing:.6px;
+    color:var(--wc-ink); font-weight:600;}
+  .wc-verdict-why{font-size:13.5px; line-height:1.5; color:var(--wc-dim); margin-top:4px;}
+  /* No verdict, no gold: the block states the session quietly instead. */
+  .wc-verdict.is-plain{border-color:rgba(246,242,234,0.14); background:rgba(255,255,255,0.03);}
+  .wc-verdict.is-plain .wc-verdict-why{margin-top:3px;}
+  .wc-analysis-btn{width:100%; background:transparent; color:var(--wc-ink);
+    border:1px solid rgba(246,242,234,0.26); font-weight:600;}
+  .wc-continue{display:block; width:100%; background:none; border:0; cursor:pointer;
+    color:var(--wc-dim); font-family:'Inter',sans-serif; font-size:14px;
+    font-weight:600; padding:6px 0 2px;}
+  /* Inside the completion environment the review card drops its own surface --
+     it is a drawer that opened, not a second card sitting on the first. */
+  .wc .wc-analysis{background:rgba(255,255,255,0.03); border:1px solid rgba(246,242,234,0.12);
+    color:var(--wc-ink); border-radius:13px; padding:13px;}
+  .wc .wc-analysis .exec-review-head{color:var(--gold);}
+  .wc .wc-analysis .cr-k{color:var(--wc-faint);}
+  .wc .wc-analysis .cr-v, .wc .wc-analysis .coach-msg-review p{color:var(--wc-dim);}
+  /* The drawer is dark in BOTH themes, so every control inside it that reads
+     an app token has to be re-pointed -- in light mode those tokens are
+     near-black, and the signal label and the score pill were dark-on-dark.
+     Named individually rather than blanket-inherited, so a control added here
+     later is visibly wrong rather than quietly illegible. */
+  .wc .wc-analysis .cr-sig-label{color:var(--wc-dim);}
+  .wc .wc-analysis .exec-pill{background:rgba(227,177,90,0.14); color:var(--gold-bright);
+    border:1px solid rgba(227,177,90,0.3);}
+  .wc .wc-analysis .cr-cmp{color:var(--wc-dim); border-color:rgba(246,242,234,0.18);}
+  .wc .wc-analysis .cr-adjust-line{color:var(--wc-ink);}
+  .wc .wc-analysis .cr-adjust-why{color:var(--wc-dim);}
+  .wc .wc-analysis .exec-review-summary, .wc .wc-analysis .exec-review-more{color:var(--wc-dim);}
+  /* ---- SHARING ---- */
+  .share-launch{display:flex; flex-direction:column; gap:10px;}
+  .btn-share{display:inline-flex; width:100%; align-items:center; justify-content:center; gap:8px;
+    background:linear-gradient(135deg, var(--gold-deep), var(--gold-bright) 52%, var(--gold));
+    color:#120f0b; border:1px solid var(--gold-bright); font-family:'Oswald',sans-serif;
+    text-transform:uppercase; letter-spacing:1.4px; font-size:14px; padding:13px 16px;
+    box-shadow:0 6px 18px rgba(227,177,90,0.16);}
   .btn-share svg{width:16px; height:16px;}
   /* The preview canvas is the export itself, drawn at 1080px wide and scaled
      down by CSS -- so the athlete approves the actual file, not a lookalike. */
@@ -26151,38 +26222,53 @@ function shareCardData(dd){
    the row is not emitted at all rather than drawn empty. */
 function shareCardLayout(data, layout, size){
   if (!data) return [];
-  var W = size.w, H = size.h;
-  var pad = Math.round(W * 0.075);
+  var W = size.w, H = size.h, sq = !!size.square;
+
+  /* ---- THE COMPOSITION, TAKEN FROM THE REFERENCE ----
+     The photograph is the canvas. Nothing is laid ON a panel: the type sits
+     directly on the image, inside an open gold frame that runs down both
+     sides and is deliberately not closed along the bottom, so the athlete and
+     the ground they are standing on are never fenced off. The frame's top
+     line is broken by the VV mark, which straddles it. */
+  var sideM  = Math.round(W * 0.072);
+  var frameX = sideM, frameW = W - sideM*2;
+  var frameY = Math.round(H * (sq ? 0.085 : 0.075));
+  var frameB = Math.round(H * (sq ? 0.800 : 0.780));
+  var radius = Math.round(W * 0.035);
+  var markH  = Math.round(W * 0.115);
+  /* Read from SHARE_MARK, never re-stated: a literal here went stale the
+     moment the chevron was widened, and the top rule ran under the arms
+     instead of stopping clear of them. */
+  var markW  = Math.round(markH * SHARE_MARK.wide);
+  var inner  = Math.round(frameW * 0.78);   // the reference's own text column
+
   var ops = [];
-  var y = Math.round(H * (size.square ? 0.10 : 0.085));
+  ops.push({ kind:'frame', x:frameX, y:frameY, w:frameW, bottom:frameB, r:radius,
+             /* where the top rule stops and restarts for the mark to sit through */
+             gapFrom: Math.round(W/2 - markW/2 - W*0.022),
+             gapTo:   Math.round(W/2 + markW/2 + W*0.022) });
+  ops.push({ kind:'mark', cx:Math.round(W/2), cy:frameY, h:markH, w:markW });
 
-  ops.push({ kind:'panel', x:pad, y:y, w:W - pad*2, h:0 });      // h filled below
-  var panelTop = y;
-  y += Math.round(H * (size.square ? 0.035 : 0.028));
-
-  var markH = Math.round(W * 0.105);
-  ops.push({ kind:'mark', cx:W/2, y:y, h:markH });
-  y += markH + Math.round(H * 0.014);
-  ops.push({ kind:'wordmark', cx:W/2, y:y, text:'VALHALLA', size:Math.round(W*0.052) });
-  y += Math.round(W * 0.052) + Math.round(H * 0.022);
+  var y = frameY + Math.round(markH*0.50 + W*0.034);
+  var wordSize = Math.round(W * 0.046);
+  ops.push({ kind:'wordmark', cx:W/2, y:y, text:'VALHALLA', size:wordSize, maxW:inner });
+  y += wordSize + Math.round(W * 0.036);
 
   /* EVERY TEXT OP CARRIES THE WIDTH IT MUST LIVE INSIDE. Sizing by character
-     count was a guess, and it was wrong: "LONG RUN - CONTROLLED" is 21
-     characters and still overran the panel, because character count says
-     nothing about glyph width. The painter measures the real glyphs and
-     shrinks to this budget, which is the only place the true widths exist. */
-  var inner = W - pad*2 - Math.round(W * 0.115);   // the panel's own inner gutter
-  var head = data.verdict ? (data.sessionLabel + '  \u2014  ' + data.verdict)
+     count was a guess and it was wrong: character count says nothing about
+     glyph width. The painter measures the real glyphs and shrinks to this. */
+  var head = data.verdict ? (data.sessionLabel + ' — ' + data.verdict)
                           : data.sessionLabel;
-  ops.push({ kind:'headline', cx:W/2, y:y, text:head, maxW:inner,
-             size:Math.round(W * 0.060),
-             accentFrom: data.verdict ? (data.sessionLabel.length + 5) : -1 });
-  y += Math.round(W * 0.072);
+  var headSize = Math.round(W * 0.049);
+  ops.push({ kind:'headline', cx:W/2, y:y, text:head, maxW:inner, size:headSize,
+             accentFrom: data.verdict ? (data.sessionLabel.length + 3) : -1 });
+  y += headSize + Math.round(W * 0.020);
 
   if (data.distanceKm != null){
+    var distSize = Math.round(W * 0.126);
     ops.push({ kind:'distance', cx:W/2, y:y, value:fmtShareDistance(data.distanceKm),
-               unit:displayUnit().toUpperCase(), size:Math.round(W * 0.145), maxW:inner });
-    y += Math.round(W * 0.155);
+               unit:displayUnit().toUpperCase(), size:distSize, maxW:inner });
+    y += Math.round(distSize * 1.06);
   }
 
   if (layout !== 'minimal'){
@@ -26197,31 +26283,19 @@ function shareCardLayout(data, layout, size){
       metrics.push({ icon:'gauge', text:data.paceStr + ' /' + displayUnit() });
     if (layout === 'full' && data.elevationM != null)
       metrics.push({ icon:'elev', text:Math.round(data.elevationM) + ' m' });
+    var metSize = Math.round(W * 0.036);
     if (metrics.length){
-      ops.push({ kind:'metrics', cx:W/2, y:y, items:metrics,
-                 size:Math.round(W*0.040), maxW:inner });
-      y += Math.round(W * 0.062);
+      ops.push({ kind:'metrics', cx:W/2, y:y, items:metrics, size:metSize, maxW:inner });
+      y += metSize + Math.round(W * 0.030);
     }
     var strap = [data.programme, data.phase, data.week ? ('Week ' + data.week) : null]
-      .filter(function(x){ return !!x; }).join('  \u00b7  ');
+      .filter(function(x){ return !!x; }).join('  ·  ');
     if (strap){
-      ops.push({ kind:'rule', cx:W/2, y:y, w:Math.round(W*0.62) });
-      y += Math.round(H * 0.016);
-      ops.push({ kind:'strap', cx:W/2, y:y, text:strap, size:Math.round(W*0.038), maxW:inner });
-      y += Math.round(W * 0.046);
+      ops.push({ kind:'rule', cx:W/2, y:y, w:Math.round(frameW * 0.78) });
+      y += Math.round(W * 0.030);
+      ops.push({ kind:'strap', cx:W/2, y:y, text:strap, size:Math.round(W*0.033), maxW:inner });
     }
   }
-
-  y += Math.round(H * (size.square ? 0.020 : 0.016));
-  ops[0].h = y - panelTop;
-
-  /* SIT THE BLOCK IN THE FRAME RATHER THAN AT THE TOP OF IT. Laid out from a
-     fixed top margin, the panel left most of a 9:16 story empty below it and
-     the photograph -- the thing the athlete chose -- was mostly scrim. The
-     block is measured first and then placed, slightly above centre on a story
-     so the subject underneath still reads, dead centre on a square. */
-  var dy = Math.round(H * (size.square ? 0.50 : 0.46) - (panelTop + ops[0].h/2));
-  if (dy) ops.forEach(function(op){ if (op.y != null) op.y += dy; });
   return ops;
 }
 function fmtShareDistance(km){
@@ -26259,16 +26333,81 @@ function shareFontsReady(){
     document.fonts.load("500 40px 'Inter'"),  document.fonts.load("600 56px 'Cinzel'")
   ]).catch(function(){ /* a fallback face is better than no card */ });
 }
-var shareMarkImg = null;
-function shareMarkReady(){
-  if (shareMarkImg) return Promise.resolve(shareMarkImg);
-  return new Promise(function(res){
-    var im = new Image();
-    im.onload = function(){ shareMarkImg = im; res(im); };
-    im.onerror = function(){ res(null); };
-    im.src = '/assets/velvet-viking-crest-540.png';
+/* ---- THE VV MARK ----
+   Drawn rather than loaded. The crest is a detailed medallion built to be
+   read at a centimetre across on a phone; at the size the reference puts it
+   -- straddling the frame line at the head of the card -- it reduces to mud.
+   The chevron is the same identity at poster scale, and being geometry it is
+   crisp at any export size and needs no second network request before an
+   image the athlete is waiting on can be painted.
+
+   ONE DEFINITION, TWO RENDERERS. The canvas card and the completion screen's
+   DOM both describe the mark from these proportions, so the thing on screen
+   and the thing in the exported PNG cannot drift apart. */
+var SHARE_MARK = {
+  wide:1.46,        // width as a multiple of height
+  armTop:-0.50,     // outer chevron: where the arms start, as a fraction of h
+  armTip: 0.22,     // outer chevron: where they meet
+  band:  0.105,     // outer chevron thickness, as a fraction of WIDTH
+  inTop:  0.02,     // inner solid V: top edge, clear of the outer's vertex
+  inTip:  0.62,     // inner solid V: the point, which falls below the outer
+  inWide: 0.33      // inner solid V: width as a fraction of the outer's
+};
+function shareMarkGeometry(cx, cy, h){
+  var M = SHARE_MARK, w = h * M.wide, t = w * M.band;
+  var L = cx - w/2, R = cx + w/2;
+  var yTop = cy + h*M.armTop, yTip = cy + h*M.armTip;
+  /* The outer band is one closed path: down the left arm's outer edge to the
+     point, up the right arm's outer edge, then back along the inner edges. */
+  /* The outer is a CHEVRON, not a filled V: down the outside of each arm to
+     the vertex and back up the inside, leaving the middle open for the second
+     mark to sit in. Thickness and vertex are tuned so the inner edge closes
+     ABOVE where the inner V begins -- if those two ever meet, the mark reads
+     as one blunt wedge, which is what it did before this was separated. */
+  var outer = [[L,yTop],[cx,yTip],[R,yTop],[R-t,yTop],[cx,yTip-t*2.2],[L+t,yTop]];
+  var iw = w * M.inWide;
+  var inner = [[cx-iw/2, cy+h*M.inTop],[cx, cy+h*M.inTip],[cx+iw/2, cy+h*M.inTop]];
+  return { outer:outer, inner:inner, left:L, right:R, top:yTop, bottom:cy+h*M.inTip };
+}
+function shareDrawMark(ctx, cx, cy, h, theme){
+  var g = shareMarkGeometry(cx, cy, h);
+  var grad = ctx.createLinearGradient(g.left, g.top, g.right, g.bottom);
+  grad.addColorStop(0, theme.goldDeep);
+  grad.addColorStop(0.40, theme.goldBright);
+  grad.addColorStop(0.72, theme.gold);
+  grad.addColorStop(1, theme.goldDeep);
+  ctx.fillStyle = grad;
+  [g.outer, g.inner].forEach(function(pts){
+    ctx.beginPath();
+    pts.forEach(function(pt, i){ i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]); });
+    ctx.closePath(); ctx.fill();
   });
 }
+/* The same mark as inline SVG, for the completion screen and anywhere else in
+   the DOM that needs it. Built from shareMarkGeometry() on a 100-unit box so
+   there is exactly one set of proportions in the product. */
+function shareMarkSVG(cls){
+  /* THE BOX HAS TO HOLD THE WHOLE MARK. At h=72 the chevron is 105 units wide
+     against a 100-unit viewBox, so both arms were clipped flat -- the mark
+     lost the very shape that identifies it. Sized from the width instead:
+     h * SHARE_MARK.wide must fit inside 100 with a margin to spare. */
+  var h = Math.floor(92 / SHARE_MARK.wide);
+  var g = shareMarkGeometry(50, 50, h), pt = function(a){
+    return a.map(function(p){ return p[0].toFixed(2)+','+p[1].toFixed(2); }).join(' ');
+  };
+  return '<svg class="'+(cls||'vv-mark')+'" viewBox="0 0 100 100" aria-hidden="true" focusable="false">'+
+    '<defs><linearGradient id="vvg" x1="0" y1="0" x2="1" y2="1">'+
+      '<stop offset="0" stop-color="#8A6D2B"/><stop offset="0.40" stop-color="#F5D061"/>'+
+      '<stop offset="0.72" stop-color="#E3B15A"/><stop offset="1" stop-color="#8A6D2B"/>'+
+    '</linearGradient></defs>'+
+    '<polygon fill="url(#vvg)" points="'+pt(g.outer)+'"/>'+
+    '<polygon fill="url(#vvg)" points="'+pt(g.inner)+'"/>'+
+  '</svg>';
+}
+/* ---- THE METRIC GLYPHS, ONCE ----
+   Stroked on canvas for the export and emitted as SVG for the completion
+   screen, from the same three descriptions. The screen and the PNG show the
+   athlete the same marks beside the same numbers. */
 function shareDrawIcon(ctx, kind, x, y, r, col){
   ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = Math.max(2, r*0.16);
   ctx.lineCap='round'; ctx.lineJoin='round'; ctx.beginPath();
@@ -26284,12 +26423,16 @@ function shareDrawIcon(ctx, kind, x, y, r, col){
   }
   ctx.restore();
 }
-function shareRoundRect(ctx,x,y,w,h,r){
-  ctx.beginPath();
-  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
-  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
-  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
-  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+function shareIconSVG(kind){
+  var body;
+  if (kind === 'clock')
+    body = '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>';
+  else if (kind === 'gauge')
+    body = '<path d="M4.2 17a9 9 0 1 1 15.6 0"/><path d="M12 15l4-4"/>';
+  else
+    body = '<path d="M3 18l5-9 3.2 5 2-3L21 18"/>';
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '+
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+body+'</svg>';
 }
 function shareTracked(ctx, text, cx, y, track){
   var total = 0, i;
@@ -26316,15 +26459,41 @@ function shareCardPaint(ctx, ops, W){
   var T = SHARE_THEME;
   ops.forEach(function(op){
     ctx.save();
-    if (op.kind === 'panel'){
-      shareRoundRect(ctx, op.x, op.y, op.w, op.h, Math.round(W*0.030));
-      ctx.fillStyle = T.panel; ctx.fill();
-      ctx.strokeStyle = T.panelEdge; ctx.lineWidth = Math.max(1.5, W*0.0022); ctx.stroke();
+    /* WHAT KEEPS THE TYPE READABLE IS THE SHADOW, NOT A WASH OVER THE PHOTO.
+       A translucent slab behind the words would guarantee contrast and cost
+       the photograph, which is the thing the athlete actually chose. A soft
+       drop shadow buys the same legibility on a blown-out sky and leaves the
+       image underneath intact. */
+    if (op.size && op.kind !== 'frame'){
+      ctx.shadowColor = 'rgba(0,0,0,0.55)';
+      ctx.shadowBlur = op.size * 0.45;
+      ctx.shadowOffsetY = Math.max(1, op.size * 0.05);
+    }
+    /* THE FRAME IS OPEN AT THE FOOT, which is the whole point of it: three
+       sides that lead the eye down the photograph and then let it go, rather
+       than a box that shuts the athlete inside. The top rule is drawn as two
+       segments so the mark sits THROUGH it rather than above it. */
+    if (op.kind === 'frame'){
+      var lw = Math.max(2, W*0.0026);
+      ctx.strokeStyle = T.gold; ctx.lineWidth = lw; ctx.lineCap = 'round';
+      ctx.globalAlpha = 0.92;
+      var x0 = op.x, x1 = op.x + op.w, r = op.r;
+      ctx.beginPath();                                   // left segment of the top rule
+      ctx.moveTo(op.gapFrom, op.y);
+      ctx.lineTo(x0 + r, op.y);
+      ctx.arcTo(x0, op.y, x0, op.y + r, r);
+      ctx.lineTo(x0, op.bottom);                         // and straight down the side
+      ctx.stroke();
+      ctx.beginPath();                                   // right segment, mirrored
+      ctx.moveTo(op.gapTo, op.y);
+      ctx.lineTo(x1 - r, op.y);
+      ctx.arcTo(x1, op.y, x1, op.y + r, r);
+      ctx.lineTo(x1, op.bottom);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
     } else if (op.kind === 'mark'){
-      if (shareMarkImg){
-        var h = op.h, w = h * (shareMarkImg.width / shareMarkImg.height);
-        ctx.drawImage(shareMarkImg, op.cx - w/2, op.y, w, h);
-      }
+      ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = op.h * 0.28;
+      shareDrawMark(ctx, op.cx, op.cy, op.h, T);
     } else if (op.kind === 'wordmark'){
       ctx.fillStyle = T.ink; ctx.textBaseline = 'top';
       ctx.font = '600 ' + op.size + "px " + T.head;
@@ -26413,14 +26582,14 @@ function sharePaintPhoto(ctx, img, tf, W, H){
     var dw = img.width * sc, dh = img.height * sc;
     ctx.drawImage(img, (W-dw)/2 + (tf.x||0)*W, (H-dh)/2 + (tf.y||0)*H, dw, dh);
   }
-  /* JUST ENOUGH DARKENING, AND NO MORE. The panel behind the type is already
-     a 62% wash, so the scrim is not what makes the words readable -- it only
-     has to stop a blown-out sky glaring at the edges. At the weight it was
-     first given, the athlete's photograph was barely visible underneath, and
-     the photograph is the point of the feature. */
+  /* THE PHOTOGRAPH IS THE CARD, so the scrim is weighted entirely into the top
+     third where the typography sits and is gone by the halfway line -- the
+     athlete, who is almost always in the lower half, is never washed. The
+     type carries its own drop shadow, so this only has to take the glare off
+     a bright sky rather than guarantee contrast on its own. */
   var g = ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'rgba(4,6,10,0.46)'); g.addColorStop(0.45,'rgba(4,6,10,0.14)');
-  g.addColorStop(1,'rgba(4,6,10,0.50)');
+  g.addColorStop(0,'rgba(4,6,10,0.58)'); g.addColorStop(0.30,'rgba(4,6,10,0.24)');
+  g.addColorStop(0.52,'rgba(4,6,10,0)'); g.addColorStop(1,'rgba(4,6,10,0.18)');
   ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
   ctx.restore();
 }
@@ -26446,7 +26615,7 @@ function openShareModal(dd){
                  transform:{ scale:1, x:0, y:0 }, busy:false };
   openModal(shareModalHtml(), 'modal-themed share-modal');
   shareBindPhoto();
-  shareFontsReady().then(shareMarkReady).then(shareRepaint);
+  shareFontsReady().then(shareRepaint);
 }
 function shareModalHtml(){
   var st = shareState, d = st.data;
@@ -26715,13 +26884,46 @@ function renderExecutionReview(dd){
     body = '<div class="cr-sec"><div class="cr-v">Coach analysis temporarily unavailable.</div></div>';
   }
 
-  return '<div class="exec-review-card">'+
-    '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span>'+
-      '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
-    '</div>'+
-    body+
+  /* THE COMPLETION MOMENT LEADS; THE MARKING GOES BEHIND A DOOR.
+     The detailed review is not reduced and not removed -- every sentence it
+     produced is still here, one tap away under View Analysis. What changed is
+     which of the two the athlete meets first. A finished long run opening on
+     a scoring breadkdown reads like a report card; the concept's argument is
+     that it should read like an arrival, with the analysis available to
+     anyone who wants it. */
+  var open = isAnalysisOpen(dd);
+  return '<div class="wc">'+
+    '<div class="wc-top"><span class="wc-top-k">Workout Complete</span>'+
+      '<span class="wc-top-mark">'+ICONS.check+'</span></div>'+
+    renderCompletionHero(dd)+
+    renderCompletionVerdict(dd)+
     renderShareLaunch(dd)+
+    '<button type="button" class="btn wc-analysis-btn" data-action="view-analysis" '+
+      'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
+      (open ? 'Hide Analysis' : 'View Analysis')+'</button>'+
+    (open
+      ? '<div class="exec-review-card wc-analysis">'+
+          '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span>'+
+            '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
+          '</div>'+ body +
+        '</div>'
+      : '')+
+    '<button type="button" class="wc-continue" data-action="toggle-day" '+
+      'data-day="'+dd.id+'">Continue</button>'+
   '</div>';
+}
+/* Whether the marking is showing. Defaults shut: the completion screen is the
+   moment, and the analysis is what the athlete opens when they want it. */
+var analysisOpenFor = {};
+function isAnalysisOpen(dd){
+  return !!(dd && analysisOpenFor[dd.id]);
+}
+function handleViewAnalysis(dayId){
+  var dd = findDay(dayId);
+  if (!dd) return;
+  if (analysisOpenFor[dd.id]) delete analysisOpenFor[dd.id];
+  else analysisOpenFor[dd.id] = true;
+  patchExecutionUI(dd);
 }
 /* ---- THE VERDICT, AND THE WAY OUT TO A POST ----
    The word sits with the review that produced it rather than on a screen of
@@ -26729,11 +26931,106 @@ function renderExecutionReview(dd){
    directly underneath it. Sharing is offered, never urged -- no badge, no
    streak, no prompt that returns if ignored. A session with no legitimate
    verdict still offers the button; it simply has no word to show. */
-function renderShareLaunch(dd){
+/* ---- THE COMPLETION MOMENT ----
+   What the athlete sees the instant a session is logged. The concept's whole
+   argument is that finishing a workout deserves a moment rather than a row in
+   a form, so the card is the Valhalla environment -- black, gold, the mark --
+   carrying the same composition the shareable image carries, with the verdict
+   and its explanation underneath and one gold way out to a post.
+
+   WHY IT IS NOT shareCardData(). That function applies the Strava export
+   fence, and the fence is about DISTRIBUTABLE OUTPUT -- API Policy 5.4 reaches
+   "output that incorporates or was generated using Strava Data", which a PNG
+   leaving the device is and a screen the athlete is reading is not. Driving
+   this off the export data would hide an athlete's own imported distance from
+   their own completion screen, which is a regression dressed as compliance.
+   The athlete sees everything they logged; only the file that leaves is
+   filtered, and that filtering is unchanged. */
+function completionHeroData(dd){
+  if (!dd || !dd.completed) return null;
+  var a = dd.actual || {};
+  var num = function(v){ return (typeof v === 'number' && isFinite(v)) ? v : null; };
+  var tm = TYPE_META[dd.type] || {};
+  var su = state.setup || {};
+  var prof = DISTANCE_PROFILES[su.distanceKey] || null;
+  var phase = null;
+  try { phase = dd.week ? trainingPhase(dd.week) : null; } catch(e){ phase = null; }
+  var dur = num(a.movingTimeSec) != null ? num(a.movingTimeSec) : num(a.elapsedTimeSec);
+  return {
+    verdict: shareVerdictLabel(dd),
+    sessionLabel: (tm.label || 'RUN').toUpperCase(),
+    distanceKm: num(a.km),
+    durationSec: dur,
+    paceStr: actualPaceDisplayStr(dd) || null,
+    elevationM: num(a.elevationGainM),
+    programme: prof ? prof.label : null,
+    phase: phase || null,
+    week: dd.week || null
+  };
+}
+function renderCompletionHero(dd){
+  var d = completionHeroData(dd);
+  if (!d) return '';
+  var metrics = [];
+  if (d.durationSec != null) metrics.push(['clock', fmtShareDuration(d.durationSec)]);
+  if (d.paceStr)             metrics.push(['gauge', d.paceStr + ' /' + displayUnit()]);
+  if (d.elevationM != null)  metrics.push(['elev',  Math.round(d.elevationM) + ' m']);
+  var strap = [d.programme, d.phase, d.week ? ('Week ' + d.week) : null]
+                .filter(function(x){ return !!x; }).join('  ·  ');
+  return '<div class="wc-hero">'+
+    '<div class="wc-hero-type">'+
+      shareMarkSVG('wc-mark')+
+      '<div class="wc-wordmark">VALHALLA</div>'+
+      '<div class="wc-headline">'+escapeHtml(d.sessionLabel)+
+        (d.verdict ? ' <span class="wc-verdict-word">— '+escapeHtml(d.verdict)+'</span>' : '')+
+      '</div>'+
+      (d.distanceKm != null
+        ? '<div class="wc-distance"><span>'+escapeHtml(fmtShareDistance(d.distanceKm))+'</span>'+
+          '<em>'+escapeHtml(displayUnit().toUpperCase())+'</em></div>'
+        : '')+
+      (metrics.length
+        ? '<div class="wc-metrics">'+metrics.map(function(m){
+            return '<span class="wc-metric">'+shareIconSVG(m[0])+escapeHtml(m[1])+'</span>';
+          }).join('')+'</div>'
+        : '')+
+      (strap ? '<div class="wc-rule"></div><div class="wc-strap">'+escapeHtml(strap)+'</div>' : '')+
+    '</div>'+
+    /* The same photograph the brand uses everywhere else, so the completion
+       card is unmistakably Valhalla before a single word is read. */
+    '<div class="wc-hero-photo" role="presentation"></div>'+
+  '</div>';
+}
+/* THE VERDICT AND ITS REASON, from the review that already exists.
+   r.executionVerdict is the sentence coachDebrief() already opens with -- the
+   same words, promoted to where the athlete reads them first. Nothing new is
+   computed and no second coaching engine is introduced. */
+function renderCompletionVerdict(dd){
   var v = shareVerdictLabel(dd);
+  var r = coachReviewFor(dd) || coachWorkoutReview(dd);
+  var why = (r && r.executionVerdict) ? r.executionVerdict : '';
+  if (!v && !why) return '';
+  /* THE TICK IS ONLY DRAWN WHERE THERE IS SOMETHING TO TICK. A gold check is a
+     mark of approval, and shareVerdictLabel() returns nothing precisely on the
+     sessions the coach has flagged for fatigue or recovery -- so a tick there
+     would be the one thing the safety rule exists to prevent, reintroduced as
+     an icon. With no verdict the block keeps the coach's sentence and drops
+     both the mark and the word. */
+  return '<div class="wc-verdict'+(v ? '' : ' is-plain')+'">'+
+    (v ? '<span class="wc-verdict-mark">'+ICONS.check+'</span>' : '')+
+    '<div><div class="wc-verdict-k">'+(v ? 'The Verdict' : 'The Session')+'</div>'+
+      (v ? '<div class="wc-verdict-v">'+escapeHtml(titleCase(v))+'</div>' : '')+
+      (why ? '<div class="wc-verdict-why">'+escapeHtml(why)+'</div>' : '')+
+    '</div></div>';
+}
+function titleCase(s){
+  return String(s).charAt(0).toUpperCase() + String(s).slice(1).toLowerCase();
+}
+function renderShareLaunch(dd){
+  /* The word itself now has its own block directly above, so this is the way
+     out and nothing else. Sharing is offered, never urged -- no badge, no
+     streak, no prompt that returns if ignored. A session with no legitimate
+     verdict still gets the button; its card simply has no word to show. */
   return '<div class="share-launch">'+
-    (v ? '<div class="share-verdict"><span class="share-verdict-k">The Verdict</span>'+
-         '<span class="share-verdict-v">'+escapeHtml(v)+'</span></div>' : '')+
     '<button type="button" class="btn btn-share" data-action="share-workout" '+
       'data-day="'+escapeHtml(String(dd.id!=null?dd.id:dd.date))+'">'+
       ICONS.share+'Share to Socials</button>'+
@@ -51521,6 +51818,7 @@ document.addEventListener('click', function(e){
        change what the athlete is looking at, or hand the finished PNG to the
        device. Nothing here touches the plan or the log. */
     case 'share-workout': openShareModal(findDay(target.getAttribute('data-day'))); break;
+    case 'view-analysis': handleViewAnalysis(target.getAttribute('data-day')); break;
     case 'share-set': handleShareSet(target.getAttribute('data-k'), target.getAttribute('data-v')); break;
     case 'share-export': shareExport(target.getAttribute('data-mode')); break;
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;

@@ -378,6 +378,8 @@ test('structured claims never become medical claims', () => {
 test('the structured read reaches the review card once there is evidence', () => {
   const a = app();
   const dd = loggedFartlek(a, [0.58,0.57,0.56,0.55,0.54]);
+  // Behind View Analysis now; the segment read itself is unchanged.
+  a.handleViewAnalysis(dd.id);
   assert.match(a.renderExecutionReview(dd), /Execution by segment/);
 });
 

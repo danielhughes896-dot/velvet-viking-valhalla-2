@@ -181,10 +181,22 @@ test('no health field reaches the card object at all', () => {
   for (const banned of ['hr', 'maxHR', 'rpe', 'feel', 'notes', 'cadence']) {
     assert.ok(!keys.includes(banned), banned + ' must not be a card key');
   }
-  // And nothing anywhere in the drawn output carries one of those values.
-  const drawn = JSON.stringify(app.shareCardLayout(data, 'full', SIZE));
+  /* And no health value reaches anything the card DISPLAYS. Scoped to the
+     text the ops carry rather than the whole serialised structure: coordinates
+     are integers in the same numeric range, so '171' matched a y position and
+     the assertion was passing or failing on where a line happened to land
+     rather than on what the card says. */
+  const ops = app.shareCardLayout(data, 'full', SIZE);
+  const words = [];
+  Array.prototype.forEach.call(ops, o => {
+    if (o.text) words.push(String(o.text));
+    if (o.value) words.push(String(o.value));
+    if (o.unit) words.push(String(o.unit));
+    if (o.items) Array.prototype.forEach.call(o.items, it => words.push(String(it.text)));
+  });
+  const said = words.join(' | ');
   for (const v of ['148', '171', 'strong', 'heavy']) {
-    assert.ok(!drawn.includes(v), 'drawn card must not contain ' + v);
+    assert.ok(!said.includes(v), 'the card must not say ' + v + ' -- it says: ' + said);
   }
 });
 
@@ -256,7 +268,7 @@ test('the three layouts say progressively less, and all three are honest', () =>
   /* The headline names the session and then its verdict, and tells the painter
      where the gold accent starts so only the verdict is highlighted. */
   const hl = app.shareCardLayout(data, 'full', SIZE).find(o => o.kind === 'headline');
-  assert.equal(hl.text, 'EASY  —  ABSORBED');
+  assert.equal(hl.text, 'EASY — ABSORBED');
   assert.equal(hl.text.slice(hl.accentFrom), 'ABSORBED',
     'the accent begins exactly at the verdict');
 });

@@ -293,6 +293,10 @@ test('Execution Review states the honest first-half-vs-second-half read once the
   dd.actual.km = dd.km;
   dd.actual.pace = '5:00';
   fillFourLaps(a, dd);
+  /* The detailed marking now sits behind View Analysis -- the completion
+     moment leads instead. Nothing about the read changed, so the assertion is
+     the same; it just has to open the drawer the athlete opens. */
+  a.handleViewAnalysis(dd.id);
   const html = a.renderExecutionReview(dd);
   assert.match(html, /<div class="cr-k">Splits<\/div>/);
   assert.match(html, /Paced slower in the second half than the first/);
