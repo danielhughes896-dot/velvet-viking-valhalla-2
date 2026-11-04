@@ -73,24 +73,18 @@ test('get.html: the shared crest DELIVERY asset is used and exists on disk', () 
     'the crest on the sign-up page is over its size budget');
 });
 
-test('get.html: shares the app\'s theme boot and token stylesheet rather than its own palette', () => {
-  assert.match(HTML, /data-vvv-theme-boot/,
-    'without the shared boot snippet this page flashes the wrong theme before paint');
+test('get.html: shares the app\'s declared theme and token stylesheet rather than its own palette', () => {
+  assert.match(HTML, /<html lang="en" data-theme="dark">/,
+    'the theme is declared in the markup now, so this page cannot arrive wrong');
   assert.match(HTML, /href="\/assets\/vvv-shell\.css"/,
     'palette must come from the shared shell, not a pasted copy that can drift');
 });
 
-test('get.html: defaults an unrecognised/new device to light, not a legacy dark surface', () => {
-  // Mirrors themeSystem.test.js's own assertion about the boot snippet; pinned
-  // again here because this page's own defaults are what HQ specifically
-  // asked be checked ("avoid legacy dark-page appearance if currently present").
-  const snippet = /<script data-vvv-theme-boot>([\s\S]*?)<\/script>/.exec(HTML)[1];
-  const run = stored => {
-    const attr = { value: null };
-    const fn = new Function('localStorage', 'document', snippet);
-    fn({ getItem: () => stored }, { documentElement: { setAttribute: (k, v) => { attr.value = v; } } });
-    return attr.value;
-  };
-  assert.equal(run(null), 'light');
-  assert.equal(run('not json'), 'light');
+test('get.html: arrives on the product\'s one dark surface, with nothing to resolve', () => {
+  // HQ specifically asked this page be checked for a legacy appearance. There
+  // is no longer a preference to read: the page is dark in its own markup.
+  assert.ok(!/data-vvv-theme-boot/.test(HTML),
+    'a boot snippet survives for a theme that cannot vary');
+  assert.ok(!/\[data-theme="light"\]/.test(HTML), 'a light override survives here');
+  assert.match(HTML, /<meta name="theme-color" content="#151417">/);
 });

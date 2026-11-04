@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -16,8 +16,7 @@
   What this page is allowed to do is ask, render, and route.
 -->
 <link rel="icon" href="/assets/icon.png">
-<meta name="theme-color" content="#F4F1EA">
-<script data-vvv-theme-boot>/*VVV-THEME-BOOT*/(function(){try{var s=localStorage.getItem('vvv_theme');var t=s?(JSON.parse(s)||{}).theme:null;document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
+<meta name="theme-color" content="#151417">
 <!--
   THE CANONICAL BUILDER SPECIFICATION -- see assets/builder-spec.js. This page
   and the protected app both load this exact file and read window.BUILDER_SPEC
@@ -102,13 +101,6 @@
        themes, only --gold-text does. */
     --c-gold-soft:rgba(227,177,90,0.20);
   }
-  :root[data-theme="light"]{
-    --cherry:#532D3A; --cherry-fill:#532D3A; --cherry-soft:#EFE4E8;
-    --cherry-line:rgba(83,45,58,0.32); --cherry-dim:rgba(83,45,58,0.42);
-    --cherry-text:#532D3A; --cherry-ink:#171717; --cherry-btn-ink:#FFFFFF;
-    --line-soft:#E5DECD; --bg-4:#E2DAC9;
-    --danger-text:#9A3540;
-  }
   .font-head{font-family:'Oswald',sans-serif; text-transform:uppercase;}
 
   /* ---------- progress ---------- */
@@ -173,11 +165,6 @@
     color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14);
     border-color:rgba(var(--modal-active-rgb),0.5);
   }
-  [data-theme="light"] .opt-grid button{color:#6B6558;}
-  [data-theme="light"] .opt-grid button.active{
-    color:#7A5C1E; background:#FFFDF7; border-color:transparent;
-    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
-  }
   .bld-locked .opt-grid{opacity:.6;}
   .bld-date input[type="date"]{
     border-radius:12px; padding:14px 13px; min-height:52px;
@@ -187,7 +174,6 @@
     opacity:.75; cursor:pointer; padding:4px; border-radius:6px;
     filter:invert(41%) sepia(38%) saturate(720%) hue-rotate(6deg) brightness(92%);
   }
-  [data-theme="light"] .bld-date input[type="date"]{border-color:#9B7B2E;}
 
   /* ---------- the objective cards ---------- */
   .bld-purpose{display:grid; gap:10px; grid-template-columns:1fr 1fr;}
@@ -205,12 +191,6 @@
     border-color:rgba(var(--modal-active-rgb),0.5);
   }
   .bld-purpose button.active .bpc-why{color:var(--modal-active); opacity:.8;}
-  [data-theme="light"] .bld-purpose button{color:#6B6558;}
-  [data-theme="light"] .bld-purpose button.active{
-    color:#7A5C1E; background:#FFFDF7; border-color:transparent;
-    box-shadow:inset 0 0 0 1px #9B7B2E, inset 0 2px 0 0 #9B7B2E, 0 1px 3px rgba(90,70,30,0.13);
-  }
-  [data-theme="light"] .bld-purpose button.active .bpc-why{color:#7A5C1E; opacity:.85;}
 
   /* ---------- the training week ----------
      THE SAME CIRCLE AS THE APP'S DAY-CARD COMPLETION RING

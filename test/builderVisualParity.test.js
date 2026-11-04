@@ -48,29 +48,18 @@ function lightBlock(src) {
 const CHERRY_TOKENS = ['cherry', 'cherry-fill', 'cherry-soft', 'cherry-line', 'cherry-dim', 'cherry-text', 'cherry-ink', 'cherry-btn-ink'];
 const OTHER_TOKENS = ['fs-meta', 'fs-label', 'fs-support', 'fs-data', 'fs-body', 'fs-title', 'lh-body', 'lh-support', 'line-soft', 'danger-text', 'c-gold-soft'];
 
-test('every Cherry Lacquer token is the same value in the app and in /start, in both themes', () => {
-  const appDark = rootBlock(APP_SRC);
-  const startDark = rootBlock(START_SRC);
-  const appLight = lightBlock(APP_SRC);
-  const startLight = lightBlock(START_SRC);
-  assert.ok(appDark && startDark && appLight && startLight, 'could not locate one of the four token blocks');
-
+test('every Cherry Lacquer token is the same value in the app and in /start', () => {
+  /* One theme, so one block each side. The parity this protects is the one
+     that actually bit: the builder is reached at /start and again inside the
+     app, and a token that drifts between them makes the same screen two
+     colours depending on how the athlete got there. */
+  assert.ok(rootBlock(APP_SRC) && rootBlock(START_SRC),
+    'could not locate one of the two token blocks');
   CHERRY_TOKENS.concat(OTHER_TOKENS).forEach((tok) => {
     const dApp = tokenValue(APP_SRC, /:root\{([\s\S]*?)\n  \}/, tok);
     const dStart = tokenValue(START_SRC, /:root\{([\s\S]*?)\n  \}/, tok);
-    assert.ok(dApp, '--' + tok + ' is not defined in the app\'s dark :root');
-    assert.equal(dStart, dApp, '--' + tok + ' (dark) diverged: app=' + dApp + ' /start=' + dStart);
-  });
-
-  // Light-theme overrides -- only the tokens each side actually re-declares
-  // for light (most Cherry Lacquer values are identical in both themes and
-  // are not re-declared; see the app's own "nothing there needed solving"
-  // comment on --cherry in light).
-  CHERRY_TOKENS.concat(OTHER_TOKENS).forEach((tok) => {
-    const lApp = tokenValue(APP_SRC, /\[data-theme="light"\]\{([\s\S]*?)\n  \}/, tok);
-    if (lApp === undefined) return; // not re-declared for light on the app's side either
-    const lStart = tokenValue(START_SRC, /\[data-theme="light"\]\{([\s\S]*?)\n  \}/, tok);
-    assert.equal(lStart, lApp, '--' + tok + ' (light) diverged: app=' + lApp + ' /start=' + lStart);
+    assert.ok(dApp, '--' + tok + ' is not defined in the app\'s :root');
+    assert.equal(dStart, dApp, '--' + tok + ' diverged: app=' + dApp + ' /start=' + dStart);
   });
 });
 

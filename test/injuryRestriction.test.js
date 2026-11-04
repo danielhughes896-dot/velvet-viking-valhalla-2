@@ -225,9 +225,13 @@ test('restricted days cannot drag the completion rate down', () => {
 test('Week Status and the watch-outs do not call a restricted day unlogged', () => {
   const a = app();
   stageHistoricRestriction(a, a.addDays(TODAY, -13), a.addDays(TODAY, -1), 'easy');
-  const wk = a.renderWeekStatus(a.currentWeekNum());
-  assert.doesNotMatch(wk, /unlogged/, 'Week Status counted restricted days as unlogged');
-  assert.match(wk, /restricted/i, 'Week Status says nothing about the restriction at all');
+  /* Read off This Week itself. The old Week Status panel was folded into
+     the hero, and asserting against a function the screen no longer calls
+     would pass while the athlete was told nothing. */
+  a.state.view = 'week';
+  const wk = a.renderWeekView();
+  assert.doesNotMatch(wk, /unlogged/, 'This Week counted restricted days as unlogged');
+  assert.match(wk, /restricted/i, 'This Week says nothing about the restriction at all');
   const report = a.coachAnalyse();
   const watch = (report && report.watchOuts) || [];
   assert.equal(watch.filter(w => /unlogged/.test(w.detail)).length, 0,

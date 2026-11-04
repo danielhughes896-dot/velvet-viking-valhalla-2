@@ -72,27 +72,25 @@ function workoutColours() {
   return out;
 }
 
-/* Token values are read from the shipped :root blocks, so these tests measure
-   what the app renders rather than what this file remembers. The dark block is
-   the first :root; the light block is the [data-theme="light"] override. */
-function tokens(scope) {
-  const start = scope === 'light'
-    ? CODE.indexOf('--cherry:', CODE.indexOf('--danger-text:#9A3540'))
-    : CODE.indexOf('--cherry:');
-  assert.notEqual(start, -1, 'no --cherry block for ' + scope);
+/* Token values are read from the shipped :root block, so these tests measure
+   what the app renders rather than what this file remembers. There is one
+   block now: light was retired, and with it the second copy of the accent. */
+function tokens() {
+  const start = CODE.indexOf('--cherry:');
+  assert.notEqual(start, -1, 'no --cherry block');
   const block = CODE.slice(start, start + 900);
   const out = {};
   [...block.matchAll(/(--cherry[a-z-]*)\s*:\s*([^;]+);/g)].forEach(m => { out[m[1]] = m[2].trim(); });
   return out;
 }
-function surfaces(scope) {
-  // --bg / --bg-2 / --bg-3 for the theme, from the same stylesheet.
-  const re = scope === 'light'
-    ? /--bg:#F4F1EA; --bg-2:#([0-9A-F]{6}); --bg-3:#([0-9A-F]{6});/i
-    : /--bg:#151417; --bg-2:#([0-9A-F]{6}); --bg-3:#([0-9A-F]{6});/i;
-  const m = CODE.match(re);
-  assert.ok(m, 'could not read the ' + scope + ' surfaces');
-  return [scope === 'light' ? '#F4F1EA' : '#151417', '#' + m[1], '#' + m[2]];
+function surfaces() {
+  /* --bg / --bg-2 / --bg-3, read from the stylesheet rather than pinned here,
+     because the ground moved to the Today charcoal when that card's language
+     became the product's and these ratios have to be measured against what
+     actually ships. */
+  const m = CODE.match(/--bg:#([0-9A-F]{6}); --bg-2:#([0-9A-F]{6}); --bg-3:#([0-9A-F]{6});/i);
+  assert.ok(m, 'could not read the surfaces');
+  return ['#' + m[1], '#' + m[2], '#' + m[3]];
 }
 
 /* A selector can carry more than one rule -- .switch input:checked +
@@ -219,22 +217,9 @@ test('semantic colour is still semantic — the accent replaced none of it', () 
 // ===========================================================================
 // 3. MEASURED ACCESSIBILITY, BOTH THEMES
 // ===========================================================================
-test('LIGHT: the accent is the canonical #532D3A, unmodified', () => {
-  const t = tokens('light');
-  assert.equal(t['--cherry'], '#532D3A', 'the light theme must ship the canonical value');
-  assert.equal(t['--cherry-text'], '#532D3A', 'and use it unmodified as text');
-  assert.equal(t['--cherry-btn-ink'], '#FFFFFF');
-  assert.ok(ratio('#532D3A', '#FFFFFF') >= 4.5,
-    'the button label is ' + ratio('#532D3A', '#FFFFFF') + ':1');
-  surfaces('light').forEach(bg => assert.ok(ratio(t['--cherry'], bg) >= 3,
-    'a light control on ' + bg + ' is only ' + ratio(t['--cherry'], bg) + ':1'));
-  // and the pale node fill carries near-black
-  assert.ok(ratio(t['--cherry-soft'], t['--cherry-ink']) >= 4.5,
-    'the step numeral on its disc is ' + ratio(t['--cherry-soft'], t['--cherry-ink']) + ':1');
-});
 
-test('DARK: bare indicators are lifted only as far as 3:1 actually requires', () => {
-  const t = tokens('dark');
+test('bare indicators are lifted only as far as 3:1 actually requires', () => {
+  const t = tokens();
   const ind = t['--cherry'];
 
   assert.ok(IN_FAMILY(ind),
@@ -244,14 +229,14 @@ test('DARK: bare indicators are lifted only as far as 3:1 actually requires', ()
   /* A BARE INDICATOR -- a 3px rail segment, a gauge needle, a band -- is
      identified by nothing but its own colour, so 1.4.11's 3:1 applies against
      every dark surface it can sit on. */
-  surfaces('dark').forEach(bg => assert.ok(ratio(ind, bg) >= 3,
+  surfaces().forEach(bg => assert.ok(ratio(ind, bg) >= 3,
     'a bare dark indicator on ' + bg + ' is only ' + ratio(ind, bg) + ':1 -- WCAG 1.4.11 wants 3:1'));
 
   /* SMALLEST lift: one step darker must fail the boundary it was chosen for,
      or it is lighter than the colour needed to be. This gate is what stops the
      indicator tone creeping up towards pink over time. */
   const darker = '#' + hex(ind).map(v => Math.round(v * 0.94).toString(16).padStart(2, '0')).join('');
-  assert.ok(ratio(darker, surfaces('dark')[2]) < 3,
+  assert.ok(ratio(darker, surfaces()[2]) < 3,
     'a 6% darker indicator (' + darker + ') would still clear 3:1 -- the lift is bigger than it needs to be');
 });
 
@@ -261,8 +246,8 @@ test('DARK: bare indicators are lifted only as far as 3:1 actually requires', ()
    painting a large filled button with it produced dusty pink. A filled control
    carrying its own white label does not need that boundary to be identified,
    so it is free to be genuinely dark, and it must be. */
-test('DARK: filled controls are burgundy, not a mid-tone rose', () => {
-  const t = tokens('dark');
+test('filled controls are burgundy, not a mid-tone rose', () => {
+  const t = tokens();
   const fill = t['--cherry-fill'];
   assert.ok(fill, 'there is no --cherry-fill: labelled fills are back on the indicator tone');
 
@@ -280,14 +265,6 @@ test('DARK: filled controls are burgundy, not a mid-tone rose', () => {
   assert.ok(ratio(fill, t['--cherry-btn-ink']) >= 4.5,
     'the dark button label is only ' + ratio(fill, t['--cherry-btn-ink']) + ':1');
 
-  /* LIGHT NEEDED NO SOLVING, so light must not quietly acquire a second value:
-     both jobs there are the one canonical Cherry Lacquer. */
-  const L = tokens('light');
-  assert.equal(L['--cherry-fill'], '#532D3A',
-    'light mode paints filled controls ' + L['--cherry-fill'] + ' instead of the canonical #532D3A');
-  assert.equal(L['--cherry'], L['--cherry-fill'],
-    'light mode split the accent in two, but only dark mode had a reason to');
-
   /* A dark fill cannot supply its own 3:1 boundary, so the rim does -- and the
      rim has to be the indicator tone, which is the one that clears it. */
   ['.builder-light .btn-primary', '.hq-panel .rec-panel-nav .btn-primary'].forEach(sel => {
@@ -299,14 +276,14 @@ test('DARK: filled controls are burgundy, not a mid-tone rose', () => {
   });
 });
 
-test('DARK: the accent used as TEXT gets its own tone, because 3:1 is not enough to read', () => {
-  const t = tokens('dark');
+test('the accent used as TEXT gets its own tone, because 3:1 is not enough to read', () => {
+  const t = tokens();
   assert.notEqual(t['--cherry-text'], t['--cherry'],
     'the dark theme reads its small accent text at the fill tone, which is under 4.5:1');
   assert.ok(IN_FAMILY(t['--cherry-text']),
     'the text tone drifted to hue ' + hue(t['--cherry-text']).toFixed(1) +
     'deg, outside the cherry/wine family');
-  surfaces('dark').forEach(bg => assert.ok(ratio(t['--cherry-text'], bg) >= 4.5,
+  surfaces().forEach(bg => assert.ok(ratio(t['--cherry-text'], bg) >= 4.5,
     'accent text on ' + bg + ' is only ' + ratio(t['--cherry-text'], bg) + ':1'));
 
   // And the two places it is actually used are the two that need it.
@@ -315,22 +292,19 @@ test('DARK: the accent used as TEXT gets its own tone, because 3:1 is not enough
       sel + ' paints accent text with the fill tone rather than the text tone'));
 });
 
-test('the accent is a per-theme token, so no component carries a per-theme rule', () => {
-  assert.equal((CODE.match(/--cherry:\s*#[0-9A-F]{6}/gi) || []).length, 2,
-    'the accent must be declared exactly once per theme');
-  /* And every --cherry* declaration in the file lives in one of those two
-     token blocks. A component that redefined the accent for one theme would
-     add a declaration somewhere else, which is what this counts. */
-  const declared = (CODE.match(/--cherry[a-z-]*\s*:/g) || []).length;
-  const perBlock = (CODE.match(/--cherry[a-z-]*\s*:/g) || []).length / 2;
-  assert.equal(declared, perBlock * 2, 'unreachable');
+test('the accent is one token, and no component redefines it', () => {
   const blocks = [...CODE.matchAll(/--cherry:\s*#[0-9A-F]{6}/gi)].map(m => m.index);
-  assert.equal(blocks.length, 2);
-  const inABlock = [...CODE.matchAll(/--cherry[a-z-]*\s*:/g)]
+  assert.equal(blocks.length, 1,
+    'the accent must be declared exactly once, at the root');
+  /* And every --cherry* declaration in the file lives in that one block. A
+     component that redefined the accent for itself would add a declaration
+     somewhere else, which is what this counts. */
+  const declared = (CODE.match(/--cherry[a-z-]*\s*:/g) || []).length;
+  const inTheBlock = [...CODE.matchAll(/--cherry[a-z-]*\s*:/g)]
     .filter(m => blocks.some(b => m.index >= b - 40 && m.index < b + 700)).length;
-  assert.equal(inABlock, declared,
-    'a --cherry declaration lives outside the two theme token blocks — a ' +
-    'component is redefining the accent instead of using it');
+  assert.equal(inTheBlock, declared,
+    'a --cherry declaration lives outside the token block — a component is ' +
+    'redefining the accent instead of using it');
 });
 
 

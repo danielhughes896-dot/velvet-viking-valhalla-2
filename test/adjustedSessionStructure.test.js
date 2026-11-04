@@ -534,14 +534,26 @@ test('no surface renders a day card by a route of its own', () => {
      prose as if it were code has produced false results in this suite before. */
   const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   /* Today calls it directly, the in-place patch after a log re-renders it,
-     renderRaceDayEvent() renders the race with it, and This Week and Full Plan
-     reach it for every other day through renderWeekAccordion's map(). One
-     renderer; a SECOND PRESENTATION of the same session is what this guards
-     against, and that is still exactly one apiece -- the accordion now filters
-     the race out precisely so the standalone event is not a duplicate. */
+     renderRaceDayEvent() renders the race with it, This Week's session box
+     renders the selected day with it, and Full Plan reaches it for every day
+     through renderWeekAccordion's map(). One renderer; a SECOND PRESENTATION
+     of the same session is what this guards against, and that is still
+     exactly one apiece -- the accordion filters the race out so the
+     standalone event is not a duplicate, and This Week's summary and card
+     are two positions for one session with only ever one of them showing,
+     which the mutual-exclusion rule below is what actually enforces. */
   const calls = code.match(/renderDayCard\(/g) || [];
-  assert.equal(calls.length, 4,
-    'expected the declaration plus three direct call sites, saw ' + calls.length);
+  assert.equal(calls.length, 5,
+    'expected the declaration plus four direct call sites, saw ' + calls.length);
+  /* THE RULE THAT MAKES THE EXTRA CALL SITE SAFE. This Week shows a summary
+     of the selected session and, behind the same button, the canonical card.
+     Both are in the markup so editSessionCoherence's identical-string
+     invariant still holds there; this is what stops both being on screen at
+     once, which is the duplication the count above is a proxy for. */
+  assert.match(code, /var overview = weekSessionOpen \? '' :/,
+    'This Week can show its summary and the full card at the same time');
+  assert.match(code, /function renderWeekSessionBox\(weekNum\)\{[\s\S]*?renderDayCard\(dd\)/,
+    'This Week must reach the shared card, not build a session view of its own');
   assert.match(code, /wdays\.filter\(function\(dd\)\{ return dd\.type!=='race'; \}\)\.map\(renderDayCard\)/,
     'the week accordion -- This Week and Full Plan alike -- must use the shared card');
   assert.match(code, /function renderRaceDayEvent\(weekNum\)\{[\s\S]*?renderDayCard\(race\)/,

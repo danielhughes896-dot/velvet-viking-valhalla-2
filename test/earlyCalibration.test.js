@@ -508,9 +508,13 @@ test('it renders in Today, This Week and Full Plan', () => {
   const a = calibratedPlan();
   const dd = calDay(a);
   a.state.view = 'today';
+  /* This Week is a day browser now -- a week hero, a seven-day selector and
+     the SELECTED session -- so reaching a session there means selecting its
+     day first, exactly as an athlete would. The assertion is unchanged: the
+     calibration session must be presented on all three surfaces. */
   const views = {
     today: () => { a.pinnedToday = dd.date; return a.renderWeekAccordion(1, true); },
-    week: () => a.renderWeekView(),
+    week: () => { a.handleWeekPickDay(dd.date); return a.renderWeekView(); },
     full: () => a.renderFullPlanView()
   };
   Object.keys(views).forEach(k => {

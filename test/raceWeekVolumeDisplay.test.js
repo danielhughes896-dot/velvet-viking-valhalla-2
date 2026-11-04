@@ -84,6 +84,16 @@ function raceDay(a){
 /* The header figure the week accordion prints, read out of the rendered
    markup rather than recomputed -- recomputing it would test the arithmetic
    twice and the display not at all. */
+/* This Week no longer prints the accordion header -- it leads with a week
+   hero instead -- but it prints the SAME pair from the same weekVolume()
+   call: completed training over planned training. This reads that figure so
+   the cross-surface comparison below still compares rendered markup on both
+   sides rather than quietly recomputing one of them. */
+function heroVolume(html){
+  const m = /<div class="wk-hero-vol"><b>([^<]*)<\/b><span> \/ ([^<]*)<\/span><\/div>/.exec(html);
+  assert.ok(m, 'This Week did not render its hero volume');
+  return [m[1], m[2].replace(/[^0-9.]/g, '')];
+}
 function headerVolume(html, weekNum){
   const week = new RegExp('<div class="week[^"]*" id="week-' + weekNum + '">([\\s\\S]*?)</button>')
     .exec(html);
@@ -333,7 +343,7 @@ test('This Week shows the same split as Full Plan during race week', () => {
 
   const week = a.renderWeekView();
   const full = a.renderFullPlanView();
-  assert.equal(headerVolume(week, race.week), headerVolume(full, race.week),
+  assert.equal(heroVolume(week).join('/'), headerVolume(full, race.week),
     'This Week and Full Plan print different totals for the same week');
   assert.equal(week.split('id="day-' + race.id + '"').length - 1, 1,
     'the race renders more or less than once on This Week');
@@ -349,8 +359,8 @@ test('a non-race week on This Week is unchanged and carries no race event', () =
   const html = a.renderWeekView();
   assert.ok(!/class="race-event"/.test(html),
     'a mid-block week renders a race event');
-  assert.equal(headerVolume(html, w),
-    a.kmToDisplay(a.weekVolume(w).done) + '/' + a.kmToDisplay(a.weekVolume(w).total));
+  assert.deepEqual(heroVolume(html),
+    [String(a.kmToDisplay(a.weekVolume(w).done)), String(a.kmToDisplay(a.weekVolume(w).total))]);
 });
 
 // ---------------------------------------------------------------------------

@@ -29,7 +29,11 @@
      fact about the phone, not a request about Velvet Viking. */
 
 :root{
-  --bg:#151417; --bg-2:#1B1A1E; --bg-3:#201F23;
+  /* The charcoal ground and raised face the app adopted when the Today
+     card's language became the product's. Kept in step here deliberately:
+     /start, /get and the account shell are the same product as the app and
+     an athlete crosses between them in one session. */
+  --bg:#121316; --bg-2:#1B1A1E; --bg-3:#1C1E24;
   --ink:#F4F1EA; --ink-dim:#BBB4A4; --ink-faint:#9D9787;
   --line:#302E36;
   --bronze:#C0923F; --bronze-2:#9C7433; --gold:#E3B15A; --bronze-ink:#1A1204;
@@ -45,25 +49,6 @@
   --danger-ink:#E0A0A0;
   --radius:16px; --radius-sm:10px;
   color-scheme:dark;
-}
-:root[data-theme="light"]{
-  --bg:#F4F1EA; --bg-2:#FCFBFB; --bg-3:#EBE5D8;
-  --ink:#171717; --ink-dim:#514D45; --ink-faint:#5D574C;
-  --line:#DAD1BB;
-  --gold-text:#7A5C1E; --bronze-text:#7A5C1E;
-  /* Warm paper, warm stone edge, near-black ink -- the same measured set the
-     app uses, so the sign-in field on this page and the sign-in field inside
-     Settings are the same control. Ratios are against what they sit on:
-       border  #8F8569  3.57:1 on the field, 3.25:1 on the page  (AA non-text)
-       text    #171717 17.46:1 on the field                       (AAA)
-       holder  #6B6558  5.64:1 on the field                       (AA)
-       focus   #8A6D2B  4.75:1 on the field                       (AA non-text) */
-  --ctl-bg:#FDFCF8; --ctl-border:#8F8569; --ctl-text:#171717;
-  --ctl-placeholder:#6B6558;
-  --ctl-accent:#8A6D2B; --ctl-accent-rgb:138,109,43;
-  --ctl-disabled-bg:#EDEAE1; --ctl-disabled-text:#847E71; --ctl-disabled-border:#C4BCA6;
-  --danger-ink:#9A3540;   /* 6.30:1 on the page; the dark theme's #E0A0A0 is 1.9:1 there */
-  color-scheme:light;
 }
 
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
