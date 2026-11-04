@@ -2533,9 +2533,10 @@
      ramp, so --modal-text on this surface is near-black ink on cream. */
   .share-stage{position:relative; display:flex; justify-content:center;
     background:#0b0907; border:1px solid var(--line); border-radius:14px; padding:10px;}
-  .share-canvas{width:auto; height:min(52vh,420px); max-width:100%; border-radius:8px;
+  .share-canvas{width:auto; height:min(46vh,380px); max-width:100%; border-radius:8px;
     touch-action:none; cursor:grab; display:block;}
   .share-canvas:active{cursor:grabbing;}
+  .share-stage.has-img .share-empty{display:none;}
   .share-empty{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
     pointer-events:none; font-size:12px; letter-spacing:1px; text-transform:uppercase;
     color:#9a9188; text-shadow:0 1px 6px rgba(0,0,0,.8);}
@@ -2543,6 +2544,36 @@
   .share-pick{display:inline-flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;}
   .share-pick svg{width:15px; height:15px;}
   .share-hint{font-size:11px; opacity:.6; text-align:center;}
+  /* The popup is the completion environment and nothing else -- no modal
+     head, because .wc carries its own "Workout Complete" title. */
+  /* The completion card IS the modal: no surface of its own behind it, or a
+     rim of the card's background shows at the rounded corners. */
+  .modal-card.wc-modal{background:#06070A; border-color:rgba(227,177,90,0.28);
+    overflow:hidden;}
+  .wc-modal .modal-body{padding:0;}
+  .wc-modal-body .wc{margin-top:0; border:0; border-radius:0;}
+  .share-group{display:flex; flex-direction:column; gap:9px;}
+  .share-k{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase; opacity:.65;}
+  /* OVERLAY PICKER. Each thumbnail is the real overlay over the real picture,
+     painted by the same layout function as the export -- a static swatch
+     would have started lying the first time a design moved. */
+  .share-overlays{display:grid; grid-template-columns:repeat(5,1fr); gap:7px;}
+  .share-ov{background:transparent; border:0; padding:0; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:5px;}
+  .share-ov-thumb{width:100%; height:auto; aspect-ratio:var(--share-thumb-ar, 9/16);
+    border-radius:7px;
+    display:block; background:#0b0907; border:1.5px solid transparent;}
+  .share-ov.active .share-ov-thumb{border-color:var(--gold); box-shadow:0 0 0 2px rgba(227,177,90,.22);}
+  .share-ov span{font-size:9.5px; letter-spacing:.6px; text-transform:uppercase;
+    color:var(--ink); opacity:.6;}
+  .share-ov.active span{opacity:1; color:var(--gold-text); font-weight:700;}
+  .share-bds{display:grid; grid-template-columns:repeat(3,1fr); gap:7px;}
+  .share-bd{position:relative; aspect-ratio:1; border-radius:9px; cursor:pointer;
+    background-size:cover; background-position:center; border:1.5px solid var(--line);
+    display:flex; align-items:flex-end; padding:6px;}
+  .share-bd.active{border-color:var(--gold); box-shadow:0 0 0 2px rgba(227,177,90,.22);}
+  .share-bd span{font-size:9.5px; letter-spacing:.5px; text-transform:uppercase;
+    color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.9);}
   .share-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
   .share-row > span{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase; opacity:.65;}
   .share-seg{display:inline-flex; border:1px solid var(--line); border-radius:999px; overflow:hidden;}
@@ -19979,6 +20010,49 @@ function nativeSaveBinaryFile(o){
       showToast('Could not share the image \u2014 try again');
     });
 }
+/* ---- SAVE TO PHOTOS, WHICH MUST ACTUALLY SAVE TO PHOTOS ----
+   The share path writes the PNG into the app's own CACHE and hands it to the
+   system sheet. That is the right thing for "Share" and the WRONG thing for
+   "Save to photos": the file lands nowhere the athlete can find, and the OS
+   may reclaim it. A button labelled "Save to photos" that opens a share sheet
+   is a renamed action, not the action.
+
+   @capacitor-community/media writes to the device photo library proper.
+   The plugin is checked rather than assumed, because the APK loads this page
+   from the live site and an older installed shell runs this code without it --
+   in which case the athlete is told plainly instead of being shown a success
+   toast for a save that did not happen. The browser has no photo library at
+   all, so there it stays a download, which is where a browser puts files. */
+function saveImageToPhotos(o){
+  var Media = nativePlugin('Media');
+  if (Media && Media.savePhoto){
+    return shareBlobToBase64(o.blob).then(function(b64){
+      return Media.savePhoto({ path:'data:image/png;base64,' + b64,
+                               fileName:o.filename, albumIdentifier:null });
+    }).then(function(){ showToast('Saved to your photos'); })
+      .catch(function(err){
+        var msg = (err && (err.message || err.errorMessage)) || '';
+        if (/cancel|denied|permission/i.test(msg)){
+          showToast('Valhalla needs permission to save to your photos');
+          return;
+        }
+        showToast('Could not save to your photos — try again');
+      });
+  }
+  if (isNativeApp()){
+    showToast('Update the app to save straight to your photos');
+    return Promise.resolve();
+  }
+  try {
+    var url = URL.createObjectURL(o.blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = o.filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Image downloaded');
+  } catch(err){ showToast('Could not save the image — try again'); }
+  return Promise.resolve();
+}
 function shareBlobToBase64(blob){
   return new Promise(function(res, rej){
     var fr = new FileReader();
@@ -26220,83 +26294,311 @@ function shareCardData(dd){
 
    A metric row collapses to whatever it actually has; where it has nothing,
    the row is not emitted at all rather than drawn empty. */
-function shareCardLayout(data, layout, size){
-  if (!data) return [];
-  var W = size.w, H = size.h, sq = !!size.square;
+/* ---- THE OVERLAY REGISTRY ----
+   An overlay is a DESIGN, not a density level. The three tiers this replaced
+   (full / compact / minimal) all drew the same composition with fewer numbers
+   in it, which is not a choice an athlete can see the point of. These five are
+   structurally different places to put the same facts, and every one of them
+   shows everything the session legitimately has.
 
-  /* ---- THE COMPOSITION, TAKEN FROM THE REFERENCE ----
-     The photograph is the canvas. Nothing is laid ON a panel: the type sits
-     directly on the image, inside an open gold frame that runs down both
-     sides and is deliberately not closed along the bottom, so the athlete and
-     the ground they are standing on are never fenced off. The frame's top
-     line is broken by the VV mark, which straddles it. */
-  var sideM  = Math.round(W * 0.072);
-  var frameX = sideM, frameW = W - sideM*2;
+   WHY THE WITHHOLDING RULE CANNOT BE FORGOTTEN BY A NEW OVERLAY. No overlay
+   reads dd. They are handed the object shareCardData() returns, and that is
+   where the Strava fence is applied -- a withheld metric arrives as null, and
+   an overlay that draws nulls draws nothing. Adding a sixth design cannot
+   reintroduce an imported number, because there is no path from an overlay
+   back to the raw day. shareOverlayKeys() and the suite hold this for all of
+   them at once rather than design by design.
+
+   Each entry is { key, label, draw(data, size, M) } where M is the shared
+   measurement helper below, and draw returns the ordered op list. */
+function shareMetricItems(data){
+  var out = [];
+  if (data.durationSec != null) out.push({ icon:'clock', text:fmtShareDuration(data.durationSec) });
+  if (data.paceStr)             out.push({ icon:'gauge', text:data.paceStr + ' /' + displayUnit() });
+  if (data.elevationM != null)  out.push({ icon:'elev',  text:Math.round(data.elevationM) + ' m' });
+  return out;
+}
+function shareStrapText(data){
+  return [data.programme, data.phase, data.week ? ('Week ' + data.week) : null]
+    .filter(function(x){ return !!x; }).join('  ·  ');
+}
+function shareHeadParts(data){
+  var head = data.verdict ? (data.sessionLabel + ' — ' + data.verdict) : data.sessionLabel;
+  return { text:head, accentFrom: data.verdict ? (data.sessionLabel.length + 3) : -1 };
+}
+
+var SHARE_OVERLAYS = [
+/* 1. TOP FRAME -- the photograph is the canvas, the type sits at its head
+      inside an open gold frame that runs down both sides and is deliberately
+      not closed at the foot, so the athlete is never fenced in. */
+{ key:'frame', label:'Frame', draw:function(data, size){
+  var W = size.w, H = size.h, sq = !!size.square, ops = [];
+  var sideM = Math.round(W*0.072), frameW = W - sideM*2;
   var frameY = Math.round(H * (sq ? 0.085 : 0.075));
   var frameB = Math.round(H * (sq ? 0.800 : 0.780));
-  var radius = Math.round(W * 0.035);
-  var markH  = Math.round(W * 0.115);
-  /* Read from SHARE_MARK, never re-stated: a literal here went stale the
-     moment the chevron was widened, and the top rule ran under the arms
-     instead of stopping clear of them. */
-  var markW  = Math.round(markH * SHARE_MARK.wide);
-  var inner  = Math.round(frameW * 0.78);   // the reference's own text column
-
-  var ops = [];
-  ops.push({ kind:'frame', x:frameX, y:frameY, w:frameW, bottom:frameB, r:radius,
-             /* where the top rule stops and restarts for the mark to sit through */
+  var markH = Math.round(W*0.115), markW = Math.round(markH * SHARE_MARK.wide);
+  var inner = Math.round(frameW * 0.78);
+  ops.push({ kind:'frame', x:sideM, y:frameY, w:frameW, bottom:frameB,
+             r:Math.round(W*0.035),
              gapFrom: Math.round(W/2 - markW/2 - W*0.022),
              gapTo:   Math.round(W/2 + markW/2 + W*0.022) });
-  ops.push({ kind:'mark', cx:Math.round(W/2), cy:frameY, h:markH, w:markW });
-
+  ops.push({ kind:'mark', cx:Math.round(W/2), cy:frameY, h:markH });
   var y = frameY + Math.round(markH*0.50 + W*0.034);
-  var wordSize = Math.round(W * 0.046);
-  ops.push({ kind:'wordmark', cx:W/2, y:y, text:'VALHALLA', size:wordSize, maxW:inner });
-  y += wordSize + Math.round(W * 0.036);
-
-  /* EVERY TEXT OP CARRIES THE WIDTH IT MUST LIVE INSIDE. Sizing by character
-     count was a guess and it was wrong: character count says nothing about
-     glyph width. The painter measures the real glyphs and shrinks to this. */
-  var head = data.verdict ? (data.sessionLabel + ' — ' + data.verdict)
-                          : data.sessionLabel;
-  var headSize = Math.round(W * 0.049);
-  ops.push({ kind:'headline', cx:W/2, y:y, text:head, maxW:inner, size:headSize,
-             accentFrom: data.verdict ? (data.sessionLabel.length + 3) : -1 });
-  y += headSize + Math.round(W * 0.020);
-
+  var ws = Math.round(W*0.046);
+  ops.push({ kind:'wordmark', cx:W/2, y:y, text:'VALHALLA', size:ws, maxW:inner });
+  y += ws + Math.round(W*0.036);
+  var hp = shareHeadParts(data), hs = Math.round(W*0.049);
+  ops.push({ kind:'headline', cx:W/2, y:y, text:hp.text, accentFrom:hp.accentFrom,
+             size:hs, maxW:inner });
+  y += hs + Math.round(W*0.020);
   if (data.distanceKm != null){
-    var distSize = Math.round(W * 0.126);
+    var ds = Math.round(W*0.126);
     ops.push({ kind:'distance', cx:W/2, y:y, value:fmtShareDistance(data.distanceKm),
-               unit:displayUnit().toUpperCase(), size:distSize, maxW:inner });
-    y += Math.round(distSize * 1.06);
+               unit:displayUnit().toUpperCase(), size:ds, maxW:inner });
+    y += Math.round(ds*1.06);
   }
-
-  if (layout !== 'minimal'){
-    /* THE THREE TIERS ARE A LADDER, and compact has to be a real rung of it.
-       Dropping only elevation left full and compact all but identical, so
-       compact is the pace alone -- the one number that says how the run was
-       run -- and full is the whole row. */
-    var metrics = [];
-    if (layout === 'full' && data.durationSec != null)
-      metrics.push({ icon:'clock', text:fmtShareDuration(data.durationSec) });
-    if (data.paceStr)
-      metrics.push({ icon:'gauge', text:data.paceStr + ' /' + displayUnit() });
-    if (layout === 'full' && data.elevationM != null)
-      metrics.push({ icon:'elev', text:Math.round(data.elevationM) + ' m' });
-    var metSize = Math.round(W * 0.036);
-    if (metrics.length){
-      ops.push({ kind:'metrics', cx:W/2, y:y, items:metrics, size:metSize, maxW:inner });
-      y += metSize + Math.round(W * 0.030);
-    }
-    var strap = [data.programme, data.phase, data.week ? ('Week ' + data.week) : null]
-      .filter(function(x){ return !!x; }).join('  ·  ');
-    if (strap){
-      ops.push({ kind:'rule', cx:W/2, y:y, w:Math.round(frameW * 0.78) });
-      y += Math.round(W * 0.030);
-      ops.push({ kind:'strap', cx:W/2, y:y, text:strap, size:Math.round(W*0.033), maxW:inner });
-    }
+  var mi = shareMetricItems(data), ms = Math.round(W*0.042);
+  if (mi.length){
+    ops.push({ kind:'metrics', cx:W/2, y:y, items:mi, size:ms, maxW:inner });
+    y += ms + Math.round(W*0.030);
+  }
+  var strap = shareStrapText(data);
+  if (strap){
+    ops.push({ kind:'rule', cx:W/2, y:y, w:Math.round(frameW*0.78) });
+    y += Math.round(W*0.030);
+    ops.push({ kind:'strap', cx:W/2, y:y, text:strap, size:Math.round(W*0.033), maxW:inner });
   }
   return ops;
+}},
+
+/* 2. BOTTOM PANEL -- a full-width plinth at the foot with a rounded gold
+      head, the photograph entirely clear above it. The safest overlay for a
+      busy photograph, because nothing is ever drawn over the subject. */
+{ key:'panel', label:'Panel', draw:function(data, size){
+  var W = size.w, H = size.h, ops = [];
+  var pad = Math.round(W*0.055), inner = W - pad*2 - Math.round(W*0.09);
+  var mi = shareMetricItems(data), strap = shareStrapText(data);
+  var markH = Math.round(W*0.105);
+  /* Measured from the foot upward so the plinth is exactly as tall as the
+     content it carries -- a session with no pace does not leave a gap. */
+  var h = Math.round(W*0.055) + markH + Math.round(W*0.028)
+        + Math.round(W*0.042) + Math.round(W*0.030)
+        + Math.round(W*0.046) + Math.round(W*0.018)
+        + (data.distanceKm != null ? Math.round(W*0.128*1.06) : 0)
+        + (mi.length ? Math.round(W*0.042) + Math.round(W*0.026) : 0)
+        + (strap ? Math.round(W*0.030) + Math.round(W*0.034) : 0)
+        + Math.round(W*0.050);
+  var top = H - h;
+  ops.push({ kind:'plinth', x:0, y:top, w:W, h:h, r:Math.round(W*0.045) });
+  var y = top + Math.round(W*0.055);
+  ops.push({ kind:'mark', cx:Math.round(W/2), cy:y + markH/2, h:markH });
+  y += markH + Math.round(W*0.014);
+  var ws = Math.round(W*0.042);
+  ops.push({ kind:'wordmark', cx:W/2, y:y, text:'VALHALLA', size:ws, maxW:inner });
+  y += ws + Math.round(W*0.028);
+  var hp = shareHeadParts(data), hs = Math.round(W*0.046);
+  ops.push({ kind:'headline', cx:W/2, y:y, text:hp.text, accentFrom:hp.accentFrom,
+             size:hs, maxW:inner });
+  y += hs + Math.round(W*0.018);
+  if (data.distanceKm != null){
+    var ds = Math.round(W*0.128);
+    ops.push({ kind:'distance', cx:W/2, y:y, value:fmtShareDistance(data.distanceKm),
+               unit:displayUnit().toUpperCase(), size:ds, maxW:inner });
+    y += Math.round(ds*1.06);
+  }
+  if (mi.length){
+    var ms = Math.round(W*0.042);
+    ops.push({ kind:'metrics', cx:W/2, y:y, items:mi, size:ms, maxW:inner });
+    y += ms + Math.round(W*0.026);
+  }
+  if (strap){
+    ops.push({ kind:'rule', cx:W/2, y:y, w:Math.round(W*0.70) });
+    y += Math.round(W*0.030);
+    ops.push({ kind:'strap', cx:W/2, y:y, text:strap, size:Math.round(W*0.034), maxW:inner });
+  }
+  return ops;
+}},
+
+/* 3. LEFT RAIL -- a full-height column down the left edge with a gold inner
+      seam, the photograph given the remaining two thirds. Reads as a poster
+      caption rather than a sticker. */
+{ key:'rail', label:'Rail', draw:function(data, size){
+  var W = size.w, H = size.h, ops = [];
+  var railW = Math.round(W * (size.square ? 0.36 : 0.325));
+  var pad = Math.round(W*0.040), inner = railW - pad*2;
+  ops.push({ kind:'rail', x:0, y:0, w:railW, h:H });
+  var cx = Math.round(railW/2);
+  var y = Math.round(H*0.085);
+  var markH = Math.round(W*0.105);
+  ops.push({ kind:'mark', cx:cx, cy:y + markH/2, h:markH });
+  y += markH + Math.round(W*0.014);
+  var ws = Math.round(W*0.034);
+  ops.push({ kind:'wordmark', cx:cx, y:y, text:'VALHALLA', size:ws, maxW:inner });
+  y += ws + Math.round(W*0.034);
+  ops.push({ kind:'rule', cx:cx, y:y, w:inner });
+  y += Math.round(W*0.030);
+  /* The rail is narrow, so the headline is stacked rather than set on one
+     line -- shrinking "LONG RUN - ABSORBED" to fit 32% of the width would
+     make the verdict smaller than the strap beneath it. */
+  var hs = Math.round(W*0.040);
+  ops.push({ kind:'stack', cx:cx, y:y, size:hs, maxW:inner,
+             lines:[{ text:data.sessionLabel + (data.verdict ? ' —' : ''), accent:false }]
+                   .concat(data.verdict ? [{ text:data.verdict, accent:true }] : []) });
+  y += hs * (data.verdict ? 2 : 1) + Math.round(hs*0.35) + Math.round(W*0.030);
+  if (data.distanceKm != null){
+    var ds = Math.round(W*0.105);
+    ops.push({ kind:'distance', cx:cx, y:y, value:fmtShareDistance(data.distanceKm),
+               unit:displayUnit().toUpperCase(), size:ds, maxW:inner, stacked:true });
+    y += Math.round(ds*1.52);
+  }
+  var mi = shareMetricItems(data);
+  if (mi.length){
+    ops.push({ kind:'rule', cx:cx, y:y, w:inner });
+    y += Math.round(W*0.028);
+    var ms = Math.round(W*0.034);
+    ops.push({ kind:'metricList', x:pad, y:y, items:mi, size:ms, maxW:inner });
+    y += mi.length * Math.round(ms*1.75) + Math.round(W*0.016);
+  }
+  var strap = shareStrapText(data);
+  if (strap){
+    ops.push({ kind:'rule', cx:cx, y:y, w:inner });
+    y += Math.round(W*0.028);
+    ops.push({ kind:'stack', cx:cx, y:y, size:Math.round(W*0.030), maxW:inner,
+               lines: strap.split('  ·  ').map(function(t){ return { text:t, accent:false, dim:true }; }) });
+  }
+  return ops;
+}},
+
+/* 4. DIAGONAL -- a wedge cut across the bottom-right corner with a gold
+      edge. The most graphic of the five, and the one that needs the subject
+      left of centre, which is why it is a choice rather than the default. */
+{ key:'diagonal', label:'Diagonal', draw:function(data, size){
+  var W = size.w, H = size.h, ops = [];
+  var topY = Math.round(H * (size.square ? 0.46 : 0.525));
+  var leftX = Math.round(W * 0.06);
+  var apexY = topY - Math.round(H*0.055);
+  ops.push({ kind:'wedge', topY:topY, leftX:leftX, w:W, h:H });
+  /* EVERY ROW IS BOUNDED BY THE DIAGONAL AT ITS OWN HEIGHT. A single column
+     put the mark and the wordmark -- the highest and therefore narrowest
+     rows -- out through the gold edge and onto the photograph, which is the
+     one thing a wedge overlay must not do. The edge is a function of y, so
+     the column is too: each row is measured from where the slope actually is
+     when it reaches that row's top. */
+  var pad = Math.round(W*0.052);
+  var right = W - pad;
+  var edgeAt = function(y){
+    var t = (y - apexY) / (H - apexY);
+    if (t <= 0) return W;
+    if (t >= 1) return leftX;
+    return W - t * (W - leftX);
+  };
+  var rowCx = function(yTop, size_){ 
+    var left = edgeAt(yTop) + pad;
+    return { cx: (left + right) / 2, maxW: Math.max(40, right - left) };
+  };
+  var y = topY + Math.round(H * (size.square ? 0.040 : 0.028));
+  var markH = Math.round(W*0.082);
+  var r0 = rowCx(y);
+  ops.push({ kind:'mark', cx:Math.round(r0.cx), cy:y + markH/2, h:markH });
+  y += markH + Math.round(W*0.012);
+  var ws = Math.round(W*0.034), r1 = rowCx(y);
+  ops.push({ kind:'wordmark', cx:r1.cx, y:y, text:'VALHALLA', size:ws, maxW:r1.maxW });
+  y += ws + Math.round(W*0.026);
+  var hp = shareHeadParts(data), hs = Math.round(W*0.038), r2 = rowCx(y);
+  ops.push({ kind:'headline', cx:r2.cx, y:y, text:hp.text,
+             accentFrom:hp.accentFrom, size:hs, maxW:r2.maxW });
+  y += hs + Math.round(W*0.012);
+  if (data.distanceKm != null){
+    var ds = Math.round(W*0.094), r3 = rowCx(y);
+    ops.push({ kind:'distance', cx:r3.cx, y:y, value:fmtShareDistance(data.distanceKm),
+               unit:displayUnit().toUpperCase(), size:ds, maxW:r3.maxW });
+    y += Math.round(ds*1.08);
+  }
+  var mi = shareMetricItems(data);
+  if (mi.length){
+    var ms = Math.round(W*0.031), r4 = rowCx(y);
+    ops.push({ kind:'metrics', cx:r4.cx, y:y, items:mi, size:ms, maxW:r4.maxW, tight:true });
+    y += ms + Math.round(W*0.022);
+  }
+  var strap = shareStrapText(data);
+  if (strap){
+    var r5 = rowCx(y);
+    ops.push({ kind:'rule', cx:r5.cx, y:y, w:Math.round(r5.maxW*0.94) });
+    y += Math.round(W*0.024);
+    var r6 = rowCx(y);
+    ops.push({ kind:'strap', cx:r6.cx, y:y, text:strap,
+               size:Math.round(W*0.029), maxW:r6.maxW });
+  }
+  return ops;
+}},
+
+/* 5. CIRCLE BADGE -- a gold-ringed medallion low-left, the photograph
+      otherwise untouched. The smallest footprint of the five; the metric row
+      sets tight because the circle is unforgiving about width. */
+{ key:'badge', label:'Badge', draw:function(data, size){
+  var W = size.w, H = size.h, ops = [];
+  var r = Math.round(W * (size.square ? 0.30 : 0.265));
+  var cx = Math.round(W*0.405), cy = Math.round(H * (size.square ? 0.655 : 0.645));
+  ops.push({ kind:'badge', cx:cx, cy:cy, r:r });
+  /* INSIDE A CIRCLE EVERY ROW HAS ITS OWN WIDTH. A single column budget is
+     wrong twice over: generous rows near the centre line get cramped, and
+     rows near the top or bottom overrun the curve -- which is exactly what
+     the programme line did, running out through the glass at the foot of the
+     medallion. Each row is measured against the chord at its own height. */
+  var chord = function(top, bot){
+    var dy = Math.max(Math.abs(top - cy), Math.abs(bot - cy));
+    if (dy >= r) return 0;
+    return Math.round(2 * Math.sqrt(r*r - dy*dy) * 0.86);
+  };
+  var mi = shareMetricItems(data), strap = shareStrapText(data);
+  var markH = Math.round(W*0.078);
+  var ws = Math.round(W*0.030), hs = Math.round(W*0.036);
+  var ds = data.distanceKm != null ? Math.round(W*0.088) : 0;
+  var ms = mi.length ? Math.round(W*0.028) : 0;
+  var ss = strap ? Math.round(W*0.026) : 0;
+  var total = markH + Math.round(W*0.008) + ws + Math.round(W*0.022)
+            + hs + Math.round(W*0.010)
+            + (ds ? Math.round(ds*1.06) : 0)
+            + (ms ? ms + Math.round(W*0.020) : 0)
+            + (ss ? Math.round(W*0.024) + ss : 0);
+  var y = cy - Math.round(total/2);
+  ops.push({ kind:'mark', cx:cx, cy:y + markH/2, h:markH });
+  y += markH + Math.round(W*0.008);
+  ops.push({ kind:'wordmark', cx:cx, y:y, text:'VALHALLA', size:ws,
+             maxW:chord(y, y+ws) });
+  y += ws + Math.round(W*0.022);
+  var hp = shareHeadParts(data);
+  ops.push({ kind:'headline', cx:cx, y:y, text:hp.text, accentFrom:hp.accentFrom,
+             size:hs, maxW:chord(y, y+hs) });
+  y += hs + Math.round(W*0.010);
+  if (ds){
+    ops.push({ kind:'distance', cx:cx, y:y, value:fmtShareDistance(data.distanceKm),
+               unit:displayUnit().toUpperCase(), size:ds, maxW:chord(y, y+ds) });
+    y += Math.round(ds*1.06);
+  }
+  if (ms){
+    ops.push({ kind:'metrics', cx:cx, y:y, items:mi, size:ms,
+               maxW:chord(y, y+ms), tight:true });
+    y += ms + Math.round(W*0.020);
+  }
+  if (ss){
+    ops.push({ kind:'rule', cx:cx, y:y, w:Math.round(chord(y, y) * 0.80) });
+    y += Math.round(W*0.024);
+    ops.push({ kind:'strap', cx:cx, y:y, text:strap, size:ss, maxW:chord(y, y+ss) });
+  }
+  return ops;
+}}
+];
+function shareOverlay(key){
+  for (var i=0;i<SHARE_OVERLAYS.length;i++) if (SHARE_OVERLAYS[i].key === key) return SHARE_OVERLAYS[i];
+  return SHARE_OVERLAYS[0];
+}
+function shareOverlayKeys(){
+  return SHARE_OVERLAYS.map(function(o){ return o.key; });
+}
+function shareCardLayout(data, overlayKey, size){
+  if (!data) return [];
+  return shareOverlay(overlayKey).draw(data, size) || [];
 }
 function fmtShareDistance(km){
   var v = (state && state.units === 'mi') ? km * 0.621371 : km;
@@ -26321,9 +26623,19 @@ var SHARE_THEME = {
   head:"'Cinzel',serif", body:"'Inter',sans-serif", numeral:"'Oswald',sans-serif"
 };
 var SHARE_SIZES = {
-  story:  { w:1080, h:1920, square:false, label:'Story  9:16' },
-  square: { w:1080, h:1080, square:true,  label:'Square  1:1' }
+  story: { w:1080, h:1920, square:false, label:'Story' },
+  /* POST IS SQUARE FOR THIS PASS. Instagram's portrait post is 4:5 and would
+     be the better frame for a standing athlete, but every overlay here is
+     measured against two ratios and a third is a third set of proportions to
+     verify. Named `post` rather than `square` so adding 4:5 later is a value
+     change, not a rename across the product. */
+  post:  { w:1080, h:1080, square:true,  label:'Post' }
 };
+/* The curated Valhalla backgrounds. One for now, by ruling; the editor reads
+   this list, so a second is an entry here and nothing else. */
+var SHARE_BACKDROPS = [
+  { key:'mountains', label:'Mountains', src:'/assets/valhalla-mountains.png' }
+];
 /* The webfonts must be decoded before anything is measured or drawn, or the
    first export silently paints in a fallback face. */
 function shareFontsReady(){
@@ -26444,6 +26756,20 @@ function shareTracked(ctx, text, cx, y, track){
     x += ctx.measureText(text[i]).width + track;
   }
 }
+/* The tracked twin of shareFitSize(): letterspacing is part of the width, so
+   it has to be part of the measurement. */
+function shareFitTracked(ctx, text, weight, family, size, maxW, trackRatio){
+  if (!maxW) return size;
+  while (size > 8){
+    ctx.font = weight + ' ' + size + 'px ' + family;
+    var track = size * trackRatio, total = 0;
+    for (var i=0;i<text.length;i++) total += ctx.measureText(text[i]).width + track;
+    total -= track;
+    if (total <= maxW) break;
+    size -= 1;
+  }
+  return size;
+}
 /* Step a font down until the string fits the budget. One place, so the
    headline, the strap and the distance figure cannot drift apart on it. */
 function shareFitSize(ctx, text, weight, family, size, maxW){
@@ -26473,7 +26799,79 @@ function shareCardPaint(ctx, ops, W){
        sides that lead the eye down the photograph and then let it go, rather
        than a box that shuts the athlete inside. The top rule is drawn as two
        segments so the mark sits THROUGH it rather than above it. */
-    if (op.kind === 'frame'){
+    /* THE SURFACES THE FIVE OVERLAYS SIT ON. Each is a shape plus a gold
+       edge; none of them knows anything about sessions. A scrim is painted
+       into the shape rather than over the whole canvas so the photograph is
+       only ever darkened where type actually lands. */
+    if (op.kind === 'plinth'){
+      var pg = ctx.createLinearGradient(0, op.y, 0, op.y + op.h);
+      pg.addColorStop(0, 'rgba(6,8,12,0.58)');
+      pg.addColorStop(0.22, 'rgba(6,8,12,0.88)');
+      pg.addColorStop(1, 'rgba(4,5,8,0.97)');
+      ctx.beginPath();
+      ctx.moveTo(op.x, op.y + op.h);
+      ctx.lineTo(op.x, op.y + op.r);
+      ctx.arcTo(op.x, op.y, op.x + op.r, op.y, op.r);
+      ctx.lineTo(op.x + op.w - op.r, op.y);
+      ctx.arcTo(op.x + op.w, op.y, op.x + op.w, op.y + op.r, op.r);
+      ctx.lineTo(op.x + op.w, op.y + op.h);
+      ctx.closePath();
+      ctx.fillStyle = pg; ctx.fill();
+      ctx.strokeStyle = T.gold; ctx.lineWidth = Math.max(2, W*0.0026);
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.moveTo(op.x, op.y + op.h);
+      ctx.lineTo(op.x, op.y + op.r);
+      ctx.arcTo(op.x, op.y, op.x + op.r, op.y, op.r);
+      ctx.lineTo(op.x + op.w - op.r, op.y);
+      ctx.arcTo(op.x + op.w, op.y, op.x + op.w, op.y + op.r, op.r);
+      ctx.lineTo(op.x + op.w, op.y + op.h);
+      ctx.stroke(); ctx.globalAlpha = 1;
+    } else if (op.kind === 'rail'){
+      var rg = ctx.createLinearGradient(op.x, 0, op.x + op.w, 0);
+      rg.addColorStop(0, 'rgba(4,5,8,0.97)');
+      rg.addColorStop(0.72, 'rgba(6,8,12,0.93)');
+      rg.addColorStop(1, 'rgba(8,10,15,0.80)');
+      ctx.fillStyle = rg; ctx.fillRect(op.x, op.y, op.w, op.h);
+      // the seam, brightest at the middle where the eye enters the column
+      var sg = ctx.createLinearGradient(0, 0, 0, op.h);
+      sg.addColorStop(0, 'rgba(227,177,90,0.12)');
+      sg.addColorStop(0.5, T.gold);
+      sg.addColorStop(1, 'rgba(227,177,90,0.12)');
+      ctx.strokeStyle = sg; ctx.lineWidth = Math.max(2, W*0.0030);
+      ctx.beginPath(); ctx.moveTo(op.x + op.w, 0); ctx.lineTo(op.x + op.w, op.h); ctx.stroke();
+    } else if (op.kind === 'wedge'){
+      ctx.beginPath();
+      ctx.moveTo(op.w, op.topY - Math.round(op.h*0.055));
+      ctx.lineTo(op.leftX, op.h);
+      ctx.lineTo(op.w, op.h);
+      ctx.closePath();
+      var wg = ctx.createLinearGradient(op.leftX, op.topY, op.w, op.h);
+      wg.addColorStop(0, 'rgba(6,8,12,0.74)');
+      wg.addColorStop(0.5, 'rgba(5,6,10,0.93)');
+      wg.addColorStop(1, 'rgba(4,5,8,0.97)');
+      ctx.fillStyle = wg; ctx.fill();
+      var dg = ctx.createLinearGradient(op.w, op.topY, op.leftX, op.h);
+      dg.addColorStop(0, 'rgba(227,177,90,0.25)');
+      dg.addColorStop(0.45, T.goldBright);
+      dg.addColorStop(1, 'rgba(227,177,90,0.25)');
+      ctx.strokeStyle = dg; ctx.lineWidth = Math.max(2, W*0.0034);
+      ctx.beginPath();
+      ctx.moveTo(op.w, op.topY - Math.round(op.h*0.055));
+      ctx.lineTo(op.leftX, op.h);
+      ctx.stroke();
+    } else if (op.kind === 'badge'){
+      ctx.beginPath(); ctx.arc(op.cx, op.cy, op.r, 0, Math.PI*2);
+      var bg = ctx.createRadialGradient(op.cx, op.cy - op.r*0.3, op.r*0.1, op.cx, op.cy, op.r);
+      bg.addColorStop(0, 'rgba(8,10,15,0.80)');
+      bg.addColorStop(1, 'rgba(4,5,8,0.93)');
+      ctx.fillStyle = bg; ctx.fill();
+      var cg = ctx.createLinearGradient(op.cx - op.r, op.cy - op.r, op.cx + op.r, op.cy + op.r);
+      cg.addColorStop(0, T.goldDeep); cg.addColorStop(0.45, T.goldBright);
+      cg.addColorStop(1, T.goldDeep);
+      ctx.strokeStyle = cg; ctx.lineWidth = Math.max(2.5, W*0.0040);
+      ctx.beginPath(); ctx.arc(op.cx, op.cy, op.r, 0, Math.PI*2); ctx.stroke();
+    } else if (op.kind === 'frame'){
       var lw = Math.max(2, W*0.0026);
       ctx.strokeStyle = T.gold; ctx.lineWidth = lw; ctx.lineCap = 'round';
       ctx.globalAlpha = 0.92;
@@ -26496,6 +26894,12 @@ function shareCardPaint(ctx, ops, W){
       shareDrawMark(ctx, op.cx, op.cy, op.h, T);
     } else if (op.kind === 'wordmark'){
       ctx.fillStyle = T.ink; ctx.textBaseline = 'top';
+      /* THE WORDMARK IS THE ONE PIECE OF TYPE THAT IS WIDER THAN IT MEASURES.
+         It is letterspaced by 30% of its own size per gap, so measureText()
+         understates it by roughly a third -- and it was the only text op
+         never width-fitted at all. On a narrow column VALHALLA simply ran off
+         the edge. It is fitted here against its TRACKED width. */
+      op.size = shareFitTracked(ctx, op.text, '600', T.head, op.size, op.maxW, 0.30);
       ctx.font = '600 ' + op.size + "px " + T.head;
       shareTracked(ctx, op.text, op.cx, op.y, op.size * 0.30);
     } else if (op.kind === 'headline'){
@@ -26514,25 +26918,65 @@ function shareCardPaint(ctx, ops, W){
         ctx.fillStyle = T.ink;  ctx.fillText(pre, x, op.y);
         ctx.fillStyle = T.gold; ctx.fillText(acc, x + wPre, op.y);
       }
+    } else if (op.kind === 'stack'){
+      /* A narrow column sets its words on their own lines instead of
+         shrinking one line until the verdict is smaller than the strap. */
+      ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+      var sz = op.size;
+      op.lines.forEach(function(ln){
+        sz = Math.min(sz, shareFitSize(ctx, ln.text, '700', T.body, op.size, op.maxW));
+      });
+      ctx.font = '700 ' + sz + 'px ' + T.body;
+      var ly = op.y;
+      op.lines.forEach(function(ln){
+        ctx.fillStyle = ln.accent ? T.gold : (ln.dim ? 'rgba(255,255,255,0.80)' : T.ink);
+        ctx.font = (ln.dim ? '500 ' : '700 ') + sz + 'px ' + T.body;
+        ctx.fillText(ln.text, op.cx, ly);
+        ly += Math.round(sz * 1.18);
+      });
+    } else if (op.kind === 'metricList'){
+      ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      ctx.font = '500 ' + op.size + 'px ' + T.body;
+      var lr = op.size * 0.52, step = Math.round(op.size * 1.75);
+      var ly2 = op.y + op.size * 0.6;
+      op.items.forEach(function(it){
+        shareDrawIcon(ctx, it.icon, op.x + lr, ly2, lr, T.ink);
+        ctx.fillStyle = T.ink;
+        ctx.fillText(it.text, op.x + lr*2 + op.size*0.55, ly2);
+        ly2 += step;
+      });
     } else if (op.kind === 'distance'){
-      ctx.textBaseline = 'top'; ctx.textAlign = 'left';
-      ctx.font = '700 ' + op.size + 'px ' + T.numeral;
-      var uSize = Math.round(op.size * 0.40);
-      var wVal = ctx.measureText(op.value).width;
-      ctx.font = '500 ' + uSize + 'px ' + T.body;
-      var wUnit = ctx.measureText(' ' + op.unit).width;
-      var x0 = op.cx - (wVal + wUnit)/2;
-      ctx.font = '700 ' + op.size + 'px ' + T.numeral;
-      ctx.fillStyle = T.ink; ctx.fillText(op.value, x0, op.y);
-      ctx.font = '500 ' + uSize + 'px ' + T.body;
-      ctx.fillText(' ' + op.unit, x0 + wVal, op.y + (op.size - uSize) * 0.62);
+      ctx.textBaseline = 'top';
+      op.size = shareFitSize(ctx, op.value, '700', T.numeral, op.size,
+                             op.stacked ? op.maxW : Math.round(op.maxW * 0.78));
+      var uSize = Math.round(op.size * (op.stacked ? 0.34 : 0.40));
+      if (op.stacked){
+        /* A narrow column cannot carry "28.0 KM" on one line, so the unit
+           drops beneath the figure and both centre on the column. */
+        ctx.textAlign = 'center';
+        ctx.font = '700 ' + op.size + 'px ' + T.numeral;
+        ctx.fillStyle = T.ink; ctx.fillText(op.value, op.cx, op.y);
+        ctx.font = '600 ' + uSize + 'px ' + T.body;
+        ctx.fillText(op.unit, op.cx, op.y + Math.round(op.size * 1.06));
+      } else {
+        ctx.textAlign = 'left';
+        ctx.font = '700 ' + op.size + 'px ' + T.numeral;
+        var wVal = ctx.measureText(op.value).width;
+        ctx.font = '500 ' + uSize + 'px ' + T.body;
+        var wUnit = ctx.measureText(' ' + op.unit).width;
+        var x0 = op.cx - (wVal + wUnit)/2;
+        ctx.font = '700 ' + op.size + 'px ' + T.numeral;
+        ctx.fillStyle = T.ink; ctx.fillText(op.value, x0, op.y);
+        ctx.font = '500 ' + uSize + 'px ' + T.body;
+        ctx.fillText(' ' + op.unit, x0 + wVal, op.y + (op.size - uSize) * 0.62);
+      }
     } else if (op.kind === 'metrics'){
       /* The row has icons and gaps as well as glyphs, so it is measured whole
          and stepped down until the whole row fits -- three metrics on a
          narrow card shrink together rather than the last one falling off. */
       var measureRow = function(sz){
         ctx.font = '500 ' + sz + 'px ' + T.body;
-        var rr = sz*0.52, gi = sz*0.52, gt = sz*1.5, tt = 0;
+        var rr = sz*0.52, gi = sz*0.52, gt = sz*(op.tight ? 0.85 : 1.5), tt = 0;
         op.items.forEach(function(it,i){
           tt += rr*2 + gi + ctx.measureText(it.text).width + (i ? gt : 0);
         });
@@ -26540,7 +26984,8 @@ function shareCardPaint(ctx, ops, W){
       };
       while (op.maxW && op.size > 10 && measureRow(op.size) > op.maxW) op.size -= 1;
       ctx.font = '500 ' + op.size + 'px ' + T.body; ctx.textBaseline = 'middle';
-      var r = op.size * 0.52, gapIcon = op.size * 0.52, gapItem = op.size * 1.5;
+      var r = op.size * 0.52, gapIcon = op.size * 0.52,
+          gapItem = op.size * (op.tight ? 0.85 : 1.5);
       var total = measureRow(op.size);
       ctx.font = '500 ' + op.size + 'px ' + T.body;
       var x = op.cx - total/2, mid = op.y + op.size*0.6;
@@ -26573,7 +27018,7 @@ function shareCardPaint(ctx, ops, W){
    page and never uploaded anywhere. Re-encoding also strips the photo's EXIF,
    so the GPS coordinates a camera may have written into it do not travel with
    a shared image -- a real privacy gain of compositing over overlaying. */
-function sharePaintPhoto(ctx, img, tf, W, H){
+function sharePaintPhoto(ctx, img, tf, W, H, scrim){
   ctx.save();
   ctx.fillStyle = '#05070A'; ctx.fillRect(0,0,W,H);
   if (img){
@@ -26582,15 +27027,17 @@ function sharePaintPhoto(ctx, img, tf, W, H){
     var dw = img.width * sc, dh = img.height * sc;
     ctx.drawImage(img, (W-dw)/2 + (tf.x||0)*W, (H-dh)/2 + (tf.y||0)*H, dw, dh);
   }
-  /* THE PHOTOGRAPH IS THE CARD, so the scrim is weighted entirely into the top
-     third where the typography sits and is gone by the halfway line -- the
-     athlete, who is almost always in the lower half, is never washed. The
-     type carries its own drop shadow, so this only has to take the glare off
-     a bright sky rather than guarantee contrast on its own. */
-  var g = ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'rgba(4,6,10,0.58)'); g.addColorStop(0.30,'rgba(4,6,10,0.24)');
-  g.addColorStop(0.52,'rgba(4,6,10,0)'); g.addColorStop(1,'rgba(4,6,10,0.18)');
-  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  /* NO GLOBAL SCRIM ANY MORE. Four of the five overlays carry their own
+     surface -- a plinth, a rail, a wedge, a medallion -- and darkening the
+     whole canvas underneath them washed the photograph twice over for no
+     gain. Only the frame overlay, whose type sits directly on the image, asks
+     for one, and it asks by name. */
+  if (scrim){
+    var g = ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'rgba(4,6,10,0.58)'); g.addColorStop(0.30,'rgba(4,6,10,0.24)');
+    g.addColorStop(0.52,'rgba(4,6,10,0)'); g.addColorStop(1,'rgba(4,6,10,0.18)');
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+  }
   ctx.restore();
 }
 function shareRenderToCanvas(data, opts){
@@ -26598,8 +27045,9 @@ function shareRenderToCanvas(data, opts){
   var cv = document.createElement('canvas');
   cv.width = size.w; cv.height = size.h;
   var ctx = cv.getContext('2d');
-  sharePaintPhoto(ctx, opts.img, opts.transform || {}, size.w, size.h);
-  shareCardPaint(ctx, shareCardLayout(data, opts.layout, size), size.w);
+  sharePaintPhoto(ctx, opts.img, opts.transform || {}, size.w, size.h,
+                  opts.overlay === 'frame');
+  shareCardPaint(ctx, shareCardLayout(data, opts.overlay, size), size.w);
   return cv;
 }
 /* ---- THE SHARE EXPERIENCE ----
@@ -26611,11 +27059,42 @@ function openShareModal(dd){
   if (!dd) return;
   var data = shareCardData(dd);
   if (!data) return;
-  shareState = { dd:dd, data:data, img:null, layout:'full', format:'story',
+  shareState = { dd:dd, data:data, img:null, overlay:'frame', format:'story',
+                 source:'valhalla', backdrop:SHARE_BACKDROPS[0].key,
                  transform:{ scale:1, x:0, y:0 }, busy:false };
   openModal(shareModalHtml(), 'modal-themed share-modal');
   shareBindPhoto();
-  shareFontsReady().then(shareRepaint);
+  shareLoadBackdrop().then(function(){
+    return shareFontsReady();
+  }).then(shareRepaint);
+}
+/* The default picture is a Valhalla backdrop, so the editor opens on a
+   finished-looking card rather than an empty black frame the athlete has to
+   fix before they can judge any of the other choices. */
+function shareLoadBackdrop(){
+  var st = shareState; if (!st) return Promise.resolve();
+  var b = null;
+  for (var i=0;i<SHARE_BACKDROPS.length;i++)
+    if (SHARE_BACKDROPS[i].key === st.backdrop) b = SHARE_BACKDROPS[i];
+  if (!b) return Promise.resolve();
+  return new Promise(function(res){
+    /* Guarded rather than assumed. A decoder is a browser affordance: the
+       suite runs this file in a VM with no Image constructor, and an
+       unguarded `new Image()` there throws inside a promise nobody is
+       awaiting -- which surfaces as an unhandled rejection in a test about
+       something else entirely. The card simply opens without a backdrop. */
+    var im = null;
+    try { im = new Image(); } catch(e){ res(); return; }
+    if (!im){ res(); return; }
+    im.onload = function(){
+      if (shareState === st && st.source === 'valhalla'){
+        st.img = im; st.transform = { scale:1, x:0, y:0 };
+      }
+      res();
+    };
+    im.onerror = function(){ res(); };
+    im.src = b.src;
+  });
 }
 function shareModalHtml(){
   var st = shareState, d = st.data;
@@ -26631,9 +27110,9 @@ function shareModalHtml(){
       'This session was brought in from Strava, so Valhalla is leaving '+
       escapeHtml(shareWithheldPhrase(d.withheld))+' off the graphic'+
       (d.withheld.indexOf('verdict') !== -1
-        ? ' — and the verdict with them, because it is read off those numbers'
+        ? ' \u2014 and the verdict with them, because it is read off those numbers'
         : '')+
-      '. Your programme, phase and week are Valhalla’s own and still appear.</div></div>'
+      '. Your programme, phase and week are Valhalla\u2019s own and still appear.</div></div>'
     : '';
   var seg = function(name, val, opts){
     return '<div class="share-seg" role="group">'+opts.map(function(o){
@@ -26641,21 +27120,52 @@ function shareModalHtml(){
         'class="'+(val===o[0]?'active':'')+'">'+escapeHtml(o[1])+'</button>';
     }).join('')+'</div>';
   };
+  /* The overlay picker draws each design as a miniature of itself rather than
+     naming it, because "Diagonal" and "Rail" mean nothing until you see them.
+     The thumbnails are painted from the same layout functions as the export. */
+  /* The picker's own aspect ratio follows the chosen format. Pinned to 9:16
+     in CSS, a square Post thumbnail was stretched to a portrait box and the
+     badge overlay previewed as an ellipse -- a picker that misrepresents the
+     thing it is picking. */
+  var thumbAR = SHARE_SIZES[st.format].square ? '1 / 1' : '9 / 16';
+  var overlays = '<div class="share-overlays" role="group" aria-label="Overlay" '+
+      'style="--share-thumb-ar:'+thumbAR+'">'+
+    SHARE_OVERLAYS.map(function(o){
+      return '<button type="button" class="share-ov'+(st.overlay===o.key?' active':'')+'" '+
+        'data-action="share-set" data-k="overlay" data-v="'+o.key+'" '+
+        'aria-pressed="'+(st.overlay===o.key?'true':'false')+'">'+
+        '<canvas class="share-ov-thumb" data-overlay="'+o.key+'" width="108" height="192"></canvas>'+
+        '<span>'+escapeHtml(o.label)+'</span></button>';
+    }).join('')+'</div>';
+  var backdrops = SHARE_BACKDROPS.map(function(b){
+    return '<button type="button" class="share-bd'+(st.source==='valhalla'&&st.backdrop===b.key?' active':'')+'" '+
+      'data-action="share-backdrop" data-v="'+b.key+'" style="background-image:url(\''+b.src+'\')">'+
+      '<span>'+escapeHtml(b.label)+'</span></button>';
+  }).join('');
   return '<div class="modal-head"><h2 class="font-head">Share your workout</h2>'+
       '<button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
     '<div class="modal-body share-body">'+
-      '<div class="share-stage"><canvas id="share-canvas" class="share-canvas"></canvas>'+
-        (st.img ? '' : '<div class="share-empty">Add a photo of your run</div>')+
+      /* The empty label is always emitted and hidden by shareRepaint() once a
+         picture is actually on the canvas. Deciding at build time was wrong:
+         the default backdrop loads asynchronously AFTER the markup is made,
+         so the finished card sat under the words "Choose a picture". */
+      '<div class="share-stage'+(st.img ? ' has-img' : '')+'">'+
+        '<canvas id="share-canvas" class="share-canvas"></canvas>'+
+        '<div class="share-empty">Choose a picture</div>'+
       '</div>'+
       '<div class="share-controls">'+
-        '<label class="btn btn-ghost btn-block share-pick">'+ICONS.sparkles+
-          (st.img ? 'Change photo' : 'Choose photo')+
-          '<input type="file" accept="image/*" id="share-photo" hidden></label>'+
-        (st.img ? '<div class="share-hint">Drag to reposition · pinch or scroll to zoom</div>' : '')+
-        '<div class="share-row"><span>Layout</span>'+
-          seg('layout', st.layout, [['full','Full'],['compact','Compact'],['minimal','Minimal']])+'</div>'+
+        '<div class="share-group"><div class="share-k">Overlay</div>'+overlays+'</div>'+
+        '<div class="share-group"><div class="share-k">Picture</div>'+
+          seg('source', st.source, [['valhalla','Valhalla'],['photo','My photos']])+
+          (st.source === 'valhalla'
+            ? '<div class="share-bds">'+backdrops+'</div>'
+            : '<label class="btn btn-ghost btn-block share-pick">'+ICONS.sparkles+
+              (st.img ? 'Change photo' : 'Choose photo')+
+              '<input type="file" accept="image/*" id="share-photo" hidden></label>')+
+          (st.img ? '<div class="share-hint">Drag to reposition \u00b7 pinch or scroll to zoom</div>' : '')+
+        '</div>'+
         '<div class="share-row"><span>Format</span>'+
-          seg('format', st.format, [['story','Story'],['square','Square']])+'</div>'+
+          seg('format', st.format, [['story','Story'],['post','Post']])+'</div>'+
         withheldNote+
         '<div class="share-actions">'+
           '<button type="button" class="btn btn-primary btn-block" data-action="share-export" data-mode="share">'+
@@ -26681,10 +27191,28 @@ function shareRepaint(){
   cv.width = size.w; cv.height = size.h;
   cv.classList.toggle('is-square', !!size.square);
   var ctx = cv.getContext('2d');
-  sharePaintPhoto(ctx, st.img, st.transform, size.w, size.h);
-  shareCardPaint(ctx, shareCardLayout(st.data, st.layout, size), size.w);
+  sharePaintPhoto(ctx, st.img, st.transform, size.w, size.h, st.overlay === 'frame');
+  shareCardPaint(ctx, shareCardLayout(st.data, st.overlay, size), size.w);
+  var stage = cv.parentNode;
+  if (stage && stage.classList) stage.classList.toggle('has-img', !!st.img);
+  sharePaintThumbs();
 }
-/* Redraw the whole card rather than patch pieces of it: the photo button,
+/* Each picker thumbnail is the real overlay over the real picture, at 1/10
+   scale. A swatch would have been cheaper and would have lied the moment an
+   overlay changed. */
+function sharePaintThumbs(){
+  var st = shareState; if (!st) return;
+  var size = SHARE_SIZES[st.format];
+  Array.prototype.forEach.call(document.querySelectorAll('.share-ov-thumb'), function(c){
+    var key = c.getAttribute('data-overlay');
+    var w = 108, h = size.square ? 108 : 192;
+    c.width = w; c.height = h;
+    var g = c.getContext('2d');
+    sharePaintPhoto(g, st.img, st.transform, w, h, key === 'frame');
+    shareCardPaint(g, shareCardLayout(st.data, key, { w:w, h:h, square:!!size.square }), w);
+  });
+}
+/* Redraw the whole card rather than patch pieces of it: the picture controls,
    the reposition hint and the canvas all change together, and a half-updated
    control panel is how you end up sharing a layout the athlete didn't pick. */
 function shareRerender(){
@@ -26706,6 +27234,7 @@ function shareOnPhotoChosen(e){
   var im = new Image();
   im.onload = function(){
     shareState.img = im;
+    shareState.source = 'photo';
     shareState.transform = { scale:1, x:0, y:0 };
     URL.revokeObjectURL(url);
     shareRerender();
@@ -26714,7 +27243,7 @@ function shareOnPhotoChosen(e){
   im.src = url;
 }
 /* Pan and zoom in normalised units, so the same placement survives a switch
-   between Story and Square rather than jumping. */
+   between Story and Post rather than jumping. */
 function shareBindGestures(cv){
   var drag = null;
   cv.addEventListener('pointerdown', function(ev){
@@ -26743,26 +27272,69 @@ function shareBindGestures(cv){
 function handleShareSet(k, v){
   if (!shareState || !k) return;
   if (shareState[k] === v) return;
+  /* CHANGING THE OVERLAY MUST NOT TOUCH THE PICTURE OR THE DATA. The athlete
+     has framed a photograph; cycling designs to compare them is exactly what
+     the picker is for, and losing their crop each time would make it
+     unusable. Only the chosen design changes. */
   shareState[k] = v;
+  if (k === 'source'){
+    shareState.img = null;
+    shareState.transform = { scale:1, x:0, y:0 };
+    if (v === 'valhalla'){ shareRerender(); shareLoadBackdrop().then(shareRepaint); return; }
+  }
   shareRerender();
+}
+function handleShareBackdrop(key){
+  if (!shareState || !key) return;
+  shareState.source = 'valhalla';
+  shareState.backdrop = key;
+  shareRerender();
+  shareLoadBackdrop().then(shareRepaint);
 }
 function shareExport(mode){
   var st = shareState; if (!st || st.busy) return;
   st.busy = true;
   var cv = shareRenderToCanvas(st.data, { img:st.img, transform:st.transform,
-                                          layout:st.layout, format:st.format });
+                                          overlay:st.overlay, format:st.format });
   cv.toBlob(function(blob){
     st.busy = false;
-    if (!blob){ showToast('Could not build the image — try again'); return; }
+    if (!blob){ showToast('Could not build the image \u2014 try again'); return; }
     var stamp = (st.dd.date || todayStr()).replace(/-/g,'');
-    saveBinaryFile({
-      blob: blob, mime:'image/png',
-      filename: 'valhalla-' + stamp + '.png',
-      title: 'Valhalla',
-      dialog: mode === 'save' ? 'Save image' : 'Share workout',
-      done: mode === 'save' ? 'Image saved' : 'Image ready to share'
-    });
+    var name = 'valhalla-' + stamp + '.png';
+    if (mode === 'save') saveImageToPhotos({ blob:blob, filename:name });
+    else saveBinaryFile({ blob:blob, mime:'image/png', filename:name,
+                          title:'Valhalla', dialog:'Share workout',
+                          done:'Image ready to share' });
   }, 'image/png');
+}
+/* ---- THE COMPLETION POPUP, AND WHY IT IS GATED SO TIGHTLY ----
+   "Session completes" means an athlete finishing a session NOW. It does not
+   mean completion data arriving, and the difference is the whole gate: a
+   Strava backfill resolving forty historical activities, a CSV import, a
+   restore from backup and any other bulk write all call applyCompletion()
+   exactly as the tick does. Opening on the write would throw forty modals at
+   an athlete who just connected their account.
+
+   So the popup is raised by the two INTERACTIONS that mean a person just
+   finished a run -- the completion tick and logging a distance against an
+   uncompleted session -- and by nothing else. applyCompletion() itself stays
+   silent, which is what keeps every bulk path quiet without each one having
+   to remember to suppress anything.
+
+   WHAT THIS DELIBERATELY DOES NOT SOLVE: a session completed on a watch and
+   synced minutes later is a real completion the athlete would expect a moment
+   for, and it does not get one here. That is the delayed-sync lifecycle, it
+   needs its own design, and guessing at it inside this branch would reopen
+   the popup-storm problem from the other end. */
+function raiseCompletionMoment(dd){
+  if (!dd || !dd.completed || dd.type === 'rest') return;
+  /* NOT modal-themed. That class un-pins the card back to the document's
+     theme, which in light mode wrapped a black completion card in a cream
+     rim. The completion moment is black in BOTH themes by design -- it is
+     the brand's own register, like the decision surface -- so it keeps the
+     fixed ramp and .wc paints the whole card. */
+  openModal('<div class="modal-body wc-modal-body">'+renderExecutionReview(dd)+'</div>',
+            'wc-modal');
 }
 function renderExecutionReview(dd){
   if (!dd.completed) return '';
@@ -26908,7 +27480,7 @@ function renderExecutionReview(dd){
           '</div>'+ body +
         '</div>'
       : '')+
-    '<button type="button" class="wc-continue" data-action="toggle-day" '+
+    '<button type="button" class="wc-continue" data-action="wc-continue" '+
       'data-day="'+dd.id+'">Continue</button>'+
   '</div>';
 }
@@ -26918,11 +27490,20 @@ var analysisOpenFor = {};
 function isAnalysisOpen(dd){
   return !!(dd && analysisOpenFor[dd.id]);
 }
+function handleCompletionContinue(dayId){
+  if (document.querySelector('.wc-modal')) { closeModal(); return; }
+  handleToggleDay(dayId);
+}
 function handleViewAnalysis(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
   if (analysisOpenFor[dd.id]) delete analysisOpenFor[dd.id];
   else analysisOpenFor[dd.id] = true;
+  // The same surface can be on screen twice -- in the popup and on the card
+  // behind it -- so both mounts are refreshed rather than whichever one the
+  // tap happened to come from.
+  var modalBody = document.querySelector('.wc-modal .wc-modal-body');
+  if (modalBody) modalBody.innerHTML = renderExecutionReview(dd);
   patchExecutionUI(dd);
 }
 /* ---- THE VERDICT, AND THE WAY OUT TO A POST ----
@@ -49301,10 +49882,13 @@ function handleToggleComplete(dayId){
   replaceCard(dd);
   patchDerivedStats();
   scheduleSave();
+  // A person just ticked this off. That is the moment the popup is for.
+  if (dd.completed) raiseCompletionMoment(dd);
 }
 function handleActualFieldChange(dayId, field, value){
   var dd = findDay(dayId);
   if (!dd) return;
+  var wasComplete = !!dd.completed;
   dd.actual = dd.actual || emptyActual();
   if (field==='km') dd.actual.km = value===''?null:parseDistInput(value);
   /* Withdrawal stops COLLECTION, not only use, so the writers refuse as well
@@ -49347,6 +49931,11 @@ function handleActualFieldChange(dayId, field, value){
   patchExecutionUI(dd);
   patchDerivedStats();
   scheduleSave();
+  /* Logging a distance against a session that was not yet complete is the
+     other way an athlete says "I just did this" -- but only once, and only
+     when the log actually completed it. Editing a figure afterwards must not
+     reopen the moment. */
+  if (!wasComplete && dd.completed) raiseCompletionMoment(dd);
 }
 /* The chips are shown only after the athlete asks for them -- the wand does
    not run while they type. Once run, the chips stay with the workout so they
@@ -51819,7 +52408,12 @@ document.addEventListener('click', function(e){
        device. Nothing here touches the plan or the log. */
     case 'share-workout': openShareModal(findDay(target.getAttribute('data-day'))); break;
     case 'view-analysis': handleViewAnalysis(target.getAttribute('data-day')); break;
+    /* Continue means "I am done with this moment". In the popup that closes
+       it; on the card it folds the day away, which is the same intent on a
+       surface that has no dismiss. */
+    case 'wc-continue': handleCompletionContinue(target.getAttribute('data-day')); break;
     case 'share-set': handleShareSet(target.getAttribute('data-k'), target.getAttribute('data-v')); break;
+    case 'share-backdrop': handleShareBackdrop(target.getAttribute('data-v')); break;
     case 'share-export': shareExport(target.getAttribute('data-mode')); break;
     case 'clear-actual': handleClearActual(target.getAttribute('data-day')); break;
     case 'set-feel': handleSetFeel(target.getAttribute('data-day'), target.getAttribute('data-feel')); break;

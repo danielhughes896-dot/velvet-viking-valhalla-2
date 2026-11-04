@@ -232,16 +232,43 @@ const DELIBERATE_INTERRUPT = 'openCloudConflictModal';
    without this line being edited. Its own treatment is asserted in
    test/marathonAuthorityAndChoice.test.js. */
 const DECISION_SURFACES = ['openRaceGoalPreparationModal'];
+/* THE COMPLETION MOMENT. A fourth kind, named deliberately rather than
+   squeezed into one of the three it is not. It is not a work surface: there
+   is nothing to fill in, and theming it put a cream rim around a card that is
+   black in both themes. It is not the deliberate interrupt: it has a close
+   control and costs nothing to dismiss. And it is not a decision: nothing
+   must be answered before the athlete moves on.
+
+   What it is, is the brand's own register around a thing that just happened --
+   so like the decision surface it keeps the fixed dark ramp in both themes,
+   and like a work surface it can simply be closed. */
+const MOMENT_SURFACES = ['raiseCompletionMoment'];
 
 test('every modal in the product has been classified one way or the other', () => {
   // Nothing may open a modal without appearing in exactly one of the sets.
   const callers = openModalCallers().map(([n]) => n);
   const declared = new Set(WORK_SURFACES.map(w => w[0]));
   const unclassified = callers.filter(n => !declared.has(n) &&
-    n !== DELIBERATE_INTERRUPT && DECISION_SURFACES.indexOf(n) === -1);
+    n !== DELIBERATE_INTERRUPT && DECISION_SURFACES.indexOf(n) === -1 &&
+    MOMENT_SURFACES.indexOf(n) === -1);
   assert.deepEqual(unclassified, [],
     'these open a modal and are neither a declared work surface, the one ' +
-    'deliberate interrupt, nor a named decision surface: ' + unclassified.join(', '));
+    'deliberate interrupt, a named decision surface, nor a named moment: ' +
+    unclassified.join(', '));
+});
+
+test('the completion moment is dark in both themes, and dismissible', () => {
+  MOMENT_SURFACES.forEach(fn => {
+    const body = fnBody(fn);
+    assert.match(body, /openModal\(/, fn + ' no longer opens a modal');
+    /* Pinned, not themed -- the card it carries is black whatever theme the
+       athlete chose, and opting into the ramp framed it in cream. */
+    assert.doesNotMatch(body, /['"][^'"]*\bmodal-themed\b/,
+      fn + ' opted into the theme ramp; its card is black in both themes');
+    assert.match(body, /\bwc-modal\b/, fn + ' lost its own surface class');
+  });
+  // And it can be left: Continue closes it, unlike the one forced choice.
+  assert.match(CODE, /case 'wc-continue'/, 'the moment has a way out');
 });
 
 test('the decision surface is exactly one modal, and it opts out deliberately', () => {

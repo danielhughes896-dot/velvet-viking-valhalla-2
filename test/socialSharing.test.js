@@ -236,58 +236,112 @@ test('an absent metric leaves no gap and no zero behind', () => {
     .filter(o => o.kind === 'metrics').length, 0);
 });
 
-test('the three layouts say progressively less, and all three are honest', () => {
+test('the registry holds five structurally distinct overlays', () => {
   const app = loadApp({ pinnedDate: '2026-11-03' });
+  const keys = Array.prototype.slice.call(app.shareOverlayKeys());
+  assert.equal(keys.join(','), 'frame,panel,rail,diagonal,badge');
+  assert.equal(new Set(keys).size, keys.length, 'keys are unique');
+
+  /* STRUCTURALLY DISTINCT, NOT JUST DIFFERENTLY NAMED. The thing this
+     replaced was three density tiers drawing one composition, which is not a
+     choice an athlete can see. Each overlay must put its surface somewhere
+     different, so the set of surface ops is the signature. */
   const data = app.shareCardData(completedDay({
-    actual: { km: 21.1, pace: '4:48', movingTimeSec: 6080, elevationGainM: 210 },
+    actual: { km: 28, pace: '5:31', movingTimeSec: 9258, elevationGainM: 312 },
     coachReview: { trainingSignal: 'positive_adaptation' },
   }));
-
-  const kinds = l => Array.prototype.map.call(
-    app.shareCardLayout(data, l, SIZE), o => o.kind);
-  const full = kinds('full'), compact = kinds('compact'), minimal = kinds('minimal');
-
-  for (const k of ['headline', 'distance']) {
-    assert.ok(full.includes(k) && compact.includes(k) && minimal.includes(k),
-      k + ' survives every layout');
-  }
-  assert.ok(full.includes('metrics') && compact.includes('metrics'));
-  assert.ok(!minimal.includes('metrics'), 'minimal is verdict and distance only');
-  assert.ok(minimal.length < compact.length, 'minimal drops whole blocks');
-
-  /* FULL AND COMPACT DIFFER INSIDE THE METRIC ROW, not in which blocks exist.
-     Counting op kinds would call them identical, so count what the row holds:
-     full says time, pace and elevation; compact says pace alone. */
-  const row = l => app.shareCardLayout(data, l, SIZE).find(o => o.kind === 'metrics');
-  assert.equal(row('full').items.length, 3, 'full: time, pace, elevation');
-  assert.equal(row('compact').items.length, 1, 'compact: pace only');
-  assert.ok(/4:48/.test(JSON.stringify(row('compact').items)));
-  assert.ok(!/210/.test(JSON.stringify(row('compact').items)),
-    'compact does not carry elevation');
-
-  /* The headline names the session and then its verdict, and tells the painter
-     where the gold accent starts so only the verdict is highlighted. */
-  const hl = app.shareCardLayout(data, 'full', SIZE).find(o => o.kind === 'headline');
-  assert.equal(hl.text, 'EASY — ABSORBED');
-  assert.equal(hl.text.slice(hl.accentFrom), 'ABSORBED',
-    'the accent begins exactly at the verdict');
+  const surfaceOf = k => Array.prototype.map.call(app.shareCardLayout(data, k, SIZE), o => o.kind)
+    .filter(kind => ['frame','plinth','rail','wedge','badge'].includes(kind)).join(',');
+  const surfaces = keys.map(surfaceOf);
+  assert.deepEqual(surfaces, ['frame','plinth','rail','wedge','badge']);
+  assert.equal(new Set(surfaces).size, 5, 'no two overlays share a surface');
 });
 
-test('the layout is pure, and fits whichever canvas it is given', () => {
+test('every overlay shows everything the session legitimately has', () => {
+  const app = loadApp({ pinnedDate: '2026-11-03' });
+  const data = app.shareCardData(completedDay({
+    actual: { km: 28, pace: '5:31', movingTimeSec: 9258, elevationGainM: 312 },
+    coachReview: { trainingSignal: 'positive_adaptation' },
+  }));
+  /* An overlay is a DESIGN, not a density level: picking one must never cost
+     the athlete a number. Every one carries the mark, the wordmark, the
+     verdict, the distance, all three metrics and the programme line. */
+  for (const key of app.shareOverlayKeys()) {
+    const ops = Array.prototype.slice.call(app.shareCardLayout(data, key, SIZE));
+    const kinds = ops.map(o => o.kind);
+    for (const need of ['mark', 'wordmark', 'distance']) {
+      assert.ok(kinds.includes(need), key + ' is missing ' + need);
+    }
+    const said = JSON.stringify(ops);
+    assert.ok(/28\.0/.test(said), key + ' drops the distance');
+    assert.ok(/ABSORBED/.test(said), key + ' drops the verdict');
+    assert.ok(/5:31/.test(said), key + ' drops the pace');
+    assert.ok(/2:34:18/.test(said), key + ' drops the time');
+    assert.ok(/312 m/.test(said), key + ' drops the elevation');
+    assert.ok(/Week 1/.test(said), key + ' drops the programme line');
+  }
+});
+
+test('the imported-data rule holds on every overlay, not just the default', () => {
+  const app = loadApp({ pinnedDate: '2026-11-03' });
+  /* The fence is applied once, in shareCardData(), and overlays are handed
+     the result -- so a withheld metric reaches them as null and cannot be
+     drawn. This is the assertion that makes adding a sixth design safe. */
+  const dd = completedDay({
+    stravaActivityId: 4242,
+    actual: { km: 28, pace: '5:31', movingTimeSec: 9258, elevationGainM: 312 },
+    coachReview: { trainingSignal: 'positive_adaptation', breakthrough: true },
+  });
+  const data = app.shareCardData(dd);
+  for (const key of app.shareOverlayKeys()) {
+    for (const fmt of ['story', 'post']) {
+      const said = JSON.stringify(app.shareCardLayout(data, key, app.SHARE_SIZES[fmt]));
+      for (const leak of ['28.0', '5:31', '2:34:18', '312 m', 'ABSORBED']) {
+        assert.ok(!said.includes(leak),
+          key + '/' + fmt + ' published an imported value: ' + leak);
+      }
+      assert.ok(/Week 1/.test(said), key + '/' + fmt + ' lost Valhalla\'s own facts');
+    }
+  }
+});
+
+test('an unknown overlay key falls back rather than drawing nothing', () => {
   const app = loadApp({ pinnedDate: '2026-11-03' });
   const data = app.shareCardData(completedDay());
+  const ops = app.shareCardLayout(data, 'no-such-overlay', SIZE);
+  assert.ok(ops.length > 0, 'a stale saved preference still produces a card');
+});
+
+test('every overlay is pure, and fits whichever canvas it is given', () => {
+  const app = loadApp({ pinnedDate: '2026-11-03' });
+  const data = app.shareCardData(completedDay({
+    actual: { km: 28, pace: '5:31', movingTimeSec: 9258, elevationGainM: 312 },
+  }));
   const frozen = JSON.stringify(data);
 
-  for (const key of ['story', 'square']) { // eslint-disable-line
-    const size = app.SHARE_SIZES[key];
-    assert.equal(size.w, 1080, key + ' exports at 1080px wide');
-    const ops = app.shareCardLayout(data, 'full', size);
-    for (const op of ops) {
-      if (op.x != null) assert.ok(op.x >= 0 && op.x <= size.w, key + ': x within canvas');
-      if (op.y != null) assert.ok(op.y >= 0 && op.y <= size.h, key + ': y within canvas');
+  for (const fmt of ['story', 'post']) {
+    const size = app.SHARE_SIZES[fmt];
+    assert.equal(size.w, 1080, fmt + ' exports at 1080px wide');
+    for (const key of app.shareOverlayKeys()) {
+      const ops = Array.prototype.slice.call(app.shareCardLayout(data, key, size));
+      for (const op of ops) {
+        if (op.y != null) assert.ok(op.y >= 0 && op.y <= size.h,
+          key + '/' + fmt + ': y ' + op.y + ' outside 0..' + size.h);
+        if (op.cx != null) assert.ok(op.cx >= 0 && op.cx <= size.w,
+          key + '/' + fmt + ': cx ' + op.cx + ' outside 0..' + size.w);
+      }
     }
   }
   assert.equal(JSON.stringify(data), frozen, 'laying out never mutates the data');
+});
+
+test('Story is 9:16 and Post is square', () => {
+  const app = loadApp({ pinnedDate: '2026-11-03' });
+  assert.equal(app.SHARE_SIZES.story.w / app.SHARE_SIZES.story.h, 1080 / 1920);
+  assert.equal(app.SHARE_SIZES.story.square, false);
+  assert.equal(app.SHARE_SIZES.post.w, app.SHARE_SIZES.post.h, 'Post is square this pass');
+  assert.equal(app.SHARE_SIZES.post.square, true);
+  assert.equal(app.SHARE_SIZES.square, undefined, 'the old name is gone, not aliased');
 });
 
 test('elevation is optional training data: blank stays unknown through the log', () => {
@@ -337,7 +391,12 @@ test('the share path neither reads nor writes any coaching decision', () => {
   const start = src.indexOf('function shareVerdictLabel');
   const end = src.indexOf('function renderExecutionReview');
   assert.ok(start > 0 && end > start);
-  const region = src.slice(start, end);
+  /* Comments stripped first. The raw text matched the word applyCompletion
+     inside a comment EXPLAINING that the share path must not call it, so the
+     guard was failing on its own documentation. What is scanned is code. */
+  const region = src.slice(start, end)
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 
   /* A presentation feature may not move the plan. If sharing ever needs to
      write, that is a coaching change and belongs in a coaching review. */
@@ -368,4 +427,144 @@ test('the exported file is handed to the device, not to a server', () => {
       'the export path must not reference ' + banned);
   }
   assert.ok(/Share\.share\(/.test(region), 'it hands off to the native share sheet');
+});
+
+/* THE JOURNEY, STAGE BY STAGE
+ * ===========================================================================
+ * Session completed now -> Workout Complete popup -> Share to Socials ->
+ * the editor -> overlay + picture + Story/Post -> Share or Save to photos.
+ * The stages are asserted as stages because the value of this flow is that it
+ * does NOT collapse: a share that jumps straight to the OS sheet gives the
+ * athlete no say over what the image looks like, and a completion that never
+ * surfaces is a form confirming a save.
+ */
+
+test('the popup is raised by a person finishing a session, not by data arriving', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+
+  /* THE GATE IS THE WHOLE FEATURE. A Strava backfill, a CSV import and a
+     restore all call applyCompletion() exactly as the tick does, so raising
+     the moment from the write would throw one modal per historical activity
+     at an athlete who just connected their account. It is raised from the two
+     interactions instead, and applyCompletion() stays silent. */
+  const raisers = code.split('raiseCompletionMoment(').length - 1;
+  assert.ok(raisers >= 3, 'the definition plus its call sites');
+
+  const fnBody = (name) => {
+    const i = code.indexOf('function ' + name + '(');
+    assert.ok(i > 0, name + ' not found');
+    return code.slice(i, code.indexOf('\n}', i));
+  };
+  assert.ok(fnBody('handleToggleComplete').includes('raiseCompletionMoment'),
+    'ticking a session off raises the moment');
+  assert.ok(fnBody('handleActualFieldChange').includes('raiseCompletionMoment'),
+    'logging a distance that completes a session raises the moment');
+
+  for (const bulk of ['applyCompletion', 'stravaWriteActivity', 'handleApplyCsvRow']) {
+    assert.ok(!fnBody(bulk).includes('raiseCompletionMoment'),
+      bulk + ' must never raise the popup — that is the backfill storm');
+  }
+});
+
+test('editing an already-complete session does not reopen the moment', () => {
+  const app = loadApp({ pinnedDate: '2026-11-03' });
+  const dd = completedDay({ actual: app.emptyActual() });
+  app.state.days = [dd];
+  let raised = 0;
+  const real = app.raiseCompletionMoment;
+  app.raiseCompletionMoment = () => { raised++; };
+  try {
+    dd.completed = true;              // already finished before this edit
+    app.handleActualFieldChange(dd.id, 'km', '19');
+    assert.equal(raised, 0, 'correcting a figure is not finishing a run');
+
+    dd.completed = false;             // and now the log is what completes it
+    app.handleActualFieldChange(dd.id, 'km', '19');
+  } finally { app.raiseCompletionMoment = real; }
+});
+
+test('Share opens the editor; it does not jump to the OS share sheet', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  const code = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+  const i = code.indexOf("case 'share-workout':");
+  assert.ok(i > 0);
+  const line = code.slice(i, code.indexOf('break;', i));
+  assert.ok(line.includes('openShareModal'), 'Share to Socials opens the editor');
+  assert.ok(!/saveBinaryFile|Share\.share/.test(line), 'and nothing else');
+});
+
+test('the editor offers overlay, picture source and format as three choices', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  const i = src.indexOf('function shareModalHtml()');
+  const body = src.slice(i, src.indexOf('\n}\n', i));
+  /* source and format go through the seg() helper, which builds the data-k
+     attribute from its argument -- so the literal never appears in source and
+     the control is asserted at the call that creates it. */
+  assert.match(body, /data-k="overlay"/, 'overlay picker');
+  assert.match(body, /seg\('source'[\s\S]{0,120}Valhalla[\s\S]{0,60}My photos/,
+    'Valhalla / My photos');
+  assert.match(body, /seg\('format'[\s\S]{0,120}Story[\s\S]{0,40}Post/, 'Story / Post');
+  assert.match(body, /data-action="share-export" data-mode="share"/);
+  assert.match(body, /data-action="share-export" data-mode="save"/);
+  assert.match(body, /withheldNote/, 'and it still explains a withheld metric');
+});
+
+test('changing the overlay changes nothing but the overlay', () => {
+  const app = loadApp({ pinnedDate: '2026-11-03' });
+  const dd = completedDay();
+  app.state.days = [dd];
+  app.openShareModal(dd);
+  const st = app.shareState;
+  assert.ok(st, 'the editor opened');
+  assert.equal(st.overlay, 'frame', 'defaults to the frame');
+  assert.equal(st.source, 'valhalla', 'and to a Valhalla backdrop');
+
+  st.transform = { scale: 2.2, x: -0.3, y: 0.1 };
+  const dataBefore = JSON.stringify(st.data);
+  app.handleShareSet('overlay', 'diagonal');
+  assert.equal(app.shareState.overlay, 'diagonal');
+  assert.deepEqual(app.shareState.transform, { scale: 2.2, x: -0.3, y: 0.1 },
+    'the athlete keeps the crop they framed');
+  assert.equal(JSON.stringify(app.shareState.data), dataBefore,
+    'and the workout data is untouched');
+});
+
+test('Save to photos writes to the photo library, not the cache', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  const i = src.indexOf('function saveImageToPhotos(');
+  assert.ok(i > 0, 'there is a dedicated save path');
+  const body = src.slice(i, src.indexOf('\n}\n', i));
+
+  /* The failure this guards is a renamed action: "Save to photos" wired to
+     the share path, which caches the file and opens a sheet. */
+  assert.match(body, /nativePlugin\('Media'\)/, 'it asks for the media library');
+  assert.match(body, /savePhoto/);
+  assert.ok(!/Share\.share|directory:\s*'CACHE'/.test(body),
+    'and must not fall back to caching it and opening a share sheet');
+  assert.match(body, /permission/i, 'a refused permission is explained');
+
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+  assert.ok(pkg.dependencies['@capacitor-community/media'],
+    'the plugin that makes it real is declared');
+});
+
+test('no social network is integrated, and nothing is uploaded', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
+  const i = src.indexOf('var SHARE_OVERLAYS');
+  const j = src.indexOf('function renderExecutionReview');
+  /* Comments stripped: the ruling itself is written down in this file, and
+     naming the networks in order to say they are NOT integrated must not trip
+     the guard that checks they are not integrated. */
+  const region = src.slice(i, j)
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+  /* The ruling is explicit: Share renders the image and hands it to the OS
+     sheet. No branded chooser whose buttons all do the same thing, and no
+     per-network deep links in this pass. */
+  for (const banned of ['instagram', 'facebook', 'twitter', 'whatsapp',
+                        'strava-share', 'fetch(', 'XMLHttpRequest']) {
+    assert.ok(!region.toLowerCase().includes(banned.toLowerCase()),
+      'the share path must not reference ' + banned);
+  }
 });

@@ -289,9 +289,16 @@ test('the Strava boundary and the athlete-facing UX are untouched', () => {
 test('the diagnostic adds no dependency and no new require', () => {
   /* The project legitimately depends on Capacitor for the Android shell. What
      must not happen is a NEW one arriving for a logging change, so the set is
-     pinned rather than required to be empty. */
+     pinned rather than required to be empty.
+
+     @capacitor-community/media was added deliberately, by owner ruling, so
+     that "Save to photos" writes to the device photo library instead of
+     caching the file and opening a share sheet under a label that promised
+     otherwise. The pin is updated rather than loosened: the next dependency
+     still has to be argued for here. */
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   assert.deepEqual(Object.keys(pkg.dependencies || {}).sort(), [
+    '@capacitor-community/media',
     '@capacitor-community/text-to-speech',
     '@capacitor/android',
     '@capacitor/app',
