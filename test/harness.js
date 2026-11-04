@@ -49,7 +49,7 @@ function makeStubDocument() {
       textContent: '',
     };
   }
-  return {
+  const doc = {
     documentElement: makeStubElement(),
     body: makeStubElement(),
     getElementById(){ return null; },
@@ -60,6 +60,15 @@ function makeStubDocument() {
     removeEventListener(){},
     dispatchEvent(){ return true; },
   };
+  /* The app registers its one delegated click handler on `document` during
+     evaluation, and until now nothing could reach it: every handler test
+     called the handler function by name, which is exactly how a dispatcher
+     case referring to an undeclared variable shipped green. Exposing the
+     registered listeners lets a test enter through the same door the athlete
+     does. Non-enumerable so it cannot show up in anything that walks the
+     stub's own keys. */
+  Object.defineProperty(doc, '_listeners', { value: listeners, enumerable: false });
+  return doc;
 }
 
 function makeStubLocalStorage(seed) {

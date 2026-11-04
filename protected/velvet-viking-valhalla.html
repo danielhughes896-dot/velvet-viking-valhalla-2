@@ -54882,9 +54882,9 @@ document.addEventListener('click', function(e){
     case 'restore-plan': handleRestorePlan(target.getAttribute('data-key')); break;
     case 'open-record': openRecordPanel(target.getAttribute('data-record')); break;
     case 'close-record-panel': closeRecordPanel(); break;
-    case 'optional-run-log': handleOptionalRunLog(el.getAttribute('data-day')); break;
-    case 'optional-run-save': handleOptionalRunSave(el.getAttribute('data-day')); break;
-    case 'optional-run-remove': handleOptionalRunRemove(el.getAttribute('data-day')); break;
+    case 'optional-run-log': handleOptionalRunLog(target.getAttribute('data-day')); break;
+    case 'optional-run-save': handleOptionalRunSave(target.getAttribute('data-day')); break;
+    case 'optional-run-remove': handleOptionalRunRemove(target.getAttribute('data-day')); break;
     case 'open-recalibrate': openRecalibrateModal(); break;
     case 'rc-suggest-goals': handleRecalibrateSuggest(); break;
     case 'save-recalibrate': handleSaveRecalibrate(); break;
