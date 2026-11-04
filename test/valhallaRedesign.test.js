@@ -312,7 +312,7 @@ test('MODAL: Edit Session locks the prescription fields once canEditPrescription
   // Reschedule is deliberately NOT locked here -- swapping a logged session
   // is governed by its own historical-integrity rules (swapIntegrity.test.js),
   // unrelated to whether the prescription fields above are open.
-  assert.match(html, /<fieldset><legend>Reschedule<\/legend>/,
+  assert.match(html, /id="ef-sec-reschedule"/,
     'a locked session lost the ability to be rescheduled, which is a separate, already-guarded rule');
 });
 
@@ -329,7 +329,7 @@ test('MODAL: Edit Session leaves every field open on a future or in-progress ses
     const tag = html.slice(start, html.indexOf('>', start) + 1);
     assert.doesNotMatch(tag, /disabled/, '#' + id + ' was locked on an editable session');
   });
-  assert.match(html, /<fieldset><legend>Reschedule<\/legend>/);
+  assert.match(html, /id="ef-sec-reschedule"/);
   assert.match(html, /data-action="reset-day"/);
 });
 

@@ -1355,7 +1355,17 @@
 
 
   /* ---- THE TWO ACTIONS, below the boxes ---- */
-  :is(.view-today .day.is-today, .view-week .wk-full .day) .day-drawer{overflow:visible;}
+  /* ONLY WHILE IT IS ACTUALLY OPEN. The drawer collapses with max-height:0
+     and relies on overflow:hidden to clip; this rule exists so the action
+     pills' gradient rim and glow are not shaved off at the edges. On Today
+     that was safe because today's card is always expanded -- but a COMPLETED
+     session defaults shut (isDayExpanded), and This Week can show one, so an
+     unconditional overflow:visible let a 1278px log form paint straight out
+     of a 0px box and over everything beneath it. Tying it to .open gives the
+     pills their glow exactly when they are on screen and clips the drawer
+     the rest of the time. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day) .day.open .day-drawer,
+  :is(.view-today .day.is-today.open, .view-week .wk-full .day.open) .day-drawer{overflow:visible;}
   :is(.view-today .day.is-today, .view-week .wk-full .day) .voice-row{display:flex; gap:12px; margin:13px 0 0;}
   /* The same rim as the three boxes: quiet at the top left, full gold at
      the bottom right. A border cannot hold a gradient, so the pill paints
@@ -3075,6 +3085,68 @@
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .field-hint{font-size:var(--fs-support); line-height:var(--lh-support); color:var(--ink-faint); margin-top:4px;}
   .modal-actions{display:flex; gap:8px; margin-top:18px;}
+  /* =======================================================
+     EDIT SESSION -- the product's card language, inside a modal.
+     =======================================================
+     The same recipe the Today boxes use (--t-card-grad face, gradient rim,
+     --t-lift, --tile-radius), which resolves in here because those tokens
+     are declared at :root rather than on a view. The modal's own --modal-*
+     ramp still governs the CONTROLS; this governs the containers. */
+  .es-body{display:flex; flex-direction:column; gap:14px;}
+  .es-sum{
+    position:relative; display:flex; align-items:center; gap:12px; overflow:hidden;
+    padding:13px 15px 13px 18px;
+    border:1.5px solid transparent; border-radius:var(--tile-radius);
+    background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;
+    box-shadow:var(--t-lift);
+  }
+  /* The session's own type, as a bar down the edge -- the one place colour
+     identifies WHICH session this is before a word is read. */
+  .es-sum::before{content:''; position:absolute; left:0; top:0; bottom:0; width:4px;
+    background:var(--c-rest);}
+  .es-sum.type-easy::before{background:var(--c-easy);}
+  .es-sum.type-tempo::before{background:var(--c-tempo);}
+  .es-sum.type-threshold::before{background:var(--c-threshold);}
+  .es-sum.type-track::before{background:var(--c-track);}
+  .es-sum.type-long::before{background:var(--c-long);}
+  .es-sum-main{flex:1 1 auto; min-width:0;}
+  .es-sum-when{font-size:11.5px; color:var(--ink-dim); margin-bottom:6px;}
+  .es-sum-main .day-badge{margin-bottom:5px;}
+  .es-sum-title{font-size:19px; font-weight:600; color:var(--ink); line-height:1.2;
+    overflow-wrap:anywhere;}
+  .es-sum-dist{flex:none; display:flex; align-items:baseline; gap:3px;
+    padding-left:13px; border-left:1px solid var(--modal-border);}
+  .es-sum-dist b{font-size:27px; font-weight:700; color:#FFFFFF; line-height:1;
+    font-variant-numeric:tabular-nums; letter-spacing:-0.01em;
+    text-shadow:0 0 1px rgba(255,255,255,.40), 0 0 12px rgba(255,255,255,.22);}
+  .es-sum-dist em{font-style:normal; font-weight:700; font-size:14px; color:var(--ink-dim);}
+
+  .es-sec{
+    border:1.5px solid transparent; border-radius:var(--tile-radius);
+    background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;
+    box-shadow:var(--t-lift); overflow:hidden;
+  }
+  .es-sec-head{
+    display:flex; align-items:center; gap:12px; padding:14px 15px;
+    cursor:pointer; list-style:none;
+  }
+  .es-sec-head::-webkit-details-marker{display:none;}
+  .es-sec-icon{flex:none; display:flex; color:var(--gold);}
+  .es-sec-icon svg{width:21px; height:21px;}
+  .es-sec-text{flex:1 1 auto; min-width:0;}
+  .es-sec-title{display:block; font-size:14px; letter-spacing:.06em; color:var(--ink);}
+  .es-sec-sub{display:block; font-size:12.5px; color:var(--ink-dim); margin-top:2px;
+    line-height:1.35;}
+  .es-sec-chev{flex:none; display:flex; color:var(--gold); transition:transform .18s;}
+  .es-sec-chev svg{width:19px; height:19px;}
+  .es-sec[open] > .es-sec-head .es-sec-chev{transform:rotate(180deg);}
+  .es-sec-body{padding:2px 15px 15px;}
+  .es-sec-body > .field:last-child{margin-bottom:0;}
+  .es-reset{margin-top:14px; padding-top:13px; border-top:1px solid var(--modal-border);}
+  /* One action, full width, at the foot -- Reset moved in beside the fields
+     it undoes, so nothing destructive sits next to the confirm. */
+  .es-actions{margin-top:0;}
+  .es-actions .btn{width:100%;}
   .modal-actions .btn{flex:1;}
 
   fieldset{border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px; margin:0 0 14px;}
@@ -45367,22 +45439,51 @@ function openEditModal(dayId){
       '</button>';
     });
   });
-  var reschedule = '<fieldset><legend>Reschedule</legend>'+
-    '<div class="field" style="margin-bottom:0;"><label id="ef-swap-label">Swap this session with\u2026</label>'+
+  var reschedule =
+    '<div class="field" style="margin-bottom:0;"><label id="ef-swap-label" class="sr-only">Swap this session with\u2026</label>'+
       '<select id="ef-swap" class="bld-mirror" tabindex="-1" aria-hidden="true">'+swapOptions+'</select>'+
       '<div class="swap-list" id="ef-swap-list" role="radiogroup" aria-labelledby="ef-swap-label">'+swapRows+'</div>'+
-      '<div class="field-hint">Swaps everything except the calendar date, including any logged actuals. You can also drag day cards onto each other on larger screens.</div></div>'+
-  '</fieldset>';
-  var html = ''+
-  '<div class="modal-head"><h2 class="font-head">Edit Session</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
-  '<div class="modal-body">'+
-    '<div class="field-hint" style="margin-bottom:14px;">'+dLong(dd.date)+' \u00b7 Week '+dd.week+'</div>'+
-    /* RESCHEDULE LEADS. It was last, under the title, type, distance,
-       completion and the instructions box -- and it is the thing an athlete
-       most often opens this modal to do: life moved, the session needs another
-       day. Putting it first costs the fields below nothing; they are all still
-       there, in the same order, doing the same jobs. */
-    reschedule+
+      '<div class="field-hint">Swaps everything except the calendar date, including any logged actuals. You can also drag day cards onto each other on larger screens.</div></div>';
+  /* THE SESSION IT IS ABOUT, STATED ONCE AT THE TOP. The modal used to open
+     on a grey date line and go straight into controls, so the only way to be
+     sure which day you were editing was to read the fields you were about to
+     change. Identity first, then the two things you can do to it. */
+  var tmSum = TYPE_META[dd.type] || {};
+  var distTxt = (dd.km != null && dd.km > 0) ? fmtDist(dd.km) : '';
+  var distM = /^([\d.,]+)\s*(.*)$/.exec(distTxt);
+  var summary =
+    '<div class="es-sum type-'+(tmSum.cls || 'rest')+'">'+
+      '<div class="es-sum-main">'+
+        '<div class="es-sum-when font-mono">'+escapeHtml(dLong(dd.date))+
+          (dd.week != null ? ' \u00b7 Week '+escapeHtml(String(dd.week)) : '')+'</div>'+
+        '<span class="day-badge type-'+(tmSum.cls || 'rest')+' font-head">'+
+          escapeHtml(dayTypeLabel(dd))+'</span>'+
+        '<div class="es-sum-title">'+escapeHtml(dd.title)+'</div>'+
+      '</div>'+
+      (distTxt
+        ? '<div class="es-sum-dist">'+(distM
+            ? '<b>'+escapeHtml(distM[1])+'</b><em>'+escapeHtml(distM[2])+'</em>'
+            : '<b>'+escapeHtml(distTxt)+'</b>')+'</div>'
+        : '')+
+    '</div>';
+  /* Two jobs, two sections, each one openable on its own. Reschedule is the
+     thing an athlete most often comes here to do -- life moved, the session
+     needs another day -- so it leads; the fields are open because they are
+     what the modal is named after. */
+  var section = function(id, icon, title, sub, body, open){
+    return '<details class="es-sec" id="'+id+'"'+(open ? ' open' : '')+'>'+
+      '<summary class="es-sec-head">'+
+        '<span class="es-sec-icon" aria-hidden="true">'+icon+'</span>'+
+        '<span class="es-sec-text">'+
+          '<span class="es-sec-title font-head">'+escapeHtml(title)+'</span>'+
+          (sub ? '<span class="es-sec-sub">'+escapeHtml(sub)+'</span>' : '')+
+        '</span>'+
+        '<span class="es-sec-chev" aria-hidden="true">'+ICONS.chevronDown+'</span>'+
+      '</summary>'+
+      '<div class="es-sec-body">'+body+'</div>'+
+    '</details>';
+  };
+  var fields =
     (editable ? '' : '<div class="field-hint" style="margin-bottom:14px;">This session already happened \u2014 you can still record what you actually did below.</div>')+
     '<div class="field"><label>Session Title</label><input type="text" id="ef-title" value="'+escapeHtml(dd.title)+'"'+lock+'></div>'+
     '<div class="field-row">'+
@@ -45391,10 +45492,22 @@ function openEditModal(dayId){
     '</div>'+
     '<div class="field"><label style="display:flex; align-items:center;"><input type="checkbox" id="ef-mp" '+(dd.mpSegment?'checked':'')+lock+' style="width:auto; margin-right:7px;">Includes a Goal-Pace segment</label></div>'+
     renderEditCompletion(dd)+
-    '<div class="field"><label>Workout Instructions</label><textarea id="ef-desc"'+lock+'>'+escapeHtml(resolveDesc(dd.desc))+'</textarea></div>'+
-    '<div class="modal-actions">'+
-      (editable ? '<button type="button" class="btn btn-danger" data-action="reset-day" data-day="'+dd.id+'">'+ICONS.trash+' Reset</button>' : '')+
-      '<button type="button" class="btn btn-primary" data-action="save-edit" data-day="'+dd.id+'">'+ICONS.check+' Save</button>'+
+    '<div class="field" style="margin-bottom:0;"><label>Workout Instructions</label><textarea id="ef-desc"'+lock+'>'+escapeHtml(resolveDesc(dd.desc))+'</textarea></div>'+
+    /* RESET LIVES WITH THE FIELDS IT UNDOES. The reference ends on a single
+       Save, and a destructive button sitting beside it was always the wrong
+       pairing -- but dropping it would delete a real function, so it moves
+       inside the section whose values it restores. */
+    (editable ? '<div class="es-reset"><button type="button" class="btn btn-danger btn-block" '+
+      'data-action="reset-day" data-day="'+dd.id+'">'+ICONS.trash+' Reset this session</button></div>' : '');
+  var html = ''+
+  '<div class="modal-head"><h2 class="font-head">Edit Session</h2><button type="button" class="icon-btn" data-action="close-modal" aria-label="Close">'+ICONS.close+'</button></div>'+
+  '<div class="modal-body es-body">'+
+    summary+
+    section('ef-sec-reschedule', ICONS.calendarWeek, 'Reschedule',
+            'Move or swap this session with another day.', reschedule, false)+
+    section('ef-sec-edit', ICONS.settings, 'Edit Session', '', fields, true)+
+    '<div class="modal-actions es-actions">'+
+      '<button type="button" class="btn btn-primary btn-block" data-action="save-edit" data-day="'+dd.id+'">'+ICONS.check+' Save</button>'+
     '</div>'+
   '</div>';
   /* THEMED, because this is a surface an athlete works IN.
@@ -53849,6 +53962,7 @@ function renderApp(){
     (navAllowed ? renderBottomNavStack() : '');
   programmeEntryBindName();
   openTodayCoachingPanel();
+  openWeekFullSession();
 }
 /* HOW TO RUN THIS IS NOT A DROP-DOWN ON TODAY. The approved screen shows the
    whole session on one page: hero, structure, execution, all open. The
@@ -53858,6 +53972,24 @@ function renderApp(){
    takes away the chevron and the pointer affordance so it does not read as
    something to tap. This Week and Full Plan keep the closed disclosure they
    have always had. */
+/* "VIEW FULL SESSION" HAS TO MEAN FULL. renderDayCard() decides for itself
+   whether a card opens -- today's always does, a completed one defaults shut
+   because in a LIST its prescription has served its purpose and the EXEC pill
+   is the summary. That rule is right for a list and wrong here: the athlete
+   has just asked for this one session by name, and a collapsed card is not an
+   answer to that.
+
+   Done by touching the DOM after the render rather than by passing a flag
+   into renderDayCard(), because its output must stay a pure function of the
+   day -- test/editSessionCoherence compares the identical string across
+   Today, This Week and Full Plan, and a per-view variation would break it. */
+function openWeekFullSession(){
+  if (typeof document === 'undefined' || !document.querySelector) return;
+  try{
+    var card = document.querySelector('.view-week .wk-full .day');
+    if (card) card.classList.add('open');
+  }catch(e){}
+}
 function openTodayCoachingPanel(){
   if (typeof document === 'undefined' || !document.querySelector) return;
   try{

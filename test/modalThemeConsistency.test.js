@@ -206,7 +206,9 @@ test('Edit Session in particular, because it is the one that regressed', () => {
   assert.match(body, /data-action="save-edit"/);
   assert.match(body, /data-action="reset-day"/);
   assert.match(body, /renderEditCompletion\(dd\)/);
-  assert.match(body, /<legend>Reschedule<\/legend>/);
+  /* Reschedule is its own section now rather than a fieldset/legend -- same
+     job, same place in the modal, different container. */
+  assert.match(body, /'Reschedule',\n\s*'Move or swap this session with another day\.'/);
 });
 
 test('a modal that does not opt in keeps the fixed dark ramp', () => {
