@@ -236,25 +236,45 @@ test('an absent metric leaves no gap and no zero behind', () => {
     .filter(o => o.kind === 'metrics').length, 0);
 });
 
-test('the registry holds five structurally distinct overlays', () => {
+test('the registry holds eleven overlays: five framed, six photo-first', () => {
   const app = loadApp({ pinnedDate: '2026-11-03' });
   const keys = Array.prototype.slice.call(app.shareOverlayKeys());
-  assert.equal(keys.join(','), 'frame,panel,rail,diagonal,badge');
+  assert.equal(keys.join(','),
+    'frame,panel,rail,diagonal,badge,lowcentre,topcentre,lowleft,lowright,railleft,railright');
   assert.equal(new Set(keys).size, keys.length, 'keys are unique');
 
-  /* STRUCTURALLY DISTINCT, NOT JUST DIFFERENTLY NAMED. The thing this
-     replaced was three density tiers drawing one composition, which is not a
-     choice an athlete can see. Each overlay must put its surface somewhere
-     different, so the set of surface ops is the signature. */
   const data = app.shareCardData(completedDay({
     actual: { km: 28, pace: '5:31', movingTimeSec: 9258, elevationGainM: 312 },
     coachReview: { trainingSignal: 'positive_adaptation' },
   }));
-  const surfaceOf = k => Array.prototype.map.call(app.shareCardLayout(data, k, SIZE), o => o.kind)
-    .filter(kind => ['frame','plinth','rail','wedge','badge'].includes(kind)).join(',');
-  const surfaces = keys.map(surfaceOf);
-  assert.deepEqual(surfaces, ['frame','plinth','rail','wedge','badge']);
-  assert.equal(new Set(surfaces).size, 5, 'no two overlays share a surface');
+  const opsOf = k => Array.prototype.slice.call(app.shareCardLayout(data, k, SIZE));
+  const surfaceOf = k => opsOf(k).map(o => o.kind)
+    .filter(kind => ['frame','plinth','rail','wedge','badge','fade','seam'].includes(kind))
+    .join(',');
+
+  /* THE FIRST FIVE EACH OWN A SURFACE. That is what makes them different
+     designs rather than the density tiers they replaced. */
+  assert.deepEqual(keys.slice(0, 5).map(surfaceOf),
+    ['frame', 'plinth', 'rail', 'wedge', 'badge']);
+
+  /* THE SIX WATERMARKS SHARE ONE, AND THAT IS THE POINT. None of them puts
+     anything opaque on the photograph: a directional fade, and for the two
+     rails a single gold seam. They are told apart by where the block sits,
+     not by what is drawn behind it. */
+  keys.slice(5).forEach(k => {
+    const surface = surfaceOf(k);
+    assert.ok(surface === 'fade' || surface === 'fade,seam',
+      k + ' is a watermark and must carry no panel: ' + surface);
+  });
+
+  /* And no two overlays are the same overlay under two names -- the real
+     distinctness property, which survives six of them sharing a surface. */
+  const seen = new Map();
+  keys.forEach(k => {
+    const sig = JSON.stringify(opsOf(k));
+    assert.ok(!seen.has(sig), k + ' draws exactly what ' + seen.get(sig) + ' draws');
+    seen.set(sig, k);
+  });
 });
 
 test('every overlay shows everything the session legitimately has', () => {
@@ -264,8 +284,9 @@ test('every overlay shows everything the session legitimately has', () => {
     coachReview: { trainingSignal: 'positive_adaptation' },
   }));
   /* An overlay is a DESIGN, not a density level: picking one must never cost
-     the athlete a number. Every one carries the mark, the wordmark, the
-     verdict, the distance, all three metrics and the programme line. */
+     the athlete a number. Matched case-insensitively because the two rail
+     watermarks set the programme line in letterspaced caps, as their mock
+     does -- a presentation difference, not a missing fact. */
   for (const key of app.shareOverlayKeys()) {
     const ops = Array.prototype.slice.call(app.shareCardLayout(data, key, SIZE));
     const kinds = ops.map(o => o.kind);
@@ -274,11 +295,11 @@ test('every overlay shows everything the session legitimately has', () => {
     }
     const said = JSON.stringify(ops);
     assert.ok(/28\.0/.test(said), key + ' drops the distance');
-    assert.ok(/ABSORBED/.test(said), key + ' drops the verdict');
+    assert.ok(/ABSORBED/i.test(said), key + ' drops the verdict');
     assert.ok(/5:31/.test(said), key + ' drops the pace');
     assert.ok(/2:34:18/.test(said), key + ' drops the time');
-    assert.ok(/312 m/.test(said), key + ' drops the elevation');
-    assert.ok(/Week 1/.test(said), key + ' drops the programme line');
+    assert.ok(/312 m/i.test(said), key + ' drops the elevation');
+    assert.ok(/week 1/i.test(said), key + ' drops the programme line');
   }
 });
 
@@ -286,7 +307,7 @@ test('the imported-data rule holds on every overlay, not just the default', () =
   const app = loadApp({ pinnedDate: '2026-11-03' });
   /* The fence is applied once, in shareCardData(), and overlays are handed
      the result -- so a withheld metric reaches them as null and cannot be
-     drawn. This is the assertion that makes adding a sixth design safe. */
+     drawn. This is the assertion that makes adding a twelfth design safe. */
   const dd = completedDay({
     stravaActivityId: 4242,
     actual: { km: 28, pace: '5:31', movingTimeSec: 9258, elevationGainM: 312 },
@@ -297,10 +318,30 @@ test('the imported-data rule holds on every overlay, not just the default', () =
     for (const fmt of ['story', 'post']) {
       const said = JSON.stringify(app.shareCardLayout(data, key, app.SHARE_SIZES[fmt]));
       for (const leak of ['28.0', '5:31', '2:34:18', '312 m', 'ABSORBED']) {
-        assert.ok(!said.includes(leak),
+        assert.ok(!new RegExp(leak.replace('.', '\\.'), 'i').test(said),
           key + '/' + fmt + ' published an imported value: ' + leak);
       }
-      assert.ok(/Week 1/.test(said), key + '/' + fmt + ' lost Valhalla\'s own facts');
+      assert.ok(/week 1/i.test(said), key + '/' + fmt + ' lost Valhalla\'s own facts');
+    }
+  }
+});
+
+test('the watermarks keep the photograph: no opaque surface anywhere in them', () => {
+  const app = loadApp({ pinnedDate: '2026-11-03' });
+  const data = app.shareCardData(completedDay());
+  const WATERMARKS = ['lowcentre','topcentre','lowleft','lowright','railleft','railright'];
+  for (const key of WATERMARKS) {
+    const ops = Array.prototype.slice.call(app.shareCardLayout(data, key, SIZE));
+    const fade = ops.find(o => o.kind === 'fade');
+    assert.ok(fade, key + ' has no fade at all');
+    /* A fade that reached full strength would be a panel with soft edges.
+       The ceiling is what keeps these readable as watermarks. */
+    assert.ok(fade.peak <= 0.85, key + ' fade is heavy enough to be a panel: ' + fade.peak);
+    assert.ok(fade.extent < SIZE.h * 0.62,
+      key + ' fade covers most of the frame: ' + fade.extent);
+    for (const solid of ['plinth', 'rail', 'wedge', 'badge']) {
+      assert.ok(!ops.some(o => o.kind === solid),
+        key + ' draws a ' + solid + ', which is not a watermark');
     }
   }
 });

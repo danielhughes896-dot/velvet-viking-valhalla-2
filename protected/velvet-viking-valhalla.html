@@ -26588,7 +26588,179 @@ var SHARE_OVERLAYS = [
   }
   return ops;
 }}
+,
+
+/* ========================================================================
+   THE WATERMARK SET -- SIX PHOTO-FIRST OVERLAYS
+   ------------------------------------------------------------------------
+   Deliberately lighter than the five above. There is no panel, no plinth and
+   no opaque column anywhere in these: the Valhalla information sits over the
+   photograph on a directional fade that is gone long before it reaches the
+   athlete, and the only solid marks are a gold hairline and the type itself.
+
+   THEY SHARE EVERYTHING ELSE. Same data object, so the imported-data fence
+   applies to them exactly as it does to the first five; same crop and zoom
+   state; same Story and Post sizes; same export path. An overlay is a place
+   to put the facts, and these are six quieter places.
+   ======================================================================== */
+
+/* 6. BOTTOM CENTRE -- the caption position. Safest of the six, because the
+      foot of a running photograph is almost always ground. */
+{ key:'lowcentre', label:'Low', draw:function(data, size){
+  return shareWatermarkStack(data, size, { anchor:'bottom', align:'center' });
+}},
+/* 7. TOP CENTRE -- for a photograph whose subject stands low in the frame,
+      or where the sky is the only quiet part of it. */
+{ key:'topcentre', label:'Top', draw:function(data, size){
+  return shareWatermarkStack(data, size, { anchor:'top', align:'center' });
+}},
+/* 8. BOTTOM LEFT */
+{ key:'lowleft', label:'Low L', draw:function(data, size){
+  return shareWatermarkStack(data, size, { anchor:'bottom', align:'left' });
+}},
+/* 9. BOTTOM RIGHT -- the one that sets its metric row with hairline
+      separators, which is what the mock uses to hold a right-ragged block
+      together without a rule under every line. */
+{ key:'lowright', label:'Low R', draw:function(data, size){
+  return shareWatermarkStack(data, size, { anchor:'bottom', align:'right', sep:true });
+}},
+/* 10 & 11. THE RAIL WATERMARKS. The same column as the solid Rail overlay,
+   with the column taken away: a horizontal fade off the edge and a single
+   glowing seam where the panel edge used to be. */
+{ key:'railleft', label:'Rail L', draw:function(data, size){
+  return shareWatermarkRail(data, size, 'left');
+}},
+{ key:'railright', label:'Rail R', draw:function(data, size){
+  return shareWatermarkRail(data, size, 'right');
+}}
 ];
+
+/* The shared body of the four stacked watermarks. One measurement pass so a
+   block anchored to the bottom sits exactly as far off the edge as the same
+   block anchored to the top, whatever the session happens to carry. */
+function shareWatermarkStack(data, size, o){
+  var W = size.w, H = size.h, ops = [];
+  var pad = Math.round(W * 0.072);
+  var inner = Math.round(W * (o.align === 'center' ? 0.84 : 0.76));
+  var mi = shareMetricItems(data), strap = shareStrapText(data);
+  var markH = Math.round(W * 0.082);
+  var ws = Math.round(W * 0.036), hs = Math.round(W * 0.044);
+  var ds = data.distanceKm != null ? Math.round(W * 0.112) : 0;
+  var ms = mi.length ? Math.round(W * 0.034) : 0;
+  var ss = strap ? Math.round(W * 0.030) : 0;
+  var gapMark = Math.round(W*0.010), gapWord = Math.round(W*0.022),
+      gapHead = Math.round(W*0.012), gapDist = Math.round(W*0.022),
+      gapRule = Math.round(W*0.024);
+  var total = markH + gapMark + ws + gapWord + hs + gapHead
+            + (ds ? Math.round(ds*1.04) : 0)
+            + (ms ? ms + gapDist : 0)
+            + (ss ? gapRule + ss : 0);
+
+  var y = o.anchor === 'top' ? Math.round(H * 0.075) : H - Math.round(H*0.075) - total;
+  /* The wash is measured from the block, not guessed: it covers the type and
+     a margin, and is transparent everywhere else. */
+  var extent = total + Math.round(H * 0.13);
+  ops.push({ kind:'fade', dir:o.anchor, extent:extent, peak:0.80, w:W, h:H });
+
+  var cx = o.align === 'center' ? W/2 : (o.align === 'left' ? pad : W - pad);
+  var markCx = o.align === 'center' ? W/2
+             : (o.align === 'left' ? pad + Math.round(markH*SHARE_MARK.wide/2)
+                                   : W - pad - Math.round(markH*SHARE_MARK.wide/2));
+  ops.push({ kind:'mark', cx:markCx, cy:y + markH/2, h:markH });
+  y += markH + gapMark;
+  ops.push({ kind:'wordmark', cx:cx, y:y, text:'VALHALLA', size:ws,
+             maxW:inner, align:o.align });
+  y += ws + gapWord;
+  var hp = shareHeadParts(data);
+  ops.push({ kind:'headline', cx:cx, y:y, text:hp.text, accentFrom:hp.accentFrom,
+             size:hs, maxW:inner, align:o.align });
+  y += hs + gapHead;
+  if (ds){
+    ops.push({ kind:'distance', cx:cx, y:y, value:fmtShareDistance(data.distanceKm),
+               unit:displayUnit().toUpperCase(), size:ds, maxW:inner, align:o.align });
+    y += Math.round(ds*1.04);
+  }
+  if (ms){
+    ops.push({ kind:'metrics', cx:cx, y:y, items:mi, size:ms, maxW:inner,
+               align:o.align, sep:!!o.sep });
+    y += ms + gapDist;
+  }
+  if (ss){
+    var rw = Math.round(inner * 0.86);
+    var rcx = o.align === 'center' ? W/2
+            : (o.align === 'left' ? pad + rw/2 : W - pad - rw/2);
+    ops.push({ kind:'rule', cx:rcx, y:y, w:rw });
+    y += gapRule;
+    ops.push({ kind:'strap', cx:cx, y:y, text:strap, size:ss,
+               maxW:inner, align:o.align });
+  }
+  return ops;
+}
+
+/* The two rail watermarks. The column is a fade off the edge rather than a
+   surface, so the photograph continues underneath it all the way out. */
+function shareWatermarkRail(data, size, side){
+  var W = size.w, H = size.h, ops = [];
+  var colW = Math.round(W * (size.square ? 0.34 : 0.305));
+  var pad = Math.round(W * 0.045);
+  var inner = colW - pad - Math.round(W*0.020);
+  var align = side;
+  var cx = side === 'left' ? pad : W - pad;
+  var seamX = side === 'left' ? colW : W - colW;
+
+  ops.push({ kind:'fade', dir:side, extent:Math.round(colW * 1.45), peak:0.84, w:W, h:H });
+  ops.push({ kind:'seam', x:seamX, y1:Math.round(H*0.10), y2:Math.round(H*0.90) });
+
+  var mi = shareMetricItems(data), strap = shareStrapText(data);
+  var markH = Math.round(W * 0.072);
+  var y = Math.round(H * (size.square ? 0.20 : 0.255));
+  var markCx = side === 'left' ? pad + Math.round(markH*SHARE_MARK.wide/2)
+                               : W - pad - Math.round(markH*SHARE_MARK.wide/2);
+  ops.push({ kind:'mark', cx:markCx, cy:y + markH/2, h:markH });
+  y += markH + Math.round(W*0.008);
+  var ws = Math.round(W * 0.028);
+  ops.push({ kind:'wordmark', cx:cx, y:y, text:'VALHALLA', size:ws, maxW:inner, align:align });
+  y += ws + Math.round(W*0.028);
+  ops.push({ kind:'rule', cx:side === 'left' ? pad + inner/2 : W - pad - inner/2,
+             y:y, w:inner });
+  y += Math.round(W*0.026);
+  /* Stacked, not set on one line: at 30% of the width "LONG RUN - ABSORBED"
+     would shrink until the verdict was smaller than the strap below it. */
+  var hs = Math.round(W * 0.034);
+  ops.push({ kind:'stack', cx:cx, y:y, size:hs, maxW:inner, align:align,
+             lines:[{ text:data.sessionLabel + (data.verdict ? ' —' : ''), accent:false }]
+                   .concat(data.verdict ? [{ text:data.verdict, accent:true }] : []) });
+  y += hs * (data.verdict ? 2 : 1) + Math.round(hs*0.35) + Math.round(W*0.026);
+  if (data.distanceKm != null){
+    var ds = Math.round(W * 0.092);
+    ops.push({ kind:'distance', cx:cx, y:y, value:fmtShareDistance(data.distanceKm),
+               unit:displayUnit().toUpperCase(), size:ds, maxW:inner,
+               align:align, stacked:true });
+    y += Math.round(ds*1.52);
+  }
+  if (mi.length){
+    ops.push({ kind:'rule', cx:side === 'left' ? pad + inner/2 : W - pad - inner/2,
+               y:y, w:inner });
+    y += Math.round(W*0.024);
+    var ms = Math.round(W * 0.030);
+    ops.push({ kind:'metricList', x:side === 'left' ? pad : W - pad - inner,
+               y:y, items:mi, size:ms, maxW:inner });
+    y += mi.length * Math.round(ms*1.75) + Math.round(W*0.012);
+  }
+  if (strap){
+    ops.push({ kind:'rule', cx:side === 'left' ? pad + inner/2 : W - pad - inner/2,
+               y:y, w:inner });
+    y += Math.round(W*0.024);
+    /* Letterspaced small caps, as the mock sets it -- it reads as a mark
+       rather than a sentence, which is what a watermark wants. */
+    ops.push({ kind:'stack', cx:cx, y:y, size:Math.round(W*0.026), maxW:inner,
+               align:align,
+               lines: strap.split('  ·  ').map(function(t){
+                 return { text:t.toUpperCase(), accent:false, dim:true };
+               }) });
+  }
+  return ops;
+}
 function shareOverlay(key){
   for (var i=0;i<SHARE_OVERLAYS.length;i++) if (SHARE_OVERLAYS[i].key === key) return SHARE_OVERLAYS[i];
   return SHARE_OVERLAYS[0];
@@ -26656,30 +26828,55 @@ function shareFontsReady(){
    ONE DEFINITION, TWO RENDERERS. The canvas card and the completion screen's
    DOM both describe the mark from these proportions, so the thing on screen
    and the thing in the exported PNG cannot drift apart. */
+/* ---- THE VELVET VIKING MARK ----
+   THREE NESTED CHEVRONS, ALL HANGING FROM THE SAME TOP LINE. The earlier
+   version was one chevron with a solid V dropped under it, which read as a
+   Y and was simply the wrong mark. The real one is a double V: a large open
+   chevron, a second chevron nested inside it, and a small solid wedge
+   between their shoulders. What makes it read as one mark rather than three
+   shapes is that every element starts at the same top edge and points at the
+   same centre line; what makes it read as VV is that the two bands are
+   outlines with daylight between them, never filled.
+
+   Drawn rather than loaded. The crest is a detailed medallion built to be
+   read at a centimetre across; at the size this sits -- straddling a frame
+   line at the head of a card -- it reduces to mud. Geometry is crisp at any
+   export size and needs no network request before an image the athlete is
+   waiting on can be painted. One definition serves the canvas card and the
+   DOM both, so the screen and the exported PNG cannot drift apart.
+
+   Proportions are fractions of the mark's own box, measured off the supplied
+   artwork: x as a fraction of half-width, y as a fraction of half-height. */
 var SHARE_MARK = {
-  wide:1.46,        // width as a multiple of height
-  armTop:-0.50,     // outer chevron: where the arms start, as a fraction of h
-  armTip: 0.22,     // outer chevron: where they meet
-  band:  0.105,     // outer chevron thickness, as a fraction of WIDTH
-  inTop:  0.02,     // inner solid V: top edge, clear of the outer's vertex
-  inTip:  0.62,     // inner solid V: the point, which falls below the outer
-  inWide: 0.33      // inner solid V: width as a fraction of the outer's
+  wide:1.12,        // width as a multiple of height, from the artwork
+  band:0.134,       // chevron thickness, as a fraction of the FULL width
+  outer:{ half:1.00, tip: 1.00 },   // the large chevron: full box, deepest point
+  mid:  { half:0.60, tip: 0.53 },   // nested inside it, apex higher
+  core: { half:0.18, tip:-0.29 }    // the solid wedge between the shoulders
 };
 function shareMarkGeometry(cx, cy, h){
-  var M = SHARE_MARK, w = h * M.wide, t = w * M.band;
-  var L = cx - w/2, R = cx + w/2;
-  var yTop = cy + h*M.armTop, yTip = cy + h*M.armTip;
-  /* The outer band is one closed path: down the left arm's outer edge to the
-     point, up the right arm's outer edge, then back along the inner edges. */
-  /* The outer is a CHEVRON, not a filled V: down the outside of each arm to
-     the vertex and back up the inside, leaving the middle open for the second
-     mark to sit in. Thickness and vertex are tuned so the inner edge closes
-     ABOVE where the inner V begins -- if those two ever meet, the mark reads
-     as one blunt wedge, which is what it did before this was separated. */
-  var outer = [[L,yTop],[cx,yTip],[R,yTop],[R-t,yTop],[cx,yTip-t*2.2],[L+t,yTop]];
-  var iw = w * M.inWide;
-  var inner = [[cx-iw/2, cy+h*M.inTop],[cx, cy+h*M.inTip],[cx+iw/2, cy+h*M.inTop]];
-  return { outer:outer, inner:inner, left:L, right:R, top:yTop, bottom:cy+h*M.inTip };
+  var M = SHARE_MARK, w = h * M.wide, W2 = w/2, H2 = h/2;
+  var yTop = cy - H2, t = w * M.band;
+  /* A chevron band: down the outside of each arm to the vertex and back up
+     the inside. The inner vertex is where the two offset edges actually
+     meet, solved rather than nudged -- a guessed offset makes the band
+     thicken or pinch at the point, which is the first thing the eye sees. */
+  var band = function(halfFrac, tipFrac){
+    var hw = W2 * halfFrac, yTip = cy + H2 * tipFrac;
+    var inner = yTip - (yTip - yTop) * (t / hw);
+    return [[cx-hw,yTop],[cx,yTip],[cx+hw,yTop],
+            [cx+hw-t,yTop],[cx,inner],[cx-hw+t,yTop]];
+  };
+  var solid = function(halfFrac, tipFrac){
+    var hw = W2 * halfFrac;
+    return [[cx-hw,yTop],[cx,cy + H2*tipFrac],[cx+hw,yTop]];
+  };
+  return {
+    shapes: [band(M.outer.half, M.outer.tip),
+             band(M.mid.half,   M.mid.tip),
+             solid(M.core.half, M.core.tip)],
+    left:cx - W2, right:cx + W2, top:yTop, bottom:cy + H2 * M.outer.tip
+  };
 }
 function shareDrawMark(ctx, cx, cy, h, theme){
   var g = shareMarkGeometry(cx, cy, h);
@@ -26689,7 +26886,7 @@ function shareDrawMark(ctx, cx, cy, h, theme){
   grad.addColorStop(0.72, theme.gold);
   grad.addColorStop(1, theme.goldDeep);
   ctx.fillStyle = grad;
-  [g.outer, g.inner].forEach(function(pts){
+  g.shapes.forEach(function(pts){
     ctx.beginPath();
     pts.forEach(function(pt, i){ i ? ctx.lineTo(pt[0], pt[1]) : ctx.moveTo(pt[0], pt[1]); });
     ctx.closePath(); ctx.fill();
@@ -26703,7 +26900,7 @@ function shareMarkSVG(cls){
      against a 100-unit viewBox, so both arms were clipped flat -- the mark
      lost the very shape that identifies it. Sized from the width instead:
      h * SHARE_MARK.wide must fit inside 100 with a margin to spare. */
-  var h = Math.floor(92 / SHARE_MARK.wide);
+  var h = Math.floor(94 / SHARE_MARK.wide);
   var g = shareMarkGeometry(50, 50, h), pt = function(a){
     return a.map(function(p){ return p[0].toFixed(2)+','+p[1].toFixed(2); }).join(' ');
   };
@@ -26712,8 +26909,9 @@ function shareMarkSVG(cls){
       '<stop offset="0" stop-color="#8A6D2B"/><stop offset="0.40" stop-color="#F5D061"/>'+
       '<stop offset="0.72" stop-color="#E3B15A"/><stop offset="1" stop-color="#8A6D2B"/>'+
     '</linearGradient></defs>'+
-    '<polygon fill="url(#vvg)" points="'+pt(g.outer)+'"/>'+
-    '<polygon fill="url(#vvg)" points="'+pt(g.inner)+'"/>'+
+    g.shapes.map(function(pts){
+      return '<polygon fill="url(#vvg)" points="'+pt(pts)+'"/>';
+    }).join('')+
   '</svg>';
 }
 /* ---- THE METRIC GLYPHS, ONCE ----
@@ -26746,15 +26944,26 @@ function shareIconSVG(kind){
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" '+
     'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+body+'</svg>';
 }
-function shareTracked(ctx, text, cx, y, track){
+function shareTracked(ctx, text, cx, y, track, align){
   var total = 0, i;
   for (i=0;i<text.length;i++) total += ctx.measureText(text[i]).width + track;
   total -= track;
-  var x = cx - total/2;
+  var x = align === 'left' ? cx : (align === 'right' ? cx - total : cx - total/2);
   for (i=0;i<text.length;i++){
     ctx.fillText(text[i], x, y);
     x += ctx.measureText(text[i]).width + track;
   }
+}
+/* WHERE A RUN OF TEXT STARTS, GIVEN WHAT IT IS ANCHORED TO. Six of the
+   eleven overlays set their type against a left or right edge rather than a
+   centre line, and every op that draws a measured run needs the same answer.
+   `cx` is the anchor whatever the alignment; align says which side of the
+   run touches it. */
+function shareRunX(op, total){
+  var a = op.align || 'center';
+  if (a === 'left')  return op.cx;
+  if (a === 'right') return op.cx - total;
+  return op.cx - total/2;
 }
 /* The tracked twin of shareFitSize(): letterspacing is part of the width, so
    it has to be part of the measurement. */
@@ -26785,6 +26994,17 @@ function shareCardPaint(ctx, ops, W){
   var T = SHARE_THEME;
   ops.forEach(function(op){
     ctx.save();
+    /* THE GOLD LINES NEED THE SAME HELP THE TYPE GETS. A hairline in #E3B15A
+       disappears into sunlit rock or a pale sky -- the frame was legible on a
+       dark mountain and nearly gone on a bright trail. A dark shadow under
+       the stroke costs nothing on a dark photograph and is what makes it hold
+       on a bright one. */
+    if (op.kind === 'frame' || op.kind === 'plinth' || op.kind === 'badge' ||
+        op.kind === 'wedge' || op.kind === 'rule'){
+      ctx.shadowColor = 'rgba(0,0,0,0.55)';
+      ctx.shadowBlur = Math.max(4, W * 0.010);
+      ctx.shadowOffsetY = Math.max(1, W * 0.0015);
+    }
     /* WHAT KEEPS THE TYPE READABLE IS THE SHADOW, NOT A WASH OVER THE PHOTO.
        A translucent slab behind the words would guarantee contrast and cost
        the photograph, which is the thing the athlete actually chose. A soft
@@ -26803,7 +27023,41 @@ function shareCardPaint(ctx, ops, W){
        edge; none of them knows anything about sessions. A scrim is painted
        into the shape rather than over the whole canvas so the photograph is
        only ever darkened where type actually lands. */
-    if (op.kind === 'plinth'){
+    /* ---- THE WATERMARK SURFACES ----
+       A fade is not a panel. The six photo-first overlays put nothing opaque
+       on the image at all: just enough of a directional wash to carry white
+       type, dissolving to nothing well before it reaches the athlete. The
+       difference between this and a plinth is the difference between a
+       caption and a sticker. */
+    if (op.kind === 'fade'){
+      var W2 = op.w, H2 = op.h, gr;
+      if (op.dir === 'bottom')      gr = ctx.createLinearGradient(0, H2, 0, H2 - op.extent);
+      else if (op.dir === 'top')    gr = ctx.createLinearGradient(0, 0, 0, op.extent);
+      else if (op.dir === 'left')   gr = ctx.createLinearGradient(0, 0, op.extent, 0);
+      else                          gr = ctx.createLinearGradient(W2, 0, W2 - op.extent, 0);
+      /* Weighted to hold its value across the type and only then fall away.
+         A linear ramp looked right as a gradient and failed as a background:
+         by the time it reached the top line of the block it was already thin,
+         so the wordmark sat on bare sky. */
+      gr.addColorStop(0, 'rgba(4,5,9,' + op.peak + ')');
+      gr.addColorStop(0.42, 'rgba(4,5,9,' + (op.peak * 0.88).toFixed(3) + ')');
+      gr.addColorStop(0.68, 'rgba(4,5,9,' + (op.peak * 0.52).toFixed(3) + ')');
+      gr.addColorStop(0.86, 'rgba(4,5,9,' + (op.peak * 0.18).toFixed(3) + ')');
+      gr.addColorStop(1, 'rgba(4,5,9,0)');
+      ctx.fillStyle = gr; ctx.fillRect(0, 0, W2, H2);
+    } else if (op.kind === 'seam'){
+      /* A single gold hairline with the light gathered at its middle, which
+         is what stops a long vertical rule reading as a border. */
+      var sg = ctx.createLinearGradient(0, op.y1, 0, op.y2);
+      sg.addColorStop(0, 'rgba(227,177,90,0)');
+      sg.addColorStop(0.18, 'rgba(227,177,90,0.35)');
+      sg.addColorStop(0.5, T.goldBright);
+      sg.addColorStop(0.82, 'rgba(227,177,90,0.35)');
+      sg.addColorStop(1, 'rgba(227,177,90,0)');
+      ctx.strokeStyle = sg; ctx.lineWidth = Math.max(1.5, W*0.0022);
+      ctx.shadowColor = 'rgba(227,177,90,0.55)'; ctx.shadowBlur = W*0.018;
+      ctx.beginPath(); ctx.moveTo(op.x, op.y1); ctx.lineTo(op.x, op.y2); ctx.stroke();
+    } else if (op.kind === 'plinth'){
       var pg = ctx.createLinearGradient(0, op.y, 0, op.y + op.h);
       pg.addColorStop(0, 'rgba(6,8,12,0.58)');
       pg.addColorStop(0.22, 'rgba(6,8,12,0.88)');
@@ -26874,7 +27128,7 @@ function shareCardPaint(ctx, ops, W){
     } else if (op.kind === 'frame'){
       var lw = Math.max(2, W*0.0026);
       ctx.strokeStyle = T.gold; ctx.lineWidth = lw; ctx.lineCap = 'round';
-      ctx.globalAlpha = 0.92;
+      ctx.globalAlpha = 1;
       var x0 = op.x, x1 = op.x + op.w, r = op.r;
       ctx.beginPath();                                   // left segment of the top rule
       ctx.moveTo(op.gapFrom, op.y);
@@ -26901,37 +27155,37 @@ function shareCardPaint(ctx, ops, W){
          the edge. It is fitted here against its TRACKED width. */
       op.size = shareFitTracked(ctx, op.text, '600', T.head, op.size, op.maxW, 0.30);
       ctx.font = '600 ' + op.size + "px " + T.head;
-      shareTracked(ctx, op.text, op.cx, op.y, op.size * 0.30);
+      shareTracked(ctx, op.text, op.cx, op.y, op.size * 0.30, op.align);
     } else if (op.kind === 'headline'){
       ctx.textBaseline = 'top';
       op.size = shareFitSize(ctx, op.text, '700', T.body, op.size, op.maxW);
       ctx.font = '700 ' + op.size + 'px ' + T.body;
+      ctx.textAlign = 'left';
       if (op.accentFrom < 0){
-        ctx.fillStyle = T.ink; ctx.textAlign = 'center'; ctx.fillText(op.text, op.cx, op.y);
+        ctx.fillStyle = T.ink;
+        ctx.fillText(op.text, shareRunX(op, ctx.measureText(op.text).width), op.y);
       } else {
         /* The session in white, the verdict in gold -- the concept's own
            emphasis, and the reason the two are measured as one line. */
         var pre = op.text.slice(0, op.accentFrom), acc = op.text.slice(op.accentFrom);
         var wPre = ctx.measureText(pre).width, wAcc = ctx.measureText(acc).width;
-        var x = op.cx - (wPre + wAcc)/2;
-        ctx.textAlign = 'left';
+        var x = shareRunX(op, wPre + wAcc);
         ctx.fillStyle = T.ink;  ctx.fillText(pre, x, op.y);
         ctx.fillStyle = T.gold; ctx.fillText(acc, x + wPre, op.y);
       }
     } else if (op.kind === 'stack'){
       /* A narrow column sets its words on their own lines instead of
          shrinking one line until the verdict is smaller than the strap. */
-      ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+      ctx.textBaseline = 'top'; ctx.textAlign = 'left';
       var sz = op.size;
       op.lines.forEach(function(ln){
         sz = Math.min(sz, shareFitSize(ctx, ln.text, '700', T.body, op.size, op.maxW));
       });
-      ctx.font = '700 ' + sz + 'px ' + T.body;
       var ly = op.y;
       op.lines.forEach(function(ln){
         ctx.fillStyle = ln.accent ? T.gold : (ln.dim ? 'rgba(255,255,255,0.80)' : T.ink);
         ctx.font = (ln.dim ? '500 ' : '700 ') + sz + 'px ' + T.body;
-        ctx.fillText(ln.text, op.cx, ly);
+        ctx.fillText(ln.text, shareRunX(op, ctx.measureText(ln.text).width), ly);
         ly += Math.round(sz * 1.18);
       });
     } else if (op.kind === 'metricList'){
@@ -26953,18 +27207,20 @@ function shareCardPaint(ctx, ops, W){
       if (op.stacked){
         /* A narrow column cannot carry "28.0 KM" on one line, so the unit
            drops beneath the figure and both centre on the column. */
-        ctx.textAlign = 'center';
+        ctx.textAlign = 'left';
         ctx.font = '700 ' + op.size + 'px ' + T.numeral;
-        ctx.fillStyle = T.ink; ctx.fillText(op.value, op.cx, op.y);
+        ctx.fillStyle = T.ink;
+        ctx.fillText(op.value, shareRunX(op, ctx.measureText(op.value).width), op.y);
         ctx.font = '600 ' + uSize + 'px ' + T.body;
-        ctx.fillText(op.unit, op.cx, op.y + Math.round(op.size * 1.06));
+        ctx.fillText(op.unit, shareRunX(op, ctx.measureText(op.unit).width),
+                     op.y + Math.round(op.size * 1.06));
       } else {
         ctx.textAlign = 'left';
         ctx.font = '700 ' + op.size + 'px ' + T.numeral;
         var wVal = ctx.measureText(op.value).width;
         ctx.font = '500 ' + uSize + 'px ' + T.body;
         var wUnit = ctx.measureText(' ' + op.unit).width;
-        var x0 = op.cx - (wVal + wUnit)/2;
+        var x0 = shareRunX(op, wVal + wUnit);
         ctx.font = '700 ' + op.size + 'px ' + T.numeral;
         ctx.fillStyle = T.ink; ctx.fillText(op.value, x0, op.y);
         ctx.font = '500 ' + uSize + 'px ' + T.body;
@@ -26988,10 +27244,23 @@ function shareCardPaint(ctx, ops, W){
           gapItem = op.size * (op.tight ? 0.85 : 1.5);
       var total = measureRow(op.size);
       ctx.font = '500 ' + op.size + 'px ' + T.body;
-      var x = op.cx - total/2, mid = op.y + op.size*0.6;
+      var x = shareRunX(op, total), mid = op.y + op.size*0.6;
       ctx.textAlign = 'left';
       op.items.forEach(function(it,i){
-        if (i) x += gapItem;
+        if (i){
+          if (op.sep){
+            /* A hairline between metrics, as the bottom-right mock has it --
+               it holds the row together where there is no panel behind it. */
+            ctx.save();
+            ctx.strokeStyle = 'rgba(227,177,90,0.45)';
+            ctx.lineWidth = Math.max(1, op.size*0.04);
+            ctx.beginPath();
+            ctx.moveTo(x + gapItem/2, mid - op.size*0.52);
+            ctx.lineTo(x + gapItem/2, mid + op.size*0.52);
+            ctx.stroke(); ctx.restore();
+          }
+          x += gapItem;
+        }
         shareDrawIcon(ctx, it.icon, x + r, mid, r, T.ink);
         x += r*2 + gapIcon;
         ctx.fillStyle = T.ink; ctx.fillText(it.text, x, mid);
@@ -27008,7 +27277,12 @@ function shareCardPaint(ctx, ops, W){
       ctx.textBaseline = 'top';
       op.size = shareFitSize(ctx, op.text, '500', T.body, op.size, op.maxW);
       ctx.font = '500 ' + op.size + 'px ' + T.body;
-      ctx.fillText(op.text, op.cx, op.y);
+      if (op.track){
+        shareTracked(ctx, op.text, op.cx, op.y, op.size * op.track, op.align);
+      } else {
+        ctx.textAlign = 'left';
+        ctx.fillText(op.text, shareRunX(op, ctx.measureText(op.text).width), op.y);
+      }
     }
     ctx.restore();
   });
