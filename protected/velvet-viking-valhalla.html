@@ -410,8 +410,17 @@
      to clear. */
 
   /* ---------- sticky top bar ---------- */
+  /* ONE GROUND, FROM THE STATUS BAR DOWN. The header carried its own
+     colour -- rgba(21,17,13,.92), a warm near-black distinctly browner than
+     --bg (#121316) -- so the top 60px of every screen read as a separate
+     surface the content scrolled under. It is the page's own ground now.
+     THE BLUR AND THE TRANSLUCENCY STAY. They are not decoration: this bar
+     is sticky and content passes beneath it, and a fully opaque bar makes
+     that pass read as a hard cut. --bg is mixed to .92 of itself so the
+     colour matches exactly while the pass stays soft. */
   .topbar{
-    position:sticky; top:0; z-index:50; background:rgba(21,17,13,0.92);
+    position:sticky; top:0; z-index:50;
+    background:color-mix(in srgb, var(--bg) 92%, transparent);
     backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
     border-bottom:1px solid var(--line);
   }
@@ -1331,8 +1340,16 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-row1{padding-right:96px; margin:0 0 10px; gap:7px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .week-today-flag{order:-1;}
 
+  /* AND IT STOPS CLIPPING. .day-detail carries max-height + overflow:hidden
+     because that pair is how the open/shut transition is animated -- but a
+     FOCUSED session is never shut (dayCardIsFocused forces it open and
+     handleToggleDay returns early on it), so here the clip animates nothing
+     and only cuts things off. It was cutting the Coach's Note's light back
+     to the card's own width, which is what made a glow meant to dissolve
+     into the screen end on two dead-straight vertical lines. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail{width:100%; margin-right:0;
-    display:flex; flex-direction:column;}
+    display:flex; flex-direction:column;
+    overflow:visible; max-height:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > *:not(.ws-block){max-width:100%;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > *{order:5;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > .day-desc{order:1;}
@@ -1344,50 +1361,79 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > .ws-block{order:2;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > .how-card{order:3;}
 
-  /* ---- BOX 1 : two tiles inside a hairline frame ---- */
+  /* ---- BOX 1 IS NOT A BOX ----
+     It was a hairline frame holding two inset tiles, each with its own fill
+     and its own border: three nested rectangles around one number and one
+     ring. The session is the reason the screen exists, and it was being
+     introduced by its packaging.
+     Everything structural stays -- metric left, ring right, same flex, same
+     order, same sizes. What goes is the frame, the two tile faces, their
+     borders and the lift. The metric already carries its own backlight and
+     the ring already carries its own glow (and now pulses), so both read as
+     lit objects on the screen's own ground rather than as contents of a
+     container. Nothing was added to replace the card: the light that was
+     always there is simply no longer competing with three edges.
+     SCOPED, as ever, to the focused session. A card in a LIST still needs
+     its edges, because there the edge is what separates one day from the
+     next; here there is only one. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero{
-    display:flex; align-items:stretch; gap:9px; flex-wrap:nowrap;
-    padding:9px; margin:0; border-radius:24px;
-    /* FLAT, NOT WASHED. The two inner faces cover most of this box, so the
-       fill gradient was invisible here and only cost the right-hand tile
-       its edge definition against a darkening parent. */
-    border:1.5px solid transparent;
-    /* The flat fill is written as a gradient on purpose: in the shorthand a
-       background COLOUR may only occupy the final layer, so
-       "background:#1C1E24 padding-box, <gradient> border-box" is invalid and
-       the whole declaration is dropped -- which left this box with no fill
-       and no rim at all. A two-stop gradient of one colour is a valid image
-       layer and paints flat. */
-    background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
-      var(--t-rim-grad) border-box;
-    box-shadow:var(--t-lift);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero:has(+ .th-steps-note){
-    border-bottom-left-radius:0; border-bottom-right-radius:0; border-bottom:0;}
+    display:flex; align-items:center; gap:9px; flex-wrap:nowrap;
+    padding:4px 2px 10px; margin:0;
+    background:none; border:0; box-shadow:none; border-radius:0;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero-main{
     flex:1 1 56%; min-width:0; display:flex; flex-direction:column;
-    justify-content:center; gap:2px; padding:14px 14px 16px;
-    border-radius:18px; background:#15171C; border:1px solid var(--line-soft);}
+    justify-content:center; gap:2px; padding:2px 6px 2px 2px;
+    background:none; border:0; border-radius:0;}
   /* TITLES SET IN CAPITALS ACROSS THIS SCREEN. Presentational only --
      dd.title and every step label are untouched in the data, so Edit
      Session, the calendar export, notifications and the other two views
      still read the stored string exactly as written. */
+  /* THE TITLE IS LIT LIKE THE NUMBER UNDER IT. It was --ink (#F4F1EA, a warm
+     off-white) and flat, so the two halves of one statement -- what the
+     session is, and how far -- were at different brightnesses and only one
+     of them read as the hero. Pure white and the same backlight recipe the
+     metric uses, radii scaled to 19px type: a tight 1px halo to set the
+     glyph edges off the ground, then one soft bloom. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero-title{
     display:block; font-size:19px; font-weight:600; line-height:1.2;
-    letter-spacing:.04em; text-transform:uppercase; color:var(--ink);}
+    letter-spacing:.04em; text-transform:uppercase; color:#FFFFFF;
+    text-shadow:0 0 1px rgba(255,255,255,.42), 0 0 13px rgba(255,255,255,.26),
+                0 0 34px rgba(255,255,255,.10);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .strat-phase-label{text-transform:uppercase;
     letter-spacing:.05em; font-size:12.5px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-ring-wrap{
     flex:0 0 40%; display:flex; align-items:center; justify-content:center;
-    border-radius:18px; background:#15171C; padding:8px;
-    border:1px solid var(--line-soft);}
+    padding:0; background:none; border:0; border-radius:0;}
+  /* ---- THE ZONE WORD LEAVES THE RING ----
+     Checked across every session type the engine builds, not just the easy
+     day that prompted it: the ring's label is BYTE-IDENTICAL to the type
+     badge at the top of the same card in all seven cases -- Interval, Easy,
+     Long Run, Tempo, Threshold, Checkpoint, Race Day. On four of them the
+     session title says it a third time ("Easy Aerobic", "Threshold 9km").
+     So this is not a judgement about redundancy on one screen; the word is
+     already on the card every single time, four inches higher.
+     What the ring is left holding is the only thing it alone says: the two
+     numbers to run to. They take the space the label vacated.
+     SCOPED, and the markup is untouched -- dayTypeLabel() still renders for
+     the week overview's own ring and for anything else that shows one. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-ring-k{display:none;}
+  /* THE SIZE IS CLAMPED TO THE RING, because the hollow it has to sit in
+     is. The ring is clamp(116px, 35vw, 144px), so a 360pt phone gives a
+     126px ring and a ~50px usable radius -- and a flat 13px pace band
+     measured 53px out from the centre there, i.e. drawn over its own
+     stroke. The same 13px is comfortable at 430. One value cannot be right
+     for both, so it scales with the thing that contains it. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-row{
+    font-size:clamp(11px, 3vw, 13px); line-height:1.5; gap:5px; color:var(--ink);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-row .th-ic, :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-row .th-ic svg{width:12px; height:12px;}
+  /* The strip that hung off the bottom of the card has nothing to hang off
+     now. It keeps its words and its quiet colour and loses the half-card it
+     was drawn as -- a rounded-bottom box with no top is only legible as the
+     foot of something, and that something is gone. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-steps-note{
-    display:block; margin:0; padding:0 14px 12px;
+    display:block; margin:0; padding:0 2px 10px;
     color:var(--ink-faint);
-    border:1.5px solid transparent; border-top:0;
-    background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
-      var(--t-rim-grad) border-box;
-    border-radius:0 0 24px 24px;
-    box-shadow:0 6px 18px rgba(0,0,0,.42);}
+    border:0; background:none; border-radius:0; box-shadow:none;}
 
   /* The metric: unit nearly the weight of the number, ambient backlight. */
   .th-dist{display:flex; align-items:baseline; gap:3px;}
@@ -1397,11 +1443,14 @@
   .th-dist span{font-family:'Inter',-apple-system,sans-serif; font-weight:700; line-height:1;
     font-size:clamp(38px, 12vw, 48px); letter-spacing:-0.02em;
     font-variant-numeric:tabular-nums; color:#FFFFFF;
-    text-shadow:0 0 1px rgba(255,255,255,.40), 0 0 16px rgba(255,255,255,.30),
-                0 0 44px rgba(255,255,255,.14);}
+    /* Already pure white at peak 255; what it gains here is REACH -- a
+       wider, stronger bloom, which is lit area rather than a brighter
+       glyph, for the same reason the ring gained stroke. */
+    text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 20px rgba(255,255,255,.42),
+                0 0 54px rgba(255,255,255,.22);}
   .th-dist em{font-style:normal; font-weight:700; font-size:clamp(24px, 8vw, 32px);
     color:#FFFFFF;
-    text-shadow:0 0 1px rgba(255,255,255,.35), 0 0 14px rgba(255,255,255,.22);}
+    text-shadow:0 0 1px rgba(255,255,255,.50), 0 0 18px rgba(255,255,255,.34);}
 
   /* The gauge: a near-complete amber ring, thin, with the gap at top-right. */
   /* THE RING IS A FIXED SQUARE AND THE READOUT FLOATS OVER IT. Laid out in
@@ -1409,7 +1458,9 @@
      tall, and .th-arc stretched with it -- the circle came out as an ellipse
      clipped into two fragments. Absolute centring keeps the geometry whatever
      the text measures. */
-  .th-ring{position:relative; flex:none; width:clamp(112px, 33vw, 134px);
+  /* And a little more diameter with it: area scales with both, and the ring
+     is the one object on this screen that is the session itself. */
+  .th-ring{position:relative; flex:none; width:clamp(116px, 35vw, 144px);
     aspect-ratio:1/1; display:block;}
   .th-arc{position:absolute; inset:0; width:100%; height:100%;
     filter:drop-shadow(0 0 10px var(--cherry-dim));}
@@ -1531,22 +1582,254 @@
   .th-row.mp{color:var(--gold-text); font-size:9px;}
 
   /* ---- BOX 2 : how to run this ---- */
+  /* ---- BOX 2 IS A RAIL, NOT A BOX ----
+     Six coaching modules stacked inside one tall bordered card meant the
+     athlete scrolled past Why, Execution, Feel and Watch For to reach the
+     Coach's Note, and the card's own edge was the loudest thing on a screen
+     whose subject is a number and a ring. As a rail each module is a
+     destination the thumb reaches sideways, one at a time, and the card
+     that held them is not drawn at all. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card{
-    margin:13px 0 0; padding:2px 2px 6px; border:1.5px solid transparent;
-    border-radius:20px; box-shadow:var(--t-lift);
-    background:var(--t-card-grad) padding-box, var(--t-rim-velvet) border-box;}
+    margin:11px 0 0; padding:0; border:0; border-radius:0;
+    box-shadow:none; background:none;}
   /* A heading, not a control: Box 2 is open and stays open on Today, so the
      chevron and the pointer affordance go with the behaviour they advertised.
      This Week and Full Plan keep the ordinary closed disclosure. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card > summary{
-    font-size:13px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
-    color:var(--ink); padding:13px 15px 9px;
-    pointer-events:none; cursor:default; list-style:none;}
+  /* "HOW TO RUN THIS" IS GONE ON THE FOCUSED SESSION. The first panel is
+     headed WHY and the second EXECUTION; a title above them saying the rail
+     is about how to run the session is a label on a label. Everywhere else
+     this is still a closed disclosure and the summary is the thing you
+     press, so it keeps its heading there -- only the view where the rail is
+     already open loses it. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card > summary{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card > summary::-webkit-details-marker{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card .fuel-chevron{display:none;}
   /* The information glyph goes: the reference heads this box with words. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card > summary > svg:first-child{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card .fuel-body{padding:0 15px 11px;}
+  /* THE RAIL ITSELF. scroll-snap does the swipe -- no gesture handler, no
+     drag maths, and the platform's own momentum and rubber-banding, which
+     is what makes it feel native rather than scripted.
+     start-alignment, not centre: with centre the first and last modules can
+     never reach the middle without phantom padding either side, and a rail
+     that will not scroll to its own first panel reads as broken. Aligned to
+     the start, each module lands in the same place and the next one peeks,
+     which is also the only affordance saying a rail is a rail. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card .fuel-body{
+    display:flex; align-items:flex-start; gap:0; padding:0 0 4px; margin:0;
+    overflow-x:auto; overflow-y:hidden;
+    scroll-snap-type:x mandatory; scroll-behavior:smooth;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    /* The height is set per frame by the rail script; the transition is what
+       keeps a taller panel scrolling into view from snapping the layout. */
+    transition:height .22s ease;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card .fuel-body::-webkit-scrollbar{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod{
+        /* A PERCENTAGE ALONE IS NOT ENOUGH, because the percentage is of the
+       RAIL and the rail shrinks with the phone. At 31% a 430pt screen gives
+       the column 97px of text and a 360pt screen gives it 78px -- and
+       "Conversational" is 95px at this size, so the narrow phone broke it
+       mid-word while the wide one did not. The floor is the longest word
+       the coaching copy actually contains, measured, so no phone can get a
+       column too narrow for its own vocabulary. */
+    display:block; flex:0 0 34%; min-width:122px; box-sizing:border-box;
+    scroll-snap-align:start; scroll-snap-stop:always;
+    /* THE AIR IS INSIDE THE MODULE, NOT AROUND IT, AND THAT IS FORCED.
+       A glow that overspills has to overspill into something, and it cannot
+       be the rail: overflow-x:auto makes the other axis clip too (CSS
+       computes a `visible` cross-axis to `auto` the moment one axis
+       scrolls), so a ::before reaching past the module's top was sliced off
+       on a dead-straight horizontal line. Generous padding here gives the
+       light room to start outside the TEXT and still finish inside the box,
+       which is the effect, and nothing is clipped. */
+    /* WIDER AND SHORTER. At 31% the sentences wrapped to five and six lines
+       and the panels read as columns of a table rather than as cards of
+       light. Three points of width is roughly a line off each, and the
+       vertical padding comes down with it -- the air moves from above and
+       below the words to BETWEEN them, which is where it reads as
+       breathing room rather than as empty panel. */
+    padding:18px 13px 20px; border-radius:20px; position:relative;
+    /* A module the athlete is not reading is not hidden, it is unlit. The
+       dim is what makes the illumination below read as illumination rather
+       than as a slightly different beige. */
+    opacity:.46; transition:opacity .28s ease;}
+  /* EVERY COLUMN IS THE SAME WIDTH, which is only possible because the two
+     things that could not be a column are no longer in the rail. A wide
+     panel mixed in with narrow ones was worse than it sounds: it overlapped
+     the rail's viewport almost permanently, so the height -- which follows
+     the tallest module ON SCREEN -- was its height nearly all the time, and
+     a one-sentence Why sat at the top of 700px of nothing. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-table{margin-top:16px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-table .how-row-heading{margin-top:0;}
+  /* A hairline between columns, and only between them. Not a border on the
+     module -- that would draw a box round the lit one too -- but a divider
+     that belongs to the gap. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod + .how-mod::after{
+    /* Shorter and quieter. A full-height hairline at .9 turned four panels
+       into four columns of a table; at .3 over the middle half it separates
+       them without ruling them. */
+    content:''; position:absolute; left:0; top:28%; bottom:28%; width:1px;
+    background:var(--line-soft); opacity:.3; pointer-events:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod.is-active::after,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod.is-active + .how-mod::after{opacity:0;}
+  /* ---- THE ICON ----
+     Shown only here. In the stack these are rows of text and an icon per row
+     is decoration; in a 27% column it is what identifies the panel before
+     the label has been read. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod-i{
+    display:block; color:var(--gold-text); margin-bottom:11px; opacity:.92;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod-i svg{width:21px; height:21px; stroke-width:1.7;}
+  /* The label grows into a heading, because in a column it IS the heading --
+     there is nothing else at the top of the panel to carry it. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod .how-row{display:block; padding:0; border:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod .how-row .k{
+    display:block; font-size:15px; letter-spacing:.055em; margin-bottom:10px;
+    color:var(--gold-text);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod .how-row .v{
+    /* The tiers, not numbers. 13.5px/1.42 was the same size the support tier
+       already carries and the typography guard was right to refuse it: a
+       hand-set sentence is how 47 of them drifted apart in the first place,
+       and a new one written during a redesign is exactly when it happens. */
+    font-size:var(--fs-support); line-height:1.6;
+    /* NOT overflow-wrap:anywhere, which .how-row .v carries by default. In
+       a full-width row that setting never fires; in a 31% column it fires
+       constantly, and it is allowed to break INSIDE a word with no hyphen
+       -- "Conversational" came out as "Conversation / al". break-word only
+       breaks a word that cannot fit on a line of its own, which here is
+       none of them. */
+    overflow-wrap:break-word; word-break:normal;
+    /* And if a longer word is ever written than the floor above allows for,
+       it breaks WITH a hyphen rather than silently mid-word. */
+    hyphens:auto; -webkit-hyphens:auto;}
+  /* ---- THE ACTIVE MODULE IS LIT, NOT BOXED ----
+     A soft gold pool of light behind the words, falling off to nothing well
+     inside the module's own edges, so there is no line anywhere -- the panel
+     is defined by where the light stops, which is what "environmental"
+     means here. Painted on a ::before UNDERNEATH the content rather than as
+     the element's own background, so the falloff is free to overspill the
+     padding box without the text ever sitting on an edge. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod.is-active{opacity:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod::before{
+    content:''; position:absolute; inset:0;
+    border-radius:26px; pointer-events:none; z-index:0;
+    /* UNDER 50%, AND THAT IS ARITHMETIC RATHER THAN TASTE. A radial's
+       ending-shape percentages are relative to the BOX SIZE, not to the
+       half-box: at 70% the horizontal radius is 1.4x the distance to the
+       edge, so the gradient was still carrying colour when it reached the
+       box and the browser simply cut it there. Every "dissolve" in this
+       file had the same bug and the same visible rounded rectangle. At 46%
+       the light reaches zero a few pixels short of the edge on every side,
+       which is the only way there is nothing to see. */
+    /* Stronger now that it is the ONLY thing marking the selection, and
+       still under 50% on both axes so it dies before the panel's edge. */
+    background:radial-gradient(48% 46% at 50% 46%,
+      rgba(227,177,90,.26) 0%, rgba(227,177,90,.115) 52%, rgba(227,177,90,0) 100%);
+    opacity:0; transition:opacity .34s ease;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod.is-active::before{opacity:1;}
+  /* The lit panel also catches a line of light along its lower edge -- the
+     one hard-ish element in the rail, and it is light rather than a border:
+     it has no ends (the gradient fades out before the panel does) and no
+     sides. It is what stops the pool reading as a smudge. */
+  /* THE L OF LIGHT IS GONE, ELEMENT AND ALL. Two 2px bars down the leading
+     edge and along the foot were meant to read as a panel catching light
+     from the side; at 2px with a hard start and stop they read as what they
+     were, which is two thirds of a border. Selection is illumination here
+     and nothing else -- if the pool cannot carry it, the pool is wrong, not
+     under-decorated. The markup went with it rather than being hidden,
+     because an empty span kept for a style that no longer exists is how
+     dead markup survives for years. */
+  /* ---- THE DOTS ----
+     Five quiet marks that say the rail moves. They are not controls: the
+     panel beside the one you are reading is already visible and is the real
+     affordance -- these only answer "how many". */
+  .how-dots{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-dots{
+    display:flex; justify-content:center; gap:7px; padding:12px 0 2px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-dot{
+    width:6px; height:6px; border-radius:50%; background:var(--ink-faint);
+    opacity:.34; transition:opacity .25s ease, background-color .25s ease,
+      box-shadow .25s ease;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-dot.is-on{
+    background:var(--gold-bright); opacity:1;
+    box-shadow:0 0 8px rgba(245,208,97,.6);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod > *{position:relative; z-index:1;}
+  /* ---- THE COACH'S NOTE IS LIT IN CHERRY, AND HAS NO EDGE ----
+     It was a bordered, tinted rectangle -- the one boxed thing left inside a
+     rail built to have no boxes. The box goes; what marks it out is that its
+     light is the product's cherry rather than the gold every other module
+     carries, so the one module that is the coach speaking directly reads as
+     a different kind of thing without a line being drawn anywhere.
+     RECTANGULAR, AND IT OVERSPILLS. The radial is deliberately far wider and
+     taller than it is round (130% x 112%), which fills the panel edge to
+     edge and falls off only at the very end, so the pool reads as a lit
+     rectangle rather than a blob with the words sitting in it. The inset is
+     negative on all four sides so the light starts outside the content and
+     dissolves into the ground instead of stopping on an alignment anyone
+     could trace. Low intensity on purpose: it has to be unmistakably a
+     different colour and still quieter than the gold. */
+  /* ---- THE COACH'S NOTE, BELOW THE RAIL AND AT FULL WIDTH ----
+     The rail is written about the SESSION. This one sentence is written
+     about this athlete on this day, which is a different kind of statement
+     and the reason the screen is worth opening on a day the athlete already
+     knows the plan. As a panel in the rail it was a fifth thing to swipe
+     past; here it cannot be missed, and its light finally has the width to
+     be seen.
+     NO BORDER AND NO FILL -- what marks it out is a cherry bloom that
+     starts outside the words and dissolves into the ground. Strong, because
+     at the intensity it carried inside the rail it was a tint, and a tint
+     on a near-black screen is nothing. The ending shape stops inside the
+     ::before (96% x 82%) so the light reaches zero before the box does and
+     there is no edge anywhere to find. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note{
+    position:relative; display:flex; flex-direction:column; gap:3px;
+    /* ITS OWN INTERVENTION, SO ITS OWN SPACE. 14px put it in the rail's
+       rhythm, as though it were a sixth panel that had fallen below the
+       others. At 32px it reads as the coach stopping to say something. */
+    width:100%; box-sizing:border-box; margin:32px 0 2px;
+    padding:34px 26px 36px; border:0; background:none; border-radius:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note::before{
+    content:''; position:absolute; z-index:0; pointer-events:none;
+    /* FULL-BLEED LIGHT, COLUMN-ALIGNED WORDS. The note sits inside the page
+       gutter and the day card's padding, so a glow confined to its own box
+       stops short of the screen on both sides and reads as a panel again.
+       This spans the viewport whatever the ancestors are padded by --
+       50% of the element back, then 100vw wide -- while the text above it
+       stays exactly where every other line on the screen starts. */
+    /* The light spans the whole screen now, not 92% of it, and the pool
+       inside it is wider -- 46% of a 100vw box reaches 46vw from centre
+       against the 36.8vw it reached before, a quarter more overspill past
+       the words. The INTENSITY is untouched; this is reach, not volume. */
+    left:calc(50% - 50vw); width:100vw; right:auto;
+    /* Pulled OUTSIDE the box top and bottom, which .day-detail's overflow
+       now permits, so the falloff has somewhere to happen. */
+    top:-14px; bottom:-18px; border-radius:999px;
+    /* FALLOFF WITH DISTANCE FROM THE WORDS, which is both halves of the
+       problem at once. A flat stadium -- even blurred to 30px -- is an even
+       field: every part of it is as lit as every other until the very edge,
+       so it reads as an area rather than as light, and an area that size
+       dominates whatever brightness it is given. A radial centred on the
+       text is brightest where the words are and falls away from them, which
+       is what light does and why it stops competing with the session.
+       THE RADIAL IS UNDER 50% ON BOTH AXES -- 40% x 42% -- because the
+       ending-shape percentages are of the BOX, not the half-box, so
+       anything above 50 is still carrying colour when it meets the edge and
+       gets cut there. Earlier versions of this glow were cut at 78% and at
+       130%, both times showing the rounded rectangle this is meant to avoid.
+       THE BLUR STAYS, SMALLER. A radial's stops still have corners in their
+       first derivative and the eye finds them as faint rings; 18px of blur
+       removes those without flattening the falloff the radial exists for.
+       The colour is the token thinned with color-mix, never an invented
+       in-between. */
+    background:radial-gradient(46% 42% at 50% 50%,
+      color-mix(in srgb, var(--cherry-text) 62%, transparent) 0%,
+      color-mix(in srgb, var(--cherry) 40%, transparent) 46%,
+      color-mix(in srgb, var(--cherry) 12%, transparent) 76%,
+      transparent 100%);
+    filter:blur(18px);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note > *{position:relative; z-index:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note .k{font-size:15px; letter-spacing:.055em; gap:7px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note .k svg{width:16px; height:16px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note .v{font-size:var(--fs-body); line-height:var(--lh-body);}
   /* Tight stack, no rules between rows -- the reference uses spacing alone. */
   /* The rule is a border-BOTTOM in the base sheet, which is why cancelling
      border-top did nothing. The reference separates the rows with space. */
@@ -1567,15 +1850,27 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-row .v{display:block; color:var(--ink);}
   .how-note{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .coach-cue-inline{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note{
-    display:flex; flex-direction:column; gap:2px; width:100%; box-sizing:border-box;
-    margin-top:4px; padding:10px 12px; border-radius:12px;
-    border:1px solid var(--cherry-line); background:var(--cherry-tint);}
+  /* The bordered, tinted rectangle that stood here is gone, not overridden:
+     two rules for one element at the same specificity is a trap where the
+     later one silently wins, and the Coach's Note has moved out of the rail
+     and been rewritten above with the reasoning. Only `display` belongs
+     here, because it is `display:none` by default -- the note has two
+     positions in the markup and this is the one a focused session shows. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note{display:flex;}
   .how-note .k{display:flex; align-items:center; gap:6px; font-size:11.5px;
     font-weight:700; letter-spacing:.06em; text-transform:uppercase;
     color:var(--gold-text);}
   .how-note .k svg{width:13px; height:13px;}
   .how-note .v{ color:var(--ink);}
+  /* THE MODULE WRAPPER IS NOT A BOX ANYWHERE BY DEFAULT. display:contents
+     removes it from layout entirely, so This Week, Full Plan's list and
+     every other surface that renders this card see exactly the stack of
+     rows they saw before it existed. It becomes a real element only inside
+     a focused session, where the rail needs something to lay out. */
+  .how-mod{display:contents;}
+  /* The rail's icon is emitted for every view and shown by one.
+     In the stack it would be an icon per row. */
+  .how-mod-i{display:none;}
 
   /* ---- BOX 3 : the workout structure ---- */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-block{
@@ -4077,6 +4372,52 @@
     text-align:center; margin:18px 0 4px;
   }
   .view-fade{ animation:fadein .18s ease; }
+  /* ---------- WHAT EACH SCREEN IS FOR ----------
+     Today = DO. This Week = MANAGE. Full Plan = PLAN. Valhalla = UNDERSTAND.
+     Settings = CONFIGURE. A screen should only offer the actions that serve
+     its own purpose, and "change what the session is" is not one of Today's
+     -- Today is where the athlete executes what Valhalla prescribed. The
+     control is not removed from the product: it is one tap away on This
+     Week and on Full Plan, which are the screens whose job it is.
+     THE LOG BUTTON STAYS. Recording what was actually run is doing the
+     session, not re-planning it, so a completed day on Today keeps its
+     notes button -- which is why these two needed separating at all.
+     :has() so the rail disappears with the only thing in it rather than
+     leaving a hole where a button used to be; the same selector family the
+     hero already uses for .th-hero:has(+ .th-steps-note). */
+  .view-today .day-act-plan{display:none;}
+  .view-today .day-actions:not(:has(.day-act-log)){display:none;}
+  /* ---------- THE VIEW PAGER ----------
+     The stage the current screen slides on, and the only thing the gesture
+     moves. It is NOT given overflow:hidden: the Coach's Note's light and the
+     coaching rail both bleed past this box on purpose, and clipping them the
+     moment a finger lands would be visible. The incoming screen is a fixed
+     overlay instead (.view-peek), which is outside this box entirely, so
+     nothing here has to be clipped to keep it off-screen. */
+  .view-pager{position:relative;}
+  .view-pager.is-paging{will-change:transform;}
+  /* THE SCREEN BEING REVEALED. Fixed rather than absolute so it is measured
+     against the viewport and not against a parent that is itself being
+     translated -- and so it needs no knowledge of the page's scroll
+     position. It sits under the top bar and over the ground, never over the
+     bottom nav, which stays where it is and stays tappable throughout. */
+  .view-peek{
+    position:fixed; left:0; right:0; z-index:5;
+    overflow:hidden; pointer-events:none;
+    contain:paint;}
+  .view-peek > .wrap{height:100%; overflow:hidden;}
+  /* No transition by default: during a drag the transform is written every
+     frame and a transition would fight the finger. It is switched on only
+     for the settle at the end of the gesture. */
+  .view-pager.is-settling, .view-peek.is-settling{
+    transition:transform .22s cubic-bezier(.22,.61,.36,1);}
+  @media (prefers-reduced-motion: reduce){
+    .view-pager.is-settling, .view-peek.is-settling{transition:none;}
+  }
+  /* The horizontal regions that own their own gesture say so in CSS as well
+     as being detected at runtime: pan-x lets the browser scroll them
+     natively even while the pager is listening. */
+  .fuel-body, .pp-chips, .pace-table-card, [data-hswipe]{touch-action:pan-x;}
   /* ONE CARD RADIUS. --radius (16px), the same value .hub-card.tile-card and
      .ev-card already use. The bare rule carried --radius-sm (10px), so the
      identical class rendered two different corners depending on whether the
@@ -23810,6 +24151,15 @@ var ICONS = {
   target: svgWrap('<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>'),
   shieldmark: svgWrap('<path d="M12 2.5l8 3.5v5.2c0 5-3.4 8.3-8 10.3-4.6-2-8-5.3-8-10.3V6z"/><path d="M12 7.5v9M8.3 10.3L12 7.5l3.7 2.8" stroke-width="1.6"/>', ' style="color:var(--bronze)"'),
   zap: svgWrap('<path d="M12.5 2.5L4 13h6l-1 8.5L20 11h-6.5z"/>'),
+  /* The two the coaching rail needed and the set did not have. Same geometry
+     as everything else here -- strokes on the 24 grid, no fills except the
+     two eyes, no third-party glyph. "smile" is how a session should FEEL;
+     "trend" is the drift a session should WATCH FOR, which is a line going
+     the wrong way. */
+  smile: svgWrap('<circle cx="12" cy="12" r="8.5"/><path d="M8.6 14.2a4.4 4.4 0 0 0 6.8 0"/>'+
+    '<circle cx="9.3" cy="10" r="0.8" fill="currentColor" stroke="none"/>'+
+    '<circle cx="14.7" cy="10" r="0.8" fill="currentColor" stroke="none"/>'),
+  trend: svgWrap('<polyline points="3.5,16.5 9,11 13,15 20.5,7.5"/><polyline points="15.5,7.5 20.5,7.5 20.5,12.5"/>'),
   // Generic activity-pulse glyph for the Strava connect button -- an angular
   // ascending line evoking a heart-rate/activity trace, not a reproduction
   // of Strava's trademarked logomark.
@@ -25598,6 +25948,23 @@ function renderStructuredWorkout(dd){
     '<div class="ws-head font-head">Workout</div>'+body+
   '</section>';
 }
+/* The rail's dots. Counted from the same four conditions the modules are
+   built from, in the same order, so the indicator cannot drift from the
+   thing it indicates. */
+function railDotsHtml(gd, dd, stratBlock, fuelOn){
+  /* Counted from exactly the conditions the RAIL is built from -- the
+     tables are not in it, so they are not counted. An indicator that can
+     disagree with the thing it indicates is worse than no indicator. */
+  var n = 0;
+  if (gd.why) n++;
+  if (!stratBlock && gd.how) n++;
+  if (gd.feel) n++;
+  if (gd.avoid) n++;
+  if (n < 2) return '';
+  var dots = '';
+  for (var i=0; i<n; i++) dots += '<span class="how-dot"></span>';
+  return '<div class="how-dots" aria-hidden="true">'+dots+'</div>';
+}
 function renderCoachingDepth(dd){
   var focusedCard = dayCardIsFocused(dd);
   var level = athleteExperience();
@@ -25647,6 +26014,28 @@ function renderCoachingDepth(dd){
     var row = function(k, v){
       return v ? '<div class="how-row"><span class="k">'+k+'</span><span class="v">'+escapeHtml(v)+'</span></div>' : '';
     };
+    /* An empty module is not emitted at all. A rail with a blank panel in it
+       is worse than a rail with five panels, and the stack never showed one
+       either -- row() has always returned '' for a fact the engine does not
+       have.
+       THE ICON IS EMITTED FOR EVERY VIEW AND SHOWN BY ONE. Like the Coach's
+       Note's two positions and the title's, it lives in the single string
+       renderDayCard() produces and CSS decides who sees it -- the stack on
+       This Week and Full Plan hides it, because there these are rows of
+       text and an icon per row would be decoration. In the rail it is what
+       makes a 27%-wide column identifiable before its label is read.
+       data-wide marks the one module that cannot be a narrow column: an
+       Execution carrying staged phases is a table, not a sentence, and
+       squeezed into a quarter of the screen it would be unreadable. */
+    var MOD_ICON = { why:ICONS.clock, execution:ICONS.link, feel:ICONS.smile,
+                     watch:ICONS.trend, fuel:ICONS.zap };
+    var mod = function(key, inner, wide){
+      if (!inner) return '';
+      return '<div class="how-mod" data-mod="'+key+'"'+(wide?' data-wide="1"':'')+'>'+
+        (MOD_ICON[key] ? '<span class="how-mod-i" aria-hidden="true">'+MOD_ICON[key]+'</span>' : '')+
+        inner+
+      '</div>';
+    };
     var stratBlock = renderExecutionStrategyBlock(dd);
     var fuelOn;
     try { fuelOn = needsFueling(dd); } catch(e) { fuelOn = false; }
@@ -25669,19 +26058,56 @@ function renderCoachingDepth(dd){
       (focusedCard
         ? '<summary class="is-static">'+ICONS.info+'How to run this</summary>'
         : '<summary>'+ICONS.info+'How to run this<span class="fuel-chevron" aria-hidden="true">'+ICONS.chevronDown+'</span></summary>')+
+      /* ---------- ONE WRAPPER PER COACHING MODULE ----------
+         Why / Execution / Feel / Watch For / Coach's Note / Fuel were six
+         loose runs of siblings -- two of them (Execution and Fuel) a heading
+         followed by a block -- which is fine as a stack and impossible as a
+         rail: a flex row would have made each heading its own panel and
+         orphaned the block beneath it.
+         So each module is named here, ONCE, in the single string every view
+         shares. Nothing about the stack changes anywhere else, because
+         .how-mod is display:contents outside the focused session -- the
+         wrapper is in the DOM and absent from the layout, so This Week and
+         Full Plan render exactly the boxes they rendered before. That is
+         also what keeps renderDayCard() a pure function of the day with one
+         output for all three views, which test/editSessionCoherence proves
+         and which is not being traded for a layout. */
       '<div class="fuel-body">'+
-        row('Why', gd.why)+
-        (stratBlock
-          ? '<div class="how-row-heading">Execution</div>'+stratBlock
-          : row('Execution', gd.how))+
-        row('Feel', gd.feel)+
-        row('Watch For', gd.avoid)+
-        (cueText
-          ? '<div class="how-note"><span class="k font-head">'+ICONS.info+'Coach\u2019s Note</span>'+
-            '<span class="v">'+escapeHtml(cueText)+'</span></div>'
-          : '')+
-        (fuelOn ? '<div class="how-row-heading">Fuel</div>'+fuelSectionBody(dd) : '')+
+        mod('why', row('Why', gd.why))+
+        /* Only when Execution is a SENTENCE. A staged execution -- SETTLE,
+           PRESS, RECOVER, ABSORB, each with its own pace and instruction --
+           is a table, and a table is not a micro-module: at a quarter of a
+           phone it is unreadable, and at full width it is the tallest thing
+           in the rail and drags every short panel's height up with it. It
+           renders below the rail instead, where it already reads well and
+           where it has always read well. The rail is the coaching
+           SENTENCES; the tables are reference. */
+        mod('execution', stratBlock ? '' : row('Execution', gd.how))+
+        mod('feel', row('Feel', gd.feel))+
+        mod('watch', row('Watch For', gd.avoid))+
       '</div>'+
+      /* ONE DOT PER MODULE, AND THE COUNT COMES FROM THE MODULES. Written
+         here rather than injected by the rail script so that a rail whose
+         script never runs still shows how many panels there are -- and so
+         the count can never disagree with what was emitted. Hidden outside
+         a focused session, where there is no rail to indicate.
+         aria-hidden: it says nothing a screen reader cannot already get by
+         moving through the modules themselves. */
+      railDotsHtml(gd, dd, stratBlock, fuelOn)+
+      /* The two tables, below the rail and above the note, in the order they
+         always had. Unchanged markup and unchanged presentation -- they have
+         simply stopped being asked to be something they are not. */
+      (stratBlock ? '<div class="how-table"><div class="how-row-heading">Execution</div>'+stratBlock+'</div>' : '')+
+      (fuelOn ? '<div class="how-table"><div class="how-row-heading">Fuel</div>'+fuelSectionBody(dd)+'</div>' : '')+
+      /* THE COACH'S NOTE LEAVES THE RAIL. It is not a fifth thing to swipe
+         past -- it is the one sentence written about THIS athlete on THIS
+         day, and everything above it is written about the session. So it
+         sits below the rail at full width where it cannot be missed, which
+         is also the only way its cherry light has room to be seen. */
+      (cueText
+        ? '<div class="how-note"><span class="k font-head">'+ICONS.info+'Coach\u2019s Note</span>'+
+          '<span class="v">'+escapeHtml(cueText)+'</span></div>'
+        : '')+
     '</details>';
   }
   return out;
@@ -25868,20 +26294,42 @@ var TH_ARC = '<svg class="th-arc" viewBox="0 0 100 100" aria-hidden="true">'+
      draws it: 305 degrees, clockwise from 75 to 20. Both endpoints are
      computed ON the r=45 circle centred in the viewBox -- the previous pair
      were not, so the arc solved to a circle centred outside the box and
-     rendered as two clipped fragments. Stroke 7 keeps the outer edge at
-     48.5, inside the 100-unit box. */
+     rendered as two clipped fragments. Stroke 8.5 keeps the outer edge at
+     49.25, inside the 100-unit box.
+     STROKE 7 -> 8.5 BECAUSE MASS IS THE LEVER, NOT BRIGHTNESS. Measured off
+     the rendered screen, the ring's peak luminance (241) already equalled
+     the Coach's Note's; what differed was area -- 24% of the ring's box was
+     lit against 81% of the note's. A thin line at full brightness still
+     loses to a filled region, so the answer was never a brighter cherry.
+     21% more stroke is ~21% more lit ring for the same hue, the same
+     gradient and the same tokens. */
   /* pathLength="1" renormalises this arc to a length of 1, so the draw-on
      dash can be written as 0..1 without anyone computing 2*pi*r*305/360 --
      and it stays correct if the geometry is ever retuned. */
-  '<path pathLength="1" d="M93.5 38.4 A 45 45 0 1 1 65.4 7.7" fill="none" stroke="url(#th-grad)" stroke-width="7" stroke-linecap="round"/>'+
+  '<path pathLength="1" d="M93.5 38.4 A 45 45 0 1 1 65.4 7.7" fill="none" stroke="url(#th-grad)" stroke-width="8.5" stroke-linecap="round"/>'+
   /* THE CHERRY RAMP, BRIGHTEST AT THE TOP AND GRADING OUT. Vertical rather
      than diagonal (y1=0 -> y2=1), so the ring is lit where the gap is and
      fades as it comes round the bottom. Straight off the product's own
      cherry tokens -- --cherry-text is the bright end, --cherry the body,
      and the foot falls away to a dim wash rather than a hard stop. */
+  /* A HOT CORE, AND THE COLOUR LIVES IN THE GLOW. Measured on the rendered
+     screen, the stroke peaked at 127 luminance -- not because it was drawn
+     faintly but because --cherry-text (#C46A89) is a mid-luminance pink and
+     127 is simply where that colour tops out. White peaks at 255. No amount
+     of opacity, stroke or bloom could make a ring painted entirely in
+     mid-pink the brightest object beside white type; the ceiling was the
+     hue, not the treatment.
+     So the top of the arc -- the lit end, where the gap is -- now runs to a
+     near-white pink before falling into --cherry-text and then the cherry
+     body. That is what the reference does and it is how a lit filament
+     actually looks: white where it is hottest, coloured where it radiates.
+     The halo around it is untouched and still pure cherry, so the ring
+     reads as a cherry light rather than as a white one -- what changed is
+     that it now has a filament instead of being uniformly warm. */
   '<defs><linearGradient id="th-grad" x1="0" y1="0" x2="0" y2="1">'+
-    '<stop offset="0%" stop-color="var(--cherry-text)"/>'+
-    '<stop offset="40%" stop-color="var(--cherry)"/>'+
+    '<stop offset="0%" stop-color="#FFF1F5"/>'+
+    '<stop offset="16%" stop-color="var(--cherry-text)"/>'+
+    '<stop offset="52%" stop-color="var(--cherry)"/>'+
     '<stop offset="100%" stop-color="var(--cherry-dim)"/>'+
   '</linearGradient></defs></svg>';
 function renderDayTargetRing(dd, targets){
@@ -43714,11 +44162,20 @@ function canEditPrescription(dd){
    itself now locks or reveals the right fields via canEditPrescription(), so
    the icon here only has to tell the athlete honestly which door they are
    about to open. A rest day offers neither. */
+/* TWO DIFFERENT ACTIONS BEHIND ONE DOORWAY, AND THEY ARE NOW NAMED APART.
+   Editing the PRESCRIPTION is changing what Valhalla asked for -- a planning
+   act. Editing the COMPLETION is recording what was actually run -- part of
+   doing the session. They have always been one data-action and one rail
+   position, which was fine while every screen offered both; it stopped being
+   fine when Today had to keep one and lose the other, because CSS cannot
+   tell them apart by aria-label alone without being brittle about copy.
+   The class is the distinction, stated once, in the one string every view
+   shares. */
 function dayActionButton(dd){
   if (canEditPrescription(dd))
-    return '<button type="button" data-action="open-edit" data-day="'+dd.id+'" aria-label="Edit session">'+ICONS.pencil+'</button>';
+    return '<button type="button" class="day-act-plan" data-action="open-edit" data-day="'+dd.id+'" aria-label="Edit session">'+ICONS.pencil+'</button>';
   if (canEditCompletion(dd))
-    return '<button type="button" data-action="open-edit" data-day="'+dd.id+'" aria-label="Edit activity">'+ICONS.notes+'</button>';
+    return '<button type="button" class="day-act-log" data-action="open-edit" data-day="'+dd.id+'" aria-label="Edit activity">'+ICONS.notes+'</button>';
   return '';
 }
 function renderDayCheck(dd){
@@ -56025,13 +56482,318 @@ function renderApp(){
      only, and the global palette is not being forked. */
   app.innerHTML =
     renderTopbar()+
-    '<div class="wrap"><div id="view-mount" class="view-fade">'+renderMainContent()+'</div></div>'+
+    '<div class="view-pager" id="view-pager"><div class="wrap"><div id="view-mount" class="view-fade">'+renderMainContent()+'</div></div></div>'+
     (navAllowed ? renderBottomNavStack() : '');
   programmeEntryBindName();
   openTodayCoachingPanel();
   openWeekFullSession();
   animateSessionRing();
   animateWeekBar();
+  wireCoachingRails();
+}
+/* ---------- THE COACHING RAIL ----------
+   scroll-snap already does the swipe; nothing here touches the gesture. Two
+   things CSS cannot answer on its own are answered here:
+
+   1. WHICH MODULE IS LIT. There is no selector for "the snapped child" that
+      can be relied on yet, so the nearest-to-the-start child is marked and
+      the gold illumination keys off that class. Nearest by
+      getBoundingClientRect, not offsetLeft -- .how-mod is positioned, so its
+      offsetParent is itself, and offset maths would have measured nothing.
+
+   2. HOW TALL THE RAIL IS. The modules are wildly unequal -- "Why" is one
+      sentence, "Execution" on a structured session is four staged phases --
+      and a flex row is as tall as its tallest child, so Why sat at the top
+      of 600px of nothing. The rail is given the height of whatever is in
+      view, INTERPOLATED across the swipe rather than snapped at the end, so
+      the panel grows and shrinks with the thumb instead of jumping when it
+      lifts.
+
+   If any of this fails the rail is still a working scroll-snap carousel at
+   the natural (tallest) height, which is why the height is only ever SET
+   here and never depended on. */
+/* =========================================================
+   SWIPING BETWEEN THE MAIN TABS
+   =========================================================
+   The bottom nav is unchanged and remains the way the app is navigated.
+   This is an accelerator laid on top of it, which is why nothing here is
+   ever the only route to anything -- nobody has to discover a gesture.
+
+   GESTURE HIERARCHY, AND IT IS RESOLVED AT THE TOUCH, NOT BY GUESSWORK.
+   A horizontal region owns a horizontal gesture that starts inside it: the
+   coaching rail, the phase chips, the pace table, the week's sessions.
+   Rather than naming them -- a list that would be wrong the first time
+   someone adds a fourth -- the walk up from the touched node asks the only
+   question that matters: is any ancestor actually scrollable sideways right
+   now (overflow-x auto/scroll AND scrollWidth past clientWidth)? If so the
+   pager never claims the gesture at all. data-hswipe opts anything else in.
+
+   VERTICAL WINS WHEN IT IS MEANT TO. Nothing is claimed and nothing is
+   prevented until the finger has travelled far enough to have an intention,
+   and then only if the horizontal component clearly dominates. Until that
+   moment the page scrolls natively, which is both correct and the only way
+   it stays at 60fps. Once vertical wins it wins for the whole gesture --
+   a diagonal cannot drift into a tab change halfway through.
+
+   THE ENDS DO NOT WRAP. Today is the first screen and Settings the last.
+   Dragging past either resists and returns; it does not come round. A tab
+   bar has ends and pretending otherwise loses people.
+
+   THE TRANSITION TRACKS THE FINGER. The current screen translates with the
+   touch and the next one is revealed beside it, in real time; at release it
+   either completes or returns. It is not a swipe that queues a transition.
+
+   REDUCED MOTION gets the destination and not the journey: no peek is
+   built, nothing translates, and a completed swipe simply arrives. */
+var PAGER_VIEWS = ['today', 'week', 'full', 'planhq', 'settings'];
+var PAGER_CLAIM_PX = 10;     /* movement before an axis is decided at all */
+var PAGER_AXIS_BIAS = 1.25;  /* how much horizontal must beat vertical by */
+var pagerState = null;
+
+function pagerReducedMotion(){
+  try{ return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  catch(e){ return false; }
+}
+/* A small, single tick at the moment the new screen commits -- the same
+   confirmation a physical detent gives. Native first (iOS has no
+   navigator.vibrate at all, so without this there would be no haptic on the
+   platform most likely to expect one), then the web API, then nothing. */
+function pagerHaptic(){
+  try{
+    var h = nativePlugin('Haptics');
+    if (h && typeof h.impact === 'function'){ h.impact({ style: 'Light' }); return; }
+    if (navigator && typeof navigator.vibrate === 'function') navigator.vibrate(8);
+  }catch(e){}
+}
+/* Does any ancestor of the touched node scroll sideways RIGHT NOW? */
+function pagerOwnedElsewhere(node){
+  var el = node, hops = 0;
+  while (el && el.nodeType === 1 && hops < 24){
+    if (el.hasAttribute && el.hasAttribute('data-hswipe')) return true;
+    try{
+      var cs = window.getComputedStyle(el);
+      var ox = cs.overflowX;
+      if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) return true;
+    }catch(e){}
+    el = el.parentElement; hops++;
+  }
+  return false;
+}
+function pagerIndex(){
+  var i = PAGER_VIEWS.indexOf(state.view || 'today');
+  return i < 0 ? 0 : i;
+}
+/* The neighbour's markup, built by asking renderMainContent() the same
+   question it is always asked, with the view swapped for the length of one
+   call. No second render path, so the screen revealed is the screen that
+   arrives. */
+function pagerNeighbourHtml(view){
+  var was = state.view;
+  try{ state.view = view; return renderMainContent(); }
+  catch(e){ return ''; }
+  finally{ state.view = was; }
+}
+function pagerBuildPeek(view, dir){
+  var pager = document.getElementById('view-pager');
+  if (!pager) return null;
+  var bar = document.querySelector('.topbar');
+  var top = bar ? Math.round(bar.getBoundingClientRect().bottom) : 0;
+  var peek = document.createElement('div');
+  peek.className = 'view-peek';
+  peek.style.top = top + 'px';
+  peek.style.bottom = '0px';
+  peek.innerHTML = '<div class="wrap">' + pagerNeighbourHtml(view) + '</div>';
+  peek.style.transform = 'translate3d(' + (dir > 0 ? '100%' : '-100%') + ',0,0)';
+  document.body.appendChild(peek);
+  return peek;
+}
+function pagerSetOffset(dx){
+  var p = pagerState; if (!p) return;
+  if (p.mount) p.mount.style.transform = 'translate3d(' + dx + 'px,0,0)';
+  if (p.peek){
+    var base = p.dir > 0 ? p.w : -p.w;
+    p.peek.style.transform = 'translate3d(' + (base + dx) + 'px,0,0)';
+  }
+}
+function pagerCleanup(){
+  var p = pagerState; pagerState = null;
+  if (!p) return;
+  try{
+    if (p.mount){ p.mount.style.transform = ''; p.mount.classList.remove('is-settling', 'is-paging'); }
+    if (p.peek && p.peek.parentNode) p.peek.parentNode.removeChild(p.peek);
+  }catch(e){}
+}
+function pagerFinish(commit){
+  var p = pagerState;
+  if (!p) return;
+  if (!p.claimed || !p.peek){ pagerCleanup(); if (commit && p.to) handleSetView(p.to); return; }
+  if (p.reduced){
+    pagerCleanup();
+    if (commit && p.to) { handleSetView(p.to); pagerHaptic(); }
+    return;
+  }
+  var end = commit ? (p.dir > 0 ? -p.w : p.w) : 0;
+  p.mount.classList.add('is-settling');
+  p.peek.classList.add('is-settling');
+  /* The transform is read back before the class lands so the browser has a
+     start value to interpolate from; without it the settle jumps. */
+  void p.mount.offsetWidth;
+  pagerSetOffset(end);
+  var to = p.to;
+  window.setTimeout(function(){
+    pagerCleanup();
+    if (commit && to){ handleSetView(to); pagerHaptic(); }
+  }, 230);
+}
+function pagerTouchStart(e){
+  if (pagerState) return;
+  if (!e.touches || e.touches.length !== 1) return;
+  if (!state || !state.setup) return;
+  try{ if (!appStateAllowsNav() || shouldShowProgrammeEntry(resolveAppState())) return; }catch(err){ return; }
+  if (document.querySelector('.modal-overlay')) return;   /* a sheet owns the screen */
+  var mount = document.getElementById('view-pager');
+  if (!mount) return;
+  if (pagerOwnedElsewhere(e.target)) return;
+  var t = e.touches[0];
+  pagerState = { x0:t.clientX, y0:t.clientY, t0:Date.now(), axis:null, claimed:false,
+                 mount:mount, peek:null, dir:0, to:null, w:(window.innerWidth || 360),
+                 reduced:pagerReducedMotion(), lastX:t.clientX, lastT:Date.now(), vx:0 };
+}
+function pagerTouchMove(e){
+  var p = pagerState;
+  if (!p || !e.touches || e.touches.length !== 1) return;
+  var t = e.touches[0];
+  var dx = t.clientX - p.x0, dy = t.clientY - p.y0;
+  if (p.axis === null){
+    if (Math.abs(dx) < PAGER_CLAIM_PX && Math.abs(dy) < PAGER_CLAIM_PX) return;
+    /* Decided once, for the whole gesture. A diagonal that starts vertical
+       stays vertical however it finishes. */
+    p.axis = (Math.abs(dx) > Math.abs(dy) * PAGER_AXIS_BIAS) ? 'x' : 'y';
+    if (p.axis === 'y'){ pagerState = null; return; }
+    var i = pagerIndex();
+    p.dir = dx < 0 ? 1 : -1;                 /* 1 = moving forward through the tabs */
+    var next = i + p.dir;
+    p.to = (next >= 0 && next < PAGER_VIEWS.length) ? PAGER_VIEWS[next] : null;
+    p.claimed = true;
+    if (p.to && !p.reduced){
+      p.peek = pagerBuildPeek(p.to, p.dir);
+      p.mount.classList.add('is-paging');
+    }
+  }
+  if (!p.claimed) return;
+  /* Claimed: the page must not also scroll sideways underneath. */
+  if (e.cancelable) e.preventDefault();
+  var now = Date.now();
+  if (now > p.lastT){ p.vx = (t.clientX - p.lastX) / (now - p.lastT); p.lastX = t.clientX; p.lastT = now; }
+  if (p.reduced) return;
+  /* NO WRAP: at the first or last tab there is nothing to reveal, so the
+     drag is damped to a fifth and springs back. The resistance is the
+     message -- the screen says "there is nothing here" by feeling like it. */
+  var moved = p.to ? dx : dx * 0.2;
+  pagerSetOffset(moved);
+}
+function pagerTouchEnd(){
+  var p = pagerState;
+  if (!p) return;
+  if (!p.claimed){ pagerState = null; return; }
+  var dx = p.lastX - p.x0;
+  /* A third of the screen, or a flick -- whichever the finger offers. */
+  var far = Math.abs(dx) > p.w * 0.3;
+  var fast = Math.abs(p.vx) > 0.45 && Math.abs(dx) > 24;
+  var forward = (dx < 0) === (p.dir > 0);
+  pagerFinish(!!p.to && forward && (far || fast));
+}
+function initViewPager(){
+  if (typeof document === 'undefined' || !document.addEventListener) return;
+  if (initViewPager.done) return;
+  initViewPager.done = true;
+  try{
+    document.addEventListener('touchstart', pagerTouchStart, { passive:true });
+    /* NOT passive: once the gesture is claimed the horizontal pan has to be
+       cancelled, and a passive listener may not. Until it is claimed nothing
+       is prevented, so vertical scrolling stays native and immediate. */
+    document.addEventListener('touchmove', pagerTouchMove, { passive:false });
+    document.addEventListener('touchend', pagerTouchEnd, { passive:true });
+    document.addEventListener('touchcancel', function(){ pagerFinish(false); }, { passive:true });
+  }catch(e){}
+}
+
+function wireCoachingRails(){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  try{
+    var rails = document.querySelectorAll('.how-card .fuel-body');
+    for (var i=0; i<rails.length; i++) wireCoachingRail(rails[i]);
+  }catch(e){}
+}
+function wireCoachingRail(rail){
+  if (!rail || rail.__vvRailed) return;
+  var mods = rail.querySelectorAll ? rail.querySelectorAll('.how-mod') : null;
+  if (!mods || mods.length < 1) return;
+  /* A single module is not a rail. Leave it alone entirely: no height, no
+     active class, no scroll listener -- it is one block of coaching and it
+     should lay itself out. */
+  rail.__vvRailed = true;
+  if (mods.length > 1){
+    /* A scrollable region has to be reachable by something other than a
+       finger. role+label say what it is; tabindex makes it keyboard
+       scrollable, which browsers do not all grant automatically. */
+    rail.setAttribute('tabindex', '0');
+    rail.setAttribute('role', 'group');
+    rail.setAttribute('aria-label', 'How to run this \u2014 swipe for more');
+  }
+  var pending = 0;
+  function sync(){
+    pending = 0;
+    try{
+      var r = rail.getBoundingClientRect();
+      var best = 0, bestD = Infinity, i, m, d;
+      for (i=0; i<mods.length; i++){
+        m = mods[i].getBoundingClientRect();
+        d = Math.abs(m.left - r.left);
+        if (d < bestD){ bestD = d; best = i; }
+      }
+      for (i=0; i<mods.length; i++){
+        if (i === best) mods[i].classList.add('is-active');
+        else mods[i].classList.remove('is-active');
+      }
+      /* THE TALLEST MODULE ACTUALLY ON SCREEN, not the tallest there is.
+         The rail shows about four narrow columns at once, so interpolating
+         between two of them (which is what this did while a module filled
+         the rail) now measures the wrong thing entirely -- it would size the
+         rail to one column while three others were visible beside it and
+         taller. Every module overlapping the rail's own box is measured and
+         the largest wins; a CSS transition carries the change so a wide
+         Execution panel scrolling in grows the rail rather than snapping
+         it. */
+      var h = 0, m2;
+      for (i=0; i<mods.length; i++){
+        m2 = mods[i].getBoundingClientRect();
+        if (m2.right > r.left + 1 && m2.left < r.right - 1){
+          if (mods[i].scrollHeight > h) h = mods[i].scrollHeight;
+        }
+      }
+      if (h > 0) rail.style.height = Math.round(h) + 'px';
+      /* The dots are emitted beside the rail, not inside it. */
+      var card = rail.parentNode;
+      var dots = card && card.querySelector ? card.querySelectorAll('.how-dot') : null;
+      if (dots) for (i=0; i<dots.length; i++){
+        if (i === best) dots[i].classList.add('is-on');
+        else dots[i].classList.remove('is-on');
+      }
+    }catch(e){}
+  }
+  rail.addEventListener('scroll', function(){
+    /* rAF-throttled: a snap scroll fires this every frame already, and
+       doing the measuring twice per frame is how a smooth rail starts to
+       stutter on a mid-range phone. */
+    if (!pending && typeof requestAnimationFrame === 'function') pending = requestAnimationFrame(sync);
+    else if (typeof requestAnimationFrame !== 'function') sync();
+  }, { passive: true });
+  sync();
+  /* Fonts and the mono pace figures can land after first paint and change
+     how tall a module is; one late re-measure costs nothing and avoids a
+     rail sized for text that has since reflowed. */
+  if (typeof setTimeout === 'function') setTimeout(sync, 350);
 }
 /* HOW TO RUN THIS IS NOT A DROP-DOWN ON TODAY. The approved screen shows the
    whole session on one page: hero, structure, execution, all open. The
@@ -56641,6 +57403,11 @@ function init(){
   registerServiceWorker();
   startNotificationScheduler();
   initHardwareBackButton();
+  /* Bound once to the document, not per render: the pager reads the live DOM
+     at the moment of a touch, so it survives every re-render without being
+     re-attached -- and re-attaching per render is how duplicate listeners
+     accumulate. */
+  initViewPager();
   // Deliberately last and un-awaited: the app is already painted from
   // localStorage by this point, so cloud sync can never delay startup and a
   // cloud failure can never prevent the app from opening.
