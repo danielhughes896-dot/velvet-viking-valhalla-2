@@ -4321,12 +4321,25 @@
   .pp-chip > span:first-child{white-space:nowrap;}
   .pp-chip-tick{display:inline-flex; flex:none;}
   .pp-chip-tick svg{width:13px; height:13px;}
-  .pp-chip.is-done{color:var(--ink);}
-  .pp-chip.is-done .pp-chip-tick{color:#9BC08C;}
+  /* A CHIP SAYS ITS STATE WITH LIGHT, NOT WITH THE WORD -- and that is the
+     difference between a control and a row. The week rows below are read,
+     so their state is the colour of the text. These are pressed, and their
+     label colour is already spoken for: gold means SELECTED here, which is
+     the one selection language the product has. Colouring the word by state
+     as well put two meanings on one property and the chips started
+     contradicting themselves the moment a completed phase was opened.
+     So the word stays crisp white at every state, including selected, and
+     the state is a glow behind it -- the same green and the same gold the
+     rows use, from the same tokens. The tick stays green because it is a
+     mark rather than a label. */
+  .pp-chip.is-ahead, .pp-chip.is-now, .pp-chip.is-done{color:var(--ink);}
+  .pp-chip.is-done{box-shadow:0 0 16px color-mix(in srgb, var(--ok) 36%, transparent);}
+  .pp-chip.is-now{box-shadow:0 0 16px rgba(227,177,90,.26);}
+  .pp-chip.is-done .pp-chip-tick{color:var(--ok-text);}
   /* The selected chip is the bottom nav's selected tab again -- gold, lit,
      no fill -- which is the one selected language this product has. */
   .pp-chip.is-open{
-    color:var(--gold-bright); border-color:var(--gold);
+    border-color:var(--gold);
     box-shadow:0 0 0 1px var(--gold), 0 0 14px rgba(227,177,90,.26);
   }
 
@@ -4362,11 +4375,45 @@
     font-variant-numeric:tabular-nums; margin-left:10px;}
   .pp-body{display:none; padding:0 9px 9px;}
   .pp-phase.is-open .pp-body{display:block;}
-  /* Inside a phase the week accordions lose their own outer shell: a box
-     around boxes is what the flat list was replaced to avoid. */
-  .view-plan .pp-body .week{border-color:var(--t-tile-rim); background:var(--t-tile);
-    box-shadow:none; margin-bottom:6px;}
-  .view-plan .pp-body .week:last-child{margin-bottom:0;}
+  /* ---------- FULL PLAN TAKES THE SAME RULES AS EVERY OTHER SCREEN ----------
+     This was the last place in the product still built from boxes inside
+     boxes: a lifted, rimmed phase card holding up to six lifted, rimmed week
+     rows. An earlier pass took the SHADOW off the inner rows and left the
+     rim and the fill, which is exactly why it still read as a container of
+     containers -- the elevation was never what made it look nested.
+     NOTHING STRUCTURAL CHANGES. The phases, the weeks, the rows and the
+     three-level drill-down are as they were; they stop being drawn as cards
+     and become runs of rows separated by hairlines, which is what Today and
+     This Week now do.
+     THE CURRENT PHASE KEEPS ITS GOLD and loses only the rim. Its mark is
+     already a gold ring and its name is already --gold-bright, so the rim
+     was a third statement of something two other things had each said
+     once -- and geometry is the one way this product has stopped saying
+     "selected". */
+  .view-plan .pp-phase, .view-plan .pp-phase.is-now{
+    background:none; border:0; border-radius:0; box-shadow:none; overflow:visible;}
+  .view-plan .pp-phase + .pp-phase{border-top:1px solid var(--line-soft);}
+  .view-plan .pp-head{padding:15px 2px;}
+  .view-plan .pp-body{padding:0 2px 12px;}
+  .view-plan .pp-body .week{
+    background:none; border:0; border-radius:0; box-shadow:none; margin-bottom:0;}
+  .view-plan .pp-body .week + .week{border-top:1px solid var(--line-soft);}
+  /* The session rows on a week screen are the same kind of thing. */
+  :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row{
+    background:none; border:0; border-radius:0; box-shadow:none; padding:14px 2px;}
+  :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row + .pw-row{
+    border-top:1px solid var(--line-soft);}
+  /* THE CURRENT DAY KEEPS ITS GOLD WITHOUT THE RIM IT USED TO WEAR. .pw-row
+     .is-today set border-color, and border:0 above takes the border it was
+     colouring -- so the signal moves to the row's own text, which already
+     carried part of it. */
+  :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row.is-today .pw-date,
+  :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row.is-today .pw-dow{
+    color:var(--gold-bright);}
+  /* ...and so are the panels either side of them. Scoped to the plan views
+     and never to bare .hub-card, which Today and Valhalla also use. */
+  :is(.view-plan, .view-plan-week, .view-plan-session) :is(.hub-card, .zone-card, .race-event, .race-strategy){
+    background:none; border:0; border-radius:0; box-shadow:none;}
   /* ---- THE WEEK ROW, COMPACT ----
      A phase holds up to six of these, so the row carries the same facts in
      less height: the Cinzel numeral comes down, the range tightens under the
@@ -4379,23 +4426,23 @@
      tier they outrank it, which is the point of the row. */
   .view-plan .pp-body .week-vol .v{font-size:var(--fs-data);}
   .view-plan .pp-body .week-pct{font-size:var(--fs-data); margin-left:8px;}
-  /* THE WEEK THE ATHLETE IS IN, inside an open phase: the gold rim and gold
-     label the current day and the selected tab already use. Without it every
-     row in the taper looked alike and "now" had to be read off a badge. */
-  .view-plan .pp-body .week.is-now,
-  .view-plan .pp-body .week:has(.week-today-flag){
-    border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), 0 0 14px rgba(227,177,90,.20);}
-  .view-plan .pp-body .week:has(.week-today-flag) .week-num,
-  .view-plan .pp-body .week:has(.week-today-flag) .week-phase{color:var(--gold-bright);}
+  /* THE WEEK THE ATHLETE IS IN is marked further down, with the rest of the
+     state colours. It used to be stated here as a gold rim plus a 1px ring;
+     both were drawn on a border this screen no longer has, and leaving the
+     rule in place meant two rules describing the same thing differently. */
 
   /* ---- RACE DAY, ONE COMPACT CARD ----
      Velvet rather than gold on the rim: the event is the culmination and the
      strategy chips inside it already carry Cherry Lacquer, so the card is
      framed in the colour of the decision it contains. */
+  /* Race day is the most important row on the screen and was the most
+     boxed: a velvet-rimmed, lifted card. It keeps its velvet -- the rim
+     moves to a hairline above it -- and gives up the elevation, like
+     everything else here. */
   .view-plan > .race-event{
-    border:1.5px solid transparent; border-radius:var(--tile-radius);
-    background:var(--t-card-grad) padding-box, var(--t-rim-velvet) border-box;
-    box-shadow:var(--t-lift); padding:11px 13px 13px; margin-bottom:0;
+    background:none; border:0; border-radius:0; box-shadow:none;
+    padding:16px 2px 4px; margin-bottom:0;
+    border-top:1px solid color-mix(in srgb, var(--cherry) 38%, transparent);
   }
   .view-plan > .race-event .race-divider{
     display:flex; align-items:center; gap:9px; margin:0 0 2px; padding:0;}
@@ -4486,10 +4533,76 @@
   .pw-row.is-today{border-color:var(--gold);
     box-shadow:0 0 0 1px var(--gold), 0 0 14px rgba(227,177,90,.22);}
   .pw-row.is-today .pw-dow{color:var(--gold-bright);}
-  .view-plan-week .zone-card{margin:2px 0 0;
-    border:1.5px solid transparent; border-radius:var(--tile-radius);
-    background:var(--t-card-grad) padding-box, var(--t-rim-velvet) border-box;
-    box-shadow:var(--t-lift);}
+  .view-plan-week .zone-card{margin:2px 0 0;}
+
+  /* ---------- THE LAST WORD ON PLAN BOXES, AND DELIBERATELY LAST ----------
+     Three rules above this point re-boxed what the pass further up had
+     already stripped -- .pw-progress, .pw-row.is-today and the week
+     screen's zone card -- and each won not on specificity but on SOURCE
+     ORDER. Chasing them one at a time with ever-longer selectors is how a
+     stylesheet turns into an argument with itself, so the plan screens
+     state it once, here, after everything that could contradict it.
+     The today row keeps its gold as light rather than as a ring: the rim it
+     used to wear is gone, so the glow is the whole signal. */
+  :is(.view-plan, .view-plan-week, .view-plan-session)
+    :is(.pw-progress, .pw-row, .zone-card, .hub-card, .race-event, .race-strategy, .week, .pp-phase){
+    background:none; border:0; border-radius:0; box-shadow:none;}
+  :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row.is-today{
+    box-shadow:0 0 16px rgba(227,177,90,.20);}
+  /* ---------- A FINISHED WEEK IS LIT THE WAY A FINISHED SESSION IS ----------
+     Same green, same technique as SESSION COMPLETE: a blurred radial that
+     overspills the row and dissolves into the page, built from --ok rather
+     than from a colour invented here, and under 50% on both axes so the
+     ending shape cannot reach the box edge and be cut square.
+     DIMMER THAN THE SESSION BANNER, DELIBERATELY. That one appears once on
+     a screen; this can appear ten times down a block, and a column of
+     glows at the banner's strength stops reading as "done" and starts
+     reading as the background. The row still has to overflow:visible --
+     .week clipped its own children before the boxes came off. */
+  .view-plan .pp-body .week{overflow:visible;}
+  .view-plan .pp-body .week.is-done{position:relative;}
+  .view-plan .pp-body .week.is-done::before{
+    content:''; position:absolute; z-index:0; pointer-events:none;
+    left:calc(50% - 50vw); width:100vw; right:auto; top:-1px; bottom:-1px;
+    border-radius:999px;
+    background:radial-gradient(44% 46% at 50% 50%,
+      color-mix(in srgb, var(--ok-text) 25%, transparent) 0%,
+      color-mix(in srgb, var(--ok) 14%, transparent) 48%,
+      color-mix(in srgb, var(--ok) 5%, transparent) 76%,
+      transparent 100%);
+    filter:blur(14px);}
+  .view-plan .pp-body .week.is-done > *{position:relative; z-index:1;}
+  /* The figure the glow is about: gold is the colour of a week in progress,
+     so a gold 100% inside a green light contradicts itself. */
+  .view-plan .pp-body .week.is-done .week-pct{color:var(--ok-text);}
+
+  /* ---------- ONE COLOUR FOR STATE, WHEREVER THE PLAN IS READ ----------
+     Green is done, gold is now, crisp white is still ahead. The three were
+     already being said in three different accents: a chip's tick was green
+     while its label was ink, the current week was gold, and every week
+     ahead shared --bronze-text with every week behind it -- so the one
+     distinction the screen exists to draw was the one it drew weakest.
+     Stated once here, in tokens, for both the chips and the rows.
+     AND THE CURRENT WEEK IS LIT AGAIN. It used to be marked by a gold rim
+     and a 1px ring; the de-boxing above took the border it was drawn on and
+     left nothing, so this is a regression that pass introduced. It comes
+     back as illumination, which is what the rest of the product selects
+     with. */
+  .view-plan .pp-body .week .week-num,
+  .view-plan .pp-body .week .week-phase{color:var(--ink);}
+  .view-plan .pp-body .week.is-done .week-num,
+  .view-plan .pp-body .week.is-done .week-phase{color:var(--ok-text);}
+  .view-plan .pp-body .week.is-now .week-num,
+  .view-plan .pp-body .week.is-now .week-phase,
+  .view-plan .pp-body .week:has(.week-today-flag) .week-num,
+  .view-plan .pp-body .week:has(.week-today-flag) .week-phase{color:var(--gold-bright);}
+  .view-plan .pp-body .week.is-now,
+  .view-plan .pp-body .week:has(.week-today-flag){
+    box-shadow:0 0 18px rgba(227,177,90,.20);}
+  :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row + .pw-row,
+  .view-plan .pp-body .week + .week,
+  .view-plan .pp-phase + .pp-phase{border-top:1px solid var(--line-soft);}
+  .view-plan-week .pw-progress{padding:0 0 14px;}
 
   /* ---- THE NAVIGATION IS LIT, NOT DRAWN ----
      No surface of its own, no rule along the top: the bar is the page, and
@@ -44625,7 +44738,14 @@ function renderWeekAccordion(weekNum, forceOpen){
      the note is not repeated on the goal week, which already says RACE WEEK. */
   var taperFinal = goalWeekContinuesTaper(weekNum);
   var taperLook = taper || taperFinal;
-  return '<div class="week'+openCls+(taperLook?' is-taper':'')+(taperFinal?' is-taper-final':'')+'" id="week-'+weekNum+'">'+
+  /* THE SAME FACT THE PERCENTAGE ALREADY STATES, carried as a class so the
+     sheet can light it. Read from weekVolume() like everything else on this
+     row rather than recomputed, and gated on there being training to do:
+     a week with nothing prescribed is not a week that was completed. */
+  var weekPct = vol.training > 0
+    ? Math.max(0, Math.min(100, Math.round(100*vol.doneTraining/vol.training))) : 0;
+  var doneCls = (vol.training > 0 && weekPct >= 100) ? ' is-done' : '';
+  return '<div class="week'+openCls+doneCls+(taperLook?' is-taper':'')+(taperFinal?' is-taper-final':'')+'" id="week-'+weekNum+'">'+
     '<button type="button" class="week-head" data-action="plan-open-week" data-week="'+weekNum+'">'+
       '<div class="week-num font-display">'+(weekNum<10?'0':'')+weekNum+'</div>'+
       '<div class="week-meta">'+
@@ -44635,10 +44755,7 @@ function renderWeekAccordion(weekNum, forceOpen){
       /* The same pair the hero shows, plus the share of it that is done --
          one more reading of weekVolume(), not a second calculation. */
       '<div class="week-vol"><div class="v font-mono">'+kmToDisplay(vol.doneTraining)+'/'+kmToDisplay(vol.training)+'</div><div class="l font-head">'+displayUnit()+'</div></div>'+
-      (vol.training > 0
-        ? '<div class="week-pct font-mono">'+Math.max(0, Math.min(100,
-            Math.round(100*vol.doneTraining/vol.training)))+'%</div>'
-        : '')+
+      (vol.training > 0 ? '<div class="week-pct font-mono">'+weekPct+'%</div>' : '')+
       '<div class="week-chevron">'+ICONS.chevronRight+'</div>'+
     '</button>'+
     taperNote+raceNote+
