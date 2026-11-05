@@ -5372,8 +5372,17 @@
   .b-dials-hint svg{width:12px; height:12px;}
   /* Diameters from the approved arc: 66 / 76 across a 430pt screen, which
      with the 5px gaps leaves the row inside the page gutter at the narrowest
-     phone the product supports. The 88px rank-0 face went with the centre
-     circle; the hero gauge is the apex of the arc now, and it is 132px. */
+     phone the product supports.
+     RANK 0 IS NO LONGER AN ARC SIZE -- IT IS THE PANEL HERO'S. When readiness
+     left the arc for the gauge, the arc stopped drawing a rank-0 circle and
+     this rule was deleted as dead. It was not dead: readingDialHtml(sec, 0)
+     still draws the hero circle at the top of every Reading panel, so that
+     circle silently fell back to .b-dial's base 68px while keeping a font
+     scaled for the larger face -- which is what put "Wat/ch" and "Lear/ning"
+     inside it. It is restored at 90px, the size the Record panels' hero
+     circle already uses, so every panel on Valhalla opens on one hero
+     diameter instead of two. */
+  .b-dial[data-rank="0"]{width:90px; height:90px;}
   .b-dial[data-rank="1"]{width:76px; height:76px;}
   .b-dial[data-rank="2"]{width:66px; height:66px;}
   /* The label no longer graduates with the diameter. It is one voice, read
@@ -5513,6 +5522,7 @@
      beside the value for nothing that is still there. Still a concrete
      pixel ceiling per diameter, and still short of the chord so wrapped
      text never grazes the circular clip. */
+  .b-dial[data-rank="0"] .rd-val b{max-width:74px;}
   .b-dial[data-rank="1"] .rd-val b{max-width:64px;}
   .b-dial[data-rank="2"] .rd-val b{max-width:56px;}
   /* The counted noun under a count. Interface face, never the data face --
@@ -5561,12 +5571,15 @@
     .b-dials-arc{gap:2px;}
     .b-status{gap:3px;}
     .b-dials-arc, .b-status{--dv:.84;}
+    /* The hero tracks the status circle here too -- one panel hero size. */
+    .b-dial[data-rank="0"]{width:76px; height:76px;}
     .b-dial[data-rank="1"]{width:62px; height:62px;}
     .b-dial[data-rank="2"]{width:54px; height:54px;}
     .b-dial[data-rank="s"]{width:76px; height:76px;}
     /* The slot is rank 1's 62px here, so the one margin that holds the
        centre line is (62-54)/2 = 4. */
     .b-dials-arc .b-dial[data-rank="2"]{margin:4px 0;}
+    .b-dial[data-rank="0"] .rd-val b{max-width:64px;}
     .b-dial[data-rank="1"] .rd-val b{max-width:54px;}
     .b-dial[data-rank="2"] .rd-val b{max-width:47px;}
     .b-dial[data-rank="s"] .rd-val b{max-width:64px;}
@@ -55542,7 +55555,12 @@ function dialTint(sec){
    second ladder being written per size -- the relationship between a long
    word and the space it has is identical in all three, only the diameter
    differs. RANK_SCALE is that diameter ratio and nothing more. */
-var DIAL_RANK_SCALE = [1.52, 1.18, 1.0];
+/* The ratio of each rank's diameter to the 66px face the ladder below was
+   written for, and nothing more -- 90/66, 76/66, 66/66. Rank 0's entry read
+   1.52 while it was the arc's 88px centre and the ladder was a different
+   shape; at the panel hero's 90px the honest ratio is 1.36, and a figure
+   larger than its own diameter ratio is how a value outgrows its face. */
+var DIAL_RANK_SCALE = [1.36, 1.15, 1.0];
 function dialValueFontSize(text, rank){
   var words = (text||'').split(' ').filter(Boolean);
   var longest = words.reduce(function(m,w){ return Math.max(m, w.length); }, (text||'').length);
@@ -55589,18 +55607,24 @@ function dialCenterText(sec){
    SAME PANEL, NOT A NEW ONE. data-action="open-reading" is the exact action
    readingCard() already used, so the panel, its scroll restoration and both
    its exits are unchanged code on an unchanged path. */
-/* "4 established" IS A COUNT AND A NOUN, and setting it as one monospace
-   string is what produced "4 establi/shed" in a 76px face. Patterns is the
-   only reading whose value is shaped that way, so it is the only one split:
-   the number takes the value slot every other dial uses, and the word it
-   counts drops underneath it at caption weight. No vocabulary is invented --
-   responsePatternsSummary() still writes the string, and the panel, the card
-   and the aria-label all still read it whole. */
+/* "4 established" IS A COUNT AND A NOUN. The noun was first moved out of the
+   value slot and set underneath at caption weight, because as one monospace
+   string it produced "4 establi/shed" in a 76px face. Underneath, it still
+   did not fit: "established" is eleven characters under a 66px chord, and in
+   the panel's hero circle it ran past the rim entirely.
+   SO THE COUNT GOES IN ALONE. The circle is labelled PATTERNS beneath it on
+   the arc and sits under a RECENT PATTERNS heading in the panel, so the noun
+   the number counts is already named twice before the face has to carry it;
+   a third copy was costing the figure its legibility to tell the reader
+   something they had just read. Nothing is invented and nothing is lost:
+   responsePatternsSummary() still writes "4 established", and the panel row,
+   the synopsis and the aria-label all still read it whole -- it is only the
+   66px face that now holds one thing, like every other face here. */
 function dialFaceParts(sec){
   var text = dialCenterText(sec);
   if (sec.key === 'patterns'){
     var m = /^(\d+)\s+(.+)$/.exec(text);
-    if (m) return { big:m[1], small:m[2] };
+    if (m) return { big:m[1], small:'' };
   }
   return { big:text, small:'' };
 }

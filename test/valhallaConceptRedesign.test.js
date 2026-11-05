@@ -232,11 +232,18 @@ test('PREVIEW: the arc is one row, graduated outward from its centre', () => {
     return Number(withWidth[0][1]);
   };
   assert.ok(d(1) > d(2), 'rank does not map to diameter');
-  /* And rank 0 is gone from the sheet, not merely unused by the markup: an
-     88px diameter and a brighter box-shadow left behind for a circle nothing
-     renders is the kind of dead rule the next person reads as live. */
-  assert.doesNotMatch(CODE, /\.b-dial\[data-rank="0"\]/,
-    'the removed centre circle left its CSS behind');
+  /* THE ARC renders no rank-0 circle -- that is the claim, and it is asserted
+     on the arc's markup. An earlier version of this test asserted instead
+     that rank 0 was gone from the STYLESHEET, which is a different and wrong
+     claim: readingDialHtml(sec, 0) still draws the hero circle at the top of
+     every Reading panel. Deleting the rule on the strength of that assertion
+     dropped the panel hero to .b-dial's base 68px while it kept a font scaled
+     for a larger face, which is what put "Wat/ch" inside it. A guard that
+     names the wrong thing is worse than no guard: it passed, and it was the
+     reason the rule was removed. The companion check that every rendered rank
+     HAS a diameter lives in the arc-geometry test below. */
+  assert.doesNotMatch(preview, /data-rank="0"/,
+    'the removed centre circle is back in the arc');
   // The label under each circle is the one label voice, at one size for all
   // four -- the graduation is the CIRCLE's job. Labels at a size each was
   // the arc's hierarchy leaking into text that has to stay readable.
@@ -428,4 +435,70 @@ test('SAFETY: the redesigned shell renders every real value from the same real f
   assert.equal(JSON.stringify(a.raceOutlook()), before.outlook);
   assert.equal(JSON.stringify((a.coachAnalyse().decision || {})), before.decision);
   assert.equal(JSON.stringify(a.coachAnalyse().load), before.load);
+});
+
+
+/* EVERY RANK THE CODE DRAWS HAS A DIAMETER IN THE SHEET.
+ * ===========================================================================
+ * This is the guard that was missing. The ranks are chosen in JS and their
+ * sizes live in CSS, so a rank can be rendered that no rule matches -- the
+ * circle then silently falls back to .b-dial's base 68px while
+ * dialValueFontSize() goes on scaling its text for the size it was promised.
+ * Nothing throws, every existing test passes, and the only symptom is a word
+ * broken across lines inside a circle. That is exactly what happened to the
+ * Reading panels' hero when rank 0's rule was deleted as "dead".
+ */
+test('ARC: every rank the renderers draw has a diameter rule behind it', () => {
+  const a = planHQ();
+  const drawn = new Set();
+  // Every circle the product can actually put on screen, from its own output.
+  [a.renderPlanHQView(), a.renderValhallaReadingPreview(), a.renderValhallaRecordPreview()]
+    .forEach(html => {
+      (html.match(/data-rank="([^"]+)"/g) || [])
+        .forEach(m => drawn.add(m.replace(/.*"([^"]+)"$/, '$1')));
+    });
+  // and the panel heroes, which are drawn only once a panel is opened
+  a.READING_KEYS.forEach(k => {
+    const sec = a.readingSections(a.coachAnalyse()).filter(s => s.key === k)[0];
+    (a.readingDialHtml(sec, 0, true).match(/data-rank="([^"]+)"/g) || [])
+      .forEach(m => drawn.add(m.replace(/.*"([^"]+)"$/, '$1')));
+  });
+  a.recordFacts().forEach(f => {
+    (a.statusDialHtml(f, true).match(/data-rank="([^"]+)"/g) || [])
+      .forEach(m => drawn.add(m.replace(/.*"([^"]+)"$/, '$1')));
+  });
+  assert.ok(drawn.size >= 4, 'expected several ranks, found ' + [...drawn].join(','));
+
+  /* THE BASE RULE, NOT ANY RULE. A first version of this matched the whole
+     stylesheet, and it passed with the base diameter deleted -- because the
+     <=400px media query carries its own rank-0 size and that was enough to
+     satisfy the regex. A rule that only applies on a narrow phone is not a
+     diameter on a 430pt one, so the media blocks are stripped before the
+     match and what is left is what every screen gets. */
+  const base = (() => {
+    let out = '', depth = 0, i = 0;
+    while (i < CODE.length) {
+      if (CODE.startsWith('@media', i)) {
+        const open = CODE.indexOf('{', i);
+        if (open === -1) break;
+        depth = 1; i = open + 1;
+        while (i < CODE.length && depth > 0) {
+          if (CODE[i] === '{') depth++;
+          else if (CODE[i] === '}') depth--;
+          i++;
+        }
+        continue;
+      }
+      out += CODE[i++];
+    }
+    return out;
+  })();
+  assert.ok(base.length < CODE.length, 'no media blocks were stripped, so this proves nothing');
+
+  drawn.forEach(r => {
+    const re = new RegExp('\\.b-dial\\[data-rank="' + r + '"\\]\\{[^}]*width:\\s*\\d+px');
+    assert.match(base, re,
+      'rank "' + r + '" is rendered but no unconditional rule gives it a diameter, ' +
+      'so it falls back to .b-dial\'s 68px with a font scaled for something larger');
+  });
 });
