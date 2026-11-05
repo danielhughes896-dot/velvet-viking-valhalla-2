@@ -359,7 +359,14 @@ test('COLOUR: the readiness figure stays gold, the ring stays the accent -- same
      one the bottom nav and every section title already use. Still gold, per
      metricColour.test.js's broader --(gold|bronze) check. */
   assert.match(CODE, /\.gauge-num b\{[^}]*color\s*:\s*var\(--gold-bright\)/);
-  assert.match(CODE, /\.gauge-fill\{stroke:var\(--cherry\);\}/);
+  /* THE ARC STILL CARRIES THE ACCENT, it is simply no longer a single
+     stroke:var(--cherry). It takes the session ring's filament -- the same
+     four stops, near-white at the hot end falling through --cherry-text and
+     --cherry to --cherry-dim -- so the claim this guards (the arc is the one
+     place this figure wears the accent) is checked against the gradient the
+     arc actually paints with. */
+  assert.match(CODE, /\.gauge-fill\{stroke:url\(#gaugeFill\);\}/);
+  assert.match(CODE, /id="gaugeFill"[\s\S]*?var\(--cherry\)/);
   /* And the rim takes the same three-stop ramp as every other circle, in the
      same accent as the fill -- so the hero ring is one of the circles rather
      than a survivor of the design before them. */

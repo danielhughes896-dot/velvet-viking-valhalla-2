@@ -601,29 +601,63 @@
      ramp in its own accent (cherry, which the fill already is), an opaque
      dark face, and the layered illumination. Its DIMENSIONS, its arc, its
      ticks and every number it states are untouched. */
+  /* NO DROP SHADOW UNDER AN INSTRUMENT. 0 7px 13px rgba(0,0,0,.23) was
+     lifting the gauge off the card it used to sit on; there is no card now,
+     and elevation is the language this product has given up everywhere
+     else. What is left is light, and more of it than any other ring gets:
+     this is the reading the screen is built around. */
   .gauge-wrap{position:relative; width:132px; height:132px; margin:0 auto;
-    filter:drop-shadow(0 0 12px rgba(154,84,108,.38)) drop-shadow(0 0 30px rgba(154,84,108,.17))
-           drop-shadow(0 7px 13px rgba(0,0,0,.23));}
+    filter:drop-shadow(0 0 13px rgba(154,84,108,.58)) drop-shadow(0 0 32px rgba(154,84,108,.26));}
+  /* ---------- VALHALLA TAKES THE SAME RULES ----------
+     The instruments stay and the containers go. Every circle on this screen
+     -- the gauge, the Reading badges, the Athlete Status dials -- is a
+     reading of something and keeps its face; the three boxes AROUND them
+     were doing what the phase cards and the session cards were doing on the
+     other screens, which is framing content that does not need a frame. */
+  .view-planhq :is(.v-hero, .v-call, .hub-card){
+    background:none; border:0; border-radius:0; box-shadow:none;}
+  .view-planhq .v-hero{padding:4px 0 20px; border-bottom:1px solid var(--line-soft);}
+  /* THE CALL'S SEVERITY WAS IN FOUR PLACES AND I TOOK ALL FOUR. The tinted
+     gradient, the border, the 3px left bar and the glow were every one of
+     them --call-tone, so de-boxing left the single most important signal on
+     this screen carried by a 6px dot. It returns as the ambient wash the
+     Coach's Note uses -- blurred, overspilling, dissolving, built from the
+     same variable -- because the call is a region that is READ, and that is
+     what the wash family is for. Change the state and the light changes
+     with it, exactly as the rim used to. */
+  .view-planhq .v-call{position:relative; padding:18px 0 20px;
+    border-bottom:1px solid var(--line-soft);}
+  .view-planhq .v-call::before{
+    content:''; position:absolute; z-index:0; pointer-events:none;
+    left:calc(50% - 50vw); width:100vw; right:auto; top:-2px; bottom:-2px;
+    border-radius:999px;
+    background:radial-gradient(46% 44% at 50% 50%,
+      color-mix(in srgb, var(--call-tone) 30%, transparent) 0%,
+      color-mix(in srgb, var(--call-tone) 16%, transparent) 48%,
+      color-mix(in srgb, var(--call-tone) 5%, transparent) 76%,
+      transparent 100%);
+    filter:blur(16px);}
+  .view-planhq .v-call > *{position:relative; z-index:1;}
+  /* .tile-card is the additive modifier the Valhalla consistency pass put
+     ON TOP of .hub-card rather than editing it, which is why it has to be
+     named here too: it is the rule actually painting the box. */
+  .view-planhq :is(.hub-card, .hub-card.tile-card){
+    background:none; border:0; border-radius:0; box-shadow:none;
+    padding:18px 0 0; border-top:1px solid var(--line-soft);}
   .gauge-rim{stroke:url(#gaugeRim); stroke-width:2.2;}
   .gauge-track{stroke:var(--bg-4);}
-  .gauge-fill{stroke:var(--cherry);}
+  .gauge-fill{stroke:url(#gaugeFill);}
   /* The seam between the ring and the face. It was a grey hairline against a
      cream medallion; against a dark face at the same value it read as a
      second, competing ring, so it takes the accent at low opacity and stops
      being a shape of its own. */
   .gauge-inner-rim{stroke:color-mix(in srgb, var(--cherry) 38%, transparent); stroke-width:1;}
-  /* The bevel overlay (see renderConfidenceGauge()'s #gaugeBevel <defs>)
-     paints a diagonal highlight-to-shadow sweep directly on top of
-     .gauge-fill via one shared linearGradient -- white at one edge fading
-     through transparent to black at the opposite edge -- rather than a
-     computed lighter/darker hex, so the ring keeps its exact cherry colour
-     underneath and only gains the appearance of a rounded, lit profile.
-     Fill only, not the track: the track's unfilled arc is already dark in
-     dark theme, and the same black-leaning half of this gradient over it
-     read as a harsh notch rather than depth -- restrained beats complete
-     here. One id is safe: the gauge only ever has one live instance in the
-     DOM (its own refresh replaces the same mount). */
-  .gauge-bevel{fill:none; stroke:url(#gaugeBevel);}
+  /* THE BEVEL IS GONE. It painted a diagonal white-to-black sweep over the
+     fill to give the arc "the appearance of a rounded, lit profile" -- a
+     drawn highlight, which is precisely what this product stopped doing
+     when the cards gave up their rims and their lifts. The arc is lit by
+     its own filament now (see #gaugeFill) rather than by a picture of a
+     light source. */
   /* Sized to the inner ring (r=38 of a 120 viewBox, at 132px render size =
      ~84px) rather than the old inset:0 covering the full 132px box, so
      this becomes an actual cream medallion face sitting inside the ring --
@@ -1564,12 +1598,10 @@
                     drop-shadow(0 0 40px rgba(154,84,108,.62)); }
   }
   @keyframes vv-glow-gauge{
-    0%,100%{ filter:drop-shadow(0 0 12px rgba(154,84,108,.38))
-                    drop-shadow(0 0 30px rgba(154,84,108,.17))
-                    drop-shadow(0 7px 13px rgba(0,0,0,.23)); }
-    50%    { filter:drop-shadow(0 0 12px rgba(154,84,108,.92))
-                    drop-shadow(0 0 52px rgba(154,84,108,.60))
-                    drop-shadow(0 7px 13px rgba(0,0,0,.23)); }
+    0%,100%{ filter:drop-shadow(0 0 13px rgba(154,84,108,.58))
+                    drop-shadow(0 0 32px rgba(154,84,108,.26)); }
+    50%    { filter:drop-shadow(0 0 13px rgba(154,84,108,1))
+                    drop-shadow(0 0 58px rgba(154,84,108,.78)); }
   }
   @keyframes vv-glow-gold{
     0%,100%{ box-shadow:0 0 10px rgba(227,177,90,.34), 0 0 20px rgba(227,177,90,0); }
@@ -25215,11 +25247,6 @@ function renderConfidenceGauge(){
     ticks.push('<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" class="gauge-tick"/>');
   }
   var pctLabel = formatConfidencePct(clamped);
-  /* #gaugeBevel: one diagonal white-to-transparent-to-black sweep, used as
-     the stroke for the overlay circle below that sits on top of the
-     cherry fill arc, so the progress ring picks up the same "rounded, lit
-     from the upper-left" profile the Reading badges use -- see
-     .gauge-bevel's comment for why one shared id is safe here. */
   return '<div class="gauge-wrap" role="img" aria-label="Confidence score '+pctLabel+' percent">'+
     '<svg viewBox="0 0 120 120" width="132" height="132">'+
       /* #gaugeRim is --t-rim-grad expressed in SVG: the same three stops at
@@ -25231,19 +25258,23 @@ function renderConfidenceGauge(){
         '<stop offset="48%" stop-color="var(--cherry)" stop-opacity="0.72"/>'+
         '<stop offset="100%" stop-color="var(--cherry)" stop-opacity="1"/>'+
       '</linearGradient>'+
-      '<linearGradient id="gaugeBevel" x1="15%" y1="10%" x2="85%" y2="90%">'+
-        '<stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.5"/>'+
-        '<stop offset="42%" stop-color="#FFFFFF" stop-opacity="0"/>'+
-        '<stop offset="58%" stop-color="#000000" stop-opacity="0"/>'+
-        '<stop offset="100%" stop-color="#000000" stop-opacity="0.31"/>'+
+      /* THE SAME FILAMENT THE SESSION RING HAS, from the same four stops in
+         the same order: near-white where the arc is hottest, falling through
+         --cherry-text and --cherry to --cherry-dim. The ring on Today was
+         given this because a stroke painted entirely in mid-pink tops out at
+         127 luminance however much glow is added -- the ceiling was the hue,
+         not the treatment -- and the confidence gauge is the one reading on
+         this screen that most needs to out-shout everything around it. */
+      '<linearGradient id="gaugeFill" x1="0" y1="0" x2="0" y2="1">'+
+        '<stop offset="0%" stop-color="#FFF1F5"/>'+
+        '<stop offset="16%" stop-color="var(--cherry-text)"/>'+
+        '<stop offset="52%" stop-color="var(--cherry)"/>'+
+        '<stop offset="100%" stop-color="var(--cherry-dim)"/>'+
       '</linearGradient></defs>'+
       '<g class="gauge-ticks">'+ticks.join('')+'</g>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="52" fill="none" class="gauge-rim"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-track" stroke-width="9"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-fill" stroke-width="9" '+
-        'stroke-linecap="round" stroke-dasharray="'+fillLen.toFixed(1)+' '+(circ-fillLen).toFixed(1)+'" '+
-        'transform="rotate(-90 '+cx+' '+cy+')"/>'+
-      '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-bevel" stroke-width="9" '+
         'stroke-linecap="round" stroke-dasharray="'+fillLen.toFixed(1)+' '+(circ-fillLen).toFixed(1)+'" '+
         'transform="rotate(-90 '+cx+' '+cy+')"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="38" fill="none" class="gauge-inner-rim"/>'+
@@ -56135,13 +56166,20 @@ function renderPlanHQView(){
      renderCheckpointBanner(), renderBlockTransitionCard() and the two
      previews -- now in one scroll, in the order the athlete reads them:
      where am I, what is the call, what does it mean, what is it built on. */
-  return '<div class="view-heading font-head">Valhalla</div>'+
+  /* A WRAPPER, LIKE EVERY OTHER VIEW HAS. Valhalla was the one screen
+     rendering a bare run of sections, which meant a rule meant for this
+     screen alone had nowhere to hang: .hub-card is also Today's Next Move
+     and the post-race panel, and the comment on it says in as many words
+     that it must never be restyled bare. */
+  return '<div class="view-planhq">'+
+    '<div class="view-heading font-head">Valhalla</div>'+
     renderProgrammeStatus()+
     renderValhallaReadingPreview()+
     renderValhallaRecordPreview()+
     renderCheckpointBanner()+
     renderCoachPanel()+
-    renderBlockTransitionCard();
+    renderBlockTransitionCard()+
+  '</div>';
 }
 // Notification permission can be revoked from outside the app (browser/OS
 // settings) at any time, so the toggle always reflects the live

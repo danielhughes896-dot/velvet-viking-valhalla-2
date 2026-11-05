@@ -83,9 +83,19 @@ test('the gauge keeps the accent on the mechanism and gold on the reading', () =
   // semicircular gradient arc with a needle and pivot. The ring itself is
   // still the one place this figure carries the accent; the ticks are the
   // scale around it and must not have been given the accent too.
+  /* THE ARC STILL CARRIES THE ACCENT, it is simply no longer a single
+     stroke:var(--cherry). It takes the session ring's filament -- the same
+     four stops, near-white at the hot end falling through --cherry-text and
+     --cherry to --cherry-dim -- so the claim this guards (the arc is the one
+     place this figure wears the accent) is checked against the gradient the
+     arc actually paints with. */
   const fill = ruleBody('.gauge-fill');
   assert.ok(fill, 'the gauge progress ring is gone');
-  assert.match(fill, /var\(--cherry\)/);
+  assert.match(fill, /url\(#gaugeFill\)/, 'the arc stopped painting with its own gradient');
+  const src = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  const grad = /id="gaugeFill"[\s\S]*?<\/linearGradient>/.exec(src);
+  assert.ok(grad && /var\(--cherry\)/.test(grad[0]),
+    'the gauge arc no longer carries the accent');
   const tick = ruleBody('.gauge-tick');
   if (tick) assert.doesNotMatch(tick, /--cherry/, 'the gauge ticks took the accent — they are the scale, not the progress');
 });
