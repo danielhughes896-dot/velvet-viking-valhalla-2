@@ -118,3 +118,63 @@ test('the card and the day circles cannot disagree', () => {
   assert.ok(settle > -1 && render > settle,
     'the day is swapped before the card has finished moving to it');
 });
+
+/* NOTHING BELOW THE CARD MOVES WHEN THE DAY CHANGES.
+ * ===========================================================================
+ * The slides are align-items:stretch, so the rail is one height for the whole
+ * week whichever day is showing. The "View full session" button is NOT in the
+ * rail -- it sits under it -- and it used to be dropped entirely on a rest
+ * day, because a rest day has no full session to open. That took 54px out of
+ * the page on exactly those days: the zone breakdown and everything beneath
+ * it rose as the athlete swiped onto a rest day and snapped back as they
+ * swiped off it. Measured in Chromium before the fix, the breakdown sat at
+ * y=611 on a session day and y=557 on the rest day between them.
+ * The slot is now held by the button itself, hidden. Asserting the markup is
+ * what this file can do; the pixel claim is the reason it matters.
+ */
+test('a rest day holds the session button\'s slot instead of collapsing it', () => {
+  const a = app();
+  const w = a.currentWeekNum();
+  const days = a.weekSessionDays(w);
+  const rest = days.filter(d => d.type === 'rest')[0];
+  const work = days.filter(d => d.type !== 'rest')[0];
+  assert.ok(rest && work, 'this fixture week needs both a rest day and a session day');
+
+  a.weekSelectedDate = work.date;
+  const onWork = a.renderWeekSessionBox(w);
+  a.weekSelectedDate = rest.date;
+  const onRest = a.renderWeekSessionBox(w);
+
+  // The box is present on BOTH days -- that is the whole fix.
+  assert.match(onWork, /class="wk-open"/, 'the session day lost its button');
+  assert.match(onRest, /class="wk-open is-ghost"/,
+    'the rest day drops the button again, so the page below it moves');
+
+  /* Held, not offered. A rest day has nothing to open, so the reserved box
+     must not be reachable by pointer, by tab, or by the delegated handler. */
+  const ghost = /<button[^>]*class="wk-open is-ghost"[^>]*>/.exec(onRest)[0];
+  assert.doesNotMatch(ghost, /data-action=/, 'the held slot can still be fired');
+  assert.doesNotMatch(ghost, /data-date=/, 'the held slot names a day to open');
+  assert.match(ghost, /aria-hidden="true"/, 'the held slot is announced to a screen reader');
+  assert.match(ghost, /tabindex="-1"/, 'the held slot is still in the tab order');
+
+  /* visibility, never display: display:none would collapse the box and put
+     back the exact 54px jump this exists to remove. */
+  assert.match(rule('.wk-open.is-ghost'), /visibility:hidden/,
+    'the held slot is hidden by some rule other than visibility');
+  assert.doesNotMatch(rule('.wk-open.is-ghost'), /display:\s*none/,
+    'display:none collapses the slot, which is the bug');
+});
+
+test('an open session always keeps a way back out', () => {
+  /* The ghost is for the COLLAPSED rest day only. If a rest day is ever open,
+     a hidden "Hide full session" would be a trap with no exit. */
+  const a = app();
+  const w = a.currentWeekNum();
+  const rest = a.weekSessionDays(w).filter(d => d.type === 'rest')[0];
+  a.weekSelectedDate = rest.date;
+  a.weekSessionOpen = true;
+  const html = a.renderWeekSessionBox(w);
+  assert.doesNotMatch(html, /is-ghost/, 'an open rest day hides its own way out');
+  assert.match(html, /Hide full session/, 'an open day offers no way back');
+});

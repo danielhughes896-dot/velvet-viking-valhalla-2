@@ -4297,6 +4297,9 @@
   /* Inside This Week the card is already introduced by the summary above it,
      so it drops the shell it wears in a list and keeps only its content. */
   .wk-session.is-open .wk-open{margin-top:0; margin-bottom:12px;}
+  /* Holding the slot, showing nothing. visibility (not display) is the whole
+     point: the box is laid out and measured exactly as the live button is. */
+  .wk-open.is-ghost{visibility:hidden;}
   .wk-open-caret{display:inline-block; transition:transform .18s;}
   .wk-open[aria-expanded="true"] .wk-open-caret{transform:rotate(90deg);}
 
@@ -54505,13 +54508,32 @@ function renderWeekSessionBox(weekNum){
      size. Each slide gets its own id, rewritten in the one string that
      mentions it, so the shared hero markup is untouched everywhere else. */
   var overview = weekSessionOpen ? '' : renderWeekDayTrack(weekNum, dd);
+  /* THE BUTTON'S SLOT IS HELD OPEN ON A REST DAY, and that is a layout fix,
+     not a decorative one. The slides are align-items:stretch, so the rail is
+     already one height for the whole week -- but this button sits BELOW the
+     rail and used to vanish outright on a rest day, which dropped the zone
+     breakdown and everything under it by the button's box and snapped them
+     back on the next swipe. A reader swiping across the week saw the page
+     jump under their finger on exactly the days with nothing to open.
+     IT IS THE BUTTON ITSELF, HIDDEN, rather than a spacer of a hand-measured
+     height: the reserved box is then the real one by construction, and it
+     cannot drift when the padding, the font or the radius is next touched.
+     visibility:hidden keeps it out of hit-testing and out of the tab order;
+     it carries no data-action, so the delegated handler has nothing to fire
+     on even if something reached it. A rest day has no full session to open,
+     so there is deliberately nothing to press -- only the space where the
+     press would be. */
+  /* Collapsed only. If a rest day is somehow open, the real button renders
+     so there is always a way back out of the full card. */
+  var isRest = dd.type === 'rest' && !weekSessionOpen;
   return '<div class="wk-session'+(weekSessionOpen ? ' is-open' : '')+'">'+
     overview+
-    (dd.type === 'rest' ? '' :
-      '<button type="button" class="wk-open" data-action="week-open-session" '+
-        'data-date="'+escapeHtml(dd.date)+'" aria-expanded="'+(weekSessionOpen?'true':'false')+'">'+
-        (weekSessionOpen ? 'Hide full session' : 'View full session')+
-        ' <span class="wk-open-caret" aria-hidden="true">\u2192</span></button>')+
+    '<button type="button" class="wk-open'+(isRest ? ' is-ghost' : '')+'"'+
+      (isRest ? ' aria-hidden="true" tabindex="-1"'
+              : ' data-action="week-open-session" data-date="'+escapeHtml(dd.date)+'"'+
+                ' aria-expanded="'+(weekSessionOpen?'true':'false')+'"')+'>'+
+      (weekSessionOpen ? 'Hide full session' : 'View full session')+
+      ' <span class="wk-open-caret" aria-hidden="true">\u2192</span></button>'+
     full+
   '</div>';
 }
