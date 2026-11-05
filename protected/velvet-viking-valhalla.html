@@ -3869,7 +3869,11 @@
   .wc .wc-analysis .cr-adjust-why{color:var(--wc-dim);}
   .wc .wc-analysis .exec-review-summary, .wc .wc-analysis .exec-review-more{color:var(--wc-dim);}
   /* ---- SHARING ---- */
-  .share-launch{display:flex; flex-direction:column; gap:0;}
+  /* The log panel is a two-column grid and this is not a field, so it spans
+     both -- otherwise the tab lands in the left column beside "Actual km"
+     and wraps its own label in half. */
+  .share-launch{display:flex; flex-direction:column; gap:0; grid-column:1/-1;
+    margin:0 0 16px;}
   /* Open, the tab joins the panel beneath it into one object rather than
      floating above it. */
   .share-launch:has(.share-inline.is-open) .btn-share{
@@ -3886,11 +3890,21 @@
   /* The composer keeps the modal's own body rules; only the padding is the
      card's rather than the modal's. */
   .share-inline .share-body{padding:14px 13px 15px;}
+  /* A TAB, NOT A SLAB. This was a full-width gold gradient with near-black
+     text and a cast shadow -- the loudest control in the product, built when
+     it sat at the foot of the completion card competing with two buttons
+     beside it. Directly under "Session complete" that reads as the point of
+     the screen, which sharing is not: the session is.
+     It takes the language "View full session" already uses for the same job
+     -- a clear tab that opens what it names: the card's own ground, the rim
+     gradient every other bordered control wears, and gold TEXT rather than a
+     gold fill. Offered, not urged. */
   .btn-share{display:inline-flex; width:100%; align-items:center; justify-content:center; gap:8px;
-    background:linear-gradient(135deg, var(--gold-deep), var(--gold-bright) 52%, var(--gold));
-    color:#120f0b; border:1px solid var(--gold-bright); font-family:'Oswald',sans-serif;
-    text-transform:uppercase; letter-spacing:1.4px; font-size:14px; padding:13px 16px;
-    box-shadow:0 6px 18px rgba(227,177,90,0.16);}
+    background:linear-gradient(var(--t-card), var(--t-card)) padding-box,
+      var(--t-rim-grad) border-box;
+    color:var(--gold); border:1px solid transparent;
+    font-family:'Inter',-apple-system,sans-serif; font-weight:600;
+    letter-spacing:.01em; font-size:14.5px; padding:11px 16px;}
   .btn-share svg{width:16px; height:16px;}
   /* The preview canvas is the export itself, drawn at 1080px wide and scaled
      down by CSS -- so the athlete approves the actual file, not a lookalike. */
@@ -27042,6 +27056,15 @@ function renderDayCard(dd){
          lit, never boxed -- same rule as the Coach's Note. */
       '<div class="actual-done"><span class="actual-done-i" aria-hidden="true">'+ICONS.check+'</span>'+
         '<span class="actual-done-k">Session complete</span></div>'+
+      /* SHARING IS OFFERED HERE, UNDER THE THING IT IS ABOUT. It used to sit
+         at the foot of the completion card as one of three buttons in a row
+         -- share, analysis, continue -- which is three doors at the bottom of
+         a screen and no hierarchy between them. The rest of this product
+         offers one clear tab that opens what it names, so sharing becomes
+         exactly that, directly beneath "Session complete", and the composer
+         unfolds in place underneath it. Still offered, never urged: no badge,
+         no streak, no prompt that returns if ignored. */
+      renderShareLaunch(dd)+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg Pace /'+displayUnit()+' \u2014 optional</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
       /* One control, in the same quiet voice the session breakdown already
@@ -30925,8 +30948,7 @@ function renderExecutionReview(dd){
     renderCompletionHero(dd)+
     (pastWeek
       ? analysisBody
-      : renderShareLaunch(dd)+
-        '<button type="button" class="btn wc-analysis-btn" data-action="view-analysis" '+
+      : '<button type="button" class="btn wc-analysis-btn" data-action="view-analysis" '+
           'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
           (open ? 'Hide Analysis' : 'View Analysis')+'</button>'+
         (open ? analysisBody : ''))+
