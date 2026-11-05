@@ -4684,7 +4684,16 @@
   .rd-cat{font-family:var(--label-face); font-weight:var(--label-weight);
     font-size:var(--label-size); letter-spacing:var(--label-track);
     text-transform:uppercase; color:var(--ink-faint); line-height:1.15;
-    text-align:center; max-width:84px;}
+    /* THE CEILING IS IN em, NOT px, AND THAT IS THE WHOLE POINT. At 84px it
+       held "ADAPTATION" at 11.5px and nothing at 21.6px: the word needs 118px
+       there, a single word has no break opportunity, so it did not wrap -- it
+       overflowed its own column and printed straight through the label beside
+       it. Five readings ran together into one smear, and no document-width
+       check could see it, because the labels overflow their COLUMNS, not the
+       page. In em the ceiling grows with the text: 6em holds ten Oswald
+       capitals at any size, so the column widens, the row wraps, and the
+       labels never meet. */
+    text-align:center; max-width:6em;}
   /* .rd-sep is gone with the thing it separated: it divided the category
      from the value, and the category is no longer in the face. A rule
      under a single line is a line under nothing. */
@@ -4742,6 +4751,19 @@
      328 with room to spare. The LABEL does not scale: it is the one voice,
      and shrinking it would walk straight back into the 6.4px this whole
      change exists to undo. */
+  /* ---------- AND WHEN THE READER HAS TURNED TEXT UP ----------
+     Set by applyDynamicType() past a 1.25 scale, because no media query can
+     see the root font size (rem in a media query resolves against the INITIAL
+     16px, not the overridden root, so there is nothing to match on).
+     The circle rows are the first thing in the app to run out of width when
+     type grows: the labels scale and the diameters do not, so at a 24px root
+     Valhalla was 21px wider than the screen. Wrapping is the honest answer --
+     two rows of readable instruments beat one row that overflows, and it
+     costs nothing at any other size because the attribute is absent. */
+  :root[data-text-scale="large"] .b-dials-arc,
+  :root[data-text-scale="large"] .b-status{flex-wrap:wrap; row-gap:14px; column-gap:12px;}
+  :root[data-text-scale="large"] .b-status{justify-content:center;}
+
   @media (max-width:400px){
     /* The gaps come in as well: once the circles are smaller than their own
        labels, the LABEL is what sets the column width -- "ADAPTATION" is
@@ -52119,6 +52141,129 @@ function renderGarminSection(){
   }
   return '<div id="garmin-section">'+inner+'</div>';
 }
+/* ---------- THE TWO ACTIONS THE CARD DRAWS ----------
+   These buttons existed with nothing behind them: the dispatcher had no case
+   for either, so a press did nothing at all -- no navigation, no message, no
+   error. It was latent only because .available is false and the connected
+   branch never renders, which is exactly the kind of bug that surfaces on the
+   day the gate opens, in front of the first athlete to use it.
+
+   THE GUARDS ARE THE HONEST PART and they are correct TODAY: unavailable and
+   signed-out are the real current states, and both now produce a true answer
+   instead of silence. The network call beneath them is deliberately the same
+   shape as handleStravaConnect's, against the route api/garmin.js already
+   names for the day the contract lands ("authorization start, OAuth callback,
+   disconnect, activity delivery -- arrive together"). Until that route is
+   served it 404s and the catch says so, which is a truthful failure rather
+   than a pretend success -- and it cannot be reached anyway while the server
+   reports unavailable, because the server's answer is what draws the button.
+
+   AVAILABILITY IS STILL THE SERVER'S ANSWER. Nothing here can talk the client
+   into a state the server has not granted; the guard reads garminCapability,
+   which only garminRefreshCapability() writes, and only from /api/garmin-status. */
+var GARMIN_ERROR_COPY = {
+  unavailable: 'Garmin sync is not switched on yet',
+  signin:      'Sign in to connect Garmin',
+  no_url:      'Garmin connection failed — try again',
+  failed:      'Garmin connection failed — try again'
+};
+function garminMessage(err){
+  var code = err && err.code ? err.code : 'failed';
+  return GARMIN_ERROR_COPY[code] || GARMIN_ERROR_COPY.failed;
+}
+function handleGarminConnect(){
+  var c = garminCapability || {};
+  if (!c.available){ showToast(GARMIN_ERROR_COPY.unavailable); return; }
+  if (!cloudSignedIn()){ showToast(GARMIN_ERROR_COPY.signin); return; }
+  stravaPost('garmin-auth', { action:'start' }).then(function(d){
+    if (!d || !d.url) throw stravaErr('no_url');
+    /* Leaves VVV for Garmin's own authorization page. Nothing is marked
+       connected here -- only the server, after a real token exchange, can. */
+    window.location.href = d.url;
+  }).catch(function(err){
+    showToast(garminMessage(err));
+  });
+}
+function handleGarminDisconnect(){
+  var c = garminCapability || {};
+  if (!c.available){ showToast(GARMIN_ERROR_COPY.unavailable); return; }
+  if (!cloudSignedIn()){ showToast(GARMIN_ERROR_COPY.signin); return; }
+  stravaPost('garmin-auth', { action:'disconnect' }).then(function(){
+    /* Re-ask the server rather than assuming: the card's state is whatever
+       /api/garmin-status says, before and after. */
+    return garminRefreshCapability();
+  }).then(function(){
+    patchGarminSection();
+    showToast('Garmin disconnected');
+  }).catch(function(err){
+    showToast(garminMessage(err));
+  });
+}
+/* ---------- iOS DYNAMIC TYPE, BRIDGED ONTO THE ROOT ----------
+   The type scale is in rem so a reader's text-size setting reaches it. On
+   Android and in desktop browsers that is the whole story: the browser's own
+   root carries the preference and rem follows it. iOS in a WebView does NOT
+   -- Dynamic Type is a system setting the engine never maps onto the root, so
+   an athlete who has turned text up in Settings gets a root of 16px and sees
+   no change at all. These few lines are the missing map.
+
+   THE PROBE IS THE ONLY WAY TO READ IT. There is no API; the supported trick
+   is that `font:-apple-system-body` resolves to the user's own Dynamic Type
+   body size, so an off-screen element wearing it reports the number. 17px is
+   "Large", the iOS default, which makes the ratio the scale.
+
+   THREE GUARDS, AND EACH IS LOAD-BEARING:
+   - Apple touch platform only. Desktop Safari also supports the keyword but
+     resolves it to ~13px, which would compute a scale of 0.76 and SHRINK the
+     app for every Mac visitor.
+   - Floor of 1. Honouring a smaller setting would push coaching prose back
+     under the floor the type pass just established, on a screen read outdoors
+     mid-session. We follow the reader up, not down.
+   - Ceiling of 1.875, MEASURED rather than picked, and raised once by a fix
+     rather than settled for. Valhalla was the first thing to run out of
+     width -- labels scale, diameters do not -- and it overflowed at a 24px
+     root. Letting the circle rows WRAP past a 1.25 scale (see
+     [data-text-scale="large"]) moved that out to 34px, so the ceiling is the
+     30px that still holds: every view, five views checked, no horizontal
+     overflow. In Dynamic Type terms that covers every standard size and the
+     first accessibility size (AX1); AX2 and above are clipped to it. An
+     athlete there still has the system's own zoom, and the honest answer to
+     going further is a different Valhalla layout, not a smaller label.
+
+   RE-READ ON RESUME. iOS fires no event when the setting changes, but the app
+   is backgrounded to change it, so coming back is the signal. */
+var DYNAMIC_TYPE_MAX = 1.875;
+function dynamicTypeScale(){
+  if (typeof document === 'undefined' || !document.createElement || !document.body) return null;
+  if (typeof window === 'undefined' || !window.CSS || !window.CSS.supports) return null;
+  if (!window.CSS.supports('font', '-apple-system-body')) return null;
+  var plat = (typeof navigator === 'undefined' ? '' : (navigator.platform || ''));
+  var touch = (typeof navigator === 'undefined' ? 0 : (navigator.maxTouchPoints || 0));
+  if (!(/iPhone|iPad|iPod/.test(plat) || (plat === 'MacIntel' && touch > 1))) return null;
+  var probe = document.createElement('div');
+  probe.style.cssText = 'position:absolute; top:-9999px; left:-9999px; '+
+    'visibility:hidden; pointer-events:none; font:-apple-system-body;';
+  document.body.appendChild(probe);
+  var px = parseFloat(window.getComputedStyle(probe).fontSize) || 0;
+  if (probe.parentNode) probe.parentNode.removeChild(probe);
+  if (!px) return null;
+  return px / 17;
+}
+function applyDynamicType(){
+  /* A preference probe must never be the reason the app fails to open, so the
+     whole thing is swallowed: no scale is a worse outcome than no app. */
+  try{
+    var raw = dynamicTypeScale();
+    if (raw == null || !(raw > 0)) return;
+    var scale = Math.max(1, Math.min(raw, DYNAMIC_TYPE_MAX));
+    var root = document.documentElement;
+    if (!root || !root.style) return;
+    root.style.fontSize = (16 * scale) + 'px';
+    if (scale > 1.25) root.setAttribute('data-text-scale', 'large');
+    else root.removeAttribute('data-text-scale');
+  }catch(e){}
+}
+
 function patchGarminSection(){
   patchSettingsConnectRows();
   if (typeof document === 'undefined' || !document.querySelectorAll) return;
@@ -56116,6 +56261,8 @@ document.addEventListener('click', function(e){
     case 'strava-connect': handleStravaConnect(); break;
     case 'strava-sync': fetchStravaRuns(); break;
     case 'strava-disconnect': handleStravaDisconnect(); break;
+    case 'garmin-connect': handleGarminConnect(); break;
+    case 'garmin-disconnect': handleGarminDisconnect(); break;
     case 'apply-csv-row': handleApplyCsvRow(parseInt(target.getAttribute('data-row'),10)); break;
     case 'export-ics': handleExportICS(); break;
     case 'print-plan': handlePrintPlan(); break;
@@ -56379,6 +56526,9 @@ function init(){
      builder are separate moments, and the name is banked at the first. */
   try{ adoptPendingIdentity(); }catch(e){}
   if (state.setup && state.days && state.days.length) initExpanded();
+  /* Before the first paint: setting the root afterwards would show the app at
+     one size and then jump it to another. */
+  applyDynamicType();
   renderApp();
   startCountdownTimer();
   registerServiceWorker();
@@ -56412,6 +56562,14 @@ function init(){
 
   stravaPurgeLegacyTokens();
   stravaBindResume();
+  /* iOS raises no event for a Dynamic Type change, but the app has to be
+     backgrounded to make one, so returning to it is the signal. */
+  try{
+    document.addEventListener('visibilitychange', function(){
+      if (!document.hidden) applyDynamicType();
+    });
+    window.addEventListener('pageshow', function(){ applyDynamicType(); });
+  }catch(e){}
   try{
     Promise.resolve(cloudInitReady).catch(function(){}).then(function(){
       if (handleStravaReturn()) return;

@@ -256,6 +256,40 @@ test("the blueprint's pace band is 10px because the CELL is 79px, and the commen
     'the rule no longer admits that the cell width, not the type, is the real constraint');
 });
 
+test('iOS Dynamic Type is bridged onto the root, and guarded at both ends', () => {
+  // rem reaches the browser's text-size preference on Android and desktop.
+  // iOS in a WebView never maps Dynamic Type onto the root, so without this
+  // probe the whole rem scale does nothing at all for an iPhone athlete who
+  // has turned text up -- which is most of the reason it was worth moving.
+  const src = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  assert.match(src, /font:-apple-system-body/,
+    'the Dynamic Type probe is gone -- there is no other way to read the setting');
+  // The platform guard is load-bearing, not defensive dressing: desktop
+  // Safari also supports the keyword and resolves it to ~13px, which would
+  // compute a scale of 0.76 and SHRINK the app for every Mac visitor.
+  assert.match(src, /iPhone\|iPad\|iPod/, 'the Apple-touch-platform guard is gone');
+  assert.match(src, /MacIntel/, 'iPadOS (which reports MacIntel) is no longer detected');
+  // Floored at 1: following a smaller setting would push coaching prose back
+  // under the floor the type pass established.
+  assert.match(src, /Math\.max\(1, Math\.min\(raw, DYNAMIC_TYPE_MAX\)\)/,
+    'the scale is no longer clamped between 1 and the measured ceiling');
+  // Measured, not picked. 1.875 is a 30px root: every view holds there and
+  // the first overflow is at 34px. If the layout changes, re-measure and
+  // move this -- do not quietly widen it.
+  const max = src.match(/var DYNAMIC_TYPE_MAX = ([\d.]+);/);
+  assert.ok(max, 'DYNAMIC_TYPE_MAX is not declared');
+  assert.equal(max[1], '1.875', 'the ceiling moved without a re-measure');
+  // And the thing that bought that ceiling: the circle rows wrap past 1.25,
+  // because labels scale and diameters do not.
+  assert.match(src, /:root\[data-text-scale="large"\] \.b-dials-arc,[\s\S]{0,120}flex-wrap:wrap/,
+    'the large-text wrap on the circle rows is gone -- Valhalla will overflow again');
+  // The label ceiling must stay in em. At a fixed 84px, "ADAPTATION" at a
+  // large scale needs 118px, has no break opportunity, and prints straight
+  // through the label beside it -- a collision no document-width check sees.
+  assert.match(appCss(), /\.rd-cat\{[^}]*max-width:6em/,
+    'the circle label ceiling left em -- labels will collide at large text');
+});
+
 test('the runtime app declares only the four canonical typographic roles', () => {
   assertOnlyCanonicalFamilies(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'));
 });

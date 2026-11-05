@@ -94,6 +94,26 @@ function errName(e) {
   return (e && e.constructor && e.constructor.name) || String(e).split(':')[0];
 }
 
+/* THE GAP THE PREVIOUS GUARD LEFT. The test below proves no case CRASHES.
+   A missing case does not crash -- it falls off the end of the switch in
+   silence -- so an emitted action with no case anywhere passed that test
+   while the button did nothing at all. That is exactly how garmin-connect
+   and garmin-disconnect sat dead in Settings: drawn by renderGarminSection,
+   emitted into the markup, and handled by nobody.
+   Handlers live on more than the click listener -- inputs and switches are
+   read by the delegated `change` listener as `action === 'x'` -- so this
+   asks the honest question (is anything listening for this string?) rather
+   than the narrow one (is there a case label?). */
+test('every data-action the markup emits is handled by some listener', () => {
+  const handled = new Set();
+  for (const m of APP_SRC.matchAll(/case '([a-z0-9-]+)':/g)) handled.add(m[1]);
+  for (const m of APP_SRC.matchAll(/action\s*===\s*'([a-z0-9-]+)'/g)) handled.add(m[1]);
+  for (const m of APP_SRC.matchAll(/getAttribute\('data-action'\)\s*===\s*'([a-z0-9-]+)'/g)) handled.add(m[1]);
+  const dead = emittedActions(APP_SRC).filter(a => !handled.has(a));
+  assert.deepEqual(dead, [],
+    'these controls are drawn and pressed but nothing listens for them');
+});
+
 test('no data-action click can reach an undeclared variable in the dispatcher', () => {
   const app = loadApp({ pinnedDate: '2026-03-10T09:00:00Z' });
   const fire = clickListener(app);
