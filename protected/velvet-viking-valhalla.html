@@ -222,6 +222,12 @@
     --cherry-line:rgba(154,84,108,0.45);
     --cherry-dim:rgba(154,84,108,0.50);
     --cherry-text:#C46A89;              /* the accent AS TEXT -- 4.50:1 */
+    /* COMPLETION GREEN. Not a new colour: these are the two values the
+       done states across This Week and Full Plan already use as literals.
+       Named here so SESSION COMPLETE can be lit by color-mix the same way
+       the Coach's Note is lit by Cherry Lacquer. */
+    --ok:#7AA06E;                       /* the done ring/field */
+    --ok-text:#9BC08C;                  /* the done mark AS TEXT */
     /* Ink on --cherry-soft and on --cherry-fill. Cherry Lacquer is a DARK
        colour in both themes' terms, so unlike the violet it replaced its label
        does not have to flip: white clears AA on both fills (11.64:1 light,
@@ -422,7 +428,9 @@
     position:sticky; top:0; z-index:50;
     background:color-mix(in srgb, var(--bg) 92%, transparent);
     backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
-    border-bottom:1px solid var(--line);
+    /* NO RULE UNDER THE HEADER. It was the edge of a slab that sat on top of
+       the page; the header now shares the page's own background, so a line
+       there draws a seam across one continuous surface. */
   }
   /* single-row header, contents vary by app state (see renderTopbar):
      onboarding shows shield/theme, Plan HQ/Settings show units/theme --
@@ -433,7 +441,14 @@
      push the side content into it. */
   .topbar-inner{
     display:flex; align-items:center; gap:6px;
-    padding:calc(12px + env(safe-area-inset-top, 0px)) 16px 12px; max-width:var(--maxw); margin:0 auto;
+    /* 14px, THE SAME AS THE BRAND-ONLY VARIANT, and that is the point. Today
+       renders .topbar-inner-today, which took this 12px; the other four
+       render .topbar-inner-brand-only, which overrode it to 14px. Both are
+       as tall as the brandmark plus their own padding, so the header was
+       65px on Today and 69px everywhere else -- and every swipe to or from
+       Today moved the whole page under it by 4px. A pager can only feel
+       still if the frame around it is the same height on both sides. */
+    padding:calc(14px + env(safe-area-inset-top, 0px)) 16px 14px; max-width:var(--maxw); margin:0 auto;
   }
   /* all five main tabs: brand-only header, nothing to balance against --
      center the title and give it clean, even padding instead of the
@@ -1838,6 +1853,97 @@
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note .k{font-size:15px; letter-spacing:.055em; gap:7px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note .k svg{width:16px; height:16px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note .v{font-size:var(--fs-body); line-height:var(--lh-body);}
+
+  /* ---------- THE LOG, AFTER THE SESSION IS DONE ----------
+     Everything below the Coach's Note used to be a different product: boxed
+     inputs on a tile, a bordered Execution Review card, a right-aligned
+     underlined link. The session above it had already stopped being a card,
+     so the completed state read as the old app showing through the new one.
+     Same rules as the rest of the page apply here: one green statement lit
+     rather than framed, values on the data tier under a gold rule, labels on
+     the label tier, sentences on the support tier, and no box anywhere. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-panel{
+    margin-top:30px; padding-top:30px; border-top:1px solid var(--line-soft); gap:0 18px;}
+
+  /* SESSION COMPLETE. Lit exactly as the Coach's Note is lit -- a blurred
+     radial that overspills the content and dissolves into the page ground --
+     because a border round a result makes it look like another field. Both
+     axes stay under 50% of the box: a radial ending-shape percentage is read
+     against the BOX, so anything above that still carries colour at the edge
+     and gets cut, which is the hard rectangle this technique exists to avoid.
+     Dimmer than the Note, which is itself dimmer than the session: the ring,
+     the distance and the session name stay the brightest things on screen. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-done{
+    position:relative; grid-column:1/-1;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    margin:0 0 24px; padding:15px 0 17px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-done::before{
+    content:''; position:absolute; z-index:0; pointer-events:none;
+    left:calc(50% - 50vw); width:100vw; right:auto;
+    top:-10px; bottom:-12px; border-radius:999px;
+    background:radial-gradient(40% 44% at 50% 50%,
+      color-mix(in srgb, var(--ok-text) 58%, transparent) 0%,
+      color-mix(in srgb, var(--ok) 36%, transparent) 46%,
+      color-mix(in srgb, var(--ok) 12%, transparent) 76%,
+      transparent 100%);
+    filter:blur(18px);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-done > *{position:relative; z-index:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-done-i{width:26px; height:26px; border-width:1.5px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-done-i svg{width:14px; height:14px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-done-k{font-size:var(--label-size); letter-spacing:.14em; color:var(--ink);}
+
+  /* THE TWO FIGURES THE ENGINE GRADES AGAINST, read as figures. A gold rule
+     under the value instead of a box round it: the field is still obviously
+     editable, and nothing competes with the session above. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field{gap:8px; padding:0 0 2px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field > label{
+    font-family:var(--label-face); font-size:var(--label-size);
+    letter-spacing:var(--label-track); font-weight:var(--label-weight);
+    text-transform:uppercase; color:var(--ink-faint);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field input{
+    background:none; border:0; border-bottom:1px solid var(--gold);
+    border-radius:0; padding:2px 0 8px; font-size:var(--fs-title); color:var(--ink);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field input::placeholder{color:var(--ink-faint); opacity:.7;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field textarea{
+    background:none; border:0; border-bottom:1px solid var(--line-soft); border-radius:0; padding:4px 0 8px;}
+  /* The hairline between a pair of figures, at the divider weight the rail
+     settled on -- present, never structural. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field:not(.full) + .actual-field:not(.full){position:relative; padding-left:18px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field:not(.full) + .actual-field:not(.full)::before{
+    content:''; position:absolute; left:0; top:4px; bottom:10px; width:1px;
+    background:var(--line-soft); opacity:.45;}
+
+  /* The two disclosures, on the label tier with their explanation beneath. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-toggle{
+    background:none; border:0; border-radius:0; padding:16px 0 0;
+    text-align:left; width:100%; display:block;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-toggle .st-k{font-family:var(--label-face); font-size:var(--label-size);
+    letter-spacing:var(--label-track); font-weight:var(--label-weight); color:var(--gold);}
+
+  /* EXECUTION REVIEW, de-boxed and lit in Cherry Lacquer -- the coaching
+     judgement on what was run, which is the same kind of thing the Coach's
+     Note is, so it is treated the same way and kept below it in intensity. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .exec-review-card{
+    position:relative; margin-top:28px; padding:24px 18px 22px;
+    background:none; border:0; border-radius:0; box-shadow:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .exec-review-card::before{
+    content:''; position:absolute; z-index:0; pointer-events:none;
+    left:calc(50% - 50vw); width:100vw; right:auto;
+    top:-8px; bottom:-10px; border-radius:999px;
+    background:radial-gradient(44% 44% at 50% 50%,
+      color-mix(in srgb, var(--cherry-text) 38%, transparent) 0%,
+      color-mix(in srgb, var(--cherry) 24%, transparent) 46%,
+      color-mix(in srgb, var(--cherry) 8%, transparent) 76%,
+      transparent 100%);
+    filter:blur(20px);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .exec-review-card > *{position:relative; z-index:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .exec-review-head{font-family:var(--label-face); font-size:var(--label-size);
+    letter-spacing:var(--label-track); font-weight:var(--label-weight); color:var(--gold); margin-bottom:9px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .exec-review-summary{color:var(--ink); font-weight:600;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .exec-review-more{color:var(--ink-faint);}
+
+  /* Clearing a log is a recovery, not an action this screen is for. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-clear{text-align:center; margin-top:26px;}
   /* Tight stack, no rules between rows -- the reference uses spacing alone. */
   /* The rule is a border-BOTTOM in the base sheet, which is why cancelling
      border-top did nothing. The reference separates the rows with space. */
@@ -2444,6 +2550,22 @@
   }
   .actual-field textarea{font-family:'Inter',sans-serif; resize:vertical; min-height:38px;}
   .actual-field.full{grid-column:1/-1;}
+  /* The completed-state line, everywhere. On a focused session the rules
+     further up turn this into the lit banner; in a list card it stays a
+     quiet one-line statement of fact. */
+  .actual-done{grid-column:1/-1; display:flex; align-items:center; gap:7px; margin-bottom:9px; color:var(--ok-text);}
+  .actual-done-i{display:inline-flex; width:18px; height:18px; flex:none; align-items:center;
+    justify-content:center; border:1px solid var(--ok-text); border-radius:999px;}
+  .actual-done-i svg{width:11px; height:11px;}
+  .actual-done-k{font-family:var(--label-face); font-size:var(--fs-meta); font-weight:var(--label-weight);
+    letter-spacing:.08em; text-transform:uppercase;}
+  /* A disclosure is a label and the line that explains it, not one long
+     sentence wearing a plus sign. */
+  .splits-toggle .st-k{display:inline; font-family:var(--label-face); font-weight:var(--label-weight);
+    text-transform:uppercase;}
+  .splits-toggle .st-sub{display:block; margin-top:3px; color:var(--ink-faint);
+    font-family:'Inter',sans-serif; font-weight:400; text-transform:none; letter-spacing:0;
+    font-size:var(--fs-support); line-height:var(--lh-support);}
   .field-hint{ color:var(--ink-faint); margin-top:2px;}
   /* Notes Wand: sits inside the textarea's corner so it reads as part of the
      field rather than another control competing with it. */
@@ -2502,7 +2624,7 @@
   .feel-btn.on{background:var(--modal-active); color:var(--bronze-ink); border-color:var(--modal-active);}
   .cr-compare{display:flex; flex-wrap:wrap; gap:6px;}
   .cr-cmp{font-size:10px; padding:2px 7px; border:1px solid var(--line); border-radius:99px; color:var(--ink-faint);}
-  .actual-clear{grid-column:1/-1; text-align:right;}
+  .actual-clear{text-align:right;}
   .actual-clear button{background:none; border:none; color:var(--ink-faint); font-size:11px; text-decoration:underline; padding:2px;}
 
   /* Manual laps/splits: a quiet, closed-by-default control inside the same
@@ -5287,7 +5409,7 @@
      exactly as Next Move's WHY? draws it, and the revealed line is the same
      quiet support text .field-hint uses everywhere else. Centred and at the
      foot of the view so it is findable without competing with the session. */
-  .today-injury{text-align:center; padding:2px 0 4px;}
+  .today-injury{text-align:center; padding:14px 0 4px;}
   .today-injury .coach-why-btn{padding-top:0;}
   .today-injury-hint{font-size:var(--fs-support); line-height:var(--lh-support);
                      color:var(--ink-faint); margin-top:6px;}
@@ -26451,6 +26573,11 @@ function renderDayCard(dd){
        judgement. Neither is compulsory: a missing pace narrows what Valhalla
        will claim, and is never treated as a failure. */
     actualHtml = '<div class="actual-panel">'+
+      /* The log opens under a statement of fact, not under a form. On a
+         focused session this is the one green thing on the screen and it is
+         lit, never boxed -- same rule as the Coach's Note. */
+      '<div class="actual-done"><span class="actual-done-i" aria-hidden="true">'+ICONS.check+'</span>'+
+        '<span class="actual-done-k">Session complete</span></div>'+
       '<div class="actual-field"><label>Actual '+displayUnit().toUpperCase()+'</label><input type="number" step="0.01" min="0" inputmode="decimal" value="'+(a.km!=null?kmToDisplay(a.km):'')+'" data-action="actual-field" data-field="km" data-day="'+dd.id+'"></div>'+
       '<div class="actual-field"><label>Avg Pace /'+displayUnit()+' \u2014 optional</label><input type="text" placeholder="m:ss" value="'+actualPaceDisplayStr(dd)+'" data-action="actual-field" data-field="pace" data-day="'+dd.id+'"></div>'+
       /* One control, in the same quiet voice the session breakdown already
@@ -26459,7 +26586,9 @@ function renderDayCard(dd){
          visible than it was. */
       '<div class="actual-field full">'+
         '<button type="button" class="splits-toggle" data-action="toggle-detail" data-day="'+dd.id+'" aria-expanded="'+(detailOpen?'true':'false')+'">'+
-          (detailOpen ? 'Hide detail' : '+ Add detail \u2014 heart rate, effort, elevation, feel, notes')+
+          (detailOpen ? '<span class="st-k">Hide detail</span>'
+                      : '<span class="st-k">+ Add detail</span>'+
+                        '<span class="st-sub">Heart rate \u00b7 effort \u00b7 elevation \u00b7 feel \u00b7 notes</span>')+
         '</button>'+
       '</div>'+
       (detailOpen ? (
@@ -26510,10 +26639,13 @@ function renderDayCard(dd){
          simplified surface above flattens what a watch or a connected service
          supplied. */
       renderSplitsBlock(dd)+
-      '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>'+
     '</div>'+
     (dd.type === 'calibration' ? renderCalibrationResult(dd) : '')+
-    '<div id="exec-review-'+dd.id+'">'+renderExecutionReview(dd)+'</div>';
+    '<div id="exec-review-'+dd.id+'">'+renderExecutionReview(dd)+'</div>'+
+    /* LAST, UNDER THE JUDGEMENT. Undoing a log is a recovery from a mistake,
+       so it belongs after everything the log produced rather than wedged
+       between the fields and the review of them. */
+    '<div class="actual-clear"><button type="button" data-action="clear-actual" data-day="'+dd.id+'">Clear log</button></div>';
   }
 
   // Accordion: the header row always shows, everything below it collapses.
@@ -28584,8 +28716,10 @@ function renderSplitsBlock(dd){
   var summaryCard = (!open && m.mode === 'structured') ? renderSplitsSummaryCard(dd, m.plan) : null;
   var toggle = summaryCard ? summaryCard : (function(){
     var label = m.mode === 'structured'
-      ? (open ? 'Hide session breakdown' : '+ Log the session breakdown (optional)')
-      : (open ? 'Hide laps / splits' : '+ Add laps / splits (optional)');
+      ? (open ? '<span class="st-k">Hide session breakdown</span>'
+              : '<span class="st-k">+ Log the session breakdown</span><span class="st-sub">Optional</span>')
+      : (open ? '<span class="st-k">Hide laps / splits</span>'
+              : '<span class="st-k">+ Add laps / splits</span><span class="st-sub">Optional</span>');
     return '<button type="button" class="splits-toggle" data-action="toggle-splits" data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
         label+
       '</button>';
@@ -56705,7 +56839,20 @@ function pagerFinish(commit){
        screen, then remove the peek. Both run in one task so nothing is painted
        between them, and the peek is showing the very page the new mount draws
        -- so the swap is invisible instead of a blink back to the old page. */
-    if (commit && to){ pagerSuppressFade = true; handleSetView(to); }
+    if (commit && to){
+      pagerSuppressFade = true;
+      handleSetView(to);
+      /* THE PEEK ALWAYS SHOWED THE DESTINATION FROM ITS TOP, because it is a
+         fixed box anchored under the header -- so that is where the
+         destination has to land, or the slide ends somewhere other than
+         where it was heading. The views are nowhere near equal in height
+         (Today ~2459px against This Week ~831px here), so carrying a scroll
+         offset across meant the browser clamped it to the new page's
+         maximum: scrolled to 700 on Today, This Week arrived at 85, which is
+         the jump at the end of the swipe. Scrolling here rather than in
+         handleSetView() leaves a tapped tab behaving exactly as it did. */
+      window.scrollTo(0, 0);
+    }
     pagerCleanup();
     if (commit && to) pagerHaptic();
   }, 230);

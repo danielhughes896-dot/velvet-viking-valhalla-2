@@ -203,17 +203,25 @@ test('a committed swipe does not then fade the destination in', () => {
   assert.match(cls, /pagerSuppressFade = false;\s*return cls;/,
     'the suppression is no longer one-shot, so an unrelated render can inherit it');
   const finish = fn('pagerFinish');
-  assert.match(finish, /pagerSuppressFade = true; handleSetView\(to\);/,
+  assert.match(finish, /pagerSuppressFade = true;\s*\n\s*handleSetView\(to\);/,
     'the commit no longer suppresses the redundant fade');
 });
 
 test('the destination renders under the peek, then the peek lifts', () => {
   /* Reversing these two paints the outgoing page back at centre for a frame. */
   const finish = fn('pagerFinish');
-  const render = finish.indexOf('pagerSuppressFade = true; handleSetView(to);');
+  const render = finish.indexOf('handleSetView(to);');
   const clean = finish.indexOf('pagerCleanup();', render);
   assert.ok(render > -1 && clean > render,
     'pagerCleanup() now runs before the destination is rendered');
+  /* And the destination lands where the peek said it would. The peek is a
+     fixed box anchored under the header, so it always shows the neighbour
+     from its top; the views are nowhere near equal in height, so carrying a
+     scroll offset across meant the browser clamped it to the new page's
+     maximum and the slide ended somewhere other than where it was heading. */
+  const scroll = finish.indexOf('window.scrollTo(0, 0);');
+  assert.ok(scroll > render && scroll < clean,
+    'the commit no longer lands the destination at the top, under the peek');
 });
 
 test('the live mount and the peek render a view identically', () => {

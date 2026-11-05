@@ -309,10 +309,31 @@ function appCss(){
 
 test('every label-styled rule found without a font-family now declares Oswald', () => {
   const css = appCss();
+  /* EVERY rule carrying one of these selectors, not just the first one in the
+     sheet. The original read only the first match, so adding an earlier rule
+     for the same selector silently moved the check off the rule it was
+     written to protect -- which is exactly what a view-scoped override is.
+     Either spelling of the face counts: the literal, or --label-face, which
+     is defined as that literal and is what new rules should use. */
+  const FACE = /font-family:(?:'Oswald',sans-serif|var\(--label-face\))/;
   ['.exec-review-head', '.pzr-tag', '.note-chips-head', '.divider-or'].forEach(sel => {
-    const body = ruleBody(css, sel);
-    assert.ok(body, sel + ' rule not found');
-    assert.match(body, /font-family:'Oswald',sans-serif/, sel + ' should declare the condensed-label font');
+    const re = new RegExp('([^{}]*)' + sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
+                          '\\s*\\{([^}]*)\\}', 'g');
+    let m, seen = 0, styled = 0;
+    while ((m = re.exec(css))){
+      if (/[\w-]$/.test(m[1])) continue;        // .exec-review-head-foo, not this selector
+      seen++;
+      /* A rule is LABEL-STYLED when it applies the treatment -- uppercase or
+         letter-spacing. One that only recolours or re-spaces inherits the
+         face from the rule that does, and demanding it restate the family
+         would be noise, not protection. */
+      if (!/text-transform:\s*uppercase|letter-spacing:/.test(m[2])) continue;
+      styled++;
+      assert.match(m[2], FACE,
+        sel + ' should declare the condensed-label font (rule ' + seen + ': ' + m[1].trim().slice(-40) + ')');
+    }
+    assert.ok(seen > 0, sel + ' rule not found');
+    assert.ok(styled > 0, sel + ' no longer carries the label treatment anywhere');
   });
 });
 
