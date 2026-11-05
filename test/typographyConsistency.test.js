@@ -116,6 +116,76 @@ test('the one label voice is the label Today actually renders, not the base rule
   assert.match(override[1], /letter-spacing:\.04em/);
 });
 
+test('a line of prose takes one of the two tiers -- no rule hand-sets its own', () => {
+  // 47 rules used to set a sentence, between them in 29 different
+  // size-and-leading combinations, ten sizes from 9.5px to 14px. The pass
+  // that fixed it did not merely override them from the end of the sheet:
+  // it DELETED the size and leading at each rule, so there is one
+  // declaration per tier rather than 47 losers and 2 winners. This guard is
+  // what keeps that true -- a rule that sets both a px size and a leading
+  // loose enough to wrap is a sentence, and a sentence belongs to a tier.
+  const css = appCss();
+  const offenders = [];
+  const re = /([^{}]+)\{([^{}]*)\}/g;
+  let m;
+  const stripped = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  while ((m = re.exec(stripped))){
+    const sel = m[1].replace(/\s+/g, ' ').trim(), body = m[2];
+    if (/uppercase/.test(body)) continue;               // a label, not a sentence
+    const size = body.match(/font-size:\s*([\d.]+)px/);
+    const lead = body.match(/line-height:\s*([\d.]+)\s*;/);
+    if (!size || !lead) continue;
+    if (parseFloat(lead[1]) < 1.3) continue;            // set solid: a figure, not prose
+    offenders.push(sel.slice(0, 60) + ' (' + size[1] + 'px/' + lead[1] + ')');
+  }
+  // The workout ladder's quantities are the one survivor: they are numbers
+  // in a structure diagram, sized by the row they sit in, not sentences.
+  const allowed = /ws-k-ladder/;
+  assert.deepEqual(offenders.filter(o => !allowed.test(o)), [],
+    'these rules hand-set a sentence instead of taking --fs-body or --fs-support');
+});
+
+test('both prose tiers exist, are token-only, and split instruction from support', () => {
+  // Comments are stripped first, and the LAST occurrence is taken: each of
+  // these selectors still has its own earlier rule in the sheet (stripped of
+  // its size, keeping its colour and margins), and the tier group is the one
+  // at the end that actually carries the declaration.
+  const css = appCss().replace(/\/\*[\s\S]*?\*\//g, '');
+  const group = tail => {
+    const i = css.lastIndexOf(tail + '{');
+    assert.ok(i > -1, 'tier group ending ' + tail + ' not found');
+    const open = css.lastIndexOf('}', i) + 1;
+    return { sel: css.slice(open, i + tail.length), body: css.slice(i + tail.length + 1, css.indexOf('}', i)) };
+  };
+  const instruction = group('.ci-body .ci-para');
+  const support = group('.ws-h-presc');
+  assert.match(instruction.body, /font-size:var\(--fs-body\); line-height:var\(--lh-body\);/);
+  assert.match(support.body, /font-size:var\(--fs-support\); line-height:var\(--lh-support\);/);
+  // The line under Today's label is the instruction tier -- that is the
+  // whole premise of the pass, and it is what the athlete reads.
+  assert.ok(/(^|,)\s*\.how-row \.v\s*,/.test(instruction.sel),
+    "the how-card's sentence is no longer on the instruction tier");
+  // ...and a row's subtitle is NOT, or the description would be as loud as
+  // the thing it describes.
+  assert.ok(/\.stg-row-sub\s*,/.test(support.sel),
+    'a row subtitle drifted onto the instruction tier');
+  assert.ok(!/\.stg-row-sub\s*,/.test(instruction.sel));
+  assert.ok(!/(^|,)\s*\.how-row \.v\s*,/.test(support.sel));
+});
+
+test('Today no longer overrides the sentence size it was the standard for', () => {
+  // The focused card used to set .how-row .v to 13.5px/1.35. That was the
+  // size the whole product was about to be standardised on, measured off
+  // this very rule -- and it is gone, removed at the rule rather than
+  // beaten from the end of the sheet, so the card takes the one tier.
+  const css = appCss();
+  const m = css.match(/:is\(\.view-today \.day\.is-today[^)]*\) \.how-row \.v\{([^}]*)\}/);
+  assert.ok(m, "Today's focused .how-row .v rule not found");
+  assert.doesNotMatch(m[1], /font-size/, 'the focused card hand-sets the sentence size again');
+  assert.doesNotMatch(m[1], /line-height/, 'the focused card hand-sets the sentence leading again');
+  assert.match(m[1], /color:var\(--ink\)/, 'the brighter ink the override is actually for was lost');
+});
+
 test('the runtime app declares only the four canonical typographic roles', () => {
   assertOnlyCanonicalFamilies(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'));
 });
