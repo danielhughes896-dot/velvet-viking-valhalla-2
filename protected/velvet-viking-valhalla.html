@@ -1434,15 +1434,77 @@
      carried in --wk-pct so the keyframe ends on exactly the width the inline
      style already sets -- the figure is not recomputed for the motion. */
   @keyframes wk-fill{ from{ width:0; } to{ width:var(--wk-pct); } }
+  /* The .is-filling rule that stood here is gone, not duplicated: the fill and
+     the glow share this element, so one rule has to name both animations, and
+     two rules naming one each would mean the later shorthand silently drops
+     whichever the earlier one declared. It is below, with the glow. */
+  /* ---- AND THEN THEY BREATHE ----
+     The three things in the app that already move -- the session ring, the
+     confidence gauge, the week's gold bar -- settle and then keep a slow
+     glow. Each lands the way it already did, holds still for half a second,
+     and from there runs a 3.6s cycle: the pause is what makes it read as the
+     instrument settling and then idling, rather than as something that never
+     stopped arriving.
+
+     ONLY THE LIGHT MOVES. No geometry is animated anywhere here: not the
+     ring's radius, not its stroke width, not the bar's width or height. Every
+     keyframe below carries the SAME NUMBER OF SHADOWS AT THE SAME BLUR as
+     its resting state, and only the alpha changes -- which is both the brief
+     ("the glow/opacity around it") and the thing that makes it cheap. A
+     mismatched shadow count between keyframes does not interpolate at all;
+     it snaps, which would read as a flicker rather than a breath.
+
+     0% IS THE RESTING APPEARANCE, EXACTLY. Each cycle begins and ends on the
+     value the element's own rule already declares, so nothing shifts at the
+     moment the animation starts or if it is ever removed -- and no fill-mode
+     is set, so before the delay elapses the element is simply itself.
+
+     The delays are each element's own entrance plus the settle: 760+500 for
+     the ring's draw, 780+500 for the bar's fill, and 500 alone for the gauge,
+     which has no entrance of its own. */
+  @keyframes vv-glow-ring{
+    0%,100%{ filter:drop-shadow(0 0 10px rgba(154,84,108,.50))
+                    drop-shadow(0 0 22px rgba(154,84,108,0)); }
+    50%    { filter:drop-shadow(0 0 10px rgba(154,84,108,.80))
+                    drop-shadow(0 0 22px rgba(154,84,108,.30)); }
+  }
+  @keyframes vv-glow-gauge{
+    0%,100%{ filter:drop-shadow(0 0 12px rgba(154,84,108,.38))
+                    drop-shadow(0 0 30px rgba(154,84,108,.17))
+                    drop-shadow(0 7px 13px rgba(0,0,0,.23)); }
+    50%    { filter:drop-shadow(0 0 12px rgba(154,84,108,.62))
+                    drop-shadow(0 0 30px rgba(154,84,108,.34))
+                    drop-shadow(0 7px 13px rgba(0,0,0,.23)); }
+  }
+  @keyframes vv-glow-gold{
+    0%,100%{ box-shadow:0 0 10px rgba(227,177,90,.34), 0 0 20px rgba(227,177,90,0); }
+    50%    { box-shadow:0 0 10px rgba(227,177,90,.62), 0 0 20px rgba(227,177,90,.24); }
+  }
+  .th-arc{ animation:vv-glow-ring 3.6s ease-in-out 1.26s infinite; }
+  .gauge-wrap{ animation:vv-glow-gauge 3.6s ease-in-out .5s infinite; }
+  /* The bar's fill and its glow are on the SAME element, so the filling rule
+     has to restate both: `animation` is a shorthand, and naming only the fill
+     there would drop the glow for the life of that class. */
+  .wk-bar-fill{ animation:vv-glow-gold 3.6s ease-in-out 1.28s infinite; }
   .wk-bar-fill.is-filling{
-    animation:wk-fill 780ms cubic-bezier(.22,.61,.36,1) both;}
+    animation:wk-fill 780ms cubic-bezier(.22,.61,.36,1) both,
+              vv-glow-gold 3.6s ease-in-out 1.28s infinite;}
+
   /* FINAL STATE, IMMEDIATELY. Reduced motion does not get a shorter version
      of the animation -- it gets no animation, so the stroke and the bar are
-     simply already there. */
+     simply already there. The glow cycles stop here too: a slow pulse is
+     still motion, and it is the kind that repeats forever, which is exactly
+     what someone who asks for less of it is asking to be spared.
+     The global reduced-motion rule at the top of this sheet already does
+     that -- `*{animation-iteration-count:1 !important}` ends any infinite
+     animation wherever it is declared -- so this line is not what protects
+     the reader. It is here so that nobody adding a fourth instrument has to
+     go and find the first rule to know the cycles are accounted for. */
   @media (prefers-reduced-motion: reduce){
     .th-ring.is-drawing .th-arc path,
     .th-ring.is-redrawing .th-arc path{ animation:none; stroke-dasharray:none; }
     .wk-bar-fill.is-filling{ animation:none; }
+    .th-arc, .gauge-wrap, .wk-bar-fill{ animation:none; }
   }
   .th-ring-in{position:absolute; inset:0; display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:0; text-align:center;
