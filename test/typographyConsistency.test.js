@@ -239,55 +239,43 @@ test('a number the athlete acts on outranks the prose around it', () => {
     'the data tier fell to or below the support tier -- metrics now read quieter than hints');
 });
 
-test("the blueprint's pace band is 10px because the CELL is 79px, and the comment says so", () => {
-  // Measured at a 360px viewport: the step cell gives 79px of usable width
-  // and the widest real band, "5:17-6:16/km", renders 65px at 9px, 72px at
-  // 10px, 79px at 11px. The old 9px was pessimistic by one step. This pins
-  // the measured value AND that the rule still admits what it has not
-  // fixed -- the number is small because the cell is narrow, which is a
-  // layout problem, and a future reader must not mistake 10px for a
-  // considered type decision.
+test('the blueprint\'s pace band is no longer shrunk to fit its cell', () => {
+  // This rule used to carry a font-size -- 9px, then a re-measured 10px --
+  // so that 12 monospace characters would fit a 79px step cell. It made the
+  // single number a runner hunts for, mid-session and outdoors, smaller than
+  // its own labels. It was a layout problem wearing a type problem's clothes
+  // and it is fixed as one: with no size of its own the band takes
+  // --fs-support from the tier block, exactly as "Easy" in the cell beside
+  // it always has.
   const css = appCss();
   const m = css.match(/\.ws-h-presc\.font-mono\{([^}]*)\}/);
-  assert.ok(m, '.ws-h-presc.font-mono rule not found');
-  assert.match(m[1], /font-size:10px/, 'the measured band size changed without a re-measure');
-  const src = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
-  assert.match(src, /layout problem wearing a type problem's clothes/,
-    'the rule no longer admits that the cell width, not the type, is the real constraint');
+  assert.ok(!m || !/font-size/.test(m[1]),
+    'the pace band is being shrunk to fit its cell again');
+  // The nowrap moved INWARD. On the span it stopped the unit falling to a
+  // second line, which is what forced the shrink. On the range it stops a
+  // line turning at the en-dash and stranding "5:17-", which is the one
+  // break that would be worse than small type.
+  const inner = css.match(/\.ws-h-presc\.font-mono b\{([^}]*)\}/);
+  assert.ok(inner, '.ws-h-presc.font-mono b rule not found');
+  assert.match(inner[1], /white-space:nowrap/, 'the pace range can break mid-range again');
+  assert.match(inner[1], /font-weight:inherit/, 'the <b> is bolding the band');
 });
 
-test('iOS Dynamic Type is bridged onto the root, and guarded at both ends', () => {
-  // rem reaches the browser's text-size preference on Android and desktop.
-  // iOS in a WebView never maps Dynamic Type onto the root, so without this
-  // probe the whole rem scale does nothing at all for an iPhone athlete who
-  // has turned text up -- which is most of the reason it was worth moving.
+test('the pace band gets exactly one break opportunity, before the unit', () => {
   const src = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
-  assert.match(src, /font:-apple-system-body/,
-    'the Dynamic Type probe is gone -- there is no other way to read the setting');
-  // The platform guard is load-bearing, not defensive dressing: desktop
-  // Safari also supports the keyword and resolves it to ~13px, which would
-  // compute a scale of 0.76 and SHRINK the app for every Mac visitor.
-  assert.match(src, /iPhone\|iPad\|iPod/, 'the Apple-touch-platform guard is gone');
-  assert.match(src, /MacIntel/, 'iPadOS (which reports MacIntel) is no longer detected');
-  // Floored at 1: following a smaller setting would push coaching prose back
-  // under the floor the type pass established.
-  assert.match(src, /Math\.max\(1, Math\.min\(raw, DYNAMIC_TYPE_MAX\)\)/,
-    'the scale is no longer clamped between 1 and the measured ceiling');
-  // Measured, not picked. 1.875 is a 30px root: every view holds there and
-  // the first overflow is at 34px. If the layout changes, re-measure and
-  // move this -- do not quietly widen it.
-  const max = src.match(/var DYNAMIC_TYPE_MAX = ([\d.]+);/);
-  assert.ok(max, 'DYNAMIC_TYPE_MAX is not declared');
-  assert.equal(max[1], '1.875', 'the ceiling moved without a re-measure');
-  // And the thing that bought that ceiling: the circle rows wrap past 1.25,
-  // because labels scale and diameters do not.
-  assert.match(src, /:root\[data-text-scale="large"\] \.b-dials-arc,[\s\S]{0,120}flex-wrap:wrap/,
-    'the large-text wrap on the circle rows is gone -- Valhalla will overflow again');
-  // The label ceiling must stay in em. At a fixed 84px, "ADAPTATION" at a
-  // large scale needs 118px, has no break opportunity, and prints straight
-  // through the label beside it -- a collision no document-width check sees.
-  assert.match(appCss(), /\.rd-cat\{[^}]*max-width:6em/,
-    'the circle label ceiling left em -- labels will collide at large text');
+  const fn = /function paceBandHtml\(pace\)\{[\s\S]*?\n\}/.exec(src);
+  assert.ok(fn, 'paceBandHtml is gone -- the band is being emitted raw again');
+  // <wbr> is load-bearing and not decoration: UAX #14 permits a line to turn
+  // AFTER a solidus, not before one, so "5:17-6:16/km" left to itself breaks
+  // as "5:17-6:16/" + "km" or, in a cell too narrow for that, not at all.
+  // An element boundary is not a break opportunity either.
+  assert.match(fn[0], /<\/b><wbr>/,
+    'the explicit break opportunity is gone -- the band will not wrap where it should');
+  assert.match(fn[0], /lastIndexOf\('\/'\)/,
+    'the split is no longer at the last solidus, so a unit could end up inside the range');
+  // Both emitters go through it, or one of them silently keeps the old markup.
+  assert.doesNotMatch(src, /<span class="ws-h-presc font-mono">'\+escapeHtml/,
+    'a pace band is still being emitted without the break opportunity');
 });
 
 test('the runtime app declares only the four canonical typographic roles', () => {

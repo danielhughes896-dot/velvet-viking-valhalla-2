@@ -1095,17 +1095,21 @@
      (see the .ws-steps-h comment above: 9px is the largest that clears a
      real "3:49-3:55/km" band with margin at 360px/390px). Do not raise this
      toward --fs-support without re-measuring against a live narrow card. */
-  /* RE-MEASURED, and the note above was pessimistic. At a 360px viewport
-     the step cell gives 79px of usable width, and "5:17-6:16/km" -- the
-     widest real band -- renders 65px at 9px, 72px at 10px and 79px at 11px.
-     So 10px clears it with 7px to spare and 11px is flush to the pixel.
-     10px it is: the measurement, not the fear of it.
-     WHAT THIS DOES NOT FIX, and should not be read as fixing: the most
-     acted-on number in the product is still set smaller than its own
-     labels, because the cell is 79px wide, not because the type wants to be
-     small. That is a layout problem wearing a type problem's clothes, and
-     the honest fix is a wider or wrapping cell. */
-  .ws-h-presc.font-mono{white-space:nowrap; font-size:10px;}
+  /* THE SPECIAL CASE IS GONE. This rule used to shrink the band -- 9px, then
+     a re-measured 10px -- to make 12 monospace characters fit a 79px cell,
+     which made the most acted-on number in the product smaller than its own
+     labels. It was a layout problem wearing a type problem's clothes, and
+     it is fixed as a layout problem: paceBandHtml() gives the line exactly
+     one break opportunity, before the unit, so a narrow cell drops "/km"
+     onto a second line and the band itself is never shrunk and never split.
+     With no size of its own the band now takes --fs-support from the tier
+     block, which is what "Easy" in the cell beside it has always had: one
+     prescription, one size, whichever form it takes.
+     The nowrap moves INWARD, onto the range alone. On the span it stopped
+     the unit falling; on the range it stops a line turning at the en-dash
+     and stranding "5:17-", which is the one break that would be worse than
+     the old small type. */
+  .ws-h-presc.font-mono b{white-space:nowrap; font-weight:inherit;}
   /* HR/build/note/recovery text now renders INLINE inside each .ws-h-step
      (see renderWorkoutStepHCell), in the same .ws-hr/.ws-note classes the
      vertical timeline has always used for them -- so a stage's supplementary
@@ -25482,17 +25486,42 @@ function renderWorkoutStep(st, i){
    show it beneath the effort word. Existing prescription data, not a new
    calculation; a stage with no configured Easy zone still shows "Easy" and
    nothing else, exactly as before. */
+/* ONE BREAK OPPORTUNITY, IN THE ONLY PLACE IT IS HONEST.
+   "5:17-6:16/km" is 12 monospace characters: 97px at the support size, which
+   fits the 102px step cell a 430pt phone gives and does not fit the 79px a
+   360pt one gives. The old answer was to shrink the type to 10px until it
+   fitted -- on the single number a runner actually hunts for, mid-session,
+   outdoors.
+   The honest answer is that the NUMBER and its UNIT are not equally
+   important. The range is wrapped so it can never break (a line turning at
+   the en-dash would leave "5:17-" stranded, which is worse than small), and
+   the unit outside it, where the line may turn if the cell is narrow. Wide
+   cell: one line, full size. Narrow cell: the band whole at full size with
+   "/km" beneath it. Nothing is shrunk in either case, and nothing is
+   reserved for a wrap that is not needed. */
+function paceBandHtml(pace){
+  var cut = String(pace).lastIndexOf('/');
+  var value = cut > 0 ? pace.slice(0, cut) : pace;
+  var unit  = cut > 0 ? pace.slice(cut) : '';
+  /* <wbr> because the break will not happen on its own. UAX #14 permits a
+     line to turn AFTER a solidus, not before one, so "5:17-6:16/km" left to
+     itself breaks as "5:17-6:16/" + "km" -- or, in a cell too narrow for
+     even that, not at all. An element boundary is not a break opportunity
+     either; only this is. */
+  return '<span class="ws-h-presc font-mono"><b>'+escapeHtml(value)+'</b><wbr>'+
+    escapeHtml(unit)+'</span>';
+}
 function easyZonePaceHtml(){
   var z = getActivePaces().E;
   if (!z || z.slow == null || z.fast == null) return '';
   var pFast = fmtPaceFromSecPerKm(z.fast), pSlow = fmtPaceFromSecPerKm(z.slow);
   var pace = pFast.split('/')[0]+'–'+pSlow;
-  return '<span class="ws-h-presc font-mono">'+escapeHtml(pace)+'</span>';
+  return paceBandHtml(pace);
 }
 function essentialPrescriptionHtml(st){
   if (st.target && !st.wholeSession){
     var pace = fmtStrategyPace(st.target.pace, null);
-    if (pace) return '<span class="ws-h-presc font-mono">'+escapeHtml(pace)+'</span>';
+    if (pace) return paceBandHtml(pace);
   }
   if (st.effort && !st.wholeSession){
     var out = '<span class="ws-h-presc">'+escapeHtml(st.effort)+'</span>';
