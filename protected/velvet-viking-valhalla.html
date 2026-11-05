@@ -617,7 +617,21 @@
      other screens, which is framing content that does not need a frame. */
   .view-planhq :is(.v-hero, .v-call, .hub-card){
     background:none; border:0; border-radius:0; box-shadow:none;}
-  .view-planhq .v-hero{padding:4px 0 20px; border-bottom:1px solid var(--line-soft);}
+  /* ---------- THE SECTION BOUNDARIES COME OUT ----------
+     Valhalla announces every section with a LABELLED rule -- "THE READING",
+     "THE ATHLETE STATUS" -- so a plain hairline between the hero, the call
+     and the sections beneath was a second boundary saying what the labelled
+     one already said, and saying it less well. Today draws no horizontal
+     line anywhere and is the cleanest screen in the product; the separation
+     there is carried by space, and the padding that held these lines is
+     still here to carry it.
+     THE ROW SEPARATORS STAY, and they are a different thing. A rule between
+     repeated rows -- .coach-signal, the phases and weeks on Full Plan, the
+     Settings rows -- is telling the reader where one row ends and the next
+     begins, which nothing else on those screens does. .coach-signal proves
+     its own case: it carries :first-child{border-top:none}, which is only
+     ever written for a separator BETWEEN things. */
+  .view-planhq .v-hero{padding:4px 0 20px;}
   /* THE CALL'S SEVERITY WAS IN FOUR PLACES AND I TOOK ALL FOUR. The tinted
      gradient, the border, the 3px left bar and the glow were every one of
      them --call-tone, so de-boxing left the single most important signal on
@@ -626,8 +640,7 @@
      same variable -- because the call is a region that is READ, and that is
      what the wash family is for. Change the state and the light changes
      with it, exactly as the rim used to. */
-  .view-planhq .v-call{position:relative; padding:18px 0 20px;
-    border-bottom:1px solid var(--line-soft);}
+  .view-planhq .v-call{position:relative; padding:18px 0 20px;}
   .view-planhq .v-call::before{
     content:''; position:absolute; z-index:0; pointer-events:none;
     left:calc(50% - 50vw); width:100vw; right:auto; top:-2px; bottom:-2px;
@@ -644,7 +657,7 @@
      named here too: it is the rule actually painting the box. */
   .view-planhq :is(.hub-card, .hub-card.tile-card){
     background:none; border:0; border-radius:0; box-shadow:none;
-    padding:18px 0 0; border-top:1px solid var(--line-soft);}
+    padding:18px 0 0;}
   .gauge-rim{stroke:url(#gaugeRim); stroke-width:2.2;}
   .gauge-track{stroke:var(--bg-4);}
   .gauge-fill{stroke:url(#gaugeFill);}
@@ -4156,9 +4169,11 @@
      progress bar, the phase note -- and gives up only the rim and the lift,
      which is the same trade Today made. A hairline underneath separates it
      from the days without drawing a container round it. */
+  /* Same reasoning as Valhalla's hero: the gap does the work and Today
+     proves it. See the note on .view-planhq .v-hero. */
   .wk-hero{position:relative;
     background:none; border:0; box-shadow:none; border-radius:0;
-    padding:4px 0 18px; border-bottom:1px solid var(--line-soft);
+    padding:4px 0 18px;
   }
   .wk-chip{position:absolute; top:13px; right:14px;
     display:inline-flex; align-items:center; gap:6px;
@@ -4308,7 +4323,7 @@
      colours, no box. */
   .wk-summary > .zone-card{
     background:none; border:0; box-shadow:none; border-radius:0;
-    margin:0; padding:22px 0 0; border-top:1px solid var(--line-soft);
+    margin:0; padding:22px 0 0;
   }
 
   /* =======================================================
@@ -4855,8 +4870,17 @@
   .coach-metric .cm-k{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1px; text-transform:uppercase; color:var(--ink-faint); line-height:1.2;}
   .coach-metric .cm-v{font-family:'JetBrains Mono',monospace; font-size:14px; color:var(--ink); margin-top:3px; line-height:1.2; overflow-wrap:anywhere;}
   .coach-metric .cm-s{ color:var(--ink-dim); margin-top:2px; overflow-wrap:anywhere;}
-  .coach-signal{display:flex; gap:9px; align-items:flex-start; padding:9px 0; border-top:1px solid var(--line);}
-  .coach-signal:first-child{border-top:none;}
+  /* BETWEEN SIGNALS, NOT ABOVE EACH ONE. This was written as a border on
+     every row cancelled by :first-child -- but every one of these lists is
+     introduced by a .setup-section-title inside the same parent, so the
+     first signal is the second child, :first-child never matched it, and
+     the cancel never fired. The result was a rule directly under "Training
+     Signals" with nothing above it to separate: a line doing no work, in
+     the one place a line is supposed to mean something.
+     The adjacent-sibling form cannot have that bug, because it only ever
+     draws where one signal actually follows another. */
+  .coach-signal{display:flex; gap:9px; align-items:flex-start; padding:9px 0;}
+  .coach-signal + .coach-signal{border-top:1px solid var(--line);}
   .coach-signal-body{min-width:0;}
   .coach-signal-label{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:.8px; text-transform:uppercase; color:var(--ink); line-height:1.3;}
   .coach-signal-detail{ color:var(--ink-dim); margin-top:2px; overflow-wrap:anywhere;}
@@ -5857,6 +5881,10 @@
   .rp-hero .b-dial{flex:none;}
   .rp-hero-text{flex:1 1 auto; min-width:0; padding-left:16px;
     border-left:1.5px solid color-mix(in srgb, var(--rp-accent) 55%, transparent);}
+  /* No circle, so nothing for the accent rule to divide and no indent to
+     clear it. The chip and the sentence start at the panel's own margin,
+     like every other row under them. */
+  .rp-hero.is-wordless .rp-hero-text{padding-left:0; border-left:0;}
   .rp-hero-verdict{margin-bottom:5px;}
   .rp-hero-verdict .read-val{font-size:13px; letter-spacing:.04em;}
   .rp-hero-say{ color:#FFFFFF;}
@@ -42460,7 +42488,7 @@ function renderCheckpointIntervention(){
   var why = 'Your checkpoint puts you on course for '+
     fitnessRangeText(proj.fastSec, proj.slowSec)+
     ' at your '+escapeHtml(profile ? profile.label.toLowerCase() : 'race')+
-    (a.daysToRace != null ? ' in '+a.daysToRace+' days' : '')+'.';
+    (a.daysToRace != null ? ' in '+nDays(a.daysToRace) : '')+'.';
   if (proj.flat) why += ' That is where you are now, carried forward '+
     'rather than a promise of more.';
 
@@ -44371,7 +44399,7 @@ function readingSections(report){
   var goalBody =
     hqRow('Execution trend', report.trend.enough ? trendWord+(report.trend.delta?' ('+(report.trend.delta>0?'+':'')+report.trend.delta+')':'') : 'building history', ICONS.pulse)+
     hqRow('Sessions logged', String(recent.sessionsLogged), ICONS.layers)+
-    hqRow(vGoalDate(), su.raceDate ? dShort(su.raceDate)+(days!=null?' · '+days+' days':'') : '—', ICONS.calendarWeek)+
+    hqRow(vGoalDate(), su.raceDate ? dShort(su.raceDate)+(days!=null?' · '+nDays(days):'') : '—', ICONS.calendarWeek)+
     hqRow('Phase', (function(){
       var wk = currentWeekNum();
       return trainingPhase(wk) + (wk ? ' · week '+wk+' of '+totalWeeksInPlan() : '');
@@ -44380,7 +44408,9 @@ function readingSections(report){
   var recoveryBody =
     hqRow('Effort above band', report.recovery.overRPE+' this week', ICONS.gauge)+
     hqRow('HR above zone', report.recovery.overHR+' this week', ICONS.heart)+
-    hqRow('Longest hard streak', report.recovery.hardStreak+' days', ICONS.zap)+
+    /* "1 days" is the kind of thing an athlete reads as the app not paying
+       attention, and it is one character to get right. */
+    hqRow('Longest hard streak', nDays(report.recovery.hardStreak), ICONS.zap)+
     hqRow('Feel', recent.feel.counted ? recent.feel.negatives+' heavy of last '+recent.feel.counted : 'not logged', ICONS.notes)+
     hqRow('Easy HR vs baseline', (function(){
       var b=easyHRBaseline();
@@ -55011,14 +55041,15 @@ function statusDialHtml(f, isStatic){
 /* A status face holds wider strings than a reading face ever does -- a
    fitness range is "3:23–3:44" -- so it has its own ladder rather than
    bending the reading one to cover a case it was not written for. */
+/* The status faces are 90px circles like the Reading panel's hero, and they
+   now answer to the same rule rather than to a table of their own. This is
+   the whole of what used to be a second ladder. */
+/* "1 days" reads as an app not paying attention, and there were three
+   places writing it: the streak row, the goal-date row and the call's own
+   sentence. One helper so a fourth cannot be written differently. */
+function nDays(n){ return n + (Math.abs(n) === 1 ? ' day' : ' days'); }
 function statusValueFontSize(text){
-  var n = (text||'').length;
-  if (n<=2) return 'calc(21px * var(--dv, 1))';
-  if (n<=3) return 'calc(18px * var(--dv, 1))';
-  if (n<=4) return 'calc(16px * var(--dv, 1))';
-  if (n<=6) return 'calc(13px * var(--dv, 1))';
-  if (n<=9) return 'calc(11px * var(--dv, 1))';
-  return n<=12 ? 'calc(9.5px * var(--dv, 1))' : 'calc(8.5px * var(--dv, 1))';
+  return dialValueFontSize(text, 's');
 }
 
 function renderValhallaRecordPreview(){
@@ -55550,41 +55581,60 @@ function dialTint(sec){
    "established" itself still has to fit on its own line. Sized by that
    longest word, not the phrase's raw length, so multi-word states aren't
    punished for a total length their wrapped lines never actually reach. */
-/* The ladder below was written for one circle size. The arc draws three, so
-   the same answer is scaled by the rank it is being drawn at rather than a
-   second ladder being written per size -- the relationship between a long
-   word and the space it has is identical in all three, only the diameter
-   differs. RANK_SCALE is that diameter ratio and nothing more. */
-/* The ratio of each rank's diameter to the 66px face the ladder below was
-   written for, and nothing more -- 90/66, 76/66, 66/66. Rank 0's entry read
-   1.52 while it was the arc's 88px centre and the ladder was a different
-   shape; at the panel hero's 90px the honest ratio is 1.36, and a figure
-   larger than its own diameter ratio is how a value outgrows its face. */
-var DIAL_RANK_SCALE = [1.36, 1.15, 1.0];
-function dialValueFontSize(text, rank){
+/* ---------- ONE LADDER FOR EVERY CIRCLE, AND IT IS GEOMETRY ----------
+   There used to be two hand-tuned tables: this one, written for a 66px face
+   and multiplied by a per-rank scale, and statusValueFontSize()'s own table
+   for the 90px status faces. They disagreed. Normalised against their own
+   diameters the status table set text about 35% smaller, so "3:18-3:38" sat
+   at 11px inside a 90px circle while "4" sat at 23px inside a 76px one --
+   two circles on one screen, built to different densities, and no rule
+   anyone could apply to a new value.
+
+   Neither table is reproducible either: both are lists of numbers that were
+   right when they were measured and drift the moment a diameter, a padding
+   or a max-width moves. So both are replaced by the constraint they were
+   approximating.
+
+   A value fits when its longest unbreakable run fits the width that run has
+   to live in. Every face here sets its value in JetBrains Mono, whose
+   advance is 0.6em, so that run is longest * 0.6 * fontSize wide and the
+   largest size that fits is simply maxWidth / (0.6 * longest). The ceiling
+   stops a one or two character value from becoming a balloon in a big face,
+   and it is a fraction of the diameter rather than a constant so it scales
+   with the circle like everything else.
+
+   LONGEST RUN, NOT TOTAL LENGTH. "Worth watching" may wrap at its space and
+   still read; "3:59-4:25" is one token and must not break. Measuring the
+   longest word is what lets one rule serve a two-word verdict and a nine
+   character time without a second table. */
+var DIAL_FACE = { '0':{d:90, w:74}, '1':{d:76, w:64}, '2':{d:66, w:56}, 's':{d:90, w:76} };
+var DIAL_MONO_ADVANCE = 0.6;   /* JetBrains Mono: 1ch = 0.6em */
+var DIAL_CEILING_RATIO = 0.30; /* biggest a value may be, as a share of the diameter */
+function dialFaceFontPx(text, rank){
+  var key = (rank == null) ? '2' : String(rank);
+  var face = DIAL_FACE[key] || DIAL_FACE['2'];
   var words = (text||'').split(' ').filter(Boolean);
-  var longest = words.reduce(function(m,w){ return Math.max(m, w.length); }, (text||'').length);
-  /* THE LADDER ROUGHLY DOUBLED when the category left the face. The old
-     numbers were not timid -- they were correct for a face holding a label,
-     a rule and a value in a 66px circle, where the value got a third of the
-     height and had to clear the other two. Holding one thing, the same
-     circle gives the value the full chord, and these are what actually fit:
-     measured in the browser against every string the five readings and four
-     status facts can produce, at 360px and 430px, rather than reasoned
-     from character counts. The smallest result in the product is now 13px
-     ("Plateau" on a flank circle), against 8.5px before. */
-  var px = longest<=3 ? 20
-         : longest<=4 ? 17
-         : longest<=5 ? 15
-         : longest<=6 ? 14
-         : longest<=7 ? 12
-         : longest<=8 ? 11
-         : longest<=10 ? 10 : 9;
-  var scale = (rank==null) ? 1 : (DIAL_RANK_SCALE[rank] || 1);
+  var longest = words.reduce(function(m,w){ return Math.max(m, w.length); }, 0) ||
+                (text||'').length || 1;
+  /* A COUPLE OF PIXELS SHORT OF THE CEILING, ON PURPOSE. Solving for the
+     size whose run is exactly max-width leaves nothing for sub-pixel
+     rounding, the rounding this function does to one decimal, or a glyph
+     fractionally wider than the nominal advance -- and a run one twentieth
+     of a pixel too long wraps just as completely as one 20px too long. Two
+     pixels of margin is what stopped "Watch" and "3:59-4:25" doing exactly
+     that at 74.1px in a 74px box. */
+  var fits = (face.w - 2) / (DIAL_MONO_ADVANCE * longest);
+  var px = Math.min(face.d * DIAL_CEILING_RATIO, fits);
+  /* A floor, because below this a value stops being readable and the honest
+     answer is a shorter string rather than smaller type. */
+  if (px < 9) px = 9;
+  return Math.round(px * 10) / 10;
+}
+function dialValueFontSize(text, rank){
   /* calc() against --dv, not a bare px: a narrow phone shrinks the circles
      (see the <=400px query) and the value has to come down with them or it
      outgrows the face it was measured for. --dv is 1 everywhere else. */
-  return 'calc('+(Math.round(px*scale*10)/10)+'px * var(--dv, 1))';
+  return 'calc('+dialFaceFontPx(text, rank)+'px * var(--dv, 1))';
 }
 /* The dial's own centre text: readiness gets just its number ("50%", not
    "50% confidence" -- the fuller sentence is the card's synopsis, not the
@@ -55752,9 +55802,32 @@ function readingPanel(key){
      never recur. Readings the engine does not classify (readiness, patterns)
      have no tone and render the synopsis alone, which is the approved
      reference exactly. */
+  /* THE CIRCLE IS FOR FIGURES, AND ONLY READINESS AND PATTERNS HAVE ONE.
+     Opened on Recovery, the panel said "Watch" three times before a word of
+     evidence: in the heading, in the circle, and in the toned chip beside
+     the circle. The chip is the better carrier -- a pill is shaped for a
+     word, a circle is not, which is the same geometry that had "Worth
+     watching" wrapping to two lines in a 90px face at any size worth
+     reading. So where the face would hold a word, the circle goes and the
+     chip and its sentence take the full width.
+     Readiness and patterns keep theirs, and not as an exception: they carry
+     84% and 4, which are figures a circle is exactly the right frame for,
+     and neither has a toned chip, so their circle is the only place the
+     reading is stated rather than the second. */
+  var faceText = dialFaceParts(sec).big || '';
+  var hasFigure = /\d/.test(faceText);
+  /* AND ONLY WHEN SOMETHING ELSE IS CARRYING THE WORD. The circle goes
+     because the toned chip beside it is already saying the same word, so
+     the test is not "is this a word" but "is this word already here" -- a
+     reading the engine does not classify has no chip, and dropping its
+     circle would leave a hero holding nothing at all. Readiness and
+     patterns are both untoned, which is why they keep a circle even in the
+     states where their value reads as a word rather than a figure. */
+  var chipCarriesIt = !!sec.tone;
+  var wordless = !hasFigure && chipCarriesIt;
   var head =
-    '<div class="rp-hero">'+
-      readingDialHtml(sec, 0, true)+
+    '<div class="rp-hero'+(wordless ? ' is-wordless' : '')+'">'+
+      (wordless ? '' : readingDialHtml(sec, 0, true))+
       '<div class="rp-hero-text">'+
         (sec.tone
           ? '<div class="rp-hero-verdict"><span class="read-val '+sec.tone+'">'+

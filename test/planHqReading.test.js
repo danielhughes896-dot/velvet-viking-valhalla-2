@@ -258,9 +258,25 @@ test('PANEL: every Reading card opens the panel that belongs to it', () => {
     // The body is the accordion's body, rendered verbatim somewhere else.
     assert.ok(panel.indexOf(sec.body) !== -1, key + "'s panel does not host its own evidence");
     assert.match(panel, /The Evidence/, key + ' lost the rule that labels its evidence');
-    /* The panel opens on the circle the athlete pressed, inert -- so they
-       are not asked to remember which of five it was. */
-    assert.match(panel, /class="rp-hero"/, key + ' does not open on its own circle');
+    /* THE PANEL OPENS ON A RESTATEMENT of the reading the athlete pressed,
+       so they are never asked to remember which one it was. What carries
+       that restatement now depends on the value's shape. A figure gets the
+       circle, inert, exactly as before. A word does not: the heading, the
+       circle and the toned chip were all saying "Watch" before a line of
+       evidence, and of those three the chip is the one shaped for a word --
+       so the circle goes and the hero is marked is-wordless. Either way the
+       athlete lands on the verdict they pressed. */
+    assert.match(panel, /class="rp-hero(?: is-wordless)?"/,
+      key + ' does not open on a restatement of itself');
+    if (/class="rp-hero is-wordless"/.test(panel)) {
+      assert.match(panel, /class="rp-hero-verdict"/,
+        key + ' has no circle AND no verdict chip, so it restates nothing');
+      assert.doesNotMatch(panel, /class="b-dial/,
+        key + ' is marked wordless but still draws a circle');
+    } else {
+      assert.match(panel, /class="b-dial"/,
+        key + ' keeps a circle-bearing hero but draws no circle');
+    }
     assert.ok(panel.indexOf('data-action="open-reading"') === -1,
       key + "'s own circle is still a button inside the panel it opened");
   });

@@ -3,7 +3,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const { RUNTIME_RELATIVE } = require('./harness.js');
+const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
+const { buildPlan } = require('./fixtures.js');
 
 /* VALHALLA TAKES THE SAME RULES: the instruments stay, the containers go.
  * ===========================================================================
@@ -17,6 +18,15 @@ const ROOT = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
 const CSS = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
 const BARE = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+const TODAY = '2026-08-24T09:00:00Z';
+/* A real athlete, because the ladder and the hero rule are both decided by
+   the actual strings the engine produces rather than by invented ones. */
+function planHQ(opts) {
+  const a = loadApp({ pinnedDate: TODAY });
+  buildPlan(a, Object.assign({ distanceKey: 'half', volume: 45, weeks: 12 }, opts || {}));
+  a.state.view = 'planhq';
+  return a;
+}
 const rule = sel => {
   const i = BARE.indexOf(sel + '{');
   assert.ok(i > -1, 'rule not found: ' + sel);
@@ -99,4 +109,105 @@ test('the gauge is the brightest ring on any screen, because it is the headline'
   assert.ok(gauge[0] >= ring[0] && gauge[1] > ring[1],
     'the confidence gauge (' + gauge.join('/') + ') is no longer brighter at its peak ' +
     'than the session ring (' + ring.join('/') + '), and it is the reading this screen is built around');
+});
+
+/* ===========================================================================
+ * ONE TYPE LADDER, ONE HERO RULE, AND LINES THAT DO WORK
+ * ===========================================================================
+ */
+test('LADDER: one rule sizes every circle, and it is derived rather than tabulated', () => {
+  const a = planHQ();
+  /* The second table is gone. statusValueFontSize() used to carry its own
+     list of sizes for the 90px faces; normalised against their diameters it
+     set text about 35% smaller than the Reading ladder, so "3:18-3:38" sat
+     at 11px in a 90px circle while "4" sat at 23px in a 76px one. */
+  assert.doesNotMatch(SRC, /function statusValueFontSize\(text\)\{\s*var n =/,
+    'the second hand-tuned status ladder is back');
+  assert.match(SRC, /function statusValueFontSize\(text\)\{\s*return dialValueFontSize\(text, 's'\);/,
+    'the status faces no longer defer to the one ladder');
+
+  /* The rule is the constraint, not a list of remembered answers: the
+     largest size whose longest unbreakable run still fits the width that
+     run has to live in. */
+  assert.match(SRC, /var DIAL_FACE = \{[\s\S]*?'s':\s*\{d:90/, 'the face table lost its status entry');
+  assert.match(SRC, /DIAL_MONO_ADVANCE = 0\.6/, 'the mono advance is no longer stated');
+
+  // Every face the product can draw, at every rank, fits its own box.
+  const FACE = { '0':{d:90,w:74}, '1':{d:76,w:64}, '2':{d:66,w:56}, 's':{d:90,w:76} };
+  const strings = a.readingSections(a.coachAnalyse()).map(s => a.dialFaceParts(s).big)
+    .concat(a.recordFacts().map(f => f.big))
+    .filter(t => t && t !== '—');
+  assert.ok(strings.length >= 6, 'expected a spread of real values, got ' + strings.length);
+  Object.keys(FACE).forEach(rank => {
+    strings.forEach(text => {
+      const px = a.dialFaceFontPx(text, rank);
+      const longest = Math.max(...String(text).split(' ').map(w => w.length));
+      const runWidth = longest * 0.6 * px;
+      assert.ok(runWidth <= FACE[rank].w,
+        '"' + text + '" at rank ' + rank + ' needs ' + runWidth.toFixed(1) +
+        'px for its longest run but has ' + FACE[rank].w + 'px');
+      assert.ok(px >= 9, '"' + text + '" at rank ' + rank + ' fell to ' + px + 'px, below the floor');
+      assert.ok(px <= FACE[rank].d * 0.30 + 0.05,
+        '"' + text + '" at rank ' + rank + ' broke the ceiling at ' + px + 'px');
+    });
+  });
+});
+
+test('HERO: the panel circle is for figures, and a word is carried by its chip', () => {
+  const a = planHQ();
+  const report = a.coachAnalyse();
+  let withCircle = 0, wordless = 0;
+  a.readingSections(report).forEach(sec => {
+    const panel = a.readingPanel(sec.key);
+    const face = a.dialFaceParts(sec).big || '';
+    /* The circle goes only where the toned chip is already carrying the
+       same word. An untoned reading has no chip, so dropping its circle
+       would leave the hero holding nothing -- it keeps one whatever shape
+       its value takes. */
+    if (/\d/.test(face) || !sec.tone) {
+      withCircle++;
+      assert.match(panel, /class="rp-hero"/, sec.key + ' states a figure but drew no circle');
+      assert.match(panel, /class="b-dial"/, sec.key + ' has no circle to put its figure in');
+    } else {
+      wordless++;
+      assert.match(panel, /class="rp-hero is-wordless"/,
+        sec.key + ' states a word but still draws a circle for it');
+      assert.doesNotMatch(panel, /class="b-dial/, sec.key + ' is wordless but drew a circle');
+      // the word still reaches the athlete -- in the pill that is shaped for it
+      assert.match(panel, /class="rp-hero-verdict"/, sec.key + ' lost its verdict entirely');
+    }
+  });
+  assert.ok(withCircle > 0 && wordless > 0,
+    'expected both shapes to exist; got ' + withCircle + ' with a circle, ' + wordless + ' without');
+  /* And the indent that cleared the circle goes with it, or the chip starts
+     16px in from every row beneath it for no reason. */
+  assert.match(rule('.rp-hero.is-wordless .rp-hero-text'), /padding-left:0/,
+    'the wordless hero keeps the indent that cleared a circle it no longer has');
+  assert.match(rule('.rp-hero.is-wordless .rp-hero-text'), /border-left:0/,
+    'the accent rule still divides a circle that is not there');
+});
+
+test('LINES: section boundaries are gone, row separators are not', () => {
+  /* Valhalla labels every section -- "THE READING", "THE ATHLETE STATUS" --
+     so a plain hairline between hero, call and sections said again, worse,
+     what the labelled rule already said. Today draws no horizontal line at
+     all and is the cleanest screen in the product. */
+  [['.view-planhq .v-hero', 'border-bottom'],
+   ['.view-planhq .v-call', 'border-bottom'],
+   ['.wk-hero', 'border-bottom'],
+   ['.wk-summary > .zone-card', 'border-top']].forEach(([sel, side]) => {
+    assert.doesNotMatch(rule(sel), new RegExp(side + ':1px'),
+      sel + ' took its section boundary back');
+  });
+  /* A rule BETWEEN repeated rows is doing work nothing else does, so those
+     stay -- and this one is written so it cannot draw above the first row.
+     It used to be a border on every signal cancelled by :first-child, but
+     each of these lists is introduced by a .setup-section-title inside the
+     same parent, so the first signal is the second child and the cancel
+     never fired: a line sat directly under "Training Signals" separating it
+     from nothing. */
+  assert.match(rule('.coach-signal + .coach-signal'), /border-top:1px/,
+    'signals no longer separate from one another');
+  assert.doesNotMatch(SRC, /\.coach-signal:first-child\{border-top:none;\}/,
+    'the :first-child cancel that never fired is back');
 });
