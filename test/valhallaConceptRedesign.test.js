@@ -114,6 +114,35 @@ test('HERO: the unit toggle is still real and still reachable from the hero', ()
   assert.match(hero, /data-action="set-units" data-units="mi"/);
 });
 
+test('HERO: KM/MI is one tight control on the shared white rim, not two labels floating in reserved width', () => {
+  // The two words rendered 18px of empty space apart (measured with
+  // getBoundingClientRect on the text ranges, not eyeballed) because each
+  // button reserved min-width:30px for 15px and 12px of ink, with a 2px
+  // gap added on top. Both halves of that are pinned here: a reinstated
+  // min-width or gap reopens the hole, and the rim must keep coming from
+  // the --t-rim-* family rather than an inline literal, so the three rims
+  // move together the next time the light changes.
+  const css = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
+  const pill = css.match(/\.tb-unit-toggle\{([^}]*)\}/);
+  assert.ok(pill, '.tb-unit-toggle rule not found');
+  assert.match(pill[1], /gap:0/, 'the gap between KM and MI is back');
+  assert.match(pill[1], /var\(--t-rim-white\) border-box/,
+    'the toggle rim is no longer drawn from the shared rim family');
+  const btn = css.match(/\.tb-unit-toggle button\{([^}]*)\}/);
+  assert.ok(btn, '.tb-unit-toggle button rule not found');
+  assert.match(btn[1], /min-width:0/,
+    'the button reserves width its glyphs do not use again');
+  assert.match(btn[1], /min-height:34px/,
+    'the thumb target shrank -- height was never the problem');
+  // The token itself: same direction and same three-stop quiet-to-bright
+  // run as the gold and velvet rims it sits beside.
+  const tok = css.match(/--t-rim-white:([^;]*);/);
+  assert.ok(tok, '--t-rim-white is not declared');
+  assert.match(tok[1], /linear-gradient\(135deg/, 'the white rim runs a different diagonal to the others');
+  assert.equal((tok[1].match(/rgba\(255,255,255/g) || []).length, 3,
+    'the white rim is not the three-stop ramp the other two are');
+});
+
 test('HERO: days-to-goal reads the same raceDate renderCountdown() reads, and reacts to a block already raced', () => {
   const a = planHQ();
   assert.match(a.renderGoalDayFig(), /\d+d/);

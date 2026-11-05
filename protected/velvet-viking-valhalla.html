@@ -315,6 +315,13 @@
     /* Box 2 keeps its velvet identity; only the direction is shared. */
     --t-rim-velvet:linear-gradient(135deg,
       rgba(154,84,108,.62) 0%, rgba(196,106,137,.88) 48%, rgba(196,106,137,1) 100%);
+    /* The neutral member of the family, for a control that must not take a
+       side -- the KM/MI toggle reads as part of the chrome, not as a gold
+       or a velvet surface. Same 135deg, same three stops, same quiet-to-
+       bright run; only the hue is dropped. It lives here rather than inline
+       so it moves WITH the other two the next time the light changes. */
+    --t-rim-white:linear-gradient(135deg,
+      rgba(255,255,255,.20) 0%, rgba(255,255,255,.42) 48%, rgba(255,255,255,.72) 100%);
     --t-tile:rgba(20,22,27,.8);
     --t-tile-rim:rgba(255,255,255,.08);
     --t-lift:0 6px 18px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.055);
@@ -490,19 +497,25 @@
      what the resting label is and the rim should not out-colour the
      selected one. No fill, no track behind the active label: the gold
      illumination is still the only thing that says which is chosen. */
+  /* KM / MI. The two words sat 18px of empty space apart -- measured, not
+     eyeballed -- because each button carried min-width:30px while "KM" is
+     only 15px of ink and "MI" 12px, so both labels floated in a box half
+     again their own width, and a 2px gap was then added on top of that.
+     The fix is to stop reserving width the glyphs do not use: the button
+     is sized by its own padding, the gap goes, and the pair closes to 10px
+     -- near enough to read as one control, far enough not to touch.
+     Height is untouched: the 34px button inside the pill's 2px padding is
+     what makes this a thumb target, and that was never the problem. */
   .tb-unit-toggle{
-    display:flex; width:auto; gap:2px; align-items:center;
+    display:flex; width:auto; gap:0; align-items:center;
     border:1.5px solid transparent; border-radius:999px;
     background:linear-gradient(var(--surface-2), var(--surface-2)) padding-box,
-      linear-gradient(135deg,
-        rgba(255,255,255,.20) 0%,
-        rgba(255,255,255,.42) 48%,
-        rgba(255,255,255,.72) 100%) border-box;
-    box-shadow:none; padding:2px 5px;
+      var(--t-rim-white) border-box;
+    box-shadow:none; padding:2px 4px;
   }
   .tb-unit-toggle button{
     display:flex; align-items:center; justify-content:center;
-    min-height:34px; min-width:30px; padding:0;
+    min-height:34px; min-width:0; padding:0 5px;
     font-family:'Oswald',sans-serif; font-size:10.5px; font-weight:600;
     letter-spacing:.09em; text-transform:uppercase; line-height:1;
     color:#FFFFFF; background:none; border-radius:0;
