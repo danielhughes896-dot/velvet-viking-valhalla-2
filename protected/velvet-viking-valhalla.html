@@ -1288,13 +1288,21 @@
      day card is no longer a card at all -- it is the container the three
      boxes sit in, and the elevation has moved to them. Today renders exactly
      one day card, so .view-today .day names precisely that. */
-  /* #view-mount only to win on specificity: .view-today .day ties with the
+  /* .view-host only to win on specificity: .view-today .day ties with the
      production .day.is-today rule further down the sheet and loses on source
      order, so the gold inset ring came back. Still scoped to the VIEW rather
-     than the is-today STATE, which is what test/dayCardElevation guards. */
-  #view-mount .view-today .day,
-  #view-mount .view-week .wk-full .day,
-  #view-mount .view-plan-session .day{
+     than the is-today STATE, which is what test/dayCardElevation guards.
+     A CLASS, NOT #view-mount, AND THAT IS THE WHOLE POINT. The swipe pager
+     renders the neighbouring view into a peek element parked on document.body,
+     outside #view-mount -- so an id anchor silently excluded it and the
+     incoming page arrived unstyled: the day card kept its gold border, lift
+     background and 16px radius, and the view headings these rules hide came
+     back and shifted the layout. The page you were dragging in did not match
+     the page that landed. Every host that renders a view carries .view-host,
+     so a view looks the same wherever it is mounted. */
+  .view-host .view-today .day,
+  .view-host .view-week .wk-full .day,
+  .view-host .view-plan-session .day{
     background:none; border:0; box-shadow:none; padding:0; border-radius:0;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-top{position:relative; display:block; padding:0;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-main{min-width:0;}
@@ -1872,11 +1880,20 @@
      In the stack it would be an icon per row. */
   .how-mod-i{display:none;}
 
-  /* ---- BOX 3 : the workout structure ---- */
+  /* ---- BOX 3 IS NOT A BOX EITHER ----
+     Its gold frame made sense while the hero above it was framed too: three
+     cards down the screen, each edged, reading as one stack. The hero's card
+     went, and this was left as the only drawn rectangle on the screen and
+     therefore the loudest thing on it -- louder than the ring, which is the
+     session.
+     The step tiles inside keep their own faces and their own cherry accent
+     on the key stage; those ARE the information and they were never the
+     problem. What goes is the container drawn around them, which was only
+     ever saying "these belong together" -- something three tiles in a row
+     already say. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-block{
-    margin-top:13px; padding:13px;
-    border:1.5px solid transparent; border-radius:20px; box-shadow:var(--t-lift);
-    background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;}
+    margin-top:13px; padding:0;
+    border:0; border-radius:0; box-shadow:none; background:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-block .ws-head{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-steps-h{gap:8px; align-items:stretch;}
   /* ONE LINE FOR THE PRESCRIPTION. The step cell emits each fact as its own
@@ -3916,7 +3933,7 @@
      getDayTargets(), the identical call Today makes, so the prescription on
      the two screens is one string from one authority. Full Plan still gets
      renderDayCard() exactly as before.  */
-  #view-mount .view-week .view-heading{display:none;}
+  .view-host .view-week .view-heading{display:none;}
   /* ---- ONE RHYTHM ----
      Four blocks, one gap between each and a larger one above the first, so
      the screen opens rather than starting hard against the bar.
@@ -4086,7 +4103,7 @@
   .view-plan > .wk-hero{margin-bottom:5px;}
   .view-plan > .pp-chips{margin-bottom:3px;}
   .view-plan > .race-event{margin-top:9px;}
-  #view-mount .view-plan .view-heading{display:none;}
+  .view-host .view-plan .view-heading{display:none;}
 
   /* ---- the chips ---- */
   /* EQUAL SHARES OF THE ROW. The phases are a sequence of equal standing --
@@ -56442,6 +56459,20 @@ function renderMainContent(){
 // -- including the Today tab itself and the gold TODAY flags on This Week
 // and Full Plan. checkDateRollover() below repairs that.
 var lastRenderedDate = null;
+/* A COMMITTED SWIPE HAS ALREADY DONE THE TRANSITION, so the destination must
+   not then fade in from nothing. .view-fade runs a 180ms fadein on every
+   render of #view-mount, which is right when a tab is tapped and wrong the
+   instant a page has just been physically dragged into place: the page the
+   finger delivered blinked out to the black ground and faded back, which reads
+   as the screen resetting rather than as a transition finishing. The pager
+   raises this for exactly one render; reading it consumes it, so no other
+   render can inherit a suppression meant for the swipe. */
+var pagerSuppressFade = false;
+function viewMountClass(){
+  var cls = pagerSuppressFade ? 'view-host' : 'view-fade view-host';
+  pagerSuppressFade = false;
+  return cls;
+}
 function renderApp(){
   applyThemeToDocument();
   var app = document.getElementById('app');
@@ -56482,7 +56513,7 @@ function renderApp(){
      only, and the global palette is not being forked. */
   app.innerHTML =
     renderTopbar()+
-    '<div class="view-pager" id="view-pager"><div class="wrap"><div id="view-mount" class="view-fade">'+renderMainContent()+'</div></div></div>'+
+    '<div class="view-pager" id="view-pager"><div class="wrap"><div id="view-mount" class="'+viewMountClass()+'">'+renderMainContent()+'</div></div></div>'+
     (navAllowed ? renderBottomNavStack() : '');
   programmeEntryBindName();
   openTodayCoachingPanel();
@@ -56555,14 +56586,40 @@ function pagerReducedMotion(){
   catch(e){ return false; }
 }
 /* A small, single tick at the moment the new screen commits -- the same
-   confirmation a physical detent gives. Native first (iOS has no
-   navigator.vibrate at all, so without this there would be no haptic on the
-   platform most likely to expect one), then the web API, then nothing. */
+   confirmation a physical detent gives.
+
+   selectionChanged() FIRST, and that is the correction. A tab landing is a
+   SELECTION changing, which is the exact thing that API models -- on iOS it
+   maps to UISelectionFeedbackGenerator, the lightest tick the platform has
+   and the one a picker uses. impact() is a knock, a heavier and semantically
+   different event, and it was what this called.
+
+   AND THE ENUM WAS WRONG. @capacitor/haptics declares ImpactStyle.Light as
+   the string 'LIGHT'; this passed 'Light', which the native side does not
+   match and resolves to its default -- HEAVY. So the one place the brief
+   asked for a *small* haptic was firing the largest one the plugin has, on
+   iOS, where it is most felt. Kept as the fallback, now with the string the
+   plugin actually declares.
+
+   Native before web because iOS has no navigator.vibrate at all, so without
+   this path there is no haptic on the platform most likely to expect one.
+   Every call is wrapped: these return promises, and a rejected one from a
+   plugin that is present but unavailable would otherwise surface as an
+   unhandled rejection on a gesture the athlete cannot even see failing. */
 function pagerHaptic(){
   try{
     var h = nativePlugin('Haptics');
-    if (h && typeof h.impact === 'function'){ h.impact({ style: 'Light' }); return; }
-    if (navigator && typeof navigator.vibrate === 'function') navigator.vibrate(8);
+    if (h){
+      if (typeof h.selectionChanged === 'function'){
+        try{ var r = h.selectionChanged(); if (r && r.catch) r.catch(function(){}); }catch(e){}
+        return;
+      }
+      if (typeof h.impact === 'function'){
+        try{ var i = h.impact({ style: 'LIGHT' }); if (i && i.catch) i.catch(function(){}); }catch(e){}
+        return;
+      }
+    }
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') navigator.vibrate(8);
   }catch(e){}
 }
 /* Does any ancestor of the touched node scroll sideways RIGHT NOW? */
@@ -56602,7 +56659,10 @@ function pagerBuildPeek(view, dir){
   peek.className = 'view-peek';
   peek.style.top = top + 'px';
   peek.style.bottom = '0px';
-  peek.innerHTML = '<div class="wrap">' + pagerNeighbourHtml(view) + '</div>';
+  /* .view-host: the peek is a second place a view gets mounted, and the
+     view-scoped rules key off that class rather than #view-mount so the
+     neighbour looks identical to the page it is about to become. */
+  peek.innerHTML = '<div class="wrap view-host">' + pagerNeighbourHtml(view) + '</div>';
   peek.style.transform = 'translate3d(' + (dir > 0 ? '100%' : '-100%') + ',0,0)';
   document.body.appendChild(peek);
   return peek;
@@ -56641,8 +56701,13 @@ function pagerFinish(commit){
   pagerSetOffset(end);
   var to = p.to;
   window.setTimeout(function(){
+    /* ORDER MATTERS: render the destination while the peek still covers the
+       screen, then remove the peek. Both run in one task so nothing is painted
+       between them, and the peek is showing the very page the new mount draws
+       -- so the swap is invisible instead of a blink back to the old page. */
+    if (commit && to){ pagerSuppressFade = true; handleSetView(to); }
     pagerCleanup();
-    if (commit && to){ handleSetView(to); pagerHaptic(); }
+    if (commit && to) pagerHaptic();
   }, 230);
 }
 function pagerTouchStart(e){

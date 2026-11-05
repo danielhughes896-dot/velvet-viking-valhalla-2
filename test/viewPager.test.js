@@ -114,12 +114,28 @@ test('the transition tracks the finger rather than queueing', () => {
     'the borrowed view is not restored -- a failed render would strand the app on the wrong tab');
 });
 
-test('the commit is confirmed by a haptic, native first', () => {
+test('the commit is confirmed by a haptic, and it is the right one', () => {
   const h = fn('pagerHaptic');
   // iOS has no navigator.vibrate at all, so without the native path there
   // would be no haptic on the platform most likely to expect one.
   assert.ok(h.indexOf("nativePlugin('Haptics')") < h.indexOf('navigator.vibrate'),
     'the web vibrate is tried before the native haptic');
+  /* A tab landing is a SELECTION changing, which is the exact thing
+     selectionChanged() models -- on iOS it maps to
+     UISelectionFeedbackGenerator, the lightest tick the platform has and the
+     one a picker uses. impact() is a knock: heavier, and a different event. */
+  assert.ok(h.indexOf('selectionChanged') > -1 && h.indexOf('selectionChanged') < h.indexOf('h.impact'),
+    'the tab landing fires a knock before it tries the selection tick');
+  /* AND THE ENUM STRING. @capacitor/haptics declares ImpactStyle.Light as
+     'LIGHT'; 'Light' does not match on the native side and resolves to the
+     default, which is HEAVY -- so the one place the brief asked for a small
+     haptic fired the largest one the plugin has. */
+  assert.match(h, /style: 'LIGHT'/, "the impact style is not the string the plugin declares");
+  assert.doesNotMatch(h, /style: 'Light'/, "the impact style is back to a value that resolves to HEAVY");
+  // These return promises; a rejection from a plugin that is present but
+  // unavailable must not surface on a gesture nobody can see failing.
+  assert.equal((h.match(/\.catch\(function\(\)\{\}\)/g) || []).length, 2,
+    'a haptic promise is left unhandled');
   assert.match(fn('pagerFinish'), /pagerHaptic\(\)/, 'the commit stopped confirming itself');
 });
 
@@ -148,4 +164,63 @@ test('the pager is inert in a DOM that answers nothing', () => {
   assert.doesNotThrow(() => a.initViewPager());
   assert.doesNotThrow(() => a.pagerFinish(false));
   assert.equal(a.pagerOwnedElsewhere(null), false);
+});
+
+/* THE PEEK IS A SECOND MOUNT POINT, AND THE STYLESHEET HAS TO KNOW IT.
+ * ===========================================================================
+ * The neighbouring view is rendered into an element parked on document.body,
+ * outside #view-mount. Every one of these three guards is a defect that
+ * shipped: a view that looks like a different product while it is sliding is
+ * worse than no gesture at all.
+ */
+test('no view-scoped rule is anchored on the #view-mount id', () => {
+  /* An id anchor is invisible to the peek, and the failure is silent: the
+     incoming page simply arrives wearing the styles the rule was written to
+     remove. .view-host is carried by every host that mounts a view. */
+  const offenders = CSS.split('\n').filter(l => /#view-mount\s+\./.test(l));
+  assert.deepEqual(offenders.join(' | '), '',
+    'a view-scoped rule is anchored on #view-mount, so the swipe peek escapes it');
+  assert.match(CSS, /\.view-host \.view-today \.day,[\s\S]{0,160}background:none; border:0;/,
+    'the focused-session card is no longer stripped by a host-scoped rule');
+});
+
+test('both hosts that mount a view carry .view-host', () => {
+  assert.match(SRC, /id="view-mount" class="'\+viewMountClass\(\)\+'"/,
+    'the live mount no longer gets its class from viewMountClass()');
+  assert.match(fn('viewMountClass'), /'view-fade view-host'/,
+    'the live mount lost .view-host, so the view-scoped rules stop applying');
+  assert.match(fn('pagerBuildPeek'), /<div class="wrap view-host">/,
+    'the peek lost .view-host, so the incoming page renders unstyled');
+});
+
+test('a committed swipe does not then fade the destination in', () => {
+  /* .view-fade runs a fadein on every render of #view-mount. After a slide
+     that is a blink to the black ground and back, which reads as the screen
+     resetting rather than as the transition landing. */
+  const cls = fn('viewMountClass');
+  assert.match(cls, /pagerSuppressFade \? 'view-host' : 'view-fade view-host'/,
+    'the suppressed render no longer drops .view-fade');
+  assert.match(cls, /pagerSuppressFade = false;\s*return cls;/,
+    'the suppression is no longer one-shot, so an unrelated render can inherit it');
+  const finish = fn('pagerFinish');
+  assert.match(finish, /pagerSuppressFade = true; handleSetView\(to\);/,
+    'the commit no longer suppresses the redundant fade');
+});
+
+test('the destination renders under the peek, then the peek lifts', () => {
+  /* Reversing these two paints the outgoing page back at centre for a frame. */
+  const finish = fn('pagerFinish');
+  const render = finish.indexOf('pagerSuppressFade = true; handleSetView(to);');
+  const clean = finish.indexOf('pagerCleanup();', render);
+  assert.ok(render > -1 && clean > render,
+    'pagerCleanup() now runs before the destination is rendered');
+});
+
+test('the live mount and the peek render a view identically', () => {
+  /* The structural claim behind the guards above, checked against the markup
+     rather than the stylesheet: the peek is handed the very same string. */
+  assert.match(fn('pagerNeighbourHtml'), /return renderMainContent\(\);/,
+    'the peek no longer renders the view through the same entry point');
+  assert.match(fn('pagerNeighbourHtml'), /finally\{ state\.view = was; \}/,
+    'the borrowed state.view is no longer restored, so a throw strands the view');
 });

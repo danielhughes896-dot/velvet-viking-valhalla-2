@@ -363,3 +363,23 @@ test('Today offers only what Today is for', () => {
   assert.doesNotMatch(bare, /(^|\}|;)\s*\.day-act-plan\{display:none;\}/,
     'Edit Session was hidden everywhere, not just on Today');
 });
+
+test('nothing on the focused session is drawn as a box', () => {
+  /* The hero went first, then the coaching card, and the workout blueprint
+     was left as the only drawn rectangle on the screen -- and therefore the
+     loudest thing on it, louder than the ring, which is the session. Its
+     frame only ever said "these belong together", which three tiles in a row
+     already say.
+     THE TILES INSIDE KEEP THEIRS. They are the information, and the cherry
+     on the key stage is how the hard part is marked; this is about the
+     container drawn around them, not about them. */
+  ['.th-hero', '.th-hero-main', '.th-ring-wrap', '.how-card', '.ws-block'].forEach(sel => {
+    const r = focusRule(sel);
+    assert.match(r, /background:none/, sel + ' has a fill again');
+    assert.ok(/border:0/.test(r) || /border:none/.test(r), sel + ' has an edge again');
+    assert.ok(!/box-shadow:var\(--t-lift\)/.test(r), sel + ' is being lifted like a card again');
+  });
+  // ...and the step tiles still are tiles.
+  const step = focusRule('.ws-h-step');
+  assert.match(step, /background:var\(--t-tile\)/, 'the step tiles lost their faces');
+});
