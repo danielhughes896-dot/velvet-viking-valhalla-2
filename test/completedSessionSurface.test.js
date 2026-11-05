@@ -200,3 +200,37 @@ test('de-tiling the breakdown did not delete its press feedback', () => {
       'the tile shadow came back with the press state');
   });
 });
+
+/* FEEL WAS THE LAST CONTROL BUILT OUT OF BOXES AND FILLS.
+ * ===========================================================================
+ * A 9px label at 0.5px tracking inside a 6px-radius slab, which selected
+ * itself by turning solid gold and flipping its text dark. Every comparable
+ * control in the product had since settled on the opposite grammar -- a
+ * pill, the one label voice, the word staying put, and the state carried by
+ * light. The phase chips say it in as many words: gold means SELECTED, and
+ * the word stays crisp white at every state.
+ */
+test('FEEL: the pills speak the product\'s own language, not the old one', () => {
+  const btn = rule('.feel-btn');
+  // the one label voice, not a 9px variant of it
+  ['--label-face', '--label-size', '--label-track', '--label-weight'].forEach(tok =>
+    assert.ok(btn.indexOf('var(' + tok + ')') > -1,
+      'the Feel pills are off the label voice (' + tok + ')'));
+  assert.doesNotMatch(btn, /font-size:9px/, 'the 9px label is back');
+  assert.match(btn, /border-radius:99px/, 'the Feel options are slabs again, not pills');
+
+  const on = rule('.feel-btn.on');
+  /* THE WORD STAYS, THE LIGHT CHANGES. A solid fill with inverted text
+     shouts louder than the figures logged above it, and this is the quiet
+     answer at the end of a log rather than the headline of one. */
+  assert.match(on, /color:var\(--ink\)/, 'selecting a feel recolours the word again');
+  assert.match(on, /box-shadow:[^;]*var\(--gold\)/, 'the selected feel is no longer lit');
+  assert.doesNotMatch(on, /background:/,
+    'the selected feel fills itself solid again instead of lighting up');
+
+  /* ONE SELECTION COLOUR, NOT A SCALE. Tinting POOR red and V.GOOD green
+     would be the app grading an answer the athlete has just given about
+     their own body. Feel is reported, not assessed. */
+  assert.doesNotMatch(on, /var\(--ok\)|var\(--bad\)|var\(--warn\)/,
+    'the feel scale is being colour-graded by the app');
+});

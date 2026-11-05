@@ -3,7 +3,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const { RUNTIME_RELATIVE } = require('./harness.js');
+const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
+const { buildPlan } = require('./fixtures.js');
 
 /* FULL PLAN STOPS BEING BOXES INSIDE BOXES.
  * ===========================================================================
@@ -18,6 +19,17 @@ const ROOT = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
 const CSS = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
 const BARE = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+const rule = sel => {
+  const i = BARE.indexOf(sel + '{');
+  assert.ok(i > -1, 'rule not found: ' + sel);
+  return BARE.slice(i + sel.length + 1, BARE.indexOf('}', i));
+};
+function app(){
+  const a = loadApp({ pinnedDate: '2026-08-24T09:00:00Z' });
+  a.showToast = () => {}; a.renderApp = () => {}; a.scheduleSave = () => {};
+  buildPlan(a, { weeks: 12, startDate: '2026-07-01', distanceKey: '10k', volume: 40 });
+  return a;
+}
 
 test('no surface on the plan screens is drawn as a lifted card', () => {
   const i = BARE.indexOf(':is(.view-plan, .view-plan-week, .view-plan-session)\n    :is(.pw-progress, .pw-row, .zone-card, .hub-card, .race-event, .race-strategy, .week, .pp-phase)');
@@ -198,4 +210,47 @@ test('every gold glow that marks selection or state names its token', () => {
     'the selected phase chip hand-sets its gold again');
   assert.match(BARE, /\.wk-day\.is-sel\{[^}]*color-mix\(in srgb, var\(--gold\)/,
     'the selected day circle hand-sets its gold again');
+});
+
+/* THE ROW SAYS WHAT HAPPENED, IN THE SPACE IT WAS ALREADY LEAVING EMPTY.
+ * ===========================================================================
+ * A day row ran day, session, then a long run of nothing to a chevron -- and
+ * the one thing an athlete scanning a finished week wants from it is whether
+ * each day was done and how it went. Both answers already existed:
+ * computeExecutionBreakdown() scores a logged session out of 100, and a past
+ * day with no log is a missed one.
+ */
+test('ROW: a finished day shows its score, a past unlogged one says so, a rest day says nothing', () => {
+  const a = app();
+  const today = a.todayStr();
+  const day = (over) => Object.assign({ id: 'd1', date: '2000-01-01', type: 'easy',
+    km: 10, completed: false, actual: {} }, over);
+
+  // a rest day is asked for nothing, so there is nothing to report
+  assert.equal(a.planRowStatusHtml(day({ type: 'rest', date: '2000-01-01' })), '',
+    'a rest day is being marked missed for not being run');
+
+  // a future day has not happened yet
+  assert.equal(a.planRowStatusHtml(day({ date: '2099-01-01' })), '',
+    'a day in the future is being judged');
+
+  // a past day with nothing logged
+  const missed = a.planRowStatusHtml(day({ date: '2000-01-01' }));
+  assert.match(missed, /is-missed/, 'a past unlogged session is indistinguishable from a future one');
+  assert.match(missed, /Missed/);
+
+  // logged, and scored against what was asked
+  const scored = a.planRowStatusHtml(day({ completed: true,
+    actual: { km: 10, hr: 150, rpe: 5, pace: '5:30' } }));
+  assert.match(scored, /is-score/, 'a scored session shows no score');
+  assert.match(scored, /\d+%/, 'the score is not stated as a figure');
+
+  /* IT STATES, IT DOES NOT GRADE. A missed day is quiet rather than red --
+     the same restraint .wk-day.is-missed already shows -- and the score sits
+     in the dim data face the rest of the row uses. The coaching read of a
+     block has its own surfaces; a list row is not one. */
+  assert.match(rule('.pw-stat.is-missed'), /color:var\(--ink-faint\)/,
+    'a missed day is being shouted at the athlete');
+  assert.match(rule('.pw-stat.is-score'), /color:var\(--ink-dim\)/,
+    'the execution score is being colour-graded on the row');
 });

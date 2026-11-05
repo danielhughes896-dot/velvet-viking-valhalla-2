@@ -2776,15 +2776,36 @@
     font-size:9px; letter-spacing:.5px; text-transform:uppercase; color:var(--ink-faint);
   }
   .note-undo:hover{color:var(--ink);}
-  /* Feel: one tap, five options, deliberately quieter than the numeric fields
-     so it reads as a quick answer rather than another thing to fill in. */
-  .feel-row{display:grid; grid-template-columns:repeat(5,1fr); gap:4px;}
+  /* ---------- FEEL SPEAKS THE PRODUCT'S OWN LANGUAGE ----------
+     This was the last control still built out of boxes and fills: a 9px
+     label at 0.5px tracking inside a 6px-radius slab, which selected itself
+     by turning solid gold and flipping its text dark. Every comparable
+     control -- the phase chips above all -- had since settled on the
+     opposite grammar: a pill, the one label voice, the word staying put,
+     and the STATE carried by light.
+     THE WORD STAYS WHITE AND THE GLOW SAYS SELECTED, which is the same rule
+     the phase chips follow and for the same reason: a filled slab shouts
+     louder than the figures above it, and this is the quiet answer at the
+     end of a log, not the headline of it.
+     ONE SELECTION COLOUR, NOT A SCALE. Gold means SELECTED throughout this
+     product. Tinting "POOR" red and "V.GOOD" green would be the app
+     grading an answer the athlete has just given about their own body --
+     feel is reported, not assessed, and the engine's reading of it already
+     has somewhere to live. */
+  .feel-row{display:grid; grid-template-columns:repeat(5,1fr); gap:5px;}
   .feel-btn{
-    padding:6px 2px; font-size:9px; letter-spacing:0.5px; font-weight:600;
-    background:var(--bg-3); color:var(--ink-faint); border:1px solid var(--line);
-    border-radius:6px; cursor:pointer; transition:background .12s, color .12s, border-color .12s;
+    padding:9px 4px; min-height:36px;
+    font-family:var(--label-face); font-size:var(--label-size);
+    letter-spacing:var(--label-track); font-weight:var(--label-weight);
+    text-transform:uppercase;
+    background:var(--t-tile); color:var(--ink-dim);
+    border:1px solid var(--t-tile-rim); border-radius:99px; cursor:pointer;
+    transition:color .18s, border-color .18s, box-shadow .18s;
   }
-  .feel-btn.on{background:var(--modal-active); color:var(--bronze-ink); border-color:var(--modal-active);}
+  .feel-btn.on{
+    color:var(--ink); border-color:var(--gold);
+    box-shadow:0 0 0 1px var(--gold), 0 0 14px color-mix(in srgb, var(--gold) 26%, transparent);}
+  .feel-btn:focus-visible{outline:2px solid var(--gold-bright); outline-offset:2px;}
   .cr-compare{display:flex; flex-wrap:wrap; gap:6px;}
   .cr-cmp{font-size:10px; padding:2px 7px; border:1px solid var(--line); border-radius:99px; color:var(--ink-faint);}
   .actual-clear{text-align:right;}
@@ -4674,6 +4695,17 @@
   .pw-main .day-badge{margin-bottom:4px;}
   .pw-title{display:block; font-size:15.5px; font-weight:600; color:var(--ink);
     line-height:1.25; overflow-wrap:anywhere;}
+  /* Between the session and the arrow, in the space the row was already
+     leaving empty. flex:none so a long session title gives way to it rather
+     than squeezing it, and the row's own gap does the spacing. */
+  .pw-stat{flex:none; margin-left:10px; display:inline-flex; align-items:center;}
+  .pw-stat.is-score{font-size:var(--fs-panel-row); color:var(--ink-dim); letter-spacing:.01em;}
+  .pw-stat.is-done{color:var(--ok-text);}
+  .pw-stat.is-done svg{width:15px; height:15px;}
+  .pw-stat.is-missed{
+    font-family:var(--label-face); font-size:var(--label-size);
+    letter-spacing:var(--label-track); font-weight:var(--label-weight);
+    text-transform:uppercase; color:var(--ink-faint);}
   .pw-chev{flex:none; color:var(--ink-faint); display:inline-flex;}
   .pw-chev svg{width:19px; height:19px;}
   .pw-row.is-today{border-color:var(--gold);
@@ -54887,9 +54919,32 @@ function planWeekRowsHtml(weekNum){
           escapeHtml(dayTypeLabel(dd))+'</span>'+
         '<span class="pw-title">'+escapeHtml(displayCardTitle(dd))+'</span>'+
       '</span>'+
+      planRowStatusHtml(dd)+
       '<span class="pw-chev" aria-hidden="true">'+ICONS.chevronRight+'</span>'+
     '</button>';
   }).join('');
+}
+/* ---------- WHAT HAPPENED, ON THE ROW ITSELF ----------
+   The row ran day, session, and then a long run of nothing to a chevron --
+   and the one thing an athlete scanning a finished week wants from it is
+   whether each day was done and how it went. That answer already exists:
+   computeExecutionBreakdown() scores a logged session out of 100, and a
+   past day with no log is a missed one.
+   IT STATES, IT DOES NOT GRADE. The figure goes in the data face at the
+   dim weight the rest of the row uses, and a missed day is quiet rather
+   than red -- the same restraint .wk-day.is-missed already shows. The
+   coaching read of a block has its own surfaces; a list row is not one. */
+function planRowStatusHtml(dd){
+  if (!dd || dd.type === 'rest') return '';
+  if (dd.completed){
+    var b = computeExecutionBreakdown(dd);
+    /* Logged, but not enough of it to score against -- still done, and the
+       row should say so rather than look the same as a day never run. */
+    if (!b) return '<span class="pw-stat is-done" aria-label="Completed">'+ICONS.check+'</span>';
+    return '<span class="pw-stat is-score font-mono">'+b.score+'%</span>';
+  }
+  if (dd.date < todayStr()) return '<span class="pw-stat is-missed">Missed</span>';
+  return '';
 }
 function renderPlanWeekView(weekNum){
   var range = weekDateRange(weekNum), vol = weekVolume(weekNum);
