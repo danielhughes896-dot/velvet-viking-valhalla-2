@@ -136,7 +136,6 @@ test('every customer-facing brand control now resolves through the accent token'
      colour through a token so the decision stays central. */
   const CONTROLS = [
     ['.builder-light .btn-primary',                 'the builder’s Continue / Build'],
-    ['.hq-panel .rec-panel-nav .btn-primary',       'the Plan HQ panels’ ← BACK'],
     ['.btn-recal',                                  'Settings’ Re-calibrate Training Zones launcher'],
     ['.bld-step.now',                               'the current build stage'],
     ['.bld-step.done',                              'the stages already covered'],
@@ -167,7 +166,13 @@ test('every customer-facing brand control now resolves through the accent token'
 });
 
 test('the primaries are SOLID, which is the treatment that was chosen', () => {
-  ['.builder-light .btn-primary', '.hq-panel .rec-panel-nav .btn-primary',
+  /* The Plan HQ panels' cherry BACK is gone from this list because the
+     button is gone: it fired the same action as the X in its own header, so
+     the panel had two controls for one outcome and the cherry one was the
+     heaviest thing on a surface built to show evidence. Cherry did not leave
+     the product -- it is still the builder's forward motion, the measured
+     band and the gauge arc below. */
+  ['.builder-light .btn-primary',
    '.outlook-band', '.ol-swatch.measured'].forEach(sel => {
     const i = CODE.indexOf(sel + '{');
     const body = CODE.slice(i + sel.length + 1, CODE.indexOf('}', i));
@@ -267,7 +272,10 @@ test('filled controls are burgundy, not a mid-tone rose', () => {
 
   /* A dark fill cannot supply its own 3:1 boundary, so the rim does -- and the
      rim has to be the indicator tone, which is the one that clears it. */
-  ['.builder-light .btn-primary', '.hq-panel .rec-panel-nav .btn-primary'].forEach(sel => {
+  /* One labelled cherry fill left in the product, not two: the Plan HQ
+     panels' BACK is gone, having fired the same action as the X beside it.
+     The contrast rule it was held to is unchanged for the one that remains. */
+  ['.builder-light .btn-primary'].forEach(sel => {
     const bodies = rulesFor(sel);
     assert.ok(bodies.some(b => /background:var\(--cherry-fill\)/.test(b)),
       sel + ' does not take the fill tone -- a labelled primary is back on the indicator tone');

@@ -318,20 +318,28 @@ test('PANEL: every panel opens with an uppercase heading and a circular close', 
   assert.match(CODE, /\.modal-head h2\{[^}]*text-transform\s*:\s*uppercase/);
 });
 
-test('PANEL: every panel ends on one full-width Cherry Lacquer BACK, and no other primary', () => {
+test('PANEL: a panel carries no primary of its own just to get out of itself', () => {
+  /* It used to end on a full-width Cherry Lacquer BACK. That button fired
+     data-action="close-record-panel" -- the identical action as the X in its
+     own header, with the same scroll restoration behind it -- so the panel
+     offered two controls for one outcome, and the cherry one was the
+     heaviest object on a surface whose entire job is to show evidence.
+
+     What survives is the rule the pair of them protected: a panel may host a
+     real primary of its own (Plan evolution's Accept commits days of
+     training) and that primary must never be confusable with a way out.
+     With no cherry exit left, it cannot be. */
   const a = planHQ();
   Object.keys(a.RECORD_PANELS).forEach(k => {
     const panel = a.RECORD_PANELS[k]();
+    assert.doesNotMatch(panel, /← BACK/, k + ' grew a second exit back');
+    assert.doesNotMatch(panel, /rec-panel-nav/, k + ' still carries the old nav block');
+    /* And no panel in this set invents a primary for navigation. */
     const primaries = panel.match(/class="btn btn-primary[^"]*"/g) || [];
-    assert.equal(primaries.length, 1, k + ' has ' + primaries.length + ' primary actions');
-    assert.match(primaries[0], /btn-block/, k + "'s BACK is not full width");
-    assert.match(panel,
-      /<button type="button" class="btn btn-primary btn-block" data-action="close-record-panel">← BACK<\/button>/,
-      k + ' does not end on ← BACK');
-    // The BACK is last in the body.
-    assert.ok(panel.indexOf('rec-panel-nav') > panel.indexOf('<div class="modal-body">'), k);
+    assert.equal(primaries.length, 0,
+      k + ' has ' + primaries.length + ' primary actions and needs none');
   });
-  // Violet comes from the builder's own rule, not a second purple.
+  // The builder's own rule is untouched -- it is where cherry still belongs.
   assert.match(CODE, /\.builder-light\s+\.btn-primary\{[^}]*var\(--cherry\)/);
 });
 
@@ -349,14 +357,14 @@ test('PANEL: a detail panel is not a wizard step', () => {
 // ===========================================================================
 // 5. EXIT BEHAVIOUR
 // ===========================================================================
-test('EXIT: X and ← BACK are the same action, and both restore the Plan HQ scroll position', () => {
+test('EXIT: there is one way out, and it restores the Plan HQ scroll position', () => {
   const a = planHQ();
   Object.keys(a.RECORD_PANELS).forEach(k => {
     const panel = a.RECORD_PANELS[k]();
-    const exits = panel.match(/data-action="([^"]+)"/g)
+    const exits = (panel.match(/data-action="([^"]+)"/g) || [])
       .filter(x => /close/.test(x));
-    assert.equal(exits.join(','), 'data-action="close-record-panel",data-action="close-record-panel"',
-      k + ' has two different exits, or only one');
+    assert.equal(exits.join(','), 'data-action="close-record-panel"',
+      k + ' has more than one exit, or none at all');
   });
 
   let scrolledTo = null;

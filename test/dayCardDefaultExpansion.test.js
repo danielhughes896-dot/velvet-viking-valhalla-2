@@ -90,10 +90,25 @@ test('a manual tap still overrides the default in either direction', () => {
   a.handleToggleDay(future.id);
   assert.equal(a.isDayExpanded(future), false, 'and a second tap closes it again');
 
+  /* TODAY IS THE EXCEPTION, AND IT IS THE EXCEPTION ON PURPOSE. On the three
+     screens that exist to show one session -- Today, This Week's opened day,
+     Full Plan's session screen -- the card is the whole page, so collapsing
+     it leaves a header and a bottom nav. It is not a control there at all:
+     no chevron, no role, no action, and the handler refuses. The default
+     rule below is unchanged for every other day on every other surface. */
   const today = a.state.days.find(d => d.date === TODAY && d.type !== 'rest');
+  a.state.view = 'today';
   assert.equal(a.isDayExpanded(today), true, 'starts expanded by default');
   a.handleToggleDay(today.id);
-  assert.equal(a.isDayExpanded(today), false, 'and can still be manually collapsed');
+  assert.equal(a.isDayExpanded(today), true,
+    'the one session the screen is about was collapsed to nothing');
+
+  /* Away from those three screens it is an ordinary card again -- a week
+     listing, where there is something else to see when it shuts. */
+  a.state.view = 'settings';
+  assert.equal(a.isDayExpanded(today), true, 'today still defaults open elsewhere');
+  a.handleToggleDay(today.id);
+  assert.equal(a.isDayExpanded(today), false, 'and can still be manually collapsed there');
 });
 
 test('the same rule drives Today, This Week and Full Plan alike -- one function, no per-view logic', () => {

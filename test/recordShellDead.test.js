@@ -67,11 +67,13 @@ test('every .rec-* class the stylesheet styles is one the app can render', () =>
      it is either a component that was deleted, or one that was renamed and
      left a stub behind, and both mislead the next reader in the same way. */
   const styled = [...new Set((CSS.match(/\.rec-[a-z-]+/g) || []).map(s => s.slice(1)))];
-  /* Three now, not six: the headline-fact card and the lighter acquisition
-     card went with the Record tab, leaving the panel lede, the quieting and
-     the panel's own nav. The floor moves with them -- it is here to catch the
-     namespace disappearing by accident, not to pin a count. */
-  assert.ok(styled.length >= 3, 'the .rec-* namespace vanished entirely -- check this test');
+  /* Two now. The headline-fact card and the lighter acquisition card went
+     with the Record tab; the panel's own nav went with the cherry BACK,
+     which fired the same action as the X beside it. What is left is the
+     panel lede and the quieting of an unavailable value. The floor moves
+     with them -- it is here to catch the namespace disappearing by
+     accident, not to pin a count. */
+  assert.ok(styled.length >= 2, 'the .rec-* namespace vanished entirely -- check this test');
   const orphans = styled.filter(cls => REST.indexOf(cls) === -1);
   assert.equal(orphans.join(', '), '',
     'these .rec-* rules style something the app never renders: ' + orphans.join(', '));
@@ -81,9 +83,10 @@ test('the surviving Record classes are all still styled and still rendered', () 
   /* The other direction: the deletion must not have taken a live class with
      it. These are the ones the Record actually uses today -- the list has
      shrunk twice now, once when the list-row shell went and again when the
-     headline-fact card went with the Record tab, and each time the test was
-     re-pointed rather than relaxed. */
-  ['rec-lede', 'rec-none', 'rec-panel-nav'].forEach(cls => {
+     headline-fact card went with the Record tab, and again when the panels
+     lost a BACK that did the X's job. Each time the test was re-pointed
+     rather than relaxed. */
+  ['rec-lede', 'rec-none'].forEach(cls => {
     assert.ok(new RegExp('\\.' + cls + '\\b').test(CSS), '.' + cls + ' lost its styling');
     assert.ok(REST.indexOf(cls) > -1, '.' + cls + ' is no longer rendered');
   });

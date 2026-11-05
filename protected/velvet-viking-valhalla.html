@@ -1195,9 +1195,33 @@
     background:none; border:0; box-shadow:none; padding:0; border-radius:0;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-top{position:relative; display:block; padding:0;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-main{min-width:0;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-check{position:absolute; top:-2px; right:62px; z-index:2;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-actions{position:absolute; top:2px; right:30px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-chevron{position:absolute; top:2px; right:4px;}
+  /* ---------- TWO CONTROLS, EVENLY SPACED ----------
+     Three right-anchored absolutes at 62 / 30 / 4 fitted three controls. The
+     chevron is gone from this scope -- the one session a screen is about
+     cannot be collapsed -- and leaving the other two pinned to the same
+     offsets left a 30px hole where it had been, with the tick and the edit
+     button crowded together to the left of it. One flex rail now holds
+     whatever is there and spaces it, so a card with a tick and an edit, or
+     with only one of them, is correct without a second set of numbers. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-rail{
+    position:absolute; top:-2px; right:0; z-index:2;
+    display:flex; align-items:center; gap:16px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-rail .day-check,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-rail .day-actions{
+    position:static;}
+  /* THE EDIT CONTROL IN THE BOTTOM NAV'S VOICE. It was --ink-faint on a dark
+     card, which is the weight of something switched off; it is an action the
+     athlete uses on the one session in front of them. Crisp white, the same
+     2.1 stroke and the same white drop-shadow the nav items carry, so the two
+     places in the product that offer a bare icon offer it the same way. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-actions button{
+    color:#FFFFFF; padding:6px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-actions svg{
+    width:18px; height:18px; stroke-width:2.1;
+    filter:drop-shadow(0 0 5px rgba(255,255,255,.30));}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-actions button:hover{
+    color:var(--gold-bright); background:none;
+    filter:drop-shadow(0 0 6px rgba(227,177,90,.55));}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-date{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-targets{display:none;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-title{display:none;}
@@ -4744,22 +4768,74 @@
     font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.9px;
     text-transform:uppercase; color:var(--ink); line-height:1.3;
   }
-  /* The panel a Record card opens. Same modal-themed surface and the same
-     circular close control as every other worked-in surface; the one addition
-     is the full-width Cherry Lacquer BACK at the foot, which is the builder's
-     own forward-motion accent doing the one job this surface has. */
-  .rec-panel-nav{margin-top:22px;}
-  /* CHERRY MEANS "THE WAY OUT OF THIS PANEL", and only that. builder-light is
-     borrowed for the centring and the accent, but a Plan HQ panel can host a
-     real primary of its own -- a Plan evolution proposal's Accept commits days
-     of training -- and a state-changing action must not wear the same colour
-     as the button that just closes the surface. So the panels put every
-     content primary back on bronze, and light the navigation alone. */
+  /* The panel a Record or Reading circle opens. Same modal-themed surface and
+     the same circular close control as every other worked-in surface. The
+     full-width Cherry Lacquer BACK that used to sit at its foot is gone: it
+     fired the identical action as the X above it, and on a surface whose job
+     is to show evidence it was the loudest object on screen.
+
+     THE REST OF THE RULE STILL HOLDS, and is why the next line stays.
+     builder-light is borrowed for the centring and the accent, but a panel
+     can host a real primary of its own -- a Plan evolution proposal's Accept
+     commits days of training -- and with cherry no longer spent on a way out,
+     a content primary must still not pick it up by inheritance. */
   .hq-panel .btn-primary{background:linear-gradient(135deg,var(--bronze),var(--bronze-2)); color:var(--bronze-ink);}
-  .hq-panel .rec-panel-nav .btn-primary{
-    background:var(--cherry-fill); color:var(--cherry-btn-ink);
-    box-shadow:inset 0 0 0 1px var(--cherry);
-  }
+
+  /* ---------- THE PANEL WEARS THE COLOUR OF THE CIRCLE THAT OPENED IT ----------
+     Nine circles on Valhalla, each a fixed identity, and every one of them
+     used to open the same anonymous dark sheet -- so the one piece of
+     information the athlete carried in with them (which reading this is) was
+     dropped at the door. The accent is set by a class on the card rather than
+     a variable on a child, because a custom property inherits downward and
+     the border that needs it is the card's own. */
+  .modal-card.hq-panel{--rp-accent:var(--cherry);
+    border:1.5px solid color-mix(in srgb, var(--rp-accent) 72%, transparent);
+    box-shadow:0 0 18px color-mix(in srgb, var(--rp-accent) 24%, transparent),
+               0 0 48px color-mix(in srgb, var(--rp-accent) 10%, transparent);}
+  .modal-card.rp-gold{--rp-accent:var(--gold-bright);}
+  .modal-card.rp-green{--rp-accent:var(--z-easy);}
+  .modal-card.rp-cherry{--rp-accent:var(--cherry);}
+  .modal-card.rp-white{--rp-accent:var(--ink);}
+  .modal-card.rp-blue{--rp-accent:var(--z-mp);}
+  .hq-panel .modal-head{border-bottom:0; padding-bottom:4px;}
+  .hq-panel .modal-head h2{font-size:21px; letter-spacing:1.6px; color:#FFFFFF;}
+  .hq-panel .icon-btn{border:1.5px solid color-mix(in srgb, var(--rp-accent) 70%, transparent);
+    color:var(--rp-accent); border-radius:50%; width:40px; height:40px;
+    display:flex; align-items:center; justify-content:center;}
+
+  /* ---------- THE VERDICT, ENLARGED, AND THE REASON BESIDE IT ----------
+     The circle the athlete pressed, at the arc's own largest size, with the
+     engine's one-line synopsis across a hairline in the accent. */
+  .rp-hero{display:flex; align-items:center; gap:16px; margin:10px 0 18px;}
+  .rp-hero .b-dial{flex:none;}
+  .rp-hero-text{flex:1 1 auto; min-width:0; padding-left:16px;
+    border-left:1.5px solid color-mix(in srgb, var(--rp-accent) 55%, transparent);}
+  .rp-hero-verdict{margin-bottom:5px;}
+  .rp-hero-verdict .read-val{font-size:13px; letter-spacing:.04em;}
+  .rp-hero-say{font-size:14px; line-height:1.45; color:#FFFFFF;}
+
+  /* ---------- THE EVIDENCE, AS ROWS ON THE PANEL ITSELF ----------
+     It was a .hub-card inside the sheet -- a bordered box inside a bordered
+     box, which is one border too many for a list of five figures. The rows
+     are separated by hairlines instead, and the panel is the surface. */
+  .rp-rows{display:block; margin-top:2px;}
+  .rp-rows .hq-row{padding:11px 0; border-bottom:1px solid var(--line-soft);}
+  .rp-rows .hq-row:last-child{border-bottom:0;}
+  .hq-row-i{flex:none; display:inline-flex; width:17px; height:17px; color:var(--gold-text);}
+  .hq-row-i svg{width:17px; height:17px;}
+  .hq-row-i:empty{display:inline-block;}
+  /* CRISP WHITE, BOTH SIDES. A label and its figure are the two halves of
+     one fact and were set in two different greys -- --ink-faint and
+     --ink-dim -- which read as the label being switched off. They take the
+     same white the Today card's own body does; the hierarchy is carried by
+     the mono face and the right alignment on the value, and by the gold
+     glyph and the section rule above them, not by fading the words out. */
+  .rp-rows .hq-row-l{font-size:14px; color:#FFFFFF;}
+  .rp-rows .hq-row-v{font-size:14px; color:#FFFFFF;}
+  /* The closing sentence is the one thing on the panel that IS subordinate:
+     it explains the figures rather than stating one. */
+  .hq-panel .field-hint{font-size:13px; line-height:1.5; color:var(--ink-dim);}
+  .hq-panel .rec-lede{font-size:13px; color:var(--ink-dim);}
   .modal-body .zone-paces-card{margin:0 0 4px;}
 
   .goal-toggle-hero{margin-top:16px;}
@@ -4811,6 +4887,13 @@
      the words, which is the same gradient-rule idea .phase-divider already
      uses on one side; it is mirrored here because the title is centred. */
   .sec-rule{display:flex; align-items:center; gap:12px; margin:18px 0 10px;}
+  /* Inside a panel the heading leads from the left, because the rows beneath
+     it do. The single rule runs to the far edge in the panel's own accent. */
+  .sec-rule.is-left{margin:20px 0 4px;}
+  .sec-rule.is-left .sec-rule-line{
+    background:linear-gradient(to right,
+      color-mix(in srgb, var(--rp-accent, var(--gold-text)) 70%, transparent) 0%,
+      transparent 100%); opacity:.85;}
   .sec-rule .setup-section-title{margin:0; white-space:nowrap;}
   .sec-rule-line{flex:1 1 0; min-width:0; height:1px;
     background:linear-gradient(to right, transparent 0%, var(--gold-text) 100%); opacity:.55;}
@@ -25076,12 +25159,35 @@ var dayExpandOverride = {};
 // exception is an explicit tap, handled entirely above by
 // dayExpandOverride -- that always wins regardless of date or completion.
 function isDayExpanded(dd){
+  if (dayCardIsFocused(dd)) return true;
   if (dayExpandOverride.hasOwnProperty(dd.id)) return dayExpandOverride[dd.id];
   return dd.date === todayStr();
+}
+/* ---------- THE ONE SESSION A SCREEN IS ABOUT CANNOT BE COLLAPSED ----------
+   Three screens exist to show a single session and nothing else: Today, This
+   Week with its day opened, and Full Plan's session screen. All three already
+   force the card open -- in CSS, through the 60-rule :is() scope, and in JS
+   after render -- so the chevron on the header was an affordance for a state
+   the athlete can never usefully be in. Tapping it did work: it collapsed the
+   only thing on the screen, leaving a header and a bottom nav. An arrow that
+   offers to empty the page is not a disclosure, it is a trap.
+
+   The predicate mirrors that :is() scope exactly, in the same order, so the
+   markup and the stylesheet cannot disagree about which card is the focused
+   one. Everywhere else -- a race event beside a week, a card patched in place
+   -- the accordion is untouched and still opens and shuts as it always has. */
+function dayCardIsFocused(dd){
+  if (!dd) return false;
+  var view = state.view || 'today';
+  if (view === 'today') return dd.date === todayStr();
+  if (view === 'week') return !!weekSessionOpen && weekSelectedDay(currentWeekNum()) === dd;
+  if (view === 'full') return planSessionOpen === dd.id;
+  return false;
 }
 function handleToggleDay(dayId){
   var dd = findDay(dayId);
   if (!dd) return;
+  if (dayCardIsFocused(dd)) return;   // nothing to collapse to
   var next = !isDayExpanded(dd);
   dayExpandOverride[dayId] = next;
   var el = document.getElementById('day-'+dayId);
@@ -25359,6 +25465,7 @@ function renderDayCard(dd){
   // Completed sessions default shut (the prescription has served its purpose,
   // the EXEC pill is the summary), today's session always opens, and anything
   // still to run stays open. A manual toggle overrides all of that.
+  var focused = dayCardIsFocused(dd);
   var isOpen = isDayExpanded(dd);
   var openCls = isOpen ? ' open' : '';
   return '<div class="'+cls+openCls+'" id="day-'+dd.id+'" data-day="'+dd.id+'" draggable="true">'+
@@ -25369,8 +25476,17 @@ function renderDayCard(dd){
        screen-reader or keyboard-only athlete, unlike .dropzone elsewhere in
        this file, which already does this correctly. aria-expanded mirrors
        the accordion state this control actually owns. */
-    '<div class="day-top" data-action="toggle-day" data-day="'+dd.id+'" role="button" tabindex="0" aria-expanded="'+(isOpen?'true':'false')+'">'+
-      renderDayCheck(dd)+
+    '<div class="day-top"'+(focused ? ''
+      : ' data-action="toggle-day" data-day="'+dd.id+'" role="button" tabindex="0"'+
+        ' aria-expanded="'+(isOpen?'true':'false')+'"')+'>'+
+      (focused ? (function(){
+        /* An empty .day-actions still occupies a rail slot and its gap, so a
+           day with nothing to edit left a 16px hole beside the tick. The
+           container is emitted only when it has something in it. */
+        var act = dayActionButton(dd);
+        return '<div class="day-rail">'+renderDayCheck(dd)+
+          (act ? '<div class="day-actions">'+act+'</div>' : '')+'</div>';
+      })() : renderDayCheck(dd))+
       '<div class="day-main">'+
         '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+(optState?'optional':tm.cls)+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
         '<div class="day-title">'+escapeHtml(displayCardTitle(dd))+optionalRunTitleMark(dd)+'</div>'+
@@ -25416,8 +25532,8 @@ function renderDayCard(dd){
             : renderSupportCompanion(dd)+renderOptionalRunCompanion(dd))+
         '</div>'+
       '</div>'+
-      '<div class="day-actions">'+dayActionButton(dd)+'</div>'+
-      '<div class="day-chevron" aria-hidden="true">'+ICONS.chevronDown+'</div>'+
+      (focused ? '' : '<div class="day-actions">'+dayActionButton(dd)+'</div>'+
+        '<div class="day-chevron" aria-hidden="true">'+ICONS.chevronDown+'</div>')+
     '</div>'+
     /* VOICE SITS IN THE DRAWER, BELOW THE WRITTEN COACHING, and outside
        .day-top on purpose -- .day-top is itself a role="button" that toggles
@@ -42831,22 +42947,22 @@ function readingSections(report){
   // `value`, so repeating the same word inside the panel adds nothing.
   // Everything else here is depth Athlete Status doesn't carry.
   var goalBody =
-    hqRow('Execution trend', report.trend.enough ? trendWord+(report.trend.delta?' ('+(report.trend.delta>0?'+':'')+report.trend.delta+')':'') : 'building history')+
-    hqRow('Sessions logged', String(recent.sessionsLogged))+
-    hqRow(vGoalDate(), su.raceDate ? dShort(su.raceDate)+(days!=null?' · '+days+' days':'') : '—')+
+    hqRow('Execution trend', report.trend.enough ? trendWord+(report.trend.delta?' ('+(report.trend.delta>0?'+':'')+report.trend.delta+')':'') : 'building history', ICONS.pulse)+
+    hqRow('Sessions logged', String(recent.sessionsLogged), ICONS.layers)+
+    hqRow(vGoalDate(), su.raceDate ? dShort(su.raceDate)+(days!=null?' · '+days+' days':'') : '—', ICONS.calendarWeek)+
     hqRow('Phase', (function(){
       var wk = currentWeekNum();
       return trainingPhase(wk) + (wk ? ' · week '+wk+' of '+totalWeeksInPlan() : '');
-    })());
+    })(), ICONS.target);
 
   var recoveryBody =
-    hqRow('Effort above band', report.recovery.overRPE+' this week')+
-    hqRow('HR above zone', report.recovery.overHR+' this week')+
-    hqRow('Longest hard streak', report.recovery.hardStreak+' days')+
-    hqRow('Feel', recent.feel.counted ? recent.feel.negatives+' heavy of last '+recent.feel.counted : 'not logged')+
+    hqRow('Effort above band', report.recovery.overRPE+' this week', ICONS.gauge)+
+    hqRow('HR above zone', report.recovery.overHR+' this week', ICONS.heart)+
+    hqRow('Longest hard streak', report.recovery.hardStreak+' days', ICONS.zap)+
+    hqRow('Feel', recent.feel.counted ? recent.feel.negatives+' heavy of last '+recent.feel.counted : 'not logged', ICONS.notes)+
     hqRow('Easy HR vs baseline', (function(){
       var b=easyHRBaseline();
-      return b.sufficient ? (b.delta>0?'+':'')+b.delta+' bpm' : 'building baseline'; })());
+      return b.sufficient ? (b.delta>0?'+':'')+b.delta+' bpm' : 'building baseline'; })(), ICONS.pulse);
   // Load itself is Athlete Status's own metric tile, right above this card --
   // not repeated here.
 
@@ -53228,6 +53344,14 @@ function recordFactByKey(key){
    render and shown to nobody. It opens the panel the circle opens, which is
    where there is room for it and where the athlete arrives asking exactly
    the question it answers. */
+/* ---------- ONE WAY OUT, NOT TWO ----------
+   The panel ended on a full-width cherry BACK button that did exactly what
+   the X in its own header did -- same action, same scroll restoration, same
+   everything. Two controls for one outcome is a question the athlete has to
+   answer ("is BACK different from close?") before discovering that it is
+   not, and the cherry one was the heaviest object on a surface whose job is
+   to show evidence. The X stays, because it is the control every other sheet
+   in the product closes with and it does not take a line of its own. */
 function recordPanelShell(title, body, key){
   var fact = key ? recordFactByKey(key) : null;
   /* An empty fact states its absence first. emptyState is each fact's OWN
@@ -53243,14 +53367,16 @@ function recordPanelShell(title, body, key){
   return '<div class="modal-head"><h2 class="font-head">'+escapeHtml(title)+'</h2>'+
       '<button type="button" class="icon-btn" data-action="close-record-panel" aria-label="Close">'+ICONS.close+'</button>'+
     '</div>'+
-    '<div class="modal-body">'+lede+body+
-      '<div class="rec-panel-nav">'+
-        '<button type="button" class="btn btn-primary btn-block" data-action="close-record-panel">← BACK</button>'+
-      '</div>'+
-    '</div>';
+    '<div class="modal-body">'+lede+body+'</div>';
 }
-function hqRow(label, value){
-  return '<div class="hq-row"><div class="hq-row-l">'+escapeHtml(label)+'</div>'+
+/* The glyph is optional and is never decoration: it names the KIND of thing
+   the row reports, so a panel of five figures can be scanned by shape before
+   it is read. A row with nothing meaningful to show keeps its indent, so the
+   labels in one panel still line up. */
+function hqRow(label, value, icon){
+  return '<div class="hq-row">'+
+    '<span class="hq-row-i" aria-hidden="true">'+(icon || '')+'</span>'+
+    '<div class="hq-row-l">'+escapeHtml(label)+'</div>'+
     '<div class="hq-row-v">'+escapeHtml(value)+'</div></div>';
 }
 
@@ -53562,12 +53688,21 @@ function hqPanelHtml(key){
   return '';
 }
 var openRecordPanelKey = null;
+/* The accent a panel opens in, named by the circle that opens it. Both maps
+   are the ones the circles themselves are drawn from, so a panel cannot wear
+   a colour its own circle does not. */
+var PANEL_ACCENT_CLASS = {
+  recovery:'rp-gold', evolution:'rp-green', readiness:'rp-cherry',
+  patterns:'rp-white', adaptation:'rp-blue',
+  goal:'rp-gold', fitness:'rp-cherry', benchmark:'rp-white', progress:'rp-gold'
+};
 function openHQPanel(key){
   if (!state.setup) return;
   var html = hqPanelHtml(key);
   if (!html) return;
   rememberPlanHQScroll();
-  openModal(html, 'modal-themed builder-light hq-panel');
+  openModal(html, 'modal-themed builder-light hq-panel '+
+    (PANEL_ACCENT_CLASS[key] || 'rp-cherry'));
   // after openModal, which clears the key through closeModal()
   openRecordPanelKey = key;
 }
@@ -53740,12 +53875,18 @@ function dialFaceParts(sec){
   }
   return { big:text, small:'' };
 }
-function readingDialHtml(sec, rank){
+function readingDialHtml(sec, rank, isStatic){
   var face = dialFaceParts(sec);
   var text = face.big;
   var r = rank == null ? 1 : rank;
-  return '<button type="button" class="b-dial" data-rank="'+r+'" '+
-      'data-action="open-reading" data-reading="'+sec.key+'" '+
+  /* INSIDE THE PANEL IT OPENED, THE SAME CIRCLE IS NOT A DOOR. It is the
+     verdict the athlete pressed, restated so they do not have to remember
+     which of five they chose -- and a button there would offer to open the
+     panel they are already standing in. Same face, same tokens, same size
+     ladder; only the element and the action differ. */
+  var tag = isStatic ? 'span' : 'button';
+  return '<'+tag+(isStatic ? '' : ' type="button"')+' class="b-dial" data-rank="'+r+'" '+
+      (isStatic ? '' : 'data-action="open-reading" data-reading="'+sec.key+'" ')+
       'aria-label="'+escapeHtml(sec.title+' — '+sec.value)+'" '+
       'style="--rd-base:'+dialAccentBase(sec)+'; --rd-tint:'+dialTint(sec)+';">'+
       '<span class="b-medal">'+
@@ -53754,7 +53895,7 @@ function readingDialHtml(sec, rank){
         '<span class="rd-val"><b style="font-size:'+dialValueFontSize(text, r)+';">'+escapeHtml(text)+'</b></span>'+
         (face.small ? '<span class="rd-sub">'+escapeHtml(face.small)+'</span>' : '')+
       '</span>'+
-    '</button>';
+    '</'+tag+'>';
 }
 /* RECTANGULAR, NOT CIRCULAR. Valhalla's own Reading preview is the visual
    executive overview and keeps its dials; Coach is the readable, tappable
@@ -53776,9 +53917,9 @@ function readingDialHtml(sec, rank){
 /* One heading, two rules, used by the two titles on Valhalla that sit over a
    centred row of circles. Everywhere else a section title still leads from
    the left, because everywhere else the thing under it does. */
-function sectionRule(title){
-  return '<div class="sec-rule">'+
-      '<span class="sec-rule-line" aria-hidden="true"></span>'+
+function sectionRule(title, leftAligned){
+  return '<div class="sec-rule'+(leftAligned?' is-left':'')+'">'+
+      (leftAligned ? '' : '<span class="sec-rule-line" aria-hidden="true"></span>')+
       '<div class="setup-section-title">'+escapeHtml(title)+'</div>'+
       '<span class="sec-rule-line" aria-hidden="true"></span>'+
     '</div>';
@@ -53810,17 +53951,39 @@ function readingPanel(key){
   var secs = readingSections(report).filter(function(s){ return s.key === key; });
   if (!secs.length) return '';
   var sec = secs[0];
-  /* The card's own conclusion, restated once at the top of the panel it opened
-     -- the athlete tapped a verdict and the panel should open on it, not make
-     them remember which one they pressed. Then the evidence, unchanged. */
-  var head = '<div class="hub-card tile-card">'+
-      '<div class="hq-row"><span class="hq-row-l">'+escapeHtml(sec.title)+'</span>'+
-        '<span class="hq-row-v"><span class="read-val'+(sec.tone?' '+sec.tone:'')+'">'+
-          (sec.tone ? '<span class="read-dot"></span>' : '')+escapeHtml(sec.value)+'</span></span></div>'+
-      (sec.syn ? '<div class="field-hint" style="margin-top:6px;">'+escapeHtml(sec.syn)+'</div>' : '')+
+  /* ---------- THE APPROVED PANEL STRUCTURE ----------
+     THE VERDICT, THEN THE EVIDENCE, THEN WHAT IT MEANS. The panel used to
+     restate the verdict as a boxed label/value row -- a card inside a card,
+     in a different grammar from the circle the athlete had just pressed. It
+     opens on the circle itself now, at the arc's largest size and inert,
+     with the engine's one-line synopsis beside it across a hairline. The
+     athlete sees the thing they tapped, enlarged, and the reason for it.
+
+     Then one rule, labelled, and the evidence under it as plain rows: a
+     gold glyph, the thing being reported, the figure. No inner card, no
+     second border; the panel IS the surface. */
+  /* THE TONE LIVES HERE, AND ONLY HERE. When colour stopped being the
+     circles' verdict channel and became their identity, the panel became the
+     one surface in the product still allowed to carry the engine's
+     good/watch/bad -- .read-val and its dot, the grammar this header has
+     always used. Dropping it would have taken the verdict's colour out of
+     the product altogether, which is the half of audit finding B1 that must
+     never recur. Readings the engine does not classify (readiness, patterns)
+     have no tone and render the synopsis alone, which is the approved
+     reference exactly. */
+  var head =
+    '<div class="rp-hero">'+
+      readingDialHtml(sec, 0, true)+
+      '<div class="rp-hero-text">'+
+        (sec.tone
+          ? '<div class="rp-hero-verdict"><span class="read-val '+sec.tone+'">'+
+              '<span class="read-dot"></span>'+escapeHtml(sec.value)+'</span></div>'
+          : '')+
+        '<div class="rp-hero-say">'+escapeHtml(sec.syn || sec.value)+'</div>'+
+      '</div>'+
     '</div>'+
-    '<div class="setup-section-title">The evidence</div>';
-  return recordPanelShell(sec.title, head+'<div class="hub-card tile-card">'+sec.body+'</div>');
+    sectionRule('The Evidence', true);
+  return recordPanelShell(sec.title, head+'<div class="rp-rows">'+sec.body+'</div>');
 }
 
 /* =========================================================

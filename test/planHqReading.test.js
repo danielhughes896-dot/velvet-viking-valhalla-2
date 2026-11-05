@@ -227,7 +227,12 @@ test('PANEL: every Reading card opens the panel that belongs to it', () => {
       key + "'s panel is titled something else");
     // The body is the accordion's body, rendered verbatim somewhere else.
     assert.ok(panel.indexOf(sec.body) !== -1, key + "'s panel does not host its own evidence");
-    assert.match(panel, /The evidence/);
+    assert.match(panel, /The Evidence/, key + ' lost the rule that labels its evidence');
+    /* The panel opens on the circle the athlete pressed, inert -- so they
+       are not asked to remember which of five it was. */
+    assert.match(panel, /class="rp-hero"/, key + ' does not open on its own circle');
+    assert.ok(panel.indexOf('data-action="open-reading"') === -1,
+      key + "'s own circle is still a button inside the panel it opened");
   });
 });
 
@@ -248,24 +253,28 @@ test('PANEL: all ten go through one opener, one BACK, one X, no rail', () => {
     assert.ok(panel, key + ' produced no panel');
     assert.match(panel, /<div class="modal-head"><h2 class="font-head">[^<]+<\/h2>/, key);
     assert.match(panel, /class="icon-btn" data-action="close-record-panel"/, key + ' has no X');
-    // Exactly one primary in the navigation. A panel MAY carry a content
-    // primary of its own -- Plan evolution hosts the proposal's Accept -- and
-    // .hq-panel is what stops that one wearing the accent of the way out.
-    const nav = panel.slice(panel.indexOf('rec-panel-nav'));
-    assert.equal((nav.match(/class="btn btn-primary[^"]*"/g) || []).length, 1,
-      key + ' has more than one primary in its navigation');
-    assert.match(panel,
-      /<button type="button" class="btn btn-primary btn-block" data-action="close-record-panel">← BACK<\/button>/,
-      key + ' does not end on a full-width ← BACK');
     assert.doesNotMatch(panel, /bld-progress|bld-stage-no/, key + ' grew a build-stage rail');
-    // Two exits, and both the same action.
-    assert.equal((panel.match(/data-action="close-record-panel"/g) || []).length, 2, key);
+    /* ONE EXIT, NOT TWO. The panel ended on a full-width cherry BACK that
+       fired the identical action as the X above it -- the same close, the
+       same scroll restoration -- so an athlete had to work out that the two
+       were one before discovering they were, and the cherry one was the
+       heaviest object on a surface whose job is to show evidence. The X
+       remains, because every other sheet in the product closes with it and
+       it costs no line of its own. */
+    assert.equal((panel.match(/data-action="close-record-panel"/g) || []).length, 1,
+      key + ' has more than one way out again');
+    assert.doesNotMatch(panel, /← BACK/, key + ' grew a second exit back');
+    assert.doesNotMatch(panel, /rec-panel-nav/, key + ' still carries the old nav block');
   });
   // The rule that keeps a content primary off the navigation colour.
   assert.match(CODE, /\.hq-panel \.btn-primary\{[^}]*var\(--bronze\)/,
     'a Plan HQ panel repaints every primary in the accent again');
-  assert.match(CODE, /\.hq-panel \.rec-panel-nav \.btn-primary\{[^}]*var\(--cherry\)/,
-    'BACK lost the Cherry Lacquer that marks it as the way out');
+  /* The cherry exit is gone with BACK, so the rule that painted it is too.
+     What the pair of them existed to protect -- that a content primary never
+     wears the colour of the way out -- is now unconditional: nothing in a
+     panel is cherry, so a proposal's Accept cannot be mistaken for a close. */
+  assert.doesNotMatch(CODE, /rec-panel-nav/,
+    'the retired BACK button\u2019s styling is back');
   assert.match(CODE, /openModal\([\s\S]{0,80}?hq-panel/, 'the panels stopped carrying .hq-panel');
 });
 
