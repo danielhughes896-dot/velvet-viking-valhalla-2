@@ -70,7 +70,14 @@ function withHistory(a) {
    restated what the circles already said. Same action, same panels; a
    different element carries them. */
 function readingCards(html) {
-  return (html.match(/<button type="button" class="b-dial"[\s\S]*?<\/button>/g) || [])
+  /* The COLUMN, not the button. A Reading circle is the instrument plus the
+     name of the instrument, and the name moved out of the face and under the
+     circle (it had 46px of a 66px face to live in, which is what forced it
+     to 6.4px). Matching only the <button> would capture the circle and call
+     the title missing -- which is exactly what it did. */
+  // Anchored on the title, not on a closing tag: the column nests spans, so
+  // a lazy match to the first '</span></span>' stops inside the face.
+  return (html.match(/<span class="b-dial-col">[\s\S]*?<span class="rd-cat">[^<]*<\/span><\/span>/g) || [])
     .filter(c => c.indexOf('data-action="open-reading"') !== -1);
 }
 

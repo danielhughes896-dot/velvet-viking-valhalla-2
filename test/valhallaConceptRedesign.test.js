@@ -176,7 +176,9 @@ test('PREVIEW: the Reading arc shows all five sections, each one a destination',
   const a = planHQ();
   const preview = a.renderValhallaReadingPreview();
   assert.match(preview, /<div class="setup-section-title">The Reading<\/div>/);
-  // The category label lives INSIDE the instrument's face (.rd-cat).
+  // The category label is the circle's own .rd-cat. It sits UNDER the face
+  // now rather than inside it -- inside, it had about 46px of a 66px circle
+  // to live in, which is what pinned it at 6.4px.
   ['Readiness', 'Recovery', 'Evolution', 'Patterns', 'Adaptation'].forEach(label => {
     assert.match(preview, new RegExp('<span class="rd-cat">' + label + '</span>'));
   });
@@ -205,10 +207,25 @@ test('PREVIEW: the arc is one row, readiness centred and largest', () => {
   const ranks = (preview.match(/data-rank="(\d)"/g) || []).map(m => m.slice(-2, -1));
   assert.deepEqual(ranks, ['2', '1', '0', '1', '2'],
     'the arc is no longer graduated outward from its centre');
-  // and the CSS actually makes rank 0 the largest
-  const d = r => Number(/width:(\d+)px/.exec(
-    new RegExp('\\.b-dial\\[data-rank="' + r + '"\\]\\{[^}]*\\}').exec(CODE)[0])[1]);
+  // and the CSS actually makes rank 0 the largest. Every rule for that rank
+  // is considered, not just the first one in the file: the arc also carries
+  // margin-only rules per rank (they hold the circles on one centre line now
+  // that a label sits underneath), and taking the first match found one of
+  // those and read no width at all.
+  const d = r => {
+    const rules = CODE.match(new RegExp('\\.b-dial\\[data-rank="' + r + '"\\]\\{[^}]*\\}', 'g')) || [];
+    const withWidth = rules.map(x => /width:(\d+)px/.exec(x)).filter(Boolean);
+    assert.ok(withWidth.length, 'no rule gives rank ' + r + ' a diameter');
+    return Number(withWidth[0][1]);
+  };
   assert.ok(d(0) > d(1) && d(1) > d(2), 'rank does not map to diameter');
+  // The label under each circle is the one label voice, at one size for all
+  // five -- the graduation is the CIRCLE's job. Five labels at five sizes
+  // was the arc's hierarchy leaking into text that has to stay readable.
+  assert.match(CODE, /\.rd-cat\{[^}]*font-size:var\(--label-size\)/,
+    'the circle label left the one label voice');
+  assert.doesNotMatch(CODE, /\.b-dial\[data-rank="\d"\] \.rd-cat\{/,
+    'the label is being graduated per diameter again');
 });
 
 test('PREVIEW: The Athlete Status shows all four facts, each one a destination', () => {

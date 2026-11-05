@@ -93,8 +93,13 @@
     --cherry:#9A546C; --cherry-fill:#7A2E42; --cherry-soft:#9A546C;
     --cherry-line:rgba(154,84,108,0.45); --cherry-dim:rgba(154,84,108,0.50);
     --cherry-text:#C46A89; --cherry-ink:#FFFFFF; --cherry-btn-ink:#FFFFFF;
-    --fs-meta:11px; --fs-label:11px; --fs-support:13.5px; --fs-data:15px;
-    --fs-body:16px; --fs-title:20px; --lh-body:1.5; --lh-support:1.45;
+    /* In rem, exactly as the app has them: /start IS the builder the app
+       opens, and a type scale that honoured the reader's text-size setting
+       in one and ignored it in the other would make the same screen two
+       sizes depending on how the athlete got there. Each value is the old
+       px over 16, so default rendering is unchanged here too. */
+    --fs-meta:.6875rem; --fs-label:.6875rem; --fs-support:.84375rem; --fs-data:.9375rem;
+    --fs-body:1rem; --fs-title:1.25rem; --lh-body:1.5; --lh-support:1.45;
     --line-soft:#232126; --bg-4:#26252A; --radius-lg:22px;
     --c-threshold:#B5505A; --danger-text:var(--c-threshold);
     /* Theme-invariant in the app too -- --gold does not change between

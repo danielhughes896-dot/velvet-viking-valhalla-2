@@ -106,14 +106,43 @@ test('the one label voice is the label Today actually renders, not the base rule
     const m = css.match(new RegExp('--label-' + sel + '\\s*:\\s*([^;]+);'));
     return m ? m[1].trim() : null;
   };
-  assert.equal(tok('size'), '11.5px');
+  // .71875rem is 11.5px at the 16px root -- the scale moved to rem so an
+  // athlete's text-size setting reaches it, and the measured value is
+  // unchanged.
+  assert.equal(tok('size'), '.71875rem');
   assert.equal(tok('weight'), '700');
   assert.equal(tok('track'), '.04em');
+  // And the rule the standard was measured OFF no longer re-states it in
+  // px. It cannot: a px copy here would hold this one label out of the rem
+  // scale while every other label followed it. The override keeps only the
+  // layout and the gold ink it actually exists for.
   const override = css.match(/:is\(\.view-today \.day\.is-today[^)]*\) \.how-row \.k\{([^}]*)\}/);
   assert.ok(override, "Today's focused .how-row .k override not found");
-  assert.match(override[1], /font-size:11\.5px/);
-  assert.match(override[1], /font-weight:700/);
-  assert.match(override[1], /letter-spacing:\.04em/);
+  assert.doesNotMatch(override[1], /font-size/, 'the focused label is pinned out of the rem scale again');
+  assert.doesNotMatch(override[1], /letter-spacing/);
+  assert.match(override[1], /color:var\(--gold-text\)/, 'the gold ink the override is for was lost');
+});
+
+test('the whole type scale is in rem, so a reader\'s text-size setting reaches it', () => {
+  // Every one of these was a fixed px, which meant the app ignored a
+  // setting it was told about. Each rem value is the old px over 16 exactly,
+  // so default rendering is unchanged.
+  const css = appCss();
+  const EXPECTED = {
+    'fs-meta': ['.6875rem', 11], 'fs-label': ['.6875rem', 11],
+    'fs-support': ['.84375rem', 13.5], 'fs-data': ['.9375rem', 15],
+    'fs-body': ['1rem', 16], 'fs-title': ['1.25rem', 20],
+    'label-size': ['.71875rem', 11.5]
+  };
+  Object.keys(EXPECTED).forEach(name => {
+    const m = css.match(new RegExp('--' + name + '\\s*:\\s*([^;]+);'));
+    assert.ok(m, '--' + name + ' is not declared');
+    const value = m[1].trim();
+    assert.equal(value, EXPECTED[name][0], '--' + name + ' left the rem scale');
+    // and the arithmetic: the rem value must still be the px it replaced.
+    assert.equal(parseFloat(value) * 16, EXPECTED[name][1],
+      '--' + name + ' no longer resolves to its original ' + EXPECTED[name][1] + 'px at a 16px root');
+  });
 });
 
 test('a line of prose takes one of the two tiers -- no rule hand-sets its own', () => {
@@ -184,6 +213,47 @@ test('Today no longer overrides the sentence size it was the standard for', () =
   assert.doesNotMatch(m[1], /font-size/, 'the focused card hand-sets the sentence size again');
   assert.doesNotMatch(m[1], /line-height/, 'the focused card hand-sets the sentence leading again');
   assert.match(m[1], /color:var\(--ink\)/, 'the brighter ink the override is actually for was lost');
+});
+
+test('a number the athlete acts on outranks the prose around it', () => {
+  // These four were each set BELOW the body text beside them: the pace of
+  // the run just finished at 13.5px, a week's volume at 14px, its
+  // completion at 12.5px, a strategy phase's distance band at 13.5px. A
+  // runner hunts for the number, not the sentence, so a metric sits on the
+  // data tier (--fs-data) or above -- never under the prose it belongs to.
+  const css = appCss();
+  const rule = sel => {
+    const m = css.match(new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{([^}]*)\\}'));
+    assert.ok(m, sel + ' rule not found');
+    return m[1];
+  };
+  ['.wc-metric', '.strat-phase-span', '.view-plan .pp-body .week-vol .v',
+   '.view-plan .pp-body .week-pct', '.week-pct'].forEach(sel => {
+    assert.match(rule(sel), /font-size:var\(--fs-data\)/,
+      sel + ' is a metric set off the data tier again');
+  });
+  // --fs-data must stay at or above the support tier, or the rule above
+  // would be satisfied by a token that had itself shrunk below the prose.
+  const val = n => parseFloat(css.match(new RegExp('--fs-' + n + '\\s*:\\s*([\\d.]+)rem'))[1]);
+  assert.ok(val('data') > val('support'),
+    'the data tier fell to or below the support tier -- metrics now read quieter than hints');
+});
+
+test("the blueprint's pace band is 10px because the CELL is 79px, and the comment says so", () => {
+  // Measured at a 360px viewport: the step cell gives 79px of usable width
+  // and the widest real band, "5:17-6:16/km", renders 65px at 9px, 72px at
+  // 10px, 79px at 11px. The old 9px was pessimistic by one step. This pins
+  // the measured value AND that the rule still admits what it has not
+  // fixed -- the number is small because the cell is narrow, which is a
+  // layout problem, and a future reader must not mistake 10px for a
+  // considered type decision.
+  const css = appCss();
+  const m = css.match(/\.ws-h-presc\.font-mono\{([^}]*)\}/);
+  assert.ok(m, '.ws-h-presc.font-mono rule not found');
+  assert.match(m[1], /font-size:10px/, 'the measured band size changed without a re-measure');
+  const src = fs.readFileSync(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'), 'utf8');
+  assert.match(src, /layout problem wearing a type problem's clothes/,
+    'the rule no longer admits that the cell width, not the type, is the real constraint');
 });
 
 test('the runtime app declares only the four canonical typographic roles', () => {

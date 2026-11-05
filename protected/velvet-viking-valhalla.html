@@ -247,15 +247,32 @@
      The applied block that uses them is the last thing in this stylesheet,
      and carries the full reasoning. */
     --label-face:'Oswald',sans-serif;
-    --label-size:11.5px;
+    --label-size:.71875rem;
     --label-track:.04em;
     --label-weight:700;
-    --fs-meta:11px;       /* chips, badges, tiny uppercase labels   */
-    --fs-label:11px;      /* row keys, section headings            */
-    --fs-support:13.5px;  /* tertiary support copy, hints, spans   */
-    --fs-data:15px;       /* mono metrics: pace, distance, HR      */
-    --fs-body:16px;       /* PRIMARY coaching and body copy        */
-    --fs-title:20px;      /* session title                         */
+    /* ---------- THE TYPE SCALE IS IN rem, AND WHY ----------
+       Every one of these was a fixed px, which means an athlete who has
+       turned text size up on their phone got nothing from it: the app
+       ignored the setting it was told. In rem they follow the root, which
+       follows the browser's own text-size preference -- and on Android that
+       is the system font scale.
+       THE NUMBERS ARE THE SAME NUMBERS. Each is its old px value over 16,
+       exactly, and the root is 16px unless the reader has said otherwise,
+       so at default settings this renders identically -- verified by
+       re-screenshotting every surface, not by assuming it.
+       It is HONEST about what it does not do: the sizes still hand-set in
+       px elsewhere -- big figures, chips, inputs -- do not scale with these,
+       so a reader at a large setting gets prose that grows inside chrome
+       that does not. That is strictly better than ignoring the setting, and
+       it is checked at a 20px root, but it is not the same as full support.
+       iOS in a WebView does not map Dynamic Type onto the root by itself;
+       that needs a few lines of JS and is a separate decision. */
+    --fs-meta:.6875rem;   /* 11px   chips, badges, tiny uppercase labels */
+    --fs-label:.6875rem;  /* 11px   row keys, section headings           */
+    --fs-support:.84375rem;/*13.5px tertiary support copy, hints, spans  */
+    --fs-data:.9375rem;   /* 15px   mono metrics: pace, distance, HR     */
+    --fs-body:1rem;       /* 16px   PRIMARY coaching and body copy       */
+    --fs-title:1.25rem;   /* 20px   session title                        */
     --lh-body:1.5; --lh-support:1.45;
     --radius:16px; --radius-sm:10px; --radius-lg:22px;
     --shadow:0 10px 30px rgba(0,0,0,0.4);
@@ -894,7 +911,7 @@
   .strat-phase:last-of-type{border-bottom:none; padding-bottom:0;}
   .strat-phase-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px;}
   .strat-phase-label{font-size:var(--fs-body); font-weight:600; color:var(--ink);}
-  .strat-phase-span{font-size:var(--fs-support); color:var(--ink-faint);}
+  .strat-phase-span{font-size:var(--fs-data); color:var(--ink-faint);}
   /* Settle / Hold / Absorb carry the SAME paces and heart rates as the step
      list above them -- gold here was the same mistake in a second place. The
      'Conditional' tag beside them keeps its own colour: that is a qualifier
@@ -1078,7 +1095,17 @@
      (see the .ws-steps-h comment above: 9px is the largest that clears a
      real "3:49-3:55/km" band with margin at 360px/390px). Do not raise this
      toward --fs-support without re-measuring against a live narrow card. */
-  .ws-h-presc.font-mono{white-space:nowrap; font-size:9px;}
+  /* RE-MEASURED, and the note above was pessimistic. At a 360px viewport
+     the step cell gives 79px of usable width, and "5:17-6:16/km" -- the
+     widest real band -- renders 65px at 9px, 72px at 10px and 79px at 11px.
+     So 10px clears it with 7px to spare and 11px is flush to the pixel.
+     10px it is: the measurement, not the fear of it.
+     WHAT THIS DOES NOT FIX, and should not be read as fixing: the most
+     acted-on number in the product is still set smaller than its own
+     labels, because the cell is 79px wide, not because the type wants to be
+     small. That is a layout problem wearing a type problem's clothes, and
+     the honest fix is a wider or wrapping cell. */
+  .ws-h-presc.font-mono{white-space:nowrap; font-size:10px;}
   /* HR/build/note/recovery text now renders INLINE inside each .ws-h-step
      (see renderWorkoutStepHCell), in the same .ws-hr/.ws-note classes the
      vertical timeline has always used for them -- so a stage's supplementary
@@ -1448,8 +1475,14 @@
   /* The rule is a border-BOTTOM in the base sheet, which is why cancelling
      border-top did nothing. The reference separates the rows with space. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-row{display:block; padding:0 0 11px; border-bottom:0;}
+  /* The four type properties that stood here are gone, not moved. They WERE
+     the standard -- the label voice was measured off this rule -- so now
+     that --label-* carries those exact values there is nothing left for the
+     override to say about type, and leaving a px copy behind would pin this
+     one label out of the rem scale while every other label followed it.
+     What the focused card still owns is what it is for: the block layout
+     and the gold ink. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-row .k{display:block; margin-bottom:1px;
-    font-size:11.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
     color:var(--gold-text);}
   /* The size and leading that stood here are gone, not moved: this line is
      the instruction, and the instruction is one size in the whole product.
@@ -3091,7 +3124,9 @@
   .wc-distance em{font-style:normal; font-weight:600; font-size:19px; color:var(--wc-ink);}
   .wc-metrics{display:flex; align-items:center; justify-content:center;
     gap:16px; flex-wrap:wrap; color:var(--wc-ink);}
-  .wc-metric{display:inline-flex; align-items:center; gap:6px; font-size:13.5px;}
+  /* The pace of the run just finished, which was set BELOW the sentence
+     beside it. A number the athlete acts on outranks the prose around it. */
+  .wc-metric{display:inline-flex; align-items:center; gap:6px; font-size:var(--fs-data); font-weight:600;}
   .wc-metric svg{width:15px; height:15px; flex:none; opacity:.92;}
   .wc-rule{height:1px; margin:11px auto 9px; max-width:78%;
     background:linear-gradient(90deg, rgba(227,177,90,0), var(--gold-deep), rgba(227,177,90,0));}
@@ -3739,7 +3774,7 @@
   .pp-chev{flex:none; display:inline-flex; color:var(--gold); transition:transform .18s;}
   .pp-chev svg{width:19px; height:19px;}
   .pp-phase.is-open .pp-chev{transform:rotate(180deg);}
-  .week-pct{flex:none; font-size:13px; font-weight:700; color:var(--gold);
+  .week-pct{flex:none; font-size:var(--fs-data); font-weight:700; color:var(--gold);
     font-variant-numeric:tabular-nums; margin-left:10px;}
   .pp-body{display:none; padding:0 9px 9px;}
   .pp-phase.is-open .pp-body{display:block;}
@@ -3755,8 +3790,11 @@
   .view-plan .pp-body .week-head{padding:9px 11px; gap:10px;}
   .view-plan .pp-body .week-num{font-size:17px; width:28px;}
   .view-plan .pp-body .week-range{margin-top:1px;}
-  .view-plan .pp-body .week-vol .v{font-size:14px;}
-  .view-plan .pp-body .week-pct{font-size:12.5px; margin-left:8px;}
+  /* A week's volume and completion are the two numbers this row exists to
+     report, and both were set below the body text around them. On the data
+     tier they outrank it, which is the point of the row. */
+  .view-plan .pp-body .week-vol .v{font-size:var(--fs-data);}
+  .view-plan .pp-body .week-pct{font-size:var(--fs-data); margin-left:8px;}
   /* THE WEEK THE ATHLETE IS IN, inside an open phase: the gold rim and gold
      label the current day and the selected tab already use. Without it every
      row in the taper looked alike and "now" had to be read off a badge. */
@@ -4524,7 +4562,19 @@
      happen to be adjacent. The gap is small because the SIZE is carrying the
      hierarchy; a generous gap would separate what the graduation is trying to
      group. */
-  .b-dials-arc{display:flex; align-items:center; justify-content:center; gap:5px;}
+  /* ALIGN-ITEMS GOES TO flex-start, AND THE CENTRES ARE HELD BY MARGIN.
+     While a column was just a circle, align-items:center was what made five
+     unequal diameters read as one instrument. With a label underneath it
+     stops being enough: centring the COLUMN puts the big circle's label
+     lower than its neighbours', and five labels on four different baselines
+     reads as five objects again -- the exact thing the alignment was for.
+     So each circle is padded with margin to an 88px slot (the largest
+     diameter): (88-76)/2 = 6 and (88-66)/2 = 11. Every column is then the
+     same height, the circles still share one centre line, and the labels
+     share one baseline because they all begin where the slot ends. */
+  .b-dials-arc{display:flex; align-items:flex-start; justify-content:center; gap:5px;}
+  .b-dials-arc .b-dial[data-rank="1"]{margin:6px 0;}
+  .b-dials-arc .b-dial[data-rank="2"]{margin:11px 0;}
   .b-dials-hint{display:flex; align-items:center; justify-content:center; gap:4px; color:var(--ink-faint); margin-top:2px;}
   .b-dials-hint svg{width:12px; height:12px;}
   /* Diameters from the approved arc: 66 / 76 / 88 across a 430pt screen,
@@ -4533,10 +4583,10 @@
   .b-dial[data-rank="0"]{width:88px; height:88px;}
   .b-dial[data-rank="1"]{width:76px; height:76px;}
   .b-dial[data-rank="2"]{width:66px; height:66px;}
-  .b-dial[data-rank="0"] .rd-cat{font-size:9.7px;}
-  .b-dial[data-rank="1"] .rd-cat{font-size:7.6px;}
-  .b-dial[data-rank="0"] .rd-sep{width:20px; margin:4px 0;}
-  .b-dial[data-rank="1"] .rd-sep{width:16px;}
+  /* The label no longer graduates with the diameter. It is one voice, read
+     at one size, and the SIZE LADDER IS THE CIRCLE'S -- which is what the
+     graduation was always for. Five labels at five sizes was the arc's
+     hierarchy leaking into text that has to stay readable. */
   /* The centre of the arc is the one circle the row is built around, so it
      carries more of the same illumination rather than a different kind. */
   .b-dials-arc .b-dial[data-rank="0"]{
@@ -4563,20 +4613,20 @@
      the bottom line starts grazing the circular clip. */
   .b-dial[data-rank="s"]{width:90px; height:90px;}
   .b-dial[data-rank="s"] .b-medal{inset:5px;}
-  .b-dial[data-rank="s"] .rd-cat{font-size:8px;}
-  .b-dial[data-rank="s"] .rd-sep{width:18px; margin:3px 0 2px;}
   .b-dial[data-rank="s"] .rd-val b{max-width:76px;}
   .b-dial[data-rank="s"] .rd-val{min-height:0;}
   /* The counted noun under a Reading count is interface; a benchmark time or
      a goal time under its own headline is DATA, and takes the data face. */
-  .rd-sub-data{font-family:'JetBrains Mono',monospace; font-size:9.5px;
-    letter-spacing:0; text-transform:none; color:var(--ink-dim); margin-top:2px;
-    max-width:76px; min-height:11px;}
+  .rd-sub-data{font-family:'JetBrains Mono',monospace; font-size:11px;
+    letter-spacing:0; text-transform:none; color:var(--ink-dim); margin-top:3px;
+    max-width:80px; min-height:13px;}
 
-  /* The per-instrument label used to sit BELOW the circle as its own
-     .lbl span; it lives inside the face now (.rd-cat), so the column is
-     just the instrument itself -- no second flex child, no label gap. */
-  .b-dial-col{display:flex; flex-direction:column; align-items:center; width:68px;}
+  /* The column is a column again -- circle, then label -- and this rule,
+     a leftover from the last time the label lived below, is gone with its
+     width:68px. That width was harmless while the column held one 68px
+     circle and actively wrong the moment it held an 88px one: it clamped
+     every column to 68px and the circles overflowed their own columns.
+     The live rule is beside .rd-cat below, with the reasoning. */
   /* THE READING'S INSTRUMENT -- reads a soft-raised dial, not a medal.
      Rim colour used to vary per reading (--rim-color, dark/metallic); the
      rim is one neutral --tile-* surface now for all five, and the colour
@@ -4624,15 +4674,20 @@
         color-mix(in srgb, var(--rd-tint) 42%, transparent)),
       var(--surface-2);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.07), inset 0 -2px 5px rgba(0,0,0,.30);}
-  .rd-cat{font-family:'Oswald',sans-serif; font-weight:600; font-size:6.4px; letter-spacing:.05em;
-    text-transform:uppercase; color:var(--ink-faint); line-height:1; text-align:center;}
-  /* Short, thin, centred, identical across all five -- and coloured by the
-     same --rd-base each face is tinted from, muted to a hairline rather
-     than the full semantic hue. color-mix() is only mixing toward
-     transparent here (never toward another colour, which is what produced
-     a muddy fill above), so it stays a safe, simple opacity reduction. */
-  .rd-sep{width:13px; height:1px; margin:3px 0; flex:none;
-    background:color-mix(in srgb, var(--rd-base) 55%, transparent);}
+  /* OUT OF THE FACE AND ONTO THE LABEL VOICE. It was 6.4px because that is
+     what fits inside a 66px circle once the value and a separator have had
+     their share -- not because 6.4px was ever chosen. Under the circle it
+     takes --label-* like every other label in the product, and it may wrap:
+     "ADAPTATION" no longer has to fit a chord of the face. */
+  .b-dial-col{display:inline-flex; flex-direction:column; align-items:center;
+    gap:7px; min-width:0; flex:none;}
+  .rd-cat{font-family:var(--label-face); font-weight:var(--label-weight);
+    font-size:var(--label-size); letter-spacing:var(--label-track);
+    text-transform:uppercase; color:var(--ink-faint); line-height:1.15;
+    text-align:center; max-width:84px;}
+  /* .rd-sep is gone with the thing it separated: it divided the category
+     from the value, and the category is no longer in the face. A rule
+     under a single line is a line under nothing. */
   /* Fixed-height reserve for the value, sized for its worst case (two
      lines) -- so a one-line value ("Fresh") is centred inside the SAME
      box a two-line value ("Worth watching") fills, and the category/
@@ -4643,7 +4698,7 @@
      give it -- a flex item sized against its own text can report a
      collapsed automatic minimum once overflow-wrap:break-word is in play,
      which is what was breaking single short words ("Watch") mid-letter. */
-  .rd-val{min-height:19px; width:100%; align-self:stretch;
+  .rd-val{min-height:26px; width:100%; align-self:stretch;
     display:flex; align-items:center; justify-content:center;}
   /* A concrete pixel ceiling, not a percentage -- a percentage here would
      resolve against .rd-val's own indefinite width in some engines and
@@ -4655,18 +4710,61 @@
   /* One ceiling per diameter, for the same reason there is one font ladder
      scaled per diameter: the clearance inside a circular clip is a fraction
      of its width, not a constant. */
-  .b-dial[data-rank="0"] .rd-val b{max-width:66px;}
-  .b-dial[data-rank="1"] .rd-val b{max-width:56px;}
-  .b-dial[data-rank="2"] .rd-val b{max-width:48px;}
+  /* Wider now, because the face holds one thing: the old ceilings left room
+     beside the value for nothing that is still there. Still a concrete
+     pixel ceiling per diameter, and still short of the chord so wrapped
+     text never grazes the circular clip. */
+  .b-dial[data-rank="0"] .rd-val b{max-width:74px;}
+  .b-dial[data-rank="1"] .rd-val b{max-width:64px;}
+  .b-dial[data-rank="2"] .rd-val b{max-width:56px;}
   /* The counted noun under a count. Interface face, never the data face --
      the number is the value, this is what the number is OF. */
-  .rd-sub{font-family:'Oswald',sans-serif; font-size:6.6px; letter-spacing:.05em;
-    text-transform:uppercase; color:var(--ink-faint); line-height:1; margin-top:2px;
+  .rd-sub{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:.05em;
+    text-transform:uppercase; color:var(--ink-faint); line-height:1.1; margin-top:3px;
     max-width:62px; text-align:center;}
-  .b-dial[data-rank="0"] .rd-sub{font-size:8px;}
+  .b-dial[data-rank="0"] .rd-sub{font-size:10px;}
   .rd-val b{display:block; text-align:center; line-height:1.08; max-width:50px;
     overflow-wrap:break-word; word-break:break-word;
     font-family:'JetBrains Mono',monospace; color:var(--ink); font-weight:700;}
+
+  /* ---------- AND ON A 360pt PHONE ----------
+     MEASURED: 360pt leaves 328px inside the page gutter. The arc is
+     88+76+76+66+66 and four 5px gaps = 392, and the status row is 90x4 plus
+     three 6px gaps = 378. Both have ALWAYS been wider than the screen at
+     that size; it never showed because a stale .b-dial-col{width:68px}
+     clamped every column and the circles quietly overflowed their own
+     columns instead of the page. Giving the columns their true width made
+     the real overflow visible -- the page started scrolling sideways -- so
+     it is fixed here rather than re-hidden.
+     The whole instrument comes down together: diameters, the value (via
+     --dv, which every inline font-size is multiplied by), its ceilings and
+     the sub-line. 72+62+62+54+54+20 = 324, and 76x4+18 = 322. Both inside
+     328 with room to spare. The LABEL does not scale: it is the one voice,
+     and shrinking it would walk straight back into the 6.4px this whole
+     change exists to undo. */
+  @media (max-width:400px){
+    /* The gaps come in as well: once the circles are smaller than their own
+       labels, the LABEL is what sets the column width -- "ADAPTATION" is
+       63px against a 54px circle -- and the row went 2px over the gutter on
+       diameters alone. Narrowing the gaps buys back 12px, which is cheaper
+       than shrinking the one voice. */
+    .b-dials-arc{gap:2px;}
+    .b-status{gap:3px;}
+    .b-dials-arc, .b-status{--dv:.84;}
+    .b-dial[data-rank="0"]{width:72px; height:72px;}
+    .b-dial[data-rank="1"]{width:62px; height:62px;}
+    .b-dial[data-rank="2"]{width:54px; height:54px;}
+    .b-dial[data-rank="s"]{width:76px; height:76px;}
+    /* The slot is 72px here, so the margins that hold the centre line are
+       (72-62)/2 = 5 and (72-54)/2 = 9. */
+    .b-dials-arc .b-dial[data-rank="1"]{margin:5px 0;}
+    .b-dials-arc .b-dial[data-rank="2"]{margin:9px 0;}
+    .b-dial[data-rank="0"] .rd-val b{max-width:62px;}
+    .b-dial[data-rank="1"] .rd-val b{max-width:54px;}
+    .b-dial[data-rank="2"] .rd-val b{max-width:47px;}
+    .b-dial[data-rank="s"] .rd-val b{max-width:64px;}
+    .rd-sub-data{max-width:68px;}
+  }
 
   /* The chamfered plate grid that stood here is gone with the plates. The
      Athlete Status is four circles now (see .b-status) -- the same instrument
@@ -53699,14 +53797,13 @@ function statusDialHtml(f, isStatic){
   var big = f.big != null ? f.big : f.value;
   var small = f.small || '';
   var tag = isStatic ? 'span' : 'button';
-  return '<'+tag+(isStatic ? '' : ' type="button"')+' class="b-dial b-stat" data-rank="s" '+
+  /* Same move as the Reading arc, same reason -- see readingDialHtml. */
+  var dial = '<'+tag+(isStatic ? '' : ' type="button"')+' class="b-dial b-stat" data-rank="s" '+
       (isStatic ? '' : 'data-action="open-record" data-record="'+f.key+'" ')+
       'aria-label="'+escapeHtml(f.subject+' — '+f.value)+'" '+
       'style="--rd-base:'+(STATUS_ACCENT[f.key]||'var(--c-rest)')+'; '+
         '--rd-tint:'+(STATUS_TINT[f.key]||'var(--c-rest-soft)')+';">'+
       '<span class="b-medal">'+
-        '<span class="rd-cat">'+escapeHtml(f.chip || f.subject)+'</span>'+
-        '<span class="rd-sep"></span>'+
         '<span class="rd-val"><b'+(f.none?' class="rec-none"':'')+
           ' style="font-size:'+statusValueFontSize(big)+';">'+escapeHtml(big)+'</b></span>'+
         /* ALWAYS EMITTED, EVEN EMPTY. Two of the four facts carry a second
@@ -53718,18 +53815,22 @@ function statusDialHtml(f, isStatic){
         '<span class="rd-sub rd-sub-data">'+escapeHtml(small)+'</span>'+
       '</span>'+
     '</'+tag+'>';
+  if (isStatic) return dial;
+  return '<span class="b-dial-col">'+dial+
+      '<span class="rd-cat">'+escapeHtml(f.chip || f.subject)+'</span>'+
+    '</span>';
 }
 /* A status face holds wider strings than a reading face ever does -- a
    fitness range is "3:23–3:44" -- so it has its own ladder rather than
    bending the reading one to cover a case it was not written for. */
 function statusValueFontSize(text){
   var n = (text||'').length;
-  if (n<=2) return '21px';
-  if (n<=3) return '18px';
-  if (n<=4) return '16px';
-  if (n<=6) return '13px';
-  if (n<=9) return '11px';
-  return n<=12 ? '9.5px' : '8.5px';
+  if (n<=2) return 'calc(21px * var(--dv, 1))';
+  if (n<=3) return 'calc(18px * var(--dv, 1))';
+  if (n<=4) return 'calc(16px * var(--dv, 1))';
+  if (n<=6) return 'calc(13px * var(--dv, 1))';
+  if (n<=9) return 'calc(11px * var(--dv, 1))';
+  return n<=12 ? 'calc(9.5px * var(--dv, 1))' : 'calc(8.5px * var(--dv, 1))';
 }
 
 function renderValhallaRecordPreview(){
@@ -54270,15 +54371,27 @@ var DIAL_RANK_SCALE = [1.52, 1.18, 1.0];
 function dialValueFontSize(text, rank){
   var words = (text||'').split(' ').filter(Boolean);
   var longest = words.reduce(function(m,w){ return Math.max(m, w.length); }, (text||'').length);
-  var px = longest<=3 ? 12
-         : longest<=4 ? 11
-         : longest<=5 ? 10
-         : longest<=6 ? 9
-         : longest<=7 ? 8.5
-         : longest<=8 ? 8
-         : longest<=10 ? 7 : 6.5;
+  /* THE LADDER ROUGHLY DOUBLED when the category left the face. The old
+     numbers were not timid -- they were correct for a face holding a label,
+     a rule and a value in a 66px circle, where the value got a third of the
+     height and had to clear the other two. Holding one thing, the same
+     circle gives the value the full chord, and these are what actually fit:
+     measured in the browser against every string the five readings and four
+     status facts can produce, at 360px and 430px, rather than reasoned
+     from character counts. The smallest result in the product is now 13px
+     ("Plateau" on a flank circle), against 8.5px before. */
+  var px = longest<=3 ? 20
+         : longest<=4 ? 17
+         : longest<=5 ? 15
+         : longest<=6 ? 14
+         : longest<=7 ? 12
+         : longest<=8 ? 11
+         : longest<=10 ? 10 : 9;
   var scale = (rank==null) ? 1 : (DIAL_RANK_SCALE[rank] || 1);
-  return (Math.round(px*scale*10)/10)+'px';
+  /* calc() against --dv, not a bare px: a narrow phone shrinks the circles
+     (see the <=400px query) and the value has to come down with them or it
+     outgrows the face it was measured for. --dv is 1 everywhere else. */
+  return 'calc('+(Math.round(px*scale*10)/10)+'px * var(--dv, 1))';
 }
 /* The dial's own centre text: readiness gets just its number ("50%", not
    "50% confidence" -- the fuller sentence is the card's synopsis, not the
@@ -54326,17 +54439,34 @@ function readingDialHtml(sec, rank, isStatic){
      panel they are already standing in. Same face, same tokens, same size
      ladder; only the element and the action differ. */
   var tag = isStatic ? 'span' : 'button';
-  return '<'+tag+(isStatic ? '' : ' type="button"')+' class="b-dial" data-rank="'+r+'" '+
+  /* THE NAME OF THE INSTRUMENT SITS UNDER IT, NOT IN IT. Inside the face it
+     had about 46px of a 66px circle to live in, which is what forced it to
+     6.4px -- less than half any platform's floor, and far below the labels
+     everywhere else in the product. That was never a type decision; it was
+     what the geometry left over. Outside, it is free to be the app's one
+     label voice and to wrap, the face is left holding ONE thing, and the
+     value gets the whole circle (see dialValueFontSize).
+     This is where the label originally lived, and it was moved in. The
+     difference now is that the cost of keeping it in has been measured.
+     NOT IN A PANEL: there the circle restates the verdict the athlete just
+     pressed, directly under a heading that already names it, so a label
+     would be the same word twice. */
+  var dial = '<'+tag+(isStatic ? '' : ' type="button"')+' class="b-dial" data-rank="'+r+'" '+
       (isStatic ? '' : 'data-action="open-reading" data-reading="'+sec.key+'" ')+
       'aria-label="'+escapeHtml(sec.title+' — '+sec.value)+'" '+
       'style="--rd-base:'+dialAccentBase(sec)+'; --rd-tint:'+dialTint(sec)+';">'+
       '<span class="b-medal">'+
-        '<span class="rd-cat">'+escapeHtml(READING_DIAL_LABEL[sec.key])+'</span>'+
-        '<span class="rd-sep"></span>'+
         '<span class="rd-val"><b style="font-size:'+dialValueFontSize(text, r)+';">'+escapeHtml(text)+'</b></span>'+
         (face.small ? '<span class="rd-sub">'+escapeHtml(face.small)+'</span>' : '')+
       '</span>'+
     '</'+tag+'>';
+  if (isStatic) return dial;
+  /* No data-rank on the column: nothing styles it there (the rules all read
+     .b-dials-arc .b-dial[data-rank=...]), and a second copy of the attribute
+     made the arc look ten circles deep to anything counting ranks. */
+  return '<span class="b-dial-col">'+dial+
+      '<span class="rd-cat">'+escapeHtml(READING_DIAL_LABEL[sec.key])+'</span>'+
+    '</span>';
 }
 /* RECTANGULAR, NOT CIRCULAR. Valhalla's own Reading preview is the visual
    executive overview and keeps its dials; Coach is the readable, tappable
