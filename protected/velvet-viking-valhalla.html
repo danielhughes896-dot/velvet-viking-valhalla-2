@@ -237,6 +237,19 @@
        Seven steps, so a rule states its ROLE rather than a number, and a future
        change is one token rather than a sweep. Metadata and chips deliberately
        move least: the complaint is about reading sentences, not labels. */
+    /* ---------- THE TYPE STANDARD, TAKEN FROM TODAY'S CARD ----------
+     WHY / EXECUTION / FEEL / WATCH FOR is the pattern the whole product is
+     set to: a small uppercase Oswald label, then the sentence under it.
+     These four tokens ARE that label, measured off the rendered card with
+     getComputedStyle rather than read off the first matching rule -- the
+     card is a focused session, so Today's override (11.5px/700/.04em) is
+     what shows, not the base .how-row .k (12.5px/1.3px/600) underneath it.
+     The applied block that uses them is the last thing in this stylesheet,
+     and carries the full reasoning. */
+    --label-face:'Oswald',sans-serif;
+    --label-size:11.5px;
+    --label-track:.04em;
+    --label-weight:700;
     --fs-meta:11px;       /* chips, badges, tiny uppercase labels   */
     --fs-label:11px;      /* row keys, section headings            */
     --fs-support:13.5px;  /* tertiary support copy, hints, spans   */
@@ -5153,6 +5166,102 @@
   }
   .wd-name{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-faint); text-transform:uppercase; transition:color .15s;}
   .wd-check.checked .wd-name{color:var(--ink); font-weight:700;}
+
+  /* ===================================================================
+     THE ONE LABEL VOICE, APPLIED
+     ===================================================================
+     THE STANDARD IS MEASURED, NOT GUESSED. It is the WHY / EXECUTION /
+     FEEL / WATCH FOR label as it actually renders on Today's card:
+     Oswald, 11.5px, weight 700, .04em tracking, uppercase. That is NOT
+     the base .how-row .k rule (12.5px/1.3px/600) -- Today's focused-session
+     override at :is(.view-today .day.is-today, ...) .how-row .k replaces it,
+     and the override is what the athlete sees. Taking the tokens from the
+     base rule would have standardised the app on a label that appears
+     nowhere on the screen the standard was taken from. The numbers above
+     came from getComputedStyle on the rendered card.
+
+     The app had a hundred and five separately-authored uppercase label
+     treatments -- 6.4px to 26px, Oswald or inherited, tracking from 0.2px
+     to 2.2px. That is not a hierarchy, it is a hundred and five decisions
+     nobody made together. Every selector below INTRODUCES A BLOCK OR NAMES
+     A ROW, which is the job this label does on Today, so each takes the
+     standard.
+
+     WHAT DELIBERATELY STAYS OUT, and why: a label inside a chip, badge,
+     pill, state flag, nav item, table column, unit toggle or a 66px
+     Reading circle is sized by its container, and forcing 11.5px into a
+     circle breaks the thing the label is attached to. Modal titles
+     (.modal-head h2) and the builder's stage heading are a tier above a
+     block label, not the same voice. That is a rule about where a label
+     sits, not a second voice.
+
+     COLOUR IS NOT IN HERE, deliberately -- every selector keeps the colour,
+     margin, display and alignment it already had. This pass is the style.
+     Inside Today / an open week session / an open plan session the existing
+     .view-today .font-head doctrine (0,2,0) still swaps the family to Inter
+     where a heading carries .font-head; that scoped decision predates this
+     pass and is left standing.
+
+     PLACED LAST IN THE SHEET ON PURPOSE. Written in the middle, it lost to
+     every listed class defined below it -- .stg-row-sub kept its own size
+     and the standard silently applied to about half the list. At equal
+     specificity the later rule wins, so the standard has to be the later
+     rule. */
+  .setup-section-title,
+  .section-label,
+  .view-heading,
+  .how-row .k,
+  .how-row-heading,
+  .ws-head,
+  .exec-review-head,
+  .splits-summary-title,
+  .note-chips-head,
+  .actual-field label,
+  .field label,
+  .oi-label span,
+  .wc-top-k,
+  .stat .l,
+  .pbar-label,
+  .zpc-head span:first-child,
+  .pace-ref-head span:first-child,
+  .zone-head span:first-child,
+  .coach-next-title,
+  .coach-signal-label,
+  .readiness-head,
+  .readiness-done-head,
+  .rs-head,
+  .cr-k,
+  .cr-sig-label,
+  .bld-review-k,
+  .ask-prop-head,
+  .ask-k,
+  .share-k,
+  .evo-k,
+  .v-call-title{
+    font-family:var(--label-face); font-size:var(--label-size);
+    font-weight:var(--label-weight); letter-spacing:var(--label-track);
+    text-transform:uppercase;
+  }
+  /* ---------- AND THE SENTENCE UNDER IT ----------
+     .how-row .v is the line beneath the label, and every other line of
+     prose the athlete reads rather than scans is the same role. These were
+     already on --fs-body before this pass; naming them here is what stops
+     the next one drifting off it again. */
+  .how-row .v,
+  .day-desc,
+  .coach-status-detail,
+  .coach-signal-detail{
+    font-size:var(--fs-body); line-height:var(--lh-body);
+  }
+  /* A row's own subtitle is NOT prose: it sits under a 15px title and
+     describes what pressing the row does, so it stays on the support tier.
+     Putting it at reading size would make the description louder than the
+     thing it describes. One tier, written once, for all of them. */
+  .connect-row .desc,
+  .stg-row-sub,
+  .field-hint{
+    font-size:var(--fs-support); line-height:var(--lh-body);
+  }
 </style>
 </head>
 <body>

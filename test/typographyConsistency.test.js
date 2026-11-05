@@ -36,7 +36,12 @@ const CANONICAL = [
   /^'Inter',-apple-system,sans-serif$/,
   /^'Inter',-apple-system,BlinkMacSystemFont,sans-serif$/,
   /^'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif$/,
-  /^'JetBrains Mono',monospace$/
+  /^'JetBrains Mono',monospace$/,
+  // The one-label-voice token. It is only allowed here because the test
+  // below pins what it resolves to -- if --label-face is ever set to a
+  // family outside the four roles, that test fails, so this entry cannot
+  // become a hole in the guard.
+  /^var\(--label-face\)$/
 ];
 
 // Extracts every `font-family: ...;` declaration's VALUE (normalised: no
@@ -76,6 +81,40 @@ function assertOnlyCanonicalFamilies(filePath){
   assert.deepEqual(rogue.map(d => d.line + ': ' + d.value), [],
     filePath + ' has font-family value(s) outside the four canonical roles');
 }
+
+test('the --label-face token resolves to one of the four canonical roles', () => {
+  // font-family:var(--label-face) is accepted above as a canonical value.
+  // That acceptance is only safe while the token itself is canonical, so
+  // the token's own declared value is checked against the same list here.
+  const css = appCss();
+  const m = css.match(/--label-face\s*:\s*([^;]+);/);
+  assert.ok(m, '--label-face is not declared -- the applied label block would resolve to nothing');
+  const value = m[1].trim().replace(/\s*,\s*/g, ',');
+  assert.ok(CANONICAL.some(re => re.test(value)),
+    '--label-face is ' + value + ', which is outside the four canonical typographic roles');
+});
+
+test('the one label voice is the label Today actually renders, not the base rule under it', () => {
+  // The standard was taken from the WHY/EXECUTION/FEEL/WATCH FOR label as
+  // it renders on Today's card -- which is a FOCUSED session, so the
+  // :is(.view-today .day.is-today, ...) .how-row .k override is what shows.
+  // Pinning both ends here means a future edit to either the override or
+  // the tokens cannot silently put the product's standard back onto a
+  // label that appears on no screen.
+  const css = appCss();
+  const tok = sel => {
+    const m = css.match(new RegExp('--label-' + sel + '\\s*:\\s*([^;]+);'));
+    return m ? m[1].trim() : null;
+  };
+  assert.equal(tok('size'), '11.5px');
+  assert.equal(tok('weight'), '700');
+  assert.equal(tok('track'), '.04em');
+  const override = css.match(/:is\(\.view-today \.day\.is-today[^)]*\) \.how-row \.k\{([^}]*)\}/);
+  assert.ok(override, "Today's focused .how-row .k override not found");
+  assert.match(override[1], /font-size:11\.5px/);
+  assert.match(override[1], /font-weight:700/);
+  assert.match(override[1], /letter-spacing:\.04em/);
+});
 
 test('the runtime app declares only the four canonical typographic roles', () => {
   assertOnlyCanonicalFamilies(path.join(ROOT, 'protected', 'velvet-viking-valhalla.html'));
