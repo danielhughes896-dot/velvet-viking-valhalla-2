@@ -19,7 +19,12 @@ const { buildPlan } = require('./fixtures.js');
 const ROOT = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
 const CSS = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
-const F = ':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day)';
+/* Read out of the sheet, not retyped: the arms change when another screen
+   adopts the hierarchy, and a stale copy here reports "rule not found" for
+   every rule in this file instead of for the one that broke. The arms
+   themselves are asserted in coachingRail. */
+const F = (CSS.match(/:is\(\.view-today \.day\.is-today[^)]*\)/) || [])[0];
+assert.ok(F, 'the focused-session selector is gone from the sheet');
 const rule = sel => {
   const i = CSS.indexOf(sel + '{');
   assert.ok(i > -1, 'rule not found: ' + sel);

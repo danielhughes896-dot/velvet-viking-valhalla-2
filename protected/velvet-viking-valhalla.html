@@ -1248,13 +1248,16 @@
   .view-today, .view-today .font-head, .view-today .font-display,
   .view-week .wk-full, .view-week .wk-full .font-head, .view-week .wk-full .font-display,
   .view-plan-session .day, .view-plan-session .day .font-head, .view-plan-session .day .font-display,
+  .view-week .wk-overview, .view-week .wk-overview .font-head, .view-week .wk-overview .font-display,
   .topbar-inner-today .tb-today, .topbar-inner-today .tb-date{
     font-family:'Inter',-apple-system,sans-serif;}
   .topbar-inner-today .tb-today{font-weight:600;}
   /* Key metrics: bold, tabular, tight. */
   .view-today .th-dist span, .view-today .th-dist em, .view-today .ws-h-qty,
   .view-week .wk-full .th-dist span, .view-week .wk-full .th-dist em,
-  .view-week .wk-full .ws-h-qty{
+  .view-week .wk-full .ws-h-qty,
+  .view-week .wk-overview .th-dist span, .view-week .wk-overview .th-dist em,
+  .view-week .wk-overview .ws-h-qty{
     font-family:'Inter',-apple-system,sans-serif;
     font-weight:700; font-variant-numeric:tabular-nums;}
 
@@ -1323,8 +1326,8 @@
   .view-host .view-week .wk-full .day,
   .view-host .view-plan-session .day{
     background:none; border:0; box-shadow:none; padding:0; border-radius:0;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-top{position:relative; display:block; padding:0;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-main{min-width:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-top{position:relative; display:block; padding:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-main{min-width:0;}
   /* ---------- TWO CONTROLS, EVENLY SPACED ----------
      Three right-anchored absolutes at 62 / 30 / 4 fitted three controls. The
      chevron is gone from this scope -- the one session a screen is about
@@ -1333,11 +1336,11 @@
      button crowded together to the left of it. One flex rail now holds
      whatever is there and spaces it, so a card with a tick and an edit, or
      with only one of them, is correct without a second set of numbers. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-rail{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-rail{
     position:absolute; top:-2px; right:0; z-index:2;
     display:flex; align-items:center; gap:16px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-rail .day-check,
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-rail .day-actions{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-rail .day-check,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-rail .day-actions{
     position:static;}
   /* THE EDIT CONTROL IN THE BOTTOM NAV'S VOICE. It was --ink-faint on a dark
      card, which is the weight of something switched off; it is an action the
@@ -1350,22 +1353,22 @@
      align-items, so its 18px glyph sat at the start of a box stretched to
      44px by the touch-target minimum. Centring the button's own content is
      the fix -- the rail was already aligning the two boxes correctly. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-actions button{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-actions button{
     color:#FFFFFF; padding:6px;
     align-items:center; justify-content:center; min-height:44px; min-width:44px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-actions svg{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-actions svg{
     width:18px; height:18px; stroke-width:2.1;
     filter:drop-shadow(0 0 5px rgba(255,255,255,.30));}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-actions button:hover{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-actions button:hover{
     color:var(--gold-bright); background:none;
     filter:drop-shadow(0 0 6px rgba(227,177,90,.55));}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-date{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-targets{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-title{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero-solo ~ .day-detail .ws-block{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-date{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-targets{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-title{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero-solo ~ .day-detail .ws-block{display:none;}
   /* TODAY first and in gold, then the session type, as the reference has it. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-row1{padding-right:96px; margin:0 0 10px; gap:7px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .week-today-flag{order:-1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-row1{padding-right:96px; margin:0 0 10px; gap:7px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .week-today-flag{order:-1;}
 
   /* AND IT STOPS CLIPPING. .day-detail carries max-height + overflow:hidden
      because that pair is how the open/shut transition is animated -- but a
@@ -1374,19 +1377,19 @@
      and only cuts things off. It was cutting the Coach's Note's light back
      to the card's own width, which is what made a glow meant to dissolve
      into the screen end on two dead-straight vertical lines. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail{width:100%; margin-right:0;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-detail{width:100%; margin-right:0;
     display:flex; flex-direction:column;
     overflow:visible; max-height:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > *:not(.ws-block){max-width:100%;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > *{order:5;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > .day-desc{order:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-detail > *:not(.ws-block){max-width:100%;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-detail > *{order:5;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-detail > .day-desc{order:1;}
   /* THE WORKOUT GOES IN THE MIDDLE: hero, structure, then execution. The
      athlete reads what they are running, how it is built, then how to run
      it. (The written spec numbered these the other way round; the ruling
      that followed it put the structure in between, which is also the order
      the first two instructions asked for.) */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > .ws-block{order:2;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-detail > .how-card{order:3;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-detail > .ws-block{order:2;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day-detail > .how-card{order:3;}
 
   /* ---- BOX 1 IS NOT A BOX ----
      It was a hairline frame holding two inset tiles, each with its own fill
@@ -1403,11 +1406,11 @@
      SCOPED, as ever, to the focused session. A card in a LIST still needs
      its edges, because there the edge is what separates one day from the
      next; here there is only one. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero{
     display:flex; align-items:center; gap:9px; flex-wrap:nowrap;
     padding:4px 2px 10px; margin:0;
     background:none; border:0; box-shadow:none; border-radius:0;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero-main{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero-main{
     flex:1 1 56%; min-width:0; display:flex; flex-direction:column;
     justify-content:center; gap:2px; padding:2px 6px 2px 2px;
     background:none; border:0; border-radius:0;}
@@ -1421,14 +1424,14 @@
      of them read as the hero. Pure white and the same backlight recipe the
      metric uses, radii scaled to 19px type: a tight 1px halo to set the
      glyph edges off the ground, then one soft bloom. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero-title{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero-title{
     display:block; font-size:19px; font-weight:600; line-height:1.2;
     letter-spacing:.04em; text-transform:uppercase; color:#FFFFFF;
     text-shadow:0 0 1px rgba(255,255,255,.42), 0 0 13px rgba(255,255,255,.26),
                 0 0 34px rgba(255,255,255,.10);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .strat-phase-label{text-transform:uppercase;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .strat-phase-label{text-transform:uppercase;
     letter-spacing:.05em; font-size:12.5px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-ring-wrap{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-ring-wrap{
     flex:0 0 40%; display:flex; align-items:center; justify-content:center;
     padding:0; background:none; border:0; border-radius:0;}
   /* ---- THE ZONE WORD LEAVES THE RING ----
@@ -1443,21 +1446,21 @@
      numbers to run to. They take the space the label vacated.
      SCOPED, and the markup is untouched -- dayTypeLabel() still renders for
      the week overview's own ring and for anything else that shows one. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-ring-k{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-ring-k{display:none;}
   /* THE SIZE IS CLAMPED TO THE RING, because the hollow it has to sit in
      is. The ring is clamp(116px, 35vw, 144px), so a 360pt phone gives a
      126px ring and a ~50px usable radius -- and a flat 13px pace band
      measured 53px out from the centre there, i.e. drawn over its own
      stroke. The same 13px is comfortable at 430. One value cannot be right
      for both, so it scales with the thing that contains it. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-row{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-row{
     font-size:clamp(11px, 3vw, 13px); line-height:1.5; gap:5px; color:var(--ink);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-row .th-ic, :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-row .th-ic svg{width:12px; height:12px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-row .th-ic, :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-row .th-ic svg{width:12px; height:12px;}
   /* The strip that hung off the bottom of the card has nothing to hang off
      now. It keeps its words and its quiet colour and loses the half-card it
      was drawn as -- a rounded-bottom box with no top is only legible as the
      foot of something, and that something is gone. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-steps-note{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-steps-note{
     display:block; margin:0; padding:0 2px 10px;
     color:var(--ink-faint);
     border:0; background:none; border-radius:0; box-shadow:none;}
@@ -1616,7 +1619,7 @@
      whose subject is a number and a ring. As a rail each module is a
      destination the thumb reaches sideways, one at a time, and the card
      that held them is not drawn at all. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card{
     margin:11px 0 0; padding:0; border:0; border-radius:0;
     box-shadow:none; background:none;}
   /* A heading, not a control: Box 2 is open and stays open on Today, so the
@@ -1628,11 +1631,11 @@
      this is still a closed disclosure and the summary is the thing you
      press, so it keeps its heading there -- only the view where the rail is
      already open loses it. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card > summary{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card > summary::-webkit-details-marker{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card .fuel-chevron{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card > summary{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card > summary::-webkit-details-marker{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card .fuel-chevron{display:none;}
   /* The information glyph goes: the reference heads this box with words. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card > summary > svg:first-child{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card > summary > svg:first-child{display:none;}
   /* THE RAIL ITSELF. scroll-snap does the swipe -- no gesture handler, no
      drag maths, and the platform's own momentum and rubber-banding, which
      is what makes it feel native rather than scripted.
@@ -1641,7 +1644,7 @@
      that will not scroll to its own first panel reads as broken. Aligned to
      the start, each module lands in the same place and the next one peeks,
      which is also the only affordance saying a rail is a rail. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card .fuel-body{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card .fuel-body{
     display:flex; align-items:flex-start; gap:0; padding:0 0 4px; margin:0;
     /* HIDDEN, AND STILL SCROLLED -- programmatically, by the rail script.
        The focus is no longer whatever the scroll position happens to make
@@ -1659,13 +1662,13 @@
     overflow-x:hidden; overflow-y:hidden; touch-action:pan-y;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card .fuel-body::-webkit-scrollbar{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-card .fuel-body::-webkit-scrollbar{display:none;}
   /* NO TRAILING SPACE AND NO WIDE LAST MODULE. Both were ways of letting
      the last module reach the LEFT edge, because that is where the active
      one used to be decided. The rail no longer decides it there -- see
      wireCoachingRail() -- so the content simply ends where it ends, flush
      right, and the open space the athlete preferred is what is left. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod{
         /* A PERCENTAGE ALONE IS NOT ENOUGH, because the percentage is of the
        RAIL and the rail shrinks with the phone. At 31% a 430pt screen gives
        the column 97px of text and a 360pt screen gives it 78px -- and
@@ -1699,33 +1702,33 @@
      the rail's viewport almost permanently, so the height -- which follows
      the tallest module ON SCREEN -- was its height nearly all the time, and
      a one-sentence Why sat at the top of 700px of nothing. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-table{margin-top:16px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-table .how-row-heading{margin-top:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-table{margin-top:16px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-table .how-row-heading{margin-top:0;}
   /* A hairline between columns, and only between them. Not a border on the
      module -- that would draw a box round the lit one too -- but a divider
      that belongs to the gap. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod + .how-mod::after{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod + .how-mod::after{
     /* Shorter and quieter. A full-height hairline at .9 turned four panels
        into four columns of a table; at .3 over the middle half it separates
        them without ruling them. */
     content:''; position:absolute; left:0; top:28%; bottom:28%; width:1px;
     background:var(--line-soft); opacity:.3; pointer-events:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod.is-active::after,
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod.is-active + .how-mod::after{opacity:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod.is-active::after,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod.is-active + .how-mod::after{opacity:0;}
   /* ---- THE ICON ----
      Shown only here. In the stack these are rows of text and an icon per row
      is decoration; in a 27% column it is what identifies the panel before
      the label has been read. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod-i{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod-i{
     display:block; color:var(--gold-text); margin-bottom:11px; opacity:.92;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod-i svg{width:21px; height:21px; stroke-width:1.7;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod-i svg{width:21px; height:21px; stroke-width:1.7;}
   /* The label grows into a heading, because in a column it IS the heading --
      there is nothing else at the top of the panel to carry it. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod .how-row{display:block; padding:0; border:0;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod .how-row .k{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .how-row{display:block; padding:0; border:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .how-row .k{
     display:block; font-size:15px; letter-spacing:.055em; margin-bottom:10px;
     color:var(--gold-text);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod .how-row .v{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod .how-row .v{
     /* The tiers, not numbers. 13.5px/1.42 was the same size the support tier
        already carries and the typography guard was right to refuse it: a
        hand-set sentence is how 47 of them drifted apart in the first place,
@@ -1748,8 +1751,8 @@
      means here. Painted on a ::before UNDERNEATH the content rather than as
      the element's own background, so the falloff is free to overspill the
      padding box without the text ever sitting on an edge. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod.is-active{opacity:1;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod::before{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod.is-active{opacity:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod::before{
     content:''; position:absolute; inset:0;
     border-radius:26px; pointer-events:none; z-index:0;
     /* UNDER 50%, AND THAT IS ARITHMETIC RATHER THAN TASTE. A radial's
@@ -1765,7 +1768,7 @@
     background:radial-gradient(48% 46% at 50% 46%,
       rgba(227,177,90,.26) 0%, rgba(227,177,90,.115) 52%, rgba(227,177,90,0) 100%);
     opacity:0; transition:opacity .34s ease;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod.is-active::before{opacity:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod.is-active::before{opacity:1;}
   /* The lit panel also catches a line of light along its lower edge -- the
      one hard-ish element in the rail, and it is light rather than a border:
      it has no ends (the gradient fades out before the panel does) and no
@@ -1783,16 +1786,16 @@
      panel beside the one you are reading is already visible and is the real
      affordance -- these only answer "how many". */
   .how-dots{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-dots{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-dots{
     display:flex; justify-content:center; gap:7px; padding:12px 0 2px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-dot{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-dot{
     width:6px; height:6px; border-radius:50%; background:var(--ink-faint);
     opacity:.34; transition:opacity .25s ease, background-color .25s ease,
       box-shadow .25s ease;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-dot.is-on{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-dot.is-on{
     background:var(--gold-bright); opacity:1;
     box-shadow:0 0 8px rgba(245,208,97,.6);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod > *{position:relative; z-index:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod > *{position:relative; z-index:1;}
   /* ---- THE COACH'S NOTE IS LIT IN CHERRY, AND HAS NO EDGE ----
      It was a bordered, tinted rectangle -- the one boxed thing left inside a
      rail built to have no boxes. The box goes; what marks it out is that its
@@ -1820,14 +1823,14 @@
      on a near-black screen is nothing. The ending shape stops inside the
      ::before (96% x 82%) so the light reaches zero before the box does and
      there is no edge anywhere to find. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note{
     position:relative; display:flex; flex-direction:column; gap:3px;
     /* ITS OWN INTERVENTION, SO ITS OWN SPACE. 14px put it in the rail's
        rhythm, as though it were a sixth panel that had fallen below the
        others. At 32px it reads as the coach stopping to say something. */
     width:100%; box-sizing:border-box; margin:32px 0 2px;
     padding:34px 26px 36px; border:0; background:none; border-radius:0;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note::before{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note::before{
     content:''; position:absolute; z-index:0; pointer-events:none;
     /* FULL-BLEED LIGHT, COLUMN-ALIGNED WORDS. The note sits inside the page
        gutter and the day card's padding, so a glow confined to its own box
@@ -1866,10 +1869,10 @@
       color-mix(in srgb, var(--cherry) 12%, transparent) 76%,
       transparent 100%);
     filter:blur(18px);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note > *{position:relative; z-index:1;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note .k{font-size:15px; letter-spacing:.055em; gap:7px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note .k svg{width:16px; height:16px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note .v{font-size:var(--fs-body); line-height:var(--lh-body);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note > *{position:relative; z-index:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .k{font-size:15px; letter-spacing:.055em; gap:7px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .k svg{width:16px; height:16px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note .v{font-size:var(--fs-body); line-height:var(--lh-body);}
 
   /* ---------- THE LOG, AFTER THE SESSION IS DONE ----------
      Everything below the Coach's Note used to be a different product: boxed
@@ -1879,7 +1882,7 @@
      Same rules as the rest of the page apply here: one green statement lit
      rather than framed, values on the data tier under a gold rule, labels on
      the label tier, sentences on the support tier, and no box anywhere. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-panel{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-panel{
     margin-top:30px; padding-top:30px; border-top:1px solid var(--line-soft); gap:0 18px;}
 
   /* SESSION COMPLETE. Lit exactly as the Coach's Note is lit -- a blurred
@@ -1890,11 +1893,11 @@
      and gets cut, which is the hard rectangle this technique exists to avoid.
      Dimmer than the Note, which is itself dimmer than the session: the ring,
      the distance and the session name stay the brightest things on screen. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-done{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-done{
     position:relative; grid-column:1/-1;
     display:flex; align-items:center; justify-content:center; gap:10px;
     margin:0 0 24px; padding:15px 0 17px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-done::before{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-done::before{
     content:''; position:absolute; z-index:0; pointer-events:none;
     left:calc(50% - 50vw); width:100vw; right:auto;
     top:-10px; bottom:-12px; border-radius:999px;
@@ -1904,37 +1907,37 @@
       color-mix(in srgb, var(--ok) 12%, transparent) 76%,
       transparent 100%);
     filter:blur(18px);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-done > *{position:relative; z-index:1;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-done-i{width:26px; height:26px; border-width:1.5px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-done-i svg{width:14px; height:14px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-done-k{font-size:var(--label-size); letter-spacing:.14em; color:var(--ink);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-done > *{position:relative; z-index:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-done-i{width:26px; height:26px; border-width:1.5px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-done-i svg{width:14px; height:14px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-done-k{font-size:var(--label-size); letter-spacing:.14em; color:var(--ink);}
 
   /* THE TWO FIGURES THE ENGINE GRADES AGAINST, read as figures. A gold rule
      under the value instead of a box round it: the field is still obviously
      editable, and nothing competes with the session above. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field{gap:8px; padding:0 0 2px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field > label{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field{gap:8px; padding:0 0 2px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field > label{
     font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight);
     text-transform:uppercase; color:var(--ink-faint);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field input{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field input{
     background:none; border:0; border-bottom:1px solid var(--gold);
     border-radius:0; padding:2px 0 8px; font-size:var(--fs-title); color:var(--ink);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field input::placeholder{color:var(--ink-faint); opacity:.7;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field textarea{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field input::placeholder{color:var(--ink-faint); opacity:.7;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field textarea{
     background:none; border:0; border-bottom:1px solid var(--line-soft); border-radius:0; padding:4px 0 8px;}
   /* The hairline between a pair of figures, at the divider weight the rail
      settled on -- present, never structural. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field:not(.full) + .actual-field:not(.full){position:relative; padding-left:18px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-field:not(.full) + .actual-field:not(.full)::before{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field:not(.full) + .actual-field:not(.full){position:relative; padding-left:18px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-field:not(.full) + .actual-field:not(.full)::before{
     content:''; position:absolute; left:0; top:4px; bottom:10px; width:1px;
     background:var(--line-soft); opacity:.45;}
 
   /* The two disclosures, on the label tier with their explanation beneath. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-toggle{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-toggle{
     background:none; border:0; border-radius:0; padding:16px 0 0;
     text-align:left; width:100%; display:block;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-toggle .st-k{font-family:var(--label-face); font-size:var(--label-size);
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-toggle .st-k{font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight); color:var(--gold);}
 
   /* THE BREAKDOWN DISCLOSURE, IN THE SAME VOICE AS THE ONE ABOVE IT. A
@@ -1947,7 +1950,7 @@
      focused session removed everywhere else, and it out-shouted the
      Execution Review underneath it. The content stays -- it says more than
      the plain toggles do -- and only the tile goes. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary{
     background:none; border:0; border-radius:0; box-shadow:none;
     padding:16px 0 0; margin:0;}
   /* THE PRESS FEEDBACK HAS TO BE PUT BACK BY HAND. .ev-card:hover is two
@@ -1956,22 +1959,22 @@
      says must never happen to it. It returns as illumination alone, with no
      tile shadow to sit beside, which is the language the rest of the
      focused session presses in. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary:hover{box-shadow:0 0 14px color-mix(in srgb, var(--gold) 16%, transparent);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary:active{box-shadow:0 0 10px color-mix(in srgb, var(--gold) 24%, transparent);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary-icon{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary-title{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary:hover{box-shadow:0 0 14px color-mix(in srgb, var(--gold) 16%, transparent);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary:active{box-shadow:0 0 10px color-mix(in srgb, var(--gold) 24%, transparent);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary-icon{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary-title{
     font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight); color:var(--gold);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary-detail{padding-left:0; margin-top:3px; color:var(--ink-faint);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary .rs-chev{opacity:.42;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary-detail{padding-left:0; margin-top:3px; color:var(--ink-faint);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .splits-summary .rs-chev{opacity:.42;}
 
   /* EXECUTION REVIEW, de-boxed and lit in Cherry Lacquer -- the coaching
      judgement on what was run, which is the same kind of thing the Coach's
      Note is, so it is treated the same way and kept below it in intensity. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .exec-review-card{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-card{
     position:relative; margin-top:28px; padding:24px 18px 22px;
     background:none; border:0; border-radius:0; box-shadow:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .exec-review-card::before{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-card::before{
     content:''; position:absolute; z-index:0; pointer-events:none;
     left:calc(50% - 50vw); width:100vw; right:auto;
     top:-8px; bottom:-10px; border-radius:999px;
@@ -1981,18 +1984,18 @@
       color-mix(in srgb, var(--cherry) 8%, transparent) 76%,
       transparent 100%);
     filter:blur(20px);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .exec-review-card > *{position:relative; z-index:1;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .exec-review-head{font-family:var(--label-face); font-size:var(--label-size);
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-card > *{position:relative; z-index:1;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-head{font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight); color:var(--gold); margin-bottom:9px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .exec-review-summary{color:var(--ink); font-weight:600;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .exec-review-more{color:var(--ink-faint);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-summary{color:var(--ink); font-weight:600;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .exec-review-more{color:var(--ink-faint);}
 
   /* Clearing a log is a recovery, not an action this screen is for. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .actual-clear{text-align:center; margin-top:26px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-clear{text-align:center; margin-top:26px;}
   /* Tight stack, no rules between rows -- the reference uses spacing alone. */
   /* The rule is a border-BOTTOM in the base sheet, which is why cancelling
      border-top did nothing. The reference separates the rows with space. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-row{display:block; padding:0 0 11px; border-bottom:0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-row{display:block; padding:0 0 11px; border-bottom:0;}
   /* The four type properties that stood here are gone, not moved. They WERE
      the standard -- the label voice was measured off this rule -- so now
      that --label-* carries those exact values there is nothing left for the
@@ -2000,22 +2003,22 @@
      one label out of the rem scale while every other label followed it.
      What the focused card still owns is what it is for: the block layout
      and the gold ink. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-row .k{display:block; margin-bottom:1px;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-row .k{display:block; margin-bottom:1px;
     color:var(--gold-text);}
   /* The size and leading that stood here are gone, not moved: this line is
      the instruction, and the instruction is one size in the whole product.
      What the focused card still changes is what it was always for -- the
      block layout and the brighter ink. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-row .v{display:block; color:var(--ink);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-row .v{display:block; color:var(--ink);}
   .how-note{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .coach-cue-inline{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .coach-cue-inline{display:none;}
   /* The bordered, tinted rectangle that stood here is gone, not overridden:
      two rules for one element at the same specificity is a trap where the
      later one silently wins, and the Coach's Note has moved out of the rail
      and been rewritten above with the reasoning. Only `display` belongs
      here, because it is `display:none` by default -- the note has two
      positions in the markup and this is the one a focused session shows. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-note{display:flex;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-note{display:flex;}
   .how-note .k{display:flex; align-items:center; gap:6px; font-size:11.5px;
     font-weight:700; letter-spacing:.06em; text-transform:uppercase;
     color:var(--gold-text);}
@@ -2042,40 +2045,40 @@
      problem. What goes is the container drawn around them, which was only
      ever saying "these belong together" -- something three tiles in a row
      already say. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-block{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-block{
     margin-top:13px; padding:0;
     border:0; border-radius:0; box-shadow:none; background:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-block .ws-head{display:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-steps-h{gap:8px; align-items:stretch;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-block .ws-head{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-steps-h{gap:8px; align-items:stretch;}
   /* ONE LINE FOR THE PRESCRIPTION. The step cell emits each fact as its own
      element -- "Easy", "5:17-6:16/km", "157-164 BPM" -- which stacked them
      and made every tile as tall as its longest column. Laid out as flowing
      inline text with a middot between, they read as the reference has them:
      "Easy . 5:17-6:16/km". The cool-down's closing sentence stays on its own
      line, which is correct and is the only part that should wrap. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step{
     display:block; text-align:center;
     padding:9px 7px 11px; border-radius:14px;
     background:var(--t-tile); border:1px solid var(--t-tile-rim); box-shadow:none;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step + .ws-h-step{border-left:1px solid var(--t-tile-rim);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step + .ws-h-step{border-left:1px solid var(--t-tile-rim);}
   /* The key stage: the product's own cherry, as its edge and as a faint
      inner ambient glow. Straight off the existing ramp -- --cherry for the
      edge, --cherry-tint for the wash, --cherry-dim for the glow -- so the
      highlight reads as the same accent the rest of the app uses. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step.ws-work{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step.ws-work{
     border:1.5px solid var(--cherry);
     background:var(--cherry-tint), var(--t-tile);
     box-shadow:0 0 16px var(--cherry-dim), inset 0 0 18px var(--cherry-tint);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-num{display:inline-flex; vertical-align:middle;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-num{display:inline-flex; vertical-align:middle;
     width:16px; height:16px; font-size:9.5px; margin-right:5px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-name{display:inline; vertical-align:middle;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-name{display:inline; vertical-align:middle;
     font-size:10.5px; font-weight:600; letter-spacing:.7px; text-transform:uppercase;
     color:var(--gold-text);}
   /* The header row always ends after the step's name. A cool-down carries no
      quantity element, so without this its name ran straight into the first
      prescription -- "Cool downEasy". */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-name::after{content:''; display:block;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-qty{display:block; font-size:23px; font-weight:700;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-name::after{content:''; display:block;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-qty{display:block; font-size:23px; font-weight:700;
     color:#fff; margin:5px 0 3px; letter-spacing:-0.01em;}
   /* ONE FACT PER LINE, WHICH IS WHAT THE DATA ALLOWS. The reference runs
      "Easy . 5:17-6:16/km" inline, and that was tried: three tiles across a
@@ -2086,18 +2089,18 @@
      start of the next one. Stacked, each value is whole, centred and
      legible -- the reference's tiles simply carry less text than a real
      session prescribes. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-h-presc,
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-hr{display:block;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-note{display:block; margin-top:4px;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-h-pace,
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-h-hr,
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-h-sub,
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step .ws-h-note{font-size:10px; line-height:1.25;
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step .ws-h-presc,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step .ws-hr{display:block;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step .ws-note{display:block; margin-top:4px;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step .ws-h-pace,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step .ws-h-hr,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step .ws-h-sub,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step .ws-h-note{font-size:10px; line-height:1.25;
     color:var(--ink-dim);}
   /* Wrap BETWEEN the facts, never inside one: "5:17-6:16/km" breaking into
      "5:17-" / "6:16/km" reads as two different numbers. Each value stays
      whole and the line turns at the middot instead. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .ws-h-step{overflow-wrap:normal;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .ws-h-step{overflow-wrap:normal;}
 
 
   /* ---- THE TWO ACTIONS, below the boxes ---- */
@@ -2110,25 +2113,25 @@
      of a 0px box and over everything beneath it. Tying it to .open gives the
      pills their glow exactly when they are on screen and clips the drawer
      the rest of the time. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day.open .day-drawer,
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .day.open .day-drawer,
   :is(.view-today .day.is-today.open, .view-week .wk-full .day.open) .day-drawer{overflow:visible;}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .voice-row{display:flex; gap:12px; margin:13px 0 0;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row{display:flex; gap:12px; margin:13px 0 0;}
   /* The same rim as the three boxes: quiet at the top left, full gold at
      the bottom right. A border cannot hold a gradient, so the pill paints
      its fill to the padding box and the rim to the border box -- and the
      fill is the charcoal ground written as a gradient, because a background
      COLOUR may only occupy the final layer of the shorthand. */
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .voice-row .voice-btn{
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row .voice-btn{
     flex:1 1 0; justify-content:center; height:48px; border-radius:24px;
     border:1.5px solid transparent;
     background:linear-gradient(#121316, #121316) padding-box,
       var(--t-rim-grad) border-box;
     font-size:13px; font-weight:700; color:var(--gold-text);}
-  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .voice-row .voice-btn svg{color:var(--gold-text);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row .voice-btn svg{color:var(--gold-text);}
 
   @media (max-width:360px){
-    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .th-hero{flex-direction:column;}
-    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .voice-row{flex-direction:column;}
+    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .th-hero{flex-direction:column;}
+    :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .voice-row{flex-direction:column;}
   }
   @media (prefers-reduced-motion:reduce){
     .th-arc{filter:none;}
@@ -4114,10 +4117,15 @@
   .view-week{--wk-gap:18px;}
 
   /* ---- BOX 1: the week ---- */
+  /* THE WEEK IS CONTEXT, THE SESSION IS THE HERO, and two lifted boxes
+     either side of it is the arrangement that says the opposite. The block
+     keeps every word and every colour it had -- the gold figures, the
+     progress bar, the phase note -- and gives up only the rim and the lift,
+     which is the same trade Today made. A hairline underneath separates it
+     from the days without drawing a container round it. */
   .wk-hero{position:relative;
-    border:1.5px solid transparent; border-radius:var(--tile-radius);
-    background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;
-    box-shadow:var(--t-lift); padding:15px 16px 16px;
+    background:none; border:0; box-shadow:none; border-radius:0;
+    padding:4px 0 18px; border-bottom:1px solid var(--line-soft);
   }
   .wk-chip{position:absolute; top:13px; right:14px;
     display:inline-flex; align-items:center; gap:6px;
@@ -4191,28 +4199,42 @@
   }
 
   /* ---- BOX 2: the selected session ---- */
-  .wk-session{
-    border:1.5px solid transparent; border-radius:var(--tile-radius);
-    background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;
-    box-shadow:var(--t-lift); padding:13px 15px 15px;
-  }
+  /* NOT A BOX, OPEN OR SHUT. The open state already stripped this -- a card
+     around three cards was the thing the outer accordion shell went for --
+     and the collapsed summary was the last place on this screen still
+     wearing the lifted rim that Today gave up. The session is the hero here
+     too, so it gets the same treatment rather than a smaller imitation of
+     it: see the .wk-overview arm on the focused-session selector. */
+  .wk-session{background:none; border:0; box-shadow:none; padding:0;}
+  /* ---- THE WEEK AS ONE CARD AT A TIME ----
+     The days lie in a row and the row is moved, so the gesture has a
+     neighbour to reveal and can track the finger rather than swapping the
+     content under it. The slides are flex items in one row, so every one is
+     as tall as the tallest -- which means the card is a fixed box and the
+     zone breakdown below it does not move as the week is swiped. That is
+     the same lesson the coaching rail learned the hard way.
+     touch-action:pan-y, not the pan-x [data-hswipe] gives by default: this
+     region wants the horizontal gesture and the page still owes a vertical
+     scroll that starts on top of the card. */
+  .view-week .wk-rail{position:relative; overflow:hidden; touch-action:pan-y;}
+  .wk-track{display:flex; align-items:stretch; will-change:transform;}
+  .wk-track.is-settling{transition:transform .24s cubic-bezier(.22,.61,.36,1);}
+  @media (prefers-reduced-motion: reduce){ .wk-track.is-settling{transition:none;} }
+  .wk-slide{flex:0 0 100%; min-width:0; box-sizing:border-box;}
   .wk-session-badges{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;}
   .wk-badge{font-size:10px; letter-spacing:.05em; padding:3px 9px; border-radius:99px;
     background:var(--bg-4); color:var(--ink-dim);}
   .wk-badge.is-today{background:var(--gold); color:#20180A; font-weight:600;}
   .wk-badge.is-done{background:rgba(122,160,110,.18); color:#9BC08C;}
-  /* Box 2 reuses Today's hero markup, so it has to opt into Today's hero
-     LAYOUT too -- those rules are scoped to .view-today by design, and this
-     is the second place in the product entitled to them. */
-  /* Scoped to .wk-overview, NOT .wk-session: the full card nested inside the
-     same box carries its own copy of this markup, and un-hiding it there
-     printed the title twice. The card keeps the list presentation it has
-     everywhere else. */
-  .view-week .wk-overview .th-hero{display:flex; align-items:center; gap:12px;}
-  .view-week .wk-overview .th-hero-main{flex:1 1 auto; min-width:0;}
-  .view-week .wk-overview .th-hero-title{display:block; font-size:21px; font-weight:600;
-    color:var(--ink); line-height:1.15; margin-bottom:2px;}
-  .view-week .wk-overview .th-ring-wrap{flex:none;}
+  /* Box 2 reused Today's hero markup and opted into a HANDFUL of Today's
+     hero rules -- a flex row, a 21px title, a ring that would not stretch.
+     It is the same session, shown the same way, so it now takes the whole
+     treatment instead of an abbreviation of it: .view-week .wk-overview is
+     an arm of the focused-session selector, which is where the hero's type,
+     ring, glow and spacing all live. Scoped to .wk-overview and NOT to
+     .wk-session, because the full card nested in the same box carries its
+     own copy of this markup and would otherwise be styled twice -- and that
+     copy is already covered by the .wk-full .day arm. */
   .view-week .wk-overview .th-steps-note{display:none;}
   .wk-rest{padding:6px 0 2px;}
   .wk-rest-k{font-size:21px; font-weight:600; color:var(--ink);}
@@ -4246,10 +4268,11 @@
   .wk-open[aria-expanded="true"] .wk-open-caret{transform:rotate(90deg);}
 
   /* ---- BOX 3: the week's shape ---- */
+  /* The week's shape is a reading, not a panel. Same bars, same zone
+     colours, no box. */
   .wk-summary > .zone-card{
-    border:1.5px solid transparent; border-radius:var(--tile-radius);
-    background:var(--t-card-grad) padding-box, var(--t-rim-velvet) border-box;
-    box-shadow:var(--t-lift); margin:0;
+    background:none; border:0; box-shadow:none; border-radius:0;
+    margin:0; padding:22px 0 0; border-top:1px solid var(--line-soft);
   }
 
   /* =======================================================
@@ -26220,15 +26243,12 @@ function renderCoachingDepth(dd){
        renderDayCard() produces and CSS decides who sees it -- the stack on
        This Week and Full Plan hides it, because there these are rows of
        text and an icon per row would be decoration. In the rail it is what
-       makes a 27%-wide column identifiable before its label is read.
-       data-wide marks the one module that cannot be a narrow column: an
-       Execution carrying staged phases is a table, not a sentence, and
-       squeezed into a quarter of the screen it would be unreadable. */
+       makes a 27%-wide column identifiable before its label is read. */
     var MOD_ICON = { why:ICONS.clock, execution:ICONS.link, feel:ICONS.smile,
                      watch:ICONS.trend, fuel:ICONS.zap };
-    var mod = function(key, inner, wide){
+    var mod = function(key, inner){
       if (!inner) return '';
-      return '<div class="how-mod" data-mod="'+key+'"'+(wide?' data-wide="1"':'')+'>'+
+      return '<div class="how-mod" data-mod="'+key+'">'+
         (MOD_ICON[key] ? '<span class="how-mod-i" aria-hidden="true">'+MOD_ICON[key]+'</span>' : '')+
         inner+
       '</div>';
@@ -53711,6 +53731,17 @@ function handleWeekPickDay(date){
    athlete to another tab. The session they asked about is on this screen;
    moving them to Full Plan to read it would cost them the week they were
    looking at. A view toggle only: no save, no sync, no plan mutation. */
+/* One step along the week, clamped at both ends. Swiping past Sunday does
+   not roll into next week: the ends stop, the same rule the view pager
+   follows, and rolling would change the header, the progress bar and the
+   zone breakdown underneath a gesture that was aimed at a card. */
+function weekStepDate(weekNum, delta){
+  var days = weekSessionDays(weekNum);
+  if (!days.length) return null;
+  var i = weekDayIndex(weekNum) + delta;
+  if (i < 0 || i > days.length - 1) return null;
+  return days[i].date;
+}
 function handleWeekOpenSession(date){
   if (!date) return;
   weekSelectedDate = date;
@@ -54236,6 +54267,45 @@ function renderWeekDaySelector(weekNum){
    builds its hero from -- renderDayHeroBlock() over getDayTargets() -- so
    the prescription shown here and the prescription shown on Today are one
    string from one authority, not two renderings that can disagree. */
+function weekSlideHtml(dd, i){
+  var tm = TYPE_META[dd.type];
+  var isToday = dd.date === todayStr();
+  var badges = (isToday ? '<span class="wk-badge is-today font-head">Today</span>' : '')+
+    (tm ? '<span class="wk-badge type-'+dd.type+' font-head">'+escapeHtml(tm.label)+'</span>' : '')+
+    (dd.completed ? '<span class="wk-badge is-done font-head">Done</span>' : '');
+  var body = (dd.type === 'rest')
+    ? '<div class="wk-rest"><div class="wk-rest-k font-head">Rest Day</div>'+
+        '<div class="wk-rest-v">Recovery is the session.</div></div>'
+    : renderDayHeroBlock(dd, getDayTargets(dd));
+  /* See renderWeekSessionBox: one gradient id per slide, or every ring but
+     the first paints with nothing. */
+  var uid = 'th-grad-w' + i;
+  body = body.split('url(#th-grad)').join('url(#'+uid+')')
+             .split('id="th-grad"').join('id="'+uid+'"');
+  return '<div class="wk-slide" data-date="'+escapeHtml(dd.date)+'">'+
+    '<div class="wk-overview">'+
+      '<div class="wk-session-badges">'+badges+'</div>'+
+      body+
+    '</div></div>';
+}
+function weekDayIndex(weekNum){
+  var days = weekSessionDays(weekNum), sel = weekSelectedDay(weekNum);
+  if (!sel) return 0;
+  for (var i=0; i<days.length; i++){ if (days[i].date === sel.date) return i; }
+  return 0;
+}
+function renderWeekDayTrack(weekNum){
+  var days = weekSessionDays(weekNum);
+  if (!days.length) return '';
+  var i = weekDayIndex(weekNum);
+  var slides = '';
+  for (var k=0; k<days.length; k++) slides += weekSlideHtml(days[k], k);
+  /* data-hswipe so the view pager stands down: this region owns the
+     horizontal gesture, exactly as the coaching rail does on Today. */
+  return '<div class="wk-rail" data-hswipe="1" data-index="'+i+'" data-count="'+days.length+'">'+
+    '<div class="wk-track" style="transform:translate3d(-'+(i*100)+'%,0,0)">'+slides+'</div>'+
+  '</div>';
+}
 function renderWeekSessionBox(weekNum){
   var dd = weekSelectedDay(weekNum);
   if (!dd) return '';
@@ -54273,11 +54343,21 @@ function renderWeekSessionBox(weekNum){
      one inside the display:none subtree, and the arc rendered with no
      stroke at all -- a visibly empty ring in a box that measured the right
      size. The summary is therefore not emitted while the card is open. */
-  var overview = weekSessionOpen ? '' :
-    '<div class="wk-overview">'+
-      '<div class="wk-session-badges">'+badges+'</div>'+
-      body+
-    '</div>';
+  /* THE SUMMARY IS THE WEEK, NOT ONE DAY OF IT. Every day's summary is laid
+     out in a row and the row is moved; the selected one is simply the one in
+     front. That is what lets the card be swiped -- there is a neighbour to
+     reveal, so the gesture can track the finger instead of swapping content
+     under it -- and the day circles above stay the only position indicator,
+     because they already are one.
+     UNIQUE RING IDS, AND THAT IS NOT OPTIONAL. The hero's arc is painted by
+     url(#th-grad) against <linearGradient id="th-grad">, and that id is a
+     constant: seven summaries in one document would mean seven elements
+     sharing it, every url() resolving to the first, and this is the exact
+     failure the comment below records from when the summary and the hidden
+     full card both carried it -- a visibly empty ring in a box of the right
+     size. Each slide gets its own id, rewritten in the one string that
+     mentions it, so the shared hero markup is untouched everywhere else. */
+  var overview = weekSessionOpen ? '' : renderWeekDayTrack(weekNum, dd);
   return '<div class="wk-session'+(weekSessionOpen ? ' is-open' : '')+'">'+
     overview+
     (dd.type === 'rest' ? '' :
@@ -56715,6 +56795,7 @@ function renderApp(){
   animateSessionRing();
   animateWeekBar();
   wireCoachingRails();
+  wireWeekDayPager();
 }
 /* ---------- THE COACHING RAIL ----------
    scroll-snap already does the swipe; nothing here touches the gesture. Two
@@ -57009,6 +57090,72 @@ function initViewPager(){
   }catch(e){}
 }
 
+/* SWIPING THE SESSION CARD MOVES THE DAY, AND EVERYTHING FOLLOWS.
+   The gesture is on the card rather than on the day circles above it -- a
+   row of 44px targets is a poor thing to drag, and the card is the thing
+   being read. Committing calls the same handleWeekPickDay() a tap on a
+   circle calls, so the circles, the badges and the full session underneath
+   cannot disagree with the card: there is one selected date and everything
+   reads it. */
+function wireWeekDayPager(){
+  if (typeof document === 'undefined' || !document.querySelectorAll) return;
+  try{
+    var rails = document.querySelectorAll('.wk-rail');
+    for (var i=0; i<rails.length; i++) wireWeekRail(rails[i]);
+  }catch(e){}
+}
+function wireWeekRail(rail){
+  if (!rail || rail.__vvWeekRailed) return;
+  rail.__vvWeekRailed = true;
+  var track = rail.querySelector ? rail.querySelector('.wk-track') : null;
+  if (!track) return;
+  var n = parseInt(rail.getAttribute('data-count'), 10) || 0;
+  var idx = parseInt(rail.getAttribute('data-index'), 10) || 0;
+  if (n < 2 || !rail.addEventListener) return;
+  var g = null;
+  function base(){ return -idx * (rail.clientWidth || 0); }
+  function setX(x){ track.style.transform = 'translate3d(' + Math.round(x) + 'px,0,0)'; }
+  rail.addEventListener('touchstart', function(e){
+    if (!e.touches || e.touches.length !== 1){ g = null; return; }
+    g = { x:e.touches[0].clientX, y:e.touches[0].clientY, dx:0, axis:null };
+    track.classList.remove('is-settling');
+  }, { passive:true });
+  rail.addEventListener('touchmove', function(e){
+    if (!g || !e.touches || e.touches.length !== 1) return;
+    var dx = e.touches[0].clientX - g.x, dy = e.touches[0].clientY - g.y;
+    if (!g.axis){
+      if (Math.abs(dx) < RAIL_CLAIM_PX && Math.abs(dy) < RAIL_CLAIM_PX) return;
+      if (Math.abs(dx) > Math.abs(dy) * RAIL_AXIS_BIAS) g.axis = 'x';
+      else { g = null; return; }
+    }
+    /* THE ENDS RESIST, THEY DO NOT STOP DEAD. Monday pulled right and Sunday
+       pulled left still move, a quarter as far, so the week reads as having
+       an edge rather than as having jammed. */
+    var atEnd = (dx > 0 && idx === 0) || (dx < 0 && idx === n - 1);
+    g.dx = atEnd ? dx * 0.25 : dx;
+    setX(base() + g.dx);
+    if (e.cancelable && e.preventDefault) e.preventDefault();
+  }, { passive:false });
+  rail.addEventListener('touchend', function(){
+    var p = g; g = null;
+    if (!p || p.axis !== 'x') return;
+    var w = rail.clientWidth || 1;
+    var to = (Math.abs(p.dx) > w * PAGER_COMMIT_FRACTION)
+      ? weekStepDate(currentWeekNum(), p.dx < 0 ? 1 : -1) : null;
+    track.classList.add('is-settling');
+    if (!to){ setX(base()); return; }
+    /* Settle to where the new day will sit, THEN re-render. The fresh track
+       is built at that same offset, so the swap lands on the pixel the
+       animation finished on and nothing jumps -- the same ordering the view
+       pager needs for the same reason. */
+    setX(base() + (p.dx < 0 ? -w : w));
+    window.setTimeout(function(){ handleWeekPickDay(to); pagerHaptic(); }, 240);
+  }, { passive:true });
+  rail.addEventListener('touchcancel', function(){
+    if (!g) return;
+    g = null; track.classList.add('is-settling'); setX(base());
+  }, { passive:true });
+}
 function wireCoachingRails(){
   if (typeof document === 'undefined' || !document.querySelectorAll) return;
   try{
@@ -57239,7 +57386,7 @@ function openWeekFullSession(){
 function openTodayCoachingPanel(){
   if (typeof document === 'undefined' || !document.querySelector) return;
   try{
-    var d = document.querySelector(':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) details.how-card');
+    var d = document.querySelector(':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) details.how-card');
     if (!d) return;
     d.open = true;
     /* AND IT STAYS OPEN. CSS takes the pointer away from the summary, but a

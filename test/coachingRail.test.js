@@ -30,7 +30,14 @@ const { buildPlan } = require('./fixtures.js');
 const ROOT = path.join(__dirname, '..');
 const SRC = fs.readFileSync(path.join(ROOT, RUNTIME_RELATIVE), 'utf8');
 const CSS = SRC.match(/<style[^>]*>([\s\S]*?)<\/style>/)[1];
-const FOCUS = ':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day)';
+/* THE FOCUSED-SESSION SELECTOR, READ OUT OF THE SHEET RATHER THAN RETYPED.
+   It began as three arms and is now four -- This Week's summary joined when
+   that screen took Today's hierarchy -- and a hardcoded copy here meant
+   every rule in this file reported "no focused-session rule" the moment an
+   arm was added, which says nothing about what actually broke. The arms are
+   asserted once, below, where that claim belongs. */
+const FOCUS = (CSS.match(/:is\(\.view-today \.day\.is-today[^)]*\)/) || [])[0];
+assert.ok(FOCUS, 'the focused-session selector is gone from the sheet');
 
 // The focused-session rule for a selector, with its comments already gone.
 function focusRule(sel) {
@@ -40,6 +47,18 @@ function focusRule(sel) {
   assert.ok(i > -1, 'no focused-session rule for ' + sel);
   return bare.slice(i + needle.length, bare.indexOf('}', i));
 }
+
+test('the focused-session selector names every surface entitled to the treatment', () => {
+  /* Each arm is a place the product shows ONE session in full, and the list
+     is the whole claim: Today's card, This Week's summary, the full card
+     This Week reveals, and Full Plan's session screen. A fifth arm is not a
+     styling detail -- it is another screen adopting the hierarchy -- so it
+     should have to be stated here. */
+  ['.view-today .day.is-today', '.view-week .wk-full .day',
+   '.view-plan-session .day', '.view-week .wk-overview'].forEach(arm => {
+    assert.ok(FOCUS.indexOf(arm) > -1, FOCUS + ' no longer covers ' + arm);
+  });
+});
 function app() {
   const a = loadApp({ pinnedDate: '2026-03-10T09:00:00Z' });
   buildPlan(a);
