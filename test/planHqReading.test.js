@@ -238,16 +238,21 @@ test('PANEL: every Reading card opens the panel that belongs to it', () => {
 
 test('PANEL: all ten go through one opener, one BACK, one X, no rail', () => {
   const a = withHistory(planHQ());
-  /* Eleven now. Ten, then Goal -- the A/B/C chooser had lived only on the
-     Record tab, so retiring that tab without a panel for it would have taken
-     an athlete's ability to change their goal with it. It is held to the
-     same shell as the other ten rather than being allowed to be a special
-     case, which is the whole point of counting them here. */
+  /* THE COUNT IS NOT THE POINT; THE SHELL IS. This has been ten, then
+     eleven when Goal arrived with the Record tab's retirement, and is now
+     larger again because Settings became a list of destinations and its
+     sections moved into panels of their own. Pinning a number here just
+     means editing it every time the product gains a surface, which teaches
+     the next reader nothing. What matters is that EVERY panel in the
+     registries goes through one shell with one exit -- so the set is
+     enumerated and each member is held to it, and the two that must exist
+     are named. */
   const keys = a.READING_KEYS
     .concat(Object.keys(a.RECORD_PANELS))
     .concat(Object.keys(a.ACTION_PANELS));
-  assert.equal(keys.length, 11);
+  assert.ok(keys.length >= 11, 'panels vanished from the registries: ' + keys.length);
   assert.ok(keys.indexOf('goal') !== -1, 'the goal panel is not in the registry');
+  assert.ok(keys.indexOf('prefs') !== -1, "Settings' preferences panel is not in the registry");
   keys.forEach(key => {
     const panel = a.hqPanelHtml(key);
     assert.ok(panel, key + ' produced no panel');
@@ -474,7 +479,13 @@ test('ACTIONS: New Block and Plan Settings moved to Settings; Checkpoint has no 
   // 300 characters -- see ICONS.layers, at 311.
   assert.match(settingsHtml, /data-action="open-new-block"[^>]*>[\s\S]{0,400}?Start a New Block/,
     'New Block is not reachable from Settings');
-  assert.match(settingsHtml, /data-action="open-setup"[^>]*>[\s\S]{0,400}?Edit Plan Settings/,
+  /* Plan Settings moved one step deeper with the rest of the training
+     configuration, behind Settings' Training & Zones row -- Settings is a
+     list of destinations now rather than a scroll of open sections. */
+  assert.match(settingsHtml, /data-action="open-settings-panel" data-panel="training"/,
+    'Settings has no Training & Zones destination');
+  assert.match(a.hqPanelHtml('training'),
+    /data-action="open-setup"[^>]*>[\s\S]{0,400}?Edit Plan Settings/,
     'Plan Settings is not reachable from Settings');
   assert.match(CODE, /case 'open-new-block':/, 'open-new-block is not handled');
   assert.match(CODE, /case 'open-setup':/, 'open-setup is not handled');
@@ -501,8 +512,12 @@ test('TRIO: PLAN SETTINGS goes to the plan editor the product already calls that
   // Plan Settings lives only in Settings now (requirement 5) -- Settings has
   // called openSetupModal() "Edit Plan Settings" all along, and there is no
   // longer a second door onto it from the daily Valhalla page.
-  const html = a.renderSettingsHubView();
-  assert.match(html, /data-action="open-setup"[^>]*>[\s\S]{0,600}?Edit Plan Settings/,
+  /* One step deeper, behind Settings' Training & Zones row, with the rest
+     of the plan configuration -- Settings lists destinations now. */
+  assert.match(a.renderSettingsHubView(),
+    /data-action="open-settings-panel" data-panel="training"/);
+  assert.match(a.hqPanelHtml('training'),
+    /data-action="open-setup"[^>]*>[\s\S]{0,600}?Edit Plan Settings/,
     'Edit Plan Settings does not fire open-setup');
   assert.match(CODE, /case 'open-setup': openSetupModal\(\);/);
   assert.doesNotMatch(a.renderPlanHQView(), /data-action="open-setup"/,

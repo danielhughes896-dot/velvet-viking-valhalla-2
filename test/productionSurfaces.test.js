@@ -160,7 +160,11 @@ test('NATIVE STORE RULES: no web payment steering inside the app shell', () => {
 test('the reversible act and the permanent one do not look alike', () => {
   const a = signedIn(ENT({}));
   buildPlan(a, { weeks: 10, startDate: '2026-08-01', distanceKey: '10k' });
-  const settings = a.renderSettingsHubView();
+  /* BOTH CONTROLS MOVED ONE STEP DEEPER, into the panels of the rows that
+     name them -- Settings lists destinations now. The claim is unchanged
+     and is the only thing that matters here: the reversible act and the
+     permanent one must not wear the same treatment, wherever they live. */
+  const settings = a.renderSettingsHubView() + a.hqPanelHtml('resetplan') + a.hqPanelHtml('account');
 
   const resetBtn = /<button[^>]*data-action="reset-plan"[^>]*>/.exec(settings);
   assert.ok(resetBtn, 'Reset Plan is missing from Settings');
@@ -243,7 +247,11 @@ test('Settings carries the whole legal and support surface', () => {
   assert.match(settings, new RegExp(a.LEGAL_URLS.privacy.replace(/[/.]/g, '\\$&')));
   assert.match(settings, new RegExp(a.LEGAL_URLS.terms.replace(/[/.]/g, '\\$&')));
   assert.match(settings, /mailto:support@velvetviking\.co\.uk/);
-  const said = text(settings);
+  /* The cancellation paragraph travels with the Subscription it describes,
+     which is where an athlete looking for how to stop paying actually goes
+     -- it used to sit at the foot of Legal & Support, three cards away from
+     the card it told them to use. */
+  const said = text(settings + a.hqPanelHtml('subscription'));
   assert.match(said, /Cancelling\./, 'cancellation information is missing from Settings');
   assert.match(said, /nothing further is charged/);
   assert.match(said, /never deletes your training/);

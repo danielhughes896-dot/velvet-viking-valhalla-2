@@ -192,10 +192,15 @@ test('RECORD: the zone-paces fact counts the zones and names the hand-edited one
   assert.match(a.recordZonesFact().synopsis,
     /All five as calculated/, 'a half-edited zone was counted as edited');
 
-  // And it is genuinely reachable, at full fidelity, from Settings. 400, not
-  // 300: this row is .ev-card.stg-nav now (VALHALLA CONSISTENCY PASS), and
-  // the inlined icon SVG between the tag and its label runs past 300 chars.
-  assert.match(a.renderSettingsHubView(),
+  /* And it is genuinely reachable, at full fidelity, from Settings -- one
+     step deeper than before. Settings is a list of destinations now, and
+     the three plan-configuration rows that used to sit open in its scroll
+     live behind the Training & Zones row. Reachability is asserted as a
+     path rather than as a string, because that is what it actually is. */
+  const hub = a.renderSettingsHubView();
+  assert.match(hub, /data-action="open-settings-panel" data-panel="training"/,
+    'Settings has no Training & Zones destination');
+  assert.match(a.hqPanelHtml('training'),
     /data-action="open-record" data-record="zones"[^>]*>[\s\S]{0,400}?View Training Zone Paces/,
     'Training Zone Paces is not reachable from Settings');
   assert.match(a.RECORD_PANELS.zones(), /Training Zone Paces/);
@@ -534,7 +539,8 @@ test('HQ: the coach panel, the checkpoint banner and Active Goal are all still r
      and are now on the one Valhalla scroll. Active Goal was the Record tab's
      and is now the panel the Goal circle opens, which is the move that made
      retiring the tab safe rather than lossy. */
-  assert.match(a.renderSettingsHubView(), /data-action="open-setup"/);
+  assert.match(a.hqPanelHtml('training'), /data-action="open-setup"/,
+    'Edit Plan Settings is no longer reachable from Settings');
 
   const view = a.renderPlanHQView();
   assert.ok(view.indexOf(a.renderCoachPanel()) !== -1, 'the coach panel left Valhalla');

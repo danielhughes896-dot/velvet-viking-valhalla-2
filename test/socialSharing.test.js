@@ -489,49 +489,45 @@ test('the exported file is handed to the device, not to a server', () => {
  * surfaces is a form confirming a save.
  */
 
-test('the popup is raised by a person finishing a session, not by data arriving', () => {
+/* ---------- THE POPUP IS RETIRED, AND THESE TWO TESTS WITH IT ----------
+   THEY GUARDED A GATE, AND THE GATE'S PREMISE WAS WRONG. The popup was
+   raised from the completion tick and from logging a distance that
+   completed a session, never from applyCompletion() itself -- so a Strava
+   backfill, a CSV import or a restore could not throw one modal per
+   historical activity. That gate worked. What it could not fix is that at
+   the tick nothing has been logged: no distance, no pace, no heart rate,
+   no feel. The card that opened to tell an athlete how their session went
+   was scoring an empty form, in the register of an arrival.
+
+   So the moment is gone. renderExecutionReview() still renders in the day
+   card and says the same thing once the figures are in; what was removed
+   is the interruption, and with it the duplicate -- the popup and the
+   inline review were both on screen at once, saying the same sentence.
+
+   WHAT IS ASSERTED NOW is the thing that must stay true: no bulk write and
+   no interaction raises a modal on completion at all, which is a strictly
+   wider guard than the two-trigger gate it replaces. */
+test('finishing a session opens no modal, from any path', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
   const code = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
-
-  /* THE GATE IS THE WHOLE FEATURE. A Strava backfill, a CSV import and a
-     restore all call applyCompletion() exactly as the tick does, so raising
-     the moment from the write would throw one modal per historical activity
-     at an athlete who just connected their account. It is raised from the two
-     interactions instead, and applyCompletion() stays silent. */
-  const raisers = code.split('raiseCompletionMoment(').length - 1;
-  assert.ok(raisers >= 3, 'the definition plus its call sites');
+  assert.ok(!/raiseCompletionMoment/.test(code),
+    'the completion popup is back; it fires before anything has been logged');
+  assert.ok(!/wc-modal/.test(code), 'the completion popup\u2019s surface class is back');
 
   const fnBody = (name) => {
     const i = code.indexOf('function ' + name + '(');
     assert.ok(i > 0, name + ' not found');
     return code.slice(i, code.indexOf('\n}', i));
   };
-  assert.ok(fnBody('handleToggleComplete').includes('raiseCompletionMoment'),
-    'ticking a session off raises the moment');
-  assert.ok(fnBody('handleActualFieldChange').includes('raiseCompletionMoment'),
-    'logging a distance that completes a session raises the moment');
-
-  for (const bulk of ['applyCompletion', 'stravaWriteActivity', 'handleApplyCsvRow']) {
-    assert.ok(!fnBody(bulk).includes('raiseCompletionMoment'),
-      bulk + ' must never raise the popup — that is the backfill storm');
+  for (const fn of ['handleToggleComplete', 'handleActualFieldChange',
+                    'applyCompletion', 'stravaWriteActivity', 'handleApplyCsvRow']) {
+    assert.ok(!/openModal\(/.test(fnBody(fn)),
+      fn + ' opens a modal on completion');
   }
-});
-
-test('editing an already-complete session does not reopen the moment', () => {
-  const app = loadApp({ pinnedDate: '2026-11-03' });
-  const dd = completedDay({ actual: app.emptyActual() });
-  app.state.days = [dd];
-  let raised = 0;
-  const real = app.raiseCompletionMoment;
-  app.raiseCompletionMoment = () => { raised++; };
-  try {
-    dd.completed = true;              // already finished before this edit
-    app.handleActualFieldChange(dd.id, 'km', '19');
-    assert.equal(raised, 0, 'correcting a figure is not finishing a run');
-
-    dd.completed = false;             // and now the log is what completes it
-    app.handleActualFieldChange(dd.id, 'km', '19');
-  } finally { app.raiseCompletionMoment = real; }
+  /* And the review itself is not lost -- it is in the card, where it can
+     see the figures the athlete actually typed. */
+  assert.ok(/<div id="exec-review-'\+dd\.id\+'">'\+renderExecutionReview\(dd\)/.test(src),
+    'the execution review left the day card');
 });
 
 test('Share opens the editor; it does not jump to the OS share sheet', () => {

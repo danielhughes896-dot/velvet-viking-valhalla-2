@@ -102,6 +102,14 @@ test('advanced keeps its single essential cue AND gains the disclosure', () => {
 test('the guidance is a closed disclosure, so it costs no vertical space unopened', () => {
   LEVELS.forEach(level => {
     const a = app(level);
+    /* ON THE SURFACES WHERE IT IS ONE. The focused session -- Today, This
+       Week's opened day, Full Plan's session screen -- shows one session
+       and nothing else, and its instructions are most of the reason the
+       screen exists; they render open there, with no summary to press. In
+       a week LISTING, where the card is one of several, it is still a
+       closed disclosure and costs no vertical space, which is what this
+       has always been about. */
+    a.state.view = 'week';
     const html = a.renderCoachingDepth(dayWith(a, 'easy_run'));
     assert.match(html, /<details class="fuel-card how-card">/);
     assert.ok(!/<details[^>]*\bopen\b/.test(html), 'never open by default at ' + level);

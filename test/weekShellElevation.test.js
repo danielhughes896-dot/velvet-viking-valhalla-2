@@ -67,9 +67,23 @@ test('the taper accent still overrides the border colour on top of the new tile 
   assert.match(taper, /border-color\s*:\s*var\(--bronze\)/);
 });
 
-test('.tb-unit-toggle -- the recipe .week borrowed -- still exists with the same values, so the two stay in sync', () => {
+test('.week now owns the hairline-lift recipe outright, because the control it borrowed it from is gone', () => {
+  /* .week took its surface from .tb-unit-toggle -- the KM/MI pill -- and
+     this test existed so the two could not drift apart. The pill has been
+     rebuilt in the bottom nav's language: two standalone labels, crisp bold
+     white with the selected one in gold, no track, no fill, no border. So
+     there is no second copy of the recipe to stay in sync with, and .week's
+     own values (asserted above, verbatim) are the only definition left.
+
+     What is checked here is that the borrowing really did end rather than
+     being half-undone: the toggle must carry none of the surface, or the
+     pill is quietly back. */
   const toggle = ruleFor('.tb-unit-toggle');
-  assert.match(toggle, /var\(--tile-sheen\)/);
-  assert.match(toggle, /var\(--tile-border\)/);
-  assert.match(toggle, /box-shadow\s*:\s*0 1px 2px rgba\(0,0,0,\.14\), inset 0 1px 0 rgba\(255,255,255,\.10\)/);
+  assert.doesNotMatch(toggle, /var\(--tile-sheen\)/, 'the KM/MI pill grew its surface back');
+  assert.doesNotMatch(toggle, /var\(--tile-border\)/, 'the KM/MI pill grew its border back');
+  assert.doesNotMatch(toggle, /box-shadow\s*:\s*0 1px 2px/, 'the KM/MI pill grew its lift back');
+  /* And it took the nav's voice instead, which is the whole point. */
+  const btn = ruleFor('.tb-unit-toggle button.active');
+  assert.match(btn, /color\s*:\s*var\(--gold-bright\)/, 'the selected unit is not gold');
+  assert.match(btn, /text-shadow/, 'the selected unit lost its illumination');
 });

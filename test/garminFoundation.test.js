@@ -411,9 +411,23 @@ test('the card carries its future states without drawing them yet', () => {
 test('the Settings view mounts the Garmin card', () => {
   const a = app();
   a.state.view = 'settings';
+  /* UNAVAILABLE IS STATED ON THE ROW; THE CARD APPEARS WITH THE CAPABILITY.
+     renderGarminSection()'s unavailable branch is a row plus a paragraph
+     about what will happen once it is switched on, and that paragraph is
+     not worth a destination on a screen whose point is that a row leads
+     somewhere. So Settings states the absence itself, and the moment the
+     server says the athlete may use it the row becomes a real one opening
+     the same renderGarminSection() -- which is what the second half here
+     asserts, so the card cannot be lost along with the paragraph. */
   const html = a.renderSettingsHubView();
-  assert.ok(html.indexOf('id="garmin-section"') > -1, 'Garmin is not in Settings');
+  assert.ok(html.indexOf('Garmin Connect') > -1, 'Garmin is not in Settings');
   assert.ok(html.indexOf('Not yet available') > -1);
+  a.garminCapability = { available: true, connected: false };
+  const live = a.renderSettingsHubView();
+  assert.match(live, /data-action="open-settings-panel" data-panel="garmin"/,
+    'an available Garmin has no destination in Settings');
+  assert.ok(a.hqPanelHtml('garmin').indexOf('id="garmin-section"') > -1,
+    'the Garmin panel does not mount the Garmin card');
 });
 
 test('no Garmin control exists on any training surface', () => {

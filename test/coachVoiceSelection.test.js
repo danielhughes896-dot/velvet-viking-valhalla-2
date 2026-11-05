@@ -175,14 +175,21 @@ test('the control says plainly that it changes nothing about the coaching', () =
 });
 
 test('Coach Voice sits in Settings with the other presentation preferences', () => {
+  /* Settings is a list of destinations now, so "in Settings with the other
+     presentation preferences" means behind the Preferences row, beside the
+     same three it always sat with -- notifications, coaching detail and
+     strength & mobility. That it is one of exactly those four is a stronger
+     statement of the claim than its position in a scroll was. */
   const a = app();
   const html = a.renderSettingsHubView();
-  assert.ok(html.indexOf('coach-voice-row') !== -1, 'Coach Voice is not in Settings');
-  const prefs = html.indexOf('Preferences');
-  const voice = html.indexOf('coach-voice-row');
-  const training = html.indexOf('Training &amp; Zones');
-  assert.ok(prefs !== -1 && voice > prefs && (training === -1 || voice < training),
-    'Coach Voice is not inside the Preferences card');
+  assert.match(html, /data-action="open-settings-panel" data-panel="prefs"/,
+    'Settings has no Preferences destination');
+  const panel = a.hqPanelHtml('prefs');
+  assert.ok(panel.indexOf('coach-voice-row') !== -1, 'Coach Voice is not in Preferences');
+  ['notify-toggle-row', 'guidance-level-row'].forEach(id =>
+    assert.ok(panel.indexOf(id) !== -1, id + ' left Preferences'));
+  assert.ok(panel.indexOf('Training &amp; Zones') === -1,
+    'Preferences swallowed the training configuration too');
 });
 
 // ---------------------------------------------------------------------------

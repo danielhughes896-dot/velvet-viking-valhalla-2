@@ -130,10 +130,21 @@ test('the Settings section reuses the existing hub architecture', () => {
   // .ev-card -- the exact tappable-destination shell Coach's Reading rows use
   // -- rather than the plain .btn-ghost box a navigational entry used to get;
   // see the VALHALLA CONSISTENCY PASS comment on .ev-card.stg-nav.
-  const at = RUNTIME.indexOf("'<div class=\"setup-section-title\">Legal &amp; Support</div>'");
-  assert.ok(at !== -1, 'must use the existing setup-section-title heading');
-  const card = RUNTIME.slice(RUNTIME.lastIndexOf('hub-card', at), at + 1200);
+  /* The heading is built by stgGroup() now rather than written out at each
+     call site -- Settings is five groups of one row shape -- so the claim
+     is read off the render rather than off a literal. It is the same
+     .setup-section-title and the same .ev-card.stg-nav shell; what changed
+     is that one function emits them instead of eight copies. */
+  const a0 = app();
+  buildPlan(a0, { weeks: 12, startDate: TODAY, distanceKey: 'half' });
+  const view = a0.renderSettingsHubView();
+  assert.match(view, /<div class="setup-section-title">Legal &amp; Support<\/div>/,
+    'must use the existing setup-section-title heading');
+  const at2 = view.indexOf('Legal &amp; Support');
+  const card = view.slice(view.lastIndexOf('hub-card', at2), at2 + 1600);
   assert.match(card, /ev-card stg-nav/, 'must use the shared tappable-destination row class');
+  assert.equal((RUNTIME.match(/function stgGroup\(/g) || []).length, 1,
+    'there must be one group builder, or the eight copies are back');
   // And exactly one Settings hub renderer exists.
   assert.equal((RUNTIME.match(/function renderSettingsHubView\(/g) || []).length, 1);
 });
@@ -142,10 +153,24 @@ test('the destructive Reset action is still the last thing in Settings', () => {
   const a = app();
   buildPlan(a, { weeks: 12, startDate: TODAY, distanceKey: 'half' });
   const html = a.renderSettingsHubView();
-  assert.ok(
-    html.indexOf('Legal &amp; Support') < html.indexOf('Reset Plan'),
-    'a red destructive button belongs last; the legal card must not displace it'
-  );
+  /* RESET IS NOT A BUTTON ON THIS SCREEN ANY MORE, so "last" is no longer
+     the thing that protects it. Settings is a list of destinations: Reset
+     is a row in Data & Reset whose panel carries the hint and the button,
+     which puts a deliberate step between an athlete scrolling and an
+     athlete clearing their schedule -- a stronger guard than position was.
+     What must still hold is that it is the last row of its own group and
+     that Legal does not come between a group and its own rows. */
+  const dataAt = html.indexOf('Data &amp; Reset');
+  const legalAt = html.indexOf('Legal &amp; Support');
+  const resetAt = html.indexOf('Reset Plan');
+  assert.ok(dataAt > -1 && legalAt > -1 && resetAt > -1, 'a group or the reset row is missing');
+  assert.ok(dataAt < resetAt && resetAt < legalAt,
+    'Reset must be the last row of Data & Reset, before Legal & Support begins');
+  /* And the destructive control itself is behind the row, not on the page. */
+  assert.doesNotMatch(html, /data-action="reset-plan"/,
+    'the reset button is back on the Settings page itself');
+  assert.match(a.RECORD_PANELS ? a.hqPanelHtml('resetplan') : '', /data-action="reset-plan"/,
+    'the reset panel does not carry the action');
 });
 
 // ---------------------------------------------------------------------------

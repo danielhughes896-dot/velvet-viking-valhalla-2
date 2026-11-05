@@ -456,20 +456,50 @@
      tile-sheen, tile-border, a hairline lift rather than a full --tile-shadow
      raised object -- so this compact control visibly belongs to the same
      tactile/status-pill family as PROCEED, not to its own one-off shape. */
+  /* ---------- KM / MI, IN THE BOTTOM NAV'S VOICE ----------
+     It was a pill: a bordered track with a filled bronze lozenge sliding
+     between two faint labels -- a control from the design that preceded the
+     one the rest of this screen now uses, sitting in the corner of the
+     hero. It is the same job as the nav: a small closed set, one of them
+     selected. So it is the same answer -- two standalone labels, crisp bold
+     white with the tight halo that sets a small glyph off the ground, and
+     the selected one in gold with the layered illumination. No track, no
+     fill, no border.
+
+     The recipe is .bn-item's, radius for radius and alpha for alpha, so the
+     two cannot drift; only the gap and the type size differ, because two
+     two-letter labels in a hero corner are not five tabs across a bar. */
+  /* A CONTAINER AGAIN, BUT THE PRODUCT'S BORDER RATHER THAN A PILL. The
+     two labels standing free read as two separate things rather than one
+     two-state control, and 11px of air between them was most of why. They
+     sit back inside a thin rim -- the same three-stop 135deg ramp every
+     card and circle wears, in white rather than gold, because white is
+     what the resting label is and the rim should not out-colour the
+     selected one. No fill, no track behind the active label: the gold
+     illumination is still the only thing that says which is chosen. */
   .tb-unit-toggle{
-    display:flex; width:auto; max-width:68px; gap:2px;
-    background:var(--tile-sheen), var(--bg-3); border:1px solid var(--tile-border); border-radius:99px;
-    box-shadow:0 1px 2px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.10);
-    padding:4px 5px;
+    display:flex; width:auto; gap:2px; align-items:center;
+    border:1.5px solid transparent; border-radius:999px;
+    background:linear-gradient(var(--surface-2), var(--surface-2)) padding-box,
+      linear-gradient(135deg,
+        rgba(255,255,255,.20) 0%,
+        rgba(255,255,255,.42) 48%,
+        rgba(255,255,255,.72) 100%) border-box;
+    box-shadow:none; padding:2px 5px;
   }
   .tb-unit-toggle button{
-    flex:1; font-family:'JetBrains Mono',monospace; font-size:0.7rem; font-weight:bold;
-    letter-spacing:normal; padding:3px 0; color:var(--ink-faint); background:transparent; border-radius:99px; text-align:center; line-height:1;
-    transition:background .15s ease, color .15s ease;
+    display:flex; align-items:center; justify-content:center;
+    min-height:34px; min-width:30px; padding:0;
+    font-family:'Oswald',sans-serif; font-size:10.5px; font-weight:600;
+    letter-spacing:.09em; text-transform:uppercase; line-height:1;
+    color:#FFFFFF; background:none; border-radius:0;
+    text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);
+    transition:color .2s, text-shadow .2s, font-weight .2s;
   }
   .tb-unit-toggle button.active{
-    background:var(--modal-active); color:var(--bronze-ink);
-    box-shadow:inset 0 1px 2px rgba(0,0,0,.18);
+    color:var(--gold-bright); font-weight:700; background:none; box-shadow:none;
+    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
+                0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);
   }
   .countdown{display:flex; align-items:center; justify-content:flex-end;}
   .countdown-badge{
@@ -786,6 +816,13 @@
      disclosure gave no visual cue that it opens. Same rotating-chevron
      grammar as .day-chevron/.week-chevron -- CSS-only, since <details>
      already carries its own [open] state. */
+  /* A summary that is not a control: no pointer, no marker, no press
+     feedback. The card is open and stays open, so the row above the body is
+     a heading that happens to be a <summary> element. */
+  .how-card.is-static{cursor:default;}
+  .how-card summary.is-static{cursor:default; list-style:none;}
+  .how-card summary.is-static::-webkit-details-marker{display:none;}
+  .how-card summary.is-static::marker{content:'';}
   .fuel-chevron{margin-left:auto; display:flex; align-items:center; color:var(--ink-faint); transition:transform .25s;}
   .fuel-chevron svg{width:16px; height:16px; display:block;}
   .fuel-card[open] .fuel-chevron{transform:rotate(180deg);}
@@ -1214,8 +1251,15 @@
      athlete uses on the one session in front of them. Crisp white, the same
      2.1 stroke and the same white drop-shadow the nav items carry, so the two
      places in the product that offer a bare icon offer it the same way. */
+  /* THE TICK WAS NOT LOW; THE GLYPH BESIDE IT WAS HIGH. Measured: the
+     completion ring centres at the rail's own midpoint, and the icon
+     centred 7px above it. .day-actions button is display:flex with no
+     align-items, so its 18px glyph sat at the start of a box stretched to
+     44px by the touch-target minimum. Centring the button's own content is
+     the fix -- the rail was already aligning the two boxes correctly. */
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-actions button{
-    color:#FFFFFF; padding:6px;}
+    color:#FFFFFF; padding:6px;
+    align-items:center; justify-content:center; min-height:44px; min-width:44px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .day-actions svg{
     width:18px; height:18px; stroke-width:2.1;
     filter:drop-shadow(0 0 5px rgba(255,255,255,.30));}
@@ -2327,8 +2371,6 @@
      home indicator. Same override .builder-light already takes below, for a
      different reason, and the radius closes on all four corners because a
      centred card has no edge to sit flush against. */
-  .modal-overlay:has(> .wc-modal){align-items:center; padding:20px;}
-  .modal-overlay > .wc-modal{border-radius:20px; max-height:calc(100vh - 40px);}
   .modal-card{
     background:var(--modal-surface); border:1px solid var(--modal-border); width:100%; max-width:560px;
     border-radius:20px 20px 0 0; max-height:92vh; overflow-y:auto; box-shadow:var(--shadow);
@@ -3118,14 +3160,10 @@
   .share-pick{display:inline-flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;}
   .share-pick svg{width:15px; height:15px;}
   .share-hint{font-size:11px; opacity:.6; text-align:center;}
-  /* The popup is the completion environment and nothing else -- no modal
-     head, because .wc carries its own "Workout Complete" title. */
-  /* The completion card IS the modal: no surface of its own behind it, or a
-     rim of the card's background shows at the rounded corners. */
-  .modal-card.wc-modal{background:#06070A; border-color:rgba(227,177,90,0.28);
-    overflow:hidden;}
-  .wc-modal .modal-body{padding:0;}
-  .wc-modal-body .wc{margin-top:0; border:0; border-radius:0;}
+  /* The completion popup is retired -- it fired at the tick, before any
+     figure had been logged, so it scored a session it knew nothing about.
+     Its card styling goes with it; .wc itself is untouched and still renders
+     in the day card, where it says the same thing once the numbers are in. */
   .share-group{display:flex; flex-direction:column; gap:9px;}
   .share-k{font-size:10.5px; letter-spacing:1.2px; text-transform:uppercase; opacity:.65;}
   /* OVERLAY PICKER. Each thumbnail is the real overlay over the real picture,
@@ -4327,7 +4365,10 @@
     background:radial-gradient(120% 100% at 50% 0%, var(--bg-3), var(--bg-2));
     border:1px solid var(--line); text-align:center;
   }
-  .v-hero-unit-toggle{position:absolute; top:14px; right:14px;}
+  /* Pulled tight to the corner now that the control has no track around it
+     -- the pill's own 1px border and 5px padding were what the old 14px
+     inset was measured against. */
+  .v-hero-unit-toggle{position:absolute; top:10px; right:14px;}
   .v-hero-block{font-size:15px; color:var(--ink); margin:0 0 2px;}
   .v-hero-week{font-size:11px; color:var(--ink-faint); margin:0 0 14px;}
   /* THE BAND. Two figures and a gauge on one line, the figures on equal
@@ -4702,6 +4743,72 @@
     min-height:44px;
   }
   .ev-card.stg-nav:last-child{margin-bottom:0;}
+  /* ---------- THE SETTINGS ROW ----------
+     A glyph, a title, a line saying what is behind it, and the state or a
+     chevron. The colour hierarchy is the app's and is unchanged: the group
+     label is bronze, the title is the crisp white every card title is, the
+     line under it is dim because it describes rather than states, and the
+     glyph is gold like every other glyph that names a kind of thing.
+
+     The rows sit flush inside their group with hairlines between them, not
+     as eight separate cards with eight borders stacked down the screen --
+     one card per group is what makes five groups read as five groups. */
+  .stg-group{padding:0; overflow:hidden;}
+  .stg-group .setup-section-title{margin:0; padding:13px 15px 9px;}
+  .ev-card.stg-row{
+    margin:0; border:0; border-radius:0; box-shadow:none; background:none;
+    border-top:1px solid var(--line-soft);
+    padding:13px 15px; gap:13px; align-items:center;}
+  .ev-card.stg-row:hover{box-shadow:none; background:var(--bg-3);}
+  .ev-card.stg-row:active{background:var(--bg-4);}
+  .stg-row-text{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px;}
+  .stg-row-title{font-size:15px; font-weight:600; color:#FFFFFF; line-height:1.25;}
+  .stg-row-sub{font-size:12.5px; color:var(--ink-dim); line-height:1.35;}
+  .stg-row .stg-nav-icon{color:var(--gold-text); align-self:center;}
+  .stg-row .stg-nav-icon svg{width:19px; height:19px;}
+  .stg-row .rs-chev{flex:none;}
+  .stg-row-switch{flex:none; display:flex; align-items:center;}
+  /* A row that states an absence is not pressable, and says so by weight. */
+  .ev-card.stg-row.is-muted{cursor:default;}
+  .ev-card.stg-row.is-muted .stg-row-title{color:var(--ink-faint); font-weight:500;}
+  .ev-card.stg-row.is-muted .stg-nav-icon{color:var(--ink-faint);}
+  /* The two status pills, in the tones they already carried. */
+  .stg-pill{flex:none; font-family:'Oswald',sans-serif; font-size:9.5px; font-weight:600;
+    letter-spacing:.09em; text-transform:uppercase; padding:4px 10px; border-radius:999px;
+    border:1px solid currentColor;}
+  .stg-pill.is-gold{color:var(--gold-text);}
+  .stg-pill.is-green{color:var(--c-easy);}
+
+  /* ---------- SESSION TYPE ----------
+     The Settings row, with two additions the OS picker could not make: a
+     rail in the session's own type colour, so the list shows what KIND each
+     one is rather than only its name, and the circular cherry tick the
+     Reschedule list and the goal-pace box already use for "this one". */
+  .ef-type-list{border:1px solid var(--line-soft); border-radius:var(--tile-radius);
+    overflow:hidden; margin-top:6px;}
+  .ev-card.ef-type-row{border-top:1px solid var(--line-soft); padding:11px 13px; gap:11px;}
+  .ev-card.ef-type-row:first-child{border-top:0;}
+  /* The rail takes its colour from the same six tokens .day.type-* paints a
+     card's left edge with, so a Tempo in this list is the colour a Tempo is
+     everywhere else in the plan. Written out rather than inherited, because
+     .day.type-* sets border-left-color on the card and this is a child. */
+  .ef-type-rail{flex:none; width:3px; align-self:stretch; min-height:20px; border-radius:2px;
+    background:var(--c-rest);}
+  .ef-type-row.type-easy .ef-type-rail{background:var(--c-easy);}
+  .ef-type-row.type-tempo .ef-type-rail{background:var(--c-tempo);}
+  .ef-type-row.type-threshold .ef-type-rail{background:var(--c-threshold);}
+  .ef-type-row.type-track .ef-type-rail{background:var(--c-track);}
+  .ef-type-row.type-long .ef-type-rail{background:var(--c-long);}
+  .ef-type-row.type-tuneup .ef-type-rail{background:var(--c-gold);}
+  .ef-type-row .stg-row-title{font-size:14.5px;}
+  .ef-type-row .swap-tick{flex:none; display:inline-flex; width:22px; height:22px;
+    border-radius:50%; align-items:center; justify-content:center;
+    border:2px solid var(--line); color:transparent; background:var(--bg-2);}
+  .ef-type-row .swap-tick svg{width:12px; height:12px;}
+  .ef-type-row.is-picked{box-shadow:inset 0 0 0 1.5px var(--cherry);}
+  .ef-type-row.is-picked .swap-tick{
+    background:var(--cherry); border-color:var(--cherry); color:var(--cherry-btn-ink);}
+  .ev-card.ef-type-row[disabled]{opacity:.55; cursor:default;}
   .stg-nav-icon{flex:none; display:flex; color:var(--bronze-text);}
   .stg-nav-icon svg{width:16px; height:16px;}
   .stg-nav-label{flex:1 1 auto; min-width:0; font-family:'Oswald',sans-serif; font-weight:600;
@@ -4836,6 +4943,29 @@
      it explains the figures rather than stating one. */
   .hq-panel .field-hint{font-size:13px; line-height:1.5; color:var(--ink-dim);}
   .hq-panel .rec-lede{font-size:13px; color:var(--ink-dim);}
+  /* ONE SUB-HEADING SHAPE ACROSS EVERY PANEL. The Reading panels label
+     their evidence with a rule running off to the right; the Record panels
+     had bare gold sub-headings doing the same job in a different shape.
+     The rule is attached to the heading itself rather than to new markup,
+     so every panel -- including the ones whose bodies are built by
+     functions that know nothing about this -- picks it up. The Reading
+     panels build theirs through sectionRule(), which carries its own line,
+     so that one opts out below rather than drawing two. */
+  .hq-panel .setup-section-title{display:flex; align-items:center; gap:12px; margin:20px 0 6px;}
+  .hq-panel .setup-section-title::after{
+    content:''; flex:1 1 0; min-width:0; height:1px; opacity:.85;
+    background:linear-gradient(to right,
+      color-mix(in srgb, var(--rp-accent, var(--gold-text)) 70%, transparent) 0%,
+      transparent 100%);}
+  .hq-panel .sec-rule .setup-section-title::after{content:none;}
+  /* And the inner card those rows sat in goes, for the same reason it went
+     from the Reading panels: a bordered box inside a bordered box. */
+  .hq-panel .hub-card.tile-card{
+    background:none; border:0; box-shadow:none; border-radius:0; padding:0; margin:0 0 4px;}
+  .hq-panel .hub-card.tile-card .hq-row{padding:11px 0; border-bottom:1px solid var(--line-soft);}
+  .hq-panel .hub-card.tile-card .hq-row:last-child{border-bottom:0;}
+  .hq-panel .hub-card.tile-card .hq-row-l,
+  .hq-panel .hub-card.tile-card .hq-row-v{font-size:14px; color:#FFFFFF;}
   .modal-body .zone-paces-card{margin:0 0 4px;}
 
   .goal-toggle-hero{margin-top:16px;}
@@ -25027,6 +25157,7 @@ function renderStructuredWorkout(dd){
   '</section>';
 }
 function renderCoachingDepth(dd){
+  var focusedCard = dayCardIsFocused(dd);
   var level = athleteExperience();
   var g = coachingEntryFor(dd);
   if (!g) return '';
@@ -25077,8 +25208,25 @@ function renderCoachingDepth(dd){
     var stratBlock = renderExecutionStrategyBlock(dd);
     var fuelOn;
     try { fuelOn = needsFueling(dd); } catch(e) { fuelOn = false; }
-    out += '<details class="fuel-card how-card">'+
-      '<summary>'+ICONS.info+'How to run this<span class="fuel-chevron" aria-hidden="true">'+ICONS.chevronDown+'</span></summary>'+
+    /* ---------- OPEN, AND NOT A DISCLOSURE, ON THE FOCUSED SESSION ----------
+       On Today -- and on the two other screens that show one session and
+       nothing else -- this is the session's own instructions, which is most
+       of the reason the screen exists. It was a <details>: the athlete
+       arrived at the one thing they came to read and had to press a summary
+       to see it, and the max-height transition behind it made that press
+       feel slow. It renders open there, with no summary to press and no
+       chevron offering one.
+
+       Everywhere else -- a week listing, a race event -- it is still a
+       disclosure, because there the card is one of several and the
+       instructions genuinely are detail. `open` is set rather than the
+       element changed, so the same CSS, the same body and the same copy
+       serve both. */
+    out += '<details class="fuel-card how-card'+(focusedCard?' is-static':'')+'"'+
+        (focusedCard?' open':'')+'>'+
+      (focusedCard
+        ? '<summary class="is-static">'+ICONS.info+'How to run this</summary>'
+        : '<summary>'+ICONS.info+'How to run this<span class="fuel-chevron" aria-hidden="true">'+ICONS.chevronDown+'</span></summary>')+
       '<div class="fuel-body">'+
         row('Why', gd.why)+
         (stratBlock
@@ -29086,35 +29234,30 @@ function shareExport(mode){
                           done:'Image ready to share' });
   }, 'image/png');
 }
-/* ---- THE COMPLETION POPUP, AND WHY IT IS GATED SO TIGHTLY ----
-   "Session completes" means an athlete finishing a session NOW. It does not
-   mean completion data arriving, and the difference is the whole gate: a
-   Strava backfill resolving forty historical activities, a CSV import, a
-   restore from backup and any other bulk write all call applyCompletion()
-   exactly as the tick does. Opening on the write would throw forty modals at
-   an athlete who just connected their account.
+/* ---------- THE COMPLETION POPUP IS RETIRED ----------
+   IT ARRIVED BEFORE IT COULD BE TRUE. The moment it fired was the tick --
+   and at the tick nothing has been logged yet. No distance, no pace, no
+   heart rate, no feel. So the card that opened to tell the athlete how
+   their session went was scoring a session it knew nothing about:
+   "7.5km logged, as prescribed. Distance is all that was recorded, so this
+   one is not judged on pace or effort." That is not a verdict, it is a
+   description of an empty form, delivered in the register of an arrival.
 
-   So the popup is raised by the two INTERACTIONS that mean a person just
-   finished a run -- the completion tick and logging a distance against an
-   uncompleted session -- and by nothing else. applyCompletion() itself stays
-   silent, which is what keeps every bulk path quiet without each one having
-   to remember to suppress anything.
+   The second trigger had the same defect from the other end: logging a
+   distance against an uncompleted session completed it, which opened the
+   moment on the one field the athlete had typed so far, before the pace
+   beside it.
 
-   WHAT THIS DELIBERATELY DOES NOT SOLVE: a session completed on a watch and
-   synced minutes later is a real completion the athlete would expect a moment
-   for, and it does not get one here. That is the delayed-sync lifecycle, it
-   needs its own design, and guessing at it inside this branch would reopen
-   the popup-storm problem from the other end. */
-function raiseCompletionMoment(dd){
-  if (!dd || !dd.completed || dd.type === 'rest') return;
-  /* NOT modal-themed. That class un-pins the card back to the document's
-     theme, which in light mode wrapped a black completion card in a cream
-     rim. The completion moment is black in BOTH themes by design -- it is
-     the brand's own register, like the decision surface -- so it keeps the
-     fixed ramp and .wc paints the whole card. */
-  openModal('<div class="modal-body wc-modal-body">'+renderExecutionReview(dd)+'</div>',
-            'wc-modal');
-}
+   NOTHING IS LOST. renderExecutionReview() still renders in the card, below
+   the log, and it says the same thing it always did -- once the figures are
+   actually in, and updating as they are. An athlete who wants the share
+   card finds it there. What is gone is the interruption, and with it the
+   duplicate: the popup and the inline review were both on screen at once,
+   one over the other, saying the same sentence.
+
+   raiseCompletionMoment() and .wc-modal are deleted rather than left
+   unreferenced; handleCompletionContinue() keeps its modal branch because
+   the share composer still opens over the card. */
 function renderExecutionReview(dd){
   if (!dd.completed) return '';
   /* NOTHING WAS PRESCRIBED, SO THERE IS NOTHING TO REVIEW AGAINST. Every
@@ -29292,8 +29435,9 @@ var analysisOpenFor = {};
 function isAnalysisOpen(dd){
   return !!(dd && analysisOpenFor[dd.id]);
 }
+/* Continue used to mean "close the popup" when one was open and "collapse
+   the card" otherwise. There is no popup, so it means the one thing left. */
 function handleCompletionContinue(dayId){
-  if (document.querySelector('.wc-modal')) { closeModal(); return; }
   handleToggleDay(dayId);
 }
 function handleViewAnalysis(dayId){
@@ -29301,11 +29445,9 @@ function handleViewAnalysis(dayId){
   if (!dd) return;
   if (analysisOpenFor[dd.id]) delete analysisOpenFor[dd.id];
   else analysisOpenFor[dd.id] = true;
-  // The same surface can be on screen twice -- in the popup and on the card
-  // behind it -- so both mounts are refreshed rather than whichever one the
-  // tap happened to come from.
-  var modalBody = document.querySelector('.wc-modal .wc-modal-body');
-  if (modalBody) modalBody.innerHTML = renderExecutionReview(dd);
+  /* One mount now, not two. The review used to be on screen twice at once
+     -- in the popup and on the card behind it -- and both had to be kept in
+     step; with the popup retired the card is the only place it lives. */
   patchExecutionUI(dd);
 }
 /* ---- THE VERDICT, AND THE WAY OUT TO A POST ----
@@ -46105,6 +46247,21 @@ async function handleGeneratePlan(){
    answer, the rows show it, and tapping the chosen row again clears it -- which
    is what the "choose a day" option was for and the only way back out of a
    selection once the native picker is gone. */
+/* The same shape as handleEditSwapPick below: write the mirrored <select>,
+   then move the picked state across the visible rows. One difference -- a
+   session always has a type, so this one cannot be unpicked by tapping it
+   again, where a swap target legitimately can. */
+function handleEditTypePick(t){
+  var sel = document.getElementById('ef-type');
+  var list = document.getElementById('ef-type-list');
+  if (!sel || !list || sel.disabled) return;
+  sel.value = t;
+  Array.prototype.forEach.call(list.querySelectorAll('.ef-type-row'), function(btn){
+    var on = btn.getAttribute('data-type') === t;
+    btn.classList.toggle('is-picked', on);
+    btn.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
 function handleEditSwapPick(id){
   var sel = document.getElementById('ef-swap');
   var list = document.getElementById('ef-swap-list');
@@ -46149,6 +46306,44 @@ function openEditModal(dayId){
   var typeOptions = Object.keys(TYPE_META).filter(function(t){ return t!=='race'; }).map(function(t){
     return '<option value="'+t+'" '+(dd.type===t?'selected':'')+'>'+TYPE_META[t].label+'</option>';
   }).join('');
+  /* ---------- SESSION TYPE, IN THE APP'S OWN LANGUAGE ----------
+     THE LAST NATIVE <select> AN ATHLETE COULD SEE. iOS and Android draw
+     their own full-height picker for one: system grey, a system tint radio,
+     system type, eleven rows of it over a Velvet Viking sheet. The day-swap
+     list below this already solved exactly that, and said why; Session Type
+     was simply left behind.
+
+     IT IS THE SETTINGS ROW. Same shell, same glyph column, same crisp white
+     title, same hairline between rows -- the shape the product now uses
+     wherever it offers a list of things to choose between. What the OS
+     picker could not show and this does is WHICH KIND of session each one
+     is: every row carries its own type colour, the one the plan draws that
+     session with everywhere else.
+
+     THE <select> STILL HOLDS THE ANSWER. Same bld-mirror idiom as the swap
+     list and the builder: the visible control is ours, the value lives in a
+     real form element, and handleSaveEdit() reads
+     document.getElementById('ef-type').value without knowing anything
+     changed. No new state, no second source of truth. */
+  var typeFieldHtml = function(dd, editable){
+    var rows = Object.keys(TYPE_META).filter(function(t){ return t!=='race'; })
+      .map(function(t){
+        var tm = TYPE_META[t] || {};
+        var on = dd.type === t;
+        return '<button type="button" class="ev-card stg-nav stg-row ef-type-row type-'+(tm.cls||'rest')+
+            (on?' is-picked':'')+'" role="radio" aria-checked="'+(on?'true':'false')+'" '+
+            (editable ? 'data-action="ef-type-pick" data-type="'+escapeHtml(t)+'"' : 'disabled')+'>'+
+          '<span class="ef-type-rail" aria-hidden="true"></span>'+
+          '<span class="stg-row-text"><span class="stg-row-title">'+escapeHtml(tm.label||t)+'</span></span>'+
+          '<span class="swap-tick" aria-hidden="true">'+ICONS.check+'</span>'+
+        '</button>';
+      }).join('');
+    return '<div class="field"><label id="ef-type-label">Session Type</label>'+
+      '<select id="ef-type" class="bld-mirror" tabindex="-1" aria-hidden="true"'+(editable?'':' disabled')+'>'+
+        typeOptions+'</select>'+
+      '<div class="ef-type-list" id="ef-type-list" role="radiogroup" aria-labelledby="ef-type-label">'+
+        rows+'</div></div>';
+  };
   /* ---- CHOOSING THE OTHER DAY, IN THE APP'S OWN LANGUAGE ----
      THIS WAS A NATIVE <select>, AND ON A PHONE A NATIVE SELECT IS NOT OURS.
      iOS and Android draw their own full-height picker: system grey, a system
@@ -46266,9 +46461,9 @@ function openEditModal(dayId){
     (editable ? '' : '<div class="field-hint" style="margin-bottom:14px;">This session already happened \u2014 you can still record what you actually did below.</div>')+
     '<div class="field"><label>Session Title</label><input type="text" id="ef-title" value="'+escapeHtml(dd.title)+'"'+lock+'></div>'+
     '<div class="field-row">'+
-      '<div class="field"><label>Session Type</label><select id="ef-type"'+lock+'>'+typeOptions+'</select></div>'+
       '<div class="field"><label>Distance ('+displayUnit()+')</label><input type="number" step="0.1" min="0" id="ef-km" value="'+kmToDisplay(dd.km)+'"'+lock+'></div>'+
     '</div>'+
+    typeFieldHtml(dd, editable)+
     /* The inline width:auto is gone deliberately: it was there to stop the
    field-wide input rule stretching a native checkbox across the row, and it
    would now beat the circular component's own 22px. Spacing moved to CSS
@@ -51612,6 +51807,7 @@ function renderGarminSection(){
   return '<div id="garmin-section">'+inner+'</div>';
 }
 function patchGarminSection(){
+  patchSettingsConnectRows();
   if (typeof document === 'undefined' || !document.querySelectorAll) return;
   var nodes = document.querySelectorAll('#garmin-section');
   for (var i=0; i<nodes.length; i++) nodes[i].outerHTML = renderGarminSection();
@@ -51638,6 +51834,20 @@ function patchStravaSection(){
   if (typeof document === 'undefined' || !document.querySelectorAll) return;
   var nodes = document.querySelectorAll('#strava-section');
   for (var i=0; i<nodes.length; i++) nodes[i].outerHTML = renderStravaSection();
+  patchSettingsConnectRows();
+}
+/* ---- THE ROW IS A SECOND PLACE THE SAME STATUS IS SHOWN ----
+   #strava-section lives inside the panel now, so patching it alone left the
+   Settings row still reading "Bring your runs in automatically" after a
+   connection succeeded -- the screen contradicting the panel it had just
+   opened. The row is re-rendered from the same stravaConn/garminCapability
+   the section reads, so the two cannot disagree, and it is a no-op anywhere
+   the Settings screen is not showing. */
+function patchSettingsConnectRows(){
+  if (typeof document === 'undefined' || !document.getElementById) return;
+  if ((state.view||'today') !== 'settings') return;
+  var mount = document.getElementById('stg-connect-group');
+  if (mount) mount.innerHTML = settingsConnectRows();
 }
 function openImportModal(){
   var html = ''+
@@ -51925,8 +52135,6 @@ function handleToggleComplete(dayId){
   replaceCard(dd);
   patchDerivedStats();
   scheduleSave();
-  // A person just ticked this off. That is the moment the popup is for.
-  if (dd.completed) raiseCompletionMoment(dd);
 }
 function handleActualFieldChange(dayId, field, value){
   var dd = findDay(dayId);
@@ -51974,11 +52182,6 @@ function handleActualFieldChange(dayId, field, value){
   patchExecutionUI(dd);
   patchDerivedStats();
   scheduleSave();
-  /* Logging a distance against a session that was not yet complete is the
-     other way an athlete says "I just did this" -- but only once, and only
-     when the log actually completed it. Editing a figure afterwards must not
-     reopen the moment. */
-  if (!wasComplete && dd.completed) raiseCompletionMoment(dd);
 }
 /* The chips are shown only after the athlete asks for them -- the wand does
    not run while they type. Once run, the chips stay with the workout so they
@@ -53277,11 +53480,12 @@ var STATUS_TINT = {
   benchmark: 'var(--c-rest-soft)',
   progress:  'var(--c-gold-soft)'
 };
-function statusDialHtml(f){
+function statusDialHtml(f, isStatic){
   var big = f.big != null ? f.big : f.value;
   var small = f.small || '';
-  return '<button type="button" class="b-dial b-stat" data-rank="s" '+
-      'data-action="open-record" data-record="'+f.key+'" '+
+  var tag = isStatic ? 'span' : 'button';
+  return '<'+tag+(isStatic ? '' : ' type="button"')+' class="b-dial b-stat" data-rank="s" '+
+      (isStatic ? '' : 'data-action="open-record" data-record="'+f.key+'" ')+
       'aria-label="'+escapeHtml(f.subject+' — '+f.value)+'" '+
       'style="--rd-base:'+(STATUS_ACCENT[f.key]||'var(--c-rest)')+'; '+
         '--rd-tint:'+(STATUS_TINT[f.key]||'var(--c-rest-soft)')+';">'+
@@ -53298,7 +53502,7 @@ function statusDialHtml(f){
            what actually aligns the labels. */
         '<span class="rd-sub rd-sub-data">'+escapeHtml(small)+'</span>'+
       '</span>'+
-    '</button>';
+    '</'+tag+'>';
 }
 /* A status face holds wider strings than a reading face ever does -- a
    fitness range is "3:23–3:44" -- so it has its own ladder rather than
@@ -53316,7 +53520,15 @@ function statusValueFontSize(text){
 function renderValhallaRecordPreview(){
   if (!state.setup) return '';
   return sectionRule('The Athlete Status')+
-    '<div class="b-status">'+recordFacts().map(statusDialHtml).join('')+'</div>';
+    /* NOT .map(statusDialHtml). Array.map hands the callback the INDEX as its
+       second argument, and this function's second argument is now "render me
+       inert" -- so the first circle stayed a button and the other three
+       silently became spans an athlete could not press. A one-argument
+       closure is the fix, and it is why a renderer that gains an optional
+       flag should never be passed to map by reference. */
+    '<div class="b-status">'+recordFacts().map(function(f){
+      return statusDialHtml(f);
+    }).join('')+'</div>';
 }
 
 /* ---------- the panels ----------
@@ -53363,7 +53575,18 @@ function recordPanelShell(title, body, key){
         ? fact.emptyState + (fact.synopsis ? '. ' + fact.synopsis : '.')
         : (fact.synopsis || ''))
     : '';
-  var lede = ledeText ? '<div class="rec-lede">'+escapeHtml(ledeText)+'</div>' : '';
+  /* THE SAME OPENING AS A READING PANEL. A Record panel used to begin on a
+     sentence; the Reading panels begin on the circle the athlete pressed,
+     enlarged and inert, with the reason for it across a hairline. There is
+     no argument for the two being different -- both are opened by pressing
+     a circle, and both should restate the circle rather than make the
+     athlete remember which of nine they chose. Same markup, same classes,
+     same accent. */
+  var lede = fact
+    ? '<div class="rp-hero">'+ statusDialHtml(fact, true)+
+        '<div class="rp-hero-text"><div class="rp-hero-say">'+escapeHtml(ledeText)+'</div></div>'+
+      '</div>'
+    : (ledeText ? '<div class="rec-lede">'+escapeHtml(ledeText)+'</div>' : '');
   return '<div class="modal-head"><h2 class="font-head">'+escapeHtml(title)+'</h2>'+
       '<button type="button" class="icon-btn" data-action="close-record-panel" aria-label="Close">'+ICONS.close+'</button>'+
     '</div>'+
@@ -53454,10 +53677,13 @@ function recordPanelBenchmark(){
   var b = state.setup.benchmark;
   var goal = getActiveGoal();
   var profile = DISTANCE_PROFILES[state.setup.distanceKey];
-  var body = '<div class="hub-card tile-card">'+
-      (b ? hqRow(DISTANCE_PROFILES[b.distanceKey].label, secToClock(b.timeSec))
-         : '<div class="hq-empty">No benchmark set yet.</div>')+
-    '</div>'+
+  /* THE FIGURE IS THE CIRCLE NOW. This opened on a row restating the
+     benchmark -- "10K / 44:00" -- directly beneath the circle that had just
+     said it, because the panel used to open on a sentence rather than on
+     the instrument. The absence still gets its line, since there is no
+     figure in the circle to carry it. */
+  var body = (b ? '' : '<div class="hub-card tile-card">'+
+      '<div class="hq-empty">No benchmark set yet.</div></div>')+
     '<div class="field-hint">A benchmark is a recent performance you have told Valhalla about. '+
       'It is the number Suggest Goals works from, and the number to update when your fitness moves.</div>'+
     /* WHAT ACTUALLY SETS THEM, from the same accessor the paces use. Until
@@ -54313,7 +54539,91 @@ function actionPanelNewBlock(){
    counts as a measurement" section, not twice. Fitness Checkpoints
    themselves -- the coaching methodology and their place in Full Plan -- are
    completely untouched; only this redundant detail layer is removed. */
-var ACTION_PANELS = { newblock: actionPanelNewBlock };
+/* ---------- WHERE SETTINGS' OWN SECTIONS WENT ----------
+   Each of these hosts the EXACT render function that used to sit open in
+   the Settings scroll. Nothing was rewritten, reduced or re-copied: the
+   controls, their data-actions and their explanatory text are the same
+   objects, now behind the row that names them. That is the whole claim of
+   this restructure and it is what the tests hold it to. */
+function settingsPanelPrefs(){
+  return recordPanelShell('Preferences',
+    renderNotifyToggleRow()+
+    renderGuidanceLevelRow()+
+    renderSupportWorkRow()+
+    renderCoachVoiceRow());
+}
+function settingsPanelHealth(){
+  /* The consent copy travels WITH the switch, always. The row on Settings
+     carries the switch too, because a binary an athlete may want to revoke
+     in one tap should not be two taps deep -- but the three paragraphs
+     explaining what is read, what is not, and what withdrawing does are the
+     reason the switch is lawful to offer, so they live on the same surface
+     as a second copy of it rather than being left behind in a scroll. */
+  return recordPanelShell('Health & Readiness', renderHealthConsentSettings());
+}
+function settingsPanelAccount(){
+  return recordPanelShell('Account & Backup', renderCloudCard());
+}
+function settingsPanelSubscription(){
+  return recordPanelShell('Subscription', renderSubscriptionCard()+
+    '<div class="field-hint" style="margin-top:12px;"><strong>Cancelling.</strong> '+
+    'You can cancel at any time from here. Your access continues to the end of '+
+    'the period you have already paid for, and nothing further is charged. '+
+    'Cancelling never deletes your training.</div>');
+}
+function settingsPanelTraining(){
+  return recordPanelShell('Training & Zones',
+    '<button type="button" class="btn btn-primary btn-recal btn-block" style="margin-bottom:10px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
+    stgRow({ title:'View Training Zone Paces', icon:ICONS.ruler,
+      attrs:'data-action="open-record" data-record="zones"' })+
+    stgRow({ title:'Edit Plan Settings', icon:ICONS.target,
+      attrs:'data-action="open-setup"' })+
+    stgRow({ title:vGoalDay()+' Pacing Strategy', icon:ICONS.ruler,
+      attrs:'data-action="open-pacing"' }));
+}
+function settingsPanelStrava(){
+  return recordPanelShell('Strava', renderStravaSection());
+}
+function settingsPanelGarmin(){
+  return recordPanelShell('Garmin Connect', renderGarminSection());
+}
+function settingsPanelBackup(){
+  return recordPanelShell('Export / Import Backup',
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-json">'+ICONS.download+' Export Full Backup (JSON)</button>'+
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="import-json" data-target="import-json-input-hub">'+ICONS.upload+' Import Backup (JSON)</button>'+
+    '<input type="file" accept=".json,application/json" id="import-json-input-hub" class="file-input-offscreen">'+
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="copy-backup">'+ICONS.copy+' Copy Backup to Clipboard</button>'+
+    '<button type="button" class="btn btn-ghost btn-block" data-action="paste-backup">'+ICONS.upload+' Paste Backup</button>'+
+    '<div class="field-hint" style="margin:10px 0 16px;">Copy/paste works on any version of the app, so use it to move a plan across a reinstall.</div>'+
+    '<div class="setup-section-title">Other exports</div>'+
+    '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="open-import">'+ICONS.watch+' Garmin File Import</button>'+
+    '<button type="button" class="btn btn-ghost btn-block" data-action="export-ics">'+ICONS.clock+' Export to iCal (.ics)</button>');
+}
+function settingsPanelReset(){
+  return recordPanelShell('Reset Plan',
+    '<div class="field-hint" style="margin-bottom:14px;">'+RESET_PLAN_HINT+'</div>'+
+    '<button type="button" class="btn btn-ghost btn-block" data-action="reset-plan">'+ICONS.refresh+' Reset Plan — Start Over</button>');
+}
+var ACTION_PANELS = { newblock: actionPanelNewBlock,
+  prefs: settingsPanelPrefs, health: settingsPanelHealth,
+  account: settingsPanelAccount, subscription: settingsPanelSubscription,
+  training: settingsPanelTraining, strava: settingsPanelStrava,
+  garmin: settingsPanelGarmin,
+  backup: settingsPanelBackup, resetplan: settingsPanelReset };
+/* openHQPanel() refuses without a plan, which is right for every panel it
+   was written for -- there is no readiness to read and no record to show.
+   Account, Subscription, Backup and Legal are true before a plan exists and
+   an athlete signing in for the first time must reach them, so the Settings
+   rows open through here instead. Same shell, same single exit, same scroll
+   restoration; only the gate differs. */
+function openSettingsPanel(key){
+  var html = hqPanelHtml(key);
+  if (!html) return;
+  rememberPlanHQScroll();
+  openModal(html, 'modal-themed builder-light hq-panel '+
+    (PANEL_ACCENT_CLASS[key] || 'rp-gold'));
+  openRecordPanelKey = key;
+}
 /* Take the athlete to the checkpoint session itself: Full Plan, its week open,
    scrolled to it. Real navigation to a real session -- no new screen. */
 function handleGoToCheckpoint(){
@@ -54562,140 +54872,170 @@ function handleCloudSignIn(){
 // now a normal view tab. Sub-options either fire a direct action (save/clear
 // key, export/reset) or open one of the existing modals -- openModal() always
 // closes any modal already open first, so there's never a nesting risk.
-function renderSettingsHubView(){
-  return '<div class="view-heading font-head">Settings</div>'+
-    /* Subscription FIRST, above the account it belongs to. A paying customer
-       opening Settings is most often here for one of two reasons -- what am I
-       paying, and how do I stop -- and both used to be a single grey hint
-       line buried inside Account & Backup. It renders nothing at all until
-       the server has said something true about this account. */
-    renderSubscriptionCard()+
-    renderCloudCard()+
-    '<div class="hub-card tile-card">'+
-      '<div class="setup-section-title">Preferences &amp; Notifications</div>'+
-      renderNotifyToggleRow()+
-      renderGuidanceLevelRow()+
-      renderSupportWorkRow()+
-      renderCoachVoiceRow()+
-    '</div>'+
-    /* High in Settings, not buried under Legal. An athlete looking for "what
-       is Valhalla allowed to do with what I tell it" should meet the control
-       itself, not a document about it. */
-    renderHealthConsentSettings()+
-    /* TRAINING AVAILABILITY, AND WHY IT IS ITS OWN CARD. An athlete who has
-       just been told to stop running should find this without reading past
-       themes, notifications and zone tables -- and it is not a preference
-       or a piece of configuration, it is something they tell their coach.
-       Today carries the state while a restriction is open; this is the
-       permanent home, the same split renderHealthConsentCard() already
-       uses. */
-    /* NOT OFFERED TO AN ATHLETE WITH NO PLAN. There is nothing to restrict,
-       openRestrictionModal() refuses for the same reason, and a row that
-       does nothing when tapped is worse than no row. */
-    (state.setup && state.days && state.days.length ?
-    '<div class="hub-card tile-card">'+
-      '<div class="setup-section-title">Training Availability</div>'+
-      '<button type="button" class="ev-card stg-nav" data-action="restriction-open">'+
-        '<span class="stg-nav-icon">'+ICONS.shieldmark+'</span>'+
-        '<span class="stg-nav-label">'+(openRestriction()
-          ? 'Injury or illness — restriction open'
-          : 'Injured or ill? Tell Valhalla')+'</span>'+
-        '<span class="rs-chev">'+ICONS.chevronRight+'</span></button>'+
-      '<div class="field-hint" style="margin-top:8px;">Valhalla adapts the plan, stops counting those days against you and makes nothing up afterwards. It never asks what the problem is, and it does not decide when you are ready to train normally again — you do.</div>'+
-    '</div>' : '')+
-    '<div class="hub-card tile-card">'+
-      '<div class="setup-section-title">Training &amp; Zones</div>'+
-      /* .btn-recal, not the ordinary bronze .btn-primary: Re-calibrate is a
-         named journey with its own Cherry Lacquer Save & Re-tailor action
-         inside the modal it opens, and the launcher that promises that
-         journey should read as the same one action, not a generic
-         section-primary button that happens to lead to a cherry screen. */
-      '<button type="button" class="btn btn-primary btn-recal btn-block" style="margin-bottom:8px;" data-action="open-recalibrate">'+ICONS.zap+' Re-calibrate Training Zones</button>'+
-      /* Training paces are configuration/reference, not an athlete record --
-         moved here from The Record, using the exact same panel
-         (recordPanelZones(), reached the same way Record always opened it)
-         so nothing about what an athlete can see was reduced, only where
-         they find it.
+/* =========================================================
+   SETTINGS — ONE ROW SHAPE, FIVE GROUPS
+   =========================================================
+   WHAT THIS REPLACES. Settings was a 3,400px scroll of expanded sections:
+   every preference, every explanation and every control open at once, in
+   eight cards of different internal shapes. Finding "am I connected to
+   Strava" meant scrolling past four paragraphs about health consent, a
+   radio list of coach voices with preview buttons, and a zone table.
 
-         .ev-card.stg-nav, not .btn-ghost: these three go somewhere rather
-         than doing something, so they carry the same tappable-destination
-         shell Coach's Reading rows use, not a stack of outlined buttons. */
-      '<button type="button" class="ev-card stg-nav" data-action="open-record" data-record="zones">'+
-        '<span class="stg-nav-icon">'+ICONS.ruler+'</span><span class="stg-nav-label">View Training Zone Paces</span>'+
-        '<span class="rs-chev">'+ICONS.chevronRight+'</span></button>'+
-      '<button type="button" class="ev-card stg-nav" data-action="open-setup">'+
-        '<span class="stg-nav-icon">'+ICONS.target+'</span><span class="stg-nav-label">Edit Plan Settings</span>'+
-        '<span class="rs-chev">'+ICONS.chevronRight+'</span></button>'+
-      '<button type="button" class="ev-card stg-nav" data-action="open-pacing">'+
-        '<span class="stg-nav-icon">'+ICONS.ruler+'</span><span class="stg-nav-label">'+vGoalDay()+' Pacing Strategy</span>'+
-        '<span class="rs-chev">'+ICONS.chevronRight+'</span></button>'+
-    '</div>'+
-    '<div class="hub-card tile-card">'+
-      '<div class="setup-section-title">Sync &amp; Export</div>'+
-      renderStravaSection()+
-      /* Garmin sits with Strava because it is the same kind of thing to an
-         athlete -- an account you link once. It is deliberately NOT on Today,
-         This Week, Full Plan or any workout card: integrations are managed in
-         Settings, and the sync that follows is automatic rather than something
-         to press per session. */
-      renderGarminSection()+
-      '<button type="button" class="btn btn-ghost btn-block" style="margin:10px 0 8px;" data-action="open-import">'+ICONS.watch+' Garmin File Import</button>'+
-      '<button type="button" class="btn btn-ghost btn-block" data-action="export-ics">'+ICONS.clock+' Export to iCal (.ics)</button>'+
-    '</div>'+
-    /* LEGAL & SUPPORT. One card, three links, no copies. The two documents open
-       the canonical pages on the website; Support opens the athlete's own mail
-       client with the address already filled in, because "email support@..." as
-       dead text makes somebody retype an address at the moment they are already
-       annoyed. */
-    '<div class="hub-card tile-card">'+
-      '<div class="setup-section-title">Legal &amp; Support</div>'+
-      '<a class="ev-card stg-nav" href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer">'+
-        '<span class="stg-nav-icon">'+ICONS.shieldmark+'</span><span class="stg-nav-label">Privacy Policy</span>'+
-        '<span class="rs-chev">'+ICONS.chevronRight+'</span></a>'+
-      '<a class="ev-card stg-nav" href="'+LEGAL_URLS.terms+'" target="_blank" rel="noopener noreferrer">'+
-        '<span class="stg-nav-icon">'+ICONS.info+'</span><span class="stg-nav-label">'+escapeHtml(legalTermsLabel())+'</span>'+
-        '<span class="rs-chev">'+ICONS.chevronRight+'</span></a>'+
-      '<a class="ev-card stg-nav" href="mailto:'+LEGAL_URLS.support+'">'+
-        '<span class="stg-nav-icon">'+ICONS.link+'</span><span class="stg-nav-label">Contact Support</span>'+
-        '<span class="rs-chev">'+ICONS.chevronRight+'</span></a>'+
-      '<div class="field-hint" style="margin-top:10px;">'+escapeHtml(legalCoverSentence())+' Support is '+LEGAL_URLS.support+'</div>'+
-      /* CANCELLATION, STATED IN THE APP RATHER THAN ONLY IN A DOCUMENT.
-         An athlete looking for how to stop paying should not have to open a
-         PDF-shaped web page to find out. This describes the mechanism the
-         billing code actually implements -- cancel_at_period_end plus
-         access_until, see api/_billing.js -- and nothing beyond it. */
-      '<div class="field-hint" style="margin-top:10px;"><strong>Cancelling.</strong> '+
-      'You can cancel at any time from the Subscription card above. Your access '+
-      'continues to the end of the period you have already paid for, and nothing '+
-      'further is charged. Cancelling never deletes your training.</div>'+
-    '</div>'+
-    '<div class="hub-card tile-card">'+
-      '<div class="setup-section-title">Backup &amp; Reset</div>'+
-      /* NEW BLOCK. A plan-management action, not an athlete record -- it
-         belongs beside Reset Plan, the other action that starts a new phase
-         of the same schedule, rather than as a prominent tile on the daily
-         Valhalla page. Same destination as before -- openHQPanel('newblock')
-         -- just relocated. .stg-nav because it opens a panel to decide in,
-         same as Edit Plan Settings/View Training Zone Paces above -- the
-         decision itself happens on the far side of the tap, not here. */
-      '<button type="button" class="ev-card stg-nav" style="margin-bottom:6px;" data-action="open-new-block">'+
-        '<span class="stg-nav-icon">'+ICONS.layers+'</span><span class="stg-nav-label">Start a New Block</span>'+
-        '<span class="rs-chev">'+ICONS.chevronRight+'</span></button>'+
-      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="export-json">'+ICONS.download+' Export Full Backup (JSON)</button>'+
-      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:14px;" data-action="import-json" data-target="import-json-input-hub">'+ICONS.upload+' Import Backup (JSON)</button>'+
-      '<input type="file" accept=".json,application/json" id="import-json-input-hub" class="file-input-offscreen">'+
-      '<button type="button" class="btn btn-ghost btn-block" style="margin-bottom:8px;" data-action="copy-backup">'+ICONS.copy+' Copy Backup to Clipboard</button>'+
-      '<button type="button" class="btn btn-ghost btn-block" data-action="paste-backup">'+ICONS.upload+' Paste Backup</button>'+
-      '<div class="field-hint" style="margin:8px 0 14px;">Copy/paste works on any version of the app, so use it to move a plan across a reinstall.</div>'+
-      /* GHOST, NOT DANGER. Reset Plan keeps every logged run, every measured
-         result and everything Valhalla has learned; the only thing it clears
-         is the schedule. Dressing it in the same red as account deletion made
-         a safe, ordinary act look like the destructive one -- and made the
-         genuinely destructive one look ordinary by comparison. */
-      '<button type="button" class="btn btn-ghost btn-block" data-action="reset-plan">'+ICONS.refresh+' Reset Plan — Start Over</button>'+
-      '<div class="field-hint" style="margin-top:8px;">'+RESET_PLAN_HINT+'</div>'+
-    '</div>'+
-    '<div class="build-tag">Build '+BUILD_ID+'</div>'+
+   THE STRUCTURE IS A LIST OF DESTINATIONS. Five groups, one row shape:
+   a glyph, a title, a line saying what is behind it, and either the state
+   (a pill, a switch) or a chevron. Everything that was open inline is now
+   behind the row that names it -- not removed, and not reduced: each panel
+   hosts the EXACT render function that used to sit in the scroll, so the
+   controls, their handlers and their copy are the same objects in a
+   different room.
+
+   THE COLOUR HIERARCHY IS THE APP'S, unchanged: bronze group labels, a
+   crisp white title, a dim subtitle, gold glyphs, and the two status pills
+   in the tones they already had. */
+/* ---------- THE LINE UNDER EACH ROW TITLE ----------
+   Every one of these reads the same state its own section already reads, so
+   the row and the panel behind it cannot say different things. None of them
+   invents a status: where there is nothing true to say the line is empty and
+   the row simply carries its title. */
+function subscriptionRowPill(info){
+  var pill = subscriptionStatePill(info);
+  return pill ? pill.label : null;
+}
+function subscriptionRowLine(info){
+  return subscriptionSentence(info) || '';
+}
+function cloudRowLine(){
+  if (!cloudConfigured()) return '';
+  return cloudSignedIn()
+    ? 'Saved on this device and backed up to your account'
+    : 'Saved on this device — sign in to back it up';
+}
+function stravaSettingsVisible(){ return !!stravaAvailable; }
+function stravaRowLine(){
+  var st = stravaConn.status;
+  if (st === 'connected' || st === 'syncing'){
+    return stravaConn.athleteName ? 'Connected as '+stravaConn.athleteName : 'Connected';
+  }
+  return 'Bring your runs in automatically';
+}
+/* The switch itself, lifted out so the Settings row and the panel behind it
+   are the same control rather than two that have to be kept in step. */
+function healthConsentSwitchHtml(){
+  var on = healthConsentGranted();
+  return '<label class="switch"><input type="checkbox" data-action="toggle-health-consent" '+
+    (on?'checked':'')+'><span class="switch-track"></span></label>';
+}
+function stgRow(o){
+  var inner =
+    '<span class="stg-nav-icon">'+(o.icon || '')+'</span>'+
+    '<span class="stg-row-text">'+
+      '<span class="stg-row-title">'+escapeHtml(o.title)+'</span>'+
+      (o.sub ? '<span class="stg-row-sub">'+escapeHtml(o.sub)+'</span>' : '')+
+    '</span>'+
+    (o.pill ? '<span class="stg-pill '+(o.pillTone||'')+'">'+escapeHtml(o.pill)+'</span>' : '')+
+    (o.trail || '')+
+    (o.chevron === false ? '' : '<span class="rs-chev">'+ICONS.chevronRight+'</span>');
+  var cls = 'ev-card stg-nav stg-row'+(o.muted ? ' is-muted' : '');
+  /* A row that goes nowhere is not a button. Garmin is "not yet available",
+     and a pressable row that does nothing is worse than a stated absence. */
+  if (o.muted) return '<div class="'+cls+'">'+inner+'</div>';
+  if (o.href) return '<a class="'+cls+'" href="'+o.href+'"'+
+    (o.external ? ' target="_blank" rel="noopener noreferrer"' : '')+'>'+inner+'</a>';
+  return '<button type="button" class="'+cls+'" '+(o.attrs||'')+'>'+inner+'</button>';
+}
+function stgPanelRow(title, sub, icon, panelKey, pill, pillTone){
+  return stgRow({ title:title, sub:sub, icon:icon, pill:pill, pillTone:pillTone,
+    attrs:'data-action="open-settings-panel" data-panel="'+panelKey+'"' });
+}
+function stgGroup(label, rows){
+  if (!rows) return '';
+  return '<div class="hub-card tile-card stg-group">'+
+    '<div class="setup-section-title">'+escapeHtml(label)+'</div>'+ rows +
+  '</div>';
+}
+/* The two integration rows, extracted so patchStravaSection() and
+   patchGarminSection() can redraw them in place from the same state their
+   own sections read -- otherwise a successful connect updated the panel and
+   left the row behind it still saying the opposite. */
+function settingsConnectRows(){
+  var stravaOn = stravaConn.status === 'connected' || stravaConn.status === 'syncing';
+  var g = garminCapability || {};
+  return (stravaSettingsVisible()
+      ? stgPanelRow('Strava', stravaRowLine(), ICONS.link, 'strava',
+          stravaOn ? 'Connected' : null, 'is-green')
+      : '')+
+    /* UNTIL IT EXISTS, IT IS A STATED ABSENCE RATHER THAN A CONTROL.
+       renderGarminSection()'s unavailable branch is a row plus a paragraph
+       about what will happen once it is switched on, and that paragraph is
+       not worth a destination on a screen whose whole point is that a row
+       leads somewhere. The moment the server says the athlete may use it,
+       the row becomes a real one opening the same renderGarminSection() it
+       always was -- connect, disconnect and all. */
+    (g.available
+      ? stgPanelRow('Garmin Connect',
+          g.connected ? 'Connected' : 'Bring your sessions to your watch',
+          ICONS.watch, 'garmin', g.connected ? 'Connected' : null, 'is-green')
+      : stgRow({ title:'Garmin Connect', sub:'Not yet available', icon:ICONS.watch,
+          muted:true, chevron:false }));
+}
+function renderSettingsHubView(){
+  var sub = (cloudConfigured() && cloudSignedIn() && entitlementInfo && entitlementInfo.signed_in)
+    ? entitlementInfo : null;
+  var stravaOn = stravaConn.status && stravaConn.status.connected;
+  var hasPlan = !!(state.setup && state.days && state.days.length);
+  var healthOn = healthConsentGranted();
+
+  var account =
+    (sub ? stgPanelRow('Subscription', subscriptionRowLine(sub), ICONS.shieldmark,
+             'subscription', subscriptionRowPill(sub), 'is-gold') : '')+
+    (cloudConfigured()
+      ? stgPanelRow('Account & Backup', cloudRowLine(), ICONS.upload, 'account')
+      : '');
+
+  var training =
+    stgPanelRow('Preferences', 'Coaching detail, notifications, strength & mobility',
+      ICONS.settings, 'prefs')+
+    /* THE SWITCH IS IN THE ROW, because withdrawing consent must cost one
+       tap, and the row also opens the panel that explains what the switch
+       does. Two targets, one row -- the label goes to the explanation, the
+       switch is the decision. */
+    stgRow({ title:'Health & Readiness',
+      sub: healthOn ? 'On — used to adjust your programme' : 'Use my health and readiness information',
+      icon: ICONS.heart, chevron:false,
+      attrs:'data-action="open-settings-panel" data-panel="health"',
+      trail:'<span class="stg-row-switch">'+healthConsentSwitchHtml()+'</span>' })+
+    (hasPlan ? stgRow({ title:'Training Availability',
+      sub: openRestriction() ? 'Injury or illness — restriction open' : 'Injured or ill? Tell Valhalla',
+      icon: ICONS.pulse, attrs:'data-action="restriction-open"' }) : '')+
+    (hasPlan ? stgPanelRow('Training & Zones', 'Paces, recalibrate and race day strategy',
+      ICONS.target, 'training') : '');
+
+  var connect = '<div id="stg-connect-group">'+settingsConnectRows()+'</div>';
+
+  var data =
+    (hasPlan ? stgRow({ title:'Start a New Block', icon:ICONS.layers,
+      attrs:'data-action="open-new-block"' }) : '')+
+    stgPanelRow('Export / Import Backup', 'Move or keep a copy of your training',
+      ICONS.download, 'backup')+
+    (hasPlan ? stgPanelRow('Reset Plan — Start Over',
+      'Clear your current plan and schedule (keeps your data)',
+      ICONS.refresh, 'resetplan') : '');
+
+  var legal =
+    stgRow({ title:'Privacy Policy', icon:ICONS.shieldmark,
+      href:LEGAL_URLS.privacy, external:true })+
+    stgRow({ title:legalTermsLabel(), icon:ICONS.info,
+      href:LEGAL_URLS.terms, external:true })+
+    stgRow({ title:'Contact Support', icon:ICONS.link,
+      href:'mailto:'+LEGAL_URLS.support });
+
+  return '<div class="view-heading font-head">Settings</div>'+
+    stgGroup('Account', account)+
+    stgGroup('Training', training)+
+    stgGroup('Connect', connect)+
+    stgGroup('Data & Reset', data)+
+    stgGroup('Legal & Support', legal)+
+  '<div class="build-tag">Build '+BUILD_ID+'</div>'+
     /* padded rather than merely coloured: an 11px line of text is a link a
        thumb misses, and these two are the only route to the legal pages. */
     '<div class="build-tag"><a href="'+LEGAL_URLS.privacy+'" target="_blank" rel="noopener noreferrer" style="color:inherit; display:inline-block; padding:9px 6px;">Privacy</a> &middot; <a href="'+LEGAL_URLS.terms+'" target="_blank" rel="noopener noreferrer" style="color:inherit; display:inline-block; padding:9px 6px;">Terms</a></div>';
@@ -55246,6 +55586,7 @@ document.addEventListener('click', function(e){
     case 'toggle-day': handleToggleDay(target.getAttribute('data-day')); break;
     case 'set-goal': handleSetGoal(target.getAttribute('data-goal')); break;
     case 'ef-swap-pick': handleEditSwapPick(target.getAttribute('data-swap')); break;
+    case 'ef-type-pick': handleEditTypePick(target.getAttribute('data-type')); break;
     case 'checkpoint-accept': handleCheckpointAccept(target.getAttribute('data-goal')); break;
     case 'checkpoint-decline': handleCheckpointDecline(); break;
     case 'open-edit': openEditModal(target.getAttribute('data-day')); break;
@@ -55374,6 +55715,7 @@ document.addEventListener('click', function(e){
     case 'undo-notes-wand': handleUndoNotesWand(target.getAttribute('data-day')); break;
     case 'drop-note-signal': handleDropNoteSignal(target.getAttribute('data-day'), target.getAttribute('data-signal')); break;
     case 'open-settings': openSettingsModal(); break;
+    case 'open-settings-panel': openSettingsPanel(target.getAttribute('data-panel')); break;
     case 'open-import': openImportModal(); break;
     case 'open-setup': openSetupModal(); break;
     case 'open-restore': openRestoreModal(); break;

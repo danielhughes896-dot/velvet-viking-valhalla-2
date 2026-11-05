@@ -109,6 +109,11 @@ const WORK_SURFACES = [
   ['openBackupTextModal', 'Copy Backup'],
   ['openPasteBackupModal', 'Paste Backup'],
   ['openHQPanel', "Plan HQ's Record / Reading / action panels"],
+  /* The same shell, the same single exit and the same scroll restoration as
+     openHQPanel -- it exists only because openHQPanel refuses without a
+     plan, and Account, Subscription, Backup and Legal are true before one
+     exists. A surface an athlete works in either way. */
+  ['openSettingsPanel', "Settings' own panels"],
   /* THE SHARE COMPOSER IS A WORK SURFACE. The athlete chooses a photo, places
      it, picks how much the card says and then approves it -- that is working
      in a modal, not answering an interrupt, and it has a close control and
@@ -244,7 +249,17 @@ const DECISION_SURFACES = ['openRaceGoalPreparationModal'];
    What it is, is the brand's own register around a thing that just happened --
    so like the decision surface it keeps the fixed dark ramp in both themes,
    and like a work surface it can simply be closed. */
-const MOMENT_SURFACES = ['raiseCompletionMoment'];
+/* THE MOMENT IS RETIRED, AND THE SET IS EMPTY RATHER THAN DELETED. The
+   popup fired at the completion tick -- before any figure had been logged --
+   so it scored a session it knew nothing about and delivered the result in
+   the register of an arrival. The completion card itself is unchanged and
+   still renders in the day card, where it says the same thing once the
+   numbers are actually in.
+
+   The category stays named because the classification below must keep
+   working if one is ever introduced again, and because an empty set is a
+   decision somebody made rather than a line somebody forgot. */
+const MOMENT_SURFACES = [];
 
 test('every modal in the product has been classified one way or the other', () => {
   // Nothing may open a modal without appearing in exactly one of the sets.
@@ -259,7 +274,7 @@ test('every modal in the product has been classified one way or the other', () =
     unclassified.join(', '));
 });
 
-test('the completion moment is dark in both themes, and dismissible', () => {
+test('a moment, if one exists, is dark in both themes and dismissible', () => {
   MOMENT_SURFACES.forEach(fn => {
     const body = fnBody(fn);
     assert.match(body, /openModal\(/, fn + ' no longer opens a modal');
@@ -269,8 +284,18 @@ test('the completion moment is dark in both themes, and dismissible', () => {
       fn + ' opted into the theme ramp; its card is black in both themes');
     assert.match(body, /\bwc-modal\b/, fn + ' lost its own surface class');
   });
-  // And it can be left: Continue closes it, unlike the one forced choice.
-  assert.match(CODE, /case 'wc-continue'/, 'the moment has a way out');
+  /* The completion popup is gone, and so is the surface it opened on --
+     left behind, .wc-modal would be a stylesheet describing a modal that
+     cannot be opened, which is what the next person edits by mistake. */
+  assert.doesNotMatch(CODE, /\bwc-modal\b/,
+    'the retired completion popup\u2019s surface class is back');
+  assert.doesNotMatch(CODE, /raiseCompletionMoment/,
+    'the retired completion popup is back');
+  /* The card it carried is not gone: it renders in the day card, and
+     Continue is still how an athlete leaves it. */
+  assert.match(CODE, /case 'wc-continue'/, 'the completion card lost its way out');
+  assert.match(CODE, /function renderExecutionReview\(/,
+    'the completion card itself was deleted with its popup');
 });
 
 test('the decision surface is exactly one modal, and it opts out deliberately', () => {
