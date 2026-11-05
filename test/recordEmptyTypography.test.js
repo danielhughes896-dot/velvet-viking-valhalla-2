@@ -6,40 +6,42 @@ const path = require('path');
 const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
 
-/* THE EMPTY PLATE BELONGS TO THE VALUE SYSTEM
+/* AN EMPTY VALUE BELONGS TO THE VALUE SYSTEM
  * ===========================================================================
- * The Record's plates on the Valhalla tab are value-over-label:
+ * The Athlete Status on Valhalla is four circles, each a label over a value:
  *
- *     Nothing measured   |   10K · 23:00        10%
- *     MEASURED FITNESS   |   BENCHMARK       PROGRESS
+ *        GOAL      |   FITNESS   |  BENCHMARK  |  PROGRESS
+ *          B       |      —      |     10K     |    63%
+ *       3:29:45    |             |    45:33    |
  *
- * All three are plate VALUES and are set as one: .b-plate .val's JetBrains
- * Mono at weight 600, sentence case, centred, with no letter-spacing or line
- * height of their own. The empty plate declares exactly two departures and
- * inherits the rest --
+ * All four values are set as one: .rd-val b's JetBrains Mono at weight 700,
+ * centred, in --ink. An unavailable value declares exactly one departure and
+ * inherits every other property --
  *
- *   COLOUR   --ink-faint, because an absence is not a warning. A separate
- *            rule from typography, and older than this pass.
- *   SIZE     13px, because "Nothing measured" is 16 characters in a
- *            half-width plate. Measured across production widths: it needs a
- *            one-line width of 154px at the system's 16px, against 146px of
- *            plate content at 390 and 131px at 360. So at 16px it wraps on
- *            every phone narrower than 412; at 13px it holds one line from
- *            360 up, which is every current Android and iPhone width bar the
- *            320px floor, where nothing consistent fits.
+ *   COLOUR   --ink-faint, because an absence is not a warning.
+ *   FAMILY   'Inter', because it is language rather than data. This is the
+ *            whole distinction and therefore the whole rule: a version that
+ *            set colour alone was verified on a physical Android device
+ *            still rendering in JetBrains Mono, identical to the measurement
+ *            beside it, because the family inherited from the value slot.
+ *            A rule that exists is not a rule that wins.
  *
- * These tests pin both directions. Taking the accommodation away makes it wrap
- * on every real phone; letting the face, weight or casing drift takes it out
- * of the value system, which is the whole point.
+ * These tests pin both directions. Letting the quieting reach the slot itself
+ * restyles real measurements; letting the face, weight or casing drift takes
+ * the absence out of the value system, which is the whole point.
  *
- * HISTORY, so the next reader does not think this drifted by accident: this
- * plate briefly used Inter at 15px, on the reasoning that an absence is a
- * sentence rather than a measurement. Reviewed against the two plates beside
- * it, that was reversed -- the tile is a value tile, and a value that opts out
- * of the value face reads as a different KIND of thing rather than as an empty
- * one. The Record TAB's empty state (.rec-empty-state) is still the interface
- * face and correctly so: there it is a secondary note after its label, not a
- * plate value. The two surfaces are allowed to differ for that reason.
+ * WHERE THE WORDS WENT. "Nothing measured" is sixteen characters and holds no
+ * line in a 90px circular face at any size that is still a value, so the
+ * circle shows an em dash and the panel it opens states the phrase in full --
+ * and the aria-label carries it either way, because a screen reader is
+ * reading a label rather than looking at a slot.
+ *
+ * HISTORY, so the next reader does not think this drifted by accident. The
+ * slot has been three different things: a dimmed headline on the Record tab,
+ * then the chamfered Valhalla plate, now the circle. The quieting selector
+ * followed each move and the dead half was removed each time. The LAW -- an
+ * absence is the value role, unavailable, and never a value of its own -- has
+ * not changed once.
  */
 
 const ROOT = path.join(__dirname, '..');
@@ -89,8 +91,20 @@ function declared(selector, prop){
    by source order, and the last declaration of the property wins. Not a full
    CSS engine -- it handles the class-and-descendant selectors this stylesheet
    uses for these elements, which is what is being asserted. */
-function effectiveStyle(classes, prop, ancestors){
-  const own = classes.slice().sort().join('.');
+/* ELEMENT COMPOUNDS, because the slot this law now protects is `.rd-val b`
+   rather than `.b-plate .val`. A compound may be `.a`, `tag`, or `tag.a`;
+   specificity keeps classes ahead of elements the way CSS does, by weighting
+   a class ten times an element -- enough for the handful of rules here, and
+   honest about which half of a tie it is breaking. */
+function compoundMatches(part, tag, classes){
+  const m = /^([a-z]+)?((?:\.[\w-]+)*)$/.exec(part);
+  if (!m || (!m[1] && !m[2])) return null;
+  if (m[1] && m[1] !== tag) return null;
+  const need = m[2] ? m[2].slice(1).split('.') : [];
+  if (!need.every(c => classes.indexOf(c) !== -1)) return null;
+  return { cls: need.length, el: m[1] ? 1 : 0 };
+}
+function effectiveStyle(classes, prop, ancestors, tag){
   const anc = (ancestors || []).slice();
   const css = SRC.replace(/\/\*[\s\S]*?\*\//g, '');
   const re = /([^{}]+)\{([^{}]*)\}/g;
@@ -102,16 +116,14 @@ function effectiveStyle(classes, prop, ancestors){
       order++;
       const parts = sel.trim().split(/\s+/);
       if (!parts.length) return;
-      /* The final compound must be a subset of this element's classes. */
-      const last = parts[parts.length - 1];
-      if (!/^\.[\w-]+(\.[\w-]+)*$/.test(last)) return;
-      const need = last.slice(1).split('.');
-      if (!need.every(c => classes.indexOf(c) !== -1)) return;
+      /* The final compound must match this element. */
+      const hit = compoundMatches(parts[parts.length - 1], tag, classes);
+      if (!hit) return;
       /* Every earlier part must name an ancestor we have. */
       const rest = parts.slice(0, -1);
       if (!rest.every(pt => /^\.[\w-]+$/.test(pt) && anc.indexOf(pt.slice(1)) !== -1)) return;
-      /* Specificity: class count across the whole selector. */
-      const spec = (sel.match(/\.[\w-]+/g) || []).length;
+      const spec = (sel.match(/\.[\w-]+/g) || []).length * 10 +
+                   (sel.match(/(^|[\s>])[a-z]+/g) || []).length;
       body.split(';').forEach(d => {
         const i = d.indexOf(':');
         if (i === -1) return;
@@ -124,9 +136,13 @@ function effectiveStyle(classes, prop, ancestors){
   wins.sort((a, b) => (a.spec - b.spec) || (a.order - b.order));
   return wins[wins.length - 1].value;
 }
-/* The three values as the app actually emits them -- see recordPlate(). */
-const EMPTY_VALUE    = { classes:['val','rec-none'], ancestors:['b-plate','b-record'] };
-const MEASURED_VALUE = { classes:['val'],            ancestors:['b-plate','b-record'] };
+/* The values as the app actually emits them -- see statusDialHtml(). The
+   chamfered plate this file was written against is gone; the slot it
+   protected moved to the Athlete Status circle, and so did the law. */
+const SLOT_ANCESTORS = ['rd-val', 'b-medal', 'b-dial', 'b-stat', 'b-status'];
+const EMPTY_VALUE    = { tag:'b', classes:['rec-none'], ancestors:SLOT_ANCESTORS };
+const MEASURED_VALUE = { tag:'b', classes:[],           ancestors:SLOT_ANCESTORS };
+const styleOf = (v, prop) => effectiveStyle(v.classes, prop, v.ancestors, v.tag);
 
 function athleteWithNoMeasurement(){
   const a = loadApp({ pinnedDate: '2026-08-27T09:00:00Z' });
@@ -149,8 +165,8 @@ test('the empty value renders in the interface face, and the measured ones do no
      the measurement beside it, because inheriting from .b-plate .val is
      precisely how it got the data face. Physical Android verification is what
      caught it. A rule that exists is not a rule that wins. */
-  const empty = effectiveStyle(EMPTY_VALUE.classes, 'font-family', EMPTY_VALUE.ancestors);
-  const measured = effectiveStyle(MEASURED_VALUE.classes, 'font-family', MEASURED_VALUE.ancestors);
+  const empty = styleOf(EMPTY_VALUE, 'font-family');
+  const measured = styleOf(MEASURED_VALUE, 'font-family');
   assert.ok(empty, 'no font-family resolves for the empty value at all');
   assert.match(empty, /^'Inter'/,
     '"Nothing measured" effectively renders in ' + empty + ', not the interface face');
@@ -169,64 +185,64 @@ test('nothing but the face differs between the empty and measured values', () =>
      card dimension, spacing or alignment moves. */
   ['font-size', 'font-weight', 'letter-spacing', 'line-height', 'text-transform',
    'text-align'].forEach(prop => {
-    const e = effectiveStyle(EMPTY_VALUE.classes, prop, EMPTY_VALUE.ancestors);
-    const m = effectiveStyle(MEASURED_VALUE.classes, prop, MEASURED_VALUE.ancestors);
+    const e = styleOf(EMPTY_VALUE, prop);
+    const m = styleOf(MEASURED_VALUE, prop);
     assert.equal(e, m,
       prop + ' differs between the empty and measured values (' + e + ' vs ' + m + ') -- ' +
       'only the typeface was meant to change');
   });
   /* Colour is the one older difference, and it stays. */
-  assert.match(effectiveStyle(EMPTY_VALUE.classes, 'color', EMPTY_VALUE.ancestors) || '',
+  assert.match(styleOf(EMPTY_VALUE, 'color') || '',
     /--ink-faint/, 'the empty value lost its quieting');
 });
 
 test('both empty values in this slot are treated identically', () => {
-  /* "Nothing measured" and "Not set" are the same thing -- a plate value that
-     is unavailable -- and there is exactly one rule for both. A rule that
+  /* "Nothing measured" and "Not set" are the same thing -- a value that is
+     unavailable -- and there is exactly one rule for both. A rule that
      distinguished them by length would be styling a string, not a role. */
   const a = athleteWithNoMeasurement();
   a.state.setup.benchmark = null;
-  const facts = a.recordFacts();
-  const empties = facts.filter(f => f.none);
+  const empties = a.recordFacts().filter(f => f.none);
   assert.equal(empties.map(f => f.value).sort().join('|'), 'Not set|Nothing measured',
     'this slot no longer has two empty values, so this test needs revisiting');
   empties.forEach(f => {
-    assert.match(a.recordPlate(f), /<div class="val rec-none">/,
+    assert.match(a.statusDialHtml(f), /<b class="rec-none"/,
       f.subject + ' does not use the shared empty-value class');
   });
   /* And exactly one rule governs them. */
-  assert.equal(rulesFor('.b-plate .val.rec-none').length, 1,
+  assert.equal(rulesFor('.rd-val b.rec-none').length, 1,
     'the empty value is governed by more than one rule -- they will drift');
 });
 
-test('the measured plates are untouched', () => {
-  /* Benchmark and Progress are explicitly out of scope: the size accommodation
-     is the empty value\'s alone, and a rule that reached .b-plate .val would
-     shrink real measurements to fit a phrase that is not theirs. */
-  assert.equal(declared('.b-plate .val', 'font-size'), '16px',
-    'the measured plates changed size');
-  assert.equal(declared('.b-plate .val', 'font-weight'), '600',
-    'the measured plates changed weight');
-  assert.match(declared('.b-plate .val', 'font-family'), /JetBrains Mono/,
-    'the measured plates left the data face');
+test('the measured values are untouched', () => {
+  /* The quieting is the empty value's alone. A rule that reached the slot
+     itself would restyle real measurements to suit a phrase that is not
+     theirs -- which is the defect in the opposite direction. */
+  assert.match(declared('.rd-val b', 'font-family'), /JetBrains Mono/,
+    'the measured values left the data face');
+  assert.equal(declared('.rd-val b', 'font-weight'), '700',
+    'the measured values changed weight');
+  assert.equal(declared('.rd-val b', 'color'), 'var(--ink)',
+    'the measured values left the neutral ink');
 });
 
 // ---------------------------------------------------------------------------
 // 2. NOTHING ELSE MOVED
 // ---------------------------------------------------------------------------
 
-test('the plate geometry is untouched', () => {
-  /* Dimensions, spacing, position and responsive behaviour are all in these
-     two rules, and this pass changed neither. */
-  const plate = rulesFor('.b-plate').join(' ');
-  assert.match(plate, /padding:15px 14px 13px/, 'the plate padding changed');
-  assert.match(plate, /text-align:center/, 'the plate alignment changed');
-  assert.match(plate, /border-radius:var\(--tile-radius\)/, 'the plate radius changed');
-  const grid = rulesFor('.b-record').join(' ');
-  assert.match(grid, /grid-template-columns:1fr 1fr/, 'the Record grid changed');
-  assert.match(grid, /gap:10px/, 'the Record grid spacing changed');
-  assert.match(SRC, /\.b-record \.b-plate:nth-child\(3\):last-child\{grid-column:1 \/ -1/,
-    'the third plate no longer centres beneath the pair');
+test('the circle geometry is untouched by the quieting', () => {
+  /* Dimensions, spacing and the circular clip are the dial's, not the empty
+     state's, and the quieting rule declares none of them. */
+  const quiet = rulesFor('.rd-val b.rec-none').join(' ');
+  ['font-size', 'width', 'height', 'padding', 'margin', 'line-height', 'max-width']
+    .forEach(prop => {
+      assert.ok(quiet.indexOf(prop + ':') === -1,
+        'the quieting rule declares ' + prop + ', so an absence changes the circle\'s shape');
+    });
+  const stat = rulesFor('.b-dial[data-rank="s"]').join(' ');
+  assert.match(stat, /width:90px/, 'the Athlete Status diameter changed');
+  const row = rulesFor('.b-status').join(' ');
+  assert.match(row, /justify-content:space-between/, 'the Athlete Status row spacing changed');
 });
 
 test('the words and the label are exactly what they were', () => {
@@ -235,28 +251,39 @@ test('the words and the label are exactly what they were', () => {
   assert.equal(f.value, 'Nothing measured', 'the wording changed');
   assert.equal(f.subject, 'Measured fitness', 'the label changed');
   assert.equal(f.none, true, 'the fact no longer reports itself as an absence');
-  const html = a.recordPlate(f);
-  assert.match(html, /<div class="b-plate"><div class="val rec-none">Nothing measured<\/div>/,
-    'the plate markup changed');
-  assert.match(html, /<div class="lbl">Measured fitness<\/div><\/div>$/,
-    'the plate label markup changed');
+  const html = a.statusDialHtml(f);
+  /* THE VALUE SLOT CARRIES NO WORDS NOW, and that is the circle's answer to
+     the same problem. "Nothing measured" is sixteen characters and would not
+     hold one line in a 90px face at any size that is still a value; the
+     circle shows an em dash and the panel behind it says the phrase in full.
+     The words are still announced to a screen reader, which is reading a
+     label rather than looking at a slot. */
+  assert.match(html, /<b class="rec-none"[^>]*>\u2014<\/b>/, 'the empty value slot changed');
+  assert.match(html, /aria-label="Measured fitness \u2014 Nothing measured"/,
+    'the absence is no longer announced');
+  assert.match(html, /<span class="rd-cat">Fitness<\/span>/, 'the circle label changed');
+  /* And the phrase itself survives, in the panel the circle opens. */
+  assert.match(a.recordPanelFitness(), /Not established yet\. A race or a Fitness Checkpoint/,
+    'the absence lost the words that explain it');
 });
 
-test('the measured plates are built exactly as before', () => {
+test('the measured facts are built exactly as before', () => {
   const a = athleteWithNoMeasurement();
   const facts = a.recordFacts();
-  assert.equal(facts.length, 3, 'The Record is no longer three facts');
-  assert.equal(facts.map(f => f.subject).join('/'), 'Measured fitness/Benchmark/Progress',
-    'the plates changed, or changed order');
-  /* Exactly one absence in this state, and it carries the class. Benchmark
-     and Progress must render with no rec-none at all. */
-  const html = facts.map(a.recordPlate).join('');
+  assert.equal(facts.length, 4, 'The Record is no longer four facts');
+  assert.equal(facts.map(f => f.subject).join('/'), 'Goal/Measured fitness/Benchmark/Progress',
+    'the facts changed, or changed order');
+  /* Exactly one absence in this state, and it carries the class. The other
+     three must render with no rec-none at all. */
+  const html = facts.map(f => a.statusDialHtml(f)).join('');
   assert.equal(html.split('rec-none').length - 1, 1,
-    'more or fewer than one plate is marked as an absence');
-  assert.match(a.recordPlate(facts[1]), /<div class="val">10K · 23:00<\/div>/,
-    'the Benchmark plate changed');
-  assert.match(a.recordPlate(facts[2]), /<div class="val">\d+%<\/div>/,
-    'the Progress plate changed');
+    'more or fewer than one fact is marked as an absence');
+  assert.match(a.statusDialHtml(facts[2]), /<b style="[^"]*">10K<\/b>/,
+    'the Benchmark circle changed');
+  assert.match(a.statusDialHtml(facts[2]), /class="rd-sub rd-sub-data">23:00</,
+    'the Benchmark circle lost the time under its distance');
+  assert.match(a.statusDialHtml(facts[3]), /<b style="[^"]*">\d+%<\/b>/,
+    'the Progress circle changed');
 });
 
 test('a measured athlete gets no empty treatment at all', () => {
@@ -265,73 +292,42 @@ test('a measured athlete gets no empty treatment at all', () => {
     km: 5, timeSec: a.clockToSec('0:22:30'), vdot: 50, blockId: null, qualified: true }];
   const f = a.recordFitnessFact();
   assert.ok(!f.none, 'a measured athlete still reports an absence');
-  assert.ok(!/rec-none/.test(a.recordPlate(f)),
+  assert.ok(!/rec-none/.test(a.statusDialHtml(f)),
     'a measured value is rendered with the empty-state typography');
   assert.match(f.value, /22:30/, 'the measured fitness value lost its time');
-  assert.equal(a.recordPlate(f),
-    '<div class="b-plate"><div class="val">' + f.value + '</div>' +
-    '<div class="lbl">Measured fitness</div></div>',
-    'the measured plate markup changed');
 });
 
 // ---------------------------------------------------------------------------
-// 3. THE OTHER SURFACE, DELIBERATELY UNCHANGED
+// 3. THE SELECTOR THAT MATCHED NOTHING
 // ---------------------------------------------------------------------------
 
-test('the Record tab\'s own empty state is not touched by this', () => {
-  /* The tab card solved the same problem differently and earlier -- label
-     first, state second, no headline slot -- and that is still correct there.
-     This pass reached the plate only. */
-  const a = athleteWithNoMeasurement();
-  const card = a.recordCard(a.recordFitnessFact());
-  assert.match(card, /class="ev-card ev-card-empty"/, 'the Record tab empty card changed shape');
-  assert.match(card, /class="rec-empty-subject">Measured fitness</, 'the tab card label changed');
-  assert.match(card, /class="rec-empty-state">Not established yet</, 'the tab card state changed');
-  assert.ok(!/rec-headline/.test(card), 'the tab card grew a headline slot back');
-  const es = rulesFor('.rec-empty-state').join(' ');
-  assert.match(es, /font-size:12px/, '.rec-empty-state changed size');
-  assert.match(es, /font-style:italic/, '.rec-empty-state lost its italic');
-});
-
-// ---------------------------------------------------------------------------
-// 4. THE SELECTOR THAT MATCHED NOTHING
-// ---------------------------------------------------------------------------
-
-test('the quieting rule reaches the plate and nothing else', () => {
-  /* `.rec-headline b.rec-none` led this selector from when the Record tab\'s
-     empty state was a dimmed headline. recordCard() has since returned the
-     ev-card-empty branch for every absence -- label first, no headline slot --
-     so that half matched nothing at all.
-     This test is not really about the deletion. It is about the REASON: if the
-     headline branch ever comes back for an absence, the selector must come
-     back with it rather than the words silently rendering unquieted. */
+test('the quieting rule reaches the value slot and nothing else', () => {
+  /* This selector has outlived two markups now. It began as
+     `.rec-headline b.rec-none`, for a Record tab whose empty state was a
+     dimmed headline; it became `.b-plate .val.rec-none` for the Valhalla
+     plates; it is `.rd-val b.rec-none` for the Athlete Status circles. Each
+     time the dead half was removed and the live half kept, because the law
+     is about the ROLE -- a value that is unavailable -- and not about any of
+     the three shapes that have held it. */
   const css = SRC.replace(/\/\*[\s\S]*?\*\//g, '');
   assert.ok(!/\.rec-headline\s+b\.rec-none/.test(css),
     'the dead .rec-headline b.rec-none selector is back');
-  assert.match(declared('.b-plate .val.rec-none', 'color') || '', /--ink-faint/,
-    'removing the dead half took the plate quieting with it');
-
-  /* The reason, asserted rather than trusted: no absence renders a headline. */
-  const a = athleteWithNoMeasurement();
-  const facts = a.recordFacts().filter(f => f.none);
-  assert.ok(facts.length > 0, 'the fixture has no absence, so this proves nothing');
-  facts.forEach(f => {
-    assert.ok(!/rec-headline/.test(a.recordCard(f)),
-      f.subject + ': an absence renders a headline again, and it is no longer quieted');
-  });
+  assert.ok(!/\.b-plate\s+\.val\.rec-none/.test(css),
+    'the dead .b-plate .val.rec-none selector is back');
+  assert.match(declared('.rd-val b.rec-none', 'color') || '', /--ink-faint/,
+    'removing the dead halves took the quieting with them');
 });
 
 test('every rec-none the app can emit is styled', () => {
   /* The other direction. There is exactly one place the class is produced --
-     the plate -- and one rule set that catches it. A second producer added
-     without a matching rule would render a bare, unquieted absence in the
-     data face, which is the defect this whole pass removed. */
+     the Athlete Status circle -- and one rule set that catches it. A second
+     producer added without a matching rule would render a bare, unquieted
+     absence in the data face, which is the defect this whole law removes. */
   const code = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  const emitted = code.split("' rec-none'").length - 1;
+  const emitted = code.split('"rec-none"').length - 1;
   assert.equal(emitted, 1,
     'rec-none is emitted from ' + emitted + ' places; each needs a rule, and ' +
-    'only the plate has one');
-  /* And that one producer is the plate. */
-  assert.match(code, /class="b-plate"><div class="val'\+\(f\.none\?' rec-none':''\)/,
-    'the one rec-none producer is no longer the Record plate');
+    'only the value slot has one');
+  assert.match(code, /<b'\+\(f\.none\?' class="rec-none"':''\)/,
+    'the one rec-none producer is no longer the Athlete Status circle');
 });

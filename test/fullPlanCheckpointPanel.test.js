@@ -100,10 +100,22 @@ test('the checkpoint week is still visibly identified as one', () => {
 
 test('the checkpoint session still renders inside its week', () => {
   const { a, chk } = athlete();
+  /* THE WEEK LISTS ITS SESSIONS NOW RATHER THAN UNFOLDING THEM. Full Plan's
+     accordion used to open onto seven full renderDayCard()s -- a card, inside
+     a week, inside a phase, inside the plan. It opens onto the same seven-row
+     list the week SCREEN uses, and the row is a way in: the card itself is
+     one tap away and unchanged. So the claim is the same -- the checkpoint is
+     represented inside its own week, by name -- asserted against the row. */
   const html = a.renderWeeksList(true);
-  assert.ok(html.indexOf('id="day-' + chk.id + '"') !== -1, 'the session card is present');
+  assert.ok(html.indexOf('data-action="plan-open-session" data-day="' + chk.id + '"') !== -1,
+    'the checkpoint has no row in its week');
   assert.ok(html.indexOf(chk.title) !== -1, 'with the engine’s own title: ' + chk.title);
   assert.match(chk.title, /Time Trial/, 'which is still the time trial the engine supplies');
+  /* And the row leads to the canonical card, which is the thing that must not
+     have been lost along with the inline one. */
+  a.handlePlanOpenSession(chk.id);
+  assert.ok(a.renderPlanSessionView().indexOf('id="day-' + chk.id + '"') !== -1,
+    'the row goes nowhere — the session card is unreachable');
 });
 
 test('the checkpoint keeps its key-session designation', () => {
@@ -125,7 +137,7 @@ test('expanding and collapsing the checkpoint week still works', () => {
      is where the control takes you. */
   assert.match(collapsed, /data-action="plan-open-week"/,
     'the week control is intact');
-  assert.ok(expanded.indexOf('id="day-' + chk.id + '"') !== -1,
+  assert.ok(expanded.indexOf('data-day="' + chk.id + '"') !== -1,
     'and the session is inside it either way');
 });
 
@@ -139,8 +151,22 @@ test('the Active Goal machinery survives, and still lives in Plan HQ', () => {
   assert.equal(typeof a.handleSetGoal, 'function', 'and so is its handler');
   assert.equal(typeof a.renderCheckpointBanner, 'function', 'and Plan HQ’s own banner');
   const CODE = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
-  assert.match(CODE, /renderCheckpointBanner\(\)\+renderGoalToggle\(\)\+renderRecordSection\(\)/,
-    'Plan HQ’s Record tab still composes the goal chooser — the decision surface remains');
+  /* THE DECISION SURFACE MOVED ONCE MORE, AND THIS IS WHY THE TEST EXISTS.
+     Full Plan's standalone checkpoint panel was deleted because Plan HQ's
+     Record TAB carried the chooser; the Record tab has since been retired
+     too, so the chooser now lives in the panel the Goal circle opens. The
+     guard is unchanged in substance -- Active Goal must be composed
+     somewhere reachable, and it must not have quietly become unreachable
+     along the way. It is asserted on the live render rather than on a source
+     string this time, which is the stronger form. */
+  assert.ok(a.RECORD_PANELS && a.RECORD_PANELS.goal, 'the goal panel is not registered');
+  const panel = a.recordPanelGoal();
+  assert.ok(panel.indexOf(a.renderGoalToggle()) !== -1,
+    'the goal panel no longer composes the chooser — the decision surface is gone');
+  assert.match(a.renderValhallaRecordPreview(), /data-record="goal"/,
+    'nothing on Valhalla opens the goal panel');
+  assert.ok(a.renderPlanHQView().indexOf(a.renderCheckpointBanner()) !== -1,
+    'the checkpoint banner lost its surface with the Record tab');
   assert.match(CODE, /case 'set-goal': handleSetGoal/, 'and its event route is intact');
 });
 

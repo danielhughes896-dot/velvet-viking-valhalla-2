@@ -95,6 +95,10 @@
        and lifting them to suit one bar is how a palette stops meaning
        anything. */
     --z-easy:#9BD07A; --z-mp:#6FB9E0; --z-threshold:#E4697A; --z-interval:#F2C14E;
+    /* The -soft wash for the zone blue, authored at the same 0.16 alpha as
+       every other -soft token so an adaptation face sits at the same weight
+       as the four beside it. */
+    --z-mp-soft:rgba(111,185,224,0.16);
     --c-long:#5E93AC; --c-long-soft:rgba(94,147,172,0.16);
     --c-gold:var(--gold); --c-gold-soft:rgba(227,177,90,0.20);
     /* THE READING'S BADGE FACE -- deliberately theme-invariant, like the
@@ -362,10 +366,11 @@
        cleanest of the five) and composed with the home-indicator inset, which
        the nav already respects but this padding previously did not. */
     padding-bottom:calc(117px + env(safe-area-inset-bottom, 0px));}
-  /* On Valhalla, the persistent Valhalla/Coach/Record subnav stacks above the
-     main bottom nav (see .bn-stack), so content needs extra clearance or the
-     tail of a long Coach/Record scroll ends up underneath it. */
-  .app-root.has-subnav{padding-bottom:calc(181px + env(safe-area-inset-bottom, 0px));}
+  /* Valhalla used to need 64px of extra clearance for the Coach/Record subnav
+     stacked above the main bottom nav. The subnav is gone with the tabs, and
+     so is the clearance -- leaving it would have put 64px of dead screen
+     under the last card on the one screen that no longer has anything there
+     to clear. */
 
   /* ---------- sticky top bar ---------- */
   .topbar{
@@ -487,12 +492,25 @@
      lower shadow read heavier than the medallions and tipped it toward
      "physical button" rather than "elegant gauge") -- the badges
      themselves are untouched. */
+  /* ---------- THE HERO RING IS ONE OF THE CIRCLES ----------
+     It kept the cream medallion face and the hairline grey rim from the
+     design that preceded the Reading arc, so the one circle the whole screen
+     is built around was the only one not drawn in the product's current
+     language. It takes the same three things the arc takes: the 135deg rim
+     ramp in its own accent (cherry, which the fill already is), an opaque
+     dark face, and the layered illumination. Its DIMENSIONS, its arc, its
+     ticks and every number it states are untouched. */
   .gauge-wrap{position:relative; width:132px; height:132px; margin:0 auto;
-    filter:drop-shadow(0 7px 13px rgba(0,0,0,.23)) drop-shadow(0 2px 4px rgba(0,0,0,.15));}
-  .gauge-rim{stroke:var(--line); stroke-width:1;}
+    filter:drop-shadow(0 0 12px rgba(154,84,108,.38)) drop-shadow(0 0 30px rgba(154,84,108,.17))
+           drop-shadow(0 7px 13px rgba(0,0,0,.23));}
+  .gauge-rim{stroke:url(#gaugeRim); stroke-width:2.2;}
   .gauge-track{stroke:var(--bg-4);}
   .gauge-fill{stroke:var(--cherry);}
-  .gauge-inner-rim{stroke:var(--line-soft); stroke-width:1;}
+  /* The seam between the ring and the face. It was a grey hairline against a
+     cream medallion; against a dark face at the same value it read as a
+     second, competing ring, so it takes the accent at low opacity and stops
+     being a shape of its own. */
+  .gauge-inner-rim{stroke:color-mix(in srgb, var(--cherry) 38%, transparent); stroke-width:1;}
   /* The bevel overlay (see renderConfidenceGauge()'s #gaugeBevel <defs>)
      paints a diagonal highlight-to-shadow sweep directly on top of
      .gauge-fill via one shared linearGradient -- white at one edge fading
@@ -512,7 +530,10 @@
      text floating on whatever the hero card's background happens to be. */
   .gauge-num{position:absolute; left:50%; top:50%; width:84px; height:84px; transform:translate(-50%,-50%);
     border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    background:radial-gradient(circle at 34% 26%, #FFFFFF 0%, var(--badge-face) 46%, var(--badge-face-lo) 100%);
+    background:linear-gradient(
+        color-mix(in srgb, var(--cherry-tint) 42%, transparent),
+        color-mix(in srgb, var(--cherry-tint) 42%, transparent)),
+      var(--surface-2);
     /* Lower-right inset shade eased back ~21% alongside .gauge-wrap's
        external shadow, same reasoning; the upper-left highlight and the
        bevel seam are untouched -- only the face's own contribution to
@@ -526,8 +547,17 @@
      proven to read on the face's now-fixed cream (see the token comment
      above) rather than the shade tuned for the hero card's themed
      background this text no longer sits directly on. */
-  .gauge-num b{font-size:32px; color:var(--gold-badge-ink); line-height:1; font-weight:700;}
-  .gauge-num span{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--badge-caption-ink); margin-top:3px;}
+  /* GOLD STILL READS THE FIGURE -- the ring is the mechanism and takes the
+     accent, the number is the reading and takes gold, which is the law every
+     other reading in this product follows. What changes is WHICH gold: the
+     face underneath is the dark card surface now, not the cream medallion,
+     and --gold-badge-ink is the shade proven to read on cream. On dark it is
+     a brown smudge. --gold-bright and --gold-text are the shades proven on
+     this surface, and they are what the bottom nav and every section title
+     already use. Same law, correct side of it. */
+  .gauge-num b{font-size:32px; color:var(--gold-bright); line-height:1; font-weight:700;
+    text-shadow:0 0 10px color-mix(in srgb, var(--gold-bright) 32%, transparent);}
+  .gauge-num span{font-family:'Oswald',sans-serif; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-faint); margin-top:3px;}
   .checkpoint-banner{
     display:flex; align-items:flex-start; gap:11px;
     background:var(--tile-sheen), var(--c-gold-soft);
@@ -1969,8 +1999,12 @@
      shell (background/border/radius/shadow, hover/active feedback) exactly
      as Coach/Settings' tappable rows already use it; .rs-chev is the same
      shared chevron. Only the two-line label/detail layout below is new, and
-     it borrows .setup-section-title's eyebrow face and .rs-syn's supporting
-     line rather than inventing a fourth typographic voice. */
+     it borrows .setup-section-title's eyebrow face and the 11px/1.4
+     --ink-faint supporting line the Reading cards used, rather than
+     inventing a fourth typographic voice. (That rule was .rs-syn until the
+     Reading list was retired with the Coach tab; the voice it set is the
+     one described here, and .splits-summary-detail below is now the only
+     place it is written down.) */
   .splits-summary{padding:12px 14px; margin:2px 0 0;}
   .splits-summary-head{display:flex; align-items:center; gap:9px;}
   .splits-summary-icon{flex:none; display:flex; color:var(--bronze-text);}
@@ -3821,22 +3855,11 @@
        label #7A5C1E  6.11:1 on the pill                    (AA)
        idle  #6B6558  5.18:1 on the bar, plainly subordinate (AA)
      Dark mode is untouched: its gold-on-charcoal tab was never the problem. */
-  /* VALHALLA / COACH / RECORD -- the selected-tab language above, reused
-     rather than reinvented, exactly as .opt-grid button.active already
-     borrows it for the builder. Same job (a persistent set of destinations,
-     one active at a time), so it gets the same visual answer. */
-  .planhq-subnav{
-    display:flex; gap:6px; padding:8px 16px; background:var(--ctl-surface);
-    border-top:1px solid var(--ctl-surface-border);
-  }
-  .planhq-subnav-btn{
-    flex:1; font-family:'Oswald',sans-serif; font-size:11px; font-weight:600; letter-spacing:.06em;
-    text-transform:uppercase; padding:10px 4px; min-height:44px; border-radius:var(--radius-sm); border:1px solid var(--line);
-    background:none; color:var(--ink-faint); cursor:pointer;
-    transition:background .15s ease, border-color .15s ease, color .15s ease;
-  }
-  .planhq-subnav-btn:active{transform:scale(.97);}
-  .planhq-subnav-btn.active{color:var(--modal-active); background:rgba(var(--modal-active-rgb),0.14); border-color:transparent;}
+  /* The Coach/Record subnav that stood here is gone with the tabs it served
+     -- Valhalla is one screen, and its circles are the destinations. The
+     selected-tab language the block above documents is unchanged and still
+     in use: .opt-grid button.active borrows it for the builder, which is
+     where it was borrowed FROM, so nothing about that contract moved. */
   /* ONE SECTION-HEADING VOICE. Oswald, 11px, 1.5px tracking, uppercase --
      the spec .setup-section-title and .coach-next-title already shared. The
      app had four near-misses of the same label: this one at 2px tracking,
@@ -4176,24 +4199,19 @@
      ever. That is the whole distinction between the two jobs one card shell
      does, so it is written here rather than left as a habit -- and it is the
      one thing in this section that must outlive any particular markup. It is
-     enforced today on .rec-headline / .rec-empty-state (the Record tab) and
-     .b-plate .val (the Valhalla plates); .read-val, below, is the surface
-     allowed to carry tone, and that contrast is the rule.
+     enforced today on .rd-val b inside .b-status (the Athlete Status
+     circles, whose rim colour is a fixed identity and never the engine's
+     tone); .read-val, below, is the surface allowed to carry tone, and that
+     contrast is the rule.
 
-     THE LIST-ROW SHELL THAT USED TO LIVE HERE IS GONE. .rec-card and its
-     parts (.rec-top, .rec-subject, .rec-right, .rec-val, .rec-val.rec-none,
-     .rec-card svg, .rec-syn) styled a row of subject-on-the-left,
-     value-on-the-right cards built from .plan-summary-bar's shell. Record
-     cards became .ev-card buttons -- headline value, then subject, then a
-     synopsis in .rs-syn -- and nothing has emitted any of those classes
-     since. They sat here anyway, describing a component the product no longer
-     has, which is worse than nothing: the next person to change how a Record
-     card looks would have edited them. Removed, with the law above kept. */
-  /* The section's own sub-line, set at the synopsis size rather than the
-     field-hint size: it is the label doing the structural work of separating
-     these cards from the coaching above them, and a hint-sized line reads
-     as a first card that lost its box. */
-  .rec-lede{font-size:11px; line-height:1.5; color:var(--ink-faint); margin:-4px 0 4px;}
+     TWO SHELLS HAVE NOW BEEN REMOVED FROM HERE ON THE SAME GROUNDS. First
+     .rec-card and its parts, a row of subject-left/value-right cards; then
+     the .ev-card headline-fact card that replaced it, when The Record's
+     destinations became the Athlete Status circles. Each time, nothing had
+     emitted the classes for some while and they sat here describing a
+     component the product no longer has -- which is worse than nothing,
+     because it is what the next person to change a Record card edits.
+     Removed both times, with the law above kept each time. */
 
   /* ---------- THE READING ----------
      The same card, doing the other job. A Reading card is an interpretation,
@@ -4288,6 +4306,39 @@
   .v-hero-unit-toggle{position:absolute; top:14px; right:14px;}
   .v-hero-block{font-size:15px; color:var(--ink); margin:0 0 2px;}
   .v-hero-week{font-size:11px; color:var(--ink-faint); margin:0 0 14px;}
+  /* THE BAND. Two figures and a gauge on one line, the figures on equal
+     flexible columns so the gauge is optically centred whatever the figures
+     say -- "39d" and "1.08x" are different widths and a plain flex row would
+     have pushed the ring off centre. */
+  .v-hero-band{display:flex; align-items:center; justify-content:center; gap:10px; margin-top:6px;}
+  .v-hero-band > .v-hero-fig{flex:1 1 0; min-width:0;}
+  .v-hero-gauge{flex:none;}
+  /* ---------- VALHALLA'S CALL ----------
+     The page's one sentence, on the card language every other surface uses,
+     with the engine's own tone as a left rule and a matching wash. The tone
+     classes are the three the status dot already carried, so nothing new is
+     being decided here -- only shown at the size the sentence deserves. */
+  /* ---------- VALHALLA'S CALL ----------
+     The card is washed in the SAME colour its left rule is drawn in, fading
+     to nothing across the card -- so the sentence sits in its own verdict
+     rather than beside a bar of it. One rule does all three states; only
+     --call-tone changes, which is what stops the three drifting apart. */
+  .v-call{--call-tone:var(--c-easy);
+    margin:10px 0 14px; padding:12px 14px; border-radius:var(--tile-radius);
+    background:linear-gradient(100deg,
+      color-mix(in srgb, var(--call-tone) 22%, transparent) 0%,
+      color-mix(in srgb, var(--call-tone) 9%, transparent) 46%,
+      transparent 100%), var(--surface-2);
+    border:1px solid color-mix(in srgb, var(--call-tone) 26%, transparent);
+    border-left:3px solid var(--call-tone);
+    box-shadow:0 0 16px color-mix(in srgb, var(--call-tone) 14%, transparent),
+               var(--tile-shadow);}
+  .v-call-head{display:flex; align-items:center; gap:9px;}
+  .v-call-title{font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink);}
+  .v-call-sub{font-size:12px; color:var(--ink-dim); margin-top:5px; padding-left:16px;}
+  .v-call.good{--call-tone:var(--c-easy);}
+  .v-call.watch{--call-tone:var(--gold);}
+  .v-call.bad{--call-tone:var(--c-tempo);}
   .v-hero-figs{display:flex; justify-content:center; gap:26px; margin-top:14px;}
   .v-hero-fig{text-align:center;}
   .v-hero-fig b{display:block; font-size:16px; color:var(--ink); font-weight:700;}
@@ -4312,10 +4363,13 @@
      so nothing here should look tappable. No cursor:pointer, no hover state;
      the card reads by its content, the same way the confidence gauge above
      it does. */
+  /* Race Outlook and Current Fitness are the two instruments a panel opens
+     ON, so they take the same rim as everything else that opens. */
   .outlook-instrument{
     display:block; width:100%; text-align:left;
-    background:var(--tile-sheen), var(--bg-3); border:1px solid var(--tile-border);
-    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
+    border:1.5px solid transparent; border-radius:var(--tile-radius);
+    background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;
+    box-shadow:var(--tile-shadow);
     padding:14px 16px 18px; margin-top:16px; font:inherit; color:inherit;
   }
   .oi-label{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
@@ -4374,6 +4428,63 @@
      happens on Coach/Record, not from this preview. */
   .b-dials{display:flex; flex-direction:column; gap:14px; margin:4px 0 4px;}
   .b-dials-row{display:flex; justify-content:center; gap:22px;}
+  /* ---------- THE ARC ----------
+     Five circles on one line, sized by rank, resting on a shared baseline of
+     centres rather than of edges -- align-items:center is what makes a row of
+     unequal diameters read as one instrument instead of five objects that
+     happen to be adjacent. The gap is small because the SIZE is carrying the
+     hierarchy; a generous gap would separate what the graduation is trying to
+     group. */
+  .b-dials-arc{display:flex; align-items:center; justify-content:center; gap:5px;}
+  .b-dials-hint{display:flex; align-items:center; justify-content:center; gap:4px;
+    font-size:11.5px; color:var(--ink-faint); margin-top:2px;}
+  .b-dials-hint svg{width:12px; height:12px;}
+  /* Diameters from the approved arc: 66 / 76 / 88 across a 430pt screen,
+     which with the 5px gaps leaves the row inside the page gutter at the
+     narrowest phone the product supports. */
+  .b-dial[data-rank="0"]{width:88px; height:88px;}
+  .b-dial[data-rank="1"]{width:76px; height:76px;}
+  .b-dial[data-rank="2"]{width:66px; height:66px;}
+  .b-dial[data-rank="0"] .rd-cat{font-size:9.7px;}
+  .b-dial[data-rank="1"] .rd-cat{font-size:7.6px;}
+  .b-dial[data-rank="0"] .rd-sep{width:20px; margin:4px 0;}
+  .b-dial[data-rank="1"] .rd-sep{width:16px;}
+  /* The centre of the arc is the one circle the row is built around, so it
+     carries more of the same illumination rather than a different kind. */
+  .b-dials-arc .b-dial[data-rank="0"]{
+    box-shadow:
+      0 0 14px color-mix(in srgb, var(--rd-base) 46%, transparent),
+      0 0 34px color-mix(in srgb, var(--rd-base) 22%, transparent),
+      var(--tile-shadow);}
+  /* A button, so it needs a button's defaults removed and the card language
+     put back. No transform on press: the arc is an instrument panel, and an
+     instrument that moves when touched stops reading as one. */
+  button.b-dial{-webkit-appearance:none; appearance:none; padding:0; margin:0;
+    cursor:pointer; font:inherit; color:inherit; text-align:center;}
+  button.b-dial:focus-visible{outline:2px solid var(--gold-bright); outline-offset:3px;}
+  /* ---------- THE ATHLETE STATUS ROW ----------
+     Four facts, one size, evenly spread. The faces keep the plain card
+     surface rather than taking a tint, because a tinted fill is how The
+     Reading says "this is a verdict with a colour" -- these are facts, and
+     the rim alone carries which fact it is. */
+  .b-status{display:flex; align-items:center; justify-content:space-between;
+    gap:6px; margin:6px 0 10px;}
+  /* 90px x 4 plus three 6px gaps is 378 -- inside the 398 the page gutter
+     leaves at 430pt, and the extra diameter over the Reading's largest face
+     is what a three-line face (label, value, a time under it) needs before
+     the bottom line starts grazing the circular clip. */
+  .b-dial[data-rank="s"]{width:90px; height:90px;}
+  .b-dial[data-rank="s"] .b-medal{inset:5px;}
+  .b-dial[data-rank="s"] .rd-cat{font-size:8px;}
+  .b-dial[data-rank="s"] .rd-sep{width:18px; margin:3px 0 2px;}
+  .b-dial[data-rank="s"] .rd-val b{max-width:76px;}
+  .b-dial[data-rank="s"] .rd-val{min-height:0;}
+  /* The counted noun under a Reading count is interface; a benchmark time or
+     a goal time under its own headline is DATA, and takes the data face. */
+  .rd-sub-data{font-family:'JetBrains Mono',monospace; font-size:9.5px;
+    letter-spacing:0; text-transform:none; color:var(--ink-dim); margin-top:2px;
+    max-width:76px; min-height:11px;}
+
   /* The per-instrument label used to sit BELOW the circle as its own
      .lbl span; it lives inside the face now (.rd-cat), so the column is
      just the instrument itself -- no second flex child, no label gap. */
@@ -4384,9 +4495,28 @@
      identity moved to the face tint below. Same soft-raised recipe every
      other Valhalla/Coach surface already uses -- see --tile-sheen/-border/
      -shadow -- rather than the medallion's own bevel-and-drop-shadow system. */
+  /* ---------- THE RIM, AND WHY IT IS BUILT THIS WAY ----------
+     --t-rim-grad is the app's own border: three stops at 135deg, .55 -> .82
+     -> fully opaque, so a card's edge is light where the light is not and
+     brightest where it is. The circles take the SAME ramp in their own
+     identity colour rather than a flat border-color, which is what makes a
+     row of five read as the same component as every box above it.
+
+     NO BORDER PROPERTY AT ALL. .b-medal is already inset inside .b-dial, so
+     the dial's own BACKGROUND is the ring -- which means the gradient can be
+     a real gradient across the rim rather than a border-image, and the mask
+     trick a rectangular card needs is unnecessary here. --rd-base is set per
+     circle inline; everything below is shared. */
   .b-dial{position:relative; width:68px; height:68px; flex:none; border-radius:50%;
-    background:var(--tile-sheen), var(--surface-2); border:1px solid var(--tile-border);
-    box-shadow:var(--tile-shadow);}
+    border:0; padding:0;
+    background:linear-gradient(135deg,
+      color-mix(in srgb, var(--rd-base) 42%, transparent) 0%,
+      color-mix(in srgb, var(--rd-base) 72%, transparent) 48%,
+      var(--rd-base) 100%);
+    box-shadow:
+      0 0 9px color-mix(in srgb, var(--rd-base) 34%, transparent),
+      0 0 24px color-mix(in srgb, var(--rd-base) 15%, transparent),
+      var(--tile-shadow);}
   /* THE FACE -- filled with the reading's own pre-authored -soft token
      (--rd-tint, set inline per dial by dialTint()), an extremely soft wash
      of the semantic colour composited straight over the rim's own cream
@@ -4395,10 +4525,17 @@
      their own, no per-theme math needed here. The rim band is a plain 4px
      inset -- thin enough to stay a rim, not the heavy 8px bevel it used to
      carry. */
+  /* The tint is translucent by design, so it is layered OVER an opaque
+     surface rather than used alone -- on its own the rim gradient showed
+     straight through the face. A colour cannot be anything but the last
+     layer of a background, hence the flat gradient wrapper. */
   .b-medal{position:absolute; inset:4px; border-radius:50%; overflow:hidden;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    background:var(--rd-tint);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.30), inset 0 -1px 0 rgba(0,0,0,.06);}
+    background:linear-gradient(
+        color-mix(in srgb, var(--rd-tint) 42%, transparent),
+        color-mix(in srgb, var(--rd-tint) 42%, transparent)),
+      var(--surface-2);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.07), inset 0 -2px 5px rgba(0,0,0,.30);}
   .rd-cat{font-family:'Oswald',sans-serif; font-weight:600; font-size:6.4px; letter-spacing:.05em;
     text-transform:uppercase; color:var(--ink-faint); line-height:1; text-align:center;}
   /* Short, thin, centred, identical across all five -- and coloured by the
@@ -4427,31 +4564,27 @@
      circular clip. overflow-wrap is the backstop for a single long word
      that has no space to wrap on -- dialValueFontSize() already sizes the
      common vocabulary to fit without it. */
+  /* One ceiling per diameter, for the same reason there is one font ladder
+     scaled per diameter: the clearance inside a circular clip is a fraction
+     of its width, not a constant. */
+  .b-dial[data-rank="0"] .rd-val b{max-width:66px;}
+  .b-dial[data-rank="1"] .rd-val b{max-width:56px;}
+  .b-dial[data-rank="2"] .rd-val b{max-width:48px;}
+  /* The counted noun under a count. Interface face, never the data face --
+     the number is the value, this is what the number is OF. */
+  .rd-sub{font-family:'Oswald',sans-serif; font-size:6.6px; letter-spacing:.05em;
+    text-transform:uppercase; color:var(--ink-faint); line-height:1; margin-top:2px;
+    max-width:62px; text-align:center;}
+  .b-dial[data-rank="0"] .rd-sub{font-size:8px;}
   .rd-val b{display:block; text-align:center; line-height:1.08; max-width:50px;
     overflow-wrap:break-word; word-break:break-word;
     font-family:'JetBrains Mono',monospace; color:var(--ink); font-weight:700;}
 
-  .b-record{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:6px 0 6px;}
-  /* Three facts now, not four -- Measured Fitness and Benchmark keep the
-     upper pair, and Progress (the third and last plate) is centred beneath
-     rather than left-stuck in half a row or stretched the full width just
-     because the space is there. The clipped-corner plate keeps its own
-     width; only its position changes. */
-  .b-record .b-plate:nth-child(3):last-child{grid-column:1 / -1; justify-self:center; width:calc(50% - 5px);}
-  /* CENTRED CONTENT -- same soft-raised geometry, dimensions and data as
-     before; only the alignment changed, so the value/label group reads as
-     one centred instrument rather than a left-stuck line. flex centres the
-     pair both horizontally and vertically, including across a grid row
-     where the sibling plate is taller (grid's default stretch already
-     equalises row height; this centres within whatever height that is). */
-  .b-plate{
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    padding:15px 14px 13px; text-align:center; color:var(--ink);
-    background:var(--tile-sheen), var(--surface-2); border:1px solid var(--tile-border);
-    border-radius:var(--tile-radius); box-shadow:var(--tile-shadow);
-  }
-  .b-plate .val{font-family:'JetBrains Mono',monospace; font-size:16px; font-weight:600; overflow-wrap:anywhere;}
-  .b-plate .lbl{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-faint); margin-top:5px;}
+  /* The chamfered plate grid that stood here is gone with the plates. The
+     Athlete Status is four circles now (see .b-status) -- the same instrument
+     The Reading uses, because a fact and an interpretation deserve the same
+     care even though they are different things. The LAW the plates carried is
+     not gone: see .rd-val b.rec-none below, which is where it is enforced now.
 
   /* ---------- COACH / RECORD — evidence cards in the same dial/headline grammar ----------
      Reuses .hub-card's surface (padding, border, radius) as a <button>, so a
@@ -4463,15 +4596,30 @@
      tile treatment rather than their Level 3 medallion one. :hover/:active
      keep overriding background outright (untouched) -- that is interaction
      feedback, not the resting depth this pass adds. */
+  /* ---------- A CARD THAT OPENS SOMETHING TAKES THE RIM ----------
+     --t-rim-grad is the border the openable surfaces already wear: .es-sec's
+     two collapsibles and the Today boxes. A tappable evidence row is the
+     same kind of object -- a thing you press to get somewhere -- and it was
+     wearing a flat hairline, which is what made it read as a different
+     generation of the app to the section it sat in. Same three stops, same
+     135deg, same 1.5px, so there is one definition of "this opens".
+
+     border-box/padding-box rather than a border-color: a gradient cannot be
+     a border-color, so the rim is the element's own background painted into
+     the border area while the face is painted into the padding area. The
+     same idiom .es-sec uses, for the same reason. */
   .ev-card{
     display:block; width:100%; text-align:left; font:inherit; -webkit-appearance:none; appearance:none;
-    background:var(--tile-sheen), var(--surface-3); border:1px solid var(--tile-border); border-radius:var(--tile-radius);
+    border:1.5px solid transparent; border-radius:var(--tile-radius);
+    background:var(--t-card-grad) padding-box, var(--t-rim-grad) border-box;
     box-shadow:var(--tile-shadow);
     padding:14px; margin:0 0 10px; cursor:pointer; color:inherit;
-    transition:background .15s ease, border-color .15s ease;
+    transition:box-shadow .15s ease;
   }
-  .ev-card:hover{background:var(--bg-3); border-color:var(--bronze-2);}
-  .ev-card:active{background:var(--bg-4);}
+  /* The press feedback moves to the illumination, because the background is
+     now carrying the rim and cannot also carry a hover fill. */
+  .ev-card:hover{box-shadow:0 0 14px color-mix(in srgb, var(--gold) 16%, transparent), var(--tile-shadow);}
+  .ev-card:active{box-shadow:0 0 10px color-mix(in srgb, var(--gold) 24%, transparent), var(--tile-shadow);}
   /* THE RESTRICTION PICKS -- the .ev-card shell, two stacked lines of
      content, and the swap-session picker's own chosen state.
 
@@ -4541,70 +4689,38 @@
   .rs-medal{position:absolute; inset:5px; border-radius:50%; background:var(--bg-2); border:1px solid var(--line-soft);}
   .rs-head-text{flex:1 1 auto; min-width:0;}
   .rs-head-text h3{font-family:'Oswald',sans-serif; font-weight:600; font-size:13px; color:var(--ink); margin:0;}
-  .rs-syn{font-size:11px; line-height:1.4; color:var(--ink-faint); margin-top:3px;}
   .rs-chev{flex:none; display:flex; opacity:.6;}
   .rs-chev svg{width:15px; height:15px; color:var(--ink-faint);}
 
-  /* Record tab: a headline fact, not a dial -- plates are for numbers, circles
-     are for state, and a benchmark or a pace count is a number. */
-  .rec-headline{display:flex; align-items:baseline; gap:9px; margin-bottom:2px;}
-  .rec-headline b{font-family:'JetBrains Mono',monospace; font-size:20px; color:var(--ink); overflow-wrap:anywhere; font-weight:600;}
-  .rec-headline span{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint);}
-  .rec-context{font-size:11px; line-height:1.4; color:var(--ink-faint); margin-top:2px;}
-  /* AN EMPTY PLATE IS THE VALUE ROLE, UNAVAILABLE -- NOT A ROLE OF ITS OWN.
-     "Nothing measured" and "Not set" both occupy .b-plate .val, the slot that
-     holds "10K \u00b7 23:00" and "10%". They inherit ALL of it: the same
-     JetBrains Mono, the same 16px, the same 600 weight, the same letter
-     spacing, line height, sentence casing, centring and overflow-wrap. One
-     thing differs, and only one -- the colour, because an absence is not a
-     warning and must not read as one.
+  /* A Record panel opens on its fact's own one-line synopsis, set at the
+     synopsis size rather than the field-hint size: it is doing the
+     structural work of answering "what is this number" before the evidence
+     below it starts. */
+  .rec-lede{font-size:11.5px; line-height:1.5; color:var(--ink-faint); margin:-2px 0 12px;}
 
-     WHY THERE IS NO SIZE ACCOMMODATION HERE, having briefly had one. A 13px
-     override was added so that "Nothing measured" -- sixteen characters in a
-     half-width plate -- would hold a single line down to 360px. But the
-     selector keys on EMPTINESS, and emptiness is not what causes the fit
-     problem: length is. rec-none is also carried by the Benchmark plate's
-     "Not set", seven characters that fit at 16px with room to spare, and the
-     override shrank that too, leaving two empty plates at 13px and 60px tall
-     beside a populated one at 16px and 64px. An athlete with no benchmark and
-     no measured fitness saw a Record whose type size announced which facts
-     were missing.
+  /* ---------- AN ABSENCE IS THE VALUE ROLE, UNAVAILABLE ----------
+     THE LAW, CARRIED OVER FROM THE PLATES TO THE CIRCLES, because it is the
+     one thing in The Record that had to outlive any particular markup.
 
-     So the long string wraps to two lines below 412px, which is the honest
-     outcome for sixteen characters in half a phone: the slot is the same size
-     it always is, and only its contents are unavailable. The Record TAB's
-     empty state is a different question with a different, correct answer --
-     see .rec-empty-state, where the words really are a secondary note after
-     their label rather than a plate value. Same words, different UI role,
-     deliberately different typography. */
-  /* AND IT IS SET IN THE INTERFACE FACE, because it is language.
-     Physical Android verification showed this still rendering in JetBrains
-     Mono, identical to the "10K \u00b7 23:00" beside it, and the reason was
-     inheritance: this rule set colour ONLY, so the family came from
-     .b-plate .val above and the empty state read as a measurement of nothing
-     rather than the absence of a measurement.
+     "Nothing measured" and "Not set" occupy the same slot as "10K \u00b7 23:00".
+     They inherit all of it -- size, weight, spacing, line height, centring --
+     and exactly two things differ: the colour, because an absence is not a
+     warning and must not read as one, and the FAMILY, because it is language
+     rather than data. The family is the whole distinction and is therefore
+     the whole rule. A rule that set colour alone was verified on a physical
+     Android device still rendering in JetBrains Mono, identical to the
+     measurement beside it, because the family inherited from the value slot:
+     the empty state read as a measurement of nothing rather than as the
+     absence of a measurement. A test reads the COMPUTED family, because a
+     rule that exists is not the same thing as a rule that wins.
 
-     The family is the whole distinction and is therefore the whole change.
-     Size, weight, letter spacing, line height, casing, alignment and
-     overflow-wrap still inherit from the value slot, and the colour is the
-     same --ink-faint it has always been, so nothing about the plate's
-     geometry or palette moves. The two measured plates are untouched and stay
-     on the data face; a test reads the COMPUTED family of all three, because
-     a rule that exists is not the same thing as a rule that wins. */
-  .b-plate .val.rec-none{color:var(--ink-faint); font-family:'Inter',-apple-system,sans-serif;}
-
-  /* ---------- THE EVIDENCE-ACQUISITION STATE ----------
-     Same card family, deliberately lighter: no data typography, no headline
-     slot, less vertical weight. It reads as a row that is waiting rather than
-     a metric that is broken. The rule is the point -- absence must never look
-     like another measured value. */
-  .ev-card-empty{padding-top:10px; padding-bottom:10px;}
-  .rec-empty{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;}
-  .rec-empty-subject{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.06em;
-    text-transform:uppercase; color:var(--ink-dim);}
-  /* The interface face, NOT the monospace data face -- that difference is what
-     stops the words being read as a value. */
-  .rec-empty-state{font-size:12px; color:var(--ink-faint); font-style:italic;}
+     The headline-fact card and the lighter acquisition card that used to
+     carry this law on the Record TAB are gone with that tab -- nothing has
+     emitted .rec-headline, .rec-context, .rec-empty or .ev-card-empty since
+     the circles became the destination, and a stylesheet that describes a
+     component the product no longer has is worse than nothing: it is what
+     the next person edits. */
+  .rd-val b.rec-none{color:var(--ink-faint); font-family:'Inter',-apple-system,sans-serif;}
 
   /* ---------- THE ACTION TRIO ----------
      Three tiles at the foot of Plan HQ. They rhyme with the status chips
@@ -4687,6 +4803,20 @@
   .goal-input-row .gp{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--ink-faint); text-align:right;}
 
   .setup-section-title{font-family:'Oswald',sans-serif; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--bronze-text); margin:16px 0 8px;}
+  /* ---------- A SECTION TITLE WITH A RULE EITHER SIDE ----------
+     The heading is .setup-section-title exactly as it is everywhere else --
+     same Oswald, same 11px, same 1.5px tracking, same uppercase, same bronze
+     -- so there is still ONE section-heading voice and this adds no second
+     one. What is new is only the two gold hairlines, each fading away from
+     the words, which is the same gradient-rule idea .phase-divider already
+     uses on one side; it is mirrored here because the title is centred. */
+  .sec-rule{display:flex; align-items:center; gap:12px; margin:18px 0 10px;}
+  .sec-rule .setup-section-title{margin:0; white-space:nowrap;}
+  .sec-rule-line{flex:1 1 0; min-width:0; height:1px;
+    background:linear-gradient(to right, transparent 0%, var(--gold-text) 100%); opacity:.55;}
+  .sec-rule-line + .setup-section-title + .sec-rule-line,
+  .sec-rule .sec-rule-line:last-child{
+    background:linear-gradient(to left, transparent 0%, var(--gold-text) 100%);}
   .setup-section-title:first-child{margin-top:0;}
   /* Plan HQ's Programme Status heading + KM/MI pill, aligned on one row at
      any width instead of the pill wrapping under the heading. */
@@ -23779,7 +23909,16 @@ function renderConfidenceGauge(){
      .gauge-bevel's comment for why one shared id is safe here. */
   return '<div class="gauge-wrap" role="img" aria-label="Confidence score '+pctLabel+' percent">'+
     '<svg viewBox="0 0 120 120" width="132" height="132">'+
-      '<defs><linearGradient id="gaugeBevel" x1="15%" y1="10%" x2="85%" y2="90%">'+
+      /* #gaugeRim is --t-rim-grad expressed in SVG: the same three stops at
+         the same 135deg, in cherry -- so the ring's edge is built from the
+         identical recipe as every card border and every circle rim on the
+         screen, rather than a hairline that happens to look similar. */
+      '<defs><linearGradient id="gaugeRim" x1="0%" y1="0%" x2="100%" y2="100%">'+
+        '<stop offset="0%" stop-color="var(--cherry)" stop-opacity="0.42"/>'+
+        '<stop offset="48%" stop-color="var(--cherry)" stop-opacity="0.72"/>'+
+        '<stop offset="100%" stop-color="var(--cherry)" stop-opacity="1"/>'+
+      '</linearGradient>'+
+      '<linearGradient id="gaugeBevel" x1="15%" y1="10%" x2="85%" y2="90%">'+
         '<stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.5"/>'+
         '<stop offset="42%" stop-color="#FFFFFF" stop-opacity="0"/>'+
         '<stop offset="58%" stop-color="#000000" stop-opacity="0"/>'+
@@ -28987,23 +29126,46 @@ function renderExecutionReview(dd){
      a scoring breadkdown reads like a report card; the concept's argument is
      that it should read like an arrival, with the analysis available to
      anyone who wants it. */
+  /* ---------- WHAT A FINISHED SESSION IS FOR CHANGES WITH TIME ----------
+     THIS WEEK, IT IS AN ARRIVAL. The athlete has just run it, and the thing
+     they might want to do is show someone. So the card is the hero and the
+     way out: nothing between them. The Verdict was sitting in that gap --
+     the coach's reading of the session, delivered before the athlete had
+     asked for any reading -- and it is the same sentences View Analysis
+     already opens, so it was the analysis arriving twice, once uninvited.
+     It moves inside View Analysis, where the rest of the marking is.
+
+     ONCE THE WEEK HAS PASSED, IT IS A RECORD. Nobody shares a run from a
+     week they have already finished, and a gold Share button is the loudest
+     thing on a card that is now history. It goes, and the analysis -- the
+     only reason to open a past session at all -- is simply there, with no
+     door in front of it.
+
+     THE BOUNDARY IS THE PROGRAMME'S OWN WEEK, not a rolling seven days,
+     because the week is the unit this product plans and reviews in: a
+     Sunday long run does not become history on Thursday. A block that has
+     finished has no current week, so every session in it is past. */
+  var cur = currentWeekNum();
+  var pastWeek = (dd.week != null) && (cur == null || dd.week < cur);
+  var analysisBody =
+    renderCompletionVerdict(dd)+
+    '<div class="exec-review-card wc-analysis">'+
+      '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span>'+
+        '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
+      '</div>'+ body +
+    '</div>';
   var open = isAnalysisOpen(dd);
-  return '<div class="wc">'+
+  return '<div class="wc'+(pastWeek?' is-past':'')+'">'+
     '<div class="wc-top"><span class="wc-top-k">Workout Complete</span>'+
       '<span class="wc-top-mark">'+ICONS.check+'</span></div>'+
     renderCompletionHero(dd)+
-    renderCompletionVerdict(dd)+
-    renderShareLaunch(dd)+
-    '<button type="button" class="btn wc-analysis-btn" data-action="view-analysis" '+
-      'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
-      (open ? 'Hide Analysis' : 'View Analysis')+'</button>'+
-    (open
-      ? '<div class="exec-review-card wc-analysis">'+
-          '<div class="exec-review-head">'+ICONS.sparkles+'<span>Execution Review</span>'+
-            '<span class="exec-pill font-mono">'+b.score+'% EXEC</span>'+
-          '</div>'+ body +
-        '</div>'
-      : '')+
+    (pastWeek
+      ? analysisBody
+      : renderShareLaunch(dd)+
+        '<button type="button" class="btn wc-analysis-btn" data-action="view-analysis" '+
+          'data-day="'+dd.id+'" aria-expanded="'+(open?'true':'false')+'">'+
+          (open ? 'Hide Analysis' : 'View Analysis')+'</button>'+
+        (open ? analysisBody : ''))+
     '<button type="button" class="wc-continue" data-action="wc-continue" '+
       'data-day="'+dd.id+'">Continue</button>'+
   '</div>';
@@ -40473,36 +40635,6 @@ function coachPersistReview(dd){
    ========================================================= */
 function coachToneClass(tone){ return tone==='good'||tone==='warn'||tone==='watch' ? tone : 'neutral'; }
 
-function renderAthleteStatusCard(report){
-  if (!report) return '';
-  var st = report.status, load = report.load, rec = report.recovery, tr = report.trend;
-  var loadVal = load.ratio!=null ? load.ratio.toFixed(2)+'x' : '—';
-  var loadSub = { spike:'Spiking', elevated:'Elevated', productive:'Productive', low:'Dropping', unknown:'Building history' }[load.band];
-  var recVal = { fresh:'Fresh', watch:'Watch', strained:'Strained' }[rec.state];
-  var recSub = rec.hardStreak>=3 ? rec.hardStreak+' hard in a row'
-    : rec.overRPE||rec.overHR ? 'Effort above band' : 'Absorbing the work';
-  var trVal = tr.enough ? ({ rising:'Rising', falling:'Falling', flat:'Steady' })[tr.direction] : '—';
-  var trSub = tr.enough && tr.delta!=null
-    ? (tr.delta>0?'+':'')+tr.delta+' pts vs prior 3'
-    : 'Needs 4 logged runs';
-  return '<div class="hub-card tile-card">'+
-    '<div class="setup-section-title">Athlete Status</div>'+
-    '<div class="coach-status">'+
-      '<span class="coach-dot '+coachToneClass(st.tone)+'"></span>'+
-      '<div class="coach-status-main">'+
-        '<div class="coach-status-label">'+escapeHtml(st.label)+'</div>'+
-        '<div class="coach-status-detail">'+escapeHtml(st.detail)+'</div>'+
-      '</div>'+
-      '<div class="coach-phase">'+escapeHtml(report.phase.name)+'</div>'+
-    '</div>'+
-    '<div class="coach-metrics">'+
-      '<div class="coach-metric"><div class="cm-k">Load</div><div class="cm-v">'+loadVal+'</div><div class="cm-s">'+escapeHtml(loadSub)+'</div></div>'+
-      '<div class="coach-metric"><div class="cm-k">Recovery</div><div class="cm-v">'+escapeHtml(recVal)+'</div><div class="cm-s">'+escapeHtml(recSub)+'</div></div>'+
-      '<div class="coach-metric"><div class="cm-k">Trend</div><div class="cm-v">'+escapeHtml(trVal)+'</div><div class="cm-s">'+escapeHtml(trSub)+'</div></div>'+
-    '</div>'+
-    '<div class="field-hint">'+(report.phase.week ? 'Week '+report.phase.week+' of '+report.phase.of+' · ' : '')+'load is this week against your 4-week average.</div>'+
-  '</div>';
-}
 
 function renderCoachSignalsCard(report){
   if (!report || !report.signals.length) return '';
@@ -42612,8 +42744,16 @@ function renderReadinessCheck(dec){
 function renderCoachPanel(){
   var report = coachAnalyse();
   if (!report) return '';
-  return renderAthleteStatusCard(report)+
-    renderCoachSignalsCard(report)+
+  /* renderAthleteStatusCard() used to lead this, and does not any more. Its
+     three metrics each have a surface of their own on the screen this now
+     renders into: load is the right-hand figure of the hero band, recovery is
+     a circle with its own panel, trend is a row inside the Readiness panel,
+     and the status sentence it carried is Valhalla's Call at the top. A
+     fourth telling of the same three readings, directly under them, was the
+     one thing a single-scroll Valhalla could not carry. The card itself is
+     untouched and still builds correctly from a report -- it simply has no
+     caller while the overview says all of it already. */
+  return renderCoachSignalsCard(report)+
     renderCoachNoticedCard(report)+
     renderBreakthroughCard(report)+
     renderCoachWatchCard(report);
@@ -43075,7 +43215,7 @@ function renderWeekAccordion(weekNum, forceOpen){
      built for, and it is rendered once, on its own, immediately below this
      week -- see renderRaceDayEvent(). Leaving it in the list as the seventh
      card made the culmination of a sixteen-week build read as Sunday. */
-  var daysHtml = wdays.filter(function(dd){ return dd.type!=='race'; }).map(renderDayCard).join('');
+  var daysHtml = '<div class="pw-rows">'+planWeekRowsHtml(weekNum)+'</div>';
   var openCls = (forceOpen || expandedWeeks[weekNum]) ? ' open' : '';
   var taper = isTaperWeek(weekNum);
   var taperNote = taper ? '<div class="taper-note">'+ICONS.zap+' Taper: volume drops, but keep hitting these paces \u2014 sharpness matters more than mileage from here.</div>' : '';
@@ -52660,12 +52800,28 @@ function planBackBar(title, sub){
    session, what it is called. The row is a way IN rather than a thing that
    opens -- the session has a screen of its own, so this one stays seven rows
    tall however long the sessions are. */
-function renderPlanWeekView(weekNum){
-  var range = weekDateRange(weekNum), vol = weekVolume(weekNum);
-  var planned = vol.training, done = vol.doneTraining;
-  var pct = planned > 0 ? Math.max(0, Math.min(100, Math.round(100*done/planned))) : 0;
-  var days = state.days.filter(function(dd){ return dd.week===weekNum && dd.type!=='race'; });
-  var rows = days.map(function(dd){
+/* ONE WEEK, ONE ROW LANGUAGE, WHEREVER THE WEEK IS SHOWN.
+   Full Plan's own accordion used to open onto renderDayCard() -- the full
+   session card, with its completion ring, execution badge, edit pencil,
+   disclosure chevron and drawer. Seven of those inside a week, inside a
+   phase, inside the plan, is three levels of card nested in each other, and
+   it read exactly as heavy as that sounds. The week screen had already
+   answered the question with a row: when it is, what kind, what it is
+   called, and a chevron in. This is that row, extracted so the accordion and
+   the week screen cannot drift into two answers.
+
+   NOTHING ABOUT THE SESSION MOVED. The row opens the same session screen
+   (plan-open-session -> renderPlanSessionView -> renderDayCard), so every
+   control the card carried is still exactly one tap away and still the same
+   canonical card. What changed is that the plan lists its weeks instead of
+   unfolding them. */
+function planWeekRowsHtml(weekNum){
+  /* weekSessionDays(), not a second filter of its own. "The race is not one
+     of the week's sessions" is a rule about what a week IS, and This Week
+     already owned the one definition of it; writing a second copy here is
+     how the two surfaces end up disagreeing about a week's contents the next
+     time that rule changes. */
+  return weekSessionDays(weekNum).map(function(dd){
     var tm = TYPE_META[dd.type] || {};
     return '<button type="button" class="pw-row'+(dd.date===todayStr()?' is-today':'')+'" '+
         'data-action="plan-open-session" data-day="'+escapeHtml(String(dd.id))+'">'+
@@ -52681,6 +52837,12 @@ function renderPlanWeekView(weekNum){
       '<span class="pw-chev" aria-hidden="true">'+ICONS.chevronRight+'</span>'+
     '</button>';
   }).join('');
+}
+function renderPlanWeekView(weekNum){
+  var range = weekDateRange(weekNum), vol = weekVolume(weekNum);
+  var planned = vol.training, done = vol.doneTraining;
+  var pct = planned > 0 ? Math.max(0, Math.min(100, Math.round(100*done/planned))) : 0;
+  var rows = planWeekRowsHtml(weekNum);
   return '<div class="view-plan-week">'+
     planBackBar('Week '+weekNum, phaseDividerLabel(weekNum)+' \u00b7 '+
                 dShort(range.start)+' \u2013 '+dShort(range.end))+
@@ -52779,29 +52941,38 @@ function renderProgrammeStatus(){
     ? { rising:'improving', falling:'slipping', flat:'steady' }[report.trend.direction]
     : 'still building';
   var statusLine = decMeta
-    ? '<div class="v-status-line"><span class="v-status-dot '+statusTone+'"></span>'+
-        '<span><b>'+escapeHtml(decMeta.label)+'</b>'+
-        (recWord ? ' — recovery '+escapeHtml(recWord)+', trend '+escapeHtml(trendWord)+'.' : '.')+
-      '</span></div>'
+    ? '<div class="v-call '+statusTone+'">'+
+        '<div class="v-call-head"><span class="v-status-dot '+statusTone+'"></span>'+
+          '<span class="v-call-title font-head">Valhalla’s Call — '+escapeHtml(decMeta.label)+'</span></div>'+
+        (recWord ? '<div class="v-call-sub">Recovery '+escapeHtml(recWord)+', trend '+escapeHtml(trendWord)+'.</div>' : '')+
+      '</div>'
     : '';
+  /* ---- ONE BAND, READ ACROSS ----
+     The hero carried four instruments stacked: the gauge, two figures under
+     it, Current Fitness, and Race Outlook -- 640px of screen before The
+     Reading began, and an athlete had to scroll past three readings to reach
+     the five that are the point of this page. The two cards have moved to
+     the circles that state their headline figure (Current Fitness behind
+     Fitness, Race Outlook behind Goal, where the goal is also chosen), and
+     what is left is the band: the days to goal day, the gauge, the load.
+     Three figures, one line, no scroll. Every one of them is the same
+     computation it was; none of them moved screens. */
   return '<div class="v-hero">'+
     unitToggle+
     '<div class="v-hero-block font-display">'+escapeHtml(parts.label)+'</div>'+
     (parts.wk && parts.total ? '<div class="v-hero-week">Week '+parts.wk+' of '+parts.total+'</div>' : '')+
-    '<div id="confidence-gauge-mount">'+renderConfidenceGauge()+'</div>'+
-    '<div class="v-hero-figs">'+
+    '<div class="v-hero-band">'+
       renderGoalDayFig()+
+      '<div id="confidence-gauge-mount" class="v-hero-gauge">'+renderConfidenceGauge()+'</div>'+
       '<div class="v-hero-fig"><b class="font-mono">'+escapeHtml(loadVal)+'</b><span>Load</span></div>'+
     '</div>'+
-    /* THE SECOND READING IN THE HERO, and a deliberately different question
-       from the gauge above it: the gauge says how faithfully training has
-       been executed; this says where the last MEASURED effort sits against
-       the goal. #outlook-mount is patched by patchDerivedStats() for the
-       same reason the gauge is -- logging a race or a checkpoint changes it. */
-    '<div id="current-fitness-mount">'+renderCurrentFitnessInstrument()+'</div>'+
-    '<div id="outlook-mount">'+renderRaceOutlook()+'</div>'+
-    statusLine+
-  '</div>';
+  '</div>'+
+  /* VALHALLA'S CALL, OUT OF THE HERO AND ONTO ITS OWN CARD. It was the last
+     line inside the hero, under a hairline rule, where it read as a footnote
+     to the gauge. It is the single sentence the whole page exists to deliver,
+     so it gets the weight of a card of its own and the tone colour it was
+     already computing. Same decision, same words, same COACH_DECISION_META. */
+    statusLine;
 }
 /* =========================================================
    THE RECORD
@@ -52865,19 +53036,33 @@ function recordFitnessFact(){
   if (!latest){
     /* `value` is kept for the Valhalla-tab plate and for anything that reads
        the fact as data; the Record card no longer renders it as a headline. */
-    return { key:'fitness', subject:'Measured fitness', value:'Nothing measured', none:true,
+    return { key:'fitness', subject:'Measured fitness', chip:'Fitness',
+      value:'Nothing measured', none:true, big:'\u2014', small:'',
       emptyState:'Not established yet',
       synopsis:'A race or a Fitness Checkpoint is what counts.' };
   }
   var src = latest.source === 'race' ? 'Race' : 'Checkpoint';
-  return { key:'fitness', subject:'Measured fitness',
+  /* THE CIRCLE SAYS WHAT THE MEASUREMENT MEANS; THE PANEL SAYS WHAT IT WAS.
+     `value` is unchanged -- it is still the measured performance, and every
+     reader of this fact still gets it. `big` is the range that performance
+     implies for the goal distance, because that is the figure an athlete
+     actually carries around, and the panel behind the circle opens on
+     Current Fitness where the range and the run it came from sit together. */
+  var estF = state.setup && state.setup.distanceKey
+    ? currentFitnessEstimate(state.setup.distanceKey) : null;
+  return { key:'fitness', subject:'Measured fitness', chip:'Fitness',
     value:fmtDist(latest.km)+' · '+secToClock(latest.timeSec),
+    big: (estF && !estF.withheld) ? fitnessRangeText(estF.fastSec, estF.slowSec)
+                                  : secToClock(latest.timeSec),
+    small: (estF && !estF.withheld) ? '' : fmtDist(latest.km),
     synopsis:src+', '+dShort(latest.date)+'. Training runs do not move it.' };
 }
 function recordBenchmarkFact(){
   var b = state.setup.benchmark;
-  return { key:'benchmark', subject:'Benchmark',
+  return { key:'benchmark', subject:'Benchmark', chip:'Benchmark',
     value: b ? DISTANCE_PROFILES[b.distanceKey].label+' · '+secToClock(b.timeSec) : 'Not set',
+    big: b ? DISTANCE_PROFILES[b.distanceKey].label : '—',
+    small: b ? secToClock(b.timeSec) : '',
     none: !b,
     /* ITS OWN WORDS, NOT THE GENERIC ONES. An unset benchmark and an
        unmeasured fitness are both absences and both take the acquisition
@@ -52906,7 +53091,8 @@ function recordProgressFact(){
   var week = currentWeekNum(), total = totalWeeksInPlan();
   var syn = s.completedRuns+' of '+s.totalRuns+' runs'+
     (week && total ? ' · week '+week+' of '+total : '')+'.';
-  return { key:'progress', subject:'Progress', value:runsPct+'%', synopsis:syn };
+  return { key:'progress', subject:'Progress', chip:'Progress', value:runsPct+'%',
+    big:runsPct+'%', small:'', synopsis:syn };
 }
 /* Training paces are plan configuration/reference -- what you are training
    AT -- not a historical record of the athlete, so recordFacts() no longer
@@ -52916,53 +53102,105 @@ function recordProgressFact(){
    only from Settings' Training & Zones card now, alongside Re-calibrate and
    Plan Settings, where the other zone/plan-configuration actions already
    live, rather than duplicated here as well. */
+/* THE GOAL WAS ALWAYS A RECORD FACT; it simply had nowhere to be one. The
+   A/B/C chooser lived on the Record TAB and nowhere else in the app -- the
+   Full Plan copy was deleted precisely because the tab carried it -- so
+   retiring that tab without giving the decision a home would have taken the
+   athlete's ability to change their goal away with it. It becomes the first
+   circle of The Athlete Status, and its panel is where the chooser now
+   lives. renderGoalToggle(), handleSetGoal() and every guard underneath are
+   untouched; only the surface they are reached through moves. */
+function recordGoalFact(){
+  var goal = getActiveGoal();
+  var letter = (state.setup && state.setup.activeGoal) || 'A';
+  if (!goal || !goal.timeSec){
+    return { key:'goal', subject:'Goal', chip:'Goal', value:'Not set', none:true,
+      big:'—', small:'',
+      emptyState:'Not set',
+      synopsis:'The time this block is being built towards.' };
+  }
+  return { key:'goal', subject:'Goal', chip:'Goal',
+    value:'Goal '+letter+' · '+secToClock(goal.timeSec),
+    big:letter, small:secToClock(goal.timeSec),
+    synopsis:'The time this block is being built towards. Change it here.' };
+}
 function recordFacts(){
-  return [recordFitnessFact(), recordBenchmarkFact(), recordProgressFact()];
+  return [recordGoalFact(), recordFitnessFact(), recordBenchmarkFact(), recordProgressFact()];
 }
 
 /* The interactive evidence card (Record tab): a headline fact, not a dial --
    plates and headlines are for numbers, circles are for state, and a
    benchmark or a pace count is a number, never a state. Still the same
    open-record destination it always was. */
-function recordCard(f){
-  /* AN ABSENCE IS NOT A VALUE, AND MUST NOT BE BUILT LIKE ONE.
-     "Nothing measured" used to occupy the same 20px monospace headline slot as
-     "10K \u00b7 45:00". Monospace at headline size IS the typography of data
-     here, so the words read as the metric's value -- and because this card sits
-     first, the eye landed on a non-value before any real evidence on the
-     screen. Quieting the colour never fixed that; the STRUCTURE was the claim.
-     So the empty state is built differently rather than dimly: label first,
-     because the subject is the only certain thing; state second, in the
-     interface face rather than the data face; and no headline slot at all. */
-  if (f.none) return '<button type="button" class="ev-card ev-card-empty" data-action="open-record" data-record="'+f.key+'">'+
-      '<div class="rec-empty">'+
-        '<span class="rec-empty-subject">'+escapeHtml(f.subject)+'</span>'+
-        '<span class="rec-empty-state">'+escapeHtml(f.emptyState || 'Not established yet')+'</span>'+
-      '</div>'+
-      (f.synopsis ? '<div class="rec-context">'+escapeHtml(f.synopsis)+'</div>' : '')+
-    '</button>';
-  return '<button type="button" class="ev-card" data-action="open-record" data-record="'+f.key+'">'+
-      '<div class="rec-headline"><b>'+escapeHtml(f.value)+'</b>'+
-        '<span>'+escapeHtml(f.subject)+'</span></div>'+
-      (f.synopsis ? '<div class="rec-context">'+escapeHtml(f.synopsis)+'</div>' : '')+
+/* The quiet Valhalla-tab preview: the approved concept's chamfered plate,
+   non-interactive -- the same four values, shown rather than opened.
+   Kept because the shape and its empty-state typography are still the
+   reference this file's tests hold the circle to; renderValhallaStatusRow()
+   is what Valhalla draws. */
+/* ---------- THE ATHLETE STATUS ----------
+   THE SAME INSTRUMENT AS THE READING, SAYING A DIFFERENT KIND OF THING.
+   The Reading's circles carry interpretations and are sized against each
+   other because one of them matters more; these carry facts, so they are
+   all one size -- a goal, a fitness, a benchmark and a progress figure do
+   not rank.
+
+   THE RIM COLOUR IS AN IDENTITY, NOT A VERDICT, and provably so: it is
+   fixed per fact and never consults the coaching engine, so no athlete
+   state can move it. The VALUE stays in the neutral data face it has always
+   been in, which is the law The Record has always held -- a fact is stated,
+   never graded. */
+var STATUS_ACCENT = {
+  goal:      'var(--gold-bright)',
+  fitness:   'var(--cherry)',
+  benchmark: 'var(--ink)',
+  progress:  'var(--gold-bright)'
+};
+var STATUS_TINT = {
+  goal:      'var(--c-gold-soft)',
+  fitness:   'var(--cherry-tint)',
+  benchmark: 'var(--c-rest-soft)',
+  progress:  'var(--c-gold-soft)'
+};
+function statusDialHtml(f){
+  var big = f.big != null ? f.big : f.value;
+  var small = f.small || '';
+  return '<button type="button" class="b-dial b-stat" data-rank="s" '+
+      'data-action="open-record" data-record="'+f.key+'" '+
+      'aria-label="'+escapeHtml(f.subject+' — '+f.value)+'" '+
+      'style="--rd-base:'+(STATUS_ACCENT[f.key]||'var(--c-rest)')+'; '+
+        '--rd-tint:'+(STATUS_TINT[f.key]||'var(--c-rest-soft)')+';">'+
+      '<span class="b-medal">'+
+        '<span class="rd-cat">'+escapeHtml(f.chip || f.subject)+'</span>'+
+        '<span class="rd-sep"></span>'+
+        '<span class="rd-val"><b'+(f.none?' class="rec-none"':'')+
+          ' style="font-size:'+statusValueFontSize(big)+';">'+escapeHtml(big)+'</b></span>'+
+        /* ALWAYS EMITTED, EVEN EMPTY. Two of the four facts carry a second
+           line and two do not, and a stack that is centred inside its circle
+           puts the label at a different height depending on how tall the
+           stack is -- so GOAL's label sat visibly above FITNESS's in the same
+           row. Reserving the slot makes all four stacks one height, which is
+           what actually aligns the labels. */
+        '<span class="rd-sub rd-sub-data">'+escapeHtml(small)+'</span>'+
+      '</span>'+
     '</button>';
 }
-/* The quiet Valhalla-tab preview: the approved concept's chamfered plate,
-   non-interactive -- the same four values, shown rather than opened. */
-function recordPlate(f){
-  return '<div class="b-plate"><div class="val'+(f.none?' rec-none':'')+'">'+escapeHtml(f.value)+'</div>'+
-    '<div class="lbl">'+escapeHtml(f.subject)+'</div></div>';
+/* A status face holds wider strings than a reading face ever does -- a
+   fitness range is "3:23–3:44" -- so it has its own ladder rather than
+   bending the reading one to cover a case it was not written for. */
+function statusValueFontSize(text){
+  var n = (text||'').length;
+  if (n<=2) return '21px';
+  if (n<=3) return '18px';
+  if (n<=4) return '16px';
+  if (n<=6) return '13px';
+  if (n<=9) return '11px';
+  return n<=12 ? '9.5px' : '8.5px';
 }
 
-function renderRecordSection(){
-  return '<div class="setup-section-title">The Record</div>'+
-    '<div class="rec-lede">What this is based on, and what you can change.</div>'+
-    recordFacts().map(recordCard).join('');
-}
 function renderValhallaRecordPreview(){
   if (!state.setup) return '';
-  return '<div class="setup-section-title">The Record</div>'+
-    '<div class="b-record">'+recordFacts().map(recordPlate).join('')+'</div>';
+  return sectionRule('The Athlete Status')+
+    '<div class="b-status">'+recordFacts().map(statusDialHtml).join('')+'</div>';
 }
 
 /* ---------- the panels ----------
@@ -52975,11 +53213,37 @@ function renderValhallaRecordPreview(){
 
    DELIBERATELY NO 01/05 RAIL. These are detail panels, not wizard steps: there
    is nothing after them to advance to, so the only navigation is back. */
-function recordPanelShell(title, body){
+/* The fact behind a key, so a panel can open on the one sentence its own
+   fact already writes. */
+function recordFactByKey(key){
+  var found = null;
+  recordFacts().forEach(function(f){ if (f.key === key) found = f; });
+  if (!found && key === 'zones') found = recordZonesFact();
+  return found;
+}
+/* THE SYNOPSIS FOLLOWED ITS FACT INTO THE PANEL. "Race, Oct 28. Training
+   runs do not move it." was written by recordFitnessFact() and rendered by
+   the Record card -- the one surface that is gone. A circle has no room for
+   a sentence, so without this the line would have been computed on every
+   render and shown to nobody. It opens the panel the circle opens, which is
+   where there is room for it and where the athlete arrives asking exactly
+   the question it answers. */
+function recordPanelShell(title, body, key){
+  var fact = key ? recordFactByKey(key) : null;
+  /* An empty fact states its absence first. emptyState is each fact's OWN
+     words -- "Not established yet" for a fitness nobody has measured, "Not
+     set" for a benchmark nobody has entered -- and collapsing them into one
+     phrase would lose exactly the distinction The Record exists to draw. */
+  var ledeText = fact
+    ? ((fact.none && fact.emptyState)
+        ? fact.emptyState + (fact.synopsis ? '. ' + fact.synopsis : '.')
+        : (fact.synopsis || ''))
+    : '';
+  var lede = ledeText ? '<div class="rec-lede">'+escapeHtml(ledeText)+'</div>' : '';
   return '<div class="modal-head"><h2 class="font-head">'+escapeHtml(title)+'</h2>'+
       '<button type="button" class="icon-btn" data-action="close-record-panel" aria-label="Close">'+ICONS.close+'</button>'+
     '</div>'+
-    '<div class="modal-body">'+body+
+    '<div class="modal-body">'+lede+body+
       '<div class="rec-panel-nav">'+
         '<button type="button" class="btn btn-primary btn-block" data-action="close-record-panel">← BACK</button>'+
       '</div>'+
@@ -52992,7 +53256,28 @@ function hqRow(label, value){
 
 function recordPanelFitness(){
   var chk = scheduledCheckpointDay();
-  var body = renderMeasuredFitness(true)+
+  /* CURRENT FITNESS OPENS THIS PANEL NOW. It was the hero's second
+     instrument -- the range the last measured effort implies for the goal
+     distance -- and the circle that opens this panel states that range, so
+     the panel has to open on it or the athlete taps a number and lands
+     somewhere that does not mention it. It sits above renderMeasuredFitness()
+     for the same reason the circle states the range and not the run: the
+     conclusion, then the measurement it was drawn from. Same function, same
+     mount-free call; patchDerivedStats() already tolerates its mount being
+     absent. */
+  /* ONLY WHERE THERE IS A MEASUREMENT BEHIND IT, and the condition is the
+     whole point. renderCurrentFitnessInstrument() falls back to estimating
+     from the BENCHMARK when nothing has been measured -- correct on a hero
+     that is answering "what does your fitness suggest", and a contradiction
+     in a panel whose own copy, four paragraphs down, says a benchmark is not
+     a measurement. Added unconditionally, it put a clock time at the top of
+     a panel that then explained there was nothing measured to produce one.
+     So the conclusion opens this panel when it is drawn from the measurement
+     below it, and not otherwise; the Fitness circle states an em dash in the
+     same case, so the two never disagree. */
+  var measured = measuredProgression().latest;
+  var body = (measured ? renderCurrentFitnessInstrument() : '')+
+    renderMeasuredFitness(true)+
     '<div class="setup-section-title">What counts as a measurement</div>'+
     '<div class="hub-card tile-card">'+
       hqRow('A completed race', 'any distance')+
@@ -53036,7 +53321,7 @@ function recordPanelFitness(){
       '<button type="button" class="btn btn-ghost btn-block" data-action="go-checkpoint">'+
         ICONS.calendarWeek+' Open week '+chk.week+' in your plan</button>';
   }
-  return recordPanelShell('Measured Fitness', body);
+  return recordPanelShell('Measured Fitness', body, 'fitness');
 }
 
 function recordPanelBenchmark(){
@@ -53068,7 +53353,7 @@ function recordPanelBenchmark(){
        the only primary on the surface. */
     '<button type="button" class="btn btn-ghost btn-block" style="margin-top:14px;" '+
       'data-action="open-recalibrate">'+ICONS.zap+' Update benchmark &amp; re-calibrate</button>';
-  return recordPanelShell('Benchmark', body);
+  return recordPanelShell('Benchmark', body, 'benchmark');
 }
 
 function recordPanelZones(){
@@ -53086,7 +53371,7 @@ function recordPanelZones(){
       escapeHtml(zonePaceSourceSentence(goal, profile))+' '+
       'These are paces to train at. Edit one by hand and that edit stays until you '+
       'reset it.</div>';
-  return recordPanelShell('Training Zone Paces', body);
+  return recordPanelShell('Training Zone Paces', body, 'zones');
 }
 
 /* One sentence, from the same hierarchy getActivePaces() reads. Named rather
@@ -53232,10 +53517,29 @@ function recordPanelProgress(){
     '<div class="field-hint">Runs and distance move at different rates through a block — the '+
       'long runs that carry the distance are weighted towards the back of it. Neither figure is a '+
       'judgement; the coaching reading of your training is above, in Programme Status.</div>';
-  return recordPanelShell('Progress', body);
+  return recordPanelShell('Progress', body, 'progress');
 }
 
+/* THE DECISION SURFACE THE GOAL CIRCLE OPENS. Race Outlook used to sit in
+   the hero, directly under the confidence gauge, as a second instrument
+   answering a question the gauge had not asked -- where the last measured
+   effort sits against the goal. It belongs with the goal, and this is where
+   the goal is now chosen, so the reading and the decision it informs are on
+   one surface instead of two screens apart.
+
+   renderGoalToggle() IS THE CONTROL IT ALWAYS WAS. Same function, same
+   buttons, same data-action="set-goal", same handleSetGoal() underneath.
+   It has moved rooms; it has not been rebuilt. */
+function recordPanelGoal(){
+  var body = renderRaceOutlook()+
+    renderGoalToggle()+
+    '<div class="field-hint" style="margin-top:12px;">Your goal sets the paces every '+
+      'session is prescribed at. Changing it re-calculates them from the next session '+
+      'onward; nothing already logged is altered.</div>';
+  return recordPanelShell('Goal', body, 'goal');
+}
 var RECORD_PANELS = {
+  goal: recordPanelGoal,
   fitness: recordPanelFitness,
   benchmark: recordPanelBenchmark,
   zones: recordPanelZones,
@@ -53330,12 +53634,31 @@ function toneRingColor(tone){
    colour only when no tone is present (so a merely-informational reading
    still gets a stable identity rather than turning grey). Used for the
    separator line, at full/solid strength. */
+/* ---------- THE RING IS AN IDENTITY, THE WORD IS THE VERDICT ----------
+   Recovery, evolution and adaptation used to take their ring colour from
+   toneRingColor(sec.tone), so a reading changed hue as the engine's view of
+   it changed. Five circles on one row that each independently traffic-light
+   themselves is not a reading -- it is five alarms, and the one circle the
+   row is built around (readiness, in the middle) could not be told apart
+   from the two beside it because all three were green on a good day.
+
+   SO COLOUR NOW SAYS WHICH READING THIS IS, and the FACE says what it says:
+   "Fresh", "Watch", "Strained" are the engine's own words and they are what
+   move. Nothing is lost -- the verdict was always written in the face; it
+   simply no longer has a second, redundant channel that was costing the row
+   its legibility. The panel behind each circle still carries the tone in
+   .read-val exactly as it did.
+
+   FIXED, AND PROVABLY SO: this function no longer reads sec.tone at all. */
+var READING_ACCENT = {
+  recovery:   'var(--gold-bright)',
+  evolution:  'var(--z-easy)',
+  readiness:  'var(--cherry)',
+  patterns:   'var(--ink)',
+  adaptation: 'var(--z-mp)'
+};
 function dialAccentBase(sec){
-  if (sec.key === 'readiness') return 'var(--cherry)';
-  if (sec.key === 'recovery') return toneRingColor(sec.tone) || 'var(--c-easy)';
-  if (sec.key === 'evolution') return toneRingColor(sec.tone) || 'var(--gold)';
-  if (sec.key === 'patterns') return 'var(--c-rest)';
-  return toneRingColor(sec.tone) || 'var(--c-rest)';
+  return READING_ACCENT[sec.key] || 'var(--c-rest)';
 }
 /* The face fill -- the SAME identity colour above, but the app's own
    pre-authored -soft translucent token for it rather than a computed mix.
@@ -53343,15 +53666,18 @@ function dialAccentBase(sec){
    wash under readable text -- see the day-badge/coach-state pills that use
    them the same way) and are already correct in both themes, so this reuses
    them rather than deriving a new tint. */
+/* The face wash, in -soft form of the same identity, so the tint and the rim
+   cannot disagree about which reading this is. It follows the rim rather than
+   the tone for the same reason the rim does. */
+var READING_TINT = {
+  recovery:   'var(--c-gold-soft)',
+  evolution:  'var(--c-easy-soft)',
+  readiness:  'var(--cherry-tint)',
+  patterns:   'var(--c-rest-soft)',
+  adaptation: 'var(--z-mp-soft)'
+};
 function dialTint(sec){
-  var toneSoft = sec.tone==='good' ? 'var(--c-easy-soft)' : sec.tone==='watch' ? 'var(--c-gold-soft)'
-    : sec.tone==='bad' ? 'var(--c-tempo-soft)' : null;
-  if (sec.key === 'readiness') return 'var(--cherry-tint)';
-  if (sec.key === 'recovery') return toneSoft || 'var(--c-easy-soft)';
-  if (sec.key === 'evolution') return toneSoft || 'var(--c-gold-soft)';
-  if (sec.key === 'patterns') return 'var(--c-rest-soft)';
-  // adaptation: mirrors dialAccentBase()'s tone mapping, in -soft form.
-  return toneSoft || 'var(--c-rest-soft)';
+  return READING_TINT[sec.key] || 'var(--c-rest-soft)';
 }
 /* A phrase wraps at its spaces (CSS handles that); what actually decides
    whether it fits is its WIDEST word, since that is the one span nothing
@@ -53359,16 +53685,24 @@ function dialTint(sec){
    "established" itself still has to fit on its own line. Sized by that
    longest word, not the phrase's raw length, so multi-word states aren't
    punished for a total length their wrapped lines never actually reach. */
-function dialValueFontSize(text){
+/* The ladder below was written for one circle size. The arc draws three, so
+   the same answer is scaled by the rank it is being drawn at rather than a
+   second ladder being written per size -- the relationship between a long
+   word and the space it has is identical in all three, only the diameter
+   differs. RANK_SCALE is that diameter ratio and nothing more. */
+var DIAL_RANK_SCALE = [1.52, 1.18, 1.0];
+function dialValueFontSize(text, rank){
   var words = (text||'').split(' ').filter(Boolean);
   var longest = words.reduce(function(m,w){ return Math.max(m, w.length); }, (text||'').length);
-  if (longest<=3) return '12px';
-  if (longest<=4) return '11px';
-  if (longest<=5) return '10px';
-  if (longest<=6) return '9px';
-  if (longest<=7) return '8.5px';
-  if (longest<=8) return '8px';
-  return longest<=10 ? '7px' : '6.5px';
+  var px = longest<=3 ? 12
+         : longest<=4 ? 11
+         : longest<=5 ? 10
+         : longest<=6 ? 9
+         : longest<=7 ? 8.5
+         : longest<=8 ? 8
+         : longest<=10 ? 7 : 6.5;
+  var scale = (rank==null) ? 1 : (DIAL_RANK_SCALE[rank] || 1);
+  return (Math.round(px*scale*10)/10)+'px';
 }
 /* The dial's own centre text: readiness gets just its number ("50%", not
    "50% confidence" -- the fuller sentence is the card's synopsis, not the
@@ -53381,15 +53715,46 @@ function dialCenterText(sec){
   }
   return sec.value;
 }
-function readingDialHtml(sec){
+/* THE DIAL IS THE DESTINATION NOW, and that is the whole reason the Coach and
+   Record tabs could go. Until this pass the five circles were decorative
+   <div>s: the only way into a reading was the list on the Coach tab, so the
+   subnav existed to carry the athlete to a tappable copy of what they were
+   already looking at. The circle opens its own panel, so the copy -- and the
+   tab holding it -- is no longer a destination anyone needs.
+
+   SAME PANEL, NOT A NEW ONE. data-action="open-reading" is the exact action
+   readingCard() already used, so the panel, its scroll restoration and both
+   its exits are unchanged code on an unchanged path. */
+/* "4 established" IS A COUNT AND A NOUN, and setting it as one monospace
+   string is what produced "4 establi/shed" in a 76px face. Patterns is the
+   only reading whose value is shaped that way, so it is the only one split:
+   the number takes the value slot every other dial uses, and the word it
+   counts drops underneath it at caption weight. No vocabulary is invented --
+   responsePatternsSummary() still writes the string, and the panel, the card
+   and the aria-label all still read it whole. */
+function dialFaceParts(sec){
   var text = dialCenterText(sec);
-  return '<div class="b-dial" style="--rd-base:'+dialAccentBase(sec)+'; --rd-tint:'+dialTint(sec)+';">'+
-      '<div class="b-medal">'+
-        '<div class="rd-cat">'+escapeHtml(READING_DIAL_LABEL[sec.key])+'</div>'+
-        '<div class="rd-sep"></div>'+
-        '<div class="rd-val"><b style="font-size:'+dialValueFontSize(text)+';">'+escapeHtml(text)+'</b></div>'+
-      '</div>'+
-    '</div>';
+  if (sec.key === 'patterns'){
+    var m = /^(\d+)\s+(.+)$/.exec(text);
+    if (m) return { big:m[1], small:m[2] };
+  }
+  return { big:text, small:'' };
+}
+function readingDialHtml(sec, rank){
+  var face = dialFaceParts(sec);
+  var text = face.big;
+  var r = rank == null ? 1 : rank;
+  return '<button type="button" class="b-dial" data-rank="'+r+'" '+
+      'data-action="open-reading" data-reading="'+sec.key+'" '+
+      'aria-label="'+escapeHtml(sec.title+' — '+sec.value)+'" '+
+      'style="--rd-base:'+dialAccentBase(sec)+'; --rd-tint:'+dialTint(sec)+';">'+
+      '<span class="b-medal">'+
+        '<span class="rd-cat">'+escapeHtml(READING_DIAL_LABEL[sec.key])+'</span>'+
+        '<span class="rd-sep"></span>'+
+        '<span class="rd-val"><b style="font-size:'+dialValueFontSize(text, r)+';">'+escapeHtml(text)+'</b></span>'+
+        (face.small ? '<span class="rd-sub">'+escapeHtml(face.small)+'</span>' : '')+
+      '</span>'+
+    '</button>';
 }
 /* RECTANGULAR, NOT CIRCULAR. Valhalla's own Reading preview is the visual
    executive overview and keeps its dials; Coach is the readable, tappable
@@ -53398,46 +53763,45 @@ function readingDialHtml(sec){
    grammar readingPanel()'s own header already uses to restate this same
    verdict -- so the card and the panel it opens say the same thing the same
    way, not two different visual languages for one fact. */
-function readingCard(sec){
-  return '<button type="button" class="ev-card" data-action="open-reading" data-reading="'+sec.key+'">'+
-      '<div class="hq-row">'+
-        '<span class="hq-row-l">'+escapeHtml(sec.title)+'</span>'+
-        '<span class="read-val'+(sec.tone?' '+sec.tone:'')+'">'+
-          (sec.tone ? '<span class="read-dot"></span>' : '')+escapeHtml(sec.value)+
-        '</span>'+
-        '<span class="rs-chev">'+ICONS.chevronRight+'</span>'+
-      '</div>'+
-      (sec.syn ? '<div class="rs-syn">'+escapeHtml(sec.syn)+'</div>' : '')+
-    '</button>';
+/* ONE ROW, AND THE MIDDLE OF IT MEANS SOMETHING. Three-over-two put
+   readiness -- the one reading the whole screen is built around, and the same
+   number the hero gauge shows -- in the top-left corner of a grid, where
+   nothing marks it out from the four interpretations that support it. In a
+   single row the centre IS the hierarchy: readiness sits in it at the largest
+   size, the two readings closest to the day's decision (evolution, patterns)
+   flank it, and the two slowest-moving (recovery, adaptation) sit outermost
+   and smallest. Size is the only thing that changes -- every face is the same
+   instrument, drawn from the same tokens, saying what its own META table
+   says. */
+/* One heading, two rules, used by the two titles on Valhalla that sit over a
+   centred row of circles. Everywhere else a section title still leads from
+   the left, because everywhere else the thing under it does. */
+function sectionRule(title){
+  return '<div class="sec-rule">'+
+      '<span class="sec-rule-line" aria-hidden="true"></span>'+
+      '<div class="setup-section-title">'+escapeHtml(title)+'</div>'+
+      '<span class="sec-rule-line" aria-hidden="true"></span>'+
+    '</div>';
 }
-function renderReadingSection(){
-  var report = coachAnalyse();
-  if (!report) return '';
-  var dec = report.decision;
-  /* The state verdict the "Athlete State" card used to carry in its header.
-     It is the heading's own chip now -- the card it belonged to is gone, and
-     the verdict is about all five readings rather than about any one. */
-  var pill = dec
-    ? '<span class="coach-state '+COACH_DECISION_META[dec.state].cls+'">'+
-        '<span class="coach-state-dot"></span>'+COACH_DECISION_META[dec.state].label+'</span>'
-    : '';
-  return '<div class="programme-status-head"><div class="setup-section-title">The Reading</div>'+pill+'</div>'+
-    '<div class="rec-lede">What Valhalla makes of your training. Tap any line for the evidence.</div>'+
-    readingSections(report).map(readingCard).join('');
-}
+var READING_ARC = [
+  { key:'recovery',   rank:2 },
+  { key:'evolution',  rank:1 },
+  { key:'readiness',  rank:0 },
+  { key:'patterns',   rank:1 },
+  { key:'adaptation', rank:2 }
+];
 function renderValhallaReadingPreview(){
   var report = coachAnalyse();
   if (!report) return '';
   var byKey = {};
   readingSections(report).forEach(function(s){ byKey[s.key] = s; });
-  var order = ['readiness','recovery','evolution','patterns','adaptation'];
-  var cols = order.map(function(k){
-    return '<div class="b-dial-col">'+readingDialHtml(byKey[k])+'</div>';
-  });
-  return '<div class="setup-section-title">The Reading</div>'+
+  var dials = READING_ARC.map(function(d){
+    return byKey[d.key] ? readingDialHtml(byKey[d.key], d.rank) : '';
+  }).join('');
+  return sectionRule('The Reading')+
     '<div class="b-dials">'+
-      '<div class="b-dials-row">'+cols.slice(0,3).join('')+'</div>'+
-      '<div class="b-dials-row">'+cols.slice(3).join('')+'</div>'+
+      '<div class="b-dials-arc">'+dials+'</div>'+
+      '<div class="b-dials-hint">Tap any circle for the evidence '+ICONS.chevronRight+'</div>'+
     '</div>';
 }
 function readingPanel(key){
@@ -53806,67 +54170,43 @@ function handleGoToCheckpoint(){
    above it) -- never persisted, and reset to the overview every time the
    athlete arrives at Valhalla from a different tab, so opening it always
    answers "where am I" first rather than resuming wherever they left off. */
-var planhqTab = 'valhalla';
-function handleSetPlanhqTab(tab){
-  if (planhqTab === tab) return;
-  planhqTab = tab;
-  renderApp();
-}
-/* Two tabs, not three. The bottom nav already reads VALHALLA -- repeating it
-   as the first pill of its own subnav said "Valhalla > Valhalla", which is
-   not a real destination, it is where the athlete already is. Coach and
-   Record are the only two places this subnav actually GOES; the overview is
-   what re-tapping the already-active VALHALLA bottom-nav tab returns to
-   (see handleSetView()), the same "tap home again" pattern most bottom-nav
-   shells already use, so no third pill is needed to get back to it. Neither
-   pill is marked active while on the overview itself -- there is no third
-   button standing in for it. */
-function renderPlanHQSubNav(){
-  var tabs = [
-    { key:'coach', label:'Coach' },
-    { key:'record', label:'Record' }
-  ];
-  return '<div class="planhq-subnav" role="tablist" aria-label="Valhalla sections">'+
-    tabs.map(function(t){
-      return '<button type="button" role="tab" aria-selected="'+(planhqTab===t.key?'true':'false')+'" '+
-        'class="planhq-subnav-btn'+(planhqTab===t.key?' active':'')+'" '+
-        'data-action="set-planhq-tab" data-tab="'+t.key+'">'+t.label+'</button>';
-    }).join('')+
-  '</div>';
-}
+/* ---------- THE SUBNAV IS GONE, AND THE CIRCLES ARE WHY ----------
+   COACH AND RECORD EXISTED TO CARRY A TAP THE OVERVIEW COULD NOT TAKE.
+   The five Reading circles and the Record plates on this screen were
+   decorative markup -- no data-action, no handler, nothing to press. An
+   athlete looking straight at "Recovery / Fresh" had to go to a second
+   screen and find the same verdict written out as a list row before they
+   could open the evidence behind it. The subnav was the lift between a
+   summary and a copy of the summary.
+
+   The circles are buttons now, and every destination the two tabs reached is
+   reached by pressing the thing that states it. So the tabs are not being
+   hidden or merged: there is nothing left for them to go to.
+
+   WHAT MOVED, EXACTLY, so this can be checked rather than taken on trust:
+     The Reading list    -> the five circles (same open-reading panels)
+     The Record list     -> the four status circles (same open-record panels)
+     Active Goal         -> the Goal circle's panel (recordPanelGoal)
+     Checkpoint banner   -> the overview, where it always rendered on Record
+     The coach's cards   -> the overview, below the circles
+   And one card is removed rather than moved: Athlete Status (Load /
+   Recovery / Trend). Its load figure is in the hero band, its recovery is a
+   circle with a panel, its trend is a row in the Readiness panel, and its
+   status sentence is now Valhalla's Call at the top of the screen -- so it
+   had become the same three readings a fourth time. */
 function renderPlanHQView(){
   /* NOTHING BELOW IS REBUILT. Every section is the exact render function this
-     screen already called before the split -- renderProgrammeStatus(),
-     renderCoachPanel(), renderReadingSection(), renderRecordSection() and the
-     rest are untouched -- just grouped by the question each answers (where am
-     I / what does it mean / show me the evidence) instead of stacked in one
-     long scroll. */
-  var body;
-  if (planhqTab === 'coach'){
-    body = renderCoachPanel()+renderReadingSection();
-  } else if (planhqTab === 'record'){
-    body = renderCheckpointBanner()+renderGoalToggle()+renderRecordSection();
-  } else {
-    /* The approved Valhalla hero, then the same two condensed previews the
-       concept shows on the front screen -- circular dials for what Valhalla
-       is reading, chamfered plates for what it is built on. Both are quiet
-       summaries of the real Coach/Record data; the full, tappable versions
-       live on their own tabs. */
-    /* New Block and Plan Settings used to sit here as a management-tile row
-       directly under The Record preview, reading as part of Record even
-       though they are programme actions, not athlete evidence. Plan Settings
-       already has a real home in Settings' Training & Zones card; New Block
-       gets one in Backup & Reset, next to Reset Plan -- the other
-       plan-lifecycle action, at the same restrained weight. Nothing here
-       lost a destination, only a duplicate one on the daily page. */
-    body = renderProgrammeStatus()+renderValhallaReadingPreview()+renderValhallaRecordPreview()+
-      renderBlockTransitionCard();
-  }
-  /* The Valhalla/Coach/Record subnav itself is no longer rendered here -- it
-     lives in the persistent .bn-stack above the main bottom nav (see
-     renderBottomNavStack()), not in this scrolling content. */
+     screen already called -- renderProgrammeStatus(), renderCoachPanel(),
+     renderCheckpointBanner(), renderBlockTransitionCard() and the two
+     previews -- now in one scroll, in the order the athlete reads them:
+     where am I, what is the call, what does it mean, what is it built on. */
   return '<div class="view-heading font-head">Valhalla</div>'+
-    body;
+    renderProgrammeStatus()+
+    renderValhallaReadingPreview()+
+    renderValhallaRecordPreview()+
+    renderCheckpointBanner()+
+    renderCoachPanel()+
+    renderBlockTransitionCard();
 }
 // Notification permission can be revoked from outside the app (browser/OS
 // settings) at any time, so the toggle always reflects the live
@@ -54216,12 +54556,13 @@ function renderBottomNav(){
 // on Valhalla) stacked directly above the permanent bottom nav, both fixed
 // together so the subnav never scrolls away and is never duplicated at the
 // top of the view.
+/* The stack kept a Valhalla-only row above the bottom nav for the
+   Coach/Record pills. Valhalla is one screen now, so there is no second row
+   and the wrapper is what it always was underneath: the bottom nav. It is
+   kept rather than inlined because .bn-stack is the element the safe-area
+   inset and the nav's own backdrop are attached to. */
 function renderBottomNavStack(){
-  var view = state.view || 'today';
-  return '<div class="bn-stack">'+
-    (view==='planhq' ? renderPlanHQSubNav() : '')+
-    renderBottomNav()+
-  '</div>';
+  return '<div class="bn-stack">'+renderBottomNav()+'</div>';
 }
 function handleSetView(view){
   /* BEFORE THE EARLY RETURN BELOW, and that position is the fix rather than an
@@ -54233,17 +54574,12 @@ function handleSetView(view){
      skipped. Same defect as the cold start, different doorway. */
   if (view==='today') voiceProbeOnce();
   if (state.view===view){
-    /* Re-tapping the already-active VALHALLA bottom-nav tab from inside
-       Coach or Record returns to the overview -- the ordinary "tap home
-       again" pattern, and now the ONLY way back, since the subnav no longer
-       carries a redundant third "Valhalla" pill beside Coach/Record. Every
-       other tab keeps its previous no-op behaviour untouched. */
-    if (view==='planhq' && planhqTab!=='valhalla'){ planhqTab = 'valhalla'; renderApp(); }
+    /* Re-tapping VALHALLA used to return from Coach or Record to the
+       overview. There is no Coach or Record to return from, so this is a
+       no-op again, exactly like every other tab. */
     return;
   }
   state.view = view;
-  // Valhalla always opens on its own overview -- see renderPlanHQView().
-  if (view==='planhq') planhqTab = 'valhalla';
   /* Strava availability is learned lazily, when the athlete actually navigates
      to the screen that shows it. A signed-in athlete has normally learned it
      already from the status call at open; this covers the signed-out case,
@@ -54584,7 +54920,6 @@ function renderApp(){
      APP_STATES.nav. Tapping a tab behind a greeting would be navigating out
      of a screen the athlete has not finished arriving at. */
   var navAllowed = appStateAllowsNav() && !shouldShowProgrammeEntry(resolveAppState());
-  app.classList.toggle('has-subnav', navAllowed && (state.view||'today')==='planhq');
   /* The charcoal ground belongs to the Today design. Toggled per view so the
      rest of the product keeps --bg exactly as it is -- this pass is Today
      only, and the global palette is not being forked. */
@@ -54936,7 +55271,6 @@ document.addEventListener('click', function(e){
     case 'print-plan': handlePrintPlan(); break;
     case 'reset-pace-overrides': handleResetPaceOverrides(); break;
     case 'set-view': handleSetView(target.getAttribute('data-view')); break;
-    case 'set-planhq-tab': handleSetPlanhqTab(target.getAttribute('data-tab')); break;
     case 'cloud-sign-in': handleCloudSignIn(); break;
     case 'cloud-sign-out': cloudSignOut(); break;
     case 'cloud-delete-account': handleCloudDeleteAccount(); break;

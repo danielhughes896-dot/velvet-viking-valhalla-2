@@ -216,13 +216,24 @@ test('4. an edited session renders identically -- and coherently -- in Today, Th
 
   const today = a.renderTodayView();
   const week = a.renderWeekView();
-  const full = a.renderFullPlanView();
-  // renderDayCard() is a pure function of the day object -- if all three
-  // views embed the exact same string it produced, they cannot have each
-  // independently re-derived (and possibly disagreed on) its coherence.
+  /* FULL PLAN LISTS; ITS SESSION SCREEN SHOWS. The week accordion rendered
+     seven day cards inline and so contained this string directly; it lists
+     rows now and the card is one tap behind. The invariant is unchanged and
+     still the point -- renderDayCard() is a pure function of the day, so a
+     surface that embeds the exact string it produced cannot have re-derived
+     the session's coherence for itself -- and it is asserted on the Full
+     Plan surface that actually shows a session. */
+  /* The list is taken BEFORE the session is opened: renderFullPlanView()
+     is the whole Full Plan destination, and once planSessionOpen is set it
+     returns the session screen rather than the list. */
+  const list = a.renderFullPlanView();
+  a.handlePlanOpenSession(dd.id);
+  const full = a.renderPlanSessionView();
   assert.ok(today.indexOf(canonical) !== -1, 'Today must render the same card');
   assert.ok(week.indexOf(canonical) !== -1, 'This Week must render the same card');
-  assert.ok(full.indexOf(canonical) !== -1, 'Full Plan must render the same card');
+  assert.ok(full.indexOf(canonical) !== -1, 'Full Plan\u2019s session screen must render the same card');
+  assert.ok(list.indexOf('data-action="plan-open-session" data-day="' + dd.id + '"') !== -1,
+    'Full Plan no longer lists the session at all');
   // NOT a claim that "aerobic base" is absent from the whole page -- the
   // fixture's OTHER, untouched easy days correctly still say it. The
   // substring checks above are the real assertion: this specific day's

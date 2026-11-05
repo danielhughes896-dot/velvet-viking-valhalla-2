@@ -218,8 +218,11 @@ test('every other day of race week is still listed inside the week', () => {
   const a = racingBlock();
   const race = raceDay(a);
   const html = a.renderFullPlanView();
+  /* The week lists its sessions as rows now; the race is still excluded from
+     that list and emitted separately as its own event. Same claim, read off
+     the element the week actually renders. */
   a.state.days.filter(d => d.week === race.week && d.type !== 'race').forEach(d => {
-    assert.ok(html.indexOf('id="day-' + d.id + '"') > -1,
+    assert.ok(html.indexOf('data-action="plan-open-session" data-day="' + d.id + '"') > -1,
       'day ' + d.date + ' (' + d.type + ') disappeared from race week');
   });
 });
@@ -384,8 +387,26 @@ test('the live stats patch writes the training split, not the all-in total', () 
 test('the week accordion filters the race out exactly once, in one place', () => {
   const acc = /function renderWeekAccordion\([\s\S]*?\n\}/.exec(CODE);
   assert.ok(acc, 'renderWeekAccordion is gone');
-  assert.match(acc[0], /wdays\.filter\(function\(dd\)\{ return dd\.type!=='race'; \}\)\.map\(renderDayCard\)/,
-    'the week body no longer excludes the race from its day cards');
+  /* THE FILTER MOVED WITH THE LIST, AND IS STILL IN EXACTLY ONE PLACE -- a
+     stronger position than before. The accordion used to filter the race out
+     of its own map, and the week SCREEN filtered it out of its own rows: two
+     copies of one rule. Both list through planWeekRowsHtml() now, so the
+     exclusion is written once and neither surface can forget it. */
+  assert.match(acc[0], /planWeekRowsHtml\(weekNum\)/,
+    'the week body no longer lists through the shared row renderer');
+  const rows = /function planWeekRowsHtml\([\s\S]*?\n\}/.exec(CODE);
+  assert.ok(rows, 'planWeekRowsHtml is gone');
+  /* And the rows do not filter for themselves either: they ask
+     weekSessionDays(), which is where "the race is not one of the week's
+     sessions" is defined once for This Week and Full Plan alike. */
+  assert.match(rows[0], /weekSessionDays\(weekNum\)/,
+    'the row renderer filters the week for itself instead of asking weekSessionDays()');
+  const defn = /function weekSessionDays\([\s\S]*?\n\}/.exec(CODE);
+  assert.ok(defn, 'weekSessionDays is gone');
+  assert.match(defn[0], /dd\.type!=='race'/,
+    'the week body no longer excludes the race from its sessions');
+  assert.equal((CODE.match(/dd\.week===weekNum && dd\.type!=='race'/g) || []).length, 1,
+    'the race exclusion is written in more than one place again');
   assert.match(acc[0], /kmToDisplay\(vol\.doneTraining\)\+'\/'\+kmToDisplay\(vol\.training\)/,
     'the week header no longer prints the training split');
 });

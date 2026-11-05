@@ -45,70 +45,65 @@ function planHQ(opts) {
   const a = loadApp({ pinnedDate: PINNED });
   buildPlan(a, Object.assign({ distanceKey: 'half', volume: 45, weeks: 12 }, opts || {}));
   a.state.view = 'planhq';
-  // This file is about THE RECORD specifically, and Valhalla now opens on a
-  // different tab by default -- every test below wants the Record tab unless
-  // it says otherwise.
-  a.planhqTab = 'record';
   return a;
 }
-// THE READING's cards share the .ev-card shell deliberately -- one component
-// doing the other job -- so a Record card is identified by the action it
-// fires, not by its class.
-/* TWO SHAPES NOW, ONE FAMILY. A fact with evidence behind it is a
-   headline-fact card; a fact with none is an evidence-acquisition card
-   (class "ev-card ev-card-empty"). Both are Record cards and both open the
-   same panel, so the helper matches the family rather than the exact class --
-   which is the same reasoning that already identifies them by their action. */
+/* A RECORD FACT IS A CIRCLE NOW, AND ITS SENTENCE IS IN THE PANEL BEHIND IT.
+   The Record tab's list of headline-fact cards is gone with the tab: the
+   circles on Valhalla are the destinations, and each one opens the panel
+   that card used to open. A circle has no room for a synopsis, so the fact's
+   own one-line synopsis opens the panel instead -- which means a test that
+   wants to read both the value and the sentence has to look at both, and
+   `cardFor` returns them joined so the assertions below can stay as they
+   are. The Reading's circles share the .b-dial shell deliberately -- one
+   component doing the other job -- so a Record circle is still identified by
+   the action it fires, not by its class. */
 function cards(html) {
-  return (html.match(/<button type="button" class="ev-card[^"]*"[\s\S]*?<\/button>/g) || [])
+  return (html.match(/<button type="button" class="b-dial[^"]*"[\s\S]*?<\/button>/g) || [])
     .filter(c => c.indexOf('data-action="open-record"') !== -1);
 }
-const isEmptyCard = c => /class="ev-card ev-card-empty"/.test(c);
-function cardFor(html, subject) {
-  const found = cards(html).filter(c => c.indexOf('>' + subject + '<') !== -1);
-  assert.equal(found.length, 1, 'expected exactly one "' + subject + '" card, found ' + found.length);
-  return found[0];
+const isEmptyCard = c => /class="rec-none"/.test(c);
+function cardFor(html, subject, app) {
+  const found = cards(html).filter(c => c.indexOf('aria-label="' + subject + ' \u2014') !== -1);
+  assert.equal(found.length, 1, 'expected exactly one "' + subject + '" circle, found ' + found.length);
+  const key = (found[0].match(/data-record="([a-z]+)"/) || [])[1];
+  return found[0] + (app ? app.hqPanelHtml(key) : '');
 }
 
 // ===========================================================================
 // 1. THE FOUR CARDS
 // ===========================================================================
-test('RECORD: Plan HQ carries exactly three Record cards, each its own tappable card', () => {
+test('RECORD: Valhalla carries exactly four Record facts, each its own tappable circle', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
   const found = cards(html);
-  // Three now, not four -- Training paces moved to Settings' Training &
-  // Zones card (requirement 6): it is plan configuration/reference, not a
-  // historical athlete record, so The Record keeps only the three that are.
-  assert.equal(found.length, 3, 'expected three Record cards, found ' + found.length);
+  /* FOUR NOW. Training paces left for Settings' Training & Zones card (it is
+     plan configuration, not a historical record), and Goal arrived when the
+     Record tab that had been carrying the A/B/C chooser was retired. */
+  assert.equal(found.length, 4, 'expected four Record circles, found ' + found.length);
 
-  const subjects = found.map(c =>
-    (c.match(/<\/b><span>([^<]+)<\/span>/) ||
-     c.match(/class="rec-empty-subject">([^<]+)</) || [])[1]);
-  assert.equal(subjects.join(' | '),
-    'Measured fitness | Benchmark | Progress');
+  const subjects = found.map(c => (c.match(/aria-label="([^\u2014]+) \u2014/) || [])[1].trim());
+  assert.equal(subjects.join(' | '), 'Goal | Measured fitness | Benchmark | Progress');
 
   found.forEach(c => {
-    assert.match(c, /data-action="open-record"/, 'a Record card does not open anything');
-    assert.match(c, /data-record="(fitness|benchmark|progress)"/);
-    assert.match(c, isEmptyCard(c) ? /class="rec-empty"/ : /class="rec-headline"/,
-      'a Record card states neither a value nor an acquisition state');
-    assert.match(c, /class="rec-context"/, 'a Record card carries no synopsis');
+    assert.match(c, /data-action="open-record"/, 'a Record circle does not open anything');
+    assert.match(c, /data-record="(goal|fitness|benchmark|progress)"/);
+    assert.match(c, /class="rd-val"/, 'a Record circle states no value at all');
+    // and the sentence that used to sit under the card opens with the panel
+    const key = (c.match(/data-record="([a-z]+)"/) || [])[1];
+    const fact = a.recordFactByKey(key);
+    assert.ok(fact.synopsis, key + ' has no synopsis');
+    assert.ok(a.hqPanelHtml(key).indexOf(a.escapeHtml(fact.synopsis)) !== -1,
+      key + "'s synopsis is computed and shown to nobody");
   });
 });
 
-test('RECORD: the three are separate cards, not one combined container', () => {
+test('RECORD: the four are separate circles, not one combined container', () => {
   const a = planHQ();
   const html = a.renderPlanHQView();
-  // Three sibling elements, none nested inside another.
-  assert.equal((html.match(/data-action="open-record"/g) || []).length, 3);
-  found_not_nested: {
-    const region = html.slice(html.indexOf('data-action="open-record"'));
-    assert.doesNotMatch(region.slice(0, region.indexOf('</button>')),
-      /class="ev-card[^"]*"/, 'a Record card is nested inside another Record card');
-    break found_not_nested;
-  }
-  // And no list/table container wrapping them.
+  assert.equal((html.match(/data-action="open-record"/g) || []).length, 4);
+  const region = html.slice(html.indexOf('data-action="open-record"'));
+  assert.doesNotMatch(region.slice(0, region.indexOf('</button>')),
+    /class="b-dial[^"]*"/, 'a Record circle is nested inside another Record circle');
   assert.doesNotMatch(html, /<table/, 'The Record went back to a table');
 });
 
@@ -119,8 +114,7 @@ test('RECORD: a card value is a fact, never a verdict', () => {
     /* An acquisition state is not a value, so it has no headline to police --
        but it must not be a verdict either, and the same rules apply to its
        own row. */
-    const anchor = isEmptyCard(c) ? 'class="rec-empty"' : 'class="rec-headline"';
-    const headline = c.slice(c.indexOf(anchor), c.indexOf('</div>'));
+    const headline = (c.match(/<span class="rd-val">[\s\S]*?<\/span>/) || [''])[0];
     // A conclusion elsewhere in Plan HQ carries a status hue, a tone-coloured
     // dial ring, and often a dot. A Record value carries none of that -- it
     // is a headline number, not a verdict.
@@ -130,8 +124,8 @@ test('RECORD: a card value is a fact, never a verdict', () => {
     assert.doesNotMatch(headline, /text-transform/, 'a Record value was shouted');
   });
   // The rule is in the stylesheet too, not only in this render.
-  assert.match(CODE, /\.rec-headline b\{[^}]*color\s*:\s*var\(--ink\)/,
-    '.rec-headline no longer takes the neutral ink');
+  assert.match(CODE, /\.rd-val b\{[^}]*color\s*:\s*var\(--ink\)/,
+    'the Record value slot no longer takes the neutral ink');
 });
 
 // ===========================================================================
@@ -142,11 +136,11 @@ test('RECORD: every value is read from live state, not written into the markup',
 
   // BENCHMARK — change it, the card changes with it.
   a.state.setup.benchmark = { distanceKey: '5k', timeSec: a.clockToSec('0:19:30') };
-  assert.match(cardFor(a.renderPlanHQView(), 'Benchmark'), /19:30/);
+  assert.match(cardFor(a.renderPlanHQView(), 'Benchmark', a), /19:30/);
   a.state.setup.benchmark = { distanceKey: '10k', timeSec: a.clockToSec('0:41:05') };
-  assert.match(cardFor(a.renderPlanHQView(), 'Benchmark'), /41:05/);
+  assert.match(cardFor(a.renderPlanHQView(), 'Benchmark', a), /41:05/);
   a.state.setup.benchmark = null;
-  const none = cardFor(a.renderPlanHQView(), 'Benchmark');
+  const none = cardFor(a.renderPlanHQView(), 'Benchmark', a);
   assert.match(none, /Not set/);
   /* QUIETED BY STRUCTURE NOW, NOT BY A CLASS. This used to look for `rec-none`,
      which dimmed the colour of a value still sitting in the 20px monospace
@@ -160,11 +154,11 @@ test('RECORD: every value is read from live state, not written into the markup',
     'an absent benchmark was given a status colour');
 
   // PROGRESS — log sessions, the percentage moves.
-  const before = cardFor(a.renderPlanHQView(), 'Progress');
+  const before = cardFor(a.renderPlanHQView(), 'Progress', a);
   assert.match(before, /\b0%/, 'nothing is logged yet, so progress is zero');
   const runnable = a.state.days.filter(d => d.type !== 'rest');
   runnable.slice(0, Math.ceil(runnable.length / 4)).forEach(d => { d.completed = true; });
-  const after = cardFor(a.renderPlanHQView(), 'Progress');
+  const after = cardFor(a.renderPlanHQView(), 'Progress', a);
   assert.notEqual(after, before, 'logging a quarter of the block moved nothing');
   assert.match(after, /\d+ of \d+ runs/);
   assert.match(after, /week \d+ of \d+/);
@@ -209,7 +203,7 @@ test('RECORD: the zone-paces fact counts the zones and names the hand-edited one
 
 test('RECORD: measured fitness reports a measurement when there is one, and an absence when there is not', () => {
   const a = planHQ();
-  const empty = cardFor(a.renderPlanHQView(), 'Measured fitness');
+  const empty = cardFor(a.renderPlanHQView(), 'Measured fitness', a);
   /* AN ABSENCE IS STATED, NOT VALUED. It used to render "Nothing measured"
      into the same 20px monospace headline slot as "10K \u00b7 45:00", which is
      the typography of data here -- so the words read as the metric's value.
@@ -230,7 +224,7 @@ test('RECORD: measured fitness reports a measurement when there is one, and an a
   chk.completed = true;
   chk.actual = { km: chk.km, pace: '4:05', hr: null, rpe: null, notes: '' };
   a.recordMeasuredPerformance(chk);
-  const filled = cardFor(a.renderPlanHQView(), 'Measured fitness');
+  const filled = cardFor(a.renderPlanHQView(), 'Measured fitness', a);
   assert.match(filled, /Checkpoint,/, 'the source of the measurement is not stated');
   assert.match(filled, /Training runs do not move it/);
   assert.doesNotMatch(filled, /Not established yet/);
@@ -526,18 +520,22 @@ test('HQ: the Valhalla hero carries the gauge verbatim — a full-circle ring, a
 
 test('HQ: the coach panel, the checkpoint banner and Active Goal are all still reachable', () => {
   const a = planHQ();
-  // Re-homed, not lost: New Block/Plan Settings now live in Settings, the
-  // coach panel on Coach, Active Goal and the checkpoint banner on Record
-  // alongside THE RECORD itself.
+  /* RE-HOMED TWICE NOW, AND STILL NOT LOST -- which is the only claim this
+     test has ever made. New Block and Plan Settings went to Settings. The
+     coach panel and the checkpoint banner were on the Coach and Record tabs
+     and are now on the one Valhalla scroll. Active Goal was the Record tab's
+     and is now the panel the Goal circle opens, which is the move that made
+     retiring the tab safe rather than lossy. */
   assert.match(a.renderSettingsHubView(), /data-action="open-setup"/);
 
-  a.planhqTab = 'coach';
-  assert.ok(a.renderPlanHQView().indexOf(a.renderCoachPanel()) !== -1, 'the coach panel left Valhalla');
+  const view = a.renderPlanHQView();
+  assert.ok(view.indexOf(a.renderCoachPanel()) !== -1, 'the coach panel left Valhalla');
+  assert.ok(view.indexOf(a.renderCheckpointBanner()) !== -1, 'the checkpoint banner left Valhalla');
+  assert.match(view, /<div class="setup-section-title">The Athlete Status<\/div>/);
 
-  a.planhqTab = 'record';
-  const record = a.renderPlanHQView();
-  assert.ok(record.indexOf(a.renderGoalToggle()) !== -1, 'Active Goal left the Record tab');
-  assert.match(record, /<div class="setup-section-title">The Record<\/div>/);
+  assert.ok(a.recordPanelGoal().indexOf(a.renderGoalToggle()) !== -1,
+    'Active Goal is in no panel either — the decision is unreachable');
+  assert.match(view, /data-record="goal"/, 'nothing on Valhalla opens the goal panel');
 });
 
 test('HQ: an athlete with no plan is never asked to render The Record', () => {

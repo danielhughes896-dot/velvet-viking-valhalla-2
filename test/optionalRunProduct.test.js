@@ -132,11 +132,20 @@ test('2. it does NOT also present itself as a Rest Day, on any surface', () => {
   assert.doesNotMatch(card, /Full rest/i);
   assert.doesNotMatch(card, /day-badge type-rest/);
 
+  /* TWO SHAPES, ONE QUESTION. Today and This Week render the day as a card
+     (id="day-..."); Full Plan's week lists it as a row (data-day="..."), and
+     the row is just as much an athlete-facing naming of the day as the card
+     is. The region is sliced from whichever marker that surface uses, and
+     both must avoid calling this day a rest day. */
   const dayRegion = html => {
-    const i = html.indexOf('id="day-' + dd.id + '"');
+    const marks = ['id="day-' + dd.id + '"', 'data-day="' + dd.id + '"'];
+    let i = -1, mark = '';
+    marks.forEach(m => { const k = html.indexOf(m); if (k >= 0 && (i < 0 || k < i)) { i = k; mark = m; } });
     assert.ok(i >= 0, 'the day must appear');
-    const j = html.indexOf('id="day-', i + 10);
-    return html.slice(i, j > 0 ? j : html.length);
+    const nextCard = html.indexOf('id="day-', i + mark.length);
+    const nextRow = html.indexOf('data-day="', i + mark.length);
+    const ends = [nextCard, nextRow].filter(x => x > 0);
+    return html.slice(i, ends.length ? Math.min.apply(null, ends) : html.length);
   };
   [a.renderTodayView(), a.renderWeekView(), a.renderWeekAccordion(dd.week, true)]
     .forEach(h => {

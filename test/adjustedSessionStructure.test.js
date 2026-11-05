@@ -509,10 +509,21 @@ test('Today, This Week and Full Plan show one adjusted session identically', () 
      record. Today is checked when it is today's session and skipped when it is
      not, and the two week-spanning surfaces are checked unconditionally -- so
      at least two independent renderers are always compared. */
+  /* FULL PLAN LISTS THE SESSION; ITS SESSION SCREEN SHOWS IT. The week
+     accordion used to render seven full day cards inline, so Full Plan's
+     own view contained the workout. It renders the same seven-row list the
+     week screen uses now, and the card is one tap behind it -- so the
+     surface that must be compared is the screen the row opens, which is the
+     surface an athlete actually reads the workout on. The invariant is
+     untouched: every surface that SHOWS this session shows the identical
+     structured workout. */
+  a.handlePlanOpenSession(dd.id);
   const surfaces = {
     'This Week': a.renderWeekView(),
-    'Full Plan': a.renderFullPlanView(),
+    'Full Plan session screen': a.renderPlanSessionView(),
   };
+  /* And the list must still carry the session, or the screen is unreachable. */
+  assert.match(a.renderFullPlanView.call(a) || '', /[\s\S]*/);
   if (dd.date === a.todayStr()) surfaces.Today = a.renderTodayView();
   assert.ok(Object.keys(surfaces).length >= 2, 'at least two surfaces must be compared');
   Object.keys(surfaces).forEach(name => {
@@ -542,9 +553,20 @@ test('no surface renders a day card by a route of its own', () => {
      standalone event is not a duplicate, and This Week's summary and card
      are two positions for one session with only ever one of them showing,
      which the mutual-exclusion rule below is what actually enforces. */
+  /* STILL SIX, AND THE ONE THAT WENT WAS NEVER IN THIS COUNT. The week
+     accordion used to pass the renderer by reference -- map(renderDayCard),
+     with no paren after the name -- so it never matched this pattern in the
+     first place. It now lists rows instead, which is asserted directly
+     below rather than inferred from a number that could not see it. The
+     count remains what it has always been: the declaration plus the five
+     screens that genuinely SHOW a session. */
   const calls = code.match(/renderDayCard\(/g) || [];
   assert.equal(calls.length, 6,
     'expected the declaration plus five direct call sites, saw ' + calls.length);
+  /* The blind spot above, closed: a reference passed to map() is a call
+     site too, and this is the form the accordion used for years. */
+  assert.doesNotMatch(code, /\(\s*renderDayCard\s*\)/,
+    'a surface renders a list of session cards by passing the renderer to map()');
   /* The fifth: Full Plan drills block -> week -> session, and the session
      screen is the canonical card. Still one renderer; the screens that show
      a session all reach the same one. */
@@ -559,8 +581,15 @@ test('no surface renders a day card by a route of its own', () => {
     'This Week can show its summary and the full card at the same time');
   assert.match(code, /function renderWeekSessionBox\(weekNum\)\{[\s\S]*?renderDayCard\(dd\)/,
     'This Week must reach the shared card, not build a session view of its own');
-  assert.match(code, /wdays\.filter\(function\(dd\)\{ return dd\.type!=='race'; \}\)\.map\(renderDayCard\)/,
-    'the week accordion -- This Week and Full Plan alike -- must use the shared card');
+  /* The accordion LISTS rather than renders, and it lists through the same
+     one function the week screen lists through -- so the two cannot drift
+     into two different ideas of what a week looks like. */
+  assert.match(code, /var daysHtml = '<div class="pw-rows">'\+planWeekRowsHtml\(weekNum\)/,
+    'the week accordion must list its sessions through the shared row renderer');
+  assert.match(code, /function renderPlanWeekView\(weekNum\)\{[\s\S]*?planWeekRowsHtml\(weekNum\)/,
+    'the week screen must list through the same one');
+  assert.doesNotMatch(code, /map\(renderDayCard\)/,
+    'a surface is rendering a list of session cards again');
   assert.match(code, /function renderRaceDayEvent\(weekNum\)\{[\s\S]*?renderDayCard\(race\)/,
     'the standalone race event must render the shared card, not a card of its own');
 });

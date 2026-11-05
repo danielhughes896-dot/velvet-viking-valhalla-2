@@ -83,11 +83,20 @@ function rebuild(a, opts){
 
 /* Every day the Full Plan actually puts on screen, read out of the real
    markup rather than by re-implementing the loop. */
+/* Full Plan lists its sessions as rows now rather than rendering a card for
+   each, so a day is "rendered in Full Plan" when its row is there. The
+   question this file asks -- is every completed session still placed in its
+   own week after a rebuild -- is unchanged; only the element that answers it
+   is. The race is deliberately absent from the week body and is emitted
+   separately by renderRaceDayEvent(), which still uses a card. */
 function daysRenderedInFullPlan(a){
   a.state.view = 'full';
   const html = a.renderWeeksList(true);
-  return (html.match(/id="day-([0-9-]+)"/g) || [])
+  const rows = (html.match(/data-action="plan-open-session" data-day="([0-9-]+)"/g) || [])
+    .map(s => s.replace(/^.*data-day="/, '').replace(/"$/, ''));
+  const cards = (html.match(/id="day-([0-9-]+)"/g) || [])
     .map(s => s.replace(/^id="day-/, '').replace(/"$/, ''));
+  return rows.concat(cards);
 }
 function row(a, id){ return a.state.days.filter(d => d.id === id)[0]; }
 

@@ -248,7 +248,6 @@ test('fills that carry state or semantics were not flattened', () => {
     ['.zbar', '--bg-4'],
     ['.outlook-track', '--bg-3'],
     ['.switch-track::before', '--bg-2'],
-    ['.ev-card:hover', '--bg-3'],
     ['.plan-summary-bar:hover', '--bg-3'],
     ['.goal-opt', '--bg-2'],
   ];
@@ -258,4 +257,19 @@ test('fills that carry state or semantics were not flattened', () => {
     assert.match(RUNTIME, re,
       sel + ' no longer paints with ' + tok + ' -- a state fill was flattened');
   });
+  /* .ev-card EXPRESSES THE SAME STATE IN A DIFFERENT PROPERTY, and the law
+     is about the state surviving rather than about which property carries
+     it. The card's background is now the gradient RIM -- the border is
+     painted into the border box and the face into the padding box, which is
+     how a gradient border is drawn at all -- so a hover fill would have to
+     overwrite the rim to exist. The feedback moved to illumination, which is
+     the language the circles and the bottom nav already press in. What must
+     not happen is the state vanishing, so that is what is asserted. */
+  ['hover', 'active'].forEach(state => {
+    const re = new RegExp('\\.ev-card:' + state + '\\{[^}]*box-shadow:[^}]*var\\(--gold\\)');
+    assert.match(RUNTIME, re,
+      '.ev-card:' + state + ' gives no feedback at all -- the state was deleted, not moved');
+  });
+  assert.match(RUNTIME, /\.ev-card\{[^}]*var\(--t-rim-grad\) border-box/,
+    '.ev-card no longer carries the rim its hover fill was given up for');
 });

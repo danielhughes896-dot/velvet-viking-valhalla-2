@@ -67,7 +67,11 @@ test('every .rec-* class the stylesheet styles is one the app can render', () =>
      it is either a component that was deleted, or one that was renamed and
      left a stub behind, and both mislead the next reader in the same way. */
   const styled = [...new Set((CSS.match(/\.rec-[a-z-]+/g) || []).map(s => s.slice(1)))];
-  assert.ok(styled.length >= 6, 'the .rec-* namespace vanished entirely -- check this test');
+  /* Three now, not six: the headline-fact card and the lighter acquisition
+     card went with the Record tab, leaving the panel lede, the quieting and
+     the panel's own nav. The floor moves with them -- it is here to catch the
+     namespace disappearing by accident, not to pin a count. */
+  assert.ok(styled.length >= 3, 'the .rec-* namespace vanished entirely -- check this test');
   const orphans = styled.filter(cls => REST.indexOf(cls) === -1);
   assert.equal(orphans.join(', '), '',
     'these .rec-* rules style something the app never renders: ' + orphans.join(', '));
@@ -75,9 +79,11 @@ test('every .rec-* class the stylesheet styles is one the app can render', () =>
 
 test('the surviving Record classes are all still styled and still rendered', () => {
   /* The other direction: the deletion must not have taken a live class with
-     it. These are the ones the Record actually uses today. */
-  ['rec-lede', 'rec-headline', 'rec-context', 'rec-empty', 'rec-empty-subject',
-   'rec-empty-state', 'rec-none', 'rec-panel-nav'].forEach(cls => {
+     it. These are the ones the Record actually uses today -- the list has
+     shrunk twice now, once when the list-row shell went and again when the
+     headline-fact card went with the Record tab, and each time the test was
+     re-pointed rather than relaxed. */
+  ['rec-lede', 'rec-none', 'rec-panel-nav'].forEach(cls => {
     assert.ok(new RegExp('\\.' + cls + '\\b').test(CSS), '.' + cls + ' lost its styling');
     assert.ok(REST.indexOf(cls) > -1, '.' + cls + ' is no longer rendered');
   });
@@ -110,7 +116,7 @@ test('no Record value carries a status hue', () => {
      The status tokens are the ones .read-val itself uses for good/watch/bad. */
   const STATUS = ['--c-easy', '--c-tempo', '--c-threshold', '--c-interval',
                   '--gold\\b', '--c-rest'];
-  ['\\.b-plate \\.val', '\\.rec-headline b', '\\.rec-empty-state'].forEach(sel => {
+  ['\\.rd-val b'].forEach(sel => {
     const rules = CSS.match(new RegExp(sel + '(?:\\.[a-z-]+)?\\{[^}]*\\}', 'g')) || [];
     assert.ok(rules.length, sel + ' has no rule at all');
     rules.forEach(r => {

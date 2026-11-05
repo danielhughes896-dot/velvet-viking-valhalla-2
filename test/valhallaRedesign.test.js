@@ -62,128 +62,122 @@ test('NAV: the five-tab shell is otherwise unchanged', () => {
 // ===========================================================================
 // 2. VALHALLA / COACH / RECORD
 // ===========================================================================
-/* FINAL VISUAL COMPLETION PASS -- the subnav used to carry a "Valhalla"
-   pill as its first tab, which sat directly beneath a bottom-nav tab
-   already reading VALHALLA: "Valhalla > Valhalla", not a real destination.
-   Coach and Record are the only two places the subnav actually goes now;
-   re-tapping the already-active bottom-nav VALHALLA tab is the return path
-   to the overview (see the handleSetView() tests below), the ordinary "tap
-   home again" pattern -- so no third pill stands in for it, and while on
-   the overview itself neither pill is marked active. */
-test('SUBNAV: two tabs -- Coach and Record, no redundant inner Valhalla pill', () => {
+/* THE SUBNAV IS GONE, AND WHAT REPLACES THESE TESTS IS THE REASON IT COULD
+   GO. Coach and Record existed to carry a tap the overview could not take:
+   the five Reading circles and the Record plates on Valhalla were decorative
+   markup with no action on them, so the only route into a reading was a list
+   on a second screen that restated it. The circles are buttons now and open
+   the same panels, so the subnav had nothing left to reach.
+
+   These tests therefore no longer ask "is the subnav built correctly". They
+   ask the question that actually protects the athlete through this change:
+   is every destination the two tabs used to carry still reachable, and
+   reachable from the one screen? That is a stronger guard than the one it
+   replaces -- the old tests could all pass while the circles did nothing. */
+test('SUBNAV: there is no subnav, on Valhalla or anywhere else', () => {
   const a = planHQ();
-  const html = a.renderPlanHQSubNav();
-  assert.match(html, /class="planhq-subnav"/);
-  ['Coach', 'Record'].forEach(label => {
-    assert.match(html, new RegExp('data-action="set-planhq-tab" data-tab="' +
-      label.toLowerCase() + '">' + label + '<'));
+  assert.equal(typeof a.renderPlanHQSubNav, 'undefined',
+    'the subnav renderer is still here, so something can still draw it');
+  assert.equal(typeof a.handleSetPlanhqTab, 'undefined');
+  assert.equal(typeof a.planhqTab, 'undefined',
+    'Valhalla still carries a tab state, so it still has more than one screen');
+  assert.doesNotMatch(a.renderPlanHQView(), /planhq-subnav/);
+  assert.doesNotMatch(a.renderBottomNavStack(), /planhq-subnav/);
+  assert.doesNotMatch(CODE, /data-action="set-planhq-tab"/);
+  assert.doesNotMatch(CODE, /case 'set-planhq-tab'/);
+});
+
+test('SUBNAV: every Reading is opened by the circle that states it', () => {
+  const a = planHQ();
+  const preview = a.renderValhallaReadingPreview();
+  const report = a.coachAnalyse();
+  const keys = a.readingSections(report).map(s => s.key);
+  assert.equal(keys.length, 5);
+  keys.forEach(k => {
+    assert.match(preview, new RegExp('data-action="open-reading" data-reading="' + k + '"'),
+      k + ' has no way in from Valhalla, so its panel is unreachable');
   });
-  assert.doesNotMatch(html, /data-tab="valhalla"/,
-    'the subnav still repeats the bottom-nav VALHALLA destination as its own pill');
-  // On the overview itself, neither remaining pill claims to be active --
-  // there is no third button whose "active" state could stand in for it.
-  assert.doesNotMatch(html, /planhq-subnav-btn active/,
-    'a pill claims to be active while the overview itself is showing');
+  // and they are real buttons, not divs with an attribute nothing listens to
+  assert.equal((preview.match(/<button type="button" class="b-dial"/g) || []).length, 5);
 });
 
-test('SUBNAV: re-tapping the active VALHALLA bottom-nav tab from Coach/Record returns to the overview', () => {
+test('SUBNAV: every Record fact is opened by the circle that states it', () => {
   const a = planHQ();
-  a.handleSetPlanhqTab('record');
-  assert.equal(a.planhqTab, 'record');
+  const preview = a.renderValhallaRecordPreview();
+  a.recordFacts().forEach(f => {
+    assert.match(preview, new RegExp('data-action="open-record" data-record="' + f.key + '"'),
+      f.key + ' has no way in from Valhalla');
+    assert.ok(a.RECORD_PANELS[f.key], f.key + ' has a circle but no panel behind it');
+  });
+});
+
+/* THE ONE DECISION THAT HAD NOWHERE ELSE TO GO. Active Goal was rendered by
+   the Record tab and by nothing else in the app -- the Full Plan copy was
+   deliberately deleted because the tab carried it -- so a Valhalla without
+   tabs and without this panel would have taken an athlete's ability to change
+   their goal away with it. */
+test('SUBNAV: Active Goal survives the tabs, in the panel the Goal circle opens', () => {
+  const a = planHQ();
+  const panel = a.recordPanelGoal();
+  assert.match(panel, /data-action="set-goal"/,
+    'the A/B/C chooser did not come with the goal panel');
+  assert.match(panel, /Active Goal/);
+  assert.ok(panel.indexOf(a.renderGoalToggle()) !== -1,
+    'the panel builds its own chooser instead of using renderGoalToggle()');
+  // reachable, not merely defined
+  assert.match(a.renderValhallaRecordPreview(), /data-record="goal"/);
+  assert.ok(a.RECORD_PANELS.goal);
+});
+
+test('SUBNAV: re-tapping VALHALLA is an ordinary no-op again', () => {
+  const a = planHQ();
   assert.equal(a.state.view, 'planhq');
-  // Same view, tapped again -- the early-return path in handleSetView(),
-  // now repurposed as the subnav's missing third pill.
   a.handleSetView('planhq');
-  assert.equal(a.planhqTab, 'valhalla', 'the retap did not return to the overview');
-  assert.equal(a.state.view, 'planhq', 'the retap left the Valhalla destination entirely');
-});
-
-test('SUBNAV: re-tapping VALHALLA while already on the overview is a harmless no-op', () => {
-  const a = planHQ();
-  assert.equal(a.planhqTab, 'valhalla');
-  a.handleSetView('planhq');
-  assert.equal(a.planhqTab, 'valhalla');
   assert.equal(a.state.view, 'planhq');
 });
 
 // ===========================================================================
-// 2b. THE SUBNAV LIVES ABOVE THE MAIN BOTTOM NAV, NOT UNDER THE HEADING
+// 2b. ONE SCREEN, SO ONE BOTTOM NAV
 // ===========================================================================
-test('ANCHOR: the subnav no longer renders inline under the Valhalla heading', () => {
-  const a = planHQ();
-  assert.doesNotMatch(a.renderPlanHQView(), /class="planhq-subnav"/,
-    'the subnav must move out of the scrolling content entirely');
-});
-
-test('ANCHOR: renderBottomNavStack() stacks the subnav directly above the main bottom nav, only on Valhalla', () => {
+test('ANCHOR: the stack is the bottom nav and nothing above it', () => {
   const a = planHQ();
   const onValhalla = a.renderBottomNavStack();
-  assert.match(onValhalla, /^<div class="bn-stack">/);
-  const subnavAt = onValhalla.indexOf('class="planhq-subnav"');
-  const navAt = onValhalla.indexOf('<nav class="bottom-nav"');
-  assert.ok(subnavAt !== -1 && navAt !== -1 && subnavAt < navAt,
-    'the subnav must sit above the main bottom nav in document order');
-  assert.equal((onValhalla.match(/class="planhq-subnav"/g) || []).length, 1,
-    'the subnav must not be duplicated');
+  assert.match(onValhalla, /^<div class="bn-stack"><nav class="bottom-nav"/);
+  assert.equal((onValhalla.match(/<nav class="bottom-nav"/g) || []).length, 1);
 
+  /* The stack's CONTENTS no longer vary by view -- only which bottom-nav
+     pill is marked active does, which is the nav doing its job. What is
+     asserted is that no second row appears on Valhalla and nowhere else,
+     which is the thing the subnav used to do. */
   a.handleSetView('today');
   const onToday = a.renderBottomNavStack();
-  assert.doesNotMatch(onToday, /class="planhq-subnav"/,
-    'the subnav must not appear on views other than Valhalla');
-  assert.match(onToday, /<nav class="bottom-nav"/);
+  assert.match(onToday, /^<div class="bn-stack"><nav class="bottom-nav"/);
+  assert.equal(onToday.replace(/ active/g, ''), onValhalla.replace(/ active/g, ''),
+    'the stack carries something view-specific beyond the active pill');
 });
 
-test('ANCHOR: the stack is a fixed anchor, not a scrolling element, and content gets clearance for it', () => {
+test('ANCHOR: the stack is a fixed anchor, and the subnav clearance went with the subnav', () => {
   assert.match(CODE, /\.bn-stack\{[^}]*position\s*:\s*fixed[^}]*bottom\s*:\s*0/);
   assert.match(CODE, /\.bn-stack\{[^}]*flex-direction\s*:\s*column/);
-  assert.match(CODE, /\.app-root\.has-subnav\{[^}]*padding-bottom/);
+  /* 64px of padding for a row that no longer renders would be 64px of dead
+     screen under the last card on Valhalla, and only on Valhalla. */
+  assert.doesNotMatch(CODE, /has-subnav/,
+    'the extra Valhalla-only bottom clearance outlived the subnav it was for');
 });
 
-test('SUBNAV: switching tabs changes what renders, and the active button moves', () => {
+test('SUBNAV: nothing the tabs carried is missing from the one screen', () => {
   const a = planHQ();
-  assert.equal(a.planhqTab, 'valhalla');
-  assert.match(a.renderPlanHQView(), /class="v-hero"/);
-
-  a.handleSetPlanhqTab('coach');
-  assert.equal(a.planhqTab, 'coach');
-  assert.match(a.renderPlanHQView(), />The Reading</);
-  assert.match(a.renderPlanHQSubNav(), /data-tab="coach"[^>]*active|active[^>]*data-tab="coach"/);
-
-  a.handleSetPlanhqTab('record');
-  assert.equal(a.planhqTab, 'record');
-  assert.match(a.renderPlanHQView(), />The Record</);
-});
-
-test('SUBNAV: re-entering Valhalla from another tab always resets to the overview', () => {
-  const a = planHQ();
-  a.handleSetPlanhqTab('record');
-  assert.equal(a.planhqTab, 'record');
-  a.handleSetView('today');
-  a.handleSetView('planhq');
-  assert.equal(a.planhqTab, 'valhalla',
-    'Valhalla must open on "where am I", not wherever the athlete last left it');
-});
-
-test('SUBNAV: no re-homed section is duplicated or missing across the three tabs', () => {
-  const a = planHQ();
-  a.handleSetPlanhqTab('valhalla');
-  const valhalla = a.renderPlanHQView();
-  a.handleSetPlanhqTab('coach');
-  const coach = a.renderPlanHQView();
-  a.handleSetPlanhqTab('record');
-  const record = a.renderPlanHQView();
-
-  assert.ok(valhalla.indexOf(a.renderProgrammeStatus()) !== -1, 'Programme Status missing from Valhalla');
-  assert.equal(coach.indexOf(a.renderProgrammeStatus()), -1, 'Programme Status duplicated onto Coach');
-  assert.equal(record.indexOf(a.renderProgrammeStatus()), -1, 'Programme Status duplicated onto Record');
-
-  assert.ok(coach.indexOf(a.renderCoachPanel()) !== -1, 'the coach panel missing from Coach');
-  assert.equal(valhalla.indexOf(a.renderCoachPanel()), -1, 'the coach panel duplicated onto Valhalla');
-  assert.equal(record.indexOf(a.renderCoachPanel()), -1, 'the coach panel duplicated onto Record');
-
-  assert.ok(record.indexOf(a.renderRecordSection()) !== -1, 'THE RECORD missing from Record');
-  assert.equal(valhalla.indexOf(a.renderRecordSection()), -1, 'THE RECORD duplicated onto Valhalla');
-  assert.equal(coach.indexOf(a.renderRecordSection()), -1, 'THE RECORD duplicated onto Coach');
+  const view = a.renderPlanHQView();
+  assert.ok(view.indexOf(a.renderProgrammeStatus()) !== -1, 'Programme Status missing');
+  assert.ok(view.indexOf(a.renderValhallaReadingPreview()) !== -1, 'The Reading missing');
+  assert.ok(view.indexOf(a.renderValhallaRecordPreview()) !== -1, 'The Athlete Status missing');
+  assert.ok(view.indexOf(a.renderCoachPanel()) !== -1, 'the coach panel missing');
+  assert.ok(view.indexOf(a.renderCheckpointBanner()) !== -1, 'the checkpoint banner missing');
+  // and none of it twice
+  [a.renderValhallaReadingPreview(), a.renderValhallaRecordPreview()].forEach(frag => {
+    if (!frag) return;
+    assert.equal(view.indexOf(frag), view.lastIndexOf(frag), 'a section renders twice');
+  });
 });
 
 // ===========================================================================
@@ -437,14 +431,22 @@ test('TOKENS: the race countdown and unit toggle read the canonical bronze/gold 
 });
 
 test('TOKENS: a Record value carries its data typography by default, not by caller convention', () => {
-  /* This asserted .rec-val, the list-row shell's value slot, which nothing had
-     rendered for some time -- so it was pinning a rule that could not paint.
-     The law is unchanged and is what matters: the COMPONENT guarantees the data
-     face, rather than every call site remembering to pass 'font-mono'. The
-     surfaces that carry a Record value today are the Valhalla plate and the
-     Record tab's headline, so it is asserted on both. */
-  assert.match(CODE, /\.b-plate \.val\{[^}]*font-family\s*:\s*'JetBrains Mono'/);
-  assert.match(CODE, /\.rec-headline b\{[^}]*font-family\s*:\s*'JetBrains Mono'/);
+  /* This has now been re-pointed twice, at .rec-val and then at the plate and
+     headline, each time because the markup under it was retired. The LAW is
+     what has never changed and is the only reason the test exists: the
+     COMPONENT guarantees the data face, rather than every call site
+     remembering to pass 'font-mono'. The one surface that carries a Record
+     value today is the Athlete Status circle, so that is where it is
+     asserted -- on .rd-val b, which both the Reading and the Status circles
+     draw from, and which therefore cannot be loosened for one without the
+     other noticing. */
+  assert.match(CODE, /\.rd-val b\{[^}]*font-family\s*:\s*'JetBrains Mono'/);
+  /* And the absence, which must NOT inherit it -- the defect that rule was
+     written for was an empty state rendering in the measurement's own face. */
+  assert.match(CODE, /\.rd-val b\.rec-none\{[^}]*font-family\s*:\s*'Inter'/);
+  const a = planHQ();
+  assert.match(a.statusDialHtml(a.recordProgressFact()), /class="rd-val"/,
+    'a Record value is no longer drawn in the slot this law protects');
 });
 
 // ===========================================================================
@@ -457,12 +459,16 @@ test('SAFETY: computeConfidenceScore, coachAnalyse and raceOutlook are untouched
     outlook: JSON.stringify(a.raceOutlook()),
     decision: JSON.stringify((a.coachAnalyse().decision || {})),
   };
-  // Re-render every surface this pass touched; none of it is allowed to have
-  // been reached by a coaching calculation.
+  // Re-render every surface this pass touched, and open every panel the
+  // circles now reach; none of it is allowed to have been reached by a
+  // coaching calculation. The panels are the new half of this guard: the
+  // Goal panel renders raceOutlook() and the goal chooser on the same
+  // surface, which is exactly where a render could start deciding things.
   a.renderPlanHQView();
-  a.handleSetPlanhqTab('coach');
-  a.renderPlanHQView();
-  a.handleSetPlanhqTab('record');
+  a.renderValhallaReadingPreview();
+  a.renderValhallaRecordPreview();
+  Object.keys(a.RECORD_PANELS).forEach(k => a.hqPanelHtml(k));
+  a.readingSections(a.coachAnalyse()).forEach(sec => a.hqPanelHtml(sec.key));
   a.renderPlanHQView();
   assert.equal(a.computeConfidenceScore(), before.conf);
   assert.equal(JSON.stringify(a.raceOutlook()), before.outlook);
