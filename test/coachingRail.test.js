@@ -85,14 +85,30 @@ test('the module wrapper is absent from layout everywhere except a focused sessi
     'the module never becomes a real box, so the rail has nothing to lay out');
 });
 
-test('the rail is a scroll-snap carousel, not a gesture handler', () => {
+test('the rail moves the FOCUS, and moves itself only when it must', () => {
+  /* THIS TEST USED TO SAY THE OPPOSITE -- "a scroll-snap carousel, not a
+     gesture handler" -- and letting the platform snap was the right default
+     until the geometry made it impossible. A module is 34% of the rail, so
+     with about three on screen the scrollable distance is less than one
+     module: the snap positions a four-module rail needs do not exist, and
+     two of the four could never be the one nearest the left edge. Deriving
+     the active module from the scroll offset cannot work when the offset
+     has fewer states than there are modules.
+     So the finger moves an INDEX now, and the rail follows only far enough
+     to bring the next module fully into view -- which for the first two
+     steps is not at all. User scrolling is off because the script owns the
+     position; the arrow keys replace the keyboard scrolling that came with
+     it. */
   const rail = focusRule('.how-card .fuel-body');
-  assert.match(rail, /overflow-x:auto/);
-  assert.match(rail, /scroll-snap-type:x mandatory/,
-    'the swipe is no longer snapping -- the platform does this for free');
+  assert.match(rail, /overflow-x:hidden/,
+    'user scrolling is back, and it will fight the focus for the position');
+  assert.doesNotMatch(rail, /scroll-snap-type/,
+    'snap positions are back, and they will override the focus-driven ones');
+  assert.match(rail, /touch-action:pan-y/,
+    'the rail takes the horizontal gesture itself and must leave vertical to the page');
+  assert.match(SRC, /<div class="fuel-body" data-hswipe="1">/,
+    'without data-hswipe the page pager claims the rail, because it can no longer see a scroller');
   const mod = focusRule('.how-mod');
-  assert.match(mod, /scroll-snap-align:start/,
-    'centre-aligned snapping leaves the first and last module unreachable without phantom padding');
   /* Narrow COLUMNS, several on screen at once -- which is only possible
      because the two things that could not be a column (a staged Execution,
      a fuel table) render below the rail instead. A single wide panel mixed
@@ -208,16 +224,21 @@ test('the rail degrades to a working carousel if its script never runs', () => {
   assert.equal(typeof a.wireCoachingRails, 'function');
   assert.equal(typeof a.wireCoachingRail, 'function');
   const fn = /function wireCoachingRail\(rail\)\{[\s\S]*?\n\}/.exec(SRC)[0];
-  assert.match(fn, /rail\.style\.height = /, 'the rail no longer follows the module in view');
+  assert.match(fn, /rail\.style\.height = /, 'the rail no longer gets a height at all');
   assert.doesNotMatch(fn, /style\.display|style\.overflow|classList\.add\('how-mod'\)/,
     'the script is doing layout CSS should own');
-  // Measured by rect, not offset: .how-mod is positioned, so its offsetParent
-  // is itself and offset maths would measure nothing.
-  assert.match(fn, /getBoundingClientRect/);
-  assert.match(fn, /requestAnimationFrame/, 'the scroll handler is no longer throttled');
-  // A scrollable region has to be reachable by something other than a finger.
+  /* ONE HEIGHT, THE TALLEST MODULE THERE IS. Sizing to the tallest module
+     ON SCREEN meant the rail shrank as a four-line Why scrolled out and a
+     two-line Feel took over -- and the Coach's Note, the buttons and
+     Injured or ill all rose to meet it while the athlete was reading. */
+  assert.match(fn, /if \(mods\[i\]\.scrollHeight > h\) h = mods\[i\]\.scrollHeight;/,
+    'the rail is sized from a subset of its modules again, so the page moves under the reader');
+  assert.doesNotMatch(fn, /m2\.right > r\.left/, 'the height follows what is visible again');
+  // A region that answers a swipe has to answer a keyboard too -- and the
+  // rail is no longer user-scrollable, so this replaces what it inherited.
   assert.match(fn, /setAttribute\('tabindex', '0'\)/);
   assert.match(fn, /setAttribute\('role', 'group'\)/);
+  assert.match(fn, /'ArrowRight'/, 'the arrow keys no longer move the rail');
   // It must survive a DOM that answers nothing, the way every other
   // post-render hook in this file does.
   assert.doesNotThrow(() => a.wireCoachingRails());
@@ -250,10 +271,17 @@ test('the focused rail needs no title, and the header is the page\'s own ground'
   // surface. It is mixed from --bg now, and still translucent, because a
   // sticky bar that content passes under needs to stay soft.
   const topbar = /\.topbar\{([^}]*)\}/.exec(bare)[1];
-  assert.match(topbar, /color-mix\(in srgb, var\(--bg\)/,
-    'the header has its own colour again');
   assert.doesNotMatch(topbar, /rgba\(21,17,13/, 'the old warm near-black came back');
-  assert.match(topbar, /backdrop-filter:blur/, 'the sticky bar stopped blurring what passes under it');
+  /* ONE BACKGROUND, EDGE TO EDGE. The border went first and a seam was
+     still there: a backdrop-filter has to resolve its own edge against what
+     it samples, and over a flat ground that lands a hair off the colour
+     beside it. Frosting earns its keep when something interesting passes
+     underneath; here the page is one colour, so the honest version of
+     "translucent over --bg" is --bg. */
+  assert.match(topbar, /background:var\(--bg\);/,
+    'the header is not the page colour, so it reads as a separate surface');
+  assert.doesNotMatch(topbar, /backdrop-filter/, 'the blur is back, and its edge is the seam');
+  assert.doesNotMatch(topbar, /border-bottom/, 'the rule under the header is back');
 });
 
 test('the session is the brightest thing on the screen, and the ring has a filament', () => {
@@ -385,27 +413,27 @@ test('nothing on the focused session is drawn as a box', () => {
 });
 
 test('every coaching module can reach the reading position', () => {
-  /* THE DOTS MUST NOT PROMISE A STOP THE GEOMETRY CANNOT REACH. The active
-     module is the one nearest the rail's LEFT edge, and a module is a fixed
-     percentage of the rail. With three visible, four modules are 136% of the
-     rail and it can only scroll 36% -- while the snap points sit at 0, 34%,
-     68% and 102%. Two of the four were unreachable by any gesture: the rail
-     moved, the illumination stopped on the second module, and the last two
-     dots never lit. A trailing flex item of (100% - one module) puts the
-     furthest scroll position exactly on the last module's own snap point.
-     Both numbers are read back here so they cannot drift apart. */
-  const mod = /\.how-mod\{[^}]*flex:0 0 (\d+)%/.exec(
-    CSS.slice(CSS.indexOf(':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod{')));
-  assert.ok(mod, 'the focused rail module no longer has a percentage width');
-  assert.ok(Number(mod[1]) < 100,
-    'a full-width module makes the rail one panel at a time, not a rail');
-  /* The last module takes the whole rail, which is what makes the scrollable
-     distance exactly (n-1) modules -- landing on the last one's own snap
-     point. Anything narrower strands it, and an empty spacer of the same
-     width reaches the same positions while leaving the last module alone
-     against two thirds of a screen of nothing. */
-  assert.match(CSS, /\.how-mod:last-child\{flex:0 0 100%;\}/,
-    'the last rail module no longer fills the rail, so it cannot reach the reading position');
+  /* THE DOTS MUST NOT PROMISE A STOP THE GEOMETRY CANNOT REACH, and with
+     the active module derived from the scroll offset two of four never
+     could: a module is 34% of the rail, so four of them leave less than one
+     module of travel while the snap points sit a whole module apart. The
+     focus is an index now, so every module is reachable by construction and
+     the rail's own position is a consequence rather than the source. */
+  const fn = /function wireCoachingRail\(rail\)\{[\s\S]*?\n\}/.exec(SRC)[0];
+  assert.match(fn, /function wantedScroll\(i\)/,
+    'the rail position is no longer computed from the focus');
+  assert.match(fn, /setFocus\(focus \+ \(p\.dx < 0 \? 1 : -1\), true\)/,
+    'a swipe no longer steps the focus by one');
+  assert.match(fn, /focus = i < 0 \? 0 : \(i > n - 1 \? n - 1 : i\)/,
+    'the focus wraps or runs off the end instead of stopping');
+  /* The rail travels the least that keeps the focused module and the one
+     after it in view -- which is what makes the first two steps move
+     nothing and the third reveal the last module whole. */
+  assert.match(fn, /var rightOf = \(nxt\.offsetLeft - first\) \+ nxt\.offsetWidth;/,
+    'the next module no longer decides the travel');
+  assert.doesNotMatch(CSS, /\.how-mod:last-child\{flex:0 0 100%;\}/,
+    'the wide last module is back; the focus model does not need it');
   assert.doesNotMatch(CSS, /\.how-card \.fuel-body::after\{[^}]*flex:0 0 calc/,
-    'the empty trailing spacer is back alongside the full-width last module');
+    'the empty trailing spacer is back; the focus model does not need it');
 });
+

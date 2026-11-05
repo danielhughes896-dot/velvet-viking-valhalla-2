@@ -266,9 +266,8 @@ test('a committed swipe costs a fraction of the screen, not most of it', () => {
      and then watch it leave again. The numbers live beside the other pager
      constants rather than inside the handler so this is tunable without
      reading the gesture code. */
-  assert.match(SRC, /var PAGER_COMMIT_FRACTION = 0\.18;/,
+  assert.match(SRC, /var PAGER_COMMIT_FRACTION = 0\.13;/,
     'the distance a swipe must travel to commit changed');
-  assert.ok(0.18 < 0.3, 'sanity: the threshold is below the third-of-a-screen it replaced');
   const end = fn('pagerTouchEnd');
   assert.match(end, /Math\.abs\(dx\) > p\.w \* PAGER_COMMIT_FRACTION/,
     'the commit distance is hand-written in the handler again');
