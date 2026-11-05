@@ -1647,6 +1647,31 @@
        keeps a taller panel scrolling into view from snapping the layout. */
     transition:height .22s ease;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-card .fuel-body::-webkit-scrollbar{display:none;}
+  /* THE LAST MODULES HAD NOWHERE TO SCROLL TO, AND THE DOTS LIED ABOUT IT.
+     A module is 34% of the rail, so four of them are 136% and the rail can
+     only scroll 36% -- while the snap positions sit at 0, 34%, 68% and 102%.
+     Only the first two were ever reachable, and since the active module is
+     the one nearest the rail's left edge, Feel and Watch For could not be
+     selected by any gesture: the rail moved, the illumination stopped on
+     Execution, and two of the four dots were unreachable.
+
+     THE LAST MODULE TAKES THE WHOLE RAIL, which is what makes the arithmetic
+     work: the scrollable distance becomes (n-1) modules, landing exactly on
+     the last one's own snap point, so every module reaches the reading
+     position and every dot is honest. It holds for any count -- three
+     modules on a structured session, two on a sparse one.
+
+     This was first done with an empty trailing flex item of the same width,
+     which reached the same scroll positions and left the last module alone
+     against two thirds of a screen of nothing. Giving the width to the
+     module instead of to a spacer costs nothing and the dead space stops
+     existing: the one line of coaching that was wrapping to three sets on
+     one. The alternative was looping the rail, which CSS scroll snap cannot
+     do natively -- it needs duplicated modules and a silent scrollLeft reset
+     at the seam, which fights momentum scrolling on WebKit -- and which
+     would also contradict the rule the view pager follows one level up,
+     where the ends deliberately stop rather than wrap. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod:last-child{flex:0 0 100%;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod{
         /* A PERCENTAGE ALONE IS NOT ENOUGH, because the percentage is of the
        RAIL and the rail shrinks with the phone. At 31% a 430pt screen gives
@@ -1919,6 +1944,34 @@
     text-align:left; width:100%; display:block;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-toggle .st-k{font-family:var(--label-face); font-size:var(--label-size);
     letter-spacing:var(--label-track); font-weight:var(--label-weight); color:var(--gold);}
+
+  /* THE BREAKDOWN DISCLOSURE, IN THE SAME VOICE AS THE ONE ABOVE IT. A
+     structured session renders its breakdown as an .ev-card summary instead
+     of a plain toggle, so two controls doing the same job -- open a
+     disclosure -- sat three lines apart drawn as different species: a gold
+     text label, then the only lifted tile left on the screen. Boxes are not
+     banned here (Hear Today and Ask Coach are deliberately obvious), but
+     those are OUTLINED PILLS; this was the filled, rimmed, shadowed tile the
+     focused session removed everywhere else, and it out-shouted the
+     Execution Review underneath it. The content stays -- it says more than
+     the plain toggles do -- and only the tile goes. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary{
+    background:none; border:0; border-radius:0; box-shadow:none;
+    padding:16px 0 0; margin:0;}
+  /* THE PRESS FEEDBACK HAS TO BE PUT BACK BY HAND. .ev-card:hover is two
+     classes; this rule is four, so box-shadow:none above would have beaten
+     it and silently deleted the state -- the one thing test/themeSystem
+     says must never happen to it. It returns as illumination alone, with no
+     tile shadow to sit beside, which is the language the rest of the
+     focused session presses in. */
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary:hover{box-shadow:0 0 14px color-mix(in srgb, var(--gold) 16%, transparent);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary:active{box-shadow:0 0 10px color-mix(in srgb, var(--gold) 24%, transparent);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary-icon{display:none;}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary-title{
+    font-family:var(--label-face); font-size:var(--label-size);
+    letter-spacing:var(--label-track); font-weight:var(--label-weight); color:var(--gold);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary-detail{padding-left:0; margin-top:3px; color:var(--ink-faint);}
+  :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .splits-summary .rs-chev{opacity:.42;}
 
   /* EXECUTION REVIEW, de-boxed and lit in Cherry Lacquer -- the coaching
      judgement on what was run, which is the same kind of thing the Coach's
@@ -4534,6 +4587,19 @@
      overlay instead (.view-peek), which is outside this box entirely, so
      nothing here has to be clipped to keep it off-screen. */
   .view-pager{position:relative;}
+  /* THE BOTTOM NAV DROPPED OFF THE SCREEN ON A BACKWARD SWIPE, AND ONLY A
+     BACKWARD ONE. #view-pager is an IN-FLOW element, so translating it right
+     -- which is what going back does -- pushes content past the right edge
+     and creates real scrollable overflow. The browser answers by widening
+     the layout viewport, and .bn-stack is position:fixed; bottom:0, so it
+     follows that wider viewport straight below the visible screen: measured
+     at innerHeight 746 -> 778 mid-gesture, the nav moving down by exactly
+     that 32px. Translating LEFT never did it, because leftward overflow is
+     not scrollable; the peek never did it either, because it is fixed.
+     CLIP, NOT HIDDEN. overflow-x:hidden would compute overflow-y to auto and
+     turn #app into a nested scroller, which breaks the page's own scrolling.
+     Only while paging, so nothing is clipped at rest. */
+  body.vv-paging #app{overflow-x:clip;}
   .view-pager.is-paging{will-change:transform;}
   /* THE SCREEN BEING REVEALED. Fixed rather than absolute so it is measured
      against the viewport and not against a parent that is itself being
@@ -56713,6 +56779,17 @@ function renderApp(){
 var PAGER_VIEWS = ['today', 'week', 'full', 'planhq', 'settings'];
 var PAGER_CLAIM_PX = 10;     /* movement before an axis is decided at all */
 var PAGER_AXIS_BIAS = 1.25;  /* how much horizontal must beat vertical by */
+/* HOW MUCH OF THE SCREEN A COMMIT COSTS. Named rather than written into
+   pagerTouchEnd(), because this is the number that decides whether the
+   gesture feels willing or reluctant and it should be tunable without
+   reading the handler. A third of the width meant a deliberate drag across
+   most of the phone before anything happened -- the page tracked the finger
+   the whole way and then slid back, which reads as the swipe having failed
+   rather than as not having asked for it. These are an OR with the flick
+   below: distance for a slow drag, velocity for a quick one. */
+var PAGER_COMMIT_FRACTION = 0.18;  /* of the screen's width */
+var PAGER_FLING_VX = 0.3;          /* px/ms that commits on its own... */
+var PAGER_FLING_PX = 18;           /* ...if the finger went at least this far */
 var pagerState = null;
 
 function pagerReducedMotion(){
@@ -56799,6 +56876,10 @@ function pagerBuildPeek(view, dir){
   peek.innerHTML = '<div class="wrap view-host">' + pagerNeighbourHtml(view) + '</div>';
   peek.style.transform = 'translate3d(' + (dir > 0 ? '100%' : '-100%') + ',0,0)';
   document.body.appendChild(peek);
+  /* See body.vv-paging in the sheet: the in-flow mount is about to be
+     translated, and in the backward direction that would otherwise widen the
+     layout viewport and take the fixed bottom nav down with it. */
+  try{ document.body.classList.add('vv-paging'); }catch(e){}
   return peek;
 }
 function pagerSetOffset(dx){
@@ -56811,6 +56892,10 @@ function pagerSetOffset(dx){
 }
 function pagerCleanup(){
   var p = pagerState; pagerState = null;
+  /* OUTSIDE THE EARLY RETURN AND OUTSIDE THE try, because a clip left on the
+     body outlasts anything else here: nothing is translated any more, so the
+     class has no job, and a stray one would quietly clip the page. */
+  try{ document.body.classList.remove('vv-paging'); }catch(e){}
   if (!p) return;
   try{
     if (p.mount){ p.mount.style.transform = ''; p.mount.classList.remove('is-settling', 'is-paging'); }
@@ -56909,9 +56994,9 @@ function pagerTouchEnd(){
   if (!p) return;
   if (!p.claimed){ pagerState = null; return; }
   var dx = p.lastX - p.x0;
-  /* A third of the screen, or a flick -- whichever the finger offers. */
-  var far = Math.abs(dx) > p.w * 0.3;
-  var fast = Math.abs(p.vx) > 0.45 && Math.abs(dx) > 24;
+  /* Part of the screen, or a flick -- whichever the finger offers. */
+  var far = Math.abs(dx) > p.w * PAGER_COMMIT_FRACTION;
+  var fast = Math.abs(p.vx) > PAGER_FLING_VX && Math.abs(dx) > PAGER_FLING_PX;
   var forward = (dx < 0) === (p.dir > 0);
   pagerFinish(!!p.to && forward && (far || fast));
 }

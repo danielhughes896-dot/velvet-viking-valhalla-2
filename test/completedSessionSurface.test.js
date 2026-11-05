@@ -152,3 +152,33 @@ test('the header is one height on every view, so the page under it cannot shift'
   assert.doesNotMatch(rule('.topbar'), /border-bottom:1px solid var\(--line\)/,
     'the redundant rule under the header is back');
 });
+
+test('the breakdown disclosure is not the one tile left on the page', () => {
+  /* A structured session renders its breakdown as an .ev-card summary rather
+     than a plain toggle, so two controls doing the same job -- open a
+     disclosure -- sat three lines apart drawn as different species. Boxes
+     are not banned (Hear Today and Ask Coach are deliberately obvious), but
+     those are outlined pills; this was the filled, rimmed, shadowed tile the
+     focused session removed everywhere else. */
+  const r = rule(F + ' .splits-summary');
+  assert.match(r, /background:none/, 'the breakdown card has its fill back');
+  assert.match(r, /border:0/, 'the breakdown card has its rim back');
+  assert.match(r, /box-shadow:none/, 'the breakdown card is lifted again');
+  assert.match(r, /border-radius:0/, 'the breakdown card has its corners back');
+  assert.match(rule(F + ' .splits-summary-title'), /var\(--label-face\)/,
+    'the breakdown eyebrow is no longer on the label tier with its sibling');
+});
+
+test('de-tiling the breakdown did not delete its press feedback', () => {
+  /* .ev-card:hover is two classes; the focused-session rule is four, so
+     box-shadow:none would have beaten it and silently removed the state --
+     the one thing test/themeSystem says must never happen to it. It comes
+     back as illumination alone, with no tile shadow to sit beside. */
+  ['hover', 'active'].forEach(state => {
+    const r = rule(F + ' .splits-summary:' + state);
+    assert.match(r, /box-shadow:0 0 \d+px color-mix\(in srgb, var\(--gold\)/,
+      '.splits-summary:' + state + ' gives no feedback on a focused session');
+    assert.doesNotMatch(r, /--tile-shadow/,
+      'the tile shadow came back with the press state');
+  });
+});

@@ -383,3 +383,29 @@ test('nothing on the focused session is drawn as a box', () => {
   const step = focusRule('.ws-h-step');
   assert.match(step, /background:var\(--t-tile\)/, 'the step tiles lost their faces');
 });
+
+test('every coaching module can reach the reading position', () => {
+  /* THE DOTS MUST NOT PROMISE A STOP THE GEOMETRY CANNOT REACH. The active
+     module is the one nearest the rail's LEFT edge, and a module is a fixed
+     percentage of the rail. With three visible, four modules are 136% of the
+     rail and it can only scroll 36% -- while the snap points sit at 0, 34%,
+     68% and 102%. Two of the four were unreachable by any gesture: the rail
+     moved, the illumination stopped on the second module, and the last two
+     dots never lit. A trailing flex item of (100% - one module) puts the
+     furthest scroll position exactly on the last module's own snap point.
+     Both numbers are read back here so they cannot drift apart. */
+  const mod = /\.how-mod\{[^}]*flex:0 0 (\d+)%/.exec(
+    CSS.slice(CSS.indexOf(':is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day) .how-mod{')));
+  assert.ok(mod, 'the focused rail module no longer has a percentage width');
+  assert.ok(Number(mod[1]) < 100,
+    'a full-width module makes the rail one panel at a time, not a rail');
+  /* The last module takes the whole rail, which is what makes the scrollable
+     distance exactly (n-1) modules -- landing on the last one's own snap
+     point. Anything narrower strands it, and an empty spacer of the same
+     width reaches the same positions while leaving the last module alone
+     against two thirds of a screen of nothing. */
+  assert.match(CSS, /\.how-mod:last-child\{flex:0 0 100%;\}/,
+    'the last rail module no longer fills the rail, so it cannot reach the reading position');
+  assert.doesNotMatch(CSS, /\.how-card \.fuel-body::after\{[^}]*flex:0 0 calc/,
+    'the empty trailing spacer is back alongside the full-width last module');
+});

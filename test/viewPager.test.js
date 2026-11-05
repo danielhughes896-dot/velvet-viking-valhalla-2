@@ -232,3 +232,53 @@ test('the live mount and the peek render a view identically', () => {
   assert.match(fn('pagerNeighbourHtml'), /finally\{ state\.view = was; \}/,
     'the borrowed state.view is no longer restored, so a throw strands the view');
 });
+
+test('a backward swipe does not widen the layout viewport under the fixed nav', () => {
+  /* #view-pager is IN FLOW, so translating it right -- which is what going
+     back does -- pushes content past the right edge and creates real
+     scrollable overflow. The browser answers by widening the layout
+     viewport, and .bn-stack is position:fixed; bottom:0, so it follows that
+     wider viewport below the visible screen: measured at innerHeight
+     746 -> 778 mid-gesture, the nav dropping by exactly that 32px. Going
+     forward never did it (leftward overflow is not scrollable) and the peek
+     never did it (it is fixed), which is why only one direction broke. */
+  assert.match(CSS, /body\.vv-paging #app\{overflow-x:clip;\}/,
+    'the pager no longer clips the page it is translating, so the fixed nav will drop on a backward swipe');
+  /* CLIP, NOT HIDDEN: overflow-x:hidden computes overflow-y to auto, which
+     would turn #app into a nested scroller and break the page's scrolling. */
+  assert.doesNotMatch(CSS, /body\.vv-paging #app\{overflow-x:hidden/,
+    'overflow-x:hidden makes #app a nested scroll container');
+  assert.match(fn('pagerBuildPeek'), /classList\.add\('vv-paging'\)/,
+    'the clip is never switched on, so the rule is inert');
+  const cleanup = fn('pagerCleanup');
+  assert.match(cleanup, /classList\.remove\('vv-paging'\)/,
+    'the clip is never switched off, so the page stays clipped after a swipe');
+  /* Removed BEFORE the early return: a cleanup that bails on a missing
+     pagerState would otherwise leave the body clipped for good. */
+  assert.ok(cleanup.indexOf("classList.remove('vv-paging')") < cleanup.indexOf('if (!p) return;'),
+    'the clip is only cleared on the happy path, so a bailed-out cleanup leaves the page clipped');
+});
+
+test('a committed swipe costs a fraction of the screen, not most of it', () => {
+  /* The page tracks the finger the whole way, so a threshold that is too far
+     reads as the swipe having FAILED rather than as never having been asked
+     for: you drag most of the phone's width, watch the next screen arrive,
+     and then watch it leave again. The numbers live beside the other pager
+     constants rather than inside the handler so this is tunable without
+     reading the gesture code. */
+  assert.match(SRC, /var PAGER_COMMIT_FRACTION = 0\.18;/,
+    'the distance a swipe must travel to commit changed');
+  assert.ok(0.18 < 0.3, 'sanity: the threshold is below the third-of-a-screen it replaced');
+  const end = fn('pagerTouchEnd');
+  assert.match(end, /Math\.abs\(dx\) > p\.w \* PAGER_COMMIT_FRACTION/,
+    'the commit distance is hand-written in the handler again');
+  assert.match(end, /Math\.abs\(p\.vx\) > PAGER_FLING_VX && Math\.abs\(dx\) > PAGER_FLING_PX/,
+    'the flick path is hand-written in the handler again');
+  /* Distance OR flick -- a slow deliberate drag and a quick one are both
+     ways of asking, and losing either makes the gesture feel arbitrary. */
+  assert.match(end, /\(far \|\| fast\)/, 'the two ways of committing stopped being an OR');
+  /* ...and the direction still has to agree with the page being revealed, or
+     a drag back past the start would commit the screen it was leaving. */
+  assert.match(end, /forward && \(far \|\| fast\)/,
+    'a swipe that reverses past its start can now commit the wrong view');
+});
