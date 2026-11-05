@@ -57,7 +57,7 @@ test('the current day is lit rather than ringed', () => {
   const i = BARE.indexOf(':is(.view-plan, .view-plan-week, .view-plan-session) .pw-row.is-today{');
   assert.ok(i > -1, 'the today row lost its treatment entirely');
   const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
-  assert.match(body, /box-shadow:0 0 \d+px rgba\(227,177,90/,
+  assert.match(body, /box-shadow:0 0 \d+px color-mix\(in srgb, var\(--gold\)/,
     'the today row is no longer lit, so nothing marks it');
   assert.doesNotMatch(body, /0 0 0 1px/, 'the gold ring came back around the today row');
 });
@@ -141,7 +141,7 @@ test('done, now and ahead are one colour language on the plan', () => {
      ".pp-chip.is-done{", so a bare indexOf reads that rule's body instead. */
   assert.match(ruleFor('\n  .pp-chip.is-done{'), /box-shadow:[^;]*var\(--ok\)/,
     'a completed phase chip is no longer lit green');
-  assert.match(ruleFor('.pp-chip.is-now{'), /box-shadow:[^;]*rgba\(227,177,90/,
+  assert.match(ruleFor('.pp-chip.is-now{'), /box-shadow:[^;]*var\(--gold\)/,
     'the current phase chip is no longer lit gold');
   /* A bare `color:`, not the `color:` inside `border-color:` -- selection
      keeps its gold RING, it just stops recolouring the word. */
@@ -171,6 +171,36 @@ test('the current week is lit again after the de-boxing took its ring', () => {
   const i = BARE.indexOf('.view-plan .pp-body .week:has(.week-today-flag){');
   assert.ok(i > -1, 'the current week has no treatment at all');
   const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
-  assert.match(body, /box-shadow:0 0 \d+px rgba\(227,177,90/, 'the current week is no longer lit');
+  assert.match(body, /box-shadow:0 0 \d+px color-mix\(in srgb, var\(--gold\)/,
+    'the current week is no longer lit');
   assert.doesNotMatch(body, /0 0 0 1px|border/, 'the gold ring came back around the current week');
+});
+
+test('every gold glow that marks selection or state names its token', () => {
+  /* color-mix was already the pattern in this property -- .ev-card:hover,
+     .splits-summary:hover, .v-call and the HQ panel all used it -- while the
+     older rules hand-set rgba(227,177,90). The literal is --gold with the
+     name filed off, so a palette change reached most of the product and
+     silently missed the rest.
+     THE EXCLUSIONS ARE DELIBERATE, NOT LEFTOVERS, and each is a different
+     kind of thing:
+       - the two @keyframes values, and .wk-bar-fill's resting shadow, are
+         tied together by test/instrumentGlow, which asserts the static
+         shadow EQUALS the pulse's rest value -- converting one side would
+         make a measured relationship unverifiable;
+       - 0 0 0 2px on the share thumbnails is a spread RING, not a glow;
+       - 0 6px 18px is elevation, not light.
+     So this counts what is left rather than demanding zero: it fails if a
+     NEW hand-set gold glow appears, and does not pretend the six above are
+     mistakes. */
+  const halos = BARE.match(/box-shadow:[^;]*rgba\((?:227,177,90|245,208,97)[^;]*;/g) || [];
+  const glows = halos.filter(h => !/0 0 0 \d+px|0 \d+px \d+px/.test(h));
+  assert.equal(glows.length, 3,
+    'hand-set gold glows: ' + glows.length + ' (expected the 3 the pulse owns)\n  ' +
+    glows.join('\n  '));
+  /* ...and the pattern they should follow is in the sheet and working. */
+  assert.match(BARE, /\.pp-chip\.is-open\{[^}]*color-mix\(in srgb, var\(--gold\)/,
+    'the selected phase chip hand-sets its gold again');
+  assert.match(BARE, /\.wk-day\.is-sel\{[^}]*color-mix\(in srgb, var\(--gold\)/,
+    'the selected day circle hand-sets its gold again');
 });

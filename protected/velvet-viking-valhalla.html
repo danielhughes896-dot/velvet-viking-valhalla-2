@@ -1794,7 +1794,7 @@
       box-shadow .25s ease;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-dot.is-on{
     background:var(--gold-bright); opacity:1;
-    box-shadow:0 0 8px rgba(245,208,97,.6);}
+    box-shadow:0 0 8px color-mix(in srgb, var(--gold-bright) 60%, transparent);}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .how-mod > *{position:relative; z-index:1;}
   /* ---- THE COACH'S NOTE IS LIT IN CHERRY, AND HAS NO EDGE ----
      It was a bordered, tinted rectangle -- the one boxed thing left inside a
@@ -3490,7 +3490,7 @@
   .opt-grid button.active{
     color:var(--gold-bright); background:var(--t-tile);
     border-color:var(--gold); font-weight:700;
-    box-shadow:0 0 0 1px var(--gold), 0 0 16px rgba(227,177,90,.26), var(--t-lift);
+    box-shadow:0 0 0 1px var(--gold), 0 0 16px color-mix(in srgb, var(--gold) 26%, transparent), var(--t-lift);
   }
   .opt-grid button.active .sub{color:var(--gold); opacity:.85;}
 
@@ -3526,7 +3526,7 @@
   .bld-purpose button.active{
     color:var(--gold-bright); background:var(--t-tile);
     border-color:var(--gold); font-weight:700;
-    box-shadow:0 0 0 1px var(--gold), 0 0 16px rgba(227,177,90,.26), var(--t-lift);
+    box-shadow:0 0 0 1px var(--gold), 0 0 16px color-mix(in srgb, var(--gold) 26%, transparent), var(--t-lift);
   }
   .bld-purpose button.active .bpc-why{color:var(--gold); opacity:.85;}
   /* A locked choice still shows what was chosen and why it cannot move -- the
@@ -4185,7 +4185,7 @@
   .wk-day.is-rest .wk-day-n{color:var(--ink-faint);}
   .wk-day.is-sel{
     border-color:var(--gold); color:var(--gold);
-    box-shadow:0 0 0 1px var(--gold), 0 0 16px rgba(227,177,90,.34);
+    box-shadow:0 0 0 1px var(--gold), 0 0 16px color-mix(in srgb, var(--gold) 34%, transparent);
   }
   .wk-day.is-sel .wk-day-n{color:var(--gold);
     text-shadow:0 0 10px rgba(227,177,90,.45);}
@@ -4195,7 +4195,7 @@
   .wk-day.is-today{position:relative;}
   .wk-day.is-today::after{
     content:''; position:absolute; left:28%; right:28%; bottom:-7px; height:2px;
-    border-radius:2px; background:var(--gold); box-shadow:0 0 8px rgba(227,177,90,.55);
+    border-radius:2px; background:var(--gold); box-shadow:0 0 8px color-mix(in srgb, var(--gold) 55%, transparent);
   }
 
   /* ---- BOX 2: the selected session ---- */
@@ -4334,13 +4334,13 @@
      mark rather than a label. */
   .pp-chip.is-ahead, .pp-chip.is-now, .pp-chip.is-done{color:var(--ink);}
   .pp-chip.is-done{box-shadow:0 0 16px color-mix(in srgb, var(--ok) 36%, transparent);}
-  .pp-chip.is-now{box-shadow:0 0 16px rgba(227,177,90,.26);}
+  .pp-chip.is-now{box-shadow:0 0 16px color-mix(in srgb, var(--gold) 26%, transparent);}
   .pp-chip.is-done .pp-chip-tick{color:var(--ok-text);}
   /* The selected chip is the bottom nav's selected tab again -- gold, lit,
      no fill -- which is the one selected language this product has. */
   .pp-chip.is-open{
     border-color:var(--gold);
-    box-shadow:0 0 0 1px var(--gold), 0 0 14px rgba(227,177,90,.26);
+    box-shadow:0 0 0 1px var(--gold), 0 0 14px color-mix(in srgb, var(--gold) 26%, transparent);
   }
 
   /* ---- a phase ---- */
@@ -4531,7 +4531,7 @@
   .pw-chev{flex:none; color:var(--ink-faint); display:inline-flex;}
   .pw-chev svg{width:19px; height:19px;}
   .pw-row.is-today{border-color:var(--gold);
-    box-shadow:0 0 0 1px var(--gold), 0 0 14px rgba(227,177,90,.22);}
+    box-shadow:0 0 0 1px var(--gold), 0 0 14px color-mix(in srgb, var(--gold) 22%, transparent);}
   .pw-row.is-today .pw-dow{color:var(--gold-bright);}
   .view-plan-week .zone-card{margin:2px 0 0;}
 
@@ -4548,7 +4548,7 @@
     :is(.pw-progress, .pw-row, .zone-card, .hub-card, .race-event, .race-strategy, .week, .pp-phase){
     background:none; border:0; border-radius:0; box-shadow:none;}
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row.is-today{
-    box-shadow:0 0 16px rgba(227,177,90,.20);}
+    box-shadow:0 0 16px color-mix(in srgb, var(--gold) 20%, transparent);}
   /* ---------- A FINISHED WEEK IS LIT THE WAY A FINISHED SESSION IS ----------
      Same green, same technique as SESSION COMPLETE: a blurred radial that
      overspills the row and dissolves into the page, built from --ok rather
@@ -4598,7 +4598,7 @@
   .view-plan .pp-body .week:has(.week-today-flag) .week-phase{color:var(--gold-bright);}
   .view-plan .pp-body .week.is-now,
   .view-plan .pp-body .week:has(.week-today-flag){
-    box-shadow:0 0 18px rgba(227,177,90,.20);}
+    box-shadow:0 0 18px color-mix(in srgb, var(--gold) 20%, transparent);}
   :is(.view-plan, .view-plan-week, .view-plan-session) .pw-row + .pw-row,
   .view-plan .pp-body .week + .week,
   .view-plan .pp-phase + .pp-phase{border-top:1px solid var(--line-soft);}
