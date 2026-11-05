@@ -167,7 +167,10 @@ test('every customer-facing brand control now resolves through the accent token'
      --cherry to --cherry-dim -- so the claim this guards (the arc is the one
      place this figure wears the accent) is checked against the gradient the
      arc actually paints with. */
-  assert.match(CODE, /\.gauge-fill\{stroke:url\(#gaugeFill\);\}/,
+  /* The stroke declaration, not the closing brace: .gauge-fill carries an
+     entrance animation beside it now, and a colour guard should not fail
+     for a timing change. */
+  assert.match(CODE, /\.gauge-fill\{stroke:url\(#gaugeFill\);/,
     'the confidence gauge arc no longer paints with its own gradient');
   const gaugeGrad = /id="gaugeFill"[\s\S]*?<\/linearGradient>/.exec(CODE);
   assert.ok(gaugeGrad, 'the gauge gradient is gone');

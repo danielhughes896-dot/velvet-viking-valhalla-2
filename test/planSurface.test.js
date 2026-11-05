@@ -73,41 +73,32 @@ test('bare .hub-card is untouched, because Today and Valhalla use it too', () =>
   assert.match(body, /border:1px solid var\(--line\)/, 'bare .hub-card lost its own border');
 });
 
-test('a finished week is lit with the same green a finished session is', () => {
-  /* Same token, same technique: a blurred radial built from --ok, not a
-     colour invented at the call site, and under 50% on both axes so the
-     ending shape cannot reach the box edge and be cut square. */
-  const i = BARE.indexOf('.view-plan .pp-body .week.is-done::before');
-  assert.ok(i > -1, 'completed weeks are no longer lit');
-  const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
-  assert.match(body, /var\(--ok-text\)/, 'the week glow stopped naming its colour');
-  assert.match(body, /var\(--ok\)/, 'the week glow stopped naming its colour');
-  assert.doesNotMatch(body, /#[0-9A-Fa-f]{3,6}|rgba?\(/,
-    'the week glow hand-sets a colour belonging to no token');
-  assert.match(body, /filter:blur\(/, 'a stop list always shows its edge -- the blur is the technique');
-  const shape = /radial-gradient\((\d+)% (\d+)%/.exec(body);
-  assert.ok(shape && Number(shape[1]) < 50 && Number(shape[2]) < 50,
-    'the week glow reaches its own box edge and will be cut square');
+test('a finished week says so in colour, and the list stays clean', () => {
+  /* THE WASH CAME OFF THE LIST, and that is a decision rather than a
+     regression. A finished week is one row in a column of sixteen; a light
+     designed for a single hero moment, repeated down that column, stops
+     being an event and becomes a texture. The illumination belongs to the
+     completed SESSION -- one thing, on one screen -- and to the marks and
+     chips that stand alone. The row still says it is done, in the colour
+     its numerals take, which is asserted in the colour-language test below. */
+  assert.equal(BARE.indexOf('.view-plan .pp-body .week.is-done::before'), -1,
+    'the repeating week wash is back in the list');
   /* .week clipped its children before the boxes came off it, and a glow
      that overspills by 100vw is the first thing that clipping would eat. */
   assert.match(BARE, /\.view-plan \.pp-body \.week\{overflow:visible;\}/,
     'the week row clips again, so the glow is cut to the row');
 });
 
-test('the week glow is dimmer than the session banner, because it repeats', () => {
-  /* SESSION COMPLETE appears once on a screen. This can appear ten times
-     down a block, and a column of glows at the banner's strength stops
-     reading as "done" and starts reading as the background. */
-  const pick = (marker) => {
-    const i = BARE.indexOf(marker);
-    assert.ok(i > -1, 'missing: ' + marker);
-    const body = BARE.slice(BARE.indexOf('{', i) + 1, BARE.indexOf('}', i));
-    return Number(/var\(--ok-text\) (\d+)%/.exec(body)[1]);
-  };
-  const banner = pick('.actual-done::before');
-  const week = pick('.view-plan .pp-body .week.is-done::before');
-  assert.ok(week < banner,
-    'the repeating week glow (' + week + '%) is no longer dimmer than the one-off session banner (' + banner + '%)');
+test('the light is for things that happen once, not for rows in a list', () => {
+  /* This used to assert that the week's glow was DIMMER than the session
+     banner's, because it repeats. Mixing the same recipe weaker is what made
+     two finished things stop looking alike in the first place -- so the
+     answer is no longer "the same light, quieter" but "not this light here".
+     SESSION COMPLETE appears once on a screen and keeps it. */
+  assert.ok(BARE.indexOf('.actual-done::before') > -1,
+    'the one-off completion banner lost its light too');
+  assert.equal(BARE.indexOf('.view-plan .pp-body .week.is-done::before'), -1,
+    'a glow is back on a row that can appear sixteen times in a column');
 });
 
 test('a week is marked done from the figure it already shows', () => {
@@ -139,8 +130,12 @@ test('done, now and ahead are one colour language on the plan', () => {
     'the chip labels are being coloured by state again');
   /* Anchored on the line start: the combined label rule above ENDS with
      ".pp-chip.is-done{", so a bare indexOf reads that rule's body instead. */
-  assert.match(ruleFor('\n  .pp-chip.is-done{'), /box-shadow:[^;]*var\(--ok\)/,
+  /* --glow-done-mark is the compact form of the same light, and it resolves
+     to the --ok mix this used to spell out at the call site. */
+  assert.match(ruleFor('\n  .pp-chip.is-done{'), /box-shadow:var\(--glow-done-mark\)/,
     'a completed phase chip is no longer lit green');
+  assert.match(BARE, /--glow-done-mark:[^;]*var\(--ok\)/,
+    'the shared mark light stopped naming the done colour');
   assert.match(ruleFor('.pp-chip.is-now{'), /box-shadow:[^;]*var\(--gold\)/,
     'the current phase chip is no longer lit gold');
   /* A bare `color:`, not the `color:` inside `border-color:` -- selection

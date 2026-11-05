@@ -3,6 +3,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadApp } = require('./harness.js');
 const { buildPlan } = require('./fixtures.js');
+const fs = require('fs');
+const path = require('path');
+const { RUNTIME_RELATIVE } = require('./harness.js');
+const RUNTIME_SRC = fs.readFileSync(path.join(__dirname, '..', RUNTIME_RELATIVE), 'utf8');
 
 // VALHALLA -- THE PROGRAMME ENTRY (SCREEN 1).
 //
@@ -575,4 +579,84 @@ test('35. once per genuine launch: Continue ends it, and the next launch arms it
 
   const next = coldLaunch({ name: 'Dan' });   // a new process start
   assert.equal(next.shouldShowProgrammeEntry(next.resolveAppState()), true);
+});
+
+/* THE ARRIVAL IS A STOP-GAP, NOT A DECISION.
+ * ===========================================================================
+ * It exists to stand in front of the app while the plan loads, so it has to
+ * behave like a splash and not like a screen: no chrome above it, nothing to
+ * press, and it stands itself down. A Continue button was asking the athlete
+ * to acknowledge a loading screen.
+ */
+function arrived(){
+  const a = loadApp({ pinnedDate: '2026-11-05' });
+  buildPlan(a, { weeks: 11, startDate: '2026-08-24', distanceKey: 'full', volume: 55 });
+  a.state.athlete = a.state.athlete || {};
+  a.state.athlete.firstName = 'Dan';
+  return a;
+}
+
+test('ARRIVAL: there is nothing to press', () => {
+  const a = arrived();
+  const html = a.renderProgrammeEntry();
+  assert.doesNotMatch(html, /class="pe-go"/, 'the Continue button is back');
+  assert.doesNotMatch(html, /data-action="programme-entry-continue"/,
+    'the arrival still asks to be dismissed by hand');
+  /* The name form's own Continue is a different thing and stays: it submits
+     an answer rather than acknowledging a loading screen. */
+  /* And the styling went with it rather than being left behind. Read from
+     the file: an earlier version of this line tested `a.CODE || ''`, and
+     since the app object carries no CODE it was asserting that the empty
+     string contains no rule -- which it never can. */
+  assert.doesNotMatch(RUNTIME_SRC, /\.pe-go\{/, 'dead .pe-go styling survived');
+  // the greeting itself is untouched
+  assert.match(html, /Hello Dan/, 'the arrival stopped greeting anybody');
+});
+
+test('ARRIVAL: it stands itself down, once, and only when there is a name', () => {
+  const a = arrived();
+  const fired = [];
+  let armedDelay = null;
+  a.programmeEntryPending = true;
+  a.window = a.window || {};
+  a.window.setTimeout = (fn, ms) => { armedDelay = ms; fired.push(fn); return 1; };
+  a.window.clearTimeout = () => {};
+
+  a.programmeEntryAutoAdvance();
+  assert.equal(fired.length, 1, 'the arrival never armed its own exit');
+  assert.ok(armedDelay >= 2000 && armedDelay <= 3500,
+    'the hold is ' + armedDelay + 'ms, outside the 2-3s this screen is for');
+
+  /* A redraw must not stack a second timer: two would fire two renders, and
+     the second would land after the athlete was already somewhere else. */
+  a.programmeEntryAutoAdvance();
+  a.programmeEntryAutoAdvance();
+  assert.equal(fired.length, 1, 'a redraw armed another exit on top of the first');
+});
+
+test('ARRIVAL: the first open asks, and only a screen with nothing to ask holds', () => {
+  /* THE QUESTION AND THE CLOCK NEVER COEXIST. On the very first open this
+     screen carries the one-time name question, and a question that answers
+     itself after 2.6 seconds has been skipped rather than answered -- so the
+     hold is not armed while anything is still being asked. Once answered the
+     name is stored, and every launch after that, force quits included, is
+     purely a splash that holds and goes on its own. */
+  const a = arrived();
+  a.state.athlete.firstName = '';
+  a.programmeEntryPending = true;
+  let armed = 0;
+  a.window = a.window || {};
+  a.window.setTimeout = () => { armed++; return 1; };
+  a.programmeEntryAutoAdvance();
+  assert.equal(armed, 0, 'the name question times out instead of being answered');
+  assert.match(a.renderProgrammeEntry(), /data-action="programme-entry-name"/,
+    'the name form lost its way to submit');
+
+  // answered once -- and from here it is a splash, every time
+  a.state.athlete.firstName = 'Dan';
+  a.programmeEntryAutoAdvance();
+  assert.equal(armed, 1, 'a named athlete is left sitting on the arrival');
+  const html = a.renderProgrammeEntry();
+  assert.match(html, /Hello Dan/);
+  assert.doesNotMatch(html, /<input/, 'the question is asked again after it was answered');
 });

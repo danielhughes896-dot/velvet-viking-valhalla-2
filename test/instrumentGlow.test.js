@@ -144,15 +144,27 @@ test('the timing is a settle then a gentle cycle, with each delay its own entran
     assert.ok(m, sel + ' does not carry a glow cycle');
     return { cycle: parseFloat(m[1]), delay: parseFloat(m[2]) };
   };
-  [['.th-arc', 1.26], ['.gauge-wrap', 0.5], ['.wk-bar-fill', 1.28]].forEach(([sel, delay]) => {
+  [['.th-arc', 1.64], ['.gauge-wrap', 1.64], ['.wk-bar-fill', 1.28]].forEach(([sel, delay]) => {
     const t = timing(sel);
     assert.ok(t.cycle >= 3 && t.cycle <= 4, sel + ': ' + t.cycle + 's is outside the 3-4s brief');
     assert.equal(t.delay, delay, sel + ': the settle no longer follows this element\'s entrance');
   });
-  // The ring draws for 760ms and the bar fills for 780ms; the delays above
-  // are those plus the 500ms settle. If an entrance is retimed, the settle
-  // has to be retimed with it or the pulse starts mid-arrival.
-  assert.match(CSS, /animation:th-draw 760ms/);
+  /* The rings draw for --ring-draw and the bar fills for 780ms; the delays
+     above are those plus the 500ms settle. If an entrance is retimed the
+     settle has to be retimed with it, or the pulse starts mid-arrival --
+     which is exactly what this caught when the draw went from 760ms to
+     1140ms and both ring delays were left where they were.
+     The duration is read from the token rather than pinned as a literal,
+     because it is now one figure shared by every ring; the arithmetic that
+     matters is the relationship, and that is asserted below. */
+  const drawMs = /--ring-draw:\s*(\d+)ms/.exec(CSS);
+  assert.ok(drawMs, 'the shared ring draw duration is gone');
+  assert.match(CSS, /animation:th-draw var\(--ring-draw\)/,
+    'the session ring no longer draws at the shared speed');
+  assert.match(CSS, /animation:gauge-draw var\(--ring-draw\)/,
+    'the confidence gauge no longer draws at the shared speed');
+  assert.equal(Number(drawMs[1]) / 1000 + 0.5, 1.64,
+    'the ring delays above no longer equal this entrance plus the 500ms settle');
   assert.match(CSS, /animation:wk-fill 780ms cubic-bezier\(\.22,\.61,\.36,1\) both,/);
 });
 
@@ -182,6 +194,13 @@ test('reduced motion stops the cycles, not just the entrances', () => {
   const all = blocks.join('\n');
   assert.match(all, /animation-iteration-count:1 !important/,
     'the global reduced-motion switch is gone -- an infinite glow would keep running');
-  assert.match(all, /\.th-arc, \.gauge-wrap, \.wk-bar-fill\{ animation:none; \}/,
-    'a glow that repeats forever is exactly the motion someone asking for less wants spared');
+  /* Named rather than pinned as one exact string: the gauge's fill joined
+     this list when the gauge gained an entrance, and the claim is that each
+     of these instruments is silenced -- not that the selector reads in a
+     particular order. */
+  const kill = /@media \(prefers-reduced-motion: ?reduce\)\{[\s\S]*?animation:none;[\s\S]*?\n  \}/.test(all);
+  assert.ok(kill, 'nothing is explicitly silenced beside the glows any more');
+  ['.th-arc', '.gauge-wrap', '.wk-bar-fill', '.gauge-fill'].forEach(sel =>
+    assert.ok(all.indexOf(sel) !== -1,
+      sel + ' keeps moving for a reader who asked for less motion'));
 });

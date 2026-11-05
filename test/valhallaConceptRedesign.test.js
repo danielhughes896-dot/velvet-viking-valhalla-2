@@ -405,7 +405,10 @@ test('COLOUR: the readiness figure stays gold, the ring stays the accent -- same
      --cherry to --cherry-dim -- so the claim this guards (the arc is the one
      place this figure wears the accent) is checked against the gradient the
      arc actually paints with. */
-  assert.match(CODE, /\.gauge-fill\{stroke:url\(#gaugeFill\);\}/);
+  /* The stroke declaration, not the whole rule: .gauge-fill gained an
+     entrance animation alongside it, and pinning the closing brace made a
+     colour test fail for a timing change. */
+  assert.match(CODE, /\.gauge-fill\{stroke:url\(#gaugeFill\);/);
   assert.match(CODE, /id="gaugeFill"[\s\S]*?var\(--cherry\)/);
   /* And the rim takes the same three-stop ramp as every other circle, in the
      same accent as the fill -- so the hero ring is one of the circles rather

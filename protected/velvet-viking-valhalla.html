@@ -252,6 +252,22 @@
      what shows, not the base .how-row .k (12.5px/1.3px/600) underneath it.
      The applied block that uses them is the last thing in this stylesheet,
      and carries the full reasoning. */
+    /* ---------- THE DONE ILLUMINATION, DEFINED ONCE ----------
+       The completed-session band is where this light was designed, and it
+       is the standard for the colour everywhere: a blurred radial wash that
+       overspills its box and dissolves rather than ending on an edge. It
+       was being approximated elsewhere at roughly half strength, and drawn
+       in one place as a flat tinted disc with no light at all, so a week
+       that was finished and a session that was finished did not look like
+       the same event. One variable, so they cannot drift again. */
+    --glow-done:radial-gradient(40% 44% at 50% 50%,
+      color-mix(in srgb, var(--ok-text) 58%, transparent) 0%,
+      color-mix(in srgb, var(--ok) 36%, transparent) 46%,
+      color-mix(in srgb, var(--ok) 12%, transparent) 76%,
+      transparent 100%);
+    --glow-done-blur:18px;
+    /* And the compact form, for a mark rather than a band. */
+    --glow-done-mark:0 0 16px color-mix(in srgb, var(--ok) 36%, transparent);
     --label-face:'Oswald',sans-serif;
     --label-size:.71875rem;
     --label-track:.04em;
@@ -277,6 +293,14 @@
     --fs-label:.6875rem;  /* 11px   row keys, section headings           */
     --fs-support:.84375rem;/*13.5px tertiary support copy, hints, spans  */
     --fs-data:.9375rem;   /* 15px   mono metrics: pace, distance, HR     */
+    /* 14px, and it earns a name rather than staying a magic number in three
+       override rules. A panel row is read on a dimmed overlay at arm's
+       length, so the 11px --fs-label the same row uses inside a card is too
+       small there -- the panels had already decided that and written 14px
+       by hand in three places, which is how a fourth would have been
+       written differently. Label and value share it, because a key and its
+       figure reading at two sizes is what makes a row look broken. */
+    --fs-panel-row:.875rem;/*14px   panel rows: key and figure alike      */
     --fs-body:1rem;       /* 16px   PRIMARY coaching and body copy       */
     --fs-title:1.25rem;   /* 20px   session title                        */
     --lh-body:1.5; --lh-support:1.45;
@@ -359,6 +383,13 @@
        title and the confidence gauge, so both read as the same finish. */
     --gold-bright:#F5D061; --gold-deep:#8A6D2B;
     --gold-shadow-1:#7A5C1E; --gold-shadow-2:#543E12;
+    /* ---------- HOW LONG A RING TAKES TO LAY ITSELF DOWN ----------
+       One figure for every ring in the product, so a second instrument
+       cannot be given a second speed. 1140ms on arrival; the re-draw that
+       follows a day swap keeps the same 1.5 ratio it always had to the
+       entrance, because a second look at something already on screen should
+       still be quicker than a first. */
+    --ring-draw:1140ms; --ring-redraw:600ms;
     --strava-orange:#FC4C02;
     /* ---------- CONTROL TOKENS ----------
        The --modal-* ramp above is deliberately fixed dark in BOTH themes: a
@@ -487,7 +518,12 @@
        growing on wide screens. */
     font-family:'Cinzel',serif; font-weight:800; font-size:clamp(1.28rem, 6.3vw, 1.58rem); letter-spacing:0.05em;
     text-transform:uppercase; white-space:nowrap;
-    background:linear-gradient(180deg, var(--gold-bright) 0%, var(--modal-active) 100%);
+    /* Was --gold-bright into --modal-active, and --modal-active (#c5a059) is
+       a modal's chrome colour, not the brand's -- so the mark was built from
+       a gold that appears nowhere else on the screen it heads. It now runs
+       from --gold-bright to --gold, the two golds the rest of the app is
+       drawn in. */
+    background:linear-gradient(180deg, var(--gold-bright) 0%, var(--gold) 100%);
     -webkit-background-clip:text; background-clip:text;
     -webkit-text-fill-color:transparent; color:transparent;
     text-shadow:0 1px 0 var(--gold-shadow-1), 0 2px 0 var(--gold-shadow-2), 0 3px 6px rgba(0,0,0,0.8);
@@ -660,7 +696,21 @@
     padding:18px 0 0;}
   .gauge-rim{stroke:url(#gaugeRim); stroke-width:2.2;}
   .gauge-track{stroke:var(--bg-4);}
-  .gauge-fill{stroke:url(#gaugeFill);}
+  /* ---- THE GAUGE LAYS ITSELF DOWN, LIKE EVERY OTHER RING ----
+     The session ring draws itself in on arrival and the gauge did not: it
+     was simply present, which made the one reading the screen is built
+     around the only instrument that never moved. Same mechanism as
+     th-draw -- the stroke is withheld and laid down clockwise from the top,
+     the figure underneath untouched.
+     AND HALF AGAIN AS SLOW. th-draw is 760ms on a 96px ring; this is a
+     132px ring carrying the headline, so it takes 1140ms -- the same
+     deceleration curve, given the time to be watched rather than noticed. */
+  @keyframes gauge-draw{
+    from{ stroke-dashoffset:var(--gauge-len, 0); }
+    to  { stroke-dashoffset:0; }
+  }
+  .gauge-fill{stroke:url(#gaugeFill);
+    animation:gauge-draw var(--ring-draw) cubic-bezier(.22,.61,.36,1) both;}
   /* The seam between the ring and the face. It was a grey hairline against a
      cream medallion; against a dark face at the same value it read as a
      second, competing ring, so it takes the accent at low opacity and stops
@@ -1555,12 +1605,18 @@
   @keyframes th-draw{ from{ stroke-dashoffset:1; } to{ stroke-dashoffset:0; } }
   .th-ring.is-drawing .th-arc path,
   .th-ring.is-redrawing .th-arc path{ stroke-dasharray:1; }
+  /* ONE DRAW SPEED FOR EVERY RING. This was 760ms while the confidence
+     gauge had no entrance at all; when the gauge gained one it was given
+     half again as long, and two rings laying themselves down at two speeds
+     is the same kind of near-miss as two type ladders. The slower figure
+     wins -- it is the one that reads as an instrument settling rather than
+     a transition finishing. */
   .th-ring.is-drawing .th-arc path{
-    animation:th-draw 760ms cubic-bezier(.22,.61,.36,1) both;}
+    animation:th-draw var(--ring-draw) cubic-bezier(.22,.61,.36,1) both;}
   /* A SECOND LOOK IS NOT A FIRST ONE. Changing day re-presents a component
      the athlete is already looking at, so it lays down quicker. */
   .th-ring.is-redrawing .th-arc path{
-    animation:th-draw 400ms cubic-bezier(.22,.61,.36,1) both;}
+    animation:th-draw var(--ring-redraw) cubic-bezier(.22,.61,.36,1) both;}
   /* ---- THE WEEK'S PROGRESS FILLS ----
      width rather than transform:scaleX, because scaling a 99px-radius cap
      horizontally squashes it for the length of the animation. The target is
@@ -1621,8 +1677,15 @@
     0%,100%{ box-shadow:0 0 10px rgba(227,177,90,.34), 0 0 20px rgba(227,177,90,0); }
     50%    { box-shadow:0 0 10px rgba(227,177,90,.95), 0 0 34px rgba(227,177,90,.55); }
   }
-  .th-arc{ animation:vv-glow-ring 3.6s ease-in-out 1.26s infinite; }
-  .gauge-wrap{ animation:vv-glow-gauge 3.6s ease-in-out .5s infinite; }
+  /* EACH SETTLE FOLLOWS ITS OWN ENTRANCE, and both of these entrances just
+     got longer. The ring drew for 760ms, so it waited 1.26s; it now draws
+     for --ring-draw (1140ms) and waits 1.64s. The gauge waited 0.5s because
+     it had no entrance at all to wait for -- now that it lays itself down
+     like every other ring, it waits for that too. Left alone, both would
+     have begun pulsing while still drawing, which is the one thing these
+     delays exist to prevent. */
+  .th-arc{ animation:vv-glow-ring 3.6s ease-in-out 1.64s infinite; }
+  .gauge-wrap{ animation:vv-glow-gauge 3.6s ease-in-out 1.64s infinite; }
   /* The bar's fill and its glow are on the SAME element, so the filling rule
      has to restate both: `animation` is a shorthand, and naming only the fill
      there would drop the glow for the life of that class. */
@@ -1645,7 +1708,7 @@
     .th-ring.is-drawing .th-arc path,
     .th-ring.is-redrawing .th-arc path{ animation:none; stroke-dasharray:none; }
     .wk-bar-fill.is-filling{ animation:none; }
-    .th-arc, .gauge-wrap, .wk-bar-fill{ animation:none; }
+    .th-arc, .gauge-wrap, .wk-bar-fill, .gauge-fill{ animation:none; }
   }
   .th-ring-in{position:absolute; inset:0; display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:0; text-align:center;
@@ -1947,12 +2010,8 @@
     content:''; position:absolute; z-index:0; pointer-events:none;
     left:calc(50% - 50vw); width:100vw; right:auto;
     top:-10px; bottom:-12px; border-radius:999px;
-    background:radial-gradient(40% 44% at 50% 50%,
-      color-mix(in srgb, var(--ok-text) 58%, transparent) 0%,
-      color-mix(in srgb, var(--ok) 36%, transparent) 46%,
-      color-mix(in srgb, var(--ok) 12%, transparent) 76%,
-      transparent 100%);
-    filter:blur(18px);}
+    background:var(--glow-done);
+    filter:blur(var(--glow-done-blur));}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-done > *{position:relative; z-index:1;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-done-i{width:26px; height:26px; border-width:1.5px;}
   :is(.view-today .day.is-today, .view-week .wk-full .day, .view-plan-session .day, .view-week .wk-overview) .actual-done-i svg{width:14px; height:14px;}
@@ -2186,10 +2245,15 @@
      Reuses the Today hero's own mountain treatment and the canonical crest;
      no new asset, no new colour. The bar is the cherry accent the product
      already uses for a primary action, on the existing line token. */
-  .pe{position:relative; min-height:calc(100vh - 120px); display:flex;
+  /* Full height and its own top inset, because there is no header above it
+     any more -- the 120px it used to subtract was that chrome. */
+  .pe{position:relative; min-height:100vh; display:flex;
     flex-direction:column; align-items:center; text-align:center;
-    padding:8px 18px 36px;}
-  .pe-mountains{position:absolute; left:50%; transform:translateX(-50%); top:-64px;
+    padding:calc(18px + env(safe-area-inset-top, 0px)) 18px 36px;}
+  /* top:0, not -64px: that offset pulled the photograph up behind a header
+     that is no longer drawn over this screen. It now begins at the very top
+     of the viewport and fades, through the mask below, into --bg. */
+  .pe-mountains{position:absolute; left:50%; transform:translateX(-50%); top:0;
     width:100vw; max-width:none; height:1040px;
     background-image:url('/assets/valhalla-mountains-820.jpg');
     background-size:cover; background-position:50% 30%;
@@ -2249,11 +2313,8 @@
      an ordinary phone. The stack above it is a fixed height, so a fixed gap
      places it predictably inside the viewport at every size -- and places it
      on the photograph, so like the lines above it, it takes the fixed ramp. */
-  .pe-go{position:relative; z-index:1; margin-top:46px; margin-bottom:auto;
-    padding:10px 18px;
-    background:none; border:0; cursor:pointer; font-family:'Oswald',sans-serif;
-    font-size:12px; letter-spacing:2px; text-transform:uppercase;
-    color:var(--modal-text); opacity:.82;}
+  /* .pe-go is gone with the button it styled -- the arrival stands itself
+     down now, so there is nothing to press. */
   /* The one-time capture stands where the greeting will stand next time. */
   .pe-ask{position:relative; z-index:1; margin-top:38px; width:min(360px,92%);
     display:flex; flex-direction:column; gap:10px;}
@@ -2281,9 +2342,8 @@
        the page's own background, so it takes the page's own tokens back.
        Without this the whole greeting measured under 2:1 on cream. */
     .pe-hello, .pe-pct{ color:var(--gold-text); text-shadow:none; }
-    .pe-prog{ color:var(--ink); text-shadow:none; }
-    .pe-go{ color:var(--ink-dim); opacity:1; }
     .pe-ask-k{ color:var(--gold-text); text-shadow:none; }
+    .pe-prog{ color:var(--ink); text-shadow:none; }
   }
   /* Entry/build page only, with no crest above it -- a bit more top air so
      the Build Your Training Block card still reads as deliberately placed,
@@ -2303,8 +2363,17 @@
 
   .stat-row{display:flex; justify-content:center; gap:22px; margin-top:16px; flex-wrap:wrap;}
   .stat{text-align:center;}
-  .stat .v{font-family:'JetBrains Mono',monospace; font-size:19px; font-weight:700; color:var(--gold-text);}
-  .stat .l{font-size:10px; letter-spacing:1.5px; color:var(--ink-faint); text-transform:uppercase; margin-top:2px;}
+  /* THE BIG FIGURE IN A PANEL HAD THREE TREATMENTS: this at 19px/700, the
+     fitness range at 20px/600 and the checkpoint time at 20px/400 -- same
+     job, three sizes and three weights, two of them in the same panel. One
+     voice now: --fs-title, weight 700, which is the weight every other data
+     face in the product sets its figure in. And the caption under it joins
+     the one label voice rather than being a fifth near-miss at 10px/1.5px. */
+  .stat .v{font-family:'JetBrains Mono',monospace; font-size:var(--fs-title); font-weight:700;
+    letter-spacing:.02em; color:var(--gold-text);}
+  .stat .l{font-family:var(--label-face); font-size:var(--label-size);
+    letter-spacing:var(--label-track); font-weight:var(--label-weight);
+    color:var(--ink-faint); text-transform:uppercase; margin-top:2px;}
 
   .progress-bars{margin-top:16px; display:flex; flex-direction:column; gap:8px;}
   .pbar-row{display:flex; align-items:center; gap:10px;}
@@ -4042,6 +4111,15 @@
   /* ---------- settings extras ---------- */
   .connect-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line-soft);}
   .connect-row:last-child{border-bottom:none;}
+  /* The name field sits in a settings row beside its Save, so it takes the
+     row's own ground and the gold underline every editable value in this
+     product already wears -- see .actual-field, whose treatment this is. */
+  .stg-name-input{
+    flex:0 1 128px; min-width:0; margin:0 10px 0 12px; padding:5px 2px;
+    background:none; border:0; border-bottom:1px solid var(--gold);
+    color:var(--ink); font-family:'JetBrains Mono',monospace;
+    font-size:var(--fs-panel-row); text-align:right;}
+  .stg-name-input:focus{outline:none; border-bottom-color:var(--gold-bright);}
   /* Same 13px Oswald 600 every other row title in the product uses
      (.rs-head-text h3, .stg-nav-label, .coach-status-label's family) --
      .connect-row used to be the one row title still on the plain body
@@ -4342,7 +4420,8 @@
      after the hero, and before Race Day. */
   .view-plan{display:flex; flex-direction:column; gap:9px; padding-top:22px;}
   .view-plan > .wk-hero{margin-bottom:5px;}
-  .view-plan > .pp-chips{margin-bottom:3px;}
+  /* -16px of the rule above, plus the 3px this row wants. */
+  .view-plan > .pp-chips{margin-bottom:-13px;}
   .view-plan > .race-event{margin-top:9px;}
   .view-host .view-plan .view-heading{display:none;}
 
@@ -4353,7 +4432,15 @@
      ignores label length, so BASE and TAPER get the same share and the row
      stays a row rather than drifting as the words change. min-width:0 lets
      them shrink on a narrow phone instead of forcing a scroll. */
-  .pp-chips{display:flex; gap:7px; justify-content:center; padding-bottom:2px;
+  /* THE GLOW NEEDS ROOM INSIDE THE SCROLLER, and this is the overflow-x
+     trap again: overflow-x:auto forces overflow-y to auto as well, so a
+     completed chip's pill-shaped halo was cut off flat at the container's
+     top and bottom edges. A round light clipped to a rectangle reads as a
+     square green block, which is exactly what it looked like. The row still
+     has to scroll at 320px, so it keeps the scroller and gains the vertical
+     room the light needs; the negative margin gives the layout back. */
+  .pp-chips{display:flex; gap:7px; justify-content:center;
+    padding:16px 0 18px; margin:-16px 0 -16px;
     overflow-x:auto; scrollbar-width:none;}
   .pp-chips::-webkit-scrollbar{display:none;}
   .pp-chip{
@@ -4384,7 +4471,7 @@
      rows use, from the same tokens. The tick stays green because it is a
      mark rather than a label. */
   .pp-chip.is-ahead, .pp-chip.is-now, .pp-chip.is-done{color:var(--ink);}
-  .pp-chip.is-done{box-shadow:0 0 16px color-mix(in srgb, var(--ok) 36%, transparent);}
+  .pp-chip.is-done{box-shadow:var(--glow-done-mark);}
   .pp-chip.is-now{box-shadow:0 0 16px color-mix(in srgb, var(--gold) 26%, transparent);}
   .pp-chip.is-done .pp-chip-tick{color:var(--ok-text);}
   /* The selected chip is the bottom nav's selected tab again -- gold, lit,
@@ -4413,7 +4500,15 @@
     display:inline-flex; align-items:center; justify-content:center;
     border:1px solid var(--t-tile-rim); background:var(--t-tile);}
   .pp-mark svg{width:16px; height:16px;}
-  .pp-mark.is-done{background:rgba(122,160,110,.18); border-color:rgba(122,160,110,.6); color:#9BC08C;}
+  /* rgba(122,160,110) IS --ok and #9BC08C IS --ok-text, written out
+     longhand -- so this mark was already the done colour and simply could
+     not be found by searching for it, and it carried no light at all while
+     every other done thing glowed. */
+  .pp-mark.is-done{
+    background:color-mix(in srgb, var(--ok) 18%, transparent);
+    border-color:color-mix(in srgb, var(--ok) 60%, transparent);
+    color:var(--ok-text);
+    box-shadow:var(--glow-done-mark);}
   .pp-mark.is-now{background:rgba(227,177,90,.14); border-color:var(--gold); color:var(--gold);}
   .pp-head-text{flex:1 1 auto; min-width:0;}
   .pp-name{display:block; font-size:15.5px; font-weight:600; color:var(--ink); line-height:1.2;}
@@ -4612,17 +4707,12 @@
      .week clipped its own children before the boxes came off. */
   .view-plan .pp-body .week{overflow:visible;}
   .view-plan .pp-body .week.is-done{position:relative;}
-  .view-plan .pp-body .week.is-done::before{
-    content:''; position:absolute; z-index:0; pointer-events:none;
-    left:calc(50% - 50vw); width:100vw; right:auto; top:-1px; bottom:-1px;
-    border-radius:999px;
-    background:radial-gradient(44% 46% at 50% 50%,
-      color-mix(in srgb, var(--ok-text) 25%, transparent) 0%,
-      color-mix(in srgb, var(--ok) 14%, transparent) 48%,
-      color-mix(in srgb, var(--ok) 5%, transparent) 76%,
-      transparent 100%);
-    filter:blur(14px);}
-  .view-plan .pp-body .week.is-done > *{position:relative; z-index:1;}
+  /* NO WASH AT LIST SCALE. A finished week is one row in a list of sixteen,
+     and a light built for a single hero moment repeated down a column stops
+     being an event and becomes a texture. The row says it is done in its
+     colour -- the numerals go to --ok-text -- and that is enough at this
+     size. The illumination belongs to the completed SESSION, which is one
+     thing on one screen, and to the marks and chips that stand alone. */
   /* The figure the glow is about: gold is the colour of a week in progress,
      so a gold 100% inside a green light contradicts itself. */
   .view-plan .pp-body .week.is-done .week-pct{color:var(--ok-text);}
@@ -5065,10 +5155,20 @@
   .hq-pattern{padding:6px 0;}
   .hq-pattern + .hq-pattern{border-top:1px solid var(--line-soft);}
   .hq-pattern-top{display:flex; align-items:baseline; gap:10px;}
-  .hq-pattern-area{font-size:11.5px; color:var(--ink); flex:1 1 auto;}
+  /* ---------- ONE LABEL VOICE, AND THESE NOW SPEAK IT ----------
+     --label-face/-size/-track/-weight were defined as the app's single
+     small-uppercase voice and then used seven times in the whole file, so
+     the panels grew their own near-misses: 9px at 1.1px tracking here,
+     11px at 1.2px in the fitness panel, 10px at .1em twice in the
+     checkpoint card. Four labels, four sizes, four trackings, all meaning
+     "this is a label" -- and all close enough to look like a mistake
+     rather than a distinction. Colour still varies, because colour is what
+     these labels use to say WHICH kind they are; the type does not. */
+  .hq-pattern-area{font-size:var(--fs-panel-row); color:var(--ink); flex:1 1 auto;}
   .hq-pattern-state{
-    font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:1.1px; text-transform:uppercase;
-    color:var(--ink-faint); flex:none;
+    font-family:var(--label-face); font-size:var(--label-size);
+    letter-spacing:var(--label-track); font-weight:var(--label-weight);
+    text-transform:uppercase; color:var(--ink-faint); flex:none;
   }
   .hq-pattern-state.positive{color:var(--c-easy);}
   .hq-pattern-state.negative{color:var(--c-tempo);}
@@ -5352,16 +5452,19 @@
   /* WHAT THE TWO NUMBERS ARE, immediately above them. Cherry, because the
      range is the athlete's own evidence -- the same colour law the value
      below it already follows, and gold stays the goal's. */
-  .cf-range-lab{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.1em;
+  .cf-range-lab{font-family:var(--label-face); font-size:var(--label-size);
+    letter-spacing:var(--label-track); font-weight:var(--label-weight);
     text-transform:uppercase; color:var(--cherry-text); margin-bottom:3px;}
-  .cf-value{font-family:'JetBrains Mono',monospace; font-size:var(--fs-title); font-weight:600;
+  .cf-value{font-family:'JetBrains Mono',monospace; font-size:var(--fs-title); font-weight:700;
     letter-spacing:.02em; color:var(--cherry-text);}
   .cf-value.cf-value-empty{color:var(--ink-faint); font-weight:500;}
   .cf-value-cap{ color:var(--ink-faint); margin-top:4px;}
   .cf-goal-row{display:flex; align-items:baseline; gap:7px; margin-top:14px; padding-top:12px;
     border-top:1px solid var(--line-soft); flex-wrap:wrap;}
   .cf-goal-dot{width:7px; height:7px; border-radius:50%; background:var(--gold); flex:none;}
-  .cf-goal-lab{font-family:'Oswald',sans-serif; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--gold-text);}
+  .cf-goal-lab{font-family:var(--label-face); font-size:var(--label-size);
+    letter-spacing:var(--label-track); font-weight:var(--label-weight);
+    text-transform:uppercase; color:var(--gold-text);}
   .cf-goal-sep{font-size:11px; color:var(--ink-faint);}
   .cf-goal-val{font-size:13px; color:var(--ink); font-weight:600;}
   .cf-goal-sub{ color:var(--ink-faint); width:100%; margin-left:14px;}
@@ -5392,6 +5495,16 @@
      baseline because they all begin where the slot ends. */
   .b-dials-arc{display:flex; align-items:flex-start; justify-content:center; gap:5px;}
   .b-dials-arc .b-dial[data-rank="2"]{margin:5px 0;}
+  /* The one hint voice: centred, faint, support size, a chevron each side so
+     it reads as "this moves sideways" rather than as a caption. */
+  .swipe-hint{display:flex; align-items:center; justify-content:center; gap:7px;
+    color:var(--ink-faint); font-size:var(--fs-support); margin:12px 0 2px;
+    letter-spacing:.01em;}
+  /* In the nav stack it sits on the bar's own ground, tight above the tabs. */
+  .bn-stack .swipe-hint{margin:0 0 6px;}
+  .swipe-hint-a{display:inline-flex; opacity:.7;}
+  .swipe-hint-a.is-back{transform:rotate(180deg);}
+  .swipe-hint-a svg{width:13px; height:13px;}
   .b-dials-hint{display:flex; align-items:center; justify-content:center; gap:4px; color:var(--ink-faint); margin-top:2px;}
   .b-dials-hint svg{width:12px; height:12px;}
   /* Diameters from the approved arc: 66 / 76 across a 430pt screen, which
@@ -5905,8 +6018,8 @@
      same white the Today card's own body does; the hierarchy is carried by
      the mono face and the right alignment on the value, and by the gold
      glyph and the section rule above them, not by fading the words out. */
-  .rp-rows .hq-row-l{font-size:14px; color:#FFFFFF;}
-  .rp-rows .hq-row-v{font-size:14px; color:#FFFFFF;}
+  .rp-rows .hq-row-l{font-size:var(--fs-panel-row); color:#FFFFFF;}
+  .rp-rows .hq-row-v{font-size:var(--fs-panel-row); color:#FFFFFF;}
   /* The closing sentence is the one thing on the panel that IS subordinate:
      it explains the figures rather than stating one. */
   .hq-panel .field-hint{ color:var(--ink-dim);}
@@ -5933,7 +6046,7 @@
   .hq-panel .hub-card.tile-card .hq-row{padding:11px 0; border-bottom:1px solid var(--line-soft);}
   .hq-panel .hub-card.tile-card .hq-row:last-child{border-bottom:0;}
   .hq-panel .hub-card.tile-card .hq-row-l,
-  .hq-panel .hub-card.tile-card .hq-row-v{font-size:14px; color:#FFFFFF;}
+  .hq-panel .hub-card.tile-card .hq-row-v{font-size:var(--fs-panel-row); color:#FFFFFF;}
   .modal-body .zone-paces-card{margin:0 0 4px;}
 
   .goal-toggle-hero{margin-top:16px;}
@@ -6080,7 +6193,7 @@
      panel is the only place renderMeasuredFitness() renders, so this is a
      pure normalisation onto --fs-title (the largest size the rest of the app
      actually uses) rather than an invented size for this one number. */
-  .yr-fit-main .yr-fit-v{font-size:var(--fs-title); letter-spacing:.02em; grid-row:1 / span 2;}
+  .yr-fit-main .yr-fit-v{font-size:var(--fs-title); font-weight:700; letter-spacing:.02em; grid-row:1 / span 2;}
   .yr-fit-prev .yr-fit-v{font-size:var(--fs-data); color:var(--ink-dim); grid-row:1 / span 2;}
   .yr-fit-d{font-size:var(--fs-meta); color:var(--ink-faint);}
   .yr-fit-delta{
@@ -6090,7 +6203,8 @@
   .yr-fit-delta.up{color:var(--c-easy);}
   .yr-est{margin-top:14px; padding-top:12px; border-top:1px solid var(--line-soft);}
   .yr-est-head{
-    font-family:'Oswald',sans-serif; font-size:var(--fs-meta); letter-spacing:1.2px;
+    font-family:var(--label-face); font-size:var(--label-size);
+    letter-spacing:var(--label-track); font-weight:var(--label-weight);
     text-transform:uppercase; color:var(--ink-faint); margin-bottom:6px;
   }
   .yr-est-row{display:flex; justify-content:space-between; gap:12px; padding:3px 0;
@@ -22418,6 +22532,47 @@ function readStored(key){
   if (!storageAvailable) return null;
   try{ var r = window.localStorage.getItem(key); return r ? JSON.parse(r) : null; }catch(e){ return null; }
 }
+/* ---------- A GESTURE IS TAUGHT ONCE, THEN THE TEACHING GOES ----------
+   Every swipeable region in this product needs to announce itself, because
+   nothing about a full-bleed card says it answers to a horizontal drag. But
+   an affordance that stays forever is chrome: the athlete who has swiped
+   once already knows, and the hint is then just a line of text taking room
+   from the thing it was pointing at.
+   So each region is taught until it is used, and the teaching is retired on
+   the first successful swipe -- per region, because learning the week card
+   does not teach you the tab pager. Stored rather than held in memory: the
+   whole point is that it survives the next launch. */
+var SWIPE_LEARNED_KEY = 'vv-gestures-learned';
+var swipeLearnedCache = null;
+function swipeLearnedAll(){
+  if (swipeLearnedCache) return swipeLearnedCache;
+  var v = readStored(SWIPE_LEARNED_KEY);
+  swipeLearnedCache = (v && typeof v === 'object') ? v : {};
+  return swipeLearnedCache;
+}
+function swipeLearned(key){ return !!swipeLearnedAll()[key]; }
+function swipeMarkLearned(key){
+  if (!key || swipeLearned(key)) return;
+  var all = swipeLearnedAll();
+  all[key] = 1;
+  writeStored(SWIPE_LEARNED_KEY, all);
+  /* Deliberately no re-render here. It is called from inside a gesture, and
+     pulling a line out from under the finger that just completed the swipe
+     is a worse jolt than one more sighting of the hint. Every one of these
+     commits re-renders a moment later anyway. */
+}
+/* The one hint component, so three regions cannot describe themselves three
+   different ways. */
+function swipeHintHtml(key, text){
+  if (swipeLearned(key)) return '';
+  return '<div class="swipe-hint" data-hint="'+escapeHtml(key)+'">'+
+    /* chevronRight turned around rather than a second arrow glyph added --
+       the same convention .pw-back already follows. */
+    '<span class="swipe-hint-a is-back" aria-hidden="true">'+ICONS.chevronRight+'</span>'+
+    escapeHtml(text)+
+    '<span class="swipe-hint-a" aria-hidden="true">'+ICONS.chevronRight+'</span>'+
+  '</div>';
+}
 function writeStored(key, val){
   if (!storageAvailable) return;
   try{ if (val==null) window.localStorage.removeItem(key); else window.localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
@@ -25317,8 +25472,13 @@ function renderConfidenceGauge(){
       '<g class="gauge-ticks">'+ticks.join('')+'</g>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="52" fill="none" class="gauge-rim"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-track" stroke-width="9"/>'+
+      /* --gauge-len is the drawn length, handed to the keyframe so the fill
+         starts fully retracted and lays itself down to exactly the figure
+         the dasharray already sets. The number is not recomputed for the
+         motion -- the same fillLen does both. */
       '<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" class="gauge-fill" stroke-width="9" '+
         'stroke-linecap="round" stroke-dasharray="'+fillLen.toFixed(1)+' '+(circ-fillLen).toFixed(1)+'" '+
+        'style="--gauge-len:'+fillLen.toFixed(1)+'" '+
         'transform="rotate(-90 '+cx+' '+cy+')"/>'+
       '<circle cx="'+cx+'" cy="'+cy+'" r="38" fill="none" class="gauge-inner-rim"/>'+
     '</svg>'+
@@ -26368,6 +26528,11 @@ function railDotsHtml(gd, dd, stratBlock, fuelOn){
   if (gd.feel) n++;
   if (gd.avoid) n++;
   if (n < 2) return '';
+  /* THE DOTS ARE THIS RAIL'S HINT, and they retire like every other one.
+     They say "there is more here, sideways", which is worth saying exactly
+     until the athlete has gone sideways once. After that they are three
+     grey dots under the thing they were pointing at. */
+  if (swipeLearned('rail')) return '';
   var dots = '';
   for (var i=0; i<n; i++) dots += '<span class="how-dot"></span>';
   return '<div class="how-dots" aria-hidden="true">'+dots+'</div>';
@@ -48507,6 +48672,38 @@ function guidanceAdaptiveReason(dd){
    TRAINING. A plain toggle row in the existing connect-row idiom, so this
    introduces no new control and no new CSS. Turning it off takes effect on the
    next render, because nothing was ever baked into the plan to unpick. */
+/* THE NAME, ASKED WHERE IT CAN BE ANSWERED. It used to be asked on the
+   arrival screen, which is now a timed stop-gap and no place for a field.
+   Here it is an ordinary setting with no clock on it, and it is pre-filled
+   for the athlete who already has one so the row doubles as "change it". */
+function renderAthleteNameRow(){
+  var n = athleteFirstName();
+  return '<div id="athlete-name-row" class="connect-row">'+
+    '<div><div class="name">Your name</div>'+
+    '<div class="desc">'+(n
+      ? 'Valhalla greets you as '+escapeHtml(n)+'.'
+      : 'Add a first name and Valhalla will greet you by it.')+'</div></div>'+
+    '<input id="athlete-name" class="stg-name-input" type="text" '+
+      'autocomplete="given-name" maxlength="80" '+
+      'value="'+escapeHtml(n || '')+'" placeholder="First name" '+
+      'aria-label="Your first name" data-action="noop">'+
+    '<button type="button" class="btn btn-sm btn-ghost" '+
+      'data-action="set-athlete-name">Save</button>'+
+  '</div>';
+}
+function handleSetAthleteName(){
+  if (typeof document === 'undefined' || !document.getElementById) return;
+  var el = document.getElementById('athlete-name');
+  var val = el ? el.value : '';
+  if (!setAthleteFirstName(val)){
+    if (el && el.focus) el.focus();
+    showToast('Enter the name you\u2019d like to be called');
+    return;
+  }
+  scheduleSave();
+  renderApp();
+  showToast('Valhalla will call you ' + athleteFirstName());
+}
 function renderSupportWorkRow(){
   var on = supportWorkEnabled();
   return '<div id="support-work-row" class="connect-row">'+
@@ -54318,6 +54515,17 @@ function renderTodayView(){
      redesigned. Nothing about it is deleted here and nothing is moved yet. */
   html += renderPostRaceRecoverCard(report);
   html += renderBlockTransitionCard();
+  /* THE TAB GESTURE IS TAUGHT HERE, at the foot of the screen every athlete
+     lands on. It could not go in the nav stack: that stack is the bottom nav
+     and nothing above it, because a persistent second row over the tabs is
+     what the Valhalla subnav was. Here it scrolls with the content instead
+     of becoming chrome, and it retires on the first swipe.
+     ABOVE THE SIGNPOST, NOT BELOW IT. injuryRestriction asserts that nothing
+     at all follows "Injured or ill?" -- it is the last thing on Today by
+     rule, so a hint placed after it broke that outright. A hint is not a
+     pointer to anywhere, so it sits in the content it belongs to and leaves
+     the signpost holding the foot. */
+  html += swipeHintHtml('pager', 'Swipe between screens');
   /* LAST, AND DELIBERATELY. A signpost to Settings has no business above the
      session the athlete opened the app for -- see renderInjuryPointer(). */
   html += renderInjuryPointer();
@@ -54571,6 +54779,7 @@ function renderWeekSessionBox(weekNum){
   var isRest = dd.type === 'rest' && !weekSessionOpen;
   return '<div class="wk-session'+(weekSessionOpen ? ' is-open' : '')+'">'+
     overview+
+    swipeHintHtml('week', 'Swipe for another day')+
     '<button type="button" class="wk-open'+(isRest ? ' is-ghost' : '')+'"'+
       (isRest ? ' aria-hidden="true" tabindex="-1"'
               : ' data-action="week-open-session" data-date="'+escapeHtml(dd.date)+'"'+
@@ -56175,6 +56384,7 @@ function actionPanelNewBlock(){
    this restructure and it is what the tests hold it to. */
 function settingsPanelPrefs(){
   return recordPanelShell('Preferences',
+    renderAthleteNameRow()+
     renderNotifyToggleRow()+
     renderGuidanceLevelRow()+
     renderSupportWorkRow()+
@@ -56701,6 +56911,13 @@ function renderBottomNav(){
    kept rather than inlined because .bn-stack is the element the safe-area
    inset and the nav's own backdrop are attached to. */
 function renderBottomNavStack(){
+  /* THE STACK IS THE NAV AND NOTHING ABOVE IT. The tab-swipe hint was put
+     here first, which was wrong twice over: valhallaRedesign asserts this
+     stack holds the bottom nav and nothing else, and the reason it asserts
+     that is that a persistent second row above the tabs is exactly what the
+     Valhalla subnav was and exactly why it was removed. The hint lives at
+     the foot of Today instead, where it scrolls with the content rather
+     than becoming fixed chrome -- and retires on the first swipe anyway. */
   return '<div class="bn-stack">'+renderBottomNav()+'</div>';
 }
 function handleSetView(view){
@@ -56885,7 +57102,36 @@ function shouldShowProgrammeEntry(st){
 }
 function handleProgrammeEntryContinue(){
   programmeEntryPending = false;
+  if (programmeEntryTimer && typeof window !== 'undefined' && window.clearTimeout){
+    window.clearTimeout(programmeEntryTimer);
+  }
+  programmeEntryTimer = null;
   renderApp();
+}
+/* ---- THE ARRIVAL STANDS DOWN ON ITS OWN ----
+   Long enough to be read and short enough not to be waited on. The timer is
+   armed from renderApp(), which runs more than once per arrival, so it is
+   guarded against stacking -- two timers would fire two renderApp()s and the
+   second would land after the athlete was already somewhere else.
+   Only when there is a name to greet. On the very first open the screen
+   carries the one-time name question, and a question that answers itself
+   after three seconds has been skipped rather than answered -- so the clock
+   does not start until there is nothing left to ask. */
+var programmeEntryTimer = null;
+var PROGRAMME_ENTRY_HOLD_MS = 2600;
+function programmeEntryAutoAdvance(){
+  if (typeof window === 'undefined' || !window.setTimeout) return;
+  if (!programmeEntryPending){
+    if (programmeEntryTimer){ window.clearTimeout(programmeEntryTimer); programmeEntryTimer = null; }
+    return;
+  }
+  if (!athleteFirstName()) return;
+  if (programmeEntryTimer) return;
+  programmeEntryTimer = window.setTimeout(function(){
+    programmeEntryTimer = null;
+    if (!programmeEntryPending) return;
+    handleProgrammeEntryContinue();
+  }, PROGRAMME_ENTRY_HOLD_MS);
 }
 /* The one-time capture. A name that will not sanitise to anything leaves the
    athlete on the screen rather than silently continuing with no greeting --
@@ -56897,6 +57143,17 @@ function handleProgrammeEntryContinue(){
    delegate, for [data-action][role="button"], and test/dayTopAccessibility
    asserts it stays the only one. A text input has no business in it, so it
    gets its own listener, guarded so a redraw cannot stack a second. */
+
+function handleProgrammeEntryName(){
+  var el = document.getElementById('pe-name');
+  var val = el ? el.value : '';
+  if (!setAthleteFirstName(val)){
+    if (el) el.focus();
+    showToast('Enter the name you\u2019d like to be called');
+    return;
+  }
+  renderApp();
+}
 function programmeEntryBindName(){
   if (typeof document === 'undefined' || !document.getElementById) return;
   var el = document.getElementById('pe-name');
@@ -56908,16 +57165,7 @@ function programmeEntryBindName(){
     handleProgrammeEntryName();
   });
 }
-function handleProgrammeEntryName(){
-  var el = document.getElementById('pe-name');
-  var val = el ? el.value : '';
-  if (!setAthleteFirstName(val)){
-    if (el) el.focus();
-    showToast('Enter the name you\u2019d like to be called');
-    return;
-  }
-  renderApp();
-}
+
 /* PROGRESS THROUGH THE PROGRAMME TIMELINE, in days. Day-based rather than
    week-based so the bar moves every morning instead of standing still for six
    days and jumping on a Monday -- "35% complete" should mean something
@@ -56970,6 +57218,16 @@ function renderProgrammeEntry(){
   /* An athlete whose account predates the name field is asked once, here,
      rather than being greeted by nobody. Answering stores it and this never
      appears again; it is the same arrival either way. */
+  /* ASKED ONCE, ON THE FIRST OPEN, AND NEVER AGAIN. The name is the one
+     thing this screen cannot supply itself, and an account predating the
+     field has to be asked somewhere -- so it is asked here, the first time,
+     and the answer is stored. Every launch after that, including after a
+     force quit, has the name and this screen is purely a splash: greeting,
+     programme, progress, and gone in 2.6 seconds without a press.
+     The question and the timer therefore never coexist. While there is
+     something to answer the screen waits; once answered it stops asking
+     forever. See programmeEntryAutoAdvance(), which arms only when there is
+     a name to greet. */
   var greeting = name
     ? '<h1 class="pe-hello font-display">Hello '+escapeHtml(name)+'</h1>'
     : '<div class="pe-ask">'+
@@ -56992,7 +57250,12 @@ function renderProgrammeEntry(){
           '<span style="width:'+pct+'%"></span></div>'+
         '<div class="pe-pct font-head">Programme '+pct+'% complete</div>'
       : '')+
-    (name ? '<button type="button" class="pe-go" data-action="programme-entry-continue">Continue</button>' : '')+
+    /* NO BUTTON. This screen is not a decision, it is the app's own front
+       door -- shown while the plan loads and then stood down. A press was
+       asking the athlete to acknowledge a loading screen. It holds itself
+       and goes; see programmeEntryAutoAdvance(). The name form is the one
+       exception and keeps its Continue, because an unanswered question
+       cannot time out. */
   '</div>';
 }
 function renderSignedOutLanding(st){
@@ -57072,15 +57335,22 @@ function renderApp(){
      up -- the same thing the signed-out landing's states already do via
      APP_STATES.nav. Tapping a tab behind a greeting would be navigating out
      of a screen the athlete has not finished arriving at. */
-  var navAllowed = appStateAllowsNav() && !shouldShowProgrammeEntry(resolveAppState());
+  /* THE ARRIVAL IS THE WHOLE SCREEN. The bottom nav was already withheld
+     while it is up; the header was not, so the photograph began under a
+     charcoal bar with a hard edge across it -- a band of a different colour
+     above an image that is supposed to be the first thing seen. It is one
+     surface now, top to bottom. */
+  var arriving = shouldShowProgrammeEntry(resolveAppState());
+  var navAllowed = appStateAllowsNav() && !arriving;
   /* The charcoal ground belongs to the Today design. Toggled per view so the
      rest of the product keeps --bg exactly as it is -- this pass is Today
      only, and the global palette is not being forked. */
   app.innerHTML =
-    renderTopbar()+
+    (arriving ? '' : renderTopbar())+
     '<div class="view-pager" id="view-pager"><div class="wrap"><div id="view-mount" class="'+viewMountClass()+'">'+renderMainContent()+'</div></div></div>'+
     (navAllowed ? renderBottomNavStack() : '');
   programmeEntryBindName();
+  programmeEntryAutoAdvance();
   openTodayCoachingPanel();
   openWeekFullSession();
   animateSessionRing();
@@ -57271,6 +57541,7 @@ function pagerCleanup(){
 function pagerFinish(commit){
   var p = pagerState;
   if (!p) return;
+  if (commit) swipeMarkLearned('pager');
   if (!p.claimed || !p.peek){ pagerCleanup(); if (commit && p.to) handleSetView(p.to); return; }
   if (p.reduced){
     pagerCleanup();
@@ -57440,6 +57711,7 @@ function wireWeekRail(rail){
        animation finished on and nothing jumps -- the same ordering the view
        pager needs for the same reason. */
     setX(base() + (p.dx < 0 ? -w : w));
+    swipeMarkLearned('week');
     window.setTimeout(function(){ handleWeekPickDay(to); pagerHaptic(); }, 240);
   }, { passive:true });
   rail.addEventListener('touchcancel', function(){
@@ -57523,6 +57795,9 @@ function wireCoachingRail(rail){
   }
 
   function setFocus(i, animate){
+    /* animate is only ever true when the focus moved because the athlete
+       moved it; the initial placement passes false. */
+    if (animate) swipeMarkLearned('rail');
     focus = i < 0 ? 0 : (i > n - 1 ? n - 1 : i);
     var k;
     for (k = 0; k < n; k++){
@@ -57726,6 +58001,7 @@ document.addEventListener('click', function(e){
     case 'landing-continue': handleLandingContinue(); break;
     case 'programme-entry-continue': handleProgrammeEntryContinue(); break;
     case 'programme-entry-name': handleProgrammeEntryName(); break;
+    case 'set-athlete-name': handleSetAthleteName(); break;
     case 'toggle-week': handleToggleWeek(parseInt(target.getAttribute('data-week'),10)); break;
     case 'toggle-phase': handleTogglePhase(target.getAttribute('data-phase')); break;
     case 'plan-open-week': handlePlanOpenWeek(target.getAttribute('data-week')); break;

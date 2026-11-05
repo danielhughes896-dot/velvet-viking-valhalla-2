@@ -178,3 +178,58 @@ test('an open session always keeps a way back out', () => {
   assert.doesNotMatch(html, /is-ghost/, 'an open rest day hides its own way out');
   assert.match(html, /Hide full session/, 'an open day offers no way back');
 });
+
+/* A GESTURE IS TAUGHT ONCE, THEN THE TEACHING GOES.
+ * ===========================================================================
+ * Nothing about a full-bleed card says it answers to a horizontal drag, so
+ * every swipeable region announces itself. But an affordance that stays
+ * forever is chrome: the athlete who has swiped once knows, and the hint is
+ * then a line of text taking room from the thing it pointed at. So each
+ * region is taught until it is used, per region -- learning the week card
+ * does not teach you the tab pager -- and the state is stored, because the
+ * whole point is that it survives the next launch.
+ */
+test('HINT: every swipeable region announces itself, and stops once it is used', () => {
+  const a = app();
+  const fresh = k => a.swipeHintHtml(k, 'Swipe');
+  ['pager', 'rail', 'week'].forEach(k => {
+    assert.match(fresh(k), /class="swipe-hint"/, k + ' never announces itself');
+    assert.match(fresh(k), new RegExp('data-hint="' + k + '"'), k + ' is not named in its hint');
+  });
+
+  // learning one must not retire the others
+  a.swipeMarkLearned('week');
+  assert.equal(fresh('week'), '', 'the week card goes on teaching after it has been used');
+  assert.match(fresh('pager'), /class="swipe-hint"/,
+    'learning the week card silently retired the tab pager hint too');
+  assert.match(fresh('rail'), /class="swipe-hint"/,
+    'learning the week card silently retired the rail hint too');
+
+  // and it is remembered, not held for this render only
+  assert.match(SRC, /writeStored\(SWIPE_LEARNED_KEY, all\)/,
+    'what was learned is not stored, so it is forgotten at the next launch');
+});
+
+test('HINT: the dots under the coaching rail are that rail\'s hint, and retire with it', () => {
+  /* Three grey dots under the thing they point at, forever, is the exact
+     chrome this mechanism exists to remove. */
+  /* Anchored on the dots' own markup and the guard immediately above it,
+     rather than on a function name this file would have to keep in step. */
+  const i = SRC.indexOf("'<div class=\"how-dots\"");
+  assert.ok(i > -1, 'the rail dots renderer could not be found');
+  const before = SRC.slice(Math.max(0, i - 700), i);
+  assert.match(before, /if \(swipeLearned\('rail'\)\) return '';/,
+    'the dots outlive the gesture they were teaching');
+});
+
+test('HINT: each region marks itself learned from its own commit', () => {
+  /* The mark is taken where the swipe actually succeeds, not where it
+     starts -- an abandoned drag teaches nothing and must not retire the
+     hint that would have helped next time. */
+  assert.match(SRC, /function pagerFinish\(commit\)\{[\s\S]{0,200}?if \(commit\) swipeMarkLearned\('pager'\)/,
+    'the tab pager retires its hint on an abandoned drag, or not at all');
+  assert.match(SRC, /swipeMarkLearned\('week'\);\s*\n\s*window\.setTimeout\(function\(\)\{ handleWeekPickDay/,
+    'the week card does not retire its hint when a swipe commits');
+  assert.match(SRC, /if \(animate\) swipeMarkLearned\('rail'\)/,
+    'the rail retires its hint on its own initial placement, not on a swipe');
+});

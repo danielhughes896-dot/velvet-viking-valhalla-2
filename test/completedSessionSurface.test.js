@@ -81,6 +81,13 @@ test('nothing on the completed surface is drawn as a box', () => {
   assert.match(review, /box-shadow:none/, 'the Execution Review is lifted again');
 });
 
+/* The one definition of the done light, read from :root. */
+const DONE_GLOW = (() => {
+  const i = CSS.indexOf('--glow-done:');
+  assert.ok(i > -1, 'the shared done light is gone');
+  return CSS.slice(i, CSS.indexOf(';', CSS.indexOf('transparent 100%', i)));
+})();
+
 test('SESSION COMPLETE is lit the way the Coach\'s Note is lit', () => {
   const glow = rule(F + ' .actual-done::before');
   assert.match(glow, /filter:blur\(/,
@@ -91,7 +98,14 @@ test('SESSION COMPLETE is lit the way the Coach\'s Note is lit', () => {
   /* A radial ending-shape percentage is read against the BOX, not the half
      box: anything over 50% still carries colour at the edge and gets cut,
      which is the rectangle this technique exists to avoid. */
-  const shape = /radial-gradient\((\d+)% (\d+)%/.exec(glow);
+  /* THE GRADIENT MOVED INTO A TOKEN and the rule now reads
+     background:var(--glow-done) -- because a finished session and the marks
+     that stand for one were being lit by three separately written recipes.
+     The claims are unchanged; they are simply asserted where the gradient
+     now lives. */
+  assert.match(glow, /background:var\(--glow-done\)/,
+    'the completion banner stopped drinking from the shared done light');
+  const shape = /radial-gradient\((\d+)% (\d+)%/.exec(DONE_GLOW);
   assert.ok(shape, 'the glow is no longer a radial');
   assert.ok(Number(shape[1]) < 50 && Number(shape[2]) < 50,
     'the glow reaches the box edge (' + shape[1] + '% x ' + shape[2] + '%) and will be cut square');
@@ -100,10 +114,9 @@ test('SESSION COMPLETE is lit the way the Coach\'s Note is lit', () => {
 test('the completion green is a named token, not an invented colour', () => {
   assert.match(CSS, /--ok:#7AA06E;/, '--ok is gone or changed');
   assert.match(CSS, /--ok-text:#9BC08C;/, '--ok-text is gone or changed');
-  const glow = rule(F + ' .actual-done::before');
-  assert.match(glow, /var\(--ok-text\)/, 'the glow stopped naming its colour');
-  assert.match(glow, /var\(--ok\)/, 'the glow stopped naming its colour');
-  assert.doesNotMatch(glow, /#[0-9A-Fa-f]{3,6}|rgba?\(/,
+  assert.match(DONE_GLOW, /var\(--ok-text\)/, 'the glow stopped naming its colour');
+  assert.match(DONE_GLOW, /var\(--ok\)/, 'the glow stopped naming its colour');
+  assert.doesNotMatch(DONE_GLOW, /#[0-9A-Fa-f]{3,6}|rgba?\(/,
     'the glow hand-sets a colour that belongs to no token');
 });
 
