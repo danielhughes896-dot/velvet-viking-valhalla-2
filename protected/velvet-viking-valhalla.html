@@ -1447,12 +1447,22 @@
      stopped arriving.
 
      ONLY THE LIGHT MOVES. No geometry is animated anywhere here: not the
-     ring's radius, not its stroke width, not the bar's width or height. Every
-     keyframe below carries the SAME NUMBER OF SHADOWS AT THE SAME BLUR as
-     its resting state, and only the alpha changes -- which is both the brief
-     ("the glow/opacity around it") and the thing that makes it cheap. A
-     mismatched shadow count between keyframes does not interpolate at all;
-     it snaps, which would read as a flicker rather than a breath.
+     ring's radius, not its stroke width, not the bar's width or height. Each
+     instrument carries two glows and they are deliberately different jobs:
+       - the INNER shadow hugs the edge and its blur NEVER CHANGES, so the
+         stroke keeps exactly the same definition at every point in the cycle;
+         only its alpha moves, and at the crest it goes to full.
+       - the OUTER shadow is the halo in the air around it, and that one is
+         allowed to spread as well as brighten, because a halo that only
+         changes alpha at a fixed radius is what made the first version of
+         this invisible: on a near-black screen, 22px at .30 is a rumour.
+     Reading it as a pulse needs the light to reach further, not the object
+     to get bigger, and those are different things.
+
+     THE SHADOW COUNT IS IDENTICAL ACROSS STOPS and that is structural, not
+     tidiness: a list with one shadow at rest and two at the crest does not
+     interpolate at all. CSS falls back to a discrete swap, so the breath
+     becomes a flicker.
 
      0% IS THE RESTING APPEARANCE, EXACTLY. Each cycle begins and ends on the
      value the element's own rule already declares, so nothing shifts at the
@@ -1465,20 +1475,20 @@
   @keyframes vv-glow-ring{
     0%,100%{ filter:drop-shadow(0 0 10px rgba(154,84,108,.50))
                     drop-shadow(0 0 22px rgba(154,84,108,0)); }
-    50%    { filter:drop-shadow(0 0 10px rgba(154,84,108,.80))
-                    drop-shadow(0 0 22px rgba(154,84,108,.30)); }
+    50%    { filter:drop-shadow(0 0 10px rgba(154,84,108,1))
+                    drop-shadow(0 0 40px rgba(154,84,108,.62)); }
   }
   @keyframes vv-glow-gauge{
     0%,100%{ filter:drop-shadow(0 0 12px rgba(154,84,108,.38))
                     drop-shadow(0 0 30px rgba(154,84,108,.17))
                     drop-shadow(0 7px 13px rgba(0,0,0,.23)); }
-    50%    { filter:drop-shadow(0 0 12px rgba(154,84,108,.62))
-                    drop-shadow(0 0 30px rgba(154,84,108,.34))
+    50%    { filter:drop-shadow(0 0 12px rgba(154,84,108,.92))
+                    drop-shadow(0 0 52px rgba(154,84,108,.60))
                     drop-shadow(0 7px 13px rgba(0,0,0,.23)); }
   }
   @keyframes vv-glow-gold{
     0%,100%{ box-shadow:0 0 10px rgba(227,177,90,.34), 0 0 20px rgba(227,177,90,0); }
-    50%    { box-shadow:0 0 10px rgba(227,177,90,.62), 0 0 20px rgba(227,177,90,.24); }
+    50%    { box-shadow:0 0 10px rgba(227,177,90,.95), 0 0 34px rgba(227,177,90,.55); }
   }
   .th-arc{ animation:vv-glow-ring 3.6s ease-in-out 1.26s infinite; }
   .gauge-wrap{ animation:vv-glow-gauge 3.6s ease-in-out .5s infinite; }
@@ -3648,8 +3658,14 @@
   .wk-hero-vol span{font-size:17px; color:var(--ink); font-variant-numeric:tabular-nums;}
   .wk-hero-pct{font-size:25px; font-weight:700; color:var(--gold);
     font-variant-numeric:tabular-nums;}
-  .wk-bar{margin-top:9px; height:9px; border-radius:99px; background:var(--bg-4);
-    overflow:hidden;}
+  /* NO overflow:hidden. It was clipping the fill's own glow to the track, so
+     the bar's halo -- the thing that makes it one of the three instruments
+     that breathe -- could never leave a 9px-tall box and was invisible at
+     every point in the cycle. Nothing needed the clip: the fill carries the
+     same 99px radius and the same height as the track and is never wider
+     than it, and wk-fill animates WIDTH rather than a transform precisely so
+     the caps stay round on their own (see that keyframe's note). */
+  .wk-bar{margin-top:9px; height:9px; border-radius:99px; background:var(--bg-4);}
   .wk-bar-fill{height:100%; border-radius:99px;
     background:linear-gradient(90deg, var(--gold-deep), var(--gold), var(--gold-bright));
     box-shadow:0 0 10px rgba(227,177,90,.34);}

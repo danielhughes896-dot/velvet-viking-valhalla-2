@@ -72,22 +72,55 @@ test('no glow keyframe animates geometry -- only the light moves', () => {
   });
 });
 
-test('each glow keeps one shadow list at one blur, and moves only alpha', () => {
+test('the edge blur never moves, the halo may, and the shadow count is fixed', () => {
+  /* Two glows per instrument doing two jobs. The FIRST hugs the stroke and
+     its blur is frozen, so the ring keeps exactly the same definition at
+     every point in the cycle -- that is the "don't pulse the stroke" half of
+     the brief. The SECOND is the halo in the air around it, and it is
+     allowed to reach further as well as brighten, because a halo pinned to
+     one radius is what made the first version of this invisible: 22px at .30
+     on a near-black screen is a rumour.
+     The COUNT is fixed either way, and that one is structural: a list with
+     one shadow at rest and two at the crest does not interpolate at all. */
   GLOWS.forEach(name => {
     const body = keyframes(name);
     const stops = body.split(/\n\s*(?=\d+%|\d+%,)/).filter(s => /%/.test(s));
     assert.ok(stops.length >= 2, name + ': expected a rest stop and a crest');
-    const shape = blurs(stops[0]);
-    assert.ok(shape.length >= 2, name + ': expected at least two shadows to work with');
-    stops.forEach((stop, i) => {
-      assert.deepEqual(blurs(stop), shape,
-        name + ' stop ' + i + ' changes a blur radius -- that swells the halo, ' +
-        'and a differing shadow COUNT would not interpolate at all');
-    });
-    // ...and something must actually move, or there is no pulse.
+    const rest = blurs(stops[0]), crest = blurs(stops[1]);
+    assert.equal(crest.length, rest.length,
+      name + ': the shadow count differs between stops -- CSS would swap them ' +
+      'discretely and the breath would read as a flicker');
+    assert.ok(rest.length >= 2, name + ': expected an edge shadow and a halo');
+    assert.equal(crest[0], rest[0],
+      name + ": the edge blur moved -- that is the stroke's own definition changing");
+    assert.ok(Number(crest[1]) > Number(rest[1]),
+      name + ': the halo no longer reaches further at the crest -- it will not be felt');
+    // ...and the light itself must actually move.
     assert.notDeepEqual(alphas(stops[0]), alphas(stops[1]),
       name + ': rest and crest are identical -- nothing pulses');
   });
+});
+
+test('the crest is bright enough to be seen, not merely different', () => {
+  /* The first pass was technically a pulse and practically invisible. These
+     floors are what "I need to see and feel it" came to once it was looked
+     at on screen: the edge goes to very near full, and the halo arrives from
+     nothing at the rest stop to something clearly readable. */
+  GLOWS.forEach(name => {
+    const stops = keyframes(name).split(/\n\s*(?=\d+%|\d+%,)/).filter(s => /%/.test(s));
+    const crest = alphas(stops[1]).map(Number);
+    assert.ok(crest[0] >= 0.9, name + ': the edge only reaches ' + crest[0] + ' at the crest');
+    assert.ok(crest[1] >= 0.5, name + ': the halo only reaches ' + crest[1] + ' at the crest');
+  });
+});
+
+test("the gold bar's glow is not clipped back inside its own track", () => {
+  /* It was: .wk-bar carried overflow:hidden, so the fill's halo could never
+     leave a 9px-tall box and the bar was the one instrument whose pulse was
+     invisible at every point in the cycle. Nothing needed the clip -- the
+     fill has the same radius and height as the track and is never wider. */
+  assert.doesNotMatch(rule('.wk-bar'), /overflow:\s*hidden/,
+    "the week bar's track clips its own glow again");
 });
 
 test('every cycle begins on the element\'s own resting appearance', () => {
