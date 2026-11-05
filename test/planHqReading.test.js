@@ -84,18 +84,36 @@ function readingCards(html) {
 // ===========================================================================
 // 1. THE READING'S CARDS
 // ===========================================================================
-test('READING: five destination circles, one per interpretation the engine produces', () => {
+/* FOUR CIRCLES AND THE GAUGE. Readiness held the centre of the arc while
+   the hero gauge directly above it was showing the same number off the same
+   field -- both read report.confidence. The duplication was deliberate once:
+   the centre is where the graduation puts the reading that matters most, and
+   this is that reading. But it spent the arc's strongest position restating
+   a number the athlete had just looked at, so the circle went and the gauge
+   became the door to the readiness panel instead. What this test is FOR is
+   unchanged and is asserted below in full: nothing the engine interprets can
+   be undisplayable. It is only the count that moved. */
+test('READING: every interpretation the engine produces is reachable', () => {
   const a = withHistory(planHQ());
   const html = a.renderPlanHQView();
   const cards = readingCards(html);
-  assert.equal(cards.length, 5, 'expected five Reading circles, found ' + cards.length);
+  assert.equal(cards.length, 4, 'expected four Reading circles, found ' + cards.length);
 
   const keys = cards.map(c => (c.match(/data-reading="([^"]+)"/) || [])[1]);
   // Laid out from the arc's outside in, which is the reading order the
   // graduation is for -- not the order readingSections() happens to build in.
-  assert.equal(keys.join(','), 'recovery,evolution,readiness,patterns,adaptation');
-  // The SET is still the engine's, not a list typed twice.
-  assert.equal(keys.slice().sort().join(','),
+  assert.equal(keys.join(','), 'recovery,evolution,patterns,adaptation');
+  // Readiness is still one of the engine's sections and still has to be
+  // openable. Its door is the gauge that was already showing it.
+  const gaugeTag = (html.match(/<button[^>]*class="gauge-wrap"[^>]*>/) || [])[0] || '';
+  assert.ok(gaugeTag, 'the confidence gauge is not a button at all');
+  assert.match(gaugeTag, /data-action="open-reading"/,
+    'readiness lost its circle and the gauge did not become its door');
+  assert.match(gaugeTag, /data-reading="readiness"/,
+    'the gauge opens something other than the readiness panel');
+  // The SET is still the engine's, not a list typed twice -- the circles
+  // plus the gauge, which is the whole of what the screen can reach.
+  assert.equal(keys.concat('readiness').sort().join(','),
     a.readingSections(a.coachAnalyse()).map(s => s.key).sort().join(','));
 
   cards.forEach(c => {
@@ -203,17 +221,22 @@ test('READING: tone is borrowed from the engine, never invented here', () => {
 test('READING: every value and synopsis is live, not written into the markup', () => {
   const a = withHistory(planHQ());
   a.planhqTab = 'coach';
-  const readinessCard = html => readingCards(html).filter(c => c.indexOf('data-reading="readiness"') !== -1)[0];
-  const before = readinessCard(a.renderPlanHQView());
+  /* Confidence is read off the GAUGE now. The readiness circle this used to
+     read was removed for duplicating this very number, so the liveness check
+     follows the number to the one place it still appears. */
+  const gauge = html => (html.match(/<button[^>]*class="gauge-wrap"[\s\S]*?<\/button>/) || [])[0] || '';
+  const before = gauge(a.renderPlanHQView());
 
-  const pct = s => Number((s.match(/>(\d+)%/) || [])[1]);
+  // Anchored on .gauge-num, not on the first '>NN%' in the string: the SVG
+  // above it is full of percentage attributes.
+  const pct = s => Number((s.match(/class="gauge-num"><b[^>]*>(\d+)%/) || [])[1]);
   const confBefore = pct(before);
-  assert.ok(confBefore > 0, 'the readiness card states no confidence at all');
+  assert.ok(confBefore > 0, 'the gauge states no confidence at all');
 
   // Confidence is execution fidelity, so running every session a long way off
   // what was prescribed has to move it -- downwards.
   a.state.days.filter(d => d.completed).forEach(d => { d.actual.pace = '9:30'; });
-  const after = readinessCard(a.renderPlanHQView());
+  const after = gauge(a.renderPlanHQView());
   assert.notEqual(after, before, 'a block of badly executed sessions changed no card');
   assert.ok(pct(after) < confBefore,
     'confidence went from ' + confBefore + '% to ' + pct(after) + '% on a ruined block');
@@ -596,10 +619,15 @@ test('HQ: nothing on Valhalla/Coach/Record expands inline, and every card is a d
   const circles = html.match(/<button type="button" class="b-dial[^"]*"[\s\S]*?<\/button>/g) || [];
   const readingCardsHtml = circles.filter(c => c.indexOf('open-reading') !== -1);
   const recordCardsHtml = circles.filter(c => c.indexOf('open-record') !== -1);
-  assert.equal(readingCardsHtml.length, 5, 'expected five Reading circles');
+  // Four since readiness left the arc for the gauge, which is itself a
+  // destination and is checked for one below.
+  assert.equal(readingCardsHtml.length, 4, 'expected four Reading circles');
   // Four now -- Goal joined Measured fitness, Benchmark and Progress when it
   // lost the Record tab it had been living on.
   assert.equal(recordCardsHtml.length, 4, 'expected four Athlete Status circles');
+  const gaugeTag = (html.match(/<button[^>]*class="gauge-wrap"[^>]*>/) || [])[0] || '';
+  assert.match(gaugeTag, /data-action="open-reading"/, 'the gauge goes nowhere');
+  assert.doesNotMatch(gaugeTag, /aria-expanded/, 'the gauge expands rather than opens');
   readingCardsHtml.concat(recordCardsHtml).forEach(c => {
     assert.match(c, /data-action="open-(reading|record)"/, 'a card that goes nowhere');
     assert.doesNotMatch(c, /aria-expanded/, 'a card that expands rather than opens');

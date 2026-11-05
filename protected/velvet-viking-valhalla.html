@@ -607,6 +607,7 @@
      else. What is left is light, and more of it than any other ring gets:
      this is the reading the screen is built around. */
   .gauge-wrap{position:relative; width:132px; height:132px; margin:0 auto;
+    display:block; background:none; border:0; padding:0; cursor:pointer;
     filter:drop-shadow(0 0 13px rgba(154,84,108,.58)) drop-shadow(0 0 32px rgba(154,84,108,.26));}
   /* ---------- VALHALLA TAKES THE SAME RULES ----------
      The instruments stay and the containers go. Every circle on this screen
@@ -5344,44 +5345,42 @@
   .b-dials{display:flex; flex-direction:column; gap:14px; margin:4px 0 4px;}
   .b-dials-row{display:flex; justify-content:center; gap:22px;}
   /* ---------- THE ARC ----------
-     Five circles on one line, sized by rank, resting on a shared baseline of
+     Four circles on one line, sized by rank, resting on a shared baseline of
      centres rather than of edges -- align-items:center is what makes a row of
-     unequal diameters read as one instrument instead of five objects that
+     unequal diameters read as one instrument instead of four objects that
      happen to be adjacent. The gap is small because the SIZE is carrying the
      hierarchy; a generous gap would separate what the graduation is trying to
      group. */
   /* ALIGN-ITEMS GOES TO flex-start, AND THE CENTRES ARE HELD BY MARGIN.
-     While a column was just a circle, align-items:center was what made five
+     While a column was just a circle, align-items:center was what made
      unequal diameters read as one instrument. With a label underneath it
      stops being enough: centring the COLUMN puts the big circle's label
-     lower than its neighbours', and five labels on four different baselines
-     reads as five objects again -- the exact thing the alignment was for.
-     So each circle is padded with margin to an 88px slot (the largest
-     diameter): (88-76)/2 = 6 and (88-66)/2 = 11. Every column is then the
-     same height, the circles still share one centre line, and the labels
-     share one baseline because they all begin where the slot ends. */
+     lower than its neighbours', and labels on different baselines read as
+     separate objects again -- the exact thing the alignment was for.
+     So each circle is padded with margin to a slot the size of the largest
+     diameter. The arc is four circles ranked 2-1-1-2 since readiness left
+     it for the gauge, so that slot is rank 1's 76px: rank 1 needs no margin
+     and rank 2 takes (76-66)/2 = 5. Every column is then the same height,
+     the circles still share one centre line, and the labels share one
+     baseline because they all begin where the slot ends. */
   .b-dials-arc{display:flex; align-items:flex-start; justify-content:center; gap:5px;}
-  .b-dials-arc .b-dial[data-rank="1"]{margin:6px 0;}
-  .b-dials-arc .b-dial[data-rank="2"]{margin:11px 0;}
+  .b-dials-arc .b-dial[data-rank="2"]{margin:5px 0;}
   .b-dials-hint{display:flex; align-items:center; justify-content:center; gap:4px; color:var(--ink-faint); margin-top:2px;}
   .b-dials-hint svg{width:12px; height:12px;}
-  /* Diameters from the approved arc: 66 / 76 / 88 across a 430pt screen,
-     which with the 5px gaps leaves the row inside the page gutter at the
-     narrowest phone the product supports. */
-  .b-dial[data-rank="0"]{width:88px; height:88px;}
+  /* Diameters from the approved arc: 66 / 76 across a 430pt screen, which
+     with the 5px gaps leaves the row inside the page gutter at the narrowest
+     phone the product supports. The 88px rank-0 face went with the centre
+     circle; the hero gauge is the apex of the arc now, and it is 132px. */
   .b-dial[data-rank="1"]{width:76px; height:76px;}
   .b-dial[data-rank="2"]{width:66px; height:66px;}
   /* The label no longer graduates with the diameter. It is one voice, read
      at one size, and the SIZE LADDER IS THE CIRCLE'S -- which is what the
-     graduation was always for. Five labels at five sizes was the arc's
+     graduation was always for. A label at a size each was the arc's
      hierarchy leaking into text that has to stay readable. */
-  /* The centre of the arc is the one circle the row is built around, so it
-     carries more of the same illumination rather than a different kind. */
-  .b-dials-arc .b-dial[data-rank="0"]{
-    box-shadow:
-      0 0 14px color-mix(in srgb, var(--rd-base) 46%, transparent),
-      0 0 34px color-mix(in srgb, var(--rd-base) 22%, transparent),
-      var(--tile-shadow);}
+  /* The arc's brightest face used to be its centre circle. That circle was
+     readiness, and readiness is the hero gauge, so the extra illumination
+     went with it -- to the gauge, which outglows every circle here on
+     purpose. The four faces left are peers and are lit as peers. */
   /* A button, so it needs a button's defaults removed and the card language
      put back. No transform on press: the arc is an instrument panel, and an
      instrument that moves when touched stops reading as one. */
@@ -5511,7 +5510,6 @@
      beside the value for nothing that is still there. Still a concrete
      pixel ceiling per diameter, and still short of the chord so wrapped
      text never grazes the circular clip. */
-  .b-dial[data-rank="0"] .rd-val b{max-width:74px;}
   .b-dial[data-rank="1"] .rd-val b{max-width:64px;}
   .b-dial[data-rank="2"] .rd-val b{max-width:56px;}
   /* The counted noun under a count. Interface face, never the data face --
@@ -5519,7 +5517,6 @@
   .rd-sub{font-family:'Oswald',sans-serif; font-size:9px; letter-spacing:.05em;
     text-transform:uppercase; color:var(--ink-faint); line-height:1.1; margin-top:3px;
     max-width:62px; text-align:center;}
-  .b-dial[data-rank="0"] .rd-sub{font-size:10px;}
   .rd-val b{display:block; text-align:center; line-height:1.08; max-width:50px;
     overflow-wrap:break-word; word-break:break-word;
     font-family:'JetBrains Mono',monospace; color:var(--ink); font-weight:700;}
@@ -5561,15 +5558,12 @@
     .b-dials-arc{gap:2px;}
     .b-status{gap:3px;}
     .b-dials-arc, .b-status{--dv:.84;}
-    .b-dial[data-rank="0"]{width:72px; height:72px;}
     .b-dial[data-rank="1"]{width:62px; height:62px;}
     .b-dial[data-rank="2"]{width:54px; height:54px;}
     .b-dial[data-rank="s"]{width:76px; height:76px;}
-    /* The slot is 72px here, so the margins that hold the centre line are
-       (72-62)/2 = 5 and (72-54)/2 = 9. */
-    .b-dials-arc .b-dial[data-rank="1"]{margin:5px 0;}
-    .b-dials-arc .b-dial[data-rank="2"]{margin:9px 0;}
-    .b-dial[data-rank="0"] .rd-val b{max-width:62px;}
+    /* The slot is rank 1's 62px here, so the one margin that holds the
+       centre line is (62-54)/2 = 4. */
+    .b-dials-arc .b-dial[data-rank="2"]{margin:4px 0;}
     .b-dial[data-rank="1"] .rd-val b{max-width:54px;}
     .b-dial[data-rank="2"] .rd-val b{max-width:47px;}
     .b-dial[data-rank="s"] .rd-val b{max-width:64px;}
@@ -25247,7 +25241,12 @@ function renderConfidenceGauge(){
     ticks.push('<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" class="gauge-tick"/>');
   }
   var pctLabel = formatConfidencePct(clamped);
-  return '<div class="gauge-wrap" role="img" aria-label="Confidence score '+pctLabel+' percent">'+
+  /* A BUTTON, BECAUSE IT IS NOW THE WAY IN to the readiness panel that used
+     to hang off a second circle showing this same figure. Same data-action
+     the circles use, so the panel, its scroll restoration and both its exits
+     are unchanged code on an unchanged path. */
+  return '<button type="button" class="gauge-wrap" data-action="open-reading" data-reading="readiness" '+
+      'aria-label="Confidence score '+pctLabel+' percent — open the evidence">'+
     '<svg viewBox="0 0 120 120" width="132" height="132">'+
       /* #gaugeRim is --t-rim-grad expressed in SVG: the same three stops at
          the same 135deg, in cherry -- so the ring's edge is built from the
@@ -25280,7 +25279,7 @@ function renderConfidenceGauge(){
       '<circle cx="'+cx+'" cy="'+cy+'" r="38" fill="none" class="gauge-inner-rim"/>'+
     '</svg>'+
     '<div class="gauge-num"><b class="font-mono">'+pctLabel+'%</b><span>Confidence</span></div>'+
-  '</div>';
+  '</button>';
 }
 
 function pad2(n){ return n<10 ? '0'+n : ''+n; }
@@ -54841,8 +54840,8 @@ function recordBenchmarkFact(){
   var b = state.setup.benchmark;
   return { key:'benchmark', subject:'Benchmark', chip:'Benchmark',
     value: b ? DISTANCE_PROFILES[b.distanceKey].label+' · '+secToClock(b.timeSec) : 'Not set',
-    big: b ? DISTANCE_PROFILES[b.distanceKey].label : '—',
-    small: b ? secToClock(b.timeSec) : '',
+    big: b ? secToClock(b.timeSec) : '—',
+    small: b ? DISTANCE_PROFILES[b.distanceKey].label : '',
     none: !b,
     /* ITS OWN WORDS, NOT THE GENERIC ONES. An unset benchmark and an
        unmeasured fitness are both absences and both take the acquisition
@@ -54899,9 +54898,15 @@ function recordGoalFact(){
       emptyState:'Not set',
       synopsis:'The time this block is being built towards.' };
   }
+  /* THE TIME IS THE HEADLINE AND THE GRADE IS THE CAPTION. A marathoner
+     thinks in 3:29, not in "A" -- the letter is which of the athlete's own
+     goals this is, which is a qualifier on the figure rather than the
+     figure. Benchmark below had the same inversion, for the same reason:
+     "10K" is a label and 45:33 is the result. `value` is untouched, so the
+     aria-label, the panel and the card still read the pair whole. */
   return { key:'goal', subject:'Goal', chip:'Goal',
     value:'Goal '+letter+' · '+secToClock(goal.timeSec),
-    big:letter, small:secToClock(goal.timeSec),
+    big:secToClock(goal.timeSec), small:letter,
     synopsis:'The time this block is being built towards. Change it here.' };
 }
 function recordFacts(){
@@ -55462,9 +55467,9 @@ function toneRingColor(tone){
 /* ---------- THE RING IS AN IDENTITY, THE WORD IS THE VERDICT ----------
    Recovery, evolution and adaptation used to take their ring colour from
    toneRingColor(sec.tone), so a reading changed hue as the engine's view of
-   it changed. Five circles on one row that each independently traffic-light
-   themselves is not a reading -- it is five alarms, and the one circle the
-   row is built around (readiness, in the middle) could not be told apart
+   it changed. Circles on one row that each independently traffic-light
+   themselves are not a reading -- they are a row of alarms, and back when
+   readiness still held the middle of the arc it could not be told apart
    from the two beside it because all three were green on a good day.
 
    SO COLOUR NOW SAYS WHICH READING THIS IS, and the FACE says what it says:
@@ -55643,10 +55648,21 @@ function sectionRule(title, leftAligned){
       '<span class="sec-rule-line" aria-hidden="true"></span>'+
     '</div>';
 }
+/* READINESS IS NOT HERE, AND THE GAUGE IS WHY. Its value is
+   conf+'% confidence' and the gauge above renders the same report.confidence
+   -- the same number from the same source, twice on one screen, with the
+   larger of the two circles spending itself restating the headline.
+   THE PANEL IS NOT A DUPLICATE AND IS NOT DROPPED. It carries the execution
+   trend, the sessions logged, the race date, the phase, and the one line
+   that says what confidence IS: execution fidelity, not probability. An
+   athlete reading a bare 84% could fairly take it as "84% likely to run
+   3:29", which it explicitly is not, so that explanation has to stay
+   reachable. The gauge itself opens it now -- the door moved onto the thing
+   showing the number, which is where it is actually looked for.
+   Four readings left, each a different one, and the ranks stay symmetric. */
 var READING_ARC = [
   { key:'recovery',   rank:2 },
   { key:'evolution',  rank:1 },
-  { key:'readiness',  rank:0 },
   { key:'patterns',   rank:1 },
   { key:'adaptation', rank:2 }
 ];
@@ -56150,7 +56166,8 @@ function handleGoToCheckpoint(){
    hidden or merged: there is nothing left for them to go to.
 
    WHAT MOVED, EXACTLY, so this can be checked rather than taken on trust:
-     The Reading list    -> the five circles (same open-reading panels)
+     The Reading list    -> the arc's circles and, for readiness, the hero
+                            gauge (all the same open-reading panels)
      The Record list     -> the four status circles (same open-record panels)
      Active Goal         -> the Goal circle's panel (recordPanelGoal)
      Checkpoint banner   -> the overview, where it always rendered on Record

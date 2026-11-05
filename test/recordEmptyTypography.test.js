@@ -278,10 +278,18 @@ test('the measured facts are built exactly as before', () => {
   const html = facts.map(f => a.statusDialHtml(f)).join('');
   assert.equal(html.split('rec-none').length - 1, 1,
     'more or fewer than one fact is marked as an absence');
-  assert.match(a.statusDialHtml(facts[2]), /<b style="[^"]*">10K<\/b>/,
-    'the Benchmark circle changed');
-  assert.match(a.statusDialHtml(facts[2]), /class="rd-sub rd-sub-data">23:00</,
-    'the Benchmark circle lost the time under its distance');
+  /* THE TIME IS THE VALUE AND THE DISTANCE IS WHAT IT IS OF -- which is the
+     way round the other circles already read, and the way round it should
+     always have been here. A benchmark IS a time; "10K" is the qualifier
+     that makes the time mean something, and it belongs in the sub face with
+     the other counted nouns. Reading "10K" as the headline made the athlete
+     resolve a label before reaching the fact. Both halves are still here and
+     still on the two faces, so the circle's typography is unchanged: only
+     which fact sits in which face has swapped. */
+  assert.match(a.statusDialHtml(facts[2]), /<b style="[^"]*">23:00<\/b>/,
+    'the Benchmark circle no longer leads with the time');
+  assert.match(a.statusDialHtml(facts[2]), /class="rd-sub rd-sub-data">10K</,
+    'the Benchmark circle lost the distance under its time');
   assert.match(a.statusDialHtml(facts[3]), /<b style="[^"]*">\d+%<\/b>/,
     'the Progress circle changed');
 });

@@ -172,40 +172,53 @@ test('HERO: load is coachAnalyse().load.ratio, not a second computation', () => 
    would open. So the assertion that used to say these must NOT be tappable
    is inverted -- deliberately, and it is now the stronger of the two, since
    the old one could pass with every circle inert. */
-test('PREVIEW: the Reading arc shows all five sections, each one a destination', () => {
+test('PREVIEW: the Reading arc shows every section it owns, each one a destination', () => {
   const a = planHQ();
   const preview = a.renderValhallaReadingPreview();
   assert.match(preview, /<div class="setup-section-title">The Reading<\/div>/);
   // The category label is the circle's own .rd-cat. It sits UNDER the face
   // now rather than inside it -- inside, it had about 46px of a 66px circle
   // to live in, which is what pinned it at 6.4px.
-  ['Readiness', 'Recovery', 'Evolution', 'Patterns', 'Adaptation'].forEach(label => {
+  ['Recovery', 'Evolution', 'Patterns', 'Adaptation'].forEach(label => {
     assert.match(preview, new RegExp('<span class="rd-cat">' + label + '</span>'));
   });
-  a.readingSections(a.coachAnalyse()).forEach(sec => {
+  /* READINESS IS NOT THE ARC'S ANY MORE. It is the hero gauge, which sits
+     above this preview and is now the button that opens the readiness panel
+     -- so a readiness circle here would be the second copy of a number the
+     athlete read a moment earlier. That the gauge really is that door is
+     asserted where the gauge is rendered, in planHqReading. Everything else
+     the engine interprets still has to be openable from this arc. */
+  assert.doesNotMatch(preview, /data-reading="readiness"/,
+    'the duplicate readiness circle is back in the arc');
+  a.readingSections(a.coachAnalyse()).filter(sec => sec.key !== 'readiness').forEach(sec => {
     assert.match(preview, new RegExp('data-action="open-reading" data-reading="' + sec.key + '"'),
       sec.key + ' is drawn but cannot be opened');
   });
-  assert.equal((preview.match(/<button type="button" class="b-dial"/g) || []).length, 5);
+  assert.equal((preview.match(/<button type="button" class="b-dial"/g) || []).length, 4);
   assert.match(preview, /Tap any circle for the evidence/,
     'nothing on the screen says the circles can be pressed');
 });
 
 /* ONE ROW, GRADUATED, AND THE MIDDLE OF IT MEANS SOMETHING. Three-over-two
-   put readiness -- the reading the hero gauge is also showing -- in a grid
-   corner. The arc makes the centre the hierarchy. The ranks are asserted
-   rather than the pixel sizes: the CSS owns the diameters, this owns the
-   order and which face is largest. */
-test('PREVIEW: the arc is one row, readiness centred and largest', () => {
+   put readiness in a grid corner, and the arc was built to give it the
+   centre instead -- the position the graduation makes the most important.
+   That turned out to be the wrong fix for the right observation: the reading
+   the hero gauge is also showing did not need the arc's best seat, it needed
+   not to be drawn twice. So the centre circle is gone, the gauge above the
+   arc is readiness's one face and its door, and what is left is four peers
+   ranked outward from a centre the gauge occupies: 2-1-1-2. The ranks are
+   asserted rather than the pixel sizes: the CSS owns the diameters, this
+   owns the order and which faces are largest. */
+test('PREVIEW: the arc is one row, graduated outward from its centre', () => {
   const a = planHQ();
   const preview = a.renderValhallaReadingPreview();
   assert.match(preview, /class="b-dials-arc"/);
   assert.doesNotMatch(preview, /class="b-dials-row"/, 'the old 3+2 grid survived');
   const order = (preview.match(/data-reading="([a-z]+)"/g) || [])
     .map(m => m.replace(/.*"([a-z]+)"$/, '$1'));
-  assert.deepEqual(order, ['recovery', 'evolution', 'readiness', 'patterns', 'adaptation']);
+  assert.deepEqual(order, ['recovery', 'evolution', 'patterns', 'adaptation']);
   const ranks = (preview.match(/data-rank="(\d)"/g) || []).map(m => m.slice(-2, -1));
-  assert.deepEqual(ranks, ['2', '1', '0', '1', '2'],
+  assert.deepEqual(ranks, ['2', '1', '1', '2'],
     'the arc is no longer graduated outward from its centre');
   // and the CSS actually makes rank 0 the largest. Every rule for that rank
   // is considered, not just the first one in the file: the arc also carries
@@ -218,10 +231,15 @@ test('PREVIEW: the arc is one row, readiness centred and largest', () => {
     assert.ok(withWidth.length, 'no rule gives rank ' + r + ' a diameter');
     return Number(withWidth[0][1]);
   };
-  assert.ok(d(0) > d(1) && d(1) > d(2), 'rank does not map to diameter');
+  assert.ok(d(1) > d(2), 'rank does not map to diameter');
+  /* And rank 0 is gone from the sheet, not merely unused by the markup: an
+     88px diameter and a brighter box-shadow left behind for a circle nothing
+     renders is the kind of dead rule the next person reads as live. */
+  assert.doesNotMatch(CODE, /\.b-dial\[data-rank="0"\]/,
+    'the removed centre circle left its CSS behind');
   // The label under each circle is the one label voice, at one size for all
-  // five -- the graduation is the CIRCLE's job. Five labels at five sizes
-  // was the arc's hierarchy leaking into text that has to stay readable.
+  // four -- the graduation is the CIRCLE's job. Labels at a size each was
+  // the arc's hierarchy leaking into text that has to stay readable.
   assert.match(CODE, /\.rd-cat\{[^}]*font-size:var\(--label-size\)/,
     'the circle label left the one label voice');
   assert.doesNotMatch(CODE, /\.b-dial\[data-rank="\d"\] \.rd-cat\{/,
@@ -253,12 +271,27 @@ test('PREVIEW: The Athlete Status shows all four facts, each one a destination',
   assert.equal(facts[1].subject, 'Measured fitness');
 });
 
-test('PREVIEW: the readiness dial shows the same live percentage the gauge and the Coach card show', () => {
+/* THIS TEST USED TO BE THE PARITY CHECK -- the readiness dial had to show
+   the same live percentage as the gauge above it. It passed for as long as it
+   existed, and it was the clearest statement of the problem: a screen that
+   needs a test to keep two faces of one number agreeing is a screen showing
+   one number twice. The dial is gone, so the claim inverts. The percentage
+   is still live and still computeConfidenceScore()'s -- it now has exactly
+   one face to be live in, and the arc is checked for not growing another. */
+test('HERO: the gauge carries the live confidence percentage, and nothing in the arc restates it', () => {
   const a = planHQ();
   const pct = a.formatConfidencePct(a.computeConfidenceScore());
-  const preview = a.renderValhallaReadingPreview();
-  assert.ok(preview.indexOf('>' + pct + '%</b>') !== -1,
-    'the Valhalla preview\'s readiness dial does not match computeConfidenceScore()');
+  const gauge = (a.renderPlanHQView().match(/<button[^>]*class="gauge-wrap"[\s\S]*?<\/button>/) || [])[0] || '';
+  assert.ok(gauge, 'the confidence gauge is not on the Valhalla view');
+  assert.ok(gauge.indexOf('<b class="font-mono">' + pct + '%</b>') !== -1,
+    'the gauge does not show formatConfidencePct(computeConfidenceScore())');
+  assert.ok(gauge.indexOf('aria-label="Confidence score ' + pct + ' percent') !== -1,
+    'the gauge reads a different number to a screen reader than it draws');
+  // Anchored on the value face, not on the bare digits: the arc legitimately
+  // carries percentages elsewhere (a tick, a width), and it is a second
+  // READING of confidence that must not come back, not the character '%'.
+  assert.ok(a.renderValhallaReadingPreview().indexOf('>' + pct + '%</b>') === -1,
+    'a circle in the arc is showing the confidence number again');
 });
 
 test('PREVIEW: an athlete with no plan gets empty previews, not a crash', () => {

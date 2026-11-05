@@ -87,18 +87,26 @@ test('SUBNAV: there is no subnav, on Valhalla or anywhere else', () => {
   assert.doesNotMatch(CODE, /case 'set-planhq-tab'/);
 });
 
-test('SUBNAV: every Reading is opened by the circle that states it', () => {
+test('SUBNAV: every Reading is opened by the face that states it', () => {
   const a = planHQ();
+  const view = a.renderPlanHQView();
   const preview = a.renderValhallaReadingPreview();
   const report = a.coachAnalyse();
   const keys = a.readingSections(report).map(s => s.key);
   assert.equal(keys.length, 5);
+  /* Five readings, four circles and the gauge. This test's claim is that no
+     panel is unreachable, and it is asserted against the whole VIEW rather
+     than the arc alone: readiness is stated by the hero gauge, which is the
+     button that opens it, because a readiness circle in the arc was a second
+     drawing of the number the gauge was already showing. */
   keys.forEach(k => {
-    assert.match(preview, new RegExp('data-action="open-reading" data-reading="' + k + '"'),
+    assert.match(view, new RegExp('data-action="open-reading" data-reading="' + k + '"'),
       k + ' has no way in from Valhalla, so its panel is unreachable');
   });
   // and they are real buttons, not divs with an attribute nothing listens to
-  assert.equal((preview.match(/<button type="button" class="b-dial"/g) || []).length, 5);
+  assert.equal((preview.match(/<button type="button" class="b-dial"/g) || []).length, 4);
+  assert.match(view, /<button[^>]*class="gauge-wrap"/,
+    'the gauge carries readiness but is not a button, so readiness is unreachable');
 });
 
 test('SUBNAV: every Record fact is opened by the circle that states it', () => {
