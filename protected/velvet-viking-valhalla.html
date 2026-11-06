@@ -4660,7 +4660,27 @@
   /* One action, full width, at the foot -- Reset moved in beside the fields
      it undoes, so nothing destructive sits next to the confirm. */
   .es-actions{margin-top:0;}
+  /* ---------- THE SHEET'S SAVE IS A BUTTON LIKE THE APP'S ----------
+     It was .btn-primary's bronze gradient -- the slab Share and Save to
+     device have already given up -- which made the one control that
+     commits this sheet the oldest-looking thing in it.
+     NOT cherry, although the builder's Continue is: that rule is scoped to
+     .builder-light on purpose, and the sheet records why -- "so every other
+     .btn-primary in the product keeps the bronze gradient ... which is what
+     stops this becoming 'the primary button is cherry now'". Cherry also
+     sits directly above a cherry-outlined Reset this session, and the one
+     control that saves should not look like the one that destroys.
+     So it takes .wk-open's recipe, the same as the session card's actions:
+     the card's own ground, the rim every bordered control wears, gold in
+     the words. */
   .es-actions .btn{width:100%;}
+  .es-actions .btn-primary{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    background:var(--t-card); border:1px solid var(--t-tile-rim);
+    border-radius:14px; color:var(--gold);
+    font-family:var(--text-face); font-size:14.5px; font-weight:600;
+    letter-spacing:.01em; padding:11px 16px; box-shadow:none; text-shadow:none;}
+  .es-actions .btn-primary svg{width:16px; height:16px;}
   .modal-actions .btn{flex:1;}
 
   fieldset{border:1px solid var(--line); border-radius:var(--radius-sm); padding:12px; margin:0 0 14px;}
@@ -48970,16 +48990,62 @@ async function handleGeneratePlan(){
    then move the picked state across the visible rows. One difference -- a
    session always has a type, so this one cannot be unpicked by tapping it
    again, where a swap target legitimately can. */
+/* ---------- A TITLE IS OURS UNTIL THE ATHLETE MAKES IT THEIRS ----------
+   The same test renameToMatchPrescription() applies when a distance edit
+   changes a generated name, and the same invariant behind it:
+   athlete_edit_wins. A title is Valhalla's if the box is empty, if it still
+   reads as the name the day's own prescription generates, or if it is the
+   plain label of the type that was selected a moment ago -- which is what
+   this function itself last wrote there. Anything else is the athlete's
+   words, and theirs outrank ours. */
+/* The decision itself, kept clear of the DOM: these three cases ARE the
+   feature, and the document is only where the two strings come from. Pure,
+   so the rule can be asserted directly rather than through a stub element
+   whose .value is always ''. */
+function editTitleIsOurs(cur, wasType, generated){
+  cur = (cur || '').trim();
+  if (!cur) return true;
+  var meta = TYPE_META[wasType];
+  if (meta && cur === meta.label) return true;
+  return !!generated && cur === generated;
+}
+/* What the day's own prescription would call itself, or null where a
+   hand-edited day has no prescription left to ask. */
+function editGeneratedTitle(dd){
+  try { return titleFromPrescription(prescriptionOf(dd), dd && dd.km) || null; }
+  catch(e){ return null; }
+}
+/* The day the open sheet is for. Read off the Save button rather than held
+   in a variable, because that button already carries the id and a second
+   copy of it is a second thing that can go stale. */
+function editSheetDay(){
+  var b = document.querySelector('.es-actions [data-action="save-edit"]');
+  return b ? findDay(b.getAttribute('data-day')) : null;
+}
 function handleEditTypePick(t){
   var sel = document.getElementById('ef-type');
   var list = document.getElementById('ef-type-list');
   if (!sel || !list || sel.disabled) return;
+  /* ---------- PICKING A TYPE NAMES THE SESSION ----------
+     Retyping Easy to Threshold used to leave "Easy Aerobic" sitting in the
+     box above it, so the sheet said one thing and the picker another until
+     the athlete noticed and retyped it. The name comes from TYPE_META --
+     the very table the row they just tapped is labelled from -- rather than
+     a second table of session names, which is exactly how the generator's
+     titles and the picker's labels would drift apart. */
+  var was = sel.value;
+  var box0 = document.getElementById('ef-title');
+  var ours = !!box0 && editTitleIsOurs(box0.value, was, editGeneratedTitle(editSheetDay()));
   sel.value = t;
   Array.prototype.forEach.call(list.querySelectorAll('.ef-type-row'), function(btn){
     var on = btn.getAttribute('data-type') === t;
     btn.classList.toggle('is-picked', on);
     btn.setAttribute('aria-checked', on ? 'true' : 'false');
   });
+  var box = document.getElementById('ef-title');
+  if (box && !box.disabled && ours && TYPE_META[t]){
+    box.value = TYPE_META[t].label;
+  }
 }
 function handleEditSwapPick(id){
   var sel = document.getElementById('ef-swap');

@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
 const path = require('path');
-const { RUNTIME_RELATIVE } = require('./harness.js');
+const { loadApp, RUNTIME_RELATIVE } = require('./harness.js');
 
 /* EDIT SESSION IS THE SAME PRODUCT AS THE REST OF THE APP.
  * ===========================================================================
@@ -115,4 +115,78 @@ test('.modal-head is the only border left outside Settings', () => {
        return '';
      });
   assert.deepEqual(stray, [], 'a plain hairline came back outside Settings');
+});
+
+/* ===========================================================================
+ * PICKING A TYPE NAMES THE SESSION -- AND KNOWS WHEN NOT TO
+ * ===========================================================================
+ * Retyping Easy to Threshold used to leave "Easy Aerobic" in the box above
+ * the picker, so the sheet said one thing and the control under it said
+ * another until the athlete noticed and retyped it themselves.
+ *
+ * The limit on it is not new either: athlete_edit_wins, the same invariant
+ * renameToMatchPrescription() already applies when a distance edit changes a
+ * generated name. Valhalla renames a session only while the name is still
+ * Valhalla's. Theirs outranks ours.
+ */
+test('a title is ours while it is still one of our own words', () => {
+  const a = loadApp({ pinnedDate: '2026-08-24T09:00:00Z' });
+
+  // empty: nothing of theirs to lose
+  assert.equal(a.editTitleIsOurs('', 'easy', 'Easy Aerobic'), true);
+  assert.equal(a.editTitleIsOurs('   ', 'easy', 'Easy Aerobic'), true);
+
+  // the name the day's own prescription generates
+  assert.equal(a.editTitleIsOurs('Easy Aerobic', 'easy', 'Easy Aerobic'), true);
+  assert.equal(a.editTitleIsOurs('Long Run — Progressive to Goal Pace', 'long',
+    'Long Run — Progressive to Goal Pace'), true);
+
+  // the plain type label, which is what this feature itself last wrote there
+  assert.equal(a.editTitleIsOurs('Threshold', 'threshold', 'Easy Aerobic'), true);
+  assert.equal(a.editTitleIsOurs('Rest', 'rest', null), true);
+
+  // and anything the athlete typed
+  assert.equal(a.editTitleIsOurs('Hill repeats on the canal', 'easy', 'Easy Aerobic'), false,
+    'a name the athlete typed is about to be overwritten by a type they picked');
+  assert.equal(a.editTitleIsOurs('Easy Aerobic with the club', 'easy', 'Easy Aerobic'), false,
+    'a generated name they then added to is still theirs');
+  assert.equal(a.editTitleIsOurs('Easy', 'threshold', 'Easy Aerobic'), false,
+    'the label of a type that is NOT the one selected a moment ago proves nothing');
+});
+
+test('a day with no prescription left still has a name of ours', () => {
+  /* editGeneratedTitle() returns null for a hand-edited day whose
+     prescription is gone -- the rule has to hold without it, on the type
+     label alone, or retyping such a day would silently stop naming it. */
+  const a = loadApp({ pinnedDate: '2026-08-24T09:00:00Z' });
+  assert.equal(a.editTitleIsOurs('Tempo', 'tempo', null), true);
+  assert.equal(a.editTitleIsOurs('Something of mine', 'tempo', null), false);
+});
+
+test('the name written in is the one on the row that was tapped', () => {
+  /* TYPE_META, not a second table of session names -- that table is what
+     labels the picker row itself, so the name in the box and the name under
+     the finger cannot drift apart. */
+  const i = SRC.indexOf('function handleEditTypePick');
+  const fn = SRC.slice(i, SRC.indexOf('\n}', i));
+  assert.match(fn, /editTitleIsOurs\(/, 'the handler no longer asks whether the title is ours');
+  assert.match(fn, /box\.value = TYPE_META\[t\]\.label/,
+    'the title is being written from something other than the tapped row’s own label');
+  assert.match(fn, /!box\.disabled/,
+    'a locked prescription would have its title rewritten, which is the one ' +
+    'case where the sheet must not touch it');
+});
+
+test('the sheet’s Save is a button in the app’s language', () => {
+  /* It was .btn-primary's bronze gradient -- the slab Share and Save to
+     device gave up. NOT cherry, although the builder's Continue is: that
+     rule is scoped to .builder-light on purpose and the sheet records why,
+     and cherry also sits directly above a cherry-outlined Reset, where the
+     control that saves would look like the one that destroys. */
+  const save = rule('.es-actions .btn-primary');
+  assert.match(save, /background:var\(--t-card\)/, 'Save is not on the card ground');
+  assert.match(save, /border:1px solid var\(--t-tile-rim\)/);
+  assert.match(save, /color:var\(--gold\)/);
+  assert.ok(!/linear-gradient/.test(save), 'the bronze gradient is back on Save');
+  assert.ok(!/--cherry/.test(save), 'Save has taken the builder’s cherry');
 });
