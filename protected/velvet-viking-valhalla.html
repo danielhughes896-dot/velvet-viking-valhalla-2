@@ -27441,7 +27441,16 @@ function renderDayCard(dd){
         '<div class="day-row1"><span class="day-date font-mono">'+dow(dd.date)+' '+dShort(dd.date)+'</span><span class="day-badge type-'+(optState?'optional':tm.cls)+' font-head">'+dayTypeLabel(dd)+'</span>'+(isToday?'<span class="week-today-flag font-head">Today</span>':'')+dayStatusLabel(dd)+'<span id="exec-pill-'+dd.id+'">'+renderExecutionPill(dd)+'</span></div>'+
         '<div class="day-title">'+escapeHtml(displayCardTitle(dd))+optionalRunTitleMark(dd)+'</div>'+
         renderDayHeroBlock(dd, targets)+
-        (dd.completed ? '' : detailHtml)+
+        /* REVERTED TO PRESCRIPTION-FIRST. The reorder put this below the
+           log on a completed session, and This Week stopped scrolling past
+           "Session complete" on a real iPhone -- a fault I could not
+           reproduce in Chromium across normal, accordion-shut and
+           fully-expanded states, and which survived uncapping the drawer.
+           A main screen that cannot be scrolled is worse than a screen that
+           buries Share to Socials, so the order goes back while the cause
+           is still being found. detailHtml stays a variable: that part is
+           sound and is what the fix will need. */
+        detailHtml+
       '</div>'+
       (focused ? '' : '<div class="day-actions">'+dayActionButton(dd)+'</div>'+
         '<div class="day-chevron" aria-hidden="true">'+ICONS.chevronDown+'</div>')+
@@ -27461,8 +27470,7 @@ function renderDayCard(dd){
        run this" that sit immediately above it. Underneath the log and the
        Execution Review it was the last thing on a long card, which is where
        the live test could not find it. */
-    '<div class="day-drawer">'+renderVoiceCard(dd)+actualHtml+
-      (dd.completed ? detailHtml : '')+'</div>'+
+    '<div class="day-drawer">'+renderVoiceCard(dd)+actualHtml+'</div>'+
   '</div>';
 }
 
