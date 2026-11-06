@@ -5619,8 +5619,19 @@
     border:0; border-radius:0; background:none; box-shadow:none;
     padding:14px 0 18px; margin-top:16px; font:inherit; color:inherit;
   }
-  .oi-label{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
-  .oi-label span{font-family:var(--label-face); font-size:9.5px; letter-spacing:var(--label-track); text-transform:uppercase; color:var(--gold-text); font-weight:var(--label-weight);}
+  /* ---- ONE SECTION HEAD, HERE TOO ----
+     Race Outlook and Current Fitness had a head of their own: Oswald at
+     9.5px in --gold-text, against the .setup-section-title that 54 other
+     headings in the product use at 11px in --bronze-text with the panel's
+     accent rule after it. Two voices for one tier, and the mismatch was two
+     things rather than one -- the rule AND the colour.
+     They take the real head now. The rule is not decoration here: .oi-label
+     is a title against a right-aligned value, so the line spans the gap
+     between them and closes it, which is the job it does everywhere else
+     against an empty line-end. */
+  .oi-label{display:flex; align-items:center; gap:12px; margin-bottom:16px;}
+  .oi-label > .setup-section-title{flex:1 1 auto; min-width:0; margin:0;}
+  .oi-label span{font-family:var(--label-face); letter-spacing:var(--label-track); text-transform:uppercase; font-weight:var(--label-weight);}
   .oi-label svg{width:11px; height:11px; color:var(--gold-text); opacity:.7; flex:none;}
   .oi-dist{font-size:10px; letter-spacing:normal; text-transform:none; color:var(--ink-faint); font-family:var(--text-face);}
   .oi-track{position:relative; height:6px; margin:22px 6px 24px;}
@@ -56682,7 +56693,7 @@ function renderCurrentFitnessInstrument(){
   }
 
   return '<div class="cf-instrument outlook-instrument">'+
-    '<div class="oi-label"><span>Current Fitness</span>'+
+    '<div class="oi-label"><span class="setup-section-title">Current Fitness</span>'+
       '<span class="oi-dist"><span class="v-status-dot '+evidence.tone+'"></span> '+escapeHtml(evidence.label)+'</span>'+
     '</div>'+
     valueHtml+capHtml+goalHtml+
@@ -56691,7 +56702,7 @@ function renderCurrentFitnessInstrument(){
 function renderRaceOutlook(){
   var o = raceOutlook();
   if (!o) return '';
-  var head = '<div class="oi-label"><span>Race Outlook</span>'+
+  var head = '<div class="oi-label"><span class="setup-section-title">Race Outlook</span>'+
     '<span class="oi-dist">'+escapeHtml(o.profile.label)+
       (o.goalSec!=null ? ' · Goal '+escapeHtml(state.setup.activeGoal) : '')+'</span></div>';
 
