@@ -291,6 +291,10 @@
        different voice from a sentence any more, only a different size,
        weight and case of the same one. */
     --label-face:var(--text-face);
+    /* ICONS.check's polyline, as a mask, so a CSS-drawn tick and the
+       markup-drawn one are the same shape rather than two ticks that look
+       alike. Kept with the tokens because two rules now read it. */
+    --tick-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='5,13 10,18 19,7'/%3E%3C/svg%3E");
     --label-size:.71875rem;
     --label-track:.04em;
     --label-weight:700;
@@ -3857,19 +3861,38 @@
      selector use, and --t-lift for elevation rather than --shadow-sm.
      Nothing about what the control IS changes: same markup, same handler,
      same value, same validation. */
+  /* ---------- EVERY CHOICE IN THE BUILD IS MADE THE SAME WAY ----------
+     These were raised, rimmed tiles that lit a gold ring when chosen. The
+     objectives above them have stopped being boxes, and so has every
+     comparable control in the product -- the bottom nav, the KM/MI toggle,
+     the A/B/C goal options, the session-type picker. A build that answers
+     "which of these" with a box on one screen and with light on the next is
+     two products.
+     This is .goal-opt's recipe, which is .bn-item's: crisp white at rest
+     with the tight halo that sets a label off the ground, the gold radial
+     pool behind the chosen one, and the brighter gold with real
+     illumination on its word. No tick here, unlike the objective rows: a
+     tick wants a row with somewhere to the right to sit, and these are
+     52px centred chips three and four across. The pool IS the mark. */
   .opt-grid button{
+    position:relative;
     font-family:var(--num-face); font-size:var(--fs-data); font-weight:700;
-    letter-spacing:.4px; min-height:52px; padding:12px 8px; text-align:center;
-    border:1px solid var(--t-tile-rim); border-radius:var(--tile-radius);
-    background:var(--t-tile); color:var(--ink-dim);
-    /* Tactile raised surface at rest -- the exact --shadow-sm outer shadow
-       Coach's Reading rows/--tile-shadow use, not a hand-rolled fraction of
-       it. A smaller approximation read as no shadow at all next to Coach on
-       an actual phone -- this is the CONSISTENCY PASS's point: reuse the
-       real primitive rather than a quieter guess at it. */
-    box-shadow:var(--t-lift);
-    transition:box-shadow .18s, background .18s, color .18s, border-color .18s;
+    letter-spacing:.4px; min-height:52px; padding:12px 8px 24px; text-align:center;
+    border:0; border-radius:var(--tile-radius);
+    background:none; color:#FFFFFF;
+    text-shadow:0 0 1px rgba(255,255,255,.55), 0 0 9px rgba(255,255,255,.26);
+    box-shadow:none;
+    transition:color .2s, text-shadow .2s;
   }
+  .opt-grid button::before{
+    content:''; position:absolute; inset:0; border-radius:inherit;
+    pointer-events:none; z-index:0;
+    background:radial-gradient(48% 46% at 50% 46%,
+      rgba(227,177,90,.26) 0%, rgba(227,177,90,.115) 52%, rgba(227,177,90,0) 100%);
+    opacity:0; transition:opacity .34s ease;}
+  .opt-grid button > *{position:relative; z-index:1;}
+  .opt-grid button.active::before{opacity:1;}
+  .opt-grid button:hover:not(.active):not(:disabled)::before{opacity:.38;}
   .opt-grid button .sub{display:block; font-family:var(--text-face); font-weight:400;
     font-size:var(--fs-support); letter-spacing:0; color:var(--ink-faint); margin-top:3px;}
   .opt-grid button:disabled{opacity:.5;}
@@ -3888,12 +3911,43 @@
      and no fill -- so the builder had drifted from a relationship it was
      built on. This restores it rather than inventing a third selected
      treatment: same gold, same glow, same rim the week's day selector uses. */
+  /* No ring and no fill: the chip has no box left to ring, and gold is the
+     light on the choice rather than a slab behind it. */
   .opt-grid button.active{
-    color:var(--gold-bright); background:var(--t-tile);
-    border-color:var(--gold); font-weight:700;
-    box-shadow:0 0 0 1px var(--gold), 0 0 16px color-mix(in srgb, var(--gold) 26%, transparent), var(--t-lift);
+    color:var(--gold-bright); background:none; border-color:transparent;
+    font-weight:700; box-shadow:none;
+    text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
+                0 0 16.5px rgba(227,177,90,.42), 0 0 30.8px rgba(227,177,90,.15);
   }
-  .opt-grid button.active .sub{color:var(--gold); opacity:.85;}
+  /* The sub is still a description, not the choice -- same rule the
+     objective rows follow, where only the NAME goes gold. */
+  .opt-grid button.active .sub{color:var(--gold); opacity:.85; text-shadow:none;}
+  /* ---------- EVERY CHOSEN OPTION IN THE BUILD CARRIES A TICK ----------
+     Drawn here rather than in markup because these chips are written out
+     at seven separate call sites and one of them is populated by script --
+     a span added by hand would be added six times and missed once, and the
+     one it was missed on would be the one nobody looks at.
+     It is ICONS.check's own polyline, carried as a mask so the mark is the
+     same shape the objective rows draw and takes its gold from
+     background-color rather than a second hard-coded value. Masked, not a
+     text glyph: "\2713" is a different tick in every font the app loads.
+     UNDER THE LABEL, CENTRED, and the corner was tried first. A chip's
+     label is centred and several of them fill their cell -- measured at
+     360px, the mark overlapped HALF MARATHON, FULL MARATHON, DEVELOPING,
+     ESTABLISHED and ADVANCED, because a label that wraps to two lines has
+     a box the full width and height of the cell and there is no corner
+     left to put anything in. Centred underneath, no label can reach it at
+     any width or any wrap.
+     Its room is held by the chip's own bottom padding rather than by an
+     always-drawn element: the padding is on every chip whether chosen or
+     not, so nothing moves when one is picked, and nothing invisible is in
+     the markup waiting to be wondered about. */
+  .opt-grid button.active::after{
+    content:''; position:absolute; bottom:7px; left:50%; margin-left:-7px; z-index:1;
+    width:14px; height:14px; pointer-events:none;
+    background-color:var(--gold-bright);
+    -webkit-mask:var(--tick-mask) center/contain no-repeat;
+    mask:var(--tick-mask) center/contain no-repeat;}
 
   /* ---------- WHAT IS THIS BLOCK FOR ----------
      Cards, not toggles: four objectives that are not variations of one
@@ -3945,7 +3999,7 @@
   .bld-purpose button:active{transform:scale(.995);}
   .bpc-text{flex:1 1 auto; min-width:0;}
   .bpc-tick{flex:none; display:inline-flex; align-items:center; justify-content:center;
-    width:20px; height:20px; color:transparent; transition:color .18s;}
+    width:20px; height:20px; color:var(--gold-bright);}
   .bpc-tick svg{width:18px; height:18px;}
   .bpc-name{display:block; font-size:var(--fs-data); letter-spacing:.4px; font-weight:700;}
   .bpc-name{line-height:1.2;}
@@ -3969,7 +4023,7 @@
     color:var(--gold-bright);
     text-shadow:0 0 1.1px rgba(245,208,97,.85), 0 0 6.6px rgba(227,177,90,.78),
                 0 0 16.5px rgba(227,177,90,.42);}
-  .bld-purpose button.active .bpc-tick{color:var(--gold-bright);}
+
   /* A locked choice still shows what was chosen and why it cannot move -- the
      grid is dimmed, not removed, so "Speed uses the 5K block" is visible
      rather than mysterious. */
@@ -47097,14 +47151,19 @@ function openSetupModal(){
        already uses for the same shape of question. */
     return '<button type="button" data-v="'+k+'" class="bld-purpose-card'+(on?' active':'')+'" '+
       'role="radio" aria-checked="'+(on?'true':'false')+'">'+
+      /* ---------- THE CHOSEN OPTION CARRIES A TICK ----------
+         Drawn only when chosen -- measured at 360 and 412, no sub re-wraps
+         and no row changes height when the column loses those 31px, so the
+         three invisible ticks the first version drew were preventing a
+         reflow that does not happen.
+         Every choice in the build carries one now, chips included (see
+         .opt-grid button.active::after), from the same polyline, so the
+         build cannot answer "which of these" two ways in two steps. */
       '<span class="bpc-text">'+
         '<span class="bpc-name font-head">'+escapeHtml(m.label)+'</span>'+
         '<span class="bpc-why">'+escapeHtml(m.blurb)+'</span>'+
       '</span>'+
-      /* Always drawn, transparent until chosen: shown only on the picked row
-         it would change the text column's width on every tap, and the four
-         rows would shuffle sideways as the athlete moved down them. */
-      '<span class="bpc-tick" aria-hidden="true">'+ICONS.check+'</span>'+
+      (on ? '<span class="bpc-tick" aria-hidden="true">'+ICONS.check+'</span>' : '')+
     '</button>';
   }).join('');
   var purposeOptions = BUILDER_PURPOSE_ORDER.map(function(k){

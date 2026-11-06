@@ -390,17 +390,34 @@ test('the four objectives are rows in one column, wearing the gold selected stat
   assert.doesNotMatch(goal, /aria-pressed/, 'the objectives are toggles again');
   assert.match(html, /role="radiogroup"/, 'the four rows are not announced as one choice');
 
-  /* Nothing in front of the title -- the mock drew a radio circle there and
-     it would have been the only leading glyph left in the product, holding
-     every title 36px off the gutter while saying a fourth time what the
-     gold name, the gold wash and the tick already say. The tick stays: it
-     is on the right, where the tab chevrons are, so it costs the words
-     nothing. */
+  /* ---------- THE CHOSEN OPTION CARRIES A TICK ----------
+     Nothing LEADS the title -- the mock's radio circle would have been the
+     only leading glyph left in the product and it held every title 36px
+     off the gutter. The mark goes at the trailing edge instead, where the
+     tab chevrons are, so it costs the words nothing.
+     Drawn only when chosen, not drawn-and-hidden: measured at 360 and 412,
+     no sub re-wraps and no row changes height when the column loses those
+     31px, so the three invisible ticks an earlier version drew were
+     preventing a reflow that does not happen. */
   assert.doesNotMatch(goal, /bld-purpose-card[^>]*>\s*<span class="bpc-(?!text)/,
     'something is drawn in front of an objective title');
-  assert.match(goal, /class="bpc-tick"/, 'the chosen objective has no mark');
+  assert.equal((goal.match(/class="bpc-tick"/g) || []).length, 1,
+    'the tick is drawn on rows that are not chosen, or not at all');
   const tickAt = goal.indexOf('bpc-tick'), textAt = goal.indexOf('bpc-text');
   assert.ok(textAt > -1 && tickAt > textAt, 'the tick is emitted before the words');
+
+  /* AND THE POOL IS NOW LOAD-BEARING, so it is held here. With the circle
+     and the tick both gone it is the only mark on this screen: lose it and
+     a chosen objective is a line of gold text among three white ones, with
+     nothing under it saying the row was picked. It went unguarded until a
+     mutation removed it and every assertion still passed. */
+  const pcss = SRC.slice(SRC.indexOf('.bld-purpose{'), SRC.indexOf('.bld-date input'));
+  assert.match(pcss, /\.bld-purpose button::before\{[^}]*radial-gradient/,
+    'the objective rows lost the gold pool that marks the chosen one');
+  assert.match(pcss, /\.bld-purpose button\.active::before\{[^}]*opacity:1/,
+    'the pool never comes up on the chosen row');
+  assert.match(pcss, /\.bld-purpose button\.active \.bpc-name\{[^}]*text-shadow:/,
+    'the chosen name is coloured but not lit');
   // selected state is GOLD, never the Cherry Lacquer action colour. Which
   // gold follows the bottom nav's selected tab -- now --gold-bright, since
   // that tab stopped being a slab. The never-cherry rule below is the one
@@ -493,4 +510,59 @@ test('Overview carries the approved heading and lede, and the rail starts on it'
 
   const overview = panels(html).find(p => p.stage === 0).body;
   assert.match(overview, /A plan, built around you\./, 'the approved lede is missing');
+});
+
+test('every choice in the build is made the same way', () => {
+  /* The objectives stopped being boxes; the chips they lead into were still
+     raised, rimmed tiles lighting a gold ring. A build that answers "which
+     of these" with a box on one screen and with light on the next is two
+     products. This is .goal-opt's recipe, which is .bn-item's. */
+  const css = SRC.slice(SRC.indexOf('.opt-grid{'), SRC.indexOf('.bld-date input'));
+  assert.match(css, /\.opt-grid button\{[^}]*border:0/, 'the chips grew a rim again');
+  assert.match(css, /\.opt-grid button\{[^}]*background:none/, 'the chips grew a ground again');
+  assert.match(css, /\.opt-grid button\{[^}]*box-shadow:none/, 'the chips are raised again');
+  assert.match(css, /\.opt-grid button\{[^}]*color:#FFFFFF/, 'the resting chip is not crisp white');
+  assert.match(css, /\.opt-grid button::before\{[^}]*radial-gradient/,
+    'the chips lost the gold pool that marks the chosen one');
+  const on = css.match(/\.opt-grid button\.active\{([^}]*)\}/)[1];
+  assert.match(on, /color:var\(--gold-bright\)/);
+  assert.match(on, /text-shadow:/, 'the chosen chip is coloured but not lit -- gold alone ' +
+    'sits below white in luminance, so it would be the quietest chip in the grid');
+  assert.match(on, /box-shadow:none/, 'the gold ring is back around a chip with no box to ring');
+  assert.ok(!/background:var\(--t-tile\)/.test(on), 'the chosen chip is filled again');
+
+  /* ---------- AND A CHOSEN CHIP CARRIES ONE TOO ----------
+     Drawn in CSS rather than markup on purpose: the chips are written out
+     at seven separate call sites and one of them is filled by script, so a
+     span added by hand would be added six times and missed once.
+     UNDER THE LABEL, CENTRED. The corner was tried first and measured at
+     360px it overlapped HALF MARATHON, FULL MARATHON, DEVELOPING,
+     ESTABLISHED and ADVANCED -- a label that wraps to two lines has a box
+     the full width and height of its cell, so there is no corner left.
+     Its room is held by the chip's own bottom padding, which is on every
+     chip chosen or not, so picking one moves nothing. */
+  assert.match(css, /\.opt-grid button\.active::after\{[^}]*var\(--tick-mask\)/,
+    'a chosen chip no longer carries the tick');
+  assert.match(css, /\.opt-grid button\.active::after\{[^}]*bottom:/,
+    'the chip tick is not under its label, so a wrapped label can reach it');
+  assert.match(css, /\.opt-grid button\{[^}]*padding:12px 8px 24px/,
+    'the chip stopped reserving the room its tick sits in, so picking one ' +
+    'now changes the chip\u2019s height');
+  /* One polyline for both marks, so the CSS-drawn tick and the markup one
+     cannot become two ticks that merely look alike. */
+  assert.match(SRC, /--tick-mask:url\("data:image\/svg\+xml[^"]*polyline points='5,13 10,18 19,7'/,
+    'the chip tick is no longer ICONS.check\u2019s own polyline');
+});
+
+test('the weekday checkboxes keep their cherry ring', () => {
+  /* NOT swept with the rest, on instruction -- "leave check boxes cherry".
+     It is also a different question: five of seven days is a multi-select,
+     not "which one of these", and the control deliberately reuses the day
+     card's own completion ring. Gold marks a single choice; this is not
+     one. Named here so a later pass over "selection" does not take it. */
+  const css = SRC.replace(/\/\*[\s\S]*?\*\//g, '');
+  const i = css.indexOf('.wd-check input:checked');
+  assert.ok(i > -1, 'the weekday ring is gone');
+  assert.match(css.slice(i, i + 220), /--cherry/,
+    'the weekday ring has been recoloured away from cherry');
 });
